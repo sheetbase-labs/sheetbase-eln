@@ -12,6 +12,7 @@
  * live.
  */
 import { unzipSync } from 'fflate'
+import { z } from 'zod'
 
 import { columnKeyFromName, inferColumnType } from '#/lib/import-infer'
 import type { SheetInstanceState } from '#/lib/sheet-instance'
@@ -38,13 +39,13 @@ const MAX_CELLS = 2_000_000
 // Reading
 // ---------------------------------------------------------------------------
 
-const XML_ENTITIES: Record<string, string> = {
-  amp: '&',
-  lt: '<',
-  gt: '>',
-  quot: '"',
-  apos: "'",
-}
+const XML_ENTITIES = new Map([
+  ['amp', '&'],
+  ['lt', '<'],
+  ['gt', '>'],
+  ['quot', '"'],
+  ['apos', "'"],
+])
 
 /** A regex group that took no part in the match is undefined, whatever the type says. */
 function optionalGroup(
@@ -57,19 +58,22 @@ function optionalGroup(
 }
 
 function decodeXml(value: string): string {
-  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, entity) => {
-    const lower = (entity as string).toLowerCase()
+  return value.replace(
+    /&(#x[0-9a-f]+|#\d+|[a-z]+);/gi,
+    (match, entity: string) => {
+      const lower = entity.toLowerCase()
 
-    if (lower.startsWith('#x')) {
-      return safeChar(Number.parseInt(lower.slice(2), 16)) ?? match
-    }
+      if (lower.startsWith('#x')) {
+        return safeChar(Number.parseInt(lower.slice(2), 16)) ?? match
+      }
 
-    if (lower.startsWith('#')) {
-      return safeChar(Number.parseInt(lower.slice(1), 10)) ?? match
-    }
+      if (lower.startsWith('#')) {
+        return safeChar(Number.parseInt(lower.slice(1), 10)) ?? match
+      }
 
-    return XML_ENTITIES[lower] ?? match
-  })
+      return XML_ENTITIES.get(lower) ?? match
+    },
+  )
 }
 
 function safeChar(code: number): string | null {
@@ -586,13 +590,16 @@ const display = (value: OfficeCell['value'] | undefined): string =>
 const emptyCell = (cell: OfficeCell | undefined) =>
   !cell || (cell.value === null && cell.formula === undefined)
 
+/** The field definition this builder writes into a sheet's state. */
+type SheetFieldDefinition = SheetInstanceState['localFields'][number]
+
 function field(input: {
   id: string
   key: string
   label: string
-  type: string
+  type: SheetFieldDefinition['logicalType']
   computed?: boolean
-}) {
+}): SheetFieldDefinition {
   return {
     fieldId: input.id,
     key: input.key,
@@ -662,8 +669,8 @@ export function buildSheetState(
     return { c, label, key, id: newId() }
   })
 
-  const fields: ReturnType<typeof field>[] = []
-  const values: Record<string, Record<string, unknown>> = {}
+  const fields: SheetInstanceState['localFields'] = []
+  const values: SheetInstanceState['localValues'] = {}
   const rowIds = dataRows.map(() => newId())
   const formulaColumns: MadeSheet['formulaColumns'] = []
 
@@ -679,10 +686,13 @@ export function buildSheetState(
     }
 
     const present = cells.filter((cell) => !emptyCell(cell))
-    const allNumbers = present.every((cell) => typeof cell?.value === 'number')
+
+    const allNumbers = present.every(
+      (cell) => z.number().safeParse(cell?.value).success,
+    )
 
     const allBooleans = present.every(
-      (cell) => typeof cell?.value === 'boolean',
+      (cell) => z.boolean().safeParse(cell?.value).success,
     )
 
     const type = allBooleans
@@ -724,8 +734,8 @@ export function buildSheetState(
 
   const state: SheetInstanceState = {
     bindings: [],
-    localFields: fields as never,
-    localValues: values as never,
+    localFields: fields,
+    localValues: values,
     calculationOverrides: {},
     presentation: {
       columnOrder: order,

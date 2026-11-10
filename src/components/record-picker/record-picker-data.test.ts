@@ -1,13 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from '#/lib/data-client'
+import { createDataClient } from '#/lib/data-client'
 import { searchPickerRecords } from './record-picker-data'
 
-function client(tables: Record<string, unknown[]>): DataClient {
-  return {
+function client(tables: Record<string, unknown[]>) {
+  return Object.assign(createDataClient(), {
     list: vi.fn(async (table: string) => tables[table] ?? []),
-    rpc: vi.fn(async () => null),
-  } as unknown as DataClient
+  })
 }
 
 const tables = {

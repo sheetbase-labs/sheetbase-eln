@@ -1,4 +1,7 @@
+// @vitest-environment node
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { QueryResultRow } from 'pg'
 
 import {
   SandboxSession,
@@ -7,9 +10,21 @@ import {
 } from './pipeline-sandbox.server'
 import type { SandboxConnection } from './pipeline-sandbox.server'
 
-vi.mock('#/env.server', () => ({
-  env: { PIPELINE_SANDBOX_DATABASE_URL: undefined },
-}))
+// The deployment environment is validated when `env.server` is first imported.
+// No sandbox login is configured here, which is what the first test is about.
+vi.hoisted(() => {
+  process.env.DATABASE_URL = 'postgresql://app:app@localhost:5432/sheetbase'
+  process.env.FORMULA_DATABASE_URL =
+    'postgresql://app:app@localhost:5432/sheetbase'
+  process.env.BETTER_AUTH_SECRET = 'test-secret-at-least-thirty-two-characters'
+  process.env.PGRST_JWT_SECRET = 'test-jwt-secret-at-least-thirty-two-chars'
+  delete process.env.PIPELINE_SANDBOX_DATABASE_URL
+})
+
+// SAFETY: each fake below answers exactly the statements its test makes, and the
+// rows it returns are the columns those statements select.
+const rowsOf = <T extends QueryResultRow>(rows: QueryResultRow[]): T[] =>
+  rows as T[]
 
 beforeEach(() => vi.useFakeTimers())
 
@@ -21,14 +36,14 @@ function hangingSandbox(): SandboxConnection & { queries: string[] } {
   return {
     queries,
     backendPid: 4242,
-    query: vi.fn(async (text: string) => {
+    query: async <T extends QueryResultRow>(text: string) => {
       queries.push(text)
 
       if (text.startsWith('SET statement_timeout'))
-        return { rows: [] as never[] }
+        return { rows: rowsOf<T>([]) }
 
       return new Promise<never>(() => {})
-    }),
+    },
     end: vi.fn(async () => {}),
   }
 }
@@ -55,7 +70,9 @@ describe('SandboxSession', () => {
   it('does not terminate a statement that finished in time', async () => {
     const conn: SandboxConnection = {
       backendPid: 7,
-      query: vi.fn(async () => ({ rows: [{ one: 1 }] })) as never,
+      query: async <T extends QueryResultRow>() => ({
+        rows: rowsOf<T>([{ one: 1 }]),
+      }),
       end: vi.fn(async () => {}),
     }
 
@@ -74,8 +91,8 @@ describe('SandboxSession', () => {
 
     const session = new SandboxSession(async () => ({
       backendPid: 1,
-      query: async (text: string) => {
-        if (text.startsWith('SET')) return { rows: [] }
+      query: async <T extends QueryResultRow>(text: string) => {
+        if (text.startsWith('SET')) return { rows: rowsOf<T>([]) }
         calls += 1
         throw new Error('boom')
       },

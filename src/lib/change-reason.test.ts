@@ -37,7 +37,7 @@ describe('change reason', () => {
   })
 
   it('treats a cancelled or blank answer as no reason, and asks again next time', async () => {
-    const asker = vi.fn(async () => null as string | null)
+    const asker = vi.fn(async (): Promise<string | null> => null)
     registerChangeReasonAsker(asker)
     expect(await askForChangeReason()).toBeNull()
     asker.mockResolvedValueOnce('   ')

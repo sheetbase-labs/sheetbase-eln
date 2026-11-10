@@ -108,9 +108,13 @@ export async function usableWorkspaces(
   )
 
   const out = new Map<string, UsableProfile>()
+  const profilesById = new Map<string, ProviderProfile>()
+
+  for (const profile of profiles)
+    if (!profilesById.has(profile.id)) profilesById.set(profile.id, profile)
 
   for (const row of rows) {
-    const profile = profiles.find((p) => p.id === row.embeddings_profile)
+    const profile = profilesById.get(row.embeddings_profile)
 
     if (!profile?.embeddingModel || profile.kind === 'anthropic') continue
 
@@ -199,6 +203,7 @@ export async function sweepEmbeddingsBatch(
       for (let i = 0; i < chunks.length; i += EMBEDDING_BATCH) {
         const part = chunks.slice(i, i + EMBEDDING_BATCH)
 
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Batches go to the provider one at a time so one document stays inside its rate limit, and each batch's tokens are counted as it returns.
         const done = await embed(
           use.profile,
           use.apiKey,
@@ -318,7 +323,12 @@ export async function connectForEmbeddings(): Promise<EmbeddingConnection> {
   }
 }
 
-const startedGlobalKey = '__sheetbaseEmbeddingIndexerStarted'
+const STARTED = Symbol.for('sheetbaseEmbeddingIndexerStarted')
+
+/** The process-wide flags this module owns. */
+interface EmbeddingIndexerFlags {
+  [STARTED]?: boolean
+}
 
 function disabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
@@ -334,10 +344,13 @@ export function startEmbeddingIndexer(): void {
   if (typeof window !== 'undefined') return
 
   if (disabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
 
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+  // SAFETY: `globalThis` is the one process object Node runs; the symbol key is
+  // this module's own, so no other code writes a value of another type to it.
+  const g = globalThis as EmbeddingIndexerFlags
+
+  if (g[STARTED]) return
+  g[STARTED] = true
   let running = false
 
   const tick = () => {
@@ -363,11 +376,14 @@ export function startEmbeddingIndexer(): void {
         await conn.end()
       }
     })()
-      .catch((error: unknown) => {
-        logger.warn('embedding sweep failed', {
-          error: error instanceof Error ? error.message : String(error),
-        })
-      })
+      .catch(
+        // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A rejected promise carries whatever was thrown; the message is read only when it is an Error and stringified otherwise.
+        (error: unknown) => {
+          logger.warn('embedding sweep failed', {
+            error: error instanceof Error ? error.message : String(error),
+          })
+        },
+      )
       .finally(() => {
         running = false
       })

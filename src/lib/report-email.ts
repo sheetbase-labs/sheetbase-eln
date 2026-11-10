@@ -48,6 +48,12 @@ export type ReportData =
   | { kind: 'spend'; lines: SpendLine[] }
   | { kind: 'project_status'; rows: ProjectStatusRow[] }
 
+/** One section of a report email: its text lines and the CSV files that go with them. */
+interface ReportSection {
+  text: string[]
+  files: EmailAttachment[]
+}
+
 /** Past this many lines a section lists the leaders and says no more. */
 const LIST_LIMIT = 10
 
@@ -67,7 +73,7 @@ function usageSection(
   data: Extract<ReportData, { kind: 'instrument_usage' }>,
   range: DateRange,
   zone: string,
-): { text: string[]; files: EmailAttachment[] } {
+): ReportSection {
   const { lines, labels, openHours } = data
 
   if (lines.length === 0) {
@@ -127,7 +133,7 @@ function spendSection(
   data: Extract<ReportData, { kind: 'spend' }>,
   range: DateRange,
   zone: string,
-): { text: string[]; files: EmailAttachment[] } {
+): ReportSection {
   const { lines } = data
 
   if (lines.length === 0) {
@@ -180,7 +186,7 @@ function spendSection(
 function statusSection(
   data: Extract<ReportData, { kind: 'project_status' }>,
   range: DateRange,
-): { text: string[]; files: EmailAttachment[] } {
+): ReportSection {
   if (data.rows.length === 0) {
     return { text: [t('spend.schedule.email.noData')], files: [] }
   }

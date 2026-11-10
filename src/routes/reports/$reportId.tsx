@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { ObjectLink } from '#/components/ui/object-link'
-import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { ShareWithClientDialog } from '#/components/client-sharing/share-with-client-dialog'
 import {
@@ -10,20 +10,7 @@ import {
 } from '#/components/reports/add-section-dialogs'
 import { GeneratedReports } from '#/components/reports/generated-reports'
 import { ReportDocument } from '#/components/reports/report-document'
-import { SectionCard } from '#/components/reports/section-card'
-import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
-import { FollowToggle } from '#/components/follow/follow-toggle'
 import { Notice } from '#/components/ui/alert'
-import { Button } from '#/components/ui/button'
-import { EmptyState } from '#/components/ui/empty-state'
-import {
-  DescriptionList,
-  Inspector,
-  InspectorSection,
-  PageHeader,
-} from '#/components/ui/layout'
-import { Status } from '#/components/ui/status'
-import { Tabs } from '#/components/ui/tabs'
 import { toast } from '#/components/ui/sonner'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
@@ -42,21 +29,21 @@ import { usePluginPoints } from '#/components/extensions/use-plugin-points'
 import { useRecentViewTracking } from '#/lib/recents'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
-import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
+import { z } from 'zod'
 
-const tabs = ['build', 'preview', 'generated'] as const
+import { ReportHeader, ReportMissing } from './-report-header'
+import { ReportReadinessPanel } from './-report-readiness'
+import { ReportSections } from './-report-sections'
+import { REPORT_TABS } from './-report-tabs'
 
-type ReportTab = (typeof tabs)[number]
+/** The tab a URL may ask for; anything else opens the builder. */
+const reportSearchSchema = z.object({
+  section: z.enum(REPORT_TABS).optional().catch(undefined),
+})
 
 export const Route = createFileRoute('/reports/$reportId')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { section?: ReportTab } => ({
-    section: (tabs as readonly string[]).includes(search.section as string)
-      ? (search.section as ReportTab)
-      : undefined,
-  }),
+  validateSearch: (search) => reportSearchSchema.parse(search),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
 
@@ -68,29 +55,6 @@ export const Route = createFileRoute('/reports/$reportId')({
   },
   component: ReportPage,
 })
-
-/** The next steps a report offers, as the status they lead to. */
-function nextStatuses(status: ReportStatus): ReportStatus[] {
-  switch (status) {
-    case 'draft':
-      return ['in_review']
-    case 'in_review':
-      return ['approved', 'draft']
-    case 'approved':
-    case 'published':
-      return ['draft']
-    default:
-      return ['draft']
-  }
-}
-
-const statusAction: Record<ReportStatus, string> = {
-  draft: t('projects.reports.builder.reopen'),
-  in_review: t('projects.reports.builder.sendForReview'),
-  approved: t('projects.reports.builder.approve'),
-  published: t('projects.reports.builder.approve'),
-  archived: t('projects.reports.builder.archive'),
-}
 
 function ReportPage() {
   const { reportId } = Route.useParams()
@@ -140,6 +104,7 @@ function ReportPage() {
       })
       void queryClient.invalidateQueries({ queryKey: reportKeys.list })
     },
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A failed generation carries whatever the transport threw; its message is shown only when it is an Error.
     onError: (error: unknown) =>
       toast.error(
         error instanceof Error && error.message
@@ -183,44 +148,9 @@ function ReportPage() {
   })
 
   if (!report) {
-    return (
-      <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader
-          trail={[
-            {
-              label: t('projects.reports.builder.back'),
-              link: { to: '/reports' },
-            },
-          ]}
-          title={
-            query.isLoading
-              ? t('common.states.loading')
-              : t('projects.reports.builder.notFound')
-          }
-        />
-        {query.isLoading ? null : (
-          <div className="px-4 py-4 md:px-6">
-            <EmptyState
-              icon="report"
-              title={
-                query.isError
-                  ? t('projects.reports.builder.loadFailed')
-                  : t('projects.reports.builder.notFound')
-              }
-              description={t('projects.reports.builder.notFoundBody')}
-              action={
-                <Button nativeButton={false} render={<Link to="/reports" />}>
-                  {t('projects.reports.builder.back')}
-                </Button>
-              }
-            />
-          </div>
-        )}
-      </div>
-    )
+    return <ReportMissing loading={query.isLoading} failed={query.isError} />
   }
 
-  const status = reportStatus(report.status)
   const locked = report.lockedAt !== null
   const editable = !locked && report.status === 'draft'
 
@@ -244,63 +174,13 @@ function ReportPage() {
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader
-          trail={[
-            {
-              label: t('projects.reports.builder.back'),
-              link: { to: '/reports' },
-            },
-            { label: report.identifier, mono: true },
-          ]}
-          title={report.title}
-          actions={
-            <>
-              <FavouriteToggle kind="record" objectId={report.recordId} />
-              <FollowToggle kind="record" objectId={report.recordId} />
-              <Button icon="share" onClick={() => setShareOpen(true)}>
-                {t('projects.reports.builder.shareWithClient')}
-              </Button>
-              <Button
-                variant="primary"
-                disabled={
-                  generate.isPending || report.sections.length === 0 || !ready
-                }
-                onClick={() => generate.mutate()}
-              >
-                {generate.isPending
-                  ? t('projects.reports.builder.generating')
-                  : t('projects.reports.builder.generate')}
-              </Button>
-            </>
-          }
-          meta={
-            <>
-              <span className="text-fg">
-                <Status tone={status.tone}>{status.label}</Status>
-              </span>
-              {report.subtitle ? <span>{report.subtitle}</span> : null}
-              {report.projectTitle ? (
-                <ObjectLink kind="project" id={report.projectId} mono={false}>
-                  {report.projectTitle}
-                </ObjectLink>
-              ) : null}
-            </>
-          }
-          tabs={
-            <Tabs
-              mode="url"
-              label={t('projects.reports.builder.tabsLabel')}
-              value={tab}
-              items={tabs.map((key) => ({
-                key,
-                label: t(`projects.reports.builder.tabs.${key}`),
-                count: key === 'build' ? report.sections.length : undefined,
-                link: {
-                  search: { section: key === 'build' ? undefined : key },
-                },
-              }))}
-            />
-          }
+        <ReportHeader
+          report={report}
+          tab={tab}
+          ready={ready}
+          generating={generate.isPending}
+          onShare={() => setShareOpen(true)}
+          onGenerate={() => generate.mutate()}
         />
         <div className="min-h-0 flex-1 overflow-auto px-4 py-4 md:px-6">
           {locked ? (
@@ -314,46 +194,16 @@ function ReportPage() {
             </Notice>
           ) : null}
           {tab === 'build' ? (
-            <div className="flex flex-col gap-3">
-              {report.sections.length === 0 ? (
-                <EmptyState
-                  icon="report"
-                  className="items-center py-10 text-center"
-                  title={t('projects.reports.builder.noSections')}
-                  description={t('projects.reports.builder.noSectionsBody')}
-                />
-              ) : (
-                report.sections.map((section, index) => (
-                  <SectionCard
-                    key={`${section.id}:${section.title}:${section.description ?? ''}`}
-                    section={section}
-                    index={index}
-                    total={report.sections.length}
-                    recordId={report.recordId}
-                    workspaceId={workspaceId}
-                    locked={!editable}
-                    onMove={(direction) =>
-                      move.mutate({ id: section.id, direction })
-                    }
-                  />
-                ))
-              )}
-              {editable ? (
-                <div className="flex gap-2">
-                  <Button icon="plus" onClick={() => setTextOpen(true)}>
-                    {t('projects.reports.builder.addText')}
-                  </Button>
-                  <Button icon="plus" onClick={() => setEvidenceOpen(true)}>
-                    {t('projects.reports.builder.addEvidence')}
-                  </Button>
-                  {pluginSections.length > 0 ? (
-                    <Button icon="plug" onClick={() => setPluginOpen(true)}>
-                      {t('plugins.reportSection.button')}
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+            <ReportSections
+              report={report}
+              workspaceId={workspaceId}
+              editable={editable}
+              showPluginButton={pluginSections.length > 0}
+              onMove={(id, direction) => move.mutate({ id, direction })}
+              onAddText={() => setTextOpen(true)}
+              onAddEvidence={() => setEvidenceOpen(true)}
+              onAddPlugin={() => setPluginOpen(true)}
+            />
           ) : tab === 'preview' ? (
             <ReportDocument report={report} />
           ) : (
@@ -365,98 +215,16 @@ function ReportPage() {
         </div>
       </div>
 
-      <Inspector
-        aria-label={t('projects.reports.builder.readiness')}
-        className="w-[320px] gap-0 p-0 max-lg:hidden"
-      >
-        <div className="flex flex-col gap-4 px-4 py-3.5">
-          <InspectorSection title={t('projects.reports.builder.readiness')}>
-            <Status tone={ready ? 'ok' : 'warn'}>
-              {ready
-                ? t('projects.reports.builder.readyTitle')
-                : t('projects.reports.builder.notReadyTitle')}
-            </Status>
-            <p className="text-label text-fg-muted">
-              {t('projects.reports.builder.readyCount', {
-                valid: report.sections.length - attention,
-                sections: report.sections.length,
-              })}
-            </p>
-            {readiness.stale > 0 ? (
-              <p className="text-label">
-                {t('projects.reports.builder.staleCount', {
-                  n: readiness.stale,
-                })}
-              </p>
-            ) : null}
-            {readiness.missing > 0 ? (
-              <p className="text-label">
-                {t('projects.reports.builder.missingCount', {
-                  n: readiness.missing,
-                })}
-              </p>
-            ) : null}
-            <Button
-              disabled={check.isPending || report.sections.length === 0}
-              onClick={() => check.mutate()}
-            >
-              {check.isPending
-                ? t('projects.reports.builder.checking')
-                : t('projects.reports.builder.check')}
-            </Button>
-          </InspectorSection>
-          <InspectorSection title={t('projects.reports.builder.details')}>
-            <DescriptionList
-              labelWidth={90}
-              items={[
-                [t('projects.reports.builder.status'), status.label],
-                [
-                  t('projects.reports.builder.project'),
-                  report.projectTitle ? (
-                    <ObjectLink
-                      kind="project"
-                      id={report.projectId}
-                      mono={false}
-                    >
-                      {report.projectTitle}
-                    </ObjectLink>
-                  ) : (
-                    '—'
-                  ),
-                ],
-                [
-                  t('projects.reports.builder.owner'),
-                  names.userLabel(report.createdByUserId),
-                ],
-                [
-                  t('projects.reports.builder.created'),
-                  formatDate(report.createdAt),
-                ],
-                [
-                  t('projects.reports.builder.updated'),
-                  formatDate(report.updatedAt),
-                ],
-                [t('projects.reports.builder.version'), report.version],
-              ]}
-            />
-          </InspectorSection>
-          {!locked ? (
-            <InspectorSection title={t('projects.reports.builder.status')}>
-              <div className="flex flex-wrap gap-2">
-                {nextStatuses(report.status).map((next) => (
-                  <Button
-                    key={next}
-                    disabled={changeStatus.isPending}
-                    onClick={() => changeStatus.mutate(next)}
-                  >
-                    {statusAction[next]}
-                  </Button>
-                ))}
-              </div>
-            </InspectorSection>
-          ) : null}
-        </div>
-      </Inspector>
+      <ReportReadinessPanel
+        report={report}
+        readiness={readiness}
+        ready={ready}
+        userLabel={names.userLabel}
+        checking={check.isPending}
+        changing={changeStatus.isPending}
+        onCheck={() => check.mutate()}
+        onChangeStatus={(next) => changeStatus.mutate(next)}
+      />
 
       <AddTextDialog
         open={textOpen}

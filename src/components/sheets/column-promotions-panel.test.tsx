@@ -178,7 +178,10 @@ describe('ColumnPromotionsPanel', () => {
       await screen.findByRole('button', { name: 'Add to dataset' }),
     )
     await waitFor(() =>
-      expect(mocks.navigate).toHaveBeenCalledWith({ to: '/datasets/ds-7' }),
+      expect(mocks.navigate).toHaveBeenCalledWith({
+        to: '/datasets/$datasetId',
+        params: { datasetId: 'ds-7' },
+      }),
     )
   })
 })

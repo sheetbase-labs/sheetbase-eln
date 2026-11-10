@@ -62,6 +62,8 @@ const meta = {
   decorators: [
     (Story, context) => (
       <QueryClientProvider
+        // SAFETY: Storybook parameters are untyped by design; this story sets
+        // `client` to a screenQueryClient() in its own parameters above.
         client={
           context.parameters.client as ReturnType<typeof screenQueryClient>
         }

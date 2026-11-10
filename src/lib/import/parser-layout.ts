@@ -46,21 +46,25 @@ export const parserLayoutSchema = z.strictObject({
 
 export type ParserLayout = z.infer<typeof parserLayoutSchema>
 
+/** A stored parser signature: the JSON object a parser version keeps. */
+type ParserSignature = Record<string, z.core.util.JSONType>
+
 /** The layout stored on a parser version, or null when it has none (or an invalid one). */
-export function layoutOf(
-  signature: Record<string, unknown>,
-): ParserLayout | null {
-  if (signature['layout'] === undefined) return null
+export function layoutOf(signature: ParserSignature): ParserLayout | null {
+  if (!Object.hasOwn(signature, 'layout')) return null
   const parsed = parserLayoutSchema.safeParse(signature['layout'])
 
   return parsed.success ? parsed.data : null
 }
 
-const DELIMITERS: Record<string, ImportDelimiter> = {
+const DELIMITERS = {
   comma: ',',
   semicolon: ';',
   tab: '\t',
-}
+} satisfies Record<
+  Exclude<ParserLayout['delimiter'], 'auto' | undefined>,
+  ImportDelimiter
+>
 
 const startsWith = (line: string, prefix: string) =>
   line.trimStart().toLowerCase().startsWith(prefix.trim().toLowerCase())
@@ -78,14 +82,14 @@ const DETAIL_LINE = /^\s*#?\s*[A-Za-z][^:,;\t]{0,60}:/
 
 const UNIT = /^(.*?)\s*[([]\s*([^()[\]]{1,20})\s*[)\]]\s*$/
 
-function plateRows(
-  matrix: string[][],
-  valueName: string,
-): {
+/** A plate grid read into one row per well. */
+interface PlatePayload {
   headers: string[]
   rows: Array<Record<string, string>>
   warnings: string[]
-} {
+}
+
+function plateRows(matrix: string[][], valueName: string): PlatePayload {
   const blocks: Array<{ title: string; rows: string[][]; columns: string[] }> =
     []
 
@@ -143,13 +147,14 @@ function plateRows(
         const value = (gridRow[index + 1] ?? '').trim()
 
         if (value === '') return
-        rows.push({
-          ...(many ? { Plate: block.title || `Plate ${blockIndex + 1}` } : {}),
-          Well: `${letter}${column}`,
-          Row: letter,
-          Column: column,
-          [valueName]: value,
-        })
+        const row: Record<string, string> = {}
+
+        if (many) row['Plate'] = block.title || `Plate ${blockIndex + 1}`
+        row['Well'] = `${letter}${column}`
+        row['Row'] = letter
+        row['Column'] = column
+        row[valueName] = value
+        rows.push(row)
       })
     }
   })

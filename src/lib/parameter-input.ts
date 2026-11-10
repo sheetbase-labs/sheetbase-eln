@@ -8,7 +8,10 @@ export type ScalarParameterDraft = Partial<Record<string, string>>
 /** A scalar parameter value the declared value type already accepted. */
 export type ScalarParameterValue = string | number | boolean
 
-type ScalarValueType = Extract<Parameter['type'], { kind: 'scalar' }>['valueType']
+type ScalarValueType = Extract<
+  Parameter['type'],
+  { kind: 'scalar' }
+>['valueType']
 
 /** The declared default decoded by the scalar schema its value type owns. */
 function declaredScalarDefault(
@@ -71,8 +74,9 @@ export function parseScalarParameterValue(
     return undefined
   }
 
-  const decoded = scalarParameterValueSchema(parameter.type.valueType)
-    .safeParse(candidate)
+  const decoded = scalarParameterValueSchema(
+    parameter.type.valueType,
+  ).safeParse(candidate)
 
   if (!decoded.success)
     throw new Error(`Parameter "${parameter.label}" has an invalid value.`)
@@ -183,7 +187,11 @@ export function buildParameterInputs(
       const parsed = parseScalarParameterValue(parameter, raw)
 
       if (parsed !== undefined)
-        inputs.push({ parameterId: parameter.id, kind: 'scalar', value: parsed })
+        inputs.push({
+          parameterId: parameter.id,
+          kind: 'scalar',
+          value: parsed,
+        })
 
       continue
     }
@@ -198,7 +206,11 @@ export function buildParameterInputs(
     }
 
     if (parameter.type.kind === 'record') {
-      inputs.push({ parameterId: parameter.id, kind: 'record', recordId: value })
+      inputs.push({
+        parameterId: parameter.id,
+        kind: 'record',
+        recordId: value,
+      })
 
       continue
     }

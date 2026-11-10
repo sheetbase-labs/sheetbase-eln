@@ -445,7 +445,7 @@ function PlanEditor(
                           }
                         >
                           {frags.map((f, i) => (
-                            // eslint-disable-next-line react-doctor/no-array-index-as-key -- Fragment selection is the sorted occurrence; sizes can repeat.
+                            // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- A fragment is identified by its place in the sorted occurrence list; two fragments of the same size are distinct choices.
                             <option key={i} value={i}>
                               {t('molbio.cloning.fragmentOption', {
                                 number: i + 1,

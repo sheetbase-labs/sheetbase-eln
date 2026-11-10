@@ -37,51 +37,68 @@ describe('Home authority enrichment', () => {
 
   it('uses submitted revisions/due dates and joins identities by ID, dropping unreadable records', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async (input) => {
-      const url = new URL(String(input), 'http://sheetbase.test')
+      const url = new URL(
+        input instanceof Request ? input.url : input,
+        'http://sheetbase.test',
+      )
+
       const resource = url.pathname.split('/api/db/')[1]
-      let rows: unknown
 
       if (resource === 'review_submissions') {
         expect(url.searchParams.get('state')).toBe('eq.submitted')
         expect(url.searchParams.get('assigned_reviewer_user_ids')).toBe(
           'cs.{reviewer-a}',
         )
-        rows = [
-          {
-            id: 's1',
-            record_id: 'r1',
-            revision_id: 'rev-frozen',
-            due_at: '2026-09-29T12:00:00Z',
-            submitted_by_user_id: 'priya',
-          },
-          {
-            id: 's2',
-            record_id: 'unreadable',
-            revision_id: 'rev-hidden',
-            due_at: null,
-            submitted_by_user_id: 'tom',
-          },
-        ]
-      } else if (resource === 'records') {
-        rows = [
-          {
-            id: 'r1',
-            identifier: 'EXP-0138',
-            title: 'PEI:DNA sweep',
-            project_id: 'p1',
-          },
-        ]
-      } else if (resource === 'projects') {
-        expect(url.searchParams.get('id')).toBe('in.(p1)')
-        rows = [{ id: 'p1', title: 'AAV9 process transfer' }]
-      } else if (resource === 'rpc/workspace_members_list') {
-        rows = [
-          { user_id: 'tom', name: 'Tom H.' },
-          { user_id: 'priya', name: 'Priya S.' },
-        ]
-      } else throw new Error(`Unexpected Home authority ${resource}`)
 
-      return new Response(JSON.stringify(rows))
+        return new Response(
+          JSON.stringify([
+            {
+              id: 's1',
+              record_id: 'r1',
+              revision_id: 'rev-frozen',
+              due_at: '2026-09-29T12:00:00Z',
+              submitted_by_user_id: 'priya',
+            },
+            {
+              id: 's2',
+              record_id: 'unreadable',
+              revision_id: 'rev-hidden',
+              due_at: null,
+              submitted_by_user_id: 'tom',
+            },
+          ]),
+        )
+      }
+
+      if (resource === 'records')
+        return new Response(
+          JSON.stringify([
+            {
+              id: 'r1',
+              identifier: 'EXP-0138',
+              title: 'PEI:DNA sweep',
+              project_id: 'p1',
+            },
+          ]),
+        )
+
+      if (resource === 'projects') {
+        expect(url.searchParams.get('id')).toBe('in.(p1)')
+
+        return new Response(
+          JSON.stringify([{ id: 'p1', title: 'AAV9 process transfer' }]),
+        )
+      }
+
+      if (resource === 'rpc/workspace_members_list')
+        return new Response(
+          JSON.stringify([
+            { user_id: 'tom', name: 'Tom H.' },
+            { user_id: 'priya', name: 'Priya S.' },
+          ]),
+        )
+
+      throw new Error(`Unexpected Home authority ${resource}`)
     })
 
     expect(
@@ -103,7 +120,10 @@ describe('Home authority enrichment', () => {
   it('groups missing-unit columns under one real Dataset and retains actual flag reasons', async () => {
     const client = createDataClient(
       vi.fn<typeof fetch>(async (input) => {
-        const url = new URL(String(input), 'http://sheetbase.test')
+        const url = new URL(
+          input instanceof Request ? input.url : input,
+          'http://sheetbase.test',
+        )
 
         if (url.pathname.endsWith('/rpc/dataset_list_summary')) {
           expect(url.searchParams.get('archived_at')).toBe('is.null')
@@ -226,7 +246,11 @@ describe('Home authority enrichment', () => {
     async (total) => {
       const client = createDataClient(
         vi.fn<typeof fetch>(async (input) => {
-          const url = new URL(String(input), 'http://sheetbase.test')
+          const url = new URL(
+            input instanceof Request ? input.url : input,
+            'http://sheetbase.test',
+          )
+
           expect(url.pathname).toBe('/api/db/recently_viewed')
           expect(url.searchParams.get('user_id')).toBe('eq.me')
           expect(url.searchParams.get('object_kind')).toBe('eq.project')
@@ -257,7 +281,11 @@ describe('hasOpenedHomeProject with many projects', () => {
 
     const client = createDataClient(
       vi.fn<typeof fetch>(async (input) => {
-        const url = new URL(String(input), 'http://sheetbase.test')
+        const url = new URL(
+          input instanceof Request ? input.url : input,
+          'http://sheetbase.test',
+        )
+
         const inList = url.searchParams.get('object_id') ?? ''
         lengths.push(inList.length)
 
@@ -387,7 +415,11 @@ describe('Home exact totals', () => {
     const urls: string[] = []
 
     const fetchImpl = vi.fn<typeof fetch>(async (input) => {
-      const url = new URL(String(input), 'http://sheetbase.test')
+      const url = new URL(
+        input instanceof Request ? input.url : input,
+        'http://sheetbase.test',
+      )
+
       urls.push(url.pathname + url.search)
 
       if (url.pathname.endsWith('/rpc/inbox_needs_action_counts')) {

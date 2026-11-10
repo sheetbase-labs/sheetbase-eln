@@ -140,8 +140,11 @@ export interface DatasetImportRecord {
   file_id: string | null
   connector_run_id: string | null
   imported_row_ids: string[]
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- JSONB frozen at commit: the parser names its own provenance keys and the receipt decodes them with its own schema (import-receipt-data.ts).
   parser_provenance: Record<string, unknown>
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- JSONB frozen at commit: the source names its own provenance keys and the receipt decodes them with its own schema (import-receipt-data.ts).
   source_provenance: Record<string, unknown>
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- JSONB frozen at commit: the commit counts outcomes it chose, and each reader labels only the keys it knows.
   outcome: Record<string, unknown>
   snapshot_version_id: string | null
   status: string

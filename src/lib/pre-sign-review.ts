@@ -5,6 +5,8 @@
  * changes anything. The model, when the workspace has one on, only rephrases
  * the facts built here; the facts are always shown.
  */
+import { z } from 'zod'
+
 import type {
   CanonicalRevisionEnvelope,
   RevisionChangeArea,
@@ -40,38 +42,45 @@ export interface PreSignReview {
   compared: boolean
 }
 
-type Rec = Record<string, unknown>
+/** One stored JSON object from a frozen revision: a payload, a state, a validation. */
+const recordSchema = z.record(z.string(), z.unknown())
+
+type Rec = z.infer<typeof recordSchema>
 
 /** Older envelopes can lack a collection altogether. */
 function list<T>(value: readonly T[] | null | undefined): readonly T[] {
   return Array.isArray(value) ? value : []
 }
 
+/** A stored JSON object, or null when the value is anything else. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A frozen revision stores these as JSON; this is where an object is decoded from it.
 function asRec(value: unknown): Rec | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Rec)
-    : null
+  return recordSchema.safeParse(value).data ?? null
 }
 
+/** A cell with nothing in it: absent, blank text or an empty list. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A frozen cell is stored JSON; its blank and empty-list forms are tested here.
 function isEmptyCell(value: unknown): boolean {
+  if (value === null || value === undefined) return true
+
   return (
-    value === null ||
-    value === undefined ||
-    (typeof value === 'string' && value.trim() === '') ||
-    (Array.isArray(value) && value.length === 0)
+    z.string().trim().max(0).safeParse(value).success ||
+    z.array(z.unknown()).max(0).safeParse(value).success
   )
 }
 
+/** A stored number, or a number written as text; null for anything else. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A frozen cell is stored JSON; a number or numeric text is read from it here.
 function asNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
+  const stored = z.number().finite().safeParse(value).data
 
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value)
+  if (stored !== undefined) return stored
+  const text = z.string().trim().min(1).safeParse(value).data
 
-    return Number.isFinite(parsed) ? parsed : null
-  }
+  if (text === undefined) return null
+  const parsed = Number(text)
 
-  return null
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 function sheetLabel(
@@ -81,17 +90,19 @@ function sheetLabel(
 ): string {
   const block = list(envelope.blocks).find((item) => item.id === blockId)
   const payload = asRec(block?.payload)
-  const title = payload?.title ?? payload?.name ?? payload?.label
+  const stored = payload?.title ?? payload?.name ?? payload?.label
+  const title = z.string().safeParse(stored).data
 
-  return typeof title === 'string' && title.trim()
-    ? title.trim()
-    : `Sheet ${index + 1}`
+  return title?.trim() ? title : `Sheet ${index + 1}`
 }
 
 function fieldLabel(field: Rec): string {
-  if (typeof field.label === 'string' && field.label.trim()) return field.label
+  const label = z.string().safeParse(field.label).data
 
-  if (typeof field.key === 'string' && field.key.trim()) return field.key
+  if (label?.trim()) return label
+  const key = z.string().safeParse(field.key).data
+
+  if (key?.trim()) return key
 
   return 'Column'
 }
@@ -113,9 +124,9 @@ function sheetWarnings(envelope: CanonicalRevisionEnvelope): PreSignWarning[] {
     const where = sheetLabel(envelope, sheet.blockId, index)
 
     for (const field of fields) {
-      const fieldId = field.fieldId
+      const fieldId = z.string().safeParse(field.fieldId).data
 
-      if (typeof fieldId !== 'string') continue
+      if (fieldId === undefined) continue
 
       if (field.lifecycle === 'retired' || field.lifecycle === 'draft') continue
       const computed = asRec(field.computation)?.mode === 'computed'
@@ -150,8 +161,9 @@ function sheetWarnings(envelope: CanonicalRevisionEnvelope): PreSignWarning[] {
         }).length
 
         if (out > 0) {
-          const unit = asRec(field.quantity)?.storageUnit
-          const suffix = typeof unit === 'string' ? ` ${unit}` : ''
+          const storedUnit = asRec(field.quantity)?.storageUnit
+          const unit = z.string().safeParse(storedUnit).data
+          const suffix = unit === undefined ? '' : ` ${unit}`
           warnings.push({
             id: `spec:${sheet.blockId}:${fieldId}`,
             kind: 'out-of-spec',
@@ -204,36 +216,31 @@ function tableWarnings(envelope: CanonicalRevisionEnvelope): PreSignWarning[] {
       ? table.rows.map(asRec).filter((r): r is Rec => r !== null)
       : []
 
-    const where =
-      typeof table.display_name === 'string' && table.display_name.trim()
-        ? table.display_name
-        : 'Table'
+    const displayName = z.string().safeParse(table.display_name).data
+    const where = displayName?.trim() ? displayName : 'Table'
 
     for (const column of columns) {
-      if (typeof column.api_name !== 'string') continue
-      const unit = column.unit
+      const apiName = z.string().safeParse(column.api_name).data
 
-      if (typeof unit === 'string' && unit.trim()) continue
+      if (apiName === undefined) continue
+      const unit = z.string().safeParse(column.unit).data
+
+      if (unit?.trim()) continue
 
       const numbers = rows.filter(
-        (row) => asNumber(row[column.api_name as string]) !== null,
+        (row) => asNumber(row[apiName]) !== null,
       ).length
 
       // A column of plain labels or identifiers is not a missing unit: only
       // flag a column where most of what is there is a number.
-      const filled = rows.filter(
-        (row) => !isEmptyCell(row[column.api_name as string]),
-      ).length
+      const filled = rows.filter((row) => !isEmptyCell(row[apiName])).length
 
       if (numbers > 0 && numbers === filled) {
         warnings.push({
           id: `unit:${String(table.id)}:${String(column.id)}`,
           kind: 'missing-unit',
           where,
-          field:
-            typeof column.display_name === 'string' && column.display_name
-              ? column.display_name
-              : column.api_name,
+          field: z.string().safeParse(column.display_name).data || apiName,
           count: numbers,
         })
       }

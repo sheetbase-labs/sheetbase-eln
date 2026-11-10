@@ -1,5 +1,8 @@
 import { Button } from './button'
-import { toast } from './sonner'
+import { copyText } from './copy-text'
+import type { CopyTextOptions } from './copy-text'
+
+export { copyText } from './copy-text'
 
 /**
  * Copy one value, and report what actually happened.
@@ -19,35 +22,6 @@ import { toast } from './sonner'
  * value's affordance; that stays with the surface that owns the selection.
  */
 
-export interface CopyTextOptions {
-  /** Confirmed on success. */
-  readonly copiedMessage?: string
-  /** Stated on failure; must not claim the value reached the clipboard. */
-  readonly failedMessage?: string
-}
-
-/**
- * Write `value` to the clipboard and report the outcome. Resolves either way —
- * the caller has nothing to do differently, because the user has already been
- * told which happened.
- */
-export async function copyText(
-  value: string,
-  {
-    copiedMessage = 'Copied',
-    failedMessage = 'Could not copy. Select the value and copy it by hand.',
-  }: CopyTextOptions = {},
-): Promise<void> {
-  try {
-    // A refused or unavailable clipboard (permission denied, insecure context)
-    // either rejects or throws here; both mean no copy happened.
-    await navigator.clipboard.writeText(value)
-    toast(copiedMessage)
-  } catch {
-    toast.error(failedMessage)
-  }
-}
-
 export type CopyButtonProps = Omit<
   React.ComponentProps<typeof Button>,
   'onClick' | 'icon' | 'value'
@@ -63,6 +37,15 @@ export type CopyButtonProps = Omit<
    * `aria-label` naming the value it copies.
    */
   readonly children?: React.ReactNode
+}
+
+/**
+ * Resolve the prop: a string is copied as it stands, a thunk is read at click
+ * time so a server render never touches a browser-only value.
+ */
+function readCopyValue(value: string | (() => string)): string {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- `value` is the already-typed string-or-thunk prop contract; the thunk exists precisely so the browser value is read at click time, and there is no other way to tell the two members apart.
+  return typeof value === 'function' ? value() : value
 }
 
 export function CopyButton({
@@ -81,7 +64,7 @@ export function CopyButton({
       icon="copy"
       data-slot="copy-button"
       onClick={() =>
-        void copyText(typeof value === 'function' ? value() : value, {
+        void copyText(readCopyValue(value), {
           copiedMessage,
           failedMessage,
         })

@@ -9,20 +9,18 @@ export interface CreateContext {
   dataset?: string
 }
 
-const SEGMENT_TO_KEY = {
-  projects: 'project',
-  experiments: 'experiment',
-  samples: 'sample',
-  datasets: 'dataset',
-} as const satisfies Record<string, keyof CreateContext>
+const SEGMENT_TO_KEY = new Map<string, keyof CreateContext>([
+  ['projects', 'project'],
+  ['experiments', 'experiment'],
+  ['samples', 'sample'],
+  ['datasets', 'dataset'],
+])
 
 /** Pull the open project, experiment, sample or Dataset out of a pathname. */
 export function createContextFromPath(pathname: string): CreateContext {
   const [segment, id] = pathname.split('/').filter(Boolean)
 
-  const key = (
-    SEGMENT_TO_KEY as Record<string, keyof CreateContext | undefined>
-  )[segment]
+  const key = SEGMENT_TO_KEY.get(segment)
 
   // `/experiments/new` and the like are routes, not records.
   if (!key || !id || id === 'new') return {}

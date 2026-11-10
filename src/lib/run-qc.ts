@@ -286,6 +286,7 @@ export function openBreaches(points: readonly QcPointRow[]): QcPointRow[] {
 }
 
 /** The metric of a plate series in the words a scientist uses is in the copy catalogue. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A failed QC action arrives as a caught throw or a query's error, which has no parseable domain type; this only renders whatever message it carries.
 export function qcMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }

@@ -11,6 +11,8 @@
  * attest; the submit/sign RPCs stay denied to agent credentials).
  */
 
+import { z } from 'zod'
+
 import type {
   AgentOperation,
   AgentOperationProposal,
@@ -32,44 +34,78 @@ export interface AgentOutputReference {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+/** A JSON value as the database returns it, decoded before anything reads it. */
+const jsonValue = z.json()
+
+/** A stored JSON object: an operation's or a result's own keys. */
+const storedObject = z.record(z.string(), jsonValue)
+
+type StoredObject = z.infer<typeof storedObject>
+
+/** The identity as a stored object, or null when it is not one. */
+function storedObjectOf(
+  value: z.output<typeof jsonValue>,
+): StoredObject | null {
+  const decoded = storedObject.safeParse(value)
+
+  return decoded.success ? decoded.data : null
+}
+
 function ref(
   kind: string,
-  id: unknown,
+  id: z.output<typeof jsonValue>,
   source: AgentOutputReference['source'],
 ): AgentOutputReference | null {
-  if (typeof id !== 'string' || !UUID_RE.test(id)) return null
+  const identity = z.string().regex(UUID_RE).safeParse(id)
 
-  return { kind, id, source }
+  return identity.success ? { kind, id: identity.data, source } : null
+}
+
+/** One result key known to carry a stable canonical id, and the kind it names. */
+interface ResultIdKey {
+  key: string
+  kind: string
 }
 
 /** Result keys known to carry stable canonical ids, per operation kind. */
-const RESULT_ID_KEYS: Record<string, Array<{ key: string; kind: string }>> = {
-  'dataset_schema.create': [
-    { key: 'schema_definition_id', kind: 'dataset_schema_definition' },
-    { key: 'schema_version_id', kind: 'dataset_schema_version' },
+const RESULT_ID_KEYS = new Map<string, readonly ResultIdKey[]>([
+  [
+    'dataset_schema.create',
+    [
+      { key: 'schema_definition_id', kind: 'dataset_schema_definition' },
+      { key: 'schema_version_id', kind: 'dataset_schema_version' },
+    ],
   ],
-  'pipeline_definition.create': [{ key: 'id', kind: 'pipeline_definition' }],
-  'pipeline_definition.create_version': [
-    { key: 'id', kind: 'pipeline_definition_version' },
+  ['pipeline_definition.create', [{ key: 'id', kind: 'pipeline_definition' }]],
+  [
+    'pipeline_definition.create_version',
+    [{ key: 'id', kind: 'pipeline_definition_version' }],
   ],
-  'sheet_definition.create': [{ key: 'id', kind: 'sheet_definition' }],
-  'record.create': [{ key: 'id', kind: 'record' }],
-  'record.custom_fields.update': [{ key: 'id', kind: 'record' }],
-  'sheet_instance.create': [{ key: 'id', kind: 'sheet_instance' }],
-  'sheet_instance.update': [{ key: 'id', kind: 'sheet_instance' }],
-  'sheet_instance.archive': [{ key: 'id', kind: 'sheet_instance' }],
-  'sheet_instance.restore': [{ key: 'id', kind: 'sheet_instance' }],
-  'sheet_instance.materialize': [{ key: 'datasetId', kind: 'dataset' }],
-  'pipeline_definition.update_draft': [
-    { key: 'id', kind: 'pipeline_definition_version' },
+  ['sheet_definition.create', [{ key: 'id', kind: 'sheet_definition' }]],
+  ['record.create', [{ key: 'id', kind: 'record' }]],
+  ['record.custom_fields.update', [{ key: 'id', kind: 'record' }]],
+  ['sheet_instance.create', [{ key: 'id', kind: 'sheet_instance' }]],
+  ['sheet_instance.update', [{ key: 'id', kind: 'sheet_instance' }]],
+  ['sheet_instance.archive', [{ key: 'id', kind: 'sheet_instance' }]],
+  ['sheet_instance.restore', [{ key: 'id', kind: 'sheet_instance' }]],
+  ['sheet_instance.materialize', [{ key: 'datasetId', kind: 'dataset' }]],
+  [
+    'pipeline_definition.update_draft',
+    [{ key: 'id', kind: 'pipeline_definition_version' }],
   ],
-  'sheet_definition.update_draft': [
-    { key: 'id', kind: 'sheet_definition_version' },
+  [
+    'sheet_definition.update_draft',
+    [{ key: 'id', kind: 'sheet_definition_version' }],
   ],
-}
+])
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+/** The record a template instantiation produced, when the result names it. */
+function templateRecordRef(
+  result: z.output<typeof jsonValue> | null,
+): AgentOutputReference | null {
+  const record = storedObjectOf(storedObjectOf(result)?.record ?? null)
+
+  return record ? ref('record', record.id, 'result') : null
 }
 
 /**
@@ -81,52 +117,49 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 export function extractAgentOutputReferences(
   operation: AgentOperation,
-  result: unknown,
+  result: z.output<typeof jsonValue> | null,
 ): AgentOutputReference[] {
   const refs: AgentOutputReference[] = []
 
   // Fail closed on partial rows (e.g. test stubs or older clients): no
   // operation identity means no references, never a crash or a guess.
-  if (!isRecord(operation) || typeof operation.kind !== 'string') return refs
+  if (!z.object({ kind: z.string() }).safeParse(operation).success) return refs
 
   const push = (maybe: AgentOutputReference | null) => {
     if (maybe && !refs.some((r) => r.kind === maybe.kind && r.id === maybe.id))
       refs.push(maybe)
   }
 
-  const op = operation as unknown as Record<string, unknown>
-
   switch (operation.kind) {
     case 'dataset_rows.commit':
-      push(ref('dataset', op.datasetId, 'operation'))
+      push(ref('dataset', operation.datasetId, 'operation'))
       break
     case 'sheet_definition.update_draft':
-      push(ref('sheet_definition_version', op.versionId, 'operation'))
+      push(ref('sheet_definition_version', operation.versionId, 'operation'))
       break
     case 'pipeline_definition.create_version':
-      push(ref('pipeline_definition', op.definitionId, 'operation'))
+      push(ref('pipeline_definition', operation.definitionId, 'operation'))
       break
     case 'pipeline_definition.update_draft':
-      push(ref('pipeline_definition_version', op.versionId, 'operation'))
+      push(ref('pipeline_definition_version', operation.versionId, 'operation'))
       break
     case 'notebook_block.update':
     case 'notebook_block.move':
     case 'notebook_block.delete':
-      push(ref('block', op.blockId, 'operation'))
+      push(ref('block', operation.blockId, 'operation'))
       break
     case 'template.instantiate':
-      if (isRecord(result) && isRecord(result.record)) {
-        push(ref('record', result.record.id, 'result'))
-      }
-
+      push(templateRecordRef(result))
       break
     default:
       break
   }
 
-  if (isRecord(result)) {
-    for (const { key, kind } of RESULT_ID_KEYS[operation.kind] ?? [])
-      push(ref(kind, result[key], 'result'))
+  const stored = storedObjectOf(result)
+
+  if (stored) {
+    for (const { key, kind } of RESULT_ID_KEYS.get(operation.kind) ?? [])
+      push(ref(kind, stored[key], 'result'))
   }
 
   return refs
@@ -243,7 +276,9 @@ export function buildWorkflowProvenanceRecord(
         ? lookupProposals(proposalsById, step.proposal_id)
         : null
 
-      const succeeded = proposal?.status === 'succeeded'
+      const result = jsonValue.safeParse(
+        proposal?.status === 'succeeded' ? proposal.result : null,
+      )
 
       return {
         position: step.position,
@@ -284,7 +319,7 @@ export function buildWorkflowProvenanceRecord(
           : null,
         outputReferences: extractAgentOutputReferences(
           step.operation,
-          succeeded ? proposal.result : null,
+          result.success ? result.data : null,
         ),
         completedAt: step.completed_at,
       }
@@ -311,9 +346,13 @@ export interface AgentEvidenceMarking {
 export function markProposalEvidence(
   proposal: AgentOperationProposal,
 ): AgentEvidenceMarking {
+  const result = jsonValue.safeParse(
+    proposal.status === 'succeeded' ? proposal.result : null,
+  )
+
   const outputReferences = extractAgentOutputReferences(
     proposal.operation,
-    proposal.status === 'succeeded' ? proposal.result : null,
+    result.success ? result.data : null,
   )
 
   const inputPins: AgentWorkflowInputReference[] = []
@@ -375,9 +414,13 @@ export function markWorkflowStepEvidence(
     invocationId: 'unknown',
   }
 
+  const result = jsonValue.safeParse(
+    resolved?.status === 'succeeded' ? resolved.result : null,
+  )
+
   const outputReferences = extractAgentOutputReferences(
     step.operation,
-    resolved?.status === 'succeeded' ? resolved.result : null,
+    result.success ? result.data : null,
   )
 
   const base = {

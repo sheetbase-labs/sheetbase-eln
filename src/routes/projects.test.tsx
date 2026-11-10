@@ -5,50 +5,75 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Route } from './projects'
 import type * as DataClient from '#/lib/data-client'
 import * as projectData from '#/components/projects/project-data'
+import type { ProjectsPage } from '#/components/projects/projects-page'
+
+/** What the route hands the page: the type the real page declares for its props. */
+type ProjectsPageProps = React.ComponentProps<typeof ProjectsPage>
+
+/** The route options the file-route factory stores; this suite reads `component`. */
+interface FileRouteOptions {
+  component?: React.ComponentType
+}
+
+/** The props the route last handed its page. */
+interface SeenPageProps {
+  props: ProjectsPageProps | null
+}
 
 /** The route owns the data wiring: which read the page sees, what a stalled
  * read becomes, and the feedback a create gives. The page itself has its own
  * tests, so it is stubbed here. */
-const { list, navigate, toast, seen } = vi.hoisted(() => ({
-  list: vi.fn<() => Promise<unknown[]>>(async () => []),
-  navigate: vi.fn(async () => undefined),
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
-  seen: { props: null as null | Record<string, unknown> },
-}))
+const { list, navigate, toast, seen } = vi.hoisted(() => {
+  const captured: SeenPageProps = { props: null }
+
+  return {
+    list: vi.fn<() => Promise<unknown[]>>(async () => []),
+    navigate: vi.fn(async () => undefined),
+    toast: Object.assign(vi.fn(), { error: vi.fn() }),
+    seen: captured,
+  }
+})
 
 const context = {
   user: { id: 'user-1', name: 'Gareth P.' },
   workspace: { id: 'ws-1', role: 'owner' },
 }
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time, and this suite renders the route component on its own with the context and search the shell would supply.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
+  createFileRoute: () => (config: FileRouteOptions) => ({
     useRouteContext: () => ({ context }),
     useSearch: () => ({}),
     options: config,
   }),
   Outlet: () => <div data-testid="outlet" />,
-  redirect: (options: unknown) => options,
+  redirect: (options: { to: string; search?: Record<string, string> }) =>
+    options,
   useNavigate: () => navigate,
-  useRouterState: ({ select }: { select: (state: unknown) => unknown }) =>
-    select({ location: { pathname: '/projects' } }),
+  useRouterState: (options: {
+    select: (state: { location: { pathname: string } }) => boolean
+  }) => options.select({ location: { pathname: '/projects' } }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- This suite asserts the props the route wires into its page, which the page's own suite cannot observe; the page is drawn by that suite.
 vi.mock('#/components/projects/projects-page', () => ({
-  ProjectsPage: (props: Record<string, unknown>) => {
+  ProjectsPage: (props: ProjectsPageProps) => {
     seen.props = props
 
     return <div data-testid="projects-page" />
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Sonner mounts its own portal and store; the assertions read the toast calls, not the toast markup.
 vi.mock('#/components/ui/sonner', () => ({ toast }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route opens its data client at module scope, so the recorded client below is the seam this suite reads; the real client has its own suite.
 vi.mock('#/lib/data-client', async (importOriginal) => ({
   ...(await importOriginal<typeof DataClient>()),
   createDataClient: () => ({ list, rpc: vi.fn() }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route's project writes go through these two module functions; the doubles answer the write and the member read the page needs, while the rest of the module stays real.
 vi.mock('#/components/projects/project-data', async (importOriginal) => ({
   ...(await importOriginal<typeof projectData>()),
   createProject: vi.fn(async () => ({ id: 'project-1', revision: '1' })),
@@ -108,8 +133,7 @@ describe('projects route', () => {
 
     list.mockResolvedValue([])
     await act(async () => {
-      const onRetry = seen.props?.onRetry as () => void
-      onRetry()
+      seen.props?.onRetry?.()
     })
     await waitFor(() => expect(seen.props?.error).toBeNull())
   })
@@ -117,9 +141,10 @@ describe('projects route', () => {
   it('confirms a successful create and lands on the new project', async () => {
     renderRoute()
     await waitFor(() => expect(seen.props).not.toBeNull())
-    const onCreate = seen.props?.onCreate as (input: unknown) => void
+    const onCreate = seen.props?.onCreate
+
     await act(async () => {
-      onCreate({
+      onCreate?.({
         title: 'QA2 probe',
         clientId: null,
         modality: null,

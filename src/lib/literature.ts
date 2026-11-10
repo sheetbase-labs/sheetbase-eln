@@ -3,7 +3,12 @@
  * Only a short search phrase leaves the server, and only when a workspace
  * owner has turned literature search on. Nothing from the workspace is sent.
  * Every call takes the fetch to use so tests never reach the network.
+ *
+ * The three indexes answer untyped JSON, so each reply is decoded once by a
+ * Zod schema at the boundary and the rest of the module works with the decoded
+ * rows.
  */
+import { z } from 'zod'
 
 export const LITERATURE_SOURCES = ['europepmc', 'pubmed', 'openalex'] as const
 
@@ -21,13 +26,17 @@ export interface Paper {
   source: LiteratureSource
 }
 
+/** A JSON document as an index sends it, before a schema narrows it. */
+export type JsonValue =
+  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+
 export type FetchLike = (
   input: string,
   init?: { headers?: Record<string, string>; signal?: AbortSignal },
 ) => Promise<{
   ok: boolean
   status: number
-  json: () => Promise<unknown>
+  json: () => Promise<JsonValue>
 }>
 
 export interface LiteratureOptions {
@@ -50,31 +59,22 @@ const TIMEOUT_MS = 12_000
 const DEFAULT_LIMIT = 6
 const MAX_LIMIT = 15
 
-function obj(value: unknown): Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {}
+const yearField = z.union([z.string(), z.number()]).nullish()
+const nameField = z.string().nullish()
+
+function trimmed(value: string | null | undefined): string {
+  return (value ?? '').trim()
 }
 
-function text(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : ''
-}
-
-function list(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : []
-}
-
-function yearOf(value: unknown): number | null {
-  const match = /(\d{4})/.exec(
-    typeof value === 'number' ? `${value}` : text(value),
-  )
+function yearOf(value: string | number | null | undefined): number | null {
+  const match = /(\d{4})/.exec(String(value ?? ''))
 
   return match ? Number(match[1]) : null
 }
 
 /** A DOI without its resolver prefix, lower case, or an empty string. */
-export function cleanDoi(value: unknown): string {
-  return text(value)
+export function cleanDoi(value: string | null | undefined): string {
+  return trimmed(value)
     .replace(/^https?:\/\/(dx\.)?doi\.org\//i, '')
     .replace(/^doi:\s*/i, '')
     .trim()
@@ -97,31 +97,54 @@ function clip(value: string, max = 1500): string {
   return value.length <= max ? value : `${value.slice(0, max)}…`
 }
 
-export function parseEuropePmc(body: unknown): Paper[] {
-  const results = list(obj(obj(body).resultList).result)
+const europePmcRow = z.object({
+  title: nameField,
+  doi: nameField,
+  pmid: nameField,
+  id: nameField,
+  source: nameField,
+  authorString: nameField,
+  journalTitle: nameField,
+  journalInfo: z.object({ journal: nameField }).nullish(),
+  pubYear: yearField,
+  abstractText: nameField,
+})
 
-  return results
+const europePmcResponse = z.object({
+  resultList: z.object({ result: z.array(z.unknown()).nullish() }).nullish(),
+})
+
+export function parseEuropePmc(body: JsonValue): Paper[] {
+  const payload = europePmcResponse.safeParse(body)
+
+  if (!payload.success) return []
+  const rows = payload.data.resultList?.result ?? []
+
+  return rows
     .map((raw): Paper | null => {
-      const row = obj(raw)
-      const title = stripTags(text(row.title))
+      const decoded = europePmcRow.safeParse(raw)
+
+      if (!decoded.success) return null
+      const row = decoded.data
+      const title = stripTags(trimmed(row.title))
 
       if (!title) return null
       const doi = cleanDoi(row.doi)
-      const pmid = text(row.pmid)
-      const id = text(row.id)
-      const src = text(row.source)
+      const pmid = trimmed(row.pmid)
+      const id = trimmed(row.id)
+      const src = trimmed(row.source)
 
       return {
         title,
-        authors: text(row.authorString)
+        authors: trimmed(row.authorString)
           .replace(/\.$/, '')
           .split(/,\s*/)
           .filter(Boolean),
-        journal: text(row.journalTitle) || text(obj(row.journalInfo).journal),
+        journal: trimmed(row.journalTitle) || trimmed(row.journalInfo?.journal),
         year: yearOf(row.pubYear),
         doi,
         pmid,
-        abstract: clip(stripTags(text(row.abstractText))),
+        abstract: clip(stripTags(trimmed(row.abstractText))),
         url: doi
           ? `https://doi.org/${doi}`
           : id && src
@@ -133,28 +156,51 @@ export function parseEuropePmc(body: unknown): Paper[] {
     .filter((p): p is Paper => p !== null)
 }
 
-export function parsePubMed(summary: unknown): Paper[] {
-  const result = obj(obj(summary).result)
-  const ids = list(result.uids).map(String)
+const pubmedRow = z.object({
+  title: nameField,
+  articleids: z
+    .array(z.object({ idtype: nameField, value: nameField }))
+    .nullish(),
+  authors: z.array(z.object({ name: nameField })).nullish(),
+  fulljournalname: nameField,
+  source: nameField,
+  pubdate: yearField,
+})
+
+const pubmedResponse = z.object({
+  result: z
+    .looseObject({ uids: z.array(z.coerce.string()).nullish() })
+    .nullish(),
+})
+
+export function parsePubMed(summary: JsonValue): Paper[] {
+  const payload = pubmedResponse.safeParse(summary)
+
+  if (!payload.success) return []
+  const result = payload.data.result
+  const ids = result?.uids ?? []
 
   return ids
     .map((id): Paper | null => {
-      const row = obj(result[id])
-      const title = stripTags(text(row.title))
+      const decoded = pubmedRow.safeParse(result?.[id])
+
+      if (!decoded.success) return null
+      const row = decoded.data
+      const title = stripTags(trimmed(row.title))
 
       if (!title) return null
-      const articleIds = list(row.articleids).map(obj)
+      const articleIds = row.articleids ?? []
 
       const doi = cleanDoi(
-        articleIds.find((entry) => text(entry.idtype) === 'doi')?.value,
+        articleIds.find((entry) => trimmed(entry.idtype) === 'doi')?.value,
       )
 
       return {
         title,
-        authors: list(row.authors)
-          .map((a) => text(obj(a).name))
+        authors: (row.authors ?? [])
+          .map((author) => trimmed(author.name))
           .filter(Boolean),
-        journal: text(row.fulljournalname) || text(row.source),
+        journal: trimmed(row.fulljournalname) || trimmed(row.source),
         year: yearOf(row.pubdate),
         doi,
         pmid: id,
@@ -168,52 +214,89 @@ export function parsePubMed(summary: unknown): Paper[] {
     .filter((p): p is Paper => p !== null)
 }
 
-function openAlexAbstract(index: unknown): string {
+const abstractIndex = z.record(z.string(), z.array(z.number()))
+
+function openAlexAbstract(
+  index: Record<string, number[]> | null | undefined,
+): string {
   const words: string[] = []
 
-  for (const [word, positions] of Object.entries(obj(index))) {
-    for (const position of list(positions)) {
-      if (typeof position === 'number') words[position] = word
-    }
+  for (const [word, positions] of Object.entries(index ?? {})) {
+    for (const position of positions) words[position] = word
   }
 
   return clip(words.filter(Boolean).join(' '))
 }
 
-export function parseOpenAlex(body: unknown): Paper[] {
-  return list(obj(body).results)
+const openAlexRow = z.object({
+  title: nameField,
+  display_name: nameField,
+  doi: nameField,
+  ids: z.object({ pmid: nameField }).nullish(),
+  authorships: z
+    .array(
+      z.object({ author: z.object({ display_name: nameField }).nullish() }),
+    )
+    .nullish(),
+  primary_location: z
+    .object({ source: z.object({ display_name: nameField }).nullish() })
+    .nullish(),
+  publication_year: yearField,
+  abstract_inverted_index: abstractIndex.nullish(),
+  id: nameField,
+})
+
+const openAlexResponse = z.object({
+  results: z.array(z.unknown()).nullish(),
+})
+
+export function parseOpenAlex(body: JsonValue): Paper[] {
+  const payload = openAlexResponse.safeParse(body)
+
+  if (!payload.success) return []
+  const rows = payload.data.results ?? []
+
+  return rows
     .map((raw): Paper | null => {
-      const row = obj(raw)
-      const title = stripTags(text(row.title) || text(row.display_name))
+      const decoded = openAlexRow.safeParse(raw)
+
+      if (!decoded.success) return null
+      const row = decoded.data
+      const title = stripTags(trimmed(row.title) || trimmed(row.display_name))
 
       if (!title) return null
       const doi = cleanDoi(row.doi)
-      const ids = obj(row.ids)
-      const pmid = text(ids.pmid).replace(/^.*\/(\d+)\/?$/, '$1')
+      const pmid = trimmed(row.ids?.pmid).replace(/^.*\/(\d+)\/?$/, '$1')
 
       return {
         title,
-        authors: list(row.authorships)
-          .map((a) => text(obj(obj(a).author).display_name))
+        authors: (row.authorships ?? [])
+          .map((authorship) => trimmed(authorship.author?.display_name))
           .filter(Boolean)
           .slice(0, 20),
-        journal: text(obj(obj(row.primary_location).source).display_name),
+        journal: trimmed(row.primary_location?.source?.display_name),
         year: yearOf(row.publication_year),
         doi,
         pmid: /^\d+$/.test(pmid) ? pmid : '',
         abstract: openAlexAbstract(row.abstract_inverted_index),
-        url: doi ? `https://doi.org/${doi}` : text(row.id),
+        url: doi ? `https://doi.org/${doi}` : trimmed(row.id),
         source: 'openalex',
       }
     })
     .filter((p): p is Paper => p !== null)
 }
 
+const pubmedSearch = z.object({
+  esearchresult: z
+    .object({ idlist: z.array(z.coerce.string()).nullish() })
+    .nullish(),
+})
+
 async function getJson(
   fetchFn: FetchLike,
   url: string,
   label: string,
-): Promise<unknown> {
+): Promise<JsonValue> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
@@ -277,7 +360,7 @@ export async function searchLiterature(
   }
 
   if (source === 'pubmed') {
-    const found = obj(
+    const found = pubmedSearch.safeParse(
       await getJson(
         fetchFn,
         `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&retmax=${limit}&term=${q}`,
@@ -285,7 +368,7 @@ export async function searchLiterature(
       ),
     )
 
-    const ids = list(obj(found.esearchresult).idlist).map(String)
+    const ids = found.success ? (found.data.esearchresult?.idlist ?? []) : []
 
     if (ids.length === 0) return []
 
@@ -315,7 +398,18 @@ export async function searchLiterature(
 }
 
 /** What the assistant and API return: a short, citable line per paper. */
-export function describePaper(paper: Paper): Record<string, unknown> {
+export interface PaperSummary {
+  title: string
+  authors: string
+  journal: string
+  year: number | null
+  doi: string
+  link: string
+  abstract: string
+  source: string
+}
+
+export function describePaper(paper: Paper): PaperSummary {
   return {
     title: paper.title,
     authors:

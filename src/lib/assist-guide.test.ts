@@ -15,6 +15,7 @@ import type { AiContextEnvelope } from './ai-context'
 import { approveReview, requestChangesOnReview } from './review-workspace'
 import { promoteToChartSpec } from './comparative-view'
 import { previewSubmissionDigest, submitRecordRevision } from './notebook-data'
+import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import {
   evaluateAnalysisToFigure,
@@ -23,7 +24,6 @@ import {
 } from './assist-guide'
 import type {
   AnalysisToFigureState,
-  GuideAcceptKey,
   SubmissionReadinessState,
 } from './assist-guide'
 
@@ -283,10 +283,9 @@ describe('evaluateSubmissionReadiness', () => {
 
     expect(submitted.currentStepId).toBe('review-decided')
 
-    const acceptKeys = submitted.steps[4]?.nextActions
-      .map((a) => a.target)
-      .filter((t) => t.kind === 'accept')
-      .map((t) => (t as { acceptKey: GuideAcceptKey }).acceptKey)
+    const acceptKeys = submitted.steps[4]?.nextActions.flatMap((action) =>
+      action.target.kind === 'accept' ? [action.target.acceptKey] : [],
+    )
 
     expect(acceptKeys).toEqual(
       expect.arrayContaining(['approveReview', 'requestChangesOnReview']),
@@ -392,10 +391,7 @@ describe('execution parity (no new write paths)', () => {
   })
 
   it('every guided next action resolves to the registry — never an inline executor', () => {
-    const states: Array<
-      | ReturnType<typeof evaluateAnalysisToFigure>
-      | ReturnType<typeof evaluateSubmissionReadiness>
-    > = [
+    const states: Array<ReturnType<typeof evaluateAnalysisToFigure>> = [
       evaluateAnalysisToFigure(analysisState()),
       evaluateAnalysisToFigure(
         analysisState({
@@ -425,7 +421,7 @@ describe('execution parity (no new write paths)', () => {
             expect(Object.keys(GUIDED_ACCEPTS)).toContain(
               action.target.acceptKey,
             )
-            expect(typeof GUIDED_ACCEPTS[action.target.acceptKey]).toBe(
+            expect(GUIDED_ACCEPTS[action.target.acceptKey]).toBeTypeOf(
               'function',
             )
           }
@@ -443,7 +439,9 @@ describe('execution parity (no new write paths)', () => {
     ]
 
     for (const workflow of workflows) {
-      expect(JSON.parse(JSON.stringify(workflow))).toEqual(workflow)
+      const encoded: string = JSON.stringify(workflow)
+
+      expect(JSON.parse(encoded)).toEqual(workflow)
     }
   })
 
@@ -477,8 +475,13 @@ describe('execution parity (no new write paths)', () => {
       structure_version: 2,
     }))
 
-    const manualClient = { rpc: manualRpc } as unknown as DataClient
-    const guidedClient = { rpc: guidedRpc } as unknown as DataClient
+    const manualClient: DataClient = Object.assign(createDataClient(), {
+      rpc: manualRpc,
+    })
+
+    const guidedClient: DataClient = Object.assign(createDataClient(), {
+      rpc: guidedRpc,
+    })
 
     // Manual: the user accepts through the draft panel's canonical path.
     await acceptTextDraft(manualClient, { recordId: 'r1', proposal })

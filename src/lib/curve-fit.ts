@@ -141,7 +141,7 @@ function sumSquares(ys: number[], fitted: number[]): number {
 
 /** Central-difference Jacobian of the model in θ, one row per point. */
 function jacobian(t: number[], xs: number[], model: CurveModel): number[][] {
-  const rows = xs.map(() => new Array<number>(t.length).fill(0))
+  const rows = xs.map(() => Array.from<number>({ length: t.length }).fill(0))
 
   for (let j = 0; j < t.length; j++) {
     const h = 1e-6 * Math.max(1, Math.abs(t[j]))
@@ -160,7 +160,10 @@ function jacobian(t: number[], xs: number[], model: CurveModel): number[][] {
 
 function normalMatrix(J: number[][]): number[][] {
   const p = J[0].length
-  const m = Array.from({ length: p }, () => new Array<number>(p).fill(0))
+
+  const m = Array.from({ length: p }, () =>
+    Array.from<number>({ length: p }).fill(0),
+  )
 
   for (const row of J)
     for (let a = 0; a < p; a++)
@@ -190,7 +193,7 @@ function solve(M: number[][], v: number[]): number[] | null {
     }
   }
 
-  const x = new Array<number>(p).fill(0)
+  const x = Array.from<number>({ length: p }).fill(0)
 
   for (let r = p - 1; r >= 0; r--) {
     let acc = a[r][p]
@@ -207,7 +210,7 @@ function invert(M: number[][]): number[][] | null {
   const columns: number[][] = []
 
   for (let c = 0; c < p; c++) {
-    const e = new Array<number>(p).fill(0)
+    const e = Array.from<number>({ length: p }).fill(0)
     e[c] = 1
     const col = solve(M, e)
 
@@ -396,9 +399,11 @@ export function fitCurve(
   const tCrit = dfResidual > 0 ? tCritical95(dfResidual) : Number.NaN
   const se = (j: number) => (covariance ? Math.sqrt(covariance[j][j]) : null)
 
-  const estimates: CurveParameterEstimate[] = CURVE_PARAMETERS.filter(
+  const fittedParameters = CURVE_PARAMETERS.filter(
     (name) => model === '5pl' || name !== 'G',
-  ).map((name) => {
+  )
+
+  const estimates: CurveParameterEstimate[] = fittedParameters.map((name) => {
     const j = { A: 0, B: 1, C: 2, D: 3, G: 4 }[name]
     const estimate = params[name]
     const seTheta = se(j)

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
 import {
   applyAppBadge,
   disablePush,
@@ -54,12 +54,27 @@ function install(options: {
   return { pushManager, created, notification }
 }
 
+/**
+ * A real data client over a recorded RPC boundary: the calls below are the
+ * requests the push code actually makes, not a stub of its collaborator.
+ */
 function client(publicKey: string | null = KEY) {
-  const rpc = vi.fn(async (name: string) =>
-    name === 'get_push_public_key' ? publicKey : null,
-  )
+  const rpcCalls: Array<{ name: string; args: unknown }> = []
 
-  return { client: { rpc } as unknown as DataClient, rpc }
+  const data = createDataClient(async (input, init) => {
+    const request = new Request(
+      new URL(input instanceof Request ? input.url : input, 'http://app.test'),
+      init,
+    )
+
+    const name = request.url.replace('http://app.test/api/db/rpc/', '')
+
+    rpcCalls.push({ name, args: await request.json() })
+
+    return Response.json(name === 'get_push_public_key' ? publicKey : null)
+  })
+
+  return { client: data, rpcCalls }
 }
 
 beforeEach(() => {
@@ -98,17 +113,20 @@ describe('enablePush', () => {
       request: 'granted',
     })
 
-    const { client: data, rpc } = client()
+    const { client: data, rpcCalls } = client()
     expect(await enablePush(data)).toBe('on')
     expect(notification.requestPermission).toHaveBeenCalled()
     expect(pushManager.subscribe).toHaveBeenCalledWith(
       expect.objectContaining({ userVisibleOnly: true }),
     )
-    expect(rpc).toHaveBeenCalledWith('save_push_subscription', {
-      p_endpoint: 'https://push.example.test/abc',
-      p_p256dh: 'P',
-      p_auth: 'A',
-      p_user_agent: expect.any(String),
+    expect(rpcCalls).toContainEqual({
+      name: 'save_push_subscription',
+      args: {
+        p_endpoint: 'https://push.example.test/abc',
+        p_p256dh: 'P',
+        p_auth: 'A',
+        p_user_agent: expect.any(String),
+      },
     })
   })
 
@@ -134,10 +152,11 @@ describe('disablePush and syncPushSubscription', () => {
   it('forgets the device on the server and in the browser', async () => {
     const existing = fakeSubscription()
     install({ permission: 'granted', existing })
-    const { client: data, rpc } = client()
+    const { client: data, rpcCalls } = client()
     expect(await disablePush(data)).toBe('off')
-    expect(rpc).toHaveBeenCalledWith('remove_push_subscription', {
-      p_endpoint: existing.endpoint,
+    expect(rpcCalls).toContainEqual({
+      name: 'remove_push_subscription',
+      args: { p_endpoint: existing.endpoint },
     })
     expect(existing.unsubscribe).toHaveBeenCalled()
   })
@@ -146,14 +165,16 @@ describe('disablePush and syncPushSubscription', () => {
     install({ permission: 'granted', existing: fakeSubscription() })
     const first = client()
     await syncPushSubscription(first.client)
-    expect(first.rpc).toHaveBeenCalledWith(
-      'save_push_subscription',
-      expect.objectContaining({ p_endpoint: 'https://push.example.test/abc' }),
-    )
+    expect(first.rpcCalls).toContainEqual({
+      name: 'save_push_subscription',
+      args: expect.objectContaining({
+        p_endpoint: 'https://push.example.test/abc',
+      }),
+    })
     install({ permission: 'default' })
     const second = client()
     await syncPushSubscription(second.client)
-    expect(second.rpc).not.toHaveBeenCalled()
+    expect(second.rpcCalls).toEqual([])
   })
 })
 

@@ -59,13 +59,18 @@ export function useLinkedSequences(recordId: string | null) {
       for (const f of files) latest.set(f.record_id, f)
 
       return [...latest.values()]
-        .filter((f) => f.sequence_summary || isSequenceFileName(f.display_name))
-        .map((f) => ({
-          fileRecordId: f.record_id,
-          name: f.display_name,
-          summary: f.sequence_summary,
-          addedAt: f.created_at,
-        }))
+        .flatMap((f) =>
+          f.sequence_summary || isSequenceFileName(f.display_name)
+            ? [
+                {
+                  fileRecordId: f.record_id,
+                  name: f.display_name,
+                  summary: f.sequence_summary,
+                  addedAt: f.created_at,
+                },
+              ]
+            : [],
+        )
         .sort((a, b) => b.addedAt.localeCompare(a.addedAt))
     },
   })

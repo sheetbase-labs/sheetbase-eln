@@ -11,6 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './client-portal'
 
+// SAFETY: `client-portal.tsx` declares `component` in its route options, so the
+// factory-built route always carries one; the router reads it the same way.
 const ClientPortalRoute = Route.options.component as React.ComponentType
 
 const portal = vi.hoisted(() => ({
@@ -35,8 +37,12 @@ const routerMock = vi.hoisted(() => ({
   },
 }))
 
+interface PortalSearchState {
+  value: { tab?: string }
+}
+
 const search = vi.hoisted(() => {
-  const state: { value: { tab?: string } } = { value: {} }
+  const state: PortalSearchState = { value: {} }
 
   return state
 })
@@ -48,21 +54,24 @@ const routeContext = vi.hoisted(() => ({
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route module builds its route object from `createFileRoute` at import time; rendering that component needs the framework's hooks replaced with the URL state, context and navigate spy these tests drive.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
+  createFileRoute: () => (config: { component?: React.ComponentType }) => ({
     useSearch: () => search.value,
     useRouteContext: () => ({ context: routeContext.value }),
     useNavigate: () => navigate,
     options: config,
   }),
-  redirect: (options: unknown) => options,
+  redirect: <Options,>(options: Options) => options,
   useRouter: () => routerMock,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- `authClient` is a Better Auth client built at module scope over its own fetch; the sign-out outcome and its refusal are what these tests assert.
 vi.mock('#/lib/auth-client', () => ({
   authClient: { signOut: signOutMock },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- `client-portal` opens its data client at module scope, so the portal reads cannot be reached through a fetch seam; these fixtures are the rows the sections render.
 vi.mock('#/lib/client-portal', async (importOriginal) => ({
   ...(await importOriginal()),
   ...portal,

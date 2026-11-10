@@ -6,7 +6,6 @@ import { createDataClient } from '#/lib/data-client'
 import { fetchUserPreferences, setUserAppearance } from '#/lib/user-preferences'
 import type { Appearance } from '#/lib/user-preferences'
 import {
-  applyThemePref,
   initTheme,
   readStoredThemePref,
   useTheme as useThemeStore,
@@ -108,5 +107,3 @@ export function useTheme() {
 
   return value
 }
-
-export { applyThemePref }

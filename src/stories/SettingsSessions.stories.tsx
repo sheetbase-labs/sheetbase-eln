@@ -40,7 +40,7 @@ type Story = StoryObj<typeof meta>
 
 /** A story's client: the sessions read either seeded, or held in a state. */
 function provider(read: 'loading' | 'error' | ReadSeed) {
-  const seeded = typeof read === 'object' && 'key' in read
+  const seeded = read !== 'loading' && read !== 'error'
   const client = screenQueryClient({ data: seeded ? [read] : [] })
 
   if (!seeded)

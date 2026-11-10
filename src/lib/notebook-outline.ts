@@ -7,6 +7,8 @@
  * every entry resolves to its stable block UUID plus the heading's index
  * within the block payload.
  */
+import { z } from 'zod'
+
 import type { NotebookBlock } from './notebook-data'
 
 export interface NotebookOutlineEntry {
@@ -26,12 +28,46 @@ interface OutlineRichTextNode {
   content?: OutlineRichTextNode[]
 }
 
+/**
+ * A rich_text payload is the editor's document: a tree of nodes whose fields
+ * this projection reads and whose unknown parts it ignores. Decoded once here,
+ * so the walk below branches on decoded values rather than on raw JSON.
+ */
+const outlineNodeSchema: z.ZodType<OutlineRichTextNode> = z.lazy(() =>
+  z
+    .object({
+      type: z.string().optional().catch(undefined),
+      attrs: z
+        .object({ level: z.number().optional().catch(undefined) })
+        .optional()
+        .catch(undefined),
+      text: z.string().optional().catch(undefined),
+      content: z.array(outlineNodeSchema.catch({})).optional().catch(undefined),
+    })
+    .catch({}),
+)
+
+const outlineDocumentSchema = z.object({
+  doc: z
+    .object({ content: z.array(outlineNodeSchema.catch({})).optional() })
+    .optional(),
+})
+
+/** The top-level nodes of a block's rich_text document; anything else is empty. */
+function outlineContent(
+  payload: NotebookBlock['payload'],
+): OutlineRichTextNode[] {
+  const document = outlineDocumentSchema.safeParse(payload)
+
+  return document.success ? (document.data.doc?.content ?? []) : []
+}
+
 function headingText(node: OutlineRichTextNode): string {
   const parts: string[] = []
 
   const walk = (content: Array<OutlineRichTextNode> | undefined) => {
     for (const child of content ?? []) {
-      if (typeof child.text === 'string') parts.push(child.text)
+      if (child.text !== undefined) parts.push(child.text)
 
       if (Array.isArray(child.content)) walk(child.content)
     }
@@ -57,12 +93,8 @@ export function notebookOutline(
   for (const block of [...blocks].sort((a, b) => a.order - b.order)) {
     if (block.type !== 'rich_text') continue
 
-    const doc = block.payload as unknown as {
-      doc?: { content?: OutlineRichTextNode[] }
-    }
-
-    const docContent = doc.doc?.content
-    const content = Array.isArray(docContent) ? docContent : []
+    const doc = block.payload
+    const content = outlineContent(doc)
     content.forEach((node, index) => {
       if (node.type !== 'heading') return
       const level = node.attrs?.level
@@ -160,10 +192,10 @@ export function notebookSectionSpans(
       }
     }
 
-    spans.set(section.anchorId, {
-      blockIds: section.span,
-      ...(nodeRange ? { nodeRange } : {}),
-    })
+    const span: NotebookSectionSpan = { blockIds: section.span }
+
+    if (nodeRange) span.nodeRange = nodeRange
+    spans.set(section.anchorId, span)
   }
 
   for (const block of ordered) {
@@ -226,24 +258,13 @@ export function notebookSectionSpans(
 }
 
 function blockNodeCount(block: Pick<NotebookBlock, 'payload'>): number {
-  const doc = block.payload as unknown as {
-    doc?: { content?: OutlineRichTextNode[] }
-  }
-
-  const content = doc.doc?.content
-
-  return Array.isArray(content) ? content.length : 0
+  return outlineContent(block.payload).length
 }
 
 function blockHeadings(
   block: Pick<NotebookBlock, 'id' | 'payload'>,
 ): Array<{ anchorId: string; level: 2 | 3; index: number }> {
-  const doc = block.payload as unknown as {
-    doc?: { content?: OutlineRichTextNode[] }
-  }
-
-  const docContent = doc.doc?.content
-  const content = Array.isArray(docContent) ? docContent : []
+  const content = outlineContent(block.payload)
   const result: Array<{ anchorId: string; level: 2 | 3; index: number }> = []
   content.forEach((node, index) => {
     if (node.type !== 'heading') return

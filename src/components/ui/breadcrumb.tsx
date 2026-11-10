@@ -42,6 +42,7 @@ export function Breadcrumb({
     >
       <ol className="m-0 flex list-none flex-wrap items-center gap-x-1.5 gap-y-0.5 p-0">
         {trail.map((crumb, index) => (
+          // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- A trail is the page's fixed path: it neither reorders nor filters, so a crumb's position is its identity and it is re-rendered whole on every navigation.
           <li
             key={index}
             className="flex min-w-0 items-center gap-1.5"

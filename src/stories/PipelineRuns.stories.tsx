@@ -282,6 +282,7 @@ export const AddToNotebook: Story = {
   render: () => (
     <AddRunToNotebook
       paragraphs={[
+        // SAFETY: the citation reads a paragraph's `text` through its plain-text extractor, which is all this story's paragraph carries.
         { text: 'Normalise plate reads ran on 2 October.' } as never,
       ]}
     />

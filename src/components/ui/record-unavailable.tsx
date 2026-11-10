@@ -21,7 +21,7 @@ export function RecordUnavailable({
     isLoading: boolean
     isError: boolean
     error: unknown
-    refetch: () => unknown
+    refetch: () => void
   }
   /** Lower-case noun, e.g. "sample". */
   what: string
@@ -37,7 +37,7 @@ export function RecordUnavailable({
         <ProjectListFailure
           error={query.error}
           what={what}
-          onRetry={() => void query.refetch()}
+          onRetry={() => query.refetch()}
         />
       ) : (
         <NotFoundNotice

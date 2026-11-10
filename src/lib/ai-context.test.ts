@@ -95,7 +95,8 @@ function mockClient(
   rpcImpl?: (name: string, args: RecordedRpcArgs) => JsonValue,
 ): StubClient {
   const rpcMock = vi.fn(
-    async (name: string, args: RecordedRpcArgs) => rpcImpl?.(name, args) ?? null,
+    async (name: string, args: RecordedRpcArgs) =>
+      rpcImpl?.(name, args) ?? null,
   )
 
   const methods: StubMethods = {

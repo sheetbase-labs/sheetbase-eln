@@ -28,18 +28,18 @@ export interface ReportingNames {
 }
 
 /** The views the database creates for built-in models, before it answers. */
-const BUILT_IN_VIEWS: Readonly<Record<string, string | undefined>> = {
-  experiment: 'experiments',
-  sample: 'samples',
-  material: 'materials',
-  protocol_template: 'protocol_templates',
-  study: 'studies',
-  notebook_template: 'notebook_templates',
-  file: 'files',
-  report: 'reports',
-  project: 'projects',
-  instrument: 'instruments',
-}
+const BUILT_IN_VIEWS = new Map<string, string>([
+  ['experiment', 'experiments'],
+  ['sample', 'samples'],
+  ['material', 'materials'],
+  ['protocol_template', 'protocol_templates'],
+  ['study', 'studies'],
+  ['notebook_template', 'notebook_templates'],
+  ['file', 'files'],
+  ['report', 'reports'],
+  ['project', 'projects'],
+  ['instrument', 'instruments'],
+])
 
 /** The reporting view a model's objects are read from, schema-qualified. */
 export function reportingViewName(
@@ -48,7 +48,7 @@ export function reportingViewName(
 ): string {
   const view =
     names?.viewName(modelKey) ??
-    BUILT_IN_VIEWS[modelKey] ??
+    BUILT_IN_VIEWS.get(modelKey) ??
     pgIdentifier(modelKey)
 
   return view.includes('.') ? view : `data.${view}`
@@ -190,10 +190,10 @@ function filtersFromSearch(search: URLSearchParams): string[] {
 }
 
 /** Reporting views name the display ID `display_id` and carry no project id. */
-const VIEW_COLUMNS: Readonly<Record<string, string | null>> = {
-  identifier: 'display_id',
-  project_id: null,
-}
+const VIEW_COLUMNS = new Map<string, string | null>([
+  ['identifier', 'display_id'],
+  ['project_id', null],
+])
 
 function whereFromFilters(filters: string[], view: boolean): string[] {
   return filters.flatMap((filter) => {
@@ -201,9 +201,9 @@ function whereFromFilters(filters: string[], view: boolean): string[] {
 
     if (!match) return []
     const [, rawColumn = '', op, rest] = match
-    const column = view ? (VIEW_COLUMNS[rawColumn] ?? rawColumn) : rawColumn
+    const column = view ? (VIEW_COLUMNS.get(rawColumn) ?? rawColumn) : rawColumn
 
-    if (view && VIEW_COLUMNS[rawColumn] === null) return []
+    if (view && VIEW_COLUMNS.get(rawColumn) === null) return []
 
     if (op === 'eq') return [`${column} = ${sqlLiteral(rest)}`]
 

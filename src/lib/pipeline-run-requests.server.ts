@@ -6,6 +6,8 @@
  * returns at once; a worker (./pipeline-queue.server) does the work. GET reports
  * the run and its queue state so a client can follow it to the end.
  */
+import { z } from 'zod'
+
 import { PooledClient } from '#/db/pool.server'
 import { annotateRequest } from '#/lib/request-log'
 import type { QueryResultRow } from 'pg'
@@ -57,6 +59,38 @@ export interface PipelineRunRequestDeps {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Every request body here starts as JSON, so each is decoded once, here. */
+const anyObject = z.looseObject({})
+
+/** A JSON map, or an empty one when the field is absent or not a map at all. */
+const jsonObjectOrEmpty = z
+  .unknown()
+  .transform((value) => (anyObject.safeParse(value).success ? value : {}))
+  .pipe(pipelineJsonObjectSchema)
+
+/** Dataset Version ids by input name, or an empty map when none is given. */
+const inputVersionsOrEmpty = z
+  .unknown()
+  .transform((value) => (anyObject.safeParse(value).success ? value : {}))
+  .pipe(z.record(z.string(), z.string()))
+
+const executeBodySchema = z.object({
+  runId: z.string().regex(UUID),
+  answer: z.unknown().optional(),
+})
+
+const trialBodySchema = z.object({
+  workspaceId: z.string().regex(UUID),
+  configuration: anyObject,
+  inputVersions: inputVersionsOrEmpty.optional(),
+  parameters: jsonObjectOrEmpty.optional(),
+})
+
+const reproduceBodySchema = z.object({
+  runId: z.string().regex(UUID),
+  tolerance: z.number().finite().min(0).max(1).optional().catch(undefined),
+})
 
 function responseError(
   status: number,
@@ -130,10 +164,10 @@ export async function handlePipelineExecute(
     return responseError(401, 'unauthenticated', 'Authentication is required.')
   }
 
-  let body: unknown
+  let raw: unknown
 
   try {
-    body = await request.json()
+    raw = await request.json()
   } catch {
     return responseError(
       400,
@@ -142,22 +176,15 @@ export async function handlePipelineExecute(
     )
   }
 
-  const runId =
-    body &&
-    typeof body === 'object' &&
-    'runId' in body &&
-    typeof body.runId === 'string'
-      ? body.runId
-      : null
+  const parsed = executeBodySchema.safeParse(raw)
 
-  if (!runId || !UUID.test(runId)) {
+  if (!parsed.success) {
     return responseError(400, 'invalid_request', 'A valid runId is required.')
   }
 
-  const hasAnswer =
-    body !== null && typeof body === 'object' && 'answer' in body
+  const { runId, answer } = parsed.data
 
-  const answer = hasAnswer ? (body as { answer: unknown }).answer : undefined
+  const hasAnswer = answer !== undefined
   const userId = session.user.id
 
   const conn = await deps.connect()
@@ -236,9 +263,6 @@ export async function handlePipelineExecute(
 const trialLimiter = createRateLimiter({ maxRequests: 30, windowSeconds: 60 })
 const TRIAL_BODY_BYTES = 512 * 1024
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
-
 /**
  * POST /api/pipelines/try-draft — run a configuration the editor holds, against
  * chosen input Dataset Versions, and answer with a preview of its result. Nothing
@@ -269,7 +293,7 @@ export async function handlePipelineTryDraft(
     )
   }
 
-  let body: unknown
+  let raw: unknown
 
   try {
     const text = await request.text()
@@ -278,7 +302,7 @@ export async function handlePipelineTryDraft(
       return responseError(413, 'body_too_large', 'The draft is too large.')
     }
 
-    body = JSON.parse(text) as unknown
+    raw = JSON.parse(text)
   } catch {
     return responseError(
       400,
@@ -287,12 +311,27 @@ export async function handlePipelineTryDraft(
     )
   }
 
-  if (
-    !isRecord(body) ||
-    typeof body.workspaceId !== 'string' ||
-    !UUID.test(body.workspaceId) ||
-    !isRecord(body.configuration)
-  ) {
+  const draft = trialBodySchema.safeParse(raw)
+
+  if (!draft.success) {
+    const field = draft.error.issues[0]?.path[0]
+
+    if (field === 'parameters') {
+      return responseError(
+        400,
+        'invalid_request',
+        'parameters must contain finite JSON values.',
+      )
+    }
+
+    if (field === 'inputVersions') {
+      return responseError(
+        400,
+        'invalid_request',
+        'inputVersions must map each input to a Dataset Version id.',
+      )
+    }
+
     return responseError(
       400,
       'invalid_request',
@@ -300,26 +339,7 @@ export async function handlePipelineTryDraft(
     )
   }
 
-  const inputVersions = isRecord(body.inputVersions) ? body.inputVersions : {}
-  const parameters = pipelineJsonObjectSchema.safeParse(
-    isRecord(body.parameters) ? body.parameters : {},
-  )
-
-  if (!parameters.success) {
-    return responseError(
-      400,
-      'invalid_request',
-      'parameters must contain finite JSON values.',
-    )
-  }
-
-  if (Object.values(inputVersions).some((id) => typeof id !== 'string')) {
-    return responseError(
-      400,
-      'invalid_request',
-      'inputVersions must map each input to a Dataset Version id.',
-    )
-  }
+  const body = draft.data
 
   annotateRequest({ workspace: { id: body.workspaceId } })
 
@@ -328,8 +348,8 @@ export async function handlePipelineTryDraft(
     {
       workspaceId: body.workspaceId,
       configuration: body.configuration,
-      inputVersions: inputVersions as Record<string, string>,
-      parameters: parameters.data,
+      inputVersions: body.inputVersions ?? {},
+      parameters: body.parameters ?? {},
     },
     pipelineExecuteDeps(deps),
   )
@@ -375,10 +395,10 @@ export async function handlePipelineReproduce(
     )
   }
 
-  let body: unknown
+  let raw: unknown
 
   try {
-    body = await request.json()
+    raw = await request.json()
   } catch {
     return responseError(
       400,
@@ -387,25 +407,15 @@ export async function handlePipelineReproduce(
     )
   }
 
-  if (
-    !isRecord(body) ||
-    typeof body.runId !== 'string' ||
-    !UUID.test(body.runId)
-  ) {
+  const parsed = reproduceBodySchema.safeParse(raw)
+
+  if (!parsed.success) {
     return responseError(400, 'invalid_request', 'A valid runId is required.')
   }
 
-  const tolerance =
-    typeof body.tolerance === 'number' &&
-    Number.isFinite(body.tolerance) &&
-    body.tolerance >= 0 &&
-    body.tolerance <= 1
-      ? body.tolerance
-      : undefined
-
   const report = await reproducePipelineRun(
     caller.user.id,
-    { runId: body.runId, tolerance },
+    { runId: parsed.data.runId, tolerance: parsed.data.tolerance },
     pipelineExecuteDeps(deps),
   )
 

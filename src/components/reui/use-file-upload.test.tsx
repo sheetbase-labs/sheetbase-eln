@@ -13,6 +13,12 @@ import type { FileWithPreview } from './use-file-upload'
  *
  * The first test is the regression: the callback used to be invoked from inside
  * a React state updater, which StrictMode runs twice, so one pick reported twice.
+ *
+ * Local suite, not a registry file: `use-file-upload` itself is copy-and-own
+ * source (ADR-0055), and these tests are ours. Strict-lint pass, 2026-11-10
+ * (ADR-0057): `setup` keeps its inferred return type instead of an anonymous
+ * one, and the removal test reads `files().at(0)` and fails loudly when there is
+ * no entry, instead of guarding a value the array type called non-null.
  */
 
 afterEach(cleanup)
@@ -73,13 +79,7 @@ function csv(name: string): File {
 }
 
 /** Render the hook inside StrictMode, so a doubled updater would show. */
-function setup(
-  options: Partial<Parameters<typeof useFileUpload>[0]> = {},
-): {
-  files: () => FileWithPreview[]
-  actions: () => ReturnType<typeof useFileUpload>[1]
-  onFilesChange: ReturnType<typeof vi.fn>
-} {
+function setup(options: Partial<Parameters<typeof useFileUpload>[0]> = {}) {
   const onFilesChange = vi.fn()
 
   const { result } = renderHook(
@@ -120,18 +120,23 @@ describe('useFileUpload', () => {
       actions().addFiles([csv('plate-01.csv'), csv('plate-02.csv')])
     })
 
-    const removed = files()[0]
-    expect(removed?.preview).toBeTruthy()
+    const removed = files().at(0)
+
+    if (!removed) throw new Error('the hook kept no files after two were added')
+
+    expect(removed.preview).toBeTruthy()
 
     act(() => {
-      actions().removeFile(removed?.id ?? '')
+      actions().removeFile(removed.id)
     })
 
     expect(files().map((entry) => entry.file.name)).toEqual(['plate-02.csv'])
     expect(onFilesChange).toHaveBeenLastCalledWith([
-      expect.objectContaining({ file: expect.objectContaining({ name: 'plate-02.csv' }) }),
+      expect.objectContaining({
+        file: expect.objectContaining({ name: 'plate-02.csv' }),
+      }),
     ])
-    expect(revokeObjectURL).toHaveBeenCalledWith(removed?.preview)
+    expect(revokeObjectURL).toHaveBeenCalledWith(removed.preview)
   })
 
   it('reports an empty selection when cleared, and releases every preview', () => {
@@ -154,6 +159,7 @@ describe('useFileUpload', () => {
 
   it('releases previews it created when the hook unmounts', () => {
     const onFilesChange = vi.fn()
+
     const { result, unmount } = renderHook(
       () => useFileUpload({ multiple: true, onFilesChange }),
       {
@@ -188,8 +194,8 @@ describe('useFileUpload', () => {
     expect(files().map((entry) => entry.file.name)).toEqual(['plate-02.csv'])
     // The registry form's own order, once per call: an empty clear before each
     // pick, then the selection itself.
-    expect(onFilesChange.mock.calls.map(([entries]) => entries.length)).toEqual([
-      0, 1, 0, 1,
-    ])
+    expect(onFilesChange.mock.calls.map(([entries]) => entries.length)).toEqual(
+      [0, 1, 0, 1],
+    )
   })
 })

@@ -24,30 +24,9 @@ import {
   restoreSheetInstance,
 } from '#/lib/sheet-instance-data'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
+import { projectSheetsKey, sheetOrigin } from './project-sheets-values'
 
-export const projectSheetsKey = (projectId: string, archived: boolean) =>
-  [
-    'ui-port',
-    'project-sheets',
-    projectId,
-    archived ? 'archived' : 'active',
-  ] as const
-
-/** What a sheet was made from, in the words a person uses. */
-export function sheetOrigin(
-  sheet: Pick<
-    SheetInstance,
-    'sourceDefinitionVersionId' | 'duplicatedFromInstanceId'
-  >,
-) {
-  if (sheet.sourceDefinitionVersionId)
-    return t('projects.projectSheets.origin.definition')
-
-  if (sheet.duplicatedFromInstanceId)
-    return t('projects.projectSheets.origin.copy')
-
-  return t('projects.projectSheets.origin.working')
-}
+export { projectSheetsKey, sheetOrigin } from './project-sheets-values'
 
 /**
  * The project's Sheets tab: every working sheet in the project, where it came
@@ -70,6 +49,7 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'project-sheets'] })
 
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A failed mutation carries whatever the transport threw; its message is read only when it is an Error.
   const failed = (title: string) => (error: unknown) =>
     toast.error(
       t('projects.projectSheets.failed', {

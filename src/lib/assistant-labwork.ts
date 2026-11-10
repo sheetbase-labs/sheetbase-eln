@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { PARENT_ROLES } from './bio-registry'
+import type { ModelFieldRecordValues } from './model-fields'
 
 /**
  * Running the lab from the assistant: counting storage, holding and releasing
@@ -488,7 +489,7 @@ export type LabworkAction =
       projectId: string
       recordKind: string
       title: string
-      customFields: Record<string, unknown>
+      customFields: ModelFieldRecordValues['customFields']
       parents?: { recordId: string; role: string }[]
     }
   | {
@@ -496,7 +497,7 @@ export type LabworkAction =
       compoundId: string
       compound: string
       title: string
-      customFields: Record<string, unknown>
+      customFields: ModelFieldRecordValues['customFields']
     }
   | { kind: 'workflow.enrol'; sampleId: string; workflowId: string }
   | { kind: 'workflow.leave'; sampleId: string; runId: string }

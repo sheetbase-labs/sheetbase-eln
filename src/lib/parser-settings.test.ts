@@ -7,6 +7,24 @@ import {
   parserSettingsQueryKeys,
 } from './parser-settings'
 
+/**
+ * The request the data client issued, rebuilt as a real `Request` so a test can
+ * read its URL and JSON body without asserting on an untyped call tuple.
+ */
+function issuedRequest(
+  call: [RequestInfo | URL, RequestInit?] | undefined,
+): Request {
+  if (!call) throw new Error('The data client issued no request.')
+
+  return new Request(
+    new URL(
+      call[0] instanceof Request ? call[0].url : call[0],
+      'http://app.test',
+    ),
+    call[1],
+  )
+}
+
 describe('canonical parser settings boundary', () => {
   it('reads persisted versions and linked instruments through the same-origin workspace boundary', async () => {
     const rows = [{ id: 'persisted-parser', parser_versions: [{ version: 4 }] }]
@@ -18,7 +36,7 @@ describe('canonical parser settings boundary', () => {
     expect(
       await fetchParserSettings(createDataClient(fetch), 'workspace-a'),
     ).toEqual(rows)
-    const url = String(fetch.mock.calls[0]?.[0])
+    const url = issuedRequest(fetch.mock.calls[0]).url
     expect(url).toContain('/api/db/parsers?workspace_id=eq.workspace-a')
     expect(url).toContain('instruments(id,name)')
     expect(url).toContain(
@@ -45,9 +63,9 @@ describe('canonical parser settings boundary', () => {
       signature: { requiredHeaders: ['ntu'] },
       mapping: { ntu: 'field-c' },
     })
-    expect(fetch.mock.calls[0]?.[0]).toBe('/api/db/rpc/create_parser_version')
-    const init = fetch.mock.calls[0]?.[1] as RequestInit
-    expect(JSON.parse(String(init.body))).toEqual({
+    const request = issuedRequest(fetch.mock.calls[0])
+    expect(request.url).toBe('http://app.test/api/db/rpc/create_parser_version')
+    expect(await request.json()).toEqual({
       p_workspace_id: 'workspace-a',
       p_key: 'tb02',
       p_name: 'TB-02',
@@ -70,9 +88,11 @@ describe('canonical parser settings boundary', () => {
     await expect(
       approveParserVersion(createDataClient(fetch), 'version-c'),
     ).rejects.toBeInstanceOf(DataClientError)
-    expect(fetch.mock.calls[0]?.[0]).toBe('/api/db/rpc/approve_parser_version')
-    const init = fetch.mock.calls[0]?.[1] as RequestInit
-    expect(JSON.parse(String(init.body))).toEqual({
+    const request = issuedRequest(fetch.mock.calls[0])
+    expect(request.url).toBe(
+      'http://app.test/api/db/rpc/approve_parser_version',
+    )
+    expect(await request.json()).toEqual({
       p_parser_version_id: 'version-c',
     })
   })

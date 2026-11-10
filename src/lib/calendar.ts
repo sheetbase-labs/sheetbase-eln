@@ -7,6 +7,8 @@
  * boundary; these helpers drive the UI, normalise wire shapes and map RPC
  * error codes to actionable messages.
  */
+import type { JSONType } from 'zod'
+
 import type { DataClient } from './data-client'
 import { DataClientError } from './data-client'
 import { dateTimeFormat } from './intl-cache'
@@ -14,6 +16,12 @@ import { dateTimeFormat } from './intl-cache'
 // ---------------------------------------------------------------------------
 // Wire shapes (PostgREST snake_case).
 // ---------------------------------------------------------------------------
+
+/**
+ * `calendar_resources.metadata` as stored: JSONB this module only carries
+ * through to the wire and the RPC arguments.
+ */
+type CalendarResourceMetadata = { [key: string]: JSONType }
 
 export type CalendarResourceType = 'instrument' | 'room' | 'equipment'
 
@@ -36,7 +44,7 @@ export interface CalendarResourceWire {
   capacity: number
   timezone: string
   status: CalendarResourceStatus
-  metadata: Record<string, unknown>
+  metadata: CalendarResourceMetadata
   created_at: string
   updated_at: string
   created_by_user_id: string | null
@@ -121,7 +129,7 @@ export interface CalendarResource {
   capacity: number
   timezone: string
   status: CalendarResourceStatus
-  metadata: Record<string, unknown>
+  metadata: CalendarResourceMetadata
   createdAt: string
   updatedAt: string
 }
@@ -428,7 +436,7 @@ export async function createCalendarResource(
     capacity?: number
     timezone?: string
     projectId?: string | null
-    metadata?: Record<string, unknown>
+    metadata?: CalendarResourceMetadata
   },
 ): Promise<CalendarResource> {
   const wire = await client.rpc<CalendarResourceWire>(
@@ -565,30 +573,42 @@ export async function cancelBooking(
 // Error mapping.
 // ---------------------------------------------------------------------------
 
-export function describeCalendarError(error: unknown): string {
+export function describeCalendarError(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- a caught throw is untyped by definition; `instanceof` below narrows it to the client error.
+  error: unknown,
+): string {
   if (!(error instanceof DataClientError))
     return 'Could not complete the calendar operation. Try again.'
 
-  const messages: Record<string, string> = {
-    SB001: 'This booking was edited by someone else. Refresh and try again.',
-    SB005: 'The booking input is invalid. Check the details and try again.',
-    SB009: 'The linked record is not the expected type.',
-    SB016: 'The selected item belongs to a different workspace.',
-    SB115:
+  const messages = new Map<string, string>([
+    [
+      'SB001',
+      'This booking was edited by someone else. Refresh and try again.',
+    ],
+    ['SB005', 'The booking input is invalid. Check the details and try again.'],
+    ['SB009', 'The linked record is not the expected type.'],
+    ['SB016', 'The selected item belongs to a different workspace.'],
+    [
+      'SB115',
       'You are not qualified to book this instrument. A workspace owner can grant a qualification on the instrument record.',
-    SB116:
+    ],
+    [
+      'SB116',
       'This instrument’s calibration is overdue. Record a new calibration on the instrument record before booking.',
-    SB135:
+    ],
+    [
+      'SB135',
       'This instrument is out of service, so it can’t be booked right now. Check the instrument record for when it should be back.',
-    SB020: 'This time overlaps with an existing booking for that resource.',
-    SB021: 'The resource was not found in this workspace.',
-    SB022: 'The booking was not found in this workspace.',
-    SB023: 'The end time must be after the start time.',
-    SB024: 'This booking is already cancelled.',
-    '42501': 'You do not have access to this calendar.',
-  }
+    ],
+    ['SB020', 'This time overlaps with an existing booking for that resource.'],
+    ['SB021', 'The resource was not found in this workspace.'],
+    ['SB022', 'The booking was not found in this workspace.'],
+    ['SB023', 'The end time must be after the start time.'],
+    ['SB024', 'This booking is already cancelled.'],
+    ['42501', 'You do not have access to this calendar.'],
+  ])
 
-  return messages[error.code] ?? error.message
+  return messages.get(error.code) ?? error.message
 }
 
 // ---------------------------------------------------------------------------
@@ -598,6 +618,20 @@ export function describeCalendarError(error: unknown): string {
 // fall on the correct wall-clock day. We rely on the platform Intl API; no
 // date library dependency is introduced.
 // ---------------------------------------------------------------------------
+
+/** One numeric field of a formatted instant, e.g. its day. */
+function datePartNumber(
+  parts: readonly Intl.DateTimeFormatPart[],
+  type: string,
+): number {
+  const part = parts.find((candidate) => candidate.type === type)
+
+  if (part === undefined) {
+    throw new Error(`The formatter gave no ${type} for a date.`)
+  }
+
+  return Number(part.value)
+}
 
 /** Local midnight in the given timezone as a UTC instant. */
 export function startOfDayInZone(date: Date, timeZone: string): Date {
@@ -610,9 +644,9 @@ export function startOfDayInZone(date: Date, timeZone: string): Date {
     day: '2-digit',
   }).formatToParts(date)
 
-  const y = Number(parts.find((p) => p.type === 'year')!.value)
-  const m = Number(parts.find((p) => p.type === 'month')!.value)
-  const d = Number(parts.find((p) => p.type === 'day')!.value)
+  const y = datePartNumber(parts, 'year')
+  const m = datePartNumber(parts, 'month')
+  const d = datePartNumber(parts, 'day')
   // Build the wall-clock midnight, then find the UTC instant whose offset
   // maps back to it. Round-trip via the formatter to get the offset.
   const wallMidnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0))
@@ -634,7 +668,7 @@ function wallClockOffsetMs(instant: Date, timeZone: string): number {
     second: '2-digit',
   }).formatToParts(instant)
 
-  const get = (t: string) => Number(utcParts.find((p) => p.type === t)!.value)
+  const get = (t: string) => datePartNumber(utcParts, t)
 
   const wallMs = Date.UTC(
     get('year'),
@@ -675,11 +709,7 @@ export function addMonths(date: Date, months: number): Date {
 }
 
 /** The [start, end) window for a view centred on `cursor`. */
-export function viewRange(
-  view: CalendarView,
-  cursor: Date,
-  timeZone: string,
-): { start: Date; end: Date } {
+export function viewRange(view: CalendarView, cursor: Date, timeZone: string) {
   if (view === 'day') {
     const start = startOfDayInZone(cursor, timeZone)
 
@@ -777,17 +807,17 @@ function wallHourOnSameDay(instant: Date, timeZone: string): number | null {
     day: '2-digit',
   }).formatToParts(instant)
 
-  const hour = Number(parts.find((p) => p.type === 'hour')!.value)
+  const hour = datePartNumber(parts, 'hour')
 
   return hour === 24 ? 0 : hour
 }
 
 /** Colour tokens for booking categories (matches the mockup palette). */
-export const BOOKING_COLOR_TOKENS: Record<string, string> = {
+export const BOOKING_COLOR_TOKENS = {
   blue: 'bg-selection text-info border-info',
   green: 'bg-success-wash text-success-text border-success',
   purple: 'bg-review-wash text-review border-review',
   orange: 'bg-warning-wash text-warning-text border-warning-border',
-}
+} satisfies Record<string, string>
 
 export const BOOKING_COLOR_OPTIONS = Object.keys(BOOKING_COLOR_TOKENS)

@@ -19,12 +19,12 @@ const noticeVariants = cva(
   },
 )
 
-const defaultIcon: Record<string, IconName> = {
+const defaultIcon = {
   info: 'info',
   warn: 'warn',
   bad: 'warn',
   review: 'lock',
-}
+} satisfies Record<string, IconName>
 
 export function Notice({
   tone,

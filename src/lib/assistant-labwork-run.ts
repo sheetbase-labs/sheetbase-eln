@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import type { DataClient } from './data-client'
 import { setFavourite } from './favourites'
 import {
@@ -17,8 +19,12 @@ import { enrolSample, leaveRun } from './sample-workflows'
 import { prepareSolution } from './solution-prep'
 import { completeStocktake, startStocktake } from './stocktake'
 import { endStepTimer } from './step-timers'
-import { setFindingStatus, setLabWatcher, snoozeUntil } from './lab-watchers'
-import type { WatcherKind } from './lab-watchers'
+import {
+  WATCHER_KINDS,
+  setFindingStatus,
+  setLabWatcher,
+  snoozeUntil,
+} from './lab-watchers'
 import { requestShellRefresh } from './shell-refresh'
 import type { LabworkAction, LabworkActionResult } from './assistant-labwork'
 
@@ -112,6 +118,7 @@ export async function runLabworkAction(
 
       if (made?.id) {
         for (const parent of action.parents ?? [])
+          // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each parent is one write to the same new record: they must not overlap, and a refusal stops the rest so no half-linked entry is left.
           await addParent(client, made.id, parent.recordId, asRole(parent.role))
       }
 
@@ -172,7 +179,7 @@ export async function runLabworkAction(
     case 'watcher.set':
       await setLabWatcher(client, {
         workspaceId: action.workspaceId,
-        kind: action.watcher as WatcherKind,
+        kind: z.enum(WATCHER_KINDS).parse(action.watcher),
         enabled: action.enabled,
         schedule: action.schedule,
       })

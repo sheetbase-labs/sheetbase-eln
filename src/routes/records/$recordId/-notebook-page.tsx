@@ -4857,6 +4857,95 @@ function notebookProperties({
   )
 }
 
+/** Who else worked on this record, or a word about signing in to see it. */
+function InspectorHistory({
+  recordId,
+  currentUserId,
+  currentUserName,
+}: Pick<
+  ReturnType<typeof useNotebookInspectorModel>,
+  'currentUserId' | 'currentUserName'
+> & { recordId: string }) {
+  if (!currentUserId || !currentUserName)
+    return <EmptyHint>{t('notebook.notebookPage.signInToSee')}</EmptyHint>
+
+  return (
+    <NotebookHistoryPanel
+      recordId={recordId}
+      currentUserId={currentUserId}
+      currentUserName={currentUserName}
+    />
+  )
+}
+
+/** Comments on the live record, or on the frozen revision being reviewed. */
+function InspectorComments({
+  record,
+  workspaceId,
+  currentUserId,
+  currentUserName,
+  canEditMetadata,
+  isHistorical,
+  commentsRevisionId,
+  revisionEvidence,
+}: Pick<
+  ReturnType<typeof useNotebookInspectorModel>,
+  | 'record'
+  | 'workspaceId'
+  | 'currentUserId'
+  | 'currentUserName'
+  | 'canEditMetadata'
+  | 'isHistorical'
+  | 'commentsRevisionId'
+  | 'revisionEvidence'
+>) {
+  const reviewer = currentUserName ?? t('notebook.notebookPage.reviewer')
+
+  if (!isHistorical)
+    return (
+      <CommentPanel
+        recordId={record.id}
+        workspaceId={workspaceId}
+        currentUserId={currentUserId ?? null}
+        currentUserName={reviewer}
+        canComment={canEditMetadata && !record.archivedAt}
+      />
+    )
+
+  if (!commentsRevisionId || !revisionEvidence)
+    return (
+      <EmptyHint>
+        {t('notebook.notebookPage.commentsAreUnavailableWithout')}
+      </EmptyHint>
+    )
+
+  return (
+    <CommentPanel
+      key={commentsRevisionId}
+      revisionId={commentsRevisionId}
+      targetKind="revision"
+      target={{}}
+      currentUserId={currentUserId ?? null}
+      currentUserName={reviewer}
+      canComment={false}
+    />
+  )
+}
+
+/** What has happened on this record, once it has loaded. */
+function InspectorActivity({
+  loading,
+  items,
+}: {
+  loading: ReturnType<typeof useNotebookInspectorModel>['activityLoading']
+  items: ReturnType<typeof useNotebookInspectorModel>['activityItems']
+}) {
+  if (loading)
+    return <EmptyHint>{t('notebook.notebookPage.loadingActivity')}</EmptyHint>
+
+  return <ActivityFeed items={items} />
+}
+
 export function NotebookInspector(
   props: Parameters<typeof useNotebookInspectorModel>[0],
 ) {
@@ -4917,47 +5006,27 @@ export function NotebookInspector(
     {
       id: 'history',
       label: t('notebook.notebookPage.historyLabel'),
-      content:
-        currentUserId && currentUserName ? (
-          <NotebookHistoryPanel
-            recordId={record.id}
-            currentUserId={currentUserId}
-            currentUserName={currentUserName}
-          />
-        ) : (
-          <EmptyHint>{t('notebook.notebookPage.signInToSee')}</EmptyHint>
-        ),
+      content: (
+        <InspectorHistory
+          recordId={record.id}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+        />
+      ),
     },
     {
       id: 'comments',
       label: t('notebook.notebookPage.commentsLabel'),
-      content: isHistorical ? (
-        commentsRevisionId && revisionEvidence ? (
-          <CommentPanel
-            key={commentsRevisionId}
-            revisionId={commentsRevisionId}
-            targetKind="revision"
-            target={{}}
-            currentUserId={currentUserId ?? null}
-            currentUserName={
-              currentUserName ?? t('notebook.notebookPage.reviewer')
-            }
-            canComment={false}
-          />
-        ) : (
-          <EmptyHint>
-            {t('notebook.notebookPage.commentsAreUnavailableWithout')}
-          </EmptyHint>
-        )
-      ) : (
-        <CommentPanel
-          recordId={record.id}
+      content: (
+        <InspectorComments
+          record={record}
           workspaceId={workspaceId}
-          currentUserId={currentUserId ?? null}
-          currentUserName={
-            currentUserName ?? t('notebook.notebookPage.reviewer')
-          }
-          canComment={canEditMetadata && !record.archivedAt}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          canEditMetadata={canEditMetadata}
+          isHistorical={isHistorical}
+          commentsRevisionId={commentsRevisionId}
+          revisionEvidence={revisionEvidence}
         />
       ),
     },
@@ -4967,12 +5036,11 @@ export function NotebookInspector(
           {
             id: 'activity',
             label: t('notebook.notebookPage.activityLabel'),
-            content: activityLoading ? (
-              <EmptyHint>
-                {t('notebook.notebookPage.loadingActivity')}
-              </EmptyHint>
-            ) : (
-              <ActivityFeed items={activityItems} />
+            content: (
+              <InspectorActivity
+                loading={activityLoading}
+                items={activityItems}
+              />
             ),
           },
         ]),

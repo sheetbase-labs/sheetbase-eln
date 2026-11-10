@@ -23,6 +23,8 @@ import {
   agentActionAlwaysNever,
   resolveAgentActionLevel,
 } from './agent-action-policy'
+import { z } from 'zod'
+
 import { EVAL_TASK_META } from './ai-eval-tasks'
 import type { EvalMode, EvalResult, EvalTaskMeta } from './ai-eval-tasks'
 import type { DataClient } from './data-client'
@@ -31,10 +33,10 @@ import type { AssistantProposal } from './assistant-proposals'
 export const FIXTURE_WORKSPACE = '99999999-9999-4999-8999-999999999999'
 const FIXTURE_USER = 'eval-fixture-user'
 
-type Row = Record<string, unknown>
+type Row = Record<string, z.core.util.JSONType | undefined>
 
 /** The invented lab the checks run against. */
-export const EVAL_FIXTURE: Record<string, Row[]> = {
+export const EVAL_FIXTURE = {
   reagent_orders: [
     {
       id: 'o-8',
@@ -159,21 +161,53 @@ export const EVAL_FIXTURE: Record<string, Row[]> = {
 // A tiny read-only PostgREST for the fixture.
 // ---------------------------------------------------------------------------
 
-function compare(a: unknown, b: unknown): number {
+/** A fixture value as the sort compares it: the number, the text, or its JSON. */
+function comparable(value: z.core.util.JSONType): string | number {
+  const numeric = z.number().safeParse(value)
+
+  if (numeric.success) return numeric.data
+
+  const textual = z.string().safeParse(value)
+
+  return textual.success ? textual.data : JSON.stringify(value)
+}
+
+/** Numbers sort numerically; anything else sorts as text. */
+function compareOrder(left: string | number, right: string | number): number {
+  const numbers = z.tuple([z.number(), z.number()]).safeParse([left, right])
+
+  return numbers.success
+    ? numbers.data[0] < numbers.data[1]
+      ? -1
+      : 1
+    : String(left) < String(right)
+      ? -1
+      : 1
+}
+
+function compare(
+  a: z.core.util.JSONType | undefined,
+  b: z.core.util.JSONType | undefined,
+): number {
   if (a === b) return 0
 
   if (a === null || a === undefined) return 1
 
   if (b === null || b === undefined) return -1
 
-  return (a as string | number) < (b as string | number) ? -1 : 1
+  return compareOrder(comparable(a), comparable(b))
 }
 
-function matchesFilter(value: unknown, expression: string): boolean {
+function matchesFilter(
+  value: z.core.util.JSONType | undefined,
+  expression: string,
+): boolean {
   const dot = expression.indexOf('.')
   const operator = dot === -1 ? expression : expression.slice(0, dot)
   const rest = dot === -1 ? '' : expression.slice(dot + 1)
-  const text = value === null || value === undefined ? '' : String(value)
+
+  const text =
+    value === null || value === undefined ? '' : String(comparable(value))
 
   switch (operator) {
     case 'eq':
@@ -260,6 +294,7 @@ export function createFixtureClient(
 
   return {
     list: async <T>(resource: string, query?: string) =>
+      // SAFETY: the caller's T names the fixture rows this read serves; every check reads tables it defined in EVAL_FIXTURE.
       read(resource, query) as T[],
     count: async (resource: string, query?: string) =>
       read(resource, query).length,
@@ -280,11 +315,13 @@ interface Outcome {
   error?: string
 }
 
+const cardAction = z.looseObject({ kind: z.string() })
+
 interface Expectation {
   includes?: string[]
   excludes?: string[]
   /** The card the assistant should have made, by its action kind. */
-  card?: { kind: string; match?: Record<string, unknown> }
+  card?: { kind: string; match?: Record<string, z.core.util.JSONType> }
   /** No card should have been made. */
   noCard?: boolean
 }
@@ -292,13 +329,14 @@ interface Expectation {
 interface TaskDefinition {
   meta: EvalTaskMeta
   /** The tool the task runs in tools mode. */
-  tool?: { name: string; args: Record<string, unknown> }
+  tool?: { name: string; args: Record<string, z.core.util.JSONType> }
   /** For tasks that need no tools or model at all. */
   direct?: () => { text: string }
   expect: Expectation
 }
 
 function flagsAllOn(): AiFeatureFlags {
+  // SAFETY: AI_FEATURE_FLAGS lists every AiFeatureFlagKey, so the built object has each of them.
   return Object.fromEntries(
     AI_FEATURE_FLAGS.map((flag) => [flag.key, true]),
   ) as AiFeatureFlags
@@ -483,9 +521,11 @@ function check(outcome: Outcome, expectation: Expectation): string | null {
     const wanted = expectation.card
 
     const found = outcome.proposals.find((proposal) => {
-      const action = proposal.action as Record<string, unknown> | undefined
+      const decoded = cardAction.safeParse(proposal.action)
 
-      if (!action || action.kind !== wanted.kind) return false
+      if (!decoded.success || decoded.data.kind !== wanted.kind) return false
+
+      const action = decoded.data
 
       return Object.entries(wanted.match ?? {}).every(
         ([key, value]) => action[key] === value,
@@ -602,9 +642,7 @@ async function runWithModel(
 }
 
 /** The tool a task would make the assistant use, for scripted models in tests. */
-export function evalTaskTool(
-  key: string,
-): { name: string; args: Record<string, unknown> } | undefined {
+export function evalTaskTool(key: string): TaskDefinition['tool'] {
   return TASKS.find((task) => task.meta.key === key)?.tool
 }
 
@@ -639,15 +677,18 @@ export async function runEvalTasks(
     let outcome: Outcome
 
     try {
-      outcome =
-        input.mode === 'model' && task.meta.usesModel
-          ? await runWithModel(
-              task,
-              input.harness as ModelHarness,
-              client,
-              toolkit,
-            )
-          : await runInTools(task, toolkit)
+      if (input.mode === 'model' && task.meta.usesModel) {
+        // SAFETY: RunEvalsInput requires a harness in model mode, and this branch only runs in that mode.
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each check is timed on its own and reports that duration; running them together would make the reported numbers measure each other.
+        outcome = await runWithModel(
+          task,
+          input.harness as ModelHarness,
+          client,
+          toolkit,
+        )
+      } else {
+        outcome = await runInTools(task, toolkit)
+      }
     } catch (error) {
       outcome = {
         text: '',

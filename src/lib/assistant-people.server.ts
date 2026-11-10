@@ -153,15 +153,20 @@ export function peopleProposalDefs(): ProviderToolDef[] {
 
 const fail = (message: string): PeopleOutcome => ({ ok: false, message })
 
-const roleLabel = (role: string): string =>
-  (WORKSPACE_ROLE_LABELS as Record<string, string | undefined>)[role] ?? role
+/** The readable name of every workspace role, by the role key the database stores. */
+const ROLE_LABELS = new Map<string, string>(
+  Object.entries(WORKSPACE_ROLE_LABELS),
+)
 
-const LEVEL_LABELS: Record<string, string> = {
-  owner: 'Owner',
-  editor: 'Editor',
-  reviewer: 'Reviewer',
-  viewer: 'Viewer',
-}
+const roleLabel = (role: string): string => ROLE_LABELS.get(role) ?? role
+
+/** What each project access level is called in a card, by its key. */
+const LEVEL_LABELS = new Map<string, string>([
+  ['owner', 'Owner'],
+  ['editor', 'Editor'],
+  ['reviewer', 'Reviewer'],
+  ['viewer', 'Viewer'],
+])
 
 function card(
   tool: PeopleProposeToolName,
@@ -305,6 +310,7 @@ async function findGroup(
 
 export async function buildPeopleProposal(
   name: PeopleProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; each case parses them with its own proposal schema before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<PeopleOutcome> {
@@ -366,7 +372,7 @@ export async function buildPeopleProposal(
         changes.push({
           label: `Joins ${found.value.title}`,
           before: null,
-          after: LEVEL_LABELS[level],
+          after: LEVEL_LABELS.get(level) ?? level,
         })
       }
 
@@ -532,9 +538,9 @@ export async function buildPeopleProposal(
           {
             label: `${member.value.name} on ${project.value.title}`,
             before: current[0]?.access_level
-              ? (LEVEL_LABELS[current[0].access_level] ?? null)
+              ? (LEVEL_LABELS.get(current[0].access_level) ?? null)
               : null,
-            after: LEVEL_LABELS[input.access],
+            after: LEVEL_LABELS.get(input.access) ?? input.access,
           },
         ],
         action: {
@@ -766,7 +772,7 @@ export async function buildPeopleProposal(
         `?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=site,timezone,date_format,number_format&limit=1`,
       )
 
-      const now = current[0] as (typeof current)[number] | undefined
+      const now = current.at(0)
       const changes: ProposalChange[] = []
 
       const rows: Array<

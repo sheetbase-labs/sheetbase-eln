@@ -42,7 +42,6 @@ export function PageHeader({
   compact?: boolean
   className?: string
 }) {
-  const Title = `h${titleLevel}` as 'h1'
   const ref = useRef<HTMLElement>(null)
   const collapsed = useCollapsedOnScroll(ref, compact)
 
@@ -59,77 +58,157 @@ export function PageHeader({
         className,
       )}
     >
-      {trail?.length ? (
-        <div
-          className={cn(
-            compact && 'max-md:group-data-[collapsed]/header:hidden',
-          )}
-        >
-          <Breadcrumb trail={trail} />
-        </div>
-      ) : null}
+      <HeaderTrail trail={trail} compact={compact} />
       {/* On a phone the actions follow the meta on the same line, instead of
           taking a line of their own, so the header is a row shorter above the
           content. They wrap to the next line only when the meta is long. */}
       <div
         className={cn(
-          'grid grid-cols-[minmax(10rem,1fr)_auto] items-center gap-x-2 gap-y-1.5',
-          compact
-            ? 'max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-y-1'
-            : 'max-md:flex max-md:flex-wrap max-md:gap-x-3.5 max-md:gap-y-1',
+          'grid items-center gap-x-2 gap-y-1.5',
+          gridClassName(compact),
         )}
       >
-        <Title
-          className={cn(
-            'col-start-1 row-start-1 min-w-0 text-title max-md:text-[18px] max-md:leading-6 md:truncate',
-            compact
-              ? 'max-md:truncate'
-              : meta
-                ? 'max-md:mb-0.5 max-md:w-full'
-                : 'max-md:flex-1 max-md:basis-40',
-          )}
+        <PageHeaderTitle
+          titleLevel={titleLevel}
+          hasMeta={Boolean(meta)}
+          compact={compact}
         >
           {title}
-        </Title>
-        {actions ? (
-          <div
-            data-page-actions
-            className={cn(
-              'col-start-2 row-start-1 flex max-w-full flex-wrap justify-end gap-2',
-              compact
-                ? 'max-md:flex-nowrap max-md:items-center'
-                : 'max-md:order-last max-md:ml-auto',
-            )}
-          >
-            {actions}
-          </div>
-        ) : null}
-        {meta ? (
-          <div
-            data-page-meta
-            className={cn(
-              'col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1 text-label text-fg-muted',
-              compact
-                ? 'max-md:group-data-[collapsed]/header:hidden'
-                : 'max-md:contents',
-            )}
-          >
-            {meta}
-          </div>
-        ) : null}
+        </PageHeaderTitle>
+        <HeaderActions compact={compact}>{actions}</HeaderActions>
+        <HeaderMeta compact={compact}>{meta}</HeaderMeta>
       </div>
-      {tabs ? (
-        <div
-          data-page-tabs
-          className={cn(
-            '-mx-4 mt-1 max-md:-mt-1 overflow-x-auto px-4 [scrollbar-width:none] md:-mx-6 md:px-6',
-            compact && 'max-md:group-data-[collapsed]/header:hidden',
-          )}
-        >
-          {tabs}
-        </div>
-      ) : null}
+      <HeaderTabs compact={compact}>{tabs}</HeaderTabs>
     </header>
+  )
+}
+
+const PAGE_TITLE_TAGS = { 1: 'h1', 2: 'h2', 3: 'h3' } as const
+
+function gridClassName(compact: boolean): string {
+  return compact
+    ? 'grid-cols-[minmax(10rem,1fr)_auto] max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-y-1'
+    : 'grid-cols-[minmax(10rem,1fr)_auto] max-md:flex max-md:flex-wrap max-md:gap-x-3.5 max-md:gap-y-1'
+}
+
+function titleClassName(compact: boolean, hasMeta: boolean): string {
+  if (compact) return 'max-md:truncate'
+
+  return hasMeta
+    ? 'max-md:mb-0.5 max-md:w-full'
+    : 'max-md:flex-1 max-md:basis-40'
+}
+
+function PageHeaderTitle({
+  titleLevel,
+  hasMeta,
+  compact,
+  children,
+}: {
+  titleLevel: 1 | 2 | 3
+  hasMeta: boolean
+  compact: boolean
+  children: React.ReactNode
+}) {
+  const Title = PAGE_TITLE_TAGS[titleLevel]
+
+  return (
+    <Title
+      className={cn(
+        'col-start-1 row-start-1 min-w-0 text-title max-md:text-[18px] max-md:leading-6 md:truncate',
+        titleClassName(compact, hasMeta),
+      )}
+    >
+      {children}
+    </Title>
+  )
+}
+
+function HeaderTrail({
+  trail,
+  compact,
+}: {
+  trail?: readonly Crumb[]
+  compact: boolean
+}) {
+  if (!trail?.length) return null
+
+  return (
+    <div
+      className={cn(compact && 'max-md:group-data-[collapsed]/header:hidden')}
+    >
+      <Breadcrumb trail={trail} />
+    </div>
+  )
+}
+
+function HeaderActions({
+  compact,
+  children,
+}: {
+  compact: boolean
+  children?: React.ReactNode
+}) {
+  if (!children) return null
+
+  return (
+    <div
+      data-page-actions
+      className={cn(
+        'col-start-2 row-start-1 flex max-w-full flex-wrap justify-end gap-2',
+        compact
+          ? 'max-md:flex-nowrap max-md:items-center'
+          : 'max-md:order-last max-md:ml-auto',
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+function HeaderMeta({
+  compact,
+  children,
+}: {
+  compact: boolean
+  children?: React.ReactNode
+}) {
+  if (!children) return null
+
+  return (
+    <div
+      data-page-meta
+      className={cn(
+        'col-span-2 row-start-2 flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1 text-label text-fg-muted',
+        compact
+          ? 'max-md:group-data-[collapsed]/header:hidden'
+          : 'max-md:contents',
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+function HeaderTabs({
+  compact,
+  children,
+}: {
+  compact: boolean
+  children?: React.ReactNode
+}) {
+  if (!children) return null
+
+  return (
+    <div
+      data-page-tabs
+      className={cn(
+        '-mx-4 mt-1 max-md:-mt-1 overflow-x-auto px-4 [scrollbar-width:none] md:-mx-6 md:px-6',
+        compact && 'max-md:group-data-[collapsed]/header:hidden',
+      )}
+    >
+      {children}
+    </div>
   )
 }
 
@@ -335,6 +414,7 @@ export function DescriptionList({
       style={{ gridTemplateColumns: `${labelWidth}px 1fr` }}
     >
       {items.map(([k, v], i) => (
+        // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- Each row's identity is its position in the caller's fixed label/value table; labels are display text and need not be unique, so a row can only be identified by where the caller placed it.
         <div key={i} className="contents">
           <dt className="text-fg-muted">{k}</dt>
           <dd className="m-0">{v}</dd>

@@ -48,10 +48,15 @@ export interface EmbeddableDocument {
 
 /** The words every chunk of an object starts with, so a vector knows what it belongs to. */
 export function chunkHeading(doc: EmbeddableDocument): string {
-  return [doc.identifier, doc.title]
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .join(' · ')
+  const words: string[] = []
+
+  for (const part of [doc.identifier, doc.title]) {
+    const trimmed = part.trim()
+
+    if (trimmed) words.push(trimmed)
+  }
+
+  return words.join(' · ')
 }
 
 /**

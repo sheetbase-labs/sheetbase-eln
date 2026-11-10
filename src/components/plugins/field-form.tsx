@@ -1,8 +1,9 @@
-import { t } from '#/copy'
 import { Checkbox } from '#/components/ui/checkbox'
 import { DateField } from '#/components/ui/date-field'
 import { Field, Input } from '#/components/ui/input'
 import type { ExtensionField } from '#/lib/extensions/points'
+import { fieldLabel } from './field-values'
+import type { FieldValues } from './field-values'
 
 /**
  * A form for the named, typed values a plugin declared: the box for each, with
@@ -12,63 +13,9 @@ import type { ExtensionField } from '#/lib/extensions/points'
  * into what the plugin declared, or names what is missing.
  */
 
-/** `seeding_density` becomes "Seeding density" when the plugin gave no label. */
-export function fieldLabel(field: ExtensionField): string {
-  if (field.label) return field.label
-  const spaced = field.name.replaceAll('_', ' ')
+export { fieldLabel, formatFieldValue, readFieldValues } from './field-values'
 
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
-}
-
-export type FieldValues = Record<string, string>
-
-export type ReadFieldValues =
-  | { ok: true; input: Record<string, unknown> }
-  | { ok: false; missing: string[] }
-
-export function readFieldValues(
-  fields: readonly ExtensionField[],
-  values: FieldValues,
-): ReadFieldValues {
-  const input: Record<string, unknown> = {}
-  const missing: string[] = []
-
-  for (const field of fields) {
-    const raw = (values[field.name] ?? '').trim()
-
-    if (field.type === 'boolean') {
-      input[field.name] = raw === 'true'
-      continue
-    }
-
-    if (raw === '') {
-      if (field.required) missing.push(fieldLabel(field))
-      continue
-    }
-
-    if (field.type === 'number' || field.type === 'integer') {
-      const n = Number(raw)
-
-      const ok =
-        Number.isFinite(n) && (field.type === 'number' || Number.isInteger(n))
-
-      if (!ok) {
-        missing.push(fieldLabel(field))
-        continue
-      }
-
-      input[field.name] = n
-    } else if (field.type === 'json') {
-      try {
-        input[field.name] = JSON.parse(raw)
-      } catch {
-        missing.push(fieldLabel(field))
-      }
-    } else input[field.name] = raw
-  }
-
-  return missing.length ? { ok: false, missing } : { ok: true, input }
-}
+export type { FieldValues, ReadFieldValues } from './field-values'
 
 export function FieldForm({
   fields,
@@ -86,6 +33,8 @@ export function FieldForm({
 }) {
   const set = (name: string, value: string) =>
     onChange({ ...values, [name]: value })
+
+  const maskedNames = new Set(masked)
 
   return (
     <div className="grid gap-3">
@@ -143,8 +92,8 @@ export function FieldForm({
                     : undefined
                 }
                 aria-label={label}
-                type={masked?.includes(field.name) ? 'password' : undefined}
-                autoComplete={masked?.includes(field.name) ? 'off' : undefined}
+                type={maskedNames.has(field.name) ? 'password' : undefined}
+                autoComplete={maskedNames.has(field.name) ? 'off' : undefined}
                 onChange={(event) => set(field.name, event.target.value)}
               />
               {field.unit ? (
@@ -158,21 +107,4 @@ export function FieldForm({
       })}
     </div>
   )
-}
-
-/** A value a plugin returned, as a person reads it. */
-export function formatFieldValue(value: unknown): string {
-  if (value === null || value === undefined) return ''
-
-  if (typeof value === 'boolean')
-    return value ? t('calculators.plugin.yes') : t('calculators.plugin.no')
-
-  if (typeof value === 'number')
-    return Number.isInteger(value)
-      ? String(value)
-      : String(Number(value.toPrecision(6)))
-
-  if (typeof value === 'string') return value
-
-  return JSON.stringify(value)
 }

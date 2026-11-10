@@ -25,7 +25,10 @@ import {
   matchesFilter,
   buildEventPayload,
 } from '#/lib/webhook-events'
-import type { ChangeEventInput } from '#/lib/webhook-events'
+import type {
+  ChangeEventInput,
+  WebhookEventPayload,
+} from '#/lib/webhook-events'
 import { runEventHookPass } from '#/lib/extensions/event-hook-pass.server'
 import { signPayload, deriveWebhookSecretKey } from '#/lib/webhook-signing'
 import { eventMessage, eventTeamsCard } from '#/lib/notification-channels'
@@ -51,15 +54,18 @@ const BACKOFF_JITTER = 0.2
 // SSRF protection — reject loopback/private/reserved webhook targets.
 // ---------------------------------------------------------------------------
 
+/** The verdict on a webhook URL: safe to call, or the reason it is not. */
+export interface WebhookUrlVerdict {
+  ok: boolean
+  reason?: string
+}
+
 /**
  * Validate that a webhook URL is safe for server-side fetch.
  * Rejects non-HTTPS, credentials in URL, and loopback/private/resolved
  * hostnames. Fail-closed: any parse or resolution error rejects.
  */
-export function validateWebhookUrl(url: string): {
-  ok: boolean
-  reason?: string
-} {
+export function validateWebhookUrl(url: string): WebhookUrlVerdict {
   let parsed: URL
 
   try {
@@ -157,7 +163,7 @@ function isPrivateOrLoopbackIP(ip: string): boolean {
 export function validateRedirect(
   location: string,
   baseUrl: string,
-): { ok: boolean; reason?: string } {
+): WebhookUrlVerdict {
   let resolved: URL
 
   try {
@@ -194,6 +200,7 @@ export interface WebhookDeliveryRow {
   subscription_id: string
   change_event_id: string
   event_type: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The delivered JSONB body: `body` is the signed text sent, so this is kept only for inspection and each reader decodes the keys it knows.
   payload: Record<string, unknown>
   body: string
   signature: string
@@ -281,15 +288,17 @@ export async function attemptDelivery(
     const timer = setTimeout(() => controller.abort(), timeoutMs)
 
     try {
+      const headers = new Headers({ 'content-type': 'application/json' })
+
+      if (signature) headers.set('x-sheetbase-signature', signature)
+      headers.set('x-sheetbase-event', 'change')
+
+      if (idempotencyKey) headers.set('x-sheetbase-event-id', idempotencyKey)
+      headers.set('user-agent', 'Sheetbase-Webhook/1.0')
+
       const response = await safeWebhookFetch(currentUrl, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          ...(signature ? { 'x-sheetbase-signature': signature } : {}),
-          'x-sheetbase-event': 'change',
-          ...(idempotencyKey ? { 'x-sheetbase-event-id': idempotencyKey } : {}),
-          'user-agent': 'Sheetbase-Webhook/1.0',
-        },
+        headers,
         body,
         signal: controller.signal,
         redirect: 'manual',
@@ -484,7 +493,7 @@ export async function createDeliveryRecord(
   subscriptionId: string,
   changeEventId: string,
   eventType: string,
-  payload: Record<string, unknown>,
+  payload: WebhookEventPayload,
   body: string,
   signature: string,
   connectionString: string = env.DATABASE_URL,
@@ -643,7 +652,7 @@ async function deliverByEmail(
   sub: WebhookSubscriptionRow,
   eventRow: ChangeEventInput,
   eventType: string,
-  payload: Record<string, unknown>,
+  payload: WebhookEventPayload,
   connectionString: string,
 ): Promise<void> {
   const message = eventMessage(
@@ -780,7 +789,6 @@ export async function processChangeEvent(
   // Build the payload once (same for all subscriptions).
   const eventPayload = buildEventPayload(eventRow, eventType)
   const webhookBody = JSON.stringify(eventPayload)
-  const payloadJson = eventPayload as unknown as Record<string, unknown>
 
   // Deliver to each subscription.
   for (const sub of subscriptions) {
@@ -790,7 +798,7 @@ export async function processChangeEvent(
           sub,
           eventRow,
           eventType,
-          payloadJson,
+          eventPayload,
           connectionString,
         )
         continue
@@ -821,7 +829,7 @@ export async function processChangeEvent(
         sub.id,
         eventRow.id,
         eventType,
-        payloadJson,
+        eventPayload,
         body,
         signature,
         connectionString,
@@ -1099,6 +1107,8 @@ export function startWebhookDeliveryEngine(
   connectionString: string = env.DATABASE_URL,
   retryIntervalMs: number = 60_000,
 ): () => Promise<void> {
+  // SAFETY: `globalThis` is the one process object Node runs; the symbol key is
+  // this module's own, so the value stored under it is this engine's stop handle.
   const registry = globalThis as WebhookEngineGlobal
   const running = registry[WEBHOOK_ENGINE_STOP]
 

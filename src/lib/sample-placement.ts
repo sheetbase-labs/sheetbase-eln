@@ -93,6 +93,8 @@ export async function placeInSequence(
     const cell = free.at(index)
 
     if (!cell) break
+
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- each tube's move must finish before the next claims a position, and the loop stops at the first refusal.
     await moveSampleToPosition(client, {
       recordId: tube.id,
       positionId: cell.id,

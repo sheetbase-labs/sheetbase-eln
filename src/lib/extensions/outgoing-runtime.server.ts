@@ -35,7 +35,16 @@ import type {
 } from './data-points'
 import { settingsScope } from './plugin-settings.server'
 
-type Row = Record<string, unknown>
+/** One stored JSON object: a publisher's row or a callable's input. */
+const rowSchema = z.record(z.string(), z.unknown())
+
+type Row = z.infer<typeof rowSchema>
+
+/** One request's headers, as the plugin declared them. */
+const requestHeadersSchema = z.record(z.string(), z.string())
+
+/** A JSON body: what `JSON.parse` may return. */
+const jsonValueSchema = z.json()
 
 interface Caller {
   workspaceId: string
@@ -83,11 +92,12 @@ const bad = (message: string) => new ExtensionRunError('bad_answer', message)
 function requireSettings(
   declaration: Pick<ExtensionPublisherDeclaration, 'settings'>,
   given: Record<string, string>,
-): Record<string, string> {
+) {
   const out: Record<string, string> = {}
 
   for (const setting of declaration.settings) {
-    const value = (given as Partial<Record<string, string>>)[setting.name]
+    // Absent settings are missing from the loaded object, whatever its type says.
+    const value = z.string().safeParse(given[setting.name]).data
 
     if (setting.required && !value?.trim())
       throw new ExtensionRunError(
@@ -123,6 +133,15 @@ async function plan(
   return parsed.data.requests
 }
 
+/** The answer's JSON body, or null when it is not JSON. */
+function jsonBody(text: string): z.infer<typeof jsonValueSchema> | null {
+  try {
+    return jsonValueSchema.parse(JSON.parse(text))
+  } catch {
+    return null
+  }
+}
+
 /** Makes the planned requests, one after another, to the declared hosts only. */
 async function send(
   declaration: { hosts: string[] },
@@ -147,37 +166,39 @@ async function send(
         (name) => name.toLowerCase() === 'content-type',
       )
 
-      const answer = await fetchUrl(request.url, {
+      const headers: z.infer<typeof requestHeadersSchema> = {
+        Accept: 'application/json, text/plain, */*',
+      }
+
+      if (request.body !== undefined && !hasType)
+        headers['Content-Type'] = request.json
+          ? 'application/json'
+          : 'text/plain; charset=utf-8'
+
+      Object.assign(headers, request.headers)
+
+      const init: Parameters<ConnectorFetch>[1] = {
         method: request.method,
-        ...(request.body !== undefined ? { body: request.body } : {}),
-        headers: {
-          Accept: 'application/json, text/plain, */*',
-          ...(request.body !== undefined && !hasType
-            ? {
-                'Content-Type': request.json
-                  ? 'application/json'
-                  : 'text/plain; charset=utf-8',
-              }
-            : {}),
-          ...request.headers,
-        },
+        headers,
         signal: controller.signal,
-      }).catch((error: unknown) => {
-        if (error instanceof ExtensionRunError) throw error
-        throw new ExtensionRunError(
-          'service_unreachable',
-          `${request.url.hostname} could not be reached.`,
-        )
-      })
+      }
+
+      if (request.body !== undefined) init.body = request.body
+
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The publisher's requests go out one after another, in the order the plugin planned them, so a refusal stops the rest instead of racing them.
+      const answer = await fetchUrl(request.url, init).catch(
+        // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A rejected fetch carries whatever was thrown; only the run error passes through unchanged.
+        (error: unknown) => {
+          if (error instanceof ExtensionRunError) throw error
+          throw new ExtensionRunError(
+            'service_unreachable',
+            `${request.url.hostname} could not be reached.`,
+          )
+        },
+      )
 
       const text = new TextDecoder().decode(answer.body)
-      let json: unknown = null
-
-      try {
-        json = JSON.parse(text)
-      } catch {
-        json = null
-      }
+      const json = jsonBody(text)
 
       responses.push({
         url: request.url.toString(),
@@ -203,17 +224,17 @@ export interface PublishOutcome {
   requests: number
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- The callable's rows arrive as unparsed JSON; the schema below decides, and a refusal is the caller's sentence.
 function asRows(value: unknown): Row[] {
-  if (
-    !Array.isArray(value) ||
-    !value.every((row) => row && typeof row === 'object' && !Array.isArray(row))
-  )
+  const rows = z.array(rowSchema).safeParse(value)
+
+  if (!rows.success)
     throw new ExtensionRunError(
       'bad_input',
       '“rows” should be a list of rows, each an object of column values.',
     )
 
-  return value as Row[]
+  return rows.data
 }
 
 async function publish(
@@ -281,6 +302,7 @@ export async function publishFromCallable(
   itemId: string,
   input: Row,
   fetchUrl: ConnectorFetch = defaultFetch,
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The callable's answer is the publisher's own JSON outcome, carried in the runtime's dictionary envelope; `PublishOutcome` is what this file builds it from.
 ): Promise<Record<string, unknown>> {
   const declaration = resolved.manifest.contributions.publishers?.find(
     (entry) => entry.id === itemId,
@@ -292,6 +314,7 @@ export async function publishFromCallable(
       'That plugin doesn’t offer this any more.',
     )
   const { rows, name, ...parameters } = input
+  const senderName = z.string().safeParse(name).data
 
   const outcome = await publish(
     deps,
@@ -300,7 +323,7 @@ export async function publishFromCallable(
     declaration,
     {
       rows,
-      name: typeof name === 'string' ? name : undefined,
+      name: senderName,
       parameters,
     },
     fetchUrl,

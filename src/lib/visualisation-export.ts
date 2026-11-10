@@ -34,6 +34,8 @@ export function serialiseChartSvg(
   comment?: string,
 ): string {
   if (!svgEl) return '<!-- Sheetbase: no chart rendered at export time -->'
+  // SAFETY: cloneNode(true) of an SVGSVGElement returns an SVGSVGElement; the DOM
+  // signature widens it to Node because the same method serves every element.
   const clone = svgEl.cloneNode(true) as SVGSVGElement
   clone.setAttribute('width', String(settings.width))
   clone.setAttribute('height', String(settings.height))
@@ -60,6 +62,7 @@ export async function rasteriseSvgToPng(
   settings: FigureExportSettings,
 ): Promise<Blob> {
   const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+  // react-doctor-disable-next-line react-doctor/no-create-object-url-without-revoke -- The `finally` below revokes this URL on both the success and failure paths.
   const url = URL.createObjectURL(blob)
 
   try {

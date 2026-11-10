@@ -182,6 +182,7 @@ export type NotebookTemplatePlacement = z.infer<
 >
 
 export function parseNotebookTemplateConfiguration(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The stored template configuration reaches this function as raw JSONB; parsing it is exactly what this boundary does.
   value: unknown,
 ): NotebookTemplateConfiguration {
   return notebookTemplateConfigurationSchema.parse(value)

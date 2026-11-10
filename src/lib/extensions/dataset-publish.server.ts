@@ -9,6 +9,7 @@
 import { z } from 'zod'
 
 import { loadDatasetFields, pagedRows } from '../export/routes'
+import type { ExportRow } from '../export/serializers'
 import {
   postgrestSelect,
   realSessionAuthDeps,
@@ -68,12 +69,17 @@ export async function handleDatasetPublish(
     import('drizzle-orm'),
   ])
 
-  const membership = (
-    await db.execute(
-      sql`SELECT role FROM api.workspace_memberships
-           WHERE user_id = ${context.userId} AND workspace_id = ${context.workspaceId}::uuid`,
+  const membership = z
+    .array(z.object({ role: z.string() }))
+    .parse(
+      (
+        await db.execute(
+          sql`SELECT role FROM api.workspace_memberships
+               WHERE user_id = ${context.userId} AND workspace_id = ${context.workspaceId}::uuid`,
+        )
+      ).rows,
     )
-  ).rows[0] as { role: string } | undefined
+    .at(0)
 
   if (!membership || membership.role === 'viewer')
     return requestErrorResponse(
@@ -118,7 +124,7 @@ export async function handleDatasetPublish(
     },
   )
 
-  const all: Array<Record<string, unknown>> = []
+  const all: Array<ExportRow['values']> = []
 
   // The plugin reads columns by their names (the field keys), not by id.
   for await (const row of rows.rows)

@@ -12,21 +12,27 @@ import {
 } from './assistant-planner.server'
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from './agent-tool-catalogue'
 import type { LabToolContext } from './assistant-lab-tools.server'
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
 
 const PROJECT = { id: 'proj-1', title: 'Cell assays', key: 'CA' }
 
 function context(
   rows: Partial<Record<string, unknown[]>> = {},
 ): LabToolContext {
-  const defaults: Record<string, unknown[] | undefined> = {
-    projects: [PROJECT],
-  }
+  // A real data client over the read boundary the tools use, so the rows named
+  // below are what those reads answer.
+  const client = createDataClient(async (input) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://app.test',
+    )
 
-  const client = {
-    list: (resource: string) =>
-      Promise.resolve(rows[resource] ?? defaults[resource] ?? []),
-  } as unknown as DataClient
+    const resource = url.pathname.replace('/api/db/', '')
+
+    return Response.json(
+      rows[resource] ?? (resource === 'projects' ? [PROJECT] : []),
+    )
+  })
 
   return { client, workspaceId: 'w', userId: 'u', timeZone: 'UTC' }
 }

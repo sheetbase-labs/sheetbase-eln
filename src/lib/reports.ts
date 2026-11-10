@@ -686,7 +686,9 @@ export interface SectionValidationBadge {
   label: string
 }
 
-export function validationLabel(status: SectionValidation): SectionValidationBadge {
+export function validationLabel(
+  status: SectionValidation,
+): SectionValidationBadge {
   switch (status) {
     case 'valid':
       return { tone: 'ok', label: t('projects.reports.check.valid') }

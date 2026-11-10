@@ -1,7 +1,8 @@
+import { z } from 'zod'
+
 import { cancelAbsence, setAbsence } from './absences'
 import { handOverWork } from './handover'
-import { removeGroupMapping, setGroupMapping } from './group-roles'
-import type { GroupRole } from './group-roles'
+import { GROUP_ROLES, removeGroupMapping, setGroupMapping } from './group-roles'
 import type { DataClient } from './data-client'
 import { setFollowing } from './follows'
 import { markNotificationsRead } from './notifications-data'
@@ -82,7 +83,7 @@ export async function runUpkeepAction(
       await setGroupMapping(client, {
         workspaceId: action.workspaceId,
         groupName: action.groupName,
-        role: action.role as GroupRole,
+        role: z.enum(GROUP_ROLES).parse(action.role),
       })
 
       return { openHref: '/settings/workspace/members' }

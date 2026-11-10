@@ -67,21 +67,35 @@ export interface ChannelsRouteDeps extends ExtensionRunRouteDeps {
   baseUrl: string
 }
 
-interface InstallRow {
-  id: string
-  key: string
-  name: string
-  manifest: unknown
-  disabled_points: string[]
-}
+const installRowSchema = z.object({
+  id: z.string(),
+  key: z.string(),
+  name: z.string(),
+  manifest: z.unknown(),
+  disabled_points: z.array(z.string()),
+})
 
-interface SubscriptionRow {
-  extension_id: string
-  channel_id: string
-  destination: string
-  scope: 'phone' | 'all'
-  last_sent_at: string | null
-  last_error: string | null
+const subscriptionRowSchema = z.object({
+  extension_id: z.string(),
+  channel_id: z.string(),
+  destination: z.string(),
+  scope: z.enum(['phone', 'all']),
+  last_sent_at: z.string().nullable(),
+  last_error: z.string().nullable(),
+})
+
+const installRowsSchema = z.array(installRowSchema)
+
+const subscriptionRowsSchema = z.array(subscriptionRowSchema)
+
+/** One install whose manifest offers notification channels. */
+type ChannelInstall = {
+  install: z.infer<typeof installRowSchema>
+  channels: NonNullable<
+    ReturnType<
+      typeof parseExtensionManifest
+    >['contributions']['notification-channels']
+  >
 }
 
 async function listChannels(
@@ -94,24 +108,28 @@ async function listChannels(
     import('drizzle-orm'),
   ])
 
-  const installs = (
-    await db.execute(
-      sql`SELECT id, key, name, manifest, disabled_points
-            FROM api.extensions
-           WHERE workspace_id = ${workspaceId}::uuid AND status = 'enabled'
-           ORDER BY name`,
-    )
-  ).rows as unknown as InstallRow[]
+  const installs = installRowsSchema.parse(
+    (
+      await db.execute(
+        sql`SELECT id, key, name, manifest, disabled_points
+              FROM api.extensions
+             WHERE workspace_id = ${workspaceId}::uuid AND status = 'enabled'
+             ORDER BY name`,
+      )
+    ).rows,
+  )
 
-  const mine = (
-    await db.execute(
-      sql`SELECT extension_id, channel_id, destination, scope, last_sent_at, last_error
-            FROM internal.plugin_channel_subscriptions
-           WHERE workspace_id = ${workspaceId}::uuid AND user_id = ${userId}`,
-    )
-  ).rows as unknown as SubscriptionRow[]
+  const mine = subscriptionRowsSchema.parse(
+    (
+      await db.execute(
+        sql`SELECT extension_id, channel_id, destination, scope, last_sent_at, last_error
+              FROM internal.plugin_channel_subscriptions
+             WHERE workspace_id = ${workspaceId}::uuid AND user_id = ${userId}`,
+      )
+    ).rows,
+  )
 
-  const out: ChannelWire[] = []
+  const offered: ChannelInstall[] = []
 
   for (const install of installs) {
     if (install.disabled_points.includes('notification-channels')) continue
@@ -126,7 +144,25 @@ async function listChannels(
     const channels = manifest.contributions['notification-channels'] ?? []
 
     if (channels.length === 0) continue
-    const stored = await deps.settings.list(workspaceId, install.id)
+    offered.push({ install, channels })
+  }
+
+  const settingsByInstall = new Map(
+    await Promise.all(
+      offered.map(
+        async ({ install }) =>
+          [
+            install.id,
+            await deps.settings.list(workspaceId, install.id),
+          ] as const,
+      ),
+    ),
+  )
+
+  const out: ChannelWire[] = []
+
+  for (const { install, channels } of offered) {
+    const stored = settingsByInstall.get(install.id) ?? []
 
     for (const channel of channels) {
       const scope = settingsScope('notification-channels', channel.id)
@@ -261,15 +297,20 @@ export async function handleChannels(
   }
 
   // test: send the person a message now, to where they saved, or tell them why not.
-  const saved = (
-    await db.execute(
-      sql`SELECT destination FROM internal.plugin_channel_subscriptions
-           WHERE user_id = ${session.user.id}
-             AND workspace_id = ${member.workspaceId}::uuid
-             AND extension_id = ${install.id}::uuid
-             AND channel_id = ${body.channelId}`,
+  const saved = z
+    .array(z.object({ destination: z.string() }))
+    .parse(
+      (
+        await db.execute(
+          sql`SELECT destination FROM internal.plugin_channel_subscriptions
+               WHERE user_id = ${session.user.id}
+                 AND workspace_id = ${member.workspaceId}::uuid
+                 AND extension_id = ${install.id}::uuid
+                 AND channel_id = ${body.channelId}`,
+        )
+      ).rows,
     )
-  ).rows[0] as { destination: string } | undefined
+    .at(0)
 
   if (!saved) return refuse(400, 'Save where to send it first.')
 

@@ -233,6 +233,7 @@ export const Keeps: Story = {
     <RunKeeps
       pipelineId="pl-1"
       config={{
+        // SAFETY: RunKeeps reads only `config.output.mode`; this story names the dataset it would create and the card reads no schema version.
         output: { mode: 'create', datasetName: 'Plate reads' } as never,
       }}
     />
@@ -245,6 +246,7 @@ export const Actions: Story = {
       <ElnActions
         config={{
           actions: [
+            // SAFETY: ElnActions reads an action's `name`, `operation`, `mode` and `arguments.p_record_id`, which is exactly what this story supplies.
             {
               name: 'cite',
               operation: 'insert_block',

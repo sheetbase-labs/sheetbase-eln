@@ -6,6 +6,7 @@ import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 // Sheetbase button: 28px, border before shadow, one decisive blue for the primary action.
+// react-doctor-disable-next-line react-doctor/only-export-components -- `buttonVariants` is an immutable class-name table that `Button` and its callers read; the file holds one component and no hot state, so Fast Refresh keeps the real component.
 export const buttonVariants = cva(
   'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border font-medium no-underline transition-colors hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus disabled:cursor-default disabled:border-border disabled:bg-surface-disabled disabled:text-fg-faint aria-disabled:cursor-default aria-disabled:border-border aria-disabled:bg-surface-disabled aria-disabled:text-fg-faint aria-expanded:border-border-strong aria-expanded:bg-surface-hover',
   {

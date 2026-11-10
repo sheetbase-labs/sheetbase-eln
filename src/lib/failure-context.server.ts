@@ -60,7 +60,9 @@ export async function annotateFailure(response: Response): Promise<void> {
 }
 
 /** The error object a failed reply nests its reason in, when it has one. */
-function sourceOf(record: z.infer<typeof jsonObject>): z.infer<typeof jsonObject> {
+function sourceOf(
+  record: z.infer<typeof jsonObject>,
+): z.infer<typeof jsonObject> {
   return jsonObject.safeParse(record.error).data ?? record
 }
 

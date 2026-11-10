@@ -49,19 +49,20 @@ export const ShelfOpen: Story = { args: { shelfOpen: true, shelfCount: 3 } }
 
 export const TeamLayouts: Story = { args: { teamLayouts: LAYOUTS } }
 
+/** Every preset the layout menu offers. */
+const GLYPH_PRESETS: readonly LayoutPreset[] = [
+  'single',
+  'columns-2',
+  'columns-3',
+  'primary-context',
+  'rows-2',
+]
+
 /** The 14px glyph that shows how each preset tiles its panes. */
 export const Glyphs: Story = {
   render: () => (
     <div className="flex gap-3">
-      {(
-        [
-          'single',
-          'columns-2',
-          'columns-3',
-          'primary-context',
-          'rows-2',
-        ] as LayoutPreset[]
-      ).map((preset) => (
+      {GLYPH_PRESETS.map((preset) => (
         <LayoutGlyph key={preset} preset={preset} />
       ))}
     </div>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { z } from 'zod'
 
 import { t } from '#/copy'
 import { Button } from '#/components/ui/button'
@@ -46,6 +47,23 @@ function glyph(column: ChartColumn): string {
   )
     ? '#'
     : 'Aa'
+}
+
+/** A dataset cell as text: a scalar reads as it is written, anything else as JSON. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A dataset row's values are stored JSON of no shape this screen knows; each form it can take is read below.
+function cellText(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  const text = z.string().safeParse(value).data
+
+  if (text !== undefined) return text
+  const flag = z.boolean().safeParse(value).data
+
+  if (flag !== undefined) return String(flag)
+  const stored = z.number().safeParse(value).data
+
+  if (stored !== undefined) return String(stored)
+
+  return JSON.stringify(value)
 }
 
 /** The source's columns with the part each plays in the charts. */
@@ -138,18 +156,30 @@ export function ChartStack({
   /** Null when no further chart can be added. */
   onAdd: (() => void) | null
 }) {
+  // Charts are positional and carry no identity of their own, so the key says
+  // where the chart sits and the map below never reads its own index.
+  const entries = charts.map((spec, index) => ({
+    spec,
+    index,
+    key: `${chartTitle(spec)}:${index}`,
+  }))
+
   return (
     <div className="flex flex-col gap-3">
-      {charts.map((spec, i) => {
+      {entries.map(({ spec, index: i, key }) => {
         const materialised = materialiseLiveChart(spec, dataset)
         const chartFactsText = chartFacts(chartTitle(spec), materialised)
 
         return (
           <div
-            key={i}
+            key={key}
             role="group"
             aria-label={t('data.analysisDocument.ariaChart', { value: i + 1 })}
+            tabIndex={0}
             onClick={() => onSelect(i)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') onSelect(i)
+            }}
             className={cn(
               'rounded-md border p-3',
               i === selected ? 'border-accent' : 'border-border',
@@ -265,27 +295,9 @@ export function ChartSettings({
   )
 }
 
-export interface ExclusionCounts {
-  values: number
-  rows: number
-}
+const ANALYSIS_TABS = ['data', 'diagnostics', 'versions'] as const
 
-/** Flagged values across every field the charts use. */
-export function exclusionCounts(
-  dataset: ResolvedDataset | null,
-  charts: readonly ChartSpec[],
-): ExclusionCounts {
-  if (!dataset?.flags?.length) return { values: 0, rows: 0 }
-  const used = new Set(charts.flatMap((c) => usedFieldIds(c)))
-  const hit = dataset.flags.filter((f) => used.has(f.fieldId))
-
-  return {
-    values: new Set(hit.map((f) => `${f.rowId}:${f.fieldId}`)).size,
-    rows: new Set(hit.map((f) => f.rowId)).size,
-  }
-}
-
-type Tab = 'data' | 'diagnostics' | 'versions'
+type Tab = (typeof ANALYSIS_TABS)[number]
 
 /** Data, Diagnostics and Versions, under the charts. */
 export function AnalysisTabs({
@@ -313,24 +325,28 @@ export function AnalysisTabs({
   const [tab, setTab] = useState<Tab>('data')
 
   const used = useMemo(
-    () => [...new Set(charts.flatMap((c) => usedFieldIds(c)))],
+    () => new Set(charts.flatMap((c) => usedFieldIds(c))),
     [charts],
   )
 
-  const columns = (dataset?.source.columns ?? []).filter((c) =>
-    used.includes(c.id),
-  )
+  const columns = (dataset?.source.columns ?? []).filter((c) => used.has(c.id))
 
   const rows = dataset?.rows ?? []
 
-  const flagFor = (row: Record<string, unknown>) => {
-    const rowId = row[CHART_ROW_ID_KEY]
+  // A row is named by its id; a row without one keeps its place in the page.
+  const rowEntries = rows.map((row, index) => ({
+    row,
+    key: z.string().safeParse(row[CHART_ROW_ID_KEY]).data ?? `row ${index}`,
+  }))
 
-    return typeof rowId === 'string'
-      ? (dataset?.flags ?? []).find(
-          (f) => f.rowId === rowId && used.includes(f.fieldId),
+  const flagFor = (row: ResolvedDataset['rows'][number]) => {
+    const rowId = z.string().safeParse(row[CHART_ROW_ID_KEY]).data
+
+    return rowId === undefined
+      ? undefined
+      : (dataset?.flags ?? []).find(
+          (f) => f.rowId === rowId && used.has(f.fieldId),
         )
-      : undefined
   }
 
   return (
@@ -339,7 +355,11 @@ export function AnalysisTabs({
         mode="state"
         label={t('data.analysisDocument.analysisDetail')}
         value={tab}
-        onValueChange={(v) => setTab(v as Tab)}
+        onValueChange={(next) => {
+          const chosen = z.enum(ANALYSIS_TABS).safeParse(next).data
+
+          if (chosen) setTab(chosen)
+        }}
         items={[
           {
             key: 'data',
@@ -374,12 +394,12 @@ export function AnalysisTabs({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row, i) => {
+                  {rowEntries.map(({ row, key }) => {
                     const flag = flagFor(row)
 
                     return (
                       <tr
-                        key={i}
+                        key={key}
                         className={cn(
                           'border-t border-border',
                           flag && 'text-fg-muted',
@@ -387,7 +407,7 @@ export function AnalysisTabs({
                       >
                         {columns.map((c) => (
                           <td key={c.id} className="px-2 py-1">
-                            {String(row[c.id] ?? '')}
+                            {cellText(row[c.id])}
                           </td>
                         ))}
                         <td className="px-2 py-1">

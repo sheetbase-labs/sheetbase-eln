@@ -48,6 +48,7 @@ export function NewProtocolDialog({
   // The shell's New menu arrives with `?new=true`: open once, then drop the flag.
   useEffect(() => {
     if (!autoOpen) return
+    // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change -- `autoOpen` is the shell's one-shot `?new=true` command, not a mirrored prop: it opens this dialog once on arrival and `onAutoOpened` drops the flag, so a later change cannot reopen it.
     setOpen(true)
     onAutoOpened?.()
   }, [autoOpen, onAutoOpened])
@@ -103,8 +104,8 @@ export function NewProtocolDialog({
         params: { recordId: record.id },
       })
     },
-    onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : ''
+    onError: (error) => {
+      const message = error.message
       toast.error(
         /row-level security|permission denied/i.test(message)
           ? t('library.protocols.newProtocolDialog.youDontHavePermissionTo')

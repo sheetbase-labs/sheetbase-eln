@@ -12,7 +12,7 @@ import { AI_WORKSPACE_ID, withPageAi } from './assist-fixtures'
  * model phrasing renders in a clearly marked block under them. The panel never
  * writes anything.
  */
-const EXPLANATION = explainBlockValidation({
+const EXPLANATION = explainedFixture({
   blockType: 'rich_text',
   errors: [
     {
@@ -22,7 +22,18 @@ const EXPLANATION = explainBlockValidation({
     },
     { code: 'invalid_payload_shape', message: 'payload must be an object' },
   ],
-}) as AssistExplanation
+})
+
+function explainedFixture(
+  input: Parameters<typeof explainBlockValidation>[0],
+): AssistExplanation {
+  const explanation = explainBlockValidation(input)
+
+  if (!explanation)
+    throw new Error('The explain panel fixture must carry a validation error.')
+
+  return explanation
+}
 
 const meta = {
   title: 'Assistant/Explain panel',

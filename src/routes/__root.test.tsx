@@ -6,10 +6,12 @@ import {
   createRouter,
   RouterProvider,
 } from '@tanstack/react-router'
+import type { AnyRoute } from '@tanstack/react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route as RootRoute } from './__root'
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The workspace host opens the workspace's own queries; this suite is about the root route forwarding its match, so the shell around it is replaced by its children.
 vi.mock('#/components/workspace/workspace-host', () => ({
   WorkspaceHost: ({ children }: { children: React.ReactNode }) => children,
 }))
@@ -26,6 +28,7 @@ vi.mock('#/components/workspace/workspace-host', () => ({
  * known marker. If the root route ever stops forwarding to `<Outlet />`,
  * the marker disappears and this test fails.
  */
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The coordinator opens an EventSource, which jsdom has no transport for; the root route only needs a provider that reports offline.
 vi.mock('#/lib/live-events', () => ({
   createLiveEventCoordinator: () => ({
     connect: vi.fn(),
@@ -40,24 +43,23 @@ vi.mock('#/lib/live-events', () => ({
   }),
 }))
 
-vi.mock('#/lib/client-identity', () => ({
-  getOrCreateClientId: () => 'test-client-id',
-}))
-
 // Mock @tanstack/react-start so createServerFn doesn't require the
 // server runtime (AsyncLocalStorage) during unit tests.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- `createServerFn` needs the server runtime (AsyncLocalStorage), which a unit test has no process for; the route only needs the handler it defines back unchanged.
 vi.mock('@tanstack/react-start', () => ({
   createServerFn: () => ({
-    handler: (fn: () => unknown) => fn,
+    handler: <T,>(fn: () => T) => fn,
   }),
 }))
 
 // Mock the server-only auth context so beforeLoad doesn't hit env vars
 // or database connections during the unit test.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The signed-in context is read from the request on the server; this suite drives the root route's outlet with no session.
 vi.mock('#/lib/current-user', () => ({
   getCurrentContext: () => null,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Request headers come from the framework's server context, which a jsdom render has none of.
 vi.mock('@tanstack/react-start/server', () => ({
   getRequestHeaders: () => new Headers(),
 }))
@@ -66,15 +68,20 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+// SAFETY: `./__root` is the root file route of the generated tree; this suite
+// builds its own one-route tree by hand, so it stands in where TanStack's
+// generated root type is expected.
+const rootRoute = RootRoute as AnyRoute
+
 function buildRouter() {
   const child = createRoute({
-    getParentRoute: () => RootRoute as any,
+    getParentRoute: () => rootRoute,
     path: '/',
     component: () => <p data-testid="child-marker">child-content</p>,
   })
 
   const router = createRouter({
-    routeTree: (RootRoute as any).addChildren([child]),
+    routeTree: rootRoute.addChildren([child]),
     context: { queryClient: new QueryClient(), auth: null, shellCounts: {} },
     history: createMemoryHistory({ initialEntries: ['/'] }),
   })

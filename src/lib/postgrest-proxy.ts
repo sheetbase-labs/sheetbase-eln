@@ -12,6 +12,8 @@
  */
 import { createHash } from 'node:crypto'
 
+import { z } from 'zod'
+
 import {
   categorisePostgrestError,
   categoriseProxyError,
@@ -21,7 +23,7 @@ import type { ProxyErrorCode } from './errors'
 import { logger } from './logger'
 import { annotateRequest } from './request-log'
 import { metrics, DATASET_RPC_OPERATIONS } from './metrics'
-import type { HttpRoute, DatasetRpcOperation } from './metrics'
+import type { HttpRoute } from './metrics'
 import type { RateLimiter } from './rate-limit'
 import {
   RATE_LIMIT_SCOPE_DB,
@@ -187,17 +189,35 @@ function recordProxyRequest(
   metrics.dbUpstreamRequests.inc({ category: category ?? 'ok' })
 }
 
+/** A JSON value as PostgREST writes it, decoded before anything reads it. */
+const jsonValue = z.json()
+
+/** The Dataset RPC operations the proxy labels; everything else folds to 'other'. */
+const datasetRpcOperation = z.enum(DATASET_RPC_OPERATIONS)
+
+/** The error body PostgREST returns, when the body is its own shape. */
+const postgrestErrorBody = z.object({
+  code: z.string().optional(),
+  message: z.string().optional(),
+})
+
+/** A JSON body as the value it encodes; a body that is not JSON reads as null. */
+function parseJson(text: string): z.output<typeof jsonValue> | null {
+  try {
+    return jsonValue.parse(JSON.parse(text))
+  } catch {
+    return null
+  }
+}
+
 /**
  * PLAT-05 — bounded latency visibility for the hot Dataset/Pipeline RPCs
  * proxied from the product. Only the fixed allowlist is labelled; any other
  * RPC folds to 'other' and never creates a new time series.
  */
 function observeRpcLatency(resource: string, startedAt: number): void {
-  const operation = (DATASET_RPC_OPERATIONS as readonly string[]).includes(
-    resource,
-  )
-    ? (resource as DatasetRpcOperation)
-    : 'other'
+  const decoded = datasetRpcOperation.safeParse(resource)
+  const operation = decoded.success ? decoded.data : 'other'
 
   metrics.datasetRpcDuration.observe(
     { operation },
@@ -215,10 +235,10 @@ function observeRpcLatency(resource: string, startedAt: number): void {
  * is non-sensitive and never echoes the token.
  */
 function externalTokenErrorResponse(
-  error: unknown,
+  error: ExternalTokenError | null,
   requestId: string,
 ): Response {
-  if (error instanceof ExternalTokenError) {
+  if (error) {
     const status =
       error.code === 'insufficient_scope' || error.code === 'revoked'
         ? 403
@@ -295,7 +315,11 @@ export async function handleProxyRequest(
       await deps.resolveExternalToken(bearer, request.method, path)
       token = bearer
     } catch (error) {
-      const response = externalTokenErrorResponse(error, requestId)
+      const response = externalTokenErrorResponse(
+        error instanceof ExternalTokenError ? error : null,
+        requestId,
+      )
+
       recordProxyRequest(
         request.method,
         response.status,
@@ -516,13 +540,7 @@ async function normaliseUpstreamResponse(
 
     if (generatedMutation) {
       const text = await response.text()
-      let rows: unknown
-
-      try {
-        rows = JSON.parse(text)
-      } catch {
-        rows = null
-      }
+      const rows = parseJson(text)
 
       if (Array.isArray(rows) && rows.length === 0) {
         return errorEnvelope({
@@ -579,9 +597,9 @@ async function normaliseUpstreamResponse(
 
   try {
     rawBody = await response.text()
-    body = rawBody
-      ? (JSON.parse(rawBody) as { code?: string; message?: string })
-      : null
+    const decoded = postgrestErrorBody.safeParse(parseJson(rawBody))
+
+    body = decoded.success ? decoded.data : null
   } catch {
     body = null
   }

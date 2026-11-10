@@ -13,25 +13,32 @@ const input = {
   contentHash: 'sha256:abc',
 }
 
-function clientWith(linkError?: unknown) {
-  const calls: { fn: string; args: Record<string, unknown> }[] = []
+type RpcArgs = Parameters<DataClient['rpc']>[1]
 
-  const client = {
-    list: vi.fn(async () => [
-      {
-        id: input.recordId,
-        identifier: 'EXP-0142',
-        title: 'Run',
-        kind: 'experiment',
-        structure_version: 7,
-      },
-    ]),
-    rpc: vi.fn(async (fn: string, args: Record<string, unknown>) => {
+function clientWith(linkError?: Error) {
+  const calls: { fn: string; args: RpcArgs }[] = []
+
+  const client: DataClient = {
+    list: vi.fn(async (): Promise<never[]> => {
+      // SAFETY: the citation reads `identifier`, `title` and `kind` from the record row, which is exactly what this fixture supplies.
+      return [
+        {
+          id: input.recordId,
+          identifier: 'EXP-0142',
+          title: 'Run',
+          kind: 'experiment',
+          structure_version: 7,
+        },
+      ] as never[]
+    }),
+    count: vi.fn(async () => 0),
+    rpc: async <T>(fn: string, args: RpcArgs): Promise<T> => {
       calls.push({ fn, args })
 
       if (fn === 'create_record_link' && linkError) throw linkError
 
       if (fn === 'insert_block') {
+        // SAFETY: the citation reads `block.id` from the inserted block row, which is the id the suite asserts.
         return {
           block: {
             id: 'block-1',
@@ -42,12 +49,16 @@ function clientWith(linkError?: unknown) {
             order_key: 'a0',
           },
           structure_version: 8,
-        }
+        } as T
       }
 
-      return {}
-    }),
-  } as unknown as DataClient
+      // SAFETY: the citation ignores what the link RPC answers.
+      return {} as T
+    },
+    insert: vi.fn(),
+    patch: vi.fn(async () => []),
+    remove: vi.fn(async () => []),
+  }
 
   return { client, calls }
 }

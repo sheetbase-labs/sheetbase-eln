@@ -274,6 +274,7 @@ async function postgrestRequest<T>(
   path: string,
   init: RequestInit,
 ): Promise<{ status: number; body: T | { error: unknown } }> {
+  // react-doctor-disable-next-line react-doctor/no-fetch-response-used-without-status-check -- This is the transport primitive: it hands the status back with the body so every caller can judge it, which they do before decoding a row.
   const response = await fetch(`${env.POSTGREST_URL}${path}`, init)
   const text = await response.text()
 

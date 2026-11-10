@@ -70,13 +70,16 @@ export type NotebookOutcome =
 
 type Lookup<T> = { ok: true; value: T } | { ok: false; message: string }
 
+const NOTEBOOK_READ_TOOLS = new Set<string>(NOTEBOOK_READ_TOOL_NAMES)
+
+const NOTEBOOK_PROPOSAL_TOOLS = new Set<string>(NOTEBOOK_PROPOSE_TOOL_NAMES)
+
 export const isNotebookReadTool = (name: string): boolean =>
-  (NOTEBOOK_READ_TOOL_NAMES as readonly string[]).includes(name)
+  NOTEBOOK_READ_TOOLS.has(name)
 
 export const isNotebookProposalTool = (
   name: string,
-): name is NotebookProposeToolName =>
-  (NOTEBOOK_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+): name is NotebookProposeToolName => NOTEBOOK_PROPOSAL_TOOLS.has(name)
 
 export function notebookReadDefs(): ProviderToolDef[] {
   return [
@@ -250,11 +253,11 @@ async function findPerson(
   const lower = text.trim().toLowerCase()
   const words = lower.split(/\s+/).filter(Boolean)
 
-  const matches = [...members.entries()]
-    .map(([id, name]) => ({ id, name }))
-    .filter((member) =>
-      words.every((word) => member.name.toLowerCase().includes(word)),
-    )
+  const matches = [...members.entries()].flatMap(([id, name]) =>
+    words.every((word) => name.toLowerCase().includes(word))
+      ? [{ id, name }]
+      : [],
+  )
 
   return pick(
     matches,
@@ -371,6 +374,7 @@ type ReadResult = { text: string; isError: boolean }
 
 export async function runNotebookReadTool(
   name: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; each read below parses them with its own schema before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<ReadResult> {
@@ -390,7 +394,22 @@ export async function runNotebookReadTool(
   }
 }
 
+/**
+ * What the three training tools share. Each schema below declares its own
+ * subset; this is the union the card builder reads either way.
+ */
+interface TrainingRequest {
+  title: string
+  summary: string
+  protocol: string
+  person: string
+  dueOn?: string
+  notes?: string
+  version?: number
+}
+
 async function readComments(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments; commentsReadSchema decodes them before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<ReadResult> {
@@ -437,6 +456,7 @@ async function readComments(
 }
 
 async function readProtocols(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments; protocolsReadSchema decodes them before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<ReadResult> {
@@ -516,6 +536,7 @@ async function readProtocols(
 }
 
 async function readFiles(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments; filesReadSchema decodes them before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<ReadResult> {
@@ -580,6 +601,7 @@ async function readFiles(
 }
 
 async function readApprovals(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments; approvalsReadSchema decodes them before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<ReadResult> {
@@ -660,6 +682,7 @@ const names = (people: readonly { name: string }[]) =>
 
 export async function buildNotebookProposal(
   name: NotebookProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; each case parses them with its own proposal schema before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<NotebookOutcome> {
@@ -981,15 +1004,7 @@ export async function buildNotebookProposal(
 
       if (!parsed.success) return bad(parsed.error)
 
-      const input = parsed.data as {
-        title: string
-        summary: string
-        protocol: string
-        person: string
-        dueOn?: string
-        notes?: string
-        version?: number
-      }
+      const input: TrainingRequest = parsed.data
 
       const found = await findRecord(
         client,

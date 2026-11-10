@@ -20,6 +20,26 @@
  * - The registry's lint pragmas for a plugin this repository does not
  *   configure (`react-hooks/exhaustive-deps`) removed, as are two inert
  *   `no-explicit-any` pragmas.
+ *
+ * Strict-lint pass, 2026-11-10 (ADR-0057 - this directory is first-party source
+ * now, so re-apply or upstream these deltas instead of taking the registry file
+ * over them):
+ * - Index reads whose declared element type denied an empty result became
+ *   `.at()` (`centerRows`, `virtualItems`), and `row.id ?? index` lost a
+ *   fallback `row.id` cannot need; the guards that remain now match the type.
+ * - `readDataGridTableState` describes the state slice a leaner feature bundle
+ *   can leave absent, as `data-grid.tsx` does, so the resize comparator no
+ *   longer trusts the widened type.
+ * - `typeof` feature probes replaced by the value check they stood in for
+ *   (`onFetchMore !== undefined`, which also narrows the callback the effect
+ *   calls); `Element.scrollTo` became an optional capability on the scroll
+ *   target's own type, so a harness without it still scrolls through the
+ *   offset.
+ * - The `useVirtualizer` cast replaced by explicit type arguments; the two
+ *   `memo` casts stay because `memo` erases the generic, each with a
+ *   `SAFETY:` note.
+ * - React Doctor suppressions, one local line each: the virtual layout owns one
+ *   scroll contract, and the head memo's dependency list is deliberate.
  */
 
 // Opted out of React Compiler with the rest of the grid (see data-grid.tsx).
@@ -81,6 +101,17 @@ type DataGridTableVirtualizerInstance = Virtualizer<
 
 type DataGridTableVirtualScrollAlignment = 'auto' | 'center' | 'start' | 'end'
 
+/**
+ * What scrolling by offset needs from a box: the writable offset, and
+ * `scrollTo` only where the DOM implements it. Every browser does, so the
+ * optional member is the honest shape for a harness (jsdom) that does not -
+ * it scrolls through the offset instead.
+ */
+type DataGridTableScrollToTarget = {
+  scrollTop: number
+  scrollTo?: (options: ScrollToOptions) => void
+}
+
 interface DataGridTableColumnVirtualizerOptions {
   /** Off unless explicitly true; a column window is opt-in. */
   enabled?: boolean
@@ -93,6 +124,19 @@ type DataGridTableColumnScrollRequest = {
   columnId: string | undefined
   columnIndex: number
   scrollElement: HTMLElement
+}
+
+/**
+ * The table state as the running feature bundle may actually carry it:
+ * `DataGrid` widens whatever bundle a consumer built to `DataGridFeatures`, so
+ * a slice that leaner bundle does not register is absent at runtime even though
+ * the widened type declares it present. Same posture as `data-grid.tsx`'s own
+ * partial state reader.
+ */
+function readDataGridTableState<TData extends object>(
+  table: DataGridTableInstance<TData>,
+): Partial<DataGridTableInstance<TData>['state']> {
+  return table.state
 }
 
 function isSameDataGridTableColumnScrollRequest(
@@ -217,13 +261,13 @@ function scrollDataGridTableToOffset({
   virtualizer,
 }: {
   behavior: ScrollBehavior
-  scrollElement: HTMLElement
+  scrollElement: DataGridTableScrollToTarget
   targetTop: number
   virtualizer?: DataGridTableVirtualizerInstance
 }) {
   if (virtualizer) {
     virtualizer.scrollToOffset(targetTop, { align: 'start', behavior })
-  } else if (typeof scrollElement.scrollTo === 'function') {
+  } else if (scrollElement.scrollTo) {
     scrollElement.scrollTo({ behavior, top: targetTop })
   } else {
     scrollElement.scrollTop = targetTop
@@ -508,6 +552,9 @@ function DataGridTableVirtualStatusRow<TData extends object>({
  * focus, row checks) repaints through each cell's own Subscribe, and any real
  * data change rebuilds the row wrappers, so identity comparison is safe.
  */
+// SAFETY: `memo` keeps the component's props but drops its generic parameter,
+// so the cast restores the one signature `DataGridTableRenderedRow` already
+// has - the wrapper accepts exactly those props and no others.
 const MemoizedRenderedRow = memo(
   DataGridTableRenderedRow,
   (prev, next) =>
@@ -519,6 +566,7 @@ const MemoizedRenderedRow = memo(
     prev.centerWindow?.end === next.centerWindow?.end,
 ) as typeof DataGridTableRenderedRow
 
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- one body renders the pinned, virtualised and infinite-scroll sections in their declared order; the branches are those sections.
 function DataGridTableVirtualBody<TData extends object>({
   table,
   topRows,
@@ -600,7 +648,8 @@ function DataGridTableVirtualBody<TData extends object>({
     }
 
     virtualItems.forEach((virtualRow) => {
-      const row = centerRows[virtualRow.index]
+      // A virtual item can name a row the model has since shed; `.at` says so.
+      const row = centerRows.at(virtualRow.index)
 
       if (!row) return
 
@@ -686,13 +735,17 @@ function DataGridTableVirtualBody<TData extends object>({
  * cell's own Subscribe, and the virtualizer re-renders itself from inside the
  * memo boundary, so parent-driven reconciliation during the drag is waste.
  */
+// SAFETY: as above - the cast restores the generic props signature `memo`
+// erases, and the wrapper accepts exactly the props the component declares.
 const MemoizedVirtualBody = memo(
   DataGridTableVirtualBody,
   (_prev, next) =>
-    !!next.table.state.columnResizing?.isResizingColumn ||
+    !!readDataGridTableState(next.table).columnResizing?.isResizingColumn ||
     next.table._isSelectingCells === true,
 ) as typeof DataGridTableVirtualBody
 
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- one component owns the row and column virtualizers, the controlled scroll requests and the column window, which all share one scroll contract.
+// react-doctor-disable-next-line react-doctor/no-giant-component -- the virtual layout is the standard table plus those virtualizers; splitting it would split the scroll contract that keeps rows and headers on one geometry.
 function DataGridTableVirtual<TData extends object>({
   height,
   estimateSize = 48,
@@ -736,7 +789,7 @@ function DataGridTableVirtual<TData extends object>({
     props.tableLayout?.rowsPinnable,
   )
 
-  const isInfiniteMode = typeof onFetchMore === 'function'
+  const isInfiniteMode = onFetchMore !== undefined
 
   const [viewportElements, setViewportElements] =
     useState<DataGridTableVirtualScrollElements>({
@@ -784,18 +837,20 @@ function DataGridTableVirtual<TData extends object>({
 
   const resolveItemKey = useCallback(
     (index: number) => {
-      const row = centerRows[index]
+      // The virtualizer asks about the count it was given, which can outrun
+      // the rows after a data change; `.at` says so.
+      const row = centerRows.at(index)
 
       if (!row) return index
 
-      return customGetItemKey?.(index, row) ?? row.id ?? index
+      return customGetItemKey?.(index, row) ?? row.id
     },
     [centerRows, customGetItemKey],
   )
 
   const resolveEstimateSize = useCallback(
     (index: number) => {
-      const row = centerRows[index]
+      const row = centerRows.at(index)
 
       return row
         ? (customEstimateSize?.(index, row) ?? estimateSize)
@@ -804,7 +859,7 @@ function DataGridTableVirtual<TData extends object>({
     [centerRows, customEstimateSize, estimateSize],
   )
 
-  const virtualizer = useVirtualizer({
+  const virtualizer = useVirtualizer<HTMLElement, HTMLTableRowElement>({
     count: centerRows.length,
     getScrollElement: resolveScrollElement,
     getItemKey: resolveItemKey,
@@ -812,7 +867,7 @@ function DataGridTableVirtual<TData extends object>({
     overscan: customOverscan ?? overscan,
     measureElement: customMeasureElement,
     ...virtualizerOptionsRest,
-  }) as DataGridTableVirtualizerInstance
+  })
 
   // Horizontal offsets invert in RTL; the virtualizer must be told.
   const isRtl = useMemo(
@@ -868,8 +923,8 @@ function DataGridTableVirtual<TData extends object>({
   const centerColumnWindow =
     columnVirtualizationActive && virtualColumns.length > 0
       ? {
-          start: virtualColumns[0]!.index,
-          end: virtualColumns[virtualColumns.length - 1]!.index,
+          start: virtualColumns[0].index,
+          end: virtualColumns[virtualColumns.length - 1].index,
         }
       : undefined
 
@@ -1074,14 +1129,14 @@ function DataGridTableVirtual<TData extends object>({
   useEffect(() => {
     if (
       !isVirtualizationEnabled ||
-      !isInfiniteMode ||
+      !onFetchMore ||
       hasMore === false ||
       isFetchingMore
     ) {
       return
     }
 
-    const lastItem = virtualItems[virtualItems.length - 1]
+    const lastItem = virtualItems.at(-1)
 
     if (!lastItem) return
 
@@ -1089,7 +1144,7 @@ function DataGridTableVirtual<TData extends object>({
 
     if (lastItem.index >= centerRows.length - 1 - resolvedFetchMoreOffset) {
       fetchMoreFiredAtCountRef.current = centerRows.length
-      onFetchMore?.()
+      onFetchMore()
     }
   }, [
     centerRows.length,
@@ -1194,6 +1249,7 @@ function DataGridTableVirtual<TData extends object>({
           })}
         </DataGridTableHead>
       ),
+    // react-doctor-disable-next-line react-doctor/exhaustive-deps -- mergedHeaderGroups and centerVisibleColumns are derived from `table` in this render, so listing them would rebuild the head on every scroll frame, which is what the memo exists to skip.
     [
       renderHeader,
       table,

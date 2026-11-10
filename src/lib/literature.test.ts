@@ -9,10 +9,10 @@ import {
   parsePubMed,
   searchLiterature,
 } from './literature'
-import type { FetchLike } from './literature'
+import type { FetchLike, JsonValue } from './literature'
 
 function fakeFetch(
-  answers: ReadonlyMap<string, unknown>,
+  answers: ReadonlyMap<string, JsonValue>,
   seen: string[] = [],
 ): FetchLike {
   return async (url) => {
@@ -21,7 +21,7 @@ function fakeFetch(
 
     return key === undefined
       ? { ok: false, status: 404, json: async () => ({}) }
-      : { ok: true, status: 200, json: async () => answers.get(key) }
+      : { ok: true, status: 200, json: async () => answers.get(key) ?? null }
   }
 }
 

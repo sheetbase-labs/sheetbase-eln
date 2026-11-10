@@ -45,6 +45,13 @@ import type { ScheduleInstrument } from './schedule-data'
 
 const client = notebookDataClient
 
+/** The scopes a subscription can cover, in the order they are offered. */
+const FEED_SCOPES = [
+  'mine',
+  'instrument',
+  'all',
+] as const satisfies readonly FeedScope[]
+
 export function SubscribeDialog({
   instruments,
 }: {
@@ -79,12 +86,8 @@ export function SubscribeDialog({
       setLabel('')
       void queryClient.invalidateQueries({ queryKey: calendarFeedKeys.all })
     },
-    onError: (e: unknown) =>
-      toast.error(
-        e instanceof Error && e.message
-          ? e.message
-          : t('calendarFeed.couldNotCreate'),
-      ),
+    onError: (e: Error) =>
+      toast.error(e.message || t('calendarFeed.couldNotCreate')),
   })
 
   const revoke = useMutation({
@@ -133,9 +136,15 @@ export function SubscribeDialog({
               <Field label={t('calendarFeed.scope')}>
                 <Select
                   value={scope}
-                  onChange={(e) => setScope(e.target.value as FeedScope)}
+                  onChange={(e) => {
+                    const chosen = FEED_SCOPES.find(
+                      (key) => key === e.target.value,
+                    )
+
+                    if (chosen) setScope(chosen)
+                  }}
                 >
-                  {(['mine', 'instrument', 'all'] as const).map((key) => (
+                  {FEED_SCOPES.map((key) => (
                     <option key={key} value={key}>
                       {t(`calendarFeed.scopes.${key}`)}
                     </option>
@@ -211,6 +220,7 @@ export function SubscribeDialog({
                   <Button
                     size="sm"
                     nativeButton={false}
+                    // react-doctor-disable-next-line react-doctor/anchor-has-content -- Button forwards its visible open-in-calendar children to this anchor through Base UI's render prop.
                     render={<a href={webcalUrl(link)} />}
                   >
                     {t('calendarFeed.open')}

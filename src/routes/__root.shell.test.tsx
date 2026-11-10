@@ -27,24 +27,25 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { noCapabilities } from '#/lib/capabilities'
 import { Route as RootRoute } from './__root'
 
-vi.mock('#/components/workspace/workspace-host', () => ({
-  WorkspaceHost: ({ children }: { children: React.ReactNode }) => children,
-}))
-
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The devtools panels mount a client they cannot in jsdom and unmount by throwing when they have not; this suite is about which shell wraps a route, so they render nothing.
 vi.mock('@tanstack/react-devtools', () => ({ TanStackDevtools: () => null }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The router devtools panel mounts the same client as above and is never part of what this suite asserts.
 vi.mock('@tanstack/react-router-devtools', () => ({
   TanStackRouterDevtoolsPanel: () => null,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The query devtools panel mounts the same client as above and is never part of what this suite asserts.
 vi.mock('../integrations/tanstack-query/devtools', () => ({
   default: () => null,
 }))
 
-vi.mock('../components/live', () => ({
-  LiveEventProvider: ({ children }: { children?: React.ReactNode }) => children,
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The workspace host opens the workspace's own queries; this suite is about which shell wraps a route, so the shell's content is replaced by its children.
+vi.mock('#/components/workspace/workspace-host', () => ({
+  WorkspaceHost: ({ children }: { children: React.ReactNode }) => children,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The coordinator opens an EventSource, which jsdom has no transport for; the shell only needs a provider that reports offline.
 vi.mock('#/lib/live-events', () => ({
   createLiveEventCoordinator: () => ({
     connect: vi.fn(),
@@ -59,32 +60,33 @@ vi.mock('#/lib/live-events', () => ({
   }),
 }))
 
-vi.mock('#/lib/client-identity', () => ({
-  getOrCreateClientId: () => 'test-client-id',
-}))
-
 // Mock @tanstack/react-start so createServerFn doesn't require the server
 // runtime (AsyncLocalStorage) during unit tests.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- `createServerFn` needs the server runtime (AsyncLocalStorage), which a unit test has no process for; the route only needs the handler it defines back unchanged.
 vi.mock('@tanstack/react-start', () => ({
   createServerFn: () => ({
-    handler: (fn: () => unknown) => fn,
+    handler: <T,>(fn: () => T) => fn,
   }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The signed-in context is read from the request on the server; this suite drives which shell wraps a route with no session.
 vi.mock('#/lib/current-user', () => ({ getCurrentContext: () => null }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Request headers come from the framework's server context, which a jsdom render has none of.
 vi.mock('@tanstack/react-start/server', () => ({
   getRequestHeaders: () => new Headers(),
 }))
 
 // The two shells are distinguishable by their wrapper, so the assertion does
 // not depend on either shell's chrome.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The two shells are told apart by their wrapper so the assertion does not depend on either shell's chrome; the adopted shell's content is replaced here.
 vi.mock('#/components/shell/app-shell', () => ({
   AppShell: ({ children }: { children?: React.ReactNode }) => (
     <div data-testid="v3-shell">{children}</div>
   ),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The legacy shell is the other side of the same comparison, replaced by a wrapper with its own marker.
 vi.mock('../components/shell', () => ({
   ShellProvider: ({ children }: { children?: React.ReactNode }) => (
     <div data-testid="legacy-shell">{children}</div>

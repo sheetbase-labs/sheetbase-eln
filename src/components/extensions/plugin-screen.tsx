@@ -13,31 +13,37 @@ import { Button } from '#/components/ui/button'
 import { Spinner } from '#/components/ui/spinner'
 import { runPluginHook } from '#/lib/extensions/run-client'
 import type { PluginFramePoint } from '#/lib/extensions/ui-points'
+import type { PluginScreenContext } from './plugin-frame-protocol'
+import type { HostEnvironment } from './plugin-host'
 import type { PluginHookAnswer } from '#/lib/extensions/run-client'
 import type { ScreenNotice, ScreenResult } from '#/lib/extensions/screens'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
 import { PluginFrame } from './plugin-frame'
+import type { PluginFrameLinkOptions } from './use-plugin-frame-link'
 import { PluginView } from './plugin-view'
 import type { PluginValues } from './plugin-view'
 import { TONE_CLASSES } from './tone'
 
+/** The points a plugin screen appears at: a notebook block or a record panel. */
+type PluginScreenPoint = Extract<PluginFramePoint, 'blocks' | 'panels'>
+
 export interface PluginScreenProps {
   extensionKey: string
   pluginName: string
-  point: PluginFramePoint
+  point: PluginScreenPoint
   itemId: string
   title: string
   /** `screen`: a Python function describes it. `ui`: a bundle runs in the sandboxed frame. */
   source: 'screen' | 'ui'
-  context: Record<string, unknown>
+  context: PluginScreenContext
   state?: unknown
-  onState?: (state: unknown) => void
+  onState?: PluginFrameLinkOptions['onState']
   operations: Record<string, 'read' | 'write'>
   /** What the plugin declares it may reach; unlocks `sheetbase.host` in a UI bundle. */
   scopes?: readonly string[]
   /** Put a block below this one (editable notebooks only). */
-  insertBelow?: (type: string, payload: Record<string, unknown>) => void
+  insertBelow?: HostEnvironment['insertBelow']
   className?: string
 }
 
@@ -77,10 +83,20 @@ function PythonScreen({
   const [busy, setBusy] = React.useState(false)
   const [notice, setNotice] = React.useState<ScreenNotice | null>(null)
   const kept = React.useRef<unknown>(state)
-  const contextKey = JSON.stringify(context)
+  const contextJson = JSON.stringify(context)
+
+  // The caller builds `context` afresh on each render; the screen reruns only when its JSON changes.
+  const stableContext = React.useMemo<PluginScreenContext>(
+    () => JSON.parse(contextJson),
+    [contextJson],
+  )
+
   // The caller's handler changes as the block is saved; drawing must not start over each time.
   const keep = React.useRef(onState)
-  keep.current = onState
+
+  React.useLayoutEffect(() => {
+    keep.current = onState
+  })
 
   const run = React.useCallback(
     async (event: { action: string; values: PluginValues } | null) => {
@@ -93,9 +109,9 @@ function PythonScreen({
         >({
           kind: 'screen',
           extensionKey,
-          point: point as 'blocks' | 'panels',
+          point,
           itemId,
-          context: JSON.parse(contextKey) as Record<string, unknown>,
+          context: stableContext,
           state: kept.current,
           event,
         })
@@ -119,7 +135,7 @@ function PythonScreen({
         setBusy(false)
       }
     },
-    [extensionKey, point, itemId, contextKey],
+    [extensionKey, point, itemId, stableContext],
   )
 
   React.useEffect(() => {

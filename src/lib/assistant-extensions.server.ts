@@ -80,6 +80,7 @@ export type ExtensionToolOutcome =
 export async function runExtensionTool(
   toolset: ExtensionToolset,
   name: string,
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The model's tool call arrives unparsed; checkDeclaredValues decodes it against the operation's declared fields before a read or a card uses it.
   args: Record<string, unknown>,
   context: {
     workspaceId: string
@@ -97,7 +98,7 @@ export async function runExtensionTool(
   if (declaration.access === 'write') {
     if (!context.allowWrites)
       return { ok: false, message: 'That tool is not available.' }
-    let input: Record<string, unknown>
+    let input: ReturnType<typeof checkDeclaredValues>
 
     try {
       input = checkDeclaredValues(declaration.inputs, args, 'input')
@@ -152,11 +153,13 @@ export async function runExtensionTool(
     }
 
     // A read may call into the app (`host_call`) for what it needs to read.
-    const outcome = context.client
+    const hostClient = context.client
+
+    const outcome = hostClient
       ? await invokeWithHostCalls(call, {
           workspaceId: context.workspaceId,
           userId: context.userId,
-          client: async () => context.client as DataClient,
+          client: async () => hostClient,
           approve: 'none',
         })
       : ({ kind: 'done', result: await invokeExtension(call) } as const)

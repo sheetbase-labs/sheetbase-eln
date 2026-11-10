@@ -212,7 +212,7 @@ export async function hybridSearch(
     query,
     limit: limit * 2,
     offset: 0,
-  }).catch(() => [] as RpcSearchResult[])
+  }).catch((): RpcSearchResult[] => [])
 
   let meaningHits: SemanticHit[] = []
 

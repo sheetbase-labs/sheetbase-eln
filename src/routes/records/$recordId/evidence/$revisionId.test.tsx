@@ -4,11 +4,14 @@ import { Route } from './$revisionId'
 
 describe('old evidence address', () => {
   it('redirects to the one evidence view', () => {
-    const beforeLoad = Route.options.beforeLoad as (a: unknown) => unknown
+    const beforeLoad = Route.options.beforeLoad
+    const options = { params: { recordId: 'rec-1', revisionId: 'rev-1' } }
+
     let thrown: unknown
 
     try {
-      beforeLoad({ params: { recordId: 'rec-1', revisionId: 'rev-1' } })
+      // SAFETY: this route's beforeLoad reads only `params` and throws the redirect it builds from them; the router supplies the rest of its argument in production.
+      beforeLoad?.(options as never)
     } catch (e) {
       thrown = e
     }

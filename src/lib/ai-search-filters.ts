@@ -21,6 +21,29 @@ import { extractJsonObject } from './ai-import-mapping'
 export const AI_SEARCH_MAX_FIELDS = 150
 const MAX_CONDITIONS = 12
 
+/** A value the model proposed for one filter, as JSON carries it. */
+type ProposedValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ProposedValue[]
+  | { [key: string]: ProposedValue }
+
+const proposedValueSchema: z.ZodType<ProposedValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(proposedValueSchema),
+    z.record(z.string(), proposedValueSchema),
+  ]),
+)
+
+/** What a filter condition stores once the model's answer checks out. */
+type FilterValue = string | number | boolean
+
 const answerSchema = z.object({
   text: z.string().nullish(),
   match: z.enum(['all', 'any']).nullish(),
@@ -29,7 +52,7 @@ const answerSchema = z.object({
       z.object({
         field: z.string(),
         operator: z.string(),
-        value: z.unknown().optional(),
+        value: proposedValueSchema.optional(),
       }),
     )
     .default([]),
@@ -80,54 +103,69 @@ function nodeId(): string {
   return `ai_${counter}`
 }
 
-function coerceScalar(field: SheetbaseField, value: unknown): unknown {
+const booleanWordSchema = z
+  .enum(['true', 'false'])
+  .transform((word) => word === 'true')
+
+const booleanSchema = z.union([z.boolean(), booleanWordSchema])
+
+const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}/)
+
+const textSchema = z.union([z.string(), z.number()])
+
+/** The model's proposed value as the field stores it, or undefined when it does not fit. */
+function coerceScalar(
+  field: SheetbaseField,
+  value: ProposedValue | undefined,
+): FilterValue | undefined {
   if (field.dataType === 'number') {
-    const n = typeof value === 'number' ? value : Number(value)
+    const parsed = z.coerce.number().safeParse(value)
 
-    return Number.isFinite(n) ? n : undefined
-  }
-
-  if (field.dataType === 'boolean') {
-    if (typeof value === 'boolean') return value
-
-    if (value === 'true') return true
-
-    if (value === 'false') return false
-
-    return undefined
-  }
-
-  if (field.dataType === 'date' || field.dataType === 'datetime') {
-    return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)
-      ? value
+    return parsed.success && Number.isFinite(parsed.data)
+      ? parsed.data
       : undefined
   }
 
-  return typeof value === 'string' || typeof value === 'number'
-    ? String(value)
-    : undefined
+  if (field.dataType === 'boolean') {
+    const parsed = booleanSchema.safeParse(value)
+
+    return parsed.success ? parsed.data : undefined
+  }
+
+  if (field.dataType === 'date' || field.dataType === 'datetime') {
+    const parsed = dateSchema.safeParse(value)
+
+    return parsed.success ? parsed.data : undefined
+  }
+
+  const parsed = textSchema.safeParse(value)
+
+  return parsed.success ? String(parsed.data) : undefined
 }
 
 /** A typed name (`AAV8 TFF`) stands for the option the field would store. */
 async function resolveOption(
   field: SheetbaseField,
-  value: unknown,
-): Promise<unknown> {
-  if (typeof value !== 'string') return undefined
+  value: ProposedValue | undefined,
+): Promise<string | undefined> {
+  const parsed = z.string().safeParse(value)
+
+  if (!parsed.success) return undefined
+  const wanted = parsed.data
 
   if (field.options && field.options.length > 0) {
-    const wanted = value.trim().toLowerCase()
+    const wantedOption = wanted.trim().toLowerCase()
 
-    return field.options.find((option) => option.toLowerCase() === wanted)
+    return field.options.find((option) => option.toLowerCase() === wantedOption)
   }
 
-  if (!field.loadOptions) return value
-  const options = await field.loadOptions(value).catch(() => [])
-  const wanted = value.trim().toLowerCase()
+  if (!field.loadOptions) return wanted
+  const options = await field.loadOptions(wanted).catch(() => [])
+  const wantedLabel = wanted.trim().toLowerCase()
 
   const exact =
-    options.find((option) => option.value === value) ??
-    options.find((option) => option.label.toLowerCase() === wanted)
+    options.find((option) => option.value === wanted) ??
+    options.find((option) => option.label.toLowerCase() === wantedLabel)
 
   if (exact) return exact.value
 
@@ -137,7 +175,7 @@ async function resolveOption(
 async function buildCondition(
   field: SheetbaseField,
   operator: FilterOperator,
-  raw: unknown,
+  raw: ProposedValue | undefined,
 ): Promise<ConditionNode | null> {
   const base = { type: 'condition' as const, id: nodeId(), field: field.id }
 
@@ -148,7 +186,7 @@ async function buildCondition(
     (field.options && field.options.length > 0) || field.loadOptions,
   )
 
-  const one = async (value: unknown) =>
+  const one = async (value: ProposedValue | undefined) =>
     hasChoices ? await resolveOption(field, value) : coerceScalar(field, value)
 
   if (operator === 'withinLastDays') {
@@ -194,36 +232,38 @@ export async function parseSearchAnswer(
 
   if (!parsed.success) return null
   const byId = new Map(fields.map((field) => [field.id, field]))
+
+  // Each answer filter becomes one condition, or a line saying why it could not.
+  // They are built together, and read back in the order the model wrote them.
+  const attempts = await Promise.all(
+    parsed.data.filters.slice(0, MAX_CONDITIONS).map(async (filter) => {
+      const field = byId.get(filter.field)
+
+      const label = `${field?.label ?? filter.field} ${filter.operator} ${
+        filter.value === undefined ? '' : JSON.stringify(filter.value)
+      }`.trim()
+
+      if (!field) return { label, condition: null }
+
+      const operator = operatorsForField(field).find(
+        (candidate) => candidate === filter.operator,
+      )
+
+      if (!operator) return { label, condition: null }
+
+      return {
+        label,
+        condition: await buildCondition(field, operator, filter.value),
+      }
+    }),
+  )
+
   const conditions: ConditionNode[] = []
   const skipped: string[] = []
 
-  for (const filter of parsed.data.filters.slice(0, MAX_CONDITIONS)) {
-    const field = byId.get(filter.field)
-
-    const label = `${field?.label ?? filter.field} ${filter.operator} ${
-      filter.value === undefined ? '' : JSON.stringify(filter.value)
-    }`.trim()
-
-    if (!field) {
-      skipped.push(label)
-      continue
-    }
-
-    const allowed = operatorsForField(field) as readonly string[]
-
-    if (!allowed.includes(filter.operator)) {
-      skipped.push(label)
-      continue
-    }
-
-    const condition = await buildCondition(
-      field,
-      filter.operator as FilterOperator,
-      filter.value,
-    )
-
-    if (condition) conditions.push(condition)
-    else skipped.push(label)
+  for (const attempt of attempts) {
+    if (attempt.condition) conditions.push(attempt.condition)
+    else skipped.push(attempt.label)
   }
 
   const match = parsed.data.match === 'any' ? 'OR' : 'AND'

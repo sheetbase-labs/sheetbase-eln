@@ -61,10 +61,12 @@ export function setFollowing(
   kind: FollowKind,
   id: string,
   following: boolean,
-): Promise<unknown> {
-  return client.rpc(following ? FOLLOW_RPC[kind] : UNFOLLOW_RPC[kind], {
-    [ARGUMENT[kind]]: id,
-  })
+): Promise<void> {
+  return client
+    .rpc(following ? FOLLOW_RPC[kind] : UNFOLLOW_RPC[kind], {
+      [ARGUMENT[kind]]: id,
+    })
+    .then(() => undefined)
 }
 
 export function useFollowState(

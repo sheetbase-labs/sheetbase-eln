@@ -480,12 +480,11 @@ async function postSignatureAuthentication(
     body: JSON.stringify(input),
   })
 
-  const body = z.json().parse(await response.json())
-
+  // The status decides first; a refused step-up still answers with a JSON reason.
   if (!response.ok) {
     const error = z
       .object({ message: z.string(), code: z.string().optional() })
-      .safeParse(body)
+      .safeParse(z.json().parse(await response.json()))
 
     throw new SignatureStepUpError(
       response.status,
@@ -496,5 +495,5 @@ async function postSignatureAuthentication(
     )
   }
 
-  return body
+  return z.json().parse(await response.json())
 }

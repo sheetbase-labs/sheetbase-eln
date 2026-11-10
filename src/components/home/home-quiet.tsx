@@ -8,8 +8,7 @@ import { Button } from '#/components/ui/button'
 import { Inspector, InspectorSection, Section } from '#/components/ui/layout'
 import { Progress } from '#/components/ui/progress'
 import { Dot, Status } from '#/components/ui/status'
-import type { Tone } from '#/components/ui/status'
-import { experimentStatus } from '#/components/experiments/experiments-data'
+import { recentTone } from './home-recent-tone'
 import { collapseActivity } from '#/lib/audit-history'
 import type { DescribedAuditEvent } from '#/lib/audit-history'
 import type { CalendarBooking } from '#/lib/calendar'
@@ -59,18 +58,7 @@ const START_SOMETHING = [
   { icon: 'scan', label: t('projects.homeQuiet.start.scan'), to: '/scan' },
 ] as const satisfies readonly { icon: IconName; label: string; to: string }[]
 
-/** Status tone for a resolved recent item, from the v3 palette. Record
- * statuses reuse the experiment status mapping; lifecycle objects map
- * active/archived directly. */
-export function recentTone(item: Pick<RecentItem, 'kind' | 'status'>): Tone {
-  if (item.kind === 'record') return experimentStatus(item.status ?? '').tone
-
-  if (item.status === 'active') return 'progress'
-
-  if (item.status === 'archived' || item.status === 'retired') return 'stored'
-
-  return 'none'
-}
+export { recentTone } from './home-recent-tone'
 
 export interface HomeQuietProps {
   /** The page header, owned by the route so its actions stay route state. */
@@ -98,305 +86,321 @@ export interface HomeQuietProps {
  * inspector. Every page section is omitted rather than rendered empty, and the
  * inspector says something useful in every state.
  */
-export function HomeQuiet(props: HomeQuietProps) {
-  const {
-    header,
-    pace,
-    waiting,
-    comingUp,
-    pickUp,
-    continueWorking,
-    projects,
-    todayBookings,
-    freeInstruments,
-    activity,
-    userId,
-    timeZone,
-  } = props
-
+/** The all-clear, or the single thing waiting on this person. */
+function PaceBanner({
+  pace,
+  waiting,
+}: {
+  pace: Exclude<HomePace, 'busy'>
+  waiting: HomeWaitingItem | null
+}) {
   return (
-    <div className="flex min-h-0 min-w-0 flex-1">
-      <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-        {header}
-        <div className="flex flex-col gap-8 px-4 pb-10 pt-2 md:px-6">
-          {pace === 'quiet' ? (
-            <div className="flex items-center gap-3 rounded-lg border border-border-subtle bg-success-wash px-4 py-3">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-success">
-                <Icon name="check" size={16} strokeWidth={2} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">
-                  {t('projects.homeQuiet.allClear.title')}
-                </div>
-                <div className="text-label text-fg-muted">
-                  {t('projects.homeQuiet.allClear.body')}
-                </div>
-              </div>
-              <Link to="/inbox" className="shrink-0 text-label max-sm:hidden">
-                {t('projects.homeQuiet.allClear.openInbox')}
-              </Link>
+    <>
+      {pace === 'quiet' ? (
+        <div className="flex items-center gap-3 rounded-lg border border-border-subtle bg-success-wash px-4 py-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-success">
+            <Icon name="check" size={16} strokeWidth={2} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="font-medium">
+              {t('projects.homeQuiet.allClear.title')}
             </div>
-          ) : waiting ? (
-            <div className="flex items-center gap-3 rounded-lg border border-border-subtle bg-review-wash px-4 py-3">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-review">
-                <Icon name="edit" size={16} strokeWidth={2} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">
-                  {t('projects.homeQuiet.oneWaiting')}
-                </div>
-                <div className="text-label text-fg-muted">
-                  {waiting.text} · {waiting.why}
-                </div>
-              </div>
-              <Link to={waiting.to} className="shrink-0 text-label">
-                {waiting.action}
-              </Link>
+            <div className="text-label text-fg-muted">
+              {t('projects.homeQuiet.allClear.body')}
             </div>
-          ) : null}
-
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-            <Section
-              title={t('projects.homeQuiet.comingUp.title')}
-              count={t('projects.homeQuiet.comingUp.count', {
-                weeks: HOME_UPCOMING_DAYS / 7,
-              })}
-              action={
-                <Link to="/schedule" className="text-label">
-                  {t('projects.homeQuiet.comingUp.schedule')}
-                </Link>
-              }
-            >
-              {comingUp.length ? (
-                <ol className="m-0 flex list-none flex-col p-0">
-                  {comingUp.map((group) => (
-                    <li
-                      key={group.day}
-                      className="grid grid-cols-[84px_minmax(0,1fr)] gap-3 border-b border-border-subtle py-2.5 last:border-0"
-                    >
-                      <span className="num text-label font-medium text-fg-muted">
-                        {group.label}
-                      </span>
-                      <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-                        {group.entries.map((entry) => (
-                          <li key={entry.key} className="flex gap-2">
-                            <span
-                              aria-hidden="true"
-                              className={cn(
-                                'mt-0.5 shrink-0',
-                                COMING_UP_ICON[entry.kind].className,
-                              )}
-                            >
-                              <Icon
-                                name={COMING_UP_ICON[entry.kind].icon}
-                                size={14}
-                              />
-                            </span>
-                            <span className="min-w-0">
-                              {entry.time ? (
-                                <span className="num mr-1.5 text-fg-muted">
-                                  {entry.time}
-                                </span>
-                              ) : null}
-                              <Link
-                                to={entry.to}
-                                className="text-fg hover:text-link"
-                              >
-                                {entry.text}
-                              </Link>
-                              <span className="block text-label text-fg-muted">
-                                {entry.why}
-                              </span>
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <p className="m-0 text-label text-fg-muted">
-                  {t('projects.homeQuiet.comingUp.empty')}
-                </p>
-              )}
-            </Section>
-
-            {pickUp.length ? (
-              <Section
-                title={t('projects.homeQuiet.pickUp')}
-                count={pickUp.length}
-              >
-                <ul className="m-0 flex list-none flex-col p-0">
-                  {pickUp.map((item) => (
-                    <li
-                      key={item.key}
-                      className="flex items-center gap-3 border-b border-border-subtle py-2.5 last:border-0"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate">
-                          {item.identifier ? (
-                            <span className="mono text-fg-muted">
-                              {item.identifier}
-                            </span>
-                          ) : null}{' '}
-                          <Link
-                            to={item.to}
-                            className="text-fg hover:text-link"
-                          >
-                            {item.title}
-                          </Link>
-                        </div>
-                        <div className="text-label text-fg-muted">
-                          {item.why}
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        className="max-sm:hidden"
-                        nativeButton={false}
-                        render={<Link to={item.to} />}
-                      >
-                        {item.action}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              </Section>
-            ) : null}
           </div>
+          <Link to="/inbox" className="shrink-0 text-label max-sm:hidden">
+            {t('projects.homeQuiet.allClear.openInbox')}
+          </Link>
+        </div>
+      ) : waiting ? (
+        <div className="flex items-center gap-3 rounded-lg border border-border-subtle bg-review-wash px-4 py-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-review">
+            <Icon name="edit" size={16} strokeWidth={2} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="font-medium">
+              {t('projects.homeQuiet.oneWaiting')}
+            </div>
+            <div className="text-label text-fg-muted">
+              {waiting.text} · {waiting.why}
+            </div>
+          </div>
+          <Link to={waiting.to} className="shrink-0 text-label">
+            {waiting.action}
+          </Link>
+        </div>
+      ) : null}
+    </>
+  )
+}
 
-          <Section
-            title={t('projects.homeQuiet.projects.title')}
-            action={
-              <Link to="/projects" className="text-label">
-                {t('projects.homeQuiet.projects.all')}
-              </Link>
-            }
-          >
-            {projects.length ? (
-              <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 md:grid-cols-3">
-                {projects.map((project) => (
-                  <li
-                    key={project.id}
-                    className="flex flex-col gap-2.5 rounded-lg border border-border bg-surface p-3.5"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 font-medium">
-                        <Dot
-                          tone={
-                            project.total > 0 &&
-                            project.approved === project.total
-                              ? 'ok'
-                              : 'progress'
-                          }
-                        />
-                        <Link
-                          to="/projects/$projectId"
-                          params={{ projectId: project.id }}
-                          className="truncate"
-                        >
-                          {project.title}
-                        </Link>
-                      </div>
-                      <div className="text-label text-fg-muted">
-                        {project.stage ??
-                          t('projects.homeQuiet.projects.noStage')}
-                      </div>
-                    </div>
-                    <div>
-                      <Progress
-                        label={t('projects.homeQuiet.projects.approvalFor', {
-                          title: project.title,
-                        })}
-                        value={project.approved}
-                        max={project.total}
-                        tone="success"
-                        valueText={t('projects.homeQuiet.projects.valueText', {
-                          approved: project.approved,
-                          total: project.total,
-                        })}
-                      />
-                      <div className="num mt-1.5 flex flex-wrap gap-x-3 text-label text-fg-muted">
-                        <span>
-                          {rich('projects.homeQuiet.projects.approved', {
-                            approved: project.approved,
-                            total: project.total,
-                            b: (children) => (
-                              <b className="font-medium text-fg">{children}</b>
-                            ),
-                          })}
+/** Everything booked, due or ending in the coming days, grouped by day. */
+function ComingUpSection({ comingUp }: { comingUp: ComingUpGroup[] }) {
+  return (
+    <Section
+      title={t('projects.homeQuiet.comingUp.title')}
+      count={t('projects.homeQuiet.comingUp.count', {
+        weeks: HOME_UPCOMING_DAYS / 7,
+      })}
+      action={
+        <Link to="/schedule" className="text-label">
+          {t('projects.homeQuiet.comingUp.schedule')}
+        </Link>
+      }
+    >
+      {comingUp.length ? (
+        <ol className="m-0 flex list-none flex-col p-0">
+          {comingUp.map((group) => (
+            <li
+              key={group.day}
+              className="grid grid-cols-[84px_minmax(0,1fr)] gap-3 border-b border-border-subtle py-2.5 last:border-0"
+            >
+              <span className="num text-label font-medium text-fg-muted">
+                {group.label}
+              </span>
+              <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+                {group.entries.map((entry) => (
+                  <li key={entry.key} className="flex gap-2">
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        'mt-0.5 shrink-0',
+                        COMING_UP_ICON[entry.kind].className,
+                      )}
+                    >
+                      <Icon name={COMING_UP_ICON[entry.kind].icon} size={14} />
+                    </span>
+                    <span className="min-w-0">
+                      {entry.time ? (
+                        <span className="num mr-1.5 text-fg-muted">
+                          {entry.time}
                         </span>
-                        {project.inReview ? (
-                          <span>
-                            {t('projects.homeQuiet.projects.inReview', {
-                              count: project.inReview,
-                            })}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
+                      ) : null}
+                      <Link to={entry.to} className="text-fg hover:text-link">
+                        {entry.text}
+                      </Link>
+                      <span className="block text-label text-fg-muted">
+                        {entry.why}
+                      </span>
+                    </span>
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p className="m-0 text-label text-fg-muted">
-                {t('projects.homeQuiet.projects.empty')}
-              </p>
-            )}
-          </Section>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="m-0 text-label text-fg-muted">
+          {t('projects.homeQuiet.comingUp.empty')}
+        </p>
+      )}
+    </Section>
+  )
+}
 
-          {continueWorking.length ? (
-            <Section
-              title={t('projects.homeQuiet.continue.title')}
-              action={
-                <Link to="/experiments" className="text-label">
-                  {t('projects.homeQuiet.continue.all')}
-                </Link>
-              }
-            >
-              <ul className="m-0 flex list-none flex-col p-0">
-                {continueWorking.map((recent) => {
-                  const status = recentStatusLabel(recent)
-
-                  return (
-                    <li
-                      key={`${recent.kind}:${recent.id}`}
-                      className="flex items-center gap-3 border-b border-border-subtle py-2 last:border-0"
-                    >
-                      <div className="min-w-0 flex-1 truncate">
-                        {recent.identifier ? (
-                          <span className="mono text-fg-muted">
-                            {recent.identifier}
-                          </span>
-                        ) : null}{' '}
-                        <Link
-                          to={recent.destination}
-                          className="text-fg hover:text-link"
-                        >
-                          {recent.label}
-                        </Link>
-                      </div>
-                      {status ? (
-                        <Status
-                          tone={recentTone(recent)}
-                          className="max-sm:hidden"
-                        >
-                          {status}
-                        </Status>
-                      ) : null}
-                      <span className="num w-24 shrink-0 text-right text-label text-fg-muted">
-                        {formatRelativeTime(recent.lastActivityAt)}
+/** Work the person could pick up rather than start from nothing. */
+function PickUpSection({ pickUp }: { pickUp: PickUpItem[] }) {
+  return (
+    <>
+      {pickUp.length ? (
+        <Section title={t('projects.homeQuiet.pickUp')} count={pickUp.length}>
+          <ul className="m-0 flex list-none flex-col p-0">
+            {pickUp.map((item) => (
+              <li
+                key={item.key}
+                className="flex items-center gap-3 border-b border-border-subtle py-2.5 last:border-0"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate">
+                    {item.identifier ? (
+                      <span className="mono text-fg-muted">
+                        {item.identifier}
                       </span>
-                    </li>
-                  )
-                })}
-              </ul>
-            </Section>
-          ) : null}
-        </div>
-        <PluginWidgets />
-      </div>
+                    ) : null}{' '}
+                    <Link to={item.to} className="text-fg hover:text-link">
+                      {item.title}
+                    </Link>
+                  </div>
+                  <div className="text-label text-fg-muted">{item.why}</div>
+                </div>
+                <Button
+                  size="sm"
+                  className="max-sm:hidden"
+                  nativeButton={false}
+                  render={<Link to={item.to} />}
+                >
+                  {item.action}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
+    </>
+  )
+}
 
+/** How each of the person's projects stands on approvals. */
+function ProjectsSection({
+  projects,
+}: {
+  projects: ProjectApprovalProgress[]
+}) {
+  return (
+    <Section
+      title={t('projects.homeQuiet.projects.title')}
+      action={
+        <Link to="/projects" className="text-label">
+          {t('projects.homeQuiet.projects.all')}
+        </Link>
+      }
+    >
+      {projects.length ? (
+        <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 md:grid-cols-3">
+          {projects.map((project) => (
+            <li
+              key={project.id}
+              className="flex flex-col gap-2.5 rounded-lg border border-border bg-surface p-3.5"
+            >
+              <div>
+                <div className="flex items-center gap-2 font-medium">
+                  <Dot
+                    tone={
+                      project.total > 0 && project.approved === project.total
+                        ? 'ok'
+                        : 'progress'
+                    }
+                  />
+                  <Link
+                    to="/projects/$projectId"
+                    params={{ projectId: project.id }}
+                    className="truncate"
+                  >
+                    {project.title}
+                  </Link>
+                </div>
+                <div className="text-label text-fg-muted">
+                  {project.stage ?? t('projects.homeQuiet.projects.noStage')}
+                </div>
+              </div>
+              <div>
+                <Progress
+                  label={t('projects.homeQuiet.projects.approvalFor', {
+                    title: project.title,
+                  })}
+                  value={project.approved}
+                  max={project.total}
+                  tone="success"
+                  valueText={t('projects.homeQuiet.projects.valueText', {
+                    approved: project.approved,
+                    total: project.total,
+                  })}
+                />
+                <div className="num mt-1.5 flex flex-wrap gap-x-3 text-label text-fg-muted">
+                  <span>
+                    {rich('projects.homeQuiet.projects.approved', {
+                      approved: project.approved,
+                      total: project.total,
+                      b: (children) => (
+                        <b className="font-medium text-fg">{children}</b>
+                      ),
+                    })}
+                  </span>
+                  {project.inReview ? (
+                    <span>
+                      {t('projects.homeQuiet.projects.inReview', {
+                        count: project.inReview,
+                      })}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="m-0 text-label text-fg-muted">
+          {t('projects.homeQuiet.projects.empty')}
+        </p>
+      )}
+    </Section>
+  )
+}
+
+/** The person's own recent work, to carry on with. */
+function ContinueWorkingSection({
+  continueWorking,
+}: {
+  continueWorking: RecentItem[]
+}) {
+  return (
+    <>
+      {continueWorking.length ? (
+        <Section
+          title={t('projects.homeQuiet.continue.title')}
+          action={
+            <Link to="/experiments" className="text-label">
+              {t('projects.homeQuiet.continue.all')}
+            </Link>
+          }
+        >
+          <ul className="m-0 flex list-none flex-col p-0">
+            {continueWorking.map((recent) => {
+              const status = recentStatusLabel(recent)
+
+              return (
+                <li
+                  key={`${recent.kind}:${recent.id}`}
+                  className="flex items-center gap-3 border-b border-border-subtle py-2 last:border-0"
+                >
+                  <div className="min-w-0 flex-1 truncate">
+                    {recent.identifier ? (
+                      <span className="mono text-fg-muted">
+                        {recent.identifier}
+                      </span>
+                    ) : null}{' '}
+                    <Link
+                      to={recent.destination}
+                      className="text-fg hover:text-link"
+                    >
+                      {recent.label}
+                    </Link>
+                  </div>
+                  {status ? (
+                    <Status tone={recentTone(recent)} className="max-sm:hidden">
+                      {status}
+                    </Status>
+                  ) : null}
+                  <span className="num w-24 shrink-0 text-right text-label text-fg-muted">
+                    {formatRelativeTime(recent.lastActivityAt)}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </Section>
+      ) : null}
+    </>
+  )
+}
+
+/** Today's bookings, instruments free now, ways to start, and team activity. */
+function TodayInspector({
+  todayBookings,
+  freeInstruments,
+  activity,
+  userId,
+  timeZone,
+}: {
+  todayBookings: CalendarBooking[]
+  freeInstruments: FreeInstrument[]
+  activity: DescribedAuditEvent[]
+  userId: string
+  timeZone: string
+}) {
+  return (
+    <>
       <Inspector label={t('projects.homeQuiet.today.title')}>
         <InspectorSection
           title={
@@ -562,6 +566,51 @@ export function HomeQuiet(props: HomeQuietProps) {
           )}
         </InspectorSection>
       </Inspector>
+    </>
+  )
+}
+
+export function HomeQuiet(props: HomeQuietProps) {
+  const {
+    header,
+    pace,
+    waiting,
+    comingUp,
+    pickUp,
+    continueWorking,
+    projects,
+    todayBookings,
+    freeInstruments,
+    activity,
+    userId,
+    timeZone,
+  } = props
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+        {header}
+        <div className="flex flex-col gap-8 px-4 pb-10 pt-2 md:px-6">
+          <PaceBanner pace={pace} waiting={waiting} />
+
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            <ComingUpSection comingUp={comingUp} />
+            <PickUpSection pickUp={pickUp} />
+          </div>
+
+          <ProjectsSection projects={projects} />
+          <ContinueWorkingSection continueWorking={continueWorking} />
+        </div>
+        <PluginWidgets />
+      </div>
+
+      <TodayInspector
+        todayBookings={todayBookings}
+        freeInstruments={freeInstruments}
+        activity={activity}
+        userId={userId}
+        timeZone={timeZone}
+      />
     </div>
   )
 }

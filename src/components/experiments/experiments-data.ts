@@ -1,5 +1,6 @@
 import { t } from '#/copy'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import type { Tone } from '#/components/ui/status'
 import type { DataClient } from '#/lib/data-client'
@@ -96,71 +97,78 @@ export type ExperimentStatusTab = Exclude<
  * `tab` is what makes every experiment reachable from a tab: each status is
  * listed by exactly one, so the status tabs' counts add up to `all`.
  */
-const STATUS: Partial<
-  Record<string, { tone: Tone; label: string; tab: ExperimentStatusTab }>
-> = {
-  draft: {
-    tone: 'draft',
-    label: t('projects.experimentsData.draft'),
-    tab: 'drafts',
-  },
-  planned: {
-    tone: 'draft',
-    label: t('projects.experimentsData.planned'),
-    tab: 'planned',
-  },
-  in_progress: {
-    tone: 'progress',
-    label: t('projects.experimentsData.inProgress'),
-    tab: 'inprogress',
-  },
-  in_review: {
-    tone: 'review',
-    label: t('projects.experimentsData.inReview'),
-    tab: 'inreview',
-  },
-  returned: {
-    tone: 'warn',
-    label: t('projects.experimentsData.returned'),
-    tab: 'inreview',
-  },
-  approved: {
-    tone: 'ok',
-    label: t('projects.experimentsData.approved'),
-    tab: 'approved',
-  },
-  completed: {
-    tone: 'ok',
-    label: t('projects.experimentsData.completed'),
-    tab: 'approved',
-  },
-  locked: {
-    tone: 'stored',
-    label: t('projects.experimentsData.locked'),
-    tab: 'approved',
-  },
-  failed: {
-    tone: 'bad',
-    label: t('projects.experimentsData.failed'),
-    tab: 'approved',
-  },
-  paused: {
-    tone: 'warn',
-    label: t('projects.experimentsData.onHold'),
-    tab: 'onhold',
-  },
-  on_hold: {
-    tone: 'warn',
-    label: t('projects.experimentsData.onHold'),
-    tab: 'onhold',
-  },
+/** How one experiment status reads in the list, and which tab lists it. */
+interface ExperimentStatusMeta {
+  tone: Tone
+  label: string
+  tab: ExperimentStatusTab
 }
+
+const STATUS = new Map<string, ExperimentStatusMeta>(
+  Object.entries({
+    draft: {
+      tone: 'draft',
+      label: t('projects.experimentsData.draft'),
+      tab: 'drafts',
+    },
+    planned: {
+      tone: 'draft',
+      label: t('projects.experimentsData.planned'),
+      tab: 'planned',
+    },
+    in_progress: {
+      tone: 'progress',
+      label: t('projects.experimentsData.inProgress'),
+      tab: 'inprogress',
+    },
+    in_review: {
+      tone: 'review',
+      label: t('projects.experimentsData.inReview'),
+      tab: 'inreview',
+    },
+    returned: {
+      tone: 'warn',
+      label: t('projects.experimentsData.returned'),
+      tab: 'inreview',
+    },
+    approved: {
+      tone: 'ok',
+      label: t('projects.experimentsData.approved'),
+      tab: 'approved',
+    },
+    completed: {
+      tone: 'ok',
+      label: t('projects.experimentsData.completed'),
+      tab: 'approved',
+    },
+    locked: {
+      tone: 'stored',
+      label: t('projects.experimentsData.locked'),
+      tab: 'approved',
+    },
+    failed: {
+      tone: 'bad',
+      label: t('projects.experimentsData.failed'),
+      tab: 'approved',
+    },
+    paused: {
+      tone: 'warn',
+      label: t('projects.experimentsData.onHold'),
+      tab: 'onhold',
+    },
+    on_hold: {
+      tone: 'warn',
+      label: t('projects.experimentsData.onHold'),
+      tab: 'onhold',
+    },
+  } satisfies Partial<Record<string, ExperimentStatusMeta>>),
+)
 
 export function experimentStatus(status: string): {
   tone: Tone
   label: string
 } {
-  const known = STATUS[status]
+  const known = STATUS.get(status)
 
   return known
     ? { tone: known.tone, label: known.label }
@@ -215,9 +223,13 @@ const EXPERIMENT_SELECT =
 
 /** The statuses a status tab lists, from the table above. */
 function statusesForTab(tab: ExperimentStatusTab): string[] {
-  return Object.entries(STATUS)
-    .filter(([, entry]) => entry?.tab === tab)
-    .map(([status]) => status)
+  const statuses: string[] = []
+
+  for (const [status, entry] of STATUS) {
+    if (entry.tab === tab) statuses.push(status)
+  }
+
+  return statuses
 }
 
 /** The PostgREST filters for the open tab and scope. These mirror the clauses
@@ -284,7 +296,9 @@ export function toExperimentListRow(
       ? (ownerNames.get(row.assignee_user_id) ?? '—')
       : null,
     status: experimentStatus(row.status),
-    statusTab: row.archived_at ? 'archived' : (STATUS[row.status]?.tab ?? null),
+    statusTab: row.archived_at
+      ? 'archived'
+      : (STATUS.get(row.status)?.tab ?? null),
     protocol: '—',
     protocolRecordId: null,
     protocolVersion: null,
@@ -337,19 +351,18 @@ export function useExperimentRecords(
 
 export type ExperimentTabCounts = Record<ExperimentTabKey, number>
 
-/** The tabs in strip order. `useExperimentTabCounts` zips its counts with this
- * list, so it must cover every key exactly once. */
-const EXPERIMENT_TAB_KEYS: readonly ExperimentTabKey[] = [
-  'all',
-  'mine',
-  'inprogress',
-  'onhold',
-  'inreview',
-  'approved',
-  'planned',
-  'drafts',
-  'archived',
-]
+/** Every tab a count is kept for, in strip order, each starting at zero. */
+const EMPTY_TAB_COUNTS: ExperimentTabCounts = {
+  all: 0,
+  mine: 0,
+  inprogress: 0,
+  onhold: 0,
+  inreview: 0,
+  approved: 0,
+  planned: 0,
+  drafts: 0,
+  archived: 0,
+}
 
 interface TabCountWire {
   status: string
@@ -403,9 +416,7 @@ export function useExperimentTabCounts(
         `?${params.join('&')}&select=status,archived,total,mine`,
       )
 
-      const counts = Object.fromEntries(
-        EXPERIMENT_TAB_KEYS.map((tab) => [tab, 0]),
-      ) as ExperimentTabCounts
+      const counts: ExperimentTabCounts = { ...EMPTY_TAB_COUNTS }
 
       for (const row of rows) {
         const total = Number(row.total)
@@ -417,7 +428,7 @@ export function useExperimentTabCounts(
 
         counts.all += total
         counts.mine += Number(row.mine)
-        const tab = STATUS[row.status]?.tab
+        const tab = STATUS.get(row.status)?.tab
 
         if (tab) counts[tab] += total
       }
@@ -526,9 +537,7 @@ export function useExperimentProtocols(
           identifier: row.target_identifier,
           recordId: row.target_record_id,
           version:
-            typeof row.link_metadata?.version === 'number'
-              ? row.link_metadata.version
-              : null,
+            z.number().safeParse(row.link_metadata?.version).data ?? null,
         })
       }
 

@@ -19,24 +19,30 @@ import {
 } from './relationship-panel'
 
 // Stub the router Link as a plain anchor so no route tree is required.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the panel renders its rows through the router's Link at import time; a plain anchor is what lets the suite assert destinations without a route tree, and every other router export stays real.
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
     children,
     ...props
-  }: { to: string; children: React.ReactNode } & Record<string, unknown>) => (
+  }: {
+    to: string
+    children: React.ReactNode
+  } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
     <a href={to} {...props}>
       {children}
     </a>
   ),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the panel reads relationships through the shared data client this hook opens at import time; the hook itself is the seam under test, and the module's other exports stay real.
 vi.mock('#/lib/relationships', async (importOriginal) => {
   const actual = await importOriginal<typeof Relationships>()
 
   return { ...actual, useRelationships: vi.fn() }
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the panel reads type labels through the shared client at import time; only this hook is replaced, and the module's other exports stay real.
 vi.mock('#/lib/model-relationships', async (importOriginal) => {
   const actual = await importOriginal<typeof ModelRelationships>()
 

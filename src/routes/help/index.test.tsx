@@ -6,51 +6,61 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
+
 import { Route } from './index'
 
-const HelpCentre = Route.options.component as React.ComponentType
+/** The route options the file-route factory stores; this suite reads `component`. */
+interface FileRouteOptions {
+  component?: React.ComponentType
+}
 
-const help = vi.hoisted(() => ({
-  value: undefined as
-    | {
-        release: {
-          version: string
-          build: string
-          released: string
-          validation: { tone: string; label: string; detail: string }
-          statement: string
-        }
-        support: {
-          hours: string
-          urgent: string
-          diagnostics: string[]
-          notIncluded: string
-          integrated: boolean
-        }
-      }
-    | undefined,
+/** The search the help centre accepts; this suite opens it with none. */
+interface HelpSearch {
+  topic?: string
+}
+
+/** The help payload the screen reads: the release it reports and the support details. */
+interface HelpPayload {
+  release: {
+    version: string
+    build: string
+    released: string
+    validation: { tone: string; label: string; detail: string }
+    statement: string
+  }
+  support: {
+    hours: string
+    urgent: string
+    diagnostics: string[]
+    notIncluded: string
+    integrated: boolean
+  }
+}
+
+const help = vi.hoisted<{ value: HelpPayload | undefined }>(() => ({
+  value: undefined,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time, and this suite renders the help screen on its own with the search the shell would supply.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useSearch: () => ({}),
+  createFileRoute: () => (config: FileRouteOptions) => ({
+    useSearch: (): HelpSearch => ({}),
     useNavigate: () => vi.fn(),
     options: config,
   }),
-  redirect: (options: unknown) => options,
+  redirect: (options: { to: string; search?: Record<string, string> }) =>
+    options,
   Outlet: () => null,
   Link: ({ children }: { children?: React.ReactNode }) => (
     <a href="#">{children}</a>
   ),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- `useHelp` reads a TanStack Start server function, which has no server to answer it in this unit test; the double supplies the payload the screen renders.
 vi.mock('#/lib/help', () => ({ useHelp: () => help.value }))
 
-vi.mock('#/components/shortcuts/shortcut-provider', () => ({
-  useShortcuts: () => ({ registry: { inScope: () => [] } }),
-}))
-
-function helpData(version: string) {
+function helpData(version: string): HelpPayload {
   return {
     release: {
       version,
@@ -78,9 +88,22 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
+/** Renders the help centre as the shell mounts it, inside the shortcut provider. */
+function renderHelp() {
+  const HelpCentre = Route.options.component
+
+  if (!HelpCentre) throw new Error('the help route declares no component')
+
+  return render(
+    <ShortcutProvider definitions={[]}>
+      <HelpCentre />
+    </ShortcutProvider>,
+  )
+}
+
 describe('help release list', () => {
   it('marks only the release the deployment reports', () => {
-    render(<HelpCentre />)
+    renderHelp()
 
     const running = screen.getAllByText('· running here')
     expect(running).toHaveLength(1)
@@ -90,7 +113,7 @@ describe('help release list', () => {
 
   it('claims no running release when the reported version is not listed', () => {
     help.value = helpData('0.0.0-dev')
-    render(<HelpCentre />)
+    renderHelp()
 
     expect(screen.queryByText('· running here')).toBeNull()
   })

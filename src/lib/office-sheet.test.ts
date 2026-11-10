@@ -66,7 +66,7 @@ describe('reading a workbook', () => {
     const rows = sheets[0].rows
     expect(rows[0]?.[1]?.value).toBe('Absorbance (AU)')
     expect(rows[1]?.[3]).toEqual({ value: 4.3, formula: 'B2*C2' })
-    expect(typeof rows[1]?.[4]?.value).toBe('string')
+    expect(rows[1]?.[4]?.value).toEqual(expect.any(String))
     expect(rows[1]?.[4]?.value).toMatch(/^2026-10-\d\d$/)
     expect(rows[1]?.[5]?.value).toBe(true)
     expect(sheets[1].rows[1]?.[1]?.value).toBe('Dana')
@@ -140,12 +140,19 @@ describe('making a sheet', () => {
       { label: 'Result', example: '=B2*C2' },
       { label: 'Total check', example: '=SUM($B$2:$B$31)' },
     ])
-    const result = made.state.localFields.find((f) => f.label === 'Result')
+
+    const fieldIdFor = (label: string) => {
+      const field = made.state.localFields.find((f) => f.label === label)
+
+      if (!field) throw new Error(`the made sheet has no ${label} column`)
+
+      return field.fieldId
+    }
+
     const rows = Object.values(made.state.localValues)
-    expect(rows[0][result?.fieldId as string]).toBe(4.3)
+    expect(rows[0][fieldIdFor('Result')]).toBe(4.3)
     expect(made.state.instanceCalculations).toBeUndefined()
-    const total = made.state.localFields.find((f) => f.label === 'Total check')
-    expect(rows[0][total?.fieldId as string]).toBe(17.25)
+    expect(rows[0][fieldIdFor('Total check')]).toBe(17.25)
   })
 
   it('keeps the first row as headers and the original column order', () => {

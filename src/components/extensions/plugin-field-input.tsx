@@ -8,10 +8,14 @@
  * database when the record is saved.
  */
 import * as React from 'react'
+import { z } from 'zod'
 
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 import { PluginFrame } from './plugin-frame'
 import { t } from '#/copy'
+
+/** What a field-type plugin's screen sends up: the new value, or null when cleared. */
+const pluginValueSchema = z.union([z.string(), z.null()])
 
 export interface PluginFieldInputSource {
   extensionKey: string
@@ -34,12 +38,16 @@ export function PluginFieldInput({
   onChange: (value: string) => void
 }) {
   const handle = React.useCallback(
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the plugin's screen posts this message from its iframe, so its payload arrives unparsed; the schema below is what decodes it.
     (name: string, payload: unknown) => {
-      if (name === 'value' && (typeof payload === 'string' || payload === null))
-        onChange(payload ?? '')
+      const emitted = pluginValueSchema.safeParse(payload)
+
+      if (name === 'value' && emitted.success) onChange(emitted.data ?? '')
     },
     [onChange],
   )
+
+  const text = z.string().safeParse(value)
 
   return (
     <div className="flex flex-col gap-1">
@@ -57,7 +65,7 @@ export function PluginFieldInput({
           plugin: source.pluginName,
         })}
         context={{
-          value: typeof value === 'string' ? value : '',
+          value: text.success ? text.data : '',
           field: {
             name: definition.fieldName,
             label: definition.label,

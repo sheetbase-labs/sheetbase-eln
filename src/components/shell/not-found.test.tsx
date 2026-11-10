@@ -104,6 +104,7 @@ describe('NotFound — unmatched URL', () => {
   })
 
   it('redirects a signed-out visitor to sign-in', async () => {
+    // SAFETY: The splat route's beforeLoad reads only `context.auth` and `location.href`; TanStack supplies the rest of the match options when the router calls it.
     await expect(
       SplatRoute.options.beforeLoad?.({
         context: { auth: null },
@@ -115,6 +116,7 @@ describe('NotFound — unmatched URL', () => {
   })
 
   it('renders for a signed-in visitor', async () => {
+    // SAFETY: The splat route's beforeLoad reads only `context.auth`; TanStack supplies the rest of the match options when the router calls it.
     await expect(
       SplatRoute.options.beforeLoad?.({
         context: { auth: { user: { id: 'u1' } } },

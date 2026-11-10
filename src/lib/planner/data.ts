@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 /**
  * The experiment planner's database calls: what the planner may choose from,
  * and creating the experiment a plan describes.
@@ -40,7 +42,7 @@ interface RecordWire {
   id: string
   identifier: string
   title: string
-  properties: Record<string, unknown> | null
+  properties: Record<string, z.core.util.JSONType> | null
 }
 
 /** What the planner may choose from: active protocols, live instruments and samples with stock. */
@@ -71,14 +73,18 @@ export async function fetchPlannerContext(
     instruments,
     samples: samples.map((s) => {
       const quantity = Number(s.properties?.['quantity'])
-      const unit = s.properties?.['quantityUnit']
+
+      const decodedUnit = z
+        .string()
+        .min(1)
+        .safeParse(s.properties?.['quantityUnit'])
 
       return {
         id: s.id,
         identifier: s.identifier,
         title: s.title,
         quantity: Number.isFinite(quantity) ? quantity : null,
-        unit: typeof unit === 'string' && unit ? unit : null,
+        unit: decodedUnit.success ? decodedUnit.data : null,
       }
     }),
   }

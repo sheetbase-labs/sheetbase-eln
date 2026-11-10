@@ -291,6 +291,7 @@ export const SequenceRead: Story = {
         name: 'pLVX-GFP.gb',
         fingerprint: 'seq:3b7d9c1e42f0a8',
         length: 8421,
+        // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- `shape` is ReadSequence's own field, named for the record field it fills and the {shape} copy placeholder; this story only supplies its value.
         shape: 'circular',
         molecule: 'dna',
       }}
@@ -318,6 +319,19 @@ export const SettingsDialog: Story = {
   ),
 }
 
+/** The rows the plugin asked for: id, number, name, IC50 (nM) and mass; a missing IC50 stays empty. */
+const PLUGIN_ROWS: Array<{
+  id: string
+  number: string
+  name: string
+  ic50: number | null
+  mass: number
+}> = [
+  { id: 'e1', number: 'CMP-0001', name: 'Ibuprofen', ic50: 120, mass: 206.3 },
+  { id: 'e2', number: 'CMP-0002', name: 'Aspirin', ic50: 40, mass: 180.2 },
+  { id: 'e3', number: 'CMP-0003', name: 'Caffeine', ic50: null, mass: 194.2 },
+]
+
 /** A table a plugin screen asked for: drawn by the app's own table, with a shaded measurement and linked numbers. */
 export const PluginScreenTable: Story = {
   render: () => (
@@ -330,23 +344,23 @@ export const PluginScreenTable: Story = {
             { key: 'ic50', label: 'IC50 (nM)', align: 'right' },
             { key: 'mass', label: 'Mass', align: 'right' },
           ],
-          rows: [
-            ['e1', 'CMP-0001', 'Ibuprofen', 120, 206.3],
-            ['e2', 'CMP-0002', 'Aspirin', 40, 180.2],
-            ['e3', 'CMP-0003', 'Caffeine', null, 194.2],
-          ].map(([id, number, name, ic50, mass]) => ({
-            id: String(id),
-            cells: {
-              number: { text: String(number), href: `/records/${String(id)}` },
-              name: { text: String(name) },
-              ic50: {
-                text: ic50 === null ? '' : String(ic50),
-                sort: ic50 as number | null,
-                ...(ic50 === null ? {} : { shade: Number(ic50) / 120 }),
+          rows: PLUGIN_ROWS.map(({ id, number, name, ic50, mass }) => {
+            const ic50Cell = {
+              text: ic50 === null ? '' : String(ic50),
+              sort: ic50,
+            }
+
+            return {
+              id,
+              cells: {
+                number: { text: number, href: `/records/${id}` },
+                name: { text: name },
+                ic50:
+                  ic50 === null ? ic50Cell : { ...ic50Cell, shade: ic50 / 120 },
+                mass: { text: String(mass), sort: mass },
               },
-              mass: { text: String(mass), sort: mass as number },
-            },
-          })),
+            }
+          }),
           sort: { key: 'number', descending: false },
         }}
       />

@@ -54,10 +54,13 @@ interface PruneRow extends QueryResultRow {
   }
 }
 
+/** The structured fields a retention log line carries. */
+type RetentionLogFields = Record<string, string | number>
+
 /** Structured log sink, injectable for unit tests. */
 export interface RetentionLog {
-  info: (message: string, fields: Record<string, unknown>) => void
-  warn: (message: string, fields: Record<string, unknown>) => void
+  info: (message: string, fields: RetentionLogFields) => void
+  warn: (message: string, fields: RetentionLogFields) => void
 }
 
 const defaultLog: RetentionLog = {
@@ -121,6 +124,12 @@ let retentionBootTimer: ReturnType<typeof setTimeout> | null = null
 const startedGlobalKey = '__sheetbaseDatasetRetentionSchedulerStarted'
 
 /**
+ * The process-wide marker that keeps one scheduler per process, including
+ * across a dev-server module reload. The global type declares no such key.
+ */
+type SchedulerGlobal = typeof globalThis & { [startedGlobalKey]?: boolean }
+
+/**
  * Disabled under test runners unless explicitly enabled with
  * `SHEETBASE_SCHEDULER_ENABLED=true`; always disabled when that flag is
  * `false`. Same semantics as the pipeline scheduler, plus the explicit
@@ -147,7 +156,8 @@ export function startDatasetRetentionScheduler(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
+  // SAFETY: `SchedulerGlobal` only adds the marker key this module sets on `globalThis`; no other module declares or writes it.
+  const g = globalThis as SchedulerGlobal
 
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
@@ -180,7 +190,8 @@ export function stopDatasetRetentionScheduler(): void {
     retentionTimer = null
   }
 
-  const g = globalThis as unknown as Record<string, unknown>
+  // SAFETY: `SchedulerGlobal` only adds the marker key this module sets on `globalThis`; no other module declares or writes it.
+  const g = globalThis as SchedulerGlobal
   delete g[startedGlobalKey]
 }
 

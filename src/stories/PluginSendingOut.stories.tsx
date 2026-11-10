@@ -155,7 +155,7 @@ export const SendDataset: Story = {
           ],
           runner: { kind: 'python', entry: 'outbound:plan_lims' },
           parse: { kind: 'python', entry: 'outbound:read_lims' },
-        } as never,
+        },
       }}
     />
   ),

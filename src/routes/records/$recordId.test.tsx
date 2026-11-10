@@ -4,8 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { SheetProvenanceLine } from '#/components/sheet/canonical-sheet-workspace'
-import { DataClientError } from '#/lib/data-client'
-import type { DataClient } from '#/lib/data-client'
+import { createDataClient, DataClientError } from '#/lib/data-client'
 import { notebookQueryKeys } from '#/lib/notebook-data'
 import * as commentsData from '#/lib/comments-data'
 
@@ -23,25 +22,46 @@ import {
 } from './$recordId/-notebook-page'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 
-// Record router Link invocations so tests can assert canonical destinations.
-const linkCalls = vi.hoisted(() => ({
-  calls: [] as Array<{
-    to?: string
-    params?: Record<string, string>
-    search?: Record<string, unknown>
-  }>,
-}))
+/** One search value a link carries, as the router accepts it. */
+type LinkSearch = Record<string, string>
 
-const routerLocation = vi.hoisted(
-  (): { search: Record<string, unknown>; hash: string } => ({
-    search: {},
-    hash: '',
-  }),
-)
+/** The props the router's `Link` is given: the destination and its parameters. */
+interface MockLinkProps extends React.ComponentProps<'a'> {
+  to?: string
+  params?: Record<string, string>
+  search?: LinkSearch
+  children: React.ReactNode
+}
+
+/** One recorded `Link` destination: the route, its parameters and its search. */
+interface LinkCall {
+  to?: string
+  params?: Record<string, string>
+  search?: LinkSearch
+}
+
+/** Where the router says the page is: the search it was opened with. */
+interface RouterLocation {
+  search: LinkSearch
+  hash: string
+}
+
+// Record router Link invocations so tests can assert canonical destinations.
+const linkCalls = vi.hoisted(() => {
+  const calls: LinkCall[] = []
+
+  return { calls }
+})
+
+const routerLocation = vi.hoisted((): RouterLocation => ({
+  search: {},
+  hash: '',
+}))
 
 // Stub the router Link as a plain anchor that interpolates $params so no
 // route tree is required. createFileRoute/redirect are stubbed so the route
 // module loads without a router context.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time, and these suites render one notebook surface on its own; the recorded Link is how they assert the canonical destinations it builds.
 vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ invalidate: async () => {} }),
   createFileRoute: () => () => ({
@@ -54,28 +74,19 @@ vi.mock('@tanstack/react-router', () => ({
     useParams: () => ({ projectId: 'p1', recordId: 'r1' }),
     useSearch: () => ({}),
   }),
-  redirect: (opts: unknown) => opts,
+  redirect: (opts: { to: string; search?: LinkSearch }) => opts,
   useBlocker: () => ({ status: 'idle' }),
   useNavigate: () => vi.fn(),
-  useRouterState: (options?: { select?: (state: unknown) => unknown }) => {
+  useRouterState: (options?: {
+    select?: (state: { location: typeof routerLocation }) => boolean
+  }) => {
     const state = { location: routerLocation }
 
     return options?.select ? options.select(state) : state
   },
-  Link: ({
-    to,
-    params,
-    search,
-    children,
-    ...props
-  }: {
-    to?: string
-    params?: Record<string, string>
-    search?: Record<string, unknown>
-    children: React.ReactNode
-  } & Record<string, unknown>) => {
+  Link: ({ to, params, search, children, ...props }: MockLinkProps) => {
     linkCalls.calls.push({ to, params, search })
-    let href = typeof to === 'string' ? to : '#'
+    let href = to ?? '#'
 
     if (params) {
       for (const [k, v] of Object.entries(params)) {
@@ -102,7 +113,10 @@ afterEach(() => {
 // NotebookDocument tests do.
 beforeAll(() => {
   document.elementFromPoint = () => null
-  Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+  // jsdom reports no layout, so its own empty rect list is what the editor reads.
+  const noRects = document.createElement('div').getClientRects()
+
+  Range.prototype.getClientRects = () => noRects
   Range.prototype.getBoundingClientRect = () => new DOMRect()
 })
 
@@ -238,7 +252,8 @@ describe('StickyRecordHeader', () => {
   // NOTE-04: the submit dialog's readiness checklist reflects the live
   // unsaved-draft signal routed from NotebookDocument.
   it('surfaces unsaved drafts in the submit dialog readiness checklist', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default
+    const user = userEvent.setup()
+
     renderWithQuery(
       <StickyRecordHeader
         record={record}
@@ -248,9 +263,7 @@ describe('StickyRecordHeader', () => {
         hasUnsavedWork
       />,
     )
-    await userEvent
-      .setup()
-      .click(screen.getByRole('button', { name: 'Submit' }))
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
     expect(await screen.findByText('Everything is saved')).toBeTruthy()
     expect(
       within(
@@ -349,7 +362,9 @@ describe('ArchivedBanner', () => {
     const user = userEvent.setup()
 
     const onRestore = vi
-      .fn<() => Promise<unknown>>()
+      .fn<
+        NonNullable<React.ComponentProps<typeof ArchivedBanner>['onRestore']>
+      >()
       .mockRejectedValueOnce(new Error('permission denied for table records'))
       .mockResolvedValueOnce({})
 
@@ -626,7 +641,7 @@ describe('NotebookCanvas', () => {
           isLoading={false}
           error={null}
           onRetry={() => {}}
-          client={{} as unknown as DataClient}
+          client={createDataClient()}
           queryClient={client}
           viewOnly
         />
@@ -1158,11 +1173,11 @@ describe('NotebookCanvas — editable path', () => {
   it('renders the block picker when a client and queryClient are supplied', () => {
     const queryClient = new QueryClient()
 
-    const fakeClient = {
+    const fakeClient = Object.assign(createDataClient(), {
       list: () => Promise.resolve([]),
       insert: () => Promise.resolve({}),
       rpc: () => Promise.resolve({}),
-    } as unknown as DataClient
+    })
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -1294,10 +1309,10 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
       }
     })
 
-    const fakeClient = {
+    const fakeClient = Object.assign(createDataClient(), {
       list: () => Promise.resolve([]),
       rpc,
-    } as unknown as DataClient
+    })
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -1384,10 +1399,10 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
       }
     })
 
-    const fakeClient = {
+    const fakeClient = Object.assign(createDataClient(), {
       list: () => Promise.resolve([]),
       rpc,
-    } as unknown as DataClient
+    })
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -1450,7 +1465,7 @@ describe('Sheet provenance — route-level navigation (NAV-02)', () => {
             sourceFieldId: 'field-1',
             definitionVersionId: 'def-1',
             definitionColumnId: 'col-1',
-          } as never,
+          },
         }}
       />,
     )
@@ -1480,7 +1495,7 @@ describe('Sheet provenance — route-level navigation (NAV-02)', () => {
             sourceFieldId: 'field-1',
             definitionVersionId: 'def-1',
             definitionColumnId: 'col-1',
-          } as never,
+          },
         }}
       />,
     )

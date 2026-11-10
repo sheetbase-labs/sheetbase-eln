@@ -10,6 +10,8 @@
  */
 import { createFileRoute } from '@tanstack/react-router'
 
+import { z } from 'zod'
+
 import type { ClientPortalRecordDocument } from '#/lib/client-portal'
 import { renderClientPortalRecordPdf } from '#/lib/client-portal-pdf'
 import {
@@ -45,12 +47,9 @@ async function handle({
       auth.context.token,
     )
 
-  if (
-    status !== 200 ||
-    !body ||
-    typeof body !== 'object' ||
-    'error' in (body as Record<string, unknown>)
-  ) {
+  const objectBody = z.record(z.string(), z.unknown()).safeParse(body)
+
+  if (status !== 200 || !objectBody.success || 'error' in objectBody.data) {
     return requestErrorResponse(
       404,
       'not_found',
@@ -58,6 +57,7 @@ async function handle({
     )
   }
 
+  // SAFETY: the RPC is declared to answer ClientPortalRecordDocument, and the decode above establishes this reply is that document rather than the error envelope.
   const document = body as ClientPortalRecordDocument
   const { readWorkspaceLogoBytes } = await import('#/lib/workspace-logo-routes')
 

@@ -13,6 +13,14 @@ interface LaunchParamsLike {
   files?: ReadonlyArray<{ getFile: () => Promise<File> }>
 }
 
+declare global {
+  interface Window {
+    launchQueue?: {
+      setConsumer: (consumer: (params: LaunchParamsLike) => void) => void
+    }
+  }
+}
+
 /** Files the service worker parked for this page, oldest share first. */
 export async function readSharedFiles(): Promise<File[]> {
   if (typeof caches === 'undefined') return []
@@ -27,6 +35,7 @@ export async function readSharedFiles(): Promise<File[]> {
     const files: File[] = []
 
     for (const key of keys) {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Read one parked file at a time; stop on the first failure before reading later cache entries or bodies.
       const response = await cache.match(key)
 
       if (!response) continue
@@ -63,13 +72,7 @@ export async function clearSharedFiles(): Promise<void> {
 export function onLaunchedWithFiles(
   callback: (files: File[]) => void,
 ): () => void {
-  const queue = (
-    window as unknown as {
-      launchQueue?: {
-        setConsumer: (consumer: (params: LaunchParamsLike) => void) => void
-      }
-    }
-  ).launchQueue
+  const queue = window.launchQueue
 
   if (!queue) return () => undefined
   let live = true

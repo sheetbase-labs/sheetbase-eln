@@ -15,6 +15,7 @@ export function canNativeShare(
     ? undefined
     : navigator,
 ): boolean {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Browser capability detection must distinguish missing/noncallable values and cross-realm functions without invoking the native share sheet.
   return typeof nav?.share === 'function'
 }
 

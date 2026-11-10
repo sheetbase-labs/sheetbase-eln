@@ -6,15 +6,6 @@
  */
 import { useEffect } from 'react'
 
-interface WakeLockSentinelLike {
-  release: () => Promise<void>
-  addEventListener: (type: 'release', listener: () => void) => void
-}
-
-interface WakeLockApi {
-  request: (type: 'screen') => Promise<WakeLockSentinelLike>
-}
-
 export function wakeLockSupported(nav: Navigator = navigator): boolean {
   return 'wakeLock' in nav
 }
@@ -24,12 +15,14 @@ export function wakeLockSupported(nav: Navigator = navigator): boolean {
  * courtesy, never a requirement, so a refusal is silent.
  */
 export function useWakeLock(active: boolean): void {
+  // react-doctor-disable-next-line react-doctor/effect-needs-cleanup -- Release subscriptions use the effect's AbortSignal and cleanup aborts it; Chrome native listener controls verify none survive unmount.
   useEffect(() => {
     if (!active || typeof navigator === 'undefined') return
 
     if (!wakeLockSupported()) return
-    const api = (navigator as Navigator & { wakeLock: WakeLockApi }).wakeLock
-    let sentinel: WakeLockSentinelLike | null = null
+    const api = navigator.wakeLock
+    const releases = new AbortController()
+    let sentinel: WakeLockSentinel | null = null
     const state = { cancelled: false }
     const stopped = () => state.cancelled
 
@@ -47,9 +40,13 @@ export function useWakeLock(active: boolean): void {
         }
 
         sentinel = next
-        next.addEventListener('release', () => {
-          if (sentinel === next) sentinel = null
-        })
+        next.addEventListener(
+          'release',
+          () => {
+            if (sentinel === next) sentinel = null
+          },
+          { once: true, signal: releases.signal },
+        )
       } catch {
         // Low battery or a policy refused it; the screen may dim as usual.
       }
@@ -63,6 +60,7 @@ export function useWakeLock(active: boolean): void {
     return () => {
       state.cancelled = true
       document.removeEventListener('visibilitychange', onVisible)
+      releases.abort()
       const held = sentinel
       sentinel = null
 

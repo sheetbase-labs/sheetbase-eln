@@ -11,6 +11,16 @@ export interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+declare global {
+  interface Navigator {
+    standalone?: boolean
+  }
+
+  interface WindowEventMap {
+    beforeinstallprompt: BeforeInstallPromptEvent
+  }
+}
+
 export type InstallOffer = 'none' | 'prompt' | 'ios'
 
 export const INSTALL_SNOOZE_KEY = 'sheetbase.install.snoozedUntil'
@@ -18,7 +28,7 @@ export const INSTALL_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000
 
 /** True when the page is already running as an installed app. */
 export function isStandalone(win: Window = window): boolean {
-  const nav = win.navigator as Navigator & { standalone?: boolean }
+  const nav = win.navigator
 
   return (
     nav.standalone === true ||
@@ -79,7 +89,7 @@ function start() {
   window.addEventListener('beforeinstallprompt', (event) => {
     // Hold the browser's own mini-bar back; we show our own offer instead.
     event.preventDefault()
-    deferred = event as BeforeInstallPromptEvent
+    deferred = event
     emit()
   })
   window.addEventListener('appinstalled', () => {

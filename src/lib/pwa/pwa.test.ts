@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, renderHook } from '@testing-library/react'
+import { z } from 'zod'
 import { readFileSync } from 'node:fs'
 
 import {
@@ -17,10 +19,15 @@ import {
 } from './edge-swipe'
 import { canNativeShare, shareLink } from './share'
 import { SPLASH_SIZES, splashLinks } from './splash'
-import { wakeLockSupported } from './wake-lock'
+import { useWakeLock, wakeLockSupported } from './wake-lock'
 
 const IPHONE =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
 
 describe('install offer', () => {
   it('recognises iPhones, iPads posing as Macs, and other browsers on iOS', () => {
@@ -98,7 +105,8 @@ describe('edge swipe', () => {
 describe('share', () => {
   it('uses the share sheet when there is one', async () => {
     const share = vi.fn().mockResolvedValue(undefined)
-    const nav = { share } as unknown as Navigator
+    vi.stubGlobal('navigator', { share })
+    const nav = navigator
     expect(canNativeShare(nav)).toBe(true)
     await expect(
       shareLink({ title: 'A', url: 'https://x/y' }, nav),
@@ -107,9 +115,10 @@ describe('share', () => {
   })
 
   it('treats closing the sheet as a choice, not a failure', async () => {
-    const nav = {
+    vi.stubGlobal('navigator', {
       share: vi.fn().mockRejectedValue(new DOMException('x', 'AbortError')),
-    } as unknown as Navigator
+    })
+    const nav = navigator
 
     await expect(shareLink({ title: 'A', url: 'u' }, nav)).resolves.toBe(
       'cancelled',
@@ -118,28 +127,87 @@ describe('share', () => {
 
   it('copies the link where there is no share sheet, and says when it cannot', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
-    const nav = { clipboard: { writeText } } as unknown as Navigator
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    const nav = navigator
     await expect(shareLink({ title: 'A', url: 'u' }, nav)).resolves.toBe(
       'copied',
     )
     expect(writeText).toHaveBeenCalledWith('u')
 
-    const none = {
+    vi.stubGlobal('navigator', {
       clipboard: { writeText: vi.fn().mockRejectedValue(new Error('no')) },
-    } as unknown as Navigator
+    })
+    const none = navigator
 
     await expect(shareLink({ title: 'A', url: 'u' }, none)).resolves.toBe(
       'failed',
     )
   })
+
+  it('copies the link after a non-cancellation share refusal', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', {
+      share: vi
+        .fn()
+        .mockRejectedValue(new DOMException('denied', 'NotAllowedError')),
+      clipboard: { writeText },
+    })
+
+    await expect(
+      shareLink({ title: 'B', url: 'https://sheetbase.test/record' }),
+    ).resolves.toBe('copied')
+    expect(writeText).toHaveBeenCalledWith('https://sheetbase.test/record')
+  })
 })
 
 describe('wake lock', () => {
   it('reports support from the navigator', () => {
-    expect(wakeLockSupported({} as Navigator)).toBe(false)
-    expect(wakeLockSupported({ wakeLock: {} } as unknown as Navigator)).toBe(
-      true,
-    )
+    vi.stubGlobal('navigator', {})
+    expect(wakeLockSupported(navigator)).toBe(false)
+    vi.stubGlobal('navigator', { wakeLock: {} })
+    expect(wakeLockSupported(navigator)).toBe(true)
+  })
+
+  it('releases the lock without delivering callbacks after unmount', async () => {
+    const lock = new (class extends EventTarget {
+      releases = 0
+      deliveries = 0
+
+      release() {
+        this.releases++
+        this.dispatchEvent(new Event('release'))
+
+        return Promise.resolve()
+      }
+
+      override addEventListener(
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | AddEventListenerOptions,
+      ) {
+        super.addEventListener(
+          type,
+          (event) => {
+            this.deliveries++
+
+            if (!listener) return
+
+            if ('handleEvent' in listener) listener.handleEvent(event)
+            else listener.call(this, event)
+          },
+          options,
+        )
+      }
+    })()
+
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    vi.stubGlobal('navigator', {
+      wakeLock: { request: () => Promise.resolve(lock) },
+    })
+    const hook = await act(async () => renderHook(() => useWakeLock(true)))
+    hook.unmount()
+    expect(lock.releases).toBe(1)
+    expect(lock.deliveries).toBe(0)
   })
 })
 
@@ -156,13 +224,13 @@ describe('splash screens', () => {
 })
 
 describe('manifest', () => {
-  const manifest = JSON.parse(
-    readFileSync('public/manifest.webmanifest', 'utf8'),
-  ) as {
-    shortcuts: { url: string }[]
-    share_target: { action: string; method: string }
-    file_handlers: { action: string }[]
-  }
+  const manifest = z
+    .object({
+      shortcuts: z.array(z.object({ url: z.string() })),
+      share_target: z.object({ action: z.string(), method: z.string() }),
+      file_handlers: z.array(z.object({ action: z.string() })),
+    })
+    .parse(JSON.parse(readFileSync('public/manifest.webmanifest', 'utf8')))
 
   it('offers the three shortcuts', () => {
     expect(manifest.shortcuts.map((shortcut) => shortcut.url)).toEqual([

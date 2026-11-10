@@ -53,6 +53,17 @@ copied registry source, which the ADR forbids. Its behavioural rules, including
 hook dependencies, state-updater side effects, ref reads during render and
 event accessibility, stay on and are fixed in place.
 
+## Ordered seed writes
+
+`src/db/seed/**` is exempt from `async-await-in-loop` and
+`server-sequential-independent-await`. A seed step is an ordered data migration:
+each insert supplies the identifiers, revisions or upsert conflicts the next one
+reads, so overlapping them would change what the seed produces. The rules target
+render and request latency, which a seed script does not have. Every other React
+Doctor rule still runs on those files, including the six unguarded `new URL`
+parses, the array lookup inside a loop and the three dynamic imports, which are
+fixed rather than exempted.
+
 ## Existing ESLint coverage
 
 The migration replaces the effective `@tanstack/eslint-config` 0.4.0 rules,

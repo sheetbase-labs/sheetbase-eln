@@ -38,7 +38,7 @@ import {
   useProjectSummary,
 } from '#/components/projects/project-data'
 import type { ProjectFolder } from '#/components/projects/project-data'
-import { statusLabel, statusTone } from '../$projectId'
+import { statusLabel, statusTone } from '../-project-status'
 import {
   fetchRecordsForProject,
   notebookDataClient,
@@ -53,25 +53,29 @@ const projectRoute = getRouteApi('/projects/$projectId')
 
 /** The project's folders. Folders only organise; moving a record keeps its
  * ID, links, history and access. */
-export function ProjectFolders({ projectId }: { projectId: string }) {
+function useProjectFolders(projectId: string) {
   const { project } = useProjectSummary(projectId)
   const { context } = projectRoute.useRouteContext()
   const queryClient = useQueryClient()
+
   const foldersQuery = useQuery({
     queryKey: ['project-folders', projectId],
     queryFn: () => fetchProjectFolders(projectId),
   })
+
   const recordsQuery = useQuery({
     queryKey: notebookQueryKeys.records(projectId),
     queryFn: () => fetchRecordsForProject(notebookDataClient, projectId),
   })
+
   // Same query the project frame reads, so the members are already cached.
   const membersQuery = useQuery({
     queryKey: ['project-members', projectId],
     queryFn: () => fetchProjectMembers(projectId),
     enabled: Boolean(project),
   })
-  const folders = foldersQuery.data ?? []
+
+  const folders = useMemo(() => foldersQuery.data ?? [], [foldersQuery.data])
   const records = recordsQuery.data ?? []
   const [current, setCurrent] = useState<string>(UNFILED)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -81,9 +85,11 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
   useEffect(() => setSelected(new Set()), [current])
 
   const currentFolder = folders.find((f) => f.id === current) ?? null
+
   const shown = records.filter((r) =>
     current === UNFILED ? !r.folderId : r.folderId === current,
   )
+
   const count = (id: string) =>
     id === UNFILED
       ? records.filter((r) => !r.folderId).length
@@ -106,7 +112,7 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
       setCurrent(folder.id)
       toast(t('projects.projectFolders.added', { name: folder.name }))
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
@@ -117,6 +123,7 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
   const [deleting, setDeleting] = useState(false)
+
   const rename = useMutation({
     mutationFn: (name: string) => renameProjectFolder(current, name),
     onSuccess: (folder: ProjectFolder) => {
@@ -124,13 +131,14 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
       setRenaming(false)
       toast(t('projects.projectFolders.renamed', { name: folder.name }))
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
           : t('projects.projectFolders.renameFailed'),
       ),
   })
+
   const remove = useMutation({
     mutationFn: () => deleteProjectFolder(current),
     onSuccess: () => {
@@ -139,7 +147,7 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
       setCurrent(UNFILED)
       toast(t('projects.projectFolders.deleted'))
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       setDeleting(false)
       toast.error(
         error instanceof Error
@@ -156,12 +164,14 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
       invalidate()
       setSelected(new Set())
       setMoving(false)
+
       const dest =
         folders.find((f) => f.id === folderId)?.name ??
         t('projects.projectFolders.unfiled')
+
       toast(t('projects.projectFolders.moved', { count: n, dest }))
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
@@ -170,6 +180,7 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
   })
 
   const allOn = shown.length > 0 && shown.every((r) => selected.has(r.id))
+
   // `project_members` derives `access_level` from the same permissions the
   // folder RPCs enforce (`internal.can_edit_project`: the lead, a workspace
   // owner/admin, or a project owner/editor), so owner or editor is exactly the
@@ -177,6 +188,7 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
   const access = membersQuery.data?.find(
     (member) => member.user_id === context.user.id,
   )?.access_level
+
   const canEdit = access === 'owner' || access === 'editor'
 
   // Sidebar indentation follows the folder tree, not one level: a folder nested
@@ -184,20 +196,24 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
   const depths = useMemo(() => {
     const byId = new Map(folders.map((folder) => [folder.id, folder]))
     const values = new Map<string, number>()
+
     for (const folder of folders) {
       let depth = 0
       let parentId = folder.parent_id
+
       // Bounded by the folder count, so a malformed chain cannot spin.
       while (parentId && depth < folders.length) {
         depth += 1
         parentId = byId.get(parentId)?.parent_id ?? null
       }
+
       values.set(folder.id, depth)
     }
+
     return values
   }, [folders])
 
-  if (!project) return null
+  const { rowSelection, onRowSelectionChange } = useRowFocus(null, () => {})
 
   const columns: RegistryColumn<(typeof shown)[number]>[] = [
     {
@@ -220,8 +236,10 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
           onCheckedChange={(on) =>
             setSelected((s) => {
               const n = new Set(s)
+
               if (on) n.add(row.original.id)
               else n.delete(row.original.id)
+
               return n
             })
           }
@@ -278,7 +296,62 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
     },
   ]
 
-  const { rowSelection, onRowSelectionChange } = useRowFocus(null, () => {})
+  return {
+    project,
+    folders,
+    current,
+    setCurrent,
+    currentFolder,
+    shown,
+    count,
+    depths,
+    canEdit,
+    selected,
+    moving,
+    setMoving,
+    moveDestinationRef,
+    move,
+    renaming,
+    setRenaming,
+    renameValue,
+    setRenameValue,
+    rename,
+    deleting,
+    setDeleting,
+    remove,
+    addFolder,
+    columns,
+    rowSelection,
+    onRowSelectionChange,
+  }
+}
+
+export function ProjectFolders({ projectId }: { projectId: string }) {
+  const state = useProjectFolders(projectId)
+
+  const {
+    project,
+    folders,
+    current,
+    setCurrent,
+    currentFolder,
+    shown,
+    count,
+    depths,
+    canEdit,
+    selected,
+    setMoving,
+    move,
+    setRenaming,
+    setRenameValue,
+    setDeleting,
+    addFolder,
+    columns,
+    rowSelection,
+    onRowSelectionChange,
+  } = state
+
+  if (!project) return null
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
@@ -422,6 +495,39 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
         <Muted>{t('projects.projectFolders.note')}</Muted>
       </div>
 
+      <FolderDialogs state={state} projectTitle={project.title} />
+    </div>
+  )
+}
+
+function FolderDialogs({
+  state,
+  projectTitle,
+}: {
+  state: ReturnType<typeof useProjectFolders>
+  projectTitle: string
+}) {
+  const {
+    current,
+    currentFolder,
+    folders,
+    selected,
+    moving,
+    setMoving,
+    moveDestinationRef,
+    move,
+    renaming,
+    setRenaming,
+    renameValue,
+    setRenameValue,
+    rename,
+    deleting,
+    setDeleting,
+    remove,
+  } = state
+
+  return (
+    <>
       <Dialog open={renaming} onOpenChange={setRenaming}>
         <DialogContent className="w-[min(420px,calc(100vw-32px))]">
           <DialogHeader title={t('projects.projectFolders.rename.title')} />
@@ -478,7 +584,7 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
               count: selected.size,
             })}
             description={t('projects.projectFolders.move.path', {
-              project: project.title,
+              project: projectTitle,
               folder:
                 currentFolder?.name ?? t('projects.projectFolders.unfiled'),
             })}
@@ -513,6 +619,7 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
               disabled={move.isPending}
               onClick={() => {
                 const value = moveDestinationRef.current?.value
+
                 if (!value) return
                 move.mutate(value === UNFILED ? null : value)
               }}
@@ -522,7 +629,7 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }
 
@@ -574,11 +681,13 @@ function NewFolder({
   const [parentId, setParentId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const top = useMemo(() => parents.filter((f) => !f.parent_id), [parents])
+
   return (
     <Dialog
       open={open}
       onOpenChange={(o) => {
         setOpen(o)
+
         if (!o) setError(null)
       }}
     >
@@ -636,8 +745,10 @@ function NewFolder({
             onClick={() => {
               if (!name.trim()) {
                 setError(t('projects.projectFolders.newFolder.nameRequired'))
+
                 return
               }
+
               onCreate(name.trim(), parentId || null)
               setOpen(false)
               setName('')

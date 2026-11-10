@@ -7,68 +7,111 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createMemoryHistory,
+  RouterProvider,
+} from '@tanstack/react-router'
+import {
   cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
 } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
+import { z } from 'zod'
 
-import type * as auditHistory from '#/lib/audit-history'
 import type { AuditEventWire, AuditEventsPageWire } from '#/lib/audit-history'
 import { BLOB_URL_LIFETIME_MS } from '#/lib/download'
+import { Toaster, toast } from '#/components/ui/sonner'
 
-import { Route } from './audit'
+const requestSchema = z.object({
+  p_entity_type: z.string().nullable(),
+  p_operation: z.string().nullable(),
+  p_actor_user_id: z.string().nullable(),
+  p_from: z.string().nullable(),
+  p_to: z.string().nullable(),
+  p_search: z.string().nullable(),
+  p_object: z.string().nullable(),
+  p_before_sequence: z.number().nullable(),
+  p_limit: z.number(),
+  p_project_id: z.string().nullable(),
+})
 
-const mocks = vi.hoisted(() => ({
-  events: vi.fn(),
-  all: vi.fn(),
-  toast: vi.fn(),
-  navigate: vi.fn(),
-  urlSearch: { value: {} },
-}))
+const reads = vi.fn<() => Promise<AuditEventsPageWire>>()
+const exports = vi.fn<() => Promise<AuditEventsPageWire>>()
+const requests: Array<z.infer<typeof requestSchema>> = []
 
-vi.mock('#/components/ui/sonner', () => ({ toast: mocks.toast }))
+vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
 
-vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (options: object) => ({
-    options,
-    useSearch: () => mocks.urlSearch.value,
-    useNavigate: () => mocks.navigate,
-    useRouteContext: () => ({
+  if (url.pathname.endsWith('/audit_events')) {
+    const request = requestSchema.parse(await new Response(init?.body).json())
+    requests.push(request)
+
+    return Response.json(await (request.p_limit === 200 ? exports() : reads()))
+  }
+
+  return Response.json([])
+})
+
+const { Route } = await import('./audit')
+const { dropSharedReads } = await import('#/lib/data-client')
+
+function renderAudit(search = '') {
+  const Component = Route.options.component
+
+  if (!Component) throw new Error('Audit component required')
+
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+
+  const root = createRootRoute({
+    beforeLoad: () => ({
       context: {
         user: { id: 'admin', name: 'Admin', email: 'admin@sheetbase.test' },
         workspace: { id: 'ws-1', name: 'Process Development', role: 'owner' },
       },
     }),
-  }),
-  Link: ({
-    to,
-    children,
-    ...props
-  }: {
-    to?: string
-    children?: React.ReactNode
-  } & Record<string, unknown>) => (
-    <a href={typeof to === 'string' ? to : '#'} {...props}>
-      {children}
-    </a>
-  ),
-}))
+  })
 
-vi.mock('#/lib/data-client', () => ({ createDataClient: () => ({}) }))
+  const route = createRoute({
+    getParentRoute: () => root,
+    path: '/settings/workspace/audit',
+    validateSearch: Route.options.validateSearch,
+    component: Component,
+  })
 
-vi.mock('#/lib/audit-history', async (importOriginal) => {
-  const actual = await importOriginal<typeof auditHistory>()
-  return {
-    ...actual,
-    fetchAuditEvents: mocks.events,
-    fetchAllAuditEvents: mocks.all,
-  }
-})
+  const router = createRouter({
+    routeTree: root.addChildren([route]),
+    history: createMemoryHistory({
+      initialEntries: ['/settings/workspace/audit' + search],
+    }),
+  })
 
-const Audit = Route.options.component as React.ComponentType
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+      <Toaster />
+    </QueryClientProvider>,
+  )
+
+  return router
+}
 
 function event(overrides: Partial<AuditEventWire> = {}): AuditEventWire {
   return {
@@ -101,17 +144,6 @@ function page(
   }
 }
 
-function renderAudit() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  })
-  return render(
-    <QueryClientProvider client={client}>
-      <Audit />
-    </QueryClientProvider>,
-  )
-}
-
 function searchBox() {
   return screen.getByLabelText('Search audit log')
 }
@@ -122,50 +154,56 @@ function scrollPane() {
 
 /** The filter the Nth audit read was issued with. */
 function filterOf(call: number) {
-  return mocks.events.mock.calls[call]?.[1] as Record<string, unknown>
+  return requests.filter((request) => request.p_limit === 50)[call]
 }
 
 afterEach(() => {
   cleanup()
-  vi.resetAllMocks()
+  toast.dismiss()
+  dropSharedReads()
 })
+
+beforeEach(() => {
+  requests.length = 0
+  reads.mockReset()
+  exports.mockReset()
+})
+
+afterAll(() => vi.unstubAllGlobals())
 
 describe('audit log filters by record and day', () => {
   it('reads only the entries of the record and days the URL names', async () => {
-    mocks.urlSearch.value = {
-      record: '00000000-0000-4000-8000-0000000000aa',
-      from: '2026-09-01',
-      to: '2026-09-30',
-    }
-    mocks.events.mockResolvedValue(page({ events: [event()] }))
-    renderAudit()
+    reads.mockResolvedValue(page({ events: [event()] }))
+    renderAudit(
+      '?record=00000000-0000-4000-8000-0000000000aa&from=2026-09-01&to=2026-09-30',
+    )
     await screen.findByText('1 Oct 2026, 09:00')
     expect(filterOf(0)).toMatchObject({
-      object: '00000000-0000-4000-8000-0000000000aa',
-      from: '2026-09-01T00:00:00.000Z',
-      to: '2026-09-30T23:59:59.999Z',
+      p_object: '00000000-0000-4000-8000-0000000000aa',
+      p_from: '2026-09-01T00:00:00.000Z',
+      p_to: '2026-09-30T23:59:59.999Z',
     })
     expect(
       screen.getByRole('button', { name: 'Clear the record filter' }),
     ).toBeTruthy()
-    mocks.urlSearch.value = {}
   })
 
   it('writes a day picked from the calendar into the URL', async () => {
-    mocks.events.mockResolvedValue(page({ events: [event()] }))
-    renderAudit()
+    reads.mockResolvedValue(page({ events: [event()] }))
+    const router = renderAudit('?record=r')
     await screen.findByText('1 Oct 2026, 09:00')
     fireEvent.click(screen.getByRole('button', { name: 'From' }))
     // The calendar opens on the current month; any day-of-month 1 will do.
     const [first] = await screen.findAllByRole('button', { name: /\b1st,/ })
+
     fireEvent.click(first)
-    const call = mocks.navigate.mock.calls[0][0] as {
-      search: (s: Record<string, unknown>) => Record<string, unknown>
-    }
-    expect(call.search({ record: 'r' })).toEqual({
-      record: 'r',
-      from: expect.stringMatching(/^\d{4}-\d{2}-01$/),
-    })
+
+    await waitFor(() =>
+      expect(router.state.location.search).toEqual({
+        record: 'r',
+        from: expect.stringMatching(/^\d{4}-\d{2}-01$/),
+      }),
+    )
   })
 })
 
@@ -174,23 +212,19 @@ describe('audit log grid', () => {
     // The returned event does not match the term the user typed: a grid that
     // filtered locally would hide it, a server-filtered grid renders what the
     // read returned.
-    mocks.events.mockResolvedValue(
-      page({ events: [event({ operation: 'update' })] }),
-    )
+    reads.mockResolvedValue(page({ events: [event({ operation: 'update' })] }))
     renderAudit()
     await screen.findByText('1 Oct 2026, 09:00')
 
     fireEvent.change(searchBox(), { target: { value: 'quarantine' } })
 
-    await waitFor(() => expect(mocks.events).toHaveBeenCalledTimes(2))
-    expect(filterOf(1)).toMatchObject({ search: 'quarantine' })
+    await waitFor(() => expect(reads).toHaveBeenCalledTimes(2))
+    expect(filterOf(1)).toMatchObject({ p_search: 'quarantine' })
     expect(screen.getByText('1 Oct 2026, 09:00')).toBeTruthy()
   })
 
   it('sends the operation filter to the server', async () => {
-    mocks.events.mockResolvedValue(
-      page({ events: [event({ operation: 'update' })] }),
-    )
+    reads.mockResolvedValue(page({ events: [event({ operation: 'update' })] }))
     renderAudit()
     await screen.findByText('1 Oct 2026, 09:00')
 
@@ -199,12 +233,12 @@ describe('audit log grid', () => {
     })
 
     await waitFor(() =>
-      expect(filterOf(1)).toMatchObject({ operation: 'quarantine' }),
+      expect(filterOf(1)).toMatchObject({ p_operation: 'quarantine' }),
     )
   })
 
   it('walks the cursor to older entries on scroll and says when the log ends', async () => {
-    mocks.events
+    reads
       .mockResolvedValueOnce(
         page({
           events: [event({ id: 'newer', sequence: 12 })],
@@ -227,12 +261,14 @@ describe('audit log grid', () => {
       )
     renderAudit()
     await screen.findByText('1 Oct 2026, 09:00')
+
     // The tail is the shared control now: a landmark and a real button, so the
     // rest of the log is reachable without scrolling — which is the only way it
     // was reachable before.
     const tail = screen.getByRole('navigation', {
       name: 'Older audit entries',
     })
+
     expect(tail).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Load more' })).toBeTruthy()
     expect(screen.queryByText('1 Sep 2026, 09:00')).toBeNull()
@@ -240,8 +276,8 @@ describe('audit log grid', () => {
     fireEvent.scroll(scrollPane())
 
     await screen.findByText('1 Sep 2026, 09:00')
-    expect(mocks.events.mock.calls[1][1]).toMatchObject({
-      beforeSequence: 12,
+    expect(filterOf(1)).toMatchObject({
+      p_before_sequence: 12,
     })
     expect(
       await screen.findByText(
@@ -255,7 +291,7 @@ describe('audit log grid', () => {
   it('shows a body state row while the log is loading', async () => {
     // The project's lib target predates Promise.withResolvers, so the pending
     // read is held open with the constructor instead.
-    mocks.events.mockReturnValue(new Promise<AuditEventsPageWire>(() => {}))
+    reads.mockReturnValue(new Promise<AuditEventsPageWire>(() => {}))
     renderAudit()
 
     const table = await screen.findByRole('table', { name: 'Audit log' })
@@ -269,14 +305,14 @@ describe('audit log grid', () => {
   })
 
   it('keeps the empty copy for a loaded log with no matches', async () => {
-    mocks.events.mockResolvedValue(page())
+    reads.mockResolvedValue(page())
     renderAudit()
 
     expect(await screen.findByText(/No audit entries match/)).toBeTruthy()
   })
 
   it('reports a failed read rather than an empty log, and retries on request', async () => {
-    mocks.events
+    reads
       .mockRejectedValueOnce(new Error('offline'))
       .mockResolvedValueOnce(page({ events: [event()] }))
     renderAudit()
@@ -289,11 +325,11 @@ describe('audit log grid', () => {
     screen.getByRole('button', { name: 'Try again' }).click()
 
     await screen.findByText('1 Oct 2026, 09:00')
-    expect(mocks.events).toHaveBeenCalledTimes(2)
+    expect(reads).toHaveBeenCalledTimes(2)
   })
 
   it('states a failed page of older entries and retries it rather than spinning', async () => {
-    mocks.events
+    reads
       .mockResolvedValueOnce(
         page({
           events: [event({ id: 'newer', sequence: 12 })],
@@ -327,34 +363,55 @@ describe('audit log grid', () => {
     screen.getByRole('button', { name: 'Try again' }).click()
 
     await screen.findByText('1 Sep 2026, 09:00')
-    expect(mocks.events).toHaveBeenCalledTimes(3)
+    expect(reads).toHaveBeenCalledTimes(3)
   })
 
   it('exports every entry matching the search, keeps the anchor attached, and holds the blob URL past the click', async () => {
-    mocks.events.mockResolvedValue(page({ events: [event()] }))
-    mocks.all.mockResolvedValue([
-      event(),
-      event({
-        id: 'ev-2',
-        sequence: 40,
-        createdAt: '2026-09-30T09:00:00.000000Z',
+    reads.mockResolvedValue(page({ events: [event()] }))
+    exports.mockResolvedValue(
+      page({
+        events: [
+          event(),
+          event({
+            id: 'ev-2',
+            sequence: 40,
+            createdAt: '2026-09-30T09:00:00.000000Z',
+          }),
+        ],
       }),
-    ])
-    const originalCreate = URL.createObjectURL
-    const originalRevoke = URL.revokeObjectURL
+    )
+
+    const originalCreate = Object.getOwnPropertyDescriptor(
+      URL,
+      'createObjectURL',
+    )
+
+    const originalRevoke = Object.getOwnPropertyDescriptor(
+      URL,
+      'revokeObjectURL',
+    )
+
     const blobs: Blob[] = []
-    URL.createObjectURL = vi.fn((blob: Blob) => {
+
+    const createObjectURL = vi.fn((blob: Blob) => {
       blobs.push(blob)
+
       return 'blob:audit-export'
     })
-    URL.revokeObjectURL = vi.fn()
+
+    const revokeObjectURL = vi.fn()
+    URL.createObjectURL = createObjectURL
+    URL.revokeObjectURL = revokeObjectURL
     let attachedWhenClicked = false
+
     const anchorClick = vi
       .spyOn(HTMLAnchorElement.prototype, 'click')
       .mockImplementation(function (this: HTMLAnchorElement) {
         attachedWhenClicked = document.body.contains(this)
       })
+
     const timer = vi.spyOn(window, 'setTimeout')
+
     try {
       renderAudit()
       await screen.findByText('1 Oct 2026, 09:00')
@@ -366,13 +423,17 @@ describe('audit log grid', () => {
 
       // The export reads the whole selection — both entries, not just the row
       // the grid has loaded.
-      await waitFor(() => expect(mocks.all).toHaveBeenCalledTimes(1))
-      expect(mocks.all.mock.calls[0][1]).toEqual({
-        operation: undefined,
-        search: undefined,
-      })
+      await waitFor(() => expect(exports).toHaveBeenCalledTimes(1))
+      expect(requests.find((request) => request.p_limit === 200)).toMatchObject(
+        {
+          p_operation: null,
+          p_search: null,
+        },
+      )
       await waitFor(() => expect(blobs).toHaveLength(1))
-      const csv = await blobs[0].text()
+      const [blob] = blobs
+
+      const csv = await blob.text()
       expect(csv.split('\n')).toHaveLength(3)
       expect(csv).toContain('"41"')
 
@@ -381,39 +442,46 @@ describe('audit log grid', () => {
       // drops the file with nothing said. The release is deferred to the shared
       // helper's timer instead.
       expect(attachedWhenClicked).toBe(true)
-      expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
-      expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+      expect(createObjectURL).toHaveBeenCalledTimes(1)
+      expect(revokeObjectURL).not.toHaveBeenCalled()
       expect(timer).toHaveBeenCalledWith(
         expect.any(Function),
         BLOB_URL_LIFETIME_MS,
       )
 
-      await waitFor(() =>
-        expect(mocks.toast).toHaveBeenCalledWith(
-          'audit-log.csv exported',
-          expect.objectContaining({
-            description: '2 entries — every entry matching the current search.',
-          }),
+      expect(await screen.findByText('audit-log.csv exported')).toBeTruthy()
+      expect(
+        screen.getByText(
+          '2 entries — every entry matching the current search.',
         ),
-      )
+      ).toBeTruthy()
     } finally {
       anchorClick.mockRestore()
       timer.mockRestore()
-      URL.createObjectURL = originalCreate
-      URL.revokeObjectURL = originalRevoke
+
+      if (originalCreate)
+        Object.defineProperty(URL, 'createObjectURL', originalCreate)
+      else Reflect.deleteProperty(URL, 'createObjectURL')
+
+      if (originalRevoke)
+        Object.defineProperty(URL, 'revokeObjectURL', originalRevoke)
+      else Reflect.deleteProperty(URL, 'revokeObjectURL')
     }
   })
 
   it('states a download the browser cannot take', async () => {
-    mocks.events.mockResolvedValue(page({ events: [event()] }))
-    mocks.all.mockResolvedValue([event()])
+    reads.mockResolvedValue(page({ events: [event()] }))
+    exports.mockResolvedValue(page({ events: [event()] }))
+
     const download = Object.getOwnPropertyDescriptor(
       HTMLAnchorElement.prototype,
       'download',
     )
+
     // Without the download attribute the click navigates to the blob instead
     // of saving it, so the export has to say so rather than go quiet.
-    delete (HTMLAnchorElement.prototype as Partial<HTMLAnchorElement>).download
+    Reflect.deleteProperty(HTMLAnchorElement.prototype, 'download')
+
     try {
       renderAudit()
       await screen.findByText('1 Oct 2026, 09:00')
@@ -423,14 +491,10 @@ describe('audit log grid', () => {
         })
         .click()
 
-      await waitFor(() =>
-        expect(mocks.toast).toHaveBeenCalledWith(
-          'Couldn’t export the audit log',
-          expect.objectContaining({
-            description: 'This browser cannot save files.',
-          }),
-        ),
-      )
+      expect(
+        await screen.findByText('Couldn’t export the audit log'),
+      ).toBeTruthy()
+      expect(screen.getByText('This browser cannot save files.')).toBeTruthy()
     } finally {
       if (download) {
         Object.defineProperty(HTMLAnchorElement.prototype, 'download', download)

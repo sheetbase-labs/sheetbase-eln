@@ -11,6 +11,7 @@ import {
   useProjectMilestones,
   useProjectSummary,
 } from '#/components/projects/project-data'
+import type { ProjectSummary } from '#/components/projects/project-data'
 import {
   useProjectDatasetCount,
   useProjectRecordCount,
@@ -22,20 +23,24 @@ import { useRecentViewTracking } from '#/lib/recents'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
 import { useHasCapability } from '#/lib/use-capability'
+import { statusLabel, statusTone } from './-project-status'
 
 /** UI port (roadmap-4/ui-app3): the project detail frame. Overview and
  * Settings are ported; Folders and Members tabs land with theirs. */
 export const Route = createFileRoute('/projects/$projectId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     await resolveIdentifierParam({
       entity: 'project',
       ref: params.projectId,
       href: location.href,
     })
+
     return { context }
   },
   component: ProjectLayout,
@@ -54,51 +59,11 @@ function ProjectLayout() {
   const samplesCount = useProjectRecordCount(project?.id ?? '', 'sample')
   const datasetsCount = useProjectDatasetCount(project?.id ?? '')
   const milestonesQuery = useProjectMilestones(project?.id ?? '')
-  if (!project) {
-    return (
-      <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader
-          trail={[
-            {
-              label: t('projects.projectShell.projects'),
-              link: { to: '/projects' },
-            },
-          ]}
-          title={
-            query.isLoading
-              ? t('projects.projectShell.loading')
-              : query.isError
-                ? t('projects.projectShell.loadFailed')
-                : t('projects.projectShell.notFound')
-          }
-        />
-        <div className="px-4 py-4 md:px-6">
-          {query.isError ? (
-            <ProjectListFailure
-              error={query.error}
-              what={t('projects.projectShell.thisProject')}
-              onRetry={() => void query.refetch()}
-            />
-          ) : query.isLoading ? null : (
-            <NotFoundNotice
-              what={t('projects.projectShell.project')}
-              action={
-                <Button
-                  size="sm"
-                  nativeButton={false}
-                  render={<Link to="/projects" />}
-                >
-                  {t('projects.projectShell.backToProjects')}
-                </Button>
-              }
-            />
-          )}
-        </div>
-      </div>
-    )
-  }
+
+  if (!project) return <ProjectUnavailable query={query} />
 
   const params = { projectId: project.id }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
@@ -110,36 +75,7 @@ function ProjectLayout() {
           { label: project.displayId ?? project.key, mono: true },
         ]}
         title={project.title}
-        meta={
-          <>
-            <span className="text-fg">
-              <Status tone={statusTone(project.status)}>
-                {statusLabel(project.status)}
-              </Status>
-            </span>
-            <span className={metaItemClass}>
-              {project.clientCode
-                ? t('projects.projectShell.client', {
-                    code: project.clientCode,
-                  })
-                : t('projects.projectShell.internal')}
-            </span>
-            {project.modality ? <span>{project.modality}</span> : null}
-            {project.stage ? <span>{project.stage}</span> : null}
-            {project.leadName ? (
-              <span>
-                {t('projects.projectShell.lead', { name: project.leadName })}
-              </span>
-            ) : null}
-            {project.startedOn ? (
-              <span>
-                {t('projects.projectShell.started', {
-                  date: formatDate(project.startedOn),
-                })}
-              </span>
-            ) : null}
-          </>
-        }
+        meta={<ProjectMetadata project={project} />}
         actions={
           <>
             {/* An archived project never shows in the sidebar, so it is not offered. */}
@@ -225,34 +161,79 @@ function ProjectLayout() {
   )
 }
 
-export function statusTone(status: string) {
-  switch (status) {
-    case 'in_review':
-      return 'review' as const
-    case 'complete':
-      return 'ok' as const
-    case 'on_hold':
-      return 'warn' as const
-    case 'archived':
-      return 'draft' as const
-    default:
-      return 'progress' as const
-  }
+function ProjectUnavailable({
+  query,
+}: Pick<ReturnType<typeof useProjectSummary>, 'query'>) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <PageHeader
+        trail={[
+          {
+            label: t('projects.projectShell.projects'),
+            link: { to: '/projects' },
+          },
+        ]}
+        title={
+          query.isLoading
+            ? t('projects.projectShell.loading')
+            : query.isError
+              ? t('projects.projectShell.loadFailed')
+              : t('projects.projectShell.notFound')
+        }
+      />
+      <div className="px-4 py-4 md:px-6">
+        {query.isError ? (
+          <ProjectListFailure
+            error={query.error}
+            what={t('projects.projectShell.thisProject')}
+            onRetry={() => void query.refetch()}
+          />
+        ) : query.isLoading ? null : (
+          <NotFoundNotice
+            what={t('projects.projectShell.project')}
+            action={
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={<Link to="/projects" />}
+              >
+                {t('projects.projectShell.backToProjects')}
+              </Button>
+            }
+          />
+        )}
+      </div>
+    </div>
+  )
 }
 
-export function statusLabel(status: string) {
-  switch (status) {
-    case 'in_progress':
-      return t('projects.projectsRoute.status.inProgress')
-    case 'in_review':
-      return t('projects.projectsRoute.status.inReview')
-    case 'complete':
-      return t('projects.projectsRoute.status.complete')
-    case 'on_hold':
-      return t('projects.projectsRoute.status.onHold')
-    case 'archived':
-      return t('projects.projectsRoute.status.archived')
-    default:
-      return t('projects.projectsRoute.status.active')
-  }
+function ProjectMetadata({ project }: { project: ProjectSummary }) {
+  return (
+    <>
+      <span className="text-fg">
+        <Status tone={statusTone(project.status)}>
+          {statusLabel(project.status)}
+        </Status>
+      </span>
+      <span className={metaItemClass}>
+        {project.clientCode
+          ? t('projects.projectShell.client', { code: project.clientCode })
+          : t('projects.projectShell.internal')}
+      </span>
+      {project.modality ? <span>{project.modality}</span> : null}
+      {project.stage ? <span>{project.stage}</span> : null}
+      {project.leadName ? (
+        <span>
+          {t('projects.projectShell.lead', { name: project.leadName })}
+        </span>
+      ) : null}
+      {project.startedOn ? (
+        <span>
+          {t('projects.projectShell.started', {
+            date: formatDate(project.startedOn),
+          })}
+        </span>
+      ) : null}
+    </>
+  )
 }

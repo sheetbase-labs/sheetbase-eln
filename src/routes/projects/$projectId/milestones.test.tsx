@@ -1,121 +1,263 @@
 import { choose } from '../../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createMemoryHistory,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
+import { z } from 'zod'
 
 import { DataClientError } from '#/lib/data-client'
-import type { StudyTask } from '#/lib/planner'
+import type { StudyTask, MilestoneRisk } from '#/lib/planner'
+import type { ProjectSummary } from '#/components/projects/project-data'
 
-import { Route } from './milestones'
+type MilestonesSearch = typeof Route.types.searchSchema
 
-let mockSearchState: Record<string, unknown> = {}
+let mockSearchState: MilestonesSearch = {}
 
-const mocks = vi.hoisted(() => ({
+const conditionSchema = z.object({
+  p_task_id: z.string(),
+  p_name: z.string(),
+  p_due_at: z.string().nullable(),
+})
+
+const conditionStatusSchema = z.object({
+  p_id: z.string(),
+  p_status: z.literal('delivered'),
+})
+
+const evidenceSchema = z.object({ p_id: z.string(), p_record_id: z.string() })
+
+const visibilitySchema = z.object({
+  p_task_id: z.string(),
+  p_expected_metadata_version: z.number(),
+  p_client_visible: z.boolean(),
+  p_reason: z.string().nullable(),
+})
+
+const mocks = {
   role: 'member',
   canEdit: false,
-  navigate: vi.fn(),
-  fetchStudyTasks: vi.fn(),
-  fetchStudyWorkstreams: vi.fn(),
-  fetchMilestoneRisks: vi.fn(),
-  fetchStudyDependencies: vi.fn(),
-  fetchStudyDeliverables: vi.fn(),
-  fetchStudyTaskDueChanges: vi.fn(),
-  fetchProjectSummaries: vi.fn(),
-  fetchWorkspaceMemberIdentities: vi.fn(),
-  createStudyTask: vi.fn(),
-  editStudyTask: vi.fn(),
+  fetchStudyTasks: vi.fn<() => Promise<StudyTask[]>>(),
+  fetchMilestoneRisks: vi.fn<() => Promise<MilestoneRisk[]>>(),
+  fetchStudyDeliverables: vi.fn<
+    () => Promise<
+      Array<{
+        id: string
+        taskId: string
+        name: string
+        status: 'planned'
+        linkedRecordId: null
+        linkedRecordIdentifier: null
+      }>
+    >
+  >(),
+  fetchProjectSummaries:
+    vi.fn<
+      () => Promise<Array<Pick<ProjectSummary, 'id' | 'title' | 'clientCode'>>>
+    >(),
   moveStudyTaskDue: vi.fn(),
-  setStudyTaskClientVisible: vi.fn(),
-  createPlanFromProject: vi.fn(),
-  createStudyDeliverable: vi.fn(),
-  setStudyDeliverableStatus: vi.fn(),
-  linkStudyDeliverableEvidence: vi.fn(),
-}))
+  setStudyTaskClientVisible:
+    vi.fn<(args: z.infer<typeof visibilitySchema>) => Promise<null>>(),
+  createStudyDeliverable:
+    vi.fn<(args: z.infer<typeof conditionSchema>) => Promise<{ id: string }>>(),
+  setStudyDeliverableStatus:
+    vi.fn<
+      (args: z.infer<typeof conditionStatusSchema>) => Promise<{ id: string }>
+    >(),
+  linkStudyDeliverableEvidence:
+    vi.fn<
+      (
+        args: z.infer<typeof evidenceSchema>,
+      ) => Promise<{ linkedRecordIdentifier: string }>
+    >(),
+}
 
-vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (options: object) => ({
-    options,
-    useParams: () => ({ projectId: 'project-1' }),
-    useSearch: () => mockSearchState,
-    useRouteContext: () => ({
-      context: {
-        user: { id: 'gareth' },
-        workspace: { id: 'ws', role: mocks.role },
+vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
+
+  if (url.pathname.endsWith('/project_permissions'))
+    return Response.json([
+      {
+        can_view: true,
+        can_edit: mocks.canEdit,
+        can_review: mocks.canEdit,
+        client_portal: false,
+        can_manage: mocks.canEdit,
       },
-    }),
-  }),
-  useNavigate: () => mocks.navigate,
-  Link: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
-}))
+    ])
 
-vi.mock('#/lib/notebook-data', () => ({
-  notebookDataClient: {},
-  notebookQueryKeys: { records: (id: string) => ['records', id] },
-  fetchRecordsForProject: async () => [
-    {
-      id: 'r-12',
-      identifier: 'EXP-0012',
-      title: 'Release run',
-      status: 'approved',
-      archivedAt: null,
-    },
-  ],
-}))
+  if (url.pathname.endsWith('/study_tasks'))
+    return Response.json(
+      (await mocks.fetchStudyTasks()).map((task) => ({
+        id: task.id,
+        workspace_id: task.workspaceId,
+        workstream_id: task.workstreamId,
+        project_id: task.projectId,
+        title: task.title,
+        description: task.description,
+        task_type: task.taskType,
+        status: task.status,
+        priority: task.priority,
+        starts_at: task.startsAt,
+        ends_at: task.endsAt,
+        due_at: task.dueAt,
+        timezone: task.timezone,
+        position: task.position,
+        color: task.color,
+        progress_percent: task.progressPercent,
+        linked_experiment_record_id: task.linkedExperimentRecordId,
+        linked_experiment_identifier: task.linkedExperimentIdentifier,
+        linked_experiment_title: task.linkedExperimentTitle,
+        linked_protocol_record_id: task.linkedProtocolRecordId,
+        linked_protocol_identifier: task.linkedProtocolIdentifier,
+        approval_required: task.approvalRequired,
+        approval_status: task.approvalStatus,
+        client_visible: task.clientVisible,
+        shared_since: task.sharedSince,
+        client_visible_reason: task.clientVisibleReason,
+        tags: task.tags,
+        metadata_version: task.metadataVersion,
+        created_at: task.createdAt,
+        updated_at: task.updatedAt,
+      })),
+    )
 
-// QA-048: milestone writes are gated on the project's own edit permission, not
-// the workspace role, so the route's permission read is stubbed here.
-vi.mock('#/lib/workspace-access', () => ({
-  fetchProjectPermissions: async () => ({
-    can_view: true,
-    can_edit: mocks.canEdit,
-    can_review: mocks.canEdit,
-    client_portal: false,
-    can_manage: mocks.canEdit,
-  }),
-}))
+  if (url.pathname.endsWith('/project_list_summary'))
+    return Response.json(
+      (await mocks.fetchProjectSummaries()).map((p) => ({
+        id: p.id,
+        key: p.id,
+        title: p.title,
+        client_code: p.clientCode,
+        status: 'active',
+        updated_at: '2026-09-20',
+        experiment_count: 0,
+      })),
+    )
 
-vi.mock('#/components/projects/project-data', () => ({
-  PROJECTS_KEY: ['projects'],
-  workspaceMemberQueryKeys: { identities: ['ui-port', 'workspace-members'] },
-  fetchProjectSummaries: (...args: unknown[]) =>
-    mocks.fetchProjectSummaries(...args),
-  fetchWorkspaceMemberIdentities: (...args: unknown[]) =>
-    mocks.fetchWorkspaceMemberIdentities(...args),
-}))
+  if (url.pathname.endsWith('/milestone_risks'))
+    return Response.json(
+      (await mocks.fetchMilestoneRisks()).map((r) => ({
+        task_id: r.taskId,
+        project_id: r.projectId,
+        due_at: r.dueAt,
+        status: r.status,
+        late: r.late,
+        risk: r.risk,
+        risk_reason: r.riskReason,
+        conditions_total: r.conditionsTotal,
+        conditions_open: r.conditionsOpen,
+        unfinished_dependencies: r.unfinishedDependencies,
+        blocking_title: r.blockingTitle,
+      })),
+    )
 
-vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
+  if (url.pathname.endsWith('/study_deliverables'))
+    return Response.json(
+      (await mocks.fetchStudyDeliverables()).map((d) => ({
+        id: d.id,
+        task_id: d.taskId,
+        name: d.name,
+        status: d.status,
+        linked_record_id: d.linkedRecordId,
+        linked_record_identifier: d.linkedRecordIdentifier,
+        description: null,
+        due_at: null,
+        created_at: '2026-09-01T00:00:00Z',
+        updated_at: '2026-09-20T00:00:00Z',
+      })),
+    )
 
-vi.mock('#/lib/planner', () => ({
-  createStudyTask: (...args: unknown[]) => mocks.createStudyTask(...args),
-  editStudyTask: (...args: unknown[]) => mocks.editStudyTask(...args),
-  moveStudyTaskDue: (...args: unknown[]) => mocks.moveStudyTaskDue(...args),
-  setStudyTaskClientVisible: (...args: unknown[]) =>
-    mocks.setStudyTaskClientVisible(...args),
-  createPlanFromProject: (...args: unknown[]) =>
-    mocks.createPlanFromProject(...args),
-  createStudyDeliverable: (...args: unknown[]) =>
-    mocks.createStudyDeliverable(...args),
-  setStudyDeliverableStatus: (...args: unknown[]) =>
-    mocks.setStudyDeliverableStatus(...args),
-  linkStudyDeliverableEvidence: (...args: unknown[]) =>
-    mocks.linkStudyDeliverableEvidence(...args),
-  fetchStudyTasks: (...args: unknown[]) => mocks.fetchStudyTasks(...args),
-  fetchStudyWorkstreams: (...args: unknown[]) =>
-    mocks.fetchStudyWorkstreams(...args),
-  fetchMilestoneRisks: (...args: unknown[]) =>
-    mocks.fetchMilestoneRisks(...args),
-  fetchStudyDependencies: (...args: unknown[]) =>
-    mocks.fetchStudyDependencies(...args),
-  fetchStudyDeliverables: (...args: unknown[]) =>
-    mocks.fetchStudyDeliverables(...args),
-  fetchStudyTaskDueChanges: (...args: unknown[]) =>
-    mocks.fetchStudyTaskDueChanges(...args),
-  toStudyTask: (row: unknown) => row,
-  describePlannerError: () => 'The plan could not be written.',
-}))
+  if (url.pathname.endsWith('/workspace_members_list'))
+    return Response.json([{ user_id: 'mei', name: 'Mei L.', role: 'member' }])
 
-afterEach(cleanup)
+  if (url.pathname.endsWith('/records'))
+    return Response.json([
+      {
+        id: 'r-12',
+        identifier: 'EXP-0012',
+        title: 'Release run',
+        status: 'approved',
+        archived_at: null,
+        kind: 'experiment',
+        tags: [],
+        structure_version: 1,
+        metadata_version: 1,
+      },
+    ])
+
+  if (url.pathname.endsWith('/move_study_task_due')) {
+    try {
+      await mocks.moveStudyTaskDue()
+
+      return Response.json(null)
+    } catch (error) {
+      if (error instanceof DataClientError)
+        return Response.json(
+          { code: error.code, message: error.message },
+          { status: error.status },
+        )
+      throw error
+    }
+  }
+
+  if (url.pathname.endsWith('/set_study_task_client_visible'))
+    return Response.json(
+      await mocks.setStudyTaskClientVisible(
+        visibilitySchema.parse(await new Response(init?.body).json()),
+      ),
+    )
+
+  if (url.pathname.endsWith('/create_study_deliverable'))
+    return Response.json(
+      await mocks.createStudyDeliverable(
+        conditionSchema.parse(await new Response(init?.body).json()),
+      ),
+    )
+
+  if (url.pathname.endsWith('/update_study_deliverable'))
+    return Response.json(
+      await mocks.setStudyDeliverableStatus(
+        conditionStatusSchema.parse(await new Response(init?.body).json()),
+      ),
+    )
+
+  if (url.pathname.endsWith('/link_study_deliverable_evidence'))
+    return Response.json(
+      await mocks.linkStudyDeliverableEvidence(
+        evidenceSchema.parse(await new Response(init?.body).json()),
+      ),
+    )
+
+  return Response.json([])
+})
+
+const { Route } = await import('./milestones')
+const { dropSharedReads } = await import('#/lib/data-client')
+
+afterEach(() => {
+  cleanup()
+  dropSharedReads()
+})
+
+afterAll(() => vi.unstubAllGlobals())
 
 beforeEach(() => {
   vi.resetAllMocks()
@@ -123,16 +265,11 @@ beforeEach(() => {
   mocks.role = 'member'
   mocks.canEdit = false
   mocks.fetchStudyTasks.mockResolvedValue([])
-  mocks.fetchStudyWorkstreams.mockResolvedValue([])
   mocks.fetchMilestoneRisks.mockResolvedValue([])
-  mocks.fetchStudyDependencies.mockResolvedValue([])
   mocks.fetchStudyDeliverables.mockResolvedValue([])
-  mocks.fetchStudyTaskDueChanges.mockResolvedValue([])
+  mocks.setStudyTaskClientVisible.mockResolvedValue(null)
   mocks.fetchProjectSummaries.mockResolvedValue([
     { id: 'project-1', title: 'AAV9 transfer', clientCode: 'CL-017' },
-  ])
-  mocks.fetchWorkspaceMemberIdentities.mockResolvedValue([
-    { user_id: 'mei', name: 'Mei L.', role: 'member' },
   ])
 })
 
@@ -177,7 +314,42 @@ function studyTask(overrides: Partial<StudyTask>): StudyTask {
 
 function renderRoute() {
   const Component = Route.options.component
+
   if (!Component) throw new Error('Milestones component required')
+
+  const root = createRootRoute({
+    beforeLoad: () => ({
+      context: {
+        user: { id: 'gareth' },
+        workspace: { id: 'ws', role: mocks.role },
+      },
+    }),
+  })
+
+  const route = createRoute({
+    getParentRoute: () => root,
+    path: '/projects/$projectId/milestones',
+    validateSearch: Route.options.validateSearch,
+    component: Component,
+  })
+
+  const search = new URLSearchParams()
+
+  if (mockSearchState.m !== undefined) search.set('m', mockSearchState.m)
+
+  if (mockSearchState.scale !== undefined)
+    search.set('scale', mockSearchState.scale)
+
+  if (mockSearchState.state !== undefined)
+    search.set('state', mockSearchState.state)
+
+  const router = createRouter({
+    routeTree: root.addChildren([route]),
+    history: createMemoryHistory({
+      initialEntries: ['/projects/project-1/milestones?' + search.toString()],
+    }),
+  })
+
   return render(
     <QueryClientProvider
       client={
@@ -189,7 +361,7 @@ function renderRoute() {
         })
       }
     >
-      <Component />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
 }
@@ -268,10 +440,11 @@ describe('project milestones plan', () => {
     )
     await userEvent.click(screen.getByRole('button', { name: 'Add condition' }))
     await waitFor(() =>
-      expect(mocks.createStudyDeliverable).toHaveBeenCalledWith(
-        expect.anything(),
-        { taskId: 'ms-1', name: 'Release report signed' },
-      ),
+      expect(mocks.createStudyDeliverable).toHaveBeenCalledWith({
+        p_task_id: 'ms-1',
+        p_name: 'Release report signed',
+        p_due_at: null,
+      }),
     )
   })
 
@@ -289,16 +462,18 @@ describe('project milestones plan', () => {
       },
     ])
     mocks.setStudyDeliverableStatus.mockResolvedValue({ id: 'd-1' })
-    mocks.linkStudyDeliverableEvidence.mockResolvedValue({})
+    mocks.linkStudyDeliverableEvidence.mockResolvedValue({
+      linkedRecordIdentifier: 'EXP-0012',
+    })
     renderRoute()
     await userEvent.click(
       await screen.findByRole('button', { name: 'Mark met' }),
     )
     await waitFor(() =>
-      expect(mocks.setStudyDeliverableStatus).toHaveBeenCalledWith(
-        expect.anything(),
-        { id: 'd-1', status: 'delivered' },
-      ),
+      expect(mocks.setStudyDeliverableStatus).toHaveBeenCalledWith({
+        p_id: 'd-1',
+        p_status: 'delivered',
+      }),
     )
     await userEvent.click(screen.getByRole('button', { name: 'Link record' }))
     await choose(
@@ -308,10 +483,10 @@ describe('project milestones plan', () => {
     )
     await userEvent.click(screen.getByRole('button', { name: 'Link' }))
     await waitFor(() =>
-      expect(mocks.linkStudyDeliverableEvidence).toHaveBeenCalledWith(
-        expect.anything(),
-        { id: 'd-1', recordIdentifier: 'EXP-0012' },
-      ),
+      expect(mocks.linkStudyDeliverableEvidence).toHaveBeenCalledWith({
+        p_id: 'd-1',
+        p_record_id: 'r-12',
+      }),
     )
   })
 
@@ -438,9 +613,11 @@ describe('project milestones plan', () => {
     ).toBeGreaterThan(0)
 
     await user.click(screen.getByRole('checkbox', { name: 'Show to CL-017' }))
+
     const submit = await screen.findByRole('button', {
       name: 'Hide milestone',
     })
+
     expect(submit.hasAttribute('disabled')).toBe(true)
     expect(mocks.setStudyTaskClientVisible).not.toHaveBeenCalled()
 
@@ -455,10 +632,9 @@ describe('project milestones plan', () => {
     await user.click(screen.getByRole('button', { name: 'Hide milestone' }))
     await waitFor(() =>
       expect(mocks.setStudyTaskClientVisible).toHaveBeenCalledWith(
-        {},
         expect.objectContaining({
-          clientVisible: false,
-          reason: 'Not agreed with the client yet',
+          p_client_visible: false,
+          p_reason: 'Not agreed with the client yet',
         }),
       ),
     )

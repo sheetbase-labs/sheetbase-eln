@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { t } from '#/copy'
 import { buttonVariants } from '#/components/ui/button'
@@ -64,23 +65,13 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
  * and plan-run RPCs, and keeps the human approve, reject and execute controls.
  */
 export const Route = createFileRoute('/pipelines/agents')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): {
-    view?: 'workflows' | 'proposals' | 'policies' | 'actions'
-    proposal?: string
-    workflow?: string
-  } => ({
-    view:
-      search.view === 'proposals' ||
-      search.view === 'policies' ||
-      search.view === 'actions'
-        ? search.view
-        : search.view === 'workflows'
-          ? 'workflows'
-          : undefined,
-    proposal: typeof search.proposal === 'string' ? search.proposal : undefined,
-    workflow: typeof search.workflow === 'string' ? search.workflow : undefined,
+  validateSearch: z.object({
+    view: z
+      .enum(['workflows', 'proposals', 'policies', 'actions'])
+      .optional()
+      .catch(undefined),
+    proposal: z.string().optional().catch(undefined),
+    workflow: z.string().optional().catch(undefined),
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
@@ -119,7 +110,42 @@ function mayDecide(
   return hasCapability(role, 'schema.edit')
 }
 
-function AgentsRoute() {
+function pendingOperation<T extends string>(operations: [T, boolean][]) {
+  return operations.find(([, pending]) => pending)?.[0] ?? null
+}
+
+function proposalSelection(
+  proposals: AgentOperationProposal[],
+  me: { userId: string; canApprove: boolean },
+  clock: ReturnType<typeof now>,
+  proposalId: string | null,
+) {
+  const groups = proposalBoardGroups(proposals, me, clock)
+  const visible = groups.flatMap((group) => group.items)
+
+  return {
+    effectiveProposalId:
+      visible.find((p) => p.id === proposalId)?.id ?? visible.at(0)?.id ?? null,
+    needsYou: groups.find((group) => group.stage === 'needs')?.items.length,
+  }
+}
+
+function workflowSelection(
+  definitions: AgentDefinition[],
+  workflow: string | undefined,
+  plans: AgentWorkflow[],
+  planId: string | null,
+) {
+  return {
+    selectedDefinition:
+      definitions.find((d) => d.display_id === workflow) ??
+      definitions.at(0) ??
+      null,
+    effectivePlanId: planId ?? plans.at(0)?.id ?? null,
+  }
+}
+
+function useAgentsPage() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -200,23 +226,12 @@ function AgentsRoute() {
   const me = { userId, canApprove: canApproveAny }
   const canManagePolicies = role === 'owner' || role === 'steward'
 
-  const visibleProposals = proposalBoardGroups(proposals, me, clock).flatMap(
-    (group) => group.items,
+  const { effectiveProposalId, needsYou } = proposalSelection(
+    proposals,
+    me,
+    clock,
+    proposalId,
   )
-
-  const effectiveProposalId =
-    visibleProposals.find((p) => p.id === proposalId)?.id ??
-    visibleProposals.at(0)?.id ??
-    null
-
-  const needsYou = proposalBoardGroups(proposals, me, clock).find(
-    (group) => group.stage === 'needs',
-  )?.items.length
-
-  const selectedDefinition =
-    definitions.find((d) => d.display_id === search.workflow) ??
-    definitions.at(0) ??
-    null
 
   // The API-driven plan runs the registry replaced as the main view stay
   // reachable under Workflows.
@@ -227,7 +242,13 @@ function AgentsRoute() {
   })
 
   const plans = plansQuery.data ?? []
-  const effectivePlanId = planId ?? plans.at(0)?.id ?? null
+
+  const { selectedDefinition, effectivePlanId } = workflowSelection(
+    definitions,
+    search.workflow,
+    plans,
+    planId,
+  )
 
   const stepsQuery = useQuery({
     queryKey: agentWorkflowQueryKeys.steps(effectivePlanId ?? ''),
@@ -424,47 +445,129 @@ function AgentsRoute() {
     onSuccess: refreshPlans,
   })
 
-  const pendingAction = approve.isPending
-    ? 'approve'
-    : reject.isPending
-      ? 'reject'
-      : execute.isPending
-        ? 'execute'
-        : null
+  const pendingAction = pendingOperation([
+    ['approve', approve.isPending],
+    ['reject', reject.isPending],
+    ['execute', execute.isPending],
+  ])
 
-  const pendingPlan = advance.isPending
-    ? 'advance'
-    : resume.isPending
-      ? 'resume'
-      : cancel.isPending
-        ? 'cancel'
-        : null
+  const pendingPlan = pendingOperation([
+    ['advance', advance.isPending],
+    ['resume', resume.isPending],
+    ['cancel', cancel.isPending],
+  ])
 
-  const message = (error: unknown) =>
+  const message = (error: Error | null) =>
     error instanceof Error ? error.message : null
 
   const proposalError =
     message(approve.error) ?? message(reject.error) ?? message(execute.error)
 
-  const loadError =
-    proposalsQuery.error ??
-    policiesQuery.error ??
-    credentialsQuery.error ??
-    definitionsQuery.error ??
-    runsQuery.error ??
-    revisionsQuery.error ??
-    plansQuery.error ??
-    stepsQuery.error ??
-    planEventsQuery.error ??
-    proposalEventsQuery.error ??
-    createPolicy.error ??
-    disablePolicy.error ??
-    advance.error ??
-    resume.error ??
-    cancel.error
+  const loadError = [
+    proposalsQuery.error,
+    policiesQuery.error,
+    credentialsQuery.error,
+    definitionsQuery.error,
+    runsQuery.error,
+    revisionsQuery.error,
+    plansQuery.error,
+    stepsQuery.error,
+    planEventsQuery.error,
+    proposalEventsQuery.error,
+    createPolicy.error,
+    disablePolicy.error,
+    advance.error,
+    resume.error,
+    cancel.error,
+  ].find((error) => error !== null)
 
   const canToggle = (definition: AgentDefinition) =>
     definition.owner_user_id === userId || canManagePolicies
+
+  return {
+    view,
+    needsYou,
+    definitions,
+    loadError,
+    proposals,
+    runs,
+    proposalEventsQuery,
+    effectiveProposalId,
+    setProposalId,
+    navigate,
+    search,
+    approve,
+    reject,
+    execute,
+    me,
+    role,
+    nameOf,
+    clock,
+    pendingAction,
+    proposalError,
+    revisionsQuery,
+    canManagePolicies,
+    changePolicy,
+    projectName,
+    message,
+    policiesQuery,
+    credentialsQuery,
+    createPolicy,
+    disablePolicy,
+    selectedDefinition,
+    toggle,
+    canToggle,
+    plans,
+    stepsQuery,
+    planEventsQuery,
+    effectivePlanId,
+    setPlanId,
+    advance,
+    resume,
+    cancel,
+    pendingPlan,
+  }
+}
+
+function AgentsRoute() {
+  const model = useAgentsPage()
+
+  const {
+    view,
+    needsYou,
+    definitions,
+    loadError,
+    proposals,
+    runs,
+    proposalEventsQuery,
+    effectiveProposalId,
+    setProposalId,
+    navigate,
+    search,
+    approve,
+    reject,
+    execute,
+    me,
+    role,
+    nameOf,
+    clock,
+    pendingAction,
+    proposalError,
+    projectName,
+    message,
+    selectedDefinition,
+    toggle,
+    canToggle,
+    plans,
+    stepsQuery,
+    planEventsQuery,
+    effectivePlanId,
+    setPlanId,
+    advance,
+    resume,
+    cancel,
+    pendingPlan,
+  } = model
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -563,37 +666,7 @@ function AgentsRoute() {
         ) : view === 'actions' ? (
           <ActionRequestsBoard nameOf={(id) => nameOf(id) ?? ''} />
         ) : view === 'policies' ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-            <AgentPoliciesBoard
-              definitions={definitions}
-              revisions={revisionsQuery.data ?? []}
-              initialDefinitionId={
-                definitions.find((d) => d.display_id === search.workflow)?.id
-              }
-              canChange={canManagePolicies}
-              onChange={({ definition, ...rest }) =>
-                changePolicy.mutateAsync({
-                  definitionId: definition.id,
-                  ...rest,
-                })
-              }
-              nameOf={nameOf}
-              projectName={projectName}
-              pending={changePolicy.isPending}
-              error={message(changePolicy.error)}
-            />
-            <AgentPoliciesPanel
-              policies={policiesQuery.data ?? []}
-              credentials={(credentialsQuery.data ?? []).map((c) => ({
-                id: c.id,
-                name: c.name,
-                displayPrefix: c.displayPrefix,
-              }))}
-              canManage={canManagePolicies}
-              onCreate={(input) => createPolicy.mutate(input)}
-              onDisable={(policy) => disablePolicy.mutate(policy.id)}
-            />
-          </div>
+          <AgentPagePolicies model={model} />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-auto">
             <AgentWorkflowsBoard
@@ -656,6 +729,58 @@ function AgentsRoute() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function AgentPagePolicies({
+  model,
+}: {
+  model: ReturnType<typeof useAgentsPage>
+}) {
+  const {
+    definitions,
+    revisionsQuery,
+    search,
+    canManagePolicies,
+    changePolicy,
+    nameOf,
+    projectName,
+    message,
+    policiesQuery,
+    credentialsQuery,
+    createPolicy,
+    disablePolicy,
+  } = model
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+      <AgentPoliciesBoard
+        definitions={definitions}
+        revisions={revisionsQuery.data ?? []}
+        initialDefinitionId={
+          definitions.find((d) => d.display_id === search.workflow)?.id
+        }
+        canChange={canManagePolicies}
+        onChange={({ definition, ...rest }) =>
+          changePolicy.mutateAsync({ definitionId: definition.id, ...rest })
+        }
+        nameOf={nameOf}
+        projectName={projectName}
+        pending={changePolicy.isPending}
+        error={message(changePolicy.error)}
+      />
+      <AgentPoliciesPanel
+        policies={policiesQuery.data ?? []}
+        credentials={(credentialsQuery.data ?? []).map((c) => ({
+          id: c.id,
+          name: c.name,
+          displayPrefix: c.displayPrefix,
+        }))}
+        canManage={canManagePolicies}
+        onCreate={(input) => createPolicy.mutate(input)}
+        onDisable={(policy) => disablePolicy.mutate(policy.id)}
+      />
     </div>
   )
 }

@@ -17,6 +17,7 @@ export const Route = createFileRoute('/settings/lab/retention')({
 
 function RetentionSettings() {
   const { context } = Route.useRouteContext()
+
   return (
     <>
       <SettingsHeader title={t('quality.retention.title')}>

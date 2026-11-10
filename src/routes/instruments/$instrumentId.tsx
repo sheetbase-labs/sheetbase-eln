@@ -42,10 +42,7 @@ import {
 } from '#/components/ui/confirm-dialog'
 import { Tooltip } from '#/components/ui/tooltip'
 import { FileDrop } from '#/components/ui/file-drop'
-import {
-  IntakeDeliveryNotice,
-  intakeDeliveryProblem,
-} from '#/components/instruments/intake-delivery-notice'
+import { IntakeDeliveryNotice } from '#/components/instruments/intake-delivery-notice'
 import { IntakeProblems } from '#/components/integrations/intake-problems'
 import { CalibrationOverdueNotice } from '#/components/instruments/calibration-overdue'
 import {
@@ -53,7 +50,6 @@ import {
   MarkOutOfServiceDialog,
   OutOfServiceNotice,
   ServiceLogSection,
-  isOutOfService,
 } from '#/components/instruments/out-of-service'
 import {
   AgentStatusLabel,
@@ -98,6 +94,8 @@ import {
   calibrationStatus,
   formatInstrumentDay,
   intakeHealth,
+  intakeDeliveryProblem,
+  isOutOfService,
   intakeMethodLabel,
   intakeMethodNeedsParser,
   parserFollowUp,

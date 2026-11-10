@@ -1,57 +1,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createMemoryHistory,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-import type * as NotebookData from '#/lib/notebook-data'
-import { DataClientError } from '#/lib/data-client'
-import { Route } from './samples'
-
-const client = vi.hoisted(() => ({
-  list: vi.fn(),
-  count: vi.fn(),
-  rpc: vi.fn(),
-}))
-const search = vi.hoisted(() => ({ value: {} }))
-
-vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useParams: () => ({ projectId: 'project-1' }),
-    useSearch: () => search.value,
-    options: config,
-  }),
-  Outlet: () => null,
-  redirect: (options: unknown) => options,
-  Link: ({
-    to,
-    params,
-    search: _search,
-    activeProps: _activeProps,
-    activeOptions: _activeOptions,
-    children,
-    ...props
-  }: {
-    to?: string
-    params?: Record<string, string>
-    children?: React.ReactNode
-  } & Record<string, unknown>) => {
-    let href = typeof to === 'string' ? to : '#'
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        href = href.replace(`$${key}`, encodeURIComponent(String(value)))
-      }
-    }
-    return (
-      <a href={href} {...props}>
-        {children}
-      </a>
-    )
-  },
-}))
-
-vi.mock('#/lib/notebook-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof NotebookData>()
-  return { ...actual, notebookDataClient: client }
-})
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 const SAMPLE = {
   id: 'smp-1',
@@ -82,30 +46,90 @@ const SAMPLE = {
   locked_by_revision_id: null,
 }
 
+interface SamplesFixture {
+  rows: Array<typeof SAMPLE>
+  total: number
+  denied: boolean
+  page: number
+}
+
+const fixture: SamplesFixture = { rows: [], total: 0, denied: false, page: 1 }
+
+vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
+
+  if (new Headers(init?.headers).has('range'))
+    return Response.json([], {
+      headers: {
+        'content-range': fixture.total ? `0-0/${fixture.total}` : '*/0',
+      },
+    })
+
+  if (fixture.denied)
+    return Response.json(
+      { code: 'permission_denied', message: 'no access' },
+      { status: 403 },
+    )
+
+  return Response.json(url.pathname.endsWith('/records') ? fixture.rows : [])
+})
+
+const { Route } = await import('./samples')
+const { dropSharedReads } = await import('#/lib/data-client')
+
 function renderRoute() {
   const Component = Route.options.component
+
   if (!Component) throw new Error('Project samples component required')
+
+  const root = createRootRoute()
+
+  const route = createRoute({
+    getParentRoute: () => root,
+    path: '/projects/$projectId/samples',
+    validateSearch: Route.options.validateSearch,
+    component: Component,
+  })
+
+  const router = createRouter({
+    routeTree: root.addChildren([route]),
+    history: createMemoryHistory({
+      initialEntries: [`/projects/project-1/samples?page=${fixture.page}`],
+    }),
+  })
+
   return render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <Component />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
 }
 
-afterEach(cleanup)
+afterAll(() => vi.unstubAllGlobals())
+
+afterEach(() => {
+  cleanup()
+  dropSharedReads()
+})
+
 beforeEach(() => {
-  vi.resetAllMocks()
-  search.value = {}
+  fixture.rows = []
+  fixture.total = 0
+  fixture.denied = false
+  fixture.page = 1
 })
 
 describe('project samples tab (R5-SURF-02)', () => {
   it('lists the project’s samples with a count', async () => {
-    client.list.mockResolvedValue([SAMPLE])
-    client.count.mockResolvedValue(1)
+    fixture.rows = [SAMPLE]
+    fixture.total = 1
 
     renderRoute()
 
@@ -117,8 +141,8 @@ describe('project samples tab (R5-SURF-02)', () => {
   })
 
   it('shows the honest empty state when the project has no samples', async () => {
-    client.list.mockResolvedValue([])
-    client.count.mockResolvedValue(0)
+    fixture.rows = []
+    fixture.total = 0
 
     renderRoute()
 
@@ -127,10 +151,8 @@ describe('project samples tab (R5-SURF-02)', () => {
   })
 
   it('says denied, not empty, when the read is refused', async () => {
-    client.list.mockRejectedValue(
-      new DataClientError('permission_denied', 'no access', 403),
-    )
-    client.count.mockResolvedValue(0)
+    fixture.denied = true
+    fixture.total = 0
 
     renderRoute()
 
@@ -141,14 +163,12 @@ describe('project samples tab (R5-SURF-02)', () => {
   })
 
   it('says the page is bounded and offers the next page when there is more', async () => {
-    client.list.mockResolvedValue(
-      Array.from({ length: 25 }, (_, i) => ({
-        ...SAMPLE,
-        id: `smp-${i}`,
-        identifier: `SMP-000${i}`,
-      })),
-    )
-    client.count.mockResolvedValue(30)
+    fixture.rows = Array.from({ length: 25 }, (_, i) => ({
+      ...SAMPLE,
+      id: `smp-${i}`,
+      identifier: `SMP-000${i}`,
+    }))
+    fixture.total = 30
 
     const { container } = renderRoute()
 
@@ -157,9 +177,9 @@ describe('project samples tab (R5-SURF-02)', () => {
   })
 
   it('says a hand-edited page past the end is out of range, not empty', async () => {
-    search.value = { page: 9 }
-    client.list.mockResolvedValue([])
-    client.count.mockResolvedValue(30)
+    fixture.page = 9
+    fixture.rows = []
+    fixture.total = 30
 
     renderRoute()
 

@@ -23,6 +23,7 @@ function OpenData() {
   const workspaceId = context.workspace?.id ?? ''
   const canManage = canManageSettings(context.workspace, 'integrations')
   const dataAccess = useDataAccess()
+
   return (
     <>
       <SettingsHeader title={t('openData.page.title')}>

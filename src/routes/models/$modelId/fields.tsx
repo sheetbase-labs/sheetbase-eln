@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { z } from 'zod'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { Status } from '#/components/ui/status'
@@ -36,28 +37,29 @@ import {
   useModelVersions,
 } from '#/components/models/models-data'
 import type { CanonicalDatasetSchemaField } from '#/components/models/models-data'
+import { useInheritedColumnGroups } from '#/components/models/dataset-subtype-ui'
+import { columnTypeLabel } from '#/components/models/dataset-subtype-data'
+import { InheritedLabel } from '#/components/models/inherited-fields-table'
 import {
-  columnTypeLabel,
-  useInheritedColumnGroups,
-} from '#/components/models/dataset-subtype-ui'
-import {
-  InheritedLabel,
   inheritedRows,
   isInherited,
-} from '#/components/models/inherited-fields-table'
-import type { InheritedRow } from '#/components/models/inherited-fields-table'
+} from '#/components/models/inherited-fields-data'
+import type { InheritedRow } from '#/components/models/inherited-fields-data'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
+import { modelFieldValueText } from '#/lib/model-fields'
 
 /** UI port (roadmap-4/ui-app3): the Fields tab reads the selected schema
  * version's field list. */
 export const Route = createFileRoute('/models/$modelId/fields')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { version?: string; add?: true } => ({
-    version: typeof search.version === 'string' ? search.version : undefined,
+  validateSearch: z.object({
+    version: z.string().optional().catch(undefined),
     // The built-in model header's "Add field" opens the dialog here.
-    add: search.add === true || search.add === 'true' ? true : undefined,
+    add: z
+      .union([z.literal(true), z.literal('true')])
+      .transform(() => true)
+      .optional()
+      .catch(undefined),
   }),
   component: ModelFieldsRoute,
 })
@@ -103,10 +105,8 @@ function fieldTypeLabel(field: CanonicalDatasetSchemaField): string {
 }
 
 function ModelFields() {
-  const { context } = Route.useRouteContext()
   const { modelId } = Route.useParams()
   const search = Route.useSearch()
-  const navigate = useNavigate({ from: Route.fullPath })
   const versions = useModelVersions(modelId)
   const definition = useModelDefinition(modelId)
   const list = versions.data ?? []
@@ -137,119 +137,13 @@ function ModelFields() {
     setSelected,
   )
 
-  const dataAccess = useDataAccess()
-
-  const muted = (value: string) => (
-    <span className="text-fg-muted">{value}</span>
-  )
-
-  const columns: RegistryColumn<CanonicalDatasetSchemaField | InheritedRow>[] =
-    [
-      {
-        id: 'label',
-        header: t('library.models.fields.label'),
-        cell: ({ row }) =>
-          isInherited(row.original) ? (
-            <InheritedLabel row={row.original} />
-          ) : (
-            row.original.label
-          ),
-      },
-      {
-        id: 'key',
-        header: t('library.models.fields.key'),
-        cell: ({ row }) =>
-          isInherited(row.original) ? (
-            <span className="mono text-fg-muted">{row.original.key}</span>
-          ) : (
-            <span className="mono">{row.original.key}</span>
-          ),
-      },
-      ...(dataAccess
-        ? [
-            {
-              id: 'column',
-              header: t('library.models.fields.postgresColumn'),
-              cell: ({ row }) => (
-                <span className="mono text-fg-muted">
-                  {reportingColumnName(null, row.original.key ?? '')}
-                </span>
-              ),
-            } satisfies RegistryColumn<
-              CanonicalDatasetSchemaField | InheritedRow
-            >,
-          ]
-        : []),
-      {
-        id: 'type',
-        header: t('library.models.fields.type'),
-        cell: ({ row }) =>
-          isInherited(row.original)
-            ? muted(row.original.type)
-            : fieldTypeLabel(row.original),
-      },
-      {
-        id: 'required',
-        header: t('common.states.required'),
-        cell: ({ row }) =>
-          isInherited(row.original)
-            ? muted(row.original.required)
-            : row.original.nullable
-              ? t('common.states.optional')
-              : t('library.models.fields.yes'),
-      },
-      {
-        id: 'status',
-        header: t('library.models.fields.status'),
-        cell: ({ row }) =>
-          isInherited(row.original) ? (
-            muted('—')
-          ) : (
-            <Status
-              tone={row.original.lifecycle === 'active' ? 'ok' : 'stored'}
-            >
-              {row.original.lifecycle === 'active'
-                ? t('library.models.fields.active')
-                : t('library.models.fields.retired')}
-            </Status>
-          ),
-      },
-    ]
+  const columns = useDatasetFieldColumns()
 
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         {list.length > 1 ? (
-          <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-2 md:px-6">
-            <label className="text-label text-fg-muted" htmlFor="version">
-              {t('library.models.fields.version')}
-            </label>
-            <Select
-              id="version"
-              value={version?.id ?? ''}
-              onChange={(e) =>
-                void navigate({
-                  to: '/models/$modelId/fields',
-                  params: { modelId },
-                  search: { version: e.target.value },
-                  replace: true,
-                })
-              }
-            >
-              {list.map((v) => (
-                <option key={v.id} value={v.id}>
-                  v{v.version} · {v.lifecycle}
-                </option>
-              ))}
-            </Select>
-            <Muted className="max-lg:hidden">
-              {version?.published_at
-                ? t('library.models.fields.published', {
-                    publishedAt: formatDate(version.published_at),
-                  })
-                : t('library.models.fields.notPublished')}
-            </Muted>
-          </div>
+          <DatasetVersionPicker list={list} version={version} />
         ) : null}
         <div className="min-h-0 flex-1 px-4 py-4 md:px-6">
           {!version ? (
@@ -257,17 +151,7 @@ function ModelFields() {
               icon="table"
               title={t('library.models.fields.noVersionYet')}
               description={t('library.models.fields.openEditModelChooseStart')}
-              action={
-                <Button
-                  variant="primary"
-                  nativeButton={false}
-                  render={
-                    <Link to="/models/$modelId/edit" params={{ modelId }} />
-                  }
-                >
-                  {t('library.models.fields.editModel')}
-                </Button>
-              }
+              action={<EditModelButton modelId={modelId} />}
             />
           ) : tableRows.length ? (
             <TableBox>
@@ -290,91 +174,227 @@ function ModelFields() {
                   : t('library.models.fields.noFieldsOnThisVersion')
               }
               description={t('library.models.fields.openEditModelToAdd')}
-              action={
-                <Button
-                  variant="primary"
-                  nativeButton={false}
-                  render={
-                    <Link to="/models/$modelId/edit" params={{ modelId }} />
-                  }
-                >
-                  {t('library.models.fields.editModel')}
-                </Button>
-              }
+              action={<EditModelButton modelId={modelId} />}
             />
           )}
         </div>
       </div>
-
-      {sel ? (
-        <Inspector
-          aria-label={t('library.models.fields.fieldDetails')}
-          className="w-[320px]"
-        >
-          <InspectorSection title={sel.label}>
-            <span className="mono text-fg-muted">{sel.key}</span>
-            <DescriptionList
-              labelWidth={90}
-              items={[
-                [t('library.models.fields.type'), sel.logical_type],
-                [
-                  t('common.states.required'),
-                  sel.nullable
-                    ? t('common.states.optional')
-                    : t('library.models.fields.yes'),
-                ],
-                [t('library.models.fields.cardinality'), sel.cardinality],
-                [
-                  t('library.models.fields.status'),
-                  <Status
-                    key="status"
-                    tone={sel.lifecycle === 'active' ? 'ok' : 'stored'}
-                  >
-                    {sel.lifecycle === 'active'
-                      ? t('library.models.fields.active')
-                      : t('library.models.fields.retired')}
-                  </Status>,
-                ],
-                ...(sel.default_value != null
-                  ? [
-                      [
-                        t('library.models.fields.default'),
-                        String(sel.default_value),
-                      ] as [string, string],
-                    ]
-                  : []),
-              ]}
-            />
-            {sel.description ? (
-              <Muted className="mt-2">{sel.description}</Muted>
-            ) : null}
-          </InspectorSection>
-          <InspectorSection title={t('openData.picker.label')}>
-            <OntologyTerms
-              key={sel.field_id}
-              workspaceId={context.workspace?.id ?? ''}
-              kind="schema_field"
-              targetId={sel.field_id}
-              canEdit={hasCapability(context.workspace?.role, 'record.create')}
-            />
-          </InspectorSection>
-          <InspectorSection title={t('library.models.fields.validation')}>
-            {sel.validation && Object.keys(sel.validation).length ? (
-              <DescriptionList
-                labelWidth={90}
-                items={Object.entries(sel.validation).map(([k, v]) => [
-                  k,
-                  String(v),
-                ])}
-              />
-            ) : (
-              <Muted>
-                {t('library.models.fields.noValidationRulesOnThis')}
-              </Muted>
-            )}
-          </InspectorSection>
-        </Inspector>
-      ) : null}
+      {sel ? <DatasetFieldInspector sel={sel} /> : null}
     </>
+  )
+}
+
+type DatasetVersion = NonNullable<
+  ReturnType<typeof useModelVersions>['data']
+>[number]
+
+function DatasetVersionPicker({
+  list,
+  version,
+}: {
+  list: DatasetVersion[]
+  version: DatasetVersion | undefined
+}) {
+  const { modelId } = Route.useParams()
+  const navigate = useNavigate({ from: Route.fullPath })
+
+  return (
+    <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-2 md:px-6">
+      <label className="text-label text-fg-muted" htmlFor="version">
+        {t('library.models.fields.version')}
+      </label>
+      <Select
+        id="version"
+        value={version?.id ?? ''}
+        onChange={(e) =>
+          void navigate({
+            to: '/models/$modelId/fields',
+            params: { modelId },
+            search: { version: e.target.value },
+            replace: true,
+          })
+        }
+      >
+        {list.map((v) => (
+          <option key={v.id} value={v.id}>
+            v{v.version} · {v.lifecycle}
+          </option>
+        ))}
+      </Select>
+      <Muted className="max-lg:hidden">
+        {version?.published_at
+          ? t('library.models.fields.published', {
+              publishedAt: formatDate(version.published_at),
+            })
+          : t('library.models.fields.notPublished')}
+      </Muted>
+    </div>
+  )
+}
+
+function EditModelButton({ modelId }: { modelId: string }) {
+  return (
+    <Button
+      variant="primary"
+      nativeButton={false}
+      render={<Link to="/models/$modelId/edit" params={{ modelId }} />}
+    >
+      {t('library.models.fields.editModel')}
+    </Button>
+  )
+}
+
+function useDatasetFieldColumns(): RegistryColumn<
+  CanonicalDatasetSchemaField | InheritedRow
+>[] {
+  const dataAccess = useDataAccess()
+
+  const muted = (value: string) => (
+    <span className="text-fg-muted">{value}</span>
+  )
+
+  return [
+    {
+      id: 'label',
+      header: t('library.models.fields.label'),
+      cell: ({ row }) =>
+        isInherited(row.original) ? (
+          <InheritedLabel row={row.original} />
+        ) : (
+          row.original.label
+        ),
+    },
+    {
+      id: 'key',
+      header: t('library.models.fields.key'),
+      cell: ({ row }) =>
+        isInherited(row.original) ? (
+          <span className="mono text-fg-muted">{row.original.key}</span>
+        ) : (
+          <span className="mono">{row.original.key}</span>
+        ),
+    },
+    ...(dataAccess
+      ? [
+          {
+            id: 'column',
+            header: t('library.models.fields.postgresColumn'),
+            cell: ({ row }) => (
+              <span className="mono text-fg-muted">
+                {reportingColumnName(null, row.original.key ?? '')}
+              </span>
+            ),
+          } satisfies RegistryColumn<
+            CanonicalDatasetSchemaField | InheritedRow
+          >,
+        ]
+      : []),
+    {
+      id: 'type',
+      header: t('library.models.fields.type'),
+      cell: ({ row }) =>
+        isInherited(row.original)
+          ? muted(row.original.type)
+          : fieldTypeLabel(row.original),
+    },
+    {
+      id: 'required',
+      header: t('common.states.required'),
+      cell: ({ row }) =>
+        isInherited(row.original)
+          ? muted(row.original.required)
+          : row.original.nullable
+            ? t('common.states.optional')
+            : t('library.models.fields.yes'),
+    },
+    {
+      id: 'status',
+      header: t('library.models.fields.status'),
+      cell: ({ row }) =>
+        isInherited(row.original) ? (
+          muted('—')
+        ) : (
+          <Status tone={row.original.lifecycle === 'active' ? 'ok' : 'stored'}>
+            {row.original.lifecycle === 'active'
+              ? t('library.models.fields.active')
+              : t('library.models.fields.retired')}
+          </Status>
+        ),
+    },
+  ]
+}
+
+function DatasetFieldInspector({ sel }: { sel: CanonicalDatasetSchemaField }) {
+  const { context } = Route.useRouteContext()
+
+  const defaultValueItems: [string, string][] =
+    sel.default_value != null
+      ? [
+          [
+            t('library.models.fields.default'),
+            modelFieldValueText(sel.default_value),
+          ],
+        ]
+      : []
+
+  return (
+    <Inspector
+      aria-label={t('library.models.fields.fieldDetails')}
+      className="w-[320px]"
+    >
+      <InspectorSection title={sel.label}>
+        <span className="mono text-fg-muted">{sel.key}</span>
+        <DescriptionList
+          labelWidth={90}
+          items={[
+            [t('library.models.fields.type'), sel.logical_type],
+            [
+              t('common.states.required'),
+              sel.nullable
+                ? t('common.states.optional')
+                : t('library.models.fields.yes'),
+            ],
+            [t('library.models.fields.cardinality'), sel.cardinality],
+            [
+              t('library.models.fields.status'),
+              <Status
+                key="status"
+                tone={sel.lifecycle === 'active' ? 'ok' : 'stored'}
+              >
+                {sel.lifecycle === 'active'
+                  ? t('library.models.fields.active')
+                  : t('library.models.fields.retired')}
+              </Status>,
+            ],
+            ...defaultValueItems,
+          ]}
+        />
+        {sel.description ? (
+          <Muted className="mt-2">{sel.description}</Muted>
+        ) : null}
+      </InspectorSection>
+      <InspectorSection title={t('openData.picker.label')}>
+        <OntologyTerms
+          key={sel.field_id}
+          workspaceId={context.workspace?.id ?? ''}
+          kind="schema_field"
+          targetId={sel.field_id}
+          canEdit={hasCapability(context.workspace?.role, 'record.create')}
+        />
+      </InspectorSection>
+      <InspectorSection title={t('library.models.fields.validation')}>
+        {sel.validation && Object.keys(sel.validation).length ? (
+          <DescriptionList
+            labelWidth={90}
+            items={Object.entries(sel.validation).map(([k, v]) => [
+              k,
+              modelFieldValueText(v),
+            ])}
+          />
+        ) : (
+          <Muted>{t('library.models.fields.noValidationRulesOnThis')}</Muted>
+        )}
+      </InspectorSection>
+    </Inspector>
   )
 }

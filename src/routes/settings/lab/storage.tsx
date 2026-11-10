@@ -18,6 +18,7 @@ export const Route = createFileRoute('/settings/lab/storage')({
 
 function StorageSettings() {
   const { context } = Route.useRouteContext()
+
   return (
     <>
       <SettingsHeader title={t('settings.storage.storageLocations')}>

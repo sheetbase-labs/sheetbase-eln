@@ -28,8 +28,8 @@ import { toast } from '#/components/ui/sonner'
 import {
   askedParameters,
   parameterInput,
-} from '#/components/templates/use-template-dialog'
-import { buildTemplateRows } from '#/components/templates/templates-data'
+  buildTemplateRows,
+} from '#/components/templates/templates-data'
 import { acknowledgeProtocolVersion } from '#/lib/controlled-protocols'
 import {
   applyExperimentSetup,

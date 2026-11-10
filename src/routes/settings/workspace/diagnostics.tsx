@@ -1,7 +1,7 @@
 import { t } from '#/copy'
 import { useState } from 'react'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
-import { WorkspaceAdminsLine } from '#/components/settings/workspace-admins-line'
+import { WorkspaceAdminRefusal } from './-admin-refusal'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -38,11 +38,13 @@ const diagnosticsKey = (workspaceId: string) => [
   'admin-diagnostics',
   workspaceId,
 ]
+
 const runHealthKey = (workspaceId: string) => [
   'admin',
   workspaceId,
   'run-health',
 ]
+
 const connectorsKey = (workspaceId: string) => [
   'admin',
   workspaceId,
@@ -56,9 +58,7 @@ const connectorsKey = (workspaceId: string) => [
  * honest gap. `?state=denied|clear` drives the acceptance suite.
  */
 export const Route = createFileRoute('/settings/workspace/diagnostics')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { state?: 'denied' | 'clear' } => ({
+  validateSearch: (search): DiagnosticsSearch => ({
     state:
       search.state === 'denied' || search.state === 'clear'
         ? search.state
@@ -66,6 +66,10 @@ export const Route = createFileRoute('/settings/workspace/diagnostics')({
   }),
   component: Diagnostics,
 })
+
+interface DiagnosticsSearch {
+  state?: 'denied' | 'clear'
+}
 
 type Check = {
   key: string
@@ -97,11 +101,13 @@ function Diagnostics() {
     queryFn: () => fetchDiagnosticsFn({ data: { workspaceId } }),
     enabled: Boolean(workspaceId) && admin,
   })
+
   const runHealth = useQuery({
     queryKey: runHealthKey(workspaceId),
     queryFn: () => fetchRunHealthFn({ data: { workspaceId } }),
     enabled: Boolean(workspaceId) && admin,
   })
+
   const connectors = useQuery({
     queryKey: connectorsKey(workspaceId),
     queryFn: () => fetchConnectorDiagnosticsFn({ data: { workspaceId } }),
@@ -110,21 +116,12 @@ function Diagnostics() {
 
   if (!admin || state === 'denied') {
     return (
-      <>
-        <SettingsHeader title={t('settings.diagnostics.diagnostics')} />
-        <div className="px-4 md:px-6">
-          <EmptyState
-            icon="lock"
-            title={t('settings.diagnostics.onlyWorkspaceAdmins')}
-            description={
-              <>
-                {t('settings.diagnostics.diagnosticsShowSystem')}
-                <WorkspaceAdminsLine workspaceId={workspaceId} />
-              </>
-            }
-          />
-        </div>
-      </>
+      <WorkspaceAdminRefusal
+        workspaceId={workspaceId}
+        title={t('settings.diagnostics.diagnostics')}
+        reason={t('settings.diagnostics.onlyWorkspaceAdmins')}
+        description={t('settings.diagnostics.diagnosticsShowSystem')}
+      />
     )
   }
 
@@ -177,62 +174,10 @@ function Diagnostics() {
 
   const d = diagnostics.data
   const checks = buildChecks(d, runHealth.data, connectors.data)
+
   const problems = checks.filter(
     (c) => c.tone === 'bad' || c.tone === 'warn',
   ).length
-  const failures =
-    state === 'clear'
-      ? []
-      : (runHealth.data?.failed ?? []).slice(0, 20).map((run) => ({
-          id: run.id,
-          area:
-            run.kind === 'pipeline'
-              ? t('settings.diagnostics.pipelineRun')
-              : run.kind === 'connector'
-                ? t('settings.diagnostics.connectorRun')
-                : t('settings.diagnostics.webhookDelivery'),
-          message: run.error_message ?? run.error_code ?? 'Failed',
-          record: run.label,
-          /**
-           * R5-CONFIG-01 — the durable correlation identity support can quote
-           * (observability.md: a failed ingestion is traced by its run id).
-           * It is the same id the run's logs are keyed by.
-           */
-          requestId: run.id,
-          time: formatTime(run.finishedAt ?? run.startedAt),
-        }))
-  const failureColumns: RegistryColumn<(typeof failures)[number]>[] = [
-    {
-      id: 'time',
-      header: 'Time',
-      meta: { headerClassName: 'pl-3!', cellClassName: 'pl-3!' },
-      cell: ({ row }) => row.original.time,
-    },
-    {
-      id: 'area',
-      header: 'Area',
-      cell: ({ row }) => row.original.area,
-    },
-    {
-      id: 'message',
-      header: 'Message',
-      meta: {
-        cellClassName: 'min-w-[260px] whitespace-normal py-1.5! leading-[17px]',
-      },
-      cell: ({ row }) => row.original.message,
-    },
-    {
-      id: 'record',
-      header: 'Record',
-      meta: { cellClassName: 'mono' },
-      cell: ({ row }) => row.original.record ?? '—',
-    },
-    {
-      id: 'requestId',
-      header: t('settings.diagnostics.requestId'),
-      cell: ({ row }) => <RequestIdCell id={row.original.requestId} />,
-    },
-  ]
 
   async function runAll() {
     setRunning(true)
@@ -311,148 +256,223 @@ function Diagnostics() {
       </Section>
 
       <SettingsBody className="gap-6">
-        <Section
-          title={t('settings.diagnostics.recentFailures')}
-          count={failures.length}
-          action={
-            <Link to="/settings/workspace/audit" className="text-label">
-              {t('settings.diagnostics.auditLog')}
-            </Link>
-          }
-        >
-          {failures.length ? (
-            <>
-              <ul className="m-0 list-none rounded-md border border-border p-0 md:hidden">
-                {failures.map((e) => (
-                  <li
-                    key={e.id}
-                    className="flex flex-col gap-0.5 border-b border-border-subtle px-3 py-2.5 last:border-b-0"
-                  >
-                    <span className="flex justify-between gap-2 text-label text-fg-muted">
-                      <span>{e.area}</span>
-                      <span className="num">{e.time}</span>
-                    </span>
-                    <span className="text-body leading-5">{e.message}</span>
-                    {e.record ? (
-                      <span className="mono text-label text-fg-muted">
-                        {e.record}
-                      </span>
-                    ) : null}
-                    <span className="mt-0.5 flex items-center gap-1 text-label text-fg-muted">
-                      <span>{t('settings.diagnostics.requestId')}</span>
-                      <RequestIdCell id={e.requestId} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <div className="overflow-x-auto rounded-md border border-border max-md:hidden">
-                <RegistryGrid
-                  label={t('settings.diagnostics.recentFailures')}
-                  rows={failures}
-                  columns={failureColumns}
-                  getRowId={(failure) => failure.id}
-                  selectable={false}
-                />
-              </div>
-              <Muted>{t('settings.diagnostics.failuresRecentPipeline')}</Muted>
-            </>
-          ) : (
-            <EmptyState
-              icon="check"
-              title={t('settings.diagnostics.recentFailures2')}
-              description={t(
-                'settings.diagnostics.anythingFailsImportDescription',
-              )}
-              className="py-4"
-            />
-          )}
-        </Section>
-
-        <Section title={t('settings.diagnostics.release')}>
-          <div className="grid grid-cols-1 gap-x-8 gap-y-4 rounded-md border border-border p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <DescriptionList
-              labelWidth={130}
-              className="text-body"
-              items={[
-                [
-                  'Release',
-                  <span>
-                    <span className="mono">{d.deployment.artifactVersion}</span>{' '}
-                    {d.deployment.artifactDigest === 'untracked' ? null : (
-                      <span className="text-fg-muted">
-                        build{' '}
-                        <span className="mono">
-                          {d.deployment.artifactDigest
-                            .replace(/^sha256:/, '')
-                            .slice(0, 12)}
-                        </span>
-                      </span>
-                    )}
-                  </span>,
-                ],
-                [
-                  'Validation',
-                  <Status
-                    tone={
-                      help?.release.validation.tone === 'ok' ? 'ok' : 'warn'
-                    }
-                  >
-                    {help?.release.validation.label ??
-                      t('settings.diagnostics.developmentBuild')}
-                  </Status>,
-                ],
-                ['Environment', sentenceCase(d.deployment.environment)],
-              ]}
-            />
-            <DescriptionList
-              labelWidth={130}
-              className="text-body"
-              items={[
-                [
-                  'Migration',
-                  <span>
-                    {d.migration.expected === 'untracked' ? null : (
-                      <span className="mono">{d.migration.expected} </span>
-                    )}
-                    <Status
-                      tone={
-                        d.migration.status === 'compatible'
-                          ? 'ok'
-                          : d.migration.status === 'incompatible'
-                            ? 'bad'
-                            : 'warn'
-                      }
-                    >
-                      {sentenceCase(d.migration.status)}
-                    </Status>
-                  </span>,
-                ],
-                ...(d.deployment.secretSource === 'local-env'
-                  ? []
-                  : [
-                      [
-                        'Secrets kept in',
-                        sentenceCase(d.deployment.secretSource),
-                      ] as [string, React.ReactNode],
-                    ]),
-                ['File storage', sentenceCase(d.config.fileBackend)],
-                [
-                  t('settings.diagnostics.schemaVersion'),
-                  t('settings.diagnostics.schemaVersionValue', {
-                    count: d.schema.appliedCount,
-                  }),
-                ],
-              ]}
-            />
-          </div>
-          <Muted>
-            {help?.release.validation.tone === 'ok'
-              ? t('settings.diagnostics.releasesUnderChangeControl')
-              : t('settings.diagnostics.releasesValidatedBefore')}
-          </Muted>
-        </Section>
+        <RecentFailures runs={runHealth.data?.failed ?? []} state={state} />
+        <DeploymentDetails diagnostics={d} />
       </SettingsBody>
     </>
+  )
+}
+
+function RecentFailures({
+  runs,
+  state,
+}: {
+  runs: RunHealthResult['failed']
+  state: DiagnosticsSearch['state']
+}) {
+  const failures =
+    state === 'clear'
+      ? []
+      : runs.slice(0, 20).map((run) => ({
+          id: run.id,
+          area:
+            run.kind === 'pipeline'
+              ? t('settings.diagnostics.pipelineRun')
+              : run.kind === 'connector'
+                ? t('settings.diagnostics.connectorRun')
+                : t('settings.diagnostics.webhookDelivery'),
+          message: run.error_message ?? run.error_code ?? 'Failed',
+          record: run.label,
+          /**
+           * R5-CONFIG-01 — the durable correlation identity support can quote
+           * (observability.md: a failed ingestion is traced by its run id).
+           * It is the same id the run's logs are keyed by.
+           */
+          requestId: run.id,
+          time: formatTime(run.finishedAt ?? run.startedAt),
+        }))
+
+  const failureColumns: RegistryColumn<(typeof failures)[number]>[] = [
+    {
+      id: 'time',
+      header: 'Time',
+      meta: { headerClassName: 'pl-3!', cellClassName: 'pl-3!' },
+      cell: ({ row }) => row.original.time,
+    },
+    {
+      id: 'area',
+      header: 'Area',
+      cell: ({ row }) => row.original.area,
+    },
+    {
+      id: 'message',
+      header: 'Message',
+      meta: {
+        cellClassName: 'min-w-[260px] whitespace-normal py-1.5! leading-[17px]',
+      },
+      cell: ({ row }) => row.original.message,
+    },
+    {
+      id: 'record',
+      header: 'Record',
+      meta: { cellClassName: 'mono' },
+      cell: ({ row }) => row.original.record ?? '—',
+    },
+    {
+      id: 'requestId',
+      header: t('settings.diagnostics.requestId'),
+      cell: ({ row }) => <RequestIdCell id={row.original.requestId} />,
+    },
+  ]
+
+  return (
+    <Section
+      title={t('settings.diagnostics.recentFailures')}
+      count={failures.length}
+      action={
+        <Link to="/settings/workspace/audit" className="text-label">
+          {t('settings.diagnostics.auditLog')}
+        </Link>
+      }
+    >
+      {failures.length ? (
+        <>
+          <ul className="m-0 list-none rounded-md border border-border p-0 md:hidden">
+            {failures.map((e) => (
+              <li
+                key={e.id}
+                className="flex flex-col gap-0.5 border-b border-border-subtle px-3 py-2.5 last:border-b-0"
+              >
+                <span className="flex justify-between gap-2 text-label text-fg-muted">
+                  <span>{e.area}</span>
+                  <span className="num">{e.time}</span>
+                </span>
+                <span className="text-body leading-5">{e.message}</span>
+                {e.record ? (
+                  <span className="mono text-label text-fg-muted">
+                    {e.record}
+                  </span>
+                ) : null}
+                <span className="mt-0.5 flex items-center gap-1 text-label text-fg-muted">
+                  <span>{t('settings.diagnostics.requestId')}</span>
+                  <RequestIdCell id={e.requestId} />
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="overflow-x-auto rounded-md border border-border max-md:hidden">
+            <RegistryGrid
+              label={t('settings.diagnostics.recentFailures')}
+              rows={failures}
+              columns={failureColumns}
+              getRowId={(failure) => failure.id}
+              selectable={false}
+            />
+          </div>
+          <Muted>{t('settings.diagnostics.failuresRecentPipeline')}</Muted>
+        </>
+      ) : (
+        <EmptyState
+          icon="check"
+          title={t('settings.diagnostics.recentFailures2')}
+          description={t('settings.diagnostics.anythingFailsImportDescription')}
+          className="py-4"
+        />
+      )}
+    </Section>
+  )
+}
+
+function DeploymentDetails({
+  diagnostics: d,
+}: {
+  diagnostics: DiagnosticsResult
+}) {
+  const help = useHelp()
+
+  return (
+    <Section title={t('settings.diagnostics.release')}>
+      <div className="grid grid-cols-1 gap-x-8 gap-y-4 rounded-md border border-border p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <DescriptionList
+          labelWidth={130}
+          className="text-body"
+          items={[
+            [
+              'Release',
+              <span>
+                <span className="mono">{d.deployment.artifactVersion}</span>{' '}
+                {d.deployment.artifactDigest === 'untracked' ? null : (
+                  <span className="text-fg-muted">
+                    build{' '}
+                    <span className="mono">
+                      {d.deployment.artifactDigest
+                        .replace(/^sha256:/, '')
+                        .slice(0, 12)}
+                    </span>
+                  </span>
+                )}
+              </span>,
+            ],
+            [
+              'Validation',
+              <Status
+                tone={help?.release.validation.tone === 'ok' ? 'ok' : 'warn'}
+              >
+                {help?.release.validation.label ??
+                  t('settings.diagnostics.developmentBuild')}
+              </Status>,
+            ],
+            ['Environment', sentenceCase(d.deployment.environment)],
+          ]}
+        />
+        <DescriptionList
+          labelWidth={130}
+          className="text-body"
+          items={[
+            [
+              'Migration',
+              <span>
+                {d.migration.expected === 'untracked' ? null : (
+                  <span className="mono">{d.migration.expected} </span>
+                )}
+                <Status
+                  tone={
+                    d.migration.status === 'compatible'
+                      ? 'ok'
+                      : d.migration.status === 'incompatible'
+                        ? 'bad'
+                        : 'warn'
+                  }
+                >
+                  {sentenceCase(d.migration.status)}
+                </Status>
+              </span>,
+            ],
+            ...(d.deployment.secretSource === 'local-env'
+              ? []
+              : [
+                  // SAFETY: DescriptionList entries are label/value pairs; this literal has exactly those two elements.
+                  [
+                    'Secrets kept in',
+                    sentenceCase(d.deployment.secretSource),
+                  ] as [string, React.ReactNode],
+                ]),
+            ['File storage', sentenceCase(d.config.fileBackend)],
+            [
+              t('settings.diagnostics.schemaVersion'),
+              t('settings.diagnostics.schemaVersionValue', {
+                count: d.schema.appliedCount,
+              }),
+            ],
+          ]}
+        />
+      </div>
+      <Muted>
+        {help?.release.validation.tone === 'ok'
+          ? t('settings.diagnostics.releasesUnderChangeControl')
+          : t('settings.diagnostics.releasesValidatedBefore')}
+      </Muted>
+    </Section>
   )
 }
 
@@ -467,6 +487,7 @@ function buildChecks(
       : d.health.status === 'degraded'
         ? 'warn'
         : 'bad'
+
   const checks: Check[] = [
     {
       key: 'database',
@@ -587,14 +608,17 @@ function buildChecks(
       lastRunKind: 'checked',
     },
   ]
+
   // Surface the overall health tone in the first row's status label so a
   // degraded deployment is never shown as fully healthy.
   if (healthTone === 'warn' && checks[0]) checks[0].status = 'Degraded'
+
   return checks
 }
 
 function goLiveSignIn(d: DiagnosticsResult): Check {
   const { open, methods } = d.goLive.signIn
+
   return {
     key: 'sign-in',
     name: t('settings.diagnostics.signInCheck'),
@@ -614,6 +638,7 @@ function goLiveSignIn(d: DiagnosticsResult): Check {
 
 function goLiveEmail(d: DiagnosticsResult): Check {
   const ready = d.goLive.email.configured
+
   return {
     key: 'email',
     name: t('settings.diagnostics.emailCheck'),
@@ -629,6 +654,7 @@ function goLiveEmail(d: DiagnosticsResult): Check {
 
 function goLiveBackup(d: DiagnosticsResult): Check {
   const { source, lastBackupAt, unreadable, app } = d.goLive.backup
+
   const base = {
     key: 'backups',
     name: t('settings.diagnostics.backupCheck'),
@@ -639,6 +665,7 @@ function goLiveBackup(d: DiagnosticsResult): Check {
       label: t('settings.diagnostics.backupLink'),
     },
   }
+
   if (source === 'app' && app) {
     if (app.lastFailedAt) {
       return {
@@ -651,6 +678,7 @@ function goLiveBackup(d: DiagnosticsResult): Check {
         }),
       }
     }
+
     if (!lastBackupAt) {
       return {
         ...base,
@@ -663,6 +691,7 @@ function goLiveBackup(d: DiagnosticsResult): Check {
         ),
       }
     }
+
     return {
       ...base,
       status: app.late
@@ -681,9 +710,11 @@ function goLiveBackup(d: DiagnosticsResult): Check {
       ),
     }
   }
+
   if (source === 'folder' && lastBackupAt) {
     const ageMs = Date.now() - new Date(lastBackupAt).getTime()
     const stale = ageMs > 26 * 60 * 60 * 1000
+
     return {
       ...base,
       status: stale ? 'Out of date' : 'Up to date',
@@ -696,6 +727,7 @@ function goLiveBackup(d: DiagnosticsResult): Check {
       ),
     }
   }
+
   if (source === 'folder' && unreadable) {
     return {
       ...base,
@@ -704,6 +736,7 @@ function goLiveBackup(d: DiagnosticsResult): Check {
       detail: t('settings.diagnostics.backupUnreadable'),
     }
   }
+
   if (source === 'host') {
     return {
       ...base,
@@ -712,6 +745,7 @@ function goLiveBackup(d: DiagnosticsResult): Check {
       detail: t('settings.diagnostics.backupHost'),
     }
   }
+
   return {
     ...base,
     status: 'Not set up',
@@ -722,6 +756,7 @@ function goLiveBackup(d: DiagnosticsResult): Check {
 
 function goLiveStorage(d: DiagnosticsResult): Check {
   const backend = d.config.fileBackend
+
   return {
     key: 'file-storage',
     name: t('settings.diagnostics.fileStorageCheck'),
@@ -754,6 +789,7 @@ function CheckRow({
       : c.tone === 'warn'
         ? 'text-warning-text'
         : undefined
+
   return (
     <li
       className={cn(
@@ -819,7 +855,9 @@ function RequestIdCell({ id }: { id: string }) {
 function formatTime(value: string | null): string {
   if (!value) return '—'
   const date = new Date(value)
+
   if (Number.isNaN(date.getTime())) return value
+
   return date
     .toLocaleString('en-GB', {
       timeZone: getDisplayTimeZone(),

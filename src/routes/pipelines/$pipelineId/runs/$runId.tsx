@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { t } from '#/copy'
 import { Status } from '#/components/ui/status'
@@ -48,6 +49,7 @@ import { triggerLabel } from '#/lib/pipeline-schedule-form'
 import { runCitation } from '#/lib/pipelines/run-notebook'
 import { runSteps } from '#/lib/pipelines/run-steps'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
+import type { PipelineRunWire } from '#/lib/pipelines/types'
 import {
   draftVersion,
   pipelineDataQueryKeys,
@@ -74,7 +76,15 @@ export const Route = createFileRoute('/pipelines/$pipelineId/runs/$runId')({
   component: RunPage,
 })
 
-function RunPage() {
+function parameterLabel(value: PipelineRunWire['parameters'][string]): string {
+  const primitive = z
+    .union([z.string(), z.number(), z.boolean(), z.null()])
+    .safeParse(value)
+
+  return primitive.success ? String(primitive.data) : JSON.stringify(value)
+}
+
+function useRunRecord() {
   const { pipelineId, runId } = Route.useParams()
   const routeContext = Route.useRouteContext()
   const navigate = useNavigate()
@@ -119,7 +129,7 @@ function RunPage() {
         queryKey: pipelineDataQueryKeys.runLogs(runId),
       })
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
@@ -152,14 +162,14 @@ function RunPage() {
     ? promptList[promptList.length - 1]
     : undefined
 
-  const launcher = useRunLauncher(
-    r?.workspace_id ?? '',
-    (started) =>
-      void navigate({
-        to: '/pipelines/$pipelineId/runs/$runId',
-        params: { pipelineId, runId: started.id },
-      }),
-  )
+  const onRunStarted = (started: PipelineRunWire) => {
+    void navigate({
+      to: '/pipelines/$pipelineId/runs/$runId',
+      params: { pipelineId, runId: started.id },
+    })
+  }
+
+  const launcher = useRunLauncher(r?.workspace_id ?? '', onRunStarted)
 
   const nameOf = (userId: string) => members.data?.[userId] ?? userId
 
@@ -188,13 +198,48 @@ function RunPage() {
         queryKey: pipelineDataQueryKeys.list,
       })
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
           : t('data.pipelineRun.couldCancelRun'),
       ),
   })
+
+  return {
+    pipelineId,
+    routeContext,
+    runId,
+    run,
+    logs,
+    outputs,
+    datasetNames,
+    runInputs,
+    prompts,
+    versions,
+    definition,
+    numbers,
+    deliveryIds,
+    deliveries,
+    answer,
+    version,
+    r,
+    currentPublished,
+    canRerunOnCurrent,
+    prompt,
+    launcher,
+    nameOf,
+    cancel,
+  }
+}
+
+type RunRecord = ReturnType<typeof useRunRecord>
+
+type LoadedRunRecord = RunRecord & { r: PipelineRunWire }
+
+function RunPage() {
+  const record = useRunRecord()
+  const { r, run, pipelineId, launcher } = record
 
   if (!r) {
     return (
@@ -245,196 +290,235 @@ function RunPage() {
     )
   }
 
-  const status = runStatus(r.status)
-  const guidance = explainRunError(r.error_code)
-
-  // What the run's own log said at the point it stopped, when it said anything.
-  const failureLine = [...(logs.data ?? [])]
-    .reverse()
-    .find((entry) => entry.level === 'error')?.message
-
-  const number = numbers.data?.get(r.id)
-  const runLabel = number ? `#${number}` : r.id.slice(0, 8)
-
-  const steps = runSteps(
-    version?.configuration ?? {},
-    r,
-    logs.data ?? [],
-    prompt,
-  )
-
-  const failedStep = steps.find((step) => step.state === 'failed')
+  const loaded = { ...record, r }
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <PageHeader
-        trail={[
-          {
-            label: t('data.pipelineRun.pipelines'),
-            link: { to: '/pipelines' },
-          },
-          {
-            label:
-              definition.data?.display_id ??
-              definition.data?.name ??
-              t('data.pipelineRun.pipeline'),
-            mono: Boolean(definition.data?.display_id),
-            link: { to: '/pipelines/$pipelineId', params: { pipelineId } },
-          },
-          {
-            label: t('data.pipelineRun.runs'),
-            link: {
-              to: '/pipelines/$pipelineId/runs',
-              params: { pipelineId },
-            },
-          },
-          { label: runLabel, mono: true },
-        ]}
-        title={t('data.pipelineRun.run', {
-          runLabel,
-          value: definition.data?.name ?? 'Pipeline',
-        })}
-        meta={
-          <>
-            <span className="text-fg">
-              <Status tone={status.tone}>{status.label}</Status>
-            </span>
-            <span>
-              {t('data.pipelineRun.started')}{' '}
-              {triggerLabel(r.trigger_kind).toLowerCase()}
-            </span>
-            <span>
-              {t('data.pipelineRun.started2', {
-                value: formatNotebookDateTime(r.started_at, { zone: true }),
-              })}
-            </span>
-            <span>
-              {t('data.pipelineRun.took')} {runDuration(r)}
-            </span>
-            {version ? (
-              <span>
-                {t('data.pipelineRun.version')} {version.version}
-              </span>
-            ) : null}
-          </>
-        }
-        actions={
-          r.status === 'failed' || r.status === 'cancelled' ? (
-            <>
-              {canRerunOnCurrent ? (
-                <Button
-                  size="sm"
-                  icon="play"
-                  disabled={launcher.pending}
-                  onClick={() =>
-                    launcher.launch({
-                      pipelineName:
-                        definition.data?.name ??
-                        t('data.pipelineRun.thisPipeline'),
-                      version: currentPublished,
-                      rerunOn: r,
-                    })
-                  }
-                >
-                  {t('data.pipelineRun.retryCurrentVersionV', {
-                    version: currentPublished.version,
-                  })}
-                </Button>
-              ) : null}
-              {guidance.fix ? (
-                <Button
-                  size="sm"
-                  nativeButton={false}
-                  render={
-                    <Link
-                      to="/pipelines/$pipelineId/steps"
-                      params={{ pipelineId }}
-                    />
-                  }
-                >
-                  {t('data.pipelineRun.editPipeline')}
-                </Button>
-              ) : null}
-              {guidance.retryHelps || r.status === 'cancelled' ? (
-                <Button
-                  size="sm"
-                  icon="play"
-                  disabled={!version || launcher.pending}
-                  onClick={() =>
-                    version &&
-                    launcher.launch({
-                      pipelineName:
-                        definition.data?.name ??
-                        t('data.pipelineRun.thisPipeline'),
-                      version,
-                      retryOf: r,
-                    })
-                  }
-                >
-                  {canRerunOnCurrent
-                    ? t('data.pipelineRun.retryV', {
-                        value: version?.version ?? '',
-                      })
-                    : t('data.pipelineRun.retryRun')}
-                </Button>
-              ) : null}
-            </>
-          ) : r.status === 'succeeded' ? (
-            <AddRunToNotebook
-              paragraphs={runCitation(r, {
-                pipeline: {
-                  id: pipelineId,
-                  name: definition.data?.name ?? 'pipeline',
-                },
-                versionNumber: version?.version ?? null,
-                inputs: Object.entries(r.input_versions).map(
-                  ([name, versionId]) => ({
-                    name,
-                    datasetVersionId: versionId,
-                    datasetId: runInputs.data?.[versionId]?.datasetId,
-                    datasetName: runInputs.data?.[versionId]?.datasetName,
-                    versionLabel: runInputs.data?.[versionId]?.versionLabel,
-                  }),
-                ),
-                outputs: (outputs.data ?? []).map((output) => ({
-                  label: output.label,
-                  datasetVersionId: output.dataset_version_id,
-                  datasetId: output.dataset_id,
-                  datasetName: datasetNames.data?.[output.dataset_id],
-                })),
-              })}
-            />
-          ) : r.status === 'running' ? (
-            <ConfirmDialog>
-              <ConfirmDialogTrigger>
-                <Button size="sm" variant="quiet" disabled={cancel.isPending}>
-                  {t('data.pipelineRun.cancelRun')}
-                </Button>
-              </ConfirmDialogTrigger>
-              <ConfirmDialogContent>
-                <ConfirmDialogHeader>
-                  <ConfirmDialogTitle>
-                    {t('data.pipelineRun.cancelRun2')}
-                  </ConfirmDialogTitle>
-                  <ConfirmDialogDescription>
-                    {t('data.pipelineRun.stopsNextSafePoint2')}
-                  </ConfirmDialogDescription>
-                </ConfirmDialogHeader>
-                <ConfirmDialogFooter>
-                  <ConfirmDialogCancel />
-                  <ConfirmDialogAction
-                    variant="danger-fill"
-                    onClick={() => cancel.mutate()}
-                  >
-                    {t('data.pipelineRun.cancelRun')}
-                  </ConfirmDialogAction>
-                </ConfirmDialogFooter>
-              </ConfirmDialogContent>
-            </ConfirmDialog>
-          ) : undefined
-        }
-      />
+      <RunHeader record={loaded} />
+      <RunBanners record={loaded} />
+      <RunBody record={loaded} />
+      {launcher.dialog}
+    </div>
+  )
+}
 
+function RunHeader({ record }: { record: LoadedRunRecord }) {
+  const { r, definition, pipelineId, version, numbers } = record
+
+  const status = runStatus(r.status)
+  const number = numbers.data?.get(r.id)
+  const runLabel = number ? `#${number}` : r.id.slice(0, 8)
+
+  return (
+    <PageHeader
+      trail={[
+        {
+          label: t('data.pipelineRun.pipelines'),
+          link: { to: '/pipelines' },
+        },
+        {
+          label:
+            definition.data?.display_id ??
+            definition.data?.name ??
+            t('data.pipelineRun.pipeline'),
+          mono: Boolean(definition.data?.display_id),
+          link: { to: '/pipelines/$pipelineId', params: { pipelineId } },
+        },
+        {
+          label: t('data.pipelineRun.runs'),
+          link: {
+            to: '/pipelines/$pipelineId/runs',
+            params: { pipelineId },
+          },
+        },
+        { label: runLabel, mono: true },
+      ]}
+      title={t('data.pipelineRun.run', {
+        runLabel,
+        value: definition.data?.name ?? 'Pipeline',
+      })}
+      meta={
+        <>
+          <span className="text-fg">
+            <Status tone={status.tone}>{status.label}</Status>
+          </span>
+          <span>
+            {t('data.pipelineRun.started')}{' '}
+            {triggerLabel(r.trigger_kind).toLowerCase()}
+          </span>
+          <span>
+            {t('data.pipelineRun.started2', {
+              value: formatNotebookDateTime(r.started_at, { zone: true }),
+            })}
+          </span>
+          <span>
+            {t('data.pipelineRun.took')} {runDuration(r)}
+          </span>
+          {version ? (
+            <span>
+              {t('data.pipelineRun.version')} {version.version}
+            </span>
+          ) : null}
+        </>
+      }
+      actions={<RunActions record={record} />}
+    />
+  )
+}
+
+function CurrentVersionRetry({ record }: { record: LoadedRunRecord }) {
+  const { r, definition, currentPublished, canRerunOnCurrent, launcher } =
+    record
+
+  if (!canRerunOnCurrent || !currentPublished) return null
+
+  return (
+    <Button
+      size="sm"
+      icon="play"
+      disabled={launcher.pending}
+      onClick={() =>
+        launcher.launch({
+          pipelineName:
+            definition.data?.name ?? t('data.pipelineRun.thisPipeline'),
+          version: currentPublished,
+          rerunOn: r,
+        })
+      }
+    >
+      {t('data.pipelineRun.retryCurrentVersionV', {
+        version: currentPublished.version,
+      })}
+    </Button>
+  )
+}
+
+function PinnedVersionRetry({ record }: { record: LoadedRunRecord }) {
+  const { r, definition, version, launcher, canRerunOnCurrent } = record
+  const guidance = explainRunError(r.error_code)
+
+  if (!guidance.retryHelps && r.status !== 'cancelled') return null
+
+  return (
+    <Button
+      size="sm"
+      icon="play"
+      disabled={!version || launcher.pending}
+      onClick={() =>
+        version &&
+        launcher.launch({
+          pipelineName:
+            definition.data?.name ?? t('data.pipelineRun.thisPipeline'),
+          version,
+          retryOf: r,
+        })
+      }
+    >
+      {canRerunOnCurrent
+        ? t('data.pipelineRun.retryV', { value: version?.version ?? '' })
+        : t('data.pipelineRun.retryRun')}
+    </Button>
+  )
+}
+
+function RunActions({ record }: { record: LoadedRunRecord }) {
+  const {
+    r,
+    definition,
+    pipelineId,
+    version,
+    runInputs,
+    outputs,
+    datasetNames,
+    cancel,
+  } = record
+
+  const guidance = explainRunError(r.error_code)
+
+  if (r.status === 'failed' || r.status === 'cancelled')
+    return (
+      <>
+        <CurrentVersionRetry record={record} />
+        {guidance.fix ? (
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={
+              <Link to="/pipelines/$pipelineId/steps" params={{ pipelineId }} />
+            }
+          >
+            {t('data.pipelineRun.editPipeline')}
+          </Button>
+        ) : null}
+        <PinnedVersionRetry record={record} />
+      </>
+    )
+
+  if (r.status === 'succeeded')
+    return (
+      <AddRunToNotebook
+        paragraphs={runCitation(r, {
+          pipeline: {
+            id: pipelineId,
+            name: definition.data?.name ?? 'pipeline',
+          },
+          versionNumber: version?.version ?? null,
+          inputs: Object.entries(r.input_versions).map(([name, versionId]) => ({
+            name,
+            datasetVersionId: versionId,
+            datasetId: runInputs.data?.[versionId]?.datasetId,
+            datasetName: runInputs.data?.[versionId]?.datasetName,
+            versionLabel: runInputs.data?.[versionId]?.versionLabel,
+          })),
+          outputs: (outputs.data ?? []).map((output) => ({
+            label: output.label,
+            datasetVersionId: output.dataset_version_id,
+            datasetId: output.dataset_id,
+            datasetName: datasetNames.data?.[output.dataset_id],
+          })),
+        })}
+      />
+    )
+
+  if (r.status === 'running')
+    return (
+      <ConfirmDialog>
+        <ConfirmDialogTrigger>
+          <Button size="sm" variant="quiet" disabled={cancel.isPending}>
+            {t('data.pipelineRun.cancelRun')}
+          </Button>
+        </ConfirmDialogTrigger>
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>
+              {t('data.pipelineRun.cancelRun2')}
+            </ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              {t('data.pipelineRun.stopsNextSafePoint2')}
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel />
+            <ConfirmDialogAction
+              variant="danger-fill"
+              onClick={() => cancel.mutate()}
+            >
+              {t('data.pipelineRun.cancelRun')}
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
+    )
+
+  return null
+}
+
+function RunBanners({ record }: { record: LoadedRunRecord }) {
+  const { r, currentPublished, canRerunOnCurrent, prompt } = record
+  const guidance = explainRunError(r.error_code)
+
+  return (
+    <>
       {r.status === 'failed' ? (
         <Banner tone="bad" icon="warn" title={guidance.title}>
           {r.error_message
@@ -445,7 +529,7 @@ function RunPage() {
             {t('data.pipelineRun.seeLog')}
           </a>
           .
-          {canRerunOnCurrent ? (
+          {canRerunOnCurrent && currentPublished ? (
             <>
               {' '}
               {t('data.pipelineRun.retryCurrentVersionRuns', {
@@ -462,226 +546,281 @@ function RunPage() {
           icon="pause"
           title={t('data.pipelineRun.runWaiting')}
         >
-          {prompt && typeof prompt.form_schema.description === 'string'
-            ? prompt.form_schema.description
-            : t('data.pipelineRun.pausedConfirmStepChange')}
+          {z.string().safeParse(prompt?.form_schema.description).data ??
+            t('data.pipelineRun.pausedConfirmStepChange')}
         </Banner>
       ) : null}
+    </>
+  )
+}
 
-      <div className="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-auto">
-        <RunStepsRail steps={steps} />
-        <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto px-4 py-4 md:px-5">
-          {prompt ? (
-            <RunPromptPanel
-              prompt={prompt}
-              canAnswer={r.status === 'waiting'}
-              nameOf={nameOf}
-              onAnswer={(value) => answer.mutate(value)}
-              submitting={answer.isPending}
-              error={
-                answer.isError
-                  ? answer.error instanceof Error
-                    ? answer.error.message
-                    : t('data.pipelineRun.couldAnswerRun')
-                  : null
-              }
-            />
-          ) : r.status === 'waiting' ? (
-            // A waiting run always raises a prompt; if it is not here yet (or
-            // not readable), say so rather than leave the banner's promise
-            // without a control.
-            <Notice tone="info">
-              {prompts.isLoading
-                ? t('data.pipelineRun.loadingDecisionPrompt')
-                : t('data.pipelineRun.runWaitingDecisionBut')}
-            </Notice>
-          ) : null}
+function RunBody({ record }: { record: LoadedRunRecord }) {
+  const {
+    r,
+    version,
+    logs,
+    prompt,
+    nameOf,
+    pipelineId,
+    outputs,
+    datasetNames,
+    routeContext,
+    deliveries,
+    deliveryIds,
+  } = record
 
-          {r.status === 'failed' && failureLine ? (
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-md border border-border bg-surface p-3">
-                <h3 className="m-0 font-sans text-label font-semibold">
-                  {t('data.pipelineRun.likelyCause')}
-                </h3>
-                <p className="m-0 mt-1 text-label text-fg-muted">
-                  {failureLine}
-                </p>
-              </div>
-              <div className="rounded-md border border-border bg-surface p-3">
-                <h3 className="m-0 font-sans text-label font-semibold">
-                  {t('data.pipelineRun.waysFix')}
-                </h3>
-                <p className="m-0 mt-1 text-label text-fg-muted">
-                  {guidance.hint}
-                </p>
-              </div>
-            </div>
-          ) : null}
+  const steps = runSteps(
+    version?.configuration ?? {},
+    r,
+    logs.data ?? [],
+    prompt,
+  )
 
-          {r.status === 'failed' ? (
-            <RunAiFix
-              pipelineId={pipelineId}
-              errorCode={r.error_code}
-              errorMessage={r.error_message}
-              logLines={(logs.data ?? [])
-                .filter((entry) => entry.level === 'error')
-                .map((entry) => entry.message)}
-              failedStep={
-                failedStep
-                  ? failedStep.name === 'Transform'
-                    ? TRANSFORM_TARGET
-                    : failedStep.name
-                  : null
-              }
-              runConfig={version?.configuration ?? {}}
-              draft={draftVersion(versions.data ?? [])}
-            />
-          ) : null}
+  return (
+    <div className="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-auto">
+      <RunStepsRail steps={steps} />
+      <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto px-4 py-4 md:px-5">
+        <RunDecision record={record} />
+        <RunFailure record={record} steps={steps} />
 
-          {r.status === 'succeeded' ? (
-            <RunResult
-              run={r}
-              pipelineId={pipelineId}
-              outputs={outputs.data ?? []}
-              datasetNames={datasetNames.data ?? {}}
-            />
-          ) : null}
-
-          {r.status === 'succeeded' ? (
-            <RunReproductions
-              runId={r.id}
-              canReproduce={hasCapability(
-                routeContext.context.workspace?.role,
-                'record.create',
-              )}
-              nameOf={nameOf}
-            />
-          ) : null}
-
-          <RunDeliveriesPanel
-            deliveries={deliveries.data ?? []}
-            runStatus={r.status}
-            queuedCount={deliveryIds.length}
-            isLoading={deliveries.isLoading && deliveryIds.length > 0}
+        {r.status === 'succeeded' ? (
+          <RunResult
+            run={r}
+            pipelineId={pipelineId}
+            outputs={outputs.data ?? []}
+            datasetNames={datasetNames.data ?? {}}
           />
+        ) : null}
 
-          <section
-            id="run-log"
-            className="flex flex-col gap-2 border-t border-border pt-4"
-          >
-            <h2 className="m-0 font-sans text-label font-semibold">
-              {t('data.pipelineRun.executionLog')}
-            </h2>
-            <Muted>
-              {t('data.pipelineRun.recordedStagesDiagnosticsAttempt')}
-            </Muted>
-            <RunLog logs={logs.data ?? []} />
-          </section>
-        </div>
+        {r.status === 'succeeded' ? (
+          <RunReproductions
+            runId={r.id}
+            canReproduce={hasCapability(
+              routeContext.context.workspace?.role,
+              'record.create',
+            )}
+            nameOf={nameOf}
+          />
+        ) : null}
 
-        <Inspector
-          aria-label={t('data.pipelineRun.ariaRunDetails')}
-          className="w-[320px]"
+        <RunDeliveriesPanel
+          deliveries={deliveries.data ?? []}
+          runStatus={r.status}
+          queuedCount={deliveryIds.length}
+          isLoading={deliveries.isLoading && deliveryIds.length > 0}
+        />
+
+        <section
+          id="run-log"
+          className="flex flex-col gap-2 border-t border-border pt-4"
         >
-          {prompt ? (
-            <InspectorSection title={t('data.pipelineRun.asked')}>
-              {prompt.asked_user_ids.length ? (
-                <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
-                  {prompt.asked_user_ids.map((id) => (
-                    <li key={id}>{nameOf(id)}</li>
-                  ))}
-                </ul>
-              ) : (
-                <Muted>{t('data.pipelineRun.oneNamed')}</Muted>
-              )}
-              <Muted className="mt-1.5">
-                {prompt.answered_at
-                  ? t('data.pipelineRun.answered', {
-                      value: formatNotebookDateTime(prompt.answered_at, {
-                        zone: true,
-                      }),
-                    })
-                  : prompt.expires_at
-                    ? t('data.pipelineRun.expires', {
-                        value: formatNotebookDateTime(prompt.expires_at, {
-                          zone: true,
-                        }),
-                      })
-                    : t('data.pipelineRun.expirySet')}
-              </Muted>
-            </InspectorSection>
-          ) : null}
-          <InspectorSection title={t('data.pipelineRun.inputsUsed')}>
-            {Object.keys(r.input_versions).length ? (
-              <DescriptionList
-                labelWidth={90}
-                items={Object.entries(r.input_versions).map(([k, v]) => {
-                  const info = runInputs.data?.[v]
-
-                  return [
-                    k,
-                    info ? (
-                      <Link
-                        key={k}
-                        to="/datasets/$datasetId/snapshots"
-                        params={{ datasetId: info.datasetId }}
-                        className="underline"
-                      >
-                        {info.datasetName} · {info.versionLabel}
-                      </Link>
-                    ) : (
-                      v.slice(0, 8)
-                    ),
-                  ]
-                })}
-              />
-            ) : (
-              <Muted>{t('data.pipelineRun.inputsPinned')}</Muted>
-            )}
-          </InspectorSection>
-          <InspectorSection title={t('data.pipelineRun.kept')}>
-            {(outputs.data ?? []).length ? (
-              <Muted>
-                {t('data.pipelineRun.datasetsSaved', {
-                  count: (outputs.data ?? []).length,
-                })}
-              </Muted>
-            ) : (
-              <Muted>{t('data.pipelineRun.nothing')}</Muted>
-            )}
-          </InspectorSection>
-          <InspectorSection title={t('data.pipelineRun.parameters')}>
-            {Object.keys(r.parameters).length ? (
-              <DescriptionList
-                labelWidth={90}
-                items={Object.entries(r.parameters).map(([k, v]) => [
-                  k,
-                  String(v),
-                ])}
-              />
-            ) : (
-              <Muted>{t('data.pipelineRun.noParameters')}</Muted>
-            )}
-          </InspectorSection>
-          <InspectorSection title={t('data.pipelineRun.traceability')}>
-            <DescriptionList
-              labelWidth={100}
-              items={[
-                [t('data.pipelineRun.attempt'), String(r.attempt)],
-                [
-                  t('data.pipelineRun.inputDigest'),
-                  r.input_digest?.slice(0, 12) ?? '—',
-                ],
-                [
-                  t('data.pipelineRun.retryOf'),
-                  r.retry_of_run_id ? r.retry_of_run_id.slice(0, 8) : '—',
-                ],
-              ]}
-            />
-          </InspectorSection>
-        </Inspector>
+          <h2 className="m-0 font-sans text-label font-semibold">
+            {t('data.pipelineRun.executionLog')}
+          </h2>
+          <Muted>
+            {t('data.pipelineRun.recordedStagesDiagnosticsAttempt')}
+          </Muted>
+          <RunLog logs={logs.data ?? []} />
+        </section>
       </div>
-      {launcher.dialog}
+
+      <RunInspector record={record} />
     </div>
+  )
+}
+
+function RunDecision({ record }: { record: LoadedRunRecord }) {
+  const { prompt, r, nameOf, answer, prompts } = record
+
+  return prompt ? (
+    <RunPromptPanel
+      prompt={prompt}
+      canAnswer={r.status === 'waiting'}
+      nameOf={nameOf}
+      onAnswer={(value) => answer.mutate(value)}
+      submitting={answer.isPending}
+      error={
+        answer.isError
+          ? answer.error instanceof Error
+            ? answer.error.message
+            : t('data.pipelineRun.couldAnswerRun')
+          : null
+      }
+    />
+  ) : r.status === 'waiting' ? (
+    // A waiting run always raises a prompt; if it is not here yet (or
+    // not readable), say so rather than leave the banner's promise
+    // without a control.
+    <Notice tone="info">
+      {prompts.isLoading
+        ? t('data.pipelineRun.loadingDecisionPrompt')
+        : t('data.pipelineRun.runWaitingDecisionBut')}
+    </Notice>
+  ) : null
+}
+
+function RunFailure({
+  record,
+  steps,
+}: {
+  record: LoadedRunRecord
+  steps: ReturnType<typeof runSteps>
+}) {
+  const { r, logs, pipelineId, version, versions } = record
+  const guidance = explainRunError(r.error_code)
+
+  const failureLine = [...(logs.data ?? [])]
+    .reverse()
+    .find((entry) => entry.level === 'error')?.message
+
+  const failedStep = steps.find((step) => step.state === 'failed')
+
+  return (
+    <>
+      {r.status === 'failed' && failureLine ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="rounded-md border border-border bg-surface p-3">
+            <h3 className="m-0 font-sans text-label font-semibold">
+              {t('data.pipelineRun.likelyCause')}
+            </h3>
+            <p className="m-0 mt-1 text-label text-fg-muted">{failureLine}</p>
+          </div>
+          <div className="rounded-md border border-border bg-surface p-3">
+            <h3 className="m-0 font-sans text-label font-semibold">
+              {t('data.pipelineRun.waysFix')}
+            </h3>
+            <p className="m-0 mt-1 text-label text-fg-muted">{guidance.hint}</p>
+          </div>
+        </div>
+      ) : null}
+
+      {r.status === 'failed' ? (
+        <RunAiFix
+          pipelineId={pipelineId}
+          errorCode={r.error_code}
+          errorMessage={r.error_message}
+          logLines={(logs.data ?? [])
+            .filter((entry) => entry.level === 'error')
+            .map((entry) => entry.message)}
+          failedStep={
+            failedStep
+              ? failedStep.name === 'Transform'
+                ? TRANSFORM_TARGET
+                : failedStep.name
+              : null
+          }
+          runConfig={version?.configuration ?? {}}
+          draft={draftVersion(versions.data ?? [])}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function RunInspector({ record }: { record: LoadedRunRecord }) {
+  const { r, prompt, nameOf, runInputs, outputs } = record
+
+  return (
+    <Inspector
+      aria-label={t('data.pipelineRun.ariaRunDetails')}
+      className="w-[320px]"
+    >
+      {prompt ? (
+        <InspectorSection title={t('data.pipelineRun.asked')}>
+          {prompt.asked_user_ids.length ? (
+            <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
+              {prompt.asked_user_ids.map((id) => (
+                <li key={id}>{nameOf(id)}</li>
+              ))}
+            </ul>
+          ) : (
+            <Muted>{t('data.pipelineRun.oneNamed')}</Muted>
+          )}
+          <Muted className="mt-1.5">
+            {prompt.answered_at
+              ? t('data.pipelineRun.answered', {
+                  value: formatNotebookDateTime(prompt.answered_at, {
+                    zone: true,
+                  }),
+                })
+              : prompt.expires_at
+                ? t('data.pipelineRun.expires', {
+                    value: formatNotebookDateTime(prompt.expires_at, {
+                      zone: true,
+                    }),
+                  })
+                : t('data.pipelineRun.expirySet')}
+          </Muted>
+        </InspectorSection>
+      ) : null}
+      <InspectorSection title={t('data.pipelineRun.inputsUsed')}>
+        {Object.keys(r.input_versions).length ? (
+          <DescriptionList
+            labelWidth={90}
+            items={Object.entries(r.input_versions).map(([k, v]) => {
+              const info = runInputs.data?.[v]
+
+              return [
+                k,
+                info ? (
+                  <Link
+                    key={k}
+                    to="/datasets/$datasetId/snapshots"
+                    params={{ datasetId: info.datasetId }}
+                    className="underline"
+                  >
+                    {info.datasetName} · {info.versionLabel}
+                  </Link>
+                ) : (
+                  v.slice(0, 8)
+                ),
+              ]
+            })}
+          />
+        ) : (
+          <Muted>{t('data.pipelineRun.inputsPinned')}</Muted>
+        )}
+      </InspectorSection>
+      <InspectorSection title={t('data.pipelineRun.kept')}>
+        {(outputs.data ?? []).length ? (
+          <Muted>
+            {t('data.pipelineRun.datasetsSaved', {
+              count: (outputs.data ?? []).length,
+            })}
+          </Muted>
+        ) : (
+          <Muted>{t('data.pipelineRun.nothing')}</Muted>
+        )}
+      </InspectorSection>
+      <InspectorSection title={t('data.pipelineRun.parameters')}>
+        {Object.keys(r.parameters).length ? (
+          <DescriptionList
+            labelWidth={90}
+            items={Object.entries(r.parameters).map(([k, v]) => [
+              k,
+              parameterLabel(v),
+            ])}
+          />
+        ) : (
+          <Muted>{t('data.pipelineRun.noParameters')}</Muted>
+        )}
+      </InspectorSection>
+      <InspectorSection title={t('data.pipelineRun.traceability')}>
+        <DescriptionList
+          labelWidth={100}
+          items={[
+            [t('data.pipelineRun.attempt'), String(r.attempt)],
+            [
+              t('data.pipelineRun.inputDigest'),
+              r.input_digest?.slice(0, 12) ?? '—',
+            ],
+            [
+              t('data.pipelineRun.retryOf'),
+              r.retry_of_run_id ? r.retry_of_run_id.slice(0, 8) : '—',
+            ],
+          ]}
+        />
+      </InspectorSection>
+    </Inspector>
   )
 }

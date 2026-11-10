@@ -12,6 +12,7 @@ export const Route = createFileRoute('/settings/lab/labels')({
 
 function LabelSettings() {
   const { context } = Route.useRouteContext()
+
   return (
     <>
       <SettingsHeader title={t('settings.storage.labelTemplates')} />

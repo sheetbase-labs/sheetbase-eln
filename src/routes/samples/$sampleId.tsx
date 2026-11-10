@@ -32,10 +32,8 @@ import {
   storageLocationsQueryKey,
 } from '#/components/samples/samples-data'
 import { MoveSampleDialog } from '#/components/samples/move-dialog'
-import {
-  LabelTemplatePicker,
-  useLabelTemplateChoice,
-} from '#/components/samples/label-template-picker'
+import { LabelTemplatePicker } from '#/components/samples/label-template-picker'
+import { useLabelTemplateChoice } from '#/components/samples/use-label-template-choice'
 import { SampleLabelCard } from '#/components/samples/sample-label-card'
 import {
   PrintLabelButton,
@@ -95,10 +93,10 @@ import type { PlaceChoice } from '#/lib/storage-positions'
 import { canManageSettings } from '#/lib/settings-access'
 import {
   ReserveDialog,
-  SampleActionsProvider,
   WithdrawDialog,
-  describeWithdrawError,
 } from '#/components/samples/withdraw-dialog'
+import { SampleActionsProvider } from '#/components/samples/quantity-actions-provider'
+import { describeWithdrawError } from '#/components/samples/quantity-input'
 import type {
   ReserveDialogInput,
   WithdrawDialogInput,

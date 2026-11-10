@@ -10,6 +10,12 @@
  * rest of the API (`{ error: { code, message } }`).
  */
 import { createFileRoute } from '@tanstack/react-router'
+import { z } from 'zod'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
+import {
+  connectorImportMappingsSchema,
+  connectorImportTargetSchema,
+} from '#/lib/connectors/enterprise/adapter'
 
 import {
   boundedErrorMessage,
@@ -21,18 +27,6 @@ import {
   previewConnectorSource,
   testConnectorConnection,
 } from '#/lib/connectors/enterprise/operations.server'
-
-interface SourceOperationBody {
-  operation?: unknown
-  workspaceId?: unknown
-  connectorId?: unknown
-  query?: unknown
-  selector?: unknown
-  source?: unknown
-  projectId?: unknown
-  target?: unknown
-  mappings?: unknown
-}
 
 function errorResponse(
   status: number,
@@ -49,10 +43,10 @@ export const Route = createFileRoute('/api/connectors/source')({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let body: SourceOperationBody
+        let body: z.infer<typeof pipelineJsonObjectSchema>
 
         try {
-          body = (await request.json()) as SourceOperationBody
+          body = pipelineJsonObjectSchema.parse(await request.json())
         } catch {
           return errorResponse(
             400,
@@ -61,10 +55,11 @@ export const Route = createFileRoute('/api/connectors/source')({
           )
         }
 
-        if (
-          typeof body['workspaceId'] !== 'string' ||
-          typeof body['connectorId'] !== 'string'
-        ) {
+        const identity = z
+          .object({ workspaceId: z.string(), connectorId: z.string() })
+          .safeParse(body)
+
+        if (!identity.success) {
           return errorResponse(
             400,
             'invalid_body',
@@ -72,10 +67,7 @@ export const Route = createFileRoute('/api/connectors/source')({
           )
         }
 
-        const base = {
-          workspaceId: body['workspaceId'],
-          connectorId: body['connectorId'],
-        }
+        const base = identity.data
 
         try {
           switch (body['operation']) {
@@ -92,9 +84,7 @@ export const Route = createFileRoute('/api/connectors/source')({
               const result = await discoverConnectorSource({
                 ...base,
                 query:
-                  body['query'] && typeof body['query'] === 'object'
-                    ? (body['query'] as Record<string, unknown>)
-                    : {},
+                  pipelineJsonObjectSchema.safeParse(body['query']).data ?? {},
               })
 
               return new Response(JSON.stringify(result), {
@@ -104,7 +94,11 @@ export const Route = createFileRoute('/api/connectors/source')({
             }
 
             case 'preview': {
-              if (!body['selector'] || typeof body['selector'] !== 'object') {
+              const selector = pipelineJsonObjectSchema.safeParse(
+                body['selector'],
+              )
+
+              if (!selector.success) {
                 return errorResponse(
                   400,
                   'invalid_body',
@@ -114,7 +108,7 @@ export const Route = createFileRoute('/api/connectors/source')({
 
               const result = await previewConnectorSource({
                 ...base,
-                selector: body['selector'] as Record<string, unknown>,
+                selector: selector.data,
               })
 
               return new Response(JSON.stringify(result), {
@@ -124,25 +118,38 @@ export const Route = createFileRoute('/api/connectors/source')({
             }
 
             case 'import': {
-              if (!body['source'] || typeof body['source'] !== 'object') {
+              const source = pipelineJsonObjectSchema.safeParse(body['source'])
+
+              if (!source.success) {
                 return errorResponse(400, 'invalid_body', 'source is required.')
               }
 
-              if (!body['target'] || typeof body['target'] !== 'object') {
+              const target = connectorImportTargetSchema.safeParse(
+                body['target'],
+              )
+
+              if (!target.success) {
                 return errorResponse(400, 'invalid_body', 'target is required.')
+              }
+
+              const mappings = connectorImportMappingsSchema.safeParse(
+                body['mappings'],
+              )
+
+              if (Array.isArray(body['mappings']) && !mappings.success) {
+                return errorResponse(
+                  400,
+                  'invalid_body',
+                  'mappings must describe source columns and target fields.',
+                )
               }
 
               const result = await importConnectorSource({
                 ...base,
-                source: body['source'] as Record<string, unknown>,
-                projectId:
-                  typeof body['projectId'] === 'string'
-                    ? body['projectId']
-                    : null,
-                target: body['target'] as never,
-                mappings: Array.isArray(body['mappings'])
-                  ? (body['mappings'] as Array<Record<string, unknown>>)
-                  : null,
+                source: source.data,
+                projectId: z.string().safeParse(body['projectId']).data ?? null,
+                target: target.data,
+                mappings: mappings.data ?? null,
               })
 
               return new Response(JSON.stringify(result), {

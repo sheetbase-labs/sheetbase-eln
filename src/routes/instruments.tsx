@@ -26,10 +26,7 @@ import { Choice } from '#/components/ui/choice'
 import { RadioGroup } from '#/components/ui/radio-group'
 import { Notice } from '#/components/ui/alert'
 import { CalibrationOverdueNotice } from '#/components/instruments/calibration-overdue'
-import {
-  IntakeDeliveryNotice,
-  intakeDeliveryProblem,
-} from '#/components/instruments/intake-delivery-notice'
+import { IntakeDeliveryNotice } from '#/components/instruments/intake-delivery-notice'
 import { ParserFollowUpNotice } from '#/components/instruments/parser-follow-up'
 import { hasCapability } from '#/lib/capability'
 import { canManageSettings } from '#/lib/settings-access'
@@ -54,13 +51,14 @@ import {
 } from '#/components/inventory/list'
 import { Tabs } from '#/components/ui/tabs'
 import { InstrumentUsagePanel } from '#/components/facility/usage-report'
-import { isOutOfService } from '#/components/instruments/out-of-service'
 import {
   CALIBRATION_DUE_SOON_DAYS,
   INTAKE_METHODS,
   createInstrument,
   formatInstrumentDay,
   intakeHealth,
+  intakeDeliveryProblem,
+  isOutOfService,
   intakeMethodLabel,
   intakeMethodNeedsParser,
   parserFollowUp,
@@ -90,8 +88,8 @@ import {
   AddedFieldsFormSection,
   useAddedFieldDraft,
   useAddedFieldListColumns,
-  withAddedColumns,
 } from '#/components/models/added-fields'
+import { withAddedColumns } from '#/components/models/added-field-columns'
 import { t } from '#/copy'
 import { instrumentTypeLabel } from '#/lib/instrument-type-label'
 

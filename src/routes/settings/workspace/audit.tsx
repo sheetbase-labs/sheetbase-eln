@@ -2,6 +2,7 @@ import { Person } from '#/components/ui/person'
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
 import { LoadMore } from '#/components/ui/load-more'
@@ -56,11 +57,8 @@ import { t } from '#/copy'
  * search filters on the server — the loaded window is never the filter's
  * universe. The export walks the same selection to its end, and says so. */
 export const Route = createFileRoute('/settings/workspace/audit')({
-  validateSearch: (search: Record<string, unknown>): AuditSearch => ({
-    record:
-      typeof search.record === 'string' && search.record
-        ? search.record
-        : undefined,
+  validateSearch: (search): AuditSearch => ({
+    record: z.string().min(1).optional().catch(undefined).parse(search.record),
     from: parseSearchDay(search.from),
     to: parseSearchDay(search.to),
   }),
@@ -83,21 +81,20 @@ const LOAD_MORE_THRESHOLD_PX = 240
 function Audit() {
   const { context } = Route.useRouteContext()
   const urlSearch = Route.useSearch()
-  const navigate = Route.useNavigate()
-  const setUrl = (patch: Partial<AuditSearch>) =>
-    void navigate({
-      to: '/settings/workspace/audit',
-      search: (s) => ({ ...s, ...patch }),
-    })
   const workspaceId = context.workspace?.id ?? ''
-  const [operation, setOperation] = useState<string>('')
-  const [actorUserId, setActorUserId] = useState('')
-  const [projectId, setProjectId] = useState('')
+
+  const [filters, setFilters] = useState({
+    operation: '',
+    actorUserId: '',
+    projectId: '',
+  })
+
   const [retentionOpen, setRetentionOpen] = useState(false)
   const [timestampsOpen, setTimestampsOpen] = useState(false)
   const canManage = canManageSettings(context.workspace, 'audit')
   const { regulated } = useRegulatedLab(workspaceId)
   const [exporting, setExporting] = useState(false)
+
   // The box holds the typed term and the grid reads the settled one.
   const {
     value: q,
@@ -107,24 +104,25 @@ function Audit() {
 
   const filter = useMemo(
     () => ({
-      operation: operation || undefined,
-      actorUserId: actorUserId || undefined,
-      projectId: projectId || undefined,
+      operation: filters.operation || undefined,
+      actorUserId: filters.actorUserId || undefined,
+      projectId: filters.projectId || undefined,
       search: search.trim() || undefined,
       ...auditFilterFromSearch(urlSearch),
     }),
-    [operation, actorUserId, projectId, search, urlSearch],
+    [filters, search, urlSearch],
   )
 
   const activity = useInfiniteQuery({
     queryKey: auditHistoryQueryKeys.events(filter),
     enabled: Boolean(workspaceId),
+    // SAFETY: The first page has no cursor; getNextPageParam supplies only numeric sequence cursors.
     initialPageParam: undefined as number | undefined,
     queryFn: ({ pageParam }) =>
       fetchAuditEvents(dataClient, {
         ...filter,
         limit: PAGE_SIZE,
-        ...(pageParam === undefined ? {} : { beforeSequence: pageParam }),
+        beforeSequence: pageParam,
       }),
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? (lastPage.nextCursor ?? undefined) : undefined,
@@ -135,74 +133,7 @@ function Audit() {
     [activity.data],
   )
 
-  // Rows carry ids; people read identifiers and project names. One read per
-  // loaded window names every record and project in it.
-  const recordIds = useMemo(
-    () => [
-      ...new Set(
-        [urlSearch.record, ...rows.map((r) => r.recordId)].filter(
-          (id): id is string => Boolean(id),
-        ),
-      ),
-    ],
-    [rows, urlSearch.record],
-  )
-  const projectIds = useMemo(
-    () => [
-      ...new Set(
-        rows.map((r) => r.projectId).filter((id): id is string => Boolean(id)),
-      ),
-    ],
-    [rows],
-  )
-  const names = useQuery({
-    queryKey: ['audit-names', recordIds, projectIds],
-    enabled: recordIds.length > 0 || projectIds.length > 0,
-    staleTime: 60_000,
-    queryFn: async () => {
-      // The data proxy bounds a query value to 500 characters, which is a
-      // dozen UUIDs, so ids are read in chunks of that size.
-      const listByIds = async <T,>(
-        resource: string,
-        ids: string[],
-        select: string,
-      ): Promise<T[]> => {
-        const chunks: string[][] = []
-        for (let i = 0; i < ids.length; i += 12)
-          chunks.push(ids.slice(i, i + 12))
-        return (
-          await Promise.all(
-            chunks.map((chunk) =>
-              dataClient.list<T>(
-                resource,
-                `?id=in.(${chunk.join(',')})&select=${select}`,
-              ),
-            ),
-          )
-        ).flat()
-      }
-      const [records, projects] = await Promise.all([
-        listByIds<{ id: string; identifier: string }>(
-          'records',
-          recordIds,
-          'id,identifier',
-        ),
-        listByIds<{ id: string; title: string }>(
-          'projects',
-          projectIds,
-          'id,title',
-        ),
-      ])
-      return {
-        records: new Map(records.map((r) => [r.id, r.identifier])),
-        projects: new Map(projects.map((p) => [p.id, p.title])),
-      }
-    },
-  })
-  const recordLabel = (id: string) =>
-    names.data?.records.get(id) ?? id.slice(0, 8)
-  const projectLabel = (id: string) =>
-    names.data?.projects.get(id) ?? id.slice(0, 8)
+  const { recordLabel, projectLabel } = useAuditNames(rows, urlSearch.record)
 
   // The filter lists the operation vocabulary the log can hold — the same set
   // the database's change_events CHECK constrains and the history renders via
@@ -220,40 +151,18 @@ function Audit() {
     [rows],
   )
 
-  // The Actor and Project filters list everyone and every project, not only
-  // those on the loaded page.
-  const members = useQuery({
-    queryKey: adminQueryKeys.members(workspaceId),
-    queryFn: () => fetchWorkspaceMembers(dataClient, workspaceId),
-    enabled: Boolean(workspaceId),
-    staleTime: 60_000,
-  })
-  const memberIds = useMemo(
-    () => (members.data ?? []).map((m) => m.userId),
-    [members.data],
-  )
-  const memberNames = useUserNames(memberIds, context.user)
-  const projectList = useQuery({
-    queryKey: ['audit-project-filter', workspaceId],
-    queryFn: () =>
-      dataClient.list<{ id: string; title: string }>(
-        'projects',
-        '?select=id,title&order=title.asc',
-      ),
-    enabled: Boolean(workspaceId),
-    staleTime: 60_000,
-  })
-
   const loadOlder = () => {
     // A failed next page keeps the retry with the message below instead of
     // retrying on every scroll tick.
     if (!activity.hasNextPage || activity.isFetchingNextPage) return
+
     if (activity.isFetchNextPageError) return
     void activity.fetchNextPage()
   }
 
   const onScroll = (event: React.UIEvent<HTMLDivElement>) => {
     const el = event.currentTarget
+
     if (
       el.scrollHeight - el.scrollTop - el.clientHeight >
       LOAD_MORE_THRESHOLD_PX
@@ -264,6 +173,7 @@ function Audit() {
 
   const exportCsv = async () => {
     setExporting(true)
+
     try {
       const events = await fetchAllAuditEvents(dataClient, filter)
       downloadTextFile('audit-log.csv', buildAuditCsv(events), 'text/csv')
@@ -286,64 +196,20 @@ function Audit() {
     }
   }
 
-  const countLabel = activity.isLoading
-    ? 'Loading…'
-    : rows.length === 0
-      ? 'No entries'
-      : activity.hasNextPage
-        ? `${rows.length} entries loaded — older entries available`
-        : `${rows.length} entries`
+  const countLabel = auditCountLabel(
+    activity.isLoading,
+    rows.length,
+    activity.hasNextPage,
+  )
 
   const bodyRows: React.ReactNode[] = rows.map((r) => (
-    <TableRow key={r.id}>
-      <TableCell
-        className="whitespace-nowrap text-fg-muted"
-        title={r.createdAt}
-      >
-        {formatDate(r.createdAt, { time: true })}
-      </TableCell>
-      <TableCell>
-        {r.actorUserId && !r.actorCredentialId ? (
-          <Person userId={r.actorUserId} name={actorLabel(r)} />
-        ) : (
-          actorLabel(r)
-        )}
-      </TableCell>
-      <TableCell>{operationLabel(r.operation)}</TableCell>
-      <TableCell>{entityLabel(r.entityType)}</TableCell>
-      <TableCell className="max-w-[240px] whitespace-normal text-fg-muted">
-        {describeChange(r.payload)}
-      </TableCell>
-      <TableCell className="max-w-[160px] whitespace-normal text-fg-muted">
-        {reasonOf(r.payload)}
-      </TableCell>
-      <TableCell className="mono text-[11px]">
-        {r.recordId ? (
-          <Link
-            to="/settings/workspace/audit"
-            search={{ ...urlSearch, record: r.recordId }}
-            title={t('settings.audit.showOnlyRecord')}
-          >
-            {recordLabel(r.recordId)}
-          </Link>
-        ) : (
-          '—'
-        )}
-      </TableCell>
-      <TableCell className="text-fg-muted">
-        {r.projectId ? (
-          <Link
-            to="/projects/$projectId"
-            params={{ projectId: r.projectId }}
-            title={t('settings.audit.openProject')}
-          >
-            {projectLabel(r.projectId)}
-          </Link>
-        ) : (
-          '—'
-        )}
-      </TableCell>
-    </TableRow>
+    <AuditEventRow
+      key={r.id}
+      event={r}
+      search={urlSearch}
+      recordLabel={recordLabel}
+      projectLabel={projectLabel}
+    />
   ))
 
   // The end of the body states the tail of the read: a page arriving, a page
@@ -409,96 +275,15 @@ function Audit() {
         {t('settings.audit.projects2')}
         <AuditIntegrityLine workspaceId={workspaceId} />
       </SettingsHeader>
-      <div
-        role="toolbar"
-        className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 md:px-6"
-      >
-        <Select
-          aria-label={t('settings.audit.operationAria')}
-          size="sm"
-          value={operation}
-          onChange={(e) => setOperation(e.target.value)}
-        >
-          <option value="">{t('settings.audit.operations')}</option>
-          {operations.map((o) => (
-            <option key={o} value={o}>
-              {operationLabel(o)}
-            </option>
-          ))}
-        </Select>
-        <Select
-          aria-label={t('settings.audit.actor')}
-          size="sm"
-          value={actorUserId}
-          onChange={(e) => setActorUserId(e.target.value)}
-        >
-          <option value="">{t('settings.audit.anyone')}</option>
-          {(members.data ?? []).map((m) => (
-            <option key={m.userId} value={m.userId}>
-              {memberNames.userLabel(m.userId)}
-            </option>
-          ))}
-        </Select>
-        <Select
-          aria-label={t('settings.audit.project')}
-          size="sm"
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-        >
-          <option value="">{t('settings.audit.projects3')}</option>
-          {(projectList.data ?? []).map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.title}
-            </option>
-          ))}
-        </Select>
-        <label className="block w-[240px]">
-          <span className="sr-only">{t('settings.audit.searchAuditLog')}</span>
-          <Input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={t('settings.audit.searchOperationEntityPlaceholder')}
-            className="h-[26px] text-label"
-          />
-        </label>
-        <span className="flex items-center gap-1.5 text-label text-fg-muted">
-          {t('settings.audit.from')}
-          <DateField
-            label={t('settings.audit.from')}
-            value={urlSearch.from}
-            max={urlSearch.to}
-            onChange={(day) => setUrl({ from: parseSearchDay(day) })}
-          />
-        </span>
-        <span className="flex items-center gap-1.5 text-label text-fg-muted">
-          {t('settings.audit.to')}
-          <DateField
-            label={t('settings.audit.to')}
-            value={urlSearch.to}
-            min={urlSearch.from}
-            onChange={(day) => setUrl({ to: parseSearchDay(day) })}
-          />
-        </span>
-        {urlSearch.record ? (
-          <span className="flex items-center gap-1.5 rounded-full border border-border bg-surface-muted px-2 py-0.5 text-label">
-            {t('settings.audit.record')}
-            <span className="mono">{recordLabel(urlSearch.record)}</span>
-            <Button
-              size="sm"
-              variant="quiet"
-              aria-label={t('settings.audit.clearRecordFilterAria')}
-              onClick={() => setUrl({ record: undefined })}
-            >
-              {t('common.actions.clear')}
-            </Button>
-          </span>
-        ) : null}
-        <span className="flex-1" />
-        <span className="num whitespace-nowrap text-label text-fg-muted">
-          {countLabel}
-        </span>
-      </div>
+      <AuditFilters
+        filters={filters}
+        onChange={setFilters}
+        operations={operations}
+        term={q}
+        onTermChange={setQ}
+        recordLabel={recordLabel}
+        countLabel={countLabel}
+      />
       <div
         className="min-h-0 flex-1 overflow-auto max-md:pb-20"
         onScroll={onScroll}
@@ -572,12 +357,314 @@ function Audit() {
   )
 }
 
+function auditCountLabel(loading: boolean, count: number, hasMore: boolean) {
+  if (loading) return 'Loading…'
+
+  if (count === 0) return 'No entries'
+
+  return hasMore
+    ? `${count} entries loaded — older entries available`
+    : `${count} entries`
+}
+
+function AuditFilters({
+  filters,
+  onChange,
+  operations,
+  term,
+  onTermChange,
+  recordLabel,
+  countLabel,
+}: {
+  filters: { operation: string; actorUserId: string; projectId: string }
+  onChange: (filters: {
+    operation: string
+    actorUserId: string
+    projectId: string
+  }) => void
+  operations: string[]
+  term: string
+  onTermChange: (term: string) => void
+  recordLabel: (id: string) => string
+  countLabel: string
+}) {
+  const { context } = Route.useRouteContext()
+  const urlSearch = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const workspaceId = context.workspace?.id ?? ''
+
+  const setUrl = (patch: Partial<AuditSearch>) =>
+    void navigate({
+      to: '/settings/workspace/audit',
+      search: (s) => ({ ...s, ...patch }),
+    })
+
+  // Filter choices cover the workspace, not only the loaded event window.
+  const members = useQuery({
+    queryKey: adminQueryKeys.members(workspaceId),
+    queryFn: () => fetchWorkspaceMembers(dataClient, workspaceId),
+    enabled: Boolean(workspaceId),
+    staleTime: 60_000,
+  })
+
+  const memberIds = useMemo(
+    () => (members.data ?? []).map((m) => m.userId),
+    [members.data],
+  )
+
+  const memberNames = useUserNames(memberIds, context.user)
+
+  const projectList = useQuery({
+    queryKey: ['audit-project-filter', workspaceId],
+    queryFn: () =>
+      dataClient.list<{ id: string; title: string }>(
+        'projects',
+        '?select=id,title&order=title.asc',
+      ),
+    enabled: Boolean(workspaceId),
+    staleTime: 60_000,
+  })
+
+  return (
+    <div
+      role="toolbar"
+      className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 md:px-6"
+    >
+      <Select
+        aria-label={t('settings.audit.operationAria')}
+        size="sm"
+        value={filters.operation}
+        onChange={(e) => onChange({ ...filters, operation: e.target.value })}
+      >
+        <option value="">{t('settings.audit.operations')}</option>
+        {operations.map((o) => (
+          <option key={o} value={o}>
+            {operationLabel(o)}
+          </option>
+        ))}
+      </Select>
+      <Select
+        aria-label={t('settings.audit.actor')}
+        size="sm"
+        value={filters.actorUserId}
+        onChange={(e) => onChange({ ...filters, actorUserId: e.target.value })}
+      >
+        <option value="">{t('settings.audit.anyone')}</option>
+        {(members.data ?? []).map((m) => (
+          <option key={m.userId} value={m.userId}>
+            {memberNames.userLabel(m.userId)}
+          </option>
+        ))}
+      </Select>
+      <Select
+        aria-label={t('settings.audit.project')}
+        size="sm"
+        value={filters.projectId}
+        onChange={(e) => onChange({ ...filters, projectId: e.target.value })}
+      >
+        <option value="">{t('settings.audit.projects3')}</option>
+        {(projectList.data ?? []).map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.title}
+          </option>
+        ))}
+      </Select>
+      <label className="block w-[240px]">
+        <span className="sr-only">{t('settings.audit.searchAuditLog')}</span>
+        <Input
+          type="search"
+          value={term}
+          onChange={(e) => onTermChange(e.target.value)}
+          placeholder={t('settings.audit.searchOperationEntityPlaceholder')}
+          className="h-[26px] text-label"
+        />
+      </label>
+      <span className="flex items-center gap-1.5 text-label text-fg-muted">
+        {t('settings.audit.from')}
+        <DateField
+          label={t('settings.audit.from')}
+          value={urlSearch.from}
+          max={urlSearch.to}
+          onChange={(day) => setUrl({ from: parseSearchDay(day) })}
+        />
+      </span>
+      <span className="flex items-center gap-1.5 text-label text-fg-muted">
+        {t('settings.audit.to')}
+        <DateField
+          label={t('settings.audit.to')}
+          value={urlSearch.to}
+          min={urlSearch.from}
+          onChange={(day) => setUrl({ to: parseSearchDay(day) })}
+        />
+      </span>
+      {urlSearch.record ? (
+        <span className="flex items-center gap-1.5 rounded-full border border-border bg-surface-muted px-2 py-0.5 text-label">
+          {t('settings.audit.record')}
+          <span className="mono">{recordLabel(urlSearch.record)}</span>
+          <Button
+            size="sm"
+            variant="quiet"
+            aria-label={t('settings.audit.clearRecordFilterAria')}
+            onClick={() => setUrl({ record: undefined })}
+          >
+            {t('common.actions.clear')}
+          </Button>
+        </span>
+      ) : null}
+      <span className="flex-1" />
+      <span className="num whitespace-nowrap text-label text-fg-muted">
+        {countLabel}
+      </span>
+    </div>
+  )
+}
+
+// Resolve only the loaded window and selected record. Chunking preserves the
+// proxy's bounded query length without fetching the whole record catalogue.
+function useAuditNames(rows: AuditEventWire[], record: string | undefined) {
+  const recordIds = useMemo(
+    () => [
+      ...new Set(
+        [record, ...rows.map((r) => r.recordId)].filter((id): id is string =>
+          Boolean(id),
+        ),
+      ),
+    ],
+    [rows, record],
+  )
+
+  const projectIds = useMemo(
+    () => [...new Set(rows.flatMap((r) => (r.projectId ? [r.projectId] : [])))],
+    [rows],
+  )
+
+  const names = useQuery({
+    queryKey: ['audit-names', recordIds, projectIds],
+    enabled: recordIds.length > 0 || projectIds.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const listByIds = async <T,>(
+        resource: string,
+        ids: string[],
+        select: string,
+      ): Promise<T[]> => {
+        const chunks: string[][] = []
+
+        for (let i = 0; i < ids.length; i += 12)
+          chunks.push(ids.slice(i, i + 12))
+
+        return (
+          await Promise.all(
+            chunks.map((chunk) =>
+              dataClient.list<T>(
+                resource,
+                `?id=in.(${chunk.join(',')})&select=${select}`,
+              ),
+            ),
+          )
+        ).flat()
+      }
+
+      const [records, projects] = await Promise.all([
+        listByIds<{ id: string; identifier: string }>(
+          'records',
+          recordIds,
+          'id,identifier',
+        ),
+        listByIds<{ id: string; title: string }>(
+          'projects',
+          projectIds,
+          'id,title',
+        ),
+      ])
+
+      return {
+        records: new Map(records.map((r) => [r.id, r.identifier])),
+        projects: new Map(projects.map((p) => [p.id, p.title])),
+      }
+    },
+  })
+
+  return {
+    recordLabel: (id: string) => names.data?.records.get(id) ?? id.slice(0, 8),
+    projectLabel: (id: string) =>
+      names.data?.projects.get(id) ?? id.slice(0, 8),
+  }
+}
+
+function AuditEventRow({
+  event: r,
+  search,
+  recordLabel,
+  projectLabel,
+}: {
+  event: AuditEventWire
+  search: AuditSearch
+  recordLabel: (id: string) => string
+  projectLabel: (id: string) => string
+}) {
+  return (
+    <TableRow>
+      <TableCell
+        className="whitespace-nowrap text-fg-muted"
+        title={r.createdAt}
+      >
+        {formatDate(r.createdAt, { time: true })}
+      </TableCell>
+      <TableCell>
+        {r.actorUserId && !r.actorCredentialId ? (
+          <Person userId={r.actorUserId} name={actorLabel(r)} />
+        ) : (
+          actorLabel(r)
+        )}
+      </TableCell>
+      <TableCell>{operationLabel(r.operation)}</TableCell>
+      <TableCell>{entityLabel(r.entityType)}</TableCell>
+      <TableCell className="max-w-[240px] whitespace-normal text-fg-muted">
+        {describeChange(r.payload)}
+      </TableCell>
+      <TableCell className="max-w-[160px] whitespace-normal text-fg-muted">
+        {reasonOf(r.payload)}
+      </TableCell>
+      <TableCell className="mono text-[11px]">
+        {r.recordId ? (
+          <Link
+            to="/settings/workspace/audit"
+            search={{ ...search, record: r.recordId }}
+            title={t('settings.audit.showOnlyRecord')}
+          >
+            {recordLabel(r.recordId)}
+          </Link>
+        ) : (
+          '—'
+        )}
+      </TableCell>
+      <TableCell className="text-fg-muted">
+        {r.projectId ? (
+          <Link
+            to="/projects/$projectId"
+            params={{ projectId: r.projectId }}
+            title={t('settings.audit.openProject')}
+          >
+            {projectLabel(r.projectId)}
+          </Link>
+        ) : (
+          '—'
+        )}
+      </TableCell>
+    </TableRow>
+  )
+}
+
 /** The actor as the read model names them, with the same fallbacks the history
  * timeline uses: a credential-authored event, then the raw id, then system. */
 function actorLabel(event: AuditEventWire): string {
   if (event.actorCredentialId) return t('settings.audit.apiCredential')
+
   if (event.actorName) return event.actorName
+
   if (event.actorUserId) return event.actorUserId.slice(0, 8)
+
   return 'System'
 }
 
@@ -592,6 +679,7 @@ function buildAuditCsv(events: AuditEventWire[]): string {
     'record',
     'project',
   ]
+
   const lines = events.map((r) =>
     [
       r.createdAt,
@@ -605,31 +693,46 @@ function buildAuditCsv(events: AuditEventWire[]): string {
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
       .join(','),
   )
+
   return [header.join(','), ...lines].join('\n')
 }
 
 /** The first field-level change in an event payload, with its count. */
-function describeChange(payload: unknown): string {
-  if (!payload || typeof payload !== 'object' || !('changes' in payload))
-    return '—'
-  const changes = payload.changes
-  if (!changes || typeof changes !== 'object') return '—'
+function describeChange(payload: AuditEventWire['payload']): string {
+  const parsed = z
+    .object({ changes: z.record(z.string(), z.unknown()) })
+    .safeParse(payload)
+
+  if (!parsed.success) return '—'
+
+  const changes = parsed.data.changes
   const entries = Object.entries(changes)
+
   if (entries.length === 0) return '—'
   const [field, raw] = entries[0]
-  const pair = raw && typeof raw === 'object' ? raw : {}
+
+  const pair = z
+    .object({ from: z.unknown().optional(), to: z.unknown().optional() })
+    .safeParse(raw)
+
   const from =
-    'from' in pair && pair.from != null ? formatChangeValue(pair.from) : '∅'
-  const to = 'to' in pair && pair.to != null ? formatChangeValue(pair.to) : '∅'
+    pair.success && pair.data.from != null
+      ? formatChangeValue(pair.data.from)
+      : '∅'
+
+  const to =
+    pair.success && pair.data.to != null ? formatChangeValue(pair.data.to) : '∅'
+
   const extra = entries.length > 1 ? ` (+${entries.length - 1})` : ''
+
   return `${field}: ${from} → ${to}${extra}`
 }
 
 /** The reason recorded on an event, when the operation needs one. */
-function reasonOf(payload: unknown): string {
-  if (payload && typeof payload === 'object' && 'reason' in payload) {
-    const reason = payload.reason
-    if (typeof reason === 'string' && reason.trim()) return reason
-  }
+function reasonOf(payload: AuditEventWire['payload']): string {
+  const parsed = z.object({ reason: z.string() }).safeParse(payload)
+
+  if (parsed.success && parsed.data.reason.trim()) return parsed.data.reason
+
   return '—'
 }

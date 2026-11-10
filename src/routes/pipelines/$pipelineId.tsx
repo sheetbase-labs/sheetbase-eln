@@ -31,6 +31,7 @@ import { useRunLauncher } from '#/components/pipelines/use-run-launcher'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { validatePipelineConfig } from '#/lib/pipelines/config'
+import type { PipelineRunWire } from '#/lib/pipelines/types'
 
 /** UI port (roadmap-4/ui-app3): the pipeline detail frame. */
 export const Route = createFileRoute('/pipelines/$pipelineId')({
@@ -52,7 +53,7 @@ export const Route = createFileRoute('/pipelines/$pipelineId')({
   component: PipelineLayout,
 })
 
-function PipelineLayout() {
+function usePipelineLayout() {
   const { pipelineId } = Route.useParams()
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
@@ -79,14 +80,14 @@ function PipelineLayout() {
 
   const navigate = useNavigate()
 
-  const run = useRunLauncher(
-    workspaceId,
-    (started) =>
-      void navigate({
-        to: '/pipelines/$pipelineId/runs/$runId',
-        params: { pipelineId, runId: started.id },
-      }),
-  )
+  const onRunStarted = (started: PipelineRunWire) => {
+    void navigate({
+      to: '/pipelines/$pipelineId/runs/$runId',
+      params: { pipelineId, runId: started.id },
+    })
+  }
+
+  const run = useRunLauncher(workspaceId, onRunStarted)
 
   const publish = useMutation({
     mutationFn: () => {
@@ -103,7 +104,7 @@ function PipelineLayout() {
         description: t('data.pipelinePage.newRunsUseRuns'),
       })
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast(t('data.pipelinePage.couldPublish'), {
         description:
           error instanceof Error
@@ -112,52 +113,41 @@ function PipelineLayout() {
       }),
   })
 
+  return {
+    pipelineId,
+    definition,
+    current,
+    draft,
+    runs,
+    onRun,
+    onSteps,
+    publish,
+    run,
+    draftProblems,
+  }
+}
+
+function PipelineLayout() {
+  const model = usePipelineLayout()
+
+  const {
+    definition,
+    current,
+    draft,
+    runs,
+    onRun,
+    onSteps,
+    publish,
+    run,
+    draftProblems,
+  } = model
+
   const d = definition.data
 
   if (onRun) return <Outlet />
 
   if (!d) {
-    return (
-      <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader
-          trail={[
-            {
-              label: t('data.pipelinePage.pipelines'),
-              link: { to: '/pipelines' },
-            },
-          ]}
-          title={
-            definition.isLoading
-              ? t('data.pipelinePage.loadingPipeline')
-              : definition.isError
-                ? t('data.pipelinePage.pipelineCouldLoaded')
-                : t('data.pipelinePage.pipelineFound')
-          }
-        />
-        <div className="px-4 py-4 md:px-6">
-          {definition.isError ? (
-            <ProjectListFailure
-              error={definition.error}
-              what={t('data.pipelinePage.thisPipeline')}
-              onRetry={() => void definition.refetch()}
-            />
-          ) : definition.isLoading ? null : (
-            <NotFoundNotice
-              what="pipeline"
-              action={
-                <Button
-                  size="sm"
-                  nativeButton={false}
-                  render={<Link to="/pipelines" />}
-                >
-                  {t('data.pipelinePage.backPipelines')}
-                </Button>
-              }
-            />
-          )}
-        </div>
-      </div>
-    )
+    return <PipelineUnavailable definition={definition} />
   }
 
   const params = { pipelineId: d.id }
@@ -271,6 +261,52 @@ function PipelineLayout() {
         <Outlet />
       </div>
       {run.dialog}
+    </div>
+  )
+}
+
+function PipelineUnavailable({
+  definition,
+}: Pick<ReturnType<typeof usePipelineLayout>, 'definition'>) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <PageHeader
+        trail={[
+          {
+            label: t('data.pipelinePage.pipelines'),
+            link: { to: '/pipelines' },
+          },
+        ]}
+        title={
+          definition.isLoading
+            ? t('data.pipelinePage.loadingPipeline')
+            : definition.isError
+              ? t('data.pipelinePage.pipelineCouldLoaded')
+              : t('data.pipelinePage.pipelineFound')
+        }
+      />
+      <div className="px-4 py-4 md:px-6">
+        {definition.isError ? (
+          <ProjectListFailure
+            error={definition.error}
+            what={t('data.pipelinePage.thisPipeline')}
+            onRetry={() => void definition.refetch()}
+          />
+        ) : definition.isLoading ? null : (
+          <NotFoundNotice
+            what="pipeline"
+            action={
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={<Link to="/pipelines" />}
+              >
+                {t('data.pipelinePage.backPipelines')}
+              </Button>
+            }
+          />
+        )}
+      </div>
     </div>
   )
 }

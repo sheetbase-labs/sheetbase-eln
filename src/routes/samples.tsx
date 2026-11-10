@@ -85,13 +85,14 @@ import type { PlaceChoice } from '#/lib/storage-positions'
 import { canManageSettings } from '#/lib/settings-access'
 import {
   AddedFieldsFormSection,
-  addedFieldColumns,
   useAddedFieldDraft,
 } from '#/components/models/added-fields'
+import { addedFieldColumns } from '#/components/models/added-field-columns'
 import { useBuiltInModelFields } from '#/components/models/built-in-model-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { requireBuiltInModel } from '#/lib/built-in-models'
+import type { ModelFieldRecordValues } from '#/lib/model-fields'
 import { saveNewObjectFields } from '#/lib/model-subtypes'
 import { useListView } from '#/lib/list-views'
 import { t } from '#/copy'
@@ -376,9 +377,9 @@ function SamplesList() {
       quantity?: string
       quantityUnit?: string
       place?: PlaceChoice | null
-      customFields?: Record<string, unknown>
+      customFields?: ModelFieldRecordValues['customFields']
       typeKey?: string | null
-      typeFields?: Record<string, unknown>
+      typeFields?: ModelFieldRecordValues['customFields']
     }) => {
       let created = await createSample(notebookDataClient, {
         projectId: input.projectId,
@@ -827,9 +828,9 @@ function RegisterSampleDialog({
     quantity?: string
     quantityUnit?: string
     place?: PlaceChoice | null
-    customFields?: Record<string, unknown>
+    customFields?: ModelFieldRecordValues['customFields']
     typeKey?: string | null
-    typeFields?: Record<string, unknown>
+    typeFields?: ModelFieldRecordValues['customFields']
   }) => void
 }) {
   const addedFields = useAddedFieldDraft('sample')

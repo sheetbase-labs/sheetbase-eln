@@ -27,13 +27,16 @@ import { t } from '#/copy'
  * read is filtered at the `/api/db` boundary and paged.
  */
 export const Route = createFileRoute('/projects/$projectId/samples')({
-  validateSearch: (search: Record<string, unknown>): { page?: number } => {
+  validateSearch: (search): { page?: number } => {
     const page = parseProjectPage(search.page)
+
     return page > 1 ? { page } : {}
   },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) throw redirect(signInRedirect(location))
+
     return { context }
   },
   component: ProjectSamplesTab,
@@ -44,7 +47,7 @@ function ProjectSamplesTab() {
   const { page: pageParam } = Route.useSearch()
   const page = pageParam ?? 1
   const query = useProjectSamplesPage(projectId, page)
-  const rows = query.data?.rows ?? []
+  const rows = useMemo(() => query.data?.rows ?? [], [query.data?.rows])
   const total = query.data?.total ?? 0
 
   const display = useMemo(

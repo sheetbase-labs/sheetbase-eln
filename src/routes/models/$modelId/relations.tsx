@@ -66,7 +66,7 @@ function ModelRelations() {
   return <RecordModelRelations modelKey={modelId} />
 }
 
-function RecordModelRelations({ modelKey }: { modelKey: string }) {
+function useRelationshipAuthoring(modelKey: string) {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
   const queryClient = useQueryClient()
@@ -176,6 +176,39 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
     }
   }
 
+  return {
+    model,
+    modelKey,
+    rules,
+    targetKinds,
+    linkType,
+    setLinkType,
+    target,
+    setTargetModelKey,
+    minLinks,
+    setMinLinks,
+    maxLinks,
+    setMaxLinks,
+    label,
+    setLabel,
+    busy,
+    error,
+    removeTarget,
+    setRemoveTarget,
+    canSubmit,
+    submit,
+    remove,
+  }
+}
+
+type RelationshipAuthoring = ReturnType<typeof useRelationshipAuthoring>
+
+function RecordModelRelations({ modelKey }: { modelKey: string }) {
+  const authoring = useRelationshipAuthoring(modelKey)
+
+  const { model, rules, busy, removeTarget, setRemoveTarget, remove } =
+    authoring
+
   const columns: RegistryColumn<(typeof rules)[number]>[] = [
     {
       id: 'linkType',
@@ -262,96 +295,7 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
         )}
       </Section>
 
-      <Section title={t('library.models.relations.addARelation')}>
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="text-xs text-fg-muted">
-              {t('library.models.relations.linkType')}
-              <Select
-                className="mt-1"
-                value={linkType}
-                onChange={(event) => setLinkType(event.target.value)}
-                aria-label={t('library.models.relations.linkType')}
-              >
-                <option value="" disabled>
-                  {t('library.models.relations.selectALinkType')}
-                </option>
-                {MODEL_LINK_TYPES.map((entry) => (
-                  <option key={entry} value={entry}>
-                    {entry}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <label className="text-xs text-fg-muted">
-              {t('library.models.relations.targetModel')}
-              <Select
-                className="mt-1"
-                value={target}
-                onChange={(event) => setTargetModelKey(event.target.value)}
-                aria-label={t('library.models.relations.targetModel')}
-              >
-                <option value="" disabled>
-                  {t('library.models.relations.selectATargetModel')}
-                </option>
-                {targetKinds.map((kind) => (
-                  <option key={kind.key} value={kind.key}>
-                    {kind.label}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <label className="text-xs text-fg-muted">
-              {t('library.models.relations.minimumLinks')}
-              <Input
-                className="mt-1 h-8 text-xs"
-                type="number"
-                min={0}
-                value={minLinks}
-                onChange={(event) => setMinLinks(event.target.value)}
-                aria-label={t('library.models.relations.minimumLinks')}
-              />
-            </label>
-            <label className="text-xs text-fg-muted">
-              {t('library.models.relations.maximumLinks')}
-              <Input
-                className="mt-1 h-8 text-xs"
-                type="number"
-                min={0}
-                value={maxLinks}
-                onChange={(event) => setMaxLinks(event.target.value)}
-                aria-label={t('library.models.relations.maximumLinks')}
-                placeholder="unbounded"
-              />
-            </label>
-          </div>
-
-          <label className="text-xs text-fg-muted">
-            {t('library.models.relations.label')}
-            <Input
-              className="mt-1 h-8 text-xs"
-              value={label}
-              onChange={(event) => setLabel(event.target.value)}
-              aria-label={t('library.models.relations.relationLabel')}
-              placeholder={t('library.models.relations.optionalDisplayName')}
-            />
-          </label>
-
-          {error ? (
-            <p role="alert" className="m-0 text-label text-danger-text">
-              {error}
-            </p>
-          ) : null}
-
-          <div>
-            <Button type="submit" variant="primary" disabled={!canSubmit}>
-              {busy
-                ? t('common.states.saving')
-                : t('library.models.relations.addRelation')}
-            </Button>
-          </div>
-        </form>
-      </Section>
+      <RelationshipForm authoring={authoring} />
 
       <ConfirmDialog
         open={removeTarget !== null}
@@ -392,5 +336,118 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
         </ConfirmDialogContent>
       </ConfirmDialog>
     </div>
+  )
+}
+
+function RelationshipForm({ authoring }: { authoring: RelationshipAuthoring }) {
+  const {
+    targetKinds,
+    linkType,
+    setLinkType,
+    target,
+    setTargetModelKey,
+    minLinks,
+    setMinLinks,
+    maxLinks,
+    setMaxLinks,
+    label,
+    setLabel,
+    busy,
+    error,
+    canSubmit,
+    submit,
+  } = authoring
+
+  return (
+    <Section title={t('library.models.relations.addARelation')}>
+      <form onSubmit={submit} className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label className="text-xs text-fg-muted">
+            {t('library.models.relations.linkType')}
+            <Select
+              className="mt-1"
+              value={linkType}
+              onChange={(event) => setLinkType(event.target.value)}
+              aria-label={t('library.models.relations.linkType')}
+            >
+              <option value="" disabled>
+                {t('library.models.relations.selectALinkType')}
+              </option>
+              {MODEL_LINK_TYPES.map((entry) => (
+                <option key={entry} value={entry}>
+                  {entry}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="text-xs text-fg-muted">
+            {t('library.models.relations.targetModel')}
+            <Select
+              className="mt-1"
+              value={target}
+              onChange={(event) => setTargetModelKey(event.target.value)}
+              aria-label={t('library.models.relations.targetModel')}
+            >
+              <option value="" disabled>
+                {t('library.models.relations.selectATargetModel')}
+              </option>
+              {targetKinds.map((kind) => (
+                <option key={kind.key} value={kind.key}>
+                  {kind.label}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="text-xs text-fg-muted">
+            {t('library.models.relations.minimumLinks')}
+            <Input
+              className="mt-1 h-8 text-xs"
+              type="number"
+              min={0}
+              value={minLinks}
+              onChange={(event) => setMinLinks(event.target.value)}
+              aria-label={t('library.models.relations.minimumLinks')}
+            />
+          </label>
+          <label className="text-xs text-fg-muted">
+            {t('library.models.relations.maximumLinks')}
+            <Input
+              className="mt-1 h-8 text-xs"
+              type="number"
+              min={0}
+              value={maxLinks}
+              onChange={(event) => setMaxLinks(event.target.value)}
+              aria-label={t('library.models.relations.maximumLinks')}
+              placeholder="unbounded"
+            />
+          </label>
+        </div>
+
+        <label className="text-xs text-fg-muted">
+          {t('library.models.relations.label')}
+          <Input
+            className="mt-1 h-8 text-xs"
+            value={label}
+            onChange={(event) => setLabel(event.target.value)}
+            aria-label={t('library.models.relations.relationLabel')}
+            placeholder={t('library.models.relations.optionalDisplayName')}
+          />
+        </label>
+
+        {error ? (
+          <p role="alert" className="m-0 text-label text-danger-text">
+            {error}
+          </p>
+        ) : null}
+
+        <div>
+          <Button type="submit" variant="primary" disabled={!canSubmit}>
+            {busy
+              ? t('common.states.saving')
+              : t('library.models.relations.addRelation')}
+          </Button>
+        </div>
+      </form>
+    </Section>
   )
 }

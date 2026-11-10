@@ -40,9 +40,11 @@ export const Route = createFileRoute(
 )({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: WebhookDeliveriesRoute,
@@ -51,65 +53,73 @@ export const Route = createFileRoute(
 const PAGE_SIZE = 50
 
 /** What the receiving service answered, in words. */
-export function responseText(d: WebhookDeliveryWire): string {
+function responseText(d: WebhookDeliveryWire): string {
   if (d.responseStatus != null) {
-    const reason = RESPONSE_REASONS[d.responseStatus]
+    const reason = RESPONSE_REASONS.get(d.responseStatus)
+
     return reason ? `${d.responseStatus} ${reason}` : String(d.responseStatus)
   }
+
   if (
     d.errorCode &&
     /timeout|timed/i.test(d.errorCode + (d.errorMessage ?? ''))
   ) {
     return t('settings.integrationsWebhooks.Subscriptionid.timedOut')
   }
+
   if (d.status === 'pending')
     return t('settings.integrationsWebhooks.Subscriptionid.waitingSend')
+
   return (
     d.errorMessage?.trim() ||
     t('settings.integrationsWebhooks.Subscriptionid.answer')
   )
 }
 
-const RESPONSE_REASONS: Record<number, string> = {
-  200: 'OK',
-  201: 'Created',
-  202: 'Accepted',
-  204: t('settings.integrationsWebhooks.Subscriptionid.content'),
-  400: t('settings.integrationsWebhooks.Subscriptionid.badRequest'),
-  401: 'Unauthorised',
-  403: 'Forbidden',
-  404: t('common.errors.notFound'),
-  410: 'Gone',
-  429: t('settings.integrationsWebhooks.Subscriptionid.tooManyRequests'),
-  500: t('settings.integrationsWebhooks.Subscriptionid.serverError'),
-  502: t('settings.integrationsWebhooks.Subscriptionid.badGateway'),
-  503: t('settings.integrationsWebhooks.Subscriptionid.serviceUnavailable'),
-  504: t('settings.integrationsWebhooks.Subscriptionid.gatewayTimeout'),
-}
+const RESPONSE_REASONS = new Map([
+  [200, 'OK'],
+  [201, 'Created'],
+  [202, 'Accepted'],
+  [204, t('settings.integrationsWebhooks.Subscriptionid.content')],
+  [400, t('settings.integrationsWebhooks.Subscriptionid.badRequest')],
+  [401, 'Unauthorised'],
+  [403, 'Forbidden'],
+  [404, t('common.errors.notFound')],
+  [410, 'Gone'],
+  [429, t('settings.integrationsWebhooks.Subscriptionid.tooManyRequests')],
+  [500, t('settings.integrationsWebhooks.Subscriptionid.serverError')],
+  [502, t('settings.integrationsWebhooks.Subscriptionid.badGateway')],
+  [503, t('settings.integrationsWebhooks.Subscriptionid.serviceUnavailable')],
+  [504, t('settings.integrationsWebhooks.Subscriptionid.gatewayTimeout')],
+])
 
 /** The "What to check" paragraph, from the latest failure. */
-export function whatToCheck(
+function whatToCheck(
   health: WebhookEndpointHealthWire | undefined,
   latest: WebhookDeliveryWire | undefined,
 ): string {
   const status = latest?.responseStatus ?? null
+
   if (status != null && status >= 500) {
     return t(
       'settings.integrationsWebhooks.Subscriptionid.receivingServiceAnswers',
       { status },
     )
   }
+
   if (status != null && status >= 400) {
     return t(
       'settings.integrationsWebhooks.Subscriptionid.receivingServiceRefused',
       { status },
     )
   }
+
   if (health?.lastError) {
     return t(
       'settings.integrationsWebhooks.Subscriptionid.receivingServiceAnswer',
     )
   }
+
   return t(
     'settings.integrationsWebhooks.Subscriptionid.nothingCheckDeliveries',
   )
@@ -129,7 +139,7 @@ function deliveryTone(status: WebhookDeliveryWire['status']): Tone {
   }
 }
 
-function WebhookDeliveriesRoute() {
+function useWebhookDeliveries() {
   const { context } = Route.useRouteContext()
   const { subscriptionId } = Route.useParams()
   const workspaceId = context.workspace?.id ?? ''
@@ -141,6 +151,7 @@ function WebhookDeliveriesRoute() {
     queryFn: () => listWebhookSubscriptionsFn({ data: { workspaceId } }),
     enabled: Boolean(workspaceId),
   })
+
   const sub = subscriptions.data?.find((s) => s.id === subscriptionId)
 
   const health = useQuery({
@@ -150,6 +161,7 @@ function WebhookDeliveriesRoute() {
     enabled: Boolean(workspaceId),
     refetchInterval: 30_000,
   })
+
   const h = health.data?.data[0]
 
   const deliveries = useQuery({
@@ -164,11 +176,17 @@ function WebhookDeliveriesRoute() {
     enabled: Boolean(workspaceId),
     refetchInterval: 30_000,
   })
-  const rows = deliveries.data?.data ?? []
+
+  const rows = useMemo(
+    () => deliveries.data?.data ?? [],
+    [deliveries.data?.data],
+  )
+
   const eventIds = useMemo(
     () => [...new Set(rows.map((r) => r.changeEventId))],
     [rows],
   )
+
   const records = useQuery({
     queryKey: ['admin-001', 'webhook-delivery-records', eventIds],
     queryFn: () =>
@@ -189,20 +207,26 @@ function WebhookDeliveriesRoute() {
       }),
     onSuccess: refresh,
   })
+
   const retry = useMutation({
     mutationFn: async () => {
       let replayed = 0
+
       for (const status of ['dead_letter', 'failed'] as const) {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Preserve fail-stop write order: a refused dead-letter replay must not enqueue failed deliveries or reactivate the subscription.
         const result = await replayWebhookDeliveriesFn({
           data: { workspaceId, subscriptionId, status },
         })
+
         replayed += result.replayedCount
       }
+
       if (sub?.status === 'disabled') {
         await setWebhookSubscriptionStatusFn({
           data: { workspaceId, subscriptionId, status: 'active' },
         })
       }
+
       return replayed
     },
     onSuccess: refresh,
@@ -257,15 +281,52 @@ function WebhookDeliveriesRoute() {
   const failing =
     sub != null &&
     (sub.status === 'disabled' || (h?.consecutiveFailures ?? 0) > 0)
+
   const waiting = (h?.retrying24h ?? 0) + (h?.pending24h ?? 0)
+
   const latestFailure = rows.find(
     (r) =>
       r.status === 'failed' ||
       r.status === 'dead_letter' ||
       r.status === 'retrying',
   )
+
   const name = sub ? endpointName(sub) : 'Webhook'
   const error = pause.error ?? retry.error
+
+  return {
+    canManage,
+    sub,
+    h,
+    deliveries,
+    rows,
+    pause,
+    retry,
+    columns,
+    failing,
+    waiting,
+    latestFailure,
+    name,
+    error,
+  }
+}
+
+function WebhookDeliveriesRoute() {
+  const {
+    canManage,
+    sub,
+    h,
+    deliveries,
+    rows,
+    pause,
+    retry,
+    columns,
+    failing,
+    waiting,
+    latestFailure,
+    name,
+    error,
+  } = useWebhookDeliveries()
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -294,32 +355,14 @@ function WebhookDeliveriesRoute() {
           ) : null
         }
         actions={
-          canManage && sub && sub.status !== 'archived' ? (
-            <>
-              {failing || waiting > 0 ? (
-                <Button
-                  variant="primary"
-                  disabled={retry.isPending}
-                  onClick={() => retry.mutate()}
-                >
-                  {retry.isPending
-                    ? t('common.states.retrying')
-                    : t(
-                        'settings.integrationsWebhooks.Subscriptionid.retryNow',
-                      )}
-                </Button>
-              ) : null}
-              <Button
-                variant="secondary"
-                disabled={pause.isPending}
-                onClick={() =>
-                  pause.mutate(sub.status === 'active' ? 'paused' : 'active')
-                }
-              >
-                {sub.status === 'active' ? 'Pause' : 'Resume'}
-              </Button>
-            </>
-          ) : null
+          <WebhookDeliveryActions
+            canManage={canManage}
+            sub={sub}
+            failing={failing}
+            waiting={waiting}
+            retry={retry}
+            pause={pause}
+          />
         }
       />
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto pb-6">
@@ -352,15 +395,7 @@ function WebhookDeliveriesRoute() {
             <Notice tone="bad">{describeWebhookAdminError(error)}</Notice>
           </div>
         ) : null}
-        {retry.isSuccess ? (
-          <Muted className="px-4 md:px-6">
-            {retry.data > 0
-              ? `${retry.data} ${retry.data === 1 ? 'delivery' : 'deliveries'} queued to send again.`
-              : t(
-                  'settings.integrationsWebhooks.Subscriptionid.nothingWaitingSent',
-                )}
-          </Muted>
-        ) : null}
+        <WebhookReplayFeedback retry={retry} />
         {rows.length ? (
           <RegistryGrid
             label={t(
@@ -400,5 +435,58 @@ function WebhookDeliveriesRoute() {
         ) : null}
       </div>
     </div>
+  )
+}
+
+function WebhookReplayFeedback({
+  retry,
+}: Pick<ReturnType<typeof useWebhookDeliveries>, 'retry'>) {
+  if (!retry.isSuccess) return null
+
+  return (
+    <Muted className="px-4 md:px-6">
+      {retry.data > 0
+        ? `${retry.data} ${retry.data === 1 ? 'delivery' : 'deliveries'} queued to send again.`
+        : t('settings.integrationsWebhooks.Subscriptionid.nothingWaitingSent')}
+    </Muted>
+  )
+}
+
+function WebhookDeliveryActions({
+  canManage,
+  sub,
+  failing,
+  waiting,
+  retry,
+  pause,
+}: Pick<
+  ReturnType<typeof useWebhookDeliveries>,
+  'canManage' | 'sub' | 'failing' | 'waiting' | 'retry' | 'pause'
+>) {
+  if (!canManage || !sub || sub.status === 'archived') return null
+
+  return (
+    <>
+      {failing || waiting > 0 ? (
+        <Button
+          variant="primary"
+          disabled={retry.isPending}
+          onClick={() => retry.mutate()}
+        >
+          {retry.isPending
+            ? t('common.states.retrying')
+            : t('settings.integrationsWebhooks.Subscriptionid.retryNow')}
+        </Button>
+      ) : null}
+      <Button
+        variant="secondary"
+        disabled={pause.isPending}
+        onClick={() =>
+          pause.mutate(sub.status === 'active' ? 'paused' : 'active')
+        }
+      >
+        {sub.status === 'active' ? 'Pause' : 'Resume'}
+      </Button>
+    </>
   )
 }

@@ -28,10 +28,8 @@ import type { ReactNode } from 'react'
 
 import { rich, t } from '#/copy'
 
-import {
-  CollaborationRoom,
-  safeBuildRoomId,
-} from '#/components/collaboration/collaboration-room'
+import { CollaborationRoom } from '#/components/collaboration/collaboration-room'
+import { safeBuildRoomId } from '#/components/collaboration/collaboration-room-id'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
 import { useCollaborationEnabled } from '#/lib/collaboration/collaboration-enabled'
 import { ApprovalStepper, RecordHistoryTimeline } from '#/components/audit'

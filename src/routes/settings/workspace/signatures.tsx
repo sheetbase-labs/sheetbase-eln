@@ -70,11 +70,13 @@ function Signatures() {
       ),
     enabled: Boolean(workspaceId),
   })
+
   const settings = useQuery({
     queryKey: adminQueryKeys.settings(workspaceId),
     queryFn: () => fetchWorkspaceSettings(dataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   const members = useQuery({
     queryKey: adminQueryKeys.members(workspaceId),
     queryFn: () => fetchWorkspaceMembers(dataClient, workspaceId),
@@ -88,9 +90,11 @@ function Signatures() {
       .filter((m) => !m.suspendedAt && isSigningRole(m.role))
       .map((m) => m.userId),
   )
+
   const uncertified = (certifications.data ?? []).filter(
     (c) => !isCurrentStatement(c) && signers.has(c.userId),
   )
+
   const policy = readSignaturePolicy(settings.data?.signaturePolicy)
 
   const invalidate = () => {
@@ -184,6 +188,7 @@ function PolicySection({
   workspaceId: string
   onSaved: () => void
 }) {
+  // react-doctor-disable-next-line react-doctor/no-derived-useState -- Loading and loaded policies have distinct parent keys; subsequent refetches must preserve the editable meanings draft.
   const [meanings, setMeanings] = useState<Record<string, boolean>>(
     policy.meanings,
   )
@@ -198,7 +203,7 @@ function PolicySection({
       onSaved()
       toast(t('settings.signatures.signaturePolicySavedToast'))
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast(t('settings.signatures.couldSavePolicyToast'), {
         description:
           error instanceof Error
@@ -268,6 +273,7 @@ function ReviewSection({
   const [enabled, setEnabled] = useState(current.enabled)
   const [workflow, setWorkflow] = useState(current.workflow)
   const [minReviewers, setMinReviewers] = useState(String(current.minReviewers))
+
   const options = useQuery({
     queryKey: ['review-workflow-options', workspaceId],
     queryFn: () =>
@@ -280,12 +286,15 @@ function ReviewSection({
       >('review_workflow_options', {}),
     enabled: Boolean(workspaceId),
   })
+
   const count = Number(minReviewers)
   const countValid = Number.isInteger(count) && count >= 1 && count <= 5
+
   const dirty =
     enabled !== current.enabled ||
     workflow !== current.workflow ||
     (countValid && count !== current.minReviewers)
+
   const save = useMutation({
     mutationFn: () =>
       updateWorkspaceSettings(dataClient, {
@@ -297,7 +306,7 @@ function ReviewSection({
       onSaved()
       toast(t('settings.signatures.reviewSavedToast'))
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast(t('settings.signatures.couldSaveReviewToast'), {
         description:
           error instanceof Error
@@ -305,7 +314,9 @@ function ReviewSection({
             : t('settings.signatures.databaseRefused'),
       }),
   })
+
   const known = options.data ?? []
+
   return (
     <Section
       title={t('settings.signatures.reviewWorkflow')}
@@ -387,18 +398,21 @@ function StatementSection({
   onSaved: () => void
 }) {
   const queryClient = useQueryClient()
+
   const statement = useQuery({
     queryKey: signatureStatementQueryKeys.workspace(workspaceId),
     queryFn: () =>
       fetchSignatureStatement(signatureCertificationDataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   const [draft, setDraft] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
   const current = statement.data
   const text = draft ?? current?.text ?? ''
   const changed = current != null && text.trim() !== current.text
   const valid = text.trim().length >= 20 && text.trim().length <= 2000
+
   const save = useMutation({
     mutationFn: () =>
       updateSignatureStatement(
@@ -415,7 +429,7 @@ function StatementSection({
       onSaved()
       toast(t('settings.signatures.certificationStatementSavedToast'))
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast(t('settings.signatures.couldSaveStatementToast'), {
         description:
           error instanceof Error
@@ -423,6 +437,7 @@ function StatementSection({
             : t('settings.signatures.databaseRefused'),
       }),
   })
+
   return (
     <Section
       title={t('settings.signatures.certificationStatement')}
@@ -497,11 +512,13 @@ function IdentityVerification({
 }) {
   const [email, setEmail] = useState('')
   const [confirmed, setConfirmed] = useState(false)
+
   const verify = useMutation({
     mutationFn: () =>
       verifySignatureIdentity(signatureCertificationDataClient, userId, email),
     onSuccess: onVerified,
   })
+
   return (
     <Collapsible className="w-full">
       <CollapsibleTrigger>

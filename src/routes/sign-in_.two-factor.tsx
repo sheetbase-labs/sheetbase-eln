@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { parseTwoFactorSearch } from './-sign-in-search'
 
 import { Button } from '#/components/ui/button'
 import { Notice } from '#/components/ui/alert'
@@ -16,9 +17,7 @@ import { t } from '#/copy'
  * sign-in screen uses.
  */
 export const Route = createFileRoute('/sign-in_/two-factor')({
-  validateSearch: (search: Record<string, unknown>): { next?: string } => ({
-    next: safeNextPath(search.next),
-  }),
+  validateSearch: parseTwoFactorSearch,
   component: TwoFactorPrompt,
 })
 
@@ -42,16 +41,22 @@ export function TwoFactorSurface({
     event.preventDefault()
     setBusy(true)
     setError(null)
-    const failure = await verify({ code: code.replace(/\s/g, ''), backup })
-    setBusy(false)
 
-    if (failure) {
-      setError(failure)
+    try {
+      const failure = await verify({ code: code.replace(/\s/g, ''), backup })
 
-      return
+      if (failure) {
+        setError(failure)
+
+        return
+      }
+
+      onSignedIn(safeNextPath(next) ?? '/')
+    } catch {
+      setError(t('settings.signIn.twoFactor.couldReachSheetbase'))
+    } finally {
+      setBusy(false)
     }
-
-    onSignedIn(safeNextPath(next) ?? '/')
   }
 
   return (
@@ -87,6 +92,7 @@ export function TwoFactorSurface({
               name="code"
               inputMode={backup ? 'text' : 'numeric'}
               autoComplete="one-time-code"
+              // react-doctor-disable-next-line react-doctor/no-autofocus -- This explicit second authentication step has one labelled challenge input.
               autoFocus
               required
               value={code}
@@ -118,6 +124,8 @@ export function TwoFactorSurface({
               ? t('settings.signIn.twoFactor.useMyAuthenticator')
               : t('settings.signIn.twoFactor.useBackupCode')}
           </button>
+          {/* A full document restart refreshes root auth context and client session state. */}
+          {/* react-doctor-disable-next-line react-doctor/tanstack-start-no-anchor-element -- Authentication recovery requires a full document restart, not cached router context. */}
           <a className="text-label text-fg-muted" href="/sign-in">
             {t('settings.signIn.twoFactor.startAgain')}
           </a>

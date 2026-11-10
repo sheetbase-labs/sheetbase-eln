@@ -3,6 +3,9 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+import { z } from 'zod'
+import { parseSignInSearch } from './-sign-in-search'
+import type { SignInState } from './-sign-in-search'
 
 import { describeSignInError } from '#/lib/auth-errors'
 import {
@@ -52,16 +55,6 @@ import { rich, t } from '#/copy'
  * same-origin path the SSO callback returns to. `SignInSurface` is exported
  * for component tests.
  */
-export const states = [
-  'signed-out',
-  'expired-signing',
-  'locked',
-  'password',
-  'sso-only',
-] as const
-
-export type SignInState = (typeof states)[number]
-
 const getSignInState = createServerFn({ method: 'GET' }).handler(async () => {
   // Server-only module (reads process env and the DB client); a static import
   // would pull it into the browser bundle, so it is loaded inside the handler.
@@ -78,15 +71,7 @@ const getSignInState = createServerFn({ method: 'GET' }).handler(async () => {
 })
 
 export const Route = createFileRoute('/sign-in')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { state?: SignInState; next?: string; error?: string } => ({
-    state: (states as readonly string[]).includes(search.state as string)
-      ? (search.state as SignInState)
-      : undefined,
-    next: safeNextPath(search.next),
-    error: typeof search.error === 'string' ? search.error : undefined,
-  }),
+  validateSearch: parseSignInSearch,
   loader: () => getSignInState(),
   component: SignIn,
 })
@@ -124,18 +109,11 @@ export interface SignInSurfaceProps {
   retainedDrafts: number
 }
 
-export function SignInSurface({
-  state,
+function useSignInActions({
   next,
-  error,
-  devAuthFree,
-  githubEnabled,
-  oidcName = null,
-  samlName = null,
-  emailLinkEnabled = false,
-  release,
-  retainedDrafts,
-}: SignInSurfaceProps) {
+  oidcName,
+  samlName,
+}: Pick<SignInSurfaceProps, 'next' | 'oidcName' | 'samlName'>) {
   const [redirecting, setRedirecting] = useState<
     'github' | 'oidc' | 'saml' | null
   >(null)
@@ -148,15 +126,6 @@ export function SignInSurface({
   const [linkState, setLinkState] = useState<'idle' | 'sending' | 'sent'>(
     'idle',
   )
-
-  const message = describeSignInError(error)
-
-  const title =
-    state === 'signed-out'
-      ? t('settings.signIn.signedOut')
-      : state === 'expired-signing'
-        ? t('settings.signIn.signAgainFinish')
-        : t('settings.signIn.signInTitle')
 
   async function sso(method: 'github' | 'oidc' | 'saml') {
     const provider =
@@ -191,7 +160,9 @@ export function SignInSurface({
               body: JSON.stringify({ provider: method, callbackURL }),
             })
 
-      const data = (await res.json()) as { url?: string }
+      const data = z
+        .object({ url: z.string().optional() })
+        .parse(await res.json())
 
       if (data.url) {
         window.location.href = data.url
@@ -210,16 +181,22 @@ export function SignInSurface({
   async function signInWithPasskey() {
     setPasskeyBusy(true)
     setSsoError(null)
-    const { error: failure } = await authClient.signIn.passkey()
 
-    if (failure) {
+    try {
+      const { error: failure } = await authClient.signIn.passkey()
+
+      if (failure) {
+        setSsoError(t('people.passkeys.signInFailed'))
+
+        return
+      }
+
+      window.location.href = safeNextPath(next) ?? '/'
+    } catch {
       setSsoError(t('people.passkeys.signInFailed'))
+    } finally {
       setPasskeyBusy(false)
-
-      return
     }
-
-    window.location.href = safeNextPath(next) ?? '/'
   }
 
   async function sendLink(event: FormEvent) {
@@ -247,6 +224,42 @@ export function SignInSurface({
     }
   }
 
+  return {
+    redirecting,
+    ssoError,
+    passkeyBusy,
+    passkeysSupported,
+    email,
+    setEmail,
+    linkState,
+    sso,
+    signInWithPasskey,
+    sendLink,
+  }
+}
+
+export function SignInSurface({
+  state,
+  next,
+  error,
+  devAuthFree,
+  githubEnabled,
+  oidcName = null,
+  samlName = null,
+  emailLinkEnabled = false,
+  release,
+  retainedDrafts,
+}: SignInSurfaceProps) {
+  const actions = useSignInActions({ next, oidcName, samlName })
+  const message = describeSignInError(error)
+
+  const title =
+    state === 'signed-out'
+      ? t('settings.signIn.signedOut')
+      : state === 'expired-signing'
+        ? t('settings.signIn.signAgainFinish')
+        : t('settings.signIn.signInTitle')
+
   const anyMethod =
     githubEnabled || oidcName !== null || samlName !== null || emailLinkEnabled
 
@@ -271,28 +284,11 @@ export function SignInSurface({
               </h1>
             </div>
 
-            {ssoError || message ? (
-              <Notice tone="bad">{ssoError ?? message}</Notice>
+            {actions.ssoError || message ? (
+              <Notice tone="bad">{actions.ssoError ?? message}</Notice>
             ) : null}
 
-            {state === 'signed-out' ? (
-              <SignedOutSurface retained={retainedDrafts} />
-            ) : state === 'expired-signing' ? (
-              <Notice tone="warn" title={t('settings.signIn.recordWasnSigned')}>
-                {t('settings.signIn.sessionEndedWhile')}
-              </Notice>
-            ) : state === 'locked' ? (
-              <Notice tone="warn" title={t('settings.signIn.nothingUnlock')}>
-                {t('settings.signIn.sheetbaseSignsCompany')}
-              </Notice>
-            ) : state === 'password' ? (
-              <Notice
-                tone="info"
-                title={t('settings.signIn.passwordSignAvailable')}
-              >
-                {t('settings.signIn.sheetbaseSignsCompany2')}
-              </Notice>
-            ) : null}
+            <SignInStateNotice state={state} retainedDrafts={retainedDrafts} />
 
             {devAuthFree ? (
               <div className="flex flex-col gap-2">
@@ -317,125 +313,13 @@ export function SignInSurface({
               </div>
             ) : anyMethod ? (
               <>
-                <div className="flex flex-col gap-2">
-                  {oidcName !== null ? (
-                    <Button
-                      variant="primary"
-                      size="lg"
-                      className="w-full"
-                      disabled={redirecting !== null}
-                      onClick={() => void sso('oidc')}
-                    >
-                      {redirecting === 'oidc' ? (
-                        <Icon name="clock" size={16} />
-                      ) : null}
-                      {redirecting === 'oidc'
-                        ? t('settings.signIn.redirecting', { oidcName })
-                        : t('settings.signIn.continue', { oidcName })}
-                    </Button>
-                  ) : null}
-                  {samlName !== null ? (
-                    <Button
-                      variant={oidcName !== null ? 'secondary' : 'primary'}
-                      size="lg"
-                      className="w-full"
-                      disabled={redirecting !== null}
-                      onClick={() => void sso('saml')}
-                    >
-                      {redirecting === 'saml' ? (
-                        <Icon name="clock" size={16} />
-                      ) : null}
-                      {redirecting === 'saml'
-                        ? t('settings.signIn.redirecting', {
-                            oidcName: samlName,
-                          })
-                        : t('settings.signIn.continue', { oidcName: samlName })}
-                    </Button>
-                  ) : null}
-                  {githubEnabled ? (
-                    <Button
-                      variant={
-                        oidcName !== null || samlName !== null
-                          ? 'secondary'
-                          : 'primary'
-                      }
-                      size="lg"
-                      className="w-full"
-                      disabled={redirecting !== null}
-                      onClick={() => void sso('github')}
-                    >
-                      {redirecting === 'github' ? (
-                        <Icon name="clock" size={16} />
-                      ) : (
-                        <ProviderGlyph />
-                      )}
-                      {redirecting === 'github'
-                        ? t('settings.signIn.redirectingGithub')
-                        : t('settings.signIn.continueGithub')}
-                    </Button>
-                  ) : null}
-                  {githubEnabled || oidcName !== null || samlName !== null ? (
-                    <p className="m-0 text-center text-label text-fg-muted">
-                      {t('settings.signIn.useCompanyAccount')}
-                    </p>
-                  ) : null}
-                  {passkeysSupported ? (
-                    <Button
-                      variant="secondary"
-                      size="lg"
-                      className="w-full"
-                      disabled={redirecting !== null || passkeyBusy}
-                      onClick={() => void signInWithPasskey()}
-                    >
-                      <Icon name="key" size={16} />
-                      {passkeyBusy
-                        ? t('people.passkeys.signingIn')
-                        : t('people.passkeys.signIn')}
-                    </Button>
-                  ) : null}
-                </div>
-                {emailLinkEnabled ? (
-                  linkState === 'sent' ? (
-                    <Notice tone="info" title={t('settings.signIn.checkEmail')}>
-                      {t('settings.signIn.signSheetbaseOne', {
-                        email: email.trim(),
-                      })}
-                    </Notice>
-                  ) : (
-                    <form
-                      className="flex flex-col gap-2 border-t border-border-subtle pt-3"
-                      onSubmit={(event) => void sendLink(event)}
-                    >
-                      <label
-                        htmlFor="sign-in-email"
-                        className="text-label text-fg-muted"
-                      >
-                        {t('settings.signIn.signEmailedLink')}
-                      </label>
-                      <input
-                        id="sign-in-email"
-                        type="email"
-                        name="email"
-                        autoComplete="email"
-                        required
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        className="h-9 rounded-md border border-border bg-surface px-3 text-body"
-                      />
-                      <Button
-                        type="submit"
-                        variant="secondary"
-                        size="lg"
-                        className="w-full"
-                        disabled={linkState === 'sending' || !email.trim()}
-                      >
-                        {linkState === 'sending'
-                          ? t('settings.signIn.sending')
-                          : t('settings.signIn.emailMeSign')}
-                      </Button>
-                    </form>
-                  )
-                ) : null}
+                <ProviderButtons
+                  oidcName={oidcName}
+                  samlName={samlName}
+                  githubEnabled={githubEnabled}
+                  actions={actions}
+                />
+                {emailLinkEnabled ? <EmailLinkForm actions={actions} /> : null}
                 <p className="m-0 border-t border-border-subtle pt-3 text-label text-fg-muted">
                   {t('settings.signIn.invitedWorkspaceSign')}
                 </p>
@@ -451,38 +335,196 @@ export function SignInSurface({
           </p>
         </div>
       </main>
-      <footer className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-border px-4 py-3 text-center text-caption text-fg-muted">
-        <span>
-          {rich('settings.signIn.releaseLine', {
-            version: <span className="mono">{release?.version ?? '—'}</span>,
-            label:
-              release?.validation.label ??
-              t('settings.signIn.developmentBuild'),
-          })}
-        </span>
-        <span aria-hidden="true" className="max-md:hidden">
-          ·
-        </span>
-        {/* An open environment is not an authorised-users-only controlled
-            system, so the release statement describes the released product
-            only where this deployment actually enforces it. */}
-        {devAuthFree ? (
-          <span>{t('settings.signIn.openPreviewEnvironment')}</span>
-        ) : (
-          <>
-            <span>
-              {release?.statement ??
-                '21 CFR Part 11 / EU GMP Annex 11 controlled system'}
-            </span>
-            <span aria-hidden="true" className="max-md:hidden">
-              ·
-            </span>
-            <span>{t('settings.signIn.authorisedUsersOnly')}</span>
-          </>
-        )}
-      </footer>
+      <SignInRelease release={release} devAuthFree={devAuthFree} />
     </div>
   )
+}
+
+function SignInRelease({
+  release,
+  devAuthFree,
+}: Pick<SignInSurfaceProps, 'release' | 'devAuthFree'>) {
+  return (
+    <footer className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-border px-4 py-3 text-center text-caption text-fg-muted">
+      <span>
+        {rich('settings.signIn.releaseLine', {
+          version: <span className="mono">{release?.version ?? '—'}</span>,
+          label:
+            release?.validation.label ?? t('settings.signIn.developmentBuild'),
+        })}
+      </span>
+      <span aria-hidden="true" className="max-md:hidden">
+        ·
+      </span>
+      {/* An open environment is not an authorised-users-only controlled
+        system, so the release statement describes the released product
+        only where this deployment actually enforces it. */}
+      {devAuthFree ? (
+        <span>{t('settings.signIn.openPreviewEnvironment')}</span>
+      ) : (
+        <>
+          <span>
+            {release?.statement ??
+              '21 CFR Part 11 / EU GMP Annex 11 controlled system'}
+          </span>
+          <span aria-hidden="true" className="max-md:hidden">
+            ·
+          </span>
+          <span>{t('settings.signIn.authorisedUsersOnly')}</span>
+        </>
+      )}
+    </footer>
+  )
+}
+
+function ProviderButtons({
+  oidcName,
+  samlName,
+  githubEnabled,
+  actions,
+}: {
+  oidcName: string | null
+  samlName: string | null
+  githubEnabled: boolean
+  actions: ReturnType<typeof useSignInActions>
+}) {
+  const providers: {
+    method: NonNullable<typeof actions.redirecting>
+    name: string
+  }[] = []
+
+  if (oidcName !== null) providers.push({ method: 'oidc', name: oidcName })
+
+  if (samlName !== null) providers.push({ method: 'saml', name: samlName })
+
+  if (githubEnabled) providers.push({ method: 'github', name: 'GitHub' })
+
+  return (
+    <div className="flex flex-col gap-2">
+      {providers.map(({ method, name }, index) => (
+        <Button
+          key={method}
+          variant={index === 0 ? 'primary' : 'secondary'}
+          size="lg"
+          className="w-full"
+          disabled={actions.redirecting !== null}
+          onClick={() => void actions.sso(method)}
+        >
+          {actions.redirecting === method ? (
+            <Icon name="clock" size={16} />
+          ) : method === 'github' ? (
+            <ProviderGlyph />
+          ) : null}
+          {method === 'github'
+            ? t(
+                actions.redirecting === method
+                  ? 'settings.signIn.redirectingGithub'
+                  : 'settings.signIn.continueGithub',
+              )
+            : t(
+                actions.redirecting === method
+                  ? 'settings.signIn.redirecting'
+                  : 'settings.signIn.continue',
+                { oidcName: name },
+              )}
+        </Button>
+      ))}
+      {providers.length > 0 ? (
+        <p className="m-0 text-center text-label text-fg-muted">
+          {t('settings.signIn.useCompanyAccount')}
+        </p>
+      ) : null}
+      {actions.passkeysSupported ? (
+        <Button
+          variant="secondary"
+          size="lg"
+          className="w-full"
+          disabled={actions.redirecting !== null || actions.passkeyBusy}
+          onClick={() => void actions.signInWithPasskey()}
+        >
+          <Icon name="key" size={16} />
+          {actions.passkeyBusy
+            ? t('people.passkeys.signingIn')
+            : t('people.passkeys.signIn')}
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+function EmailLinkForm({
+  actions,
+}: {
+  actions: ReturnType<typeof useSignInActions>
+}) {
+  if (actions.linkState === 'sent')
+    return (
+      <Notice tone="info" title={t('settings.signIn.checkEmail')}>
+        {t('settings.signIn.signSheetbaseOne', { email: actions.email.trim() })}
+      </Notice>
+    )
+
+  return (
+    <form
+      className="flex flex-col gap-2 border-t border-border-subtle pt-3"
+      onSubmit={(event) => void actions.sendLink(event)}
+    >
+      <label htmlFor="sign-in-email" className="text-label text-fg-muted">
+        {t('settings.signIn.signEmailedLink')}
+      </label>
+      <input
+        id="sign-in-email"
+        type="email"
+        name="email"
+        autoComplete="email"
+        required
+        value={actions.email}
+        onChange={(event) => actions.setEmail(event.target.value)}
+        className="h-9 rounded-md border border-border bg-surface px-3 text-body"
+      />
+      <Button
+        type="submit"
+        variant="secondary"
+        size="lg"
+        className="w-full"
+        disabled={actions.linkState === 'sending' || !actions.email.trim()}
+      >
+        {actions.linkState === 'sending'
+          ? t('settings.signIn.sending')
+          : t('settings.signIn.emailMeSign')}
+      </Button>
+    </form>
+  )
+}
+
+function SignInStateNotice({
+  state,
+  retainedDrafts,
+}: Pick<SignInSurfaceProps, 'state' | 'retainedDrafts'>) {
+  switch (state) {
+    case 'signed-out':
+      return <SignedOutSurface retained={retainedDrafts} />
+    case 'expired-signing':
+      return (
+        <Notice tone="warn" title={t('settings.signIn.recordWasnSigned')}>
+          {t('settings.signIn.sessionEndedWhile')}
+        </Notice>
+      )
+    case 'locked':
+      return (
+        <Notice tone="warn" title={t('settings.signIn.nothingUnlock')}>
+          {t('settings.signIn.sheetbaseSignsCompany')}
+        </Notice>
+      )
+    case 'password':
+      return (
+        <Notice tone="info" title={t('settings.signIn.passwordSignAvailable')}>
+          {t('settings.signIn.sheetbaseSignsCompany2')}
+        </Notice>
+      )
+    default:
+      return null
+  }
 }
 
 function SignIn() {

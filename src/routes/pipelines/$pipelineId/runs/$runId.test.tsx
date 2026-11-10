@@ -3,7 +3,9 @@
  * the typed form controls to answer it; an answered prompt shows the answer and
  * who gave it; a run with no prompt renders nothing fabricated.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { RouterProvider } from '@tanstack/react-router'
+import { z } from 'zod'
 import {
   cleanup,
   fireEvent,
@@ -12,19 +14,20 @@ import {
   waitFor,
   within,
 } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './$runId'
-import type * as pipelineDataModule from '#/components/pipelines/pipelines-data'
+import { pipelineTestRouter, routeQueryClient } from '../../-route-test-support'
+import { pipelineDataQueryKeys } from '#/components/pipelines/pipelines-data'
 import type { PipelineRunDeliveryWire } from '#/components/pipelines/pipelines-data'
-import type * as pipelineLibData from '#/lib/pipelines/data'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
+import { dropSharedReads } from '#/lib/data-client'
+import { Toaster } from '#/components/ui/sonner'
 import type {
   PipelineRunOutputWire,
   PipelineRunPromptWire,
   PipelineRunWire,
 } from '#/lib/pipelines/types'
-
-const RunPage = Route.options.component as React.ComponentType
 
 interface RunPageState {
   run: PipelineRunWire | null
@@ -38,7 +41,7 @@ interface RunPageState {
   versions: Array<{ id: string; version: number; lifecycle?: string }>
 }
 
-const state = vi.hoisted((): RunPageState => ({
+const state: RunPageState = {
   run: null,
   prompts: [],
   memberNames: {},
@@ -47,77 +50,61 @@ const state = vi.hoisted((): RunPageState => ({
   runError: false,
   refetch: () => {},
   versions: [{ id: 'v-1', version: 5 }],
-}))
+}
 
-const dataLayer = vi.hoisted(() => ({
-  answer: vi.fn(),
-  cancel: vi.fn(),
-  launch: vi.fn(),
-}))
+const transport = vi.hoisted(() => {
+  const request = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', request)
 
-const notifications = vi.hoisted(() => ({
-  toast: vi.fn(),
-  error: vi.fn(),
-}))
+  return request
+})
 
-vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useParams: () => ({ pipelineId: 'PL-0003', runId: 'run-1' }),
-    useRouteContext: () => ({ context: { workspace: { role: 'owner' } } }),
-    options: config,
-  }),
-  Link: ({ children }: { children: React.ReactNode }) => (
-    <a href="#">{children}</a>
-  ),
-  useNavigate: () => vi.fn(),
-}))
+const requests =
+  vi.fn<
+    (
+      path: string,
+      body: ReturnType<typeof pipelineJsonObjectSchema.parse>,
+    ) => void
+  >()
 
-vi.mock('#/components/pipelines/use-run-launcher', () => ({
-  useRunLauncher: () => ({
-    launch: dataLayer.launch,
-    pending: false,
-    dialog: null,
-  }),
-}))
+let router: Awaited<ReturnType<typeof pipelineTestRouter>>
 
-vi.mock('#/components/ui/sonner', () => ({
-  toast: Object.assign(notifications.toast, { error: notifications.error }),
-}))
+beforeEach(async () => {
+  router = await pipelineTestRouter(
+    Route.options.component,
+    '/pipelines/$pipelineId/runs/$runId',
+    '/pipelines/PL-0003/runs/run-1',
+  )
+  vi.stubGlobal('fetch', transport)
+  transport.mockImplementation(async (input, init) => {
+    const url = new URL(
+      input instanceof Request ? input.url : String(input),
+      'http://localhost',
+    )
 
-vi.mock('#/lib/pipelines/data', async (importOriginal) => ({
-  ...(await importOriginal<typeof pipelineLibData>()),
-  answerPipelineRunPrompt: dataLayer.answer,
-  cancelPipelineRun: dataLayer.cancel,
-}))
+    if (init?.method === 'POST') {
+      requests(
+        url.pathname,
+        pipelineJsonObjectSchema.parse(JSON.parse(z.string().parse(init.body))),
+      )
 
-vi.mock('#/components/pipelines/pipelines-data', async (importOriginal) => ({
-  ...(await importOriginal<typeof pipelineDataModule>()),
-  usePipelineRun: () => ({
-    data: state.run,
-    isLoading: false,
-    isError: state.runError,
-    error: state.runError ? new Error('network') : null,
-    refetch: state.refetch,
-  }),
-  useRunLogs: () => ({ data: [] }),
-  useRunOutputs: () => ({ data: state.outputs }),
-  useDatasetNames: () => ({
-    data: { 'ds-1': 'DS-0001 · Viability summary' },
-  }),
-  useRunPrompts: () => ({
-    data: state.prompts,
-    isLoading: state.promptsLoading,
-  }),
-  useRunDeliveries: () => ({
-    data: state.deliveries,
-    isLoading: false,
-  }),
-  useWorkspaceMemberNames: () => ({ data: state.memberNames }),
-  usePipelineDefinition: () => ({ data: { key: 'qc-daily' } }),
-  usePipelineVersions: () => ({
-    data: state.versions,
-  }),
-}))
+      return Response.json(run())
+    }
+
+    if (url.pathname === '/api/pipelines/execute')
+      return Response.json({ run: state.run ?? run(), job: null })
+
+    if (url.pathname === '/api/db/pipeline_runs') {
+      state.refetch()
+
+      return state.runError
+        ? Response.json({ message: 'network' }, { status: 500 })
+        : Response.json(state.run ? [state.run] : [])
+    }
+
+    return Response.json([])
+  })
+})
 
 function run(overrides: Partial<PipelineRunWire> = {}): PipelineRunWire {
   return {
@@ -188,13 +175,57 @@ function prompt(
 }
 
 function renderRun() {
+  const client = routeQueryClient()
+  client.setQueryData(pipelineDataQueryKeys.run('run-1'), state.run)
+
+  if (state.runError) {
+    client
+      .getQueryCache()
+      .find({ queryKey: pipelineDataQueryKeys.run('run-1') })
+      ?.setState({ status: 'error', error: new Error('network') })
+  }
+
+  client.setQueryData(pipelineDataQueryKeys.runLogs('run-1'), [])
+  client.setQueryData(pipelineDataQueryKeys.runOutputs('run-1'), state.outputs)
+  client.setQueryData(
+    [
+      'ui-port',
+      'pipelines',
+      'dataset-names',
+      state.outputs.map((output) => output.dataset_id),
+    ],
+    { 'ds-1': 'DS-0001 · Viability summary' },
+  )
+
+  if (!state.promptsLoading)
+    client.setQueryData(
+      pipelineDataQueryKeys.runPrompts('run-1'),
+      state.prompts,
+    )
+  else
+    client.setQueryDefaults(pipelineDataQueryKeys.runPrompts('run-1'), {
+      queryFn: () => new Promise(() => {}),
+    })
+  client.setQueryData(
+    pipelineDataQueryKeys.runDeliveries('run-1'),
+    state.deliveries,
+  )
+  client.setQueryData(
+    ['ui-port', 'pipelines', 'member-names'],
+    state.memberNames,
+  )
+  client.setQueryData(pipelineDataQueryKeys.definition('PL-0003'), {
+    key: 'qc-daily',
+  })
+  client.setQueryData(
+    pipelineDataQueryKeys.versions('PL-0003'),
+    state.versions.map((version) => ({ ...version, configuration: {} })),
+  )
+
   return render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
-      <RunPage />
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+      <Toaster />
     </QueryClientProvider>,
   )
 }
@@ -220,10 +251,10 @@ function delivery(
 
 afterEach(() => {
   cleanup()
-  dataLayer.answer.mockReset()
-  dataLayer.cancel.mockReset()
-  notifications.toast.mockReset()
-  notifications.error.mockReset()
+  requests.mockClear()
+  transport.mockClear()
+  vi.unstubAllGlobals()
+  dropSharedReads()
   state.run = null
   state.versions = [{ id: 'v-1', version: 5 }]
   state.prompts = []
@@ -232,7 +263,6 @@ afterEach(() => {
   state.deliveries = []
   state.outputs = []
   state.runError = false
-  dataLayer.launch.mockReset()
 })
 
 describe('a waiting run', () => {
@@ -277,18 +307,19 @@ describe('a waiting run', () => {
     fireEvent.click(getByRole('button', { name: 'Confirm and continue' }))
 
     await waitFor(() =>
-      expect(dataLayer.answer).toHaveBeenCalledWith('run-1', {
-        decision: 'confirm',
-        values: { glucose: 'g/L', osmolality: '300' },
-        reason: 'Units dropped by the parser.',
+      expect(requests).toHaveBeenCalledWith('/api/pipelines/execute', {
+        runId: 'run-1',
+        answer: {
+          decision: 'confirm',
+          values: { glucose: 'g/L', osmolality: '300' },
+          reason: 'Units dropped by the parser.',
+        },
       }),
     )
     // A confirm decision resumes the run.
-    await waitFor(() =>
-      expect(notifications.toast).toHaveBeenCalledWith(
-        'Answer recorded — the run is resuming.',
-      ),
-    )
+    expect(
+      await screen.findByText('Answer recorded — the run is resuming.'),
+    ).toBeTruthy()
   })
 
   it('says the run stopped when the decision is Stop', async () => {
@@ -299,17 +330,22 @@ describe('a waiting run', () => {
     fireEvent.click(getByRole('button', { name: 'Stop run' }))
 
     await waitFor(() =>
-      expect(dataLayer.answer).toHaveBeenCalledWith('run-1', {
-        decision: 'stop',
-        values: {},
-        reason: undefined,
+      expect(requests).toHaveBeenCalledWith('/api/pipelines/execute', {
+        runId: 'run-1',
+        answer: {
+          decision: 'stop',
+          values: {},
+        },
       }),
     )
-    await waitFor(() =>
-      expect(notifications.toast).toHaveBeenCalledWith(
-        'Answer recorded — the run stopped',
-      ),
-    )
+    expect(
+      requests.mock.calls.find(
+        ([path]) => path === '/api/pipelines/execute',
+      )?.[1],
+    ).not.toHaveProperty('answer.reason')
+    expect(
+      await screen.findByText('Answer recorded — the run stopped'),
+    ).toBeTruthy()
   })
 })
 
@@ -384,9 +420,9 @@ describe('stopping a run', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel run' }))
 
     await waitFor(() =>
-      expect(dataLayer.cancel).toHaveBeenCalledWith(expect.anything(), {
-        workspaceId: 'ws-7',
-        runId: 'run-1',
+      expect(requests).toHaveBeenCalledWith('/api/db/rpc/cancel_pipeline_run', {
+        p_workspace_id: 'ws-7',
+        p_run_id: 'run-1',
       }),
     )
   })
@@ -465,7 +501,7 @@ describe('the run’s notification deliveries', () => {
     ).toBeNull()
   })
 
-  it('retries a failed run as a linked run on the same version and inputs', () => {
+  it('retries a failed run as a linked run on the same version and inputs', async () => {
     state.run = run({
       status: 'failed',
       error_code: 'missing_input',
@@ -475,18 +511,19 @@ describe('the run’s notification deliveries', () => {
     renderRun()
     expect(screen.getByText(/missing input: readings/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Try this run again' }))
-    expect(dataLayer.launch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        version: { id: 'v-1', version: 5 },
-        retryOf: expect.objectContaining({
-          id: 'run-1',
-          input_versions: { readings: 'dv-1' },
+    await waitFor(() =>
+      expect(requests).toHaveBeenCalledWith(
+        '/api/db/rpc/start_pipeline_run',
+        expect.objectContaining({
+          p_definition_version_id: 'v-1',
+          p_retry_of_run_id: 'run-1',
+          p_input_versions: { readings: 'dv-1' },
         }),
-      }),
+      ),
     )
   })
 
-  it('offers the same inputs on the current version when a newer one is published', () => {
+  it('offers the same inputs on the current version when a newer one is published', async () => {
     state.versions = [
       { id: 'v-2', version: 6, lifecycle: 'published' },
       { id: 'v-1', version: 5, lifecycle: 'retired' },
@@ -500,15 +537,20 @@ describe('the run’s notification deliveries', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Try again on current version (v6)' }),
     )
-    expect(dataLayer.launch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        version: expect.objectContaining({ id: 'v-2' }),
-        rerunOn: expect.objectContaining({
-          input_versions: { readings: 'dv-1' },
+    await waitFor(() =>
+      expect(requests).toHaveBeenCalledWith(
+        '/api/db/rpc/start_pipeline_run',
+        expect.objectContaining({
+          p_definition_version_id: 'v-2',
+          p_input_versions: { readings: 'dv-1' },
         }),
-      }),
+      ),
     )
-    expect(dataLayer.launch.mock.calls[0]?.[0]).not.toHaveProperty('retryOf')
+    expect(
+      requests.mock.calls.find(
+        ([path]) => path === '/api/db/rpc/start_pipeline_run',
+      )?.[1].p_retry_of_run_id,
+    ).toBeNull()
   })
 
   it('offers to add a succeeded run to a notebook, and not a failed one', () => {
@@ -607,7 +649,7 @@ describe('the run’s notification deliveries', () => {
     ).toBeNull()
   })
 
-  it('says a missing run was not found, and a failed read can be retried', () => {
+  it('says a missing run was not found, and a failed read can be retried', async () => {
     renderRun()
     expect(screen.getByText('This run wasn’t found.')).toBeTruthy()
     cleanup()
@@ -617,6 +659,6 @@ describe('the run’s notification deliveries', () => {
     renderRun()
     expect(screen.queryByText('This run wasn’t found.')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
-    expect(refetch).toHaveBeenCalled()
+    await waitFor(() => expect(refetch).toHaveBeenCalled())
   })
 })

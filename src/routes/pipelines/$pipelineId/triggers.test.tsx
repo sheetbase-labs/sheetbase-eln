@@ -5,33 +5,54 @@
  * raw jsonb — and a timed trigger whose spec cannot be read has no next run, so
  * the page states that it will not fire instead of showing a blank cell.
  */
-import { createElement } from 'react'
-import type { ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { RouterProvider } from '@tanstack/react-router'
+import { z } from 'zod'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { Route, scheduleParametersLabel, scheduleSpecLabel } from './triggers'
+import { Route } from './triggers'
+import { scheduleParametersLabel, scheduleSpecLabel } from '../-schedule-labels'
+import { pipelineTestRouter, routeQueryClient } from '../-route-test-support'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
-import type * as pipelinesDataModule from '#/components/pipelines/pipelines-data'
-import type * as PipelineData from '#/lib/pipelines/data'
+import { pipelineDataQueryKeys } from '#/components/pipelines/pipelines-data'
+import type { PipelineParameter } from '#/lib/pipelines/config'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
+import { dropSharedReads } from '#/lib/data-client'
 import type {
-  PipelineDefinitionVersionWire,
   PipelineScheduleWire,
+  PipelineRunWire,
 } from '#/lib/pipelines/types'
 
-const PipelineTriggers = Route.options.component as React.ComponentType
+interface TriggersFixture {
+  schedules: PipelineScheduleWire[]
+  published: boolean
+  inputNames: string[]
+  parameters: PipelineParameter[]
+  created: Array<ReturnType<typeof pipelineJsonObjectSchema.parse>>
+  updated: Array<ReturnType<typeof pipelineJsonObjectSchema.parse>>
+  latestRuns: Map<string, Pick<PipelineRunWire, 'id' | 'status' | 'started_at'>>
+}
 
-const state = vi.hoisted(() => ({
-  schedules: [] as PipelineScheduleWire[],
+const state: TriggersFixture = {
+  schedules: [],
   // A published version by default: a trigger on such a pipeline can fire.
   published: true,
-  inputNames: [] as string[],
-  parameters: [] as Array<Record<string, unknown>>,
-  created: [] as Array<Record<string, unknown>>,
-  updated: [] as Array<Record<string, unknown>>,
-  latestRuns: new Map<string, Record<string, unknown>>(),
-}))
+  inputNames: [],
+  parameters: [],
+  created: [],
+  updated: [],
+  latestRuns: new Map(),
+}
+
+const transport = vi.hoisted(() => {
+  const request = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', request)
+
+  return request
+})
+
+let router: Awaited<ReturnType<typeof pipelineTestRouter>>
 
 // jsdom reports no layout, so the grid's virtualiser would render no rows: give
 // every element the viewport a browser would report for the list area.
@@ -42,61 +63,51 @@ for (const prop of ['offsetHeight', 'clientHeight'] as const) {
   })
 }
 
-vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useParams: () => ({ pipelineId: 'def-1' }),
-    useRouteContext: () => ({ context: { workspace: { id: 'ws-1' } } }),
-    options: config,
-  }),
-  Link: ({
-    children,
-    params,
-  }: {
-    children: React.ReactNode
-    params?: { runId?: string }
-  }) => createElement('a', { href: `/runs/${params?.runId}` }, children),
-}))
+beforeEach(async () => {
+  router = await pipelineTestRouter(
+    Route.options.component,
+    '/pipelines/$pipelineId/triggers',
+    '/pipelines/def-1/triggers',
+  )
+  vi.stubGlobal('fetch', transport)
+  transport.mockImplementation(async (input, init) => {
+    const url = new URL(
+      input instanceof Request ? input.url : String(input),
+      'http://localhost',
+    )
 
-vi.mock('#/lib/pipelines/data', async (importOriginal) => ({
-  ...(await importOriginal<typeof PipelineData>()),
-  createPipelineSchedule: (
-    _client: unknown,
-    input: Record<string, unknown>,
-  ) => {
-    state.created.push(input)
+    if (
+      url.pathname.endsWith('create_pipeline_schedule') ||
+      url.pathname.endsWith('update_pipeline_schedule')
+    ) {
+      const args = pipelineJsonObjectSchema.parse(
+        JSON.parse(z.string().parse(init?.body)),
+      )
 
-    return Promise.resolve({})
-  },
-  updatePipelineSchedule: (
-    _client: unknown,
-    input: Record<string, unknown>,
-  ) => {
-    state.updated.push(input)
+      const saved = {
+        workspaceId: args.p_workspace_id,
+        scheduleId: args.p_schedule_id,
+        definitionId: args.p_definition_id,
+        kind: args.p_kind,
+        spec: args.p_spec,
+        enabled: args.p_enabled,
+      }
 
-    return Promise.resolve({ enabled: input.enabled ?? true })
-  },
-}))
+      const serialized = JSON.stringify(saved)
 
-vi.mock('#/components/pipelines/pipelines-data', async (importOriginal) => ({
-  ...(await importOriginal<typeof pipelinesDataModule>()),
-  useSchedules: () => ({ data: state.schedules }),
-  useLatestScheduleRuns: () => ({ data: state.latestRuns }),
-  useScheduleRuns: () => ({ data: [], isLoading: false }),
-  useScheduleActivity: () => ({ data: [], isLoading: false }),
-  useDatasetVersionChoices: () => ({ data: [] }),
-  usePipelineVersions: () => ({
-    isSuccess: true,
-    data: [
-      {
-        lifecycle: state.published ? 'published' : 'draft',
-        configuration: {
-          inputs: state.inputNames.map((name) => ({ name })),
-          parameters: state.parameters,
-        },
-      },
-    ] as unknown as PipelineDefinitionVersionWire[],
-  }),
-}))
+      ;(url.pathname.endsWith('create_pipeline_schedule')
+        ? state.created
+        : state.updated
+      ).push(pipelineJsonObjectSchema.parse(JSON.parse(serialized)))
+
+      return Response.json(
+        schedule({ enabled: args.p_enabled === false ? false : true }),
+      )
+    }
+
+    return Response.json([])
+  })
+})
 
 function schedule(
   overrides: Partial<PipelineScheduleWire> = {},
@@ -121,16 +132,33 @@ function schedule(
 }
 
 function renderTriggers() {
-  return render(
-    createElement(
-      QueryClientProvider,
-      {
-        client: new QueryClient({
-          defaultOptions: { queries: { retry: false } },
-        }),
+  const client = routeQueryClient()
+  client.setQueryData(pipelineDataQueryKeys.schedules('def-1'), state.schedules)
+  client.setQueryData(
+    pipelineDataQueryKeys.latestScheduleRuns(
+      state.schedules
+        .map((s) => s.id)
+        .sort()
+        .join(','),
+    ),
+    state.latestRuns,
+  )
+  client.setQueryData(pipelineDataQueryKeys.versions('def-1'), [
+    {
+      id: 'v-1',
+      lifecycle: state.published ? 'published' : 'draft',
+      configuration: {
+        inputs: state.inputNames.map((name) => ({ name, required: false })),
+        parameters: state.parameters,
       },
-      createElement(PipelineTriggers),
-    ) as ReactNode,
+    },
+  ])
+  client.setQueryData(['ui-port', 'pipelines', 'dataset-version-choices'], [])
+
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
   )
 }
 
@@ -143,6 +171,8 @@ afterEach(() => {
   state.created = []
   state.updated = []
   state.latestRuns = new Map()
+  vi.unstubAllGlobals()
+  dropSharedReads()
 })
 
 const noDatasets = new Map<string, string>()
@@ -300,8 +330,12 @@ describe('a schedule the sweep can never fire', () => {
     renderTriggers()
 
     fireEvent.click(screen.getAllByText('New trigger')[0])
-    const field = screen.getByLabelText('Parameter plate_size')
-    expect((field as HTMLInputElement).value).toBe('96')
+
+    const field = screen.getByLabelText<HTMLInputElement>(
+      'Parameter plate_size',
+    )
+
+    expect(field.value).toBe('96')
     fireEvent.change(field, { target: { value: '384' } })
     fireEvent.click(screen.getByText('Add trigger'))
 

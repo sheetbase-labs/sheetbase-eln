@@ -72,10 +72,8 @@ import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
 import { hasCapability } from '#/lib/capability'
-import {
-  useAddedFieldListColumns,
-  withAddedColumns,
-} from '#/components/models/added-fields'
+import { useAddedFieldListColumns } from '#/components/models/added-fields'
+import { withAddedColumns } from '#/components/models/added-field-columns'
 
 const tabs = [
   'all',

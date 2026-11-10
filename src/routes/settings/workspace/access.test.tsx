@@ -1,6 +1,13 @@
 import { choose } from '../../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createMemoryHistory,
+  RouterProvider,
+} from '@tanstack/react-router'
+import {
   cleanup,
   render,
   screen,
@@ -8,9 +15,8 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-
-import { Route } from './access'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 /**
  * SET-02.3 — the access-request audit surface. Approvals must be attributable:
@@ -18,135 +24,193 @@ import { Route } from './access'
  * cannot decide reads as waiting (never granted), and the decision travels
  * through the canonical RPC.
  */
-const { decideMock, setDefaultMock } = vi.hoisted(() => ({
-  decideMock: vi.fn(),
-  setDefaultMock: vi.fn(),
-}))
+const decisionSchema = z.object({
+  p_request_id: z.string(),
+  p_approve: z.boolean(),
+})
 
-vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (options: object) => ({
-    options,
-    useRouteContext: () => ({
+const defaultSchema = z.object({ p_qa_view_group_id: z.string().nullable() })
+const decisions: Array<z.infer<typeof decisionSchema>> = []
+const defaults: Array<z.infer<typeof defaultSchema>> = []
+const firstProjectId = '00000000-0000-4000-8000-0000000000b1'
+const secondProjectId = '00000000-0000-4000-8000-0000000000b2'
+
+vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
+
+  if (url.pathname.endsWith('/decide_project_access_request')) {
+    decisions.push(decisionSchema.parse(await new Response(init?.body).json()))
+
+    return Response.json(null)
+  }
+
+  if (url.pathname.endsWith('/set_project_access_defaults')) {
+    defaults.push(defaultSchema.parse(await new Response(init?.body).json()))
+
+    return Response.json(null)
+  }
+
+  if (url.pathname.endsWith('/workspace_members_list'))
+    return Response.json([
+      { user_id: 'scientist', name: 'Ada Lovelace', role: 'scientist' },
+      { user_id: 'lead', name: 'Grace Hopper', role: 'steward' },
+    ])
+
+  if (url.pathname.endsWith('/project_list_summary'))
+    return Response.json([
+      {
+        id: firstProjectId,
+        key: 'P1',
+        title: 'Virus Stability',
+        status: 'active',
+        updated_at: '2026-09-20',
+        experiment_count: 0,
+      },
+      {
+        id: secondProjectId,
+        key: 'P2',
+        title: 'Water Quality',
+        status: 'active',
+        updated_at: '2026-09-20',
+        experiment_count: 0,
+      },
+    ])
+
+  if (url.pathname.endsWith('/workspace_groups_list'))
+    return Response.json([
+      {
+        id: '00000000-0000-4000-8000-0000000000aa',
+        name: 'QA',
+        member_ids: [],
+      },
+    ])
+
+  if (url.pathname.endsWith('/project_access_defaults'))
+    return Response.json([
+      {
+        private_to_lead: true,
+        qa_view_group_id: null,
+        client_portal_off: true,
+      },
+    ])
+
+  if (url.pathname.endsWith('/my_project_permissions'))
+    return Response.json(
+      [firstProjectId, secondProjectId].map((projectId) => ({
+        project_id: projectId,
+        access_level: projectId === firstProjectId ? 'editor' : 'viewer',
+        can_view: true,
+        can_edit: projectId === firstProjectId,
+        can_review: false,
+        client_portal: false,
+        can_manage: projectId === firstProjectId,
+      })),
+    )
+
+  if (url.pathname.endsWith('/project_access_requests'))
+    return Response.json([
+      {
+        id: '00000000-0000-4000-8000-000000000001',
+        project_id: firstProjectId,
+        user_id: 'scientist',
+        reason: 'QA verification of the turbidity repeat',
+        status: 'pending',
+        created_at: '2026-09-20T09:00:00Z',
+        updated_at: '2026-09-20T09:00:00Z',
+        decided_by_user_id: null,
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000002',
+        project_id: secondProjectId,
+        user_id: 'reader',
+        reason: 'Attach the calibration certificate',
+        status: 'pending',
+        created_at: '2026-09-20T09:05:00Z',
+        updated_at: '2026-09-20T09:05:00Z',
+        decided_by_user_id: null,
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000003',
+        project_id: firstProjectId,
+        user_id: 'scientist',
+        reason: 'Upstream process assessment',
+        status: 'approved',
+        created_at: '2026-09-19T09:00:00Z',
+        updated_at: '2026-09-21T10:30:00Z',
+        decided_by_user_id: 'lead',
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000004',
+        project_id: firstProjectId,
+        user_id: 'reader',
+        reason: 'Read the protocol',
+        status: 'denied',
+        created_at: '2026-09-18T09:00:00Z',
+        updated_at: '2026-09-21T11:00:00Z',
+        decided_by_user_id: 'lead',
+      },
+    ])
+
+  return Response.json([])
+})
+
+const { Route } = await import('./access')
+const { dropSharedReads } = await import('#/lib/data-client')
+const { dataAccessKeys } = await import('#/lib/data-access')
+
+afterEach(() => {
+  cleanup()
+  dropSharedReads()
+  decisions.length = 0
+  defaults.length = 0
+})
+
+afterAll(() => vi.unstubAllGlobals())
+
+function renderAccess() {
+  const Component = Route.options.component
+
+  if (!Component) throw new Error('Access component required')
+
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+
+  client.setQueryData(dataAccessKeys.roles('ws'), [])
+  client.setQueryData(['user-names', ['scientist', 'reader', 'lead']], {
+    scientist: 'Ada Lovelace',
+    reader: 'Reader',
+    lead: 'Grace Hopper',
+  })
+
+  const root = createRootRoute({
+    beforeLoad: () => ({
       context: {
         user: { id: 'reader', name: 'Reader' },
         workspace: { id: 'ws', name: 'Workspace', role: 'admin' },
       },
     }),
-  }),
-}))
+  })
 
-vi.mock('#/components/settings/data-access-roles', () => ({
-  DataAccessRoles: () => null,
-}))
+  const route = createRoute({
+    getParentRoute: () => root,
+    path: '/settings/workspace/access',
+    component: Component,
+  })
 
-vi.mock('#/lib/user-names', () => ({
-  useUserNames: () => ({
-    userLabel: (id: string) =>
-      ({
-        scientist: 'Ada Lovelace',
-        reader: 'Reader',
-        lead: 'Grace Hopper',
-      })[id] ?? id,
-  }),
-}))
+  const router = createRouter({
+    routeTree: root.addChildren([route]),
+    history: createMemoryHistory({
+      initialEntries: ['/settings/workspace/access'],
+    }),
+  })
 
-vi.mock('#/components/projects/project-data', () => ({
-  fetchWorkspaceMemberIdentities: async () => [
-    { user_id: 'scientist', name: 'Ada Lovelace', role: 'scientist' },
-    { user_id: 'lead', name: 'Grace Hopper', role: 'steward' },
-  ],
-  fetchProjectSummaries: async () => [
-    { id: 'p1', title: 'Virus Stability' },
-    { id: 'p2', title: 'Water Quality' },
-  ],
-}))
-
-vi.mock('#/lib/workspace-access', async (importOriginal) => ({
-  ...(await importOriginal()),
-  fetchWorkspaceAccessRules: async () => [],
-  fetchWorkspaceGroups: async () => [
-    { id: '00000000-0000-4000-8000-0000000000aa', name: 'QA', member_ids: [] },
-  ],
-  fetchProjectAccessDefaults: async () => ({
-    private_to_lead: true,
-    qa_view_group_id: null,
-    client_portal_off: true,
-  }),
-  setProjectAccessDefaults: setDefaultMock,
-  fetchMyProjectPermissions: async () =>
-    new Map(
-      ['p1', 'p2'].map((projectId) => [
-        projectId,
-        {
-          can_view: true,
-          can_edit: projectId === 'p1',
-          can_review: false,
-          client_portal: false,
-          can_manage: projectId === 'p1',
-        },
-      ]),
-    ),
-  fetchProjectAccessRequests: async () => [
-    {
-      id: '00000000-0000-4000-8000-000000000001',
-      project_id: 'p1',
-      user_id: 'scientist',
-      reason: 'QA verification of the turbidity repeat',
-      status: 'pending',
-      created_at: '2026-09-20T09:00:00Z',
-      updated_at: '2026-09-20T09:00:00Z',
-      decided_by_user_id: null,
-    },
-    {
-      id: '00000000-0000-4000-8000-000000000002',
-      project_id: 'p2',
-      user_id: 'reader',
-      reason: 'Attach the calibration certificate',
-      status: 'pending',
-      created_at: '2026-09-20T09:05:00Z',
-      updated_at: '2026-09-20T09:05:00Z',
-      decided_by_user_id: null,
-    },
-    {
-      id: '00000000-0000-4000-8000-000000000003',
-      project_id: 'p1',
-      user_id: 'scientist',
-      reason: 'Upstream process assessment',
-      status: 'approved',
-      created_at: '2026-09-19T09:00:00Z',
-      updated_at: '2026-09-21T10:30:00Z',
-      decided_by_user_id: 'lead',
-    },
-    {
-      id: '00000000-0000-4000-8000-000000000004',
-      project_id: 'p1',
-      user_id: 'reader',
-      reason: 'Read the protocol',
-      status: 'denied',
-      created_at: '2026-09-18T09:00:00Z',
-      updated_at: '2026-09-21T11:00:00Z',
-      decided_by_user_id: 'lead',
-    },
-  ],
-  decideProjectAccessRequest: decideMock,
-}))
-
-afterEach(() => {
-  cleanup()
-  decideMock.mockReset()
-  setDefaultMock.mockReset()
-})
-
-function renderAccess() {
-  const Component = Route.options.component
-  if (!Component) throw new Error('Access component required')
   return render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
-      <Component />
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
 }
@@ -154,7 +218,9 @@ function renderAccess() {
 async function rowFor(reason: string): Promise<HTMLElement> {
   const cell = await screen.findByText(reason)
   const row = cell.closest('tr')
+
   if (!row) throw new Error(`Row for ${reason} required`)
+
   return row
 }
 
@@ -196,10 +262,12 @@ describe('SET-02.3 access requests audit', () => {
       }),
     )
     await waitFor(() =>
-      expect(decideMock).toHaveBeenCalledWith(expect.anything(), {
-        requestId: '00000000-0000-4000-8000-000000000001',
-        approve: true,
-      }),
+      expect(decisions).toEqual([
+        {
+          p_request_id: '00000000-0000-4000-8000-000000000001',
+          p_approve: true,
+        },
+      ]),
     )
   })
 })
@@ -210,10 +278,9 @@ describe('default view group for new projects', () => {
     renderAccess()
     await choose(user, 'Default view group for new projects', /QA/)
     await waitFor(() =>
-      expect(setDefaultMock).toHaveBeenCalledWith(
-        expect.anything(),
-        '00000000-0000-4000-8000-0000000000aa',
-      ),
+      expect(defaults).toEqual([
+        { p_qa_view_group_id: '00000000-0000-4000-8000-0000000000aa' },
+      ]),
     )
   })
 

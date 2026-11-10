@@ -65,63 +65,24 @@ const appearanceClient = createDataClient()
 
 /** Every IANA zone the browser knows, for the time zone field's suggestions. */
 function knownTimeZones(): string[] {
-  const supported = (
-    Intl as unknown as { supportedValuesOf?: (key: string) => string[] }
-  ).supportedValuesOf
-  const zones = supported ? supported('timeZone') : []
+  const zones = Intl.supportedValuesOf('timeZone')
+
   return zones.includes('UTC') ? zones : ['UTC', ...zones]
 }
 
 function Profile() {
   const { context } = Route.useRouteContext()
-  const router = useRouter()
   const user = context.user
-  const theme = useTheme()
-  // The local choice applies immediately (this browser's cookie), so a failed
-  // account write must be stated rather than swallowed: the preference then
-  // does not follow the user to another browser.
-  const chooseAppearance = (value: ThemePref) => {
-    theme.setPref(value)
-    void setUserAppearance(appearanceClient, value).catch((error: unknown) => {
-      toast(t('settings.profile.appearanceSavedAccountToast'), {
-        description: t('settings.profile.appliesInBrowserOnly', {
-          reason:
-            error instanceof Error
-              ? error.message
-              : t('settings.profile.databaseRefused'),
-        }),
-      })
-    })
-  }
-  // The clock and the layout bar apply as soon as they are chosen, like the
-  // appearance above, and follow the person to every browser.
-  const chooseDisplay = (display: {
-    clock?: ClockFormat
-    alwaysShowLayout?: boolean
-  }) => {
-    if (display.clock) setDisplayClock(display.clock)
-    void setUserDisplay(appearanceClient, display)
-      .then(() => router.invalidate())
-      .catch((failure: unknown) =>
-        toast(t('settings.profile.displaySavedFailed'), {
-          description:
-            failure instanceof Error
-              ? failure.message
-              : t('settings.profile.tryAgain'),
-        }),
-      )
-  }
-  const clock = context.clock ?? '24h'
   const [name, setName] = useState(user.name)
   const savedTimeZone = context.timeZone
   const [timeZone, setTimeZone] = useState(savedTimeZone)
-  const [busy, setBusy] = useState(false)
   const [changingEmail, setChangingEmail] = useState(false)
-  const queryClient = useQueryClient()
+
   const profile = useQuery({
     queryKey: myProfileQueryKey,
     queryFn: () => fetchMyProfile(appearanceClient),
   })
+
   const [initials, setInitials] = useState('')
   const [jobTitle, setJobTitle] = useState('')
   useEffect(() => {
@@ -140,8 +101,10 @@ function Profile() {
 
   const error = name.trim() ? undefined : 'Enter your full name.'
   const zone = timeZone.trim()
+
   const initialsError =
     initials.trim().length > 4 ? 'Use up to four letters.' : undefined
+
   const timeZoneError =
     zone && !isUsableTimeZone(zone)
       ? 'Use a time zone name such as Europe/London or America/New_York.'
@@ -153,54 +116,16 @@ function Profile() {
         phoneActions="bottom"
         title={t('settings.profile.profile')}
         actions={
-          <Button
-            variant="primary"
+          <SaveProfile
+            name={name}
+            timeZone={timeZone}
+            initials={initials}
+            jobTitle={jobTitle}
+            profile={profile.data}
             disabled={
-              busy ||
-              Boolean(error) ||
-              Boolean(timeZoneError) ||
-              Boolean(initialsError)
+              Boolean(error) || Boolean(timeZoneError) || Boolean(initialsError)
             }
-            onClick={async () => {
-              setBusy(true)
-              try {
-                await updateProfileNameFn({ data: { name: name.trim() } })
-                if (zone && zone !== savedTimeZone) {
-                  await setUserTimeZone(appearanceClient, zone)
-                  setDisplayTimeZone(zone)
-                }
-                if (
-                  profile.data &&
-                  (initials.trim() !== profile.data.initials ||
-                    jobTitle.trim() !== profile.data.jobTitle)
-                ) {
-                  await setUserProfileFields(appearanceClient, {
-                    initials: initials.trim().toUpperCase(),
-                    jobTitle: jobTitle.trim(),
-                  })
-                  await queryClient.invalidateQueries({
-                    queryKey: myProfileQueryKey,
-                  })
-                }
-                // The shell and this form both read the name from the resolved
-                // route context, so re-resolve it rather than report a save the
-                // rest of the app has not seen.
-                await router.invalidate()
-                toast(t('settings.profile.changesSavedToast'))
-              } catch (failure) {
-                toast(t('settings.profile.couldSaveProfileToast'), {
-                  description:
-                    failure instanceof Error
-                      ? failure.message
-                      : t('settings.profile.tryAgain'),
-                })
-              } finally {
-                setBusy(false)
-              }
-            }}
-          >
-            {t('common.actions.saveChanges')}
-          </Button>
+          />
         }
       >
         {t('settings.profile.howAppearOthers')}
@@ -312,88 +237,7 @@ function Profile() {
           </div>
         </div>
 
-        <Section title={t('settings.profile.appearance')}>
-          <div className="flex flex-wrap items-center gap-3.5">
-            <div
-              role="radiogroup"
-              aria-label={t('settings.profile.appearance')}
-              className="inline-flex rounded-md border border-border p-0.5"
-            >
-              {APPEARANCE.map((option) => {
-                const on = theme.pref === option.value
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    onClick={() => chooseAppearance(option.value)}
-                    className={cn(
-                      'h-6 cursor-pointer rounded-sm border-0 bg-transparent px-2.5 text-label text-fg',
-                      on && 'bg-selection font-medium',
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                )
-              })}
-            </div>
-            <span className="text-label text-fg-muted">
-              {t('settings.profile.appliesEverySheetbase')}
-            </span>
-          </div>
-        </Section>
-
-        <Section title={t('settings.profile.display')}>
-          <div className="flex flex-col gap-3.5">
-            <Field
-              label={t('settings.profile.clock')}
-              hint={t('settings.profile.clockHint')}
-            >
-              <div
-                role="radiogroup"
-                aria-label={t('settings.profile.clock')}
-                className="inline-flex w-fit rounded-md border border-border p-0.5"
-              >
-                {(
-                  [
-                    ['24h', t('settings.profile.clock24')],
-                    ['12h', t('settings.profile.clock12')],
-                  ] as const
-                ).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={clock === value}
-                    onClick={() => chooseDisplay({ clock: value })}
-                    className={cn(
-                      'h-6 cursor-pointer rounded-sm border-0 bg-transparent px-2.5 text-label text-fg',
-                      clock === value && 'bg-selection font-medium',
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </Field>
-            <label className="flex items-start gap-2 text-body">
-              <Checkbox
-                className="mt-0.5"
-                checked={context.alwaysShowLayout === true}
-                onCheckedChange={(checked) =>
-                  chooseDisplay({ alwaysShowLayout: checked === true })
-                }
-              />
-              <span className="flex flex-col">
-                {t('settings.profile.alwaysShowLayout')}
-                <span className="text-label text-fg-muted">
-                  {t('settings.profile.alwaysShowLayoutHint')}
-                </span>
-              </span>
-            </label>
-          </div>
-        </Section>
+        <DisplayPreferences />
         {changingEmail ? (
           <ChangeEmailDialog
             current={user.email}
@@ -421,6 +265,207 @@ function Profile() {
           />
         ) : null}
       </SettingsBody>
+    </>
+  )
+}
+
+function SaveProfile({
+  name,
+  timeZone,
+  initials,
+  jobTitle,
+  profile,
+  disabled,
+}: {
+  name: string
+  timeZone: string
+  initials: string
+  jobTitle: string
+  profile: Awaited<ReturnType<typeof fetchMyProfile>> | undefined
+  disabled: boolean
+}) {
+  const { context } = Route.useRouteContext()
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const [busy, setBusy] = useState(false)
+  const zone = timeZone.trim()
+
+  return (
+    <Button
+      variant="primary"
+      disabled={busy || disabled}
+      onClick={async () => {
+        setBusy(true)
+
+        try {
+          await updateProfileNameFn({ data: { name: name.trim() } })
+
+          if (zone && zone !== context.timeZone) {
+            await setUserTimeZone(appearanceClient, zone)
+            setDisplayTimeZone(zone)
+          }
+
+          if (
+            profile &&
+            (initials.trim() !== profile.initials ||
+              jobTitle.trim() !== profile.jobTitle)
+          ) {
+            await setUserProfileFields(appearanceClient, {
+              initials: initials.trim().toUpperCase(),
+              jobTitle: jobTitle.trim(),
+            })
+            await queryClient.invalidateQueries({ queryKey: myProfileQueryKey })
+          }
+
+          // The shell and this form both read the name from the resolved
+          // route context, so re-resolve it rather than report a save the
+          // rest of the app has not seen.
+          await router.invalidate()
+          toast(t('settings.profile.changesSavedToast'))
+        } catch (failure) {
+          toast(t('settings.profile.couldSaveProfileToast'), {
+            description:
+              failure instanceof Error
+                ? failure.message
+                : t('settings.profile.tryAgain'),
+          })
+        } finally {
+          setBusy(false)
+        }
+      }}
+    >
+      {t('common.actions.saveChanges')}
+    </Button>
+  )
+}
+
+function DisplayPreferences() {
+  const { context } = Route.useRouteContext()
+  const router = useRouter()
+  const theme = useTheme()
+  const clock = context.clock ?? '24h'
+
+  // The local choice applies immediately (this browser's cookie), so a failed
+  // account write must be stated rather than swallowed: the preference then
+  // does not follow the user to another browser.
+  const chooseAppearance = (value: ThemePref) => {
+    theme.setPref(value)
+    void setUserAppearance(appearanceClient, value).catch((error: Error) => {
+      toast(t('settings.profile.appearanceSavedAccountToast'), {
+        description: t('settings.profile.appliesInBrowserOnly', {
+          reason:
+            error instanceof Error
+              ? error.message
+              : t('settings.profile.databaseRefused'),
+        }),
+      })
+    })
+  }
+
+  // The clock and the layout bar apply as soon as they are chosen, like the
+  // appearance above, and follow the person to every browser.
+  const chooseDisplay = (display: {
+    clock?: ClockFormat
+    alwaysShowLayout?: boolean
+  }) => {
+    if (display.clock) setDisplayClock(display.clock)
+    void setUserDisplay(appearanceClient, display)
+      .then(() => router.invalidate())
+      .catch((failure: Error) =>
+        toast(t('settings.profile.displaySavedFailed'), {
+          description:
+            failure instanceof Error
+              ? failure.message
+              : t('settings.profile.tryAgain'),
+        }),
+      )
+  }
+
+  return (
+    <>
+      <Section title={t('settings.profile.appearance')}>
+        <div className="flex flex-wrap items-center gap-3.5">
+          <div
+            role="radiogroup"
+            aria-label={t('settings.profile.appearance')}
+            className="inline-flex rounded-md border border-border p-0.5"
+          >
+            {APPEARANCE.map((option) => {
+              const on = theme.pref === option.value
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => chooseAppearance(option.value)}
+                  className={cn(
+                    'h-6 cursor-pointer rounded-sm border-0 bg-transparent px-2.5 text-label text-fg',
+                    on && 'bg-selection font-medium',
+                  )}
+                >
+                  {option.label}
+                </button>
+              )
+            })}
+          </div>
+          <span className="text-label text-fg-muted">
+            {t('settings.profile.appliesEverySheetbase')}
+          </span>
+        </div>
+      </Section>
+
+      <Section title={t('settings.profile.display')}>
+        <div className="flex flex-col gap-3.5">
+          <Field
+            label={t('settings.profile.clock')}
+            hint={t('settings.profile.clockHint')}
+          >
+            <div
+              role="radiogroup"
+              aria-label={t('settings.profile.clock')}
+              className="inline-flex w-fit rounded-md border border-border p-0.5"
+            >
+              {(
+                [
+                  ['24h', t('settings.profile.clock24')],
+                  ['12h', t('settings.profile.clock12')],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={clock === value}
+                  onClick={() => chooseDisplay({ clock: value })}
+                  className={cn(
+                    'h-6 cursor-pointer rounded-sm border-0 bg-transparent px-2.5 text-label text-fg',
+                    clock === value && 'bg-selection font-medium',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <label className="flex items-start gap-2 text-body">
+            <Checkbox
+              className="mt-0.5"
+              checked={context.alwaysShowLayout === true}
+              onCheckedChange={(checked) =>
+                chooseDisplay({ alwaysShowLayout: checked === true })
+              }
+            />
+            <span className="flex flex-col">
+              {t('settings.profile.alwaysShowLayout')}
+              <span className="text-label text-fg-muted">
+                {t('settings.profile.alwaysShowLayoutHint')}
+              </span>
+            </span>
+          </label>
+        </div>
+      </Section>
     </>
   )
 }

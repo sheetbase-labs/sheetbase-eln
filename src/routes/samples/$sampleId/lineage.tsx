@@ -11,7 +11,7 @@ import { toast } from '#/components/ui/sonner'
 import {
   computeSampleHold,
   formatHoldDate,
-} from '#/components/samples/sample-hold-meter'
+} from '#/components/samples/sample-hold-data'
 import {
   fetchLineageGraph,
   LINEAGE_MINI_DEPTH,

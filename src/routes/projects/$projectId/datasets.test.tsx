@@ -1,53 +1,22 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createMemoryHistory,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-import { DataClientError } from '#/lib/data-client'
-import { Route } from './datasets'
-
-const client = vi.hoisted(() => ({
-  list: vi.fn(),
-  count: vi.fn(),
-  rpc: vi.fn(),
-}))
-const search = vi.hoisted(() => ({ value: {} }))
-
-vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useParams: () => ({ projectId: 'project-1' }),
-    useSearch: () => search.value,
-    options: config,
-  }),
-  Outlet: () => null,
-  redirect: (options: unknown) => options,
-  Link: ({
-    to,
-    params,
-    search: _search,
-    activeProps: _activeProps,
-    activeOptions: _activeOptions,
-    children,
-    ...props
-  }: {
-    to?: string
-    params?: Record<string, string>
-    children?: React.ReactNode
-  } & Record<string, unknown>) => {
-    let href = typeof to === 'string' ? to : '#'
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        href = href.replace(`$${key}`, encodeURIComponent(String(value)))
-      }
-    }
-    return (
-      <a href={href} {...props}>
-        {children}
-      </a>
-    )
-  },
-}))
-
-vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: client }))
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
+import { z } from 'zod'
 
 const DATASET = {
   id: 'ds-1',
@@ -67,30 +36,108 @@ const DATASET = {
   archived_at: null,
 }
 
+interface DatasetsFixture {
+  rows: Array<typeof DATASET>
+  total: number
+  denied: boolean
+  page: number
+  requests: Array<{ p_project_id: string }>
+}
+
+const fixture: DatasetsFixture = {
+  rows: [],
+  total: 0,
+  denied: false,
+  page: 1,
+  requests: [],
+}
+
+vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
+
+  if (new Headers(init?.headers).has('range'))
+    return Response.json([], {
+      headers: {
+        'content-range': fixture.total ? `0-0/${fixture.total}` : '*/0',
+      },
+    })
+
+  if (fixture.denied)
+    return Response.json(
+      { code: 'permission_denied', message: 'no access' },
+      { status: 403 },
+    )
+
+  if (url.pathname.endsWith('/dataset_list_summary')) {
+    fixture.requests.push(
+      z
+        .object({ p_project_id: z.string() })
+        .parse(await new Response(init?.body).json()),
+    )
+
+    return Response.json(fixture.rows)
+  }
+
+  return Response.json([])
+})
+
+const { Route } = await import('./datasets')
+const { dropSharedReads } = await import('#/lib/data-client')
+
 function renderRoute() {
   const Component = Route.options.component
+
   if (!Component) throw new Error('Project datasets component required')
+
+  const root = createRootRoute()
+
+  const route = createRoute({
+    getParentRoute: () => root,
+    path: '/projects/$projectId/datasets',
+    validateSearch: Route.options.validateSearch,
+    component: Component,
+  })
+
+  const router = createRouter({
+    routeTree: root.addChildren([route]),
+    history: createMemoryHistory({
+      initialEntries: [`/projects/project-1/datasets?page=${fixture.page}`],
+    }),
+  })
+
   return render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <Component />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
 }
 
-afterEach(cleanup)
+afterAll(() => vi.unstubAllGlobals())
+
+afterEach(() => {
+  cleanup()
+  dropSharedReads()
+})
+
 beforeEach(() => {
-  vi.resetAllMocks()
-  search.value = {}
+  fixture.rows = []
+  fixture.total = 0
+  fixture.denied = false
+  fixture.page = 1
+  fixture.requests = []
 })
 
 describe('project datasets tab (R5-SURF-02)', () => {
   it('lists the project’s datasets with a count', async () => {
-    client.rpc.mockResolvedValue([DATASET])
-    client.count.mockResolvedValue(1)
+    fixture.rows = [DATASET]
+    fixture.total = 1
 
     renderRoute()
 
@@ -101,21 +148,18 @@ describe('project datasets tab (R5-SURF-02)', () => {
   })
 
   it('asks the RPC for the project, never the whole registry', async () => {
-    client.rpc.mockResolvedValue([DATASET])
-    client.count.mockResolvedValue(1)
+    fixture.rows = [DATASET]
+    fixture.total = 1
 
     renderRoute()
 
     await screen.findAllByText('DS-0001')
-    expect(client.rpc).toHaveBeenCalledWith(
-      'dataset_list_summary',
-      expect.objectContaining({ p_project_id: 'project-1' }),
-    )
+    expect(fixture.requests).toContainEqual({ p_project_id: 'project-1' })
   })
 
   it('shows the honest empty state when the project has no datasets', async () => {
-    client.rpc.mockResolvedValue([])
-    client.count.mockResolvedValue(0)
+    fixture.rows = []
+    fixture.total = 0
 
     renderRoute()
 
@@ -124,10 +168,8 @@ describe('project datasets tab (R5-SURF-02)', () => {
   })
 
   it('says denied, not empty, when the read is refused', async () => {
-    client.rpc.mockRejectedValue(
-      new DataClientError('permission_denied', 'no access', 403),
-    )
-    client.count.mockResolvedValue(0)
+    fixture.denied = true
+    fixture.total = 0
 
     renderRoute()
 
@@ -138,14 +180,12 @@ describe('project datasets tab (R5-SURF-02)', () => {
   })
 
   it('says the page is bounded and offers the next page when there is more', async () => {
-    client.rpc.mockResolvedValue(
-      Array.from({ length: 25 }, (_, i) => ({
-        ...DATASET,
-        id: `ds-${i}`,
-        display_id: `DS-000${i}`,
-      })),
-    )
-    client.count.mockResolvedValue(40)
+    fixture.rows = Array.from({ length: 25 }, (_, i) => ({
+      ...DATASET,
+      id: `ds-${i}`,
+      display_id: `DS-000${i}`,
+    }))
+    fixture.total = 40
 
     const { container } = renderRoute()
 
@@ -154,9 +194,9 @@ describe('project datasets tab (R5-SURF-02)', () => {
   })
 
   it('says a hand-edited page past the end is out of range, not empty', async () => {
-    search.value = { page: 9 }
-    client.rpc.mockResolvedValue([])
-    client.count.mockResolvedValue(40)
+    fixture.page = 9
+    fixture.rows = []
+    fixture.total = 40
 
     renderRoute()
 

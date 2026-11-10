@@ -69,8 +69,10 @@ const accessLevels = [
   { value: 'reviewer' },
   { value: 'viewer' },
 ] as const
+
 const accessClient = createDataClient()
 const projectRoute = getRouteApi('/projects/$projectId')
+
 const accessLabel = (level: string) =>
   level === 'owner' ||
   level === 'editor' ||
@@ -86,20 +88,25 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
   const { context } = projectRoute.useRouteContext()
   const { project } = useProjectSummary(projectId)
   const queryClient = useQueryClient()
+
   const membersQuery = useQuery({
     queryKey: ['project-members', projectId],
     queryFn: () => fetchProjectMembers(projectId),
   })
+
   const peopleQuery = useQuery({
     queryKey: ['workspace-member-identities'],
     queryFn: fetchWorkspaceMemberIdentities,
   })
-  const members = membersQuery.data ?? []
+
+  const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data])
+
   const { canManage: isLead } = useCanManageProject(
     projectId,
     project?.leadUserId,
     context.user.id,
   )
+
   const requestsQuery = useQuery({
     queryKey: [
       ...workspaceAccessKeys.requests(context.workspace?.id ?? ''),
@@ -111,7 +118,9 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
       ),
     enabled: isLead,
   })
+
   const pendingRequests = requestsQuery.data ?? []
+
   const decide = useMutation({
     mutationFn: (input: { requestId: string; approve: boolean }) =>
       decideProjectAccessRequest(accessClient, input),
@@ -128,13 +137,14 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
           : t('projects.projectMembers.denied'),
       )
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
           : t('projects.projectMembers.decideFailed'),
       ),
   })
+
   const [pendingRemove, setPendingRemove] = useState<{
     id: string
     name: string
@@ -149,17 +159,18 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
     mutationFn: (input: { userId: string; accessLevel: string }) =>
       setProjectMember(projectId, input.userId, input.accessLevel),
     onSuccess: invalidate,
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
           : t('projects.projectMembers.changeFailed'),
       ),
   })
+
   const remove = useMutation({
     mutationFn: (userId: string) => removeProjectMember(projectId, userId),
     onSuccess: invalidate,
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
@@ -169,6 +180,7 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
 
   const available = useMemo(() => {
     const present = new Set(members.map((m) => m.user_id))
+
     return (peopleQuery.data ?? []).filter((p) => !present.has(p.user_id))
   }, [peopleQuery.data, members])
 
@@ -290,6 +302,7 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
                 const name =
                   peopleQuery.data?.find((p) => p.user_id === request.user_id)
                     ?.name ?? t('projects.projectMembers.requests.viewer')
+
                 return (
                   <div
                     key={request.id}
@@ -327,42 +340,7 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
           </Section>
         ) : null}
 
-        <Section title={t('projects.projectMembers.how.title')}>
-          <div className="grid grid-cols-1 gap-3 text-label leading-[18px] md:grid-cols-2 md:gap-6 xl:grid-cols-4">
-            <div>
-              <b className="font-semibold">
-                {t('projects.projectMembers.access.owner')}
-              </b>
-              <div className="text-fg-muted">
-                {t('projects.projectMembers.how.owner')}
-              </div>
-            </div>
-            <div>
-              <b className="font-semibold">
-                {t('projects.projectMembers.access.editor')}
-              </b>
-              <div className="text-fg-muted">
-                {t('projects.projectMembers.how.editor')}
-              </div>
-            </div>
-            <div>
-              <b className="font-semibold">
-                {t('projects.projectMembers.access.reviewer')}
-              </b>
-              <div className="text-fg-muted">
-                {t('projects.projectMembers.how.reviewer')}
-              </div>
-            </div>
-            <div>
-              <b className="font-semibold">
-                {t('projects.projectMembers.access.viewer')}
-              </b>
-              <div className="text-fg-muted">
-                {t('projects.projectMembers.how.viewer')}
-              </div>
-            </div>
-          </div>
-        </Section>
+        <ProjectAccessGuide />
       </div>
 
       <ConfirmDialog
@@ -401,6 +379,47 @@ export function ProjectMembers({ projectId }: { projectId: string }) {
         </ConfirmDialogContent>
       </ConfirmDialog>
     </>
+  )
+}
+
+function ProjectAccessGuide() {
+  return (
+    <Section title={t('projects.projectMembers.how.title')}>
+      <div className="grid grid-cols-1 gap-3 text-label leading-[18px] md:grid-cols-2 md:gap-6 xl:grid-cols-4">
+        <div>
+          <b className="font-semibold">
+            {t('projects.projectMembers.access.owner')}
+          </b>
+          <div className="text-fg-muted">
+            {t('projects.projectMembers.how.owner')}
+          </div>
+        </div>
+        <div>
+          <b className="font-semibold">
+            {t('projects.projectMembers.access.editor')}
+          </b>
+          <div className="text-fg-muted">
+            {t('projects.projectMembers.how.editor')}
+          </div>
+        </div>
+        <div>
+          <b className="font-semibold">
+            {t('projects.projectMembers.access.reviewer')}
+          </b>
+          <div className="text-fg-muted">
+            {t('projects.projectMembers.how.reviewer')}
+          </div>
+        </div>
+        <div>
+          <b className="font-semibold">
+            {t('projects.projectMembers.access.viewer')}
+          </b>
+          <div className="text-fg-muted">
+            {t('projects.projectMembers.how.viewer')}
+          </div>
+        </div>
+      </div>
+    </Section>
   )
 }
 
@@ -469,6 +488,7 @@ function AddPeople({
   const [person, setPerson] = useState('')
   const [access, setAccess] = useState<string>('editor')
   const [error, setError] = useState<string | null>(null)
+
   const add = useMutation({
     mutationFn: () => setProjectMember(projectId, person, access),
     onSuccess: () => {
@@ -478,13 +498,14 @@ function AddPeople({
       setError(null)
       toast(t('projects.projectMembers.added'))
     },
-    onError: (caught: unknown) =>
+    onError: (caught) =>
       toast.error(
         caught instanceof Error
           ? caught.message
           : t('projects.projectMembers.addFailed'),
       ),
   })
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button
@@ -536,8 +557,10 @@ function AddPeople({
             onClick={() => {
               if (!person) {
                 setError(t('projects.projectMembers.add.choosePerson'))
+
                 return
               }
+
               add.mutate()
             }}
           >

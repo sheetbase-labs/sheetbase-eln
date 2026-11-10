@@ -23,7 +23,7 @@ import {
   DialogTrigger,
 } from '#/components/ui/dialog'
 import { toast } from '#/components/ui/sonner'
-import { WorkspaceAdminsLine } from '#/components/settings/workspace-admins-line'
+import { WorkspaceAdminRefusal } from './-admin-refusal'
 import {
   SettingsBody,
   SettingsHeader,
@@ -57,7 +57,7 @@ export const Route = createFileRoute('/settings/workspace/clients')({
 
 const dataClient = createDataClient()
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: Error): string {
   return error instanceof Error
     ? error.message
     : t('settings.clients.databaseRefused')
@@ -75,26 +75,18 @@ function ClientsSettings() {
     queryFn: () => fetchClientList(dataClient, workspaceId),
     enabled: Boolean(workspaceId) && canManage,
   })
+
   const list = clients.data ?? []
   const selected = list.find((c) => c.id === picked) ?? list.at(0) ?? null
 
   if (!canManage) {
     return (
-      <>
-        <SettingsHeader title={t('settings.clients.clients')} />
-        <div className="px-4 md:px-6">
-          <EmptyState
-            icon="lock"
-            title={t('settings.clients.onlyWorkspaceAdmins')}
-            description={
-              <>
-                {t('settings.clients.clientsOrganisationsWhose')}
-                <WorkspaceAdminsLine workspaceId={workspaceId} />
-              </>
-            }
-          />
-        </div>
-      </>
+      <WorkspaceAdminRefusal
+        workspaceId={workspaceId}
+        title={t('settings.clients.clients')}
+        reason={t('settings.clients.onlyWorkspaceAdmins')}
+        description={t('settings.clients.clientsOrganisationsWhose')}
+      />
     )
   }
 
@@ -146,27 +138,45 @@ function ClientsSettings() {
                 ))}
               </Select>
             </Field>
-            {selected ? (
-              <>
-                <ClientShares
-                  key={selected.id}
-                  workspaceId={workspaceId}
-                  clientId={selected.id}
-                  clientName={selected.name}
-                  previewing={previewing}
-                  onTogglePreview={() => setPreviewing((v) => !v)}
-                />
-                {previewing ? (
-                  <ClientPreview
-                    clientId={selected.id}
-                    clientName={selected.name}
-                  />
-                ) : null}
-              </>
-            ) : null}
+            <ClientSharingPanel
+              workspaceId={workspaceId}
+              client={selected}
+              previewing={previewing}
+              onTogglePreview={() => setPreviewing((v) => !v)}
+            />
           </>
         )}
       </SettingsBody>
+    </>
+  )
+}
+
+function ClientSharingPanel({
+  workspaceId,
+  client,
+  previewing,
+  onTogglePreview,
+}: {
+  workspaceId: string
+  client: Awaited<ReturnType<typeof fetchClientList>>[number] | null
+  previewing: boolean
+  onTogglePreview: () => void
+}) {
+  if (!client) return null
+
+  return (
+    <>
+      <ClientShares
+        key={client.id}
+        workspaceId={workspaceId}
+        clientId={client.id}
+        clientName={client.name}
+        previewing={previewing}
+        onTogglePreview={onTogglePreview}
+      />
+      {previewing ? (
+        <ClientPreview clientId={client.id} clientName={client.name} />
+      ) : null}
     </>
   )
 }
@@ -203,7 +213,7 @@ function NewClient({
       setTried(false)
       onCreated(created.id)
     },
-    onError: (error: unknown) => setServerError(errorMessage(error)),
+    onError: (error) => setServerError(errorMessage(error)),
   })
 
   return (
@@ -211,6 +221,7 @@ function NewClient({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
+
         if (!next) {
           setName('')
           setTried(false)
@@ -250,6 +261,7 @@ function NewClient({
             disabled={create.isPending}
             onClick={() => {
               setTried(true)
+
               if (!valid) return
               create.mutate()
             }}
@@ -279,15 +291,19 @@ function ClientShares({
 }) {
   const queryClient = useQueryClient()
   const [recordId, setRecordId] = useState('')
+
   const shares = useQuery({
     queryKey: clientSharingKeys.shares(clientId),
     queryFn: () => fetchClientShares(dataClient, clientId),
   })
+
   const shareable = useQuery({
     queryKey: clientSharingKeys.shareable(workspaceId, clientId),
     queryFn: () => fetchShareableRecords(dataClient, workspaceId, clientId),
   })
+
   const shareList = shares.data ?? []
+
   const sharedRecords = useQuery({
     queryKey: [
       ...clientSharingKeys.shares(clientId),
@@ -301,6 +317,7 @@ function ClientShares({
       ),
     enabled: shares.isSuccess && shareList.length > 0,
   })
+
   const byId = new Map((sharedRecords.data ?? []).map((r) => [r.id, r]))
   const offered = unsharedRecords(shareable.data ?? [], shareList)
 
@@ -312,6 +329,7 @@ function ClientShares({
       queryKey: clientSharingKeys.preview(clientId),
     })
   }
+
   const share = useMutation({
     mutationFn: () => shareRecordWithClient(dataClient, { clientId, recordId }),
     onSuccess: () => {
@@ -323,11 +341,12 @@ function ClientShares({
       setRecordId('')
       refresh()
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(t('settings.clients.couldShareRecordToast'), {
         description: errorMessage(error),
       }),
   })
+
   const unshare = useMutation({
     mutationFn: (id: string) =>
       unshareRecordWithClient(dataClient, { clientId, recordId: id }),
@@ -335,7 +354,7 @@ function ClientShares({
       toast(t('settings.clients.recordLongerSharedToast'))
       refresh()
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(t('settings.clients.couldStopSharingToast'), {
         description: errorMessage(error),
       }),
@@ -396,6 +415,7 @@ function ClientShares({
         <ul className="m-0 flex list-none flex-col divide-y divide-border rounded-md border border-border p-0">
           {shareList.map((s) => {
             const record = byId.get(s.recordId)
+
             return (
               <li
                 key={s.id}
@@ -448,6 +468,7 @@ function ClientPreview({
     queryKey: clientSharingKeys.preview(clientId),
     queryFn: () => fetchClientPortalPreview(dataClient, clientId),
   })
+
   const projects = preview.data?.projects ?? []
   const records = preview.data?.records ?? []
 

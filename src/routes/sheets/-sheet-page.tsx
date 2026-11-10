@@ -7,10 +7,8 @@ import type { Crumb } from '#/components/ui/breadcrumb'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { PageHeader } from '#/components/ui/layout'
 import { CopyButton } from '#/components/ui/copy-button'
-import {
-  CollaborationRoom,
-  safeBuildRoomId,
-} from '#/components/collaboration/collaboration-room'
+import { CollaborationRoom } from '#/components/collaboration/collaboration-room'
+import { safeBuildRoomId } from '#/components/collaboration/collaboration-room-id'
 import { useCollaborationEnabled } from '#/lib/collaboration/collaboration-enabled'
 import { ColumnPromotionsPanel } from '#/components/sheets/column-promotions-panel'
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'

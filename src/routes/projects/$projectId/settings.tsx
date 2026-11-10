@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -29,6 +29,7 @@ import {
   fetchWorkspaceMemberIdentities,
   workspaceMemberQueryKeys,
 } from '#/components/projects/project-data'
+import type { ProjectSummary } from '#/components/projects/project-data'
 import { t } from '#/copy'
 
 interface ClientWire {
@@ -45,36 +46,63 @@ export const Route = createFileRoute('/projects/$projectId/settings')({
 
 function ProjectSettings() {
   const { projectId } = Route.useParams()
-  const { context } = Route.useRouteContext()
   const { project, query } = useProjectSummary(projectId)
+
+  if (!project) {
+    return (
+      <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
+        <p className="text-body text-fg-muted">
+          {query.isLoading
+            ? t('projects.projectSettings.loading')
+            : t('projects.projectSettings.notFound')}
+        </p>
+      </div>
+    )
+  }
+
+  return <ProjectSettingsForm key={project.id} project={project} />
+}
+
+function projectSettingsDraft(project: ProjectSummary) {
+  return {
+    name: project.title,
+    clientId: project.clientId ?? '',
+    stage: project.stage ?? '',
+    agreement: project.agreementReference ?? '',
+    modality: project.modality ?? '',
+    lead: project.leadUserId ?? '',
+    reviewer: project.defaultReviewerUserId ?? '',
+    startedOn: project.startedOn ?? '',
+  }
+}
+
+function ProjectSettingsForm({ project }: { project: ProjectSummary }) {
+  const { projectId } = Route.useParams()
+  const { context } = Route.useRouteContext()
+
   const { canManage } = useCanManageProject(
     projectId,
-    project?.leadUserId,
+    project.leadUserId,
     context.user.id,
   )
-  const queryClient = useQueryClient()
-  const router = useRouter()
-  const [confirmArchive, setConfirmArchive] = useState(false)
-  const [name, setName] = useState('')
-  const [clientId, setClientId] = useState('')
-  const [stage, setStage] = useState('')
-  const [agreement, setAgreement] = useState('')
-  const [modality, setModality] = useState('')
-  const [lead, setLead] = useState('')
-  const [reviewer, setReviewer] = useState('')
-  const [startedOn, setStartedOn] = useState('')
 
-  useEffect(() => {
-    if (!project) return
-    setName(project.title)
-    setClientId(project.clientId ?? '')
-    setStage(project.stage ?? '')
-    setAgreement(project.agreementReference ?? '')
-    setModality(project.modality ?? '')
-    setLead(project.leadUserId ?? '')
-    setReviewer(project.defaultReviewerUserId ?? '')
-    setStartedOn(project.startedOn ?? '')
-  }, [project?.id])
+  const queryClient = useQueryClient()
+  // react-doctor-disable-next-line react-doctor/no-derived-useState -- The caller keys this form by project.id; a same-project refetch must preserve the unsaved draft.
+  const [draft, setDraft] = useState(() => projectSettingsDraft(project))
+
+  const {
+    name,
+    clientId,
+    stage,
+    agreement,
+    modality,
+    lead,
+    reviewer,
+    startedOn,
+  } = draft
+
+  const setField = (field: keyof typeof draft, value: string) =>
+    setDraft((current) => ({ ...current, [field]: value }))
 
   const members = useQuery({
     queryKey: [...workspaceMemberQueryKeys.identities, context.workspace?.id],
@@ -92,8 +120,9 @@ function ProjectSettings() {
 
   const save = useMutation({
     mutationFn: () => {
-      if (!project || project.archivedAt)
+      if (project.archivedAt)
         throw new Error(t('projects.projectSettings.activeRequired'))
+
       return updateProjectDetails(project, {
         title: name,
         clientId: clientId || null,
@@ -149,36 +178,6 @@ function ProjectSettings() {
     },
   })
 
-  const archive = useMutation({
-    mutationFn: (nextArchived: boolean) =>
-      projectDataClient.rpc(
-        nextArchived ? 'archive_project' : 'unarchive_project',
-        { p_project_id: projectId },
-      ),
-    onSuccess: (_data, nextArchived) => {
-      void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
-      void router.invalidate()
-      setConfirmArchive(false)
-      toast(
-        nextArchived
-          ? t('projects.projectSettings.archived')
-          : t('projects.projectSettings.restored'),
-      )
-    },
-  })
-
-  if (!project) {
-    return (
-      <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
-        <p className="text-body text-fg-muted">
-          {query.isLoading
-            ? t('projects.projectSettings.loading')
-            : t('projects.projectSettings.notFound')}
-        </p>
-      </div>
-    )
-  }
-
   if (!canManage) {
     return (
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
@@ -195,6 +194,7 @@ function ProjectSettings() {
   }
 
   const saving = save.isPending
+
   // Every failure of the save must be visible: the RPC (stale revision,
   // validation, RLS) and the guard that refuses an archived project both throw
   // errors whose message is what the lead needs to act on.
@@ -217,14 +217,17 @@ function ProjectSettings() {
               required
               className="max-w-[520px]"
             >
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
+              <Input
+                value={name}
+                onChange={(e) => setField('name', e.target.value)}
+              />
             </Field>
             <div className="grid grid-cols-1 gap-x-5 gap-y-3.5 md:grid-cols-[250px_250px]">
               <Field label={t('projects.projectSettings.client')}>
                 <PickerSelect
                   noun="client"
                   value={clientId}
-                  onChange={(id) => setClientId(id)}
+                  onChange={(id) => setField('clientId', id)}
                   clearLabel="Internal"
                   options={(clientsQuery.data ?? []).map((c) => ({
                     id: c.id,
@@ -236,7 +239,7 @@ function ProjectSettings() {
               <Field label={t('projects.projectSettings.stage')}>
                 <Select
                   value={stage}
-                  onChange={(e) => setStage(e.target.value)}
+                  onChange={(e) => setField('stage', e.target.value)}
                 >
                   <option value="">—</option>
                   {stages.map((s) => (
@@ -249,7 +252,7 @@ function ProjectSettings() {
               <Field label={t('projects.projectSettings.modality')}>
                 <Select
                   value={modality}
-                  onChange={(e) => setModality(e.target.value)}
+                  onChange={(e) => setField('modality', e.target.value)}
                 >
                   <option value="">—</option>
                   {[
@@ -268,7 +271,7 @@ function ProjectSettings() {
                 <PickerSelect
                   noun="person"
                   value={lead}
-                  onChange={(id) => setLead(id)}
+                  onChange={(id) => setField('lead', id)}
                   clearLabel="Not assigned"
                   options={(members.data ?? []).map((member) =>
                     personOption(member.user_id, member.name),
@@ -279,7 +282,7 @@ function ProjectSettings() {
                 <PickerSelect
                   noun="person"
                   value={reviewer}
-                  onChange={(id) => setReviewer(id)}
+                  onChange={(id) => setField('reviewer', id)}
                   clearLabel="Not assigned"
                   options={(members.data ?? []).map((member) =>
                     personOption(member.user_id, member.name),
@@ -290,7 +293,7 @@ function ProjectSettings() {
                 <Input
                   type="date"
                   value={startedOn}
-                  onChange={(e) => setStartedOn(e.target.value)}
+                  onChange={(e) => setField('startedOn', e.target.value)}
                 />
               </Field>
             </div>
@@ -301,7 +304,7 @@ function ProjectSettings() {
             >
               <Input
                 value={agreement}
-                onChange={(e) => setAgreement(e.target.value)}
+                onChange={(e) => setField('agreement', e.target.value)}
               />
             </Field>
             {saveError ? (
@@ -324,72 +327,115 @@ function ProjectSettings() {
         </Section>
 
         <ProjectMembers projectId={projectId} />
-
-        <Section title={t('projects.projectSettings.portal.title')}>
-          {project.clientCode || project.clientName ? (
-            <div className="flex flex-col gap-2.5">
-              <Muted>
-                {portal.data?.auto_share_to_client
-                  ? t('projects.projectSettings.portal.on', {
-                      client:
-                        project.clientName ??
-                        t('projects.projectSettings.portal.theClient'),
-                    })
-                  : t('projects.projectSettings.portal.off', {
-                      client:
-                        project.clientName ??
-                        t('projects.projectSettings.portal.theClientCapital'),
-                    })}
-              </Muted>
-              <div>
-                <Button
-                  variant={
-                    portal.data?.auto_share_to_client ? 'secondary' : 'primary'
-                  }
-                  disabled={setPortal.isPending || portal.isLoading}
-                  onClick={() =>
-                    setPortal.mutate(!portal.data?.auto_share_to_client)
-                  }
-                >
-                  {portal.data?.auto_share_to_client
-                    ? t('projects.projectSettings.portal.turnOff')
-                    : t('projects.projectSettings.portal.turnOn')}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Muted>{t('projects.projectSettings.portal.noClient')}</Muted>
-          )}
-        </Section>
-
-        <Section title={t('projects.projectSettings.archive.title')}>
-          <Notice
-            tone="warn"
-            icon={false}
-            className="max-w-[640px]"
-            action={
-              project.archivedAt ? (
-                <Button
-                  variant="secondary"
-                  disabled={archive.isPending}
-                  onClick={() => archive.mutate(false)}
-                >
-                  {t('projects.projectSettings.archive.restore')}
-                </Button>
-              ) : (
-                <Button
-                  variant="danger"
-                  onClick={() => setConfirmArchive(true)}
-                >
-                  {t('projects.projectSettings.archive.trigger')}
-                </Button>
-              )
-            }
-          >
-            {t('projects.projectSettings.archive.note')}
-          </Notice>
-        </Section>
+        <ProjectPortalSettings
+          project={project}
+          enabled={portal.data?.auto_share_to_client}
+          busy={setPortal.isPending || portal.isLoading}
+          onToggle={() => setPortal.mutate(!portal.data?.auto_share_to_client)}
+        />
+        <ProjectArchiveSettings project={project} />
       </div>
+    </>
+  )
+}
+
+function ProjectPortalSettings({
+  project,
+  enabled,
+  busy,
+  onToggle,
+}: {
+  project: ProjectSummary
+  enabled: boolean | undefined
+  busy: boolean
+  onToggle: () => void
+}) {
+  return (
+    <Section title={t('projects.projectSettings.portal.title')}>
+      {project.clientCode || project.clientName ? (
+        <div className="flex flex-col gap-2.5">
+          <Muted>
+            {enabled
+              ? t('projects.projectSettings.portal.on', {
+                  client:
+                    project.clientName ??
+                    t('projects.projectSettings.portal.theClient'),
+                })
+              : t('projects.projectSettings.portal.off', {
+                  client:
+                    project.clientName ??
+                    t('projects.projectSettings.portal.theClientCapital'),
+                })}
+          </Muted>
+          <div>
+            <Button
+              variant={enabled ? 'secondary' : 'primary'}
+              disabled={busy}
+              onClick={onToggle}
+            >
+              {enabled
+                ? t('projects.projectSettings.portal.turnOff')
+                : t('projects.projectSettings.portal.turnOn')}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Muted>{t('projects.projectSettings.portal.noClient')}</Muted>
+      )}
+    </Section>
+  )
+}
+
+function ProjectArchiveSettings({ project }: { project: ProjectSummary }) {
+  const { projectId } = Route.useParams()
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const [confirmArchive, setConfirmArchive] = useState(false)
+
+  const archive = useMutation({
+    mutationFn: (nextArchived: boolean) =>
+      projectDataClient.rpc(
+        nextArchived ? 'archive_project' : 'unarchive_project',
+        { p_project_id: projectId },
+      ),
+    onSuccess: (_data, nextArchived) => {
+      void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
+      void router.invalidate()
+      setConfirmArchive(false)
+      toast(
+        nextArchived
+          ? t('projects.projectSettings.archived')
+          : t('projects.projectSettings.restored'),
+      )
+    },
+  })
+
+  return (
+    <>
+      <Section title={t('projects.projectSettings.archive.title')}>
+        <Notice
+          tone="warn"
+          icon={false}
+          className="max-w-[640px]"
+          action={
+            project.archivedAt ? (
+              <Button
+                variant="secondary"
+                disabled={archive.isPending}
+                onClick={() => archive.mutate(false)}
+              >
+                {t('projects.projectSettings.archive.restore')}
+              </Button>
+            ) : (
+              <Button variant="danger" onClick={() => setConfirmArchive(true)}>
+                {t('projects.projectSettings.archive.trigger')}
+              </Button>
+            )
+          }
+        >
+          {t('projects.projectSettings.archive.note')}
+        </Notice>
+      </Section>
 
       <Dialog open={confirmArchive} onOpenChange={setConfirmArchive}>
         <DialogContent className="w-[min(480px,calc(100vw-32px))]">

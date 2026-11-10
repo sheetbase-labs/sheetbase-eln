@@ -21,6 +21,7 @@ export const Route = createFileRoute('/settings/workspace/')({
 function General() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
+
   if (!canOpenSettings(context.workspace, 'general')) {
     return (
       <>
@@ -48,6 +49,7 @@ function General() {
       </>
     )
   }
+
   return (
     <SettingsGeneral
       workspaceId={workspaceId}

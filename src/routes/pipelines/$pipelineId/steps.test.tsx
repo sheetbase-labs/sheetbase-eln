@@ -3,9 +3,9 @@
  * target (schema version or dataset) and the version label the shared contract
  * validator requires, and the saved configuration carries them.
  */
-import { createElement } from 'react'
-import type { ReactNode } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { RouterProvider } from '@tanstack/react-router'
+import { z } from 'zod'
 import {
   cleanup,
   fireEvent,
@@ -13,101 +13,140 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './steps'
-import type * as pipelinesDataModule from '#/components/pipelines/pipelines-data'
-import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
+import { pipelineTestRouter, routeQueryClient } from '../-route-test-support'
+import { pipelineDataQueryKeys } from '#/components/pipelines/pipelines-data'
+import type { PythonRuntimeInfo } from '#/components/pipelines/pipelines-data'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
+import { dropSharedReads } from '#/lib/data-client'
+import { editorConfiguration } from '../-configuration'
 
-const PipelineSteps = Route.options.component as React.ComponentType
+const transport = vi.hoisted(() => {
+  const request = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', request)
+
+  return request
+})
 
 const SCHEMA_VERSION = '11111111-1111-4111-8111-111111111111'
 const DATASET = '22222222-2222-4222-8222-222222222222'
 
-const rpc = vi.hoisted(() => vi.fn().mockResolvedValue({}))
+const rpc =
+  vi.fn<
+    (
+      name: string,
+      args: ReturnType<typeof pipelineJsonObjectSchema.parse>,
+    ) => void
+  >()
+
 const RUNTIME = `registry.example/sheetbase-python@sha256:${'a'.repeat(64)}`
 
-const pythonRuntime = vi.hoisted(() => {
-  const current: { isLoading: boolean; data: unknown } = {
-    isLoading: false,
-    data: undefined,
-  }
+interface RuntimeState {
+  isLoading: boolean
+  data: PythonRuntimeInfo | undefined
+}
 
-  return { current }
-})
+interface RuntimeFixture {
+  current: RuntimeState
+}
 
-vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useParams: () => ({ pipelineId: 'def-1' }),
-    useRouteContext: () => ({ context: { workspace: { id: 'ws-1' } } }),
-    options: config,
-  }),
-  redirect: vi.fn(),
-  Link: ({ children }: { children?: ReactNode }) => children,
-}))
+const pythonRuntime: RuntimeFixture = {
+  current: { isLoading: false, data: undefined },
+}
 
-vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: { rpc } }))
+let router: Awaited<ReturnType<typeof pipelineTestRouter>>
 
-vi.mock('#/components/pipelines/pipelines-data', async (importOriginal) => ({
-  ...(await importOriginal<typeof pipelinesDataModule>()),
-  usePipelineVersions: () => ({
-    isLoading: false,
-    data: [] as PipelineDefinitionVersionWire[],
-  }),
-  useWorkspaceMemberNames: () => ({ data: { 'u-1': 'Ada Lovelace' } }),
-  usePythonRuntime: () => pythonRuntime.current,
-  usePipelineDefinition: () => ({ data: { name: 'Viability summary' } }),
-  useDefinitionRuns: () => ({ data: [] }),
-  useSchemaVersionFields: (id: string) => ({
-    isLoading: false,
-    data: id
-      ? [
-          { key: 'sample', label: 'Sample', type: 'text', required: true },
-          { key: 'od', label: 'OD', type: 'decimal', required: true },
-        ]
-      : [],
-  }),
-  useDatasetVersionChoices: () => ({
-    data: [{ id: 'dv-1', label: 'DS-0001 · Readings — import' }],
-  }),
-  useDatasetVersionFields: (id: string) => ({
-    isLoading: false,
-    data: id
-      ? [
-          { key: 'batch', label: 'Batch', type: 'text', required: false },
-          { key: 'value', label: 'Value', type: 'decimal', required: false },
-        ]
-      : [],
-  }),
-  usePipelineOutputTargets: () => ({
-    isError: false,
-    data: {
-      datasets: [
-        {
-          id: DATASET,
-          name: 'Readings',
-          displayId: 'DS-0001',
-          schemaVersionId: SCHEMA_VERSION,
-        },
-      ],
-      schemaVersions: [{ id: SCHEMA_VERSION, label: 'Plate reader v2' }],
+beforeEach(async () => {
+  router = await pipelineTestRouter(
+    Route.options.component,
+    '/pipelines/$pipelineId/steps',
+    '/pipelines/def-1/steps',
+  )
+  vi.stubGlobal('fetch', transport)
+  transport.mockImplementation(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        'http://localhost',
+      )
+
+      if (url.pathname.startsWith('/api/db/rpc/')) {
+        if (url.pathname.endsWith('workspace_members_list'))
+          return Response.json([])
+        rpc(
+          url.pathname.split('/').at(-1) ?? '',
+          pipelineJsonObjectSchema.parse(
+            JSON.parse(z.string().parse(init?.body)),
+          ),
+        )
+
+        return Response.json({})
+      }
+
+      if (url.pathname === '/api/pipelines/runtime')
+        return Response.json(pythonRuntime.current.data ?? { available: false })
+
+      return Response.json([])
     },
-  }),
-}))
+  )
+})
 
 afterEach(() => {
   cleanup()
   rpc.mockClear()
   pythonRuntime.current = { isLoading: false, data: undefined }
+  vi.unstubAllGlobals()
+  dropSharedReads()
 })
 
 function renderSteps() {
+  const client = routeQueryClient()
+  client.setQueryData(pipelineDataQueryKeys.versions('def-1'), [])
+  client.setQueryData(pipelineDataQueryKeys.definition('def-1'), {
+    name: 'Viability summary',
+  })
+  client.setQueryData(['ui-port', 'pipelines', 'member-names'], {
+    'u-1': 'Ada Lovelace',
+  })
+  client.setQueryData(
+    ['ui-port', 'pipelines', 'python-runtime'],
+    pythonRuntime.current.data ?? { available: false },
+  )
+  client.setQueryData(
+    ['ui-port', 'pipelines', 'schema-fields', SCHEMA_VERSION],
+    [
+      { key: 'sample', label: 'Sample', type: 'text', required: true },
+      { key: 'od', label: 'OD', type: 'decimal', required: true },
+    ],
+  )
+  client.setQueryData(
+    ['ui-port', 'pipelines', 'version-fields', 'dv-1'],
+    [
+      { key: 'batch', label: 'Batch', type: 'text', required: false },
+      { key: 'value', label: 'Value', type: 'decimal', required: false },
+    ],
+  )
+  client.setQueryData(
+    ['ui-port', 'pipelines', 'dataset-version-choices'],
+    [{ id: 'dv-1', label: 'DS-0001 · Readings — import' }],
+  )
+  client.setQueryData(['ui-port', 'pipelines', 'output-targets'], {
+    datasets: [
+      {
+        id: DATASET,
+        name: 'Readings',
+        displayId: 'DS-0001',
+        schemaVersionId: SCHEMA_VERSION,
+      },
+    ],
+    schemaVersions: [{ id: SCHEMA_VERSION, label: 'Plate reader v2' }],
+  })
   render(
-    createElement(
-      QueryClientProvider,
-      { client: new QueryClient() },
-      createElement(PipelineSteps),
-    ) as ReactNode,
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
   )
 }
 
@@ -120,8 +159,12 @@ describe('Steps editor output', () => {
     fireEvent.change(screen.getByLabelText('Output mode'), {
       target: { value: 'create' },
     })
-    const save = screen.getByRole('button', { name: 'Create draft v1' })
-    expect((save as HTMLButtonElement).disabled).toBe(true)
+
+    const save = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Create draft v1',
+    })
+
+    expect(save.disabled).toBe(true)
     expect(screen.getByText('This version can’t be saved yet')).toBeTruthy()
 
     fireEvent.change(screen.getByLabelText('Dataset name'), {
@@ -133,16 +176,16 @@ describe('Steps editor output', () => {
     fireEvent.change(screen.getByLabelText('Dataset version label'), {
       target: { value: 'Weekly' },
     })
-    expect((save as HTMLButtonElement).disabled).toBe(false)
+    expect(save.disabled).toBe(false)
     fireEvent.click(save)
 
     await waitFor(() => expect(rpc).toHaveBeenCalled())
 
-    const args = rpc.mock.calls[0][1] as {
-      p_configuration: { output: Record<string, unknown> }
-    }
+    const config = editorConfiguration.parse(
+      rpc.mock.calls[0][1].p_configuration,
+    )
 
-    expect(args.p_configuration.output).toMatchObject({
+    expect(config.output).toMatchObject({
       mode: 'create',
       schemaVersionId: SCHEMA_VERSION,
       datasetName: 'Weekly readings',
@@ -167,16 +210,13 @@ describe('Steps editor output', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
 
-    const args = rpc.mock.calls[0][1] as {
-      p_configuration: {
-        parameters: unknown[]
-        steps: { name: string; confirm?: unknown }[]
-      }
-    }
+    const config = editorConfiguration.parse(
+      rpc.mock.calls[0][1].p_configuration,
+    )
 
-    expect(args.p_configuration.parameters).toMatchObject([{ name: 'dose' }])
-    expect(args.p_configuration.steps[0].name).toBe('step_1')
-    expect(args.p_configuration.steps[0].confirm).toBeTruthy()
+    expect(config.parameters).toMatchObject([{ name: 'dose' }])
+    expect(config.steps?.[0].name).toBe('step_1')
+    expect(config.steps?.[0].confirm).toBeTruthy()
   })
 
   it('can save an append output once a dataset and label are chosen', () => {
@@ -227,13 +267,11 @@ describe('Steps editor Python', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
 
-    const config = (rpc.mock.calls[0][1] as { p_configuration: unknown })
-      .p_configuration as {
-      pythonRuntime: string
-      transform: { language: string }
-    }
+    const config = editorConfiguration.parse(
+      rpc.mock.calls[0][1].p_configuration,
+    )
 
-    expect(config.transform.language).toBe('python')
+    expect(config.transform?.language).toBe('python')
     expect(config.pythonRuntime).toBe(RUNTIME)
   })
 
@@ -253,8 +291,9 @@ describe('Steps editor Python', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
 
-    const config = (rpc.mock.calls[0][1] as { p_configuration: unknown })
-      .p_configuration as { pythonRuntime: string }
+    const config = editorConfiguration.parse(
+      rpc.mock.calls[0][1].p_configuration,
+    )
 
     expect(config.pythonRuntime).toBe(RUNTIME)
   })
@@ -286,10 +325,11 @@ describe('Steps editor Python', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
 
-    const config = (rpc.mock.calls[0][1] as { p_configuration: object })
-      .p_configuration
+    const config = editorConfiguration.parse(
+      rpc.mock.calls[0][1].p_configuration,
+    )
 
-    expect(config).toMatchObject({ pythonRuntime: undefined })
+    expect(config.pythonRuntime).toBeUndefined()
   })
 
   it('saves pinned packages and a data contract with the Python step', async () => {
@@ -318,14 +358,12 @@ describe('Steps editor Python', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
 
-    const config = (rpc.mock.calls[0][1] as { p_configuration: unknown })
-      .p_configuration as {
-      pythonRequirements: string[]
-      transform: { contract: unknown }
-    }
+    const config = editorConfiguration.parse(
+      rpc.mock.calls[0][1].p_configuration,
+    )
 
     expect(config.pythonRequirements).toEqual(['scipy==1.15.3'])
-    expect(config.transform.contract).toEqual({
+    expect(config.transform?.contract).toEqual({
       output: { columns: [{ name: 'mean', type: 'text' }] },
     })
   })
@@ -370,13 +408,12 @@ describe('Steps editor Python', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
 
-    const config = (rpc.mock.calls[0][1] as { p_configuration: object })
-      .p_configuration
+    const config = editorConfiguration.parse(
+      rpc.mock.calls[0][1].p_configuration,
+    )
 
-    expect(config).toMatchObject({
-      pythonRequirements: undefined,
-      pythonRuntime: undefined,
-    })
+    expect(config.pythonRequirements).toBeUndefined()
+    expect(config.pythonRuntime).toBeUndefined()
   })
 })
 
@@ -412,11 +449,11 @@ describe('Steps editor guided building', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
 
-    const args = rpc.mock.calls[0][1] as {
-      p_configuration: { output: Record<string, unknown> }
-    }
+    const config = editorConfiguration.parse(
+      rpc.mock.calls[0][1].p_configuration,
+    )
 
-    expect(args.p_configuration.output.fieldMapping).toEqual({
+    expect(config.output?.fieldMapping).toEqual({
       optical_density: 'od',
     })
   })
@@ -503,7 +540,10 @@ describe('Steps editor Try draft', () => {
   }
 
   it('runs the unsaved draft, shows the result inline and says when it is out of date', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(Response.json(answer))
+    const fetchMock = vi
+      .fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+      .mockImplementation(async () => Response.json(answer))
+
     vi.stubGlobal('fetch', fetchMock)
     renderSteps()
     const sql = document.querySelector<HTMLTextAreaElement>('textarea')!
@@ -511,16 +551,17 @@ describe('Steps editor Try draft', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try draft' }))
 
     await screen.findByText('Try draft result')
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/api/pipelines/try-draft')
 
-    const body = JSON.parse(init.body as string) as {
-      workspaceId: string
-      configuration: { transform: { statement: string } }
-    }
+    const body = pipelineJsonObjectSchema.parse(
+      JSON.parse(z.string().parse(init?.body)),
+    )
 
     expect(body.workspaceId).toBe('ws-1')
-    expect(body.configuration.transform.statement).toBe('select 1 as n')
+    expect(
+      editorConfiguration.parse(body.configuration).transform?.statement,
+    ).toBe('select 1 as n')
     expect(screen.getByText(/Nothing was saved/)).toBeTruthy()
     // Nothing was saved or published to get this answer.
     expect(rpc).not.toHaveBeenCalled()

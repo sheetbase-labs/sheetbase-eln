@@ -1,113 +1,132 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createMemoryHistory,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
-import { Route } from './$projectId'
+let visible = true
+let archivedAt: string | null = null
 
-const state = vi.hoisted(() => ({
-  project: null as null | Record<string, unknown>,
-  samples: 12,
-  datasets: 3,
-  milestones: 2,
-  folders: 1,
-}))
+vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
 
-vi.mock('#/lib/use-capability', () => ({ useHasCapability: () => true }))
-vi.mock('@tanstack/react-router', () => ({
-  useRouter: () => ({ invalidate: async () => {} }),
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useParams: () => ({ projectId: 'project-1' }),
-    useRouteContext: () => ({ context: {} }),
-    options: config,
-  }),
-  Outlet: () => <div data-testid="outlet" />,
-  redirect: (options: unknown) => options,
-  Link: ({
-    to,
-    params,
-    search: _search,
-    activeProps: _activeProps,
-    activeOptions: _activeOptions,
-    children,
-    ...props
-  }: {
-    to?: string
-    params?: Record<string, string>
-    children?: React.ReactNode
-  } & Record<string, unknown>) => {
-    let href = typeof to === 'string' ? to : '#'
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        href = href.replace(`$${key}`, encodeURIComponent(String(value)))
-      }
-    }
-    return (
-      <a href={href} {...props}>
-        {children}
-      </a>
+  if (url.pathname.endsWith('/project_list_summary'))
+    return Response.json(
+      visible
+        ? [
+            {
+              id: 'project-1',
+              key: 'PRJ-01',
+              display_id: 'PRJ-01',
+              title: 'AAV9 transfer',
+              status: 'active',
+              client_code: 'CL-017',
+              modality: 'AAV9',
+              stage: 'Tech transfer',
+              lead_name: 'Gareth',
+              started_on: '2026-08-03',
+              archived_at: archivedAt,
+              experiment_count: 4,
+              updated_at: '2026-08-03T00:00:00Z',
+            },
+          ]
+        : [],
     )
-  },
-}))
 
-vi.mock('#/components/projects/project-data', () => ({
-  fetchProjectMembers: async () => [],
-  fetchProjectFolders: async () =>
-    Array.from({ length: state.folders }, (_, i) => ({ id: `folder-${i}` })),
-  useProjectMilestones: () => ({
-    data: Array.from({ length: state.milestones }, (_, i) => ({
-      id: `m-${i}`,
-      kind: 'milestone',
-    })),
-  }),
-  useProjectSummary: () => ({ project: state.project, query: {} }),
-}))
-vi.mock('#/components/projects/project-lists', () => ({
-  useProjectRecordCount: () => ({ data: state.samples }),
-  useProjectDatasetCount: () => ({ data: state.datasets }),
-}))
-vi.mock('#/lib/identifier-resolution', () => ({
-  resolveIdentifierParam: async () => undefined,
-}))
-vi.mock('#/lib/recents', () => ({ useRecentViewTracking: () => undefined }))
+  if (url.pathname.endsWith('/records') || url.pathname.endsWith('/datasets'))
+    return Response.json([], {
+      headers: {
+        'Content-Range': `*/${url.pathname.endsWith('/records') ? 12 : 3}`,
+      },
+    })
+
+  if (url.pathname.endsWith('/study_tasks'))
+    return Response.json(
+      [0, 1].map((i) => ({
+        id: `m-${i}`,
+        task_type: 'milestone',
+        title: `Milestone ${i}`,
+        status: 'todo',
+        due_at: null,
+        timezone: 'UTC',
+      })),
+    )
+
+  return Response.json([])
+})
+
+const { Route } = await import('./$projectId')
+const { dropSharedReads } = await import('#/lib/data-client')
 
 function renderRoute() {
   const Component = Route.options.component
+
   if (!Component) throw new Error('Project layout component required')
+
+  const context = {
+    user: { id: 'gareth' },
+    workspace: { id: 'ws', role: 'member' },
+  }
+
+  const root = createRootRoute({ beforeLoad: () => ({ auth: context }) })
+
+  const route = createRoute({
+    getParentRoute: () => root,
+    path: '/projects/$projectId',
+    beforeLoad: () => ({ context }),
+    component: Component,
+  })
+
+  const router = createRouter({
+    routeTree: root.addChildren([route]),
+    history: createMemoryHistory({ initialEntries: ['/projects/project-1'] }),
+  })
+
   return render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <Component />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
 }
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  dropSharedReads()
+})
+
+afterAll(() => vi.unstubAllGlobals())
+
 beforeEach(() => {
-  vi.resetAllMocks()
-  state.project = {
-    id: 'project-1',
-    key: 'PRJ-01',
-    displayId: 'PRJ-01',
-    title: 'AAV9 transfer',
-    status: 'active',
-    clientCode: 'CL-017',
-    modality: 'AAV9',
-    stage: 'Tech transfer',
-    leadName: 'Gareth',
-    startedOn: '2026-08-03',
-    archivedAt: null,
-    experimentCount: 4,
-  }
-  state.samples = 12
-  state.datasets = 3
+  visible = true
+  archivedAt = null
 })
 
 describe('project header (R5-SURF-02)', () => {
   it('shows the list tabs with counts and the design’s header actions', async () => {
     renderRoute()
+    await screen.findByRole('link', { name: /^Milestones\s*2$/ })
+    await screen.findByRole('link', { name: /^Samples\s*12$/ })
+    await screen.findByRole('link', { name: /^Datasets\s*3$/ })
 
     for (const label of [
       'Overview',
@@ -142,19 +161,20 @@ describe('project header (R5-SURF-02)', () => {
       screen
         .getByRole('button', { name: 'New experiment' })
         .getAttribute('href'),
-    ).toBe('/experiments/new')
+    ).toBe('/experiments/new?project=project-1')
   })
 
-  it('hides New experiment for an archived project', () => {
-    state.project = { ...state.project, archivedAt: '2026-09-01T00:00:00Z' }
+  it('hides New experiment for an archived project', async () => {
+    archivedAt = '2026-09-01T00:00:00Z'
     renderRoute()
+    await screen.findByText('AAV9 transfer')
     expect(screen.queryByRole('button', { name: 'New experiment' })).toBeNull()
   })
 
-  it('shows not found (not an empty project) when the user cannot see it', () => {
-    state.project = null
+  it('shows not found (not an empty project) when the user cannot see it', async () => {
+    visible = false
     renderRoute()
-    expect(screen.getByText('Project not found')).toBeTruthy()
+    expect(await screen.findByText('Project not found')).toBeTruthy()
     expect(screen.queryByRole('link', { name: /^Experiments/ })).toBeNull()
   })
 })

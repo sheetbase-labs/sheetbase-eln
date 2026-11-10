@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { z } from 'zod'
 import { Button } from '#/components/ui/button'
 import {
   SettingsBody,
@@ -10,21 +11,21 @@ import { canManageSettings } from '#/lib/settings-access'
 import { t } from '#/copy'
 
 export const Route = createFileRoute('/settings/lab/instruments')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { fileId?: string; versionId?: string; instrumentId?: string } => ({
-    fileId: typeof search.fileId === 'string' ? search.fileId : undefined,
-    versionId:
-      typeof search.versionId === 'string' ? search.versionId : undefined,
-    instrumentId:
-      typeof search.instrumentId === 'string' ? search.instrumentId : undefined,
-  }),
+  validateSearch: (search) =>
+    z
+      .object({
+        fileId: z.string().optional().catch(undefined),
+        versionId: z.string().optional().catch(undefined),
+        instrumentId: z.string().optional().catch(undefined),
+      })
+      .parse(search),
   component: Instruments,
 })
 
 function Instruments() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
+
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <SettingsHeader

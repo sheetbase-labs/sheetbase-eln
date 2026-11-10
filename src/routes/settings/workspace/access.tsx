@@ -58,7 +58,9 @@ import { canManageSettings } from '#/lib/settings-access'
 export const Route = createFileRoute('/settings/workspace/access')({
   component: Access,
 })
+
 const dataClient = createDataClient()
+
 const columns = [
   { key: 'can_edit', label: t('common.actions.edit') },
   { key: 'can_review', label: t('settings.access.review') },
@@ -66,48 +68,58 @@ const columns = [
   { key: 'client_portal', label: t('settings.access.clientPortal') },
 ] as const
 
-function Access() {
+function useProjectAccessRules() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
   const queryClient = useQueryClient()
+
   const [dialog, setDialog] = useState<
     { kind: 'add' } | { kind: 'edit'; rule: ProjectAccessRule } | null
   >(null)
+
   const [projectFilter, setProjectFilter] = useState('')
   const [groupFilter, setGroupFilter] = useState('')
+
   const rules = useQuery({
     queryKey: workspaceAccessKeys.rules(workspaceId),
     queryFn: () => fetchWorkspaceAccessRules(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const groups = useQuery({
     queryKey: workspaceAccessKeys.groups(workspaceId),
     queryFn: () => fetchWorkspaceGroups(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const projects = useQuery({
     queryKey: ['settings-access-projects', workspaceId],
     queryFn: () => fetchProjectSummaries(workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   const people = useQuery({
     queryKey: ['settings-access-people', workspaceId],
     queryFn: () => fetchWorkspaceMemberIdentities(),
     enabled: Boolean(workspaceId),
   })
+
   const permissions = useQuery({
     queryKey: ['settings-access-permissions', workspaceId],
     queryFn: () => fetchMyProjectPermissions(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const requests = useQuery({
     queryKey: workspaceAccessKeys.requests(workspaceId),
     queryFn: () => fetchProjectAccessRequests(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const manageableProjects = (projects.data ?? []).filter(
     (p) => permissions.data?.get(p.id)?.can_manage,
   )
+
   const invalidate = () => {
     void queryClient.invalidateQueries({
       queryKey: workspaceAccessKeys.all(workspaceId),
@@ -117,6 +129,7 @@ function Access() {
     })
     void queryClient.invalidateQueries({ queryKey: ['ui-port', 'projects'] })
   }
+
   const save = useMutation({
     mutationFn: (input: Parameters<typeof setProjectAccessRule>[1]) =>
       setProjectAccessRule(dataClient, input),
@@ -130,6 +143,7 @@ function Access() {
         description: error.message,
       }),
   })
+
   const remove = useMutation({
     mutationFn: (id: string) => removeProjectAccessRule(dataClient, id),
     onSuccess: () => {
@@ -142,6 +156,7 @@ function Access() {
         description: error.message,
       }),
   })
+
   const decide = useMutation({
     mutationFn: (input: { requestId: string; approve: boolean }) =>
       decideProjectAccessRequest(dataClient, input),
@@ -154,64 +169,20 @@ function Access() {
         description: error.message,
       }),
   })
+
   const requestRows = requests.data ?? []
+
   // Requesters and deciders are workspace members; one resolver names both so
   // a decision is attributable, never a bare user id.
   const { userLabel } = useUserNames(
     requestRows.flatMap((r) => [r.user_id, r.decided_by_user_id ?? '']),
     context.user,
   )
+
   const visibleProjects = (projects.data ?? []).filter(
     (p) => !projectFilter || p.id === projectFilter,
   )
-  const matrixColumns: RegistryColumn<(typeof visibleProjects)[number]>[] = [
-    {
-      id: 'project',
-      header: 'Project',
-      cell: ({ row }) => row.original.title,
-    },
-    ...columns.map(
-      (column): RegistryColumn<(typeof visibleProjects)[number]> => ({
-        id: column.key,
-        header: column.label,
-        cell: ({ row }) => {
-          const activeRules = (rules.data ?? []).filter(
-            (rule) =>
-              rule.project_id === row.original.id &&
-              rule[column.key] &&
-              (!groupFilter || rule.group_id === groupFilter),
-          )
-          if (!activeRules.length) return '—'
-          const editable = permissions.data?.get(row.original.id)?.can_manage
-          // A long list of names stops at the column's edge, so the matrix
-          // fits the pane instead of scrolling sideways; the full list is in
-          // the tooltip.
-          return (
-            <span
-              className="block max-w-36 truncate"
-              title={activeRules.map((rule) => rule.principal_name).join(', ')}
-            >
-              {activeRules.map((rule, index) => (
-                <span key={rule.id}>
-                  {index ? ', ' : ''}
-                  {editable ? (
-                    <button
-                      className="text-left hover:underline focus-visible:outline focus-visible:outline-2"
-                      onClick={() => setDialog({ kind: 'edit', rule })}
-                    >
-                      {rule.principal_name}
-                    </button>
-                  ) : (
-                    rule.principal_name
-                  )}
-                </span>
-              ))}
-            </span>
-          )
-        },
-      }),
-    ),
-  ]
+
   const requestColumns: RegistryColumn<(typeof requestRows)[number]>[] = [
     {
       id: 'person',
@@ -233,51 +204,66 @@ function Access() {
     {
       id: 'decision',
       header: 'Decision',
-      cell: ({ row }) => {
-        const request = row.original
-        const canDecide =
-          request.status === 'pending' &&
-          permissions.data?.get(request.project_id)?.can_manage === true
-        if (canDecide) {
-          return (
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                disabled={decide.isPending}
-                onClick={() =>
-                  decide.mutate({ requestId: request.id, approve: true })
-                }
-              >
-                {t('settings.access.approveEditAccess')}
-              </Button>
-              <Button
-                size="sm"
-                variant="quiet"
-                disabled={decide.isPending}
-                onClick={() =>
-                  decide.mutate({ requestId: request.id, approve: false })
-                }
-              >
-                {t('settings.access.deny')}
-              </Button>
-            </div>
-          )
-        }
-        if (request.status === 'pending')
-          return <span>{t('settings.access.waitingApproval')}</span>
-        return (
-          <span>
-            {request.status === 'approved' ? 'Approved' : 'Denied'}
-            {request.decided_by_user_id
-              ? ` by ${userLabel(request.decided_by_user_id)}`
-              : ''}
-            {' · '}
-            {formatDate(request.updated_at)}
-          </span>
-        )
-      },
+      cell: ({ row }) => (
+        <AccessRequestDecision
+          request={row.original}
+          canManage={
+            permissions.data?.get(row.original.project_id)?.can_manage === true
+          }
+          busy={decide.isPending}
+          onDecide={(approve) =>
+            decide.mutate({ requestId: row.original.id, approve })
+          }
+          userLabel={userLabel}
+        />
+      ),
     },
   ]
+
+  return {
+    context,
+    workspaceId,
+    dialog,
+    setDialog,
+    projectFilter,
+    setProjectFilter,
+    groupFilter,
+    setGroupFilter,
+    rules,
+    groups,
+    projects,
+    people,
+    permissions,
+    requests,
+    manageableProjects,
+    visibleProjects,
+    requestRows,
+    requestColumns,
+    save,
+    remove,
+  }
+}
+
+function Access() {
+  const access = useProjectAccessRules()
+
+  const {
+    context,
+    workspaceId,
+    setDialog,
+    projectFilter,
+    setProjectFilter,
+    groupFilter,
+    setGroupFilter,
+    groups,
+    projects,
+    permissions,
+    requests,
+    manageableProjects,
+    requestRows,
+    requestColumns,
+  } = access
+
   return (
     <>
       <SettingsHeader
@@ -333,45 +319,14 @@ function Access() {
           </Select>
         </label>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
-        {rules.isError || projects.isError || permissions.isError ? (
-          <SettingsBody>
-            <p role="alert">{t('settings.access.couldLoadProject')}</p>
-            <Button
-              onClick={() => {
-                void rules.refetch()
-                void projects.refetch()
-                void permissions.refetch()
-              }}
-            >
-              {t('common.actions.tryAgain')}
-            </Button>
-          </SettingsBody>
-        ) : rules.isPending || projects.isPending ? (
-          <SettingsBody>
-            <Muted>{t('settings.access.loadingProjectAccess')}</Muted>
-          </SettingsBody>
-        ) : visibleProjects.length ? (
-          <RegistryGrid
-            label={t('settings.access.projectAccessMatrix')}
-            rows={visibleProjects}
-            columns={matrixColumns}
-            getRowId={(project) => project.id}
-            selectable={false}
-          />
-        ) : null}
-        {!projects.isPending &&
-        !projects.isError &&
-        visibleProjects.length === 0 ? (
-          <SettingsBody>
-            <EmptyState
-              icon="lock"
-              title={t('settings.access.accessibleProjects')}
-              description={t('settings.access.explicitProjectRuleDescription')}
-            />
-          </SettingsBody>
-        ) : null}
-      </div>
+      <AccessProjects
+        rules={access.rules}
+        projects={projects}
+        visibleProjects={access.visibleProjects}
+        permissions={permissions}
+        groupFilter={groupFilter}
+        onEdit={(rule) => setDialog({ kind: 'edit', rule })}
+      />
       <SettingsBody className="border-t border-border-subtle">
         <Section title={t('settings.access.defaultsNewProjects')}>
           <Muted>{t('settings.access.newProjectsPrivate')}</Muted>
@@ -403,23 +358,223 @@ function Access() {
           <p role="alert">{t('settings.access.accessRequestsUnavailable')}</p>
         ) : null}
       </SettingsBody>
-      {dialog ? (
-        <RuleDialog
-          projects={manageableProjects}
-          groups={groups.data ?? []}
-          people={people.data ?? []}
-          rule={dialog.kind === 'edit' ? dialog.rule : undefined}
-          busy={save.isPending || remove.isPending}
-          onClose={() => setDialog(null)}
-          onSave={(input) => save.mutate(input)}
-          onRemove={
-            dialog.kind === 'edit'
-              ? () => remove.mutate(dialog.rule.id)
-              : undefined
-          }
-        />
-      ) : null}
+      <AccessRuleEditor {...access} />
     </>
+  )
+}
+
+function AccessRuleEditor({
+  dialog,
+  setDialog,
+  manageableProjects,
+  groups,
+  people,
+  save,
+  remove,
+}: Pick<
+  ReturnType<typeof useProjectAccessRules>,
+  | 'dialog'
+  | 'setDialog'
+  | 'manageableProjects'
+  | 'groups'
+  | 'people'
+  | 'save'
+  | 'remove'
+>) {
+  if (!dialog) return null
+
+  return (
+    <RuleDialog
+      projects={manageableProjects}
+      groups={groups.data ?? []}
+      people={people.data ?? []}
+      rule={dialog.kind === 'edit' ? dialog.rule : undefined}
+      busy={save.isPending || remove.isPending}
+      onClose={() => setDialog(null)}
+      onSave={(input) => save.mutate(input)}
+      onRemove={
+        dialog.kind === 'edit' ? () => remove.mutate(dialog.rule.id) : undefined
+      }
+    />
+  )
+}
+
+function AccessProjects({
+  rules,
+  projects,
+  visibleProjects,
+  permissions,
+  groupFilter,
+  onEdit,
+}: Pick<
+  ReturnType<typeof useProjectAccessRules>,
+  'rules' | 'projects' | 'visibleProjects' | 'permissions' | 'groupFilter'
+> & { onEdit: (rule: ProjectAccessRule) => void }) {
+  return (
+    <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
+      <AccessMatrix
+        projects={visibleProjects}
+        rules={rules.data ?? []}
+        permissions={permissions.data}
+        groupFilter={groupFilter}
+        loading={rules.isPending || projects.isPending}
+        failed={rules.isError || projects.isError || permissions.isError}
+        onRetry={() => {
+          void rules.refetch()
+          void projects.refetch()
+          void permissions.refetch()
+        }}
+        onEdit={onEdit}
+      />
+      {!projects.isPending &&
+      !projects.isError &&
+      visibleProjects.length === 0 ? (
+        <SettingsBody>
+          <EmptyState
+            icon="lock"
+            title={t('settings.access.accessibleProjects')}
+            description={t('settings.access.explicitProjectRuleDescription')}
+          />
+        </SettingsBody>
+      ) : null}
+    </div>
+  )
+}
+
+function AccessMatrix({
+  projects,
+  rules,
+  permissions,
+  groupFilter,
+  loading,
+  failed,
+  onRetry,
+  onEdit,
+}: {
+  projects: Awaited<ReturnType<typeof fetchProjectSummaries>>
+  rules: ProjectAccessRule[]
+  permissions: Awaited<ReturnType<typeof fetchMyProjectPermissions>> | undefined
+  groupFilter: string
+  loading: boolean
+  failed: boolean
+  onRetry: () => void
+  onEdit: (rule: ProjectAccessRule) => void
+}) {
+  if (failed) {
+    return (
+      <SettingsBody>
+        <p role="alert">{t('settings.access.couldLoadProject')}</p>
+        <Button onClick={onRetry}>{t('common.actions.tryAgain')}</Button>
+      </SettingsBody>
+    )
+  }
+
+  if (loading) {
+    return (
+      <SettingsBody>
+        <Muted>{t('settings.access.loadingProjectAccess')}</Muted>
+      </SettingsBody>
+    )
+  }
+
+  if (!projects.length) return null
+
+  const matrixColumns: RegistryColumn<(typeof projects)[number]>[] = [
+    { id: 'project', header: 'Project', cell: ({ row }) => row.original.title },
+    ...columns.map((column): RegistryColumn<(typeof projects)[number]> => ({
+      id: column.key,
+      header: column.label,
+      cell: ({ row }) => {
+        const activeRules = rules.filter(
+          (rule) =>
+            rule.project_id === row.original.id &&
+            rule[column.key] &&
+            (!groupFilter || rule.group_id === groupFilter),
+        )
+
+        if (!activeRules.length) return '—'
+        const editable = permissions?.get(row.original.id)?.can_manage
+
+        // The tooltip keeps the full list when names reach the column's edge.
+        return (
+          <span
+            className="block max-w-36 truncate"
+            title={activeRules.map((rule) => rule.principal_name).join(', ')}
+          >
+            {activeRules.map((rule, index) => (
+              <span key={rule.id}>
+                {index ? ', ' : ''}
+                {editable ? (
+                  <button
+                    className="text-left hover:underline focus-visible:outline focus-visible:outline-2"
+                    onClick={() => onEdit(rule)}
+                  >
+                    {rule.principal_name}
+                  </button>
+                ) : (
+                  rule.principal_name
+                )}
+              </span>
+            ))}
+          </span>
+        )
+      },
+    })),
+  ]
+
+  return (
+    <RegistryGrid
+      label={t('settings.access.projectAccessMatrix')}
+      rows={projects}
+      columns={matrixColumns}
+      getRowId={(project) => project.id}
+      selectable={false}
+    />
+  )
+}
+
+function AccessRequestDecision({
+  request,
+  canManage,
+  busy,
+  onDecide,
+  userLabel,
+}: {
+  request: Awaited<ReturnType<typeof fetchProjectAccessRequests>>[number]
+  canManage: boolean
+  busy: boolean
+  onDecide: (approve: boolean) => void
+  userLabel: (id: string) => string
+}) {
+  if (request.status === 'pending') {
+    if (!canManage) return <span>{t('settings.access.waitingApproval')}</span>
+
+    return (
+      <div className="flex gap-2">
+        <Button size="sm" disabled={busy} onClick={() => onDecide(true)}>
+          {t('settings.access.approveEditAccess')}
+        </Button>
+        <Button
+          size="sm"
+          variant="quiet"
+          disabled={busy}
+          onClick={() => onDecide(false)}
+        >
+          {t('settings.access.deny')}
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <span>
+      {request.status === 'approved' ? 'Approved' : 'Denied'}
+      {request.decided_by_user_id
+        ? ` by ${userLabel(request.decided_by_user_id)}`
+        : ''}
+      {' · '}
+      {formatDate(request.updated_at)}
+    </span>
   )
 }
 
@@ -436,11 +591,13 @@ function QaDefault({
   canManage: boolean
 }) {
   const queryClient = useQueryClient()
+
   const defaults = useQuery({
     queryKey: workspaceAccessKeys.defaults(workspaceId),
     queryFn: () => fetchProjectAccessDefaults(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const save = useMutation({
     mutationFn: (groupId: string | null) =>
       setProjectAccessDefaults(dataClient, groupId),
@@ -459,7 +616,9 @@ function QaDefault({
         description: error.message,
       }),
   })
+
   const current = defaults.data?.qa_view_group_id ?? ''
+
   return (
     <div className="flex flex-col gap-1.5">
       <label className="flex flex-col gap-1 text-label">
@@ -509,12 +668,15 @@ function RuleDialog({
   const [projectId, setProjectId] = useState(
     rule?.project_id ?? projects.at(0)?.id ?? '',
   )
+
   const [kind, setKind] = useState<'group' | 'user'>(
     rule?.user_id ? 'user' : 'group',
   )
+
   const [principalId, setPrincipalId] = useState(
     rule?.group_id ?? rule?.user_id ?? '',
   )
+
   const [flags, setFlags] = useState<ProjectPermissions>(
     rule ?? {
       can_view: true,
@@ -524,6 +686,7 @@ function RuleDialog({
       can_manage: false,
     },
   )
+
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">

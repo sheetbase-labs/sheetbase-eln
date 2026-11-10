@@ -27,13 +27,16 @@ import { t } from '#/copy'
  * project" reading; the global registry still shows them.
  */
 export const Route = createFileRoute('/projects/$projectId/datasets')({
-  validateSearch: (search: Record<string, unknown>): { page?: number } => {
+  validateSearch: (search): { page?: number } => {
     const page = parseProjectPage(search.page)
+
     return page > 1 ? { page } : {}
   },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) throw redirect(signInRedirect(location))
+
     return { context }
   },
   component: ProjectDatasetsTab,
@@ -121,6 +124,7 @@ function ProjectDatasetsTab() {
           label: t('projects.projectDatasets.columns.validation'),
           cell: (d) => {
             const v = datasetValidation(d)
+
             return <Status tone={v.tone}>{v.label}</Status>
           },
         },

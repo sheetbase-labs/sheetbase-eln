@@ -1,16 +1,72 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  RouterProvider,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createMemoryHistory,
+} from '@tanstack/react-router'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
-import { ProjectMembers as Panel } from './-members-panel'
+const removed: Array<{ p_project_id: string; p_user_id: string }> = []
 
-const mocks = vi.hoisted(() => ({
-  fetchProjectMembers: vi.fn(),
-  fetchWorkspaceMemberIdentities: vi.fn(),
-  removeProjectMember: vi.fn(),
-  setProjectMember: vi.fn(),
-}))
+const changed: Array<{
+  p_project_id: string
+  p_user_id: string
+  p_access_level: string
+}> = []
+
+vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
+
+  if (url.pathname.endsWith('/remove_project_member')) {
+    removed.push(
+      z
+        .object({ p_project_id: z.string(), p_user_id: z.string() })
+        .parse(await new Response(init?.body).json()),
+    )
+
+    return Response.json(null)
+  }
+
+  if (url.pathname.endsWith('/set_project_member')) {
+    changed.push(
+      z
+        .object({
+          p_project_id: z.string(),
+          p_user_id: z.string(),
+          p_access_level: z.string(),
+        })
+        .parse(await new Response(init?.body).json()),
+    )
+
+    return Response.json(null)
+  }
+
+  if (url.pathname.endsWith('/project_members'))
+    return Response.json([
+      {
+        user_id: 'u-mei',
+        name: 'Mei L.',
+        access_level: 'editor',
+        workspace_role: 'member',
+        project_role: null,
+        is_lead: false,
+        added_at: '2026-01-01T00:00:00Z',
+      },
+    ])
+
+  return Response.json([])
+})
+
+const { ProjectMembers } = await import('./-members-panel')
+const { dropSharedReads } = await import('#/lib/data-client')
 
 // jsdom reports no layout, so the grid's virtualiser would render no rows: give
 // every element the viewport a browser would report for the list area.
@@ -21,59 +77,41 @@ for (const prop of ['offsetHeight', 'clientHeight'] as const) {
   })
 }
 
-vi.mock('@tanstack/react-router', () => ({
-  getRouteApi: () => ({
-    useRouteContext: () => ({ context: { user: { id: 'gareth' } } }),
-  }),
-}))
+afterAll(() => vi.unstubAllGlobals())
 
-vi.mock('#/components/projects/project-data', () => ({
-  useProjectSummary: () => ({
-    project: { id: 'project-1', leadUserId: 'gareth', leadName: 'Gareth P.' },
-    query: { isLoading: false },
-  }),
-  fetchProjectMembers: (...args: unknown[]) =>
-    mocks.fetchProjectMembers(...args),
-  fetchWorkspaceMemberIdentities: (...args: unknown[]) =>
-    mocks.fetchWorkspaceMemberIdentities(...args),
-  removeProjectMember: (...args: unknown[]) =>
-    mocks.removeProjectMember(...args),
-  setProjectMember: (...args: unknown[]) => mocks.setProjectMember(...args),
-}))
-
-vi.mock('#/components/ui/sonner', () => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
-}))
-
-afterEach(cleanup)
-
-beforeEach(() => {
-  vi.resetAllMocks()
-  mocks.fetchProjectMembers.mockResolvedValue([
-    {
-      user_id: 'u-mei',
-      name: 'Mei L.',
-      access_level: 'editor',
-      workspace_role: 'member',
-      project_role: null,
-      is_lead: false,
-      added_at: '2026-01-01T00:00:00Z',
-    },
-  ])
-  mocks.fetchWorkspaceMemberIdentities.mockResolvedValue([])
-  mocks.removeProjectMember.mockResolvedValue(undefined)
-  mocks.setProjectMember.mockResolvedValue(undefined)
+afterEach(() => {
+  cleanup()
+  removed.length = 0
+  changed.length = 0
+  dropSharedReads()
 })
-
-const ProjectMembers = () => <Panel projectId="project-1" />
 
 function renderScreen() {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
+  client.setQueryData(
+    ['projects', 'summary'],
+    [{ id: 'project-1', leadUserId: 'gareth', leadName: 'Gareth P.' }],
+  )
+  const root = createRootRoute()
+
+  const route = createRoute({
+    getParentRoute: () => root,
+    path: '/projects/$projectId',
+    beforeLoad: () => ({ context: { user: { id: 'gareth' } } }),
+    component: () => <ProjectMembers projectId="project-1" />,
+  })
+
+  const router = createRouter({
+    routeTree: root.addChildren([route]),
+    history: createMemoryHistory({ initialEntries: ['/projects/project-1'] }),
+  })
+
   return render(
     <QueryClientProvider client={client}>
-      <ProjectMembers />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
 }
@@ -89,15 +127,14 @@ describe('project members', () => {
     await user.click(
       await screen.findByRole('menuitem', { name: 'Remove from project' }),
     )
-    expect(mocks.removeProjectMember).not.toHaveBeenCalled()
+    expect(removed).toEqual([])
     await user.click(
       await screen.findByRole('button', { name: 'Remove from project' }),
     )
     await waitFor(() =>
-      expect(mocks.removeProjectMember).toHaveBeenCalledWith(
-        'project-1',
-        'u-mei',
-      ),
+      expect(removed).toEqual([
+        { p_project_id: 'project-1', p_user_id: 'u-mei' },
+      ]),
     )
   })
 
@@ -108,16 +145,20 @@ describe('project members', () => {
     await user.click(
       screen.getByRole('button', { name: 'Change access for Mei L.' }),
     )
+
     for (const level of ['Editor', 'Reviewer', 'Viewer']) {
       expect(await screen.findByRole('menuitem', { name: level })).toBeTruthy()
     }
+
     await user.click(screen.getByRole('menuitem', { name: 'Reviewer' }))
     await waitFor(() =>
-      expect(mocks.setProjectMember).toHaveBeenCalledWith(
-        'project-1',
-        'u-mei',
-        'reviewer',
-      ),
+      expect(changed).toEqual([
+        {
+          p_project_id: 'project-1',
+          p_user_id: 'u-mei',
+          p_access_level: 'reviewer',
+        },
+      ]),
     )
   })
 })

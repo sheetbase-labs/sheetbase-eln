@@ -16,6 +16,7 @@ export const Route = createFileRoute('/settings/lab/sidebar')({
 
 function SidebarSettings() {
   const { context } = Route.useRouteContext()
+
   return (
     <>
       <SettingsHeader title={t('settings.sidebarPages.title')}>

@@ -6,27 +6,58 @@
  * size columns. The read is paged and reports the project's total, so a project with
  * more files than one page never silently drops the rest.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import {
-  fetchProjectFilesPage,
-  toFileDisplayRows,
-} from '#/routes/projects/$projectId/files'
-import type { DataClient } from '#/lib/data-client'
+import { fetchProjectFilesPage, toFileDisplayRows } from './-files-data'
+import { createDataClient } from '#/lib/data-client'
 
 const PROJECT = '00000000-0000-4000-8000-000000090010'
 
+interface FileRecordFixture {
+  id: string
+  identifier: string
+  title: string
+  created_by_user_id: string | null
+  created_at: string
+}
+
+interface FileObjectFixture {
+  record_id: string
+  display_name: string
+  media_type: string
+  byte_size: number
+}
+
 function client(
-  records: unknown[],
-  objects: unknown[],
+  records: FileRecordFixture[],
+  objects: FileObjectFixture[],
   total = records.length,
-): DataClient {
-  const list = vi
-    .fn()
-    .mockResolvedValueOnce(records)
-    .mockResolvedValueOnce(objects)
-  const count = vi.fn().mockResolvedValue(total)
-  return { list, count } as unknown as DataClient
+) {
+  const reads: URL[] = []
+  const counts: URL[] = []
+
+  const dataClient = createDataClient(async (input, init) => {
+    const url = new URL(
+      input instanceof Request ? input.url : String(input),
+      'http://localhost',
+    )
+
+    if (new Headers(init?.headers).has('range')) {
+      counts.push(url)
+
+      return Response.json([], {
+        headers: { 'content-range': total ? `0-0/${total}` : '*/0' },
+      })
+    }
+
+    reads.push(url)
+
+    return Response.json(
+      url.pathname.endsWith('/file_objects') ? objects : records,
+    )
+  })
+
+  return { dataClient, reads, counts }
 }
 
 describe('fetchProjectFilesPage', () => {
@@ -52,10 +83,11 @@ describe('fetchProjectFilesPage', () => {
           },
         ],
         240,
-      ),
+      ).dataClient,
       PROJECT,
       1,
     )
+
     expect(page).toEqual({
       page: 1,
       total: 240,
@@ -87,34 +119,30 @@ describe('fetchProjectFilesPage', () => {
           },
         ],
         [],
-      ),
+      ).dataClient,
       PROJECT,
       1,
     )
+
     expect(page.rows[0]).toMatchObject({ name: 'uploaded.csv', byteSize: null })
   })
 
   it('reads the requested page, bounded, and counts the whole project', async () => {
-    const list = vi.fn().mockResolvedValueOnce([])
-    const count = vi.fn().mockResolvedValue(240)
-    await fetchProjectFilesPage(
-      { list, count } as unknown as DataClient,
-      PROJECT,
-      2,
-    )
-    expect(list).toHaveBeenCalledTimes(1)
-    const query = list.mock.calls[0][1]
-    expect(query).toContain('limit=25')
-    expect(query).toContain('offset=25')
-    expect(count).toHaveBeenCalledTimes(1)
+    const fixture = client([], [], 240)
+    await fetchProjectFilesPage(fixture.dataClient, PROJECT, 2)
+    expect(fixture.reads).toHaveLength(1)
+    expect(fixture.reads[0].searchParams.get('limit')).toBe('25')
+    expect(fixture.reads[0].searchParams.get('offset')).toBe('25')
+    expect(fixture.counts).toHaveLength(1)
   })
 
   it('returns nothing, and asks for no objects, when the page has no records', async () => {
-    const dataClient = client([], [], 0)
-    const page = await fetchProjectFilesPage(dataClient, PROJECT, 1)
+    const fixture = client([], [], 0)
+    const page = await fetchProjectFilesPage(fixture.dataClient, PROJECT, 1)
     expect(page.rows).toEqual([])
     expect(page.total).toBe(0)
-    expect(dataClient.list).toHaveBeenCalledTimes(1)
+    expect(fixture.reads).toHaveLength(1)
+    expect(fixture.reads[0].pathname).toBe('/api/db/records')
   })
 })
 
@@ -146,6 +174,7 @@ describe('toFileDisplayRows', () => {
           ? 'Gareth P.'
           : userId,
     )
+
     expect(rows.map((row) => row.uploadedBy)).toEqual(['Gareth P.', '—'])
   })
 })

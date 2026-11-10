@@ -1,43 +1,93 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createMemoryHistory,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
+import { z } from 'zod'
 import type { WorkspaceCertification } from '#/lib/signature-certification'
-import { Route } from './signatures'
+import type { WorkspaceMember } from '#/lib/workspace-admin'
 
-const mocks = vi.hoisted(() => ({
-  certifications: [] as WorkspaceCertification[],
-  members: [] as { userId: string; role: string; suspendedAt: string | null }[],
+const certifications: WorkspaceCertification[] = []
+
+const members: Array<Pick<WorkspaceMember, 'userId' | 'role' | 'suspendedAt'>> =
+  []
+
+const state = {
+  certifications,
+  members,
   role: 'owner',
-  verify: vi.fn(),
-}))
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
-    <a href={to}>{children}</a>
-  ),
-  createFileRoute: () => (options: object) => ({
-    options,
-    useRouteContext: () => ({
-      context: {
-        user: { id: 'me', name: 'Ada Lovelace', email: 'ada@sheetbase.test' },
-        workspace: { id: 'ws', name: 'Test workspace', role: mocks.role },
-      },
-    }),
-  }),
-}))
-vi.mock('#/lib/signature-certification', async (importOriginal) => ({
-  ...(await importOriginal()),
-  fetchWorkspaceCertifications: async () => mocks.certifications,
-  verifySignatureIdentity: (...args: unknown[]) => mocks.verify(...args),
-}))
-vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
-  ...(await importOriginal()),
-  fetchWorkspaceMembers: async () => mocks.members,
-  fetchWorkspaceSettings: async () => ({
-    signaturePolicy: { reauth: 'batch' },
-  }),
-}))
-vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
+}
+
+const verificationSchema = z.object({
+  p_user_id: z.string(),
+  p_email: z.string(),
+})
+
+const verifications: Array<z.infer<typeof verificationSchema>> = []
+
+vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
+
+  if (url.pathname.endsWith('/workspace_signature_certifications'))
+    return Response.json(
+      state.certifications.map((c) => ({
+        user_id: c.userId,
+        name: c.name,
+        statement_version: c.statementVersion,
+        certified_at: c.certifiedAt,
+        revoked_at: c.revokedAt,
+        identity_verified_at: c.identityVerifiedAt,
+        identity_verified_by: c.identityVerifiedBy,
+        verified_email: c.verifiedEmail,
+        verification_requested: c.verificationRequested,
+        auth_method: c.authMethod,
+      })),
+    )
+
+  if (url.pathname.endsWith('/workspace_memberships'))
+    return Response.json(
+      state.members.map((m) => ({
+        id: 'membership-' + m.userId,
+        workspace_id: 'ws',
+        user_id: m.userId,
+        role: m.role,
+        suspended_at: m.suspendedAt,
+        client_id: null,
+        created_at: '2026-10-01T09:00:00Z',
+        updated_at: '2026-10-01T09:00:00Z',
+      })),
+    )
+
+  if (url.pathname.endsWith('/verify_signature_identity')) {
+    verifications.push(
+      verificationSchema.parse(await new Response(init?.body).json()),
+    )
+
+    return Response.json(null)
+  }
+
+  return Response.json([])
+})
+
+const { Route } = await import('./signatures')
+const { dropSharedReads } = await import('#/lib/data-client')
 
 function certification(
   userId: string,
@@ -58,16 +108,42 @@ function certification(
     ...overrides,
   }
 }
+
 function member(
   userId: string,
-  role: string,
+  role: WorkspaceMember['role'],
   suspendedAt: string | null = null,
 ) {
   return { userId, role, suspendedAt }
 }
+
 function renderRoute() {
   const Component = Route.options.component
+
   if (!Component) throw new Error('Signatures route component required')
+
+  const root = createRootRoute({
+    beforeLoad: () => ({
+      context: {
+        user: { id: 'me', name: 'Ada Lovelace', email: 'ada@sheetbase.test' },
+        workspace: { id: 'ws', name: 'Test workspace', role: state.role },
+      },
+    }),
+  })
+
+  const route = createRoute({
+    getParentRoute: () => root,
+    path: '/settings/workspace/signatures',
+    component: Component,
+  })
+
+  const router = createRouter({
+    routeTree: root.addChildren([route]),
+    history: createMemoryHistory({
+      initialEntries: ['/settings/workspace/signatures'],
+    }),
+  })
+
   return render(
     <QueryClientProvider
       client={
@@ -79,18 +155,24 @@ function renderRoute() {
         })
       }
     >
-      <Component />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
 }
+
 beforeEach(() => {
-  vi.resetAllMocks()
-  mocks.role = 'owner'
-  mocks.certifications = [certification('me', 'Ada Lovelace')]
-  mocks.members = [member('me', 'owner')]
-  mocks.verify.mockResolvedValue(undefined)
+  state.role = 'owner'
+  state.certifications = [certification('me', 'Ada Lovelace')]
+  state.members = [member('me', 'owner')]
+  verifications.length = 0
 })
-afterEach(cleanup)
+
+afterEach(() => {
+  cleanup()
+  dropSharedReads()
+})
+
+afterAll(() => vi.unstubAllGlobals())
 
 describe('electronic signature policy', () => {
   it('points to the person’s own signature rather than hosting it', async () => {
@@ -105,12 +187,12 @@ describe('electronic signature policy', () => {
 
   it('requires a deliberate independent email assertion from a different administrator', async () => {
     const user = userEvent.setup()
-    mocks.role = 'admin'
-    mocks.certifications = [
+    state.role = 'admin'
+    state.certifications = [
       certification('me', 'Ada Lovelace'),
       certification('other', 'Other Member', { verificationRequested: true }),
     ]
-    mocks.members = [member('me', 'admin'), member('other', 'member')]
+    state.members = [member('me', 'admin'), member('other', 'member')]
     renderRoute()
     await user.click(
       await screen.findByText('Verify Other Member independently'),
@@ -129,23 +211,21 @@ describe('electronic signature policy', () => {
       screen.getByRole('button', { name: 'Confirm verified identity' }),
     )
     await waitFor(() =>
-      expect(mocks.verify).toHaveBeenCalledWith(
-        expect.anything(),
-        'other',
-        'other@sheetbase.test',
-      ),
+      expect(verifications).toEqual([
+        { p_user_id: 'other', p_email: 'other@sheetbase.test' },
+      ]),
     )
   })
 
   it('lists only people who can sign as missing a certified signature', async () => {
-    mocks.certifications = [
+    state.certifications = [
       certification('me', 'Ada Lovelace'),
       certification('sci', 'Scientist Sam'),
       certification('view', 'Viewer Vic'),
       certification('client', 'Client Cy'),
       certification('gone', 'Suspended Sue'),
     ]
-    mocks.members = [
+    state.members = [
       member('me', 'owner'),
       member('sci', 'scientist'),
       member('view', 'viewer'),

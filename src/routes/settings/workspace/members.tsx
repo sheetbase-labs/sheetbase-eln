@@ -1,8 +1,10 @@
 import { Person } from '#/components/ui/person'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { useId, useMemo, useState } from 'react'
+import type { ComponentProps } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
 import { Status } from '#/components/ui/status'
@@ -95,6 +97,7 @@ import {
 import type {
   InvitationProjectGrant,
   InvitedProjectLevel,
+  WorkspaceMember,
   WorkspaceRole,
 } from '#/lib/workspace-admin'
 import { canManageSettings } from '#/lib/settings-access'
@@ -105,25 +108,72 @@ import { t } from '#/copy'
  * workspace_invitations. Roles decide what people can do; the role change,
  * suspend, reinstate, remove and invite RPCs hold the rules server-side. */
 export const Route = createFileRoute('/settings/workspace/members')({
-  validateSearch: (search: Record<string, unknown>): { invite?: 'admin' } => ({
-    invite: search.invite === 'admin' ? 'admin' : undefined,
-  }),
+  validateSearch: (search) =>
+    z
+      .object({ invite: z.literal('admin').optional().catch(undefined) })
+      .parse(search),
   component: Members,
 })
 
 const dataClient = createDataClient()
 const roles = [...ASSIGNABLE_WORKSPACE_ROLES]
 
-function Members() {
+type SendInvitation = (
+  input: Parameters<typeof emailInvitationFn>[0],
+) => ReturnType<typeof emailInvitationFn>
+
+type MemberDialogState =
+  | { kind: 'invite' }
+  | { kind: 'groups' }
+  | {
+      kind: 'invite-link'
+      email: string
+      link: string
+      reissued?: boolean
+      /** Whether the install emailed it: absent when it has no mail server. */
+      emailed?: 'sent' | 'failed'
+    }
+  | {
+      kind: 'role'
+      userId: string
+      name: string
+      role: WorkspaceRole
+      clientId: string | null
+    }
+  | { kind: 'remove'; userId: string; name: string }
+  | { kind: 'sessions'; userId: string; name: string }
+  | { kind: 'username'; userId: string; name: string; username: string }
+  | { kind: 'email'; userId: string; name: string }
+  | { kind: 'suspend'; userId: string; name: string }
+  | { kind: 'handover'; userId: string; name: string }
+  | { kind: 'reinstate'; userId: string; name: string }
+  | { kind: 'revoke'; invitationId: string; email: string }
+
+type MemberAction =
+  | {
+      kind: 'role'
+      userId: string
+      role: WorkspaceRole
+      clientId?: string | null
+    }
+  | { kind: 'suspend' | 'reinstate' | 'remove'; userId: string }
+
+type InviteInput = {
+  email: string
+  role: WorkspaceRole
+  clientId: string | null
+  projectGrants: InvitationProjectGrant[]
+}
+
+export function Members({
+  sendInvitation = emailInvitationFn,
+}: {
+  sendInvitation?: SendInvitation
+}) {
   const { context } = Route.useRouteContext()
-  const search = Route.useSearch()
-  const workspaceId = context.workspace?.id ?? ''
+
   // ADR-0049: a client account is not an internal member, so
-  // `workspace_members_list` and the invitation list are refused to it. An
-  // empty roster would claim this workspace has no members. The role decides
-  // this for the whole life of the route, so the refusal returns before the
-  // reads rather than issuing refused queries. The refusal precedes every other
-  // hook, so the hook order is stable for as long as the route stays mounted.
+  // keep restricted reads in a child that never mounts for client accounts.
   if (context.workspace?.role === 'client_viewer') {
     return (
       <>
@@ -146,36 +196,26 @@ function Members() {
       </>
     )
   }
-  const queryClient = useQueryClient()
+
+  return (
+    <InternalMembers
+      key={context.workspace?.id}
+      sendInvitation={sendInvitation}
+    />
+  )
+}
+
+function useMemberDirectory({
+  sendInvitation,
+}: {
+  sendInvitation: SendInvitation
+}) {
+  const { context } = Route.useRouteContext()
+  const search = Route.useSearch()
+  const workspaceId = context.workspace?.id ?? ''
   const canManage = canManageSettings(context.workspace, 'members')
-  const [dialog, setDialog] = useState<
-    | { kind: 'invite' }
-    | { kind: 'groups' }
-    | {
-        kind: 'invite-link'
-        email: string
-        link: string
-        reissued?: boolean
-        /** Whether the install emailed it: absent when it has no mail server. */
-        emailed?: 'sent' | 'failed'
-      }
-    | {
-        kind: 'role'
-        userId: string
-        name: string
-        role: WorkspaceRole
-        clientId: string | null
-      }
-    | { kind: 'remove'; userId: string; name: string }
-    | { kind: 'sessions'; userId: string; name: string }
-    | { kind: 'username'; userId: string; name: string; username: string }
-    | { kind: 'email'; userId: string; name: string }
-    | { kind: 'suspend'; userId: string; name: string }
-    | { kind: 'handover'; userId: string; name: string }
-    | { kind: 'reinstate'; userId: string; name: string }
-    | { kind: 'revoke'; invitationId: string; email: string }
-    | null
-  >(
+
+  const [dialog, setDialog] = useState<MemberDialogState | null>(
     // J-SET-02: "invite another administrator" deep-links here with the dialog
     // already open on the Administrator role.
     search.invite === 'admin' && canManage ? { kind: 'invite' } : null,
@@ -186,59 +226,73 @@ function Members() {
     queryFn: () => fetchWorkspaceMembers(dataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   const invitations = useQuery({
     queryKey: adminQueryKeys.invitations(workspaceId),
     queryFn: () => fetchInvitations(dataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   const clients = useQuery({
     queryKey: ['ui-port', 'settings', 'clients', workspaceId],
     queryFn: () => fetchClients(dataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   const groups = useQuery({
     queryKey: workspaceAccessKeys.groups(workspaceId),
     queryFn: () => fetchWorkspaceGroups(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const memberStatus = useQuery({
     queryKey: workspaceAccessKeys.members(workspaceId),
     queryFn: () => fetchWorkspaceMemberStatus(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const absences = useQuery({
     queryKey: absenceKeys.all(workspaceId),
     queryFn: () => fetchAbsences(dataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   const certifications = useQuery({
     queryKey: signatureCertificationQueryKeys.workspace(workspaceId),
     queryFn: () => fetchWorkspaceCertifications(dataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   const clientName = (clientId: string | null | undefined) =>
     (clients.data ?? []).find((c) => c.id === clientId)?.name ?? '—'
-  const rows = members.data ?? []
+
+  const rows = useMemo(() => members.data ?? [], [members.data])
   const [roleFilter, setRoleFilter] = useState('')
   const [trainingFilter, setTrainingFilter] = useState('')
+
   const trainingOf = (userId: string) => {
     const status = memberStatus.data?.find((s) => s.user_id === userId)
+
     if (!status) return null
+
     return status.training_overdue
       ? 'overdue'
       : status.training_required
         ? 'to-read'
         : 'current'
   }
+
   const shownRows = rows.filter(
     (m) =>
       (!roleFilter || m.role === roleFilter) &&
       (!trainingFilter || trainingOf(m.userId) === trainingFilter),
   )
+
   const names = useUserNames(
     rows.map((m) => m.userId),
     context.user,
   )
+
   // The projects the inviter can add someone to: the ones they manage. The
   // database holds the same rule when the invitation is created.
   const grantableProjects = useQuery({
@@ -247,6 +301,7 @@ function Members() {
       const projects = await fetchProjectSummaries(workspaceId)
       const open = projects.filter((p) => !p.archivedAt)
       const permissions = await fetchMyProjectPermissions(dataClient)
+
       return open
         .filter((p) => permissions.get(p.id)?.can_manage)
         .map((p) => ({ id: p.id, title: p.title }))
@@ -254,164 +309,13 @@ function Members() {
     enabled: Boolean(workspaceId) && canManage && dialog?.kind === 'invite',
     staleTime: 30_000,
   })
+
   const pending = (invitations.data ?? []).filter((i) => i.status === 'pending')
 
-  const invalidate = () => {
-    void queryClient.invalidateQueries({
-      queryKey: adminQueryKeys.members(workspaceId),
-    })
-    void queryClient.invalidateQueries({
-      queryKey: adminQueryKeys.invitations(workspaceId),
-    })
-  }
-
-  const act = useMutation({
-    mutationFn: async (input: {
-      kind: 'role' | 'suspend' | 'reinstate' | 'remove'
-      userId: string
-      role?: WorkspaceRole
-      clientId?: string | null
-    }) => {
-      switch (input.kind) {
-        case 'role':
-          return changeMemberRole(dataClient, {
-            workspaceId,
-            userId: input.userId,
-            newRole: input.role as WorkspaceRole,
-            clientId: input.clientId ?? null,
-          })
-        case 'suspend':
-          return suspendMember(dataClient, {
-            workspaceId,
-            userId: input.userId,
-          })
-        case 'reinstate':
-          return reinstateMember(dataClient, {
-            workspaceId,
-            userId: input.userId,
-          })
-        case 'remove':
-          return removeMember(dataClient, { workspaceId, userId: input.userId })
-      }
-    },
-    onSuccess: (_result, input) => {
-      invalidate()
-      setDialog(null)
-      toast(
-        input.kind === 'remove'
-          ? t('settings.members.memberRemoved')
-          : input.kind === 'suspend'
-            ? t('settings.members.memberSuspended')
-            : input.kind === 'reinstate'
-              ? t('settings.members.memberReinstated')
-              : t('settings.members.roleChanged'),
-      )
-    },
-    onError: (error: unknown) =>
-      toast(t('settings.members.couldChangeMemberToast'), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t('settings.members.databaseRefused'),
-      }),
-  })
-
-  // Mail the link when the install can send mail; the copy-link dialog stays
-  // either way, as the fallback when there is no mail server or it fails.
-  const emailInvitation = async (result: {
-    invitation: { id: string }
-    token: string
-  }): Promise<'sent' | 'failed' | undefined> => {
-    try {
-      const outcome = await emailInvitationFn({
-        data: {
-          workspaceId,
-          invitationId: result.invitation.id,
-          token: result.token,
-        },
-      })
-      if (outcome.sent) return 'sent'
-      return outcome.reason === 'send_failed' ? 'failed' : undefined
-    } catch {
-      return 'failed'
-    }
-  }
-
-  const invite = useMutation({
-    mutationFn: (input: {
-      email: string
-      role: WorkspaceRole
-      clientId: string | null
-      projectGrants: InvitationProjectGrant[]
-    }) =>
-      createInvitation(dataClient, {
-        workspaceId,
-        email: input.email,
-        role: input.role,
-        expiresAfterDays: 7,
-        clientId: input.clientId,
-        projectGrants: input.projectGrants,
-      }).then(async (result) => ({
-        ...result,
-        emailed: await emailInvitation(result),
-      })),
-    onSuccess: (result) => {
-      invalidate()
-      // The link is shown once, as the database keeps only a hash of the token.
-      setDialog({
-        kind: 'invite-link',
-        email: result.invitation.email,
-        link: invitationLink(window.location.origin, result.token),
-        emailed: result.emailed,
-      })
-    },
-    onError: (error: unknown) =>
-      toast(t('settings.members.couldInviteToast'), {
-        description: describeAdminError(error),
-      }),
-  })
-
-  // A lost link cannot be shown again, but a pending invitation can be given a
-  // new one without revoking it and starting over.
-  const reissue = useMutation({
-    mutationFn: (invitationId: string) =>
-      reissueInvitation(dataClient, { workspaceId, invitationId }).then(
-        async (result) => ({
-          ...result,
-          emailed: await emailInvitation(result),
-        }),
-      ),
-    onSuccess: (result) => {
-      invalidate()
-      setDialog({
-        kind: 'invite-link',
-        email: result.invitation.email,
-        link: invitationLink(window.location.origin, result.token),
-        reissued: true,
-        emailed: result.emailed,
-      })
-    },
-    onError: (error: unknown) =>
-      toast(t('settings.members.couldMakeNewToast'), {
-        description: describeAdminError(error),
-      }),
-  })
-
-  const revoke = useMutation({
-    mutationFn: (invitationId: string) =>
-      revokeInvitation(dataClient, { workspaceId, invitationId }),
-    onSuccess: () => {
-      invalidate()
-      setDialog(null)
-      toast(t('settings.members.invitationRevokedToast'))
-    },
-    onError: (error: unknown) =>
-      toast(t('settings.members.couldRevokeToast'), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t('settings.members.databaseRefused'),
-      }),
+  const { act, invite, reissue, revoke } = useMemberManagement({
+    workspaceId,
+    setDialog,
+    sendInvitation,
   })
 
   const memberRole = useMemo(
@@ -489,11 +393,14 @@ function Members() {
       header: 'Groups',
       cell: ({ row }) => {
         if (groups.isError) return 'Unavailable'
+
         if (groups.isPending) return t('common.states.loading')
+
         const joined = groups.data
           .filter((group) => group.member_ids.includes(row.original.userId))
           .map((group) => group.name)
           .join(', ')
+
         return joined ? (
           <span className="block max-w-40 truncate" title={joined}>
             {joined}
@@ -508,14 +415,18 @@ function Members() {
       header: 'Training',
       cell: ({ row }) => {
         const member = row.original
+
         if (member.role === 'client_viewer') return '—'
+
         const status = memberStatus.data?.find(
           (entry) => entry.user_id === member.userId,
         )
+
         if (!status)
           return memberStatus.isPending
             ? t('common.states.loading')
             : 'Unavailable'
+
         return (
           <Status
             tone={
@@ -538,12 +449,17 @@ function Members() {
       header: 'E-signature',
       cell: ({ row }) => {
         const member = row.original
+
         if (member.role === 'client_viewer') return '—'
+
         if (certifications.isPending) return t('common.states.loading')
+
         if (certifications.isError) return 'Unavailable'
+
         const certification = certifications.data.find(
           (entry) => entry.userId === member.userId,
         )
+
         return certification?.revokedAt
           ? 'Revoked'
           : isCurrentStatement(certification)
@@ -564,8 +480,11 @@ function Members() {
       },
       cell: ({ row }) => {
         const member = row.original
+
         if (memberStatus.isError) return 'Unavailable'
+
         if (memberStatus.isPending) return t('common.states.loading')
+
         return formatDate(
           memberStatus.data.find((entry) => entry.user_id === member.userId)
             ?.last_active_at,
@@ -581,119 +500,15 @@ function Members() {
       meta: rightAligned<(typeof rows)[number]>().meta,
       cell: ({ row }) => {
         const member = row.original
+
         if (!canManage || member.userId === context.user.id) return null
+
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  size="sm"
-                  aria-label={t('settings.members.manageAria', {
-                    userLabel: names.userLabel(member.userId),
-                  })}
-                />
-              }
-            >
-              {t('settings.members.manage')}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({
-                    kind: 'role',
-                    userId: member.userId,
-                    name: names.userLabel(member.userId),
-                    role: member.role,
-                    clientId: member.clientId ?? null,
-                  })
-                }
-              >
-                {t('settings.members.role')}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({
-                    kind: 'sessions',
-                    userId: member.userId,
-                    name: names.userLabel(member.userId),
-                  })
-                }
-              >
-                {t('settings.members.sessions')}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({
-                    kind: 'username',
-                    userId: member.userId,
-                    name: names.userLabel(member.userId),
-                    username: member.username ?? '',
-                  })
-                }
-              >
-                {t('settings.members.username')}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({
-                    kind: 'email',
-                    userId: member.userId,
-                    name: names.userLabel(member.userId),
-                  })
-                }
-              >
-                {t('account.email.change')}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  setDialog({
-                    kind: 'handover',
-                    userId: member.userId,
-                    name: names.userLabel(member.userId),
-                  })
-                }
-              >
-                {t('people.handover.menu')}
-              </DropdownMenuItem>
-              {member.suspendedAt ? (
-                <DropdownMenuItem
-                  onClick={() =>
-                    setDialog({
-                      kind: 'reinstate',
-                      userId: member.userId,
-                      name: names.userLabel(member.userId),
-                    })
-                  }
-                >
-                  {t('settings.members.reinstate')}
-                </DropdownMenuItem>
-              ) : (
-                <DropdownMenuItem
-                  onClick={() =>
-                    setDialog({
-                      kind: 'suspend',
-                      userId: member.userId,
-                      name: names.userLabel(member.userId),
-                    })
-                  }
-                >
-                  {t('settings.members.suspend')}
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem
-                danger
-                onClick={() =>
-                  setDialog({
-                    kind: 'remove',
-                    userId: member.userId,
-                    name: names.userLabel(member.userId),
-                  })
-                }
-              >
-                {t('common.actions.remove')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <MemberActions
+            member={member}
+            name={names.userLabel(member.userId)}
+            setDialog={setDialog}
+          />
         )
       },
     },
@@ -768,6 +583,66 @@ function Members() {
         ) : null,
     },
   ]
+
+  return {
+    context,
+    search,
+    workspaceId,
+    canManage,
+    dialog,
+    setDialog,
+    members,
+    groups,
+    clients,
+    rows,
+    names,
+    shownRows,
+    pending,
+    roleFilter,
+    setRoleFilter,
+    trainingFilter,
+    setTrainingFilter,
+    memberColumns,
+    invitationColumns,
+    memberRole,
+    grantableProjects,
+    act,
+    invite,
+    revoke,
+  }
+}
+
+function InternalMembers({
+  sendInvitation,
+}: {
+  sendInvitation: SendInvitation
+}) {
+  const {
+    context,
+    search,
+    workspaceId,
+    canManage,
+    dialog,
+    setDialog,
+    members,
+    groups,
+    clients,
+    rows,
+    names,
+    shownRows,
+    pending,
+    roleFilter,
+    setRoleFilter,
+    trainingFilter,
+    setTrainingFilter,
+    memberColumns,
+    invitationColumns,
+    memberRole,
+    grantableProjects,
+    act,
+    invite,
+    revoke,
+  } = useMemberDirectory({ sendInvitation })
 
   return (
     <>
@@ -922,23 +797,325 @@ function Members() {
         </div>
       </div>
 
-      {dialog?.kind === 'groups' ? (
+      <MembersDialog
+        dialog={dialog}
+        setDialog={setDialog}
+        workspaceId={workspaceId}
+        groups={groups.data ?? []}
+        rows={rows}
+        names={names}
+        clients={clients.data ?? []}
+        projects={grantableProjects.data ?? []}
+        initialRole={search.invite === 'admin' ? 'admin' : 'viewer'}
+        act={act}
+        invite={invite}
+        revoke={revoke}
+      />
+    </>
+  )
+}
+
+function MemberActions({
+  member,
+  name,
+  setDialog,
+}: {
+  member: WorkspaceMember
+  name: string
+  setDialog: (dialog: MemberDialogState) => void
+}) {
+  const identity = { userId: member.userId, name }
+
+  const actions: Array<{
+    label: string
+    dialog: MemberDialogState
+    danger?: boolean
+  }> = [
+    {
+      label: t('settings.members.role'),
+      dialog: {
+        kind: 'role',
+        ...identity,
+        role: member.role,
+        clientId: member.clientId ?? null,
+      },
+    },
+    {
+      label: t('settings.members.sessions'),
+      dialog: { kind: 'sessions', ...identity },
+    },
+    {
+      label: t('settings.members.username'),
+      dialog: {
+        kind: 'username',
+        ...identity,
+        username: member.username ?? '',
+      },
+    },
+    {
+      label: t('account.email.change'),
+      dialog: { kind: 'email', ...identity },
+    },
+    {
+      label: t('people.handover.menu'),
+      dialog: { kind: 'handover', ...identity },
+    },
+    member.suspendedAt
+      ? {
+          label: t('settings.members.reinstate'),
+          dialog: { kind: 'reinstate', ...identity },
+        }
+      : {
+          label: t('settings.members.suspend'),
+          dialog: { kind: 'suspend', ...identity },
+        },
+    {
+      label: t('common.actions.remove'),
+      dialog: { kind: 'remove', ...identity },
+      danger: true,
+    },
+  ]
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            size="sm"
+            aria-label={t('settings.members.manageAria', { userLabel: name })}
+          />
+        }
+      >
+        {t('settings.members.manage')}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {actions.map((action) => (
+          <DropdownMenuItem
+            key={action.dialog.kind}
+            danger={action.danger}
+            onClick={() => setDialog(action.dialog)}
+          >
+            {action.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function useMemberManagement({
+  workspaceId,
+  setDialog,
+  sendInvitation,
+}: {
+  workspaceId: string
+  setDialog: (dialog: MemberDialogState | null) => void
+  sendInvitation: SendInvitation
+}) {
+  const queryClient = useQueryClient()
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({
+      queryKey: adminQueryKeys.members(workspaceId),
+    })
+    void queryClient.invalidateQueries({
+      queryKey: adminQueryKeys.invitations(workspaceId),
+    })
+  }
+
+  const act = useMutation({
+    mutationFn: async (input: MemberAction) => {
+      switch (input.kind) {
+        case 'role':
+          return changeMemberRole(dataClient, {
+            workspaceId,
+            userId: input.userId,
+            newRole: input.role,
+            clientId: input.clientId ?? null,
+          })
+        case 'suspend':
+          return suspendMember(dataClient, {
+            workspaceId,
+            userId: input.userId,
+          })
+        case 'reinstate':
+          return reinstateMember(dataClient, {
+            workspaceId,
+            userId: input.userId,
+          })
+        case 'remove':
+          return removeMember(dataClient, { workspaceId, userId: input.userId })
+      }
+    },
+    onSuccess: (_result, input) => {
+      invalidate()
+      setDialog(null)
+      toast(
+        input.kind === 'remove'
+          ? t('settings.members.memberRemoved')
+          : input.kind === 'suspend'
+            ? t('settings.members.memberSuspended')
+            : input.kind === 'reinstate'
+              ? t('settings.members.memberReinstated')
+              : t('settings.members.roleChanged'),
+      )
+    },
+    onError: (error) =>
+      toast(t('settings.members.couldChangeMemberToast'), {
+        description:
+          error instanceof Error
+            ? error.message
+            : t('settings.members.databaseRefused'),
+      }),
+  })
+
+  // Mail the link when the install can send mail; the copy-link dialog stays
+  // either way, as the fallback when there is no mail server or it fails.
+  const emailInvitation = async (result: {
+    invitation: { id: string }
+    token: string
+  }): Promise<'sent' | 'failed' | undefined> => {
+    try {
+      const outcome = await sendInvitation({
+        data: {
+          workspaceId,
+          invitationId: result.invitation.id,
+          token: result.token,
+        },
+      })
+
+      if (outcome.sent) return 'sent'
+
+      return outcome.reason === 'send_failed' ? 'failed' : undefined
+    } catch {
+      return 'failed'
+    }
+  }
+
+  const invite = useMutation({
+    mutationFn: (input: InviteInput) =>
+      createInvitation(dataClient, {
+        workspaceId,
+        ...input,
+        expiresAfterDays: 7,
+      }).then(async (result) => ({
+        ...result,
+        emailed: await emailInvitation(result),
+      })),
+    onSuccess: (result) => {
+      invalidate()
+      // The link is shown once, as the database keeps only a hash of the token.
+      setDialog({
+        kind: 'invite-link',
+        email: result.invitation.email,
+        link: invitationLink(window.location.origin, result.token),
+        emailed: result.emailed,
+      })
+    },
+    onError: (error) =>
+      toast(t('settings.members.couldInviteToast'), {
+        description: describeAdminError(error),
+      }),
+  })
+
+  // A lost link cannot be shown again, but a pending invitation can be given a
+  // new one without revoking it and starting over.
+  const reissue = useMutation({
+    mutationFn: (invitationId: string) =>
+      reissueInvitation(dataClient, { workspaceId, invitationId }).then(
+        async (result) => ({
+          ...result,
+          emailed: await emailInvitation(result),
+        }),
+      ),
+    onSuccess: (result) => {
+      invalidate()
+      setDialog({
+        kind: 'invite-link',
+        email: result.invitation.email,
+        link: invitationLink(window.location.origin, result.token),
+        reissued: true,
+        emailed: result.emailed,
+      })
+    },
+    onError: (error) =>
+      toast(t('settings.members.couldMakeNewToast'), {
+        description: describeAdminError(error),
+      }),
+  })
+
+  const revoke = useMutation({
+    mutationFn: (invitationId: string) =>
+      revokeInvitation(dataClient, { workspaceId, invitationId }),
+    onSuccess: () => {
+      invalidate()
+      setDialog(null)
+      toast(t('settings.members.invitationRevokedToast'))
+    },
+    onError: (error) =>
+      toast(t('settings.members.couldRevokeToast'), {
+        description:
+          error instanceof Error
+            ? error.message
+            : t('settings.members.databaseRefused'),
+      }),
+  })
+
+  return { act, invite, reissue, revoke }
+}
+
+function MembersDialog({
+  dialog,
+  setDialog,
+  workspaceId,
+  groups,
+  rows,
+  names,
+  clients,
+  projects,
+  initialRole,
+  act,
+  invite,
+  revoke,
+}: {
+  dialog: MemberDialogState | null
+  setDialog: (dialog: MemberDialogState | null) => void
+  workspaceId: string
+  groups: ComponentProps<typeof WorkspaceGroups>['groups']
+  rows: Awaited<ReturnType<typeof fetchWorkspaceMembers>>
+  names: Pick<ReturnType<typeof useUserNames>, 'userLabel'>
+  clients: ComponentProps<typeof InviteDialog>['clients']
+  projects: ComponentProps<typeof InviteDialog>['projects']
+  initialRole: WorkspaceRole
+  act: { isPending: boolean; mutate: (input: MemberAction) => void }
+  invite: { isPending: boolean; mutate: (input: InviteInput) => void }
+  revoke: { isPending: boolean; mutate: (invitationId: string) => void }
+}) {
+  if (!dialog) return null
+
+  switch (dialog.kind) {
+    case 'groups':
+      return (
         <WorkspaceGroups
           workspaceId={workspaceId}
-          groups={groups.data ?? []}
+          groups={groups}
           people={rows
             .filter((m) => !m.suspendedAt)
             .map((m) => ({ id: m.userId, name: names.userLabel(m.userId) }))}
           onClose={() => setDialog(null)}
         />
-      ) : dialog?.kind === 'sessions' ? (
+      )
+    case 'sessions':
+      return (
         <MemberSessionsDialog
           workspaceId={workspaceId}
           userId={dialog.userId}
           name={dialog.name}
           onClose={() => setDialog(null)}
         />
-      ) : dialog?.kind === 'username' ? (
+      )
+    case 'username':
+      return (
         <MemberUsernameDialog
           workspaceId={workspaceId}
           userId={dialog.userId}
@@ -946,14 +1123,18 @@ function Members() {
           current={dialog.username}
           onClose={() => setDialog(null)}
         />
-      ) : dialog?.kind === 'email' ? (
+      )
+    case 'email':
+      return (
         <ChangeEmailDialog
           workspaceId={workspaceId}
           userId={dialog.userId}
           name={dialog.name}
           onClose={() => setDialog(null)}
         />
-      ) : dialog?.kind === 'invite-link' ? (
+      )
+    case 'invite-link':
+      return (
         <InviteLinkDialog
           email={dialog.email}
           link={dialog.link}
@@ -961,20 +1142,24 @@ function Members() {
           emailed={dialog.emailed}
           onClose={() => setDialog(null)}
         />
-      ) : dialog?.kind === 'invite' ? (
+      )
+    case 'invite':
+      return (
         <InviteDialog
-          initialRole={search.invite === 'admin' ? 'admin' : 'viewer'}
-          clients={clients.data ?? []}
-          projects={grantableProjects.data ?? []}
+          initialRole={initialRole}
+          clients={clients}
+          projects={projects}
           busy={invite.isPending}
           onClose={() => setDialog(null)}
           onSubmit={(email, role, clientId, projectGrants) =>
             invite.mutate({ email, role, clientId, projectGrants })
           }
         />
-      ) : dialog?.kind === 'role' ? (
+      )
+    case 'role':
+      return (
         <RoleDialog
-          clients={clients.data ?? []}
+          clients={clients}
           name={dialog.name}
           current={dialog.role}
           currentClientId={dialog.clientId}
@@ -984,7 +1169,9 @@ function Members() {
             act.mutate({ kind: 'role', userId: dialog.userId, role, clientId })
           }
         />
-      ) : dialog?.kind === 'remove' ? (
+      )
+    case 'remove':
+      return (
         <Dialog open onOpenChange={(o) => (o ? undefined : setDialog(null))}>
           <DialogContent className="w-[min(480px,calc(100vw-32px))]">
             <DialogHeader
@@ -1021,7 +1208,9 @@ function Members() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      ) : dialog?.kind === 'suspend' ? (
+      )
+    case 'suspend':
+      return (
         <MembershipConfirmDialog
           kind="suspend"
           name={dialog.name}
@@ -1045,7 +1234,9 @@ function Members() {
             act.mutate({ kind: 'suspend', userId: dialog.userId })
           }
         />
-      ) : dialog?.kind === 'handover' ? (
+      )
+    case 'handover':
+      return (
         <HandoverDialog
           workspaceId={workspaceId}
           userId={dialog.userId}
@@ -1061,7 +1252,9 @@ function Members() {
             .map((m) => ({ id: m.userId, label: names.userLabel(m.userId) }))}
           onClose={() => setDialog(null)}
         />
-      ) : dialog?.kind === 'reinstate' ? (
+      )
+    case 'reinstate':
+      return (
         <MembershipConfirmDialog
           kind="reinstate"
           name={dialog.name}
@@ -1071,7 +1264,9 @@ function Members() {
             act.mutate({ kind: 'reinstate', userId: dialog.userId })
           }
         />
-      ) : dialog?.kind === 'revoke' ? (
+      )
+    case 'revoke':
+      return (
         <ConfirmDialog
           open
           onOpenChange={(o) => (o ? undefined : setDialog(null))}
@@ -1101,9 +1296,8 @@ function Members() {
             </ConfirmDialogFooter>
           </ConfirmDialogContent>
         </ConfirmDialog>
-      ) : null}
-    </>
-  )
+      )
+  }
 }
 
 /** "Away until 12 Nov · Priya covers", beside the name of someone who is away. */
@@ -1116,6 +1310,7 @@ function AwayBadge({
 }) {
   if (!absence || absenceState(absence) !== 'away') return null
   const date = formatDate(absence.endsOn, { year: false })
+
   return (
     <span className="text-fg-muted">
       {' · '}
@@ -1147,6 +1342,7 @@ function MembershipConfirmDialog({
   onConfirm: () => void
 }) {
   const suspending = kind === 'suspend'
+
   return (
     <ConfirmDialog open onOpenChange={(o) => (o ? undefined : onCancel())}>
       <ConfirmDialogContent>
@@ -1211,14 +1407,17 @@ function InviteDialog({
 }) {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<WorkspaceRole>(initialRole)
-  const [clientId, setClientId] = useState(clients.at(0)?.id ?? '')
+  const [clientId, setClientId] = useState(() => clients.at(0)?.id ?? '')
   const [projectIds, setProjectIds] = useState<ReadonlySet<string>>(new Set())
+
   const [projectLevel, setProjectLevel] = useState<InvitedProjectLevel | null>(
     null,
   )
+
   // A viewer joins as a viewer, anyone else as an editor, unless chosen.
   const level: InvitedProjectLevel =
     projectLevel ?? (role === 'viewer' ? 'viewer' : 'editor')
+
   // The empty address is invalid from the first paint, but the dialog opens
   // before anyone has used the field, so the message waits for the first
   // keystroke or blur. Send stays disabled until the address is valid either
@@ -1227,8 +1426,10 @@ function InviteDialog({
   const emailErrorId = useId()
   const emailValid = /.+@.+\..+/.test(email.trim())
   const error = emailValid || !emailUsed ? undefined : 'Enter an email address.'
+
   const clientError =
     role === 'client_viewer' && !clientId ? 'Choose a client.' : undefined
+
   return (
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
@@ -1257,7 +1458,11 @@ function InviteDialog({
           <Field label={t('settings.members.role')}>
             <Select
               value={role}
-              onChange={(e) => setRole(e.target.value as WorkspaceRole)}
+              onChange={(e) =>
+                setRole(
+                  z.enum(ASSIGNABLE_WORKSPACE_ROLES).parse(e.target.value),
+                )
+              }
             >
               {roles.map((r) => (
                 <option key={r} value={r}>
@@ -1287,48 +1492,13 @@ function InviteDialog({
           ) : null}
           <Muted>{WORKSPACE_ROLE_DESCRIPTIONS[role]}</Muted>
           {role !== 'client_viewer' && projects.length > 0 ? (
-            <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
-              <legend className="mb-1 text-label font-medium">
-                {t('settings.members.addProjects')}
-              </legend>
-              <Muted>{t('settings.members.theyJoinProjects')}</Muted>
-              <div className="flex max-h-40 flex-col gap-1 overflow-auto">
-                {projects.map((project) => (
-                  <label
-                    key={project.id}
-                    className="flex items-center gap-2 text-body"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={projectIds.has(project.id)}
-                      onChange={(e) => {
-                        const next = new Set(projectIds)
-                        if (e.target.checked) next.add(project.id)
-                        else next.delete(project.id)
-                        setProjectIds(next)
-                      }}
-                    />
-                    {project.title}
-                  </label>
-                ))}
-              </div>
-              {projectIds.size > 0 ? (
-                <Field label={t('settings.members.accessProjects')}>
-                  <Select
-                    value={level}
-                    onChange={(e) =>
-                      setProjectLevel(e.target.value as InvitedProjectLevel)
-                    }
-                  >
-                    {INVITED_PROJECT_LEVELS.map((l) => (
-                      <option key={l.value} value={l.value}>
-                        {l.label}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              ) : null}
-            </fieldset>
+            <InvitationProjects
+              projects={projects}
+              projectIds={projectIds}
+              onProjectsChange={setProjectIds}
+              level={level}
+              onLevelChange={setProjectLevel}
+            />
           ) : null}
         </DialogBody>
         <DialogFooter>
@@ -1360,6 +1530,67 @@ function InviteDialog({
   )
 }
 
+function InvitationProjects({
+  projects,
+  projectIds,
+  onProjectsChange,
+  level,
+  onLevelChange,
+}: {
+  projects: ComponentProps<typeof InviteDialog>['projects']
+  projectIds: ReadonlySet<string>
+  onProjectsChange: (ids: ReadonlySet<string>) => void
+  level: InvitedProjectLevel
+  onLevelChange: (level: InvitedProjectLevel) => void
+}) {
+  return (
+    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+      <legend className="mb-1 text-label font-medium">
+        {t('settings.members.addProjects')}
+      </legend>
+      <Muted>{t('settings.members.theyJoinProjects')}</Muted>
+      <div className="flex max-h-40 flex-col gap-1 overflow-auto">
+        {projects.map((project) => (
+          <label key={project.id} className="flex items-center gap-2 text-body">
+            <input
+              type="checkbox"
+              checked={projectIds.has(project.id)}
+              onChange={(event) => {
+                const next = new Set(projectIds)
+
+                if (event.target.checked) next.add(project.id)
+                else next.delete(project.id)
+                onProjectsChange(next)
+              }}
+            />
+            {project.title}
+          </label>
+        ))}
+      </div>
+      {projectIds.size > 0 ? (
+        <Field label={t('settings.members.accessProjects')}>
+          <Select
+            value={level}
+            onChange={(event) =>
+              onLevelChange(
+                z
+                  .enum(['owner', 'editor', 'reviewer', 'viewer'])
+                  .parse(event.target.value),
+              )
+            }
+          >
+            {INVITED_PROJECT_LEVELS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : null}
+    </fieldset>
+  )
+}
+
 /** The one-time link for a new invitation, with a Copy control. */
 function InviteLinkDialog({
   email,
@@ -1377,6 +1608,7 @@ function InviteLinkDialog({
   onClose: () => void
 }) {
   const [copied, setCopied] = useState(false)
+
   return (
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
@@ -1437,11 +1669,14 @@ function RoleDialog({
   onSubmit: (role: WorkspaceRole, clientId: string | null) => void
 }) {
   const [role, setRole] = useState<WorkspaceRole>(current)
+
   const [clientId, setClientId] = useState(
     currentClientId ?? clients.at(0)?.id ?? '',
   )
+
   const clientError =
     role === 'client_viewer' && !clientId ? 'Choose a client.' : undefined
+
   return (
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -1453,7 +1688,11 @@ function RoleDialog({
           <Field label={t('settings.members.role')}>
             <Select
               value={role}
-              onChange={(e) => setRole(e.target.value as WorkspaceRole)}
+              onChange={(e) =>
+                setRole(
+                  z.enum(ASSIGNABLE_WORKSPACE_ROLES).parse(e.target.value),
+                )
+              }
             >
               {roles.map((r) => (
                 <option key={r} value={r}>

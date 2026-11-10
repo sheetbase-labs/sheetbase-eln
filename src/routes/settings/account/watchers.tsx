@@ -14,6 +14,7 @@ export const Route = createFileRoute('/settings/account/watchers')({
 
 function WatchersSettings() {
   const { context } = Route.useRouteContext()
+
   return (
     <>
       <SettingsHeader title={t('agents.watchers.title')}>

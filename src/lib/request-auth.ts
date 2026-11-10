@@ -267,15 +267,40 @@ export function requestErrorResponse(
 }
 
 /**
+ * One PostgREST request with the minted token: the JSON body PostgREST answers
+ * with, or its plain-text refusal under `error`.
+ */
+async function postgrestRequest<T>(
+  path: string,
+  init: RequestInit,
+): Promise<{ status: number; body: T | { error: unknown } }> {
+  const response = await fetch(`${env.POSTGREST_URL}${path}`, init)
+  const text = await response.text()
+
+  if (!text) {
+    // SAFETY: an empty reply carries no row; every caller reads `status` before `body`, so the empty object is never decoded as one.
+    return { status: response.status, body: {} as T }
+  }
+
+  try {
+    // SAFETY: the caller's T names the row shape it asked PostgREST for, and PostgREST answers those rows as JSON.
+    return { status: response.status, body: JSON.parse(text) as T }
+  } catch {
+    return { status: response.status, body: { error: text } }
+  }
+}
+
+/**
  * Calls PostgREST with the minted token. Used by the authorize route to create
  * the file record and file_objects row through RLS so events + audit fire.
  */
 export async function postgrestRpc<T = unknown>(
   name: string,
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- an RPC's argument object is the caller's own JSON body; PostgREST validates it against the function's signature.
   args: Record<string, unknown>,
   token: string,
 ): Promise<{ status: number; body: T | { error: unknown } }> {
-  const response = await fetch(`${env.POSTGREST_URL}/rpc/${name}`, {
+  return postgrestRequest<T>(`/rpc/${name}`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,
@@ -285,26 +310,16 @@ export async function postgrestRpc<T = unknown>(
     },
     body: JSON.stringify(args),
   })
-
-  const text = await response.text()
-  let body: T | { error: unknown }
-
-  try {
-    body = text ? (JSON.parse(text) as T) : ({} as T)
-  } catch {
-    body = { error: text }
-  }
-
-  return { status: response.status, body }
 }
 
 /** PostgREST table POST (insert) with the minted token. */
 export async function postgrestInsert<T = unknown>(
   resource: string,
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- a row is the caller's own JSON body; PostgREST's table constraints validate it.
   row: Record<string, unknown>,
   token: string,
 ): Promise<{ status: number; body: T | { error: unknown } }> {
-  const response = await fetch(`${env.POSTGREST_URL}/${resource}`, {
+  return postgrestRequest<T>(`/${resource}`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,
@@ -314,17 +329,6 @@ export async function postgrestInsert<T = unknown>(
     },
     body: JSON.stringify(row),
   })
-
-  const text = await response.text()
-  let body: T | { error: unknown }
-
-  try {
-    body = text ? (JSON.parse(text) as T) : ({} as T)
-  } catch {
-    body = { error: text }
-  }
-
-  return { status: response.status, body }
 }
 
 /** PostgREST table GET (filtered select) with the minted token. */
@@ -333,34 +337,24 @@ export async function postgrestSelect<T = unknown>(
   query: string,
   token: string,
 ): Promise<{ status: number; body: T | { error: unknown } }> {
-  const response = await fetch(`${env.POSTGREST_URL}/${resource}?${query}`, {
+  return postgrestRequest<T>(`/${resource}?${query}`, {
     method: 'GET',
     headers: {
       authorization: `Bearer ${token}`,
       accept: 'application/json',
     },
   })
-
-  const text = await response.text()
-  let body: T | { error: unknown }
-
-  try {
-    body = text ? (JSON.parse(text) as T) : ({} as T)
-  } catch {
-    body = { error: text }
-  }
-
-  return { status: response.status, body }
 }
 
 /** PostgREST table PATCH (filtered update) with the minted token. */
 export async function postgrestPatch<T = unknown>(
   resource: string,
   query: string,
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- a partial row is the caller's own JSON body; PostgREST's table constraints validate it.
   patch: Record<string, unknown>,
   token: string,
 ): Promise<{ status: number; body: T | { error: unknown } }> {
-  const response = await fetch(`${env.POSTGREST_URL}/${resource}?${query}`, {
+  return postgrestRequest<T>(`/${resource}?${query}`, {
     method: 'PATCH',
     headers: {
       authorization: `Bearer ${token}`,
@@ -370,15 +364,4 @@ export async function postgrestPatch<T = unknown>(
     },
     body: JSON.stringify(patch),
   })
-
-  const text = await response.text()
-  let body: T | { error: unknown }
-
-  try {
-    body = text ? (JSON.parse(text) as T) : ({} as T)
-  } catch {
-    body = { error: text }
-  }
-
-  return { status: response.status, body }
 }

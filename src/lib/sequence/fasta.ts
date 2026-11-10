@@ -48,7 +48,7 @@ export function parseFasta(text: string): ParsedSequence[] {
 
   flush()
 
-  if (out.length === 0 || out.every((s) => s.length === 0))
+  if (out.every((s) => s.length === 0))
     throw new SequenceParseError('No sequence found in the FASTA file.')
 
   return out

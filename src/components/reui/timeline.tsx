@@ -11,11 +11,14 @@
  * writes (`text-fg-muted`, `border-border`, `bg-border`, `accent-strong`) and
  * to the app's timeline geometry — a 2rem indicator well carrying an icon, with
  * the connector running through its centre. The restyle is recorded as a cost
- * of adoption in docs/knowledge/design/component-comparison-record.md. Do not
- * extend or hand-edit this file beyond import-path fixes and restyling; see
- * docs/knowledge/design/component-comparison-record.md.
+ * of adoption in docs/knowledge/design/component-comparison-record.md.
+ *
+ * Local patches after ADR-0057 (this file is first-party-maintained source; a
+ * registry re-sync merges these rather than taking the item over them):
+ * - The timeline's context value is memoised, so a step change is the only thing
+ *   that re-renders its items through a fresh provider value.
  */
-import { createContext, useCallback, useContext, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { mergeProps } from '@base-ui/react/merge-props'
 import { useRender } from '@base-ui/react/use-render'
 
@@ -75,6 +78,11 @@ function Timeline({
 
   const currentStep = value ?? activeStep
 
+  const contextValue = useMemo(
+    () => ({ activeStep: currentStep, setActiveStep }),
+    [currentStep, setActiveStep],
+  )
+
   const defaultProps = {
     className: cn(
       'group/timeline flex data-[orientation=horizontal]:w-full data-[orientation=horizontal]:flex-row data-[orientation=vertical]:flex-col',
@@ -86,9 +94,7 @@ function Timeline({
   }
 
   return (
-    <TimelineContext.Provider
-      value={{ activeStep: currentStep, setActiveStep }}
-    >
+    <TimelineContext.Provider value={contextValue}>
       {useRender({
         defaultTagName: 'div',
         render,

@@ -24,6 +24,7 @@ const NOW = new Date('2026-09-25T12:00:00.000Z')
 const CREATED = '2026-09-20T00:00:00.000Z'
 
 function fakeConnection(exceededCount = 0): HoldConnection {
+  // SAFETY: the fake answers this module's own sweep statement, whose row type is the `result` it declares here; the connection contract is generic in that row type, which no concrete fake can state.
   return {
     query: (async () => ({
       rows: [{ result: { exceededCount, exceeded: [] } }],
@@ -147,6 +148,7 @@ describe('sweepSampleHoldLimits', () => {
     const calls: string[] = []
     const values: unknown[][] = []
 
+    // SAFETY: the fake answers this module's own sweep statement, whose row type is the `result` it declares here; the connection contract is generic in that row type, which no concrete fake can state.
     const conn: HoldConnection = {
       query: (async (text: string, params?: unknown[]) => {
         calls.push(text)
@@ -172,6 +174,7 @@ describe('sweepSampleHoldLimits', () => {
   it('uses the bounded default batch limit when none is supplied', async () => {
     const values: unknown[][] = []
 
+    // SAFETY: the fake answers this module's own sweep statement, whose row type is the `result` it declares here; the connection contract is generic in that row type, which no concrete fake can state.
     const conn: HoldConnection = {
       query: (async (_text: string, params?: unknown[]) => {
         values.push(params ?? [])

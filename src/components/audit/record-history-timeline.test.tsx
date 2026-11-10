@@ -152,10 +152,11 @@ describe('mapTimelineEvents names', () => {
         {
           type: 'signature',
           id: 'e1',
+          seq: null,
           ts: '2026-01-01T00:00:00Z',
           title: 'Signed',
           actorUserId: 'abcdef0123456789',
-        } as TimelineEventWire,
+        },
       ],
       'me',
       'Me',

@@ -43,6 +43,7 @@ export function NewReportDialog({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change -- `autoOpen` is a one-shot command from the screen that asks for a new report, not a mirrored prop: it opens the dialog once on arrival and the caller drops it again.
   useEffect(() => {
     if (!autoOpen) return
     setOpen(true)
@@ -80,7 +81,7 @@ export function NewReportDialog({
         params: { reportId: recordId },
       })
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       const message = error instanceof Error ? error.message : ''
       toast.error(
         /row-level security|permission denied/i.test(message)

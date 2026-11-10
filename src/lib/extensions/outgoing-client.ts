@@ -7,6 +7,7 @@
  *   plugins add and where the person wants theirs sent;
  * - `POST /api/plugins/data` with `kind: 'publish'`: send rows to another system.
  */
+import { z } from 'zod'
 
 export interface ConnectionSettingWire {
   name: string
@@ -53,32 +54,113 @@ export interface PublishResult {
   requests: number
 }
 
+/** One row a publisher sends: the values it read, by column name. */
+export type PublishRow = Record<string, z.core.util.JSONType>
+
+/** The parameters a publisher reads with. */
+export type PublishParameters = Record<string, z.core.util.JSONType>
+
 export const connectionsQueryKey = ['plugins', 'connections'] as const
 export const channelsQueryKey = ['plugins', 'channels'] as const
 
-async function read<T>(response: Response, fallback: string): Promise<T> {
-  const body = (await response.json().catch(() => null)) as
-    (T & { error?: string | { message?: string } }) | null
+/** A setting a connection offers, as the route describes it. */
+const connectionSettingWire = z.object({
+  name: z.string(),
+  label: z.string(),
+  secret: z.boolean(),
+  required: z.boolean(),
+  isSet: z.boolean(),
+  value: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? null),
+})
 
-  if (!response.ok || !body) {
-    const error = body?.error
-    throw new Error(
-      (typeof error === 'string' ? error : error?.message) ?? fallback,
-    )
+/** One connection a plugin point needs set up. */
+const connectionWire = z.object({
+  extensionId: z.string(),
+  extensionKey: z.string(),
+  extensionName: z.string(),
+  point: z.enum(['connectors', 'publishers', 'notification-channels']),
+  itemId: z.string(),
+  title: z.string(),
+  hosts: z.array(z.string()),
+  off: z.boolean(),
+  settings: z.array(connectionSettingWire),
+})
+
+/** One notification channel a plugin adds. */
+const channelWire = z.object({
+  extensionKey: z.string(),
+  extensionName: z.string(),
+  channelId: z.string(),
+  title: z.string(),
+  description: z.string(),
+  destinationLabel: z.string(),
+  destinationHint: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? null),
+  ready: z.boolean(),
+  mine: z
+    .object({
+      destination: z.string(),
+      scope: z.enum(['phone', 'all']),
+      lastSentAt: z
+        .string()
+        .nullish()
+        .transform((value) => value ?? null),
+      lastError: z
+        .string()
+        .nullish()
+        .transform((value) => value ?? null),
+    })
+    .nullish()
+    .transform((value) => value ?? null),
+})
+
+/** What a publish answered. */
+const publishResult = z.object({
+  message: z.string(),
+  link: z.string().optional(),
+  requests: z.number(),
+})
+
+/** The error a failed plugin call states: a sentence or a message object. */
+const statedError = z.union([
+  z.string().transform((text) => ({ message: text })),
+  z.object({ message: z.string() }),
+])
+
+const failureBody = z.object({ error: statedError })
+
+async function read<Schema extends z.ZodType>(
+  response: Response,
+  schema: Schema,
+  fallback: string,
+): Promise<z.output<Schema>> {
+  const body = await response.json().catch(() => null)
+  const parsed = schema.safeParse(body)
+
+  if (!response.ok || !parsed.success) {
+    const stated = failureBody.safeParse(body).data
+
+    throw new Error(stated?.error.message ?? fallback)
   }
 
-  return body
+  return parsed.data
 }
 
-const json = (body: unknown) => ({
+const json = <Body>(body: Body) => ({
   method: 'POST',
   headers: { 'content-type': 'application/json' },
   body: JSON.stringify(body),
 })
 
 export async function listConnections(): Promise<ConnectionWire[]> {
-  const body = await read<{ connections: ConnectionWire[] }>(
+  const body = await read(
     await fetch('/api/plugins/connections', { cache: 'no-store' }),
+    z.object({ connections: z.array(connectionWire) }),
     'The connections could not be read.',
   )
 
@@ -92,8 +174,9 @@ export async function saveConnection(input: {
   /** A value sets a setting, `null` clears it, a setting left out is kept. */
   values: Record<string, string | null>
 }): Promise<ConnectionWire> {
-  const body = await read<{ connection: ConnectionWire }>(
+  const body = await read(
     await fetch('/api/plugins/connections', json(input)),
+    z.object({ connection: connectionWire }),
     'The connection could not be saved.',
   )
 
@@ -101,8 +184,9 @@ export async function saveConnection(input: {
 }
 
 export async function listChannels(): Promise<ChannelWire[]> {
-  const body = await read<{ channels: ChannelWire[] }>(
+  const body = await read(
     await fetch('/api/plugins/channels', { cache: 'no-store' }),
+    z.object({ channels: z.array(channelWire) }),
     'The channels could not be read.',
   )
 
@@ -120,8 +204,9 @@ export async function changeChannel(
       }
     | { action: 'remove' | 'test'; extensionKey: string; channelId: string },
 ): Promise<ChannelWire[]> {
-  const body = await read<{ channels: ChannelWire[] }>(
+  const body = await read(
     await fetch('/api/plugins/channels', json(input)),
+    z.object({ channels: z.array(channelWire) }),
     'The channel could not be changed.',
   )
 
@@ -132,11 +217,12 @@ export async function publishRows(input: {
   extensionKey: string
   publisherId: string
   name: string
-  rows: Array<Record<string, unknown>>
-  parameters: Record<string, unknown>
+  rows: PublishRow[]
+  parameters: PublishParameters
 }): Promise<PublishResult> {
-  return read<PublishResult>(
+  return read(
     await fetch('/api/plugins/data', json({ kind: 'publish', ...input })),
+    publishResult,
     'The data could not be sent.',
   )
 }

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 
-import { AUDIT_TYPE_ICONS, HistoryTimeline } from './history-timeline'
+import { AUDIT_TYPE_ICONS } from './audit-icons'
+import { HistoryTimeline } from './history-timeline'
 import type { HistoryEntry, HistoryRetry } from './history-timeline'
 import type { IconName } from '#/components/icons'
 import { t } from '#/copy'

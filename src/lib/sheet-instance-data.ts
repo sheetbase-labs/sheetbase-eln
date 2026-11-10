@@ -77,6 +77,7 @@ export interface SheetInstance {
 
 export const sheetInstanceDataClient = createDataClient()
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- `wire` is the raw PostgREST row, decoded by `sheetInstanceWireSchema.parse` on the first line.
 export function sheetInstanceFromWire(wire: unknown): SheetInstance {
   const parsed = sheetInstanceWireSchema.parse(wire)
 

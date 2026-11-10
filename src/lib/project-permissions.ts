@@ -3,6 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchMyProjectAssignments } from '#/lib/workspace-access'
 
+/** Whether the signed-in user may manage this project, and whether that is still being read. */
+export interface ManageProjectPermission {
+  canManage: boolean
+  isLoading: boolean
+}
+
 /**
  * Whether the signed-in user may manage a project: its lead, or anyone whose
  * project assignment carries `can_manage` (the project's owners). Gating on the
@@ -13,7 +19,7 @@ export function useCanManageProject(
   projectId: string,
   leadUserId: string | null | undefined,
   userId: string,
-): { canManage: boolean; isLoading: boolean } {
+): ManageProjectPermission {
   const assignments = useQuery({
     queryKey: ['ui-port', 'project-permissions', 'mine'],
     queryFn: () => fetchMyProjectAssignments(notebookDataClient),

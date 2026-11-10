@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { strToU8, zipSync } from 'fflate'
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import type { ObjectStorage } from './file-storage'
 import type { BackfillConnection } from './file-text-backfill.server'
@@ -42,40 +43,58 @@ describe('backfillFileText', () => {
       { id: '00000000-0000-4000-8000-000000000003', key: 'c', type: ODT },
     ]
 
-    const bodies: Record<string, Uint8Array | null> = {
-      a: odt,
-      b: strToU8('   '),
-      c: null,
-    }
+    const bodies = new Map<string, Uint8Array | null>([
+      ['a', odt],
+      ['b', strToU8('   ')],
+      ['c', null],
+    ])
 
-    const storage = {
-      getStream: async (key: string) => {
-        const body = bodies[key]
+    const storage: ObjectStorage = {
+      getStream: async (key) => {
+        const body = bodies.get(key)
 
         if (!body) throw new Error('missing object')
 
-        return { stream: streamOf(body) }
+        return { stream: streamOf(body), byteSize: body.byteLength }
       },
-    } as unknown as ObjectStorage
+      putStream: async () => {
+        throw new Error('the text backfill never writes an object')
+      },
+      head: async () => null,
+      delete: async () => {},
+    }
 
     const updates: unknown[][] = []
     const done = new Set<string>()
 
+    const selectQuestions = z.object({
+      after: z.string().nullable(),
+      limit: z.number(),
+    })
+
+    const updateFileId = z.string()
+
     const conn: BackfillConnection = {
+      // The connection contract is generic in the row type the statement
+      // returns, which no concrete fake can state.
+      // SAFETY: this fake answers the backfill's own two statements, whose row types are `FileRow` for the SELECT and none for the UPDATE.
       query: (async (text: string, values: unknown[] = []) => {
         if (text.includes('SELECT')) {
-          const after = values[2] as string | null
+          const page = selectQuestions.parse({
+            after: values[2] ?? null,
+            limit: values[3],
+          })
 
           const rows = files
-            .filter((f) => !done.has(f.id) && (!after || f.id > after))
-            .slice(0, values[3] as number)
+            .filter((f) => !done.has(f.id) && (!page.after || f.id > page.after))
+            .slice(0, page.limit)
             .map((f) => ({ id: f.id, storage_key: f.key, media_type: f.type }))
 
           return { rows }
         }
 
         updates.push(values)
-        done.add(values[0] as string)
+        done.add(updateFileId.parse(values[0]))
 
         return { rows: [] }
       }) as BackfillConnection['query'],

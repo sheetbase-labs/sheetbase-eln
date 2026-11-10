@@ -175,6 +175,7 @@ describe('describeRecordWrite', () => {
   it('keeps JSON values and own scientific keys while malformed snapshot fields fall back', () => {
     const body =
       '{"title":"","status":false,"tags":["valid",4],"properties":{"__proto__":{"units":"µL"},"reading":6.02e23},"custom_fields":[1],"future":{"Δμ":false}}'
+
     const plan = describeRecordWrite({
       method: 'PATCH',
       kind: 'table',

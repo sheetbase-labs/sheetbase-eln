@@ -9,11 +9,40 @@ import {
 } from './ai-context'
 import type { AiContextActor, AiObjectRef } from './ai-context'
 import { validSheetInstanceState } from './sheet-instance.test'
+import type { JsonValue } from './workspace-admin'
+
+/** The argument bag `DataClient.rpc` takes; the stub records and answers it. */
+type RecordedRpcArgs = Parameters<DataClient['rpc']>[1]
 
 const WS = '20000000-0000-4000-8000-000000000001'
 const ACTOR: AiContextActor = { kind: 'user', id: 'user-1' }
 
-function recordWire(overrides: Record<string, unknown> = {}) {
+/** A `records` row as this suite builds it; a test overrides the columns it reads. */
+interface RecordRow {
+  id: string
+  workspace_id: string
+  project_id: string
+  folder_id: string | null
+  kind: string
+  identifier: string
+  title: string
+  status: string
+  tags: string[]
+  structure_version: number
+  metadata_version: number
+  created_at: string
+  updated_at: string
+  archived_at: string | null
+  deleted_at: string | null
+  created_by_user_id: string
+  updated_by_user_id: string | null
+  properties: { readonly [key: string]: string | number }
+  custom_fields: null
+  locked_at: string | null
+  locked_by_revision_id: string | null
+}
+
+function recordWire(overrides: Partial<RecordRow> = {}): RecordRow {
   return {
     id: 'rec-1',
     workspace_id: WS,
@@ -40,32 +69,47 @@ function recordWire(overrides: Record<string, unknown> = {}) {
   }
 }
 
+/** A stubbed client with the mocks a test inspects, beside the transport it stands in for. */
+type StubClient = DataClient & {
+  rpcMock: ReturnType<typeof vi.fn>
+  list: ReturnType<typeof vi.fn>
+  insert: ReturnType<typeof vi.fn>
+  patch: ReturnType<typeof vi.fn>
+  remove: ReturnType<typeof vi.fn>
+}
+
+/** The methods the stub supplies; each test replaces none of them. */
+interface StubMethods {
+  list: ReturnType<typeof vi.fn>
+  count: ReturnType<typeof vi.fn>
+  rpc: ReturnType<typeof vi.fn>
+  insert: ReturnType<typeof vi.fn>
+  patch: ReturnType<typeof vi.fn>
+  remove: ReturnType<typeof vi.fn>
+  rpcMock: ReturnType<typeof vi.fn>
+}
+
 /** RLS-filtered mock: `tables` is what the actor is allowed to see. */
 function mockClient(
   tables: Record<string, unknown[]>,
-  rpcImpl?: (name: string, args: Record<string, unknown>) => unknown,
-): DataClient & { rpcMock: ReturnType<typeof vi.fn> } {
+  rpcImpl?: (name: string, args: RecordedRpcArgs) => JsonValue,
+): StubClient {
   const rpcMock = vi.fn(
-    async (name: string, args: Record<string, unknown>) =>
-      rpcImpl?.(name, args) ?? null,
+    async (name: string, args: RecordedRpcArgs) => rpcImpl?.(name, args) ?? null,
   )
 
-  const client = {
+  const methods: StubMethods = {
     list: vi.fn(async (resource: string) => tables[resource] ?? []),
     count: vi.fn(async () => 0),
     rpc: rpcMock,
     insert: vi.fn(async () => ({})),
     patch: vi.fn(async () => []),
     remove: vi.fn(async () => []),
-  } as unknown as DataClient & {
-    rpcMock: ReturnType<typeof vi.fn>
-    list: ReturnType<typeof vi.fn>
-    insert: ReturnType<typeof vi.fn>
-    patch: ReturnType<typeof vi.fn>
-    remove: ReturnType<typeof vi.fn>
+    rpcMock,
   }
 
-  return client
+  // SAFETY: the stub names every DataClient member; each is a `vi.fn` whose rows are this suite's fixtures, and the suite drives only the calls it names.
+  return methods as StubClient
 }
 
 function assemble(
@@ -326,9 +370,11 @@ describe('permission isolation', () => {
   it('rejects unknown ref kinds at runtime with an explicit omission', async () => {
     const client = mockClient({})
 
-    const envelope = await assemble(client, [
-      { kind: 'starship', id: 'x' } as unknown as AiObjectRef,
-    ])
+    const unsupportedKind = 'starship'
+    const unsupportedRef = { kind: unsupportedKind, id: 'x' }
+
+    // SAFETY: no catalogue branch reads a member beyond the `kind` and `id` this ref states; the assertion is the unknown kind the test exercises.
+    const envelope = await assemble(client, [unsupportedRef as AiObjectRef])
 
     expect(envelope.objects).toEqual([])
     expect(envelope.omissions[0].reason).toBe('unsupported_kind')
@@ -446,7 +492,7 @@ describe('dataset summaries', () => {
   })
 
   it('summarises schema and a bounded live row sample', async () => {
-    const rpcImpl = (name: string, args: Record<string, unknown>) => {
+    const rpcImpl = (name: string, args: RecordedRpcArgs): JsonValue => {
       expect(name).toBe('query_dataset_rows')
       expect(args.p_limit).toBe(2)
 
@@ -481,17 +527,11 @@ describe('dataset summaries', () => {
   })
 
   it('withholds live rows for a pinned version and states the pin', async () => {
-    const rpc = vi.fn(
-      async <T>(..._args: unknown[]): Promise<T> =>
-        ({ rows: [], totalCount: 0 }) as T,
-    )
+    const rpc = vi.fn()
 
-    const base = mockClient(datasetTables())
+    rpc.mockResolvedValue({ rows: [], totalCount: 0 })
 
-    const client: DataClient = {
-      ...base,
-      rpc: rpc as unknown as DataClient['rpc'],
-    }
+    const client: DataClient = { ...mockClient(datasetTables()), rpc }
 
     const envelope = await assemble(client, [
       {

@@ -14,10 +14,11 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { and, eq, sql } from 'drizzle-orm'
 import { SignJWT } from 'jose'
+import { z } from 'zod'
 
 import type * as schema from '#/db/schema'
 import { apiCredentials, workspaceMemberships } from '#/db/schema'
-import { isValidScope } from '#/lib/api-credential-scopes'
+import { VALID_SCOPES, isValidScope } from '#/lib/api-credential-scopes'
 import type { Scope } from '#/lib/api-credential-scopes'
 import { createCredentialRateLimiter } from '#/lib/credential-rate-limit'
 import { hmacKey } from '#/lib/hmac-key'
@@ -43,6 +44,13 @@ export type Db = NodePgDatabase<typeof schema>
  * the same fail-closed external allowlist.
  */
 export type CredentialKind = 'service' | 'personal'
+
+/**
+ * `chk_api_credentials_kind` and `chk_api_credentials_scopes` hold every stored
+ * row to these vocabularies, so decoding a row at this boundary cannot refuse one.
+ */
+const credentialKindSchema = z.enum(['service', 'personal'])
+const credentialScopesSchema = z.array(z.enum(VALID_SCOPES))
 
 /**
  * The full credential string shown to the user once. Format:
@@ -245,10 +253,10 @@ export async function listCredentials(
     return {
       id: row.id,
       workspaceId: row.workspaceId,
-      kind: row.kind as CredentialKind,
+      kind: credentialKindSchema.parse(row.kind),
       displayPrefix: row.displayPrefix,
       name: row.name,
-      scopes: row.scopes as Scope[],
+      scopes: credentialScopesSchema.parse(row.scopes),
       createdAt: row.createdAt,
       lastUsedAt: row.lastUsedAt,
       revokedAt: row.revokedAt,
@@ -331,7 +339,7 @@ export async function rotateCredential(
       name: existing.name,
       scopes,
       expiresAt: existing.expiresAt,
-      kind: existing.kind as CredentialKind,
+      kind: credentialKindSchema.parse(existing.kind),
     })
 
     await revokeCredential(tx, {
@@ -505,9 +513,9 @@ export async function verifyCredential(
   return {
     id: row.id,
     workspaceId: row.workspaceId,
-    kind: row.kind as CredentialKind,
+    kind: credentialKindSchema.parse(row.kind),
     createdByUserId: row.createdByUserId,
-    scopes: row.scopes as Scope[],
+    scopes: credentialScopesSchema.parse(row.scopes),
   }
 }
 

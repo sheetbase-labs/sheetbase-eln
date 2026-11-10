@@ -2,9 +2,10 @@
  * EXT-01 client surface: pins the DataClient → RPC argument mapping so a
  * renamed parameter fails here instead of at runtime.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
-import type { DataClient } from '../data-client'
+import { createDataClient } from '../data-client'
 import {
   describeExtensionsError,
   disableExtension,
@@ -14,11 +15,39 @@ import {
   updateExtension,
 } from './client'
 
-function stubClient() {
-  const rpc = vi.fn(async () => ({ ok: true }))
-  const list = vi.fn(async () => [])
+/** One RPC the fake transport received, named as the wire names it. */
+const sentRpcSchema = z.object({
+  name: z.string(),
+  args: z.record(z.string(), z.json()),
+})
 
-  return { client: { rpc, list } as unknown as DataClient, rpc, list }
+type SentRpc = z.infer<typeof sentRpcSchema>
+
+/**
+ * A data client over a fake transport, so the test reads the request the app
+ * actually sends instead of a mock's idea of it.
+ */
+function stubClient() {
+  const sent: SentRpc[] = []
+
+  const client = createDataClient(async (input, init) => {
+    const url = z.string().parse(input)
+    const body = z.string().parse(init?.body)
+
+    sent.push(
+      sentRpcSchema.parse({
+        name: url.replace('/api/db/rpc/', ''),
+        args: JSON.parse(body),
+      }),
+    )
+
+    return new Response('{}', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  })
+
+  return { client, sent }
 }
 
 const manifest = {
@@ -33,7 +62,7 @@ const manifest = {
 
 describe('extension client surface', () => {
   it('maps install/enable/disable to the canonical RPC arguments', async () => {
-    const { client, rpc } = stubClient()
+    const { client, sent } = stubClient()
     await installExtension(client, {
       workspaceId: 'ws',
       key: 'retest',
@@ -47,26 +76,35 @@ describe('extension client surface', () => {
         contributions: {},
       },
     })
-    expect(rpc).toHaveBeenCalledWith('install_extension', {
-      p_workspace_id: 'ws',
-      p_key: 'retest',
-      p_name: 'Retest Tracker',
-      p_version: '1.0.0',
-      p_source: 'https://extensions.example.com/x.tgz',
-      p_manifest: expect.objectContaining({ id: 'acme.retest-tracker' }),
-      p_acknowledge_untrusted: false,
+    expect(sent).toContainEqual({
+      name: 'install_extension',
+      args: {
+        p_workspace_id: 'ws',
+        p_key: 'retest',
+        p_name: 'Retest Tracker',
+        p_version: '1.0.0',
+        p_source: 'https://extensions.example.com/x.tgz',
+        p_manifest: expect.objectContaining({ id: 'acme.retest-tracker' }),
+        p_acknowledge_untrusted: false,
+      },
     })
 
     await enableExtension(client, { workspaceId: 'ws', extensionId: 'ext' })
-    expect(rpc).toHaveBeenCalledWith('enable_extension', {
-      p_workspace_id: 'ws',
-      p_extension_id: 'ext',
+    expect(sent).toContainEqual({
+      name: 'enable_extension',
+      args: {
+        p_workspace_id: 'ws',
+        p_extension_id: 'ext',
+      },
     })
 
     await disableExtension(client, { workspaceId: 'ws', extensionId: 'ext' })
-    expect(rpc).toHaveBeenCalledWith('disable_extension', {
-      p_workspace_id: 'ws',
-      p_extension_id: 'ext',
+    expect(sent).toContainEqual({
+      name: 'disable_extension',
+      args: {
+        p_workspace_id: 'ws',
+        p_extension_id: 'ext',
+      },
     })
 
     await updateExtension(client, {
@@ -82,25 +120,31 @@ describe('extension client surface', () => {
         contributions: {},
       },
     })
-    expect(rpc).toHaveBeenCalledWith('update_extension', {
-      p_workspace_id: 'ws',
-      p_extension_id: 'ext',
-      p_name: 'Retest Tracker',
-      p_version: '1.1.0',
-      p_source: 'https://extensions.example.com/x.tgz',
-      p_manifest: expect.objectContaining({ id: 'acme.retest-tracker' }),
-      p_acknowledge_untrusted: false,
+    expect(sent).toContainEqual({
+      name: 'update_extension',
+      args: {
+        p_workspace_id: 'ws',
+        p_extension_id: 'ext',
+        p_name: 'Retest Tracker',
+        p_version: '1.1.0',
+        p_source: 'https://extensions.example.com/x.tgz',
+        p_manifest: expect.objectContaining({ id: 'acme.retest-tracker' }),
+        p_acknowledge_untrusted: false,
+      },
     })
 
     await removeExtension(client, { workspaceId: 'ws', extensionId: 'ext' })
-    expect(rpc).toHaveBeenCalledWith('remove_extension', {
-      p_workspace_id: 'ws',
-      p_extension_id: 'ext',
+    expect(sent).toContainEqual({
+      name: 'remove_extension',
+      args: {
+        p_workspace_id: 'ws',
+        p_extension_id: 'ext',
+      },
     })
   })
 
   it('passes explicit trust acknowledgement for untrusted sources', async () => {
-    const { client, rpc } = stubClient()
+    const { client, sent } = stubClient()
     await installExtension(client, {
       workspaceId: 'ws',
       key: 'retest',
@@ -115,10 +159,10 @@ describe('extension client surface', () => {
       },
       acknowledgeUntrusted: true,
     })
-    expect(rpc).toHaveBeenCalledWith(
-      'install_extension',
-      expect.objectContaining({ p_acknowledge_untrusted: true }),
-    )
+    expect(sent).toContainEqual({
+      name: 'install_extension',
+      args: expect.objectContaining({ p_acknowledge_untrusted: true }),
+    })
   })
 
   it('explains capability and manifest failures without leaking internals', () => {

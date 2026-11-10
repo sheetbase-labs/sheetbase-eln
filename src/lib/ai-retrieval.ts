@@ -51,6 +51,8 @@ import type {
   AiObjectRef,
   AiObjectRefKind,
 } from './ai-context'
+import { z } from 'zod'
+
 import type { DataClient } from './data-client'
 import { executeSearch } from './search'
 import type { RpcSearchResult, SearchResultType } from './search'
@@ -63,6 +65,12 @@ export const DEFAULT_AI_RETRIEVAL_LIMIT = 10
 
 /** Retrieval clamps to the RPC page range the search surface supports. */
 export const MAX_AI_RETRIEVAL_LIMIT = 50
+
+/** A value retrieval cannot run without: non-empty text. */
+const requiredText = z.string().min(1)
+
+/** A question retrieval cannot run without: text, once trimmed. */
+const askedText = z.string().trim().min(1)
 
 export interface AiCitation {
   /** Object class (`record`, `file`, `dataset`, `sheet`, `template`, `comment`). */
@@ -134,7 +142,7 @@ export function toAiCitation(result: RpcSearchResult): AiCitation {
 }
 
 function resolveLimit(limit: number | undefined): number {
-  if (typeof limit !== 'number' || !Number.isFinite(limit)) {
+  if (limit === undefined || !Number.isFinite(limit)) {
     return DEFAULT_AI_RETRIEVAL_LIMIT
   }
 
@@ -152,28 +160,30 @@ export async function retrieveForAi(
   query: string,
   scope: AiRetrievalScope | null | undefined,
 ): Promise<AiRetrievalResult> {
-  if (!actor || typeof actor.id !== 'string' || actor.id === '') {
+  const actorId = requiredText.safeParse(actor?.id).data
+
+  if (!actorId) {
     throw new Error('retrieveForAi: actor with a non-empty id is required')
   }
 
-  if (
-    !scope ||
-    typeof scope.workspaceId !== 'string' ||
-    scope.workspaceId === ''
-  ) {
+  const workspaceId = requiredText.safeParse(scope?.workspaceId).data
+
+  if (!scope || !workspaceId) {
     throw new Error(
       'retrieveForAi: scope.workspaceId is required (fail closed)',
     )
   }
 
-  if (typeof query !== 'string' || query.trim() === '') {
+  const asked = askedText.safeParse(query).data
+
+  if (!asked) {
     throw new Error('retrieveForAi: a non-empty query is required')
   }
 
   const limit = resolveLimit(scope.limit)
 
   const results = await executeSearch(client, {
-    query: query.trim(),
+    query: asked.trim(),
     projectId: scope.projectId ?? undefined,
     kind: scope.kind,
     status: scope.status,

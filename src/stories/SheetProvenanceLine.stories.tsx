@@ -8,7 +8,7 @@ import type { BoundColumnProvenance } from '#/lib/sheet-bound-columns'
  * from and links to that canonical object; the link resolves through the
  * Storybook TanStack router, so the destination is real.
  */
-const datasetProvenance = {
+const datasetProvenance: BoundColumnProvenance = {
   sourceKind: 'dataset',
   sourceDatasetId: '770e8400-e29b-41d4-a716-446655440020',
   sourceRowId: null,
@@ -18,16 +18,18 @@ const datasetProvenance = {
   sourceFieldId: 'field-1',
   definitionVersionId: 'def-1',
   definitionColumnId: 'col-1',
-} as unknown as BoundColumnProvenance
+}
 
-const recordProvenance = {
+const recordProvenance: BoundColumnProvenance = {
   sourceKind: 'record',
   sourceRecordId: '660e8400-e29b-41d4-a716-446655440010',
   sourceMetadataVersion: 5,
   sourceFieldName: 'titer',
   bindingId: 'binding-1',
   sourceFieldId: 'field-1',
-} as unknown as BoundColumnProvenance
+  definitionVersionId: 'def-1',
+  definitionColumnId: 'col-1',
+}
 
 const meta = {
   title: 'Sheet/Provenance line',

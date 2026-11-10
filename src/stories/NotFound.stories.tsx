@@ -38,6 +38,7 @@ function sandboxRouter(router: {
   path: string
   params?: Record<string, string>
 }): NonNullable<Story['parameters']> {
+  // SAFETY: the framework's parameters type can only describe the app's own route tree, which a sandbox story does not mount; `tanstack.router` is the single key written here and Storybook's TanStack decorator reads it directly.
   return { tanstack: { router } } as NonNullable<Story['parameters']>
 }
 

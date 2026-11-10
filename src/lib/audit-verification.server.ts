@@ -82,6 +82,19 @@ let verificationTimer: ReturnType<typeof setInterval> | null = null
 let verificationBootTimer: ReturnType<typeof setTimeout> | null = null
 const startedGlobalKey = '__sheetbaseAuditVerificationSchedulerStarted'
 
+/** The one process-global flag this module owns. */
+interface VerificationGuard {
+  [startedGlobalKey]?: boolean
+}
+
+/** The process global object, seen as the module's own guard. */
+function verificationGuard(): VerificationGuard {
+  // SAFETY: `globalThis` is the process global object, and this module alone
+  // reads and writes its `__sheetbaseAuditVerificationSchedulerStarted`
+  // property, which it sets to `true`; nothing else defines it.
+  return globalThis as VerificationGuard
+}
+
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
 
@@ -102,7 +115,7 @@ export function startAuditVerificationScheduler(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
+  const g = verificationGuard()
 
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
@@ -133,7 +146,7 @@ export function stopAuditVerificationScheduler(): void {
     verificationTimer = null
   }
 
-  const g = globalThis as unknown as Record<string, unknown>
+  const g = verificationGuard()
   delete g[startedGlobalKey]
 }
 

@@ -4,15 +4,19 @@
  * Sheet blocks name a Sheet Instance. Scientific-table `{tableId}` payloads
  * are not a product contract.
  */
+import { z } from 'zod'
 
-export function sheetBlockInstanceId(
-  payload: Record<string, unknown>,
-): string | null {
-  return typeof payload.instanceId === 'string' ? payload.instanceId : null
+/** A block payload, read for the one key a sheet block names. */
+export interface SheetPayload {
+  instanceId?: unknown
 }
 
-export function isCanonicalSheetBlock(
-  payload: Record<string, unknown>,
-): boolean {
+const instanceIdValue = z.string()
+
+export function sheetBlockInstanceId(payload: SheetPayload): string | null {
+  return instanceIdValue.safeParse(payload.instanceId).data ?? null
+}
+
+export function isCanonicalSheetBlock(payload: SheetPayload): boolean {
   return sheetBlockInstanceId(payload) !== null
 }

@@ -52,7 +52,7 @@ const incident = (
   id: string,
   identifier: string,
   title: string,
-  fields: Record<string, unknown>,
+  fields: IncidentEntry['custom_fields'],
 ): IncidentEntry => ({
   id,
   identifier,

@@ -13,8 +13,16 @@
  * notebook, overview, review workspace and API all show one consistent lock
  * state.
  */
+import type { z } from 'zod'
+
 import type { DataClient } from './data-client'
 import { notebookDataClient } from './notebook-data'
+
+/** A JSON value as PostgreSQL stores it in a jsonb column. */
+type StoredJson = z.core.util.JSONType
+
+/** One stored row or snapshot, as the RPCs return it. */
+type StoredRow = Record<string, StoredJson>
 
 // ---------------------------------------------------------------------------
 // Wire shapes (snake_case, as returned by PostgREST / the RPCs).
@@ -47,7 +55,7 @@ export interface TimelineEventWire {
   /** Actor user id (Better Auth), null for system/bootstrap events. */
   actorUserId: string | null
   /** Type-specific detail (operation, state, decision, reason, digest, …). */
-  [key: string]: unknown
+  [key: string]: StoredJson
 }
 
 /** The full evidence bundle returned by `api.export_revision_evidence`. */
@@ -63,21 +71,21 @@ export interface EvidenceExportWire {
     metadata_version: number
     integrity_algorithm: string
     integrity_digest: string
-    canonical_snapshot: Record<string, unknown>
+    canonical_snapshot: StoredRow
     superseded_by_revision_id: string | null
     created_at: string
     created_by_user_id: string
   }
   /** Snake-case row dump from api.review_submissions, or null. */
-  submission: Record<string, unknown> | null
+  submission: StoredRow | null
   /** Snake-case row dumps from api.review_decisions. */
-  decisions: Record<string, unknown>[]
+  decisions: StoredRow[]
   /** Snake-case row dumps from api.review_check_results. */
-  checkResults: Record<string, unknown>[]
+  checkResults: StoredRow[]
   /** Snake-case row dumps from api.signatures. */
-  signatures: Record<string, unknown>[]
+  signatures: StoredRow[]
   /** Snake-case row dumps from api.comments. */
-  comments: Record<string, unknown>[]
+  comments: StoredRow[]
 }
 
 // ---------------------------------------------------------------------------

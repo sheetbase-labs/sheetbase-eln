@@ -1,10 +1,11 @@
 import { useRequest } from 'nitro/context'
+import type { FieldContext, RequestLogger } from 'evlog'
 
 /**
  * Adds fields to the wide event evlog emits when the current request ends.
  * A no-op outside a request (tests, scripts, background sweeps).
  */
-export function annotateRequest(fields: Record<string, unknown>): void {
+export function annotateRequest(fields: FieldContext): void {
   try {
     currentLog()?.set(fields)
   } catch {
@@ -21,18 +22,9 @@ export function setRequestLevel(level: 'warn' | 'error'): void {
   }
 }
 
-function currentLog():
-  | {
-      set: (fields: Record<string, unknown>) => void
-      setLevel: (level: 'warn' | 'error') => void
-    }
-  | undefined {
-  return (
-    useRequest().context as {
-      log?: {
-        set: (fields: Record<string, unknown>) => void
-        setLevel: (level: 'warn' | 'error') => void
-      }
-    }
-  ).log
+function currentLog(): RequestLogger | undefined {
+  // SAFETY: evlog's Nitro plugin is the only writer of `request.context.log`, and it
+  // stores the request's `RequestLogger` there. A request without the plugin either
+  // has no context or no logger, and both callers above already treat that as a no-op.
+  return (useRequest().context as { log?: RequestLogger }).log
 }

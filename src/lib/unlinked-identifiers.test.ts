@@ -17,7 +17,7 @@ import { describe, expect, it } from 'vitest'
 // training gap list), so the identifier there is part of a link, not bare text.
 const BASELINE = 25
 
-const SHAPE =
+const PLAIN_IDENTIFIER_PATTERN =
   /<span[^>]*mono[^>]*>\s*\{[^}]*(identifier|display_id|displayId)[^}]*\}/
 
 function sourceFiles(dir: string): string[] {
@@ -41,7 +41,7 @@ describe('identifiers shown as plain text', () => {
       readFileSync(file, 'utf8')
         .split('\n')
         .flatMap((line, index) =>
-          SHAPE.test(line) ? [`${file}:${index + 1}`] : [],
+          PLAIN_IDENTIFIER_PATTERN.test(line) ? [`${file}:${index + 1}`] : [],
         ),
     )
 

@@ -56,8 +56,9 @@ const SAMPLE_ROWS = 8
 const REVIEW_SAMPLE_LIMIT = 20
 
 function asRow<T>(body: T | { error: unknown }): T | undefined {
-  if (Array.isArray(body)) return (body as T[])[0]
+  if (Array.isArray(body)) return body[0]
 
+  // SAFETY: a non-array reply is the single row the caller's T named; PostgREST returns that row itself for a `return=representation` write.
   return body as T
 }
 
@@ -67,19 +68,27 @@ function asRow<T>(body: T | { error: unknown }): T | undefined {
  * the cause that actually applied, so commit rejections surface it instead of
  * a canned sentence that may be false for this Dataset.
  */
+/** The fields a PostgREST refusal carries: its SQLSTATE or `SBxxx` code, or its plain message. */
+const raisedErrorSchema = z.object({
+  code: z.string().optional(),
+  message: z.string().optional(),
+  error: z.string().optional(),
+})
+
 function raisedRpcError(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A refusal body is whatever PostgREST sent; raisedErrorSchema decodes it on the first line of the body.
   body: unknown,
 ): { code: string; message: string } | undefined {
   const record = Array.isArray(body) ? body[0] : body
+  const parsed = raisedErrorSchema.safeParse(record)
 
-  if (!record || typeof record !== 'object') return undefined
-  const value = record as Record<string, unknown>
+  if (!parsed.success) return undefined
+  const { code, message, error } = parsed.data
 
-  if (typeof value.code === 'string' && typeof value.message === 'string')
-    return { code: value.code, message: value.message }
+  if (code !== undefined && message !== undefined) return { code, message }
 
-  if (typeof value.error === 'string' && value.error.trim())
-    return { code: 'rpc_error', message: value.error }
+  if (error !== undefined && error.trim())
+    return { code: 'rpc_error', message: error }
 
   return undefined
 }
@@ -151,7 +160,7 @@ interface FieldWire {
   label: string
   logical_type: string
   nullable: boolean
-  quantity: unknown
+  quantity: z.core.util.JSONType
 }
 
 /** Map header→field selections onto the coercion layer's mapping shape. */
@@ -189,12 +198,20 @@ export function plannedKeyFromRow(
   return parts.length > 0 ? parts.join('/').slice(0, 200) : undefined
 }
 
-function fieldUnit(quantity: unknown): string | null {
-  if (!quantity || typeof quantity !== 'object') return null
-  const record = quantity as Record<string, unknown>
-  const unit = record.storageUnit ?? record.symbol ?? record.unit
+/** The unit a Dataset field's quantity carries, in whichever key it was stored under. */
+const quantitySchema = z.object({
+  storageUnit: z.string().optional(),
+  symbol: z.string().optional(),
+  unit: z.string().optional(),
+})
 
-  return typeof unit === 'string' && unit.trim() ? unit.trim() : null
+function fieldUnit(quantity: z.core.util.JSONType | undefined): string | null {
+  const parsed = quantitySchema.safeParse(quantity)
+
+  if (!parsed.success) return null
+  const unit = parsed.data.storageUnit ?? parsed.data.symbol ?? parsed.data.unit
+
+  return unit && unit.trim() ? unit.trim() : null
 }
 
 export function toTargetFields(fields: FieldWire[]): ImportTargetField[] {
@@ -215,7 +232,7 @@ export function buildColumnViews(
   document: ImportMappingDocument,
   sheet: ImportSheet,
   fields: ImportTargetField[],
-  fieldQuantity: Map<string, unknown>,
+  fieldQuantity: Map<string, z.core.util.JSONType | undefined>,
 ): ImportColumnView[] {
   const byId = new Map(fields.map((field) => [field.id, field]))
 
@@ -386,6 +403,11 @@ function parserByKey(
   return IMPORT_PARSERS.find((parser) => parser.key === key) ?? null
 }
 
+/** A parser version whose signature names a connector engine: its connector runs it, never the generic reader. */
+const engineSignature = z.object({
+  signature: z.looseObject({ engine: z.json() }),
+})
+
 const canonicalReaderSchema = z.object({
   id: z.uuid(),
   parser_id: z.uuid(),
@@ -408,7 +430,7 @@ const canonicalReaderSchema = z.object({
 /** Only structural definitions use this file reader; connector engine IDs are
  * executed by their connector, never relabelled as the generic import reader. */
 async function canonicalReaders(token: string, versionId?: string) {
-  const response = await postgrestSelect<unknown[]>(
+  const response = await postgrestSelect<z.core.util.JSONType[]>(
     'parser_versions',
     `${versionId ? `id=eq.${encodeURIComponent(versionId)}&` : ''}status=neq.retired&select=id,parser_id,version,status,signature,parsers(id,key,name,format)&order=version.desc`,
     token,
@@ -417,16 +439,7 @@ async function canonicalReaders(token: string, versionId?: string) {
   return (Array.isArray(response.body) ? response.body : []).flatMap((row) => {
     const parsed = canonicalReaderSchema.safeParse(row)
 
-    if (
-      !parsed.success ||
-      (typeof row === 'object' &&
-        row !== null &&
-        'signature' in row &&
-        typeof row.signature === 'object' &&
-        row.signature !== null &&
-        'engine' in row.signature)
-    )
-      return []
+    if (!parsed.success || engineSignature.safeParse(row).success) return []
     const version = parsed.data
     const base = parserByKey(version.parsers.key)
 
@@ -1050,10 +1063,16 @@ async function prepareImport(
   }
 }
 
+/** The rows an import would create, and the field its parser's control column maps to. */
+interface BuiltRows {
+  mapped: MappedImport
+  controlFieldId: string | null
+}
+
 function buildRows(
   prepared: PreparedImport,
   parser: ImportParserDefinition | null,
-): { mapped: MappedImport; controlFieldId: string | null } {
+): BuiltRows {
   const targetFields = toTargetFields(prepared.fields)
   const mappings = mappingsFromDocument(prepared.mapping, targetFields)
 
@@ -1085,13 +1104,36 @@ function buildRows(
 }
 
 function commitRows(mapped: MappedImport) {
-  return mapped.rows.map((row) => ({
-    operation: 'create' as const,
-    rowId: row.rowId,
-    values: row.values,
-    ...(row.plannedKey ? { plannedKey: row.plannedKey } : {}),
-  }))
+  return mapped.rows.map((row) => {
+    const committed = {
+      operation: 'create' as const,
+      rowId: row.rowId,
+      values: row.values,
+    }
+
+    return row.plannedKey
+      ? { ...committed, plannedKey: row.plannedKey }
+      : committed
+  })
 }
+
+/** POST /api/import/review: the file, Dataset and mapping to check. */
+const reviewBodySchema = z.object({
+  fileId: z.string().optional(),
+  datasetId: z.string().optional(),
+  mapping: mappingSchema.optional(),
+  parserKey: z.string().nullish(),
+  parserVersionId: z.string().nullish(),
+  sheetName: z.string().nullish(),
+})
+
+/** POST /api/import/commit: the reviewed preview and the identity to write it under. */
+const commitBodySchema = reviewBodySchema.extend({
+  parserId: z.string().nullish(),
+  experimentRecordId: z.string().nullish(),
+  instrumentId: z.string().nullish(),
+  idempotencyKey: z.string().optional(),
+})
 
 /** POST /api/import/review — server-side outcome computation, no writes. */
 export async function handleImportReview(
@@ -1109,17 +1151,10 @@ export async function handleImportReview(
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
 
-  let body: {
-    fileId?: string
-    datasetId?: string
-    mapping?: ImportMappingDocument
-    parserKey?: string | null
-    parserVersionId?: string | null
-    sheetName?: string | null
-  }
+  let body: z.infer<typeof reviewBodySchema>
 
   try {
-    body = (await request.json()) as typeof body
+    body = reviewBodySchema.parse(await request.json())
   } catch {
     return requestErrorResponse(
       400,
@@ -1249,21 +1284,10 @@ export async function handleImportCommit(
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
 
-  let body: {
-    fileId?: string
-    datasetId?: string
-    mapping?: ImportMappingDocument
-    parserKey?: string | null
-    parserId?: string | null
-    parserVersionId?: string | null
-    experimentRecordId?: string | null
-    instrumentId?: string | null
-    sheetName?: string | null
-    idempotencyKey?: string
-  }
+  let body: z.infer<typeof commitBodySchema>
 
   try {
-    body = (await request.json()) as typeof body
+    body = commitBodySchema.parse(await request.json())
   } catch {
     return requestErrorResponse(
       400,

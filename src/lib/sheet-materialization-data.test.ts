@@ -77,6 +77,7 @@ describe('Sheet materialization data contract', () => {
         idempotent: false,
       })
 
+    // SAFETY: the materialization reads only `client.rpc`; the mock supplies that one method.
     const client = { rpc } as never
 
     const preview = await previewSheetMaterialization(
@@ -107,6 +108,7 @@ describe('Sheet materialization data contract', () => {
   })
 
   it('rejects untyped output manifests and incomplete source-version provenance', async () => {
+    // SAFETY: the materialization reads only `client.rpc`; the mock supplies that one method and the answer below.
     const client = {
       rpc: vi.fn().mockResolvedValue({
         instanceId,

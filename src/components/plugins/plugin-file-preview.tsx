@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Banner } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
@@ -13,7 +14,28 @@ import {
 } from '#/components/ui/table'
 import { t } from '#/copy'
 import { fileExtension, previewWithPlugin } from '#/lib/extensions/plugin-files'
+import type { PluginFilePreview } from '#/lib/extensions/plugin-files'
 import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
+
+/** One row of a plugin's preview table, named by the plugin contract that sends it. */
+type PluginPreviewRow = Extract<PluginFilePreview, { kind: 'table' }>['rows'][number]
+
+/**
+ * One cell of a plugin's preview table, decoded to the text the table shows.
+ *
+ * A plugin answers with JSON values, so a missing cell and a JSON `null` both
+ * read as the em dash, and every other value is read the way JavaScript reads
+ * it (`String`), which is what the table showed before it was decoded.
+ */
+const previewCellText = z.preprocess(
+  (value) => (value === null || value === undefined ? '—' : value),
+  z.coerce.string(),
+)
+
+/** The text a plugin preview table shows for one cell of one row. */
+function previewCellTextOf(row: PluginPreviewRow, column: string): string {
+  return previewCellText.parse(row[column])
+}
 
 /** The preview a plugin offers for this file name, if any. */
 export function usePluginPreview(fileName: string) {
@@ -115,12 +137,13 @@ export function PluginFilePreview({
             </TableHeader>
             <TableBody>
               {data.rows.map((row, index) => (
-                <TableRow key={index}>
+                <TableRow
+                  // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a plugin's preview rows carry no identity, so the declared row order is the only stable key.
+                  key={index}
+                >
                   {data.columns.map((column) => (
                     <TableCell key={column}>
-                      {row[column] === null || row[column] === undefined
-                        ? '—'
-                        : String(row[column])}
+                      {previewCellTextOf(row, column)}
                     </TableCell>
                   ))}
                 </TableRow>

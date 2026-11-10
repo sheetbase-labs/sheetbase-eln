@@ -54,14 +54,18 @@ export type WorkItemLink =
 export function itemLink(item: WorkItem): WorkItemLink {
   const review = (
     meaning?: 'witnessed' | 'reviewed-and-approved',
-  ): WorkItemLink | null =>
-    item.revisionId
+  ): WorkItemLink | null => {
+    if (!item.revisionId) return null
+    const revisionId = item.revisionId
+
+    return meaning
       ? {
           to: '/review/$revisionId',
-          params: { revisionId: item.revisionId },
-          ...(meaning ? { search: { signatureMeaning: meaning } } : {}),
+          params: { revisionId },
+          search: { signatureMeaning: meaning },
         }
-      : null
+      : { to: '/review/$revisionId', params: { revisionId } }
+  }
 
   const record = (): WorkItemLink =>
     item.recordId
@@ -92,13 +96,12 @@ export function itemLink(item: WorkItem): WorkItemLink {
           }
         : { to: '/inbox' }
     case 'agent_proposal':
-      return {
-        to: '/pipelines/agents',
-        search: {
-          view: 'proposals',
-          ...(item.sourceId ? { proposal: item.sourceId } : {}),
-        },
-      }
+      return item.sourceId
+        ? {
+            to: '/pipelines/agents',
+            search: { view: 'proposals', proposal: item.sourceId },
+          }
+        : { to: '/pipelines/agents', search: { view: 'proposals' } }
     case 'agent_action_request':
       return { to: '/pipelines/agents', search: { view: 'actions' } }
     case 'watcher_finding':

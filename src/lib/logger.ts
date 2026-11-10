@@ -13,10 +13,13 @@
  * doubt, log less, not more.
  */
 import { initLogger, log, toLoggerConfig } from 'evlog'
+import { z } from 'zod'
 
 import evlogConfig from '../../evlog.config'
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+
+const LEVELS: readonly LogLevel[] = ['debug', 'info', 'warn', 'error']
 
 const LEVEL_PRIORITY: Record<LogLevel, number> = {
   debug: 10,
@@ -28,7 +31,7 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 function resolveMinLevel(): LogLevel {
   const raw = process.env.LOG_LEVEL?.toLowerCase()
 
-  return raw && raw in LEVEL_PRIORITY ? (raw as LogLevel) : 'info'
+  return LEVELS.find((level) => level === raw) ?? 'info'
 }
 
 const MIN_LEVEL: LogLevel = resolveMinLevel()
@@ -55,44 +58,66 @@ const REDACTED_KEYS = new Set([
 
 const REDACTED_VALUE = '[redacted]'
 
-/** Recursively redacts sensitive keys from an arbitrary value. */
-export function redact<T>(value: T): T {
-  if (value === null || typeof value !== 'object') return value
+/** One log line's fields, as each caller measured them. */
+const logFieldsSchema = z.record(z.string(), z.unknown())
 
-  if (Array.isArray(value)) return value.map(redact) as unknown as T
+export type LogFields = z.infer<typeof logFieldsSchema>
 
-  const out: Record<string, unknown> = {}
+/**
+ * The value kinds a log line holds as-is. Objects and arrays are walked
+ * instead, so a sensitive key inside one is still replaced.
+ */
+const scalarValue = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.bigint(),
+  z.symbol(),
+  z.function(),
+  z.undefined(),
+  z.null(),
+])
 
-  for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
-    const lower = key.toLowerCase()
-
-    if (REDACTED_KEYS.has(lower)) {
-      out[key] = REDACTED_VALUE
-    } else {
-      out[key] = redact(val)
-    }
-  }
-
-  return out as T
+function isScalar<Value>(value: Value): boolean {
+  return scalarValue.safeParse(value).success
 }
 
-function emit(
-  level: LogLevel,
-  message: string,
-  fields?: Record<string, unknown>,
-): void {
+/** Narrows a value to the object or array the redactor walks. */
+function isWalkable<Value>(value: Value): value is Value & object {
+  return !isScalar(value)
+}
+
+/** Rebuilds an object or array with the values under sensitive keys replaced. */
+function rebuild<Value extends object>(value: Value): object {
+  if (Array.isArray(value)) return value.map((entry) => redact(entry))
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      REDACTED_KEYS.has(key.toLowerCase()) ? REDACTED_VALUE : redact(entry),
+    ]),
+  )
+}
+
+/** Recursively redacts sensitive keys from an arbitrary value. */
+export function redact<T>(value: T): T {
+  if (!isWalkable(value)) return value
+
+  // SAFETY: rebuild keeps every key and array position the value has and only
+  // replaces the values held under sensitive keys, so the result keeps T.
+  return rebuild(value) as T
+}
+
+function emit(level: LogLevel, message: string, fields?: LogFields): void {
   if (LEVEL_PRIORITY[level] < LEVEL_PRIORITY[MIN_LEVEL]) return
   // evlog does not redact simple logs on its own, so this stays ours.
   log[level]({ message, ...redact(fields ?? {}) })
 }
 
 export const logger = {
-  debug: (message: string, fields?: Record<string, unknown>) =>
-    emit('debug', message, fields),
-  info: (message: string, fields?: Record<string, unknown>) =>
-    emit('info', message, fields),
-  warn: (message: string, fields?: Record<string, unknown>) =>
-    emit('warn', message, fields),
-  error: (message: string, fields?: Record<string, unknown>) =>
+  debug: (message: string, fields?: LogFields) => emit('debug', message, fields),
+  info: (message: string, fields?: LogFields) => emit('info', message, fields),
+  warn: (message: string, fields?: LogFields) => emit('warn', message, fields),
+  error: (message: string, fields?: LogFields) =>
     emit('error', message, fields),
 }

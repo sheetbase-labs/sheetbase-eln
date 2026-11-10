@@ -172,7 +172,11 @@ for (const [theme, tokens] of [
  * WCAG measures the painted pixels, not the translucent layer the harness
  * would otherwise skip.
  */
-function washOver(wash: Oklch, alpha: number, surface: Oklch) {
+function washOver(
+  wash: Oklch,
+  alpha: number,
+  surface: Oklch,
+): [number, number, number] {
   const [wr, wg, wb] = oklchToSrgb(wash)
   const [sr, sg, sb] = oklchToSrgb(surface)
 
@@ -180,7 +184,7 @@ function washOver(wash: Oklch, alpha: number, surface: Oklch) {
     wr * alpha + sr * (1 - alpha),
     wg * alpha + sg * (1 - alpha),
     wb * alpha + sb * (1 - alpha),
-  ] as [number, number, number]
+  ]
 }
 
 // The primary-text chips read `text-primary-text`, so the declarations that

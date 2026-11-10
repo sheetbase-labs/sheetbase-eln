@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { noCapabilities } from '#/lib/capabilities'
 import { Route as RootRoute } from './__root'
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The root document mounts the workspace shell, which owns a live-events connection and the signed-in person; this suite renders the theme class alone, so the shell draws only its children.
 vi.mock('#/components/workspace/workspace-host', () => ({
   WorkspaceHost: ({ children }: { children: React.ReactNode }) => children,
 }))
@@ -25,6 +26,7 @@ vi.mock('#/components/workspace/workspace-host', () => ({
 
 const request = vi.hoisted(() => ({ cookie: '' }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The shell opens its live-events coordinator at module scope; a real one holds an EventSource, which a server render has no browser for.
 vi.mock('#/lib/live-events', () => ({
   createLiveEventCoordinator: () => ({
     connect: vi.fn(),
@@ -39,20 +41,24 @@ vi.mock('#/lib/live-events', () => ({
   }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- `getOrCreateClientId` reads localStorage, which server rendering does not have.
 vi.mock('#/lib/client-identity', () => ({
   getOrCreateClientId: () => 'test-client-id',
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The root module builds its server function from `createServerFn` at import time; the framework's factory needs the server runtime to exist before the module loads, and this suite renders the route directly.
 vi.mock('@tanstack/react-start', () => ({
   createServerFn: () => ({
-    handler: (fn: () => unknown) => fn,
+    handler: <Answer,>(fn: () => Answer) => fn,
   }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- `getCurrentContext` resolves a session from the database; this suite needs the signed-out context the theme render falls back to, with no database.
 vi.mock('#/lib/current-user', () => ({
   getCurrentContext: () => null,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- `getRequestHeaders` reads the framework's ambient server request; the suite supplies the one cookie header the document's theme decision reads.
 vi.mock('@tanstack/react-start/server', () => ({
   getRequestHeaders: () => {
     const headers = new Headers()

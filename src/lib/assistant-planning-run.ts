@@ -13,6 +13,15 @@ import type { PlanningAction, PlanningActionResult } from './assistant-planning'
 
 /** Runs a planning card's action. Loaded only in the browser, when a button is pressed. */
 
+/** The arguments `update_experiment_part` takes; a call sets only the ones it changes. */
+type UpdateExperimentPartArgs = {
+  p_part_id: string
+  p_title?: string
+  p_day_offset?: number
+  p_assignee_user_id?: string
+  p_clear_assignee?: true
+}
+
 /** Run a planning card's action through the ordinary RPCs. */
 export async function runPlanningAction(
   client: DataClient,
@@ -20,12 +29,21 @@ export async function runPlanningAction(
 ): Promise<PlanningActionResult | undefined> {
   switch (action.kind) {
     case 'experiment.start': {
-      const made = await instantiateTemplate(client, {
-        templateRecordId: action.templateRecordId,
-        targetProjectId: action.projectId,
-        targetKind: 'experiment',
-        ...(action.title ? { title: action.title } : {}),
-      })
+      const made = await instantiateTemplate(
+        client,
+        action.title
+          ? {
+              templateRecordId: action.templateRecordId,
+              targetProjectId: action.projectId,
+              targetKind: 'experiment',
+              title: action.title,
+            }
+          : {
+              templateRecordId: action.templateRecordId,
+              targetProjectId: action.projectId,
+              targetKind: 'experiment',
+            },
+      )
 
       return { openHref: `/records/${made.record.id}` }
     }
@@ -57,37 +75,48 @@ export async function runPlanningAction(
 
       return undefined
     case 'step.done':
-      await client.rpc('set_step_done', {
-        p_block_id: action.blockId,
-        p_done: action.done,
-        ...(action.note !== null ? { p_note: action.note } : {}),
-      })
+      await client.rpc(
+        'set_step_done',
+        action.note !== null
+          ? {
+              p_block_id: action.blockId,
+              p_done: action.done,
+              p_note: action.note,
+            }
+          : { p_block_id: action.blockId, p_done: action.done },
+      )
 
       return undefined
     case 'part.add':
-      await client.rpc('create_experiment_part', {
-        p_record_id: action.recordId,
-        p_title: action.title,
-        ...(action.dayOffset !== null
-          ? { p_day_offset: action.dayOffset }
-          : {}),
-      })
+      await client.rpc(
+        'create_experiment_part',
+        action.dayOffset !== null
+          ? {
+              p_record_id: action.recordId,
+              p_title: action.title,
+              p_day_offset: action.dayOffset,
+            }
+          : { p_record_id: action.recordId, p_title: action.title },
+      )
 
       return undefined
-    case 'part.update':
-      await client.rpc('update_experiment_part', {
-        p_part_id: action.partId,
-        ...(action.title !== null ? { p_title: action.title } : {}),
-        ...(action.dayOffset !== null
-          ? { p_day_offset: action.dayOffset }
-          : {}),
-        ...(action.assigneeUserId !== null
-          ? { p_assignee_user_id: action.assigneeUserId }
-          : {}),
-        ...(action.clearAssignee ? { p_clear_assignee: true } : {}),
-      })
+    case 'part.update': {
+      const args: UpdateExperimentPartArgs = { p_part_id: action.partId }
+
+      if (action.title !== null) args.p_title = action.title
+
+      if (action.dayOffset !== null) args.p_day_offset = action.dayOffset
+
+      if (action.assigneeUserId !== null)
+        args.p_assignee_user_id = action.assigneeUserId
+
+      if (action.clearAssignee) args.p_clear_assignee = true
+
+      await client.rpc('update_experiment_part', args)
 
       return undefined
+    }
+
     case 'part.done':
       await client.rpc('set_part_done', {
         p_part_id: action.partId,
@@ -96,12 +125,12 @@ export async function runPlanningAction(
 
       return undefined
     case 'gate.go_on':
-      await client.rpc('override_gate', {
-        ...(action.blockId
-          ? { p_gate_block_id: action.blockId }
-          : { p_gate_part_id: action.partId }),
-        p_reason: action.reason,
-      })
+      await client.rpc(
+        'override_gate',
+        action.blockId
+          ? { p_reason: action.reason, p_gate_block_id: action.blockId }
+          : { p_reason: action.reason, p_gate_part_id: action.partId },
+      )
 
       return undefined
     case 'part.signoff_request':
@@ -114,22 +143,37 @@ export async function runPlanningAction(
 
       return undefined
     case 'step.result':
-      await client.rpc('add_step_result', {
-        p_block_id: action.blockId,
-        p_label: action.label,
-        p_value: action.value,
-        ...(action.unit !== null ? { p_unit: action.unit } : {}),
-      })
+      await client.rpc(
+        'add_step_result',
+        action.unit !== null
+          ? {
+              p_block_id: action.blockId,
+              p_label: action.label,
+              p_value: action.value,
+              p_unit: action.unit,
+            }
+          : {
+              p_block_id: action.blockId,
+              p_label: action.label,
+              p_value: action.value,
+            },
+      )
 
       return undefined
     case 'series.add':
-      await client.rpc('add_series_member', {
-        p_series_record_id: action.seriesRecordId,
-        p_member_record_id: action.memberRecordId,
-        ...(action.plannedOn !== null
-          ? { p_planned_on: action.plannedOn }
-          : {}),
-      })
+      await client.rpc(
+        'add_series_member',
+        action.plannedOn !== null
+          ? {
+              p_series_record_id: action.seriesRecordId,
+              p_member_record_id: action.memberRecordId,
+              p_planned_on: action.plannedOn,
+            }
+          : {
+              p_series_record_id: action.seriesRecordId,
+              p_member_record_id: action.memberRecordId,
+            },
+      )
 
       return { openHref: `/experiments/${action.seriesRecordId}/series` }
     case 'series.remove':

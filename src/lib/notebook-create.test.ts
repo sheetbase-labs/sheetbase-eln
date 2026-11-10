@@ -33,6 +33,7 @@ describe('createBlankExperiment', () => {
       blocks: [],
     })
 
+    // SAFETY: `createBlankExperiment` reads only `client.rpc`; the fake supplies that one method and the RPC's own answer below.
     const record = await createBlankExperiment({ rpc } as never, {
       projectId: 'p1',
       title: 'Blank run',
@@ -57,6 +58,7 @@ describe('linkExperimentToSample', () => {
 
   it('writes one sample link keyed by the sample display identifier', async () => {
     const rpc = vi.fn().mockResolvedValue({})
+    // SAFETY: `linkExperimentToSample` reads only `client.rpc`; the fake supplies that one method.
     await linkExperimentToSample({ rpc } as never, 'exp-uuid', sample)
     expect(rpc).toHaveBeenCalledWith('create_record_link', {
       p_source_record_id: 'exp-uuid',
@@ -71,6 +73,7 @@ describe('linkExperimentToSample', () => {
   it('treats a link that already exists as done', async () => {
     const rpc = vi.fn().mockRejectedValue({ code: '23505', message: 'dup' })
     await expect(
+      // SAFETY: `linkExperimentToSample` reads only `client.rpc`; the fake supplies that one method.
       linkExperimentToSample({ rpc } as never, 'exp-uuid', sample),
     ).resolves.toBeUndefined()
   })
@@ -78,6 +81,7 @@ describe('linkExperimentToSample', () => {
   it('surfaces any other refusal', async () => {
     const rpc = vi.fn().mockRejectedValue(new Error('record is locked'))
     await expect(
+      // SAFETY: `linkExperimentToSample` reads only `client.rpc`; the fake supplies that one method.
       linkExperimentToSample({ rpc } as never, 'exp-uuid', sample),
     ).rejects.toThrow('record is locked')
   })

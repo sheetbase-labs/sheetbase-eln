@@ -28,7 +28,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { PointerEvent, ReactNode } from 'react'
+import type { PointerEvent, ReactNode, RefObject } from 'react'
 import { useDataGrid } from '#/components/reui/data-grid/data-grid'
 import {
   DirectionProvider,
@@ -108,6 +108,10 @@ function areMetricsEqual(next: ScrollbarMetrics, prev: ScrollbarMetrics) {
   )
 }
 
+function isStickyPositioned(element: Element) {
+  return getComputedStyle(element).position === 'sticky'
+}
+
 // A footer held at the bottom (its tfoot or its cells are sticky, however the
 // consumer made them so) takes the track's lower end the way the sticky header
 // takes its top, so the thumb never paints over the totals.
@@ -116,9 +120,14 @@ function getStickyFooterHeight(table: HTMLElement | null) {
 
   if (!footer) return 0
 
-  const isSticky = [footer, footer.rows[0]?.cells[0]].some(
-    (element) => element && getComputedStyle(element).position === 'sticky',
-  )
+  // A tfoot with no rows has no first cell to inspect, so the row lookup is
+  // widened to include the empty case the DOM allows.
+  const firstRow = footer.rows.item(0)
+  const firstCell = firstRow ? firstRow.cells.item(0) : null
+
+  const isSticky =
+    isStickyPositioned(footer) ||
+    (firstCell !== null && isStickyPositioned(firstCell))
 
   return isSticky ? footer.getBoundingClientRect().height : 0
 }
@@ -142,23 +151,50 @@ function applyMetrics(element: HTMLElement, metrics: ScrollbarMetrics) {
   )
 }
 
-function DataGridScrollArea({
-  children,
-  className,
-  orientation = 'both',
-  ...props
-}: DataGridScrollAreaProps) {
-  const { props: dataGridProps, table } = useDataGrid()
-  const containerRef = useRef<HTMLDivElement>(null)
-  const overlayRef = useRef<HTMLDivElement | null>(null)
-  const viewportRef = useRef<HTMLDivElement | null>(null)
+/**
+ * The boxes the scrollbar measurement reads off the DOM, resolved once per
+ * attempt so the effect, its mutation fallback and the measurement all agree.
+ */
+function findDataGridObservedElements(
+  container: HTMLElement,
+): ObservedElements {
+  return {
+    header: container.querySelector<HTMLElement>(
+      '[data-slot="data-grid-table"] thead',
+    ),
+    horizontalScrollbar: container.querySelector<HTMLElement>(
+      '[data-slot="data-grid-scrollbar"][data-orientation="horizontal"]',
+    ),
+    table: container.querySelector<HTMLElement>(
+      '[data-slot="data-grid-table"]',
+    ),
+    tableViewport: container.querySelector<HTMLElement>(
+      '[data-slot="data-grid-table-viewport"]',
+    ),
+  }
+}
 
-  const dragRef = useRef<{
-    pointerId: number
-    startScrollTop: number
-    startY: number
-  } | null>(null)
-
+/**
+ * Measures the custom vertical scrollbar from the grid's own boxes and paints
+ * the result onto the overlay element. The observed boxes, the measurement and
+ * the paint share one lifetime, so they stay one hook: the overlay is mounted
+ * after the sync that found the overflow, and only this hook knows both.
+ */
+function useDataGridScrollbarMetrics(
+  containerRef: RefObject<HTMLDivElement | null>,
+  viewportRef: RefObject<HTMLDivElement | null>,
+  overlayRef: RefObject<HTMLDivElement | null>,
+  {
+    usesCustomVerticalScrollbar,
+    showHorizontal,
+    clearDragState,
+  }: {
+    usesCustomVerticalScrollbar: boolean
+    showHorizontal: boolean
+    /** Ends an in-flight thumb drag; teardown must not leave one armed. */
+    clearDragState: () => void
+  },
+) {
   const metricsRef = useRef<ScrollbarMetrics>(INITIAL_METRICS)
 
   const observedElementsRef = useRef<ObservedElements>({
@@ -168,68 +204,20 @@ function DataGridScrollArea({
     tableViewport: null,
   })
 
-  const showHorizontal = orientation !== 'vertical'
-  const showVertical = orientation !== 'horizontal'
-
-  const usesCustomVerticalScrollbar =
-    showVertical && !!dataGridProps.tableLayout?.headerSticky
-
-  // Pinned columns are sticky and never scroll, so the horizontal scrollbar
-  // track is inset to span only the scrollable center region between them.
-  const isColumnsPinnable = !!dataGridProps.tableLayout?.columnsPinnable
-  const scrollbarInsetStart = isColumnsPinnable ? table.getStartTotalSize() : 0
-  const scrollbarInsetEnd = isColumnsPinnable ? table.getEndTotalSize() : 0
-
   const [hasCustomVerticalOverflow, setHasCustomVerticalOverflow] =
     useState(false)
-
-  // Base UI's thumb math reads direction from its own context, which a Radix
-  // app or a bare dir="rtl" page never provides, so RTL scrolled with LTR math
-  // and the thumb froze. RTL is read off the layout instead, so no provider of
-  // any kind is needed. LTR passes the inherited value through untouched: no
-  // state change and no extra render, exactly as before this existed.
-  const inheritedDirection = useDirection()
-  const [isLayoutRtl, setIsLayoutRtl] = useState(false)
-
-  useLayoutEffect(() => {
-    const container = containerRef.current
-
-    if (!container) return
-
-    const readDirection = () => {
-      const next = getComputedStyle(container).direction === 'rtl'
-      setIsLayoutRtl((prev) => (prev === next ? prev : next))
-    }
-
-    readDirection()
-
-    if (typeof MutationObserver === 'undefined') return
-
-    // Only a dir attribute flips it at runtime (an RTL toggle on <html>).
-    const observer = new MutationObserver(readDirection)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['dir'],
-      subtree: true,
-    })
-
-    return () => observer.disconnect()
-  }, [])
-
-  const clearDragState = useCallback(() => {
-    dragRef.current = null
-    document.body.style.userSelect = ''
-    document.body.style.webkitUserSelect = ''
-  }, [])
 
   // The overlay is mounted one commit after the sync that detected overflow,
   // so it misses that sync's write. Seeding it from the ref callback lands the
   // geometry during commit, before the browser paints the track.
-  const setOverlayRef = useCallback((node: HTMLDivElement | null) => {
-    overlayRef.current = node
+  const setOverlayRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      overlayRef.current = node
 
-    if (node) applyMetrics(node, metricsRef.current)
-  }, [])
+      if (node) applyMetrics(node, metricsRef.current)
+    },
+    [overlayRef],
+  )
 
   const resetMetrics = useCallback(() => {
     if (!areMetricsEqual(INITIAL_METRICS, metricsRef.current)) {
@@ -239,7 +227,7 @@ function DataGridScrollArea({
     }
 
     setHasCustomVerticalOverflow((prev) => (prev ? false : prev))
-  }, [])
+  }, [overlayRef])
 
   const syncCustomVerticalScrollbar = useCallback(() => {
     const container = containerRef.current
@@ -337,7 +325,14 @@ function DataGridScrollArea({
         ? prev
         : nextMetrics.hasVerticalOverflow,
     )
-  }, [resetMetrics, showHorizontal, usesCustomVerticalScrollbar])
+  }, [
+    containerRef,
+    overlayRef,
+    resetMetrics,
+    showHorizontal,
+    usesCustomVerticalScrollbar,
+    viewportRef,
+  ])
 
   useEffect(() => {
     const container = containerRef.current
@@ -365,40 +360,24 @@ function DataGridScrollArea({
 
     const observed = new Set<HTMLElement>()
 
-    const observeElement = (element: HTMLElement | null) => {
-      if (element && observer && !observed.has(element)) {
-        observer.observe(element)
+    let elements = findDataGridObservedElements(container)
+    observedElementsRef.current = elements
+
+    // Observe the boxes that exist now. Re-observing an element replaces its
+    // observation, so the mutation observer below can re-attach safely.
+    for (const element of [
+      viewport,
+      elements.header,
+      elements.table,
+      elements.tableViewport,
+    ]) {
+      if (element) {
         observed.add(element)
+        observer?.observe(element)
       }
     }
 
-    const resolveObservedElements = () => {
-      observedElementsRef.current = {
-        header: container.querySelector(
-          '[data-slot="data-grid-table"] thead',
-        ) as HTMLElement | null,
-        horizontalScrollbar: container.querySelector(
-          '[data-slot="data-grid-scrollbar"][data-orientation="horizontal"]',
-        ) as HTMLElement | null,
-        table: container.querySelector(
-          '[data-slot="data-grid-table"]',
-        ) as HTMLElement | null,
-        tableViewport: container.querySelector(
-          '[data-slot="data-grid-table-viewport"]',
-        ) as HTMLElement | null,
-      }
-
-      observeElement(observedElementsRef.current.header)
-      observeElement(observedElementsRef.current.table)
-      observeElement(observedElementsRef.current.tableViewport)
-
-      return !!(
-        observedElementsRef.current.header && observedElementsRef.current.table
-      )
-    }
-
-    observeElement(viewport)
-    const resolvedOnMount = resolveObservedElements()
+    const resolvedOnMount = !!(elements.header && elements.table)
 
     scheduleSync()
     viewport.addEventListener('scroll', scheduleSync, { passive: true })
@@ -410,7 +389,21 @@ function DataGridScrollArea({
 
     if (!resolvedOnMount && typeof MutationObserver !== 'undefined') {
       mutationObserver = new MutationObserver(() => {
-        if (resolveObservedElements()) {
+        elements = findDataGridObservedElements(container)
+        observedElementsRef.current = elements
+
+        for (const element of [
+          elements.header,
+          elements.table,
+          elements.tableViewport,
+        ]) {
+          if (element && !observed.has(element)) {
+            observed.add(element)
+            observer?.observe(element)
+          }
+        }
+
+        if (elements.header && elements.table) {
           mutationObserver?.disconnect()
           mutationObserver = null
           scheduleSync()
@@ -428,10 +421,90 @@ function DataGridScrollArea({
     }
   }, [
     clearDragState,
+    containerRef,
     resetMetrics,
     syncCustomVerticalScrollbar,
     usesCustomVerticalScrollbar,
+    viewportRef,
   ])
+
+  return { hasCustomVerticalOverflow, metricsRef, setOverlayRef }
+}
+
+function DataGridScrollArea({
+  children,
+  className,
+  orientation = 'both',
+  ...props
+}: DataGridScrollAreaProps) {
+  const { props: dataGridProps, table } = useDataGrid()
+  const containerRef = useRef<HTMLDivElement>(null)
+  const overlayRef = useRef<HTMLDivElement | null>(null)
+  const viewportRef = useRef<HTMLDivElement | null>(null)
+
+  const dragRef = useRef<{
+    pointerId: number
+    startScrollTop: number
+    startY: number
+  } | null>(null)
+
+  const showHorizontal = orientation !== 'vertical'
+  const showVertical = orientation !== 'horizontal'
+
+  const usesCustomVerticalScrollbar =
+    showVertical && !!dataGridProps.tableLayout?.headerSticky
+
+  // Pinned columns are sticky and never scroll, so the horizontal scrollbar
+  // track is inset to span only the scrollable center region between them.
+  const isColumnsPinnable = !!dataGridProps.tableLayout?.columnsPinnable
+  const scrollbarInsetStart = isColumnsPinnable ? table.getStartTotalSize() : 0
+  const scrollbarInsetEnd = isColumnsPinnable ? table.getEndTotalSize() : 0
+
+  // Base UI's thumb math reads direction from its own context, which a Radix
+  // app or a bare dir="rtl" page never provides, so RTL scrolled with LTR math
+  // and the thumb froze. RTL is read off the layout instead, so no provider of
+  // any kind is needed. LTR passes the inherited value through untouched: no
+  // state change and no extra render, exactly as before this existed.
+  const inheritedDirection = useDirection()
+  const [isLayoutRtl, setIsLayoutRtl] = useState(false)
+
+  useLayoutEffect(() => {
+    const container = containerRef.current
+
+    if (!container) return
+
+    const readDirection = () => {
+      const next = getComputedStyle(container).direction === 'rtl'
+      setIsLayoutRtl((prev) => (prev === next ? prev : next))
+    }
+
+    readDirection()
+
+    if (typeof MutationObserver === 'undefined') return
+
+    // Only a dir attribute flips it at runtime (an RTL toggle on <html>).
+    const observer = new MutationObserver(readDirection)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['dir'],
+      subtree: true,
+    })
+
+    return () => observer.disconnect()
+  }, [])
+
+  const clearDragState = useCallback(() => {
+    dragRef.current = null
+    document.body.style.userSelect = ''
+    document.body.style.webkitUserSelect = ''
+  }, [])
+
+  const { hasCustomVerticalOverflow, metricsRef, setOverlayRef } =
+    useDataGridScrollbarMetrics(containerRef, viewportRef, overlayRef, {
+      usesCustomVerticalScrollbar,
+      showHorizontal,
+      clearDragState,
+    })
 
   const scrollToThumbOffset = (nextThumbTop: number) => {
     const viewport = viewportRef.current

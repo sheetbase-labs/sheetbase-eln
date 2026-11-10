@@ -1,6 +1,19 @@
+import { z } from 'zod'
+
 import { annotateRequest, setRequestLevel } from './request-log'
 
 const MAX_BODY_BYTES = 8 * 1024
+
+/** A JSON object, as a failed reply's body decodes. */
+const jsonObject = z.record(z.string(), z.json())
+
+/** The reason a failed API reply states. */
+interface FailureReason {
+  code?: string
+  message?: string
+}
+
+const failureMessage = z.string()
 
 /**
  * Gives the request's event a readable `message` ("GET /api/db/records 200")
@@ -35,8 +48,10 @@ export async function annotateFailure(response: Response): Promise<void> {
     const text = await response.clone().text()
 
     if (text.length > MAX_BODY_BYTES) return
-    const body: unknown = JSON.parse(text)
-    const reason = readReason(body)
+    const body = z.json().safeParse(JSON.parse(text))
+
+    if (!body.success) return
+    const reason = readReason(body.data)
 
     if (reason) annotateRequest({ failure: reason })
   } catch {
@@ -44,23 +59,21 @@ export async function annotateFailure(response: Response): Promise<void> {
   }
 }
 
-function readReason(body: unknown): { code?: string; message?: string } | null {
-  if (body === null || typeof body !== 'object') return null
-  const record = body as Record<string, unknown>
+/** The error object a failed reply nests its reason in, when it has one. */
+function sourceOf(record: z.infer<typeof jsonObject>): z.infer<typeof jsonObject> {
+  return jsonObject.safeParse(record.error).data ?? record
+}
 
-  const source =
-    record['error'] !== null && typeof record['error'] === 'object'
-      ? (record['error'] as Record<string, unknown>)
-      : record
+function readReason(body: z.core.util.JSONType): FailureReason | null {
+  const record = jsonObject.safeParse(body)
 
-  const code = typeof source['code'] === 'string' ? source['code'] : undefined
+  if (!record.success) return null
+  const source = sourceOf(record.data)
+  const code = failureMessage.safeParse(source.code).data
 
   const message =
-    typeof source['message'] === 'string'
-      ? source['message']
-      : typeof record['error'] === 'string'
-        ? record['error']
-        : undefined
+    failureMessage.safeParse(source.message).data ??
+    failureMessage.safeParse(record.data.error).data
 
   if (!code && !message) return null
 

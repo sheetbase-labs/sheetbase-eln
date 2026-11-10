@@ -14,9 +14,13 @@ export interface AuditSearch {
 export function auditFilterFromSearch(
   search: AuditSearch,
 ): Pick<AuditEventsFilter, 'object' | 'from' | 'to'> {
-  return {
-    ...(search.record ? { object: search.record } : {}),
-    ...(search.from ? { from: `${search.from}T00:00:00.000Z` } : {}),
-    ...(search.to ? { to: `${search.to}T23:59:59.999Z` } : {}),
-  }
+  const filter: Pick<AuditEventsFilter, 'object' | 'from' | 'to'> = {}
+
+  if (search.record) filter.object = search.record
+
+  if (search.from) filter.from = `${search.from}T00:00:00.000Z`
+
+  if (search.to) filter.to = `${search.to}T23:59:59.999Z`
+
+  return filter
 }

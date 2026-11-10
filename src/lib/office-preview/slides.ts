@@ -79,7 +79,7 @@ export function readPptxSlides(bytes: Uint8Array): PreviewSlide[] {
       n === 'ppt/presentation.xml' ||
       n === 'ppt/_rels/presentation.xml.rels' ||
       /^ppt\/slides\/(_rels\/)?slide\d+\.xml(\.rels)?$/.test(n) ||
-      /^ppt\/media\//.test(n),
+      n.startsWith('ppt/media/'),
   )
 
   const parts = slidePartsInOrder(archive).slice(0, MAX_PREVIEW_SLIDES)
@@ -96,12 +96,17 @@ export function readPptxSlides(bytes: Uint8Array): PreviewSlide[] {
     let title: string | null = null
     const lines: string[] = []
 
-    for (const shape of Array.from(doc.getElementsByTagNameNS(P_NS, 'sp'))) {
-      const placeholder = shape.getElementsByTagNameNS(P_NS, 'ph').item(0)
+    for (const slideElement of Array.from(
+      doc.getElementsByTagNameNS(P_NS, 'sp'),
+    )) {
+      const placeholder = slideElement
+        .getElementsByTagNameNS(P_NS, 'ph')
+        .item(0)
+
       const kind = placeholder?.getAttribute('type')
       const isTitle = kind === 'title' || kind === 'ctrTitle'
 
-      const texts = Array.from(shape.getElementsByTagNameNS(A_NS, 'p'))
+      const texts = Array.from(slideElement.getElementsByTagNameNS(A_NS, 'p'))
         .map((p) => paragraphText(p, A_NS, 't'))
         .filter(Boolean)
 

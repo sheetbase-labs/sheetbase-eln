@@ -12,9 +12,27 @@
 // 4.5:1 on every family in both themes (light 4.93-6.85:1, dark 6.46-11.75:1),
 // where a fixed white failed on `--success` (3.18:1), `--destructive` (4.22:1)
 // and `--review` (3.97:1). Per-extension brand steps collapse to their family's
-// token; nothing else in the file is edited beyond the `cn` re-point.
+// token, and the `cn` import is re-pointed.
+//
+// Local patches after ADR-0057 (this file is first-party-maintained source; a
+// registry re-sync merges these rather than taking the item over them):
+// - The extension, MIME, name and alias tables keep their own inference with
+//   `satisfies` and are read through one `lookup`, instead of being widened to
+//   `Record<string, …>` and probed with a hand-written `has`.
+// - The page and the label band are two module-private components, and the
+//   accessible name is one function, so `FileType` stays a composition rather
+//   than a 150-line control-flow tree.
+// - `labelText` decides once whether a label prop is text or a node; it is the
+//   one place a public `ReactNode` prop's representation is inspected.
+// - The label's custom property is carried by a declared `LabelStyle` type
+//   rather than asserted onto `CSSProperties`, and `FILE_TYPE_EXTENSION_NAMES`
+//   states the invariant behind its `Object.keys` assertion.
+// - `fileTypeVariants`, `getFileType` and `getFileTypeCategory` carry line-local
+//   `only-export-components` suppressions: they are the item's public surface,
+//   and one registry item stays one file.
 import type { ComponentProps, CSSProperties, ReactNode } from 'react'
-import { cva, type VariantProps } from 'class-variance-authority'
+import { cva } from 'class-variance-authority'
+import type { VariantProps } from 'class-variance-authority'
 import { cn } from '#/lib/utils'
 
 /* -------------------------------------------------------------------------- */
@@ -317,6 +335,8 @@ type FileTypeExtensionName = keyof typeof FILE_TYPE_EXTENSIONS
 type FileTypeName =
   FileTypeExtensionName | (typeof FILE_TYPE_CATEGORIES)[number]
 
+// SAFETY: `Object.keys` types its result as `string[]`, but it reads the keys
+// of `FILE_TYPE_EXTENSIONS` itself, whose keys are exactly `FileTypeExtensionName`.
 const FILE_TYPE_EXTENSION_NAMES = Object.keys(
   FILE_TYPE_EXTENSIONS,
 ) as FileTypeExtensionName[]
@@ -333,15 +353,33 @@ type ResolvedFileType = {
   color: string
 }
 
-const extensions: Record<string, FileTypeExtension> = FILE_TYPE_EXTENSIONS
-
-/** `Object.hasOwn` would fail to typecheck in an app below the ES2022 lib. */
-function has(record: object, key: string) {
-  return Object.prototype.hasOwnProperty.call(record, key)
+/**
+ * What a known-key table holds for `key`, or `undefined` when it holds nothing.
+ * Every key passed here is parsed from a file name or a media type, so it may
+ * name no entry; the table keeps its own keys and values, and this is the one
+ * place a caller reads one without widening the table to a dictionary.
+ */
+function lookup<T>(
+  table: Readonly<Record<string, T>>,
+  key: string,
+): T | undefined {
+  return Object.prototype.hasOwnProperty.call(table, key)
+    ? table[key]
+    : undefined
 }
 
 function isCategory(value: string): value is FileTypeCategory {
-  return (FILE_TYPE_CATEGORIES as readonly string[]).includes(value)
+  return FILE_TYPE_CATEGORIES.some((category) => category === value)
+}
+
+/**
+ * The text a label prop carries, or `null` when it carries a node: the band can
+ * only measure and name characters, so the prop's two forms are decided once,
+ * at the prop boundary, and the component branches on this afterwards.
+ */
+function labelText(label: ReactNode): string | null {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- `label` is a public ReactNode prop: text and a rendered node are distinguishable only by the runtime representation, and this is the boundary where that is decided.
+  return typeof label === 'string' ? label : null
 }
 
 function resolveFileType(type?: string): ResolvedFileType {
@@ -351,7 +389,7 @@ function resolveFileType(type?: string): ResolvedFileType {
     return { type: 'empty', category: 'empty', color: CATEGORY_COLORS.empty }
   }
 
-  const extension = has(extensions, key) ? extensions[key] : null
+  const extension = lookup<FileTypeExtension>(FILE_TYPE_EXTENSIONS, key)
 
   if (extension) {
     return {
@@ -378,7 +416,7 @@ function resolveFileType(type?: string): ResolvedFileType {
  * MIME types whose subtype does not name the extension. Anything else under
  * image/, video/, audio/ or font/ falls back to its family.
  */
-const MIME_TYPES: Record<string, FileTypeName> = {
+const MIME_TYPES = {
   'application/pdf': 'pdf',
   'application/msword': 'doc',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
@@ -475,13 +513,13 @@ const MIME_TYPES: Record<string, FileTypeName> = {
   'text/x-diff': 'diff',
   'text/x-patch': 'patch',
   'text/x-makefile': 'makefile',
-}
+} satisfies Record<string, FileTypeName>
 
 /**
  * Names that carry their type with no extension of their own, or with one
  * that names something else ("go.mod" is not a tracker module).
  */
-const FILE_NAMES: Record<string, FileTypeName> = {
+const FILE_NAMES = {
   containerfile: 'dockerfile',
   gnumakefile: 'makefile',
   '.dev.vars': 'env',
@@ -534,15 +572,15 @@ const FILE_NAMES: Record<string, FileTypeName> = {
   '.ruby-version': 'txt',
   '.tool-versions': 'txt',
   '.terraform-version': 'txt',
-}
+} satisfies Record<string, FileTypeName>
 
 /** Other extensions of a known type. */
-const EXTENSION_ALIASES: Record<string, FileTypeName> = {
+const EXTENSION_ALIASES = {
   cer: 'crt',
   mak: 'makefile',
   mk: 'makefile',
   sqlite3: 'sqlite',
-}
+} satisfies Record<string, FileTypeName>
 
 /**
  * Name families, read only when the name does not end in a known extension:
@@ -555,13 +593,13 @@ const NAME_PATTERNS: [RegExp, FileTypeName][] = [
   [/^\.[\w-]+ignore$/, 'ignore'],
 ]
 
-const MIME_FAMILIES: Record<string, FileTypeName> = {
+const MIME_FAMILIES = {
   image: 'image',
   video: 'video',
   audio: 'audio',
   font: 'font',
   text: 'txt',
-}
+} satisfies Record<string, FileTypeName>
 
 const MIME_PATTERN =
   /^(application|audio|font|image|message|model|multipart|text|video)\/[\w.+-]+$/
@@ -602,35 +640,48 @@ function getFileType(value: string): FileTypeName | (string & {}) {
   const mime = input.split(';')[0].trim()
 
   if (MIME_PATTERN.test(mime)) {
-    if (has(MIME_TYPES, mime)) return MIME_TYPES[mime]
+    const mimeType = lookup(MIME_TYPES, mime)
+
+    if (mimeType) return mimeType
+
     const [family, subtype] = mime.split('/')
     // A known extension after a dot makes it a storage key ("image/a.png").
     const tail = subtype.slice(subtype.lastIndexOf('.') + 1)
+    const tailExtension = lookup<FileTypeExtension>(FILE_TYPE_EXTENSIONS, tail)
 
-    if (subtype.includes('.') && has(extensions, tail)) return tail
+    if (subtype.includes('.') && tailExtension) return tail
 
     // A media subtype counts only inside its own family: audio/webm is audio.
+    const subtypeExtension = lookup<FileTypeExtension>(
+      FILE_TYPE_EXTENSIONS,
+      subtype,
+    )
+
     if (
-      has(extensions, subtype) &&
+      subtypeExtension &&
       (family === 'application' ||
         family === 'text' ||
-        extensions[subtype].category === family)
+        subtypeExtension.category === family)
     ) {
       return subtype
     }
 
-    return has(MIME_FAMILIES, family) ? MIME_FAMILIES[family] : 'empty'
+    return lookup(MIME_FAMILIES, family) ?? 'empty'
   }
 
   const name = input.split(/[\\/]/).pop() ?? ''
 
-  if (has(FILE_NAMES, name)) return FILE_NAMES[name]
+  const knownName = lookup(FILE_NAMES, name)
+
+  if (knownName) return knownName
+
   const dot = name.lastIndexOf('.')
   const extension = name.slice(dot + 1)
+  const alias = lookup(EXTENSION_ALIASES, extension)
 
-  if (has(EXTENSION_ALIASES, extension)) return EXTENSION_ALIASES[extension]
+  if (alias) return alias
 
-  if (!has(extensions, extension)) {
+  if (!lookup(FILE_TYPE_EXTENSIONS, extension)) {
     const match = NAME_PATTERNS.find(([pattern]) => pattern.test(name))
 
     if (match) return match[1]
@@ -915,6 +966,154 @@ type FileTypeProps = Omit<ComponentProps<'span'>, 'children'> & {
   labelClassName?: string
 }
 
+/**
+ * A label style carrying the band's character count. The fit in the class list
+ * reads it as `--file-type-chars`; it is a custom property, so it is declared
+ * here rather than asserted onto `CSSProperties`.
+ */
+type LabelStyle = CSSProperties & { '--file-type-chars': number }
+
+/** Is this prop something the caller wants drawn? */
+function isDrawn(node: ReactNode): boolean {
+  return node !== undefined && node !== null && node !== false
+}
+
+/**
+ * The icon's accessible name: the format, and a custom label that adds to it
+ * ("V3, DOCX file") rather than repeating it.
+ */
+function fileTypeName(resolved: ResolvedFileType, label: ReactNode): string {
+  // The name spells out a key its label shortens (DOCKERFILE, not DOCK).
+  const spelled = resolved.label ? resolved.type.toUpperCase() : undefined
+
+  const typeName = spelled
+    ? `${spelled} file`
+    : CATEGORY_NAMES[resolved.category]
+
+  // A custom string label is part of what the icon says.
+  const customLabel = labelText(label) ?? ''
+  const custom = customLabel.toUpperCase()
+
+  return custom && custom !== resolved.label && custom !== spelled
+    ? `${customLabel}, ${typeName}`
+    : typeName
+}
+
+/** The page: its two outlines, the fold, the solid flap and the glyph. */
+function FileTypePage({
+  variant,
+  glyph,
+}: {
+  variant: FileTypeVariant
+  glyph: ReactNode
+}) {
+  return (
+    <svg
+      data-slot="file-type-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      className={cn(
+        'absolute inset-0 size-full overflow-visible [stroke-width:var(--file-type-stroke,max(1px,2.5cqw))] [--file-type-outline:var(--file-type-border,color-mix(in_oklab,var(--muted-foreground)_40%,transparent))] @max-[21px]:[--file-type-outline:var(--file-type-border,color-mix(in_oklab,var(--muted-foreground)_65%,transparent))]',
+        '[--file-type-round:inline]',
+        '[--file-type-square:none]',
+      )}
+    >
+      <path
+        {...STROKE}
+        d={PAGE_PATH}
+        className={cn(PAGE_CLASS[variant], ROUND)}
+      />
+      <path
+        {...STROKE}
+        d={PAGE_PATH_SQUARE}
+        strokeLinejoin="miter"
+        className={cn(PAGE_CLASS[variant], SQUARE)}
+      />
+      {variant === 'solid' ? (
+        <>
+          <path
+            d={FLAP_PATH}
+            className={cn('fill-white/30 stroke-none', ROUND)}
+          />
+          <path
+            d={FLAP_PATH_SQUARE}
+            className={cn('fill-white/30 stroke-none', SQUARE)}
+          />
+        </>
+      ) : null}
+      <path
+        {...STROKE}
+        d={FOLD_PATH}
+        className={cn(FOLD_CLASS[variant], ROUND)}
+      />
+      <path
+        {...STROKE}
+        d={FOLD_PATH_SQUARE}
+        strokeLinejoin="miter"
+        className={cn(FOLD_CLASS[variant], SQUARE)}
+      />
+      {glyph ? (
+        <g
+          data-slot="file-type-glyph"
+          stroke="currentColor"
+          className={cn(
+            'origin-[12px_15px] scale-75 @max-[21px]:scale-100',
+            GLYPH_CLASS[variant],
+          )}
+        >
+          {glyph}
+        </g>
+      ) : null}
+    </svg>
+  )
+}
+
+/** The label band and its text, sized to the characters the band holds. */
+function FileTypeLabel({
+  variant,
+  text,
+  labelClassName,
+}: {
+  variant: FileTypeVariant
+  text: ReactNode
+  labelClassName?: string
+}) {
+  const style: LabelStyle = {
+    '--file-type-chars': labelText(text)?.length ?? 4,
+  }
+
+  return (
+    <span
+      data-slot="file-type-label"
+      style={style}
+      className={cn(
+        'absolute top-(--file-type-label-y) left-[5%] flex h-(--file-type-label-h) max-w-[95%] items-center justify-center overflow-hidden rounded-[var(--file-type-radius,var(--file-type-label-radius,10cqw))] px-[var(--file-type-label-px,7cqw)] font-medium whitespace-nowrap',
+        'text-[length:min(24cqw,calc((95cqw-2*var(--file-type-label-px,7cqw))/(var(--file-type-chars)*0.72)))] [--file-type-label-h:35%] [--file-type-label-y:45%]',
+        'supports-[margin:round(1cap,1px)]:mt-[calc(round(nearest,calc(var(--file-type-label-y)+(var(--file-type-label-h)+1cap)/2),1px)-var(--file-type-label-y)-(var(--file-type-label-h)+1cap)/2)]',
+        '@max-[21px]:px-[4cqw] @max-[21px]:text-[length:min(32.5cqw,5.8px,calc(87cqw/(var(--file-type-chars)*0.88)))] @max-[21px]:font-semibold @max-[21px]:[--file-type-label-h:45%] @max-[21px]:[--file-type-label-y:40%]',
+        '[--file-type-label-radius:10cqw]',
+        '[--file-type-label-px:7cqw]',
+        LABEL_CLASS[variant],
+        labelClassName,
+      )}
+    >
+      <span
+        className={cn(
+          'max-w-[min(95cqw,calc(100%+2*max(0px,var(--file-type-label-px,7cqw)-7cqw)))] shrink-0 truncate py-[0.25em] [text-box:trim-both_cap_alphabetic] @max-[21px]:max-w-full',
+          LABEL_TEXT_CLASS[variant],
+        )}
+      >
+        {text}
+      </span>
+    </span>
+  )
+}
+
 function FileType({
   type,
   variant = 'outline',
@@ -930,30 +1129,14 @@ function FileType({
   // `null` hides the label like "", where `??` would fall back to it.
   const text = label !== undefined ? label : resolved.label
   const hasText = text !== undefined && text !== null && text !== ''
-  // The name spells out a key its label shortens (DOCKERFILE, not DOCK).
-  const spelled = resolved.label ? resolved.type.toUpperCase() : undefined
-
-  const typeName = spelled
-    ? `${spelled} file`
-    : CATEGORY_NAMES[resolved.category]
-
-  // A custom string label is part of what the icon says ("V3, DOCX file").
-  const customLabel = typeof label === 'string' ? label : ''
-  const custom = customLabel.toUpperCase()
-
-  const name =
-    custom && custom !== resolved.label && custom !== spelled
-      ? `${customLabel}, ${typeName}`
-      : typeName
-
-  const hasIcon = icon !== undefined && icon !== null && icon !== false
+  const hasIcon = isDrawn(icon)
   const showLabel = hasText && !glyph && !hasIcon
   const glyphNode = showLabel || hasIcon ? null : GLYPHS[resolved.category]
 
   return (
     <span
       role="img"
-      aria-label={name}
+      aria-label={fileTypeName(resolved, label)}
       data-slot="file-type"
       data-type={resolved.type}
       data-category={resolved.category}
@@ -966,68 +1149,7 @@ function FileType({
       )}
       {...props}
     >
-      <svg
-        data-slot="file-type-icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-        focusable="false"
-        className={cn(
-          'absolute inset-0 size-full overflow-visible [stroke-width:var(--file-type-stroke,max(1px,2.5cqw))] [--file-type-outline:var(--file-type-border,color-mix(in_oklab,var(--muted-foreground)_40%,transparent))] @max-[21px]:[--file-type-outline:var(--file-type-border,color-mix(in_oklab,var(--muted-foreground)_65%,transparent))]',
-          '[--file-type-round:inline]',
-          '[--file-type-square:none]',
-        )}
-      >
-        <path
-          {...STROKE}
-          d={PAGE_PATH}
-          className={cn(PAGE_CLASS[variant], ROUND)}
-        />
-        <path
-          {...STROKE}
-          d={PAGE_PATH_SQUARE}
-          strokeLinejoin="miter"
-          className={cn(PAGE_CLASS[variant], SQUARE)}
-        />
-        {variant === 'solid' ? (
-          <>
-            <path
-              d={FLAP_PATH}
-              className={cn('fill-white/30 stroke-none', ROUND)}
-            />
-            <path
-              d={FLAP_PATH_SQUARE}
-              className={cn('fill-white/30 stroke-none', SQUARE)}
-            />
-          </>
-        ) : null}
-        <path
-          {...STROKE}
-          d={FOLD_PATH}
-          className={cn(FOLD_CLASS[variant], ROUND)}
-        />
-        <path
-          {...STROKE}
-          d={FOLD_PATH_SQUARE}
-          strokeLinejoin="miter"
-          className={cn(FOLD_CLASS[variant], SQUARE)}
-        />
-        {glyphNode ? (
-          <g
-            data-slot="file-type-glyph"
-            stroke="currentColor"
-            className={cn(
-              'origin-[12px_15px] scale-75 @max-[21px]:scale-100',
-              GLYPH_CLASS[variant],
-            )}
-          >
-            {glyphNode}
-          </g>
-        ) : null}
-      </svg>
+      <FileTypePage variant={variant} glyph={glyphNode} />
       {hasIcon ? (
         <span
           data-slot="file-type-custom-icon"
@@ -1041,33 +1163,11 @@ function FileType({
         </span>
       ) : null}
       {showLabel ? (
-        <span
-          data-slot="file-type-label"
-          style={
-            {
-              '--file-type-chars': typeof text === 'string' ? text.length : 4,
-            } as CSSProperties
-          }
-          className={cn(
-            'absolute top-(--file-type-label-y) left-[5%] flex h-(--file-type-label-h) max-w-[95%] items-center justify-center overflow-hidden rounded-[var(--file-type-radius,var(--file-type-label-radius,10cqw))] px-[var(--file-type-label-px,7cqw)] font-medium whitespace-nowrap',
-            'text-[length:min(24cqw,calc((95cqw-2*var(--file-type-label-px,7cqw))/(var(--file-type-chars)*0.72)))] [--file-type-label-h:35%] [--file-type-label-y:45%]',
-            'supports-[margin:round(1cap,1px)]:mt-[calc(round(nearest,calc(var(--file-type-label-y)+(var(--file-type-label-h)+1cap)/2),1px)-var(--file-type-label-y)-(var(--file-type-label-h)+1cap)/2)]',
-            '@max-[21px]:px-[4cqw] @max-[21px]:text-[length:min(32.5cqw,5.8px,calc(87cqw/(var(--file-type-chars)*0.88)))] @max-[21px]:font-semibold @max-[21px]:[--file-type-label-h:45%] @max-[21px]:[--file-type-label-y:40%]',
-            '[--file-type-label-radius:10cqw]',
-            '[--file-type-label-px:7cqw]',
-            LABEL_CLASS[variant],
-            labelClassName,
-          )}
-        >
-          <span
-            className={cn(
-              'max-w-[min(95cqw,calc(100%+2*max(0px,var(--file-type-label-px,7cqw)-7cqw)))] shrink-0 truncate py-[0.25em] [text-box:trim-both_cap_alphabetic] @max-[21px]:max-w-full',
-              LABEL_TEXT_CLASS[variant],
-            )}
-          >
-            {text}
-          </span>
-        </span>
+        <FileTypeLabel
+          variant={variant}
+          text={text}
+          labelClassName={labelClassName}
+        />
       ) : null}
     </span>
   )
@@ -1077,8 +1177,11 @@ export {
   FILE_TYPE_CATEGORIES,
   FILE_TYPE_EXTENSION_NAMES,
   FileType,
+  // react-doctor-disable-next-line react-doctor/only-export-components -- fileTypeVariants is the item's public variant contract, a value rather than a component; one registry item stays one file.
   fileTypeVariants,
+  // react-doctor-disable-next-line react-doctor/only-export-components -- getFileType is the resolver the files list and the record inspector import, a value rather than a component; one registry item stays one file.
   getFileType,
+  // react-doctor-disable-next-line react-doctor/only-export-components -- getFileTypeCategory is the item's public category resolver, a value rather than a component; one registry item stays one file.
   getFileTypeCategory,
   type FileTypeCategory,
   type FileTypeName,

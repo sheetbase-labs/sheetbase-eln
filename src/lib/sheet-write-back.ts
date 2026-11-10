@@ -158,11 +158,13 @@ export function resolveSheetWriteTarget(input: {
   }
 }
 
+/** The `code` a thrown PostgREST or proxy failure carries, if it carries one. */
+const thrownErrorSchema = z.looseObject({ code: z.coerce.string().optional() })
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught throw is untyped by definition; this function is the decoder that turns one into a SheetCellWriteError.
 export function sheetCellWriteError(error: unknown): SheetCellWriteError {
-  const code =
-    error && typeof error === 'object' && 'code' in error
-      ? String(error.code)
-      : ''
+  const coded = thrownErrorSchema.safeParse(error)
+  const code = coded.success ? (coded.data.code ?? '') : ''
 
   const message = error instanceof Error ? error.message : String(error)
 
@@ -294,6 +296,18 @@ export interface SheetCellWrite {
   value: unknown
 }
 
+/** A resolved cell whose target is already known to be a Dataset cell. */
+type DatasetCellWrite = {
+  cell: SheetCellWrite
+  target: Extract<SheetWriteTarget, { kind: 'dataset' }>
+}
+
+/** A resolved cell whose target is already known to be a Record field. */
+type RecordCellWrite = {
+  cell: SheetCellWrite
+  target: Extract<SheetWriteTarget, { kind: 'model' }>
+}
+
 /**
  * PLAT-05 — batch write-back. Resolves every cell against the authenticated
  * composition snapshot first (fail-fast before any write), then dispatches
@@ -348,8 +362,8 @@ export async function writeSheetCells(
     }),
   }))
 
-  const datasetGroups = new Map<string, typeof resolved>()
-  const recordGroups = new Map<string, typeof resolved>()
+  const datasetGroups = new Map<string, DatasetCellWrite[]>()
+  const recordGroups = new Map<string, RecordCellWrite[]>()
 
   const localCells: Array<{
     rowAddress: ReturnType<typeof rowAddressFor>
@@ -357,19 +371,21 @@ export async function writeSheetCells(
   }> = []
 
   for (const entry of resolved) {
-    if (entry.target.kind === 'dataset') {
-      const key = `${entry.target.datasetId}:${entry.target.expectedDatasetRevision}`
+    const { cell, target } = entry
+
+    if (target.kind === 'dataset') {
+      const key = `${target.datasetId}:${target.expectedDatasetRevision}`
       const group = datasetGroups.get(key) ?? []
-      group.push(entry)
+      group.push({ cell, target })
       datasetGroups.set(key, group)
-    } else if (entry.target.kind === 'model') {
-      const group = recordGroups.get(entry.target.recordId) ?? []
-      group.push(entry)
-      recordGroups.set(entry.target.recordId, group)
+    } else if (target.kind === 'model') {
+      const group = recordGroups.get(target.recordId) ?? []
+      group.push({ cell, target })
+      recordGroups.set(target.recordId, group)
     } else {
       localCells.push({
-        rowAddress: rowAddressFor(entry.cell.rowKey),
-        cell: entry.cell,
+        rowAddress: rowAddressFor(cell.rowKey),
+        cell,
       })
     }
   }
@@ -407,12 +423,11 @@ export async function writeSheetCells(
       {
         rowId: string
         expectedRevision: number
-        values: Record<string, unknown>
+        values: Record<string, SheetCellWrite['value']>
       }
     >()
 
-    for (const { cell, target } of group) {
-      const t = target as Extract<SheetWriteTarget, { kind: 'dataset' }>
+    for (const { cell, target: t } of group) {
       let entry = rowsByRowId.get(t.rowId)
 
       if (!entry) {
@@ -443,6 +458,7 @@ export async function writeSheetCells(
     // GRID-02: bulk validation runs before the authoritative commit so a
     // rejected batch never reaches the write path. The server remains the
     // validation authority; this call surfaces its decision before writes.
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Groups are validated and committed one at a time; a refusal must stop the remaining groups before they are written.
     const validated = await client.rpc<{
       ok?: boolean
       errors?: Array<{ code: string }>
@@ -477,19 +493,13 @@ export async function writeSheetCells(
 
   // One update per record.
   for (const [recordId, group] of recordGroups) {
-    const values: Record<string, unknown> = {}
+    const values: Record<string, SheetCellWrite['value']> = {}
 
-    for (const { cell, target } of group) {
-      const t = target as Extract<SheetWriteTarget, { kind: 'model' }>
-      values[t.fieldName] = cell.value
-    }
+    for (const { cell, target } of group) values[target.fieldName] = cell.value
 
-    const first = group[0]
+    const t = group[0].target
 
-    const t = (
-      first as { target: Extract<SheetWriteTarget, { kind: 'model' }> }
-    ).target
-
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Record writes run in order so a refusal on one record stops the rest instead of committing half a range.
     await client.rpc('update_record_custom_fields', {
       p_record_id: recordId,
       p_expected_metadata_version: t.expectedMetadataVersion,

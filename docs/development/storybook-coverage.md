@@ -201,8 +201,11 @@ None. Both the pure list and the live panel have stories.
 
 ## Chemistry registration
 
-| Module | Why no story |
-| ------ | ------------ |
+| Module                                   | Why no story                                                                                                                                   |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/ui/brand-mark-spokes.ts` | SVG path data for the mark, not a component. `BrandMark.stories.tsx` renders the assembled mark and `Spinner` renders the spokes individually. |
+| `src/components/audit/audit-icons.ts`    | The icon vocabulary an audit row looks its icon up in; it renders no markup. `AuditTrail` stories exercise every event kind it resolves.       |
+| `src/components/icons/icon-map.ts`       | The name-to-icon map the `Icon` component reads; it renders no markup. The icon stories render each name through `Icon`.                       |
 
 ## Story-level limits
 
@@ -288,7 +291,7 @@ a story.
 
 | Module                                                  | Why no story                                                                                                                                                                                                                                                                                   |
 | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/offline/offline-edit-model.ts` | Pure offline-edit summaries, text conversion, queued-block construction and overlay helpers; it renders nothing. Offline component stories exercise the rendered edit and conflict states. |
+| `src/components/offline/offline-edit-model.ts`          | Pure offline-edit summaries, text conversion, queued-block construction and overlay helpers; it renders nothing. Offline component stories exercise the rendered edit and conflict states.                                                                                                     |
 | `src/components/shell/index.ts`                         | Re-export of `ShellProvider`, which renders its children unchanged.                                                                                                                                                                                                                            |
 | `src/components/shell/shell-context.tsx`                | `ShellProvider` renders its children unchanged; there is no chrome to show.                                                                                                                                                                                                                    |
 | `src/components/shortcuts/sheet-keyboard-shortcuts.tsx` | Registers cell shortcuts for a grid and returns `null`. The registry it feeds is shown by `ShortcutsDialog.stories.tsx`.                                                                                                                                                                       |

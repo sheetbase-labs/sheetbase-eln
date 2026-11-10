@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { FieldForm, readFieldValues } from '#/components/plugins/field-form'
 import type { FieldValues } from '#/components/plugins/field-form'
@@ -18,11 +19,19 @@ import type { RunnerItem } from '#/lib/extensions/runner-points'
 
 export type PublisherItem = RunnerItem<ExtensionPublisherDeclaration>
 
-interface Sent {
-  message: string
-  link?: string
-  rows: number
-}
+/** What the publishing server answers once the other system has taken the rows. */
+const sentSchema = z.object({
+  message: z.string(),
+  link: z.string().optional(),
+  rows: z.number(),
+})
+
+/** A refusal the publishing server states, before the other system has taken anything. */
+const refusalSchema = z.object({
+  error: z.object({ message: z.string().optional() }).optional(),
+})
+
+type Sent = z.infer<typeof sentSchema>
 
 /**
  * Sends a dataset to another system with a plugin publisher. It says where the
@@ -44,6 +53,7 @@ export function PublishDialog({
   const [values, setValues] = useState<FieldValues>({})
   const [missing, setMissing] = useState<string | null>(null)
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- Publishing sends a dataset to another system and changes no local query, so there is nothing here to invalidate.
   const send = useMutation({
     mutationFn: async (): Promise<Sent | undefined> => {
       const parameters = readFieldValues(declaration.parameters, values)
@@ -69,15 +79,22 @@ export function PublishDialog({
         },
       )
 
-      const body = (await response.json().catch(() => null)) as
-        (Sent & { error?: { message?: string } }) | null
-
-      if (!response.ok || !body?.message)
-        throw new Error(
-          body?.error?.message ?? t('plugins.publish.couldNotSend'),
+      if (!response.ok) {
+        const refusal = refusalSchema.safeParse(
+          await response.json().catch(() => null),
         )
 
-      return body
+        throw new Error(
+          (refusal.success ? refusal.data.error?.message : undefined) ??
+            t('plugins.publish.couldNotSend'),
+        )
+      }
+
+      const sent = sentSchema.safeParse(await response.json().catch(() => null))
+
+      if (!sent.success) throw new Error(t('plugins.publish.couldNotSend'))
+
+      return sent.data
     },
   })
 

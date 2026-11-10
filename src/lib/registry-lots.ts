@@ -2,6 +2,8 @@
  * Lots of a registry entry: batches made from the registry's lot model and
  * linked back to the entry they are a lot of.
  */
+import type { z } from 'zod'
+
 import type { DataClient } from './data-client'
 
 export interface RegistryLot {
@@ -9,7 +11,7 @@ export interface RegistryLot {
   identifier: string
   title: string
   kind: string
-  custom_fields: Record<string, unknown> | null
+  custom_fields: Record<string, z.core.util.JSONType> | null
   created_at: string
   archived: boolean
 }
@@ -21,6 +23,7 @@ export async function addRegistryLot<T>(
     entryId: string
     projectId?: string
     title?: string
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- a caller's model-declared JSONB detail is unparsed by design; the RPC's record guard validates it against the lot model before writing.
     customFields?: Record<string, unknown>
   },
 ): Promise<T> {

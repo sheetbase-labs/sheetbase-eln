@@ -67,8 +67,9 @@ function Demo() {
     sorting,
     hidden,
     ready: true,
-    setSorting: (u) => setSorting((c) => (typeof u === 'function' ? u(c) : u)),
-    setHidden: (u) => setHidden((c) => (typeof u === 'function' ? u(c) : u)),
+    // A React setter and `ListView` accept the same value-or-updater argument.
+    setSorting,
+    setHidden,
     reset: () => {
       setSorting([])
       setHidden([])

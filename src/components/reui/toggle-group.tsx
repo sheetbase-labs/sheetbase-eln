@@ -13,6 +13,11 @@
  * The same three edits as `tabs.tsx`: the primitive import re-pointed to the
  * unified `radix-ui` package, `cn` from `#/lib/utils`, and the tokens restyled
  * (in `toggle.tsx`, where the item's classes live).
+ *
+ * Local patches after ADR-0057 (this file is first-party-maintained source; a
+ * registry re-sync merges these rather than taking the item over them):
+ * - The group's context value is memoised, so a re-render of the group does not
+ *   re-render every item through a fresh provider value.
  */
 import * as React from 'react'
 import { ToggleGroup as ToggleGroupPrimitive } from 'radix-ui'
@@ -32,17 +37,22 @@ const ToggleGroup = React.forwardRef<
   React.ComponentRef<typeof ToggleGroupPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> &
     VariantProps<typeof toggleVariants>
->(({ className, variant, size, children, ...props }, ref) => (
-  <ToggleGroupPrimitive.Root
-    ref={ref}
-    className={cn('flex items-center justify-center gap-1', className)}
-    {...props}
-  >
-    <ToggleGroupContext.Provider value={{ variant, size }}>
-      {children}
-    </ToggleGroupContext.Provider>
-  </ToggleGroupPrimitive.Root>
-))
+>(({ className, variant, size, children, ...props }, ref) => {
+  // Memoised: a fresh object here would re-render every item on any group render.
+  const context = React.useMemo(() => ({ variant, size }), [variant, size])
+
+  return (
+    <ToggleGroupPrimitive.Root
+      ref={ref}
+      className={cn('flex items-center justify-center gap-1', className)}
+      {...props}
+    >
+      <ToggleGroupContext.Provider value={context}>
+        {children}
+      </ToggleGroupContext.Provider>
+    </ToggleGroupPrimitive.Root>
+  )
+})
 
 ToggleGroup.displayName = ToggleGroupPrimitive.Root.displayName
 

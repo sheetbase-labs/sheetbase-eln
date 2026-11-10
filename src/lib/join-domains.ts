@@ -94,11 +94,11 @@ export function normaliseDomainInput(raw: string): string {
     .replace(/\/.*$/, '')
 }
 
-const DOMAIN_SHAPE =
+const JOIN_DOMAIN_PATTERN =
   /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/
 
-export function isDomainShaped(domain: string): boolean {
-  return DOMAIN_SHAPE.test(domain)
+export function isJoinDomain(domain: string): boolean {
+  return JOIN_DOMAIN_PATTERN.test(domain)
 }
 
 export async function fetchJoinDomains(
@@ -141,12 +141,12 @@ export async function joinMyDomainWorkspace(
   return client.rpc<string>('join_my_domain_workspace', {})
 }
 
-export function describeJoinDomainError(error: unknown): string {
-  if (!(error instanceof DataClientError)) {
+export function describeJoinDomainError(cause: unknown): string {
+  if (!(cause instanceof DataClientError)) {
     return t('settings.joinDomains.errorGeneric')
   }
 
-  switch (error.code) {
+  switch (cause.code) {
     case 'SB210':
       return t('settings.joinDomains.errorPublic')
     case 'SB211':

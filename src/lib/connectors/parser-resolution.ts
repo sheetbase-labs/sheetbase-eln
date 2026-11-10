@@ -8,11 +8,13 @@
  * agent and the connector page all come through here, so approval means the
  * same thing on every route.
  */
+import { z } from 'zod'
 import type { DataClient } from '../data-client'
 import { ImportParseError, parseImportText } from '../import-parse'
 import { recogniseImportParser } from '../import/parsers'
 import { layoutOf, readWithLayout } from '../import/parser-layout'
 import type { ImportParserSignature } from '../import/parsers'
+import type { ConnectorWire } from './types'
 import { parserKindOf } from './builtin-parsers'
 import type { ParserKind } from './builtin-parsers'
 import { getParser } from './registry'
@@ -23,6 +25,12 @@ import './instrument-parsers'
 
 export type ParserVersionStatus = 'draft' | 'validated' | 'approved' | 'retired'
 
+const columnSignatureSchema = z.object({
+  requiredHeaders: z.array(z.string()),
+  optionalHeaders: z.array(z.string()).optional(),
+  requiresMetadata: z.boolean().optional(),
+}) satisfies z.ZodType<ImportParserSignature>
+
 export interface ResolvedParser {
   parserId: string
   parserVersionId: string
@@ -31,7 +39,7 @@ export interface ResolvedParser {
   format: string
   version: number
   status: ParserVersionStatus
-  signature: Record<string, unknown>
+  signature: ConnectorWire['config']
   kind: ParserKind
 }
 
@@ -56,7 +64,7 @@ interface ParserRow {
     id: string
     version: number
     status: ParserVersionStatus
-    signature: Record<string, unknown>
+    signature: ConnectorWire['config']
   }>
 }
 
@@ -140,10 +148,7 @@ export async function resolveParserVersion(
 
 /** The code reader behind a version, when there is one. */
 export function builtinReader(parser: ResolvedParser) {
-  const engine =
-    typeof parser.signature['engine'] === 'string'
-      ? parser.signature['engine']
-      : null
+  const engine = z.string().safeParse(parser.signature['engine']).data ?? null
 
   const reader = getParser(engine ? engine.split('@')[0] : parser.key)
 
@@ -193,15 +198,17 @@ export function readWithColumns(
   }
 
   const sheet = preview.sheets[0]
-  const signature = parser.signature as Partial<ImportParserSignature>
+  const decodedSignature = columnSignatureSchema.safeParse(parser.signature)
 
-  if (!Array.isArray(signature.requiredHeaders)) {
+  if (!decodedSignature.success) {
     throw new ParserResolutionError(
       'parser_unsupported',
       `${parser.name} can’t read files from an instrument yet.`,
       parser.key,
     )
   }
+
+  const signature = decodedSignature.data
 
   const recognised = recogniseImportParser(
     { format: preview.format, headers: sheet.headers, rawTextHint: text },
@@ -212,7 +219,7 @@ export function readWithColumns(
         format: preview.format,
         version: parser.version,
         status: 'approved',
-        signature: signature as ImportParserSignature,
+        signature,
         plannedKeyHeaders: [],
         controlPattern: '',
       },

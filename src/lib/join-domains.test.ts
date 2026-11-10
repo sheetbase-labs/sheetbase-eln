@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   emailDomainOf,
-  isDomainShaped,
+  isJoinDomain,
   isPublicEmailDomain,
   normaliseDomainInput,
 } from './join-domains'
@@ -22,9 +22,9 @@ describe('join domains', () => {
   })
 
   it('checks the shape of a domain', () => {
-    expect(isDomainShaped('acme-bio.com')).toBe(true)
-    expect(isDomainShaped('acme')).toBe(false)
-    expect(isDomainShaped('-bad.com')).toBe(false)
+    expect(isJoinDomain('acme-bio.com')).toBe(true)
+    expect(isJoinDomain('acme')).toBe(false)
+    expect(isJoinDomain('-bad.com')).toBe(false)
   })
 
   it('knows public mail domains', () => {

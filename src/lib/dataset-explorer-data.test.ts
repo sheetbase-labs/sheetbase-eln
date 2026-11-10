@@ -15,6 +15,7 @@ import {
   DATASET_MAX_FILTERS,
   DATASET_MAX_TRANSFORMATIONS,
   DATASET_PAGE_SIZES,
+  datasetSavedViewStorageKey,
   fetchDatasetLifecycleById,
   getNextDatasetPageParam,
   fetchDatasetRowPage,
@@ -25,12 +26,26 @@ import {
   sanitizeDatasetView,
   validateTransformations,
 } from './dataset-explorer-data'
-import type { DataClient } from './data-client'
-import type { DatasetSavedView, DatasetViewSpec } from './dataset-explorer-data'
+import { createDataClient } from './data-client'
+import type {
+  DatasetSavedView,
+  DatasetViewSpec,
+  DatasetVersionSummary,
+} from './dataset-explorer-data'
 import type {
   ScientificColumnWire,
   ScientificTableWire,
 } from './scientific-sheet-data'
+
+function dataRequest(
+  input: Parameters<typeof fetch>[0],
+  init?: Parameters<typeof fetch>[1],
+): Request {
+  return new Request(
+    input instanceof Request ? input : new URL(input, 'http://eln.test'),
+    init,
+  )
+}
 
 function column(
   overrides: Partial<ScientificColumnWire> = {},
@@ -177,39 +192,60 @@ describe('canonical Dataset Explorer reads', () => {
   it('lists api.datasets and attaches stable schema-version field UUIDs', async () => {
     const calls: string[] = []
 
-    const client = {
-      list: async (resource: string) => {
-        calls.push(resource)
+    const client = createDataClient(async (input) => {
+      const resource = new URL(
+        input instanceof Request ? input.url : input,
+        'http://eln.test',
+      ).pathname.slice('/api/db/'.length)
 
-        if (resource === 'datasets')
-          return [
-            {
-              id: 'd1',
-              workspace_id: 'w1',
-              schema_version_id: 'v1',
-              name: 'Assays',
-              description: null,
-              lifecycle: 'active',
-              revision: 2,
-            },
-          ]
+      calls.push(resource)
 
-        return [
+      if (resource === 'datasets')
+        return Response.json([
           {
-            field_id: 'f1',
+            id: 'd1',
+            workspace_id: 'w1',
             schema_version_id: 'v1',
-            key: 'ph',
-            label: 'pH',
-            logical_type: 'decimal',
-            nullable: false,
-            quantity: null,
-            validation: {},
+            name: 'Assays',
+            description: null,
             lifecycle: 'active',
-            display_order: 0,
+            revision: 2,
           },
-        ]
-      },
-    } as unknown as DataClient
+        ])
+
+      if (resource === 'dataset_schema_versions')
+        return Response.json([{ id: 'v1', schema_id: 'schema-1', version: 3 }])
+
+      if (resource === 'dataset_schema_definitions')
+        return Response.json([
+          { id: 'schema-1', name: 'Assay schema', key: 'assay' },
+        ])
+
+      if (resource !== 'dataset_schema_version_fields') return Response.json([])
+
+      return Response.json([
+        {
+          field_id: 'f1',
+          schema_version_id: 'v1',
+          key: 'ph',
+          label: 'pH',
+          logical_type: 'decimal',
+          nullable: false,
+          quantity: {
+            code: 'pH',
+            symbol: 'pH',
+            ['__proto__']: { reference: 'pH' },
+          },
+          validation: {
+            min: 0,
+            max: 14,
+            ['constructor']: { rule: 'scientific' },
+          },
+          lifecycle: 'active',
+          display_order: 0,
+        },
+      ])
+    })
 
     const result = await fetchDatasetSummaries(client)
     expect(calls).toEqual([
@@ -222,26 +258,64 @@ describe('canonical Dataset Explorer reads', () => {
       id: 'f1',
       field_name: 'f1',
       label: 'pH',
+      unit: { code: 'pH', symbol: 'pH' },
+      validation: { min: 0, max: 14 },
     })
+    expect(Object.hasOwn(result[0].columns[0].unit ?? {}, '__proto__')).toBe(
+      true,
+    )
+    expect(Object.hasOwn(result[0].columns[0].validation, 'constructor')).toBe(
+      true,
+    )
   })
+
+  it.each([
+    { quantity: ['pH'], validation: {} },
+    { quantity: null, validation: { min: '0' } },
+    { quantity: { symbol: 7 }, validation: {} },
+  ])(
+    'rejects malformed field metadata instead of publishing a typed column: %j',
+    async (metadata) => {
+      const client = createDataClient(async (input) => {
+        const resource = new URL(
+          input instanceof Request ? input.url : input,
+          'http://eln.test',
+        ).pathname.slice('/api/db/'.length)
+
+        if (resource === 'datasets')
+          return Response.json([{ id: 'd1', schema_version_id: 'v1' }])
+
+        if (resource === 'dataset_schema_version_fields') {
+          return Response.json([
+            { field_id: 'f1', schema_version_id: 'v1', ...metadata },
+          ])
+        }
+
+        return Response.json([])
+      })
+
+      await expect(fetchDatasetSummaries(client)).rejects.toThrow()
+    },
+  )
 
   it('keeps every lookup query short enough for the proxy when there are many datasets', async () => {
     const queries: string[] = []
 
-    const client = {
-      list: async (name: string, query = '') => {
-        queries.push(query)
+    const client = createDataClient(async (input, init) => {
+      const url = new URL(dataRequest(input, init).url)
+      queries.push(url.search)
 
-        if (name === 'datasets')
-          return Array.from({ length: 40 }, (_, i) => ({
+      if (url.pathname === '/api/db/datasets')
+        return Response.json(
+          Array.from({ length: 40 }, (_, i) => ({
             id: `d${i}`,
             name: `Dataset ${i}`,
             schema_version_id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
-          }))
+          })),
+        )
 
-        return []
-      },
-    } as unknown as DataClient
+      return Response.json([])
+    })
 
     await fetchDatasetSummaries(client)
     expect(queries.length).toBeGreaterThan(4)
@@ -252,18 +326,16 @@ describe('canonical Dataset Explorer reads', () => {
   })
 
   it('pages, filters and sorts only through query_dataset_rows', async () => {
-    let call: { name: string; args: Record<string, unknown> } | undefined
+    let request: Request | undefined
 
-    const client = {
-      rpc: async (name: string, args: Record<string, unknown>) => {
-        call = { name, args }
+    const client = createDataClient(async (input, init) => {
+      request = dataRequest(input, init)
 
-        return {
-          totalCount: 1,
-          rows: [{ rowId: 'r1', revision: 3, values: { f1: 7.2 } }],
-        }
-      },
-    } as unknown as DataClient
+      return Response.json({
+        totalCount: 1,
+        rows: [{ rowId: 'r1', revision: 3, values: { f1: 7.2 } }],
+      })
+    })
 
     const canonical = table({
       id: 'd1',
@@ -277,22 +349,93 @@ describe('canonical Dataset Explorer reads', () => {
       filters: [{ fieldId: 'f1', operator: 'eq', values: [7.2] }],
     })
 
-    expect(call).toEqual({
-      name: 'query_dataset_rows',
-      args: {
-        p_dataset_id: 'd1',
-        p_query: {
-          filters: [{ fieldId: 'f1', operator: 'eq', value: 7.2 }],
-          sort: { fieldId: 'f1', direction: 'desc' },
-        },
-        p_limit: 25,
-        p_offset: 50,
+    expect(request?.url).toBe('http://eln.test/api/db/rpc/query_dataset_rows')
+    expect(request?.method).toBe('POST')
+    expect(await request?.json()).toEqual({
+      p_dataset_id: 'd1',
+      p_query: {
+        filters: [{ fieldId: 'f1', operator: 'eq', value: 7.2 }],
+        sort: { fieldId: 'f1', direction: 'desc' },
       },
+      p_limit: 25,
+      p_offset: 50,
     })
     expect(page).toEqual({
       totalCount: 1,
       rows: [{ id: 'r1', version: 3, f1: 7.2 }],
     })
+  })
+
+  it.each([
+    { pageSize: 0, limit: 1 },
+    { pageSize: 9999, limit: 100 },
+  ])(
+    'omits absent sorts and preserves RPC limits and scientific row keys: %j',
+    async ({ pageSize, limit }) => {
+      let request: Request | undefined
+
+      const values = {
+        f1: 7.2,
+        ['__proto__']: { source: 'assay' },
+        ['constructor']: 'scientific',
+      }
+
+      const client = createDataClient(async (input, init) => {
+        request = dataRequest(input, init)
+
+        return Response.json({
+          totalCount: 12,
+          rows: [{ rowId: 'r1', revision: 9, values }],
+        })
+      })
+
+      const page = await fetchDatasetRowPage(
+        client,
+        table({ id: 'd1' }),
+        {
+          pageIndex: -1,
+          pageSize,
+          sorting: [],
+          filters: [],
+        },
+        false,
+      )
+
+      expect(await request?.json()).toEqual({
+        p_dataset_id: 'd1',
+        p_query: { filters: [] },
+        p_limit: limit,
+        p_offset: 0,
+      })
+      expect(page).toEqual({
+        totalCount: 0,
+        rows: [{ id: 'r1', version: 9, ...values }],
+      })
+      expect(Object.hasOwn(page.rows[0], '__proto__')).toBe(true)
+      expect(Object.hasOwn(page.rows[0], 'constructor')).toBe(true)
+    },
+  )
+
+  it('rejects a non-JSON original scientific metadata key before publishing it', async () => {
+    const client = createDataClient(async (input, init) => {
+      const resource = new URL(dataRequest(input, init).url).pathname
+
+      if (resource === '/api/db/datasets')
+        return Response.json([{ id: 'd1', schema_version_id: 'v1' }])
+
+      if (resource === '/api/db/dataset_schema_version_fields') {
+        return new Response(
+          '[{"field_id":"f1","schema_version_id":"v1","quantity":{"__proto__":1e999},"validation":{}}]',
+          {
+            headers: { 'content-type': 'application/json' },
+          },
+        )
+      }
+
+      return Response.json([])
+    })
+
+    await expect(fetchDatasetSummaries(client)).rejects.toThrow()
   })
 })
 
@@ -420,6 +563,32 @@ describe('validateTransformations', () => {
       expect(result.errors.some((e) => e.includes('params'))).toBe(true)
     }
   })
+
+  it('retains transformation diagnostic order and only validates the params envelope', () => {
+    const result = validateTransformations([
+      { kind: 'unsupported', params: [] },
+      ...Array.from({ length: DATASET_MAX_TRANSFORMATIONS }, () => ({
+        kind: 'bin',
+        params: {},
+      })),
+    ])
+
+    expect(result).toEqual({
+      ok: false,
+      errors: [
+        `At most ${DATASET_MAX_TRANSFORMATIONS} transformations are allowed.`,
+        'Unsupported transformation kind: unsupported.',
+        'Transformation params must be an object.',
+      ],
+    })
+    expect(
+      validateTransformations([
+        { kind: 'aggregate', params: new Date(0) },
+        { kind: 'bin', params: new Map() },
+        { kind: 'normalise', params: { nested: undefined } },
+      ]),
+    ).toEqual({ ok: true })
+  })
 })
 
 describe('buildDefaultChartSpec', () => {
@@ -455,6 +624,17 @@ describe('buildDefaultChartSpec', () => {
 })
 
 describe('createDatasetSavedViewStore', () => {
+  const persistedView: DatasetSavedView = {
+    id: 'v-1',
+    name: 'Default',
+    datasetId: 't-1',
+    spec: {
+      query: { pageIndex: 0, pageSize: 25, sorting: [], filters: [] },
+      hiddenFields: [],
+      density: 'comfortable',
+    },
+  }
+
   function memoryStorage(): Storage {
     const map = new Map<string, string>()
 
@@ -510,19 +690,121 @@ describe('createDatasetSavedViewStore', () => {
 
     expect(store.list('t-1')).toEqual([])
   })
+
+  it.each([
+    null,
+    [],
+    { ...persistedView, id: 1 },
+    { ...persistedView, spec: null },
+    { ...persistedView, spec: { ...persistedView.spec, density: 'other' } },
+    { ...persistedView, spec: { ...persistedView.spec, hiddenFields: [1] } },
+    ...[
+      { pageIndex: -1 },
+      { pageIndex: 0.5 },
+      { pageSize: 0 },
+      { pageSize: '25' },
+      { sorting: [{ id: 'f1' }] },
+      { sorting: [{ id: 1, desc: false }] },
+      { filters: [{ fieldId: 'f1', operator: 'neq', values: ['x'] }] },
+      { filters: [{ fieldId: 'f1', operator: 'eq', values: [null] }] },
+      { filters: [{ fieldId: 'f1', operator: 'eq', values: [{}] }] },
+    ].map((query) => ({
+      ...persistedView,
+      spec: {
+        ...persistedView.spec,
+        query: { ...persistedView.spec.query, ...query },
+      },
+    })),
+  ])(
+    'drops a malformed persisted view but retains valid neighbours: %j',
+    (input) => {
+      const storage = memoryStorage()
+      storage.setItem(
+        datasetSavedViewStorageKey('ws-1', 'u-1'),
+        JSON.stringify([input, persistedView]),
+      )
+
+      const store = createDatasetSavedViewStore({
+        workspaceId: 'ws-1',
+        userId: 'u-1',
+        storage,
+      })
+
+      expect(store.list('t-1')).toEqual([persistedView])
+    },
+  )
+
+  it('checks saved views without stripping original extensions or unchecked timestamps', () => {
+    const storage = memoryStorage()
+
+    const extended = {
+      ...persistedView,
+      updatedAt: 123,
+      ['__proto__']: { source: 'local' },
+    }
+
+    storage.setItem(
+      datasetSavedViewStorageKey('ws-1', 'u-1'),
+      JSON.stringify([extended]),
+    )
+
+    const store = createDatasetSavedViewStore({
+      workspaceId: 'ws-1',
+      userId: 'u-1',
+      storage,
+    })
+
+    expect(store.list('t-1')).toEqual([extended])
+    expect(Object.hasOwn(store.list('t-1')[0], '__proto__')).toBe(true)
+  })
+
+  it('retains integer bounds and scalar filter acceptance before sanitization', () => {
+    const storage = memoryStorage()
+
+    const legacy = {
+      ...persistedView,
+      spec: {
+        ...persistedView.spec,
+        query: {
+          pageIndex: 1e20,
+          pageSize: 1e20,
+          sorting: [],
+          filters: [
+            { fieldId: 'f1', operator: 'eq', values: ['overflow', true, 1] },
+          ],
+        },
+      },
+    }
+
+    storage.setItem(
+      datasetSavedViewStorageKey('ws-1', 'u-1'),
+      JSON.stringify([legacy]).replace('"overflow"', '1e999'),
+    )
+
+    const store = createDatasetSavedViewStore({
+      workspaceId: 'ws-1',
+      userId: 'u-1',
+      storage,
+    })
+
+    expect(store.list('t-1')[0]?.spec.query).toEqual({
+      ...legacy.spec.query,
+      filters: [{ fieldId: 'f1', operator: 'eq', values: [Infinity, true, 1] }],
+    })
+  })
 })
 
 describe('fetchDatasetLifecycleById', () => {
   it('reads one Dataset lifecycle by stable ID regardless of archive state', async () => {
     const queries: string[] = []
 
-    const client = {
-      list: async (_resource: string, query: string) => {
-        queries.push(query)
+    const client = createDataClient(async (input, init) => {
+      const url = new URL(dataRequest(input, init).url)
+      queries.push(url.search)
+      expect(url.pathname).toBe('/api/db/datasets')
 
-        return [{ lifecycle: 'archived' }]
-      },
-    } as unknown as DataClient
+      return Response.json([{ lifecycle: 'archived' }])
+    })
 
     const lifecycle = await fetchDatasetLifecycleById(client, 'd-archived')
     expect(lifecycle).toBe('archived')
@@ -530,9 +812,7 @@ describe('fetchDatasetLifecycleById', () => {
   })
 
   it('returns null when the Dataset does not exist', async () => {
-    const client = {
-      list: async () => [],
-    } as unknown as DataClient
+    const client = createDataClient(async () => Response.json([]))
 
     await expect(
       fetchDatasetLifecycleById(client, 'd-missing'),
@@ -625,38 +905,67 @@ describe('resolveDatasetDeepLinkSelection', () => {
 
 describe('snapshot version reads and keeps (DSET-04.3)', () => {
   it('lists snapshots through dataset_version_list', async () => {
-    let call: { name: string; args: Record<string, unknown> } | undefined
+    let request: Request | undefined
 
-    const client = {
-      rpc: async (name: string, args: Record<string, unknown>) => {
-        call = { name, args }
-
-        return []
+    const summary = {
+      id: 'v-1',
+      label: 'S-1',
+      createdAt: '2026-11-10T00:00:00.000Z',
+      createdByUserId: 'u-1',
+      createdByCredentialId: null,
+      createdByName: 'Researcher',
+      sourceDatasetRevision: 9,
+      rowCount: 12,
+      contentHash: 'sha256:abc',
+      rowsRemovedAt: null,
+      change: { added: 1, removed: 2, changed: 3, flags: 4 },
+      retention: {
+        reason: 'kept',
+        keptUntil: '2028-11-10T00:00:00.000Z',
+        policy: { citedYears: 15, uncitedYears: 2 },
       },
-    } as unknown as DataClient
+      source: null,
+      citedBy: {
+        signedRevisions: [
+          {
+            revisionId: 'revision-1',
+            signedAt: '2026-11-10T01:00:00.000Z',
+            signerUserId: 'u-1',
+          },
+        ],
+        pipelineRuns: [],
+        analyses: [],
+      },
+    } satisfies DatasetVersionSummary
 
-    await listDatasetVersionSummaries(client, 'd-1')
-    expect(call).toEqual({
-      name: 'dataset_version_list',
-      args: { p_dataset_id: 'd-1' },
+    const client = createDataClient(async (input, init) => {
+      request = dataRequest(input, init)
+
+      return Response.json([summary])
     })
+
+    const versions = await listDatasetVersionSummaries(client, 'd-1')
+    expect(request?.url).toBe('http://eln.test/api/db/rpc/dataset_version_list')
+    expect(request?.method).toBe('POST')
+    expect(await request?.json()).toEqual({ p_dataset_id: 'd-1' })
+    expect(versions).toEqual([summary])
   })
 
   it('keeps a snapshot through keep_dataset_version with a trimmed reason', async () => {
-    let call: { name: string; args: Record<string, unknown> } | undefined
+    let request: Request | undefined
 
-    const client = {
-      rpc: async (name: string, args: Record<string, unknown>) => {
-        call = { name, args }
+    const client = createDataClient(async (input, init) => {
+      request = dataRequest(input, init)
 
-        return {}
-      },
-    } as unknown as DataClient
+      return Response.json({})
+    })
 
     await keepDatasetVersion(client, 'v-1', '  Still needed  ')
-    expect(call).toEqual({
-      name: 'keep_dataset_version',
-      args: { p_version_id: 'v-1', p_reason: 'Still needed' },
+    expect(request?.url).toBe('http://eln.test/api/db/rpc/keep_dataset_version')
+    expect(request?.method).toBe('POST')
+    expect(await request?.json()).toEqual({
+      p_version_id: 'v-1',
+      p_reason: 'Still needed',
     })
   })
 })

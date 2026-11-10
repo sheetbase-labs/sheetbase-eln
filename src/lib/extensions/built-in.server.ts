@@ -50,14 +50,17 @@ async function collect(
   out: Record<string, string>,
 ): Promise<void> {
   const entries = await readdir(join(base, relative), { withFileTypes: true })
+
   for (const entry of entries) {
     const path = `${relative}/${entry.name}`
+
     if (entry.isDirectory()) {
       if (entry.name === '__pycache__' || entry.name === 'node_modules')
         continue
       await collect(base, path, out)
     } else if (entry.isFile()) {
       if (relative.startsWith('python') && !entry.name.endsWith('.py')) continue
+
       // The UI SDK is added by Sheetbase when a screen is served.
       if (entry.name === 'sheetbase-ui.js') continue
       out[path] = await readFile(join(base, path), 'utf8')
@@ -72,6 +75,7 @@ export async function readBuiltInPackage(
 ): Promise<PluginPackage> {
   const base = join(directory, plugin.folder)
   const files: Record<string, string> = {}
+
   for (const name of ROOT_FILES) {
     try {
       files[name] = await readFile(join(base, name), 'utf8')
@@ -79,6 +83,7 @@ export async function readBuiltInPackage(
       // Optional files.
     }
   }
+
   for (const root of PACKAGE_ROOTS) {
     try {
       await collect(base, root, files)
@@ -86,17 +91,23 @@ export async function readBuiltInPackage(
       // A plugin may have no ui/ or python/ folder.
     }
   }
+
   const built = buildPluginPackage(files)
+
   return { ...built, sha256: await hashPluginFiles(files) }
 }
 
 async function storedHash(extensionId: string): Promise<string | null> {
-  const { db } = await import('#/db/client.server')
-  const { extensionPackages } = await import('#/db/schema')
+  const [{ db }, { extensionPackages }] = await Promise.all([
+    import('#/db/client.server'),
+    import('#/db/schema'),
+  ])
+
   const rows = await db
     .select({ sha256: extensionPackages.sha256 })
     .from(extensionPackages)
     .where(eq(extensionPackages.extensionId, extensionId))
+
   return rows[0]?.sha256 ?? null
 }
 
@@ -123,13 +134,20 @@ export async function ensureBuiltInPlugins(
   const hashOf = options.hashOf ?? storedHash
   const results: BuiltInResult[] = []
   const installs = await listExtensions(client)
+  const byManifestId = new Map<string, ExtensionWire>()
+
+  for (const install of installs)
+    if (!byManifestId.has(install.manifest.id))
+      byManifestId.set(install.manifest.id, install)
+
   for (const plugin of options.plugins ?? BUILT_IN_PLUGINS) {
     const pkg = await readBuiltInPackage(plugin, options.directory)
-    const existing = installs.find(
-      (install) => install.manifest.id === pkg.manifest.id,
-    )
+
+    const existing = byManifestId.get(pkg.manifest.id)
+
     let current: ExtensionWire | undefined = existing
     let action: BuiltInResult['action'] = 'unchanged'
+
     if (!existing || (await hashOf(existing.id)) !== pkg.sha256) {
       current = await installPluginPackage(deps, client, context, pkg, {
         existing,
@@ -138,6 +156,7 @@ export async function ensureBuiltInPlugins(
       })
       action = existing ? 'updated' : 'installed'
     }
+
     // A first install is switched on for the administrator. An update comes
     // back switched off, so it goes back to what it was; a plugin an
     // administrator turned off stays off.
@@ -152,5 +171,6 @@ export async function ensureBuiltInPlugins(
       })
     results.push({ key: plugin.key, action })
   }
+
   return results
 }

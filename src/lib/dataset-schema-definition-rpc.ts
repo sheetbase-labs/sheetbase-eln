@@ -1,4 +1,41 @@
 import type { DataClient } from './data-client'
+import { z } from 'zod'
+import { modelFieldValidationSchema, modelMetadataSchema } from './model-fields'
+import { pipelineJsonValueSchema } from './pipelines/types'
+
+export const datasetFieldQuantitySchema = modelMetadataSchema({
+  kind: z.string(),
+  dimension: z.string(),
+  storageUnit: z.string(),
+  allowedInputUnits: z.array(z.string()).optional(),
+  preferredDisplayUnit: z.string().optional(),
+})
+
+export const datasetFieldCategoryOptionSchema = modelMetadataSchema({
+  id: z.string(),
+  key: z.string(),
+  label: z.string(),
+  lifecycle: z.enum(['active', 'retired']),
+  displayOrder: z.number().optional(),
+})
+
+export const datasetFieldCategorySchema = z.union([
+  z.string(),
+  modelMetadataSchema({
+    kind: z.string().optional(),
+    vocabularyId: z.string().optional(),
+    options: z.array(datasetFieldCategoryOptionSchema).optional(),
+  }),
+])
+
+export const datasetFieldRelationshipSchema = modelMetadataSchema({
+  target: modelMetadataSchema({
+    kind: z.string().optional(),
+    modelKey: z.string().optional(),
+    schemaId: z.string().optional(),
+  }).optional(),
+  cardinality: z.enum(['one', 'many']).optional(),
+})
 
 export interface DatasetSchemaFieldInput {
   fieldId?: string
@@ -7,11 +44,11 @@ export interface DatasetSchemaFieldInput {
   description?: string | null
   logicalType: string
   nullable?: boolean
-  defaultValue?: unknown
-  quantity?: unknown
-  validation?: Record<string, unknown>
-  category?: unknown
-  relationship?: unknown
+  defaultValue?: z.core.util.JSONType
+  quantity?: z.infer<typeof datasetFieldQuantitySchema> | null
+  validation?: z.infer<typeof modelFieldValidationSchema>
+  category?: z.infer<typeof datasetFieldCategorySchema> | null
+  relationship?: z.infer<typeof datasetFieldRelationshipSchema> | null
   cardinality?: 'one' | 'many'
   lifecycle?: 'active' | 'retired'
   displayOrder?: number
@@ -154,22 +191,26 @@ export interface CanonicalDatasetSchemaVersion {
   published_at: string | null
 }
 
-export interface CanonicalDatasetSchemaField {
-  field_id: string
-  key: string
-  label: string
-  description: string | null
-  logical_type: string
-  nullable: boolean
-  default_value?: unknown
-  quantity?: unknown
-  validation?: Record<string, unknown>
-  cardinality: string
-  lifecycle: string
-  display_order: number
-  category?: unknown
-  relationship?: unknown
-}
+export const canonicalDatasetSchemaFieldSchema = modelMetadataSchema({
+  field_id: z.string(),
+  key: z.string(),
+  label: z.string(),
+  description: z.string().nullable(),
+  logical_type: z.string(),
+  nullable: z.boolean(),
+  default_value: pipelineJsonValueSchema.optional(),
+  quantity: datasetFieldQuantitySchema.nullable().optional(),
+  validation: modelFieldValidationSchema.optional(),
+  cardinality: z.string(),
+  lifecycle: z.string(),
+  display_order: z.number(),
+  category: datasetFieldCategorySchema.nullable().optional(),
+  relationship: datasetFieldRelationshipSchema.nullable().optional(),
+})
+
+export type CanonicalDatasetSchemaField = z.infer<
+  typeof canonicalDatasetSchemaFieldSchema
+>
 
 export async function listCanonicalDatasetSchemaDefinitions(
   client: DataClient,
@@ -194,8 +235,10 @@ export async function listCanonicalDatasetSchemaVersionFields(
   client: DataClient,
   schemaVersionId: string,
 ): Promise<CanonicalDatasetSchemaField[]> {
-  return client.list(
+  const fields = await client.list(
     'dataset_schema_version_fields',
     `?schema_version_id=eq.${schemaVersionId}&select=field_id,key,label,description,logical_type,nullable,default_value,quantity,validation,category,relationship,cardinality,lifecycle,display_order&order=display_order.asc`,
   )
+
+  return z.array(canonicalDatasetSchemaFieldSchema).parse(fields)
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { getLocale, setLocale } from '#/copy'
 import {
   NO_REPEAT,
   describeNotMade,
@@ -95,6 +96,25 @@ const wire = (over: Partial<RepeatScheduleWire>): RepeatScheduleWire => ({
 })
 
 describe('describing a repeat', () => {
+  it('keeps weekday order, duplicates and missing-key fallback in both locales', () => {
+    const locale = getLocale()
+    const schedule = toRepeatSchedule(wire({ max_occurrences: null }))
+    schedule.weekdays = [7, 0, 1, 1, 8]
+
+    try {
+      setLocale('en')
+      expect(describeRepeat(schedule)).toBe(
+        'Every week on Sun, projects.recurring.weekdaysShort.0, Mon, Mon, and projects.recurring.weekdaysShort.8',
+      )
+      setLocale('pseudo')
+      expect(describeRepeat(schedule)).toBe(
+        '⟦Évéŕý ŵééķ óñ ⟦Šúñ·⟧, ⟦þŕóĵéçţš.ŕéçúŕŕíñĝ.ŵééķðáýšŠĥóŕţ.0··········⟧, ⟦Ṁóñ·⟧, ⟦Ṁóñ·⟧, and ⟦þŕóĵéçţš.ŕéçúŕŕíñĝ.ŵééķðáýšŠĥóŕţ.8··········⟧····⟧',
+      )
+    } finally {
+      setLocale(locale)
+    }
+  })
+
   it('reads the wire and trims times', () => {
     const s = toRepeatSchedule(wire({}))
     expect(s.weekdays).toEqual([1, 3])

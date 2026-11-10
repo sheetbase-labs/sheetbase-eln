@@ -47,7 +47,7 @@ export function rememberCurrency(code: string): void {
 
 /** The currencies a form offers: the common ones, plus one already in use. */
 export function currencyOptions(current: string): string[] {
-  return (COMMON_CURRENCIES as readonly string[]).includes(current)
+  return COMMON_CURRENCIES.some((code) => code === current)
     ? [...COMMON_CURRENCIES]
     : [current, ...COMMON_CURRENCIES]
 }

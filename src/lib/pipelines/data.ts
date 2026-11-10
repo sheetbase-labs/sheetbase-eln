@@ -8,7 +8,13 @@
  * a low-privilege pipeline_worker session role — the browser starts the run
  * and then calls the same-origin execute route.
  */
+import { z } from 'zod'
 import type { DataClient } from '../data-client'
+import {
+  pipelineRunSchema,
+  pipelineTrialSchema,
+  pipelineReproductionSchema,
+} from './types'
 import type {
   PipelineDefinitionVersionWire,
   PipelineDefinitionWire,
@@ -70,7 +76,7 @@ export async function createPipelineDefinitionVersion(
   input: {
     workspaceId: string
     definitionId: string
-    configuration: Record<string, unknown>
+    configuration: Record<string, z.core.util.JSONType>
   },
 ): Promise<PipelineDefinitionVersionWire> {
   return client.rpc('create_pipeline_definition_version', {
@@ -96,7 +102,7 @@ export async function updatePipelineDefinitionVersionDraft(
     workspaceId: string
     versionId: string
     expectedRevision: number
-    configuration: Record<string, unknown>
+    configuration: Record<string, z.core.util.JSONType>
   },
 ): Promise<PipelineDefinitionVersionWire> {
   return client.rpc('update_pipeline_definition_version_draft', {
@@ -125,7 +131,7 @@ export interface StartPipelineRunInput {
   workspaceId: string
   definitionVersionId: string
   triggerKind?: 'manual' | 'scheduled' | 'event'
-  parameters?: Record<string, unknown>
+  parameters?: Record<string, z.core.util.JSONType>
   inputVersions?: Record<string, string>
   retryOfRunId?: string | null
   /**
@@ -174,7 +180,11 @@ async function readRunError(
   let message = `${fallback} (${response.status})`
 
   try {
-    const body = (await response.json()) as { error?: { message?: string } }
+    const body = z
+      .object({
+        error: z.object({ message: z.string().optional() }).optional(),
+      })
+      .parse(await response.json())
 
     if (body.error?.message) message = body.error.message
   } catch {
@@ -203,10 +213,14 @@ async function followRun(runId: string): Promise<PipelineRunWire> {
         t('data.pipelineData.followingRunFailed'),
       )
 
-    const state = (await response.json()) as {
-      run: PipelineRunWire
-      job: { state: string; lastError: string | null } | null
-    }
+    const state = z
+      .object({
+        run: pipelineRunSchema,
+        job: z
+          .object({ state: z.string(), lastError: z.string().nullable() })
+          .nullable(),
+      })
+      .parse(await response.json())
 
     const open = state.job?.state === 'queued' || state.job?.state === 'claimed'
 
@@ -259,7 +273,7 @@ export async function tryPipelineDraft(input: {
   workspaceId: string
   configuration: unknown
   inputVersions: Record<string, string>
-  parameters: Record<string, unknown>
+  parameters: Record<string, z.core.util.JSONType>
 }): Promise<PipelineTrialWire> {
   const response = await fetch('/api/pipelines/try-draft', {
     method: 'POST',
@@ -270,7 +284,7 @@ export async function tryPipelineDraft(input: {
   if (!response.ok)
     throw await readRunError(response, t('data.pipelineData.tryingDraftFailed'))
 
-  return (await response.json()) as PipelineTrialWire
+  return pipelineTrialSchema.parse(await response.json())
 }
 
 // ---------------------------------------------------------------------------
@@ -295,7 +309,7 @@ export async function reproducePipelineRun(input: {
   if (!response.ok)
     throw await readRunError(response, t('data.reproduce.couldNotReproduce'))
 
-  return (await response.json()) as PipelineReproductionWire
+  return pipelineReproductionSchema.parse(await response.json())
 }
 
 const REPRODUCTION_FIELDS =
@@ -343,7 +357,7 @@ export async function createPipelineSchedule(
     workspaceId: string
     definitionId: string
     kind: PipelineScheduleKind
-    spec: Record<string, unknown>
+    spec: Record<string, z.core.util.JSONType>
     enabled?: boolean
   },
 ): Promise<PipelineScheduleWire> {
@@ -362,7 +376,7 @@ export async function updatePipelineSchedule(
     workspaceId: string
     scheduleId: string
     kind?: PipelineScheduleKind | null
-    spec?: Record<string, unknown> | null
+    spec?: Record<string, z.core.util.JSONType> | null
     enabled?: boolean | null
   },
 ): Promise<PipelineScheduleWire> {
@@ -544,15 +558,16 @@ export async function getRunForDatasetVersion(
 
   if (!pipelineId) return null
 
-  const definitions = await client.list<{ name: string }>(
-    'pipeline_definitions',
-    `?select=name&id=eq.${encodeURIComponent(pipelineId)}&limit=1`,
-  )
-
-  const siblings = await client.list<{ id: string }>(
-    'pipeline_definition_versions',
-    `?select=id&definition_id=eq.${encodeURIComponent(pipelineId)}`,
-  )
+  const [definitions, siblings] = await Promise.all([
+    client.list<{ name: string }>(
+      'pipeline_definitions',
+      `?select=name&id=eq.${encodeURIComponent(pipelineId)}&limit=1`,
+    ),
+    client.list<{ id: string }>(
+      'pipeline_definition_versions',
+      `?select=id&definition_id=eq.${encodeURIComponent(pipelineId)}`,
+    ),
+  ])
 
   const everyRun = siblings.length
     ? await client.list<{ id: string; started_at: string }>(
@@ -598,7 +613,7 @@ export async function listPipelineRunPrompts(
 /** The answer a person gives to a waiting run's prompt. */
 export interface PipelineRunPromptAnswer {
   decision: 'confirm' | 'skip' | 'stop'
-  values?: Record<string, unknown>
+  values?: Record<string, z.core.util.JSONType>
   reason?: string
 }
 
@@ -738,23 +753,23 @@ export async function listRunCompatiblePipelines(
     const definition = definitionById.get(version.definition_id)
     const config = version.configuration
 
-    if (
-      !definition ||
-      typeof config !== 'object' ||
-      !Array.isArray(config.inputs) ||
-      config.inputs.length !== 1
-    ) {
+    const inputs = z
+      .array(z.object({ name: z.string().catch('input') }))
+      .length(1)
+      .safeParse(config.inputs)
+
+    if (!definition || !inputs.success) {
       continue
     }
 
-    const first = config.inputs[0] as { name?: unknown }
+    const first = inputs.data[0]
     result.push({
       definitionId: definition.id,
       definitionName: definition.name,
       definitionKey: definition.key,
       versionId: version.id,
       versionNumber: version.version,
-      inputName: typeof first.name === 'string' ? first.name : 'input',
+      inputName: first.name,
       hasParameters:
         Array.isArray(config.parameters) && config.parameters.length > 0,
     })

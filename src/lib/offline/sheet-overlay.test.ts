@@ -1,18 +1,29 @@
 import { describe, expect, it } from 'vitest'
 
 import type { CanonicalSheetGridMatrix } from '#/lib/canonical-sheet-grid'
+import { fieldEditorPresentation } from '#/lib/field-presentation'
 import { overlayOfflineSheetEdits } from './sheet-overlay'
 import type { OfflineEdit } from './store'
 
-const matrix = {
-  columns: [{ id: 'a' }, { id: 'b' }],
+const matrix: CanonicalSheetGridMatrix = {
+  columns: ['a', 'b'].map(
+    (id): CanonicalSheetGridMatrix['columns'][number] => ({
+      id,
+      label: id,
+      origin: 'local',
+      field: null,
+      presentation: fieldEditorPresentation('decimal'),
+      editable: true,
+      group: 'This experiment',
+    }),
+  ),
   rowKeys: ['r1', 'r2'],
   rowKinds: ['local', 'local'],
   data: [
     [1, 2],
     [3, 4],
   ],
-} as unknown as CanonicalSheetGridMatrix
+}
 
 const base = { id: 'e', sequence: 1, expectedRevision: 3, createdAt: 'x' }
 
@@ -58,12 +69,12 @@ describe('overlayOfflineSheetEdits', () => {
     expect(next.rowKeys).toEqual(['r1', 'r2', 'new'])
     expect(next.data[2]).toEqual([null, 'x'])
 
-    const synced = {
+    const synced: CanonicalSheetGridMatrix = {
       ...matrix,
       rowKeys: ['r1', 'r2', 'new'],
       rowKinds: ['local', 'local', 'local'],
       data: [...matrix.data, [null, 'x']],
-    } as CanonicalSheetGridMatrix
+    }
 
     expect(overlayOfflineSheetEdits(synced, 's1', [row]).rowKeys).toHaveLength(
       3,

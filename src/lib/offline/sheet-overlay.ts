@@ -41,7 +41,10 @@ export function overlayOfflineSheetEdits(
       // A row the server already has (replay committed it, or a refresh raced
       // the store) is shown once, from the server.
       if (edit.rowKey && rowIndex.has(edit.rowKey)) continue
-      const row: unknown[] = matrix.columns.map(() => null)
+
+      const row: CanonicalSheetGridMatrix['data'][number] = matrix.columns.map(
+        () => null,
+      )
 
       for (const [columnId, value] of Object.entries(edit.values)) {
         const index = columnIndex.get(columnId)

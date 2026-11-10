@@ -43,7 +43,9 @@ describe('block search text rules', () => {
   it('has no rule for a type that does not exist', () => {
     const ruled = [...body.matchAll(/WHEN '([a-z_]+)' THEN/g)].map((m) => m[1])
     expect(
-      ruled.filter((t) => !(BLOCK_TYPES as readonly string[]).includes(t)),
+      ruled.filter(
+        (type) => !BLOCK_TYPES.some((blockType) => blockType === type),
+      ),
     ).toEqual([])
   })
 })

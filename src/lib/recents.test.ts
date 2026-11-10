@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   buildRecentItems,
@@ -10,7 +11,7 @@ import {
   resolveRecentItems,
   signalEventsFromChangeEvents,
 } from './recents'
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
 import type { ChangeEventRecordWire } from './notebook-data'
 import type {
   DerivedRecentItem,
@@ -27,6 +28,35 @@ import type {
 const T0 = '2026-08-31T10:00:00Z'
 const T1 = '2026-08-31T11:00:00Z'
 const T2 = '2026-08-31T12:00:00Z'
+
+function listClient(response: (url: URL) => Response) {
+  return createDataClient((input, init) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input.toString(),
+      'http://localhost',
+    )
+
+    expect(init?.method).toBe('GET')
+    expect(url.pathname).toMatch(
+      /^\/api\/db\/(records|datasets|sheet_instances|projects|notebook_templates|recently_viewed|change_events)$/,
+    )
+
+    return Promise.resolve(response(url))
+  })
+}
+
+function clientWithRows(
+  rows: Record<string, z.infer<ReturnType<typeof z.json>>[]>,
+) {
+  const byPath = new Map(
+    Object.entries(rows).map(([resource, values]) => [
+      `/api/db/${resource}`,
+      values,
+    ]),
+  )
+
+  return listClient((url) => Response.json(byPath.get(url.pathname) ?? []))
+}
 
 function changeEvent(
   overrides: Partial<ChangeEventRecordWire> & Pick<ChangeEventRecordWire, 'id'>,
@@ -245,27 +275,15 @@ describe('resolveRecentItems', () => {
     reviewedAt: null,
   })
 
-  function clientWithRows(rows: Record<string, unknown[]>): DataClient {
-    return {
-      list: (resource: string) => Promise.resolve(rows[resource] ?? []),
-      count: () => Promise.resolve(0),
-      rpc: () => Promise.resolve({}),
-      insert: () => Promise.resolve({}),
-      patch: () => Promise.resolve([]),
-      remove: () => Promise.resolve([]),
-    } as unknown as DataClient
-  }
-
   it('looks labels up in batches short enough for the proxy', async () => {
     const queries: string[] = []
 
-    const client = {
-      list: (resource: string, query: string) => {
-        if (resource === 'records') queries.push(query)
+    const client = listClient((url) => {
+      expect(url.pathname).toBe('/api/db/records')
+      queries.push(url.search)
 
-        return Promise.resolve([])
-      },
-    } as unknown as DataClient
+      return Response.json([])
+    })
 
     const ids = Array.from(
       { length: 25 },
@@ -443,8 +461,10 @@ describe('resolveRecentItems', () => {
 // ---------------------------------------------------------------------------
 
 describe('describeRecentChange', () => {
-  const item = (kind: RecentObjectKind, signal: RecentItem['signal']) =>
-    ({ kind, signal }) as Pick<RecentItem, 'kind' | 'signal'>
+  const item = (kind: RecentObjectKind, signal: RecentItem['signal']) => ({
+    kind,
+    signal,
+  })
 
   it('describes the newest action in the user’s words', () => {
     expect(describeRecentChange(item('record', 'edited'))).toBe('Edited record')
@@ -475,12 +495,6 @@ describe('recentStatusLabel', () => {
 })
 
 describe('resolveRecentItems status', () => {
-  function client(rows: Record<string, unknown[]>): DataClient {
-    return {
-      list: (resource: string) => Promise.resolve(rows[resource] ?? []),
-    } as unknown as DataClient
-  }
-
   const derivedItem = (
     kind: RecentObjectKind,
     id: string,
@@ -496,7 +510,7 @@ describe('resolveRecentItems status', () => {
 
   it('carries the canonical status for records and lifecycle objects', async () => {
     const items = await resolveRecentItems(
-      client({
+      clientWithRows({
         records: [
           {
             id: 'r-1',
@@ -542,13 +556,12 @@ describe('fetchMyRecentSignals', () => {
   it('queries the canonical change_events audit trail scoped to the actor', async () => {
     const queries: string[] = []
 
-    const client = {
-      list: (_resource: string, query: string) => {
-        queries.push(_resource + query)
+    const client = listClient((url) => {
+      expect(url.pathname).toBe('/api/db/change_events')
+      queries.push(`change_events${url.search}`)
 
-        return Promise.resolve([])
-      },
-    } as unknown as DataClient
+      return Response.json([])
+    })
 
     const signals: RecentSignalEvent[] = await fetchMyRecentSignals(
       client,
@@ -568,22 +581,17 @@ describe('fetchMyRecentSignals', () => {
 
 describe('fetchMyRecentSignals paging', () => {
   /** Serves change_events pages from a fixed newest-first array. */
-  function pagedClient(events: ChangeEventRecordWire[]): {
-    client: DataClient
-    queries: string[]
-  } {
+  function pagedClient(events: ChangeEventRecordWire[]) {
     const queries: string[] = []
 
-    const client = {
-      list: (_resource: string, query: string) => {
-        queries.push(_resource + query)
-        const params = new URLSearchParams(query)
-        const offset = Number(params.get('offset') ?? 0)
-        const pageSize = Number(params.get('limit') ?? 100)
+    const client = listClient((url) => {
+      expect(url.pathname).toBe('/api/db/change_events')
+      queries.push(`change_events${url.search}`)
+      const offset = Number(url.searchParams.get('offset') ?? 0)
+      const pageSize = Number(url.searchParams.get('limit') ?? 100)
 
-        return Promise.resolve(events.slice(offset, offset + pageSize))
-      },
-    } as unknown as DataClient
+      return Response.json(events.slice(offset, offset + pageSize))
+    })
 
     return { client, queries }
   }
@@ -682,21 +690,22 @@ describe('fetchRecentItems', () => {
 
     const visible = new Set(Array.from({ length: 20 }, (_, i) => `r-${i}`))
 
-    const client = {
-      list: (resource: string, query: string) => {
-        if (resource === 'recently_viewed') return Promise.resolve(views)
+    const client = listClient((url) => {
+      if (url.pathname === '/api/db/recently_viewed')
+        return Response.json(views)
 
-        if (resource === 'records') {
-          const rows = idsFromInQuery(query)
-            .filter((id) => visible.has(id))
-            .map(visibleRecord)
+      if (url.pathname === '/api/db/records') {
+        const rows = idsFromInQuery(url.search)
+          .filter((id) => visible.has(id))
+          .map(visibleRecord)
 
-          return Promise.resolve(rows)
-        }
+        return Response.json(rows)
+      }
 
-        return Promise.resolve([])
-      },
-    } as unknown as DataClient
+      expect(url.pathname).toBe('/api/db/change_events')
+
+      return Response.json([])
+    })
 
     const items = await fetchRecentItems(client, 'user-1')
     expect(items).toHaveLength(20)
@@ -718,25 +727,24 @@ describe('fetchRecentItems', () => {
       changeEvent({ id: 'e-b', entity_uuid: 'r-b', created_at: T0 }),
     ]
 
-    const client = {
-      list: (resource: string, query: string) => {
-        if (resource === 'change_events') {
-          const params = new URLSearchParams(query)
-          const offset = Number(params.get('offset') ?? 0)
-          const pageSize = Number(params.get('limit') ?? 100)
+    const client = listClient((url) => {
+      if (url.pathname === '/api/db/change_events') {
+        const offset = Number(url.searchParams.get('offset') ?? 0)
+        const pageSize = Number(url.searchParams.get('limit') ?? 100)
 
-          return Promise.resolve(events.slice(offset, offset + pageSize))
-        }
+        return Response.json(events.slice(offset, offset + pageSize))
+      }
 
-        if (resource === 'records') {
-          const rows = idsFromInQuery(query).map(visibleRecord)
+      if (url.pathname === '/api/db/records') {
+        const rows = idsFromInQuery(url.search).map(visibleRecord)
 
-          return Promise.resolve(rows)
-        }
+        return Response.json(rows)
+      }
 
-        return Promise.resolve([])
-      },
-    } as unknown as DataClient
+      expect(url.pathname).toBe('/api/db/recently_viewed')
+
+      return Response.json([])
+    })
 
     const items = await fetchRecentItems(client, 'user-1')
     const ids = items.map((i) => i.id)
@@ -748,15 +756,23 @@ describe('fetchRecentItems', () => {
 
 describe('recordRecentView', () => {
   it('writes through the record_recent_view RPC with stable object identity', async () => {
-    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const calls: {
+      name: string
+      args: z.infer<ReturnType<typeof z.json>>
+    }[] = []
 
-    const client = {
-      rpc: (name: string, args: Record<string, unknown>) => {
-        calls.push({ name, args })
+    const client = createDataClient(async (input, init) => {
+      expect(input instanceof Request ? input.url : input.toString()).toBe(
+        '/api/db/rpc/record_recent_view',
+      )
+      expect(init?.method).toBe('POST')
+      calls.push({
+        name: 'record_recent_view',
+        args: z.json().parse(await new Response(init?.body).json()),
+      })
 
-        return Promise.resolve('2026-08-31T12:00:00Z')
-      },
-    } as unknown as DataClient
+      return Response.json('2026-08-31T12:00:00Z')
+    })
 
     const viewedAt = await recordRecentView(client, 'sheet', 's-1')
     expect(viewedAt).toBe('2026-08-31T12:00:00Z')
@@ -769,18 +785,36 @@ describe('recordRecentView', () => {
   })
 
   it('normalises the scalar timestamptz return and null (ignored view)', async () => {
-    const stringClient = {
-      rpc: () => Promise.resolve('2026-08-31T12:00:00Z'),
-    } as unknown as DataClient
+    const stringClient = viewClient('2026-08-31T12:00:00Z')
 
     expect(await recordRecentView(stringClient, 'record', 'r-1')).toBe(
       '2026-08-31T12:00:00Z',
     )
 
-    const nullClient = {
-      rpc: () => Promise.resolve(null),
-    } as unknown as DataClient
+    const nullClient = viewClient(null)
 
     expect(await recordRecentView(nullClient, 'record', 'r-1')).toBeNull()
   })
+
+  it('normalises an object timestamp and an empty object (ignored view)', async () => {
+    expect(
+      await recordRecentView(viewClient({ viewed_at: T2 }), 'record', 'r-1'),
+    ).toBe(T2)
+    expect(await recordRecentView(viewClient({}), 'record', 'r-1')).toBeNull()
+  })
 })
+
+function viewClient(response: string | { viewed_at?: string } | null) {
+  return createDataClient(async (input, init) => {
+    expect(input instanceof Request ? input.url : input.toString()).toBe(
+      '/api/db/rpc/record_recent_view',
+    )
+    expect(init?.method).toBe('POST')
+    expect(await new Response(init?.body).json()).toEqual({
+      p_object_kind: 'record',
+      p_object_id: 'r-1',
+    })
+
+    return Response.json(response)
+  })
+}

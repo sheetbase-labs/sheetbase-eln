@@ -19,13 +19,11 @@ import {
 import type { SessionAuthDeps } from '../request-auth'
 import { runExtensionPublisher } from './outgoing-runtime.server'
 
-const bodySchema = z
-  .object({
-    extensionKey: z.string().regex(/^[a-z][a-z0-9-]{0,48}$/),
-    publisherId: z.string().regex(/^[a-z][a-z0-9-]{0,48}$/),
-    parameters: z.record(z.string(), z.unknown()).default({}),
-  })
-  .strict()
+const bodySchema = z.strictObject({
+  extensionKey: z.string().regex(/^[a-z][a-z0-9-]{0,48}$/),
+  publisherId: z.string().regex(/^[a-z][a-z0-9-]{0,48}$/),
+  parameters: z.record(z.string(), z.unknown()).default({}),
+})
 
 interface DatasetWire {
   id: string
@@ -42,16 +40,20 @@ export async function handleDatasetPublish(
   publish: typeof runExtensionPublisher = runExtensionPublisher,
 ): Promise<Response> {
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
   let raw: unknown
+
   try {
     raw = await request.json()
   } catch {
     return requestErrorResponse(400, 'bad_request', 'Send a JSON body.')
   }
+
   const parsed = bodySchema.safeParse(raw)
+
   if (!parsed.success)
     return requestErrorResponse(
       400,
@@ -59,26 +61,33 @@ export async function handleDatasetPublish(
       'The request could not be read.',
     )
   const body = parsed.data
+
   // Sending data out is more than reading it: a viewer can't.
-  const { db } = await import('#/db/client.server')
-  const { sql } = await import('drizzle-orm')
+  const [{ db }, { sql }] = await Promise.all([
+    import('#/db/client.server'),
+    import('drizzle-orm'),
+  ])
+
   const membership = (
     await db.execute(
       sql`SELECT role FROM api.workspace_memberships
            WHERE user_id = ${context.userId} AND workspace_id = ${context.workspaceId}::uuid`,
     )
   ).rows[0] as { role: string } | undefined
+
   if (!membership || membership.role === 'viewer')
     return requestErrorResponse(
       403,
       'forbidden',
       'Sending data out needs a workspace you can edit.',
     )
+
   const found = await postgrestSelect<DatasetWire[]>(
     'datasets',
     `id=eq.${encodeURIComponent(datasetId)}&select=id,workspace_id,name,revision,schema_version_id&limit=1`,
     context.token,
   )
+
   if (found.status >= 400)
     return requestErrorResponse(
       502,
@@ -86,14 +95,18 @@ export async function handleDatasetPublish(
       'Could not load dataset.',
     )
   const dataset = Array.isArray(found.body) ? found.body[0] : undefined
+
   if (!dataset)
     return requestErrorResponse(404, 'not_found', 'Dataset not found.')
+
   if (dataset.workspace_id !== context.workspaceId)
     return requestErrorResponse(404, 'not_found', 'Dataset not found.')
+
   const fields = await loadDatasetFields(
     context.token,
     dataset.schema_version_id,
   )
+
   const rows = pagedRows(
     'query_dataset_rows',
     { p_dataset_id: datasetId },
@@ -104,7 +117,9 @@ export async function handleDatasetPublish(
       schemaVersionId: dataset.schema_version_id,
     },
   )
+
   const all: Array<Record<string, unknown>> = []
+
   // The plugin reads columns by their names (the field keys), not by id.
   for await (const row of rows.rows)
     all.push(
@@ -112,6 +127,7 @@ export async function handleDatasetPublish(
         fields.map((field) => [field.key, row.values[field.id] ?? null]),
       ),
     )
+
   try {
     const sent = await publish({
       workspaceId: dataset.workspace_id,
@@ -122,6 +138,7 @@ export async function handleDatasetPublish(
       name: dataset.name,
       parameters: body.parameters,
     })
+
     await recordDataExportReceipt({
       workspaceId: dataset.workspace_id,
       actorUserId: context.userId,
@@ -130,6 +147,7 @@ export async function handleDatasetPublish(
       format: `plugin:${body.extensionKey}`.slice(0, 40),
       rowCount: all.length,
     })
+
     return Response.json(
       { ...sent, rows: all.length },
       { headers: { 'Cache-Control': 'no-store' } },

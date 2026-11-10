@@ -20,11 +20,12 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve, sep } from 'node:path'
 import { Readable } from 'node:stream'
 import { Unzip, UnzipInflate } from 'fflate'
+import { z } from 'zod'
 
 import type { ObjectStorage } from '#/lib/file-storage/types'
 
-import { ARCHIVE_FORMAT_VERSION } from './archive.server'
 import type { ArchiveConnection } from './archive.server'
+import { ARCHIVE_FORMAT_VERSION } from './format'
 
 const INSERT_BATCH = 500
 
@@ -40,25 +41,31 @@ export interface RestoreReport {
   dryRun: boolean
 }
 
-interface Manifest {
-  formatVersion: number
-  kind: string
-  workspace: { id: string; slug: string }
-  tables: {
-    name: string
-    rows: number
-    path: string | null
-    sha256: string | null
-    droppedColumns: string[]
-  }[]
-  files: {
-    id: string
-    path: string | null
-    sha256: string | null
-    bytes: number
-    status: string
-  }[]
-}
+// Restore skips entries with absent or falsy paths or hashes.
+const optionalArchiveString = z
+  .union([z.string(), z.literal(false), z.literal(0), z.null()])
+  .optional()
+
+const manifestSchema = z.looseObject({
+  workspace: z.looseObject({ id: z.string() }),
+  tables: z.array(
+    z.looseObject({
+      name: z.string(),
+      rows: z.number(),
+      path: optionalArchiveString,
+      sha256: optionalArchiveString,
+      droppedColumns: z.array(z.unknown()),
+    }),
+  ),
+  files: z.array(
+    z.looseObject({
+      id: z.unknown().optional(),
+      path: optionalArchiveString,
+      sha256: optionalArchiveString,
+      status: z.unknown().optional(),
+    }),
+  ),
+})
 
 export class RestoreError extends Error {
   constructor(message: string) {
@@ -76,7 +83,7 @@ export async function extractArchive(
   const unzip = new Unzip()
   unzip.register(UnzipInflate)
   const writers: Promise<void>[] = []
-  let failure: unknown = null
+  let failure: RestoreError | null = null
   unzip.onfile = (file) => {
     if (file.name.endsWith('/')) return
     const target = resolve(root, file.name)
@@ -113,14 +120,19 @@ export async function extractArchive(
   }
 
   for await (const chunk of createReadStream(zipPath)) {
+    // SAFETY: A file read stream without an encoding yields Buffer chunks.
     unzip.push(chunk as Uint8Array)
 
+    // unzip.push invokes onfile synchronously, which can assign failure.
+    // oxlint-disable-next-line typescript/no-unnecessary-condition
     if (failure) throw failure
   }
 
   unzip.push(new Uint8Array(0), true)
   await Promise.all(writers)
 
+  // The final unzip.push can invoke onfile and assign failure as well.
+  // oxlint-disable-next-line typescript/no-unnecessary-condition
   if (failure) throw failure
 }
 
@@ -128,6 +140,7 @@ async function sha256Of(path: string): Promise<string> {
   const hash = createHash('sha256')
 
   for await (const chunk of createReadStream(path)) {
+    // SAFETY: A file read stream without an encoding yields Buffer chunks.
     hash.update(chunk as Uint8Array)
   }
 
@@ -144,7 +157,7 @@ async function insertTable(
   const [schema, table] = name.split('.')
   const target = `${identifier(schema)}.${identifier(table)}`
 
-  const { rows: columnRows } = await conn.query(
+  const { rows: columnRows } = await conn.query<{ name: string }>(
     `SELECT a.attname::text AS name
        FROM pg_attribute a
       WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped
@@ -152,7 +165,7 @@ async function insertTable(
     [target],
   )
 
-  const columns = new Set(columnRows.map((r) => r.name as string))
+  const columns = new Set(columnRows.map((r) => r.name))
   const readable = Readable.from(createReadStream(path, 'utf8'))
   let carry = ''
   let batch: string[] = []
@@ -164,6 +177,8 @@ async function insertTable(
     const present = new Set<string>()
 
     for (const line of batch) {
+      // Preserve native key enumeration; PostgreSQL validates inserted row shape.
+      // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
       for (const key of Object.keys(JSON.parse(line) as object)) {
         if (columns.has(key)) present.add(key)
       }
@@ -181,6 +196,7 @@ async function insertTable(
   }
 
   for await (const piece of readable) {
+    // SAFETY: The underlying file stream was opened with UTF-8 encoding.
     carry += piece as string
     const lines = carry.split('\n')
     carry = lines.pop() ?? ''
@@ -211,20 +227,29 @@ export async function restoreWorkspaceArchive(input: {
   try {
     await extractArchive(input.zipPath, directory)
 
-    const manifest = JSON.parse(
+    const parsed: unknown = JSON.parse(
       await readFile(join(directory, 'manifest.json'), 'utf8'),
-    ) as Manifest
+    )
+
+    const identity = z
+      .looseObject({ kind: z.unknown(), formatVersion: z.unknown() })
+      .safeParse(parsed)
 
     if (
-      manifest.kind !== 'sheetbase-workspace-export' ||
-      manifest.formatVersion !== ARCHIVE_FORMAT_VERSION
+      !identity.success ||
+      identity.data.kind !== 'sheetbase-workspace-export' ||
+      identity.data.formatVersion !== ARCHIVE_FORMAT_VERSION
     ) {
       throw new RestoreError('This is not a Sheetbase workspace archive.')
     }
 
+    const manifest = manifestSchema.parse(parsed)
+
     for (const table of manifest.tables) {
       if (!table.path || !table.sha256) continue
 
+      // Check in manifest order so the first reported mismatch stays stable.
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop
       if ((await sha256Of(join(directory, table.path))) !== table.sha256) {
         throw new RestoreError(
           `${table.name} does not match its recorded hash.`,
@@ -232,24 +257,26 @@ export async function restoreWorkspaceArchive(input: {
       }
     }
 
-    const restorableFiles = manifest.files.filter(
-      (f) => f.status === 'ok' && f.path,
+    const restorableFiles = manifest.files.flatMap((file) =>
+      file.status === 'ok' && file.path ? [{ ...file, path: file.path }] : [],
     )
 
     for (const file of restorableFiles) {
       if (
-        (await sha256Of(join(directory, file.path as string))) !== file.sha256
+        // Check in manifest order so the first reported mismatch stays stable.
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop
+        (await sha256Of(join(directory, file.path))) !== file.sha256
       ) {
         throw new RestoreError(
-          `File ${file.id} does not match its recorded hash.`,
+          `File ${String(file.id)} does not match its recorded hash.`,
         )
       }
     }
 
     const skippedTables: RestoreReport['skippedTables'] = []
 
-    const plan = manifest.tables.filter((table) => {
-      if (!table.path || table.rows === 0) return false
+    const plan = manifest.tables.flatMap((table) => {
+      if (!table.path || table.rows === 0) return []
 
       // A table that lost a secret column cannot be rebuilt without it.
       if (table.droppedColumns.length > 0 && table.name !== 'internal.user') {
@@ -259,10 +286,10 @@ export async function restoreWorkspaceArchive(input: {
             'holds secrets, which are not in an archive: create them again',
         })
 
-        return false
+        return []
       }
 
-      return true
+      return [{ ...table, path: table.path }]
     })
 
     const report: RestoreReport = {
@@ -302,10 +329,13 @@ export async function restoreWorkspaceArchive(input: {
 
       // Files first: if they fail nothing has touched the database yet.
       for (const file of restorableFiles) {
-        const storageKey = (file.path as string).replace(/^files\//, '')
+        const storageKey = file.path.replace(/^files\//, '')
 
+        // Keep writes ordered and bound storage to one stream at a time.
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop
         if (await input.storage.head(storageKey)) continue
-        const bytes = createReadStream(join(directory, file.path as string))
+        const bytes = createReadStream(join(directory, file.path))
+        // SAFETY: The unencoded file stream yields Buffer/Uint8Array chunks.
         await input.storage.putStream(
           storageKey,
           Readable.toWeb(bytes) as ReadableStream<Uint8Array>,
@@ -319,11 +349,7 @@ export async function restoreWorkspaceArchive(input: {
         await conn.query('SET LOCAL session_replication_role = replica')
 
         for (const table of plan) {
-          await insertTable(
-            conn,
-            table.name,
-            join(directory, table.path as string),
-          )
+          await insertTable(conn, table.name, join(directory, table.path))
         }
 
         await conn.query('COMMIT')

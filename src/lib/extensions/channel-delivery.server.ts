@@ -57,6 +57,7 @@ export interface ChannelRunResult {
 /** Makes a link from the app's address; an absolute address is left as it is. */
 export function absoluteLink(baseUrl: string, link: string): string {
   if (/^https?:\/\//i.test(link)) return link
+
   return `${baseUrl.replace(/\/+$/, '')}${link.startsWith('/') ? '' : '/'}${link}`
 }
 
@@ -68,24 +69,31 @@ export async function runChannelWorker(
   const result: ChannelRunResult = { sent: 0, failed: 0 }
   const deliver = deps.deliver ?? runChannelDelivery
   const baseUrl = deps.baseUrl ?? env.BETTER_AUTH_URL
+
   try {
     const claimed = await conn.query<DeliveryRow>(
       'SELECT id, workspace_id, user_id, extension_id, channel_id, destination, payload FROM internal.claim_due_plugin_channel_deliveries($1)',
       [50],
     )
+
     for (const delivery of claimed.rows) {
       let error: string | null = null
+
       try {
         const key = await conn.query<{ key: string }>(
           'SELECT key FROM api.extensions WHERE id = $1 AND workspace_id = $2',
           [delivery.extension_id, delivery.workspace_id],
         )
+
         const extensionKey = key.rows[0]?.key
+
         if (!extensionKey) throw new Error('The plugin is no longer installed.')
+
         const notification: ChannelNotification = {
           ...delivery.payload,
           link: absoluteLink(baseUrl, delivery.payload.link),
         }
+
         await deliver({
           workspaceId: delivery.workspace_id,
           actorUserId: delivery.user_id,
@@ -97,14 +105,18 @@ export async function runChannelWorker(
       } catch (cause) {
         error = cause instanceof Error ? cause.message : String(cause)
       }
+
       await conn.query(
         'SELECT internal.finish_plugin_channel_delivery($1, $2, $3)',
         [delivery.id, error === null, error],
       )
+
       if (error === null) result.sent += 1
       else result.failed += 1
     }
+
     await conn.query('SELECT internal.prune_plugin_channel_deliveries()')
+
     return result
   } finally {
     await conn.end()
@@ -113,18 +125,24 @@ export async function runChannelWorker(
 
 let timer: ReturnType<typeof setInterval> | null = null
 let bootTimer: ReturnType<typeof setTimeout> | null = null
-const startedGlobalKey = '__sheetbaseChannelSchedulerStarted'
+
+declare global {
+  var __sheetbaseChannelSchedulerStarted: boolean | undefined
+}
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
 async function defaultConnect(): Promise<ChannelConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return client
 }
 
@@ -132,18 +150,22 @@ export function startChannelScheduler(
   options: { deps?: ChannelDeps; intervalMs?: number } = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+
+  if (globalThis.__sheetbaseChannelSchedulerStarted) return
+  globalThis.__sheetbaseChannelSchedulerStarted = true
 
   const deps = options.deps ?? { connect: defaultConnect }
   let running = false
+
   const tick = async () => {
     if (running) return
     running = true
+
     try {
       const result = await runChannelWorker(deps)
+
       if (result.sent || result.failed)
         logger.info('notification channel worker ran', { ...result })
     } catch (error) {
@@ -154,6 +176,7 @@ export function startChannelScheduler(
       running = false
     }
   }
+
   bootTimer = setTimeout(() => void tick(), 4_000)
   bootTimer.unref()
   timer = setInterval(
@@ -166,9 +189,9 @@ export function startChannelScheduler(
 /** Clear the timers and the per-process guard (tests and shutdown). */
 export function stopChannelScheduler(): void {
   if (bootTimer) clearTimeout(bootTimer)
+
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null
-  const g = globalThis as unknown as Record<string, unknown>
-  delete g[startedGlobalKey]
+  delete globalThis.__sheetbaseChannelSchedulerStarted
 }

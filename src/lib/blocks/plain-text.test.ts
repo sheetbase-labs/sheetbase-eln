@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isRichTextPayload, richTextToPlainText } from './rich-text'
+import { isRichTextPayload, richTextToPlainText } from './rich-text-data'
 import { plainTextToRichText } from './plain-text'
 
 describe('plainTextToRichText', () => {

@@ -11,6 +11,7 @@
  * surface through a server-side DataClient, so runs, capability checks,
  * idempotency and change events behave exactly as in the browser flows.
  */
+import { z } from 'zod'
 import type { DataClient } from '#/lib/data-client'
 import { env } from '#/env.server'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
@@ -56,19 +57,21 @@ export interface ConnectorExecutionContext {
 export function createServerDataClient(token: string): DataClient {
   async function rpc<T>(
     name: string,
-    args: Record<string, unknown>,
+    args: Parameters<DataClient['rpc']>[1],
   ): Promise<T> {
     const { status, body } = await postgrestRpc<T>(name, args, token)
 
     if (status >= 400) {
-      const message =
-        body && typeof body === 'object' && 'message' in body
-          ? String((body as { message?: unknown }).message)
-          : `RPC ${name} failed.`
+      const error = z.object({ message: z.unknown() }).safeParse(body)
+
+      const message = error.success
+        ? z.coerce.string().parse(error.data.message)
+        : `RPC ${name} failed.`
 
       throw new Error(message)
     }
 
+    // SAFETY: This generic DataClient forwards the caller-selected RPC shape after rejecting HTTP failures; resource owners decode their own payloads.
     return body as T
   }
 
@@ -84,20 +87,20 @@ export function createServerDataClient(token: string): DataClient {
         throw new Error(`${resource} query failed (${status}).`)
       }
 
+      // SAFETY: The caller selects T for this generic table transport; failed HTTP responses are rejected above and resource owners decode the payload.
       return body as T[]
     },
     count: async (resource: string, query = ''): Promise<number> => {
-      const rows = await createServerDataClient(token).list<unknown>(
-        resource,
-        query,
-      )
+      const rows = await createServerDataClient(
+        token,
+      ).list<z.core.util.JSONType>(resource, query)
 
       return rows.length
     },
     rpc,
     insert: async <T>(
       resource: string,
-      row: Record<string, unknown>,
+      row: Parameters<DataClient['insert']>[1],
     ): Promise<T> => {
       const { status, body } = await postgrestInsert<T>(resource, row, token)
 
@@ -105,12 +108,13 @@ export function createServerDataClient(token: string): DataClient {
         throw new Error(`${resource} insert failed (${status}).`)
       }
 
+      // SAFETY: Successful insert responses retain the caller-selected DataClient result shape; resource-specific decoding stays with the owner.
       return body as T
     },
     patch: async <T>(
       resource: string,
       query: string,
-      row: Record<string, unknown>,
+      row: Parameters<DataClient['patch']>[2],
     ): Promise<T[]> => {
       const { status, body } = await postgrestPatch<T[]>(
         resource,
@@ -121,9 +125,10 @@ export function createServerDataClient(token: string): DataClient {
 
       if (status >= 400) throw new Error(`${resource} update failed.`)
 
+      // SAFETY: Successful patch responses retain the caller-selected DataClient row shape; resource-specific decoding stays with the owner.
       return body as T[]
     },
-    remove: async (): Promise<unknown[]> => {
+    remove: async () => {
       throw new Error('Connector execution never deletes rows directly.')
     },
   }

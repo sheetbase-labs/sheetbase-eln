@@ -65,6 +65,20 @@ describe('revisionPackageToDocument', () => {
     expect(doc.verificationCode).toBeNull()
     expect(doc.signatures).toEqual([])
   })
+
+  it('retains unknown historical signature meanings and null-entry failures', () => {
+    const historical = revisionPackageToDocument({
+      ...pkg,
+      signatures: [{ signature_meaning: 'legacy-instrument-attestation' }],
+    })
+
+    expect(historical.signatures?.[0]?.signatureMeaning).toBe(
+      'legacy-instrument-attestation',
+    )
+    expect(() =>
+      revisionPackageToDocument({ ...pkg, signatures: [null] }),
+    ).toThrow(TypeError)
+  })
 })
 
 describe('verificationCodeFor', () => {

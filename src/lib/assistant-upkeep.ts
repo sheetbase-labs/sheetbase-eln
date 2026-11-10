@@ -29,8 +29,10 @@ export const SAMPLE_QUARANTINE_TOOL = 'sheetbase.sample.quarantine'
 export const SAMPLE_DISPOSE_TOOL = 'sheetbase.sample.dispose'
 export const SAMPLE_RECEIVE_TOOL = 'sheetbase.sample.receive'
 export const SAMPLE_ARCHIVE_TOOL = 'sheetbase.sample.archive'
+
 export const SAMPLE_RESERVATION_CANCEL_TOOL =
   'sheetbase.sample.reservation_cancel'
+
 export const STORAGE_PLACE_TOOL = 'sheetbase.storage.place'
 export const STORAGE_ADD_LOCATION_TOOL = 'sheetbase.storage.add_location'
 export const INSTRUMENT_LOG_TOOL = 'sheetbase.instrument.log_service'
@@ -85,6 +87,7 @@ export type UpkeepProposeToolName = (typeof UPKEEP_PROPOSE_TOOL_NAMES)[number]
 const title = z.string().min(1).max(120)
 const summary = z.string().min(1).max(400)
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD.')
+
 const sampleRef = z
   .string()
   .min(1)
@@ -93,378 +96,332 @@ const sampleRef = z
     'The sample as the person names it: its identifier (S-0142) or name.',
   )
 
-export const proposeProjectCreateSchema = z
-  .object({
-    title,
-    summary,
-    projectName: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The name of the new project, in the person’s words.'),
-    startedOn: day.optional().describe('When it starts, if they said.'),
-  })
-  .strict()
+export const proposeProjectCreateSchema = z.strictObject({
+  title,
+  summary,
+  projectName: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The name of the new project, in the person’s words.'),
+  startedOn: day.optional().describe('When it starts, if they said.'),
+})
 
-export const proposeFollowSchema = z
-  .object({
-    title,
-    summary,
-    target: z.enum(['record', 'project']),
-    name: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe(
-        'The record by identifier (EXP-12) or title, or the project by name or key.',
-      ),
-    follow: z
-      .boolean()
-      .optional()
-      .describe('false to stop following. Default true.'),
-  })
-  .strict()
+export const proposeFollowSchema = z.strictObject({
+  title,
+  summary,
+  target: z.enum(['record', 'project']),
+  name: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      'The record by identifier (EXP-12) or title, or the project by name or key.',
+    ),
+  follow: z
+    .boolean()
+    .optional()
+    .describe('false to stop following. Default true.'),
+})
 
-export const proposeNotificationsReadSchema = z
-  .object({ title, summary })
-  .strict()
+export const proposeNotificationsReadSchema = z.strictObject({ title, summary })
 
-export const proposeReagentUpdateSchema = z
-  .object({
-    title,
-    summary,
-    order: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The order by number (RO-0012) or words from the material.'),
-    change: z
-      .enum(['ordered', 'cancelled'])
-      .describe(
-        'ordered: it has now been placed with the supplier. cancelled: it is not needed.',
-      ),
-    supplier: z.string().max(200).optional(),
-    orderReference: z
-      .string()
-      .max(200)
-      .optional()
-      .describe('The supplier’s order or PO number.'),
-    expectedOn: day.optional().describe('When it should arrive.'),
-    reason: z.string().max(400).optional().describe('Why, for a cancellation.'),
-  })
-  .strict()
+export const proposeReagentUpdateSchema = z.strictObject({
+  title,
+  summary,
+  order: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The order by number (RO-0012) or words from the material.'),
+  change: z
+    .enum(['ordered', 'cancelled'])
+    .describe(
+      'ordered: it has now been placed with the supplier. cancelled: it is not needed.',
+    ),
+  supplier: z.string().max(200).optional(),
+  orderReference: z
+    .string()
+    .max(200)
+    .optional()
+    .describe('The supplier’s order or PO number.'),
+  expectedOn: day.optional().describe('When it should arrive.'),
+  reason: z.string().max(400).optional().describe('Why, for a cancellation.'),
+})
 
-export const proposeShipmentCancelSchema = z
-  .object({
-    title,
-    summary,
-    shipment: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe(
-        'The shipment by number (SHP-0012) or words from who it is for.',
-      ),
-    reason: z.string().max(400).optional(),
-  })
-  .strict()
+export const proposeShipmentCancelSchema = z.strictObject({
+  title,
+  summary,
+  shipment: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The shipment by number (SHP-0012) or words from who it is for.'),
+  reason: z.string().max(400).optional(),
+})
 
-export const proposeSampleReserveSchema = z
-  .object({
-    title,
-    summary,
-    sample: sampleRef,
-    experiment: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The experiment it is held for, by identifier or title.'),
-    quantity: z.number().positive(),
-    notes: z.string().max(400).optional(),
-  })
-  .strict()
+export const proposeSampleReserveSchema = z.strictObject({
+  title,
+  summary,
+  sample: sampleRef,
+  experiment: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The experiment it is held for, by identifier or title.'),
+  quantity: z.number().positive(),
+  notes: z.string().max(400).optional(),
+})
 
-export const proposeSampleRetireSchema = z
-  .object({
-    title,
-    summary,
-    sample: sampleRef,
-    reason: z
-      .string()
-      .min(1)
-      .max(400)
-      .describe('Why, in the person’s words. Ask if they have not said.'),
-    notes: z.string().max(400).optional(),
-  })
-  .strict()
+export const proposeSampleRetireSchema = z.strictObject({
+  title,
+  summary,
+  sample: sampleRef,
+  reason: z
+    .string()
+    .min(1)
+    .max(400)
+    .describe('Why, in the person’s words. Ask if they have not said.'),
+  notes: z.string().max(400).optional(),
+})
 
-export const proposeSampleReceiveSchema = z
-  .object({
-    title,
-    summary,
-    sample: sampleRef,
-    quantity: z.number().positive().describe('How much arrived or was added.'),
-    location: z
-      .string()
-      .max(200)
-      .optional()
-      .describe('Where it is kept, in words, if the person says.'),
-    notes: z.string().max(400).optional(),
-  })
-  .strict()
+export const proposeSampleReceiveSchema = z.strictObject({
+  title,
+  summary,
+  sample: sampleRef,
+  quantity: z.number().positive().describe('How much arrived or was added.'),
+  location: z
+    .string()
+    .max(200)
+    .optional()
+    .describe('Where it is kept, in words, if the person says.'),
+  notes: z.string().max(400).optional(),
+})
 
-export const proposeSampleArchiveSchema = z
-  .object({
-    title,
-    summary,
-    sample: sampleRef,
-    archived: z
-      .boolean()
-      .describe('true to archive the sample, false to bring it back.'),
-    notes: z.string().max(400).optional(),
-  })
-  .strict()
+export const proposeSampleArchiveSchema = z.strictObject({
+  title,
+  summary,
+  sample: sampleRef,
+  archived: z
+    .boolean()
+    .describe('true to archive the sample, false to bring it back.'),
+  notes: z.string().max(400).optional(),
+})
 
-export const proposeSampleReservationCancelSchema = z
-  .object({
-    title,
-    summary,
-    sample: sampleRef,
-    experiment: z
-      .string()
-      .max(200)
-      .optional()
-      .describe(
-        'The experiment the reservation is for, when the sample has more than one.',
-      ),
-    notes: z.string().max(400).optional(),
-  })
-  .strict()
+export const proposeSampleReservationCancelSchema = z.strictObject({
+  title,
+  summary,
+  sample: sampleRef,
+  experiment: z
+    .string()
+    .max(200)
+    .optional()
+    .describe(
+      'The experiment the reservation is for, when the sample has more than one.',
+    ),
+  notes: z.string().max(400).optional(),
+})
 
-export const proposeStoragePlaceSchema = z
-  .object({
-    title,
-    summary,
-    sample: sampleRef,
-    box: z
-      .string()
-      .max(200)
-      .optional()
-      .describe('The box by name or code. Leave out to take the sample out.'),
-    position: z
-      .string()
-      .max(8)
-      .optional()
-      .describe(
-        'The position in the box, such as B4. Leave out to take it out.',
-      ),
-    notes: z.string().max(400).optional(),
-  })
-  .strict()
+export const proposeStoragePlaceSchema = z.strictObject({
+  title,
+  summary,
+  sample: sampleRef,
+  box: z
+    .string()
+    .max(200)
+    .optional()
+    .describe('The box by name or code. Leave out to take the sample out.'),
+  position: z
+    .string()
+    .max(8)
+    .optional()
+    .describe('The position in the box, such as B4. Leave out to take it out.'),
+  notes: z.string().max(400).optional(),
+})
 
-export const proposeStorageAddLocationSchema = z
-  .object({
-    title,
-    summary,
-    level: z.enum(['site', 'room', 'unit', 'shelf', 'rack', 'box']),
-    name: z.string().min(1).max(200),
-    code: z
-      .string()
-      .max(64)
-      .optional()
-      .describe('A short code, needed for a site, room, unit and box.'),
-    inside: z
-      .string()
-      .max(200)
-      .optional()
-      .describe(
-        'The location it goes inside, by name (the room for a freezer, the rack for a box). Not for a site.',
-      ),
-    unitType: z
-      .enum([
-        'freezer',
-        'fridge',
-        'cryo',
-        'incubator',
-        'ambient',
-        'dewar',
-        'cabinet',
-      ])
-      .optional(),
-    rows: z.number().int().min(1).max(26).optional().describe('For a box.'),
-    cols: z.number().int().min(1).max(26).optional().describe('For a box.'),
-  })
-  .strict()
+export const proposeStorageAddLocationSchema = z.strictObject({
+  title,
+  summary,
+  level: z.enum(['site', 'room', 'unit', 'shelf', 'rack', 'box']),
+  name: z.string().min(1).max(200),
+  code: z
+    .string()
+    .max(64)
+    .optional()
+    .describe('A short code, needed for a site, room, unit and box.'),
+  inside: z
+    .string()
+    .max(200)
+    .optional()
+    .describe(
+      'The location it goes inside, by name (the room for a freezer, the rack for a box). Not for a site.',
+    ),
+  unitType: z
+    .enum([
+      'freezer',
+      'fridge',
+      'cryo',
+      'incubator',
+      'ambient',
+      'dewar',
+      'cabinet',
+    ])
+    .optional(),
+  rows: z.number().int().min(1).max(26).optional().describe('For a box.'),
+  cols: z.number().int().min(1).max(26).optional().describe('For a box.'),
+})
 
-export const proposeInstrumentLogSchema = z
-  .object({
-    title,
-    summary,
-    instrument: z.string().min(1).max(200),
-    kind: z.enum(['repair', 'service', 'inspection', 'other']),
-    visitedOn: day.describe('The day of the visit.'),
-    summaryOfWork: z
-      .string()
-      .min(1)
-      .max(400)
-      .describe('One line on what was done.'),
-    details: z.string().max(2_000).optional(),
-    performedBy: z
-      .string()
-      .max(200)
-      .optional()
-      .describe('Who did it, such as the engineer or company.'),
-  })
-  .strict()
+export const proposeInstrumentLogSchema = z.strictObject({
+  title,
+  summary,
+  instrument: z.string().min(1).max(200),
+  kind: z.enum(['repair', 'service', 'inspection', 'other']),
+  visitedOn: day.describe('The day of the visit.'),
+  summaryOfWork: z
+    .string()
+    .min(1)
+    .max(400)
+    .describe('One line on what was done.'),
+  details: z.string().max(2_000).optional(),
+  performedBy: z
+    .string()
+    .max(200)
+    .optional()
+    .describe('Who did it, such as the engineer or company.'),
+})
 
-export const proposeAbsenceSetSchema = z
-  .object({
-    title,
-    summary,
-    from: day
-      .optional()
-      .describe('First day away, YYYY-MM-DD. Defaults to today.'),
-    until: day.describe('The last day away, YYYY-MM-DD.'),
-    cover: z
-      .string()
-      .min(1)
-      .max(200)
-      .optional()
-      .describe(
-        'The colleague who covers reviews while they are away, by name. Leave out if they did not name one.',
-      ),
-    note: z.string().max(500).optional(),
-  })
-  .strict()
+export const proposeAbsenceSetSchema = z.strictObject({
+  title,
+  summary,
+  from: day
+    .optional()
+    .describe('First day away, YYYY-MM-DD. Defaults to today.'),
+  until: day.describe('The last day away, YYYY-MM-DD.'),
+  cover: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      'The colleague who covers reviews while they are away, by name. Leave out if they did not name one.',
+    ),
+  note: z.string().max(500).optional(),
+})
 
-export const proposeAbsenceCancelSchema = z.object({ title, summary }).strict()
+export const proposeAbsenceCancelSchema = z.strictObject({ title, summary })
 
-export const proposeHandoverSchema = z
-  .object({
-    title,
-    summary,
-    to: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The colleague who takes over, by name.'),
-    from: z
-      .string()
-      .min(1)
-      .max(200)
-      .optional()
-      .describe(
-        'Whose work moves, by name. Leave out when the person is handing over their own work.',
-      ),
-  })
-  .strict()
+export const proposeHandoverSchema = z.strictObject({
+  title,
+  summary,
+  to: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The colleague who takes over, by name.'),
+  from: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      'Whose work moves, by name. Leave out when the person is handing over their own work.',
+    ),
+})
 
-export const proposeTimestampsSetSchema = z
-  .object({
-    title,
-    summary,
-    service: z
-      .enum(['off', 'dfn', 'digicert', 'custom'])
-      .describe(
-        'Which independent time-stamping service confirms when signatures were made, or off to stop.',
-      ),
-    address: z
-      .string()
-      .max(500)
-      .optional()
-      .describe('The service address, only for custom (http:// or https://).'),
-  })
-  .strict()
+export const proposeTimestampsSetSchema = z.strictObject({
+  title,
+  summary,
+  service: z
+    .enum(['off', 'dfn', 'digicert', 'custom'])
+    .describe(
+      'Which independent time-stamping service confirms when signatures were made, or off to stop.',
+    ),
+  address: z
+    .string()
+    .max(500)
+    .optional()
+    .describe('The service address, only for custom (http:// or https://).'),
+})
 
-export const proposeTimestampsRetrySchema = z
-  .object({
-    title,
-    summary,
-    signatureId: z
-      .string()
-      .uuid()
-      .describe('A signature that gave up, from the timestamps list.'),
-  })
-  .strict()
+export const proposeTimestampsRetrySchema = z.strictObject({
+  title,
+  summary,
+  signatureId: z
+    .string()
+    .uuid()
+    .describe('A signature that gave up, from the timestamps list.'),
+})
 
-export const proposeOpenTablesSetSchema = z
-  .object({
-    title,
-    summary,
-    enabled: z
-      .boolean()
-      .describe(
-        'true to write the workspace’s data as open tables (Parquet files analysts can query in DuckDB, Polars or Spark); false to stop.',
-      ),
-  })
-  .strict()
+export const proposeOpenTablesSetSchema = z.strictObject({
+  title,
+  summary,
+  enabled: z
+    .boolean()
+    .describe(
+      'true to write the workspace’s data as open tables (Parquet files analysts can query in DuckDB, Polars or Spark); false to stop.',
+    ),
+})
 
-export const proposePublicationRequestSchema = z
-  .object({
-    title,
-    summary,
-    kind: z
-      .enum(['experiment', 'dataset_version'])
-      .describe('What to publish.'),
-    experiment: z
-      .string()
-      .max(200)
-      .optional()
-      .describe(
-        'For an experiment: its identifier such as EXP-12, or its title.',
-      ),
-    dataset: z
-      .string()
-      .max(200)
-      .optional()
-      .describe('For a dataset version: the dataset’s name.'),
-    version: z
-      .string()
-      .max(200)
-      .optional()
-      .describe(
-        'For a dataset version: the version label. Defaults to the newest.',
-      ),
-    repository: z
-      .string()
-      .max(120)
-      .optional()
-      .describe(
-        'The repository’s name as set up in the app. Optional when there is only one.',
-      ),
-    publicationTitle: z
-      .string()
-      .max(200)
-      .optional()
-      .describe(
-        'Title for the published record. Defaults to the experiment or version name.',
-      ),
-  })
-  .strict()
+export const proposePublicationRequestSchema = z.strictObject({
+  title,
+  summary,
+  kind: z.enum(['experiment', 'dataset_version']).describe('What to publish.'),
+  experiment: z
+    .string()
+    .max(200)
+    .optional()
+    .describe(
+      'For an experiment: its identifier such as EXP-12, or its title.',
+    ),
+  dataset: z
+    .string()
+    .max(200)
+    .optional()
+    .describe('For a dataset version: the dataset’s name.'),
+  version: z
+    .string()
+    .max(200)
+    .optional()
+    .describe(
+      'For a dataset version: the version label. Defaults to the newest.',
+    ),
+  repository: z
+    .string()
+    .max(120)
+    .optional()
+    .describe(
+      'The repository’s name as set up in the app. Optional when there is only one.',
+    ),
+  publicationTitle: z
+    .string()
+    .max(200)
+    .optional()
+    .describe(
+      'Title for the published record. Defaults to the experiment or version name.',
+    ),
+})
 
-export const proposeValidationRunSchema = z.object({ title, summary }).strict()
+export const proposeValidationRunSchema = z.strictObject({ title, summary })
 
-export const proposePipelineReproduceSchema = z
-  .object({
-    title,
-    summary,
-    pipeline: z
-      .string()
-      .min(1)
-      .max(120)
-      .optional()
-      .describe(
-        'The pipeline by name or identifier such as PL-0014. Reproduces its latest finished run.',
-      ),
-    runId: z
-      .string()
-      .uuid()
-      .optional()
-      .describe(
-        'A particular finished run, taken from a read of the pipeline runs. Use instead of pipeline.',
-      ),
-  })
-  .strict()
+export const proposePipelineReproduceSchema = z.strictObject({
+  title,
+  summary,
+  pipeline: z
+    .string()
+    .min(1)
+    .max(120)
+    .optional()
+    .describe(
+      'The pipeline by name or identifier such as PL-0014. Reproduces its latest finished run.',
+    ),
+  runId: z
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      'A particular finished run, taken from a read of the pipeline runs. Use instead of pipeline.',
+    ),
+})
 
 const contractName = z
   .string()
@@ -474,82 +431,74 @@ const contractName = z
     'The data contract by its name (usually the model it belongs to). List the contracts area first.',
   )
 
-export const proposeContractCheckSchema = z
-  .object({ title, summary, contract: contractName })
-  .strict()
+export const proposeContractCheckSchema = z.strictObject({
+  title,
+  summary,
+  contract: contractName,
+})
 
-export const proposeContractRuleAddSchema = z
-  .object({
-    title,
-    summary,
-    contract: contractName,
-    kind: z.enum(CONTRACT_RULE_KINDS),
-    field: z
-      .string()
-      .max(200)
-      .optional()
-      .describe(
-        'The field key, for every kind except row_count and freshness of the whole dataset.',
-      ),
-    mode: z
-      .enum(['warn', 'block'])
-      .optional()
-      .describe(
-        'warn keeps the data and shows a warning (default). block refuses an import or pipeline run that breaks it.',
-      ),
-    min: z.number().optional().describe('Lowest value, or fewest rows.'),
-    max: z.number().optional().describe('Highest value, or most rows.'),
-    units: z.array(z.string().min(1).max(40)).max(20).optional(),
-    threshold: z
-      .number()
-      .optional()
-      .describe(
-        'Completeness: the lowest share of rows with a value, 1 to 100.',
-      ),
-    maxAgeMinutes: z
-      .number()
-      .int()
-      .optional()
-      .describe('Freshness: the longest gap between new data, in minutes.'),
-  })
-  .strict()
+export const proposeContractRuleAddSchema = z.strictObject({
+  title,
+  summary,
+  contract: contractName,
+  kind: z.enum(CONTRACT_RULE_KINDS),
+  field: z
+    .string()
+    .max(200)
+    .optional()
+    .describe(
+      'The field key, for every kind except row_count and freshness of the whole dataset.',
+    ),
+  mode: z
+    .enum(['warn', 'block'])
+    .optional()
+    .describe(
+      'warn keeps the data and shows a warning (default). block refuses an import or pipeline run that breaks it.',
+    ),
+  min: z.number().optional().describe('Lowest value, or fewest rows.'),
+  max: z.number().optional().describe('Highest value, or most rows.'),
+  units: z.array(z.string().min(1).max(40)).max(20).optional(),
+  threshold: z
+    .number()
+    .optional()
+    .describe('Completeness: the lowest share of rows with a value, 1 to 100.'),
+  maxAgeMinutes: z
+    .number()
+    .int()
+    .optional()
+    .describe('Freshness: the longest gap between new data, in minutes.'),
+})
 
-export const proposeGroupRoleSetSchema = z
-  .object({
-    title,
-    summary,
-    group: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The sign-in group as the identity provider spells it.'),
-    role: z.enum([
-      'admin',
-      'steward',
-      'scientist',
-      'analyst',
-      'reviewer',
-      'viewer',
-    ]),
-  })
-  .strict()
+export const proposeGroupRoleSetSchema = z.strictObject({
+  title,
+  summary,
+  group: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The sign-in group as the identity provider spells it.'),
+  role: z.enum([
+    'admin',
+    'steward',
+    'scientist',
+    'analyst',
+    'reviewer',
+    'viewer',
+  ]),
+})
 
-export const proposeGroupRoleRemoveSchema = z
-  .object({
-    title,
-    summary,
-    group: z.string().min(1).max(200),
-  })
-  .strict()
+export const proposeGroupRoleRemoveSchema = z.strictObject({
+  title,
+  summary,
+  group: z.string().min(1).max(200),
+})
 
-export const proposeScimTokenRevokeSchema = z
-  .object({
-    title,
-    summary,
-    /** The label the token was given when it was made. */
-    token: z.string().min(1).max(200),
-  })
-  .strict()
+export const proposeScimTokenRevokeSchema = z.strictObject({
+  title,
+  summary,
+  /** The label the token was given when it was made. */
+  token: z.string().min(1).max(200),
+})
 
 /** What an upkeep card does when its button is pressed. */
 export type UpkeepAction =

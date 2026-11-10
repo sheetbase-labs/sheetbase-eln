@@ -6,6 +6,8 @@
  * sanitizer as every plugin SVG, a picture must be a base64 data address, and a
  * link must be a same-site path.
  */
+import { z } from 'zod'
+
 import { sanitizeSvg } from './screens'
 
 export interface FrameTableCell {
@@ -16,6 +18,7 @@ export interface FrameTableCell {
   shade?: number
   sort?: number | string | null
 }
+
 export interface FrameTable {
   columns: { key: string; label: string; align?: 'right' }[]
   rows: { id: string; cells: Record<string, FrameTableCell> }[]
@@ -28,76 +31,128 @@ export const FRAME_TABLE_LIMITS = { columns: 40, rows: 5000, text: 500 }
 const IMAGE_RE = /^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/
 const INTERNAL_PATH_RE = /^\/(?!\/)[A-Za-z0-9._~!$&'()*+,;=:@%/?#-]*$/
 
-const isObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
+const cellInput = z
+  .object({
+    text: z.string().optional().catch(undefined),
+    svg: z.string().optional().catch(undefined),
+    image: z.string().regex(IMAGE_RE).optional().catch(undefined),
+    href: z
+      .string()
+      .max(500)
+      .regex(INTERNAL_PATH_RE)
+      .optional()
+      .catch(undefined),
+    shade: z.number().optional().catch(undefined),
+    sort: z
+      .union([
+        z.string().transform((value) => value.slice(0, 200)),
+        z.number(),
+        z.null(),
+      ])
+      .optional()
+      .catch(undefined),
+  })
+  .catch({})
 
-function checkCell(raw: unknown): FrameTableCell {
-  if (!isObject(raw)) return {}
+const columnInput = z.object({
+  key: z.string(),
+  label: z.string(),
+  align: z.literal('right').optional().catch(undefined),
+})
+
+const rowInput = z.object({
+  id: z.string(),
+  cells: z.record(z.string(), z.unknown()),
+})
+
+const tableInput = z.object({
+  columns: z.array(z.unknown()),
+  rows: z.array(z.unknown()),
+  sort: z
+    .object({
+      key: z.string(),
+      descending: z.boolean().catch(false),
+    })
+    .optional()
+    .catch(undefined),
+  empty: z.string().optional().catch(undefined),
+})
+
+function checkCell(raw: z.infer<typeof cellInput>): FrameTableCell {
   const cell: FrameTableCell = {}
-  if (typeof raw.text === 'string')
+
+  if (raw.text !== undefined)
     cell.text = raw.text.slice(0, FRAME_TABLE_LIMITS.text)
-  if (typeof raw.svg === 'string') {
+
+  if (raw.svg !== undefined) {
     const clean = sanitizeSvg(raw.svg)
+
     if (clean) cell.svg = clean
   }
-  if (typeof raw.image === 'string' && IMAGE_RE.test(raw.image))
-    cell.image = raw.image
-  if (
-    typeof raw.href === 'string' &&
-    raw.href.length <= 500 &&
-    INTERNAL_PATH_RE.test(raw.href)
-  )
-    cell.href = raw.href
-  if (typeof raw.shade === 'number' && Number.isFinite(raw.shade))
-    cell.shade = Math.min(1, Math.max(0, raw.shade))
-  if (
-    raw.sort === null ||
-    typeof raw.sort === 'string' ||
-    (typeof raw.sort === 'number' && Number.isFinite(raw.sort))
-  )
-    cell.sort = typeof raw.sort === 'string' ? raw.sort.slice(0, 200) : raw.sort
+
+  if (raw.image !== undefined) cell.image = raw.image
+
+  if (raw.href !== undefined) cell.href = raw.href
+
+  if (raw.shade !== undefined) cell.shade = Math.min(1, Math.max(0, raw.shade))
+
+  if (raw.sort !== undefined) cell.sort = raw.sort
+
   return cell
 }
 
 /** The table a screen sent, or null when it is not one (or the screen cleared it). */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This receives sandbox messages; table/row/column/cell schemas drop malformed parts before anything reaches the renderer (frame-table.test.ts).
 export function checkFrameTable(raw: unknown): FrameTable | null {
-  if (!isObject(raw) || !Array.isArray(raw.columns) || !Array.isArray(raw.rows))
-    return null
+  const parsed = tableInput.safeParse(raw)
+
+  if (!parsed.success) return null
+
+  const input = parsed.data
   const columns: FrameTable['columns'] = []
-  for (const c of raw.columns.slice(0, FRAME_TABLE_LIMITS.columns)) {
-    if (
-      !isObject(c) ||
-      typeof c.key !== 'string' ||
-      typeof c.label !== 'string'
-    )
-      continue
-    columns.push({
+
+  for (const candidate of input.columns.slice(0, FRAME_TABLE_LIMITS.columns)) {
+    const column = columnInput.safeParse(candidate)
+
+    if (!column.success) continue
+    const c = column.data
+
+    const out: FrameTable['columns'][number] = {
       key: c.key.slice(0, 80),
       label: c.label.slice(0, 80),
-      ...(c.align === 'right' ? { align: 'right' as const } : {}),
-    })
+    }
+
+    if (c.align) out.align = c.align
+    columns.push(out)
   }
+
   if (columns.length === 0) return null
   const rows: FrameTable['rows'] = []
-  for (const r of raw.rows.slice(0, FRAME_TABLE_LIMITS.rows)) {
-    if (!isObject(r) || typeof r.id !== 'string' || !isObject(r.cells)) continue
+
+  for (const candidate of input.rows.slice(0, FRAME_TABLE_LIMITS.rows)) {
+    const row = rowInput.safeParse(candidate)
+
+    if (!row.success) continue
+    const r = row.data
     const cells: Record<string, FrameTableCell> = {}
+
     for (const column of columns)
-      cells[column.key] = checkCell(r.cells[column.key])
+      cells[column.key] = checkCell(cellInput.parse(r.cells[column.key]))
     rows.push({ id: r.id.slice(0, 80), cells })
   }
+
   const table: FrameTable = { columns, rows }
-  if (isObject(raw.sort) && typeof raw.sort.key === 'string')
-    table.sort = {
-      key: raw.sort.key,
-      descending: raw.sort.descending === true,
-    }
-  if (typeof raw.empty === 'string') table.empty = raw.empty.slice(0, 200)
+
+  if (input.sort) table.sort = input.sort
+
+  if (input.empty !== undefined) table.empty = input.empty.slice(0, 200)
+
   return table
 }
 
 const sortValue = (cell: FrameTableCell): number | string | null => {
   if (cell.sort !== undefined) return cell.sort
+
   return cell.text === undefined || cell.text === '' ? null : cell.text
 }
 
@@ -107,16 +162,23 @@ export function sortFrameRows(
   sort: { key: string; descending: boolean } | null,
 ): FrameTable['rows'] {
   if (!sort) return rows
+
   return [...rows].sort((a, b) => {
     const x = sortValue(a.cells[sort.key] ?? {})
     const y = sortValue(b.cells[sort.key] ?? {})
+
     if (x === y) return 0
+
     if (x === null) return 1
+
     if (y === null) return -1
+
     const order =
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- These are checked cell sort values, not raw messages. Both numbers use arithmetic (including negative values); mixed/text values retain locale numeric ordering. frame-table.test.ts distinguishes negative numeric order from string collation.
       typeof x === 'number' && typeof y === 'number'
         ? x - y
         : String(x).localeCompare(String(y), undefined, { numeric: true })
+
     return sort.descending ? -order : order
   })
 }

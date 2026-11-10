@@ -24,13 +24,13 @@ const contract = {
   writeTarget: { kind: 'dataset' as const },
 }
 
-const sampleRecord = {
+const sampleRecord: Parameters<typeof snapshotFromRecord>[0] = {
   id: SAMPLE_ID,
   kind: 'sample',
   identifier: 'SMP-2026-0001',
   title: 'LV harvest',
-  archivedAt: null as string | null,
-  deletedAt: null as string | null,
+  archivedAt: null,
+  deletedAt: null,
 }
 
 describe('Record-reference cell contract', () => {
@@ -171,5 +171,189 @@ describe('Record-reference cell contract', () => {
     expect(() =>
       clearRecordReference({ ...contract, readOnly: true }),
     ).toThrowError(/read-only/)
+  })
+
+  it('preserves required, nonstring and label-specific exceptions without native coercion', () => {
+    for (const value of [null, undefined, '']) {
+      expect(
+        parsePersistedRecordReference(value, { nullable: true }),
+      ).toBeNull()
+      expect(() =>
+        parsePersistedRecordReference(value, { nullable: false }),
+      ).toThrowError(
+        expect.objectContaining({
+          name: 'RecordReferenceCellError',
+          code: 'required',
+          message: 'Record reference is required.',
+        }),
+      )
+    }
+
+    for (const value of [
+      false,
+      0,
+      [],
+      {
+        toString() {
+          throw new Error('Must not coerce')
+        },
+      },
+    ]) {
+      expect(() =>
+        parsePersistedRecordReference(value, { nullable: true }),
+      ).toThrowError(
+        expect.objectContaining({
+          code: 'not-uuid',
+          message: 'Record reference must be a UUID string.',
+        }),
+      )
+    }
+
+    expect(() =>
+      parsePersistedRecordReference('SMP-2026-0001', { nullable: false }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: 'label-identity',
+        message:
+          'Choose the record from the list instead of typing its ID or name.',
+      }),
+    )
+    expect(() =>
+      parsePersistedRecordReference('smp-2026-0001', { nullable: false }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: 'not-uuid',
+        message:
+          'Choose the record from the list instead of typing its ID or name.',
+      }),
+    )
+    expect(
+      parsePersistedRecordReference('A0000000-0000-4000-8000-000000000001', {
+        nullable: false,
+      }),
+    ).toBe('A0000000-0000-4000-8000-000000000001')
+    expect(
+      parsePersistedRecordReference('00000000-0000-0000-0000-000000000000', {
+        nullable: false,
+      }),
+    ).toBe('00000000-0000-0000-0000-000000000000')
+  })
+
+  it('retains read-only, deleted and model priority while allowing an archived matching Record', () => {
+    const invalidRecord = {
+      recordId: 'not-a-uuid',
+      modelKey: 'material',
+      archived: true,
+      deleted: true,
+    }
+
+    expect(() =>
+      selectRecordReference({
+        contract: { ...contract, readOnly: true },
+        record: invalidRecord,
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: 'read-only',
+        message: 'Record reference is read-only.',
+      }),
+    )
+    expect(() =>
+      selectRecordReference({ contract, record: invalidRecord }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: 'invalid-model',
+        message: 'Deleted Records cannot be selected.',
+      }),
+    )
+    expect(() =>
+      selectRecordReference({
+        contract,
+        record: { ...invalidRecord, deleted: false },
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        code: 'invalid-model',
+        message: 'Record must belong to Model sample.',
+      }),
+    )
+    expect(
+      selectRecordReference({
+        contract,
+        record: {
+          recordId: SAMPLE_ID,
+          modelKey: 'sample',
+          archived: true,
+          deleted: false,
+        },
+      }),
+    ).toBe(SAMPLE_ID)
+    expect(() =>
+      clearRecordReference({ ...contract, nullable: false, readOnly: true }),
+    ).toThrowError(expect.objectContaining({ code: 'read-only' }))
+    expect(() =>
+      clearRecordReference({ ...contract, nullable: false }),
+    ).toThrowError(expect.objectContaining({ code: 'required' }))
+
+    let identityReads = 0
+    expect(
+      selectRecordReference({
+        contract,
+        record: {
+          get recordId() {
+            identityReads++
+
+            return identityReads === 1 ? SAMPLE_ID : OTHER_ID
+          },
+          modelKey: 'sample',
+          archived: false,
+          deleted: false,
+        },
+      }),
+    ).toBe(SAMPLE_ID)
+    expect(identityReads).toBe(1)
+  })
+
+  it('orders empty, missing, mismatched, invalid-model and archived states without inventing snapshot identity', () => {
+    const snapshot = {
+      ...snapshotFromRecord(sampleRecord, 'material'),
+      archived: true,
+    }
+
+    expect(
+      resolveRecordReferenceState({
+        persistedId: null,
+        snapshot,
+        targetModelKey: 'sample',
+      }),
+    ).toEqual({ kind: 'empty' })
+    expect(
+      resolveRecordReferenceState({
+        persistedId: SAMPLE_ID,
+        snapshot: { ...snapshot, deleted: true },
+        targetModelKey: 'sample',
+      }),
+    ).toEqual({ kind: 'missing', recordId: SAMPLE_ID })
+    expect(
+      resolveRecordReferenceState({
+        persistedId: OTHER_ID,
+        snapshot,
+        targetModelKey: 'sample',
+      }),
+    ).toEqual({ kind: 'missing', recordId: OTHER_ID })
+    expect(
+      resolveRecordReferenceState({
+        persistedId: SAMPLE_ID,
+        snapshot,
+        targetModelKey: 'sample',
+      }),
+    ).toEqual({ kind: 'invalid-model', recordId: SAMPLE_ID, snapshot })
+    expect(
+      resolveRecordReferenceState({
+        persistedId: SAMPLE_ID,
+        snapshot,
+        targetModelKey: 'material',
+      }),
+    ).toEqual({ kind: 'archived', recordId: SAMPLE_ID, snapshot })
   })
 })

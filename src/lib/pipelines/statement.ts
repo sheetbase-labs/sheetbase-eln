@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { t } from '#/copy'
 /**
  * AUTO-02 — transform statement boundary.
@@ -119,7 +120,9 @@ export function checkTransformStatement(statement: string): StatementCheck {
   }
 
   for (const keyword of BLOCKED_KEYWORDS) {
-    if (new RegExp(`\\b${keyword}\\b`).test(upper)) {
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+    if (new RegExp(`\\b${escaped}\\b`).test(upper)) {
       return {
         ok: false,
         reason: `unsupported SQL keyword: ${keyword.toLowerCase()}`,
@@ -161,7 +164,7 @@ export function wrapTransformStatement(statement: string): string {
  */
 export function substituteParameters(
   statement: string,
-  parameters: Record<string, unknown>,
+  parameters: Partial<Record<string, z.core.util.JSONType>>,
   parameterTypes: Record<string, string>,
 ): { ok: true; statement: string } | { ok: false; reason: string } {
   const placeholderRe = /\{\{([a-z][a-z0-9_]{0,47})\}\}/g
@@ -179,11 +182,11 @@ export function substituteParameters(
   for (const name of used) {
     const literal = literalForParameter(name, parameters, parameterTypes)
 
-    if (typeof literal !== 'string') {
-      return { ok: false, reason: literal.reason }
+    if (!literal.ok) {
+      return literal
     }
 
-    literals.set(name, literal)
+    literals.set(name, literal.statement)
   }
 
   const result = statement.replace(placeholderRe, (_, name: string) => {
@@ -195,60 +198,67 @@ export function substituteParameters(
 
 function literalForParameter(
   name: string,
-  parameters: Record<string, unknown>,
+  parameters: Partial<Record<string, z.core.util.JSONType>>,
   parameterTypes: Record<string, string>,
-): string | { reason: string } {
+): { ok: true; statement: string } | { ok: false; reason: string } {
   const type = parameterTypes[name]
 
-  if (!type) return { reason: `undeclared parameter: ${name}` }
+  if (!type) return { ok: false, reason: `undeclared parameter: ${name}` }
   const value = parameters[name]
 
   if (value === undefined || value === null) {
-    return 'NULL'
+    return { ok: true, statement: 'NULL' }
   }
 
   switch (type) {
     case 'text':
-      return `'${String(value).replace(/'/g, "''")}'`
+      return {
+        ok: true,
+        statement: `'${z.coerce.string().parse(value).replace(/'/g, "''")}'`,
+      }
     case 'integer': {
-      if (typeof value !== 'number' || !Number.isInteger(value)) {
-        return { reason: `${name} must be an integer` }
+      const integer = z.number().refine(Number.isInteger).safeParse(value)
+
+      if (!integer.success) {
+        return { ok: false, reason: `${name} must be an integer` }
       }
 
-      return String(value)
+      return { ok: true, statement: String(integer.data) }
     }
 
     case 'decimal': {
-      if (typeof value !== 'number' || !Number.isFinite(value)) {
-        return { reason: `${name} must be a finite number` }
+      const decimal = z.number().safeParse(value)
+
+      if (!decimal.success) {
+        return { ok: false, reason: `${name} must be a finite number` }
       }
 
-      return String(value)
+      return { ok: true, statement: String(decimal.data) }
     }
 
     case 'boolean':
-      return value === true ? 'true' : 'false'
+      return { ok: true, statement: value === true ? 'true' : 'false' }
     case 'date': {
-      const text = String(value)
+      const text = z.coerce.string().parse(value)
 
       if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(text)) {
-        return { reason: `${name} must be a YYYY-MM-DD date` }
+        return { ok: false, reason: `${name} must be a YYYY-MM-DD date` }
       }
 
-      return `'${text}'::date`
+      return { ok: true, statement: `'${text}'::date` }
     }
 
     case 'timestamp': {
-      const text = String(value)
+      const text = z.coerce.string().parse(value)
 
       if (Number.isNaN(Date.parse(text))) {
-        return { reason: `${name} must be an ISO timestamp` }
+        return { ok: false, reason: `${name} must be an ISO timestamp` }
       }
 
-      return `'${text}'::timestamptz`
+      return { ok: true, statement: `'${text}'::timestamptz` }
     }
 
     default:
-      return { reason: `${name} has an unsupported type: ${type}` }
+      return { ok: false, reason: `${name} has an unsupported type: ${type}` }
   }
 }

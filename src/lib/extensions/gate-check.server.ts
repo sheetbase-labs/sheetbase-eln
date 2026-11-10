@@ -41,7 +41,9 @@ export function defaultGateCheckDeps(): GateCheckDeps {
     runtime: defaultDeps(),
     readTable: async (headers, req) => {
       const auth = await resolveSessionAuth(headers)
+
       if (!auth.ok) throw new ExtensionRunError('not_installed', auth.message)
+
       const rows = await createServerDataClient(auth.context.token).list<{
         payload: unknown
       }>(
@@ -49,6 +51,7 @@ export function defaultGateCheckDeps(): GateCheckDeps {
         `?select=payload&id=eq.${encodeURIComponent(req.blockId)}` +
           `&record_id=eq.${encodeURIComponent(req.recordId)}&type=eq.table`,
       )
+
       return rows[0]?.payload
     },
     store: async (req, outcome) => {
@@ -65,6 +68,7 @@ export async function runGateCheck(
   deps: GateCheckDeps = defaultGateCheckDeps(),
 ): Promise<{ status: 'pass' | 'warn' | 'fail'; message: string }> {
   const payload = await deps.readTable(headers, req)
+
   const outcome = await runExtensionCheck(
     {
       workspaceId: req.workspaceId,
@@ -75,6 +79,8 @@ export async function runGateCheck(
     },
     deps.runtime,
   )
+
   await deps.store(req, outcome)
+
   return { status: outcome.status, message: outcome.message }
 }

@@ -5,7 +5,7 @@ import {
   categoriseProxyError,
   errorEnvelope,
 } from './errors'
-import type { ProxyErrorCode } from './errors'
+import type { ErrorCategory, ProxyErrorCode } from './errors'
 
 describe('categorisePostgrestError', () => {
   it('maps unique violation to conflict', () => {
@@ -92,7 +92,7 @@ describe('categorisePostgrestError', () => {
 })
 
 describe('categoriseProxyError', () => {
-  it.each<[ProxyErrorCode, string, number]>([
+  it.each<[ProxyErrorCode, ErrorCategory, number]>([
     ['unauthenticated', 'unauthenticated', 401],
     ['no_workspace', 'permission_denied', 403],
     ['workspace_mismatch', 'permission_denied', 403],
@@ -100,14 +100,14 @@ describe('categoriseProxyError', () => {
     ['upstream_unavailable', 'service_unavailable', 502],
   ])('maps %s to %s (%d)', (code, category, status) => {
     const out = categoriseProxyError(code)
-    expect(out.category).toBe(category as never)
+    expect(out.category).toBe(category)
     expect(out.status).toBe(status)
     expect(out.message).toBeDefined()
   })
 })
 
 describe('errorEnvelope', () => {
-  it('includes request_id when provided', () => {
+  it('includes request_id when provided', async () => {
     const response = errorEnvelope({
       category: 'conflict',
       status: 409,
@@ -117,16 +117,24 @@ describe('errorEnvelope', () => {
 
     expect(response.status).toBe(409)
     expect(response.headers.get('content-type')).toContain('application/json')
-  })
-
-  it('omits request_id when not provided', async () => {
-    const response = errorEnvelope({
-      category: 'validation_error',
-      status: 400,
-      message: 'bad',
+    expect(await response.json()).toEqual({
+      error: { category: 'conflict', message: 'dup', request_id: 'req-1' },
     })
-
-    const body = await response.json()
-    expect(body.error.request_id).toBeUndefined()
   })
+
+  it.each([undefined, ''])(
+    'omits an absent or empty request_id (%j)',
+    async (requestId) => {
+      const response = errorEnvelope({
+        category: 'validation_error',
+        status: 400,
+        message: 'bad',
+        requestId,
+      })
+
+      expect(await response.json()).toEqual({
+        error: { category: 'validation_error', message: 'bad' },
+      })
+    },
+  )
 })

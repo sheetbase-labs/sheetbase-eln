@@ -17,6 +17,8 @@ import {
   isValidWellCode,
   liveSampleObservationFromQuery,
   parseWellCode,
+  plateFormatFor,
+  plateWellCount,
   resolveWellSample,
   rowIndex,
   rowLabel,
@@ -27,7 +29,6 @@ import {
   wellsToPlateWells,
 } from './plate-map'
 import type {
-  AssignmentRole,
   PlateMapBlockPayload,
   PlateMapSpec,
   WellAssignment,
@@ -202,9 +203,7 @@ describe('validatePlateMapSpec — structural', () => {
   })
 
   it('rejects an unsupported format', () => {
-    const errors = validatePlateMapSpec(
-      validSpec({ format: '7_well' as unknown as PlateMapSpec['format'] }),
-    )
+    const errors = validatePlateMapSpec({ ...validSpec(), format: '7_well' })
 
     expect(errors.some((e) => e.code === 'unsupported_format')).toBe(true)
   })
@@ -224,9 +223,7 @@ describe('validatePlateMapSpec — structural', () => {
   })
 
   it('rejects wells that is not an array', () => {
-    const errors = validatePlateMapSpec(
-      validSpec({ wells: 'not array' as unknown as WellAssignment[] }),
-    )
+    const errors = validatePlateMapSpec({ ...validSpec(), wells: 'not array' })
 
     expect(
       errors.some(
@@ -328,40 +325,36 @@ describe('validatePlateMapSpec — well validation', () => {
   })
 
   it('rejects an unsupported role', () => {
-    const errors = validatePlateMapSpec(
-      validSpec({
-        wells: [well({ role: 'calibrator' as unknown as AssignmentRole })],
-      }),
-    )
+    const errors = validatePlateMapSpec({
+      ...validSpec(),
+      wells: [{ ...well(), role: 'calibrator' }],
+    })
 
     expect(errors.some((e) => e.code === 'unsupported_role')).toBe(true)
   })
 
   it('rejects a non-object sampleRef', () => {
-    const errors = validatePlateMapSpec(
-      validSpec({
-        wells: [
-          well({ sampleRef: 'bad' as unknown as WellAssignment['sampleRef'] }),
-        ],
-      }),
-    )
+    const errors = validatePlateMapSpec({
+      ...validSpec(),
+      wells: [{ ...well(), sampleRef: 'bad' }],
+    })
 
     expect(errors.some((e) => e.code === 'invalid_sample_ref')).toBe(true)
   })
 
   it('rejects a sampleRef with missing recordId', () => {
-    const errors = validatePlateMapSpec(
-      validSpec({
-        wells: [
-          well({
-            sampleRef: {
-              identifier: 'X',
-              title: 'Y',
-            } as unknown as WellAssignment['sampleRef'],
-          }),
-        ],
-      }),
-    )
+    const errors = validatePlateMapSpec({
+      ...validSpec(),
+      wells: [
+        {
+          ...well(),
+          sampleRef: {
+            identifier: 'X',
+            title: 'Y',
+          },
+        },
+      ],
+    })
 
     expect(
       errors.some(
@@ -641,6 +634,265 @@ describe('FORMAT_DIMENSIONS', () => {
   it('provides dimensions for 96_well', () => {
     expect(FORMAT_DIMENSIONS['96_well']).toEqual({ rows: 8, cols: 12 })
   })
+
+  it('validates every standard format through its final canonical well', () => {
+    const formats = [
+      ['6_well', 2, 3, 'B3'],
+      ['12_well', 3, 4, 'C4'],
+      ['24_well', 4, 6, 'D6'],
+      ['48_well', 6, 8, 'F8'],
+      ['96_well', 8, 12, 'H12'],
+      ['384_well', 16, 24, 'P24'],
+      ['1536_well', 32, 48, 'AF48'],
+    ] as const
+
+    for (const [format, rows, cols, lastWell] of formats) {
+      expect(plateFormatFor(rows, cols)).toBe(format)
+      expect(plateWellCount(format)).toBe(rows * cols)
+      expect(parseWellCode(lastWell)).toEqual({ row: rows - 1, col: cols - 1 })
+      expect(
+        validatePlateMapSpec(
+          validSpec({
+            format,
+            rows,
+            cols,
+            wells: [well({ wellCode: lastWell, row: rows - 1, col: cols - 1 })],
+          }),
+        ),
+      ).toEqual([])
+      expect(isValidWellCode(wellCode(rows, 0), rows, cols)).toBe(false)
+      expect(isValidWellCode(wellCode(0, cols), rows, cols)).toBe(false)
+    }
+
+    expect(plateFormatFor(12, 8)).toBeNull()
+  })
+})
+
+describe('plate validation boundary evidence', () => {
+  it('retains native objects, unvalidated extensions and original render references', () => {
+    const sampleRef = Object.assign(new Date('2026-10-01T00:00:00Z'), {
+      recordId: 'stable-sample',
+      identifier: 'SMP-native',
+      title: 'Native sample',
+    })
+
+    const volume = Object.assign(new Map(), { value: 5, unit: ' µL ' })
+
+    const assignment = Object.assign(
+      new Map(),
+      well({
+        sampleRef,
+        volume,
+        replicate: Number.MAX_SAFE_INTEGER + 1,
+      }),
+    )
+
+    const spec = Object.assign(
+      new Date('2026-10-02T00:00:00Z'),
+      validSpec({
+        wells: [assignment],
+      }),
+      {
+        validation: {
+          requiredRoles: ['sample', 'future-role', 7],
+          volumeMin: NaN,
+          volumeMax: Infinity,
+          volumeUnit: { historicalExtension: true },
+        },
+      },
+    )
+
+    Object.defineProperty(spec, 'unrelated', {
+      get() {
+        throw new Error('Unrelated scientific metadata must not be read')
+      },
+    })
+
+    expect(validatePlateMapSpec(spec)).toEqual([])
+    expect(validatePlateMapPayload({ title: ' Native plate ', spec })).toEqual(
+      [],
+    )
+
+    const rendered = wellsToPlateWells({ ...validSpec(), wells: [assignment] })
+    expect(rendered[0].sampleRef).toBe(sampleRef)
+    expect(rendered[0].volume).toBe(volume)
+    expect(rendered[0].volume?.unit).toBe(' µL ')
+    expect(rendered[0].replicate).toBe(Number.MAX_SAFE_INTEGER + 1)
+    expect(Object.hasOwn(rendered[0], 'notes')).toBe(true)
+    expect(rendered[0].notes).toBeUndefined()
+  })
+
+  it('short circuits unsupported formats and dimensions before reading later scientific values', () => {
+    const unsupported = {
+      specVersion: 99,
+      format: 'future-format',
+      get rows() {
+        throw new Error('Unsupported formats must not read dimensions')
+      },
+    }
+
+    expect(validatePlateMapSpec(unsupported)).toEqual([
+      {
+        code: 'unsupported_spec_version',
+        field: 'spec.specVersion',
+        message: 'specVersion must be 1',
+      },
+      {
+        code: 'unsupported_format',
+        field: 'spec.format',
+        message:
+          'format must be one of: 6_well, 12_well, 24_well, 48_well, 96_well, 384_well, 1536_well',
+      },
+    ])
+    expect(
+      validatePlateMapSpec({
+        ...validSpec(),
+        rows: '8',
+        cols: 11,
+        get wells() {
+          throw new Error('Invalid dimensions must not read wells')
+        },
+      }),
+    ).toEqual([
+      {
+        code: 'invalid_value',
+        field: 'spec.rows',
+        message: 'rows must be 8 for format 96_well',
+      },
+      {
+        code: 'invalid_value',
+        field: 'spec.cols',
+        message: 'cols must be 12 for format 96_well',
+      },
+    ])
+    expect(
+      validatePlateMapPayload({
+        title: '',
+        spec: unsupported,
+        provenance: 7,
+      }).map((error) => error.field),
+    ).toEqual(['title', 'spec.specVersion', 'spec.format', 'provenance'])
+  })
+
+  it('preserves well, role, sample, replicate and volume diagnostic ordering', () => {
+    const errors = validatePlateMapSpec({
+      ...validSpec(),
+      specVersion: 99,
+      wells: [
+        {
+          ...well(),
+          wellCode: 'B2',
+          role: 'future-role',
+          sampleRef: { recordId: '', identifier: 7, title: false },
+          replicate: 0,
+          volume: { value: -2, unit: '' },
+          notes: 7,
+        },
+      ],
+      validation: {
+        requiredRoles: ['blank', 'future-role', 7],
+        volumeMin: 5,
+        volumeMax: 1,
+      },
+    })
+
+    expect(errors.map((error) => [error.code, error.field])).toEqual([
+      ['unsupported_spec_version', 'spec.specVersion'],
+      ['invalid_well_code', 'spec.wells[0].wellCode'],
+      ['unsupported_role', 'spec.wells[0].role'],
+      ['invalid_sample_ref', 'spec.wells[0].sampleRef.recordId'],
+      ['invalid_sample_ref', 'spec.wells[0].sampleRef.identifier'],
+      ['invalid_sample_ref', 'spec.wells[0].sampleRef.title'],
+      ['invalid_replicate', 'spec.wells[0].replicate'],
+      ['invalid_volume', 'spec.wells[0].volume.value'],
+      ['invalid_volume', 'spec.wells[0].volume.unit'],
+      ['invalid_value', 'spec.wells[0].notes'],
+      ['missing_required_role', 'spec.validation.requiredRoles'],
+      ['invalid_value', 'spec.validation'],
+      ['invalid_volume', 'spec.wells[0].volume'],
+    ])
+    expect(errors.at(-1)?.message).toBe('volume -2  is below minimum 5')
+  })
+
+  it('retains native string-hint coercion in malformed replicate duplicate evidence', () => {
+    const replicate = {
+      [Symbol.toPrimitive](hint: string) {
+        return hint === 'string' ? 'native-replicate' : 'wrong-hint'
+      },
+    }
+
+    const errors = validatePlateMapSpec({
+      ...validSpec(),
+      wells: [
+        { ...well(), replicate },
+        { ...well({ wellCode: 'A2', col: 1 }), replicate },
+      ],
+    })
+
+    expect(errors.map((error) => error.code)).toEqual([
+      'invalid_replicate',
+      'invalid_replicate',
+      'duplicate_assignment',
+    ])
+    expect(errors[2].message).toBe(
+      'duplicate assignment (sample:role:replicate 00000000-0000-4000-8000-000000000999:sample:native-replicate) at well indices 0, 1',
+    )
+    expect(() =>
+      validatePlateMapSpec({
+        ...validSpec(),
+        wells: [{ ...well(), replicate: Symbol('replicate') }],
+      }),
+    ).toThrow(TypeError)
+  })
+
+  it('retains nonfinite constraint acceptance and native malformed unit diagnostics', () => {
+    const unit = {
+      [Symbol.toPrimitive](hint: string) {
+        return hint === 'string' ? 'native-unit' : 'wrong-hint'
+      },
+    }
+
+    for (const [value, validation, expected] of [
+      [
+        5,
+        { volumeMin: Infinity },
+        'volume 5 native-unit is below minimum Infinity',
+      ],
+      [
+        5,
+        { volumeMax: -Infinity },
+        'volume 5 native-unit exceeds maximum -Infinity',
+      ],
+    ] as const) {
+      const errors = validatePlateMapSpec({
+        ...validSpec(),
+        wells: [{ ...well(), volume: { value, unit } }],
+        validation,
+      })
+
+      expect(errors.map((error) => error.field)).toEqual([
+        'spec.wells[0].volume.unit',
+        'spec.wells[0].volume',
+      ])
+      expect(errors[1].message).toBe(expected)
+    }
+
+    expect(
+      validatePlateMapSpec(
+        validSpec({
+          wells: [well({ volume: { value: Infinity, unit: 'µL' } })],
+          validation: { volumeMin: NaN, volumeMax: NaN },
+        }),
+      ).map((error) => [error.code, error.field]),
+    ).toEqual([['invalid_volume', 'spec.wells[0].volume.value']])
+    expect(() =>
+      validatePlateMapSpec({
+        ...validSpec(),
+        wells: [{ ...well(), volume: { value: 1, unit: Symbol('unit') } }],
+        validation: { volumeMin: 2 },
+      }),
+    ).toThrow(TypeError)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -751,6 +1003,35 @@ describe('resolveWellSample', () => {
 })
 
 describe('liveSampleObservationFromQuery', () => {
+  it('preserves native error classification, array acceptance and status-first failures', () => {
+    const forbidden = {
+      status: 403,
+      get message() {
+        throw new Error('A known status must not read its message')
+      },
+    }
+
+    const custom = { toString: () => 'permission denied by native error' }
+    const deniedFunction = Object.assign(() => 'forbidden', { status: 403 })
+
+    for (const [error, status] of [
+      [forbidden, 'restricted'],
+      [custom, 'restricted'],
+      [['forbidden'], 'restricted'],
+      [{ status: '403', message: 7 }, 'error'],
+      [deniedFunction, 'error'],
+      ['forbidden', 'error'],
+    ] as const) {
+      expect(
+        liveSampleObservationFromQuery({
+          data: undefined,
+          error,
+          isLoading: false,
+        }),
+      ).toEqual({ status })
+    }
+  })
+
   it('maps loading, found, missing and error queries', () => {
     expect(
       liveSampleObservationFromQuery({

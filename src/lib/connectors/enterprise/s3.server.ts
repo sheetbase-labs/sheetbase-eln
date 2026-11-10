@@ -17,6 +17,8 @@
  *  - downloads are byte-capped and flow through the canonical file platform
  *    before parsing, so retained evidence is not just the external object.
  */
+import { Readable } from 'node:stream'
+import { z } from 'zod'
 import {
   GetObjectCommand,
   HeadBucketCommand,
@@ -41,10 +43,13 @@ import { ingestExternalPayload } from '../tabular-ingestion'
 import { registerParser } from '../registry'
 import { parseImportText } from '#/lib/import-parse'
 import { sha256Hex } from '../digest'
+import type { ConnectorWire } from '../types'
+import type { ParsedInstrumentPayload } from '../registry'
 import type {
   S3ConnectorConfig,
   S3DiscoveryPage,
   S3ObjectDescriptor,
+  TestConnectionResult,
 } from './types'
 
 /** Stable parser identity for plain delimited S3 objects (provenance only). */
@@ -67,18 +72,24 @@ function s3Client(
     },
     requestHandler: {
       requestTimeout: 30_000,
-    } as never,
+    },
   })
 }
 
 /** Map any SDK failure onto a bounded, safe error code + message. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- An SDK rejection may be any JavaScript value; only decoded error metadata determines the bounded code.
 function mapS3Error(error: unknown, code: string): ConnectorExecutionError {
-  const name = (error as { name?: string } | null)?.name ?? ''
+  const decoded = z
+    .object({
+      name: z.string().catch(''),
+      $metadata: z
+        .object({ httpStatusCode: z.coerce.number().catch(0) })
+        .catch({ httpStatusCode: 0 }),
+    })
+    .safeParse(error)
 
-  const status = Number(
-    (error as { $metadata?: { httpStatusCode?: number } } | null)?.$metadata
-      ?.httpStatusCode ?? 0,
-  )
+  const name = decoded.data?.name ?? ''
+  const status = decoded.data?.$metadata.httpStatusCode ?? 0
 
   const message = boundedErrorMessage(error)
 
@@ -135,7 +146,7 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
   async testConnection(
     context: ConnectorAdapterContext,
     source: S3ConnectorConfig,
-  ) {
+  ): Promise<Pick<TestConnectionResult, 'detail'>> {
     try {
       validateConnectorEndpointUrl(
         source.endpoint ?? `https://${source.bucket}.s3.amazonaws.com`,
@@ -172,10 +183,7 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
     const maxKeys = Math.min(Math.max(Number(query['maxKeys'] ?? 50), 1), 100)
 
     const continuationToken =
-      typeof query['continuationToken'] === 'string' &&
-      query['continuationToken']
-        ? query['continuationToken']
-        : undefined
+      z.string().safeParse(query['continuationToken']).data || undefined
 
     try {
       const client = s3Client(source, context.secrets)
@@ -189,22 +197,25 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
         }),
       )
 
-      const objects: S3ObjectDescriptor[] = (page.Contents ?? [])
-        .filter(
-          (object) => object.Key && keyUnderPrefix(object.Key, source.prefix),
-        )
-        .map((object) => ({
-          key: object.Key as string,
-          byteSize: object.Size ?? 0,
-          lastModified: object.LastModified?.toISOString() ?? null,
-          contentType: null,
-          // ListObjectsV2 does not surface version ids; version-aware
-          // listing (ListObjectVersions) is deliberately out of INT-03
-          // scope. GetObject still returns the version id for provenance.
-          versionId: null,
-          // Opaque metadata only: ETags are not guaranteed to be MD5s.
-          etag: (object.ETag ?? '').replace(/"/g, '') || null,
-        }))
+      const objects: S3ObjectDescriptor[] = (page.Contents ?? []).flatMap(
+        (object) =>
+          object.Key && keyUnderPrefix(object.Key, source.prefix)
+            ? [
+                {
+                  key: object.Key,
+                  byteSize: object.Size ?? 0,
+                  lastModified: object.LastModified?.toISOString() ?? null,
+                  contentType: null,
+                  // ListObjectsV2 does not surface version ids; version-aware
+                  // listing (ListObjectVersions) is deliberately out of INT-03
+                  // scope. GetObject still returns the version id for provenance.
+                  versionId: null,
+                  // Opaque metadata only: ETags are not guaranteed to be MD5s.
+                  etag: (object.ETag ?? '').replace(/"/g, '') || null,
+                },
+              ]
+            : [],
+      )
 
       return {
         objects,
@@ -231,15 +242,12 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
   async ingest(
     context: ConnectorAdapterContext,
     source: S3ConnectorConfig,
-    request: ConnectorImportRequest<Record<string, unknown>>,
+    request: ConnectorImportRequest<ConnectorWire['config']>,
   ) {
-    const key =
-      typeof request.source['key'] === 'string' ? request.source['key'] : ''
+    const key = z.string().safeParse(request.source['key']).data ?? ''
 
     const versionId =
-      typeof request.source['versionId'] === 'string'
-        ? request.source['versionId']
-        : ''
+      z.string().safeParse(request.source['versionId']).data ?? ''
 
     if (!key || !keyUnderPrefix(key, source.prefix)) {
       throw new ConnectorExecutionError(
@@ -248,10 +256,7 @@ export const s3Adapter: EnterpriseConnectorAdapter<S3ConnectorConfig> = {
       )
     }
 
-    const projectId =
-      typeof request.projectId === 'string' && request.projectId
-        ? request.projectId
-        : ''
+    const projectId = request.projectId ?? ''
 
     if (!projectId) {
       throw new ConnectorExecutionError(
@@ -412,10 +417,10 @@ export async function readBoundedBytes(
 async function downloadObject(
   context: ConnectorAdapterContext,
   source: S3ConnectorConfig,
-  selector: Record<string, unknown>,
+  selector: ConnectorWire['config'],
   options: { previewByteCap: number } | { previewByteCap?: undefined },
 ): Promise<S3Download> {
-  const key = typeof selector['key'] === 'string' ? selector['key'] : ''
+  const key = z.string().safeParse(selector['key']).data ?? ''
 
   if (!key || key.includes('..')) {
     throw new ConnectorExecutionError(
@@ -431,10 +436,7 @@ async function downloadObject(
     )
   }
 
-  const versionId =
-    typeof selector['versionId'] === 'string'
-      ? selector['versionId']
-      : undefined
+  const versionId = z.string().safeParse(selector['versionId']).data
 
   const cap = options.previewByteCap ?? context.limits.maxObjectBytes
   const what = options.previewByteCap ? 'preview' : 'import'
@@ -458,10 +460,7 @@ async function downloadObject(
     }
 
     // Fail before reading when the store already declares the size.
-    if (
-      typeof response.ContentLength === 'number' &&
-      response.ContentLength > cap
-    ) {
+    if (response.ContentLength !== undefined && response.ContentLength > cap) {
       throw new ConnectorExecutionError(
         'row_limit_exceeded',
         `The source object is ${response.ContentLength} bytes and exceeds the ${cap}-byte ${what} cap.`,
@@ -469,11 +468,14 @@ async function downloadObject(
     }
 
     // Otherwise stream with an enforced cap: the read stops at the cap.
-    const bytes = await readBoundedBytes(
-      response.Body as AsyncIterable<Uint8Array> & { destroy?: () => void },
-      cap,
-      what,
-    )
+    if (!(response.Body instanceof Readable)) {
+      throw new ConnectorExecutionError(
+        'download_failed',
+        'The object bytes could not be read.',
+      )
+    }
+
+    const bytes = await readBoundedBytes(response.Body, cap, what)
 
     return {
       bytes,
@@ -501,7 +503,7 @@ export function parsePreviewBytes(download: S3Download) {
   }
 }
 
-export function parseObjectText(text: string) {
+export function parseObjectText(text: string): ParsedInstrumentPayload {
   try {
     const preview = parseImportText(text, { header: true })
     const sheet = preview.sheets[0]
@@ -509,7 +511,7 @@ export function parseObjectText(text: string) {
     return {
       headers: sheet.headers,
       rows: sheet.rows,
-      metadata: { format: preview.format } as Record<string, string>,
+      metadata: { format: preview.format },
       warnings: [],
     }
   } catch (error) {

@@ -63,10 +63,12 @@ export function columnLetters(index: number): string {
 function cellXml(ref: string, value: ExportValue): string {
   if (value === null || value === undefined || value === '') return ''
 
+  // Finite numbers are numeric cells; non-finite numbers remain text.
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof
   if (typeof value === 'number' && Number.isFinite(value))
     return `<c r="${ref}"><v>${value}</v></c>`
 
-  if (typeof value === 'boolean')
+  if (value === true || value === false)
     return `<c r="${ref}" t="b"><v>${value ? 1 : 0}</v></c>`
 
   return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(String(value))}</t></is></c>`

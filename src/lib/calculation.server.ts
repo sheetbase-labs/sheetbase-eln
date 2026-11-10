@@ -13,7 +13,7 @@ import { buildScientificWorkbook } from './scientific-workbook'
 import type { WorkbookCellAddress, WorkbookTable } from './scientific-workbook'
 import type { ScientificLogicalType } from './scientific-sheet-data'
 
-const requestInput = z.object({ recordId: z.string().uuid() }).strict()
+const requestInput = z.strictObject({ recordId: z.string().uuid() })
 
 interface SnapshotFormula {
   id: string
@@ -21,6 +21,7 @@ interface SnapshotFormula {
   status: 'supported' | 'unsupported'
   address: WorkbookCellAddress
 }
+
 export interface CalculationSnapshot {
   recordId: string
   inputRevision: number
@@ -28,6 +29,7 @@ export interface CalculationSnapshot {
   tables: WorkbookTable[]
   formulas: SnapshotFormula[]
 }
+
 export interface CalculationDeps {
   getSession: (headers: Headers) => Promise<{ user: { id: string } } | null>
   loadSnapshot: (
@@ -42,12 +44,14 @@ export interface CalculationDeps {
     diagnostic?: string,
   ) => Promise<CalculationResponse>
 }
+
 export interface CalculationResponse {
   recordId: string
   inputRevision: number
   status: 'completed' | 'failed'
   formulaCount: number
 }
+
 type CalculationResult = {
   formulaId: string
   formulaVersion: number
@@ -75,6 +79,7 @@ export async function executeCalculation(
   deps: Pick<CalculationDeps, 'loadSnapshot' | 'finalize'>,
 ) {
   let snapshot: CalculationSnapshot
+
   try {
     snapshot = await deps.loadSnapshot(actor, recordId)
   } catch (error) {
@@ -88,8 +93,10 @@ export async function executeCalculation(
       (error as { code?: string }).code,
     )
   }
+
   let workbook: ReturnType<typeof buildScientificWorkbook> | undefined
   let results: CalculationResult[]
+
   try {
     workbook = buildScientificWorkbook(snapshot.tables)
     results = snapshot.formulas.map<CalculationResult>((formula) => {
@@ -102,6 +109,7 @@ export async function executeCalculation(
           errorCode: 'UNSUPPORTED',
         }
       const result = workbook!.get(formula.address)
+
       if (result.status === 'error')
         return {
           formulaId: formula.id,
@@ -111,6 +119,7 @@ export async function executeCalculation(
           errorCode: result.error,
           diagnostic: `Formula evaluated to ${result.error}.`,
         }
+
       if (!result.logical.ok)
         return {
           formulaId: formula.id,
@@ -120,6 +129,7 @@ export async function executeCalculation(
           errorCode: result.logical.code,
           diagnostic: 'Formula result did not match the target column type.',
         }
+
       return {
         formulaId: formula.id,
         formulaVersion: formula.version,
@@ -135,6 +145,7 @@ export async function executeCalculation(
       record_id: recordId,
       error: error instanceof Error ? error.message : String(error),
     })
+
     try {
       return await deps.finalize(
         actor,
@@ -153,6 +164,7 @@ export async function executeCalculation(
   } finally {
     workbook?.destroy()
   }
+
   // Commit errors (especially revision CAS failures) are not worker failures
   // and must never overwrite a newer revision with a failed state.
   try {
@@ -175,22 +187,27 @@ export async function handleCalculation(
   deps: CalculationDeps = defaultDeps,
 ) {
   const session = await deps.getSession(request.headers)
+
   if (!session)
     return errorResponse(401, 'unauthenticated', 'Authentication is required.')
   let parsed: ReturnType<typeof requestInput.safeParse>
+
   try {
     parsed = requestInput.safeParse(await request.json())
   } catch {
     return errorResponse(400, 'invalid_request', 'A JSON body is required.')
   }
+
   if (!parsed.success)
     return errorResponse(400, 'invalid_request', 'Invalid calculation request.')
+
   try {
     const result = await executeCalculation(
       session.user.id,
       parsed.data.recordId,
       deps,
     )
+
     return Response.json(result, {
       status: result.status === 'failed' ? 500 : 200,
     })
@@ -200,23 +217,28 @@ export async function handleCalculation(
       status?: number
       stage?: string
     }
+
     if (candidate.code === 'SB001')
       return errorResponse(
         409,
         'stale_revision',
         'Notebook inputs changed during calculation; retry.',
       )
+
     if (candidate.code === '42501' || candidate.status === 403)
       return errorResponse(403, 'forbidden', 'Notebook is unavailable.')
     const stage = error instanceof CalculationError ? error.stage : 'unknown'
+
     const errorCode =
       error instanceof CalculationError ? error.code : candidate.code
+
     logger.error('calculation failed', {
       stage,
       record_id: parsed.data.recordId,
       code: errorCode,
       error: error instanceof Error ? error.message : String(error),
     })
+
     return errorResponse(
       500,
       'calculation_failed',
@@ -229,12 +251,14 @@ type RecordRow = QueryResultRow & {
   id: string
   calculation_input_revision: string
 }
+
 type TableRow = QueryResultRow & {
   id: string
   name: string
   resource_name: string
   schema_version: number
 }
+
 type ColumnRow = QueryResultRow & {
   id: string
   label: string
@@ -243,6 +267,7 @@ type ColumnRow = QueryResultRow & {
   created_at: string
   option_ids: string[]
 }
+
 type FormulaRow = QueryResultRow & {
   id: string
   target_table_id: string
@@ -264,10 +289,12 @@ type FormulaRow = QueryResultRow & {
 async function loadSnapshot(actor: string, recordId: string) {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   try {
     await client.query(
       'BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY',
     )
+
     const record = (
       await client.query<RecordRow>(
         `SELECT r.id,r.calculation_input_revision
@@ -282,11 +309,13 @@ async function loadSnapshot(actor: string, recordId: string) {
         [recordId, actor],
       )
     ).rows.at(0)
+
     if (!record)
       throw Object.assign(new Error('Calculation target denied.'), {
         status: 403,
         code: '42501',
       })
+
     const tables = (
       await client.query<TableRow>(
         `SELECT id,name,resource_name,schema_version FROM api.scientific_tables
@@ -294,6 +323,7 @@ async function loadSnapshot(actor: string, recordId: string) {
         [recordId],
       )
     ).rows
+
     const formulas = (
       await client.query<FormulaRow>(
         `SELECT f.*,
@@ -306,16 +336,20 @@ async function loadSnapshot(actor: string, recordId: string) {
         [recordId],
       )
     ).rows
+
     const formulaByCell = new Map(
       formulas.map((formula) => [
         `${formula.target_table_id}/${formula.target_row_id}/${formula.target_column_id}`,
         formula,
       ]),
     )
+
     const workbookTables: WorkbookTable[] = []
+
     for (const table of tables) {
       if (!/^sheet_[a-z2-7]{26}$/.test(table.resource_name))
         throw new Error('Invalid generated scientific resource.')
+
       const columns = (
         await client.query<ColumnRow>(
           `SELECT c.id,c.label,c.field_name,c.logical_type,c.created_at,
@@ -328,11 +362,13 @@ async function loadSnapshot(actor: string, recordId: string) {
           [table.id],
         )
       ).rows
+
       const rows = (
         await client.query<{ row: Record<string, unknown> }>(
           `SELECT to_jsonb(source) row FROM api."${table.resource_name}" source ORDER BY created_at,id LIMIT 10001`,
         )
       ).rows.map((item) => item.row)
+
       if (rows.length > 10_000 || columns.length > 256)
         throw new Error('Calculation profile dimensions exceeded.')
       workbookTables.push({
@@ -353,6 +389,7 @@ async function loadSnapshot(actor: string, recordId: string) {
               const formula = formulaByCell.get(
                 `${table.id}/${String(row.id)}/${column.id}`,
               )
+
               return [
                 column.id,
                 {
@@ -381,7 +418,9 @@ async function loadSnapshot(actor: string, recordId: string) {
         })),
       })
     }
+
     await client.query('COMMIT')
+
     return {
       recordId: record.id,
       inputRevision: Number(record.calculation_input_revision),
@@ -418,10 +457,13 @@ async function finalize(
   const client = new PooledClient({
     connectionString: env.FORMULA_DATABASE_URL,
   })
+
   await client.connect()
+
   try {
     await client.query('BEGIN')
     await client.query('SET LOCAL ROLE formula_writer')
+
     const response = await client.query<{ result: CalculationResponse }>(
       `SELECT internal.apply_trusted_calculation(
         $1,$2,$3,$4,$5::jsonb,$6::jsonb,$7,$8,$9
@@ -438,7 +480,9 @@ async function finalize(
         diagnostic ?? null,
       ],
     )
+
     await client.query('COMMIT')
+
     return response.rows[0].result
   } catch (error) {
     await client.query('ROLLBACK')

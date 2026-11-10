@@ -34,13 +34,18 @@ const INPUT_TYPES: Record<ExtensionFieldType, OperationInputType> = {
   json: 'json',
 }
 
-export const fieldToInput = (field: ExtensionField): OperationInput => ({
-  name: field.name,
-  type: INPUT_TYPES[field.type],
-  required: field.required,
-  nullable: !field.required,
-  ...(field.description ? { description: field.description } : {}),
-})
+export const fieldToInput = (field: ExtensionField): OperationInput => {
+  const input: OperationInput = {
+    name: field.name,
+    type: INPUT_TYPES[field.type],
+    required: field.required,
+    nullable: !field.required,
+  }
+
+  if (field.description) input.description = field.description
+
+  return input
+}
 
 /** The descriptors for the operations one plugin install declares. */
 export function pluginOperationDescriptors(
@@ -50,8 +55,10 @@ export function pluginOperationDescriptors(
 ): OperationDescriptor[] {
   const source = `plugin:${key}`
   const pluginName = options.pluginName ?? manifest.name
+
   return callableItems(manifest).map(({ declaration: operation }) => {
     const name = pluginOperationName(key, operation.id)
+
     return {
       name,
       label: operation.title,

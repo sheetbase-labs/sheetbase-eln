@@ -10,72 +10,64 @@ import {
 const notebookConflictId = z.string().min(1).max(96)
 const notebookOutcome = z.enum(['keep', 'retarget'])
 
-export const notebookUpgradePreviewSchema = z
-  .object({
-    recordId: uuid,
-    sourceVersionId: uuid,
-    targetVersionId: uuid,
-    automatic: z
-      .array(
-        z
-          .object({
-            kind: z.enum([
-              'placement-removed',
-              'placement-added',
-              'sheet-definition-compatible',
-            ]),
-            placementId: uuid.optional(),
-            instanceId: uuid.optional(),
-            targetDefinitionVersionId: uuid.optional(),
-            blockId: uuid.optional(),
-          })
-          .passthrough(),
-      )
-      .max(512),
-    conflicts: z
-      .array(
-        z
-          .object({
-            id: notebookConflictId,
-            kind: z.enum([
-              'sheet-placement-unresolved',
-              'sheet-definition-conflict',
-            ]),
-            placementId: uuid.optional(),
-            instanceId: uuid.optional(),
-            blockId: uuid.optional(),
-            allowedOutcomes: z.array(notebookOutcome).min(1).max(2),
-            instancePreview: sheetDefinitionUpgradePreviewSchema.optional(),
-          })
-          .passthrough(),
-      )
-      .max(512),
-  })
-  .strict()
-
-export const notebookUpgradeDecisionSchema = z
-  .object({
-    conflictId: notebookConflictId,
-    outcome: notebookOutcome,
-    instanceDecisions: z
-      .array(
-        z.union([
-          z.object({
-            conflictId: z.string(),
-            outcome: z.literal('retain-local'),
-          }),
-          z.object({
-            conflictId: z.string(),
-            outcome: z.literal('map'),
-            targetId: uuid,
-          }),
-          z.object({ conflictId: z.string(), outcome: z.literal('defer') }),
+export const notebookUpgradePreviewSchema = z.strictObject({
+  recordId: uuid,
+  sourceVersionId: uuid,
+  targetVersionId: uuid,
+  automatic: z
+    .array(
+      z.looseObject({
+        kind: z.enum([
+          'placement-removed',
+          'placement-added',
+          'sheet-definition-compatible',
         ]),
-      )
-      .max(512)
-      .optional(),
-  })
-  .strict()
+        placementId: uuid.optional(),
+        instanceId: uuid.optional(),
+        targetDefinitionVersionId: uuid.optional(),
+        blockId: uuid.optional(),
+      }),
+    )
+    .max(512),
+  conflicts: z
+    .array(
+      z.looseObject({
+        id: notebookConflictId,
+        kind: z.enum([
+          'sheet-placement-unresolved',
+          'sheet-definition-conflict',
+        ]),
+        placementId: uuid.optional(),
+        instanceId: uuid.optional(),
+        blockId: uuid.optional(),
+        allowedOutcomes: z.array(notebookOutcome).min(1).max(2),
+        instancePreview: sheetDefinitionUpgradePreviewSchema.optional(),
+      }),
+    )
+    .max(512),
+})
+
+export const notebookUpgradeDecisionSchema = z.strictObject({
+  conflictId: notebookConflictId,
+  outcome: notebookOutcome,
+  instanceDecisions: z
+    .array(
+      z.union([
+        z.object({
+          conflictId: z.string(),
+          outcome: z.literal('retain-local'),
+        }),
+        z.object({
+          conflictId: z.string(),
+          outcome: z.literal('map'),
+          targetId: uuid,
+        }),
+        z.object({ conflictId: z.string(), outcome: z.literal('defer') }),
+      ]),
+    )
+    .max(512)
+    .optional(),
+})
 
 export const notebookUpgradeDecisionsSchema = z
   .array(notebookUpgradeDecisionSchema)
@@ -89,6 +81,7 @@ export const notebookUpgradeDecisionsSchema = z
 export type NotebookUpgradePreview = z.infer<
   typeof notebookUpgradePreviewSchema
 >
+
 export type NotebookUpgradeDecision = z.infer<
   typeof notebookUpgradeDecisionSchema
 >
@@ -99,10 +92,12 @@ export function parseNotebookTemplateUpgradePreview(value: unknown) {
 
 export function parseNotebookTemplateUpgradeDecisions(value: unknown) {
   const parsed = notebookUpgradeDecisionsSchema.parse(value)
+
   for (const decision of parsed) {
     if (decision.instanceDecisions)
       parseSheetDefinitionUpgradeDecisions(decision.instanceDecisions)
   }
+
   return parsed
 }
 
@@ -121,27 +116,33 @@ export function buildNotebookTemplateUpgradeDecisions(
 ): NotebookUpgradeDecision[] {
   return preview.conflicts.map((conflict) => {
     const draft = drafts[conflict.id]
+
     if (!draft || !draft.outcome)
       throw new Error(`Choose an outcome for conflict "${conflict.id}".`)
+
     if (!conflict.allowedOutcomes.includes(draft.outcome))
       throw new Error(
         `Outcome "${draft.outcome}" is not allowed for "${conflict.id}".`,
       )
+
     if (draft.outcome === 'retarget') {
       if (!conflict.instancePreview)
         throw new Error(
           `Conflict "${conflict.id}" has no nested Sheet preview.`,
         )
+
       const instanceDecisions = buildSheetDefinitionUpgradeDecisions(
         conflict.instancePreview,
         draft.instanceDecisionDrafts ?? {},
       )
+
       return {
         conflictId: conflict.id,
         outcome: draft.outcome,
         instanceDecisions,
       }
     }
+
     return { conflictId: conflict.id, outcome: draft.outcome }
   })
 }
@@ -157,24 +158,32 @@ export function buildSheetDefinitionUpgradeDecisions(
 ) {
   const decisions = preview.conflicts.map((conflict) => {
     const draft = drafts[conflict.id]
+
     if (!draft || !draft.outcome)
       throw new Error(`Choose an outcome for conflict "${conflict.id}".`)
+
     if (!conflict.allowedOutcomes.includes(draft.outcome))
       throw new Error(
         `Outcome "${draft.outcome}" is not allowed for "${conflict.id}".`,
       )
+
     if (draft.outcome === 'map') {
       const targetId = draft.targetId?.trim()
+
       if (!targetId)
         throw new Error(`Choose a target for conflict "${conflict.id}".`)
+
       if (!conflict.targetCandidates.includes(targetId))
         throw new Error(
           `Target "${targetId}" is not valid for "${conflict.id}".`,
         )
+
       return { conflictId: conflict.id, outcome: 'map' as const, targetId }
     }
+
     return { conflictId: conflict.id, outcome: draft.outcome }
   })
+
   return parseSheetDefinitionUpgradeDecisions(decisions)
 }
 
@@ -189,9 +198,11 @@ export function requiredTargetParameterIds(
 
 export function parseNotebookTemplateUpgradePreviewFromWire(value: unknown) {
   const parsed = parseNotebookTemplateUpgradePreview(value)
+
   for (const conflict of parsed.conflicts) {
     if (conflict.instancePreview)
       parseSheetDefinitionUpgradePreview(conflict.instancePreview)
   }
+
   return parsed
 }

@@ -11,7 +11,7 @@ import {
   proseBackspaceAction,
   proseRunMembers,
 } from './notebook-prose-runs'
-import type { RichTextPayload } from './blocks/rich-text'
+import type { RichTextPayload } from './blocks/rich-text-data'
 
 const paragraph = (text: string): RichTextPayload['doc']['content'][number] =>
   text

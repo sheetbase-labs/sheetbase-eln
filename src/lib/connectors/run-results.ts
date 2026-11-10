@@ -114,24 +114,30 @@ export function sampleResultsFromPayload(
 
       if (value === null) continue
       const unit = payload.metadata[`${header} unit`]
-      checks.push({
+
+      const check: SampleCheck = {
         name: header.trim(),
         type: 'info',
         value,
-        ...(unit ? { unit } : {}),
-      })
+      }
+
+      if (unit) check.unit = unit
+      checks.push(check)
     }
 
     if (verdictColumn) {
       const cell = (row[verdictColumn] ?? '').trim()
       const type = verdictOf(cell)
 
-      if (type)
-        checks.push({
+      if (type) {
+        const check: SampleCheck = {
           name: verdictColumn.trim(),
           type,
-          ...(type === 'pass' ? {} : { message: cell }),
-        })
+        }
+
+        if (type !== 'pass') check.message = cell
+        checks.push(check)
+      }
     }
 
     bySample.set(sample, checks)
@@ -150,6 +156,7 @@ export async function recordRunSampleResults(
   const outcome: RunResultsOutcome = { linked: 0, checks: 0, unknown: [] }
 
   for (let at = 0; at < input.results.length; at += CHUNK) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Chunks mutate the same run/sample links via check-then-insert SQL; preserve first-failure stopping and result order, not concurrent writes.
     const part = await client.rpc<RunResultsOutcome>(
       'record_run_sample_results',
       {

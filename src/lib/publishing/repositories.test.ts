@@ -1,4 +1,8 @@
+// @vitest-environment node
+import assert from 'node:assert/strict'
+
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   assertRepositoryUrl,
@@ -26,10 +30,10 @@ interface Call {
   url: string
   method: string
   auth: string | undefined
-  body: unknown
+  body: NonNullable<Parameters<RepoFetch>[1]>['body']
 }
 
-function fake(routes: Record<string, unknown>) {
+function fake(routes: Record<string, z.core.util.JSONType>) {
   const calls: Call[] = []
 
   const fetch: RepoFetch = async (url, init) => {
@@ -96,7 +100,9 @@ describe('Zenodo', () => {
       (c) => c.method === 'PUT' && c.url.endsWith('/depositions/77'),
     )
 
-    expect(JSON.parse(described!.body as string).metadata).toMatchObject({
+    expect(
+      JSON.parse(z.string().parse(described?.body)).metadata,
+    ).toMatchObject({
       title: 'Growth curves',
       license: 'cc-by-4.0',
       upload_type: 'dataset',
@@ -114,6 +120,21 @@ describe('Zenodo', () => {
     expect(await publishDraft(target, '77', { fetch })).toEqual({
       doi: '10.5072/zenodo.77',
       recordUrl: 'https://sandbox.zenodo.org/records/77',
+    })
+  })
+
+  it('keeps arbitrary nonempty strings and tolerates primitive nested replies', async () => {
+    const { fetch } = fake({
+      'POST /api/deposit/depositions/77/actions/publish': {
+        doi: '',
+        metadata: { doi: '  ' },
+        links: 42,
+      },
+    })
+
+    expect(await publishDraft(target, '77', { fetch })).toEqual({
+      doi: '  ',
+      recordUrl: 'https://doi.org/  ',
     })
   })
 
@@ -168,5 +189,52 @@ describe('repository addresses', () => {
     expect(() => assertRepositoryUrl('ftp://repo.example.org')).toThrow(
       /not allowed/,
     )
+  })
+})
+
+describe('Dataverse package bytes', () => {
+  const target = {
+    kind: 'dataverse' as const,
+    baseUrl: 'https://repo.example.org',
+    collection: 'lab',
+    token: 'tok-123456',
+  }
+
+  it('uploads only the selected view and retains native detached-buffer refusal', async () => {
+    const { fetch, calls } = fake({
+      'POST /api/dataverses/lab/datasets': {
+        data: { persistentId: 'doi:10.9/native' },
+      },
+      'POST /api/datasets/:persistentId/add': {},
+    })
+
+    const bytes = new Uint8Array([91, 2, 4, 93]).subarray(1, 3)
+    const draft = await createDraft(target, meta, { ...pkg, bytes }, { fetch })
+    const upload = calls.at(1)
+    assert.ok(upload?.body instanceof FormData)
+    const file = upload.body.get('file')
+    assert.ok(file instanceof Blob)
+
+    expect([...new Uint8Array(await file.arrayBuffer())]).toEqual([2, 4])
+    expect(draft.remoteId).toBe('doi:10.9/native')
+
+    const detached = new Uint8Array([5, 7])
+    structuredClone(detached.buffer, { transfer: [detached.buffer] })
+
+    const refused = fake({
+      'POST /api/dataverses/lab/datasets': {
+        data: { persistentId: 'doi:10.9/refused' },
+      },
+    })
+
+    await expect(
+      createDraft(
+        target,
+        meta,
+        { ...pkg, bytes: detached },
+        { fetch: refused.fetch },
+      ),
+    ).rejects.toMatchObject({ name: 'TypeError' })
+    expect(refused.calls).toHaveLength(1)
   })
 })

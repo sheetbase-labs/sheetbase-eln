@@ -14,16 +14,160 @@
  * `api.list_webhook_deliveries`.
  */
 import { createServerFn } from '@tanstack/react-start'
+import { z } from 'zod'
 
 import { requireCapability } from '#/lib/admin-platform'
 
-export type WebhookSubscriptionStatus =
-  'active' | 'paused' | 'disabled' | 'archived'
+const subscriptionStatusSchema = z.enum([
+  'active',
+  'paused',
+  'disabled',
+  'archived',
+])
 
-export type WebhookDeliveryStatus =
-  'pending' | 'delivered' | 'failed' | 'retrying' | 'dead_letter'
+const deliveryStatusSchema = z.enum([
+  'pending',
+  'delivered',
+  'failed',
+  'retrying',
+  'dead_letter',
+])
 
-export type WebhookChannelType = 'webhook' | 'teams' | 'email'
+const channelTypeSchema = z.enum(['webhook', 'teams', 'email'])
+
+export type WebhookSubscriptionStatus = z.infer<typeof subscriptionStatusSchema>
+
+export type WebhookDeliveryStatus = z.infer<typeof deliveryStatusSchema>
+
+export type WebhookChannelType = z.infer<typeof channelTypeSchema>
+
+// SQL contracts: 0000_baseline.sql webhook tables and EVENT-02 RPCs.
+// Do not coerce here: native PG Dates must reach the existing String mapping.
+const numericSchema = z.union([
+  z.number(),
+  z
+    .string()
+    .refine((value) => value.trim() !== '' && Number.isFinite(Number(value))),
+])
+
+const timestampSchema = z.union([z.string(), z.date()]).nullish()
+const nullableTextSchema = z.string().nullish()
+
+const subscriptionRowSchema = z.object({
+  id: z.string(),
+  key: z.string(),
+  url: nullableTextSchema,
+  channel_type: channelTypeSchema.nullish(),
+  recipient_user_id: nullableTextSchema,
+  recipient_name: nullableTextSchema,
+  description: nullableTextSchema,
+  // The column is JSONB without an array CHECK; retain the mapper's fallback.
+  event_types: z.json().nullish(),
+  status: subscriptionStatusSchema,
+  max_retries: numericSchema,
+  failure_threshold: numericSchema,
+  consecutive_failures: numericSchema,
+  rate_limit_per_minute: numericSchema.nullish(),
+  created_at: timestampSchema,
+  updated_at: timestampSchema,
+})
+
+const healthRowSchema = z.object({
+  subscription_id: z.string(),
+  key: z.string(),
+  url: nullableTextSchema,
+  status: subscriptionStatusSchema,
+  consecutive_failures: numericSchema,
+  failure_threshold: numericSchema,
+  max_retries: numericSchema,
+  rate_limit_per_minute: numericSchema.nullish(),
+  total_24h: numericSchema,
+  delivered_24h: numericSchema,
+  failed_24h: numericSchema,
+  dead_letter_24h: numericSchema,
+  retrying_24h: numericSchema,
+  pending_24h: numericSchema,
+  success_rate_24h: numericSchema.nullish(),
+  last_delivered_at: timestampSchema,
+  oldest_pending_at: timestampSchema,
+  last_error: z
+    .object({
+      code: nullableTextSchema,
+      message: nullableTextSchema,
+      at: timestampSchema,
+      delivery_id: nullableTextSchema,
+    })
+    .nullish(),
+})
+
+const deliveryRowSchema = z.object({
+  id: z.string(),
+  subscription_id: z.string(),
+  change_event_id: z.string(),
+  event_type: z.string(),
+  attempt: numericSchema,
+  status: deliveryStatusSchema,
+  response_status: numericSchema.nullish(),
+  response_body: nullableTextSchema,
+  error_code: nullableTextSchema,
+  error_message: nullableTextSchema,
+  replay_of_delivery_id: nullableTextSchema,
+  next_attempt_at: timestampSchema,
+  delivered_at: timestampSchema,
+  created_at: timestampSchema,
+  updated_at: timestampSchema,
+})
+
+const recipientRowSchema = z.object({
+  user_id: z.string(),
+  name: nullableTextSchema,
+  email: nullableTextSchema,
+})
+
+const incomingRowSchema = z.object({
+  id: z.string(),
+  display_id: nullableTextSchema,
+  name: z.string(),
+  enabled: z.boolean(),
+  last_call_at: timestampSchema,
+})
+
+const recordRowSchema = z.object({
+  event_id: z.string(),
+  identifier: z.string(),
+})
+
+const healthResultSchema = z.object({
+  data: z.array(healthRowSchema).nullish(),
+  generated_at: timestampSchema,
+})
+
+const deliveryListResultSchema = z.object({
+  data: z.array(deliveryRowSchema).nullish(),
+  total: numericSchema.nullish(),
+  limit: numericSchema.nullish(),
+  offset: numericSchema.nullish(),
+})
+
+const subscriptionMutationRowSchema = subscriptionRowSchema
+  .partial()
+  .extend({ id: nullableTextSchema })
+  .nullish()
+
+const createResultSchema = z.object({
+  subscription: subscriptionMutationRowSchema,
+  signing_secret: nullableTextSchema,
+})
+
+const rotateResultSchema = z.object({
+  subscriptionId: nullableTextSchema,
+  signing_secret: nullableTextSchema,
+})
+
+const replayResultSchema = z.object({
+  replayed_count: numericSchema.nullish(),
+  delivery_ids: z.array(z.string()).nullish(),
+})
 
 export interface WebhookSubscriptionWire {
   id: string
@@ -128,29 +272,31 @@ export const webhookAdminKeys = {
   ) => ['admin-001', 'webhook-deliveries', workspaceId, filters] as const,
 }
 
-function num(value: unknown): number {
+function num(value: z.infer<typeof numericSchema> | null | undefined): number {
   return Number(value ?? 0)
 }
 
-function str(value: unknown): string | null {
+function str(value: string | Date | null | undefined): string | null {
   return value != null ? String(value) : null
 }
 
 export function toSubscriptionWire(
-  row: Record<string, unknown>,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public PG/JSON boundary, decoded immediately below.
+  input: unknown,
 ): WebhookSubscriptionWire {
+  const row = subscriptionRowSchema.parse(input)
   const rawEventTypes = row.event_types
 
   return {
     id: String(row.id),
     key: String(row.key),
     url: row.url != null ? String(row.url) : '',
-    channelType: (str(row.channel_type) ?? 'webhook') as WebhookChannelType,
+    channelType: row.channel_type ?? 'webhook',
     recipientUserId: str(row.recipient_user_id),
     recipientName: str(row.recipient_name),
     description: str(row.description),
     eventTypes: Array.isArray(rawEventTypes) ? rawEventTypes.map(String) : [],
-    status: String(row.status) as WebhookSubscriptionStatus,
+    status: row.status,
     maxRetries: num(row.max_retries),
     failureThreshold: num(row.failure_threshold),
     consecutiveFailures: num(row.consecutive_failures),
@@ -162,15 +308,17 @@ export function toSubscriptionWire(
 }
 
 export function toHealthWire(
-  row: Record<string, unknown>,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public PG/JSON boundary, decoded immediately below.
+  input: unknown,
 ): WebhookEndpointHealthWire {
-  const rawError = row.last_error as Record<string, unknown> | null
+  const row = healthRowSchema.parse(input)
+  const rawError = row.last_error
 
   return {
     subscriptionId: String(row.subscription_id),
     key: String(row.key),
     url: row.url != null ? String(row.url) : '',
-    status: String(row.status) as WebhookSubscriptionStatus,
+    status: row.status,
     consecutiveFailures: num(row.consecutive_failures),
     failureThreshold: num(row.failure_threshold),
     maxRetries: num(row.max_retries),
@@ -198,15 +346,18 @@ export function toHealthWire(
 }
 
 export function toDeliveryWire(
-  row: Record<string, unknown>,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public PG/JSON boundary, decoded immediately below.
+  input: unknown,
 ): WebhookDeliveryWire {
+  const row = deliveryRowSchema.parse(input)
+
   return {
     id: String(row.id),
     subscriptionId: String(row.subscription_id),
     changeEventId: String(row.change_event_id),
     eventType: String(row.event_type),
     attempt: num(row.attempt),
-    status: String(row.status) as WebhookDeliveryStatus,
+    status: row.status,
     responseStatus:
       row.response_status != null ? num(row.response_status) : null,
     responseBody: str(row.response_body),
@@ -222,7 +373,10 @@ export function toDeliveryWire(
 
 /** Map webhook admin failures to operator-actionable messages. */
 export function describeWebhookAdminError(cause: unknown): string {
-  const message = cause instanceof Error ? cause.message : String(cause ?? '')
+  const message =
+    cause instanceof Error
+      ? cause.message
+      : z.coerce.string().parse(cause ?? '')
 
   if (message.startsWith('permission_denied')) {
     return 'You do not have permission to manage webhooks (integrations.manage required).'
@@ -265,8 +419,11 @@ async function recipientNames(
   const names = new Map<string, string>()
 
   if (userIds.length === 0) return names
-  const { db } = await import('#/db/client.server')
-  const { sql } = await import('drizzle-orm')
+
+  const [{ db }, { sql }] = await Promise.all([
+    import('#/db/client.server'),
+    import('drizzle-orm'),
+  ])
 
   const result = await db.execute(sql`
     SELECT m.user_id, u.name, u.email
@@ -276,7 +433,7 @@ async function recipientNames(
        AND m.user_id = ANY(${userIds}::text[])
   `)
 
-  for (const row of result.rows) {
+  for (const row of z.array(recipientRowSchema).parse(result.rows)) {
     names.set(String(row.user_id), String(row.name || row.email || ''))
   }
 
@@ -304,8 +461,10 @@ export const listWebhookRecipientsFn = createServerFn({ method: 'POST' })
     )
 
     try {
-      const { db } = await import('#/db/client.server')
-      const { sql } = await import('drizzle-orm')
+      const [{ db }, { sql }] = await Promise.all([
+        import('#/db/client.server'),
+        import('drizzle-orm'),
+      ])
 
       const result = await db.execute(sql`
         SELECT m.user_id, u.name, u.email
@@ -316,11 +475,14 @@ export const listWebhookRecipientsFn = createServerFn({ method: 'POST' })
          ORDER BY lower(coalesce(nullif(u.name, ''), u.email))
       `)
 
-      return result.rows.map((row) => ({
-        userId: String(row.user_id),
-        name: String(row.name ?? ''),
-        email: String(row.email ?? ''),
-      }))
+      return z
+        .array(recipientRowSchema)
+        .parse(result.rows)
+        .map((row) => ({
+          userId: String(row.user_id),
+          name: String(row.name ?? ''),
+          email: String(row.email ?? ''),
+        }))
     } finally {
       await session.release()
     }
@@ -349,14 +511,16 @@ export const listWebhookSubscriptionsFn = createServerFn({ method: 'POST' })
         [data.workspaceId],
       )
 
+      const subscriptions = z.array(subscriptionRowSchema).parse(rows)
+
       const names = await recipientNames(
         data.workspaceId,
-        rows
-          .map((row: Record<string, unknown>) => str(row.recipient_user_id))
-          .filter((id: string | null): id is string => id !== null),
+        subscriptions.flatMap((row) =>
+          row.recipient_user_id != null ? [row.recipient_user_id] : [],
+        ),
       )
 
-      return rows.map((row: Record<string, unknown>) =>
+      return subscriptions.map((row) =>
         toSubscriptionWire({
           ...row,
           recipient_name: names.get(String(row.recipient_user_id)) ?? null,
@@ -388,10 +552,11 @@ export const fetchWebhookHealthFn = createServerFn({ method: 'POST' })
         [data.workspaceId, data.subscriptionId ?? null],
       )
 
-      const result = (rows[0]?.result ?? {}) as {
-        data?: Array<Record<string, unknown>>
-        generated_at?: unknown
-      }
+      const envelope = z
+        .array(z.object({ result: healthResultSchema.nullish() }))
+        .parse(rows)
+
+      const result = healthResultSchema.parse(envelope[0]?.result ?? {})
 
       return {
         data: (result.data ?? []).map(toHealthWire),
@@ -424,14 +589,16 @@ export const setWebhookSubscriptionStatusFn = createServerFn({
     )
 
     try {
-      const { rows } = await session.client.query(
+      const { rows } = await session.client.query<
+        z.infer<typeof subscriptionRowSchema>
+      >(
         `SELECT * FROM api.update_webhook_subscription(
            $1::uuid, $2::uuid, NULL, NULL, NULL, $3, NULL, NULL, NULL
          )`,
         [data.workspaceId, data.subscriptionId, data.status],
       )
 
-      const row = rows[0] as Record<string, unknown> | undefined
+      const row = rows.at(0)
 
       if (!row?.id) {
         throw new Error('Webhook subscription not found or update failed.')
@@ -460,12 +627,14 @@ export const archiveWebhookSubscriptionFn = createServerFn({ method: 'POST' })
     )
 
     try {
-      const { rows } = await session.client.query(
-        `SELECT * FROM api.delete_webhook_subscription($1::uuid, $2::uuid)`,
-        [data.workspaceId, data.subscriptionId],
-      )
+      const { rows } = await session.client.query<
+        z.infer<typeof subscriptionRowSchema>
+      >(`SELECT * FROM api.delete_webhook_subscription($1::uuid, $2::uuid)`, [
+        data.workspaceId,
+        data.subscriptionId,
+      ])
 
-      const row = rows[0] as Record<string, unknown> | undefined
+      const row = rows.at(0)
 
       if (!row?.id) {
         throw new Error('Webhook subscription not found or archive failed.')
@@ -542,10 +711,12 @@ export const createWebhookSubscriptionFn = createServerFn({ method: 'POST' })
         ],
       )
 
-      const result = (rows[0]?.result ?? {}) as Record<string, unknown>
+      const envelope = z
+        .array(z.object({ result: createResultSchema.nullish() }))
+        .parse(rows)
 
-      const subscription = result.subscription as
-        Record<string, unknown> | undefined
+      const result = createResultSchema.parse(envelope[0]?.result ?? {})
+      const subscription = result.subscription
 
       if (!subscription?.id) throw new Error('The webhook was not created.')
 
@@ -578,7 +749,11 @@ export const rotateWebhookSecretFn = createServerFn({ method: 'POST' })
         [data.workspaceId, data.subscriptionId],
       )
 
-      const result = (rows[0]?.result ?? {}) as Record<string, unknown>
+      const envelope = z
+        .array(z.object({ result: rotateResultSchema.nullish() }))
+        .parse(rows)
+
+      const result = rotateResultSchema.parse(envelope[0]?.result ?? {})
 
       if (!result.signing_secret) {
         throw new Error('Webhook secret rotation failed.')
@@ -634,12 +809,11 @@ export const listWebhookDeliveriesFn = createServerFn({ method: 'POST' })
         ],
       )
 
-      const result = (rows[0]?.result ?? {}) as {
-        data?: Array<Record<string, unknown>>
-        total?: unknown
-        limit?: unknown
-        offset?: unknown
-      }
+      const envelope = z
+        .array(z.object({ result: deliveryListResultSchema.nullish() }))
+        .parse(rows)
+
+      const result = deliveryListResultSchema.parse(envelope[0]?.result ?? {})
 
       return {
         data: (result.data ?? []).map(toDeliveryWire),
@@ -665,12 +839,14 @@ export const replayWebhookDeliveryFn = createServerFn({ method: 'POST' })
     )
 
     try {
-      const { rows } = await session.client.query(
-        `SELECT * FROM api.replay_webhook_delivery($1::uuid, $2::uuid)`,
-        [data.workspaceId, data.deliveryId],
-      )
+      const { rows } = await session.client.query<
+        z.infer<typeof deliveryRowSchema>
+      >(`SELECT * FROM api.replay_webhook_delivery($1::uuid, $2::uuid)`, [
+        data.workspaceId,
+        data.deliveryId,
+      ])
 
-      const row = rows[0] as Record<string, unknown> | undefined
+      const row = rows.at(0)
 
       if (!row?.id) {
         throw new Error('Webhook delivery replay failed.')
@@ -719,12 +895,16 @@ export const replayWebhookDeliveriesFn = createServerFn({ method: 'POST' })
         ],
       )
 
-      const result = (rows[0]?.result ?? {}) as Record<string, unknown>
+      const envelope = z
+        .array(z.object({ result: replayResultSchema.nullish() }))
+        .parse(rows)
+
+      const result = replayResultSchema.parse(envelope[0]?.result ?? {})
       const rawIds = result.delivery_ids
 
       return {
         replayedCount: num(result.replayed_count),
-        deliveryIds: Array.isArray(rawIds) ? rawIds.map(String) : [],
+        deliveryIds: rawIds ?? [],
       }
     } finally {
       await session.release()
@@ -759,10 +939,10 @@ export const fetchWebhookDeliveryRecordsFn = createServerFn({ method: 'POST' })
       )
 
       return Object.fromEntries(
-        rows.map((row: Record<string, unknown>) => [
-          String(row.event_id),
-          String(row.identifier),
-        ]),
+        z
+          .array(recordRowSchema)
+          .parse(rows)
+          .map((row) => [String(row.event_id), String(row.identifier)]),
       )
     } finally {
       await session.release()
@@ -792,8 +972,11 @@ export const listIncomingWebhooksFn = createServerFn({ method: 'POST' })
     )
 
     await session.release()
-    const { db } = await import('#/db/client.server')
-    const { sql } = await import('drizzle-orm')
+
+    const [{ db }, { sql }] = await Promise.all([
+      import('#/db/client.server'),
+      import('drizzle-orm'),
+    ])
 
     const result = await db.execute(sql`
       SELECT d.id, d.display_id, d.name, t.enabled,
@@ -808,11 +991,14 @@ export const listIncomingWebhooksFn = createServerFn({ method: 'POST' })
        ORDER BY d.name ASC
     `)
 
-    return result.rows.map((row) => ({
-      pipelineId: String(row.id),
-      displayId: str(row.display_id),
-      name: String(row.name),
-      enabled: Boolean(row.enabled),
-      lastCallAt: str(row.last_call_at),
-    }))
+    return z
+      .array(incomingRowSchema)
+      .parse(result.rows)
+      .map((row) => ({
+        pipelineId: String(row.id),
+        displayId: str(row.display_id),
+        name: String(row.name),
+        enabled: Boolean(row.enabled),
+        lastCallAt: str(row.last_call_at),
+      }))
   })

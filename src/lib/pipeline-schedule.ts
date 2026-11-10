@@ -22,6 +22,7 @@
  * the scheduler sweep and its unit tests.
  */
 
+import { z } from 'zod'
 import { nextCronAfter, parseCron } from './pipeline-cron'
 import {
   EVENT_CATALOGUE,
@@ -70,12 +71,7 @@ const INPUT_NAME_RE = /^[a-z][a-z0-9_]{0,47}$/
 export const LEGACY_DATASET_VERSION_EVENT = 'dataset_version_created' as const
 
 /** Catalogue families whose stable events can trigger pipelines. */
-const TRIGGERABLE_FAMILY: Record<string, true | undefined> = {
-  record: true,
-  dataset: true,
-  notebook: true,
-  sheet: true,
-}
+const TRIGGERABLE_FAMILY = new Set(['record', 'dataset', 'notebook', 'sheet'])
 
 /**
  * A stable event can trigger a pipeline when its family is triggerable, or
@@ -87,12 +83,12 @@ const TRIGGERABLE_FAMILY: Record<string, true | undefined> = {
 function isTriggerable(entry: EventCatalogueEntry): boolean {
   if (entry.producer?.when !== undefined) return entry.consumers.pipeline
 
-  return TRIGGERABLE_FAMILY[entry.family] === true || entry.consumers.pipeline
+  return TRIGGERABLE_FAMILY.has(entry.family) || entry.consumers.pipeline
 }
 
 /** Fields every trigger kind shares. */
 export interface ScheduleSpecCommon {
-  parameters?: Record<string, unknown>
+  parameters?: Record<string, z.core.util.JSONType>
   /** Legacy fixed inputs; `inputs` bindings win where both name an input. */
   inputVersions?: Record<string, string>
   inputs?: Record<string, InputBinding>
@@ -138,13 +134,16 @@ export interface EventSpec extends ScheduleSpecCommon {
  * when it is not a triggerable event. Accepts canonical names, wire aliases
  * and the legacy `dataset_version_created` name.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Stored and HTTP event names enter here untrusted; decode the string before resolving catalogue aliases.
 export function normalizeTriggerEventName(name: unknown): string | null {
-  if (typeof name !== 'string' || name.length === 0) return null
+  const parsed = z.string().min(1).safeParse(name)
+
+  if (!parsed.success) return null
 
   const canonical =
-    name === LEGACY_DATASET_VERSION_EVENT
+    parsed.data === LEGACY_DATASET_VERSION_EVENT
       ? 'dataset.versioned'
-      : resolveEventAlias(name)
+      : resolveEventAlias(parsed.data)
 
   const entry = eventByName(canonical)
 
@@ -172,6 +171,7 @@ export const PIPELINE_TRIGGER_EVENTS: readonly string[] = Object.freeze(
  * triggerable catalogue event. The sweep derives its change_events filter
  * from this — never from a hardcoded entity_type/operation pair.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This stored-event lookup immediately delegates raw name decoding to the canonical normalizer before accessing producer metadata.
 export function producerForTriggerEvent(name: unknown): {
   entityType: string
   operation: string
@@ -185,36 +185,68 @@ export function producerForTriggerEvent(name: unknown): {
 
   if (!producer) return null
 
-  return {
+  const result: NonNullable<ReturnType<typeof producerForTriggerEvent>> = {
     entityType: producer.entityType,
     operation: producer.operation,
-    ...(producer.when ? { when: producer.when } : {}),
   }
+
+  if (producer.when) result.when = producer.when
+
+  return result
 }
 
 export const DAILY_RE = /^([01][0-9]|2[0-3]):[0-5][0-9]$/
 
 export type ScheduleSpecError = { message: string } | null
 
+const scheduleEnvelope = z.object({
+  intervalMinutes: z.unknown().optional(),
+  dailyAt: z.unknown().optional(),
+  cron: z.unknown().optional(),
+  timeZone: z.unknown().optional(),
+  eventType: z.unknown().optional(),
+  datasetId: z.unknown().optional(),
+  instrumentId: z.unknown().optional(),
+  inputName: z.unknown().optional(),
+  missedRunPolicy: z.unknown().optional(),
+  parameters: z.unknown().optional(),
+  inputs: z.unknown().optional(),
+})
+
+const inputBindingEnvelope = z.object({
+  mode: z.unknown().optional(),
+  versionId: z.unknown().optional(),
+  datasetId: z.unknown().optional(),
+})
+
+// Validate the container without cloning away own keys such as __proto__.
+const objectContainer = z.custom<object>(
+  (value) => z.record(z.string(), z.unknown()).safeParse(value).success,
+)
+
+const timeZoneSchema = z.string().refine(isIanaTimeZone).nullish()
+const uuidSchema = z.string().regex(UUID_RE)
+
 export function validateScheduleSpec(
   kind: PipelineScheduleKind,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- HTTP and stored schedule specs are decoded immediately, then each field is validated in the established diagnostic order.
   spec: unknown,
 ): ScheduleSpecError {
-  if (spec === null || typeof spec !== 'object' || Array.isArray(spec)) {
+  const parsed = scheduleEnvelope.safeParse(spec)
+
+  if (!parsed.success) {
     return { message: 'schedule spec must be an object' }
   }
 
-  const record = spec as Record<string, unknown>
+  const record = parsed.data
   const common = validateCommonSpec(kind, record)
 
   if (common) return common
 
   if (kind === 'interval') {
     if (
-      typeof record.intervalMinutes !== 'number' ||
-      !Number.isInteger(record.intervalMinutes) ||
-      record.intervalMinutes < 1 ||
-      record.intervalMinutes > 525_600
+      !z.number().int().min(1).max(525_600).safeParse(record.intervalMinutes)
+        .success
     ) {
       return {
         message: 'intervalMinutes must be an integer between 1 and 525600',
@@ -225,15 +257,11 @@ export function validateScheduleSpec(
   }
 
   if (kind === 'daily') {
-    if (typeof record.dailyAt !== 'string' || !DAILY_RE.test(record.dailyAt)) {
+    if (!z.string().regex(DAILY_RE).safeParse(record.dailyAt).success) {
       return { message: 'dailyAt must be an HH:MM time' }
     }
 
-    if (
-      record.timeZone !== undefined &&
-      record.timeZone !== null &&
-      (typeof record.timeZone !== 'string' || !isIanaTimeZone(record.timeZone))
-    ) {
+    if (!timeZoneSchema.safeParse(record.timeZone).success) {
       return { message: 'timeZone must be a valid IANA time zone name' }
     }
 
@@ -241,24 +269,23 @@ export function validateScheduleSpec(
   }
 
   if (kind === 'cron') {
-    if (parseCron(record.cron) === null) {
+    const cron = z
+      .string()
+      .refine((value) => parseCron(value) !== null)
+      .safeParse(record.cron)
+
+    if (!cron.success) {
       return {
         message:
           'cron must be five fields: minute hour day-of-month month day-of-week',
       }
     }
 
-    if (
-      record.timeZone !== undefined &&
-      record.timeZone !== null &&
-      (typeof record.timeZone !== 'string' || !isIanaTimeZone(record.timeZone))
-    ) {
+    if (!timeZoneSchema.safeParse(record.timeZone).success) {
       return { message: 'timeZone must be a valid IANA time zone name' }
     }
 
-    if (
-      nextCronAfter(record.cron as string, zoneOf(record), new Date()) === null
-    ) {
+    if (nextCronAfter(cron.data, zoneOf(record), new Date()) === null) {
       return { message: 'cron never fires' }
     }
 
@@ -272,30 +299,17 @@ export function validateScheduleSpec(
     return { message: 'eventType must be a triggerable catalogue event name' }
   }
 
-  if (
-    record.datasetId !== undefined &&
-    record.datasetId !== null &&
-    typeof record.datasetId !== 'string'
-  ) {
+  if (!z.string().nullish().safeParse(record.datasetId).success) {
     return { message: 'datasetId must be a Dataset id or null' }
   }
 
-  if (
-    record.instrumentId !== undefined &&
-    record.instrumentId !== null &&
-    (typeof record.instrumentId !== 'string' ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        record.instrumentId,
-      ))
-  ) {
+  if (!uuidSchema.nullish().safeParse(record.instrumentId).success) {
     return { message: 'instrumentId must be an instrument id or null' }
   }
 
   if (
-    record.inputName !== undefined &&
-    record.inputName !== null &&
-    (typeof record.inputName !== 'string' ||
-      !/^[a-z][a-z0-9_]{0,47}$/.test(record.inputName))
+    !z.string().regex(INPUT_NAME_RE).nullish().safeParse(record.inputName)
+      .success
   ) {
     return { message: 'inputName must be a valid input identifier' }
   }
@@ -303,10 +317,10 @@ export function validateScheduleSpec(
   return null
 }
 
-function zoneOf(record: Record<string, unknown>): string {
-  return typeof record.timeZone === 'string' && record.timeZone
-    ? record.timeZone
-    : 'UTC'
+function zoneOf(record: { timeZone?: unknown }): string {
+  const zone = z.string().min(1).safeParse(record.timeZone)
+
+  return zone.success ? zone.data : 'UTC'
 }
 
 /**
@@ -316,55 +330,46 @@ function zoneOf(record: Record<string, unknown>): string {
  */
 function validateCommonSpec(
   kind: PipelineScheduleKind,
-  record: Record<string, unknown>,
+  record: z.infer<typeof scheduleEnvelope>,
 ): ScheduleSpecError {
   if (
-    record.missedRunPolicy !== undefined &&
-    record.missedRunPolicy !== null &&
-    !(MISSED_RUN_POLICIES as readonly unknown[]).includes(
-      record.missedRunPolicy,
-    )
+    !z.enum(MISSED_RUN_POLICIES).nullish().safeParse(record.missedRunPolicy)
+      .success
   ) {
     return { message: 'missedRunPolicy must be run_once or skip' }
   }
 
-  if (
-    record.parameters !== undefined &&
-    record.parameters !== null &&
-    (typeof record.parameters !== 'object' || Array.isArray(record.parameters))
-  ) {
+  if (!objectContainer.nullish().safeParse(record.parameters).success) {
     return { message: 'parameters must be an object' }
   }
 
   if (record.inputs === undefined || record.inputs === null) return null
 
-  if (typeof record.inputs !== 'object' || Array.isArray(record.inputs)) {
+  const inputs = objectContainer.safeParse(record.inputs)
+
+  if (!inputs.success) {
     return { message: 'inputs must be an object' }
   }
 
-  for (const [name, raw] of Object.entries(record.inputs)) {
+  for (const [name, raw] of Object.entries(inputs.data)) {
     if (!INPUT_NAME_RE.test(name)) {
       return { message: `input ${name} is not a valid input identifier` }
     }
 
-    if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
+    const parsedBinding = inputBindingEnvelope.safeParse(raw)
+
+    if (!parsedBinding.success) {
       return { message: `input ${name} needs a binding` }
     }
 
-    const binding = raw as Record<string, unknown>
+    const binding = parsedBinding.data
 
     if (binding.mode === 'pinned') {
-      if (
-        typeof binding.versionId !== 'string' ||
-        !UUID_RE.test(binding.versionId)
-      ) {
+      if (!uuidSchema.safeParse(binding.versionId).success) {
         return { message: `input ${name} needs a Dataset Version to pin` }
       }
     } else if (binding.mode === 'latest' || binding.mode === 'incremental') {
-      if (
-        typeof binding.datasetId !== 'string' ||
-        !UUID_RE.test(binding.datasetId)
-      ) {
+      if (!uuidSchema.safeParse(binding.datasetId).success) {
         return { message: `input ${name} needs a Dataset` }
       }
 
@@ -382,22 +387,24 @@ function validateCommonSpec(
 }
 
 /** The bindings a spec declares, with legacy `inputVersions` read as pinned. */
-export function specBindings(
-  spec: ScheduleSpecCommon,
-): Record<string, InputBinding> {
-  const bindings: Record<string, InputBinding> = {}
+export function specBindings(spec: ScheduleSpecCommon) {
+  const bindings = Object.fromEntries(
+    Object.entries(spec.inputVersions ?? {}).flatMap(
+      ([name, versionId]): Array<[string, InputBinding]> => {
+        const parsed = z.string().safeParse(versionId)
 
-  for (const [name, versionId] of Object.entries(spec.inputVersions ?? {})) {
-    if (typeof versionId === 'string') {
-      bindings[name] = { mode: 'pinned', versionId }
-    }
-  }
+        return parsed.success
+          ? [[name, { mode: 'pinned', versionId: parsed.data }]]
+          : []
+      },
+    ),
+  )
 
-  return { ...bindings, ...(spec.inputs ?? {}) }
+  return { ...bindings, ...spec.inputs }
 }
 
 /** The zone a timed spec runs on (explicit, default UTC). */
-export function specTimeZone(spec: Record<string, unknown>): string {
+export function specTimeZone(spec: { timeZone?: unknown }): string {
   return zoneOf(spec)
 }
 
@@ -412,25 +419,39 @@ export function nextRunAt(
   if (error) return null
 
   if (kind === 'cron') {
-    const cron = spec as CronSpec
-    const zone = cron.timeZone ?? 'UTC'
+    const cron = z
+      .object({ cron: z.string(), timeZone: z.string().nullish() })
+      .safeParse(spec)
 
-    return isIanaTimeZone(zone) ? nextCronAfter(cron.cron, zone, from) : null
+    if (!cron.success) return null
+
+    const zone = cron.data.timeZone ?? 'UTC'
+
+    return isIanaTimeZone(zone)
+      ? nextCronAfter(cron.data.cron, zone, from)
+      : null
   }
 
   if (kind === 'interval') {
-    const minutes = (spec as IntervalSpec).intervalMinutes
+    const interval = z.object({ intervalMinutes: z.number() }).safeParse(spec)
 
-    return new Date(from.getTime() + minutes * 60_000)
+    return interval.success
+      ? new Date(from.getTime() + interval.data.intervalMinutes * 60_000)
+      : null
   }
 
   // daily — next wall-clock occurrence in the explicit IANA zone
-  const daily = spec as DailySpec
-  const zone = daily.timeZone ?? 'UTC'
+  const daily = z
+    .object({ dailyAt: z.string(), timeZone: z.string().nullish() })
+    .safeParse(spec)
+
+  if (!daily.success) return null
+
+  const zone = daily.data.timeZone ?? 'UTC'
 
   if (!isIanaTimeZone(zone)) return null
 
-  return nextDailyInZone(from, daily.dailyAt, zone)
+  return nextDailyInZone(from, daily.data.dailyAt, zone)
 }
 
 interface ZonedClock {

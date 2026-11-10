@@ -42,7 +42,20 @@ export const listLineageSettingsFn = createServerFn({ method: 'POST' })
     )
 
     try {
-      const { rows } = await session.client.query(
+      const { rows } = await session.client.query<{
+        id: string
+        name: string
+        endpoint_url: string
+        namespace: string
+        auth_header_name: string
+        has_secret: boolean
+        enabled: boolean
+        last_test_at: string | null
+        last_test_ok: boolean | null
+        last_test_message: string | null
+        pending: number | null
+        failed: number | null
+      }>(
         `SELECT t.id, t.name, t.endpoint_url, t.namespace, t.auth_header_name,
                 t.has_secret, t.enabled, t.last_test_at::text AS last_test_at,
                 t.last_test_ok, t.last_test_message,
@@ -64,7 +77,7 @@ export const listLineageSettingsFn = createServerFn({ method: 'POST' })
 
       return {
         retentionDays: Number(retention.rows[0]?.days ?? 30),
-        targets: rows.map((row: Record<string, unknown>) => ({
+        targets: rows.map((row) => ({
           id: String(row.id),
           name: String(row.name),
           endpointUrl: String(row.endpoint_url),
@@ -211,25 +224,27 @@ export const testLineageTargetFn = createServerFn({ method: 'POST' })
       const { db } = await import('#/db/client.server')
       const { sql } = await import('drizzle-orm')
 
-      const result = await db.execute(sql`
+      const result = await db.execute<{
+        endpoint_url: string
+        auth_header_name: string
+        namespace: string
+        sealed: string | null
+      }>(sql`
         SELECT t.endpoint_url, t.auth_header_name, t.namespace, s.sealed
           FROM api.lineage_targets t
           LEFT JOIN internal.lineage_target_secrets s ON s.target_id = t.id
          WHERE t.id = ${data.id}::uuid AND t.workspace_id = ${data.workspaceId}::uuid`)
 
-      const target = result.rows[0] as
-        | {
-            endpoint_url: string
-            auth_header_name: string
-            namespace: string
-            sealed: string | null
-          }
-        | undefined
+      const target = result.rows.at(0)
 
       if (!target) throw new Error('That endpoint no longer exists.')
-      const { buildRunEvent } = await import('./openlineage')
-      const { sendToTarget } = await import('./lineage-emitter.server')
-      const { env } = await import('#/env.server')
+
+      const [{ buildRunEvent }, { sendToTarget }, { env }] = await Promise.all([
+        import('./openlineage'),
+        import('./lineage-emitter.server'),
+        import('#/env.server'),
+      ])
+
       const now = new Date().toISOString()
 
       const event = buildRunEvent(

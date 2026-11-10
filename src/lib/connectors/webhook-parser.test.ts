@@ -29,6 +29,31 @@ describe('reading a parser service’s answer', () => {
     expect(parsed.warnings).toEqual(['one row was short'])
   })
 
+  it('preserves own scientific keys and validates their original values', () => {
+    const parsed = readWebhookParserAnswer(
+      JSON.parse(
+        '{"rows":[{"__proto__":5.75,"sample":"A1"}],"metadata":{"__proto__":true}}',
+      ),
+    )
+
+    expect(parsed.headers).toEqual(['__proto__', 'sample'])
+    expect(Object.hasOwn(parsed.rows[0], '__proto__')).toBe(true)
+    expect(parsed.rows[0]['__proto__']).toBe('5.75')
+    expect(Object.hasOwn(parsed.metadata, '__proto__')).toBe(true)
+    expect(parsed.metadata['__proto__']).toBe('true')
+    expect(Object.getPrototypeOf(parsed.rows[0])).toBe(Object.prototype)
+    expect(() =>
+      readWebhookParserAnswer(
+        JSON.parse('{"rows":[{"__proto__":{"nested":true}}]}'),
+      ),
+    ).toThrow(/expected shape/)
+    expect(() =>
+      readWebhookParserAnswer(
+        JSON.parse('{"headers":["sample"],"rows":[{"__proto__":4}]}'),
+      ),
+    ).toThrow(/isn’t in the answer’s headers/)
+  })
+
   it('takes the columns from the rows when no headers are sent', () => {
     const parsed = readWebhookParserAnswer({
       rows: [{ a: 1 }, { a: 2, b: 3 }],
@@ -64,6 +89,24 @@ describe('reading a parser service’s answer', () => {
       message: 'No Sample column.',
     })
     expect(readWebhookParserError(500, 'oops').message).toMatch(/status 500/)
+
+    for (const body of [
+      null,
+      { error: null },
+      { error: { message: 42 } },
+      { error: { message: '   ' } },
+    ]) {
+      expect(readWebhookParserError(503, body)).toMatchObject({
+        code: 'webhook_error',
+        message: 'The parser service answered with status 503.',
+      })
+    }
+
+    expect(
+      readWebhookParserError(422, {
+        error: { message: `  ${'x'.repeat(600)}  ` },
+      }).message,
+    ).toBe('x'.repeat(500))
   })
 
   it('finds a webhook address and picks a media type', () => {
@@ -71,6 +114,11 @@ describe('reading a parser service’s answer', () => {
       url: 'https://x.test/p',
     })
     expect(webhookTarget({ engine: 'a@1' })).toBeNull()
+
+    for (const webhook of [null, [], { url: '' }, { url: 42 }]) {
+      expect(webhookTarget({ webhook })).toBeNull()
+    }
+
     expect(webhookMediaType('Run 1.CSV')).toBe('text/csv')
     expect(webhookMediaType('x.bin')).toBe('application/octet-stream')
   })
@@ -97,7 +145,7 @@ describe('calling a webhook parser', () => {
   })
 
   it('sends the file with its name, parser and signature and reads the rows', async () => {
-    const fetchMock = vi.fn(
+    const fetchMock = vi.fn<typeof fetch>(
       async () =>
         new Response(JSON.stringify({ rows: [{ a: 1 }] }), {
           headers: { 'content-type': 'application/json' },
@@ -105,21 +153,19 @@ describe('calling a webhook parser', () => {
     )
 
     const parsed = await callWebhookParser(call, {
-      fetch: fetchMock as unknown as typeof fetch,
+      fetch: fetchMock,
       now: () => 1700000000,
     })
 
     expect(parsed.rows).toEqual([{ a: '1' }])
 
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [
-      URL,
-      RequestInit & { headers: Record<string, string> },
-    ]
+    const [url, init] = fetchMock.mock.calls[0]
+    const request = new Request(url, init)
 
-    expect(String(url)).toBe('https://parsers.example.org/pl-8')
-    expect(init.method).toBe('POST')
-    expect(init.redirect).toBe('error')
-    expect(init.headers).toMatchObject({
+    expect(request.url).toBe('https://parsers.example.org/pl-8')
+    expect(request.method).toBe('POST')
+    expect(request.redirect).toBe('error')
+    expect(Object.fromEntries(request.headers)).toMatchObject({
       'content-type': 'text/csv',
       'x-sheetbase-file-name': 'run%201.csv',
       'x-sheetbase-parser': 'pl-8@2',
@@ -137,7 +183,7 @@ describe('calling a webhook parser', () => {
       )
 
     await expect(
-      callWebhookParser(call, { fetch: fetchMock as unknown as typeof fetch }),
+      callWebhookParser(call, { fetch: fetchMock }),
     ).rejects.toMatchObject({
       code: 'webhook_refused',
       message: 'Not a PL-8 log.',
@@ -147,16 +193,16 @@ describe('calling a webhook parser', () => {
   it('says when the service is down or too slow', async () => {
     await expect(
       callWebhookParser(call, {
-        fetch: (async () => {
+        fetch: async () => {
           throw new TypeError('fetch failed')
-        }) as unknown as typeof fetch,
+        },
       }),
     ).rejects.toMatchObject({ code: 'webhook_unreachable' })
     await expect(
       callWebhookParser(call, {
-        fetch: (async () => {
+        fetch: async () => {
           throw new DOMException('timed out', 'TimeoutError')
-        }) as unknown as typeof fetch,
+        },
       }),
     ).rejects.toMatchObject({ code: 'webhook_timeout' })
   })
@@ -167,7 +213,7 @@ describe('calling a webhook parser', () => {
     ).rejects.toMatchObject({ code: 'webhook_address_refused' })
     await expect(
       callWebhookParser(call, {
-        fetch: (async () => new Response('<html>')) as unknown as typeof fetch,
+        fetch: async () => new Response('<html>'),
       }),
     ).rejects.toMatchObject({ code: 'webhook_bad_answer' })
   })

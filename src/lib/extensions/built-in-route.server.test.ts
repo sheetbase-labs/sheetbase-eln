@@ -16,27 +16,33 @@ vi.mock('../request-auth', () => ({
     context: { token: 't', workspaceId: 'w', userId: 'u' },
   }),
 }))
+
 vi.mock('../connectors/enterprise/execution.server', () => ({
   createServerDataClient: () => ({}),
 }))
+
 const ensure = vi.hoisted(() => vi.fn())
+
 vi.mock('./built-in.server', () => ({ ensureBuiltInPlugins: ensure }))
 
 const deps = (rpc: () => Promise<unknown> = async () => null) => ({
   auth: {} as never,
   makeClient: () => ({ rpc }) as unknown as DataClient,
 })
+
 const post = () =>
   new Request('http://x/api/plugins/built-in', { method: 'POST' })
 
 describe('POST /api/plugins/built-in', () => {
   it('installs the built-in plugins and says what happened', async () => {
     ensure.mockResolvedValueOnce([{ key: 'chemistry', action: 'installed' }])
+
     const body = (await (
       await handleBuiltInPlugins(post(), deps())
     ).json()) as {
       plugins: { key: string }[]
     }
+
     expect(body.plugins).toHaveLength(1)
   })
 
@@ -47,6 +53,7 @@ describe('POST /api/plugins/built-in', () => {
         throw new Error('no')
       }),
     )
+
     expect(response.status).toBe(403)
   })
 })

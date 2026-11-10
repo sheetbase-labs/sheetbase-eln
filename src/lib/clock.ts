@@ -35,6 +35,7 @@ function readPinnedValue(): string | null {
     }
   }
 
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Vite replaces this identifier in browser builds; typeof also permits server execution when no binding exists.
   if (typeof __SHEETBASE_NOW__ === 'string' && __SHEETBASE_NOW__) {
     return __SHEETBASE_NOW__
   }

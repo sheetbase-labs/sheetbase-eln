@@ -4,6 +4,8 @@
  * network. The app only sends the file bytes and the converter's name, and
  * reads one document back; nothing in the file is run or trusted.
  */
+import { z } from 'zod'
+
 import {
   PipelinePythonError,
   executePythonTransform,
@@ -13,6 +15,7 @@ import {
   converterTarget,
 } from '#/lib/instrument-data/asm'
 import type { AsmCapture, ConverterVendor } from '#/lib/instrument-data/asm'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
 
 import type { ResolvedParser } from './parser-resolution'
 import type { ParsedInstrumentPayload } from './registry'
@@ -46,16 +49,10 @@ function converterSource(): Promise<string> {
   return pythonSource
 }
 
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {}
-}
+const textSchema = z.string().catch('')
+const objectSchema = pipelineJsonObjectSchema.catch({})
 
-function text(value: unknown): string {
-  return typeof value === 'string' ? value : ''
-}
-
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- JavaScript rejection reasons are untrusted; only the two checked error classes are translated.
 function fail(error: unknown): never {
   if (error instanceof ConverterError) throw error
 
@@ -101,11 +98,11 @@ export async function listConverters(
     })
 
     const vendors = result.rows.map((row) => ({
-      key: text(row['key']),
-      name: text(row['name']),
-      technique: text(row['technique']),
-      extensions: text(row['extensions']),
-      releaseState: text(row['release_state']),
+      key: textSchema.parse(row['key']),
+      name: textSchema.parse(row['name']),
+      technique: textSchema.parse(row['technique']),
+      extensions: textSchema.parse(row['extensions']),
+      releaseState: textSchema.parse(row['release_state']),
     }))
 
     vendorCache = { at: now(), vendors }
@@ -148,7 +145,7 @@ export async function convertFile(input: {
   }
 
   const row = result.rows.at(0)
-  const document = asRecord(row?.['asm'])
+  const document = objectSchema.parse(row?.['asm'])
 
   if (!row || Object.keys(document).length === 0)
     throw new ConverterError(
@@ -162,46 +159,47 @@ export async function convertFile(input: {
       'The converted document is too large to keep.',
     )
 
-  const columns = Array.isArray(row['columns'])
-    ? (row['columns'] as unknown[]).map(text)
-    : []
+  const columns = z.array(textSchema).catch([]).parse(row['columns'])
 
-  const table = Array.isArray(row['table'])
-    ? (row['table'] as unknown[]).map((entry) =>
-        Object.fromEntries(
-          columns.map((column) => [column, text(asRecord(entry)[column])]),
-        ),
-      )
-    : []
+  const table = z
+    .array(objectSchema)
+    .catch([])
+    .parse(row['table'])
+    .map((entry) =>
+      Object.fromEntries(
+        columns.map((column) => [column, textSchema.parse(entry[column])]),
+      ),
+    )
 
-  const device = asRecord(row['device'])
+  const device = objectSchema.parse(row['device'])
 
   const asm: AsmCapture = {
     document,
-    technique: text(row['technique']),
-    manifest: text(row['manifest']),
-    vendor: text(row['vendor']),
-    converter: text(row['converter']) || 'allotropy',
-    converterVersion: text(row['converter_version']),
+    technique: textSchema.parse(row['technique']),
+    manifest: textSchema.parse(row['manifest']),
+    vendor: textSchema.parse(row['vendor']),
+    converter: textSchema.parse(row['converter']) || 'allotropy',
+    converterVersion: textSchema.parse(row['converter_version']),
     imageDigest: result.runtime,
     measurements: Number(row['measurements']) || 0,
     device,
   }
+
+  const metadata: ParsedInstrumentPayload['metadata'] = {
+    format: 'asm',
+    technique: asm.technique,
+    converter: `${asm.converter} ${asm.converterVersion}`.trim(),
+  }
+
+  if (asm.vendor) metadata.vendor = asm.vendor
 
   return {
     asm,
     payload: {
       headers: columns,
       rows: table,
-      metadata: {
-        format: 'asm',
-        technique: asm.technique,
-        converter: `${asm.converter} ${asm.converterVersion}`.trim(),
-        ...(asm.vendor ? { vendor: asm.vendor } : {}),
-      },
-      warnings: Array.isArray(row['warnings'])
-        ? (row['warnings'] as unknown[]).map(text)
-        : [],
+      metadata,
+      warnings: z.array(textSchema).catch([]).parse(row['warnings']),
       asm,
     },
   }

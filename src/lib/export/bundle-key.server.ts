@@ -28,7 +28,7 @@ export async function ensureWorkspaceKey(
       ${keyFingerprint(pair.publicKeyPem)})`,
   )
 
-  const row = result.rows[0] as (typeof result.rows)[number] | undefined
+  const row = result.rows.at(0)
 
   if (!row) throw new Error('could not read the workspace signing key')
 

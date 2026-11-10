@@ -56,6 +56,16 @@ describe('POST /api/pipelines/try-draft', () => {
         )
       ).status,
     ).toBe(400)
+    expect(
+      (
+        await handlePipelineTryDraft(
+          post(
+            `{"workspaceId":"${WS}","configuration":{},"parameters":{"dose":1e400}}`,
+          ),
+          deps(),
+        )
+      ).status,
+    ).toBe(400)
     expect(trial.run).not.toHaveBeenCalled()
   })
 

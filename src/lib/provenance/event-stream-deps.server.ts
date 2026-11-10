@@ -74,14 +74,14 @@ export const eventStreamDeps: EventStreamDeps = {
         JSON.stringify(caller.claims),
       ])
 
-      const { rows } = await client.query(
+      const { rows } = await client.query<{ page: StreamPage }>(
         `SELECT api.event_stream_page($1::bigint, $2::int, $3::text[]) AS page`,
         [after, limit, entityTypes.length ? [...entityTypes] : null],
       )
 
       await client.query('COMMIT')
 
-      return rows[0].page as StreamPage
+      return rows[0].page
     } catch (error) {
       await client.query('ROLLBACK').catch(() => {})
       throw error

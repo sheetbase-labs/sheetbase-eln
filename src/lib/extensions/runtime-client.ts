@@ -11,10 +11,12 @@ async function answer(response: Response): Promise<PluginRuntimeInfo[]> {
     runtime?: PluginRuntimeInfo | PluginRuntimeInfo[]
     error?: { message?: string }
   } | null
+
   if (!response.ok || !body?.runtime)
     throw new Error(
       body?.error?.message ?? 'The plugin settings could not be read.',
     )
+
   return Array.isArray(body.runtime) ? body.runtime : [body.runtime]
 }
 
@@ -38,6 +40,7 @@ export async function setPluginLimits(
   const [info] = await answer(
     await post({ action: 'set-limits', extensionId, limits }),
   )
+
   return info
 }
 
@@ -48,5 +51,6 @@ export async function reinstallPluginPackages(
   const [info] = await answer(
     await post({ action: 'reinstall-packages', extensionId }),
   )
+
   return info
 }

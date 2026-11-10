@@ -17,35 +17,35 @@ import type { SheetInstanceState } from './sheet-instance'
 
 const timestamp = rfc3339TimestampSchema
 const nullableUuid = uuid.nullable()
+
 const revision = z
   .union([z.number(), z.string().regex(/^\d+$/)])
   .transform(Number)
   .pipe(z.number().int().positive().safe())
 
-export const sheetInstanceWireSchema = z
-  .object({
-    id: uuid,
-    workspace_id: uuid,
-    project_id: nullableUuid,
-    notebook_record_id: nullableUuid,
-    source_definition_version_id: nullableUuid,
-    display_id: z.string().nullable().optional(),
-    name: z.string().trim().min(1).max(200),
-    description: z.string().max(2_000).nullable(),
-    lifecycle: z.enum(['active', 'archived']),
-    revision,
-    state: sheetInstanceStateSchema,
-    duplicated_from_instance_id: nullableUuid,
-    created_at: timestamp,
-    updated_at: timestamp,
-    created_by_user_id: z.string().nullable(),
-    updated_by_user_id: z.string().nullable(),
-    created_by_credential_id: nullableUuid.optional(),
-    updated_by_credential_id: nullableUuid.optional(),
-  })
-  .strict()
+export const sheetInstanceWireSchema = z.strictObject({
+  id: uuid,
+  workspace_id: uuid,
+  project_id: nullableUuid,
+  notebook_record_id: nullableUuid,
+  source_definition_version_id: nullableUuid,
+  display_id: z.string().nullable().optional(),
+  name: z.string().trim().min(1).max(200),
+  description: z.string().max(2_000).nullable(),
+  lifecycle: z.enum(['active', 'archived']),
+  revision,
+  state: sheetInstanceStateSchema,
+  duplicated_from_instance_id: nullableUuid,
+  created_at: timestamp,
+  updated_at: timestamp,
+  created_by_user_id: z.string().nullable(),
+  updated_by_user_id: z.string().nullable(),
+  created_by_credential_id: nullableUuid.optional(),
+  updated_by_credential_id: nullableUuid.optional(),
+})
 
 export type SheetInstanceWire = z.input<typeof sheetInstanceWireSchema>
+
 export type SheetParameterInput =
   | { parameterId: string; kind: 'scalar'; value: unknown }
   | { parameterId: string; kind: 'record'; recordId: string }
@@ -55,6 +55,7 @@ export type SheetParameterInput =
       kind: 'dataset-version'
       datasetVersionId: string
     }
+
 export interface SheetInstance {
   id: string
   workspaceId: string
@@ -78,6 +79,7 @@ export const sheetInstanceDataClient = createDataClient()
 
 export function sheetInstanceFromWire(wire: unknown): SheetInstance {
   const parsed = sheetInstanceWireSchema.parse(wire)
+
   return {
     id: parsed.id,
     workspaceId: parsed.workspace_id,
@@ -106,7 +108,9 @@ export async function fetchSheetInstance(
     'sheet_instances',
     `?id=eq.${encodeURIComponent(id)}&limit=1`,
   )
+
   const row = rows[0]
+
   return row === undefined ? null : sheetInstanceFromWire(row)
 }
 
@@ -117,6 +121,7 @@ export async function fetchSheetInstances(
     'sheet_instances',
     '?order=created_at.asc,id.asc',
   )
+
   return rows.map(sheetInstanceFromWire)
 }
 
@@ -149,6 +154,7 @@ async function create(
     p_notebook_record_id: input.notebookRecordId ?? null,
     p_state: input.state,
   })
+
   return sheetInstanceFromWire(row)
 }
 
@@ -191,6 +197,7 @@ export async function updateSheetInstance(
     p_expected_revision: expectedRevision,
     p_state: state,
   })
+
   return sheetInstanceFromWire(row)
 }
 
@@ -203,6 +210,7 @@ export async function resolveSheetInstanceRowIdentity(
     p_instance_id: id,
     p_expected_revision: expectedRevision,
   })
+
   return sheetInstanceFromWire(row)
 }
 
@@ -215,6 +223,7 @@ export async function archiveSheetInstance(
     p_instance_id: id,
     p_expected_revision: expectedRevision,
   })
+
   return sheetInstanceFromWire(row)
 }
 
@@ -227,6 +236,7 @@ export async function restoreSheetInstance(
     p_instance_id: id,
     p_expected_revision: expectedRevision,
   })
+
   return sheetInstanceFromWire(row)
 }
 
@@ -238,14 +248,17 @@ export async function renameSheetInstance(
   client = sheetInstanceDataClient,
 ) {
   const clean = name.trim()
+
   if (clean.length < 1 || clean.length > 200) {
     throw new Error('A sheet name is 1 to 200 characters.')
   }
+
   const row = await client.rpc<unknown>('rename_sheet_instance', {
     p_instance_id: id,
     p_expected_revision: expectedRevision,
     p_name: clean,
   })
+
   return sheetInstanceFromWire(row)
 }
 
@@ -264,6 +277,7 @@ export async function fetchProjectSheets(
       `&lifecycle=eq.${options.archived ? 'archived' : 'active'}` +
       '&order=updated_at.desc,id.asc&limit=200',
   )
+
   return rows.map(sheetInstanceFromWire)
 }
 
@@ -278,6 +292,7 @@ export async function duplicateSheetInstance(
     p_expected_revision: expectedRevision,
     p_name: name,
   })
+
   return sheetInstanceFromWire(row)
 }
 
@@ -295,6 +310,7 @@ export async function previewSheetInstanceDefinitionUpgrade(
       p_target_definition_version_id: uuid.parse(targetDefinitionVersionId),
     },
   )
+
   return parseSheetDefinitionUpgradePreview(result)
 }
 
@@ -325,6 +341,7 @@ export async function applySheetInstanceDefinitionUpgrade(
     }
 > {
   const decisions = parseSheetDefinitionUpgradeDecisions(input.decisions)
+
   const result = await client.rpc<any>(
     'apply_sheet_instance_definition_upgrade',
     {
@@ -337,10 +354,14 @@ export async function applySheetInstanceDefinitionUpgrade(
       p_parameter_inputs: input.parameterInputs ?? [],
     },
   )
+
   const preview = parseSheetDefinitionUpgradePreview(result.preview)
+
   if (result.status === 'deferred') return { status: 'deferred', preview }
+
   if (result.status !== 'applied')
     throw new Error('Unknown Sheet Definition upgrade result status.')
+
   return {
     status: 'applied',
     preview,

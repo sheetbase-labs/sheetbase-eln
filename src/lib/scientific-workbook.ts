@@ -86,6 +86,7 @@ export function scientificSheetName(tableId: string) {
 }
 
 /** Engine error strings mapped to the codes persisted in `formula_result_cache`. */
+// oxlint-disable-next-line anti-slop/no-known-value-widening -- Exposed engine resolvers can throw arbitrary native messages; preserve the existing open lookup, including inherited-name behavior, rather than silently changing persisted error classification to an own-key or enum lookup.
 const ERROR_CODES: Partial<Record<string, string>> = {
   '#DIV/0!': 'DIV_BY_ZERO',
   '#REF!': 'REF',
@@ -239,10 +240,8 @@ export class ScientificWorkbook {
   private errorResult(
     source: string | undefined,
     engineFormula: string | undefined,
-    error: unknown,
+    message: string,
   ): WorkbookResult {
-    const message = error instanceof Error ? error.message : String(error)
-
     return {
       status: 'error',
       source,
@@ -272,17 +271,22 @@ export class ScientificWorkbook {
           ? worksheet.input(a1)
           : undefined
 
-    let raw: unknown
+    let raw: ReturnType<Worksheet['value']>
 
     try {
       raw = worksheet.value(a1)
     } catch (error) {
-      return this.errorResult(formula?.source, engineFormula, error)
+      return this.errorResult(
+        formula?.source,
+        engineFormula,
+        error instanceof Error ? error.message : String(error),
+      )
     }
 
     const value = normalizeEngineScalar(raw)
 
     // A spilled matrix is not a scalar cell value for this profile.
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- The codec passes non-Date objects through unchanged; retain the existing non-scalar engine-output refusal even though Worksheet.value declares Scalar.
     if (value !== null && typeof value === 'object')
       return this.errorResult(formula?.source, engineFormula, '#VALUE!')
 
@@ -350,7 +354,11 @@ export class ScientificWorkbook {
 
     return a1
   }
-  setLiteral(address: WorkbookCellAddress, value: unknown): WorkbookChange[] {
+  setLiteral(
+    address: WorkbookCellAddress,
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw cell writes are decoded by encodeScientificLiteral after stable identity lookup and formula removal, preserving native coercion and first-failure order.
+    value: unknown,
+  ): WorkbookChange[] {
     const location = this.locate(address)
     this.formulas.delete(this.key(address))
 

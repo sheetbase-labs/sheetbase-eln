@@ -21,10 +21,13 @@ export const PIPELINE_CANCEL_TOOL = 'sheetbase.pipeline.cancel'
 export const PIPELINE_PUBLISH_TOOL = 'sheetbase.pipeline.publish'
 export const PIPELINE_RETIRE_TOOL = 'sheetbase.pipeline.retire'
 export const PIPELINE_SCHEDULE_ADD_TOOL = 'sheetbase.pipeline.schedule_add'
+
 export const PIPELINE_SCHEDULE_SWITCH_TOOL =
   'sheetbase.pipeline.schedule_switch'
+
 export const PIPELINE_SCHEDULE_DELETE_TOOL =
   'sheetbase.pipeline.schedule_delete'
+
 export const PLUGIN_SWITCH_TOOL = 'sheetbase.plugin.switch'
 export const PLUGIN_REMOVE_TOOL = 'sheetbase.plugin.remove'
 
@@ -46,16 +49,19 @@ export type PipelinesProposeToolName =
 
 const title = z.string().min(1).max(120)
 const summary = z.string().min(1).max(400)
+
 const pipeline = z
   .string()
   .min(1)
   .max(200)
   .describe('The pipeline, by its name or key.')
+
 const plugin = z
   .string()
   .min(1)
   .max(200)
   .describe('The plugin, by its name or key.')
+
 const scheduleKind = z
   .enum(['interval', 'daily', 'cron', 'event'])
   .optional()
@@ -63,111 +69,112 @@ const scheduleKind = z
     'Which of the pipeline’s schedules, when it has more than one: `interval`, `daily`, `cron` or `event`.',
   )
 
-export const proposePipelineRunSchema = z
-  .object({
-    title,
-    summary,
-    pipeline,
-    inputs: z
-      .record(z.string().min(1).max(64), z.string().min(1).max(200))
-      .optional()
-      .describe(
-        'Which dataset each input reads, as input name to dataset name. The newest version of each dataset is used. Leave out for a pipeline without inputs.',
-      ),
-    parameters: z
-      .record(z.string().min(1).max(64), z.unknown())
-      .optional()
-      .describe('Values for the pipeline’s settings, by name, if they said.'),
-  })
-  .strict()
+export const proposePipelineRunSchema = z.strictObject({
+  title,
+  summary,
+  pipeline,
+  inputs: z
+    .record(z.string().min(1).max(64), z.string().min(1).max(200))
+    .optional()
+    .describe(
+      'Which dataset each input reads, as input name to dataset name. The newest version of each dataset is used. Leave out for a pipeline without inputs.',
+    ),
+  parameters: z
+    .record(z.string().min(1).max(64), z.unknown())
+    .optional()
+    .describe('Values for the pipeline’s settings, by name, if they said.'),
+})
 
-export const proposePipelineRetrySchema = z
-  .object({ title, summary, pipeline })
-  .strict()
+export const proposePipelineRetrySchema = z.strictObject({
+  title,
+  summary,
+  pipeline,
+})
 
-export const proposePipelineCancelSchema = z
-  .object({ title, summary, pipeline })
-  .strict()
+export const proposePipelineCancelSchema = z.strictObject({
+  title,
+  summary,
+  pipeline,
+})
 
-export const proposePipelinePublishSchema = z
-  .object({ title, summary, pipeline })
-  .strict()
+export const proposePipelinePublishSchema = z.strictObject({
+  title,
+  summary,
+  pipeline,
+})
 
-export const proposePipelineRetireSchema = z
-  .object({
-    title,
-    summary,
-    pipeline,
-    retire: z
-      .boolean()
-      .describe(
-        '`true` retires it so it can no longer run; `false` brings a retired pipeline back.',
-      ),
-  })
-  .strict()
+export const proposePipelineRetireSchema = z.strictObject({
+  title,
+  summary,
+  pipeline,
+  retire: z
+    .boolean()
+    .describe(
+      '`true` retires it so it can no longer run; `false` brings a retired pipeline back.',
+    ),
+})
 
-export const proposePipelineScheduleAddSchema = z
-  .object({
-    title,
-    summary,
-    pipeline,
-    everyMinutes: z
-      .number()
-      .int()
-      .min(1)
-      .max(10080)
-      .optional()
-      .describe('Run every so many minutes.'),
-    dailyAt: z
-      .string()
-      .regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, 'Use HH:MM.')
-      .optional()
-      .describe('Run every day at this time (HH:MM, the person’s time zone).'),
-    cron: z
-      .string()
-      .min(9)
-      .max(100)
-      .optional()
-      .describe(
-        'Run on a five-field cron, such as `0 6 * * 1-5` for 06:00 on weekdays, in the person’s time zone.',
-      ),
-    onEvent: z
-      .string()
-      .min(3)
-      .max(100)
-      .optional()
-      .describe(
-        'Run whenever this happens, by its event name, such as `dataset.versioned` or `pipeline.run.succeeded`.',
-      ),
-  })
-  .strict()
+export const proposePipelineScheduleAddSchema = z.strictObject({
+  title,
+  summary,
+  pipeline,
+  everyMinutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(10080)
+    .optional()
+    .describe('Run every so many minutes.'),
+  dailyAt: z
+    .string()
+    .regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, 'Use HH:MM.')
+    .optional()
+    .describe('Run every day at this time (HH:MM, the person’s time zone).'),
+  cron: z
+    .string()
+    .min(9)
+    .max(100)
+    .optional()
+    .describe(
+      'Run on a five-field cron, such as `0 6 * * 1-5` for 06:00 on weekdays, in the person’s time zone.',
+    ),
+  onEvent: z
+    .string()
+    .min(3)
+    .max(100)
+    .optional()
+    .describe(
+      'Run whenever this happens, by its event name, such as `dataset.versioned` or `pipeline.run.succeeded`.',
+    ),
+})
 
-export const proposePipelineScheduleSwitchSchema = z
-  .object({
-    title,
-    summary,
-    pipeline,
-    kind: scheduleKind,
-    on: z.boolean().describe('`true` switches it on, `false` pauses it.'),
-  })
-  .strict()
+export const proposePipelineScheduleSwitchSchema = z.strictObject({
+  title,
+  summary,
+  pipeline,
+  kind: scheduleKind,
+  on: z.boolean().describe('`true` switches it on, `false` pauses it.'),
+})
 
-export const proposePipelineScheduleDeleteSchema = z
-  .object({ title, summary, pipeline, kind: scheduleKind })
-  .strict()
+export const proposePipelineScheduleDeleteSchema = z.strictObject({
+  title,
+  summary,
+  pipeline,
+  kind: scheduleKind,
+})
 
-export const proposePluginSwitchSchema = z
-  .object({
-    title,
-    summary,
-    plugin,
-    on: z.boolean().describe('`true` switches it on, `false` off.'),
-  })
-  .strict()
+export const proposePluginSwitchSchema = z.strictObject({
+  title,
+  summary,
+  plugin,
+  on: z.boolean().describe('`true` switches it on, `false` off.'),
+})
 
-export const proposePluginRemoveSchema = z
-  .object({ title, summary, plugin })
-  .strict()
+export const proposePluginRemoveSchema = z.strictObject({
+  title,
+  summary,
+  plugin,
+})
 
 /** What a pipeline or plugin card does when its button is pressed. */
 export type PipelinesAction =

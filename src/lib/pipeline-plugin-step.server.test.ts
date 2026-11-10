@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { PluginStepError, runPluginStep } from './pipeline-plugin-step.server'
 import type { PluginStepScope } from './pipeline-plugin-step.server'
-import type { PipelineStep } from './pipelines/config'
+import type { PipelinePluginStep, PipelineStep } from './pipelines/config'
 
 const invoke = vi.fn()
 const open = vi.fn()
@@ -14,7 +14,7 @@ vi.mock('./extensions/runtime.server', () => ({
   openCallable: (...args: unknown[]) => open(...args),
 }))
 
-const step = (args: Record<string, unknown>): PipelineStep => ({
+const step = (args: PipelinePluginStep['arguments']): PipelineStep => ({
   name: 'join',
   language: 'plugin',
   statement: '',

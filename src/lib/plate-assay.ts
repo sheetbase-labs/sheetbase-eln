@@ -9,9 +9,12 @@
  * controls, no spread, too few doses) is reported as such, never as a pass.
  */
 
+import { z } from 'zod'
+
 import { fitCurve } from './curve-fit'
 import type { CurveFit, CurveModel } from './curve-fit'
 import {
+  ASSIGNMENT_ROLES,
   FORMAT_DIMENSIONS,
   PLATE_FORMATS,
   parseWellCode,
@@ -102,66 +105,102 @@ export function defaultAssayConfig(): PlateAssayConfig {
   }
 }
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
+const objectInput = z.custom<object>(
+  (value) =>
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Stored assay settings historically accept native nonarray objects without copying metadata or eagerly reading getters.
+    typeof value === 'object' && value !== null && !Array.isArray(value),
+)
+
+const configInput = z.custom<{
+  hit?: unknown
+  qc?: unknown
+  normalisation?: unknown
+  effectDirection?: unknown
+  subtractBlank?: unknown
+  curveModel?: unknown
+}>((value) => objectInput.safeParse(value).success)
+
+const hitInput = z.custom<{
+  kind?: unknown
+  threshold?: unknown
+  direction?: unknown
+  minReplicates?: unknown
+}>((value) => objectInput.safeParse(value).success)
+
+const qcInput = z.custom<{
+  zPrimeMin?: unknown
+  zPrimeFail?: unknown
+  signalToBackgroundMin?: unknown
+  controlCvMax?: unknown
+}>((value) => objectInput.safeParse(value).success)
+
+const finiteNumberInput = z.number()
+
+const numberInput = z.union([
+  finiteNumberInput,
+  z.nan(),
+  z.literal(Infinity),
+  z.literal(-Infinity),
+])
+
+const minReplicatesInput = finiteNumberInput.refine(Number.isInteger).min(1)
+const normalisationInput = z.enum(NORMALISATIONS)
+const hitKindInput = z.enum(HIT_RULE_KINDS)
+const directionInput = z.enum(HIT_DIRECTIONS)
+
+function isInput<Schema extends z.ZodType, Value>(
+  schema: Schema,
+  value: Value,
+): value is Value & z.infer<Schema> {
+  return schema.safeParse(value).success
 }
 
 /**
  * Read a stored config back, filling anything missing from the defaults so an
  * old run keeps loading after a field is added.
  */
-export function normaliseAssayConfig(raw: unknown): PlateAssayConfig {
+export function normaliseAssayConfig<Value>(raw: Value): PlateAssayConfig {
   const base = defaultAssayConfig()
 
-  if (!isRecord(raw)) return base
-  const hitRaw = isRecord(raw.hit) ? raw.hit : {}
-  const qcRaw = isRecord(raw.qc) ? raw.qc : {}
+  if (!isInput(configInput, raw)) return base
+  const hitRaw = isInput(hitInput, raw.hit) ? raw.hit : null
+  const qcRaw = isInput(qcInput, raw.qc) ? raw.qc : null
 
-  const num = (v: unknown, fallback: number) =>
-    typeof v === 'number' && Number.isFinite(v) ? v : fallback
-
-  const numOrNull = (v: unknown, fallback: number | null) =>
-    v === null
-      ? null
-      : typeof v === 'number' && Number.isFinite(v)
-        ? v
-        : fallback
-
-  const minRep = hitRaw.minReplicates
+  const minRep = hitRaw?.minReplicates
 
   return {
     version: PLATE_ASSAY_METHOD_VERSION,
-    normalisation: (NORMALISATIONS as readonly unknown[]).includes(
-      raw.normalisation,
-    )
-      ? (raw.normalisation as Normalisation)
+    normalisation: isInput(normalisationInput, raw.normalisation)
+      ? raw.normalisation
       : base.normalisation,
     effectDirection:
       raw.effectDirection === 'activation' ? 'activation' : 'inhibition',
     subtractBlank: raw.subtractBlank === true,
     hit: {
-      kind: (HIT_RULE_KINDS as readonly unknown[]).includes(hitRaw.kind)
-        ? (hitRaw.kind as HitRuleKind)
-        : base.hit.kind,
-      threshold: num(hitRaw.threshold, base.hit.threshold),
-      direction: (HIT_DIRECTIONS as readonly unknown[]).includes(
-        hitRaw.direction,
-      )
-        ? (hitRaw.direction as HitDirection)
+      kind: isInput(hitKindInput, hitRaw?.kind) ? hitRaw.kind : base.hit.kind,
+      threshold: finiteNumberInput
+        .catch(base.hit.threshold)
+        .parse(hitRaw?.threshold),
+      direction: isInput(directionInput, hitRaw?.direction)
+        ? hitRaw.direction
         : base.hit.direction,
-      minReplicates:
-        typeof minRep === 'number' && Number.isInteger(minRep) && minRep >= 1
-          ? minRep
-          : 'all',
+      minReplicates: isInput(minReplicatesInput, minRep) ? minRep : 'all',
     },
     qc: {
-      zPrimeMin: num(qcRaw.zPrimeMin, base.qc.zPrimeMin),
-      zPrimeFail: num(qcRaw.zPrimeFail, base.qc.zPrimeFail),
-      signalToBackgroundMin: numOrNull(
-        qcRaw.signalToBackgroundMin,
-        base.qc.signalToBackgroundMin,
-      ),
-      controlCvMax: numOrNull(qcRaw.controlCvMax, base.qc.controlCvMax),
+      zPrimeMin: finiteNumberInput
+        .catch(base.qc.zPrimeMin)
+        .parse(qcRaw?.zPrimeMin),
+      zPrimeFail: finiteNumberInput
+        .catch(base.qc.zPrimeFail)
+        .parse(qcRaw?.zPrimeFail),
+      signalToBackgroundMin: finiteNumberInput
+        .nullable()
+        .catch(base.qc.signalToBackgroundMin)
+        .parse(qcRaw?.signalToBackgroundMin),
+      controlCvMax: finiteNumberInput
+        .nullable()
+        .catch(base.qc.controlCvMax)
+        .parse(qcRaw?.controlCvMax),
     },
     curveModel: raw.curveModel === '5pl' ? '5pl' : '4pl',
   }
@@ -333,7 +372,7 @@ export function madScaled(values: number[]): number | null {
   return dev === null ? null : dev * 1.4826
 }
 
-const MOLAR_FACTORS: Record<string, number> = {
+const MOLAR_FACTORS = z.record(z.string(), finiteNumberInput.optional()).parse({
   pm: 1e-12,
   nm: 1e-9,
   um: 1e-6,
@@ -341,7 +380,7 @@ const MOLAR_FACTORS: Record<string, number> = {
   μm: 1e-6,
   mm: 1e-3,
   m: 1,
-}
+})
 
 /** Factor to mol/L for a molar unit, or null for anything else. */
 export function molarFactor(unit: string | null | undefined): number | null {
@@ -393,12 +432,11 @@ function judgeQc(
   blank: ControlStats,
 ): PlateQc {
   const checks: PlateQc['checks'] = []
+  const mp = positive.mean
+  const mn = negative.mean
 
   const haveControls =
-    positive.n >= 2 &&
-    negative.n >= 2 &&
-    positive.mean !== null &&
-    negative.mean !== null
+    positive.n >= 2 && negative.n >= 2 && mp !== null && mn !== null
 
   checks.push({
     id: 'controls_present',
@@ -413,8 +451,6 @@ function judgeQc(
   let sn: number | null = null
 
   if (haveControls) {
-    const mp = positive.mean as number
-    const mn = negative.mean as number
     const sp = positive.sd ?? 0
     const sn_ = negative.sd ?? 0
     const separation = Math.abs(mp - mn)
@@ -526,10 +562,10 @@ function meetsRule(
 }
 
 /** Analyse one plate. */
-export function analysePlate(
+export function analysePlate<Config>(
   wells: AssayWell[],
   readout: PlateReadout,
-  inputConfig?: Partial<PlateAssayConfig> | unknown,
+  inputConfig?: Config,
 ): PlateAnalysis {
   const config = normaliseAssayConfig(inputConfig)
   const format = inferPlateFormat(wells.map((w) => w.wellCode))
@@ -538,7 +574,7 @@ export function analysePlate(
   const rawOf = (code: string) => {
     const v = readout[code]
 
-    return typeof v === 'number' && Number.isFinite(v) ? v : null
+    return isInput(finiteNumberInput, v) ? v : null
   }
 
   const byRole = (role: AssignmentRole) => wells.filter((w) => w.role === role)
@@ -630,13 +666,15 @@ export function analysePlate(
   const resultByCode = new Map(results.map((r) => [r.wellCode, r]))
 
   // Reference for sd / mad hit rules, in normalised units.
-  const normalisedNegatives = results
-    .filter((r) => r.role === 'negative_control' && r.normalised !== null)
-    .map((r) => r.normalised as number)
+  const normalisedNegatives = results.flatMap((r) =>
+    r.role === 'negative_control' && r.normalised !== null
+      ? [r.normalised]
+      : [],
+  )
 
-  const normalisedSamples = results
-    .filter((r) => r.role === 'sample' && r.normalised !== null)
-    .map((r) => r.normalised as number)
+  const normalisedSamples = results.flatMap((r) =>
+    r.role === 'sample' && r.normalised !== null ? [r.normalised] : [],
+  )
 
   const negStats = summaryStats(normalisedNegatives)
   let centre = 0
@@ -658,10 +696,9 @@ export function analysePlate(
     const label = w.sampleLabel ?? w.sampleId ?? w.wellCode
     const id = w.sampleId ?? null
 
-    const conc =
-      typeof w.concentration === 'number' && Number.isFinite(w.concentration)
-        ? w.concentration
-        : null
+    const conc = isInput(finiteNumberInput, w.concentration)
+      ? w.concentration
+      : null
 
     const key = `${id ?? label}|${conc ?? ''}|${w.concentrationUnit ?? ''}`
     let g = groups.get(key)
@@ -721,13 +758,17 @@ export function analysePlate(
   const samples = [...groups.values()]
 
   // Edge effect on sample wells (normalised).
-  const edgeVals = results
-    .filter((r) => r.role === 'sample' && r.edge && r.normalised !== null)
-    .map((r) => r.normalised as number)
+  const edgeVals = results.flatMap((r) =>
+    r.role === 'sample' && r.edge && r.normalised !== null
+      ? [r.normalised]
+      : [],
+  )
 
-  const innerVals = results
-    .filter((r) => r.role === 'sample' && !r.edge && r.normalised !== null)
-    .map((r) => r.normalised as number)
+  const innerVals = results.flatMap((r) =>
+    r.role === 'sample' && !r.edge && r.normalised !== null
+      ? [r.normalised]
+      : [],
+  )
 
   const edgeMean = summaryStats(edgeVals)?.mean ?? null
   const innerMean = summaryStats(innerVals)?.mean ?? null
@@ -755,7 +796,7 @@ export function analysePlate(
   const testedKeys = new Set(samples.map((s) => s.sampleId ?? s.label))
 
   const hitKeys = new Set(
-    samples.filter((s) => s.hit).map((s) => s.sampleId ?? s.label),
+    samples.flatMap((s) => (s.hit ? [s.sampleId ?? s.label] : [])),
   )
 
   return {
@@ -788,7 +829,7 @@ function fitSampleCurves(
   wells: AssayWell[],
   results: WellResult[],
   config: PlateAssayConfig,
-): { curves: SampleCurve[]; unfitted: PlateAnalysis['unfitted'] } {
+) {
   const byCode = new Map(results.map((r) => [r.wellCode, r]))
 
   const bySample = new Map<
@@ -804,7 +845,8 @@ function fitSampleCurves(
   for (const w of wells) {
     if (w.role !== 'sample') continue
 
-    if (!(typeof w.concentration === 'number' && w.concentration > 0)) continue
+    if (!(isInput(numberInput, w.concentration) && w.concentration > 0))
+      continue
     const r = byCode.get(w.wellCode)
 
     if (!r || r.normalised === null) continue
@@ -999,8 +1041,10 @@ export function summarisePotency(
   const out: PotencySummary[] = []
 
   for (const [key, g] of groups) {
+    // A historical 'M' key can mix molar and unconverted entries. Keep the
+    // first entry's classification and Math.log10's original null-to-zero input.
     const logs = g.values.map((v) =>
-      Math.log10(g.molar ? (v.ec50Molar as number) : v.ec50),
+      Math.log10(g.molar ? (v.ec50Molar === null ? 0 : v.ec50Molar) : v.ec50),
     )
 
     const n = logs.length
@@ -1044,13 +1088,17 @@ export function relativePotency(
 
   if (!ref) return null
 
-  return summaries
-    .filter((s) => s.key !== referenceKey && s.unit === ref.unit)
-    .map((s) => ({
-      key: s.key,
-      label: s.label,
-      ratio: ref.geoMean / s.geoMean,
-    }))
+  return summaries.flatMap((s) =>
+    s.key !== referenceKey && s.unit === ref.unit
+      ? [
+          {
+            key: s.key,
+            label: s.label,
+            ratio: ref.geoMean / s.geoMean,
+          },
+        ]
+      : [],
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -1064,29 +1112,31 @@ export interface ParsedPlateTable {
   warnings: string[]
 }
 
-const ROLE_ALIASES: Partial<Record<string, AssignmentRole>> = {
-  sample: 'sample',
-  s: 'sample',
-  unknown: 'sample',
-  compound: 'sample',
-  positive: 'positive_control',
-  positive_control: 'positive_control',
-  'positive control': 'positive_control',
-  pos: 'positive_control',
-  pc: 'positive_control',
-  max: 'positive_control',
-  negative: 'negative_control',
-  negative_control: 'negative_control',
-  'negative control': 'negative_control',
-  neg: 'negative_control',
-  nc: 'negative_control',
-  vehicle: 'negative_control',
-  dmso: 'negative_control',
-  min: 'negative_control',
-  blank: 'blank',
-  bl: 'blank',
-  empty: 'empty',
-}
+const ROLE_ALIASES = z
+  .record(z.string(), z.enum(ASSIGNMENT_ROLES).optional())
+  .parse({
+    sample: 'sample',
+    s: 'sample',
+    unknown: 'sample',
+    compound: 'sample',
+    positive: 'positive_control',
+    positive_control: 'positive_control',
+    'positive control': 'positive_control',
+    pos: 'positive_control',
+    pc: 'positive_control',
+    max: 'positive_control',
+    negative: 'negative_control',
+    negative_control: 'negative_control',
+    'negative control': 'negative_control',
+    neg: 'negative_control',
+    nc: 'negative_control',
+    vehicle: 'negative_control',
+    dmso: 'negative_control',
+    min: 'negative_control',
+    blank: 'blank',
+    bl: 'blank',
+    empty: 'empty',
+  })
 
 function splitLine(line: string, delimiter: string): string[] {
   const cells: string[] = []
@@ -1194,7 +1244,13 @@ export function parsePlateTable(text: string): ParsedPlateTable {
 
   // List with a header.
   const head = rows[0].map((h) => h.toLowerCase().replace(/[\s_-]+/g, ''))
-  const col = (...names: string[]) => head.findIndex((h) => names.includes(h))
+
+  const col = (...names: string[]) => {
+    const aliases = new Set(names)
+
+    return head.findIndex((h) => aliases.has(h))
+  }
+
   const wellCol = col('well', 'wellcode', 'position', 'wellposition')
 
   if (wellCol < 0) {

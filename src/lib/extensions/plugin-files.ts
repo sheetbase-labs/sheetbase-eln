@@ -22,6 +22,7 @@ export interface PluginTable {
 
 export function fileExtension(name: string): string {
   const dot = name.lastIndexOf('.')
+
   return dot < 0 ? '' : name.slice(dot).toLowerCase()
 }
 
@@ -33,7 +34,9 @@ export function tableToCsvFile(table: PluginTable, filename: string): File {
       table.columns
         .map((column) => {
           const value = row[column]
+
           if (value === null || value === undefined) return ''
+
           return csvEscape(
             typeof value === 'object' ? JSON.stringify(value) : String(value),
             ',',
@@ -42,12 +45,14 @@ export function tableToCsvFile(table: PluginTable, filename: string): File {
         .join(','),
     ),
   ]
+
   return new File([lines.join('\n') + '\n'], filename, { type: 'text/csv' })
 }
 
 /** `sequences.fasta` becomes `sequences.csv`. */
 export function csvNameFor(filename: string): string {
   const dot = filename.lastIndexOf('.')
+
   return `${dot > 0 ? filename.slice(0, dot) : filename}.csv`
 }
 
@@ -57,7 +62,9 @@ async function post<T>(body: unknown): Promise<T> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
+
   if (!response.ok) throw await runFailure(response)
+
   return (await response.json()) as T
 }
 
@@ -69,8 +76,10 @@ export async function readFileContent(
   if (encoding === 'text') return file.text()
   const bytes = new Uint8Array(await file.arrayBuffer())
   let binary = ''
+
   for (let i = 0; i < bytes.length; i += 0x8000)
     binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+
   return btoa(binary)
 }
 
@@ -87,6 +96,7 @@ export async function readWithImporter(args: {
     filename: args.file.name,
     content: await readFileContent(args.file, args.encoding),
   })
+
   return tableToCsvFile(table, csvNameFor(args.file.name))
 }
 
@@ -95,11 +105,15 @@ export function pickInstrumentParser<
   T extends { declaration: ExtensionInstrumentParserDeclaration },
 >(parsers: readonly T[], filename: string, text: string | null): T | undefined {
   const extension = fileExtension(filename)
+
   return parsers.find(({ declaration }) => {
     if (!declaration.extensions.includes(extension)) return false
+
     // A parser that names text to look for only takes a text file that has it.
     if (!declaration.contains) return true
+
     if (declaration.encoding !== 'text' || text === null) return true
+
     return declaration.contains.some((needle) => text.includes(needle))
   })
 }
@@ -118,6 +132,7 @@ export async function readWithInstrumentParser(args: {
     filename: args.file.name,
     content: await readFileContent(args.file, args.encoding),
   })
+
   return tableToCsvFile(table, csvNameFor(args.file.name))
 }
 
@@ -143,6 +158,7 @@ export async function parseWithPluginBarcode(args: {
     kind: 'barcode-parse',
     ...args,
   })
+
   return answer.value
 }
 
@@ -158,6 +174,7 @@ export async function layOutPluginLabel(args: {
     kind: 'label',
     ...args,
   })
+
   return answer.lines
 }
 
@@ -175,6 +192,7 @@ export async function pullWithConnector(args: {
     parameters: args.parameters,
     settings: args.settings,
   })
+
   return tableToCsvFile(table, `${args.name}.csv`)
 }
 
@@ -201,12 +219,16 @@ export async function exportWithPlugin(args: {
     rows: args.rows,
     options: args.options ?? {},
   })
+
   if (made.encoding === 'base64') {
     const binary = atob(made.content)
     const bytes = new Uint8Array(binary.length)
+
     for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+
     return new File([bytes], made.filename, { type: made.mime })
   }
+
   return new File([made.content], made.filename, { type: made.mime })
 }
 
@@ -263,5 +285,6 @@ export async function runSamenessKey(args: {
     kind: 'sameness-key',
     ...args,
   })
+
   return answer.key
 }

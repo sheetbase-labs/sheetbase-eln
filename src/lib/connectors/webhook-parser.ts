@@ -19,6 +19,8 @@
  */
 import { z } from 'zod'
 
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
+import type { ResolvedParser } from './parser-resolution'
 import type { ParsedInstrumentPayload } from './registry'
 
 export const WEBHOOK_PARSER_MAX_ROWS = 200_000
@@ -36,13 +38,22 @@ export class WebhookParserError extends Error {
 
 const cell = z.union([z.string(), z.number(), z.boolean(), z.null()])
 
+const cellsSchema = z.custom<Record<string, z.infer<typeof cell>>>((value) => {
+  const parsed = pipelineJsonObjectSchema.safeParse(value)
+
+  return (
+    parsed.success &&
+    Object.values(parsed.data).every((entry) => cell.safeParse(entry).success)
+  )
+})
+
 const responseSchema = z.object({
   headers: z
     .array(z.string().min(1))
     .max(WEBHOOK_PARSER_MAX_COLUMNS)
     .optional(),
-  rows: z.array(z.record(z.string(), cell)).max(WEBHOOK_PARSER_MAX_ROWS),
-  metadata: z.record(z.string(), cell).optional(),
+  rows: z.array(cellsSchema).max(WEBHOOK_PARSER_MAX_ROWS),
+  metadata: cellsSchema.optional(),
   warnings: z.array(z.string()).max(100).optional(),
 })
 
@@ -51,11 +62,12 @@ function asText(value: string | number | boolean | null): string {
   // never turns that into a zero or a word.
   if (value === null) return ''
 
-  return typeof value === 'string' ? value : String(value)
+  return String(value)
 }
 
 /** Checks a service's answer and turns it into the shape every parser returns. */
 export function readWebhookParserAnswer(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- External HTTP JSON is immediately validated by responseSchema before any rows are accessed.
   body: unknown,
 ): ParsedInstrumentPayload {
   const parsed = responseSchema.safeParse(body)
@@ -108,20 +120,22 @@ export function readWebhookParserAnswer(
 }
 
 /** The error a service reports for a file it won't read. */
+const refusalSchema = z.object({
+  error: z.object({ message: z.string().trim().min(1) }),
+})
+
 export function readWebhookParserError(
   status: number,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- External HTTP error JSON is immediately validated by refusalSchema before its message is used.
   body: unknown,
 ): WebhookParserError {
-  if (body && typeof body === 'object' && 'error' in body) {
-    const error = (body as { error?: { code?: unknown; message?: unknown } })
-      .error
+  const refusal = refusalSchema.safeParse(body)
 
-    if (error && typeof error.message === 'string' && error.message.trim()) {
-      return new WebhookParserError(
-        'webhook_refused',
-        error.message.trim().slice(0, 500),
-      )
-    }
+  if (refusal.success) {
+    return new WebhookParserError(
+      'webhook_refused',
+      refusal.data.error.message.slice(0, 500),
+    )
   }
 
   return new WebhookParserError(
@@ -131,18 +145,14 @@ export function readWebhookParserError(
 }
 
 /** The address a parser version sends files to, if it is a webhook parser. */
+const targetSchema = z.object({ webhook: z.object({ url: z.string().min(1) }) })
+
 export function webhookTarget(
-  signature: Record<string, unknown>,
+  signature: ResolvedParser['signature'],
 ): { url: string } | null {
-  const webhook = signature['webhook']
+  const target = targetSchema.safeParse(signature)
 
-  if (webhook && typeof webhook === 'object' && 'url' in webhook) {
-    const url = webhook.url
-
-    if (typeof url === 'string' && url) return { url }
-  }
-
-  return null
+  return target.success ? target.data.webhook : null
 }
 
 /** The type a file is sent as, from its name; the service gets the raw bytes either way. */

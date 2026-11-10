@@ -22,6 +22,7 @@ import {
 } from './dataset-schema-draft'
 import type { DraftField } from './dataset-schema-draft'
 import type { CanonicalDatasetSchemaField } from './dataset-schema-definition-rpc'
+import type { ModelMetadataPatch } from './model-fields'
 
 function row(key: string, overrides: Partial<DraftField> = {}): DraftField {
   return {
@@ -38,7 +39,7 @@ function row(key: string, overrides: Partial<DraftField> = {}): DraftField {
 
 function published(
   key: string,
-  overrides: Partial<CanonicalDatasetSchemaField> = {},
+  overrides: ModelMetadataPatch<CanonicalDatasetSchemaField> = {},
 ): CanonicalDatasetSchemaField {
   return {
     field_id: `f-${key}`,
@@ -88,7 +89,7 @@ describe('field ordering', () => {
       options: [
         { id: 'option-id', key: 'pass', label: 'Pass', lifecycle: 'active' },
       ],
-    }
+    } satisfies NonNullable<DraftField['category']>
 
     const rows = [
       row('a', { logicalType: 'category', category }),

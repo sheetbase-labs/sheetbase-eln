@@ -53,16 +53,17 @@ async function defaultClientFor(headers: Headers): Promise<DataClient | null> {
       import('../request-auth'),
       import('../connectors/enterprise/execution.server'),
     ])
+
   const auth = await resolveSessionAuth(headers, realSessionAuthDeps)
+
   if (auth.ok) return execution.createServerDataClient(auth.context.token)
   const token = readBearerToken(headers)
+
   return token ? execution.createServerDataClient(token) : null
 }
 
 const idPattern = /^[a-z][a-z0-9-]{0,48}$/
-const bodySchema = z
-  .object({ input: z.record(z.string(), z.unknown()) })
-  .strict()
+const bodySchema = z.strictObject({ input: z.record(z.string(), z.unknown()) })
 
 export async function handlePluginOperationApi(
   request: Request,
@@ -72,13 +73,16 @@ export async function handlePluginOperationApi(
   if (!idPattern.test(params.key) || !idPattern.test(params.id))
     return refuse(404, 'No such plugin operation.')
   const caller = await deps.authenticate(request.headers)
+
   if (caller === null)
     return refuse(401, 'Sign in or send a personal API token.')
+
   if (caller === 'forbidden')
     return refuse(
       403,
       'Plugin operations need a personal API token, not a service token.',
     )
+
   try {
     const { install, callable } = await openCallable(
       deps.runtime,
@@ -86,6 +90,7 @@ export async function handlePluginOperationApi(
       params.key,
       params.id,
     )
+
     // How many calls a person may make, and how much data one may carry, are
     // this plugin's own settings. By default neither is limited.
     const limits = await pluginLimits(
@@ -93,31 +98,39 @@ export async function handlePluginOperationApi(
       caller.workspaceId,
       install.id,
     )
+
     const decision = rateDecision(
       limits.callsPerMinute,
       `plugin-api:${params.key}:${caller.userId}`,
     )
+
     if (!decision.allowed)
       return refuse(
         429,
         `Too many calls to this plugin. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
       )
     let raw: unknown
+
     try {
       const text = await request.text()
+
       if (text.length > limits.dataMb * 1024 * 1024)
         return refuse(413, tooMuchData(limits.dataMb))
       raw = JSON.parse(text)
     } catch {
       return refuse(400, 'Send a JSON body like { "input": { … } }.')
     }
+
     const parsed = bodySchema.safeParse(raw)
+
     if (!parsed.success)
       return refuse(400, 'Send a JSON body like { "input": { … } }.')
     const operation = callable.declaration
+
     if (operation.access === 'write') {
       if (caller.role === 'viewer')
         return refuse(403, 'Running this needs a workspace you can edit.')
+
       if (caller.scopes && !caller.scopes.includes('lab:write'))
         return refuse(
           403,
@@ -129,6 +142,7 @@ export async function handlePluginOperationApi(
     ) {
       return refuse(403, 'This token needs a read scope.')
     }
+
     // An operation may call into the app as the person (`host_call`), changes
     // included, like the API itself. A token can only change what its own
     // scopes allow: one without `lab:write` has its operation's changes refused.
@@ -151,17 +165,21 @@ export async function handlePluginOperationApi(
           const client = await (deps.clientFor ?? defaultClientFor)(
             request.headers,
           )
+
           if (!client) throw new Error('Sign in to use plugins.')
+
           return client
         },
       },
       deps.runtime,
     )
+
     if (outcome.kind === 'confirm')
       return refuse(
         403,
         `${outcome.confirm.summary ?? 'This operation'} changes something, which this token's scopes do not allow. It needs the lab:write scope.`,
       )
+
     return reply({
       output: outcome.result.output,
       durationMs: outcome.result.durationMs,
@@ -173,12 +191,15 @@ export async function handlePluginOperationApi(
 
 function defaultApiDeps(): PluginApiDeps {
   const base = defaultRouteDeps()
+
   return {
     ...base,
     async authenticate(headers) {
       const session = await getAppSession(headers)
+
       if (session) {
         const member = await base.getMember(session.user.id)
+
         return member
           ? {
               workspaceId: member.workspaceId,
@@ -188,21 +209,28 @@ function defaultApiDeps(): PluginApiDeps {
             }
           : null
       }
+
       const token = readBearerToken(headers)
+
       if (!token) return null
+
       try {
         const [{ db }, { env }] = await Promise.all([
           import('#/db/client.server'),
           import('#/env.server'),
         ])
+
         const claims = await verifyExternalCredential(
           db,
           token,
           env.PGRST_JWT_SECRET,
         )
+
         if (claims.role !== 'authenticated') return 'forbidden'
         const member = await base.getMember(claims.sub)
+
         if (!member || member.workspaceId !== claims.workspace_id) return null
+
         return {
           workspaceId: claims.workspace_id,
           userId: claims.sub,

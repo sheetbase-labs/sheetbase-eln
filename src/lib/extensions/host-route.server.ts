@@ -27,6 +27,7 @@ import type { DataClient } from '../data-client'
 import { handleMcpMessage } from '../mcp/handler'
 import type { McpContext } from '../mcp/handler'
 import { LAB_ACT_TOOL_NAME } from '../mcp/lab'
+import { pipelineJsonObjectSchema } from '../pipelines/types'
 import {
   realSessionAuthDeps,
   requestErrorResponse,
@@ -43,16 +44,14 @@ import type { ExtensionRuntimeDeps } from './runtime.server'
 
 const idPattern = /^[a-z][a-z0-9-]{0,48}$/
 
-const bodySchema = z
-  .object({
-    extensionKey: z.string().regex(idPattern),
-    point: z.string().regex(idPattern),
-    /** An MCP tool name, such as `sheetbase.lab.act`. */
-    name: z.string().regex(/^[a-zA-Z][a-zA-Z0-9._-]{0,99}$/),
-    arguments: z.record(z.string(), z.unknown()).default({}),
-    confirmed: z.boolean().default(false),
-  })
-  .strict()
+const bodySchema = z.strictObject({
+  extensionKey: z.string().regex(idPattern),
+  point: z.string().regex(idPattern),
+  /** An MCP tool name, such as `sheetbase.lab.act`. */
+  name: z.string().regex(/^[a-zA-Z][a-zA-Z0-9._-]{0,99}$/),
+  arguments: z.record(z.string(), z.unknown()).default({}),
+  confirmed: z.boolean().default(false),
+})
 
 export interface PluginHostRouteDeps {
   auth: SessionAuthDeps
@@ -70,16 +69,20 @@ export async function handlePluginHost(
   if (request.method !== 'POST')
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
   const auth = await resolveSessionAuth(request.headers, deps.auth)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
   let raw: unknown
+
   try {
     raw = await request.json()
   } catch {
     return requestErrorResponse(400, 'bad_request', 'Send a JSON body.')
   }
+
   const parsed = bodySchema.safeParse(raw)
+
   if (!parsed.success)
     return requestErrorResponse(
       400,
@@ -88,15 +91,18 @@ export async function handlePluginHost(
     )
   const body = parsed.data
   const client = deps.makeClient(context.token)
+
   const install = (await listExtensions(client)).find(
     (row) => row.key === body.extensionKey,
   )
+
   if (!install)
     return requestErrorResponse(
       404,
       'not_installed',
       'That plugin is not installed.',
     )
+
   if (
     install.status !== 'enabled' ||
     install.disabled_points.includes(body.point)
@@ -106,6 +112,7 @@ export async function handlePluginHost(
       'not_enabled',
       'An administrator has switched this part of the plugin off.',
     )
+
   const outcome = await performHostCall(deps, {
     workspaceId: context.workspaceId,
     userId: context.userId,
@@ -116,8 +123,10 @@ export async function handlePluginHost(
     arguments: body.arguments,
     confirmed: body.confirmed,
   })
+
   if (!outcome.ok)
     return requestErrorResponse(outcome.status, outcome.code, outcome.message)
+
   return Response.json(
     { name: body.name, result: outcome.result },
     { headers: { 'Cache-Control': 'no-store' } },
@@ -169,20 +178,34 @@ export async function performHostCall(
   call: HostCall,
 ): Promise<HostCallOutcome> {
   let manifest
+
   try {
     manifest = parseExtensionManifest(call.install.manifest)
   } catch {
     return fail(409, 'bad_manifest', 'That plugin is damaged.')
   }
+
+  const toolArguments = pipelineJsonObjectSchema.safeParse(call.arguments)
+
+  if (!toolArguments.success)
+    return fail(
+      400,
+      'invalid_arguments',
+      'The tool arguments must be a JSON object.',
+    )
+
   const granted = manifest.scopes.filter(isScope)
 
   let writes = false
   let label = call.name
   let run: () => Promise<unknown>
+
   if (call.name === LAB_ACT_TOOL_NAME) {
-    const action = call.arguments.action
-    const checked = checkAppAction(action, call.arguments.arguments ?? {})
+    const action = toolArguments.data.action
+    const checked = checkAppAction(action, toolArguments.data.arguments ?? {})
+
     if (!checked.ok) return fail(400, 'invalid_arguments', checked.message)
+
     if (!granted.includes(checked.rpc.scope))
       return fail(
         403,
@@ -191,6 +214,7 @@ export async function performHostCall(
       )
     writes = checked.writes
     label = `${call.name}:${checked.action}`
+
     if (writes && !call.confirmed)
       return fail(
         409,
@@ -210,31 +234,38 @@ export async function performHostCall(
       client: call.client,
       credentialId: `plugin:${call.install.key}`,
     }
+
     run = async () => {
       const response = await handleMcpMessage(
         {
           jsonrpc: '2.0',
           id: 1,
           method: 'tools/call',
-          params: { name: call.name, arguments: call.arguments },
+          params: { name: call.name, arguments: toolArguments.data },
         },
         mcp,
       )
+
       if (!response || 'error' in response)
         throw new Error(
           response && 'error' in response
             ? response.error.message
             : 'The tool did not answer.',
         )
+
       const result = response.result as {
         content?: Array<{ text?: string }>
         isError?: boolean
         structuredContent?: unknown
       }
+
       const text = result.content?.map((part) => part.text ?? '').join('\n')
+
       if (result.isError) throw new Error(text || 'The tool refused.')
+
       if (result.structuredContent !== undefined)
         return result.structuredContent
+
       try {
         return JSON.parse(text ?? 'null') as unknown
       } catch {
@@ -265,14 +296,18 @@ export async function performHostCall(
         },
       })
       .catch(() => undefined)
+
   try {
     const result = await run()
     await audit(true)
+
     return { ok: true, result: result ?? null }
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'The action could not be done.'
+
     await audit(false, message)
+
     return fail(422, 'action_failed', message)
   }
 }

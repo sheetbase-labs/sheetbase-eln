@@ -18,20 +18,21 @@ import {
 import type { SessionAuthDeps } from '../request-auth'
 import type { ConverterVendor } from '../instrument-data/asm'
 
-const bodySchema = z
-  .object({
-    vendor: z.string().regex(/^[A-Z0-9_]{2,80}$/),
-    instrumentId: z.uuid().nullable().optional(),
-  })
-  .strict()
+const bodySchema = z.strictObject({
+  vendor: z.string().regex(/^[A-Z0-9_]{2,80}$/),
+  instrumentId: z.uuid().nullable().optional(),
+})
 
 /** The format a parser row carries, from the files the converter reads. */
 export function parserFormatFor(
   vendor: ConverterVendor,
 ): 'csv' | 'xlsx' | 'json' {
   const extensions = vendor.extensions.toLowerCase().split(',')
+
   if (extensions.includes('json') && extensions.length === 1) return 'json'
+
   if (extensions.includes('xlsx') && !extensions.includes('csv')) return 'xlsx'
+
   return 'csv'
 }
 
@@ -53,15 +54,20 @@ export async function handleConverterAdmin(
   if (request.method !== 'GET' && request.method !== 'POST') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use GET or POST.')
   }
+
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
+
   try {
     if (request.method === 'GET') {
       return Response.json({ converters: await list() })
     }
+
     const parsed = bodySchema.safeParse(await request.json().catch(() => null))
+
     if (!parsed.success) {
       return requestErrorResponse(
         400,
@@ -69,8 +75,10 @@ export async function handleConverterAdmin(
         'Choose the instrument software whose files should be converted.',
       )
     }
+
     const body = parsed.data
     const vendor = (await list()).find((entry) => entry.key === body.vendor)
+
     if (!vendor) {
       return requestErrorResponse(
         422,
@@ -78,8 +86,10 @@ export async function handleConverterAdmin(
         'This install doesn’t offer that converter.',
       )
     }
+
     const client = createServerDataClient(context.token)
     const key = parserKeyFromName(`allotrope ${vendor.name}`)
+
     const existing = await client.list<{
       id: string
       parser_versions: Array<{ version: number }>
@@ -87,11 +97,13 @@ export async function handleConverterAdmin(
       'parsers',
       `?workspace_id=eq.${context.workspaceId}&key=eq.${encodeURIComponent(key)}&select=id,parser_versions(version)&limit=1`,
     )
+
     const version =
       Math.max(
         0,
         ...(existing[0]?.parser_versions.map((v) => v.version) ?? []),
       ) + 1
+
     const created = await client.rpc<{
       parserId: string
       parserVersionId: string
@@ -105,10 +117,12 @@ export async function handleConverterAdmin(
       p_vendor: vendor.key,
       p_instrument_id: body.instrumentId ?? null,
     })
+
     return Response.json({ ...created, key }, { status: 201 })
   } catch (error) {
     if (error instanceof ConverterError) return converterErrorResponse(error)
     const message = boundedErrorMessage(error)
+
     if (/capability required|not permitted|42501/i.test(message)) {
       return requestErrorResponse(
         403,
@@ -116,6 +130,7 @@ export async function handleConverterAdmin(
         'You need access to Integrations to set up a converter.',
       )
     }
+
     return requestErrorResponse(422, 'converter_parser_failed', message)
   }
 }

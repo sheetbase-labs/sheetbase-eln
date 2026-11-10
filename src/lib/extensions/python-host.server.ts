@@ -14,17 +14,20 @@ import initSource from '../../../sdks/plugin-python/src/sheetbase_plugin/__init_
 
 /** The step source for a package: `parameters.kind` picks what is called: an operation, an analysis, a screen, a column, an action, a step or a rows function. */
 export function pluginStatement(files: Record<string, string>): string {
-  const modules: Record<string, string> = {
-    'sheetbase_plugin/__init__.py': initSource,
-    'sheetbase_plugin/host.py': hostSource,
-    'sheetbase_plugin/ui.py': uiSource,
-  }
+  const modules = Object.fromEntries([
+    ['sheetbase_plugin/__init__.py', initSource],
+    ['sheetbase_plugin/host.py', hostSource],
+    ['sheetbase_plugin/ui.py', uiSource],
+  ])
+
   for (const [path, source] of Object.entries(files)) {
     if (path.startsWith('python/'))
       modules[path.slice('python/'.length)] = source
   }
+
   // A JSON string is also a valid Python string literal.
   const literal = JSON.stringify(JSON.stringify(modules))
+
   return `import json as _json
 
 _FILES = _json.loads(${literal})

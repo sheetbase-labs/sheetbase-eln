@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import {
   SCIENTIFIC_CORE_FUNCTIONS,
   SHEETBASE_ENGINE_VERSION,
@@ -285,20 +287,22 @@ function parseRef(text: string) {
   }
 }
 
-const precedence: Record<string, number> = {
-  '=': 1,
-  '<>': 1,
-  '<': 1,
-  '<=': 1,
-  '>': 1,
-  '>=': 1,
-  '&': 2,
-  '+': 3,
-  '-': 3,
-  '*': 4,
-  '/': 4,
-  '^': 5,
-}
+const precedence = new Map([
+  ['=', 1],
+  ['<>', 1],
+  ['<', 1],
+  ['<=', 1],
+  ['>', 1],
+  ['>=', 1],
+  ['&', 2],
+  ['+', 3],
+  ['-', 3],
+  ['*', 4],
+  ['/', 4],
+  ['^', 5],
+])
+
+const coreFunctions = new Set<string>(SCIENTIFIC_CORE_FUNCTIONS)
 
 export function parseFormula(
   source: string,
@@ -376,16 +380,19 @@ export function parseFormula(
     }
 
     const slot = bindings.length
+    const tableBinding: Pick<FormulaMaps, 'tableId'> = {}
 
-    if (peek().text !== ':')
+    if (sheet) tableBinding.tableId = referenceTable.tableId
+
+    if (peek().text !== ':') {
       bindings.push({
         kind: 'cell',
         slot,
-        ...(sheet ? { tableId: referenceTable.tableId } : {}),
+        ...tableBinding,
         cell: resolve(first),
         anchor: first.anchor,
       })
-    else {
+    } else {
       take()
       const endToken = take()
 
@@ -422,7 +429,7 @@ export function parseFormula(
       bindings.push({
         kind: 'range',
         slot,
-        ...(sheet ? { tableId: referenceTable.tableId } : {}),
+        ...tableBinding,
         members,
         start: first.anchor,
         end: end.anchor,
@@ -498,10 +505,7 @@ export function parseFormula(
 
       expect(')')
 
-      if (
-        !(SCIENTIFIC_CORE_FUNCTIONS as readonly string[]).includes(token.text)
-      )
-        unsupported.add(token.text)
+      if (!coreFunctions.has(token.text)) unsupported.add(token.text)
 
       return { kind: 'call', functionId: token.text, arguments: args }
     }
@@ -528,10 +532,10 @@ export function parseFormula(
     while (
       peek().type === 'operator' &&
       peek().text !== '%' &&
-      (precedence[peek().text] ?? -1) >= minimum
+      (precedence.get(peek().text) ?? -1) >= minimum
     ) {
       const operator = take().text,
-        p = precedence[operator]
+        p = precedence.get(operator)!
 
       const right = expression(p + 1)
       left = { kind: 'binary', operator, left, right }
@@ -621,266 +625,365 @@ export function buildPersistedFormulaArtifact(
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-const ownKeys = (value: Record<string, unknown>, keys: readonly string[]) =>
+const ownKeys = (
+  value: z.output<typeof objectSchema>,
+  keys: readonly string[],
+) =>
   Object.keys(value).length === keys.length && keys.every((key) => key in value)
 
-const record = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
+const objectEnvelopeSchema = z.object({})
 
-function assertRecord(
-  value: unknown,
-  message: string,
-): asserts value is Record<string, unknown> {
-  if (!record(value))
-    throw new FormulaSyntaxError(
-      'syntax',
-      `Invalid persisted formula: ${message}`,
+const objectSchema = z.custom<object>(
+  (value) => objectEnvelopeSchema.safeParse(value).success,
+)
+
+/** Check the original own keys, not a stripped Zod result; retain input identity. */
+function exactObject<
+  Fields extends NonNullable<Parameters<typeof z.object>[0]>,
+>(fields: Fields) {
+  const schema = z.object(fields)
+  const keys = Object.keys(fields)
+
+  return z.custom<z.output<typeof schema>>((input) => {
+    const object = objectSchema.safeParse(input)
+
+    return (
+      object.success &&
+      ownKeys(object.data, keys) &&
+      schema.safeParse(input).success
     )
+  })
 }
 
-const identity = (value: unknown): value is CellIdentity =>
-  record(value) &&
-  ownKeys(value, ['rowId', 'columnId']) &&
-  typeof value.rowId === 'string' &&
-  UUID.test(value.rowId) &&
-  typeof value.columnId === 'string' &&
-  UUID.test(value.columnId)
+const uuidSchema = z.string().regex(UUID)
+const identitySchema = exactObject({ rowId: uuidSchema, columnId: uuidSchema })
 
-const anchors = (value: unknown): value is AnchorFlags =>
-  record(value) &&
-  ownKeys(value, ['columnAbsolute', 'rowAbsolute']) &&
-  typeof value.columnAbsolute === 'boolean' &&
-  typeof value.rowAbsolute === 'boolean'
+const anchorSchema = exactObject({
+  columnAbsolute: z.boolean(),
+  rowAbsolute: z.boolean(),
+})
 
-/** Validates the complete untrusted JSON contract loaded from formula storage. */
-export function validatePersistedFormulaArtifact(
-  value: unknown,
-): PersistedFormulaArtifact {
-  const fail = (message: string): never => {
-    throw new FormulaSyntaxError(
-      'syntax',
-      `Invalid persisted formula: ${message}`,
-    )
-  }
+const unknownArraySchema = z.custom<unknown[]>((value) => Array.isArray(value))
 
-  assertRecord(value, 'artifact must be an object.')
+const bindingHeaderSchema = z.object({
+  kind: z.unknown().optional(),
+  slot: z.unknown().optional(),
+  tableId: z.unknown().optional(),
+})
 
-  const keys = [
-    'version',
-    'syntaxProfile',
-    'functionProfile',
-    'source',
-    'template',
-    'bindings',
-    'engineExpression',
-    'literalProfile',
-    'engineVersion',
-    'status',
-    'dependencies',
-  ]
+const cellFields = {
+  kind: z.literal('cell'),
+  slot: z.number(),
+  cell: identitySchema,
+  anchor: anchorSchema,
+}
 
-  if (!ownKeys(value, keys)) fail('artifact fields do not match v1.')
+const rangeFields = {
+  kind: z.literal('range'),
+  slot: z.number(),
+  members: unknownArraySchema.refine((members) => members.length > 0),
+  start: anchorSchema,
+  end: anchorSchema,
+}
 
-  if (
-    value.version !== 1 ||
-    value.syntaxProfile !== SHEETBASE_SYNTAX_PROFILE ||
-    value.functionProfile !== SHEETBASE_FUNCTION_PROFILE ||
-    value.literalProfile !== SHEETBASE_LITERAL_PROFILE ||
-    value.engineVersion !== SHEETBASE_ENGINE_VERSION ||
-    (value.status !== 'supported' && value.status !== 'unsupported')
+const cellSchema = exactObject(cellFields)
+const crossCellSchema = exactObject({ ...cellFields, tableId: uuidSchema })
+const rangeSchema = exactObject(rangeFields)
+const crossRangeSchema = exactObject({ ...rangeFields, tableId: uuidSchema })
+
+const membersSchema = z.custom<CellIdentity[][]>((value) => {
+  const rows = unknownArraySchema.safeParse(value)
+
+  return (
+    rows.success &&
+    rows.data.every((row) => {
+      const cells = unknownArraySchema.safeParse(row)
+
+      return (
+        cells.success &&
+        cells.data.every((cell) => identitySchema.safeParse(cell).success)
+      )
+    })
   )
-    fail('profile, version, or status is not allowed.')
+})
 
-  if (
-    typeof value.source !== 'string' ||
-    !value.source.startsWith('=') ||
-    value.source.length > FORMULA_LIMITS.source
-  )
-    fail('source is invalid.')
+const nodeHeaderSchema = z.object({ kind: z.unknown().optional() })
 
-  if (
-    typeof value.engineExpression !== 'string' ||
-    !value.engineExpression.startsWith('=') ||
-    value.engineExpression.length > FORMULA_LIMITS.source
-  )
-    fail('engine expression is invalid.')
+const numberNodeSchema = exactObject({
+  kind: z.literal('number'),
+  value: z.number(),
+})
 
-  if (
-    !Array.isArray(value.bindings) ||
-    value.bindings.length > FORMULA_LIMITS.slots
+const stringNodeSchema = exactObject({
+  kind: z.literal('string'),
+  value: z.string(),
+})
+
+const booleanNodeSchema = exactObject({
+  kind: z.literal('boolean'),
+  value: z.boolean(),
+})
+
+const referenceNodeSchema = exactObject({
+  kind: z.literal('reference'),
+  slot: z.number().refine(Number.isInteger),
+})
+
+const unaryNodeSchema = exactObject({
+  kind: z.literal('unary'),
+  operator: z.enum(['+', '-']),
+  operand: z.unknown(),
+})
+
+const percentNodeSchema = exactObject({
+  kind: z.literal('percent'),
+  operand: z.unknown(),
+})
+
+const binaryNodeSchema = exactObject({
+  kind: z.literal('binary'),
+  // Preserve v1's persisted `operator in precedence` contract, including inherited
+  // Object names; the source tokenizer still only produces the twelve operators.
+  operator: z
+    .string()
+    .refine(
+      (operator) => precedence.has(operator) || operator in Object.prototype,
+    ),
+  left: z.unknown(),
+  right: z.unknown(),
+})
+
+const callNodeSchema = exactObject({
+  kind: z.literal('call'),
+  functionId: z.string().regex(/^[A-Z][A-Z0-9.]*$/),
+  arguments: unknownArraySchema,
+})
+
+function fail(message: string): never {
+  throw new FormulaSyntaxError(
+    'syntax',
+    `Invalid persisted formula: ${message}`,
   )
-    throw new FormulaSyntaxError(
-      'syntax',
-      'Invalid persisted formula: bindings exceed the profile.',
-    )
-  const bindings = value.bindings
+}
+
+/** Decodes stored bindings, including ordered slots and captured range limits. */
+const bindingsSchema = z.custom<FormulaBinding[]>((value) => {
+  const parsed = unknownArraySchema
+    .refine((bindings) => bindings.length <= FORMULA_LIMITS.slots)
+    .safeParse(value)
+
+  if (!parsed.success) fail('bindings exceed the profile.')
+  const bindings = parsed.data
 
   let rangeCells = 0
   bindings.forEach((binding, slot) => {
-    if (!record(binding) || binding.slot !== slot)
+    const header = bindingHeaderSchema.safeParse(binding)
+
+    if (!header.success || header.data.slot !== slot)
       fail('binding slots must be bijective and ordered.')
 
-    if (binding.kind === 'cell') {
-      const bindingKeys = binding.tableId
-        ? ['kind', 'slot', 'tableId', 'cell', 'anchor']
-        : ['kind', 'slot', 'cell', 'anchor']
+    if (header.data.kind === 'cell') {
+      const schema = header.data.tableId ? crossCellSchema : cellSchema
 
-      if (
-        !ownKeys(binding, bindingKeys) ||
-        (binding.tableId !== undefined &&
-          (typeof binding.tableId !== 'string' ||
-            !UUID.test(binding.tableId))) ||
-        !identity(binding.cell) ||
-        !anchors(binding.anchor)
-      )
+      if (!schema.safeParse(binding).success)
         fail('cell binding shape is invalid.')
-    } else if (binding.kind === 'range') {
-      const bindingKeys = binding.tableId
-        ? ['kind', 'slot', 'tableId', 'members', 'start', 'end']
-        : ['kind', 'slot', 'members', 'start', 'end']
+    } else if (header.data.kind === 'range') {
+      const schema = header.data.tableId ? crossRangeSchema : rangeSchema
+      const range = schema.safeParse(binding)
 
-      if (
-        !ownKeys(binding, bindingKeys) ||
-        (binding.tableId !== undefined &&
-          (typeof binding.tableId !== 'string' ||
-            !UUID.test(binding.tableId))) ||
-        !anchors(binding.start) ||
-        !anchors(binding.end) ||
-        !Array.isArray(binding.members) ||
-        binding.members.length === 0
-      )
-        fail('range binding shape is invalid.')
+      if (!range.success) fail('range binding shape is invalid.')
+      const members = membersSchema.safeParse(range.data.members)
 
-      const width = Array.isArray(binding.members[0])
-        ? binding.members[0].length
-        : 0
-
-      if (
-        !width ||
-        binding.members.some(
-          (row: unknown) =>
-            !Array.isArray(row) ||
-            row.length !== width ||
-            row.some((cell) => !identity(cell)),
-        )
-      )
+      if (!members.success)
         fail('ranges must be nonempty rectangles of stable identities.')
-      rangeCells += binding.members.length * width
+      const width = members.data[0]?.length ?? 0
+
+      if (!width || members.data.some((row) => row.length !== width))
+        fail('ranges must be nonempty rectangles of stable identities.')
+      rangeCells += members.data.length * width
 
       if (rangeCells > FORMULA_LIMITS.rangeCells)
         fail('captured ranges exceed the profile.')
     } else fail('binding kind is invalid.')
   })
 
+  return true
+})
+
+// Unknown is the storage I/O boundary; the schema immediately decodes all bindings.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
+export function decodeFormulaBindings(value: unknown): FormulaBinding[] {
+  return bindingsSchema.parse(value)
+}
+
+/** Decodes a stored tree and checks its reference-slot bijection. */
+export function decodeFormulaNode(
+  // Unknown is the storage I/O boundary; the tree schema immediately decodes it.
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters
+  value: unknown,
+  bindingCount: number,
+): FormulaNode {
+  return formulaTreeSchema(bindingCount).parse(value).template
+}
+
+function formulaTreeSchema(bindingCount: number) {
   const referenced = new Set<number>()
   const calls = new Set<string>()
   let nodes = 0
 
-  const node = (candidate: unknown): void => {
-    assertRecord(candidate, 'formula tree is invalid.')
+  const nodeSchema: z.ZodType<FormulaNode> = z.custom<FormulaNode>(
+    (candidate) => {
+      const header = nodeHeaderSchema.safeParse(candidate)
 
-    if (++nodes > FORMULA_LIMITS.source) fail('formula tree is too large.')
+      if (!header.success) fail('formula tree is invalid.')
 
-    switch (candidate.kind) {
-      case 'number':
-        if (
-          !ownKeys(candidate, ['kind', 'value']) ||
-          typeof candidate.value !== 'number' ||
-          !Number.isFinite(candidate.value)
-        )
-          fail('number node is invalid.')
+      if (++nodes > FORMULA_LIMITS.source) fail('formula tree is too large.')
 
-        return
-      case 'string':
-      case 'boolean':
-        if (
-          !ownKeys(candidate, ['kind', 'value']) ||
-          typeof candidate.value !== candidate.kind
-        )
-          fail(`${candidate.kind} node is invalid.`)
+      switch (header.data.kind) {
+        case 'number':
+          if (!numberNodeSchema.safeParse(candidate).success)
+            fail('number node is invalid.')
 
-        return
-      case 'reference':
-        if (
-          !ownKeys(candidate, ['kind', 'slot']) ||
-          !Number.isInteger(candidate.slot) ||
-          (candidate.slot as number) < 0 ||
-          (candidate.slot as number) >= bindings.length ||
-          referenced.has(candidate.slot as number)
-        )
-          fail('reference slots must form a bijection.')
-        referenced.add(candidate.slot as number)
+          break
+        case 'string':
+          if (!stringNodeSchema.safeParse(candidate).success)
+            fail('string node is invalid.')
+          break
+        case 'boolean':
+          if (!booleanNodeSchema.safeParse(candidate).success)
+            fail('boolean node is invalid.')
+          break
 
-        return
-      case 'unary':
-        if (
-          !ownKeys(candidate, ['kind', 'operator', 'operand']) ||
-          (candidate.operator !== '+' && candidate.operator !== '-')
-        )
-          fail('unary node is invalid.')
-        node(candidate.operand)
+        case 'reference': {
+          const reference = referenceNodeSchema.safeParse(candidate)
 
-        return
-      case 'percent':
-        if (!ownKeys(candidate, ['kind', 'operand']))
-          fail('percent node is invalid.')
-        node(candidate.operand)
+          if (
+            !reference.success ||
+            reference.data.slot < 0 ||
+            reference.data.slot >= bindingCount ||
+            referenced.has(reference.data.slot)
+          )
+            fail('reference slots must form a bijection.')
+          referenced.add(reference.data.slot)
+          break
+        }
 
-        return
-      case 'binary':
-        if (
-          !ownKeys(candidate, ['kind', 'operator', 'left', 'right']) ||
-          typeof candidate.operator !== 'string' ||
-          !(candidate.operator in precedence)
-        )
-          fail('binary node is invalid.')
-        node(candidate.left)
-        node(candidate.right)
+        case 'unary': {
+          const unary = unaryNodeSchema.safeParse(candidate)
 
-        return
-      case 'call':
-        if (
-          !ownKeys(candidate, ['kind', 'functionId', 'arguments']) ||
-          typeof candidate.functionId !== 'string' ||
-          !/^[A-Z][A-Z0-9.]*$/.test(candidate.functionId) ||
-          !Array.isArray(candidate.arguments)
-        )
-          fail('call node is invalid.')
-        calls.add(candidate.functionId as string)
-        ;(candidate.arguments as unknown[]).forEach(node)
+          if (!unary.success) fail('unary node is invalid.')
+          nodeSchema.parse(unary.data.operand)
+          break
+        }
 
-        return
-      default:
-        fail('node kind is invalid.')
-    }
-  }
+        case 'percent': {
+          const percent = percentNodeSchema.safeParse(candidate)
 
-  node(value.template)
+          if (!percent.success) fail('percent node is invalid.')
+          nodeSchema.parse(percent.data.operand)
+          break
+        }
 
-  if (referenced.size !== bindings.length)
-    fail('reference slots must form a bijection.')
+        case 'binary': {
+          const binary = binaryNodeSchema.safeParse(candidate)
 
-  const hasUnsupported = [...calls].some(
-    (id) => !(SCIENTIFIC_CORE_FUNCTIONS as readonly string[]).includes(id),
+          if (!binary.success) fail('binary node is invalid.')
+          nodeSchema.parse(binary.data.left)
+          nodeSchema.parse(binary.data.right)
+          break
+        }
+
+        case 'call': {
+          const call = callNodeSchema.safeParse(candidate)
+
+          if (!call.success) fail('call node is invalid.')
+          calls.add(call.data.functionId)
+          call.data.arguments.forEach((argument) => nodeSchema.parse(argument))
+          break
+        }
+
+        default:
+          fail('node kind is invalid.')
+      }
+
+      return true
+    },
   )
+
+  return nodeSchema.transform((template) => {
+    if (referenced.size !== bindingCount)
+      fail('reference slots must form a bijection.')
+
+    return { template, calls }
+  })
+}
+
+const artifactFields = {
+  version: z.literal(1),
+  syntaxProfile: z.literal(SHEETBASE_SYNTAX_PROFILE),
+  functionProfile: z.literal(SHEETBASE_FUNCTION_PROFILE),
+  source: z.unknown(),
+  template: z.unknown(),
+  bindings: z.unknown(),
+  engineExpression: z.unknown(),
+  literalProfile: z.literal(SHEETBASE_LITERAL_PROFILE),
+  engineVersion: z.literal(SHEETBASE_ENGINE_VERSION),
+  status: z.enum(['supported', 'unsupported']),
+  dependencies: z.unknown(),
+}
+
+const artifactHeaderSchema = z.object(artifactFields)
+
+const formulaSourceSchema = z
+  .string()
+  .startsWith('=')
+  .max(FORMULA_LIMITS.source)
+
+const dependencySchema = exactObject({
+  tableId: uuidSchema,
+  rowId: uuidSchema,
+  columnId: uuidSchema,
+})
+
+/** Validates the complete untrusted JSON contract loaded from formula storage. */
+const artifactSchema = z.custom<PersistedFormulaArtifact>((value) => {
+  const object = objectSchema.safeParse(value)
+
+  if (!object.success) fail('artifact must be an object.')
+
+  if (!ownKeys(object.data, Object.keys(artifactFields)))
+    fail('artifact fields do not match v1.')
+  const header = artifactHeaderSchema.safeParse(value)
+
+  if (!header.success) fail('profile, version, or status is not allowed.')
+  const artifact = header.data
+
+  if (!formulaSourceSchema.safeParse(artifact.source).success)
+    fail('source is invalid.')
+
+  if (!formulaSourceSchema.safeParse(artifact.engineExpression).success)
+    fail('engine expression is invalid.')
+
+  const bindings = decodeFormulaBindings(artifact.bindings)
+  const { calls } = formulaTreeSchema(bindings.length).parse(artifact.template)
+
+  const hasUnsupported = [...calls].some((id) => !coreFunctions.has(id))
 
   // A `supported` formula must not contain unsupported functions. The reverse
   // is intentionally lenient: a formula persisted as `unsupported` under an
   // earlier profile may become calculable after the allow-list expands (e.g.
   // v1 → v2), so `unsupported` with no unsupported functions is a benign
   // transitional state rather than an integrity violation.
-  if (value.status === 'supported' && hasUnsupported)
+  if (artifact.status === 'supported' && hasUnsupported)
     fail('status does not match function semantics.')
 
-  if (!Array.isArray(value.dependencies))
-    throw new FormulaSyntaxError(
-      'syntax',
-      'Invalid persisted formula: dependencies must be an array.',
-    )
-  const dependencies = value.dependencies
+  const parsedDependencies = unknownArraySchema.safeParse(artifact.dependencies)
+
+  if (!parsedDependencies.success) fail('dependencies must be an array.')
+  const dependencies = parsedDependencies.data
   const expected = new Set<string>()
 
-  for (const binding of bindings as FormulaBinding[]) {
+  for (const binding of bindings) {
     const cells =
       binding.kind === 'cell' ? [binding.cell] : binding.members.flat()
 
@@ -892,15 +995,11 @@ export function validatePersistedFormulaArtifact(
   const actual = new Set<string>()
   const uniqueDependencies = new Set<string>()
 
-  for (const dependency of dependencies) {
-    if (
-      !record(dependency) ||
-      !ownKeys(dependency, ['tableId', 'rowId', 'columnId']) ||
-      typeof dependency.tableId !== 'string' ||
-      !UUID.test(dependency.tableId) ||
-      !identity({ rowId: dependency.rowId, columnId: dependency.columnId })
-    )
-      fail('dependency shape is invalid.')
+  for (const input of dependencies) {
+    const parsed = dependencySchema.safeParse(input)
+
+    if (!parsed.success) fail('dependency shape is invalid.')
+    const dependency = parsed.data
     const key = `${dependency.tableId}/${dependency.rowId}/${dependency.columnId}`
     const sameTableKey = `/${dependency.rowId}/${dependency.columnId}`
 
@@ -915,7 +1014,15 @@ export function validatePersistedFormulaArtifact(
   )
     fail('dependencies do not match bindings.')
 
-  return value as unknown as PersistedFormulaArtifact
+  return true
+})
+
+export function validatePersistedFormulaArtifact(
+  // Unknown is the persisted JSON boundary and is decoded by the schema immediately.
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters
+  value: unknown,
+): PersistedFormulaArtifact {
+  return artifactSchema.parse(value)
 }
 
 export function calculationSheetName(tableId: string) {
@@ -977,7 +1084,7 @@ export function emitFormula(
 
     const first = binding.members[0]?.[0],
       lastRow = binding.members.at(-1),
-      last = lastRow?.at(-1) as CellIdentity
+      last = lastRow!.at(-1)!
 
     const firstRow = sourceRows.get(first.rowId),
       firstColumn = sourceColumns.get(first.columnId),

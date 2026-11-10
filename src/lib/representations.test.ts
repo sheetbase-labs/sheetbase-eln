@@ -4,7 +4,7 @@
  * with the direct kind materialiser calls on fixtures. The framework adds no
  * computation of its own: parity is exact (`toEqual`), not approximate.
  */
-import { describe, expect, it } from 'vitest'
+import { assert, describe, expect, it } from 'vitest'
 
 import { ANALYSIS_DEFINITION_VERSION, runAnalysis } from './analysis-definition'
 import type { AnalysisDefinition } from './analysis-definition'
@@ -27,6 +27,7 @@ import {
   plateMapToRepresentationHandle,
   reconstructFrozenRepresentation,
   representationReadOnly,
+  validateRepresentationEmbed,
 } from './representations'
 import type { RepresentationHandle } from './representations'
 
@@ -208,9 +209,10 @@ describe('representation read-only boundary', () => {
         source: { datasetId: DATASET_ID, versionId: null },
         config: {
           kind: 'chart',
+          // @ts-expect-error Deliberately stale input must fail the public runtime version check too.
           configVersion: 999,
           config: chartSpec(),
-        } as unknown as RepresentationHandle['config'],
+        },
       }),
     ).toThrow(/configVersion must be/)
   })
@@ -410,12 +412,12 @@ describe('analysis representation', () => {
 
     if (out.kind !== 'analysis' || !out.outcome.ok)
       throw new Error('unreachable')
+    assert(out.outcome.result.kind === 'descriptive')
     // Grouped snapshot yields one row per condition.
-    expect(
-      (out.outcome.result as { rows: Array<{ group: string }> }).rows
-        .map((r) => r.group)
-        .sort(),
-    ).toEqual(['a', 'b'])
+    expect(out.outcome.result.rows.map((r) => r.group).sort()).toEqual([
+      'a',
+      'b',
+    ])
   })
 
   it('reports empty_dataset honestly when pinned rows are absent', () => {
@@ -603,5 +605,233 @@ describe('dispatcher guards', () => {
         rows: ROWS,
       }),
     ).toThrow(/FrozenAnalysis/)
+  })
+})
+
+describe('raw representation embed contracts', () => {
+  function embed() {
+    return {
+      kind: 'chart',
+      configVersion: CHART_SPEC_VERSION,
+      config: chartSpec(),
+      source: { datasetId: DATASET_ID, versionId: null },
+    }
+  }
+
+  it('retains envelope, version, identity and canonical-config diagnostic precedence', () => {
+    for (const input of [null, [], 'chart']) {
+      expect(validateRepresentationEmbed(input)).toEqual({
+        ok: false,
+        errors: ['embed must be an object'],
+      })
+    }
+
+    expect(validateRepresentationEmbed(new Date(0))).toEqual({
+      ok: false,
+      errors: ['unknown representation kind: undefined'],
+    })
+    expect(
+      validateRepresentationEmbed({
+        ...embed(),
+        kind: 'compare',
+        configVersion: 999,
+        source: null,
+      }),
+    ).toEqual({ ok: false, errors: ['unknown representation kind: compare'] })
+    expect(
+      validateRepresentationEmbed({
+        ...embed(),
+        configVersion: 999,
+        source: null,
+      }),
+    ).toEqual({
+      ok: false,
+      errors: ['chart configVersion must be 1 (got 999)'],
+    })
+    expect(
+      validateRepresentationEmbed({
+        ...embed(),
+        source: { recordId: null },
+        config: null,
+      }),
+    ).toEqual({
+      ok: false,
+      errors: [
+        'source.datasetId must be a UUID or null',
+        'source.versionId must be a UUID or null',
+        'source.recordId must be a UUID when present',
+      ],
+    })
+    expect(validateRepresentationEmbed({ ...embed(), config: null })).toEqual({
+      ok: false,
+      errors: ['chart config failed the ChartSpec validator'],
+    })
+  })
+
+  it('retains native configuration values and own keys without changing property omission', () => {
+    const native = {
+      date: new Date(0),
+      bytes: Buffer.from([1, 255]),
+      value: Infinity,
+    }
+
+    const config = {
+      ...chartSpec(),
+      ['__proto__']: native,
+      extension: native,
+      omitted: undefined,
+    }
+
+    const result = validateRepresentationEmbed({
+      ...embed(),
+      config,
+      source: { datasetId: DATASET_ID, versionId: null, recordId: undefined },
+      title: 17,
+      frozen: 'false',
+    })
+
+    assert(result.handle)
+    expect(result.errors).toEqual([])
+    expect(result.handle.config.config).toBe(config)
+    expect(Object.hasOwn(result.handle.config.config, '__proto__')).toBe(true)
+    expect(config.__proto__).toBe(native)
+    expect(config.extension.date).toBe(native.date)
+    expect(config.extension.bytes).toBe(native.bytes)
+    expect(Object.hasOwn(result.handle.config.config, 'omitted')).toBe(true)
+    expect(Object.hasOwn(result.handle.source, 'recordId')).toBe(false)
+    expect(Object.hasOwn(result.handle.provenance, 'recordId')).toBe(true)
+    expect(result.handle.provenance.recordId).toBeUndefined()
+    expect(Object.hasOwn(result.handle, 'title')).toBe(true)
+    expect(result.handle.title).toBeUndefined()
+    expect(result.handle.provenance.frozen).toBe(false)
+  })
+
+  it('keeps chart-only analysis definitions accepted by their canonical validator', () => {
+    const config = {
+      definitionVersion: ANALYSIS_DEFINITION_VERSION,
+      kind: 'chart',
+      datasets: [{ datasetId: DATASET_ID }],
+      chart: chartSpec(),
+    }
+
+    const result = validateRepresentationEmbed({
+      ...embed(),
+      kind: 'analysis',
+      config,
+    })
+
+    assert(result.handle)
+    expect(result.handle.config.config).toBe(config)
+    expect(
+      materialiseRepresentation(result.handle, {
+        columns: COLUMNS,
+        rows: ROWS,
+      }),
+    ).toEqual({
+      kind: 'analysis',
+      outcome: { ok: false, error: { code: 'no_statistic' } },
+    })
+  })
+
+  it('preserves permissive source inspection and the historical UUID syntax', () => {
+    expect(
+      validateRepresentationEmbed({ ...embed(), source: [] }).errors,
+    ).toEqual([
+      'source.datasetId must be a UUID or null',
+      'source.versionId must be a UUID or null',
+    ])
+
+    const source = Object.assign([], {
+      datasetId: '00000000-0000-0000-0000-000000000000',
+      versionId: null,
+    })
+
+    const result = validateRepresentationEmbed({ ...embed(), source })
+    assert(result.handle)
+    expect(result.handle.source).toEqual({
+      datasetId: source.datasetId,
+      versionId: null,
+    })
+    const config = Object.assign(() => null, { instanceId: INSTANCE_ID })
+
+    const sheet = validateRepresentationEmbed({
+      ...embed(),
+      kind: 'sheet',
+      config,
+    })
+
+    assert(sheet.handle)
+    expect(sheet.handle.config.config).toBe(config)
+  })
+
+  it('keeps each kind under its canonical configuration validator', () => {
+    expect(
+      validateRepresentationEmbed({
+        ...embed(),
+        kind: 'plate_map',
+        config: { ...plateSpec(), rows: 6 },
+      }),
+    ).toEqual({
+      ok: false,
+      errors: ['plate_map config failed the PlateMapSpec validator'],
+    })
+    expect(
+      validateRepresentationEmbed({
+        ...embed(),
+        kind: 'analysis',
+        config: { ...descriptiveDefinition(), value: null },
+      }),
+    ).toEqual({
+      ok: false,
+      errors: ['analysis config failed the analysis definition validator'],
+    })
+    expect(
+      validateRepresentationEmbed({
+        ...embed(),
+        kind: 'sheet',
+        config: { instanceId: 'bad' },
+      }),
+    ).toEqual({ ok: false, errors: ['sheet config.instanceId must be a UUID'] })
+  })
+
+  it('passes native scientific analysis inputs to the existing runner without normalisation', () => {
+    const category = new Date(0)
+
+    const native = {
+      ['__proto__']: { measurement: Infinity },
+      bytes: Buffer.from([4, 2]),
+      missing: undefined,
+    }
+
+    const rows = [
+      { [COL_Y]: 2, [COL_G]: category, native },
+      { [COL_Y]: 8, [COL_G]: category, native },
+    ]
+
+    const handle = createRepresentationHandle({
+      source: { datasetId: DATASET_ID, versionId: null },
+      config: {
+        kind: 'analysis',
+        configVersion: ANALYSIS_DEFINITION_VERSION,
+        config: descriptiveDefinition(),
+      },
+    })
+
+    const result = materialiseRepresentation(handle, { columns: COLUMNS, rows })
+    expect(result).toEqual({
+      kind: 'analysis',
+      outcome: runAnalysis(descriptiveDefinition(), COLUMNS, rows),
+    })
+    assert(
+      result.kind === 'analysis' &&
+        result.outcome.ok &&
+        result.outcome.result.kind === 'descriptive',
+    )
+    expect(result.outcome.result.rows[0].group).toBe(String(category))
+    expect(result.outcome.result.rows[0].stats.mean).toBe(5)
+    expect(rows[0][COL_G]).toBe(category)
+    expect(rows[0].native).toBe(native)
+    expect(Object.hasOwn(native, '__proto__')).toBe(true)
+    expect(Object.hasOwn(native, 'missing')).toBe(true)
   })
 })

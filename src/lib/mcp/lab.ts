@@ -26,11 +26,11 @@ import type { LabRpc, LabType } from '../lab-api-surface'
 
 export const LAB_ACT_TOOL_NAME = 'sheetbase.lab.act'
 
-const ACTIONS = Object.keys(LAB_RPCS) as [string, ...string[]]
+const ACTIONS = Object.keys(LAB_RPCS)
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 
-function valueSchema(type: LabType): z.ZodType {
+function valueSchema(type: LabType): z.ZodType<z.JSONType> {
   switch (type) {
     case 'uuid':
       return z.string().uuid()
@@ -48,7 +48,7 @@ function valueSchema(type: LabType): z.ZodType {
     case 'bool':
       return z.boolean()
     case 'json':
-      return z.union([z.record(z.string(), z.unknown()), z.array(z.unknown())])
+      return z.union([z.record(z.string(), z.json()), z.array(z.json())])
     case 'text[]':
       return z.array(z.string())
     case 'int[]':
@@ -58,34 +58,35 @@ function valueSchema(type: LabType): z.ZodType {
   }
 }
 
-export function argumentSchema(
-  rpc: LabRpc,
-): z.ZodType<Record<string, unknown>> {
-  const shape: Record<string, z.ZodType> = {}
+export function argumentSchema(rpc: LabRpc) {
+  const fields: Record<string, z.ZodType<z.JSONType | undefined>> = {}
+
   for (const [name, type, required] of rpc.params) {
     const base = valueSchema(type)
-    shape[name] = required ? base : base.optional()
+    fields[name] = required ? base : base.optional()
   }
-  return z.object(shape).strict()
+
+  return z.strictObject(fields)
 }
 
 function describeActions(): string {
   return ACTIONS.map((name) => {
     const rpc = LAB_RPCS[name]
+
     const params = rpc.params
       .map(([p, type, required]) => `${p}${required ? '' : '?'}: ${type}`)
       .join(', ')
+
     const needs = rpc.scope.startsWith('lab:') ? '' : ` Needs ${rpc.scope}.`
+
     return `- ${name}(${params}): ${rpc.summary}.${needs}`
   }).join('\n')
 }
 
-export const labActSchema = z
-  .object({
-    action: z.enum(ACTIONS),
-    arguments: z.record(z.string(), z.unknown()).default({}),
-  })
-  .strict()
+export const labActSchema = z.strictObject({
+  action: z.enum(ACTIONS),
+  arguments: z.record(z.string(), z.unknown()).default({}),
+})
 
 export function labActTool() {
   return {
@@ -135,17 +136,19 @@ export interface LabActRequest {
   level: string
 }
 
-interface Checked {
+interface ValidatedAction {
   action: string
   rpc: LabRpc
-  args: Record<string, unknown>
+  args: z.output<ReturnType<typeof argumentSchema>>
 }
 
 async function checkLabAct(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the raw MCP action decoder; labActSchema and argumentSchema validate before RPC execution.
   input: unknown,
   scopes: readonly Scope[],
-): Promise<Checked | Extract<LabActOutcome, { ok: false }>> {
+): Promise<ValidatedAction | Extract<LabActOutcome, { ok: false }>> {
   const parsed = labActSchema.safeParse(input)
+
   if (!parsed.success) {
     return {
       ok: false,
@@ -153,24 +156,30 @@ async function checkLabAct(
       code: 'invalid_arguments',
     }
   }
+
   const { action } = parsed.data
   const rpc = LAB_RPCS[action]
+
   if (!scopes.includes(rpc.scope)) {
     return {
       ok: false,
       message: `This credential lacks the ${rpc.scope} scope required for ${action}.`,
     }
   }
+
   const args = argumentSchema(rpc).safeParse(parsed.data.arguments)
+
   if (!args.success) {
     const first = args.error.issues[0]
-    const where = first.path.join('.') || 'arguments'
+    const where = first.path.map(String).join('.') || 'arguments'
+
     return {
       ok: false,
       message: `Invalid arguments for ${action}: ${where}: ${first.message}.`,
       code: 'invalid_arguments',
     }
   }
+
   return { action, rpc, args: args.data }
 }
 
@@ -179,16 +188,20 @@ async function checkLabAct(
  * code that has already decided the action may run.
  */
 export async function runLabAct(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public transport entrypoint forwards raw input directly to checkLabAct's schema decoder.
   input: unknown,
   scopes: readonly Scope[],
   client: DataClient,
 ): Promise<LabActOutcome> {
   const checked = await checkLabAct(input, scopes)
+
   if ('ok' in checked) return checked
+
   const result = agentActionResult(
     checked.action,
     await client.rpc<unknown>(checked.action, checked.args),
   )
+
   return { ok: true, action: checked.action, result }
 }
 
@@ -207,18 +220,22 @@ export interface GuardedLabActContext {
  * runs now as the person the token belongs to and the outcome is recorded.
  */
 export async function runGuardedLabAct(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public transport entrypoint forwards raw input directly to checkLabAct's schema decoder.
   input: unknown,
   context: GuardedLabActContext,
 ): Promise<LabActOutcome> {
   const checked = await checkLabAct(input, context.scopes)
+
   if ('ok' in checked) return checked
   const { action, rpc, args } = checked
+
   if (
     !isWriteScope(rpc.scope) ||
     action === 'request_agent_action' ||
     action === 'finish_agent_action'
   ) {
     const result = await context.client.rpc<unknown>(action, args)
+
     return { ok: true, action, result }
   }
 
@@ -227,14 +244,16 @@ export async function runGuardedLabAct(
     id: string
     status: string
     level: string
-    arguments: Record<string, unknown>
+    arguments: z.output<ReturnType<typeof argumentSchema>>
   }>(
     'agent_action_requests',
     `?select=id,status,level,arguments&status=eq.pending&action_key=eq.${encodeURIComponent(action)}&order=created_at.desc&limit=20`,
   )
+
   const same = waiting.find(
     (row) => JSON.stringify(row.arguments) === JSON.stringify(args),
   )
+
   if (same) {
     return {
       ok: 'waiting',
@@ -259,11 +278,13 @@ export async function runGuardedLabAct(
     },
     p_idempotency_key: `mcp-${crypto.randomUUID()}`,
   })
+
   const ref: LabActRequest = {
     id: request.id,
     status: request.status,
     level: request.level,
   }
+
   if (request.status === 'refused') {
     return {
       ok: false,
@@ -272,21 +293,25 @@ export async function runGuardedLabAct(
       request: ref,
     }
   }
+
   if (request.status === 'pending') {
     return { ok: 'waiting', action, message: WAITING_MESSAGE, request: ref }
   }
+
   // Auto: run now, then record how it ended.
   try {
     const result = agentActionResult(
       action,
       await context.client.rpc<unknown>(action, args),
     )
+
     await context.client.rpc('finish_agent_action', {
       p_request_id: request.id,
       p_ok: true,
       p_result: result === undefined ? null : recordableResult(action, result),
       p_error: null,
     })
+
     return {
       ok: true,
       action,
@@ -309,15 +334,17 @@ export async function runGuardedLabAct(
 const WAITING_MESSAGE =
   'This is waiting for a person to approve it in Sheetbase (it is in their Inbox). Nothing has changed yet. Check the request later with sheetbase.canonical.read on agent_action_requests.'
 
-export function summariseArguments(args: Record<string, unknown>): string {
+export function summariseArguments(args: ValidatedAction['args']): string {
   const parts = Object.entries(args)
     .filter(([, value]) => value !== null && value !== undefined)
     .slice(0, 6)
     .map(
       ([name, value]) =>
         `${name.replace(/^p_/, '').replace(/_/g, ' ')} ${
+          // oxlint-disable-next-line anti-slop/no-runtime-typeof -- argumentSchema has validated the primitive/JSON union; objects need JSON display, primitives keep their original display.
           typeof value === 'object' ? JSON.stringify(value) : String(value)
         }`,
     )
+
   return parts.length > 0 ? ` (${parts.join(', ')})` : ''
 }

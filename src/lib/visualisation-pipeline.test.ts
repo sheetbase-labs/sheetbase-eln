@@ -2,7 +2,7 @@
  * SCI-04 pipeline: filters, transforms, summaries, error bars, sampling,
  * OLS overlays and plot-type encoding.
  */
-import { describe, expect, it } from 'vitest'
+import { assert, describe, expect, it } from 'vitest'
 
 import {
   CHART_SPEC_VERSION,
@@ -18,8 +18,10 @@ import {
   deterministicSample,
   formatScientificNumber,
   groupedNumericSummaries,
+  orderCategories,
   sampleSeriesForRender,
   SCI_RENDER_POINT_CAP,
+  toNumeric,
 } from './visualisation-pipeline'
 import { recommendPlotType } from './visualisation-presets'
 import { serialiseChartSvg, svgContainsFigure } from './visualisation-export'
@@ -231,6 +233,164 @@ describe('plot types', () => {
 })
 
 describe('filters and transforms', () => {
+  it('preserves raw numeric acceptance without coercing booleans or missing cells', () => {
+    expect(toNumeric(' 2.5 ')).toBe(2.5)
+    expect(toNumeric(-3)).toBe(-3)
+
+    for (const value of [
+      true,
+      false,
+      null,
+      undefined,
+      '',
+      ' ',
+      NaN,
+      Infinity,
+      [],
+      {},
+    ]) {
+      expect(toNumeric(value)).toBeNull()
+    }
+  })
+
+  it('retains original rows, own scientific keys and identity-based filters', () => {
+    const category = { ['__proto__']: { measurement: 7 } }
+
+    const row = {
+      [COL_Y]: 4,
+      [COL_G]: category,
+      ['__proto__']: category,
+      missing: undefined,
+    }
+
+    const rows = [row]
+
+    expect(applyFiltersSci04(rows, [])).toBe(rows)
+    expect(applyTransformations(rows, [], spec()).rows).toBe(rows)
+
+    const selected = applyFiltersSci04(rows, [
+      { fieldId: COL_G, op: 'eq', value: category },
+      { fieldId: COL_G, op: 'in', value: [category] },
+    ])
+
+    expect(selected[0]).toBe(row)
+    expect(selected[0].__proto__).toBe(category)
+    expect(Object.hasOwn(selected[0], '__proto__')).toBe(true)
+    expect(Object.hasOwn(selected[0], 'missing')).toBe(true)
+    expect(
+      applyFiltersSci04(rows, [
+        { fieldId: COL_G, op: 'eq', value: { ...category } },
+      ]),
+    ).toEqual([])
+
+    const transformed = applyTransformations(
+      rows,
+      [{ kind: 'percentage', params: {} }],
+      spec(),
+    )
+
+    expect(transformed.rows[0][COL_Y]).toBe(400)
+    expect(transformed.rows[0].__proto__).toBe(category)
+    expect(Object.hasOwn(transformed.rows[0], '__proto__')).toBe(true)
+    expect(row[COL_Y]).toBe(4)
+  })
+
+  it('keeps lexical between distinct from mixed numeric bounds', () => {
+    const rows = [{ [COL_Y]: '10' }, { [COL_Y]: '3' }]
+    expect(
+      applyFiltersSci04(rows, [
+        { fieldId: COL_Y, op: 'between', value: ['2', '9'] },
+      ]),
+    ).toEqual([rows[1]])
+    expect(
+      applyFiltersSci04(rows, [
+        { fieldId: COL_Y, op: 'between', value: [2, '9'] },
+      ]),
+    ).toEqual([rows[1]])
+    expect(
+      applyFiltersSci04(rows, [
+        { fieldId: COL_Y, op: 'between', value: ['1', '2'] },
+      ]),
+    ).toEqual([rows[0]])
+    expect(
+      applyFiltersSci04(rows, [
+        { fieldId: COL_Y, op: 'between', value: [1, '2'] },
+      ]),
+    ).toEqual([])
+  })
+
+  it('applies transforms in order and reports distinct failures in first-seen order', () => {
+    const ordered = applyTransformations(
+      [{ [COL_Y]: 4 }],
+      [
+        { kind: 'difference', params: { reference: 10 } },
+        { kind: 'abs', params: {} },
+      ],
+      spec(),
+    )
+
+    expect(ordered.rows[0][COL_Y]).toBe(6)
+
+    const failures = applyTransformations(
+      [
+        { [COL_Y]: -1, [COL_X]: -4, [COL_LO]: 2 },
+        { [COL_Y]: -2, [COL_X]: -9, [COL_LO]: 3 },
+      ],
+      [
+        { kind: 'log10', params: { fieldId: COL_Y } },
+        { kind: 'sqrt', params: { fieldId: COL_X } },
+        { kind: 'ratio', params: { fieldId: COL_LO, reference: 0 } },
+      ],
+      spec(),
+    )
+
+    expect(failures.transformInvalid).toBe(6)
+    expect(failures.reasons).toEqual([
+      'log10 of non-positive value',
+      'square root of a negative value',
+      'ratio with a zero denominator',
+    ])
+    expect(failures.rows).toEqual([
+      { [COL_Y]: null, [COL_X]: null, [COL_LO]: null },
+      { [COL_Y]: null, [COL_X]: null, [COL_LO]: null },
+    ])
+  })
+
+  it('normalises using population variance per group and retains nonnumeric rows', () => {
+    const rows = [
+      { [COL_Y]: 2, [COL_G]: 'A' },
+      { [COL_Y]: 6, [COL_G]: 'A' },
+      { [COL_Y]: 100, [COL_G]: 'B' },
+      { [COL_Y]: null, [COL_G]: 'A' },
+      { [COL_Y]: Infinity, [COL_G]: 'A' },
+    ]
+
+    const out = applyTransformations(
+      rows,
+      [{ kind: 'normalise', params: { method: 'z_score' } }],
+      spec(),
+    )
+
+    expect(out.rows.map((row) => row[COL_Y])).toEqual([
+      -1,
+      1,
+      0,
+      null,
+      Infinity,
+    ])
+    expect(out.rows[3]).toBe(rows[3])
+    expect(out.rows[4]).toBe(rows[4])
+
+    const invalidReference = applyTransformations(
+      rows,
+      [{ kind: 'normalise', params: { method: 'reference' } }],
+      spec(),
+    )
+
+    expect(invalidReference.rows[0][COL_Y]).toBeNaN()
+    expect(invalidReference.transformInvalid).toBe(0)
+  })
+
   it('supports is_null / not_null without mutating source', () => {
     const rows = [...ROWS, { [COL_X]: 4, [COL_Y]: null, [COL_G]: 'A' }]
     const copy = rows.map((r) => ({ ...r }))
@@ -280,6 +440,43 @@ describe('filters and transforms', () => {
 })
 
 describe('summaries and error bars', () => {
+  it('keeps native object group labels, first x identity and group insertion order', () => {
+    const firstX = { value: 1 }
+
+    const rows = [
+      { [COL_X]: firstX, [COL_Y]: 2, [COL_G]: 'B' },
+      { [COL_X]: { value: 99 }, [COL_Y]: 6, [COL_G]: 'B' },
+      { [COL_X]: 'next', [COL_Y]: 10, [COL_G]: 'A' },
+    ]
+
+    const groups = groupedNumericSummaries(
+      rows,
+      spec({ overlays: { errorBars: { source: 'computed', basis: 'range' } } }),
+      COL_Y,
+      COL_X,
+    )
+
+    expect(groups.map((group) => group.key)).toEqual([
+      '[object Object]::B',
+      'next::A',
+    ])
+    expect(groups[0].x).toBe(firstX)
+    expect(groups[0].stats.n).toBe(2)
+    expect(groups[0].stats.mean).toBe(4)
+    expect(groups[0].interval).toEqual({ lo: 2, hi: 6, basis: 'range' })
+
+    const aggregated = applyTransformations(
+      rows,
+      [{ kind: 'aggregate', params: {} }],
+      spec(),
+    )
+
+    expect(aggregated.rows).toEqual([
+      { [COL_X]: firstX, [COL_Y]: 4, [COL_G]: 'B' },
+      { [COL_X]: 'next', [COL_Y]: 10, [COL_G]: 'A' },
+    ])
+  })
+
   it('computes mean, SD, SEM and n on known fixtures', () => {
     const groups = groupedNumericSummaries(
       ROWS.filter((r) => r[COL_G] === 'A'),
@@ -320,7 +517,8 @@ describe('summaries and error bars', () => {
 
 describe('fitting', () => {
   it('recovers slope 2, intercept 0, R² 1 for y=2x', () => {
-    const fit = olsFit([1, 2, 3], [2, 4, 6], 1)!
+    const fit = olsFit([1, 2, 3], [2, 4, 6], 1)
+    assert(fit !== null)
     expect(fit.coefficients[0]).toBeCloseTo(0, 10)
     expect(fit.coefficients[1]).toBeCloseTo(2, 10)
 
@@ -408,6 +606,22 @@ describe('point provenance', () => {
 })
 
 describe('sampling', () => {
+  it('uses floor-stride selection and apportions asymmetric budgets without empty groups', () => {
+    const items = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+    expect(deterministicSample(items, 7).items).toBe(items)
+    expect(deterministicSample(items, 3)).toEqual({
+      items: ['a', 'c', 'e'],
+      sampled: true,
+      stride: 7 / 3,
+    })
+    expect(deterministicSample(items, 0).items).toEqual([])
+    expect(apportionRenderBudget([7, 2, 0], 4)).toEqual([3, 1, 0])
+    expect(apportionRenderBudget([7, 2, 0], 1)).toEqual([1, 0, 0])
+    const unchanged = sampleSeriesForRender([])
+    expect(Object.hasOwn(unchanged, 'sampling')).toBe(true)
+    expect(unchanged.sampling).toBeUndefined()
+  })
+
   it('is deterministic and does not change analysis n', () => {
     const items = Array.from({ length: 10_000 }, (_, i) => i)
     const a = deterministicSample(items, SCI_RENDER_POINT_CAP)
@@ -532,6 +746,22 @@ describe('live versus frozen rematerialisation', () => {
 })
 
 describe('formatting, recommendation, handoff, export', () => {
+  it('preserves explicit category duplicates and sorts only the remaining categories', () => {
+    expect(
+      orderCategories(['c', 'b', 'a', 'c'], 'explicit', ['b', 'b', 'missing']),
+    ).toEqual(['b', 'b', 'a', 'c'])
+    expect(orderCategories(['10', '2', 'missing', '2'], 'numeric')).toEqual([
+      '2',
+      '10',
+      'missing',
+    ])
+    expect(orderCategories(['c', 'b', 'a', 'c'], 'natural')).toEqual([
+      'c',
+      'b',
+      'a',
+    ])
+  })
+
   it('formats scientific numbers without changing the value', () => {
     expect(formatScientificNumber(1.23e-6, 'scientific', 3)).toMatch(/e-/)
     expect(formatScientificNumber(0.25, 'percent', 1)).toBe('25.0%')

@@ -5,12 +5,19 @@
  * two lists equal. A reader that changes behaviour gets a new version here and
  * in a new migration, never an edit to an approved one.
  */
+import { z } from 'zod'
+import type { ConnectorWire } from './types'
+import {
+  pipelineJsonObjectSchema,
+  pipelineJsonValueSchema,
+} from '../pipelines/types'
+
 export interface BuiltinParser {
   key: string
   name: string
   format: 'csv' | 'tsv' | 'xlsx' | 'json'
   version: number
-  signature: Record<string, unknown>
+  signature: ConnectorWire['config']
 }
 
 export const BUILTIN_PARSERS: readonly BuiltinParser[] = [
@@ -79,19 +86,24 @@ export function isBuiltinParserKey(key: string): boolean {
 /** How a parser version reads a file. */
 export type ParserKind = 'builtin' | 'columns' | 'webhook' | 'converter'
 
+const parserReferenceSchema = z.union([
+  pipelineJsonObjectSchema,
+  z.array(pipelineJsonValueSchema),
+])
+
 export function parserKindOf(
   key: string,
-  signature: Record<string, unknown>,
+  signature: ConnectorWire['config'],
 ): ParserKind {
   if (isBuiltinParserKey(key)) return 'builtin'
 
-  if (signature['webhook'] && typeof signature['webhook'] === 'object')
+  if (parserReferenceSchema.safeParse(signature['webhook']).success)
     return 'webhook'
 
-  if (signature['converter'] && typeof signature['converter'] === 'object')
+  if (parserReferenceSchema.safeParse(signature['converter']).success)
     return 'converter'
 
-  if (typeof signature['engine'] === 'string') return 'builtin'
+  if (z.string().safeParse(signature['engine']).success) return 'builtin'
 
   return 'columns'
 }

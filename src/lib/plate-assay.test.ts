@@ -10,7 +10,7 @@ import {
   relativePotency,
   summarisePotency,
 } from './plate-assay'
-import type { AssayWell, PlateReadout } from './plate-assay'
+import type { AssayWell, PlateReadout, SampleCurve } from './plate-assay'
 import { curveValue } from './curve-fit'
 import { wellCode } from './plate-map'
 
@@ -311,3 +311,425 @@ describe('parsePlateTable', () => {
     expect(parsePlateTable('a,b\n1,2').warnings).toContain('no_well_column')
   })
 })
+
+describe('asymmetric assay boundary controls', () => {
+  it('normalises native historical configs without coercing strings or tightening replicate integers', () => {
+    const raw = Object.assign(new Date('2026-10-01T00:00:00Z'), {
+      normalisation: 'z_score',
+      effectDirection: 'activation',
+      subtractBlank: 1,
+      hit: Object.assign(new Map([['metadata', 7]]), {
+        kind: 'sd',
+        direction: 'below',
+        threshold: '12',
+        minReplicates: Number.MAX_SAFE_INTEGER + 1,
+      }),
+      qc: Object.assign(new Date('2026-10-02T00:00:00Z'), {
+        zPrimeMin: -0.25,
+        zPrimeFail: NaN,
+        signalToBackgroundMin: null,
+        controlCvMax: '3',
+      }),
+      curveModel: '5pl',
+    })
+
+    Object.defineProperty(raw, 'unrelated', {
+      get() {
+        throw new Error('Do not read unrelated metadata')
+      },
+    })
+
+    expect(normaliseAssayConfig(raw)).toEqual({
+      version: 1,
+      normalisation: 'z_score',
+      effectDirection: 'activation',
+      subtractBlank: false,
+      hit: {
+        kind: 'sd',
+        direction: 'below',
+        threshold: 50,
+        minReplicates: Number.MAX_SAFE_INTEGER + 1,
+      },
+      qc: {
+        zPrimeMin: -0.25,
+        zPrimeFail: 0,
+        signalToBackgroundMin: null,
+        controlCvMax: null,
+      },
+      curveModel: '5pl',
+    })
+    expect(raw.hit.threshold).toBe('12')
+    expect(raw.hit.get('metadata')).toBe(7)
+    expect(normaliseAssayConfig([])).toEqual(defaultAssayConfig())
+  })
+
+  it('retains blank-corrected QC, available-reading replicate caps and inclusive thresholds', () => {
+    const wells: AssayWell[] = [
+      { wellCode: 'A1', role: 'blank' },
+      { wellCode: 'A2', role: 'positive_control' },
+      { wellCode: 'A3', role: 'positive_control' },
+      { wellCode: 'A4', role: 'negative_control' },
+      { wellCode: 'A5', role: 'negative_control' },
+      ...['B2', 'B3', 'B4', 'B5'].map((code) => ({
+        wellCode: code,
+        role: 'sample' as const,
+        sampleId: 'stable-sample',
+        sampleLabel: 'Captured label',
+      })),
+    ]
+
+    const readout = {
+      A1: 10,
+      A2: 30,
+      A3: 50,
+      A4: 110,
+      A5: 130,
+      B2: 60,
+      B3: 100,
+      B4: null,
+      B5: NaN,
+    }
+
+    const config = {
+      ...defaultAssayConfig(),
+      subtractBlank: true,
+      qc: {
+        zPrimeMin: 0.5,
+        zPrimeFail: 0,
+        signalToBackgroundMin: 6,
+        controlCvMax: 20,
+      },
+    }
+
+    const result = analysePlate(wells, readout, config)
+
+    expect(result.qc.positive.mean).toBe(30)
+    expect(result.qc.negative.mean).toBe(110)
+    expect(result.qc.positive.sd).toBeCloseTo(Math.sqrt(200), 12)
+    expect(result.qc.zPrime).toBeCloseTo(1 - (6 * Math.sqrt(200)) / 80, 12)
+    expect(result.qc.ssmd).toBe(-4)
+    expect(result.qc.signalToBackground).toBe(5)
+    expect(result.qc.signalToNoise).toBeCloseTo(80 / Math.sqrt(200), 12)
+    expect(result.qc.checks.map((check) => [check.id, check.status])).toEqual([
+      ['controls_present', 'pass'],
+      ['z_prime', 'fail'],
+      ['signal_to_background', 'fail'],
+      ['control_cv', 'warn'],
+    ])
+    expect(result.qc.status).toBe('fail')
+    expect(
+      result.wells
+        .slice(5)
+        .map((well) => [well.corrected, well.normalised, well.hit]),
+    ).toEqual([
+      [50, 75, false],
+      [90, 25, false],
+      [null, null, false],
+      [null, null, false],
+    ])
+    expect(result.samples[0]).toMatchObject({
+      n: 2,
+      mean: 50,
+      hit: false,
+      wells: ['B2', 'B3', 'B4', 'B5'],
+    })
+
+    const capped = analysePlate(wells, readout, {
+      ...config,
+      hit: {
+        kind: 'threshold',
+        direction: 'above',
+        threshold: 25,
+        minReplicates: 99,
+      },
+    })
+
+    expect(capped.wells.slice(5).map((well) => well.hit)).toEqual([
+      true,
+      true,
+      false,
+      false,
+    ])
+    expect(capped.summary).toEqual({
+      wells: 9,
+      readWells: 7,
+      sampleWells: 4,
+      hitSamples: 1,
+      hitWells: 2,
+      testedSamples: 1,
+    })
+  })
+
+  it('uses sample spread for z scores and the correct sd and mad hit directions', () => {
+    const wells: AssayWell[] = [
+      { wellCode: 'A1', role: 'negative_control' },
+      { wellCode: 'A2', role: 'negative_control' },
+      ...['B1', 'B2', 'B3'].map((code) => ({
+        wellCode: code,
+        role: 'sample' as const,
+      })),
+    ]
+
+    const readout = { A1: 0, A2: 2, B1: -1, B2: 1, B3: 3 }
+
+    for (const [direction, hits] of [
+      ['above', [false, false, true]],
+      ['below', [true, false, false]],
+      ['either', [true, false, true]],
+    ] as const) {
+      const result = analysePlate(wells, readout, {
+        normalisation: 'z_score',
+        hit: { kind: 'sd', threshold: 1, direction, minReplicates: 'all' },
+      })
+
+      expect(result.wells.slice(2).map((well) => well.normalised)).toEqual([
+        -1, 0, 1,
+      ])
+      expect(result.wells.slice(2).map((well) => well.hit)).toEqual(hits)
+    }
+
+    const madWells: AssayWell[] = ['A1', 'A2', 'A3', 'A4', 'A5'].map(
+      (code) => ({ wellCode: code, role: 'sample' }),
+    )
+
+    const mad = analysePlate(
+      madWells,
+      { A1: -20, A2: 1, A3: 2, A4: 3, A5: 8 },
+      {
+        normalisation: 'none',
+        hit: {
+          kind: 'mad',
+          threshold: 3,
+          direction: 'either',
+          minReplicates: 'all',
+        },
+      },
+    )
+
+    expect(mad.wells.map((well) => well.hit)).toEqual([
+      true,
+      false,
+      false,
+      false,
+      true,
+    ])
+
+    const flat = analysePlate(
+      wells,
+      { A1: 2, A2: 2, B1: 5, B2: 5, B3: 5 },
+      { normalisation: 'z_score', hit: { kind: 'sd', threshold: 1 } },
+    )
+
+    expect(
+      flat.wells.every((well) => well.normalised === null && !well.hit),
+    ).toBe(true)
+    expect(flat.qc.status).toBe('not_checked')
+  })
+
+  it('excludes missing readings from edge means and requires four measured edge samples', () => {
+    const wells: AssayWell[] = ['A2', 'A3', 'A4', 'A5', 'B2', 'B3', 'B4'].map(
+      (code) => ({ wellCode: code, role: 'sample' }),
+    )
+
+    wells.push({ wellCode: 'H12', role: 'empty' })
+    const readout = { A2: 80, A3: 82, A4: 84, A5: 86, B2: 10, B3: 12, B4: null }
+    const result = analysePlate(wells, readout, { normalisation: 'none' })
+    expect(result.edge.edgeMean).toBe(83)
+    expect(result.edge.innerMean).toBe(11)
+    expect(result.edge.differencePct).toBeCloseTo(7200 / 11, 12)
+    expect(result.edge.flagged).toBe(true)
+    expect(
+      analysePlate(wells, { ...readout, A5: null }, { normalisation: 'none' })
+        .edge.flagged,
+    ).toBe(false)
+  })
+
+  it('keeps too-few-dose and fit-failed reasons distinct and in sample order', () => {
+    const wells: AssayWell[] = []
+    const readout: PlateReadout = {}
+
+    for (const [sampleId, doses] of [
+      ['few', [1, 1, 2, 3]],
+      ['nonfinite', [1, 2, 3, Infinity]],
+      ['ignored', [0, -1, NaN]],
+    ] as const) {
+      for (const concentration of doses) {
+        const code = wellCode(0, wells.length)
+        wells.push({
+          wellCode: code,
+          role: 'sample',
+          sampleId,
+          concentration,
+          concentrationUnit: 'nM',
+        })
+        readout[code] = wells.length * 7
+      }
+    }
+
+    const result = analysePlate(wells, readout, { normalisation: 'none' })
+    expect(result.curves).toEqual([])
+    expect(result.unfitted).toEqual([
+      { key: 'few|nM', label: 'few', reason: 'too_few_doses' },
+      { key: 'nonfinite|nM', label: 'nonfinite', reason: 'fit_failed' },
+    ])
+  })
+
+  it('combines unequal mixed-unit potencies by stable ID and filters unreliable and failed runs', () => {
+    const flags: SampleCurve['flags'] = ['not_converged']
+
+    const inputs = [
+      {
+        runId: 'first',
+        runName: 'First',
+        qcStatus: 'pass' as const,
+        curves: [
+          potencyCurve({
+            sampleId: 'stable',
+            label: 'Captured',
+            ec50: 100,
+            ec50Molar: 1e-7,
+            concentrationUnit: 'nM',
+          }),
+        ],
+      },
+      {
+        runId: 'second',
+        runName: 'Second',
+        qcStatus: 'warn' as const,
+        curves: [
+          potencyCurve({
+            sampleId: 'stable',
+            label: 'Renamed',
+            ec50: 0.4,
+            ec50Molar: 4e-7,
+            concentrationUnit: 'µM',
+          }),
+        ],
+      },
+      {
+        runId: 'failed',
+        runName: 'Failed',
+        qcStatus: 'fail' as const,
+        curves: [potencyCurve({ sampleId: 'stable', ec50Molar: 9e-7 })],
+      },
+      {
+        runId: 'unreliable',
+        runName: 'Unreliable',
+        qcStatus: 'pass' as const,
+        curves: [potencyCurve({ sampleId: 'stable', ec50Molar: 16e-7, flags })],
+      },
+    ]
+
+    const result = summarisePotency(inputs, { excludeUnreliable: true })
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      key: 'stable|M',
+      label: 'Captured',
+      unit: 'M',
+      molar: true,
+      n: 2,
+    })
+    expect(result[0].geoMean).toBeCloseTo(2e-7, 15)
+    expect(result[0].geoSd).toBeCloseTo(
+      10 ** (Math.log10(4) / Math.sqrt(2)),
+      12,
+    )
+    expect(result[0].foldRange).toBeCloseTo(4, 12)
+    expect(result[0].pEc50).toBeCloseTo(7 - Math.log10(2), 12)
+    expect(result[0].values.map((value) => value.runId)).toEqual([
+      'first',
+      'second',
+    ])
+    expect(
+      summarisePotency(inputs, {
+        excludeUnreliable: true,
+        includeFailed: true,
+      })[0].n,
+    ).toBe(3)
+    expect(summarisePotency(inputs)[0].n).toBe(3)
+  })
+
+  it('preserves first-entry molar classification for colliding historical unit keys', () => {
+    const molar = potencyCurve({
+      sampleId: 'same',
+      ec50: 2,
+      ec50Molar: 1e-7,
+      concentrationUnit: 'M',
+    })
+
+    const nonmolar = potencyCurve({
+      sampleId: 'same',
+      ec50: 4,
+      ec50Molar: null,
+      concentrationUnit: 'M',
+    })
+
+    const run = { runId: 'run', runName: 'Run', qcStatus: 'pass' as const }
+    const firstMolar = summarisePotency([{ ...run, curves: [molar, nonmolar] }])
+    expect(firstMolar[0]).toMatchObject({
+      n: 2,
+      molar: true,
+      geoMean: 0,
+      pEc50: Infinity,
+    })
+
+    const firstNonmolar = summarisePotency([
+      { ...run, curves: [nonmolar, molar] },
+    ])
+
+    expect(firstNonmolar[0]).toMatchObject({ n: 2, molar: false, pEc50: null })
+    expect(firstNonmolar[0].geoMean).toBeCloseTo(Math.sqrt(8), 12)
+  })
+
+  it('retains quoted labels, decimal parsing and first warning order in pasted lists', () => {
+    const result = parsePlateTable(
+      'Well;Role;Sample;Concentration;Unit;Value\na01;future;"A;""B""";1,5; µM ;1.234,5\n??;sample;bad;2;nM;1\nA1;another;duplicate;2;nM;2\nA2;other;next;3;nM;4',
+    )
+
+    expect(
+      result.wells.map((well) => [
+        well.wellCode,
+        well.role,
+        well.sampleLabel,
+        well.concentration,
+        well.concentrationUnit,
+      ]),
+    ).toEqual([
+      ['A1', 'sample', 'A;"B"', 1.5, 'µM'],
+      ['A2', 'sample', 'next', 3, 'nM'],
+    ])
+    expect(result.readout).toEqual({ A1: 1.2345, A2: 4 })
+    expect(result.warnings).toEqual([
+      'bad_role:future',
+      'bad_well:??',
+      'duplicate_well:A1',
+      'bad_role:other',
+    ])
+    expect(parsePlateTable('Signal,Well,Value\n7,A1,99').readout.A1).toBe(7)
+  })
+})
+
+function potencyCurve(overrides: Partial<SampleCurve> = {}): SampleCurve {
+  return {
+    key: 'curve',
+    sampleId: null,
+    label: 'Sample',
+    concentrationUnit: 'nM',
+    points: [
+      { x: 1, y: 10 },
+      { x: 10, y: 90 },
+    ],
+    model: '4pl',
+    ec50: 100,
+    ec50Molar: 1e-7,
+    ec50Ci95: null,
+    hill: 1,
+    top: 100,
+    bottom: 0,
+    r2: 0.99,
+    converged: true,
+    falling: false,
+    flags: [],
+    ...overrides,
+  }
+}

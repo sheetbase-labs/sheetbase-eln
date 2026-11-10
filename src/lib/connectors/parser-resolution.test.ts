@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import type { z } from 'zod'
 
-import type { DataClient } from '../data-client'
+import { createDataClient } from '../data-client'
 import { BUILTIN_PARSERS, parserKindOf } from './builtin-parsers'
 import {
   ParserResolutionError,
@@ -10,15 +11,8 @@ import {
 } from './parser-resolution'
 import type { ResolvedParser } from './parser-resolution'
 
-function clientWith(rows: unknown[]): DataClient {
-  return {
-    list: async <T>() => rows as T[],
-    rpc: async () => ({}) as never,
-    count: async () => 0,
-    insert: async () => ({}) as never,
-    patch: async () => [],
-    remove: async () => [],
-  }
+function clientWith(rows: z.core.util.JSONType[]) {
+  return createDataClient(async () => Response.json(rows))
 }
 
 function parser(over: Partial<ResolvedParser> = {}): ResolvedParser {
@@ -174,10 +168,22 @@ describe('a parser that lists the columns a file must have', () => {
       ParserResolutionError,
     )
 
-    try {
-      readWithColumns(parser(), 'Well,OD\nA1,3\n')
-    } catch (error) {
-      expect((error as ParserResolutionError).code).toBe('parser_unrecognised')
+    expect(() => readWithColumns(parser(), 'Well,OD\nA1,3\n')).toThrow(
+      expect.objectContaining({ code: 'parser_unrecognised' }),
+    )
+  })
+
+  it('refuses malformed header contracts before interpreting their values', () => {
+    const signatures: ResolvedParser['signature'][] = [
+      { requiredHeaders: ['sample', 3] },
+      { requiredHeaders: ['sample'], optionalHeaders: 'value' },
+      { requiredHeaders: ['sample'], requiresMetadata: 1 },
+    ]
+
+    for (const signature of signatures) {
+      expect(() =>
+        readWithColumns(parser({ signature }), 'Sample,Value\nA1,3\n'),
+      ).toThrow(expect.objectContaining({ code: 'parser_unsupported' }))
     }
   })
 

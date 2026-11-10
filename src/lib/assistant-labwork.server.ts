@@ -1529,7 +1529,7 @@ export async function buildLabworkProposal(
       const input = parsed.data
       const experiment = await findExperiment(client, input.experiment)
 
-      if (typeof experiment === 'string') return fail(experiment)
+      if ('message' in experiment) return fail(experiment.message)
 
       const sources: Extract<
         LabworkAction,

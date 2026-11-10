@@ -16,6 +16,7 @@
  *  - the existing secret system is reused — no second secret store.
  */
 import { and, eq } from 'drizzle-orm'
+import type { z } from 'zod'
 
 import { db } from '#/db/client.server'
 import { connectorSecrets } from '#/db/schema'
@@ -76,14 +77,16 @@ export async function loadConnectorSecrets(input: {
  * lines, run results and provenance never carry plaintext credentials.
  */
 export function redactSecrets(
-  payload: Record<string, unknown>,
+  payload: Record<string, z.core.util.JSONType>,
   secrets: Record<string, string>,
-): Record<string, unknown> {
+): Record<string, z.core.util.JSONType> {
   const secretValues = Object.values(secrets).filter((v) => v.length >= 4)
 
-  const redact = (value: unknown): unknown => {
+  const redact = (value: z.core.util.JSONType): z.core.util.JSONType => {
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Dispatch over the concrete JSON union; string values alone can contain credentials.
     if (typeof value === 'string') {
       for (const secret of secretValues) {
+        // react-doctor-disable-next-line react-doctor/js-set-map-lookups -- value is a string: this is substring redaction, not repeated array membership. A Set would miss embedded credentials.
         if (value.includes(secret)) {
           return value.split(secret).join('[redacted]')
         }
@@ -94,6 +97,7 @@ export function redactSecrets(
 
     if (Array.isArray(value)) return value.map(redact)
 
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- JSON object/primitive union dispatch after arrays and strings, not an untrusted-input decoder.
     if (value && typeof value === 'object') {
       return Object.fromEntries(
         Object.entries(value).map(([key, inner]) => [key, redact(inner)]),
@@ -103,5 +107,7 @@ export function redactSecrets(
     return value
   }
 
-  return redact(payload) as Record<string, unknown>
+  return Object.fromEntries(
+    Object.entries(payload).map(([key, value]) => [key, redact(value)]),
+  )
 }

@@ -54,119 +54,93 @@ const id = z.string().regex(/^[a-z][a-z0-9-]{0,48}$/)
 const row = z.record(z.string(), z.unknown())
 
 const bodySchema = z.discriminatedUnion('kind', [
-  z
-    .object({
-      kind: z.literal('import'),
-      extensionKey: id,
-      importerId: id,
-      filename: z.string().min(1).max(255),
-      content: z.string(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('connector'),
-      extensionKey: id,
-      connectorId: id,
-      parameters: z.record(z.string(), z.unknown()).default({}),
-      settings: z.record(z.string(), z.string().max(2000)).default({}),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('export'),
-      extensionKey: id,
-      exporterId: id,
-      name: z.string().min(1).max(120),
-      rows: z.array(row).max(100_000),
-      options: z.record(z.string(), z.unknown()).default({}),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('publish'),
-      extensionKey: id,
-      publisherId: id,
-      name: z.string().max(200).default(''),
-      rows: z.array(row).max(100_000),
-      parameters: z.record(z.string(), z.unknown()).default({}),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('preview'),
-      extensionKey: id,
-      previewId: id,
-      filename: z.string().min(1).max(255),
-      content: z.string(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('check'),
-      extensionKey: id,
-      checkId: id,
-      rows: z.array(row).max(100_000),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('sameness-key'),
-      extensionKey: id,
-      keyId: id,
-      values: z.record(z.string(), z.unknown()),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('instrument-parse'),
-      extensionKey: id,
-      parserId: id,
-      filename: z.string().min(1).max(255),
-      content: z.string(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('barcode'),
-      extensionKey: id,
-      formatId: id,
-      value: z.string().min(1).max(200),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('barcode-parse'),
-      extensionKey: id,
-      formatId: id,
-      text: z.string().min(1).max(2000),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('label'),
-      extensionKey: id,
-      formatId: id,
-      recordKind: z.string().regex(/^[a-z][a-z0-9_-]{0,40}$/),
-      record: z.record(z.string(), z.unknown()),
-      template: z
-        .object({
-          widthMm: z.number().int().min(10).max(200),
-          heightMm: z.number().int().min(10).max(200),
-        })
-        .strict(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('gate-check'),
-      extensionKey: id,
-      checkId: id,
-      recordId: z.string().uuid(),
-      blockId: z.string().uuid(),
-      columns: z.record(z.string(), z.string().max(200)).default({}),
-    })
-    .strict(),
+  z.strictObject({
+    kind: z.literal('import'),
+    extensionKey: id,
+    importerId: id,
+    filename: z.string().min(1).max(255),
+    content: z.string(),
+  }),
+  z.strictObject({
+    kind: z.literal('connector'),
+    extensionKey: id,
+    connectorId: id,
+    parameters: z.record(z.string(), z.unknown()).default({}),
+    settings: z.record(z.string(), z.string().max(2000)).default({}),
+  }),
+  z.strictObject({
+    kind: z.literal('export'),
+    extensionKey: id,
+    exporterId: id,
+    name: z.string().min(1).max(120),
+    rows: z.array(row).max(100_000),
+    options: z.record(z.string(), z.unknown()).default({}),
+  }),
+  z.strictObject({
+    kind: z.literal('publish'),
+    extensionKey: id,
+    publisherId: id,
+    name: z.string().max(200).default(''),
+    rows: z.array(row).max(100_000),
+    parameters: z.record(z.string(), z.unknown()).default({}),
+  }),
+  z.strictObject({
+    kind: z.literal('preview'),
+    extensionKey: id,
+    previewId: id,
+    filename: z.string().min(1).max(255),
+    content: z.string(),
+  }),
+  z.strictObject({
+    kind: z.literal('check'),
+    extensionKey: id,
+    checkId: id,
+    rows: z.array(row).max(100_000),
+  }),
+  z.strictObject({
+    kind: z.literal('sameness-key'),
+    extensionKey: id,
+    keyId: id,
+    values: z.record(z.string(), z.unknown()),
+  }),
+  z.strictObject({
+    kind: z.literal('instrument-parse'),
+    extensionKey: id,
+    parserId: id,
+    filename: z.string().min(1).max(255),
+    content: z.string(),
+  }),
+  z.strictObject({
+    kind: z.literal('barcode'),
+    extensionKey: id,
+    formatId: id,
+    value: z.string().min(1).max(200),
+  }),
+  z.strictObject({
+    kind: z.literal('barcode-parse'),
+    extensionKey: id,
+    formatId: id,
+    text: z.string().min(1).max(2000),
+  }),
+  z.strictObject({
+    kind: z.literal('label'),
+    extensionKey: id,
+    formatId: id,
+    recordKind: z.string().regex(/^[a-z][a-z0-9_-]{0,40}$/),
+    record: z.record(z.string(), z.unknown()),
+    template: z.strictObject({
+      widthMm: z.number().int().min(10).max(200),
+      heightMm: z.number().int().min(10).max(200),
+    }),
+  }),
+  z.strictObject({
+    kind: z.literal('gate-check'),
+    extensionKey: id,
+    checkId: id,
+    recordId: z.string().uuid(),
+    blockId: z.string().uuid(),
+    columns: z.record(z.string(), z.string().max(200)).default({}),
+  }),
 ])
 
 export async function handleExtensionData(
@@ -176,14 +150,18 @@ export async function handleExtensionData(
   } = defaultRouteDeps(),
 ): Promise<Response> {
   const session = await deps.getSession(request.headers)
+
   if (!session) return refuse(401, 'Sign in to use plugins.')
   const member = await deps.getMember(session.user.id)
+
   if (!member) return refuse(403, 'You need a workspace to use plugins.')
   let raw: unknown
   let size = 0
+
   try {
     const text = await request.text()
     size = text.length
+
     // The most any plugin here takes; the plugin's own limit is checked once we know which.
     if (size > (await largestDataLimitBytes(deps.runtime, member.workspaceId)))
       return refuse(413, 'That is too much data to send to a plugin.')
@@ -191,7 +169,9 @@ export async function handleExtensionData(
   } catch {
     return refuse(400, 'Send a JSON body.')
   }
+
   const parsed = bodySchema.safeParse(raw)
+
   if (!parsed.success) return refuse(400, 'The request could not be read.')
   const body = parsed.data
   {
@@ -199,35 +179,42 @@ export async function handleExtensionData(
       member.workspaceId,
       body.extensionKey,
     )
+
     if (install) {
       const limits = await pluginLimits(
         deps.runtime,
         member.workspaceId,
         install.id,
       )
+
       const decision = rateDecision(
         limits.callsPerMinute,
         `extension-run:${body.extensionKey}:${session.user.id}`,
       )
+
       if (!decision.allowed)
         return refuse(
           429,
           `Too many calls to this plugin. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
         )
+
       if (size > limits.dataMb * 1024 * 1024)
         return refuse(413, tooMuchData(limits.dataMb))
     }
   }
+
   const caller = {
     workspaceId: member.workspaceId,
     actorUserId: session.user.id,
     extensionKey: body.extensionKey,
   }
+
   try {
     switch (body.kind) {
       case 'import': {
         if (member.role === 'viewer')
           return refuse(403, 'Importing needs a workspace you can edit.')
+
         const table = await runExtensionImporter(
           {
             ...caller,
@@ -237,11 +224,14 @@ export async function handleExtensionData(
           },
           deps.runtime,
         )
+
         return reply(table)
       }
+
       case 'instrument-parse': {
         if (member.role === 'viewer')
           return refuse(403, 'Importing needs a workspace you can edit.')
+
         return reply(
           await runExtensionInstrumentParser(
             {
@@ -254,6 +244,7 @@ export async function handleExtensionData(
           ),
         )
       }
+
       case 'barcode':
         return reply(
           await runExtensionBarcodeFormat(
@@ -284,6 +275,7 @@ export async function handleExtensionData(
       case 'connector': {
         if (member.role === 'viewer')
           return refuse(403, 'Importing needs a workspace you can edit.')
+
         const table = await runExtensionConnector(
           {
             ...caller,
@@ -293,8 +285,10 @@ export async function handleExtensionData(
           },
           deps.runtime,
         )
+
         return reply(table)
       }
+
       case 'export':
         return reply(
           await runExtensionExporter(
@@ -311,6 +305,7 @@ export async function handleExtensionData(
       case 'publish': {
         if (member.role === 'viewer')
           return refuse(403, 'Sending data out needs a workspace you can edit.')
+
         return reply(
           await runExtensionPublisher(
             {
@@ -324,6 +319,7 @@ export async function handleExtensionData(
           ),
         )
       }
+
       case 'preview':
         return reply(
           await runExtensionPreview(
@@ -353,6 +349,7 @@ export async function handleExtensionData(
       case 'gate-check': {
         if (member.role === 'viewer')
           return refuse(403, 'Running a check needs a workspace you can edit.')
+
         return reply(
           await runGateCheck(
             request.headers,

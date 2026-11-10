@@ -88,7 +88,7 @@ export async function backupBeforeUpgrade(
       const error =
         outcome.reason === 'already_running'
           ? 'another backup of this workspace is still running'
-          : (outcome.backup.error ?? 'the backup failed')
+          : (outcome.backup?.error ?? 'the backup failed')
 
       return { status: 'failed', workspaceId: id, error }
     }

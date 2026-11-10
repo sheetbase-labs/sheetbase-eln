@@ -11,45 +11,56 @@ import {
   replaceDatasetSchemaVersionFields,
   retireDatasetSchemaDefinition,
 } from './dataset-schema-definition-rpc'
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
+import { pipelineJsonObjectSchema } from './pipelines/types'
 
-function client(captured: Array<{ name: string; args: unknown }>): DataClient {
-  return {
-    rpc: async (name, args) => {
-      captured.push({ name, args })
+function client(
+  captured: Array<{
+    name: string
+    args: ReturnType<typeof pipelineJsonObjectSchema.parse>
+  }>,
+) {
+  return createDataClient(async (input, init) => {
+    const request = new Request(
+      new URL(input instanceof Request ? input.url : input, 'http://localhost'),
+      init,
+    )
 
-      if (name === 'create_dataset_schema_definition') {
-        return {
-          schema_definition_id: 'def-1',
-          schema_version_id: 'ver-1',
-        }
-      }
+    const name = new URL(request.url).pathname.split('/').at(-1) ?? ''
+    const args = pipelineJsonObjectSchema.parse(await request.json())
+    captured.push({ name, args })
 
-      if (name === 'create_next_dataset_schema_version') {
-        return { schema_version_id: 'ver-2', version: 2 }
-      }
+    if (name === 'create_dataset_schema_definition') {
+      return Response.json({
+        schema_definition_id: 'def-1',
+        schema_version_id: 'ver-1',
+      })
+    }
 
-      if (name === 'list_capabilities') return ['schema.edit']
+    if (name === 'create_next_dataset_schema_version') {
+      return Response.json({ schema_version_id: 'ver-2', version: 2 })
+    }
 
-      if (name === 'replace_dataset_schema_version_fields') {
-        return {
-          id: 'ver-1',
-          schema_id: 'def-1',
-          version: 1,
-          revision: 9,
-          lifecycle: 'draft',
-          published_at: null,
-        }
-      }
+    if (name === 'list_capabilities') return Response.json(['schema.edit'])
 
-      return undefined
-    },
-  } as DataClient
+    if (name === 'replace_dataset_schema_version_fields') {
+      return Response.json({
+        id: 'ver-1',
+        schema_id: 'def-1',
+        version: 1,
+        revision: 9,
+        lifecycle: 'draft',
+        published_at: null,
+      })
+    }
+
+    return Response.json(null)
+  })
 }
 
 describe('canonical Dataset Schema Definition RPCs', () => {
   it('sends snake_case field contracts to the CORE-02 management RPCs', async () => {
-    const captured: Array<{ name: string; args: unknown }> = []
+    const captured: Parameters<typeof client>[0] = []
     const c = client(captured)
     await createDatasetSchemaDefinition(c, {
       workspaceId: 'ws-1',
@@ -81,7 +92,7 @@ describe('canonical Dataset Schema Definition RPCs', () => {
   })
 
   it('sends the revision it read and returns the saved version', async () => {
-    const captured: Array<{ name: string; args: unknown }> = []
+    const captured: Parameters<typeof client>[0] = []
     const c = client(captured)
 
     const version = await replaceDatasetSchemaVersionFields(c, {
@@ -105,13 +116,16 @@ describe('canonical Dataset Schema Definition RPCs', () => {
   it('lists canonical Dataset Schema identities through PostgREST', async () => {
     const listed: string[] = []
 
-    const c = {
-      list: async (resource: string) => {
-        listed.push(resource)
+    const c = createDataClient(async (input) => {
+      const url = new URL(
+        input instanceof Request ? input.url : input,
+        'http://localhost',
+      )
 
-        return []
-      },
-    } as unknown as DataClient
+      listed.push(url.pathname.split('/').at(-1) ?? '')
+
+      return Response.json([])
+    })
 
     await listCanonicalDatasetSchemaDefinitions(c)
     await listCanonicalDatasetSchemaVersions(c, 'def-1')
@@ -121,5 +135,74 @@ describe('canonical Dataset Schema Definition RPCs', () => {
       'dataset_schema_versions',
       'dataset_schema_version_fields',
     ])
+  })
+
+  it('decodes persisted metadata without losing scientific keys or adding absent defaults', async () => {
+    const scientific = Object.fromEntries([['__proto__', { nested: 7 }]])
+
+    const field = {
+      field_id: 'field-1',
+      key: 'titre',
+      label: 'Titre',
+      description: null,
+      logical_type: 'decimal',
+      nullable: true,
+      cardinality: 'one',
+      lifecycle: 'active',
+      display_order: 1,
+      ...scientific,
+      validation: { min: 0, ...scientific },
+      quantity: {
+        kind: 'mass',
+        dimension: 'mass',
+        storageUnit: 'g',
+        ...scientific,
+      },
+    }
+
+    const c = createDataClient(async () =>
+      Response.json([
+        field,
+        { ...field, field_id: 'field-2', default_value: null },
+      ]),
+    )
+
+    const result = await listCanonicalDatasetSchemaVersionFields(c, 'ver-1')
+    expect(result).toEqual([
+      field,
+      { ...field, field_id: 'field-2', default_value: null },
+    ])
+    expect(Object.hasOwn(result[0], '__proto__')).toBe(true)
+    expect(Object.hasOwn(result[0].validation ?? {}, '__proto__')).toBe(true)
+    expect(Object.hasOwn(result[0].quantity ?? {}, '__proto__')).toBe(true)
+    expect(Object.hasOwn(result[0], 'default_value')).toBe(false)
+    expect(Object.hasOwn(result[1], 'default_value')).toBe(true)
+    expect(Object.getPrototypeOf(result[0])).toBe(Object.prototype)
+  })
+
+  it.each([
+    { validation: { min: 'zero' } },
+    { quantity: { kind: 'mass', dimension: 'mass', storageUnit: 4 } },
+  ])('rejects malformed persisted semantic metadata: %j', async (metadata) => {
+    const c = createDataClient(async () =>
+      Response.json([
+        {
+          field_id: 'field-1',
+          key: 'titre',
+          label: 'Titre',
+          description: null,
+          logical_type: 'decimal',
+          nullable: true,
+          cardinality: 'one',
+          lifecycle: 'active',
+          display_order: 1,
+          ...metadata,
+        },
+      ]),
+    )
+
+    await expect(
+      listCanonicalDatasetSchemaVersionFields(c, 'ver-1'),
+    ).rejects.toThrow()
   })
 })

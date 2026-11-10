@@ -53,59 +53,53 @@ import type { AssistantProposal } from './assistant-proposals'
  */
 
 export { ASSISTANT_MAX_QUESTION_CHARS }
+
 export const ASSISTANT_MAX_OBJECT_REFS = 8
 export const ASSISTANT_CONTEXT_BUDGET_CHARS = 12_000
 export const ASSISTANT_MAX_SAMPLE_ROWS = 5
 
-export const askAssistantSchema = z
-  .object({
-    workspaceId: z.string().uuid(),
-    question: z.string().min(1).max(ASSISTANT_MAX_QUESTION_CHARS),
-    objectRefs: z
-      .array(
-        z
-          .object({
-            kind: z.enum(AI_OBJECT_REF_KINDS),
-            id: z.string().uuid(),
-            pinnedVersionId: z.string().uuid().nullish(),
-          })
-          .strict(),
-      )
-      .max(ASSISTANT_MAX_OBJECT_REFS)
-      .default([]),
-  })
-  .strict()
+export const askAssistantSchema = z.strictObject({
+  workspaceId: z.string().uuid(),
+  question: z.string().min(1).max(ASSISTANT_MAX_QUESTION_CHARS),
+  objectRefs: z
+    .array(
+      z.strictObject({
+        kind: z.enum(AI_OBJECT_REF_KINDS),
+        id: z.string().uuid(),
+        pinnedVersionId: z.string().uuid().nullish(),
+      }),
+    )
+    .max(ASSISTANT_MAX_OBJECT_REFS)
+    .default([]),
+})
 
 export type AskAssistantInput = z.infer<typeof askAssistantSchema>
 
 /** Turns of earlier conversation sent along with a new question. */
 export const ASSISTANT_MAX_HISTORY_TURNS = 20
+
 /** Prior answers are clipped, so a long reply cannot crowd out the context. */
 export const ASSISTANT_MAX_HISTORY_TURN_CHARS = 4_000
 
-const objectRefSchema = z
-  .object({
-    kind: z.enum(AI_OBJECT_REF_KINDS),
-    id: z.string().uuid(),
-    pinnedVersionId: z.string().uuid().nullish(),
-  })
-  .strict()
+const objectRefSchema = z.strictObject({
+  kind: z.enum(AI_OBJECT_REF_KINDS),
+  id: z.string().uuid(),
+  pinnedVersionId: z.string().uuid().nullish(),
+})
 
 /**
  * A chat turn: the whole conversation so far, ending with the person's new
  * question. Text only; sources and usage are never echoed back as history.
  */
 export const assistantChatSchema = z
-  .object({
+  .strictObject({
     workspaceId: z.string().uuid(),
     messages: z
       .array(
-        z
-          .object({
-            role: z.enum(['user', 'assistant']),
-            content: z.string().min(1).max(ASSISTANT_MAX_HISTORY_TURN_CHARS),
-          })
-          .strict(),
+        z.strictObject({
+          role: z.enum(['user', 'assistant']),
+          content: z.string().min(1).max(ASSISTANT_MAX_HISTORY_TURN_CHARS),
+        }),
       )
       .min(1)
       .max(ASSISTANT_MAX_HISTORY_TURNS * 2),
@@ -117,14 +111,12 @@ export const assistantChatSchema = z
     timeZone: z.string().min(1).max(64).optional(),
     /** The page the person is on, by name: "Schedule", "Requests". */
     page: z
-      .object({
+      .strictObject({
         path: z.string().min(1).max(200),
         title: z.string().min(1).max(80),
       })
-      .strict()
       .optional(),
   })
-  .strict()
   .refine((input) => input.messages.at(-1)?.role === 'user', {
     message: 'The last message must be a question.',
   })
@@ -143,7 +135,9 @@ export function trimHistory(messages: ChatTurn[]): ChatTurn[] {
     role: turn.role,
     content: turn.content.slice(0, ASSISTANT_MAX_HISTORY_TURN_CHARS),
   }))
+
   while (recent.length > 0 && recent[0]?.role !== 'user') recent.shift()
+
   return recent
 }
 
@@ -228,6 +222,7 @@ export interface AssistantToolkit {
 
 /** Model steps in one turn; the last one is not offered tools, so it must answer. */
 export const ASSISTANT_MAX_STEPS = 6
+
 /** Tool calls honoured in one step; extras are answered with an error. */
 export const ASSISTANT_MAX_CALLS_PER_STEP = 4
 
@@ -268,6 +263,7 @@ export async function prepare(
     deps.providerConfigError,
     deps.featureFlags ?? defaultAiFeatureFlags(),
   )
+
   if (!readiness.ready) {
     return {
       status: 'unavailable',
@@ -275,6 +271,7 @@ export async function prepare(
       message: aiReadinessMessage(readiness),
     }
   }
+
   if (readiness.mode === 'provider' && !deps.provider) {
     return {
       status: 'error',
@@ -284,6 +281,7 @@ export async function prepare(
   }
 
   let envelope: AiContextEnvelope
+
   try {
     envelope = await assembleAiContext(deps.client, deps.actor, {
       workspaceId: deps.workspaceId,
@@ -336,6 +334,7 @@ export function gatewayFailure(error: unknown): Failure {
           : 'The AI policy rejected this request.',
     }
   }
+
   return {
     status: 'error',
     code: 'provider_error',
@@ -362,6 +361,7 @@ export async function askAssistant(
   deps: AssistantDeps,
 ): Promise<AskAssistantResult> {
   const prepared = await prepare(input, deps)
+
   if ('status' in prepared) return prepared
 
   try {
@@ -380,6 +380,7 @@ export async function askAssistant(
       },
       { provider: prepared.provider, pricing: pricingFor(prepared, deps) },
     )
+
     return {
       status: 'ok',
       text: result.text,
@@ -445,6 +446,7 @@ function parseJson(text: string): unknown {
 export function pageLine(page: AssistantChatInput['page']): string | null {
   if (!page) return null
   const path = page.path.replaceAll(/[^\w/?=&.,:-]/g, '')
+
   return `The person is on the ${page.title.replaceAll(/[^\p{L}\p{N} ·&'-]/gu, '')} page (${path}). Questions about "this", "here" or "these" are about what that page shows.`
 }
 
@@ -464,6 +466,7 @@ export async function streamAssistant(
   signal?: AbortSignal,
 ): Promise<AssistantStreamStart> {
   const prepared = await prepare(input, deps)
+
   if ('status' in prepared) return prepared
   const run: Prepared = prepared
 
@@ -471,6 +474,7 @@ export async function streamAssistant(
     deps.toolkit && run.provider.supportsTools === true
       ? deps.toolkit
       : undefined
+
   const instructions = [
     toolkit
       ? toolkit.instructions
@@ -479,6 +483,7 @@ export async function streamAssistant(
   ]
     .filter(Boolean)
     .join('\n\n')
+
   const messages: ProviderMessage[] = trimHistory(input.messages)
   const spent = { tokens: 0, cost: 0, latencyMs: 0 }
 
@@ -510,6 +515,7 @@ export async function streamAssistant(
   // instead of a broken stream.
   const firstStep = step(toolkit !== undefined)
   let first: IteratorResult<GatewayStreamEvent, void>
+
   try {
     first = await firstStep.next()
   } catch (error) {
@@ -520,16 +526,21 @@ export async function streamAssistant(
     let anyContent = false
     let gateway = firstStep
     let pending = first
+
     for (let index = 0; index < ASSISTANT_MAX_STEPS; index++) {
       const cleaner = new AnswerCleaner()
       const calls: Array<{ id: string; name: string; arguments: string }> = []
       let stepText = ''
+
       for (;;) {
         const event = pending
+
         if (event.done) break
         const value = event.value
+
         if (value.type === 'text') {
           const safe = cleaner.push(value.delta)
+
           if (safe !== '') {
             stepText += safe
             yield { type: 'text', delta: safe }
@@ -542,20 +553,25 @@ export async function streamAssistant(
           })
         } else {
           const tail = cleaner.finish()
+
           if (tail !== '') {
             stepText += tail
             yield { type: 'text', delta: tail }
           }
+
           spent.tokens += value.usage.tokensUsed
           spent.cost += value.usage.costMicrousd
           spent.latencyMs += value.usage.latencyMs
         }
+
         pending = await gateway.next()
       }
+
       if (cleaner.hasContent) anyContent = true
 
       const canContinue =
         toolkit !== undefined && index < ASSISTANT_MAX_STEPS - 1
+
       if (calls.length === 0 || !canContinue) break
 
       messages.push({
@@ -563,15 +579,18 @@ export async function streamAssistant(
         content: stepText,
         toolCalls: calls,
       })
+
       for (const [position, call] of calls.entries()) {
         const name = fromWireToolName(call.name)
         const parsed = parseJson(call.arguments)
         yield { type: 'tool', id: call.id, name, phase: 'start', input: parsed }
+
         let result: {
           text: string
           isError: boolean
           proposal?: AssistantProposal
         }
+
         if (position >= ASSISTANT_MAX_CALLS_PER_STEP) {
           result = {
             text: 'Too many lookups at once. Ask for fewer things per step.',
@@ -584,6 +603,7 @@ export async function streamAssistant(
             result = { text: 'The lookup could not complete.', isError: true }
           }
         }
+
         yield {
           type: 'tool',
           id: call.id,

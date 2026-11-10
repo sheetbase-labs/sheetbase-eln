@@ -21,6 +21,7 @@
  *   { projectId, schemaVersionId, datasetId?, datasetNamePattern?,
  *     autoDetect?, instrumentId? }
  */
+import { z } from 'zod'
 import { DataClientError } from '../data-client'
 import { annotateRequest } from '#/lib/request-log'
 import type { DataClient } from '../data-client'
@@ -109,11 +110,15 @@ export function sanitiseFileName(raw: string | null): string {
 }
 
 export function parsePickupConfig(
-  config: Record<string, unknown>,
+  config: ConnectorWire['config'],
 ): PickupConfig {
   const raw = config['pickup']
 
-  if (!raw || typeof raw !== 'object') {
+  const parsed = z
+    .record(z.string(), z.unknown())
+    .safeParse(Array.isArray(raw) ? {} : raw)
+
+  if (!parsed.success) {
     throw new PickupError(
       422,
       'pickup_not_configured',
@@ -121,7 +126,7 @@ export function parsePickupConfig(
     )
   }
 
-  const pickup = raw as Record<string, unknown>
+  const pickup = parsed.data
 
   const uuid = (key: string, required: boolean): string | null => {
     const value = pickup[key]
@@ -138,7 +143,9 @@ export function parsePickupConfig(
       return null
     }
 
-    if (typeof value !== 'string' || !UUID.test(value)) {
+    const id = z.string().regex(UUID).safeParse(value)
+
+    if (!id.success) {
       throw new PickupError(
         422,
         'pickup_not_configured',
@@ -146,10 +153,10 @@ export function parsePickupConfig(
       )
     }
 
-    return value
+    return id.data
   }
 
-  const pattern = pickup['datasetNamePattern']
+  const pattern = z.string().safeParse(pickup['datasetNamePattern'])
 
   return {
     projectId: uuid('projectId', true)!,
@@ -157,8 +164,8 @@ export function parsePickupConfig(
     datasetId: uuid('datasetId', false),
     instrumentId: uuid('instrumentId', false),
     datasetNamePattern:
-      typeof pattern === 'string' && pattern.trim()
-        ? pattern.slice(0, 200)
+      pattern.success && pattern.data.trim()
+        ? pattern.data.slice(0, 200)
         : '{connector} — {file}',
     autoDetect: pickup['autoDetect'] === true,
   }
@@ -275,7 +282,7 @@ export async function runPickup(
   } catch (error) {
     const code =
       error instanceof Error && 'code' in error
-        ? String((error as { code: unknown }).code)
+        ? z.coerce.string().parse(error.code)
         : 'invalid_token'
 
     throw new PickupError(

@@ -39,126 +39,113 @@ export type InstrumentsProposeToolName =
 const title = z.string().min(1).max(120)
 const summary = z.string().min(1).max(400)
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD.')
+
 const instrument = z
   .string()
   .min(1)
   .max(200)
   .describe('The instrument, by name or INS number.')
 
-export const proposeInstrumentAddSchema = z
-  .object({
-    title,
-    summary,
-    name: z.string().min(1).max(200).describe('What the instrument is called.'),
-    instrumentType: z
-      .enum(['qpcr', 'sequencer', 'spectrophotometer', 'other'])
-      .optional()
-      .describe('The kind of instrument. Leave out when unsure.'),
-    model: z.string().max(200).optional(),
-    serialNumber: z.string().max(200).optional(),
-    vendor: z.string().max(200).optional(),
-    location: z.string().max(200).optional().describe('Where it is.'),
-  })
-  .strict()
+export const proposeInstrumentAddSchema = z.strictObject({
+  title,
+  summary,
+  name: z.string().min(1).max(200).describe('What the instrument is called.'),
+  instrumentType: z
+    .enum(['qpcr', 'sequencer', 'spectrophotometer', 'other'])
+    .optional()
+    .describe('The kind of instrument. Leave out when unsure.'),
+  model: z.string().max(200).optional(),
+  serialNumber: z.string().max(200).optional(),
+  vendor: z.string().max(200).optional(),
+  location: z.string().max(200).optional().describe('Where it is.'),
+})
 
-export const proposeInstrumentRetireSchema = z
-  .object({
-    title,
-    summary,
-    instrument,
-    retire: z
-      .boolean()
-      .optional()
-      .describe('false to bring a retired instrument back. Default true.'),
-  })
-  .strict()
+export const proposeInstrumentRetireSchema = z.strictObject({
+  title,
+  summary,
+  instrument,
+  retire: z
+    .boolean()
+    .optional()
+    .describe('false to bring a retired instrument back. Default true.'),
+})
 
-export const proposeInstrumentCalibrateSchema = z
-  .object({
-    title,
-    summary,
-    instrument,
-    performedOn: day.describe('The day it was calibrated.'),
-    dueOn: day.describe('When the next calibration is due.'),
-    notes: z.string().max(500).optional(),
-  })
-  .strict()
+export const proposeInstrumentCalibrateSchema = z.strictObject({
+  title,
+  summary,
+  instrument,
+  performedOn: day.describe('The day it was calibrated.'),
+  dueOn: day.describe('When the next calibration is due.'),
+  notes: z.string().max(500).optional(),
+})
 
-export const proposeInstrumentQualifySchema = z
-  .object({
-    title,
-    summary,
-    instrument,
-    person: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The person, by their name as it shows in the workspace.'),
-    revoke: z
-      .boolean()
-      .optional()
-      .describe('true to take their qualification away. Default false.'),
-    validUntil: day
-      .optional()
-      .describe('Until when they may use it. Ask when granting.'),
-    qualifiedFor: z
-      .string()
-      .max(200)
-      .optional()
-      .describe('What they may do on it, if the person said.'),
-  })
-  .strict()
+export const proposeInstrumentQualifySchema = z.strictObject({
+  title,
+  summary,
+  instrument,
+  person: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The person, by their name as it shows in the workspace.'),
+  revoke: z
+    .boolean()
+    .optional()
+    .describe('true to take their qualification away. Default false.'),
+  validUntil: day
+    .optional()
+    .describe('Until when they may use it. Ask when granting.'),
+  qualifiedFor: z
+    .string()
+    .max(200)
+    .optional()
+    .describe('What they may do on it, if the person said.'),
+})
 
-export const proposeRunCreateSchema = z
-  .object({
-    title,
-    summary,
-    instrument,
-    name: z.string().min(1).max(200).describe('What to call the run.'),
-    runIdentifier: z
-      .string()
-      .max(100)
-      .optional()
-      .describe('The run’s own number or barcode, when they gave one.'),
-    protocol: z.string().max(200).optional(),
-    operator: z.string().max(200).optional(),
-  })
-  .strict()
+export const proposeRunCreateSchema = z.strictObject({
+  title,
+  summary,
+  instrument,
+  name: z.string().min(1).max(200).describe('What to call the run.'),
+  runIdentifier: z
+    .string()
+    .max(100)
+    .optional()
+    .describe('The run’s own number or barcode, when they gave one.'),
+  protocol: z.string().max(200).optional(),
+  operator: z.string().max(200).optional(),
+})
 
-export const proposeRunUpdateSchema = z
-  .object({
-    title,
-    summary,
-    run: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The open run, by its identifier or words from its name.'),
-    status: z
-      .enum(['running', 'completed', 'failed'])
-      .describe('What happened to it.'),
-    error: z
-      .string()
-      .max(500)
-      .optional()
-      .describe('What went wrong, for failed.'),
-  })
-  .strict()
+export const proposeRunUpdateSchema = z.strictObject({
+  title,
+  summary,
+  run: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The open run, by its identifier or words from its name.'),
+  status: z
+    .enum(['running', 'completed', 'failed'])
+    .describe('What happened to it.'),
+  error: z
+    .string()
+    .max(500)
+    .optional()
+    .describe('What went wrong, for failed.'),
+})
 
-export const proposeConnectorSetSchema = z
-  .object({
-    title,
-    summary,
-    connector: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The connector, by words from its name or its key.'),
-    status: z
-      .enum(['active', 'paused', 'archived'])
-      .describe('paused stops it running; active resumes it.'),
-  })
-  .strict()
+export const proposeConnectorSetSchema = z.strictObject({
+  title,
+  summary,
+  connector: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The connector, by words from its name or its key.'),
+  status: z
+    .enum(['active', 'paused', 'archived'])
+    .describe('paused stops it running; active resumes it.'),
+})
 
 /** What an instrument card does when its button is pressed. */
 export type InstrumentsAction =

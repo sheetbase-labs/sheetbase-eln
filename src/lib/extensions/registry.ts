@@ -35,7 +35,10 @@
  * dialogs, palette groups); this module is deliberately render-free so
  * the host surfaces keep owning labels, focus and layout.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '../data-client'
+import { CAPABILITIES } from '../capability'
 import type { Capability } from '../capability'
 import {
   effectiveExtensionCapabilities,
@@ -44,6 +47,7 @@ import {
 import type { ExtensionAuditIdentity } from './contract'
 import { parseExtensionManifest } from './manifest'
 import type { ExtensionManifest } from './manifest'
+import { isRecord } from './points'
 
 /** UI points this registry resolves. Event subscriptions deliver; they do not render. */
 export const EXTENSION_UI_POINTS = [
@@ -94,10 +98,6 @@ const EMPTY_POINTS: ResolvedExtensionPoints = {
   commands: [],
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 /**
  * Read the raw declaration extras EXT-01 normalizes away. Only `capability`
  * is honoured, and only when it names a capability the manifest declares;
@@ -105,28 +105,37 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * forward-compatible without changing resolution.
  */
 function readCapabilityHint(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This decodes the raw legacy capability extra after the manifest's public declarations were parsed. Raw list/identity checks and the capability enum below reject unknown authority; registry.test.ts covers undeclared/malformed hints.
   rawManifest: unknown,
   point: ExtensionUiPoint,
   declarationId: string,
   declared: ReadonlySet<string>,
-): { hint: Capability | null; rejected: boolean } {
+) {
   if (!isRecord(rawManifest)) return { hint: null, rejected: false }
   const contributions = rawManifest.contributions
+
   if (!isRecord(contributions)) return { hint: null, rejected: false }
-  const list = contributions[point]
-  if (!Array.isArray(list)) return { hint: null, rejected: false }
-  const raw = list.find(
-    (entry): entry is Record<string, unknown> =>
-      isRecord(entry) && entry.id === declarationId,
+  const list = z.array(z.unknown()).safeParse(contributions[point])
+
+  if (!list.success) return { hint: null, rejected: false }
+
+  const raw = list.data.find(
+    (entry) => isRecord(entry) && entry.id === declarationId,
   )
-  const hint = raw?.capability
+
+  const hint = isRecord(raw) ? raw.capability : undefined
+
   if (hint === undefined) return { hint: null, rejected: false }
-  if (typeof hint !== 'string' || !declared.has(hint)) {
+
+  const parsed = z.enum(CAPABILITIES).safeParse(hint)
+
+  if (!parsed.success || !declared.has(parsed.data)) {
     // Fail closed: a declaration claiming authority the manifest never
     // asked for (or a misspelled capability) never renders.
     return { hint: null, rejected: true }
   }
-  return { hint: hint as Capability, rejected: false }
+
+  return { hint: parsed.data, rejected: false }
 }
 
 /**
@@ -142,26 +151,33 @@ export function resolveExtensionContributions(
   const objectActions: ResolvedExtensionContribution[] = []
   const panels: ResolvedExtensionContribution[] = []
   const commands: ResolvedExtensionContribution[] = []
+
   const buckets: Record<ExtensionUiPoint, ResolvedExtensionContribution[]> = {
     'object-actions': objectActions,
     panels,
     commands,
   }
+
   for (const install of installs) {
     if (install.status !== 'enabled') continue
     let manifest: ExtensionManifest
+
     try {
       manifest = parseExtensionManifest(install.manifest)
     } catch {
       continue
     }
+
     const granted = new Set<Capability>(
       effectiveExtensionCapabilities(manifest, role),
     )
+
     const declared = new Set<string>(manifest.capabilities)
     const points: ExtensionUiPoint[] = ['object-actions', 'panels', 'commands']
+
     for (const point of points) {
       const declarations = manifest.contributions[point] ?? []
+
       for (const declaration of declarations) {
         const { hint, rejected } = readCapabilityHint(
           install.manifest,
@@ -169,7 +185,9 @@ export function resolveExtensionContributions(
           declaration.id,
           declared,
         )
+
         if (rejected) continue
+
         if (hint !== null && !granted.has(hint)) continue
         buckets[point].push({
           extensionId: install.id,
@@ -185,15 +203,18 @@ export function resolveExtensionContributions(
       }
     }
   }
+
   // Deterministic order: extension key, then point, then declaration id —
   // hosts render this order verbatim so repeated resolves never reshuffle.
   const byKey = (
     a: ResolvedExtensionContribution,
     b: ResolvedExtensionContribution,
   ) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
+
   objectActions.sort(byKey)
   panels.sort(byKey)
   commands.sort(byKey)
+
   return { objectActions, panels, commands }
 }
 
@@ -245,21 +266,28 @@ export async function invokeExtensionContribution<T>(
       p_capability: contribution.requiredCapability,
     })
   }
+
   const result = await operation()
+
   return { result, audit: extensionInvocationAudit(contribution) }
 }
 
 /** Human-readable invocation failures; never leaks server internals. */
+// JavaScript operations can throw any native value, not only Errors or JSON. This diagnostic boundary preserves String coercion and its throws; registry.test.ts covers native/Unicode/custom-coercion values.
 export function describeExtensionInvocationError(cause: unknown): string {
   const message = cause instanceof Error ? cause.message : String(cause)
+
   if (/not enabled/i.test(message)) {
     return 'That extension is no longer enabled in this workspace.'
   }
+
   if (/capability required/i.test(message)) {
     return 'You do not have permission to run that extension action.'
   }
+
   if (/extension not found/i.test(message)) {
     return 'That extension is no longer installed in this workspace.'
   }
+
   return message
 }

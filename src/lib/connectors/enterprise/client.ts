@@ -5,7 +5,20 @@
  * access happens server-side; this module only ships bounded results back
  * (object metadata, schema/table metadata, previews, import receipts).
  */
-import type { ConnectorImportTarget } from '#/lib/connectors/enterprise/adapter'
+import { z } from 'zod'
+import { connectorImportResultSchema } from './adapter'
+import type {
+  ConnectorImportRequest,
+  ConnectorImportResult,
+  ConnectorImportTarget,
+} from './adapter'
+import {
+  connectorPreviewResultSchema,
+  postgresDiscoveryResultSchema,
+  s3DiscoveryPageSchema,
+  testConnectionResultSchema,
+} from './types'
+import type { ConnectorWire } from '../types'
 import type {
   PostgresDiscoveryResult,
   PreviewResult,
@@ -13,74 +26,101 @@ import type {
   TestConnectionResult,
 } from '#/lib/connectors/enterprise/types'
 
-interface SourceError {
-  error?: { code?: string; message?: string }
-}
+const sourceErrorSchema = z.object({
+  error: z.object({ message: z.string().optional() }).optional(),
+})
 
-async function callSource<T>(body: Record<string, unknown>): Promise<T> {
-  const response = await fetch('/api/connectors/source', {
+type SourceRequest =
+  | ({ operation: 'test' } & Parameters<typeof testConnectorConnection>[0])
+  | ({ operation: 'discover' } & Parameters<typeof discoverConnectorSource>[0])
+  | ({ operation: 'preview' } & Parameters<typeof previewConnectorSource>[0])
+  | ({ operation: 'import' } & Parameters<typeof importConnectorSource>[0])
+
+async function callSource<T>(
+  body: SourceRequest,
+  schema: z.ZodType<T>,
+  fetchImpl: typeof fetch,
+): Promise<T> {
+  const response = await fetchImpl('/api/connectors/source', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
 
-  const text = await response.text()
-  const parsed: unknown = text ? JSON.parse(text) : {}
-
   if (!response.ok) {
+    const text = await response.text()
+    const parsed = sourceErrorSchema.safeParse(text ? JSON.parse(text) : {})
+
     const message =
-      (parsed as SourceError).error?.message ??
-      'The connector operation failed.'
+      parsed.data?.error?.message ?? 'The connector operation failed.'
 
     throw new Error(message)
   }
 
-  return parsed as T
+  return schema.parse(await response.json())
 }
 
-export function testConnectorConnection(input: {
-  workspaceId: string
-  connectorId: string
-}): Promise<TestConnectionResult> {
-  return callSource({ ...input, operation: 'test' })
+export function testConnectorConnection(
+  input: {
+    workspaceId: string
+    connectorId: string
+  },
+  fetchImpl: typeof fetch = fetch,
+): Promise<TestConnectionResult> {
+  return callSource(
+    { ...input, operation: 'test' },
+    testConnectionResultSchema,
+    fetchImpl,
+  )
 }
 
-export function discoverConnectorSource(input: {
-  workspaceId: string
-  connectorId: string
-  query?: Record<string, unknown>
-}): Promise<S3DiscoveryPage | PostgresDiscoveryResult> {
-  return callSource({
-    ...input,
-    operation: 'discover',
-    query: input.query ?? {},
-  })
+export function discoverConnectorSource(
+  input: {
+    workspaceId: string
+    connectorId: string
+    query?: Partial<ConnectorWire['config']>
+  },
+  fetchImpl: typeof fetch = fetch,
+): Promise<S3DiscoveryPage | PostgresDiscoveryResult> {
+  return callSource(
+    { ...input, operation: 'discover', query: input.query ?? {} },
+    z.union([s3DiscoveryPageSchema, postgresDiscoveryResultSchema]),
+    fetchImpl,
+  )
 }
 
-export function previewConnectorSource(input: {
-  workspaceId: string
-  connectorId: string
-  selector: Record<string, unknown>
-}): Promise<PreviewResult> {
-  return callSource({ ...input, operation: 'preview' })
+export function previewConnectorSource(
+  input: {
+    workspaceId: string
+    connectorId: string
+    selector: ConnectorWire['config']
+  },
+  fetchImpl: typeof fetch = fetch,
+): Promise<PreviewResult> {
+  return callSource(
+    { ...input, operation: 'preview' },
+    connectorPreviewResultSchema,
+    fetchImpl,
+  )
 }
 
-export interface ConnectorImportReceipt {
-  runId: string
-  attempt: number
-  alreadyCompleted: boolean
-  rowCount: number
-  datasetId: string
-  datasetRevision?: number
-}
+export type ConnectorImportReceipt = ConnectorImportResult
 
-export function importConnectorSource(input: {
-  workspaceId: string
-  connectorId: string
-  source: Record<string, unknown>
-  projectId?: string | null
-  target: ConnectorImportTarget
-  mappings?: Array<Record<string, unknown>> | null
-}): Promise<ConnectorImportReceipt> {
-  return callSource({ ...input, operation: 'import' })
+export function importConnectorSource(
+  input: {
+    workspaceId: string
+    connectorId: string
+    source: ConnectorWire['config']
+    projectId?: string | null
+    target: ConnectorImportTarget
+    mappings?:
+      ConnectorImportRequest<ConnectorWire['config']>['mappings'] | null
+  },
+  fetchImpl: typeof fetch = fetch,
+): Promise<ConnectorImportReceipt> {
+  return callSource(
+    { ...input, operation: 'import' },
+    connectorImportResultSchema,
+    fetchImpl,
+  )
 }

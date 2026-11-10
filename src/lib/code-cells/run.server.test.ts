@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import type { DataClient } from '../data-client'
 import type { SessionAuthDeps } from '../request-auth'
@@ -8,9 +9,73 @@ import {
   digestRows,
   handleCodeCell,
   runCodeCell,
+  runPython,
   singleSelect,
 } from './run.server'
 import type { CodeCellDeps } from './run.server'
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
+})
+
+describe('code cell Python input handoff', () => {
+  it('preserves Dates and scientific keys through the real runner serializer', async () => {
+    vi.stubEnv('PIPELINE_PYTHON_RUNNER_URL', 'http://runner:8080')
+    vi.stubEnv('PIPELINE_PYTHON_RUNNER_TOKEN', 'test-token-'.repeat(4))
+
+    const fetchRunner = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        rows: [{ signal: 12.5 }],
+        logs: [],
+        runtime: `ghcr.io/example/python@sha256:${'a'.repeat(64)}`,
+      }),
+    )
+
+    vi.stubGlobal('fetch', fetchRunner)
+
+    const result = await runPython({
+      source: 'def transform(inputs, parameters): return inputs["data"]',
+      inputs: {
+        data: [
+          {
+            ['__proto__']: 'sample label',
+            day: new Date('2026-11-01T03:04:05Z'),
+            signal: 12.5,
+          },
+        ],
+      },
+    })
+
+    expect(result.rows).toEqual([{ signal: 12.5 }])
+    const body = z.string().parse(fetchRunner.mock.calls[0]?.[1]?.body)
+
+    expect(body).toContain('"__proto__":"sample label"')
+    expect(body).toContain('"day":"2026-11-01T03:04:05.000Z"')
+  })
+
+  it.each([undefined, NaN, Infinity, 42n])(
+    'keeps unsupported %s values visible to the runner rejection',
+    async (value) => {
+      vi.stubEnv('PIPELINE_PYTHON_RUNNER_URL', 'http://runner:8080')
+      vi.stubEnv('PIPELINE_PYTHON_RUNNER_TOKEN', 'test-token-'.repeat(4))
+      const fetchRunner = vi.fn<typeof fetch>()
+
+      vi.stubGlobal('fetch', fetchRunner)
+      await expect(
+        runPython({
+          source: 'def transform(inputs, parameters): return inputs["data"]',
+          inputs: { data: [{ value }] },
+        }),
+      ).rejects.toMatchObject({
+        code: 'code_failed',
+        message:
+          'Python inputs and parameters must contain finite JSON values.',
+      })
+      expect(fetchRunner).not.toHaveBeenCalled()
+    },
+  )
+})
 
 // The real module opens the database; a session check against the fake deps is
 // all these tests need.

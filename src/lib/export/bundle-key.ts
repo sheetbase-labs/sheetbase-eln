@@ -24,13 +24,10 @@ export function keyFingerprint(publicKeyPem: string): string {
     )
     .digest('hex')
 
-  return der.match(/.{2}/g)!.join(':')
+  return der.replace(/(..)(?=.)/g, '$1:')
 }
 
-export function generateWorkspaceKeyPair(): {
-  publicKeyPem: string
-  privateKeyPem: string
-} {
+export function generateWorkspaceKeyPair() {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519')
 
   return {

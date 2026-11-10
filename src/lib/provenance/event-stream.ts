@@ -4,7 +4,10 @@
  * permission filter) lives in `api.event_stream_page`.
  */
 import { EVENT_CATALOGUE, toCanonicalEnvelope } from '#/lib/event-catalogue'
-import type { PayloadCondition } from '#/lib/event-catalogue'
+import type {
+  CanonicalEventEnvelope,
+  PayloadCondition,
+} from '#/lib/event-catalogue'
 import type { ChangeEventInput } from '#/lib/webhook-events'
 
 export const CLOUDEVENTS_TYPE_PREFIX = 'io.sheetbase.'
@@ -21,7 +24,7 @@ export interface StreamRow {
   actor_user_id: string | null
   actor_credential_id: string | null
   client_id: string | null
-  payload: Record<string, unknown> | null
+  payload: ChangeEventInput['payload'] | null
   created_at: string
 }
 
@@ -45,12 +48,12 @@ export interface CloudEvent {
   datacontenttype: 'application/json'
   /** Extension attribute: the position in the workspace's log. */
   sequence: string
-  data: Record<string, unknown>
+  data: Pick<CanonicalEventEnvelope, 'actor' | 'provenance' | 'data'>
 }
 
 function holds(
   condition: PayloadCondition | undefined,
-  payload: Record<string, unknown>,
+  payload: ChangeEventInput['payload'],
 ): boolean {
   if (condition === undefined) return true
   const value = payload[condition.key]
@@ -66,7 +69,7 @@ function holds(
 export function streamEventName(
   entityType: string,
   operation: string,
-  payload: Record<string, unknown>,
+  payload: ChangeEventInput['payload'],
 ): string | null {
   for (const entry of EVENT_CATALOGUE) {
     const producer = entry.producer
@@ -157,7 +160,7 @@ export function toCloudEvent(
   }
 }
 
-export interface ShapedPage {
+export interface PublicEventPage {
   events: CloudEvent[]
   nextCursor: number
   hasMore: boolean
@@ -167,11 +170,11 @@ export interface ShapedPage {
 }
 
 /** A database page as the public response: catalogued events only, filtered by name. */
-export function shapePage(
+export function publicEventPage(
   workspaceId: string,
   page: StreamPage,
   names?: ReadonlySet<string>,
-): ShapedPage {
+): PublicEventPage {
   const events: CloudEvent[] = []
 
   for (const row of page.events) {

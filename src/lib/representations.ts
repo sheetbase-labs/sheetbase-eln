@@ -30,12 +30,14 @@
  * `chart` / `plate_map` / `analysis` are read-only.
  */
 
+import { z } from 'zod'
 import {
   ANALYSIS_DEFINITION_VERSION,
   runAnalysis,
   validateAnalysisDefinition,
 } from './analysis-definition'
 import type {
+  AnalysisBlockDefinition,
   AnalysisDefinition,
   AnalysisError,
   AnalysisResult,
@@ -129,7 +131,7 @@ export type RepresentationConfig =
   | {
       kind: 'analysis'
       configVersion: typeof ANALYSIS_DEFINITION_VERSION
-      config: AnalysisDefinition
+      config: AnalysisBlockDefinition
     }
   | {
       kind: 'sheet'
@@ -281,7 +283,7 @@ export function representationSourceIdentity(
  */
 export interface RepresentationTableInput {
   columns: ChartColumn[]
-  rows: Record<string, unknown>[]
+  rows: Parameters<typeof runAnalysis>[2]
   /** DSET-01.2 — active value flags; flagged values are excluded by default. */
   flags?: DatasetValueFlag[]
 }
@@ -297,19 +299,6 @@ export type RepresentationMaterialised =
   | { kind: 'plate_map'; errors: PlateMapSpecError[]; wellCount: number }
   | { kind: 'sheet'; instanceId: string }
 
-function requireConfigKind<TKind extends RepresentationConfig['kind']>(
-  handle: RepresentationHandle,
-  kind: TKind,
-): Extract<RepresentationConfig, { kind: TKind }> {
-  if (handle.config.kind !== kind) {
-    throw new Error(
-      `handle kind mismatch: expected ${kind} (got ${handle.config.kind})`,
-    )
-  }
-
-  return handle.config as Extract<RepresentationConfig, { kind: TKind }>
-}
-
 /**
  * Materialise a live representation from caller-supplied canonical rows.
  * Delegates to the existing kind materialisers; adds no computation of its
@@ -323,12 +312,12 @@ export function materialiseRepresentation(
 ): RepresentationMaterialised {
   switch (handle.config.kind) {
     case 'chart': {
-      const { config: spec } = requireConfigKind(handle, 'chart')
+      const { config: spec } = handle.config
 
       // DSET-01.2 — exclude flagged values the chart uses.
-      const usedFields = Object.values(spec.fields)
-        .map((binding) => binding?.fieldId)
-        .filter((fieldId): fieldId is string => typeof fieldId === 'string')
+      const usedFields = Object.values(spec.fields).flatMap((binding) =>
+        isInput(stringInput, binding?.fieldId) ? [binding.fieldId] : [],
+      )
 
       const rows = filterRowsByFlags(input.rows, input.flags ?? [], usedFields)
 
@@ -339,7 +328,7 @@ export function materialiseRepresentation(
     }
 
     case 'analysis': {
-      const { config: definition } = requireConfigKind(handle, 'analysis')
+      const { config: definition } = handle.config
 
       return {
         kind: 'analysis',
@@ -353,7 +342,7 @@ export function materialiseRepresentation(
     }
 
     case 'plate_map': {
-      const { config: spec } = requireConfigKind(handle, 'plate_map')
+      const { config: spec } = handle.config
 
       return {
         kind: 'plate_map',
@@ -363,7 +352,7 @@ export function materialiseRepresentation(
     }
 
     case 'sheet': {
-      const { config } = requireConfigKind(handle, 'sheet')
+      const { config } = handle.config
 
       return { kind: 'sheet', instanceId: config.instanceId }
     }
@@ -393,21 +382,21 @@ export type RepresentationFrozenResult =
   | { kind: 'sheet'; instanceId: string }
 
 function isFrozenChart(v: RepresentationFrozenPayload): v is FrozenChart {
-  if (typeof v !== 'object' || v === null) return false
-  const data = (v as unknown as Record<string, unknown>).data
-
   return (
-    typeof data === 'object' &&
-    data !== null &&
-    Array.isArray((data as Record<string, unknown>).series)
+    isInput(objectInput, v) &&
+    'data' in v &&
+    isInput(objectInput, v.data) &&
+    'series' in v.data &&
+    Array.isArray(v.data.series)
   )
 }
 
 function isFrozenAnalysis(v: RepresentationFrozenPayload): v is FrozenAnalysis {
-  if (typeof v !== 'object' || v === null) return false
-  const definition = (v as unknown as Record<string, unknown>).definition
-
-  return typeof definition === 'object' && definition !== null
+  return (
+    isInput(objectInput, v) &&
+    'definition' in v &&
+    isInput(objectInput, v.definition)
+  )
 }
 
 /**
@@ -428,7 +417,7 @@ export function reconstructFrozenRepresentation(
 ): RepresentationFrozenResult {
   switch (handle.config.kind) {
     case 'chart': {
-      const { config: spec } = requireConfigKind(handle, 'chart')
+      const { config: spec } = handle.config
 
       if (!isFrozenChart(frozen)) {
         throw new Error('chart reconstruction requires a FrozenChart payload')
@@ -452,8 +441,6 @@ export function reconstructFrozenRepresentation(
     }
 
     case 'analysis': {
-      requireConfigKind(handle, 'analysis')
-
       if (!isFrozenAnalysis(frozen)) {
         throw new Error(
           'analysis reconstruction requires a FrozenAnalysis payload',
@@ -494,7 +481,7 @@ export function reconstructFrozenRepresentation(
     }
 
     case 'plate_map': {
-      const { config: spec } = requireConfigKind(handle, 'plate_map')
+      const { config: spec } = handle.config
 
       if (frozen !== null) {
         throw new Error('plate_map has no frozen payload')
@@ -508,7 +495,7 @@ export function reconstructFrozenRepresentation(
     }
 
     case 'sheet': {
-      const { config } = requireConfigKind(handle, 'sheet')
+      const { config } = handle.config
 
       return { kind: 'sheet', instanceId: config.instanceId }
     }
@@ -520,10 +507,7 @@ export function reconstructFrozenRepresentation(
  * rendered points may be reduced, analysis counts are reported honestly, and
  * analysis inputs are never sampled.
  */
-export function sampleRepresentationDisplay(materialised: MaterialisedChart): {
-  series: MaterialisedChart['series']
-  sampling: MaterialisedChart['sampling']
-} {
+export function sampleRepresentationDisplay(materialised: MaterialisedChart) {
   return sampleSeriesForRender(materialised.series)
 }
 // Embed-site adapter: chart block payload → handle
@@ -548,7 +532,7 @@ export function chartToRepresentationHandle(input: {
   const primary = provenance.at(0)
 
   const datasetId =
-    (typeof primary?.datasetId === 'string' && primary.datasetId.length > 0
+    (isInput(stringInput, primary?.datasetId) && primary.datasetId.length > 0
       ? primary.datasetId
       : null) ??
     input.spec.datasets.at(0)?.datasetId ??
@@ -556,7 +540,7 @@ export function chartToRepresentationHandle(input: {
 
   const singlePin =
     provenance.length === 1 &&
-    typeof primary?.datasetVersionId === 'string' &&
+    isInput(stringInput, primary?.datasetVersionId) &&
     primary.datasetVersionId.length > 0
       ? primary.datasetVersionId
       : null
@@ -605,14 +589,89 @@ export function plateMapToRepresentationHandle(input: {
   })
 }
 
-function isUuidLike(value: unknown): value is string {
-  return (
-    typeof value === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      value,
-    )
-  )
+const stringInput = z.string()
+const booleanInput = z.boolean()
+
+const uuidInput = z
+  .string()
+  .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+
+const nullableUuidInput = uuidInput.nullable()
+const optionalUuidInput = uuidInput.optional()
+
+function isInput<Schema extends z.ZodType, Value>(
+  schema: Schema,
+  value: Value,
+): value is Value & z.infer<Schema> {
+  return schema.safeParse(value).success
 }
+
+const objectInput = z.custom<object>(
+  (value) =>
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Legacy frozen discriminators and source diagnostics recognize native objects and arrays, not only Zod's plain-object representation.
+    typeof value === 'object' && value !== null,
+)
+
+// Inspect the original envelope rather than parsing away extension keys,
+// explicit undefined properties, native objects or legacy source arrays.
+const embedInput = z.custom<{
+  kind?: unknown
+  configVersion?: unknown
+  config?: unknown
+  source?: unknown
+  title?: unknown
+  frozen?: unknown
+}>((value) => isInput(objectInput, value) && !Array.isArray(value))
+
+const sourceFieldsInput = z.custom<{
+  datasetId?: unknown
+  versionId?: unknown
+  recordId?: unknown
+}>((value) => isInput(objectInput, value))
+
+const sourceIdentityInput = z.custom<RepresentationSource>(
+  (value) =>
+    isInput(sourceFieldsInput, value) &&
+    isInput(nullableUuidInput, value.datasetId) &&
+    isInput(nullableUuidInput, value.versionId) &&
+    isInput(optionalUuidInput, value.recordId),
+)
+
+const sheetConfigInput = z.custom<SheetRepresentationConfig>(
+  (value) =>
+    (isInput(objectInput, value) || isInput(z.function(), value)) &&
+    'instanceId' in value &&
+    isInput(uuidInput, value.instanceId),
+)
+
+const representationConfigInput = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('chart'),
+    configVersion: z.literal(CHART_SPEC_VERSION),
+    config: z.custom<ChartSpec>(
+      (value) => validateChartSpec(value).length === 0,
+    ),
+  }),
+  z.object({
+    kind: z.literal('plate_map'),
+    configVersion: z.literal(PLATE_MAP_SPEC_VERSION),
+    config: z.custom<PlateMapSpec>(
+      (value) => validatePlateMapSpec(value).length === 0,
+    ),
+  }),
+  z.object({
+    kind: z.literal('analysis'),
+    configVersion: z.literal(ANALYSIS_DEFINITION_VERSION),
+    config: z.custom<AnalysisBlockDefinition>(
+      (value) => validateAnalysisDefinition(value).length === 0,
+    ),
+  }),
+  z.object({
+    kind: z.literal('sheet'),
+    configVersion: z.literal(SHEET_REPRESENTATION_CONFIG_VERSION),
+    config: sheetConfigInput,
+  }),
+])
 
 /**
  * Validate a representation embed request fail-closed. The payload carries a
@@ -620,16 +679,13 @@ function isUuidLike(value: unknown): value is string {
  * and configs rejected by their canonical validator all fail; callers must
  * not fall back to a live re-read when this fails.
  */
-export function validateRepresentationEmbed(input: unknown): {
-  ok: boolean
-  handle?: RepresentationHandle
-  errors: string[]
-} {
-  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public raw embed boundary immediately inspects the envelope, then validates identity and the canonical per-kind configuration in diagnostic order.
+export function validateRepresentationEmbed(input: unknown) {
+  if (!isInput(embedInput, input)) {
     return { ok: false, errors: ['embed must be an object'] }
   }
 
-  const candidate = input as Record<string, unknown>
+  const candidate = input
   const kind = candidate.kind
 
   if (
@@ -653,71 +709,60 @@ export function validateRepresentationEmbed(input: unknown): {
     }
   }
 
-  const source = candidate.source as Record<string, unknown> | undefined
+  const source = candidate.source
   const sourceErrors: string[] = []
 
-  if (!source || typeof source !== 'object') {
+  if (!isInput(sourceFieldsInput, source)) {
     sourceErrors.push('source must be an object')
   } else {
-    if (source.datasetId !== null && !isUuidLike(source.datasetId)) {
+    if (!isInput(nullableUuidInput, source.datasetId)) {
       sourceErrors.push('source.datasetId must be a UUID or null')
     }
 
-    if (source.versionId !== null && !isUuidLike(source.versionId)) {
+    if (!isInput(nullableUuidInput, source.versionId)) {
       sourceErrors.push('source.versionId must be a UUID or null')
     }
 
-    if (source.recordId !== undefined && !isUuidLike(source.recordId)) {
+    if (!isInput(optionalUuidInput, source.recordId)) {
       sourceErrors.push('source.recordId must be a UUID when present')
     }
   }
 
   if (sourceErrors.length > 0) return { ok: false, errors: sourceErrors }
-  const config = candidate.config
-  const configErrors: string[] = []
 
-  if (kind === 'chart' && validateChartSpec(config).length > 0) {
-    configErrors.push('chart config failed the ChartSpec validator')
-  }
+  const config = representationConfigInput.safeParse({
+    kind,
+    configVersion: candidate.configVersion,
+    config: candidate.config,
+  })
 
-  if (kind === 'plate_map' && validatePlateMapSpec(config).length > 0) {
-    configErrors.push('plate_map config failed the PlateMapSpec validator')
-  }
-
-  if (kind === 'analysis' && validateAnalysisDefinition(config).length > 0) {
-    configErrors.push(
-      'analysis config failed the analysis definition validator',
-    )
-  }
-
-  if (kind === 'sheet') {
-    const instanceId = (config as Record<string, unknown> | null)?.instanceId
-
-    if (!isUuidLike(instanceId)) {
-      configErrors.push('sheet config.instanceId must be a UUID')
+  if (!config.success) {
+    const messages = {
+      chart: 'chart config failed the ChartSpec validator',
+      plate_map: 'plate_map config failed the PlateMapSpec validator',
+      analysis: 'analysis config failed the analysis definition validator',
+      sheet: 'sheet config.instanceId must be a UUID',
     }
+
+    return { ok: false, errors: [messages[kind]] }
   }
 
-  if (configErrors.length > 0) return { ok: false, errors: configErrors }
+  const identity = sourceIdentityInput.parse(source)
 
   const typedSource: RepresentationSource = {
-    datasetId: (source as Record<string, unknown>).datasetId as string | null,
-    versionId: (source as Record<string, unknown>).versionId as string | null,
-    ...((source as Record<string, unknown>).recordId !== undefined
-      ? { recordId: (source as Record<string, unknown>).recordId as string }
-      : {}),
+    datasetId: identity.datasetId,
+    versionId: identity.versionId,
   }
+
+  if (identity.recordId !== undefined) typedSource.recordId = identity.recordId
 
   const handle = createRepresentationHandle({
     source: typedSource,
-    config: {
-      kind,
-      configVersion: representationConfigVersion(kind),
-      config,
-    } as RepresentationConfig,
-    title: typeof candidate.title === 'string' ? candidate.title : undefined,
-    frozen:
-      typeof candidate.frozen === 'boolean' ? candidate.frozen : undefined,
+    config: config.data,
+    title: isInput(stringInput, candidate.title) ? candidate.title : undefined,
+    frozen: isInput(booleanInput, candidate.frozen)
+      ? candidate.frozen
+      : undefined,
   })
 
   return { ok: true, handle, errors: [] }

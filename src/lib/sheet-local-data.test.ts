@@ -1,14 +1,18 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
 import type { FieldDefinition } from './field-definition'
 import {
   mutateSheetLocalState,
   createAdHocTextField,
   recalculateSheetInstance,
+  mutateSheetInstanceCalculations,
+  readSheetInstanceCalculationResults,
   sheetLocalValueError,
 } from './sheet-local-data'
 import { validSheetInstanceState } from './sheet-instance.test'
+import { sheetInstanceCalculationSchema } from './sheet-calculation'
 
 const field = (
   logicalType: FieldDefinition['logicalType'],
@@ -44,7 +48,7 @@ describe('canonical Sheet local values', () => {
     const instanceId = crypto.randomUUID()
     const retryToken = crypto.randomUUID()
 
-    const rpc = vi.fn().mockResolvedValue({
+    const instance = {
       id: instanceId,
       workspace_id: crypto.randomUUID(),
       project_id: null,
@@ -60,7 +64,11 @@ describe('canonical Sheet local values', () => {
       updated_at: '2026-08-15T10:00:00Z',
       created_by_user_id: 'user',
       updated_by_user_id: 'user',
-    })
+    }
+
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json(instance))
 
     await mutateSheetLocalState(
       {
@@ -81,9 +89,11 @@ describe('canonical Sheet local values', () => {
           },
         ],
       },
-      { rpc } as unknown as DataClient,
+      createDataClient(fetchImpl),
     )
-    expect(rpc).toHaveBeenCalledWith('mutate_sheet_instance_local_state', {
+    const [url, init] = fetchImpl.mock.calls[0]
+    expect(url).toBe('/api/db/rpc/mutate_sheet_instance_local_state')
+    expect(JSON.parse(z.string().parse(init?.body))).toEqual({
       p_instance_id: instanceId,
       p_expected_revision: 1,
       p_retry_token: retryToken,
@@ -168,6 +178,199 @@ describe('canonical Sheet local values', () => {
   })
 })
 
+describe('Sheet calculation transport contracts', () => {
+  const instanceId = '19000000-0000-4000-8000-000000000001'
+  const calculationId = '19000000-0000-4000-8000-000000000002'
+  const rowKey = '19000000-0000-4000-8000-000000000003'
+
+  const calculation = () =>
+    sheetInstanceCalculationSchema.parse({
+      id: calculationId,
+      key: 'calculated',
+      label: 'Calculated',
+      lifecycle: 'active',
+      expression: { language: 'sheetbase-formula-v1', source: '=1' },
+      dependencies: [],
+      outputField: field('decimal', {
+        fieldId: calculationId,
+        computation: { mode: 'computed', expressionId: calculationId },
+        nullable: true,
+      }),
+    })
+
+  const resultRow = () => ({
+    calculationId,
+    rowKey,
+    scope: 'instance',
+    definitionVersionId: null,
+    calculationStatus: 'current',
+    calculatedValue: 1,
+    resultKind: 'value',
+    errorCode: null,
+    diagnostic: null,
+    expression: calculation().expression,
+    dependencies: [],
+    outputField: calculation().outputField,
+    sourceRevisions: [],
+    dependencyProvenance: [],
+    calculatedAt: '2026-08-15T10:00:00Z',
+    permission: { editability: 'read-only' },
+  })
+
+  it('returns concrete current and stale results without losing scientific keys', async () => {
+    const extensions = Object.defineProperty(
+      {
+        nested: Object.defineProperty({}, '__proto__', {
+          value: { observation: true },
+          enumerable: true,
+        }),
+      },
+      '__proto__',
+      { value: null, enumerable: true },
+    )
+
+    const row = resultRow()
+    row.outputField.validation.extensions = extensions
+
+    const body = {
+      instanceId,
+      revision: 7,
+      results: [
+        row,
+        { ...row, calculationStatus: 'stale', calculatedValue: null },
+      ],
+    }
+
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => Response.json(body))
+
+    const result = await readSheetInstanceCalculationResults(
+      instanceId,
+      [rowKey],
+      createDataClient(fetchImpl),
+    )
+
+    expect(result).toEqual(body)
+    expect(
+      Object.hasOwn(
+        result.results[0].outputField.validation.extensions ?? {},
+        '__proto__',
+      ),
+    ).toBe(true)
+    expect(fetchImpl.mock.calls[0][0]).toBe(
+      '/api/db/rpc/read_sheet_instance_calculation_results',
+    )
+    expect(
+      JSON.parse(z.string().parse(fetchImpl.mock.calls[0][1]?.body)),
+    ).toEqual({
+      p_instance_id: instanceId,
+      p_row_keys: [rowKey],
+    })
+  })
+
+  it.each([
+    { results: [{}] },
+    { revision: 0 },
+    { results: [{ ...resultRow(), permission: { editability: 'editable' } }] },
+    { results: [{ ...resultRow(), calculatedValue: '1' }] },
+  ])('rejects malformed calculation responses: %j', async (patch) => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        Response.json({ instanceId, revision: 7, results: [], ...patch }),
+      )
+
+    await expect(
+      readSheetInstanceCalculationResults(
+        instanceId,
+        [rowKey],
+        createDataClient(fetchImpl),
+      ),
+    ).rejects.toThrow()
+  })
+
+  it('validates raw calculation changes before HTTP serialization', async () => {
+    const fetchImpl = vi.fn<typeof fetch>()
+    const client = createDataClient(fetchImpl)
+
+    const input = {
+      instanceId,
+      expectedRevision: 7,
+      retryToken: crypto.randomUUID(),
+    }
+
+    await expect(
+      mutateSheetInstanceCalculations({ ...input, changes: [] }, client),
+    ).rejects.toThrow()
+
+    const mismatched = calculation()
+    mismatched.outputField.fieldId = rowKey
+    await expect(
+      mutateSheetInstanceCalculations(
+        { ...input, changes: [{ operation: 'edit', calculation: mismatched }] },
+        client,
+      ),
+    ).rejects.toThrow()
+
+    const invalid = calculation()
+    invalid.outputField.validation.extensions = Object.defineProperty(
+      {},
+      '__proto__',
+      { enumerable: true, value: { nested: undefined } },
+    )
+    await expect(
+      mutateSheetInstanceCalculations(
+        { ...input, changes: [{ operation: 'add', calculation: invalid }] },
+        client,
+      ),
+    ).rejects.toThrow()
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  it('preserves validated raw changes and RPC refusal diagnostics', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        Response.json(
+          { code: 'SB083', message: 'unknown or retired calculation' },
+          { status: 400 },
+        ),
+      )
+
+    const raw = calculation()
+    raw.outputField.validation.extensions = Object.defineProperty(
+      {},
+      '__proto__',
+      { value: { nested: null }, enumerable: true },
+    )
+
+    const changes = [
+      { operation: 'add', calculation: raw } satisfies Parameters<
+        typeof mutateSheetInstanceCalculations
+      >[0]['changes'][number],
+    ]
+
+    await expect(
+      mutateSheetInstanceCalculations(
+        {
+          instanceId,
+          expectedRevision: 7,
+          retryToken: crypto.randomUUID(),
+          changes,
+        },
+        createDataClient(fetchImpl),
+      ),
+    ).rejects.toMatchObject({
+      code: 'SB083',
+      message: 'unknown or retired calculation',
+    })
+    expect(
+      JSON.parse(z.string().parse(fetchImpl.mock.calls[0][1]?.body)).p_changes,
+    ).toEqual(changes)
+  })
+})
+
 describe('trusted Sheet recalculation', () => {
   const input = {
     instanceId: '19000000-0000-4000-8000-000000000001',
@@ -205,12 +408,16 @@ describe('trusted Sheet recalculation', () => {
           accept: 'application/json',
         },
       })
-      const body = JSON.parse(String(init?.body))
-      expect(body).toEqual({
+      const body = JSON.parse(z.string().parse(init?.body))
+
+      const expected = {
         ...input,
-        ...(index === 0 ? { offset: 200, limit: 23 } : {}),
         retryToken: expect.any(String),
-      })
+      }
+
+      expect(body).toEqual(
+        index === 0 ? { ...expected, offset: 200, limit: 23 } : expected,
+      )
       expect(body.retryToken).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
       )

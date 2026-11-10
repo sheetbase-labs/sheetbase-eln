@@ -18,7 +18,7 @@
  */
 import type { DataClient } from '../data-client'
 import type { ConnectorType } from '#/lib/metrics'
-import type { ConnectorRunWire } from './types'
+import type { ConnectorRunLogWire, ConnectorRunWire } from './types'
 import {
   appendConnectorRunLog,
   completeConnectorRun,
@@ -40,7 +40,7 @@ export interface ConnectorRunReport<T> {
  * Provenance payload attached to the finished run. Return the durable facts a
  * reader needs to trace what the execution produced.
  */
-export type RunResultBuilder<T> = (value: T) => Record<string, unknown>
+export type RunResultBuilder<T> = (value: T) => ConnectorRunWire['result']
 
 /**
  * PLAT-02 — server-injected observability hooks. Implemented by
@@ -91,12 +91,12 @@ export interface ExecuteConnectorRunOptions<T> {
 
 export class ConnectorStepError extends Error {
   readonly code: string
-  readonly detail: Record<string, unknown>
+  readonly detail: ConnectorRunLogWire['detail']
 
   constructor(
     code: string,
     message: string,
-    detail: Record<string, unknown> = {},
+    detail: ConnectorRunLogWire['detail'] = {},
   ) {
     super(message)
     this.name = 'ConnectorStepError'
@@ -118,7 +118,7 @@ export async function executeConnectorRun<T>(
     log: (
       stage: string,
       message: string,
-      detail?: Record<string, unknown>,
+      detail?: ConnectorRunLogWire['detail'],
       level?: 'info' | 'warning' | 'error',
     ) => Promise<void>
   }) => Promise<T>,
@@ -168,7 +168,7 @@ export async function executeConnectorRun<T>(
     const log = async (
       stage: string,
       message: string,
-      detail: Record<string, unknown> = {},
+      detail: ConnectorRunLogWire['detail'] = {},
       level: 'info' | 'warning' | 'error' = 'info',
     ) => {
       await appendConnectorRunLog(client, {

@@ -95,7 +95,7 @@ export const saveBackupSettingsFn = createServerFn({ method: 'POST' })
   })
 
 export type RunBackupNowResult =
-  | { ok: true; backup: BackupRecord }
+  | { ok: true; backup: BackupRecord | null }
   | { ok: false; reason: 'already_running' }
   | { ok: false; reason: 'failed'; message: string }
 
@@ -126,6 +126,6 @@ export const runBackupNowFn = createServerFn({ method: 'POST' })
     return {
       ok: false,
       reason: 'failed',
-      message: outcome.backup.error ?? '',
+      message: outcome.backup?.error ?? '',
     }
   })

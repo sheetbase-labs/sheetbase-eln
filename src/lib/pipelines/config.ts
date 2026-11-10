@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import { validatePipelineActions } from './actions'
 import { contractErrors, requirementErrors } from './python'
 import type { PythonContract } from './python'
@@ -30,17 +32,30 @@ export const PARAMETER_TYPES = [
 
 export type ParameterType = (typeof PARAMETER_TYPES)[number]
 
+const parameterTypeSchema = z.enum(PARAMETER_TYPES)
+
 export const INPUT_NAME_RE = /^[a-z][a-z0-9_]{0,47}$/
 export const DATE_RE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/
 export const MAX_PARAMETERS = 50
 export const MAX_INPUTS = 10
 export const MAX_STATEMENT_LENGTH = 20_000
 
+const parameterValueSchemas = {
+  text: z.string(),
+  integer: z.number().refine(Number.isInteger),
+  decimal: z.number(),
+  boolean: z.boolean(),
+  date: z.string().regex(DATE_RE),
+  timestamp: z.string().refine((value) => !Number.isNaN(Date.parse(value))),
+} satisfies Record<ParameterType, z.ZodType>
+
+type ParameterValue = z.infer<(typeof parameterValueSchemas)[ParameterType]>
+
 export interface PipelineParameter {
   name: string
   type: ParameterType
   required: boolean
-  default?: unknown
+  default?: z.core.util.JSONType
   description?: string
 }
 
@@ -129,7 +144,7 @@ export interface PipelineStepConfirm {
 export interface PipelinePluginStep {
   /** `plugin.<extension>.<step id>`, a `pipeline-steps` item of an installed plugin. */
   operation: string
-  arguments: Record<string, unknown>
+  arguments: Record<string, z.core.util.JSONType>
 }
 
 export interface PipelineStep {
@@ -158,7 +173,7 @@ export interface PipelineConfig {
   actions?: Array<{
     name: string
     operation: string
-    arguments: Record<string, unknown>
+    arguments: Record<string, z.core.util.JSONType>
     mode?: 'execute' | 'propose'
     /** Bulk import: run the action once for each row of this list. */
     forEach?: { $ref: string }
@@ -177,7 +192,7 @@ export interface PipelineConfig {
   /** Signed HTTP POST destinations, delivered durably after successful output. */
   notifications?: Array<{
     subscriptionId: string
-    payload?: Record<string, unknown>
+    payload?: Record<string, z.core.util.JSONType>
   }>
 }
 
@@ -194,12 +209,141 @@ export type ConfigError = {
   message: string
 }
 
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
+// Tolerant envelopes preserve malformed fields for independent diagnostics.
+const rawConfigSchema = z
+  .looseObject({
+    configVersion: z.unknown(),
+    description: z.unknown(),
+    parameters: z.unknown(),
+    inputs: z.unknown(),
+    transform: z.unknown(),
+    steps: z.unknown(),
+    notifications: z.unknown(),
+    pythonRuntime: z.unknown(),
+    pythonRequirements: z.unknown(),
+    actions: z.unknown(),
+    output: z.unknown(),
+  })
+  .partial()
+
+const rawParameterSchema = z
+  .looseObject({
+    name: z.unknown(),
+    type: z.unknown(),
+    required: z.unknown(),
+    default: z.unknown(),
+    description: z.unknown(),
+  })
+  .partial()
+
+const rawInputSchema = z
+  .looseObject({
+    name: z.unknown(),
+    required: z.unknown(),
+  })
+  .partial()
+
+const rawTransformSchema = z
+  .looseObject({
+    language: z.unknown(),
+    statement: z.unknown(),
+    contract: z.unknown(),
+  })
+  .partial()
+
+const rawStepSchema = rawTransformSchema
+  .extend({
+    name: z.unknown(),
+    plugin: z.unknown(),
+    confirm: z.unknown(),
+  })
+  .partial()
+
+const rawPluginSchema = z
+  .looseObject({
+    operation: z.unknown(),
+    arguments: z.unknown(),
+  })
+  .partial()
+
+const rawConfirmSchema = z
+  .looseObject({
+    fields: z.unknown(),
+    askedUserIds: z.unknown(),
+    noAnswer: z.unknown(),
+    expiresHours: z.unknown(),
+    skipSteps: z.unknown(),
+  })
+  .partial()
+
+const rawConfirmFieldSchema = z
+  .looseObject({
+    key: z.unknown(),
+    label: z.unknown(),
+    type: z.unknown(),
+    required: z.unknown(),
+    options: z.unknown(),
+  })
+  .partial()
+
+const rawNotificationSchema = z
+  .looseObject({
+    subscriptionId: z.unknown(),
+    payload: z.unknown(),
+  })
+  .partial()
+
+const rawOutputSchema = z
+  .looseObject({
+    mode: z.unknown(),
+    schemaVersionId: z.unknown(),
+    datasetId: z.unknown(),
+    datasetName: z.unknown(),
+    datasetLabel: z.unknown(),
+    fieldMapping: z.unknown(),
+  })
+  .partial()
+
+const rawReferenceEnvelopeSchema = z.looseObject({
+  $ref: z.unknown().optional(),
+})
+
+const rawReferenceSchema = z.custom<z.infer<typeof rawReferenceEnvelopeSchema>>(
+  (value) => rawReferenceEnvelopeSchema.safeParse(value).success,
+)
+
+const rawAnswerSchema = z
+  .looseObject({
+    decision: z.unknown(),
+    values: z.unknown(),
+  })
+  .partial()
+
+const rawValuesEnvelopeSchema = z.looseObject({})
+
+// Validate without cloning: looseObject's clone drops __proto__, but the
+// validator must still diagnose forbidden argument keys and unknown parameters.
+const rawValuesSchema = z.custom<z.infer<typeof rawValuesEnvelopeSchema>>(
+  (value) => rawValuesEnvelopeSchema.safeParse(value).success,
+)
+
+const identifierSchema = z.string().regex(INPUT_NAME_RE)
+const inputNameSchema = identifierSchema.refine((name) => name !== 'previous')
+
+const shortLabelSchema = z
+  .string()
+  .max(200)
+  .refine((label) => label.trim().length > 0)
+
+const statementSchema = z
+  .string()
+  .max(MAX_STATEMENT_LENGTH)
+  .refine((statement) => statement.trim().length > 0)
+
+const uuidSchema = z.string().regex(/^[0-9a-f-]{36}$/i)
 
 function isUuid(v: unknown): v is string {
-  return typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v)
+  return uuidSchema.safeParse(v).success
 }
 
 function push(
@@ -217,16 +361,20 @@ const PLUGIN_STEP_REF_PART = /^[A-Za-z0-9_-]+$/
 
 function validatePluginStep(
   errors: ConfigError[],
-  step: Record<string, unknown>,
+  step: z.infer<typeof rawStepSchema>,
   index: number,
 ): void {
   const field = `steps[${index}].plugin`
-  const plugin = step.plugin
+  const decoded = rawPluginSchema.safeParse(step.plugin)
+
+  const operation = decoded.success
+    ? z.string().safeParse(decoded.data.operation)
+    : null
 
   if (
-    !isObject(plugin) ||
-    typeof plugin.operation !== 'string' ||
-    !parsePluginName(plugin.operation)
+    !decoded.success ||
+    !operation?.success ||
+    !parsePluginName(operation.data)
   ) {
     push(
       errors,
@@ -241,7 +389,7 @@ function validatePluginStep(
   // A plugin step may pause for a person like any other: the pause comes once
   // the plugin's table is ready, and that table is what the person is shown.
   if (step.confirm !== undefined)
-    validateConfirmStep(errors, step.confirm, index)
+    validateConfirmStep(errors, rawConfirmSchema.safeParse(step.confirm), index)
 
   if (step.contract !== undefined)
     push(
@@ -251,7 +399,9 @@ function validatePluginStep(
       t('data.pipelineConfig.dataContractAppliesPython'),
     )
 
-  if (!isObject(plugin.arguments)) {
+  const argumentsObject = rawValuesSchema.safeParse(decoded.data.arguments)
+
+  if (!argumentsObject.success) {
     push(
       errors,
       'invalid_shape',
@@ -262,7 +412,7 @@ function validatePluginStep(
     return
   }
 
-  for (const [key, value] of Object.entries(plugin.arguments)) {
+  for (const [key, value] of Object.entries(argumentsObject.data)) {
     if (['__proto__', 'constructor', 'prototype'].includes(key)) {
       push(
         errors,
@@ -273,12 +423,14 @@ function validatePluginStep(
       continue
     }
 
-    if (!isObject(value) || !Object.hasOwn(value, '$ref')) continue
-    const ref = value.$ref
-    const parts = typeof ref === 'string' ? ref.split('.') : []
+    const reference = rawReferenceSchema.safeParse(value)
+
+    if (!reference.success || !Object.hasOwn(reference.data, '$ref')) continue
+    const ref = z.string().safeParse(reference.data.$ref)
+    const parts = ref.success ? ref.data.split('.') : []
 
     if (
-      Object.keys(value).length !== 1 ||
+      Object.keys(reference.data).length !== 1 ||
       !PLUGIN_STEP_REF_ROOTS.includes(parts[0] ?? '') ||
       parts.length > 2 ||
       parts.some((part) => !PLUGIN_STEP_REF_PART.test(part)) ||
@@ -294,10 +446,12 @@ function validatePluginStep(
 }
 
 /** Validate a raw configuration value. Returns every violation found. */
-export function validatePipelineConfig(v: unknown): ConfigError[] {
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public authoring boundary decodes the configuration envelope before reporting every independent field violation.
+export function validatePipelineConfig(configuration: unknown): ConfigError[] {
+  const decoded = rawConfigSchema.safeParse(configuration)
   const errors: ConfigError[] = []
 
-  if (!isObject(v)) {
+  if (!decoded.success) {
     push(
       errors,
       'invalid_shape',
@@ -307,6 +461,8 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
 
     return errors
   }
+
+  const v = decoded.data
 
   if (v.configVersion !== PIPELINE_CONFIG_VERSION) {
     push(
@@ -321,7 +477,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
   if (
     v.description !== undefined &&
     v.description !== null &&
-    (typeof v.description !== 'string' || v.description.length > 2000)
+    !z.string().max(2000).safeParse(v.description).success
   ) {
     push(
       errors,
@@ -350,10 +506,11 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
     }
 
     const names = new Set<string>()
-    v.parameters.forEach((raw, index) => {
+    v.parameters.forEach((value, index) => {
       const field = `parameters[${index}]`
+      const parameter = rawParameterSchema.safeParse(value)
 
-      if (!isObject(raw)) {
+      if (!parameter.success) {
         push(
           errors,
           'invalid_shape',
@@ -364,13 +521,10 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         return
       }
 
-      const name = raw.name
+      const raw = parameter.data
+      const parsedName = inputNameSchema.safeParse(raw.name)
 
-      if (
-        typeof name !== 'string' ||
-        !INPUT_NAME_RE.test(name) ||
-        name === 'previous'
-      ) {
+      if (!parsedName.success) {
         push(
           errors,
           'invalid_value',
@@ -380,6 +534,8 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
 
         return
       }
+
+      const name = parsedName.data
 
       if (names.has(name)) {
         push(
@@ -394,10 +550,9 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
 
       names.add(name)
 
-      if (
-        typeof raw.type !== 'string' ||
-        !(PARAMETER_TYPES as readonly string[]).includes(raw.type)
-      ) {
+      const parameterType = parameterTypeSchema.safeParse(raw.type)
+
+      if (!parameterType.success) {
         push(
           errors,
           'invalid_value',
@@ -409,7 +564,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       if (
         raw.required !== undefined &&
         raw.required !== null &&
-        typeof raw.required !== 'boolean'
+        !z.boolean().safeParse(raw.required).success
       ) {
         push(
           errors,
@@ -433,7 +588,8 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       if (
         raw.default !== undefined &&
         raw.default !== null &&
-        !defaultMatchesType(raw.default, raw.type)
+        (!parameterType.success ||
+          !valueMatchesType(raw.default, parameterType.data))
       ) {
         push(
           errors,
@@ -446,7 +602,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       if (
         raw.description !== undefined &&
         raw.description !== null &&
-        typeof raw.description !== 'string'
+        !z.string().safeParse(raw.description).success
       ) {
         push(
           errors,
@@ -477,10 +633,11 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
     }
 
     const names = new Set<string>()
-    v.inputs.forEach((raw, index) => {
+    v.inputs.forEach((value, index) => {
       const field = `inputs[${index}]`
+      const input = rawInputSchema.safeParse(value)
 
-      if (!isObject(raw)) {
+      if (!input.success) {
         push(
           errors,
           'invalid_shape',
@@ -491,13 +648,10 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         return
       }
 
-      const name = raw.name
+      const raw = input.data
+      const parsedName = inputNameSchema.safeParse(raw.name)
 
-      if (
-        typeof name !== 'string' ||
-        !INPUT_NAME_RE.test(name) ||
-        name === 'previous'
-      ) {
+      if (!parsedName.success) {
         push(
           errors,
           'invalid_value',
@@ -507,6 +661,8 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
 
         return
       }
+
+      const name = parsedName.data
 
       if (names.has(name)) {
         push(
@@ -524,7 +680,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       if (
         raw.required !== undefined &&
         raw.required !== null &&
-        typeof raw.required !== 'boolean'
+        !z.boolean().safeParse(raw.required).success
       ) {
         push(
           errors,
@@ -537,7 +693,9 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
   }
 
   // transform
-  if (!isObject(v.transform)) {
+  const parsedTransform = rawTransformSchema.safeParse(v.transform)
+
+  if (!parsedTransform.success) {
     push(
       errors,
       'invalid_shape',
@@ -545,10 +703,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       t('data.pipelineConfig.transformMustObject'),
     )
   } else {
+    const transform = parsedTransform.data
+
     if (
-      v.transform.language !== 'sql' &&
-      v.transform.language !== 'python' &&
-      v.transform.language !== 'none'
+      transform.language !== 'sql' &&
+      transform.language !== 'python' &&
+      transform.language !== 'none'
     ) {
       push(
         errors,
@@ -559,10 +719,8 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
     }
 
     if (
-      v.transform.language !== 'none' &&
-      (typeof v.transform.statement !== 'string' ||
-        v.transform.statement.trim().length < 1 ||
-        v.transform.statement.length > MAX_STATEMENT_LENGTH)
+      transform.language !== 'none' &&
+      !statementSchema.safeParse(transform.statement).success
     ) {
       push(
         errors,
@@ -572,8 +730,8 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       )
     }
 
-    if (v.transform.contract !== undefined) {
-      if (v.transform.language !== 'python')
+    if (transform.contract !== undefined) {
+      if (transform.language !== 'python')
         push(
           errors,
           'invalid_value',
@@ -581,7 +739,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           t('data.pipelineConfig.dataContractAppliesPython'),
         )
       else
-        for (const message of contractErrors(v.transform.contract))
+        for (const message of contractErrors(transform.contract))
           push(errors, 'invalid_value', 'transform.contract', message)
     }
   }
@@ -597,13 +755,14 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
     } else {
       const names = new Set<string>()
 
-      for (const [index, step] of v.steps.entries()) {
-        if (
-          !isObject(step) ||
-          typeof step.name !== 'string' ||
-          !INPUT_NAME_RE.test(step.name) ||
-          step.name === 'previous'
-        ) {
+      for (const [index, value] of v.steps.entries()) {
+        const parsedStep = rawStepSchema.safeParse(value)
+
+        const name = parsedStep.success
+          ? inputNameSchema.safeParse(parsedStep.data.name)
+          : null
+
+        if (!parsedStep.success || !name?.success) {
           push(
             errors,
             'invalid_value',
@@ -613,14 +772,16 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           continue
         }
 
-        if (names.has(step.name))
+        const step = parsedStep.data
+
+        if (names.has(name.data))
           push(
             errors,
             'duplicate_name',
             `steps[${index}].name`,
             t('data.pipelineConfig.stepNamesMustUnique'),
           )
-        names.add(step.name)
+        names.add(name.data)
 
         if (
           step.language !== 'sql' &&
@@ -647,11 +808,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             t('data.pipelineConfig.pluginOnlyPluginStep'),
           )
 
-        if (
-          typeof step.statement !== 'string' ||
-          !step.statement.trim() ||
-          step.statement.length > MAX_STATEMENT_LENGTH
-        )
+        if (!statementSchema.safeParse(step.statement).success)
           push(
             errors,
             'invalid_value',
@@ -673,18 +830,31 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         }
 
         if (step.confirm !== undefined)
-          validateConfirmStep(errors, step.confirm, index)
+          validateConfirmStep(
+            errors,
+            rawConfirmSchema.safeParse(step.confirm),
+            index,
+          )
       }
 
       // skipSteps must reference a declared step other than the confirm step.
-      for (const [index, step] of v.steps.entries()) {
-        if (!isObject(step) || !isObject(step.confirm)) continue
-        const skips = step.confirm.skipSteps
+      for (const [index, value] of v.steps.entries()) {
+        const parsedStep = rawStepSchema.safeParse(value)
+
+        if (!parsedStep.success) continue
+        const step = parsedStep.data
+        const confirm = rawConfirmSchema.safeParse(step.confirm)
+
+        if (!confirm.success) continue
+        const skips = confirm.data.skipSteps
 
         if (!Array.isArray(skips)) continue
 
-        for (const name of skips) {
-          if (typeof name !== 'string') continue
+        for (const skip of skips) {
+          const parsedName = z.string().safeParse(skip)
+
+          if (!parsedName.success) continue
+          const name = parsedName.data
 
           if (!names.has(name) || name === step.name)
             push(
@@ -709,15 +879,17 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
     } else {
       const ids = new Set<string>()
 
-      for (const item of v.notifications) {
-        if (!isObject(item) || !isUuid(item.subscriptionId))
+      for (const value of v.notifications) {
+        const notification = rawNotificationSchema.safeParse(value)
+
+        if (!notification.success || !isUuid(notification.data.subscriptionId))
           push(
             errors,
             'invalid_value',
             'notifications',
             t('data.pipelineConfig.chooseWebhookDestination'),
           )
-        else if (ids.has(item.subscriptionId))
+        else if (ids.has(notification.data.subscriptionId))
           push(
             errors,
             'duplicate_name',
@@ -725,9 +897,14 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             t('data.pipelineConfig.webhookDestinationsMustUnique'),
           )
         else {
-          ids.add(item.subscriptionId)
+          const item = notification.data
 
-          if (item.payload !== undefined && !isObject(item.payload))
+          ids.add(notification.data.subscriptionId)
+
+          if (
+            item.payload !== undefined &&
+            !rawValuesSchema.safeParse(item.payload).success
+          )
             push(
               errors,
               'invalid_shape',
@@ -740,14 +917,20 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
   }
 
   const usesPython =
-    (isObject(v.transform) && v.transform.language === 'python') ||
+    (parsedTransform.success && parsedTransform.data.language === 'python') ||
     (Array.isArray(v.steps) &&
-      v.steps.some((step) => isObject(step) && step.language === 'python'))
+      v.steps.some((step) => {
+        const parsed = rawStepSchema.safeParse(step)
+
+        return parsed.success && parsed.data.language === 'python'
+      }))
 
   if (
     usesPython &&
-    (typeof v.pythonRuntime !== 'string' ||
-      !/^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/.test(v.pythonRuntime))
+    !z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/)
+      .safeParse(v.pythonRuntime).success
   ) {
     push(
       errors,
@@ -776,7 +959,9 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
   }
 
   // output
-  if (!isObject(v.output)) {
+  const parsedOutput = rawOutputSchema.safeParse(v.output)
+
+  if (!parsedOutput.success) {
     push(
       errors,
       'invalid_shape',
@@ -784,10 +969,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       t('data.pipelineConfig.outputMustObject'),
     )
   } else {
+    const output = parsedOutput.data
+
     if (
-      v.output.mode !== 'create' &&
-      v.output.mode !== 'append' &&
-      v.output.mode !== 'none'
+      output.mode !== 'create' &&
+      output.mode !== 'append' &&
+      output.mode !== 'none'
     ) {
       push(
         errors,
@@ -797,8 +984,8 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       )
     }
 
-    if (v.output.mode === 'create') {
-      if (!isUuid(v.output.schemaVersionId)) {
+    if (output.mode === 'create') {
+      if (!isUuid(output.schemaVersionId)) {
         push(
           errors,
           'invalid_value',
@@ -807,11 +994,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         )
       }
 
-      if (
-        typeof v.output.datasetName !== 'string' ||
-        v.output.datasetName.trim().length < 1 ||
-        v.output.datasetName.length > 200
-      ) {
+      if (!shortLabelSchema.safeParse(output.datasetName).success) {
         push(
           errors,
           'invalid_value',
@@ -821,8 +1004,8 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       }
     }
 
-    if (v.output.mode === 'append') {
-      if (!isUuid(v.output.datasetId)) {
+    if (output.mode === 'append') {
+      if (!isUuid(output.datasetId)) {
         push(
           errors,
           'invalid_value',
@@ -833,10 +1016,8 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
     }
 
     if (
-      v.output.mode !== 'none' &&
-      (typeof v.output.datasetLabel !== 'string' ||
-        v.output.datasetLabel.trim().length < 1 ||
-        v.output.datasetLabel.length > 200)
+      output.mode !== 'none' &&
+      !shortLabelSchema.safeParse(output.datasetLabel).success
     ) {
       push(
         errors,
@@ -847,9 +1028,9 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
     }
 
     if (
-      v.output.fieldMapping !== undefined &&
-      v.output.fieldMapping !== null &&
-      !isObject(v.output.fieldMapping)
+      output.fieldMapping !== undefined &&
+      output.fieldMapping !== null &&
+      !rawValuesSchema.safeParse(output.fieldMapping).success
     ) {
       push(
         errors,
@@ -865,12 +1046,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
 
 function validateConfirmStep(
   errors: ConfigError[],
-  raw: unknown,
+  decoded: z.ZodSafeParseResult<z.infer<typeof rawConfirmSchema>>,
   index: number,
 ): void {
   const field = `steps[${index}].confirm`
 
-  if (!isObject(raw)) {
+  if (!decoded.success) {
     push(
       errors,
       'invalid_shape',
@@ -880,6 +1061,8 @@ function validateConfirmStep(
 
     return
   }
+
+  const raw = decoded.data
 
   if (
     !Array.isArray(raw.fields) ||
@@ -894,14 +1077,15 @@ function validateConfirmStep(
     )
   } else {
     const keys = new Set<string>()
-    raw.fields.forEach((rawField, fieldIndex) => {
+    raw.fields.forEach((value, fieldIndex) => {
       const path = `${field}.fields[${fieldIndex}]`
+      const parsedField = rawConfirmFieldSchema.safeParse(value)
 
-      if (
-        !isObject(rawField) ||
-        typeof rawField.key !== 'string' ||
-        !INPUT_NAME_RE.test(rawField.key)
-      ) {
+      const key = parsedField.success
+        ? identifierSchema.safeParse(parsedField.data.key)
+        : null
+
+      if (!parsedField.success || !key?.success) {
         push(
           errors,
           'invalid_value',
@@ -912,20 +1096,18 @@ function validateConfirmStep(
         return
       }
 
-      if (keys.has(rawField.key))
+      const rawField = parsedField.data
+
+      if (keys.has(key.data))
         push(
           errors,
           'duplicate_name',
           `${path}.key`,
-          `form field key is duplicated: ${rawField.key}`,
+          `form field key is duplicated: ${key.data}`,
         )
-      keys.add(rawField.key)
+      keys.add(key.data)
 
-      if (
-        typeof rawField.label !== 'string' ||
-        rawField.label.trim().length < 1 ||
-        rawField.label.length > 200
-      )
+      if (!shortLabelSchema.safeParse(rawField.label).success)
         push(
           errors,
           'invalid_value',
@@ -933,10 +1115,7 @@ function validateConfirmStep(
           t('data.pipelineConfig.eachFormFieldNeeds2'),
         )
 
-      if (
-        typeof rawField.type !== 'string' ||
-        !(PARAMETER_TYPES as readonly string[]).includes(rawField.type)
-      )
+      if (!parameterTypeSchema.safeParse(rawField.type).success)
         push(
           errors,
           'invalid_value',
@@ -946,7 +1125,7 @@ function validateConfirmStep(
 
       if (
         rawField.required !== undefined &&
-        typeof rawField.required !== 'boolean'
+        !z.boolean().safeParse(rawField.required).success
       )
         push(
           errors,
@@ -957,15 +1136,16 @@ function validateConfirmStep(
 
       if (
         rawField.options !== undefined &&
-        (!Array.isArray(rawField.options) ||
-          rawField.options.length < 1 ||
-          rawField.options.length > 50 ||
-          rawField.options.some(
-            (option) =>
-              typeof option !== 'string' ||
-              option.trim().length === 0 ||
-              option.length > 100,
-          ))
+        !z
+          .array(
+            z
+              .string()
+              .max(100)
+              .refine((option) => option.trim().length > 0),
+          )
+          .min(1)
+          .max(50)
+          .safeParse(rawField.options).success
       )
         push(
           errors,
@@ -977,12 +1157,11 @@ function validateConfirmStep(
   }
 
   if (
-    !Array.isArray(raw.askedUserIds) ||
-    raw.askedUserIds.length < 1 ||
-    raw.askedUserIds.length > MAX_CONFIRM_ASKED_USERS ||
-    raw.askedUserIds.some(
-      (userId) => typeof userId !== 'string' || userId.trim().length === 0,
-    )
+    !z
+      .array(z.string().refine((userId) => userId.trim().length > 0))
+      .min(1)
+      .max(MAX_CONFIRM_ASKED_USERS)
+      .safeParse(raw.askedUserIds).success
   ) {
     push(
       errors,
@@ -994,9 +1173,7 @@ function validateConfirmStep(
 
   if (
     raw.noAnswer !== undefined &&
-    !(CONFIRM_NO_ANSWER_OUTCOMES as readonly string[]).includes(
-      raw.noAnswer as string,
-    )
+    !z.enum(CONFIRM_NO_ANSWER_OUTCOMES).safeParse(raw.noAnswer).success
   ) {
     push(
       errors,
@@ -1008,10 +1185,12 @@ function validateConfirmStep(
 
   if (
     raw.expiresHours !== undefined &&
-    (typeof raw.expiresHours !== 'number' ||
-      !Number.isInteger(raw.expiresHours) ||
-      raw.expiresHours < 1 ||
-      raw.expiresHours > MAX_CONFIRM_EXPIRY_HOURS)
+    !z
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_CONFIRM_EXPIRY_HOURS)
+      .safeParse(raw.expiresHours).success
   ) {
     push(
       errors,
@@ -1023,10 +1202,7 @@ function validateConfirmStep(
 
   if (
     raw.skipSteps !== undefined &&
-    (!Array.isArray(raw.skipSteps) ||
-      raw.skipSteps.some(
-        (name) => typeof name !== 'string' || !INPUT_NAME_RE.test(name),
-      ))
+    !z.array(identifierSchema).safeParse(raw.skipSteps).success
   ) {
     push(
       errors,
@@ -1034,25 +1210,6 @@ function validateConfirmStep(
       `${field}.skipSteps`,
       'skipSteps must be a list of lowercase step identifiers.',
     )
-  }
-}
-
-function defaultMatchesType(value: unknown, type: unknown): boolean {
-  switch (type) {
-    case 'text':
-      return typeof value === 'string'
-    case 'integer':
-      return typeof value === 'number' && Number.isInteger(value)
-    case 'decimal':
-      return typeof value === 'number' && Number.isFinite(value)
-    case 'boolean':
-      return typeof value === 'boolean'
-    case 'date':
-      return typeof value === 'string' && DATE_RE.test(value)
-    case 'timestamp':
-      return typeof value === 'string' && !Number.isNaN(Date.parse(value))
-    default:
-      return false
   }
 }
 
@@ -1095,23 +1252,23 @@ export function confirmExpiryHours(confirm: PipelineStepConfirm): number {
  */
 export function validateConfirmAnswer(
   confirm: PipelineStepConfirm,
-  answer: unknown,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public decision boundary immediately decodes the answer envelope before checking its form values.
+  input: unknown,
 ): string | null {
-  if (!isObject(answer))
-    return t('data.pipelineConfig.answerMustObjectDecision')
+  const decoded = rawAnswerSchema.safeParse(input)
 
-  if (
-    typeof answer.decision !== 'string' ||
-    !(CONFIRM_DECISIONS as readonly string[]).includes(answer.decision)
-  )
+  if (!decoded.success) return t('data.pipelineConfig.answerMustObjectDecision')
+
+  const answer = decoded.data
+
+  if (!z.enum(CONFIRM_DECISIONS).safeParse(answer.decision).success)
     return t('data.pipelineConfig.decisionMustConfirmSkip')
-  const values = answer.values
+  const values = rawValuesSchema.optional().safeParse(answer.values)
 
-  if (values !== undefined && !isObject(values))
-    return t('data.pipelineConfig.valuesMustObject')
+  if (!values.success) return t('data.pipelineConfig.valuesMustObject')
 
   if (answer.decision !== 'confirm') return null
-  const supplied = values ?? {}
+  const supplied = values.data ?? {}
 
   for (const field of confirm.fields) {
     const present = field.key in supplied
@@ -1129,7 +1286,7 @@ export function validateConfirmAnswer(
 }
 
 export interface ResolvedRunRequest {
-  parameters: Record<string, unknown>
+  parameters: Record<string, z.core.util.JSONType>
   inputVersions: Record<string, string>
 }
 
@@ -1141,12 +1298,16 @@ export interface ResolvedRunRequest {
  */
 export function validatePipelineRunRequest(
   config: PipelineConfig,
-  parameters: Record<string, unknown>,
-  inputVersions: Record<string, string>,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public run boundary immediately decodes the parameter map before checking each declared type.
+  rawParameters: unknown,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public run boundary immediately decodes the input-version map before checking each declared input id.
+  rawInputVersions: unknown,
 ): ConfigError[] {
+  const parsedParameters = rawValuesSchema.safeParse(rawParameters)
+  const parsedInputVersions = rawValuesSchema.safeParse(rawInputVersions)
   const errors: ConfigError[] = []
 
-  if (!isObject(parameters)) {
+  if (!parsedParameters.success) {
     push(
       errors,
       'invalid_shape',
@@ -1157,7 +1318,7 @@ export function validatePipelineRunRequest(
     return errors
   }
 
-  if (!isObject(inputVersions)) {
+  if (!parsedInputVersions.success) {
     push(
       errors,
       'invalid_shape',
@@ -1168,6 +1329,8 @@ export function validatePipelineRunRequest(
     return errors
   }
 
+  const parameters = parsedParameters.data
+  const inputVersions = parsedInputVersions.data
   const declared = new Map(config.parameters.map((p) => [p.name, p]))
 
   for (const [key, value] of Object.entries(parameters)) {
@@ -1211,7 +1374,7 @@ export function validatePipelineRunRequest(
         `input_versions.${key}`,
         `unknown input: ${key}`,
       )
-    } else if (typeof value !== 'string' || !isUuid(value)) {
+    } else if (!isUuid(value)) {
       push(
         errors,
         'invalid_value',
@@ -1235,21 +1398,14 @@ export function validatePipelineRunRequest(
   return errors
 }
 
-function valueMatchesType(value: unknown, type: ParameterType): boolean {
-  switch (type) {
-    case 'text':
-      return typeof value === 'string'
-    case 'integer':
-      return typeof value === 'number' && Number.isInteger(value)
-    case 'decimal':
-      return typeof value === 'number' && Number.isFinite(value)
-    case 'boolean':
-      return typeof value === 'boolean'
-    case 'date':
-      return typeof value === 'string' && DATE_RE.test(value)
-    case 'timestamp':
-      return typeof value === 'string' && !Number.isNaN(Date.parse(value))
-    default:
-      return false
-  }
+function valueMatchesType(
+  value: unknown,
+  type: ParameterType,
+): value is ParameterValue {
+  const parameterType = parameterTypeSchema.safeParse(type)
+
+  return (
+    parameterType.success &&
+    parameterValueSchemas[parameterType.data].safeParse(value).success
+  )
 }

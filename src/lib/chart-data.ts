@@ -19,11 +19,15 @@
  * not through client calls.
  */
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import { queryDatasetVersionRows } from './dataset-product'
-import type { DatasetVersionWire } from './dataset-product'
+import type {
+  DatasetVersionRowPage,
+  DatasetVersionWire,
+} from './dataset-product'
 import { toBlock } from './notebook-data'
 import type { BlockWire, NotebookBlock } from './notebook-data'
 import {
@@ -129,7 +133,7 @@ export function toCanonicalDatasetSource(dataset: {
 
 export interface ResolvedDataset {
   source: CanonicalDatasetSource
-  rows: Record<string, unknown>[]
+  rows: DatasetVersionRowPage['rows'][number]['values'][]
   /** True when totalCount exceeded SCI_ANALYSIS_ROW_LIMIT and rows were cut. */
   truncated: boolean
   totalCount: number
@@ -207,12 +211,12 @@ async function fetchRowsPaged(
     limit: number,
     offset: number,
   ) => Promise<{
-    rows: Record<string, unknown>[]
+    rows: ResolvedDataset['rows']
     totalCount: number
     datasetRevision?: number
   }>,
 ): Promise<{
-  rows: Record<string, unknown>[]
+  rows: ResolvedDataset['rows']
   totalCount: number
   truncated: boolean
   datasetRevision?: number
@@ -254,7 +258,7 @@ export async function fetchDatasetRows(
   client: DataClient,
   datasetId: string,
 ): Promise<{
-  rows: Record<string, unknown>[]
+  rows: ResolvedDataset['rows']
   totalCount: number
   truncated: boolean
   datasetRevision?: number
@@ -265,7 +269,7 @@ export async function fetchDatasetRows(
         rows: Array<{
           rowId: string
           revision: number
-          values: Record<string, unknown>
+          values: DatasetVersionRowPage['rows'][number]['values']
         }>
         totalCount: number
         datasetRevision: number
@@ -326,9 +330,12 @@ export async function resolveDatasetRef(
 
   // Flags do not increment Dataset revision. Read them around the rows, then
   // recheck metadata so all presented values, exclusions and units coexisted.
+  // react-doctor-disable-next-line react-doctor/async-parallel -- This sequence brackets rows with flag reads, then rechecks schema/revision; parallel reads cannot establish that order.
   const flags = await fetchActiveDatasetFlags(client, source.datasetId)
+  // react-doctor-disable-next-line react-doctor/server-sequential-independent-await -- Rows must follow the first flag read and preserve its first failure.
   const paged = await fetchDatasetRows(client, source.datasetId)
   const currentFlags = await fetchActiveDatasetFlags(client, source.datasetId)
+  // react-doctor-disable-next-line react-doctor/server-sequential-independent-await -- Metadata must be rechecked after the second flag read, not concurrently with the population read.
   const current = await fetchCanonicalDataset(client, source.datasetId)
 
   if (
@@ -350,7 +357,7 @@ export async function fetchDatasetVersionRows(
   client: DataClient,
   datasetVersionId: string,
 ): Promise<{
-  rows: Record<string, unknown>[]
+  rows: ResolvedDataset['rows']
   totalCount: number
   truncated: boolean
 }> {
@@ -472,22 +479,20 @@ export function materialiseFrozenChart(frozen: FrozenChart): MaterialisedChart {
 }
 
 export function frozenPinsDatasetVersion(frozen: FrozenChart): string | null {
-  const versionId = frozen.datasetProvenance[0]?.datasetVersionId
+  const versionId = z
+    .string()
+    .min(1)
+    .safeParse(frozen.datasetProvenance[0]?.datasetVersionId)
 
-  return typeof versionId === 'string' && versionId.length > 0
-    ? versionId
-    : null
+  return versionId.success ? versionId.data : null
 }
 
 export function reconstructFrozenVisualisation(input: {
   spec: ChartSpec
   frozen: FrozenChart
-  rows: Record<string, unknown>[]
+  rows: ResolvedDataset['rows']
   flags?: DatasetValueFlag[]
-}): {
-  chart: MaterialisedChart
-  facets: { panels: FacetedChart[]; total: number } | null
-} {
+}) {
   const columns: ChartColumn[] = input.frozen.data.columns.map((column) => ({
     id: column.fieldId,
     label: column.label,
@@ -543,7 +548,7 @@ export async function fetchFrozenAnalysisRows(
   expectedRowCount: number,
   exclusionPolicy?: 'include_flagged' | 'exclude_bound_fields',
 ): Promise<{
-  rows: Record<string, unknown>[]
+  rows: ResolvedDataset['rows']
   totalCount: number
   matchesProvenance: boolean
   flags: DatasetValueFlag[]

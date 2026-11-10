@@ -142,10 +142,6 @@ const relationshipSchema = z.object({
   cardinality: z.enum(['one', 'many']),
 })
 
-function numberValue(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
 /**
  * The editor's own validation, mirroring the server's field checks
  * (`internal.replace_dataset_schema_version_fields` and the text/numeric
@@ -181,15 +177,15 @@ export function validateDraft(
     }
 
     const validation = row.validation ?? {}
-    const min = numberValue(validation.min)
-    const max = numberValue(validation.max)
+    const min = validation.min ?? null
+    const max = validation.max ?? null
 
     if (min !== null && max !== null && min > max) {
       issues.set(row.rowKey, 'Minimum is more than maximum.')
     }
 
-    const minLength = numberValue(validation.minLength)
-    const maxLength = numberValue(validation.maxLength)
+    const minLength = validation.minLength ?? null
+    const maxLength = validation.maxLength ?? null
 
     if (minLength !== null && maxLength !== null && minLength > maxLength) {
       issues.set(row.rowKey, 'Minimum length is more than maximum length.')
@@ -224,14 +220,13 @@ export function validateDraft(
 }
 
 /** Deterministic JSON so jsonb key reordering never reads as a change. */
-export function stableJson(value: unknown): string {
+export function stableJson(value: z.core.util.JSONType): string {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Finite JSON is already validated; only objects need key sorting, while scalar JSON retains its native encoding.
   if (value === null || typeof value !== 'object') return JSON.stringify(value)
 
   if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
 
-  const entries = Object.entries(value as Record<string, unknown>).sort(
-    ([a], [b]) => a.localeCompare(b),
-  )
+  const entries = Object.entries(value).sort(([a], [b]) => a.localeCompare(b))
 
   return `{${entries
     .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
@@ -359,7 +354,10 @@ export function mergeDraftRows(input: {
 }
 
 /** True when the refusal is the stale-revision conflict (SB001). */
-export function isStaleRevision(error: unknown): boolean {
+export function isStaleRevision(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught transport rejection is external; DataClientError/Error establish its message contract immediately.
+  error: unknown,
+): boolean {
   if (error instanceof DataClientError) return error.code === 'SB001'
   const message = error instanceof Error ? error.message : String(error)
 
@@ -367,7 +365,10 @@ export function isStaleRevision(error: unknown): boolean {
 }
 
 /** True when the draft is locked because an approval request is open (SB085). */
-export function isApprovalLock(error: unknown): boolean {
+export function isApprovalLock(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught transport rejection is external; DataClientError/Error establish its message contract immediately.
+  error: unknown,
+): boolean {
   if (error instanceof DataClientError) return error.code === 'SB085'
   const message = error instanceof Error ? error.message : String(error)
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  shapePage,
+  publicEventPage,
   sseFrame,
   streamEventName,
   toCloudEvent,
@@ -56,7 +56,7 @@ describe('event stream', () => {
   })
 
   it('skips changes that are not catalogued and filters by name', () => {
-    const page = shapePage(
+    const page = publicEventPage(
       'ws-1',
       {
         events: [row(), row({ sequence: 8, entity_type: 'nothing' })],
@@ -73,7 +73,7 @@ describe('event stream', () => {
     expect(page.events).toHaveLength(1)
     expect(page.nextCursor).toBe(8)
 
-    const none = shapePage(
+    const none = publicEventPage(
       'ws-1',
       {
         events: [row()],
@@ -96,5 +96,34 @@ describe('event stream', () => {
       frame.startsWith('id: 7\nevent: pipeline.run.reproduced\ndata: {'),
     ).toBe(true)
     expect(frame.endsWith('\n\n')).toBe(true)
+  })
+
+  it('retains captured native payloads and omissions until frame serialization', () => {
+    const payload = {
+      action: 'reproduced',
+      capturedNull: null,
+      capturedFalse: false,
+      capturedZero: 0,
+      omitted: undefined,
+      when: new Date('2026-11-07T01:02:03Z'),
+      native: new Map([['key', 9]]),
+    }
+
+    const event = toCloudEvent('ws-1', row({ payload, sequence: '0007' }))
+
+    expect(event?.data.data).toBe(payload)
+    expect(event?.sequence).toBe('7')
+    expect(Object.hasOwn(payload, 'omitted')).toBe(true)
+    expect(Object.hasOwn(payload, 'absent')).toBe(false)
+
+    if (!event) throw new Error('Expected a catalogued event')
+
+    const frame = sseFrame(event)
+    expect(frame).toContain('"capturedNull":null')
+    expect(frame).toContain('"capturedFalse":false')
+    expect(frame).toContain('"capturedZero":0')
+    expect(frame).not.toContain('"omitted"')
+    expect(frame).toContain('"when":"2026-11-07T01:02:03.000Z"')
+    expect(frame).toContain('"native":{}')
   })
 })

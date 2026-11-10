@@ -1,24 +1,36 @@
+// @vitest-environment node
 /**
  * The request limits of a plugin’s routes are the plugin’s own settings, and
  * by default there are none on rate.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 
-import { handleExtensionRun } from './run-route.server'
 import type { ExtensionRunRouteDeps } from './run-route.server'
+import type { PluginLimitOverrides } from './runtime-config'
 import { buildPluginPackage } from './package'
 import { readExample } from './testing/local-python'
 
-vi.mock('#/lib/auth', () => ({ getAppSession: async () => null }))
+vi.stubEnv('DATABASE_URL', 'postgresql://test:test@localhost:1/test')
+
+vi.stubEnv('FORMULA_DATABASE_URL', 'postgresql://test:test@localhost:1/test')
+
+vi.stubEnv('BETTER_AUTH_SECRET', 'extension-unit-test-secret-not-for-use')
+
+vi.stubEnv('PGRST_JWT_SECRET', 'extension-unit-test-token-not-for-use')
+
+const { handleExtensionRun } = await import('./run-route.server')
+
+afterAll(() => vi.unstubAllEnvs())
 
 const pkg = buildPluginPackage(readExample('cell-count'))
 
-function setup(overrides: Record<string, unknown> = {}) {
+function setup(overrides: PluginLimitOverrides = {}) {
   const executePython = vi.fn(async () => ({
     rows: [{ viability: 92, total: 100 }],
     logs: [],
     runtime: 'x',
   }))
+
   const deps: ExtensionRunRouteDeps = {
     getSession: async () => ({ user: { id: 'u1' } }),
     getMember: async () => ({ workspaceId: 'w', role: 'member' }),
@@ -57,7 +69,8 @@ function setup(overrides: Record<string, unknown> = {}) {
       now: () => 0,
     },
   }
-  const send = (body: unknown) =>
+
+  const send = <T extends object>(body: T) =>
     handleExtensionRun(
       new Request('http://x/api/plugins/run', {
         method: 'POST',
@@ -65,6 +78,7 @@ function setup(overrides: Record<string, unknown> = {}) {
       }),
       deps,
     )
+
   return { send, executePython }
 }
 
@@ -78,6 +92,7 @@ const operation = (live = 92) => ({
 describe('plugin calls', () => {
   it('have no rate limit unless an administrator sets one', async () => {
     const { send } = setup()
+
     for (let index = 0; index < 150; index += 1)
       expect((await send(operation(index))).status).toBe(200)
   })
@@ -85,36 +100,41 @@ describe('plugin calls', () => {
   it('stop at the plugin’s own rate when one is set, naming what to change', async () => {
     const { send } = setup({ callsPerMinute: 3 })
     const statuses = []
+
     for (let index = 0; index < 5; index += 1)
       statuses.push((await send(operation(index))).status)
     expect(statuses).toEqual([200, 200, 200, 429, 429])
     const refused = await send(operation(9))
-    expect(((await refused.json()) as { error: string }).error).toMatch(
-      /Too many calls to this plugin/,
-    )
+    expect(await refused.json()).toMatchObject({
+      error: expect.stringMatching(/Too many calls to this plugin/),
+    })
   })
 
   it('refuse more data than the plugin is set up to take, naming where to change it', async () => {
     // 0.001 MB is about a kilobyte.
     const { send, executePython } = setup({ dataMb: 0.001 })
+
     const big = {
       ...operation(),
       input: { live: 1, dead: 1, pad: 'x'.repeat(5000) },
     }
+
     const response = await send(big)
     expect(response.status).toBe(413)
-    expect(((await response.json()) as { error: string }).error).toMatch(
-      /Settings → Plugins/,
-    )
+    expect(await response.json()).toMatchObject({
+      error: expect.stringMatching(/Settings → Plugins/),
+    })
     expect(executePython).not.toHaveBeenCalled()
   })
 
   it('take large requests when the plugin allows them', async () => {
     const { send } = setup({ dataMb: 64 })
+
     const response = await send({
       ...operation(),
       input: { live: 1, dead: 1 },
     })
+
     expect(response.status).toBe(200)
   })
 })

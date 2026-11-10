@@ -7,9 +7,18 @@
  * runs, secrets, provenance, retry/idempotency and audit. Vendor specifics
  * stay inside each adapter — there is no second integration framework.
  */
+import { z } from 'zod'
 import type { DataClient } from '#/lib/data-client'
 import type { ConnectorWire } from '../types'
-import type { ImportLimits } from './types'
+import type {
+  ImportLimits,
+  PostgresConnectorConfig,
+  S3ConnectorConfig,
+  PostgresDiscoveryResult,
+  S3DiscoveryPage,
+  PreviewResult,
+  TestConnectionResult,
+} from './types'
 import type {
   ImportColumnMapping,
   ImportTargetField,
@@ -44,6 +53,50 @@ export interface ConnectorImportTarget {
   fields: ImportTargetField[]
 }
 
+const importTargetFieldSchema = z.object({
+  id: z.string(),
+  key: z.string().optional(),
+  label: z.string(),
+  logicalType: z.string(),
+  nullable: z.boolean(),
+  options: z
+    .array(
+      z.object({
+        id: z.string(),
+        key: z.string().optional(),
+        label: z.string(),
+      }),
+    )
+    .optional(),
+  unit: z.string().nullish(),
+  kind: z.enum([
+    'dataset-field',
+    'record-field',
+    'record-title',
+    'record-status',
+  ]),
+}) satisfies z.ZodType<ImportTargetField>
+
+export const connectorImportTargetSchema = z.object({
+  datasetId: z.string().nullish(),
+  expectedRevision: z.number().nullish(),
+  newDatasetName: z.string().nullish(),
+  schemaVersionId: z.string(),
+  fields: z.array(importTargetFieldSchema),
+}) satisfies z.ZodType<ConnectorImportTarget>
+
+export const connectorImportMappingsSchema = z.array(
+  z.discriminatedUnion('kind', [
+    z.object({ source: z.string(), kind: z.literal('ignore') }),
+    z.object({
+      source: z.string(),
+      kind: z.literal('field'),
+      field: importTargetFieldSchema,
+      sourceUnit: z.string().nullish(),
+    }),
+  ]),
+) satisfies z.ZodType<ImportColumnMapping[]>
+
 export interface ConnectorImportRequest<TSource> {
   /** Selector of the source object/table to import. */
   source: TSource
@@ -53,45 +106,49 @@ export interface ConnectorImportRequest<TSource> {
   mappings?: ImportColumnMapping[]
 }
 
-export interface ConnectorImportResult {
-  runId: string
-  attempt: number
-  alreadyCompleted: boolean
-  rowCount: number
-  datasetId: string
-  datasetRevision?: number
-}
+export const connectorImportResultSchema = z.object({
+  runId: z.string(),
+  attempt: z.number(),
+  alreadyCompleted: z.boolean(),
+  rowCount: z.number(),
+  datasetId: z.string(),
+  datasetRevision: z.number().optional(),
+})
+
+export type ConnectorImportResult = z.infer<typeof connectorImportResultSchema>
 
 /**
  * One enterprise connector adapter. `discover`/`preview` return bounded,
  * safe payloads; `ingest` runs the governed execution model end-to-end and
  * reports the finished run.
  */
-export interface EnterpriseConnectorAdapter<TSource = unknown> {
+export interface EnterpriseConnectorAdapter<
+  TSource = S3ConnectorConfig | PostgresConnectorConfig,
+> {
   readonly id: string
   /** Required + optional secret names for this adapter. */
   readonly requiredSecrets: readonly string[]
   readonly optionalSecrets?: readonly string[]
   /** Parse + validate non-secret config; throws a safe message when invalid. */
-  parseConfig: (config: Record<string, unknown>) => TSource
+  parseConfig: (config: ConnectorWire['config']) => TSource
   testConnection: (
     context: ConnectorAdapterContext,
     source: TSource,
-  ) => Promise<{ detail?: Record<string, unknown> }>
+  ) => Promise<Pick<TestConnectionResult, 'detail'>>
   discover: (
     context: ConnectorAdapterContext,
     source: TSource,
-    query: Record<string, unknown>,
-  ) => Promise<unknown>
+    query: ConnectorWire['config'],
+  ) => Promise<S3DiscoveryPage | PostgresDiscoveryResult>
   preview: (
     context: ConnectorAdapterContext,
     source: TSource,
-    selector: Record<string, unknown>,
-  ) => Promise<unknown>
+    selector: ConnectorWire['config'],
+  ) => Promise<PreviewResult>
   ingest: (
     context: ConnectorAdapterContext,
     source: TSource,
-    request: ConnectorImportRequest<Record<string, unknown>>,
+    request: ConnectorImportRequest<ConnectorWire['config']>,
   ) => Promise<ConnectorImportResult>
 }
 
@@ -100,24 +157,26 @@ export interface AnyEnterpriseConnectorAdapter {
   id: string
   requiredSecrets: readonly string[]
   optionalSecrets?: readonly string[]
-  parseConfig: (config: Record<string, unknown>) => unknown
+  parseConfig: (
+    config: ConnectorWire['config'],
+  ) => S3ConnectorConfig | PostgresConnectorConfig
   testConnection: (
     context: ConnectorAdapterContext,
     source: never,
-  ) => Promise<{ detail?: Record<string, unknown> }>
+  ) => Promise<Pick<TestConnectionResult, 'detail'>>
   discover: (
     context: ConnectorAdapterContext,
     source: never,
-    query: Record<string, unknown>,
-  ) => Promise<unknown>
+    query: ConnectorWire['config'],
+  ) => Promise<S3DiscoveryPage | PostgresDiscoveryResult>
   preview: (
     context: ConnectorAdapterContext,
     source: never,
-    selector: Record<string, unknown>,
-  ) => Promise<unknown>
+    selector: ConnectorWire['config'],
+  ) => Promise<PreviewResult>
   ingest: (
     context: ConnectorAdapterContext,
     source: never,
-    request: ConnectorImportRequest<Record<string, unknown>>,
+    request: ConnectorImportRequest<ConnectorWire['config']>,
   ) => Promise<ConnectorImportResult>
 }

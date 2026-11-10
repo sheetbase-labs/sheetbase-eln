@@ -64,34 +64,44 @@ export function defaultEventHookDeps(): EventHookDeps {
     hooksFor: async (workspaceId, eventName) => {
       const hit = cache.get(workspaceId)
       let hooks: Hook[]
+
       if (hit && Date.now() - hit.at < CACHE_MS) hooks = hit.hooks
       else {
-        const { db } = await import('#/db/client.server')
-        const { extensions } = await import('#/db/schema')
-        const { eq } = await import('drizzle-orm')
+        const [{ db }, { extensions }, { eq }] = await Promise.all([
+          import('#/db/client.server'),
+          import('#/db/schema'),
+          import('drizzle-orm'),
+        ])
+
         const rows = await db
           .select()
           .from(extensions)
           .where(eq(extensions.workspaceId, workspaceId))
+
         hooks = resolveRunnerPoints(
           rows.map((row) => ({
             id: row.id,
             key: row.key,
             name: row.name,
             status: row.status,
-            manifest: row.manifest as never,
+            manifest: row.manifest,
             disabled_points: row.disabledPoints,
           })),
         ).data['event-hooks']
         cache.set(workspaceId, { at: Date.now(), hooks })
       }
+
       return hooks.filter((hook) => hook.declaration.events.includes(eventName))
     },
     store: defaultHookStore(),
     loadRecord: async (workspaceId, actorUserId, recordId) => {
-      const { env } = await import('#/env.server')
-      const { mintPostgrestToken } = await import('#/lib/postgrest-token')
-      const { postgrestSelect } = await import('#/lib/request-auth')
+      const [{ env }, { mintPostgrestToken }, { postgrestSelect }] =
+        await Promise.all([
+          import('#/env.server'),
+          import('#/lib/postgrest-token'),
+          import('#/lib/request-auth'),
+        ])
+
       const token = await mintPostgrestToken(env.PGRST_JWT_SECRET, {
         userId: actorUserId,
         workspaceId,
@@ -99,11 +109,13 @@ export function defaultEventHookDeps(): EventHookDeps {
         clientId: PLUGIN_CLIENT_ID,
         ttlSeconds: 60,
       })
+
       const found = await postgrestSelect<RecordSnapshot[]>(
         'records',
         `id=eq.${recordId}&select=id,identifier,kind,title,status,tags,properties,custom_fields,project_id`,
         token,
       )
+
       return Array.isArray(found.body) && found.body[0] ? found.body[0] : null
     },
   }
@@ -117,15 +129,20 @@ export async function runEventHooks(
   // A plugin's own audit events and its own writes must not set reactions off,
   // or one could feed itself.
   if (event.entityType === 'extension') return 0
+
   if (event.clientId === PLUGIN_CLIENT_ID) return 0
   let done = 0
+
   try {
     const hooks = await deps.hooksFor(event.workspaceId, event.name)
+
     if (hooks.length === 0) return 0
+
     // Everything a reaction does is done as the person whose change it was; a
     // change with no person has nobody to do it as.
     if (!event.actorUserId) return 0
     let record: RecordSnapshot | null | undefined
+
     for (const hook of hooks) {
       try {
         if (record === undefined)
@@ -139,6 +156,7 @@ export async function runEventHooks(
                   )
                   .catch(() => null)
               : null
+
         const answer = await runExtensionEventHook(
           {
             workspaceId: event.workspaceId,
@@ -155,6 +173,7 @@ export async function runEventHooks(
           },
           deps.runtime,
         )
+
         const outcome = await applyHookAnswer(
           deps.store,
           {
@@ -166,6 +185,7 @@ export async function runEventHooks(
           },
           answer,
         )
+
         done += outcome.done.length
       } catch (error) {
         logger.warn('plugin reaction failed', {
@@ -181,5 +201,6 @@ export async function runEventHooks(
       error: error instanceof Error ? error.message : String(error),
     })
   }
+
   return done
 }

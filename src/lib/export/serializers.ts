@@ -36,10 +36,7 @@ export const EXPORT_FORMATS = [
 export type ExportFormat = (typeof EXPORT_FORMATS)[number]
 
 export function isExportFormat(value: unknown): value is ExportFormat {
-  return (
-    typeof value === 'string' &&
-    (EXPORT_FORMATS as readonly string[]).includes(value)
-  )
+  return EXPORT_FORMATS.some((format) => format === value)
 }
 
 /** Hard cap for formats that materialise column arrays (Parquet). */
@@ -74,35 +71,28 @@ export interface ExportMetaInput {
  * Build the `_meta` envelope embedded in JSON exports and the XLSX Metadata
  * sheet. Key order is fixed construction order, so output is deterministic.
  */
-export function buildExportMeta(
-  input: ExportMetaInput,
-): Record<string, unknown> {
-  const meta: Record<string, unknown> = {
+export function buildExportMeta(input: ExportMetaInput) {
+  return {
     kind: input.kind,
     state: input.state,
     objectId: input.objectId,
     workspaceId: input.workspaceId,
     name: input.name,
+    ...(input.sourceRevision !== undefined && {
+      sourceRevision: input.sourceRevision,
+    }),
+    ...(input.datasetVersion && { datasetVersion: input.datasetVersion }),
+    ...(input.fields && {
+      schema: input.fields.map((f) => ({
+        key: f.key,
+        label: f.label,
+        logicalType: f.logicalType,
+        nullable: f.nullable,
+        unit: f.unit,
+      })),
+    }),
+    notes: input.notes,
   }
-
-  if (input.sourceRevision !== undefined)
-    meta.sourceRevision = input.sourceRevision
-
-  if (input.datasetVersion) meta.datasetVersion = input.datasetVersion
-
-  if (input.fields) {
-    meta.schema = input.fields.map((f) => ({
-      key: f.key,
-      label: f.label,
-      logicalType: f.logicalType,
-      nullable: f.nullable,
-      unit: f.unit,
-    }))
-  }
-
-  meta.notes = input.notes
-
-  return meta
 }
 
 export const LIVE_STATE_NOTE =
@@ -117,7 +107,7 @@ export const VERSION_STATE_NOTE =
 // ---------------------------------------------------------------------------
 
 /** Canonical row object used by JSON/NDJSON exports (keyed by field id). */
-export function rowJsonObject(row: ExportRow): Record<string, unknown> {
+export function rowJsonObject(row: ExportRow) {
   return { rowId: row.rowId, revision: row.revision, values: row.values }
 }
 
@@ -151,19 +141,27 @@ interface XlsxCell {
   number?: number
 }
 
+// XLSX cells accept the same arbitrary JavaScript values as ExportRow.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
 function xlsxCellFor(value: unknown): XlsxCell {
   if (value === null || value === undefined)
     return { kind: 'inline', inline: '' }
 
+  // Finite numbers remain numeric cells; non-finite numbers remain text.
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof
   if (typeof value === 'number' && Number.isFinite(value))
     return { kind: 'number', number: value }
 
+  // Bigints have always been converted to numeric XLSX cells.
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof
   if (typeof value === 'bigint')
     return { kind: 'number', number: Number(value) }
 
   if (value === true || value === false)
     return { kind: 'boolean', number: value ? 1 : 0 }
 
+  // Preserve JavaScript coercion for all other public input values.
+  // oxlint-disable-next-line typescript/no-base-to-string
   return { kind: 'inline', inline: String(value) }
 }
 

@@ -26,7 +26,11 @@ import { DataClientError } from './data-client'
 import type { NotebookRecord, RecordWire } from './notebook-data'
 import { toRecord } from './notebook-data'
 import type { RegistryFilterValue, RegistryQuery } from './registry'
-import type { ModelFieldDefinition } from './model-fields'
+import type {
+  ModelFieldDefinition,
+  ModelFieldRecordValues,
+} from './model-fields'
+import { pipelineJsonObjectSchema } from './pipelines/types'
 import { displayModelFieldValue, modelFieldColumnId } from './model-fields'
 import { listByIds } from '#/lib/chunk-ids'
 
@@ -140,7 +144,7 @@ function asStringArray(value: unknown): string[] | undefined {
 }
 
 export interface SampleRecord extends NotebookRecord {
-  customFields: Record<string, unknown>
+  customFields: ModelFieldRecordValues['customFields']
   sampleType: string | null
   quantity: number | null
   quantityUnit: string | null
@@ -168,7 +172,7 @@ export function toSampleRecord(row: RecordWire): SampleRecord {
 
   return {
     ...base,
-    customFields: row.custom_fields ?? {},
+    customFields: pipelineJsonObjectSchema.parse(row.custom_fields ?? {}),
     sampleType: props.sampleType ?? null,
     quantity: props.quantity ?? null,
     quantityUnit: props.quantityUnit ?? null,

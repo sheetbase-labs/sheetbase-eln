@@ -26,6 +26,7 @@
  * input digest replays the prior success (idempotent); a retry links a new
  * attempt to the failed run.
  */
+import { z } from 'zod'
 import {
   buildResultPreview,
   readResultPreview,
@@ -36,8 +37,14 @@ import {
   PipelinePythonError,
   executePythonTransform,
   releasePythonArtefacts,
+  pythonInputRowsSchema,
+  pythonInputsSchema,
 } from './pipeline-python.server'
-import type { PythonTransformUsage } from './pipeline-python.server'
+import type {
+  PythonTransformUsage,
+  pythonInputValueSchema,
+  pythonInputRowSchema,
+} from './pipeline-python.server'
 import { queuePipelineNotifications } from './pipeline-notifications.server'
 import { executePipelineActions } from './pipeline-actions.server'
 import { PluginStepError, runPluginStep } from './pipeline-plugin-step.server'
@@ -55,6 +62,10 @@ import {
 } from './pipeline-sandbox.server'
 import type { ConnectSandbox } from './pipeline-sandbox.server'
 import type { QueryResultRow } from 'pg'
+import {
+  pipelineJsonObjectSchema,
+  pipelineJsonValueSchema,
+} from './pipelines/types'
 
 import { metrics, sizeBucketFor } from '#/lib/metrics'
 import type { PipelineStage } from '#/lib/metrics'
@@ -79,6 +90,7 @@ import {
   diffMatches,
   diffResultRows,
 } from './pipelines/reproduce-diff'
+import type { DiffExample } from './pipelines/reproduce-diff'
 import {
   checkTransformStatement,
   substituteParameters,
@@ -166,6 +178,26 @@ export interface PipelineExecuteDeps {
   plugins?: ExtensionRuntimeDeps
 }
 
+/** Scientific values before output-field coercion or JSON serialization. */
+type SqlResultValue = z.infer<typeof pythonInputValueSchema>
+
+type SqlResultRow = z.infer<typeof pythonInputRowSchema>
+
+type PythonFailureDetail = {
+  step: string
+  logs?: PipelinePythonError['logs']
+  line?: PipelinePythonError['line']
+}
+
+type PipelineJsonObject = z.infer<typeof pipelineJsonObjectSchema>
+
+const numericResultSchema = z.union([
+  z.number(),
+  z.nan(),
+  z.literal(Infinity),
+  z.literal(-Infinity),
+])
+
 interface RunRow {
   id: string
   workspace_id: string
@@ -177,14 +209,14 @@ interface RunRow {
   trigger_occurrence_id: string | null
   schedule_id: string | null
   input_digest: string | null
-  parameters: Record<string, unknown>
+  parameters: PipelineRunWire['parameters']
   input_versions: Record<string, string>
   /** What the run stored when it finished (the preview of its rows). */
-  result?: Record<string, unknown>
+  result?: PipelineRunWire['result']
   actor_user_id: string | null
   actor_credential_id: string | null
   version_number: number
-  configuration: Record<string, unknown>
+  configuration: unknown
   definition_name: string
   /**
    * Set for a trial of a draft: nothing is recorded against the run, because
@@ -474,9 +506,9 @@ export async function runPipelineExecution(
 export interface PipelineTrialInput {
   workspaceId: string
   /** The configuration as the editor holds it: nothing needs to be saved. */
-  configuration: Record<string, unknown>
+  configuration: unknown
   inputVersions: Record<string, string>
-  parameters: Record<string, unknown>
+  parameters: PipelineRunWire['parameters']
 }
 
 export type PipelineTrialReport = PipelineTrialWire
@@ -564,16 +596,18 @@ export async function tryPipelineDraft(
       return fail('run_cancelled', 'The trial was cancelled.')
     const waiting = outcome.kind === 'waiting'
 
-    return {
+    const report: PipelineTrialReport = {
       ok: true,
-      ...(waiting
-        ? { stoppedAt: { step: outcome.step.name, reason: 'confirm' as const } }
-        : {}),
       preview: buildResultPreview(waiting ? outcome.proposal : outcome.rows),
       logs,
       durationMs: Date.now() - startedAt,
       wouldWrite: config.output.mode,
     }
+
+    if (waiting)
+      report.stoppedAt = { step: outcome.step.name, reason: 'confirm' }
+
+    return report
   } catch (error) {
     return fail(
       error instanceof PipelineStepError ? error.code : 'pipeline_internal',
@@ -610,7 +644,7 @@ interface ReproductionOutcome {
   status: 'matches' | 'differs' | 'failed'
   compared: 'dataset_version' | 'preview' | 'digest' | null
   summary: Partial<PipelineReproductionSummary>
-  changes: unknown[]
+  changes: DiffExample[]
   errorCode: string | null
   errorMessage: string | null
 }
@@ -766,7 +800,7 @@ async function reproduceInScratch(
   // The decisions people gave at confirm steps are replayed, not asked again.
   const { rows: prompts } = await conn.query<{
     step_id: string
-    answer: Record<string, unknown>
+    answer: PipelineJsonObject
   }>(
     `SELECT step_id, answer FROM api.pipeline_run_prompts
       WHERE run_id = $1 AND answer IS NOT NULL`,
@@ -780,8 +814,13 @@ async function reproduceInScratch(
   const materialized = await materializeInputs(conn, run)
   const inputs: PipelineReproductionSummary['inputs'] = []
 
+  const recordedInputs = new Map(
+    manifest?.inputs.map((entry) => [entry.name, entry]),
+  )
+
   for (const input of materialized) {
-    const recorded = manifest?.inputs.find((entry) => entry.name === input.name)
+    const recorded = recordedInputs.get(input.name)
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Every digest uses this transaction's single connection; preserve query and failure order rather than queue concurrent work on it.
     const digest = recorded ? await digestInput(conn, input.name) : null
     inputs.push({
       name: input.name,
@@ -896,16 +935,19 @@ async function reproduceInScratch(
   const diff = diffResultRows(baseline.original, baseline.reproduced, tolerance)
   const { examples, ...counts } = diff
 
+  const summary: Partial<PipelineReproductionSummary> = {
+    ...base,
+    ...counts,
+    originalRows: baseline.originalTotal,
+    identical: false,
+  }
+
+  if (baseline.note) summary.note = baseline.note
+
   return {
     status: diffMatches(diff) ? 'matches' : 'differs',
     compared: baseline.compared,
-    summary: {
-      ...base,
-      ...counts,
-      originalRows: baseline.originalTotal,
-      identical: false,
-      ...(baseline.note ? { note: baseline.note } : {}),
-    },
+    summary,
     changes: examples,
     errorCode: null,
     errorMessage: null,
@@ -923,11 +965,11 @@ async function loadReproductionBaseline(
   source: RunRow,
   config: PipelineConfig,
   manifest: RunManifest | null,
-  reproducedRows: Array<Record<string, unknown>>,
+  reproducedRows: SqlResultRow[],
 ): Promise<{
   compared: 'dataset_version' | 'preview'
-  original: Array<Record<string, unknown>>
-  reproduced: Array<Record<string, unknown>>
+  original: SqlResultRow[]
+  reproduced: SqlResultRow[]
   originalTotal: number
   note?: string
 } | null> {
@@ -968,7 +1010,7 @@ async function loadReproductionBaseline(
           columns,
         )
 
-        const { rows } = await conn.query<{ row: Record<string, unknown> }>(
+        const { rows } = await conn.query<{ row: SqlResultRow }>(
           `SELECT row_to_json(t) AS row FROM pg_temp._sb_reproduce_original t ORDER BY "_sb_row_id"`,
         )
 
@@ -1019,13 +1061,13 @@ async function loadReproductionBaseline(
 function toOutputFieldRows(
   config: PipelineConfig,
   fields: SchemaFieldRow[],
-  rows: Array<Record<string, unknown>>,
-): Array<Record<string, unknown>> {
+  rows: SqlResultRow[],
+): SqlResultRow[] {
   const mapping = config.output.fieldMapping ?? {}
   const byKey = new Map(fields.map((f) => [f.key, f]))
 
   return rows.map((row) => {
-    const out: Record<string, unknown> = {}
+    const out: SqlResultRow = {}
 
     for (const [column, raw] of Object.entries(row)) {
       const field = byKey.get(mapping[column] ?? column)
@@ -1064,7 +1106,7 @@ const MAX_PENDING_JSON_CHARS = 262_144
 
 export interface PipelineConfirmAnswerInput {
   decision: 'confirm' | 'skip' | 'stop'
-  values?: Record<string, unknown>
+  values?: PipelineJsonObject
   reason?: string
 }
 
@@ -1073,9 +1115,9 @@ interface PromptRow {
   workspace_id: string
   run_id: string
   step_id: string
-  form_schema: Record<string, unknown>
+  form_schema: PipelineJsonObject
   asked_user_ids: string[]
-  answer: Record<string, unknown> | null
+  answer: PipelineJsonObject | null
   answered_by_user_id: string | null
   answered_at: string | null
   expires_at: string | null
@@ -1085,6 +1127,27 @@ interface PromptRow {
 type FinishOutcome =
   | { ok: true; run: PipelineRunWire | null }
   | { ok: false; code: PipelineErrorCode; message: string }
+
+type RunCompletion = {
+  actions: Awaited<ReturnType<typeof executePipelineActions>>
+  rowCount: number
+  resultPreview: ReturnType<typeof buildResultPreview>
+  pythonUsage: PythonTransformUsage | undefined
+  outputDatasetId: string | null
+  outputDatasetVersionId: string | null
+  outputLabel: string | null
+  durationMs: number
+  stageDurationsMs: Record<
+    | 'materializeInputs'
+    | 'transform'
+    | 'outputCommit'
+    | 'datasetCommit'
+    | 'datasetSnapshot'
+    | 'outputOverhead'
+    | 'total',
+    number
+  >
+}
 
 /**
  * The segment between pauses: write the output through the canonical Dataset
@@ -1097,7 +1160,7 @@ async function finishExecution(
   run: RunRow,
   config: PipelineConfig,
   transform: {
-    rows: Array<Record<string, unknown>>
+    rows: SqlResultRow[]
     durationMs: number
     usage?: PythonTransformUsage
   },
@@ -1221,7 +1284,11 @@ async function finishExecution(
   // digest them nor insert evidence.
   await conn.query('SET LOCAL ROLE NONE')
   await recordRunManifest(conn, {
-    run: { ...run, definition_version_id: run.definition_version_id },
+    run: {
+      ...run,
+      configuration: { ...config },
+      definition_version_id: run.definition_version_id,
+    },
     inputNames: config.inputs.map((input) => input.name),
     // A plugin step has no code: its digest covers which step runs and what it is given.
     steps: listSteps(config).map((step) =>
@@ -1249,7 +1316,7 @@ async function finishExecution(
 }
 
 /** Keep the committed proposal bounded; a large one is stored as a summary. */
-function boundProposal(rows: Array<Record<string, unknown>>): unknown {
+function boundProposal(rows: SqlResultRow[]) {
   if (JSON.stringify(rows).length <= MAX_PENDING_JSON_CHARS) return rows
 
   return {
@@ -1367,7 +1434,7 @@ async function endWaitingRun(
   message: string,
   logStage: string,
   logMessage: string,
-  detail: Record<string, unknown>,
+  detail: SqlResultRow,
 ): Promise<void> {
   await conn.query(
     `UPDATE api.pipeline_runs SET status = 'running'
@@ -1386,13 +1453,24 @@ async function endWaitingRun(
 
 type ResumeCheck =
   | { ok: false; report: PipelineExecuteReport }
-  | { ok: true; run: RunRow; prompt: PromptRow; config: PipelineConfig }
+  | {
+      ok: true
+      run: RunRow
+      prompt: PromptRow
+      config: PipelineConfig
+      decision: PipelineConfirmAnswerInput
+    }
 
-function refuse(
-  errorCode: PipelineErrorCode,
-  errorMessage: string,
-): { ok: false; report: PipelineExecuteReport } {
-  return { ok: false, report: { ok: false, errorCode, errorMessage } }
+const confirmAnswerSchema = z.object({
+  decision: z.enum(['confirm', 'skip', 'stop']),
+  values: pipelineJsonObjectSchema.optional(),
+})
+
+function refuse(errorCode: PipelineErrorCode, errorMessage: string) {
+  return {
+    ok: false,
+    report: { ok: false, errorCode, errorMessage },
+  } satisfies ResumeCheck
 }
 
 /** The checks a decision must pass before it may resume a waiting run. */
@@ -1400,7 +1478,7 @@ async function checkResumable(
   conn: ExecConnection,
   actor: string,
   runId: string,
-  answer: unknown,
+  answer: z.core.util.JSONType | undefined,
 ): Promise<ResumeCheck> {
   const run = await loadRun(conn, runId)
 
@@ -1431,7 +1509,9 @@ async function checkResumable(
 
   if (answerError) return refuse('invalid_answer', answerError)
 
-  return { ok: true, run, prompt, config }
+  const decision = confirmAnswerSchema.parse(answer)
+
+  return { ok: true, run, prompt, config, decision }
 }
 
 /**
@@ -1441,17 +1521,19 @@ async function checkResumable(
 export async function validatePipelineResume(
   actor: string,
   runId: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public answer boundary immediately decodes JSON before the authorization/form checks.
   answer: unknown,
   deps: PipelineExecuteDeps,
 ): Promise<
   | { ok: true; workspaceId: string }
   | { ok: false; report: PipelineExecuteReport }
 > {
+  const decodedAnswer = pipelineJsonValueSchema.safeParse(answer)
   const conn = await deps.connect()
 
   try {
     await conn.begin()
-    const checked = await checkResumable(conn, actor, runId, answer)
+    const checked = await checkResumable(conn, actor, runId, decodedAnswer.data)
 
     return checked.ok
       ? { ok: true, workspaceId: checked.run.workspace_id }
@@ -1481,16 +1563,18 @@ export async function validatePipelineResume(
 export async function resumePipelineRun(
   actor: string,
   runId: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public answer boundary immediately decodes JSON before the authorization/form checks.
   answer: unknown,
   deps: PipelineExecuteDeps,
 ): Promise<PipelineExecuteReport> {
+  const decodedAnswer = pipelineJsonValueSchema.safeParse(answer)
   const conn = await deps.connect()
   await conn.begin()
   const startedAt = Date.now()
   let workStarted = false
 
   try {
-    const checked = await checkResumable(conn, actor, runId, answer)
+    const checked = await checkResumable(conn, actor, runId, decodedAnswer.data)
 
     if (!checked.ok) {
       await conn.rollback()
@@ -1498,8 +1582,7 @@ export async function resumePipelineRun(
       return checked.report
     }
 
-    const { run, prompt, config } = checked
-    const decision = answer as PipelineConfirmAnswerInput
+    const { run, prompt, config, decision } = checked
 
     await setRunActorClaims(conn, run)
 
@@ -1609,8 +1692,8 @@ export async function resumePipelineRun(
       },
     )
 
-    const answered = new Map<string, Record<string, unknown>>([
-      [prompt.step_id, answer as Record<string, unknown>],
+    const answered = new Map<string, PipelineJsonObject>([
+      [prompt.step_id, pipelineJsonObjectSchema.parse(decodedAnswer.data)],
     ])
 
     const transform = await withSandbox(conn, deps, (sandbox) =>
@@ -1837,7 +1920,7 @@ export async function expirePipelinePrompts(
         // Re-check under a row lock: a concurrent answer, resumption or
         // another sweep must win without losing a recorded decision.
         const { rows: current } = await conn.query<{
-          answer: unknown
+          answer: PipelineJsonObject | null
           expires_at: string | null
         }>(
           `SELECT answer, expires_at FROM api.pipeline_run_prompts
@@ -1899,7 +1982,7 @@ export async function expirePipelinePrompts(
           await materializeInputs(conn, run)
           const materializeMs = Date.now() - materializeStarted
 
-          const answered = new Map<string, Record<string, unknown>>([
+          const answered = new Map<string, PipelineJsonObject>([
             [prompt.step_id, { decision: 'confirm', values: {} }],
           ])
 
@@ -2083,7 +2166,12 @@ async function assertMember(
   }
 }
 
-function parseConfig(raw: Record<string, unknown>): PipelineConfig {
+const executionConfigSchema = z.custom<PipelineConfig>(
+  (value) => validatePipelineConfig(value).length === 0,
+)
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw authoring boundary immediately validates with the canonical validator, preserving its rejection diagnostics.
+function parseConfig(raw: unknown): PipelineConfig {
   const errors = validatePipelineConfig(raw)
 
   if (errors.length > 0) {
@@ -2093,7 +2181,7 @@ function parseConfig(raw: Record<string, unknown>): PipelineConfig {
     )
   }
 
-  return raw as unknown as PipelineConfig
+  return executionConfigSchema.parse(raw)
 }
 
 function validateRunRequest(
@@ -2119,7 +2207,7 @@ async function materializeInputs(
   conn: ExecConnection,
   run: RunRow,
 ): Promise<MaterializedInput[]> {
-  const config = run.configuration as unknown as PipelineConfig
+  const config = parseConfig(run.configuration)
   const result: MaterializedInput[] = []
 
   for (const input of config.inputs) {
@@ -2345,7 +2433,7 @@ async function materializeInputRows(
 type TransformOutcome =
   | {
       kind: 'rows'
-      rows: Array<Record<string, unknown>>
+      rows: SqlResultRow[]
       durationMs: number
       /** PIPE-04.3: per-run peak payload usage measured across Python steps. */
       usage?: PythonTransformUsage
@@ -2354,9 +2442,9 @@ type TransformOutcome =
       kind: 'waiting'
       step: PipelineStep
       /** The last executed step's result: what the dependent steps read. */
-      previous: Array<Record<string, unknown>>
+      previous: SqlResultRow[]
       /** The confirm step's own result: the proposal shown to the person. */
-      proposal: Array<Record<string, unknown>>
+      proposal: SqlResultRow[]
       durationMs: number
     }
   | { kind: 'cancelled' }
@@ -2365,7 +2453,7 @@ type TransformOutcome =
       code: PipelineErrorCode
       message: string
       /** Extra context for the failure log: what a Python step printed, and where it failed. */
-      detail?: Record<string, unknown>
+      detail?: SqlResultRow
     }
 
 /**
@@ -2394,21 +2482,22 @@ async function withSandbox<T>(
 
 /** The ordered steps a run executes: the analysis step first, then any chained steps. */
 function listSteps(config: PipelineConfig): PipelineStep[] {
-  return [
-    ...(config.transform.language === 'none'
-      ? []
-      : [
-          {
-            name: 'analysis',
-            language: config.transform.language,
-            statement: config.transform.statement,
-            ...(config.transform.contract
-              ? { contract: config.transform.contract }
-              : {}),
-          },
-        ]),
-    ...(config.steps ?? []),
-  ]
+  const steps: PipelineStep[] = []
+
+  if (config.transform.language !== 'none') {
+    const analysis: PipelineStep = {
+      name: 'analysis',
+      language: config.transform.language,
+      statement: config.transform.statement,
+    }
+
+    if (config.transform.contract) analysis.contract = config.transform.contract
+    steps.push(analysis)
+  }
+
+  steps.push(...(config.steps ?? []))
+
+  return steps
 }
 
 /** Run ordered analysis steps without exposing the orchestration connection to Python. */
@@ -2418,15 +2507,15 @@ async function executeSteps(
   config: PipelineConfig,
   python: typeof executePythonTransform,
   sandbox: SandboxSession,
-  answered?: Map<string, Record<string, unknown>>,
+  answered?: Map<string, PipelineJsonObject>,
   plugins?: ExtensionRuntimeDeps,
 ): Promise<TransformOutcome> {
   const started = Date.now()
-  let previous: Array<Record<string, unknown>> | undefined
+  let previous: SqlResultRow[] | undefined
   // Steps skipped by a Skip decision: the confirm step's declared dependents.
   const skipped = new Set<string>()
   // The most recent recorded decision, exposed to the steps after it.
-  let answerValues: Record<string, unknown> | null = null
+  let answerValues: PipelineJsonObject | null = null
   // PIPE-04.3: the peak payload usage reported by any Python step this run. Accumulated into a
   // list rather than folded into a running object: a flag assigned inside the callback is
   // narrowed to its initialiser by control-flow analysis, so the result could not ask whether
@@ -2440,12 +2529,12 @@ async function executeSteps(
 
   const steps = listSteps(config)
   // What each step gave back, so a plugin step can read any earlier one by name.
-  const stepResults: Record<string, Array<Record<string, unknown>>> = {}
+  const stepResults: Record<string, SqlResultRow[]> = {}
 
   const inputRows = async (name: string) => {
     if (!config.inputs.some((input) => input.name === name)) return undefined
 
-    const { rows } = await conn.query<{ row: Record<string, unknown> }>(
+    const { rows } = await conn.query<{ row: SqlResultRow }>(
       `SELECT row_to_json(t) AS row FROM pg_temp.${quoteIdentifier(name)} t ORDER BY "_sb_row_id"`,
     )
 
@@ -2495,7 +2584,7 @@ async function executeSteps(
 
         return {
           kind: 'rows',
-          rows: result.rows,
+          rows: pythonInputRowsSchema.parse(result.rows),
           durationMs: Date.now() - started,
         }
       } catch (error) {
@@ -2511,10 +2600,10 @@ async function executeSteps(
     }
 
     if (step.language === 'python') {
-      const inputs: Record<string, Array<Record<string, unknown>>> = {}
+      const inputs: Record<string, SqlResultRow[]> = {}
 
       for (const input of config.inputs) {
-        const { rows } = await conn.query<{ row: Record<string, unknown> }>(
+        const { rows } = await conn.query<{ row: SqlResultRow }>(
           `SELECT row_to_json(t) AS row FROM pg_temp.${quoteIdentifier(input.name)} t ORDER BY "_sb_row_id"`,
         )
 
@@ -2531,7 +2620,7 @@ async function executeSteps(
           // one per-run directory the run releases when it settles.
           artefactKey: run.trial ? undefined : run.id,
           statement: step.statement,
-          inputs,
+          inputs: pythonInputsSchema.parse(inputs),
           parameters: run.parameters,
           runtime: config.pythonRuntime,
           requirements: config.pythonRequirements,
@@ -2547,7 +2636,9 @@ async function executeSteps(
           {
             step: step.name,
             runtime: result.runtime,
-            environment: result.environment,
+            environment: result.environment
+              ? { ...result.environment }
+              : undefined,
             logs: result.logs,
           },
         )
@@ -2564,9 +2655,15 @@ async function executeSteps(
         const message =
           error instanceof Error ? error.message : 'Python execution failed.'
 
+        const detail: PythonFailureDetail = { step: step.name }
+
+        if (failure?.logs.length) detail.logs = failure.logs
+
+        if (failure?.line) detail.line = failure.line
+
         return {
           kind: 'error',
-          code: pythonErrorCode(error),
+          code: pythonErrorCode(failure),
           // A traceback-free message still needs to say where: point at the line.
           message:
             failure?.line && !/\bline \d+/.test(message)
@@ -2574,11 +2671,7 @@ async function executeSteps(
               : message,
           // The step's own output survives the rollback because it travels with the
           // failure log, which is written after it.
-          detail: {
-            step: step.name,
-            ...(failure?.logs.length ? { logs: failure.logs } : {}),
-            ...(failure?.line ? { line: failure.line } : {}),
-          },
+          detail,
         }
       }
     }
@@ -2587,6 +2680,7 @@ async function executeSteps(
 
     // Hand the sandbox exactly the tables this step may read.
     for (const input of config.inputs)
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- copyTable shares a lazily opened sandbox session and mutates its temp tables; concurrent calls can race session creation and DDL.
       if (!sandbox.has(input.name)) await sandbox.copyTable(conn, input.name)
 
     if (previous) await sandbox.copyTable(conn, 'previous')
@@ -2639,9 +2733,9 @@ async function executeSteps(
     // Its own result is the proposal; the dependent steps keep reading the
     // preceding result, so an unanswered run changes nothing.
     if (step.confirm) {
-      const decision = answered?.get(step.name)
+      const recordedDecision = answered?.get(step.name)
 
-      if (!decision) {
+      if (!recordedDecision) {
         return {
           kind: 'waiting',
           step,
@@ -2650,6 +2744,8 @@ async function executeSteps(
           durationMs: Date.now() - started,
         }
       }
+
+      const decision = confirmAnswerSchema.parse(recordedDecision)
 
       if (decision.decision === 'skip')
         for (const name of step.confirm.skipSteps ?? []) skipped.add(name)
@@ -2662,14 +2758,14 @@ async function executeSteps(
       }
 
       answerValues =
-        (decision.values as Record<string, unknown> | undefined) ?? {}
+        pipelineJsonObjectSchema.optional().parse(decision.values) ?? {}
       await provisionConfirmAnswer(conn, answerValues)
       await log(
         conn,
         run,
         'info',
         'confirm',
-        `${index + 1}. ${step.name} answered: ${String(decision.decision)}.`,
+        `${index + 1}. ${step.name} answered: ${decision.decision}.`,
         {
           step: index + 1,
           name: step.name,
@@ -2697,21 +2793,21 @@ async function executeSteps(
     )
   }
 
-  return {
+  const outcome: Extract<TransformOutcome, { kind: 'rows' }> = {
     kind: 'rows',
     rows: previous ?? [],
     durationMs: Date.now() - started,
-    ...(usages.length > 0
-      ? {
-          usage: {
-            inputBytes: Math.max(...usages.map((u) => u.inputBytes)),
-            outputBytes: Math.max(...usages.map((u) => u.outputBytes)),
-            rows: Math.max(...usages.map((u) => u.rows)),
-            cells: Math.max(...usages.map((u) => u.cells)),
-          },
-        }
-      : {}),
   }
+
+  if (usages.length > 0)
+    outcome.usage = {
+      inputBytes: Math.max(...usages.map((u) => u.inputBytes)),
+      outputBytes: Math.max(...usages.map((u) => u.outputBytes)),
+      rows: Math.max(...usages.map((u) => u.rows)),
+      cells: Math.max(...usages.map((u) => u.cells)),
+    }
+
+  return outcome
 }
 
 /**
@@ -2719,7 +2815,7 @@ async function executeSteps(
  * timeout limits are reported with their own codes (and a numeric message from
  * the broker) rather than collapsing into a bare `transform_failed`.
  */
-function pythonErrorCode(error: unknown): PipelineErrorCode {
+function pythonErrorCode(error: PipelinePythonError | null): PipelineErrorCode {
   if (error instanceof PipelinePythonError) {
     switch (error.code) {
       case 'input_too_large':
@@ -2743,7 +2839,7 @@ function pythonErrorCode(error: unknown): PipelineErrorCode {
  */
 async function provisionConfirmAnswer(
   conn: ExecConnection,
-  values: Record<string, unknown>,
+  values: PipelineJsonObject,
 ): Promise<void> {
   await conn.query('DROP TABLE IF EXISTS pg_temp.confirm_answer')
   await conn.query('CREATE TEMP TABLE confirm_answer (answer jsonb)')
@@ -2760,7 +2856,7 @@ function quoteIdentifier(value: string): string {
 /** Infer a bounded primitive table for a SQL step reading the preceding result. */
 async function materializePrevious(
   conn: ExecConnection,
-  rows: Array<Record<string, unknown>>,
+  rows: SqlResultRow[],
 ): Promise<void> {
   const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))]
 
@@ -2775,13 +2871,15 @@ async function materializePrevious(
   }
 
   const fields = columns.map((name) => {
-    const values = rows
-      .map((row) => row[name])
-      .filter((value) => value !== null && value !== undefined)
+    const values = rows.flatMap((row) =>
+      row[name] === null || row[name] === undefined ? [] : [row[name]],
+    )
 
-    const type = values.every((value) => typeof value === 'number')
+    const type = values.every(
+      (value) => numericResultSchema.safeParse(value).success,
+    )
       ? 'numeric'
-      : values.every((value) => typeof value === 'boolean')
+      : values.every((value) => z.boolean().safeParse(value).success)
         ? 'boolean'
         : 'text'
 
@@ -2840,7 +2938,7 @@ async function executeTransform(
   const started = Date.now()
 
   try {
-    const result = await sandbox.run<Record<string, unknown>>(
+    const result = await sandbox.run<SqlResultRow>(
       wrapped,
       EXECUTION_TIMEOUT_SECONDS,
     )
@@ -2857,12 +2955,9 @@ async function executeTransform(
 
     for (const row of rows) {
       for (const value of Object.values(row)) {
-        if (
-          value !== null &&
-          value !== undefined &&
-          typeof value === 'string' &&
-          value.length > RESULT_CELL_LIMIT
-        ) {
+        const text = z.string().safeParse(value)
+
+        if (text.success && text.data.length > RESULT_CELL_LIMIT) {
           return {
             kind: 'error',
             code: 'row_limit_exceeded',
@@ -2969,7 +3064,7 @@ async function writeOutput(
   conn: ExecConnection,
   run: RunRow,
   config: PipelineConfig,
-  resultRows: Array<Record<string, unknown>>,
+  resultRows: SqlResultRow[],
 ): Promise<OutputOutcome> {
   const output = config.output
 
@@ -3100,7 +3195,7 @@ async function writeOutput(
       const expectedRevision = await loadDatasetRevision(conn, datasetId)
       const commitStarted = Date.now()
 
-      const commit = await conn.query<{ result: unknown }>(
+      const commit = await conn.query<{ result: z.core.util.JSONType }>(
         `SELECT api.commit_dataset_row_batch($1, $2, $3::jsonb, $4) result`,
         [
           datasetId,
@@ -3116,18 +3211,13 @@ async function writeOutput(
       )
       const commitResult = commit.rows[0]?.result
 
-      const ok =
-        commitResult !== null &&
-        commitResult !== undefined &&
-        typeof commitResult === 'object' &&
-        (commitResult as { ok?: unknown }).ok === true
+      const decodedCommit = pipelineJsonObjectSchema.safeParse(commitResult)
+      const ok = decodedCommit.success && decodedCommit.data.ok === true
 
       if (!ok) {
         const detail =
-          commitResult && typeof commitResult === 'object'
-            ? JSON.stringify(
-                (commitResult as { errors?: unknown }).errors ?? commitResult,
-              )
+          decodedCommit.success || Array.isArray(commitResult)
+            ? JSON.stringify(decodedCommit.data?.errors ?? commitResult)
             : 'Dataset commit was rejected.'
 
         return {
@@ -3141,8 +3231,9 @@ async function writeOutput(
     commitMs = Date.now() - commitStartedAt
   }
 
-  const revision = await loadDatasetRevision(conn, datasetId)
-  const snapshotRowCount = await loadDatasetRowCount(conn, datasetId)
+  const { revision, rowCount: snapshotRowCount } =
+    await loadDatasetSnapshotState(conn, datasetId)
+
   const snapshotStarted = Date.now()
 
   const snapshot = await conn.query<{ id: string }>(
@@ -3271,16 +3362,20 @@ async function loadDatasetRevision(
   return Number(rows[0]?.revision ?? 1)
 }
 
-async function loadDatasetRowCount(
+async function loadDatasetSnapshotState(
   conn: ExecConnection,
   datasetId: string,
-): Promise<number> {
-  const { rows } = await conn.query<{ count: string }>(
-    `SELECT count(*) FROM api.dataset_rows WHERE dataset_id = $1`,
+) {
+  const { rows } = await conn.query<{ revision: string | null; count: string }>(
+    `SELECT (SELECT revision FROM api.datasets WHERE id = $1) AS revision,
+            (SELECT count(*) FROM api.dataset_rows WHERE dataset_id = $1) AS count`,
     [datasetId],
   )
 
-  return Number(rows[0]?.count ?? 0)
+  return {
+    revision: Number(rows[0]?.revision ?? 1),
+    rowCount: Number(rows[0]?.count ?? 0),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -3290,17 +3385,28 @@ async function loadDatasetRowCount(
 function mapOutputRows(
   config: PipelineConfig,
   fields: SchemaFieldRow[],
-  resultRows: Array<Record<string, unknown>>,
+  resultRows: SqlResultRow[],
 ):
-  | { kind: 'ok'; rows: Array<Record<string, unknown>> }
+  | {
+      kind: 'ok'
+      rows: Array<{
+        operation: 'create'
+        rowId: string
+        values: PipelineJsonObject
+      }>
+    }
   | { kind: 'error'; code: PipelineErrorCode; message: string } {
   const mapping = config.output.fieldMapping ?? {}
   const slugToField = new Map(fields.map((f) => [f.key, f]))
 
-  const batches: Array<Record<string, unknown>> = []
+  const batches: Array<{
+    operation: 'create'
+    rowId: string
+    values: PipelineJsonObject
+  }> = []
 
   for (const source of resultRows) {
-    const values: Record<string, unknown> = {}
+    const values: PipelineJsonObject = {}
 
     for (const [column, raw] of Object.entries(source)) {
       const slug = mapping[column] ?? column
@@ -3367,16 +3473,20 @@ const COERCE_ERROR = Symbol('coerce-error')
 
 function coerceValue(
   logicalType: string,
-  raw: unknown,
-): unknown | typeof COERCE_ERROR {
+  raw: SqlResultValue,
+): string | number | boolean | typeof COERCE_ERROR {
   switch (logicalType) {
     case 'text':
-      return String(raw)
+      return z.coerce.string().parse(raw)
     case 'integer': {
-      if (typeof raw === 'number' && Number.isInteger(raw)) return raw
+      const integer = z.number().refine(Number.isInteger).safeParse(raw)
 
-      if (typeof raw === 'string' && /^-?\d+$/.test(raw.trim())) {
-        const n = Number(raw)
+      if (integer.success) return integer.data
+
+      const text = z.string().safeParse(raw)
+
+      if (text.success && /^-?\d+$/.test(text.data.trim())) {
+        const n = Number(text.data)
 
         if (Number.isSafeInteger(n)) return n
       }
@@ -3385,26 +3495,36 @@ function coerceValue(
     }
 
     case 'decimal': {
-      if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+      const decimal = z.number().safeParse(raw)
+
+      if (decimal.success) return decimal.data
+
+      const text = z.string().safeParse(raw)
 
       if (
-        typeof raw === 'string' &&
-        raw.trim() !== '' &&
-        Number.isFinite(Number(raw))
+        text.success &&
+        text.data.trim() !== '' &&
+        Number.isFinite(Number(text.data))
       ) {
-        return Number(raw)
+        return Number(text.data)
       }
 
       return COERCE_ERROR
     }
 
-    case 'boolean':
-      return typeof raw === 'boolean' ? raw : COERCE_ERROR
+    case 'boolean': {
+      const value = z.boolean().safeParse(raw)
+
+      return value.success ? value.data : COERCE_ERROR
+    }
+
     case 'date': {
       if (raw instanceof Date) return toDateString(raw)
 
-      if (typeof raw === 'string') {
-        const date = new Date(raw)
+      const text = z.string().safeParse(raw)
+
+      if (text.success) {
+        const date = new Date(text.data)
 
         if (!Number.isNaN(date.getTime())) return toDateString(date)
       }
@@ -3415,8 +3535,10 @@ function coerceValue(
     case 'timestamp': {
       if (raw instanceof Date) return raw.toISOString()
 
-      if (typeof raw === 'string' && !Number.isNaN(Date.parse(raw))) {
-        return new Date(raw).toISOString()
+      const text = z.string().safeParse(raw)
+
+      if (text.success && !Number.isNaN(Date.parse(text.data))) {
+        return new Date(text.data).toISOString()
       }
 
       return COERCE_ERROR
@@ -3424,7 +3546,7 @@ function coerceValue(
 
     case 'category':
     case 'reference': {
-      const text = String(raw)
+      const text = z.coerce.string().parse(raw)
 
       return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
         text,
@@ -3434,7 +3556,7 @@ function coerceValue(
     }
 
     default:
-      return String(raw)
+      return z.coerce.string().parse(raw)
   }
 }
 
@@ -3466,14 +3588,14 @@ function randomUuid(): string {
 async function completeRun(
   conn: ExecConnection,
   run: RunRow,
-  result: Record<string, unknown>,
+  result: RunCompletion,
 ): Promise<PipelineRunWire | null> {
-  const { rows } = await conn.query<{ run: unknown }>(
+  const { rows } = await conn.query<PipelineRunWire>(
     `SELECT * FROM api.complete_pipeline_run($1, $2, $3::jsonb)`,
     [run.workspace_id, run.id, JSON.stringify(result)],
   )
 
-  return (rows.at(0) as PipelineRunWire | undefined) ?? null
+  return rows.at(0) ?? null
 }
 
 async function failRun(
@@ -3481,7 +3603,7 @@ async function failRun(
   run: RunRow,
   code: PipelineErrorCode,
   message: string,
-  detail: Record<string, unknown> = {},
+  detail: SqlResultRow = {},
 ): Promise<void> {
   await conn.query(
     `SELECT api.append_pipeline_run_log($1, $2, 'error', 'failure', $3, $4::jsonb)`,
@@ -3571,7 +3693,7 @@ async function log(
   level: 'info' | 'warning' | 'error',
   stage: string,
   message: string,
-  detail: Record<string, unknown> = {},
+  detail: SqlResultRow = {},
 ): Promise<void> {
   if (run.trial) {
     run.trial.push({ level, stage, message: truncate(message, 2000) })

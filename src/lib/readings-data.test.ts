@@ -7,13 +7,16 @@
  * for messaging, deriving the reported concentration, and building the exact
  * canonical planned-row fill.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
+import { createDataClient } from './data-client'
 import {
+  attachPhotoToSample,
   buildReadingRow,
   buildReadingValues,
   dilutionReadingField,
   isReadingOutOfRange,
+  listReadingFields,
   outOfRangeRule,
   readingCommitErrorMessage,
   readingFieldUnit,
@@ -79,6 +82,45 @@ const fields: ReadingFieldWire[] = [
 const titreField = fields.find((f) => f.field_id === TITRE)!
 const dilutionField = fields.find((f) => f.field_id === DILUTION)!
 
+describe('reading field transport', () => {
+  it('decodes selected fields without losing scientific metadata keys', async () => {
+    const scientificMetadata = {
+      symbol: 'ng/mL',
+      ['__proto__']: { calibration: 'reference-lot-7' },
+    }
+
+    const client = createDataClient(async (input) => {
+      const url = new URL(
+        input instanceof Request ? input.url : input,
+        'http://eln.test',
+      )
+
+      expect(url.pathname).toBe('/api/db/dataset_schema_version_fields')
+      expect(url.searchParams.get('schema_version_id')).toBe('eq.version/7')
+
+      return Response.json([
+        field({ field_id: TITRE, quantity: scientificMetadata }),
+        fields[0],
+      ])
+    })
+
+    const result = await listReadingFields(client, 'version/7')
+
+    expect(result[0].quantity).toEqual(scientificMetadata)
+    expect(Object.hasOwn(result[0].quantity ?? {}, '__proto__')).toBe(true)
+    expect(readingFieldUnit(result[0])).toBe('ng/mL')
+    expect(sampleBindingField(result)?.field_id).toBe(SAMPLE_REF)
+  })
+
+  it('rejects malformed quantity metadata at the HTTP read boundary', async () => {
+    const client = createDataClient(async () =>
+      Response.json([{ ...fields[2], quantity: { symbol: 7 } }]),
+    )
+
+    await expect(listReadingFields(client, 'version-7')).rejects.toThrow()
+  })
+})
+
 describe('reading field resolution', () => {
   it('binds the sample by reference before falling back to a sample text field', () => {
     expect(sampleBindingField(fields)?.field_id).toBe(SAMPLE_REF)
@@ -131,6 +173,24 @@ describe('out-of-range detection', () => {
     expect(isReadingOutOfRange(titreField, 9)).toBe(true)
     expect(isReadingOutOfRange(titreField, 1)).toBe(true)
     expect(isReadingOutOfRange(titreField, 3)).toBe(false)
+  })
+
+  it('keeps a valid bound when the other soft bound is malformed', () => {
+    const partial = field({
+      validation: {
+        extensions: { systemFlags: { out_of_range: { min: '2', max: 7 } } },
+      },
+    })
+
+    expect(outOfRangeRule(partial)).toEqual({ min: undefined, max: 7 })
+    expect(isReadingOutOfRange(partial, 1)).toBe(false)
+    expect(isReadingOutOfRange(partial, 7)).toBe(false)
+    expect(isReadingOutOfRange(partial, 8)).toBe(true)
+    expect(
+      outOfRangeRule(
+        field({ validation: { extensions: { systemFlags: 'unavailable' } } }),
+      ),
+    ).toBeNull()
   })
 })
 
@@ -275,5 +335,74 @@ describe('readingCommitErrorMessage', () => {
         errors: [{ code: 'brand_new_rule' }],
       }),
     ).toContain('brand_new_rule')
+  })
+})
+
+describe('reading photo evidence', () => {
+  it('decodes upload identity before uploading bytes and linking the photo', async () => {
+    const requests: string[] = []
+    let validIdentity = false
+
+    const transport: typeof fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : input.toString()
+      requests.push(`${init?.method} ${url}`)
+
+      if (url === '/api/files/upload-authorize') {
+        return Response.json({
+          fileRecordId: validIdentity ? 'photo-record' : 42,
+          fileIdentifier: 'FILE-7',
+        })
+      }
+
+      if (url === '/api/files/photo-record/upload') {
+        expect(init?.body).toBe(file)
+
+        return new Response(null, { status: 204 })
+      }
+
+      if (url === '/api/db/rpc/create_record_link') {
+        expect(await new Response(init?.body).json()).toMatchObject({
+          p_source_record_id: 'sample-record',
+          p_target_record_id: 'photo-record',
+          p_target_identifier: 'FILE-7',
+          p_link_type: 'file',
+        })
+
+        return Response.json({})
+      }
+
+      throw new Error(`Unexpected request ${url}`)
+    }
+
+    const file = new File(['image'], 'bench.png', { type: 'image/png' })
+    const client = createDataClient(transport)
+
+    const input = {
+      sampleRecordId: 'sample-record',
+      projectId: 'project',
+      file,
+    }
+
+    vi.stubGlobal('fetch', transport)
+
+    try {
+      await expect(attachPhotoToSample(client, input)).rejects.toThrow()
+      expect(requests).toEqual(['POST /api/files/upload-authorize'])
+      requests.length = 0
+      validIdentity = true
+
+      await expect(attachPhotoToSample(client, input)).resolves.toMatchObject({
+        fileRecordId: 'photo-record',
+        fileIdentifier: 'FILE-7',
+        byteSize: 5,
+      })
+      expect(requests).toEqual([
+        'POST /api/files/upload-authorize',
+        'PUT /api/files/photo-record/upload',
+        'POST /api/db/rpc/create_record_link',
+      ])
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

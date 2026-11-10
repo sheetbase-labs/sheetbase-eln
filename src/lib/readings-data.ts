@@ -21,33 +21,36 @@
  * Everything here is workspace-scoped by the same `/api/db` boundary and RLS
  * as the rest of the product; PostgreSQL stays authoritative.
  */
+import { z } from 'zod'
+
 import type { DataClient } from './data-client'
 import { commitDatasetRowBatch } from './dataset-product'
 import type { DatasetCommitResult, DatasetCommitRow } from './dataset-product'
 import { AttachFileError, validateFileForUpload } from './file-attach'
+import { FIELD_LOGICAL_TYPES } from './field-definition'
+import { modelFieldValidationSchema, modelMetadataSchema } from './model-fields'
 
-export type ReadingFieldType =
-  | 'text'
-  | 'integer'
-  | 'decimal'
-  | 'boolean'
-  | 'date'
-  | 'timestamp'
-  | 'category'
-  | 'reference'
+export type ReadingFieldType = ReadingFieldWire['logical_type']
+
+const readingFieldSchema = z.object({
+  field_id: z.string(),
+  key: z.string(),
+  label: z.string(),
+  logical_type: z.enum(FIELD_LOGICAL_TYPES),
+  nullable: z.boolean(),
+  display_order: z.number(),
+  quantity: modelMetadataSchema({
+    symbol: z.string().optional(),
+    storageUnit: z.string().optional(),
+  }).nullable(),
+  validation: modelFieldValidationSchema.nullable(),
+  relationship: modelMetadataSchema({
+    target: modelMetadataSchema({ modelKey: z.string().optional() }).optional(),
+  }).nullable(),
+})
 
 /** Wire shape of one active `api.dataset_schema_version_fields` row. */
-export interface ReadingFieldWire {
-  field_id: string
-  key: string
-  label: string
-  logical_type: ReadingFieldType
-  nullable: boolean
-  display_order: number
-  quantity: Record<string, unknown> | null
-  validation: Record<string, unknown> | null
-  relationship: Record<string, unknown> | null
-}
+export type ReadingFieldWire = z.infer<typeof readingFieldSchema>
 
 /** Wire shape of a sample `records` row usable by the bench flow. */
 export interface ReadingSampleWire {
@@ -109,12 +112,14 @@ export async function listReadingFields(
   client: DataClient,
   schemaVersionId: string,
 ): Promise<ReadingFieldWire[]> {
-  return client.list<ReadingFieldWire>(
+  const fields = await client.list(
     'dataset_schema_version_fields',
     `?schema_version_id=eq.${encodeURIComponent(
       schemaVersionId,
     )}&lifecycle=eq.active&order=display_order.asc&select=field_id,key,label,logical_type,nullable,display_order,quantity,validation,relationship`,
   )
+
+  return z.array(readingFieldSchema).parse(fields)
 }
 
 /**
@@ -138,24 +143,11 @@ function isNumericType(type: ReadingFieldType): boolean {
 }
 
 function targetModelKey(field: ReadingFieldWire): string | null {
-  const relationship = field.relationship
+  const modelKey = field.relationship?.target?.modelKey
 
-  if (relationship) {
-    const target = relationship.target
+  if (modelKey) return modelKey
 
-    if (target && typeof target === 'object') {
-      const modelKey = (target as Record<string, unknown>).modelKey
-
-      if (typeof modelKey === 'string' && modelKey.length > 0) return modelKey
-    }
-  }
-
-  const validation = field.validation
-  const fromValidation = validation?.targetModelKey
-
-  return typeof fromValidation === 'string' && fromValidation.length > 0
-    ? fromValidation
-    : null
+  return field.validation?.targetModelKey || null
 }
 
 /** Schema field that carries the sample identity (reference or sample text). */
@@ -202,12 +194,9 @@ export function numericReadingFields(
 }
 
 function quantityUnit(field: ReadingFieldWire): string | null {
-  const quantity = field.quantity
+  const unit = field.quantity?.symbol ?? field.quantity?.storageUnit
 
-  if (!quantity || typeof quantity !== 'object') return null
-  const unit = quantity.symbol ?? quantity.storageUnit
-
-  return typeof unit === 'string' && unit.length > 0 ? unit : null
+  return unit || null
 }
 
 /** Display unit from the field's quantity metadata, if any. */
@@ -220,6 +209,15 @@ export interface OutOfRangeRule {
   max?: number
 }
 
+const outOfRangeMetadataSchema = z.object({
+  systemFlags: z.object({
+    out_of_range: z.object({
+      min: z.number().optional().catch(undefined),
+      max: z.number().optional().catch(undefined),
+    }),
+  }),
+})
+
 /**
  * Soft rule that generates a `system` out-of-range flag without rejecting the
  * value. It lives in `validation.extensions.systemFlags.out_of_range`; hard
@@ -227,18 +225,12 @@ export interface OutOfRangeRule {
  * here.
  */
 export function outOfRangeRule(field: ReadingFieldWire): OutOfRangeRule | null {
-  const extensions = field.validation?.extensions
+  const parsed = outOfRangeMetadataSchema.safeParse(
+    field.validation?.extensions,
+  )
 
-  if (!extensions || typeof extensions !== 'object') return null
-  const systemFlags = (extensions as Record<string, unknown>).systemFlags
-
-  if (!systemFlags || typeof systemFlags !== 'object') return null
-  const rule = (systemFlags as Record<string, unknown>).out_of_range
-
-  if (!rule || typeof rule !== 'object') return null
-  const wire = rule as Record<string, unknown>
-  const min = typeof wire.min === 'number' ? wire.min : undefined
-  const max = typeof wire.max === 'number' ? wire.max : undefined
+  if (!parsed.success) return null
+  const { min, max } = parsed.data.systemFlags.out_of_range
 
   if (min === undefined && max === undefined) return null
 
@@ -293,9 +285,7 @@ export interface BuildReadingValuesInput {
  * The sample identity value is chosen from the binding field type (record id
  * for a reference field, stable identifier for a sample text field).
  */
-export function buildReadingValues(
-  input: BuildReadingValuesInput,
-): Record<string, unknown> {
+export function buildReadingValues(input: BuildReadingValuesInput) {
   const measurement = input.fields.find(
     (field) => field.field_id === input.measurementFieldId,
   )
@@ -308,17 +298,19 @@ export function buildReadingValues(
     throw new Error('Enter a numeric value.')
   }
 
-  const values: Record<string, unknown> = {
-    [measurement.field_id]: input.measurementValue,
-  }
+  const values = new Map<string, string | number>([
+    [measurement.field_id, input.measurementValue],
+  ])
 
   const binding = sampleBindingField(input.fields)
 
   if (binding) {
-    values[binding.field_id] =
+    values.set(
+      binding.field_id,
       binding.logical_type === 'reference'
         ? input.sample.id
-        : input.sample.identifier
+        : input.sample.identifier,
+    )
   }
 
   if (input.dilutionFieldId && input.dilutionFactor != null) {
@@ -345,16 +337,16 @@ export function buildReadingValues(
       throw new Error('This dataset stores dilution as a whole number.')
     }
 
-    values[dilution.field_id] = input.dilutionFactor
+    values.set(dilution.field_id, input.dilutionFactor)
   }
 
   const note = input.note?.trim()
 
   if (input.noteFieldId && note) {
-    values[input.noteFieldId] = note
+    values.set(input.noteFieldId, note)
   }
 
-  return values
+  return Object.fromEntries(values)
 }
 
 export interface BuildReadingRowInput extends BuildReadingValuesInput {
@@ -403,20 +395,22 @@ export async function submitBenchReading(
   })
 }
 
-const READING_ERROR_MESSAGES: Record<string, string> = {
-  stale_dataset_revision: 'The dataset changed. Reload and try again.',
-  dataset_archived: 'This dataset is archived and cannot receive readings.',
-  row_id_exists: 'That reading already exists.',
-  unknown_field: 'A field is no longer part of the dataset schema.',
-  invalid_field_id: 'The dataset field is invalid.',
-  required_value: 'A required value is missing.',
-  numeric_validation: 'The value is outside the field’s allowed range.',
-  text_validation: 'The text does not match the field’s rules.',
-  invalid_value_type: 'The value type does not match the field.',
-  invalid_reference: 'The linked record was not found in this workspace.',
-  invalid_category_option: 'The category option is invalid.',
-  invalid_cardinality: 'The number of values is wrong for this field.',
-}
+const READING_ERROR_MESSAGES = new Map(
+  Object.entries({
+    stale_dataset_revision: 'The dataset changed. Reload and try again.',
+    dataset_archived: 'This dataset is archived and cannot receive readings.',
+    row_id_exists: 'That reading already exists.',
+    unknown_field: 'A field is no longer part of the dataset schema.',
+    invalid_field_id: 'The dataset field is invalid.',
+    required_value: 'A required value is missing.',
+    numeric_validation: 'The value is outside the field’s allowed range.',
+    text_validation: 'The text does not match the field’s rules.',
+    invalid_value_type: 'The value type does not match the field.',
+    invalid_reference: 'The linked record was not found in this workspace.',
+    invalid_category_option: 'The category option is invalid.',
+    invalid_cardinality: 'The number of values is wrong for this field.',
+  }),
+)
 
 /**
  * Human message for a failed commit. Unknown codes fall back to the raw code so
@@ -431,7 +425,7 @@ export function readingCommitErrorMessage(
 
   const messages = (result.errors ?? []).map((error) => {
     const base =
-      READING_ERROR_MESSAGES[error.code] ?? `Couldn’t save (${error.code}).`
+      READING_ERROR_MESSAGES.get(error.code) ?? `Couldn’t save (${error.code}).`
 
     const field = error.fieldId ? byId.get(error.fieldId) : undefined
 
@@ -496,10 +490,9 @@ export async function attachPhotoToSample(
     )
   }
 
-  const meta = (await authorizeRes.json()) as {
-    fileRecordId: string
-    fileIdentifier: string
-  }
+  const meta = z
+    .object({ fileRecordId: z.string(), fileIdentifier: z.string() })
+    .parse(await authorizeRes.json())
 
   const uploadRes = await fetch(`/api/files/${meta.fileRecordId}/upload`, {
     method: 'PUT',

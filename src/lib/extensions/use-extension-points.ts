@@ -30,10 +30,12 @@ export function useExtensionPointsState(): {
     staleTime: 30_000,
     retry: false,
   })
+
   const points = useMemo(
     () => resolveRunnerPoints(installs.data ?? []),
     [installs.data],
   )
+
   return { points, ready: !installs.isPending }
 }
 
@@ -42,6 +44,7 @@ async function runFailure(response: Response): Promise<Error> {
   const body = (await response.json().catch(() => null)) as {
     error?: string
   } | null
+
   return new Error(body?.error ?? 'The plugin could not run.')
 }
 

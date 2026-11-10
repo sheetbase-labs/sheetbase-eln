@@ -45,7 +45,7 @@ export const VALID_SCOPES = [
 export type Scope = (typeof VALID_SCOPES)[number]
 
 export function isValidScope(scope: string): scope is Scope {
-  return (VALID_SCOPES as readonly string[]).includes(scope)
+  return VALID_SCOPES.some((candidate) => candidate === scope)
 }
 
 /** Admin UI grouping. `effective` means the current external allowlist honours it. */

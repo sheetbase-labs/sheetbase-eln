@@ -56,6 +56,7 @@ const summary = z.string().min(1).max(400)
 const name = (what: string) => z.string().min(1).max(200).describe(what)
 const table = name('The measurement table, by words from its name or key.')
 const dataset = name('The dataset, by words from its name or its DS number.')
+
 const reason = z
   .string()
   .min(1)
@@ -71,51 +72,47 @@ export const FIELD_TYPES = [
   'timestamp',
 ] as const
 
-const fieldSpec = z
-  .object({
-    label: z.string().min(1).max(120).describe('The column name people see.'),
-    type: z.enum(FIELD_TYPES).describe('What the column holds.'),
-    required: z.boolean().optional().describe('Every row must fill it.'),
-    description: z.string().min(1).max(500).optional(),
-  })
-  .strict()
+const fieldSpec = z.strictObject({
+  label: z.string().min(1).max(120).describe('The column name people see.'),
+  type: z.enum(FIELD_TYPES).describe('What the column holds.'),
+  required: z.boolean().optional().describe('Every row must fill it.'),
+  description: z.string().min(1).max(500).optional(),
+})
 
-export const proposeTableCreateSchema = z
-  .object({
-    title,
-    summary,
-    name: name('The new measurement table’s name, in the person’s words.'),
-    description: z.string().min(1).max(1000).optional(),
-    extends: name(
-      'Another measurement table this one builds on, if they said; it starts with that table’s columns.',
-    ).optional(),
-    fields: z.array(fieldSpec).max(60).describe('The columns, in order.'),
-  })
-  .strict()
+export const proposeTableCreateSchema = z.strictObject({
+  title,
+  summary,
+  name: name('The new measurement table’s name, in the person’s words.'),
+  description: z.string().min(1).max(1000).optional(),
+  extends: name(
+    'Another measurement table this one builds on, if they said; it starts with that table’s columns.',
+  ).optional(),
+  fields: z.array(fieldSpec).max(60).describe('The columns, in order.'),
+})
 
-export const proposeTableEditSchema = z
-  .object({
-    title,
-    summary,
-    table,
-    add: z.array(fieldSpec).max(60).optional().describe('Columns to add.'),
-    remove: z
-      .array(z.string().min(1).max(120))
-      .max(60)
-      .optional()
-      .describe('Columns to take out, by their labels.'),
-  })
-  .strict()
+export const proposeTableEditSchema = z.strictObject({
+  title,
+  summary,
+  table,
+  add: z.array(fieldSpec).max(60).optional().describe('Columns to add.'),
+  remove: z
+    .array(z.string().min(1).max(120))
+    .max(60)
+    .optional()
+    .describe('Columns to take out, by their labels.'),
+})
 
-const tableOnly = z.object({ title, summary, table }).strict()
+const tableOnly = z.strictObject({ title, summary, table })
 export const proposeTablePublishSchema = tableOnly
 export const proposeTableDiscardSchema = tableOnly
 export const proposeTableRetireSchema = tableOnly
 export const proposeTableRestoreSchema = tableOnly
 
-export const proposeDatasetUpgradeSchema = z
-  .object({ title, summary, dataset })
-  .strict()
+export const proposeDatasetUpgradeSchema = z.strictObject({
+  title,
+  summary,
+  dataset,
+})
 
 export const FLAG_KINDS = [
   'out_of_range',
@@ -124,43 +121,37 @@ export const FLAG_KINDS = [
   'high_cv',
 ] as const
 
-export const proposeDatasetFlagSchema = z
-  .object({
-    title,
-    summary,
-    dataset,
-    rowId: z
-      .string()
-      .uuid()
-      .describe('The row, as `rowId` from reading the dataset’s rows.'),
-    field: name('The column, by its label.'),
-    kind: z.enum(FLAG_KINDS),
-    reason: z.string().min(1).max(200).describe('Why, in a few words.'),
-    comment: z.string().min(1).max(1000).optional(),
-  })
-  .strict()
+export const proposeDatasetFlagSchema = z.strictObject({
+  title,
+  summary,
+  dataset,
+  rowId: z
+    .string()
+    .uuid()
+    .describe('The row, as `rowId` from reading the dataset’s rows.'),
+  field: name('The column, by its label.'),
+  kind: z.enum(FLAG_KINDS),
+  reason: z.string().min(1).max(200).describe('Why, in a few words.'),
+  comment: z.string().min(1).max(1000).optional(),
+})
 
-export const proposeDatasetClearFlagSchema = z
-  .object({
-    title,
-    summary,
-    dataset,
-    field: name('The column the flag is on, by its label.').optional(),
-    rowId: z.string().uuid().optional().describe('The flagged row, if known.'),
-    reason: z.string().min(1).max(500).optional(),
-  })
-  .strict()
+export const proposeDatasetClearFlagSchema = z.strictObject({
+  title,
+  summary,
+  dataset,
+  field: name('The column the flag is on, by its label.').optional(),
+  rowId: z.string().uuid().optional().describe('The flagged row, if known.'),
+  reason: z.string().min(1).max(500).optional(),
+})
 
-export const proposeDatasetUnitSchema = z
-  .object({
-    title,
-    summary,
-    dataset,
-    field: name('The column, by its label.'),
-    unit: z.string().min(1).max(40).describe('The unit, such as `mg/mL`.'),
-    reason,
-  })
-  .strict()
+export const proposeDatasetUnitSchema = z.strictObject({
+  title,
+  summary,
+  dataset,
+  field: name('The column, by its label.'),
+  unit: z.string().min(1).max(40).describe('The unit, such as `mg/mL`.'),
+  reason,
+})
 
 export const INTENDED_USES = [
   'exploratory_research',
@@ -168,57 +159,55 @@ export const INTENDED_USES = [
   'regulated_record',
 ] as const
 
-export const proposeDatasetUseSchema = z
-  .object({ title, summary, dataset, use: z.enum(INTENDED_USES), reason })
-  .strict()
+export const proposeDatasetUseSchema = z.strictObject({
+  title,
+  summary,
+  dataset,
+  use: z.enum(INTENDED_USES),
+  reason,
+})
 
-export const proposeDatasetKeepSchema = z
-  .object({
-    title,
-    summary,
-    dataset,
-    snapshot: z
-      .string()
-      .min(1)
-      .max(200)
-      .optional()
-      .describe('The snapshot, by its label. Defaults to the latest one.'),
-    reason,
-  })
-  .strict()
+export const proposeDatasetKeepSchema = z.strictObject({
+  title,
+  summary,
+  dataset,
+  snapshot: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('The snapshot, by its label. Defaults to the latest one.'),
+  reason,
+})
 
-export const proposeDatasetPlanSchema = z
-  .object({
-    title,
-    summary,
-    dataset,
-    rows: z
-      .array(z.string().min(1).max(200))
-      .min(1)
-      .max(50)
-      .describe(
-        'One key per row to plan, such as the sample or timepoint each will measure.',
-      ),
-    dueOn: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD.')
-      .optional()
-      .describe('When the measurements are due, if they said.'),
-  })
-  .strict()
+export const proposeDatasetPlanSchema = z.strictObject({
+  title,
+  summary,
+  dataset,
+  rows: z
+    .array(z.string().min(1).max(200))
+    .min(1)
+    .max(50)
+    .describe(
+      'One key per row to plan, such as the sample or timepoint each will measure.',
+    ),
+  dueOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD.')
+    .optional()
+    .describe('When the measurements are due, if they said.'),
+})
 
-export const proposeIntakeResolveSchema = z
-  .object({
-    title,
-    summary,
-    file: name('The file that did not come in, by words from its name.'),
-    resolution: z
-      .enum(['resolved', 'dismissed'])
-      .describe(
-        '`resolved` when it has come in after all, `dismissed` to stop showing it.',
-      ),
-  })
-  .strict()
+export const proposeIntakeResolveSchema = z.strictObject({
+  title,
+  summary,
+  file: name('The file that did not come in, by words from its name.'),
+  resolution: z
+    .enum(['resolved', 'dismissed'])
+    .describe(
+      '`resolved` when it has come in after all, `dismissed` to stop showing it.',
+    ),
+})
 
 /** A column of a measurement table, in the shape the database takes. */
 export interface TableField {
@@ -360,9 +349,12 @@ export function keyFromLabel(
     .normalize('NFKD')
     .replaceAll(/[^a-z0-9]+/g, '_')
     .replaceAll(/^_+|_+$/g, '')
+
   if (!/^[a-z]/.test(base)) base = `f_${base}`
   base = base.slice(0, 50) || 'field'
   let key = base
+
   for (let n = 2; taken.has(key); n++) key = `${base}_${n}`
+
   return key
 }

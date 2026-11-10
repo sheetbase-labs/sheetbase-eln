@@ -1,4 +1,5 @@
 import type { DataClient } from '#/lib/data-client'
+import { z } from 'zod'
 import {
   builtInModel,
   fetchAddedFieldValues,
@@ -6,8 +7,12 @@ import {
 } from '#/lib/built-in-models'
 import type { BuiltInModel, BuiltInModelHost } from '#/lib/built-in-models'
 import { fetchModelFields } from '#/lib/model-fields'
-import type { ModelFieldDefinition } from '#/lib/model-fields'
+import type {
+  ModelFieldDefinition,
+  ModelFieldRecordValues,
+} from '#/lib/model-fields'
 import { objectPath, recordDestination } from '#/lib/navigation'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
 
 /**
  * Subtypes. Any model can have subtypes, to any depth: a subtype is a
@@ -164,10 +169,7 @@ export function typeForVersion(
 }
 
 /** Where objects of a type live, from the model at the top of its chain. */
-export function typeHost(
-  types: readonly ModelType[],
-  key: string,
-): { root: string; builtIn: BuiltInModel | null; host: BuiltInModelHost } {
+export function typeHost(types: readonly ModelType[], key: string) {
   const root = typeRoot(types, key)
   const builtIn = builtInModel(root) ?? null
 
@@ -250,18 +252,20 @@ export async function setModelType(
   host: BuiltInModelHost,
   objectId: string,
   typeKey: string | null,
-  values: Record<string, unknown>,
+  values: ModelFieldRecordValues['customFields'],
 ): Promise<{ identifier: string | null }> {
-  const row = await client.rpc<Record<string, unknown>>('set_model_type', {
-    p_host: hostTable(host),
-    p_id: objectId,
-    p_model_key: typeKey,
-    p_custom_fields: values,
-  })
+  const row = pipelineJsonObjectSchema.parse(
+    await client.rpc('set_model_type', {
+      p_host: hostTable(host),
+      p_id: objectId,
+      p_model_key: typeKey,
+      p_custom_fields: pipelineJsonObjectSchema.parse(values),
+    }),
+  )
 
-  const identifier = row.identifier ?? row.display_id
+  const identifier = z.string().safeParse(row.identifier ?? row.display_id)
 
-  return { identifier: typeof identifier === 'string' ? identifier : null }
+  return { identifier: identifier.success ? identifier.data : null }
 }
 
 /** Keys of every field in the groups, for working out what a change drops. */
@@ -273,10 +277,10 @@ export function fieldKeys(groups: readonly FieldGroup[]): Set<string> {
 
 /** Values a type change keeps, and the labels of those it drops. */
 export function valuesForType(
-  current: Record<string, unknown>,
+  current: ModelFieldRecordValues['customFields'],
   from: readonly FieldGroup[],
   to: readonly FieldGroup[],
-): { kept: Record<string, unknown>; dropped: string[] } {
+) {
   const keep = fieldKeys(to)
 
   const labels = new Map(
@@ -285,12 +289,14 @@ export function valuesForType(
     ),
   )
 
-  const kept: Record<string, unknown> = {}
+  const kept = Object.fromEntries(
+    Object.entries(current).filter(([key]) => keep.has(key)),
+  )
+
   const dropped: string[] = []
 
   for (const [key, value] of Object.entries(current)) {
-    if (keep.has(key)) kept[key] = value
-    else if (value !== null && value !== undefined && value !== '')
+    if (!keep.has(key) && value !== null && value !== '')
       dropped.push(labels.get(key) ?? key)
   }
 
@@ -308,10 +314,12 @@ export async function saveNewObjectFields(
   model: BuiltInModel,
   objectId: string,
   typeKey: string | null,
-  values: Record<string, unknown>,
+  values: ModelFieldRecordValues['customFields'],
 ): Promise<{ identifier: string | null }> {
+  const parsedValues = pipelineJsonObjectSchema.parse(values)
+
   if (!typeKey) {
-    await saveAddedFieldValues(client, model, objectId, values)
+    await saveAddedFieldValues(client, model, objectId, parsedValues)
 
     return { identifier: null }
   }
@@ -319,8 +327,8 @@ export async function saveNewObjectFields(
   const { customFields } = await fetchAddedFieldValues(client, model, objectId)
 
   return setModelType(client, model.host, objectId, typeKey, {
-    ...customFields,
-    ...values,
+    ...pipelineJsonObjectSchema.parse(customFields),
+    ...parsedValues,
   })
 }
 
@@ -330,7 +338,7 @@ export interface TypedObject {
   name: string
   /** The page that owns the object. */
   href: string
-  customFields: Record<string, unknown>
+  customFields: ModelFieldRecordValues['customFields']
 }
 
 /**
@@ -351,7 +359,7 @@ export async function fetchTypedObjects(
       id: string
       display_id: string | null
       title: string
-      custom_fields: Record<string, unknown> | null
+      custom_fields: ModelFieldRecordValues['customFields'] | null
     }>('projects', `?${pins}&select=id,display_id,title,custom_fields`)
 
     return rows.map((row) => ({
@@ -359,7 +367,7 @@ export async function fetchTypedObjects(
       identifier: row.display_id ?? '',
       name: row.title,
       href: objectPath('project', row.id) ?? '',
-      customFields: row.custom_fields ?? {},
+      customFields: pipelineJsonObjectSchema.parse(row.custom_fields ?? {}),
     }))
   }
 
@@ -368,7 +376,7 @@ export async function fetchTypedObjects(
       id: string
       display_id: string | null
       name: string
-      custom_fields: Record<string, unknown> | null
+      custom_fields: ModelFieldRecordValues['customFields'] | null
     }>('instruments', `?${pins}&select=id,display_id,name,custom_fields`)
 
     return rows.map((row) => ({
@@ -376,7 +384,7 @@ export async function fetchTypedObjects(
       identifier: row.display_id ?? '',
       name: row.name,
       href: objectPath('instrument', row.id) ?? '',
-      customFields: row.custom_fields ?? {},
+      customFields: pipelineJsonObjectSchema.parse(row.custom_fields ?? {}),
     }))
   }
 
@@ -385,7 +393,7 @@ export async function fetchTypedObjects(
     identifier: string
     title: string
     kind: string
-    custom_fields: Record<string, unknown> | null
+    custom_fields: ModelFieldRecordValues['customFields'] | null
   }>(
     'records',
     `?${pins}&deleted_at=is.null&order=updated_at.desc&select=id,identifier,title,kind,custom_fields`,
@@ -398,6 +406,6 @@ export async function fetchTypedObjects(
     href: builtIn
       ? recordDestination(row.kind, row.id)
       : `/models/${encodeURIComponent(root)}/records/${encodeURIComponent(row.id)}`,
-    customFields: row.custom_fields ?? {},
+    customFields: pipelineJsonObjectSchema.parse(row.custom_fields ?? {}),
   }))
 }

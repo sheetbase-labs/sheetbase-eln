@@ -100,9 +100,15 @@ describe('parseSampleProperties and toSampleRecord', () => {
   })
 
   it('keeps workspace model fields separate from system properties', () => {
-    const rec = toSampleRecord(wire({ quantity: 2 }, { study_arm: 'treated' }))
+    const customFields = {
+      study_arm: 'treated',
+      ['__proto__']: { values: [0, 3.5] },
+    }
+    const rec = toSampleRecord(wire({ quantity: 2 }, customFields))
     expect(rec.quantity).toBe(2)
-    expect(rec.customFields).toEqual({ study_arm: 'treated' })
+    expect(rec.customFields).toEqual(customFields)
+    expect(Object.hasOwn(rec.customFields, '__proto__')).toBe(true)
+    expect(() => toSampleRecord(wire({}, { dose: Infinity }))).toThrow()
   })
 })
 

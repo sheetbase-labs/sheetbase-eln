@@ -21,8 +21,9 @@ import type {
 
 function uniqueName(base: string, taken: string[]): string {
   let n = taken.length + 1
+  const names = new Set(taken)
 
-  while (taken.includes(`${base}_${n}`)) n += 1
+  while (names.has(`${base}_${n}`)) n += 1
 
   return `${base}_${n}`
 }
@@ -42,7 +43,10 @@ export function addParameter(list: PipelineParameter[]): PipelineParameter[] {
 }
 
 /** A parameter's default as the type's value, or undefined for blank/invalid. */
-export function parseDefault(type: ParameterType, text: string): unknown {
+export function parseDefault(
+  type: ParameterType,
+  text: string,
+): string | number | boolean | undefined {
   const trimmed = text.trim()
 
   if (!trimmed) return undefined
@@ -131,7 +135,7 @@ export function setStepLanguage(
 
     const { contract, plugin: _plugin, ...rest } = step
 
-    return {
+    const next: PipelineStep = {
       ...rest,
       language,
       statement: statementForLanguage(
@@ -140,8 +144,11 @@ export function setStepLanguage(
         { ...context, contract },
         DEFAULT_SQL_STATEMENT,
       ),
-      ...(language === 'python' && contract ? { contract } : {}),
     }
+
+    if (language === 'python' && contract) next.contract = contract
+
+    return next
   })
 }
 
@@ -155,7 +162,7 @@ export function setStepPlugin(
     if (position !== index) return step
     const { plugin: _previous, ...rest } = step
 
-    return { ...rest, ...(plugin ? { plugin } : {}) }
+    return plugin ? { ...rest, plugin } : rest
   })
 }
 
@@ -180,18 +187,23 @@ export function updateStep(
   patch: Partial<PipelineStep>,
 ): PipelineStep[] {
   const renamed = patch.name !== undefined ? list[index].name : null
+  const newName = patch.name
 
   return list.map((step, position) => {
     if (position === index) return { ...step, ...patch }
 
     // A rename follows the skips that pointed at the old name.
-    if (renamed && step.confirm?.skipSteps?.includes(renamed)) {
+    if (
+      renamed &&
+      newName !== undefined &&
+      step.confirm?.skipSteps?.includes(renamed)
+    ) {
       return {
         ...step,
         confirm: {
           ...step.confirm,
           skipSteps: step.confirm.skipSteps.map((n) =>
-            n === renamed ? (patch.name as string) : n,
+            n === renamed ? newName : n,
           ),
         },
       }
@@ -237,19 +249,21 @@ export function removeStep(
 ): PipelineStep[] {
   const name = list[index].name
 
-  return list
-    .filter((_, position) => position !== index)
-    .map((step) => {
-      if (!step.confirm?.skipSteps?.includes(name)) return step
+  return list.flatMap((step, position) => {
+    if (position === index) return []
 
-      return {
+    if (!step.confirm?.skipSteps?.includes(name)) return [step]
+
+    return [
+      {
         ...step,
         confirm: {
           ...step.confirm,
           skipSteps: step.confirm.skipSteps.filter((n) => n !== name),
         },
-      }
-    })
+      },
+    ]
+  })
 }
 
 /** The confirm a step starts with: one optional note, 24 hours, ask again. */
@@ -366,9 +380,9 @@ export function checkOutputFit(
   }
 
   return {
-    missing: fields
-      .filter((f) => f.required && !fed.has(f.key))
-      .map((f) => f.key),
+    missing: fields.flatMap((f) =>
+      f.required && !fed.has(f.key) ? [f.key] : [],
+    ),
     unmatched,
   }
 }

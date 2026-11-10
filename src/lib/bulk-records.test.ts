@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { z } from 'zod'
 
-import { DataClientError } from '#/lib/data-client'
-import type { DataClient } from '#/lib/data-client'
+import { createDataClient, DataClientError } from '#/lib/data-client'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
 
 import {
   bulkArchive,
@@ -29,13 +30,28 @@ function target(over: Partial<BulkTarget> = {}): BulkTarget {
   }
 }
 
-function client(rpc: DataClient['rpc']): DataClient {
-  return { rpc } as unknown as DataClient
+function client(
+  rpc: (
+    name: string,
+    args: Record<string, z.core.util.JSONType>,
+  ) => Promise<z.core.util.JSONType>,
+) {
+  return createDataClient(async (input, init) => {
+    const request = new Request(
+      new URL(input instanceof Request ? input.url : input, 'http://localhost'),
+      init,
+    )
+
+    const name = request.url.split('/rpc/')[1]
+    const args = pipelineJsonObjectSchema.parse(await request.json())
+
+    return Response.json(await rpc(name, args))
+  })
 }
 
 describe('fetchBulkTargets', () => {
   it('reads the picked records in the order they were picked', async () => {
-    const list = vi.fn().mockResolvedValue([
+    const rows = [
       {
         id: 'b',
         kind: 'sample',
@@ -60,17 +76,29 @@ describe('fetchBulkTargets', () => {
         locked_at: null,
         properties: null,
       },
-    ])
+    ]
 
-    const targets = await fetchBulkTargets({ list } as unknown as DataClient, [
-      'a',
-      'b',
-    ])
+    const requests: Request[] = []
 
-    expect(list).toHaveBeenCalledWith(
-      'records',
-      expect.stringContaining('id=in.(a,b)'),
-    )
+    const dataClient = createDataClient(async (input, init) => {
+      requests.push(
+        new Request(
+          new URL(
+            input instanceof Request ? input.url : input,
+            'http://localhost',
+          ),
+          init,
+        ),
+      )
+
+      return Response.json(rows)
+    })
+
+    const targets = await fetchBulkTargets(dataClient, ['a', 'b'])
+
+    expect(requests).toHaveLength(1)
+    expect(new URL(requests[0].url).pathname).toBe('/api/db/records')
+    expect(new URL(requests[0].url).searchParams.get('id')).toBe('in.(a,b)')
     expect(targets.map((x) => x.id)).toEqual(['a', 'b'])
     expect(targets[0].archived).toBe(true)
     expect(targets[1].hasLocation).toBe(true)

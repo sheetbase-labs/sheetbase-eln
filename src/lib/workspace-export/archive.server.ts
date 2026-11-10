@@ -14,6 +14,7 @@
  */
 import { createHash } from 'node:crypto'
 import { Zip, ZipDeflate } from 'fflate'
+import type { QueryResultRow } from 'pg'
 
 import { PooledClient } from '#/db/pool.server'
 import { env } from '#/env.server'
@@ -21,17 +22,19 @@ import { MissingStorageObjectError } from '#/lib/file-storage/types'
 import type { ObjectStorage } from '#/lib/file-storage/types'
 
 import { ByteChannel } from './byte-channel'
+import { ARCHIVE_FORMAT_VERSION } from './format'
 import { buildExportPlan, selectForTable } from './plan'
 import type { CatalogForeignKey, CatalogTable, ExportPlan } from './plan'
 
-export const ARCHIVE_FORMAT_VERSION = 1
+export { ARCHIVE_FORMAT_VERSION } from './format'
+
 const FETCH_ROWS = 500
 
 export interface ArchiveConnection {
-  query: (
+  query: <Row extends QueryResultRow = QueryResultRow>(
     text: string,
     values?: unknown[],
-  ) => Promise<{ rows: Record<string, unknown>[] }>
+  ) => Promise<{ rows: Row[] }>
   end: () => Promise<void>
 }
 
@@ -82,7 +85,7 @@ export async function defaultArchiveConnection(): Promise<ArchiveConnection> {
 async function loadCatalog(
   conn: ArchiveConnection,
 ): Promise<{ tables: CatalogTable[]; foreignKeys: CatalogForeignKey[] }> {
-  const tables = await conn.query(`
+  const tables = await conn.query<CatalogTable>(`
     SELECT n.nspname AS schema, c.relname AS name,
            array_agg(a.attname::text ORDER BY a.attnum) AS columns
       FROM pg_class c
@@ -92,7 +95,7 @@ async function loadCatalog(
        AND n.nspname IN ('api', 'internal')
      GROUP BY n.nspname, c.relname`)
 
-  const foreignKeys = await conn.query(`
+  const foreignKeys = await conn.query<CatalogForeignKey>(`
     SELECT ns.nspname AS schema, cl.relname AS "table",
            (SELECT array_agg(a.attname::text ORDER BY k.ord)
               FROM unnest(con.conkey) WITH ORDINALITY k(attnum, ord)
@@ -109,8 +112,8 @@ async function loadCatalog(
      WHERE con.contype = 'f' AND ns.nspname IN ('api', 'internal')`)
 
   return {
-    tables: tables.rows as unknown as CatalogTable[],
-    foreignKeys: foreignKeys.rows as unknown as CatalogForeignKey[],
+    tables: tables.rows,
+    foreignKeys: foreignKeys.rows,
   }
 }
 
@@ -136,17 +139,22 @@ export async function writeWorkspaceArchive(
 ): Promise<ArchiveSummary> {
   const now = deps.now ?? (() => new Date())
   const pending: Uint8Array[] = []
-  const zipState: { error: unknown } = { error: null }
+  let zipError: Error | null = null
 
   const zip = new Zip((err, chunk) => {
-    if (err) zipState.error = err
+    if (err) zipError = err
     else pending.push(chunk)
   })
 
   const flush = async () => {
-    if (zipState.error) throw zipState.error
+    if (zipError) throw zipError
 
-    while (pending.length) await channel.push(pending.shift() as Uint8Array)
+    for (;;) {
+      const chunk = pending.shift()
+
+      if (!chunk) break
+      await channel.push(chunk)
+    }
   }
 
   const writeEntry = async (name: string, content: Uint8Array) => {
@@ -169,7 +177,7 @@ export async function writeWorkspaceArchive(
     )
 
     const workspace = (
-      await conn.query(
+      await conn.query<{ id: string; name: string; slug: string }>(
         'SELECT id::text, name, slug FROM api.workspaces WHERE id = $1::uuid',
         [workspaceId],
       )
@@ -197,14 +205,14 @@ export async function writeWorkspaceArchive(
         for (;;) {
           if (channel.isCancelled) throw new Error('archive reader went away')
 
-          const page = await conn.query(
+          const page = await conn.query<{ row: string }>(
             `FETCH FORWARD ${FETCH_ROWS} FROM ${cursor}`,
           )
 
           if (page.rows.length === 0) break
 
           const bytes = encoder.encode(
-            page.rows.map((r) => `${r.row as string}\n`).join(''),
+            page.rows.map((r) => `${r.row}\n`).join(''),
           )
 
           if (!entry) {
@@ -237,7 +245,16 @@ export async function writeWorkspaceArchive(
     }
 
     const fileRows = (
-      await conn.query(
+      await conn.query<{
+        id: string
+        record_id: string | null
+        storage_key: string
+        display_name: string
+        media_type: string
+        byte_size: string
+        checksum: string | null
+        checksum_algorithm: string | null
+      }>(
         `SELECT id::text, record_id::text, storage_key, display_name, media_type,
                 byte_size::text, checksum, checksum_algorithm
            FROM api.file_objects
@@ -251,24 +268,24 @@ export async function writeWorkspaceArchive(
 
     for (const row of fileRows) {
       const base = {
-        id: row.id as string,
-        recordId: (row.record_id as string | null) ?? null,
-        name: row.display_name as string,
-        mediaType: row.media_type as string,
+        id: row.id,
+        recordId: row.record_id ?? null,
+        name: row.display_name,
+        mediaType: row.media_type,
         bytes: Number(row.byte_size),
       }
 
       let opened: Awaited<ReturnType<ObjectStorage['getStream']>>
 
       try {
-        opened = await deps.storage.getStream(row.storage_key as string)
+        opened = await deps.storage.getStream(row.storage_key)
       } catch (error) {
         if (!(error instanceof MissingStorageObjectError)) throw error
         files.push({ ...base, sha256: null, path: null, status: 'missing' })
         continue
       }
 
-      const path = `files/${row.storage_key as string}`
+      const path = `files/${row.storage_key}`
       const entry = new ZipDeflate(path, { level: 1 })
       zip.add(entry)
       const hash = createHash('sha256')
@@ -291,7 +308,7 @@ export async function writeWorkspaceArchive(
       entry.push(new Uint8Array(0), true)
       await flush()
       const sha256 = hash.digest('hex')
-      const recorded = row.checksum as string | null
+      const recorded = row.checksum
       files.push({
         ...base,
         sha256,
@@ -353,10 +370,7 @@ export async function writeWorkspaceArchive(
  * Starts the archive and returns its byte stream together with the promise of
  * its summary. Await the summary after the stream has been fully read.
  */
-export function createWorkspaceArchive(
-  workspaceId: string,
-  deps: ArchiveDeps,
-): { stream: ReadableStream<Uint8Array>; summary: Promise<ArchiveSummary> } {
+export function createWorkspaceArchive(workspaceId: string, deps: ArchiveDeps) {
   const channel = new ByteChannel()
   const summary = writeWorkspaceArchive(workspaceId, deps, channel)
   // The stream reports the failure to its reader; an unread summary must not

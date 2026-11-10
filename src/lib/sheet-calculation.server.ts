@@ -29,15 +29,13 @@ import type { DataClient } from './data-client'
 import { sheetInstanceStateSchema } from './sheet-instance'
 import { parseSheetDefinitionConfiguration } from './sheet-definition'
 
-const requestSchema = z
-  .object({
-    instanceId: z.string().uuid(),
-    expectedRevision: z.number().int().positive(),
-    retryToken: z.string().uuid(),
-    offset: z.number().int().min(0).max(10_000).default(0),
-    limit: z.number().int().min(1).max(200).default(200),
-  })
-  .strict()
+const requestSchema = z.strictObject({
+  instanceId: z.string().uuid(),
+  expectedRevision: z.number().int().positive(),
+  retryToken: z.string().uuid(),
+  offset: z.number().int().min(0).max(10_000).default(0),
+  limit: z.number().int().min(1).max(200).default(200),
+})
 
 type Snapshot = {
   instanceId: string
@@ -106,27 +104,35 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
   )
     throw new Error('Calculation requires a pinned composed Definition.')
   const flagIndex = snapshotFlagIndex(snapshot)
+
   const configuration = parseSheetDefinitionConfiguration(
     snapshot.composition.definitionConfiguration,
   )
+
   const definitionColumns = new Map(
     configuration.columns.map((column) => [column.id, column]),
   )
+
   const localFields = new Map(
     snapshot.state.localFields.map((field) => [field.fieldId, field]),
   )
+
   const definitionCalculations = configuration.calculations.flatMap(
     (calculation) => {
       const hasOverride = Object.hasOwn(
         snapshot.state.calculationOverrides,
         calculation.id,
       )
+
       const override = hasOverride
         ? snapshot.state.calculationOverrides[calculation.id]
         : undefined
+
       if (override && !override.enabled) return []
       const output = definitionColumns.get(calculation.outputColumnId)
+
       if (!output) throw new Error('Definition calculation output is missing.')
+
       return [
         {
           id: calculation.id,
@@ -141,32 +147,42 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
       ]
     },
   )
+
   const instanceCalculations = (snapshot.state.instanceCalculations ?? [])
     .filter((calculation) => calculation.lifecycle === 'active')
     .map((calculation) => ({
       ...sheetInstanceCalculationSchema.parse(calculation),
       scope: 'instance' as const,
     }))
+
   const calculations = [...definitionCalculations, ...instanceCalculations]
+
   const calculationById = new Map(
     calculations.map((calculation) => [calculation.id, calculation]),
   )
+
   const projectionRows = new Map(
     snapshot.composition.boundProjection.rows.map((row) => [row.rowKey, row]),
   )
+
   const results: TrustedResult[] = []
   const excluded: ExcludedValue[] = []
 
   for (const row of snapshot.composition.rows) {
     const projected = projectionRows.get(row.rowKey)
+
     if (!projected) throw new Error('Bound projection row is missing.')
     const rowResults = new Map<string, TrustedResult>()
     const evaluating = new Set<string>()
+
     const evaluate = (calculationId: string): TrustedResult => {
       const cached = rowResults.get(calculationId)
+
       if (cached) return cached
       const calculation = calculationById.get(calculationId)
+
       if (!calculation) throw new Error('Unknown calculation dependency.')
+
       if (evaluating.has(calculationId)) {
         const cycle: TrustedResult = {
           calculationId,
@@ -186,22 +202,30 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
           errorCode: 'EVALUATION',
           diagnostic: 'Calculation dependency cycle.',
         }
+
         rowResults.set(calculationId, cycle)
+
         return cycle
       }
+
       evaluating.add(calculationId)
+
       const inputs: SheetCalculationInput[] = calculation.dependencies.map(
         (dependency) => {
           if (dependency.kind === 'local-field') {
             const field = localFields.get(dependency.id)
+
             if (!field) throw new Error('Unknown local calculation field.')
+
             const hasValues = Object.hasOwn(
               snapshot.state.localValues,
               row.rowKey,
             )
+
             const values = hasValues
               ? snapshot.state.localValues[row.rowKey]
               : undefined
+
             return {
               dependency,
               field,
@@ -219,9 +243,11 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
               },
             }
           }
+
           if (dependency.kind === 'calculation') {
             const dependencyResult = evaluate(dependency.id)
             const dependencyCalculation = calculationById.get(dependency.id)!
+
             return {
               dependency,
               field: dependencyCalculation.outputField,
@@ -240,10 +266,14 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
               },
             }
           }
+
           const column = definitionColumns.get(dependency.id)
+
           if (!column) throw new Error('Unknown Definition column dependency.')
+
           if (column.source.kind === 'calculated') {
             const dependencyResult = evaluate(column.source.calculationId)
+
             return {
               dependency,
               field: column.field,
@@ -262,6 +292,7 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
               },
             }
           }
+
           if (!Object.hasOwn(projected.values, dependency.id))
             return {
               dependency,
@@ -273,13 +304,16 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
               },
             }
           const bound = projected.values[dependency.id]
+
           // DSET-01.2 — a flagged Dataset value is excluded by default.
           const flag =
             bound.kind === 'present'
               ? flaggedValueForProvenance(bound.provenance, flagIndex)
               : undefined
+
           if (flag) {
             excluded.push({ rowId: flag.rowId, fieldId: flag.fieldId, flag })
+
             return {
               dependency,
               field: column.field,
@@ -287,6 +321,7 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
               provenance: bound.provenance,
             }
           }
+
           return {
             dependency,
             field: column.field,
@@ -296,12 +331,14 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
           }
         },
       )
+
       const evaluated = evaluateSheetCalculation({
         calculationId,
         expression: calculation.expression.source,
         outputField: calculation.outputField,
         inputs,
       })
+
       const result: TrustedResult = {
         calculationId,
         rowKey: row.rowKey,
@@ -320,13 +357,17 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
         errorCode: evaluated.status === 'error' ? evaluated.errorCode : null,
         diagnostic: evaluated.status === 'error' ? evaluated.diagnostic : null,
       }
+
       rowResults.set(calculationId, result)
       evaluating.delete(calculationId)
+
       return result
     }
+
     for (const calculation of calculations) evaluate(calculation.id)
     results.push(...rowResults.values())
   }
+
   return { results, excluded }
 }
 
@@ -345,6 +386,7 @@ export function calculateSheetSnapshotReport(snapshot: Snapshot): {
   exclusions: ExclusionSummary
 } {
   const { results, excluded } = evaluateSheetSnapshot(snapshot)
+
   return { results, exclusions: summariseExcludedValues(excluded) }
 }
 
@@ -372,10 +414,12 @@ async function loadSnapshot(
 ): Promise<Snapshot> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   try {
     await client.query(
       'BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY',
     )
+
     const instance = (
       await client.query<{
         id: string
@@ -391,6 +435,7 @@ async function loadSnapshot(
         [instanceId, actor],
       )
     ).rows.at(0)
+
     if (!instance || !instance.source_definition_version_id)
       throw Object.assign(
         new Error('Composed Sheet Instance is unavailable.'),
@@ -406,12 +451,14 @@ async function loadSnapshot(
         role: 'authenticated',
       }),
     ])
+
     const raw = (
       await client.query<{ result: unknown }>(
         `SELECT api.query_sheet_instance_rows($1,$2,$3) result`,
         [instanceId, limit, offset],
       )
     ).rows[0].result
+
     const dataClient: DataClient = {
       rpc: async <T>() => raw as T,
       list: async () => [],
@@ -422,11 +469,13 @@ async function loadSnapshot(
       patch: async () => [],
       remove: async () => [],
     }
+
     const composition = await fetchComposedSheetRows(
       instanceId,
       { offset, limit },
       dataClient,
     )
+
     // DSET-01.2 — read the active flags for every Dataset the composition
     // binds, so ƒx evaluation excludes flagged values by default. Flags are
     // only visible to workspace members; the RLS context is already set.
@@ -439,6 +488,7 @@ async function loadSnapshot(
         ),
       ),
     )
+
     const flags: DatasetValueFlag[] =
       datasetIds.length > 0
         ? (
@@ -450,7 +500,9 @@ async function loadSnapshot(
             )
           ).rows.map(toDatasetValueFlag)
         : []
+
     await client.query('COMMIT')
+
     return {
       instanceId,
       workspaceId: instance.workspace_id,
@@ -477,10 +529,13 @@ async function finalize(
   const client = new PooledClient({
     connectionString: env.FORMULA_DATABASE_URL,
   })
+
   await client.connect()
+
   try {
     await client.query('BEGIN')
     await client.query('SET LOCAL ROLE formula_writer')
+
     const response = await client.query<{ result: unknown }>(
       `SELECT internal.apply_trusted_sheet_calculation($1,$2,$3,$4,$5::jsonb) result`,
       [
@@ -491,7 +546,9 @@ async function finalize(
         JSON.stringify(results),
       ],
     )
+
     await client.query('COMMIT')
+
     return response.rows[0].result
   } catch (error) {
     await client.query('ROLLBACK')
@@ -510,6 +567,7 @@ export async function handleSheetCalculation(
   },
 ) {
   const session = await deps.getSession(request.headers)
+
   if (!session)
     return Response.json(
       {
@@ -521,6 +579,7 @@ export async function handleSheetCalculation(
       { status: 401 },
     )
   const parsed = requestSchema.safeParse(await request.json().catch(() => null))
+
   if (!parsed.success)
     return Response.json(
       {
@@ -531,6 +590,7 @@ export async function handleSheetCalculation(
       },
       { status: 400 },
     )
+
   try {
     const snapshot = await deps.loadSnapshot(
       session.user.id,
@@ -538,6 +598,7 @@ export async function handleSheetCalculation(
       parsed.data.offset,
       parsed.data.limit,
     )
+
     if (snapshot.revision !== parsed.data.expectedRevision)
       return Response.json(
         {
@@ -549,12 +610,14 @@ export async function handleSheetCalculation(
         { status: 409 },
       )
     const { results, exclusions } = calculateSheetSnapshotReport(snapshot)
+
     const finalized = await deps.finalize(
       session.user.id,
       snapshot,
       parsed.data.retryToken,
       results,
     )
+
     // DSET-01.2 — surface the exclusion count alongside the persisted result
     // batch. Data-layer only; no UI is mandated here.
     return Response.json(
@@ -564,8 +627,10 @@ export async function handleSheetCalculation(
     )
   } catch (error) {
     const candidate = error as { code?: string }
+
     const status =
       candidate.code === 'SB073' ? 409 : candidate.code === '42501' ? 403 : 500
+
     return Response.json(
       {
         error: {

@@ -9,51 +9,48 @@ import { parameterUuidSchema, rfc3339TimestampSchema } from './parameter'
 
 const uuid = parameterUuidSchema
 const timestamp = rfc3339TimestampSchema
+
 const revision = z
   .union([z.number(), z.string().regex(/^\d+$/)])
   .transform(Number)
   .pipe(z.number().int().positive().safe())
 
-export const notebookTemplateWireSchema = z
-  .object({
-    id: uuid,
-    workspace_id: uuid,
-    key: z.string(),
-    name: z.string(),
-    description: z.string().nullable(),
-    display_id: z.string().nullable(),
-    lifecycle: z.enum(['active', 'retired']),
-    revision,
-    created_at: timestamp,
-    updated_at: timestamp,
-    created_by_user_id: z.string().nullable(),
-    updated_by_user_id: z.string().nullable(),
-  })
-  .strict()
+export const notebookTemplateWireSchema = z.strictObject({
+  id: uuid,
+  workspace_id: uuid,
+  key: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  display_id: z.string().nullable(),
+  lifecycle: z.enum(['active', 'retired']),
+  revision,
+  created_at: timestamp,
+  updated_at: timestamp,
+  created_by_user_id: z.string().nullable(),
+  updated_by_user_id: z.string().nullable(),
+})
 
-export const notebookTemplateVersionWireSchema = z
-  .object({
-    id: uuid,
-    template_id: uuid,
-    version: z.number().int().positive(),
-    lifecycle: z.enum(['draft', 'published', 'retired']),
-    configuration_format_version: z.literal(1),
-    configuration: z.unknown(),
-    revision,
-    created_at: timestamp,
-    updated_at: timestamp,
-    created_by_user_id: z.string().nullable(),
-    updated_by_user_id: z.string().nullable(),
-    published_at: timestamp.nullable(),
-    published_by_user_id: z.string().nullable(),
-    reason: z.string().nullable(),
-    signed_by_user_id: z.string().nullable(),
-    signed_meaning: z.string().nullable(),
-    signed_at: timestamp.nullable(),
-    retired_at: timestamp.nullable(),
-    retired_by_user_id: z.string().nullable(),
-  })
-  .strict()
+export const notebookTemplateVersionWireSchema = z.strictObject({
+  id: uuid,
+  template_id: uuid,
+  version: z.number().int().positive(),
+  lifecycle: z.enum(['draft', 'published', 'retired']),
+  configuration_format_version: z.literal(1),
+  configuration: z.unknown(),
+  revision,
+  created_at: timestamp,
+  updated_at: timestamp,
+  created_by_user_id: z.string().nullable(),
+  updated_by_user_id: z.string().nullable(),
+  published_at: timestamp.nullable(),
+  published_by_user_id: z.string().nullable(),
+  reason: z.string().nullable(),
+  signed_by_user_id: z.string().nullable(),
+  signed_meaning: z.string().nullable(),
+  signed_at: timestamp.nullable(),
+  retired_at: timestamp.nullable(),
+  retired_by_user_id: z.string().nullable(),
+})
 
 export type NotebookTemplate = {
   id: string
@@ -128,6 +125,7 @@ export const notebookTemplateDataClient = createDataClient()
 
 export function notebookTemplateFromWire(wire: unknown): NotebookTemplate {
   const parsed = notebookTemplateWireSchema.parse(wire)
+
   return {
     id: parsed.id,
     workspaceId: parsed.workspace_id,
@@ -147,6 +145,7 @@ export function notebookTemplateVersionFromWire(
   wire: unknown,
 ): NotebookTemplateVersion {
   const parsed = notebookTemplateVersionWireSchema.parse(wire)
+
   return {
     id: parsed.id,
     templateId: parsed.template_id,
@@ -174,16 +173,19 @@ export async function fetchNotebookTemplates(
   const limit = options.limit ?? 100
   const terms: string[] = [`order=updated_at.desc,name.asc`, `limit=${limit}`]
   const search = options.search?.trim()
+
   if (search) {
     const needle = `*${search.replace(/[,*()]/g, ' ').trim()}*`
     terms.push(
       `or=(name.ilike.${encodeURIComponent(needle)},key.ilike.${encodeURIComponent(needle)})`,
     )
   }
+
   const rows = await client.list<unknown>(
     'notebook_templates',
     `?${terms.join('&')}`,
   )
+
   return rows.map(notebookTemplateFromWire)
 }
 
@@ -195,7 +197,9 @@ export async function fetchNotebookTemplate(
     'notebook_templates',
     `?id=eq.${encodeURIComponent(templateId)}&limit=1`,
   )
+
   const row = rows[0]
+
   return row === undefined ? null : notebookTemplateFromWire(row)
 }
 
@@ -207,7 +211,9 @@ export async function fetchNotebookTemplateVersion(
     'notebook_template_versions',
     `?id=eq.${encodeURIComponent(versionId)}&limit=1`,
   )
+
   const row = rows[0]
+
   return row === undefined ? null : notebookTemplateVersionFromWire(row)
 }
 
@@ -219,6 +225,7 @@ export async function fetchNotebookTemplateVersions(
     'notebook_template_versions',
     `?template_id=eq.${encodeURIComponent(templateId)}&order=version.asc`,
   )
+
   return rows.map(notebookTemplateVersionFromWire)
 }
 
@@ -229,6 +236,7 @@ export async function fetchAllNotebookTemplateVersions(
     'notebook_template_versions',
     '?order=template_id.asc,version.desc&limit=2000',
   )
+
   return rows.map(notebookTemplateVersionFromWire)
 }
 
@@ -252,6 +260,7 @@ export async function createNotebookTemplate(
       p_configuration: input.configuration,
     },
   )
+
   return {
     template: notebookTemplateFromWire(result.template),
     version: notebookTemplateVersionFromWire(result.version),
@@ -269,6 +278,7 @@ export async function publishNotebookTemplateVersion(
     p_expected_revision: expectedRevision,
     p_reason: reason,
   })
+
   return notebookTemplateVersionFromWire(row)
 }
 
@@ -283,6 +293,7 @@ export async function createNotebookTemplateVersion(
     p_expected_template_revision: expectedTemplateRevision,
     p_configuration: configuration,
   })
+
   return notebookTemplateVersionFromWire(row)
 }
 
@@ -338,6 +349,7 @@ export async function previewNotebookTemplateUpgrade(
       p_target_version_id: targetVersionId,
     },
   )
+
   return parseNotebookTemplateUpgradePreviewFromWire(result)
 }
 
@@ -373,6 +385,7 @@ export async function retireNotebookTemplateVersion(
     p_reason: reason,
     p_meaning: meaning,
   })
+
   return notebookTemplateVersionFromWire(row)
 }
 
@@ -394,5 +407,6 @@ export async function retargetNotebookTemplateSheetPlacement(
       p_target_definition_version_id: input.targetDefinitionVersionId,
     },
   )
+
   return notebookTemplateVersionFromWire(row)
 }

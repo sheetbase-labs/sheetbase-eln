@@ -293,7 +293,7 @@ describe('block payload validation (ELN-002)', () => {
   })
 
   it('validates every known block type with a representative payload', () => {
-    const samples: Record<string, unknown> = {
+    const samples = {
       rich_text: {
         doc: {
           type: 'doc',
@@ -490,7 +490,7 @@ describe('block payload validation (ELN-002)', () => {
   })
 
   it('checks the series of a quality control gate condition', () => {
-    const gate = (condition: Record<string, unknown>) =>
+    const gate = (condition: { kind: string; seriesId?: string }) =>
       validateBlock({
         type: 'gate',
         payload: { mode: 'block', conditions: [condition] },
@@ -507,7 +507,7 @@ describe('block payload validation (ELN-002)', () => {
   })
 
   it('checks the plugin of a plugin gate condition', () => {
-    const gate = (condition: Record<string, unknown>) =>
+    const gate = (condition: { kind: string; extensionKey?: string }) =>
       validateBlock({
         type: 'gate',
         payload: { mode: 'block', conditions: [condition] },
@@ -663,27 +663,360 @@ describe('code cell payloads', () => {
   it('accepts an empty draft and refuses what the cell cannot run', () => {
     expect(validateBlock({ type: 'code_cell', payload: {} }).ok).toBe(true)
 
-    const bad = (payload: Record<string, unknown>) =>
-      validateBlock({ type: 'code_cell', payload }).ok
+    expect(
+      validateBlock({ type: 'code_cell', payload: { language: 'ruby' } }).ok,
+    ).toBe(false)
+    expect(
+      validateBlock({
+        type: 'code_cell',
+        payload: { source: 'x'.repeat(50_001) },
+      }).ok,
+    ).toBe(false)
+    expect(
+      validateBlock({
+        type: 'code_cell',
+        payload: { inputs: [{ alias: '1bad', datasetVersionId: version }] },
+      }).ok,
+    ).toBe(false)
+    expect(
+      validateBlock({
+        type: 'code_cell',
+        payload: {
+          inputs: [
+            { alias: 'a', datasetVersionId: version },
+            { alias: 'a', datasetVersionId: version },
+          ],
+        },
+      }).ok,
+    ).toBe(false)
+    expect(
+      validateBlock({
+        type: 'code_cell',
+        payload: { inputs: [{ alias: 'a', datasetVersionId: 'nope' }] },
+      }).ok,
+    ).toBe(false)
+    expect(
+      validateBlock({
+        type: 'code_cell',
+        payload: {
+          output: { runId: 'x', rows: Array.from({ length: 101 }, () => ({})) },
+        },
+      }).ok,
+    ).toBe(false)
+  })
+})
 
-    expect(bad({ language: 'ruby' })).toBe(false)
-    expect(bad({ source: 'x'.repeat(50_001) })).toBe(false)
+describe('raw block validation contracts', () => {
+  it('keeps finite positive material quantities and native repeated quantity reads', () => {
+    const material = {
+      id: 'material-1',
+      materialRecordId: '11111111-1111-4111-8111-111111111111',
+      kind: 'sample',
+      identifier: 'SMP-1',
+      title: 'Observed sample',
+      unit: { code: 'uL', symbol: 'µL' },
+      observedAt: '2026-07-21T12:00:00Z',
+    }
+
+    for (const quantity of [Number.MIN_VALUE, Number.MAX_VALUE]) {
+      expect(
+        validateBlock({
+          type: 'materials',
+          payload: { items: [{ ...material, quantity }] },
+        }).ok,
+      ).toBe(true)
+    }
+
+    for (const quantity of [-0, 0, -1, NaN, Infinity, -Infinity, '1', 1n]) {
+      expect(
+        validateBlock({
+          type: 'materials',
+          payload: { items: [{ ...material, quantity }] },
+        }).errors,
+      ).toEqual([
+        {
+          code: 'invalid_field_value',
+          field: 'items[0].quantity',
+          message: 'quantity must be a positive finite number',
+        },
+      ])
+    }
+
+    let reads = 0
+
+    const changing = {
+      ...material,
+      get quantity() {
+        reads += 1
+
+        return reads === 1 ? Infinity : 1
+      },
+    }
+
     expect(
-      bad({ inputs: [{ alias: '1bad', datasetVersionId: version }] }),
-    ).toBe(false)
+      validateBlock({ type: 'materials', payload: { items: [changing] } }).ok,
+    ).toBe(true)
+    expect(reads).toBe(3)
+  })
+
+  it('retains native metric and table values without reading or coercing them', () => {
+    const refusingValue = {
+      get toJSON() {
+        throw new Error('must not serialize scientific values')
+      },
+      [Symbol.toPrimitive]() {
+        throw new Error('must not coerce scientific values')
+      },
+    }
+
+    for (const value of [
+      NaN,
+      Infinity,
+      -Infinity,
+      -0,
+      1n,
+      Symbol('raw'),
+      refusingValue,
+    ]) {
+      expect(
+        validateBlock({
+          type: 'metric',
+          payload: { label: 'Native value', value },
+        }),
+      ).toEqual({
+        ok: true,
+        type: 'metric',
+        payloadSchemaVersion: 1,
+        errors: [],
+      })
+      expect(
+        validateBlock({
+          type: 'table',
+          payload: { columns: ['Observed'], rows: [[value]] },
+        }).ok,
+      ).toBe(true)
+    }
+  })
+
+  it('keeps inherited metric fields and the original property read order', () => {
+    const reads: string[] = []
+
+    class NativeMetric {
+      get label() {
+        reads.push('label')
+
+        return 'Titer'
+      }
+      get value() {
+        reads.push('value')
+
+        return NaN
+      }
+      get unit() {
+        reads.push('unit')
+
+        return undefined
+      }
+      get provenance() {
+        reads.push('provenance')
+
+        return undefined
+      }
+    }
+
+    const payload = new NativeMetric()
+
+    expect(validateBlock({ type: 'metric', payload }).ok).toBe(true)
+    expect(reads).toEqual(['label', 'value', 'value', 'unit', 'provenance'])
+    expect(Object.keys(payload)).toEqual([])
+  })
+
+  it('retains native integer bounds and duration diagnostics', () => {
+    for (const stepNumber of [-1, -0, 1e20]) {
+      expect(
+        validateBlock({
+          type: 'procedure_step',
+          payload: { text: 'Read', stepNumber },
+        }).ok,
+      ).toBe(true)
+    }
+
+    for (const durationSeconds of [1, 604_800]) {
+      expect(
+        validateBlock({
+          type: 'procedure_step',
+          payload: { text: 'Read', durationSeconds },
+        }).ok,
+      ).toBe(true)
+    }
+
+    for (const durationSeconds of [0, 604_801, NaN, Infinity]) {
+      expect(
+        validateBlock({
+          type: 'procedure_step',
+          payload: { text: 'Read', durationSeconds },
+        }).errors,
+      ).toEqual([
+        {
+          code: 'invalid_field_value',
+          field: 'durationSeconds',
+          message:
+            'durationSeconds must be a whole number of seconds, up to a week',
+        },
+      ])
+    }
+  })
+
+  it('preserves ordered diagnostics and does not inspect fields after early sheet refusal', () => {
     expect(
-      bad({
-        inputs: [
-          { alias: 'a', datasetVersionId: version },
-          { alias: 'a', datasetVersionId: version },
-        ],
+      validateBlock({ type: 'linked_record', payload: {} }).errors,
+    ).toEqual([
+      {
+        code: 'missing_required_field',
+        field: 'targetKind',
+        message: 'targetKind is required',
+      },
+      {
+        code: 'missing_required_field',
+        field: 'targetIdentifier',
+        message: 'targetIdentifier is required',
+      },
+      {
+        code: 'missing_required_field',
+        field: 'linkType',
+        message: 'linkType is required',
+      },
+    ])
+    expect(
+      validateBlock({
+        type: 'sheet',
+        payload: {
+          extra: true,
+          get instanceId() {
+            throw new Error('must not read')
+          },
+        },
+      }).errors,
+    ).toEqual([
+      {
+        code: 'invalid_field_value',
+        message: 'sheet payload may only contain instanceId and presentation',
+      },
+    ])
+  })
+
+  it('retains gate-kind native coercion before strict per-kind checks', () => {
+    const hints: string[] = []
+
+    const kind = {
+      [Symbol.toPrimitive](hint: string) {
+        hints.push(hint)
+
+        return 'step_done'
+      },
+    }
+
+    expect(
+      validateBlock({
+        type: 'gate',
+        payload: { mode: 'warn', conditions: [{ kind }] },
+      }).ok,
+    ).toBe(true)
+    expect(hints).toEqual(['string'])
+    const refusal = new Error('native kind refusal')
+
+    expect(() =>
+      validateBlock({
+        type: 'gate',
+        payload: {
+          mode: 'warn',
+          conditions: [
+            {
+              kind: {
+                toString() {
+                  throw refusal
+                },
+              },
+            },
+          ],
+        },
       }),
-    ).toBe(false)
-    expect(bad({ inputs: [{ alias: 'a', datasetVersionId: 'nope' }] })).toBe(
-      false,
-    )
-    expect(bad({ output: { runId: 'x', rows: new Array(101).fill({}) } })).toBe(
-      false,
-    )
+    ).toThrow(refusal)
+  })
+
+  it('keeps repeated type-checked getter reads and native throws', () => {
+    let sourceReads = 0
+    const refusal = new Error('second source read')
+
+    const payload = {
+      get source() {
+        sourceReads += 1
+
+        if (sourceReads === 3) throw refusal
+
+        return 'select 1'
+      },
+    }
+
+    expect(() => validateBlock({ type: 'code_cell', payload })).toThrow(refusal)
+    expect(sourceReads).toBe(3)
+  })
+
+  it('serializes plugin state only at the original state-size check', () => {
+    const reads: string[] = []
+
+    const payload = {
+      get plugin() {
+        reads.push('plugin')
+
+        return 'sequence'
+      },
+      get block() {
+        reads.push('block')
+
+        return 'sequence'
+      },
+      get state() {
+        reads.push('state')
+
+        return {
+          toJSON() {
+            reads.push('toJSON')
+
+            return 'ACGT'
+          },
+        }
+      },
+    }
+
+    expect(validateBlock({ type: 'plugin', payload }).ok).toBe(true)
+    expect(reads).toEqual([
+      'plugin',
+      'plugin',
+      'block',
+      'block',
+      'state',
+      'state',
+      'toJSON',
+    ])
+
+    const cyclic = {
+      get self() {
+        return this
+      },
+    }
+
+    expect(
+      validateBlock({
+        type: 'plugin',
+        payload: { plugin: 'sequence', block: 'sequence', state: cyclic },
+      }).errors,
+    ).toEqual([
+      {
+        code: 'invalid_field_value',
+        field: 'state',
+        message: 'state must be data of at most 16 MiB',
+      },
+    ])
   })
 })

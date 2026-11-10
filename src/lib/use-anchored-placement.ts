@@ -29,10 +29,13 @@ export function useAnchoredPlacement<T extends HTMLElement>(options: {
   maxHeight: number
   prefer?: 'top' | 'bottom'
   gap?: number
-}): { style: React.CSSProperties; side: FloatingPlacement['side'] | null } {
+}) {
   const { open, ref, maxHeight, prefer = 'bottom', gap } = options
   const getAnchorRef = React.useRef(options.getAnchor)
-  getAnchorRef.current = options.getAnchor
+
+  React.useLayoutEffect(() => {
+    getAnchorRef.current = options.getAnchor
+  })
 
   const [placement, setPlacement] = React.useState<FloatingPlacement | null>(
     null,
@@ -109,7 +112,7 @@ export function useAnchoredPlacement<T extends HTMLElement>(options: {
         left: 0,
         maxHeight,
         visibility: 'hidden',
-      },
+      } satisfies React.CSSProperties,
       side: null,
     }
   }
@@ -120,7 +123,7 @@ export function useAnchoredPlacement<T extends HTMLElement>(options: {
       top: placement.top,
       left: placement.left,
       maxHeight: Math.min(maxHeight, placement.maxHeight),
-    },
+    } satisfies React.CSSProperties,
     side: placement.side,
   }
 }

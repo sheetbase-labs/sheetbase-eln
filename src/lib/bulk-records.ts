@@ -8,9 +8,11 @@
  * still go through, because there is no honest way to roll back half a batch
  * that the audit trail has already recorded.
  */
+import { z } from 'zod'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import { updateRecordModelFieldValues } from '#/lib/model-fields'
+import type { ModelFieldRecordValues } from '#/lib/model-fields'
 import { placeSample } from '#/lib/sample-placement'
 import { t } from '#/copy'
 
@@ -55,7 +57,7 @@ interface TargetWire {
   metadata_version: number
   archived_at: string | null
   locked_at: string | null
-  properties: Record<string, unknown> | null
+  properties: ModelFieldRecordValues['customFields'] | null
 }
 
 /**
@@ -92,14 +94,14 @@ export async function fetchBulkTargets(
       archived: row.archived_at !== null,
       locked: row.locked_at !== null,
       hasLocation: Boolean(
-        typeof row.properties?.storageLocation === 'string' &&
-        row.properties.storageLocation.trim(),
+        z.string().safeParse(row.properties?.storageLocation).data?.trim(),
       ),
     }))
     .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
 }
 
 /** The sentence a person reads for a refused record. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A rejected bulk action may throw any JavaScript value; only recognized errors supply a message.
 export function describeBulkError(error: unknown): string {
   if (error instanceof DataClientError) {
     switch (error.code) {
@@ -126,9 +128,9 @@ export function describeBulkError(error: unknown): string {
 }
 
 /** Run `act` for every target, four at a time, and sort the results. */
-export async function runBulk(
+export async function runBulk<Result>(
   targets: readonly BulkTarget[],
-  act: (target: BulkTarget) => Promise<unknown>,
+  act: (target: BulkTarget) => Promise<Result>,
   skip?: (target: BulkTarget) => string | null,
 ): Promise<BulkOutcome> {
   const outcome: BulkOutcome = { doneIds: [], done: [], failed: [] }
@@ -284,7 +286,7 @@ export function bulkSetField(
   client: DataClient,
   targets: readonly BulkTarget[],
   fieldName: string,
-  value: unknown,
+  value: ModelFieldRecordValues['customFields'][string],
 ): Promise<BulkOutcome> {
   return runBulk(
     targets,
@@ -309,8 +311,8 @@ export interface BulkLabelRecord {
   title: string
   metadataVersion: number
   createdAt: string
-  properties: Record<string, unknown> | null
-  customFields: Record<string, unknown> | null
+  properties: ModelFieldRecordValues['customFields'] | null
+  customFields: ModelFieldRecordValues['customFields'] | null
 }
 
 interface LabelWire {
@@ -320,8 +322,8 @@ interface LabelWire {
   title: string
   metadata_version: number
   created_at: string
-  properties: Record<string, unknown> | null
-  custom_fields: Record<string, unknown> | null
+  properties: ModelFieldRecordValues['customFields'] | null
+  custom_fields: ModelFieldRecordValues['customFields'] | null
 }
 
 export async function fetchBulkLabelRecords(

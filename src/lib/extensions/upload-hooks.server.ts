@@ -44,6 +44,7 @@ async function snapshotOf(
     `id=eq.${recordId}&select=id,identifier,kind,title,status,tags,properties,custom_fields,project_id`,
     token,
   )
+
   return Array.isArray(found.body) && found.body[0] ? found.body[0] : null
 }
 
@@ -55,18 +56,23 @@ async function readAll(
   const reader = stream.getReader()
   const chunks: Uint8Array[] = []
   let total = 0
+
   for (;;) {
     const { done, value } = await reader.read()
+
     if (done) break
     chunks.push(value)
     total += value.byteLength
   }
+
   const out = new Uint8Array(total)
   let offset = 0
+
   for (const chunk of chunks) {
     out.set(chunk, offset)
     offset += chunk.byteLength
   }
+
   return out
 }
 
@@ -76,10 +82,12 @@ async function run(
   deps?: RecordHookDeps,
 ) {
   const claims = claimsOf(args.token)
+
   if (!claims) return null
   const hookDeps = deps ?? defaultRecordHookDeps()
   // Nothing switched on for uploads: no further reads at all.
   const hooks = await hookDeps.hooksFor(claims.workspaceId)
+
   if (
     !hooks.some(
       (hook) =>
@@ -89,17 +97,22 @@ async function run(
   )
     return null
   let recordId = args.fileRecordId
+
   if (!recordId && args.fileObjectId) {
     const found = await postgrestSelect<Array<{ record_id: string }>>(
       'file_objects',
       `id=eq.${args.fileObjectId}&select=record_id`,
       args.token,
     )
+
     recordId = Array.isArray(found.body) ? found.body[0]?.record_id : undefined
   }
+
   if (!recordId) return null
   const record = await snapshotOf(args.token, recordId)
+
   if (!record) return null
+
   return runUploadHooks(
     {
       workspaceId: claims.workspaceId,
@@ -125,6 +138,7 @@ export async function refuseUploadIfAsked(
 ): Promise<{ message: string; plugin: string } | null> {
   try {
     const result = await run(args, 'before', deps)
+
     if (result?.kind === 'refused')
       return { message: result.message, plugin: result.plugin }
   } catch (error) {
@@ -132,6 +146,7 @@ export async function refuseUploadIfAsked(
       error: error instanceof Error ? error.message : String(error),
     })
   }
+
   return null
 }
 

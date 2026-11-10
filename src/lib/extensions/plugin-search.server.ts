@@ -62,11 +62,13 @@ function fieldValues(
   fields: Record<string, unknown> | null,
 ): Record<string, string | number | boolean> {
   const out: Record<string, string | number | boolean> = {}
+
   for (const [name, value] of Object.entries(fields ?? {})) {
     if (typeof value === 'string') out[name] = value.slice(0, FIELD_VALUE_LIMIT)
     else if (typeof value === 'number' || typeof value === 'boolean')
       out[name] = value
   }
+
   return out
 }
 
@@ -92,6 +94,7 @@ const INDEX_CANDIDATES = 5000
 /** The index rows for these records, read with the person's own access. */
 async function rowsFor(client: DataClient, ids: string[]): Promise<IndexRow[]> {
   const rows: IndexRow[] = []
+
   for (let at = 0; at < ids.length; at += 100)
     rows.push(
       ...(await client.list<IndexRow>(
@@ -100,6 +103,7 @@ async function rowsFor(client: DataClient, ids: string[]): Promise<IndexRow[]> {
           `&archived=eq.false&object_id=in.(${ids.slice(at, at + 100).join(',')})`,
       )),
     )
+
   return rows
 }
 
@@ -132,28 +136,34 @@ export async function searchWithPlugins(
   args: { workspaceId: string; actorUserId: string; query: string },
 ): Promise<PluginSearchView> {
   const query = args.query.trim()
+
   if (!query) return { hits: [], problems: [] }
   const installs = await listExtensions(client).catch(() => [])
   const providers = resolveRunnerPoints(installs).data['search-providers']
+
   if (providers.length === 0) return { hits: [], problems: [] }
 
   const types = [
     ...new Set(providers.flatMap((item) => item.declaration.types)),
   ]
+
   const rows = await client.list<IndexRow>(
     'search_documents',
     `?select=object_type,object_id,title,identifier,kind,status,body,fields,deep_link` +
       `&archived=eq.false&object_type=in.(${types.join(',')})` +
       `&order=updated_at.desc.nullslast&limit=${DOCUMENT_LIMIT}`,
   )
+
   const byId = new Map(rows.map((row) => [row.object_id, row]))
   const documents: SearchDocument[] = rows.map(documentOf)
 
   const hits: PluginSearchHit[] = []
   const problems: string[] = []
+
   for (const provider of providers) {
     try {
       const indexed = provider.declaration.indexed === true
+
       let { hits: found, nearest } = await runExtensionSearch({
         workspaceId: args.workspaceId,
         actorUserId: args.actorUserId,
@@ -165,6 +175,7 @@ export async function searchWithPlugins(
         documents: indexed ? [] : documents,
         ...(indexed ? { stage: 'plan' as const } : {}),
       })
+
       if (nearest?.verify) {
         // The index finds the candidates; the provider checks and scores them.
         const ranked = await client.rpc<IndexHit[]>('search_plugin_index', {
@@ -174,9 +185,12 @@ export async function searchWithPlugins(
           p_vector: nearest.vector,
           p_limit: nearest.limit ?? INDEX_CANDIDATES,
         })
+
         const ids = [...new Set(ranked.map((entry) => entry.record_id))]
         const candidates = await rowsFor(client, ids)
+
         for (const row of candidates) byId.set(row.object_id, row)
+
         const checked = await runExtensionSearch({
           workspaceId: args.workspaceId,
           actorUserId: args.actorUserId,
@@ -186,14 +200,18 @@ export async function searchWithPlugins(
           documents: candidates.map(documentOf),
           stage: 'rank',
         })
+
         found = checked.hits
         nearest = null
       }
+
       for (const hit of found) {
         const row = byId.get(hit.id)
+
         if (!row) continue
         hits.push(hitFor(row, provider, hit.snippet ?? '', hit.score))
       }
+
       if (nearest) {
         const ranked = await client.rpc<IndexHit[]>('search_plugin_index', {
           p_extension_key: provider.extensionKey,
@@ -202,6 +220,7 @@ export async function searchWithPlugins(
           p_vector: nearest.vector,
           p_limit: 50,
         })
+
         const missing = [
           ...new Set(
             ranked
@@ -209,17 +228,22 @@ export async function searchWithPlugins(
               .filter((id) => !byId.has(id)),
           ),
         ]
+
         if (missing.length > 0) {
           const more = await client.list<IndexRow>(
             'search_documents',
             `?select=object_type,object_id,title,identifier,kind,status,body,deep_link` +
               `&archived=eq.false&object_id=in.(${missing.join(',')})`,
           )
+
           for (const row of more) byId.set(row.object_id, row)
         }
+
         const seen = new Set<string>()
+
         for (const entry of ranked) {
           const row = byId.get(entry.record_id)
+
           // One hit per record: the closest entry wins.
           if (!row || seen.has(row.object_id)) continue
           seen.add(row.object_id)
@@ -232,6 +256,8 @@ export async function searchWithPlugins(
       )
     }
   }
+
   hits.sort((a, b) => b.score - a.score)
+
   return { hits: hits.slice(0, 100), problems }
 }

@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -42,9 +43,8 @@ describe('openlineage', () => {
       datasetVersion: 'v1',
     })
 
-    const lineage = event.outputs[0].facets.columnLineage as {
-      fields: Record<string, unknown>
-    }
+    const lineage = event.outputs[0].facets.columnLineage
+    assert.ok(lineage)
 
     expect(Object.keys(lineage.fields)).toEqual(['batch'])
     expect(event.schemaURL).toContain('RunEvent')
@@ -54,6 +54,66 @@ describe('openlineage', () => {
     expect(
       columnLineageFor('lab', [input], { ...output, columns: ['x'] }),
     ).toBeNull()
+  })
+
+  it('reads all matching columns before dataset identities, retaining native failures', () => {
+    const reads: string[] = []
+    let firstId = 'before'
+    let fail = false
+
+    const inputs = [
+      {
+        name: 'First',
+        get columns() {
+          reads.push('first.columns')
+
+          return ['titre']
+        },
+        get datasetId() {
+          reads.push('first.id')
+
+          return firstId
+        },
+      },
+      {
+        name: 'Second',
+        get columns() {
+          reads.push('second.columns')
+
+          if (fail) throw new RangeError('columns unavailable')
+          firstId = 'after'
+
+          return ['TITRE']
+        },
+        get datasetId() {
+          reads.push('second.id')
+
+          return 'second'
+        },
+      },
+    ]
+
+    const lineage = columnLineageFor('lab', inputs, {
+      ...output,
+      columns: ['TiTrE'],
+    })
+
+    expect(lineage?.fields.TiTrE.inputFields).toEqual([
+      { namespace: 'lab', name: 'datasets/after', field: 'TiTrE' },
+      { namespace: 'lab', name: 'datasets/second', field: 'TiTrE' },
+    ])
+    expect(reads).toEqual([
+      'first.columns',
+      'second.columns',
+      'first.id',
+      'second.id',
+    ])
+    reads.length = 0
+    fail = true
+    expect(() =>
+      columnLineageFor('lab', inputs, { ...output, columns: ['TiTrE'] }),
+    ).toThrow('columns unavailable')
+    expect(reads).toEqual(['first.columns', 'second.columns'])
   })
 
   it('maps change events to lineage intents', () => {

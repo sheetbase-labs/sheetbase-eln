@@ -1,4 +1,9 @@
 import type { DataClient } from '#/lib/data-client'
+import { z } from 'zod'
+import {
+  pipelineJsonObjectSchema,
+  pipelineJsonValueSchema,
+} from './pipelines/types'
 import { listByIds } from '#/lib/chunk-ids'
 import { fieldDefinitionFromModelField } from '#/lib/field-definition'
 import type {
@@ -20,6 +25,67 @@ export type ModelFieldLogicalType = FieldLogicalType
 
 export type ModelFieldOption = FieldOption
 
+/** Editor patches address known metadata properties, not the open JSON index. */
+export type ModelMetadataPatch<Metadata> = Partial<{
+  [
+    Key in keyof Metadata as string extends Key
+      ? never
+      : number extends Key
+        ? never
+        : Key
+  ]: Metadata[Key]
+}>
+
+/** Validate known metadata while retaining scientific extension keys. */
+export function modelMetadataSchema<
+  Definitions extends Record<string, z.ZodType>,
+>(definitions: Definitions) {
+  const known = z.object(definitions)
+
+  return pipelineJsonObjectSchema.transform(
+    (
+      value,
+      context,
+    ): z.output<typeof known> & z.infer<typeof pipelineJsonObjectSchema> => {
+      const parsed = known.safeParse(value)
+
+      if (!parsed.success) {
+        for (const issue of parsed.error.issues) {
+          context.addIssue({
+            code: 'custom',
+            path: issue.path,
+            message: issue.message,
+          })
+        }
+
+        return z.NEVER
+      }
+
+      return { ...value, ...parsed.data }
+    },
+  )
+}
+
+/** Validate known limits without dropping extension or scientific JSON keys. */
+export const modelFieldValidationSchema = modelMetadataSchema({
+  min: z.number().optional(),
+  max: z.number().optional(),
+  minLength: z.number().optional(),
+  maxLength: z.number().optional(),
+  pattern: z.string().optional(),
+  regex: z.string().optional(),
+  targetModelKey: z.string().optional(),
+})
+
+export const modelFieldUnitSchema = modelMetadataSchema({
+  symbol: z.string().optional(),
+  unit: z.string().optional(),
+})
+
+export type ModelFieldValidation = z.infer<typeof modelFieldValidationSchema>
+
+export type ModelFieldUnit = z.infer<typeof modelFieldUnitSchema>
+
 export interface ModelFieldDefinition {
   id: string
   modelKey: string
@@ -35,10 +101,10 @@ export interface ModelFieldDefinition {
   askOnCreate?: boolean
   logicalType: ModelFieldLogicalType
   nullable: boolean
-  defaultValue: unknown
-  unit: Record<string, unknown> | null
+  defaultValue: z.core.util.JSONType | undefined
+  unit: ModelFieldUnit | null
   quantity?: FieldQuantityDefinition | null
-  validation: Record<string, unknown>
+  validation: ModelFieldValidation
   cardinality?: FieldCardinality
   categorySource?: PersistedModelFieldCategorySource | null
   relationship?: FieldRelationship | null
@@ -58,7 +124,7 @@ export interface ModelKind {
 }
 
 export interface ModelFieldRecordValues {
-  customFields: Record<string, unknown>
+  customFields: { [field: string]: z.core.util.JSONType }
   metadataVersion: number
   locked: boolean
 }
@@ -75,10 +141,10 @@ interface DefinitionWire {
   ask_on_create?: boolean
   logical_type: ModelFieldLogicalType
   nullable: boolean
-  default_value: unknown
-  unit: Record<string, unknown> | null
+  default_value: z.core.util.JSONType | undefined
+  unit: ModelFieldUnit | null
   quantity: FieldQuantityDefinition | null
-  validation: Record<string, unknown>
+  validation: ModelFieldValidation
   cardinality: FieldCardinality
   category_source: PersistedModelFieldCategorySource | null
   relationship: FieldRelationship | null
@@ -152,10 +218,12 @@ export async function fetchModelFields(
           section: field.section ?? null,
           logicalType: field.logical_type,
           nullable: field.nullable,
-          defaultValue: field.default_value,
-          unit: field.unit ?? null,
+          defaultValue: pipelineJsonValueSchema
+            .optional()
+            .parse(field.default_value),
+          unit: modelFieldUnitSchema.nullable().parse(field.unit ?? null),
           quantity: field.quantity ?? null,
-          validation: field.validation,
+          validation: modelFieldValidationSchema.parse(field.validation),
           cardinality: field.cardinality,
           categorySource: field.category_source,
           relationship: field.relationship,
@@ -212,10 +280,12 @@ export async function fetchModelFields(
       askOnCreate: definition.ask_on_create ?? true,
       logicalType: definition.logical_type,
       nullable: definition.nullable,
-      defaultValue: definition.default_value,
-      unit: definition.unit,
+      defaultValue: pipelineJsonValueSchema
+        .optional()
+        .parse(definition.default_value),
+      unit: modelFieldUnitSchema.nullable().parse(definition.unit),
       quantity: definition.quantity,
-      validation: definition.validation,
+      validation: modelFieldValidationSchema.parse(definition.validation),
       cardinality: definition.cardinality,
       categorySource: definition.category_source,
       relationship: definition.relationship,
@@ -257,7 +327,7 @@ export async function fetchRecordModelFieldValues(
   recordId: string,
 ): Promise<ModelFieldRecordValues> {
   const rows = await client.list<{
-    custom_fields: Record<string, unknown>
+    custom_fields: ModelFieldRecordValues['customFields']
     metadata_version: number
     locked_at: string | null
   }>(
@@ -270,7 +340,7 @@ export async function fetchRecordModelFieldValues(
   if (!row) throw new Error('Record not found.')
 
   return {
-    customFields: row.custom_fields,
+    customFields: pipelineJsonObjectSchema.parse(row.custom_fields),
     metadataVersion: row.metadata_version,
     locked: row.locked_at !== null,
   }
@@ -280,8 +350,8 @@ export function updateRecordModelFieldValues(
   client: DataClient,
   recordId: string,
   expectedMetadataVersion: number,
-  values: Record<string, unknown>,
-): Promise<unknown> {
+  values: ModelFieldRecordValues['customFields'],
+) {
   return client.rpc('update_record_custom_fields', {
     p_record_id: recordId,
     p_expected_metadata_version: expectedMetadataVersion,
@@ -320,7 +390,8 @@ export function definitionOfModelField(
 export function parseModelFieldInput(
   definition: ModelFieldDefinition,
   value: string | boolean,
-): unknown {
+) {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- The form contract is already string | boolean; booleans must not be coerced through text.
   if (typeof value === 'boolean') return value
 
   if (value === '') return definition.nullable ? null : value
@@ -336,7 +407,9 @@ export function parseModelFieldInput(
       value,
     )
 
-    if (typeof parsed === 'number') return parsed
+    const numeric = z.number().safeParse(parsed)
+
+    if (numeric.success) return numeric.data
 
     return value
   }
@@ -351,6 +424,7 @@ export function parseModelFieldInput(
  */
 export function validateModelFieldValue(
   definition: ModelFieldDefinition,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the raw field-input validation boundary; validateFieldValue checks the definition's logical type and scientific constraints.
   value: unknown,
 ): string | null {
   return validateFieldValue(definitionOfModelField(definition), value)
@@ -360,35 +434,38 @@ export function modelFieldValuesFromInput(
   definitions: ModelFieldDefinition[],
   values: Record<string, string | boolean>,
   omitBlank: boolean,
-): Record<string, unknown> {
+) {
   return Object.fromEntries(
-    definitions.flatMap((definition) => {
-      const hasValue = Object.prototype.hasOwnProperty.call(
-        values,
-        definition.fieldName,
-      )
+    definitions.flatMap(
+      (definition): [string, ReturnType<typeof parseModelFieldInput>][] => {
+        const hasValue = Object.prototype.hasOwnProperty.call(
+          values,
+          definition.fieldName,
+        )
 
-      if (omitBlank && !hasValue) {
-        return definition.logicalType === 'boolean' &&
-          !definition.nullable &&
-          definition.defaultValue === null
-          ? [[definition.fieldName, false]]
-          : []
-      }
+        if (omitBlank && !hasValue) {
+          return definition.logicalType === 'boolean' &&
+            !definition.nullable &&
+            definition.defaultValue === null
+            ? [[definition.fieldName, false]]
+            : []
+        }
 
-      const value =
-        values[definition.fieldName] ??
-        (definition.logicalType === 'boolean' ? false : '')
+        const value =
+          values[definition.fieldName] ??
+          (definition.logicalType === 'boolean' ? false : '')
 
-      if (omitBlank && value === '') return []
+        if (omitBlank && value === '') return []
 
-      return [[definition.fieldName, parseModelFieldInput(definition, value)]]
-    }),
+        return [[definition.fieldName, parseModelFieldInput(definition, value)]]
+      },
+    ),
   )
 }
 
 export function displayModelFieldValue(
   definition: ModelFieldDefinition,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public field renderer decodes legacy/plugin input to finite JSON before display.
   value: unknown,
 ): string {
   if (value === null || value === undefined || value === '') return '—'
@@ -399,21 +476,38 @@ export function displayModelFieldValue(
     return (
       definition.options.find(
         (option) => option.key === value || option.id === value,
-      )?.label ?? String(value)
+      )?.label ?? modelFieldValueText(value)
     )
   }
 
   // MODEL-02: governed quantity display unit wins; legacy opaque unit
   // symbols remain the fallback until semantics are configured.
-  const legacySymbol =
-    typeof definition.unit?.symbol === 'string' ? definition.unit.symbol : null
+  const legacySymbol = definition.unit?.symbol ?? null
 
   const unit = fieldDisplayUnit(
     definitionOfModelField(definition),
     legacySymbol,
   )
 
-  return unit ? `${String(value)} ${unit}` : String(value)
+  const text = modelFieldValueText(value)
+
+  return unit ? `${text} ${unit}` : text
+}
+
+/** Raw legacy/plugin values enter through the same finite JSON boundary. */
+export function modelFieldValueText(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the external field-value display decoder, including legacy/plugin payloads.
+  value: unknown,
+): string {
+  const parsed = pipelineJsonValueSchema.safeParse(value)
+
+  if (!parsed.success) return '—'
+
+  const scalar = z
+    .union([z.string(), z.number(), z.boolean(), z.null()])
+    .safeParse(parsed.data)
+
+  return scalar.success ? String(scalar.data) : JSON.stringify(parsed.data)
 }
 
 export interface ModelFieldSemanticsInput {
@@ -432,7 +526,7 @@ export function configureModelFieldSemantics(
   client: DataClient,
   definitionId: string,
   semantics: ModelFieldSemanticsInput,
-): Promise<unknown> {
+) {
   return client.rpc('configure_model_field_semantics', {
     p_definition_id: definitionId,
     p_quantity: semantics.quantity,
@@ -447,11 +541,11 @@ export function configureModelFieldSemantics(
  * the kernel exposes them as `pattern` — map once at the write boundary.
  */
 export function modelFieldValidationForServer(
-  validation: Record<string, unknown>,
-): Record<string, unknown> {
+  validation: ModelFieldValidation,
+) {
   const { pattern, ...rest } = validation
 
-  if (typeof pattern === 'string' && pattern) {
+  if (pattern) {
     return { ...rest, regex: pattern }
   }
 
@@ -465,9 +559,9 @@ export interface CreateModelFieldWithSemanticsInput {
   label: string
   logicalType: ModelFieldLogicalType
   nullable: boolean
-  defaultValue: unknown
-  validation: Record<string, unknown>
-  unit: Record<string, unknown> | null
+  defaultValue: ModelFieldDefinition['defaultValue']
+  validation: ModelFieldValidation
+  unit: ModelFieldUnit | null
   description: string | null
   options: Array<{ key: string; label: string }>
   semantics: ModelFieldSemanticsInput
@@ -482,7 +576,7 @@ export interface CreateModelFieldWithSemanticsInput {
 export async function createModelFieldWithSemantics(
   client: DataClient,
   input: CreateModelFieldWithSemanticsInput,
-): Promise<unknown> {
+) {
   const created = await client.rpc<{ id: string }>('create_model_field', {
     p_workspace_id: input.workspaceId,
     p_model_key: input.modelKey,

@@ -1,6 +1,5 @@
 import type { DataClient } from '#/lib/data-client'
 import { createDataClient } from '#/lib/data-client'
-import type { SignatureMeaning } from '#/lib/signatures'
 import { now as appNow } from '#/lib/clock'
 import { getDisplayTimeZone, formatInstant } from '#/lib/display-time-zone'
 import { t } from '#/copy'
@@ -79,7 +78,7 @@ export interface ClientPortalRecordDocument {
     revisionId: string
     signerName: string | null
     signedAt: string
-    signatureMeaning: SignatureMeaning
+    signatureMeaning: string
     integrityDigest: string
     /** How it was confirmed; "demo" marks a signature that is not a real one. */
     authMethod?: string

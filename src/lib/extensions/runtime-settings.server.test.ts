@@ -29,9 +29,11 @@ vi.mock('../request-auth', () => ({
     context: { token: 't', workspaceId: 'w', userId: 'u' },
   }),
 }))
+
 vi.mock('../connectors/enterprise/execution.server', () => ({
   createServerDataClient: () => ({}),
 }))
+
 vi.mock('./client', () => ({
   listExtensions: async () => [
     { id: '11111111-1111-4111-8111-111111111111', key: 'cell-count' },
@@ -70,6 +72,7 @@ function memoryStore(initial: PluginRuntimeRow): RuntimeStore & {
     }),
     saveDeclaration: vi.fn(async () => undefined),
   }
+
   return store
 }
 
@@ -89,11 +92,13 @@ describe('ensureEnvironment', () => {
   it('asks the runner for the plugin’s packages and records the answer', async () => {
     const store = memoryStore(row())
     const r = runner()
+
     const out = await ensureEnvironment(
       { store, runner: r },
       'w',
       store.current,
     )
+
     expect(r.request).toHaveBeenCalledWith(['rdkit>=2024.3'])
     expect(out).toMatchObject({
       environmentId: 'pe-0123456789abcdef',
@@ -104,6 +109,7 @@ describe('ensureEnvironment', () => {
 
   it('records a failure with the installer’s own reason', async () => {
     const store = memoryStore(row())
+
     const r = runner({
       request: async () => ({
         id: 'pe-0123456789abcdef',
@@ -111,27 +117,32 @@ describe('ensureEnvironment', () => {
         error: 'No matching distribution found for rdkit',
       }),
     })
+
     const out = await ensureEnvironment(
       { store, runner: r },
       'w',
       store.current,
     )
+
     expect(out.environmentState).toBe('failed')
     expect(out.environmentError).toMatch(/No matching distribution/)
   })
 
   it('leaves the state alone when the runner cannot be reached, so the next call asks again', async () => {
     const store = memoryStore(row())
+
     const r = runner({
       request: async () => {
         throw new Error('Python runner is unavailable. Try again later.')
       },
     })
+
     const out = await ensureEnvironment(
       { store, runner: r },
       'w',
       store.current,
     )
+
     expect(out.environmentState).toBe('failed')
     expect(store.saveEnvironment).not.toHaveBeenCalled()
   })
@@ -139,11 +150,13 @@ describe('ensureEnvironment', () => {
   it('has nothing to install for a plugin with no packages', async () => {
     const store = memoryStore(row({ requirements: [] }))
     const r = runner()
+
     const out = await ensureEnvironment(
       { store, runner: r },
       'w',
       store.current,
     )
+
     expect(r.request).not.toHaveBeenCalled()
     expect(out.environmentState).toBe('none')
   })
@@ -156,11 +169,13 @@ describe('ensureEnvironment', () => {
         environmentState: 'ready',
       }),
     )
+
     const out = await ensureEnvironment(
       { store, runner: runner() },
       'w',
       store.current,
     )
+
     expect(out).toMatchObject({ environmentId: null, environmentState: 'none' })
   })
 })
@@ -173,6 +188,7 @@ describe('refreshEnvironment', () => {
         environmentState: 'building',
       }),
     )
+
     const r = runner({
       status: async () => ({
         id: 'pe-0123456789abcdef',
@@ -180,11 +196,13 @@ describe('refreshEnvironment', () => {
         packages: { rdkit: '2024.9.1' },
       }),
     })
+
     const out = await refreshEnvironment(
       { store, runner: r },
       'w',
       store.current,
     )
+
     expect(out.row.environmentState).toBe('ready')
     expect(out.packages).toEqual({ rdkit: '2024.9.1' })
   })
@@ -193,14 +211,17 @@ describe('refreshEnvironment', () => {
     const store = memoryStore(
       row({ environmentId: 'pe-0123456789abcdef', environmentState: 'ready' }),
     )
+
     const r = runner({
       status: async () => ({ id: 'pe-0123456789abcdef', state: 'missing' }),
     })
+
     const out = await refreshEnvironment(
       { store, runner: r },
       'w',
       store.current,
     )
+
     expect(r.request).toHaveBeenCalled()
     expect(out.row.environmentState).toBe('building')
   })
@@ -209,16 +230,19 @@ describe('refreshEnvironment', () => {
     const store = memoryStore(
       row({ environmentId: 'pe-0123456789abcdef', environmentState: 'ready' }),
     )
+
     const r = runner({
       status: async () => {
         throw new Error('down')
       },
     })
+
     const out = await refreshEnvironment(
       { store, runner: r },
       'w',
       store.current,
     )
+
     expect(out.row.environmentState).toBe('ready')
   })
 })
@@ -250,6 +274,7 @@ describe('POST/GET /api/plugins/runtime', () => {
     const store = memoryStore(initial)
     const audit = vi.fn(async () => undefined)
     const r = runner()
+
     const deps = {
       auth: {} as never,
       makeClient: () =>
@@ -257,8 +282,10 @@ describe('POST/GET /api/plugins/runtime', () => {
           rpc: async (name: string) => {
             if (name === 'require_capability') {
               if (role === 'forbidden') throw new Error('forbidden')
+
               return null
             }
+
             // list_extensions
             return []
           },
@@ -270,8 +297,10 @@ describe('POST/GET /api/plugins/runtime', () => {
       runner: r,
       audit,
     } satisfies PluginRuntimeRouteDeps
+
     return { deps, store, audit, r }
   }
+
   const post = (body: unknown) =>
     new Request('http://x/api/plugins/runtime', {
       method: 'POST',
@@ -280,18 +309,22 @@ describe('POST/GET /api/plugins/runtime', () => {
 
   it('lists each plugin’s settings', async () => {
     const { deps } = route()
+
     const response = await handlePluginRuntime(
       new Request('http://x/api/plugins/runtime'),
       deps,
     )
+
     const body = (await response.json()) as {
       runtime: Array<{ requirements: string[] }>
     }
+
     expect(body.runtime[0].requirements).toEqual(['rdkit>=2024.3'])
   })
 
   it('saves limits without capping them and says so in the audit', async () => {
     const { deps, store, audit } = route()
+
     const response = await handlePluginRuntime(
       post({
         action: 'set-limits',
@@ -300,6 +333,7 @@ describe('POST/GET /api/plugins/runtime', () => {
       }),
       deps,
     )
+
     expect(response.status).toBe(200)
     expect(store.current.limitOverrides).toEqual({
       memoryMb: 65536,
@@ -318,6 +352,7 @@ describe('POST/GET /api/plugins/runtime', () => {
 
   it('refuses a limit that makes no sense and changes nothing', async () => {
     const { deps, store, audit } = route()
+
     const response = await handlePluginRuntime(
       post({
         action: 'set-limits',
@@ -326,6 +361,7 @@ describe('POST/GET /api/plugins/runtime', () => {
       }),
       deps,
     )
+
     expect(response.status).toBe(400)
     expect(store.saveOverrides).not.toHaveBeenCalled()
     expect(audit).not.toHaveBeenCalled()
@@ -339,6 +375,7 @@ describe('POST/GET /api/plugins/runtime', () => {
         environmentError: 'x',
       }),
     )
+
     const response = await handlePluginRuntime(
       post({
         action: 'reinstall-packages',
@@ -346,16 +383,19 @@ describe('POST/GET /api/plugins/runtime', () => {
       }),
       deps,
     )
+
     expect(response.status).toBe(200)
     expect(r.request).toHaveBeenCalled()
   })
 
   it('is for owners and administrators only', async () => {
     const { deps } = route(row(), 'forbidden')
+
     const response = await handlePluginRuntime(
       new Request('http://x/api/plugins/runtime'),
       deps,
     )
+
     expect(response.status).toBe(403)
   })
 })

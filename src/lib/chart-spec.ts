@@ -16,9 +16,9 @@
  * infrastructure.
  */
 
+import { z } from 'zod'
 import { t } from '#/copy'
 import {
-  applyFiltersSci04,
   applyTransformations,
   attachFitOverlay,
   CHART_RECORD_ID_KEY,
@@ -30,6 +30,223 @@ import {
   sampleSeriesForRender,
   seriesKeyForRow,
 } from './visualisation-pipeline'
+
+// Chart rows carry JSON data, plus missing/non-finite calculated cells. Those
+// cells must reach materialisation, which counts them rather than plotting zero.
+export type ChartValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | ChartValue[]
+  | { [fieldId: string]: ChartValue }
+
+export type ChartRow = { [fieldId: string]: ChartValue }
+
+const numberInput = z.union([
+  z.number(),
+  z.nan(),
+  z.literal(Infinity),
+  z.literal(-Infinity),
+])
+
+const rawObjectInput = z.record(z.string(), z.unknown())
+
+function isInput<Schema extends z.ZodType, Value>(
+  schema: Schema,
+  value: Value,
+): value is Value & z.infer<Schema> {
+  return schema.safeParse(value).success
+}
+
+export const chartRowSchema: z.ZodType<ChartRow> = z.custom<ChartRow>(
+  (value) =>
+    isInput(rawObjectInput, value) &&
+    Object.values(value).every(
+      (cell) => chartValueSchema.safeParse(cell).success,
+    ),
+)
+
+export const chartValueSchema: z.ZodType<ChartValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    numberInput,
+    z.boolean(),
+    z.null(),
+    z.undefined(),
+    z.array(chartValueSchema),
+    chartRowSchema,
+  ]),
+)
+
+const chartRowsSchema = z.array(chartRowSchema)
+
+function decodeChartRows<Row>(rows: Row[]): ChartRow[] {
+  if (isInput(chartRowsSchema, rows)) return rows
+
+  return chartRowsSchema.parse(rows)
+}
+
+const stringInput = z.string()
+const booleanInput = z.boolean()
+const objectInput = z.object({})
+
+function isString<Value>(value: Value): value is Value & string {
+  return isInput(stringInput, value)
+}
+
+function isNumber<Value>(value: Value): value is Value & number {
+  return isInput(numberInput, value)
+}
+
+function isBoolean<Value>(value: Value): value is Value & boolean {
+  return isInput(booleanInput, value)
+}
+
+// These inspection schemas name only the fields each validation stage reads.
+// A predicate leaves the original object intact, including extension keys and
+// omitted properties. Field validators below retain their ordered diagnostics.
+const specInput = z
+  .object({
+    specVersion: z.unknown(),
+    type: z.unknown(),
+    datasets: z.unknown(),
+    fields: z.unknown(),
+    filters: z.unknown(),
+    transformations: z.unknown(),
+    typeParams: z.unknown(),
+    display: z.unknown(),
+    overlays: z.unknown(),
+  })
+  .partial()
+
+const bindingInput = z.object({ fieldId: z.unknown() }).partial()
+
+const datasetInput = z
+  .object({ datasetId: z.unknown(), datasetVersionId: z.unknown() })
+  .partial()
+
+const fieldsInput = z
+  .object({
+    x: z.unknown(),
+    y: z.unknown(),
+    series: z.unknown(),
+    color: z.unknown(),
+    size: z.unknown(),
+    facet: z.unknown(),
+    facetRow: z.unknown(),
+    facetCol: z.unknown(),
+    // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- Inspect the persisted marker-binding key without renaming saved data.
+    shape: z.unknown(),
+    group: z.unknown(),
+    label: z.unknown(),
+  })
+  .partial()
+
+const filterInput = z
+  .object({ fieldId: z.unknown(), op: z.unknown() })
+  .partial()
+
+const transformationInput = z
+  .object({ kind: z.unknown(), params: z.unknown() })
+  .partial()
+
+const axisInput = z
+  .object({ label: z.unknown(), scale: z.unknown(), unit: z.unknown() })
+  .partial()
+
+const displayInput = z
+  .object({ axes: z.unknown(), series: z.unknown(), annotations: z.unknown() })
+  .partial()
+
+const axesInput = z.object({ x: z.unknown(), y: z.unknown() }).partial()
+
+const seriesInput = z
+  .object({ identifier: z.unknown(), label: z.unknown(), color: z.unknown() })
+  .partial()
+
+const annotationInput = z
+  .object({ x: z.unknown(), y: z.unknown(), label: z.unknown() })
+  .partial()
+
+const overlaysInput = z
+  .object({ errorBars: z.unknown(), fit: z.unknown(), references: z.unknown() })
+  .partial()
+
+const errorBarsInput = z
+  .object({
+    basis: z.unknown(),
+    source: z.unknown(),
+    fieldId: z.unknown(),
+    lowerFieldId: z.unknown(),
+    upperFieldId: z.unknown(),
+    multiplier: z.unknown(),
+  })
+  .partial()
+
+const fitInput = z
+  .object({ method: z.unknown(), degree: z.unknown() })
+  .partial()
+
+const referenceInput = z
+  .object({
+    kind: z.unknown(),
+    axis: z.unknown(),
+    value: z.unknown(),
+    lo: z.unknown(),
+    hi: z.unknown(),
+    label: z.unknown(),
+  })
+  .partial()
+
+const typeParamsInput = z
+  .object({
+    histogram: z.unknown(),
+    box: z.unknown(),
+    heatmap: z.unknown(),
+    bar: z.unknown(),
+    strip: z.unknown(),
+    summary: z.unknown(),
+  })
+  .partial()
+
+const histogramInput = z
+  .object({ bins: z.unknown(), binWidth: z.unknown() })
+  .partial()
+
+const boxInput = z.object({ showOutliers: z.unknown() }).partial()
+
+const heatmapInput = z
+  .object({
+    xBins: z.unknown(),
+    yBins: z.unknown(),
+    aggregate: z.unknown(),
+    valueField: z.unknown(),
+  })
+  .partial()
+
+const barInput = z.object({ stacking: z.unknown() }).partial()
+const stripInput = z.object({ jitter: z.unknown() }).partial()
+const summaryInput = z.object({ statistic: z.unknown() }).partial()
+
+const payloadInput = z
+  .object({
+    title: z.unknown(),
+    spec: z.unknown(),
+    provenance: z.unknown(),
+    frozen: z.unknown(),
+  })
+  .partial()
+
+const frozenInput = z
+  .object({
+    frozenAt: z.unknown(),
+    frozenByUserId: z.unknown(),
+    datasetProvenance: z.unknown(),
+    data: z.unknown(),
+  })
+  .partial()
 
 /** Approved chart-series palette from DESIGN.md (cool scientific system). */
 export const CHART_PALETTE = [
@@ -61,15 +278,39 @@ export const CHART_TYPES = [
 export type ChartType = (typeof CHART_TYPES)[number]
 
 /** Values use the schema's storage unit, never an unconverted display unit. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Unit metadata is a public raw boundary; inspect its two supported representations without dropping extension keys.
 export function chartUnitSymbol(unit: unknown): string | undefined {
-  if (!unit || typeof unit !== 'object') return undefined
+  const input = z
+    .object({ storageUnit: z.unknown(), symbol: z.unknown() })
+    .partial()
 
-  if ('storageUnit' in unit && typeof unit.storageUnit === 'string')
-    return unit.storageUnit
+  if (!isInput(input, unit)) return undefined
 
-  if ('symbol' in unit && typeof unit.symbol === 'string') return unit.symbol
+  if (isString(unit.storageUnit)) return unit.storageUnit
+
+  if (isString(unit.symbol)) return unit.symbol
 
   return undefined
+}
+
+/** Authoring controls display stored strings, including future parameter names. */
+export function chartStringParameter(value: ChartValue, fallback = ''): string {
+  return isString(value) ? value : fallback
+}
+
+/** The encoding shelf displays schema labels, not the renderer's storage unit. */
+export function chartShelfUnitLabel<Unit>(unit: Unit): string | null {
+  if (isString(unit) && unit.trim() !== '') return unit
+
+  if (
+    isInput(z.union([objectInput, z.array(z.unknown())]), unit) &&
+    'symbol' in unit &&
+    isString(unit.symbol) &&
+    unit.symbol !== ''
+  )
+    return unit.symbol
+
+  return null
 }
 
 export const CHART_TYPE_LABELS: Record<ChartType, string> = {
@@ -280,7 +521,7 @@ export interface ChartFilter {
 export interface Transformation {
   kind: TransformationKind
   /** Explicit, reproducible parameters. Kept opaque but must be an object. */
-  params: Record<string, unknown>
+  params: ChartRow
 }
 
 export interface AxisDisplay {
@@ -300,6 +541,7 @@ export interface SeriesDisplay {
   visible?: boolean
   lineWidth?: number
   pointSize?: number
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- Persisted marker encoding is part of ChartSpec and the DB mirror, not a local structural alias.
   shape?: string
 }
 
@@ -372,6 +614,7 @@ export interface ChartSpec {
     facet: FieldBinding | null
     facetRow?: FieldBinding | null
     facetCol?: FieldBinding | null
+    // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- Stable persisted field-binding key shared with saved charts and the DB mirror.
     shape?: FieldBinding | null
     group?: FieldBinding | null
     label?: FieldBinding | null
@@ -438,7 +681,7 @@ export interface FrozenChartSeries {
 
 export interface FrozenChartData {
   columns: FrozenChartColumn[]
-  rows: Record<string, unknown>[]
+  rows: ChartRow[]
   series: FrozenChartSeries[]
   heatmap?: HeatmapMatrix | null
   /** Per-facet panels for frozen faceted cartesian charts (SCI-01). */
@@ -490,26 +733,23 @@ export type ChartSpecError = {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
-
 function isNonEmptyString(v: unknown): v is string {
-  return typeof v === 'string' && v.trim().length > 0
+  return isString(v) && v.trim().length > 0
 }
 
-function isUuid(v: unknown): v is string {
-  return typeof v === 'string' && UUID_RE.test(v)
+function isUuid<Value>(v: Value): v is Value & string {
+  return isString(v) && UUID_RE.test(v)
 }
 
 function isOneOf<T extends string>(v: unknown, allowed: readonly T[]): v is T {
-  return typeof v === 'string' && (allowed as readonly string[]).includes(v)
+  return allowed.some((entry) => entry === v)
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This validation stage decodes arbitrary persisted bindings and returns the established field-specific errors.
 function validateFieldBinding(v: unknown, field: string): ChartSpecError[] {
   if (v === null || v === undefined) return []
 
-  if (!isObject(v))
+  if (!isInput(bindingInput, v))
     return [
       {
         code: 'invalid_shape',
@@ -530,8 +770,9 @@ function validateFieldBinding(v: unknown, field: string): ChartSpecError[] {
   return []
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw axis metadata must retain the validator's ordered rejection diagnostics.
 function validateAxisDisplay(v: unknown, field: string): ChartSpecError[] {
-  if (!isObject(v))
+  if (!isInput(axisInput, v))
     return [
       {
         code: 'invalid_shape',
@@ -541,7 +782,7 @@ function validateAxisDisplay(v: unknown, field: string): ChartSpecError[] {
     ]
   const errors: ChartSpecError[] = []
 
-  if (v.label !== undefined && v.label !== null && typeof v.label !== 'string')
+  if (v.label !== undefined && v.label !== null && !isString(v.label))
     errors.push({
       code: 'invalid_value',
       field: `${field}.label`,
@@ -555,7 +796,7 @@ function validateAxisDisplay(v: unknown, field: string): ChartSpecError[] {
       message: `${field}.scale must be one of ${AXIS_SCALES.join(', ')}`,
     })
 
-  if (v.unit !== undefined && typeof v.unit !== 'string')
+  if (v.unit !== undefined && !isString(v.unit))
     errors.push({
       code: 'invalid_value',
       field: `${field}.unit`,
@@ -566,18 +807,14 @@ function validateAxisDisplay(v: unknown, field: string): ChartSpecError[] {
 }
 
 function validateBinCount(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Decode a raw optional bin count before range validation; do not coerce stored values.
   v: unknown,
   field: string,
   max: number,
 ): ChartSpecError[] {
   if (v === undefined) return []
 
-  if (
-    typeof v !== 'number' ||
-    !Number.isInteger(v) ||
-    v < HEATMAP_MIN_BINS ||
-    v > max
-  )
+  if (!isNumber(v) || !Number.isInteger(v) || v < HEATMAP_MIN_BINS || v > max)
     return [
       {
         code: 'invalid_value',
@@ -590,10 +827,11 @@ function validateBinCount(
 }
 
 function validateReferenceOverlay(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the raw reference-overlay rejection boundary.
   item: unknown,
   field: string,
 ): ChartSpecError[] {
-  if (!isObject(item) || !isNonEmptyString(item.kind))
+  if (!isInput(referenceInput, item) || !isNonEmptyString(item.kind))
     return [
       {
         code: 'invalid_value',
@@ -605,7 +843,7 @@ function validateReferenceOverlay(
 
   if (item.kind === 'hline' || item.kind === 'vline') {
     if (
-      typeof item.value !== 'number' ||
+      !isNumber(item.value) ||
       !Number.isFinite(item.value) ||
       !isNonEmptyString(item.label)
     )
@@ -623,9 +861,9 @@ function validateReferenceOverlay(
   if (item.kind === 'band') {
     if (
       (item.axis !== 'x' && item.axis !== 'y') ||
-      typeof item.lo !== 'number' ||
+      !isNumber(item.lo) ||
       !Number.isFinite(item.lo) ||
-      typeof item.hi !== 'number' ||
+      !isNumber(item.hi) ||
       !Number.isFinite(item.hi) ||
       !isNonEmptyString(item.label)
     )
@@ -642,7 +880,7 @@ function validateReferenceOverlay(
   }
 
   if (item.kind === 'identity') {
-    if (item.label !== undefined && typeof item.label !== 'string')
+    if (item.label !== undefined && !isString(item.label))
       return [
         {
           code: 'invalid_value',
@@ -666,12 +904,13 @@ function validateReferenceOverlay(
 
 /** Type-specific parameter validation; absent params mean documented defaults. */
 function validateTypeParams(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Inspect raw persisted per-type parameters before their ordered field diagnostics.
   v: unknown,
   type: ChartType | null,
 ): ChartSpecError[] {
   if (v === undefined || v === null) return []
 
-  if (!isObject(v))
+  if (!isInput(typeParamsInput, v))
     return [
       {
         code: 'invalid_shape',
@@ -682,7 +921,7 @@ function validateTypeParams(
   const errors: ChartSpecError[] = []
 
   if (v.histogram !== undefined && v.histogram !== null) {
-    if (!isObject(v.histogram)) {
+    if (!isInput(histogramInput, v.histogram)) {
       errors.push({
         code: 'invalid_shape',
         field: 'spec.typeParams.histogram',
@@ -699,7 +938,7 @@ function validateTypeParams(
 
       if (
         v.histogram.binWidth !== undefined &&
-        (typeof v.histogram.binWidth !== 'number' ||
+        (!isNumber(v.histogram.binWidth) ||
           !Number.isFinite(v.histogram.binWidth) ||
           v.histogram.binWidth <= 0)
       )
@@ -727,7 +966,7 @@ function validateTypeParams(
   }
 
   if (v.box !== undefined && v.box !== null) {
-    if (!isObject(v.box)) {
+    if (!isInput(boxInput, v.box)) {
       errors.push({
         code: 'invalid_shape',
         field: 'spec.typeParams.box',
@@ -735,7 +974,7 @@ function validateTypeParams(
       })
     } else if (
       v.box.showOutliers !== undefined &&
-      typeof v.box.showOutliers !== 'boolean'
+      !isBoolean(v.box.showOutliers)
     ) {
       errors.push({
         code: 'invalid_value',
@@ -753,7 +992,7 @@ function validateTypeParams(
   }
 
   if (v.heatmap !== undefined && v.heatmap !== null) {
-    if (!isObject(v.heatmap)) {
+    if (!isInput(heatmapInput, v.heatmap)) {
       errors.push({
         code: 'invalid_shape',
         field: 'spec.typeParams.heatmap',
@@ -798,7 +1037,7 @@ function validateTypeParams(
         effectiveAggregate !== 'count' &&
         (v.heatmap.valueField === null ||
           v.heatmap.valueField === undefined ||
-          !isObject(v.heatmap.valueField))
+          !isInput(objectInput, v.heatmap.valueField))
       )
         errors.push({
           code: 'missing_field',
@@ -823,7 +1062,7 @@ function validateTypeParams(
   }
 
   if (v.bar !== undefined && v.bar !== null) {
-    if (!isObject(v.bar)) {
+    if (!isInput(barInput, v.bar)) {
       errors.push({
         code: 'invalid_shape',
         field: 'spec.typeParams.bar',
@@ -854,7 +1093,7 @@ function validateTypeParams(
   }
 
   if (v.strip !== undefined && v.strip !== null) {
-    if (!isObject(v.strip)) {
+    if (!isInput(stripInput, v.strip)) {
       errors.push({
         code: 'invalid_shape',
         field: 'spec.typeParams.strip',
@@ -862,7 +1101,7 @@ function validateTypeParams(
       })
     } else if (v.strip.jitter !== undefined) {
       if (
-        typeof v.strip.jitter !== 'number' ||
+        !isNumber(v.strip.jitter) ||
         !Number.isFinite(v.strip.jitter) ||
         v.strip.jitter < STRIP_JITTER_MIN ||
         v.strip.jitter > STRIP_JITTER_MAX
@@ -883,7 +1122,7 @@ function validateTypeParams(
   }
 
   if (v.summary !== undefined && v.summary !== null) {
-    if (!isObject(v.summary)) {
+    if (!isInput(summaryInput, v.summary)) {
       errors.push({
         code: 'invalid_shape',
         field: 'spec.typeParams.summary',
@@ -917,8 +1156,9 @@ function validateTypeParams(
  * the DB trigger's job — but checks structural validity, palette, and
  * chart-type-specific required fields.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public persisted-spec validation must diagnose arbitrary input, not require callers to prevalidate with different errors.
 export function validateChartSpec(spec: unknown): ChartSpecError[] {
-  if (!isObject(spec))
+  if (!isInput(specInput, spec))
     return [
       {
         code: 'invalid_shape',
@@ -952,7 +1192,7 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     })
   else
     datasets.forEach((d, i) => {
-      if (!isObject(d) || !isUuid(d.datasetId))
+      if (!isInput(datasetInput, d) || !isUuid(d.datasetId))
         errors.push({
           code: 'invalid_dataset_reference',
           field: `spec.datasets[${i}].datasetId`,
@@ -968,7 +1208,7 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
 
   const fields = spec.fields
 
-  if (!isObject(fields))
+  if (!isInput(fieldsInput, fields))
     errors.push({
       code: 'invalid_shape',
       field: 'spec.fields',
@@ -986,10 +1226,7 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
         message: 'spec.fields.y is required',
       })
 
-    if (
-      type !== null &&
-      (CHART_TYPES_REQUIRING_X as readonly string[]).includes(type)
-    ) {
+    if (type !== null && CHART_TYPES_REQUIRING_X.includes(type)) {
       if (fields.x === null || fields.x === undefined)
         errors.push({
           code: 'missing_field',
@@ -1001,10 +1238,7 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
       errors.push(...validateFieldBinding(fields.x, 'spec.fields.x'))
     }
 
-    if (
-      type !== null &&
-      (CHART_TYPES_NULL_X as readonly string[]).includes(type)
-    ) {
+    if (type !== null && CHART_TYPES_NULL_X.includes(type)) {
       if (fields.x !== null && fields.x !== undefined)
         errors.push({
           code: 'invalid_value',
@@ -1058,14 +1292,14 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     })
   else
     filters.forEach((f, i) => {
-      if (!isObject(f) || !isUuid(f.fieldId))
+      if (!isInput(filterInput, f) || !isUuid(f.fieldId))
         errors.push({
           code: 'invalid_value',
           field: `spec.filters[${i}]`,
           message: `filters[${i}] must reference a dataset field`,
         })
 
-      if (!isOneOf(f?.op, FILTER_OPS))
+      if (!isInput(filterInput, f) || !isOneOf(f.op, FILTER_OPS))
         errors.push({
           code: 'invalid_value',
           field: `spec.filters[${i}].op`,
@@ -1084,14 +1318,20 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     })
   else
     transformations.forEach((item, i) => {
-      if (!isObject(item) || !isOneOf(item.kind, TRANSFORMATION_KINDS))
+      if (
+        !isInput(transformationInput, item) ||
+        !isOneOf(item.kind, TRANSFORMATION_KINDS)
+      )
         errors.push({
           code: 'invalid_value',
           field: `spec.transformations[${i}].kind`,
           message: `transformations[${i}].kind must be one of ${TRANSFORMATION_KINDS.join(', ')}`,
         })
 
-      if (isObject(item) && !isObject(item.params))
+      if (
+        isInput(transformationInput, item) &&
+        !isInput(objectInput, item.params)
+      )
         errors.push({
           code: 'invalid_value',
           field: `spec.transformations[${i}].params`,
@@ -1110,14 +1350,14 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
   // display
   const display = spec.display
 
-  if (!isObject(display))
+  if (!isInput(displayInput, display))
     errors.push({
       code: 'invalid_shape',
       field: 'spec.display',
       message: 'spec.display must be an object',
     })
   else {
-    if (!isObject(display.axes))
+    if (!isInput(axesInput, display.axes))
       errors.push({
         code: 'invalid_shape',
         field: 'spec.display.axes',
@@ -1139,10 +1379,10 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
     else
       series.forEach((s, i) => {
         if (
-          !isObject(s) ||
+          !isInput(seriesInput, s) ||
           !isNonEmptyString(s.identifier) ||
           !isNonEmptyString(s.label) ||
-          typeof s.color !== 'string'
+          !isString(s.color)
         )
           errors.push({
             code: 'invalid_value',
@@ -1150,7 +1390,7 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
             message: `series[${i}] must have identifier, label and color`,
           })
         else if (
-          !(CHART_PALETTE as readonly string[]).some(
+          !CHART_PALETTE.some(
             (c) => c.toLowerCase() === String(s.color).toLowerCase(),
           )
         )
@@ -1191,10 +1431,10 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
           })
         annotations.forEach((a, i) => {
           if (
-            !isObject(a) ||
-            typeof a.x !== 'number' ||
+            !isInput(annotationInput, a) ||
+            !isNumber(a.x) ||
             !Number.isFinite(a.x) ||
-            typeof a.y !== 'number' ||
+            !isNumber(a.y) ||
             !Number.isFinite(a.y) ||
             !isNonEmptyString(a.label)
           )
@@ -1212,7 +1452,7 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
   // overlays
   const overlays = spec.overlays
 
-  if (!isObject(overlays))
+  if (!isInput(overlaysInput, overlays))
     errors.push({
       code: 'invalid_shape',
       field: 'spec.overlays',
@@ -1221,7 +1461,7 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
   else if (overlays.errorBars !== null && overlays.errorBars !== undefined) {
     const eb = overlays.errorBars
 
-    if (!isObject(eb) || !isOneOf(eb.basis, ERROR_BAR_BASES))
+    if (!isInput(errorBarsInput, eb) || !isOneOf(eb.basis, ERROR_BAR_BASES))
       errors.push({
         code: 'invalid_value',
         field: 'spec.overlays.errorBars',
@@ -1229,7 +1469,7 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
           'overlays.errorBars must name a basis (sd, se, sem, ci, range, custom)',
       })
 
-    if (isObject(eb)) {
+    if (isInput(errorBarsInput, eb)) {
       if (eb.source === 'field' || eb.source === undefined) {
         const hasField = isUuid(eb.fieldId)
         const hasInterval = isUuid(eb.lowerFieldId) && isUuid(eb.upperFieldId)
@@ -1280,7 +1520,7 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
 
       if (eb.multiplier !== undefined) {
         if (
-          typeof eb.multiplier !== 'number' ||
+          !isNumber(eb.multiplier) ||
           !Number.isFinite(eb.multiplier) ||
           eb.multiplier <= 0
         )
@@ -1294,17 +1534,17 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
   }
 
   if (
-    isObject(overlays) &&
+    isInput(overlaysInput, overlays) &&
     overlays.fit !== undefined &&
     overlays.fit !== null
   ) {
     const fit = overlays.fit
 
     if (
-      !isObject(fit) ||
+      !isInput(fitInput, fit) ||
       fit.method !== 'ols' ||
       (fit.degree !== undefined &&
-        (typeof fit.degree !== 'number' ||
+        (!isNumber(fit.degree) ||
           !Number.isInteger(fit.degree) ||
           fit.degree < 1 ||
           fit.degree > 4))
@@ -1317,7 +1557,7 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
   }
 
   if (
-    isObject(overlays) &&
+    isInput(overlaysInput, overlays) &&
     overlays.references !== undefined &&
     overlays.references !== null
   ) {
@@ -1345,7 +1585,7 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
   if (
     isOneOf(spec.type, CHART_TYPES) &&
     spec.type === 'heatmap' &&
-    isObject(overlays) &&
+    isInput(overlaysInput, overlays) &&
     overlays.errorBars !== null &&
     overlays.errorBars !== undefined
   )
@@ -1362,8 +1602,9 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
  * Validate a full chart block payload (the `payload` of a `chart` block).
  * An empty draft `{}` is valid (no spec yet). Returns field-level errors.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public block validation decodes the original payload while preserving ordered legacy diagnostics and unknown scientific keys.
 export function validateChartPayload(payload: unknown): ChartSpecError[] {
-  if (!isObject(payload))
+  if (!isInput(payloadInput, payload))
     return [{ code: 'invalid_shape', message: 'payload must be an object' }]
 
   if (Object.keys(payload).length === 0) return []
@@ -1387,7 +1628,7 @@ export function validateChartPayload(payload: unknown): ChartSpecError[] {
   if (
     payload.provenance !== undefined &&
     payload.provenance !== null &&
-    typeof payload.provenance !== 'string'
+    !isString(payload.provenance)
   )
     errors.push({
       code: 'invalid_value',
@@ -1396,16 +1637,16 @@ export function validateChartPayload(payload: unknown): ChartSpecError[] {
     })
 
   if (payload.frozen !== undefined && payload.frozen !== null) {
-    if (!isObject(payload.frozen))
+    if (!isInput(frozenInput, payload.frozen))
       errors.push({
         code: 'invalid_shape',
         field: 'frozen',
         message: 'frozen must be an object when present',
       })
     // Frozen payload structural checks: must carry provenance + data.
-    const f = payload.frozen as Record<string, unknown>
+    const f = payload.frozen
 
-    if (isObject(f)) {
+    if (isInput(frozenInput, f)) {
       if (!isNonEmptyString(f.frozenAt))
         errors.push({
           code: 'missing_field',
@@ -1427,7 +1668,7 @@ export function validateChartPayload(payload: unknown): ChartSpecError[] {
           message: 'frozen.datasetProvenance must be an array',
         })
 
-      if (!isObject(f.data))
+      if (!isInput(objectInput, f.data))
         errors.push({
           code: 'invalid_shape',
           field: 'frozen.data',
@@ -1456,18 +1697,23 @@ export interface ChartColumn {
   unit?: unknown
 }
 
-function toNumber(v: unknown): number | null {
-  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+function toNumber(v: ChartValue): number | null {
+  if (isNumber(v)) return Number.isFinite(v) ? v : null
 
-  if (typeof v === 'string' && v.trim() !== '') {
+  if (isString(v) && v.trim() !== '') {
     const n = Number(v)
 
     return Number.isFinite(n) ? n : null
   }
 
-  if (typeof v === 'boolean') return v ? 1 : 0
+  if (isBoolean(v)) return v ? 1 : 0
 
   return null
+}
+
+function chartCellLabel(value: ChartValue): string {
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string -- Historical chart labels use native String coercion, including arrays and object-valued categories; JSON encoding would change grouping and saved labels.
+  return String(value)
 }
 
 /** Linear-interpolation quantile on an ascending-sorted array. Matches
@@ -1532,18 +1778,21 @@ function compareStrings(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0
 }
 
-export function rowMatchesFilter(
-  row: Record<string, unknown>,
-  filter: ChartFilter,
-): boolean {
-  return rowMatchesFilterSci04(row, filter)
+export function rowMatchesFilter<Row>(row: Row, filter: ChartFilter): boolean {
+  return rowMatchesFilterSci04(chartRowSchema.parse(row), filter)
 }
 
-export function applyFilters(
-  rows: Record<string, unknown>[],
+export function applyFilters<Row>(
+  input: Row[],
   filters: ChartFilter[],
-): Record<string, unknown>[] {
-  return applyFiltersSci04(rows, filters)
+): ChartRow[] {
+  const rows = decodeChartRows(input)
+
+  if (filters.length === 0) return rows
+
+  return rows.filter((row) =>
+    filters.every((filter) => rowMatchesFilterSci04(row, filter)),
+  )
 }
 
 /**
@@ -1574,7 +1823,7 @@ const TRANSFORM_FIELD_PARAM_KEYS = [
 export function chartSpecReferencedFieldIds(spec: ChartSpec): string[] {
   const ids = new Set<string>()
 
-  const take = (value: unknown) => {
+  const take = (value: ChartValue) => {
     if (isUuid(value)) ids.add(value)
   }
 
@@ -1659,7 +1908,7 @@ export interface HeatmapMatrix {
 export interface MaterialisedChart {
   state: ChartRenderState
   columns: ChartColumn[]
-  rows: Record<string, unknown>[]
+  rows: ChartRow[]
   series: MaterialisedSeries[]
   xLabel: string
   yLabel: string
@@ -1704,10 +1953,10 @@ export interface MaterialisedChart {
  * the live renderer (re-reads rows) and the freeze RPC (stores the result).
  * Detects missing fields, empty datasets and log-scale invalid values.
  */
-export function materialiseChart(
+export function materialiseChart<Row>(
   spec: ChartSpec,
   columns: ChartColumn[],
-  rows: Record<string, unknown>[],
+  rows: Row[],
 ): MaterialisedChart {
   const xCol = resolveColumn(columns, spec.fields.x)
   const yCol = resolveColumn(columns, spec.fields.y)
@@ -1762,7 +2011,7 @@ export function materialiseChart(
 
   const filtered = applyFilters(rows, spec.filters)
   const transformed = applyTransformations(filtered, spec.transformations, spec)
-  const working = transformed.rows
+  const working = decodeChartRows(transformed.rows)
   const transformInvalidCount = transformed.transformInvalid
   const transformInvalidReasons = transformed.reasons
 
@@ -1874,27 +2123,23 @@ export function materialiseChart(
     )
 
   // Build series groups.
-  const groups = new Map<string, Record<string, unknown>[]>()
-  const order: string[] = []
+  const groups = new Map<string, ChartRow[]>()
 
   for (const row of working) {
     const key = seriesCol
-      ? String(row[seriesCol.id] ?? '—')
+      ? chartCellLabel(row[seriesCol.id] ?? '—')
       : seriesKeyForRow(row, spec)
 
-    if (!groups.has(key)) {
-      groups.set(key, [])
-      order.push(key)
-    }
-
-    groups.get(key)!.push(row)
+    const group = groups.get(key) ?? []
+    group.push(row)
+    groups.set(key, group)
   }
 
   const paletteLookup = new Map(
     spec.display.series.map((s) => [s.identifier, s]),
   )
 
-  const series: MaterialisedSeries[] = order.map((key, i) => {
+  const series: MaterialisedSeries[] = Array.from(groups, ([key, group], i) => {
     const configured = paletteLookup.get(key)
 
     const color = (
@@ -1903,7 +2148,7 @@ export function materialiseChart(
 
     const label = configured?.label ?? key
 
-    const points: FrozenChartPoint[] = groups.get(key)!.map((row, rowIndex) => {
+    const points: FrozenChartPoint[] = group.map((row, rowIndex) => {
       const x = xCol ? toNumber(row[xCol.id]) : rowIndex + 1
       const y = toNumber(row[yCol.id])
       const yError = errorCol ? toNumber(row[errorCol.id]) : undefined
@@ -1921,15 +2166,13 @@ export function materialiseChart(
       const sizeCol = resolveColumn(columns, spec.fields.size)
       const size = sizeCol ? toNumber(row[sizeCol.id]) : undefined
 
-      const rowId =
-        typeof row[CHART_ROW_ID_KEY] === 'string'
-          ? String(row[CHART_ROW_ID_KEY])
-          : undefined
+      const rowId = isString(row[CHART_ROW_ID_KEY])
+        ? String(row[CHART_ROW_ID_KEY])
+        : undefined
 
-      const recordId =
-        typeof row[CHART_RECORD_ID_KEY] === 'string'
-          ? String(row[CHART_RECORD_ID_KEY])
-          : undefined
+      const recordId = isString(row[CHART_RECORD_ID_KEY])
+        ? String(row[CHART_RECORD_ID_KEY])
+        : undefined
 
       return {
         x,
@@ -2032,16 +2275,15 @@ function finishMaterialised(
 function materialiseViolin(
   spec: ChartSpec,
   yCol: ChartColumn,
-  filtered: Record<string, unknown>[],
+  filtered: ChartRow[],
   meta: MaterialiseMeta,
 ): MaterialisedChart {
   const seriesCol = resolveColumn(meta.columns, spec.fields.series)
   const groups = new Map<string, number[]>()
-  const order: string[] = []
   let droppedPoints = 0
 
   for (const row of filtered) {
-    const key = seriesCol ? String(row[seriesCol.id] ?? '—') : 'all'
+    const key = seriesCol ? chartCellLabel(row[seriesCol.id] ?? '—') : 'all'
     const v = toNumber(row[yCol.id])
 
     if (v === null) {
@@ -2049,38 +2291,37 @@ function materialiseViolin(
       continue
     }
 
-    if (!groups.has(key)) {
-      groups.set(key, [])
-      order.push(key)
-    }
-
-    groups.get(key)!.push(v)
+    const values = groups.get(key) ?? []
+    values.push(v)
+    groups.set(key, values)
   }
 
-  const series: MaterialisedSeries[] = order.map((key, i) => {
-    const { color, label } = paletteFor(spec, key, i)
-    const values = groups.get(key)!
-    const stats = boxStats(values)
-    const density = gaussianKde(values)
+  const series: MaterialisedSeries[] = Array.from(
+    groups,
+    ([key, values], i) => {
+      const { color, label } = paletteFor(spec, key, i)
+      const stats = boxStats(values)
+      const density = gaussianKde(values)
 
-    return {
-      identifier: key,
-      label,
-      color,
-      violin: density,
-      points: stats
-        ? [
-            {
-              x: i + 1,
-              y: stats.median,
-              yError: null,
-              label: key,
-              box: stats,
-            },
-          ]
-        : [],
-    }
-  })
+      return {
+        identifier: key,
+        label,
+        color,
+        violin: density,
+        points: stats
+          ? [
+              {
+                x: i + 1,
+                y: stats.median,
+                yError: null,
+                label: key,
+                box: stats,
+              },
+            ]
+          : [],
+      }
+    },
+  )
 
   return {
     state: { kind: 'ok' },
@@ -2094,32 +2335,28 @@ function materialiseViolin(
 function materialiseStrip(
   spec: ChartSpec,
   yCol: ChartColumn,
-  filtered: Record<string, unknown>[],
+  filtered: ChartRow[],
   meta: MaterialiseMeta,
 ): MaterialisedChart {
   const seriesCol = resolveColumn(meta.columns, spec.fields.series)
-  const groups = new Map<string, Record<string, unknown>[]>()
-  const order: string[] = []
+  const groups = new Map<string, ChartRow[]>()
 
   for (const row of filtered) {
-    const key = seriesCol ? String(row[seriesCol.id] ?? '—') : 'all'
+    const key = seriesCol ? chartCellLabel(row[seriesCol.id] ?? '—') : 'all'
 
-    if (!groups.has(key)) {
-      groups.set(key, [])
-      order.push(key)
-    }
-
-    groups.get(key)!.push(row)
+    const group = groups.get(key) ?? []
+    group.push(row)
+    groups.set(key, group)
   }
 
   let droppedPoints = 0
   const jitter = spec.typeParams.strip?.jitter ?? 0.18
 
-  const series: MaterialisedSeries[] = order.map((key, i) => {
+  const series: MaterialisedSeries[] = Array.from(groups, ([key, group], i) => {
     const { color, label } = paletteFor(spec, key, i)
     const points: FrozenChartPoint[] = []
 
-    for (const row of groups.get(key)!) {
+    for (const row of group) {
       const y = toNumber(row[yCol.id])
 
       if (y === null) {
@@ -2127,16 +2364,15 @@ function materialiseStrip(
         continue
       }
 
-      const seed = `${key}:${String(row[CHART_ROW_ID_KEY] ?? y)}`
+      const seed = `${key}:${chartCellLabel(row[CHART_ROW_ID_KEY] ?? y)}`
       points.push({
         x: i + 1 + jitterOffset(seed, jitter),
         y,
         yError: null,
         label: key,
-        rowId:
-          typeof row[CHART_ROW_ID_KEY] === 'string'
-            ? String(row[CHART_ROW_ID_KEY])
-            : undefined,
+        rowId: isString(row[CHART_ROW_ID_KEY])
+          ? String(row[CHART_ROW_ID_KEY])
+          : undefined,
       })
     }
 
@@ -2156,7 +2392,7 @@ function materialiseSummary(
   spec: ChartSpec,
   yCol: ChartColumn,
   xCol: ChartColumn | null,
-  filtered: Record<string, unknown>[],
+  filtered: ChartRow[],
   meta: MaterialiseMeta,
 ): MaterialisedChart {
   const summaries = groupedNumericSummaries(
@@ -2172,8 +2408,9 @@ function materialiseSummary(
   type GroupedLike = (typeof summaries)[number]
 
   for (const row of summaries) {
-    if (!bySeries.has(row.series)) bySeries.set(row.series, [])
-    bySeries.get(row.series)!.push(row)
+    const group = bySeries.get(row.series) ?? []
+    group.push(row)
+    bySeries.set(row.series, group)
   }
 
   const order = Array.from(bySeries.keys())
@@ -2184,7 +2421,7 @@ function materialiseSummary(
     const points: FrozenChartPoint[] = (bySeries.get(key) ?? []).map(
       (row, index) => {
         const y = statistic === 'median' ? row.stats.median : row.stats.mean
-        const x = toNumber(row.x) ?? index + 1
+        const x = toNumber(chartValueSchema.parse(row.x)) ?? index + 1
         const half = (row.interval.hi - row.interval.lo) / 2
 
         return {
@@ -2230,11 +2467,7 @@ interface MaterialiseMeta {
   yUnit: string | undefined
 }
 
-function paletteFor(
-  spec: ChartSpec,
-  key: string,
-  index: number,
-): { color: string; label: string } {
+function paletteFor(spec: ChartSpec, key: string, index: number) {
   const configured = spec.display.series.find((s) => s.identifier === key)
 
   const fallback =
@@ -2256,15 +2489,17 @@ function paletteFor(
 function materialiseHistogram(
   spec: ChartSpec,
   yCol: ChartColumn,
-  filtered: Record<string, unknown>[],
+  filtered: ChartRow[],
   meta: MaterialiseMeta,
 ): MaterialisedChart {
   const seriesCol = resolveColumn(meta.columns, spec.fields.series)
   const params = spec.typeParams.histogram ?? {}
 
-  const numeric = filtered
-    .map((row) => toNumber(row[yCol.id]))
-    .filter((v): v is number => v !== null)
+  const numeric = filtered.flatMap((row) => {
+    const value = toNumber(row[yCol.id])
+
+    return value === null ? [] : [value]
+  })
 
   if (numeric.length === 0)
     return {
@@ -2292,23 +2527,19 @@ function materialiseHistogram(
 
   const width = edges[1] - edges[0]
 
-  const groups = new Map<string, Record<string, unknown>[]>()
-  const order: string[] = []
+  const groups = new Map<string, ChartRow[]>()
 
   for (const row of filtered) {
-    const key = seriesCol ? String(row[seriesCol.id] ?? '—') : 'all'
+    const key = seriesCol ? chartCellLabel(row[seriesCol.id] ?? '—') : 'all'
 
-    if (!groups.has(key)) {
-      groups.set(key, [])
-      order.push(key)
-    }
-
-    groups.get(key)!.push(row)
+    const group = groups.get(key) ?? []
+    group.push(row)
+    groups.set(key, group)
   }
 
   let droppedPoints = 0
 
-  const series: MaterialisedSeries[] = order.map((key, i) => {
+  const series: MaterialisedSeries[] = Array.from(groups, ([key, group], i) => {
     const { color, label } = paletteFor(spec, key, i)
     const points: FrozenChartPoint[] = []
 
@@ -2316,7 +2547,7 @@ function materialiseHistogram(
       points.push({ x: edges[b], y: 0, yError: null, label: key })
     }
 
-    for (const row of groups.get(key)!) {
+    for (const row of group) {
       const v = toNumber(row[yCol.id])
 
       if (v === null) {
@@ -2329,7 +2560,7 @@ function materialiseHistogram(
       if (idx >= edges.length - 1) idx = edges.length - 2 // last bin is inclusive
 
       if (idx < 0) idx = 0
-      points[idx].y = (points[idx].y as number) + 1
+      points[idx].y = (points[idx].y ?? 0) + 1
     }
 
     return { identifier: key, label, color, points }
@@ -2353,31 +2584,27 @@ function materialiseHistogram(
 function materialiseBoxPlot(
   spec: ChartSpec,
   yCol: ChartColumn,
-  filtered: Record<string, unknown>[],
+  filtered: ChartRow[],
   meta: MaterialiseMeta,
 ): MaterialisedChart {
   const seriesCol = resolveColumn(meta.columns, spec.fields.series)
-  const groups = new Map<string, Record<string, unknown>[]>()
-  const order: string[] = []
+  const groups = new Map<string, ChartRow[]>()
 
   for (const row of filtered) {
-    const key = seriesCol ? String(row[seriesCol.id] ?? '—') : 'all'
+    const key = seriesCol ? chartCellLabel(row[seriesCol.id] ?? '—') : 'all'
 
-    if (!groups.has(key)) {
-      groups.set(key, [])
-      order.push(key)
-    }
-
-    groups.get(key)!.push(row)
+    const group = groups.get(key) ?? []
+    group.push(row)
+    groups.set(key, group)
   }
 
   let droppedPoints = 0
 
-  const series: MaterialisedSeries[] = order.map((key, i) => {
+  const series: MaterialisedSeries[] = Array.from(groups, ([key, group], i) => {
     const { color, label } = paletteFor(spec, key, i)
     const values: number[] = []
 
-    for (const row of groups.get(key)!) {
+    for (const row of group) {
       const v = toNumber(row[yCol.id])
 
       if (v === null) droppedPoints++
@@ -2422,7 +2649,7 @@ function materialiseHeatmap(
   columns: ChartColumn[],
   xCol: ChartColumn | null,
   yCol: ChartColumn | null,
-  filtered: Record<string, unknown>[],
+  filtered: ChartRow[],
   meta: MaterialiseMeta,
 ): MaterialisedChart {
   // The grid needs both dimensions. A heatmap whose X or Y is unmapped (a
@@ -2445,8 +2672,8 @@ function materialiseHeatmap(
     }
   }
 
-  const params = spec.typeParams.heatmap ?? {
-    aggregate: 'count' as HeatmapAggregate,
+  const params: HeatmapParams = spec.typeParams.heatmap ?? {
+    aggregate: 'count',
     valueField: null,
   }
 
@@ -2473,7 +2700,7 @@ function materialiseHeatmap(
   function buildDim(col: ChartColumn, bins: number): Dim {
     if (isCategoricalColumn(col)) {
       const labels = Array.from(
-        new Set(filtered.map((r) => String(r[col.id] ?? '—'))),
+        new Set(filtered.map((r) => chartCellLabel(r[col.id] ?? '—'))),
       ).sort(compareStrings)
 
       const index = new Map(labels.map((l, i) => [l, i]))
@@ -2485,9 +2712,11 @@ function materialiseHeatmap(
       }
     }
 
-    const numeric = filtered
-      .map((r) => toNumber(r[col.id]))
-      .filter((v): v is number => v !== null)
+    const numeric = filtered.flatMap((row) => {
+      const value = toNumber(row[col.id])
+
+      return value === null ? [] : [value]
+    })
 
     const min = numeric.length ? Math.min(...numeric) : 0
     const max = numeric.length ? Math.max(...numeric) : 1
@@ -2507,7 +2736,7 @@ function materialiseHeatmap(
       // Pure: bin assignment has no side effects. Omission is counted once
       // per row in the aggregation pass below, never per dimension.
       indexOf: (v) => {
-        if (typeof v !== 'number') return -1
+        if (!isNumber(v)) return -1
         let idx = Math.floor((v - edges[0]) / width)
 
         if (idx >= labels.length) idx = labels.length - 1
@@ -2529,11 +2758,11 @@ function materialiseHeatmap(
 
   for (const row of filtered) {
     const xv = xDim.categorical
-      ? String(row[xCol.id] ?? '—')
+      ? chartCellLabel(row[xCol.id] ?? '—')
       : toNumber(row[xCol.id])
 
     const yv = yDim.categorical
-      ? String(row[yCol.id] ?? '—')
+      ? chartCellLabel(row[yCol.id] ?? '—')
       : toNumber(row[yCol.id])
 
     const xi = xDim.indexOf(xv)
@@ -2635,25 +2864,26 @@ export interface FacetedResult {
  * Panels are ordered by codepoint-sorted value and capped at MAX_FACETS;
  * `total` lets the UI surface truncation honestly.
  */
-export function materialiseFacetedCharts(
+export function materialiseFacetedCharts<Row>(
   spec: ChartSpec,
   columns: ChartColumn[],
-  rows: Record<string, unknown>[],
+  rows: Row[],
 ): FacetedResult {
   const facetCol = resolveColumn(columns, spec.fields.facet)
 
   if (!facetCol) return { panels: [], total: 0 }
   const partitioned = applyFilters(rows, spec.filters)
-  const groups = new Map<string, Record<string, unknown>[]>()
+  const groups = new Map<string, ChartRow[]>()
 
   for (const row of partitioned) {
-    const key = String(row[facetCol.id] ?? '—')
+    const key = chartCellLabel(row[facetCol.id] ?? '—')
 
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key)!.push(row)
+    const group = groups.get(key) ?? []
+    group.push(row)
+    groups.set(key, group)
   }
 
-  const keys = Array.from(groups.keys()).sort(compareStrings)
+  const entries = Array.from(groups).sort(([a], [b]) => compareStrings(a, b))
   const { facet: _facet, ...restFields } = spec.fields
 
   const panelSpec: ChartSpec = {
@@ -2663,11 +2893,11 @@ export function materialiseFacetedCharts(
   }
 
   return {
-    panels: keys.slice(0, MAX_FACETS).map((value) => ({
+    panels: entries.slice(0, MAX_FACETS).map(([value, group]) => ({
       value,
-      chart: materialiseChart(panelSpec, columns, groups.get(value)!),
+      chart: materialiseChart(panelSpec, columns, group),
     })),
-    total: keys.length,
+    total: entries.length,
   }
 }
 

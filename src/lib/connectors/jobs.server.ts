@@ -16,6 +16,7 @@
  * It uses the same personal API token as the rest of the agent, so who may run a
  * robot is decided by the database exactly as it is for a person in the app.
  */
+import { z } from 'zod'
 import { DataClientError } from '../data-client'
 import type { DataClient } from '../data-client'
 import type { ExternalClaims } from '../external-token'
@@ -31,7 +32,7 @@ export const JOBS_MAX_BYTES = 2 * 1024 * 1024
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-const REPORT_STATUSES = new Set([
+const reportStatusSchema = z.enum([
   'staged',
   'running',
   'complete',
@@ -49,7 +50,7 @@ interface JobRpcRow {
   number: number
   status: string
   driver: string
-  format: string
+  format: InstrumentJobWire['worklist_format']
   labware: Record<string, string>
   remoteRef: string | null
   cancelRequested: boolean
@@ -59,9 +60,9 @@ interface JobRpcRow {
     number: number
     name: string
     sourcePlate: string
-    sourceFormat: string
+    sourceFormat: JobWorklist['sourceFormat']
     destPlate: string
-    destFormat: string
+    destFormat: JobWorklist['destFormat']
     transfers: Array<{
       sourceWell: string
       destWell: string
@@ -105,12 +106,12 @@ export function toAgentJob(row: JobRpcRow): AgentJob {
   if (row.status === 'queued') {
     base.file = robotFileFor({
       number: row.number,
-      format: row.format as never,
+      format: row.format,
       labware: row.labware,
       worklist: {
         name: row.worklist.name,
-        sourceFormat: row.worklist.sourceFormat as never,
-        destFormat: row.worklist.destFormat as never,
+        sourceFormat: row.worklist.sourceFormat,
+        destFormat: row.worklist.destFormat,
         sourcePlate: row.worklist.sourcePlate,
         destPlate: row.worklist.destPlate,
         transfers: row.worklist.transfers,
@@ -130,14 +131,11 @@ function errorResponse(status: number, code: string, message: string) {
   })
 }
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
-
 export interface JobsRequest {
   action: 'list' | 'report'
   instrumentId: string
   jobId?: string
-  status?: string
+  status?: z.infer<typeof reportStatusSchema>
   remoteRef?: string
   message?: string
   entries?: LogEntry[]
@@ -146,12 +144,16 @@ export interface JobsRequest {
 }
 
 /** The body, checked down to what the database will accept. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- HTTP JSON enters untrusted and is decoded here with ordered, actionable request errors.
 export function parseJobsBody(raw: unknown): JobsRequest {
-  if (!isObject(raw)) {
+  const envelope = z.record(z.string(), z.unknown()).safeParse(raw)
+
+  if (!envelope.success) {
     throw new PickupError(400, 'invalid_request', 'Send a JSON body.')
   }
 
-  const action = raw['action']
+  const data = envelope.data
+  const action = data['action']
 
   if (action !== 'list' && action !== 'report') {
     throw new PickupError(
@@ -161,9 +163,9 @@ export function parseJobsBody(raw: unknown): JobsRequest {
     )
   }
 
-  const instrumentId = raw['instrumentId']
+  const instrumentId = z.string().regex(UUID).safeParse(data['instrumentId'])
 
-  if (typeof instrumentId !== 'string' || !UUID.test(instrumentId)) {
+  if (!instrumentId.success) {
     throw new PickupError(
       400,
       'invalid_request',
@@ -171,16 +173,16 @@ export function parseJobsBody(raw: unknown): JobsRequest {
     )
   }
 
-  if (action === 'list') return { action, instrumentId }
-  const jobId = raw['jobId']
+  if (action === 'list') return { action, instrumentId: instrumentId.data }
+  const jobId = z.string().regex(UUID).safeParse(data['jobId'])
 
-  if (typeof jobId !== 'string' || !UUID.test(jobId)) {
+  if (!jobId.success) {
     throw new PickupError(400, 'invalid_request', 'jobId must be a job id.')
   }
 
-  const status = raw['status']
+  const status = reportStatusSchema.safeParse(data['status'])
 
-  if (typeof status !== 'string' || !REPORT_STATUSES.has(status)) {
+  if (!status.success) {
     throw new PickupError(
       400,
       'invalid_request',
@@ -188,24 +190,34 @@ export function parseJobsBody(raw: unknown): JobsRequest {
     )
   }
 
-  const out: JobsRequest = { action, instrumentId, jobId, status }
+  const out: JobsRequest = {
+    action,
+    instrumentId: instrumentId.data,
+    jobId: jobId.data,
+    status: status.data,
+  }
 
-  if (typeof raw['remoteRef'] === 'string')
-    out.remoteRef = raw['remoteRef'].slice(0, 200)
+  const remoteRef = z.string().safeParse(data['remoteRef'])
+  const message = z.string().safeParse(data['message'])
 
-  if (typeof raw['message'] === 'string')
-    out.message = raw['message'].slice(0, 500)
+  if (remoteRef.success) out.remoteRef = remoteRef.data.slice(0, 200)
 
-  if (raw['runLog'] !== undefined) {
-    if (typeof raw['runLog'] !== 'string') {
+  if (message.success) out.message = message.data.slice(0, 500)
+
+  if (data['runLog'] !== undefined) {
+    const runLog = z.string().safeParse(data['runLog'])
+
+    if (!runLog.success) {
       throw new PickupError(400, 'invalid_request', 'runLog must be text.')
     }
 
-    out.runLog = raw['runLog']
+    out.runLog = runLog.data
   }
 
-  if (raw['volumeUnit'] !== undefined) {
-    if (!['ul', 'nl', 'ml'].includes(String(raw['volumeUnit']))) {
+  if (data['volumeUnit'] !== undefined) {
+    const volumeUnit = z.enum(['ul', 'nl', 'ml']).safeParse(data['volumeUnit'])
+
+    if (!volumeUnit.success) {
       throw new PickupError(
         400,
         'invalid_request',
@@ -213,11 +225,13 @@ export function parseJobsBody(raw: unknown): JobsRequest {
       )
     }
 
-    out.volumeUnit = raw['volumeUnit'] as 'ul' | 'nl' | 'ml'
+    out.volumeUnit = volumeUnit.data
   }
 
-  if (raw['entries'] !== undefined) {
-    if (!Array.isArray(raw['entries']) || raw['entries'].length > 20000) {
+  if (data['entries'] !== undefined) {
+    const entries = z.array(z.unknown()).max(20000).safeParse(data['entries'])
+
+    if (!entries.success) {
       throw new PickupError(
         400,
         'invalid_request',
@@ -225,12 +239,17 @@ export function parseJobsBody(raw: unknown): JobsRequest {
       )
     }
 
-    out.entries = raw['entries'].map((item, index): LogEntry => {
-      const row = isObject(item) ? item : {}
-      const sourceWell = row['sourceWell']
-      const destWell = row['destWell']
+    out.entries = entries.data.map((item, index): LogEntry => {
+      const row = z
+        .object({
+          sourceWell: z.string(),
+          destWell: z.string(),
+          actualUl: z.unknown().optional(),
+          status: z.unknown().optional(),
+        })
+        .safeParse(item)
 
-      if (typeof sourceWell !== 'string' || typeof destWell !== 'string') {
+      if (!row.success) {
         throw new PickupError(
           400,
           'invalid_request',
@@ -238,14 +257,13 @@ export function parseJobsBody(raw: unknown): JobsRequest {
         )
       }
 
-      const actual = row['actualUl']
-      const entryStatus = row['status']
+      const actual = z.number().safeParse(row.data.actualUl)
+      const entryStatus = row.data.status
 
       return {
-        sourceWell: sourceWell.toUpperCase(),
-        destWell: destWell.toUpperCase(),
-        actualUl:
-          typeof actual === 'number' && Number.isFinite(actual) ? actual : null,
+        sourceWell: row.data.sourceWell.toUpperCase(),
+        destWell: row.data.destWell.toUpperCase(),
+        actualUl: actual.success ? actual.data : null,
         status:
           entryStatus === 'failed' || entryStatus === 'skipped'
             ? entryStatus
@@ -254,7 +272,7 @@ export function parseJobsBody(raw: unknown): JobsRequest {
     })
   }
 
-  if (status === 'complete' && !out.entries && out.runLog === undefined) {
+  if (status.data === 'complete' && !out.entries && out.runLog === undefined) {
     throw new PickupError(
       400,
       'invalid_request',
@@ -289,10 +307,7 @@ export function reconcileJobLog(
   return reconcileRunLog(planned, entries ?? [])
 }
 
-export async function runJobs(
-  request: Request,
-  deps: JobsDeps,
-): Promise<unknown> {
+export async function runJobs(request: Request, deps: JobsDeps) {
   const token = readBearer(request.headers)
 
   if (!token) {
@@ -306,7 +321,7 @@ export async function runJobs(
   } catch (error) {
     const code =
       error instanceof Error && 'code' in error
-        ? String((error as { code: unknown }).code)
+        ? z.coerce.string().parse(error.code)
         : 'invalid_token'
 
     throw new PickupError(
@@ -368,12 +383,12 @@ export async function runJobs(
     return { jobs: rows.map(toAgentJob) }
   }
 
-  let reconciled: unknown = null
+  let reconciled: ReturnType<typeof reconcileJobLog> | null = null
 
   if (body.status === 'complete') {
     const jobs = await client.list<Pick<InstrumentJobWire, 'worklist_id'>>(
       'instrument_jobs',
-      `select=worklist_id&id=eq.${body.jobId}&limit=1`,
+      `?select=worklist_id&id=eq.${body.jobId}&limit=1`,
     )
 
     const worklistId = jobs[0]?.worklist_id
@@ -394,7 +409,7 @@ export async function runJobs(
       dest_plate: string
     }>(
       'plate_worklists',
-      `select=transfers,source_plate,dest_plate&id=eq.${worklistId}&limit=1`,
+      `?select=transfers,source_plate,dest_plate&id=eq.${worklistId}&limit=1`,
     )
 
     const list = lists.at(0)

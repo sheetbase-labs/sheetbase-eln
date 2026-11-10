@@ -13,55 +13,66 @@
  * Determinism: every byte derives from revision content; no wall-clock
  * timestamps are embedded.
  */
+import { z } from 'zod'
+
+import type { ExportRow } from './delimited'
 import { ZipWriter } from './zip'
 
-export interface EvidencePackageInput {
-  revision: {
-    id: string
-    recordId: string
-    workspaceId: string
-    reason: string
-    structureVersion: number | string
-    metadataVersion: number | string
-    integrityAlgorithm: string | null
-    integrityDigest: string | null
-    supersededByRevisionId: string | null
-    createdAt: string
-    createdByUserId: string | null
-  }
-  record?: {
-    identifier: string
-    title: string
-    kind: string
-    status: string
-  } | null
-  metadataSnapshot: unknown
-  blockSnapshot: unknown
-  canonicalSnapshot: unknown
-  sheetEvidence: Array<{
-    blockId: string
-    instanceId: string
-    sourceDefinitionVersionId: string | null
-    instanceRevision: number | string
-    instanceState: Record<string, unknown> | null
-    composedGrid: unknown
-    datasetVersions: unknown
-    createdAt?: string
-  }>
-  files: Array<{
-    fileObjectId: string
-    fileRecordId: string
-    storageKey: string
-    storageBackend: string
-    checksumAlgorithm: string
-    checksum: string
-    byteSize: number | string
-  }>
-  submission: unknown
-  decisions: unknown[]
-  checkResults: unknown[]
-  signatures: unknown[]
-  comments: unknown[]
+const version = z.union([z.string(), z.number()])
+
+const evidenceSchema = z.looseObject({
+  revision: z.looseObject({
+    id: z.string(),
+    workspaceId: z.string(),
+    reason: z.string(),
+    structureVersion: version,
+    metadataVersion: version,
+    integrityAlgorithm: z.string().nullable(),
+    integrityDigest: z.string().nullable(),
+    supersededByRevisionId: z.string().nullable(),
+  }),
+  record: z
+    .looseObject({
+      identifier: z.string().nullable(),
+      title: z.string().nullable(),
+      kind: z.string().nullable(),
+      status: z.string().nullable(),
+    })
+    .nullable()
+    .optional(),
+  blockSnapshot: z.unknown(),
+  sheetEvidence: z.array(
+    z.looseObject({
+      blockId: z.string(),
+      instanceState: z.record(z.string(), z.unknown()).nullable().optional(),
+      composedGrid: z.unknown().optional(),
+    }),
+  ),
+  files: z.array(
+    z.looseObject({
+      fileObjectId: z.string(),
+      fileRecordId: z.string(),
+      storageKey: z.string(),
+      storageBackend: z.string(),
+      checksumAlgorithm: z.string(),
+      checksum: z.string(),
+      byteSize: version,
+    }),
+  ),
+  signatures: z.array(z.unknown()),
+})
+
+export type EvidencePackageInput = z.infer<typeof evidenceSchema>
+
+// Keep the original object and key order: it is written verbatim as evidence.json.
+const evidenceInput = z.custom<EvidencePackageInput>(
+  (input) => evidenceSchema.safeParse(input).success,
+)
+
+// This is the external RPC/input boundary; validate before rendering evidence.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
+export function parseEvidencePackage(input: unknown): EvidencePackageInput {
+  return evidenceInput.parse(input)
 }
 
 function csvEscape(text: string | number | null): string {
@@ -74,10 +85,9 @@ function csvEscape(text: string | number | null): string {
 /** Frozen grid columns/rows rendered from composed_grid or instance state. */
 function gridForEvidence(
   evidence: EvidencePackageInput['sheetEvidence'][number],
-): {
-  headers: string[]
-  rows: string[][]
-} {
+) {
+  // Legacy rendering reads the original grid without reconstructing it.
+  // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
   const grid = evidence.composedGrid as {
     columns?: Array<{ id?: unknown; label?: unknown }>
     rows?: unknown
@@ -87,9 +97,13 @@ function gridForEvidence(
     grid &&
     Array.isArray(grid.columns) &&
     grid.columns.length > 0 &&
+    // Preserve the original validity check and each native getter read.
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof
     grid.columns.every((c) => typeof c.id === 'string')
   ) {
     const headers = grid.columns.map((c) =>
+      // Preserve repeated native label reads and the original fallback.
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof
       typeof c.label === 'string' && c.label.trim() ? c.label : 'Column',
     )
 
@@ -98,7 +112,9 @@ function gridForEvidence(
         ? row.map((cell) =>
             cell === null || cell === undefined
               ? ''
-              : typeof cell === 'object'
+              : // Objects, including cross-realm values, retain JSON rendering.
+                // oxlint-disable-next-line anti-slop/no-runtime-typeof
+                typeof cell === 'object'
                 ? JSON.stringify(cell)
                 : String(cell),
           )
@@ -114,20 +130,28 @@ function gridForEvidence(
 
   const localFields = Array.isArray(state.localFields)
     ? state.localFields.filter(
-        (f): f is Record<string, unknown> =>
+        (f): f is { fieldId: string; label?: unknown } =>
+          // Legacy membership accepts inherited fields and keeps getter order.
+          // oxlint-disable-next-line anti-slop/no-runtime-typeof
           Boolean(f) && typeof f === 'object' && typeof f.fieldId === 'string',
       )
     : []
 
   const headers = localFields.map((f) =>
+    // Preserve repeated label and field ID reads on the original object.
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof
     typeof f.label === 'string' ? f.label : String(f.fieldId),
   )
 
   const ids = localFields.map((f) => String(f.fieldId))
 
   const localValues =
+    // The fallback accepts native objects and arrays without reconstruction.
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof
     state.localValues && typeof state.localValues === 'object'
-      ? (state.localValues as Record<string, Record<string, unknown>>)
+      ? // The legacy renderer reads original rows directly; they are not validated here.
+        // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
+        (state.localValues as Record<string, ExportRow['values']>)
       : {}
 
   const rows = Object.values(localValues).map((row) =>
@@ -136,9 +160,13 @@ function gridForEvidence(
 
       return value === null || value === undefined
         ? ''
-        : typeof value === 'object'
+        : // Objects, including cross-realm values, retain JSON rendering.
+          // oxlint-disable-next-line anti-slop/no-runtime-typeof
+          typeof value === 'object'
           ? JSON.stringify(value)
-          : String(value)
+          : // Other native values retain JavaScript string coercion.
+            // oxlint-disable-next-line typescript/no-base-to-string
+            String(value)
     }),
   )
 

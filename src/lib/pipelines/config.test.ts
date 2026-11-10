@@ -8,7 +8,12 @@ import {
   confirmNoAnswerOutcome,
   confirmExpiryHours,
 } from './config'
-import type { PipelineConfig, PipelineStepConfirm } from './config'
+import type {
+  ParameterType,
+  PipelineConfig,
+  PipelinePluginStep,
+  PipelineStepConfirm,
+} from './config'
 
 function validConfig(): PipelineConfig {
   return {
@@ -86,8 +91,11 @@ describe('validatePipelineConfig', () => {
   })
 
   it('rejects an unsupported transform language', () => {
-    const config = validConfig()
-    config.transform.language = 'javascript' as never
+    const config = {
+      ...validConfig(),
+      transform: { language: 'javascript', statement: 'SELECT 1' },
+    }
+
     const errors = validatePipelineConfig(config)
     expect(errors.some((e) => e.code === 'unsupported_language')).toBe(true)
   })
@@ -122,6 +130,97 @@ describe('validatePipelineConfig', () => {
     const errors = validatePipelineConfig(config)
     expect(errors.some((e) => e.code === 'invalid_value')).toBe(true)
   })
+
+  it('keeps every parameter error in order while checking later sections', () => {
+    const errors = validatePipelineConfig({
+      ...validConfig(),
+      parameters: [
+        {
+          name: 'factor',
+          type: 'unsupported',
+          required: true,
+          default: 3,
+          description: false,
+        },
+      ],
+      output: { mode: 'create', datasetLabel: '' },
+    })
+
+    expect(errors.map(({ code, field }) => ({ code, field }))).toEqual([
+      { code: 'invalid_value', field: 'parameters[0].type' },
+      { code: 'invalid_value', field: 'parameters[0].default' },
+      { code: 'invalid_value', field: 'parameters[0].default' },
+      { code: 'invalid_value', field: 'parameters[0].description' },
+      { code: 'invalid_value', field: 'output.schemaVersionId' },
+      { code: 'invalid_value', field: 'output.datasetName' },
+      { code: 'invalid_value', field: 'output.datasetLabel' },
+    ])
+  })
+
+  it('accepts explicitly undefined optional authoring fields', () => {
+    expect(
+      validatePipelineConfig({
+        ...validConfig(),
+        description: undefined,
+        steps: undefined,
+        pythonRequirements: undefined,
+        notifications: undefined,
+        parameters: [
+          {
+            name: 'factor',
+            type: 'decimal',
+            required: undefined,
+            default: undefined,
+            description: undefined,
+          },
+        ],
+      }),
+    ).toEqual([])
+  })
+})
+
+describe('parameter value contracts', () => {
+  const cases = [
+    ['text', '', true],
+    ['text', 1, false],
+    ['integer', 1e100, true],
+    ['integer', 1.5, false],
+    ['integer', Infinity, false],
+    ['decimal', 1.5, true],
+    ['decimal', Infinity, false],
+    ['decimal', NaN, false],
+    ['boolean', false, true],
+    ['boolean', 'false', false],
+    ['date', '2026-99-99', true],
+    ['date', '2026-1-1', false],
+    ['timestamp', '2026-11-09', true],
+    ['timestamp', 'not a date', false],
+  ] satisfies Array<[ParameterType, string | number | boolean, boolean]>
+
+  it.each(cases)(
+    'validates %s value %s as %s across defaults, runs and answers',
+    (type, value, valid) => {
+      const config = validConfig()
+      config.inputs = []
+      config.parameters = [
+        { name: 'value', type, required: false, default: value },
+      ]
+
+      expect(validatePipelineConfig(config).length === 0).toBe(valid)
+      expect(
+        validatePipelineRunRequest(config, { value }, {}).length === 0,
+      ).toBe(valid)
+      expect(
+        validateConfirmAnswer(
+          {
+            fields: [{ key: 'value', label: 'Value', type }],
+            askedUserIds: ['a'],
+          },
+          { decision: 'confirm', values: { value } },
+        ) === null,
+      ).toBe(valid)
+    },
+  )
 })
 
 describe('validatePipelineRunRequest', () => {
@@ -242,7 +341,7 @@ describe('Python and workflow configuration', () => {
 })
 
 describe('Plugin steps in the chain', () => {
-  const pluginStep = (args: Record<string, unknown>) => ({
+  const pluginStep = (args: PipelinePluginStep['arguments']) => ({
     name: 'join_plates',
     language: 'plugin' as const,
     statement: '',
@@ -305,18 +404,21 @@ describe('Plugin steps in the chain', () => {
     )
   })
   it('refuses a reference it cannot read and a contract', () => {
-    const config = validConfig()
-    config.steps = [
-      {
-        ...pluginStep({
-          a: { $ref: 'actions.x.rows' },
-          b: { $ref: 'previous.extra' },
-          c: { $ref: 'inputs' },
-          d: { $ref: 'parameters.x.y' },
-        }),
-        contract: { input: { columns: [] }, output: { columns: [] } } as never,
-      },
-    ]
+    const config = {
+      ...validConfig(),
+      steps: [
+        {
+          ...pluginStep({
+            a: { $ref: 'actions.x.rows' },
+            b: { $ref: 'previous.extra' },
+            c: { $ref: 'inputs' },
+            d: { $ref: 'parameters.x.y' },
+          }),
+          contract: { input: { columns: [] }, output: { columns: [] } },
+        },
+      ],
+    }
+
     const fields = validatePipelineConfig(config).map((e) => e.field)
     expect(fields).toEqual(
       expect.arrayContaining([
@@ -340,6 +442,21 @@ describe('Plugin steps in the chain', () => {
     ]
     expect(validatePipelineConfig(config).map((e) => e.field)).toEqual([
       'steps[0].plugin',
+    ])
+  })
+
+  it('retains forbidden own keys and extra keys on references', () => {
+    const config = validConfig()
+    config.steps = [
+      pluginStep({
+        ['__proto__']: 'forbidden',
+        table: { $ref: 'previous', ['__proto__']: 'extra' },
+      }),
+    ]
+
+    expect(validatePipelineConfig(config).map((error) => error.field)).toEqual([
+      'steps[0].plugin.arguments',
+      'steps[0].plugin.arguments.table',
     ])
   })
 })
@@ -387,9 +504,20 @@ describe('Confirm steps (PIPE-02)', () => {
   })
 
   it('rejects an unknown no-answer outcome and an out-of-range expiry', () => {
-    const config = confirmConfig()
-    config.steps![0].confirm!.noAnswer = 'ignore' as never
-    config.steps![0].confirm!.expiresHours = 0
+    const valid = confirmConfig()
+
+    const config = {
+      ...valid,
+      steps: valid.steps?.map((step) =>
+        step.confirm
+          ? {
+              ...step,
+              confirm: { ...step.confirm, noAnswer: 'ignore', expiresHours: 0 },
+            }
+          : step,
+      ),
+    }
+
     const errors = validatePipelineConfig(config)
     expect(errors.some((e) => e.field === 'steps[0].confirm.noAnswer')).toBe(
       true,
@@ -460,7 +588,7 @@ describe('Confirm steps (PIPE-02)', () => {
 describe('Python requirements and contracts', () => {
   const RUNTIME = `registry.example/py@sha256:${'c'.repeat(64)}`
 
-  function pythonConfig(extra: Record<string, unknown> = {}): PipelineConfig {
+  function pythonConfig(extra: Partial<PipelineConfig> = {}): PipelineConfig {
     return {
       ...validConfig(),
       pythonRuntime: RUNTIME,
@@ -516,24 +644,23 @@ describe('Python requirements and contracts', () => {
 
     expect(sql).toMatchObject([{ field: 'transform.contract' }])
 
-    const steps = validatePipelineConfig(
-      pythonConfig({
-        steps: [
-          {
-            name: 'tidy',
-            language: 'python',
-            statement: 'def transform(i, p): return []',
-            contract: { output: { columns: [{ name: 'a', type: 'float' }] } },
-          },
-          {
-            name: 'plain',
-            language: 'sql',
-            statement: 'select 1',
-            contract: {},
-          },
-        ],
-      }),
-    )
+    const steps = validatePipelineConfig({
+      ...pythonConfig(),
+      steps: [
+        {
+          name: 'tidy',
+          language: 'python',
+          statement: 'def transform(i, p): return []',
+          contract: { output: { columns: [{ name: 'a', type: 'float' }] } },
+        },
+        {
+          name: 'plain',
+          language: 'sql',
+          statement: 'select 1',
+          contract: {},
+        },
+      ],
+    })
 
     expect(steps.map((e) => e.field)).toEqual([
       'steps[0].contract',

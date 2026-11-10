@@ -2,6 +2,13 @@ import { z } from 'zod'
 
 import { FIELD_LOGICAL_TYPES } from './field-definition'
 import type { DataClient } from './data-client'
+import {
+  modelFieldUnitSchema,
+  modelFieldValidationSchema,
+  modelMetadataSchema,
+} from './model-fields'
+import { pipelineJsonValueSchema } from './pipelines/types'
+import { datasetFieldRelationshipSchema } from './dataset-schema-definition-rpc'
 
 export const RECORD_MODEL_VERSION_KIND = 'record_model_version'
 
@@ -21,60 +28,69 @@ export const MODEL_CHANGE_SCOPES: readonly ModelChangeScope[] = [
 
 // IDs name canonical fields, not per-version copies. Unknown semantic metadata
 // is retained so editing a label cannot discard units, rules or relationships.
-const fieldSchema = z
-  .object({
-    id: z.uuid(),
-    field_name: z.string().min(1),
-    label: z.string().min(1),
-    logical_type: z.enum(FIELD_LOGICAL_TYPES),
-    nullable: z.boolean(),
-    display_order: z.number().int(),
-    lifecycle: z.enum(['active', 'retired']),
-    default_value: z.unknown(),
-    validation: z.record(z.string(), z.unknown()),
-    cardinality: z.enum(['one', 'many']),
-    quantity: z
-      .object({
-        kind: z.string(),
-        dimension: z.string(),
-        storageUnit: z.string(),
-      })
-      .passthrough()
-      .nullable()
-      .optional(),
-    options: z
-      .array(
-        z
-          .object({
-            id: z.uuid(),
-            key: z.string(),
-            label: z.string(),
-            displayOrder: z.number().int(),
-            lifecycle: z.enum(['active', 'retired']),
-          })
-          .passthrough(),
-      )
-      .optional(),
+const fieldSchema = modelMetadataSchema({
+  id: z.uuid(),
+  field_name: z.string().min(1),
+  label: z.string().min(1),
+  description: z.string().nullable().optional(),
+  logical_type: z.enum(FIELD_LOGICAL_TYPES),
+  nullable: z.boolean(),
+  display_order: z.number().int(),
+  lifecycle: z.enum(['active', 'retired']),
+  default_value: pipelineJsonValueSchema.optional(),
+  validation: modelFieldValidationSchema,
+  cardinality: z.enum(['one', 'many']),
+  relationship: datasetFieldRelationshipSchema.nullable().optional(),
+  category_source: modelMetadataSchema({
+    kind: z.enum(['embedded', 'vocabulary']),
+    vocabularyId: z.string().optional(),
   })
-  .passthrough()
+    .nullable()
+    .optional(),
+  section: z.string().nullable().optional(),
+  source: z.string().nullable().optional(),
+  required_for: z.enum(['release']).nullable().optional(),
+  decimal_places: z.number().int().nonnegative().optional(),
+  unit: z.union([z.string(), modelFieldUnitSchema]).nullable().optional(),
+  quantity: modelMetadataSchema({
+    kind: z.string(),
+    dimension: z.string(),
+    storageUnit: z.string(),
+    allowedInputUnits: z.array(z.string()).optional(),
+    preferredDisplayUnit: z.string().optional(),
+  })
+    .nullable()
+    .optional(),
+  options: z
+    .array(
+      modelMetadataSchema({
+        id: z.uuid(),
+        key: z.string(),
+        label: z.string(),
+        displayOrder: z.number().int(),
+        lifecycle: z.enum(['active', 'retired']),
+      }),
+    )
+    .optional(),
+})
 
-export const recordModelVersionSchema = z
-  .object({
-    id: z.uuid(),
-    model_id: z.uuid(),
-    workspace_id: z.uuid(),
-    version: z.number().int().positive(),
-    revision: z.number().int().positive(),
-    lifecycle: z.enum(['draft', 'published']),
-    definition: z.object({ fields: z.array(fieldSchema) }).passthrough(),
-    reason: z.string(),
-    created_at: z.string(),
-    created_by_user_id: z.string().nullable(),
-    published_at: z.string().nullable(),
-  })
-  .passthrough()
+export const recordModelVersionSchema = modelMetadataSchema({
+  id: z.uuid(),
+  model_id: z.uuid(),
+  workspace_id: z.uuid(),
+  version: z.number().int().positive(),
+  revision: z.number().int().positive(),
+  lifecycle: z.enum(['draft', 'published']),
+  definition: modelMetadataSchema({ fields: z.array(fieldSchema) }),
+  reason: z.string(),
+  created_at: z.string(),
+  updated_at: z.string().optional(),
+  created_by_user_id: z.string().nullable(),
+  published_at: z.string().nullable(),
+})
 
 export type RecordModelVersion = z.infer<typeof recordModelVersionSchema>
+
 export type RecordModelVersionDefinition = RecordModelVersion['definition']
 
 const usageSchema = z.object({
@@ -104,6 +120,7 @@ export async function listRecordModelVersions(
     'record_model_versions',
     `?model_id=eq.${encodeURIComponent(modelId)}&order=version.desc`,
   )
+
   return z.array(recordModelVersionSchema).parse(rows)
 }
 
@@ -141,6 +158,7 @@ export async function replaceRecordModelVersionDefinition(
       p_reason: input.reason,
     }),
   )
+
   return version
 }
 
@@ -171,6 +189,7 @@ export async function migrateOpenExperimentsToModelVersion(
       p_reason: input.reason,
     },
   )
+
   return { migrated: result.migrated, recordIds: result.recordIds }
 }
 

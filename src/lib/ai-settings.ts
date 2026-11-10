@@ -74,25 +74,19 @@ export type AiReadiness =
         | 'provider_config_invalid'
     }
 
-export const updateAiSettingsSchema = z
-  .object({
-    workspaceId: z.string().uuid(),
-    enabled: z.boolean(),
-    providerProfile: z.string().min(1).max(80).nullable(),
-    model: z.enum(MODEL_NAMES),
-    cloudEgressEnabled: z.boolean(),
-    maxTokensPerCall: z
-      .number()
-      .int()
-      .min(1)
-      .max(AI_SETTINGS_MAX_TOKENS_CEILING),
-    maxCostMicrousdPerCall: z
-      .number()
-      .int()
-      .min(0)
-      .max(AI_SETTINGS_MAX_COST_CEILING),
-  })
-  .strict()
+export const updateAiSettingsSchema = z.strictObject({
+  workspaceId: z.string().uuid(),
+  enabled: z.boolean(),
+  providerProfile: z.string().min(1).max(80).nullable(),
+  model: z.enum(MODEL_NAMES),
+  cloudEgressEnabled: z.boolean(),
+  maxTokensPerCall: z.number().int().min(1).max(AI_SETTINGS_MAX_TOKENS_CEILING),
+  maxCostMicrousdPerCall: z
+    .number()
+    .int()
+    .min(0)
+    .max(AI_SETTINGS_MAX_COST_CEILING),
+})
 
 export type UpdateAiSettingsInput = z.infer<typeof updateAiSettingsSchema>
 
@@ -140,19 +134,27 @@ export function aiReadiness(
   if (providerConfigError) {
     return { ready: false, reason: 'provider_config_invalid' }
   }
+
   if (!settings.enabled) return { ready: false, reason: 'disabled' }
+
   if (!featureFlags.assistant) {
     return { ready: false, reason: 'feature_disabled' }
   }
+
   if (!settings.providerProfile) return { ready: true, mode: 'built-in' }
+
   const profile = profiles.find(
     (entry) => entry.id === settings.providerProfile,
   )
+
   if (!profile) return { ready: false, reason: 'profile_missing' }
+
   if (!profile.keyAvailable) return { ready: false, reason: 'key_missing' }
+
   if (profile.dataClass === 'cloud' && !settings.cloudEgressEnabled) {
     return { ready: false, reason: 'consent_required' }
   }
+
   return {
     ready: true,
     mode: 'provider',
@@ -168,6 +170,7 @@ export function aiReadinessMessage(readiness: AiReadiness): string {
       ? 'Built-in deterministic model. No external provider is configured.'
       : `Using provider profile '${readiness.profileId}' (${readiness.dataClass}).`
   }
+
   switch (readiness.reason) {
     case 'disabled':
       return 'AI is off for this workspace. A workspace owner can enable it in Settings → AI.'

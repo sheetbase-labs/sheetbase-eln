@@ -6,6 +6,7 @@ import {
 } from './sheet-bound-columns'
 import type { ComposedSheetRow } from './sheet-composition-data'
 import type { SheetDefinitionConfiguration } from './sheet-definition'
+import { validSheetDefinitionConfiguration } from '../../tests/fixtures/sheet-definition'
 
 const ids = {
   version: '10000000-0000-4000-8000-000000000001',
@@ -51,11 +52,12 @@ const field = (
   lifecycle: 'active' as const,
 })
 
-const configuration = {
+const configuration: SheetDefinitionConfiguration = {
+  ...validSheetDefinitionConfiguration(),
   bindings: [
-    { id: ids.rootBinding },
-    { id: ids.joinedBinding },
-    { id: ids.recordBinding },
+    { id: ids.rootBinding, key: 'root', parameterId: ids.rootBinding },
+    { id: ids.joinedBinding, key: 'joined', parameterId: ids.joinedBinding },
+    { id: ids.recordBinding, key: 'record', parameterId: ids.recordBinding },
   ],
   columns: [
     {
@@ -87,7 +89,7 @@ const configuration = {
     },
   ],
   writeBackRules: [],
-} as unknown as SheetDefinitionConfiguration
+}
 
 const row: ComposedSheetRow = {
   rowKey: 'sb-row-v1:test',
@@ -194,13 +196,13 @@ describe('projectBoundColumns', () => {
   })
 
   it('uses stable IDs rather than labels or order across rename and reorder', () => {
-    const renamed = {
+    const renamed: SheetDefinitionConfiguration = {
       ...configuration,
       columns: [...configuration.columns].reverse().map((column) => ({
         ...column,
         field: { ...column.field, label: `renamed ${column.id}` },
       })),
-    } as SheetDefinitionConfiguration
+    }
 
     const projection = projectBoundColumns({
       definitionVersionId: ids.version,
@@ -264,12 +266,13 @@ describe('projectBoundColumns', () => {
             {
               ...configuration.columns[0],
               source: {
-                ...configuration.columns[0].source,
+                kind: 'bound',
                 bindingId: ids.version,
+                sourceFieldId: ids.datasetField,
               },
             },
           ],
-        } as SheetDefinitionConfiguration,
+        },
         rows: [row],
       }),
     ).toThrow('unknown binding')

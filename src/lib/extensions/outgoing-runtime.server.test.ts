@@ -28,6 +28,7 @@ const answer = (status: number, body: unknown) => ({
 
 function setup(settings: Record<string, string> = {}) {
   const audit = vi.fn(async () => undefined)
+
   const deps: ExtensionRuntimeDeps = {
     loadInstall: async () => ({
       id: 'e1',
@@ -43,6 +44,7 @@ function setup(settings: Record<string, string> = {}) {
     audit,
     now: () => 0,
   }
+
   return { deps, audit }
 }
 
@@ -63,11 +65,13 @@ describe.skipIf(!pythonAvailable)('publishers', () => {
 
   it('plans, sends to the declared host with the secret, and reads the answer', async () => {
     const { deps, audit } = setup({ token: 'sekret' })
+
     const fetchUrl = vi.fn(async () =>
       answer(200, {
         batch: { id: 'B9', count: 2, url: 'https://lims.example.org/b/B9' },
       }),
     )
+
     const out = await runExtensionPublisher(args, deps, fetchUrl)
     expect(out.message).toBe('Sent 2 results as batch B9.')
     expect(out.link).toBe('https://lims.example.org/b/B9')
@@ -134,9 +138,11 @@ describe.skipIf(!pythonAvailable)('notification channels', () => {
 
   it('reads a refusal Slack sends with a 200', async () => {
     const { deps } = setup({ bot_token: 'xoxb' })
+
     const fetchUrl = vi.fn(async () =>
       answer(200, { ok: false, error: 'channel_not_found' }),
     )
+
     await expect(
       runChannelDelivery(args, deps, fetchUrl as never),
     ).rejects.toThrow(/channel_not_found/)

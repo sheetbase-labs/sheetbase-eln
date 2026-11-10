@@ -37,12 +37,10 @@ import { withParserActor } from './parser-governance.server'
 import { loadDataset, mappingsFromDocument, toTargetFields } from './server'
 import type { ParserSettingsVersion } from '#/lib/parser-settings'
 
-const requestSchema = z
-  .object({
-    parserVersionId: z.uuid(),
-    fileId: z.uuid(),
-  })
-  .strict()
+const requestSchema = z.strictObject({
+  parserVersionId: z.uuid(),
+  fileId: z.uuid(),
+})
 
 const signatureSchema = z.object({
   requiredHeaders: z.array(z.string().min(1)),
@@ -50,19 +48,17 @@ const signatureSchema = z.object({
   requiresMetadata: z.boolean().optional(),
 })
 
-const mappingSchema = z
-  .object({
-    sources: z.array(
-      z.object({
-        source: z.string(),
-        fieldId: z.uuid().nullable(),
-        unit: z.string().nullable(),
-        sourceUnit: z.string().nullable().optional(),
-      }),
-    ),
-    sheetName: z.string().min(1).optional(),
-  })
-  .strict()
+const mappingSchema = z.strictObject({
+  sources: z.array(
+    z.object({
+      source: z.string(),
+      fieldId: z.uuid().nullable(),
+      unit: z.string().nullable(),
+      sourceUnit: z.string().nullable().optional(),
+    }),
+  ),
+  sheetName: z.string().min(1).optional(),
+})
 
 interface VersionWire extends ParserSettingsVersion {
   workspace_id: string
@@ -102,6 +98,7 @@ async function recordValidation(
         JSON.stringify(result),
       ],
     )
+
     return persisted.rows[0].version
   })
 }
@@ -115,11 +112,14 @@ export async function handleParserValidation(
   if (request.method !== 'POST') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
   }
+
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
   let raw: unknown
+
   try {
     raw = await request.json()
   } catch {
@@ -129,13 +129,16 @@ export async function handleParserValidation(
       'Choose a parser version and retained test file.',
     )
   }
+
   const body = requestSchema.safeParse(raw)
+
   if (!body.success)
     return requestErrorResponse(
       400,
       'invalid_request',
       'Only parser version and retained file IDs are accepted.',
     )
+
   const [versions, files] = await Promise.all([
     postgrestSelect<VersionWire[]>(
       'parser_versions',
@@ -148,8 +151,10 @@ export async function handleParserValidation(
       context.token,
     ),
   ])
+
   const version = Array.isArray(versions.body) ? versions.body[0] : undefined
   const file = Array.isArray(files.body) ? files.body[0] : undefined
+
   if (
     !version ||
     !file ||
@@ -162,6 +167,7 @@ export async function handleParserValidation(
       'Parser version or retained file not found.',
     )
   }
+
   if (version.status !== 'draft' && version.status !== 'validated') {
     return requestErrorResponse(
       409,
@@ -169,6 +175,7 @@ export async function handleParserValidation(
       'Only a draft or validated parser version can be tested. Create a new version to change an approved parser.',
     )
   }
+
   if (version.parsers.format !== file.format) {
     return requestErrorResponse(
       422,
@@ -176,14 +183,18 @@ export async function handleParserValidation(
       'The retained file format does not match this parser version.',
     )
   }
+
   const signature = signatureSchema.safeParse(version.signature)
   const layout = layoutOf(version.signature)
+
   const engine =
     typeof version.signature.engine === 'string'
       ? version.signature.engine
       : null
+
   const registeredEngine = engine ? getParser(engine.split('@')[0]) : undefined
   const webhook = webhookTarget(version.signature)
+
   const executeEngine: ((text: string) => ParsedInstrumentPayload) | null =
     engine === S3_PARSER_IDENTITY
       ? parseObjectText
@@ -191,6 +202,7 @@ export async function handleParserValidation(
           `${registeredEngine.parserId}@${registeredEngine.version}` === engine
         ? registeredEngine.parse
         : null
+
   // SQL-table extraction has no equivalent retained-file executor. Never
   // substitute a CSV reader and call it validation of the query engine.
   if (
@@ -206,6 +218,7 @@ export async function handleParserValidation(
       'This parser engine has no supported retained-file validator. Approval remains blocked.',
     )
   }
+
   if (!file.storage_key.startsWith(`${context.workspaceId}/`))
     return requestErrorResponse(
       422,
@@ -213,21 +226,26 @@ export async function handleParserValidation(
       'The retained file storage identity does not match this workspace.',
     )
   const stored = await storage.getStream(file.storage_key)
+
   if (
     stored.byteSize > IMPORT_LIMITS.bytes ||
     stored.byteSize !== Number(file.byte_size)
   ) {
     await stored.stream.cancel()
+
     return requestErrorResponse(
       422,
       'file_integrity',
       'The retained file size does not match its recorded evidence.',
     )
   }
+
   const bytes = await new Response(stored.stream).arrayBuffer()
+
   const checksum = createHash('sha256')
     .update(new Uint8Array(bytes))
     .digest('hex')
+
   if (
     checksum !== file.checksum ||
     bytes.byteLength !== Number(file.byte_size)
@@ -238,10 +256,12 @@ export async function handleParserValidation(
       'The retained file does not match its recorded checksum.',
     )
   }
+
   let rowCount = 0
   let sheetName: string | null = null
   let headers: string[] = []
   const errors: string[] = []
+
   try {
     // A webhook parser reads the file itself, so the file need not be one this
     // product can open; every other parser is checked against the file here.
@@ -249,13 +269,17 @@ export async function handleParserValidation(
       webhook || (layout && file.format !== 'xlsx')
         ? null
         : await parseImportBytes(bytes, { fileName: file.filename })
+
     const text = file.format === 'xlsx' ? null : new TextDecoder().decode(bytes)
+
     if (executeEngine && text === null)
       throw new Error('This engine requires a retained text file.')
+
     const selectedSheet =
       typeof version.mapping.sheetName === 'string'
         ? version.mapping.sheetName
         : undefined
+
     if (
       preview &&
       !executeEngine &&
@@ -266,6 +290,7 @@ export async function handleParserValidation(
         'Set sheetName in this parser version’s column mapping to choose the retained test worksheet.',
       )
     }
+
     const sheet = webhook
       ? {
           name: 'Parser output',
@@ -287,11 +312,13 @@ export async function handleParserValidation(
         : layout && text !== null
           ? { name: 'Sheet 1', ...readWithLayout(text, layout) }
           : selectImportSheet(preview!, selectedSheet)
+
     if (sheet.rows.length === 0)
       throw new Error('The test file has no data rows.')
     headers = sheet.headers
     sheetName = sheet.name
     rowCount = sheet.rows.length
+
     const matched = signature.success
       ? recogniseImportParser(
           {
@@ -315,19 +342,24 @@ export async function handleParserValidation(
       : Boolean(
           executeEngine || webhook || version.signature.manualMapping === true,
         )
+
     if (!matched)
       errors.push(
         'The test file does not match this version’s required headers or metadata.',
       )
+
     if (Object.keys(version.mapping).length) {
       const mapping = mappingSchema.safeParse(version.mapping)
+
       if (!mapping.success || !file.dataset_id)
         throw new Error(
           'A supported column mapping and a Dataset-linked test file are required to validate this mapping.',
         )
       const target = await loadDataset(context.token, file.dataset_id)
+
       if (!target.ok) throw new Error(target.message)
       const fields = toTargetFields(target.fields)
+
       if (
         mapping.data.sources.some(
           (entry) =>
@@ -339,11 +371,13 @@ export async function handleParserValidation(
         throw new Error(
           'The mapping refers to a missing source column or Dataset field.',
         )
+
       const mapped = mapImportSheet(
         sheet,
         mappingsFromDocument(mapping.data, fields),
         target.dataset.schema_version_id,
       )
+
       errors.push(
         ...mapped.errors
           .slice(0, 20)
@@ -359,6 +393,7 @@ export async function handleParserValidation(
         : 'The test file could not be parsed.',
     )
   }
+
   const result = {
     ok: errors.length === 0,
     fileId: file.id,
@@ -368,7 +403,9 @@ export async function handleParserValidation(
     headers,
     errors,
   }
+
   let persisted: ParserSettingsVersion
+
   try {
     persisted = await recordValidation(context, version, file, result)
   } catch (error) {
@@ -376,12 +413,14 @@ export async function handleParserValidation(
       typeof error === 'object' && error !== null && 'code' in error
         ? error.code
         : null
+
     if (code === '42501')
       return requestErrorResponse(
         403,
         'not_permitted',
         'Scientific configuration authority is required to validate a parser version.',
       )
+
     if (code === '22023')
       return requestErrorResponse(
         409,
@@ -390,6 +429,7 @@ export async function handleParserValidation(
       )
     throw error
   }
+
   return Response.json({
     ok: result.ok,
     parserVersionId: persisted.id,

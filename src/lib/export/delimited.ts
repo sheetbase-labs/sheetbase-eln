@@ -21,6 +21,8 @@ export interface ExportField {
 export interface ExportRow {
   rowId: string
   revision: number | string
+  // Export callers may supply arbitrary JavaScript values for formatting.
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
   values: Record<string, unknown>
 }
 
@@ -33,6 +35,8 @@ export interface ExportRow {
  * as their stable option/target ids; resolving them to display labels would
  * require a second read path, so exports keep stable identities.
  */
+// The public formatter accepts arbitrary JavaScript values and stringifies them.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
 export function formatCell(field: ExportField, value: unknown): string {
   if (value === null || value === undefined) return ''
 
@@ -42,7 +46,9 @@ export function formatCell(field: ExportField, value: unknown): string {
     if (value === false) return 'false'
   }
 
-  return typeof value === 'string' ? value : String(value)
+  // Preserve the public formatter's JavaScript coercion, including objects.
+  // oxlint-disable-next-line typescript/no-base-to-string
+  return String(value)
 }
 
 export function csvEscape(text: string, delimiter: string): string {

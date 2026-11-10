@@ -56,6 +56,7 @@ describe('screens a plugin draws itself', () => {
         'report-sections': [{ id: 'r', title: 'Summary', ui: 'ui/d.html' }],
       }),
     )
+
     expect(errors).toEqual([])
   })
 
@@ -102,11 +103,47 @@ describe('screens a plugin draws itself', () => {
     expect(errors.join()).toMatch(/duplicate/)
   })
 
+  it.each([null, 7, 'pages', {}, [null], [[]], [true]])(
+    'rejects malformed contribution lists: %j',
+    (value) => {
+      const errors: string[] = []
+      expect(parseUiPoint('pages', value, errors)).toBeNull()
+      expect(errors).toHaveLength(1)
+      expect(errors[0]).toMatch(/must be a list|entries must be objects/)
+    },
+  )
+
+  it.each([
+    { id: 7, title: 'Page', ui: 'ui/a.html' },
+    { id: 'page', title: [], ui: 'ui/a.html' },
+    { id: 'page', title: 'Page', ui: 'ui/a.html', description: null },
+    { id: 'page', title: 'Page', ui: 'ui/a.html', icon: {} },
+    { id: 'page', title: 'Page', ui: false },
+  ])('rejects malformed declaration fields: %j', (entry) => {
+    const errors: string[] = []
+    expect(parseUiPoint('pages', [entry], errors)).toBeNull()
+    expect(errors).toHaveLength(1)
+  })
+
+  it('rejects unknown JSON keys even when an object parser would omit them', () => {
+    const errors: string[] = []
+
+    const entry = JSON.parse(
+      '{"id":"p","title":"Page","ui":"ui/a.html","__proto__":{}}',
+    )
+
+    expect(parseUiPoint('pages', [entry], errors)).toBeNull()
+    expect(errors).toEqual([
+      'contributions.pages.p has an unknown setting: __proto__',
+    ])
+  })
+
   it('resolves the points of an enabled plugin, and nothing for one switched off', () => {
     const m = manifest({
       pages: [{ id: 'lib', title: 'Library', ui: 'ui/a.html' }],
       'dashboard-widgets': [{ id: 'w', title: 'Today', ui: 'ui/c.html' }],
     })
+
     const install = {
       id: 'e',
       key: 'tools',
@@ -115,12 +152,15 @@ describe('screens a plugin draws itself', () => {
       manifest: m,
       disabled_points: [] as string[],
     }
+
     const on = resolveRunnerPoints([install])
     expect(on.pages.map((p) => p.id)).toEqual(['lib'])
     expect(on.dashboardWidgets.map((p) => p.id)).toEqual(['w'])
+
     const off = resolveRunnerPoints([
       { ...install, disabled_points: ['pages'] },
     ])
+
     expect(off.pages).toEqual([])
     expect(off.dashboardWidgets).toHaveLength(1)
     expect(
@@ -137,6 +177,7 @@ describe('screens a plugin draws itself', () => {
         'report-sections': [{ id: 'r', title: ' Summary ', ui: 'ui/d.html' }],
       }),
     )
+
     expect(parsed.contributions['report-sections']).toEqual([
       { id: 'r', title: 'Summary', ui: 'ui/d.html' },
     ])
@@ -150,6 +191,7 @@ describe('cell renderers and field inputs', () => {
     expect(
       parseTableCells([{ ...base, render: 'ui/cells.html' }], ok),
     ).not.toBeNull()
+
     for (const entry of [
       { ...base },
       { ...base, display: { kind: 'text' }, render: 'ui/cells.html' },
@@ -207,6 +249,7 @@ describe('the frame for a bundle', () => {
       'ui/a.js':
         'const link = \'<a href="x.png">\'; const img = \'src="y.png"\'; export {}',
     }
+
     const html = buildPluginFrame(library, 'ui/a.html', sdk) ?? ''
     expect(html).toContain('<a href="x.png">')
     expect(html).toContain('src="y.png"')
@@ -230,9 +273,11 @@ describe('the SDK inside the frame', () => {
   function load() {
     const posted: Array<Record<string, unknown>> = []
     const handlers: Array<(event: unknown) => void> = []
+
     const parent = {
       postMessage: (message: Record<string, unknown>) => posted.push(message),
     }
+
     const window: Record<string, unknown> = {
       parent,
       addEventListener: (name: string, fn: (event: unknown) => void) => {
@@ -241,7 +286,9 @@ describe('the SDK inside the frame', () => {
       fetch: () => Promise.reject(new TypeError('network')),
       ResizeObserver: undefined,
     }
+
     window.window = window
+
     const document = {
       documentElement: {
         setAttribute: () => undefined,
@@ -249,6 +296,7 @@ describe('the SDK inside the frame', () => {
         getBoundingClientRect: () => ({ height: 10 }),
       },
     }
+
     vm.runInNewContext(sdk, {
       window,
       document,
@@ -261,20 +309,25 @@ describe('the SDK inside the frame', () => {
       JSON,
       TypeError,
     })
+
     const fromParent = (data: Record<string, unknown>) =>
       handlers.forEach((fn) => fn({ source: parent, data: { sb: 1, ...data } }))
+
     return { window, posted, fromParent }
   }
 
   it('fetch reaches only the plugin’s own operations, as a call', async () => {
     const { window, posted, fromParent } = load()
+
     const sheetbase = window.sheetbase as {
       fetch: (u: string, i?: unknown) => Promise<Response>
     }
+
     const answer = sheetbase.fetch('/operations/analyse', {
       method: 'POST',
       body: JSON.stringify({ sequence: 'ATGC' }),
     })
+
     const call = posted.find((m) => m.type === 'call')!
     expect(call).toMatchObject({
       operation: 'analyse',
@@ -288,9 +341,11 @@ describe('the SDK inside the frame', () => {
 
   it('answers a failed call with an error status, and any other address with 404', async () => {
     const { window, posted, fromParent } = load()
+
     const sheetbase = window.sheetbase as {
       fetch: (u: string, i?: unknown) => Promise<Response>
     }
+
     const failed = sheetbase.fetch('/operations/analyse', { body: '{}' })
     const call = posted.find((m) => m.type === 'call')!
     fromParent({ type: 'result', id: call.id, ok: false, error: 'Nope.' })
@@ -306,7 +361,12 @@ describe('the SDK inside the frame', () => {
   it('the global fetch uses the same door, and the network stays shut', async () => {
     const { window, posted, fromParent } = load()
     const fetch = window.fetch as (u: string, i?: unknown) => Promise<Response>
-    const answer = fetch('/operations/analyse', { body: '{"sequence":"AC"}' })
+
+    const answer = fetch('/operations/analyse', {
+      method: 'POST',
+      body: '{"sequence":"AC"}',
+    })
+
     const call = posted.find((m) => m.type === 'call')!
     fromParent({ type: 'result', id: call.id, ok: true, output: { gc: 50 } })
     expect((await answer).status).toBe(200)
@@ -315,11 +375,13 @@ describe('the SDK inside the frame', () => {
 
   it('a renderer is asked for cells and answers by key', async () => {
     const { window, posted, fromParent } = load()
+
     const sheetbase = window.sheetbase as {
       onRender: (
         fn: (cells: Array<{ key: number; value: unknown }>) => unknown,
       ) => void
     }
+
     sheetbase.onRender((cells) =>
       cells.map((c) => ({ key: c.key, text: String(c.value) })),
     )
@@ -357,6 +419,7 @@ describe('the sequence-tools sample', () => {
     const { manifest: built } = buildPluginPackage(
       readExample('sequence-tools'),
     )
+
     expect(validateExtensionManifest(built)).toEqual([])
     const c = built.contributions
     expect(c.blocks).toHaveLength(1)

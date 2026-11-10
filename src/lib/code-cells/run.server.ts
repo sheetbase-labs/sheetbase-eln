@@ -250,13 +250,13 @@ export async function runPython(input: {
   source: string
   inputs: Record<string, Array<Record<string, unknown>>>
 }): Promise<ExecutionResult> {
-  const { executePythonTransform, PipelinePythonError } =
+  const { executePythonTransform, PipelinePythonError, pythonInputsSchema } =
     await import('../pipeline-python.server')
 
   try {
     const result = await executePythonTransform({
       statement: input.source,
-      inputs: input.inputs,
+      inputs: pythonInputsSchema.parse(input.inputs),
       parameters: {},
     })
 
@@ -264,9 +264,7 @@ export async function runPython(input: {
       rows: result.rows,
       logs: result.logs,
       runtime: result.runtime,
-      environment: result.environment
-        ? (result.environment as unknown as Record<string, unknown>)
-        : null,
+      environment: result.environment ? { ...result.environment } : null,
     }
   } catch (error) {
     if (error instanceof PipelinePythonError) {

@@ -87,6 +87,9 @@ export function describePlugin(
   const adds = describeRunnerAdds(pkg.manifest)
   const before = existing ? sum(describeRunnerAdds(existing.manifest)) : []
   const after = sum(adds)
+  const beforeIds = new Set(before)
+  const afterIds = new Set(after)
+
   return {
     id: pkg.manifest.id,
     name: pkg.manifest.name,
@@ -110,8 +113,8 @@ export function describePlugin(
         }
       : null,
     changes: {
-      added: after.filter((item) => !before.includes(item)),
-      removed: before.filter((item) => !after.includes(item)),
+      added: after.filter((item) => !beforeIds.has(item)),
+      removed: before.filter((item) => !afterIds.has(item)),
     },
     examples: pkg.examples.length,
     hasUi: Object.keys(pkg.files).some((name) => name.startsWith('ui/')),
@@ -124,7 +127,9 @@ export function pluginKeyFor(
   taken: ReadonlySet<string>,
 ): string {
   const base = (manifestId.split('.').at(-1) ?? 'plugin').slice(0, 44)
+
   if (!taken.has(base)) return base
+
   for (let n = 2; n < 100; n += 1)
     if (!taken.has(`${base}-${n}`)) return `${base}-${n}`
   throw new Error('No free name for this plugin.')
@@ -136,15 +141,18 @@ export async function handlePluginInstall(
 ): Promise<Response> {
   if (request.method !== 'POST')
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
+
   const auth = await resolvePersonalAuth(
     request.headers,
     'admin:write',
     deps.auth,
   )
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
   const client = deps.makeClient(context.token)
+
   try {
     await client.rpc('require_capability', {
       p_workspace_id: context.workspaceId,
@@ -157,9 +165,11 @@ export async function handlePluginInstall(
       'Only an owner or administrator can install plugins.',
     )
   }
+
   const url = new URL(request.url)
   const mode = url.searchParams.get('mode') === 'install' ? 'install' : 'check'
   const declared = Number(request.headers.get('content-length') ?? 0)
+
   if (declared > PLUGIN_MAX_ARCHIVE_BYTES)
     return requestErrorResponse(
       413,
@@ -168,6 +178,7 @@ export async function handlePluginInstall(
     )
   const bytes = new Uint8Array(await request.arrayBuffer())
   let pkg: PluginPackage
+
   try {
     pkg = await readPluginPackage(bytes)
   } catch (error) {
@@ -184,12 +195,17 @@ export async function handlePluginInstall(
       )
     throw error
   }
+
   const installs = await listExtensions(client)
+
   const existing = installs.find(
     (install) => install.manifest.id === pkg.manifest.id,
   )
+
   const summary = describePlugin(pkg, existing)
+
   if (mode === 'check') return Response.json({ plugin: summary })
+
   if (url.searchParams.get('acknowledge') !== '1')
     return requestErrorResponse(
       400,
@@ -197,6 +213,7 @@ export async function handlePluginInstall(
       'Say that you have read what this plugin does and trust it before installing.',
     )
   let installed: ExtensionWire
+
   try {
     installed = await installPluginPackage(deps, client, context, pkg, {
       existing,
@@ -211,6 +228,7 @@ export async function handlePluginInstall(
         : 'The plugin could not be installed.',
     )
   }
+
   return Response.json({ plugin: summary, extension: installed })
 }
 
@@ -232,6 +250,7 @@ export async function installPluginPackage(
   },
 ): Promise<ExtensionWire> {
   const { existing } = options
+
   const installed = existing
     ? await updateExtension(client, {
         workspaceId: context.workspaceId,
@@ -251,6 +270,7 @@ export async function installPluginPackage(
         manifest: pkg.manifest,
         acknowledgeUntrusted: true,
       })
+
   await deps.savePackage({
     workspaceId: context.workspaceId,
     extensionId: installed.id,
@@ -260,8 +280,10 @@ export async function installPluginPackage(
   // Install the plugin's Python packages now, so no call ever waits on pip. The
   // runner builds in the background; Settings → Plugins shows where it stands.
   const runtime = deps.runtime
+
   if (runtime) {
     const row = await runtime.store.load(context.workspaceId, installed.id)
+
     if (row)
       await ensureEnvironment(
         { store: runtime.store, runner: runtime.runner },
@@ -269,6 +291,7 @@ export async function installPluginPackage(
         row,
       ).catch(() => undefined)
   }
+
   return installed
 }
 
@@ -278,8 +301,11 @@ export function defaultDeps(): PluginInstallDeps {
     makeClient: createServerDataClient,
     runtime: { store: databaseStore(), runner: runnerEnvironments },
     savePackage: async ({ workspaceId, extensionId, userId, pkg }) => {
-      const { db } = await import('#/db/client.server')
-      const { extensionPackages } = await import('#/db/schema')
+      const [{ db }, { extensionPackages }] = await Promise.all([
+        import('#/db/client.server'),
+        import('#/db/schema'),
+      ])
+
       await db
         .insert(extensionPackages)
         .values({

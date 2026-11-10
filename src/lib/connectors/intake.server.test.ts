@@ -1,13 +1,20 @@
-import { describe, expect, it, vi } from 'vitest'
+// @vitest-environment node
+import { afterAll, describe, expect, it, vi } from 'vitest'
 
 import { describeIntakeFailure } from './intake.server'
 import { parserKeyFromName } from './webhook-parser-admin.server'
 
-vi.mock('../request-auth', () => ({
-  realSessionAuthDeps: {},
-  requestErrorResponse: vi.fn(),
-  resolveSessionAuth: vi.fn(),
-}))
+vi.hoisted(() => {
+  vi.stubEnv('DATABASE_URL', 'postgresql://test:test@localhost:5432/test')
+  vi.stubEnv(
+    'FORMULA_DATABASE_URL',
+    'postgresql://test:test@localhost:5432/test',
+  )
+  vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret-at-least-thirty-two-characters')
+  vi.stubEnv('PGRST_JWT_SECRET', 'test-jwt-secret-at-least-thirty-two-chars')
+})
+
+afterAll(() => vi.unstubAllEnvs())
 
 describe('describeIntakeFailure', () => {
   it('names the parser and what to do next', () => {

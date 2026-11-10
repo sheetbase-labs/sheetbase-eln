@@ -42,6 +42,7 @@ describe('sample extension manifest', () => {
       ],
       'member',
     )
+
     expect(enabled.objectActions).toHaveLength(1)
     expect(enabled.panels).toHaveLength(1)
     expect(enabled.commands).toHaveLength(1)
@@ -57,6 +58,7 @@ describe('sample extension manifest', () => {
       ],
       'member',
     )
+
     expect(disabled).toEqual({ objectActions: [], panels: [], commands: [] })
   })
 
@@ -108,7 +110,9 @@ describe('SampleExtensionPanel', () => {
       <SampleExtensionPanel
         loadSummary={async () => {
           calls += 1
+
           if (calls === 1) throw new Error('offline')
+
           return { heading: 'Recovered', rows: [] }
         }}
       />,

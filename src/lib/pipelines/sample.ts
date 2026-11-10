@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { t } from '#/copy'
 /**
  * Sample rows for a test run, typed or pasted by a person: a JSON array of row
@@ -7,12 +8,12 @@ import { t } from '#/copy'
  */
 
 export type SampleResult =
-  { rows: Array<Record<string, unknown>> } | { error: string }
+  { rows: Array<Record<string, z.core.util.JSONType>> } | { error: string }
 
 const MAX_SAMPLE_CHARS = 1_000_000
 const NUMBER_RE = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/
 
-function csvCell(text: string): unknown {
+function csvCell(text: string): string | number | boolean | null {
   if (text === '') return null
 
   if (text === 'true') return true
@@ -71,8 +72,15 @@ function csvRecords(text: string): string[][] {
   return records.filter((r) => r.some((c) => c !== ''))
 }
 
-const isRow = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
+// JSON.parse already validates cell syntax. Check only row shape without
+// copying rows through Zod, which would drop a column named __proto__.
+const sampleRow = z.record(z.string(), z.unknown())
+
+function isRow(
+  value: z.core.util.JSONType,
+): value is Record<string, z.core.util.JSONType> {
+  return sampleRow.safeParse(value).success
+}
 
 export function parseSample(text: string): SampleResult {
   const trimmed = text.trim()
@@ -84,7 +92,7 @@ export function parseSample(text: string): SampleResult {
 
   if (trimmed.startsWith('[')) {
     try {
-      const parsed: unknown = JSON.parse(trimmed)
+      const parsed: z.core.util.JSONType = JSON.parse(trimmed)
 
       if (!Array.isArray(parsed) || !parsed.every(isRow))
         return {
@@ -100,13 +108,13 @@ export function parseSample(text: string): SampleResult {
   }
 
   if (trimmed.startsWith('{')) {
-    const rows: Array<Record<string, unknown>> = []
+    const rows: Array<Record<string, z.core.util.JSONType>> = []
 
     for (const [index, line] of trimmed.split('\n').entries()) {
       if (!line.trim()) continue
 
       try {
-        const parsed: unknown = JSON.parse(line)
+        const parsed: z.core.util.JSONType = JSON.parse(line)
 
         if (!isRow(parsed))
           throw new Error(t('data.pipelineSample.notAnObject'))
@@ -142,7 +150,7 @@ export function parseSample(text: string): SampleResult {
 
   if (new Set(names).size !== names.length)
     return { error: t('data.pipelineSample.csvColumnNamesMust') }
-  const rows: Array<Record<string, unknown>> = []
+  const rows: Array<Record<string, z.core.util.JSONType>> = []
 
   for (const [index, record] of body.entries()) {
     if (record.length !== names.length)

@@ -30,32 +30,28 @@ export const SEMANTIC_READ_TOOL_NAMES = [
   LITERATURE_SEARCH_TOOL,
 ] as const
 
-export const semanticSearchSchema = z
-  .object({
-    query: z
-      .string()
-      .min(1)
-      .max(500)
-      .describe(
-        'What to look for, in plain words: a question or a description of the work, not keywords.',
-      ),
-    limit: z.number().int().min(1).max(20).nullish(),
-  })
-  .strict()
+export const semanticSearchSchema = z.strictObject({
+  query: z
+    .string()
+    .min(1)
+    .max(500)
+    .describe(
+      'What to look for, in plain words: a question or a description of the work, not keywords.',
+    ),
+  limit: z.number().int().min(1).max(20).nullish(),
+})
 
-export const literatureSearchSchema = z
-  .object({
-    query: z
-      .string()
-      .min(1)
-      .max(300)
-      .describe(
-        'A short search phrase for the published literature. Only these words are sent outside the workspace, so never include sample names, unpublished results or anything private.',
-      ),
-    source: z.enum(LITERATURE_SOURCES).nullish(),
-    limit: z.number().int().min(1).max(15).nullish(),
-  })
-  .strict()
+export const literatureSearchSchema = z.strictObject({
+  query: z
+    .string()
+    .min(1)
+    .max(300)
+    .describe(
+      'A short search phrase for the published literature. Only these words are sent outside the workspace, so never include sample names, unpublished results or anything private.',
+    ),
+  source: z.enum(LITERATURE_SOURCES).nullish(),
+  limit: z.number().int().min(1).max(15).nullish(),
+})
 
 export const SEMANTIC_SEARCH_DESCRIPTION =
   'Find work in the lab by meaning rather than by exact words: experiments, notebook text, files, datasets, templates and comments that read like the question, even when they use different terms. Use it for "have we done this before", "who has worked on X" and "what do we know about Y". Each result has an identifier, a title, a link and the passage that matched. Answer only from the results and give each as a link.'
@@ -71,6 +67,7 @@ function toolDef(
   const { $schema: _ignored, ...parameters } = z.toJSONSchema(schema, {
     io: 'input',
   })
+
   return { name: name.replaceAll('.', '__'), description, parameters }
 }
 
@@ -104,6 +101,7 @@ interface Result {
 
 function invalid(error: z.ZodError): string {
   const [first] = error.issues
+
   return `That request was not valid: ${first.path.join('.') || 'arguments'}: ${first.message}.`
 }
 
@@ -113,14 +111,17 @@ async function pluginResults(
   context: { client: DataClient; workspaceId: string; actorUserId?: string },
 ) {
   if (!context.actorUserId) return []
+
   try {
     const { searchWithPlugins } =
       await import('./extensions/plugin-search.server')
+
     const found = await searchWithPlugins(context.client, {
       workspaceId: context.workspaceId,
       actorUserId: context.actorUserId,
       query,
     })
+
     return found.hits.slice(0, 8).map((hit) => ({
       identifier: hit.identifier,
       title: hit.title,
@@ -140,8 +141,10 @@ export async function runSemanticSearch(
   context: { client: DataClient; workspaceId: string; actorUserId?: string },
 ): Promise<Result> {
   const parsed = semanticSearchSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
   const plugins = await pluginResults(parsed.data.query, context)
+
   try {
     const hits = await semanticHits(
       context.client,
@@ -149,12 +152,14 @@ export async function runSemanticSearch(
       parsed.data.query,
       { limit: parsed.data.limit ?? 8 },
     )
+
     if (hits.length === 0 && plugins.length === 0) {
       return {
         text: 'Nothing in the lab reads close to that. Say so; do not guess. You can offer to search by words instead.',
         isError: false,
       }
     }
+
     return {
       text: JSON.stringify({
         note: 'Results are ordered closest first. Give each as a link to its page. `fromPlugins` are extra results from search tools the lab added.',
@@ -182,12 +187,15 @@ export async function runSemanticSearch(
           }),
           isError: false,
         }
+
       return { text: error.message, isError: true }
     }
+
     logger.warn(
       'ai.semantic_tool_failed',
       redact({ workspaceId: context.workspaceId }),
     )
+
     return { text: 'The search by meaning failed. Try again.', isError: true }
   }
 }
@@ -197,6 +205,7 @@ export async function literatureAllowed(
   workspaceId: string,
 ): Promise<boolean> {
   const row = await readSemanticRow(client, workspaceId).catch(() => null)
+
   return Boolean(row?.ai_enabled && row.literature_search_enabled)
 }
 
@@ -209,13 +218,16 @@ export async function runLiteratureSearch(
   },
 ): Promise<Result> {
   const parsed = literatureSearchSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
+
   if (!(await literatureAllowed(context.client, context.workspaceId))) {
     return {
       text: 'Literature search is not turned on. A workspace owner can turn it on in Settings, AI.',
       isError: true,
     }
   }
+
   try {
     const papers = await searchLiterature(parsed.data.query, {
       source: parsed.data.source ?? 'europepmc',
@@ -224,12 +236,14 @@ export async function runLiteratureSearch(
       contact: process.env.OPENALEX_MAILTO,
       ...(context.fetch ? { fetch: context.fetch } : {}),
     })
+
     if (papers.length === 0) {
       return {
         text: 'No papers matched. Say so, and offer a different phrase or source.',
         isError: false,
       }
     }
+
     return {
       text: JSON.stringify({
         note: 'Cite only these papers. Give the title as a link to its page.',

@@ -6,11 +6,15 @@ import { handlePluginInstall } from './install.server'
 import type { PluginInstallDeps } from './install.server'
 
 vi.mock('#/db/client.server', () => ({ db: {} }))
+
 vi.mock('#/env.server', () => ({ env: {} }))
+
 vi.mock('#/lib/auth', () => ({ getAppSession: vi.fn() }))
+
 vi.mock('../connectors/enterprise/execution.server', () => ({
   createServerDataClient: vi.fn(),
 }))
+
 vi.mock('./runtime-settings.server', () => ({
   databaseStore: vi.fn(),
   ensureEnvironment: vi.fn(),
@@ -24,9 +28,11 @@ function deps(
   const rpc = vi.fn((name: string) =>
     name === 'require_capability' ? capability() : Promise.resolve(null),
   )
+
   const makeClient = vi.fn(
     (_token: string) => ({ rpc }) as unknown as DataClient,
   )
+
   const value: PluginInstallDeps = {
     auth: {
       getSession: async () => null,
@@ -37,6 +43,7 @@ function deps(
     makeClient,
     savePackage: async () => {},
   }
+
   return { value, makeClient, rpc }
 }
 
@@ -54,6 +61,7 @@ describe('POST /api/plugins/install with an API token', () => {
       workspaceId: 'ws-1',
       credentialId: 'cred-1',
     }))
+
     const { value, makeClient, rpc } = deps(verify, async () => null)
     const response = await handlePluginInstall(post('sbk_token'), value)
     expect(verify).toHaveBeenCalledWith('sbk_token', 'admin:write')
@@ -74,6 +82,7 @@ describe('POST /api/plugins/install with an API token', () => {
       async () => null,
       async () => null,
     )
+
     const response = await handlePluginInstall(post('sbk_token'), value)
     expect(response.status).toBe(401)
     expect(makeClient).not.toHaveBeenCalled()
@@ -90,6 +99,7 @@ describe('POST /api/plugins/install with an API token', () => {
         throw new Error('capability required')
       },
     )
+
     const response = await handlePluginInstall(post('sbk_token'), value)
     expect(response.status).toBe(403)
   })

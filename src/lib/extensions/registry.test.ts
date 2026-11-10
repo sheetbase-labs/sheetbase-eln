@@ -4,7 +4,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from '../data-client'
+import { createDataClient } from '../data-client'
 import {
   describeExtensionInvocationError,
   extensionInvocationAudit,
@@ -24,7 +24,7 @@ function install(
   }
 }
 
-function manifest(overrides: Record<string, unknown> = {}) {
+function manifest<T extends object>(overrides: T) {
   return {
     id: 'sheetbase.sample-panel',
     name: 'Sample Panel',
@@ -57,6 +57,7 @@ describe('resolveExtensionContributions', () => {
       ],
       'member',
     )
+
     expect(points.objectActions.map((c) => c.id)).toEqual(['open-panel'])
     expect(points.panels.map((c) => c.id)).toEqual(['sample-panel'])
     expect(points.commands.map((c) => c.id)).toEqual(['sample-overview'])
@@ -75,6 +76,7 @@ describe('resolveExtensionContributions', () => {
     const withContributions = manifest({
       contributions: { commands: [{ id: 'c', title: 'C' }] },
     })
+
     for (const status of ['installed', 'disabled', 'revoked']) {
       expect(
         resolveExtensionContributions(
@@ -83,6 +85,7 @@ describe('resolveExtensionContributions', () => {
         ).commands,
       ).toEqual([])
     }
+
     expect(
       resolveExtensionContributions(
         [install({ manifest: withContributions })],
@@ -113,6 +116,7 @@ describe('resolveExtensionContributions', () => {
       ],
       'member',
     )
+
     expect(points).toEqual({ objectActions: [], panels: [], commands: [] })
   })
 
@@ -127,10 +131,12 @@ describe('resolveExtensionContributions', () => {
         ],
       },
     })
+
     const member = resolveExtensionContributions(
       [install({ manifest: withHint })],
       'member',
     )
+
     expect(member.objectActions.map((c) => c.id)).toEqual(['gated', 'open'])
     expect(member.objectActions[0].requiredCapability).toBe('record.create')
 
@@ -138,6 +144,7 @@ describe('resolveExtensionContributions', () => {
       [install({ manifest: withHint })],
       'viewer',
     )
+
     expect(viewer.objectActions.map((c) => c.id)).toEqual(['open'])
   })
 
@@ -156,6 +163,13 @@ describe('resolveExtensionContributions', () => {
                   title: 'Also bad',
                   capability: 'database.drop',
                 },
+                { id: 'null', title: 'Null', capability: null },
+                { id: 'boolean', title: 'Boolean', capability: false },
+                {
+                  id: 'object',
+                  title: 'Object',
+                  capability: { name: 'record.create' },
+                },
               ],
             },
           }),
@@ -163,6 +177,7 @@ describe('resolveExtensionContributions', () => {
       ],
       'owner',
     )
+
     expect(points.commands).toEqual([])
   })
 
@@ -186,6 +201,7 @@ describe('resolveExtensionContributions', () => {
       ],
       'member',
     )
+
     expect(points.commands.map((c) => c.key)).toEqual([
       'alpha:commands:a',
       'bravo:commands:z',
@@ -212,19 +228,30 @@ describe('invokeExtensionContribution', () => {
   }
 
   it('asserts the required capability before running the operation', async () => {
-    const rpc = vi.fn(async () => undefined)
+    const transport = vi.fn<typeof fetch>(
+      async () => new Response(null, { status: 204 }),
+    )
+
     const operation = vi.fn(async () => 'done')
+
     const { result, audit } = await invokeExtensionContribution(
-      { rpc } as unknown as DataClient,
+      createDataClient(transport),
       'ws-1',
       contribution(),
       operation,
     )
-    expect(rpc).toHaveBeenCalledWith('assert_extension_capability', {
-      p_workspace_id: 'ws-1',
-      p_extension_id: 'ext-1',
-      p_capability: 'record.create',
-    })
+
+    expect(transport).toHaveBeenCalledWith(
+      '/api/db/rpc/assert_extension_capability',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          p_workspace_id: 'ws-1',
+          p_extension_id: 'ext-1',
+          p_capability: 'record.create',
+        }),
+      }),
+    )
     expect(operation).toHaveBeenCalledTimes(1)
     expect(result).toBe('done')
     expect(audit).toEqual({
@@ -236,13 +263,22 @@ describe('invokeExtensionContribution', () => {
   })
 
   it('fails closed: the operation never runs when the assert rejects', async () => {
-    const rpc = vi.fn(async () => {
-      throw new Error('capability required: record.create')
-    })
+    const transport = vi.fn<typeof fetch>(async () =>
+      Response.json(
+        {
+          error: {
+            code: 'forbidden',
+            message: 'capability required: record.create',
+          },
+        },
+        { status: 403 },
+      ),
+    )
+
     const operation = vi.fn(async () => 'done')
     await expect(
       invokeExtensionContribution(
-        { rpc } as unknown as DataClient,
+        createDataClient(transport),
         'ws-1',
         contribution(),
         operation,
@@ -262,19 +298,47 @@ describe('invokeExtensionContribution', () => {
       ],
       'member',
     ).commands[0]
-    const rpc = vi.fn(async () => undefined)
+
+    const transport = vi.fn<typeof fetch>(
+      async () => new Response(null, { status: 204 }),
+    )
+
     const { result } = await invokeExtensionContribution(
-      { rpc } as unknown as DataClient,
+      createDataClient(transport),
       'ws-1',
       free,
       async () => 42,
     )
-    expect(rpc).not.toHaveBeenCalled()
+
+    expect(transport).not.toHaveBeenCalled()
     expect(result).toBe(42)
   })
 })
 
 describe('extension invocation audit + errors', () => {
+  it('preserves native diagnostic coercion, Unicode and arbitrary coercion throws', () => {
+    expect(describeExtensionInvocationError(Symbol('Δμ'))).toBe('Symbol(Δμ)')
+    expect(describeExtensionInvocationError({})).toBe('[object Object]')
+    const coerce = vi.fn(() => 'Δμ 6.02e23')
+
+    expect(describeExtensionInvocationError({ toString: coerce })).toBe(
+      'Δμ 6.02e23',
+    )
+    expect(coerce).toHaveBeenCalledTimes(1)
+    const thrown = Symbol('coercion failure')
+
+    try {
+      describeExtensionInvocationError({
+        toString() {
+          throw thrown
+        },
+      })
+      expect.unreachable('native coercion must throw')
+    } catch (error) {
+      expect(error).toBe(thrown)
+    }
+  })
+
   it('stamps the stable audit identity', () => {
     expect(
       extensionInvocationAudit({

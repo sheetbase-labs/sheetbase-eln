@@ -11,7 +11,14 @@
  * credential and no way to write canonical data. Each call is written to the
  * workspace's change log as `extension.invoked`.
  */
-import { executePythonTransform } from '../pipeline-python.server'
+import { z } from 'zod'
+
+import {
+  executePythonTransform,
+  PipelinePythonError,
+  pythonInputsSchema,
+  pythonInputRowSchema,
+} from '../pipeline-python.server'
 import type { PythonTransformInput } from '../pipeline-python.server'
 import { extensionAuditIdentity } from './contract'
 import { findCallable } from './callables'
@@ -107,18 +114,22 @@ export interface ExtensionRuntimeDeps {
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 
-function matches(type: ExtensionField['type'], value: unknown): boolean {
+function matches(
+  type: ExtensionField['type'],
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Declared plugin fields enter here before execution; the selected primitive schema validates their representation. A json declaration retains its legacy acceptance of any defined value until the Python transport boundary checks serialization.
+  value: unknown,
+): boolean {
   switch (type) {
     case 'text':
-      return typeof value === 'string'
+      return z.string().safeParse(value).success
     case 'number':
-      return typeof value === 'number' && Number.isFinite(value)
+      return z.number().finite().safeParse(value).success
     case 'integer':
-      return typeof value === 'number' && Number.isSafeInteger(value)
+      return z.number().refine(Number.isSafeInteger).safeParse(value).success
     case 'boolean':
-      return typeof value === 'boolean'
+      return z.boolean().safeParse(value).success
     case 'date':
-      return typeof value === 'string' && DATE.test(value)
+      return z.string().regex(DATE).safeParse(value).success
     case 'json':
       return value !== undefined
   }
@@ -141,11 +152,14 @@ export function checkDeclaredValues(
         : 'The plugin’s answer is not an object of named values.',
     )
   }
+
   const given = value as Record<string, unknown>
   const out: Record<string, unknown> = {}
+
   for (const field of fields) {
     const present =
       given[field.name] !== undefined && given[field.name] !== null
+
     if (!present) {
       if (field.required)
         throw new ExtensionRunError(
@@ -156,24 +170,29 @@ export function checkDeclaredValues(
         )
       continue
     }
+
     if (!matches(field.type, given[field.name])) {
       throw new ExtensionRunError(
         what === 'input' ? 'bad_input' : 'bad_answer',
         `“${field.name}” should be ${field.type === 'json' ? 'a value' : `a ${field.type}`}.`,
       )
     }
+
     out[field.name] = given[field.name]
   }
+
   if (what === 'input') {
     const unknownKey = Object.keys(given).find(
       (key) => !fields.some((field) => field.name === key),
     )
+
     if (unknownKey)
       throw new ExtensionRunError(
         'bad_input',
         `“${unknownKey}” is not something this plugin reads.`,
       )
   }
+
   return out
 }
 
@@ -184,12 +203,15 @@ export function checkDeclaredValues(
 /** What a failure in the plugin's code says to the person: its own refusal word for word, a crash as a crash. */
 function pythonMessage(error: unknown): ExtensionRunError {
   const raw = error instanceof Error ? error.message : String(error)
+
   if (raw.startsWith('PluginError: '))
     return new ExtensionRunError('plugin_refused', raw.slice(13, 513))
+
   const code =
     error && typeof error === 'object' && 'code' in error
       ? String(error.code)
       : 'python_failed'
+
   return new ExtensionRunError(
     code,
     code === 'runner_unavailable' ||
@@ -213,6 +235,7 @@ export async function pluginLimits(
   extensionId: string,
 ): Promise<PluginLimits> {
   const row = await deps.loadRuntime?.(workspaceId, extensionId)
+
   return resolveLimits(row?.limitOverrides)
 }
 
@@ -220,29 +243,37 @@ export async function runPackage(
   deps: ExtensionRuntimeDeps,
   workspaceId: string,
   resolved: ResolvedInstall,
-  job: Pick<PythonTransformInput, 'inputs' | 'parameters'> &
-    Partial<Pick<PythonTransformInput, 'contract'>>,
+  // Extension rows and parameters cross into Python here; the runner owner's decoders check them before execution while preserving scientific values for its serializer. plugin-runtime.test.ts covers unsupported values and own keys.
+  job: { inputs: unknown; parameters: unknown } & Partial<
+    Pick<PythonTransformInput, 'contract'>
+  >,
 ) {
   const files = await deps.loadPackage(workspaceId, resolved.install.id)
+
   if (!files)
     throw new ExtensionRunError(
       'no_package',
       'This plugin has no code installed. Upload it again from Settings › Plugins.',
     )
+
   let runtime =
     (await deps.loadRuntime?.(workspaceId, resolved.install.id)) ?? null
+
   const limits = resolveLimits(runtime?.limitOverrides)
   let environment: string | undefined
+
   if (runtime && runtime.requirements.length > 0) {
     // Packages are installed when the plugin is added, never while a call runs.
     if (runtime.environmentState !== 'ready' || !runtime.environmentId)
       runtime =
         (await deps.settleEnvironment?.(workspaceId, runtime)) ?? runtime
+
     if (runtime.environmentState === 'failed')
       throw new ExtensionRunError(
         'environment_failed',
         `This plugin’s Python packages could not be installed: ${runtime.environmentError ?? 'the installer gave no reason'}. An administrator can try again in Settings › Plugins.`,
       )
+
     if (runtime.environmentState !== 'ready' || !runtime.environmentId)
       throw new ExtensionRunError(
         'environment_not_ready',
@@ -250,7 +281,16 @@ export async function runPackage(
       )
     environment = runtime.environmentId
   }
+
   try {
+    const inputs = pythonInputsSchema.safeParse(job.inputs)
+    const parameters = pythonInputRowSchema.safeParse(job.parameters)
+
+    if (!inputs.success || !parameters.success)
+      throw new PipelinePythonError(
+        'Python inputs and parameters must contain finite JSON values.',
+      )
+
     return await deps.executePython({
       statement: pluginStatement(files),
       limits: runnerLimits(limits),
@@ -259,6 +299,8 @@ export async function runPackage(
         ? { network: runtime.networkHosts }
         : {}),
       ...job,
+      inputs: inputs.data,
+      parameters: parameters.data,
     })
   } catch (error) {
     // The runner lost the packages (a new runner, a pruned image): install again.
@@ -299,6 +341,7 @@ export async function openExtensionPoint(
 ): Promise<ResolvedInstall> {
   const resolved = await openInstall(deps, workspaceId, key)
   assertPointOn(resolved.install, point)
+
   return resolved
 }
 
@@ -320,19 +363,23 @@ async function openInstall(
   key: string,
 ): Promise<ResolvedInstall> {
   const install = await deps.loadInstall(workspaceId, key)
+
   if (!install) {
     throw new ExtensionRunError(
       'not_installed',
       'That plugin is no longer installed in this workspace.',
     )
   }
+
   if (install.status !== 'enabled') {
     throw new ExtensionRunError(
       'not_enabled',
       'That plugin is no longer enabled in this workspace.',
     )
   }
+
   let manifest: ExtensionManifest
+
   try {
     manifest = parseExtensionManifest(install.manifest)
   } catch {
@@ -341,6 +388,7 @@ async function openInstall(
       'That plugin’s declaration can’t be read.',
     )
   }
+
   return { install, manifest }
 }
 
@@ -356,13 +404,16 @@ export async function openCallable(
 ): Promise<ResolvedInstall & { callable: CallableItem }> {
   const resolved = await openInstall(deps, workspaceId, key)
   const callable = findCallable(resolved.manifest, itemId)
+
   if (!callable) {
     throw new ExtensionRunError(
       'not_declared',
       'That plugin doesn’t offer this any more.',
     )
   }
+
   assertPointOn(resolved.install, callable.point)
+
   return { ...resolved, callable }
 }
 
@@ -450,13 +501,16 @@ export async function invokeExtension(
     args.extensionKey,
     args.itemId,
   )
+
   const { callable } = resolved
   const declaration = callable.declaration
   const input = checkDeclaredValues(declaration.inputs, args.input, 'input')
   const started = deps.now()
+
   try {
     if (callable.runKind === 'publish') {
       const { publishFromCallable } = await import('./outgoing-runtime.server')
+
       const published = await publishFromCallable(
         deps,
         args.workspaceId,
@@ -464,6 +518,7 @@ export async function invokeExtension(
         callable.id,
         input,
       )
+
       const durationMs = deps.now() - started
       await audit(deps, {
         workspaceId: args.workspaceId,
@@ -475,13 +530,17 @@ export async function invokeExtension(
         runner: 'python',
         durationMs,
       })
+
       return { output: published, runner: 'python', durationMs }
     }
+
     const step = callable.runKind === 'step'
+    const tableNames = new Set(callable.tableNames)
     const tables: Record<string, Array<Record<string, unknown>>> = {}
     const settings: Record<string, unknown> = {}
+
     for (const [name, value] of Object.entries(input)) {
-      if (step && callable.tableNames.includes(name)) {
+      if (step && tableNames.has(name)) {
         if (
           !Array.isArray(value) ||
           !value.every((row) => row && typeof row === 'object')
@@ -493,13 +552,16 @@ export async function invokeExtension(
         tables[name] = value as Array<Record<string, unknown>>
       } else settings[name] = value
     }
+
     if (args.hostResults !== undefined && !step)
       settings.__host__ = args.hostResults
+
     const stepDeclaration = step
       ? resolved.manifest.contributions['pipeline-steps']?.find(
           (entry) => entry.id === callable.id,
         )
       : undefined
+
     const result = await runPackage(deps, args.workspaceId, resolved, {
       inputs: tables,
       parameters: {
@@ -511,7 +573,9 @@ export async function invokeExtension(
         ? { contract: columnContract(stepDeclaration.result.columns) }
         : {}),
     })
+
     const asked = step ? undefined : result.rows.at(0)?.__host_calls__
+
     if (asked !== undefined) {
       if (args.hostResults === undefined || !Array.isArray(asked))
         throw new ExtensionRunError(
@@ -519,8 +583,10 @@ export async function invokeExtension(
           'This operation needs to call into Sheetbase, which only works when it is run from the app’s own screen for it.',
         )
       const hostCalls: HostCallRequest[] = []
+
       for (const entry of asked as unknown[]) {
         const call = entry as Partial<HostCallRequest> | null
+
         if (!call || typeof call.name !== 'string') continue
         hostCalls.push({
           name: call.name,
@@ -530,6 +596,7 @@ export async function invokeExtension(
               : {},
         })
       }
+
       return {
         output: {},
         runner: 'python',
@@ -537,6 +604,7 @@ export async function invokeExtension(
         hostCalls,
       }
     }
+
     const output = step
       ? { rows: result.rows }
       : checkDeclaredValues(
@@ -544,6 +612,7 @@ export async function invokeExtension(
           result.rows.at(0) ?? {},
           'answer',
         )
+
     const durationMs = deps.now() - started
     await audit(deps, {
       workspaceId: args.workspaceId,
@@ -555,6 +624,7 @@ export async function invokeExtension(
       runner: 'python',
       durationMs,
     })
+
     return { output, runner: 'python', durationMs }
   } catch (error) {
     await audit(deps, {
@@ -616,22 +686,27 @@ export async function runExtensionAnalysis(
     args.extensionKey,
     'analysis-kinds',
   )
+
   const declaration = resolved.manifest.contributions['analysis-kinds']?.find(
     (entry) => entry.id === args.kindId,
   )
+
   if (!declaration) {
     throw new ExtensionRunError(
       'not_declared',
       'That plugin doesn’t offer this any more.',
     )
   }
+
   const started = deps.now()
+
   try {
     const result = await runPackage(deps, args.workspaceId, resolved, {
       inputs: { data: args.rows },
       parameters: { kind: 'analysis', entry: declaration.runner.entry },
       contract: columnContract(declaration.result.columns),
     })
+
     const durationMs = deps.now() - started
     await audit(deps, {
       workspaceId: args.workspaceId,
@@ -643,6 +718,7 @@ export async function runExtensionAnalysis(
       runner: 'python',
       durationMs,
     })
+
     return {
       columns: declaration.result.columns,
       rows: result.rows,
@@ -712,23 +788,27 @@ export type HookOutcome =
 
 function columnValue(
   type: ExtensionColumnValueType,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Python column answers are untrusted. Nullish values normalize to null; the declaration-specific schema rejects nonfinite numbers, malformed booleans and oversized/non-text values before rendering.
   value: unknown,
 ): string | number | boolean | null {
   if (value === null || value === undefined) return null
-  const ok =
-    (type === 'number' &&
-      typeof value === 'number' &&
-      Number.isFinite(value)) ||
-    ((type === 'text' || type === 'svg') &&
-      typeof value === 'string' &&
-      value.length <= 100_000) ||
-    (type === 'boolean' && typeof value === 'boolean')
-  if (!ok)
+
+  const schema =
+    type === 'number'
+      ? z.number().finite()
+      : type === 'boolean'
+        ? z.boolean()
+        : z.string().max(100_000)
+
+  const parsed = schema.safeParse(value)
+
+  if (!parsed.success)
     throw new ExtensionRunError(
       'bad_answer',
       `The plugin’s column gave a value that isn’t ${type === 'number' ? 'a number' : type === 'boolean' ? 'true or false' : 'text'}.`,
     )
-  return value
+
+  return parsed.data
 }
 
 function checkRows(
@@ -741,8 +821,10 @@ function checkRows(
       'bad_input',
       `That is more than ${maxRows} rows, which is more than this plugin is set up to take. An administrator can raise this in Settings → Plugins.`,
     )
+
   if (!inputs) return rows
   const keep = new Set(['id', ...inputs])
+
   return rows.map((row) =>
     Object.fromEntries(Object.entries(row).filter(([key]) => keep.has(key))),
   )
@@ -759,29 +841,36 @@ export async function runExtensionHook(
       : args.kind === 'row-action'
         ? 'row-actions'
         : 'columns'
+
   const resolved = await openExtensionPoint(
     deps,
     args.workspaceId,
     args.extensionKey,
     point,
   )
+
   // Rows and context size are this plugin's own settings, like any other call.
   const limits = await pluginLimits(deps, args.workspaceId, resolved.install.id)
+
   const gone = () =>
     new ExtensionRunError(
       'not_declared',
       'That plugin doesn’t offer this any more.',
     )
+
   const contributions = resolved.manifest.contributions
   let entry: string
-  let job: Pick<PythonTransformInput, 'inputs' | 'parameters'>
+  let job: Parameters<typeof runPackage>[3]
   let column: ExtensionColumnDeclaration | undefined
   let rowsGiven: Array<Record<string, unknown>> = []
+
   if (args.kind === 'screen') {
     const declared = (
       args.point === 'blocks' ? contributions.blocks : contributions.panels
     )?.find((item) => item.id === args.itemId)
+
     if (!declared?.screen) throw gone()
+
     if (
       new TextEncoder().encode(JSON.stringify([args.context, args.state]))
         .length >
@@ -808,12 +897,15 @@ export async function runExtensionHook(
     const declared = contributions['row-actions']?.find(
       (item) => item.id === args.itemId,
     )
+
     if (!declared) throw gone()
+
     if (declared.selection === 'one' && args.rows.length !== 1)
       throw new ExtensionRunError(
         'bad_input',
         'Choose exactly one row for this.',
       )
+
     if (args.rows.length === 0)
       throw new ExtensionRunError('bad_input', 'Choose at least one row.')
     rowsGiven = checkRows(args.rows, limits.rows, declared.inputs)
@@ -824,8 +916,10 @@ export async function runExtensionHook(
     }
   } else {
     column = contributions.columns?.find((item) => item.id === args.itemId)
+
     if (!column) throw gone()
     rowsGiven = checkRows(args.rows, limits.rows, column.inputs)
+
     if (args.kind === 'column') {
       entry = column.runner.entry
       job = {
@@ -834,6 +928,7 @@ export async function runExtensionHook(
       }
     } else {
       const action = column.actions?.find((item) => item.id === args.actionId)
+
       if (!action) throw gone()
       entry = action.runner.entry
       job = {
@@ -842,8 +937,10 @@ export async function runExtensionHook(
       }
     }
   }
+
   const itemId = args.itemId
   const started = deps.now()
+
   const record = (ok: boolean, error?: unknown) =>
     audit(deps, {
       workspaceId: args.workspaceId,
@@ -858,13 +955,16 @@ export async function runExtensionHook(
         ? { error: error instanceof Error ? error.message : String(error) }
         : {}),
     })
+
   try {
     const result = await runPackage(deps, args.workspaceId, resolved, job)
     const first = result.rows.at(0) ?? {}
     const durationMs = deps.now() - started
     let outcome: HookOutcome
+
     if (args.kind === 'screen') {
       const parsed = parseScreenResult(first)
+
       if (!parsed.ok)
         throw new ExtensionRunError(
           'bad_answer',
@@ -873,6 +973,7 @@ export async function runExtensionHook(
       outcome = { kind: 'screen', durationMs, ...parsed.result }
     } else if (args.kind === 'column') {
       const values = first.values
+
       if (!Array.isArray(values) || values.length !== rowsGiven.length)
         throw new ExtensionRunError(
           'bad_answer',
@@ -886,6 +987,7 @@ export async function runExtensionHook(
       }
     } else {
       const parsed = parseActionResult(first)
+
       if (!parsed.ok)
         throw new ExtensionRunError(
           'bad_answer',
@@ -893,7 +995,9 @@ export async function runExtensionHook(
         )
       outcome = { kind: 'action', durationMs, ...parsed.result }
     }
+
     await record(true)
+
     return outcome
   } catch (error) {
     await record(false, error)
@@ -907,6 +1011,7 @@ export async function runExtensionHook(
 
 export function defaultDeps(): ExtensionRuntimeDeps {
   const store = databaseStore()
+
   return {
     executePython: executePythonTransform,
     now: () => Date.now(),
@@ -916,6 +1021,7 @@ export function defaultDeps(): ExtensionRuntimeDeps {
     loadSettings: async (workspaceId, extensionId, scope) => {
       const { databaseSettingsStore, openSettings } =
         await import('./plugin-settings.server')
+
       return openSettings(
         databaseSettingsStore(),
         workspaceId,
@@ -930,9 +1036,12 @@ export function defaultDeps(): ExtensionRuntimeDeps {
         row,
       ),
     loadInstall: async (workspaceId, key) => {
-      const { db } = await import('#/db/client.server')
-      const { extensions } = await import('#/db/schema')
-      const { and, eq } = await import('drizzle-orm')
+      const [{ db }, { extensions }, { and, eq }] = await Promise.all([
+        import('#/db/client.server'),
+        import('#/db/schema'),
+        import('drizzle-orm'),
+      ])
+
       const rows = await db
         .select({
           id: extensions.id,
@@ -946,12 +1055,16 @@ export function defaultDeps(): ExtensionRuntimeDeps {
         .where(
           and(eq(extensions.workspaceId, workspaceId), eq(extensions.key, key)),
         )
+
       return rows.at(0) ?? null
     },
     loadPackage: async (workspaceId, extensionId) => {
-      const { db } = await import('#/db/client.server')
-      const { extensionPackages } = await import('#/db/schema')
-      const { and, eq } = await import('drizzle-orm')
+      const [{ db }, { extensionPackages }, { and, eq }] = await Promise.all([
+        import('#/db/client.server'),
+        import('#/db/schema'),
+        import('drizzle-orm'),
+      ])
+
       const rows = await db
         .select({ files: extensionPackages.files })
         .from(extensionPackages)
@@ -961,11 +1074,15 @@ export function defaultDeps(): ExtensionRuntimeDeps {
             eq(extensionPackages.extensionId, extensionId),
           ),
         )
+
       return (rows.at(0)?.files as Record<string, string> | undefined) ?? null
     },
     audit: async ({ workspaceId, actorUserId, extensionId, payload }) => {
-      const { db } = await import('#/db/client.server')
-      const { sql } = await import('drizzle-orm')
+      const [{ db }, { sql }] = await Promise.all([
+        import('#/db/client.server'),
+        import('drizzle-orm'),
+      ])
+
       await db.execute(
         sql`SELECT internal.emit_change_event_as_actor(
           ${actorUserId}, ${workspaceId}::uuid, 'extension', ${extensionId}::uuid,

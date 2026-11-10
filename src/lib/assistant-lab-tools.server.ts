@@ -59,57 +59,53 @@ export type BookingProposeToolName = (typeof BOOKING_PROPOSE_TOOL_NAMES)[number]
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/
 
-export const scheduleReadSchema = z
-  .object({
-    instrument: z
-      .string()
-      .min(1)
-      .max(200)
-      .optional()
-      .describe('Only this instrument, by name or INS number.'),
-    from: z
-      .string()
-      .regex(DAY)
-      .optional()
-      .describe('First day, YYYY-MM-DD. Defaults to today.'),
-    days: z.number().int().min(1).max(31).optional(),
-    mine: z.boolean().optional().describe('Only the person’s own bookings.'),
-  })
-  .strict()
+export const scheduleReadSchema = z.strictObject({
+  instrument: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Only this instrument, by name or INS number.'),
+  from: z
+    .string()
+    .regex(DAY)
+    .optional()
+    .describe('First day, YYYY-MM-DD. Defaults to today.'),
+  days: z.number().int().min(1).max(31).optional(),
+  mine: z.boolean().optional().describe('Only the person’s own bookings.'),
+})
 
-export const freeTimeSchema = z
-  .object({
-    instrument: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The instrument, by name or INS number.'),
-    from: z
-      .string()
-      .regex(DAY)
-      .optional()
-      .describe('First day, YYYY-MM-DD. Defaults to today.'),
-    days: z.number().int().min(1).max(14).optional(),
-    durationMinutes: z
-      .number()
-      .int()
-      .min(5)
-      .max(1_440)
-      .optional()
-      .describe('How long the person needs it. Defaults to 60.'),
-    dayStart: z
-      .string()
-      .regex(HHMM)
-      .optional()
-      .describe('Earliest start each day, HH:MM. Defaults to 08:00.'),
-    dayEnd: z
-      .string()
-      .regex(HHMM)
-      .optional()
-      .describe('Latest finish each day, HH:MM. Defaults to 18:00.'),
-    weekends: z.boolean().optional().describe('Include Saturday and Sunday.'),
-  })
-  .strict()
+export const freeTimeSchema = z.strictObject({
+  instrument: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The instrument, by name or INS number.'),
+  from: z
+    .string()
+    .regex(DAY)
+    .optional()
+    .describe('First day, YYYY-MM-DD. Defaults to today.'),
+  days: z.number().int().min(1).max(14).optional(),
+  durationMinutes: z
+    .number()
+    .int()
+    .min(5)
+    .max(1_440)
+    .optional()
+    .describe('How long the person needs it. Defaults to 60.'),
+  dayStart: z
+    .string()
+    .regex(HHMM)
+    .optional()
+    .describe('Earliest start each day, HH:MM. Defaults to 08:00.'),
+  dayEnd: z
+    .string()
+    .regex(HHMM)
+    .optional()
+    .describe('Latest finish each day, HH:MM. Defaults to 18:00.'),
+  weekends: z.boolean().optional().describe('Include Saturday and Sunday.'),
+})
 
 /**
  * The lab areas the assistant can list. Each is a page in the app; the model
@@ -231,22 +227,20 @@ export const LAB_AREAS = {
 
 export type LabArea = keyof typeof LAB_AREAS
 
-export const labListSchema = z
-  .object({
-    area: z.enum(Object.keys(LAB_AREAS) as [LabArea, ...LabArea[]]),
-    query: z
-      .string()
-      .min(1)
-      .max(120)
-      .optional()
-      .describe('Words in the name, number or title to narrow the list.'),
-    openOnly: z
-      .boolean()
-      .optional()
-      .describe('Leave out finished, cancelled or closed items.'),
-    limit: z.number().int().min(1).max(50).optional(),
-  })
-  .strict()
+export const labListSchema = z.strictObject({
+  area: z.enum(Object.keys(LAB_AREAS) as [LabArea, ...LabArea[]]),
+  query: z
+    .string()
+    .min(1)
+    .max(120)
+    .optional()
+    .describe('Words in the name, number or title to narrow the list.'),
+  openOnly: z
+    .boolean()
+    .optional()
+    .describe('Leave out finished, cancelled or closed items.'),
+  limit: z.number().int().min(1).max(50).optional(),
+})
 
 export function toolDef(
   name: string,
@@ -256,6 +250,7 @@ export function toolDef(
   const { $schema: _ignored, ...parameters } = z.toJSONSchema(schema, {
     io: 'input',
   })
+
   return { name: name.replaceAll('.', '__'), description, parameters }
 }
 
@@ -291,6 +286,7 @@ export function labToolDefs(): ProviderToolDef[] {
 export function bookingProposalDefs(): ProviderToolDef[] {
   const note =
     'The person sees a card and presses a button to do it; nothing changes until they do.'
+
   return [
     toolDef(
       BOOKING_CREATE_TOOL,
@@ -340,6 +336,7 @@ const INSTRUMENT_COLUMNS =
 /** PostgREST `ilike` value: `*` wildcards; reserved characters stripped. */
 export function likeValue(text: string): string {
   const clean = text.replaceAll(/[*,()"\\]/g, ' ').trim()
+
   return encodeURIComponent(`*${clean.replaceAll(/\s+/g, '*')}*`)
 }
 
@@ -358,26 +355,34 @@ export async function resolveInstrument(
 ): Promise<InstrumentMatch> {
   const ws = encodeURIComponent(workspaceId)
   const wanted = name.trim()
+
   const all = await client.list<InstrumentRow>(
     'instruments',
     `?workspace_id=eq.${ws}&retired_at=is.null&select=${INSTRUMENT_COLUMNS}&order=position.asc,name.asc&limit=500`,
   )
+
   const lower = wanted.toLowerCase()
+
   const exact = all.filter(
     (row) =>
       row.name.toLowerCase() === lower ||
       row.display_id?.toLowerCase() === lower ||
       row.id === wanted,
   )
+
   if (exact.length === 1) return { ok: true, instrument: exact[0] }
   const words = lower.split(/\s+/).filter(Boolean)
+
   const partial = all.filter((row) => {
     const hay = `${row.name} ${row.display_id ?? ''} ${row.location ?? ''}`
       .toLowerCase()
       .trim()
+
     return words.every((word) => hay.includes(word))
   })
+
   if (partial.length === 1) return { ok: true, instrument: partial[0] }
+
   if (partial.length > 1) {
     return {
       ok: false,
@@ -389,6 +394,7 @@ export async function resolveInstrument(
         )}. Ask the person which one they mean, naming these, or pick the one that clearly fits.`,
     }
   }
+
   return {
     ok: false,
     message: `No instrument matches "${wanted}". The bookable instruments are: ${
@@ -404,15 +410,19 @@ function dayList(from: string, count: number, weekends = true): string[] {
   const out: string[] = []
   const [y, m, d] = from.split('-').map(Number) as [number, number, number]
   let cursor = Date.UTC(y, m - 1, d)
+
   // Look far enough ahead to fill `count` working days when weekends are skipped.
   for (let guard = 0; out.length < count && guard < count * 3; guard++) {
     const date = new Date(cursor)
     const weekday = date.getUTCDay()
+
     if (weekends || (weekday !== 0 && weekday !== 6)) {
       out.push(date.toISOString().slice(0, 10))
     }
+
     cursor += 86_400_000
   }
+
   return out
 }
 
@@ -428,6 +438,7 @@ export async function memberNames(
       'workspace_members_list',
       {},
     )
+
     return new Map(members.map((member) => [member.user_id, member.name]))
   } catch {
     return new Map()
@@ -450,8 +461,10 @@ export async function bookingsBetween(
     `order=starts_at.asc`,
     `limit=500`,
   ]
+
   if (resourceId)
     params.push(`resource_id=eq.${encodeURIComponent(resourceId)}`)
+
   return client.list<CalendarBookingWire>(
     'calendar_bookings',
     `?${params.join('&')}`,
@@ -476,28 +489,26 @@ export function invalid(error: z.ZodError): string {
     .join('; ')}`
 }
 
-const facilityReportSchema = z
-  .object({
-    report: z
-      .enum(['spend', 'usage'])
-      .describe('Spend on orders, or instrument usage and recharge.'),
-    period: z
-      .enum([
-        'this_month',
-        'last_month',
-        'last_7_days',
-        'last_30_days',
-        'previous_week',
-      ])
-      .default('last_month'),
-    openHoursPerDay: z
-      .number()
-      .positive()
-      .max(24)
-      .default(10)
-      .describe('Hours an instrument is open on a weekday, for utilisation.'),
-  })
-  .strict()
+const facilityReportSchema = z.strictObject({
+  report: z
+    .enum(['spend', 'usage'])
+    .describe('Spend on orders, or instrument usage and recharge.'),
+  period: z
+    .enum([
+      'this_month',
+      'last_month',
+      'last_7_days',
+      'last_30_days',
+      'previous_week',
+    ])
+    .default('last_month'),
+  openHoursPerDay: z
+    .number()
+    .positive()
+    .max(24)
+    .default(10)
+    .describe('Hours an instrument is open on a weekday, for utilisation.'),
+})
 
 async function readFacilityReport(
   input: z.infer<typeof facilityReportSchema>,
@@ -508,15 +519,19 @@ async function readFacilityReport(
     context.now ?? new Date(),
     context.timeZone,
   )
+
   const heading = `${input.report === 'spend' ? 'Spend on orders' : 'Instrument usage'}, ${formatRange(range, context.timeZone)}`
+
   if (input.report === 'spend') {
     const lines = await fetchSpendLines(
       context.client,
       context.workspaceId,
       range,
     )
+
     if (lines.length === 0) return `${heading}: no orders were placed.`
     const total = totalSpend(lines)
+
     const rows = (by: 'project' | 'supplier') =>
       groupSpend(lines, by, context.timeZone)
         .slice(0, 10)
@@ -525,6 +540,7 @@ async function readFacilityReport(
             `- ${g.label || 'None'}: ${formatTotals(g.totals) || 'nothing priced'} (${g.orders} orders)`,
         )
         .join('\n')
+
     return [
       `${heading}.`,
       `Spent: ${formatTotals(total.totals) || 'nothing priced'}; ${total.orders} orders placed, ${total.unpriced} without a price.`,
@@ -534,25 +550,31 @@ async function readFacilityReport(
       rows('supplier'),
     ].join('\n')
   }
+
   const lines = await fetchUsageLines(
     context.client,
     context.workspaceId,
     range,
   )
+
   if (lines.length === 0) return `${heading}: no bookings.`
+
   const rows = utilisationByInstrument(
     lines,
     range,
     input.openHoursPerDay,
     context.timeZone,
   )
+
   const hours = rows.reduce((sum, r) => sum + r.hours, 0)
   const charges: Record<string, number> = {}
+
   for (const row of rows) {
     for (const [currency, amount] of Object.entries(row.charges)) {
       charges[currency] = (charges[currency] ?? 0) + amount
     }
   }
+
   return [
     `${heading}.`,
     `Booked ${formatHours(hours)} h across ${lines.length} bookings; recharge ${formatTotals(charges) || 'none (no rates set)'}.`,
@@ -572,42 +594,55 @@ export async function runLabReadTool(
     switch (name) {
       case SCHEDULE_TOOL: {
         const parsed = scheduleReadSchema.safeParse(args)
+
         if (!parsed.success)
           return { text: invalid(parsed.error), isError: true }
+
         return {
           text: await readSchedule(parsed.data, context),
           isError: false,
         }
       }
+
       case FREE_TIME_TOOL: {
         const parsed = freeTimeSchema.safeParse(args)
+
         if (!parsed.success)
           return { text: invalid(parsed.error), isError: true }
+
         return {
           text: await readFreeTime(parsed.data, context),
           isError: false,
         }
       }
+
       case LAB_LIST_TOOL: {
         const parsed = labListSchema.safeParse(args)
+
         if (!parsed.success)
           return { text: invalid(parsed.error), isError: true }
+
         return { text: await listLabArea(parsed.data, context), isError: false }
       }
+
       case FACILITY_REPORT_TOOL: {
         const parsed = facilityReportSchema.safeParse(args)
+
         if (!parsed.success)
           return { text: invalid(parsed.error), isError: true }
+
         return {
           text: await readFacilityReport(parsed.data, context),
           isError: false,
         }
       }
+
       default:
         return { text: 'That tool is not available.', isError: true }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
+
     return {
       text: message.startsWith('No instrument')
         ? message
@@ -627,16 +662,20 @@ async function readSchedule(
   const days = input.days ?? 7
   const start = instantFromLocal(`${from}T00:00`, timeZone)
   const lastDay = dayList(from, days).at(-1) ?? from
+
   const end = new Date(
     instantFromLocal(`${lastDay}T00:00`, timeZone).getTime() + 86_400_000,
   )
 
   let instrument: InstrumentRow | undefined
+
   if (input.instrument) {
     const match = await resolveInstrument(client, workspaceId, input.instrument)
+
     if (!match.ok) return match.message
     instrument = match.instrument
   }
+
   const [rows, instruments, names] = await Promise.all([
     bookingsBetween(client, workspaceId, start, end, instrument?.id),
     client.list<InstrumentRow>(
@@ -645,11 +684,14 @@ async function readSchedule(
     ),
     memberNames(client),
   ])
+
   const byId = new Map(instruments.map((row) => [row.id, row] as const))
+
   const bookings = rows
     .filter((row) => !input.mine || row.created_by_user_id === context.userId)
     .map((row) => {
       const on = byId.get(row.resource_id)
+
       return {
         bookingId: row.id,
         instrument: on ? instrumentLabel(on) : 'Another resource',
@@ -671,6 +713,7 @@ async function readSchedule(
           : null,
       }
     })
+
   return JSON.stringify({
     timeZone,
     range: `${from} for ${days} day${days === 1 ? '' : 's'}`,
@@ -688,18 +731,21 @@ async function readFreeTime(
   const { client, workspaceId, timeZone } = context
   const now = context.now ?? new Date()
   const match = await resolveInstrument(client, workspaceId, input.instrument)
+
   if (!match.ok) return match.message
   const instrument = match.instrument
   const minutes = input.durationMinutes ?? 60
   const from = input.from ?? today(timeZone, now)
   const days = dayList(from, input.days ?? 5, input.weekends === true)
   const start = instantFromLocal(`${days[0] ?? from}T00:00`, timeZone)
+
   const end = new Date(
     instantFromLocal(`${days.at(-1) ?? from}T00:00`, timeZone).getTime() +
       86_400_000,
   )
 
   const id = encodeURIComponent(instrument.id)
+
   const [rows, rules, gaps] = await Promise.all([
     bookingsBetween(client, workspaceId, start, end, instrument.id),
     client.list<{
@@ -716,7 +762,9 @@ async function readFreeTime(
       )
       .catch(() => []),
   ])
+
   const rule = rules.at(0)
+
   const free = findFreeGaps({
     busy: rows.map((row) => ({
       start: new Date(row.starts_at),
@@ -735,11 +783,13 @@ async function readFreeTime(
   )
 
   const blockers: string[] = []
+
   if (instrument.out_of_service_at) {
     blockers.push(
       'It is out of service, so it cannot be booked until it is back.',
     )
   }
+
   if (gaps.length > 0) {
     blockers.push(
       `The person needs training first: ${gaps
@@ -747,11 +797,13 @@ async function readFreeTime(
         .join(', ')}.`,
     )
   }
+
   if (rule?.max_booking_minutes && minutes > rule.max_booking_minutes) {
     blockers.push(
       `It can be booked for at most ${describeMinutes(rule.max_booking_minutes)} at a time.`,
     )
   }
+
   return JSON.stringify({
     instrument: instrumentLabel(instrument),
     timeZone,
@@ -1296,22 +1348,28 @@ async function recordKinds(
         'request_forms',
         '?select=model_key',
       )
+
       return { kinds: rows.map((row) => row.model_key), page: '/requests' }
     }
+
     case 'incidents': {
       const rows = await client.list<{ model_key: string }>(
         'model_incident_logs',
         '?select=model_key',
       )
+
       return { kinds: rows.map((row) => row.model_key), page: '/incidents' }
     }
+
     case 'registry': {
       const rows = await client.list<{ key: string }>(
         'record_models',
         '?is_registry=eq.true&select=key',
       )
+
       return { kinds: rows.map((row) => row.key), page: '/registry' }
     }
+
     default:
       return null
   }
@@ -1329,11 +1387,14 @@ async function listLabArea(
 ): Promise<string> {
   const { client } = context
   const limit = input.limit ?? 20
+
   if (input.area === 'members') {
     const members = await client.rpc<
       Array<{ user_id: string; name: string; role: string }>
     >('workspace_members_list', {})
+
     const words = (input.query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
+
     const rows = members
       .filter((member) =>
         words.every((word) =>
@@ -1341,6 +1402,7 @@ async function listLabArea(
         ),
       )
       .slice(0, limit)
+
     return JSON.stringify({
       area: input.area,
       items: rows,
@@ -1348,7 +1410,9 @@ async function listLabArea(
       page: '/settings/workspace/members',
     })
   }
+
   const records = await recordKinds(input.area, client)
+
   if (records) {
     if (records.kinds.length === 0) {
       return JSON.stringify({
@@ -1358,6 +1422,7 @@ async function listLabArea(
         page: records.page,
       })
     }
+
     const params = [
       `kind=in.(${records.kinds.map(encodeURIComponent).join(',')})`,
       'deleted_at=is.null',
@@ -1365,16 +1430,21 @@ async function listLabArea(
       'order=created_at.desc',
       `limit=${limit}`,
     ]
+
     if (input.query) {
       const like = likeValue(input.query)
       params.push(`or=(title.ilike.${like},identifier.ilike.${like})`)
     }
+
     const open = OPEN_RECORD_STATUSES[input.area]
+
     if (input.openOnly && open) params.push(open)
+
     const rows = await client.list<Record<string, unknown>>(
       'records',
       `?${params.join('&')}`,
     )
+
     return JSON.stringify({
       area: input.area,
       items: rows,
@@ -1385,41 +1455,52 @@ async function listLabArea(
   }
 
   const spec = PLAIN_AREAS[input.area]
+
   if (!spec) return JSON.stringify({ area: input.area, items: [] })
+
   const params = [
     `select=${spec.select}`,
     `order=${spec.order}`,
     `limit=${input.query && spec.search.length === 0 ? 200 : limit}`,
   ]
+
   if (input.query && spec.search.length > 0) {
     const like = likeValue(input.query)
     params.push(
       `or=(${spec.search.map((column) => `${column}.ilike.${like}`).join(',')})`,
     )
   }
+
   const closed = CLOSED[input.area]
+
   if (input.openOnly && closed) params.push(closed)
+
   if (input.area === 'instruments' && input.openOnly) {
     params.push('retired_at=is.null')
   }
+
   const found = await client.list<Record<string, unknown>>(
     spec.table,
     `?${params.join('&')}`,
   )
+
   // An area with no searchable column (safety) is narrowed by its text here.
   const words =
     input.query && spec.search.length === 0
       ? input.query.toLowerCase().split(/\s+/).filter(Boolean)
       : []
+
   const rows =
     words.length > 0
       ? found
           .filter((row) => {
             const text = JSON.stringify(row).toLowerCase()
+
             return words.every((word) => text.includes(word))
           })
           .slice(0, limit)
       : found
+
   return JSON.stringify({
     area: input.area,
     items: rows,
@@ -1438,8 +1519,11 @@ export type BookingProposalOutcome =
 export async function findExperiment(
   client: DataClient,
   text: string,
-): Promise<{ id: string; identifier: string; title: string } | string> {
+): Promise<
+  { id: string; identifier: string; title: string } | { message: string }
+> {
   const like = likeValue(text)
+
   const rows = await client.list<{
     id: string
     identifier: string
@@ -1448,15 +1532,22 @@ export async function findExperiment(
     'records',
     `?kind=eq.experiment&deleted_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title&order=updated_at.desc&limit=5`,
   )
+
   const exact = rows.find(
     (row) => row.identifier.toLowerCase() === text.trim().toLowerCase(),
   )
+
   if (exact) return exact
+
   if (rows.length === 1) return rows[0]
-  if (rows.length === 0) return `No experiment matches "${text}".`
-  return `More than one experiment matches "${text}": ${rows
-    .map((row) => `${row.identifier} ${row.title}`)
-    .join(', ')}. Ask which one.`
+
+  if (rows.length === 0) return { message: `No experiment matches "${text}".` }
+
+  return {
+    message: `More than one experiment matches "${text}": ${rows
+      .map((row) => `${row.identifier} ${row.title}`)
+      .join(', ')}. Ask which one.`,
+  }
 }
 
 async function ownBooking(
@@ -1467,6 +1558,7 @@ async function ownBooking(
     'calendar_bookings',
     `?id=eq.${encodeURIComponent(bookingId)}&limit=1`,
   )
+
   return rows[0] ?? null
 }
 
@@ -1477,35 +1569,46 @@ export async function buildBookingProposal(
 ): Promise<BookingProposalOutcome> {
   const { client, workspaceId, timeZone } = context
   const now = context.now ?? new Date()
+
   switch (name) {
     case BOOKING_CREATE_TOOL: {
       const parsed = proposeBookingCreateSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
+
       const match = await resolveInstrument(
         client,
         workspaceId,
         input.instrument,
       )
+
       if (!match.ok) return match
       const instrument = match.instrument
+
       if (instrument.out_of_service_at) {
         return {
           ok: false,
           message: `${instrumentLabel(instrument)} is out of service, so it cannot be booked until it is back. Tell the person.`,
         }
       }
+
       const startsAt = instantFromLocal(input.start, timeZone)
+
       const endsAt = input.end
         ? instantFromLocal(input.end, timeZone)
         : new Date(startsAt.getTime() + (input.durationMinutes ?? 60) * 60_000)
+
       if (endsAt.getTime() <= startsAt.getTime()) {
         return { ok: false, message: 'The end must be after the start.' }
       }
+
       if (startsAt.getTime() < now.getTime() - 5 * 60_000) {
         return { ok: false, message: 'That time has already passed.' }
       }
+
       const id = encodeURIComponent(instrument.id)
+
       const [clashes, rules, training] = await Promise.all([
         bookingsBetween(client, workspaceId, startsAt, endsAt, instrument.id),
         client.list<{
@@ -1522,13 +1625,16 @@ export async function buildBookingProposal(
           )
           .catch(() => []),
       ])
+
       const clash = clashes.at(0)
+
       if (clash) {
         return {
           ok: false,
           message: `${instrumentLabel(instrument)} is already booked then (${clash.title}, ${describeSlot(new Date(clash.starts_at), new Date(clash.ends_at), timeZone)}). Find free time and suggest another slot.`,
         }
       }
+
       if (training.length > 0) {
         return {
           ok: false,
@@ -1537,14 +1643,17 @@ export async function buildBookingProposal(
             .join(', ')}. Tell them.`,
         }
       }
+
       const rule = rules.at(0)
       const minutes = (endsAt.getTime() - startsAt.getTime()) / 60_000
+
       if (rule?.max_booking_minutes && minutes > rule.max_booking_minutes) {
         return {
           ok: false,
           message: `${instrumentLabel(instrument)} can be booked for at most ${describeMinutes(rule.max_booking_minutes)} at a time.`,
         }
       }
+
       if (
         rule?.max_advance_days &&
         startsAt.getTime() > now.getTime() + rule.max_advance_days * 86_400_000
@@ -1554,18 +1663,23 @@ export async function buildBookingProposal(
           message: `${instrumentLabel(instrument)} can be booked at most ${rule.max_advance_days} days ahead.`,
         }
       }
+
       let experiment: { id: string; identifier: string; title: string } | null =
         null
+
       if (input.experiment) {
         const found = await findExperiment(client, input.experiment)
-        if (typeof found === 'string') return { ok: false, message: found }
+
+        if ('message' in found) return { ok: false, message: found.message }
         experiment = found
       }
+
       const bookingTitle =
         input.bookingTitle ??
         (experiment
           ? `${experiment.identifier} ${experiment.title}`
           : input.title)
+
       const changes = [
         {
           label: 'When',
@@ -1574,6 +1688,7 @@ export async function buildBookingProposal(
         },
         { label: 'Booking', before: null, after: bookingTitle },
       ]
+
       if (experiment) {
         changes.push({
           label: 'For',
@@ -1581,9 +1696,11 @@ export async function buildBookingProposal(
           after: `${experiment.identifier} · ${experiment.title}`,
         })
       }
+
       if (input.notes) {
         changes.push({ label: 'Notes', before: null, after: input.notes })
       }
+
       return {
         ok: true,
         proposal: {
@@ -1607,15 +1724,18 @@ export async function buildBookingProposal(
         },
       }
     }
+
     case BOOKING_MOVE_TOOL:
     case BOOKING_CANCEL_TOOL: {
       const parsed =
         name === BOOKING_MOVE_TOOL
           ? proposeBookingMoveSchema.safeParse(args)
           : proposeBookingCancelSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       const booking = await ownBooking(client, input.bookingId)
+
       if (!booking || booking.status === 'cancelled') {
         return {
           ok: false,
@@ -1623,6 +1743,7 @@ export async function buildBookingProposal(
             'That booking was not found. Read the schedule again for its id.',
         }
       }
+
       if (booking.created_by_user_id !== context.userId) {
         return {
           ok: false,
@@ -1630,18 +1751,22 @@ export async function buildBookingProposal(
             'That booking is someone else’s. Only the person who made it can change it; suggest they ask them.',
         }
       }
+
       const instruments = await client.list<InstrumentRow>(
         'instruments',
         `?id=eq.${encodeURIComponent(booking.resource_id)}&select=${INSTRUMENT_COLUMNS}`,
       )
+
       const label = instruments[0]
         ? instrumentLabel(instruments[0])
         : booking.title
+
       const was = describeSlot(
         new Date(booking.starts_at),
         new Date(booking.ends_at),
         timeZone,
       )
+
       if (name === BOOKING_CANCEL_TOOL) {
         return {
           ok: true,
@@ -1664,17 +1789,22 @@ export async function buildBookingProposal(
           },
         }
       }
+
       const move = input as z.infer<typeof proposeBookingMoveSchema>
       const startsAt = instantFromLocal(move.start, timeZone)
+
       const length =
         new Date(booking.ends_at).getTime() -
         new Date(booking.starts_at).getTime()
+
       const endsAt = move.end
         ? instantFromLocal(move.end, timeZone)
         : new Date(startsAt.getTime() + length)
+
       if (endsAt.getTime() <= startsAt.getTime()) {
         return { ok: false, message: 'The end must be after the start.' }
       }
+
       const clash = (
         await bookingsBetween(
           client,
@@ -1684,12 +1814,14 @@ export async function buildBookingProposal(
           booking.resource_id,
         )
       ).find((row) => row.id !== booking.id)
+
       if (clash) {
         return {
           ok: false,
           message: `${label} is already booked then (${clash.title}, ${describeSlot(new Date(clash.starts_at), new Date(clash.ends_at), timeZone)}). Find free time and suggest another slot.`,
         }
       }
+
       return {
         ok: true,
         proposal: {

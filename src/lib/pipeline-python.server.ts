@@ -1,4 +1,5 @@
 /** Server-only client for the isolated Python runner; never execute code in Node. */
+import { z } from 'zod'
 import {
   EXECUTION_TIMEOUT_SECONDS,
   INPUT_FIELD_LIMIT,
@@ -8,9 +9,82 @@ import {
   formatByteSize,
 } from './pipeline-limits'
 import type { RunnerLimits } from './extensions/runtime-config'
-import type { PythonContract, PythonEnvironment } from './pipelines/python'
+import { pythonResultRowsSchema } from './pipelines/python'
+import type {
+  PythonContract,
+  PythonEnvironment,
+  PythonResultRow,
+} from './pipelines/python'
+import {
+  pipelineJsonObjectSchema,
+  pipelineJsonValueSchema,
+} from './pipelines/types'
 
 export type { PythonEnvironment }
+
+/** Original scientific values, before serialization enforces the finite-JSON wire contract. */
+export type PythonInputValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Date
+  | Buffer
+  | bigint
+  | PythonInputValue[]
+  | { [key: string]: PythonInputValue }
+
+export const pythonInputValueSchema: z.ZodType<PythonInputValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.nan(),
+    z.literal(Infinity),
+    z.literal(-Infinity),
+    z.boolean(),
+    z.null(),
+    z.undefined(),
+    z.instanceof(Date),
+    z.instanceof(Buffer),
+    z.bigint(),
+    z.array(pythonInputValueSchema),
+    pythonInputRowSchema,
+  ]),
+)
+
+// Return the original object, preserving Date values, absent/undefined properties and own __proto__ keys.
+export const pythonInputRowSchema = z.custom<{
+  [key: string]: PythonInputValue
+}>((value) => {
+  const record = rowObjectSchema.safeParse(value)
+
+  return (
+    record.success &&
+    Object.values(record.data).every(
+      (entry) => pythonInputValueSchema.safeParse(entry).success,
+    )
+  )
+})
+
+export type PythonInputRow = z.infer<typeof pythonInputRowSchema>
+
+export const pythonInputRowsSchema = z.array(pythonInputRowSchema)
+
+export type PythonInputRows = z.infer<typeof pythonInputRowsSchema>
+
+export const pythonInputsSchema = z.custom<Record<string, PythonInputRows>>(
+  (value) => {
+    const inputs = rowObjectSchema.safeParse(value)
+
+    return (
+      inputs.success &&
+      Object.values(inputs.data).every(
+        (rows) => pythonInputRowsSchema.safeParse(rows).success,
+      )
+    )
+  },
+)
 
 export interface PythonTransformInput {
   statement: string
@@ -25,8 +99,8 @@ export interface PythonTransformInput {
   requirements?: string[]
   /** The columns the step reads and the DataFrame it must return. */
   contract?: PythonContract
-  inputs: Record<string, Record<string, unknown>[]>
-  parameters: Record<string, unknown>
+  inputs: z.infer<typeof pythonInputsSchema>
+  parameters: PythonInputRow
   /**
    * A plugin call's own limits, set per plugin by an administrator. They replace
    * the fixed pipeline limits for this call: time, memory, processes, scratch
@@ -46,7 +120,7 @@ export interface PythonArtefact {
 }
 
 export interface PythonTransformResult {
-  rows: Record<string, unknown>[]
+  rows: PythonResultRow[]
   logs: string[]
   /** Immutable image identity returned by the trusted runner, for run provenance. */
   runtime: string
@@ -78,6 +152,11 @@ export interface PythonTransformUsage {
   cells: number
 }
 
+interface PythonFailureDetail {
+  logs?: string[]
+  line?: number
+}
+
 export class PipelinePythonError extends Error {
   /** What the step printed before it failed. */
   readonly logs: string[]
@@ -93,7 +172,7 @@ export class PipelinePythonError extends Error {
       | 'output_too_large'
       | 'environment_not_ready'
       | 'network_unavailable' = 'transform_failed',
-    detail: { logs?: string[]; line?: number } = {},
+    detail: PythonFailureDetail = {},
   ) {
     super(message)
     this.name = 'PipelinePythonError'
@@ -108,8 +187,71 @@ const MAX_LOG_BYTES = 64 * 1024
 const PLUGIN_LOG_BYTES = 1024 * 1024
 const DIGEST_IMAGE = /^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
+const rawRowRecordSchema = z.record(z.string(), z.unknown())
+
+// Count original own keys, including __proto__; a parsed Zod record drops that key.
+const rowObjectSchema = z.custom<object>(
+  (value) => rawRowRecordSchema.safeParse(value).success,
+)
+
+const callableSchema = z.function()
+
+const serializationNodeSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+  z
+    .instanceof(Object)
+    .refine((value) => !callableSchema.safeParse(value).success),
+  rawRowRecordSchema,
+  z.array(z.unknown()),
+])
+
+const workerObjectSchema = z.object({
+  runtime: pipelineJsonValueSchema.optional(),
+  rows: pipelineJsonValueSchema.optional(),
+  logs: pipelineJsonValueSchema.optional(),
+  line: pipelineJsonValueSchema.optional(),
+  error: pipelineJsonValueSchema.optional(),
+  code: pipelineJsonValueSchema.optional(),
+  files: pipelineJsonValueSchema.optional(),
+  environment: pipelineJsonValueSchema.optional(),
+  python: pipelineJsonValueSchema.optional(),
+  packages: pipelineJsonValueSchema.optional(),
+  id: pipelineJsonValueSchema.optional(),
+  state: pipelineJsonValueSchema.optional(),
+})
+
+type WorkerObject = z.infer<typeof workerObjectSchema>
+
+const environmentSchema = z.object({
+  python: z.string(),
+  packages: z.custom<Record<string, string>>((value) => {
+    const packages = pipelineJsonObjectSchema.safeParse(value)
+
+    return (
+      packages.success &&
+      Object.values(packages.data).every(
+        (version) => z.string().safeParse(version).success,
+      )
+    )
+  }),
+})
+
+function readPackages(value: WorkerObject['packages']) {
+  const parsed = pipelineJsonObjectSchema.safeParse(value)
+
+  if (!parsed.success) return undefined
+
+  return Object.fromEntries(
+    Object.entries(parsed.data).flatMap(([name, version]) => {
+      const text = z.string().safeParse(version)
+
+      return text.success ? [[name, text.data] satisfies [string, string]] : []
+    }),
+  )
+}
 
 /**
  * Validate row shape and count rows/cells, naming the measured number in any
@@ -117,10 +259,10 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
  * exists.
  */
 function measureRows(
-  rows: unknown,
+  rows: PythonInputRow[] | z.infer<typeof pipelineJsonValueSchema> | undefined,
   side: 'input' | 'result',
   limits?: RunnerLimits,
-): { rows: number; cells: number } {
+) {
   const label = side === 'input' ? 'Python input' : 'Python result'
   const code = side === 'input' ? 'input_too_large' : 'output_too_large'
   // A plugin call is bounded by its rows and bytes alone; a pipeline step also
@@ -143,9 +285,11 @@ function measureRows(
   let cells = 0
 
   for (const row of rows) {
-    if (!isObject(row))
+    const record = rowObjectSchema.safeParse(row)
+
+    if (!record.success)
       throw new PipelinePythonError(`${label} must contain row objects.`, code)
-    const fields = Object.keys(row).length
+    const fields = Object.keys(record.data).length
     cells += fields
 
     if (fields > fieldLimit)
@@ -174,8 +318,8 @@ function serialize(input: PythonTransformInput): string {
     !input.statement.trim() ||
     // A plugin's files travel inside its steps, bounded by its data limit instead.
     (!limits && input.statement.length > 128_000) ||
-    !isObject(input.inputs) ||
-    !isObject(input.parameters)
+    !rowObjectSchema.safeParse(input.inputs).success ||
+    !rowObjectSchema.safeParse(input.parameters).success
   )
     throw new PipelinePythonError(
       'Provide Python code, named input rows and parameters.',
@@ -199,15 +343,9 @@ function serialize(input: PythonTransformInput): string {
   let body: string
 
   try {
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- JSON.stringify supplies raw post-toJSON nodes; reject unsupported values without cloning scientific keys.
     body = JSON.stringify(input, (_key, value: unknown) => {
-      if (
-        (typeof value === 'number' && !Number.isFinite(value)) ||
-        value === undefined ||
-        typeof value === 'bigint' ||
-        typeof value === 'function' ||
-        typeof value === 'symbol'
-      )
-        throw new Error('non-JSON value')
+      serializationNodeSchema.parse(value)
 
       return value
     })
@@ -229,51 +367,23 @@ function serialize(input: PythonTransformInput): string {
 }
 
 /** The logs and line a failed step reported, kept only in the expected shape and size. */
-function failureDetail(
-  result: unknown,
-  logLimit: number = MAX_LOG_BYTES,
-): { logs?: string[]; line?: number } {
-  if (!isObject(result)) return {}
-  const detail: { logs?: string[]; line?: number } = {}
+function failureDetail(result: WorkerObject, logLimit: number = MAX_LOG_BYTES) {
+  const detail: PythonFailureDetail = {}
+  const logs = z.array(z.string()).safeParse(result.logs)
+  const line = z.number().int().positive().safeParse(result.line)
 
-  if (
-    Array.isArray(result.logs) &&
-    result.logs.every((line): line is string => typeof line === 'string') &&
-    Buffer.byteLength(result.logs.join('\n')) <= logLimit
-  )
-    detail.logs = result.logs
+  if (logs.success && Buffer.byteLength(logs.data.join('\n')) <= logLimit)
+    detail.logs = logs.data
 
-  if (
-    typeof result.line === 'number' &&
-    Number.isInteger(result.line) &&
-    result.line > 0
-  )
-    detail.line = result.line
+  if (line.success) detail.line = line.data
 
   return detail
-}
-
-function readEnvironment(value: unknown): PythonEnvironment | undefined {
-  if (
-    !isObject(value) ||
-    typeof value.python !== 'string' ||
-    !isObject(value.packages)
-  )
-    return undefined
-  const packages: Record<string, string> = {}
-
-  for (const [name, version] of Object.entries(value.packages)) {
-    if (typeof version !== 'string') return undefined
-    packages[name] = version
-  }
-
-  return { python: value.python, packages }
 }
 
 async function boundedJson(
   response: Response,
   byteLimit: number = PAYLOAD_BYTE_LIMIT,
-): Promise<{ value: unknown; bytes: number }> {
+) {
   const declared = Number(response.headers.get('content-length'))
 
   if (declared > byteLimit)
@@ -310,7 +420,9 @@ async function boundedJson(
     }
 
     return {
-      value: JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown,
+      value: pipelineJsonValueSchema.parse(
+        JSON.parse(Buffer.concat(chunks).toString('utf8')),
+      ),
       bytes,
     }
   } catch (error) {
@@ -348,6 +460,9 @@ export async function releasePythonArtefacts(
   const token = process.env.PIPELINE_PYTHON_RUNNER_TOKEN
 
   if (!runnerUrl || !token || token.length < 32) return
+
+  if (!URL.canParse(runnerUrl)) throw new TypeError('Invalid URL')
+
   const url = new URL(runnerUrl)
   url.pathname = '/artefacts/release'
 
@@ -438,7 +553,7 @@ export async function executePythonTransform(
 
   const logLimit = input.limits ? PLUGIN_LOG_BYTES : MAX_LOG_BYTES
 
-  const { value: result, bytes: outputBytes } = await boundedJson(
+  const { value, bytes: outputBytes } = await boundedJson(
     response,
     // The answer within the plugin's data limit, plus its logs and framing.
     input.limits
@@ -446,17 +561,19 @@ export async function executePythonTransform(
       : undefined,
   )
 
+  const result = workerObjectSchema.catch({}).parse(value)
+
   if (!response.ok) {
-    const message =
-      isObject(result) && typeof result.error === 'string'
-        ? result.error.slice(0, 2000)
-        : 'Python execution failed.'
+    const error = z.string().safeParse(result.error)
+
+    const message = error.success
+      ? error.data.slice(0, 2000)
+      : 'Python execution failed.'
 
     throw new PipelinePythonError(
       message,
-      isObject(result) &&
-        (result.code === 'environment_not_ready' ||
-          result.code === 'network_unavailable')
+      result.code === 'environment_not_ready' ||
+        result.code === 'network_unavailable'
         ? result.code
         : response.status === 504
           ? 'transform_timed_out'
@@ -467,17 +584,15 @@ export async function executePythonTransform(
     )
   }
 
-  if (
-    !isObject(result) ||
-    typeof result.runtime !== 'string' ||
-    !DIGEST_IMAGE.test(result.runtime)
-  )
+  const runtime = z.string().regex(DIGEST_IMAGE).safeParse(result.runtime)
+
+  if (!runtime.success)
     throw new PipelinePythonError(
       'Python runner did not report a pinned runtime.',
       'runner_unavailable',
     )
 
-  if (input.runtime && input.runtime !== result.runtime)
+  if (input.runtime && input.runtime !== runtime.data)
     throw new PipelinePythonError(
       'The runner returned a different Python runtime than the pinned version.',
       'runner_unavailable',
@@ -485,41 +600,46 @@ export async function executePythonTransform(
 
   // PIPE-04.1: the runner reports the files it collected, if the step declared a key.
   const files = Array.isArray(result.files)
-    ? (result.files as unknown[]).map((entry) => {
-        if (
-          !isObject(entry) ||
-          typeof entry.name !== 'string' ||
-          typeof entry.size !== 'number'
-        )
+    ? result.files.map((entry) => {
+        const file = z
+          .object({ name: z.string(), size: z.number() })
+          .safeParse(entry)
+
+        if (!file.success)
           throw new PipelinePythonError(
             'Python runner reported a malformed file entry.',
           )
 
-        return { name: entry.name, size: entry.size }
+        return file.data
       })
     : []
 
   const measured = measureRows(result.rows, 'result', input.limits)
 
   const logBytes = Array.isArray(result.logs)
-    ? Buffer.byteLength(result.logs.join('\n'))
+    ? Buffer.byteLength(
+        result.logs
+          .map((line) => (line === null ? '' : z.coerce.string().parse(line)))
+          .join('\n'),
+      )
     : 0
 
-  if (
-    !Array.isArray(result.logs) ||
-    result.logs.some((line) => typeof line !== 'string') ||
-    logBytes > logLimit
-  )
+  const logs = z.array(z.string()).safeParse(result.logs)
+
+  if (!logs.success || logBytes > logLimit)
     throw new PipelinePythonError(
       `Python log output is ${formatByteSize(logBytes)}, over the ${formatByteSize(logLimit)} limit.`,
       'output_too_large',
     )
 
   return {
-    rows: result.rows as Record<string, unknown>[],
-    logs: result.logs as string[],
-    runtime: result.runtime,
-    environment: readEnvironment(result.environment),
+    rows: pythonResultRowsSchema.parse(result.rows),
+    logs: logs.data,
+    runtime: runtime.data,
+    environment: environmentSchema
+      .optional()
+      .catch(undefined)
+      .parse(result.environment),
     files,
     usage: {
       inputBytes: Buffer.byteLength(body),
@@ -568,26 +688,21 @@ export async function getPythonRuntimeInfo(): Promise<PythonRuntimeInfo> {
       signal: AbortSignal.timeout(15_000),
     })
 
-    const { value: result } = await boundedJson(response)
+    const { value } = await boundedJson(response)
 
-    if (
-      !response.ok ||
-      !isObject(result) ||
-      typeof result.runtime !== 'string' ||
-      !DIGEST_IMAGE.test(result.runtime)
-    )
-      throw new Error('runtime unavailable')
-    const packages: Record<string, string> = {}
+    const result = workerObjectSchema.catch({}).parse(value)
+    const runtime = z.string().regex(DIGEST_IMAGE).safeParse(result.runtime)
 
-    if (isObject(result.packages))
-      for (const [name, version] of Object.entries(result.packages))
-        if (typeof version === 'string') packages[name] = version
+    if (!response.ok || !runtime.success) throw new Error('runtime unavailable')
+    const info: PythonRuntimeInfo = { runtime: runtime.data }
+    const python = z.string().safeParse(result.python)
+    const packages = readPackages(result.packages)
 
-    return {
-      runtime: result.runtime,
-      ...(typeof result.python === 'string' ? { python: result.python } : {}),
-      ...(isObject(result.packages) ? { packages } : {}),
-    }
+    if (python.success) info.python = python.data
+
+    if (packages) info.packages = packages
+
+    return info
   } catch {
     throw new PipelinePythonError(
       'Python runner is unavailable. Ask an administrator to configure the runtime.',
@@ -617,16 +732,18 @@ function runnerRequest(path: string, init: RequestInit): Promise<Response> {
       'Python execution is not configured. Ask an administrator to configure the Python runner.',
       'runner_unavailable',
     )
+
+  if (!URL.canParse(runnerUrl)) throw new TypeError('Invalid URL')
+
   const url = new URL(runnerUrl)
   url.pathname = path
+  const headers = new Headers(init.headers)
+  headers.set('Authorization', `Bearer ${token}`)
 
   return fetch(url, {
     ...init,
     redirect: 'error',
-    headers: {
-      ...(init.headers as Record<string, string> | undefined),
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
     signal: AbortSignal.timeout(15_000),
   })
 }
@@ -636,32 +753,36 @@ async function environmentAnswer(
 ): Promise<PythonEnvironmentStatus> {
   const { value } = await boundedJson(response, 4 * 1024 * 1024)
 
-  if (!response.ok || !isObject(value) || typeof value.id !== 'string') {
+  const result = workerObjectSchema.catch({}).parse(value)
+  const id = z.string().safeParse(result.id)
+  const error = z.string().safeParse(result.error)
+
+  if (!response.ok || !id.success) {
     throw new PipelinePythonError(
-      isObject(value) && typeof value.error === 'string'
-        ? value.error.slice(0, 2000)
+      error.success
+        ? error.data.slice(0, 2000)
         : 'Python runner is unavailable. Try again later.',
       'runner_unavailable',
     )
   }
 
-  const packages: Record<string, string> = {}
-
-  if (isObject(value.packages))
-    for (const [name, version] of Object.entries(value.packages))
-      if (typeof version === 'string') packages[name] = version
-
-  return {
-    id: value.id,
+  const status: PythonEnvironmentStatus = {
+    id: id.data,
     state:
-      value.state === 'ready' ||
-      value.state === 'building' ||
-      value.state === 'failed'
-        ? value.state
+      result.state === 'ready' ||
+      result.state === 'building' ||
+      result.state === 'failed'
+        ? result.state
         : 'missing',
-    ...(typeof value.error === 'string' ? { error: value.error } : {}),
-    ...(isObject(value.packages) ? { packages } : {}),
   }
+
+  const packages = readPackages(result.packages)
+
+  if (error.success) status.error = error.data
+
+  if (packages) status.packages = packages
+
+  return status
 }
 
 /** Asks the runner to install a plugin's packages (a no-op when they are already there). */

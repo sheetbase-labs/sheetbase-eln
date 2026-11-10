@@ -38,7 +38,7 @@ import type {
 } from './assist-explain'
 import { toPhrasing } from './assist-explain'
 import { isRichTextPayload, richTextToPlainText, validateBlock } from './blocks'
-import type { RichTextPayload } from './blocks/rich-text'
+import type { RichTextPayload } from './blocks/rich-text-data'
 import {
   CHART_SPEC_VERSION,
   CHART_TYPES_NULL_X,

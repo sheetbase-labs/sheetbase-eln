@@ -17,6 +17,7 @@ import {
 function stubClient() {
   const rpc = vi.fn(async () => ({ ok: true }))
   const list = vi.fn(async () => [])
+
   return { client: { rpc, list } as unknown as DataClient, rpc, list }
 }
 

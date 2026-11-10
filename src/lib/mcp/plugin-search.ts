@@ -11,18 +11,16 @@ import type { DataClient } from '../data-client'
 
 export const PLUGIN_SEARCH_TOOL = 'sheetbase.plugin.search'
 
-export const pluginSearchSchema = z
-  .object({
-    query: z
-      .string()
-      .min(1)
-      .max(20_000)
-      .describe(
-        'What to search for, in the form the plugin documents, such as `sub:c1ccccc1` or `sim:CCO`.',
-      ),
-    limit: z.number().int().min(1).max(100).nullish(),
-  })
-  .strict()
+export const pluginSearchSchema = z.strictObject({
+  query: z
+    .string()
+    .min(1)
+    .max(20_000)
+    .describe(
+      'What to search for, in the form the plugin documents, such as `sub:c1ccccc1` or `sim:CCO`.',
+    ),
+  limit: z.number().int().min(1).max(100).nullish(),
+})
 
 export function pluginSearchMcpTool() {
   return {
@@ -41,21 +39,27 @@ export function pluginSearchMcpTool() {
 }
 
 export async function runPluginSearch(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- MCP transport input is decoded by pluginSearchSchema before any provider call.
   args: unknown,
   context: { client: DataClient; workspaceId: string; actorUserId?: string },
 ): Promise<{ text: string; isError: boolean }> {
   const parsed = pluginSearchSchema.safeParse(args)
+
   if (!parsed.success)
     return { text: 'Send a query, such as "sub:c1ccccc1".', isError: true }
+
   if (!context.actorUserId)
     return { text: 'Plugin search needs a signed-in person.', isError: true }
+
   const { searchWithPlugins } =
     await import('../extensions/plugin-search.server')
+
   const found = await searchWithPlugins(context.client, {
     workspaceId: context.workspaceId,
     actorUserId: context.actorUserId,
     query: parsed.data.query,
   })
+
   const hits = found.hits.slice(0, parsed.data.limit ?? 50).map((hit) => ({
     id: hit.id,
     identifier: hit.identifier,
@@ -67,6 +71,7 @@ export async function runPluginSearch(
     foundBy: hit.providerTitle,
     open: hit.deepLink,
   }))
+
   return {
     text: JSON.stringify({ hits, problems: found.problems }),
     isError: false,

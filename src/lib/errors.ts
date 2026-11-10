@@ -32,7 +32,7 @@ interface CategorisedError {
   message: string
 }
 
-const PG_CODE_TO_CATEGORY: Record<string, ErrorCategory> = {
+const PG_CODE_TO_CATEGORY = {
   '23505': 'conflict', // unique_violation
   '23503': 'validation_error', // foreign_key_violation
   '23502': 'validation_error', // not_null_violation
@@ -51,7 +51,7 @@ const PG_CODE_TO_CATEGORY: Record<string, ErrorCategory> = {
   SB004: 'invalid_transition', // disallowed lifecycle status transition (SCI-001)
   SB005: 'invalid_properties', // configurable property failed DB validation (SCI-001)
   SB006: 'template_not_instantiable', // template not instantiable (draft/archived/wrong status) (SCI-006)
-}
+} satisfies Record<string, ErrorCategory>
 
 /** Maps a PostgREST error body to a stable category. */
 export function categorisePostgrestError(
@@ -62,7 +62,8 @@ export function categorisePostgrestError(
 
   const category =
     code != null && code !== '' && Object.hasOwn(PG_CODE_TO_CATEGORY, code)
-      ? PG_CODE_TO_CATEGORY[code]
+      ? // SAFETY: the own-key check establishes membership in the immutable literal map.
+        PG_CODE_TO_CATEGORY[code as keyof typeof PG_CODE_TO_CATEGORY]
       : inferFromStatus(status)
 
   return {
@@ -107,16 +108,11 @@ export function errorEnvelope({
   message,
   requestId,
 }: CategorisedError & { requestId?: string }): Response {
-  return Response.json(
-    {
-      error: {
-        category,
-        message,
-        ...(requestId ? { request_id: requestId } : {}),
-      },
-    },
-    { status },
-  )
+  const error = { category, message }
+
+  if (requestId) Object.assign(error, { request_id: requestId })
+
+  return Response.json({ error }, { status })
 }
 
 /**

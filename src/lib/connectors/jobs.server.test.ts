@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
-import type { DataClient } from '../data-client'
+import { createDataClient } from '../data-client'
+import type { PersonalClientClaims } from '../external-token'
+import type { JobsDeps } from './jobs.server'
 import {
   handleJobs,
   parseJobsBody,
@@ -11,7 +14,7 @@ import {
 const INSTRUMENT = '11111111-1111-4111-8111-111111111111'
 const JOB = '22222222-2222-4222-8222-222222222222'
 
-const rpcJob = {
+const rpcJob: Parameters<typeof toAgentJob>[0] = {
   id: JOB,
   number: 4,
   status: 'queued',
@@ -26,9 +29,9 @@ const rpcJob = {
     number: 1,
     name: 'Serial dilution',
     sourcePlate: 'S',
-    sourceFormat: '96',
+    sourceFormat: '96_well',
     destPlate: 'D',
-    destFormat: '96',
+    destFormat: '96_well',
     transfers: [{ sourceWell: 'A1', destWell: 'B2', volumeUl: 15 }],
   },
 }
@@ -68,6 +71,20 @@ describe('parsing the agent’s request', () => {
       actualUl: 15,
       status: 'ok',
     })
+  })
+
+  it('rejects a volume-unit array instead of asserting it to a string', () => {
+    const report = {
+      action: 'report',
+      instrumentId: INSTRUMENT,
+      jobId: JOB,
+      status: 'running',
+    }
+
+    expect(() => parseJobsBody({ ...report, volumeUnit: ['ul'] })).toThrow(
+      /volumeUnit/,
+    )
+    expect(parseJobsBody({ ...report, volumeUnit: 'nl' }).volumeUnit).toBe('nl')
   })
 })
 
@@ -126,13 +143,16 @@ describe('matching the robot’s log to the worklist', () => {
 })
 
 describe('the endpoint', () => {
-  const claims = {
+  const claims: PersonalClientClaims = {
     role: 'authenticated',
     scopes: ['datasets:write'],
     workspace_id: 'w',
+    credential_id: 'credential',
+    sub: 'user',
+    kind: 'personal',
   }
 
-  function request(body: unknown) {
+  function request(body: z.core.util.JSONType) {
     return new Request('http://eln.test/api/connectors/jobs', {
       method: 'POST',
       headers: { authorization: 'Bearer abc' },
@@ -140,46 +160,50 @@ describe('the endpoint', () => {
     })
   }
 
-  const deps = (rpc: DataClient['rpc'], list?: DataClient['list']) => ({
-    verifyCredential: async () => claims as never,
-    createClient: () =>
-      ({ rpc, list: list ?? (async () => []) }) as unknown as DataClient,
+  const deps = (fetchImpl: typeof fetch): JobsDeps => ({
+    verifyCredential: async () => claims,
+    createClient: () => createDataClient(fetchImpl),
   })
 
   it('lists jobs through the database', async () => {
     const response = await handleJobs(
       request({ action: 'list', instrumentId: INSTRUMENT }),
-      deps((async () => [rpcJob]) as never),
+      deps(async () => Response.json([rpcJob])),
     )
 
-    const body = (await response.json()) as {
-      jobs: Array<{ id: string; file?: unknown }>
-    }
-
     expect(response.status).toBe(200)
-    expect(body.jobs[0].id).toBe(JOB)
-    expect(body.jobs[0].file).toBeTruthy()
+    expect(await response.json()).toMatchObject({
+      jobs: [{ id: JOB, file: { name: 'ij-0004-serial-dilution.py' } }],
+    })
   })
 
   it('completes a job with the worklist matched to the log', async () => {
-    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const calls: Array<{ name: string; args: z.core.util.JSONType }> = []
 
-    const list = (async (resource: string) =>
-      resource === 'instrument_jobs'
-        ? [{ worklist_id: 'w' }]
-        : [
-            {
-              transfers: [{ sourceWell: 'A1', destWell: 'B2', volumeUl: 15 }],
-              source_plate: 'S',
-              dest_plate: 'D',
-            },
-          ]) as never
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const url = new URL(
+        input instanceof Request ? input.url : input,
+        'http://eln.test',
+      )
 
-    const rpc = (async (name: string, args: Record<string, unknown>) => {
-      calls.push({ name, args })
+      if (url.pathname === '/api/db/instrument_jobs')
+        return Response.json([{ worklist_id: 'w' }])
 
-      return { id: JOB, number: 4, status: 'complete' }
-    }) as never
+      if (url.pathname === '/api/db/plate_worklists')
+        return Response.json([
+          {
+            transfers: [{ sourceWell: 'A1', destWell: 'B2', volumeUl: 15 }],
+            source_plate: 'S',
+            dest_plate: 'D',
+          },
+        ])
+
+      const args = z.json().parse(JSON.parse(z.string().parse(init?.body)))
+
+      calls.push({ name: url.pathname.split('/').at(-1) ?? '', args })
+
+      return Response.json({ id: JOB, number: 4, status: 'complete' })
+    }
 
     const response = await handleJobs(
       request({
@@ -191,14 +215,14 @@ describe('the endpoint', () => {
           { sourceWell: 'A1', destWell: 'B2', actualUl: 15, status: 'ok' },
         ],
       }),
-      deps(rpc, list),
+      deps(fetchImpl),
     )
 
     expect(response.status).toBe(200)
-    expect(calls[0].name).toBe('agent_report_instrument_job')
-    expect(calls[0].args.p_reconciled).toMatchObject([
-      { status: 'done', movedUl: 15 },
-    ])
+    expect(calls[0]).toMatchObject({
+      name: 'agent_report_instrument_job',
+      args: { p_reconciled: [{ status: 'done', movedUl: 15 }] },
+    })
   })
 
   it('answers a refusal from the database as final, not as a retry', async () => {
@@ -221,9 +245,12 @@ describe('the endpoint', () => {
     const response = await handleJobs(
       request({ action: 'list', instrumentId: INSTRUMENT }),
       {
-        verifyCredential: async () =>
-          ({ ...claims, role: 'api_client' }) as never,
-        createClient: () => ({}) as DataClient,
+        verifyCredential: async () => ({ ...claims, role: 'api_client' }),
+        createClient: () => {
+          throw new Error(
+            'Service credentials must be refused before data access.',
+          )
+        },
       },
     )
 

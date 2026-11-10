@@ -18,6 +18,7 @@ export async function runEventHookPass(
   const client = new PooledClient({ connectionString })
   await client.connect()
   let seen = 0
+
   try {
     const { rows: workspaces } = await client.query(
       `SELECT DISTINCT workspace_id FROM api.extensions
@@ -25,6 +26,7 @@ export async function runEventHookPass(
           AND (jsonb_array_length(COALESCE(manifest -> 'contributions' -> 'event-hooks', '[]'::jsonb)) > 0
                OR jsonb_array_length(COALESCE(manifest -> 'contributions' -> 'record-hooks', '[]'::jsonb)) > 0)`,
     )
+
     // The plugin runtime is only loaded once a workspace has a reaction on, so
     // a lab without one never pays for it when the server starts.
     const { runEventHooks, runRecordHooks } =
@@ -35,11 +37,13 @@ export async function runEventHookPass(
               .runAfterRecordHooksForEvent,
           }
         : { runEventHooks: async () => 0, runRecordHooks: async () => 0 }
+
     for (const { workspace_id: workspaceId } of workspaces) {
       const cursor = await client.query(
         `SELECT sequence FROM internal.plugin_hook_cursor WHERE workspace_id = $1`,
         [workspaceId],
       )
+
       if (cursor.rows.length === 0) {
         await client.query(
           `INSERT INTO internal.plugin_hook_cursor (workspace_id, sequence)
@@ -50,6 +54,7 @@ export async function runEventHookPass(
         )
         continue
       }
+
       const { rows } = await client.query(
         `SELECT id, workspace_id, sequence, entity_type, entity_uuid, operation,
                 record_id, project_id, actor_user_id, actor_credential_id,
@@ -57,11 +62,13 @@ export async function runEventHookPass(
            FROM api.change_events
           WHERE workspace_id = $1 AND sequence > $2::bigint
           ORDER BY sequence ASC
-          LIMIT ${BATCH}`,
-        [workspaceId, cursor.rows[0].sequence],
+          LIMIT $3`,
+        [workspaceId, cursor.rows[0].sequence, BATCH],
       )
+
       for (const row of rows) {
         seen += 1
+
         const event: ChangeEventInput = {
           id: row.id,
           workspaceId: row.workspace_id,
@@ -77,11 +84,13 @@ export async function runEventHookPass(
           payload: row.payload,
           createdAt: row.created_at,
         }
+
         const name = mapEventType(
           event.entityType,
           event.operation,
           event.payload,
         )
+
         if (name)
           await runEventHooks({
             id: event.id,
@@ -106,6 +115,7 @@ export async function runEventHookPass(
           payload: event.payload,
         })
       }
+
       if (rows.length > 0)
         await client.query(
           `UPDATE internal.plugin_hook_cursor
@@ -117,5 +127,6 @@ export async function runEventHookPass(
   } finally {
     await client.end()
   }
+
   return seen
 }

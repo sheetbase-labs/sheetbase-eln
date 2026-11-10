@@ -14,6 +14,7 @@ import type { Scope } from './api-credential-scopes'
 import type { AssistantToolkit } from './assistant'
 import { isProposalTool, proposalToolDefs } from './assistant-proposals'
 import { buildAssistantProposal } from './assistant-proposals.server'
+import { pipelineJsonObjectSchema } from './pipelines/types'
 import { FEATURE_ASSISTANT_SERVERS } from '../features/assistant.server.gen'
 import type { FeatureAssistantServer } from '../features/define.server'
 import {
@@ -148,19 +149,15 @@ const ASSISTANT_SCOPES: Scope[] = VALID_SCOPES.filter(
     scope !== 'webhooks:read',
 )
 
-const guideSchema = z
-  .object({
-    topic: z.enum(
-      DOMAIN_RESOURCES.map((resource) => resource.name) as [
-        string,
-        ...string[],
-      ],
-    ),
-  })
-  .strict()
+const guideSchema = z.strictObject({
+  topic: z.enum(
+    DOMAIN_RESOURCES.map((resource) => resource.name) as [string, ...string[]],
+  ),
+})
 
 function guideDef(): ProviderToolDef {
   const schema = z.toJSONSchema(guideSchema, { io: 'input' })
+
   return {
     name: toWireToolName(GUIDE_TOOL_NAME),
     description: `Read part of the Sheetbase guide: how the data model, scientific workflow, datasets and permissions fit together. Topics: ${DOMAIN_RESOURCES.map((resource) => `${resource.name} (${resource.description})`).join('; ')}`,
@@ -182,6 +179,7 @@ function stripSchemaKeyword(
   schema: Record<string, unknown>,
 ): Record<string, unknown> {
   const { $schema: _ignored, ...rest } = schema
+
   return rest
 }
 
@@ -204,10 +202,12 @@ const CHAT_RULES = [
 
 function clockLine(timeZone: string, now: Date): string {
   const local = localFromInstant(now, timeZone)
+
   const weekday = new Intl.DateTimeFormat('en-GB', {
     timeZone,
     weekday: 'long',
   }).format(now)
+
   return `It is ${weekday} ${local.replace('T', ' ')} on the person’s clock (${timeZone}). Give and take times on that clock; write them like ${describeSlot(now, new Date(now.getTime() + 3_600_000), timeZone)}.`
 }
 
@@ -221,6 +221,7 @@ function instructionsFor(
   )
     .map((resource) => resource.text)
     .join('\n\n')
+
   return [
     MCP_SERVER_INSTRUCTIONS,
     'You can look things up with the tools provided. Start from the page context you were given; call a tool only for what it does not contain, such as other records, rows, or a search across the workspace.',
@@ -289,6 +290,7 @@ export async function createAssistantToolkit(deps: {
     { jsonrpc: '2.0', id: 1, method: 'tools/list' },
     context,
   )
+
   const available =
     (
       (listed && 'result' in listed ? listed.result : undefined) as
@@ -315,6 +317,7 @@ export async function createAssistantToolkit(deps: {
       description: tool.description,
       parameters: stripSchemaKeyword(tool.inputSchema),
     }))
+
   defs.push(
     guideDef(),
     workspaceDef(),
@@ -331,6 +334,7 @@ export async function createAssistantToolkit(deps: {
   // writes become cards, so they are offered only when agents may draft.
   const extensionTools = await loadExtensionToolset(deps.client)
   defs.push(...extensionTools.defs(deps.flags.mcp_draft))
+
   // Proposals are cards the person applies; offered only when agents may draft.
   if (deps.flags.mcp_draft) {
     defs.push(
@@ -349,7 +353,9 @@ export async function createAssistantToolkit(deps: {
       ...labworkProposalDefs(),
     )
   }
+
   const timeZone = deps.timeZone ?? 'UTC'
+
   const labContext = {
     client: deps.client,
     workspaceId: deps.workspaceId,
@@ -363,18 +369,17 @@ export async function createAssistantToolkit(deps: {
     instructions: instructionsFor(deps.flags, timeZone, deps.now ?? new Date()),
     async run(wireName, argumentsJson) {
       const name = fromWireToolName(wireName)
+
       if (!defs.some((def) => def.name === wireName)) {
         return { text: 'That tool is not available.', isError: true }
       }
-      let args: Record<string, unknown>
+
+      let args: Record<string, z.core.util.JSONType>
+
       try {
-        const parsed: unknown = JSON.parse(argumentsJson)
-        args =
-          parsed !== null &&
-          typeof parsed === 'object' &&
-          !Array.isArray(parsed)
-            ? (parsed as Record<string, unknown>)
-            : {}
+        args = pipelineJsonObjectSchema
+          .catch({})
+          .parse(JSON.parse(argumentsJson))
       } catch {
         return { text: 'The arguments were not valid JSON.', isError: true }
       }
@@ -391,6 +396,7 @@ export async function createAssistantToolkit(deps: {
 
       if (name === WORKSPACE_TOOL_NAME) {
         const request = parseWorkspaceRequest(args)
+
         return request
           ? {
               text: `Opened ${request.pages.length} page${request.pages.length === 1 ? '' : 's'} in the workspace.`,
@@ -409,6 +415,7 @@ export async function createAssistantToolkit(deps: {
           allowWrites: deps.flags.mcp_draft,
           client: deps.client,
         })
+
         return outcome.ok
           ? {
               text: clip(outcome.text),
@@ -422,10 +429,13 @@ export async function createAssistantToolkit(deps: {
       for (const feature of FEATURE_SERVERS) {
         if (feature.runReadTool && feature.isReadTool?.(name)) {
           const result = await feature.runReadTool(name, args, labContext)
+
           return { text: clip(result.text), isError: result.isError }
         }
+
         if (feature.buildProposal && feature.isProposalTool?.(name)) {
           const built = await feature.buildProposal(name, args, labContext)
+
           return built.ok
             ? {
                 text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
@@ -438,16 +448,19 @@ export async function createAssistantToolkit(deps: {
 
       if (isLabReadTool(name)) {
         const result = await runLabReadTool(name, args, labContext)
+
         return { text: clip(result.text), isError: result.isError }
       }
 
       if (isInboxReadTool(name)) {
         const result = await readInbox(args, labContext)
+
         return { text: clip(result.text), isError: result.isError }
       }
 
       if (isStepsReadTool(name)) {
         const result = await readSteps(args, labContext)
+
         return { text: clip(result.text), isError: result.isError }
       }
 
@@ -459,26 +472,31 @@ export async function createAssistantToolkit(deps: {
                 actorUserId: labContext.userId,
               })
             : await runLiteratureSearch(args, labContext)
+
         return { text: clip(result.text), isError: result.isError }
       }
 
       if (isSeriesReadTool(name)) {
         const result = await readSeries(args, labContext)
+
         return { text: clip(result.text), isError: result.isError }
       }
 
       if (isPartsReadTool(name)) {
         const result = await readParts(args, labContext)
+
         return { text: clip(result.text), isError: result.isError }
       }
 
       if (isGatesReadTool(name)) {
         const result = await readGates(args, labContext)
+
         return { text: clip(result.text), isError: result.isError }
       }
 
       if (isPlanningProposalTool(name)) {
         const built = await buildPlanningProposal(name, args, labContext)
+
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
@@ -490,6 +508,7 @@ export async function createAssistantToolkit(deps: {
 
       if (isLabworkProposalTool(name)) {
         const built = await buildLabworkProposal(name, args, labContext)
+
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
@@ -501,6 +520,7 @@ export async function createAssistantToolkit(deps: {
 
       if (isAutomationProposalTool(name)) {
         const built = await buildAutomationProposal(name, args, labContext)
+
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
@@ -512,6 +532,7 @@ export async function createAssistantToolkit(deps: {
 
       if (isPlannerProposalTool(name)) {
         const built = await buildPlannerProposal(name, args, labContext)
+
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
@@ -523,6 +544,7 @@ export async function createAssistantToolkit(deps: {
 
       if (isStudiesProposalTool(name)) {
         const built = await buildStudiesProposal(name, args, labContext)
+
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
@@ -534,6 +556,7 @@ export async function createAssistantToolkit(deps: {
 
       if (isInstrumentsProposalTool(name)) {
         const built = await buildInstrumentsProposal(name, args, labContext)
+
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
@@ -542,8 +565,10 @@ export async function createAssistantToolkit(deps: {
             }
           : { text: built.message, isError: true }
       }
+
       if (isQcProposalTool(name)) {
         const built = await buildQcProposal(name, args, labContext)
+
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
@@ -552,8 +577,10 @@ export async function createAssistantToolkit(deps: {
             }
           : { text: built.message, isError: true }
       }
+
       if (isPlatesProposalTool(name)) {
         const built = await buildPlatesProposal(name, args, labContext)
+
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
@@ -565,6 +592,7 @@ export async function createAssistantToolkit(deps: {
 
       if (isUpkeepProposalTool(name)) {
         const built = await buildUpkeepProposal(name, args, labContext)
+
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
@@ -576,6 +604,7 @@ export async function createAssistantToolkit(deps: {
 
       if (isBookingProposalTool(name)) {
         const built = await buildBookingProposal(name, args, labContext)
+
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has been booked or changed yet. Say in one sentence what you proposed, then stop.',
@@ -587,6 +616,7 @@ export async function createAssistantToolkit(deps: {
 
       if (isBenchProposalTool(name)) {
         const built = await buildBenchProposal(name, args, labContext)
+
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has been changed yet. Say in one sentence what you proposed, then stop.',
@@ -603,6 +633,7 @@ export async function createAssistantToolkit(deps: {
           name,
           args,
         )
+
         return built.ok
           ? {
               text: 'The person now sees this as a card with Apply and Dismiss. Nothing has changed. Say in one sentence what you proposed, then stop.',
@@ -614,9 +645,11 @@ export async function createAssistantToolkit(deps: {
 
       if (name === GUIDE_TOOL_NAME) {
         const parsed = guideSchema.safeParse(args)
+
         const resource = parsed.success
           ? DOMAIN_RESOURCES.find((entry) => entry.name === parsed.data.topic)
           : undefined
+
         return resource
           ? { text: resource.text, isError: false }
           : { text: 'Unknown guide topic.', isError: true }
@@ -631,16 +664,20 @@ export async function createAssistantToolkit(deps: {
         },
         context,
       )
+
       if (!response || 'error' in response) {
         return { text: 'The lookup failed.', isError: true }
       }
+
       const result = response.result as {
         content?: Array<{ type: string; text?: string }>
         isError?: boolean
       }
+
       const text = (result.content ?? [])
         .map((part) => (part.type === 'text' ? (part.text ?? '') : ''))
         .join('\n')
+
       return { text: clip(text), isError: result.isError === true }
     },
   }

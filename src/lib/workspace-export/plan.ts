@@ -48,19 +48,19 @@ export interface ExportPlan {
 }
 
 /** Tables that hold credentials, sign-in state or files' raw storage pieces. */
-const NEVER_EXPORTED: Record<string, string> = {
-  'internal.account': 'sign-in credentials',
-  'internal.session': 'sign-in sessions',
-  'internal.verification': 'sign-in verification codes',
-  'internal.twoFactor': 'two-factor secrets',
-  'internal.signature_password_attempts': 'sign-in throttling',
-  'internal.connector_secrets': 'secrets',
-  'internal.webhook_secrets': 'secrets',
-  'internal.parser_webhook_secrets': 'secrets',
-  'internal.file_blobs': 'stored under files/ instead',
-  'internal.file_blob_chunks': 'stored under files/ instead',
-  'internal.workspace_backups': 'a record of backups, not workspace data',
-}
+const NEVER_EXPORTED = new Map([
+  ['internal.account', 'sign-in credentials'],
+  ['internal.session', 'sign-in sessions'],
+  ['internal.verification', 'sign-in verification codes'],
+  ['internal.twoFactor', 'two-factor secrets'],
+  ['internal.signature_password_attempts', 'sign-in throttling'],
+  ['internal.connector_secrets', 'secrets'],
+  ['internal.webhook_secrets', 'secrets'],
+  ['internal.parser_webhook_secrets', 'secrets'],
+  ['internal.file_blobs', 'stored under files/ instead'],
+  ['internal.file_blob_chunks', 'stored under files/ instead'],
+  ['internal.workspace_backups', 'a record of backups, not workspace data'],
+])
 
 /**
  * Columns dropped wherever they appear: hashes and ciphertext of secrets. The
@@ -76,7 +76,7 @@ export const SECRET_COLUMNS: ReadonlySet<string> = new Set([
 ])
 
 /** What is kept of the account table: who people are, never how they sign in. */
-const USER_COLUMNS = ['id', 'name', 'email', 'image', 'createdAt'] as const
+const USER_COLUMNS = new Set(['id', 'name', 'email', 'image', 'createdAt'])
 
 const USER_TABLE = 'internal.user'
 const WORKSPACE_TABLE = 'api.workspaces'
@@ -105,7 +105,7 @@ export function buildExportPlan(
   for (const table of tables) {
     const name = `${table.schema}.${table.name}`
 
-    if (NEVER_EXPORTED[name]) continue
+    if (NEVER_EXPORTED.has(name)) continue
 
     if (name === WORKSPACE_TABLE) {
       scope.set(name, `t.id = '${workspaceId}'`)
@@ -128,7 +128,7 @@ export function buildExportPlan(
     for (const table of tables) {
       const name = `${table.schema}.${table.name}`
 
-      if (scope.has(name) || NEVER_EXPORTED[name]) continue
+      if (scope.has(name) || NEVER_EXPORTED.has(name)) continue
 
       const parents = foreignKeys.filter(
         (fk) =>
@@ -172,8 +172,10 @@ export function buildExportPlan(
   for (const table of tables) {
     const name = `${table.schema}.${table.name}`
 
-    if (NEVER_EXPORTED[name]) {
-      skipped.push({ name, reason: NEVER_EXPORTED[name] })
+    const excludedReason = NEVER_EXPORTED.get(name)
+
+    if (excludedReason) {
+      skipped.push({ name, reason: excludedReason })
       continue
     }
 
@@ -189,14 +191,14 @@ export function buildExportPlan(
 
     const wanted =
       name === USER_TABLE
-        ? table.columns.filter((c) =>
-            (USER_COLUMNS as readonly string[]).includes(c),
-          )
+        ? table.columns.filter((c) => USER_COLUMNS.has(c))
         : table.columns.filter((c) => !SECRET_COLUMNS.has(c))
+
+    const wantedSet = new Set(wanted)
 
     const droppedColumns =
       name === USER_TABLE
-        ? table.columns.filter((c) => !wanted.includes(c))
+        ? table.columns.filter((c) => !wantedSet.has(c))
         : table.columns.filter((c) => SECRET_COLUMNS.has(c))
 
     planned.push({

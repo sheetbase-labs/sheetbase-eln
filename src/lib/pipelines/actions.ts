@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import { t } from '#/copy'
 import { pipelineActionsFrom } from '#/lib/operations/descriptor'
 import { CORE_OPERATIONS, pipelineActions } from '#/lib/operations/registry'
@@ -7,7 +9,7 @@ import { parsePluginName } from '#/lib/extensions/points'
 export interface PipelineAction {
   name: string
   operation: string
-  arguments: Record<string, unknown>
+  arguments: Record<string, z.core.util.JSONType>
   /**
    * PIPE-03.1 — what the step does with the action. `execute` (the default) calls the
    * canonical RPC; `propose` writes a proposal instead, so a person decides. Only an
@@ -76,24 +78,53 @@ export const PIPELINE_ACTIONS: PipelineActionDefinition[] =
 
 const actionName = /^[a-z][a-z0-9_]{0,47}$/
 
-function validateRowLoop(forEach: unknown, index: number, errors: string[]) {
-  if (forEach === undefined) return
+const rawActionSchema = z
+  .looseObject({
+    name: z.unknown(),
+    operation: z.unknown(),
+    arguments: z.unknown(),
+    mode: z.unknown(),
+    forEach: z.unknown(),
+  })
+  .partial()
 
-  const reference =
-    forEach !== null &&
-    typeof forEach === 'object' &&
-    !Array.isArray(forEach) &&
-    Object.keys(forEach).length === 1
-      ? (forEach as { $ref?: unknown }).$ref
-      : undefined
+const actionListSchema = z.array(z.unknown()).max(20)
 
-  const parts = typeof reference === 'string' ? reference.split('.') : []
+const actionItemSchema = z.union([
+  rawActionSchema,
+  z.array(z.unknown()).transform(() => rawActionSchema.parse({})),
+])
 
-  if (
-    parts.length === 0 ||
-    !PIPELINE_ACTION_ROW_SOURCES.includes(parts[0]) ||
-    parts.some((part) => !/^[A-Za-z0-9_-]+$/.test(part))
+const actionArgumentsEnvelopeSchema = z.looseObject({})
+
+// Retain original own keys: looseObject clones omit __proto__, which still
+// needs an editable-argument error or counts as an extra row-reference key.
+const actionArgumentsSchema = z.custom<
+  z.infer<typeof actionArgumentsEnvelopeSchema>
+>((value) => actionArgumentsEnvelopeSchema.safeParse(value).success)
+
+const rowLoopEnvelopeSchema = z.looseObject({ $ref: z.string() })
+
+const rowLoopSchema = z
+  .custom<z.infer<typeof rowLoopEnvelopeSchema>>(
+    (value) => rowLoopEnvelopeSchema.safeParse(value).success,
   )
+  .refine((value) => {
+    const parts = value.$ref.split('.')
+
+    return (
+      Object.keys(value).length === 1 &&
+      PIPELINE_ACTION_ROW_SOURCES.includes(parts[0]) &&
+      parts.every((part) => /^[A-Za-z0-9_-]+$/.test(part))
+    )
+  })
+
+function validateRowLoop(
+  loop: z.ZodSafeParseResult<z.infer<typeof rowLoopSchema> | undefined>,
+  index: number,
+  errors: string[],
+) {
+  if (!loop.success)
     errors.push(
       t('data.pipelineActions.actionRowLoopNeedsList', {
         value: index + 1,
@@ -102,39 +133,51 @@ function validateRowLoop(forEach: unknown, index: number, errors: string[]) {
 }
 
 export function validatePipelineActions(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public authoring boundary immediately decodes the raw list before accumulating each action's field diagnostics.
   value: unknown,
   workspaceId?: string,
 ): string[] {
+  const list = actionListSchema.safeParse(value)
   const available = pipelineActions(workspaceId)
+  const operations = new Map<string, PipelineActionDefinition>()
 
-  if (!Array.isArray(value) || value.length > 20)
-    return [t('data.pipelineActions.useArrayUp20')]
+  for (const operation of available) {
+    if (!operations.has(operation.operation))
+      operations.set(operation.operation, operation)
+  }
+
+  if (!list.success) return [t('data.pipelineActions.useArrayUp20')]
   const errors: string[] = []
   const names = new Set<string>()
 
-  for (const [index, action] of value.entries()) {
-    if (!action || typeof action !== 'object') {
+  for (const [index, action] of list.data.entries()) {
+    const decoded = actionItemSchema.safeParse(action)
+
+    if (!decoded.success) {
       errors.push(
         t('data.pipelineActions.actionMustObject', { value: index + 1 }),
       )
       continue
     }
 
-    const item = action as Partial<PipelineAction>
+    const item = decoded.data
+    const name = z.string().safeParse(item.name)
 
     if (
-      typeof item.name !== 'string' ||
-      !actionName.test(item.name) ||
-      ['__proto__', 'constructor', 'prototype'].includes(item.name) ||
-      names.has(item.name)
+      !name.success ||
+      !actionName.test(name.data) ||
+      ['__proto__', 'constructor', 'prototype'].includes(name.data) ||
+      names.has(name.data)
     )
       errors.push(
         t('data.pipelineActions.actionNeedsUniqueName', { value: index + 1 }),
       )
 
-    if (typeof item.name === 'string') names.add(item.name)
-    // The item is unvalidated JSON: check the raw mode before narrowing it.
-    const mode: unknown = item.mode
+    if (name.success) names.add(name.data)
+    const mode = item.mode
+    const operationName = z.string().safeParse(item.operation)
+    const argumentsObject = actionArgumentsSchema.safeParse(item.arguments)
+    const loop = rowLoopSchema.optional().safeParse(item.forEach)
 
     if (mode !== undefined && mode !== 'execute' && mode !== 'propose')
       errors.push(
@@ -144,12 +187,8 @@ export function validatePipelineActions(
     // An action an extension adds is checked here only for its shape; which
     // extensions are installed, enabled and declare it is a workspace fact, so
     // the run checks that (and the declared inputs) before anything is called.
-    if (typeof item.operation === 'string' && parsePluginName(item.operation)) {
-      if (
-        !item.arguments ||
-        typeof item.arguments !== 'object' ||
-        Array.isArray(item.arguments)
-      ) {
+    if (operationName.success && parsePluginName(operationName.data)) {
+      if (!argumentsObject.success) {
         errors.push(
           t('data.pipelineActions.actionNeedsArgumentsObject', {
             value: index + 1,
@@ -162,16 +201,16 @@ export function validatePipelineActions(
         errors.push(
           t('data.pipelineActions.actionCannotProposeHas', {
             value: index + 1,
-            operation: item.operation,
+            operation: operationName.data,
           }),
         )
-      validateRowLoop(item.forEach, index, errors)
+      validateRowLoop(loop, index, errors)
       continue
     }
 
-    const operation = available.find(
-      (entry) => entry.operation === item.operation,
-    )
+    const operation = operationName.success
+      ? operations.get(operationName.data)
+      : undefined
 
     if (!operation) {
       errors.push(
@@ -182,11 +221,7 @@ export function validatePipelineActions(
       continue
     }
 
-    if (
-      !item.arguments ||
-      typeof item.arguments !== 'object' ||
-      Array.isArray(item.arguments)
-    ) {
+    if (!argumentsObject.success) {
       errors.push(
         t('data.pipelineActions.actionNeedsArgumentsObject', {
           value: index + 1,
@@ -195,7 +230,7 @@ export function validatePipelineActions(
       continue
     }
 
-    for (const key of Object.keys(item.arguments)) {
+    for (const key of Object.keys(argumentsObject.data)) {
       if (
         !operation.arguments.some(
           (entry) => entry.name === key && !entry.server,
@@ -213,7 +248,7 @@ export function validatePipelineActions(
       if (
         field.required &&
         !field.server &&
-        !Object.hasOwn(item.arguments, field.name)
+        !Object.hasOwn(argumentsObject.data, field.name)
       )
         errors.push(
           t('data.pipelineActions.actionRequires', {
@@ -223,7 +258,7 @@ export function validatePipelineActions(
         )
     }
 
-    validateRowLoop(item.forEach, index, errors)
+    validateRowLoop(loop, index, errors)
 
     if (item.mode === 'propose' && !operation.proposalKind)
       errors.push(

@@ -15,6 +15,7 @@ export class ConnectorExecutionError extends Error {
 }
 
 /** Format any thrown error into a bounded, safe message for run failures. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- JavaScript rejection reasons are untrusted; only recognized Error instances supply text.
 export function boundedErrorMessage(error: unknown): string {
   if (error instanceof ConnectorExecutionError) return error.message
 

@@ -10,31 +10,26 @@ const key = z.string().regex(/^[a-z][a-z0-9_]{0,59}$/)
 const uniqueIds = (values: string[]) => new Set(values).size === values.length
 
 export const sheetDefinitionExtractionSelectionSchema = z
-  .object({
+  .strictObject({
     bindings: z
       .array(
-        z
-          .object({
-            bindingId: uuid,
-            key,
-            parameter: parameterSchema,
-          })
-          .strict(),
+        z.strictObject({
+          bindingId: uuid,
+          key,
+          parameter: parameterSchema,
+        }),
       )
       .max(64),
     columnIds: z.array(uuid).max(256),
     joinIds: z.array(uuid).max(16),
     localFieldIds: z.array(uuid).max(256),
     calculationIds: z.array(uuid).max(128),
-    rowIdentity: z
-      .object({
-        kind: z.enum(['source', 'composite', 'local']),
-        columnIds: z.array(uuid).min(1).max(8),
-      })
-      .strict(),
+    rowIdentity: z.strictObject({
+      kind: z.enum(['source', 'composite', 'local']),
+      columnIds: z.array(uuid).min(1).max(8),
+    }),
     includePresentation: z.boolean(),
   })
-  .strict()
   .superRefine((selection, context) => {
     for (const [path, ids] of [
       ['bindings.bindingId', selection.bindings.map((item) => item.bindingId)],
@@ -58,59 +53,48 @@ export const sheetDefinitionExtractionSelectionSchema = z
     }
   })
 
-const reusableManifestSchema = z
-  .object({
-    parameterIds: z.array(uuid).max(64),
-    bindingIds: z.array(uuid).max(64),
-    sourceColumnIds: z.array(uuid).max(256),
-    joinIds: z.array(uuid).max(16),
-    localFieldIds: z.array(uuid).max(256),
-    calculationIds: z.array(uuid).max(128),
-    presentationDefaultsIncluded: z.boolean(),
-  })
-  .strict()
+const reusableManifestSchema = z.strictObject({
+  parameterIds: z.array(uuid).max(64),
+  bindingIds: z.array(uuid).max(64),
+  sourceColumnIds: z.array(uuid).max(256),
+  joinIds: z.array(uuid).max(16),
+  localFieldIds: z.array(uuid).max(256),
+  calculationIds: z.array(uuid).max(128),
+  presentationDefaultsIncluded: z.boolean(),
+})
 
-const excludedManifestSchema = z
-  .object({
-    concreteBindingValueBindingIds: z.array(uuid).max(64),
-    unselectedSourceColumnIds: z.array(uuid).max(256),
-    unselectedJoinIds: z.array(uuid).max(16),
-    unselectedLocalFieldIds: z.array(uuid).max(256),
-    unselectedCalculationIds: z.array(uuid).max(128),
-    localValues: z
-      .object({
-        rowCount: z.number().int().min(0),
-        cellCount: z.number().int().min(0),
-      })
-      .strict(),
-    calculationOverrideIds: z.array(uuid).max(128),
-    calculationResults: z.literal('all'),
-    writeBackRuleIds: z.array(uuid).max(64),
-    actionIds: z.array(uuid).max(64),
-    presentationValueFilterCount: z.number().int().min(0).max(32),
-    presentationOutOfRangeWidthColumnIds: z.array(uuid).max(256),
-    rowIdentitiesDerivedFromValues: z.literal('all'),
-  })
-  .strict()
+const excludedManifestSchema = z.strictObject({
+  concreteBindingValueBindingIds: z.array(uuid).max(64),
+  unselectedSourceColumnIds: z.array(uuid).max(256),
+  unselectedJoinIds: z.array(uuid).max(16),
+  unselectedLocalFieldIds: z.array(uuid).max(256),
+  unselectedCalculationIds: z.array(uuid).max(128),
+  localValues: z.strictObject({
+    rowCount: z.number().int().min(0),
+    cellCount: z.number().int().min(0),
+  }),
+  calculationOverrideIds: z.array(uuid).max(128),
+  calculationResults: z.literal('all'),
+  writeBackRuleIds: z.array(uuid).max(64),
+  actionIds: z.array(uuid).max(64),
+  presentationValueFilterCount: z.number().int().min(0).max(32),
+  presentationOutOfRangeWidthColumnIds: z.array(uuid).max(256),
+  rowIdentitiesDerivedFromValues: z.literal('all'),
+})
 
 export const sheetDefinitionExtractionPreviewSchema = z
-  .object({
-    source: z
-      .object({
-        instanceId: uuid,
-        instanceRevision: z.number().int().positive(),
-      })
-      .strict(),
+  .strictObject({
+    source: z.strictObject({
+      instanceId: uuid,
+      instanceRevision: z.number().int().positive(),
+    }),
     selection: sheetDefinitionExtractionSelectionSchema,
     configuration: z.unknown(),
-    manifest: z
-      .object({
-        reusable: reusableManifestSchema,
-        excluded: excludedManifestSchema,
-      })
-      .strict(),
+    manifest: z.strictObject({
+      reusable: reusableManifestSchema,
+      excluded: excludedManifestSchema,
+    }),
   })
-  .strict()
   .transform((preview) => ({
     ...preview,
     configuration: parseSheetDefinitionConfiguration(preview.configuration),
@@ -119,6 +103,7 @@ export const sheetDefinitionExtractionPreviewSchema = z
 export type SheetDefinitionExtractionSelection = z.infer<
   typeof sheetDefinitionExtractionSelectionSchema
 >
+
 export type SheetDefinitionExtractionPreview = z.output<
   typeof sheetDefinitionExtractionPreviewSchema
 >

@@ -18,17 +18,18 @@ import type { BlockValidationError } from './validators'
 
 export {
   EMPTY_RICH_TEXT_PAYLOAD,
-  RichTextContent,
   isEmptyRichText,
   isRichTextPayload,
   richTextToPlainText,
-} from './rich-text'
+} from './rich-text-data'
+
+export { RichTextContent } from './rich-text'
 
 export type {
   RichTextDocument,
   RichTextMark,
   RichTextPayload,
-} from './rich-text'
+} from './rich-text-data'
 
 export {
   CHART_PALETTE,

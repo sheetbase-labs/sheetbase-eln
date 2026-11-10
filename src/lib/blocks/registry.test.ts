@@ -255,8 +255,8 @@ describe('block declarations', () => {
     expect([...BLOCK_TYPES]).toEqual(types)
 
     for (const declaration of BLOCK_DECLARATIONS) {
-      expect(typeof declaration.validate).toBe('function')
-      expect(typeof declaration.defaultPayload).toBe('function')
+      expect(declaration.validate).toBeTypeOf('function')
+      expect(declaration.defaultPayload).toBeTypeOf('function')
     }
   })
 
@@ -270,5 +270,139 @@ describe('block declarations', () => {
 
     expect(new Set(orders).size).toBe(orders.length)
     expect(BLOCK_PICKER_OPTIONS).toHaveLength(orders.length)
+  })
+})
+
+describe('raw conflict summary contracts', () => {
+  it('preserves native template coercion and its hint/order for linked records', () => {
+    const trace: string[] = []
+
+    const native = (label: string) => ({
+      [Symbol.toPrimitive](hint: string) {
+        trace.push(`${label}:${hint}`)
+
+        return label
+      },
+    })
+
+    expect(
+      summarizeBlockPayload('linked_record', {
+        linkType: native('link'),
+        targetKind: native('sample'),
+        targetIdentifier: native('S-001'),
+        label: native('Observed'),
+      }),
+    ).toBe('link: sample S-001 — Observed')
+    expect(trace).toEqual([
+      'link:string',
+      'sample:string',
+      'S-001:string',
+      'Observed:string',
+    ])
+    expect(
+      summarizeBlockPayload('linked_record', {
+        linkType: 1n,
+        targetKind: false,
+        targetIdentifier: {},
+      }),
+    ).toBe('1: false [object Object]')
+    expect(() =>
+      summarizeBlockPayload('linked_record', { linkType: Symbol('native') }),
+    ).toThrow(TypeError)
+  })
+
+  it('retains analysis template hints but pipeline String conversion and truncation', () => {
+    const hints: string[] = []
+
+    const nativeTitle = {
+      [Symbol.toPrimitive](hint: string) {
+        hints.push(hint)
+
+        return 'Native title'
+      },
+    }
+
+    expect(
+      summarizeBlockPayload('analysis', { title: nativeTitle, frozen: true }),
+    ).toBe('Native title (frozen)')
+    expect(hints).toEqual(['string'])
+    hints.length = 0
+    expect(
+      summarizeBlockPayload('pipeline_output', { runId: nativeTitle }),
+    ).toBe('Pipeline output — run Native t')
+    expect(hints).toEqual(['string'])
+    expect(
+      summarizeBlockPayload('pipeline_output', { runId: Symbol('abcdefghi') }),
+    ).toBe('Pipeline output — run Symbol(a')
+    const refusal = new Error('coercion refused')
+
+    const refused = {
+      [Symbol.toPrimitive]() {
+        throw refusal
+      },
+    }
+
+    expect(() => summarizeBlockPayload('analysis', { title: refused })).toThrow(
+      refusal,
+    )
+    expect(() =>
+      summarizeBlockPayload('pipeline_output', { runId: refused }),
+    ).toThrow(refusal)
+  })
+
+  it('retains repeated summary getters without revalidating later reads', () => {
+    const finalValue = { original: 'raw third value' }
+    let reads = 0
+
+    const payload = {
+      get text() {
+        reads += 1
+
+        return reads < 3 ? 'Text' : finalValue
+      },
+    }
+
+    expect(summarizeBlockPayload('conclusion', payload)).toBe(finalValue)
+    expect(reads).toBe(3)
+    const trace: string[] = []
+
+    const item = {
+      get checked() {
+        trace.push('checked')
+
+        return true
+      },
+      get text() {
+        trace.push('text')
+
+        return 'Native item'
+      },
+    }
+
+    expect(summarizeBlockPayload('checklist', { items: [item] })).toBe(
+      '[x] Native item',
+    )
+    expect(trace).toEqual(['checked', 'text', 'text'])
+  })
+
+  it('retains array-valued checklist members and inherited plate fields', () => {
+    const item = Object.assign([], { text: 'Array member', checked: true })
+
+    expect(summarizeBlockPayload('checklist', { items: [item] })).toBe(
+      '[x] Array member',
+    )
+
+    class NativePlate {
+      get title() {
+        return 'Observed'
+      }
+      get spec() {
+        return Object.assign([], { wells: [1, 2, 3] })
+      }
+    }
+
+    expect(
+      summarizeBlockPayload('plate_map', Object.create(new NativePlate())),
+    ).toBe('Observed — 3 wells')
   })
 })

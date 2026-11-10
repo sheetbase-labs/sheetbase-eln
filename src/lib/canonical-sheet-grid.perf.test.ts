@@ -12,6 +12,7 @@ import type { ComposedSheetSnapshot } from './sheet-composition-data'
 import type { SheetInstance } from './sheet-instance-data'
 import type { SheetPresentation } from './sheet-instance'
 import { validSheetInstanceState } from './sheet-instance.test'
+import type { ProjectedBoundColumn } from './sheet-bound-columns'
 
 // GRID-05 performance budgets: a synthetic 5k-row bound projection exercises
 // the matrix build and the hot filter helpers. Measured on Apple M2 Pro
@@ -30,33 +31,89 @@ function columnId(index: number): string {
 }
 
 function largeSnapshot(): ComposedSheetSnapshot {
-  const columns = Array.from({ length: COLUMN_COUNT }, (_, column) => ({
-    id: columnId(column),
-    label: `Column ${column}`,
-    presentation: { kind: 'text', inputType: 'text' },
-    permission: { editability: 'editable' },
-  }))
+  const field = validSheetInstanceState().localFields[0]
+
+  const columns: ProjectedBoundColumn[] = Array.from(
+    { length: COLUMN_COUNT },
+    (_, column) => ({
+      id: columnId(column),
+      key: `column_${column}`,
+      field: { ...field, fieldId: columnId(column) },
+      source: {
+        kind: 'bound',
+        bindingId: columnId(0),
+        sourceFieldId: columnId(column),
+      },
+      label: `Column ${column}`,
+      presentation: { kind: 'text', inputType: 'text' },
+      permission: {
+        read: true,
+        editability: 'editable',
+        evidence: 'authenticated-composition-membership',
+        reason: 'Exact validated write-back mapping.',
+      },
+    }),
+  )
 
   const rows = Array.from({ length: ROW_COUNT }, (_, row) => ({
     rowKey: `sb-row-v1:row-${row}`,
     values: Object.fromEntries(
       columns.map((column, cell) => [
         column.id,
-        { kind: 'present', value: `v${row}-${cell}` },
+        {
+          kind: 'present' as const,
+          value: `v${row}-${cell}`,
+          provenance: {
+            definitionVersionId: columnId(0),
+            definitionColumnId: column.id,
+            bindingId: columnId(0),
+            sourceFieldId: column.id,
+            sourceKind: 'dataset' as const,
+            sourceDatasetId: columnId(0),
+            sourceRowId: null,
+            sourceRevision: 1,
+            sourceDatasetRevision: 1,
+          },
+        },
       ]),
     ),
   }))
 
   return {
+    instanceId: columnId(0),
+    revision: 1,
+    offset: 0,
+    limit: 200,
+    hasMore: false,
+    localFieldIds: [],
+    identity: {
+      kind: 'source',
+      columnIds: [columnId(0)],
+      logicalTypes: ['reference'],
+    },
+    rows: [],
     boundProjection: { columns, rows },
-  } as unknown as ComposedSheetSnapshot
+  }
 }
 
 function largeInstance(): SheetInstance {
   return {
     id: '20000000-0000-4000-8000-000000000001',
+    workspaceId: columnId(0),
+    projectId: columnId(0),
+    notebookRecordId: columnId(0),
+    sourceDefinitionVersionId: null,
+    name: 'Performance sheet',
+    description: null,
+    lifecycle: 'active',
+    revision: 1,
     state: { ...validSheetInstanceState(), localValues: {} },
-  } as unknown as SheetInstance
+    duplicatedFromInstanceId: null,
+    createdAt: '2026-08-16T12:00:00.000Z',
+    updatedAt: '2026-08-16T12:00:00.000Z',
+    createdByUserId: 'u1',
+    updatedByUserId: 'u1',
+  }
 }
 
 describe('GRID-05 canonical grid performance budgets', () => {
@@ -83,14 +140,15 @@ describe('GRID-05 canonical grid performance budgets', () => {
       composition: largeSnapshot(),
     })
 
-    const presentation = {
+    const presentation: SheetPresentation = {
       columnOrder: [columnId(7), columnId(0)],
       hiddenColumnIds: [columnId(1)],
       columnWidths: {},
       frozenColumnCount: 0,
+      density: 'standard',
       filters: [],
       sorts: [],
-    } as unknown as SheetPresentation
+    }
 
     const start = performance.now()
     const projected = applySheetPresentation(matrix, presentation)

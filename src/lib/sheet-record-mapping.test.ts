@@ -1,11 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
+import { createDataClient } from './data-client'
 import { CURRENT_RECORD_ID_POLICY } from './record-id-policy'
 import {
   SHEET_RECORD_MAPPING_FORMAT,
   parseSheetRecordMapping,
   previewSheetRecordMapping,
   rejectInferredSheetRecordMapping,
+  validateSheetRecordBatch,
 } from './sheet-record-mapping'
 
 const TITLE_COL = '10000000-0000-4000-8000-000000000001'
@@ -201,5 +204,166 @@ describe('Sheet Record mapping', () => {
     })
 
     expect(preview[0].errors[0].code).toBe('quantity-unconverted')
+  })
+})
+
+describe('Sheet Record batch transport', () => {
+  const input = { projectId: SAMPLE, modelKey: 'sample' }
+
+  const refusal = {
+    ok: false,
+    mutated: false,
+    rows: [
+      {
+        rowIndex: 1,
+        rowKey: 'row',
+        classification: 'invalid',
+        recordId: null,
+        errors: [
+          {
+            code: 'record_id_policy',
+            fieldName: 'identifier',
+            message: 'Model-generated identifiers required.',
+          },
+        ],
+      },
+    ],
+  }
+
+  it('preserves a server refusal and the original scientific values', async () => {
+    const values = Object.defineProperty(
+      {
+        nested: Object.defineProperty({}, '__proto__', {
+          value: { note: null },
+          enumerable: true,
+        }),
+      },
+      '__proto__',
+      { value: 'scientific key', enumerable: true },
+    )
+
+    const rows = [
+      {
+        rowKey: 'row',
+        operation: 'create',
+        title: 'Sample',
+        values,
+      } satisfies Parameters<
+        typeof validateSheetRecordBatch
+      >[0]['rows'][number],
+    ]
+
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json(refusal))
+
+    await expect(
+      validateSheetRecordBatch({ ...input, rows }, createDataClient(fetchImpl)),
+    ).resolves.toEqual(refusal)
+    expect(fetchImpl.mock.calls[0][0]).toBe(
+      '/api/db/rpc/validate_sheet_record_batch',
+    )
+    expect(
+      JSON.parse(z.string().parse(fetchImpl.mock.calls[0][1]?.body)),
+    ).toEqual({
+      p_project_id: SAMPLE,
+      p_model_key: 'sample',
+      p_rows: rows,
+    })
+  })
+
+  it.each([undefined, NaN, Infinity, () => 1, Symbol('value'), 1n])(
+    'rejects raw non-JSON scientific values before HTTP: %s',
+    async (value) => {
+      const fetchImpl = vi.fn<typeof fetch>()
+
+      const values = Object.defineProperty({}, '__proto__', {
+        value: { nested: value },
+        enumerable: true,
+      })
+
+      await expect(
+        validateSheetRecordBatch(
+          { ...input, rows: [{ rowKey: 'row', operation: 'create', values }] },
+          createDataClient(fetchImpl),
+        ),
+      ).rejects.toThrow()
+      expect(fetchImpl).not.toHaveBeenCalled()
+    },
+  )
+
+  it('preserves omission, null and server record-reference refusal semantics', async () => {
+    const rows = [
+      {
+        rowKey: 'row',
+        operation: 'link',
+        recordId: 'not-a-uuid',
+      } satisfies Parameters<
+        typeof validateSheetRecordBatch
+      >[0]['rows'][number],
+    ]
+
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        ...refusal,
+        rows: [
+          {
+            ...refusal.rows[0],
+            errors: [{ code: 'not-uuid', message: 'Choose a Record UUID.' }],
+          },
+        ],
+      }),
+    )
+
+    const result = await validateSheetRecordBatch(
+      { ...input, rows },
+      createDataClient(fetchImpl),
+    )
+
+    expect(result.rows[0].recordId).toBeNull()
+    expect(result.rows[0].errors[0].code).toBe('not-uuid')
+    expect(
+      JSON.parse(z.string().parse(fetchImpl.mock.calls[0][1]?.body)).p_rows,
+    ).toEqual(rows)
+  })
+
+  it.each([
+    null,
+    {},
+    { ...refusal, mutated: true },
+    { ...refusal, rows: [{ ...refusal.rows[0], errors: [{}] }] },
+  ])('rejects malformed responses: %j', async (body) => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json(body))
+
+    await expect(
+      validateSheetRecordBatch(
+        { ...input, rows: [{ rowKey: 'row', operation: 'create' }] },
+        createDataClient(fetchImpl),
+      ),
+    ).rejects.toThrow()
+  })
+
+  it('preserves HTTP refusal diagnostics', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        Response.json(
+          { code: '42501', message: 'capability required: record.link' },
+          { status: 403 },
+        ),
+      )
+
+    await expect(
+      validateSheetRecordBatch(
+        { ...input, rows: [{ rowKey: 'row', operation: 'link' }] },
+        createDataClient(fetchImpl),
+      ),
+    ).rejects.toMatchObject({
+      code: '42501',
+      status: 403,
+      message: 'capability required: record.link',
+    })
   })
 })

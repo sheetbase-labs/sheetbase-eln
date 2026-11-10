@@ -6,7 +6,7 @@ import {
   notificationDestination,
 } from './notifications-data'
 import type { NotificationItem } from './notifications-data'
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
 
 function notification(
   overrides: Partial<NotificationItem> = {},
@@ -73,36 +73,52 @@ describe('notificationDestination', () => {
 
 describe('fetchLatestReviews', () => {
   it('asks once for the records review notifications name and keeps the newest submission', async () => {
-    const list = vi.fn(async () => [
-      { record_id: 'record-1', revision_id: 'rev-new', state: 'submitted' },
-      { record_id: 'record-1', revision_id: 'rev-old', state: 'returned' },
-    ])
+    const http = vi.fn<typeof fetch>(async () =>
+      Response.json([
+        { record_id: 'record-1', revision_id: 'rev-new', state: 'submitted' },
+        { record_id: 'record-1', revision_id: 'rev-old', state: 'returned' },
+        { record_id: 'record/2', revision_id: 'rev-other', state: 'returned' },
+      ]),
+    )
 
     const latest = await fetchLatestReviews(
       [
         notification(),
         notification({ id: 'n2' }),
         notification({ id: 'n3', eventType: 'comment_or_mention' }),
+        notification({ id: 'n4', recordId: 'record/2' }),
+        notification({ id: 'n5', recordId: null }),
       ],
-      { list } as unknown as DataClient,
+      createDataClient(http),
     )
 
-    expect(list).toHaveBeenCalledTimes(1)
+    expect(http).toHaveBeenCalledTimes(1)
+    expect(http.mock.calls[0]?.[0]).toBe(
+      '/api/db/review_submissions?record_id=in.(record-1,record%2F2)&select=record_id,revision_id,state&order=submitted_at.desc',
+    )
+    expect(http.mock.calls[0]?.[1]?.method).toBe('GET')
     expect(latest.get('record-1')).toEqual({
       revisionId: 'rev-new',
       state: 'submitted',
     })
+    expect(latest.get('record/2')).toEqual({
+      revisionId: 'rev-other',
+      state: 'returned',
+    })
   })
 
   it('does not ask when no notification is about a review', async () => {
-    const list = vi.fn(async () => [])
+    const http = vi.fn<typeof fetch>(async () => Response.json([]))
 
     const latest = await fetchLatestReviews(
-      [notification({ eventType: 'comment_or_mention' })],
-      { list } as unknown as DataClient,
+      [
+        notification({ eventType: 'comment_or_mention' }),
+        notification({ recordId: null }),
+      ],
+      createDataClient(http),
     )
 
-    expect(list).not.toHaveBeenCalled()
+    expect(http).not.toHaveBeenCalled()
     expect(latest.size).toBe(0)
   })
 })

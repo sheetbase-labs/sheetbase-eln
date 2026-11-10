@@ -211,7 +211,8 @@ function cleanSql(raw: string): string {
     .trim()
 }
 
-function coerceDefault(type: ParameterType, value: unknown): unknown {
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Model JSON defaults enter here untrusted and are normalized to the selected parameter's primitive contract.
+function coerceDefault(type: ParameterType, value: unknown) {
   if (value === undefined || value === null || value === '') return undefined
 
   if (type === 'integer') {
@@ -233,7 +234,7 @@ function coerceDefault(type: ParameterType, value: unknown): unknown {
         ? false
         : undefined
 
-  return typeof value === 'string' ? value : undefined
+  return z.string().safeParse(value).data
 }
 
 /**
@@ -272,43 +273,46 @@ export function parsePipelineDraftAnswer(
 
     takenNames.add(name)
     const schema = raw.schema ? schemaByKey.get(raw.schema) : undefined
-    inputs.push({
-      name,
-      required: true,
-      ...(cleanText(raw.description, 300)
-        ? { description: cleanText(raw.description, 300) }
-        : {}),
-      ...(schema ? { schemaId: schema.definitionId } : {}),
-    })
+    const input: PipelineInput = { name, required: true }
+    const description = cleanText(raw.description, 300)
+
+    if (description) input.description = description
+
+    if (schema) input.schemaId = schema.definitionId
+    inputs.push(input)
   }
 
   const parameters: PipelineParameter[] = []
 
   for (const raw of answer.parameters) {
     const name = snakeName(raw.name)
-    const type = (raw.type ?? 'text') as ParameterType
+    const parsedType = z.enum(PARAMETER_TYPES).safeParse(raw.type ?? 'text')
 
     if (
       !name ||
       name === 'previous' ||
       takenNames.has(name) ||
-      !(PARAMETER_TYPES as readonly string[]).includes(type)
+      !parsedType.success
     ) {
       skipped.push(`parameter ${raw.name}`)
       continue
     }
 
     takenNames.add(name)
+    const type = parsedType.data
     const value = coerceDefault(type, raw.default)
-    parameters.push({
+
+    const parameter: PipelineParameter = {
       name,
       type,
       required: value === undefined,
-      ...(value !== undefined ? { default: value } : {}),
-      ...(cleanText(raw.description, 300)
-        ? { description: cleanText(raw.description, 300) }
-        : {}),
-    })
+    }
+
+    if (value !== undefined) parameter.default = value
+    const description = cleanText(raw.description, 300)
+
+    if (description) parameter.description = description
+    parameters.push(parameter)
   }
 
   const sqlSteps = answer.steps

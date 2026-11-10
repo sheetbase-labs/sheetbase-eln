@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { readZip } from '../eln/zip-read'
 import { licenseById } from './licenses'
@@ -61,9 +62,9 @@ function metadata(bytes: Uint8Array) {
   return {
     files,
     names: [...files.keys()],
-    graph: JSON.parse(new TextDecoder().decode(files.get(key)))[
-      '@graph'
-    ] as Array<Record<string, unknown>>,
+    graph: z
+      .object({ '@graph': z.array(z.looseObject({ '@id': z.string() })) })
+      .parse(JSON.parse(new TextDecoder().decode(files.get(key))))['@graph'],
   }
 }
 
@@ -119,5 +120,58 @@ describe('dataset crate', () => {
     const a = await buildDatasetCrate(input)
     const b = await buildDatasetCrate(input)
     expect(Buffer.from(a.bytes).equals(Buffer.from(b.bytes))).toBe(true)
+  })
+
+  it('preserves native run serialization and distinguishes omitted from captured values', async () => {
+    const date = new Date('2020-02-03T04:05:06Z')
+
+    const built = await buildDatasetCrate({
+      ...input,
+      run: {
+        id: 'native-run',
+        status: 'succeeded',
+        triggerKind: 'manual',
+        startedAt: input.exportedAt,
+        finishedAt: null,
+        actorName: null,
+        parameters: { omitted: undefined, no: false, zero: 0, nil: null, date },
+        inputVersions: { no: false, zero: 0, nil: null, date },
+        inputDigest: null,
+        pipeline: {
+          key: 'native',
+          name: 'Native',
+          version: 1,
+          configuration: date,
+        },
+        manifestDigest: null,
+      },
+    })
+
+    const { graph } = metadata(built.bytes)
+
+    expect(
+      graph.find((entity) => entity['@id'] === '#param-omitted'),
+    ).not.toHaveProperty('value')
+    expect(
+      graph.find((entity) => entity['@id'] === '#param-no'),
+    ).toHaveProperty('value', false)
+    expect(
+      graph.find((entity) => entity['@id'] === '#param-zero'),
+    ).toHaveProperty('value', 0)
+    expect(
+      graph.find((entity) => entity['@id'] === '#param-nil'),
+    ).toHaveProperty('value', 'null')
+    expect(
+      graph.find((entity) => entity['@id'] === '#param-date'),
+    ).toHaveProperty('value', '"2020-02-03T04:05:06.000Z"')
+    expect(
+      graph.find((entity) => entity['@id'] === '#input-no'),
+    ).toHaveProperty('value', 'false')
+    expect(
+      graph.find((entity) => entity['@id'] === '#input-zero'),
+    ).toHaveProperty('value', '0')
+    expect(
+      graph.find((entity) => entity['@id'] === '#input-nil'),
+    ).toHaveProperty('value', 'null')
   })
 })

@@ -10,12 +10,15 @@ import {
   ANALYSIS_METHOD_VERSION,
   ANALYSIS_RUNNER,
   analysisMethodsText,
+  analysisMethodFor,
+  decodeAnalysisBlockDefinition,
   regressionFitCurve,
   runAnalysis,
   validateAnalysisDefinition,
 } from './analysis-definition'
 import type {
   AnalysisDefinition,
+  CurveDefinition,
   DescriptiveDefinition,
   RegressionDefinition,
 } from './analysis-definition'
@@ -174,6 +177,33 @@ describe('stats kernel', () => {
 })
 
 describe('validateAnalysisDefinition', () => {
+  it('preserves native objects and does not inspect later fields after an unsupported kind', () => {
+    const native = Object.assign(new Date('2026-10-01T00:00:00Z'), descriptive)
+    expect(validateAnalysisDefinition(native)).toEqual([])
+    const decoded = decodeAnalysisBlockDefinition(native)
+    expect(decoded).toEqual({ ok: true, definition: native })
+
+    if (!decoded.ok) throw new Error('Expected native object acceptance')
+    expect(decoded.definition).toBe(native)
+
+    const unsupported = {
+      ...descriptive,
+      kind: 'future-kind',
+      get chart() {
+        throw new Error('Chart must not be read for unsupported kinds')
+      },
+    }
+
+    expect(
+      validateAnalysisDefinition(unsupported).map((error) => error.field),
+    ).toEqual(['kind'])
+    expect(
+      validateAnalysisDefinition(Object.assign([], descriptive)).map(
+        (error) => error.field,
+      ),
+    ).toEqual(['definition'])
+  })
+
   it('accepts the canonical definitions', () => {
     expect(validateAnalysisDefinition(descriptive)).toEqual([])
     expect(validateAnalysisDefinition(regression)).toEqual([])
@@ -235,7 +265,342 @@ describe('validateAnalysisDefinition', () => {
   })
 })
 
+describe('decodeAnalysisBlockDefinition', () => {
+  it('retains accepted statistical payloads and narrows them only after excluding chart-only definitions', () => {
+    const nativeDate = new Date('2026-10-01T00:00:00Z')
+    const bytes = Buffer.from([3, 17])
+
+    const definition = {
+      ...descriptive,
+      nativeDate,
+      bytes,
+      omittedValue: undefined,
+      ['__proto__']: { signal: 11 },
+    }
+
+    const decoded = decodeAnalysisBlockDefinition(definition)
+
+    expect(decoded.ok).toBe(true)
+
+    if (!decoded.ok) throw new Error('Expected canonical statistical payload')
+    expect(decoded.definition).toBe(definition)
+    expect(decoded.definition.kind).toBe('descriptive')
+
+    if (decoded.definition.kind === 'chart')
+      throw new Error('Expected statistic')
+    expect(analysisMethodFor(decoded.definition).id).toBe('one_way_anova')
+    expect(definition.nativeDate).toBe(nativeDate)
+    expect(definition.bytes).toBe(bytes)
+    expect(Object.hasOwn(decoded.definition, '__proto__')).toBe(true)
+    expect(Object.hasOwn(decoded.definition, 'omittedValue')).toBe(true)
+    expect(Object.hasOwn(decoded.definition, 'chart')).toBe(false)
+  })
+
+  it('keeps chart-only and structural companion acceptance without applying full chart-spec validation', () => {
+    const chart = {
+      datasets: [{ datasetId: DATASET_ID }],
+      fields: { y: { fieldId: COL_Y } },
+    }
+
+    for (const definition of [
+      {
+        definitionVersion: 1,
+        kind: 'chart',
+        datasets: [{ datasetId: DATASET_ID }],
+        chart,
+      },
+      { ...descriptive, chart },
+      {
+        ...regression,
+        outcomeTransform: null,
+        predictorTransform: null,
+        datasets: [
+          {
+            datasetId: DATASET_ID,
+            datasetVersionId: 'historically-unchecked-pin',
+          },
+        ],
+      },
+      {
+        ...descriptive,
+        kind: 'comparison',
+        test: 'paired',
+        pair: { fieldId: COL_X },
+      },
+      {
+        ...descriptive,
+        kind: 'survival',
+        time: { fieldId: COL_X },
+        event: { fieldId: COL_Y },
+      },
+      {
+        ...descriptive,
+        kind: 'curve',
+        dose: { fieldId: COL_X },
+        response: { fieldId: COL_Y },
+      },
+    ]) {
+      expect(validateAnalysisDefinition(definition)).toEqual([])
+      const decoded = decodeAnalysisBlockDefinition(definition)
+      expect(decoded.ok).toBe(true)
+
+      if (!decoded.ok) throw new Error('Expected historical acceptance')
+      expect(decoded.definition).toBe(definition)
+      expect(decoded.definition.kind).toBe(definition.kind)
+    }
+  })
+
+  it('retains canonical diagnostic order and unsupported-kind short circuiting', () => {
+    const invalid = {
+      definitionVersion: 9,
+      datasets: [{ datasetId: 'bad' }],
+      kind: 'regression',
+      chart: { datasets: [], fields: { y: [] } },
+      outcome: null,
+      predictor: { fieldId: 0 },
+      degree: 5,
+      outcomeTransform: 'bad',
+      predictorTransform: 'bad',
+    }
+
+    const decoded = decodeAnalysisBlockDefinition(invalid)
+
+    expect(decoded.ok).toBe(false)
+
+    if (decoded.ok) throw new Error('Expected rejection')
+    expect(decoded.errors.map(({ code, field }) => ({ code, field }))).toEqual([
+      { code: 'unsupported_definition_version', field: 'definitionVersion' },
+      { code: 'invalid_value', field: 'datasets[0].datasetId' },
+      { code: 'unsupported_dataset_count', field: 'chart.datasets' },
+      { code: 'invalid_shape', field: 'chart.fields.y' },
+      { code: 'missing_field', field: 'outcome' },
+      { code: 'invalid_value', field: 'predictor.fieldId' },
+      { code: 'invalid_value', field: 'degree' },
+      { code: 'invalid_value', field: 'outcomeTransform' },
+      { code: 'invalid_value', field: 'predictorTransform' },
+    ])
+    expect(decoded.errors).toEqual(validateAnalysisDefinition(invalid))
+
+    const unsupported = decodeAnalysisBlockDefinition({
+      ...invalid,
+      kind: 'future-kind',
+    })
+
+    expect(unsupported.ok).toBe(false)
+
+    if (unsupported.ok) throw new Error('Expected unsupported kind')
+    expect(unsupported.errors.map((error) => error.field)).toEqual([
+      'definitionVersion',
+      'datasets[0].datasetId',
+      'kind',
+    ])
+    expect(decodeAnalysisBlockDefinition([])).toEqual({
+      ok: false,
+      errors: validateAnalysisDefinition([]),
+    })
+  })
+})
+
 describe('runAnalysis', () => {
+  it('accepts finite numeric primitives and numeric strings without coercing other scientific values', () => {
+    const coercibleNumber = { valueOf: () => 8 }
+    const coercibleText = { toString: () => '11' }
+
+    const cells = [
+      ' 2 ',
+      '0x10',
+      -3,
+      null,
+      undefined,
+      true,
+      false,
+      NaN,
+      Infinity,
+      -Infinity,
+      '',
+      ' ',
+      'Infinity',
+      Buffer.from('9'),
+      coercibleNumber,
+      coercibleText,
+      [4],
+      7n,
+      new Date('2026-10-01T00:00:00Z'),
+    ]
+
+    const result = runAnalysis(
+      { ...descriptive, group: null },
+      COLUMNS,
+      cells.map((value) => ({ [COL_Y]: value })),
+    )
+
+    if (!result.ok || result.result.kind !== 'descriptive')
+      throw new Error('Expected descriptive result')
+    expect(result.result.rows[0].stats.n).toBe(3)
+    expect(result.result.rows[0].stats.mean).toBe(5)
+    expect(result.result.rows[0].stats.sd).toBeCloseTo(Math.sqrt(97), 12)
+    expect(result.result.rows[0].missing).toBe(16)
+  })
+
+  it('retains native scientific label grouping rather than JSON encoding', () => {
+    const textLabel = { toString: () => 'Z' }
+    const objectLabel = { signal: 1 }
+
+    const rows = [
+      { [COL_Y]: 2, [COL_G]: ['A', 'B'] },
+      { [COL_Y]: 8, [COL_G]: 'A,B' },
+      { [COL_Y]: 11, [COL_G]: textLabel },
+      { [COL_Y]: 19, [COL_G]: 'Z' },
+      { [COL_Y]: 4, [COL_G]: null },
+      { [COL_Y]: 6, [COL_G]: undefined },
+      { [COL_Y]: 7, [COL_G]: objectLabel },
+      { [COL_Y]: 13, [COL_G]: '[object Object]' },
+    ]
+
+    const result = runAnalysis(descriptive, COLUMNS, rows)
+
+    if (!result.ok || result.result.kind !== 'descriptive')
+      throw new Error('Expected descriptive result')
+    expect(
+      result.result.rows.map((group) => [
+        group.group,
+        group.stats.n,
+        group.stats.mean,
+      ]),
+    ).toEqual([
+      ['A,B', 2, 5],
+      ['Z', 2, 15],
+      ['[object Object]', 2, 10],
+      ['—', 2, 5],
+    ])
+  })
+
+  it('distinguishes event/censor values from unsupported event representations', () => {
+    const cells = [
+      true,
+      false,
+      1,
+      0,
+      ' YES ',
+      'censored',
+      2,
+      '2',
+      NaN,
+      Infinity,
+      [],
+      { valueOf: () => 1 },
+      null,
+    ]
+
+    const rows = cells.map((event, index) => ({
+      [COL_X]: index + 1,
+      [COL_Y]: event,
+    }))
+
+    const result = runAnalysis(
+      {
+        definitionVersion: 1,
+        kind: 'survival',
+        datasets: [{ datasetId: DATASET_ID }],
+        time: { fieldId: COL_X },
+        event: { fieldId: COL_Y },
+      },
+      COLUMNS,
+      rows,
+    )
+
+    if (!result.ok || result.result.kind !== 'survival')
+      throw new Error('Expected survival result')
+    expect(result.result.curves[0]).toMatchObject({
+      n: 6,
+      events: 3,
+      censored: 3,
+      missing: 7,
+    })
+  })
+
+  it('matches paired subjects using native labels, including array/string and object/string matches', () => {
+    const result = runAnalysis(
+      {
+        definitionVersion: 1,
+        kind: 'comparison',
+        datasets: [{ datasetId: DATASET_ID }],
+        value: { fieldId: COL_Y },
+        group: { fieldId: COL_G },
+        pair: { fieldId: COL_X },
+        test: 'paired',
+      },
+      COLUMNS,
+      [
+        { [COL_G]: 'A', [COL_Y]: 2, [COL_X]: ['S', 1] },
+        { [COL_G]: 'B', [COL_Y]: 5, [COL_X]: 'S,1' },
+        { [COL_G]: 'A', [COL_Y]: 7, [COL_X]: { toString: () => 'subject-2' } },
+        { [COL_G]: 'B', [COL_Y]: 13, [COL_X]: 'subject-2' },
+      ],
+    )
+
+    if (!result.ok || result.result.kind !== 'comparison')
+      throw new Error('Expected comparison result')
+    expect(result.result.pairedSubjects).toBe(2)
+    expect(result.result.pairs[0].difference).toBe(-4.5)
+    expect(result.result.pairs[0].statistic).toBeCloseTo(-3, 12)
+  })
+
+  it('omits passing remedies and includes failed-check remedies without changing computed fits', () => {
+    const normalRows = Array.from({ length: 21 }, (_, index) => ({
+      [COL_X]: index,
+      [COL_Y]: 2 * index + 5 + (index % 3) - 1,
+    }))
+
+    const skewedRows = normalRows.map((values, index) =>
+      index === 10 ? { ...values, [COL_Y]: values[COL_Y] + 10000 } : values,
+    )
+
+    const normal = runAnalysis(
+      { ...regression, group: null },
+      COLUMNS,
+      normalRows,
+    )
+
+    const skewed = runAnalysis(
+      { ...regression, group: null },
+      COLUMNS,
+      skewedRows,
+    )
+
+    if (
+      !normal.ok ||
+      normal.result.kind !== 'regression' ||
+      !skewed.ok ||
+      skewed.result.kind !== 'regression'
+    )
+      throw new Error('Expected regression results')
+
+    const normalCheck = normal.result.checks.find(
+      (check) => check.id === 'residual_normality',
+    )
+
+    const skewedCheck = skewed.result.checks.find(
+      (check) => check.id === 'residual_normality',
+    )
+
+    expect(normalCheck?.status).toBe('pass')
+    expect(Object.hasOwn(normalCheck ?? {}, 'remedy')).toBe(false)
+    expect(skewedCheck?.status).toBe('fail')
+    expect(Object.hasOwn(skewedCheck ?? {}, 'remedy')).toBe(true)
+    expect(skewedCheck?.remedy).toBeTruthy()
+    expect(normal.result.rows[0].n).toBe(21)
+    expect(skewed.result.rows[0].n).toBe(21)
+    expect(normal.result.rows[0].coefficients[1]).toBeCloseTo(
+      2.018181818181818,
+      10,
+    )
+    expect(skewed.result.rows[0].coefficients[1]).toBeCloseTo(
+      2.018181818181818,
+      10,
+    )
+  })
+
   it('computes grouped descriptive statistics in sorted group order', () => {
     const result = runAnalysis(descriptive, COLUMNS, ROWS)
     expect(result.ok).toBe(true)
@@ -871,7 +1236,7 @@ describe('dose-response curve analysis', () => {
     [COL_PLATE]: plate,
   })
 
-  const curve = (over: Record<string, unknown> = {}): AnalysisDefinition => ({
+  const curve = (over: Partial<CurveDefinition> = {}): CurveDefinition => ({
     definitionVersion: 1,
     kind: 'curve',
     datasets: [{ datasetId: DATASET_ID }],
@@ -885,7 +1250,9 @@ describe('dose-response curve analysis', () => {
     expect(validateAnalysisDefinition(curve())).toEqual([])
     expect(validateAnalysisDefinition(curve({ model: '5pl' }))).toEqual([])
     expect(
-      validateAnalysisDefinition(curve({ model: '6pl' })).map((e) => e.field),
+      validateAnalysisDefinition({ ...curve(), model: '6pl' }).map(
+        (e) => e.field,
+      ),
     ).toEqual(['model'])
     expect(
       validateAnalysisDefinition(curve({ dose: undefined })).map(
@@ -926,17 +1293,41 @@ describe('dose-response curve analysis', () => {
     expect(analysisMethodsText(result.result)).toContain('4PL')
   })
 
+  it('retains native labels on unknown curve readbacks', () => {
+    const result = runAnalysis(curve(), CURVE_COLUMNS, [
+      ...DOSES.map((dose) => standard(dose)),
+      { ...unknown('unused', truth(80)), [COL_NAME]: ['A', 'B'] },
+      { ...unknown('unused', truth(5)), [COL_NAME]: { signal: 3 } },
+    ])
+
+    if (!result.ok || result.result.kind !== 'curve')
+      throw new Error('Expected curve result')
+
+    const readbacks = result.result.rows[0].readBack.filter(
+      (item) => item.role === 'unknown',
+    )
+
+    expect(readbacks.map((item) => item.label)).toEqual([
+      'A,B',
+      '[object Object]',
+    ])
+    expect(readbacks[0].concentration).toBeCloseTo(80, 2)
+    expect(readbacks[1].concentration).toBeCloseTo(5, 2)
+  })
+
   it('calls a falling curve an IC50 and flags unknowns beyond the standards', () => {
     const falling = (x: number) => 4 + (100 - 4) / (1 + (x / 8) ** 1.1)
 
-    const rows = [0.3, 1, 3, 10, 30, 100, 300, 1000].map((d) => ({
+    const rows: Array<
+      ReturnType<typeof standard> | ReturnType<typeof unknown>
+    > = [0.3, 1, 3, 10, 30, 100, 300, 1000].map((d) => ({
       [COL_DOSE]: d,
       [COL_OD]: falling(d),
       [COL_NAME]: `S${d}`,
       [COL_PLATE]: 'P1',
     }))
 
-    rows.push(unknown('High', 99.9) as never, unknown('Off', 150) as never)
+    rows.push(unknown('High', 99.9), unknown('Off', 150))
     const result = runAnalysis(curve(), CURVE_COLUMNS, rows)
 
     if (!result.ok || result.result.kind !== 'curve')
@@ -1000,9 +1391,11 @@ describe('dose-response curve analysis', () => {
       error: { code: 'insufficient_data', group: 'all', needed: 4 },
     })
 
-    const five = runAnalysis(curve({ model: '5pl' }), CURVE_COLUMNS, [
-      ...DOSES.slice(0, 4).map((d) => standard(d)),
-    ])
+    const five = runAnalysis(
+      curve({ model: '5pl' }),
+      CURVE_COLUMNS,
+      DOSES.slice(0, 4).map((d) => standard(d)),
+    )
 
     expect(five).toEqual({
       ok: false,

@@ -4,13 +4,13 @@ import { composedRowKeySchema } from './sheet-instance'
 
 const uuid = z.uuid()
 const rowKey = z.union([uuid, composedRowKeySchema])
+
 const target = z
-  .object({
+  .strictObject({
     instanceId: uuid,
     rowKeys: z.array(rowKey).min(1).max(500),
     fieldIds: z.array(uuid).max(256),
   })
-  .strict()
   .superRefine((value, context) => {
     for (const key of ['rowKeys', 'fieldIds'] as const) {
       if (new Set(value[key]).size !== value[key].length)
@@ -23,30 +23,24 @@ const target = z
   })
 
 export const sheetCommentAnchorSchema = z.discriminatedUnion('targetKind', [
-  z
-    .object({
-      targetKind: z.literal('sheet_cell'),
-      target: target.safeExtend({
-        rowKeys: z.tuple([rowKey]),
-        fieldIds: z.tuple([uuid]),
-      }),
-    })
-    .strict(),
-  z
-    .object({
-      targetKind: z.literal('sheet_row'),
-      target: target.safeExtend({
-        rowKeys: z.tuple([rowKey]),
-        fieldIds: z.tuple([]),
-      }),
-    })
-    .strict(),
-  z
-    .object({
-      targetKind: z.literal('sheet_range'),
-      target: target.safeExtend({ fieldIds: z.array(uuid).min(1).max(256) }),
-    })
-    .strict(),
+  z.strictObject({
+    targetKind: z.literal('sheet_cell'),
+    target: target.safeExtend({
+      rowKeys: z.tuple([rowKey]),
+      fieldIds: z.tuple([uuid]),
+    }),
+  }),
+  z.strictObject({
+    targetKind: z.literal('sheet_row'),
+    target: target.safeExtend({
+      rowKeys: z.tuple([rowKey]),
+      fieldIds: z.tuple([]),
+    }),
+  }),
+  z.strictObject({
+    targetKind: z.literal('sheet_range'),
+    target: target.safeExtend({ fieldIds: z.array(uuid).min(1).max(256) }),
+  }),
 ])
 
 export type SheetCommentAnchor = z.infer<typeof sheetCommentAnchorSchema>
@@ -76,6 +70,7 @@ export function sheetCommentCells(
   columns: readonly { id: string }[],
 ): Array<{ row: number; column: number }> {
   if (anchor.target.instanceId !== instanceId) return []
+
   return rows.flatMap((row, rowIndex) =>
     anchor.target.rowKeys.includes(row.id)
       ? columns.flatMap((column, columnIndex) =>

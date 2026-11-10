@@ -36,75 +36,64 @@ const conflictKind = z.enum([
 ])
 
 const outcome = z.enum(['retain-local', 'map', 'defer'])
+
 const conflictId = z
   .string()
   .regex(/^[a-z-]+:[0-9a-f]{8}-[0-9a-f-]{27,}$/)
   .max(96)
 
-const versionRef = z
-  .object({
-    definitionId: uuid,
-    versionId: uuid,
-    version: z.number().int().positive(),
-  })
-  .strict()
+const versionRef = z.strictObject({
+  definitionId: uuid,
+  versionId: uuid,
+  version: z.number().int().positive(),
+})
 
-export const sheetDefinitionUpgradePreviewSchema = z
-  .object({
-    source: versionRef
-      .extend({
-        instanceId: uuid,
-        instanceRevision: z.number().int().positive(),
-      })
-      .strict(),
-    target: versionRef,
-    automaticChanges: z
-      .array(z.object({ kind: automaticKind, objectId: uuid }).strict())
-      .max(512),
-    conflicts: z
-      .array(
-        z
-          .object({
-            id: conflictId,
-            kind: conflictKind,
-            sourceId: uuid.nullable(),
-            targetCandidates: z.array(uuid).max(256),
-            allowedOutcomes: z.array(outcome).min(1).max(3),
-            instanceReferences: z
-              .object({
-                localField: z.boolean(),
-                localValueCount: z.number().int().min(0).max(10_000),
-                calculationIds: z.array(uuid).max(128),
-                calculationOverride: z.boolean(),
-                presentation: z.boolean(),
-              })
-              .strict(),
-          })
-          .strict(),
-      )
-      .max(512),
-    preserved: z
-      .object({
-        localFieldIds: z.array(uuid).max(256),
-        localValueRowCount: z.number().int().min(0).max(10_000),
-        instanceCalculationIds: z.array(uuid).max(128),
-        calculationOverrideIds: z.array(uuid).max(128),
-        presentationOwnedByInstance: z.literal(true),
-        bindingProvenanceRevalidated: z.literal(true),
-        writeOwnershipFromTarget: z.literal(true),
-      })
-      .strict(),
-  })
-  .strict()
+export const sheetDefinitionUpgradePreviewSchema = z.strictObject({
+  source: versionRef
+    .extend({
+      instanceId: uuid,
+      instanceRevision: z.number().int().positive(),
+    })
+    .strict(),
+  target: versionRef,
+  automaticChanges: z
+    .array(z.strictObject({ kind: automaticKind, objectId: uuid }))
+    .max(512),
+  conflicts: z
+    .array(
+      z.strictObject({
+        id: conflictId,
+        kind: conflictKind,
+        sourceId: uuid.nullable(),
+        targetCandidates: z.array(uuid).max(256),
+        allowedOutcomes: z.array(outcome).min(1).max(3),
+        instanceReferences: z.strictObject({
+          localField: z.boolean(),
+          localValueCount: z.number().int().min(0).max(10_000),
+          calculationIds: z.array(uuid).max(128),
+          calculationOverride: z.boolean(),
+          presentation: z.boolean(),
+        }),
+      }),
+    )
+    .max(512),
+  preserved: z.strictObject({
+    localFieldIds: z.array(uuid).max(256),
+    localValueRowCount: z.number().int().min(0).max(10_000),
+    instanceCalculationIds: z.array(uuid).max(128),
+    calculationOverrideIds: z.array(uuid).max(128),
+    presentationOwnedByInstance: z.literal(true),
+    bindingProvenanceRevalidated: z.literal(true),
+    writeOwnershipFromTarget: z.literal(true),
+  }),
+})
 
 export const sheetDefinitionUpgradeDecisionSchema = z.discriminatedUnion(
   'outcome',
   [
-    z.object({ conflictId, outcome: z.literal('retain-local') }).strict(),
-    z
-      .object({ conflictId, outcome: z.literal('map'), targetId: uuid })
-      .strict(),
-    z.object({ conflictId, outcome: z.literal('defer') }).strict(),
+    z.strictObject({ conflictId, outcome: z.literal('retain-local') }),
+    z.strictObject({ conflictId, outcome: z.literal('map'), targetId: uuid }),
+    z.strictObject({ conflictId, outcome: z.literal('defer') }),
   ],
 )
 
@@ -120,6 +109,7 @@ export const sheetDefinitionUpgradeDecisionsSchema = z
 export type SheetDefinitionUpgradePreview = z.infer<
   typeof sheetDefinitionUpgradePreviewSchema
 >
+
 export type SheetDefinitionUpgradeDecision = z.infer<
   typeof sheetDefinitionUpgradeDecisionSchema
 >

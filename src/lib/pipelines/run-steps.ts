@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import type { PipelineConfig } from './config'
 import type {
   PipelineRunLogWire,
@@ -93,8 +94,8 @@ export function runSteps(
   } else if (run.status === 'failed' || run.status === 'cancelled') {
     const error = [...logs].reverse().find((entry) => entry.level === 'error')
 
-    const fromDetail =
-      typeof error?.detail.step === 'string' ? named(error.detail.step) : -1
+    const detailStep = z.string().safeParse(error?.detail.step)
+    const fromDetail = detailStep.success ? named(detailStep.data) : -1
 
     const fromMessage = error
       ? steps.findIndex((step) => error.message.includes(step.name))

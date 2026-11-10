@@ -6,6 +6,8 @@
  * server-side surface each adapter implements: connection test, bounded
  * discovery, bounded preview and governed ingestion.
  */
+import { z } from 'zod'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
 import type { ConnectorWire } from '../types'
 
 /** Non-secret S3-compatible connector configuration (api.connectors.config). */
@@ -59,55 +61,86 @@ export function enterpriseAdapterId(
   return null
 }
 
-export interface TestConnectionResult {
-  ok: boolean
+export const testConnectionResultSchema = z.object({
+  ok: z.boolean(),
   /** Concise, safe summary — never raw SDK/driver errors. */
-  summary: string
-  detail?: Record<string, unknown>
-}
+  summary: z.string().optional(),
+  detail: pipelineJsonObjectSchema.optional(),
+})
+
+export type TestConnectionResult = z.infer<typeof testConnectionResultSchema>
 
 /** One discovered S3 object (metadata only — never bytes). */
-export interface S3ObjectDescriptor {
-  key: string
-  byteSize: number
-  lastModified: string | null
-  contentType: string | null
+const s3ObjectDescriptorSchema = z.object({
+  key: z.string(),
+  byteSize: z.number(),
+  lastModified: z.string().nullable(),
+  contentType: z.string().nullable(),
   /** External version id when the bucket is versioned. */
-  versionId: string | null
+  versionId: z.string().nullable(),
   /** ETag is metadata only — never assumed to be an MD5. */
-  etag: string | null
-}
+  etag: z.string().nullable(),
+})
 
-export interface S3DiscoveryPage {
-  objects: S3ObjectDescriptor[]
+export type S3ObjectDescriptor = z.infer<typeof s3ObjectDescriptorSchema>
+
+export const s3DiscoveryPageSchema = z.object({
+  objects: z.array(s3ObjectDescriptorSchema),
   /** Opaque continuation token; null when the listing is complete. */
-  continuationToken: string | null
-}
+  continuationToken: z.string().nullable(),
+})
 
-export interface PostgresColumnDescriptor {
-  name: string
-  dataType: string
-  nullable: boolean
-}
+export type S3DiscoveryPage = z.infer<typeof s3DiscoveryPageSchema>
 
-export interface PostgresTableDescriptor {
-  schema: string
-  name: string
-  kind: 'table' | 'view'
-  columns: PostgresColumnDescriptor[]
-}
+const postgresColumnDescriptorSchema = z.object({
+  name: z.string(),
+  dataType: z.string(),
+  nullable: z.boolean(),
+})
 
-export interface PostgresDiscoveryResult {
-  schemas: string[]
-  tables: PostgresTableDescriptor[]
-}
+export type PostgresColumnDescriptor = z.infer<
+  typeof postgresColumnDescriptorSchema
+>
+
+const postgresTableDescriptorSchema = z.object({
+  schema: z.string(),
+  name: z.string(),
+  kind: z.enum(['table', 'view']),
+  columns: z.array(postgresColumnDescriptorSchema),
+})
+
+export type PostgresTableDescriptor = z.infer<
+  typeof postgresTableDescriptorSchema
+>
+
+export const postgresDiscoveryResultSchema = z.object({
+  schemas: z.array(z.string()),
+  tables: z.array(postgresTableDescriptorSchema),
+})
+
+export type PostgresDiscoveryResult = z.infer<
+  typeof postgresDiscoveryResultSchema
+>
 
 /** Bounded preview of a selected source. */
-export interface PreviewResult {
-  columns: string[]
-  rows: Array<Record<string, string | null>>
-  truncated: boolean
-}
+export const connectorPreviewResultSchema = z.object({
+  columns: z.array(z.string()),
+  rows: z.array(
+    z.custom<Record<string, string | null>>((value) => {
+      const parsed = pipelineJsonObjectSchema.safeParse(value)
+
+      return (
+        parsed.success &&
+        Object.values(parsed.data).every(
+          (cell) => z.string().nullable().safeParse(cell).success,
+        )
+      )
+    }),
+  ),
+  truncated: z.boolean(),
+})
+
+export type PreviewResult = z.infer<typeof connectorPreviewResultSchema>
 
 export interface ImportLimits {
   /** Maximum rows a preview returns. */
@@ -128,7 +161,7 @@ export const DEFAULT_IMPORT_LIMITS: ImportLimits = {
 }
 
 export function importLimitsFromConfig(
-  config: Record<string, unknown>,
+  config: ConnectorWire['config'],
 ): ImportLimits {
   const readPositive = (key: string, fallback: number): number => {
     const value = Number(config[key])

@@ -19,7 +19,7 @@ export interface RegisterConnectorInput {
   name: string
   connectorType?: ConnectorType
   direction?: ConnectorDirection
-  config?: Record<string, unknown>
+  config?: ConnectorWire['config']
   parserId?: string | null
 }
 
@@ -45,22 +45,26 @@ export async function updateConnector(
     connectorId: string
     name?: string | null
     status?: 'active' | 'paused' | 'archived' | null
-    config?: Record<string, unknown> | null
+    config?: ConnectorWire['config'] | null
     /** Another parser, or `null` to read each file by what's in it. */
     parserId?: string | null
   },
 ): Promise<ConnectorWire> {
-  return client.rpc('update_connector', {
+  const args = {
     p_workspace_id: input.workspaceId,
     p_connector_id: input.connectorId,
     p_name: input.name ?? null,
     p_status: input.status ?? null,
     p_config: input.config ?? null,
-    ...(input.parserId === undefined
-      ? {}
-      : input.parserId === null
-        ? { p_clear_parser: true }
-        : { p_parser_id: input.parserId }),
+  }
+
+  if (input.parserId === undefined) return client.rpc('update_connector', args)
+
+  return client.rpc('update_connector', {
+    ...args,
+    ...(input.parserId === null
+      ? { p_clear_parser: true }
+      : { p_parser_id: input.parserId }),
   })
 }
 
@@ -115,7 +119,7 @@ export async function completeConnectorRun(
   input: {
     workspaceId: string
     runId: string
-    result?: Record<string, unknown>
+    result?: ConnectorRunWire['result']
   },
 ): Promise<ConnectorRunWire> {
   return client.rpc('complete_connector_run', {
@@ -150,7 +154,7 @@ export async function appendConnectorRunLog(
     level?: 'info' | 'warning' | 'error'
     stage: string
     message: string
-    detail?: Record<string, unknown>
+    detail?: ConnectorRunLogWire['detail']
   },
 ): Promise<ConnectorRunLogWire> {
   return client.rpc('append_connector_run_log', {

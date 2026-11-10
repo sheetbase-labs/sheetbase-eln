@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
-import { DataClientError } from '../data-client'
-import type { DataClient } from '../data-client'
+import { createDataClient, DataClientError } from '../data-client'
 import type { ExternalClaims } from '../external-token'
 import { ExternalTokenError } from '../external-token'
 import { handleStream, parseStreamBody } from './stream.server'
@@ -19,32 +19,86 @@ const personal: ExternalClaims = {
   role: 'authenticated',
 }
 
-function setup(options: { claims?: ExternalClaims; rpcError?: Error } = {}) {
-  const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+const streamArgumentsSchema = z.object({
+  p_instrument_id: z.string().optional(),
+  p_unit_id: z.string().nullable().optional(),
+  p_room_id: z.string().nullable().optional(),
+  p_readings: z.array(
+    z.object({
+      feed: z.string(),
+      value: z.number(),
+      unit: z.string().optional(),
+      at: z.string().optional(),
+    }),
+  ),
+})
 
-  const client = {
-    rpc: async (name: string, args: Record<string, unknown>) => {
-      calls.push({ name, args })
+function setup(
+  options: { claims?: ExternalClaims; rpcError?: DataClientError } = {},
+) {
+  const calls: Array<{
+    name: string
+    args: z.infer<typeof streamArgumentsSchema>
+  }> = []
 
-      if (options.rpcError) throw options.rpcError
+  const client = createDataClient(async (input, init) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://eln.test',
+    )
 
-      return { stored: 1, feeds: 1 }
-    },
-  } as unknown as DataClient
+    expect(init?.method).toBe('POST')
+    expect(url.pathname).toMatch(
+      /^\/api\/db\/rpc\/record_(instrument|storage)_readings$/,
+    )
+
+    const args = streamArgumentsSchema.parse(
+      JSON.parse(z.string().parse(init?.body)),
+    )
+
+    calls.push({ name: url.pathname.replace('/api/db/rpc/', ''), args })
+
+    if (options.rpcError) {
+      return Response.json(
+        {
+          error: {
+            code: options.rpcError.code,
+            message: options.rpcError.message,
+          },
+        },
+        { status: options.rpcError.status },
+      )
+    }
+
+    return Response.json({ stored: 1, feeds: 1 })
+  })
 
   const deps: StreamDeps = {
-    verifyCredential: vi.fn(async () => options.claims ?? personal),
+    verifyCredential: async () => options.claims ?? personal,
     createClient: () => client,
   }
 
   return { deps, calls }
 }
 
-function post(body: unknown, headers: Record<string, string> = {}) {
+function post(
+  body: {
+    instrumentId?: string
+    storageUnitId?: string
+    storageRoomId?: string
+    readings: Array<{
+      feed: string
+      value: number
+      unit?: string
+      at?: string
+    }>
+  },
+  headers: Record<string, string> = {},
+) {
   return new Request('http://eln.test/api/connectors/stream', {
     method: 'POST',
     headers: { authorization: 'Bearer tok', ...headers },
-    body: typeof body === 'string' ? body : JSON.stringify(body),
+    body: JSON.stringify(body),
   })
 }
 
@@ -68,7 +122,7 @@ describe('parseStreamBody', () => {
   })
 
   it('names the reading that is wrong', () => {
-    const bad = (readings: unknown[]) => () =>
+    const bad = (readings: z.core.util.JSONType[]) => () =>
       parseStreamBody({ instrumentId: INSTRUMENT, readings })
 
     expect(
@@ -79,6 +133,10 @@ describe('parseStreamBody', () => {
     ).toThrow(/Reading 2 \(b\)/)
     expect(bad([{ feed: '', value: 1 }])).toThrow(/Reading 1 needs a feed name/)
     expect(bad([{ feed: 'a', value: 1, at: 'tomorrow-ish' }])).toThrow(/time/)
+    expect(bad([{ feed: 'a', value: Infinity }])).toThrow(/needs a number/)
+    expect(bad([{ feed: 'a', value: null }])).toThrow(/needs a number/)
+    expect(bad([null])).toThrow(/Reading 1 needs a feed name/)
+    expect(bad([{ feed: 'x'.repeat(81), value: 1 }])).toThrow(/feed name/)
     expect(bad([])).toThrow(/between 1 and 2000/)
     expect(() =>
       parseStreamBody({ instrumentId: 'nope', readings: [] }),
@@ -178,7 +236,14 @@ describe('handleStream', () => {
 
   it('refuses what is not JSON or is too big', async () => {
     const { deps } = setup()
-    expect((await handleStream(post('{nope'), deps)).status).toBe(400)
+
+    const malformed = new Request('http://eln.test/api/connectors/stream', {
+      method: 'POST',
+      headers: { authorization: 'Bearer tok' },
+      body: '{nope',
+    })
+
+    expect((await handleStream(malformed, deps)).status).toBe(400)
 
     const huge = await handleStream(
       post(batch, { 'content-length': '9999999' }),

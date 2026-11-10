@@ -47,6 +47,8 @@
  * Python (`sheetbase_plugin.package`); shared cases in
  * `sdks/plugin-python/tests/package_cases.json` keep the three in step.
  */
+import { z } from 'zod'
+
 import { eventByName } from '../event-catalogue'
 import {
   EXTENSION_FIELD_NAME_RE,
@@ -179,6 +181,7 @@ export interface ExtensionNotificationChannelDeclaration {
 }
 
 export const EXTENSION_ENCODINGS = ['text', 'base64'] as const
+
 export type ExtensionEncoding = (typeof EXTENSION_ENCODINGS)[number]
 
 export interface ExtensionImporterDeclaration {
@@ -236,9 +239,11 @@ export const RECORD_HOOK_WHEN = [
   'uploaded',
   'status-changed',
 ] as const
+
 export type RecordHookWhen = (typeof RECORD_HOOK_WHEN)[number]
 
 export const RECORD_HOOK_TIMING = ['before', 'after'] as const
+
 export type RecordHookTiming = (typeof RECORD_HOOK_TIMING)[number]
 
 export interface ExtensionRecordHookDeclaration {
@@ -272,8 +277,9 @@ export interface ExtensionInstrumentParserDeclaration {
   runner: ExtensionRunner
 }
 
-export const BARCODE_SHAPES = ['1d', '2d'] as const
-export type BarcodeShape = (typeof BARCODE_SHAPES)[number]
+export const BARCODE_DIMENSIONS = ['1d', '2d'] as const
+
+export type BarcodeDimension = (typeof BARCODE_DIMENSIONS)[number]
 
 export interface ExtensionLabelFormatDeclaration {
   id: string
@@ -289,7 +295,8 @@ export interface ExtensionBarcodeFormatDeclaration {
   title: string
   description: string
   /** `1d`: a row of bars. `2d`: a square grid of dots. */
-  shape: BarcodeShape
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- `shape` is the existing plugin.json wire field for barcode dimensionality, not an unnamed object type (hooks.test.ts barcode declarations).
+  shape: BarcodeDimension
   /** Draws the code for a value. */
   runner: ExtensionRunner
   /** Turns the text a scanner read back into the value it stands for. */
@@ -326,15 +333,19 @@ export interface ExtensionDataContributions {
 export const MAX_TABLE_INPUTS = 6
 export const MAX_LIST_ITEMS = 10
 export const MAX_CONNECTOR_SETTINGS = 8
+
 export const EXTENSION_HOST_RE =
   /^(?!\d+(?:\.\d+){3}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/
+
 export const EXTENSION_FILE_EXTENSION_RE = /^\.[a-z0-9]{1,12}$/
 export const EXTENSION_RECORD_TYPE_RE = /^[a-z][a-z0-9_-]{0,40}$/
+
 export const EXTENSION_MIME_RE =
   /^[a-z0-9][a-z0-9!#$&^_.+-]{0,60}\/[a-z0-9][a-z0-9!#$&^_.+-]{0,100}$/
 
 function columns(
   where: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw pipeline result columns enter here; bounded list, per-column schema and duplicate checks construct ExtensionResultColumn values (hooks.test.ts malformed declarations).
   value: unknown,
   errors: string[],
 ): ExtensionResultColumn[] | null {
@@ -344,131 +355,172 @@ function columns(
     value.length > MAX_EXTENSION_FIELDS
   ) {
     errors.push(`${where} result needs 1-${MAX_EXTENSION_FIELDS} columns`)
+
     return null
   }
+
   const seen = new Set<string>()
   const out: ExtensionResultColumn[] = []
-  for (const column of value as unknown[]) {
-    if (
-      !isRecord(column) ||
-      typeof column.name !== 'string' ||
-      !EXTENSION_FIELD_NAME_RE.test(column.name) ||
-      seen.has(column.name) ||
-      (column.type !== 'number' && column.type !== 'text')
-    ) {
+
+  for (const candidate of value) {
+    const parsed = z
+      .object({
+        name: z.string().regex(EXTENSION_FIELD_NAME_RE),
+        type: z.enum(['number', 'text']),
+      })
+      .safeParse(candidate)
+
+    if (!parsed.success || seen.has(parsed.data.name)) {
       errors.push(
         `${where} result columns need a unique name and a type of number or text`,
       )
+
       return null
     }
-    seen.add(column.name)
-    out.push({ name: column.name, type: column.type })
+
+    seen.add(parsed.data.name)
+    out.push(parsed.data)
   }
+
   return out
 }
 
 function strings(
   where: string,
   label: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The manifest field is parsed by the bounded string/grammar schema below, then checked for duplicates before returning strings (hooks.test.ts data-point declarations).
   value: unknown,
   pattern: RegExp,
   errors: string[],
   hint: string,
 ): string[] | null {
-  if (
-    !Array.isArray(value) ||
-    value.length < 1 ||
-    value.length > MAX_LIST_ITEMS ||
-    !value.every((entry) => typeof entry === 'string' && pattern.test(entry))
-  ) {
+  const parsed = z
+    .array(z.string().regex(pattern))
+    .min(1)
+    .max(MAX_LIST_ITEMS)
+    .safeParse(value)
+
+  if (!parsed.success) {
     errors.push(
       `${where} ${label} needs 1-${MAX_LIST_ITEMS} entries, each ${hint}`,
     )
+
     return null
   }
-  if (new Set(value).size !== value.length) {
+
+  if (new Set(parsed.data).size !== parsed.data.length) {
     errors.push(`${where} ${label} repeats an entry`)
+
     return null
   }
-  return value as string[]
+
+  return parsed.data
 }
 
 function encoding(
   where: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the encoding decoder: only the two wire literals text/base64 return successfully; malformed declarations are refused in hooks.test.ts.
   value: unknown,
   errors: string[],
 ): ExtensionEncoding | null {
   if (value !== 'text' && value !== 'base64') {
     errors.push(`${where} encoding must be text or base64`)
+
     return null
   }
+
   return value
 }
 
-function labelled(
+const tableInput = z.object({
+  name: z.string().regex(EXTENSION_FIELD_NAME_RE),
+  label: z.string().trim().min(1).max(80),
+  required: z.boolean(),
+})
+
+const checkInput = tableInput.extend({ type: z.enum(['number', 'category']) })
+const connectionSetting = tableInput.extend({ secret: z.boolean() })
+
+function labelled<T extends ExtensionTableInput>(
   where: string,
   label: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw table/check/settings lists enter here; the supplied owner schema validates each entry and duplicate names are rejected before returning T (hooks.test.ts).
   value: unknown,
   errors: string[],
-  extra: (entry: Record<string, unknown>) => boolean,
+  schema: z.ZodType<T>,
   max: number,
-): Array<Record<string, unknown>> | null {
+): T[] | null {
   if (!Array.isArray(value) || value.length > max) {
     errors.push(`${where} ${label} must be a list of at most ${max}`)
+
     return null
   }
+
   const seen = new Set<string>()
-  for (const entry of value as unknown[]) {
-    if (
-      !isRecord(entry) ||
-      typeof entry.name !== 'string' ||
-      !EXTENSION_FIELD_NAME_RE.test(entry.name) ||
-      seen.has(entry.name) ||
-      !text(entry.label, 1, 80) ||
-      typeof entry.required !== 'boolean' ||
-      !extra(entry)
-    ) {
+  const out: T[] = []
+
+  for (const candidate of value) {
+    const parsed = schema.safeParse(candidate)
+
+    if (!parsed.success || seen.has(parsed.data.name)) {
       errors.push(
         `${where} ${label} need a unique name, a label of 1-80 characters and required`,
       )
+
       return null
     }
-    seen.add(entry.name)
+
+    seen.add(parsed.data.name)
+    out.push(parsed.data)
   }
-  return value as Array<Record<string, unknown>>
+
+  return out
 }
 
 type Parsed<T> = T[] | null
 
 function each<T>(
   point: ExtensionRunnerPoint,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the shared declaration-list boundary: list bounds and raw-object checks precede head identity parsing and the point-specific builder; no raw entry is returned (hooks.test.ts malformed declarations).
   value: unknown,
   errors: string[],
   descriptionRequired: boolean,
-  build: (entry: Record<string, unknown>, where: string) => T | null,
+  build: (
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- Only raw fields reach this callback after list/head checks. Each point validates its semantic fields and constructs T; this dictionary stays inside that partial-parse phase and is never returned as a declaration (hooks.test.ts malformed inputs).
+    entry: Record<string, unknown>,
+    where: string,
+    identity: Pick<
+      ExtensionCalculatorDeclaration,
+      'id' | 'title' | 'description'
+    >,
+  ) => T | null,
 ): Parsed<T> {
   const entries = list(point, value, errors)
+
   if (!entries) return null
   const seen = new Set<string>()
   const out: T[] = []
+
   for (const entry of entries) {
-    const where = head(point, entry, seen, errors, descriptionRequired)
-    if (!where) return null
-    const built = build(entry, where)
-    if (!built) return null
-    out.push({
-      id: entry.id,
-      title: (entry.title as string).trim(),
-      ...(typeof entry.description === 'string'
-        ? { description: entry.description.trim() }
-        : {}),
-      ...built,
+    const metadata = head(point, entry, seen, errors, descriptionRequired)
+
+    if (!metadata) return null
+
+    const built = build(entry, metadata.name, {
+      id: metadata.identity.id,
+      title: metadata.identity.title,
+      description: metadata.identity.description ?? '',
     })
+
+    if (!built) return null
+    out.push(built)
   }
+
   return out
 }
 
 export function parsePipelineSteps(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw pipeline declarations delegate immediately to each; table, parameter, result-column and runner decoders construct the typed result (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionPipelineStepDeclaration> {
@@ -477,44 +529,54 @@ export function parsePipelineSteps(
     value,
     errors,
     false,
-    (entry, where) => {
+    (entry, where, identity) => {
       const tables = labelled(
         where,
         'tables',
         entry.tables,
         errors,
-        () => true,
+        tableInput,
         MAX_TABLE_INPUTS,
       )
+
       if (!tables || tables.length < 1) {
         if (tables) errors.push(`${where} needs at least one table`)
+
         return null
       }
+
       const parameters = fieldList(
         where,
         'parameters',
         entry.parameters,
         errors,
       )
+
       const run = runner(where, entry.runner, errors)
       const result = isRecord(entry.result) ? entry.result : null
       const resultColumns = columns(where, result?.columns, errors)
+
       if (!parameters || !run || !resultColumns) return null
-      return {
-        tables: tables.map((table) => ({
-          name: table.name as string,
-          label: (table.label as string).trim(),
-          required: table.required as boolean,
-        })),
+
+      const declaration: ExtensionPipelineStepDeclaration = {
+        id: identity.id,
+        title: identity.title,
+        tables,
         parameters,
         result: { columns: resultColumns },
         runner: run,
-      } as unknown as ExtensionPipelineStepDeclaration
+      }
+
+      if (entry.description !== undefined)
+        declaration.description = identity.description
+
+      return declaration
     },
   )
 }
 
 export function parseCalculators(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw calculator declarations delegate immediately to each and fieldList/runner; empty inputs/outputs are refused before construction (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionCalculatorDeclaration> {
@@ -523,21 +585,26 @@ export function parseCalculators(
     value,
     errors,
     true,
-    (entry, where) => {
+    (entry, where, identity) => {
       const inputs = fieldList(where, 'inputs', entry.inputs, errors)
       const outputs = fieldList(where, 'outputs', entry.outputs, errors)
       const run = runner(where, entry.runner, errors)
+
       if (!inputs || !outputs || !run) return null
+
       if (inputs.length < 1 || outputs.length < 1) {
         errors.push(`${where} needs at least one input and one output`)
+
         return null
       }
-      return { inputs, outputs, runner: run } as never
+
+      return { ...identity, inputs, outputs, runner: run }
     },
   )
 }
 
 export function parseChecks(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw check declarations enter through each; labelled check-input schemas and runner validation precede construction (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionCheckDeclaration> {
@@ -546,35 +613,37 @@ export function parseChecks(
     value,
     errors,
     true,
-    (entry, where) => {
+    (entry, where, identity) => {
       const inputs = labelled(
         where,
         'inputs',
         entry.inputs,
         errors,
-        (input) => input.type === 'number' || input.type === 'category',
+        checkInput,
         MAX_EXTENSION_FIELDS,
       )
+
       const run = runner(where, entry.runner, errors)
+
       if (!inputs || !run) return null
+
       if (inputs.length < 1) {
         errors.push(`${where} needs at least one input`)
+
         return null
       }
+
       return {
-        inputs: inputs.map((input) => ({
-          name: input.name as string,
-          label: (input.label as string).trim(),
-          type: input.type as 'number' | 'category',
-          required: input.required as boolean,
-        })),
+        ...identity,
+        inputs,
         runner: run,
-      } as never
+      }
     },
   )
 }
 
 export function parseSearchProviders(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw search declarations enter through each; record-type grammar, indexed boolean and runner are checked before construction (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionSearchProviderDeclaration> {
@@ -583,7 +652,7 @@ export function parseSearchProviders(
     value,
     errors,
     true,
-    (entry, where) => {
+    (entry, where, identity) => {
       const types = strings(
         where,
         'types',
@@ -592,25 +661,36 @@ export function parseSearchProviders(
         errors,
         'like sample or registry_entry',
       )
+
       const run = runner(where, entry.runner, errors)
+
       if (!types || !run) return null
-      if (entry.indexed !== undefined && typeof entry.indexed !== 'boolean') {
+
+      if (!z.boolean().optional().safeParse(entry.indexed).success) {
         errors.push(`${where} indexed must be true or false`)
+
         return null
       }
-      return {
+
+      const declaration: ExtensionSearchProviderDeclaration = {
+        ...identity,
         types,
-        ...(entry.indexed === true ? { indexed: true } : {}),
         runner: run,
-      } as never
+      }
+
+      if (entry.indexed === true) declaration.indexed = true
+
+      return declaration
     },
   )
 }
 
 function connectorBuilder(
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- This builder is inside the manifest boundary; hosts, settings, parameters and both runners are decoded below before a connector is constructed. Raw fields never escape (shared package cases).
   entry: Record<string, unknown>,
   where: string,
   errors: string[],
+  identity: Pick<ExtensionConnectorDeclaration, 'id' | 'title' | 'description'>,
 ): ExtensionConnectorDeclaration | null {
   const hosts = strings(
     where,
@@ -620,33 +700,34 @@ function connectorBuilder(
     errors,
     'a host name such as api.example.org',
   )
+
   const settings = labelled(
     where,
     'settings',
     entry.settings,
     errors,
-    (setting) => typeof setting.secret === 'boolean',
+    connectionSetting,
     MAX_CONNECTOR_SETTINGS,
   )
+
   const parameters = fieldList(where, 'parameters', entry.parameters, errors)
   const run = runner(where, entry.runner, errors)
   const parse = runner(`${where} parse`, entry.parse, errors)
+
   if (!hosts || !settings || !parameters || !run || !parse) return null
+
   return {
+    ...identity,
     hosts,
-    settings: settings.map((setting) => ({
-      name: setting.name as string,
-      label: (setting.label as string).trim(),
-      secret: setting.secret as boolean,
-      required: setting.required as boolean,
-    })),
+    settings,
     parameters,
     runner: run,
     parse,
-  } as never
+  }
 }
 
 export function parseConnectors(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw connectors delegate immediately to each/connectorBuilder, which validate hosts, settings, parameters and both runners (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionConnectorDeclaration> {
@@ -655,11 +736,13 @@ export function parseConnectors(
     value,
     errors,
     true,
-    (entry, where) => connectorBuilder(entry, where, errors),
+    (entry, where, identity) =>
+      connectorBuilder(entry, where, errors, identity),
   )
 }
 
 export function parsePublishers(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw publishers delegate immediately to each/connectorBuilder and reject reserved row/name parameters before returning a declaration (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionPublisherDeclaration> {
@@ -668,21 +751,26 @@ export function parsePublishers(
     value,
     errors,
     true,
-    (entry, where) => {
-      const built = connectorBuilder(entry, where, errors)
+    (entry, where, identity) => {
+      const built = connectorBuilder(entry, where, errors, identity)
+
       if (!built) return null
+
       if (
         built.parameters.some((p) => p.name === 'rows' || p.name === 'name')
       ) {
         errors.push(`${where} parameters can’t be called rows or name`)
+
         return null
       }
+
       return built
     },
   )
 }
 
 export function parseNotificationChannels(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw channels delegate immediately to each; hosts, settings, destination text and runners are checked before construction (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionNotificationChannelDeclaration> {
@@ -691,7 +779,7 @@ export function parseNotificationChannels(
     value,
     errors,
     true,
-    (entry, where) => {
+    (entry, where, identity) => {
       const hosts = strings(
         where,
         'hosts',
@@ -700,15 +788,18 @@ export function parseNotificationChannels(
         errors,
         'a host name such as slack.com',
       )
+
       const settings = labelled(
         where,
         'settings',
         entry.settings,
         errors,
-        (setting) => typeof setting.secret === 'boolean',
+        connectionSetting,
         MAX_CONNECTOR_SETTINGS,
       )
+
       const destination = entry.destination
+
       if (
         !isRecord(destination) ||
         !text(destination.label, 1, 80) ||
@@ -717,36 +808,41 @@ export function parseNotificationChannels(
         errors.push(
           `${where} destination needs a label of 1-80 characters and may have a hint of up to 120`,
         )
+
         return null
       }
+
       const run = runner(where, entry.runner, errors)
+
       const parse =
         entry.parse === undefined
           ? undefined
           : runner(`${where} parse`, entry.parse, errors)
+
       if (!hosts || !settings || !run || parse === null) return null
-      return {
+
+      const declaration: ExtensionNotificationChannelDeclaration = {
+        ...identity,
         hosts,
-        settings: settings.map((setting) => ({
-          name: setting.name as string,
-          label: (setting.label as string).trim(),
-          secret: setting.secret as boolean,
-          required: setting.required as boolean,
-        })),
+        settings,
         destination: {
           label: destination.label.trim(),
-          ...(typeof destination.hint === 'string'
-            ? { hint: destination.hint.trim() }
-            : {}),
         },
         runner: run,
-        ...(parse ? { parse } : {}),
-      } as never
+      }
+
+      if (destination.hint !== undefined)
+        declaration.destination.hint = z.string().parse(destination.hint).trim()
+
+      if (parse) declaration.parse = parse
+
+      return declaration
     },
   )
 }
 
 export function parseImporters(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw importers delegate immediately to each; file-extension grammar, encoding and runner are decoded before construction (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionImporterDeclaration> {
@@ -755,7 +851,7 @@ export function parseImporters(
     value,
     errors,
     true,
-    (entry, where) => {
+    (entry, where, identity) => {
       const extensions = strings(
         where,
         'extensions',
@@ -764,15 +860,19 @@ export function parseImporters(
         errors,
         'like .mzml',
       )
+
       const enc = encoding(where, entry.encoding, errors)
       const run = runner(where, entry.runner, errors)
+
       if (!extensions || !enc || !run) return null
-      return { extensions, encoding: enc, runner: run } as never
+
+      return { ...identity, extensions, encoding: enc, runner: run }
     },
   )
 }
 
 export function parseExporters(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw exporters delegate immediately to each; extension/MIME grammar, encoding, parameters and runner are decoded before construction (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionExporterDeclaration> {
@@ -781,42 +881,53 @@ export function parseExporters(
     value,
     errors,
     true,
-    (entry, where) => {
-      if (
-        typeof entry.extension !== 'string' ||
-        !EXTENSION_FILE_EXTENSION_RE.test(entry.extension)
-      ) {
+    (entry, where, identity) => {
+      const extension = z
+        .string()
+        .regex(EXTENSION_FILE_EXTENSION_RE)
+        .safeParse(entry.extension)
+
+      if (!extension.success) {
         errors.push(`${where} extension must look like .fasta`)
+
         return null
       }
-      if (
-        typeof entry.mime !== 'string' ||
-        !EXTENSION_MIME_RE.test(entry.mime)
-      ) {
+
+      const mime = z.string().regex(EXTENSION_MIME_RE).safeParse(entry.mime)
+
+      if (!mime.success) {
         errors.push(`${where} mime must look like text/plain`)
+
         return null
       }
+
       const enc = encoding(where, entry.encoding, errors)
+
       const parameters = fieldList(
         where,
         'parameters',
         entry.parameters,
         errors,
       )
+
       const run = runner(where, entry.runner, errors)
+
       if (!enc || !parameters || !run) return null
+
       return {
-        extension: entry.extension,
-        mime: entry.mime,
+        ...identity,
+        extension: extension.data,
+        mime: mime.data,
         encoding: enc,
         parameters,
         runner: run,
-      } as never
+      }
     },
   )
 }
 
 export function parsePreviews(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw previews delegate immediately to each; file-extension grammar, encoding and runner are decoded before construction (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionPreviewDeclaration> {
@@ -825,7 +936,7 @@ export function parsePreviews(
     value,
     errors,
     true,
-    (entry, where) => {
+    (entry, where, identity) => {
       const extensions = strings(
         where,
         'extensions',
@@ -834,15 +945,19 @@ export function parsePreviews(
         errors,
         'like .mzml',
       )
+
       const enc = encoding(where, entry.encoding, errors)
       const run = runner(where, entry.runner, errors)
+
       if (!extensions || !enc || !run) return null
-      return { extensions, encoding: enc, runner: run } as never
+
+      return { ...identity, extensions, encoding: enc, runner: run }
     },
   )
 }
 
 export function parseSamenessKeys(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw sameness rules delegate immediately to each and fieldList/runner, rejecting empty fields before construction (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionSamenessKeyDeclaration> {
@@ -851,20 +966,25 @@ export function parseSamenessKeys(
     value,
     errors,
     true,
-    (entry, where) => {
+    (entry, where, identity) => {
       const fields = fieldList(where, 'fields', entry.fields, errors)
       const run = runner(where, entry.runner, errors)
+
       if (!fields || !run) return null
+
       if (fields.length < 1) {
         errors.push(`${where} needs at least one field`)
+
         return null
       }
-      return { fields, runner: run } as never
+
+      return { ...identity, fields, runner: run }
     },
   )
 }
 
 export function parseEventHooks(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw event reactions delegate immediately to each; bounded catalogue event names, duplicates and runner are checked before construction (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionEventHookDeclaration> {
@@ -873,32 +993,49 @@ export function parseEventHooks(
     value,
     errors,
     true,
-    (entry, where) => {
-      if (
-        !Array.isArray(entry.events) ||
-        entry.events.length < 1 ||
-        entry.events.length > MAX_LIST_ITEMS
-      ) {
+    (entry, where, identity) => {
+      const names = z
+        .array(z.unknown())
+        .min(1)
+        .max(MAX_LIST_ITEMS)
+        .safeParse(entry.events)
+
+      if (!names.success) {
         errors.push(`${where} events needs 1-${MAX_LIST_ITEMS} event names`)
+
         return null
       }
-      const events: string[] = []
-      for (const name of entry.events as unknown[]) {
-        const known = typeof name === 'string' ? eventByName(name) : undefined
+
+      const events = new Set<string>()
+
+      for (const name of names.data) {
+        const parsedName = z.string().safeParse(name)
+
+        const known = parsedName.success
+          ? eventByName(parsedName.data)
+          : undefined
+
         // Hooks match the name that goes out on the wire to webhooks.
         if (!known?.wireName) {
           errors.push(`${where} names an unknown event: ${String(name)}`)
+
           return null
         }
-        if (events.includes(known.wireName)) {
+
+        if (events.has(known.wireName)) {
           errors.push(`${where} repeats the event ${known.wireName}`)
+
           return null
         }
-        events.push(known.wireName)
+
+        events.add(known.wireName)
       }
+
       const run = runner(where, entry.runner, errors)
+
       if (!run) return null
-      return { events, runner: run } as never
+
+      return { ...identity, events: [...events], runner: run }
     },
   )
 }
@@ -908,28 +1045,32 @@ export const EXTENSION_STATUS_RE = /^[a-z][a-z0-9_]{0,40}$/
 function unique(
   where: string,
   label: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Optional record kind/status lists enter here; the string grammar and nonempty/duplicate checks below reject malformed values (hooks.test.ts record hooks).
   value: unknown,
   pattern: RegExp,
   errors: string[],
   hint: string,
 ): string[] | null | undefined {
   if (value === undefined) return undefined
-  if (
-    !Array.isArray(value) ||
-    value.length < 1 ||
-    !value.every((entry) => typeof entry === 'string' && pattern.test(entry))
-  ) {
+  const parsed = z.array(z.string().regex(pattern)).min(1).safeParse(value)
+
+  if (!parsed.success) {
     errors.push(`${where} ${label} needs at least one entry, each ${hint}`)
+
     return null
   }
-  if (new Set(value).size !== value.length) {
+
+  if (new Set(parsed.data).size !== parsed.data.length) {
     errors.push(`${where} ${label} repeats an entry`)
+
     return null
   }
-  return value as string[]
+
+  return parsed.data
 }
 
 export function parseRecordHooks(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw record hooks delegate immediately to each; timing/when, kinds/statuses, upload encoding and runner checks construct the declaration (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionRecordHookDeclaration> {
@@ -938,30 +1079,32 @@ export function parseRecordHooks(
     value,
     errors,
     true,
-    (entry, where) => {
-      const when = entry.when
+    (entry, where, identity) => {
+      const parsedWhen = z
+        .array(z.enum(RECORD_HOOK_WHEN))
+        .min(1)
+        .safeParse(entry.when)
+
       if (
-        !Array.isArray(when) ||
-        when.length < 1 ||
-        !when.every(
-          (item) =>
-            typeof item === 'string' &&
-            (RECORD_HOOK_WHEN as readonly string[]).includes(item),
-        ) ||
-        new Set(when).size !== when.length
+        !parsedWhen.success ||
+        new Set(parsedWhen.data).size !== parsedWhen.data.length
       ) {
         errors.push(
           `${where} when needs one or more different entries from ${RECORD_HOOK_WHEN.join(', ')}`,
         )
+
         return null
       }
-      if (
-        typeof entry.timing !== 'string' ||
-        !(RECORD_HOOK_TIMING as readonly string[]).includes(entry.timing)
-      ) {
+
+      const when = parsedWhen.data
+      const timing = z.enum(RECORD_HOOK_TIMING).safeParse(entry.timing)
+
+      if (!timing.success) {
         errors.push(`${where} timing must be before or after`)
+
         return null
       }
+
       const kinds = unique(
         where,
         'kinds',
@@ -970,6 +1113,7 @@ export function parseRecordHooks(
         errors,
         'like experiment or sample',
       )
+
       const statuses = unique(
         where,
         'statuses',
@@ -978,31 +1122,48 @@ export function parseRecordHooks(
         errors,
         'like in_review',
       )
+
       if (kinds === null || statuses === null) return null
+
       if (statuses && !when.includes('status-changed')) {
         errors.push(`${where} statuses only apply to status-changed`)
+
         return null
       }
+
       let file: ExtensionEncoding | undefined
+
       if (entry.file !== undefined) {
         if (!when.includes('uploaded')) {
           errors.push(`${where} file only applies to uploaded`)
+
           return null
         }
+
         const enc = encoding(`${where} file`, entry.file, errors)
+
         if (!enc) return null
         file = enc
       }
+
       const run = runner(where, entry.runner, errors)
+
       if (!run) return null
-      return {
+
+      const declaration: ExtensionRecordHookDeclaration = {
+        ...identity,
         when,
-        timing: entry.timing,
-        ...(kinds ? { kinds } : {}),
-        ...(statuses ? { statuses } : {}),
-        ...(file ? { file } : {}),
+        timing: timing.data,
         runner: run,
-      } as never
+      }
+
+      if (kinds) declaration.kinds = kinds
+
+      if (statuses) declaration.statuses = statuses
+
+      if (file) declaration.file = file
+
+      return declaration
     },
   )
 }
@@ -1011,6 +1172,7 @@ export const LABEL_KINDS = ['sample', 'material', 'record'] as const
 export const MAX_RECOGNISE_TEXTS = 5
 
 export function parseInstrumentParsers(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw instrument parsers delegate immediately to each; extension, encoding, bounded recognition text and runner checks construct the declaration (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionInstrumentParserDeclaration> {
@@ -1019,7 +1181,7 @@ export function parseInstrumentParsers(
     value,
     errors,
     true,
-    (entry, where) => {
+    (entry, where, identity) => {
       const extensions = strings(
         where,
         'extensions',
@@ -1028,12 +1190,17 @@ export function parseInstrumentParsers(
         errors,
         'like .xlsx',
       )
+
       const enc = encoding(where, entry.encoding, errors)
+
       if (entry.instrument !== undefined && !text(entry.instrument, 1, 120)) {
         errors.push(`${where} instrument must be 1-120 characters`)
+
         return null
       }
+
       let contains: string[] | undefined
+
       if (entry.contains !== undefined) {
         if (
           !Array.isArray(entry.contains) ||
@@ -1045,26 +1212,36 @@ export function parseInstrumentParsers(
           errors.push(
             `${where} contains needs 1-${MAX_RECOGNISE_TEXTS} different texts of 1-80 characters`,
           )
+
           return null
         }
+
         contains = entry.contains
       }
+
       const run = runner(where, entry.runner, errors)
+
       if (!extensions || !enc || !run) return null
-      return {
+
+      const declaration: ExtensionInstrumentParserDeclaration = {
+        ...identity,
         extensions,
         encoding: enc,
-        ...(typeof entry.instrument === 'string'
-          ? { instrument: entry.instrument.trim() }
-          : {}),
-        ...(contains ? { contains } : {}),
         runner: run,
-      } as never
+      }
+
+      if (entry.instrument !== undefined)
+        declaration.instrument = z.string().parse(entry.instrument).trim()
+
+      if (contains) declaration.contains = contains
+
+      return declaration
     },
   )
 }
 
 export function parseLabelFormats(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw label formats delegate immediately to each; record-kind grammar and runner are checked before construction (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionLabelFormatDeclaration> {
@@ -1073,7 +1250,7 @@ export function parseLabelFormats(
     value,
     errors,
     true,
-    (entry, where) => {
+    (entry, where, identity) => {
       const kinds = strings(
         where,
         'kinds',
@@ -1082,14 +1259,18 @@ export function parseLabelFormats(
         errors,
         'like sample',
       )
+
       const run = runner(where, entry.runner, errors)
+
       if (!kinds || !run) return null
-      return { kinds, runner: run } as never
+
+      return { ...identity, kinds, runner: run }
     },
   )
 }
 
 export function parseBarcodeFormats(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw barcode formats delegate immediately to each; dimensionality and both runners are decoded before construction (hooks.test.ts malformed 3d case and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionBarcodeFormatDeclaration> {
@@ -1098,30 +1279,40 @@ export function parseBarcodeFormats(
     value,
     errors,
     true,
-    (entry, where) => {
-      if (
-        typeof entry.shape !== 'string' ||
-        !(BARCODE_SHAPES as readonly string[]).includes(entry.shape)
-      ) {
+    (entry, where, identity) => {
+      const dimension = z.enum(BARCODE_DIMENSIONS).safeParse(entry.shape)
+
+      if (!dimension.success) {
         errors.push(`${where} shape must be 1d or 2d`)
+
         return null
       }
+
       const run = runner(where, entry.runner, errors)
+
       const parse =
         entry.parse === undefined
           ? undefined
           : runner(`${where} parse`, entry.parse, errors)
+
       if (!run || parse === null) return null
-      return {
-        shape: entry.shape as BarcodeShape,
+
+      const declaration: ExtensionBarcodeFormatDeclaration = {
+        ...identity,
+        // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- This is the existing plugin.json barcode field; hooks.test.ts verifies its 1d/2d round-trip and rejects 3d.
+        shape: dimension.data,
         runner: run,
-        ...(parse ? { parse } : {}),
-      } as never
+      }
+
+      if (parse) declaration.parse = parse
+
+      return declaration
     },
   )
 }
 
 export function parseStorageRules(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw storage rules delegate immediately to each for identity and runner validation before construction (hooks.test.ts and shared package cases).
   value: unknown,
   errors: string[],
 ): Parsed<ExtensionStorageRuleDeclaration> {
@@ -1130,10 +1321,12 @@ export function parseStorageRules(
     value,
     errors,
     true,
-    (entry, where) => {
+    (entry, where, identity) => {
       const run = runner(where, entry.runner, errors)
+
       if (!run) return null
-      return { runner: run } as never
+
+      return { ...identity, runner: run }
     },
   )
 }
@@ -1161,8 +1354,8 @@ export const DATA_POINT_PARSERS = {
 
 export type DataPoint = keyof typeof DATA_POINT_PARSERS
 
-export const DATA_POINTS = Object.keys(DATA_POINT_PARSERS) as DataPoint[]
+export const DATA_POINTS = Object.keys(DATA_POINT_PARSERS).filter(isDataPoint)
 
 export function isDataPoint(value: string): value is DataPoint {
-  return (DATA_POINTS as readonly string[]).includes(value)
+  return Object.hasOwn(DATA_POINT_PARSERS, value)
 }

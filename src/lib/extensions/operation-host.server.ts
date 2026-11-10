@@ -6,6 +6,8 @@
  * agreed to it (`approve`); otherwise the run stops and says which call waits.
  * Server-only.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '../data-client'
 import type { ExtensionWire } from './client'
 import type { HostCall, HostCallOutcome } from './host-route.server'
@@ -51,15 +53,21 @@ export async function invokeWithHostCalls(
   deps?: ExtensionRuntimeDeps,
 ): Promise<HostInvokeOutcome> {
   const results: HostAnswer[] = [...(bridge.hostResults ?? [])]
+
   // No fixed number of rounds; each round runs under the plugin's own time limit.
   for (;;) {
     const result = await invokeExtension(
       { ...args, hostResults: results },
       deps,
     )
+
     if (!result.hostCalls) return { kind: 'done', result }
-    const { performHostCall } = await import('./host-route.server')
+
+    const perform =
+      bridge.perform ?? (await import('./host-route.server')).performHostCall
+
     const runtime = deps ?? (await import('./runtime.server')).defaultDeps()
+
     const install = await (
       bridge.install ??
       (async (key: string) =>
@@ -67,10 +75,13 @@ export async function invokeWithHostCalls(
           await (await import('./client')).listExtensions(await bridge.client())
         ).find((row) => row.key === key))
     )(args.extensionKey)
+
     if (!install) throw new Error('That plugin is no longer installed.')
+
     for (const call of result.hostCalls) {
       const index = results.length
-      const done = await (bridge.perform ?? performHostCall)(
+
+      const done = await perform(
         { runtime },
         {
           workspaceId: bridge.workspaceId,
@@ -85,16 +96,18 @@ export async function invokeWithHostCalls(
             (bridge.approve !== 'none' && bridge.approve.has(index)),
         },
       )
+
       if (!done.ok && done.code === 'confirmation_needed')
         return {
           kind: 'confirm',
           confirm: {
             index,
             name: call.name,
-            action:
-              typeof call.arguments.action === 'string'
-                ? call.arguments.action
-                : null,
+            action: z
+              .string()
+              .nullable()
+              .catch(null)
+              .parse(call.arguments.action),
             summary: done.summary ?? null,
           },
           hostResults: results,
@@ -122,11 +135,13 @@ export async function personClient(
     import('#/lib/postgrest-token'),
     import('../connectors/enterprise/execution.server'),
   ])
+
   const token = await mintPostgrestToken(env.PGRST_JWT_SECRET, {
     userId,
     workspaceId,
     sessionId: 'plugin-run',
     ttlSeconds: 600,
   })
+
   return execution.createServerDataClient(token)
 }

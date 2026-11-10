@@ -17,6 +17,9 @@
  *    `row_limit_exceeded` rather than silently truncating.
  */
 import { Client } from 'pg'
+import { z } from 'zod'
+import { pipelineJsonValueSchema } from '#/lib/pipelines/types'
+import type { ConnectorWire } from '../types'
 
 import {
   POSTGRES_SYSTEM_SCHEMAS as SYSTEM_SCHEMAS,
@@ -86,8 +89,12 @@ async function connect(
   return client
 }
 
-function mapPostgresError(error: unknown): ConnectorExecutionError {
-  const code = (error as { code?: string } | null)?.code ?? ''
+function mapPostgresError(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Native driver rejections are untrusted; decode their SQLSTATE immediately and bound the original rejection message.
+  error: unknown,
+): ConnectorExecutionError {
+  const decoded = z.object({ code: z.string().optional() }).safeParse(error)
+  const code = decoded.success ? (decoded.data.code ?? '') : ''
   const message = boundedErrorMessage(error)
 
   if (/password authentication failed|role .* does not exist/i.test(message)) {
@@ -175,12 +182,12 @@ async function listSchemas(
     `SELECT schema_name FROM information_schema.schemata ORDER BY schema_name`,
   )
 
-  const allowed = schemaFilter(source)
+  const allowed = new Set(schemaFilter(source))
 
   return result.rows
     .map((row) => row.schema_name)
     .filter((name) => !SYSTEM_SCHEMAS.has(name))
-    .filter((name) => allowed.length === 0 || allowed.includes(name))
+    .filter((name) => allowed.size === 0 || allowed.has(name))
 }
 
 async function listTables(
@@ -200,10 +207,10 @@ async function listTables(
     [schema],
   )
 
-  return result.rows.map((row) => ({
+  return result.rows.map((row): PostgresTableDescriptor => ({
     schema,
     name: row.table_name,
-    kind: row.table_type === 'VIEW' ? ('view' as const) : ('table' as const),
+    kind: row.table_type === 'VIEW' ? 'view' : 'table',
     columns: [],
   }))
 }
@@ -240,34 +247,71 @@ interface SourceRows {
   truncated: boolean
 }
 
+// Native pg parsers return scalars, Dates, bytea Buffers, arrays, JSON objects
+// and objects such as intervals. Keep these representations until serialization.
+type PostgresValue =
+  | string
+  | number
+  | boolean
+  | bigint
+  | null
+  | undefined
+  | Date
+  | Buffer
+  | PostgresValue[]
+  | { [key: string]: PostgresValue }
+
+const postgresPrimitiveSchema = z.union([
+  z.string(),
+  z.number(),
+  z.nan(),
+  z.literal(Infinity),
+  z.literal(-Infinity),
+  z.boolean(),
+  z.bigint(),
+])
+
+const sourceSelectorSchema = z.object({
+  schema: z.string().catch(''),
+  table: z.string().catch(''),
+  columns: z
+    .array(pipelineJsonValueSchema)
+    .transform((entries) =>
+      entries.flatMap((entry) => {
+        const parsed = z.string().safeParse(entry)
+
+        return parsed.success ? [parsed.data] : []
+      }),
+    )
+    .optional()
+    .catch(undefined),
+})
+
 async function readRows(
   source: PostgresConnectorConfig,
   secrets: Record<string, string>,
-  selector: { schema: string; table: string; columns?: string[] },
+  selector: ConnectorWire['config'],
   rowCap: number,
   hardCap: boolean,
 ): Promise<SourceRows> {
-  const schema =
-    typeof selector['schema'] === 'string' ? selector['schema'] : ''
+  const {
+    schema,
+    table,
+    columns: selectedColumns,
+  } = sourceSelectorSchema.parse(selector)
 
-  const table = typeof selector['table'] === 'string' ? selector['table'] : ''
   // One authoritative allowlist check for every direct selector — preview
   // and import must not rely on the UI having gone through discovery.
   assertSourceAllowed(source, schema, table)
-
-  const requested = Array.isArray(selector['columns'])
-    ? (selector['columns'] as unknown[]).filter(
-        (entry): entry is string => typeof entry === 'string',
-      )
-    : undefined
 
   const client = await connect(source, secrets)
 
   try {
     const columns = await listColumns(client, schema, table)
+    const requested = selectedColumns ? new Set(selectedColumns) : null
 
     const usable = requested
-      ? columns.filter((column) => requested.includes(column.name))
+      ? columns.filter((column) => requested.has(column.name))
       : columns
 
     if (usable.length === 0) {
@@ -287,26 +331,26 @@ async function readRows(
     // more rows than the cap is an explicit `row_limit_exceeded` failure.
     const limit = rowCap + (hardCap ? 1 : 0)
 
-    const result = await client.query<Record<string, unknown>>(
+    const result = await client.query<Record<string, PostgresValue>>(
       `SELECT ${columnSql} FROM ${tableSql} LIMIT ${limit}`,
     )
 
-    const rows = result.rows
-      .slice(0, rowCap)
-      .map((row) =>
-        Object.fromEntries(
-          Object.entries(row).map(([key, value]) => [
+    const rows = result.rows.slice(0, rowCap).map((row) =>
+      Object.fromEntries(
+        Object.entries(row).map(([key, value]) => {
+          if (value === null || value === undefined) return [key, null]
+
+          if (value instanceof Date) return [key, value.toISOString()]
+
+          const primitive = postgresPrimitiveSchema.safeParse(value)
+
+          return [
             key,
-            value === null || value === undefined
-              ? null
-              : value instanceof Date
-                ? value.toISOString()
-                : typeof value === 'object'
-                  ? JSON.stringify(value)
-                  : String(value),
-          ]),
-        ),
-      )
+            primitive.success ? String(primitive.data) : JSON.stringify(value),
+          ]
+        }),
+      ),
+    )
 
     return {
       columns: usable.map((column) => column.name),
@@ -363,7 +407,7 @@ export const postgresAdapter: EnterpriseConnectorAdapter<PostgresConnectorConfig
     },
 
     async discover(context, source, query): Promise<PostgresDiscoveryResult> {
-      const schema = typeof query['schema'] === 'string' ? query['schema'] : ''
+      const schema = z.string().catch('').parse(query['schema'])
       const client = await connect(source, context.secrets)
 
       try {
@@ -378,11 +422,11 @@ export const postgresAdapter: EnterpriseConnectorAdapter<PostgresConnectorConfig
           }
 
           const tables = await listTables(client, schema)
-          const allowedTables = source.allowedTables ?? []
+          const allowedTables = new Set(source.allowedTables ?? [])
 
-          const visible = allowedTables.length
+          const visible = allowedTables.size
             ? tables.filter((table) =>
-                allowedTables.includes(`${schema}.${table.name}`),
+                allowedTables.has(`${schema}.${table.name}`),
               )
             : tables
 
@@ -410,7 +454,7 @@ export const postgresAdapter: EnterpriseConnectorAdapter<PostgresConnectorConfig
       const rows = await readRows(
         source,
         context.secrets,
-        selector as { schema: string; table: string; columns?: string[] },
+        selector,
         context.limits.previewRows,
         true,
       )
@@ -425,17 +469,10 @@ export const postgresAdapter: EnterpriseConnectorAdapter<PostgresConnectorConfig
     async ingest(
       context: ConnectorAdapterContext,
       source: PostgresConnectorConfig,
-      request: ConnectorImportRequest<Record<string, unknown>>,
+      request: ConnectorImportRequest<ConnectorWire['config']>,
     ) {
-      const schema =
-        typeof request.source['schema'] === 'string'
-          ? request.source['schema']
-          : ''
-
-      const table =
-        typeof request.source['table'] === 'string'
-          ? request.source['table']
-          : ''
+      const schema = z.string().catch('').parse(request.source['schema'])
+      const table = z.string().catch('').parse(request.source['table'])
 
       // The governed run starts FIRST; the bounded read, mapping, validation
       // and commit all happen inside it, so connection/query/limit failures
@@ -443,7 +480,7 @@ export const postgresAdapter: EnterpriseConnectorAdapter<PostgresConnectorConfig
       // content-aware request digest is established inside the attempt before
       // commit: a changed source under the same selector is a new logical
       // request; an identical source replays the prior result.
-      const selectorSource: Record<string, unknown> = {
+      const selectorSource = {
         kind: 'postgres_table',
         host: source.host,
         port: source.port,
@@ -469,11 +506,7 @@ export const postgresAdapter: EnterpriseConnectorAdapter<PostgresConnectorConfig
           const read = await readRows(
             source,
             context.secrets,
-            request.source as {
-              schema: string
-              table: string
-              columns?: string[]
-            },
+            request.source,
             context.limits.importRows,
             true,
           )

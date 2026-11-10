@@ -22,6 +22,11 @@ import {
   lineageIntent,
 } from './openlineage'
 import type { LineageActivity, LineageDatasetRef } from './openlineage'
+import type { ChangeEventInput } from '#/lib/webhook-events'
+
+declare global {
+  var __sheetbaseLineageSchedulerStarted: unknown
+}
 
 export const LINEAGE_SWEEP_INTERVAL_MS = 15_000
 const BATCH = 200
@@ -56,7 +61,7 @@ interface ChangeRow {
   entity_type: string
   operation: string
   entity_uuid: string
-  payload: Record<string, unknown>
+  payload: ChangeEventInput['payload']
   created_at: string
 }
 
@@ -106,12 +111,15 @@ export async function activityFor(
 
   if (!intent) return null
 
-  const base = {
+  const base: Pick<
+    LineageActivity,
+    'eventTime' | 'runId' | 'jobType' | 'inputs' | 'outputs'
+  > = {
     eventTime: new Date(change.created_at).toISOString(),
     runId: change.entity_uuid,
     jobType: intent.kind,
-    inputs: [] as LineageDatasetRef[],
-    outputs: [] as LineageDatasetRef[],
+    inputs: [],
+    outputs: [],
   }
 
   if (intent.kind === 'PIPELINE') {
@@ -317,10 +325,11 @@ function secretKey(): Buffer {
 export async function sendToTarget(
   target: Pick<TargetRow, 'endpoint_url' | 'auth_header_name'>,
   sealedSecret: string | null,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw outbox transport delegates serialization to JSON.stringify, preserving native toJSON/getters, undefined bodies and serialization failures.
   body: unknown,
   doFetch: typeof fetch = fetch,
 ): Promise<number> {
-  const headers: Record<string, string> = { 'content-type': 'application/json' }
+  const headers: RequestInit['headers'] = { 'content-type': 'application/json' }
 
   if (sealedSecret) {
     headers[target.auth_header_name] = openSecret(sealedSecret, secretKey())
@@ -420,10 +429,9 @@ function disabled(): boolean {
 
 export function startLineageScheduler(): void {
   if (typeof window !== 'undefined' || disabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
 
-  if (g[startedKey]) return
-  g[startedKey] = true
+  if (globalThis[startedKey]) return
+  globalThis[startedKey] = true
 
   const tick = async () => {
     if (running) return
@@ -457,6 +465,5 @@ export function startLineageScheduler(): void {
 export function stopLineageScheduler(): void {
   if (timer) clearInterval(timer)
   timer = null
-  const g = globalThis as unknown as Record<string, unknown>
-  delete g[startedKey]
+  delete globalThis[startedKey]
 }

@@ -42,6 +42,7 @@ import type {
   RunManifest,
 } from './pipeline-manifest.server'
 import type { PipelineRunWire } from './pipelines/types'
+import { pipelineJsonObjectSchema } from './pipelines/types'
 
 export interface PipelineRunRequestDeps {
   getSession: (headers: Headers) => Promise<{ user: { id: string } } | null>
@@ -300,7 +301,17 @@ export async function handlePipelineTryDraft(
   }
 
   const inputVersions = isRecord(body.inputVersions) ? body.inputVersions : {}
-  const parameters = isRecord(body.parameters) ? body.parameters : {}
+  const parameters = pipelineJsonObjectSchema.safeParse(
+    isRecord(body.parameters) ? body.parameters : {},
+  )
+
+  if (!parameters.success) {
+    return responseError(
+      400,
+      'invalid_request',
+      'parameters must contain finite JSON values.',
+    )
+  }
 
   if (Object.values(inputVersions).some((id) => typeof id !== 'string')) {
     return responseError(
@@ -318,7 +329,7 @@ export async function handlePipelineTryDraft(
       workspaceId: body.workspaceId,
       configuration: body.configuration,
       inputVersions: inputVersions as Record<string, string>,
-      parameters,
+      parameters: parameters.data,
     },
     pipelineExecuteDeps(deps),
   )

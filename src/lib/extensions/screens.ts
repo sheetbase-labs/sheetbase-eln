@@ -17,6 +17,9 @@
  *
  * Browser safe, no server imports.
  */
+import { z } from 'zod'
+
+import { isRecord } from './points'
 
 export const SCREEN_TONES = [
   'neutral',
@@ -25,6 +28,7 @@ export const SCREEN_TONES = [
   'danger',
   'info',
 ] as const
+
 export type ScreenTone = (typeof SCREEN_TONES)[number]
 
 export type ScreenCell = string | number | boolean | null
@@ -120,27 +124,36 @@ export const SCREEN_LIMITS = {
 
 const NAME_RE = /^[a-z][a-z0-9_]{0,47}$/
 const ACTION_RE = /^[a-z][a-z0-9_-]{0,47}$/
+
 /** Inside Sheetbase only: a path, never a full address or a script. */
 const INTERNAL_PATH_RE = /^\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]*$/
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function isTone(value: unknown): value is ScreenTone {
-  return (
-    typeof value === 'string' &&
-    (SCREEN_TONES as readonly string[]).includes(value)
-  )
-}
-
 const byteLength = (value: string) => new TextEncoder().encode(value).length
+
+const noticeSchema = z.strictObject({
+  tone: z.enum(SCREEN_TONES),
+  text: z.string().min(1).max(300),
+})
+
+const screenColumnSchema = z.strictObject({
+  key: z.string().regex(NAME_RE),
+  label: z.string().min(1).max(60),
+  align: z.enum(['start', 'end']).optional(),
+})
+
+const screenCellSchema = z.union([
+  z.string().max(10_000),
+  z.boolean(),
+  z.number(),
+  z.null(),
+])
 
 class Walk {
   nodes = 0
   constructor(readonly errors: string[]) {}
   fail(path: string, message: string): null {
     if (this.errors.length < 20) this.errors.push(`${path}: ${message}`)
+
     return null
   }
 }
@@ -149,267 +162,385 @@ function text(
   walk: Walk,
   path: string,
   name: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Screen text enters from plugin nodes; the bounded string schema rejects malformed or oversized text before returning it to the renderer.
   value: unknown,
   max: number,
   min = 1,
 ): string | null {
-  if (typeof value !== 'string' || value.length < min || value.length > max)
+  const parsed = z.string().min(min).max(max).safeParse(value)
+
+  if (!parsed.success)
     return walk.fail(path, `${name} must be ${min}-${max} characters`)
-  return value
+
+  return parsed.data
 }
 
 function keys(
   walk: Walk,
   path: string,
-  node: Record<string, unknown>,
+  actual: readonly string[],
   allowed: readonly string[],
 ): boolean {
-  const extra = Object.keys(node).find((key) => !allowed.includes(key))
+  const known = new Set(allowed)
+  const extra = actual.find((key) => !known.has(key))
+
   if (extra !== undefined) {
     walk.fail(path, `unknown setting ${extra}`)
+
     return false
   }
+
   return true
 }
 
 function parseNode(
   walk: Walk,
-  value: unknown,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Recursive plugin nodes are parsed here; each selected kind validates its settings and constructs a ScreenNode under the shared depth/node limits before rendering.
+  inputNode: unknown,
   path: string,
   depth: number,
 ): ScreenNode | null {
   walk.nodes += 1
+
   if (walk.nodes > SCREEN_LIMITS.nodes)
     return walk.fail(path, `a screen has at most ${SCREEN_LIMITS.nodes} parts`)
+
   if (depth > SCREEN_LIMITS.depth)
     return walk.fail(path, `parts nest at most ${SCREEN_LIMITS.depth} deep`)
-  if (!isRecord(value) || typeof value.type !== 'string')
-    return walk.fail(path, 'every part needs a type')
-  const node = value
-  const at = `${path}(${node.type})`
-  const tone = (allowed: readonly string[] = SCREEN_TONES) =>
-    node.tone === undefined ||
-    (typeof node.tone === 'string' && allowed.includes(node.tone))
+
+  if (!isRecord(inputNode)) return walk.fail(path, 'every part needs a type')
+  const identity = z.string().safeParse(inputNode.type)
+
+  if (!identity.success) return walk.fail(path, 'every part needs a type')
+  const type = identity.data
+  const node = inputNode
+  const at = `${path}(${type})`
 
   switch (node.type) {
     case 'stack': {
-      if (!keys(walk, at, node, ['type', 'direction', 'gap', 'children']))
-        return null
       if (
-        (node.direction !== undefined &&
-          node.direction !== 'column' &&
-          node.direction !== 'row') ||
-        (node.gap !== undefined &&
-          node.gap !== 'sm' &&
-          node.gap !== 'md' &&
-          node.gap !== 'lg')
+        !keys(walk, at, Object.keys(node), [
+          'type',
+          'direction',
+          'gap',
+          'children',
+        ])
       )
+        return null
+
+      const direction = z
+        .enum(['column', 'row'])
+        .optional()
+        .safeParse(node.direction)
+
+      const gap = z.enum(['sm', 'md', 'lg']).optional().safeParse(node.gap)
+
+      if (!direction.success || !gap.success)
         return walk.fail(at, 'direction is column or row, gap is sm, md or lg')
       const children = parseChildren(walk, node.children, at, depth)
+
       if (!children) return null
-      return {
+
+      const result: Extract<ScreenNode, { type: 'stack' }> = {
         type: 'stack',
-        ...(node.direction ? { direction: node.direction } : {}),
-        ...(node.gap ? { gap: node.gap } : {}),
         children,
       }
+
+      if (direction.data !== undefined) result.direction = direction.data
+
+      if (gap.data !== undefined) result.gap = gap.data
+
+      return result
     }
+
     case 'heading': {
-      if (!keys(walk, at, node, ['type', 'text', 'level'])) return null
+      if (!keys(walk, at, Object.keys(node), ['type', 'text', 'level']))
+        return null
       const heading = text(walk, at, 'text', node.text, SCREEN_LIMITS.label)
+
       if (heading === null) return null
-      if (node.level !== undefined && ![1, 2, 3].includes(node.level as number))
-        return walk.fail(at, 'level is 1, 2 or 3')
-      return {
+
+      const level = z
+        .union([z.literal(1), z.literal(2), z.literal(3)])
+        .optional()
+        .safeParse(node.level)
+
+      if (!level.success) return walk.fail(at, 'level is 1, 2 or 3')
+
+      const result: Extract<ScreenNode, { type: 'heading' }> = {
         type: 'heading',
         text: heading,
-        ...(node.level ? { level: node.level as 1 | 2 | 3 } : {}),
       }
+
+      if (level.data !== undefined) result.level = level.data
+
+      return result
     }
+
     case 'text': {
-      if (!keys(walk, at, node, ['type', 'text', 'tone'])) return null
+      if (!keys(walk, at, Object.keys(node), ['type', 'text', 'tone']))
+        return null
       const body = text(walk, at, 'text', node.text, SCREEN_LIMITS.text, 0)
+
       if (body === null) return null
-      if (!tone(['muted', 'success', 'danger']))
+
+      const tone = z
+        .enum(['muted', 'success', 'danger'])
+        .optional()
+        .safeParse(node.tone)
+
+      if (!tone.success)
         return walk.fail(at, 'tone is muted, success or danger')
-      return {
+
+      const result: Extract<ScreenNode, { type: 'text' }> = {
         type: 'text',
         text: body,
-        ...(node.tone
-          ? { tone: node.tone as 'muted' | 'success' | 'danger' }
-          : {}),
       }
+
+      if (tone.data !== undefined) result.tone = tone.data
+
+      return result
     }
+
     case 'stat': {
-      if (!keys(walk, at, node, ['type', 'label', 'value', 'unit', 'tone']))
+      if (
+        !keys(walk, at, Object.keys(node), [
+          'type',
+          'label',
+          'value',
+          'unit',
+          'tone',
+        ])
+      )
         return null
       const label = text(walk, at, 'label', node.label, SCREEN_LIMITS.label)
+
       if (label === null) return null
-      if (!(
-        (typeof node.value === 'number' && Number.isFinite(node.value)) ||
-        (typeof node.value === 'string' && node.value.length <= 60)
-      ))
+
+      const value = z
+        .union([z.number(), z.string().max(60)])
+        .safeParse(node.value)
+
+      if (!value.success)
         return walk.fail(at, 'value is a number or up to 60 characters')
-      if (node.unit !== undefined && !text(walk, at, 'unit', node.unit, 20))
-        return null
-      if (!tone()) return walk.fail(at, 'unknown tone')
-      return {
+
+      const unit =
+        node.unit === undefined
+          ? undefined
+          : text(walk, at, 'unit', node.unit, 20)
+
+      if (unit === null) return null
+      const tone = z.enum(SCREEN_TONES).optional().safeParse(node.tone)
+
+      if (!tone.success) return walk.fail(at, 'unknown tone')
+
+      const result: Extract<ScreenNode, { type: 'stat' }> = {
         type: 'stat',
         label,
-        value: node.value,
-        ...(node.unit !== undefined ? { unit: node.unit as string } : {}),
-        ...(node.tone ? { tone: node.tone as ScreenTone } : {}),
+        value: value.data,
       }
+
+      if (unit !== undefined) result.unit = unit
+
+      if (tone.data !== undefined) result.tone = tone.data
+
+      return result
     }
+
     case 'badge': {
-      if (!keys(walk, at, node, ['type', 'text', 'tone'])) return null
+      if (!keys(walk, at, Object.keys(node), ['type', 'text', 'tone']))
+        return null
       const label = text(walk, at, 'text', node.text, 60)
+
       if (label === null) return null
-      if (!tone()) return walk.fail(at, 'unknown tone')
-      return {
+
+      const tone = z.enum(SCREEN_TONES).optional().safeParse(node.tone)
+
+      if (!tone.success) return walk.fail(at, 'unknown tone')
+
+      const result: Extract<ScreenNode, { type: 'badge' }> = {
         type: 'badge',
         text: label,
-        ...(node.tone ? { tone: node.tone as ScreenTone } : {}),
       }
+
+      if (tone.data !== undefined) result.tone = tone.data
+
+      return result
     }
+
     case 'bar': {
-      if (!keys(walk, at, node, ['type', 'value', 'max', 'label', 'tone']))
-        return null
-      if (typeof node.value !== 'number' || !Number.isFinite(node.value))
-        return walk.fail(at, 'value is a number')
       if (
-        node.max !== undefined &&
-        (typeof node.max !== 'number' ||
-          !Number.isFinite(node.max) ||
-          node.max <= 0)
+        !keys(walk, at, Object.keys(node), [
+          'type',
+          'value',
+          'max',
+          'label',
+          'tone',
+        ])
       )
-        return walk.fail(at, 'max is a number above 0')
-      if (node.label !== undefined && !text(walk, at, 'label', node.label, 60))
         return null
-      if (!tone()) return walk.fail(at, 'unknown tone')
-      return {
+
+      const value = z.number().safeParse(node.value)
+
+      if (!value.success) return walk.fail(at, 'value is a number')
+
+      const max = z.number().positive().optional().safeParse(node.max)
+
+      if (!max.success) return walk.fail(at, 'max is a number above 0')
+
+      const label =
+        node.label === undefined
+          ? undefined
+          : text(walk, at, 'label', node.label, 60)
+
+      if (label === null) return null
+      const tone = z.enum(SCREEN_TONES).optional().safeParse(node.tone)
+
+      if (!tone.success) return walk.fail(at, 'unknown tone')
+
+      const result: Extract<ScreenNode, { type: 'bar' }> = {
         type: 'bar',
-        value: node.value,
-        ...(node.max !== undefined ? { max: node.max } : {}),
-        ...(node.label !== undefined ? { label: node.label as string } : {}),
-        ...(node.tone ? { tone: node.tone as ScreenTone } : {}),
+        value: value.data,
       }
+
+      if (max.data !== undefined) result.max = max.data
+
+      if (label !== undefined) result.label = label
+
+      if (tone.data !== undefined) result.tone = tone.data
+
+      return result
     }
+
     case 'sparkline': {
-      if (!keys(walk, at, node, ['type', 'values', 'tone'])) return null
-      if (
-        !Array.isArray(node.values) ||
-        node.values.length < 2 ||
-        node.values.length > SCREEN_LIMITS.sparkline ||
-        !node.values.every((n) => typeof n === 'number' && Number.isFinite(n))
-      )
+      if (!keys(walk, at, Object.keys(node), ['type', 'values', 'tone']))
+        return null
+
+      const values = z
+        .array(z.number())
+        .min(2)
+        .max(SCREEN_LIMITS.sparkline)
+        .safeParse(node.values)
+
+      if (!values.success)
         return walk.fail(at, `values are 2-${SCREEN_LIMITS.sparkline} numbers`)
-      if (!tone()) return walk.fail(at, 'unknown tone')
-      return {
+
+      const tone = z.enum(SCREEN_TONES).optional().safeParse(node.tone)
+
+      if (!tone.success) return walk.fail(at, 'unknown tone')
+
+      const result: Extract<ScreenNode, { type: 'sparkline' }> = {
         type: 'sparkline',
-        values: node.values as number[],
-        ...(node.tone ? { tone: node.tone as ScreenTone } : {}),
+        values: values.data,
       }
+
+      if (tone.data !== undefined) result.tone = tone.data
+
+      return result
     }
+
     case 'table': {
-      if (!keys(walk, at, node, ['type', 'columns', 'rows'])) return null
-      if (
-        !Array.isArray(node.columns) ||
-        node.columns.length < 1 ||
-        node.columns.length > SCREEN_LIMITS.tableColumns
-      )
+      if (!keys(walk, at, Object.keys(node), ['type', 'columns', 'rows']))
+        return null
+
+      const declaredColumns = z
+        .array(z.unknown())
+        .min(1)
+        .max(SCREEN_LIMITS.tableColumns)
+        .safeParse(node.columns)
+
+      if (!declaredColumns.success)
         return walk.fail(
           at,
           `a table has 1-${SCREEN_LIMITS.tableColumns} columns`,
         )
-      const columns: Array<{
-        key: string
-        label: string
-        align?: 'start' | 'end'
-      }> = []
+
+      const columns: Extract<ScreenNode, { type: 'table' }>['columns'] = []
+
       const seen = new Set<string>()
-      for (const column of node.columns as unknown[]) {
-        if (
-          !isRecord(column) ||
-          typeof column.key !== 'string' ||
-          !NAME_RE.test(column.key) ||
-          seen.has(column.key) ||
-          typeof column.label !== 'string' ||
-          column.label.length < 1 ||
-          column.label.length > 60 ||
-          (column.align !== undefined &&
-            column.align !== 'start' &&
-            column.align !== 'end') ||
-          Object.keys(column).some(
-            (k) => !['key', 'label', 'align'].includes(k),
-          )
-        )
+
+      for (const raw of declaredColumns.data) {
+        const column = screenColumnSchema.safeParse(raw)
+
+        if (!column.success || seen.has(column.data.key))
           return walk.fail(
             at,
             'columns need a unique key (a-z, 0-9, _), a label and an optional align',
           )
-        seen.add(column.key)
-        columns.push({
-          key: column.key,
-          label: column.label,
-          ...(column.align ? { align: column.align } : {}),
-        })
+        seen.add(column.data.key)
+
+        const declaration: Extract<
+          ScreenNode,
+          { type: 'table' }
+        >['columns'][number] = {
+          key: column.data.key,
+          label: column.data.label,
+        }
+
+        if (column.data.align !== undefined)
+          declaration.align = column.data.align
+        columns.push(declaration)
       }
-      if (
-        !Array.isArray(node.rows) ||
-        node.rows.length > SCREEN_LIMITS.tableRows
-      )
+
+      const declaredRows = z
+        .array(z.unknown())
+        .max(SCREEN_LIMITS.tableRows)
+        .safeParse(node.rows)
+
+      if (!declaredRows.success)
         return walk.fail(
           at,
           `a table has at most ${SCREEN_LIMITS.tableRows} rows`,
         )
       const rows: Array<Record<string, ScreenCell>> = []
-      for (const row of node.rows as unknown[]) {
+
+      for (const row of declaredRows.data) {
         if (!isRecord(row)) return walk.fail(at, 'each row is an object')
         const out: Record<string, ScreenCell> = {}
+
         for (const column of columns) {
-          const cell = row[column.key]
-          if (cell === undefined || cell === null) {
-            out[column.key] = null
-            continue
-          }
-          if (
-            !(
-              typeof cell === 'string' ||
-              typeof cell === 'boolean' ||
-              (typeof cell === 'number' && Number.isFinite(cell))
-            ) ||
-            (typeof cell === 'string' && cell.length > 10_000)
-          )
+          const cell = screenCellSchema.safeParse(row[column.key] ?? null)
+
+          if (!cell.success)
             return walk.fail(
               at,
               'cells are text (up to 10000 characters), numbers, true/false or empty',
             )
-          out[column.key] = cell
+          out[column.key] = cell.data
         }
+
         rows.push(out)
       }
+
       return { type: 'table', columns, rows }
     }
+
     case 'svg': {
-      if (!keys(walk, at, node, ['type', 'svg', 'title'])) return null
-      if (
-        typeof node.svg !== 'string' ||
-        byteLength(node.svg) > SCREEN_LIMITS.svgBytes
-      )
-        return walk.fail(at, 'svg is text up to 64 KiB')
-      if (sanitizeSvg(node.svg) === null)
+      if (!keys(walk, at, Object.keys(node), ['type', 'svg', 'title']))
+        return null
+
+      const svg = z
+        .string()
+        .refine((source) => byteLength(source) <= SCREEN_LIMITS.svgBytes)
+        .safeParse(node.svg)
+
+      if (!svg.success) return walk.fail(at, 'svg is text up to 64 KiB')
+
+      if (sanitizeSvg(svg.data) === null)
         return walk.fail(
           at,
           'svg uses an element or attribute that is not allowed',
         )
       const title = text(walk, at, 'title', node.title, SCREEN_LIMITS.label)
+
       if (title === null) return null
-      return { type: 'svg', svg: node.svg, title }
+
+      return { type: 'svg', svg: svg.data, title }
     }
+
     case 'input': {
       if (
-        !keys(walk, at, node, [
+        !keys(walk, at, Object.keys(node), [
           'type',
           'name',
           'label',
@@ -421,210 +552,269 @@ function parseNode(
         ])
       )
         return null
-      if (typeof node.name !== 'string' || !NAME_RE.test(node.name))
+
+      const name = z.string().regex(NAME_RE).safeParse(node.name)
+
+      if (!name.success)
         return walk.fail(at, 'name matches ^[a-z][a-z0-9_]{0,47}$')
       const label = text(walk, at, 'label', node.label, SCREEN_LIMITS.label)
+
       if (label === null) return null
-      const kind = node.kind ?? 'text'
-      if (
-        !['text', 'number', 'select', 'checkbox', 'date'].includes(
-          kind as string,
-        )
-      )
+
+      const kind = z
+        .enum(['text', 'number', 'select', 'checkbox', 'date'])
+        .nullish()
+        .safeParse(node.kind)
+
+      if (!kind.success)
         return walk.fail(at, 'kind is text, number, select, checkbox or date')
       let options: ScreenInputOption[] | undefined
-      if (kind === 'select') {
-        if (
-          !Array.isArray(node.options) ||
-          node.options.length < 1 ||
-          node.options.length > SCREEN_LIMITS.options ||
-          !node.options.every(
-            (o) =>
-              isRecord(o) &&
-              typeof o.value === 'string' &&
-              o.value.length <= 100 &&
-              typeof o.label === 'string' &&
-              o.label.length >= 1 &&
-              o.label.length <= 100,
+
+      if (kind.data === 'select') {
+        const declaredOptions = z
+          .array(
+            z.object({
+              value: z.string().max(100),
+              label: z.string().min(1).max(100),
+            }),
           )
-        )
+          .min(1)
+          .max(SCREEN_LIMITS.options)
+          .safeParse(node.options)
+
+        if (!declaredOptions.success)
           return walk.fail(
             at,
             `a select needs 1-${SCREEN_LIMITS.options} options of { value, label }`,
           )
-        options = (node.options as ScreenInputOption[]).map((o) => ({
-          value: o.value,
-          label: o.label,
-        }))
+        options = declaredOptions.data
       } else if (node.options !== undefined)
         return walk.fail(at, 'only a select has options')
-      if (
-        node.value !== undefined &&
-        !(
-          typeof node.value === 'string' ||
-          typeof node.value === 'boolean' ||
-          (typeof node.value === 'number' && Number.isFinite(node.value))
-        )
-      )
+
+      const value = z
+        .union([z.string(), z.boolean(), z.number()])
+        .optional()
+        .safeParse(node.value)
+
+      if (!value.success)
         return walk.fail(at, 'value is text, a number or true/false')
-      if (node.required !== undefined && typeof node.required !== 'boolean')
-        return walk.fail(at, 'required is true or false')
-      if (node.help !== undefined && !text(walk, at, 'help', node.help, 300))
-        return null
-      return {
+
+      const required = z.boolean().optional().safeParse(node.required)
+
+      if (!required.success) return walk.fail(at, 'required is true or false')
+
+      const help =
+        node.help === undefined
+          ? undefined
+          : text(walk, at, 'help', node.help, 300)
+
+      if (help === null) return null
+
+      const result: Extract<ScreenNode, { type: 'input' }> = {
         type: 'input',
-        name: node.name,
+        name: name.data,
         label,
-        ...(node.kind ? { kind: node.kind as 'text' } : {}),
-        ...(options ? { options } : {}),
-        ...(node.value !== undefined ? { value: node.value } : {}),
-        ...(node.required !== undefined ? { required: node.required } : {}),
-        ...(node.help !== undefined ? { help: node.help as string } : {}),
       }
+
+      if (kind.data != null) result.kind = kind.data
+
+      if (options !== undefined) result.options = options
+
+      if (value.data !== undefined) result.value = value.data
+
+      if (required.data !== undefined) result.required = required.data
+
+      if (help !== undefined) result.help = help
+
+      return result
     }
+
     case 'button': {
-      if (!keys(walk, at, node, ['type', 'label', 'action', 'variant']))
+      if (
+        !keys(walk, at, Object.keys(node), [
+          'type',
+          'label',
+          'action',
+          'variant',
+        ])
+      )
         return null
       const label = text(walk, at, 'label', node.label, 60)
+
       if (label === null) return null
-      if (typeof node.action !== 'string' || !ACTION_RE.test(node.action))
+
+      const action = z.string().regex(ACTION_RE).safeParse(node.action)
+
+      if (!action.success)
         return walk.fail(at, 'action matches ^[a-z][a-z0-9_-]{0,47}$')
-      if (
-        node.variant !== undefined &&
-        node.variant !== 'primary' &&
-        node.variant !== 'secondary'
-      )
+
+      const variant = z
+        .enum(['primary', 'secondary'])
+        .optional()
+        .safeParse(node.variant)
+
+      if (!variant.success)
         return walk.fail(at, 'variant is primary or secondary')
-      return {
+
+      const result: Extract<ScreenNode, { type: 'button' }> = {
         type: 'button',
         label,
-        action: node.action,
-        ...(node.variant ? { variant: node.variant } : {}),
+        action: action.data,
       }
+
+      if (variant.data !== undefined) result.variant = variant.data
+
+      return result
     }
+
     case 'form': {
-      if (!keys(walk, at, node, ['type', 'children', 'submit'])) return null
-      const submit = node.submit
-      if (
-        !isRecord(submit) ||
-        typeof submit.label !== 'string' ||
-        submit.label.length < 1 ||
-        submit.label.length > 60 ||
-        typeof submit.action !== 'string' ||
-        !ACTION_RE.test(submit.action) ||
-        Object.keys(submit).some((k) => !['label', 'action'].includes(k))
-      )
+      if (!keys(walk, at, Object.keys(node), ['type', 'children', 'submit']))
+        return null
+
+      const submit = z
+        .strictObject({
+          label: z.string().min(1).max(60),
+          action: z.string().regex(ACTION_RE),
+        })
+        .safeParse(node.submit)
+
+      if (!submit.success)
         return walk.fail(at, 'submit needs a label and an action')
       const children = parseChildren(walk, node.children, at, depth)
+
       if (!children) return null
+
       return {
         type: 'form',
         children,
-        submit: { label: submit.label, action: submit.action },
+        submit: submit.data,
       }
     }
+
     case 'link': {
-      if (!keys(walk, at, node, ['type', 'text', 'to'])) return null
+      if (!keys(walk, at, Object.keys(node), ['type', 'text', 'to']))
+        return null
       const label = text(walk, at, 'text', node.text, 100)
+
       if (label === null) return null
-      if (
-        typeof node.to !== 'string' ||
-        node.to.length > 300 ||
-        node.to.startsWith('//') ||
-        !INTERNAL_PATH_RE.test(node.to)
-      )
+
+      const to = z
+        .string()
+        .max(300)
+        .regex(INTERNAL_PATH_RE)
+        .refine((destination) => !destination.startsWith('//'))
+        .safeParse(node.to)
+
+      if (!to.success)
         return walk.fail(
           at,
           'to is a path inside Sheetbase, such as /records/…, never a web address',
         )
-      return { type: 'link', text: label, to: node.to }
+
+      return { type: 'link', text: label, to: to.data }
     }
+
     case 'divider': {
-      if (!keys(walk, at, node, ['type'])) return null
+      if (!keys(walk, at, Object.keys(node), ['type'])) return null
+
       return { type: 'divider' }
     }
+
     default:
-      return walk.fail(path, `unknown part type ${node.type}`)
+      return walk.fail(path, `unknown part type ${type}`)
   }
 }
 
 function parseChildren(
   walk: Walk,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Nested plugin screen parts cross here; bound the list before recursively validating each node with the shared depth/node budget.
   value: unknown,
   path: string,
   depth: number,
 ): ScreenNode[] | null {
-  if (!Array.isArray(value) || value.length > 60)
+  const children = z.array(z.unknown()).max(60).safeParse(value)
+
+  if (!children.success)
     return walk.fail(path, 'children is a list of up to 60 parts')
   const out: ScreenNode[] = []
-  for (const [index, child] of (value as unknown[]).entries()) {
+
+  for (const [index, child] of children.data.entries()) {
     const parsed = parseNode(walk, child, `${path}[${index}]`, depth + 1)
+
     if (!parsed) return null
     out.push(parsed)
   }
+
   return out
 }
 
 /** Names of the inputs and actions in a view, for checking an event against what was drawn. */
 export function screenActions(node: ScreenNode): Set<string> {
   const out = new Set<string>()
+
   const visit = (n: ScreenNode) => {
     if (n.type === 'button') out.add(n.action)
+
     if (n.type === 'form') out.add(n.submit.action)
+
     if (n.type === 'stack' || n.type === 'form') n.children.forEach(visit)
   }
+
   visit(node)
+
   return out
 }
 
 /** Checks a screen function's answer. Returns the normalised result, or the problems. */
 export function parseScreenResult(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Plugin screen answers are untrusted: original keys, recursive nodes, strict notices and serialized state size are checked before returning a renderable result.
   value: unknown,
 ): { ok: true; result: ScreenResult } | { ok: false; errors: string[] } {
   const errors: string[] = []
+
   if (!isRecord(value))
     return { ok: false, errors: ['a screen returns an object'] }
+
   for (const key of Object.keys(value))
     if (!['view', 'state', 'notice'].includes(key))
       errors.push(`unknown key in a screen's answer: ${key}`)
+
   if (errors.length > 0) return { ok: false, errors }
   const walk = new Walk(errors)
   const view = parseNode(walk, value.view, 'view', 1)
   let notice: ScreenNotice | undefined
+
   if (value.notice !== undefined && value.notice !== null) {
-    const n = value.notice
-    if (
-      !isRecord(n) ||
-      !isTone(n.tone) ||
-      typeof n.text !== 'string' ||
-      n.text.length < 1 ||
-      n.text.length > 300 ||
-      Object.keys(n).some((k) => !['tone', 'text'].includes(k))
-    )
+    const parsed = noticeSchema.safeParse(value.notice)
+
+    if (!parsed.success)
       errors.push('notice needs a tone and text of up to 300 characters')
-    else notice = { tone: n.tone, text: n.text }
+    else notice = parsed.data
   }
+
   if (value.state !== undefined && value.state !== null) {
     let size = Infinity
+
     try {
       size = byteLength(JSON.stringify(value.state))
     } catch {
       /* not JSON */
     }
+
     if (size > SCREEN_LIMITS.stateBytes)
       errors.push('state is data up to 64 KiB')
   }
+
   if (!view || errors.length > 0) return { ok: false, errors }
-  return {
-    ok: true,
-    result: {
-      view,
-      ...(value.state !== undefined && value.state !== null
-        ? { state: value.state }
-        : {}),
-      ...(notice ? { notice } : {}),
-    },
-  }
+
+  const result: ScreenResult = { view }
+
+  if (value.state !== undefined && value.state !== null)
+    result.state = value.state
+
+  if (notice) result.notice = notice
+
+  return { ok: true, result }
 }
 
 // ---------------------------------------------------------------------------
@@ -638,6 +828,7 @@ export const ACTION_DOWNLOAD_TYPES = [
   'chemical/x-mdl-sdfile',
   'chemical/x-mdl-molfile',
 ] as const
+
 export const ACTION_DOWNLOAD_BYTES = 2 * 1024 * 1024
 
 export interface ActionResult {
@@ -649,50 +840,52 @@ export interface ActionResult {
 }
 
 export function parseActionResult(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Action answers enter from plugin execution; strict notice/download schemas and recursive screen parsing reject unknown settings and unsafe downloads before returning the result.
   value: unknown,
 ): { ok: true; result: ActionResult } | { ok: false; errors: string[] } {
   const errors: string[] = []
+
   if (!isRecord(value))
     return { ok: false, errors: ['an action returns an object'] }
+
   for (const key of Object.keys(value))
     if (!['notice', 'view', 'download'].includes(key))
       errors.push(`unknown key in an action's answer: ${key}`)
   const result: ActionResult = {}
+
   if (value.notice !== undefined && value.notice !== null) {
-    const n = value.notice
-    if (
-      !isRecord(n) ||
-      !isTone(n.tone) ||
-      typeof n.text !== 'string' ||
-      n.text.length < 1 ||
-      n.text.length > 300 ||
-      Object.keys(n).some((k) => !['tone', 'text'].includes(k))
-    )
+    const parsed = noticeSchema.safeParse(value.notice)
+
+    if (!parsed.success)
       errors.push('notice needs a tone and text of up to 300 characters')
-    else result.notice = { tone: n.tone, text: n.text }
+    else result.notice = parsed.data
   }
+
   if (value.view !== undefined && value.view !== null) {
     const walk = new Walk(errors)
     const view = parseNode(walk, value.view, 'view', 1)
+
     if (view) result.view = view
   }
+
   if (value.download !== undefined && value.download !== null) {
-    const d = value.download
-    if (
-      !isRecord(d) ||
-      typeof d.filename !== 'string' ||
-      !/^[A-Za-z0-9._-]{1,80}$/.test(d.filename) ||
-      typeof d.mime !== 'string' ||
-      !(ACTION_DOWNLOAD_TYPES as readonly string[]).includes(d.mime) ||
-      typeof d.text !== 'string' ||
-      byteLength(d.text) > ACTION_DOWNLOAD_BYTES ||
-      Object.keys(d).some((k) => !['filename', 'mime', 'text'].includes(k))
-    )
+    const download = z
+      .strictObject({
+        filename: z.string().regex(/^[A-Za-z0-9._-]{1,80}$/),
+        mime: z.enum(ACTION_DOWNLOAD_TYPES),
+        text: z
+          .string()
+          .refine((content) => byteLength(content) <= ACTION_DOWNLOAD_BYTES),
+      })
+      .safeParse(value.download)
+
+    if (!download.success)
       errors.push(
         `download needs a plain file name, a mime type (${ACTION_DOWNLOAD_TYPES.join(', ')}) and text up to 2 MiB`,
       )
-    else result.download = { filename: d.filename, mime: d.mime, text: d.text }
+    else result.download = download.data
   }
+
   return errors.length > 0 ? { ok: false, errors } : { ok: true, result }
 }
 
@@ -720,15 +913,17 @@ const SVG_ELEMENTS = new Set([
   'stop',
   'clippath',
 ])
-const SVG_CASE: Record<string, string> = {
-  lineargradient: 'linearGradient',
-  radialgradient: 'radialGradient',
-  clippath: 'clipPath',
-  viewbox: 'viewBox',
-  gradientunits: 'gradientUnits',
-  gradienttransform: 'gradientTransform',
-  preserveaspectratio: 'preserveAspectRatio',
-}
+
+const SVG_CASE = new Map([
+  ['lineargradient', 'linearGradient'],
+  ['radialgradient', 'radialGradient'],
+  ['clippath', 'clipPath'],
+  ['viewbox', 'viewBox'],
+  ['gradientunits', 'gradientUnits'],
+  ['gradienttransform', 'gradientTransform'],
+  ['preserveaspectratio', 'preserveAspectRatio'],
+])
+
 const SVG_ATTRIBUTES = new Set([
   'viewbox',
   'width',
@@ -781,41 +976,57 @@ const SVG_ATTRIBUTES = new Set([
  * image. A value that uses `url(` is allowed only as `url(#id)`.
  */
 export function sanitizeSvg(source: string): string | null {
-  if (typeof source !== 'string' || byteLength(source) > SCREEN_LIMITS.svgBytes)
+  if (
+    !z.string().safeParse(source).success ||
+    byteLength(source) > SCREEN_LIMITS.svgBytes
+  )
     return null
+
   if (!/^\s*<svg[\s>]/i.test(source)) return null
   const out: string[] = []
+
   const tag =
     /<\/?([a-zA-Z][a-zA-Z0-9:-]*)((?:\s+[^<>]*?)?)\s*(\/?)>|([^<]+)|<!--[\s\S]*?-->/g
+
   let match: RegExpExecArray | null
   let depth = 0
   const stack: string[] = []
+
   while ((match = tag.exec(source)) !== null) {
     const found: readonly (string | undefined)[] = match
+
     if (found[4] !== undefined) {
       out.push(found[4].replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+);)/g, '&amp;'))
       continue
     }
+
     if (found[1] === undefined) continue // comment
     const closing = match[0].startsWith('</')
     const name = match[1].toLowerCase()
+
     if (!SVG_ELEMENTS.has(name)) return null
+
     if (closing) {
       const open = stack.pop()
+
       if (open !== name) return null
       depth -= 1
-      out.push(`</${SVG_CASE[name] ?? name}>`)
+      out.push(`</${SVG_CASE.get(name) ?? name}>`)
       continue
     }
+
     const attrs: string[] = []
     const attrRe = /([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g
     let a: RegExpExecArray | null
+
     while ((a = attrRe.exec(match[2])) !== null) {
       const key = a[1].toLowerCase()
       const parts: readonly (string | undefined)[] = a
       const val = parts[2] ?? parts[3] ?? ''
+
       if (key.startsWith('on') || !SVG_ATTRIBUTES.has(key)) return null
       const lower = val.toLowerCase()
+
       if (
         lower.includes('javascript:') ||
         lower.includes('data:') ||
@@ -823,20 +1034,25 @@ export function sanitizeSvg(source: string): string | null {
         val.includes('<')
       )
         return null
-      attrs.push(`${SVG_CASE[key] ?? key}="${val.replace(/"/g, '&quot;')}"`)
+      attrs.push(`${SVG_CASE.get(key) ?? key}="${val.replace(/"/g, '&quot;')}"`)
     }
+
     const selfClosing = match[3] === '/'
     out.push(
-      `<${SVG_CASE[name] ?? name}${attrs.length ? ` ${attrs.join(' ')}` : ''}${selfClosing ? '/' : ''}>`,
+      `<${SVG_CASE.get(name) ?? name}${attrs.length ? ` ${attrs.join(' ')}` : ''}${selfClosing ? '/' : ''}>`,
     )
+
     if (!selfClosing) {
       stack.push(name)
       depth += 1
+
       if (depth > 24) return null
     }
   }
+
   if (stack.length > 0) return null
   const joined = out.join('')
+
   return joined.includes('xmlns') || !joined.startsWith('<svg')
     ? joined
     : joined.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"')

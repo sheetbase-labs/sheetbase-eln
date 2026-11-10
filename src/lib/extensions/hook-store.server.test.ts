@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defaultHookStore } from './record-hooks.server'
 
 const execute = vi.hoisted(() => vi.fn())
+
 vi.mock('#/db/client.server', () => ({ db: { execute } }))
 
 describe('the hook store', () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import {
   applySheetPresentation,
@@ -23,7 +23,7 @@ import type {
 } from './canonical-sheet-grid'
 import type { FieldDefinition } from './field-definition'
 import type { ComposedSheetSnapshot } from './sheet-composition-data'
-import type { SheetPresentation } from './sheet-instance'
+import type { SheetLocalValue, SheetPresentation } from './sheet-instance'
 import { validSheetInstanceState } from './sheet-instance.test'
 import { sanitizeSheetPresentation } from './sheet-presentation-view'
 import { validSheetDefinitionConfiguration } from '../../tests/fixtures/sheet-definition'
@@ -77,10 +77,40 @@ describe('canonicalSheetGridMatrix', () => {
     const configuration = validSheetDefinitionConfiguration()
     const [bindingA, bindingB] = configuration.bindings
 
-    const snapshot = {
+    const provenance = {
+      definitionVersionId: rowId,
+      definitionColumnId: editableBound,
+      bindingId: bindingA.id,
+      sourceFieldId: fieldId,
+      sourceKind: 'dataset' as const,
+      sourceDatasetId: '21000000-0000-4000-8000-000000000003',
+      sourceRowId: null,
+      sourceRevision: 4,
+      sourceDatasetRevision: 9,
+    }
+
+    const permission = {
+      read: true as const,
+      evidence: 'authenticated-composition-membership' as const,
+      reason: 'Exact validated write-back mapping.' as const,
+    }
+
+    const snapshot: ComposedSheetSnapshot = {
+      instanceId: rowId,
+      revision: 1,
+      offset: 0,
+      limit: 50,
+      hasMore: false,
+      localFieldIds: [],
+      identity: {
+        kind: 'source',
+        columnIds: [fieldId],
+        logicalTypes: ['integer'],
+      },
       definitionConfiguration: configuration,
       rows: [
         {
+          rowKey: composedRow,
           identityValues: [12],
           sources: [
             {
@@ -110,28 +140,46 @@ describe('canonicalSheetGridMatrix', () => {
         columns: [
           {
             id: editableBound,
+            key: 'governed_result',
+            field: configuration.columns[0].field,
+            source: {
+              kind: 'bound',
+              bindingId: bindingA.id,
+              sourceFieldId: fieldId,
+            },
             label: 'Governed result',
             presentation: { kind: 'text', inputType: 'text' },
-            permission: { editability: 'editable' },
+            permission: { ...permission, editability: 'editable' },
           },
           {
             id: derivedBound,
+            key: 'derived_recovery',
+            field: configuration.columns[1].field,
+            source: {
+              kind: 'bound',
+              bindingId: bindingB.id,
+              sourceFieldId: fieldId,
+            },
             label: 'Derived recovery',
             presentation: { kind: 'number', inputType: 'number' },
-            permission: { editability: 'read_only' },
+            permission: { ...permission, editability: 'read-only' },
           },
         ],
         rows: [
           {
             rowKey: composedRow,
             values: {
-              [editableBound]: { kind: 'present', value: 12 },
-              [derivedBound]: { kind: 'present', value: 24 },
+              [editableBound]: { kind: 'present', value: 12, provenance },
+              [derivedBound]: {
+                kind: 'present',
+                value: 24,
+                provenance: { ...provenance, definitionColumnId: derivedBound },
+              },
             },
           },
         ],
       },
-    } as unknown as ComposedSheetSnapshot
+    }
 
     const composedInstance = instance()
     composedInstance.state.localValues[composedRow] = {}
@@ -181,6 +229,33 @@ describe('canonicalSheetGridMatrix', () => {
 })
 
 describe('parseSheetCellInput', () => {
+  it('preserves immutable input and its concrete type until semantic validation', () => {
+    const raw = Object.freeze({
+      scientific: Object.freeze([1, null, 'unparsed']),
+    })
+
+    const parsed = parseSheetCellInput(instance().state.localFields[0], raw)
+
+    expectTypeOf(parsed).toEqualTypeOf<typeof raw | SheetLocalValue>()
+    expect(parsed).toBe(raw)
+    expect(validateCanonicalCell(instance().state.localFields[0], parsed)).toBe(
+      'invalid_value',
+    )
+  })
+
+  it.each([NaN, Infinity, new Date('2026-01-01'), () => 1])(
+    'preserves malformed raw input for rejection without serialization: %j',
+    (raw) => {
+      const parsed = parseSheetCellInput(instance().state.localFields[0], raw)
+
+      expectTypeOf(parsed).toEqualTypeOf<typeof raw | SheetLocalValue>()
+      expect(parsed).toBe(raw)
+      expect(
+        validateCanonicalCell(instance().state.localFields[0], parsed),
+      ).not.toBeNull()
+    },
+  )
+
   it('coerces numeric and boolean editor values', () => {
     const integer = {
       ...instance().state.localFields[0],
@@ -199,6 +274,37 @@ describe('parseSheetCellInput', () => {
 })
 
 describe('validateCanonicalCell', () => {
+  it('keeps semantic cardinality and required errors ahead of local-value shape errors', () => {
+    const field = instance().state.localFields[0]
+
+    expect(validateCanonicalCell({ ...field, cardinality: 'many' }, [])).toBe(
+      'invalid_cardinality',
+    )
+    expect(validateCanonicalCell(field, ['text'])).toBe('invalid_cardinality')
+    expect(
+      validateCanonicalCell(
+        { ...field, nullable: false, defaultValue: null },
+        null,
+      ),
+    ).toBe('required_value')
+  })
+
+  it.each([
+    NaN,
+    Infinity,
+    new Date('2026-01-01'),
+    () => 1,
+    { nested: undefined },
+  ])(
+    'rejects raw non-cell payloads instead of serializing them into acceptance: %j',
+    (value) => {
+      expect(validateCanonicalCell(null, value)).toBe('invalid_value')
+      expect(
+        validateCanonicalCell(instance().state.localFields[0], value),
+      ).not.toBeNull()
+    },
+  )
+
   it('rejects invalid integers for typed local fields', () => {
     const field = instance().state.localFields[0]
     expect(
@@ -534,6 +640,19 @@ describe('column header and category display (GRID-03)', () => {
     expect(categoryCellDisplayText(categoryField, null)).toBe('')
     expect(categoryCellDisplayText(null, 12)).toBe('12')
   })
+
+  it('retains native display coercion for raw arrays, objects and dates', () => {
+    const date = new Date('2026-01-01T00:00:00Z')
+
+    expect(categoryCellDisplayText(null, [1, null, 'text'])).toBe('1,,text')
+    expect(categoryCellDisplayText(null, { scientific: 12 })).toBe(
+      '[object Object]',
+    )
+    expect(categoryCellDisplayText(null, date)).toBe(String(date))
+    expect(
+      categoryCellDisplayText(null, { toString: () => 'scientific label' }),
+    ).toBe('scientific label')
+  })
 })
 
 describe('applySheetPresentation (GRID-04)', () => {
@@ -630,6 +749,18 @@ describe('clear contents with visual→physical columns (GRID-04)', () => {
 describe('grid filter ⇄ presentation.filters mapping (GRID-04)', () => {
   const columns = [{ id: 'col-a' }, { id: 'col-b' }, { id: 'col-c' }]
   const columnIds = new Set(columns.map((column) => column.id))
+
+  it.each([NaN, Infinity, new Date('2026-01-01'), [], {}, 'x'.repeat(100_001)])(
+    'omits plugin equality values outside the persisted scalar contract: %j',
+    (value) => {
+      expect(
+        hotFiltersToPresentationFilters(
+          [{ column: 0, conditions: [{ name: 'eq', args: [value] }] }],
+          columns,
+        ),
+      ).toEqual([])
+    },
+  )
 
   const emptyPresentation = {
     columnOrder: [],

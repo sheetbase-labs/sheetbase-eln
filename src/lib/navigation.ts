@@ -96,12 +96,12 @@ export type ObjectKind =
   | 'review'
 
 /** Record kinds shown as experiments, so a link opens the experiment page. */
-const OBJECT_KIND_ALIASES: Record<string, ObjectKind> = {
-  protocol: 'protocol_template',
-  reagent: 'material',
-  analysis_view: 'analysis',
-  dataset_import: 'dataset',
-}
+const OBJECT_KIND_ALIASES = new Map<string, ObjectKind>([
+  ['protocol', 'protocol_template'],
+  ['reagent', 'material'],
+  ['analysis_view', 'analysis'],
+  ['dataset_import', 'dataset'],
+])
 
 /** The object kinds `objectPath` can link to; others render as plain text. */
 export function isLinkableObjectKind(kind: string): kind is ObjectKind {
@@ -116,7 +116,7 @@ export function isLinkableObjectKind(kind: string): kind is ObjectKind {
 export function objectPath(kind: string, ref: string): string | null {
   const key = encodeURIComponent(ref)
 
-  switch (OBJECT_KIND_ALIASES[kind] ?? kind) {
+  switch (OBJECT_KIND_ALIASES.get(kind) ?? kind) {
     case 'project':
       return `/projects/${key}`
     case 'experiment':

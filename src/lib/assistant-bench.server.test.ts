@@ -1,71 +1,60 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import type * as Positions from './storage-positions'
 import { runBenchAction } from './assistant-bench-run'
 import { buildBenchProposal } from './assistant-bench.server'
 import type { LabToolContext } from './assistant-lab-tools.server'
-import type { DataClient } from './data-client'
-
-const box = {
-  id: 'b1',
-  name: 'F2',
-  code: null,
-  rows: 2,
-  cols: 2,
-  held: 1,
-  free: 3,
-  above: ['Lab', '-80'],
-  path: 'Lab / -80 / F2',
-}
-
-vi.mock('./storage-positions', async (original) => ({
-  ...(await original<typeof Positions>()),
-  fetchBoxChoices: () => Promise.resolve([box]),
-  fetchBoxPositions: () =>
-    Promise.resolve(
-      (
-        [
-          ['p1', 0, 0, 'A1', 'occupied'],
-          ['p2', 0, 1, 'A2', 'available'],
-          ['p3', 1, 0, 'B1', 'available'],
-        ] as const
-      ).map(([id, rowIndex, colIndex, label, status]) => ({
-        id,
-        boxId: 'b1',
-        rowIndex,
-        colIndex,
-        label,
-        status,
-        occupant: null,
-      })),
-    ),
-}))
+import { createDataClient } from './data-client'
 
 const WS = '33333333-3333-4333-8333-333333333333'
 const P1 = '11111111-1111-4111-8111-111111111111'
 
-type Rows = Partial<
-  Record<string, Array<Record<string, unknown>> | ((q: string) => unknown[])>
->
-
-function context(rows: Rows): { ctx: LabToolContext; calls: string[] } {
+function context(routes: Partial<Record<string, (url: URL) => Response>>) {
   const calls: string[] = []
 
-  const client = {
-    list: (resource: string, query = '') => {
-      calls.push(`${resource}${query}`)
-      const source = rows[resource]
+  const client = createDataClient((input) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://localhost',
+    )
 
-      return Promise.resolve(
-        typeof source === 'function' ? source(query) : (source ?? []),
-      )
-    },
-  } as unknown as DataClient
+    const resource = url.pathname.replace('/api/db/', '')
+    calls.push(`${resource}${url.search}`)
+
+    return Promise.resolve(routes[resource]?.(url) ?? Response.json([]))
+  })
 
   return {
-    ctx: { client, workspaceId: WS, userId: 'me', timeZone: 'Europe/London' },
+    ctx: {
+      client,
+      workspaceId: WS,
+      userId: 'me',
+      timeZone: 'Europe/London',
+    } satisfies LabToolContext,
     calls,
   }
+}
+
+function rpcTransport() {
+  const calls: Array<[string, unknown]> = []
+
+  const client = createDataClient(async (input, init) => {
+    const request = new Request(
+      new URL(input instanceof Request ? input.url : input, 'http://localhost'),
+      init,
+    )
+
+    expect(request.method).toBe('POST')
+    expect(request.headers.get('content-type')).toBe('application/json')
+    const body: unknown = await request.json()
+    calls.push([
+      new URL(request.url).pathname.replace('/api/db/rpc/', ''),
+      body,
+    ])
+
+    return Response.json({ id: 'x', stored: 1 })
+  })
+
+  return { client, calls }
 }
 
 const tris = {
@@ -89,7 +78,10 @@ const base = { title: 'T', summary: 'S' }
 
 describe('reagent bench cards', () => {
   it('proposes a reorder with the material’s own unit', async () => {
-    const { ctx } = context({ records: [tris], reagent_orders: [] })
+    const { ctx } = context({
+      records: () => Response.json([tris]),
+      reagent_orders: () => Response.json([]),
+    })
 
     const out = await buildBenchProposal(
       'sheetbase.reagent.order',
@@ -112,8 +104,8 @@ describe('reagent bench cards', () => {
 
   it('says so when a reorder is already open', async () => {
     const { ctx } = context({
-      records: [tris],
-      reagent_orders: [{ number: 7, status: 'ordered' }],
+      records: () => Response.json([tris]),
+      reagent_orders: () => Response.json([{ number: 7, status: 'ordered' }]),
     })
 
     const out = await buildBenchProposal(
@@ -128,16 +120,17 @@ describe('reagent bench cards', () => {
 
   it('marks an order received by its number', async () => {
     const { ctx, calls } = context({
-      reagent_orders: [
-        {
-          id: 'o1',
-          number: 7,
-          material_title: 'Tris base',
-          quantity: '2',
-          unit: 'bottles',
-          status: 'ordered',
-        },
-      ],
+      reagent_orders: () =>
+        Response.json([
+          {
+            id: 'o1',
+            number: 7,
+            material_title: 'Tris base',
+            quantity: '2',
+            unit: 'bottles',
+            status: 'ordered',
+          },
+        ]),
     })
 
     const out = await buildBenchProposal(
@@ -159,7 +152,104 @@ describe('reagent bench cards', () => {
 describe('sample bench cards', () => {
   it('logs samples into the next free positions of a box', async () => {
     const { ctx } = context({
-      projects: [{ id: P1, title: 'Vaccine' }],
+      projects: () => Response.json([{ id: P1, title: 'Vaccine' }]),
+      storage_sites: () =>
+        Response.json([{ id: 'site1', name: 'Lab', archived_at: null }]),
+      storage_rooms: () =>
+        Response.json([
+          {
+            id: 'room1',
+            site_id: 'site1',
+            name: 'Cold room',
+            archived_at: null,
+          },
+        ]),
+      storage_units: () =>
+        Response.json([
+          {
+            id: 'unit1',
+            room_id: 'room1',
+            name: '-80',
+            unit_type: 'freezer',
+            archived_at: null,
+          },
+        ]),
+      storage_shelves: () =>
+        Response.json([
+          {
+            id: 'shelf1',
+            unit_id: 'unit1',
+            name: 'Shelf 1',
+            position: 1,
+            archived_at: null,
+          },
+        ]),
+      storage_racks: () =>
+        Response.json([
+          {
+            id: 'rack1',
+            shelf_id: 'shelf1',
+            name: 'Rack 1',
+            position: 1,
+            archived_at: null,
+          },
+        ]),
+      storage_boxes: () =>
+        Response.json([
+          {
+            id: 'b1',
+            rack_id: 'rack1',
+            name: 'F2',
+            code: null,
+            rows: 2,
+            cols: 2,
+            archived_at: null,
+          },
+        ]),
+      storage_positions: (url) => {
+        if (!url.searchParams.has('box_id')) {
+          expect(url.searchParams.get('occupied_record_id')).toBe('not.is.null')
+
+          return Response.json([{ box_id: 'b1' }])
+        }
+
+        expect(url.searchParams.get('box_id')).toBe('eq.b1')
+
+        return Response.json([
+          {
+            id: 'p1',
+            box_id: 'b1',
+            row_index: 0,
+            col_index: 0,
+            label: 'A1',
+            status: 'occupied',
+            occupied_record_id: 's1',
+          },
+          {
+            id: 'p2',
+            box_id: 'b1',
+            row_index: 0,
+            col_index: 1,
+            label: 'A2',
+            status: 'available',
+            occupied_record_id: null,
+          },
+          {
+            id: 'p3',
+            box_id: 'b1',
+            row_index: 1,
+            col_index: 0,
+            label: 'B1',
+            status: 'available',
+            occupied_record_id: null,
+          },
+        ])
+      },
+      records: (url) => {
+        expect(url.searchParams.get('id')).toBe('in.(s1)')
+
+        return Response.json([s142])
+      },
     })
 
     const out = await buildBenchProposal(
@@ -185,7 +275,7 @@ describe('sample bench cards', () => {
   })
 
   it('refuses to use more than is left', async () => {
-    const { ctx } = context({ records: [s142] })
+    const { ctx } = context({ records: () => Response.json([s142]) })
 
     const out = await buildBenchProposal(
       'sheetbase.sample.use',
@@ -198,7 +288,7 @@ describe('sample bench cards', () => {
   })
 
   it('shows the amount left after use', async () => {
-    const { ctx } = context({ records: [s142] })
+    const { ctx } = context({ records: () => Response.json([s142]) })
 
     const out = await buildBenchProposal(
       'sheetbase.sample.use',
@@ -217,8 +307,10 @@ describe('sample bench cards', () => {
 
   it('splits into tubes for an experiment', async () => {
     const { ctx } = context({
-      records: (q: string) =>
-        q.includes('kind=eq.experiment') ? [exp12] : [s142],
+      records: (url) =>
+        Response.json(
+          url.searchParams.get('kind') === 'eq.experiment' ? [exp12] : [s142],
+        ),
     })
 
     const out = await buildBenchProposal(
@@ -247,7 +339,7 @@ describe('sample bench cards', () => {
   })
 
   it('moves a sample to a place typed in words', async () => {
-    const { ctx } = context({ records: [s142] })
+    const { ctx } = context({ records: () => Response.json([s142]) })
 
     const out = await buildBenchProposal(
       'sheetbase.sample.move',
@@ -268,25 +360,27 @@ describe('sample bench cards', () => {
 
   it('moves a sample on only to a stage it can reach', async () => {
     const { ctx } = context({
-      records: [s142],
-      sample_workflow_runs: [
-        {
-          id: 'r1',
-          workflow_id: 'w1',
-          stage_id: 'st1',
-          entered_at: '2026-11-01T00:00:00Z',
-          due_at: null,
-          completed_at: null,
-          workflow: { name: 'Plasma intake' },
-          stage: { name: 'QC' },
-        },
-      ],
-      sample_workflow_transitions: [
-        {
-          from_stage_id: 'st1',
-          to: { id: 'st2', name: 'Storage', required_fields: [] },
-        },
-      ],
+      records: () => Response.json([s142]),
+      sample_workflow_runs: () =>
+        Response.json([
+          {
+            id: 'r1',
+            workflow_id: 'w1',
+            stage_id: 'st1',
+            entered_at: '2026-11-01T00:00:00Z',
+            due_at: null,
+            completed_at: null,
+            workflow: { name: 'Plasma intake' },
+            stage: { name: 'QC' },
+          },
+        ]),
+      sample_workflow_transitions: () =>
+        Response.json([
+          {
+            from_stage_id: 'st1',
+            to: { id: 'st2', name: 'Storage', required_fields: [] },
+          },
+        ]),
     })
 
     const ok = await buildBenchProposal(
@@ -324,6 +418,7 @@ describe('forms from chat', () => {
       logical_type: 'category',
       nullable: false,
       default_value: null,
+      unit: null,
       validation: {},
       lifecycle: 'active',
     },
@@ -336,29 +431,33 @@ describe('forms from chat', () => {
       logical_type: 'text',
       nullable: false,
       default_value: null,
+      unit: null,
       validation: {},
       lifecycle: 'active',
     },
   ]
 
-  const rows: Rows = {
-    model_incident_logs: [{ model_key: 'near_miss' }],
-    record_models: (q: string) =>
-      q.includes('select=key,name')
-        ? [{ key: 'near_miss', name: 'Near miss' }]
-        : [],
-    projects: [{ id: P1, title: 'Safety' }],
-    record_field_definitions: fields,
-    model_field_options: [
-      {
-        id: 'o1',
-        definition_id: 'f1',
-        key: 'minor',
-        label: 'Minor',
-        display_order: 1,
-        lifecycle: 'active',
-      },
-    ],
+  const rows = {
+    model_incident_logs: () => Response.json([{ model_key: 'near_miss' }]),
+    record_models: (url: URL) =>
+      Response.json(
+        url.searchParams.get('select') === 'key,name'
+          ? [{ key: 'near_miss', name: 'Near miss' }]
+          : [],
+      ),
+    projects: () => Response.json([{ id: P1, title: 'Safety' }]),
+    record_field_definitions: () => Response.json(fields),
+    model_field_options: () =>
+      Response.json([
+        {
+          id: 'o1',
+          definition_id: 'f1',
+          key: 'minor',
+          label: 'Minor',
+          display_order: 1,
+          lifecycle: 'active',
+        },
+      ]),
   }
 
   it('files an incident from what the person said', async () => {
@@ -417,7 +516,7 @@ describe('forms from chat', () => {
   it('sends a request on a named form', async () => {
     const { ctx } = context({
       ...rows,
-      request_forms: [{ model_key: 'near_miss' }],
+      request_forms: () => Response.json([{ model_key: 'near_miss' }]),
     })
 
     const out = await buildBenchProposal(
@@ -455,7 +554,7 @@ describe('instrument out of service card', () => {
   ]
 
   it('needs a reason, then shows the status change', async () => {
-    const { ctx } = context({ instruments })
+    const { ctx } = context({ instruments: () => Response.json(instruments) })
 
     const none = await buildBenchProposal(
       'sheetbase.instrument.out_of_service',
@@ -493,7 +592,10 @@ describe('storage reading cards', () => {
   const rooms = [{ id: 'r1', name: 'Cold room', code: 'CR-1' }]
 
   it('finds the freezer and shows the reading', async () => {
-    const { ctx } = context({ storage_units: units, storage_rooms: rooms })
+    const { ctx } = context({
+      storage_units: () => Response.json(units),
+      storage_rooms: () => Response.json(rooms),
+    })
 
     const out = await buildBenchProposal(
       'sheetbase.storage.log_reading',
@@ -523,7 +625,10 @@ describe('storage reading cards', () => {
   })
 
   it('says what exists when nothing matches', async () => {
-    const { ctx } = context({ storage_units: units, storage_rooms: rooms })
+    const { ctx } = context({
+      storage_units: () => Response.json(units),
+      storage_rooms: () => Response.json(rooms),
+    })
 
     const out = await buildBenchProposal(
       'sheetbase.storage.log_reading',
@@ -535,15 +640,7 @@ describe('storage reading cards', () => {
   })
 
   it('logs it through the readings RPC', async () => {
-    const calls: Array<[string, Record<string, unknown>]> = []
-
-    const client = {
-      rpc: (name: string, args: Record<string, unknown>) => {
-        calls.push([name, args])
-
-        return Promise.resolve({ stored: 1 })
-      },
-    } as unknown as DataClient
+    const { client, calls } = rpcTransport()
 
     await runBenchAction(client, {
       kind: 'storage.reading',
@@ -560,15 +657,7 @@ describe('storage reading cards', () => {
 
 describe('running a card', () => {
   it('calls the ordinary RPCs as the person', async () => {
-    const calls: Array<[string, Record<string, unknown>]> = []
-
-    const client = {
-      rpc: (name: string, args: Record<string, unknown>) => {
-        calls.push([name, args])
-
-        return Promise.resolve({ id: 'x' })
-      },
-    } as unknown as DataClient
+    const { client, calls } = rpcTransport()
 
     await runBenchAction(client, {
       kind: 'instrument.service',
@@ -597,17 +686,24 @@ describe('running a card', () => {
 
   it('proposes marking an order placed, matching the supplier list and the price', async () => {
     const { ctx } = context({
-      reagent_orders: [{ id: 'o1', number: 7, material_title: 'Tris base' }],
-      supplier_models: [{ model_key: 'supplier' }],
-      records: [
-        {
-          id: 'sup1',
-          identifier: 'SUP-1',
-          title: 'Sigma-Aldrich',
-          kind: 'supplier',
-        },
-        { id: 'sup2', identifier: 'SUP-2', title: 'Fisher', kind: 'supplier' },
-      ],
+      reagent_orders: () =>
+        Response.json([{ id: 'o1', number: 7, material_title: 'Tris base' }]),
+      supplier_models: () => Response.json([{ model_key: 'supplier' }]),
+      records: () =>
+        Response.json([
+          {
+            id: 'sup1',
+            identifier: 'SUP-1',
+            title: 'Sigma-Aldrich',
+            kind: 'supplier',
+          },
+          {
+            id: 'sup2',
+            identifier: 'SUP-2',
+            title: 'Fisher',
+            kind: 'supplier',
+          },
+        ]),
     })
 
     const result = await buildBenchProposal(
@@ -646,18 +742,20 @@ describe('running a card', () => {
 
   it('proposes an instrument rate and needs a currency with it', async () => {
     const { ctx } = context({
-      instruments: [
-        {
-          id: 'i1',
-          display_id: 'INS-0003',
-          name: 'Plate reader',
-          location: null,
-          instrument_type: 'plate_reader',
-          retired_at: null,
-          out_of_service_at: null,
-        },
-      ],
-      instrument_rates: [{ rate_per_hour: '18', currency: 'GBP' }],
+      instruments: () =>
+        Response.json([
+          {
+            id: 'i1',
+            display_id: 'INS-0003',
+            name: 'Plate reader',
+            location: null,
+            instrument_type: 'plate_reader',
+            retired_at: null,
+            out_of_service_at: null,
+          },
+        ]),
+      instrument_rates: () =>
+        Response.json([{ rate_per_hour: '18', currency: 'GBP' }]),
     })
 
     const ok = await buildBenchProposal(
@@ -693,15 +791,7 @@ describe('running a card', () => {
   })
 
   it('runs the new cards through the same calls the pages make', async () => {
-    const calls: Array<[string, Record<string, unknown>]> = []
-
-    const client = {
-      rpc: (name: string, args: Record<string, unknown>) => {
-        calls.push([name, args])
-
-        return Promise.resolve({ id: 'x' })
-      },
-    } as unknown as DataClient
+    const { client, calls } = rpcTransport()
 
     await runBenchAction(client, {
       kind: 'reagent.place',

@@ -9,8 +9,11 @@ import type { DataClient } from '../data-client'
 import { searchWithPlugins } from './plugin-search.server'
 
 const run = vi.hoisted(() => vi.fn())
+
 vi.mock('./data-runtime.server', () => ({ runExtensionSearch: run }))
+
 vi.mock('./client', () => ({ listExtensions: async () => [] }))
+
 const provider = vi.hoisted(() => ({
   value: {
     extensionKey: 'chemistry',
@@ -23,6 +26,7 @@ const provider = vi.hoisted(() => ({
     },
   },
 }))
+
 vi.mock('./runner-points', () => ({
   resolveRunnerPoints: () => ({
     data: { 'search-providers': [provider.value] },
@@ -47,10 +51,12 @@ function client() {
       ? [row('a'), row('b')]
       : [row('a'), row('b'), row('c')],
   )
+
   const rpc = vi.fn(async () => [
     { record_id: 'a', entry_key: 'main', score: 0.9, snippet: null },
     { record_id: 'b', entry_key: 'main', score: 0.8, snippet: null },
   ])
+
   return { list, rpc } as unknown as DataClient & {
     list: ReturnType<typeof vi.fn>
     rpc: ReturnType<typeof vi.fn>
@@ -80,20 +86,24 @@ describe('searchWithPlugins with an indexed provider', () => {
         nearest: null,
       })
     const c = client()
+
     const view = await searchWithPlugins(c, {
       workspaceId: 'w',
       actorUserId: 'u',
       query: 'sub:c1ccccc1',
     })
+
     expect(run.mock.calls[0][0]).toMatchObject({ documents: [], stage: 'plan' })
     expect(c.rpc).toHaveBeenCalledWith(
       'search_plugin_index',
       expect.objectContaining({ p_query: 'p1 p2', p_limit: 700 }),
     )
+
     const second = run.mock.calls[1][0] as {
       stage: string
       documents: Array<{ id: string }>
     }
+
     expect(second.stage).toBe('rank')
     expect(second.documents.map((d) => d.id)).toEqual(['a', 'b'])
     expect(view.hits.map((h) => h.id)).toEqual(['b'])
@@ -123,10 +133,12 @@ describe('searchWithPlugins with an indexed provider', () => {
       actorUserId: 'u',
       query: 'x',
     })
+
     const call = run.mock.calls[0][0] as {
       documents: unknown[]
       stage?: string
     }
+
     expect(call.documents).toHaveLength(3)
     expect(call.stage).toBeUndefined()
   })

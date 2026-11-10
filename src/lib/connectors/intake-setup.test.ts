@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import type { z } from 'zod'
 
-import type { DataClient } from '../data-client'
+import { createDataClient } from '../data-client'
 import type { ParserSettingsRow } from '../parser-settings'
 import {
   findInstrumentConnector,
@@ -40,7 +41,7 @@ function connector(overrides: Partial<ConnectorWire> = {}): ConnectorWire {
 
 function parser(
   key: string,
-  signature: Record<string, unknown>,
+  signature: Record<string, z.core.util.JSONType>,
   format = 'csv',
 ): ParserSettingsRow {
   return {
@@ -64,6 +65,26 @@ function parser(
       },
     ],
   }
+}
+
+function recordingClient() {
+  const requests: Request[] = []
+
+  const client = createDataClient(async (input, init) => {
+    requests.push(
+      new Request(
+        new URL(
+          input instanceof Request ? input.url : input,
+          'http://localhost',
+        ),
+        init,
+      ),
+    )
+
+    return Response.json(connector())
+  })
+
+  return { client, requests }
 }
 
 describe('intakeSetupValues', () => {
@@ -93,13 +114,17 @@ describe('intakeSetupValues', () => {
 
 describe('findInstrumentConnector', () => {
   it('finds the connector that carries this instrument’s files', async () => {
-    const client = {
-      list: async () => [
+    const client = createDataClient(async () =>
+      Response.json([
         connector({ id: 'other', config: { pickup: { instrumentId: 'x' } } }),
+        connector({
+          id: 'malformed',
+          config: { pickup: { instrumentId: 42 } },
+        }),
         connector({ id: 'mine' }),
         connector({ id: 'plain', config: {} }),
-      ],
-    } as unknown as DataClient
+      ]),
+    )
 
     expect((await findInstrumentConnector(client, INSTRUMENT))?.id).toBe('mine')
     expect(await findInstrumentConnector(client, 'nobody')).toBeNull()
@@ -118,12 +143,9 @@ describe('saveIntakeSetup', () => {
   }
 
   it('registers the connector with a readable key, the parser and the destination', async () => {
-    const rpc = vi.fn(async (_name: string, args: Record<string, unknown>) => ({
-      id: 'new',
-      ...args,
-    }))
+    const { client, requests } = recordingClient()
 
-    const result = await saveIntakeSetup({ rpc } as unknown as DataClient, {
+    const result = await saveIntakeSetup(client, {
       workspaceId: 'w1',
       instrument,
       existing: null,
@@ -131,8 +153,11 @@ describe('saveIntakeSetup', () => {
     })
 
     expect(result.ok).toBe(true)
-    const [name, args] = rpc.mock.calls[0]
-    expect(name).toBe('register_connector')
+    const sent = requests[0]
+
+    expect(new URL(sent.url).pathname).toBe('/api/db/rpc/register_connector')
+    const args = await sent.json()
+
     expect(args).toMatchObject({
       p_key: 'qpcr-bench-ins-3',
       p_name: 'qPCR bench',
@@ -150,34 +175,28 @@ describe('saveIntakeSetup', () => {
   })
 
   it('updates the existing connector and can go back to reading each file by its content', async () => {
-    const rpc = vi.fn(async () => ({ id: 'c1' }))
-    await saveIntakeSetup({ rpc } as unknown as DataClient, {
+    const { client, requests } = recordingClient()
+    await saveIntakeSetup(client, {
       workspaceId: 'w1',
       instrument,
       existing: connector({ parser_id: 'sheetbase.qpcr-results-csv' }),
       values: { ...values, parserKey: '' },
     })
-    expect(rpc).toHaveBeenCalledWith(
-      'update_connector',
-      expect.objectContaining({
-        p_connector_id: 'c1',
-        p_clear_parser: true,
-      }),
+    expect(new URL(requests[0].url).pathname).toBe(
+      '/api/db/rpc/update_connector',
     )
+    const sent = await requests[0].json()
 
-    const sent = rpc.mock.calls[0] as unknown as [
-      string,
-      Record<string, unknown>,
-    ]
+    expect(sent).toMatchObject({ p_connector_id: 'c1', p_clear_parser: true })
 
-    expect(sent[1]).not.toHaveProperty('p_parser_id')
-    expect(sent[1].p_config).toMatchObject({ pickup: { autoDetect: true } })
+    expect(sent).not.toHaveProperty('p_parser_id')
+    expect(sent.p_config).toMatchObject({ pickup: { autoDetect: true } })
   })
 
   it('asks for what’s missing before saving', async () => {
-    const rpc = vi.fn()
+    const { client, requests } = recordingClient()
 
-    const missing = await saveIntakeSetup({ rpc } as unknown as DataClient, {
+    const missing = await saveIntakeSetup(client, {
       workspaceId: 'w1',
       instrument,
       existing: null,
@@ -191,7 +210,7 @@ describe('saveIntakeSetup', () => {
         schemaVersionId: expect.any(String),
       },
     })
-    expect(rpc).not.toHaveBeenCalled()
+    expect(requests).toHaveLength(0)
   })
 })
 
@@ -225,6 +244,13 @@ describe('previewSample', () => {
     expect(previewSample('Well,OD450\nA1,0.4\n', columns)).toMatchObject({
       status: 'ok',
       rowCount: 1,
+    })
+    expect(
+      previewSample(qpcr, parser('malformed', { requiredHeaders: [42] })),
+    ).toEqual({
+      status: 'unreadable',
+      reason: 'columns',
+      missing: [],
     })
   })
 

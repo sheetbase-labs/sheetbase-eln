@@ -7,6 +7,8 @@
  *
  * The screen calls `sheetbase.host(name, input)`.
  */
+import { z } from 'zod'
+
 import type { Scope } from '../api-credential-scopes'
 
 export interface HostCapability {
@@ -59,17 +61,23 @@ export const HOST_CAPABILITIES = {
 export type HostCapabilityName = keyof typeof HOST_CAPABILITIES
 
 export function isHostCapability(name: unknown): name is HostCapabilityName {
-  return (
-    typeof name === 'string' &&
-    Object.prototype.hasOwnProperty.call(HOST_CAPABILITIES, name)
-  )
+  return z
+    .string()
+    .refine((value) => Object.hasOwn(HOST_CAPABILITIES, value))
+    .safeParse(name).success
 }
 
 /** The capabilities a plugin's declared scopes unlock. */
 export function hostCapabilitiesFor(
   scopes: readonly string[],
 ): HostCapabilityName[] {
-  return (Object.keys(HOST_CAPABILITIES) as HostCapabilityName[]).filter(
-    (name) => scopes.includes(HOST_CAPABILITIES[name].scope),
-  )
+  const names: HostCapabilityName[] = []
+  const granted = new Set(scopes)
+
+  for (const name of Object.keys(HOST_CAPABILITIES)) {
+    if (isHostCapability(name) && granted.has(HOST_CAPABILITIES[name].scope))
+      names.push(name)
+  }
+
+  return names
 }

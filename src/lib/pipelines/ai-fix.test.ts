@@ -67,8 +67,11 @@ describe('parseFailureReply', () => {
   })
 
   it('drops a fix aimed at a step that does not exist, or one that changes language, or changes nothing', () => {
-    const wrap = (fix: unknown) =>
-      parseFailureReply(JSON.stringify({ explanation: 'x', fix }), config)
+    const wrap = (fix: {
+      target: string
+      language: string
+      statement: string
+    }) => parseFailureReply(JSON.stringify({ explanation: 'x', fix }), config)
 
     expect(
       wrap({ target: 'nope', language: 'sql', statement: 'select 1' })?.fix,
@@ -92,6 +95,66 @@ describe('parseFailureReply', () => {
 })
 
 describe('applyStepFix', () => {
+  it.each(['transform', 'summary'])(
+    'repairs an invalid %s statement before validating the draft',
+    (target) => {
+      const base = structuredClone(config)
+
+      if (target === 'transform') base.transform.statement = ''
+      else if (base.steps?.[0]) base.steps[0].statement = ''
+
+      const result = applyStepFix(base, {
+        explanation: 'x',
+        target,
+        language: 'sql',
+        statement: 'select 2 as n',
+      })
+
+      expect(result.ok).toBe(true)
+
+      if (!result.ok) throw new Error(result.reason)
+
+      expect(
+        target === 'transform'
+          ? result.config.transform.statement
+          : result.config.steps?.[0]?.statement,
+      ).toBe('select 2 as n')
+      expect(
+        target === 'transform'
+          ? base.transform.statement
+          : base.steps?.[0]?.statement,
+      ).toBe('')
+      expect(
+        applyStepFix(
+          { ...base, output: { mode: 'invalid' } },
+          {
+            explanation: 'x',
+            target,
+            language: 'sql',
+            statement: 'select 2 as n',
+          },
+        ).ok,
+      ).toBe(false)
+    },
+  )
+
+  it.each([
+    null,
+    [],
+    {},
+    { ...config, transform: null },
+    { ...config, steps: [null] },
+  ])('rejects malformed draft shapes without asserting their type', (base) => {
+    expect(
+      applyStepFix(base, {
+        explanation: 'x',
+        target: 'transform',
+        language: 'sql',
+        statement: 'select 2',
+      }).ok,
+    ).toBe(false)
+  })
+
   it('replaces only the targeted statement and leaves the base untouched', () => {
     const result = applyStepFix(config, {
       explanation: 'x',

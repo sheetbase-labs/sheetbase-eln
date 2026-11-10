@@ -12,11 +12,10 @@ import { resolveAssistantRuntime } from './assistant-actions'
 export const readPdfTextFn = createServerFn({ method: 'POST' })
   .validator((input: unknown) =>
     z
-      .object({
+      .strictObject({
         workspaceId: z.string().uuid(),
         dataBase64: z.string().max(Math.ceil((FILL_PDF_MAX_BYTES * 4) / 3) + 8),
       })
-      .strict()
       .parse(input),
   )
   .handler(
@@ -24,11 +23,14 @@ export const readPdfTextFn = createServerFn({ method: 'POST' })
       data,
     }): Promise<{ status: 'ok'; text: string } | { status: 'error' }> => {
       const runtime = await resolveAssistantRuntime(data.workspaceId)
+
       if (!runtime.ok) return { status: 'error' }
+
       try {
         const { extractPdfText } = await import('./file-text')
         const bytes = Uint8Array.from(Buffer.from(data.dataBase64, 'base64'))
         const text = await extractPdfText(bytes)
+
         return text.trim() ? { status: 'ok', text } : { status: 'error' }
       } catch {
         return { status: 'error' }

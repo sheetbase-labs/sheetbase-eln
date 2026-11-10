@@ -40,5 +40,6 @@ export async function installSampleExtension(
       },
     },
   })
+
   return enableExtension(client, { workspaceId, extensionId: installed.id })
 }

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   EXTERNAL_RPC_SCOPES,
@@ -25,42 +26,136 @@ import {
 } from '#/lib/public-api-rpc-contracts'
 
 const spec = buildExternalApiOpenApi()
-const committed = JSON.parse(readFileSync(OPENAPI_SPEC_PATH, 'utf8')) as unknown
 
-const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as {
-  scripts: Record<string, string>
-}
+const committed = z
+  .json()
+  .parse(JSON.parse(readFileSync(OPENAPI_SPEC_PATH, 'utf8')))
 
-function operation(path: string, method: string): Record<string, unknown> {
+const packageJson = z
+  .object({ scripts: z.record(z.string(), z.string()) })
+  .parse(JSON.parse(readFileSync('package.json', 'utf8')))
+
+// These are OpenAPI 3.1 / JSON Schema keywords, not application field names.
+const schemaContract = z.strictObject({
+  $ref: z.string().optional(),
+  type: z
+    .union([
+      z.enum([
+        'object',
+        'array',
+        'string',
+        'number',
+        'integer',
+        'boolean',
+        'null',
+      ]),
+      z.array(
+        z.enum([
+          'object',
+          'array',
+          'string',
+          'number',
+          'integer',
+          'boolean',
+          'null',
+        ]),
+      ),
+    ])
+    .optional(),
+  description: z.string().optional(),
+  format: z.string().optional(),
+  required: z.array(z.string()).optional(),
+  minimum: z.number().optional(),
+  maximum: z.number().optional(),
+  minLength: z.number().optional(),
+  maxLength: z.number().optional(),
+  minItems: z.number().optional(),
+  maxItems: z.number().optional(),
+  pattern: z.string().optional(),
+  nullable: z.boolean().optional(),
+  const: z.json().optional(),
+  enum: z.array(z.json()).optional(),
+  default: z.json().optional(),
+  get properties() {
+    return z.record(z.string(), schemaContract).optional()
+  },
+  get items() {
+    return z.union([z.boolean(), schemaContract]).optional()
+  },
+  get additionalProperties() {
+    return z.union([z.boolean(), schemaContract]).optional()
+  },
+  get not() {
+    return z.union([z.boolean(), schemaContract]).optional()
+  },
+  get oneOf() {
+    return z.array(z.union([z.boolean(), schemaContract])).optional()
+  },
+  get anyOf() {
+    return z.array(z.union([z.boolean(), schemaContract])).optional()
+  },
+  get allOf() {
+    return z.array(z.union([z.boolean(), schemaContract])).optional()
+  },
+  get prefixItems() {
+    return z.array(z.union([z.boolean(), schemaContract])).optional()
+  },
+})
+
+const contentContract = z.object({
+  'application/json': z.object({ schema: schemaContract }),
+})
+
+const requestContract = z.object({ content: contentContract })
+
+const responsesContract = z.record(
+  z.string(),
+  z.object({ content: contentContract.optional() }),
+)
+
+const operationContract = z.object({
+  description: z.string().optional(),
+  'x-sheetbase-scopes': z.array(z.string()).optional(),
+  requestBody: requestContract.optional(),
+  responses: responsesContract,
+  parameters: z.array(z.object({ $ref: z.string().optional() })).optional(),
+})
+
+const schemas = z
+  .record(z.string(), schemaContract)
+  .parse(spec.components.schemas)
+
+const descriptionContract = z.object({ description: z.string() })
+
+const envelopeContract = z.object({
+  error: z.strictObject({
+    category: z.string(),
+    message: z.string(),
+    request_id: z.string(),
+  }),
+})
+
+function operation(path: string, method: string) {
   const item = spec.paths[path]
   expect(item, path).toBeTruthy()
-  const op = item[method] as Record<string, unknown>
+  const op = item[method]
   expect(op, `${method} ${path}`).toBeTruthy()
 
-  return op
+  return operationContract.parse(op)
 }
 
-function rpcRequestSchema(name: string): {
-  additionalProperties?: boolean
-  required?: string[]
-  properties?: Record<string, unknown>
-} {
+function rpcRequestSchema(name: string) {
   const op = operation(`/api/db/rpc/${name}`, 'post')
 
-  const body = op.requestBody as {
-    content: { 'application/json': { schema: Record<string, unknown> } }
-  }
+  const body = requestContract.parse(op.requestBody)
 
   return body.content['application/json'].schema
 }
 
 /** The parameters of a lab RPC, or undefined for one declared elsewhere. */
 function labParams(name: string): number | undefined {
-  return (
-    LAB_RPCS as Readonly<
-      Record<string, { params: readonly unknown[] } | undefined>
-    >
-  )[name]?.params.length
+  return Object.entries(LAB_RPCS).find(([rpc]) => rpc === name)?.[1].params
+    .length
 }
 
 describe('API-03 external OpenAPI', () => {
@@ -93,9 +188,9 @@ describe('API-03 external OpenAPI', () => {
     expect(description).toMatch(/Removing or suspending the creating member/)
     expect(description).toMatch(/no `session_id` claim/)
 
-    const bearer = spec.components.securitySchemes.bearerAuth as {
-      description: string
-    }
+    const bearer = descriptionContract.parse(
+      spec.components.securitySchemes.bearerAuth,
+    )
 
     expect(bearer.description).toMatch(/role=api_client/)
     expect(bearer.description).toMatch(/role=authenticated/)
@@ -103,20 +198,19 @@ describe('API-03 external OpenAPI', () => {
   })
 
   it('documents token exchange accepting both credential kinds', () => {
-    const op = operation('/api/token', 'post') as { description: string }
+    const op = operation('/api/token', 'post')
     expect(op.description).toMatch(/service credentials/)
     expect(op.description).toMatch(/personal API tokens/)
 
-    const body = (operation('/api/token', 'post').requestBody as RequestBody)
-      .content['application/json'].schema
+    const body = requestContract.parse(
+      operation('/api/token', 'post').requestBody,
+    ).content['application/json'].schema
 
     expect(body.$ref).toBe('#/components/schemas/TokenExchangeRequest')
 
-    const requestSchema = spec.components.schemas.TokenExchangeRequest as {
-      properties: { credential: { description: string } }
-    }
+    const requestSchema = schemas.TokenExchangeRequest
 
-    expect(requestSchema.properties.credential.description).toMatch(
+    expect(requestSchema.properties?.credential.description).toMatch(
       /[Bb]oth service credentials and personal tokens/,
     )
   })
@@ -166,14 +260,11 @@ describe('API-03 external OpenAPI', () => {
 
   it('does not present reviews:write as a usable credential operation', () => {
     const operations = Object.values(spec.paths).flatMap((path) =>
-      Object.values(path).filter(
-        (value) =>
-          value && typeof value === 'object' && 'x-sheetbase-scopes' in value,
-      ),
-    ) as Array<{ 'x-sheetbase-scopes'?: string[] }>
+      Object.values(path).map((value) => operationContract.parse(value)),
+    )
 
     for (const op of operations) {
-      expect(op['x-sheetbase-scopes']).not.toContain('reviews:write')
+      expect(op['x-sheetbase-scopes'] ?? []).not.toContain('reviews:write')
     }
 
     const preview = operation('/api/db/rpc/preview_submission_digest', 'post')
@@ -227,45 +318,30 @@ describe('API-03 external OpenAPI', () => {
   })
 
   it('splits token and proxy error schemas', () => {
-    const tokenError = spec.components.schemas.TokenError as {
-      properties: { error: { required: string[]; properties: object } }
-    }
+    const tokenError = schemas.TokenError
+    const proxyError = schemas.ProxyError
 
-    const proxyError = spec.components.schemas.ProxyError as {
-      properties: { error: { required: string[]; properties: object } }
-    }
-
-    expect(tokenError.properties.error.required).toEqual(['code', 'message'])
-    expect(tokenError.properties.error.properties).toHaveProperty('code')
-    expect(tokenError.properties.error.properties).not.toHaveProperty(
+    expect(tokenError.properties?.error.required).toEqual(['code', 'message'])
+    expect(tokenError.properties?.error.properties).toHaveProperty('code')
+    expect(tokenError.properties?.error.properties).not.toHaveProperty(
       'category',
     )
-    expect(proxyError.properties.error.required).toEqual([
+    expect(proxyError.properties?.error.required).toEqual([
       'category',
       'message',
     ])
-    expect(proxyError.properties.error.properties).toHaveProperty('category')
-    expect(proxyError.properties.error.properties).not.toHaveProperty('code')
+    expect(proxyError.properties?.error.properties).toHaveProperty('category')
+    expect(proxyError.properties?.error.properties).not.toHaveProperty('code')
 
-    const token400 = (
-      operation('/api/token', 'post').responses as Record<
-        string,
-        { content: { 'application/json': { schema: { $ref: string } } } }
-      >
-    )['400']
+    const token400 = operation('/api/token', 'post').responses['400']
 
-    expect(token400.content['application/json'].schema.$ref).toBe(
+    expect(token400.content?.['application/json'].schema.$ref).toBe(
       '#/components/schemas/TokenError',
     )
 
-    const db403 = (
-      operation('/api/db/projects', 'get').responses as Record<
-        string,
-        { content: { 'application/json': { schema: { $ref: string } } } }
-      >
-    )['403']
+    const db403 = operation('/api/db/projects', 'get').responses['403']
 
-    expect(db403.content['application/json'].schema.$ref).toBe(
+    expect(db403.content?.['application/json'].schema.$ref).toBe(
       '#/components/schemas/ProxyError',
     )
   })
@@ -285,9 +361,7 @@ describe('API-03 external OpenAPI', () => {
       requestId: 'req-test',
     })
 
-    const proxyBody = (await proxyResponse.json()) as {
-      error: Record<string, unknown>
-    }
+    const proxyBody = envelopeContract.parse(await proxyResponse.json())
 
     expect(Object.keys(proxyBody.error).sort()).toEqual([
       'category',
@@ -307,9 +381,7 @@ describe('API-03 external OpenAPI', () => {
       },
     )
 
-    const invalidBody = (await invalidPath.json()) as {
-      error: Record<string, unknown>
-    }
+    const invalidBody = envelopeContract.parse(await invalidPath.json())
 
     expect(invalidPath.status).toBe(400)
     expect(invalidBody.error.category).toBe('validation_error')
@@ -340,24 +412,17 @@ describe('API-03 external OpenAPI', () => {
     const schema = rpcRequestSchema('commit_dataset_row_batch')
     expect(schema.required).toContain('p_idempotency_key')
 
-    const key = schema.properties?.p_idempotency_key as {
-      minLength: number
-      maxLength: number
-    }
+    const key = schema.properties?.p_idempotency_key
 
-    expect(key.minLength).toBe(1)
-    expect(key.maxLength).toBe(128)
+    expect(key?.minLength).toBe(1)
+    expect(key?.maxLength).toBe(128)
 
-    const result = (
-      operation('/api/db/rpc/commit_dataset_row_batch', 'post')
-        .responses as Record<
-        string,
-        { content: { 'application/json': { schema: Record<string, unknown> } } }
-      >
-    )['200'].content['application/json'].schema
+    const result = jsonContentSchema(
+      operation('/api/db/rpc/commit_dataset_row_batch', 'post').responses,
+      '200',
+    )
 
-    const properties = result.properties as Record<string, { type?: string }>
-    expect(properties.idempotent.type).toBe('boolean')
+    expect(result.properties?.idempotent.type).toBe('boolean')
     expect(
       operation('/api/db/rpc/commit_dataset_row_batch', 'post').description,
     ).toMatch(/idempotent: true/)
@@ -365,21 +430,18 @@ describe('API-03 external OpenAPI', () => {
 
   it('documents table Prefer count and filter operators', () => {
     const getOp = operation('/api/db/records', 'get')
-    const parameters = getOp.parameters as Array<{ $ref?: string }>
-    const refs = parameters.map((parameter) => parameter.$ref)
+    const refs = getOp.parameters?.map((parameter) => parameter.$ref)
     expect(refs).toContain('#/components/parameters/Prefer')
     expect(refs).toContain('#/components/parameters/ColumnFilter')
     expect(refs).toContain('#/components/parameters/Limit')
 
-    const prefer = spec.components.parameters.Prefer as {
-      description: string
-    }
+    const prefer = descriptionContract.parse(spec.components.parameters.Prefer)
 
     expect(prefer.description).toMatch(/count=exact/)
 
-    const filter = spec.components.parameters.ColumnFilter as {
-      description: string
-    }
+    const filter = descriptionContract.parse(
+      spec.components.parameters.ColumnFilter,
+    )
 
     for (const operator of ['eq', 'gte', 'in', 'ilike']) {
       expect(filter.description).toContain(operator)
@@ -391,20 +453,15 @@ describe('API-03 external OpenAPI', () => {
   it('documents query_dataset_rows filter object and bounds', () => {
     const schema = rpcRequestSchema('query_dataset_rows')
 
-    const query = schema.properties?.p_query as {
-      properties: { filters: { maxItems: number }; sort: object }
-    }
+    const query = schema.properties?.p_query
 
-    expect(query.properties.filters.maxItems).toBe(8)
-    expect(query.properties.sort).toBeTruthy()
+    expect(query?.properties?.filters.maxItems).toBe(8)
+    expect(query?.properties?.sort).toBeTruthy()
 
-    const limit = schema.properties?.p_limit as {
-      minimum: number
-      maximum: number
-    }
+    const limit = schema.properties?.p_limit
 
-    expect(limit.minimum).toBe(1)
-    expect(limit.maximum).toBe(1000)
+    expect(limit?.minimum).toBe(1)
+    expect(limit?.maximum).toBe(1000)
   })
 
   it('publishes concrete table GET/POST/PATCH schemas', () => {
@@ -418,10 +475,7 @@ describe('API-03 external OpenAPI', () => {
       expect(getSchema.items).toEqual({
         $ref: `#/components/schemas/${pascalRow(resource)}`,
       })
-      assertConcreteSchema(
-        spec.components.schemas[pascalRow(resource)],
-        `${resource} row`,
-      )
+      assertConcreteSchema(schemas[pascalRow(resource)], `${resource} row`)
 
       const access = EXTERNAL_TABLE_ACCESS[resource]
 
@@ -431,17 +485,15 @@ describe('API-03 external OpenAPI', () => {
         continue
       }
 
-      const postSchema = jsonContentSchema(
-        (operation(`/api/db/${resource}`, 'post').requestBody as RequestBody)
-          .content,
-        'request',
-      )
+      const postSchema = requestContract.parse(
+        operation(`/api/db/${resource}`, 'post').requestBody,
+      ).content['application/json'].schema
 
       expect(postSchema.$ref).toMatch(
         new RegExp(`${pascalRow(resource)}Insert$`),
       )
       assertConcreteSchema(
-        spec.components.schemas[`${pascalRow(resource)}Insert`],
+        schemas[`${pascalRow(resource)}Insert`],
         `${resource} insert`,
       )
 
@@ -457,17 +509,15 @@ describe('API-03 external OpenAPI', () => {
         continue
       }
 
-      const patchSchema = jsonContentSchema(
-        (operation(`/api/db/${resource}`, 'patch').requestBody as RequestBody)
-          .content,
-        'request',
-      )
+      const patchSchema = requestContract.parse(
+        operation(`/api/db/${resource}`, 'patch').requestBody,
+      ).content['application/json'].schema
 
       expect(patchSchema.$ref).toMatch(
         new RegExp(`${pascalRow(resource)}Patch$`),
       )
       assertConcreteSchema(
-        spec.components.schemas[`${pascalRow(resource)}Patch`],
+        schemas[`${pascalRow(resource)}Patch`],
         `${resource} patch`,
       )
     }
@@ -475,7 +525,7 @@ describe('API-03 external OpenAPI', () => {
 
   it('publishes concrete RPC request and result schemas', () => {
     for (const name of Object.keys(EXTERNAL_RPC_SCOPES)) {
-      const request = rpcRequestSchema(name) as JsonNode
+      const request = rpcRequestSchema(name)
 
       if (labParams(name) !== 0)
         assertConcreteSchema(request, `${name} request`)
@@ -485,72 +535,53 @@ describe('API-03 external OpenAPI', () => {
         '200',
       )
 
+      expect(result).toEqual(RPC_CONTRACTS[name].result)
       assertConcreteSchema(result, `${name} result`)
     }
 
     const parameterInputs = rpcRequestSchema(
       'preview_sheet_instance_composition_adoption',
-    ).properties?.p_parameter_inputs as {
-      type: string
-      items: { $ref: string }
-    }
+    ).properties?.p_parameter_inputs
 
-    expect(parameterInputs.type).toBe('array')
-    expect(parameterInputs.items.$ref).toBe(
+    expect(parameterInputs?.type).toBe('array')
+    expect(schemaContract.parse(parameterInputs?.items).$ref).toBe(
       '#/components/schemas/SheetParameterInput',
     )
 
     const changes = rpcRequestSchema('mutate_sheet_instance_calculations')
-      .properties?.p_changes as {
-      type: string
-      items: { $ref: string }
-      minItems: number
-      maxItems: number
-    }
+      .properties?.p_changes
 
-    expect(changes.type).toBe('array')
-    expect(changes.items.$ref).toBe(
+    expect(changes?.type).toBe('array')
+    expect(schemaContract.parse(changes?.items).$ref).toBe(
       '#/components/schemas/SheetCalculationChange',
     )
-    expect(changes.minItems).toBe(1)
-    expect(changes.maxItems).toBe(32)
+    expect(changes?.minItems).toBe(1)
+    expect(changes?.maxItems).toBe(32)
 
     const sheetDecisions = rpcRequestSchema(
       'apply_sheet_instance_definition_upgrade',
-    ).properties?.p_decisions as { type: string; items: { $ref: string } }
+    ).properties?.p_decisions
 
-    expect(sheetDecisions.type).toBe('array')
-    expect(sheetDecisions.items.$ref).toBe(
+    expect(sheetDecisions?.type).toBe('array')
+    expect(schemaContract.parse(sheetDecisions?.items).$ref).toBe(
       '#/components/schemas/SheetDefinitionUpgradeDecision',
     )
 
     const notebookDecisions = rpcRequestSchema(
       'apply_notebook_template_upgrade',
-    ).properties?.p_decisions as { type: string; items: { $ref: string } }
+    ).properties?.p_decisions
 
-    expect(notebookDecisions.type).toBe('array')
-    expect(notebookDecisions.items.$ref).toBe(
+    expect(notebookDecisions?.type).toBe('array')
+    expect(schemaContract.parse(notebookDecisions?.items).$ref).toBe(
       '#/components/schemas/NotebookUpgradeDecision',
     )
   })
 
   it('publishes API-07 credential-attribution columns on strict row schemas', () => {
-    const datasets = spec.components.schemas.DatasetsRow as {
-      additionalProperties: boolean
-      properties: Record<string, unknown>
-    }
-
-    const datasetVersions = spec.components.schemas.DatasetVersionsRow as {
-      properties: Record<string, unknown>
-    }
-
-    const sheetInstances = spec.components.schemas.SheetInstancesRow as {
-      properties: Record<string, unknown>
-    }
-
-    const records = spec.components.schemas.RecordsRow as {
-      properties: Record<string, unknown>
-    }
+    const datasets = schemas.DatasetsRow
+    const datasetVersions = schemas.DatasetVersionsRow
+    const sheetInstances = schemas.SheetInstancesRow
+    const records = schemas.RecordsRow
 
     expect(datasets.additionalProperties).toBe(false)
     expect(datasets.properties).toHaveProperty('created_by_credential_id')
@@ -563,49 +594,34 @@ describe('API-03 external OpenAPI', () => {
   })
 
   it('uses named JSON unions instead of empty value schemas', () => {
-    const parameterInput = spec.components.schemas.SheetParameterInput as {
-      oneOf: Array<{ properties?: { value?: { $ref?: string } } }>
-    }
+    const parameterInput = schemas.SheetParameterInput
 
-    expect(parameterInput.oneOf[0]?.properties?.value?.$ref).toBe(
-      '#/components/schemas/JsonScalar',
-    )
+    expect(
+      schemaContract.parse(parameterInput.oneOf?.[0]).properties?.value.$ref,
+    ).toBe('#/components/schemas/JsonScalar')
 
-    const calculationResult = spec.components.schemas
-      .SheetCalculationResult as {
-      properties: { calculatedValue: { $ref?: string } }
-    }
+    const calculationResult = schemas.SheetCalculationResult
 
-    expect(calculationResult.properties.calculatedValue.$ref).toBe(
+    expect(calculationResult.properties?.calculatedValue.$ref).toBe(
       '#/components/schemas/JsonValue',
     )
 
-    const jsonScalar = spec.components.schemas.JsonScalar as {
-      oneOf: Array<{ type?: string }>
-    }
+    const jsonScalar = schemas.JsonScalar
 
-    expect(jsonScalar.oneOf.map((branch) => branch.type).sort()).toEqual([
-      'boolean',
-      'null',
-      'number',
-      'string',
-    ])
-    expect(jsonScalar.oneOf.some((branch) => branch.type === 'integer')).toBe(
-      false,
-    )
+    expect(
+      jsonScalar.oneOf
+        ?.map((branch) => schemaContract.parse(branch).type)
+        .sort(),
+    ).toEqual(['boolean', 'null', 'number', 'string'])
+    expect(
+      jsonScalar.oneOf?.some(
+        (branch) => schemaContract.parse(branch).type === 'integer',
+      ),
+    ).toBe(false)
   })
 })
 
-type JsonNode = Record<string, unknown>
-
-type Responses = Record<
-  string,
-  { content?: { 'application/json': { schema: JsonNode } } }
->
-
-type RequestBody = {
-  content: { 'application/json': { schema: JsonNode } }
-}
+type Schema = z.infer<typeof schemaContract>
 
 function pascalRow(table: string): string {
   return `${table
@@ -615,21 +631,17 @@ function pascalRow(table: string): string {
 }
 
 function jsonContentSchema(
-  source: Responses | RequestBody['content'] | unknown,
+  source: z.infer<typeof responsesContract>,
   key: string,
-): JsonNode {
-  if (key === 'request') {
-    return (source as RequestBody['content'])['application/json'].schema
-  }
-
-  const response = (source as Responses)[key]
-  const schema = response.content?.['application/json']?.schema
+) {
+  const response = source[key]
+  const schema = response.content?.['application/json'].schema
   expect(schema, `${key} JSON schema`).toBeTruthy()
 
-  return schema as JsonNode
+  return schemaContract.parse(schema)
 }
 
-const SCHEMA_SHAPE_KEYS = new Set([
+const SCHEMA_KEYWORDS = new Set([
   '$ref',
   'type',
   'oneOf',
@@ -645,21 +657,18 @@ const SCHEMA_SHAPE_KEYS = new Set([
 ])
 
 function assertConcreteSchema(
-  schema: JsonNode,
+  schema: Schema,
   label: string,
   seen = new Set<string>(),
 ) {
-  const walk = (node: unknown, path: string) => {
+  const walk = (
+    node: Schema | boolean | Array<Schema | boolean>,
+    path: string,
+  ) => {
     if (node === true) return
 
     if (node === false) {
       throw new Error(`${label}: forbidden schema at ${path}`)
-    }
-
-    if (!node || typeof node !== 'object') {
-      throw new Error(
-        `${label}: expected a schema object at ${path}, got ${typeof node}`,
-      )
     }
 
     if (Array.isArray(node)) {
@@ -669,40 +678,42 @@ function assertConcreteSchema(
       return
     }
 
-    const objectNode = node as JsonNode
+    const objectNode = schemaContract.parse(node)
 
-    const shapeKeys = Object.keys(objectNode).filter((key) =>
-      SCHEMA_SHAPE_KEYS.has(key),
+    const keywords = Object.keys(objectNode).filter((key) =>
+      SCHEMA_KEYWORDS.has(key),
     )
 
-    if (shapeKeys.length === 0) {
+    if (keywords.length === 0) {
       throw new Error(
         `${label}: empty schema at ${path} (need type, $ref, oneOf, properties, items, or additionalProperties)`,
       )
     }
 
-    if (typeof objectNode.$ref === 'string') {
+    if (objectNode.$ref !== undefined) {
       const name = objectNode.$ref.replace('#/components/schemas/', '')
 
       if (seen.has(name)) return
       seen.add(name)
-      const target = spec.components.schemas[name]
+      const target = schemas[name]
       expect(
         target,
         `${label} missing ${objectNode.$ref} at ${path}`,
       ).toBeTruthy()
-      walk(target, `${path}->${name}`)
+      walk(schemaContract.parse(target), `${path}->${name}`)
 
       return
     }
 
     for (const key of ['oneOf', 'anyOf', 'allOf'] as const) {
-      if (Array.isArray(objectNode[key])) {
+      const branches = objectNode[key]
+
+      if (branches) {
         expect(
-          (objectNode[key] as unknown[]).length,
+          branches.length,
           `${label} ${path}.${key} must not be empty`,
         ).toBeGreaterThan(0)
-        walk(objectNode[key], `${path}.${key}`)
+        walk(branches, `${path}.${key}`)
       }
     }
 
@@ -736,12 +747,8 @@ function assertConcreteSchema(
       objectNode.additionalProperties !== undefined
 
     if (objectNode.properties) {
-      expect(
-        typeof objectNode.properties === 'object' &&
-          !Array.isArray(objectNode.properties),
-        `${label} ${path}.properties`,
-      ).toBe(true)
-      const properties = objectNode.properties as Record<string, unknown>
+      // schemaContract validates the property dictionary and each child schema.
+      const properties = objectNode.properties
       expect(
         Object.keys(properties).length,
         `${label} ${path} object properties`,
@@ -754,7 +761,7 @@ function assertConcreteSchema(
 
     if (
       objectNode.additionalProperties &&
-      typeof objectNode.additionalProperties === 'object'
+      objectNode.additionalProperties !== true
     ) {
       walk(objectNode.additionalProperties, `${path}.additionalProperties`)
     }
@@ -763,7 +770,7 @@ function assertConcreteSchema(
       isObject &&
       !objectNode.properties &&
       objectNode.additionalProperties !== true &&
-      typeof objectNode.additionalProperties !== 'object'
+      !objectNode.additionalProperties
     ) {
       throw new Error(
         `${label}: generic object schema at ${path} (need properties, $ref, oneOf, or additionalProperties)`,

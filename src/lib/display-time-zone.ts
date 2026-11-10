@@ -76,15 +76,19 @@ export function formatInstant(
 
   // Browsers and Node disagree on the en-GB spelling of September ("Sept" or
   // "Sep"); the workspace's date format is "25 Sep 2026" everywhere.
-  return dateTimeFormat('en-GB', {
+  const resolvedFormat: Intl.DateTimeFormatOptions = {
     timeZone: getDisplayTimeZone(),
     ...format,
-    // A time of day is read on the person's own clock, whatever the caller asked.
-    ...(format.hour !== undefined || format.timeStyle !== undefined
-      ? { hour12: displayHour12() }
-      : {}),
-    ...(zone ? { timeZoneName: 'short' as const } : {}),
-  })
+  }
+
+  // A time of day is read on the person's own clock, whatever the caller asked.
+  if (format.hour !== undefined || format.timeStyle !== undefined) {
+    resolvedFormat.hour12 = displayHour12()
+  }
+
+  if (zone) resolvedFormat.timeZoneName = 'short'
+
+  return dateTimeFormat('en-GB', resolvedFormat)
     .format(new Date(parsed))
     .replace(/\bSept\b/, 'Sep')
 }

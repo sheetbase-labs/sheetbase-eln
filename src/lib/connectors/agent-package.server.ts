@@ -51,62 +51,48 @@ export interface AgentPackageDeps extends SessionAuthDeps {
   now?: () => Date
 }
 
-const downloadBody = z
-  .object({
-    connectorId: z.uuid(),
-    system: z.enum(['windows', 'mac', 'linux']),
-    folder: z.string().trim().min(1).max(500),
-  })
-  .strict()
+const downloadBody = z.strictObject({
+  connectorId: z.uuid(),
+  system: z.enum(['windows', 'mac', 'linux']),
+  folder: z.string().trim().min(1).max(500),
+})
 
 const liveSource = z.discriminatedUnion('kind', [
-  z
-    .object({
-      kind: z.literal('file'),
-      path: z.string().trim().min(1).max(500),
-      feed: z.string().trim().max(80).optional(),
-      unit: z.string().trim().max(20).optional(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('network'),
-      host: z.string().trim().min(1).max(253),
-      port: z.number().int().min(1).max(65535),
-      feed: z.string().trim().max(80).optional(),
-      unit: z.string().trim().max(20).optional(),
-    })
-    .strict(),
+  z.strictObject({
+    kind: z.literal('file'),
+    path: z.string().trim().min(1).max(500),
+    feed: z.string().trim().max(80).optional(),
+    unit: z.string().trim().max(20).optional(),
+  }),
+  z.strictObject({
+    kind: z.literal('network'),
+    host: z.string().trim().min(1).max(253),
+    port: z.number().int().min(1).max(65535),
+    feed: z.string().trim().max(80).optional(),
+    unit: z.string().trim().max(20).optional(),
+  }),
 ])
 
-const liveDownloadBody = z
-  .object({
-    instrumentId: z.uuid(),
-    system: z.enum(['windows', 'mac', 'linux']),
-    live: z.array(liveSource).min(1).max(4),
-  })
-  .strict()
+const liveDownloadBody = z.strictObject({
+  instrumentId: z.uuid(),
+  system: z.enum(['windows', 'mac', 'linux']),
+  live: z.array(liveSource).min(1).max(4),
+})
 
-const robotDownloadBody = z
-  .object({
-    instrumentId: z.uuid(),
-    system: z.enum(['windows', 'mac', 'linux']),
-    robot: z.discriminatedUnion('driver', [
-      z
-        .object({
-          driver: z.literal('opentrons'),
-          address: z.string().trim().min(1).max(300),
-        })
-        .strict(),
-      z
-        .object({
-          driver: z.literal('file'),
-          dir: z.string().trim().min(1).max(500),
-        })
-        .strict(),
-    ]),
-  })
-  .strict()
+const robotDownloadBody = z.strictObject({
+  instrumentId: z.uuid(),
+  system: z.enum(['windows', 'mac', 'linux']),
+  robot: z.discriminatedUnion('driver', [
+    z.strictObject({
+      driver: z.literal('opentrons'),
+      address: z.string().trim().min(1).max(300),
+    }),
+    z.strictObject({
+      driver: z.literal('file'),
+      dir: z.string().trim().min(1).max(500),
+    }),
+  ]),
+})
 
 interface LiveInstrument {
   id: string
@@ -124,6 +110,7 @@ async function findLiveInstrument(
     'instruments',
     `?id=eq.${instrumentId}&workspace_id=eq.${workspaceId}&select=id,name,display_id,retired_at&limit=1`,
   )
+
   return rows.at(0) ?? null
 }
 
@@ -151,11 +138,13 @@ async function tokenStatus(
   const live = all.filter(
     (row) => row.name === name && row.kind === 'personal' && !row.revokedAt,
   )
+
   const seen = live
     .map((row) => row.lastUsedAt)
     .filter((at): at is Date => at !== null)
     .sort((a, b) => b.getTime() - a.getTime())
     .at(0)
+
   return {
     downloaded: live.length > 0,
     lastSeenAt: seen?.toISOString() ?? null,
@@ -175,18 +164,23 @@ async function findConnector(
     'connectors',
     `?id=eq.${connectorId}&workspace_id=eq.${workspaceId}&select=*&limit=1`,
   )
+
   const connector = rows.at(0)
+
   return connector?.connector_type === 'instrument' ? connector : null
 }
 
 function origin(request: Request): string {
   const url = new URL(request.url)
+
   const proto =
     request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '')
+
   const host =
     request.headers.get('x-forwarded-host') ??
     request.headers.get('host') ??
     url.host
+
   return `${proto}://${host}`
 }
 
@@ -201,13 +195,28 @@ export async function handleAgentPackage(
   if (request.method !== 'GET' && request.method !== 'POST') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use GET or POST.')
   }
+
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok) {
     return requestErrorResponse(auth.status, auth.code, auth.message)
   }
+
   const { context } = auth
-  const db = await deps.loadDb()
-  const credentials = await deps.loadCredentials()
+
+  // Both loaders import definitions, not credential mutations. Preserve the
+  // original database-first failure when either import rejects.
+  const [database, credentialModule] = await Promise.allSettled([
+    deps.loadDb(),
+    deps.loadCredentials(),
+  ])
+
+  if (database.status === 'rejected') throw database.reason
+
+  if (credentialModule.status === 'rejected') throw credentialModule.reason
+
+  const db = database.value
+  const credentials = credentialModule.value
   const audit = deps.emitAudit ?? emitCredentialAuditEvent
   const client = (deps.createClient ?? createServerDataClient)(context.token)
   const now = deps.now?.() ?? new Date()
@@ -217,8 +226,10 @@ export async function handleAgentPackage(
     const earlier = (
       await credentials.listCredentials(db, context.workspaceId)
     ).filter((row) => row.name === name && !row.revokedAt)
+
     return db.transaction(async (tx) => {
       for (const row of earlier) {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Revoke, audit and create share this transaction; stop at its first failure and never mint a replacement before prior revocations finish.
         await credentials.revokeCredential(tx, {
           workspaceId: context.workspaceId,
           credentialId: row.id,
@@ -231,6 +242,7 @@ export async function handleAgentPackage(
           payload: {},
         })
       }
+
       const created = await credentials.createCredential(tx, {
         workspaceId: context.workspaceId,
         createdByUserId: context.userId,
@@ -238,6 +250,7 @@ export async function handleAgentPackage(
         scopes: [...AGENT_SCOPES],
         kind: 'personal',
       })
+
       await audit(tx, {
         actorUserId: context.userId,
         workspaceId: context.workspaceId,
@@ -249,6 +262,7 @@ export async function handleAgentPackage(
           kind: 'personal',
         },
       })
+
       return created
     })
   }
@@ -272,7 +286,8 @@ export async function handleAgentPackage(
         ]),
       ),
     )
-    return new Response(zip as BlobPart, {
+
+    return new Response(Uint8Array.from(zip).buffer, {
       status: 200,
       headers: {
         'content-type': 'application/zip',
@@ -285,17 +300,21 @@ export async function handleAgentPackage(
   try {
     if (request.method === 'GET') {
       const robotParam = new URL(request.url).searchParams.get('robot')
+
       if (robotParam !== null) {
         if (!z.uuid().safeParse(robotParam).success) {
           return requestErrorResponse(400, 'invalid_request', 'Name the robot.')
         }
+
         const robot = await findLiveInstrument(
           client,
           context.workspaceId,
           robotParam,
         )
+
         if (!robot)
           return requestErrorResponse(404, 'not_found', 'No such instrument.')
+
         return Response.json(
           await tokenStatus(
             await credentials.listCredentials(db, context.workspaceId),
@@ -304,9 +323,11 @@ export async function handleAgentPackage(
           ),
         )
       }
+
       const instrumentParam = new URL(request.url).searchParams.get(
         'instrument',
       )
+
       if (instrumentParam !== null) {
         if (!z.uuid().safeParse(instrumentParam).success) {
           return requestErrorResponse(
@@ -315,13 +336,16 @@ export async function handleAgentPackage(
             'Name the instrument.',
           )
         }
+
         const instrument = await findLiveInstrument(
           client,
           context.workspaceId,
           instrumentParam,
         )
+
         if (!instrument)
           return requestErrorResponse(404, 'not_found', 'No such instrument.')
+
         return Response.json(
           await tokenStatus(
             await credentials.listCredentials(db, context.workspaceId),
@@ -330,7 +354,9 @@ export async function handleAgentPackage(
           ),
         )
       }
+
       const id = new URL(request.url).searchParams.get('connector') ?? ''
+
       if (!z.uuid().safeParse(id).success) {
         return requestErrorResponse(
           400,
@@ -338,13 +364,16 @@ export async function handleAgentPackage(
           'Name the instrument connector.',
         )
       }
+
       const connector = await findConnector(client, context.workspaceId, id)
+
       if (!connector)
         return requestErrorResponse(
           404,
           'not_found',
           'No such instrument connector.',
         )
+
       return Response.json(
         await tokenStatus(
           await credentials.listCredentials(db, context.workspaceId),
@@ -355,8 +384,11 @@ export async function handleAgentPackage(
     }
 
     const rawBody = await request.json().catch(() => null)
-    if (rawBody && typeof rawBody === 'object' && 'robot' in rawBody) {
+    const envelope = z.record(z.string(), z.unknown()).safeParse(rawBody)
+
+    if (envelope.success && 'robot' in envelope.data) {
       const robot = robotDownloadBody.safeParse(rawBody)
+
       if (!robot.success) {
         return requestErrorResponse(
           400,
@@ -364,17 +396,21 @@ export async function handleAgentPackage(
           'Choose the computer’s system and how the agent reaches the robot.',
         )
       }
+
       await client.rpc('require_capability', {
         p_workspace_id: context.workspaceId,
         p_capability: 'integrations.manage',
       })
+
       const instrument = await findLiveInstrument(
         client,
         context.workspaceId,
         robot.data.instrumentId,
       )
+
       if (!instrument)
         return requestErrorResponse(404, 'not_found', 'No such instrument.')
+
       if (instrument.retired_at) {
         return requestErrorResponse(
           422,
@@ -382,9 +418,11 @@ export async function handleAgentPackage(
           'A retired instrument does not take jobs.',
         )
       }
+
       const minted = await mint(
         robotAgentTokenName(instrument.display_id ?? instrument.id),
       )
+
       const files = agentFiles({
         agentSource: await deps.agentSource(),
         url: origin(request),
@@ -394,14 +432,16 @@ export async function handleAgentPackage(
         credential: minted.secret,
         system: robot.data.system satisfies AgentSystem,
       })
+
       return zipResponse(
         files,
         `sheetbase-robot-${(instrument.display_id ?? 'agent').toLowerCase()}.zip`,
       )
     }
 
-    if (rawBody && typeof rawBody === 'object' && 'live' in rawBody) {
+    if (envelope.success && 'live' in envelope.data) {
       const live = liveDownloadBody.safeParse(rawBody)
+
       if (!live.success) {
         return requestErrorResponse(
           400,
@@ -409,17 +449,21 @@ export async function handleAgentPackage(
           'Choose the computer’s system and where the readings come from.',
         )
       }
+
       await client.rpc('require_capability', {
         p_workspace_id: context.workspaceId,
         p_capability: 'integrations.manage',
       })
+
       const instrument = await findLiveInstrument(
         client,
         context.workspaceId,
         live.data.instrumentId,
       )
+
       if (!instrument)
         return requestErrorResponse(404, 'not_found', 'No such instrument.')
+
       if (instrument.retired_at) {
         return requestErrorResponse(
           422,
@@ -427,9 +471,11 @@ export async function handleAgentPackage(
           'A retired instrument does not take readings.',
         )
       }
+
       const minted = await mint(
         liveAgentTokenName(instrument.display_id ?? instrument.id),
       )
+
       const files = agentFiles({
         agentSource: await deps.agentSource(),
         url: origin(request),
@@ -439,6 +485,7 @@ export async function handleAgentPackage(
         credential: minted.secret,
         system: live.data.system satisfies AgentSystem,
       })
+
       return zipResponse(
         files,
         `sheetbase-live-${(instrument.display_id ?? 'agent').toLowerCase()}.zip`,
@@ -446,6 +493,7 @@ export async function handleAgentPackage(
     }
 
     const parsed = downloadBody.safeParse(rawBody)
+
     if (!parsed.success) {
       return requestErrorResponse(
         400,
@@ -453,22 +501,26 @@ export async function handleAgentPackage(
         'Choose the instrument computer’s system and the results folder.',
       )
     }
+
     const body = parsed.data
     await client.rpc('require_capability', {
       p_workspace_id: context.workspaceId,
       p_capability: 'integrations.manage',
     })
+
     const connector = await findConnector(
       client,
       context.workspaceId,
       body.connectorId,
     )
+
     if (!connector)
       return requestErrorResponse(
         404,
         'not_found',
         'No such instrument connector.',
       )
+
     if (!connector.config['pickup']) {
       return requestErrorResponse(
         422,
@@ -488,9 +540,11 @@ export async function handleAgentPackage(
       credential: minted.secret,
       system: body.system satisfies AgentSystem,
     })
+
     return zipResponse(files, `sheetbase-agent-${connector.key}.zip`)
   } catch (error) {
     const message = boundedErrorMessage(error)
+
     if (/capability required|not permitted|42501/i.test(message)) {
       return requestErrorResponse(
         403,
@@ -498,6 +552,7 @@ export async function handleAgentPackage(
         'You need access to Integrations to download the agent.',
       )
     }
+
     return requestErrorResponse(502, 'agent_package_failed', message)
   }
 }

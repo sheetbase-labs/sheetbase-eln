@@ -37,6 +37,7 @@ function token(
   claims: Record<string, unknown> = { workspace_id: WS, sub: 'user-1' },
 ) {
   const part = Buffer.from(JSON.stringify(claims)).toString('base64url')
+
   return `x.${part}.y`
 }
 
@@ -76,6 +77,7 @@ const snapshot: RecordSnapshot = {
 
 function store() {
   const calls: Array<[string, unknown]> = []
+
   const s: HookStore = {
     raiseFlag: async (a) => void calls.push(['raiseFlag', a]),
     clearFlag: async (a) => void calls.push(['clearFlag', a]),
@@ -84,6 +86,7 @@ function store() {
     saveNote: async (a) => void calls.push(['saveNote', a]),
     changeRecord: async (a) => void calls.push(['changeRecord', a]),
   }
+
   return { s, calls }
 }
 
@@ -92,6 +95,7 @@ function deps(
   loaded: RecordSnapshot | null = snapshot,
 ): RecordHookDeps & { calls: Array<[string, unknown]> } {
   const { s, calls } = store()
+
   return {
     hooksFor: async () => hooks,
     loadRecord: async () => loaded,
@@ -112,6 +116,7 @@ describe('matchHooks', () => {
     hook('c', { when: ['edited', 'status-changed'] }),
     hook('d', { when: ['created'], timing: 'after' }),
   ]
+
   it('keeps to the timing, the kind and the status asked for', () => {
     expect(
       matchHooks(hooks, 'before', ['created'], {
@@ -149,6 +154,7 @@ describe('matchHooks', () => {
       kind: 'x',
       status: 'closed',
     })
+
     expect(match.hook.id).toBe('c')
     expect(match.when).toBe('status-changed')
   })
@@ -200,6 +206,7 @@ describe('guardRecordWrite', () => {
       .mockImplementationOnce(async (args: never) => {
         const seen = (args as { input: { record: RecordSnapshot } }).input
           .record
+
         return {
           set: {
             custom_fields: { c: seen.custom_fields.b },
@@ -208,11 +215,14 @@ describe('guardRecordWrite', () => {
           warn: 'Tagged',
         }
       })
+
     const result = await guardRecordWrite(
       create,
       deps([hook('a', {}), hook('b', {})]),
     )
+
     expect(result.kind).toBe('pass')
+
     if (result.kind !== 'pass') return
     expect(JSON.parse(result.body!)).toMatchObject({
       custom_fields: { a: 1, b: 2, c: 2 },
@@ -223,14 +233,17 @@ describe('guardRecordWrite', () => {
 
   it('fills each row of a bulk insert', async () => {
     hookMock.mockResolvedValue({ set: { tags: ['t'] } })
+
     const body = JSON.stringify([
       { kind: 'sample', title: 'a' },
       { kind: 'sample', title: 'b' },
     ])
+
     const result = await guardRecordWrite(
       { ...create, body },
       deps([hook('a', {})]),
     )
+
     if (result.kind !== 'pass') throw new Error('refused')
     expect(JSON.parse(result.body!)).toEqual([
       { kind: 'sample', title: 'a', tags: ['t'] },
@@ -240,13 +253,16 @@ describe('guardRecordWrite', () => {
 
   it('shows an edit with the record as it is now, and leaves a missing record to the database', async () => {
     hookMock.mockResolvedValue({})
+
     const patch = {
       ...create,
       method: 'PATCH',
       query: `?id=eq.${ID}`,
       body: '{"title":"New"}',
     }
+
     await guardRecordWrite(patch, deps([hook('a', {})]))
+
     const input = (
       hookMock.mock.calls[0][0] as {
         input: {
@@ -257,6 +273,7 @@ describe('guardRecordWrite', () => {
         }
       }
     ).input
+
     expect(input.when).toBe('edited')
     expect(input.record.title).toBe('New')
     expect(input.previous.title).toBe('Titration')
@@ -281,16 +298,19 @@ describe('guardRecordWrite', () => {
 
   it('says so when a fill has nowhere to go', async () => {
     hookMock.mockResolvedValue({ set: { tags: ['x'] } })
+
     const status = {
       ...create,
       kind: 'rpc' as const,
       resource: 'set_experiment_status',
       body: JSON.stringify({ p_record_id: ID, p_status: 'closed' }),
     }
+
     const result = await guardRecordWrite(
       status,
       deps([hook('a', { when: ['status-changed'] })]),
     )
+
     if (result.kind !== 'pass') throw new Error('refused')
     expect(result.body).toBe(status.body)
     expect(result.warnings[0]).toMatch(/nowhere to put/)
@@ -313,6 +333,7 @@ describe('whensOfEvent and the pass after a save', () => {
       changes: { status: { from: 'draft', to: 'in_review' } },
     },
   }
+
   it('reads create, edit and status change from the log', () => {
     expect(whensOfEvent({ ...event, operation: 'create' })?.whens).toEqual([
       'created',
@@ -330,6 +351,7 @@ describe('whensOfEvent and the pass after a save', () => {
       summary: 'In review',
       flags: [{ key: 'needs-qa', title: 'Needs a second look' }],
     })
+
     const d = deps([
       hook('s', {
         timing: 'after',
@@ -337,6 +359,7 @@ describe('whensOfEvent and the pass after a save', () => {
         statuses: ['in_review'],
       }),
     ])
+
     expect(await runAfterRecordHooksForEvent(event, d)).toBe(1)
     expect(d.calls.map((c) => c[0])).toEqual(['storeSummary', 'raiseFlag'])
     expect(d.calls[1][1]).toMatchObject({
@@ -348,6 +371,7 @@ describe('whensOfEvent and the pass after a save', () => {
 
   it('finds the kind from the record when the log entry for an update does not carry it', async () => {
     hookMock.mockResolvedValue({ summary: 'In review' })
+
     const d = deps([
       hook('s', {
         timing: 'after',
@@ -356,6 +380,7 @@ describe('whensOfEvent and the pass after a save', () => {
         statuses: ['in_review'],
       }),
     ])
+
     const update = {
       ...event,
       payload: {
@@ -363,6 +388,7 @@ describe('whensOfEvent and the pass after a save', () => {
         changes: { status: { from: 'in_progress', to: 'in_review' } },
       },
     }
+
     expect(await runAfterRecordHooksForEvent(update, d)).toBe(1)
   })
 
@@ -377,10 +403,12 @@ describe('whensOfEvent and the pass after a save', () => {
     expect(
       await runAfterRecordHooksForEvent({ ...event, actorUserId: null }, d),
     ).toBe(0)
+
     const hidden = deps(
       [hook('s', { timing: 'after', when: ['edited'] })],
       null,
     )
+
     expect(
       await runAfterRecordHooksForEvent({ ...event, payload: {} }, hidden),
     ).toBe(0)
@@ -399,6 +427,7 @@ describe('applyHookAnswer', () => {
 
   it('does every part of an answer', async () => {
     const { s, calls } = store()
+
     const outcome = await applyHookAnswer(s, ctx, {
       notes: [{ title: 'Heads up' }],
       summary: 'All fine',
@@ -414,6 +443,7 @@ describe('applyHookAnswer', () => {
       clear: ['old'],
       changes: [{ set: { custom_fields: { x: 1 } } }],
     })
+
     expect(outcome.problems).toEqual([])
     expect(calls.map((c) => c[0])).toEqual([
       'storeSummary',
@@ -446,16 +476,106 @@ describe('applyHookAnswer', () => {
     s.storeSummary = async () => {
       throw new Error('db down')
     }
+
     const outcome = await applyHookAnswer(s, ctx, {
       summary: 'x',
       flags: [{ key: 'f', title: 'Hold' }],
     })
+
     expect(outcome.done).toEqual(['flag f'])
     expect(outcome.problems).toEqual(['summary: db down'])
   })
 
+  it('settles each ordered write before later writes to the same record or flag', async () => {
+    const indexes: string[] = []
+    const notes: string[] = []
+    const cleared: string[] = []
+    const raised: string[] = []
+    const flags = new Set<string>()
+    let reading: unknown
+
+    const delay = () => new Promise<void>((resolve) => setTimeout(resolve, 0))
+
+    const orderedStore: HookStore = {
+      storeSummary: async () => undefined,
+      storeIndex: async ({ index }) => {
+        if (index === 'first') await delay()
+        indexes.push(index)
+      },
+      raiseFlag: async ({ key, title }) => {
+        if (key === 'held') await delay()
+        flags.add(key)
+        raised.push(title)
+      },
+      clearFlag: async ({ key }) => {
+        if (key === 'held') await delay()
+        flags.delete(key)
+        cleared.push(key)
+      },
+      changeRecord: async ({ set }) => {
+        const value = set.custom_fields?.reading
+
+        if (value === 1) await delay()
+        reading = value
+      },
+      saveNote: async ({ title }) => {
+        if (title === 'First') await delay()
+        notes.push(title)
+      },
+    }
+
+    const outcome = await applyHookAnswer(orderedStore, ctx, {
+      index: [
+        { index: 'first', text: 'µL' },
+        { index: 'second', text: 'β' },
+      ],
+      flags: [
+        { key: 'held', title: 'Hold' },
+        { key: 'obsolete', title: 'Old hold' },
+      ],
+      sign_off: [
+        { key: 'held', title: 'First review', roles: ['reviewer'] },
+        { key: 'obsolete', title: 'Second review', roles: ['reviewer'] },
+      ],
+      clear: ['held', 'obsolete'],
+      changes: [
+        { set: { custom_fields: { reading: 1 } } },
+        { set: { custom_fields: { reading: 2 } } },
+      ],
+      notes: [{ title: 'First' }, { title: 'Second' }],
+    })
+
+    expect(outcome.problems).toEqual([])
+    expect(flags.size).toBe(0)
+    expect(reading).toBe(2)
+    expect(indexes).toEqual(['first', 'second'])
+    expect(raised).toEqual([
+      'Hold',
+      'Old hold',
+      'First review',
+      'Second review',
+    ])
+    expect(cleared).toEqual(['held', 'obsolete'])
+    expect(notes).toEqual(['First', 'Second'])
+    expect(outcome.done).toEqual([
+      'index first',
+      'index second',
+      'flag held',
+      'flag obsolete',
+      'sign-off held',
+      'sign-off obsolete',
+      'clear held',
+      'clear obsolete',
+      `change ${ID}`,
+      `change ${ID}`,
+      'note First',
+      'note Second',
+    ])
+  })
+
   it('cannot change a record with nobody to do it as, or leave notes with no event', async () => {
     const { s, calls } = store()
+
     const outcome = await applyHookAnswer(
       s,
       { ...ctx, actorUserId: null, eventId: null },
@@ -464,6 +584,7 @@ describe('applyHookAnswer', () => {
         notes: [{ title: 'n' }],
       },
     )
+
     expect(calls).toEqual([])
     expect(outcome.problems).toHaveLength(1)
   })

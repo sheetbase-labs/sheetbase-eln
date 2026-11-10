@@ -11,7 +11,9 @@
  * The RPC surface and storage backend are injectable so DB integration tests
  * can drive the identical path against the test database.
  */
+import { z } from 'zod'
 import { env } from '#/env.server'
+import type { DataClient } from '#/lib/data-client'
 import { FILE_MAX_BYTES } from '#/lib/file-policy'
 import {
   generateStorageKey,
@@ -19,23 +21,30 @@ import {
   newFileObjectId,
   OversizeError,
 } from '#/lib/file-storage'
+import type { ConnectorWire } from '../types'
 
 /** Minimal RPC surface (PostgREST client in prod, pg-backed mock in tests). */
 export type RetentionRpc = (
   name: string,
-  args: Record<string, unknown>,
-) => Promise<Record<string, unknown>>
+  args: Parameters<DataClient['rpc']>[1],
+) => Promise<ConnectorWire['config'] | ConnectorWire['config'][]>
+
+const fileObjectRowsSchema = z.array(
+  z.object({
+    id: z.string(),
+    storage_key: z.string(),
+    status: z.string(),
+    version: z.number(),
+  }),
+)
+
+const createdFileSchema = z.object({ record_id: z.string().optional() })
 
 /** Read the file_objects row for a record (PostgREST select in prod). */
 export type RetentionFileObjectReader = (
   workspaceId: string,
   recordId: string,
-) => Promise<{
-  id: string
-  storage_key: string
-  status: string
-  version: number
-} | null>
+) => Promise<z.infer<typeof fileObjectRowsSchema>[number] | null>
 
 /** Production reader: PostgREST SELECT with the session token (RLS applies). */
 export function postgrestFileObjectReader(
@@ -44,14 +53,7 @@ export function postgrestFileObjectReader(
   return async (_workspaceId, recordId) => {
     const { postgrestSelect } = await import('#/lib/request-auth')
 
-    const { status, body } = await postgrestSelect<
-      Array<{
-        id: string
-        storage_key: string
-        status: string
-        version: number
-      }>
-    >(
+    const { status, body } = await postgrestSelect(
       'file_objects',
       `record_id=eq.${encodeURIComponent(recordId)}&select=id,storage_key,status,version&limit=1`,
       token,
@@ -59,16 +61,7 @@ export function postgrestFileObjectReader(
 
     if (status >= 400) return null
 
-    return (
-      ((
-        body as Array<
-          | { id: string; storage_key: string; status: string; version: number }
-          | { error: unknown }
-        >
-      )[0] as
-        | { id: string; storage_key: string; status: string; version: number }
-        | undefined) ?? null
-    )
+    return fileObjectRowsSchema.parse(body).at(0) ?? null
   }
 }
 
@@ -94,7 +87,7 @@ export async function retainExternalBytes(input: {
 
   // Single transactional RPC: file record + file_objects row (RLS + events).
   // create_file_upload RETURNS TABLE, so PostgREST answers with a one-row array.
-  const response = (await input.rpc('create_file_upload', {
+  const response = await input.rpc('create_file_upload', {
     p_project_id: input.projectId,
     p_display_name: input.fileName.slice(0, 200),
     p_media_type: input.mediaType ?? 'application/octet-stream',
@@ -103,18 +96,20 @@ export async function retainExternalBytes(input: {
     p_checksum: null,
     p_storage_backend: env.FILE_STORAGE_BACKEND,
     p_file_object_id: fileObjectId,
-  })) as unknown as { record_id?: string } | Array<{ record_id?: string }>
+  })
 
-  const created = (Array.isArray(response) ? response.at(0) : response) ?? {}
+  const created = createdFileSchema.safeParse(
+    Array.isArray(response) ? response.at(0) : response,
+  )
 
-  if (!created.record_id) {
+  if (!created.success || !created.data.record_id) {
     throw new Error('File retention was rejected by the file platform.')
   }
 
   // Read the row back so finalization carries the authoritative version.
   const fileObject = await input.readFileObject(
     input.workspaceId,
-    created.record_id,
+    created.data.record_id,
   )
 
   if (!fileObject) {
@@ -123,7 +118,7 @@ export async function retainExternalBytes(input: {
 
   const candidateKey = generateStorageKey(input.workspaceId, fileObject.id)
   const storage = getObjectStorage()
-  const stream = new Blob([input.bytes as BlobPart]).stream()
+  const stream = new Blob([new Uint8Array(input.bytes)]).stream()
   let result
 
   try {
@@ -153,7 +148,7 @@ export async function retainExternalBytes(input: {
   }
 
   return {
-    fileRecordId: created.record_id,
+    fileRecordId: created.data.record_id,
     fileName: input.fileName,
     mediaType: input.mediaType ?? 'application/octet-stream',
     byteSize: Number(result.byteSize),

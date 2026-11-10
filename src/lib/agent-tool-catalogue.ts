@@ -354,15 +354,19 @@ export interface UnavailableOperation {
 }
 
 const uuid = parameterUuidSchema
+
 const workspaceId = uuid.describe(
   'Workspace UUID; must match the bearer token workspace.',
 )
+
 const key = z
   .string()
   .regex(/^[a-z][a-z0-9_]{0,59}$/)
   .describe('Definition key, unique per workspace.')
+
 const name = z.string().min(1).max(200)
 const description = z.string().max(2000).nullish()
+
 const revision = z
   .number()
   .int()
@@ -370,7 +374,7 @@ const revision = z
   .describe('Optimistic-concurrency revision.')
 
 const provenanceSchema = z
-  .object({
+  .strictObject({
     agentId: z.string().min(1).max(200),
     agentName: z.string().max(200).nullish(),
     tool: z.object({
@@ -384,7 +388,6 @@ const provenanceSchema = z
     }),
     invocationId: z.string().min(1).max(200),
   })
-  .strict()
   .describe(
     'Required agent/tool/model/invocation attribution (AUTO-04 provenance).',
   )
@@ -399,40 +402,48 @@ const ERR_WORKSPACE_ACTOR: AgentToolError = {
   meaning:
     'Caller is not a write actor of the target workspace, or lacks the required scope.',
 }
+
 const ERR_INVALID: AgentToolError = {
   code: '22023',
   meaning:
     'Input failed contract validation (shape, key format, length, lifecycle, or tool/operation mismatch).',
 }
+
 const ERR_STALE: AgentToolError = {
   code: 'SB001',
   meaning:
     'Optimistic-concurrency mismatch: proposal, target, or definition revision moved since preview.',
 }
+
 const ERR_IDEMPOTENCY_MISMATCH: AgentToolError = {
   code: '23505',
   meaning:
     'Idempotency key was already used for different content by the same actor.',
 }
+
 const ERR_ROW_VALIDATION: AgentToolError = {
   code: 'SB073',
   meaning: 'Canonical Dataset row batch validation rejected the rows.',
 }
+
 const ERR_ANCHOR: AgentToolError = {
   code: '23503',
   meaning:
     'afterBlockId is not a block in the target record, or the target record is not in the workspace.',
 }
+
 const ERR_DRAFT_UNAVAILABLE: AgentToolError = {
   code: '42501',
   meaning:
     'Target draft version is missing, outside the workspace, or no longer a draft.',
 }
+
 const ERR_BUDGET_EXHAUSTED: AgentToolError = {
   code: 'budget_exhausted',
   meaning:
     'Reported usage exceeded the durable token or cost budget; the workflow stops.',
 }
+
 const ERR_TERMINAL_STATE: AgentToolError = {
   code: 'SB001',
   meaning:
@@ -478,16 +489,14 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write. Automatic execution additionally requires schema:write; the server checks both.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('dataset_schema.create'),
-        workspaceId,
-        key,
-        name,
-        description,
-        fields: datasetSchemaFields,
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('dataset_schema.create'),
+      workspaceId,
+      key,
+      name,
+      description,
+      fields: datasetSchemaFields,
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
@@ -504,16 +513,14 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write. Automatic execution additionally requires schema:write; the server checks both.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('sheet_definition.create'),
-        workspaceId,
-        key,
-        name,
-        description,
-        configuration: opaqueConfiguration,
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('sheet_definition.create'),
+      workspaceId,
+      key,
+      name,
+      description,
+      configuration: opaqueConfiguration,
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
@@ -530,14 +537,12 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write. Automatic execution additionally requires schema:write; the server checks both.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('sheet_definition.update_draft'),
-        versionId: uuid,
-        expectedRevision: revision,
-        configuration: opaqueConfiguration,
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('sheet_definition.update_draft'),
+      versionId: uuid,
+      expectedRevision: revision,
+      configuration: opaqueConfiguration,
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_DRAFT_UNAVAILABLE,
@@ -560,15 +565,13 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Server asserts the pipelines.manage capability; proposing needs agent_operations:write.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('pipeline_definition.create'),
-        workspaceId,
-        key,
-        name,
-        description,
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('pipeline_definition.create'),
+      workspaceId,
+      key,
+      name,
+      description,
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
@@ -585,15 +588,13 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Server asserts the pipelines.manage capability; proposing needs agent_operations:write.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('pipeline_definition.create_version'),
-        workspaceId,
-        definitionId: uuid,
-        expectedDefinitionRevision: revision,
-        configuration: opaqueConfiguration,
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('pipeline_definition.create_version'),
+      workspaceId,
+      definitionId: uuid,
+      expectedDefinitionRevision: revision,
+      configuration: opaqueConfiguration,
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_STALE,
@@ -615,15 +616,13 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Server asserts the pipelines.manage capability; proposing needs agent_operations:write.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('pipeline_definition.update_draft'),
-        workspaceId,
-        versionId: uuid,
-        expectedRevision: revision,
-        configuration: opaqueConfiguration,
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('pipeline_definition.update_draft'),
+      workspaceId,
+      versionId: uuid,
+      expectedRevision: revision,
+      configuration: opaqueConfiguration,
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_DRAFT_UNAVAILABLE,
@@ -646,14 +645,12 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write. Delegated execution additionally requires datasets:write plus a matching enabled policy; the server checks all three.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('dataset_rows.commit'),
-        datasetId: uuid,
-        expectedRevision: revision,
-        rows: datasetCommitRows,
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('dataset_rows.commit'),
+      datasetId: uuid,
+      expectedRevision: revision,
+      rows: datasetCommitRows,
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_ROW_VALIDATION,
@@ -676,25 +673,21 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write. The server checks record.create and the record structure revision.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('notebook_block.insert'),
-        recordId: uuid.describe('Notebook record UUID.'),
-        afterBlockId: uuid
-          .nullish()
-          .describe('Block to insert after; omit or null to append.'),
-        block: z
-          .object({
-            type: z.string().min(1).max(48),
-            payload: z.record(z.string(), z.unknown()),
-            payloadSchemaVersion: z.number().int().min(1).optional(),
-          })
-          .strict(),
-        expectedRevision: revision.describe(
-          'The record structureVersion the proposal was built against.',
-        ),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('notebook_block.insert'),
+      recordId: uuid.describe('Notebook record UUID.'),
+      afterBlockId: uuid
+        .nullish()
+        .describe('Block to insert after; omit or null to append.'),
+      block: z.strictObject({
+        type: z.string().min(1).max(48),
+        payload: z.record(z.string(), z.unknown()),
+        payloadSchemaVersion: z.number().int().min(1).optional(),
+      }),
+      expectedRevision: revision.describe(
+        'The record structureVersion the proposal was built against.',
+      ),
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_INVALID,
@@ -717,17 +710,15 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write. The server checks the block version and record workspace.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('notebook_block.update'),
-        blockId: uuid,
-        expectedVersion: revision.describe(
-          'The block version the proposal was built against.',
-        ),
-        payload: z.record(z.string(), z.unknown()),
-        payloadSchemaVersion: z.number().int().min(1).optional(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('notebook_block.update'),
+      blockId: uuid,
+      expectedVersion: revision.describe(
+        'The block version the proposal was built against.',
+      ),
+      payload: z.record(z.string(), z.unknown()),
+      payloadSchemaVersion: z.number().int().min(1).optional(),
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_INVALID,
@@ -749,15 +740,13 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write. Both anchors must belong to the same record.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('notebook_block.move'),
-        blockId: uuid,
-        expectedStructureVersion: revision,
-        afterBlockId: uuid.nullish(),
-        beforeBlockId: uuid.nullish(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('notebook_block.move'),
+      blockId: uuid,
+      expectedStructureVersion: revision,
+      afterBlockId: uuid.nullish(),
+      beforeBlockId: uuid.nullish(),
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_INVALID,
@@ -780,13 +769,11 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write. The preview marks the delete destructive.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('notebook_block.delete'),
-        blockId: uuid,
-        expectedStructureVersion: revision,
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('notebook_block.delete'),
+      blockId: uuid,
+      expectedStructureVersion: revision,
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_INVALID,
@@ -808,20 +795,18 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write. The server checks record.create and project/workspace membership.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('record.create'),
-        workspaceId,
-        projectId: uuid
-          .nullish()
-          .describe('Workspace project; null only for a protocol template.'),
-        recordKind: z.string().min(1).max(48),
-        title: z.string().min(1).max(200),
-        status: z.string().min(1).max(32).optional(),
-        tags: z.array(z.string().min(1).max(40)).max(20).optional(),
-        properties: z.record(z.string(), z.unknown()).optional(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('record.create'),
+      workspaceId,
+      projectId: uuid
+        .nullish()
+        .describe('Workspace project; null only for a protocol template.'),
+      recordKind: z.string().min(1).max(48),
+      title: z.string().min(1).max(200),
+      status: z.string().min(1).max(32).optional(),
+      tags: z.array(z.string().min(1).max(40)).max(20).optional(),
+      properties: z.record(z.string(), z.unknown()).optional(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
@@ -838,16 +823,14 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires models:write. The server checks the metadata revision and record lock/archive state.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('record.custom_fields.update'),
-        recordId: uuid,
-        expectedMetadataVersion: revision.describe(
-          'The record metadata version the proposal was built against.',
-        ),
-        values: z.record(z.string(), z.unknown()),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('record.custom_fields.update'),
+      recordId: uuid,
+      expectedMetadataVersion: revision.describe(
+        'The record metadata version the proposal was built against.',
+      ),
+      values: z.record(z.string(), z.unknown()),
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_INVALID,
@@ -869,19 +852,17 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires sheets:write. The published Definition Version and every source must be readable and in the workspace.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('sheet_instance.create'),
-        workspaceId,
-        name: z.string().min(1).max(200),
-        description: z.string().max(2_000).nullish(),
-        sourceDefinitionVersionId: uuid,
-        projectId: uuid.nullish(),
-        notebookRecordId: uuid.nullish(),
-        state: z.record(z.string(), z.unknown()),
-        parameterInputs: z.record(z.string(), z.unknown()).optional(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('sheet_instance.create'),
+      workspaceId,
+      name: z.string().min(1).max(200),
+      description: z.string().max(2_000).nullish(),
+      sourceDefinitionVersionId: uuid,
+      projectId: uuid.nullish(),
+      notebookRecordId: uuid.nullish(),
+      state: z.record(z.string(), z.unknown()),
+      parameterInputs: z.record(z.string(), z.unknown()).optional(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
@@ -898,14 +879,12 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires sheets:write. Local fields, values and calculations keep their controlled RPCs.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('sheet_instance.update'),
-        instanceId: uuid,
-        expectedRevision: revision,
-        state: z.record(z.string(), z.unknown()),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('sheet_instance.update'),
+      instanceId: uuid,
+      expectedRevision: revision,
+      state: z.record(z.string(), z.unknown()),
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_INVALID,
@@ -927,13 +906,11 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires sheets:write.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('sheet_instance.archive'),
-        instanceId: uuid,
-        expectedRevision: revision,
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('sheet_instance.archive'),
+      instanceId: uuid,
+      expectedRevision: revision,
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_INVALID,
@@ -955,13 +932,11 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires sheets:write.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('sheet_instance.restore'),
-        instanceId: uuid,
-        expectedRevision: revision,
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('sheet_instance.restore'),
+      instanceId: uuid,
+      expectedRevision: revision,
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_INVALID,
@@ -983,16 +958,14 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires sheets:write. Execution rechecks the preview digest.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('sheet_instance.materialize'),
-        instanceId: uuid,
-        expectedRevision: revision,
-        outputName: z.string().min(1).max(200),
-        outputSchemaVersionId: uuid.nullish(),
-        previewDigest: z.string().regex(/^[0-9a-f]{64}$/),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('sheet_instance.materialize'),
+      instanceId: uuid,
+      expectedRevision: revision,
+      outputName: z.string().min(1).max(200),
+      outputSchemaVersionId: uuid.nullish(),
+      previewDigest: z.string().regex(/^[0-9a-f]{64}$/),
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_INVALID,
@@ -1014,15 +987,13 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write. The template must be an active protocol template in the workspace.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('template.instantiate'),
-        templateRecordId: uuid,
-        targetProjectId: uuid,
-        targetKind: z.enum(['experiment', 'protocol_template']),
-        title: z.string().max(200).nullish(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('template.instantiate'),
+      templateRecordId: uuid,
+      targetProjectId: uuid,
+      targetKind: z.enum(['experiment', 'protocol_template']),
+      title: z.string().max(200).nullish(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
@@ -1039,16 +1010,14 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires templates:write. The record and target version must be in the workspace.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('template.upgrade'),
-        recordId: uuid,
-        expectedStructureVersion: revision,
-        targetVersionId: uuid,
-        decisions: z.array(z.record(z.string(), z.unknown())),
-        parameterInputs: z.array(z.record(z.string(), z.unknown())),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('template.upgrade'),
+      recordId: uuid,
+      expectedStructureVersion: revision,
+      targetVersionId: uuid,
+      decisions: z.array(z.record(z.string(), z.unknown())),
+      parameterInputs: z.array(z.record(z.string(), z.unknown())),
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_INVALID,
@@ -1070,16 +1039,14 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires projects:write and a personal token. The canonical RPC refuses service credentials.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('record.comment.create'),
-        recordId: uuid,
-        targetKind: z.enum(['record', 'block']),
-        target: z.object({ blockId: uuid.optional() }).strict().nullish(),
-        body: z.string().min(1).max(8_000),
-        mentions: z.array(z.string().min(1).max(200)).max(50).optional(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('record.comment.create'),
+      recordId: uuid,
+      targetKind: z.enum(['record', 'block']),
+      target: z.strictObject({ blockId: uuid.optional() }).nullish(),
+      body: z.string().min(1).max(8_000),
+      mentions: z.array(z.string().min(1).max(200)).max(50).optional(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
@@ -1096,30 +1063,28 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires models:write. The canonical RPC requires an owner or admin.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('model_field.create'),
-        workspaceId,
-        modelKey: z.string().min(1).max(48),
-        fieldName: z.string().min(1).max(63),
-        label: z.string().min(1).max(200),
-        logicalType: z.enum([
-          'text',
-          'integer',
-          'decimal',
-          'boolean',
-          'date',
-          'timestamp',
-          'category',
-          'reference',
-        ]),
-        nullable: z.boolean().optional(),
-        defaultValue: z.unknown().optional(),
-        validation: z.record(z.string(), z.unknown()).optional(),
-        unit: z.record(z.string(), z.unknown()).nullish(),
-        description: z.string().max(2_000).nullish(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('model_field.create'),
+      workspaceId,
+      modelKey: z.string().min(1).max(48),
+      fieldName: z.string().min(1).max(63),
+      label: z.string().min(1).max(200),
+      logicalType: z.enum([
+        'text',
+        'integer',
+        'decimal',
+        'boolean',
+        'date',
+        'timestamp',
+        'category',
+        'reference',
+      ]),
+      nullable: z.boolean().optional(),
+      defaultValue: z.unknown().optional(),
+      validation: z.record(z.string(), z.unknown()).optional(),
+      unit: z.record(z.string(), z.unknown()).nullish(),
+      description: z.string().max(2_000).nullish(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
@@ -1136,13 +1101,11 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires models:write. The canonical RPC requires an owner or admin.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('model_field.update'),
-        definitionId: uuid,
-        patch: z.record(z.string(), z.unknown()),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('model_field.update'),
+      definitionId: uuid,
+      patch: z.record(z.string(), z.unknown()),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
@@ -1159,12 +1122,10 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires models:write. The canonical RPC requires an owner or admin.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('model_field.activate'),
-        definitionId: uuid,
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('model_field.activate'),
+      definitionId: uuid,
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
@@ -1181,24 +1142,22 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires facility:write. The canonical RPC needs the standing to place orders.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('reagent_order.mark_ordered'),
-        orderId: uuid,
-        orderReference: z.string().min(1).max(200).optional(),
-        expectedOn: z
-          .string()
-          .regex(/^\d{4}-\d{2}-\d{2}$/)
-          .optional(),
-        supplier: z.string().min(1).max(200).optional(),
-        supplierRecordId: uuid.optional(),
-        totalPrice: z.number().min(0).optional(),
-        currency: z
-          .string()
-          .regex(/^[A-Z]{3}$/)
-          .optional(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('reagent_order.mark_ordered'),
+      orderId: uuid,
+      orderReference: z.string().min(1).max(200).optional(),
+      expectedOn: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .optional(),
+      supplier: z.string().min(1).max(200).optional(),
+      supplierRecordId: uuid.optional(),
+      totalPrice: z.number().min(0).optional(),
+      currency: z
+        .string()
+        .regex(/^[A-Z]{3}$/)
+        .optional(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
@@ -1215,17 +1174,15 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires facility:write. The canonical RPC needs the standing to place orders.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('reagent_order.set_price'),
-        orderId: uuid,
-        totalPrice: z.number().min(0).nullable(),
-        currency: z
-          .string()
-          .regex(/^[A-Z]{3}$/)
-          .optional(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('reagent_order.set_price'),
+      orderId: uuid,
+      totalPrice: z.number().min(0).nullable(),
+      currency: z
+        .string()
+        .regex(/^[A-Z]{3}$/)
+        .optional(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   operationEntry({
@@ -1242,17 +1199,15 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Proposing needs agent_operations:write; MCP additionally requires facility:write. The canonical RPC needs the standing to manage instruments.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('instrument_rate.set'),
-        instrumentId: uuid,
-        ratePerHour: z.number().min(0).nullable(),
-        currency: z
-          .string()
-          .regex(/^[A-Z]{3}$/)
-          .optional(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('instrument_rate.set'),
+      instrumentId: uuid,
+      ratePerHour: z.number().min(0).nullable(),
+      currency: z
+        .string()
+        .regex(/^[A-Z]{3}$/)
+        .optional(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   }),
   {
@@ -1269,18 +1224,16 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Personal owner token only. The proposal is always human_required; approval and execution re-check the owner capability in a human session.',
     },
-    inputSchema: z
-      .object({
-        kind: z.literal('workspace_ai_settings.update'),
-        workspaceId,
-        enabled: z.boolean(),
-        providerProfile: z.string().min(1).max(80).nullish(),
-        model: z.enum(['sheetbase-assist-1', 'sheetbase-summarise-1']),
-        cloudEgressEnabled: z.boolean(),
-        maxTokensPerCall: z.number().int().min(1).max(100_000),
-        maxCostMicrousdPerCall: z.number().int().min(0).max(10_000_000),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      kind: z.literal('workspace_ai_settings.update'),
+      workspaceId,
+      enabled: z.boolean(),
+      providerProfile: z.string().min(1).max(80).nullish(),
+      model: z.enum(['sheetbase-assist-1', 'sheetbase-summarise-1']),
+      cloudEgressEnabled: z.boolean(),
+      maxTokensPerCall: z.number().int().min(1).max(100_000),
+      maxCostMicrousdPerCall: z.number().int().min(0).max(10_000_000),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
 ]
@@ -1299,16 +1252,14 @@ const LIFECYCLE_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Server requires the workspace write actor; credentials additionally need agent_operations:write.',
     },
-    inputSchema: z
-      .object({
-        workspaceId,
-        title: z.string().min(1).max(200),
-        summary: z.string().min(1).max(2000),
-        operation: z.record(z.string(), z.unknown()),
-        provenance: provenanceSchema,
-        idempotencyKey: z.string().min(1).max(128),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      workspaceId,
+      title: z.string().min(1).max(200),
+      summary: z.string().min(1).max(2000),
+      operation: z.record(z.string(), z.unknown()),
+      provenance: provenanceSchema,
+      idempotencyKey: z.string().min(1).max(128),
+    }),
     errors: [
       ERR_WORKSPACE_ACTOR,
       ERR_INVALID,
@@ -1329,17 +1280,15 @@ const LIFECYCLE_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Server requires the workspace write actor; credentials additionally need agent_operations:write.',
     },
-    inputSchema: z
-      .object({
-        workspaceId,
-        goal: z.string().min(1).max(2000),
-        plan: z.record(z.string(), z.unknown()),
-        budget: z.record(z.string(), z.unknown()),
-        initialUsage: z.record(z.string(), z.unknown()),
-        provenance: provenanceSchema,
-        idempotencyKey: z.string().min(1).max(128),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      workspaceId,
+      goal: z.string().min(1).max(2000),
+      plan: z.record(z.string(), z.unknown()),
+      budget: z.record(z.string(), z.unknown()),
+      initialUsage: z.record(z.string(), z.unknown()),
+      provenance: provenanceSchema,
+      idempotencyKey: z.string().min(1).max(128),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_IDEMPOTENCY_MISMATCH],
   },
   {
@@ -1355,9 +1304,10 @@ const LIFECYCLE_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Observation only: rejection, failure, or cancellation pauses the workflow for a human.',
     },
-    inputSchema: z
-      .object({ workflowId: uuid, expectedRevision: revision })
-      .strict(),
+    inputSchema: z.strictObject({
+      workflowId: uuid,
+      expectedRevision: revision,
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_STALE, ERR_TERMINAL_STATE],
   },
   {
@@ -1373,14 +1323,12 @@ const LIFECYCLE_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Positive increments only; at least one of tokens/cost must be greater than zero.',
     },
-    inputSchema: z
-      .object({
-        workflowId: uuid,
-        expectedRevision: revision,
-        tokens: z.number().int().min(0),
-        costMicrousd: z.number().int().min(0),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      workflowId: uuid,
+      expectedRevision: revision,
+      tokens: z.number().int().min(0),
+      costMicrousd: z.number().int().min(0),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_STALE, ERR_BUDGET_EXHAUSTED],
   },
   {
@@ -1396,13 +1344,11 @@ const LIFECYCLE_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_write_actor',
       note: 'Credentials or a workspace writer may cancel; completed and already-cancelled workflows fail closed.',
     },
-    inputSchema: z
-      .object({
-        workflowId: uuid,
-        expectedRevision: revision,
-        reason: z.string().min(1).max(1000),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      workflowId: uuid,
+      expectedRevision: revision,
+      reason: z.string().min(1).max(1000),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_STALE, ERR_TERMINAL_STATE],
   },
 ]
@@ -1421,13 +1367,11 @@ const READ_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_actor',
       note: 'Ordinary canonical read; same RLS as normal clients.',
     },
-    inputSchema: z
-      .object({
-        datasetId: uuid,
-        limit: z.number().int().min(1).max(1000).nullish(),
-        offset: z.number().int().min(0).nullish(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      datasetId: uuid,
+      limit: z.number().int().min(1).max(1000).nullish(),
+      offset: z.number().int().min(0).nullish(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
   {
@@ -1443,13 +1387,11 @@ const READ_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_actor',
       note: 'Historical projection; versions are immutable.',
     },
-    inputSchema: z
-      .object({
-        versionId: uuid,
-        limit: z.number().int().min(1).max(1000).nullish(),
-        offset: z.number().int().min(0).nullish(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      versionId: uuid,
+      limit: z.number().int().min(1).max(1000).nullish(),
+      offset: z.number().int().min(0).nullish(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
   {
@@ -1465,13 +1407,11 @@ const READ_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_actor',
       note: 'Ordinary canonical read; same RLS as normal clients.',
     },
-    inputSchema: z
-      .object({
-        instanceId: uuid,
-        limit: z.number().int().min(1).max(200).nullish(),
-        offset: z.number().int().min(0).max(10000).nullish(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      instanceId: uuid,
+      limit: z.number().int().min(1).max(200).nullish(),
+      offset: z.number().int().min(0).max(10000).nullish(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
   {
@@ -1487,13 +1427,11 @@ const READ_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_actor',
       note: 'Ordinary canonical read; the digest binds the proposal to this composition.',
     },
-    inputSchema: z
-      .object({
-        instanceId: uuid,
-        expectedRevision: revision,
-        outputSchemaVersionId: uuid.nullish(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      instanceId: uuid,
+      expectedRevision: revision,
+      outputSchemaVersionId: uuid.nullish(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID, ERR_STALE],
   },
   {
@@ -1509,7 +1447,7 @@ const READ_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_actor',
       note: 'Ordinary canonical read; only people with members access see it.',
     },
-    inputSchema: z.object({ workspaceId }).strict(),
+    inputSchema: z.strictObject({ workspaceId }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
   {
@@ -1525,7 +1463,7 @@ const READ_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_actor',
       note: 'Ordinary canonical read.',
     },
-    inputSchema: z.object({ workspaceId }).strict(),
+    inputSchema: z.strictObject({ workspaceId }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
   {
@@ -1541,13 +1479,11 @@ const READ_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_actor',
       note: 'Ordinary canonical read; same RLS as normal clients, so prices only reach people who may see them.',
     },
-    inputSchema: z
-      .object({
-        workspaceId,
-        from: z.string().datetime().describe('Start of the period, included.'),
-        to: z.string().datetime().describe('End of the period, not included.'),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      workspaceId,
+      from: z.string().datetime().describe('Start of the period, included.'),
+      to: z.string().datetime().describe('End of the period, not included.'),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
   {
@@ -1563,13 +1499,11 @@ const READ_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_actor',
       note: 'Ordinary canonical read; same RLS as normal clients, so prices only reach people who may see them.',
     },
-    inputSchema: z
-      .object({
-        workspaceId,
-        from: z.string().datetime().describe('Start of the period, included.'),
-        to: z.string().datetime().describe('End of the period, not included.'),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      workspaceId,
+      from: z.string().datetime().describe('Start of the period, included.'),
+      to: z.string().datetime().describe('End of the period, not included.'),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
   {
@@ -1585,12 +1519,10 @@ const READ_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_actor',
       note: 'Ordinary canonical read; same RLS as normal clients.',
     },
-    inputSchema: z
-      .object({
-        query: z.string().min(1).max(500),
-        limit: z.number().int().min(1).max(100).nullish(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      query: z.string().min(1).max(500),
+      limit: z.number().int().min(1).max(100).nullish(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
   {
@@ -1606,14 +1538,12 @@ const READ_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_actor',
       note: 'Ordinary canonical read; same RLS as normal clients.',
     },
-    inputSchema: z
-      .object({
-        storageUnitId: uuid.nullish(),
-        storageRoomId: uuid.nullish(),
-        outOfRangeOnly: z.boolean().nullish(),
-        limit: z.number().int().min(1).max(500).nullish(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      storageUnitId: uuid.nullish(),
+      storageRoomId: uuid.nullish(),
+      outOfRangeOnly: z.boolean().nullish(),
+      limit: z.number().int().min(1).max(500).nullish(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
   {
@@ -1629,13 +1559,11 @@ const READ_TOOLS: AgentToolEntry[] = [
       actor: 'workspace_actor',
       note: 'Same permission filter as webhooks; only events the person could see.',
     },
-    inputSchema: z
-      .object({
-        after: z.number().int().min(0).nullish(),
-        limit: z.number().int().min(1).max(500).nullish(),
-        entityTypes: z.array(z.string().max(60)).max(20).nullish(),
-      })
-      .strict(),
+    inputSchema: z.strictObject({
+      after: z.number().int().min(0).nullish(),
+      limit: z.number().int().min(1).max(500).nullish(),
+      entityTypes: z.array(z.string().max(60)).max(20).nullish(),
+    }),
     errors: [ERR_WORKSPACE_ACTOR, ERR_INVALID],
   },
 ]
@@ -1746,13 +1674,16 @@ export function listAgentTools(filter: AgentToolFilter = {}): AgentToolEntry[] {
       : Array.isArray(filter.mode)
         ? filter.mode
         : [filter.mode]
+
   return AGENT_TOOL_CATALOGUE.filter((entry) => {
     if (modes && !modes.includes(entry.mode)) return false
+
     if (
       filter.scopes &&
       !entry.capability.scopes.every((scope) => filter.scopes!.includes(scope))
     )
       return false
+
     return true
   })
 }

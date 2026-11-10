@@ -6,8 +6,10 @@ import type { Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createSecureContext, TLSSocket } from 'node:tls'
+import type { SecureContextOptions } from 'node:tls'
 import { promisify } from 'node:util'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import { processEmailDeliveries, readSmtpConfig } from './email-delivery.server'
 import type { EmailDeliveryRow, EmailQuery } from './email-delivery.server'
@@ -29,11 +31,17 @@ function fakeQuery(rows: EmailDeliveryRow[]) {
   const calls: string[] = []
 
   const query: EmailQuery = {
-    query: vi.fn(async (sql: string) => {
+    query: async <Row = unknown>(sql: string) => {
       calls.push(sql)
 
-      return { rows: sql.includes('claim_due_email_deliveries') ? rows : [] }
-    }) as EmailQuery['query'],
+      // SAFETY: the worker asks for EmailDeliveryRow rows, which is exactly
+      // what this fixture holds; the generic mirrors the transport contract.
+      const answered = (
+        sql.includes('claim_due_email_deliveries') ? rows : []
+      ) as Row[]
+
+      return { rows: answered }
+    },
   }
 
   return { query, calls }
@@ -136,13 +144,17 @@ describe('real SMTP TLS boundary', () => {
     const messages: string[] = []
     const protocols: Array<string | null> = []
 
-    const context = createSecureContext({
+    const tlsOptions: SecureContextOptions = {
       cert: mode === 'wrong-host' ? wrongCertificate : certificate,
       key: mode === 'wrong-host' ? wrongKey : key,
-      ...(mode === 'old-tls'
-        ? { minVersion: 'TLSv1.1' as const, maxVersion: 'TLSv1.1' as const }
-        : {}),
-    })
+    }
+
+    if (mode === 'old-tls') {
+      tlsOptions.minVersion = 'TLSv1.1'
+      tlsOptions.maxVersion = 'TLSv1.1'
+    }
+
+    const context = createSecureContext(tlsOptions)
 
     function receive(socket: Socket, encrypted: boolean) {
       sockets.add(socket)
@@ -221,9 +233,9 @@ describe('real SMTP TLS boundary', () => {
       server.once('error', reject)
       server.listen(0, '127.0.0.1', resolve)
     })
-    const address = server.address()
+    const address = z.object({ port: z.number() }).safeParse(server.address())
 
-    if (!address || typeof address === 'string') throw new Error('No SMTP port')
+    if (!address.success) throw new Error('No SMTP port')
 
     // A separate Node process loads the real transport. NODE_EXTRA_CA_CERTS
     // supplies fixture trust at startup without relaxing certificate checks.
@@ -234,7 +246,7 @@ describe('real SMTP TLS boundary', () => {
       import { createSmtpTransport } from ${JSON.stringify(moduleUrl)};
       try {
         const transport = await createSmtpTransport({
-          host: 'localhost', port: ${address.port}, user: null, pass: null,
+          host: 'localhost', port: ${address.data.port}, user: null, pass: null,
           from: 'sender@sheetbase.test'
         });
         await transport.send({to:'recipient@sheetbase.test', subject:'TLS fixture', body:'Only over verified TLS'});

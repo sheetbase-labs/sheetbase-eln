@@ -13,6 +13,7 @@ import { formatDate } from '#/lib/format-date'
  */
 export type MilestoneScale = 'month' | 'week'
 
+// react-doctor-disable-next-line react-doctor/only-export-components -- The scale options are drawn by the control and read by its test; the timeline is their only owner.
 export const MILESTONE_SCALES: { value: MilestoneScale }[] = [
   { value: 'month' },
   { value: 'week' },
@@ -43,6 +44,7 @@ export interface PlanDependency {
 const DAY = 24 * 60 * 60 * 1000
 
 /** Monday 00:00 of the week containing `time`. */
+// react-doctor-disable-next-line react-doctor/only-export-components -- Exported so the week scale is unit-tested without rendering the timeline.
 export function startOfWeek(time: number): number {
   const date = new Date(time)
   date.setHours(0, 0, 0, 0)
@@ -52,15 +54,22 @@ export function startOfWeek(time: number): number {
   return date.getTime()
 }
 
+/** The first and last instant the scale draws. */
+export interface TimelineWindow {
+  start: number
+  end: number
+}
+
 /**
  * The window the scale draws: whole months or whole weeks that contain every
  * milestone date and today, so the today marker is always in range.
  */
+// react-doctor-disable-next-line react-doctor/only-export-components -- Exported so the window is unit-tested without rendering the timeline.
 export function timelineWindow(
   dates: number[],
   now: number,
   scale: MilestoneScale,
-): { start: number; end: number } {
+): TimelineWindow {
   const times = [...dates, now]
   const min = Math.min(...times)
   const max = Math.max(...times)
@@ -87,6 +96,7 @@ export interface TimelineTick {
 }
 
 /** Month or week ticks across the window. */
+// react-doctor-disable-next-line react-doctor/only-export-components -- Exported so the scale ticks are unit-tested without rendering the timeline.
 export function timelineTicks(
   start: number,
   end: number,
@@ -139,6 +149,7 @@ export interface PhaseBand {
  * One band per phase that has milestones, in the phases' own order, with an
  * "Unphased" band last. A band's range is the span of its milestones' dates.
  */
+// react-doctor-disable-next-line react-doctor/only-export-components -- Exported so the phase bands are unit-tested without rendering the timeline.
 export function phaseBands(
   milestones: PlanMilestone[],
   phases: PlanPhase[],
@@ -173,11 +184,14 @@ export function phaseBands(
   return bands
 }
 
-function span(milestones: PlanMilestone[]): {
+/** The milestones in a band, and the range their dates span. */
+interface PhaseSpan {
   milestones: PlanMilestone[]
   start: number
   end: number
-} {
+}
+
+function span(milestones: PlanMilestone[]): PhaseSpan {
   const dated = milestones.filter((m) => m.dueAt)
   const times = dated.map((m) => Date.parse(m.dueAt!))
 
@@ -225,6 +239,7 @@ const LABEL_SPAN_PERCENT = 11
  * close together on the scale, so a label whose neighbour is too near drops
  * to the second row instead of printing over it.
  */
+// react-doctor-disable-next-line react-doctor/only-export-components -- Exported so the label rows are unit-tested without rendering the timeline.
 export function labelRows(
   positions: { id: string; percent: number }[],
 ): Map<string, number> {
@@ -242,6 +257,72 @@ export function labelRows(
   }
 
   return rows
+}
+
+/**
+ * The scale switch and the plan summary line above the timeline. Owns the
+ * arrow-key roving between month and week.
+ */
+function TimelineHeader({
+  milestones,
+  scale,
+  onScaleChange,
+}: {
+  milestones: PlanMilestone[]
+  scale: MilestoneScale
+  onScaleChange: (scale: MilestoneScale) => void
+}) {
+  const finished = milestones.filter((m) => m.status === 'completed').length
+
+  return (
+    <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+      <div
+        role="radiogroup"
+        aria-label={t('projects.milestoneTimeline.scaleLabel')}
+        className="inline-flex rounded-md border border-border bg-surface p-0.5"
+        onKeyDown={(event) => {
+          if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+          event.preventDefault()
+          const index = MILESTONE_SCALES.findIndex((s) => s.value === scale)
+
+          const next =
+            MILESTONE_SCALES[
+              (index + (event.key === 'ArrowRight' ? 1 : -1) + 2) %
+                MILESTONE_SCALES.length
+            ]
+
+          onScaleChange(next.value)
+        }}
+      >
+        {MILESTONE_SCALES.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={option.value === scale}
+            tabIndex={option.value === scale ? 0 : -1}
+            onClick={() => onScaleChange(option.value)}
+            className={cn(
+              'h-6 cursor-pointer rounded border-0 bg-transparent px-2.5 text-label font-medium',
+              option.value === scale
+                ? 'bg-surface-hover text-fg'
+                : 'text-fg-muted hover:text-fg',
+            )}
+          >
+            {t(`projects.milestoneTimeline.scales.${option.value}`)}
+          </button>
+        ))}
+      </div>
+      <p className="m-0 text-label text-fg-muted">
+        {t('projects.milestoneTimeline.summary', {
+          finished,
+          total: milestones.length,
+          late: milestones.filter((m) => m.risk === 'late').length,
+          atRisk: milestones.filter((m) => m.risk === 'at_risk').length,
+        })}
+      </p>
+    </div>
+  )
 }
 
 export function MilestoneTimeline({
@@ -294,60 +375,16 @@ export function MilestoneTimeline({
     })
     .replace('Sept', 'Sep')
 
-  const finished = milestones.filter((m) => m.status === 'completed').length
-
   return (
     <section
       aria-label={t('projects.milestoneTimeline.label')}
       className="mb-3 max-md:hidden"
     >
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <div
-          role="radiogroup"
-          aria-label={t('projects.milestoneTimeline.scaleLabel')}
-          className="inline-flex rounded-md border border-border bg-surface p-0.5"
-          onKeyDown={(event) => {
-            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-            event.preventDefault()
-            const index = MILESTONE_SCALES.findIndex((s) => s.value === scale)
-
-            const next =
-              MILESTONE_SCALES[
-                (index + (event.key === 'ArrowRight' ? 1 : -1) + 2) %
-                  MILESTONE_SCALES.length
-              ]
-
-            onScaleChange(next.value)
-          }}
-        >
-          {MILESTONE_SCALES.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={option.value === scale}
-              tabIndex={option.value === scale ? 0 : -1}
-              onClick={() => onScaleChange(option.value)}
-              className={cn(
-                'h-6 cursor-pointer rounded border-0 bg-transparent px-2.5 text-label font-medium',
-                option.value === scale
-                  ? 'bg-surface-hover text-fg'
-                  : 'text-fg-muted hover:text-fg',
-              )}
-            >
-              {t(`projects.milestoneTimeline.scales.${option.value}`)}
-            </button>
-          ))}
-        </div>
-        <p className="m-0 text-label text-fg-muted">
-          {t('projects.milestoneTimeline.summary', {
-            finished,
-            total: milestones.length,
-            late: milestones.filter((m) => m.risk === 'late').length,
-            atRisk: milestones.filter((m) => m.risk === 'at_risk').length,
-          })}
-        </p>
-      </div>
+      <TimelineHeader
+        milestones={milestones}
+        scale={scale}
+        onScaleChange={onScaleChange}
+      />
 
       <div className="relative overflow-hidden rounded-md border border-border bg-surface-muted/40">
         <div className="absolute top-0 bottom-0 right-3 left-[140px]">

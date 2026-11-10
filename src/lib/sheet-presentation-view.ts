@@ -13,7 +13,29 @@
  * the grid is displayed, not the Dataset, the composed matrix semantics or
  * any analysis input.
  */
+import { z } from 'zod'
+
 import type { SheetPresentation } from './sheet-instance'
+
+const jsonValue = z.json()
+
+/** A value as browser storage hands it over: plain JSON, checked field by field. */
+export type StoredJson = z.output<typeof jsonValue>
+
+const storedPresentation = z.record(z.string(), jsonValue)
+
+const PRESENTATION_DENSITIES = ['compact', 'standard', 'comfortable'] as const
+
+const filterSchema = z.object({
+  columnId: z.string(),
+  operator: z.enum(['equals', 'not-equals', 'is-empty', 'is-not-empty']),
+  value: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+})
+
+const sortSchema = z.object({
+  columnId: z.string(),
+  direction: z.enum(['asc', 'desc']),
+})
 
 export function sheetViewStorageKey(instanceId: string): string {
   return `sheetbase-sheet-view-v1:${instanceId}`
@@ -21,22 +43,17 @@ export function sheetViewStorageKey(instanceId: string): string {
 
 export interface StoredSheetView {
   savedAt: string
-  presentation: unknown
+  presentation: StoredJson
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-const PRESENTATION_DENSITIES = new Set(['compact', 'standard', 'comfortable'])
-
-function boundedIds(value: unknown, columnIds: ReadonlySet<string>): string[] {
-  if (!Array.isArray(value)) return []
+function boundedIds(
+  value: StoredJson | undefined,
+  columnIds: ReadonlySet<string>,
+): string[] {
   const seen = new Set<string>()
 
-  for (const item of value) {
-    if (typeof item !== 'string' || !columnIds.has(item) || seen.has(item))
-      continue
+  for (const item of z.array(z.string()).catch([]).parse(value)) {
+    if (!columnIds.has(item) || seen.has(item)) continue
     seen.add(item)
 
     if (seen.size >= 512) break
@@ -52,91 +69,69 @@ function boundedIds(value: unknown, columnIds: ReadonlySet<string>): string[] {
  * would accept.
  */
 export function sanitizeSheetPresentation(
-  value: unknown,
+  value: StoredJson | null,
   columnIds: ReadonlySet<string>,
 ): SheetPresentation | null {
-  if (!isRecord(value)) return null
-  const columnOrder = boundedIds(value.columnOrder, columnIds)
-  const hiddenColumnIds = boundedIds(value.hiddenColumnIds, columnIds)
+  const stored = storedPresentation.safeParse(value)
+
+  if (!stored.success) return null
+
+  const fields = stored.data
+  const columnOrder = boundedIds(fields.columnOrder, columnIds)
+  const hiddenColumnIds = boundedIds(fields.hiddenColumnIds, columnIds)
   const hidden = new Set(hiddenColumnIds)
   const columnWidths: Record<string, number> = {}
 
-  if (isRecord(value.columnWidths)) {
-    for (const [id, width] of Object.entries(value.columnWidths)) {
-      if (!columnIds.has(id) || hidden.has(id)) continue
+  const widths = z
+    .record(z.string(), z.number())
+    .catch({})
+    .parse(fields.columnWidths)
 
-      if (typeof width !== 'number' || !Number.isFinite(width)) continue
-      columnWidths[id] = Math.min(2_000, Math.max(40, Math.round(width)))
-    }
+  for (const [id, width] of Object.entries(widths)) {
+    if (!columnIds.has(id) || hidden.has(id) || !Number.isFinite(width))
+      continue
+    columnWidths[id] = Math.min(2_000, Math.max(40, Math.round(width)))
   }
 
-  const frozenRaw = value.frozenColumnCount
-
-  const frozenColumnCount =
-    typeof frozenRaw === 'number' &&
-    Number.isInteger(frozenRaw) &&
-    frozenRaw > 0
-      ? Math.min(512, frozenRaw)
-      : 0
+  const frozenColumnCount = Math.min(
+    512,
+    z.number().int().positive().catch(0).parse(fields.frozenColumnCount),
+  )
 
   const filters: SheetPresentation['filters'] = []
 
-  if (Array.isArray(value.filters)) {
-    for (const item of value.filters) {
-      if (filters.length >= 32) break
+  for (const item of z.array(jsonValue).catch([]).parse(fields.filters)) {
+    if (filters.length >= 32) break
+    const parsed = filterSchema.safeParse(item)
 
-      if (!isRecord(item)) continue
-      const columnId = item.columnId
-      const operator = item.operator
+    if (!parsed.success) continue
+    const { columnId, operator, value: filterValue } = parsed.data
 
-      if (typeof columnId !== 'string' || !columnIds.has(columnId)) continue
+    if (!columnIds.has(columnId)) continue
 
-      if (
-        operator !== 'equals' &&
-        operator !== 'not-equals' &&
-        operator !== 'is-empty' &&
-        operator !== 'is-not-empty'
-      )
-        continue
-      const needsValue = operator === 'equals' || operator === 'not-equals'
+    const needsValue = operator === 'equals' || operator === 'not-equals'
 
-      if (needsValue) {
-        const filterValue = item.value
-
-        if (
-          filterValue !== null &&
-          typeof filterValue !== 'string' &&
-          typeof filterValue !== 'number' &&
-          typeof filterValue !== 'boolean'
-        )
-          continue
-        filters.push({ columnId, operator, value: filterValue })
-      } else {
-        filters.push({ columnId, operator })
-      }
+    if (needsValue) {
+      if (filterValue === undefined) continue
+      filters.push({ columnId, operator, value: filterValue })
+    } else {
+      filters.push({ columnId, operator })
     }
   }
 
   const sorts: SheetPresentation['sorts'] = []
+  const seenSorts = new Set<string>()
 
-  if (Array.isArray(value.sorts)) {
-    const seen = new Set<string>()
+  for (const item of z.array(jsonValue).catch([]).parse(fields.sorts)) {
+    if (sorts.length >= 8) break
+    const parsed = sortSchema.safeParse(item)
 
-    for (const item of value.sorts) {
-      if (sorts.length >= 8) break
+    if (!parsed.success) continue
+    const { columnId, direction } = parsed.data
 
-      if (!isRecord(item)) continue
-      const columnId = item.columnId
-      const direction = item.direction
-
-      if (typeof columnId !== 'string' || !columnIds.has(columnId)) continue
-
-      if (direction !== 'asc' && direction !== 'desc') continue
-
-      if (seen.has(columnId)) continue
-      seen.add(columnId)
-      sorts.push({ columnId, direction })
-    }
+    if (!columnIds.has(columnId) || seenSorts.has(columnId)) continue
+    seenSorts.add(columnId)
+    sorts.push({ columnId, direction })
   }
 
   return {
@@ -144,11 +139,10 @@ export function sanitizeSheetPresentation(
     hiddenColumnIds,
     columnWidths,
     frozenColumnCount,
-    density:
-      typeof value.density === 'string' &&
-      PRESENTATION_DENSITIES.has(value.density)
-        ? (value.density as SheetPresentation['density'])
-        : 'standard',
+    density: z
+      .enum(PRESENTATION_DENSITIES)
+      .catch('standard')
+      .parse(fields.density),
     filters,
     sorts,
   }
@@ -189,7 +183,10 @@ export function saveSheetView(
 }
 
 /** Raw persisted view (untrusted); sanitise before use. */
-export function loadSheetView(instanceId: string, storage?: Storage): unknown {
+export function loadSheetView(
+  instanceId: string,
+  storage?: Storage,
+): StoredJson | null {
   const resolved = resolveStorage(storage)
 
   if (!resolved) return null
@@ -198,9 +195,12 @@ export function loadSheetView(instanceId: string, storage?: Storage): unknown {
     const raw = resolved.getItem(sheetViewStorageKey(instanceId))
 
     if (raw === null) return null
-    const parsed: unknown = JSON.parse(raw)
 
-    return isRecord(parsed) ? (parsed.presentation ?? null) : null
+    const stored = z
+      .object({ presentation: jsonValue.optional() })
+      .safeParse(JSON.parse(raw))
+
+    return stored.success ? (stored.data.presentation ?? null) : null
   } catch {
     return null
   }

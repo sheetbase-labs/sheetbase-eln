@@ -58,7 +58,9 @@ export interface RecordWire {
   deleted_at: string | null
   created_by_user_id: string
   updated_by_user_id: string | null
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- PostgREST sends record properties as stored JSONB; the header and inspector decode the keys they own.
   properties: Record<string, unknown> | null
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- custom fields are JSONB too, decoded by the form of the record kind they belong to.
   custom_fields?: Record<string, unknown> | null
   // SIGN-002: lock state. locked_at is set when an approve-for-record
   // signature locks the record; locked_by_revision_id pins the approved
@@ -72,6 +74,7 @@ export interface BlockWire {
   id: string
   record_id: string
   type: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- a block's payload is JSONB owned by its block type; every renderer decodes its own keys.
   payload: Record<string, unknown>
   payload_schema_version: number
   order: number
@@ -107,7 +110,8 @@ export interface FileObjectWire {
   media_type: string
   byte_size: string
   checksum: string | null
-  status: string
+  /** `chk_file_objects_status` allows exactly the summary's four states. */
+  status: FileObjectSummary['status']
   status_reason: string | null
   version: number
 }
@@ -161,7 +165,9 @@ export interface NotebookRecord {
   deletedAt: string | null
   createdByUserId: string
   updatedByUserId: string | null
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- PostgREST sends the properties JSONB as stored; the header and inspector decode the keys they own, so the domain shape cannot name them.
   properties: Record<string, unknown>
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- custom fields are JSONB too, decoded by whoever knows the record kind's form.
   customFields?: Record<string, unknown>
   // SIGN-002: lock state. lockedAt is set when an approve-for-record
   // signature locks the record; lockedByRevisionId pins the approved
@@ -175,6 +181,7 @@ export interface NotebookBlock {
   id: string
   recordId: string
   type: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- a block's JSONB payload belongs to its block type; every renderer decodes its own keys, so this shape cannot name them.
   payload: Record<string, unknown>
   payloadSchemaVersion: number
   order: number
@@ -281,7 +288,7 @@ export function toFileObjectSummary(row: FileObjectWire): FileObjectSummary {
     displayName: row.display_name,
     mediaType: row.media_type,
     byteSize: Number(row.byte_size),
-    status: row.status as FileObjectSummary['status'],
+    status: row.status,
     statusReason: row.status_reason,
     version: row.version,
   }
@@ -303,6 +310,7 @@ export interface ChangeEventRecordWire {
   operation: string
   record_id: string | null
   actor_user_id: string | null
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- the change event's detail is JSONB owned by the operation that emitted it.
   payload: Record<string, unknown>
   created_at: string
 }
@@ -313,6 +321,7 @@ export interface RecordActivityItem {
   entityType: string
   actorUserId: string | null
   createdAt: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- the change event's JSONB detail belongs to the operation that emitted it; the activity tab reads the keys it states.
   payload: Record<string, unknown>
 }
 
@@ -473,7 +482,12 @@ export const notebookQueryKeys = {
  * Human label for a record kind, used in breadcrumbs, headers and the
  * project overview. Kept here so the route, header and inspector agree.
  */
-export const RECORD_KIND_LABELS: Record<string, string> = {
+/** Labels by record kind; a kind with no label reads as itself. */
+interface RecordKindLabels {
+  [kind: string]: string | undefined
+}
+
+export const RECORD_KIND_LABELS: RecordKindLabels = {
   experiment: 'Experiment',
   protocol_template: 'Protocol template',
   report: 'Report',
@@ -588,15 +602,18 @@ export interface RevisionWire {
   record_id: string
   structure_version: number
   metadata_version: number
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- a revision snapshots the record's JSONB metadata as it stood.
   metadata_snapshot: Record<string, unknown>
   block_snapshot: Array<{
     id: string
     type: string
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- a snapshot records each block's JSONB payload as it stood.
     payload: Record<string, unknown>
     payload_schema_version: number
     order: number
     version: number
   }>
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- the canonical snapshot is the stored JSONB evidence, kept as it stood.
   canonical_snapshot?: Record<string, unknown>
   integrity_algorithm?: 'sha256'
   integrity_digest?: string
@@ -659,7 +676,7 @@ export function submitRecordRevision(
   client: DataClient,
   input: SubmitRecordRevisionInput,
 ): Promise<SubmitRecordRevisionResult> {
-  return client.rpc('submit_record_revision', {
+  const unsigned = {
     p_record_id: input.recordId,
     p_expected_source_digest: input.expectedSourceDigest,
     p_workflow_definition_key: input.workflowDefinitionKey,
@@ -668,13 +685,18 @@ export function submitRecordRevision(
     p_confirmed: true,
     p_idempotency_key: input.idempotencyKey,
     p_due_at: input.dueAt ?? null,
-    ...(input.authorSigningToken
+  }
+
+  return client.rpc(
+    'submit_record_revision',
+    input.authorSigningToken
       ? {
+          ...unsigned,
           p_author_signing_token: input.authorSigningToken,
           p_author_confirmation_phrase: input.authorConfirmationPhrase,
         }
-      : {}),
-  })
+      : unsigned,
+  )
 }
 
 /** Fetch an immutable revision snapshot for historical overview rendering. */
@@ -709,6 +731,7 @@ export type RevisionSheetEvidenceWire = {
   instance_id: string
   instance_revision: number | string
   source_definition_version_id: string | null
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- a sheet instance's state is stored JSONB, decoded by the sheet readers.
   instance_state: Record<string, unknown> | null
   dataset_versions: unknown
   composed_grid: unknown
@@ -733,6 +756,7 @@ export function fetchRevisionSheetEvidence(
 export function updateRecordProperties(
   client: DataClient,
   recordId: string,
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- the caller owns the properties it merges into the JSONB column (`properties.overview.excludedBlockIds`); this helper only writes them through.
   properties: Record<string, unknown>,
 ) {
   return client.patch<Pick<RecordWire, 'id' | 'properties'>>(

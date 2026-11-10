@@ -60,8 +60,24 @@ import { RuleDialog } from './rule-dialog'
 
 const SCHEDULES = [0, 60, 360, 1440, 10080] as const
 
+/** Every state a contract can be moved to, in the order the select offers them. */
+const LIFECYCLES = [
+  'draft',
+  'active',
+  'retired',
+] as const satisfies readonly ContractLifecycle[]
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Caught transport failures are external; an Error supplies its message and a primitive rejection keeps its text form.
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+/** The contract fields the standing panel can change. */
+interface ContractPatch {
+  lifecycle?: ContractLifecycle
+  ownerUserId?: string
+  scheduleMinutes?: number
+  description?: string
 }
 
 /** The latest full check of each dataset, folded to what each rule found. */
@@ -84,6 +100,429 @@ function latestFindings(
   }
 
   return byRule
+}
+
+/** The contract's lifecycle, as a select for an editor and as text for a reader. */
+function LifecycleValue({
+  contract,
+  canEdit,
+  update,
+}: {
+  contract: DataContract
+  canEdit: boolean
+  update: (patch: ContractPatch) => void
+}) {
+  if (!canEdit) return t(`contracts.lifecycle.${contract.lifecycle}`)
+
+  const choose = (value: string) => {
+    const lifecycle = LIFECYCLES.find((state) => state === value)
+
+    if (lifecycle) update({ lifecycle })
+  }
+
+  return (
+    <Select
+      size="sm"
+      aria-label={t('contracts.panel.state')}
+      value={contract.lifecycle}
+      onChange={(e) => choose(e.target.value)}
+    >
+      {LIFECYCLES.map((state) => (
+        <option key={state} value={state}>
+          {t(`contracts.lifecycle.${state}`)}
+        </option>
+      ))}
+    </Select>
+  )
+}
+
+/** The contract's owner: whoever the workspace names, or the reader's fallback. */
+function OwnerValue({
+  contract,
+  canEdit,
+  members,
+  ownerName,
+  update,
+}: {
+  contract: DataContract
+  canEdit: boolean
+  members: Record<string, string> | undefined
+  ownerName: string | null
+  update: (patch: ContractPatch) => void
+}) {
+  if (!canEdit) return ownerName ?? t('contracts.panel.noOwner')
+
+  return (
+    <Select
+      size="sm"
+      aria-label={t('contracts.panel.owner')}
+      value={contract.ownerUserId ?? ''}
+      onChange={(e) => {
+        if (e.target.value) update({ ownerUserId: e.target.value })
+      }}
+    >
+      {contract.ownerUserId ? null : (
+        <option value="">{t('contracts.panel.noOwner')}</option>
+      )}
+      {Object.entries(members ?? {}).map(([id, name]) => (
+        <option key={id} value={id}>
+          {name}
+        </option>
+      ))}
+    </Select>
+  )
+}
+
+/** How often the contract checks itself, as a select or as its schedule. */
+function ScheduleValue({
+  contract,
+  canEdit,
+  update,
+}: {
+  contract: DataContract
+  canEdit: boolean
+  update: (patch: ContractPatch) => void
+}) {
+  if (!canEdit) {
+    return contract.scheduleMinutes
+      ? t('contracts.panel.scheduleEvery', {
+          every: describeMinutes(contract.scheduleMinutes),
+        })
+      : t('contracts.panel.scheduleOff')
+  }
+
+  return (
+    <Select
+      size="sm"
+      aria-label={t('contracts.panel.schedule')}
+      value={String(contract.scheduleMinutes ?? 0)}
+      onChange={(e) => update({ scheduleMinutes: Number(e.target.value) })}
+    >
+      {SCHEDULES.map((minutes) => (
+        <option key={minutes} value={minutes}>
+          {minutes === 0
+            ? t('contracts.panel.scheduleOff')
+            : t('contracts.panel.scheduleEvery', {
+                every: describeMinutes(minutes),
+              })}
+        </option>
+      ))}
+    </Select>
+  )
+}
+
+/** The tab before any contract exists, and its start action. */
+function ContractEmptyPanel({
+  error,
+  canEdit,
+  starting,
+  onStart,
+}: {
+  error: string
+  canEdit: boolean
+  starting: boolean
+  onStart: () => void
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-auto px-4 py-5 md:px-6">
+      <p className="text-fg-muted">{t('contracts.panel.intro')}</p>
+      {error ? (
+        <Banner tone="bad" title={t('contracts.panel.couldNotLoad')}>
+          {error}
+        </Banner>
+      ) : null}
+      <EmptyState
+        icon="schema"
+        title={t('contracts.panel.emptyTitle')}
+        description={t('contracts.panel.emptyBody')}
+        action={
+          canEdit ? (
+            <Button variant="primary" disabled={starting} onClick={onStart}>
+              {starting
+                ? t('contracts.panel.starting')
+                : t('contracts.panel.start')}
+            </Button>
+          ) : (
+            <span className="text-fg-muted">
+              {t('contracts.panel.readOnly')}
+            </span>
+          )
+        }
+      />
+    </div>
+  )
+}
+
+/** Everything the contract says about itself: its standing, owner and schedule. */
+function ContractStanding({
+  contract,
+  canEdit,
+  members,
+  ownerName,
+  update,
+}: {
+  contract: DataContract
+  canEdit: boolean
+  members: Record<string, string> | undefined
+  ownerName: string | null
+  update: (patch: ContractPatch) => void
+}) {
+  return (
+    <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <dt className="text-caption text-fg-muted">
+          {t('contracts.panel.standing')}
+        </dt>
+        <dd>
+          <ContractStatusBadge status={contract.lastStatus} />
+        </dd>
+      </div>
+      <div>
+        <dt className="text-caption text-fg-muted">
+          {t('contracts.panel.state')}
+        </dt>
+        <dd>
+          <LifecycleValue
+            contract={contract}
+            canEdit={canEdit}
+            update={update}
+          />
+        </dd>
+      </div>
+      <div>
+        <dt className="text-caption text-fg-muted">
+          {t('contracts.panel.owner')}
+        </dt>
+        <dd>
+          <OwnerValue
+            contract={contract}
+            canEdit={canEdit}
+            members={members}
+            ownerName={ownerName}
+            update={update}
+          />
+        </dd>
+      </div>
+      <div>
+        <dt className="text-caption text-fg-muted">
+          {t('contracts.panel.schedule')}
+        </dt>
+        <dd>
+          <ScheduleValue
+            contract={contract}
+            canEdit={canEdit}
+            update={update}
+          />
+        </dd>
+      </div>
+      <div>
+        <dt className="text-caption text-fg-muted">
+          {t('contracts.panel.version')}
+        </dt>
+        <dd className="num">{contract.version}</dd>
+      </div>
+      <div>
+        <dt className="text-caption text-fg-muted">
+          {t('contracts.panel.lastChecked')}
+        </dt>
+        <dd>
+          {contract.lastCheckedAt
+            ? formatNotebookDateTime(contract.lastCheckedAt)
+            : t('contracts.panel.never')}
+        </dd>
+      </div>
+      {canEdit ? (
+        <div className="sm:col-span-2">
+          <Field label={t('contracts.panel.description')}>
+            <Input
+              key={contract.updatedAt}
+              defaultValue={contract.description ?? ''}
+              placeholder={t('contracts.panel.descriptionHint')}
+              onBlur={(e) => {
+                const next = e.target.value.trim()
+
+                if (next !== (contract.description ?? ''))
+                  update({ description: next })
+              }}
+            />
+          </Field>
+        </div>
+      ) : contract.description ? (
+        <div className="sm:col-span-2">{contract.description}</div>
+      ) : null}
+    </dl>
+  )
+}
+
+/** Every rule the contract states, and what the latest check found for each. */
+function ContractRulesSection({
+  contract,
+  canEdit,
+  findings,
+  fieldLabel,
+  onAdd,
+  onEdit,
+  onRemove,
+  removing,
+}: {
+  contract: DataContract
+  canEdit: boolean
+  findings: Map<string, ContractRuleResult[]>
+  fieldLabel: (key: string | undefined) => string
+  onAdd: () => void
+  onEdit: (rule: ContractRule) => void
+  onRemove: (ruleId: string) => void
+  removing: boolean
+}) {
+  return (
+    <Section
+      title={t('contracts.rules.title')}
+      count={contract.rules.length}
+      action={
+        canEdit ? (
+          <Button onClick={onAdd}>{t('contracts.rules.add')}</Button>
+        ) : null
+      }
+    >
+      <TableBox>
+        <Table aria-label={t('contracts.rules.title')}>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="first:pl-3">
+                {t('contracts.rules.columns.rule')}
+              </TableHead>
+              <TableHead>{t('contracts.rules.columns.field')}</TableHead>
+              <TableHead>{t('contracts.rules.columns.asks')}</TableHead>
+              <TableHead>{t('contracts.rules.columns.mode')}</TableHead>
+              <TableHead>{t('contracts.rules.columns.found')}</TableHead>
+              {canEdit ? <TableHead /> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody
+            empty={t('contracts.rules.empty')}
+            colSpan={canEdit ? 6 : 5}
+          >
+            {contract.rules.map((rule) => {
+              const results = findings.get(rule.id)
+              const failed = results?.find((r) => r.status === 'fail')
+
+              return (
+                <TableRow key={rule.id}>
+                  <TableCell className="first:pl-3">
+                    {kindLabel(rule.kind)}
+                  </TableCell>
+                  <TableCell>
+                    {rule.field ? fieldLabel(rule.field) : ''}
+                  </TableCell>
+                  <TableCell>{describeRule(rule)}</TableCell>
+                  <TableCell>{modeLabel(rule.mode)}</TableCell>
+                  <TableCell>
+                    {!results
+                      ? t('contracts.rules.notChecked')
+                      : failed
+                        ? describeFinding(failed, rule, fieldLabel(rule.field))
+                        : t('contracts.rules.passed')}
+                  </TableCell>
+                  {canEdit ? (
+                    <TableCell align="right">
+                      <Button
+                        size="sm"
+                        variant="quiet"
+                        onClick={() => onEdit(rule)}
+                      >
+                        {t('contracts.rules.edit')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="quiet"
+                        disabled={removing}
+                        onClick={() => onRemove(rule.id)}
+                      >
+                        {t('contracts.rules.remove')}
+                      </Button>
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </TableBox>
+    </Section>
+  )
+}
+
+/** The record of every check the contract has run. */
+function ContractHistorySection({
+  runs,
+  datasetNames,
+  loading,
+}: {
+  runs: ContractRun[]
+  datasetNames: Record<string, string>
+  loading: boolean
+}) {
+  return (
+    <Section title={t('contracts.history.title')} count={runs.length}>
+      <TableBox>
+        <Table aria-label={t('contracts.history.title')}>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="first:pl-3">
+                {t('contracts.history.columns.when')}
+              </TableHead>
+              <TableHead>{t('contracts.history.columns.data')}</TableHead>
+              <TableHead>{t('contracts.history.columns.result')}</TableHead>
+              <TableHead>{t('contracts.history.columns.trigger')}</TableHead>
+              <TableHead align="right">
+                {t('contracts.history.columns.rows')}
+              </TableHead>
+              <TableHead align="right">
+                {t('contracts.history.columns.problems')}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody
+            loading={loading}
+            empty={t('contracts.history.empty')}
+            colSpan={6}
+          >
+            {runs.map((run) => (
+              <TableRow key={run.id}>
+                <TableCell className="first:pl-3">
+                  {formatNotebookDateTime(run.createdAt)}
+                </TableCell>
+                <TableCell>
+                  {run.datasetId ? (
+                    <Link
+                      to="/datasets/$datasetId"
+                      params={{ datasetId: run.datasetId }}
+                      className="text-link"
+                    >
+                      {datasetNames[run.datasetId] ?? run.datasetId}
+                    </Link>
+                  ) : run.scope === 'batch' ? (
+                    t('contracts.history.batch')
+                  ) : (
+                    t('contracts.history.wholeModel')
+                  )}
+                </TableCell>
+                <TableCell>
+                  <ContractStatusBadge status={run.status} />
+                  {run.blocked ? ` · ${t('contracts.history.blocked')}` : ''}
+                </TableCell>
+                <TableCell>
+                  {t(`contracts.history.trigger.${run.trigger}`)}
+                </TableCell>
+                <TableCell align="right">{run.rowsChecked}</TableCell>
+                <TableCell align="right">{run.failedRules}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableBox>
+    </Section>
+  )
 }
 
 /**
@@ -114,7 +553,7 @@ export function ContractPanel({
     void queryClient.invalidateQueries({ queryKey: contractKeys.all })
   }
 
-  const fail = (e: unknown) => setError(messageOf(e))
+  const fail = (cause: Error) => setError(messageOf(cause))
 
   const fieldLabel = (key: string | undefined) =>
     fields.find((option) => option.key === key)?.label ?? key ?? ''
@@ -126,12 +565,8 @@ export function ContractPanel({
   })
 
   const update = useMutation({
-    mutationFn: (patch: {
-      lifecycle?: ContractLifecycle
-      ownerUserId?: string
-      scheduleMinutes?: number
-      description?: string
-    }) => saveContract(notebookDataClient, { target, ...patch }),
+    mutationFn: (patch: ContractPatch) =>
+      saveContract(notebookDataClient, { target, ...patch }),
     onSuccess: (saved) => {
       refresh(saved)
       toast(t('contracts.panel.saved'))
@@ -225,36 +660,12 @@ export function ContractPanel({
 
   if (!contract) {
     return (
-      <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-auto px-4 py-5 md:px-6">
-        <p className="text-fg-muted">{t('contracts.panel.intro')}</p>
-        {error ? (
-          <Banner tone="bad" title={t('contracts.panel.couldNotLoad')}>
-            {error}
-          </Banner>
-        ) : null}
-        <EmptyState
-          icon="schema"
-          title={t('contracts.panel.emptyTitle')}
-          description={t('contracts.panel.emptyBody')}
-          action={
-            canEdit ? (
-              <Button
-                variant="primary"
-                disabled={start.isPending}
-                onClick={() => start.mutate()}
-              >
-                {start.isPending
-                  ? t('contracts.panel.starting')
-                  : t('contracts.panel.start')}
-              </Button>
-            ) : (
-              <span className="text-fg-muted">
-                {t('contracts.panel.readOnly')}
-              </span>
-            )
-          }
-        />
-      </div>
+      <ContractEmptyPanel
+        error={error}
+        canEdit={canEdit}
+        starting={start.isPending}
+        onStart={() => start.mutate()}
+      />
     )
   }
 
@@ -324,290 +735,37 @@ export function ContractPanel({
           </div>
         }
       >
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <dt className="text-caption text-fg-muted">
-              {t('contracts.panel.standing')}
-            </dt>
-            <dd>
-              <ContractStatusBadge status={contract.lastStatus} />
-            </dd>
-          </div>
-          <div>
-            <dt className="text-caption text-fg-muted">
-              {t('contracts.panel.state')}
-            </dt>
-            <dd>
-              {canEdit ? (
-                <Select
-                  size="sm"
-                  aria-label={t('contracts.panel.state')}
-                  value={contract.lifecycle}
-                  onChange={(e) =>
-                    update.mutate({
-                      lifecycle: e.target.value as ContractLifecycle,
-                    })
-                  }
-                >
-                  {(['draft', 'active', 'retired'] as const).map((state) => (
-                    <option key={state} value={state}>
-                      {t(`contracts.lifecycle.${state}`)}
-                    </option>
-                  ))}
-                </Select>
-              ) : (
-                t(`contracts.lifecycle.${contract.lifecycle}`)
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-caption text-fg-muted">
-              {t('contracts.panel.owner')}
-            </dt>
-            <dd>
-              {canEdit ? (
-                <Select
-                  size="sm"
-                  aria-label={t('contracts.panel.owner')}
-                  value={contract.ownerUserId ?? ''}
-                  onChange={(e) =>
-                    e.target.value &&
-                    update.mutate({ ownerUserId: e.target.value })
-                  }
-                >
-                  {contract.ownerUserId ? null : (
-                    <option value="">{t('contracts.panel.noOwner')}</option>
-                  )}
-                  {Object.entries(members.data ?? {}).map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                </Select>
-              ) : (
-                (ownerName ?? t('contracts.panel.noOwner'))
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-caption text-fg-muted">
-              {t('contracts.panel.schedule')}
-            </dt>
-            <dd>
-              {canEdit ? (
-                <Select
-                  size="sm"
-                  aria-label={t('contracts.panel.schedule')}
-                  value={String(contract.scheduleMinutes ?? 0)}
-                  onChange={(e) =>
-                    update.mutate({ scheduleMinutes: Number(e.target.value) })
-                  }
-                >
-                  {SCHEDULES.map((minutes) => (
-                    <option key={minutes} value={minutes}>
-                      {minutes === 0
-                        ? t('contracts.panel.scheduleOff')
-                        : t('contracts.panel.scheduleEvery', {
-                            every: describeMinutes(minutes),
-                          })}
-                    </option>
-                  ))}
-                </Select>
-              ) : contract.scheduleMinutes ? (
-                t('contracts.panel.scheduleEvery', {
-                  every: describeMinutes(contract.scheduleMinutes),
-                })
-              ) : (
-                t('contracts.panel.scheduleOff')
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-caption text-fg-muted">
-              {t('contracts.panel.version')}
-            </dt>
-            <dd className="num">{contract.version}</dd>
-          </div>
-          <div>
-            <dt className="text-caption text-fg-muted">
-              {t('contracts.panel.lastChecked')}
-            </dt>
-            <dd>
-              {contract.lastCheckedAt
-                ? formatNotebookDateTime(contract.lastCheckedAt)
-                : t('contracts.panel.never')}
-            </dd>
-          </div>
-          {canEdit ? (
-            <div className="sm:col-span-2">
-              <Field label={t('contracts.panel.description')}>
-                <Input
-                  key={contract.updatedAt}
-                  defaultValue={contract.description ?? ''}
-                  placeholder={t('contracts.panel.descriptionHint')}
-                  onBlur={(e) => {
-                    const next = e.target.value.trim()
-
-                    if (next !== (contract.description ?? ''))
-                      update.mutate({ description: next })
-                  }}
-                />
-              </Field>
-            </div>
-          ) : contract.description ? (
-            <div className="sm:col-span-2">{contract.description}</div>
-          ) : null}
-        </dl>
+        <ContractStanding
+          contract={contract}
+          canEdit={canEdit}
+          members={members.data}
+          ownerName={ownerName}
+          update={update.mutate}
+        />
       </Section>
 
-      <Section
-        title={t('contracts.rules.title')}
-        count={contract.rules.length}
-        action={
-          canEdit ? (
-            <Button
-              onClick={() => {
-                setEditing(null)
-                setRuleOpen(true)
-              }}
-            >
-              {t('contracts.rules.add')}
-            </Button>
-          ) : null
-        }
-      >
-        <TableBox>
-          <Table aria-label={t('contracts.rules.title')}>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="first:pl-3">
-                  {t('contracts.rules.columns.rule')}
-                </TableHead>
-                <TableHead>{t('contracts.rules.columns.field')}</TableHead>
-                <TableHead>{t('contracts.rules.columns.asks')}</TableHead>
-                <TableHead>{t('contracts.rules.columns.mode')}</TableHead>
-                <TableHead>{t('contracts.rules.columns.found')}</TableHead>
-                {canEdit ? <TableHead /> : null}
-              </TableRow>
-            </TableHeader>
-            <TableBody
-              empty={t('contracts.rules.empty')}
-              colSpan={canEdit ? 6 : 5}
-            >
-              {contract.rules.map((rule) => {
-                const results = findings.get(rule.id)
-                const failed = results?.find((r) => r.status === 'fail')
+      <ContractRulesSection
+        contract={contract}
+        canEdit={canEdit}
+        findings={findings}
+        fieldLabel={fieldLabel}
+        onAdd={() => {
+          setEditing(null)
+          setRuleOpen(true)
+        }}
+        onEdit={(rule) => {
+          setEditing(rule)
+          setRuleOpen(true)
+        }}
+        onRemove={remove.mutate}
+        removing={remove.isPending}
+      />
 
-                return (
-                  <TableRow key={rule.id}>
-                    <TableCell className="first:pl-3">
-                      {kindLabel(rule.kind)}
-                    </TableCell>
-                    <TableCell>
-                      {rule.field ? fieldLabel(rule.field) : ''}
-                    </TableCell>
-                    <TableCell>{describeRule(rule)}</TableCell>
-                    <TableCell>{modeLabel(rule.mode)}</TableCell>
-                    <TableCell>
-                      {!results
-                        ? t('contracts.rules.notChecked')
-                        : failed
-                          ? describeFinding(
-                              failed,
-                              rule,
-                              fieldLabel(rule.field),
-                            )
-                          : t('contracts.rules.passed')}
-                    </TableCell>
-                    {canEdit ? (
-                      <TableCell align="right">
-                        <Button
-                          size="sm"
-                          variant="quiet"
-                          onClick={() => {
-                            setEditing(rule)
-                            setRuleOpen(true)
-                          }}
-                        >
-                          {t('contracts.rules.edit')}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="quiet"
-                          disabled={remove.isPending}
-                          onClick={() => remove.mutate(rule.id)}
-                        >
-                          {t('contracts.rules.remove')}
-                        </Button>
-                      </TableCell>
-                    ) : null}
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </TableBox>
-      </Section>
-
-      <Section title={t('contracts.history.title')} count={runs.data?.length}>
-        <TableBox>
-          <Table aria-label={t('contracts.history.title')}>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="first:pl-3">
-                  {t('contracts.history.columns.when')}
-                </TableHead>
-                <TableHead>{t('contracts.history.columns.data')}</TableHead>
-                <TableHead>{t('contracts.history.columns.result')}</TableHead>
-                <TableHead>{t('contracts.history.columns.trigger')}</TableHead>
-                <TableHead align="right">
-                  {t('contracts.history.columns.rows')}
-                </TableHead>
-                <TableHead align="right">
-                  {t('contracts.history.columns.problems')}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody
-              loading={runs.isLoading}
-              empty={t('contracts.history.empty')}
-              colSpan={6}
-            >
-              {(runs.data ?? []).map((run) => (
-                <TableRow key={run.id}>
-                  <TableCell className="first:pl-3">
-                    {formatNotebookDateTime(run.createdAt)}
-                  </TableCell>
-                  <TableCell>
-                    {run.datasetId ? (
-                      <Link
-                        to="/datasets/$datasetId"
-                        params={{ datasetId: run.datasetId }}
-                        className="text-link"
-                      >
-                        {datasetNames.data?.[run.datasetId] ?? run.datasetId}
-                      </Link>
-                    ) : run.scope === 'batch' ? (
-                      t('contracts.history.batch')
-                    ) : (
-                      t('contracts.history.wholeModel')
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <ContractStatusBadge status={run.status} />
-                    {run.blocked ? ` · ${t('contracts.history.blocked')}` : ''}
-                  </TableCell>
-                  <TableCell>
-                    {t(`contracts.history.trigger.${run.trigger}`)}
-                  </TableCell>
-                  <TableCell align="right">{run.rowsChecked}</TableCell>
-                  <TableCell align="right">{run.failedRules}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableBox>
-      </Section>
+      <ContractHistorySection
+        runs={runs.data ?? []}
+        datasetNames={datasetNames.data ?? {}}
+        loading={runs.isLoading}
+      />
 
       {canEdit ? (
         <div>

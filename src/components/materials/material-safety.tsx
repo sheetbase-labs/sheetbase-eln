@@ -20,6 +20,7 @@ import { t } from '#/copy'
 import { uploadProjectFile } from '#/lib/file-attach'
 import {
   GHS_PICTOGRAMS,
+  SIGNAL_WORDS,
   fetchMaterialSafety,
   hazardStatementText,
   isHazardous,
@@ -79,6 +80,7 @@ export function useMaterialSafety(recordId: string) {
 }
 
 /** Where the safety data sheet opens. */
+// react-doctor-disable-next-line react-doctor/only-export-components -- sheetHref builds the record’s sheet link and is imported beside the panel; it is part of this section’s contract.
 export function sheetHref(fileRecordId: string): string {
   return `/api/files/${encodeURIComponent(fileRecordId)}/download`
 }
@@ -87,6 +89,7 @@ export function sheetHref(fileRecordId: string): string {
  * The chemical safety of a material: pictograms, signal word, hazard statements and
  * the safety data sheet, with an Edit action for people who can change the lot.
  */
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the section renders its own read view and form states together; splitting them would duplicate the safety contract.
 export function MaterialSafetySection({
   recordId,
   name,
@@ -197,6 +200,7 @@ interface PickedSheet {
   name: string
 }
 
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the dialog owns the whole edit form: pictograms, signal word, statements and the safety sheet.
 function SafetyEditDialog({
   recordId,
   name,
@@ -231,9 +235,10 @@ function SafetyEditDialog({
 
   const matches = useMemo(() => {
     const needle = search.trim().toLowerCase()
+    const chosen = new Set(statements)
 
     return knownHazardCodes()
-      .filter((code) => !statements.includes(code))
+      .filter((code) => !chosen.has(code))
       .filter(
         (code) =>
           needle === '' ||
@@ -334,9 +339,12 @@ function SafetyEditDialog({
           <Field label={t('safety.signalWord.label')}>
             <Select
               value={signalWord}
-              onChange={(event) =>
-                setSignalWord(event.target.value as SignalWord | '')
-              }
+              onChange={(event) => {
+                setSignalWord(
+                  SIGNAL_WORDS.find((word) => word === event.target.value) ??
+                    '',
+                )
+              }}
               className="w-48"
             >
               <option value="">{t('safety.signalWord.none')}</option>

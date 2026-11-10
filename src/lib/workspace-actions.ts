@@ -277,25 +277,20 @@ export function arrange(
 
   if (preset === 'single') return state
   const source = paneOf(tab, tab.activeId)
-  let panes = tab.panes
+  const panes = [...tab.panes]
   const missing = Math.max(0, presetPaneCount[preset] - panes.length)
 
   for (let i = 0; i < missing && source; i += 1) {
-    panes = [
-      ...panes,
-      {
-        ...newPane(source.href, newIds()),
-        title: source.title,
-        identifier: source.identifier,
-      },
-    ]
+    panes.push({
+      ...newPane(source.href, newIds()),
+      title: source.title,
+      identifier: source.identifier,
+    })
   }
 
   const order = [
     ...listPaneIds(tab.tree),
-    ...panes
-      .filter((pane) => !hasPane(tab.tree, pane.id))
-      .map((pane) => pane.id),
+    ...panes.flatMap((pane) => (hasPane(tab.tree, pane.id) ? [] : [pane.id])),
   ]
 
   return updateTab(state, tab.id, (current) =>

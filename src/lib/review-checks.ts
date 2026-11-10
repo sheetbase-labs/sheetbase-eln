@@ -58,6 +58,7 @@ export interface CheckItemResult {
   severity: CheckSeverity
   label: string
   status: CheckItemStatus
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- A check's evidence is arbitrary JSON written by its check definition and rendered generically (cycles included); it is produced evidence, not input this module parses.
   evidence: Record<string, unknown>
 }
 

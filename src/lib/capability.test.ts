@@ -25,7 +25,9 @@ describe('CORE-05 capability mapping', () => {
   })
 
   it('does not grant governed schema authority to ordinary or unused member roles', () => {
-    for (const role of ['member', ...UNUSED_MEMBER_ROLES] as WorkspaceRole[]) {
+    const roles: WorkspaceRole[] = ['member', ...UNUSED_MEMBER_ROLES]
+
+    for (const role of roles) {
       expect(hasCapability(role, 'schema.edit')).toBe(false)
       expect(hasCapability(role, 'schema.publish')).toBe(false)
       expect(hasCapability(role, 'record.link')).toBe(true)

@@ -32,12 +32,14 @@ import {
 } from './notebook-experience'
 import type { NotebookReviewContext } from './notebook-experience'
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The copy path reads the shared sheet-instance data client directly; the suite replaces the two transport calls it makes with fixtures.
 vi.mock('#/lib/sheet-instance-data', async (importOriginal) => ({
   ...(await importOriginal()),
   fetchSheetInstance: vi.fn(),
   duplicateSheetInstance: vi.fn(),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The copy path writes through the shared notebook mutation client directly; the suite replaces the two writes it makes with fixtures.
 vi.mock('#/lib/notebook-mutations', async (importOriginal) => ({
   ...(await importOriginal()),
   insertSheetInstanceBlock: vi.fn(),
@@ -112,7 +114,11 @@ function mockClient(overrides: Partial<DataClient> = {}): DataClient {
     list: vi.fn(async () => []),
     count: vi.fn(async () => 0),
     rpc: vi.fn(),
-    insert: vi.fn(async () => ({})) as unknown as DataClient['insert'],
+    insert: async <T>(): Promise<T> => {
+      // SAFETY: this double answers an empty written row; the suite never reads
+      // a row back from `insert`, it only counts calls.
+      return {} as T
+    },
     patch: vi.fn(async () => []),
     remove: vi.fn(async () => []),
     ...overrides,
@@ -517,11 +523,19 @@ describe('duplicateExperiment', () => {
 
     vi.mocked(insertSheetInstanceBlock).mockClear()
     vi.mocked(insertBlock).mockClear()
+    // SAFETY: The copy path reads only `id`, `name` and `revision` from the
+    // fetched instance, which are exactly the fields this fixture supplies.
+    // SAFETY: The copy path reads only `id`, `name` and `revision` from the fetched
+    // instance, which are exactly the fields this fixture supplies.
     vi.mocked(fetchSheetInstance).mockResolvedValue({
       id: instanceId,
       name: 'Plate map',
       revision: 3,
     } as SheetInstance)
+    // SAFETY: The copy path reads only the duplicated instance's `id`, which
+    // this fixture supplies.
+    // SAFETY: The copy path reads only the duplicated instance's `id`, which this
+    // fixture supplies.
     vi.mocked(duplicateSheetInstance).mockResolvedValue({
       id: duplicatedId,
       name: 'Plate map copy',
@@ -582,11 +596,15 @@ describe('duplicateExperiment', () => {
 
     vi.mocked(insertSheetInstanceBlock).mockClear()
     vi.mocked(insertBlock).mockClear()
+    // SAFETY: The copy path reads only `id`, `name` and `revision` from the fetched
+    // instance, which are exactly the fields this fixture supplies.
     vi.mocked(fetchSheetInstance).mockResolvedValue({
       id: instanceId,
       name: 'Readings',
       revision: 1,
     } as SheetInstance)
+    // SAFETY: The copy path reads only the duplicated instance's `id`, which this
+    // fixture supplies.
     vi.mocked(duplicateSheetInstance).mockResolvedValue({
       id: duplicatedId,
       name: 'Readings copy',
@@ -681,11 +699,17 @@ describe('duplicateExperiment', () => {
 
     vi.mocked(insertSheetInstanceBlock).mockClear()
     vi.mocked(insertBlock).mockClear()
+    // SAFETY: The copy path reads only `id`, `name` and `revision` from the fetched
+    // instance, which are exactly the fields this fixture supplies.
     vi.mocked(fetchSheetInstance).mockResolvedValue({
       id: instanceId,
       name: 'Plate map',
       revision: 1,
     } as SheetInstance)
+    // SAFETY: The copy path reads only the duplicated instance's `id`, which
+    // this fixture supplies.
+    // SAFETY: The copy path reads only the duplicated instance's `id`, which this
+    // fixture supplies.
     vi.mocked(duplicateSheetInstance).mockResolvedValue({
       id: duplicatedId,
       name: 'Plate map copy',
@@ -835,16 +859,20 @@ describe('groupChartTables', () => {
 })
 
 describe('notebook review activity', () => {
+  // SAFETY: These fixtures supply exactly the review fields this suite reads:
+  // submission `state`/`revision_id` and revision `id`/`superseded_by_revision_id`.
   const approved = {
     submission: { state: 'approved', revision_id: 'rev-sub' },
     revision: { id: 'rev-sub', superseded_by_revision_id: null },
   } as NotebookReviewContext
 
+  // SAFETY: Same scoped review fixture as `approved`, with a submitted state.
   const submitted = {
     submission: { state: 'submitted', revision_id: 'rev-sub' },
     revision: { id: 'rev-sub', superseded_by_revision_id: null },
   } as NotebookReviewContext
 
+  // SAFETY: Same scoped review fixture as `approved`, with a superseding revision.
   const superseded = {
     submission: { state: 'approved', revision_id: 'rev-sub' },
     revision: { id: 'rev-sub', superseded_by_revision_id: 'amend' },

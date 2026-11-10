@@ -33,6 +33,7 @@ import { ParserFollowUpNotice } from '#/components/instruments/parser-follow-up'
 import { RequestQualificationButton } from '#/components/instruments/request-qualification-button'
 import { Button } from '#/components/ui/button'
 import { agentQueryKeys } from '#/lib/connectors/agent-client'
+import type { AgentStatus } from '#/lib/connectors/agent-client'
 import { parserSettingsQueryKeys } from '#/lib/parser-settings'
 import { screenQueryClient, screenRoutes, withApiReads } from './screen-stories'
 import type { ReadSeed } from './screen-stories'
@@ -207,10 +208,18 @@ export const QualificationRequested: Story = {
 
 // --- Folder agent -----------------------------------------------------------
 
-const agentStatus = (status: object | null): ReadSeed[] =>
+/** The line with a check-in already recorded beside it. */
+const CHECKED_IN: AgentStatus = {
+  downloaded: true,
+  running: true,
+  lastSeenAt: null,
+}
+
+const agentStatus = (status: AgentStatus | null): ReadSeed[] =>
   status ? [{ key: agentQueryKeys.status(CONNECTOR_ID), value: status }] : []
 
-const agentLine = (status: object | null) => (
+/** The status line, with its own sr-only note for the state before a check-in. */
+const agentLine = (status: AgentStatus | null) => (
   <div className="flex items-center gap-2">
     <AgentStatusLabel />
     <AgentStatusLine
@@ -222,7 +231,7 @@ const agentLine = (status: object | null) => (
 )
 
 export const AgentRunning: Story = {
-  render: () => agentLine({}),
+  render: () => agentLine(CHECKED_IN),
   decorators: [
     inside(
       seeded(
@@ -238,7 +247,7 @@ export const AgentRunning: Story = {
 }
 
 export const AgentQuiet: Story = {
-  render: () => agentLine({}),
+  render: () => agentLine(CHECKED_IN),
   decorators: [
     inside(
       seeded(
@@ -254,7 +263,7 @@ export const AgentQuiet: Story = {
 }
 
 export const AgentNotDownloaded: Story = {
-  render: () => agentLine({}),
+  render: () => agentLine(CHECKED_IN),
   decorators: [
     inside(
       seeded(

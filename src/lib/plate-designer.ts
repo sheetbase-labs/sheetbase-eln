@@ -5,6 +5,8 @@
  * undo history, wire mappers, and typed wrappers around the plate RPCs.
  */
 
+import { z } from 'zod'
+
 import type { DataClient } from './data-client'
 import { DataClientError } from './data-client'
 import {
@@ -25,6 +27,14 @@ import type {
   Volume,
   WellAssignment,
 } from './plate-map'
+
+/** Every well role, as a set the CSV preview can check raw text against. */
+const ASSIGNMENT_ROLE_SET: ReadonlySet<string> = new Set(ASSIGNMENT_ROLES)
+
+/** A stored plate layout: the JSON a plate map spec is validated from. */
+const storedPlateLayout = z.record(z.string(), z.json())
+
+type StoredPlateLayout = z.output<typeof storedPlateLayout>
 
 // ---------------------------------------------------------------------------
 // Domain types
@@ -157,13 +167,17 @@ export function autoFillPlate(
       occupied.has(control.wellCode)
     )
       continue
+
     occupied.add(control.wellCode)
-    assignments.push({
+
+    const controlAssignment: PlateWellAssignment = {
       ...position,
       wellCode: control.wellCode,
       role: control.role,
-      ...(control.volume ? { volume: { ...control.volume } } : {}),
-    })
+    }
+
+    if (control.volume) controlAssignment.volume = { ...control.volume }
+    assignments.push(controlAssignment)
   }
 
   if (!Number.isInteger(options.replicates) || options.replicates < 1)
@@ -185,21 +199,25 @@ export function autoFillPlate(
   for (const sample of samples) {
     for (let replicate = 1; replicate <= options.replicates; replicate += 1) {
       if (index >= available.length) return assignments
+
       const position = available[index++]
-      assignments.push({
+
+      const sampleAssignment: PlateWellAssignment = {
         ...position,
         role: 'sample',
         sampleRef: { ...sample },
         sampleRecordId: sample.recordId,
         replicate,
-        ...(options.volume ? { volume: { ...options.volume } } : {}),
-        ...(options.concentration
-          ? {
-              concentrationValue: options.concentration.value,
-              concentrationUnit: options.concentration.unit,
-            }
-          : {}),
-      })
+      }
+
+      if (options.volume) sampleAssignment.volume = { ...options.volume }
+
+      if (options.concentration) {
+        sampleAssignment.concentrationValue = options.concentration.value
+        sampleAssignment.concentrationUnit = options.concentration.unit
+      }
+
+      assignments.push(sampleAssignment)
     }
   }
 
@@ -368,7 +386,19 @@ export function parseCsv(text: string): string[][] {
   return rows
 }
 
-const CSV_ALIASES: Record<keyof CsvImportMapping, string[]> = {
+const CSV_KEYS = [
+  'wellCode',
+  'role',
+  'sampleIdentifier',
+  'replicate',
+  'volumeValue',
+  'volumeUnit',
+  'concentrationValue',
+  'concentrationUnit',
+  'notes',
+] as const satisfies readonly (keyof CsvImportMapping)[]
+
+const CSV_ALIASES = {
   wellCode: ['well', 'wellcode'],
   role: ['role'],
   sampleIdentifier: ['sample', 'identifier', 'sampleidentifier'],
@@ -378,7 +408,7 @@ const CSV_ALIASES: Record<keyof CsvImportMapping, string[]> = {
   concentrationValue: ['conc', 'concentration', 'concentrationvalue'],
   concentrationUnit: ['concunit', 'concentrationunit'],
   notes: ['notes'],
-}
+} satisfies Record<keyof CsvImportMapping, string[]>
 
 export function previewCsvImport(
   text: string,
@@ -387,9 +417,20 @@ export function previewCsvImport(
 ): CsvImportPreview {
   const parsed = parseCsv(text)
   const detectedColumns = parsed[0]?.map((header) => header.trim()) ?? []
-  const mapping = {} as CsvImportMapping
 
-  for (const key of Object.keys(CSV_ALIASES) as Array<keyof CsvImportMapping>) {
+  const mapping: CsvImportMapping = {
+    wellCode: '',
+    role: '',
+    sampleIdentifier: '',
+    replicate: '',
+    volumeValue: '',
+    volumeUnit: '',
+    concentrationValue: '',
+    concentrationUnit: '',
+    notes: '',
+  }
+
+  for (const key of CSV_KEYS) {
     const index = detectedColumns.findIndex((header) =>
       CSV_ALIASES[key].includes(header.toLowerCase().replace(/[\s_-]/g, '')),
     )
@@ -432,7 +473,7 @@ export function previewCsvImport(
         message: `Invalid or out-of-bounds well code "${row.wellCode}".`,
       })
 
-    if (!ASSIGNMENT_ROLES.includes(row.role as AssignmentRole))
+    if (!ASSIGNMENT_ROLE_SET.has(row.role))
       errors.push({
         code: 'unsupported_role',
         field: `${field}.role`,
@@ -515,7 +556,7 @@ export interface PlateLayoutTemplateWire {
   format: PlateFormat
   rows: number
   cols: number
-  layout: Record<string, unknown>
+  layout: StoredPlateLayout
   status: 'active' | 'archived'
   created_by_user_id: string
   created_at: string
@@ -533,24 +574,32 @@ export function toPlateWellAssignment(
       }
     : undefined
 
-  return {
+  const assignment: PlateWellAssignment = {
     wellCode: well.well_code,
     row: well.row_index,
     col: well.col_index,
     role: well.role,
-    ...(sampleRef ? { sampleRef, sampleRecordId: well.sample_record_id! } : {}),
-    ...(well.replicate != null ? { replicate: well.replicate } : {}),
-    ...(well.volume_value != null && well.volume_unit != null
-      ? { volume: { value: well.volume_value, unit: well.volume_unit } }
-      : {}),
-    ...(well.concentration_value != null
-      ? { concentrationValue: well.concentration_value }
-      : {}),
-    ...(well.concentration_unit != null
-      ? { concentrationUnit: well.concentration_unit }
-      : {}),
-    ...(well.notes != null ? { notes: well.notes } : {}),
   }
+
+  if (sampleRef) {
+    assignment.sampleRef = sampleRef
+    assignment.sampleRecordId = well.sample_record_id ?? ''
+  }
+
+  if (well.replicate != null) assignment.replicate = well.replicate
+
+  if (well.volume_value != null && well.volume_unit != null)
+    assignment.volume = { value: well.volume_value, unit: well.volume_unit }
+
+  if (well.concentration_value != null)
+    assignment.concentrationValue = well.concentration_value
+
+  if (well.concentration_unit != null)
+    assignment.concentrationUnit = well.concentration_unit
+
+  if (well.notes != null) assignment.notes = well.notes
+
+  return assignment
 }
 
 export function toPlateDesignDoc(
@@ -727,7 +776,7 @@ export async function savePlateLayoutTemplate(
     format?: PlateFormat
     rows?: number
     cols?: number
-    layout?: Record<string, unknown>
+    layout?: StoredPlateLayout
     templateId?: string
   },
 ): Promise<PlateLayoutTemplateWire> {
@@ -746,25 +795,30 @@ export async function savePlateLayoutTemplate(
   })
 }
 
-export function describePlateDesignerError(error: unknown): string {
+export function describePlateDesignerError(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- An error caught at a call site can be any thrown value; this maps the plate designer's DataClientError codes and falls back to the message.
+  error: unknown,
+): string {
   if (!(error instanceof DataClientError))
     return 'Could not complete the plate designer operation. Try again.'
 
-  const messages: Record<string, string> = {
-    SB001:
+  const messages = new Map([
+    [
+      'SB001',
       'This plate design was edited by someone else. Refresh and try again.',
-    SB015: 'The plate design was not found.',
-    SB016: 'The selected item belongs to a different workspace.',
-    SB017: 'A well is outside the plate bounds.',
-    SB018: 'The layout contains a duplicate well.',
-    SB019: 'The layout contains an invalid well role.',
-    SB009: 'The linked record is not a sample.',
-    SB004: 'Archived plate designs cannot be changed.',
-    SB005: 'The plate design input is invalid.',
-    '42501': 'You do not have access to this plate design.',
-  }
+    ],
+    ['SB015', 'The plate design was not found.'],
+    ['SB016', 'The selected item belongs to a different workspace.'],
+    ['SB017', 'A well is outside the plate bounds.'],
+    ['SB018', 'The layout contains a duplicate well.'],
+    ['SB019', 'The layout contains an invalid well role.'],
+    ['SB009', 'The linked record is not a sample.'],
+    ['SB004', 'Archived plate designs cannot be changed.'],
+    ['SB005', 'The plate design input is invalid.'],
+    ['42501', 'You do not have access to this plate design.'],
+  ])
 
-  return messages[error.code] ?? error.message
+  return messages.get(error.code) ?? error.message
 }
 
 // ---------------------------------------------------------------------------

@@ -89,11 +89,11 @@ function messageOf(cause: unknown): string {
 
 /**
  * Is the caller transporting this pick, or just holding it? The declared return
- * type is `void | Promise<void>`, which a check on `handed` alone cannot narrow,
- * so the probe is one `typeof` on the value as `unknown`.
+ * type is `void | Promise<void>`, so a call that returns `undefined` is the
+ * caller holding the selection and any value is the transport itself.
  */
-function isTransported(handed: unknown): handed is Promise<void> {
-  return typeof (handed as { then?: unknown } | null)?.then === 'function'
+function isTransported(handed: void | Promise<void>): handed is Promise<void> {
+  return handed !== undefined
 }
 
 export function FileDrop({
@@ -195,7 +195,9 @@ export function FileDrop({
   const off = Boolean(disabled) || busy
 
   const inputName =
-    inputLabel ?? (typeof label === 'string' ? label : undefined)
+    inputLabel ??
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- `label` is a trusted ReactNode prop; this takes its plain-string alternative as the input's accessible name and leaves element labels unset.
+    (typeof label === 'string' ? label : undefined)
 
   return (
     <div className={cn('grid gap-2', className)}>
@@ -335,7 +337,7 @@ export function FileDrop({
                       setEntries((current) =>
                         current.filter((item) => item.id !== entry.id),
                       )
-                      onFile(null)
+                      void onFile(null)
                     }}
                   >
                     {t('common.actions.remove')}

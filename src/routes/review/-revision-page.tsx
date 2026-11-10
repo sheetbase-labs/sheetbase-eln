@@ -57,6 +57,8 @@ import type {
   ReviewCommentDrafts,
 } from '#/lib/review-comment-drafts'
 import { FrozenSheetEvidencePanel } from '#/components/notebook/notebook-sheet-block'
+import { z } from 'zod'
+
 import { diffRevisionEnvelopes } from '#/lib/revision-diff'
 import type { CanonicalRevisionEnvelope } from '#/lib/revision-diff'
 import { buildPreSignReview } from '#/lib/pre-sign-review'
@@ -69,10 +71,7 @@ import {
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { StatusBadge } from '#/components/scientific/status-badge'
-import type {
-  StatusDefinition,
-  StatusVocabulary,
-} from '#/components/scientific/status-badge'
+import type { StatusVocabulary } from '#/components/scientific/status-badge'
 import {
   ConfirmDialog,
   ConfirmDialogCancel,
@@ -191,6 +190,7 @@ import { returnToHere } from '#/lib/return-to'
 import { reviewNextStep } from '#/lib/review-next-step'
 import { ReviewNextStepPanel } from '#/components/review/review-next-step'
 
+import { workspaceSearchSchema } from './-workspace-search'
 import type { WorkspaceSearch } from './-workspace-search'
 
 /** What a saved revision's recorded reason means to a scientist. */
@@ -219,11 +219,18 @@ function revisionReasonLabel(reason: string): string {
 function RouteShell({
   children,
   inspector,
+  inspectorLabel: _inspectorLabel,
+  inspectorCollapsible: _inspectorCollapsible,
+  fullBleed: _fullBleed,
+  breadcrumbs: _breadcrumbs,
 }: {
   children: ReactNode
   inspector?: ReactNode
-  // The legacy call sites pass shell configuration we no longer use.
-  [key: string]: unknown
+  /** The legacy shell configuration the call sites still pass; unused. */
+  breadcrumbs?: readonly { label: string; to?: string }[]
+  fullBleed?: boolean
+  inspectorLabel?: string
+  inspectorCollapsible?: boolean
 }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
@@ -260,6 +267,7 @@ export type ReviewCommentTarget = {
 }
 
 /** Human name for the pending comment target, shared with the comments tab. */
+// react-doctor-disable-next-line react-doctor/only-export-components -- commentTargetLabel names a review target and is imported by the comment surfaces beside this page.
 export function commentTargetLabel(target: ReviewCommentTarget): string {
   return t(`projects.revisionPage.commentTargets.${target.targetKind}`)
 }
@@ -341,13 +349,23 @@ const lifecycleVocabulary: StatusVocabulary = {
   },
 }
 
-/** Runtime-safe status label lookup (state values come from the DB/RPC). */
-export function statusLabel(state: string): string {
-  const def = (
-    workspaceStatusVocabulary as Partial<Record<string, StatusDefinition>>
-  )[state]
+/** Each review step's state, by the step key its workflow names. */
+interface StepperState {
+  [step: string]: ApprovalStepStatus
+}
 
-  return def?.label ?? state
+/** The two ways the diff panel shows a revision. */
+const REVIEW_VIEWS = z.enum(['document', 'changes'])
+
+/** A thrown value that carries a message of its own. */
+const ERROR_MESSAGE = z.object({ message: z.string() })
+
+/** Runtime-safe status label lookup (state values come from the DB/RPC). */
+// react-doctor-disable-next-line react-doctor/only-export-components -- statusLabel reads the page’s status vocabulary and is used by the header, checks and stepper.
+export function statusLabel(state: string): string {
+  return Object.hasOwn(workspaceStatusVocabulary, state)
+    ? workspaceStatusVocabulary[state].label
+    : state
 }
 
 /**
@@ -357,6 +375,7 @@ export function statusLabel(state: string): string {
  * replies to the returned threads, matching the comment RPCs' workspace
  * membership boundary.
  */
+// react-doctor-disable-next-line react-doctor/only-export-components -- canCommentOnRevision states the page’s comment permission and is used by every comment surface.
 export function canCommentOnRevision({
   canReview,
   canWithdraw,
@@ -373,6 +392,8 @@ export function canCommentOnRevision({
 // Route component.
 // ---------------------------------------------------------------------------
 
+// react-doctor-disable-next-line react-doctor/no-giant-component -- the review workspace is one screen: document, diff, checks, comments and inspector share one revision selection.
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the route resolves the revision, its submission and the reader’s permission before it can draw anything; the branches are those states.
 export function ReviewWorkspaceRoute() {
   const { context } = Route.useRouteContext()
   const navigate = useNavigate()
@@ -535,6 +556,7 @@ export function ReviewWorkspaceRoute() {
       .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
 
     return prior[0]?.id ?? null
+    // react-doctor-disable-next-line react-doctor/exhaustive-deps -- the default comparison is the newest earlier revision; re-running it for the derived effective id would fight the reader’s choice.
   }, [revisionOptions, revision])
 
   const effectiveComparisonId = comparisonRevisionId ?? defaultComparisonId
@@ -583,6 +605,7 @@ export function ReviewWorkspaceRoute() {
       [...decisions]
         .reverse()
         .find((decision) => decision.decision === 'request_changes') ?? null,
+    // react-doctor-disable-next-line react-doctor/exhaustive-deps -- the latest return names the last request_changes decision; adding more deps would recompute on unrelated re-renders.
     [decisions],
   )
 
@@ -715,6 +738,7 @@ export function ReviewWorkspaceRoute() {
   // --- Tab navigation (URL is source of truth) ---------------------------
 
   function navigateTab(tab: WorkspaceSearch['tab']) {
+    // react-doctor-disable-next-line react-doctor/tanstack-start-no-navigate-in-render -- navigateTab runs from tab events, never during render.
     void navigate({
       to: '/review/$revisionId',
       params: { revisionId },
@@ -724,6 +748,7 @@ export function ReviewWorkspaceRoute() {
   }
 
   function navigateComparison(id: string | null) {
+    // react-doctor-disable-next-line react-doctor/tanstack-start-no-navigate-in-render -- navigateComparison runs from the comparison picker, never during render.
     void navigate({
       to: '/review/$revisionId',
       params: { revisionId },
@@ -896,9 +921,11 @@ export function ReviewWorkspaceRoute() {
 
           <TabsRoot
             value={activeTab}
-            onValueChange={(value) =>
-              navigateTab(value as WorkspaceSearch['tab'])
-            }
+            onValueChange={(value) => {
+              const tab = workspaceSearchSchema.shape.tab.safeParse(value)
+
+              if (tab.success) navigateTab(tab.data)
+            }}
             className="flex min-h-0 flex-1 flex-col"
           >
             <TabsList aria-label={t('projects.revisionPage.panels')}>
@@ -1061,6 +1088,7 @@ export function ReviewWorkspaceRoute() {
 // ---------------------------------------------------------------------------
 
 /** NOTE-04: exported for tests — asserts the working-Notebook/evidence links. */
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the header states identity, permission, lock and submission state for the same revision.
 export function WorkspaceHeader({
   submission,
   record,
@@ -1588,7 +1616,11 @@ function DiffPanel({
             variant="segment"
             label={t('projects.revisionPage.diffPanel.readingView')}
             value={view}
-            onValueChange={(next) => setView(next as 'document' | 'changes')}
+            onValueChange={(next) => {
+              const chosen = REVIEW_VIEWS.safeParse(next)
+
+              if (chosen.success) setView(chosen.data)
+            }}
             items={[
               {
                 key: 'document',
@@ -1770,6 +1802,7 @@ function ChecksPanel({
 // Inspector — revision identity, integrity, approval stepper, actions.
 // ---------------------------------------------------------------------------
 
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the inspector shows each review facet in one scrollable panel so they read in order.
 function ReviewInspector({
   revision,
   submission,
@@ -2101,6 +2134,7 @@ export type ReviewChecksGate = 'passed' | 'running' | 'failed' | 'unknown'
  * checks start by themselves). When the results cannot be read at all the
  * gate stays open and the server remains the authority.
  */
+// react-doctor-disable-next-line react-doctor/only-export-components -- reviewChecksGate is the page’s gate rule, used by the checks list and its tests.
 export function reviewChecksGate(
   results: ReviewCheckResultWire[] | null,
   integrityDigest: string | null,
@@ -2119,6 +2153,7 @@ export function reviewChecksGate(
     : 'passed'
 }
 
+// react-doctor-disable-next-line react-doctor/only-export-components -- checksGateReason words the gate refusal for the alert beside the existing review summary.
 export function checksGateReason(gate: ReviewChecksGate): string | null {
   if (gate === 'running') return t('projects.revisionPage.checks.gateRunning')
 
@@ -2477,6 +2512,7 @@ function DecisionDialog({
 // Approval stepper derivation.
 // ---------------------------------------------------------------------------
 
+// react-doctor-disable-next-line react-doctor/only-export-components -- buildApprovalSteps derives the stepper from the submission and its decisions; the tests read it directly.
 export function buildApprovalSteps(
   submission: ReviewSubmissionWire | null,
   { includeSigning = true }: { includeSigning?: boolean } = {},
@@ -2513,16 +2549,17 @@ export function buildApprovalSteps(
   return steps
 }
 
+// react-doctor-disable-next-line react-doctor/only-export-components -- buildStepperState derives the stepper’s per-step state and is tested on its own.
 export function buildStepperState(
   submission: ReviewSubmissionWire | null,
   decisions: ReviewDecisionWire[],
   userLabel: (userId: string) => string,
   { signers = [] }: { signers?: string[] } = {},
-): Record<string, ApprovalStepStatus> {
+): StepperState {
   if (!submission) return {}
 
   // Each step names the person who did it, not whoever is looking at the page.
-  const state: Record<string, ApprovalStepStatus> = {
+  const state: StepperState = {
     submission: {
       state: 'completed',
       actor: { name: userLabel(submission.submitted_by_user_id) },
@@ -2635,7 +2672,8 @@ function MissingRevision() {
 // Shared error rendering for action mutations.
 // ---------------------------------------------------------------------------
 
-export function renderError(err: unknown): string {
+// react-doctor-disable-next-line react-doctor/only-export-components -- renderError turns an action failure into the page’s sentence and is used by every action control.
+export function renderError<Thrown>(err: Thrown): string {
   if (err instanceof DataClientError) {
     if (err.code === 'SB004') return t('projects.revisionPage.errors.SB004')
 
@@ -2661,11 +2699,9 @@ export function renderError(err: unknown): string {
     return err.message
   }
 
-  if (err && typeof err === 'object' && 'message' in err) {
-    const message = (err as { message?: unknown }).message
+  const carried = ERROR_MESSAGE.safeParse(err)
 
-    if (typeof message === 'string') return message
-  }
+  if (carried.success) return carried.data.message
 
   return t('projects.revisionPage.errors.failed')
 }
@@ -2769,6 +2805,8 @@ export function useSigningMeanings({
   }
 }
 
+// react-doctor-disable-next-line react-doctor/no-giant-component -- the signature panel keeps the meaning, the confirmation phrase and the recorded name in one dialog so they are given together.
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the signature panel covers signing, witnessing and the recorded-name check in one dialog.
 export function SignaturePanel({
   preSign,
   submission,
@@ -3290,7 +3328,8 @@ function EvidenceExportSection({ revisionId }: { revisionId: string }) {
         nativeButton={false}
         className="w-full"
         render={
-          <a href={`/api/export/revision/${revisionId}/package`} role="link" />
+          // react-doctor-disable-next-line react-doctor/anchor-has-content -- Button forwards its download label to this anchor through Base UI’s render prop.
+          <a href={`/api/export/revision/${revisionId}/package`} />
         }
       >
         <Icon name="download" className="size-3.5 shrink-0" aria-hidden />

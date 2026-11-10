@@ -136,6 +136,12 @@ const tabs = [
 
 /** Today as a date input states it — the local calendar day, because that is
  * what a `type=date` field hands back. */
+/** A failed write's own message, or the screen's words when it has none. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A mutation failure is a caught throw, untyped by definition; Error supplies its message and anything else falls back.
+function failureMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback
+}
+
 function todayISO(): string {
   const now = appNow()
   const month = `${now.getMonth() + 1}`.padStart(2, '0')
@@ -178,6 +184,7 @@ const NARROW_HIDE = {
   cellClassName: 'hide-in-narrow-pane',
 }
 
+// react-doctor-disable-next-line react-doctor/only-export-components -- A pure row formatter the page's test imports; it holds no component state Fast Refresh could preserve.
 export function stockOfTotal(row: MaterialListRow): string {
   const unit = row.unit ? ` ${row.unit}` : ''
   const current = row.stock
@@ -291,7 +298,7 @@ function MaterialsList() {
     r.tabs.includes(item)
 
   const counts = Object.fromEntries(
-    tabs.map((item) => [
+    tabs.map((item): [MaterialTab, number] => [
       item,
       item === 'orders'
         ? (orders.data ?? []).filter(
@@ -303,7 +310,7 @@ function MaterialsList() {
             ? (archivedCount.data ?? 0)
             : rows.filter((r) => inTab(r, item)).length,
     ]),
-  ) as Record<MaterialTab, number>
+  )
 
   const q = (search.q ?? '').trim().toLowerCase()
 
@@ -490,13 +497,13 @@ function MaterialsList() {
       setQuarantineOpen(false)
       setQuarantineReason('')
     },
-    onError: (error: unknown) => {
+    onError: (error) =>
       toast(
-        error instanceof Error
-          ? error.message
-          : t('library.materials.page.couldNotQuarantineLot'),
-      )
-    },
+        failureMessage(
+          error,
+          t('library.materials.page.couldNotQuarantineLot'),
+        ),
+      ),
   })
 
   const restore = useMutation({
@@ -513,13 +520,10 @@ function MaterialsList() {
       })
       toast(t('library.materials.page.lotRestored'))
     },
-    onError: (error: unknown) => {
+    onError: (error) =>
       toast(
-        error instanceof Error
-          ? error.message
-          : t('library.materials.page.couldNotRestoreLot'),
-      )
-    },
+        failureMessage(error, t('library.materials.page.couldNotRestoreLot')),
+      ),
   })
 
   const replacement = useMutation({
@@ -545,13 +549,13 @@ function MaterialsList() {
       toast(t('library.materials.page.replacementLotRegistered'))
       setReplacementOpen(false)
     },
-    onError: (error: unknown) => {
+    onError: (error) =>
       toast(
-        error instanceof Error
-          ? error.message
-          : t('library.materials.page.couldNotRegisterTheReplacement'),
-      )
-    },
+        failureMessage(
+          error,
+          t('library.materials.page.couldNotRegisterTheReplacement'),
+        ),
+      ),
   })
 
   const replacementLink = useQuery({
@@ -614,13 +618,10 @@ function MaterialsList() {
         replace: true,
       })
     },
-    onError: (error: unknown) => {
+    onError: (error) =>
       toast(
-        error instanceof Error
-          ? error.message
-          : t('library.materials.page.couldNotRegisterLot'),
-      )
-    },
+        failureMessage(error, t('library.materials.page.couldNotRegisterLot')),
+      ),
   })
 
   const receive = useMutation({
@@ -639,13 +640,10 @@ function MaterialsList() {
       toast(t('library.materials.page.lotReceived'))
       setReceiveOpen(false)
     },
-    onError: (error: unknown) => {
+    onError: (error) =>
       toast(
-        error instanceof Error
-          ? error.message
-          : t('library.materials.page.couldNotReceiveLot'),
-      )
-    },
+        failureMessage(error, t('library.materials.page.couldNotReceiveLot')),
+      ),
   })
 
   return (
@@ -735,31 +733,35 @@ function MaterialsList() {
               mode="url"
               label={t('library.materials.page.materialLists')}
               value={tab}
-              items={tabs
-                .filter((item) => item !== 'spend' || canPlaceOrders)
-                .map((item) => ({
-                  key: item,
-                  label: tabLabel[item],
-                  count:
-                    item === 'spend'
-                      ? undefined
-                      : (
-                            item === 'orders'
-                              ? orders.isPending
-                              : item === 'archived'
-                                ? archivedCount.isPending
-                                : page.isPending
-                          )
-                        ? undefined
-                        : counts[item],
-                  link: {
-                    to: '/materials',
-                    search: {
-                      tab: item === 'instock' ? undefined : item,
-                      q: search.q ?? '',
-                    },
-                  },
-                }))}
+              items={tabs.flatMap((item) =>
+                item !== 'spend' || canPlaceOrders
+                  ? [
+                      {
+                        key: item,
+                        label: tabLabel[item],
+                        count:
+                          item === 'spend'
+                            ? undefined
+                            : (
+                                  item === 'orders'
+                                    ? orders.isPending
+                                    : item === 'archived'
+                                      ? archivedCount.isPending
+                                      : page.isPending
+                                )
+                              ? undefined
+                              : counts[item],
+                        link: {
+                          to: '/materials',
+                          search: {
+                            tab: item === 'instock' ? undefined : item,
+                            q: search.q ?? '',
+                          },
+                        },
+                      },
+                    ]
+                  : [],
+              )}
             />
           }
         />

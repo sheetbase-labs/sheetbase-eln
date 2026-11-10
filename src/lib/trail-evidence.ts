@@ -29,18 +29,28 @@ export function trailEvidenceSteps(
 ): TrailEvidenceStep[] {
   const stamp = now.toISOString()
 
-  return [
+  const visited: TrailEvidenceStep[] = [
     ...trail.map((step) => ({ ...step, at: step.leftAt ?? stamp })),
     { ...current, at: stamp },
   ]
-    .filter((step) => /^\/[^/]/.test(step.href))
-    .map((step) => ({
+
+  const kept: TrailEvidenceStep[] = []
+
+  for (const step of visited) {
+    if (!/^\/[^/]/.test(step.href)) continue
+
+    const evidence: TrailEvidenceStep = {
       href: step.href.slice(0, 500),
       title: (step.title || step.href).slice(0, 200),
-      ...(step.identifier ? { identifier: step.identifier } : {}),
       at: step.at,
-    }))
-    .slice(-200)
+    }
+
+    if (step.identifier) evidence.identifier = step.identifier
+
+    kept.push(evidence)
+  }
+
+  return kept.slice(-200)
 }
 
 /** Save a trail against the record it supports. */

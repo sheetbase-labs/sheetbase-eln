@@ -124,9 +124,25 @@ const STRUCTURE_BLOCK_TYPES = new Set(['rich_text', 'callout', 'checklist'])
 interface BlockForRun {
   partId?: string | null
   type: string
-  payload: Record<string, unknown>
+  payload: BlockWire['payload']
   payloadSchemaVersion: number
   order: number
+}
+
+/**
+ * The checklist's items with every tick cleared. Items are opaque JSON the
+ * block registry owns, so `Object.assign` copies their own keys exactly as the
+ * spread it replaces did, whatever the item turns out to be.
+ */
+function startUnchecked(payload: BlockWire['payload']): BlockWire['payload'] {
+  const items = payload.items
+
+  if (!Array.isArray(items)) return payload
+
+  return {
+    ...payload,
+    items: items.map((item) => Object.assign({}, item, { checked: false })),
+  }
 }
 
 /** The source's blocks as a fresh run needs them: checklists start unchecked. */
@@ -137,13 +153,8 @@ export function blocksForNewRun(blocks: BlockForRun[]) {
     .map((block, index) => ({
       type: block.type,
       payload:
-        block.type === 'checklist' && Array.isArray(block.payload.items)
-          ? {
-              ...block.payload,
-              items: (block.payload.items as Record<string, unknown>[]).map(
-                (item) => ({ ...item, checked: false }),
-              ),
-            }
+        block.type === 'checklist'
+          ? startUnchecked(block.payload)
           : block.payload,
       payload_schema_version: block.payloadSchemaVersion,
       order: index + 1,
@@ -181,9 +192,18 @@ export function partsForNewRun(
     day_offset: number
   }[] = []
 
+  const firstBlockFor = new Map<string, string>()
+
+  kept.forEach((block, index) => {
+    const blockId = newBlockIds[index]
+
+    if (block.partId && blockId && !firstBlockFor.has(block.partId)) {
+      firstBlockFor.set(block.partId, blockId)
+    }
+  })
+
   for (const part of parts) {
-    const index = kept.findIndex((block) => block.partId === part.id)
-    const firstBlockId = index >= 0 ? newBlockIds[index] : undefined
+    const firstBlockId = firstBlockFor.get(part.id)
 
     if (!firstBlockId) continue
     points.push({

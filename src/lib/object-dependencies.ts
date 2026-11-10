@@ -1,16 +1,26 @@
 import type { DataClient } from './data-client'
 
-export type DependencyLiveness = 'active' | 'historical' | 'informational'
+/**
+ * A dependency row's liveness, as `discover_object_dependencies` reports it.
+ * The SQL builds these labels as text and callers only test one of them
+ * (`'active'` marks a row that still exists), so the contract is the database's
+ * text rather than a closed union a new SQL branch could break. Today's values
+ * are `active`, `historical` and `informational`.
+ */
+export type DependencyLiveness = string
 
-export type DependencyEffect =
-  'blocks_deletion' | 'requires_migration' | 'informational'
+/**
+ * What deleting the object would do to this dependency. Also text from the
+ * same SQL: today `blocks_deletion`, `requires_migration` and `informational`.
+ */
+export type DependencyEffect = string
 
 export interface ObjectDependency {
   kind: string
   id: string
   relation: string
-  liveness: DependencyLiveness | string
-  effect: DependencyEffect | string
+  liveness: DependencyLiveness
+  effect: DependencyEffect
   label: string
 }
 

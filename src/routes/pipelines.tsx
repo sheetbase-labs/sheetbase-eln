@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ObjectLink } from '#/components/ui/object-link'
 import {
   Link,
@@ -9,6 +9,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { t } from '#/copy'
 import { hasCapability } from '#/lib/capability'
@@ -41,6 +42,7 @@ import {
   footerCount,
   sortByName,
 } from '#/components/inventory/list'
+import type { MobileItem } from '#/components/inventory/list'
 import {
   RegistryGrid,
   rightAligned,
@@ -82,6 +84,28 @@ const tabs = [
 
 type PipelineTab = (typeof tabs)[number]
 
+/** The board's decoded URL state. */
+type PipelinesSearch = {
+  q?: string
+  tab?: PipelineTab
+  selected?: string
+  new?: true
+}
+
+/** The board's URL state: every member falls back to absent when malformed. */
+const pipelinesSearchSchema = z.object({
+  new: z
+    .union([z.literal(true), z.literal('true')])
+    .optional()
+    .catch(undefined),
+  q: z.string().optional().catch(undefined),
+  selected: z.string().optional().catch(undefined),
+  tab: z.enum(tabs).optional().catch(undefined),
+})
+
+/** How many pipelines each tab holds, for its count badge. */
+const pipelineTabCountsSchema = z.record(z.enum(tabs), z.number())
+
 const tabLabel: Record<PipelineTab, string> = {
   all: t('data.pipelinesList.all'),
   mine: t('data.pipelinesList.mine'),
@@ -94,16 +118,16 @@ const tabLabel: Record<PipelineTab, string> = {
 /** UI port (roadmap-4/ui-app3): the Pipelines board on the AUTO-01/02/03
  * registry. Runs start through api.start_pipeline_run. */
 export const Route = createFileRoute('/pipelines')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { q?: string; tab?: PipelineTab; selected?: string; new?: true } => ({
-    new: search.new === true || search.new === 'true' ? true : undefined,
-    q: typeof search.q === 'string' ? search.q : undefined,
-    selected: typeof search.selected === 'string' ? search.selected : undefined,
-    tab: (tabs as readonly string[]).includes(search.tab as string)
-      ? (search.tab as PipelineTab)
-      : undefined,
-  }),
+  validateSearch: (search): PipelinesSearch => {
+    const parsed = pipelinesSearchSchema.parse(search)
+
+    return {
+      new: parsed.new === undefined ? undefined : true,
+      q: parsed.q,
+      selected: parsed.selected,
+      tab: parsed.tab,
+    }
+  },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
 
@@ -147,6 +171,377 @@ function inTab(
   return Boolean(p.draft)
 }
 
+function pipelineColumns(
+  openPipeline: ReturnType<typeof useOpenRow<PipelineListRow>>,
+): RegistryColumn<PipelineListRow>[] {
+  return [
+    {
+      id: 'key',
+      header: 'ID',
+      accessorFn: (p) => p.display_id ?? p.key,
+      enableHiding: false,
+      cell: ({ row }) => (
+        <ObjectLink
+          kind="pipeline"
+          id={row.original.id}
+          identifier={row.original.display_id ?? row.original.key}
+        />
+      ),
+    },
+    {
+      id: 'name',
+      header: t('data.pipelinesList.pipeline'),
+      accessorFn: (p) => p.name,
+      cell: ({ row }) => (
+        <Link
+          to="/pipelines/$pipelineId"
+          params={{ pipelineId: row.original.id }}
+          onClick={(event) => openPipeline(row.original, event)}
+          className={row.getIsSelected() ? 'font-medium' : undefined}
+        >
+          {row.original.name}
+        </Link>
+      ),
+    },
+    {
+      id: 'version',
+      header: t('data.pipelinesList.version'),
+      cell: ({ row }) => (
+        <>
+          {row.original.current ? `v${row.original.current.version}` : '—'}
+          {row.original.draft &&
+          row.original.current?.lifecycle === 'published' ? (
+            <span className="text-fg-muted">
+              {' · '}
+              {t('data.pipelinesList.draftVersion', {
+                version: row.original.draft.version,
+              })}
+            </span>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: 'runs',
+      header: t('data.pipelinesList.runs'),
+      accessorFn: (p) => p.runCount,
+      meta: rightAligned<PipelineListRow>().meta,
+    },
+    {
+      id: 'lastRun',
+      header: t('data.pipelinesList.lastRun'),
+      cell: ({ row }) => {
+        const last = row.original.lastRun
+        const lastStatus = last ? runStatus(last.status) : null
+
+        return lastStatus ? (
+          <Status tone={lastStatus.tone}>{lastStatus.label}</Status>
+        ) : (
+          <Status tone="draft">{t('data.pipelinesList.neverRun')}</Status>
+        )
+      },
+    },
+    {
+      id: 'status',
+      header: t('data.pipelinesList.status'),
+      cell: ({ row }) => {
+        const status = definitionStatus(
+          row.original.lifecycle,
+          row.original.versions,
+        )
+
+        return <Status tone={status.tone}>{status.label}</Status>
+      },
+    },
+  ]
+}
+
+function PipelineInspector({
+  sel,
+  canManage,
+  run,
+  archiving,
+  onArchive,
+}: {
+  sel: PipelineListRow
+  canManage: boolean
+  run: ReturnType<typeof useRunLauncher>
+  archiving: boolean
+  onArchive: () => void
+}) {
+  return (
+    <Inspector
+      aria-label={t('data.pipelinesList.ariaPipelineDetails')}
+      className="w-[320px] gap-0 p-0"
+    >
+      <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
+        <span className="mono text-fg-muted">
+          {sel.display_id ?? sel.key} ·{' '}
+          {sel.current
+            ? `v${sel.current.version}`
+            : t('data.pipelinesList.noVersion')}
+        </span>
+        <div className="font-heading text-doc font-semibold">{sel.name}</div>
+        {sel.description ? (
+          <p className="m-0 text-label leading-[18px]">{sel.description}</p>
+        ) : null}
+        <div className="mt-1.5 flex gap-1.5">
+          <Button
+            variant="primary"
+            size="sm"
+            icon="play"
+            disabled={
+              !sel.current ||
+              sel.current.lifecycle !== 'published' ||
+              run.pending
+            }
+            onClick={() =>
+              sel.current &&
+              run.launch({ pipelineName: sel.name, version: sel.current })
+            }
+          >
+            {t('data.pipelinesList.runNow')}
+          </Button>
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={
+              <Link
+                to="/pipelines/$pipelineId"
+                params={{ pipelineId: sel.id }}
+              />
+            }
+          >
+            {t('common.actions.open')}
+          </Button>
+          {canManage ? (
+            <Button
+              size="sm"
+              variant="quiet"
+              icon={sel.lifecycle === 'retired' ? 'undo' : 'archive'}
+              disabled={archiving}
+              onClick={onArchive}
+            >
+              {sel.lifecycle === 'retired'
+                ? t('common.actions.restore')
+                : t('common.actions.archive')}
+            </Button>
+          ) : null}
+        </div>
+        {sel.current?.lifecycle !== 'published' ? (
+          <Muted className="mt-1">
+            {t('data.pipelinesList.publishVersionStepsEnable')}
+          </Muted>
+        ) : null}
+      </div>
+      <div className="flex flex-col gap-4 px-4 py-3.5">
+        <InspectorSection title={t('data.pipelinesList.details')}>
+          <DescriptionList
+            labelWidth={80}
+            items={[
+              [t('data.pipelinesList.key'), sel.key],
+              [
+                t('data.pipelinesList.current'),
+                sel.current
+                  ? `v${sel.current.version} · ${versionStatus(sel.current.lifecycle).label}`
+                  : '—',
+              ],
+              [t('data.pipelinesList.versions'), String(sel.versions.length)],
+              [t('data.pipelinesList.runs'), String(sel.runCount)],
+            ]}
+          />
+        </InspectorSection>
+        <InspectorSection title={t('data.pipelinesList.recentRuns')}>
+          {sel.lastRun ? (
+            <Link
+              to="/pipelines/$pipelineId/runs/$runId"
+              params={{ pipelineId: sel.id, runId: sel.lastRun.id }}
+              className="text-label"
+            >
+              <Status tone={runStatus(sel.lastRun.status).tone}>
+                {runStatus(sel.lastRun.status).label}
+              </Status>{' '}
+              <span className="num text-fg-muted">
+                {formatNotebookDateTime(sel.lastRun.started_at, {
+                  zone: true,
+                })}
+              </span>
+            </Link>
+          ) : (
+            <Muted>{t('data.pipelinesList.neverRun2')}</Muted>
+          )}
+        </InspectorSection>
+      </div>
+    </Inspector>
+  )
+}
+
+function mobilePipelineItems(visible: PipelineListRow[]): MobileItem[] {
+  return visible.map((p) => {
+    const lastStatus = p.lastRun ? runStatus(p.lastRun.status) : null
+
+    return {
+      key: p.id,
+      id: p.display_id ?? p.key,
+      title: p.name,
+      sub: `${p.current ? `v${p.current.version}` : t('data.pipelinesList.noVersion')} · ${t('data.pipelinesList.runCount', { count: p.runCount })}`,
+      status: lastStatus ? (
+        <Status tone={lastStatus.tone}>{lastStatus.label}</Status>
+      ) : (
+        <Status tone="draft">{t('data.pipelinesList.neverRun')}</Status>
+      ),
+      link: {
+        to: '/pipelines/$pipelineId',
+        params: { pipelineId: p.id },
+      },
+    }
+  })
+}
+
+/** Why the list is empty, and the one action that answers it. */
+function PipelinesEmpty({
+  q,
+  tab,
+  rowCount,
+  searchTab,
+  workspaceId,
+}: {
+  q: string
+  tab: PipelineTab
+  rowCount: number
+  searchTab?: PipelineTab
+  workspaceId: string
+}) {
+  return (
+    <div role="status" className="flex justify-center px-6">
+      <EmptyState
+        className="w-full py-8"
+        title={emptyTitle(q, tab, rowCount)}
+        description={emptyDescription(tab, rowCount)}
+        action={
+          rowCount === 0 && !q ? (
+            <NewPipeline workspaceId={workspaceId} />
+          ) : q ? (
+            <Button
+              nativeButton={false}
+              render={<Link to="/pipelines" search={{ tab: searchTab }} />}
+            >
+              {t('data.pipelinesList.clearSearch')}
+            </Button>
+          ) : undefined
+        }
+      />
+    </div>
+  )
+}
+
+/** What the empty list says: a search, or the tab it is showing. */
+function emptyTitle(q: string, tab: PipelineTab, rowCount: number): string {
+  if (q) return t('data.pipelinesList.pipelinesMatch', { q })
+
+  if (tab === 'archived') return t('data.pipelinesList.noArchivedPipelines')
+
+  if (rowCount === 0) return t('data.pipelinesList.noPipelinesYet')
+
+  return t('data.pipelinesList.noPipelinesIn', { tab: tabLabel[tab] })
+}
+
+/** Why the tab has nothing, and what would put something in it. */
+function emptyDescription(tab: PipelineTab, rowCount: number): string {
+  if (tab === 'archived') return t('data.pipelinesList.archivedStayHere')
+
+  if (rowCount === 0) return t('data.pipelinesList.createPipelineAuthorSql')
+
+  return t('data.pipelinesList.searchLooksPipelineKeys')
+}
+
+/** The board's heading: what the lists hold, the new-pipeline action and tabs. */
+function PipelinesHeader({
+  canManage,
+  workspaceId,
+  autoOpen,
+  onAutoOpened,
+  tab,
+  counts,
+  loading,
+  failed,
+  activeCount,
+  searchQ,
+  onSearch,
+}: {
+  canManage: boolean
+  workspaceId: string
+  autoOpen: boolean
+  onAutoOpened: () => void
+  tab: PipelineTab
+  counts: Record<PipelineTab, number>
+  loading: boolean
+  failed: boolean
+  activeCount: number
+  searchQ?: string
+  onSearch: (query: string) => void
+}) {
+  return (
+    <>
+      <ListHeader
+        title={t('data.pipelinesList.pipelines')}
+        total={loading || failed ? undefined : activeCount}
+        actions={
+          <>
+            {canManage ? (
+              <NewPipeline
+                workspaceId={workspaceId}
+                autoOpen={autoOpen}
+                onAutoOpened={onAutoOpened}
+              />
+            ) : (
+              <ReadOnlyNote>
+                {t('common.readOnly.cannotAddSteward', {
+                  things: t('common.readOnly.things.pipelines'),
+                })}
+              </ReadOnlyNote>
+            )}
+            <Button
+              variant="quiet"
+              size="sm"
+              nativeButton={false}
+              icon="pipeline"
+              render={<Link to="/pipelines/agents" />}
+            >
+              {t('data.pipelinesList.agentOperationsExperimental')}
+            </Button>
+          </>
+        }
+        tabs={
+          <Tabs
+            mode="url"
+            label={t('data.pipelinesList.pipelineLists')}
+            value={tab}
+            items={tabs.map((tabId) => ({
+              key: tabId,
+              label: tabLabel[tabId],
+              count: loading ? undefined : counts[tabId],
+              link: {
+                to: '/pipelines',
+                search: {
+                  tab: tabId === 'all' ? undefined : tabId,
+                  q: searchQ,
+                },
+              },
+            }))}
+          />
+        }
+      />
+      <ListToolbar
+        q={searchQ}
+        label={t('data.pipelinesList.searchPipelines')}
+        placeholder={t('data.pipelinesList.searchPipelines')}
+        onSearch={onSearch}
+      />
+    </>
+  )
+}
+
 function PipelinesList() {
   // Re-render when the person's time zone is applied or changed.
   useDisplayTimeZone()
@@ -164,7 +559,7 @@ function PipelinesList() {
   }, [navigate])
 
   const query = usePipelineRows()
-  const rows = query.data ?? []
+  const rows = useMemo(() => query.data ?? [], [query.data])
   const tab: PipelineTab = search.tab ?? 'all'
   const view = useListView('pipelines')
   const currentUserId = context.user.id
@@ -194,13 +589,15 @@ function PipelinesList() {
 
   const counts = useMemo(
     () =>
-      Object.fromEntries(
-        tabs.map((tabId) => [
-          tabId,
-          rows.filter((p) => inTab(p, tabId, scheduledIds, currentUserId))
-            .length,
-        ]),
-      ) as Record<PipelineTab, number>,
+      pipelineTabCountsSchema.parse(
+        Object.fromEntries(
+          tabs.map((tabId) => [
+            tabId,
+            rows.filter((p) => inTab(p, tabId, scheduledIds, currentUserId))
+              .length,
+          ]),
+        ),
+      ),
     [rows, scheduledIds, currentUserId],
   )
 
@@ -229,93 +626,12 @@ function PipelinesList() {
     (row) => row.name,
   )
 
-  const columns = useMemo<RegistryColumn<PipelineListRow>[]>(
-    () => [
-      {
-        id: 'key',
-        header: 'ID',
-        accessorFn: (p) => p.display_id ?? p.key,
-        enableHiding: false,
-        cell: ({ row }) => (
-          <ObjectLink
-            kind="pipeline"
-            id={row.original.id}
-            identifier={row.original.display_id ?? row.original.key}
-          />
-        ),
-      },
-      {
-        id: 'name',
-        header: t('data.pipelinesList.pipeline'),
-        accessorFn: (p) => p.name,
-        cell: ({ row }) => (
-          <Link
-            to="/pipelines/$pipelineId"
-            params={{ pipelineId: row.original.id }}
-            onClick={(event) => openPipeline(row.original, event)}
-            className={row.getIsSelected() ? 'font-medium' : undefined}
-          >
-            {row.original.name}
-          </Link>
-        ),
-      },
-      {
-        id: 'version',
-        header: t('data.pipelinesList.version'),
-        cell: ({ row }) => (
-          <>
-            {row.original.current ? `v${row.original.current.version}` : '—'}
-            {row.original.draft &&
-            row.original.current?.lifecycle === 'published' ? (
-              <span className="text-fg-muted">
-                {' · '}
-                {t('data.pipelinesList.draftVersion', {
-                  version: row.original.draft.version,
-                })}
-              </span>
-            ) : null}
-          </>
-        ),
-      },
-      {
-        id: 'runs',
-        header: t('data.pipelinesList.runs'),
-        accessorFn: (p) => p.runCount,
-        meta: rightAligned<PipelineListRow>().meta,
-      },
-      {
-        id: 'lastRun',
-        header: t('data.pipelinesList.lastRun'),
-        cell: ({ row }) => {
-          const last = row.original.lastRun
-          const lastStatus = last ? runStatus(last.status) : null
-
-          return lastStatus ? (
-            <Status tone={lastStatus.tone}>{lastStatus.label}</Status>
-          ) : (
-            <Status tone="draft">{t('data.pipelinesList.neverRun')}</Status>
-          )
-        },
-      },
-      {
-        id: 'status',
-        header: t('data.pipelinesList.status'),
-        cell: ({ row }) => {
-          const status = definitionStatus(
-            row.original.lifecycle,
-            row.original.versions,
-          )
-
-          return <Status tone={status.tone}>{status.label}</Status>
-        },
-      },
-    ],
-    [openPipeline],
-  )
+  const columns = useMemo(() => pipelineColumns(openPipeline), [openPipeline])
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     sel?.id ?? null,
     (id) =>
+      // react-doctor-disable-next-line react-doctor/tanstack-start-no-navigate-in-render -- useRowFocus calls this only from its onRowSelectionChange event callback, never while rendering.
       void navigate({
         to: '/pipelines',
         search: (s) => ({ ...s, selected: id ?? undefined }),
@@ -326,6 +642,7 @@ function PipelinesList() {
   const run = useRunLauncher(
     workspaceId,
     (started) =>
+      // react-doctor-disable-next-line react-doctor/tanstack-start-no-navigate-in-render -- useRunLauncher calls this only once a started run answers its mutation, never while rendering.
       void navigate({
         to: '/pipelines/runs/$runId',
         params: { runId: started.id },
@@ -373,63 +690,17 @@ function PipelinesList() {
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
-        <ListHeader
-          title={t('data.pipelinesList.pipelines')}
-          total={
-            query.isError || query.isPending
-              ? undefined
-              : rows.filter((p) => p.lifecycle !== 'retired').length
-          }
-          actions={
-            <>
-              {canManage ? (
-                <NewPipeline
-                  workspaceId={workspaceId}
-                  autoOpen={search.new === true}
-                  onAutoOpened={dropNewFlag}
-                />
-              ) : (
-                <ReadOnlyNote>
-                  {t('common.readOnly.cannotAddSteward', {
-                    things: t('common.readOnly.things.pipelines'),
-                  })}
-                </ReadOnlyNote>
-              )}
-              <Button
-                variant="quiet"
-                size="sm"
-                nativeButton={false}
-                icon="pipeline"
-                render={<Link to="/pipelines/agents" />}
-              >
-                {t('data.pipelinesList.agentOperationsExperimental')}
-              </Button>
-            </>
-          }
-          tabs={
-            <Tabs
-              mode="url"
-              label={t('data.pipelinesList.pipelineLists')}
-              value={tab}
-              items={tabs.map((tabId) => ({
-                key: tabId,
-                label: tabLabel[tabId],
-                count: query.isPending ? undefined : counts[tabId],
-                link: {
-                  to: '/pipelines',
-                  search: {
-                    tab: tabId === 'all' ? undefined : tabId,
-                    q: search.q,
-                  },
-                },
-              }))}
-            />
-          }
-        />
-        <ListToolbar
-          q={search.q}
-          label={t('data.pipelinesList.searchPipelines')}
-          placeholder={t('data.pipelinesList.searchPipelines')}
+        <PipelinesHeader
+          canManage={canManage}
+          workspaceId={workspaceId}
+          autoOpen={search.new === true}
+          onAutoOpened={dropNewFlag}
+          tab={tab}
+          counts={counts}
+          loading={query.isPending}
+          failed={query.isError}
+          activeCount={rows.filter((p) => p.lifecycle !== 'retired').length}
+          searchQ={search.q}
           onSearch={(next) =>
             void navigate({
               to: '/pipelines',
@@ -464,66 +735,16 @@ function PipelinesList() {
           ) : null}
           <MobileList
             label={t('data.pipelinesList.pipelines')}
-            items={visible.map((p) => {
-              const lastStatus = p.lastRun ? runStatus(p.lastRun.status) : null
-
-              return {
-                key: p.id,
-                id: p.display_id ?? p.key,
-                title: p.name,
-                sub: `${p.current ? `v${p.current.version}` : t('data.pipelinesList.noVersion')} · ${t('data.pipelinesList.runCount', { count: p.runCount })}`,
-                status: lastStatus ? (
-                  <Status tone={lastStatus.tone}>{lastStatus.label}</Status>
-                ) : (
-                  <Status tone="draft">
-                    {t('data.pipelinesList.neverRun')}
-                  </Status>
-                ),
-                link: {
-                  to: '/pipelines/$pipelineId',
-                  params: { pipelineId: p.id },
-                },
-              }
-            })}
+            items={mobilePipelineItems(visible)}
           />
           {!query.isPending && !query.isError && visible.length === 0 ? (
-            <div role="status" className="flex justify-center px-6">
-              <EmptyState
-                className="w-full py-8"
-                title={
-                  q
-                    ? t('data.pipelinesList.pipelinesMatch', { q })
-                    : tab === 'archived'
-                      ? t('data.pipelinesList.noArchivedPipelines')
-                      : rows.length === 0
-                        ? t('data.pipelinesList.noPipelinesYet')
-                        : t('data.pipelinesList.noPipelinesIn', {
-                            tab: tabLabel[tab],
-                          })
-                }
-                description={
-                  tab === 'archived'
-                    ? t('data.pipelinesList.archivedStayHere')
-                    : rows.length === 0
-                      ? t('data.pipelinesList.createPipelineAuthorSql')
-                      : t('data.pipelinesList.searchLooksPipelineKeys')
-                }
-                action={
-                  rows.length === 0 && !q ? (
-                    <NewPipeline workspaceId={workspaceId} />
-                  ) : q ? (
-                    <Button
-                      nativeButton={false}
-                      render={
-                        <Link to="/pipelines" search={{ tab: search.tab }} />
-                      }
-                    >
-                      {t('data.pipelinesList.clearSearch')}
-                    </Button>
-                  ) : undefined
-                }
-              />
-            </div>
+            <PipelinesEmpty
+              q={q}
+              tab={tab}
+              rowCount={rows.length}
+              searchTab={search.tab}
+              workspaceId={workspaceId}
+            />
           ) : null}
         </div>
         <ListFooter
@@ -540,119 +761,18 @@ function PipelinesList() {
       </div>
 
       {sel ? (
-        <Inspector
-          aria-label={t('data.pipelinesList.ariaPipelineDetails')}
-          className="w-[320px] gap-0 p-0"
-        >
-          <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
-            <span className="mono text-fg-muted">
-              {sel.display_id ?? sel.key} ·{' '}
-              {sel.current
-                ? `v${sel.current.version}`
-                : t('data.pipelinesList.noVersion')}
-            </span>
-            <div className="font-heading text-doc font-semibold">
-              {sel.name}
-            </div>
-            {sel.description ? (
-              <p className="m-0 text-label leading-[18px]">{sel.description}</p>
-            ) : null}
-            <div className="mt-1.5 flex gap-1.5">
-              <Button
-                variant="primary"
-                size="sm"
-                icon="play"
-                disabled={
-                  !sel.current ||
-                  sel.current.lifecycle !== 'published' ||
-                  run.pending
-                }
-                onClick={() =>
-                  sel.current &&
-                  run.launch({ pipelineName: sel.name, version: sel.current })
-                }
-              >
-                {t('data.pipelinesList.runNow')}
-              </Button>
-              <Button
-                size="sm"
-                nativeButton={false}
-                render={
-                  <Link
-                    to="/pipelines/$pipelineId"
-                    params={{ pipelineId: sel.id }}
-                  />
-                }
-              >
-                {t('common.actions.open')}
-              </Button>
-              {canManage ? (
-                <Button
-                  size="sm"
-                  variant="quiet"
-                  icon={sel.lifecycle === 'retired' ? 'undo' : 'archive'}
-                  disabled={setArchived.isPending}
-                  onClick={() =>
-                    setArchived.mutate({
-                      pipeline: sel,
-                      archived: sel.lifecycle !== 'retired',
-                    })
-                  }
-                >
-                  {sel.lifecycle === 'retired'
-                    ? t('common.actions.restore')
-                    : t('common.actions.archive')}
-                </Button>
-              ) : null}
-            </div>
-            {sel.current?.lifecycle !== 'published' ? (
-              <Muted className="mt-1">
-                {t('data.pipelinesList.publishVersionStepsEnable')}
-              </Muted>
-            ) : null}
-          </div>
-          <div className="flex flex-col gap-4 px-4 py-3.5">
-            <InspectorSection title={t('data.pipelinesList.details')}>
-              <DescriptionList
-                labelWidth={80}
-                items={[
-                  [t('data.pipelinesList.key'), sel.key],
-                  [
-                    t('data.pipelinesList.current'),
-                    sel.current
-                      ? `v${sel.current.version} · ${versionStatus(sel.current.lifecycle).label}`
-                      : '—',
-                  ],
-                  [
-                    t('data.pipelinesList.versions'),
-                    String(sel.versions.length),
-                  ],
-                  [t('data.pipelinesList.runs'), String(sel.runCount)],
-                ]}
-              />
-            </InspectorSection>
-            <InspectorSection title={t('data.pipelinesList.recentRuns')}>
-              {sel.lastRun ? (
-                <Link
-                  to="/pipelines/$pipelineId/runs/$runId"
-                  params={{ pipelineId: sel.id, runId: sel.lastRun.id }}
-                  className="text-label"
-                >
-                  <Status tone={runStatus(sel.lastRun.status).tone}>
-                    {runStatus(sel.lastRun.status).label}
-                  </Status>{' '}
-                  <span className="num text-fg-muted">
-                    {formatNotebookDateTime(sel.lastRun.started_at, {
-                      zone: true,
-                    })}
-                  </span>
-                </Link>
-              ) : (
-                <Muted>{t('data.pipelinesList.neverRun2')}</Muted>
-              )}
-            </InspectorSection>
-          </div>
-        </Inspector>
+        <PipelineInspector
+          sel={sel}
+          canManage={canManage}
+          run={run}
+          archiving={setArchived.isPending}
+          onArchive={() =>
+            setArchived.mutate({
+              pipeline: sel,
+              archived: sel.lifecycle !== 'retired',
+            })
+          }
+        />
       ) : null}
       {run.dialog}
     </div>
@@ -677,6 +797,7 @@ function NewPipeline({
   // The shell's New menu arrives with `?new=true`: open once, then drop the flag.
   useEffect(() => {
     if (!autoOpen) return
+    // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change -- `?new=true` is a one-shot command from the shell's New menu, not a mirrored prop: it opens this dialog once on arrival and the flag is then dropped.
     setOpen(true)
     onAutoOpened?.()
   }, [autoOpen, onAutoOpened])
@@ -685,7 +806,7 @@ function NewPipeline({
   const empty = { key: '', name: '', description: '' }
   const [f, setF] = useState(empty)
   // The key follows the name until someone types their own.
-  const [keyTouched, setKeyTouched] = useState(false)
+  const keyTouched = useRef(false)
 
   // The database's own rule for `pipeline_definitions.key`.
   const errors = {
@@ -712,7 +833,7 @@ function NewPipeline({
       })
       setOpen(false)
       setF(empty)
-      setKeyTouched(false)
+      keyTouched.current = false
       setTried(false)
       toast(`${definition.name} created`, {
         description: t('data.pipelinesList.configureFirstDraftSteps'),
@@ -722,7 +843,7 @@ function NewPipeline({
         params: { pipelineId: definition.id },
       })
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       const message = error instanceof Error ? error.message : ''
       setServerError(
         /duplicate key/i.test(message)
@@ -740,7 +861,7 @@ function NewPipeline({
 
         if (!next) {
           setF(empty)
-          setKeyTouched(false)
+          keyTouched.current = false
           setTried(false)
           setServerError(null)
         }
@@ -768,7 +889,9 @@ function NewPipeline({
                 setF({
                   ...f,
                   name: e.target.value,
-                  key: keyTouched ? f.key : suggestPipelineKey(e.target.value),
+                  key: keyTouched.current
+                    ? f.key
+                    : suggestPipelineKey(e.target.value),
                 })
               }
               placeholder={t('data.pipelinesList.placeholderEGPlateReader')}
@@ -786,7 +909,7 @@ function NewPipeline({
               aria-invalid={keyError ? true : undefined}
               onChange={(e) => {
                 setF({ ...f, key: e.target.value })
-                setKeyTouched(true)
+                keyTouched.current = true
                 setServerError(null)
               }}
             />

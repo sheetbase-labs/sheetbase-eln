@@ -41,6 +41,9 @@ const SUBMITTER_ID = 'usr_01h3c9k2m4n5p6q7'
 
 const viewer = { id: 'usr_01h9x7w2q3e4r5t6', name: 'Grace Owner' }
 
+/** The steward's choice, as the definition carries it: no migration. */
+const NEW_RECORDS_ONLY = 'new-records-only' satisfies ModelChangeScope
+
 const model: WorkspaceRecordModel = {
   id: MODEL_ID,
   workspace_id: WORKSPACE_ID,
@@ -125,7 +128,7 @@ const versions = [
     definition: {
       identifier_prefix: 'CB',
       fields: draftFields,
-      migrationScope: 'new-records-only' as ModelChangeScope,
+      migrationScope: NEW_RECORDS_ONLY,
     },
     reason: 'Add a viability range before the release testing round',
     created_at: '2026-09-24T08:00:00.000Z',
@@ -214,14 +217,14 @@ const pendingRequest: ApprovalRequest = {
 const noDecisions: ApprovalDecision[] = []
 
 /** Every read the screen performs, answered from the fixtures above. */
-const reads: Record<string, ClientRead> = {
+const reads = {
   record_models: [model],
   record_model_versions: versions,
   record_model_version_usage: usage,
   discover_model_dependencies: { kind: 'model', id: MODEL_KEY, dependencies },
   approval_requests: [],
   approval_request_decisions: [],
-}
+} satisfies Record<string, ClientRead>
 
 /** The screen with one story's transport: its props are the same every time. */
 function Screen({

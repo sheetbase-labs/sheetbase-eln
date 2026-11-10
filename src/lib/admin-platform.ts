@@ -265,6 +265,176 @@ export interface ConnectorDiagnosticsResult {
 }
 
 // ---------------------------------------------------------------------------
+// Raw SQL row shapes
+//
+// The queries below select these columns; each shape names the columns its
+// handler reads so a renamed column fails the typecheck instead of rendering
+// "undefined".
+// ---------------------------------------------------------------------------
+
+/** One `api.pipeline_schedules` count row for the diagnostics panel. */
+type ScheduleStatsRow = {
+  enabled_count: number
+  last_sweep: string | null
+}
+
+/** One `api.pipeline_runs` count row for the diagnostics panel. */
+type PipelineRunStatsRow = {
+  active_runs: number
+  recent_failures: number
+  recovered_stale: number
+}
+
+/** One `api.dataset_version_prunes` count row for the diagnostics panel. */
+type PruneStatsRow = {
+  last_pruned: string | null
+  pruned_24h: number
+}
+
+/** When each activity stream last recorded something, per the diagnostics query. */
+type ActivityStreamRow = {
+  last_pipeline_run: string | null
+  last_connector_run: string | null
+  last_webhook_delivery: string | null
+}
+
+/** The newest applied Drizzle migration. */
+type AppliedMigrationRow = {
+  created_at: string | null
+}
+
+/** How many Drizzle migrations are applied, and when the newest was. */
+type AppliedMigrationCountRow = {
+  applied: number
+  latest: string | null
+}
+
+/** The workspace's recorded counts, as `fetchUsageFn` reads them. */
+type UsageCountsRow = {
+  members: number
+  records: number
+  datasets: number
+  dataset_versions: number
+  files: number
+  file_bytes: string
+  connectors: number
+  pipeline_definitions: number
+  pipeline_runs: number
+  connector_runs: number
+  enabled_schedules: number
+}
+
+/** One month of the run-count trend. */
+type UsageTrendRow = {
+  month: string
+  pipeline_runs: number
+  connector_runs: number
+}
+
+/** Stored-file totals for the storage overview. */
+type StorageCountsRow = {
+  file_count: number
+  file_bytes: string
+  dataset_count: number
+  dataset_version_count: number
+}
+
+/** One stored file, as the storage overview lists it. */
+type FileOverviewRow = {
+  id: string
+  display_name: string
+  media_type: string
+  byte_size: string
+  status: string
+  storage_backend: string
+  created_at: string
+  record_id: string | null
+}
+
+/** One pipeline, connector or webhook delivery, as run health lists it. */
+type RunHealthRow = {
+  id: string
+  kind: 'pipeline' | 'connector' | 'webhook'
+  status: string
+  started_at: string
+  finished_at: string | null
+  error_code: string | null
+  error_message: string | null
+  connector_id: string | null
+  definition_version_id: string | null
+  subscription_id: string | null
+  label: string | null
+}
+
+/** Webhook delivery debt for the run-health summary. */
+type WebhookSummaryRow = {
+  dead_letter_24h: number
+  retry_debt: number
+  auto_disabled: number
+}
+
+/** Every attention count in one row. */
+type AttentionCountsRow = {
+  failed_pipeline_runs: number
+  failed_connector_runs: number
+  dead_letter_deliveries: number
+  webhook_retry_debt: number
+  auto_disabled_endpoints: number
+  failing_endpoints: number
+  stale_running_runs: number
+  connectors_missing_secrets: number
+  overdue_schedules: number
+  expired_credentials: number
+  expiring_credentials: number
+  stale_credentials: number
+  disabled_connectors: number
+  disabled_extensions: number
+}
+
+/** One install's declared compatibility range, for the EXT-03 warning. */
+type ExtensionCompatRow = {
+  key: string
+  compatible_with: string | null
+}
+
+/** The schedule the update RPC returned. */
+type UpdatedScheduleRow = {
+  id: string
+  enabled: boolean
+}
+
+/** The failed connector run a retry reads its connector from. */
+type FailedRunRow = {
+  connector_id: string
+  retry_of_run_id: string | null
+}
+
+/** The retry run the start RPC returned. */
+type StartedRunRow = {
+  id: string
+}
+
+/** One connector and its last run, as connector diagnostics lists it. */
+type ConnectorDiagnosticsRow = {
+  id: string
+  name: string
+  connector_type: string
+  status: string
+  last_run_status: string | null
+  last_run_at: string | null
+  last_error_code: string | null
+  has_secrets: boolean
+  recent_failure_count: number
+}
+
+/** One member's name and email, from `internal.user`. */
+type MemberNameRow = {
+  user_id: string
+  name: string | null
+  email: string | null
+}
+
+// ---------------------------------------------------------------------------
 // Session / capability helpers
 // ---------------------------------------------------------------------------
 
@@ -289,10 +459,17 @@ interface ScopedAdminSession {
 }
 
 async function loadAdminSession(workspaceId: string): Promise<AdminSession> {
-  const { getRequestHeaders } = await import('@tanstack/react-start/server')
-  const { getCurrentContext } = await import('#/lib/current-user')
-  const { db } = await import('#/db/client.server')
-  const { isWorkspaceMember } = await import('#/lib/api-credentials')
+  const [
+    { getRequestHeaders },
+    { getCurrentContext },
+    { db },
+    { isWorkspaceMember },
+  ] = await Promise.all([
+    import('@tanstack/react-start/server'),
+    import('#/lib/current-user'),
+    import('#/db/client.server'),
+    import('#/lib/api-credentials'),
+  ])
 
   const context = await getCurrentContext(getRequestHeaders())
 
@@ -431,11 +608,13 @@ export async function requireSettingsArea(
 // Utilities
 // ---------------------------------------------------------------------------
 
-function num(value: unknown): number {
+/** A count or byte figure the query returned as a number or a text cast. */
+function num(value: string | number | null | undefined): number {
   return Number(value ?? 0)
 }
 
-function str(value: unknown): string | null {
+/** A nullable text column, kept as text. */
+function str(value: string | number | null | undefined): string | null {
   return value != null ? String(value) : null
 }
 
@@ -472,11 +651,14 @@ async function withTimeout<T>(
 async function readGoLiveWithBackups(
   workspaceId: string,
 ): Promise<GoLiveStatus> {
-  const goLive = await (await import('#/lib/go-live.server')).readGoLive()
-  const { getPool } = await import('#/db/pool.server')
-  const { env } = await import('#/env.server')
-  const backups = await import('#/lib/workspace-export/backup.server')
-  const { staleAfterMs } = await import('#/lib/workspace-export/schedule')
+  const [goLive, { getPool }, { env }, backups, { staleAfterMs }] =
+    await Promise.all([
+      import('#/lib/go-live.server').then((module) => module.readGoLive()),
+      import('#/db/pool.server'),
+      import('#/env.server'),
+      import('#/lib/workspace-export/backup.server'),
+      import('#/lib/workspace-export/schedule'),
+    ])
 
   try {
     const pool = getPool(env.DATABASE_URL)
@@ -517,12 +699,14 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<DiagnosticsResult> => {
     await requireSettingsArea(data.workspaceId, 'diagnostics')
+
     // Static imports of `*.server.*` are denied in the client bundle, and this
     // module is reached from the settings routes; read them here instead.
-    const { env, getDeploymentConfig } = await import('#/env.server')
-
-    const { DATASET_RETENTION_INTERVAL_MS } =
-      await import('#/lib/dataset-retention-scheduler.server')
+    const [{ env, getDeploymentConfig }, { DATASET_RETENTION_INTERVAL_MS }] =
+      await Promise.all([
+        import('#/env.server'),
+        import('#/lib/dataset-retention-scheduler.server'),
+      ])
 
     const deployment = getDeploymentConfig()
     // R5-CONFIG-01 — the timestamp the live probes below are evaluated at, so
@@ -568,29 +752,27 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
       return { ok, latencyMs: Date.now() - startedAt }
     }
 
-    const [database, postgrest] = await Promise.all([
-      probeDatabase(),
-      probePostgrest(),
+    // Scheduler / pipeline run stats
+    const [{ db }, [database, postgrest]] = await Promise.all([
+      import('#/db/client.server'),
+      Promise.all([probeDatabase(), probePostgrest()]),
     ])
 
-    // Scheduler / pipeline run stats
-    const { db } = await import('#/db/client.server')
-
     const [schedRes, runRes, pruneRes, lastRunRes] = await Promise.all([
-      db.execute(sql`
+      db.execute<ScheduleStatsRow>(sql`
         SELECT count(*) FILTER (WHERE enabled)::int AS enabled_count,
                max(last_evaluated_at)::text AS last_sweep
         FROM api.pipeline_schedules
         WHERE workspace_id = ${data.workspaceId}::uuid
       `),
-      db.execute(sql`
+      db.execute<PipelineRunStatsRow>(sql`
         SELECT count(*) FILTER (WHERE status = 'running')::int AS active_runs,
                count(*) FILTER (WHERE status = 'failed' AND started_at > now() - interval '24 hours')::int AS recent_failures,
                count(*) FILTER (WHERE status = 'failed' AND error_code = 'stale_run_reconciled' AND started_at > now() - interval '24 hours')::int AS recovered_stale
         FROM api.pipeline_runs
         WHERE workspace_id = ${data.workspaceId}::uuid
       `),
-      db.execute(sql`
+      db.execute<PruneStatsRow>(sql`
         SELECT max(p.rows_removed_at)::text AS last_pruned,
                count(*) FILTER (WHERE p.rows_removed_at > now() - interval '24 hours')::int AS pruned_24h
         FROM api.dataset_version_prunes p
@@ -599,7 +781,7 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
       `),
       // R5-CONFIG-01 — the real "last ran" record per activity stream, so a
       // check reports when its stream last actually did something.
-      db.execute(sql`
+      db.execute<ActivityStreamRow>(sql`
         SELECT
           (SELECT max(started_at)::text FROM api.pipeline_runs
             WHERE workspace_id = ${data.workspaceId}::uuid) AS last_pipeline_run,
@@ -610,10 +792,10 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
       `),
     ])
 
-    const schedRow = schedRes.rows[0] as Record<string, unknown> | undefined
-    const runRow = runRes.rows[0] as Record<string, unknown> | undefined
-    const pruneRow = pruneRes.rows[0] as Record<string, unknown> | undefined
-    const lastRunRow = lastRunRes.rows[0] as Record<string, unknown> | undefined
+    const schedRow = schedRes.rows.at(0)
+    const runRow = runRes.rows.at(0)
+    const pruneRow = pruneRes.rows.at(0)
+    const lastRunRow = lastRunRes.rows.at(0)
 
     // Migration state
     let applied: string | null = null
@@ -623,7 +805,7 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
 
     if (deployment.expectedMigration !== 'untracked') {
       try {
-        const migRes = await db.execute(sql`
+        const migRes = await db.execute<AppliedMigrationRow>(sql`
           SELECT created_at::text AS created_at
           FROM drizzle.__drizzle_migrations
           ORDER BY created_at DESC LIMIT 1
@@ -645,7 +827,7 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
     }
 
     try {
-      const schemaRes = await db.execute(sql`
+      const schemaRes = await db.execute<AppliedMigrationCountRow>(sql`
         SELECT count(*)::int AS applied, max(created_at)::text AS latest
         FROM drizzle.__drizzle_migrations
       `)
@@ -736,7 +918,7 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
     const { db } = await import('#/db/client.server')
 
     const [res, trendRes] = await Promise.all([
-      db.execute(sql`
+      db.execute<UsageCountsRow>(sql`
       SELECT
         (SELECT count(*) FROM api.workspace_memberships WHERE workspace_id = ${data.workspaceId}::uuid)::int AS members,
         (SELECT count(*) FROM api.records WHERE workspace_id = ${data.workspaceId}::uuid)::int AS records,
@@ -752,7 +934,7 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
       `),
       // R5-CONFIG-01 — a trend only for what this deployment measures: run
       // counts grouped from the real run records over six calendar months.
-      db.execute(sql`
+      db.execute<UsageTrendRow>(sql`
         SELECT to_char(m, 'YYYY-MM') AS month,
                (SELECT count(*) FROM api.pipeline_runs r
                  WHERE r.workspace_id = ${data.workspaceId}::uuid
@@ -769,7 +951,7 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
       `),
     ])
 
-    const row = res.rows[0] as Record<string, unknown> | undefined
+    const row = res.rows.at(0)
     const fileBytes = num(row?.file_bytes)
     const members = num(row?.members)
     const enabledSchedules = num(row?.enabled_schedules)
@@ -878,7 +1060,7 @@ export const fetchStorageOverviewFn = createServerFn({ method: 'POST' })
     const { db } = await import('#/db/client.server')
 
     const [countRes, largestRes, recentRes] = await Promise.all([
-      db.execute(sql`
+      db.execute<StorageCountsRow>(sql`
         SELECT
           count(*)::int AS file_count,
           coalesce(sum(byte_size), 0)::text AS file_bytes,
@@ -887,14 +1069,14 @@ export const fetchStorageOverviewFn = createServerFn({ method: 'POST' })
         FROM api.file_objects
         WHERE workspace_id = ${data.workspaceId}::uuid AND deleted_at IS NULL
       `),
-      db.execute(sql`
+      db.execute<FileOverviewRow>(sql`
         SELECT id, display_name, media_type, byte_size::text, status, storage_backend, created_at::text, record_id::text
         FROM api.file_objects
         WHERE workspace_id = ${data.workspaceId}::uuid AND deleted_at IS NULL
         ORDER BY byte_size DESC
         LIMIT 10
       `),
-      db.execute(sql`
+      db.execute<FileOverviewRow>(sql`
         SELECT id, display_name, media_type, byte_size::text, status, storage_backend, created_at::text, record_id::text
         FROM api.file_objects
         WHERE workspace_id = ${data.workspaceId}::uuid AND deleted_at IS NULL
@@ -903,9 +1085,9 @@ export const fetchStorageOverviewFn = createServerFn({ method: 'POST' })
       `),
     ])
 
-    const countRow = countRes.rows[0] as Record<string, unknown> | undefined
+    const countRow = countRes.rows.at(0)
 
-    const mapFiles = (rows: typeof largestRes.rows) =>
+    const mapFiles = (rows: FileOverviewRow[]) =>
       rows.map((r) => ({
         id: String(r.id),
         displayName: String(r.display_name),
@@ -946,7 +1128,7 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
     // run-health surface) rather than through the integrations.manage-gated
     // endpoint-health RPC — no secrets are involved.
     const [pipeRes, connRes, hookRes, hookSummaryRes] = await Promise.all([
-      db.execute(sql`
+      db.execute<RunHealthRow>(sql`
         SELECT id, 'pipeline' AS kind, status, started_at::text, finished_at::text,
                error_code, error_message, NULL::text AS connector_id, definition_version_id::text,
                NULL::text AS subscription_id, NULL::text AS label
@@ -955,7 +1137,7 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
         ORDER BY started_at DESC
         LIMIT 50
       `),
-      db.execute(sql`
+      db.execute<RunHealthRow>(sql`
         SELECT id, 'connector' AS kind, status, started_at::text, finished_at::text,
                error_code, error_message, connector_id::text, NULL::text AS definition_version_id,
                NULL::text AS subscription_id, NULL::text AS label
@@ -964,7 +1146,7 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
         ORDER BY started_at DESC
         LIMIT 50
       `),
-      db.execute(sql`
+      db.execute<RunHealthRow>(sql`
         SELECT d.id, 'webhook' AS kind, d.status, d.created_at::text AS started_at,
                d.delivered_at::text AS finished_at,
                d.error_code, d.error_message, NULL::text AS connector_id,
@@ -978,7 +1160,7 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
         ORDER BY d.created_at DESC
         LIMIT 20
       `),
-      db.execute(sql`
+      db.execute<WebhookSummaryRow>(sql`
         SELECT
           (SELECT count(*)::int FROM api.webhook_deliveries WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'dead_letter' AND created_at > now() - interval '24 hours') AS dead_letter_24h,
           (SELECT count(*)::int FROM api.webhook_deliveries WHERE workspace_id = ${data.workspaceId}::uuid AND status IN ('pending', 'retrying')) AS retry_debt,
@@ -992,7 +1174,7 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
       ...hookRes.rows,
     ].map((r) => ({
       id: String(r.id),
-      kind: r.kind as 'pipeline' | 'connector' | 'webhook',
+      kind: r.kind,
       status: String(r.status),
       startedAt: String(r.started_at),
       finishedAt: str(r.finished_at),
@@ -1015,8 +1197,7 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
       .filter((r) => r.status === 'succeeded')
       .slice(0, 10)
 
-    const summaryRow = hookSummaryRes.rows[0] as
-      Record<string, unknown> | undefined
+    const summaryRow = hookSummaryRes.rows.at(0)
 
     return {
       running,
@@ -1334,21 +1515,21 @@ export function buildAttentionItems(
  * violation, per EXT-03.
  */
 export function findIncompatibleExtensionKeys(
-  rows: Array<{ key: unknown; compatible_with: unknown }>,
+  rows: ExtensionCompatRow[],
   appVersion: string,
 ): string[] {
-  return rows
-    .filter(
-      (r) =>
-        checkExtensionCompat(
-          {
-            compatibleWith:
-              typeof r.compatible_with === 'string' ? r.compatible_with : null,
-          },
-          appVersion,
-        ) === 'incompatible',
+  const incompatible: string[] = []
+
+  for (const row of rows) {
+    const compat = checkExtensionCompat(
+      { compatibleWith: row.compatible_with },
+      appVersion,
     )
-    .map((r) => String(r.key))
+
+    if (compat === 'incompatible') incompatible.push(row.key)
+  }
+
+  return incompatible
 }
 
 // ---------------------------------------------------------------------------
@@ -1366,7 +1547,7 @@ export const fetchAttentionFn = createServerFn({ method: 'POST' })
     // where an operational runbook exists, a runbook slug (a /docs/$name
     // destination from the docs allowlist).
     const [res, extRes] = await Promise.all([
-      db.execute(sql`
+      db.execute<AttentionCountsRow>(sql`
       SELECT
         (SELECT count(*)::int FROM api.pipeline_runs WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'failed' AND started_at > now() - interval '24 hours') AS failed_pipeline_runs,
         (SELECT count(*)::int FROM api.connector_runs WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'failed' AND started_at > now() - interval '24 hours') AS failed_connector_runs,
@@ -1383,14 +1564,14 @@ export const fetchAttentionFn = createServerFn({ method: 'POST' })
         (SELECT count(*)::int FROM internal.api_credentials WHERE workspace_id = ${data.workspaceId}::uuid AND kind = 'service' AND revoked_at IS NULL AND expires_at IS NOT NULL AND expires_at >= now() AND expires_at < now() + interval '30 days') AS expiring_credentials,
         (SELECT count(*)::int FROM internal.api_credentials WHERE workspace_id = ${data.workspaceId}::uuid AND kind = 'service' AND revoked_at IS NULL AND (last_used_at IS NULL AND created_at < now() - interval '90 days' OR last_used_at < now() - interval '90 days')) AS stale_credentials
     `),
-      db.execute(sql`
+      db.execute<ExtensionCompatRow>(sql`
         SELECT key, status, manifest->>'compatibleWith' AS compatible_with
         FROM api.extensions
         WHERE workspace_id = ${data.workspaceId}::uuid
       `),
     ])
 
-    const row = res.rows[0] as Record<string, unknown> | undefined
+    const row = res.rows.at(0)
 
     const counts: AttentionCounts = {
       failedPipelineRuns: num(row?.failed_pipeline_runs),
@@ -1416,7 +1597,7 @@ export const fetchAttentionFn = createServerFn({ method: 'POST' })
     const appVersion = getDeploymentConfig().artifact.version
 
     const incompatibleKeys = findIncompatibleExtensionKeys(
-      extRes.rows as Array<{ key: unknown; compatible_with: unknown }>,
+      extRes.rows,
       appVersion,
     )
 
@@ -1458,7 +1639,7 @@ export const fetchConnectorDiagnosticsFn = createServerFn({ method: 'POST' })
       )
 
       const connectors: ConnectorDiagnosticsResult['connectors'] = rows.map(
-        (r: Record<string, unknown>) => ({
+        (r: ConnectorDiagnosticsRow) => ({
           id: String(r.id),
           name: String(r.name),
           connectorType: String(r.connector_type),
@@ -1523,7 +1704,7 @@ export const togglePipelineScheduleFn = createServerFn({ method: 'POST' })
     try {
       // Call the canonical RPC exactly once. Project both fields from the
       // single returned composite row to avoid double mutation.
-      const { rows } = await session.client.query(
+      const { rows } = await session.client.query<UpdatedScheduleRow>(
         `SELECT id, enabled
          FROM api.update_pipeline_schedule(
            $1::uuid,
@@ -1535,7 +1716,7 @@ export const togglePipelineScheduleFn = createServerFn({ method: 'POST' })
         [data.workspaceId, data.scheduleId, data.enabled],
       )
 
-      const row = rows[0] as Record<string, unknown> | undefined
+      const row = rows.at(0)
 
       if (!row?.id) {
         throw new Error(t('settings.adminPlatform.scheduleFoundUpdate'))
@@ -1564,7 +1745,7 @@ export const retryConnectorRunFn = createServerFn({ method: 'POST' })
 
     try {
       // Look up the failed run to get its connector_id and retry lineage.
-      const { rows: runRows } = await session.client.query(
+      const { rows: runRows } = await session.client.query<FailedRunRow>(
         `SELECT connector_id, retry_of_run_id
          FROM api.connector_runs
          WHERE id = $1::uuid
@@ -1573,7 +1754,7 @@ export const retryConnectorRunFn = createServerFn({ method: 'POST' })
         [data.runId, data.workspaceId],
       )
 
-      const runRow = runRows[0] as Record<string, unknown> | undefined
+      const runRow = runRows.at(0)
 
       if (!runRow) {
         throw new Error(t('settings.adminPlatform.failedRunFound'))
@@ -1582,7 +1763,7 @@ export const retryConnectorRunFn = createServerFn({ method: 'POST' })
       const connectorId = String(runRow.connector_id)
 
       // Start a retry run through the canonical RPC.
-      const { rows } = await session.client.query(
+      const { rows } = await session.client.query<StartedRunRow>(
         `SELECT (api.start_connector_run(
            $1::uuid,
            $2::uuid,
@@ -1594,7 +1775,7 @@ export const retryConnectorRunFn = createServerFn({ method: 'POST' })
         [data.workspaceId, connectorId, data.runId],
       )
 
-      const row = rows[0] as Record<string, unknown> | undefined
+      const row = rows.at(0)
 
       if (!row?.id) {
         throw new Error(t('settings.adminPlatform.retryCouldStarted'))
@@ -1621,7 +1802,7 @@ export const fetchMemberNamesFn = createServerFn({ method: 'POST' })
     await loadAdminSession(data.workspaceId)
     const { db } = await import('#/db/client.server')
 
-    const result = await db.execute(sql`
+    const result = await db.execute<MemberNameRow>(sql`
       SELECT m.user_id, u.name, u.email
       FROM api.workspace_memberships m
       JOIN internal."user" u ON u.id = m.user_id

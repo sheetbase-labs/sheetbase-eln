@@ -140,7 +140,7 @@ export function linkBrief(text: string, input: HomeBriefInput): BriefPart[] {
     text.toLowerCase().startsWith(project.title.toLowerCase()),
   )
 
-  const patterns = [...escaped.map((name) => `(?<![\\w-])${name}(?![\\w-])`)]
+  const patterns = escaped.map((name) => `(?<![\\w-])${name}(?![\\w-])`)
 
   if (owner) patterns.push('\\b\\d+ experiments?\\b')
 

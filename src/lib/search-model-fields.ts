@@ -144,14 +144,22 @@ export function modelSearchFields(
 
     const unit = field.quantity?.storageUnit ?? field.unit?.symbol
     const choices = optionsBy.get(field.id)
-    out.set(id, {
+
+    const entry = {
       id,
       label: `${model} · ${field.label}${unit ? ` (${unit})` : ''}`,
       dataType: dataTypeOf(field.logical_type),
-      ...(choices?.length
-        ? { loadOptions: async (query: string) => matchOptions(choices, query) }
-        : {}),
-    })
+    }
+
+    out.set(
+      id,
+      choices?.length
+        ? {
+            ...entry,
+            loadOptions: async (query: string) => matchOptions(choices, query),
+          }
+        : entry,
+    )
   }
 
   return [...out.values()].sort((a, b) => a.label.localeCompare(b.label))

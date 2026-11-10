@@ -47,7 +47,11 @@ const FOLDERS: ProjectFolder[] = [
   },
 ]
 
-function record(id: string, title: string, folderId: string | null) {
+function record(
+  id: string,
+  title: string,
+  folderId: string | null,
+): NotebookRecord {
   return {
     id,
     projectId: 'p1',
@@ -68,7 +72,7 @@ function record(id: string, title: string, folderId: string | null) {
     properties: {},
     lockedAt: null,
     lockedByRevisionId: null,
-  } as NotebookRecord
+  }
 }
 
 const RECORDS = [

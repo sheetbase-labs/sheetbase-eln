@@ -7,26 +7,41 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ConnectorConfigCard } from './config-card'
+import type * as ConnectorClientModule from '#/lib/connectors/client'
+import type { updateConnector } from '#/lib/connectors/client'
 import type { ConnectorWire } from '#/lib/connectors/types'
 
 const update = vi.hoisted(() =>
-  vi.fn(async (_client: unknown, _input: unknown) => ({})),
+  vi.fn(
+    async (
+      _client: Parameters<typeof updateConnector>[0],
+      _input: Parameters<typeof updateConnector>[1],
+    ) => ({}),
+  ),
 )
 
-vi.mock('#/lib/connectors/client', () => ({
-  connectorQueryKeys: { connector: (id: string) => ['connector', id] },
-  describeConnectorsError: (error: unknown) =>
-    error instanceof Error ? error.message : 'Unknown error',
-  updateConnector: update,
-}))
+// Only the RPC is replaced: the card saves through `updateConnector`, and the
+// rest of the connector client is the real one.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the card builds its own data client at import, so updateConnector is the only seam this unit test can stand in at; every other connector-client function stays real.
+vi.mock('#/lib/connectors/client', async (importOriginal) => {
+  const actual = await importOriginal<typeof ConnectorClientModule>()
 
-vi.mock('#/lib/data-client', () => ({ createDataClient: () => ({}) }))
+  return { ...actual, updateConnector: update }
+})
 
-const CONNECTOR = {
+const CONNECTOR: ConnectorWire = {
   id: 'c1',
+  workspace_id: 'ws',
+  key: 'lab-bucket',
   name: 'Lab bucket',
+  connector_type: 'storage',
+  direction: 'inbound',
+  status: 'active',
+  parser_id: null,
   config: { adapter: 's3' },
-} as unknown as ConnectorWire
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+}
 
 function renderCard(canManage: boolean) {
   const client = new QueryClient()

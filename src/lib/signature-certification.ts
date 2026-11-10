@@ -215,6 +215,7 @@ export interface SignaturePolicy {
 }
 
 /** Defaults match app-3: Authored is always on; password at every signature. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- The workspace settings row stores `signaturePolicy` as unvalidated JSON; this parses it with the schema below and falls back to all-on defaults.
 export function readSignaturePolicy(policy: unknown): SignaturePolicy {
   const parsed = z
     .object({

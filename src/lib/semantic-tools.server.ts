@@ -14,7 +14,7 @@ import {
   describePaper,
   searchLiterature,
 } from './literature'
-import type { FetchLike } from './literature'
+import type { FetchLike, LiteratureOptions } from './literature'
 import { logger, redact } from './logger'
 import {
   SemanticUnavailableError,
@@ -90,8 +90,12 @@ export function semanticToolDefs(literature: boolean): ProviderToolDef[] {
   ]
 }
 
+const SEMANTIC_READ_TOOLS: ReadonlySet<string> = new Set(
+  SEMANTIC_READ_TOOL_NAMES,
+)
+
 export function isSemanticReadTool(name: string): boolean {
-  return (SEMANTIC_READ_TOOL_NAMES as readonly string[]).includes(name)
+  return SEMANTIC_READ_TOOLS.has(name)
 }
 
 interface Result {
@@ -137,6 +141,7 @@ async function pluginResults(
 }
 
 export async function runSemanticSearch(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Tool arguments arrive from the model as raw JSON and are parsed by semanticSearchSchema before any field is read.
   args: unknown,
   context: { client: DataClient; workspaceId: string; actorUserId?: string },
 ): Promise<Result> {
@@ -160,20 +165,25 @@ export async function runSemanticSearch(
       }
     }
 
+    const note =
+      'Results are ordered closest first. Give each as a link to its page. `fromPlugins` are extra results from search tools the lab added.'
+
+    const results = hits.map((hit) => ({
+      identifier: hit.identifier,
+      title: hit.title,
+      type: hit.type,
+      status: hit.status,
+      closeness: Math.round(hit.similarity * 100) / 100,
+      passage: hit.passage.slice(0, 400),
+      open: hit.deepLink,
+    }))
+
     return {
-      text: JSON.stringify({
-        note: 'Results are ordered closest first. Give each as a link to its page. `fromPlugins` are extra results from search tools the lab added.',
-        ...(plugins.length > 0 ? { fromPlugins: plugins } : {}),
-        results: hits.map((hit) => ({
-          identifier: hit.identifier,
-          title: hit.title,
-          type: hit.type,
-          status: hit.status,
-          closeness: Math.round(hit.similarity * 100) / 100,
-          passage: hit.passage.slice(0, 400),
-          open: hit.deepLink,
-        })),
-      }),
+      text: JSON.stringify(
+        plugins.length > 0
+          ? { note, fromPlugins: plugins, results }
+          : { note, results },
+      ),
       isError: false,
     }
   } catch (error) {
@@ -210,6 +220,7 @@ export async function literatureAllowed(
 }
 
 export async function runLiteratureSearch(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Tool arguments arrive from the model as raw JSON and are parsed by literatureSearchSchema before any field is read.
   args: unknown,
   context: {
     client: DataClient
@@ -229,13 +240,15 @@ export async function runLiteratureSearch(
   }
 
   try {
-    const papers = await searchLiterature(parsed.data.query, {
+    const options: LiteratureOptions = {
       source: parsed.data.source ?? 'europepmc',
       limit: parsed.data.limit ?? 6,
       openAlexKey: process.env.OPENALEX_API_KEY,
       contact: process.env.OPENALEX_MAILTO,
-      ...(context.fetch ? { fetch: context.fetch } : {}),
-    })
+    }
+
+    if (context.fetch) options.fetch = context.fetch
+    const papers = await searchLiterature(parsed.data.query, options)
 
     if (papers.length === 0) {
       return {

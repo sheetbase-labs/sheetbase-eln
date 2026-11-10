@@ -32,9 +32,111 @@ import {
   recordModelQueryKeys,
   useRecordModelFields,
 } from '#/components/models/models-data'
+import type { ExtensionField } from '#/lib/extensions/points'
+import type { ModelFieldDefinition } from '#/lib/model-fields'
 import type { WorkspaceRecordModel } from '#/components/models/models-data'
 
 const MAX_KEY_FIELDS = 4
+
+/** One same-thing rule a plugin offers. */
+type SamenessRule = ReturnType<
+  typeof useExtensionPoints
+>['data']['sameness-keys'][number]
+
+/** The fields that make a row's registry key, as checkboxes. */
+function KeyFieldsPicker({
+  fields,
+  keyFields,
+  onToggle,
+}: {
+  fields: ModelFieldDefinition[]
+  keyFields: string[]
+  onToggle: (name: string, on: boolean) => void
+}) {
+  const chosen = new Set(keyFields)
+
+  if (fields.length === 0)
+    return (
+      <span className="text-label text-fg-muted">
+        {t('registry.settings.noFields')}
+      </span>
+    )
+
+  return (
+    <span className="flex flex-col gap-1.5">
+      {fields.map((field) => {
+        const on = chosen.has(field.fieldName)
+
+        return (
+          <label
+            key={field.fieldName}
+            className="flex items-center gap-2 text-body"
+          >
+            <Checkbox
+              checked={on}
+              disabled={!on && keyFields.length >= MAX_KEY_FIELDS}
+              onCheckedChange={(checked) =>
+                onToggle(field.fieldName, checked === true)
+              }
+            />
+            {field.label}
+          </label>
+        )
+      })}
+    </span>
+  )
+}
+
+/** The plugin's same-thing rule that names a registry key, when any exist. */
+function SamenessRuleField({
+  rules,
+  samenessItem,
+  chosenRule,
+  missingRuleFields,
+  onChange,
+}: {
+  rules: SamenessRule[]
+  samenessItem: string
+  chosenRule: SamenessRule | undefined
+  missingRuleFields: ExtensionField[]
+  onChange: (name: string) => void
+}) {
+  if (rules.length === 0 && !samenessItem) return null
+
+  return (
+    <Field
+      label={t('registry.sameness.label')}
+      hint={t('registry.sameness.hint')}
+    >
+      <Select value={samenessItem} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{t('registry.sameness.none')}</option>
+        {samenessItem && !chosenRule ? (
+          <option value={samenessItem}>{t('registry.sameness.gone')}</option>
+        ) : null}
+        {rules.map((item) => (
+          <option key={item.name} value={item.name}>
+            {item.declaration.title} ({item.extensionName})
+          </option>
+        ))}
+      </Select>
+      {chosenRule ? (
+        <span className="mt-1 block text-label text-fg-muted">
+          {missingRuleFields.length > 0
+            ? t('registry.sameness.missingFields', {
+                fields: missingRuleFields
+                  .map((f) => f.label ?? f.name)
+                  .join(', '),
+              })
+            : t('registry.sameness.reads', {
+                fields: chosenRule.declaration.fields
+                  .map((f) => f.label ?? f.name)
+                  .join(', '),
+              })}
+        </span>
+      ) : null}
+    </Field>
+  )
+}
 
 export function RegistrySettingsDialog({
   open,
@@ -134,7 +236,7 @@ export function RegistrySettingsDialog({
       toast.success(t('registry.settings.saved'))
       onOpenChange(false)
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('registry.settings.couldNotSave'))),
   })
 
@@ -173,35 +275,11 @@ export function RegistrySettingsDialog({
                   label={t('registry.settings.keyFields')}
                   hint={t('registry.settings.keyFieldsHint')}
                 >
-                  {fields.length === 0 ? (
-                    <span className="text-label text-fg-muted">
-                      {t('registry.settings.noFields')}
-                    </span>
-                  ) : (
-                    <span className="flex flex-col gap-1.5">
-                      {fields.map((field) => {
-                        const on = keyFields.includes(field.fieldName)
-
-                        return (
-                          <label
-                            key={field.fieldName}
-                            className="flex items-center gap-2 text-body"
-                          >
-                            <Checkbox
-                              checked={on}
-                              disabled={
-                                !on && keyFields.length >= MAX_KEY_FIELDS
-                              }
-                              onCheckedChange={(checked) =>
-                                toggle(field.fieldName, checked === true)
-                              }
-                            />
-                            {field.label}
-                          </label>
-                        )
-                      })}
-                    </span>
-                  )}
+                  <KeyFieldsPicker
+                    fields={fields}
+                    keyFields={keyFields}
+                    onToggle={toggle}
+                  />
                 </Field>
                 {fields.length > 0 ? (
                   <Field
@@ -223,44 +301,13 @@ export function RegistrySettingsDialog({
                     </Select>
                   </Field>
                 ) : null}
-                {rules.length > 0 || samenessItem ? (
-                  <Field
-                    label={t('registry.sameness.label')}
-                    hint={t('registry.sameness.hint')}
-                  >
-                    <Select
-                      value={samenessItem}
-                      onChange={(e) => setSamenessItem(e.target.value)}
-                    >
-                      <option value="">{t('registry.sameness.none')}</option>
-                      {samenessItem && !chosenRule ? (
-                        <option value={samenessItem}>
-                          {t('registry.sameness.gone')}
-                        </option>
-                      ) : null}
-                      {rules.map((item) => (
-                        <option key={item.name} value={item.name}>
-                          {item.declaration.title} ({item.extensionName})
-                        </option>
-                      ))}
-                    </Select>
-                    {chosenRule ? (
-                      <span className="mt-1 block text-label text-fg-muted">
-                        {missingRuleFields.length > 0
-                          ? t('registry.sameness.missingFields', {
-                              fields: missingRuleFields
-                                .map((f) => f.label ?? f.name)
-                                .join(', '),
-                            })
-                          : t('registry.sameness.reads', {
-                              fields: chosenRule.declaration.fields
-                                .map((f) => f.label ?? f.name)
-                                .join(', '),
-                            })}
-                      </span>
-                    ) : null}
-                  </Field>
-                ) : null}
+                <SamenessRuleField
+                  rules={rules}
+                  samenessItem={samenessItem}
+                  chosenRule={chosenRule}
+                  missingRuleFields={missingRuleFields}
+                  onChange={setSamenessItem}
+                />
                 <Field
                   label={t('registry.chemistry.settings.lotKind')}
                   hint={t('registry.chemistry.settings.lotKindHint')}

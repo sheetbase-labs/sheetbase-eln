@@ -19,6 +19,9 @@ import type { DataClient } from './data-client'
 
 /** Runs a bench card's action. Loaded only in the browser, when a button is pressed. */
 
+/** Arguments for `record_storage_readings`; the unit is only sent when known. */
+type StorageReading = { feed: string; value: number; unit?: string }
+
 /** Run a bench card's action through the ordinary RPCs, as the person. */
 export async function runBenchAction(
   client: DataClient,
@@ -77,6 +80,7 @@ export async function runBenchAction(
         if (!sample) break
 
         try {
+          // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The samples were just registered in order, and each is filed before the next: a refusal names the sample it stopped at and leaves the earlier ones filed.
           await moveSampleToPosition(client, {
             recordId: sample.id,
             positionId,
@@ -105,6 +109,7 @@ export async function runBenchAction(
     case 'sample.move':
       for (const move of action.moves) {
         if (move.positionId) {
+          // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Moves are written one at a time: the first refusal stops the rest so a half-applied move is never reported as done.
           await moveSampleToPosition(client, {
             recordId: move.recordId,
             positionId: move.positionId,
@@ -175,19 +180,21 @@ export async function runBenchAction(
       })
 
       return
-    case 'storage.reading':
+    case 'storage.reading': {
+      const reading: StorageReading = {
+        feed: action.feed.trim(),
+        value: action.value,
+      }
+
+      if (action.unit) reading.unit = action.unit
+
       await client.rpc('record_storage_readings', {
         p_unit_id: action.placeKind === 'unit' ? action.placeId : null,
         p_room_id: action.placeKind === 'room' ? action.placeId : null,
-        p_readings: [
-          {
-            feed: action.feed.trim(),
-            value: action.value,
-            ...(action.unit ? { unit: action.unit } : {}),
-          },
-        ],
+        p_readings: [reading],
       })
 
       return
+    }
   }
 }

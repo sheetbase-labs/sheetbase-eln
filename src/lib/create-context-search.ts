@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 /**
  * The search params every create screen shares, so a page that links to one
  * hands over what it is about instead of making the person choose it again:
@@ -22,27 +24,35 @@ const KEYS = [
   'model',
 ] as const satisfies readonly (keyof CreateContextSearch)[]
 
+/** One named create-context param: the URL carried a non-empty string. */
+const contextId = z.string().min(1)
+
 /** An in-app path, or nothing: a `returnTo` must never leave the app. */
+const inAppPath = z
+  .string()
+  .refine(
+    (value) =>
+      value.startsWith('/') && !value.startsWith('//') && !value.includes('\\'),
+  )
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A `returnTo` arrives from a URL or a task record; this decodes it through `inAppPath` and returns only in-app paths.
 export function safeReturnTo(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
+  const path = inAppPath.safeParse(value)
 
-  if (!value.startsWith('/') || value.startsWith('//')) return undefined
-
-  if (value.includes('\\')) return undefined
-
-  return value
+  return path.success ? path.data : undefined
 }
 
 /** Read the shared params from a route's raw search, dropping anything empty. */
 export function parseCreateContext(
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- TanStack Router hands validateSearch the raw URL values as Record<string, unknown>; every value is decoded by contextId or safeReturnTo before use.
   search: Record<string, unknown>,
 ): CreateContextSearch {
   const out: CreateContextSearch = {}
 
   for (const key of KEYS) {
-    const value = search[key]
+    const value = contextId.safeParse(search[key])
 
-    if (typeof value === 'string' && value) out[key] = value
+    if (value.success) out[key] = value.data
   }
 
   const returnTo = safeReturnTo(search.returnTo)

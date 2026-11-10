@@ -152,6 +152,11 @@ const DEFAULT_URL: Record<RepositoryKind, string> = {
   dataverse: 'https://',
 }
 
+/** True for the repository kinds this dialog offers. */
+function isRepositoryKind(value: string): value is RepositoryKind {
+  return Object.hasOwn(DEFAULT_URL, value)
+}
+
 const emptyDraft = (): Draft => ({
   id: null,
   kind: 'zenodo',
@@ -162,6 +167,80 @@ const emptyDraft = (): Draft => ({
   enabled: true,
   token: '',
 })
+
+/**
+ * The publication targets table. Editing and removal are the section's
+ * business: this only draws the rows and reports the two actions.
+ */
+function RepositoriesTable({
+  rows,
+  canManage,
+  isPending,
+  onEdit,
+  onRemove,
+}: {
+  rows: PublicationTarget[]
+  canManage: boolean
+  isPending: boolean
+  onEdit: (row: PublicationTarget) => void
+  onRemove: (row: PublicationTarget) => void
+}) {
+  return (
+    <TableBox>
+      <Table caption={t('openData.repos.title')}>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t('openData.repos.columns.name')}</TableHead>
+            <TableHead>{t('openData.repos.columns.kind')}</TableHead>
+            <TableHead>{t('openData.repos.columns.address')}</TableHead>
+            <TableHead>{t('openData.repos.columns.licence')}</TableHead>
+            <TableHead>{t('openData.repos.columns.token')}</TableHead>
+            <TableHead />
+          </TableRow>
+        </TableHeader>
+        <TableBody
+          loading={isPending}
+          empty={t('openData.repos.none')}
+          colSpan={6}
+        >
+          {rows.map((row) => (
+            <TableRow key={row.id}>
+              <TableCell>{row.name}</TableCell>
+              <TableCell>{t(`openData.repos.kinds.${row.kind}`)}</TableCell>
+              <TableCell title={row.base_url}>
+                <span className="block max-w-64 truncate">{row.base_url}</span>
+              </TableCell>
+              <TableCell>{licenseById(row.license).name}</TableCell>
+              <TableCell>
+                <Status tone={row.token_set ? 'ok' : 'warn'}>
+                  {row.token_set
+                    ? t('openData.repos.tokenSet')
+                    : t('openData.repos.tokenMissing')}
+                </Status>
+              </TableCell>
+              <TableCell className="text-right">
+                {canManage ? (
+                  <span className="flex justify-end gap-2">
+                    <Button size="sm" onClick={() => onEdit(row)}>
+                      {t('common.actions.edit')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="quiet"
+                      onClick={() => onRemove(row)}
+                    >
+                      {t('openData.repos.remove')}
+                    </Button>
+                  </span>
+                ) : null}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableBox>
+  )
+}
 
 export function RepositoriesSection({
   workspaceId,
@@ -246,76 +325,25 @@ export function RepositoriesSection({
       }
     >
       <Muted>{t('openData.repos.explain')}</Muted>
-      <TableBox>
-        <Table caption={t('openData.repos.title')}>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('openData.repos.columns.name')}</TableHead>
-              <TableHead>{t('openData.repos.columns.kind')}</TableHead>
-              <TableHead>{t('openData.repos.columns.address')}</TableHead>
-              <TableHead>{t('openData.repos.columns.licence')}</TableHead>
-              <TableHead>{t('openData.repos.columns.token')}</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody
-            loading={targets.isPending}
-            empty={t('openData.repos.none')}
-            colSpan={6}
-          >
-            {rows.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell>{row.name}</TableCell>
-                <TableCell>{t(`openData.repos.kinds.${row.kind}`)}</TableCell>
-                <TableCell title={row.base_url}>
-                  <span className="block max-w-64 truncate">
-                    {row.base_url}
-                  </span>
-                </TableCell>
-                <TableCell>{licenseById(row.license).name}</TableCell>
-                <TableCell>
-                  <Status tone={row.token_set ? 'ok' : 'warn'}>
-                    {row.token_set
-                      ? t('openData.repos.tokenSet')
-                      : t('openData.repos.tokenMissing')}
-                  </Status>
-                </TableCell>
-                <TableCell className="text-right">
-                  {canManage ? (
-                    <span className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          save.reset()
-                          setDraft({
-                            id: row.id,
-                            kind: row.kind,
-                            name: row.name,
-                            baseUrl: row.base_url,
-                            collection: row.collection ?? '',
-                            license: row.license,
-                            enabled: row.enabled,
-                            token: '',
-                          })
-                        }}
-                      >
-                        {t('common.actions.edit')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="quiet"
-                        onClick={() => setRemoving(row)}
-                      >
-                        {t('openData.repos.remove')}
-                      </Button>
-                    </span>
-                  ) : null}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableBox>
+      <RepositoriesTable
+        rows={rows}
+        canManage={canManage}
+        isPending={targets.isPending}
+        onEdit={(row) => {
+          save.reset()
+          setDraft({
+            id: row.id,
+            kind: row.kind,
+            name: row.name,
+            baseUrl: row.base_url,
+            collection: row.collection ?? '',
+            license: row.license,
+            enabled: row.enabled,
+            token: '',
+          })
+        }}
+        onRemove={setRemoving}
+      />
 
       <Dialog
         open={draft !== null}
@@ -349,7 +377,9 @@ export function RepositoriesSection({
                     value={draft.kind}
                     disabled={draft.id !== null}
                     onChange={(e) => {
-                      const kind = e.target.value as RepositoryKind
+                      if (!isRepositoryKind(e.target.value)) return
+                      const kind = e.target.value
+
                       setDraft({
                         ...draft,
                         kind,
@@ -455,6 +485,7 @@ export function RepositoriesSection({
         </DialogContent>
       </Dialog>
 
+      {/* react-doctor-disable-next-line react-doctor/duplicate-jsx-subtree -- A removal confirmation is the shared dialog primitives in their standard order; the copy, the mutation and the cache ownership are this section's. */}
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(o) => (o ? null : setRemoving(null))}

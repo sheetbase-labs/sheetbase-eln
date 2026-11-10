@@ -13,12 +13,13 @@ import { Route } from './help'
  */
 describe('/help route (WORK-02.4)', () => {
   it('redirects to sign-in when unauthenticated', async () => {
-    await expect(
-      Route.options.beforeLoad?.({
-        context: { auth: null },
-        location: { href: '/help?topic=signing' },
-      } as never),
-    ).rejects.toMatchObject({
+    // SAFETY: help.tsx's beforeLoad reads only `context.auth` and `location`; this harness supplies both and the router supplies the rest of its argument in production.
+    const args = {
+      context: { auth: null },
+      location: { href: '/help?topic=signing' },
+    } as never
+
+    await expect(Route.options.beforeLoad?.(args)).rejects.toMatchObject({
       options: { to: '/sign-in', search: { next: '/help?topic=signing' } },
     })
   })
@@ -29,9 +30,12 @@ describe('/help route (WORK-02.4)', () => {
       user: { name: 'Gareth P.', email: 'gareth.p@design.sheetbase.dev' },
     }
 
-    await expect(
-      Route.options.beforeLoad?.({ context: { auth } } as never),
-    ).resolves.toEqual({ context: auth })
+    // SAFETY: help.tsx's beforeLoad reads only `context.auth`; this harness supplies it and the router supplies the rest of its argument in production.
+    const args = { context: { auth } } as never
+
+    await expect(Route.options.beforeLoad?.(args)).resolves.toEqual({
+      context: auth,
+    })
   })
 })
 

@@ -7,14 +7,45 @@
  */
 import {
   addParent,
+  asRole,
   createRegistryEntry,
   fetchRegistryModels,
   findDuplicates,
   isDuplicateError,
 } from '#/lib/bio-registry'
-import type { ParentRole } from '#/lib/bio-registry'
 import type { HostCapabilityName } from '#/lib/extensions/host-capabilities'
+import type { NotebookBlock } from '#/lib/notebook-data'
 import { notebookDataClient } from '#/lib/notebook-data'
+import type { JsonObject } from '#/lib/workspace-admin'
+import { z } from 'zod'
+
+/** A plugin's message arguments: the object it handed the frame, unread. */
+const hostInputSchema = z.record(z.string(), z.unknown())
+
+type HostInput = z.infer<typeof hostInputSchema>
+
+/** A stored block payload: the JSON object the block type owns. */
+type BlockPayload = NotebookBlock['payload']
+
+/** One stored JSON object, as a plugin's arguments arrive. */
+const storedObject = z.record(z.string(), z.json())
+
+/** A required, non-empty text argument. */
+const requiredText = z.string().min(1)
+
+/** The words a request needs, or the sentence saying which one is missing. */
+function textOf(input: HostInput, key: string, what: string): string {
+  const parsed = requiredText.safeParse(input[key])
+
+  if (!parsed.success) throw new HostRequestError(`${what} is needed.`)
+
+  return parsed.data
+}
+
+/** A stored object argument, or none when the plugin did not send one. */
+function objectOf(input: HostInput, key: string): JsonObject {
+  return storedObject.safeParse(input[key]).data ?? {}
+}
 
 export class HostRequestError extends Error {
   code?: string
@@ -28,17 +59,7 @@ export interface HostEnvironment {
   /** The record the screen is on, when it is on one. */
   recordId: string | null
   /** Put a block in the notebook below this one. Not offered where nothing is being edited. */
-  insertBelow?: (type: string, payload: Record<string, unknown>) => void
-}
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
-
-const text = (v: unknown, what: string): string => {
-  if (typeof v !== 'string' || v.length === 0)
-    throw new HostRequestError(`${what} is needed.`)
-
-  return v
+  insertBelow?: (type: string, payload: BlockPayload) => void
 }
 
 const ID_RE = /^[0-9a-f-]{36}$/i
@@ -67,10 +88,10 @@ async function projectOf(recordId: string): Promise<string> {
 /** One-line description of a change, for the question the person is asked. */
 export function describeHostChange(
   name: HostCapabilityName,
-  input: Record<string, unknown>,
+  input: HostInput,
 ): string {
   if (name === 'registry.create')
-    return `Add “${typeof input.title === 'string' ? input.title : ''}” to the ${typeof input.model === 'string' ? input.model : ''} registry.`
+    return `Add “${requiredText.safeParse(input.title).data ?? ''}” to the ${requiredText.safeParse(input.model).data ?? ''} registry.`
 
   if (name === 'blocks.insertBelow') return 'Add a block below this one.'
 
@@ -79,16 +100,19 @@ export function describeHostChange(
 
 export async function runHostRequest(
   name: HostCapabilityName,
-  input: Record<string, unknown>,
+  input: HostInput,
   env: HostEnvironment,
+  // oxlint-disable-next-line anti-slop/no-unknown-returns -- A host request answers with the plugin's own JSON result, which the frame posts back unchanged; the capability, not this file, owns that shape.
 ): Promise<unknown> {
   switch (name) {
     case 'blocks.list': {
       const recordId = needRecord(env)
 
+      const requestedType = requiredText.safeParse(input.type).data
+
       const type =
-        typeof input.type === 'string' && KEY_RE.test(input.type)
-          ? `&type=eq.${input.type}`
+        requestedType && KEY_RE.test(requestedType)
+          ? `&type=eq.${requestedType}`
           : ''
 
       const rows = await notebookDataClient.list<{
@@ -106,14 +130,16 @@ export async function runHostRequest(
     case 'blocks.insertBelow': {
       if (!env.insertBelow)
         throw new HostRequestError('Nothing is being edited here.')
-      const type = text(input.type, 'A block type')
+      const type = textOf(input, 'type', 'A block type')
 
       if (!KEY_RE.test(type))
         throw new HostRequestError('That is not a block type.')
 
-      if (!isRecord(input.payload))
+      const payload = storedObject.safeParse(input.payload)
+
+      if (!payload.success)
         throw new HostRequestError('The block needs a payload.')
-      env.insertBelow(type, input.payload)
+      env.insertBelow(type, payload.data)
 
       return { ok: true }
     }
@@ -160,7 +186,7 @@ export async function runHostRequest(
     }
 
     case 'files.read': {
-      const id = text(input.fileRecordId, 'A file')
+      const id = textOf(input, 'fileRecordId', 'A file')
 
       if (!ID_RE.test(id)) throw new HostRequestError('That is not a file.')
       const res = await fetch(`/api/files/${id}/download`)
@@ -186,33 +212,31 @@ export async function runHostRequest(
     case 'registry.models':
       return fetchRegistryModels(notebookDataClient)
     case 'registry.findDuplicates': {
-      const model = text(input.model, 'A registry')
+      const model = textOf(input, 'model', 'A registry')
 
       if (!KEY_RE.test(model))
         throw new HostRequestError('That is not a registry.')
 
       return findDuplicates(notebookDataClient, {
         kind: model,
-        title: typeof input.title === 'string' ? input.title : '',
-        customFields: isRecord(input.customFields) ? input.customFields : {},
+        title: requiredText.safeParse(input.title).data ?? '',
+        customFields: objectOf(input, 'customFields'),
       })
     }
 
     case 'registry.create': {
       const recordId = needRecord(env)
-      const model = text(input.model, 'A registry')
+      const model = textOf(input, 'model', 'A registry')
 
       if (!KEY_RE.test(model))
         throw new HostRequestError('That is not a registry.')
-      const title = text(input.title, 'A name')
+      const title = textOf(input, 'title', 'A name')
 
-      const customFields = isRecord(input.customFields)
-        ? input.customFields
-        : {}
+      const customFields = objectOf(input, 'customFields')
 
       const projectId = await projectOf(recordId)
 
-      const make = (fields: Record<string, unknown>) =>
+      const make = (fields: JsonObject) =>
         createRegistryEntry<{ id: string; identifier: string; title: string }>(
           notebookDataClient,
           {
@@ -236,23 +260,27 @@ export async function runHostRequest(
           )
 
         // A registry without some of the fields: try the ones it must have.
-        if (!isRecord(input.fallbackCustomFields)) throw error
-        entry = await make(input.fallbackCustomFields)
+        const fallback = storedObject.safeParse(input.fallbackCustomFields)
+
+        if (!fallback.success) throw error
+        entry = await make(fallback.data)
       }
 
-      const parents = Array.isArray(input.parents) ? input.parents : []
+      const parents = z.array(z.unknown()).safeParse(input.parents).data ?? []
 
       for (const parent of parents) {
-        if (!isRecord(parent) || typeof parent.recordId !== 'string') continue
+        const link = z
+          .looseObject({ recordId: z.string(), role: z.string().optional() })
+          .safeParse(parent)
 
-        if (!ID_RE.test(parent.recordId)) continue
+        if (!link.success || !ID_RE.test(link.data.recordId)) continue
+
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Parent links are written in the order the plugin sent them, and a refused link stops the rest rather than racing them.
         await addParent(
           notebookDataClient,
           entry.id,
-          parent.recordId,
-          (typeof parent.role === 'string'
-            ? parent.role
-            : 'insert') as ParentRole,
+          link.data.recordId,
+          asRole(link.data.role ?? 'insert'),
         )
       }
 

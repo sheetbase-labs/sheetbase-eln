@@ -26,7 +26,13 @@ function node(
     depth,
     direction,
     subtype: identifier === 'SMP-1002' ? 'Cell bank' : null,
-  } as LineageNode
+    accessible: true,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+    createdByUserId: null,
+    archivedAt: null,
+    deletedAt: null,
+  }
 }
 
 function edge(source: string, target: string, relation: string): LineageEdge {
@@ -36,7 +42,14 @@ function edge(source: string, target: string, relation: string): LineageEdge {
     targetId: target,
     relationLabel: relation,
     label: 'uses',
-  } as LineageEdge
+    sourceRecordId: null,
+    targetRecordId: null,
+    relationshipType: relation,
+    direction: 'upstream',
+    targetKind: null,
+    targetIdentifier: null,
+    createdAt: '2026-01-01T00:00:00Z',
+  }
 }
 
 const filtrates = Array.from({ length: 8 }, (_, i) =>
@@ -69,7 +82,10 @@ const graph: LineageGraph = {
     edge('SMP-2231', 'SMP-2250', 'Aliquot of this lot'),
     edge('EXP-0142', 'SMP-2231', 'defined by'),
   ],
-} as unknown as LineageGraph
+  events: [],
+  seedRecordId: 'SMP-2231',
+  truncated: false,
+}
 
 describe('sampleLineageRows', () => {
   const rows = sampleLineageRows(graph, 'SMP-2231')

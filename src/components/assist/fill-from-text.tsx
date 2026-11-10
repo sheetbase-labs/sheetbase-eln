@@ -195,6 +195,7 @@ export function FillFromText({
 const FILLABLE_TYPES = new Set(['text', 'integer', 'decimal', 'date'])
 
 /** The added fields of a create form that a pasted text can fill. */
+// react-doctor-disable-next-line react-doctor/only-export-components -- The materials and samples routes and the FillFromText story import this pure field mapping from here; moving it would change those three call sites, and it holds no component state.
 export function addedFillFields(
   fields: readonly {
     fieldName: string
@@ -202,16 +203,20 @@ export function addedFillFields(
     logicalType: string
   }[],
 ): FillField[] {
-  return fields
-    .filter((field) => FILLABLE_TYPES.has(field.logicalType))
-    .map((field) => ({
-      key: `field:${field.fieldName}`,
-      label: field.label,
-      hint:
-        field.logicalType === 'date'
-          ? t('library.fill.hintDate')
-          : field.logicalType === 'text'
-            ? undefined
-            : t('library.fill.hintNumber'),
-    }))
+  return fields.flatMap((field) =>
+    FILLABLE_TYPES.has(field.logicalType)
+      ? [
+          {
+            key: `field:${field.fieldName}`,
+            label: field.label,
+            hint:
+              field.logicalType === 'date'
+                ? t('library.fill.hintDate')
+                : field.logicalType === 'text'
+                  ? undefined
+                  : t('library.fill.hintNumber'),
+          },
+        ]
+      : [],
+  )
 }

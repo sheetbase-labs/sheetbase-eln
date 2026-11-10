@@ -1,9 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import type { DataClient } from '#/lib/data-client'
-
 import { PromoteRejected } from '#/components/sheet/promote-rejected'
 import type { ColumnPromotion } from '#/lib/schema-evolution'
+import { stubDataClient } from './screen-stories'
 
 /**
  * The returned-promotion banner. It reads the instance's promotions and
@@ -43,7 +42,7 @@ function client(rows: ColumnPromotion[]) {
   return instance
 }
 
-const stubClient = {} as DataClient
+const stubClient = stubDataClient()
 
 const meta = {
   title: 'Sheet/Promote rejected',

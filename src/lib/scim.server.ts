@@ -5,6 +5,7 @@
  * (`internal.scim_*`, migration 0106); this file speaks the protocol.
  */
 import { createHash } from 'node:crypto'
+import { z } from 'zod'
 
 import { PooledClient } from '#/db/pool.server'
 import { env } from '#/env.server'
@@ -71,10 +72,15 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 const MAX_BODY = 1024 * 1024
 
+/** A database call's error code, when it carries one. */
+const DATABASE_ERROR = z.object({ code: z.string() })
+
 /** The calls the database raises with codes the protocol has words for. */
-function fromDatabase(error: unknown): never {
+function fromDatabase<Thrown>(error: Thrown): never {
   if (error instanceof ScimError) throw error
-  const code = (error as { code?: string } | null)?.code
+
+  const raised = DATABASE_ERROR.safeParse(error)
+  const code = raised.success ? raised.data.code : undefined
   const message = error instanceof Error ? error.message : 'Request failed.'
 
   if (code === '23505') throw new ScimError(409, 'uniqueness', message)
@@ -116,6 +122,8 @@ async function one<T>(sql: string, values: unknown[]): Promise<T | null> {
   return withDatabase(async (query) => {
     const { rows } = await query(sql, values)
 
+    // SAFETY: the query selects `to_jsonb`-built `doc`, which is the SCIM
+    // document the caller's T describes (a user or a group).
     return (rows[0]?.doc ?? null) as T | null
   })
 }
@@ -123,18 +131,16 @@ async function one<T>(sql: string, values: unknown[]): Promise<T | null> {
 export const databaseScimStore: ScimStore = {
   async authenticate(secretHash) {
     return withDatabase(async (query) => {
-      const { rows } = await query(
+      const { rows } = await query<{
+        token_id: string
+        workspace_id: string
+        actor_user_id: string | null
+      }>(
         'SELECT token_id, workspace_id, actor_user_id FROM internal.scim_authenticate($1)',
         [secretHash],
       )
 
-      const row = rows[0] as
-        | {
-            token_id: string
-            workspace_id: string
-            actor_user_id: string | null
-          }
-        | undefined
+      const row = rows.at(0)
 
       return row
         ? {
@@ -236,7 +242,11 @@ const defaults = (): ScimDeps => ({
 const callLimit = createRateLimiter({ maxRequests: 600, windowSeconds: 60 })
 const failedLimit = createRateLimiter({ maxRequests: 30, windowSeconds: 60 })
 
-function reply(body: unknown, status = 200, headers: HeadersInit = {}) {
+function reply<Body>(
+  body: Body,
+  status = 200,
+  headers: Record<string, string> = {},
+) {
   return new Response(status === 204 ? null : JSON.stringify(body), {
     status,
     headers: {
@@ -247,11 +257,11 @@ function reply(body: unknown, status = 200, headers: HeadersInit = {}) {
   })
 }
 
-function failure(error: ScimError, headers: HeadersInit = {}) {
+function failure(error: ScimError, headers: Record<string, string> = {}) {
   return reply(errorBody(error), error.status, headers)
 }
 
-async function readBody(request: Request): Promise<unknown> {
+async function readBody(request: Request): Promise<z.core.util.JSONType> {
   const reader = request.body?.getReader()
 
   if (!reader) return {}

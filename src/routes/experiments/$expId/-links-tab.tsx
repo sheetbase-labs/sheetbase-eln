@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { z } from 'zod'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -126,6 +127,7 @@ export function LinkSamplesAction({ expId }: { expId: string }) {
       items: { id: string; identifier: string }[],
     ): Promise<number> => {
       for (const item of items) {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Links are written one at a time so the first refusal stops the rest and a partial count is never reported.
         await linkExperimentToSample(notebookDataClient, expId, {
           identifier: item.identifier,
           recordId: item.id,
@@ -144,7 +146,7 @@ export function LinkSamplesAction({ expId }: { expId: string }) {
           : t('projects.expLinks.linkedMany', { count }),
       )
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast(t('projects.expLinks.linkFailed'), {
         description:
           error instanceof Error
@@ -175,29 +177,37 @@ export function LinkSamplesAction({ expId }: { expId: string }) {
   )
 }
 
+/** A record property as the list projection returns it: a stored JSON scalar. */
+type PropertyScalar = string | number | boolean | null
+
 interface LinkedSampleWire {
   id: string
   identifier: string
   title: string
   status: string
   created_at: string
-  properties: Record<string, unknown> | null
+  properties: Record<string, PropertyScalar> | null
 }
 
-function propertyText(sample: LinkedSampleWire, key: string): string {
-  const value = sample.properties?.[key]
+/** A property shown as text: numbers as written, anything else as a dash. */
+const textProperty = z.union([z.string(), z.number()])
 
-  return typeof value === 'string' || typeof value === 'number'
-    ? String(value)
-    : '—'
+function propertyText(sample: LinkedSampleWire, key: string): string {
+  const value = textProperty.safeParse(sample.properties?.[key])
+
+  return value.success ? String(value.data) : '—'
 }
 
 /** The samples this experiment uses, as a table of what each one is, where it
  * sits and what state it is in. */
 function LinkedSamplesTable({ rows }: { rows: RecordLinkWire[] }) {
   const ids = [
-    ...new Set(rows.map((l) => l.target_record_id).filter(Boolean)),
-  ] as string[]
+    ...new Set(
+      rows.flatMap((link) =>
+        link.target_record_id ? [link.target_record_id] : [],
+      ),
+    ),
+  ]
 
   const samples = useQuery({
     queryKey: ['ui-port', 'experiment-samples', ids],

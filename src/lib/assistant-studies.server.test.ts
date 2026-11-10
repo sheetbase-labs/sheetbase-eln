@@ -51,17 +51,36 @@ const DESIGN = {
   metadata_version: 2,
 }
 
+/** A wire row these cards read: a flat fixture of the fields a card uses. */
+type StudyRow = { [field: string]: string | number | boolean | null }
+
+/** The fixture rows each list resource answers with. */
+interface StudyRows {
+  [resource: string]: StudyRow[]
+}
+
+/** The client methods these cards call; no other DataClient member is reached. */
+interface StubClientMethods {
+  list: (resource: string, query?: string) => Promise<StudyRow[]>
+}
+
+function stubClient(methods: StubClientMethods): DataClient {
+  // SAFETY: every card here reads its rows through `list`, which this double
+  // supplies; no other DataClient member is reached.
+  return methods as DataClient
+}
+
 function context(): LabToolContext {
-  const rows: Record<string, unknown[]> = {
+  const rows: StudyRows = {
     study_tasks: [TASK],
     projects: [PROJECT],
     report_definitions: [REPORT],
     plate_designs: [DESIGN],
   }
 
-  const client = {
+  const client = stubClient({
     list: (resource: string) => Promise.resolve(rows[resource] ?? []),
-  } as unknown as DataClient
+  })
 
   return { client, workspaceId: 'ws-1', userId: 'u', timeZone: 'UTC' }
 }
@@ -202,7 +221,7 @@ describe('planning and reporting assistant cards', () => {
       { ...base, report: 'nothing' },
       {
         ...context(),
-        client: { list: () => Promise.resolve([]) } as unknown as DataClient,
+        client: stubClient({ list: () => Promise.resolve([]) }),
       },
     )
 

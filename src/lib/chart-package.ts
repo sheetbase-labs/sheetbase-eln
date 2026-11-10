@@ -28,7 +28,9 @@ import type {
   FigurePoint,
 } from '@sheetbase-labs/sheetbase-explorer'
 
-import { CHART_TYPE_LABELS } from './chart-spec'
+import { z } from 'zod'
+
+import { CHART_TYPES, CHART_TYPE_LABELS } from './chart-spec'
 import type {
   AxisScale,
   ChartSpec,
@@ -79,14 +81,15 @@ const VIOLIN: Partial<Record<ChartType, true>> = { violin: true }
  * `box`, `histogram`, `violin` and `heatmap` map to the package's box, bin,
  * density and heatmap primitives.
  */
-export const PACKAGE_FIGURE_TYPES: readonly ChartType[] = [
-  ...Object.keys(POINT_LINE),
-  ...Object.keys(BAR),
-  ...Object.keys(BOX),
-  ...Object.keys(HISTOGRAM),
-  ...Object.keys(VIOLIN),
-  ...Object.keys(HEATMAP),
-] as ChartType[]
+export const PACKAGE_FIGURE_TYPES: readonly ChartType[] = CHART_TYPES.filter(
+  (type) =>
+    POINT_LINE[type] === true ||
+    BAR[type] === true ||
+    BOX[type] === true ||
+    HISTOGRAM[type] === true ||
+    VIOLIN[type] === true ||
+    HEATMAP[type] === true,
+)
 
 /**
  * Chart types the package's v3 figure genuinely has no primitive for. Empty at
@@ -136,18 +139,36 @@ export function packageBarLayout(
   return 'grouped'
 }
 
-function numeric(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+/** The three cell shapes a numeric cell may arrive as. */
+const NUMBER_CELL = z.number()
+const TEXT_CELL = z.string()
+const FLAG_CELL = z.boolean()
+const SERIES_TEXT = z.coerce.string()
 
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value)
+/** A cell's number, or null when it holds none (numeric text counts). */
+function numeric<Cell>(cell: Cell): number | null {
+  const number = NUMBER_CELL.safeParse(cell)
+
+  if (number.success) return Number.isFinite(number.data) ? number.data : null
+
+  const text = TEXT_CELL.safeParse(cell)
+
+  if (text.success && text.data.trim() !== '') {
+    const parsed = Number(text.data)
 
     return Number.isFinite(parsed) ? parsed : null
   }
 
-  if (typeof value === 'boolean') return value ? 1 : 0
+  const flag = FLAG_CELL.safeParse(cell)
+
+  if (flag.success) return flag.data ? 1 : 0
 
   return null
+}
+
+/** A series key as its label text; an absent key reads as the em dash. */
+function seriesLabel<Value>(value: Value): string {
+  return value === undefined || value === null ? '—' : SERIES_TEXT.parse(value)
 }
 
 function columnMeta(
@@ -198,7 +219,7 @@ function buildSeriesDataset(
   materialised: MaterialisedChart,
 ): PackageDataset {
   const dedupe = BAR[spec.type] === true
-  const rows: Record<string, unknown>[] = []
+  const rows: Record<string, z.core.util.JSONType>[] = []
   const seen = new Set<string>()
 
   for (const series of materialised.series) {
@@ -260,7 +281,7 @@ function buildBoxDataset(
     const value = numeric(row[yFieldId])
 
     if (value === null) continue
-    const key = seriesFieldId ? String(row[seriesFieldId] ?? '—') : 'all'
+    const key = seriesFieldId ? seriesLabel(row[seriesFieldId]) : 'all'
     const values = valuesByKey.get(key)
 
     if (values) values.push(value)
@@ -269,7 +290,7 @@ function buildBoxDataset(
 
   // Iterate the materialised series so the boxes keep the ELN's series order
   // and labels; the category bands then follow first appearance.
-  const rows: Record<string, unknown>[] = []
+  const rows: Record<string, z.core.util.JSONType>[] = []
 
   for (const series of materialised.series) {
     for (const value of valuesByKey.get(series.identifier) ?? []) {
@@ -305,7 +326,7 @@ function buildHistogramDataset(
 ): PackageDataset {
   const yFieldId = spec.fields.y.fieldId
   const seriesFieldId = spec.fields.series?.fieldId ?? null
-  const rows: Record<string, unknown>[] = []
+  const rows: Record<string, z.core.util.JSONType>[] = []
 
   for (const row of materialised.rows) {
     const value = numeric(row[yFieldId])
@@ -314,7 +335,7 @@ function buildHistogramDataset(
     rows.push({
       [PACKAGE_X_COLUMN]: value,
       [PACKAGE_SERIES_COLUMN]: seriesFieldId
-        ? String(row[seriesFieldId] ?? '—')
+        ? seriesLabel(row[seriesFieldId])
         : 'all',
     })
   }
@@ -351,13 +372,13 @@ function buildViolinDataset(
     materialised.series.map((s) => [s.identifier, s.label]),
   )
 
-  const rows: Record<string, unknown>[] = []
+  const rows: Record<string, z.core.util.JSONType>[] = []
 
   for (const row of materialised.rows) {
     const value = numeric(row[yFieldId])
 
     if (value === null) continue
-    const key = seriesFieldId ? String(row[seriesFieldId] ?? '—') : 'all'
+    const key = seriesFieldId ? seriesLabel(row[seriesFieldId]) : 'all'
     rows.push({
       [PACKAGE_CATEGORY_COLUMN]: labelByIdentifier.get(key) ?? key,
       [PACKAGE_Y_COLUMN]: value,
@@ -391,7 +412,7 @@ function buildViolinDataset(
 
 function buildHeatmapDataset(materialised: MaterialisedChart): PackageDataset {
   const heatmap = materialised.heatmap
-  const rows: Record<string, unknown>[] = []
+  const rows: Record<string, z.core.util.JSONType>[] = []
 
   if (heatmap) {
     const yLabels = heatmap.yLabels ?? ['']
@@ -567,12 +588,11 @@ export function buildPackageFigure(
   if (dataset.rows.length === 0) return null
   const pointLine = POINT_LINE[spec.type] === true
 
-  const packageSpec: PackageChartSpec = {
-    ...buildPackageChartSpec(spec, materialised),
-    // Build point/line types with `line` so every series carries polyline
-    // geometry; the per-series render semantics below drop or keep it.
-    ...(pointLine ? { kind: 'line' as const } : {}),
-  }
+  const packageSpec = buildPackageChartSpec(spec, materialised)
+
+  // Build point/line types with `line` so every series carries polyline
+  // geometry; the per-series render semantics below drop or keep it.
+  if (pointLine) packageSpec.kind = 'line'
 
   const figure = buildFigure(dataset, packageSpec, {
     width: options.width ?? FIGURE_LAYOUT.width,

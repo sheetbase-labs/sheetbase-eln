@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import { logger, redact } from './logger'
 
@@ -72,7 +73,7 @@ describe('logger', () => {
     logger.info('hello', { request_id: 'r1' })
     expect(warnSpy).not.toHaveBeenCalled()
     expect(errorSpy).not.toHaveBeenCalled()
-    const line = stdoutSpy.mock.calls[0]![0] as string
+    const line = z.string().parse(stdoutSpy.mock.calls[0]?.[0])
     const record = JSON.parse(line)
     expect(record.level).toBe('info')
     expect(record.message).toBe('hello')
@@ -90,7 +91,7 @@ describe('logger', () => {
 
   it('redacts sensitive fields before logging', () => {
     logger.info('req', { authorization: 'Bearer secret', body: 'data' })
-    const record = JSON.parse(stdoutSpy.mock.calls[0]![0] as string)
+    const record = JSON.parse(z.string().parse(stdoutSpy.mock.calls[0]?.[0]))
     expect(record.authorization).toBe('[redacted]')
     expect(record.body).toBe('data')
   })

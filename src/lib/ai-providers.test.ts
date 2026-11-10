@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
   AnthropicProvider,
@@ -45,12 +46,55 @@ const localProfile: ProviderProfile = {
   },
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Fixture JSON is written inline per test; JSON.stringify is the encoder, not a domain decode.
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json' },
   })
 }
+
+/** One request the provider made, as the transport actually received it. */
+interface RecordedRequest {
+  url: string
+  headers: Headers
+  body: string
+}
+
+/** A real `fetch` and the requests it received. */
+interface RecordingFetch {
+  fetchImpl: typeof fetch
+  requests: RecordedRequest[]
+}
+
+/**
+ * A real `fetch` that answers with the given response and records every
+ * request, so the tests read what the provider sent rather than a mock's
+ * argument list.
+ */
+function recordingFetch(respond: () => Response): RecordingFetch {
+  const requests: RecordedRequest[] = []
+
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const request = new Request(input, init)
+
+    requests.push({
+      url: request.url,
+      headers: request.headers,
+      body: await request.text(),
+    })
+
+    return respond()
+  }
+
+  return { fetchImpl, requests }
+}
+
+/** The JSON body a provider posted, for the assertions below. */
+const sentBody = z.object({
+  model: z.string(),
+  usage: z.object({ include: z.boolean() }).optional(),
+})
 
 describe('provider profiles', () => {
   it('accepts the documented array and object forms', () => {
@@ -216,15 +260,13 @@ describe('Anthropic request', () => {
 
 describe('provider transports', () => {
   it('sends the OpenRouter request to the right URL with the key and usage flag', async () => {
-    const fetchMock = vi.fn(async () =>
+    const { fetchImpl, requests } = recordingFetch(() =>
       jsonResponse({
         model: 'anthropic/claude-sonnet-4.5',
         choices: [{ message: { content: 'Answer.' } }],
         usage: { prompt_tokens: 3, completion_tokens: 4 },
       }),
     )
-
-    const fetchImpl = fetchMock as unknown as typeof fetch
 
     const provider = new OpenAiCompatibleProvider(
       { ...profile, apiKey: 'test-key-not-real' },
@@ -238,31 +280,27 @@ describe('provider transports', () => {
     })
 
     expect(result.text).toBe('Answer.')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(requests).toHaveLength(1)
 
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [
-      string,
-      RequestInit,
-    ]
+    const [request] = requests
 
-    expect(url).toBe('https://openrouter.ai/api/v1/chat/completions')
-    const headers = new Headers(init.headers)
-    expect(headers.get('authorization')).toBe('Bearer test-key-not-real')
-    expect(headers.get('x-title')).toBe('Sheetbase ELN')
-    const body = JSON.parse(String(init.body)) as Record<string, unknown>
+    expect(request.url).toBe('https://openrouter.ai/api/v1/chat/completions')
+    expect(request.headers.get('authorization')).toBe(
+      'Bearer test-key-not-real',
+    )
+    expect(request.headers.get('x-title')).toBe('Sheetbase ELN')
+    const body = sentBody.parse(JSON.parse(request.body))
     expect(body.usage).toEqual({ include: true })
     expect(body.model).toBe('anthropic/claude-sonnet-4.5')
   })
 
   it('sends the Anthropic key in x-api-key, never in the URL', async () => {
-    const fetchMock = vi.fn(async () =>
+    const { fetchImpl, requests } = recordingFetch(() =>
       jsonResponse({
         content: [{ type: 'text', text: 'Answer.' }],
         usage: { input_tokens: 3, output_tokens: 4 },
       }),
     )
-
-    const fetchImpl = fetchMock as unknown as typeof fetch
 
     const provider = new AnthropicProvider(
       {
@@ -281,20 +319,17 @@ describe('provider transports', () => {
       citationIds: [],
     })
 
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [
-      string,
-      RequestInit,
-    ]
+    const [request] = requests
 
-    expect(url).toBe('https://api.anthropic.com/v1/messages')
-    expect(new Headers(init.headers).get('x-api-key')).toBe('test-key-not-real')
+    expect(request.url).toBe('https://api.anthropic.com/v1/messages')
+    expect(request.headers.get('x-api-key')).toBe('test-key-not-real')
   })
 
   it('turns a non-2xx response into an HTTP error without reading the body', async () => {
     const cancel = vi.fn()
 
-    const fetchImpl = vi.fn(
-      async () =>
+    const { fetchImpl } = recordingFetch(
+      () =>
         new Response(
           new ReadableStream({
             start(controller) {
@@ -304,7 +339,7 @@ describe('provider transports', () => {
           }),
           { status: 429 },
         ),
-    ) as unknown as typeof fetch
+    )
 
     const provider = new OpenAiCompatibleProvider(
       { ...profile, apiKey: 'test-key-not-real' },
@@ -317,9 +352,9 @@ describe('provider transports', () => {
   })
 
   it('rejects a malformed JSON body', async () => {
-    const fetchImpl = vi.fn(
-      async () => new Response('not-json', { status: 200 }),
-    ) as unknown as typeof fetch
+    const { fetchImpl } = recordingFetch(
+      () => new Response('not-json', { status: 200 }),
+    )
 
     const provider = new OpenAiCompatibleProvider(
       { ...profile, apiKey: 'test-key-not-real' },
@@ -332,14 +367,13 @@ describe('provider transports', () => {
   })
 
   it('allows a local provider with no key', async () => {
-    const fetchMock = vi.fn(async () =>
+    const { fetchImpl, requests } = recordingFetch(() =>
       jsonResponse({
         choices: [{ message: { content: 'Local answer.' } }],
         usage: { prompt_tokens: 3, completion_tokens: 4 },
       }),
     )
 
-    const fetchImpl = fetchMock as unknown as typeof fetch
     const provider = new OpenAiCompatibleProvider(localProfile, { fetchImpl })
 
     const result = await provider.complete({
@@ -349,8 +383,8 @@ describe('provider transports', () => {
     })
 
     expect(result.text).toBe('Local answer.')
-    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
-    expect(new Headers(init.headers).get('authorization')).toBeNull()
+    const [request] = requests
+    expect(request.headers.get('authorization')).toBeNull()
   })
 })
 
@@ -392,8 +426,8 @@ describe('OpenAI-compatible streaming and history', () => {
       'data: [DONE]\n\n',
     ]
 
-    const fetchImpl = vi.fn(
-      async () =>
+    const { fetchImpl } = recordingFetch(
+      () =>
         new Response(
           new ReadableStream({
             start(controller) {
@@ -406,7 +440,7 @@ describe('OpenAI-compatible streaming and history', () => {
           }),
           { status: 200, headers: { 'content-type': 'text/event-stream' } },
         ),
-    ) as unknown as typeof fetch
+    )
 
     const provider = new OpenAiCompatibleProvider(resolved, { fetchImpl })
     const chunks = []
@@ -433,9 +467,9 @@ describe('OpenAI-compatible streaming and history', () => {
   })
 
   it('turns an error status into a typed error without reading the body', async () => {
-    const fetchImpl = vi.fn(
-      async () => new Response('secret prompt echo', { status: 429 }),
-    ) as unknown as typeof fetch
+    const { fetchImpl } = recordingFetch(
+      () => new Response('secret prompt echo', { status: 429 }),
+    )
 
     const provider = new OpenAiCompatibleProvider(resolved, { fetchImpl })
 
@@ -501,8 +535,8 @@ describe('OpenAI-compatible tool calls', () => {
       'data: [DONE]\n\n',
     ]
 
-    const fetchImpl = vi.fn(
-      async () =>
+    const { fetchImpl } = recordingFetch(
+      () =>
         new Response(
           new ReadableStream({
             start(controller) {
@@ -513,7 +547,7 @@ describe('OpenAI-compatible tool calls', () => {
           }),
           { status: 200 },
         ),
-    ) as unknown as typeof fetch
+    )
 
     const provider = new OpenAiCompatibleProvider(resolved, { fetchImpl })
     const chunks = []

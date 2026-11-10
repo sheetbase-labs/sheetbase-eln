@@ -3,6 +3,7 @@ import { formatInstant } from '#/lib/display-time-zone'
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
@@ -67,14 +68,15 @@ import { t } from '#/copy'
  * stored definitions, the signature list, and the stale-publish refusal. With
  * `?state=denied` the screen is view-only.
  */
+/** The Versions tab's search: which version and comparison it opens. */
+const versionsSearch = z.object({
+  v: z.string().optional().catch(undefined),
+  compare: z.string().optional().catch(undefined),
+  state: z.literal('denied').optional().catch(undefined),
+})
+
 export const Route = createFileRoute('/templates/$templateId/versions')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { v?: string; compare?: string; state?: 'denied' } => ({
-    v: typeof search.v === 'string' ? search.v : undefined,
-    compare: typeof search.compare === 'string' ? search.compare : undefined,
-    state: search.state === 'denied' ? 'denied' : undefined,
-  }),
+  validateSearch: (search) => versionsSearch.parse(search),
   component: TemplateVersions,
 })
 
@@ -92,6 +94,7 @@ const TAG_TONE: Record<TemplateChangeSetEntry['tag'], Tone> = {
 
 /** The server refuses a publish when the draft revision moved (SB001); the
  * screen must show that refusal as a reload, not as a generic failure. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught publish/retire failure is untyped by definition; the DataClient error code and the message are both checked here.
 function isStaleRevisionError(error: unknown): boolean {
   if (error instanceof DataClientError && error.code === 'SB001') return true
 
@@ -790,11 +793,12 @@ function GovernanceDialog({
   version: NotebookTemplateVersion
   onClose: () => void
   onDone: () => void
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The refusal the screen reports comes from a caught throw, so it reaches this callback untyped.
   onStale: (version: NotebookTemplateVersion, error: unknown) => void
 }) {
   const [reason, setReason] = useState('')
 
-  const [meaning, setMeaning] = useState(
+  const [meaning, setMeaning] = useState(() =>
     t('library.templates.versions.retiredNoLongerForNew'),
   )
 
@@ -943,6 +947,7 @@ function GovernanceDialog({
   )
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A failed template action is a caught throw; its own message selects the words the screen shows.
 function errorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
 

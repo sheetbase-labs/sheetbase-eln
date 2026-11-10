@@ -106,10 +106,10 @@ const SIGNATURES: SignatureWire[] = [
   },
 ]
 
-const NAMES: Record<string, string> = {
-  'user-1': 'Dana Whitfield',
-  'user-2': 'Tom Ellis',
-}
+const NAMES = new Map([
+  ['user-1', 'Dana Whitfield'],
+  ['user-2', 'Tom Ellis'],
+])
 
 const meta = {
   title: 'Experiments/Overview',
@@ -174,7 +174,7 @@ const meta = {
         status: 'draft',
       },
     ],
-    userLabel: (id: string) => NAMES[id] ?? 'Someone',
+    userLabel: (id: string) => NAMES.get(id) ?? 'Someone',
     projectName: 'TB-02 stability',
   },
 } satisfies Meta<typeof ExperimentOverview>

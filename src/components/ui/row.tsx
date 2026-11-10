@@ -1,5 +1,6 @@
 import { Children, createContext, useContext, useState } from 'react'
 import { Link } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { cn } from '#/lib/utils'
 import {
@@ -60,7 +61,7 @@ export type RowProps = Omit<
   'title' | 'children' | 'className' | 'onClick'
 > & {
   /** `data-*` attributes land on the row element (e.g. a test's marker). */
-  [dataAttribute: `data-${string}`]: unknown
+  [dataAttribute: `data-${string}`]: string | number | boolean | undefined
   /** Leading slot: an icon tile, an avatar, a dot, a time. */
   leading?: React.ReactNode
   /** Small label above the title — a record type, a column, a heading. */
@@ -88,6 +89,43 @@ export type RowProps = Omit<
    */
   detail?: string
   className?: string
+}
+
+/** The row's three text slots and its two edge slots, in reading order. */
+function RowBody({
+  leading,
+  eyebrow,
+  title,
+  meta,
+  trailing,
+  scale,
+}: {
+  leading: React.ReactNode
+  eyebrow: React.ReactNode
+  title: React.ReactNode
+  meta: React.ReactNode
+  trailing: React.ReactNode
+  scale: (typeof densities)[RowDensity]
+}) {
+  return (
+    <>
+      {leading ? (
+        <span className="flex shrink-0 items-center">{leading}</span>
+      ) : null}
+      <span className="min-w-0 flex-1">
+        {eyebrow ? (
+          <span className={cn('block truncate', scale.eyebrow)}>{eyebrow}</span>
+        ) : null}
+        <span className={cn('block truncate', scale.title)}>{title}</span>
+        {meta !== undefined && meta !== null ? (
+          <span className={cn('block truncate', scale.meta)}>{meta}</span>
+        ) : null}
+      </span>
+      {trailing ? (
+        <span className="flex shrink-0 items-center gap-1">{trailing}</span>
+      ) : null}
+    </>
+  )
 }
 
 export function Row({
@@ -121,32 +159,31 @@ export function Row({
   )
 
   const body = (
-    <>
-      {leading ? (
-        <span className="flex shrink-0 items-center">{leading}</span>
-      ) : null}
-      <span className="min-w-0 flex-1">
-        {eyebrow ? (
-          <span className={cn('block truncate', scale.eyebrow)}>{eyebrow}</span>
-        ) : null}
-        <span className={cn('block truncate', scale.title)}>{title}</span>
-        {meta !== undefined && meta !== null ? (
-          <span className={cn('block truncate', scale.meta)}>{meta}</span>
-        ) : null}
-      </span>
-      {trailing ? (
-        <span className="flex shrink-0 items-center gap-1">{trailing}</span>
-      ) : null}
-    </>
+    <RowBody
+      leading={leading}
+      eyebrow={eyebrow}
+      title={title}
+      meta={meta}
+      trailing={trailing}
+      scale={scale}
+    />
   )
 
   // A row inside a RowList carries its tooltip on the list item, so the whole
   // item behaves as one row; a row that stands alone carries it itself.
   const tooltip = inList === null ? detail : undefined
 
+  // The new pane takes the row's title when it reads as plain text.
+  const titleAsText = z.string().safeParse(title)
+
+  // SAFETY: Row accepts any in-app path as a plain string and the router
+  // resolves it at runtime; the Link's compile-time route union cannot name a
+  // path a generic row is handed.
+  const destination = to as never
+
   const element = to ? (
     <Link
-      to={to as never}
+      to={destination}
       className={frame}
       title={tooltip}
       {...props}
@@ -155,7 +192,7 @@ export function Row({
           workspace,
           to,
           event,
-          typeof title === 'string' ? title : undefined,
+          titleAsText.success ? titleAsText.data : undefined,
         )
       }
     >

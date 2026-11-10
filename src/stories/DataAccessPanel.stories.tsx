@@ -21,11 +21,18 @@ import { screenQueryClient, screenRoutes } from './screen-stories'
  * snippet in each language. `PaneDataAccess` works the handle out from a pane's
  * address, and `DataAccessButton` is the `{ }` button in a page header.
  */
-const LIST = resolveDataAccessHandle('/experiments') as DataAccessHandle
+/** The handle a page address resolves to; the stories below are app routes. */
+function handleFor(href: string): DataAccessHandle {
+  const handle = resolveDataAccessHandle(href)
 
-const RECORD = resolveDataAccessHandle(
-  '/experiments/EXP-2026-0042',
-) as DataAccessHandle
+  if (!handle) throw new Error(`No data access handle for ${href}`)
+
+  return handle
+}
+
+const LIST = handleFor('/experiments')
+
+const RECORD = handleFor('/experiments/EXP-2026-0042')
 
 const client = screenQueryClient()
 

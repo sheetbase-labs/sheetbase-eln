@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
-import { DataClientError } from '#/lib/data-client'
+import { createDataClient, DataClientError } from '#/lib/data-client'
 import type { CalendarBookingWire } from '#/lib/calendar'
 import type { DataClient } from '#/lib/data-client'
 
@@ -48,12 +49,18 @@ const WIRE: CalendarBookingWire = {
   updated_by_user_id: 'u-1',
 }
 
-function mount(rpc: (...args: unknown[]) => Promise<unknown>, extra = {}) {
+/** A client whose RPC writes are the given mock; the rest of the transport is real. */
+function clientWith(rpc: ReturnType<typeof vi.fn>): DataClient {
+  return Object.assign(createDataClient(), { rpc })
+}
+
+function mount(client: DataClient, extra = {}) {
   const onSaved = vi.fn()
+
   render(
     <EditBookingDialog
       booking={BOOKING}
-      client={{ rpc } as unknown as DataClient}
+      client={client}
       onSaved={onSaved}
       onClose={() => {}}
       {...extra}
@@ -66,7 +73,7 @@ function mount(rpc: (...args: unknown[]) => Promise<unknown>, extra = {}) {
 describe('EditBookingDialog', () => {
   it('starts from the booking and saves a new time in the booking zone', async () => {
     const rpc = vi.fn(async (..._args: unknown[]) => WIRE)
-    const onSaved = mount(rpc)
+    const onSaved = mount(clientWith(rpc))
     expect(screen.getByLabelText<HTMLInputElement>(/^What/).value).toBe(
       'ELISA plate 5',
     )
@@ -114,7 +121,7 @@ describe('EditBookingDialog', () => {
       throw new DataClientError('SB020', 'overlaps', 409)
     })
 
-    const onSaved = mount(rpc)
+    const onSaved = mount(clientWith(rpc))
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     expect((await screen.findByRole('alert')).textContent).toBe(
       'This time overlaps with an existing booking for that resource.',
@@ -124,7 +131,7 @@ describe('EditBookingDialog', () => {
 
   it('refuses an end before the start without calling the server', () => {
     const rpc = vi.fn(async (..._args: unknown[]) => WIRE)
-    mount(rpc)
+    mount(clientWith(rpc))
     fireEvent.change(screen.getByLabelText(/^To/), {
       target: { value: '13:00' },
     })
@@ -137,7 +144,7 @@ describe('EditBookingDialog', () => {
 
   it('sends the ticked samples when there is a choice to make', async () => {
     const rpc = vi.fn(async (..._args: unknown[]) => WIRE)
-    mount(rpc, {
+    mount(clientWith(rpc), {
       sampleOptions: [
         { id: 's-1', identifier: 'SMP-1', title: 'A' },
         { id: 's-2', identifier: 'SMP-2', title: 'B' },
@@ -148,9 +155,11 @@ describe('EditBookingDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await vi.waitFor(() => expect(rpc).toHaveBeenCalled())
 
-    const args = rpc.mock.calls[0][1] as {
-      p_samples: { sampleRecordId: string }[]
-    }
+    const args = z
+      .object({
+        p_samples: z.array(z.object({ sampleRecordId: z.string() })),
+      })
+      .parse(rpc.mock.calls[0][1])
 
     expect(args.p_samples.map((s) => s.sampleRecordId)).toEqual(['s-1', 's-2'])
   })

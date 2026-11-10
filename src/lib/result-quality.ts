@@ -9,6 +9,7 @@
  * written here for forms that judge a value before it is saved.
  */
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { t } from '#/copy'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -35,18 +36,24 @@ export const qualityKeys = {
     ['quality', 'record-hold', recordId] as const,
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Caught errors are unknown by language rule; Error supplies its message immediately and anything else falls back.
 export function messageOf(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
 // Which parts of the lab switched on -----------------------------------------
 
-/** Whether this lab has turned on result limits and on retention. Nothing is
- * shown while the settings load. */
-export function useQualityOptions(workspaceId: string | undefined): {
+/** Whether this lab has turned on result limits and on retention. */
+export interface QualityOptions {
   specLimits: boolean
   retention: boolean
-} {
+}
+
+/** Whether this lab has turned on result limits and on retention. Nothing is
+ * shown while the settings load. */
+export function useQualityOptions(
+  workspaceId: string | undefined,
+): QualityOptions {
   const general = useQuery({
     queryKey: workspaceGeneralQueryKey,
     queryFn: () => fetchWorkspaceGeneral(),
@@ -169,8 +176,8 @@ export interface FieldLimits extends SpecLimits {
   note: string | null
 }
 
-const toNumber = (v: unknown): number | null =>
-  v === null || v === undefined ? null : Number(v)
+const toNumber = (value: number | null | undefined): number | null =>
+  value ?? null
 
 export async function fetchFieldLimits(
   client: DataClient,
@@ -281,6 +288,8 @@ export interface IncidentEntry {
   title: string
   kind: string
   status: string
+  // The record's stored custom-field JSON; the record owner owns its shape and this log only summarises it.
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
   custom_fields: Record<string, unknown> | null
   created_at: string
   archived_at: string | null
@@ -415,12 +424,15 @@ export async function createStarterModel(
   })
 }
 
-/** A stored value as a person reads it: keys become words, dates stay dates. */
-export function readableValue(value: unknown): string {
-  if (typeof value === 'number') return String(value)
+/** A stored value the incident log reads as text. */
+const readableScalars = z.union([
+  z.number().transform((value) => String(value)),
+  z.string().transform(readableText),
+])
 
-  if (typeof value !== 'string') return ''
-  const trimmed = value.trim()
+/** Keys become words, dates stay dates. */
+function readableText(text: string): string {
+  const trimmed = text.trim()
 
   if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10)
 
@@ -431,6 +443,14 @@ export function readableValue(value: unknown): string {
   }
 
   return trimmed
+}
+
+/** A stored value as a person reads it: keys become words, dates stay dates. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Incident custom fields are stored JSON; this formatter is where they become the words on the row.
+export function readableValue(raw: unknown): string {
+  const parsed = readableScalars.safeParse(raw)
+
+  return parsed.success ? parsed.data : ''
 }
 
 /** The first few things filled in on an incident, as one line. */
@@ -572,15 +592,19 @@ export function keepTimeLabel(months: number): string {
 
 /** Everything the record page needs from the quality settings: the verdict of
  * each limited field, those fields' limits, and whether a hold freezes it. */
+export interface RecordQuality {
+  results: SpecResult[]
+  limitsByField: Map<string, FieldLimits>
+  onHold: boolean
+}
+
+/** Everything the record page needs from the quality settings: the verdict of
+ * each limited field, those fields' limits, and whether a hold freezes it. */
 export function useRecordQuality(
   workspaceId: string | undefined,
   modelKey: string,
   recordId: string,
-): {
-  results: SpecResult[]
-  limitsByField: Map<string, FieldLimits>
-  onHold: boolean
-} {
+): RecordQuality {
   const options = useQualityOptions(workspaceId)
 
   const results = useQuery({

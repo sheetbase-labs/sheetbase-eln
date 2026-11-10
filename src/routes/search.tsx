@@ -14,6 +14,7 @@ import {
 } from '@sheetbase-labs/sheetbase-advanced-search'
 import type { GroupNode } from '@sheetbase-labs/sheetbase-shared'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
 import { usePageAi } from '#/lib/use-page-ai'
@@ -121,20 +122,35 @@ interface SearchSearch {
   builder?: boolean
 }
 
+/** One URL value as text, or nothing when the URL carried something else. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- URL search values arrive unparsed; this is the decoder that yields text or nothing.
+function urlText(value: unknown): string | undefined {
+  const parsed = z.string().safeParse(value)
+
+  return parsed.success ? parsed.data : undefined
+}
+
+/** A repeated URL value, keeping only the entries that are text. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- URL search values arrive unparsed; this is the decoder that yields the text entries.
+function urlTextList(value: unknown): string[] | undefined {
+  const parsed = z.array(z.unknown()).safeParse(value)
+
+  if (!parsed.success) return undefined
+
+  return parsed.data.flatMap((entry) => {
+    const text = z.string().safeParse(entry)
+
+    return text.success ? [text.data] : []
+  })
+}
+
 export const Route = createFileRoute('/search')({
-  validateSearch: (search: Record<string, unknown>): SearchSearch => ({
-    q: typeof search.q === 'string' ? search.q : undefined,
-    type: Array.isArray(search.type)
-      ? search.type.filter((x): x is string => typeof x === 'string')
-      : undefined,
-    project: Array.isArray(search.project)
-      ? search.project.filter((x): x is string => typeof x === 'string')
-      : undefined,
+  validateSearch: (search): SearchSearch => ({
+    q: urlText(search.q),
+    type: urlTextList(search.type),
+    project: urlTextList(search.project),
     updated: search.updated === '7d' ? '7d' : undefined,
-    owner:
-      typeof search.owner === 'string' && search.owner
-        ? search.owner
-        : undefined,
+    owner: urlText(search.owner) || undefined,
     from: parseSearchDay(search.from),
     to: parseSearchDay(search.to),
     archived:
@@ -162,6 +178,7 @@ export const Route = createFileRoute('/search')({
  * rows in hand can be counted, so the page states that instead of a number it
  * cannot back.
  */
+// react-doctor-disable-next-line react-doctor/only-export-components -- A pure count the page's test imports; it holds no component state Fast Refresh could preserve.
 export function searchMatchCount(
   loadedCount: number,
   shownCount: number,
@@ -441,13 +458,17 @@ function SearchPage() {
   const typeFilter = search.type ?? []
 
   // Fields only one kind of thing carries are offered once the search is
-  // narrowed to that kind, from the values its results returned.
-  const onlyGroup =
-    typeFilter.length === 1 ? (typeFilter[0] as SearchResultGroup) : undefined
+  // narrowed to that kind, from the values its results returned. The type facet
+  // is written only from these groups (the result tabs), so a value outside
+  // them narrows nothing, exactly as an absent facet does.
+  const group =
+    typeFilter.length === 1
+      ? z.enum(SEARCH_RESULT_GROUPS).safeParse(typeFilter[0]).data
+      : undefined
 
   const typeFields = useMemo(
-    () => typeSearchFields(loaded, onlyGroup),
-    [loaded, onlyGroup],
+    () => typeSearchFields(loaded, group),
+    [loaded, group],
   )
 
   const filterFields = useSearchFields(typeFields)
@@ -544,19 +565,24 @@ function SearchPage() {
   ) : null
 
   const searchForm = (
+    // react-doctor-disable-next-line react-doctor/no-prevent-default -- The typed search runs in place: the form has no action to post to, and a native submit would reload the page.
     <form
       role="search"
       className="relative order-first min-w-0 flex-1 max-lg:basis-full lg:order-none lg:w-[320px] lg:flex-none"
-      onSubmit={(e) => {
-        e.preventDefault()
+      onSubmit={async (event) => {
+        event.preventDefault()
+
         // `type:sample -project:"AAV8 TFF"` becomes filters; the rest stays text.
-        void parseTypedSearch(draft, filterFields).then((typed) => {
+        try {
+          const typed = await parseTypedSearch(draft, filterFields)
           const merged = andFilters(treeFilter, typed.filter)
           setSearch({
             q: typed.q || undefined,
             filter: encodeFilter(merged),
           })
-        })
+        } catch {
+          // The typed query stays as it is; the person can correct it and submit again.
+        }
       }}
     >
       <label htmlFor="search-page-q" className="sr-only">

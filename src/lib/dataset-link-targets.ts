@@ -24,9 +24,9 @@ export async function fetchDatasetLinkTargets(
   const [byId, byIdentifier] = await Promise.all(
     ['id', 'display_id'].map((column) =>
       listByIds(
-        unique
-          .filter((ref) => uuid.test(ref) === (column === 'id'))
-          .map((ref) => JSON.stringify(ref)),
+        unique.flatMap((ref) =>
+          uuid.test(ref) === (column === 'id') ? [JSON.stringify(ref)] : [],
+        ),
         (values) =>
           client.list<DatasetLinkTarget>(
             'datasets',

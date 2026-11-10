@@ -7,6 +7,7 @@ import {
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { ProjectsPage } from '#/components/projects/projects-page'
 import type {
@@ -90,6 +91,7 @@ function statusOf(status: string): ProjectRow['status'] {
   }
 }
 
+// react-doctor-disable-next-line react-doctor/only-export-components -- The wire-to-row mapping is exported so its own test covers the field mapping without rendering the route.
 export function toProjectRow(row: ProjectSummaryWire): ProjectRow {
   return {
     uuid: row.id,
@@ -111,44 +113,39 @@ export function toProjectRow(row: ProjectSummaryWire): ProjectRow {
 
 const PROJECT_MODEL = requireBuiltInModel('project')
 
-export const Route = createFileRoute('/projects')({
-  validateSearch: (search: Record<string, unknown>): ProjectsSearch => {
-    const tab = search.tab
+/** The create intent the address bar may carry as `?new`. */
+const createIntent = z.object({ new: z.unknown() })
 
-    return {
-      tab:
-        tab === 'mine' ||
-        tab === 'inprogress' ||
-        tab === 'inreview' ||
-        tab === 'archived' ||
-        tab === 'all'
-          ? tab
-          : undefined,
-      q: typeof search.q === 'string' ? search.q : undefined,
-      archived:
-        search.archived === 'include' || search.archived === 'exclude'
-          ? search.archived
-          : undefined,
-      stage: typeof search.stage === 'string' ? search.stage : undefined,
-      client: typeof search.client === 'string' ? search.client : undefined,
-      modality:
-        typeof search.modality === 'string' ? search.modality : undefined,
-      fields: typeof search.fields === 'string' ? search.fields : undefined,
-      sort:
-        search.sort === 'id' ||
-        search.sort === 'name' ||
-        search.sort === 'updated'
-          ? search.sort
-          : undefined,
-      group:
-        search.group === 'stage' ||
-        search.group === 'lead' ||
-        search.group === 'none'
-          ? search.group
-          : undefined,
-      new: search.new === true || search.new === 'true' || undefined,
-    }
-  },
+/** One free-text filter value; anything else in the address bar is dropped. */
+const filterText = z.string().optional().catch(undefined)
+
+/**
+ * The list's addressable state. A value the address bar carries that is not
+ * one of the named alternatives reads as absent, as it always has.
+ */
+const projectsSearchSchema = z.object({
+  tab: z
+    .enum(['mine', 'inprogress', 'inreview', 'archived', 'all'])
+    .optional()
+    .catch(undefined),
+  q: filterText,
+  archived: z.enum(['include', 'exclude']).optional().catch(undefined),
+  stage: filterText,
+  client: filterText,
+  modality: filterText,
+  fields: filterText,
+  sort: z.enum(['id', 'name', 'updated']).optional().catch(undefined),
+  group: z.enum(['stage', 'lead', 'none']).optional().catch(undefined),
+  new: z
+    .union([z.literal(true), z.literal('true')])
+    .transform(() => true as const)
+    .optional()
+    .catch(undefined),
+})
+
+export const Route = createFileRoute('/projects')({
+  validateSearch: (search): ProjectsSearch =>
+    projectsSearchSchema.parse(search),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
 
@@ -180,13 +177,26 @@ function ProjectsIndexRoute() {
   // its New project dialog from that first render and never closes it again,
   // so only believe a create intent the address bar itself carries.
   const urlAsksForNew = useRouterState({
-    select: (state) =>
-      Boolean((state.location.search as { new?: unknown } | undefined)?.new),
+    select: (state) => {
+      const intent = createIntent.safeParse(state.location.search)
+
+      return intent.success && Boolean(intent.data.new)
+    },
   })
 
   const search = urlAsksForNew
     ? matchSearch
     : { ...matchSearch, new: undefined }
+
+  /** The filter controls hand their patch back here; nothing calls it on render. */
+  const onSearchChange = (patch: Partial<ProjectsSearch>) => {
+    // react-doctor-disable-next-line react-doctor/tanstack-start-no-navigate-in-render -- Only the list's filter controls call this, from their change handlers.
+    void navigate({
+      to: '/projects',
+      search: (s) => ({ ...s, ...patch }),
+      replace: true,
+    })
+  }
 
   const queryClient = useQueryClient()
 
@@ -319,13 +329,7 @@ function ProjectsIndexRoute() {
         })
       }
       search={search}
-      setSearch={(patch) =>
-        void navigate({
-          to: '/projects',
-          search: (s) => ({ ...s, ...patch }),
-          replace: true,
-        })
-      }
+      setSearch={onSearchChange}
       onCreate={(input) => create.mutate(input)}
       creating={create.isPending}
       createdProjectId={create.data?.id ?? null}

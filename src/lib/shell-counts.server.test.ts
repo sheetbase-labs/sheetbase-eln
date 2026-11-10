@@ -24,6 +24,7 @@ const { connect, release, connectionQuery, query } = vi.hoisted(() => {
   }
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- getShellCounts reads the shared pool directly and takes no client or reader parameter, so the pool is the only seam this unit test can stand in at; the double dispatches on the same SQL the real reads issue.
 vi.mock('#/db/client.server', () => ({ db: { $client: { connect, query } } }))
 
 const WORKSPACE = '00000000-0000-4000-8000-000000004a0a'

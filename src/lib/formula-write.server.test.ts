@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
+import type { QueryResultRow } from 'pg'
 import { handleFormulaWrite } from './formula-write.server'
 import type { FormulaWriteDeps } from './formula-write.server'
 
@@ -18,6 +19,7 @@ const sourceTableId = '10000000-0000-4000-8000-000000000006'
 const sourceRowId = '10000000-0000-4000-8000-000000000007'
 const sourceColumnId = '10000000-0000-4000-8000-000000000008'
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- The request body under test is raw JSON by definition, including the malformed shapes this route must reject.
 function request(body: unknown) {
   return new Request('http://sheetbase.test/api/formulas', {
     method: 'POST',
@@ -33,59 +35,53 @@ function deps(authenticated = true, crossSheet = false) {
     status: 'supported',
   })
 
-  const query = vi
-    .fn()
-    .mockResolvedValueOnce({
-      rows: [
-        {
-          id: tableId,
-          resource_name: `sheet_${'a'.repeat(26)}`,
-          schema_version: 2,
-          lifecycle: 'active',
-          workspace_status: 'active',
-          membership_id: '10000000-0000-4000-8000-000000000009',
-          record_id: '10000000-0000-4000-8000-000000000010',
-        },
-      ],
-    })
-    .mockResolvedValueOnce({
-      rows: [
-        {
-          id: tableId,
-          name: 'Results',
-          resource_name: `sheet_${'a'.repeat(26)}`,
-        },
-        ...(crossSheet
-          ? [
-              {
-                id: sourceTableId,
-                name: 'Raw measurements',
-                resource_name: `sheet_${'b'.repeat(26)}`,
-              },
-            ]
-          : []),
-      ],
-    })
-    .mockResolvedValueOnce({ rows: [{ id: columnId }] })
-    .mockResolvedValueOnce({ rows: [{ id: rowId }] })
+  const answers: QueryResultRow[][] = [
+    [
+      {
+        id: tableId,
+        resource_name: `sheet_${'a'.repeat(26)}`,
+        schema_version: 2,
+        lifecycle: 'active',
+        workspace_status: 'active',
+        membership_id: '10000000-0000-4000-8000-000000000009',
+        record_id: '10000000-0000-4000-8000-000000000010',
+      },
+    ],
+    [
+      {
+        id: tableId,
+        name: 'Results',
+        resource_name: `sheet_${'a'.repeat(26)}`,
+      },
+      ...(crossSheet
+        ? [
+            {
+              id: sourceTableId,
+              name: 'Raw measurements',
+              resource_name: `sheet_${'b'.repeat(26)}`,
+            },
+          ]
+        : []),
+    ],
+    [{ id: columnId }],
+    [{ id: rowId }],
+  ]
 
-  if (crossSheet) {
-    query.mockResolvedValueOnce({ rows: [{ id: sourceColumnId }] })
-    query.mockResolvedValueOnce({ rows: [{ id: sourceRowId }] })
-  }
+  if (crossSheet) answers.push([{ id: sourceColumnId }], [{ id: sourceRowId }])
 
-  return {
-    value: {
-      getSession: vi
-        .fn()
-        .mockResolvedValue(
-          authenticated ? { user: { id: 'server-actor' } } : null,
-        ),
-      query,
-      trustedWrite,
-    } as unknown as FormulaWriteDeps,
+  let answered = 0
+
+  const value: FormulaWriteDeps = {
+    getSession: async () =>
+      authenticated ? { user: { id: 'server-actor' } } : null,
+    // SAFETY: the route asks for the row shape it declared on each query, in the order these fixtures list them.
+    query: async <T extends QueryResultRow>() => ({
+      rows: (answers[answered++] ?? []) as T[],
+    }),
     trustedWrite,
   }
+
+  return { value, trustedWrite }
 }
 
 describe('formula write route contract', () => {

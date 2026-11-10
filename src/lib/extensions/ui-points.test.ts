@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 
 import { parseFieldTypes, parseTableCells } from './hooks'
 import { parseExtensionManifest, validateExtensionManifest } from './manifest'
+import type { ExtensionContributions } from './manifest'
 import { buildPluginPackage } from './package'
 import { EXTENSION_SWITCH_POINTS } from './points'
 import { describeRunnerAdds, resolveRunnerPoints } from './runner-points'
@@ -27,7 +28,7 @@ const sdk = readFileSync(
   'utf8',
 )
 
-const manifest = (contributions: Record<string, unknown>) => ({
+const manifest = (contributions: ExtensionContributions) => ({
   id: 'acme.screens',
   name: 'Screens',
   version: '1.0.0',
@@ -150,7 +151,7 @@ describe('screens a plugin draws itself', () => {
       name: 'Tools',
       status: 'enabled',
       manifest: m,
-      disabled_points: [] as string[],
+      disabled_points: [],
     }
 
     const on = resolveRunnerPoints([install])
@@ -269,18 +270,93 @@ describe('the frame for a bundle', () => {
 })
 
 describe('the SDK inside the frame', () => {
+  /** A table cell the frame is asked to render, and one it answers with. */
+  interface SdkCell {
+    key: number
+    value?: string
+    text?: string
+  }
+
+  /** A message the SDK posts up to the app; it stamps `sb` on each one. */
+  type FrameMessage =
+    | {
+        sb?: number
+        type: 'call'
+        id: string
+        operation: string
+        input: unknown
+      }
+    | { sb?: number; type: 'rendered'; id: string; cells: SdkCell[] }
+    | { sb?: number; type: 'emit'; name: string; payload: unknown }
+    | { sb?: number; type: 'navigate'; path: string }
+    | { sb?: number; type: 'resize'; height: number }
+
+  /** A message the app sends down to the frame. */
+  type FrameInput =
+    | { type: 'result'; id: string; ok: true; output: unknown }
+    | { type: 'result'; id: string; ok: false; error: string }
+    | { type: 'render'; id: string; cells: SdkCell[] }
+
+  /** The SDK surface the frame's bundle uses (`sdks/plugin-ui/sheetbase-ui.js`). */
+  interface SheetbaseSdk {
+    fetch: (
+      url: string,
+      init?: { method?: string; body?: string },
+    ) => Promise<Response>
+    onRender: (fn: (cells: SdkCell[]) => SdkCell[]) => void
+    setValue: (value: string) => void
+    setSection: (section: { title: string; text: string }) => void
+    navigate: (path: string) => void
+  }
+
+  interface ParentWindow {
+    postMessage: (message: FrameMessage) => void
+  }
+
+  /** The frame's stand-in window: what the bundle attaches itself to. */
+  interface FrameWindow {
+    parent: ParentWindow
+    addEventListener: (
+      name: string,
+      fn: (event: {
+        source: ParentWindow
+        data: FrameInput & { sb: number }
+      }) => void,
+    ) => void
+    fetch: (
+      url: string,
+      init?: { method?: string; body?: string },
+    ) => Promise<Response>
+    ResizeObserver: undefined
+    window?: FrameWindow
+    sheetbase?: SheetbaseSdk
+  }
+
+  /** The SDK the bundle attached, which it does before the run returns. */
+  function sdkOf(window: FrameWindow): SheetbaseSdk {
+    if (!window.sheetbase) throw new Error('The bundle attached no SDK.')
+
+    return window.sheetbase
+  }
+
   /** Runs the SDK against a stand-in window and returns it with what it posted up. */
   function load() {
-    const posted: Array<Record<string, unknown>> = []
-    const handlers: Array<(event: unknown) => void> = []
+    const posted: FrameMessage[] = []
 
-    const parent = {
-      postMessage: (message: Record<string, unknown>) => posted.push(message),
+    const handlers: Array<
+      (event: {
+        source: ParentWindow
+        data: FrameInput & { sb: number }
+      }) => void
+    > = []
+
+    const parent: ParentWindow = {
+      postMessage: (message) => posted.push(message),
     }
 
-    const window: Record<string, unknown> = {
+    const window: FrameWindow = {
       parent,
-      addEventListener: (name: string, fn: (event: unknown) => void) => {
+      addEventListener: (name, fn) => {
         if (name === 'message') handlers.push(fn)
       },
       fetch: () => Promise.reject(new TypeError('network')),
@@ -310,7 +386,7 @@ describe('the SDK inside the frame', () => {
       TypeError,
     })
 
-    const fromParent = (data: Record<string, unknown>) =>
+    const fromParent = (data: FrameInput) =>
       handlers.forEach((fn) => fn({ source: parent, data: { sb: 1, ...data } }))
 
     return { window, posted, fromParent }
@@ -319,9 +395,7 @@ describe('the SDK inside the frame', () => {
   it('fetch reaches only the plugin’s own operations, as a call', async () => {
     const { window, posted, fromParent } = load()
 
-    const sheetbase = window.sheetbase as {
-      fetch: (u: string, i?: unknown) => Promise<Response>
-    }
+    const sheetbase = sdkOf(window)
 
     const answer = sheetbase.fetch('/operations/analyse', {
       method: 'POST',
@@ -342,9 +416,7 @@ describe('the SDK inside the frame', () => {
   it('answers a failed call with an error status, and any other address with 404', async () => {
     const { window, posted, fromParent } = load()
 
-    const sheetbase = window.sheetbase as {
-      fetch: (u: string, i?: unknown) => Promise<Response>
-    }
+    const sheetbase = sdkOf(window)
 
     const failed = sheetbase.fetch('/operations/analyse', { body: '{}' })
     const call = posted.find((m) => m.type === 'call')!
@@ -360,7 +432,7 @@ describe('the SDK inside the frame', () => {
 
   it('the global fetch uses the same door, and the network stays shut', async () => {
     const { window, posted, fromParent } = load()
-    const fetch = window.fetch as (u: string, i?: unknown) => Promise<Response>
+    const fetch = window.fetch
 
     const answer = fetch('/operations/analyse', {
       method: 'POST',
@@ -376,11 +448,7 @@ describe('the SDK inside the frame', () => {
   it('a renderer is asked for cells and answers by key', async () => {
     const { window, posted, fromParent } = load()
 
-    const sheetbase = window.sheetbase as {
-      onRender: (
-        fn: (cells: Array<{ key: number; value: unknown }>) => unknown,
-      ) => void
-    }
+    const sheetbase = sdkOf(window)
 
     sheetbase.onRender((cells) =>
       cells.map((c) => ({ key: c.key, text: String(c.value) })),
@@ -397,7 +465,7 @@ describe('the SDK inside the frame', () => {
 
   it('setValue, setSection and navigate go up as messages', () => {
     const { window, posted } = load()
-    const sheetbase = window.sheetbase as Record<string, (x: unknown) => void>
+    const sheetbase = sdkOf(window)
     sheetbase.setValue('ATGC')
     sheetbase.setSection({ title: 'T', text: 'x' })
     sheetbase.navigate('/experiments')

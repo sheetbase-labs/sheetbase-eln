@@ -32,13 +32,15 @@ export interface EmailQuery {
   ) => Promise<{ rows: T[] }>
 }
 
+export interface EmailMessage {
+  to: string
+  subject: string
+  body: string
+  attachments?: EmailAttachmentFile[]
+}
+
 export interface EmailTransport {
-  send: (message: {
-    to: string
-    subject: string
-    body: string
-    attachments?: EmailAttachmentFile[]
-  }) => Promise<void>
+  send: (message: EmailMessage) => Promise<void>
 }
 
 export interface EmailWorkerResult {
@@ -69,14 +71,17 @@ export async function processEmailDeliveries(
     result.processed += 1
 
     try {
-      await transport.send({
+      const message: EmailMessage = {
         to: delivery.to_email,
         subject: delivery.subject,
         body: delivery.body,
-        ...(delivery.attachments?.length
-          ? { attachments: delivery.attachments }
-          : {}),
-      })
+      }
+
+      if (delivery.attachments?.length) {
+        message.attachments = delivery.attachments
+      }
+
+      await transport.send(message)
       await query.query(
         'SELECT internal.finish_email_delivery($1, true, NULL)',
         [delivery.id],

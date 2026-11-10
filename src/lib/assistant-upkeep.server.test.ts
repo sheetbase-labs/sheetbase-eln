@@ -8,23 +8,56 @@ import type { DataClient } from './data-client'
 const WS = '33333333-3333-4333-8333-333333333333'
 const base = { title: 'T', summary: 'S' }
 
-type Rows = Partial<
-  Record<string, Array<Record<string, unknown>> | ((q: string) => unknown[])>
->
+/** One wire row a stub list answers with; fixtures supply every column read. */
+type StubRow = { [column: string]: StubValue }
 
-function context(rows: Rows): { ctx: LabToolContext; calls: string[] } {
+type StubValue = string | number | boolean | null | StubValue[] | StubRow
+
+/** Rows by resource, or a function answering for the query it is given. */
+type Rows = Partial<Record<string, StubRow[] | ((query: string) => StubRow[])>>
+
+/** Whatever a stub RPC answers with; the cards never assume its shape. */
+type StubRpcResult = StubValue | undefined
+
+/** The arguments a stub records from one RPC call. */
+type RecordedRpcArgs = Parameters<DataClient['rpc']>[1]
+
+/** The client methods these cards call; the rest of DataClient is never reached. */
+interface StubClientMethods {
+  list: (resource: string, query?: string) => Promise<StubRow[]>
+  rpc?: (name: string, args: RecordedRpcArgs) => Promise<StubRpcResult>
+}
+
+function stubClient(methods: StubClientMethods): DataClient {
+  // SAFETY: each test supplies the client methods the card it exercises calls,
+  // with fixture rows carrying the columns that card reads; no card reaches
+  // another DataClient member, and a missing one fails the test loudly.
+  return methods as DataClient
+}
+
+interface UpkeepTestContext {
+  ctx: LabToolContext
+  calls: string[]
+}
+
+function context(
+  rows: Rows,
+  rpc: (name: string, args: RecordedRpcArgs) => Promise<StubRpcResult> = () =>
+    Promise.resolve(undefined),
+): UpkeepTestContext {
   const calls: string[] = []
 
-  const client = {
-    list: (resource: string, query = '') => {
+  const client = stubClient({
+    list: (resource, query = '') => {
       calls.push(`${resource}${query}`)
       const source = rows[resource]
 
       return Promise.resolve(
-        typeof source === 'function' ? source(query) : (source ?? []),
+        source instanceof Function ? source(query) : (source ?? []),
       )
     },
-  } as unknown as DataClient
+    rpc,
+  })
 
   return {
     ctx: { client, workspaceId: WS, userId: 'me', timeZone: 'Europe/London' },
@@ -351,15 +384,16 @@ describe('instrument visit card', () => {
 
 describe('running upkeep actions', () => {
   it('calls the ordinary RPCs, as the person', async () => {
-    const calls: Array<[string, Record<string, unknown>]> = []
+    const calls: Array<[string, RecordedRpcArgs]> = []
 
-    const client = {
-      rpc: (name: string, args: Record<string, unknown>) => {
+    const client = stubClient({
+      list: () => Promise.resolve([]),
+      rpc: (name, args) => {
         calls.push([name, args])
 
         return Promise.resolve({ id: 'x' })
       },
-    } as unknown as DataClient
+    })
 
     const project = await runUpkeepAction(client, {
       kind: 'project.create',
@@ -403,10 +437,8 @@ describe('running upkeep actions', () => {
 })
 
 describe('people and continuity cards', () => {
-  function withPeople(rows: Rows, rpc: Record<string, unknown> = {}) {
-    const made = context(rows)
-    const client = made.ctx.client as unknown as Record<string, unknown>
-    client.rpc = (name: string) =>
+  function withPeople(rows: Rows, results: Record<string, StubValue[]> = {}) {
+    return context(rows, (name) =>
       Promise.resolve(
         name === 'workspace_members_list'
           ? [
@@ -414,10 +446,9 @@ describe('people and continuity cards', () => {
               { user_id: 'u2', name: 'Priya S.' },
               { user_id: 'u3', name: 'Tom H.' },
             ]
-          : (rpc[name] ?? []),
-      )
-
-    return made
+          : (results[name] ?? []),
+      ),
+    )
   }
 
   it('sets out of office with a named cover, and refuses past dates', async () => {
@@ -562,15 +593,16 @@ describe('people and continuity cards', () => {
   })
 
   it('runs the cards through the ordinary RPCs', async () => {
-    const calls: Array<[string, Record<string, unknown>]> = []
+    const calls: Array<[string, RecordedRpcArgs]> = []
 
-    const client = {
-      rpc: (name: string, args: Record<string, unknown>) => {
+    const client = stubClient({
+      list: () => Promise.resolve([]),
+      rpc: (name, args) => {
         calls.push([name, args])
 
         return Promise.resolve({})
       },
-    } as unknown as DataClient
+    })
 
     await runUpkeepAction(client, {
       kind: 'absence.set',
@@ -603,12 +635,7 @@ describe('people and continuity cards', () => {
 
 describe('validation run card', () => {
   const withAllowed = (allowed: boolean) => {
-    const made = context({})
-
-    ;(made.ctx.client as unknown as { rpc: unknown }).rpc = () =>
-      Promise.resolve(allowed)
-
-    return made
+    return context({}, () => Promise.resolve(allowed))
   }
 
   it('proposes a run only where validation is allowed', async () => {
@@ -729,14 +756,8 @@ describe('data contract cards', () => {
 })
 
 describe('trusted timestamp cards', () => {
-  const withSettings = (rows: Rows, settings: unknown) => {
-    const made = context(rows)
-
-    ;(made.ctx.client as unknown as { rpc: unknown }).rpc = () =>
-      Promise.resolve(settings)
-
-    return made
-  }
+  const withSettings = (rows: Rows, settings: StubValue) =>
+    context(rows, () => Promise.resolve(settings))
 
   it('proposes choosing a service and turning it off, and asks a custom one for its address', async () => {
     const { ctx } = withSettings(
@@ -814,15 +835,16 @@ describe('trusted timestamp cards', () => {
   })
 
   it('runs the cards through the ordinary RPCs', async () => {
-    const calls: Array<[string, Record<string, unknown>]> = []
+    const calls: Array<[string, RecordedRpcArgs]> = []
 
-    const client = {
-      rpc: (name: string, args: Record<string, unknown>) => {
+    const client = stubClient({
+      list: () => Promise.resolve([]),
+      rpc: (name, args) => {
         calls.push([name, args])
 
         return Promise.resolve({})
       },
-    } as unknown as DataClient
+    })
 
     await runUpkeepAction(client, {
       kind: 'timestamps.set',
@@ -1115,13 +1137,14 @@ describe('sample stock and storage cards', () => {
   it('runs the cards by calling the sample and storage functions', async () => {
     const calls: Array<[string, unknown]> = []
 
-    const client = {
-      rpc: (name: string, args: unknown) => {
+    const client = stubClient({
+      list: () => Promise.resolve([]),
+      rpc: (name, args) => {
         calls.push([name, args])
 
         return Promise.resolve({ id: 'x', metadata_version: 5 })
       },
-    } as unknown as DataClient
+    })
 
     await runUpkeepAction(client, {
       kind: 'storage.place',

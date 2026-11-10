@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import { quantityForUnit, setDatasetColumnUnit } from './dataset-column-unit'
 
@@ -17,7 +18,9 @@ describe('quantityForUnit', () => {
 describe('setDatasetColumnUnit', () => {
   it('calls the single server procedure and returns its result', async () => {
     const rpc = vi.fn(async () => ({ schemaVersion: 2, clearedFlags: 1 }))
-    const client = { rpc } as unknown as DataClient
+
+    /** The RPC is the recorded mock; the rest of the transport is real. */
+    const client: DataClient = Object.assign(createDataClient(), { rpc })
 
     const result = await setDatasetColumnUnit(client, {
       datasetId: 'ds-1',

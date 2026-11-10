@@ -18,6 +18,7 @@ import { isCanonicalSheetBlock } from '#/lib/sheet-block'
 
 export interface UpdateBlockArgs {
   blockId: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- the caller owns the block payload it writes; this helper only passes its JSONB through to update_block_payload.
   payload: Record<string, unknown>
   expectedVersion: number
   payloadSchemaVersion?: number
@@ -29,12 +30,12 @@ export interface UpdateBlockArgs {
  * caller without edit rights on the project is refused with a permission
  * error. `expectedMetadataVersion` is the version the caller last saw.
  */
-export function restoreRecord(
+export async function restoreRecord(
   client: DataClient,
   recordId: string,
   expectedMetadataVersion: number,
-): Promise<unknown> {
-  return client.rpc('restore_record', {
+): Promise<void> {
+  await client.rpc('restore_record', {
     p_record_id: recordId,
     p_expected_metadata_version: expectedMetadataVersion,
   })
@@ -58,6 +59,7 @@ export async function updateBlockPayload(
 export interface InsertBlockArgs {
   recordId: string
   type: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- the caller owns the block payload it writes; this helper only passes its JSONB through to insert_block.
   payload: Record<string, unknown>
   /** Block that should precede the inserted block after the insert. */
   afterBlockId?: string

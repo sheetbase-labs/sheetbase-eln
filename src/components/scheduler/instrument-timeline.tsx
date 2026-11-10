@@ -25,7 +25,7 @@ interface Slot {
 }
 
 /** The slot's share of each day it touches, as [dayIndex, leftPercent, widthPercent]. */
-export function slotSegments(
+function slotSegments(
   slot: Pick<Slot, 'start' | 'end'>,
   origin: number,
   days = DAYS,
@@ -80,18 +80,24 @@ export function InstrumentTimeline({ instrumentId }: { instrumentId: string }) {
       ])
 
       const proposed = proposals.flatMap((p) =>
-        p.items
-          .filter(
-            (item) =>
-              item.resourceId === instrumentId && item.startsAt && item.endsAt,
+        p.items.flatMap((item): Slot[] => {
+          if (
+            item.resourceId !== instrumentId ||
+            !item.startsAt ||
+            !item.endsAt
           )
-          .map((item): Slot => ({
-            key: `${p.id}-${item.partId}`,
-            title: `${item.partNumber}. ${item.partTitle}`,
-            start: Date.parse(item.startsAt as string),
-            end: Date.parse(item.endsAt as string),
-            proposed: true,
-          })),
+            return []
+
+          return [
+            {
+              key: `${p.id}-${item.partId}`,
+              title: `${item.partNumber}. ${item.partTitle}`,
+              start: Date.parse(item.startsAt),
+              end: Date.parse(item.endsAt),
+              proposed: true,
+            },
+          ]
+        }),
       )
 
       return [
@@ -126,6 +132,7 @@ export function InstrumentTimeline({ instrumentId }: { instrumentId: string }) {
             : t('automation.schedule.timeline.explain')}
         </p>
         <div
+          // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- Each day is a CSS-grid lane with absolutely positioned slot bars; a native table's row/cell layout would change the rendered geometry this timeline is placed by.
           role="table"
           aria-label={t('automation.schedule.timeline.tableLabel')}
           className="flex flex-col"

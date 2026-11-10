@@ -22,7 +22,15 @@ const { list, count } = vi.hoisted(() => ({
   count: vi.fn(),
 }))
 
-const client = { list, count } as unknown as DataClient
+/** The reads this suite stubs; any other client method is a test mistake. */
+const client: DataClient = {
+  list,
+  count,
+  rpc: () => Promise.reject(new Error('unexpected rpc')),
+  insert: () => Promise.reject(new Error('unexpected insert')),
+  patch: () => Promise.reject(new Error('unexpected patch')),
+  remove: () => Promise.reject(new Error('unexpected remove')),
+}
 
 function wrapper({ children }: { children: ReactNode }) {
   return createElement(
@@ -125,7 +133,7 @@ describe('useExperimentRecords', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    const query = list.mock.calls[0]?.[1] as string
+    const query = list.mock.calls[0]?.[1]
     expect(query).toContain('limit=600')
     expect(query).toContain('kind=eq.experiment&deleted_at=is.null')
   })
@@ -154,7 +162,7 @@ describe('useExperimentRecords', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    const query = decodeURIComponent(list.mock.calls[0]?.[1] as string)
+    const query = decodeURIComponent(list.mock.calls[0]?.[1])
     expect(query).toContain('archived_at=is.null')
     expect(query).toContain('status=in.(in_review,returned)')
     expect(query).toContain('project_id=eq.p-1')
@@ -174,7 +182,7 @@ describe('useExperimentRecords', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    const query = list.mock.calls[0]?.[1] as string
+    const query = list.mock.calls[0]?.[1]
     expect(query).toContain('archived_at=not.is.null')
     expect(query).toContain('order=created_at.desc,identifier.desc')
   })
@@ -244,7 +252,7 @@ describe('useExperimentTabCounts', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    const query = decodeURIComponent(list.mock.calls[0]?.[1] as string)
+    const query = decodeURIComponent(list.mock.calls[0]?.[1])
     expect(query).toContain('p_project_id=p-1')
     expect(query).toContain('p_since=2026-10-01T00:00:00.000Z')
     expect(query).toContain('p_query=plate')

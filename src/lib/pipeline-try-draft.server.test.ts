@@ -1,17 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import { handlePipelineTryDraft } from './pipeline-run-requests.server'
 import type { PipelineRunRequestDeps } from './pipeline-run-requests.server'
 
 const trial = vi.hoisted(() => ({ run: vi.fn() }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The executor opens the sandbox database at import; the handler under test only forwards to it, so the recorded runner below stands in for the run.
 vi.mock('./pipeline-execute.server', () => ({
   tryPipelineDraft: trial.run,
   validatePipelineResume: vi.fn(),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- env.server reads the deployment environment at import; these tests drive the handler with fake deps and never open a connection.
 vi.mock('#/env.server', () => ({ env: { DATABASE_URL: 'postgres://unused' } }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- auth reads the request headers through the framework's server context; the handler takes its session deps as an argument, so only the module wiring is replaced.
 vi.mock('#/lib/auth', () => ({ getAppSession: vi.fn() }))
 
 const WS = '0e010000-0000-4000-8000-000000000101'
@@ -27,10 +31,21 @@ function deps(signedIn = true): PipelineRunRequestDeps {
   }
 }
 
-function post(body: unknown): Request {
+/** A request body: a raw string is sent as written, anything else as JSON. */
+type RequestBody =
+  | string
+  | number
+  | boolean
+  | null
+  | RequestBody[]
+  | { [key: string]: RequestBody }
+
+function post(body: RequestBody): Request {
+  const raw = z.string().safeParse(body)
+
   return new Request('http://app.test/api/pipelines/try-draft', {
     method: 'POST',
-    body: typeof body === 'string' ? body : JSON.stringify(body),
+    body: raw.success ? raw.data : JSON.stringify(body),
   })
 }
 

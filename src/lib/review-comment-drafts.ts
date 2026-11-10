@@ -14,6 +14,7 @@
  * permission) can never publish a private draft to the author.
  */
 import * as React from 'react'
+import { z } from 'zod'
 
 import type { CommentTarget, CommentTargetKind } from './comments-data'
 import type { DataClient } from './data-client'
@@ -21,6 +22,42 @@ import type {
   ReviewDecisionInput,
   ReviewDecisionResult,
 } from './review-workspace'
+
+const COMMENT_TARGET_KINDS = [
+  'revision',
+  'block',
+  'table_region',
+  'diff',
+  'record',
+  'sheet_cell',
+  'sheet_row',
+  'sheet_range',
+] as const satisfies readonly CommentTargetKind[]
+
+/**
+ * A draft as `localStorage` holds it. Unknown target kinds are dropped with the
+ * rest of the corrupt entries rather than handed to a screen that cannot place
+ * them; every field below is what a saved draft carries.
+ */
+const storedDraftSchema = z.object({
+  id: z.string(),
+  targetKind: z.enum(COMMENT_TARGET_KINDS),
+  target: z.looseObject({
+    blockId: z.string().optional(),
+    tableId: z.string().optional(),
+    rowId: z.string().optional(),
+    columnId: z.string().optional(),
+    instanceId: z.string().optional(),
+    rowKeys: z.array(z.string()).optional(),
+    fieldIds: z.array(z.string()).optional(),
+    comparisonRevisionId: z.string().optional(),
+    changeId: z.string().optional(),
+    area: z.string().optional(),
+    identity: z.string().optional(),
+  }),
+  body: z.string(),
+  createdAt: z.string(),
+})
 
 /** A reviewer's private comment that has not been sent to the author yet. */
 export interface ReviewCommentDraft {
@@ -136,27 +173,12 @@ export function loadDrafts(
   if (!raw) return []
 
   try {
-    const parsed: unknown = JSON.parse(raw)
+    const parsed = z.array(storedDraftSchema).safeParse(JSON.parse(raw))
 
-    if (!Array.isArray(parsed)) return []
-
-    return parsed.filter(isDraft)
+    return parsed.success ? parsed.data : []
   } catch {
     return []
   }
-}
-
-function isDraft(value: unknown): value is ReviewCommentDraft {
-  if (!value || typeof value !== 'object') return false
-  const draft = value as Record<string, unknown>
-
-  return (
-    typeof draft.id === 'string' &&
-    typeof draft.body === 'string' &&
-    typeof draft.targetKind === 'string' &&
-    typeof draft.target === 'object' &&
-    draft.target !== null
-  )
 }
 
 /** Persist the reviewer's drafts for a revision. */

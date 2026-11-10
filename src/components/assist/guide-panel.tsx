@@ -9,16 +9,20 @@
  * operation) and navigation is plain links. Marked as assistance throughout.
  */
 import { t } from '#/copy'
-import type { GuideAcceptKey, GuidedWorkflow } from '#/lib/assist-guide'
+import type {
+  GuideAcceptKey,
+  GuideStepState,
+  GuidedWorkflow,
+} from '#/lib/assist-guide'
 import { Button } from '#/components/ui/button'
 
 import { ExplainPanel } from './explain-panel'
 
-const STATE_LABEL: Record<string, string> = {
+const STATE_LABEL = {
   done: 'Done',
   current: 'Current',
   blocked: 'Blocked',
-}
+} satisfies Record<GuideStepState, string>
 
 export function GuidePanel({
   workflow,
@@ -87,7 +91,10 @@ export function GuidePanel({
                         variant="secondary"
                         nativeButton={false}
                         title={action.target.hint}
-                        render={<a href={action.target.href} role="link" />}
+                        render={
+                          // react-doctor-disable-next-line react-doctor/no-redundant-roles, react-doctor/anchor-has-content -- Base UI's Button puts role="button" on a non-native element, so this anchor keeps role="link" for its navigation semantics; Button forwards the action's visible label as its children.
+                          <a href={action.target.href} role="link" />
+                        }
                       >
                         {action.label}
                       </Button>

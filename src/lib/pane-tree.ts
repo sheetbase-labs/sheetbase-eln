@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 /**
  * The split tree behind the multiplex workspace. Panes tile flush inside one
  * tree: a split holds two or more children laid out in a row or a column, and
@@ -300,28 +302,25 @@ export function detectPreset(tree: PaneTree): LayoutPreset | null {
   return null
 }
 
+/** A persisted tree: a named pane, or a split of two or more sized children. */
+const paneTreeSchema: z.ZodType<PaneTree> = z.lazy(() =>
+  z.union([
+    z.looseObject({ type: z.literal('pane'), id: z.string().min(1) }),
+    z
+      .looseObject({
+        type: z.literal('split'),
+        id: z.string(),
+        direction: z.enum(['row', 'column']),
+        children: z.array(paneTreeSchema).min(2),
+        sizes: z.array(z.number().positive()),
+      })
+      .refine((node) => node.sizes.length === node.children.length),
+  ]),
+)
+
 /** Runtime check for persisted trees. */
 export function isPaneTree(value: unknown): value is PaneTree {
-  if (!value || typeof value !== 'object') return false
-  const node = value as Record<string, unknown>
-
-  if (node.type === 'pane') return typeof node.id === 'string' && node.id !== ''
-
-  if (node.type !== 'split') return false
-
-  if (typeof node.id !== 'string') return false
-
-  if (node.direction !== 'row' && node.direction !== 'column') return false
-
-  if (!Array.isArray(node.children) || node.children.length < 2) return false
-
-  if (!Array.isArray(node.sizes) || node.sizes.length !== node.children.length)
-    return false
-
-  if (!node.sizes.every((size) => typeof size === 'number' && size > 0))
-    return false
-
-  return node.children.every(isPaneTree)
+  return paneTreeSchema.safeParse(value).success
 }
 
 /** The pane after `id` in reading order, wrapping to the first. */

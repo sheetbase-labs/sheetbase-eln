@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { CompareView } from '#/components/viz/compare-view'
-import type { CanonicalDatasetSource } from '#/lib/chart-data'
+import type { CanonicalDatasetSource, ResolvedDataset } from '#/lib/chart-data'
 import {
   COMPARATIVE_VIEW_CONFIG_VERSION,
   validateComparativeViewConfig,
@@ -37,7 +37,7 @@ const source: CanonicalDatasetSource = {
   columns,
 }
 
-const rows: Record<string, unknown>[] = [
+const rows: ResolvedDataset['rows'] = [
   { [TIME]: 0, [PH]: 7.0, [BUFFER]: 'A' },
   { [TIME]: 1, [PH]: 7.2, [BUFFER]: 'A' },
   { [TIME]: 2, [PH]: 7.1, [BUFFER]: 'A' },

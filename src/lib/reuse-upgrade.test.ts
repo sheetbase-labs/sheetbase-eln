@@ -27,7 +27,14 @@ const BLOCK_ID = '99999999-9999-4999-8999-999999999999'
 
 const CONFLICT_ID = 'parameter-removed:aaaaaaaa-bbbbbbbb-cccccccc-dddddddd-eeee'
 
-function sheetPreview(overrides: Record<string, unknown> = {}) {
+/**
+ * A patch over the wire preview. These fixtures deliberately supply both valid
+ * and invalid shapes, so the parser under test owns the value contract.
+ */
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
+type PreviewPatch = Record<string, unknown>
+
+function sheetPreview(overrides: PreviewPatch = {}) {
   return {
     source: {
       definitionId: DEFINITION_ID,
@@ -56,7 +63,7 @@ function sheetPreview(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function sheetConflict(overrides: Record<string, unknown> = {}) {
+function sheetConflict(overrides: PreviewPatch = {}) {
   return {
     id: CONFLICT_ID,
     kind: 'parameter-removed',
@@ -74,7 +81,7 @@ function sheetConflict(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function notebookPreview(overrides: Record<string, unknown> = {}) {
+function notebookPreview(overrides: PreviewPatch = {}) {
   return {
     recordId: RECORD_ID,
     sourceVersionId: SOURCE_VERSION_ID,

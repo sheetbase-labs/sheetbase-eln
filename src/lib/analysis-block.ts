@@ -15,6 +15,7 @@
  * payload — only the SECURITY DEFINER freeze/unfreeze RPCs may write one.
  */
 
+import { z } from 'zod'
 import {
   ANALYSIS_METHOD_VERSION,
   validateAnalysisDefinition,
@@ -73,13 +74,9 @@ export interface FrozenAnalysis {
 export function frozenAnalysisMethodVersion(
   frozen: FrozenAnalysis,
 ): number | null {
-  const recorded = frozen.methodVersion
+  const recorded = methodVersion.safeParse(frozen.methodVersion).data
 
-  return typeof recorded === 'number' &&
-    Number.isInteger(recorded) &&
-    recorded > 0
-    ? recorded
-    : null
+  return recorded ?? null
 }
 
 /**
@@ -114,13 +111,20 @@ export type AnalysisBlockError = {
   message: string
 }
 
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
+/** A stored payload: its keys, and whatever was stored under them. */
+const jsonObject = z.record(z.string(), z.unknown())
 
-function isUuid(v: unknown): v is string {
-  return typeof v === 'string' && UUID_RE.test(v)
-}
+/** A saved analysis definition or Dataset Version id. */
+const uuidText = z.string().regex(UUID_RE)
+
+/** A required, non-blank text field. */
+const nonEmptyText = z.string().min(1)
+
+/** A required Dataset row count. */
+const rowCount = z.number().int()
+
+/** A frozen payload's method version. */
+const methodVersion = z.number().int().min(1)
 
 /**
  * Validate an analysis block payload. An empty draft `{}` is valid (the
@@ -129,60 +133,68 @@ function isUuid(v: unknown): v is string {
  * RPC, not here.
  */
 export function validateAnalysisBlockPayload(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A stored block payload arrives unparsed; this validator is the boundary that reports each declared field's problem in the editor's order.
   payload: unknown,
 ): AnalysisBlockError[] {
-  if (!isObject(payload)) return [{ message: 'payload must be an object' }]
+  const given = jsonObject.safeParse(payload)
 
-  if (Object.keys(payload).length === 0) return []
+  if (!given.success) return [{ message: 'payload must be an object' }]
+
+  if (Object.keys(given.data).length === 0) return []
+  const stored = given.data
   const errors: AnalysisBlockError[] = []
 
-  if (typeof payload.title !== 'string' || payload.title.trim() === '')
+  if (!nonEmptyText.safeParse(stored['title']).success)
     errors.push({ field: 'title', message: 'title is required' })
 
-  if (!isUuid(payload.definitionId))
+  if (!uuidText.safeParse(stored['definitionId']).success)
     errors.push({
       field: 'definitionId',
       message: 'definitionId must be a saved analysis definition UUID',
     })
 
   if (
-    payload.provenance !== undefined &&
-    payload.provenance !== null &&
-    typeof payload.provenance !== 'string'
+    stored['provenance'] !== undefined &&
+    stored['provenance'] !== null &&
+    !z.string().safeParse(stored['provenance']).success
   )
     errors.push({
       field: 'provenance',
       message: 'provenance must be a string when present',
     })
 
-  if (payload.frozen !== undefined && payload.frozen !== null) {
-    if (!isObject(payload.frozen)) {
+  if (stored['frozen'] !== undefined && stored['frozen'] !== null) {
+    const frozenObject = jsonObject.safeParse(stored['frozen'])
+
+    if (!frozenObject.success) {
       errors.push({
         field: 'frozen',
         message: 'frozen must be an object when present',
       })
     } else {
-      const f = payload.frozen
+      const f = frozenObject.data
 
-      if (typeof f.frozenAt !== 'string' || f.frozenAt === '')
+      if (!nonEmptyText.safeParse(f['frozenAt']).success)
         errors.push({
           field: 'frozen.frozenAt',
           message: 'frozen.frozenAt is required',
         })
 
-      if (typeof f.frozenByUserId !== 'string' || f.frozenByUserId === '')
+      if (!nonEmptyText.safeParse(f['frozenByUserId']).success)
         errors.push({
           field: 'frozen.frozenByUserId',
           message: 'frozen.frozenByUserId is required',
         })
 
-      if (!isObject(f.definition)) {
+      const definition = jsonObject.safeParse(f['definition'])
+
+      if (!definition.success) {
         errors.push({
           field: 'frozen.definition',
           message: 'frozen.definition is required',
         })
       } else {
-        const defErrors = validateAnalysisDefinition(f.definition)
+        const defErrors = validateAnalysisDefinition(definition.data)
         errors.push(
           ...defErrors.map((e) => ({
             field: `frozen.definition.${e.field ?? ''}`,
@@ -191,29 +203,47 @@ export function validateAnalysisBlockPayload(
         )
       }
 
-      if (
-        !Array.isArray(f.columns) ||
-        f.columns.some((c) => !isObject(c) || !isUuid(c.fieldId))
-      )
+      const columns = Array.isArray(f['columns']) ? f['columns'] : null
+
+      const columnsValid =
+        columns !== null &&
+        columns.every((column) => {
+          const parsed = jsonObject.safeParse(column)
+
+          return (
+            parsed.success && uuidText.safeParse(parsed.data['fieldId']).success
+          )
+        })
+
+      if (!columnsValid)
         errors.push({
           field: 'frozen.columns',
           message:
             'frozen.columns must carry fieldId metadata for each bound field',
         })
 
-      if (
-        !Array.isArray(f.datasetProvenance) ||
-        f.datasetProvenance.length !== 1 ||
-        f.datasetProvenance.some(
-          (p) =>
-            !isObject(p) ||
-            !isUuid(p.datasetId) ||
-            !isUuid(p.datasetVersionId) ||
-            typeof p.rowCount !== 'number' ||
-            typeof p.checksum !== 'string' ||
-            p.checksum === '',
-        )
-      )
+      const provenanceRows = Array.isArray(f['datasetProvenance'])
+        ? f['datasetProvenance']
+        : null
+
+      const provenanceValid =
+        provenanceRows !== null &&
+        provenanceRows.length === 1 &&
+        provenanceRows.every((entry) => {
+          const row = jsonObject.safeParse(entry)
+
+          if (!row.success) return false
+          const value = row.data
+
+          return (
+            uuidText.safeParse(value['datasetId']).success &&
+            uuidText.safeParse(value['datasetVersionId']).success &&
+            rowCount.safeParse(value['rowCount']).success &&
+            nonEmptyText.safeParse(value['checksum']).success
+          )
+        })
+
+      if (!provenanceValid)
         errors.push({
           field: 'frozen.datasetProvenance',
           message:
@@ -221,10 +251,8 @@ export function validateAnalysisBlockPayload(
         })
 
       if (
-        f.methodVersion !== undefined &&
-        (typeof f.methodVersion !== 'number' ||
-          !Number.isInteger(f.methodVersion) ||
-          f.methodVersion < 1)
+        f['methodVersion'] !== undefined &&
+        !methodVersion.safeParse(f['methodVersion']).success
       )
         errors.push({
           field: 'frozen.methodVersion',
@@ -234,7 +262,7 @@ export function validateAnalysisBlockPayload(
 
       // A frozen payload carries evidence references only; embedded source
       // rows are never accepted.
-      if (f.data !== undefined)
+      if (f['data'] !== undefined)
         errors.push({
           field: 'frozen.data',
           message:

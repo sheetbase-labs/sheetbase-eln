@@ -29,7 +29,14 @@ import { cn } from '#/lib/utils'
 import { CellDisplayView } from './cell-display'
 import { TONE_CLASSES } from './tone'
 
-export type PluginValues = Record<string, string | number | boolean>
+/**
+ * What a plugin's screen holds: one entry per input the screen names, holding
+ * what the person typed. Input names belong to the plugin, so the keys are not
+ * known here.
+ */
+export interface PluginValues {
+  [name: string]: string | number | boolean | undefined
+}
 
 const GAP = { sm: 'gap-1.5', md: 'gap-3', lg: 'gap-5' } as const
 
@@ -48,6 +55,7 @@ const PROGRESS_TONE = {
 } as const
 
 /** Starting values of every input in a view, so a button sends what is on screen. */
+// react-doctor-disable-next-line react-doctor/only-export-components -- initialValues is the screen’s starting state, used by the form harness beside this renderer; it belongs with the drawing it feeds.
 export function initialValues(node: ScreenNode): PluginValues {
   const out: PluginValues = {}
 
@@ -88,6 +96,7 @@ export function PluginView({
       const next = initialValues(view)
 
       for (const key of Object.keys(next))
+        // react-doctor-disable-next-line react-doctor/no-side-effect-in-state-updater-function -- the updater only recomputes which of the plugin’s inputs keep what the person typed; it writes no state of its own.
         if (key in previous) next[key] = previous[key]
 
       return next
@@ -117,6 +126,7 @@ type NodeContext = {
   send: (action: string) => void
 }
 
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- Node draws every ScreenNode part in one switch; splitting the parts would spread one data contract across files.
 function Node({ node, ...ctx }: { node: ScreenNode } & NodeContext) {
   switch (node.type) {
     case 'stack':
@@ -131,6 +141,7 @@ function Node({ node, ...ctx }: { node: ScreenNode } & NodeContext) {
           )}
         >
           {node.children.map((child, i) => (
+            // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a plugin’s stack has no identity for its children, so the declared position is the only stable key.
             <Node key={i} node={child} {...ctx} />
           ))}
         </div>
@@ -229,6 +240,7 @@ function Node({ node, ...ctx }: { node: ScreenNode } & NodeContext) {
             </TableHeader>
             <TableBody>
               {node.rows.map((row, i) => (
+                // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a plugin’s table rows carry no identity, so the declared row order is the only stable key.
                 <TableRow key={i}>
                   {node.columns.map((column) => (
                     <TableCell
@@ -275,6 +287,7 @@ function Node({ node, ...ctx }: { node: ScreenNode } & NodeContext) {
       )
     case 'form':
       return (
+        // react-doctor-disable-next-line react-doctor/no-prevent-default -- the form submits through the plugin’s action channel; the browser is never asked to navigate.
         <form
           className="flex min-w-0 flex-col gap-3"
           onSubmit={(event) => {
@@ -283,6 +296,7 @@ function Node({ node, ...ctx }: { node: ScreenNode } & NodeContext) {
           }}
         >
           {node.children.map((child, i) => (
+            // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a plugin’s form has no identity for its children, so the declared position is the only stable key.
             <Node key={i} node={child} {...ctx} />
           ))}
           <Button
@@ -318,7 +332,7 @@ function InternalLink({
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey) return
         event.preventDefault()
-        void router.navigate({ to: to as never })
+        void router.navigate({ href: to })
       }}
     >
       {children}
@@ -331,7 +345,8 @@ function InputNode({
   values,
   setValue,
 }: { node: Extract<ScreenNode, { type: 'input' }> } & NodeContext) {
-  const value: unknown = (values as Record<string, unknown>)[node.name]
+  /** The value on screen; absent for an input the plugin has just added. */
+  const value = values[node.name]
 
   if (node.kind === 'checkbox')
     return (

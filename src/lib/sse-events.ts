@@ -43,6 +43,7 @@ export interface ChangeEventWire {
   actorUserId: string | null
   actorCredentialId: string | null
   clientId: string | null
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The payload is the `change_events.payload` JSONB column; its keys vary by entity type and each consumer decodes the fields it reads.
   payload: Record<string, unknown>
   createdAt: string
 }
@@ -144,6 +145,7 @@ export function formatSseEvent(event: ChangeEventWire): string {
  */
 export function formatControlEvent(
   type: 'reset' | 'hello' | 'bye',
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- Control-event data is the small open JSON object (resume cursor, reason, message) written straight to the SSE `data:` line.
   data: Record<string, unknown>,
 ): string {
   return `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`
@@ -152,6 +154,18 @@ export function formatControlEvent(
 /** A heartbeat is an SSE comment line — keeps the connection alive, no id. */
 export function formatHeartbeat(): string {
   return `:heartbeat\n\n`
+}
+
+/** Why a client must discard its cursor and reconnect from further on. */
+export interface ReplayReset {
+  reason: 'history_unavailable' | 'replay_bound'
+  resumeFrom: number
+}
+
+/** What the handler sends after reading a bounded replay batch. */
+export interface ReplayDecision {
+  events: ChangeEventWire[]
+  reset: ReplayReset | null
 }
 
 /**
@@ -168,13 +182,7 @@ export function formatHeartbeat(): string {
 export function decideReplay(
   afterSeq: number,
   replay: ReplayResult,
-): {
-  events: ChangeEventWire[]
-  reset: {
-    reason: 'history_unavailable' | 'replay_bound'
-    resumeFrom: number
-  } | null
-} {
+): ReplayDecision {
   if (afterSeq > 0 && afterSeq < replay.earliestAvailableSeq) {
     return {
       events: [],
@@ -297,7 +305,7 @@ export async function handleSseRequest(
     }
   }
 
-  function close(reason?: unknown): void {
+  function close(reason?: Error): void {
     if (closed) return
     closed = true
 
@@ -321,7 +329,7 @@ export async function handleSseRequest(
       /* already closed */
     }
 
-    if (reason instanceof Error) {
+    if (reason) {
       logger.info('sse connection closed', {
         workspace_id: workspace?.id,
         reason: reason.message,

@@ -42,15 +42,8 @@ import { CORE_OPERATIONS } from './operations/registry'
 import { featureAssistantReadTools } from '../features/collect'
 import { parameterUuidSchema } from './parameter'
 
-/**
- * Operation tools: the executable vocabulary shared with workflows/gateway.
- * Generated from the operation declarations (`#/lib/operations`); to add one,
- * declare an operation whose `assistant.vocabulary` is `operation`.
- */
-export const AGENT_OPERATION_TOOL_NAMES = assistantToolsFrom(
-  CORE_OPERATIONS,
-  'operation',
-) as unknown as readonly [
+/** The operation tools a model may be offered, by wire name. */
+const OPERATION_TOOL_NAMES = [
   'sheetbase.dataset_schema.draft',
   'sheetbase.sheet_definition.draft',
   'sheetbase.sheet_definition.update_draft',
@@ -58,7 +51,19 @@ export const AGENT_OPERATION_TOOL_NAMES = assistantToolsFrom(
   'sheetbase.pipeline_definition.version_draft',
   'sheetbase.pipeline_definition.update_draft',
   'sheetbase.dataset_rows.commit',
-]
+] as const
+
+const operationToolName = z.enum(OPERATION_TOOL_NAMES)
+
+/**
+ * Operation tools: the executable vocabulary shared with workflows/gateway.
+ * Generated from the operation declarations (`#/lib/operations`); to add one,
+ * declare an operation whose `assistant.vocabulary` is `operation` and name it
+ * above, so the generated list can never offer a tool outside this vocabulary.
+ */
+export const AGENT_OPERATION_TOOL_NAMES = z
+  .array(operationToolName)
+  .parse(assistantToolsFrom(CORE_OPERATIONS, 'operation'))
 
 /**
  * Read-only tools the in-app assistant may offer a model. These are a subset
@@ -1675,13 +1680,12 @@ export function listAgentTools(filter: AgentToolFilter = {}): AgentToolEntry[] {
         ? filter.mode
         : [filter.mode]
 
+  const scopes = filter.scopes ? new Set(filter.scopes) : null
+
   return AGENT_TOOL_CATALOGUE.filter((entry) => {
     if (modes && !modes.includes(entry.mode)) return false
 
-    if (
-      filter.scopes &&
-      !entry.capability.scopes.every((scope) => filter.scopes!.includes(scope))
-    )
+    if (scopes && !entry.capability.scopes.every((scope) => scopes.has(scope)))
       return false
 
     return true
@@ -1689,14 +1693,14 @@ export function listAgentTools(filter: AgentToolFilter = {}): AgentToolEntry[] {
 }
 
 /** Describe one catalogue entry by name, or null when unknown/unavailable. */
-export function describeAgentTool(name: string): AgentToolEntry | null {
-  return AGENT_TOOL_CATALOGUE.find((entry) => entry.name === name) ?? null
+export function describeAgentTool(toolName: string): AgentToolEntry | null {
+  return AGENT_TOOL_CATALOGUE.find((entry) => entry.name === toolName) ?? null
 }
 
 /** True when the name is explicitly unavailable (with reason), false when catalogue-listed or unknown. */
-export function unavailableReason(name: string): string | null {
+export function unavailableReason(toolName: string): string | null {
   return (
-    UNAVAILABLE_AGENT_OPERATIONS.find((entry) => entry.name === name)?.reason ??
-    null
+    UNAVAILABLE_AGENT_OPERATIONS.find((entry) => entry.name === toolName)
+      ?.reason ?? null
   )
 }

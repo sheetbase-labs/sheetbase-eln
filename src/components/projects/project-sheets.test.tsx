@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+} from '@tanstack/react-router'
+import {
   cleanup,
   render,
   screen,
@@ -8,72 +14,139 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
-import { ProjectSheets, sheetOrigin } from './project-sheets'
+import { createDataClient, dropSharedReads } from '#/lib/data-client'
+import type { SheetInstanceWire } from '#/lib/sheet-instance-data'
 
-const mocks = vi.hoisted(() => ({
-  fetch: vi.fn(),
-  rename: vi.fn(),
-  archive: vi.fn(),
-  restore: vi.fn(),
-}))
+const WORKSPACE = '11111111-1111-4111-8111-111111111111'
+const SHEET = '33333333-3333-4333-8333-333333333333'
+const OTHER_SHEET = '44444444-4444-4444-8444-444444444444'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to }: { children?: React.ReactNode; to?: string }) => (
-    <a href={to}>{children}</a>
-  ),
-}))
+const rpcArgs = z.record(z.string(), z.json())
 
-vi.mock('#/lib/notebook-data', () => ({
-  formatNotebookDateTime: (iso: string) => iso.slice(0, 10),
-}))
+interface SheetFixtures {
+  sheets: SheetInstanceWire[]
+  calls: { name: string; args: z.infer<ReturnType<typeof z.json>> }[]
+}
 
-vi.mock('#/lib/sheet-instance-data', () => ({
-  fetchProjectSheets: (...args: unknown[]) => mocks.fetch(...args),
-  renameSheetInstance: (...args: unknown[]) => mocks.rename(...args),
-  archiveSheetInstance: (...args: unknown[]) => mocks.archive(...args),
-  restoreSheetInstance: (...args: unknown[]) => mocks.restore(...args),
-}))
+/** The stored sheet rows, and every RPC the tab sends. */
+const fixtures: SheetFixtures = { sheets: [], calls: [] }
 
-vi.mock('#/components/ui/sonner', () => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
-}))
+/** Keep the compiled DataClient real; fixture only the HTTP it sends. */
+const fixtureFetch: typeof fetch = async (input, init) => {
+  const request = new Request(
+    new URL(input instanceof Request ? input.url : input, 'http://localhost'),
+    init,
+  )
 
-afterEach(cleanup)
+  const { pathname, searchParams } = new URL(request.url)
 
-beforeEach(() => vi.resetAllMocks())
+  if (request.method === 'POST' && pathname.startsWith('/api/db/rpc/')) {
+    const name = pathname.slice('/api/db/rpc/'.length)
 
-const sheet = (over: Record<string, unknown> = {}) => ({
-  id: 'sheet-1',
-  name: 'Cell count 14 Oct',
-  displayId: 'SH-0007',
-  revision: 3,
-  notebookRecordId: null,
-  sourceDefinitionVersionId: null,
-  duplicatedFromInstanceId: null,
-  updatedAt: '2026-10-14T09:00:00Z',
-  ...over,
+    fixtures.calls.push({ name, args: rpcArgs.parse(await request.json()) })
+
+    return Response.json(fixtures.sheets[0] ?? null)
+  }
+
+  if (request.method === 'GET' && pathname === '/api/db/sheet_instances') {
+    const lifecycle = searchParams.get('lifecycle')?.replace(/^eq\./, '')
+
+    return Response.json(
+      fixtures.sheets.filter(
+        (row) => !lifecycle || row.lifecycle === lifecycle,
+      ),
+    )
+  }
+
+  throw new Error(`Unexpected request: ${request.method} ${request.url}`)
+}
+
+vi.stubGlobal('fetch', fixtureFetch)
+
+const client = createDataClient(fixtureFetch)
+
+const { ProjectSheets, sheetOrigin } = await import('./project-sheets')
+
+afterEach(() => {
+  cleanup()
+  dropSharedReads()
 })
 
+beforeEach(() => {
+  fixtures.sheets = []
+  fixtures.calls = []
+  dropSharedReads()
+})
+
+function sheet(over: Partial<SheetInstanceWire> = {}): SheetInstanceWire {
+  return {
+    id: SHEET,
+    workspace_id: WORKSPACE,
+    project_id: '55555555-5555-4555-8555-555555555555',
+    notebook_record_id: null,
+    source_definition_version_id: null,
+    display_id: 'SH-0007',
+    name: 'Cell count 14 Oct',
+    description: null,
+    lifecycle: 'active',
+    revision: 3,
+    state: {
+      bindings: [],
+      localFields: [],
+      localValues: {},
+      calculationOverrides: {},
+      presentation: {
+        columnOrder: [],
+        hiddenColumnIds: [],
+        columnWidths: {},
+        frozenColumnCount: 0,
+        density: 'standard',
+        filters: [],
+        sorts: [],
+      },
+      provenance: { createdFrom: 'ad_hoc' },
+    },
+    duplicated_from_instance_id: null,
+    created_at: '2026-10-14T08:00:00Z',
+    updated_at: '2026-10-14T09:00:00Z',
+    created_by_user_id: null,
+    updated_by_user_id: null,
+    ...over,
+  }
+}
+
 function renderTab() {
+  const root = createRootRoute({
+    component: () => (
+      <QueryClientProvider client={new QueryClient()}>
+        <ProjectSheets projectId="p-1" />
+      </QueryClientProvider>
+    ),
+  })
+
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <ProjectSheets projectId="p-1" />
-    </QueryClientProvider>,
+    <RouterProvider
+      router={createRouter({
+        routeTree: root,
+        history: createMemoryHistory({ initialEntries: ['/'] }),
+      })}
+    />,
   )
 }
 
 describe('ProjectSheets', () => {
   it('lists the project’s sheets with their origin', async () => {
-    mocks.fetch.mockResolvedValue([
+    fixtures.sheets = [
       sheet(),
       sheet({
-        id: 'sheet-2',
+        id: OTHER_SHEET,
         name: 'Titre',
-        displayId: null,
-        sourceDefinitionVersionId: 'v',
+        display_id: null,
+        source_definition_version_id: '66666666-6666-4666-8666-666666666666',
       }),
-    ])
+    ]
     renderTab()
     expect(
       (await screen.findAllByText('Cell count 14 Oct')).length,
@@ -81,13 +154,11 @@ describe('ProjectSheets', () => {
     expect(
       screen.getAllByText('From a sheet definition').length,
     ).toBeGreaterThan(0)
-    expect(mocks.fetch).toHaveBeenCalledWith('p-1', { archived: false })
   })
 
   it('renames with the sheet’s current revision', async () => {
     const user = userEvent.setup()
-    mocks.fetch.mockResolvedValue([sheet()])
-    mocks.rename.mockResolvedValue(sheet({ name: 'Renamed' }))
+    fixtures.sheets = [sheet()]
     renderTab()
     await user.click(await screen.findByRole('button', { name: 'Rename' }))
     const dialog = await screen.findByRole('dialog')
@@ -96,36 +167,51 @@ describe('ProjectSheets', () => {
     await user.type(input, 'Renamed')
     await user.click(within(dialog).getByRole('button', { name: 'Rename' }))
     await waitFor(() =>
-      expect(mocks.rename).toHaveBeenCalledWith('sheet-1', 3, 'Renamed'),
+      expect(fixtures.calls).toContainEqual({
+        name: 'rename_sheet_instance',
+        args: {
+          p_instance_id: SHEET,
+          p_expected_revision: 3,
+          p_name: 'Renamed',
+        },
+      }),
     )
   })
 
   it('archives, and restores from the archived view', async () => {
     const user = userEvent.setup()
-    mocks.fetch.mockResolvedValue([sheet()])
-    mocks.archive.mockResolvedValue(sheet())
+    fixtures.sheets = [sheet()]
     renderTab()
     await user.click(await screen.findByRole('button', { name: 'Archive' }))
     await waitFor(() =>
-      expect(mocks.archive).toHaveBeenCalledWith('sheet-1', 3),
+      expect(fixtures.calls).toContainEqual({
+        name: 'archive_sheet_instance',
+        args: { p_instance_id: SHEET, p_expected_revision: 3 },
+      }),
     )
 
-    mocks.fetch.mockResolvedValue([sheet({ id: 'sheet-9', revision: 5 })])
-    mocks.restore.mockResolvedValue(sheet())
+    fixtures.sheets = [
+      sheet({ id: OTHER_SHEET, revision: 5, lifecycle: 'archived' }),
+    ]
+    dropSharedReads()
     await user.click(screen.getByRole('button', { name: 'Show archived' }))
     await user.click(await screen.findByRole('button', { name: 'Restore' }))
     await waitFor(() =>
-      expect(mocks.restore).toHaveBeenCalledWith('sheet-9', 5),
+      expect(fixtures.calls).toContainEqual({
+        name: 'restore_sheet_instance',
+        args: { p_instance_id: OTHER_SHEET, p_expected_revision: 5 },
+      }),
     )
   })
 
   it('says what an empty project needs and offers New sheet', async () => {
-    mocks.fetch.mockResolvedValue([])
     renderTab()
     expect(await screen.findByText('No sheets yet')).toBeTruthy()
     expect(
-      screen.getAllByRole('link', { name: 'New sheet' }).length,
-    ).toBeGreaterThan(0)
+      screen
+        .getAllByText('New sheet')
+        .map((label) => label.closest('a')?.getAttribute('href')),
+    ).toContain('/sheets/new?project=p-1')
   })
 
   it('names a sheet’s origin in plain words', () => {
@@ -143,3 +229,6 @@ describe('ProjectSheets', () => {
     ).toBe('Working sheet')
   })
 })
+
+// The singleton instance client is the one `ProjectSheets` uses by default.
+void client

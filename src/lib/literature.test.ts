@@ -12,16 +12,16 @@ import {
 import type { FetchLike } from './literature'
 
 function fakeFetch(
-  answers: Record<string, unknown>,
+  answers: ReadonlyMap<string, unknown>,
   seen: string[] = [],
 ): FetchLike {
   return async (url) => {
     seen.push(url)
-    const key = Object.keys(answers).find((k) => url.includes(k))
+    const key = [...answers.keys()].find((k) => url.includes(k))
 
-    return key
-      ? { ok: true, status: 200, json: async () => answers[key] }
-      : { ok: false, status: 404, json: async () => ({}) }
+    return key === undefined
+      ? { ok: false, status: 404, json: async () => ({}) }
+      : { ok: true, status: 200, json: async () => answers.get(key) }
   }
 }
 
@@ -111,13 +111,19 @@ describe('literature search', () => {
     const seen: string[] = []
 
     const papers = await searchLiterature('  base editing  ', {
-      fetch: fakeFetch({ europepmc: { resultList: { result: [] } } }, seen),
+      fetch: fakeFetch(
+        new Map([['europepmc', { resultList: { result: [] } }]]),
+        seen,
+      ),
     })
 
     expect(papers).toEqual([])
     expect(seen[0]).toContain('query=base%20editing')
     await expect(
-      searchLiterature('x', { source: 'openalex', fetch: fakeFetch({}) }),
+      searchLiterature('x', {
+        source: 'openalex',
+        fetch: fakeFetch(new Map()),
+      }),
     ).rejects.toThrow(LiteratureError)
     await expect(searchLiterature('  ')).rejects.toThrow('few words')
   })
@@ -127,7 +133,10 @@ describe('literature search', () => {
 
     const none = await searchLiterature('zzz', {
       source: 'pubmed',
-      fetch: fakeFetch({ esearch: { esearchresult: { idlist: [] } } }, seen),
+      fetch: fakeFetch(
+        new Map([['esearch', { esearchresult: { idlist: [] } }]]),
+        seen,
+      ),
     })
 
     expect(none).toEqual([])

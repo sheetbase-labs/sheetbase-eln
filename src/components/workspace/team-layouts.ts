@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { z } from 'zod'
 
 import { notebookDataClient } from '#/lib/notebook-data'
 import { restoreSavedLayouts } from '#/lib/workspace-state'
@@ -7,7 +8,8 @@ import type { SavedLayout } from '#/lib/workspace-state'
 interface TeamLayoutWire {
   id: string
   name: string
-  layout: Record<string, unknown>
+  /** The JSONB pane layout as stored; restoreSavedLayouts decodes it. */
+  layout: Record<string, z.core.util.JSONType>
   updated_at: string
 }
 

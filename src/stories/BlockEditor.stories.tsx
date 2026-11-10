@@ -28,7 +28,7 @@ function prose(text: string): NotebookBlock {
   }
 }
 
-async function save(): Promise<SaveResult<Record<string, unknown>>> {
+async function save(): Promise<SaveResult<NotebookBlock['payload']>> {
   return { ok: true }
 }
 

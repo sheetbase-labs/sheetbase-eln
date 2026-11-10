@@ -14,6 +14,15 @@ import { GATEWAY_TOOLS } from './ai-gateway'
 
 const WS = '20000000-0000-4000-8000-000000000001'
 
+/** Code-unit ordering: exactly the order `Array.prototype.sort` applies by default. */
+const byCodeUnit = (a: string, b: string): number =>
+  a < b ? -1 : a > b ? 1 : 0
+
+/** Membership in a list of names, whatever literal type the owner declares. */
+function includesName(names: readonly string[], value: string): boolean {
+  return names.includes(value)
+}
+
 describe('agent tool catalogue', () => {
   it('is bounded: 25 operation tools, 5 lifecycle RPCs, 11 canonical reads', () => {
     expect(AGENT_TOOL_CATALOGUE).toHaveLength(44)
@@ -24,8 +33,8 @@ describe('agent tool catalogue', () => {
 
   it('covers every catalogue operation kind exactly once', () => {
     const kinds = AGENT_TOOL_CATALOGUE.map((entry) => entry.operationKind)
-      .filter(Boolean)
-      .sort()
+      .filter((kind) => kind !== undefined)
+      .sort(byCodeUnit)
 
     expect(kinds).toEqual(
       [
@@ -197,7 +206,7 @@ describe('agent tool catalogue', () => {
     expect(
       proposer.every((entry) =>
         entry.capability.scopes.every((scope) =>
-          (['agent_operations:write'] as string[]).includes(scope),
+          includesName(['agent_operations:write'], scope),
         ),
       ),
     ).toBe(true)
@@ -239,9 +248,7 @@ describe('agent tool allowlist drift', () => {
     const shared = AGENT_TOOL_CATALOGUE.filter(
       (entry) =>
         entry.operationKind &&
-        !(MCP_ONLY_OPERATION_TOOL_NAMES as readonly string[]).includes(
-          entry.name,
-        ),
+        !includesName(MCP_ONLY_OPERATION_TOOL_NAMES, entry.name),
     )
 
     expect(shared.map((entry) => entry.name).sort()).toEqual(
@@ -250,9 +257,7 @@ describe('agent tool allowlist drift', () => {
     expect(
       AGENT_TOOL_CATALOGUE.filter((entry) => entry.operationKind)
         .map((entry) => entry.name)
-        .filter((name) =>
-          (MCP_ONLY_OPERATION_TOOL_NAMES as readonly string[]).includes(name),
-        )
+        .filter((name) => includesName(MCP_ONLY_OPERATION_TOOL_NAMES, name))
         .sort(),
     ).toEqual([...MCP_ONLY_OPERATION_TOOL_NAMES].sort())
   })

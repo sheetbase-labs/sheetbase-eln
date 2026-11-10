@@ -295,8 +295,8 @@ function csvCell(value: string | number): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
-function csvLine(cells: Array<string | number>): string {
-  return cells.map(csvCell).join(',')
+function csvLine(line: Array<string | number>): string {
+  return line.map(csvCell).join(',')
 }
 
 export function toCsv(transfers: Transfer[]): string {
@@ -561,7 +561,12 @@ export function parseRunLog(
     h.toLowerCase().replace(/[\s_-]+/g, ''),
   )
 
-  const find = (...names: string[]) => head.findIndex((h) => names.includes(h))
+  const find = (...names: string[]) => {
+    const wanted = new Set(names)
+
+    return head.findIndex((h) => wanted.has(h))
+  }
+
   const srcCol = find('sourcewell', 'source', 'srcwell', 'from')
 
   const dstCol = find(

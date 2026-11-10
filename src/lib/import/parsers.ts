@@ -170,11 +170,7 @@ export function recogniseImportParser(
   return best
 }
 
-export function previewHeaderSample(preview: ImportPreview): {
-  headers: string[]
-  rowCount: number
-  sheetNames: string[]
-} {
+export function previewHeaderSample(preview: ImportPreview) {
   const sheet = preview.sheets.at(0)
 
   return {

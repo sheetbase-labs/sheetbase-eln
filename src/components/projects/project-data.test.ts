@@ -15,6 +15,7 @@ import type * as DataClient from '#/lib/data-client'
 
 const { rpc, list } = vi.hoisted(() => ({ rpc: vi.fn(), list: vi.fn() }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- project-data builds its client at module scope, so the factory is the only seam a test can replace.
 vi.mock('#/lib/data-client', async (importOriginal) => ({
   ...(await importOriginal<typeof DataClient>()),
   createDataClient: () => ({ rpc, list }),

@@ -7,16 +7,30 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
-import type * as Templates from '#/lib/templates'
+import type * as router from '@tanstack/react-router'
 import type { NotebookRecord } from '#/lib/notebook-data'
 import { Route } from './protocols'
 
-const fixtures = vi.hoisted(() => ({ protocols: [] as unknown[] }))
-const search = vi.hoisted(() => ({ value: {} }))
+/** What each test wants the protocols read to return. */
+interface ProtocolFixtures {
+  protocols: NotebookRecord[]
+}
 
+const fixtures = vi.hoisted<ProtocolFixtures>(() => ({ protocols: [] }))
+
+/** The options the file-route factory receives; the mock only stores them. */
+type FileRouteOptions = Parameters<ReturnType<typeof router.createFileRoute>>[0]
+
+/** The address bar's search values for the rendered route. */
+const search = vi.hoisted<{ value: { q?: string } }>(() => ({
+  value: {},
+}))
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time and this suite renders the route component directly, supplying the router context the shell would.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
+  createFileRoute: () => (config: FileRouteOptions) => ({
     fullPath: '/protocols',
     useRouteContext: () => ({ context: { user: { id: 'u1' } } }),
     useSearch: () => search.value,
@@ -25,60 +39,73 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
   useRouterState: () => true,
   Outlet: () => null,
-  redirect: (options: unknown) => options,
+  redirect: (options: { to: string }) => options,
   Link: ({
     to,
     children,
     ...props
-  }: {
-    to?: unknown
-    children?: React.ReactNode
-  } & Record<string, unknown>) => (
-    <a href={typeof to === 'string' ? to : '#'} {...props}>
+  }: React.ComponentProps<'a'> & { to?: string }) => (
+    <a href={to ?? '#'} {...props}>
       {children}
     </a>
   ),
 }))
 
-vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
-
-vi.mock('#/lib/user-names', () => ({
-  useUserNames: () => ({ userLabel: (id: string | null) => id ?? '—' }),
-}))
-
-vi.mock('#/lib/templates', async (importOriginal) => {
-  const actual = await importOriginal<typeof Templates>()
-
+/** One stored record, in the snake_case shape the database returns. */
+function wireOf(record: NotebookRecord) {
   return {
-    ...actual,
-    fetchTemplates: vi.fn(async () => fixtures.protocols),
+    id: record.id,
+    workspace_id: 'ws-1',
+    project_id: record.projectId,
+    folder_id: record.folderId,
+    kind: record.kind,
+    identifier: record.identifier,
+    title: record.title,
+    status: record.status,
+    tags: record.tags,
+    structure_version: record.structureVersion,
+    metadata_version: record.metadataVersion,
+    created_at: record.createdAt,
+    updated_at: record.updatedAt,
+    archived_at: record.archivedAt,
+    deleted_at: record.deletedAt,
+    created_by_user_id: record.createdByUserId,
+    updated_by_user_id: record.updatedByUserId,
+    locked_at: record.lockedAt,
+    locked_by_revision_id: record.lockedByRevisionId,
   }
-})
+}
 
-/**
- * jsdom has no layout: the grid's virtualiser measures a zero-height viewport
- * and would render no rows at all, so the order this test is about could not be
- * observed. The double returns the full row range — the same rows the browser
- * run renders — and only the five methods the grid calls. The real virtualiser
- * is exercised in `tests/browser/registry-grid.test.ts`, which asserts the
- * virtual renderer's own `data-index` attribute.
- */
-vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: ({ count }: { count: number }) => ({
-    getVirtualItems: () =>
-      Array.from({ length: count }, (_, index) => ({
-        index,
-        key: index,
-        start: index * 33,
-        end: index * 33 + 33,
-        size: 33,
-      })),
-    getTotalSize: () => count * 33,
-    measureElement: () => {},
-    scrollToIndex: () => {},
-    scrollToOffset: () => {},
-  }),
-}))
+// The one boundary this suite fakes: the same-origin `/api/db` transport. It
+// is installed before the modules that capture `fetch` are imported.
+vi.hoisted(() => {
+  const transport: typeof fetch = async (input, _init) => {
+    const url = new URL(
+      z
+        .union([z.string(), z.instanceof(URL), z.instanceof(Request)])
+        .transform((value) => {
+          if (value instanceof URL) return value.toString()
+
+          if (value instanceof Request) return value.url
+
+          return value
+        })
+        .parse(input),
+      'http://localhost',
+    )
+
+    const rows = url.pathname.endsWith('/records')
+      ? fixtures.protocols.map(wireOf)
+      : []
+
+    return new Response(JSON.stringify(rows), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  globalThis.fetch = transport
+})
 
 function makeProtocol(overrides: Partial<NotebookRecord> = {}): NotebookRecord {
   return {

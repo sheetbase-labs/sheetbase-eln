@@ -28,7 +28,8 @@ export interface ResolvedObject {
 interface Registry {
   kind: string
   table: string
-  titleColumn: string
+  /** The column holding the registry's human title. */
+  titleColumn: 'name' | 'title'
 }
 
 /** Registries addressed by `display_id`, besides the records table. */
@@ -41,10 +42,12 @@ const REGISTRIES: readonly Registry[] = [
   { kind: 'analysis', table: 'analysis_views', titleColumn: 'name' },
 ]
 
+/** A registry row as this lookup selects it: identity and its title column. */
 interface RegistryRow {
   id: string
   display_id: string | null
-  [column: string]: unknown
+  name?: string | null
+  title?: string | null
 }
 
 /** A dataset, project, sheet, pipeline, analysis or instrument by display id. */
@@ -81,7 +84,7 @@ export async function resolveRegistryObject(
       id: row.id,
       identifier: row.display_id ?? identifier,
       kind: registry.kind,
-      title: typeof title === 'string' && title ? title : identifier,
+      title: title ? title : identifier,
     }
   }
 

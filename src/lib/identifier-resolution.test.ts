@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
   canonicaliseIdentifierPath,
@@ -10,18 +11,16 @@ import {
 
 const UUID = '4c0e6d8a-1f2b-4a3c-9d4e-5f60718293a4'
 
+/** The options a TanStack Router redirect carries its target in. */
+const redirectOptions = z.object({ href: z.string() })
+
 /** Read the href off a TanStack Router redirect without an unchecked cast. */
-function redirectHref(value: unknown): string | undefined {
-  if (!(value instanceof Response)) return undefined
+function redirectHref<Thrown>(thrown: Thrown): string | undefined {
+  if (!(thrown instanceof Response) || !('options' in thrown)) return undefined
 
-  if (!('options' in value)) return undefined
-  const options = value.options
+  const options = redirectOptions.safeParse(thrown.options)
 
-  if (typeof options !== 'object' || options === null) return undefined
-
-  if (!('href' in options)) return undefined
-
-  return typeof options.href === 'string' ? options.href : undefined
+  return options.success ? options.data.href : undefined
 }
 
 describe('isUuid', () => {
@@ -83,7 +82,7 @@ describe('resolveIdentifierParam', () => {
         href: '/projects/PRJ-0217/members',
       },
       resolve,
-    ).catch((error: unknown) => error)
+    ).catch((reason) => reason)
 
     expect(resolve).toHaveBeenCalledWith({
       entity: 'project',
@@ -119,7 +118,7 @@ describe('redirectExperimentRecord', () => {
     const thrown = await redirectExperimentRecord(
       at(`/records/${UUID}/notebook`),
       resolve,
-    ).catch((e: unknown) => e)
+    ).catch((reason) => reason)
 
     expect(redirectHref(thrown)).toBe(
       `/experiments/${UUID}/notebook?revision=r1#b2`,

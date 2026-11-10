@@ -36,6 +36,8 @@
  * `budget_exceeded` omissions naming the ref and the exhausted budget.
  */
 
+import { z } from 'zod'
+
 import { fetchAnalysisDefinition } from './analysis-definitions-data'
 import type { DataClient } from './data-client'
 import {
@@ -56,7 +58,7 @@ import {
   fetchRecord,
   fetchRecordsForProject,
 } from './notebook-data'
-import type { NotebookBlock } from './notebook-data'
+import type { NotebookBlock, NotebookRecord } from './notebook-data'
 import { extractBlockText } from './search'
 import {
   fetchSheetDefinition,
@@ -204,10 +206,8 @@ export interface AssembleAiContextInput {
 // ---------------------------------------------------------------------------
 
 function resolveBudgets(partial?: Partial<AiContextBudgets>): AiContextBudgets {
-  const pick = (value: unknown, fallback: number): number =>
-    typeof value === 'number' && Number.isFinite(value) && value >= 0
-      ? Math.floor(value)
-      : fallback
+  const pick = (value: number | undefined, fallback: number): number =>
+    Number.isFinite(value) && (value ?? 0) >= 0 ? Math.floor(value!) : fallback
 
   const defaults = DEFAULT_AI_CONTEXT_BUDGETS
 
@@ -250,31 +250,40 @@ function truncateSection(
 // logger redact() so secret-shaped keys never reach model context.
 // ---------------------------------------------------------------------------
 
-function scalarSummary(value: unknown): string {
+/** The shapes a captured value takes on its own: text, a scalar, or JSON. */
+const SCALAR_TEXT = z.string()
+const SCALAR_PRIMITIVE = z.union([z.number(), z.boolean(), z.bigint()])
+
+function scalarSummary<Value>(value: Value): string {
   if (value === null || value === undefined) return '—'
 
-  if (typeof value === 'string') return value === '' ? '—' : value
+  const text = SCALAR_TEXT.safeParse(value)
 
-  if (
-    typeof value === 'number' ||
-    typeof value === 'boolean' ||
-    typeof value === 'bigint'
-  )
-    return String(value)
+  if (text.success) return text.data === '' ? '—' : text.data
+
+  const primitive = SCALAR_PRIMITIVE.safeParse(value)
+
+  if (primitive.success) return String(primitive.data)
 
   try {
-    const serialized: unknown = JSON.stringify(value)
+    const serialized = SCALAR_TEXT.safeParse(JSON.stringify(value))
 
-    return typeof serialized === 'string' ? serialized : '—'
+    return serialized.success ? serialized.data : '—'
   } catch {
     return '[unserialisable value]'
   }
 }
 
+/** A record's properties as one bounded section. */
+interface PropertySummary {
+  body: string
+  dropped: number
+}
+
 function summariseProperties(
-  properties: Record<string, unknown>,
+  properties: NotebookRecord['properties'],
   maxEntries = 30,
-): { body: string; dropped: number } {
+): PropertySummary {
   const clean = redact(properties)
   const keys = Object.keys(clean)
 
@@ -303,46 +312,37 @@ interface FrozenProvenance {
   checksum: string
 }
 
+/** The identifiers assembly cannot run without: a non-empty string. */
+const REQUIRED_ID = z.string().min(1)
+
+/** A draft analysis block names the definition it was made from. */
+const DRAFT_DEFINITION = z.object({ definitionId: z.string() })
+
+/** A frozen analysis block's provenance, as the block payload records it. */
+const FROZEN_PROVENANCE = z.object({
+  datasetId: z.string(),
+  datasetVersionId: z.string(),
+  rowCount: z.number(),
+  checksum: z.string(),
+})
+
+const FROZEN_PAYLOAD = z.object({
+  frozen: z.object({ datasetProvenance: z.array(FROZEN_PROVENANCE) }).nullish(),
+})
+
 function frozenProvenanceOf(block: NotebookBlock): FrozenProvenance[] {
-  const payload = block.payload as {
-    frozen?: {
-      datasetProvenance?: Array<{
-        datasetId?: unknown
-        datasetVersionId?: unknown
-        rowCount?: unknown
-        checksum?: unknown
-      }>
-    } | null
-  }
+  const payload = FROZEN_PAYLOAD.safeParse(block.payload)
 
-  const provenance = payload.frozen?.datasetProvenance
-
-  if (!Array.isArray(provenance)) return []
-
-  return provenance.flatMap((entry) => {
-    if (
-      typeof entry.datasetId !== 'string' ||
-      typeof entry.datasetVersionId !== 'string' ||
-      typeof entry.rowCount !== 'number' ||
-      typeof entry.checksum !== 'string'
-    )
-      return []
-
-    return [
-      {
-        datasetId: entry.datasetId,
-        datasetVersionId: entry.datasetVersionId,
-        rowCount: entry.rowCount,
-        checksum: entry.checksum,
-      },
-    ]
-  })
+  return payload.success ? (payload.data.frozen?.datasetProvenance ?? []) : []
 }
 
-function blockSummary(block: NotebookBlock): {
+/** One block as one bounded section, plus the versions it pins. */
+interface BlockSummary {
   body: string
   pins: AiVersionPin[]
-} {
+}
+
+function blockSummary(block: NotebookBlock): BlockSummary {
   let text: string
 
   try {
@@ -368,16 +368,16 @@ function blockSummary(block: NotebookBlock): {
 
       evidence = `pinned: frozen analysis over ${frozen.map((e) => `dataset version ${e.datasetVersionId} (${e.rowCount} rows, checksum ${e.checksum})`).join('; ')}`
     } else {
-      const payload = block.payload as { definitionId?: unknown }
-      evidence =
-        typeof payload.definitionId === 'string'
-          ? `live: draft analysis definition ${payload.definitionId} (unfrozen — results may change)`
-          : 'live: draft analysis (unfrozen — results may change)'
+      const definition = DRAFT_DEFINITION.safeParse(block.payload)
+      evidence = definition.success
+        ? `live: draft analysis definition ${definition.data.definitionId} (unfrozen — results may change)`
+        : 'live: draft analysis (unfrozen — results may change)'
     }
   }
 
   const clean = redact(text)
-  const body = `[${block.type} block ${block.id}]\n${evidence}\n${typeof clean === 'string' ? clean : scalarSummary(clean)}`
+  const redacted = SCALAR_TEXT.safeParse(clean)
+  const body = `[${block.type} block ${block.id}]\n${evidence}\n${redacted.success ? redacted.data : scalarSummary(clean)}`
 
   return { body, pins }
 }
@@ -416,10 +416,10 @@ async function resolveRecord(
 
   if (!record) return { ok: false, omission: notVisible(ref.kind, ref.id) }
 
-  const wire = (await client.list<{ workspace_id?: string }>(
+  const wire = await client.list<{ workspace_id?: string }>(
     'records',
     `?id=eq.${encodeURIComponent(ref.id)}&select=workspace_id&limit=1`,
-  )) as Array<{ workspace_id?: string }>
+  )
 
   // fetchRecord is the canonical resolver under RLS; the narrow workspace
   // projection confirms the row belongs to the requested workspace. When the
@@ -505,10 +505,10 @@ async function resolveProject(
 
   if (!project) return { ok: false, omission: notVisible(ref.kind, ref.id) }
 
-  const wire = (await client.list<{ workspace_id?: string }>(
+  const wire = await client.list<{ workspace_id?: string }>(
     'projects',
     `?id=eq.${encodeURIComponent(ref.id)}&select=workspace_id&limit=1`,
-  )) as Array<{ workspace_id?: string }>
+  )
 
   if (wire[0]?.workspace_id !== workspaceId) {
     return {
@@ -919,13 +919,14 @@ async function resolveDataset(
     }
   }
 
-  const pinned = ref.pinnedVersionId != null
+  const pinnedVersionId = ref.pinnedVersionId ?? null
+  const pinned = pinnedVersionId !== null
 
   const pins: AiVersionPin[] = pinned
     ? [
         {
           kind: 'dataset_version' as const,
-          id: ref.pinnedVersionId as string,
+          id: pinnedVersionId,
           detail: `requester-asserted dataset version pin on dataset ${table.id} (revision ${table.revision ?? 'unknown'}); stated verbatim — live rows withheld so pinned and live state are never mixed`,
         },
       ]
@@ -983,13 +984,9 @@ async function resolveDataset(
     rowsSampled = page.rows.length
 
     const lines = page.rows.map((row) => {
-      const {
-        id: _id,
-        version: _version,
-        ...values
-      } = row as Record<string, unknown>
+      const { id, version: _version, ...values } = row
 
-      return `- row ${(row as { id?: unknown }).id ?? '?'}: ${scalarSummary(redact(values))}`
+      return `- row ${id}: ${scalarSummary(redact(values))}`
     })
 
     sections.push({
@@ -1109,15 +1106,11 @@ export async function assembleAiContext(
   actor: AiContextActor | null | undefined,
   input: AssembleAiContextInput | null | undefined,
 ): Promise<AiContextEnvelope> {
-  if (!actor || typeof actor.id !== 'string' || actor.id === '') {
+  if (!actor || !REQUIRED_ID.safeParse(actor.id).success) {
     throw new Error('assembleAiContext: actor with a non-empty id is required')
   }
 
-  if (
-    !input ||
-    typeof input.workspaceId !== 'string' ||
-    input.workspaceId === ''
-  ) {
+  if (!input || !REQUIRED_ID.safeParse(input.workspaceId).success) {
     throw new Error('assembleAiContext: workspaceId is required (fail closed)')
   }
 
@@ -1158,10 +1151,10 @@ export async function assembleAiContext(
 
   for (const ref of dropped) {
     omissions.push({
-      kind: String((ref as AiObjectRef | null)?.kind ?? 'unknown'),
-      id: String((ref as AiObjectRef | null)?.id ?? 'unknown'),
+      kind: ref?.kind ?? 'unknown',
+      id: ref?.id ?? 'unknown',
       reason: 'budget_exceeded',
-      detail: `object ${(ref as AiObjectRef | null)?.kind ?? 'unknown'}:${(ref as AiObjectRef | null)?.id ?? 'unknown'} dropped: maxObjects=${budgets.maxObjects} exceeded`,
+      detail: `object ${ref?.kind ?? 'unknown'}:${ref?.id ?? 'unknown'} dropped: maxObjects=${budgets.maxObjects} exceeded`,
     })
   }
 
@@ -1169,14 +1162,13 @@ export async function assembleAiContext(
     if (
       !ref ||
       !AI_OBJECT_REF_KINDS.includes(ref.kind) ||
-      typeof ref.id !== 'string' ||
-      ref.id === ''
+      !REQUIRED_ID.safeParse(ref.id).success
     ) {
       omissions.push({
-        kind: String((ref as AiObjectRef | null)?.kind ?? 'unknown'),
-        id: String((ref as AiObjectRef | null)?.id ?? 'unknown'),
+        kind: ref?.kind ?? 'unknown',
+        id: ref?.id ?? 'unknown',
         reason: 'unsupported_kind',
-        detail: `unsupported object ref kind '${String((ref as AiObjectRef | null)?.kind)}'; supported kinds: ${AI_OBJECT_REF_KINDS.join(', ')}`,
+        detail: `unsupported object ref kind '${ref?.kind ?? 'unknown'}'; supported kinds: ${AI_OBJECT_REF_KINDS.join(', ')}`,
       })
       continue
     }

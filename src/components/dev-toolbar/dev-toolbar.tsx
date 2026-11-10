@@ -192,7 +192,10 @@ function BarPopover({
     if (!open) return
 
     const onDown = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) setLeft(null)
+      const target = event.target
+      const inside = target instanceof Node && ref.current?.contains(target)
+
+      if (!inside) setLeft(null)
     }
 
     const onKey = (event: KeyboardEvent) => {

@@ -31,8 +31,8 @@ export interface PackInput {
   generatedAt: string
   appVersion: string
   migration: string | null
-  /** Non-secret facts about this install. */
-  system: Record<string, unknown>
+  /** Non-secret facts about this install, written to `system.json`. */
+  system: Record<string, string | number | boolean | null>
   runs: ValidationRunRecord[]
   publicKeyPem: string
   fingerprint: string

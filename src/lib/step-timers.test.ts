@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { z } from 'zod'
 
 import { validateBlock } from '#/lib/blocks'
 import {
@@ -71,7 +72,7 @@ describe('step timer maths', () => {
 })
 
 describe('procedure step duration', () => {
-  const check = (durationSeconds: unknown) =>
+  const check = (durationSeconds: z.core.util.JSONType) =>
     validateBlock({
       type: 'procedure_step',
       payload: { text: 'Incubate', stepNumber: 1, durationSeconds },

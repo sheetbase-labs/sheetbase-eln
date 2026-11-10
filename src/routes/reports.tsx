@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { z } from 'zod'
 import {
   Link,
   Outlet,
@@ -55,11 +56,11 @@ const tabLabel: Record<ReportTab, string> = {
   archived: t('projects.reports.tabs.archived'),
 }
 
-const SORTS: Record<string, SortingState> = {
+const SORTS = {
   [t('library.protocols.list.updated')]: [{ id: 'updatedAt', desc: true }],
   ID: [{ id: 'identifier', desc: false }],
   [t('projects.reports.grid.report')]: [{ id: 'title', desc: false }],
-}
+} satisfies Record<string, SortingState>
 
 const sorts = Object.keys(SORTS)
 
@@ -75,17 +76,38 @@ function sortKeyOf(sorting: SortingState): string | undefined {
   })
 }
 
+/** The address bar's filters, decoded once; anything unreadable is dropped. */
+const reportsSearchSchema = z.object({
+  q: z.string().optional().catch(undefined),
+  selected: z.string().optional().catch(undefined),
+  new: z
+    .union([z.literal('true'), z.literal(true)])
+    .optional()
+    .catch(undefined),
+  tab: z.enum(tabs).optional().catch(undefined),
+})
+
+/** The report list's readable search state. */
+interface ReportsSearch {
+  q?: string
+  tab?: ReportTab
+  selected?: string
+  new?: true
+}
+
 export const Route = createFileRoute('/reports')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { q?: string; tab?: ReportTab; selected?: string; new?: true } => ({
-    new: search.new === true || search.new === 'true' ? true : undefined,
-    q: typeof search.q === 'string' ? search.q : undefined,
-    selected: typeof search.selected === 'string' ? search.selected : undefined,
-    tab: (tabs as readonly string[]).includes(search.tab as string)
-      ? (search.tab as ReportTab)
-      : undefined,
-  }),
+  validateSearch: (search): ReportsSearch => {
+    const parsed = reportsSearchSchema.safeParse(search)
+
+    if (!parsed.success) return {}
+
+    return {
+      new: parsed.data.new === undefined ? undefined : true,
+      q: parsed.data.q,
+      selected: parsed.data.selected,
+      tab: parsed.data.tab,
+    }
+  },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
 
@@ -123,6 +145,273 @@ function inTab(r: ReportListRow, tab: ReportTab, userId: string): boolean {
   }
 }
 
+/** Rows while the list is still loading; one array so `useMemo` keeps its value. */
+const NO_REPORTS: ReportListRow[] = []
+
+/** How many reports each tab holds for this person. */
+function tabCounts(
+  rows: ReportListRow[],
+  userId: string,
+): Record<ReportTab, number> {
+  const out: Record<ReportTab, number> = {
+    all: 0,
+    mine: 0,
+    draft: 0,
+    review: 0,
+    approved: 0,
+    archived: 0,
+  }
+
+  for (const item of tabs)
+    out[item] = rows.filter((r) => inTab(r, item, userId)).length
+
+  return out
+}
+
+/** The reports the chosen tab and the typed words show. */
+function visibleReports(
+  rows: ReportListRow[],
+  tab: ReportTab,
+  userId: string,
+  typed: string,
+): ReportListRow[] {
+  const q = typed.trim().toLowerCase()
+
+  return rows
+    .filter((r) => inTab(r, tab, userId))
+    .filter((r) => !q || `${r.identifier} ${r.title}`.toLowerCase().includes(q))
+}
+
+/** The report the details pane shows: the chosen row, the address bar's, or the first. */
+function selectedReport(
+  visible: ReportListRow[],
+  selectedId: string | null,
+  searchSelected: string | undefined,
+): ReportListRow | undefined {
+  return (
+    visible.find((r) => r.recordId === selectedId) ??
+    visible.find((r) => r.recordId === searchSelected) ??
+    visible.at(0)
+  )
+}
+
+/** The sort to apply: the person's own, else the newest-updated reports first. */
+function sortStateOf(sorting: SortingState): SortingState {
+  return sorting.length ? sorting : SORTS[t('library.protocols.list.updated')]
+}
+
+/** What a person reads about the selected report, beside the list. */
+function ReportDetails({
+  report,
+  userLabel,
+}: {
+  report: ReportListRow
+  userLabel: (userId: string) => string
+}) {
+  return (
+    <Inspector
+      aria-label={t('projects.reports.page.summary')}
+      className="w-[320px] gap-0 p-0"
+    >
+      <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
+        <ObjectLink
+          kind="report"
+          id={report.recordId}
+          identifier={report.identifier}
+          className="text-fg-muted"
+        />
+        <div className="font-heading text-doc font-semibold">
+          {report.title}
+        </div>
+        {report.subtitle ? (
+          <div className="text-label text-fg-muted">{report.subtitle}</div>
+        ) : null}
+        <div className="text-label">
+          <Status tone={reportStatus(report.status).tone}>
+            {reportStatus(report.status).label}
+          </Status>
+        </div>
+      </div>
+      <div className="flex flex-col gap-4 px-4 py-3.5">
+        <InspectorSection title={t('projects.reports.page.details')}>
+          <DescriptionList
+            labelWidth={100}
+            items={[
+              [
+                t('projects.reports.page.project'),
+                report.projectTitle ?? t('projects.reports.page.noProject'),
+              ],
+              [
+                t('projects.reports.page.owner'),
+                userLabel(report.createdByUserId),
+              ],
+              [t('projects.reports.page.sections'), report.sectionCount],
+              [
+                t('projects.reports.page.generated'),
+                report.lastGeneratedAt
+                  ? formatDate(report.lastGeneratedAt)
+                  : t('projects.reports.grid.never'),
+              ],
+              [
+                t('projects.reports.page.updated'),
+                formatDate(report.updatedAt),
+              ],
+            ]}
+          />
+        </InspectorSection>
+      </div>
+    </Inspector>
+  )
+}
+
+/** What the list says when the current tab and search turn up nothing. */
+function ReportsEmpty({
+  q,
+  tab,
+  searchQ,
+  workspaceId,
+}: {
+  q: string
+  tab: ReportTab
+  searchQ: string | undefined
+  workspaceId: string
+}) {
+  return (
+    <div role="status" className="flex justify-center px-6">
+      <EmptyState
+        icon={q ? 'search' : 'report'}
+        className="items-center py-14 text-center"
+        title={
+          q
+            ? t('projects.reports.page.noneMatch', { q: searchQ ?? '' })
+            : tab === 'all'
+              ? t('projects.reports.page.noneYet')
+              : t('projects.reports.page.noneIn', { tab: tabLabel[tab] })
+        }
+        description={t('projects.reports.page.searchHint')}
+        action={
+          q ? (
+            <Button
+              nativeButton={false}
+              render={<Link to="/reports" search={{ tab }} />}
+            >
+              {t('projects.reports.page.clearSearch')}
+            </Button>
+          ) : (
+            <NewReportDialog workspaceId={workspaceId} />
+          )
+        }
+      />
+    </div>
+  )
+}
+
+/** The list's tab strip: one tab per report state, carrying its count. */
+function ReportTabs({
+  tab,
+  counts,
+  pending,
+  q,
+}: {
+  tab: ReportTab
+  counts: Record<ReportTab, number>
+  pending: boolean
+  q: string
+}) {
+  return (
+    <Tabs
+      mode="url"
+      label={t('projects.reports.page.lists')}
+      value={tab}
+      items={tabs.map((item) => ({
+        key: item,
+        label: tabLabel[item],
+        count: pending ? undefined : counts[item],
+        link: {
+          to: '/reports',
+          search: { tab: item === 'all' ? undefined : item, q },
+        },
+      }))}
+    />
+  )
+}
+
+/** The narrow-screen list of the same reports. */
+function ReportMobileList({
+  rows,
+  userLabel,
+}: {
+  rows: ReportListRow[]
+  userLabel: (userId: string) => string
+}) {
+  return (
+    <MobileList
+      label={t('projects.reports.page.title')}
+      items={rows.map((row) => {
+        const status = reportStatus(row.status)
+
+        return {
+          key: row.recordId,
+          id: row.identifier,
+          title: row.title,
+          sub: row.projectTitle ?? userLabel(row.createdByUserId),
+          status: <Status tone={status.tone}>{status.label}</Status>,
+          link: {
+            to: '/reports/$reportId',
+            params: { reportId: row.recordId },
+          },
+        }
+      })}
+    />
+  )
+}
+
+/** The list's title row: the count, the new-report action and the tabs. */
+function ReportHeader({
+  canWrite,
+  pending,
+  total,
+  workspaceId,
+  autoOpen,
+  onAutoOpened,
+  tab,
+  counts,
+  q,
+}: {
+  canWrite: boolean
+  pending: boolean
+  total: number
+  workspaceId: string
+  autoOpen: boolean
+  onAutoOpened: () => void
+  tab: ReportTab
+  counts: Record<ReportTab, number>
+  q: string
+}) {
+  return (
+    <ListHeader
+      title={t('projects.reports.page.title')}
+      total={pending ? undefined : total}
+      actions={
+        canWrite ? (
+          <NewReportDialog
+            workspaceId={workspaceId}
+            autoOpen={autoOpen}
+            onAutoOpened={onAutoOpened}
+          />
+        ) : (
+          <ReadOnlyNote>
+            {t('common.readOnly.cannotAdd', {
+              things: t('common.readOnly.things.reports'),
+            })}
+          </ReadOnlyNote>
+        )
+      }
+      tabs={<ReportTabs tab={tab} counts={counts} pending={pending} q={q} />}
+    />
+  )
+}
+
 function ReportsList() {
   const { context } = Route.useRouteContext()
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
@@ -140,10 +429,7 @@ function ReportsList() {
   // with none, the newest-updated reports lead.
   const view = useListView('reports')
 
-  const sorting = view.sorting.length
-    ? view.sorting
-    : SORTS[t('library.protocols.list.updated')]
-
+  const sorting = sortStateOf(view.sorting)
   const setSorting = view.setSorting
 
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -167,75 +453,31 @@ function ReportsList() {
     staleTime: 15_000,
   })
 
-  const rows = query.data ?? []
+  const rows = query.data ?? NO_REPORTS
   const names = useUserNames(rows.map((r) => r.createdByUserId))
   const userId = context.user.id
   const tab: ReportTab = search.tab ?? 'all'
 
-  const counts = useMemo(
-    () =>
-      Object.fromEntries(
-        tabs.map((item) => [
-          item,
-          rows.filter((r) => inTab(r, item, userId)).length,
-        ]),
-      ) as Record<ReportTab, number>,
-    [rows, userId],
-  )
+  const counts = useMemo(() => tabCounts(rows, userId), [rows, userId])
 
-  const q = (search.q ?? '').trim().toLowerCase()
-
-  const visible = rows
-    .filter((r) => inTab(r, tab, userId))
-    .filter((r) => !q || `${r.identifier} ${r.title}`.toLowerCase().includes(q))
-
-  const sel =
-    visible.find((r) => r.recordId === selectedId) ??
-    visible.find((r) => r.recordId === search.selected) ??
-    visible.at(0)
+  const visible = visibleReports(rows, tab, userId, search.q ?? '')
+  const sel = selectedReport(visible, selectedId, search.selected)
 
   const workspaceId = context.workspace?.id ?? ''
 
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
-        <ListHeader
-          title={t('projects.reports.page.title')}
-          total={query.isPending ? undefined : rows.length}
-          actions={
-            canWrite ? (
-              <NewReportDialog
-                workspaceId={workspaceId}
-                autoOpen={search.new === true}
-                onAutoOpened={dropNewFlag}
-              />
-            ) : (
-              <ReadOnlyNote>
-                {t('common.readOnly.cannotAdd', {
-                  things: t('common.readOnly.things.reports'),
-                })}
-              </ReadOnlyNote>
-            )
-          }
-          tabs={
-            <Tabs
-              mode="url"
-              label={t('projects.reports.page.lists')}
-              value={tab}
-              items={tabs.map((item) => ({
-                key: item,
-                label: tabLabel[item],
-                count: query.isPending ? undefined : counts[item],
-                link: {
-                  to: '/reports',
-                  search: {
-                    tab: item === 'all' ? undefined : item,
-                    q: search.q ?? '',
-                  },
-                },
-              }))}
-            />
-          }
+        <ReportHeader
+          canWrite={canWrite}
+          pending={query.isPending}
+          total={rows.length}
+          workspaceId={workspaceId}
+          autoOpen={search.new === true}
+          onAutoOpened={dropNewFlag}
+          tab={tab}
+          counts={counts}
+          q={search.q ?? ''}
         />
         <ListToolbar
           q={search.q}
@@ -270,57 +512,14 @@ function ReportsList() {
               onOpen={openReport}
             />
           ) : null}
-          <MobileList
-            label={t('projects.reports.page.title')}
-            items={visible.map((r) => {
-              const status = reportStatus(r.status)
-
-              return {
-                key: r.recordId,
-                id: r.identifier,
-                title: r.title,
-                sub: r.projectTitle ?? names.userLabel(r.createdByUserId),
-                status: <Status tone={status.tone}>{status.label}</Status>,
-                link: {
-                  to: '/reports/$reportId',
-                  params: { reportId: r.recordId },
-                },
-              }
-            })}
-          />
+          <ReportMobileList rows={visible} userLabel={names.userLabel} />
           {!query.isPending && visible.length === 0 ? (
-            <div role="status" className="flex justify-center px-6">
-              <EmptyState
-                icon={q ? 'search' : 'report'}
-                className="items-center py-14 text-center"
-                title={
-                  q
-                    ? t('projects.reports.page.noneMatch', {
-                        q: search.q ?? '',
-                      })
-                    : tab === 'all'
-                      ? t('projects.reports.page.noneYet')
-                      : t('projects.reports.page.noneIn', {
-                          tab: tabLabel[tab],
-                        })
-                }
-                description={t('projects.reports.page.searchHint')}
-                action={
-                  q ? (
-                    <Button
-                      nativeButton={false}
-                      render={
-                        <Link to="/reports" search={{ tab: search.tab }} />
-                      }
-                    >
-                      {t('projects.reports.page.clearSearch')}
-                    </Button>
-                  ) : (
-                    <NewReportDialog workspaceId={workspaceId} />
-                  )
-                }
-              />
-            </div>
+            <ReportsEmpty
+              q={search.q ?? ''}
+              tab={tab}
+              searchQ={search.tab}
+              workspaceId={workspaceId}
+            />
           ) : null}
         </div>
         <ListFooter
@@ -336,60 +535,7 @@ function ReportsList() {
         </ListFooter>
       </div>
 
-      {sel ? (
-        <Inspector
-          aria-label={t('projects.reports.page.summary')}
-          className="w-[320px] gap-0 p-0"
-        >
-          <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
-            <ObjectLink
-              kind="report"
-              id={sel.recordId}
-              identifier={sel.identifier}
-              className="text-fg-muted"
-            />
-            <div className="font-heading text-doc font-semibold">
-              {sel.title}
-            </div>
-            {sel.subtitle ? (
-              <div className="text-label text-fg-muted">{sel.subtitle}</div>
-            ) : null}
-            <div className="text-label">
-              <Status tone={reportStatus(sel.status).tone}>
-                {reportStatus(sel.status).label}
-              </Status>
-            </div>
-          </div>
-          <div className="flex flex-col gap-4 px-4 py-3.5">
-            <InspectorSection title={t('projects.reports.page.details')}>
-              <DescriptionList
-                labelWidth={100}
-                items={[
-                  [
-                    t('projects.reports.page.project'),
-                    sel.projectTitle ?? t('projects.reports.page.noProject'),
-                  ],
-                  [
-                    t('projects.reports.page.owner'),
-                    names.userLabel(sel.createdByUserId),
-                  ],
-                  [t('projects.reports.page.sections'), sel.sectionCount],
-                  [
-                    t('projects.reports.page.generated'),
-                    sel.lastGeneratedAt
-                      ? formatDate(sel.lastGeneratedAt)
-                      : t('projects.reports.grid.never'),
-                  ],
-                  [
-                    t('projects.reports.page.updated'),
-                    formatDate(sel.updatedAt),
-                  ],
-                ]}
-              />
-            </InspectorSection>
-          </div>
-        </Inspector>
-      ) : null}
+      {sel ? <ReportDetails report={sel} userLabel={names.userLabel} /> : null}
     </div>
   )
 }

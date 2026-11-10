@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
 import type { DataClient } from '../data-client'
+import { createDataClient } from '../data-client'
 import type { SessionAuthDeps } from '../request-auth'
 import {
   CodeCellError,
@@ -79,6 +80,7 @@ describe('code cell Python input handoff', () => {
 
 // The real module opens the database; a session check against the fake deps is
 // all these tests need.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- request-auth opens the database connection at import; the handler under test takes its session deps as an argument, so only the module wiring is replaced.
 vi.mock('../request-auth', () => ({
   realSessionAuthDeps: {},
   requestErrorResponse: (status: number, code: string, message: string) =>
@@ -109,6 +111,13 @@ const BLOCK = '22222222-2222-4222-8222-222222222222'
 const VERSION = '33333333-3333-4333-8333-333333333333'
 const RUN = '44444444-4444-4444-8444-444444444444'
 
+/** A JSON value a cell's request or response carries. */
+type JsonValue =
+  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+
+/** One fixture row: the JSON a dataset or Python response returns. */
+type FixtureRow = Record<string, JsonValue>
+
 const dataset = {
   versionId: VERSION,
   datasetId: '55555555-5555-4555-8555-555555555555',
@@ -119,23 +128,23 @@ const dataset = {
   rows: [{ well: 'A1' }, { well: 'A2' }],
 }
 
-function fakeClient(extra: { original?: unknown } = {}) {
-  const recorded: Array<Record<string, unknown>> = []
+function fakeClient(extra: { original?: FixtureRow } = {}) {
+  const recorded: FixtureRow[] = []
 
-  const client = {
+  const client: DataClient = Object.assign(createDataClient(), {
     list: vi.fn(async () => (extra.original ? [extra.original] : [])),
-    rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
+    rpc: vi.fn(async (name: string, args: FixtureRow) => {
       if (name === 'dataset_version_rows_json') return dataset
       recorded.push(args)
 
       return { id: RUN, number: 7, ran_at: '2026-11-07T10:00:00Z' }
     }),
-  } as unknown as DataClient
+  })
 
   return { client, recorded }
 }
 
-const python = (rows: Array<Record<string, unknown>>) =>
+const python = (rows: FixtureRow[]) =>
   vi.fn(async () => ({
     rows,
     logs: ['hello'],
@@ -313,7 +322,7 @@ describe('handleCodeCell', () => {
     }
   }
 
-  const post = (body: unknown) =>
+  const post = (body: JsonValue) =>
     new Request('http://x/api/notebook/code-cell', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

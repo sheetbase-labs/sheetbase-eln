@@ -62,12 +62,8 @@ const meta = {
   tags: ['autodocs'],
   parameters: { client: pending },
   decorators: [
-    (Story, context) => (
-      <QueryClientProvider
-        client={
-          context.parameters.client as ReturnType<typeof screenQueryClient>
-        }
-      >
+    (Story) => (
+      <QueryClientProvider client={pending}>
         <div className="w-[760px] max-w-full">
           <Story />
         </div>

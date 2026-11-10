@@ -14,6 +14,8 @@
  * pipelines (`api.record_steps`, migration 0103 and the experiment_parts migration); keep the two in step.
  */
 
+import { z } from 'zod'
+
 export type StepStatus = 'done' | 'in_progress' | 'not_started'
 
 export interface StepBlockLike {
@@ -21,6 +23,7 @@ export interface StepBlockLike {
   type?: string
   /** The part the block is in, when the experiment has parts. */
   partId?: string | null
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- A block payload is open stored JSON shared with notebook rendering; every member read here is decoded by the member schemas below rather than trusted.
   payload: Record<string, unknown>
 }
 
@@ -54,9 +57,14 @@ export interface StepProgress {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-function text(value: unknown): string {
-  return typeof value === 'string' ? value : ''
-}
+/** A payload member that reads as text; anything else reads as absent. */
+const textMember = z.string().catch('')
+
+/** A payload member that reads as a number; anything else reads as null. */
+const numberMember = z.number().nullable().catch(null)
+
+/** A payload member that reads as a tick; anything else counts as unticked. */
+const booleanMember = z.boolean().catch(false)
 
 /**
  * The steps of a notebook in page order. `timerBlockIds` are the steps the
@@ -82,7 +90,7 @@ export function stepProgress(
 
   for (const block of blocks) {
     if (block.type !== 'metric') continue
-    const step = text(block.payload.stepBlockId)
+    const step = textMember.parse(block.payload.stepBlockId)
 
     if (step) results.set(step, (results.get(step) ?? 0) + 1)
   }
@@ -93,7 +101,7 @@ export function stepProgress(
   for (const block of blocks) {
     if (block.type !== 'procedure_step') continue
     const payload = block.payload
-    const label = text(payload.text).trim()
+    const label = textMember.parse(payload.text).trim()
 
     if (!label) continue
 
@@ -101,8 +109,8 @@ export function stepProgress(
       block.partId && partById.has(block.partId) ? block.partId : null
 
     if (partId) placed.set(partId, (placed.get(partId) ?? 0) + 1)
-    const done = payload.completed === true
-    const note = text(payload.note).trim() || null
+    const done = booleanMember.parse(payload.completed)
+    const note = textMember.parse(payload.note).trim() || null
     const resultCount = results.get(block.id) ?? 0
 
     const status: StepStatus = done
@@ -115,11 +123,12 @@ export function stepProgress(
     const current = !done && !currentTaken && inCurrentPart
 
     if (current) currentTaken = true
+    const instrumentId = textMember.parse(payload.instrumentId)
+
     steps.push({
       blockId: block.id,
       index: steps.length + 1,
-      stepNumber:
-        typeof payload.stepNumber === 'number' ? payload.stepNumber : null,
+      stepNumber: numberMember.parse(payload.stepNumber),
       partId,
       partNumber: partId ? partById.get(partId)!.number : null,
       partStepIndex: partId ? (placed.get(partId) ?? null) : null,
@@ -129,15 +138,12 @@ export function stepProgress(
       current,
       note,
       results: resultCount,
-      completedAt: done ? text(payload.completedAt) || null : null,
-      completedByUserId: done ? text(payload.completedByUserId) || null : null,
-      durationSeconds:
-        typeof payload.durationSeconds === 'number'
-          ? payload.durationSeconds
-          : null,
-      instrumentId: UUID.test(text(payload.instrumentId))
-        ? text(payload.instrumentId)
+      completedAt: done ? textMember.parse(payload.completedAt) || null : null,
+      completedByUserId: done
+        ? textMember.parse(payload.completedByUserId) || null
         : null,
+      durationSeconds: numberMember.parse(payload.durationSeconds),
+      instrumentId: UUID.test(instrumentId) ? instrumentId : null,
     })
   }
 

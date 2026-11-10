@@ -43,7 +43,8 @@ export function ProjectList<T extends { key: string }>({
   empty,
   footer,
 }: {
-  title: React.ReactNode
+  /** The list's heading; also the table and phone-list accessible name. */
+  title: string
   count?: React.ReactNode
   action?: React.ReactNode
   cols: ProjectListCol<T>[]
@@ -65,11 +66,11 @@ export function ProjectList<T extends { key: string }>({
           <>
             <MobileList
               className="-mx-4 border-t border-border md:hidden"
-              label={String(title)}
+              label={title}
               rows={mobile}
             />
             <TableBox className="max-md:hidden">
-              <Table aria-label={String(title)}>
+              <Table aria-label={title}>
                 <TableHeader>
                   <TableRow>
                     {cols.map((c) => (

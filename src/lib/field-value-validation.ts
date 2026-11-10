@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import type { FieldDefinition } from './field-definition'
 
 /**
@@ -23,6 +25,14 @@ import type { FieldDefinition } from './field-definition'
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** The decoded alternatives of one canonical value, matching JSON scalars. */
+const scalarSchemas = {
+  boolean: z.boolean(),
+  decimal: z.number(),
+  integer: z.int(),
+  text: z.string(),
+} as const
 
 const CALENDAR_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
 
@@ -102,14 +112,20 @@ function stripUnitSuffix(trimmed: string, symbols: string[]): string {
  */
 export function parseQuantityNumericValue(
   field: FieldDefinition,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Record inputs and Sheet cells enter here as raw copied text or JSON; anything that does not coerce is returned unchanged so validation fails closed.
   raw: unknown,
+  // oxlint-disable-next-line anti-slop/no-unknown-returns -- The uncoerced raw input is returned as it arrived (`raw` below); narrowing it would fabricate a value the caller did not supply.
 ): unknown {
-  if (typeof raw === 'number') return raw
+  const numeric = scalarSchemas.decimal.safeParse(raw)
 
-  if (typeof raw !== 'string') return raw
+  if (numeric.success) return numeric.data
+
+  const text = scalarSchemas.text.safeParse(raw)
+
+  if (!text.success) return raw
 
   const withoutUnit = stripUnitSuffix(
-    raw.trim(),
+    text.data.trim(),
     fieldUnitSymbols(field),
   ).trim()
 
@@ -145,67 +161,109 @@ export function parseQuantityNumericValue(
  */
 export function fieldScalarError(
   field: FieldDefinition,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the shared client-side canonical-value boundary: it decides acceptance of raw record and Sheet input, so the raw value enters unparsed by design.
   value: unknown,
 ): string | null {
-  // A category value is an option id or key (the server matches keys). A
-  // non-matching UUID-shaped value names a dead option; any other scalar is
-  // not a category value at all, matching the Sheet cell codes.
-  if (field.logicalType === 'category') {
-    if (typeof value !== 'string') return 'invalid_value'
+  switch (field.logicalType) {
+    // A category value is an option id or key (the server matches keys). A
+    // non-matching UUID-shaped value names a dead option; any other scalar is
+    // not a category value at all, matching the Sheet cell codes.
+    case 'category': {
+      const categoryValue = scalarSchemas.text.safeParse(value)
 
-    const options =
-      field.category?.kind === 'embedded' ? field.category.options : []
+      if (!categoryValue.success) return 'invalid_value'
 
-    const match = options.some(
-      (option) =>
-        (option.id === value || option.key === value) &&
-        option.lifecycle === 'active',
-    )
+      const options =
+        field.category?.kind === 'embedded' ? field.category.options : []
 
-    if (!match)
-      return isUuid(value) ? 'invalid_category_option' : 'invalid_value'
+      const match = options.some(
+        (option) =>
+          (option.id === categoryValue.data ||
+            option.key === categoryValue.data) &&
+          option.lifecycle === 'active',
+      )
 
-    return null
+      if (!match)
+        return isUuid(categoryValue.data)
+          ? 'invalid_category_option'
+          : 'invalid_value'
+
+      return null
+    }
+
+    case 'text': {
+      const text = scalarSchemas.text.safeParse(value)
+
+      if (!text.success) return 'invalid_value'
+
+      if (
+        (field.validation.minLength !== undefined &&
+          text.data.length < field.validation.minLength) ||
+        (field.validation.maxLength !== undefined &&
+          text.data.length > field.validation.maxLength) ||
+        (field.validation.pattern !== undefined &&
+          !new RegExp(field.validation.pattern).test(text.data))
+      )
+        return 'text_validation'
+
+      return null
+    }
+
+    case 'integer': {
+      const integer = scalarSchemas.integer.safeParse(value)
+
+      if (!integer.success) return 'invalid_value'
+
+      return outsideNumericRange(field, integer.data)
+        ? 'numeric_validation'
+        : null
+    }
+
+    case 'decimal': {
+      const decimal = scalarSchemas.decimal.safeParse(value)
+
+      if (!decimal.success) return 'invalid_value'
+
+      return outsideNumericRange(field, decimal.data)
+        ? 'numeric_validation'
+        : null
+    }
+
+    case 'boolean':
+      return scalarSchemas.boolean.safeParse(value).success
+        ? null
+        : 'invalid_value'
+    case 'date': {
+      const date = scalarSchemas.text.safeParse(value)
+
+      return date.success && isValidCalendarDate(date.data)
+        ? null
+        : 'invalid_value'
+    }
+
+    case 'timestamp': {
+      const timestamp = scalarSchemas.text.safeParse(value)
+
+      return timestamp.success && isValidTimestamp(timestamp.data)
+        ? null
+        : 'invalid_value'
+    }
+
+    case 'reference': {
+      const reference = scalarSchemas.text.safeParse(value)
+
+      return reference.success && isUuid(reference.data)
+        ? null
+        : 'invalid_value'
+    }
   }
+}
 
-  const valid =
-    field.logicalType === 'text'
-      ? typeof value === 'string'
-      : field.logicalType === 'integer'
-        ? typeof value === 'number' && Number.isSafeInteger(value)
-        : field.logicalType === 'decimal'
-          ? typeof value === 'number' && Number.isFinite(value)
-          : field.logicalType === 'boolean'
-            ? typeof value === 'boolean'
-            : field.logicalType === 'date'
-              ? typeof value === 'string' && isValidCalendarDate(value)
-              : field.logicalType === 'timestamp'
-                ? typeof value === 'string' && isValidTimestamp(value)
-                : typeof value === 'string' && isUuid(value)
-
-  if (!valid) return 'invalid_value'
-
-  if (
-    field.logicalType === 'text' &&
-    typeof value === 'string' &&
-    ((field.validation.minLength !== undefined &&
-      value.length < field.validation.minLength) ||
-      (field.validation.maxLength !== undefined &&
-        value.length > field.validation.maxLength) ||
-      (field.validation.pattern !== undefined &&
-        !new RegExp(field.validation.pattern).test(value)))
+function outsideNumericRange(field: FieldDefinition, value: number): boolean {
+  return (
+    (field.validation.min !== undefined && value < field.validation.min) ||
+    (field.validation.max !== undefined && value > field.validation.max)
   )
-    return 'text_validation'
-
-  if (
-    (field.logicalType === 'integer' || field.logicalType === 'decimal') &&
-    typeof value === 'number' &&
-    ((field.validation.min !== undefined && value < field.validation.min) ||
-      (field.validation.max !== undefined && value > field.validation.max))
-  )
-    return 'numeric_validation'
-
-  return null
 }
 
 /**
@@ -215,6 +273,7 @@ export function fieldScalarError(
  */
 export function validateFieldValue(
   field: FieldDefinition,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the shared client-side field-value boundary; nullability, cardinality and scalar acceptance are decided here for raw record and Sheet input.
   value: unknown,
 ): string | null {
   if (value === null)

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { createDataClient } from './data-client'
 import { adminQueryKeys, fetchWorkspaceSettings } from './workspace-admin'
@@ -39,15 +40,31 @@ export async function setInstrumentGateMode(
 export type InstrumentFinding =
   'retired' | 'unqualified' | 'calibration_overdue'
 
+/**
+ * A stored import or run outcome: the receipt's JSON object, the bare status
+ * string older receipts kept, or nothing at all.
+ */
+export interface StoredRunOutcome {
+  /** The findings the database recorded about the instrument, before decoding. */
+  instrumentWarnings?: unknown
+}
+
+const storedRunOutcomeSchema = z.object({
+  instrumentWarnings: z.array(z.unknown()).optional(),
+})
+
 /** The findings an import or run was flagged with, from its stored outcome. */
-export function instrumentWarningsOf(outcome: unknown): InstrumentFinding[] {
-  if (!outcome || typeof outcome !== 'object') return []
-  const found = (outcome as { instrumentWarnings?: unknown }).instrumentWarnings
+export function instrumentWarningsOf(
+  outcome: StoredRunOutcome | string | null,
+): InstrumentFinding[] {
+  const parsed = storedRunOutcomeSchema.safeParse(outcome)
 
-  if (!Array.isArray(found)) return []
+  if (!parsed.success) return []
 
-  return found.filter(
-    (f): f is InstrumentFinding =>
-      f === 'retired' || f === 'unqualified' || f === 'calibration_overdue',
+  return (parsed.data.instrumentWarnings ?? []).filter(
+    (finding): finding is InstrumentFinding =>
+      finding === 'retired' ||
+      finding === 'unqualified' ||
+      finding === 'calibration_overdue',
   )
 }

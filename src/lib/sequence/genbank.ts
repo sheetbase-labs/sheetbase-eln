@@ -7,14 +7,17 @@ import type {
   Topology,
 } from './model'
 
+/** A parsed GenBank location: its parts and the strand they sit on. */
+export interface LocationParts {
+  parts: FeaturePart[]
+  strand: 1 | -1
+}
+
 /**
  * Read a GenBank location such as `complement(join(1..10,20..30))`, `<1..>50`
  * or `12`. Fuzzy ends are kept as plain positions.
  */
-export function parseLocation(raw: string): {
-  parts: FeaturePart[]
-  strand: 1 | -1
-} {
+export function parseLocation(raw: string): LocationParts {
   let text = raw.replace(/\s+/g, '')
   let strand: 1 | -1 = 1
   const comp = /^complement\((.*)\)$/.exec(text)
@@ -108,10 +111,7 @@ function parseFeatures(
 
       if (m) {
         key = m[1]
-        qualifiers[key] = ((m[2] as string | undefined) ?? '').replace(
-          /^"|"$/g,
-          '',
-        )
+        qualifiers[key] = (m.at(2) ?? '').replace(/^"|"$/g, '')
       } else if (key) {
         qualifiers[key] += ` ${line.replace(/"$/, '')}`
       }
@@ -172,18 +172,19 @@ function parseRecord(block: string[]): ParsedSequence {
   const lenMatch = /(\d+)\s+(bp|aa)\b/i.exec(locus)
   const isAa = lenMatch?.[2].toLowerCase() === 'aa'
 
-  const sections: Record<string, string[]> = {}
+  const sections = new Map<string, string[]>()
   let section = ''
 
   for (const line of block) {
     if (/^\S/.test(line)) {
       section = line.split(/\s+/)[0]
-      sections[section] ??= []
-      sections[section].push(line)
-    } else if (section) sections[section].push(line)
+      const existing = sections.get(section) ?? []
+      existing.push(line)
+      sections.set(section, existing)
+    } else if (section) sections.get(section)?.push(line)
   }
 
-  const originLines = (sections.ORIGIN as string[] | undefined) ?? []
+  const originLines = sections.get('ORIGIN') ?? []
 
   const residues = originLines
     .slice(1)
@@ -193,19 +194,17 @@ function parseRecord(block: string[]): ParsedSequence {
 
   const length = residues.length || Number(lenMatch?.[1] ?? 0)
 
-  const definition = ((sections.DEFINITION as string[] | undefined) ?? [])
+  const definition = (sections.get('DEFINITION') ?? [])
     .map((l) => l.replace(/^DEFINITION/, '').trim())
     .join(' ')
     .replace(/\.$/, '')
 
-  const organismLine = ((sections.SOURCE as string[] | undefined) ?? [])
+  const organismLine = (sections.get('SOURCE') ?? [])
     .find((l) => /^\s+ORGANISM/.test(l))
     ?.replace(/^\s+ORGANISM\s+/, '')
     .trim()
 
-  const featureLines = (
-    (sections.FEATURES as string[] | undefined) ?? []
-  ).slice(1)
+  const featureLines = (sections.get('FEATURES') ?? []).slice(1)
 
   return {
     name,

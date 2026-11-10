@@ -18,6 +18,7 @@
  *    similar change happens to exist now.
  */
 import { t } from '#/copy'
+import { z } from 'zod'
 import { diffRevisionEnvelopes } from './revision-diff'
 import type {
   CanonicalRevisionEntity,
@@ -105,79 +106,102 @@ const AREA_SECTION_ORDER: DocumentAreaKey[] = [
   'files',
 ]
 
-const BLOCK_TYPE_LABELS: Record<string, string> = {
-  rich_text: t('projects.revisionDocument.text'),
-  heading: t('projects.revisionDocument.heading'),
-  note: t('projects.revisionDocument.note'),
-  callout: t('projects.revisionDocument.callout'),
-  checklist: t('projects.revisionDocument.checklist'),
-  metric: t('projects.revisionDocument.metric'),
-  table: t('projects.revisionDocument.table'),
-  sheet: t('projects.revisionDocument.sheet'),
-  chart: t('projects.revisionDocument.chart'),
-  analysis: t('projects.revisionDocument.analysis'),
-  pipeline_output: t('projects.revisionDocument.pipelineOutput'),
-  plate_map: t('projects.revisionDocument.plateMap'),
-  structure: t('projects.revisionDocument.structure'),
-  reaction: t('projects.revisionDocument.reaction'),
-  code_cell: t('projects.revisionDocument.codeCell'),
-  sequence: t('projects.revisionDocument.sequence'),
-  file: t('projects.revisionDocument.file'),
-  linked_record: t('projects.revisionDocument.linkedRecord'),
-  protocol_reference: t('projects.revisionDocument.protocolReference'),
-  materials: t('projects.revisionDocument.materials'),
-  procedure_step: t('projects.revisionDocument.procedureStep'),
-}
+const BLOCK_TYPE_LABELS = new Map<string, string>([
+  ['rich_text', t('projects.revisionDocument.text')],
+  ['heading', t('projects.revisionDocument.heading')],
+  ['note', t('projects.revisionDocument.note')],
+  ['callout', t('projects.revisionDocument.callout')],
+  ['checklist', t('projects.revisionDocument.checklist')],
+  ['metric', t('projects.revisionDocument.metric')],
+  ['table', t('projects.revisionDocument.table')],
+  ['sheet', t('projects.revisionDocument.sheet')],
+  ['chart', t('projects.revisionDocument.chart')],
+  ['analysis', t('projects.revisionDocument.analysis')],
+  ['pipeline_output', t('projects.revisionDocument.pipelineOutput')],
+  ['plate_map', t('projects.revisionDocument.plateMap')],
+  ['structure', t('projects.revisionDocument.structure')],
+  ['reaction', t('projects.revisionDocument.reaction')],
+  ['code_cell', t('projects.revisionDocument.codeCell')],
+  ['sequence', t('projects.revisionDocument.sequence')],
+  ['file', t('projects.revisionDocument.file')],
+  ['linked_record', t('projects.revisionDocument.linkedRecord')],
+  ['protocol_reference', t('projects.revisionDocument.protocolReference')],
+  ['materials', t('projects.revisionDocument.materials')],
+  ['procedure_step', t('projects.revisionDocument.procedureStep')],
+])
+
+/** A frozen revision entity is a JSON object; arrays and scalars are not. */
+const canonicalEntity = z
+  .record(z.string(), z.unknown())
+  .refine((value) => !Array.isArray(value))
+
+const nonEmptyText = z
+  .string()
+  .transform((value) => value.trim())
+  .refine((value) => value.length > 0)
 
 function isEntity(value: unknown): value is CanonicalRevisionEntity {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+  return canonicalEntity.safeParse(value).success
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Frozen entity fields are raw JSON; this is the decoder that yields readable text or nothing.
 function asString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0
-    ? value.trim()
-    : null
+  const parsed = nonEmptyText.safeParse(value)
+
+  return parsed.success ? parsed.data : null
+}
+
+/** A numeric entity field, or `undefined` when the frozen JSON holds another type. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Frozen entity fields are raw JSON; this is the decoder that yields a number or nothing.
+function numericField(value: unknown): number | undefined {
+  const parsed = z.number().safeParse(value)
+
+  return parsed.success ? parsed.data : undefined
 }
 
 /** The first readable line of a frozen block payload, without any live read. */
 export function blockLabel(block: CanonicalRevisionEntity): string {
-  const payload: Record<string, unknown> = isEntity(block.payload)
-    ? block.payload
-    : {}
+  const payload = isEntity(block.payload) ? block.payload : null
 
   const own =
-    asString(payload.title) ??
-    asString(payload.text) ??
-    asString(payload.label) ??
-    asString(payload.displayName) ??
-    asString(payload.protocolTitle)
+    asString(payload?.title) ??
+    asString(payload?.text) ??
+    asString(payload?.label) ??
+    asString(payload?.displayName) ??
+    asString(payload?.protocolTitle)
 
   if (own) return own.length > 80 ? `${own.slice(0, 79)}…` : own
   const type = asString(block.type) ?? 'block'
 
   return (
-    BLOCK_TYPE_LABELS[type] ??
+    BLOCK_TYPE_LABELS.get(type) ??
     t('projects.revisionDocument.blockId', { id: String(block.id) })
   )
 }
 
 /** The entity identity of a notebook block inside the canonical envelope. */
-function blockId(value: unknown): string | null {
-  return isEntity(value) ? asString(value.id) : null
+function blockId(block: CanonicalRevisionEntity): string | null {
+  return asString(block.id)
 }
+
+/** A value that reads as an insertion or deletion in the prose. */
+const scalarChangeValue = z.union([z.string(), z.number(), z.boolean()])
 
 /** A scalar change reads as an inline insertion or deletion; an object does not. */
 function isScalarChange(change: RevisionChange): boolean {
   if (change.kind === 'moved') return false
 
-  const scalar = (value: unknown) =>
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
+  if (
+    change.before !== undefined &&
+    !scalarChangeValue.safeParse(change.before).success
+  )
+    return false
 
-  if (change.before !== undefined && !scalar(change.before)) return false
-
-  if (change.after !== undefined && !scalar(change.after)) return false
+  if (
+    change.after !== undefined &&
+    !scalarChangeValue.safeParse(change.after).success
+  )
+    return false
 
   return true
 }
@@ -273,10 +297,9 @@ export function buildRevisionDocument(
       beforeBlocks.get(right)
 
     if (!leftBlock || !rightBlock) return left.localeCompare(right)
-    const leftOrder = typeof leftBlock.order === 'number' ? leftBlock.order : 0
+    const leftOrder = numericField(leftBlock.order) ?? 0
 
-    const rightOrder =
-      typeof rightBlock.order === 'number' ? rightBlock.order : 0
+    const rightOrder = numericField(rightBlock.order) ?? 0
 
     return leftOrder - rightOrder || left.localeCompare(right)
   })
@@ -301,18 +324,24 @@ export function buildRevisionDocument(
         ? 'removed'
         : 'retained'
 
-    blocks.push({
+    const entry: DocumentBlockEntry = {
       id,
       type: asString(block.type) ?? 'unknown',
       label: blockLabel(block),
-      order: typeof block.order === 'number' ? block.order : blocks.length,
+      order: numericField(block.order) ?? blocks.length,
       presence,
       block,
-      ...(predecessor && predecessor !== block ? { before: predecessor } : {}),
-      ...(evidenceByBlock.has(id) ? { evidence: evidenceByBlock.get(id) } : {}),
       inline,
       changes,
-    })
+    }
+
+    if (predecessor && predecessor !== block) entry.before = predecessor
+
+    const evidence = evidenceByBlock.get(id)
+
+    if (evidence) entry.evidence = evidence
+
+    blocks.push(entry)
   }
 
   const tables: DocumentTableEntry[] = []
@@ -325,13 +354,17 @@ export function buildRevisionDocument(
     })
   }
 
-  const areas: DocumentAreaSection[] = AREA_SECTION_ORDER.map((key) => ({
-    key,
-    label: AREA_SECTION_LABELS[key],
-    changes: diff.changes.filter(
+  const areas: DocumentAreaSection[] = []
+
+  for (const key of AREA_SECTION_ORDER) {
+    const changes = diff.changes.filter(
       (change) => change.area === key && !attributed.has(change.id),
-    ),
-  })).filter((section) => section.changes.length > 0)
+    )
+
+    if (changes.length > 0) {
+      areas.push({ key, label: AREA_SECTION_LABELS[key], changes })
+    }
+  }
 
   const placed = new Set(attributed)
 

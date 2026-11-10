@@ -6,7 +6,6 @@ import {
   proposeChartSpec,
   suggestMappingProposal,
 } from '#/lib/assist-drafts'
-import type { AssistDraftProposal } from '#/lib/assist-drafts'
 import type { AiCitation } from '#/lib/ai-retrieval'
 
 /**
@@ -16,22 +15,38 @@ import type { AiCitation } from '#/lib/ai-retrieval'
  * Accept hands over to the host's ordinary operation and Discard leaves no
  * state behind.
  */
-const TEXT = buildTextDraftProposal({
-  recordTitle: 'Virus stability at 25 °C',
-  focus: 'Summary of week 2',
-  citations: [
-    {
-      kind: 'record',
-      stableId: '0198d970-e266-4000-8000-000000000e14',
-      identifier: 'EXP-2026-0042',
-      recordKind: 'experiment',
-      title: 'Virus stability at 25 °C',
-      deepLink: '/experiments/0198d970-e266-4000-8000-000000000e14',
-      matchedField: 'title',
-    } as unknown as AiCitation,
-  ],
-  keyPoints: ['Titre fell by 0.3 log between day 7 and day 14.'],
-}) as AssistDraftProposal
+/** A draft the story needs: built from fixtures that always produce one. */
+function draft<T>(proposal: T | null): T {
+  if (proposal === null) {
+    throw new Error('These fixture inputs must produce a draft proposal.')
+  }
+
+  return proposal
+}
+
+const citation: AiCitation = {
+  kind: 'record',
+  stableId: '0198d970-e266-4000-8000-000000000e14',
+  identifier: 'EXP-2026-0042',
+  recordKind: 'experiment',
+  title: 'Virus stability at 25 °C',
+  deepLink: '/experiments/0198d970-e266-4000-8000-000000000e14',
+  versionPin: null,
+  freshness: 'live',
+  archived: false,
+  matchedContext: 'Virus stability at 25 °C',
+  matchedField: 'title',
+  rank: 0.9,
+}
+
+const TEXT = draft(
+  buildTextDraftProposal({
+    recordTitle: 'Virus stability at 25 °C',
+    focus: 'Summary of week 2',
+    citations: [citation],
+    keyPoints: ['Titre fell by 0.3 log between day 7 and day 14.'],
+  }),
+)
 
 const MAPPING = suggestMappingProposal(
   ['Sample ID', 'Titre (PFU/mL)', 'Operator initials'],
@@ -53,21 +68,23 @@ const MAPPING = suggestMappingProposal(
   ],
 )
 
-const CHART = proposeChartSpec({
-  datasetId: '0198d970-e266-4000-8000-000000000d01',
-  fields: [
-    {
-      fieldId: '0198d970-e266-4000-8000-0000000f0001',
-      label: 'Day',
-      logicalType: 'integer',
-    },
-    {
-      fieldId: '0198d970-e266-4000-8000-0000000f0002',
-      label: 'Titre',
-      logicalType: 'decimal',
-    },
-  ],
-}) as AssistDraftProposal
+const CHART = draft(
+  proposeChartSpec({
+    datasetId: '0198d970-e266-4000-8000-000000000d01',
+    fields: [
+      {
+        fieldId: '0198d970-e266-4000-8000-0000000f0001',
+        label: 'Day',
+        logicalType: 'integer',
+      },
+      {
+        fieldId: '0198d970-e266-4000-8000-0000000f0002',
+        label: 'Titre',
+        logicalType: 'decimal',
+      },
+    ],
+  }),
+)
 
 const meta = {
   title: 'Assistant/Draft proposal panel',

@@ -2,7 +2,8 @@
  * Liquid handler worklists: making a transfer file from a plate run, and
  * reading the robot's log back to complete it and record what was used.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import {
@@ -69,6 +70,33 @@ import type {
 
 const client = notebookDataClient
 
+const worklistFormatSchema = z.enum(WORKLIST_FORMATS).catch('csv')
+const worklistModeSchema = z.enum(WORKLIST_MODES).catch('stamp')
+const plateFormatSchema = z.enum(PLATE_FORMATS).catch('96_well')
+const volumeUnitSchema = z.enum(['ul', 'nl', 'ml']).catch('ul')
+
+/** A robot log's reason for skipping a transfer, as the worklist screen shows it. */
+const SKIP_REASON_LABELS = new Map([
+  ['not_found', t('plates.worklists.result.reasons.not_found')],
+  ['not_a_volume', t('plates.worklists.result.reasons.not_a_volume')],
+  ['refused', t('plates.worklists.result.reasons.refused')],
+])
+
+/** A stored reconciled transfer, as the completing screen reads it back. */
+const reconciledTransferSchema = z.object({
+  sourcePlate: z.string(),
+  sourceWell: z.string(),
+  destPlate: z.string(),
+  destWell: z.string(),
+  volumeUl: z.number(),
+  label: z.string(),
+  sampleId: z.string().nullable(),
+  status: z.enum(['done', 'short', 'failed', 'skipped', 'missing']),
+  movedUl: z.number(),
+})
+
+const storedReconciled = z.array(reconciledTransferSchema).catch([])
+
 function positive(text: string): number | undefined {
   const n = Number(text)
 
@@ -84,14 +112,40 @@ export function WorklistBuilderDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const queryClient = useQueryClient()
   const reference = plateRunReference(run.number)
-  const [name, setName] = useState('')
+
+  // The form starts fresh for each opening and each run it is opened for; a
+  // new key remounts it with the starting values instead of an effect.
+  const formKey = open ? `${reference}:${run.name}:${run.format}` : 'closed'
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <WorklistBuilderForm
+        key={formKey}
+        run={run}
+        reference={reference}
+        onOpenChange={onOpenChange}
+      />
+    </Dialog>
+  )
+}
+
+function WorklistBuilderForm({
+  run,
+  reference,
+  onOpenChange,
+}: {
+  run: PlateRunRow
+  reference: string
+  onOpenChange: (open: boolean) => void
+}) {
+  const queryClient = useQueryClient()
+  const [name, setName] = useState(`${reference} ${run.name}`)
   const [format, setFormat] = useState<WorklistFormat>('csv')
   const [mode, setMode] = useState<WorklistMode>('stamp')
-  const [sourcePlate, setSourcePlate] = useState('')
+  const [sourcePlate, setSourcePlate] = useState('SRC1')
   const [sourceFormat, setSourceFormat] = useState<PlateFormat>(run.format)
-  const [destPlate, setDestPlate] = useState('')
+  const [destPlate, setDestPlate] = useState(reference)
   const [defaultVolume, setDefaultVolume] = useState('10')
   const [wellVolume, setWellVolume] = useState('')
   const [minVolume, setMinVolume] = useState('')
@@ -103,21 +157,6 @@ export function WorklistBuilderDialog({
   } | null>(null)
 
   const [picking, setPicking] = useState(false)
-
-  useEffect(() => {
-    if (!open) return
-    setName(`${reference} ${run.name}`)
-    setFormat('csv')
-    setMode('stamp')
-    setSourcePlate('SRC1')
-    setSourceFormat(run.format)
-    setDestPlate(reference)
-    setDefaultVolume('10')
-    setWellVolume('')
-    setMinVolume('')
-    setMaxVolume('')
-    setExperiment(null)
-  }, [open, reference, run.name, run.format])
 
   const destinations = useMemo<DestinationWell[]>(
     () =>
@@ -200,7 +239,7 @@ export function WorklistBuilderDialog({
       toast.message(t('plates.worklist.downloaded', { file: filename }))
       onOpenChange(false)
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('plates.worklist.couldNotSave'))),
   })
 
@@ -208,147 +247,146 @@ export function WorklistBuilderDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[min(720px,calc(100vw-32px))]">
-          <DialogHeader title={t('plates.worklist.title')} />
-          <DialogBody>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <Field
-                label={t('plates.worklist.name')}
-                className="md:col-span-2"
+      <DialogContent className="w-[min(720px,calc(100vw-32px))]">
+        <DialogHeader title={t('plates.worklist.title')} />
+        <DialogBody>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <Field label={t('plates.worklist.name')} className="md:col-span-2">
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </Field>
+            <Field label={t('plates.worklist.format')}>
+              <Select
+                value={format}
+                onChange={(e) =>
+                  setFormat(worklistFormatSchema.parse(e.target.value))
+                }
               >
-                <Input value={name} onChange={(e) => setName(e.target.value)} />
-              </Field>
-              <Field label={t('plates.worklist.format')}>
-                <Select
-                  value={format}
-                  onChange={(e) => setFormat(e.target.value as WorklistFormat)}
-                >
-                  {WORKLIST_FORMATS.map((f) => (
-                    <option key={f} value={f}>
-                      {t(`plates.worklist.formats.${f}`)}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label={t('plates.worklist.mode')}>
-                <Select
-                  value={mode}
-                  onChange={(e) => setMode(e.target.value as WorklistMode)}
-                >
-                  {WORKLIST_MODES.map((m) => (
-                    <option key={m} value={m}>
-                      {t(`plates.worklist.modes.${m}`)}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label={t('plates.worklist.sourcePlate')}>
-                <Input
-                  value={sourcePlate}
-                  onChange={(e) => setSourcePlate(e.target.value)}
-                />
-              </Field>
-              <Field label={t('plates.worklist.sourceFormat')}>
-                <Select
-                  value={sourceFormat}
-                  onChange={(e) =>
-                    setSourceFormat(e.target.value as PlateFormat)
-                  }
-                >
-                  {PLATE_FORMATS.map((f) => (
-                    <option key={f} value={f}>
-                      {t(`plates.formats.${f}`)}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label={t('plates.worklist.destPlate')}>
-                <Input
-                  value={destPlate}
-                  onChange={(e) => setDestPlate(e.target.value)}
-                />
-              </Field>
-              <Field label={t('plates.worklist.defaultVolume')}>
-                <Input
-                  inputMode="decimal"
-                  value={defaultVolume}
-                  onChange={(e) => setDefaultVolume(e.target.value)}
-                />
-              </Field>
-              <Field label={t('plates.worklist.wellVolume')}>
-                <Input
-                  inputMode="decimal"
-                  value={wellVolume}
-                  onChange={(e) => setWellVolume(e.target.value)}
-                />
-              </Field>
-              <Field label={t('plates.worklist.minVolume')}>
-                <Input
-                  inputMode="decimal"
-                  value={minVolume}
-                  onChange={(e) => setMinVolume(e.target.value)}
-                />
-              </Field>
-              <Field label={t('plates.worklist.maxVolume')}>
-                <Input
-                  inputMode="decimal"
-                  value={maxVolume}
-                  onChange={(e) => setMaxVolume(e.target.value)}
-                />
-              </Field>
-              <div className="flex flex-col gap-1 text-label">
-                <span className="font-medium">
-                  {t('plates.worklist.experiment')}
+                {WORKLIST_FORMATS.map((f) => (
+                  <option key={f} value={f}>
+                    {t(`plates.worklist.formats.${f}`)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label={t('plates.worklist.mode')}>
+              <Select
+                value={mode}
+                onChange={(e) =>
+                  setMode(worklistModeSchema.parse(e.target.value))
+                }
+              >
+                {WORKLIST_MODES.map((m) => (
+                  <option key={m} value={m}>
+                    {t(`plates.worklist.modes.${m}`)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label={t('plates.worklist.sourcePlate')}>
+              <Input
+                value={sourcePlate}
+                onChange={(e) => setSourcePlate(e.target.value)}
+              />
+            </Field>
+            <Field label={t('plates.worklist.sourceFormat')}>
+              <Select
+                value={sourceFormat}
+                onChange={(e) =>
+                  setSourceFormat(plateFormatSchema.parse(e.target.value))
+                }
+              >
+                {PLATE_FORMATS.map((f) => (
+                  <option key={f} value={f}>
+                    {t(`plates.formats.${f}`)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label={t('plates.worklist.destPlate')}>
+              <Input
+                value={destPlate}
+                onChange={(e) => setDestPlate(e.target.value)}
+              />
+            </Field>
+            <Field label={t('plates.worklist.defaultVolume')}>
+              <Input
+                inputMode="decimal"
+                value={defaultVolume}
+                onChange={(e) => setDefaultVolume(e.target.value)}
+              />
+            </Field>
+            <Field label={t('plates.worklist.wellVolume')}>
+              <Input
+                inputMode="decimal"
+                value={wellVolume}
+                onChange={(e) => setWellVolume(e.target.value)}
+              />
+            </Field>
+            <Field label={t('plates.worklist.minVolume')}>
+              <Input
+                inputMode="decimal"
+                value={minVolume}
+                onChange={(e) => setMinVolume(e.target.value)}
+              />
+            </Field>
+            <Field label={t('plates.worklist.maxVolume')}>
+              <Input
+                inputMode="decimal"
+                value={maxVolume}
+                onChange={(e) => setMaxVolume(e.target.value)}
+              />
+            </Field>
+            <div className="flex flex-col gap-1 text-label">
+              <span className="font-medium">
+                {t('plates.worklist.experiment')}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="flex-1 truncate text-fg-muted">
+                  {experiment?.name ?? t('plates.worklist.noExperiment')}
                 </span>
-                <div className="flex items-center gap-2">
-                  <span className="flex-1 truncate text-fg-muted">
-                    {experiment?.name ?? t('plates.worklist.noExperiment')}
-                  </span>
-                  <Button size="sm" onClick={() => setPicking(true)}>
-                    {t('plates.worklists.complete.choose')}
-                  </Button>
-                </div>
+                <Button size="sm" onClick={() => setPicking(true)}>
+                  {t('plates.worklists.complete.choose')}
+                </Button>
               </div>
             </div>
-            <div
-              role="status"
-              className="mt-3 rounded-md bg-muted px-3 py-2 text-label text-fg-muted"
-            >
-              {plan.transfers.length === 0
-                ? t('plates.worklist.previewNone')
-                : t('plates.worklist.preview', {
-                    transfers: plan.transfers.length,
-                    sources: plan.sources.length,
-                  })}
-              {plan.issues.length > 0 ? (
-                <ul className="mt-1 list-disc pl-4 text-warning-text">
-                  {plan.issues.slice(0, 5).map((issue, i) => (
-                    <li key={`${issue.code}-${issue.wellCode ?? i}`}>
-                      {t(`plates.worklist.issues.${issue.code}`, {
-                        well: issue.wellCode ?? '',
-                        message: issue.message,
-                      })}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          </DialogBody>
-          <DialogFooter>
-            <DialogClose render={<Button variant="quiet" />}>
-              {t('common.actions.cancel')}
-            </DialogClose>
-            <Button
-              variant="primary"
-              disabled={blocking || save.isPending}
-              onClick={() => save.mutate()}
-            >
-              {t('plates.worklist.create')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+          <div
+            role="status"
+            className="mt-3 rounded-md bg-muted px-3 py-2 text-label text-fg-muted"
+          >
+            {plan.transfers.length === 0
+              ? t('plates.worklist.previewNone')
+              : t('plates.worklist.preview', {
+                  transfers: plan.transfers.length,
+                  sources: plan.sources.length,
+                })}
+            {plan.issues.length > 0 ? (
+              <ul className="mt-1 list-disc pl-4 text-warning-text">
+                {plan.issues.slice(0, 5).map((issue) => (
+                  <li key={`${issue.code}-${issue.wellCode ?? issue.message}`}>
+                    {t(`plates.worklist.issues.${issue.code}`, {
+                      well: issue.wellCode ?? '',
+                      message: issue.message,
+                    })}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button variant="quiet" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
+          <Button
+            variant="primary"
+            disabled={blocking || save.isPending}
+            onClick={() => save.mutate()}
+          >
+            {t('plates.worklist.create')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
       <RecordPickerDialog
         open={picking}
         onOpenChange={setPicking}
@@ -365,12 +403,326 @@ export function WorklistBuilderDialog({
 }
 
 /** A worklist opened: its transfers, and completing or cancelling it. */
+/** What completing a worklist needs: the robot log, its unit, and the purpose. */
+function CompleteWorklistFields({
+  unit,
+  onUnitChange,
+  logText,
+  onLogText,
+  withdraw,
+  onWithdrawChange,
+  experimentName,
+  recordId,
+  needExperiment,
+  counts,
+  onChooseExperiment,
+}: {
+  unit: 'ul' | 'nl' | 'ml'
+  onUnitChange: (unit: 'ul' | 'nl' | 'ml') => void
+  logText: string | null
+  onLogText: (text: string | null) => void
+  withdraw: boolean
+  onWithdrawChange: (withdraw: boolean) => void
+  experimentName: string | null
+  recordId: string | null
+  needExperiment: boolean
+  counts: {
+    done: number
+    short: number
+    failed: number
+    skipped: number
+    missing: number
+  }
+  onChooseExperiment: () => void
+}) {
+  return (
+    <>
+      <p className="text-label text-fg-muted">
+        {t('plates.worklists.complete.intro')}
+      </p>
+      <FileDrop
+        label={t('plates.worklists.complete.log')}
+        hint={t('plates.worklists.complete.logHint')}
+        accept=".csv,.tsv,.txt,.log"
+        onFile={async (file) => onLogText(file ? await file.text() : null)}
+      />
+      <Field label={t('plates.worklists.complete.unit')}>
+        <Select
+          value={unit}
+          onChange={(e) => onUnitChange(volumeUnitSchema.parse(e.target.value))}
+        >
+          {(['ul', 'nl', 'ml'] as const).map((u) => (
+            <option key={u} value={u}>
+              {t(`plates.worklists.complete.units.${u}`)}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <p role="status" className="text-label text-fg-muted">
+        {logText === null
+          ? t('plates.worklists.complete.noLog')
+          : t('plates.worklists.complete.summary', counts)}
+      </p>
+      <label className="flex items-start gap-2 text-label">
+        <Checkbox
+          checked={withdraw}
+          onCheckedChange={(v) => onWithdrawChange(v === true)}
+        />
+        <span className="flex flex-col">
+          {t('plates.worklists.complete.withdraw')}
+          <span className="text-fg-muted">
+            {t('plates.worklists.complete.withdrawHint')}
+          </span>
+        </span>
+      </label>
+      {withdraw && !recordId ? (
+        <div className="flex items-center gap-2 text-label">
+          <span className="font-medium">
+            {t('plates.worklists.complete.experiment')}
+          </span>
+          <span className="flex-1 truncate text-fg-muted">
+            {experimentName ?? ''}
+          </span>
+          <Button size="sm" onClick={onChooseExperiment}>
+            {t('plates.worklists.complete.choose')}
+          </Button>
+        </div>
+      ) : null}
+      {needExperiment ? (
+        <p className="text-label text-danger-text">
+          {t('plates.worklists.complete.needExperiment')}
+        </p>
+      ) : null}
+    </>
+  )
+}
+
+/** What a worklist says about itself: its plates, state and what was withdrawn. */
+function WorklistSummary({
+  worklist,
+  isPlanned,
+}: {
+  worklist: PlateWorklistRow
+  isPlanned: boolean
+}) {
+  const tone =
+    worklist.status === 'complete'
+      ? 'ok'
+      : worklist.status === 'cancelled'
+        ? 'draft'
+        : 'progress'
+
+  return (
+    <>
+      <p className="text-label text-fg-muted">
+        {t(`plates.worklist.formats.${worklist.format}`)} ·{' '}
+        {worklist.source_plate} → {worklist.dest_plate}
+        {' · '}
+        <Status tone={tone}>
+          {t(`plates.worklists.statuses.${worklist.status}`)}
+        </Status>
+      </p>
+      {isPlanned ? <WorklistJobLine worklistId={worklist.id} /> : null}
+      {worklist.withdrawals ? (
+        <div className="flex flex-col gap-1 text-label">
+          {worklist.withdrawals.withdrawn.length > 0 ? (
+            <span>
+              <b>{t('plates.worklists.result.withdrawn')}:</b>{' '}
+              {worklist.withdrawals.withdrawn
+                .map((w) => `${w.identifier} ${w.quantity} ${w.unit}`)
+                .join(', ')}
+            </span>
+          ) : null}
+          {worklist.withdrawals.skipped.length > 0 ? (
+            <span className="text-warning-text">
+              <b>{t('plates.worklists.result.skipped')}:</b>{' '}
+              {worklist.withdrawals.skipped
+                .map((s) =>
+                  `${s.identifier ?? ''} ${SKIP_REASON_LABELS.get(s.reason) ?? s.reason}`.trim(),
+                )
+                .join(', ')}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+/** The transfers a worklist asks the liquid handler to make. */
+function WorklistTransfersTable({
+  rows,
+  showStatus,
+}: {
+  rows: ReconciledTransfer[]
+  showStatus: boolean
+}) {
+  return (
+    <TableBox className="max-h-[320px] overflow-auto">
+      <Table aria-label={t('plates.worklists.transfers')}>
+        <TableHeader>
+          <TableRow>
+            <TableHead>
+              {t('plates.worklists.transferColumns.sourceWell')}
+            </TableHead>
+            <TableHead>
+              {t('plates.worklists.transferColumns.destWell')}
+            </TableHead>
+            <TableHead>
+              {t('plates.worklists.transferColumns.volume')}
+            </TableHead>
+            <TableHead>
+              {t('plates.worklists.transferColumns.sample')}
+            </TableHead>
+            {showStatus ? (
+              <TableHead>
+                {t('plates.worklists.transferColumns.status')}
+              </TableHead>
+            ) : null}
+          </TableRow>
+        </TableHeader>
+        <TableBody colSpan={5}>
+          {rows.slice(0, 500).map((row) => (
+            <TableRow key={`${row.sourceWell}-${row.destWell}`}>
+              <TableCell className="mono">{row.sourceWell}</TableCell>
+              <TableCell className="mono">{row.destWell}</TableCell>
+              <TableCell className="num">{row.volumeUl}</TableCell>
+              <TableCell className="truncate">{row.label}</TableCell>
+              {showStatus ? (
+                <TableCell>
+                  {t(`plates.worklists.transferStatus.${row.status}`)}
+                </TableCell>
+              ) : null}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableBox>
+  )
+}
+
 export function WorklistDialog({
   worklist,
   canWrite,
   onClose,
 }: {
   worklist: PlateWorklistRow | null
+  canWrite: boolean
+  onClose: () => void
+}) {
+  if (!worklist) return null
+
+  // One worklist's screen starts fresh when another worklist is opened, so the
+  // body is keyed by it rather than reset from an effect.
+  return (
+    <WorklistBody
+      key={worklist.id}
+      worklist={worklist}
+      canWrite={canWrite}
+      onClose={onClose}
+    />
+  )
+}
+
+/** What is stored against a worklist as done, or the plan while it is planned. */
+function transfersToShow(
+  worklist: PlateWorklistRow,
+  reconciled: ReconciledTransfer[],
+  planned: Transfer[],
+): ReconciledTransfer[] {
+  if (worklist.status === 'planned') return reconciled
+
+  const stored = storedReconciled.parse(worklist.reconciled)
+
+  if (stored.length > 0) return stored
+
+  return planned.map((p) => ({
+    ...p,
+    status: 'done' as const,
+    movedUl: p.volumeUl,
+  }))
+}
+
+/** The buttons under a worklist: complete, cancel, download or send to a robot. */
+function WorklistFooter({
+  completing,
+  canWrite,
+  isPlanned,
+  needExperiment,
+  completingNow,
+  cancelling,
+  hasOpenJob,
+  onBack,
+  onComplete,
+  onCancel,
+  onDownload,
+  onSend,
+}: {
+  completing: boolean
+  canWrite: boolean
+  isPlanned: boolean
+  needExperiment: boolean
+  completingNow: boolean
+  cancelling: boolean
+  hasOpenJob: boolean
+  onBack: () => void
+  onComplete: () => void
+  onCancel: () => void
+  onDownload: () => void
+  onSend: () => void
+}) {
+  if (completing)
+    return (
+      <>
+        <Button variant="quiet" onClick={onBack}>
+          {t('common.actions.back')}
+        </Button>
+        <span className="flex-1" />
+        <Button
+          variant="primary"
+          disabled={completingNow || needExperiment}
+          onClick={onComplete}
+        >
+          {t('plates.worklists.complete.submit')}
+        </Button>
+      </>
+    )
+
+  const mayChange = canWrite && isPlanned
+
+  return (
+    <>
+      {mayChange ? (
+        <Button variant="quiet" disabled={cancelling} onClick={onCancel}>
+          {t('plates.worklists.cancel')}
+        </Button>
+      ) : null}
+      <span className="flex-1" />
+      <Button onClick={onDownload}>{t('plates.worklist.download')}</Button>
+      {mayChange ? (
+        <Button disabled={hasOpenJob} onClick={onSend}>
+          {t('automation.robot.send.button')}
+        </Button>
+      ) : null}
+      {mayChange ? (
+        <Button variant="primary" onClick={() => onBack()}>
+          {t('plates.worklists.complete.submit')}
+        </Button>
+      ) : (
+        <DialogClose render={<Button variant="quiet" />}>
+          {t('common.actions.close')}
+        </DialogClose>
+      )}
+    </>
+  )
+}
+
+function WorklistBody({
+  worklist,
+  canWrite,
+  onClose,
+}: {
+  worklist: PlateWorklistRow
   canWrite: boolean
   onClose: () => void
 }) {
@@ -387,22 +739,13 @@ export function WorklistDialog({
   const [picking, setPicking] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [sending, setSending] = useState(false)
-  const openJob = useWorklistOpenJob(worklist?.id)
-
-  useEffect(() => {
-    setSending(false)
-    setUnit('ul')
-    setLogText(null)
-    setWithdraw(true)
-    setExperiment(null)
-    setCompleting(false)
-  }, [worklist?.id])
+  const openJob = useWorklistOpenJob(worklist.id)
 
   const planned = useMemo<Transfer[]>(
     () =>
-      (worklist?.transfers ?? []).map((tr) => ({
-        sourcePlate: worklist?.source_plate ?? '',
-        destPlate: worklist?.dest_plate ?? '',
+      worklist.transfers.map((tr) => ({
+        sourcePlate: worklist.source_plate,
+        destPlate: worklist.dest_plate,
         sourceWell: tr.sourceWell,
         destWell: tr.destWell,
         volumeUl: tr.volumeUl,
@@ -437,8 +780,6 @@ export function WorklistDialog({
 
   const complete = useMutation({
     mutationFn: async () => {
-      if (!worklist) throw new Error('')
-
       return completePlateWorklist(client, {
         worklistId: worklist.id,
         reconciled: reconciled.map((r) => ({
@@ -477,7 +818,7 @@ export function WorklistDialog({
         )
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(
         messageOf(e, t('plates.worklists.complete.couldNotComplete')),
       ),
@@ -485,39 +826,27 @@ export function WorklistDialog({
 
   const cancel = useMutation({
     mutationFn: async () => {
-      if (worklist) await cancelPlateWorklist(client, worklist.id)
+      await cancelPlateWorklist(client, worklist.id)
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: plateRunKeys.all })
-
-      if (worklist)
-        toast.success(
-          t('plates.worklists.cancelled', {
-            reference: worklistReference(worklist.number),
-          }),
-        )
+      toast.success(
+        t('plates.worklists.cancelled', {
+          reference: worklistReference(worklist.number),
+        }),
+      )
       onClose()
     },
-    onError: (e: unknown) => toast.error(messageOf(e, '')),
+    onError: (e) => toast.error(messageOf(e, '')),
   })
 
-  if (!worklist) return null
   const reference = worklistReference(worklist.number)
   const isPlanned = worklist.status === 'planned'
   const needExperiment = withdraw && !experiment && !worklist.record_id
 
-  const shown = isPlanned
-    ? reconciled
-    : ((worklist.reconciled as unknown as ReconciledTransfer[] | null) ??
-      planned.map((p) => ({
-        ...p,
-        status: 'done' as const,
-        movedUl: p.volumeUl,
-      })))
+  const shown = transfersToShow(worklist, reconciled, planned)
 
   function download() {
-    if (!worklist) return
-
     const file = writeWorklist(worklist.format, planned, {
       sourceFormat: worklist.source_format,
       destFormat: worklist.dest_format,
@@ -548,206 +877,43 @@ export function WorklistDialog({
           <DialogBody>
             <div className="flex flex-col gap-3">
               {completing ? (
-                <>
-                  <p className="text-label text-fg-muted">
-                    {t('plates.worklists.complete.intro')}
-                  </p>
-                  <FileDrop
-                    label={t('plates.worklists.complete.log')}
-                    hint={t('plates.worklists.complete.logHint')}
-                    accept=".csv,.tsv,.txt,.log"
-                    onFile={async (file) =>
-                      setLogText(file ? await file.text() : null)
-                    }
-                  />
-                  <Field label={t('plates.worklists.complete.unit')}>
-                    <Select
-                      value={unit}
-                      onChange={(e) =>
-                        setUnit(e.target.value as 'ul' | 'nl' | 'ml')
-                      }
-                    >
-                      {(['ul', 'nl', 'ml'] as const).map((u) => (
-                        <option key={u} value={u}>
-                          {t(`plates.worklists.complete.units.${u}`)}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  <p role="status" className="text-label text-fg-muted">
-                    {logText === null
-                      ? t('plates.worklists.complete.noLog')
-                      : t('plates.worklists.complete.summary', counts)}
-                  </p>
-                  <label className="flex items-start gap-2 text-label">
-                    <Checkbox
-                      checked={withdraw}
-                      onCheckedChange={(v) => setWithdraw(v === true)}
-                    />
-                    <span className="flex flex-col">
-                      {t('plates.worklists.complete.withdraw')}
-                      <span className="text-fg-muted">
-                        {t('plates.worklists.complete.withdrawHint')}
-                      </span>
-                    </span>
-                  </label>
-                  {withdraw && !worklist.record_id ? (
-                    <div className="flex items-center gap-2 text-label">
-                      <span className="font-medium">
-                        {t('plates.worklists.complete.experiment')}
-                      </span>
-                      <span className="flex-1 truncate text-fg-muted">
-                        {experiment?.name ?? ''}
-                      </span>
-                      <Button size="sm" onClick={() => setPicking(true)}>
-                        {t('plates.worklists.complete.choose')}
-                      </Button>
-                    </div>
-                  ) : null}
-                  {needExperiment ? (
-                    <p className="text-label text-danger-text">
-                      {t('plates.worklists.complete.needExperiment')}
-                    </p>
-                  ) : null}
-                </>
+                <CompleteWorklistFields
+                  unit={unit}
+                  onUnitChange={setUnit}
+                  logText={logText}
+                  onLogText={setLogText}
+                  withdraw={withdraw}
+                  onWithdrawChange={setWithdraw}
+                  experimentName={experiment?.name ?? null}
+                  recordId={worklist.record_id}
+                  needExperiment={needExperiment}
+                  counts={counts}
+                  onChooseExperiment={() => setPicking(true)}
+                />
               ) : (
-                <>
-                  <p className="text-label text-fg-muted">
-                    {t(`plates.worklist.formats.${worklist.format}`)} ·{' '}
-                    {worklist.source_plate} → {worklist.dest_plate}
-                    {' · '}
-                    <Status
-                      tone={
-                        worklist.status === 'complete'
-                          ? 'ok'
-                          : worklist.status === 'cancelled'
-                            ? 'draft'
-                            : 'progress'
-                      }
-                    >
-                      {t(`plates.worklists.statuses.${worklist.status}`)}
-                    </Status>
-                  </p>
-                  {isPlanned ? (
-                    <WorklistJobLine worklistId={worklist.id} />
-                  ) : null}
-                  {worklist.withdrawals ? (
-                    <div className="flex flex-col gap-1 text-label">
-                      {worklist.withdrawals.withdrawn.length > 0 ? (
-                        <span>
-                          <b>{t('plates.worklists.result.withdrawn')}:</b>{' '}
-                          {worklist.withdrawals.withdrawn
-                            .map(
-                              (w) => `${w.identifier} ${w.quantity} ${w.unit}`,
-                            )
-                            .join(', ')}
-                        </span>
-                      ) : null}
-                      {worklist.withdrawals.skipped.length > 0 ? (
-                        <span className="text-warning-text">
-                          <b>{t('plates.worklists.result.skipped')}:</b>{' '}
-                          {worklist.withdrawals.skipped
-                            .map((s) =>
-                              `${s.identifier ?? ''} ${t(`plates.worklists.result.reasons.${s.reason as 'not_found' | 'not_a_volume' | 'refused'}`)}`.trim(),
-                            )
-                            .join(', ')}
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </>
+                <WorklistSummary worklist={worklist} isPlanned={isPlanned} />
               )}
-              <TableBox className="max-h-[320px] overflow-auto">
-                <Table aria-label={t('plates.worklists.transfers')}>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>
-                        {t('plates.worklists.transferColumns.sourceWell')}
-                      </TableHead>
-                      <TableHead>
-                        {t('plates.worklists.transferColumns.destWell')}
-                      </TableHead>
-                      <TableHead>
-                        {t('plates.worklists.transferColumns.volume')}
-                      </TableHead>
-                      <TableHead>
-                        {t('plates.worklists.transferColumns.sample')}
-                      </TableHead>
-                      {!isPlanned || completing ? (
-                        <TableHead>
-                          {t('plates.worklists.transferColumns.status')}
-                        </TableHead>
-                      ) : null}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody colSpan={5}>
-                    {shown.slice(0, 500).map((r, i) => (
-                      <TableRow key={`${r.sourceWell}-${r.destWell}-${i}`}>
-                        <TableCell className="mono">{r.sourceWell}</TableCell>
-                        <TableCell className="mono">{r.destWell}</TableCell>
-                        <TableCell className="num">{r.volumeUl}</TableCell>
-                        <TableCell className="truncate">{r.label}</TableCell>
-                        {!isPlanned || completing ? (
-                          <TableCell>
-                            {t(`plates.worklists.transferStatus.${r.status}`)}
-                          </TableCell>
-                        ) : null}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableBox>
+              <WorklistTransfersTable
+                rows={shown}
+                showStatus={!isPlanned || completing}
+              />
             </div>
           </DialogBody>
           <DialogFooter>
-            {completing ? (
-              <>
-                <Button variant="quiet" onClick={() => setCompleting(false)}>
-                  {t('common.actions.back')}
-                </Button>
-                <span className="flex-1" />
-                <Button
-                  variant="primary"
-                  disabled={complete.isPending || needExperiment}
-                  onClick={() => complete.mutate()}
-                >
-                  {t('plates.worklists.complete.submit')}
-                </Button>
-              </>
-            ) : (
-              <>
-                {canWrite && isPlanned ? (
-                  <Button
-                    variant="quiet"
-                    disabled={cancel.isPending}
-                    onClick={() => cancel.mutate()}
-                  >
-                    {t('plates.worklists.cancel')}
-                  </Button>
-                ) : null}
-                <span className="flex-1" />
-                <Button onClick={download}>
-                  {t('plates.worklist.download')}
-                </Button>
-                {canWrite && isPlanned ? (
-                  <Button
-                    disabled={openJob !== null}
-                    onClick={() => setSending(true)}
-                  >
-                    {t('automation.robot.send.button')}
-                  </Button>
-                ) : null}
-                {canWrite && isPlanned ? (
-                  <Button variant="primary" onClick={() => setCompleting(true)}>
-                    {t('plates.worklists.complete.submit')}
-                  </Button>
-                ) : (
-                  <DialogClose render={<Button variant="quiet" />}>
-                    {t('common.actions.close')}
-                  </DialogClose>
-                )}
-              </>
-            )}
+            <WorklistFooter
+              completing={completing}
+              canWrite={canWrite}
+              isPlanned={isPlanned}
+              needExperiment={needExperiment}
+              completingNow={complete.isPending}
+              cancelling={cancel.isPending}
+              hasOpenJob={openJob !== null}
+              onBack={() => setCompleting(false)}
+              onComplete={() => complete.mutate()}
+              onCancel={() => cancel.mutate()}
+              onDownload={download}
+              onSend={() => setSending(true)}
+            />
           </DialogFooter>
         </DialogContent>
       </Dialog>

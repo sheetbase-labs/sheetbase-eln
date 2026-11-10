@@ -81,22 +81,24 @@ const COLOURS = [
   'var(--chart-5)',
 ]
 
-const TYPE_COLOUR: Record<string, number> = {
-  CDS: 0,
-  gene: 0,
-  promoter: 1,
-  terminator: 2,
-  rep_origin: 3,
-  primer_bind: 4,
-  protein_bind: 4,
-  regulatory: 1,
-  misc_feature: 2,
-  misc_recomb: 2,
-  sig_peptide: 3,
-}
+const TYPE_COLOUR = new Map(
+  Object.entries({
+    CDS: 0,
+    gene: 0,
+    promoter: 1,
+    terminator: 2,
+    rep_origin: 3,
+    primer_bind: 4,
+    protein_bind: 4,
+    regulatory: 1,
+    misc_feature: 2,
+    misc_recomb: 2,
+    sig_peptide: 3,
+  }),
+)
 
 export function featureColour(type: string): string {
-  const index = TYPE_COLOUR[type] as number | undefined
+  const index = TYPE_COLOUR.get(type)
 
   if (index !== undefined) return COLOURS[index]
   let h = 0

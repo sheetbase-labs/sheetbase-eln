@@ -1,15 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
-import type * as notebookData from '#/lib/notebook-data'
+/** The canonical `create_booking` arguments, as the RPC boundary carries them. */
+const bookingArgs = z.looseObject({
+  p_workspace_id: z.string(),
+  p_resource_id: z.string(),
+  p_title: z.string(),
+  p_starts_at: z.string(),
+  p_ends_at: z.string(),
+  p_timezone: z.string(),
+  p_project_id: z.string().nullable(),
+  p_linked_experiment_record_id: z.string().nullable(),
+})
 
-import { bookInstrument } from './schedule-data'
-
-const rpc = vi.hoisted(() => vi.fn())
-
-vi.mock('#/lib/notebook-data', async (importOriginal) => ({
-  ...(await importOriginal<typeof notebookData>()),
-  notebookDataClient: { rpc, list: vi.fn(async () => []) },
-}))
+const calls: z.infer<typeof bookingArgs>[] = []
 
 const wire = {
   id: 'b-1',
@@ -21,10 +25,31 @@ const wire = {
   created_by_user_id: 'u-1',
 }
 
+/** Keep the singleton DataClient real; fixture only the HTTP it sends. */
+const fixtureFetch: typeof fetch = async (input, init) => {
+  const request = new Request(
+    new URL(input instanceof Request ? input.url : input, 'http://localhost'),
+    init,
+  )
+
+  const { pathname } = new URL(request.url)
+
+  if (request.method === 'POST' && pathname === '/api/db/rpc/create_booking') {
+    calls.push(bookingArgs.parse(await request.json()))
+
+    return Response.json(wire)
+  }
+
+  throw new Error(`Unexpected request: ${request.method} ${pathname}`)
+}
+
+vi.stubGlobal('fetch', fixtureFetch)
+
+const { bookInstrument } = await import('./schedule-data')
+
 describe('bookInstrument', () => {
   beforeEach(() => {
-    rpc.mockReset()
-    rpc.mockResolvedValue(wire)
+    calls.length = 0
   })
 
   const base = {
@@ -42,23 +67,19 @@ describe('bookInstrument', () => {
       linkedExperimentRecordId: 'exp-1',
       projectId: 'prj-1',
     })
-    expect(rpc).toHaveBeenCalledWith(
-      'create_booking',
-      expect.objectContaining({
-        p_linked_experiment_record_id: 'exp-1',
-        p_project_id: 'prj-1',
-      }),
-    )
+    expect(calls).toHaveLength(1)
+    expect(calls[0]).toMatchObject({
+      p_linked_experiment_record_id: 'exp-1',
+      p_project_id: 'prj-1',
+    })
   })
 
   it('leaves both empty for a booking made on its own', async () => {
     await bookInstrument(base)
-    expect(rpc).toHaveBeenCalledWith(
-      'create_booking',
-      expect.objectContaining({
-        p_linked_experiment_record_id: null,
-        p_project_id: null,
-      }),
-    )
+    expect(calls).toHaveLength(1)
+    expect(calls[0]).toMatchObject({
+      p_linked_experiment_record_id: null,
+      p_project_id: null,
+    })
   })
 })

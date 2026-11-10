@@ -12,12 +12,20 @@ import {
 
 let seq = 0
 
+/** One node of the rich-text document the outline walks; only these keys matter here. */
+interface OutlineTextNode {
+  type: string
+  attrs?: { level: number }
+  content?: OutlineTextNode[]
+  text?: string
+}
+
 function richTextBlock(
   headings: Array<{ level: 2 | 3 }>,
   order: number,
   trailingParagraphs = 0,
 ): NotebookBlock {
-  const content: Array<Record<string, unknown>> = headings.map((h) => ({
+  const content: OutlineTextNode[] = headings.map((h) => ({
     type: 'heading',
     attrs: { level: h.level },
     content: [
@@ -156,7 +164,7 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
   function proseBlock(
     id: string,
     order: number,
-    nodes: Array<Record<string, unknown>>,
+    nodes: OutlineTextNode[],
   ): NotebookBlock {
     return {
       id,
@@ -428,7 +436,7 @@ describe('NOTE-02 review fixes', () => {
           ],
         },
       },
-    } as NotebookBlock
+    }
 
     const tail = richTextBlock([], 3)
     const spans = notebookSectionSpans([h2a, boundary, tail])

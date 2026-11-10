@@ -92,9 +92,9 @@ describe('embedTexts', () => {
 
     const fetchImpl: typeof fetch = async (url, init) => {
       seen = {
-        url: String(url),
+        url: url instanceof Request ? url.url : url.toString(),
         auth: new Headers(init?.headers).get('authorization'),
-        body: JSON.parse(String(init?.body)),
+        body: await new Response(init?.body).json(),
       }
 
       return new Response(

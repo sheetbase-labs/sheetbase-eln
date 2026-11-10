@@ -62,10 +62,34 @@ return `null` by contract.
 
 ## Sheet
 
-| Component                                          | Reason                                                                                                                      |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `ReferencePicker` (`formula-reference-editor.tsx`) | Class, not a component. It is the keyboard reference-picking controller the in-cell editor instantiates; it returns no JSX. |
-| `CONFLICT_REASON_MAX`, `REFERENCE_COLORS`          | Constants, not components.                                                                                                  |
+| Component                                   | Reason                                                                                                                      |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `ReferencePicker` (`formula-references.ts`) | Class, not a component. It is the keyboard reference-picking controller the in-cell editor instantiates; it returns no JSX. |
+| `CONFLICT_REASON_MAX`, `REFERENCE_COLORS`   | Constants, not components.                                                                                                  |
+
+`ScientificSheetBlock.stories.tsx` renders the extracted column form, schema
+column, formula bar, footer and validation messages directly as well as through
+the loaded parent block. The direct stories include blocked schema actions and
+a failed-save footer. Storybook records mutation callbacks without running
+server writes.
+
+| Module                                       | Why no story                                                                                                                                         |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/sheet/cell-conflict-data.ts` | Conflict transport functions, wire types and the `CONFLICT_REASON_MAX` constant. Nothing renders; the conflict panel has its own story.              |
+| `src/components/sheet/formula-references.ts` | A1/range helpers and the imperative `ReferencePicker` controller, not React components. The formula editor stories exercise their rendered consumer. |
+
+## Model fields
+
+`ModelFieldEditors.stories.tsx` renders the definition, category, defaults and
+quantity editors with current definition output. It includes numeric, category
+and reference fields, locked published keys, saving and retired states.
+`ModelFieldDetails.stories.tsx` renders built-in inspectors, inherited-source
+links and recorded values, including zero, false, missing and historical choices.
+
+| Module                                                 | Why no story                                                                                                                                                                                                 |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/components/models/built-in-field-presentation.ts` | Type-label constants and pure helpers for field presentation, choice parsing and validation. No React component or rendered UI; the built-in field inspector stories exercise its type and placement labels. |
+| `src/components/models/model-create-validation.ts`     | Model metadata length constants, input types and pure validation/error-description helpers. No React component or rendered UI; the existing model-create dialog stories render validation messages.          |
 
 ## Review
 
@@ -74,21 +98,44 @@ return `null` by contract.
 | `AREA_LABELS`, `KIND_META`-derived labels | Constants, not components.         |
 | `exactText`, `focusChange`                | Utility functions, not components. |
 
+The review's `signature-binding.ts` formats known frozen revision versions;
+`evidence-drift.ts` describes the canonical drift read; `revision-change-data.ts`
+formats frozen change values and area labels without reconstructing metadata;
+and `review-focus.ts` focuses and scrolls an existing document location using
+runtime DOM capabilities. These modules export no rendering owners. Existing
+signature, evidence and revision-review stories still exercise their consumers;
+no rendering module is excluded.
+
 ## Notebook, sheet, sequence, live and scan modules without a story
 
-| Module                                            | Why no story                                                                                                                                                                                                |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/notebook/callout-styles.ts`       | Constants and a pure helper (`CALLOUT_STYLES`, `calloutVariantOf`), not components. The callout they style is rendered by the notebook block stories.                                                       |
-| `src/components/notebook/current-step-card.tsx`   | Card that reads the notebook's step timers and instruments from the server, links to the schedule and calls the notebook's step functions, so it has no state to show without a connected app.              |
-| `src/components/notebook/index.ts`                | Barrel that re-exports `NotebookBlock`, the block previews and editors and `NotebookDocument`, each of which has its own story.                                                                             |
-| `src/components/notebook/notebook-ai-context.tsx` | Context provider alias (`NotebookAiProvider`) and its hook; it renders `children` unchanged. `AiComposer.stories.tsx` shows the composer that reads it.                                                     |
-| `src/components/sheet/index.ts`                   | Barrel that re-exports `SheetbaseTableGrid` and its types; the grid has its own stories.                                                                                                                    |
-| `src/components/sheet/reference-colors.ts`        | Constant (`REFERENCE_COLORS`), not a component.                                                                                                                                                             |
-| `src/components/sequence/index.ts`                | Barrel that re-exports the sequence viewer, maps and panel, which `SequenceViewer.stories.tsx` renders.                                                                                                     |
-| `src/components/live/index.ts`                    | Barrel for the live-event provider and `ConnectionStatus`; `ConnectionStatus` has its own story.                                                                                                            |
-| `src/components/live/live-event-provider.tsx`     | Provider that opens an `EventSource` to `/api/events` and renders `children` unchanged, so it has no surface of its own and would reach the network. Its status is shown by `ConnectionStatus.stories.tsx`. |
-| `src/components/scan/code-decoder.ts`             | Decoder interfaces, format constants and loaders, not components.                                                                                                                                           |
-| `src/components/scan/jsqr-code-decoder.ts`        | Decoder loader and constants, not a component.                                                                                                                                                              |
+The notebook's `block-reorder-targets.ts`, `part-presentation.ts`,
+`inspector-cell-facts.ts` and `image-annotation-rendering.ts` export only
+non-component helpers and types. The guard already classifies them correctly,
+so they need no skip entries. Their consumers retain the reorder, parts-strip,
+inspector and image-annotation stories; those renderers are not excluded.
+
+`src/components/notebook/read-only-entries.ts` is also nonrendering. It has no
+React imports or JSX and assigns content-plus-duplicate-occurrence render keys
+for read-only value snapshots, not scientific IDs or editable draft identities.
+Validation messages, canonical and legacy table previews, checklist previews,
+code output, slide text and proposal comparisons retain their existing component
+and story render owners. The guard needs no skip entry for this helper.
+
+| Module                                             | Why no story                                                                                                                                                                                                                                        |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/notebook/callout-styles.ts`        | Constants and a pure helper (`CALLOUT_STYLES`, `calloutVariantOf`), not components. The callout they style is rendered by the notebook block stories.                                                                                               |
+| `src/components/notebook/current-step-card.tsx`    | Card that reads the notebook's step timers and instruments from the server, links to the schedule and calls the notebook's step functions, so it has no state to show without a connected app.                                                      |
+| `src/components/notebook/gate-description.ts`      | Gate wording, picker-target resolution and the `FIELD_LABELS` lookup. No JSX, hooks, writes or runtime component imports; the existing gate stories render its consumers.                                                                           |
+| `src/components/notebook/index.ts`                 | Barrel that re-exports `NotebookBlock`, the block previews and editors and `NotebookDocument`, each of which has its own story.                                                                                                                     |
+| `src/components/notebook/notebook-ai-context.tsx`  | Context provider alias (`NotebookAiProvider`) and its hook; it renders `children` unchanged. `AiComposer.stories.tsx` shows the composer that reads it.                                                                                             |
+| `src/components/notebook/slash-command-options.ts` | Pure AI/plugin menu metadata, text filtering and keyboard-selection counts shared by `SlashCommandMenu` and `RichTextEditor`. No JSX, hooks or components; the menu story renders its consumer and slash/editor tests exercise matching and counts. |
+| `src/components/sheet/index.ts`                    | Barrel that re-exports `SheetbaseTableGrid` and its types; the grid has its own stories.                                                                                                                                                            |
+| `src/components/sheet/reference-colors.ts`         | Constant (`REFERENCE_COLORS`), not a component.                                                                                                                                                                                                     |
+| `src/components/sequence/index.ts`                 | Barrel that re-exports the sequence viewer, maps and panel, which `SequenceViewer.stories.tsx` renders.                                                                                                                                             |
+| `src/components/live/index.ts`                     | Barrel for the live-event provider and `ConnectionStatus`; `ConnectionStatus` has its own story.                                                                                                                                                    |
+| `src/components/live/live-event-provider.tsx`      | Provider that opens an `EventSource` to `/api/events` and renders `children` unchanged, so it has no surface of its own and would reach the network. Its status is shown by `ConnectionStatus.stories.tsx`.                                         |
+| `src/components/scan/code-decoder.ts`              | Decoder interfaces, format constants and loaders, not components.                                                                                                                                                                                   |
+| `src/components/scan/jsqr-code-decoder.ts`         | Decoder loader and constants, not a component.                                                                                                                                                                                                      |
 
 ## Collaboration
 
@@ -98,8 +145,12 @@ Components whose populated states need a connected co-editing room
 collaboration server and no signed-in session, so those stories cover the
 reachable contract: nothing renders before the room is ready, and nothing
 throws outside a room boundary. The populated states are exercised by the
-component tests with the room hooks mocked at the module boundary, and by the
-two-browser journey spec.
+component tests with real collaboration providers and awareness state, and by
+the two-browser journey spec.
+
+| Module                                       | Why no story                                                                                                                                                                                                                 |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/collaboration/room-ready.ts` | Room-readiness context and its useContext hook only, with no JSX or visible component. CollaborationRoom and the presence components retain their stories; real-provider tests exercise the ready and peer-populated states. |
 
 ## Viz
 
@@ -134,9 +185,15 @@ None. Every exported component has a story.
 
 ## Import
 
-None. Both exported flows have stories. The upload flow's later steps need a
-stored file; the map and check steps are covered from static fixtures of the
-stored-file read.
+Both exported flows have stories. The upload flow's later steps need a stored
+file; the map and check steps are covered from static fixtures of the stored-file
+read. `ImportUploadFlow.stories.tsx` also directly renders the real
+`PluginPullPanel` connector form. No rendering owner is skipped here.
+
+`import-search.ts`, `import-flow-data.ts` and `import-receipt-data.ts` own URL
+parsing, pure flow decisions and frozen receipt presentation respectively. They
+contain no JSX or visible components. The flow and receipt stories render their
+results through the production components; these are not component exemptions.
 
 ## Related work
 
@@ -231,6 +288,7 @@ a story.
 
 | Module                                                  | Why no story                                                                                                                                                                                                                                                                                   |
 | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/offline/offline-edit-model.ts` | Pure offline-edit summaries, text conversion, queued-block construction and overlay helpers; it renders nothing. Offline component stories exercise the rendered edit and conflict states. |
 | `src/components/shell/index.ts`                         | Re-export of `ShellProvider`, which renders its children unchanged.                                                                                                                                                                                                                            |
 | `src/components/shell/shell-context.tsx`                | `ShellProvider` renders its children unchanged; there is no chrome to show.                                                                                                                                                                                                                    |
 | `src/components/shortcuts/sheet-keyboard-shortcuts.tsx` | Registers cell shortcuts for a grid and returns `null`. The registry it feeds is shown by `ShortcutsDialog.stories.tsx`.                                                                                                                                                                       |
@@ -341,6 +399,11 @@ this lane makes a request to `/api/…`.
 
 ### Modules in these directories with no story
 
+| Module                                           | Why no story                                                                                                                                                                                           |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/components/datasets/dataset-import-row.ts`  | Frozen import-receipt presentation data and instrument-finding labels only. No React imports or JSX. DatasetDetailTabs stories render the receipt rows and their provenance through DatasetImportsTab. |
+| `src/components/datasets/value-action-labels.ts` | Canonical flag labels and reason-category constants only. No React imports or JSX. DatasetValueActions stories render the flags and reason controls; dataset compare uses the same labels.             |
+
 The guard never asks about these — they export no component-shaped value — so
 they are recorded here rather than as skips: `datasets/dataset-detail-tabs.ts`,
 `datasets/datasets-data.ts`, `datasets/snapshot-data.ts`,
@@ -427,9 +490,15 @@ those for the model stories in `src/stories/model-fixtures.ts`.
 
 ### Skipped modules
 
-| Module                                         | Why no story                                                                                                      |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `src/components/stocktake/stocktake-shared.ts` | Tone maps and label helpers, not a component. The list, count and summary stories render every one of its states. |
+| Module                                                 | Why no story                                                                                                                                       |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/samples/label-sheet-data.ts`           | Pure label-kind selection and canonical print-record orchestration, without a visible component; label-sheet and print stories render the callers. |
+| `src/components/samples/quantity-actions.ts`           | Context creation and useContext only; no JSX or visible component. Actual quantity dialogs retain their stories.                                   |
+| `src/components/samples/quantity-actions-provider.tsx` | Passes children unchanged through SampleActionsContext.Provider; it adds no visible UI. Actual dialogs and the sample frame consume its actions.   |
+| `src/components/stocktake/stocktake-shared.ts`         | Tone maps and label helpers, not a component. The list, count and summary stories render every one of its states.                                  |
+
+`samples/quantity-plans.ts` contains pure aliquot/pool arithmetic and validation,
+without JSX. The plan-preview stories import it directly, so it needs no skip.
 
 ## Datasets, instruments, experiments, protocols, reports, templates and viz
 
@@ -520,7 +589,6 @@ server, so every notebook comes back in the "not updated" list.
 | `src/components/extensions/plugin-view.tsx`                  | Draws a validated screen with shared components that have their own stories; covered by the screen unit tests.                                                            |
 | `src/components/extensions/table-hooks.tsx`                  | Reads installed plugins and runs their column and row hooks on the shared table; covered by the plugin hooks click-through.                                               |
 | `src/components/extensions/tone.ts`                          | Pure helper mapping a tone name to token classes; covered by the cell display unit tests.                                                                                 |
-| `src/components/import/plugin-pull-panel.tsx`                | Lists the connectors plugins add and pulls data through the plugin data route; the form inside is the field form, which has a story.                                      |
 | `src/components/plugins/plugin-file-preview.tsx`             | Reads a stored file and sends it to a plugin preview through the plugin data route, so it needs an installed plugin and a runner.                                         |
 | `src/components/search/plugin-hits.tsx`                      | A table of search results built on the registry grid (which has a story), each row linking to a record; it only holds the plugin's hits.                                  |
 | `src/components/viz/extension-analysis.tsx`                  | Lists analysis kinds and runs them through the plugin run route, then draws with the shared chart renderer, which has its own story; covered by the plugin runtime tests. |

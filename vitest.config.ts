@@ -22,6 +22,8 @@ export default defineConfig({
     globalSetup: ['tests/global-generate.ts'],
     exclude: [
       ...configDefaults.exclude,
+      // Disposable comparison copies are evidence, not maintained test suites.
+      '.amp/in/**',
       // Database, API and browser layers need the local service stack and
       // their own configs; see docs/development/testing.md.
       'tests/db/**',

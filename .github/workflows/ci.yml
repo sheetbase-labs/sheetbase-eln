@@ -200,8 +200,12 @@ jobs:
             files: >-
               tests/browser/journeys/analysis.test.ts
               tests/browser/journeys/notebook-keys.test.ts
+          - name: settings components
+            files: tests/browser/settings
           - name: workspace panes
-            files: tests/browser/workspace-panes.test.ts
+            files: >-
+              tests/browser/workspace-panes.test.ts
+              tests/browser/workspace/
           # Two browsers typing in one notebook block through the bundled
           # co-editing server.
           - name: live co-editing

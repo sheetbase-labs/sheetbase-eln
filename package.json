@@ -69,7 +69,7 @@
     "db:pull": "drizzle-kit pull",
     "db:studio": "drizzle-kit studio",
     "lint": "pnpm lint:oxlint && pnpm lint:react",
-    "lint:oxlint": "oxlint --type-aware --deny-warnings src scripts perf vite.config.ts vitest.config.ts drizzle.config.ts",
+    "lint:oxlint": "oxlint --type-aware --deny-warnings --report-unused-disable-directives src scripts perf vite.config.ts vitest.config.ts drizzle.config.ts",
     "lint:react": "react-doctor . --scope full --blocking warning --no-score --no-telemetry --yes",
     "format": "prettier --write src scripts perf docs package.json components.json tsconfig.json tsr.config.json vite.config.ts vitest.config.ts drizzle.config.ts .oxlintrc.json doctor.config.json tools/oxlint/README.md prettier.config.js pnpm-workspace.yaml compose.yaml compose.deploy.yaml compose.dev.yaml README.md && pnpm lint:oxlint --fix",
     "check": "prettier --check src scripts perf docs package.json components.json tsconfig.json tsr.config.json vite.config.ts vitest.config.ts drizzle.config.ts .oxlintrc.json doctor.config.json tools/oxlint/README.md prettier.config.js pnpm-workspace.yaml compose.yaml compose.deploy.yaml compose.dev.yaml README.md && tsx scripts/check-colours.mts && tsx scripts/check-copy.mts && tsx scripts/validation-trace.ts --check",

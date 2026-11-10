@@ -4,6 +4,8 @@
 Doctor scan. Both commands fail on warnings or errors. CI runs the same checks
 as separate `Lint` and `React Doctor` jobs so both reports remain available
 when one fails. There is no baseline, changed-files filter, or warning budget.
+Oxlint also reports unused disable directives, which fail the warning-blocking check.
+Doctor-only exceptions use `react-doctor-disable-next-line`, not ESLint or Oxlint directives.
 
 ## Versions and responsibilities
 
@@ -86,7 +88,7 @@ and retains the colour, copy, and validation-trace checks.
 ## Diagnostic commands
 
 `pnpm lint:oxlint` and `pnpm lint:react` run independently. For a scoped Oxlint
-report, `pnpm exec oxlint --type-aware --deny-warnings <paths>` uses the same
+report, `pnpm exec oxlint --type-aware --deny-warnings --report-unused-disable-directives <paths>` uses the same
 root configuration. Adding `--format json` produces machine-readable output.
 For React Doctor, `pnpm lint:react --json --json-out <path>` writes a full
 report without weakening its blocking policy.

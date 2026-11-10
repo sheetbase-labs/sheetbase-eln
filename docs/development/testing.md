@@ -66,6 +66,54 @@ Full visual-parity acceptance remains separate. The current registry maps 45
 screens and leaves 81 pending; the coverage gate must not be bypassed by changing
 its tolerance or excluding unaccepted states.
 
+## Settings component tests in a browser
+
+Run the settings component fixtures without a database:
+
+```bash
+pnpm exec playwright test --config tests/browser/settings/playwright.config.ts
+```
+
+Set `CHROMIUM_PATH` to an installed Chrome executable if Playwright's Chromium
+is unavailable. The colocated config inherits the root browser defaults and
+starts only the official Vite server on port 3100. Its readiness probe checks
+`/@vite/client`, not application bootstrap.
+
+These tests mount the actual route components with real Router and Query
+providers in a same-origin fixture document. Typed HTTP fixtures accept only
+expected server-function file and export pairs and reject unexpected requests.
+The signature cases also execute the actual route loader dependencies.
+
+This lane proves component rendering, interactions and compiled client transport.
+It does not prove application authentication, bootstrap or server authorisation.
+Keep the root end-to-end workflow and server authorisation integration checks
+as separate acceptance requirements. The maintained root config is unchanged.
+
+## PanePage component tests in a browser
+
+Run the compiled PanePage and Router acceptance without a database:
+
+```bash
+pnpm exec playwright test --config tests/browser/workspace/playwright.config.ts
+```
+
+Set `CHROMIUM_PATH` to an installed Chrome executable if needed. This config
+inherits the root browser defaults and starts only official Vite on port 3100,
+with `@vite/client` readiness. The maintained browser project also collects
+these cases:
+
+```bash
+pnpm exec playwright test 'tests/browser/workspace/' --project=browser
+```
+
+The tests use real PanePage, per-pane routers, material pages, Query providers,
+pending-edit dialogs and navigation blockers. Controlled HTTP responses exercise
+compiled Start and DataClient transport. They preserve the nine original pane
+scenarios and cover abandoned-render callback isolation, latest committed
+callbacks, read-only context and typed navigation options. This is component
+and client acceptance, not application bootstrap or server authorisation.
+The existing workspace-panes end-to-end tests remain separate.
+
 ## Complete scientific workflow
 
 After migrating and running `pnpm db:seed:design`, run:

@@ -23,6 +23,7 @@ import {
   handleRevisionEvidencePackage,
   handleSheetInstanceExport,
 } from '#/lib/export/routes'
+import * as exportSerializers from '#/lib/export/serializers'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 
 config({ path: ['.env.local', '.env'] })
@@ -238,6 +239,32 @@ afterAll(async () => {
 })
 
 describe('DATA-02 dataset exports', () => {
+  it('returns only the selected bytes of an offset XLSX view', async () => {
+    const serialize = exportSerializers.xlsxDocument
+    let expected: Uint8Array = new Uint8Array(0)
+    const serializer = vi
+      .spyOn(exportSerializers, 'xlsxDocument')
+      .mockImplementation(async (...args) => {
+        expected = await serialize(...args)
+        const padded = new Uint8Array(expected.length + 6)
+        padded.set(expected, 3)
+        return padded.subarray(3, 3 + expected.length)
+      })
+
+    try {
+      const response = await handleDatasetExport(
+        exportRequest(`dataset/${DATASET_A}`, '?format=xlsx'),
+        DATASET_A,
+        authDeps(OWNER_A, WS_A),
+      )
+      expect(response.status).toBe(200)
+      expect(serializer).toHaveBeenCalledOnce()
+      expect(new Uint8Array(await response.arrayBuffer())).toEqual(expected)
+    } finally {
+      serializer.mockRestore()
+    }
+  })
+
   it('never closes a successful download or writes a receipt after schema, middle-page, revision or receipt faults', async () => {
     const dataset = crypto.randomUUID()
     await admin.query(

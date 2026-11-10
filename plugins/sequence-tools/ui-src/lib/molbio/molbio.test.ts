@@ -6,6 +6,7 @@ import {
   analysePrimer,
   autoAnnotate,
   checkRead,
+  decodeQuality,
   deleteRange,
   designPrimers,
   differences,
@@ -40,21 +41,27 @@ import {
 function randomDna(n: number, seed = 1): string {
   let x = seed
   let out = ''
+
   for (let i = 0; i < n; i++) {
     x = (x * 1103515245 + 12345) & 0x7fffffff
     out += 'ACGT'[(x >> 16) & 3]
   }
+
   return out
 }
 
 /** Random DNA with the given enzyme sites scrubbed out. */
 function scrub(seq: string, sites: string[]): string {
   let s = seq
+
   for (const site of sites) {
     const rc = reverseComplement(site)
+
     while (s.includes(site)) s = s.replace(site, 'A'.repeat(site.length))
+
     while (s.includes(rc)) s = s.replace(rc, 'A'.repeat(rc.length))
   }
+
   return s
 }
 
@@ -77,12 +84,14 @@ describe('restriction sites and digests', () => {
 
   it('cuts a circle into as many pieces as it has cuts, summing to its length', () => {
     const base = scrub(randomDna(1000, 7), ['GGATCC', 'GAATTC'])
+
     const seq =
       base.slice(0, 100) +
       'GGATCC' +
       base.slice(100, 600) +
       'GAATTC' +
       base.slice(600)
+
     const frags = digest(seq, 'circular', ['BamHI', 'EcoRI'])
     expect(frags).toHaveLength(2)
     expect(frags.reduce((s, f) => s + f.size, 0)).toBe(seq.length)
@@ -180,6 +189,7 @@ describe('primers', () => {
     const t = randomDna(1200, 21)
     const pairs = designPrimers(t, { start: 300, end: 800 }, {}, { flank: 60 })
     expect(pairs.length).toBeGreaterThan(0)
+
     for (const p of pairs) {
       expect(p.forward.start).toBeLessThanOrEqual(300)
       expect(p.reverse.end).toBeGreaterThanOrEqual(800)
@@ -267,6 +277,7 @@ describe('assembly', () => {
     const vector = v1 + 'GAATTCAAGGATCC' + v2
     const i1 = scrub(randomDna(300, 43), ['GAATTC', 'GGATCC'])
     const insert = 'TT' + 'GAATTC' + i1 + 'GGATCC' + 'TT'
+
     const { products } = digestAndLigate([
       {
         part: { id: 'v', name: 'vector', seq: vector, topology: 'circular' },
@@ -279,23 +290,29 @@ describe('assembly', () => {
         pick: [0],
       },
     ])
+
     const circ = products.filter((p) => p.topology === 'circular')
     expect(circ.length).toBeGreaterThan(0)
     const expected = v1 + 'GAATTC' + i1 + 'GGATCC' + v2
+
     const sameCircle = (a: string, b: string) =>
       a.length === b.length && (a + a).includes(b)
+
     const matches = circ.some(
       (p) =>
         sameCircle(p.seq, expected) ||
         sameCircle(p.seq, reverseComplement(expected)),
     )
+
     expect(matches).toBe(true)
   })
 
   it('assembles parts by Golden Gate with BsaI and drops the sites', () => {
     const bb = 'A' + enzymeSites(randomDna(598, 51)) + 'A'
+
     const mk = (up: string, body: string, down: string) =>
       `GGTCTCA${up}${body}${down}AGAGACC`
+
     // Overhangs: vector acceptor ATGA ... CTCG; parts chain ATGA -> GCTT -> TAGC -> CTCG.
     const p1 = mk('ATGA', 'A' + enzymeSites(randomDna(118, 52)) + 'A', 'GCTT')
     const p2 = mk('GCTT', 'A' + enzymeSites(randomDna(148, 53)) + 'A', 'TAGC')
@@ -303,6 +320,7 @@ describe('assembly', () => {
     // Destination: the recognition sites sit on the dropout, facing out, so
     // the backbone loses them and keeps the overhangs ATGA ... CTCG.
     const dropout = 'A' + enzymeSites(randomDna(100, 55)) + 'A'
+
     const destination =
       bb.slice(0, 300) +
       'ATGA' +
@@ -313,6 +331,7 @@ describe('assembly', () => {
       'A' +
       'CTCG' +
       bb.slice(300)
+
     const { products } = goldenGate(
       [
         {
@@ -327,6 +346,7 @@ describe('assembly', () => {
       ],
       'BsaI',
     )
+
     expect(products.length).toBeGreaterThan(0)
     const prod = products[0]
     expect(prod.topology).toBe('circular')
@@ -356,6 +376,7 @@ describe('assembly', () => {
     const a = o3 + randomDna(200, 64) + o1
     const b = o1 + randomDna(250, 65) + o2
     const c = o2 + randomDna(150, 66) + o3
+
     const { products } = gibson([
       { id: 'a', name: 'A', seq: a, topology: 'linear' },
       {
@@ -366,6 +387,7 @@ describe('assembly', () => {
       },
       { id: 'b', name: 'B', seq: b, topology: 'linear' },
     ])
+
     const circ = products.find((p) => p.topology === 'circular')!
     expect(circ.seq.length).toBe(a.length + b.length + c.length - 3 * 25)
     expect(circ.parts.map((p) => p.partId)).toEqual(['a', 'b', 'c'])
@@ -378,6 +400,7 @@ describe('assembly', () => {
     const o = randomDna(24, 71)
     const x = randomDna(300, 72) + o
     const y = o + randomDna(300, 73)
+
     const { products } = gibson(
       [
         {
@@ -419,6 +442,7 @@ describe('assembly', () => {
       ],
       { ordered: true },
     )
+
     const p = products.find((q) => q.topology === 'linear') ?? products[0]
     expect(p.features.map((f) => f.label)).toEqual(['geneX', 'geneY'])
     // geneY starts at 61 in Y, which is at 300 + 60 in the product.
@@ -522,15 +546,18 @@ describe('annotation', () => {
       randomDna(50, 82) +
       reverseComplement('GACTACAAGGACGACGATGACAAG') +
       randomDna(50, 83)
+
     const found = autoAnnotate(seq, 'linear', [])
     const labels = found.map((f) => `${f.label}:${f.strand}`)
     expect(labels).toContain('T7 promoter:1')
     expect(labels).toContain('FLAG:-1')
+
     const again = autoAnnotate(
       seq,
       'linear',
       found.map((f, i) => ({ ...f, id: i + 1 })),
     )
+
     expect(again.filter((f) => f.type !== 'CDS')).toHaveLength(0)
   })
 
@@ -540,7 +567,7 @@ describe('annotation', () => {
     const seq = 'CC' + fwd + 'CC' + reverseComplement(fwd) + 'CC'
     const orfs = findOrfs(seq, 90)
     expect(orfs).toHaveLength(2)
-    expect(orfs.map((o) => o.strand).sort()).toEqual([-1, 1])
+    expect(orfs.map((o) => o.strand).sort((a, b) => a - b)).toEqual([-1, 1])
     expect(orfs[0].aminoAcids).toBe(101)
   })
 })
@@ -555,20 +582,27 @@ function buildAbif(bases: string, quality: number[]): Uint8Array {
     count: number
     data: Uint8Array
   }[] = []
+
   const enc = (s: string) => new TextEncoder().encode(s)
+
   const shorts = (a: number[]) => {
     const b = new Uint8Array(a.length * 2)
     const v = new DataView(b.buffer)
     a.forEach((x, i) => v.setInt16(i * 2, x))
+
     return b
   }
+
   const peaks = bases.split('').map((_, i) => 10 + i * 8)
   const total = peaks[peaks.length - 1] + 10
+
   const chan = (letter: string) =>
     Array.from({ length: total }, (_, p) => {
       const i = peaks.findIndex((x) => Math.abs(x - p) <= 2)
+
       return i >= 0 && bases[i] === letter ? 500 : 0
     })
+
   entries.push({
     tag: 'PBAS',
     num: 2,
@@ -620,11 +654,15 @@ function buildAbif(bases: string, quality: number[]): Uint8Array {
     }),
   )
   let offset = 128
+
   const placed = entries.map((e) => {
     const at = e.data.length <= 4 ? -1 : offset
+
     if (at >= 0) offset += e.data.length + (e.data.length % 2)
+
     return { ...e, at }
   })
+
   const dirOffset = offset
   const out = new Uint8Array(dirOffset + entries.length * 28)
   const v = new DataView(out.buffer)
@@ -645,11 +683,13 @@ function buildAbif(bases: string, quality: number[]): Uint8Array {
     v.setInt16(p + 10, e.elemSize)
     v.setInt32(p + 12, e.count)
     v.setInt32(p + 16, e.data.length)
+
     if (e.at >= 0) {
       v.setInt32(p + 20, e.at)
       out.set(e.data, e.at)
     } else out.set(e.data, p + 20)
   })
+
   return out
 }
 
@@ -677,6 +717,7 @@ describe('ab1 traces and Sanger checks', () => {
       ...Array(40).fill(40),
       ...Array(10).fill(6),
     ]
+
     const { start, end } = trimByQuality(q)
     expect(start).toBeGreaterThanOrEqual(4)
     expect(start).toBeLessThanOrEqual(8)
@@ -685,6 +726,7 @@ describe('ab1 traces and Sanger checks', () => {
   })
 
   const construct = randomDna(1500, 91)
+
   const readFrom = (
     from: number,
     len: number,
@@ -692,7 +734,9 @@ describe('ab1 traces and Sanger checks', () => {
     q = 45,
   ) => {
     let r = construct.slice(from, from + len)
+
     if (edit) r = edit(r)
+
     return { name: 'read', bases: r, quality: Array(r.length).fill(q) }
   }
 
@@ -714,11 +758,13 @@ describe('ab1 traces and Sanger checks', () => {
       end: 400,
       qualifiers: {},
     }
+
     const read = readFrom(
       200,
       500,
       (s) => s.slice(0, 150) + (s[150] === 'A' ? 'G' : 'A') + s.slice(151),
     )
+
     const c = checkRead(construct, 'circular', [feat], read)
     expect(c.verdict).toBe('mismatch')
     expect(c.differences).toHaveLength(1)
@@ -736,6 +782,7 @@ describe('ab1 traces and Sanger checks', () => {
       500,
       (s) => s.slice(0, 250) + (s[250] === 'A' ? 'G' : 'A') + s.slice(251),
     )
+
     read.quality[250] = 12
     const c = checkRead(construct, 'circular', [], read)
     expect(c.verdict).toBe('review')
@@ -746,6 +793,7 @@ describe('ab1 traces and Sanger checks', () => {
     const read = readFrom(600, 500, (s) =>
       reverseComplement(s.slice(0, 200) + s.slice(203)),
     )
+
     const c = checkRead(construct, 'circular', [], read)
     expect(c.strand).toBe(-1)
     expect(c.verdict).toBe('mismatch')
@@ -762,6 +810,7 @@ describe('ab1 traces and Sanger checks', () => {
       bases: randomDna(400, 99),
       quality: Array(400).fill(40),
     })
+
     expect(c.verdict).toBe('noAlignment')
   })
 })
@@ -773,6 +822,12 @@ describe('formatBp', () => {
     expect(formatBp(2640)).toBe('2.64 kb')
     expect(formatBp(1500)).toBe('1.5 kb')
     expect(formatBp(43)).toBe('43 bp')
+  })
+})
+
+describe('quality decoding', () => {
+  it('iterates non-BMP characters as code points, as before', () => {
+    expect(decodeQuality('!😀I')).toEqual([0, 0xd83d - 33, 40])
   })
 })
 
@@ -794,6 +849,7 @@ describe('crispr guides', () => {
       'linear',
       NUCLEASES[0],
     )
+
     const g = guides.find((x) => x.protospacer === 'GACGTCAGCTAGCTAGGATC')
     expect(g?.strand).toBe(-1)
   })
@@ -809,11 +865,28 @@ describe('crispr guides', () => {
     expect(g[0].protospacer).toBe('GACGTCAGCTAGCTAGGATCTAG')
     expect(g[0].pam).toBe('TTTA')
   })
+
+  it('preserves mismatch array length rejection only when a guide is returned', () => {
+    for (const maxMismatch of [-2, 0.5, Infinity, NaN]) {
+      expect(() =>
+        findGuides(guideSeq, 'linear', NUCLEASES[0], { maxMismatch }),
+      ).toThrow(RangeError)
+      expect(findGuides('', 'linear', NUCLEASES[0], { maxMismatch })).toEqual(
+        [],
+      )
+    }
+
+    expect(
+      findGuides(guideSeq, 'linear', NUCLEASES[0], { maxMismatch: 0 })[0]
+        .offTargets,
+    ).toHaveLength(1)
+  })
 })
 
 describe('codon optimisation', () => {
   const protein =
     'MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDAQFEVV'
+
   it('keeps the protein and raises the adaptation index', () => {
     const r = optimiseCodons({ protein }, { host: 'ecoli' })
     expect(translateCds(r.dna.slice(0, -3))).toBe(protein)
@@ -822,7 +895,7 @@ describe('codon optimisation', () => {
   })
   it('improves a poorly adapted coding sequence and counts changes', () => {
     const rare = optimiseCodons({ protein }, { host: 'yeast' }).dna
-    const poor = [...protein].map((a) => codonsFor(a).at(-1)).join('')
+    const poor = Array.from(protein, (a) => codonsFor(a).at(-1)).join('')
     const r = optimiseCodons({ dna: poor }, { host: 'yeast' })
     expect(r.caiAfter).toBeGreaterThan(r.caiBefore ?? 1)
     expect(r.changed).toBeGreaterThan(0)
@@ -834,6 +907,7 @@ describe('codon optimisation', () => {
       { protein: 'MEFEFEFK' },
       { host: 'human', avoidEnzymes: ['EcoRI'] },
     )
+
     expect(r.dna).not.toContain('GAATTC')
     expect(translateCds(r.dna.slice(0, -3))).toBe('MEFEFEFK')
   })
@@ -842,6 +916,7 @@ describe('codon optimisation', () => {
       { protein: 'MKKKKKKKKK' },
       { host: 'ecoli', maxRun: 6 },
     )
+
     expect(/A{6,}/.test(r.dna)).toBe(false)
   })
 })

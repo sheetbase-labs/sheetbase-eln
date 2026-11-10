@@ -19,7 +19,7 @@ export function isPlainDna(input: string): boolean {
 }
 
 /** What each IUPAC code stands for. */
-export const IUPAC: Partial<Record<string, string>> = {
+export const IUPAC = {
   A: 'A',
   C: 'C',
   G: 'G',
@@ -35,11 +35,14 @@ export const IUPAC: Partial<Record<string, string>> = {
   H: 'ACT',
   V: 'ACG',
   N: 'ACGT',
-}
+} satisfies Record<string, string>
+
+const IUPAC_CODES = new Map(Object.entries(IUPAC))
 
 /** True when base `b` (A, C, G, T) is allowed by IUPAC code `code`. */
 export function iupacMatches(code: string, b: string): boolean {
-  const set = IUPAC[code]
+  const set = IUPAC_CODES.get(code)
+
   return set !== undefined && set.includes(b)
 }
 
@@ -51,21 +54,26 @@ export function findPattern(
 ): number[] {
   const n = seq.length
   const m = pattern.length
+
   if (m === 0 || n === 0 || (!circular && n < m) || (circular && m > n))
     return []
   const hay = circular ? seq + seq.slice(0, m - 1) : seq
   const out: number[] = []
   const last = circular ? n : n - m + 1
+
   for (let i = 0; i < last; i++) {
     let ok = true
+
     for (let j = 0; j < m; j++) {
       if (!iupacMatches(pattern[j], hay[i + j])) {
         ok = false
         break
       }
     }
+
     if (ok) out.push(i)
   }
+
   return out
 }
 
@@ -77,6 +85,7 @@ export function wrapSlice(
   circular: boolean,
 ): string {
   if (start <= end) return seq.slice(start, end)
+
   return circular ? seq.slice(start) + seq.slice(0, end) : ''
 }
 
@@ -88,6 +97,8 @@ export function mod(a: number, n: number): number {
 export function gcFraction(seq: string): number {
   if (seq.length === 0) return 0
   let gc = 0
+
   for (const ch of seq) if (ch === 'G' || ch === 'C') gc++
+
   return gc / seq.length
 }

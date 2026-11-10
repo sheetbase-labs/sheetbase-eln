@@ -81,24 +81,32 @@ export interface Orf {
 export function findOrfs(seq: string, minAminoAcids = 75): Orf[] {
   const out: Orf[] = []
   const n = seq.length
+
   for (const strand of [1, -1] as const) {
     const s = strand === 1 ? seq : reverseComplement(seq)
+
     for (let frame = 0; frame < 3; frame++) {
       let i = frame
+
       while (i + 3 <= n) {
         if (s.slice(i, i + 3) === 'ATG') {
           let j = i
           let stop = -1
+
           while (j + 3 <= n) {
             const c = s.slice(j, j + 3)
+
             if (c === 'TAA' || c === 'TAG' || c === 'TGA') {
               stop = j + 3
               break
             }
+
             j += 3
           }
+
           if (stop > 0) {
             const aa = (stop - i) / 3 - 1
+
             if (aa >= minAminoAcids) {
               out.push(
                 strand === 1
@@ -106,15 +114,19 @@ export function findOrfs(seq: string, minAminoAcids = 75): Orf[] {
                   : { start: n - stop, end: n - i, strand, aminoAcids: aa },
               )
             }
+
             i = stop
             continue
           }
+
           break
         }
+
         i += 3
       }
     }
   }
+
   // Drop ORFs nested inside a longer one in the same frame and strand.
   return out
     .sort((a, b) => b.aminoAcids - a.aminoAcids)
@@ -141,6 +153,7 @@ export function autoAnnotate(
   opts: { minOrf?: number } = {},
 ): SequenceFeature[] {
   const out: SequenceFeature[] = []
+
   const overlaps = (s: number, e: number, strand: number, label?: string) =>
     [...existing, ...out].some(
       (f) =>
@@ -150,13 +163,17 @@ export function autoAnnotate(
         (label === undefined || f.label === label) &&
         f.strand === strand,
     )
+
   for (const m of FEATURE_LIBRARY) {
     for (const strand of [1, -1] as const) {
       const pat = strand === 1 ? m.seq : reverseComplement(m.seq)
+
       for (const p of findPattern(seq, pat, false)) {
         const start = p + 1
         const end = p + m.seq.length
+
         if (overlaps(start - 1, end, strand, m.label)) continue
+
         // A longer library element already placed here wins.
         if (overlaps(start - 1, end, strand) && m.type === 'primer_bind')
           continue
@@ -173,15 +190,19 @@ export function autoAnnotate(
       }
     }
   }
+
   for (const orf of findOrfs(seq, opts.minOrf ?? 75)) {
     const start = orf.start + 1
     const end = orf.end
+
     if (overlaps(start - 1, end, orf.strand)) continue
+
     const protein = translate(
       orf.strand === 1
         ? seq.slice(orf.start, orf.end)
         : reverseComplement(seq.slice(orf.start, orf.end)),
     )
+
     out.push({
       id: 0,
       type: 'CDS',
@@ -196,6 +217,8 @@ export function autoAnnotate(
       },
     })
   }
+
   void topology
+
   return out.sort((a, b) => a.start - b.start)
 }

@@ -4,16 +4,16 @@
  */
 import { useMemo, useState } from 'react'
 
-import { Button } from '#/components/ui/button'
-import { Checkbox } from '#/components/ui/checkbox'
-import { Input } from '#/components/ui/input'
+import { Button, Checkbox, Input } from '../ui/kit'
 import { t } from '#/copy'
 import { COMMON_ENZYMES, ENZYMES, overhangOf } from '#/lib/molbio'
 import type { Enzyme } from '#/lib/molbio'
 
 function overhangLabel(e: Enzyme): string {
   const d = overhangOf(e)
+
   if (d === 0) return t('molbio.enzymes.blunt')
+
   return d > 0
     ? t('molbio.enzymes.fivePrime', { count: d })
     : t('molbio.enzymes.threePrime', { count: -d })
@@ -35,9 +35,11 @@ export function EnzymePicker({
   only?: readonly string[]
 }) {
   const [filter, setFilter] = useState('')
+
   const list = useMemo(() => {
     const base = only ? ENZYMES.filter((e) => only.includes(e.name)) : ENZYMES
     const q = filter.trim().toLowerCase()
+
     const matched = q
       ? base.filter(
           (e) =>
@@ -45,20 +47,26 @@ export function EnzymePicker({
             e.site.toLowerCase().includes(q),
         )
       : base
+
     const common = new Set(COMMON_ENZYMES)
+
     return [...matched].sort(
       (a, b) =>
         Number(common.has(b.name)) - Number(common.has(a.name)) ||
         a.name.localeCompare(b.name),
     )
   }, [filter, only])
+
   const set = new Set(selected)
+
   const toggle = (name: string, on: boolean) => {
     const next = new Set(set)
+
     if (on) next.add(name)
     else next.delete(name)
     onChange([...next])
   }
+
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">

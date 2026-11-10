@@ -4,11 +4,7 @@
  */
 import { useState } from 'react'
 
-import { Notice } from '#/components/ui/alert'
-import { Button } from '#/components/ui/button'
-import { Input, Field } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
-import { toast } from '#/components/ui/sonner'
+import { Button, Field, Input, Notice, Select, toast } from '../ui/kit'
 import { t } from '#/copy'
 import { NUCLEASES, addFeature, findGuides, nucleaseByKey } from '#/lib/molbio'
 import type { Guide } from '#/lib/molbio'
@@ -17,6 +13,7 @@ import type { WorkbenchProps } from './shared'
 
 function numberOr(text: string, fallback: number): number {
   const n = Number.parseInt(text, 10)
+
   return Number.isFinite(n) ? n : fallback
 }
 
@@ -26,8 +23,10 @@ export function GuidesTab({ draft, edit, canEdit }: WorkbenchProps) {
   const [from, setFrom] = useState('1')
   const [to, setTo] = useState(String(len || 1))
   const [guides, setGuides] = useState<Guide[] | null>(null)
+
   if (draft.molecule === 'protein')
     return <Notice>{t('molbio.enzymes.dnaOnly')}</Notice>
+
   if (len === 0) return <Notice>{t('molbio.enzymes.empty')}</Notice>
 
   const run = () => {
@@ -42,6 +41,7 @@ export function GuidesTab({ draft, edit, canEdit }: WorkbenchProps) {
       ),
     )
   }
+
   const mark = (g: Guide) => {
     edit((d) => {
       const next = addFeature(
@@ -59,6 +59,7 @@ export function GuidesTab({ draft, edit, canEdit }: WorkbenchProps) {
           qualifiers: { note: `${g.protospacer} ${g.pam}` },
         },
       )
+
       return { ...d, features: next.features }
     })
     toast(t('molbio.guides.marked'))

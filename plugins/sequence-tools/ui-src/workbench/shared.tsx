@@ -39,7 +39,7 @@ export interface WorkbenchProps {
   /** Where this block is, and which plugin block it is. */
   context: BlockContext
   /** Put a new sequence block below this one. */
-  insertBelow?: (payload: Record<string, unknown>) => void
+  insertBelow?: (payload: SequenceBlockPayload) => void
 }
 
 export function parsedOf(p: SequenceBlockPayload): ParsedSequence {
@@ -94,6 +94,7 @@ export function DataTable<T>({
         <TableBody empty={empty} colSpan={columns.length}>
           {rows.map((row, i) => {
             const key = rowKey(row, i)
+
             return (
               <TableRow key={key} selected={key === selectedKey}>
                 {columns.map((c) => (
@@ -162,11 +163,14 @@ export function RecordFilePicker({
   disabled?: boolean
 }) {
   const files = useAsync(listFiles, 'files')
+
   const sequences = useMemo(
     () => (files.data ?? []).filter((f) => isSequenceFileName(f.name)),
     [files.data],
   )
+
   if (sequences.length === 0) return null
+
   return (
     <Select
       aria-label={t('molbio.edit.recordFiles')}
@@ -175,9 +179,11 @@ export function RecordFilePicker({
       value=""
       onChange={(e) => {
         const file = sequences.find((f) => f.fileRecordId === e.target.value)
+
         if (!file) return
         readTextFile(file.fileRecordId).then(
           (text) => onPick(text, file.name),
+          // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Promise rejections can be any value; the message is converted below.
           (error: unknown) =>
             toast.error(error instanceof Error ? error.message : String(error)),
         )

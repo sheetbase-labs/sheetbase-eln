@@ -5,55 +5,102 @@
  * replays the same file against the Python.
  */
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import fingerprints from '../../../test-vectors/fingerprints.json'
 import vectors from '../../../test-vectors/vectors.json'
 import { canonicalSequence } from '../../../../../src/lib/sequence-fingerprint'
 import { runSequenceTool, sequenceToolSchema } from './tools'
 
-interface Vector {
-  name: string
-  input: unknown
-  expected?: { ok: boolean; result: unknown }
-  rejected?: string
-}
+const json = z.json()
+
+type JsonValue = z.infer<typeof json>
+
+const vectorCases = z
+  .array(
+    z.object({
+      name: z.string(),
+      input: json,
+      expected: json.optional(),
+      rejected: z.string().optional(),
+    }),
+  )
+  .parse(vectors)
+
+const jsonArray = z.array(json)
+const jsonObject = z.record(z.string(), json)
 
 /** Equal, except that numbers may differ in the last bits (the maths library differs by machine). */
-function expectClose(got: unknown, want: unknown, path = 'result'): void {
-  if (typeof want === 'number') {
-    expect(typeof got, path).toBe('number')
-    const diff = Math.abs((got as number) - want)
+function expectClose(got: JsonValue, want: JsonValue, path = 'result'): void {
+  const number = z.number().safeParse(want)
+
+  if (number.success) {
+    const actual = z.number().safeParse(got)
+    expect(actual.success, path).toBe(true)
+
+    if (!actual.success) return
+    const diff = Math.abs(actual.data - number.data)
     expect(
-      diff <= 1e-9 * Math.max(1, Math.abs(want)),
-      `${path}: ${got} vs ${want}`,
+      diff <= 1e-9 * Math.max(1, Math.abs(number.data)),
+      `${path}: ${actual.data} vs ${number.data}`,
     ).toBe(true)
-  } else if (Array.isArray(want)) {
-    expect(Array.isArray(got), path).toBe(true)
-    expect((got as unknown[]).length, path).toBe(want.length)
-    want.forEach((w, i) =>
-      expectClose((got as unknown[])[i], w, `${path}[${i}]`),
-    )
-  } else if (want !== null && typeof want === 'object') {
-    const g = got as Record<string, unknown>
-    expect(Object.keys(g).sort(), path).toEqual(Object.keys(want).sort())
-    for (const [k, w] of Object.entries(want))
-      expectClose(g[k], w, `${path}.${k}`)
-  } else {
-    expect(got, path).toEqual(want)
+
+    return
   }
+
+  const array = jsonArray.safeParse(want)
+
+  if (array.success) {
+    const actual = jsonArray.safeParse(got)
+    expect(actual.success, path).toBe(true)
+
+    if (!actual.success) return
+    expect(actual.data.length, path).toBe(array.data.length)
+    array.data.forEach((item, i) =>
+      expectClose(actual.data[i], item, `${path}[${i}]`),
+    )
+
+    return
+  }
+
+  const object = jsonObject.safeParse(want)
+
+  if (object.success) {
+    const actual = jsonObject.safeParse(got)
+    expect(actual.success, path).toBe(true)
+
+    if (!actual.success) return
+    expect(Object.keys(actual.data).sort(), path).toEqual(
+      Object.keys(object.data).sort(),
+    )
+
+    for (const [key, value] of Object.entries(object.data))
+      expectClose(actual.data[key], value, `${path}.${key}`)
+
+    return
+  }
+
+  expect(got, path).toEqual(want)
 }
 
 describe('shared test vectors', () => {
-  for (const v of vectors as Vector[]) {
+  for (const v of vectorCases) {
     it(v.name, () => {
       const parsed = sequenceToolSchema.safeParse(v.input)
+
       if (v.rejected !== undefined) {
         expect(parsed.success).toBe(false)
+
         return
       }
+
       expect(parsed.success).toBe(true)
-      if (!parsed.success) return
-      const got = JSON.parse(JSON.stringify(runSequenceTool(parsed.data)))
+      expect(v.expected).toBeDefined()
+
+      if (!parsed.success || v.expected === undefined) return
+      // Compare the JSON representation shared with the Python port.
+      const serialized = JSON.stringify(runSequenceTool(parsed.data))
+      const got = json.parse(JSON.parse(serialized))
       expectClose(got, v.expected)
     })
   }
@@ -65,8 +112,8 @@ describe('shared fingerprint vectors', () => {
       expect(
         canonicalSequence(
           f.input.residues,
-          f.input.molecule as 'dna' | 'rna' | 'protein',
-          f.input.topology as 'linear' | 'circular',
+          z.enum(['dna', 'rna', 'protein']).parse(f.input.molecule),
+          z.enum(['linear', 'circular']).parse(f.input.topology),
         ),
       ).toBe(f.canonical)
     })

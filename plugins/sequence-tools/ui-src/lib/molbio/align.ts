@@ -66,9 +66,11 @@ export function alignPair(
   H[0] = 0
   E[0] = NEG
   F[0] = NEG
+
   for (let j = 1; j <= m; j++) {
     const i = 0
     const k = i * W + j
+
     if (local) {
       H[k] = 0
       tH[k] = 3
@@ -76,12 +78,15 @@ export function alignPair(
       H[k] = o.gapOpen + o.gapExtend * (j - 1)
       tH[k] = 1
     }
+
     E[k] = H[k]
     tE[k] = j === 1 ? 0 : 1
     F[k] = NEG
   }
+
   for (let i = 1; i <= n; i++) {
     const k = i * W
+
     if (local) {
       H[k] = 0
       tH[k] = 3
@@ -89,6 +94,7 @@ export function alignPair(
       H[k] = o.gapOpen + o.gapExtend * (i - 1)
       tH[k] = 2
     }
+
     F[k] = H[k]
     tF[k] = i === 1 ? 0 : 1
     E[k] = NEG
@@ -97,13 +103,16 @@ export function alignPair(
   let best = 0
   let bi = 0
   let bj = 0
+
   for (let i = 1; i <= n; i++) {
     const ai = A[i - 1]
+
     for (let j = 1; j <= m; j++) {
       const k = i * W + j
       // E: gap in A (consumes B), from the left.
       const eOpen = H[k - 1] + o.gapOpen
       const eExt = E[k - 1] + o.gapExtend
+
       if (eExt > eOpen) {
         E[k] = eExt
         tE[k] = 1
@@ -111,9 +120,11 @@ export function alignPair(
         E[k] = eOpen
         tE[k] = 0
       }
+
       // F: gap in B (consumes A), from above.
       const fOpen = H[k - W] + o.gapOpen
       const fExt = F[k - W] + o.gapExtend
+
       if (fExt > fOpen) {
         F[k] = fExt
         tF[k] = 1
@@ -121,24 +132,30 @@ export function alignPair(
         F[k] = fOpen
         tF[k] = 0
       }
+
       const bj1 = B[j - 1]
       const sub = ai === bj1 || ai === 'N' || bj1 === 'N' ? o.match : o.mismatch
       let h = H[k - W - 1] + sub
       let t = 0
+
       if (E[k] > h) {
         h = E[k]
         t = 1
       }
+
       if (F[k] > h) {
         h = F[k]
         t = 2
       }
+
       if (local && h <= 0) {
         h = 0
         t = 3
       }
+
       H[k] = h
       tH[k] = t
+
       if (local && h > best) {
         best = h
         bi = i
@@ -146,6 +163,7 @@ export function alignPair(
       }
     }
   }
+
   if (!local) {
     bi = n
     bj = m
@@ -158,11 +176,15 @@ export function alignPair(
   let state = 0 // 0 H, 1 E, 2 F
   const ra: string[] = []
   const rb: string[] = []
+
   while (i > 0 || j > 0) {
     const k = i * W + j
+
     if (state === 0) {
       const t = tH[k]
+
       if (t === 3) break
+
       if (t === 0) {
         ra.push(A[i - 1])
         rb.push(B[j - 1])
@@ -184,13 +206,16 @@ export function alignPair(
       i--
       state = ext ? 2 : 0
     }
+
     if (!local && i === 0 && j === 0) break
   }
+
   const alignedA = ra.reverse().join('')
   const alignedB = rb.reverse().join('')
   let matches = 0
   let mismatches = 0
   let gaps = 0
+
   for (let c = 0; c < alignedA.length; c++) {
     if (alignedA[c] === '-' || alignedB[c] === '-') gaps++
     else if (
@@ -201,7 +226,9 @@ export function alignPair(
       matches++
     else mismatches++
   }
+
   const cols = alignedA.length
+
   return {
     score: best,
     aStart: i,
@@ -228,33 +255,44 @@ function seedWindow(
   circular: boolean,
 ): { start: number; end: number } | null {
   const k = 11
+
   if (read.length < k) return null
   const text = circular ? ref + ref.slice(0, read.length) : ref
   const index = new Map<string, number[]>()
+
   for (let i = 0; i + k <= text.length; i++) {
     const w = text.slice(i, i + k)
     const list = index.get(w)
+
     if (list) list.push(i)
     else index.set(w, [i])
   }
+
   const votes = new Map<number, number>()
+
   for (let i = 0; i + k <= read.length; i++) {
     const hits = index.get(read.slice(i, i + k))
+
     if (!hits || hits.length > 20) continue
+
     for (const p of hits) {
       const diag = Math.round((p - i) / 64) * 64
       votes.set(diag, (votes.get(diag) ?? 0) + 1)
     }
   }
+
   let bestDiag: number | null = null
   let bestVotes = 0
+
   for (const [d, v] of votes)
     if (v > bestVotes) {
       bestVotes = v
       bestDiag = d
     }
+
   if (bestDiag === null || bestVotes < 3) return null
   const pad = 200
+
   return {
     start: Math.max(0, bestDiag - pad),
     end: Math.min(text.length, bestDiag + read.length + pad),
@@ -281,18 +319,24 @@ export function alignRead(
   const ref = template.toUpperCase()
   const n = ref.length
   const results: ReadAlignment[] = []
+
   for (const strand of [1, -1] as const) {
     const q =
       strand === 1 ? read.toUpperCase() : reverseComplement(read.toUpperCase())
+
     let offset = 0
     let window = ref
+
     if (n * q.length > 6_000_000) {
       const w = seedWindow(ref, q, circular)
+
       if (!w) continue
       offset = w.start
       window = (circular ? ref + ref : ref).slice(w.start, w.end)
     }
+
     const aln = alignPair(window, q, { ...options, mode: 'local' })
+
     if (aln.matches < 20) continue
     results.push({
       ...aln,
@@ -301,8 +345,10 @@ export function alignRead(
       refEnd: aln.aEnd + offset,
     })
   }
+
   if (results.length === 0) return null
   results.sort((x, y) => y.score - x.score)
+
   return results[0]
 }
 
@@ -328,17 +374,21 @@ export function differences(
   let q = aln.bStart + queryOffset
   let c = 0
   const rows = aln.alignedA.length
+
   while (c < rows) {
     const x = aln.alignedA[c]
     const y = aln.alignedB[c]
+
     if (x === '-') {
       let s = ''
       const qp = q
+
       while (c < rows && aln.alignedA[c] === '-') {
         s += aln.alignedB[c]
         q++
         c++
       }
+
       out.push({
         kind: 'insertion',
         refPos: r,
@@ -348,22 +398,27 @@ export function differences(
       })
       continue
     }
+
     if (y === '-') {
       let s = ''
       const rp = r
+
       while (c < rows && aln.alignedB[c] === '-') {
         s += aln.alignedA[c]
         r++
         c++
       }
+
       out.push({ kind: 'deletion', refPos: rp, queryPos: q, ref: s, query: '' })
       continue
     }
+
     if (x !== y && x !== 'N' && y !== 'N')
       out.push({ kind: 'mismatch', refPos: r, queryPos: q, ref: x, query: y })
     r++
     q++
     c++
   }
+
   return out
 }

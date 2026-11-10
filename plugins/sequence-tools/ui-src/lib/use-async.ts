@@ -15,13 +15,16 @@ export function useAsync<T>(load: () => Promise<T>, key: string): Async<T> {
     isSuccess: false,
     error: null,
   })
+
   useEffect(() => {
     let live = true
     setState((s) => ({ ...s, isPending: true, error: null }))
     load().then(
       (data) => {
-        if (live) setState({ data, isPending: false, isSuccess: true, error: null })
+        if (live)
+          setState({ data, isPending: false, isSuccess: true, error: null })
       },
+      // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Promise rejections can be any value and are converted to Error below.
       (error: unknown) => {
         if (live)
           setState({
@@ -32,10 +35,12 @@ export function useAsync<T>(load: () => Promise<T>, key: string): Async<T> {
           })
       },
     )
+
     return () => {
       live = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
+
   return state
 }

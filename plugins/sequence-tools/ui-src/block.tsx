@@ -5,17 +5,11 @@
  * The whole block is kept as the block's state.
  */
 import { createRoot } from 'react-dom/client'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 
-import { Textarea } from '#/components/inventory/list'
-import { Notice } from '#/components/ui/alert'
-import { Button } from '#/components/ui/button'
-import { Input } from '#/components/ui/input'
-import { Tabs } from '#/components/ui/tabs'
+import { Button, Input, Notice, Tabs, Textarea } from './ui/kit'
 import { t } from '#/copy'
 import { summarise } from '#/lib/sequence'
-import { sequenceOf } from '#/lib/sequence-block'
-import type { SequenceBlockPayload } from '#/lib/sequence-block'
 import { CircularMap, LinearMap } from './sequence-map'
 import { SequenceViewer } from './sequence-viewer'
 import { summaryLine } from './summary'
@@ -29,8 +23,8 @@ import { PrimersTab } from './workbench/primers-tab'
 import { ReadsTab } from './workbench/reads-tab'
 import { parsedOf } from './workbench/shared'
 import { insertSequenceBelow } from '#/lib/host'
-import type { BlockContext } from '#/lib/host'
 import type { WorkbenchProps } from './workbench/shared'
+import { useBlockState } from './use-block-state'
 import './generated.css'
 
 type TabKey =
@@ -56,6 +50,7 @@ function Workbench({
   showMapTab: boolean
 }) {
   const { draft } = props
+
   const items: { key: TabKey; label: string }[] = [
     ...(showMapTab
       ? [{ key: 'map' as const, label: t('molbio.tabs.map') }]
@@ -69,7 +64,9 @@ function Workbench({
     { key: 'codons', label: t('molbio.tabs.codons') },
     { key: 'reads', label: t('molbio.tabs.reads') },
   ]
+
   const parsed = useMemo(() => parsedOf(draft), [draft])
+
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <Tabs
@@ -77,7 +74,7 @@ function Workbench({
         variant="strip"
         label={t('molbio.tabs.label')}
         value={tab}
-        onValueChange={(k) => setTab(k as TabKey)}
+        onValueChange={setTab}
         items={items}
       />
       {tab === 'map' ? (
@@ -99,69 +96,24 @@ function Workbench({
   )
 }
 
-/** Keeps the block as the host sends it, and sends changes back after a short pause. */
-function useBlockState() {
-  const [ready, setReady] = useState(false)
-  const [context, setContext] = useState<BlockContext>({})
-  const [draft, setDraft] = useState<SequenceBlockPayload>(() =>
-    sequenceOf({}),
-  )
-  const sent = useRef('')
-  const timer = useRef<number | undefined>(undefined)
-  const pending = useRef<SequenceBlockPayload | null>(null)
-
-  useEffect(() => {
-    sheetbase.onContext<BlockContext, unknown>((next, state) => {
-      setContext(next)
-      const incoming = JSON.stringify(state ?? null)
-      // The echo of what this screen just sent must not overwrite what is
-      // being typed now.
-      if (incoming === sent.current || pending.current) {
-        setReady(true)
-        return
-      }
-      sent.current = incoming
-      setDraft(sequenceOf(state ?? {}))
-      setReady(true)
-    })
-  }, [])
-
-  const flush = () => {
-    window.clearTimeout(timer.current)
-    const next = pending.current
-    if (!next) return
-    pending.current = null
-    sent.current = JSON.stringify(next)
-    sheetbase.setState(next)
-  }
-  const change = (
-    fn: (current: SequenceBlockPayload) => SequenceBlockPayload,
-  ) => {
-    setDraft((current) => {
-      const next = fn(current)
-      pending.current = next
-      window.clearTimeout(timer.current)
-      timer.current = window.setTimeout(flush, 500)
-      return next
-    })
-  }
-  useEffect(() => {
-    const leave = () => flush()
-    window.addEventListener('pagehide', leave)
-    return () => window.removeEventListener('pagehide', leave)
-  }, [])
-  return { ready, context, draft, change, flush }
-}
-
 function Block() {
-  const { ready, context, draft, change, flush } = useBlockState()
+  const { ready, invalid, context, draft, change, flush } = useBlockState()
   const canEdit = !context.readOnly
   const [tab, setTab] = useState<TabKey | null>(null)
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState<number | null>(null)
   const parsed = useMemo(() => parsedOf(draft), [draft])
+
   if (!ready) return null
+
+  if (invalid)
+    return (
+      <div role="alert">
+        <Notice tone="warn">{t('molbio.block.invalidState')}</Notice>
+      </div>
+    )
   const shownTab: TabKey = tab ?? (draft.residues.length > 0 ? 'map' : 'edit')
+
   const wb: WorkbenchProps = {
     draft,
     edit: change,
@@ -170,15 +122,18 @@ function Block() {
     blockId: context.blockId ?? '',
     context,
     insertBelow: (payload) =>
+      // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Host rejections can be any value; convert them to a notification string.
       void insertSequenceBelow(context, payload).catch((e: unknown) =>
         sheetbase.notify(e instanceof Error ? e.message : String(e), 'danger'),
       ),
   }
+
   const summary =
     draft.residues.length > 0 ? summaryLine(summarise(parsed)) : null
 
   if (!canEdit) {
     const reads = draft.reads ?? []
+
     const lines = [
       (draft.primers?.length ?? 0) > 0
         ? t('molbio.block.primerCount', { count: draft.primers?.length ?? 0 })
@@ -193,6 +148,7 @@ function Block() {
         ? t('molbio.block.digestCount', { count: draft.digests?.length ?? 0 })
         : null,
     ].filter(Boolean)
+
     return (
       <figure className="flex min-w-0 flex-col gap-2">
         {draft.title ? (

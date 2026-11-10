@@ -5,6 +5,7 @@ const NUCLEOTIDE = /^[ACGTUNRYKMSWBDHVacgtunrykmswbdhv*-]*$/
 
 export function guessMolecule(residues: string): MoleculeType {
   if (!NUCLEOTIDE.test(residues)) return 'protein'
+
   return /u/i.test(residues) && !/t/i.test(residues) ? 'rna' : 'dna'
 }
 
@@ -13,12 +14,15 @@ export function parseFasta(text: string): ParsedSequence[] {
   const out: ParsedSequence[] = []
   let header: string | null = null
   let lines: string[] = []
+
   const flush = () => {
     if (header === null) return
+
     const residues = lines
       .join('')
       .replace(/[\s\d]/g, '')
       .toUpperCase()
+
     const [name = '', ...rest] = header.trim().split(/\s+/)
     out.push({
       name: name || 'Sequence',
@@ -31,6 +35,7 @@ export function parseFasta(text: string): ParsedSequence[] {
       features: [],
     })
   }
+
   for (const raw of stripBom(text).split(/\r?\n/)) {
     if (raw.startsWith('>')) {
       flush()
@@ -40,8 +45,11 @@ export function parseFasta(text: string): ParsedSequence[] {
       lines.push(raw)
     }
   }
+
   flush()
-  if (out.length === 0 || out.every((s) => s.length === 0))
+
+  if (out.every((s) => s.length === 0))
     throw new SequenceParseError('No sequence found in the FASTA file.')
+
   return out
 }

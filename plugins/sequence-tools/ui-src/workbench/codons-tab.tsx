@@ -1,14 +1,17 @@
 /**
  * Codon optimisation: re-write a coding region for a host, keeping the protein.
  */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
-import { Notice } from '#/components/ui/alert'
-import { Button } from '#/components/ui/button'
-import { Checkbox } from '#/components/ui/checkbox'
-import { Input, Field } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
-import { toast } from '#/components/ui/sonner'
+import {
+  Button,
+  Checkbox,
+  Field,
+  Input,
+  Notice,
+  Select,
+  toast,
+} from '../ui/kit'
 import { t } from '#/copy'
 import {
   COMMON_ENZYMES,
@@ -22,6 +25,7 @@ import type { WorkbenchProps } from './shared'
 
 function numberOr(text: string, fallback: number): number {
   const n = Number.parseInt(text, 10)
+
   return Number.isFinite(n) ? n : fallback
 }
 
@@ -31,11 +35,13 @@ export function CodonsTab({ draft, insertBelow, canEdit }: WorkbenchProps) {
   const [host, setHost] = useState<Host>('ecoli')
   const [from, setFrom] = useState(String(cds?.start ?? 1))
   const [to, setTo] = useState(String(cds?.end ?? len))
-  const [reverse, setReverse] = useState(cds?.strand === -1)
+  const reverse = useRef(cds?.strand === -1)
   const [avoid, setAvoid] = useState(true)
   const [result, setResult] = useState<CodonResult | null>(null)
+
   if (draft.molecule === 'protein')
     return <Notice>{t('molbio.enzymes.dnaOnly')}</Notice>
+
   if (len === 0) return <Notice>{t('molbio.enzymes.empty')}</Notice>
 
   const run = () => {
@@ -43,11 +49,14 @@ export function CodonsTab({ draft, insertBelow, canEdit }: WorkbenchProps) {
     const end = Math.max(start, Math.min(len, numberOr(to, len)))
     const top = draft.residues.slice(start - 1, end).toUpperCase()
     // A feature on the bottom strand is read from its reverse complement.
-    const region = reverse ? reverseComplement(top) : top
+    const region = reverse.current ? reverseComplement(top) : top
+
     if (region.length % 3 !== 0 || /[^ACGT]/.test(region)) {
       toast.error(t('molbio.codons.notWhole'))
+
       return
     }
+
     const map = draft.mapEnzymes ?? [...COMMON_ENZYMES]
     setResult(
       optimiseCodons({ dna: region }, { host, avoidEnzymes: avoid ? map : [] }),
@@ -61,7 +70,11 @@ export function CodonsTab({ draft, insertBelow, canEdit }: WorkbenchProps) {
           <Field label={t('molbio.codons.host')} className="w-44">
             <Select
               value={host}
-              onChange={(e) => setHost(e.target.value as Host)}
+              onChange={(e) => {
+                const selected = HOSTS.find((h) => h.key === e.target.value)
+
+                if (selected) setHost(selected.key)
+              }}
             >
               {HOSTS.map((h) => (
                 <option key={h.key} value={h.key}>
@@ -92,10 +105,11 @@ export function CodonsTab({ draft, insertBelow, canEdit }: WorkbenchProps) {
                   const ft = draft.features.find(
                     (x) => String(x.id) === e.target.value,
                   )
+
                   if (ft) {
                     setFrom(String(ft.start))
                     setTo(String(ft.end))
-                    setReverse(ft.strand === -1)
+                    reverse.current = ft.strand === -1
                   }
                 }}
               >

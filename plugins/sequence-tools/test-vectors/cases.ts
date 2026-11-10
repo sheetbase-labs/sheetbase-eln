@@ -3,42 +3,56 @@
  * TypeScript sequence tool and writes `vectors.json`; the TypeScript test and the
  * Python test (`python/tests/test_vectors.py`) both replay that file and must agree.
  */
+import { z } from 'zod'
+
+const json = z.json()
+
+type JsonValue = z.infer<typeof json>
+
 export interface VectorCase {
   name: string
-  input: Record<string, unknown>
+  input: Record<string, JsonValue>
 }
 
 /** Deterministic pseudo-random DNA. */
 export function randomDna(n: number, seed = 1): string {
   let x = seed
   let out = ''
+
   for (let i = 0; i < n; i++) {
     x = (x * 1103515245 + 12345) & 0x7fffffff
     out += 'ACGT'[(x >> 16) & 3]
   }
+
   return out
 }
 
-const COMP: Record<string, string> = { A: 'T', T: 'A', G: 'C', C: 'G' }
+const COMP = new Map(Object.entries({ A: 'T', T: 'A', G: 'C', C: 'G' }))
+
 export const rc = (s: string): string =>
-  [...s]
+  Array.from(s)
     .reverse()
-    .map((c) => COMP[c] ?? c)
+    .map((c) => COMP.get(c) ?? c)
     .join('')
 
 function scrub(seq: string, sites: string[]): string {
   let s = seq
+
   for (const site of sites) {
     const r = rc(site)
+
     while (s.includes(site)) s = s.replace(site, 'A'.repeat(site.length))
+
     while (s.includes(r)) s = s.replace(r, 'A'.repeat(r.length))
   }
+
   return s
 }
 
 export function buildCases(): VectorCase[] {
   const cases: VectorCase[] = []
-  const add = (name: string, input: Record<string, unknown>) =>
+
+  const add = (name: string, input: Record<string, JsonValue>) =>
     cases.push({ name, input })
 
   // Restriction sites and digests.
@@ -95,6 +109,7 @@ export function buildCases(): VectorCase[] {
     randomDna(40, 84) +
     rc('ATG' + 'GAA'.repeat(90) + 'TGA') +
     randomDna(30, 85)
+
   add('annotate library and ORFs', { action: 'annotate', sequence: annotated })
   add('annotate nothing', { action: 'annotate', sequence: randomDna(300, 9) })
 
@@ -124,6 +139,7 @@ export function buildCases(): VectorCase[] {
     start: 100,
     end: 5000,
   })
+
   for (const p of [
     'TCGTACAGGCTAACTGATCC',
     'GCGCGAATTCGCGC',
@@ -182,10 +198,13 @@ export function buildCases(): VectorCase[] {
       },
     ],
   })
+
   const sites = (s: string) =>
     scrub(s, ['GGTCTC', 'GAGACC', 'CGTCTC', 'GAGACG'])
+
   const mk = (up: string, body: string, down: string) =>
     `GGTCTCA${up}${body}${down}AGAGACC`
+
   const bb = 'A' + sites(randomDna(598, 51)) + 'A'
   const dropout = 'A' + sites(randomDna(100, 55)) + 'A'
   add('assemble golden gate', {
@@ -333,6 +352,7 @@ export function buildCases(): VectorCase[] {
   // Codon optimisation.
   const protein =
     'MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDAQFEVV'
+
   for (const host of ['ecoli', 'human', 'yeast'])
     add(`codon protein ${host}`, {
       action: 'codon_optimise',
@@ -375,12 +395,15 @@ export function buildCases(): VectorCase[] {
 
   // Sanger reads.
   const construct = randomDna(1500, 91)
+
   const sub = (s: string, at: number) =>
     s.slice(0, at) + (s[at] === 'A' ? 'G' : 'A') + s.slice(at + 1)
+
   const qstr = (n: number, q = 45, low: Record<number, number> = {}) =>
     Array.from({ length: n }, (_, i) =>
       String.fromCharCode(33 + (low[i] ?? q)),
     ).join('')
+
   const read1 = construct.slice(100, 700)
   add('check_read clean', {
     action: 'check_read',
@@ -417,7 +440,9 @@ export function buildCases(): VectorCase[] {
   })
   const read6 = construct.slice(300, 800)
   const low: Record<number, number> = {}
+
   for (let i = 0; i < 12; i++) low[i] = 8
+
   for (let i = 480; i < 500; i++) low[i] = 6
   add('check_read poor ends are trimmed', {
     action: 'check_read',
@@ -431,8 +456,10 @@ export function buildCases(): VectorCase[] {
     read: read6,
     quality: qstr(10),
   })
+
   const read8 =
     construct.slice(400, 600).slice(0, 100) + 'TTT' + construct.slice(500, 650)
+
   add('check_read insertion', {
     action: 'check_read',
     expected: construct,
@@ -453,6 +480,7 @@ export function fingerprintCases(): FingerprintCase[] {
   const plasmid = randomDna(900, 12)
   const cut = (s: string, at: number) => s.slice(at) + s.slice(0, at)
   const out: FingerprintCase[] = []
+
   for (const topology of ['linear', 'circular'] as const) {
     out.push({ residues: 'GATTACA', molecule: 'dna', topology })
     out.push({ residues: plasmid, molecule: 'dna', topology })
@@ -469,11 +497,13 @@ export function fingerprintCases(): FingerprintCase[] {
     out.push({ residues: 'A', molecule: 'dna', topology })
     out.push({ residues: '', molecule: 'dna', topology })
   }
+
   out.push({ residues: 'mkta yiak*', molecule: 'protein', topology: 'linear' })
   out.push({
     residues: randomDna(5000, 3),
     molecule: 'dna',
     topology: 'circular',
   })
+
   return out
 }

@@ -21,8 +21,10 @@ const BASES = 'TCAG'
 /** Codons in the order TTT, TTC, TTA, TTG, TCT, … (first base, second, third over TCAG). */
 const CODON_LIST: string[] = (() => {
   const out: string[] = []
+
   for (const a of BASES)
     for (const b of BASES) for (const c of BASES) out.push(a + b + c)
+
   return out
 })()
 
@@ -31,6 +33,7 @@ const CODE: Record<string, string> = (() => {
   const aa = 'FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG'
   const table: Record<string, string> = {}
   CODON_LIST.forEach((c, i) => (table[c] = aa[i]))
+
   return table
 })()
 
@@ -60,14 +63,17 @@ const USAGE: Record<Host, number[]> = {
 }
 
 /** Relative adaptiveness: usage over the most used synonymous codon, 0 to 1. */
-function weights(host: Host): Record<string, number> {
+function weights(host: Host) {
   const freq: Record<string, number> = {}
   CODON_LIST.forEach((c, i) => (freq[c] = USAGE[host][i]))
   const best: Record<string, number> = {}
+
   for (const c of CODON_LIST)
     best[CODE[c]] = Math.max(best[CODE[c]] ?? 0, freq[c])
   const w: Record<string, number> = {}
+
   for (const c of CODON_LIST) w[c] = freq[c] / best[CODE[c]]
+
   return w
 }
 
@@ -77,8 +83,10 @@ export function codonsFor(aa: string): string[] {
 
 export function translateCds(dna: string): string {
   let out = ''
+
   for (let i = 0; i + 3 <= dna.length; i += 3)
     out += CODE[dna.slice(i, i + 3)] ?? 'X'
+
   return out
 }
 
@@ -87,12 +95,15 @@ export function adaptationIndex(dna: string, host: Host): number {
   const w = weights(host)
   let sum = 0
   let n = 0
+
   for (let i = 0; i + 3 <= dna.length; i += 3) {
     const c = dna.slice(i, i + 3)
+
     if (CODE[c] === '*' || c === 'ATG' || c === 'TGG') continue
     sum += Math.log(Math.max(w[c] ?? 0.01, 0.01))
     n++
   }
+
   return n === 0 ? 0 : Math.exp(sum / n)
 }
 
@@ -124,79 +135,107 @@ export function optimiseCodons(
   options: CodonOptions,
 ): CodonResult {
   const w = weights(options.host)
+
   const protein =
     'protein' in input
       ? input.protein.toUpperCase().replace(/[^A-Z*]/g, '')
       : translateCds(input.dna)
+
   const hasStop = protein.endsWith('*')
-  const aas = [...protein.replace(/\*$/, '')]
+  const aas = Array.from(protein.replace(/\*$/, ''))
   const choices = aas.map((a) => codonsFor(a).sort((x, y) => w[y] - w[x]))
+
   if (choices.some((c) => c.length === 0))
     throw new Error('The protein has a letter that is not an amino acid.')
   const pick = choices.map((c) => c[0])
+
   const sites = (options.avoidEnzymes ?? [])
     .map((nm) => enzymeByName(nm))
     .filter((e) => e !== undefined)
     .flatMap((e) => {
       const rc = reverseComplement(e.site)
+
       return rc === e.site ? [e.site] : [e.site, rc]
     })
+
   const maxRun = options.maxRun ?? 6
+
   const problems = (dna: string): { at: number; what: string }[] => {
     const out: { at: number; what: string }[] = []
+
     for (const s of sites)
       for (const at of findPattern(dna, s, false))
         out.push({ at, what: `site ${s}` })
+
     if (maxRun > 0) {
       const re = new RegExp(`([ACGT])\\1{${maxRun - 1},}`, 'g')
+
       for (const m of dna.matchAll(re))
         // One entry per base past the limit, so shortening a run counts as progress.
         for (let k = 0; k <= m[0].length - maxRun; k++)
           out.push({ at: m.index + k, what: `run ${m[0]}` })
     }
+
     return out
   }
+
   const build = () => pick.join('')
   let dna = build()
+
   for (let pass = 0; pass < 6; pass++) {
     const found = problems(dna)
+
     if (found.length === 0) break
     let improved = false
+
     for (const p of found) {
       const first = Math.max(0, Math.floor(p.at / 3) - 1)
       const lastIdx = Math.min(pick.length - 1, Math.floor((p.at + 12) / 3))
+
       for (let i = first; i <= lastIdx; i++) {
         const before = problems(build()).length
         const current = pick[i]
+
         for (const alt of choices[i]) {
           if (alt === current) continue
           pick[i] = alt
+
           if (problems(build()).length < before) {
             improved = true
             break
           }
+
           pick[i] = current
         }
+
         if (problems(build()).length < before) break
       }
     }
+
     dna = build()
+
     if (!improved) break
   }
+
   const unresolved = problems(dna).map((p) => `${p.what} at ${p.at + 1}`)
   const stop = hasStop || options.addStop !== false
+
   if (stop) dna += options.host === 'human' ? 'TGA' : 'TAA'
   let changed = 0
   let caiBefore: number | null = null
+
   if ('dna' in input) {
     const src = input.dna.toUpperCase().replace(/[^ACGT]/g, '')
     caiBefore = adaptationIndex(src, options.host)
+
     for (let i = 0; i < pick.length; i++)
       if (src.slice(i * 3, i * 3 + 3) !== pick[i]) changed++
   }
+
   const gc =
-    [...dna].filter((c) => c === 'G' || c === 'C').length /
+    Array.from(dna).filter((c) => c === 'G' || c === 'C').length /
     Math.max(1, dna.length)
+
   return {
     dna,
     protein: protein.replace(/\*$/, ''),

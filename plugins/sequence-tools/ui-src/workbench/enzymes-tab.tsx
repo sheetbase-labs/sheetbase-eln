@@ -35,11 +35,14 @@ export function EnzymesTab({ draft, edit, canEdit }: WorkbenchProps) {
   const all = useAllSites(draft)
   const chosen = draft.mapEnzymes ?? [...COMMON_ENZYMES]
   const [show, setShow] = useState<Show>('chosen')
+
   const unique = useMemo(
     () => uniqueCutters(all).map((s) => s.enzyme.name),
     [all],
   )
+
   const set = new Set(chosen)
+
   const rows = all.filter((s) =>
     show === 'chosen'
       ? set.has(s.enzyme.name)
@@ -47,11 +50,15 @@ export function EnzymesTab({ draft, edit, canEdit }: WorkbenchProps) {
         ? s.cuts.length === 1
         : true,
   )
+
   const mapped = all.filter((s) => set.has(s.enzyme.name) && s.cuts.length > 0)
+
   if (draft.molecule === 'protein')
     return <Notice>{t('molbio.enzymes.dnaOnly')}</Notice>
+
   if (draft.residues.length === 0)
     return <Notice>{t('molbio.enzymes.empty')}</Notice>
+
   return (
     <div className="flex flex-col gap-4">
       <SiteMap
@@ -81,7 +88,7 @@ export function EnzymesTab({ draft, edit, canEdit }: WorkbenchProps) {
             variant="segment"
             label={t('molbio.enzymes.show')}
             value={show}
-            onValueChange={(k) => setShow(k as Show)}
+            onValueChange={setShow}
             items={[
               { key: 'chosen', label: t('molbio.enzymes.showChosen') },
               { key: 'unique', label: t('molbio.enzymes.showUnique') },
@@ -116,6 +123,7 @@ export function EnzymesTab({ draft, edit, canEdit }: WorkbenchProps) {
               head: t('molbio.enzymes.columns.ends'),
               cell: (r) => {
                 const d = overhangOf(r.enzyme)
+
                 return d === 0
                   ? t('molbio.enzymes.blunt')
                   : d > 0

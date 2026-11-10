@@ -13,6 +13,7 @@ export function featureSpans(f: SequenceFeature, length: number): Span[] {
       ? f.parts.map((p) => ({ start: p.start, end: p.end }))
       : [{ start: f.start, end: f.end }]
   }
+
   return [
     { start: f.start, end: length },
     { start: 1, end: f.end },
@@ -39,18 +40,22 @@ export function assignLanes(
 ): Map<number, number> {
   const lanes: number[] = [] // the end of the last feature in each lane
   const out = new Map<number, number>()
+
   const sorted = [...features].sort(
     (a, b) => a.start - b.start || b.end - a.end,
   )
+
   for (const f of sorted) {
     const wraps = f.start > f.end
     const start = f.start
     const end = wraps ? length : f.end
     let lane = lanes.findIndex((last) => last < start)
+
     if (lane < 0) lane = lanes.length
     lanes[lane] = end
     out.set(f.id, lane)
   }
+
   return out
 }
 
@@ -58,7 +63,9 @@ export function assignLanes(
 export function tickStep(span: number, target = 8): number {
   const raw = Math.max(1, span / target)
   const pow = 10 ** Math.floor(Math.log10(raw))
+
   for (const m of [1, 2, 5, 10]) if (m * pow >= raw) return m * pow
+
   return 10 * pow
 }
 
@@ -74,25 +81,30 @@ const COLOURS = [
   'var(--chart-5)',
 ]
 
-const TYPE_COLOUR: Record<string, number> = {
-  CDS: 0,
-  gene: 0,
-  promoter: 1,
-  terminator: 2,
-  rep_origin: 3,
-  primer_bind: 4,
-  protein_bind: 4,
-  regulatory: 1,
-  misc_feature: 2,
-  misc_recomb: 2,
-  sig_peptide: 3,
-}
+const TYPE_COLOUR = new Map(
+  Object.entries({
+    CDS: 0,
+    gene: 0,
+    promoter: 1,
+    terminator: 2,
+    rep_origin: 3,
+    primer_bind: 4,
+    protein_bind: 4,
+    regulatory: 1,
+    misc_feature: 2,
+    misc_recomb: 2,
+    sig_peptide: 3,
+  }),
+)
 
 export function featureColour(type: string): string {
-  const index = TYPE_COLOUR[type] as number | undefined
+  const index = TYPE_COLOUR.get(type)
+
   if (index !== undefined) return COLOURS[index]
   let h = 0
+
   for (const ch of type) h = (h * 31 + ch.charCodeAt(0)) % COLOURS.length
+
   return COLOURS[h]
 }
 
@@ -125,12 +137,16 @@ export function ringSegmentPath(opts: {
   const from = strand === 1 ? opts.startAngle : opts.startAngle + head
   const to = strand === 1 ? opts.endAngle - head : opts.endAngle
   const large = to - from > Math.PI ? 1 : 0
+
   const p = (r: number, a: number) => {
     const { x, y } = polar(cx, cy, r, a)
+
     return `${x.toFixed(2)} ${y.toFixed(2)}`
   }
+
   const arc = (r: number, a: number, dir: 0 | 1) =>
     `A ${r} ${r} 0 ${large} ${dir} ${p(r, a)}`
+
   if (strand === 1) {
     return [
       `M ${p(outer, from)}`,
@@ -141,6 +157,7 @@ export function ringSegmentPath(opts: {
       'Z',
     ].join(' ')
   }
+
   return [
     `M ${p(mid, opts.startAngle)}`,
     `L ${p(outer, from)}`,

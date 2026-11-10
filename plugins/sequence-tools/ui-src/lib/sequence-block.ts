@@ -9,10 +9,13 @@
  * text people search, and tests can run without a browser. The sequence maths
  * lives in `#/lib/molbio`.
  */
+import { z } from 'zod'
+
 import { encodeQuality } from '#/lib/molbio'
 import type { SequenceFeature } from '#/lib/sequence'
 
 export const SEQUENCE_METHODS = ['ligation', 'golden_gate', 'gibson'] as const
+
 export type SequenceMethod = (typeof SEQUENCE_METHODS)[number]
 
 export interface SavedPrimer {
@@ -116,151 +119,132 @@ export const MAX_PRIMERS = 200
 export const MAX_PLANS = 20
 export const MAX_PLAN_PARTS = 12
 
-export interface SequenceIssue {
-  field: string
-  message: string
-}
+// Validate the stored shape without stripping fields added by newer clients.
+const strand = z.union([z.literal(1), z.literal(-1)])
 
-const isObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
-const isString = (v: unknown): v is string => typeof v === 'string'
+const feature = z.looseObject({
+  id: z.number(),
+  type: z.string(),
+  label: z.string(),
+  strand,
+  parts: z.array(z.looseObject({ start: z.number(), end: z.number() })),
+  start: z.number(),
+  end: z.number(),
+  qualifiers: z.record(z.string(), z.string()),
+})
 
-function featureIssues(features: unknown, length: number): SequenceIssue[] {
-  if (!Array.isArray(features))
-    return [{ field: 'features', message: 'features must be a list' }]
-  const issues: SequenceIssue[] = []
-  features.forEach((f: unknown, i) => {
-    const at = `features[${i}]`
-    if (!isObject(f))
-      return void issues.push({ field: at, message: 'must be an object' })
-    if (!isString(f.label) || !isString(f.type))
-      issues.push({ field: at, message: 'needs a label and a type' })
-    if (f.strand !== 1 && f.strand !== -1)
-      issues.push({ field: `${at}.strand`, message: 'strand must be 1 or -1' })
-    if (
-      !Array.isArray(f.parts) ||
-      f.parts.length === 0 ||
-      f.parts.some(
-        (p: unknown) =>
-          !isObject(p) ||
-          !Number.isInteger(p.start) ||
-          !Number.isInteger(p.end) ||
-          (p.start as number) < 1 ||
-          (p.end as number) > length,
-      )
+const topology = z.enum(['linear', 'circular'])
+const assemblyMethod = z.enum(SEQUENCE_METHODS)
+
+const part = z.looseObject({
+  id: z.string(),
+  name: z.string(),
+  seq: z.string(),
+  topology,
+  features: z.array(feature),
+  blockId: z.string().optional(),
+  registryRecordId: z.string().optional(),
+  registryIdentifier: z.string().optional(),
+})
+
+const sequencePayload = z.looseObject({
+  name: z.string().default(''),
+  molecule: z.enum(['dna', 'rna', 'protein']).default('dna'),
+  topology: topology.default('circular'),
+  residues: z.string().default(''),
+  features: z.array(feature).default([]),
+  title: z.string().optional(),
+  caption: z.string().optional(),
+  registryRecordId: z.string().optional(),
+  registryIdentifier: z.string().optional(),
+  sourceFileRecordId: z.string().optional(),
+  mapEnzymes: z.array(z.string()).optional(),
+  digests: z
+    .array(
+      z.looseObject({
+        enzymes: z.array(z.string()),
+        ladder: z.enum(['1kb', '100bp']),
+      }),
     )
-      issues.push({
-        field: `${at}.parts`,
-        message: 'each part needs a start and end inside the sequence',
-      })
-  })
-  return issues
-}
-
-export function sequenceIssues(payload: unknown): SequenceIssue[] {
-  if (!isObject(payload))
-    return [{ field: '', message: 'payload must be an object' }]
-  const issues: SequenceIssue[] = []
-  if (
-    !isString(payload.residues) ||
-    payload.residues.length > MAX_SEQUENCE_LENGTH
-  )
-    issues.push({
-      field: 'residues',
-      message: `residues must be text of at most ${MAX_SEQUENCE_LENGTH} letters`,
-    })
-  else if (!/^[A-Za-z*]*$/.test(payload.residues))
-    issues.push({ field: 'residues', message: 'residues must be letters only' })
-  if (!isString(payload.name))
-    issues.push({ field: 'name', message: 'name must be a string' })
-  if (!['dna', 'rna', 'protein'].includes(String(payload.molecule)))
-    issues.push({
-      field: 'molecule',
-      message: 'molecule must be dna, rna or protein',
-    })
-  if (!['linear', 'circular'].includes(String(payload.topology)))
-    issues.push({
-      field: 'topology',
-      message: 'topology must be linear or circular',
-    })
-  for (const f of [
-    'title',
-    'caption',
-    'registryRecordId',
-    'registryIdentifier',
-    'sourceFileRecordId',
-  ]) {
-    if (payload[f] !== undefined && !isString(payload[f]))
-      issues.push({ field: f, message: `${f} must be a string when present` })
-  }
-  if (isString(payload.residues))
-    issues.push(
-      ...featureIssues(payload.features ?? [], payload.residues.length),
+    .optional(),
+  primers: z
+    .array(
+      z.looseObject({
+        id: z.string(),
+        name: z.string(),
+        seq: z.string(),
+        start: z.number().optional(),
+        end: z.number().optional(),
+        strand: strand.optional(),
+        note: z.string().optional(),
+      }),
     )
-  const lists: [string, number][] = [
-    ['primers', MAX_PRIMERS],
-    ['plans', MAX_PLANS],
-    ['reads', MAX_READS],
-    ['products', 200],
-    ['digests', 40],
-  ]
-  for (const [field, max] of lists) {
-    const v = payload[field]
-    if (v === undefined) continue
-    if (!Array.isArray(v) || v.length > max)
-      issues.push({
-        field,
-        message: `${field} must be a list of at most ${max}`,
-      })
-  }
-  if (Array.isArray(payload.primers))
-    payload.primers.forEach((p: unknown, i) => {
-      if (
-        !isObject(p) ||
-        !isString(p.seq) ||
-        !/^[ACGTRYKMSWBDHVN]+$/i.test(p.seq)
-      )
-        issues.push({
-          field: `primers[${i}].seq`,
-          message: 'a primer needs a DNA sequence',
-        })
-    })
-  if (Array.isArray(payload.plans))
-    payload.plans.forEach((p: unknown, i) => {
-      if (
-        !isObject(p) ||
-        !SEQUENCE_METHODS.includes(p.method as SequenceMethod) ||
-        !Array.isArray(p.parts) ||
-        p.parts.length > MAX_PLAN_PARTS
-      )
-        issues.push({
-          field: `plans[${i}]`,
-          message: 'a plan needs a method and its parts',
-        })
-    })
-  return issues
+    .optional(),
+  plans: z
+    .array(
+      z.looseObject({
+        id: z.string(),
+        name: z.string(),
+        method: assemblyMethod,
+        enzymes: z.array(z.string()),
+        partEnzymes: z.record(z.string(), z.array(z.string())).optional(),
+        partPick: z
+          .record(
+            z.string(),
+            z.union([z.enum(['largest', 'smallest']), z.array(z.number())]),
+          )
+          .optional(),
+        parts: z.array(part),
+        minOverlap: z.number().optional(),
+      }),
+    )
+    .optional(),
+  reads: z
+    .array(
+      z.looseObject({
+        id: z.string(),
+        name: z.string(),
+        bases: z.string(),
+        quality: z.string(),
+        trace: z.string().optional(),
+      }),
+    )
+    .optional(),
+  products: z
+    .array(
+      z.looseObject({
+        recordId: z.string(),
+        identifier: z.string(),
+        title: z.string(),
+        method: assemblyMethod,
+        planId: z.string().optional(),
+        registeredAt: z.string(),
+      }),
+    )
+    .optional(),
+})
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Persisted host state is parsed by sequencePayload before use.
+export function parseSequencePayload(payload: unknown) {
+  return sequencePayload.safeParse(payload ?? {})
 }
 
-/** A payload as the editors read it, with every list present. */
+/** A validated payload as the editors read it, with legacy defaults. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Persisted host state is parsed by sequencePayload before use.
 export function sequenceOf(payload: unknown): SequenceBlockPayload {
-  const p = (payload ?? {}) as Partial<SequenceBlockPayload>
-  return {
-    ...p,
-    name: isString(p.name) ? p.name : '',
-    molecule: p.molecule ?? 'dna',
-    topology: p.topology ?? 'circular',
-    residues: isString(p.residues) ? p.residues : '',
-    features: Array.isArray(p.features) ? p.features : [],
-  }
+  return sequencePayload.parse(payload ?? {})
 }
 
 let counter = 0
+
 export function newId(prefix: string): string {
   counter += 1
+
   const rand =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID().slice(0, 8)
       : Math.random().toString(36).slice(2, 10)
+
   return `${prefix}-${rand}${counter}`
 }
 
@@ -271,13 +255,16 @@ export function storedRead(
   quality: readonly number[],
   trace?: string,
 ): StoredRead {
-  return {
+  const read: StoredRead = {
     id: newId('read'),
     name,
     bases,
     quality: encodeQuality(quality),
-    ...(trace ? { trace } : {}),
   }
+
+  if (trace) read.trace = trace
+
+  return read
 }
 
 /** Words for search and for the conflict summary. */

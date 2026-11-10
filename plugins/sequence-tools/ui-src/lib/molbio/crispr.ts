@@ -89,9 +89,11 @@ function scan(
   const L = nuclease.guideLength
   const P = nuclease.pam.length
   const span = L + P
+
   if (n < span) return []
   const strandSeq = strand === 1 ? seq : reverseComplement(seq)
   const out: Site[] = []
+
   for (const at of findPattern(
     strandSeq,
     nuclease.pamSide === '3prime'
@@ -103,23 +105,29 @@ function scan(
       circular && at + span > n
         ? strandSeq.slice(at) + strandSeq.slice(0, at + span - n)
         : strandSeq.slice(at, at + span)
+
     const proto =
       nuclease.pamSide === '3prime' ? wrapped.slice(0, L) : wrapped.slice(P)
+
     const pam =
       nuclease.pamSide === '3prime' ? wrapped.slice(L) : wrapped.slice(0, P)
+
     const protoAt = nuclease.pamSide === '3prime' ? at : at + P
     // Strand coordinates to top-strand start.
     const start = strand === 1 ? mod(protoAt, n) : mod(n - protoAt - L, n)
     out.push({ proto, pam, strand, start })
   }
+
   return out
 }
 
 function mismatches(a: string, b: string, limit: number): number {
   let m = 0
+
   for (let i = 0; i < a.length; i++) {
     if (a[i] !== b[i] && ++m > limit) return m
   }
+
   return m
 }
 
@@ -143,45 +151,64 @@ export function findGuides(
   const circular = topology === 'circular'
   const maxMm = options.maxMismatch ?? 3
   const L = nuclease.guideLength
+
   const sites = [
     ...scan(seq, nuclease, circular, 1),
     ...scan(seq, nuclease, circular, -1),
   ].filter((s) => !/[^ACGT]/.test(s.proto))
+
   const inRegion = (s: Site) =>
     !options.region ||
     (s.start + 1 >= options.region.start && s.start + L <= options.region.end)
-  const scored = sites.filter(inRegion).map((s) => {
+
+  const scored = sites.flatMap((s) => {
+    if (!inRegion(s)) return []
     const gc = gcFraction(s.proto)
     const warnings: GuideWarning[] = []
     let score = 100
+
     if (gc < 0.3) {
       warnings.push('lowGc')
       score -= 30
     } else if (gc < 0.4) score -= 10
+
     if (gc > 0.8) {
       warnings.push('highGc')
       score -= 30
     } else if (gc > 0.7) score -= 10
+
     if (s.proto.includes('TTTT')) {
       warnings.push('terminator')
       score -= 40
     }
+
     if (/(.)\1{4,}/.test(s.proto)) {
       warnings.push('homopolymer')
       score -= 10
     }
+
     // Seed (the PAM-proximal part) that is mostly one base pairs poorly.
-    return { s, gc, warnings, score }
+    return [{ s, gc, warnings, score }]
   })
+
   scored.sort((a, b) => b.score - a.score || a.s.start - b.s.start)
   const top = scored.slice(0, options.limit ?? 20)
+
   return top.map(({ s, gc, warnings, score }) => {
-    const offTargets = new Array<number>(maxMm + 1).fill(0)
+    const size = maxMm + 1
+
+    // Match Array's length contract, including its rejection of fractional values.
+    if (!Number.isInteger(size) || size < 0 || size > 0xffffffff)
+      throw new RangeError('Invalid array length')
+    const offTargets = Array.from({ length: size }, () => 0)
+
     for (const o of sites) {
       if (o === s) continue
       const m = mismatches(s.proto, o.proto, maxMm)
+
       if (m <= maxMm) offTargets[m]++
     }
+
     let adj =
       score -
       Math.min(
@@ -189,12 +216,14 @@ export function findGuides(
         offTargets.slice(1).reduce((a, c, i) => a + c * (maxMm - i), 0) * 3,
       ) -
       offTargets[0] * 20
+
     if (offTargets[0] > 0 || offTargets.slice(1, 3).some((c) => c > 0))
       warnings.push('offTargetClose')
     adj = Math.max(0, Math.min(100, adj))
     // Cut position on the top strand.
     const protoEndTop = s.start + L // 0-based exclusive
     let cutAfter: number
+
     if (nuclease.pamSide === '3prime') {
       cutAfter =
         s.strand === 1
@@ -206,6 +235,7 @@ export function findGuides(
           ? s.start + nuclease.cutFromPam
           : protoEndTop - nuclease.cutFromPam
     }
+
     return {
       protospacer: s.proto,
       pam: s.pam,

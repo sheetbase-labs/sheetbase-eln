@@ -13,6 +13,7 @@ import { buildCases, fingerprintCases } from './cases'
 
 const out = buildCases().map(({ name, input }) => {
   const parsed = sequenceToolSchema.safeParse(input)
+
   if (!parsed.success) {
     return {
       name,
@@ -20,12 +21,15 @@ const out = buildCases().map(({ name, input }) => {
       rejected: parsed.error.issues[0]?.message ?? 'invalid',
     }
   }
+
   return { name, input, expected: runSequenceTool(parsed.data) }
 })
+
 writeFileSync(
   new URL('./vectors.json', import.meta.url),
   JSON.stringify(out, null, 1) + '\n',
 )
+
 console.log(`${out.length} cases`)
 
 const fingerprints = fingerprintCases().map((input) => {
@@ -34,14 +38,17 @@ const fingerprints = fingerprintCases().map((input) => {
     input.molecule,
     input.topology,
   )
+
   return {
     input,
     canonical,
     fingerprint: `seq:${createHash('sha256').update(canonical).digest('hex')}`,
   }
 })
+
 writeFileSync(
   new URL('./fingerprints.json', import.meta.url),
   JSON.stringify(fingerprints, null, 1) + '\n',
 )
+
 console.log(`${fingerprints.length} fingerprints`)

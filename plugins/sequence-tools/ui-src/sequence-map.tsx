@@ -67,19 +67,25 @@ export function CircularMap({
   const labels = useMemo(() => {
     const placed: number[] = []
     const out: { f: SequenceFeature; angle: number }[] = []
+
     const byLength = [...features].sort(
       (a, b) => featureLength(b, length) - featureLength(a, length),
     )
+
     for (const f of byLength) {
       const spans = featureSpans(f, length)
+
       const widest = spans.reduce((a, b) =>
         b.end - b.start > a.end - a.start ? b : a,
       )
+
       const angle = angleAt((widest.start + widest.end) / 2, length)
       const norm = ((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
+
       if (
         placed.every((p) => {
           const d = Math.abs(p - norm)
+
           return Math.min(d, 2 * Math.PI - d) > 0.16
         })
       ) {
@@ -87,11 +93,13 @@ export function CircularMap({
         out.push({ f, angle })
       }
     }
+
     return out
   }, [features, length])
 
   const step = tickStep(length, 12)
   const ticks: number[] = []
+
   for (let p = step; p < length; p += step) ticks.push(p)
   const innerEdge = R - thick / 2 - (laneCount - 1) * gap
 
@@ -102,6 +110,9 @@ export function CircularMap({
       aria-label={describe(sequence)}
       className={cn('block h-auto w-full max-w-[500px]', className)}
       onClick={() => onSelect(null)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onSelect(null)
+      }}
     >
       <circle
         cx={c}
@@ -115,6 +126,7 @@ export function CircularMap({
         const a = angleAt(p, length)
         const a0 = polar(c, c, R + thick / 2 + 2, a)
         const a1 = polar(c, c, R + thick / 2 + 7, a)
+
         return (
           <line
             key={p}
@@ -126,29 +138,30 @@ export function CircularMap({
           />
         )
       })}
-      {ticks
-        .filter((_, i) => ticks.length <= 12 || i % 2 === 1)
-        .map((p) => {
-          const pt = polar(c, c, innerEdge - 20, angleAt(p, length))
-          return (
-            <text
-              key={p}
-              x={pt.x}
-              y={pt.y}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="num fill-fg-faint"
-              fontSize={10}
-            >
-              {formatBases(p)}
-            </text>
-          )
-        })}
+      {ticks.flatMap((p, i) => {
+        if (ticks.length > 12 && i % 2 !== 1) return []
+        const pt = polar(c, c, innerEdge - 20, angleAt(p, length))
+
+        return [
+          <text
+            key={p}
+            x={pt.x}
+            y={pt.y}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className="num fill-fg-faint"
+            fontSize={10}
+          >
+            {formatBases(p)}
+          </text>,
+        ]
+      })}
       {features.map((f) => {
         const lane = lanes.get(f.id) ?? 0
         const r = R - lane * gap
         const spans = featureSpans(f, length)
         const selected = f.id === selectedId
+
         return (
           <g
             key={f.id}
@@ -169,6 +182,7 @@ export function CircularMap({
               const end = angleAt(s.end + 1, length)
               const lastSpan = i === spans.length - 1
               const arrowHere = f.strand === 1 ? lastSpan : i === 0
+
               return (
                 <path
                   key={i}
@@ -197,6 +211,7 @@ export function CircularMap({
         const p = polar(c, c, outerR, angle)
         const left = Math.cos(angle) < -0.15
         const centre = Math.abs(Math.cos(angle)) <= 0.15
+
         return (
           <text
             key={f.id}
@@ -263,18 +278,22 @@ export function LinearMap({
   const span = Math.max(1, to - from + 1)
   const x = (pos: number) => padX + ((pos - from) / span) * innerW
   const lanes = useMemo(() => assignLanes(features, length), [features, length])
+
   const visible = features.filter((f) =>
     featureSpans(f, length).some((s) => s.end >= from && s.start <= to),
   )
+
   const laneCount = Math.max(
     1,
     ...visible.map((f) => (lanes.get(f.id) ?? 0) + 1),
   )
+
   const laneH = 26
   const top = 92
   const height = top + laneCount * laneH + 12
   const step = tickStep(span, 10)
   const ticks: number[] = []
+
   for (let p = Math.ceil(from / step) * step; p <= to; p += step) ticks.push(p)
 
   return (
@@ -284,6 +303,9 @@ export function LinearMap({
       aria-label={describe(sequence)}
       className={cn('block h-auto w-full', className)}
       onClick={() => onSelect(null)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onSelect(null)
+      }}
     >
       <line
         x1={padX}
@@ -316,15 +338,19 @@ export function LinearMap({
       {visible.map((f) => {
         const lane = lanes.get(f.id) ?? 0
         const y = top + lane * laneH
+
         const spans = featureSpans(f, length).filter(
           (s) => s.end >= from && s.start <= to,
         )
+
         const selected = f.id === selectedId
+
         const widest = Math.max(
           ...spans.map(
             (s) => x(Math.min(s.end, to) + 1) - x(Math.max(s.start, from)),
           ),
         )
+
         return (
           <g
             key={f.id}
@@ -347,12 +373,14 @@ export function LinearMap({
               const tip = Math.min(9, (x1 - x0) * 0.5)
               const last = i === spans.length - 1
               const arrow = f.strand === 1 ? last : i === 0
+
               const points =
                 !arrow || tip < 2
                   ? `${x0},${y} ${x1},${y} ${x1},${y + h} ${x0},${y + h}`
                   : f.strand === 1
                     ? `${x0},${y} ${x1 - tip},${y} ${x1},${y + h / 2} ${x1 - tip},${y + h} ${x0},${y + h}`
                     : `${x0 + tip},${y} ${x1},${y} ${x1},${y + h} ${x0 + tip},${y + h} ${x0},${y + h / 2}`
+
               return (
                 <polygon
                   key={i}

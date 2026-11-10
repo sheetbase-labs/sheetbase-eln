@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 
-import { Button } from '#/components/ui/button'
-import { copyText } from '#/components/ui/copy-button'
-import { Select } from '#/components/ui/select'
-import { Tabs } from '#/components/ui/tabs'
 import {
+  Button,
+  copyText,
+  Select,
+  Tabs,
   Table,
   TableBox,
   TableCell,
@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
   TableBody,
-} from '#/components/ui/table'
+} from './ui/kit'
 import { downloadTextFile } from '#/lib/download'
 import { t } from '#/copy'
 import { cn } from '#/lib/utils'
@@ -34,6 +34,7 @@ function positionLabel(f: SequenceFeature): string {
 
 function fastaOf(seq: ParsedSequence): string {
   const lines = seq.residues.match(/.{1,70}/g) ?? []
+
   return `>${seq.name}${seq.description ? ` ${seq.description}` : ''}\n${lines.join('\n')}\n`
 }
 
@@ -47,6 +48,7 @@ export function SequenceViewer({
 }) {
   const [index, setIndex] = useState(0)
   const seq = sequences[Math.min(index, sequences.length - 1)]
+
   return (
     <SequencePane
       // A different record starts from a fresh view.
@@ -61,6 +63,7 @@ export function SequenceViewer({
             onChange={(e) => setIndex(Number(e.target.value))}
           >
             {sequences.map((s, i) => (
+              // eslint-disable-next-line react-doctor/no-array-index-as-key -- Records have no stable ID here and may have identical names.
               <option key={i} value={i}>
                 {s.name}
               </option>
@@ -93,6 +96,7 @@ function SequencePane({
   const select = (id: number | null) => {
     setSelectedId(id)
     const f = seq.features.find((x) => x.id === id)
+
     if (
       f &&
       view === 'linear' &&
@@ -110,13 +114,16 @@ function SequencePane({
   const zoom = (factor: number) => {
     const mid = (from + to) / 2
     const next = Math.min(seq.length, Math.max(20, Math.round(span * factor)))
+
     const start = Math.max(
       1,
       Math.min(seq.length - next + 1, Math.round(mid - next / 2)),
     )
+
     setFrom(start)
     setTo(Math.min(seq.length, start + next - 1))
   }
+
   const move = (start: number) => {
     const s = Math.max(1, Math.min(seq.length - span + 1, start))
     setFrom(s)
@@ -124,6 +131,7 @@ function SequencePane({
   }
 
   const gc = seq.molecule === 'protein' ? null : gcPercent(seq.residues)
+
   const facts = [
     t(`sequences.summary.${seq.molecule}`),
     t(`sequences.summary.${seq.topology}`),
@@ -151,7 +159,7 @@ function SequencePane({
               variant="segment"
               label={t('sequences.viewer.view')}
               value={view}
-              onValueChange={(k) => setView(k as View)}
+              onValueChange={setView}
               items={[
                 { key: 'circular', label: t('sequences.viewer.circular') },
                 { key: 'linear', label: t('sequences.viewer.linear') },
@@ -285,6 +293,7 @@ function FeatureTable({
       </p>
     )
   const sorted = [...seq.features].sort((a, b) => a.start - b.start)
+
   return (
     <TableBox>
       <Table caption={t('sequences.viewer.features')}>
@@ -352,6 +361,7 @@ function FeatureDetail({
     () => featureResidues(seq.residues, feature.parts, feature.strand),
     [seq, feature],
   )
+
   const protein = useMemo(
     () =>
       feature.type === 'CDS' && seq.molecule !== 'protein'
@@ -359,9 +369,11 @@ function FeatureDetail({
         : null,
     [feature, residues, seq.molecule],
   )
+
   const qualifiers = Object.entries(feature.qualifiers).filter(
     ([k]) => !HIDDEN_QUALIFIERS.has(k),
   )
+
   return (
     <section
       aria-label={t('sequences.viewer.selected')}
@@ -435,28 +447,36 @@ function Bases({
 }) {
   const span = to - from + 1
   const readable = span <= READABLE_BASES
+
   const rows = useMemo(() => {
     if (!readable) return []
     const owner: (SequenceFeature | undefined)[] = []
+
     for (const f of seq.features) {
       for (const p of f.parts) {
         const lo = Math.max(p.start, from)
         const hi = Math.min(p.end, to)
+
         for (let i = lo; i <= hi; i++) owner[i - from] ??= f
       }
     }
+
     const lines: {
       start: number
       cells: { ch: string; f?: SequenceFeature }[]
     }[] = []
+
     for (let i = 0; i < span; i += 60) {
       const cells = []
+
       for (let j = i; j < Math.min(span, i + 60); j++)
         cells.push({ ch: seq.residues[from - 1 + j] ?? '', f: owner[j] })
       lines.push({ start: from + i, cells })
     }
+
     return lines
   }, [seq, from, to, span, readable])
+
   return (
     <section className="flex flex-col gap-1.5">
       <h3 className="text-section">{t('sequences.viewer.bases')}</h3>

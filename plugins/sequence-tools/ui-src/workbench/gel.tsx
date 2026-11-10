@@ -21,10 +21,12 @@ export function Gel({
   className?: string
 }) {
   const marker = ladder === '1kb' ? LADDER_1KB : LADDER_100BP
+
   const all: GelLane[] = [
     { label: t('molbio.gel.ladder'), sizes: marker },
     ...lanes,
   ]
+
   const laneW = 74
   const padX = 56
   const W = padX + all.length * laneW + 16
@@ -32,6 +34,7 @@ export function Gel({
   const top = 42
   const bottom = 18
   const y = (pos: number) => top + pos * (H - top - bottom)
+
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
@@ -44,6 +47,7 @@ export function Gel({
         const cx = padX + li * laneW + laneW / 2
         const isLadder = li === 0
         const bands = gelBands(lane.sizes, marker)
+
         return (
           <g key={`${lane.label}-${li}`}>
             <rect

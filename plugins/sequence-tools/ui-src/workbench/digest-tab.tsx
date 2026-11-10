@@ -4,10 +4,7 @@
  */
 import { useMemo, useState } from 'react'
 
-import { Notice } from '#/components/ui/alert'
-import { Button } from '#/components/ui/button'
-import { IconButton } from '#/components/ui/icon-button'
-import { Tabs } from '#/components/ui/tabs'
+import { Button, IconButton, Notice, Tabs } from '../ui/kit'
 import { t } from '#/copy'
 import { digest, formatBp, uniqueCutters } from '#/lib/molbio'
 import type { Fragment } from '#/lib/molbio'
@@ -19,7 +16,9 @@ import type { WorkbenchProps } from './shared'
 
 function endLabel(e: Fragment['left'], enzyme: string | null): string {
   if (!enzyme) return t('molbio.digest.endOfSequence')
+
   if (e.kind === 'blunt') return t('molbio.digest.endBlunt', { enzyme })
+
   return t(e.kind === '5prime' ? 'molbio.digest.end5' : 'molbio.digest.end3', {
     enzyme,
     bases: e.sense,
@@ -32,6 +31,7 @@ export function digestFragments(
   enzymes: readonly string[],
 ): Fragment[] {
   if (enzymes.length === 0 || residues.length === 0) return []
+
   return digest(residues.toUpperCase(), topology, enzymes).sort(
     (a, b) => b.size - a.size,
   )
@@ -41,24 +41,31 @@ export function DigestTab({ draft, edit, canEdit }: WorkbenchProps) {
   const [enzymes, setEnzymes] = useState<string[]>([])
   const [ladder, setLadder] = useState<'1kb' | '100bp'>('1kb')
   const all = useAllSites(draft)
+
   const unique = useMemo(
     () => uniqueCutters(all).map((s) => s.enzyme.name),
     [all],
   )
+
   const frags = useMemo(
     () => digestFragments(draft.residues, draft.topology, enzymes),
     [draft.residues, draft.topology, enzymes],
   )
+
   const kept = draft.digests ?? []
+
   if (draft.molecule === 'protein')
     return <Notice>{t('molbio.enzymes.dnaOnly')}</Notice>
+
   if (draft.residues.length === 0)
     return <Notice>{t('molbio.enzymes.empty')}</Notice>
+
   const keep = () =>
     edit((d) => ({
       ...d,
       digests: [...(d.digests ?? []), { enzymes: [...enzymes], ladder }],
     }))
+
   return (
     <div className="flex flex-col gap-4">
       <Panel
@@ -117,7 +124,7 @@ export function DigestTab({ draft, edit, canEdit }: WorkbenchProps) {
                 variant="segment"
                 label={t('molbio.digest.ladder')}
                 value={ladder}
-                onValueChange={(k) => setLadder(k as '1kb' | '100bp')}
+                onValueChange={setLadder}
                 items={[
                   { key: '1kb', label: t('molbio.digest.ladder1kb') },
                   { key: '100bp', label: t('molbio.digest.ladder100') },
@@ -152,11 +159,11 @@ export function DigestTab({ draft, edit, canEdit }: WorkbenchProps) {
                 draft.topology,
                 k.enzymes,
               )
+
               return (
-                <div
-                  key={`${k.enzymes.join('+')}-${i}`}
-                  className="flex flex-col gap-1"
-                >
+                // prettier-ignore
+                // eslint-disable-next-line react-doctor/no-array-index-as-key -- Kept setups can be identical and are removed by occurrence.
+                <div key={`${k.enzymes.join('+')}-${i}`} className="flex flex-col gap-1">
                   <div className="flex items-center gap-1 text-label text-fg-muted">
                     <span className="font-medium text-fg">
                       {k.enzymes.join(' + ')}

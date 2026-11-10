@@ -7,21 +7,24 @@ import * as React from 'react'
 
 import { cn } from '#/lib/utils'
 
-const ICONS: Record<string, string> = {
-  copy: 'M9 9h10v10H9zM5 15V5h10',
-  download: 'M12 4v11m0 0l-4-4m4 4l4-4M5 19h14',
-  upload: 'M12 15V4m0 0L8 8m4-4l4 4M5 19h14',
-  expand: 'M6 14l6-6 6 6',
-  file: 'M7 3h7l4 4v14H7zM14 3v4h4',
-  minus: 'M6 12h12',
-  plus: 'M12 5v14M5 12h14',
-  spark: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18 16l.8 2.2L21 19l-2.2.8L18 22l-.8-2.2L15 19l2.2-.8z',
-  x: 'M6 6l12 12M18 6L6 18',
-  check: 'M5 12.5l4.5 4.5L19 7.5',
-  info: 'M12 8v.01M12 11v5M12 3a9 9 0 100 18 9 9 0 000-18z',
-  warn: 'M12 9v4M12 17v.01M10.3 4.2L2.8 17.5A2 2 0 004.5 20.5h15a2 2 0 001.7-3L13.7 4.2a2 2 0 00-3.4 0z',
-  chevron: 'M6 9l6 6 6-6',
-}
+const ICONS = new Map(
+  Object.entries({
+    copy: 'M9 9h10v10H9zM5 15V5h10',
+    download: 'M12 4v11m0 0l-4-4m4 4l4-4M5 19h14',
+    upload: 'M12 15V4m0 0L8 8m4-4l4 4M5 19h14',
+    expand: 'M6 14l6-6 6 6',
+    file: 'M7 3h7l4 4v14H7zM14 3v4h4',
+    minus: 'M6 12h12',
+    plus: 'M12 5v14M5 12h14',
+    spark:
+      'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18 16l.8 2.2L21 19l-2.2.8L18 22l-.8-2.2L15 19l2.2-.8z',
+    x: 'M6 6l12 12M18 6L6 18',
+    check: 'M5 12.5l4.5 4.5L19 7.5',
+    info: 'M12 8v.01M12 11v5M12 3a9 9 0 100 18 9 9 0 000-18z',
+    warn: 'M12 9v4M12 17v.01M10.3 4.2L2.8 17.5A2 2 0 004.5 20.5h15a2 2 0 001.7-3L13.7 4.2a2 2 0 00-3.4 0z',
+    chevron: 'M6 9l6 6 6-6',
+  }),
+)
 
 export function Icon({ name, size = 14 }: { name: string; size?: number }) {
   return (
@@ -36,13 +39,14 @@ export function Icon({ name, size = 14 }: { name: string; size?: number }) {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d={ICONS[name] ?? ICONS.info} />
+      <path d={ICONS.get(name) ?? ICONS.get('info')} />
     </svg>
   )
 }
 
 const BUTTON =
   'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus disabled:cursor-default disabled:border-border disabled:bg-surface-disabled disabled:text-fg-faint'
+
 const VARIANTS = {
   secondary: 'border-border bg-surface text-fg hover:bg-surface-hover',
   primary:
@@ -50,6 +54,7 @@ const VARIANTS = {
   quiet: 'border-transparent bg-transparent text-fg hover:bg-surface-hover',
   danger: 'border-border bg-surface text-danger-text hover:bg-danger-wash',
 }
+
 const SIZES = {
   sm: 'h-6 px-2 text-label',
   md: 'h-7 px-2.5 text-body',
@@ -107,10 +112,7 @@ export function IconButton({
 const own = (className: string | undefined, prefix: 'w' | 'h') =>
   new RegExp(`(^|\\s)${prefix}-`).test(className ?? '')
 
-export function Input({
-  className,
-  ...props
-}: React.ComponentProps<'input'>) {
+export function Input({ className, ...props }: React.ComponentProps<'input'>) {
   return (
     <input
       className={cn(
@@ -214,13 +216,13 @@ export function Checkbox({
   )
 }
 
-export interface TabItem {
-  key?: string
+export interface TabItem<TKey extends string> {
+  key: TKey
   label: React.ReactNode
   count?: React.ReactNode
 }
 
-export function Tabs({
+export function Tabs<TKey extends string>({
   items,
   value,
   onValueChange,
@@ -229,9 +231,9 @@ export function Tabs({
   mode?: 'state'
   variant?: string
   label: string
-  value: string
-  onValueChange: (key: string) => void
-  items: TabItem[]
+  value: TKey
+  onValueChange: (key: TKey) => void
+  items: TabItem<TKey>[]
 }) {
   return (
     <div
@@ -240,8 +242,9 @@ export function Tabs({
       className="flex gap-4 overflow-x-auto border-b border-border"
     >
       {items.map((item) => {
-        const key = item.key ?? ''
+        const key = item.key
         const active = key === value
+
         return (
           <button
             key={key}
@@ -371,11 +374,15 @@ export async function copyText(
 export function TableBox({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
-      className={cn('overflow-x-auto rounded-md border border-border', className)}
+      className={cn(
+        'overflow-x-auto rounded-md border border-border',
+        className,
+      )}
       {...props}
     />
   )
 }
+
 export function Table({
   className,
   caption,
@@ -389,7 +396,11 @@ export function Table({
     </table>
   )
 }
-export const TableHeader = (p: React.ComponentProps<'thead'>) => <thead {...p} />
+
+export const TableHeader = (p: React.ComponentProps<'thead'>) => (
+  <thead {...p} />
+)
+
 export function TableBody({
   children,
   empty,
@@ -401,13 +412,17 @@ export function TableBody({
   colSpan?: number
 }) {
   const hasRows = React.Children.count(children) > 0
+
   return (
     <tbody {...props}>
       {hasRows || empty === undefined ? (
         children
       ) : (
         <tr>
-          <td colSpan={colSpan} className="h-[44px] px-2.5 text-label text-fg-muted">
+          <td
+            colSpan={colSpan}
+            className="h-[44px] px-2.5 text-label text-fg-muted"
+          >
             {empty}
           </td>
         </tr>
@@ -415,6 +430,7 @@ export function TableBody({
     </tbody>
   )
 }
+
 export function TableRow({
   className,
   selected,
@@ -428,6 +444,7 @@ export function TableRow({
     />
   )
 }
+
 export function TableHead({
   className,
   align,
@@ -444,6 +461,7 @@ export function TableHead({
     />
   )
 }
+
 export function TableCell({
   className,
   align,

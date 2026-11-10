@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { BlockEditor } from '#/components/notebook/block-editor'
-import { EMPTY_RICH_TEXT_PAYLOAD } from '#/lib/blocks/rich-text'
+import { EMPTY_RICH_TEXT_PAYLOAD } from '#/lib/blocks/rich-text-data'
 import type { SaveResult } from '#/components/notebook/use-autosave'
 import type { NotebookBlock } from '#/lib/notebook-data'
 

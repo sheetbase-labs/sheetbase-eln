@@ -35,7 +35,7 @@ const asked = ['user-1', 'user-2']
 const nameOf = (id: string) =>
   id === 'user-1' ? 'Ada Scientist' : id === 'user-2' ? 'Marco Silva' : id
 
-const formSchema: Record<string, unknown> = {
+const formSchema: PipelineRunPromptWire['form_schema'] = {
   title: 'Confirm the plate layout change',
   description:
     'The step proposes moving three wells to column 12. Confirm the layout before the run writes results.',

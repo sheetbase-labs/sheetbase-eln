@@ -7,7 +7,9 @@ import {
   ReserveDialog,
   WithdrawDialog,
 } from '#/components/samples/withdraw-dialog'
-import type { ExperimentOption } from '#/components/samples/withdraw-dialog'
+import type { ExperimentOption } from '#/components/samples/quantity-hooks'
+import { useQuantityEntry } from '#/components/samples/quantity-hooks'
+import { QuantityFields } from '#/components/samples/quantity-fields'
 import type { SampleQuantityBalances } from '#/lib/samples'
 import { screenQueryClient } from './screen-stories'
 
@@ -170,4 +172,38 @@ export const Keypad: Story = {
       <QuantityKeypad onKey={() => {}} />
     </div>
   ),
+}
+
+function QuantityEntryFields({ reserve = false }: { reserve?: boolean }) {
+  const entry = useQuantityEntry(SAMPLE, BALANCES, reserve ? 'free' : 'left')
+
+  return (
+    <div className="w-[min(420px,100%)]">
+      <QuantityFields entry={entry} reserve={reserve} />
+    </div>
+  )
+}
+
+export const FieldsReady: Story = {
+  render: () => <QuantityEntryFields />,
+  play: async () => {
+    await userEvent.type(await screen.findByLabelText(/Volume/), '600')
+    await screen.findByText('1,000 mL will be left')
+  },
+}
+
+export const FieldsRefused: Story = {
+  render: () => <QuantityEntryFields />,
+  play: async () => {
+    await userEvent.type(await screen.findByLabelText(/Volume/), '1601')
+    await screen.findByText('Only 1,600 mL left. Enter 1,600 or less.')
+  },
+}
+
+export const ReservationFieldsReady: Story = {
+  render: () => <QuantityEntryFields reserve />,
+  play: async () => {
+    await userEvent.type(await screen.findByLabelText(/Volume/), '275')
+    await screen.findByText('1,325 mL will stay free')
+  },
 }

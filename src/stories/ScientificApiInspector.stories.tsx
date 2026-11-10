@@ -22,7 +22,7 @@ const table: ScientificTableWire = {
       display_order: 1,
       logical_type: 'decimal',
       nullable: true,
-      unit: 'h',
+      unit: { code: 'h', symbol: 'h' },
       validation: {},
       width: null,
       options: [],

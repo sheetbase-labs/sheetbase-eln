@@ -1,9 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import {
-  CONNECTION_REQUIRED_REASONS,
-  ConnectionRequired,
-} from '#/components/offline/connection-required'
+import { ConnectionRequired } from '#/components/offline/connection-required'
+import { CONNECTION_REQUIRED_REASONS } from '#/components/offline/connection-reasons'
 import { Button } from '#/components/ui/button'
 
 /**
@@ -46,16 +44,8 @@ export const Online: Story = { args: { online: true } }
 export const EveryReason: Story = {
   render: () => (
     <div className="flex flex-col gap-3">
-      {(
-        Object.keys(CONNECTION_REQUIRED_REASONS) as Array<
-          keyof typeof CONNECTION_REQUIRED_REASONS
-        >
-      ).map((action) => (
-        <ConnectionRequired
-          key={action}
-          online={false}
-          reason={CONNECTION_REQUIRED_REASONS[action]}
-        >
+      {Object.entries(CONNECTION_REQUIRED_REASONS).map(([action, reason]) => (
+        <ConnectionRequired key={action} online={false} reason={reason}>
           {({ disabled, describedBy }) => (
             <Button disabled={disabled} aria-describedby={describedBy}>
               {action}

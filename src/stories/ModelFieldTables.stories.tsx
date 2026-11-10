@@ -10,12 +10,12 @@ import {
 import {
   InheritedLabel,
   InheritedTableRows,
-  inheritedRows,
 } from '#/components/models/inherited-fields-table'
+import { inheritedRows } from '#/components/models/inherited-fields-data'
 import type {
   InheritedGroup,
   InheritedRow,
-} from '#/components/models/inherited-fields-table'
+} from '#/components/models/inherited-fields-data'
 import { RecordModelEditDialog } from '#/components/models/record-model-edit-dialog'
 import { RecordModelFields } from '#/components/models/record-model-fields-tab'
 import { RecordModelEdit } from '#/components/models/record-model-edit'
@@ -187,18 +187,25 @@ const noop = () => {}
 
 const changes: FieldChange[] = [
   {
+    id: 'field:cell_bank:thaw_viability:added',
     kind: 'Added',
     subject: 'Thaw viability',
     detail: 'Number, 1 dp · Release tests',
   },
   {
+    id: 'field:cc-2:rule',
     kind: 'Changed',
     subject: 'Passage',
     detail: 'Rule',
     from: '≤ 40',
     to: '≤ 30',
   },
-  { kind: 'Removed', subject: 'Legacy flag', detail: null },
+  {
+    id: 'field:experiment:old_flag:removed',
+    kind: 'Removed',
+    subject: 'Legacy flag',
+    detail: null,
+  },
 ]
 
 /** The changes a draft makes to what is published: added, changed (old struck through), removed. */

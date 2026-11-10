@@ -58,7 +58,7 @@ function provider(data: ReadSeed[]) {
   )
 }
 
-function connector(config: Record<string, unknown>): ConnectorWire {
+function connector(config: ConnectorWire['config']): ConnectorWire {
   return {
     id: 'c-1',
     workspace_id: 'ws-1',

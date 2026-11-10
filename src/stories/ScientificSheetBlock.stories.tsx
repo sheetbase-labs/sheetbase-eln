@@ -1,8 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+import { fn } from 'storybook/test'
 
 import { ScientificWorkbookProvider } from '#/components/notebook/scientific-workbook-provider'
 import { ScientificSheetBlock } from '#/components/sheet/scientific-sheet-block'
+import { ScientificColumnForm } from '#/components/sheet/scientific-sheet-column-form'
+import { ScientificSheetFooter } from '#/components/sheet/scientific-sheet-footer'
+import { ScientificFormulaBar } from '#/components/sheet/scientific-sheet-formula-bar'
+import { ScientificSheetMessages } from '#/components/sheet/scientific-sheet-messages'
+import { ScientificSchemaColumn } from '#/components/sheet/scientific-sheet-schema-column'
+import { t } from '#/copy'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { scientificQueryKeys } from '#/lib/scientific-sheet-data'
 import type {
@@ -144,4 +151,86 @@ export const ReadRefused: Story = { decorators: [withClient('refused')] }
  * rendering an empty grid. */
 export const MissingTableId: Story = {
   args: { block: { ...block, payload: { title: 'Plate readings' } } },
+}
+
+/** Extracted controls render directly as well as inside the loaded block.
+ * Mutation callbacks are recorded by Storybook, not sent to a server. */
+export const AddColumn: Story = {
+  render: () => (
+    <ScientificColumnForm
+      disabled={false}
+      isAdmin
+      onAdd={fn()}
+      onError={fn()}
+    />
+  ),
+}
+
+/** A blocked schema shows the column without issuing preflight requests. */
+export const BlockedSchemaColumn: Story = {
+  render: () => (
+    <ul>
+      <ScientificSchemaColumn
+        column={table.columns[0]}
+        index={0}
+        last={false}
+        disabled
+        blocked
+        schemaVersion={() => table.schema_version}
+        mutate={fn()}
+        onStatus={fn()}
+        onConfirm={fn()}
+      />
+    </ul>
+  ),
+}
+
+export const FormulaBar: Story = {
+  render: () => (
+    <ScientificFormulaBar
+      display="=SUM(A1:A3)"
+      selected
+      coords={{ row: 0, col: 1 }}
+      status=""
+      onCommit={fn(async () => {})}
+      onStatusClear={fn()}
+    />
+  ),
+}
+
+export const SaveFailed: Story = {
+  render: () => (
+    <ScientificSheetFooter
+      table={table}
+      rowCount={rows.length}
+      readOnly={false}
+      saveStatus="error"
+      dataAccess={false}
+      calculating={false}
+      onRetry={fn()}
+      onAdd={fn()}
+      onConfigure={fn()}
+      onExport={fn()}
+      onInspect={fn()}
+      onRecalculate={fn()}
+    />
+  ),
+}
+
+export const ValidationMessages: Story = {
+  render: () => (
+    <ScientificSheetMessages
+      issues={[
+        {
+          key: 'A1',
+          message: t('notebook.scientificSheetBlock.invalidColumn'),
+        },
+      ]}
+      calculationProblem={null}
+      schema={undefined}
+      readOnly={false}
+      upgrading={false}
+      onUpgrade={fn()}
+    />
+  ),
 }

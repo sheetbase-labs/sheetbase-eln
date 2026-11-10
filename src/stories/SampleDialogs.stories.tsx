@@ -1,7 +1,16 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+import { useState } from 'react'
 
 import { AliquotDialog } from '#/components/samples/aliquot-dialog'
+import {
+  AliquotCreated as AliquotCreatedContent,
+  PoolCreated,
+} from '#/components/samples/quantity-created'
+import { AliquotPlanPreview } from '#/components/samples/quantity-plan-preview'
+import { PoolSources } from '#/components/samples/quantity-pool-sources'
+import { planAliquots } from '#/components/samples/quantity-plans'
+import { Dialog, DialogContent } from '#/components/ui/dialog'
 import { BulkRegisterDialog } from '#/components/samples/bulk-register-dialog'
 import { MoveSampleDialog } from '#/components/samples/move-dialog'
 import { PoolDialog } from '#/components/samples/pool-dialog'
@@ -10,7 +19,7 @@ import {
   EditHoldDialog,
   ReceiveStockDialog,
 } from '#/components/samples/sample-edit-dialogs'
-import type { ExperimentOption } from '#/components/samples/withdraw-dialog'
+import type { ExperimentOption } from '#/components/samples/quantity-hooks'
 import type { SampleQuantityBalances } from '#/lib/samples'
 import { positionKeys } from '#/lib/storage-positions'
 import {
@@ -293,4 +302,111 @@ export const ReceiveStock: Story = {
       onSubmit={noop}
     />
   ),
+}
+
+export const CreatedAliquotTubes: Story = {
+  render: () => (
+    <Dialog open onOpenChange={noop}>
+      <DialogContent>
+        <AliquotCreatedContent
+          created={[1, 2].map((n) =>
+            sampleFixture({
+              id: `tube-${n}`,
+              identifier: `SMP-224${n}`,
+              title: `Harvest tube ${n}`,
+              quantity: 500,
+            }),
+          )}
+          identifier={sample.identifier}
+          onPrint={noop}
+        />
+      </DialogContent>
+    </Dialog>
+  ),
+}
+
+export const CreatedPool: Story = {
+  render: () => (
+    <Dialog open onOpenChange={noop}>
+      <DialogContent>
+        <PoolCreated
+          created={{
+            pool: sampleFixture({
+              id: 'pool-1',
+              identifier: 'SMP-2250',
+              title: 'Pooled harvest',
+              quantity: 700,
+            }),
+            sources: [
+              sample,
+              sampleFixture({ id: 'source-2', identifier: 'SMP-2232' }),
+            ],
+          }}
+          onPrint={noop}
+        />
+      </DialogContent>
+    </Dialog>
+  ),
+}
+
+export const AliquotPlanReady: Story = {
+  render: () => (
+    <AliquotPlanPreview
+      plan={planAliquots('3', '250', 4000, 'mL')}
+      unit="mL"
+      identifier={sample.identifier}
+    />
+  ),
+}
+
+export const AliquotPlanRefused: Story = {
+  render: () => (
+    <AliquotPlanPreview
+      plan={planAliquots('3', '1600', 4000, 'mL')}
+      unit="mL"
+      identifier={sample.identifier}
+    />
+  ),
+}
+
+function PopulatedPoolSources() {
+  const [rows, setRows] = useState([
+    {
+      id: 'source-1',
+      identifier: 'SMP-2231',
+      title: 'Harvest lot HL-0934',
+      free: 1600,
+      unit: 'mL',
+      metadataVersion: 3,
+      take: '400',
+    },
+    {
+      id: 'source-2',
+      identifier: 'SMP-2232',
+      title: 'Harvest lot HL-0935',
+      free: 900,
+      unit: 'mL',
+      metadataVersion: 5,
+      take: '300',
+    },
+  ])
+
+  return (
+    <PoolSources
+      rows={rows}
+      onTake={(id, take) =>
+        setRows((current) =>
+          current.map((row) => (row.id === id ? { ...row, take } : row)),
+        )
+      }
+      onRemove={(id) =>
+        setRows((current) => current.filter((row) => row.id !== id))
+      }
+      onAdd={noop}
+    />
+  )
+}
+
+export const PoolSourceAmounts: Story = {
+  render: () => <PopulatedPoolSources />,
 }

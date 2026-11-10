@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { ImportUploadFlow } from '#/components/import/import-flow'
+import { PluginPullPanel } from '#/components/import/plugin-pull-panel'
 import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
 import type { PublishedSchemaOption } from '#/lib/dataset-product'
 
@@ -169,4 +170,49 @@ export const DatasetReadRefused: Story = {
       )
     },
   ],
+}
+
+/** The real connector form before a file is handed back to the upload flow. */
+export const ConnectorParameters: Story = {
+  render: () => (
+    <PluginPullPanel
+      connectors={[
+        {
+          extensionId: 'fixture-extension',
+          extensionKey: 'fixture-instrument',
+          extensionName: 'Instrument plugin fixture',
+          manifestId: 'fixture-instrument',
+          manifestVersion: '1.0.0',
+          point: 'connectors',
+          id: 'plate',
+          name: 'plugin.fixture-instrument.plate',
+          declaration: {
+            id: 'plate',
+            title: 'Plate readout',
+            description: 'Pull a plate from the selected instrument.',
+            hosts: ['instrument.example'],
+            parameters: [
+              {
+                name: 'plate',
+                type: 'text',
+                label: 'Plate ID',
+                required: true,
+              },
+            ],
+            settings: [
+              {
+                name: 'endpoint',
+                label: 'Endpoint',
+                required: true,
+                secret: false,
+              },
+            ],
+            runner: { kind: 'python', entry: 'plate:run' },
+            parse: { kind: 'python', entry: 'plate:parse' },
+          },
+        },
+      ]}
+      onFile={() => undefined}
+    />
+  ),
 }

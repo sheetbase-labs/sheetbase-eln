@@ -10,10 +10,8 @@ import {
   DatasetInspector,
   DatasetIssueActions,
 } from '#/components/datasets/dataset-inspector'
-import {
-  DatasetModelUpgrade,
-  datasetModelPositionKey,
-} from '#/components/datasets/dataset-model-upgrade'
+import { DatasetModelUpgrade } from '#/components/datasets/dataset-model-upgrade'
+import { datasetModelPositionKey } from '#/components/datasets/dataset-model-upgrade-data'
 import { DatasetRunPipeline } from '#/components/datasets/dataset-run-pipeline'
 import type { DatasetListRow } from '#/components/datasets/datasets-data'
 import type { SnapshotVersion } from '#/components/datasets/snapshot-data'

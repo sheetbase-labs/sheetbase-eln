@@ -255,7 +255,7 @@ export const Policies: Story = {
       definitions={definitions}
       revisions={revisions}
       canChange
-      onChange={async () => {}}
+      onChange={async () => revisions[0]}
       nameOf={nameOf}
       projectName={projectName}
       pending={false}
@@ -271,7 +271,7 @@ export const PolicyChangeDialog: Story = {
       revisions={revisions}
       initialDefinitionId="ag-1"
       canChange
-      onChange={async () => {}}
+      onChange={async () => revisions[0]}
       nameOf={nameOf}
       projectName={projectName}
       pending={false}
@@ -285,7 +285,7 @@ export const PoliciesReadOnly: Story = {
       definitions={definitions}
       revisions={[]}
       canChange={false}
-      onChange={async () => {}}
+      onChange={async () => revisions[0]}
       nameOf={nameOf}
       projectName={projectName}
       pending={false}
@@ -299,7 +299,7 @@ export const PoliciesEmpty: Story = {
       definitions={[]}
       revisions={[]}
       canChange={false}
-      onChange={async () => {}}
+      onChange={async () => revisions[0]}
       nameOf={nameOf}
       projectName={projectName}
       pending={false}

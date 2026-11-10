@@ -6,8 +6,8 @@ import {
   NotebookBlockHandle,
   NotebookBlockList,
   NotebookBlockRow,
-  moveTargetIndex,
 } from '#/components/notebook/notebook-block-reorder'
+import { moveTargetIndex } from '#/components/notebook/block-reorder-targets'
 
 /**
  * The notebook's reorderable block list: the list that binds a drop to the

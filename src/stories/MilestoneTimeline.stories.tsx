@@ -22,7 +22,9 @@ const meta = {
   tags: ['autodocs'],
   parameters: { layout: 'fullscreen' },
 } satisfies Meta<typeof MilestoneTimeline>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const NOW = Date.parse('2026-10-17T09:00:00.000Z')

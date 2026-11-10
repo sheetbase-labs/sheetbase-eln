@@ -41,8 +41,12 @@ export function WorkingHoursSettings({
   })
 
   const [timezone, setTimezone] = useState<string>(DEFAULT_HOURS.timezone)
-  const [start, setStart] = useState(minuteToTime(DEFAULT_HOURS.startMinute))
-  const [end, setEnd] = useState(minuteToTime(DEFAULT_HOURS.endMinute))
+
+  const [start, setStart] = useState(() =>
+    minuteToTime(DEFAULT_HOURS.startMinute),
+  )
+
+  const [end, setEnd] = useState(() => minuteToTime(DEFAULT_HOURS.endMinute))
   const [days, setDays] = useState<number[]>([...DEFAULT_HOURS.days])
 
   useEffect(() => {
@@ -77,7 +81,7 @@ export function WorkingHoursSettings({
         timezone: timezone.trim(),
         startMinute: startMinute ?? 0,
         endMinute: endMinute ?? 0,
-        days: [...days].sort(),
+        days: [...days].sort((left, right) => left - right),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
@@ -85,7 +89,7 @@ export function WorkingHoursSettings({
       })
       toast.success(t('automation.schedule.hours.saved'))
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(
         e instanceof Error && e.message
           ? e.message

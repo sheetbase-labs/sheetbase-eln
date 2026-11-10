@@ -43,17 +43,21 @@ export function NotebookTemplateUpgradeBanner({
     enabled: Boolean(pinnedVersionId),
     queryFn: () => fetchNotebookTemplateVersion(pinnedVersionId!, client),
   })
+
   const templateId = version.data?.templateId ?? null
+
   const template = useQuery({
     queryKey: ['notebook-template', templateId],
     enabled: Boolean(templateId),
     queryFn: () => fetchNotebookTemplate(templateId!, client),
   })
+
   const versions = useQuery({
     queryKey: ['notebook-template-versions', templateId],
     enabled: Boolean(templateId),
     queryFn: () => fetchNotebookTemplateVersions(templateId!, client),
   })
+
   // REUSE-03: the stored pin against the published lineage. Silent unless a
   // newer published version exists.
   const availability = notebookTemplateUpgradeAvailability(
@@ -62,7 +66,9 @@ export function NotebookTemplateUpgradeBanner({
       : null,
     versions.data ?? [],
   )
+
   const latest = availability.latestVersion
+
   if (
     availability.status !== 'upgrade-available' ||
     !latest ||
@@ -71,9 +77,11 @@ export function NotebookTemplateUpgradeBanner({
   ) {
     return null
   }
+
   const name =
     template.data?.name ??
     t('notebook.notebookTemplateUpgradeBanner.notebookTemplate')
+
   return (
     <Banner
       action={

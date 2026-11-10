@@ -94,6 +94,15 @@ function SamplePreviewView({ preview }: { preview: SamplePreview }) {
   }
 
   const headers = preview.headers.slice(0, 6)
+  const occurrences = new Map<string, number>()
+
+  const rows = preview.rows.map((row) => {
+    const content = JSON.stringify(row)
+    const occurrence = occurrences.get(content) ?? 0
+    occurrences.set(content, occurrence + 1)
+
+    return { row, key: `${content}:${occurrence}` }
+  })
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -113,8 +122,8 @@ function SamplePreviewView({ preview }: { preview: SamplePreview }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {preview.rows.map((row, index) => (
-              <TableRow key={index}>
+            {rows.map(({ row, key }) => (
+              <TableRow key={key}>
                 {headers.map((header) => (
                   <TableCell key={header} className="mono">
                     {row[header] ?? ''}
@@ -133,6 +142,204 @@ function SamplePreviewView({ preview }: { preview: SamplePreview }) {
         </p>
       ) : null}
     </div>
+  )
+}
+
+function IntakeFormatStep({
+  mode,
+  onModeChange,
+  parserKey,
+  onParserChange,
+  parsers,
+  instrumentId,
+  canManage,
+  onAdded,
+  onSample,
+  sample,
+}: {
+  mode: 'each' | 'always'
+  onModeChange: (mode: 'each' | 'always') => void
+  parserKey: string
+  onParserChange: (key: string) => void
+  parsers: ParserSettingsRow[]
+  instrumentId: string
+  canManage: boolean
+  onAdded: (key: string) => Promise<void>
+  onSample: (text: string | null) => void
+  sample: string | null
+}) {
+  const chosenParser =
+    parsers.find((parser) => parser.key === parserKey) ?? null
+
+  const preview =
+    sample !== null && (mode === 'each' || chosenParser)
+      ? previewSample(sample, mode === 'each' ? null : chosenParser)
+      : null
+
+  return (
+    <div className="flex flex-col gap-3">
+      <RadioGroup
+        value={mode}
+        onValueChange={(next) => {
+          onModeChange(next === 'always' ? 'always' : 'each')
+
+          if (next === 'each') onParserChange('')
+        }}
+      >
+        <Choice
+          value="each"
+          title={t('library.instruments.intakeSetup.format.readEach')}
+        >
+          {t('library.instruments.intakeSetup.format.readEachHint')}
+        </Choice>
+        <Choice
+          value="always"
+          title={t('library.instruments.intakeSetup.format.always')}
+        >
+          {t('library.instruments.intakeSetup.format.alwaysHint')}
+        </Choice>
+      </RadioGroup>
+      {mode === 'always' ? (
+        <Field
+          label={
+            <Tooltip
+              content={t(
+                'library.instruments.intakeSetup.format.parserTooltip',
+              )}
+            >
+              <span className="cursor-help">
+                {t('library.instruments.intakeSetup.format.parser')}
+              </span>
+            </Tooltip>
+          }
+        >
+          <Select
+            value={parserKey}
+            onChange={(event) => onParserChange(event.target.value)}
+          >
+            <option value="">
+              {t('library.instruments.intakeSetup.format.chooseParser')}
+            </option>
+            {parsers.map((parser) => (
+              <option key={parser.id} value={parser.key}>
+                {parser.name}
+                {currentVersion(parser)?.status === 'approved'
+                  ? ''
+                  : ` (${t('library.instruments.intakeSetup.format.notApproved')})`}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : null}
+      {mode === 'always' ? (
+        <ConverterPicker
+          instrumentId={instrumentId}
+          canManage={canManage}
+          onAdded={onAdded}
+        />
+      ) : null}
+      <div className="flex flex-col gap-1.5">
+        <FileDrop
+          label={t('library.instruments.intakeSetup.sample.drop')}
+          hint={t('library.instruments.intakeSetup.sample.hint')}
+          validate={(file) =>
+            file.size <= SAMPLE_MAX_BYTES
+              ? { ok: true }
+              : {
+                  ok: false,
+                  message: t('library.instruments.intakeSetup.sample.tooBig'),
+                }
+          }
+          onFile={async (file) => onSample(file ? await file.text() : null)}
+        />
+        {preview ? <SamplePreviewView preview={preview} /> : null}
+      </div>
+    </div>
+  )
+}
+
+function IntakeDestinationFeedback({
+  needsPublishedSchema,
+  saveError,
+}: {
+  needsPublishedSchema: boolean
+  saveError: string | null
+}) {
+  return (
+    <>
+      {needsPublishedSchema ? (
+        <div className="sm:col-span-2">
+          <Notice tone="warn">
+            {t('library.instruments.intakeSetup.destination.needsPublished')}
+          </Notice>
+        </div>
+      ) : null}
+      {saveError !== null ? (
+        <div className="sm:col-span-2">
+          <Notice
+            tone="bad"
+            title={t('library.instruments.intakeSetup.cantSave')}
+          >
+            {saveError}
+          </Notice>
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+function IntakeStepActions({
+  step,
+  onStep,
+  nextDisabled,
+  saving,
+  onSave,
+}: {
+  step: StepNumber
+  onStep: (step: StepNumber) => void
+  nextDisabled: boolean
+  saving: boolean
+  onSave: () => void
+}) {
+  return (
+    <DialogFooter>
+      {step === 1 ? (
+        <>
+          <DialogClose render={<Button />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
+          <Button
+            variant="primary"
+            disabled={nextDisabled}
+            onClick={() => onStep(2)}
+          >
+            {t('library.instruments.intakeSetup.next')}
+          </Button>
+        </>
+      ) : null}
+      {step === 2 ? (
+        <>
+          <Button onClick={() => onStep(1)}>
+            {t('library.instruments.intakeSetup.back')}
+          </Button>
+          <Button variant="primary" disabled={saving} onClick={onSave}>
+            {saving
+              ? t('library.instruments.intakeSetup.saving')
+              : t('library.instruments.intakeSetup.save')}
+          </Button>
+        </>
+      ) : null}
+      {step === 3 ? (
+        <>
+          <Button onClick={() => onStep(2)}>
+            {t('library.instruments.intakeSetup.back')}
+          </Button>
+          <DialogClose render={<Button variant="primary" />}>
+            {t('library.instruments.intakeSetup.done')}
+          </DialogClose>
+        </>
+      ) : null}
+    </DialogFooter>
   )
 }
 
@@ -200,14 +407,6 @@ export function IntakeSetupDialog({
   const parserRows = (parsers.data ?? []).filter((parser) =>
     currentVersion(parser),
   )
-
-  const chosenParser =
-    parserRows.find((parser) => parser.key === values.parserKey) ?? null
-
-  const preview =
-    sample !== null && (mode === 'each' || chosenParser)
-      ? previewSample(sample, mode === 'each' ? null : chosenParser)
-      : null
 
   const set = <TKey extends keyof IntakeSetupValues>(
     key: TKey,
@@ -279,98 +478,23 @@ export function IntakeSetupDialog({
           />
 
           {step === 1 ? (
-            <div className="flex flex-col gap-3">
-              <RadioGroup
-                value={mode}
-                onValueChange={(next) => {
-                  setMode(next === 'always' ? 'always' : 'each')
-
-                  if (next === 'each') set('parserKey', '')
-                }}
-              >
-                <Choice
-                  value="each"
-                  title={t('library.instruments.intakeSetup.format.readEach')}
-                >
-                  {t('library.instruments.intakeSetup.format.readEachHint')}
-                </Choice>
-                <Choice
-                  value="always"
-                  title={t('library.instruments.intakeSetup.format.always')}
-                >
-                  {t('library.instruments.intakeSetup.format.alwaysHint')}
-                </Choice>
-              </RadioGroup>
-              {mode === 'always' ? (
-                <Field
-                  label={
-                    <Tooltip
-                      content={t(
-                        'library.instruments.intakeSetup.format.parserTooltip',
-                      )}
-                    >
-                      <span className="cursor-help">
-                        {t('library.instruments.intakeSetup.format.parser')}
-                      </span>
-                    </Tooltip>
-                  }
-                >
-                  <Select
-                    value={values.parserKey}
-                    onChange={(event) => set('parserKey', event.target.value)}
-                  >
-                    <option value="">
-                      {t('library.instruments.intakeSetup.format.chooseParser')}
-                    </option>
-                    {parserRows.map((parser) => {
-                      const approved =
-                        currentVersion(parser)?.status === 'approved'
-
-                      return (
-                        <option key={parser.id} value={parser.key}>
-                          {parser.name}
-                          {approved
-                            ? ''
-                            : ` (${t('library.instruments.intakeSetup.format.notApproved')})`}
-                        </option>
-                      )
-                    })}
-                  </Select>
-                </Field>
-              ) : null}
-              {mode === 'always' ? (
-                <ConverterPicker
-                  instrumentId={instrument.id}
-                  canManage={canManage}
-                  onAdded={async (key) => {
-                    await queryClient.invalidateQueries({
-                      queryKey: parserSettingsQueryKeys.list(workspaceId),
-                    })
-                    set('parserKey', key)
-                  }}
-                />
-              ) : null}
-              <div className="flex flex-col gap-1.5">
-                <FileDrop
-                  label={t('library.instruments.intakeSetup.sample.drop')}
-                  hint={t('library.instruments.intakeSetup.sample.hint')}
-                  validate={(file) =>
-                    file.size <= SAMPLE_MAX_BYTES
-                      ? { ok: true }
-                      : {
-                          ok: false,
-                          message: t(
-                            'library.instruments.intakeSetup.sample.tooBig',
-                          ),
-                        }
-                  }
-                  onFile={async (file) => {
-                    setSample(file ? await file.text() : null)
-                  }}
-                />
-                {preview ? <SamplePreviewView preview={preview} /> : null}
-              </div>
-            </div>
+            <IntakeFormatStep
+              mode={mode}
+              onModeChange={setMode}
+              parserKey={values.parserKey}
+              onParserChange={(key) => set('parserKey', key)}
+              parsers={parserRows}
+              instrumentId={instrument.id}
+              canManage={canManage}
+              onAdded={async (key) => {
+                await queryClient.invalidateQueries({
+                  queryKey: parserSettingsQueryKeys.list(workspaceId),
+                })
+                set('parserKey', key)
+              }}
+              onSample={setSample}
+              sample={sample}
+            />
           ) : null}
 
           {step === 2 ? (
@@ -453,25 +577,14 @@ export function IntakeSetupDialog({
                   ))}
                 </Select>
               </Field>
-              {schemas.isSuccess && schemas.data.length === 0 ? (
-                <div className="sm:col-span-2">
-                  <Notice tone="warn">
-                    {t(
-                      'library.instruments.intakeSetup.destination.needsPublished',
-                    )}
-                  </Notice>
-                </div>
-              ) : null}
-              {save.isError ? (
-                <div className="sm:col-span-2">
-                  <Notice
-                    tone="bad"
-                    title={t('library.instruments.intakeSetup.cantSave')}
-                  >
-                    {describeConnectorsError(save.error)}
-                  </Notice>
-                </div>
-              ) : null}
+              <IntakeDestinationFeedback
+                needsPublishedSchema={
+                  schemas.isSuccess && schemas.data.length === 0
+                }
+                saveError={
+                  save.isError ? describeConnectorsError(save.error) : null
+                }
+              />
             </div>
           ) : null}
 
@@ -479,50 +592,13 @@ export function IntakeSetupDialog({
             <AgentDownload connectorId={saved.id} canManage={canManage} />
           ) : null}
         </DialogBody>
-        <DialogFooter>
-          {step === 1 ? (
-            <>
-              <DialogClose render={<Button />}>
-                {t('common.actions.cancel')}
-              </DialogClose>
-              <Button
-                variant="primary"
-                disabled={
-                  !canManage || (mode === 'always' && !values.parserKey)
-                }
-                onClick={() => setStep(2)}
-              >
-                {t('library.instruments.intakeSetup.next')}
-              </Button>
-            </>
-          ) : null}
-          {step === 2 ? (
-            <>
-              <Button onClick={() => setStep(1)}>
-                {t('library.instruments.intakeSetup.back')}
-              </Button>
-              <Button
-                variant="primary"
-                disabled={save.isPending}
-                onClick={() => save.mutate()}
-              >
-                {save.isPending
-                  ? t('library.instruments.intakeSetup.saving')
-                  : t('library.instruments.intakeSetup.save')}
-              </Button>
-            </>
-          ) : null}
-          {step === 3 ? (
-            <>
-              <Button onClick={() => setStep(2)}>
-                {t('library.instruments.intakeSetup.back')}
-              </Button>
-              <DialogClose render={<Button variant="primary" />}>
-                {t('library.instruments.intakeSetup.done')}
-              </DialogClose>
-            </>
-          ) : null}
-        </DialogFooter>
+        <IntakeStepActions
+          step={step}
+          onStep={setStep}
+          nextDisabled={!canManage || (mode === 'always' && !values.parserKey)}
+          saving={save.isPending}
+          onSave={() => save.mutate()}
+        />
       </DialogContent>
     </Dialog>
   )

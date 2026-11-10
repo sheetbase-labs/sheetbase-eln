@@ -31,15 +31,16 @@ import { classifyDatasetTabAccess } from '#/components/datasets/dataset-detail-t
 import { datasetPath, recordPath, sheetPath } from '#/lib/navigation'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { discoverObjectDependencies } from '#/lib/object-dependencies'
-import type { ObjectDependency } from '#/lib/object-dependencies'
+import type { DataClient } from '#/lib/data-client'
+import { datasetUsers } from './dataset-users'
 
-const RELATION_LABELS: Record<string, string> = {
-  resolved_dataset_binding: t('data.datasetUsedByTab.bindsDataset'),
-  snapshot_of_dataset: t('data.datasetUsedByTab.snapshotDataset'),
-}
+const RELATION_LABELS = new Map([
+  ['resolved_dataset_binding', t('data.datasetUsedByTab.bindsDataset')],
+  ['snapshot_of_dataset', t('data.datasetUsedByTab.snapshotDataset')],
+])
 
 function relationLabel(relation: string): string {
-  return RELATION_LABELS[relation] ?? relation.replaceAll('_', ' ')
+  return RELATION_LABELS.get(relation) ?? relation.replaceAll('_', ' ')
 }
 
 function dependencyHref(kind: string, id: string): string | null {
@@ -52,18 +53,16 @@ function dependencyHref(kind: string, id: string): string | null {
   return null
 }
 
-/** External dependents only — a dataset's own snapshot versions are not users. */
-export function datasetUsers(
-  dependencies: ObjectDependency[],
-): ObjectDependency[] {
-  return dependencies.filter((d) => d.kind !== 'dataset_version')
-}
-
-export function DatasetUsedByTab({ datasetId }: { datasetId: string }) {
+export function DatasetUsedByTab({
+  datasetId,
+  client = notebookDataClient,
+}: {
+  datasetId: string
+  client?: DataClient
+}) {
   const query = useQuery({
     queryKey: ['ui-port', 'dataset-usage', datasetId] as const,
-    queryFn: () =>
-      discoverObjectDependencies(notebookDataClient, 'dataset', datasetId),
+    queryFn: () => discoverObjectDependencies(client, 'dataset', datasetId),
   })
 
   const access = classifyDatasetTabAccess(query.error)

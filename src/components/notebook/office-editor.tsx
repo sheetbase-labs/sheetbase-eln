@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { t } from '#/copy'
 import { Button } from '#/components/ui/button'
@@ -10,14 +11,26 @@ import { editableExtension } from '#/lib/office-editor'
 import { notebookQueryKeys } from '#/lib/notebook-data'
 import { fileVersionsKey } from './office-preview/use-file-versions'
 
-interface EditorSession {
-  actionUrl: string
-  accessToken: string
-  accessTokenTtl: number
-  canEdit: boolean
-  lockedReason: 'signed' | 'archived' | null
-  fileName: string
-}
+const editorSession = z
+  .object({
+    actionUrl: z.url({ protocol: /^https?$/ }),
+    accessToken: z.string(),
+    accessTokenTtl: z.number(),
+    canEdit: z.boolean(),
+    lockedReason: z.enum(['signed', 'archived']).nullable(),
+    fileName: z.string(),
+  })
+  .transform((session) => ({
+    ...session,
+    editorOrigin: new URL(session.actionUrl).origin,
+  }))
+
+type EditorSession = z.output<typeof editorSession>
+
+const editorStatus = z.object({
+  enabled: z.boolean(),
+  reachable: z.boolean().optional(),
+})
 
 const statusKey = ['office-editor', 'status'] as const
 
@@ -27,12 +40,15 @@ export function useOfficeEditorEnabled(): boolean {
     queryKey: statusKey,
     queryFn: async () => {
       const res = await fetch('/api/office-editor/status')
+
       if (!res.ok) return { enabled: false }
-      return (await res.json()) as { enabled: boolean }
+
+      return editorStatus.parse(await res.json())
     },
     staleTime: 5 * 60_000,
     retry: false,
   })
+
   return status.data?.enabled === true
 }
 
@@ -46,17 +62,19 @@ export function useOfficeEditorLive(): 'pending' | 'on' | 'off' {
     queryKey: [...statusKey, 'live'],
     queryFn: async () => {
       const res = await fetch('/api/office-editor/status?check=1')
+
       if (!res.ok) return false
-      const body = (await res.json()) as {
-        enabled: boolean
-        reachable?: boolean
-      }
+
+      const body = editorStatus.parse(await res.json())
+
       return body.enabled && body.reachable !== false
     },
     staleTime: 60_000,
     retry: false,
   })
+
   if (status.isPending) return 'pending'
+
   return status.data === true ? 'on' : 'off'
 }
 
@@ -70,13 +88,28 @@ async function startSession(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ fileRecordId, recordId, mode }),
   })
+
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as {
-      error?: { message?: string }
-    } | null
-    throw new Error(body?.error?.message ?? t('notebook.officeEditor.failed'))
+    const body = z
+      .object({
+        error: z.object({ message: z.string().optional() }).optional(),
+      })
+      .safeParse(await res.json().catch(() => null))
+
+    throw new Error(
+      (body.success ? body.data.error?.message : null) ??
+        t('notebook.officeEditor.failed'),
+    )
   }
-  return (await res.json()) as EditorSession
+
+  const session = editorSession.parse(await res.json())
+
+  // CODE needs scripts and its origin, so never embed it on the app's own origin.
+  if (session.editorOrigin === window.location.origin) {
+    throw new Error(t('notebook.officeEditor.failed'))
+  }
+
+  return session
 }
 
 /**
@@ -105,6 +138,7 @@ export function OfficeEditButton({
   async function open() {
     setBusy(true)
     setError(null)
+
     try {
       setSession(await startSession(fileRecordId, recordId))
     } catch (e) {
@@ -118,6 +152,7 @@ export function OfficeEditButton({
 
   function close() {
     setSession(null)
+
     // Collabora can finish its last save just after the window closes, so
     // refresh the file and its versions now and again a moment later; the
     // block then offers the newer version.
@@ -129,6 +164,7 @@ export function OfficeEditButton({
         queryKey: fileVersionsKey(fileRecordId),
       })
     }
+
     refresh()
     window.setTimeout(refresh, 3000)
   }
@@ -182,6 +218,7 @@ function EditorFrame({
       : session.lockedReason === 'archived'
         ? t('notebook.officeEditor.archivedViewOnly')
         : null
+
   return (
     // React events from a dialog bubble to the notebook block that holds it;
     // keep them here so the block does not react to focus inside the editor.
@@ -227,13 +264,16 @@ function WopiFrame({
   React.useEffect(() => {
     formRef.current?.submit()
   }, [session.actionUrl])
+
   // The editor follows the app's light or dark theme.
   const dark =
     typeof document !== 'undefined' &&
     document.documentElement.dataset.theme === 'dark'
+
   const action = dark
     ? `${session.actionUrl}&darkTheme=true`
     : session.actionUrl
+
   return (
     <>
       <form
@@ -254,7 +294,10 @@ function WopiFrame({
         name={frameName}
         title={session.fileName}
         className={className}
-        allow="clipboard-read; clipboard-write"
+        // react-doctor-disable-next-line react-doctor/iframe-missing-sandbox -- CODE requires scripts, its own origin and welcome-form POSTs; startSession refuses an initial action on the app's origin before rendering or posting tokens. Redirect/production-header security is not established here.
+        sandbox="allow-scripts allow-same-origin allow-forms"
+        // The named frame starts at about:blank; shorthand 'src' would not delegate to its POST destination.
+        allow={`clipboard-read ${session.editorOrigin}; clipboard-write ${session.editorOrigin}`}
         onLoad={onLoad}
       />
     </>
@@ -285,11 +328,15 @@ export function OfficeViewer({
   const [loaded, setLoaded] = React.useState(false)
   React.useEffect(() => {
     const el = box.current
+
     if (!el) return
+
     if (typeof IntersectionObserver === 'undefined') {
       setNear(true)
+
       return
     }
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((e) => e.isIntersecting)) {
@@ -299,9 +346,12 @@ export function OfficeViewer({
       },
       { rootMargin: '600px' },
     )
+
     observer.observe(el)
+
     return () => observer.disconnect()
   }, [])
+
   const session = useQuery({
     queryKey: ['office-editor', 'view', fileRecordId, version],
     queryFn: () => startSession(fileRecordId, undefined, 'view'),
@@ -309,10 +359,12 @@ export function OfficeViewer({
     staleTime: 30 * 60_000,
     retry: false,
   })
+
   const failed = session.isError
   React.useEffect(() => {
     if (failed) onUnavailable?.()
-  }, [failed])
+  }, [failed, onUnavailable])
+
   return (
     // The frame takes focus without any React event; marking it keeps the
     // notebook from swapping the block for its editor mid-click.

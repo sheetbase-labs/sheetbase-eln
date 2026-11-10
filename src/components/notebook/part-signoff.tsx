@@ -35,13 +35,20 @@ import {
 import type { PartSignoffStatus } from '#/lib/part-signoff'
 import { useUserNames } from '#/lib/user-names'
 import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
+import { useDisplayTimeZone } from '#/lib/display-time-zone'
+import { dateTimeFormat } from '#/lib/intl-cache'
 
-const dateTime = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-})
+function useSignatureDateTime() {
+  const timeZone = useDisplayTimeZone()
+
+  return dateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone,
+  })
+}
 
 /** Where each part stands on signatures; empty until loaded or when none needs one. */
 export function usePartSignoffs(recordId: string, enabled = true) {
@@ -50,8 +57,10 @@ export function usePartSignoffs(recordId: string, enabled = true) {
     queryFn: () => fetchPartSignoffs(notebookDataClient, recordId),
     enabled,
   })
+
   return query.data ?? EMPTY
 }
+
 const EMPTY: PartSignoffStatus[] = []
 
 /** The requests to sign or countersign that are waiting on this person. */
@@ -62,12 +71,14 @@ export function usePartRequests(recordId: string, userId?: string) {
       fetchPartSignoffRequests(notebookDataClient, recordId, userId!),
     enabled: Boolean(userId),
   })
+
   return query.data ?? []
 }
 
 /** Refresh everything a sign-off, countersign or amendment touches. */
 function useRefreshSignoffs(recordId: string) {
   const queryClient = useQueryClient()
+
   return React.useCallback(async () => {
     await Promise.all([
       queryClient.invalidateQueries({
@@ -86,7 +97,7 @@ function useRefreshSignoffs(recordId: string) {
   }, [queryClient, recordId])
 }
 
-function errorText(error: unknown): string {
+function errorText(error: Error | null): string {
   return error instanceof Error && error.message
     ? error.message
     : t('notebook.partSignoff.couldNotSign')
@@ -99,10 +110,13 @@ function usePeople(workspaceId: string | undefined, exceptUserId?: string) {
     queryFn: () => fetchWorkspaceMembers(notebookDataClient, workspaceId!),
     enabled: Boolean(workspaceId),
   })
+
   const people = (members.data ?? []).filter(
     (member) => member.suspendedAt === null && member.userId !== exceptUserId,
   )
+
   const { userLabel } = useUserNames(people.map((member) => member.userId))
+
   return { people, userLabel }
 }
 
@@ -134,17 +148,21 @@ export function PartSignDialog({
   const [password, setPassword] = React.useState('')
   const [confirmation, setConfirmation] = React.useState('')
   const [countersigner, setCountersigner] = React.useState('')
+
   const preview = useQuery({
     queryKey: partSignoffQueryKeys.preview(part.id),
     queryFn: () => previewPartSignoff(notebookDataClient, part.id),
     staleTime: 0,
     gcTime: 0,
   })
+
   const { people, userLabel } = usePeople(workspaceId, currentUserId)
   const signing = meaning === 'signed'
+
   const sign = useMutation({
     mutationFn: () => {
       if (!workspaceId || !preview.data) throw new Error('not ready')
+
       return signExperimentPart(notebookDataClient, {
         workspaceId,
         partId: part.id,
@@ -169,13 +187,16 @@ export function PartSignDialog({
     },
     onSettled: () => setPassword(''),
   })
+
   const nameMatches =
     confirmation.trim().toLowerCase() === signingAs.trim().toLowerCase()
+
   const ready =
     Boolean(preview.data) &&
     nameMatches &&
     (demo || password !== '') &&
     !sign.isPending
+
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
@@ -196,6 +217,7 @@ export function PartSignDialog({
           className="flex min-h-0 flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault()
+
             if (ready) sign.mutate()
           }}
         >
@@ -317,6 +339,7 @@ export function AskToSignDialog({
   const { people, userLabel } = usePeople(workspaceId, currentUserId)
   const [person, setPerson] = React.useState('')
   const [note, setNote] = React.useState('')
+
   const send = useMutation({
     mutationFn: () =>
       requestPartSignoff(notebookDataClient, {
@@ -332,6 +355,7 @@ export function AskToSignDialog({
       onClose()
     },
   })
+
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -348,6 +372,7 @@ export function AskToSignDialog({
           className="flex min-h-0 flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault()
+
             if (person && !send.isPending) send.mutate()
           }}
         >
@@ -406,6 +431,9 @@ export function AmendPartDialog({
 }) {
   const refresh = useRefreshSignoffs(recordId)
   const [reason, setReason] = React.useState('')
+
+  // useRefreshSignoffs owns signoff, part, block and record invalidation.
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation
   const amend = useMutation({
     mutationFn: () =>
       amendExperimentPart(notebookDataClient, part.id, reason.trim()),
@@ -417,7 +445,9 @@ export function AmendPartDialog({
       onClose()
     },
   })
+
   const ready = reason.trim().length >= 3 && !amend.isPending
+
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -431,6 +461,7 @@ export function AmendPartDialog({
           className="flex min-h-0 flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault()
+
             if (ready) amend.mutate()
           }}
         >
@@ -499,8 +530,10 @@ export function SignOffPartCard({
   const [dialog, setDialog] = React.useState<Dialogs | null>(null)
   const asked = status?.signRequestedFrom ?? []
   const { userLabel } = useUserNames(asked)
+
   const reopened =
     status && status.amendmentCount > 0 && status.lastAmendmentReason
+
   return (
     <>
       <div className="flex flex-col gap-1" data-testid="sign-off-card">
@@ -602,12 +635,16 @@ export function SignedPartBanner({
   hasCountersignRequest: boolean
 }) {
   const [dialog, setDialog] = React.useState<Dialogs | null>(null)
+  const dateTime = useSignatureDateTime()
+
   const { userLabel } = useUserNames([
     ...status.countersignedBy,
     ...status.countersignRequestedFrom,
   ])
+
   const signer = status.signerName ?? ''
   const when = status.signedAt ? dateTime.format(new Date(status.signedAt)) : ''
+
   return (
     <section
       role="status"
@@ -709,16 +746,21 @@ export function SignedPartBanner({
  */
 export function PartSignoffReviewSection({ recordId }: { recordId: string }) {
   const statuses = usePartSignoffs(recordId)
+  const dateTime = useSignatureDateTime()
+
   const rows = statuses.filter(
     (status) => status.requiresSignOff || status.signed,
   )
+
   const { userLabel } = useUserNames(
     rows.flatMap((row) => [
       ...(row.signedByUserId ? [row.signedByUserId] : []),
       ...row.countersignedBy,
     ]),
   )
+
   if (rows.length === 0) return null
+
   const columns: RegistryColumn<PartSignoffStatus>[] = [
     {
       id: 'part',
@@ -751,6 +793,7 @@ export function PartSignoffReviewSection({ recordId }: { recordId: string }) {
       cell: ({ row }) => row.original.amendmentCount || '–',
     },
   ]
+
   return (
     <section data-testid="part-signoff-review">
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">

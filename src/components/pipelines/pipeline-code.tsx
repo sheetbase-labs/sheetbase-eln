@@ -59,10 +59,10 @@ export interface PipelineStepConfig {
  * configuration — so it is not converted to a `?step=n` parameter for
  * symmetry with the app-3 interface, whose step picker drove a single editor.
  */
-export const pipelineStepsRoute = '/pipelines/$pipelineId/steps' as const
+const pipelineStepsRoute = '/pipelines/$pipelineId/steps' as const
 
 /** The link to the step editor, with no search parameter (R5-SHELL-06). */
-export function pipelineStepsLink(pipelineId: string) {
+function pipelineStepsLink(pipelineId: string) {
   return { to: pipelineStepsRoute, params: { pipelineId } }
 }
 
@@ -102,7 +102,7 @@ export function PipelineSteps({
     <div className="flex flex-col gap-3">
       {(transform ? [transform, ...steps] : steps).map((step, index) => (
         <details
-          key={`${step.name}-${index}`}
+          key={step.name}
           open={index === 0}
           className="border-b border-border pb-3"
           data-slot="pipeline-step"

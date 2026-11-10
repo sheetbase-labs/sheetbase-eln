@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
@@ -12,7 +13,6 @@ import {
 } from '#/components/ui/dialog'
 import { Field, Input } from '#/components/ui/input'
 import { Status } from '#/components/ui/status'
-import type { Tone } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
 import { t } from '#/copy'
 import {
@@ -25,30 +25,27 @@ import {
   PLUGIN_LIMIT_KEYS,
 } from '#/lib/extensions/runtime-config'
 import type {
-  PluginEnvironmentState,
   PluginLimitOverrides,
   PluginLimits,
   PluginRuntimeInfo,
 } from '#/lib/extensions/runtime-config'
 
-export const environmentTone: Record<PluginEnvironmentState, Tone> = {
-  none: 'none',
-  building: 'progress',
-  ready: 'ok',
-  failed: 'bad',
-  unavailable: 'warn',
-}
+import { environmentTone } from './plugin-status'
 
-type Form = Record<keyof PluginLimits, string>
+export { environmentTone } from './plugin-status'
+
+const formSchema = z.record(z.enum(PLUGIN_LIMIT_KEYS), z.string())
+
+type Form = z.infer<typeof formSchema>
 
 const formFrom = (overrides: PluginLimitOverrides): Form =>
-  Object.fromEntries(
+  formSchema.parse(Object.fromEntries(
     PLUGIN_LIMIT_KEYS.map((key) => {
       const value = overrides[key]
 
-      return [key, typeof value === 'number' ? String(value) : '']
+      return [key, value == null ? '' : String(value)]
     }),
-  ) as Form
+  ))
 
 const shown = (key: keyof PluginLimits) => {
   const value = DEFAULT_PLUGIN_LIMITS[key]
@@ -57,11 +54,8 @@ const shown = (key: keyof PluginLimits) => {
 }
 
 /** What the form says, as the settings to save, or the first field that isn't a number. */
-function parseForm(form: Form): {
-  overrides: PluginLimitOverrides
-  invalid: Partial<Record<keyof PluginLimits, string>>
-} {
-  const overrides: Record<string, number> = {}
+function parseForm(form: Form) {
+  const overrides: PluginLimitOverrides = {}
   const invalid: Partial<Record<keyof PluginLimits, string>> = {}
 
   for (const key of PLUGIN_LIMIT_KEYS) {

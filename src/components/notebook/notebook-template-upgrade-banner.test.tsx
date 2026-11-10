@@ -6,39 +6,17 @@
  * nothing newer to take; and that it never applies anything by itself.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { NotebookTemplateUpgradeBanner } from './notebook-template-upgrade-banner'
-import type { DataClient } from '#/lib/data-client'
-import * as notebookTemplateData from '#/lib/notebook-template-data'
-
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    search,
-    children,
-    ...rest
-  }: {
-    to?: string
-    params?: Record<string, string>
-    search?: Record<string, string>
-    children?: ReactNode
-  } & Record<string, unknown>) => {
-    let href = typeof to === 'string' ? to : '#'
-    for (const [key, value] of Object.entries(params ?? {})) {
-      href = href.replace(`$${key}`, encodeURIComponent(value))
-    }
-    const query = new URLSearchParams(search).toString()
-    return (
-      <a href={query ? `${href}?${query}` : href} {...rest}>
-        {children}
-      </a>
-    )
-  },
-}))
+import { createDataClient } from '#/lib/data-client'
 
 afterEach(() => cleanup())
 
@@ -115,27 +93,29 @@ const templateWire = {
   updated_by_user_id: null,
 }
 
-/** Read-only stub: the banner must not write through any of these. */
-function stubClient(versions: TemplateVersionWire[]) {
-  const list = vi.fn((table: string, query: string) => {
-    if (table === 'notebook_template_versions') {
-      if (query.startsWith('?id=eq.')) {
-        return Promise.resolve(versions.filter((v) => query.includes(v.id)))
+/** The real client decodes controlled HTTP responses; any write is still observed. */
+function bannerTransport(versions: TemplateVersionWire[]) {
+  return vi.fn<typeof fetch>(async (input) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://localhost',
+    )
+
+    if (url.pathname === '/api/db/notebook_template_versions') {
+      const id = url.searchParams.get('id')?.replace(/^eq\./, '')
+
+      if (id) {
+        return Response.json(versions.filter((v) => v.id === id))
       }
-      return Promise.resolve(versions)
+
+      return Response.json(versions)
     }
-    if (table === 'notebook_templates') return Promise.resolve([templateWire])
-    return Promise.resolve([])
+
+    if (url.pathname === '/api/db/notebook_templates')
+      return Response.json([templateWire])
+
+    throw new Error(`Unexpected request: ${url.pathname}`)
   })
-  const client = {
-    list,
-    count: vi.fn(() => Promise.resolve(0)),
-    rpc: vi.fn(() => Promise.resolve({})),
-    insert: vi.fn(() => Promise.resolve({})),
-    patch: vi.fn(() => Promise.resolve([])),
-    remove: vi.fn(() => Promise.resolve([])),
-  } as unknown as DataClient
-  return { client, list }
 }
 
 function renderBanner(
@@ -145,23 +125,33 @@ function renderBanner(
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
-  const { client, list } = stubClient(versions)
-  const applied = vi.spyOn(notebookTemplateData, 'applyNotebookTemplateUpgrade')
+
+  const transport = bannerTransport(versions)
+  const client = createDataClient(transport)
+
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
   const result = render(
     <QueryClientProvider client={queryClient}>
-      <NotebookTemplateUpgradeBanner
-        recordId={RECORD}
-        pinnedVersionId={pinnedVersionId}
-        client={client}
-      />
+      <RouterContextProvider router={router}>
+        <NotebookTemplateUpgradeBanner
+          recordId={RECORD}
+          pinnedVersionId={pinnedVersionId}
+          client={client}
+        />
+      </RouterContextProvider>
     </QueryClientProvider>,
   )
-  return { ...result, client, list, applied }
+
+  return { ...result, transport }
 }
 
 describe('NotebookTemplateUpgradeBanner (EXP-04.1)', () => {
   it('names the pinned and newer published versions and links to the update view', async () => {
-    const { applied, client, list } = renderBanner(V3, [
+    const { transport } = renderBanner(V3, [
       versionWire(V3, 3, 'published'),
       versionWire(V4, 4, 'published'),
       // A newer draft is not something to take.
@@ -172,8 +162,10 @@ describe('NotebookTemplateUpgradeBanner (EXP-04.1)', () => {
     const link = await waitFor(() => {
       const found = screen.getByRole('button', { name: /review v\s*4/i })
       expect(found.tagName).toBe('A')
+
       return found
     })
+
     expect(link.getAttribute('href')).toBe(
       `/templates/${TEMPLATE}/update?record=${RECORD}`,
     )
@@ -182,39 +174,61 @@ describe('NotebookTemplateUpgradeBanner (EXP-04.1)', () => {
     )
 
     // Informational only: nothing is previewed, applied or written.
-    expect(applied).not.toHaveBeenCalled()
-    expect(client.rpc).not.toHaveBeenCalled()
-    expect(client.insert).not.toHaveBeenCalled()
-    expect(client.patch).not.toHaveBeenCalled()
-    expect(client.remove).not.toHaveBeenCalled()
-    expect(list).toHaveBeenCalledWith(
-      'notebook_template_versions',
-      expect.stringContaining('template_id=eq.'),
+    expect(transport).not.toHaveBeenCalledWith(
+      expect.stringContaining('/rpc/apply_notebook_template_upgrade'),
+      expect.anything(),
+    )
+    expect(transport).not.toHaveBeenCalledWith(
+      expect.stringContaining('/rpc/'),
+      expect.anything(),
+    )
+    expect(transport).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(transport).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ method: 'PATCH' }),
+    )
+    expect(transport).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+    expect(transport).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/api/db/notebook_template_versions?template_id=eq.',
+      ),
+      expect.objectContaining({ method: 'GET' }),
     )
   })
 
   it('renders nothing when the pin is already the newest published version', async () => {
-    const { container, applied, client } = renderBanner(V4, [
+    const { container, transport } = renderBanner(V4, [
       versionWire(V3, 3, 'published'),
       versionWire(V4, 4, 'published'),
     ])
 
     await vi.waitFor(() =>
-      expect(client.list).toHaveBeenCalledWith(
-        'notebook_template_versions',
-        expect.stringContaining('template_id=eq.'),
+      expect(transport).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '/api/db/notebook_template_versions?template_id=eq.',
+        ),
+        expect.objectContaining({ method: 'GET' }),
       ),
     )
     expect(screen.queryByRole('status')).toBeNull()
     expect(screen.queryByRole('link')).toBeNull()
     expect(container.firstChild).toBeNull()
-    expect(applied).not.toHaveBeenCalled()
+    expect(transport).not.toHaveBeenCalledWith(
+      expect.stringContaining('/rpc/apply_notebook_template_upgrade'),
+      expect.anything(),
+    )
   })
 
   it('renders nothing and reads nothing when the notebook is not pinned to a version', () => {
-    const { container, client } = renderBanner(null, [])
+    const { container, transport } = renderBanner(null, [])
 
     expect(container.firstChild).toBeNull()
-    expect(client.list).not.toHaveBeenCalled()
+    expect(transport).not.toHaveBeenCalled()
   })
 })

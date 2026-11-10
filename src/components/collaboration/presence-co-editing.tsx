@@ -4,7 +4,9 @@ import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 import { useOthers } from '#/lib/collaboration/room-hooks'
 
-import { useCollaborationRoomReady } from './collaboration-room'
+import { useCollaborationRoomReady } from './room-ready'
+import { coEditingPeerNames } from './co-editing-peers'
+import type { CoEditingPeer } from './co-editing-peers'
 
 /**
  * COLLAB-01 block-level co-editing awareness for Notebook blocks. While the
@@ -13,33 +15,6 @@ import { useCollaborationRoomReady } from './collaboration-room'
  * 'editing'. Awareness only — no blocking, no lock UI; presence is never
  * authoritative.
  */
-
-/** Minimal structural shape of a peer the badge reads. */
-export interface CoEditingPeer {
-  connectionId?: number
-  info?: { name?: string }
-  presence?: {
-    activeBlockId?: string | null
-    mode?: 'viewing' | 'editing'
-  }
-}
-
-/** Pure: names of peers actively editing the given block. */
-export function coEditingPeerNames(
-  peers: readonly CoEditingPeer[],
-  blockId: string,
-): string[] {
-  const names: string[] = []
-
-  for (const peer of peers) {
-    if (peer.presence?.mode !== 'editing') continue
-
-    if (peer.presence.activeBlockId !== blockId) continue
-    names.push(peer.info?.name?.trim() || 'Someone')
-  }
-
-  return names
-}
 
 export function BlockCoEditBadge({
   blockId,

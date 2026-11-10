@@ -1,10 +1,12 @@
 import { t } from '#/copy'
+import { z } from 'zod'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
 import { Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { MAX_PARAMETERS, PARAMETER_TYPES } from '#/lib/pipelines/config'
-import type { ParameterType, PipelineParameter } from '#/lib/pipelines/config'
+import type { PipelineParameter } from '#/lib/pipelines/config'
+import { useEditorRows } from './use-editor-rows'
 import {
   addParameter,
   parseDefault,
@@ -24,6 +26,8 @@ export function ParametersEditor({
   parameters: PipelineParameter[]
   onChange: (parameters: PipelineParameter[]) => void
 }) {
+  const { rows, change } = useEditorRows(parameters, onChange)
+
   return (
     <div className="flex flex-col gap-2">
       {parameters.length === 0 ? (
@@ -31,12 +35,12 @@ export function ParametersEditor({
           {t('data.parametersEditor.parametersDeclared')}
         </p>
       ) : null}
-      {parameters.map((parameter, index) => {
+      {rows.map(({ id, value: parameter }, index) => {
         const n = index + 1
 
         return (
           <div
-            key={index}
+            key={id}
             className="flex flex-wrap items-center gap-2 rounded-md border border-border-subtle p-2"
           >
             <Input
@@ -44,7 +48,7 @@ export function ParametersEditor({
               aria-label={t('data.parametersEditor.ariaParameterName', { n })}
               value={parameter.name}
               onChange={(e) =>
-                onChange(
+                change(
                   updateParameter(parameters, index, { name: e.target.value }),
                 )
               }
@@ -54,9 +58,9 @@ export function ParametersEditor({
               aria-label={t('data.parametersEditor.ariaParameterType', { n })}
               value={parameter.type}
               onChange={(e) =>
-                onChange(
+                change(
                   updateParameter(parameters, index, {
-                    type: e.target.value as ParameterType,
+                    type: z.enum(PARAMETER_TYPES).parse(e.target.value),
                   }),
                 )
               }
@@ -74,7 +78,7 @@ export function ParametersEditor({
                 })}
                 checked={parameter.required}
                 onCheckedChange={(on) =>
-                  onChange(
+                  change(
                     updateParameter(parameters, index, {
                       required: Boolean(on),
                     }),
@@ -97,10 +101,10 @@ export function ParametersEditor({
               value={
                 parameter.default === undefined || parameter.default === null
                   ? ''
-                  : String(parameter.default)
+                  : z.coerce.string().parse(parameter.default)
               }
               onChange={(e) =>
-                onChange(
+                change(
                   updateParameter(parameters, index, {
                     default: parseDefault(parameter.type, e.target.value),
                   }),
@@ -111,7 +115,10 @@ export function ParametersEditor({
               size="sm"
               variant="quiet"
               aria-label={t('data.parametersEditor.ariaRemoveParameter', { n })}
-              onClick={() => onChange(removeParameter(parameters, index))}
+              onClick={() => {
+                const remaining = removeParameter(parameters, index)
+                change(remaining, remaining)
+              }}
             >
               {t('common.actions.remove')}
             </Button>
@@ -123,7 +130,7 @@ export function ParametersEditor({
           size="sm"
           icon="plus"
           disabled={parameters.length >= MAX_PARAMETERS}
-          onClick={() => onChange(addParameter(parameters))}
+          onClick={() => change(addParameter(parameters))}
         >
           {t('data.parametersEditor.addParameter')}
         </Button>

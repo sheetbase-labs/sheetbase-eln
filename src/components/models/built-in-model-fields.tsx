@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { functionalUpdate } from '@tanstack/react-table'
 
 import { Button } from '#/components/ui/button'
-import { IconButton } from '#/components/ui/icon-button'
 import { Checkbox } from '#/components/ui/checkbox'
 import {
   ConfirmDialog,
@@ -23,14 +23,8 @@ import {
   DialogHeader,
 } from '#/components/ui/dialog'
 import { Field, Input } from '#/components/ui/input'
-import {
-  DescriptionList,
-  Inspector,
-  InspectorSection,
-  Muted,
-} from '#/components/ui/layout'
+import { Muted } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
-import { Status } from '#/components/ui/status'
 import { TableBox } from '#/components/ui/table'
 import { toast } from '#/components/ui/sonner'
 import { Textarea } from '#/components/inventory/list'
@@ -46,14 +40,8 @@ import type {
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { fieldKeyFromLabel } from '#/lib/built-in-models'
 import type { BuiltInModel } from '#/lib/built-in-models'
-import {
-  displayModelFieldValue,
-  parseModelFieldInput,
-} from '#/lib/model-fields'
-import type {
-  ModelFieldDefinition,
-  ModelFieldLogicalType,
-} from '#/lib/model-fields'
+import { parseModelFieldInput } from '#/lib/model-fields'
+import type { ModelFieldDefinition } from '#/lib/model-fields'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useDataAccess } from '#/lib/data-access'
 import { useReportingNames } from '#/lib/data-access-names'
@@ -69,52 +57,17 @@ import {
 } from './built-in-model-data'
 import { modelsQueryKeys } from './models-data'
 import { t } from '#/copy'
-
-type AuthoredType = Exclude<ModelFieldLogicalType, 'reference'>
-
-const TYPE_LABELS: Record<ModelFieldLogicalType, string> = {
-  text: t('library.models.builtInModelFields.text'),
-  decimal: t('library.models.builtInModelFields.number'),
-  integer: t('library.models.builtInModelFields.wholeNumber'),
-  boolean: t('library.models.builtInModelFields.yesNo'),
-  date: t('library.models.builtInModelFields.date'),
-  timestamp: t('library.models.builtInModelFields.dateAndTime'),
-  category: t('library.models.builtInModelFields.choice'),
-  reference: t('library.models.builtInModelFields.linkToARecord'),
-}
-
-const AUTHORED_TYPES: AuthoredType[] = [
-  'text',
-  'decimal',
-  'integer',
-  'boolean',
-  'date',
-  'timestamp',
-  'category',
-]
-
-export function fieldTypeName(field: ModelFieldDefinition): string {
-  const unit =
-    typeof field.unit?.symbol === 'string' && field.unit.symbol
-      ? ` · ${field.unit.symbol}`
-      : ''
-
-  return `${TYPE_LABELS[field.logicalType]}${unit}`
-}
-
-/** Where an added field appears, in the words the inspector uses. */
-export function fieldShowsOn(field: ModelFieldDefinition): string {
-  return [
-    t('library.models.builtInModelFields.recordPage'),
-    ...(field.askOnCreate !== false ? ['create form'] : []),
-    ...(field.showInList ? ['list column'] : []),
-  ].join(', ')
-}
-
-/** "an experiment", "a sample". */
-export function withArticle(noun: string): string {
-  return `${/^[aeiou]/i.test(noun) ? 'an' : 'a'} ${noun}`
-}
+import {
+  AUTHORED_TYPES,
+  TYPE_LABELS,
+  fieldTypeName,
+  fieldShowsOn,
+  withArticle,
+  parseChoices,
+  builtInFieldErrors,
+} from './built-in-field-presentation'
+import type { AuthoredType } from './built-in-field-presentation'
+import { BuiltInFieldInspector } from './built-in-field-inspector'
 
 interface FieldRow {
   id: string
@@ -128,19 +81,7 @@ interface FieldRow {
  * every record has, which stay fixed, and the fields this workspace added,
  * which an owner, admin or steward can add, rename, place and retire.
  */
-export function BuiltInModelFields({
-  model,
-  workspaceId,
-  canEdit,
-  addOpen,
-  onAddOpenChange,
-}: {
-  model: BuiltInModel
-  workspaceId: string | null
-  canEdit: boolean
-  addOpen: boolean
-  onAddOpenChange: (open: boolean) => void
-}) {
+function useBuiltInFieldsState(model: BuiltInModel) {
   const fields = useBuiltInModelFields(model.key, { includeRetired: true })
   const [selected, setSelected] = useState<string | null>(null)
   const [editing, setEditing] = useState<ModelFieldDefinition | null>(null)
@@ -151,8 +92,10 @@ export function BuiltInModelFields({
   const retired = added.filter((field) => field.lifecycle === 'retired')
 
   const sections = [
-    ...new Set(active.map((field) => field.section).filter(Boolean)),
-  ] as string[]
+    ...new Set(
+      active.flatMap((field) => (field.section ? [field.section] : [])),
+    ),
+  ]
 
   const toRow = (field: ModelFieldDefinition): FieldRow => ({
     id: field.id,
@@ -219,6 +162,25 @@ export function BuiltInModelFields({
     },
   })
 
+  return {
+    fields,
+    active,
+    rows,
+    sel,
+    rowSelection,
+    onRowSelectionChange,
+    invalidate,
+    retire,
+    retiring,
+    setRetiring,
+    editing,
+    setEditing,
+    setSelected,
+    sections,
+  }
+}
+
+function useBuiltInFieldColumns(model: BuiltInModel) {
   const dataAccess = useDataAccess()
   const names = useReportingNames()
 
@@ -306,6 +268,41 @@ export function BuiltInModelFields({
     },
   ]
 
+  return columns
+}
+
+export function BuiltInModelFields({
+  model,
+  workspaceId,
+  canEdit,
+  addOpen,
+  onAddOpenChange,
+}: {
+  model: BuiltInModel
+  workspaceId: string | null
+  canEdit: boolean
+  addOpen: boolean
+  onAddOpenChange: (open: boolean) => void
+}) {
+  const {
+    fields,
+    active,
+    rows,
+    sel,
+    rowSelection,
+    onRowSelectionChange,
+    invalidate,
+    retire,
+    retiring,
+    setRetiring,
+    editing,
+    setEditing,
+    setSelected,
+    sections,
+  } = useBuiltInFieldsState(model)
+
+  const columns = useBuiltInFieldColumns(model)
+
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-auto px-4 py-4 md:px-6">
@@ -330,8 +327,7 @@ export function BuiltInModelFields({
             getRowId={(row) => row.id}
             rowSelection={rowSelection}
             onRowSelectionChange={(updater) => {
-              const next =
-                typeof updater === 'function' ? updater(rowSelection) : updater
+              const next = functionalUpdate(updater, rowSelection)
 
               // Standard fields have nothing to inspect.
               if (Object.keys(next).some((key) => key.startsWith('standard:')))
@@ -344,101 +340,13 @@ export function BuiltInModelFields({
       </div>
 
       {sel ? (
-        <Inspector
-          aria-label={t('library.models.builtInModelFields.fieldDetails')}
-          className="w-[320px]"
-        >
-          <InspectorSection title={sel.label}>
-            {sel.description ? <Muted>{sel.description}</Muted> : null}
-          </InspectorSection>
-          <InspectorSection
-            title={t('library.models.builtInModelFields.definition')}
-          >
-            <DescriptionList
-              labelWidth={100}
-              items={[
-                [
-                  t('library.models.builtInModelFields.type'),
-                  fieldTypeName(sel),
-                ],
-                ...(sel.logicalType === 'category'
-                  ? [
-                      [
-                        t('library.models.builtInModelFields.choices'),
-                        sel.options
-                          .filter((option) => option.lifecycle !== 'retired')
-                          .map((option) => option.label)
-                          .join(', ') || '—',
-                      ] as [string, string],
-                    ]
-                  : []),
-                [
-                  t('common.states.required'),
-                  sel.nullable
-                    ? t('common.states.optional')
-                    : t('common.states.required'),
-                ],
-                [
-                  t('library.models.builtInModelFields.startingValue'),
-                  sel.defaultValue == null
-                    ? 'None'
-                    : displayModelFieldValue(sel, sel.defaultValue),
-                ],
-                [
-                  t('library.models.builtInModelFields.status'),
-                  <Status
-                    key="status"
-                    tone={sel.lifecycle === 'retired' ? 'stored' : 'ok'}
-                  >
-                    {sel.lifecycle === 'retired'
-                      ? t('library.models.builtInModelFields.noLongerUsed')
-                      : t('library.models.builtInModelFields.inUse')}
-                  </Status>,
-                ],
-              ]}
-            />
-          </InspectorSection>
-          {sel.lifecycle !== 'retired' ? (
-            <InspectorSection
-              title={t('library.models.builtInModelFields.whereItShows')}
-            >
-              <DescriptionList
-                labelWidth={100}
-                items={[
-                  [
-                    t('library.models.builtInModelFields.heading'),
-                    sel.section ??
-                      t('library.models.shared.nameDetails', {
-                        name: model.name,
-                      }),
-                  ],
-                  [
-                    t('library.models.builtInModelFields.showsOn'),
-                    fieldShowsOn(sel),
-                  ],
-                ]}
-              />
-            </InspectorSection>
-          ) : null}
-          {canEdit && sel.lifecycle !== 'retired' ? (
-            <div className="flex gap-2">
-              <IconButton
-                variant="secondary"
-                icon="edit"
-                label={t('common.actions.edit')}
-                onClick={() => setEditing(sel)}
-              />
-              <Button variant="quiet" onClick={() => setRetiring(sel)}>
-                {t('library.models.builtInModelFields.stopUsing')}
-              </Button>
-            </div>
-          ) : null}
-          {sel.lifecycle !== 'retired' ? (
-            <Muted>
-              {t('library.models.builtInModelFields.theTypeAndWhetherIt')}
-            </Muted>
-          ) : null}
-        </Inspector>
+        <BuiltInFieldInspector
+          sel={sel}
+          model={model}
+          canEdit={canEdit}
+          onEdit={setEditing}
+          onRetire={setRetiring}
+        />
       ) : null}
 
       {addOpen ? (
@@ -512,35 +420,14 @@ export function BuiltInModelFields({
   )
 }
 
-/** Choice labels from the textarea, one per line, without repeats. */
-export function parseChoices(
-  text: string,
-): Array<{ key: string; label: string }> {
-  const taken = new Set<string>()
-  const choices: Array<{ key: string; label: string }> = []
-
-  for (const line of text.split('\n')) {
-    const label = line.trim()
-
-    if (!label || choices.some((choice) => choice.label === label)) continue
-    const key = fieldKeyFromLabel(label, taken)
-    taken.add(key)
-    choices.push({ key, label })
-  }
-
-  return choices
-}
-
 /**
  * Add a field to a built-in model, or edit one already in use. Editing keeps
  * to what can change on a live field: its name, help text and placement.
  */
-function BuiltInFieldDialog({
+function useBuiltInFieldDraft({
   model,
   workspaceId,
-  sections,
   field,
-  onClose,
   onSaved,
 }: {
   model: BuiltInModel
@@ -590,25 +477,17 @@ function BuiltInFieldDialog({
     })),
   }
 
-  const labelError = !label.trim()
-    ? t('library.models.builtInModelFields.giveTheFieldAName')
-    : label.trim().length > 200
-      ? t('library.models.builtInModelFields.keepTheNameUnder200')
-      : undefined
-
-  const choicesError =
-    !editing && type === 'category' && options.length === 0
-      ? t('library.models.builtInModelFields.addAtLeastOneChoice')
-      : undefined
-
-  const startError =
-    !editing && required && type !== 'boolean' && startValue === ''
-      ? t('library.models.builtInModelFields.aRequiredFieldNeedsA', {
-          plural: model.plural,
-        })
-      : undefined
-
-  const blocking = labelError ?? choicesError ?? startError
+  const { labelError, choicesError, startError, blocking } = builtInFieldErrors(
+    {
+      label,
+      editing,
+      type,
+      optionCount: options.length,
+      required,
+      startValue,
+      plural: model.plural,
+    },
+  )
 
   const save = useMutation({
     mutationFn: async () => {
@@ -680,6 +559,76 @@ function BuiltInFieldDialog({
     },
   })
 
+  return {
+    editing,
+    taken,
+    label,
+    setLabel,
+    description,
+    setDescription,
+    type,
+    setType,
+    unit,
+    setUnit,
+    choices,
+    setChoices,
+    required,
+    setRequired,
+    startValue,
+    setStartValue,
+    section,
+    setSection,
+    askOnCreate,
+    setAskOnCreate,
+    showInList,
+    setShowInList,
+    submitted,
+    setSubmitted,
+    draft,
+    labelError,
+    choicesError,
+    startError,
+    blocking,
+    save,
+  }
+}
+
+function BuiltInFieldDialog(props: Parameters<typeof useBuiltInFieldDraft>[0]) {
+  const { model, field, sections, onClose } = props
+
+  const {
+    editing,
+    taken,
+    label,
+    setLabel,
+    description,
+    setDescription,
+    type,
+    setType,
+    unit,
+    setUnit,
+    choices,
+    setChoices,
+    required,
+    setRequired,
+    startValue,
+    setStartValue,
+    section,
+    setSection,
+    askOnCreate,
+    setAskOnCreate,
+    showInList,
+    setShowInList,
+    submitted,
+    setSubmitted,
+    draft,
+    labelError,
+    choicesError,
+    startError,
+    blocking,
+    save,
+  } = useBuiltInFieldDraft(props)
+
   return (
     <Dialog
       open
@@ -733,34 +682,15 @@ function BuiltInFieldDialog({
               />
             </Field>
             {!editing ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field label={t('library.models.builtInModelFields.type')}>
-                  <Select
-                    value={type}
-                    onChange={(event) => {
-                      setType(event.target.value as AuthoredType)
-                      setStartValue('')
-                    }}
-                  >
-                    {AUTHORED_TYPES.map((value) => (
-                      <option key={value} value={value}>
-                        {TYPE_LABELS[value]}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                {type === 'decimal' || type === 'integer' ? (
-                  <Field
-                    label={t('library.models.builtInModelFields.unit')}
-                    hint={t('library.models.builtInModelFields.optionalEGMgMl')}
-                  >
-                    <Input
-                      value={unit}
-                      onChange={(event) => setUnit(event.target.value)}
-                    />
-                  </Field>
-                ) : null}
-              </div>
+              <BuiltInFieldType
+                type={type}
+                unit={unit}
+                setUnit={setUnit}
+                onTypeChange={(next) => {
+                  setType(next)
+                  setStartValue('')
+                }}
+              />
             ) : null}
             {!editing && type === 'category' ? (
               <Field
@@ -791,36 +721,16 @@ function BuiltInFieldDialog({
               />
             </Field>
             {!editing ? (
-              <>
-                <label className="flex items-center gap-2 text-label">
-                  <Checkbox
-                    checked={required}
-                    onCheckedChange={(checked) => setRequired(checked === true)}
-                  />
-                  {t('common.states.required')}
-                </label>
-                <div className="flex flex-col gap-1 text-label">
-                  <ModelFieldInput
-                    definition={draft}
-                    value={startValue}
-                    onChange={setStartValue}
-                  />
-                  {submitted && startError ? (
-                    <span className="text-danger-text">{startError}</span>
-                  ) : (
-                    <span className="text-fg-muted">
-                      {required
-                        ? t(
-                            'library.models.builtInModelFields.filledInOnExistingAnd',
-                            { plural: model.plural },
-                          )
-                        : t(
-                            'library.models.builtInModelFields.optionalNewRecordsStartWith',
-                          )}
-                    </span>
-                  )}
-                </div>
-              </>
+              <BuiltInStartingValue
+                draft={draft}
+                startValue={startValue}
+                setStartValue={setStartValue}
+                required={required}
+                setRequired={setRequired}
+                submitted={submitted}
+                startError={startError}
+                plural={model.plural}
+              />
             ) : null}
             <fieldset className="m-0 flex flex-col gap-2 border-0 border-t border-border-subtle p-0 pt-3">
               <legend className="mb-1 text-label font-medium">
@@ -891,5 +801,103 @@ function BuiltInFieldDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function BuiltInFieldType({
+  type,
+  unit,
+  setUnit,
+  onTypeChange,
+}: {
+  type: AuthoredType
+  unit: string
+  setUnit: (value: string) => void
+  onTypeChange: (value: AuthoredType) => void
+}) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      <Field label={t('library.models.builtInModelFields.type')}>
+        <Select
+          value={type}
+          onChange={(event) => {
+            const selectedType = AUTHORED_TYPES.find(
+              (value) => value === event.target.value,
+            )
+
+            if (selectedType) onTypeChange(selectedType)
+          }}
+        >
+          {AUTHORED_TYPES.map((value) => (
+            <option key={value} value={value}>
+              {TYPE_LABELS[value]}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      {type === 'decimal' || type === 'integer' ? (
+        <Field
+          label={t('library.models.builtInModelFields.unit')}
+          hint={t('library.models.builtInModelFields.optionalEGMgMl')}
+        >
+          <Input
+            value={unit}
+            onChange={(event) => setUnit(event.target.value)}
+          />
+        </Field>
+      ) : null}
+    </div>
+  )
+}
+
+function BuiltInStartingValue({
+  draft,
+  startValue,
+  setStartValue,
+  required,
+  setRequired,
+  submitted,
+  startError,
+  plural,
+}: {
+  draft: ModelFieldDefinition
+  startValue: string | boolean
+  setStartValue: (value: string | boolean) => void
+  required: boolean
+  setRequired: (value: boolean) => void
+  submitted: boolean
+  startError: string | undefined
+  plural: string
+}) {
+  return (
+    <>
+      <label className="flex items-center gap-2 text-label">
+        <Checkbox
+          checked={required}
+          onCheckedChange={(checked) => setRequired(checked === true)}
+        />
+        {t('common.states.required')}
+      </label>
+      <div className="flex flex-col gap-1 text-label">
+        <ModelFieldInput
+          definition={draft}
+          value={startValue}
+          onChange={setStartValue}
+        />
+        {submitted && startError ? (
+          <span className="text-danger-text">{startError}</span>
+        ) : (
+          <span className="text-fg-muted">
+            {required
+              ? t('library.models.builtInModelFields.filledInOnExistingAnd', {
+                  plural,
+                })
+              : t(
+                  'library.models.builtInModelFields.optionalNewRecordsStartWith',
+                )}
+          </span>
+        )}
+      </div>
+    </>
   )
 }

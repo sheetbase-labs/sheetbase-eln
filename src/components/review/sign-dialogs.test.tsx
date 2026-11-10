@@ -1,16 +1,38 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 
-import { SignatureDialog } from './sign-dialogs'
 import type { RevisionWire } from '#/lib/notebook-data'
+import { DemoSigningContext } from '#/lib/demo-signing'
 
-afterEach(cleanup)
+const transport = vi.fn<typeof fetch>(async () => {
+  throw new Error('Signing dialog must only call the supplied callback')
+})
 
-const revision = {
+vi.stubGlobal('fetch', transport)
+
+const { SignatureDialog } = await import('./sign-dialogs')
+
+afterEach(() => {
+  cleanup()
+  expect(transport).not.toHaveBeenCalled()
+  transport.mockClear()
+})
+
+afterAll(() => vi.unstubAllGlobals())
+
+const revision: RevisionWire = {
   id: 'rev-1234567890',
+  record_id: 'rec-1',
+  structure_version: 1,
+  metadata_version: 1,
+  metadata_snapshot: {},
+  block_snapshot: [],
   reason: 'Reviewed the clarification runs',
-} as unknown as RevisionWire
+  superseded_by_revision_id: null,
+  created_at: '2026-09-01T00:00:00Z',
+  created_by_user_id: 'author-1',
+}
 
 function setup(
   overrides: Partial<React.ComponentProps<typeof SignatureDialog>> = {},
@@ -18,25 +40,30 @@ function setup(
   const onConfirm = vi.fn()
   const onOpenChange = vi.fn()
   render(
-    <SignatureDialog
-      open
-      onOpenChange={onOpenChange}
-      revision={revision}
-      integrityDigest={'a'.repeat(64)}
-      meanings={['reviewed-and-approved']}
-      currentUserName="Ada Lovelace"
-      signing={false}
-      error={null}
-      onConfirm={onConfirm}
-      {...overrides}
-    />,
+    <DemoSigningContext.Provider value={false}>
+      <SignatureDialog
+        open
+        onOpenChange={onOpenChange}
+        revision={revision}
+        integrityDigest={'a'.repeat(64)}
+        meanings={['reviewed-and-approved']}
+        currentUserName="Ada Lovelace"
+        signing={false}
+        error={null}
+        onConfirm={onConfirm}
+        {...overrides}
+      />
+    </DemoSigningContext.Provider>,
   )
 
   return { onConfirm, onOpenChange }
 }
 
 function isDisabled(element: HTMLElement): boolean {
-  return (element as HTMLButtonElement).disabled
+  if (!(element instanceof HTMLButtonElement))
+    throw new Error('Expected button')
+
+  return element.disabled
 }
 
 /**
@@ -112,5 +139,56 @@ describe('review SignatureDialog on the shared e-sign dialog', () => {
     cleanup()
     setup()
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy()
+  })
+
+  it('refuses a mismatched confirmation even with a password', async () => {
+    const { onConfirm } = setup()
+    await userEvent.type(
+      screen.getByLabelText('Signing password'),
+      'local-signing-password',
+    )
+    await userEvent.type(
+      screen.getByLabelText('Type your name to confirm'),
+      'Someone Else',
+    )
+    const submit = screen.getByRole('button', { name: 'Sign' })
+    expect(isDisabled(submit)).toBe(true)
+    await userEvent.click(submit)
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  it('refuses signing a missing digest even with both credentials', async () => {
+    const { onConfirm } = setup({ integrityDigest: null })
+    await userEvent.type(
+      screen.getByLabelText('Signing password'),
+      'local-signing-password',
+    )
+    await userEvent.type(
+      screen.getByLabelText('Type your name to confirm'),
+      'Ada Lovelace',
+    )
+    const submit = screen.getByRole('button', { name: 'Sign' })
+    expect(isDisabled(submit)).toBe(true)
+    await userEvent.click(submit)
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  it('shows a signing refusal without reporting success or submitting again', () => {
+    const { onConfirm } = setup({
+      error: 'Signing was refused. Re-enter your password.',
+    })
+
+    expect(
+      screen.getByText('Signing was refused. Re-enter your password.'),
+    ).toBeTruthy()
+    expect(isDisabled(screen.getByRole('button', { name: 'Sign' }))).toBe(true)
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  it('lets the reader cancel without signing', async () => {
+    const { onConfirm, onOpenChange } = setup()
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(onConfirm).not.toHaveBeenCalled()
   })
 })

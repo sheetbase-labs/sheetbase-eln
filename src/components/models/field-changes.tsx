@@ -48,8 +48,8 @@ export function FieldChangeList({
 }) {
   return (
     <ul aria-label={label} className="m-0 flex list-none flex-col gap-1 p-0">
-      {changes.map((change, i) => (
-        <FieldChangeRow key={i} change={change} />
+      {changes.map((change) => (
+        <FieldChangeRow key={change.id} change={change} />
       ))}
     </ul>
   )

@@ -1,4 +1,5 @@
-import { isRichTextPayload, RichTextContent } from '#/lib/blocks/rich-text'
+import { RichTextContent } from '#/lib/blocks/rich-text'
+import { isRichTextPayload } from '#/lib/blocks/rich-text-data'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { Muted } from '../ui/layout'
 import { t } from '#/copy'

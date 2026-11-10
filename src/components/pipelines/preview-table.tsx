@@ -1,4 +1,5 @@
 import { Muted } from '#/components/ui/layout'
+import { z } from 'zod'
 import {
   Table,
   TableBody,
@@ -8,12 +9,19 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui/table'
-import type { ResultPreview } from '#/lib/pipelines/result-preview'
+import type { PreviewCell, ResultPreview } from '#/lib/pipelines/result-preview'
 
 const plural = (n: number, one: string, many: string) =>
   `${n.toLocaleString()} ${n === 1 ? one : many}`
 
-function cellText(value: unknown): string {
+const numericPreviewCellSchema = z.union([
+  z.number(),
+  z.nan(),
+  z.literal(Infinity),
+  z.literal(-Infinity),
+])
+
+function cellText(value: PreviewCell | undefined): string {
   return value === null || value === undefined ? '—' : String(value)
 }
 
@@ -29,6 +37,30 @@ export function PreviewTable({
   /** True when the full result is stored elsewhere, so a long one is not lost. */
   keptAll?: boolean
 }) {
+  const occurrences = new Map<string, number>()
+
+  const rows = preview.rows.map((row) => {
+    const content = JSON.stringify(row)
+    const occurrence = occurrences.get(content) ?? 0
+    occurrences.set(content, occurrence + 1)
+    const columnOccurrences = new Map<string, number>()
+
+    return {
+      key: `${content}:${occurrence}`,
+      cells: row.map((value, position) => {
+        const column = preview.columns[position] ?? ''
+        const columnOccurrence = columnOccurrences.get(column) ?? 0
+        columnOccurrences.set(column, columnOccurrence + 1)
+
+        return {
+          key: `${column}:${columnOccurrence}`,
+          text: cellText(value),
+          numeric: numericPreviewCellSchema.safeParse(value).success,
+        }
+      }),
+    }
+  })
+
   return (
     <>
       <TableBox>
@@ -41,14 +73,14 @@ export function PreviewTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {preview.rows.map((row, index) => (
-              <TableRow key={index}>
-                {row.map((cell, position) => (
+            {rows.map((row) => (
+              <TableRow key={row.key}>
+                {row.cells.map((cell) => (
                   <TableCell
-                    key={position}
-                    align={typeof cell === 'number' ? 'right' : undefined}
+                    key={cell.key}
+                    align={cell.numeric ? 'right' : undefined}
                   >
-                    {cellText(cell)}
+                    {cell.text}
                   </TableCell>
                 ))}
               </TableRow>

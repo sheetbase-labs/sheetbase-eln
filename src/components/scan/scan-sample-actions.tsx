@@ -7,11 +7,11 @@ import { toast } from '#/components/ui/sonner'
 import { ReleaseChecksPanel } from '#/components/samples/release-checks-panel'
 import { MoveSampleDialog } from '#/components/samples/move-dialog'
 import { canWithdrawSample } from '#/components/samples/sample-state'
+import { WithdrawDialog } from '#/components/samples/withdraw-dialog'
 import {
-  WithdrawDialog,
   describeWithdrawError,
   formatQuantityAmount,
-} from '#/components/samples/withdraw-dialog'
+} from '#/components/samples/quantity-input'
 import type { WithdrawDialogInput } from '#/components/samples/withdraw-dialog'
 import {
   sampleListQueryKeys,

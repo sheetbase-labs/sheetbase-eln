@@ -38,14 +38,18 @@ export function ParserVersions({
       <Table aria-label={t('settings.parserVersions.parserVersionsAria')}>
         <TableHeader>
           <TableRow>
-            <TableHead>{t('settings.parserVersions.parser')}</TableHead>
-            <TableHead>{t('settings.parserVersions.revision')}</TableHead>
-            <TableHead>{t('settings.parserVersions.instrument')}</TableHead>
-            <TableHead>{t('settings.parserVersions.kind')}</TableHead>
-            <TableHead>{t('settings.parserVersions.format')}</TableHead>
-            <TableHead>{t('settings.parserVersions.status')}</TableHead>
-            <TableHead>{t('settings.parserVersions.validation')}</TableHead>
-            <TableHead>{t('settings.parserVersions.approval')}</TableHead>
+            {[
+              t('settings.parserVersions.parser'),
+              t('settings.parserVersions.revision'),
+              t('settings.parserVersions.instrument'),
+              t('settings.parserVersions.kind'),
+              t('settings.parserVersions.format'),
+              t('settings.parserVersions.status'),
+              t('settings.parserVersions.validation'),
+              t('settings.parserVersions.approval'),
+            ].map((label) => (
+              <TableHead key={label}>{label}</TableHead>
+            ))}
           </TableRow>
         </TableHeader>
         <TableBody>

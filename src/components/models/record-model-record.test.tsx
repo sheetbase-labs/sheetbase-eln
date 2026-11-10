@@ -10,100 +10,168 @@
  */
 import { cleanup, render as plainRender, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router'
 import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { ModelFieldDefinition } from '#/lib/model-fields'
+import { fetchModelFields } from '#/lib/model-fields'
+import { notebookDataClient } from '#/lib/notebook-data'
+import { dropSharedReads } from '#/lib/data-client'
+import { fetchModelTypes } from '#/lib/model-subtypes'
+import type { TimelineEventWire } from '#/lib/sign-002'
+import type { RecordModelRecord as ModelRecord } from './models-data'
+import { recordModelDetailQueryKeys, recordModelQueryKeys } from './models-data'
+import { modelTypeQueryKeys } from './model-subtype-data'
 import { RecordModelRecord } from './record-model-record'
 
-function render(ui: ReactElement) {
+const queryClients = new Set<QueryClient>()
+
+// The real singleton DataClient captures fetch during module initialisation.
+const transport = vi.hoisted(() => {
+  const fetch = vi.fn<typeof globalThis.fetch>()
+
+  vi.stubGlobal('fetch', fetch)
+
+  return fetch
+})
+
+async function render(
+  ui: ReactElement,
+  options: {
+    prefetch?: boolean
+    waitForLoaded?: boolean
+    records?: () => Promise<Response>
+  } = {},
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
 
-  return plainRender(
-    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  queryClients.add(client)
+  dropSharedReads()
+  vi.stubGlobal('fetch', transport)
+  transport.mockImplementation((input) => {
+    const url = new URL(
+      input instanceof Request ? input.url : String(input),
+      'http://localhost',
+    )
+
+    switch (url.pathname) {
+      case '/api/db/record_models':
+        return Promise.resolve(
+          Response.json(
+            url.searchParams.has('key')
+              ? [{ name: 'Cell bank', current_version: 4 }]
+              : [],
+          ),
+        )
+      case '/api/db/records':
+        return options.records?.() ?? Promise.resolve(Response.json([record]))
+      case '/api/db/record_model_versions':
+        return Promise.resolve(
+          Response.json([
+            {
+              definition: {
+                fields: fields.map((field) => ({
+                  ...field,
+                  field_name: field.fieldName,
+                  logical_type: field.logicalType,
+                  display_order: field.displayOrder,
+                  default_value: field.defaultValue,
+                })),
+              },
+            },
+          ]),
+        )
+      case '/api/db/rpc/record_timeline':
+        return Promise.resolve(Response.json(timeline))
+      default:
+        return Promise.resolve(Response.json([]))
+    }
+  })
+
+  // Loaded-page tests keep their original fixture scope; cold queries are
+  // exercised separately below through the same real transport and providers.
+  if (options.prefetch !== false)
+    await Promise.all([
+      client.fetchQuery({
+        queryKey: recordModelQueryKeys.model('cell_bank'),
+        queryFn: async () =>
+          (
+            await notebookDataClient.list('record_models', '?key=eq.cell_bank')
+          )[0],
+      }),
+      client.fetchQuery({
+        queryKey: recordModelDetailQueryKeys.record('rec-1'),
+        queryFn: async () =>
+          (await notebookDataClient.list('records', '?id=eq.rec-1'))[0],
+      }),
+      client.fetchQuery({
+        queryKey: modelTypeQueryKeys.all,
+        queryFn: () => fetchModelTypes(notebookDataClient),
+      }),
+      client.fetchQuery({
+        queryKey: [...recordModelQueryKeys.fields('cell_bank'), 'version-1'],
+        queryFn: () =>
+          fetchModelFields(notebookDataClient, 'cell_bank', true, 'version-1'),
+      }),
+      client.fetchQuery({
+        queryKey: recordModelDetailQueryKeys.timeline('rec-1'),
+        queryFn: () =>
+          notebookDataClient.rpc('record_timeline', { p_record_id: 'rec-1' }),
+      }),
+    ])
+
+  const router = createRouter({
+    routeTree: createRootRoute({ component: () => ui }),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  const result = plainRender(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
   )
+
+  if (options.waitForLoaded !== false)
+    await screen.findByText(/integrations appear in the history/)
+
+  return { ...result, client }
 }
 
-const mocks = vi.hoisted(() => {
-  const record = {
-    id: 'rec-1',
-    identifier: 'CB-0012',
-    title: 'HEK293 WCB lot 3',
-    kind: 'cell_bank',
-    status: 'draft',
-    custom_fields: null as Record<string, unknown> | null,
-    properties: null,
-    tags: [],
-    created_at: '2026-07-14T00:00:00.000Z',
-    updated_at: '2026-09-25T00:00:00.000Z',
-    archived_at: null,
-    model_version_id: 'version-1',
-    model_version: { version: 1 },
-  }
+const record: ModelRecord = {
+  id: 'rec-1',
+  identifier: 'CB-0012',
+  title: 'HEK293 WCB lot 3',
+  kind: 'cell_bank',
+  status: 'draft',
+  custom_fields: null,
+  properties: null,
+  tags: [],
+  created_at: '2026-07-14T00:00:00.000Z',
+  updated_at: '2026-09-25T00:00:00.000Z',
+  archived_at: null,
+  model_version_id: 'version-1',
+  model_version: { version: 1 },
+}
 
-  return { record, timeline: [] as unknown[], fields: [] as unknown[] }
-})
-
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    children,
-    ...props
-  }: {
-    to: string
-    params?: Record<string, string>
-    children: React.ReactNode
-  } & Record<string, unknown>) => {
-    let href = to
-
-    for (const [key, value] of Object.entries(params ?? {}))
-      href = href.replace(`$${key}`, encodeURIComponent(String(value)))
-
-    return (
-      <a href={href} {...props}>
-        {children}
-      </a>
-    )
-  },
-}))
-
-vi.mock('#/lib/result-quality', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  useRecordQuality: () => ({
-    results: [],
-    limitsByField: new Map(),
-    onHold: false,
-  }),
-}))
-
-vi.mock('./model-subtype-data', () => ({
-  useModelTypes: () => ({ data: [], isLoading: false }),
-  useTypeFields: () => ({ data: [], isLoading: false, isError: false }),
-}))
-
-vi.mock('./models-data', () => ({
-  useWorkspaceRecordModel: () => ({
-    data: { name: 'Cell bank', current_version: 4 },
-    isLoading: false,
-  }),
-  useRecordModelFields: () => ({ data: mocks.fields, isLoading: false }),
-  useRecordModelRecord: () => ({ data: mocks.record, isLoading: false }),
-  useRecordModelUsedBy: () => ({ data: [], isLoading: false }),
-  useRecordModelTimeline: () => ({ data: mocks.timeline, isLoading: false }),
-  laterAddedModelFields: () => [],
-  recordFieldValue: (
-    record: { custom_fields?: Record<string, unknown> | null },
-    fieldName: string,
-  ) => record.custom_fields?.[fieldName],
-}))
+let timeline: TimelineEventWire[] = []
+let fields: ModelFieldDefinition[] = []
 
 afterEach(() => {
   cleanup()
-  mocks.timeline = []
-  mocks.fields = []
-  mocks.record.custom_fields = null
+  queryClients.forEach((client) => client.clear())
+  queryClients.clear()
+  timeline = []
+  fields = []
+  record.custom_fields = null
+  vi.unstubAllGlobals()
 })
 
 /** The class tokens on the element that wraps the action, not a substring. */
@@ -119,8 +187,44 @@ function integrationsNote(): string {
 }
 
 describe('RecordModelRecord — phone actions (MOB-02.4)', () => {
-  it('moves the record actions to the end of the phone column', () => {
-    render(<RecordModelRecord modelKey="cell_bank" recordId="rec-1" />)
+  it('renders cold queries through an unavailable record and a subsequent loaded record', async () => {
+    let resolveResponse: ((response: Response) => void) | undefined
+
+    const response = new Promise<Response>((resolve) => {
+      resolveResponse = resolve
+    })
+
+    let available = false
+
+    const mounted = await render(
+      <RecordModelRecord modelKey="cell_bank" recordId="rec-1" />,
+      {
+        prefetch: false,
+        waitForLoaded: false,
+        records: () =>
+          available ? Promise.resolve(Response.json([record])) : response,
+      },
+    )
+
+    expect(screen.queryByText('HEK293 WCB lot 3')).toBeNull()
+
+    if (!resolveResponse) throw new Error('Response resolver not initialized')
+    resolveResponse(Response.json([]))
+    expect(await screen.findByText('Record not found')).toBeTruthy()
+    available = true
+    dropSharedReads()
+    await mounted.client.invalidateQueries({
+      queryKey: recordModelDetailQueryKeys.record('rec-1'),
+    })
+    expect(
+      (await screen.findAllByText('HEK293 WCB lot 3')).length,
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText('Record not found')).toBeNull()
+    expect(screen.getAllByText('CB-0012').length).toBeGreaterThan(0)
+  })
+
+  it('moves the record actions to the end of the phone column', async () => {
+    await render(<RecordModelRecord modelKey="cell_bank" recordId="rec-1" />)
 
     // The record's essentials read in the single column either way.
     expect(screen.getAllByText('HEK293 WCB lot 3').length).toBeGreaterThan(0)
@@ -139,8 +243,8 @@ describe('RecordModelRecord — phone actions (MOB-02.4)', () => {
     }
   })
 
-  it('reads the record status the same way in the header and the details', () => {
-    render(<RecordModelRecord modelKey="cell_bank" recordId="rec-1" />)
+  it('reads the record status the same way in the header and the details', async () => {
+    await render(<RecordModelRecord modelKey="cell_bank" recordId="rec-1" />)
 
     // The stored code is `draft`; both surfaces name it the way the rest of
     // the app does, and the raw code is never shown.
@@ -148,17 +252,26 @@ describe('RecordModelRecord — phone actions (MOB-02.4)', () => {
     expect(screen.queryByText('draft')).toBeNull()
   })
 
-  it('shows date fields in the same format as the record metadata', () => {
-    mocks.record.custom_fields = { frozen_on: '2026-05-02' }
-    mocks.fields = [
+  it('shows date fields in the same format as the record metadata', async () => {
+    record.custom_fields = { frozen_on: '2026-05-02' }
+    fields = [
       {
         id: 'f1',
         fieldName: 'frozen_on',
         label: 'Frozen on',
         logicalType: 'date',
+        modelKey: 'cell_bank',
+        description: null,
+        displayOrder: 0,
+        nullable: true,
+        defaultValue: null,
+        unit: null,
+        validation: {},
+        lifecycle: 'active',
+        options: [],
       },
     ]
-    render(<RecordModelRecord modelKey="cell_bank" recordId="rec-1" />)
+    await render(<RecordModelRecord modelKey="cell_bank" recordId="rec-1" />)
 
     // Created (11 Jul 2026) and the date field both read as short dates; the
     // raw ISO string never surfaces.
@@ -169,15 +282,15 @@ describe('RecordModelRecord — phone actions (MOB-02.4)', () => {
 })
 
 describe('RecordModelRecord — integrations note', () => {
-  it('follows the record history instead of asserting nothing has written', () => {
-    const empty = render(
+  it('follows the record history instead of asserting nothing has written', async () => {
+    const empty = await render(
       <RecordModelRecord modelKey="cell_bank" recordId="rec-1" />,
     )
 
     const noteWithNoHistory = integrationsNote()
     empty.unmount()
 
-    mocks.timeline = [
+    timeline = [
       {
         type: 'change_event',
         id: 'event-1',
@@ -187,7 +300,7 @@ describe('RecordModelRecord — integrations note', () => {
         actorUserId: null,
       },
     ]
-    render(<RecordModelRecord modelKey="cell_bank" recordId="rec-1" />)
+    await render(<RecordModelRecord modelKey="cell_bank" recordId="rec-1" />)
 
     expect(integrationsNote()).toBeTruthy()
     expect(integrationsNote()).not.toBe(noteWithNoHistory)

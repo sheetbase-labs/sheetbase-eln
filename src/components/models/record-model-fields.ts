@@ -7,22 +7,16 @@ export type ModelVersionField = RecordModelVersionDefinition['fields'][number]
 export const UNSECTIONED = 'Fields'
 
 export function fieldSection(field: ModelVersionField): string {
-  const section = (field as { section?: unknown }).section
-
-  return typeof section === 'string' && section ? section : UNSECTIONED
+  return field.section || UNSECTIONED
 }
 
 export function fieldSource(field: ModelVersionField): string {
-  const source = (field as { source?: unknown }).source
-
-  return typeof source === 'string' && source ? source : 'By hand'
+  return field.source || 'By hand'
 }
 
 /** "To release": the field is optional until the record is released. */
 export function fieldRequiredFor(field: ModelVersionField): 'release' | null {
-  return (field as { required_for?: unknown }).required_for === 'release'
-    ? 'release'
-    : null
+  return field.required_for === 'release' ? 'release' : null
 }
 
 /** "Number, 0 dp", "Choice · 3 options", "Text": the Type column. */
@@ -32,14 +26,8 @@ export function fieldTypeLabel(field: ModelVersionField): string {
   switch (field.logical_type) {
     case 'integer':
     case 'decimal': {
-      const stored = (field as { decimal_places?: unknown }).decimal_places
-
       const places =
-        typeof stored === 'number'
-          ? stored
-          : field.logical_type === 'decimal'
-            ? 1
-            : 0
+        field.decimal_places ?? (field.logical_type === 'decimal' ? 1 : 0)
 
       return `Number, ${places} dp`
     }
@@ -60,19 +48,19 @@ export function fieldTypeLabel(field: ModelVersionField): string {
 }
 
 export function fieldUnit(field: ModelVersionField): string | null {
-  const unit = (field as { unit?: unknown }).unit
+  const unit = field.unit
 
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- The version schema validates string or structured units; only the legacy string carries this presentation value.
   if (typeof unit === 'string' && unit) return unit
   const stored = field.quantity?.storageUnit
 
-  return typeof stored === 'string' && stored ? stored : null
+  return stored || null
 }
 
 /** "≤ 30", "0–100", "≥ 1": the Rule column, from a field's own validation. */
 export function fieldRule(field: ModelVersionField): string | null {
-  const { min, max } = field.validation as { min?: unknown; max?: unknown }
-  const lo = typeof min === 'number' ? min : null
-  const hi = typeof max === 'number' ? max : null
+  const lo = field.validation.min ?? null
+  const hi = field.validation.max ?? null
 
   if (lo !== null && hi !== null) return `${lo}–${hi}`
 
@@ -109,6 +97,8 @@ export function groupFieldsBySection(
 }
 
 export interface FieldChange {
+  /** Stable field/dimension/option identity, independent of labels and order. */
+  id: string
   kind: 'Added' | 'Removed' | 'Changed'
   /** The field, or "Label option" for an option change. */
   subject: string
@@ -135,6 +125,7 @@ export function diffModelVersions(
       // A published field is never deleted; the draft retires it.
       if (old && old.lifecycle !== 'retired')
         changes.push({
+          id: `field:${field.id}:removed`,
           kind: 'Removed',
           subject: field.label,
           detail: fieldTypeLabel(field),
@@ -144,6 +135,7 @@ export function diffModelVersions(
 
     if (!old) {
       changes.push({
+        id: `field:${field.id}:added`,
         kind: 'Added',
         subject: field.label,
         detail: [fieldTypeLabel(field), fieldSection(field)]
@@ -155,6 +147,7 @@ export function diffModelVersions(
 
     if (old.label !== field.label)
       changes.push({
+        id: `field:${field.id}:name`,
         kind: 'Changed',
         subject: field.label,
         detail: 'Name',
@@ -164,6 +157,7 @@ export function diffModelVersions(
 
     if (old.logical_type !== field.logical_type)
       changes.push({
+        id: `field:${field.id}:type`,
         kind: 'Changed',
         subject: field.label,
         detail: 'Type',
@@ -173,6 +167,7 @@ export function diffModelVersions(
 
     if (fieldUnit(old) !== fieldUnit(field))
       changes.push({
+        id: `field:${field.id}:unit`,
         kind: 'Changed',
         subject: field.label,
         detail: 'Unit',
@@ -182,6 +177,7 @@ export function diffModelVersions(
 
     if (fieldRule(old) !== fieldRule(field))
       changes.push({
+        id: `field:${field.id}:rule`,
         kind: 'Changed',
         subject: field.label,
         detail: 'Rule',
@@ -191,6 +187,7 @@ export function diffModelVersions(
 
     if (fieldRequiredLabel(old) !== fieldRequiredLabel(field))
       changes.push({
+        id: `field:${field.id}:required`,
         kind: 'Changed',
         subject: field.label,
         detail: 'Required',
@@ -203,6 +200,7 @@ export function diffModelVersions(
     for (const [id, option] of oldOptions)
       if (!newOptions.has(id))
         changes.push({
+          id: `field:${field.id}:option:${id}:removed`,
           kind: 'Removed',
           subject: `${option.label} option`,
           detail: field.label,
@@ -211,6 +209,7 @@ export function diffModelVersions(
     for (const [id, option] of newOptions)
       if (!oldOptions.has(id) && oldOptions.size > 0)
         changes.push({
+          id: `field:${field.id}:option:${id}:added`,
           kind: 'Added',
           subject: `${option.label} option`,
           detail: field.label,
@@ -220,6 +219,7 @@ export function diffModelVersions(
   for (const [id, field] of prior)
     if (!next.has(id))
       changes.push({
+        id: `field:${id}:removed`,
         kind: 'Removed',
         subject: field.label,
         detail: fieldTypeLabel(field),

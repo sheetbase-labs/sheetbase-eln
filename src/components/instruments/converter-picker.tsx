@@ -39,6 +39,7 @@ export function ConverterPicker({
     retry: false,
   })
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- IntakeSetupDialog awaits workspace-scoped parser-list invalidation in onAdded before selecting the new parser.
   const add = useMutation({
     mutationFn: () => addConverterParser({ vendor, instrumentId }),
     onSuccess: async (created) => {
@@ -47,7 +48,7 @@ export function ConverterPicker({
       setOpen(false)
       setVendor('')
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(
         error instanceof ConverterClientError && error.code === 'not_permitted'
           ? t('quality.instrumentData.picker.needsAccess')

@@ -73,64 +73,20 @@ export function ChartFrame({
         fill && 'flex h-full min-h-0 flex-col overflow-hidden',
         className,
       )}
-      role="figure"
       aria-labelledby={titleId}
       aria-describedby={alt ? altId : undefined}
     >
-      {hideTitle ? (
-        <h3 id={titleId} className="sr-only">
-          {title}
-        </h3>
-      ) : (
-        <figcaption className="flex items-start justify-between gap-3 border-b px-4 py-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 id={titleId} className="truncate text-sm font-semibold">
-                {title}
-              </h3>
-              {mode === 'live' ? (
-                <Badge variant="add" className="shrink-0">
-                  <Icon name="play" size={12} aria-hidden="true" />
-                  {t('data.chartFrame.live')}
-                </Badge>
-              ) : (
-                <Badge variant="kind" className="shrink-0">
-                  <Icon name="archive" size={12} aria-hidden="true" />
-                  {t('data.chartFrame.snapshot')}
-                </Badge>
-              )}
-            </div>
-            {subtitle ? (
-              <p className="mt-0.5 truncate text-xs text-fg-muted">
-                {subtitle}
-              </p>
-            ) : null}
-          </div>
-          <div className="flex shrink-0 items-center gap-0.5">
-            {actions}
-            {onExpandedChange ? (
-              <Button
-                variant="quiet"
-                size="icon"
-                aria-label={
-                  expanded
-                    ? t('data.chartFrame.ariaContractChart')
-                    : t('data.chartFrame.ariaExpandChart')
-                }
-                title={
-                  expanded
-                    ? t('data.chartFrame.ariaContractChart')
-                    : t('data.chartFrame.ariaExpandChart')
-                }
-                disabled={loading}
-                onClick={() => onExpandedChange(!expanded)}
-              >
-                {expanded ? <Icon name="minimize" /> : <Icon name="expand" />}
-              </Button>
-            ) : null}
-          </div>
-        </figcaption>
-      )}
+      <ChartHeading
+        title={title}
+        titleId={titleId}
+        hideTitle={hideTitle}
+        mode={mode}
+        subtitle={subtitle}
+        actions={actions}
+        expanded={expanded}
+        onExpandedChange={onExpandedChange}
+        loading={loading}
+      />
 
       <div
         className={cn(
@@ -155,6 +111,24 @@ export function ChartFrame({
         </p>
       ) : null}
 
+      <ChartFootnotes
+        provenance={provenance}
+        caption={caption}
+        legend={legend}
+        fill={fill}
+      />
+    </figure>
+  )
+}
+
+function ChartFootnotes({
+  provenance,
+  caption,
+  legend,
+  fill,
+}: Pick<ChartFrameProps, 'provenance' | 'caption' | 'legend' | 'fill'>) {
+  return (
+    <>
       {provenance ? (
         <p className="border-t px-4 py-2 text-xs text-fg-muted">{provenance}</p>
       ) : null}
@@ -182,6 +156,84 @@ export function ChartFrame({
           {legend}
         </div>
       ) : null}
-    </figure>
+    </>
+  )
+}
+
+function ChartHeading({
+  title,
+  titleId,
+  hideTitle,
+  mode,
+  subtitle,
+  actions,
+  expanded,
+  onExpandedChange,
+  loading,
+}: Pick<
+  ChartFrameProps,
+  | 'title'
+  | 'hideTitle'
+  | 'mode'
+  | 'subtitle'
+  | 'actions'
+  | 'expanded'
+  | 'onExpandedChange'
+  | 'loading'
+> & { titleId: string }) {
+  if (hideTitle)
+    return (
+      <h3 id={titleId} className="sr-only">
+        {title}
+      </h3>
+    )
+
+  return (
+    <figcaption className="flex items-start justify-between gap-3 border-b px-4 py-3">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <h3 id={titleId} className="truncate text-sm font-semibold">
+            {title}
+          </h3>
+          {mode === 'live' ? (
+            <Badge variant="add" className="shrink-0">
+              <Icon name="play" size={12} aria-hidden="true" />
+              {t('data.chartFrame.live')}
+            </Badge>
+          ) : (
+            <Badge variant="kind" className="shrink-0">
+              <Icon name="archive" size={12} aria-hidden="true" />
+              {t('data.chartFrame.snapshot')}
+            </Badge>
+          )}
+        </div>
+        {subtitle ? (
+          <p className="mt-0.5 truncate text-xs text-fg-muted">{subtitle}</p>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-0.5">
+        {actions}
+        {onExpandedChange ? (
+          <Button
+            variant="quiet"
+            size="icon"
+            aria-label={
+              expanded
+                ? t('data.chartFrame.ariaContractChart')
+                : t('data.chartFrame.ariaExpandChart')
+            }
+            title={
+              expanded
+                ? t('data.chartFrame.ariaContractChart')
+                : t('data.chartFrame.ariaExpandChart')
+            }
+            disabled={loading}
+            onClick={() => onExpandedChange(!expanded)}
+          >
+            {expanded ? <Icon name="minimize" /> : <Icon name="expand" />}
+          </Button>
+        ) : null}
+      </div>
+    </figcaption>
   )
 }

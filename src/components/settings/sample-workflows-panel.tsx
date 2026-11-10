@@ -47,7 +47,7 @@ import { t } from '#/copy'
 
 const defaultClient = createDataClient()
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: Error): string {
   return error instanceof Error
     ? error.message
     : t('settings.sampleWorkflows.databaseRefused')
@@ -69,8 +69,8 @@ export function SampleWorkflowsPanel({
   workspaceId: string
   canManage: boolean
   /** The workflow being edited (its id, or `new`), kept in the address so a reload returns to it. */
-  editing: string | 'new' | null
-  onEdit: (id: string | 'new' | null) => void
+  editing: string | null
+  onEdit: (id: string | null) => void
   client?: DataClient
 }) {
   const setEditing = onEdit
@@ -107,7 +107,7 @@ function WorkflowList({
   workspaceId: string
   canManage: boolean
   client: DataClient
-  onOpen: (id: string | 'new') => void
+  onOpen: (id: string) => void
 }) {
   const list = useQuery({
     queryKey: workflowKeys.all(workspaceId),
@@ -365,10 +365,6 @@ function EditorBody({
 
   const selected = draft.stages.find((s) => s.key === selectedKey) ?? null
 
-  const nameOf = (key: string) =>
-    draft.stages.find((s) => s.key === key)?.name ||
-    t('settings.sampleWorkflows.unnamedStep')
-
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <SettingsBody className="min-w-0 flex-1">
@@ -456,118 +452,14 @@ function EditorBody({
           </label>
         </fieldset>
 
-        <div className="flex items-center gap-2">
-          <h2 className="m-0 text-section">
-            {t('settings.sampleWorkflows.stepsHeading')}
-          </h2>
-          <span className="flex-1" />
-          {canManage ? (
-            <Button icon="plus" onClick={addStage}>
-              {t('settings.sampleWorkflows.addStep')}
-            </Button>
-          ) : null}
-        </div>
-        <TableBox>
-          <Table caption={t('settings.sampleWorkflows.stepsHeading')}>
-            <TableHeader>
-              <tr>
-                <TableHead>{t('settings.sampleWorkflows.step')}</TableHead>
-                <TableHead>{t('settings.sampleWorkflows.movesTo')}</TableHead>
-                <TableHead>
-                  {t('settings.sampleWorkflows.turnaround')}
-                </TableHead>
-                <TableHead>{t('settings.sampleWorkflows.needs')}</TableHead>
-                <TableHead>
-                  {t('settings.sampleWorkflows.automations')}
-                </TableHead>
-                {canManage ? (
-                  <TableHead>
-                    <span className="sr-only">
-                      {t('settings.sampleWorkflows.order')}
-                    </span>
-                  </TableHead>
-                ) : null}
-              </tr>
-            </TableHeader>
-            <TableBody>
-              {draft.stages.map((stage, index) => (
-                <TableRow
-                  key={stage.key}
-                  selected={stage.key === selectedKey}
-                  className="cursor-pointer"
-                  tabIndex={0}
-                  onClick={() => setSelectedKey(stage.key)}
-                  onKeyDown={(event) => {
-                    if (event.target !== event.currentTarget) return
-
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      setSelectedKey(stage.key)
-                    }
-                  }}
-                >
-                  <TableCell>
-                    <span className="font-medium text-fg">
-                      {stage.name || t('settings.sampleWorkflows.unnamedStep')}
-                    </span>
-                    {stage.final ? (
-                      <span className="ml-2 text-label text-fg-muted">
-                        {t('settings.sampleWorkflows.endsWorkflow')}
-                      </span>
-                    ) : null}
-                  </TableCell>
-                  <TableCell>
-                    {stage.final
-                      ? '–'
-                      : stage.next.map(nameOf).join(', ') || '–'}
-                  </TableCell>
-                  <TableCell className="num">
-                    {stage.turnaroundDays
-                      ? t('settings.sampleWorkflows.days', {
-                          count: Number(stage.turnaroundDays),
-                        })
-                      : '–'}
-                  </TableCell>
-                  <TableCell>
-                    {stage.requiredFields.join(', ') || '–'}
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className="block max-w-[14rem] truncate"
-                      title={stage.actions.map(describeAction).join('; ')}
-                    >
-                      {stage.actions.map(describeAction).join('; ') || '–'}
-                    </span>
-                  </TableCell>
-                  {canManage ? (
-                    <TableCell>
-                      <span className="flex gap-0.5">
-                        <IconButton
-                          label={t('settings.sampleWorkflows.moveUp')}
-                          icon="chevronUp"
-                          disabled={index === 0}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            move(index, -1)
-                          }}
-                        />
-                        <IconButton
-                          label={t('settings.sampleWorkflows.moveDown')}
-                          icon="chevronDown"
-                          disabled={index === draft.stages.length - 1}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            move(index, 1)
-                          }}
-                        />
-                      </span>
-                    </TableCell>
-                  ) : null}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableBox>
+        <WorkflowSteps
+          stages={draft.stages}
+          selectedKey={selectedKey}
+          canManage={canManage}
+          onAdd={addStage}
+          onSelect={setSelectedKey}
+          onMove={move}
+        />
       </SettingsBody>
       <aside
         aria-label={t('settings.sampleWorkflows.stepDetails')}
@@ -593,6 +485,139 @@ function EditorBody({
   )
 }
 
+function WorkflowSteps({
+  stages,
+  selectedKey,
+  canManage,
+  onAdd,
+  onSelect,
+  onMove,
+}: {
+  stages: WorkflowStageDraft[]
+  selectedKey: string | null
+  canManage: boolean
+  onAdd: () => void
+  onSelect: (key: string) => void
+  onMove: (index: number, by: -1 | 1) => void
+}) {
+  const nameOf = (key: string) =>
+    stages.find((stage) => stage.key === key)?.name ||
+    t('settings.sampleWorkflows.unnamedStep')
+
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <h2 className="m-0 text-section">
+          {t('settings.sampleWorkflows.stepsHeading')}
+        </h2>
+        <span className="flex-1" />
+        {canManage ? (
+          <Button icon="plus" onClick={onAdd}>
+            {t('settings.sampleWorkflows.addStep')}
+          </Button>
+        ) : null}
+      </div>
+      <TableBox>
+        <Table caption={t('settings.sampleWorkflows.stepsHeading')}>
+          <TableHeader>
+            <tr>
+              {[
+                t('settings.sampleWorkflows.step'),
+                t('settings.sampleWorkflows.movesTo'),
+                t('settings.sampleWorkflows.turnaround'),
+                t('settings.sampleWorkflows.needs'),
+                t('settings.sampleWorkflows.automations'),
+              ].map((label) => (
+                <TableHead key={label}>{label}</TableHead>
+              ))}
+              {canManage ? (
+                <TableHead>
+                  <span className="sr-only">
+                    {t('settings.sampleWorkflows.order')}
+                  </span>
+                </TableHead>
+              ) : null}
+            </tr>
+          </TableHeader>
+          <TableBody>
+            {stages.map((stage, index) => (
+              <TableRow
+                key={stage.key}
+                selected={stage.key === selectedKey}
+                className="cursor-pointer"
+                tabIndex={0}
+                onClick={() => onSelect(stage.key)}
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return
+
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    onSelect(stage.key)
+                  }
+                }}
+              >
+                <TableCell>
+                  <span className="font-medium text-fg">
+                    {stage.name || t('settings.sampleWorkflows.unnamedStep')}
+                  </span>
+                  {stage.final ? (
+                    <span className="ml-2 text-label text-fg-muted">
+                      {t('settings.sampleWorkflows.endsWorkflow')}
+                    </span>
+                  ) : null}
+                </TableCell>
+                <TableCell>
+                  {stage.final ? '–' : stage.next.map(nameOf).join(', ') || '–'}
+                </TableCell>
+                <TableCell className="num">
+                  {stage.turnaroundDays
+                    ? t('settings.sampleWorkflows.days', {
+                        count: Number(stage.turnaroundDays),
+                      })
+                    : '–'}
+                </TableCell>
+                <TableCell>{stage.requiredFields.join(', ') || '–'}</TableCell>
+                <TableCell>
+                  <span
+                    className="block max-w-[14rem] truncate"
+                    title={stage.actions.map(describeAction).join('; ')}
+                  >
+                    {stage.actions.map(describeAction).join('; ') || '–'}
+                  </span>
+                </TableCell>
+                {canManage ? (
+                  <TableCell>
+                    <span className="flex gap-0.5">
+                      <IconButton
+                        label={t('settings.sampleWorkflows.moveUp')}
+                        icon="chevronUp"
+                        disabled={index === 0}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          onMove(index, -1)
+                        }}
+                      />
+                      <IconButton
+                        label={t('settings.sampleWorkflows.moveDown')}
+                        icon="chevronDown"
+                        disabled={index === stages.length - 1}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          onMove(index, 1)
+                        }}
+                      />
+                    </span>
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableBox>
+    </>
+  )
+}
+
 function StageEditor({
   stage,
   others,
@@ -613,18 +638,7 @@ function StageEditor({
   onRemove: () => void
 }) {
   const [fieldInput, setFieldInput] = useState('')
-
-  const templates = useQuery({
-    queryKey: ['notebook-templates-for-workflows', workspaceId],
-    queryFn: () =>
-      client.list<{ id: string; name: string }>(
-        'notebook_templates',
-        '?select=id,name&lifecycle=eq.active&order=name',
-      ),
-    enabled:
-      Boolean(workspaceId) &&
-      stage.actions.some((a) => a.kind === 'start_experiment'),
-  })
+  const nextStages = new Set(stage.next)
 
   const addField = () => {
     const field = fieldInput.trim()
@@ -633,11 +647,6 @@ function StageEditor({
       onChange({ requiredFields: [...stage.requiredFields, field] })
     setFieldInput('')
   }
-
-  const setAction = (index: number, action: WorkflowAction) =>
-    onChange({
-      actions: stage.actions.map((a, i) => (i === index ? action : a)),
-    })
 
   return (
     <div className="flex flex-col gap-4">
@@ -701,7 +710,7 @@ function StageEditor({
                 className="flex items-center gap-2 text-body"
               >
                 <Checkbox
-                  checked={stage.next.includes(other.key)}
+                  checked={nextStages.has(other.key)}
                   onCheckedChange={(checked) =>
                     onChange({
                       next: checked
@@ -765,164 +774,12 @@ function StageEditor({
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <span className="text-label font-medium text-fg">
-            {t('settings.sampleWorkflows.whenItArrives')}
-          </span>
-          {stage.actions.length === 0 ? (
-            <Muted>{t('settings.sampleWorkflows.noAutomations')}</Muted>
-          ) : null}
-          {stage.actions.map((action, index) => (
-            <div
-              key={index}
-              className="flex flex-col gap-2 rounded-md border border-border p-3"
-            >
-              <div className="flex items-end gap-2">
-                <Field
-                  label={t('settings.sampleWorkflows.automation')}
-                  className="min-w-0 flex-1"
-                >
-                  <Select
-                    value={action.kind}
-                    onChange={(event) =>
-                      setAction(
-                        index,
-                        blankAction(
-                          event.target.value as WorkflowAction['kind'],
-                        ),
-                      )
-                    }
-                  >
-                    {ACTION_KINDS.map((kind) => (
-                      <option key={kind} value={kind}>
-                        {t(`settings.sampleWorkflows.kinds.${kind}`)}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Button
-                  size="sm"
-                  variant="quiet"
-                  onClick={() =>
-                    onChange({
-                      actions: stage.actions.filter((_, i) => i !== index),
-                    })
-                  }
-                >
-                  {t('common.actions.remove')}
-                </Button>
-              </div>
-              {action.kind === 'notify' ? (
-                <>
-                  <Field label={t('settings.sampleWorkflows.tell')}>
-                    <Select
-                      value={action.to}
-                      onChange={(event) =>
-                        setAction(index, { ...action, to: event.target.value })
-                      }
-                    >
-                      <option value="owner">
-                        {t('settings.sampleWorkflows.audience.owner')}
-                      </option>
-                      {NOTIFY_ROLES.map((role) => (
-                        <option key={role} value={`role:${role}`}>
-                          {t('settings.sampleWorkflows.audience.role', {
-                            role,
-                          })}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  <Field label={t('settings.sampleWorkflows.messageOptional')}>
-                    <Input
-                      value={action.message ?? ''}
-                      onChange={(event) =>
-                        setAction(index, {
-                          ...action,
-                          message: event.target.value,
-                        })
-                      }
-                    />
-                  </Field>
-                </>
-              ) : null}
-              {action.kind === 'set_field' ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label={t('settings.sampleWorkflows.fieldName')}>
-                    <Input
-                      list="sample-workflow-fields"
-                      value={action.key}
-                      onChange={(event) =>
-                        setAction(index, { ...action, key: event.target.value })
-                      }
-                    />
-                  </Field>
-                  <Field label={t('settings.sampleWorkflows.setTo')}>
-                    <Input
-                      value={action.value}
-                      onChange={(event) =>
-                        setAction(index, {
-                          ...action,
-                          value: event.target.value,
-                        })
-                      }
-                    />
-                  </Field>
-                </div>
-              ) : null}
-              {action.kind === 'quarantine' ? (
-                <Field label={t('settings.sampleWorkflows.reasonOptional')}>
-                  <Input
-                    value={action.reason ?? ''}
-                    onChange={(event) =>
-                      setAction(index, {
-                        ...action,
-                        reason: event.target.value,
-                      })
-                    }
-                  />
-                </Field>
-              ) : null}
-              {action.kind === 'start_experiment' ? (
-                <Field label={t('settings.sampleWorkflows.fromTemplate')}>
-                  <Select
-                    value={action.templateId}
-                    onChange={(event) =>
-                      setAction(index, {
-                        ...action,
-                        templateId: event.target.value,
-                      })
-                    }
-                  >
-                    <option value="">
-                      {t('settings.sampleWorkflows.chooseTemplate')}
-                    </option>
-                    {(templates.data ?? []).map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              ) : null}
-              {validateAction(action) ? (
-                <span className="text-label text-danger-text">
-                  {validateAction(action)}
-                </span>
-              ) : null}
-            </div>
-          ))}
-          <div>
-            <Button
-              icon="plus"
-              onClick={() =>
-                onChange({ actions: [...stage.actions, blankAction('notify')] })
-              }
-            >
-              {t('settings.sampleWorkflows.addAutomation')}
-            </Button>
-          </div>
-        </div>
+        <WorkflowAutomations
+          initialActions={stage.actions}
+          workspaceId={workspaceId}
+          client={client}
+          onChange={(actions) => onChange({ actions })}
+        />
       </fieldset>
       {canManage ? (
         <div>
@@ -931,6 +788,190 @@ function StageEditor({
           </Button>
         </div>
       ) : null}
+    </div>
+  )
+}
+
+/** StageEditor is keyed by stage.key, so each stage owns its unsaved automation identities. */
+function WorkflowAutomations({
+  initialActions,
+  workspaceId,
+  client,
+  onChange,
+}: {
+  initialActions: WorkflowAction[]
+  workspaceId: string
+  client: DataClient
+  onChange: (actions: WorkflowAction[]) => void
+}) {
+  const [drafts, setDrafts] = useState(() =>
+    initialActions.map((action) => ({ id: crypto.randomUUID(), action })),
+  )
+
+  const templates = useQuery({
+    queryKey: ['notebook-templates-for-workflows', workspaceId],
+    queryFn: () =>
+      client.list<{ id: string; name: string }>(
+        'notebook_templates',
+        '?select=id,name&lifecycle=eq.active&order=name',
+      ),
+    enabled:
+      Boolean(workspaceId) &&
+      drafts.some(({ action }) => action.kind === 'start_experiment'),
+  })
+
+  const change = (next: typeof drafts) => {
+    setDrafts(next)
+    onChange(next.map(({ action }) => action))
+  }
+
+  const setAction = (id: string, action: WorkflowAction) =>
+    change(
+      drafts.map((draft) => (draft.id === id ? { ...draft, action } : draft)),
+    )
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-label font-medium text-fg">
+        {t('settings.sampleWorkflows.whenItArrives')}
+      </span>
+      {drafts.length === 0 ? (
+        <Muted>{t('settings.sampleWorkflows.noAutomations')}</Muted>
+      ) : null}
+      {drafts.map(({ id, action }) => (
+        <div
+          key={id}
+          className="flex flex-col gap-2 rounded-md border border-border p-3"
+        >
+          <div className="flex items-end gap-2">
+            <Field
+              label={t('settings.sampleWorkflows.automation')}
+              className="min-w-0 flex-1"
+            >
+              <Select
+                value={action.kind}
+                onChange={(event) => {
+                  const kind = ACTION_KINDS.find(
+                    (option) => option === event.target.value,
+                  )
+
+                  if (kind) setAction(id, blankAction(kind))
+                }}
+              >
+                {ACTION_KINDS.map((kind) => (
+                  <option key={kind} value={kind}>
+                    {t(`settings.sampleWorkflows.kinds.${kind}`)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Button
+              size="sm"
+              variant="quiet"
+              onClick={() => change(drafts.filter((draft) => draft.id !== id))}
+            >
+              {t('common.actions.remove')}
+            </Button>
+          </div>
+          {action.kind === 'notify' ? (
+            <>
+              <Field label={t('settings.sampleWorkflows.tell')}>
+                <Select
+                  value={action.to}
+                  onChange={(event) =>
+                    setAction(id, { ...action, to: event.target.value })
+                  }
+                >
+                  <option value="owner">
+                    {t('settings.sampleWorkflows.audience.owner')}
+                  </option>
+                  {NOTIFY_ROLES.map((role) => (
+                    <option key={role} value={`role:${role}`}>
+                      {t('settings.sampleWorkflows.audience.role', { role })}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label={t('settings.sampleWorkflows.messageOptional')}>
+                <Input
+                  value={action.message ?? ''}
+                  onChange={(event) =>
+                    setAction(id, { ...action, message: event.target.value })
+                  }
+                />
+              </Field>
+            </>
+          ) : null}
+          {action.kind === 'set_field' ? (
+            <div className="grid grid-cols-2 gap-2">
+              <Field label={t('settings.sampleWorkflows.fieldName')}>
+                <Input
+                  list="sample-workflow-fields"
+                  value={action.key}
+                  onChange={(event) =>
+                    setAction(id, { ...action, key: event.target.value })
+                  }
+                />
+              </Field>
+              <Field label={t('settings.sampleWorkflows.setTo')}>
+                <Input
+                  value={action.value}
+                  onChange={(event) =>
+                    setAction(id, { ...action, value: event.target.value })
+                  }
+                />
+              </Field>
+            </div>
+          ) : null}
+          {action.kind === 'quarantine' ? (
+            <Field label={t('settings.sampleWorkflows.reasonOptional')}>
+              <Input
+                value={action.reason ?? ''}
+                onChange={(event) =>
+                  setAction(id, { ...action, reason: event.target.value })
+                }
+              />
+            </Field>
+          ) : null}
+          {action.kind === 'start_experiment' ? (
+            <Field label={t('settings.sampleWorkflows.fromTemplate')}>
+              <Select
+                value={action.templateId}
+                onChange={(event) =>
+                  setAction(id, { ...action, templateId: event.target.value })
+                }
+              >
+                <option value="">
+                  {t('settings.sampleWorkflows.chooseTemplate')}
+                </option>
+                {(templates.data ?? []).map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
+          {validateAction(action) ? (
+            <span className="text-label text-danger-text">
+              {validateAction(action)}
+            </span>
+          ) : null}
+        </div>
+      ))}
+      <div>
+        <Button
+          icon="plus"
+          onClick={() =>
+            change([
+              ...drafts,
+              { id: crypto.randomUUID(), action: blankAction('notify') },
+            ])
+          }
+        >
+          {t('settings.sampleWorkflows.addAutomation')}
+        </Button>
+      </div>
     </div>
   )
 }

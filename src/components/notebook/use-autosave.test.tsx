@@ -26,31 +26,37 @@ afterEach(() => {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-interface Mount<T> {
+interface Mount<TProps, T> {
   current: T
-  rerender: (props: Record<string, unknown>) => void
+  rerender: (props: Partial<TProps>) => void
   unmount: () => void
 }
 
 function mountHook<TProps, T>(
   useHook: (props: TProps) => T,
   initialProps: TProps,
-): Mount<T> {
-  const captured: { current: T | undefined } = { current: undefined }
-  const propsRef: { current: TProps } = { current: initialProps }
+): Mount<TProps, T> {
+  const captured = React.createRef<T>()
+  const propsRef = { current: initialProps }
+
   function TestComponent() {
     const value = useHook(propsRef.current)
     React.useLayoutEffect(() => {
       captured.current = value
     })
+
     return null
   }
+
   const view = render(<TestComponent />)
+
   return {
     get current() {
-      return captured.current as T
+      if (captured.current === null) throw new Error('Hook has not committed')
+
+      return captured.current
     },
-    rerender: (next: Record<string, unknown>) => {
+    rerender: (next: Partial<TProps>) => {
       propsRef.current = { ...propsRef.current, ...next }
       view.rerender(<TestComponent />)
     },
@@ -68,6 +74,7 @@ function makeSave(
   return vi.fn(async (value: { text: string }) => {
     if (!impl) return { ok: true }
     const r = impl(value)
+
     return r instanceof Promise ? r : Promise.resolve(r)
   })
 }
@@ -93,6 +100,7 @@ function mountAutosave({
 } = {}) {
   const save = makeSave(saveImpl)
   const validateFn = vi.fn(validate)
+
   const mount = mountHook(
     (props: { initialValue: { text: string }; offline: boolean }) =>
       useAutosave<{ text: string }>({
@@ -107,6 +115,7 @@ function mountAutosave({
       }),
     { initialValue, offline },
   )
+
   return { mount, save, validate: validateFn }
 }
 
@@ -125,10 +134,12 @@ describe('useAutosave — rapid edits coalesce', () => {
 
   it('does not save every keystroke separately', async () => {
     const { mount, save } = mountAutosave({ debounceMs: 40 })
+
     for (let i = 1; i <= 5; i++) {
       act(() => mount.current.setDraft({ text: 'x'.repeat(i) }))
       await sleep(10)
     }
+
     expect(save).not.toHaveBeenCalled()
     await sleep(60)
     expect(save).toHaveBeenCalledTimes(1)
@@ -138,12 +149,14 @@ describe('useAutosave — rapid edits coalesce', () => {
 describe('useAutosave — slow response cannot mark a newer draft saved', () => {
   it('re-saves when the draft changed during a slow save', async () => {
     let resolveFirst!: (r: SaveResult<{ text: string }>) => void
+
     const save = makeSave(
       () =>
         new Promise<SaveResult<{ text: string }>>((resolve) => {
           resolveFirst = resolve
         }),
     )
+
     const mount = mountHook(
       () =>
         useAutosave<{ text: string }>({
@@ -155,6 +168,7 @@ describe('useAutosave — slow response cannot mark a newer draft saved', () => 
         }),
       {},
     )
+
     act(() => mount.current.setDraft({ text: 'first' }))
     await sleep(40)
     expect(save).toHaveBeenCalledTimes(1)
@@ -179,6 +193,7 @@ describe('useAutosave — transient failure retries with bounds', () => {
       initialBackoffMs: 10,
       saveImpl: () => ({ ok: false, kind: 'transient', message: 'network' }),
     })
+
     act(() => mount.current.setDraft({ text: 'hi' }))
     await waitFor(() => {
       expect(save).toHaveBeenCalledTimes(3)
@@ -200,6 +215,7 @@ describe('useAutosave — stale version becomes a conflict', () => {
         serverValue: { text: 'server' },
       }),
     })
+
     act(() => mount.current.setDraft({ text: 'mine' }))
     await sleep(30)
     expect(mount.current.status).toBe('conflict')
@@ -208,6 +224,10 @@ describe('useAutosave — stale version becomes a conflict', () => {
     expect(mount.current.hasUnsavedWork).toBe(true)
     await sleep(50)
     expect(save).toHaveBeenCalledTimes(1)
+    mount.rerender({ initialValue: { text: 'newer canonical' } })
+    expect(mount.current.status).toBe('conflict')
+    expect(mount.current.serverValue).toEqual({ text: 'newer canonical' })
+    expect(mount.current.draft).toEqual({ text: 'mine' })
   })
 
   it('discardDraft adopts the server value and clears the conflict', async () => {
@@ -219,6 +239,7 @@ describe('useAutosave — stale version becomes a conflict', () => {
         serverValue: { text: 'server' },
       }),
     })
+
     act(() => mount.current.setDraft({ text: 'mine' }))
     await sleep(30)
     act(() => mount.current.discardDraft())
@@ -229,15 +250,18 @@ describe('useAutosave — stale version becomes a conflict', () => {
 
   it('retry re-attempts the save against the latest version', async () => {
     let attempt = 0
+
     const { mount, save } = mountAutosave({
       debounceMs: 10,
       saveImpl: () => {
         attempt += 1
+
         return attempt === 1
           ? { ok: false, kind: 'conflict', serverValue: { text: 'server' } }
           : { ok: true }
       },
     })
+
     act(() => mount.current.setDraft({ text: 'mine' }))
     await sleep(30)
     expect(mount.current.status).toBe('conflict')
@@ -255,6 +279,7 @@ describe('useAutosave — validation failures are permanent', () => {
       validate: () => [],
       saveImpl: () => ({ ok: false, kind: 'validation', message: 'bad' }),
     })
+
     act(() => mount.current.setDraft({ text: 'server-rejects-this' }))
     await sleep(30)
     expect(mount.current.status).toBe('failed')
@@ -269,6 +294,7 @@ describe('useAutosave — validation failures are permanent', () => {
       debounceMs: 10,
       validate: (v) => (v.text.length > 3 ? ['too long'] : []),
     })
+
     act(() => mount.current.setDraft({ text: 'toolong' }))
     await sleep(30)
     expect(mount.current.status).toBe('failed')
@@ -282,6 +308,7 @@ describe('useAutosave — validation failures are permanent', () => {
       validate: (v) => (v.text.length > 3 ? ['too long'] : []),
       saveImpl: () => ({ ok: false, kind: 'validation', message: 'bad' }),
     })
+
     act(() => mount.current.setDraft({ text: 'toolong' }))
     await sleep(30)
     expect(mount.current.status).toBe('failed')
@@ -294,6 +321,7 @@ describe('useAutosave — validation failures are permanent', () => {
 describe('useAutosave — offline hold and flush', () => {
   it('does not save while offline and flushes on reconnect', async () => {
     const save = makeSave()
+
     const mount = mountHook(
       (props: { offline: boolean }) =>
         useAutosave<{ text: string }>({
@@ -306,6 +334,7 @@ describe('useAutosave — offline hold and flush', () => {
         }),
       { offline: true },
     )
+
     act(() => mount.current.setDraft({ text: 'edit' }))
     await sleep(50)
     expect(save).not.toHaveBeenCalled()
@@ -320,25 +349,38 @@ describe('useAutosave — offline hold and flush', () => {
 describe('useAutosave — server-canonical reset', () => {
   it('resets the draft to the new canonical value while clean', async () => {
     const save = makeSave()
+    const committedDrafts: string[] = []
+
     const mount = mountHook(
-      (props: { initialValue: { text: string } }) =>
-        useAutosave<{ text: string }>({
+      (props: { initialValue: { text: string } }) => {
+        const autosave = useAutosave<{ text: string }>({
           initialValue: props.initialValue,
           validate: () => [],
           save,
           debounceMs: 20,
           touched: true,
-        }),
+        })
+
+        React.useLayoutEffect(() => {
+          committedDrafts.push(autosave.draft.text)
+        })
+
+        return autosave
+      },
       { initialValue: { text: '' } },
     )
+
+    const previousCommits = committedDrafts.length
     mount.rerender({ initialValue: { text: 'from server' } })
     await sleep(5)
     expect(mount.current.draft).toEqual({ text: 'from server' })
     expect(mount.current.status).toBe('clean')
+    expect(committedDrafts.slice(previousCommits)).toEqual(['from server'])
   })
 
   it('preserves a dirty draft when the server canonical changes', async () => {
     const save = makeSave()
+
     const mount = mountHook(
       (props: { initialValue: { text: string } }) =>
         useAutosave<{ text: string }>({
@@ -350,6 +392,7 @@ describe('useAutosave — server-canonical reset', () => {
         }),
       { initialValue: { text: '' } },
     )
+
     act(() => mount.current.setDraft({ text: 'my edit' }))
     mount.rerender({ initialValue: { text: 'from server' } })
     await sleep(5)

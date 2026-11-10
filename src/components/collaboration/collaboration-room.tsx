@@ -2,8 +2,7 @@ import * as React from 'react'
 
 import { CollabProvider, collabUrl } from '#/lib/collaboration/provider'
 import { RoomProviderContext } from '#/lib/collaboration/room-hooks'
-import { buildRoomId } from '#/lib/collaboration/room-ids'
-import type { CollaborationObjectKind } from '#/lib/collaboration/types'
+import { RoomReadyContext } from './room-ready'
 
 /**
  * COLLAB room boundary. Joins one room on the bundled co-editing server for the
@@ -22,31 +21,6 @@ import type { CollaborationObjectKind } from '#/lib/collaboration/types'
  * once the connection object exists, and room hooks are safe to call anywhere
  * (they report an empty room until then).
  */
-
-const RoomReadyContext = React.createContext(false)
-
-/** True when the enclosing CollaborationRoom has joined its room. */
-export function useCollaborationRoomReady(): boolean {
-  return React.useContext(RoomReadyContext)
-}
-
-/**
- * Builds a canonical room id without throwing. Room ids require UUIDs; a
- * null result simply means "no collaboration for this surface".
- */
-export function safeBuildRoomId(
-  workspaceId: string | null | undefined,
-  kind: CollaborationObjectKind,
-  objectId: string | null | undefined,
-): string | null {
-  if (!workspaceId || !objectId) return null
-
-  try {
-    return buildRoomId(workspaceId, kind, objectId)
-  } catch {
-    return null
-  }
-}
 
 export function CollaborationRoom({
   roomId,

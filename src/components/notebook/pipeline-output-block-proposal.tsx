@@ -22,6 +22,7 @@ import { t } from '#/copy'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
 import { Field } from '#/components/ui/input'
@@ -31,6 +32,7 @@ import { Textarea } from '#/components/inventory/list'
 import { Icon } from '#/components/icons'
 import { Notice } from '#/components/ui/alert'
 import { createDataClient } from '#/lib/data-client'
+import { readOnlyEntries } from './read-only-entries'
 import {
   agentOperationLabel,
   agentOperationQueryKeys,
@@ -44,12 +46,12 @@ import type {
 const dataClient = createDataClient()
 
 /** Shown where a block references a run but no proposal is pinned to it. */
-export const PROPOSAL_ABSENT_MESSAGE = t(
+const PROPOSAL_ABSENT_MESSAGE = t(
   'notebook.pipelineOutputBlockProposal.noPipelineProposalIs',
 )
 
 /** Shown when a linked proposal exists but the caller cannot read the row. */
-export const PROPOSAL_UNREADABLE_MESSAGE = t(
+const PROPOSAL_UNREADABLE_MESSAGE = t(
   'notebook.pipelineOutputBlockProposal.theLinkedPipelineProposal',
 )
 
@@ -87,12 +89,15 @@ export function usePipelineProposalQuery(proposalId: string | null) {
 }
 
 function ValuePreview({ value }: { value: unknown }) {
+  const stringValue = z.string().safeParse(value)
+
   const text =
     value === undefined
       ? '—'
-      : typeof value === 'string'
-        ? value
+      : stringValue.success
+        ? stringValue.data
         : JSON.stringify(value)
+
   return (
     <code className="text-fg-muted max-w-full overflow-hidden text-ellipsis whitespace-pre-wrap break-all font-mono text-[11px]">
       {text && text.length > 400 ? `${text.slice(0, 400)}…` : text}
@@ -110,6 +115,7 @@ function ComparePanel({
   currentOutput?: string | null
 }) {
   const changes = proposal.preview.changes
+
   return (
     <div
       data-proposal-compare=""
@@ -139,16 +145,18 @@ function ComparePanel({
       </dl>
       {changes.length ? (
         <ul className="space-y-1.5">
-          {changes.map((change, index) => (
-            <li key={`${change.path}-${index}`} className="space-y-0.5">
-              <p className="font-mono text-[11px]">{change.path}</p>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <ValuePreview value={change.before} />
-                <span aria-hidden="true">→</span>
-                <ValuePreview value={change.after} />
-              </div>
-            </li>
-          ))}
+          {readOnlyEntries(changes, (change) => JSON.stringify(change)).map(
+            ({ key, value: change }) => (
+              <li key={key} className="space-y-0.5">
+                <p className="font-mono text-[11px]">{change.path}</p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <ValuePreview value={change.before} />
+                  <span aria-hidden="true">→</span>
+                  <ValuePreview value={change.after} />
+                </div>
+              </li>
+            ),
+          )}
         </ul>
       ) : (
         <p className="text-fg-muted">
@@ -168,16 +176,7 @@ function ComparePanel({
   )
 }
 
-export function PipelineProposalBlock({
-  proposal,
-  runId,
-  currentOutput,
-  readOnly = false,
-  pending = null,
-  error = null,
-  onDecide,
-  onExecute,
-}: {
+interface PipelineProposalBlockProps {
   proposal: AgentOperationProposal
   runId?: string | null
   /** What the block shows now, for the Compare view. */
@@ -188,15 +187,25 @@ export function PipelineProposalBlock({
   error?: string | null
   onDecide?: (decision: 'approve' | 'reject', reason?: string | null) => void
   onExecute?: () => void
-}) {
+}
+
+export function PipelineProposalBlock({
+  proposal,
+  runId,
+  currentOutput,
+  readOnly = false,
+  pending = null,
+  error = null,
+  onDecide,
+  onExecute,
+}: PipelineProposalBlockProps) {
   const [showCompare, setShowCompare] = useState(false)
   const [rejecting, setRejecting] = useState(false)
   const [reason, setReason] = useState('')
 
   const decidable = proposal.status === 'pending'
   const canDecide = !readOnly && decidable && Boolean(onDecide)
-  const canExecute =
-    !readOnly && proposal.status === 'approved' && Boolean(onExecute)
+
   const runLabel = runId ? runId.slice(0, 8) : null
 
   return (
@@ -224,74 +233,19 @@ export function PipelineProposalBlock({
             ? t('notebook.pipelineOutputBlockProposal.nothingHereChangesUntil')
             : ''}
         </span>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            aria-expanded={showCompare}
-            onClick={() => setShowCompare((value) => !value)}
-          >
-            {t('notebook.pipelineOutputBlockProposal.compare')}
-          </Button>
-          {canDecide ? (
-            <>
-              <Button
-                type="button"
-                size="sm"
-                variant="quiet"
-                disabled={pending !== null}
-                onClick={() => setRejecting(true)}
-              >
-                {t('notebook.pipelineOutputBlockProposal.reject')}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="primary"
-                disabled={pending !== null}
-                onClick={() => onDecide?.('approve')}
-              >
-                {pending === 'approve'
-                  ? t('notebook.pipelineOutputBlockProposal.accepting')
-                  : t('notebook.pipelineOutputBlockProposal.accept')}
-              </Button>
-            </>
-          ) : null}
-          {canExecute ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="primary"
-              disabled={pending !== null}
-              onClick={() => onExecute?.()}
-            >
-              {pending === 'execute'
-                ? t('notebook.pipelineOutputBlockProposal.applying')
-                : t('notebook.pipelineOutputBlockProposal.applyChange')}
-            </Button>
-          ) : null}
-        </div>
+        <ProposalActions
+          status={proposal.status}
+          readOnly={readOnly}
+          pending={pending}
+          showCompare={showCompare}
+          onCompare={() => setShowCompare((value) => !value)}
+          onReject={() => setRejecting(true)}
+          onDecide={onDecide}
+          onExecute={onExecute}
+        />
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 text-xs">
-        <Status tone={STATUS_TONE[proposal.status]}>
-          {STATUS_LABEL[proposal.status]}
-        </Status>
-        <span className="text-fg-muted">
-          {agentOperationLabel(proposal.operation_kind)}
-        </span>
-        {proposal.status === 'rejected' && proposal.rejection_reason ? (
-          <span className="text-fg-muted">
-            {t('notebook.pipelineOutputBlockProposal.reasonRejectionReason', {
-              rejection_reason: proposal.rejection_reason,
-            })}
-          </span>
-        ) : null}
-        {proposal.status === 'failed' && proposal.error_message ? (
-          <span className="text-danger-text">{proposal.error_message}</span>
-        ) : null}
-      </div>
+      <ProposalStatus proposal={proposal} />
 
       {readOnly && decidable ? (
         <p className="text-fg-muted text-xs">
@@ -358,6 +312,102 @@ export function PipelineProposalBlock({
           runId={runId}
           currentOutput={currentOutput}
         />
+      ) : null}
+    </div>
+  )
+}
+
+function ProposalStatus({ proposal }: { proposal: AgentOperationProposal }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-xs">
+      <Status tone={STATUS_TONE[proposal.status]}>
+        {STATUS_LABEL[proposal.status]}
+      </Status>
+      <span className="text-fg-muted">
+        {agentOperationLabel(proposal.operation_kind)}
+      </span>
+      {proposal.status === 'rejected' && proposal.rejection_reason ? (
+        <span className="text-fg-muted">
+          {t('notebook.pipelineOutputBlockProposal.reasonRejectionReason', {
+            rejection_reason: proposal.rejection_reason,
+          })}
+        </span>
+      ) : null}
+      {proposal.status === 'failed' && proposal.error_message ? (
+        <span className="text-danger-text">{proposal.error_message}</span>
+      ) : null}
+    </div>
+  )
+}
+
+/** Decision controls are gated by the persisted proposal state, never the preview. */
+function ProposalActions({
+  status,
+  readOnly,
+  pending,
+  showCompare,
+  onCompare,
+  onReject,
+  onDecide,
+  onExecute,
+}: Pick<PipelineProposalBlockProps, 'onDecide' | 'onExecute'> & {
+  status: AgentProposalStatus
+  readOnly: boolean
+  pending: PipelineProposalBlockProps['pending']
+  showCompare: boolean
+  onCompare: () => void
+  onReject: () => void
+}) {
+  const canDecide = !readOnly && status === 'pending' && Boolean(onDecide)
+  const canExecute = !readOnly && status === 'approved' && Boolean(onExecute)
+
+  return (
+    <div className="flex shrink-0 items-center gap-2">
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        aria-expanded={showCompare}
+        onClick={onCompare}
+      >
+        {t('notebook.pipelineOutputBlockProposal.compare')}
+      </Button>
+      {canDecide ? (
+        <>
+          <Button
+            type="button"
+            size="sm"
+            variant="quiet"
+            disabled={pending !== null}
+            onClick={onReject}
+          >
+            {t('notebook.pipelineOutputBlockProposal.reject')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="primary"
+            disabled={pending !== null}
+            onClick={() => onDecide?.('approve')}
+          >
+            {pending === 'approve'
+              ? t('notebook.pipelineOutputBlockProposal.accepting')
+              : t('notebook.pipelineOutputBlockProposal.accept')}
+          </Button>
+        </>
+      ) : null}
+      {canExecute ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="primary"
+          disabled={pending !== null}
+          onClick={() => onExecute?.()}
+        >
+          {pending === 'execute'
+            ? t('notebook.pipelineOutputBlockProposal.applying')
+            : t('notebook.pipelineOutputBlockProposal.applyChange')}
+        </Button>
       ) : null}
     </div>
   )

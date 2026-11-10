@@ -105,47 +105,72 @@ export function DatasetArchive({
       )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="w-[min(480px,calc(100vw-32px))]">
-          <DialogHeader
-            title={
-              archived
-                ? t('data.datasetArchive.restoreTitle', { name })
-                : t('data.datasetArchive.archiveTitle', { name })
-            }
-            description={
-              archived
-                ? t('data.datasetArchive.returnsDatasetsListRows')
-                : t('data.datasetArchive.leavesDatasetsListBut')
-            }
+          <ArchiveConfirmation
+            name={name}
+            archived={archived}
+            failed={run.isError}
+            error={run.error}
+            pending={run.isPending}
+            onConfirm={() => run.mutate()}
           />
-          <DialogBody>
-            {run.isError ? (
-              <p role="alert" className="m-0 text-label text-danger-text">
-                {run.error instanceof Error
-                  ? run.error.message
-                  : archived
-                    ? t('data.datasetArchive.couldRestore')
-                    : t('data.datasetArchive.couldArchive')}
-              </p>
-            ) : null}
-          </DialogBody>
-          <DialogFooter>
-            <DialogClose render={<Button type="button" />}>
-              {t('common.actions.cancel')}
-            </DialogClose>
-            <Button
-              variant="primary"
-              disabled={run.isPending}
-              onClick={() => run.mutate()}
-            >
-              {run.isPending
-                ? t('common.states.saving')
-                : archived
-                  ? t('common.actions.restore')
-                  : t('common.actions.archive')}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
+  )
+}
+
+function ArchiveConfirmation({
+  name,
+  archived,
+  failed,
+  error,
+  pending,
+  onConfirm,
+}: {
+  name: string
+  archived: boolean
+  failed: boolean
+  error: Error | null
+  pending: boolean
+  onConfirm: () => void
+}) {
+  return (
+    <>
+      <DialogHeader
+        title={
+          archived
+            ? t('data.datasetArchive.restoreTitle', { name })
+            : t('data.datasetArchive.archiveTitle', { name })
+        }
+        description={
+          archived
+            ? t('data.datasetArchive.returnsDatasetsListRows')
+            : t('data.datasetArchive.leavesDatasetsListBut')
+        }
+      />
+      <DialogBody>
+        {failed ? (
+          <p role="alert" className="m-0 text-label text-danger-text">
+            {error instanceof Error
+              ? error.message
+              : archived
+                ? t('data.datasetArchive.couldRestore')
+                : t('data.datasetArchive.couldArchive')}
+          </p>
+        ) : null}
+      </DialogBody>
+      <DialogFooter>
+        <DialogClose render={<Button type="button" />}>
+          {t('common.actions.cancel')}
+        </DialogClose>
+        <Button variant="primary" disabled={pending} onClick={onConfirm}>
+          {pending
+            ? t('common.states.saving')
+            : archived
+              ? t('common.actions.restore')
+              : t('common.actions.archive')}
+        </Button>
+      </DialogFooter>
     </>
   )
 }

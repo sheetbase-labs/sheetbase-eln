@@ -33,13 +33,29 @@ export function SheetPasteData({
   onApply: (table: PastedTable) => void
 }) {
   const [text, setText] = useState('')
+  const [readFailed, setReadFailed] = useState(false)
   const table = parsePastedTable(text)
+
+  const readFile = async (file: File) => {
+    setReadFailed(false)
+
+    try {
+      setText(await file.text())
+    } catch {
+      // Keep any pasted draft available when the browser cannot read a file.
+      setReadFailed(true)
+    }
+  }
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) setText('')
+        if (!next) {
+          setText('')
+          setReadFailed(false)
+        }
+
         onOpenChange(next)
       }}
     >
@@ -60,7 +76,10 @@ export function SheetPasteData({
               disabled={busy}
               spellCheck={false}
               className="font-mono text-xs"
-              onChange={(event) => setText(event.target.value)}
+              onChange={(event) => {
+                setText(event.target.value)
+                setReadFailed(false)
+              }}
             />
           </Field>
           <Field
@@ -75,10 +94,13 @@ export function SheetPasteData({
               onChange={(event) => {
                 const file = event.target.files?.[0]
 
-                if (file) void file.text().then(setText)
+                if (file) void readFile(file)
               }}
             />
           </Field>
+          {readFailed ? (
+            <Notice tone="bad">{t('common.errors.generic')}</Notice>
+          ) : null}
           {text.trim() && !table ? (
             <Notice tone="warn">
               {t('notebook.sheetPasteData.pasteAHeaderRow')}

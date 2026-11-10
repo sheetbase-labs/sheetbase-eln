@@ -7,6 +7,8 @@ import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { toast } from '#/components/ui/sonner'
 import { usePageAi } from '#/lib/use-page-ai'
+import type { PageAi } from '#/lib/use-page-ai'
+import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   FIX_INSTRUCTION,
@@ -16,12 +18,16 @@ import {
   parseFailureReply,
   statementOf,
 } from '#/lib/pipelines/ai-fix'
-import type { FailureExplanation } from '#/lib/pipelines/ai-fix'
+import type {
+  FailureExplanation,
+  RunFailureFacts,
+} from '#/lib/pipelines/ai-fix'
 import {
   createPipelineDefinitionVersion,
   updatePipelineDefinitionVersionDraft,
 } from '#/lib/pipelines/data'
 import type { PipelineConfig } from '#/lib/pipelines/config'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
 import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
 
 /**
@@ -39,54 +45,44 @@ type Phase =
   | { name: 'applied'; created: boolean }
   | { name: 'dismissed' }
 
-export function RunAiFix({
-  pipelineId,
-  errorCode,
-  errorMessage,
-  logLines,
-  failedStep,
-  runConfig,
+function useApplyFix({
   draft,
+  runConfig,
+  workspaceId,
+  pipelineId,
+  client,
+  setPhase,
 }: {
-  pipelineId: string
-  errorCode: string | null
-  errorMessage: string | null
-  /** The run's error-level log lines, oldest first. */
-  logLines: string[]
-  /** The step the run stopped on ('Transform' or a step name), when known. */
-  failedStep: string | null
-  /** The configuration of the version the run used. */
-  runConfig: Partial<PipelineConfig>
   draft: PipelineDefinitionVersionWire | undefined
+  runConfig: Partial<PipelineConfig>
+  workspaceId: string
+  pipelineId: string
+  client: DataClient
+  setPhase: (phase: Phase) => void
 }) {
-  const ai = usePageAi()
   const queryClient = useQueryClient()
-  const [phase, setPhase] = useState<Phase>({ name: 'idle' })
 
-  const workspaceId = ai.workspaceId ?? ''
-
-  const apply = useMutation({
+  return useMutation({
     mutationFn: async (fix: NonNullable<FailureExplanation['fix']>) => {
-      const base = (draft?.configuration ?? runConfig) as PipelineConfig
-      const next = applyStepFix(base, fix)
+      const next = applyStepFix(draft?.configuration ?? runConfig, fix)
 
       if (!next.ok) throw new Error(next.reason)
 
       if (draft) {
-        await updatePipelineDefinitionVersionDraft(notebookDataClient, {
+        await updatePipelineDefinitionVersionDraft(client, {
           workspaceId,
           versionId: draft.id,
           expectedRevision: Number(draft.revision),
-          configuration: next.config as unknown as Record<string, unknown>,
+          configuration: pipelineJsonObjectSchema.parse(next.config),
         })
 
         return false
       }
 
-      await createPipelineDefinitionVersion(notebookDataClient, {
+      await createPipelineDefinitionVersion(client, {
         workspaceId,
         definitionId: pipelineId,
-        configuration: next.config as unknown as Record<string, unknown>,
+        configuration: pipelineJsonObjectSchema.parse(next.config),
       })
 
       return true
@@ -100,7 +96,7 @@ export function RunAiFix({
       )
       void queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       const message = error instanceof Error ? error.message : ''
       setPhase({
         name: 'error',
@@ -110,51 +106,59 @@ export function RunAiFix({
       })
     },
   })
+}
+
+export function RunAiFix({
+  pipelineId,
+  errorCode,
+  errorMessage,
+  logLines,
+  failedStep,
+  runConfig,
+  draft,
+  pageAi,
+  client = notebookDataClient,
+}: {
+  pipelineId: string
+  errorCode: string | null
+  errorMessage: string | null
+  /** The run's error-level log lines, oldest first. */
+  logLines: string[]
+  /** The step the run stopped on ('Transform' or a step name), when known. */
+  failedStep: string | null
+  /** The configuration of the version the run used. */
+  runConfig: Partial<PipelineConfig>
+  draft: PipelineDefinitionVersionWire | undefined
+  pageAi?: PageAi
+  client?: DataClient
+}) {
+  const contextAi = usePageAi()
+  const ai = pageAi ?? contextAi
+  const [phase, setPhase] = useState<Phase>({ name: 'idle' })
+
+  const apply = useApplyFix({
+    draft,
+    runConfig,
+    workspaceId: ai.workspaceId ?? '',
+    pipelineId,
+    client,
+    setPhase,
+  })
 
   // Off, not ready, or only the built-in model (it can't read code): no card.
   if (!ai.available || !ai.live) return null
 
   async function ask() {
     setPhase({ name: 'asking' })
-
-    try {
-      const result = await ai.run({
-        task: 'freeform',
-        instruction: FIX_INSTRUCTION,
-        text: buildFixText({
-          errorCode,
-          errorMessage,
-          logLines,
-          failedStep,
-          config: runConfig,
-        }),
-      })
-
-      if (result.status !== 'ok') {
-        setPhase({
-          name: 'error',
-          message: t('data.pipelineRunAiFix.failed', {
-            reason: result.message,
-          }),
-        })
-
-        return
-      }
-
-      const answer = parseFailureReply(result.text, runConfig)
-      setPhase(
-        answer
-          ? { name: 'answer', answer }
-          : { name: 'error', message: t('data.pipelineRunAiFix.badReply') },
-      )
-    } catch (error) {
-      setPhase({
-        name: 'error',
-        message: t('data.pipelineRunAiFix.failed', {
-          reason: error instanceof Error ? error.message : '',
-        }),
-      })
-    }
+    setPhase(
+      await explainFailure(ai, {
+        errorCode,
+        errorMessage,
+        logLines,
+        failedStep,
+        config: runConfig,
+      }),
+    )
   }
 
   if (phase.name === 'dismissed') return null
@@ -167,23 +171,7 @@ export function RunAiFix({
       aria-label={t('data.pipelineRunAiFix.heading')}
       className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3"
     >
-      <header className="flex items-start gap-2">
-        <span className="mt-0.5 text-fg-muted">
-          <Icon name="spark" size={14} />
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h3 className="m-0 font-sans text-label font-semibold">
-            {phase.name === 'answer' && fix
-              ? t('data.pipelineRunAiFix.suggestionIn', {
-                  step:
-                    fix.target === TRANSFORM_TARGET
-                      ? t('data.pipelineRunAiFix.transform')
-                      : fix.target,
-                })
-              : t('data.pipelineRunAiFix.heading')}
-          </h3>
-        </div>
-      </header>
+      <FixHeading fix={fix} />
 
       {phase.name === 'idle' || phase.name === 'asking' ? (
         <>
@@ -219,54 +207,13 @@ export function RunAiFix({
       ) : null}
 
       {phase.name === 'answer' ? (
-        <>
-          <p className="m-0 whitespace-pre-line text-body text-fg">
-            {phase.answer.explanation}
-          </p>
-          {fix && before ? (
-            <div className="flex flex-col gap-1.5">
-              <CodeBlock
-                label={t('data.pipelineRunAiFix.before')}
-                code={before.statement}
-                tone="before"
-              />
-              <CodeBlock
-                label={t('data.pipelineRunAiFix.after')}
-                code={fix.statement}
-                tone="after"
-              />
-            </div>
-          ) : (
-            <p className="m-0 text-label text-fg-muted">
-              {t('data.pipelineRunAiFix.noCodeFix')}
-            </p>
-          )}
-          <p className="m-0 text-label text-fg-faint">
-            {t('data.pipelineRunAiFix.generated')}
-          </p>
-          <div className="flex items-center gap-2">
-            {fix ? (
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={apply.isPending}
-                onClick={() => apply.mutate(fix)}
-              >
-                {apply.isPending
-                  ? t('data.pipelineRunAiFix.applying')
-                  : t('data.pipelineRunAiFix.apply')}
-              </Button>
-            ) : null}
-            <Button
-              size="sm"
-              variant="quiet"
-              disabled={apply.isPending}
-              onClick={() => setPhase({ name: 'dismissed' })}
-            >
-              {t('data.pipelineRunAiFix.dismiss')}
-            </Button>
-          </div>
-        </>
+        <FixAnswer
+          answer={phase.answer}
+          before={before}
+          pending={apply.isPending}
+          onApply={apply.mutate}
+          onDismiss={() => setPhase({ name: 'dismissed' })}
+        />
       ) : null}
 
       {phase.name === 'applied' ? (
@@ -285,6 +232,127 @@ export function RunAiFix({
         </div>
       ) : null}
     </section>
+  )
+}
+
+async function explainFailure(
+  ai: PageAi,
+  facts: RunFailureFacts,
+): Promise<Extract<Phase, { name: 'answer' | 'error' }>> {
+  try {
+    const result = await ai.run({
+      task: 'freeform',
+      instruction: FIX_INSTRUCTION,
+      text: buildFixText(facts),
+    })
+
+    if (result.status !== 'ok')
+      return {
+        name: 'error',
+        message: t('data.pipelineRunAiFix.failed', { reason: result.message }),
+      }
+
+    const answer = parseFailureReply(result.text, facts.config)
+
+    return answer
+      ? { name: 'answer', answer }
+      : { name: 'error', message: t('data.pipelineRunAiFix.badReply') }
+  } catch (error) {
+    return {
+      name: 'error',
+      message: t('data.pipelineRunAiFix.failed', {
+        reason: error instanceof Error ? error.message : '',
+      }),
+    }
+  }
+}
+
+function FixHeading({ fix }: Pick<FailureExplanation, 'fix'>) {
+  return (
+    <header className="flex items-start gap-2">
+      <span className="mt-0.5 text-fg-muted">
+        <Icon name="spark" size={14} />
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <h3 className="m-0 font-sans text-label font-semibold">
+          {fix
+            ? t('data.pipelineRunAiFix.suggestionIn', {
+                step:
+                  fix.target === TRANSFORM_TARGET
+                    ? t('data.pipelineRunAiFix.transform')
+                    : fix.target,
+              })
+            : t('data.pipelineRunAiFix.heading')}
+        </h3>
+      </div>
+    </header>
+  )
+}
+
+function FixAnswer({
+  answer,
+  before,
+  pending,
+  onApply,
+  onDismiss,
+}: {
+  answer: FailureExplanation
+  before: ReturnType<typeof statementOf>
+  pending: boolean
+  onApply: (fix: NonNullable<FailureExplanation['fix']>) => void
+  onDismiss: () => void
+}) {
+  const { fix } = answer
+
+  return (
+    <>
+      <p className="m-0 whitespace-pre-line text-body text-fg">
+        {answer.explanation}
+      </p>
+      {fix && before ? (
+        <div className="flex flex-col gap-1.5">
+          <CodeBlock
+            label={t('data.pipelineRunAiFix.before')}
+            code={before.statement}
+            tone="before"
+          />
+          <CodeBlock
+            label={t('data.pipelineRunAiFix.after')}
+            code={fix.statement}
+            tone="after"
+          />
+        </div>
+      ) : (
+        <p className="m-0 text-label text-fg-muted">
+          {t('data.pipelineRunAiFix.noCodeFix')}
+        </p>
+      )}
+      <p className="m-0 text-label text-fg-faint">
+        {t('data.pipelineRunAiFix.generated')}
+      </p>
+      <div className="flex items-center gap-2">
+        {fix ? (
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={pending}
+            onClick={() => onApply(fix)}
+          >
+            {pending
+              ? t('data.pipelineRunAiFix.applying')
+              : t('data.pipelineRunAiFix.apply')}
+          </Button>
+        ) : null}
+        <Button
+          size="sm"
+          variant="quiet"
+          disabled={pending}
+          onClick={onDismiss}
+        >
+          {t('data.pipelineRunAiFix.dismiss')}
+        </Button>
+      </div>
+    </>
   )
 }
 

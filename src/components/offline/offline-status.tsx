@@ -20,11 +20,8 @@ import {
   useLiveStatus,
 } from '#/components/live/live-event-provider'
 import { OfflineBanner, OfflineCapabilitiesNote } from './offline-banner'
-import {
-  isConnectionDown,
-  useLastSyncedAt,
-  useOfflineEdits,
-} from './offline-edits'
+import { isConnectionDown } from './offline-edit-model'
+import { useLastSyncedAt, useOfflineEdits } from './offline-edits'
 import { useSessionExpired } from '#/lib/session-expiry'
 import { UnsyncedChangesList } from './unsynced-changes'
 
@@ -35,6 +32,10 @@ export interface OfflineStatusBannerProps {
   offlineEditingAllowed?: boolean
 }
 
+const subscribeToClient = () => () => undefined
+const clientSnapshot = () => true
+const serverSnapshot = () => false
+
 export function OfflineStatusBanner({
   className,
   capabilitiesClassName,
@@ -44,7 +45,13 @@ export function OfflineStatusBanner({
   const coordinator = useLiveCoordinator()
   const lastSyncedAt = useLastSyncedAt(status)
   const { unsyncedCount, refresh } = useOfflineEdits()
-  const [mounted, setMounted] = React.useState(false)
+
+  const mounted = React.useSyncExternalStore(
+    subscribeToClient,
+    clientSnapshot,
+    serverSnapshot,
+  )
+
   const [retrying, setRetrying] = React.useState(false)
 
   // The global session banner owns the "session ended" message; this one
@@ -53,10 +60,6 @@ export function OfflineStatusBanner({
     useSessionExpired() || status.lastResetReason === 'session_expired'
 
   const offline = isConnectionDown(status.status) && !sessionExpired
-
-  React.useEffect(() => {
-    setMounted(true)
-  }, [])
 
   // A reconnect can be the moment the device store's drafts become sendable;
   // re-read it so the banner's count reflects the latest stored state.

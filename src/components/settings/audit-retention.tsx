@@ -33,11 +33,11 @@ const dataClient = createDataClient()
 const DAYS_PER_YEAR = 365
 
 /** Whole years a retention of `days` covers, never below one. */
-export function retentionYears(days: number): number {
+function retentionYears(days: number): number {
   return Math.max(1, Math.round(days / DAYS_PER_YEAR))
 }
 
-export function formatRetention(days: number): string {
+function formatRetention(days: number): string {
   const years = retentionYears(days)
 
   return `${years} ${years === 1 ? 'year' : 'years'}`

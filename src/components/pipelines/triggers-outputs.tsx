@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { z } from 'zod'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -28,21 +29,36 @@ async function webhookRequest(
   method: 'GET' | 'PUT',
   action?: 'rotate' | 'disable',
 ): Promise<WebhookTriggerState> {
-  const response = await fetch(`/api/pipelines/webhook/${definitionId}`, {
+  const request: RequestInit = {
     method,
     headers: { 'content-type': 'application/json' },
-    body: method === 'PUT' ? JSON.stringify({ action }) : undefined,
-  })
-
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      error?: string
-    } | null
-
-    throw new Error(body?.error ?? t('data.triggersOutputs.webhookCouldRead'))
   }
 
-  return (await response.json()) as WebhookTriggerState
+  if (method === 'PUT') request.body = JSON.stringify({ action })
+
+  const response = await fetch(
+    `/api/pipelines/webhook/${definitionId}`,
+    request,
+  )
+
+  if (!response.ok) {
+    const body = z
+      .object({ error: z.string().optional() })
+      .safeParse(await response.json().catch(() => null))
+
+    throw new Error(
+      (body.success ? body.data.error : undefined) ??
+        t('data.triggersOutputs.webhookCouldRead'),
+    )
+  }
+
+  return z
+    .object({
+      enabled: z.boolean(),
+      url: z.string(),
+      token: z.string().optional(),
+    })
+    .parse(await response.json())
 }
 
 /** An incoming webhook: an instrument or another system starts a run by
@@ -66,7 +82,7 @@ export function WebhookCard({ definitionId }: { definitionId: string }) {
       })
       setIssued(action === 'rotate' ? (next.token ?? null) : null)
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast(t('data.triggersOutputs.couldChangeWebhook'), {
         description:
           error instanceof Error
@@ -124,52 +140,70 @@ export function WebhookCard({ definitionId }: { definitionId: string }) {
         </div>
       ) : null}
       {enabled && state.data ? (
-        <div className="grid gap-3 border-t border-line bg-surface-sunken px-3 py-3">
-          <div>
-            <div className="text-caption text-fg-muted">
-              {t('data.triggersOutputs.url')}
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded border border-line bg-surface px-2 py-1 text-caption">
-                {state.data.url}
-              </code>
-              <Button
-                icon="copy"
-                onClick={() => {
-                  void Promise.resolve()
-                    .then(() => navigator.clipboard.writeText(state.data.url))
-                    .then(() => toast(t('data.triggersOutputs.urlCopied')))
-                    .catch(() => toast(t('data.triggersOutputs.couldCopyUrl')))
-                }}
-              >
-                {t('common.actions.copy')}
-              </Button>
-            </div>
-          </div>
-          <div>
-            <div className="text-caption text-fg-muted">
-              {t('data.triggersOutputs.signingToken')}
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded border border-line bg-surface px-2 py-1 text-caption">
-                {issued ?? '••••••••••••••••••••'}
-              </code>
-              <Button
-                disabled={change.isPending}
-                onClick={() => change.mutate('rotate')}
-              >
-                {t('data.triggersOutputs.rotate')}
-              </Button>
-            </div>
-          </div>
-          <Muted>
-            {issued
-              ? t('data.triggersOutputs.copyTokenNowShown')
-              : t('data.triggersOutputs.requestsWithoutTokenWithout')}{' '}
-            {t('data.triggersOutputs.requestBodyPassParameters')}
-          </Muted>
-        </div>
+        <WebhookCredentials
+          url={state.data.url}
+          issued={issued}
+          pending={change.isPending}
+          onRotate={() => change.mutate('rotate')}
+        />
       ) : null}
+    </div>
+  )
+}
+
+function WebhookCredentials({
+  url,
+  issued,
+  pending,
+  onRotate,
+}: {
+  url: string
+  issued: string | null
+  pending: boolean
+  onRotate: () => void
+}) {
+  return (
+    <div className="grid gap-3 border-t border-line bg-surface-sunken px-3 py-3">
+      <div>
+        <div className="text-caption text-fg-muted">
+          {t('data.triggersOutputs.url')}
+        </div>
+        <div className="flex items-center gap-2">
+          <code className="min-w-0 flex-1 truncate rounded border border-line bg-surface px-2 py-1 text-caption">
+            {url}
+          </code>
+          <Button
+            icon="copy"
+            onClick={() => {
+              void Promise.resolve()
+                .then(() => navigator.clipboard.writeText(url))
+                .then(() => toast(t('data.triggersOutputs.urlCopied')))
+                .catch(() => toast(t('data.triggersOutputs.couldCopyUrl')))
+            }}
+          >
+            {t('common.actions.copy')}
+          </Button>
+        </div>
+      </div>
+      <div>
+        <div className="text-caption text-fg-muted">
+          {t('data.triggersOutputs.signingToken')}
+        </div>
+        <div className="flex items-center gap-2">
+          <code className="min-w-0 flex-1 truncate rounded border border-line bg-surface px-2 py-1 text-caption">
+            {issued ?? '••••••••••••••••••••'}
+          </code>
+          <Button disabled={pending} onClick={onRotate}>
+            {t('data.triggersOutputs.rotate')}
+          </Button>
+        </div>
+      </div>
+      <Muted>
+        {issued
+          ? t('data.triggersOutputs.copyTokenNowShown')
+          : t('data.triggersOutputs.requestsWithoutTokenWithout')}{' '}
+        {t('data.triggersOutputs.requestBodyPassParameters')}
+      </Muted>
     </div>
   )
 }
@@ -293,7 +327,7 @@ export function ElnActions({ config }: { config: Partial<PipelineConfig> }) {
           <tbody>
             {actions.map((action) => {
               const target = action.arguments.p_record_id
-              const propose = (action as { mode?: string }).mode === 'propose'
+              const propose = action.mode === 'propose'
 
               return (
                 <tr key={action.name} className="border-t border-line">
@@ -303,7 +337,7 @@ export function ElnActions({ config }: { config: Partial<PipelineConfig> }) {
                   <td className="py-1.5 pr-3 text-fg-muted">
                     {action.forEach
                       ? t('data.triggersOutputs.eachRow')
-                      : typeof target === 'string'
+                      : z.string().safeParse(target).success
                         ? t('data.triggersOutputs.aRecord')
                         : t('data.triggersOutputs.theRun')}
                   </td>

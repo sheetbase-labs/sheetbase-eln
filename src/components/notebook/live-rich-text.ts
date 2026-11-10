@@ -12,7 +12,7 @@
  */
 import * as React from 'react'
 import { getSchema } from '@tiptap/react'
-import type { Extensions } from '@tiptap/react'
+import type { Extensions, JSONContent } from '@tiptap/react'
 import {
   prosemirrorJSONToYXmlFragment,
   yXmlFragmentToProseMirrorRootNode,
@@ -24,7 +24,8 @@ import {
   useRoomConnection,
   useRoomProvider,
 } from '#/lib/collaboration/room-hooks'
-import type { RichTextDocument } from '#/lib/blocks/rich-text'
+import type { RichTextDocument } from '#/lib/blocks/rich-text-data'
+import { useCommittedRef } from './use-committed-ref'
 
 /** The shared fragment a block's text lives in. */
 export function liveFieldName(blockId: string): string {
@@ -40,7 +41,7 @@ function isSeeded(doc: Y.Doc, blockId: string): boolean {
 
 /** Put the saved content into the shared document, once, atomically. */
 export function seedFragment(
-  provider: CollabProvider,
+  provider: Pick<CollabProvider, 'doc'>,
   blockId: string,
   extensions: Extensions,
   saved: RichTextDocument,
@@ -58,12 +59,14 @@ export function seedFragment(
 }
 
 /** A short fingerprint of a document, for telling states apart cheaply. */
-export function fingerprint(json: unknown): string {
+export function fingerprint(json: JSONContent): string {
   const text = JSON.stringify(json)
   let hash = 5381
+
   for (let i = 0; i < text.length; i++) {
     hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0
   }
+
   return `${text.length}:${hash}`
 }
 
@@ -75,10 +78,12 @@ export function fragmentMatches(
   saved: RichTextDocument,
 ): boolean {
   const schema = getSchema(extensions)
+
   const shared = yXmlFragmentToProseMirrorRootNode(
     doc.getXmlFragment(liveFieldName(blockId)),
     schema,
   ).toJSON()
+
   return (
     fingerprint(shared) === fingerprint(schema.nodeFromJSON(saved).toJSON())
   )
@@ -90,7 +95,7 @@ export function fragmentMatches(
  * collaborator mid-sentence.
  */
 export function reseedFragment(
-  provider: CollabProvider,
+  provider: Pick<CollabProvider, 'doc'>,
   blockId: string,
   extensions: Extensions,
   saved: RichTextDocument,
@@ -140,20 +145,27 @@ export function useLiveRichText({
   React.useEffect(() => {
     if (!provider) {
       setCrowded(false)
+
       return
     }
+
     const { awareness } = provider
     const update = () => setCrowded(awareness.getStates().size > 1)
     update()
     awareness.on('change', update)
+
     return () => awareness.off('change', update)
   }, [provider])
-  const latest = React.useRef({ extensions, getSaved, edited })
-  latest.current = { extensions, getSaved, edited }
+  const latest = useCommittedRef({ extensions, getSaved, edited })
 
+  // Teardown calls stopWatching, which removes afterTransaction and its retry
+  // timer. The provider-replacement/unmount regression checks the timer lifetime.
+  // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
   React.useEffect(() => {
     if (!blockId || !provider || !synced || !canWrite || !crowded) return
+
     if (liveFor === provider) return
+
     // Someone who has already started typing keeps their draft for now: the
     // shared document would replace what they typed.
     if (latest.current.edited()) return
@@ -167,19 +179,23 @@ export function useLiveRichText({
       // switching now would replace their new text with the saved copy.
       if (!cancelled && !latest.current.edited()) setLiveFor(provider)
     }
+
     const onTransaction = () => {
       if (isSeeded(doc, blockId)) {
         stopWatching()
         finish()
       }
     }
+
     const stopWatching = () => {
       doc.off('afterTransaction', onTransaction)
+
       if (timer) clearTimeout(timer)
     }
 
     const attempt = async (retriesLeft: number) => {
       if (cancelled) return
+
       if (isSeeded(doc, blockId)) {
         // The room can outlive its last editor by a moment. If this person is
         // the only one here and the block was saved differently in between
@@ -187,21 +203,27 @@ export function useLiveRichText({
         // saved copy rather than resurrect stale text.
         const alone = provider.awareness.getStates().size <= 1
         const saved = latest.current.getSaved()
+
         if (
           alone &&
           !fragmentMatches(doc, blockId, latest.current.extensions, saved)
         ) {
           reseedFragment(provider, blockId, latest.current.extensions, saved)
         }
+
         return finish()
       }
+
       const granted = await provider.claimSeed(blockId)
+
       // The effect may have been cleaned up while the claim was in flight.
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (cancelled) {
         if (granted) provider.releaseSeed(blockId)
+
         return
       }
+
       if (granted) {
         seedFragment(
           provider,
@@ -209,23 +231,27 @@ export function useLiveRichText({
           latest.current.extensions,
           latest.current.getSaved(),
         )
+
         return finish()
       }
+
       // Someone else is seeding it: wait for their content to arrive, and ask
       // again if it does not (they may have closed the block first).
       doc.on('afterTransaction', onTransaction)
       timer = setTimeout(() => {
         doc.off('afterTransaction', onTransaction)
+
         if (retriesLeft > 0) void attempt(retriesLeft - 1)
       }, 2500)
     }
+
     void attempt(2)
 
     return () => {
       cancelled = true
       stopWatching()
     }
-  }, [blockId, provider, synced, canWrite, crowded, liveFor])
+  }, [blockId, provider, synced, canWrite, crowded, liveFor, latest])
 
   // Leaving or replacing the room ends live mode with it.
   React.useEffect(() => {

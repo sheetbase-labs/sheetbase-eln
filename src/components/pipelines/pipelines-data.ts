@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 import { formatDate } from '#/lib/format-date'
 
 import type { Tone } from '#/components/ui/status'
@@ -23,7 +24,8 @@ import {
   startPipelineRun,
 } from '#/lib/pipelines/data'
 import type { StartPipelineRunInput } from '#/lib/pipelines/data'
-import type { PipelineInput, PipelineParameter } from '#/lib/pipelines/config'
+import { PARAMETER_TYPES } from '#/lib/pipelines/config'
+import { pipelineJsonValueSchema } from '#/lib/pipelines/types'
 import type { PipelineDraftContext } from '#/lib/ai-pipeline-draft'
 import type {
   PipelineDefinitionVersionWire,
@@ -44,10 +46,12 @@ import { runNumbers } from '#/lib/pipelines/run-steps'
  * started through api.start_pipeline_run and executed through the same-origin
  * execute route, so capability checks and the sandbox role stay server-side.
  */
-export function runStatus(status: PipelineRunStatus): {
+interface PipelineStatus {
   tone: Tone
   label: string
-} {
+}
+
+export function runStatus(status: PipelineRunStatus): PipelineStatus {
   switch (status) {
     case 'running':
       return { tone: 'progress', label: 'Running' }
@@ -66,7 +70,7 @@ export function runStatus(status: PipelineRunStatus): {
 
 export function versionStatus(
   lifecycle: PipelineDefinitionVersionWire['lifecycle'],
-): { tone: Tone; label: string } {
+): PipelineStatus {
   switch (lifecycle) {
     case 'published':
       return { tone: 'ok', label: 'Published' }
@@ -87,7 +91,7 @@ export function versionStatus(
 export function definitionStatus(
   lifecycle: string,
   versions: readonly Pick<PipelineDefinitionVersionWire, 'lifecycle'>[],
-): { tone: Tone; label: string } {
+): PipelineStatus {
   if (lifecycle !== 'active') return { tone: 'stored', label: 'Retired' }
 
   return versions.some((v) => v.lifecycle === 'published')
@@ -230,19 +234,47 @@ export function usePipelineRows(client: DataClient = notebookDataClient) {
 }
 
 /** The inputs and parameters a version declares, which a run must be given. */
-export function declaredRunInputs(version: PipelineDefinitionVersionWire): {
-  inputs: PipelineInput[]
-  parameters: PipelineParameter[]
-} {
-  const config = version.configuration as {
-    inputs?: PipelineInput[]
-    parameters?: PipelineParameter[]
-  }
+const runInputsSchema = z.object({
+  inputs: z
+    .array(
+      z.object({
+        name: z.string(),
+        required: z
+          .boolean()
+          .nullish()
+          .transform((value) => value ?? false),
+        description: z
+          .string()
+          .nullish()
+          .transform((value) => value ?? undefined),
+        schemaId: z
+          .string()
+          .nullish()
+          .transform((value) => value ?? undefined),
+      }),
+    )
+    .catch([]),
+  parameters: z
+    .array(
+      z.object({
+        name: z.string(),
+        type: z.enum(PARAMETER_TYPES),
+        required: z
+          .boolean()
+          .nullish()
+          .transform((value) => value ?? false),
+        default: pipelineJsonValueSchema.optional(),
+        description: z
+          .string()
+          .nullish()
+          .transform((value) => value ?? undefined),
+      }),
+    )
+    .catch([]),
+})
 
-  return {
-    inputs: Array.isArray(config.inputs) ? config.inputs : [],
-    parameters: Array.isArray(config.parameters) ? config.parameters : [],
-  }
+export function declaredRunInputs(version: PipelineDefinitionVersionWire) {
+  return runInputsSchema.parse(version.configuration)
 }
 
 /** A manual run needs the person to choose something first. */
@@ -269,7 +301,7 @@ export async function startAndExecuteRun(
   const started = await startPipelineRun(client, input)
   void executePipelineRun(started.id).then(
     () => onSettled({}),
-    (error: unknown) =>
+    (error) =>
       onSettled({
         error: error instanceof Error ? error : new Error('Execution failed.'),
       }),
@@ -898,12 +930,16 @@ export interface PipelineRunDeliveryWire {
 }
 
 /** The delivery ids a run recorded in `result.notificationDeliveryIds`. */
-export function readDeliveryIds(result: Record<string, unknown>): string[] {
-  const raw = result.notificationDeliveryIds
+export function readDeliveryIds(result: PipelineRunWire['result']): string[] {
+  const raw = z.array(z.unknown()).safeParse(result.notificationDeliveryIds)
 
-  if (!Array.isArray(raw)) return []
+  if (!raw.success) return []
 
-  return raw.filter((v): v is string => typeof v === 'string' && v.length > 0)
+  return raw.data.flatMap((value) => {
+    const id = z.string().min(1).safeParse(value)
+
+    return id.success ? [id.data] : []
+  })
 }
 
 /** The deliveries a run queued, joined to their destination webhooks. */
@@ -996,7 +1032,15 @@ export function usePythonRuntime() {
       if (!response.ok)
         return { available: false, message: 'Python could not be checked.' }
 
-      return (await response.json()) as PythonRuntimeInfo
+      return z
+        .object({
+          available: z.boolean(),
+          runtime: z.string().optional(),
+          python: z.string().optional(),
+          packages: z.record(z.string(), z.string()).optional(),
+          message: z.string().optional(),
+        })
+        .parse(await response.json())
     },
     staleTime: 60_000,
     retry: false,

@@ -44,7 +44,7 @@ import { t } from '#/copy'
 
 const defaultClient = createDataClient()
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: Error): string {
   return error instanceof Error
     ? error.message
     : t('settings.storageLocationsPanel.databaseRefused')
@@ -251,9 +251,14 @@ function RuleEditor({
   client: DataClient
   onChanged: () => void
 }) {
-  const [rules, setRules] = useState<ReleaseRule[]>(
-    () => saved ?? [...BUILT_IN_RULES],
+  const [drafts, setDrafts] = useState(() =>
+    (saved ?? BUILT_IN_RULES).map((rule) => ({
+      id: crypto.randomUUID(),
+      rule,
+    })),
   )
+
+  const rules = drafts.map((draft) => draft.rule)
 
   const problem = rules.map(validateRule).find(Boolean) ?? null
 
@@ -278,10 +283,10 @@ function RuleEditor({
     onError: (error) => toast.error(errorMessage(error)),
   })
 
-  const update = (index: number, patch: Partial<ReleaseRule>) =>
-    setRules(
-      rules.map((rule, i) =>
-        i === index ? ({ ...rule, ...patch } as ReleaseRule) : rule,
+  const update = (index: number, replacement: ReleaseRule) =>
+    setDrafts((current) =>
+      current.map((draft, i) =>
+        i === index ? { ...draft, rule: replacement } : draft,
       ),
     )
 
@@ -306,9 +311,9 @@ function RuleEditor({
         {rules.length === 0 ? (
           <Muted>{t('settings.releaseRules.noChecks')}</Muted>
         ) : null}
-        {rules.map((rule, index) => (
+        {drafts.map(({ id, rule }, index) => (
           <div
-            key={index}
+            key={id}
             className="flex flex-col gap-2 rounded-md border border-border p-3"
           >
             <div className="flex items-end gap-2">
@@ -318,15 +323,14 @@ function RuleEditor({
               >
                 <Select
                   value={rule.kind}
-                  onChange={(event) =>
-                    setRules(
-                      rules.map((r, i) =>
-                        i === index
-                          ? blankRule(event.target.value as ReleaseRuleKind)
-                          : r,
-                      ),
+                  onChange={(event) => {
+                    const kind = RULE_KINDS.find(
+                      (option) => option === event.target.value,
                     )
-                  }
+
+                    if (!kind) return
+                    update(index, blankRule(kind))
+                  }}
                 >
                   {RULE_KINDS.map((kind) => (
                     <option key={kind} value={kind}>
@@ -339,7 +343,9 @@ function RuleEditor({
                 size="sm"
                 variant="quiet"
                 aria-label={t('settings.releaseRules.removeCheck')}
-                onClick={() => setRules(rules.filter((_, i) => i !== index))}
+                onClick={() =>
+                  setDrafts((current) => current.filter((_, i) => i !== index))
+                }
               >
                 {t('common.actions.remove')}
               </Button>
@@ -349,7 +355,7 @@ function RuleEditor({
                 <Select
                   value={rule.result}
                   onChange={(event) =>
-                    update(index, { result: event.target.value })
+                    update(index, { ...rule, result: event.target.value })
                   }
                 >
                   <option value="fail">fail</option>
@@ -363,7 +369,10 @@ function RuleEditor({
                   inputMode="numeric"
                   value={String(rule.count)}
                   onChange={(event) =>
-                    update(index, { count: Number(event.target.value) })
+                    update(index, {
+                      ...rule,
+                      count: Number(event.target.value),
+                    })
                   }
                 />
               </Field>
@@ -374,7 +383,7 @@ function RuleEditor({
                 <Input
                   value={rule.measurement}
                   onChange={(event) =>
-                    update(index, { measurement: event.target.value })
+                    update(index, { ...rule, measurement: event.target.value })
                   }
                 />
               </Field>
@@ -387,6 +396,7 @@ function RuleEditor({
                     value={rule.min === undefined ? '' : String(rule.min)}
                     onChange={(event) =>
                       update(index, {
+                        ...rule,
                         min:
                           event.target.value.trim() === ''
                             ? undefined
@@ -401,6 +411,7 @@ function RuleEditor({
                     value={rule.max === undefined ? '' : String(rule.max)}
                     onChange={(event) =>
                       update(index, {
+                        ...rule,
                         max:
                           event.target.value.trim() === ''
                             ? undefined
@@ -415,7 +426,7 @@ function RuleEditor({
               <Input
                 value={rule.label ?? ''}
                 onChange={(event) =>
-                  update(index, { label: event.target.value })
+                  update(index, { ...rule, label: event.target.value })
                 }
               />
             </Field>
@@ -424,7 +435,15 @@ function RuleEditor({
         <div>
           <Button
             icon="plus"
-            onClick={() => setRules([...rules, blankRule('measurement_range')])}
+            onClick={() =>
+              setDrafts([
+                ...drafts,
+                {
+                  id: crypto.randomUUID(),
+                  rule: blankRule('measurement_range'),
+                },
+              ])
+            }
           >
             {t('settings.releaseRules.addCheck')}
           </Button>

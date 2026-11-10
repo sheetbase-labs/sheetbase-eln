@@ -152,7 +152,7 @@ export function SampleInspector({ sample }: { sample: SampleRecord }) {
               ...(holdUntil
                 ? ([
                     [t('library.samples.sampleInspector.holdLimit'), holdUntil],
-                  ] as [string, string][])
+                  ] satisfies [string, string][])
                 : []),
               [
                 t('library.samples.sampleInspector.registered'),

@@ -103,16 +103,16 @@ function Harness({
 
 /** The `DataTransfer` surface a drop handler reads; jsdom builds none itself. */
 function transfer(fieldId: string) {
-  const store: Record<string, string> = { [FIELD_DRAG_TYPE]: fieldId }
+  const store = new Map([[FIELD_DRAG_TYPE, fieldId]])
 
   return {
     types: [FIELD_DRAG_TYPE],
     effectAllowed: 'copy',
     dropEffect: 'copy',
     setData: (type: string, value: string) => {
-      store[type] = value
+      store.set(type, value)
     },
-    getData: (type: string) => store[type] ?? '',
+    getData: (type: string) => store.get(type) ?? '',
   }
 }
 
@@ -249,5 +249,156 @@ describe('chart encoding authoring paths', () => {
     expect(within(metadata).getByText('Buffer')).toBeTruthy()
     // No calculated marker exists on the chart source, so nothing is claimed.
     expect(view.queryByRole('list', { name: 'Derived fields' })).toBeNull()
+  })
+
+  it('shows recorded text and symbol units without changing scientific metadata', () => {
+    const columns: ChartColumn[] = [
+      { ...COLUMNS[0], unit: 'h' },
+      {
+        ...COLUMNS[1],
+        unit: {
+          kind: 'quantity',
+          dimension: 'concentration',
+          storageUnit: 'mol/L',
+          symbol: 'M',
+          preferredDisplayUnit: 'mmol/L',
+        },
+      },
+      COLUMNS[2],
+    ]
+
+    const before = structuredClone(columns)
+    render(
+      <ChartConfigurator
+        source={{ ...SOURCE, columns }}
+        spec={baseSpec()}
+        onSpecChange={() => {}}
+      />,
+    )
+
+    const measured = screen.getByRole('list', { name: 'Measured fields' })
+    expect(within(measured).getByText(/^h/)).toBeTruthy()
+    expect(within(measured).getByText(/^M/)).toBeTruthy()
+    expect(within(measured).queryByText(/no unit/i)).toBeNull()
+    expect(columns).toEqual(before)
+  })
+
+  it('edits and removes annotations through the controlled DOM without changing another annotation', () => {
+    const initial = baseSpec()
+    initial.display.annotations = [
+      { x: 1, y: 2, label: 'First' },
+      { x: 3, y: 4, label: 'Second' },
+    ]
+    const { view } = renderConfigurator(initial)
+
+    fireEvent.change(view.getByLabelText('Annotation 1 x'), {
+      target: { value: '1.5' },
+    })
+    fireEvent.change(view.getByLabelText('Annotation 1 y'), {
+      target: { value: '-2' },
+    })
+    fireEvent.change(view.getByLabelText('Annotation 1 label'), {
+      target: { value: 'Updated' },
+    })
+
+    expect(view.getByLabelText('Annotation 1 x')).toHaveProperty('value', '1.5')
+    expect(view.getByLabelText('Annotation 1 y')).toHaveProperty('value', '-2')
+    expect(view.getByLabelText('Annotation 1 label')).toHaveProperty(
+      'value',
+      'Updated',
+    )
+    expect(view.getByLabelText('Annotation 2 x')).toHaveProperty('value', '3')
+    expect(view.getByLabelText('Annotation 2 y')).toHaveProperty('value', '4')
+    expect(view.getByLabelText('Annotation 2 label')).toHaveProperty(
+      'value',
+      'Second',
+    )
+
+    fireEvent.click(view.getByRole('button', { name: 'Remove annotation 1' }))
+    expect(view.getByLabelText('Annotation 1 label')).toHaveProperty(
+      'value',
+      'Second',
+    )
+    expect(view.queryByLabelText('Annotation 2 label')).toBeNull()
+  })
+
+  it('keeps duplicate annotations editable through positional removal and caller replacement', () => {
+    const initial = baseSpec()
+    initial.display.annotations = [
+      { x: 1, y: 2, label: 'Duplicate' },
+      { x: 1, y: 2, label: 'Duplicate' },
+    ]
+
+    function configurator(spec: ChartSpec) {
+      return (
+        <ChartConfigurator
+          source={SOURCE}
+          spec={spec}
+          onSpecChange={(next) => rerender(configurator(next))}
+        />
+      )
+    }
+
+    const { container, rerender } = render(configurator(initial))
+    const view = within(container)
+
+    fireEvent.change(view.getByLabelText('Annotation 2 x'), {
+      target: { value: '3' },
+    })
+    fireEvent.change(view.getByLabelText('Annotation 2 y'), {
+      target: { value: '4' },
+    })
+    expect(view.getByLabelText('Annotation 1 x')).toHaveProperty('value', '1')
+    expect(view.getByLabelText('Annotation 1 y')).toHaveProperty('value', '2')
+    expect(view.getByLabelText('Annotation 1 label')).toHaveProperty(
+      'value',
+      'Duplicate',
+    )
+    expect(view.getByLabelText('Annotation 2 x')).toHaveProperty('value', '3')
+    expect(view.getByLabelText('Annotation 2 y')).toHaveProperty('value', '4')
+    expect(view.getByLabelText('Annotation 2 label')).toHaveProperty(
+      'value',
+      'Duplicate',
+    )
+    fireEvent.click(view.getByRole('button', { name: 'Remove annotation 1' }))
+    expect(view.getByLabelText('Annotation 1 x')).toHaveProperty('value', '3')
+    expect(view.getByLabelText('Annotation 1 y')).toHaveProperty('value', '4')
+    expect(view.getByLabelText('Annotation 1 label')).toHaveProperty(
+      'value',
+      'Duplicate',
+    )
+    expect(view.queryByLabelText('Annotation 2 x')).toBeNull()
+    expect(view.queryByLabelText('Annotation 2 y')).toBeNull()
+    expect(view.queryByLabelText('Annotation 2 label')).toBeNull()
+
+    rerender(
+      configurator({
+        ...initial,
+        display: {
+          ...initial.display,
+          annotations: [
+            { x: 8, y: 9, label: 'Replacement duplicate' },
+            { x: 8, y: 9, label: 'Replacement duplicate' },
+          ],
+        },
+      }),
+    )
+
+    expect(view.getByLabelText('Annotation 1 x')).toHaveProperty('value', '8')
+    expect(view.getByLabelText('Annotation 1 y')).toHaveProperty('value', '9')
+    expect(view.getByLabelText('Annotation 1 label')).toHaveProperty(
+      'value',
+      'Replacement duplicate',
+    )
+    expect(view.getByLabelText('Annotation 2 x')).toHaveProperty('value', '8')
+    expect(view.getByLabelText('Annotation 2 y')).toHaveProperty('value', '9')
+    expect(view.getByLabelText('Annotation 2 label')).toHaveProperty(
+      'value',
+      'Replacement duplicate',
+    )
+    expect(initial.display.annotations).toEqual([
+      { x: 1, y: 2, label: 'Duplicate' },
+      { x: 1, y: 2, label: 'Duplicate' },
+    ])
   })
 })

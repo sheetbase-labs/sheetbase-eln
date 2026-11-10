@@ -15,6 +15,8 @@ import type {
 } from '#/lib/ai-pipeline-draft'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { usePageAi } from '#/lib/use-page-ai'
+import type { PageAi } from '#/lib/use-page-ai'
+import type { DataClient } from '#/lib/data-client'
 
 type BoxState =
   | { phase: 'idle' }
@@ -34,30 +36,29 @@ type BoxState =
 export function AiPipelineBox({
   current,
   onApply,
+  pageAi,
+  client = notebookDataClient,
 }: {
   current: CurrentPipelineDraft
   /** Write the draft into the draft version; rejects with the reason if it cannot. */
   onApply: (proposal: PipelineDraftProposal) => Promise<void>
+  pageAi?: PageAi
+  client?: DataClient
 }) {
-  const ai = usePageAi()
+  const contextAi = usePageAi()
+  const ai = pageAi ?? contextAi
   const [text, setText] = useState('')
   const [state, setState] = useState<BoxState>({ phase: 'idle' })
 
   if (!ai.live) return null
 
-  const hasWork =
-    (current.inputs ?? []).length > 0 ||
-    (current.steps ?? []).length > 0 ||
-    Boolean(
-      current.statement?.trim() &&
-      current.statement.trim() !== 'select * from previous',
-    )
+  const hasWork = hasPipelineWork(current)
 
   async function draft() {
     setState({ phase: 'running' })
 
     try {
-      const context = await fetchPipelineDraftContext(notebookDataClient)
+      const context = await fetchPipelineDraftContext(client)
 
       const result = await ai.run({
         task: 'draft_pipeline',
@@ -159,77 +160,110 @@ export function AiPipelineBox({
         ) : null}
       </div>
       {proposal ? (
-        <div
-          role="group"
-          aria-label={t('data.pipelineAi.cardLabel')}
-          data-testid="pipeline-ai-card"
-          className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3"
-        >
-          <span className="text-label text-fg-muted">
-            {t('data.pipelineAi.cardLabel')}
-          </span>
-          {proposal.summary ? (
-            <p className="m-0 text-body font-medium text-fg">
-              {proposal.summary}
-            </p>
-          ) : null}
-          <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label text-fg">
-            {proposal.lines.map((line) => (
-              <li
-                key={line}
-                className="rounded-lg bg-surface-muted px-2.5 py-1.5"
-              >
-                {line}
-              </li>
-            ))}
-          </ul>
-          {[
-            proposal.config.transform.statement,
-            ...proposal.config.steps.map((s) => s.statement),
-          ].map((statement, index) => (
-            <CodeBlock
-              key={index}
-              code={statement}
-              language="sql"
-              label={`${t('data.pipelineAi.sqlLabel')} ${index + 1}`}
-              maxHeight="sm"
-            />
-          ))}
-          {proposal.skipped.length > 0 ? (
-            <p className="m-0 text-label text-fg-muted">
-              {t('data.pipelineAi.skipped', {
-                items: proposal.skipped.join('; '),
-              })}
-            </p>
-          ) : null}
-          {hasWork ? (
-            <p className="m-0 text-label text-fg-muted">
-              {t('data.pipelineAi.replaces')}
-            </p>
-          ) : null}
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="primary"
-              data-testid="pipeline-ai-apply"
-              disabled={state.phase === 'applying'}
-              onClick={() => void apply(proposal)}
-            >
-              {state.phase === 'applying'
-                ? t('data.pipelineAi.applying')
-                : t('data.pipelineAi.apply')}
-            </Button>
-            <Button
-              size="sm"
-              variant="quiet"
-              disabled={state.phase === 'applying'}
-              onClick={() => setState({ phase: 'idle' })}
-            >
-              {t('data.pipelineAi.dismiss')}
-            </Button>
-          </div>
-        </div>
+        <PipelineDraftCard
+          proposal={proposal}
+          hasWork={hasWork}
+          applying={state.phase === 'applying'}
+          onApply={() => void apply(proposal)}
+          onDismiss={() => setState({ phase: 'idle' })}
+        />
       ) : null}
     </section>
+  )
+}
+
+function hasPipelineWork(current: CurrentPipelineDraft) {
+  return (
+    (current.inputs ?? []).length > 0 ||
+    (current.steps ?? []).length > 0 ||
+    Boolean(
+      current.statement?.trim() &&
+      current.statement.trim() !== 'select * from previous',
+    )
+  )
+}
+
+function PipelineDraftCard({
+  proposal,
+  hasWork,
+  applying,
+  onApply,
+  onDismiss,
+}: {
+  proposal: PipelineDraftProposal
+  hasWork: boolean
+  applying: boolean
+  onApply: () => void
+  onDismiss: () => void
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={t('data.pipelineAi.cardLabel')}
+      data-testid="pipeline-ai-card"
+      className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3"
+    >
+      <span className="text-label text-fg-muted">
+        {t('data.pipelineAi.cardLabel')}
+      </span>
+      {proposal.summary ? (
+        <p className="m-0 text-body font-medium text-fg">{proposal.summary}</p>
+      ) : null}
+      <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label text-fg">
+        {proposal.lines.map((line) => (
+          <li key={line} className="rounded-lg bg-surface-muted px-2.5 py-1.5">
+            {line}
+          </li>
+        ))}
+      </ul>
+      {[
+        { key: 'transform', statement: proposal.config.transform.statement },
+        ...proposal.config.steps.map((s) => ({
+          key: `step:${s.name}`,
+          statement: s.statement,
+        })),
+      ].map(({ key, statement }, index) => (
+        <CodeBlock
+          key={key}
+          code={statement}
+          language="sql"
+          label={`${t('data.pipelineAi.sqlLabel')} ${index + 1}`}
+          maxHeight="sm"
+        />
+      ))}
+      {proposal.skipped.length > 0 ? (
+        <p className="m-0 text-label text-fg-muted">
+          {t('data.pipelineAi.skipped', {
+            items: proposal.skipped.join('; '),
+          })}
+        </p>
+      ) : null}
+      {hasWork ? (
+        <p className="m-0 text-label text-fg-muted">
+          {t('data.pipelineAi.replaces')}
+        </p>
+      ) : null}
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          variant="primary"
+          data-testid="pipeline-ai-apply"
+          disabled={applying}
+          onClick={onApply}
+        >
+          {applying
+            ? t('data.pipelineAi.applying')
+            : t('data.pipelineAi.apply')}
+        </Button>
+        <Button
+          size="sm"
+          variant="quiet"
+          disabled={applying}
+          onClick={onDismiss}
+        >
+          {t('data.pipelineAi.dismiss')}
+        </Button>
+      </div>
+    </div>
   )
 }

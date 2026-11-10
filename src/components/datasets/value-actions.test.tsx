@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
+import {
   cleanup,
   render,
   screen,
@@ -9,61 +15,24 @@ import {
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  FLAG_REASON_CATEGORIES,
-  MarkOutOfRangeDialog,
-  ValueActions,
-} from './value-actions'
-import type { DatasetValueFlag } from '#/lib/dataset-flags'
-import type * as DatasetFlagsModule from '#/lib/dataset-flags'
+import { MarkOutOfRangeDialog, ValueActions } from './value-actions'
+import { FLAG_REASON_CATEGORIES } from './value-action-labels'
+import type {
+  DatasetValueFlag,
+  DatasetValueFlagWire,
+  RequestRepeatResult,
+} from '#/lib/dataset-flags'
+import { createDataClient } from '#/lib/data-client'
+import { Toaster, toast } from '#/components/ui/sonner'
 
-const datasetFlags = vi.hoisted(() => ({
-  flagDatasetValue: vi.fn(),
-  clearDatasetValueFlag: vi.fn(),
-  requestRepeat: vi.fn(),
-}))
-
-vi.mock('#/lib/dataset-flags', async (importOriginal) => {
-  const actual = await importOriginal<typeof DatasetFlagsModule>()
-
-  return { ...actual, ...datasetFlags }
-})
-
-const sonner = vi.hoisted(() => ({ toast: vi.fn() }))
-
-vi.mock('#/components/ui/sonner', () => ({
-  toast: sonner.toast,
-  Toaster: () => null,
-}))
-
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    children,
-    search,
-  }: {
-    children?: React.ReactNode
-    search?: unknown
-  }) => (
-    <a
-      href={`/readings/new?${new URLSearchParams(search as Record<string, string>)}`}
-    >
-      {children}
-    </a>
-  ),
-}))
+const queryClients: QueryClient[] = []
 
 afterEach(() => {
   cleanup()
-  vi.clearAllMocks()
-  datasetFlags.flagDatasetValue.mockResolvedValue({})
-  datasetFlags.clearDatasetValueFlag.mockResolvedValue({})
-  datasetFlags.requestRepeat.mockResolvedValue({
-    sample: { id: 'repeat-sample', identifier: 'SMP-2249' },
-    plannedRowIds: ['row-p1', 'row-p2'],
-    plannedRows: [{ id: 'row-p1', plannedKey: 'repeat:sample:1' }],
-    datasetId: 'ds-1',
-    idempotent: false,
-  })
+  toast.dismiss()
+
+  for (const client of queryClients) client.clear()
+  queryClients.length = 0
 })
 
 const systemFlag: DatasetValueFlag = {
@@ -84,31 +53,88 @@ const systemFlag: DatasetValueFlag = {
 
 function renderActions(
   props: Partial<React.ComponentProps<typeof ValueActions>> = {},
+  response?: Response,
 ) {
-  const client = new QueryClient({
+  const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
 
-  return render(
-    <QueryClientProvider client={client}>
-      <ValueActions
-        datasetId="ds-1"
-        rowId="row-1"
-        fieldId="field-1"
-        fieldLabel="Turbidity"
-        value={61.5}
-        canWrite
-        sourceSample={{ id: 'smp-1', identifier: 'SMP-2249' }}
-        {...props}
-      />
+  queryClients.push(queryClient)
+
+  const http = vi.fn<typeof fetch>((input) => {
+    if (response) return Promise.resolve(response)
+
+    if (input === '/api/db/rpc/request_repeat') {
+      return Promise.resolve(
+        Response.json({
+          sample: { id: 'repeat-sample', identifier: 'SMP-2249' },
+          plannedRowIds: ['row-p1', 'row-p2'],
+          plannedRows: [{ id: 'row-p1', plannedKey: 'repeat:sample:1' }],
+          datasetId: 'ds-1',
+          idempotent: false,
+        } satisfies RequestRepeatResult),
+      )
+    }
+
+    if (
+      input === '/api/db/rpc/flag_dataset_value' ||
+      input === '/api/db/rpc/clear_dataset_value_flag'
+    ) {
+      return Promise.resolve(
+        Response.json({
+          id: systemFlag.id,
+          dataset_id: systemFlag.datasetId,
+          row_id: systemFlag.rowId,
+          field_id: systemFlag.fieldId,
+          kind: systemFlag.kind,
+          source: systemFlag.source ?? 'manual',
+          system_rule: systemFlag.systemRule ?? null,
+          reason: systemFlag.reason,
+          comment: systemFlag.comment,
+          evaluated_value: systemFlag.evaluatedValue,
+          threshold: systemFlag.threshold,
+          evaluated_at: systemFlag.evaluatedAt ?? null,
+          set_at: systemFlag.setAt,
+          cleared_at: null,
+          cleared_reason: null,
+        } satisfies DatasetValueFlagWire),
+      )
+    }
+
+    return Promise.reject(new Error('Unexpected value-action HTTP request'))
+  })
+
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory(),
+  })
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterContextProvider router={router}>
+        <ValueActions
+          client={createDataClient(http)}
+          datasetId="ds-1"
+          rowId="row-1"
+          fieldId="field-1"
+          fieldLabel="Turbidity"
+          value={61.5}
+          canWrite
+          sourceSample={{ id: 'smp-1', identifier: 'SMP-2249' }}
+          {...props}
+        />
+        <Toaster />
+      </RouterContextProvider>
     </QueryClientProvider>,
   )
+
+  return http
 }
 
 describe('ValueActions', () => {
   it('shows a flagged value state and clears a system flag with a reason', async () => {
     const user = userEvent.setup()
-    renderActions({ flags: [systemFlag] })
+    const http = renderActions({ flags: [systemFlag] })
 
     expect(screen.getByText('Out of range')).toBeTruthy()
     expect(screen.getByText(systemFlag.reason)).toBeTruthy()
@@ -123,17 +149,22 @@ describe('ValueActions', () => {
     expect(dialog).toBeTruthy()
     // The reason is required: the submit stays disabled until one is entered.
     const submit = within(dialog).getByRole('button', { name: 'Clear flag' })
-    expect((submit as HTMLButtonElement).disabled).toBe(true)
+    expect(submit.hasAttribute('disabled')).toBe(true)
     await user.type(
       within(dialog).getByRole('textbox'),
       'Reviewed: instrument drift',
     )
     await user.click(submit)
     await waitFor(() =>
-      expect(datasetFlags.clearDatasetValueFlag).toHaveBeenCalledWith(
-        expect.anything(),
-        'flag-1',
-        'Reviewed: instrument drift',
+      expect(http).toHaveBeenCalledWith(
+        '/api/db/rpc/clear_dataset_value_flag',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            p_flag_id: 'flag-1',
+            p_reason: 'Reviewed: instrument drift',
+          }),
+        }),
       ),
     )
   })
@@ -154,15 +185,17 @@ describe('ValueActions', () => {
       evaluatedAt: null,
     }
 
-    renderActions({ flags: [manual] })
+    const http = renderActions({ flags: [manual] })
 
     await user.click(screen.getByRole('button', { name: 'Clear flag' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     await waitFor(() =>
-      expect(datasetFlags.clearDatasetValueFlag).toHaveBeenCalledWith(
-        expect.anything(),
-        'flag-manual',
-        null,
+      expect(http).toHaveBeenCalledWith(
+        '/api/db/rpc/clear_dataset_value_flag',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ p_flag_id: 'flag-manual', p_reason: null }),
+        }),
       ),
     )
   })
@@ -190,7 +223,7 @@ describe('ValueActions', () => {
 
   it('marks a value out of range with a reason category and optional comment', async () => {
     const user = userEvent.setup()
-    renderActions()
+    const http = renderActions()
 
     expect(screen.queryByRole('button', { name: 'Clear flag' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Mark out of range…' }))
@@ -208,15 +241,18 @@ describe('ValueActions', () => {
     await user.click(screen.getByRole('button', { name: 'Mark out of range' }))
 
     await waitFor(() =>
-      expect(datasetFlags.flagDatasetValue).toHaveBeenCalledWith(
-        expect.anything(),
+      expect(http).toHaveBeenCalledWith(
+        '/api/db/rpc/flag_dataset_value',
         expect.objectContaining({
-          datasetId: 'ds-1',
-          rowId: 'row-1',
-          fieldId: 'field-1',
-          kind: 'out_of_range',
-          reason: 'Instrument or handling error',
-          comment: 'Repeat queued as SMP-2249',
+          method: 'POST',
+          body: JSON.stringify({
+            p_dataset_id: 'ds-1',
+            p_row_id: 'row-1',
+            p_field_id: 'field-1',
+            p_kind: 'out_of_range',
+            p_reason: 'Instrument or handling error',
+            p_comment: 'Repeat queued as SMP-2249',
+          }),
         }),
       ),
     )
@@ -224,33 +260,41 @@ describe('ValueActions', () => {
 
   it('requests a repeat and reports the derived sample and planned rows', async () => {
     const user = userEvent.setup()
-    renderActions()
+    const http = renderActions()
 
     await user.click(screen.getByRole('button', { name: 'Request repeat' }))
 
     await waitFor(() =>
-      expect(datasetFlags.requestRepeat).toHaveBeenCalledWith(
-        expect.anything(),
+      expect(http).toHaveBeenCalledWith(
+        '/api/db/rpc/request_repeat',
         expect.objectContaining({
-          sourceRecordId: 'smp-1',
-          datasetId: 'ds-1',
-          sourceRowId: 'row-1',
-          sourceFieldId: 'field-1',
+          method: 'POST',
+          body: JSON.stringify({
+            p_source_record_id: 'smp-1',
+            p_dataset_id: 'ds-1',
+            p_scheduled_at: null,
+            p_planned_row_count: 1,
+            p_source_row_id: 'row-1',
+            p_source_field_id: 'field-1',
+            p_title: null,
+            p_properties: {},
+          }),
         }),
       ),
     )
-    expect(sonner.toast).toHaveBeenCalledWith(
-      expect.stringContaining('SMP-2249'),
-      expect.objectContaining({
-        description: expect.stringContaining('2 planned rows'),
-      }),
-    )
+    expect(
+      await screen.findByText('Request repeat queued · SMP-2249'),
+    ).toBeTruthy()
+    expect(screen.getByText(/2 planned rows/)).toBeTruthy()
 
     const href = (
-      await screen.findByRole('link', { name: 'Record repeat reading' })
+      await screen.findByRole('button', { name: 'Record repeat reading' })
     ).getAttribute('href')
 
-    const search = new URL(href!, 'http://test.invalid').searchParams
+    expect(href).not.toBeNull()
+
+    if (href === null) throw new Error('Repeat reading link has no href')
+    const search = new URL(href, 'http://test.invalid').searchParams
     expect(search.get('sample')).toBe('repeat-sample')
     expect(search.get('dataset')).toBe('ds-1')
     expect(search.get('plannedKey')).toBe('repeat:sample:1')
@@ -260,22 +304,28 @@ describe('ValueActions', () => {
   })
 
   it('surfaces an RPC refusal as a toast instead of crashing', async () => {
-    datasetFlags.flagDatasetValue.mockRejectedValueOnce(
-      new Error('flag not found in active workspace'),
-    )
     const user = userEvent.setup()
-    renderActions()
+    renderActions(
+      {},
+      Response.json(
+        {
+          error: {
+            code: 'refused',
+            message: 'flag not found in active workspace',
+          },
+        },
+        { status: 403 },
+      ),
+    )
 
     await user.click(screen.getByRole('button', { name: 'Mark out of range…' }))
     await screen.findByRole('dialog')
     await user.click(screen.getByRole('button', { name: 'Mark out of range' }))
 
-    await waitFor(() =>
-      expect(sonner.toast).toHaveBeenCalledWith(
-        'Couldn’t mark the value out of range',
-        { description: 'flag not found in active workspace' },
-      ),
-    )
+    expect(
+      await screen.findByText('Couldn’t mark the value out of range'),
+    ).toBeTruthy()
+    expect(screen.getByText('flag not found in active workspace')).toBeTruthy()
     // The dialog stays mounted rather than taking down the page.
     expect(screen.getByRole('dialog')).toBeTruthy()
   })
@@ -287,18 +337,54 @@ describe('ValueActions', () => {
     ).toBeTruthy()
     const mark = screen.getByRole('button', { name: 'Mark out of range…' })
     const repeat = screen.getByRole('button', { name: 'Request repeat' })
-    expect((mark as HTMLButtonElement).disabled).toBe(true)
-    expect((repeat as HTMLButtonElement).disabled).toBe(true)
+    expect(mark.hasAttribute('disabled')).toBe(true)
+    expect(repeat.hasAttribute('disabled')).toBe(true)
   })
 
   it('disables Request repeat when no source sample is linked', () => {
     renderActions({ sourceSample: null })
     const repeat = screen.getByRole('button', { name: 'Request repeat' })
-    expect((repeat as HTMLButtonElement).disabled).toBe(true)
+    expect(repeat.hasAttribute('disabled')).toBe(true)
   })
 })
 
+interface SelectedValueCase {
+  value: React.ComponentProps<typeof MarkOutOfRangeDialog>['value']
+  shown: string
+}
+
+const selectedValueCases: SelectedValueCase[] = [
+  { value: null, shown: '—' },
+  { value: '', shown: '' },
+  { value: ['<0.1', 2], shown: '<0.1,2' },
+  { value: { concentration: '<0.1' }, shown: '[object Object]' },
+  { value: Symbol('below detection'), shown: 'Symbol(below detection)' },
+  { value: 10n, shown: '10' },
+  {
+    value: { toString: () => 'native scientific value' },
+    shown: 'native scientific value',
+  },
+]
+
 describe('MarkOutOfRangeDialog', () => {
+  it.each(selectedValueCases)(
+    'retains native selected-value display $shown',
+    ({ value, shown }) => {
+      render(
+        <MarkOutOfRangeDialog
+          open
+          onOpenChange={vi.fn()}
+          fieldLabel="Turbidity"
+          value={value}
+          onSubmit={vi.fn()}
+        />,
+      )
+      expect(
+        screen.getByText(`Turbidity · ${shown}`, { exact: true, trim: false }),
+      ).toBeTruthy()
+    },
+  )
+
   it('keeps the value untouched and offers the design reason categories', () => {
     render(
       <MarkOutOfRangeDialog

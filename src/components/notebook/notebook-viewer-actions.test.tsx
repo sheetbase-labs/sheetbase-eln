@@ -10,6 +10,12 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
+import {
   act,
   cleanup,
   fireEvent,
@@ -19,57 +25,78 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import * as React from 'react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
-import { DataClientError } from '#/lib/data-client'
-import type * as notebookDataModule from '#/lib/notebook-data'
+import { dropSharedReads } from '#/lib/data-client'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 import type { SignatureWire } from '#/lib/signatures'
 
 import { NotebookDocument } from './notebook-document'
-import { referenceCopyMessage } from './notebook-viewer-actions'
+import { NotebookViewerActions } from './notebook-viewer-actions'
 
-const { rpcMock, listMock } = vi.hoisted(() => ({
-  rpcMock: vi.fn(),
-  listMock: vi.fn(),
-}))
+const transport = vi.hoisted(() => {
+  const http = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', http)
 
-// NOTE-03: block previews build canonical Open affordances with TanStack Link.
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-    ...rest
-  }: {
-    to: string
-    children?: React.ReactNode
-    [key: string]: unknown
-  }) => (
-    <a href={to} {...rest}>
-      {children}
-    </a>
-  ),
-}))
+  return http
+})
 
-// The real wrappers run against this client, so the RPC name and arguments are
-// asserted, not a stub of the wrapper itself.
-vi.mock('#/lib/notebook-data', async (importOriginal) => ({
-  ...(await importOriginal<typeof notebookDataModule>()),
-  notebookDataClient: { rpc: rpcMock, list: listMock },
-}))
+let signatures: SignatureWire[] = []
+let signatureFailure = false
+let accessDenied = false
+
+beforeEach(() => {
+  dropSharedReads()
+  signatures = []
+  signatureFailure = false
+  accessDenied = false
+  transport.mockReset()
+  transport.mockImplementation(async (input) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://localhost',
+    )
+
+    if (url.pathname === '/api/db/rpc/request_project_edit_access') {
+      return accessDenied
+        ? Response.json(
+            {
+              code: 'permission_denied',
+              message: 'Readable project and workspace writer required',
+            },
+            { status: 403 },
+          )
+        : Response.json({ id: 'request-1' })
+    }
+
+    if (url.pathname === '/api/db/signatures') {
+      if (signatureFailure) throw new Error('offline')
+
+      return Response.json(signatures)
+    }
+
+    if (url.pathname === '/api/db/comments') return Response.json([])
+    throw new Error(`Unexpected request: ${url.pathname}`)
+  })
+})
 
 beforeAll(() => {
   document.elementFromPoint = () => null
-  Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+  Range.prototype.getClientRects = () => Object.assign([], { item: () => null })
   Range.prototype.getBoundingClientRect = () => new DOMRect()
 })
 
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
-  rpcMock.mockReset()
-  listMock.mockReset()
 })
 
 const record: NotebookRecord = {
@@ -155,18 +182,26 @@ function renderDocument(options: {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
+
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
   return render(
     <QueryClientProvider client={client}>
-      <NotebookDocument
-        record={options.record ?? record}
-        blocks={options.blocks ?? [richTextBlock('b1', 'Objective')]}
-        readOnly={options.readOnly}
-        collaborationWorkspaceId={options.collaborationWorkspaceId}
-        onSaveBlock={vi.fn()}
-        onInsertBlock={vi.fn()}
-        onDuplicateBlock={vi.fn()}
-        onDeleteBlock={vi.fn()}
-      />
+      <RouterContextProvider router={router}>
+        <NotebookDocument
+          record={options.record ?? record}
+          blocks={options.blocks ?? [richTextBlock('b1', 'Objective')]}
+          readOnly={options.readOnly}
+          collaborationWorkspaceId={options.collaborationWorkspaceId}
+          onSaveBlock={vi.fn()}
+          onInsertBlock={vi.fn()}
+          onDuplicateBlock={vi.fn()}
+          onDeleteBlock={vi.fn()}
+        />
+      </RouterContextProvider>
     </QueryClientProvider>,
   )
 }
@@ -174,7 +209,6 @@ function renderDocument(options: {
 describe('NotebookDocument — view-only mode (EXP-04.5)', () => {
   it('requests edit access through the SET-02 RPC and reports it as pending', async () => {
     const user = userEvent.setup()
-    rpcMock.mockResolvedValue({ id: 'request-1' })
     renderDocument({ readOnly: true })
 
     await user.click(
@@ -187,10 +221,16 @@ describe('NotebookDocument — view-only mode (EXP-04.5)', () => {
     await user.click(screen.getByRole('button', { name: 'Send request' }))
 
     await waitFor(() =>
-      expect(rpcMock).toHaveBeenCalledWith('request_project_edit_access', {
-        p_project_id: 'p1',
-        p_reason: 'QA verification of the turbidity repeat',
-      }),
+      expect(transport).toHaveBeenCalledWith(
+        '/api/db/rpc/request_project_edit_access',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            p_project_id: 'p1',
+            p_reason: 'QA verification of the turbidity repeat',
+          }),
+        }),
+      ),
     )
     // Pending approval — never reported as granted.
     expect(
@@ -200,13 +240,7 @@ describe('NotebookDocument — view-only mode (EXP-04.5)', () => {
 
   it('shows the server refusal in its own words and does not claim success', async () => {
     const user = userEvent.setup()
-    rpcMock.mockRejectedValue(
-      new DataClientError(
-        'permission_denied',
-        'Readable project and workspace writer required',
-        403,
-      ),
-    )
+    accessDenied = true
     renderDocument({ readOnly: true })
 
     await user.click(
@@ -227,14 +261,18 @@ describe('NotebookDocument — view-only mode (EXP-04.5)', () => {
 
   it('copies only the owning document’s selection to the clipboard', async () => {
     userEvent.setup()
+
     const writeText = vi
       .spyOn(navigator.clipboard, 'writeText')
       .mockResolvedValue(undefined)
+
     const first = renderDocument({ readOnly: true })
+
     const second = renderDocument({
       readOnly: true,
       blocks: [richTextBlock('b1', '4.1 NTU')],
     })
+
     act(() => {
       const range = document.createRange()
       range.selectNodeContents(within(second.container).getByText('4.1 NTU'))
@@ -246,6 +284,7 @@ describe('NotebookDocument — view-only mode (EXP-04.5)', () => {
     const copy = within(second.container).getByRole('button', {
       name: 'Copy selection',
     })
+
     expect(
       within(first.container)
         .getByRole('button', { name: 'Copy selection' })
@@ -278,6 +317,7 @@ describe('NotebookDocument — view-only mode (EXP-04.5)', () => {
     const blockComment = screen.getByRole('button', {
       name: 'Comments on block b1',
     })
+
     const opened = vi.fn()
     blockComment.addEventListener('click', opened)
     await user.click(screen.getByRole('button', { name: 'Comment' }))
@@ -286,14 +326,17 @@ describe('NotebookDocument — view-only mode (EXP-04.5)', () => {
 
   it('opens comments only in the second mounted copy of the same notebook', async () => {
     const user = userEvent.setup()
+
     const first = renderDocument({
       readOnly: true,
       collaborationWorkspaceId: 'w1',
     })
+
     const second = renderDocument({
       readOnly: true,
       collaborationWorkspaceId: 'w1',
     })
+
     const firstOpened = vi.fn()
     const secondOpened = vi.fn()
     within(first.container)
@@ -315,14 +358,14 @@ describe('NotebookDocument — view-only mode (EXP-04.5)', () => {
 
 describe('NotebookDocument — signed mode (EXP-04.5)', () => {
   it('is read-only and shows the signatures the record is bound to', async () => {
-    listMock.mockResolvedValue([
+    signatures = [
       signature({
         id: 'SIG-8841',
         signature_meaning: 'authored',
         signer_name: 'Gareth P.',
         signed_at: '2026-09-18T16:22:00Z',
       }),
-    ])
+    ]
     renderDocument({ record: signedRecord, readOnly: true })
 
     // Read-only: no insert affordance.
@@ -332,14 +375,14 @@ describe('NotebookDocument — signed mode (EXP-04.5)', () => {
     expect(within(table).getByText('Gareth P.')).toBeTruthy()
     expect(within(table).getByText('Authored')).toBeTruthy()
     expect(within(table).getByText('SIG-8841')).toBeTruthy()
-    expect(listMock).toHaveBeenCalledWith(
-      'signatures',
-      '?record_id=eq.r1&order=signed_at.asc,id.asc',
+    expect(transport).toHaveBeenCalledWith(
+      '/api/db/signatures?record_id=eq.r1&order=signed_at.asc,id.asc',
+      expect.objectContaining({ method: 'GET' }),
     )
   })
 
   it('never renders an empty signatures table in place of a failed load', async () => {
-    listMock.mockRejectedValue(new Error('offline'))
+    signatureFailure = true
     renderDocument({ record: signedRecord, readOnly: true })
 
     expect(await screen.findByText('Couldn’t load the signatures')).toBeTruthy()
@@ -347,18 +390,38 @@ describe('NotebookDocument — signed mode (EXP-04.5)', () => {
   })
 })
 
-describe('referenceCopyMessage', () => {
+describe('reference copy status', () => {
   it('blames another pane only when it shows the same record', () => {
-    expect(
-      referenceCopyMessage({ identifier: 'EXP-0140', sameRecord: true }),
-    ).toMatch(/another pane is editing this record/)
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <NotebookViewerActions
+          projectId="p1"
+          commentEnabled={false}
+          selectedBlockId={null}
+          referenceCopy
+          editingPane={{ identifier: 'EXP-0140', sameRecord: true }}
+        />
+      </QueryClientProvider>,
+    )
+    expect(screen.getByRole('status').textContent).toMatch(
+      /another pane is editing this record/,
+    )
   })
 
   it('names the editing pane when it shows a different record', () => {
-    const message = referenceCopyMessage({
-      identifier: 'EXP-0140',
-      sameRecord: false,
-    })
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <NotebookViewerActions
+          projectId="p1"
+          commentEnabled={false}
+          selectedBlockId={null}
+          referenceCopy
+          editingPane={{ identifier: 'EXP-0140', sameRecord: false }}
+        />
+      </QueryClientProvider>,
+    )
+    const message = screen.getByRole('status').textContent
+
     expect(message).toMatch(/editing happens in the EXP-0140 pane/)
     expect(message).not.toMatch(/editing this record/)
   })

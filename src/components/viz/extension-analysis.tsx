@@ -15,14 +15,20 @@ import {
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { t } from '#/copy'
 import { sciDataClient } from '#/lib/chart-data'
-import type { CanonicalDatasetSource } from '#/lib/chart-data'
-import type { ChartSpec, MaterialisedChart } from '#/lib/chart-spec'
+import type { CanonicalDatasetSource, ResolvedDataset } from '#/lib/chart-data'
 import { filterRowsByFlags } from '#/lib/dataset-flags'
 import type { DatasetValueFlag } from '#/lib/dataset-flags'
+import type { DataClient } from '#/lib/data-client'
 import { extensionQueryKeys, listExtensions } from '#/lib/extensions/client'
 import { resolveRunnerPoints } from '#/lib/extensions/runner-points'
 import type { RunnerItem } from '#/lib/extensions/runner-points'
 import type { ExtensionAnalysisKindDeclaration } from '#/lib/extensions/points'
+import {
+  buildExtensionChart,
+  extensionAnalysisNumber,
+  readExtensionAnalysisResult,
+} from './extension-analysis-result'
+import type { ExtensionAnalysisOutcome } from './extension-analysis-result'
 
 /**
  * Analyses an installed extension adds, offered beside the built-in ones in the
@@ -34,127 +40,27 @@ import type { ExtensionAnalysisKindDeclaration } from '#/lib/extensions/points'
 
 type Kind = RunnerItem<ExtensionAnalysisKindDeclaration>
 
-interface Outcome {
-  columns: ExtensionAnalysisKindDeclaration['result']['columns']
-  rows: Array<Record<string, unknown>>
-  chart: ExtensionAnalysisKindDeclaration['result']['chart'] | null
-  durationMs: number
-}
-
-const NUMERIC = ['decimal', 'integer']
-const CATEGORY = ['category', 'text', 'boolean']
-
-function numberOrNull(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
-
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value)
-
-    return Number.isFinite(parsed) ? parsed : null
-  }
-
-  return null
-}
-
-/** The chart the extension declared, built from its result rows. */
-export function buildExtensionChart(outcome: Outcome): {
-  spec: ChartSpec
-  materialised: MaterialisedChart
-} | null {
-  const chart = outcome.chart
-
-  if (!chart || outcome.rows.length === 0) return null
-
-  const xIsText =
-    outcome.columns.find((column) => column.name === chart.x)?.type === 'text'
-
-  const groups = new Map<string, Array<Record<string, unknown>>>()
-
-  for (const row of outcome.rows) {
-    const key = chart.group ? String(row[chart.group] ?? '') : ''
-    groups.set(key, [...(groups.get(key) ?? []), row])
-  }
-
-  const colours = [
-    'var(--series-a)',
-    'var(--series-b)',
-    'var(--series-c)',
-    'var(--series-d)',
-  ]
-
-  const series = [...groups.entries()].map(([group, rows], index) => ({
-    identifier: group || 'result',
-    label: group || chart.y,
-    color: colours[index % colours.length],
-    points: rows.map((row, position) => ({
-      x: xIsText ? position + 1 : numberOrNull(row[chart.x]),
-      y: numberOrNull(row[chart.y]),
-      yError: null,
-      label: xIsText ? String(row[chart.x] ?? '') : group || chart.y,
-    })),
-  }))
-
-  return {
-    spec: {
-      specVersion: 1,
-      type: chart.type,
-      datasets: [],
-      fields: {
-        x: null,
-        y: { fieldId: '' },
-        series: null,
-        color: null,
-        size: null,
-        facet: null,
-      },
-      filters: [],
-      transformations: [],
-      typeParams: {},
-      display: {
-        axes: {
-          x: { label: chart.x, scale: 'linear' },
-          y: { label: chart.y, scale: 'linear' },
-        },
-        series: series.map((s) => ({
-          identifier: s.identifier,
-          label: s.label,
-          color: s.color,
-        })),
-        legend: { visible: series.length > 1 },
-        annotations: [],
-      },
-      overlays: { errorBars: null },
-    },
-    materialised: {
-      state: { kind: 'ok' },
-      columns: [],
-      rows: [],
-      series,
-      xLabel: chart.x,
-      yLabel: chart.y,
-      xUnit: undefined,
-      yUnit: undefined,
-      droppedPoints: 0,
-    },
-  }
-}
+const NUMERIC = new Set(['decimal', 'integer'])
+const CATEGORY = new Set(['category', 'text', 'boolean'])
 
 export function ExtensionAnalysisSection({
   dataset,
   rows,
   flags,
   truncated,
+  dataClient = sciDataClient,
 }: {
   /** The chosen dataset's columns, or null before one is chosen. */
   dataset: CanonicalDatasetSource | null
-  rows: Array<Record<string, unknown>> | undefined
+  rows: ResolvedDataset['rows'] | undefined
   /** Values the lab flagged; they are left out, as in the built-in analyses. */
   flags?: DatasetValueFlag[]
   truncated: boolean
+  dataClient?: DataClient
 }) {
   const installs = useQuery({
     queryKey: [...extensionQueryKeys.extensions, 'analysis'],
-    queryFn: () => listExtensions(sciDataClient),
+    queryFn: () => listExtensions(dataClient),
     staleTime: 30_000,
   })
 
@@ -167,7 +73,8 @@ export function ExtensionAnalysisSection({
   const [bindings, setBindings] = useState<Record<string, string>>({})
   const active: Kind | undefined = kinds.find((k) => k.name === activeName)
 
-  const run = useMutation<Outcome, Error, void>({
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- This runs an ephemeral Python calculation and audits it; no dataset or saved analysis changes, so no dataset/analysis query becomes stale. HTTP success/refusal tests cover the returned action state.
+  const run = useMutation<ExtensionAnalysisOutcome, Error, void>({
     mutationFn: async () => {
       if (!active || !rows) throw new Error(t('plugins.analysis.needsDataset'))
 
@@ -187,7 +94,7 @@ export function ExtensionAnalysisSection({
               .map((input) => [
                 input.name,
                 input.type === 'number'
-                  ? numberOrNull(row[bindings[input.name]])
+                  ? extensionAnalysisNumber(row[bindings[input.name]])
                   : (row[bindings[input.name]] ?? null),
               ]),
           ),
@@ -200,13 +107,7 @@ export function ExtensionAnalysisSection({
         body: JSON.stringify(body),
       })
 
-      const answer = (await response.json().catch(() => null)) as
-        (Outcome & { error?: string }) | null
-
-      if (!response.ok || !answer)
-        throw new Error(answer?.error ?? t('common.errors.generic'))
-
-      return answer
+      return readExtensionAnalysisResult(response)
     },
   })
 
@@ -222,8 +123,6 @@ export function ExtensionAnalysisSection({
     active.declaration.inputs.every(
       (input) => !input.required || Boolean(bindings[input.name]),
     )
-
-  const chart = run.data ? buildExtensionChart(run.data) : null
 
   return (
     <section
@@ -263,7 +162,7 @@ export function ExtensionAnalysisSection({
         <div className="flex flex-wrap items-end gap-3">
           {active.declaration.inputs.map((input) => {
             const options = columns.filter((column) =>
-              (input.type === 'number' ? NUMERIC : CATEGORY).includes(
+              (input.type === 'number' ? NUMERIC : CATEGORY).has(
                 column.logicalType,
               ),
             )
@@ -331,71 +230,81 @@ export function ExtensionAnalysisSection({
         </div>
       ) : null}
       {run.data && active ? (
-        <div className="flex flex-col gap-3">
-          <p className="text-xs font-medium text-fg-muted">
-            {t('plugins.analysis.resultFrom', {
-              name: active.declaration.title,
-            })}{' '}
-            · {t('plugins.analysis.timing', { ms: run.data.durationMs })}
-          </p>
-          {chart ? (
-            <div className="rounded-md border p-2">
-              <ChartRenderer
-                title={active.declaration.title}
-                hideTitle
-                spec={chart.spec}
-                materialised={chart.materialised}
-                frozen={null}
-                showTableAlternative={false}
-                plotHeight={220}
-              />
-            </div>
-          ) : null}
-          {run.data.rows.length === 0 ? (
-            <p className="text-xs text-fg-muted">
-              {t('plugins.analysis.noRows')}
-            </p>
-          ) : (
-            <div className="max-h-80 overflow-auto rounded-md border">
-              <Table>
-                <caption className="sr-only">
-                  {active.declaration.title}
-                </caption>
-                <TableHeader>
-                  <TableRow>
-                    {run.data.columns.map((column) => (
-                      <TableHead key={column.name} scope="col">
-                        {column.name}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {run.data.rows.slice(0, 200).map((row, index) => (
-                    <TableRow key={index}>
-                      {run.data.columns.map((column) => (
-                        <TableCell
-                          key={column.name}
-                          className={
-                            column.type === 'number'
-                              ? 'font-mono tabular-nums'
-                              : undefined
-                          }
-                        >
-                          {row[column.name] === null ||
-                          row[column.name] === undefined
-                            ? '—'
-                            : String(row[column.name])}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
+        <ExtensionAnalysisResult outcome={run.data} kind={active} />
       ) : null}
     </section>
+  )
+}
+
+function ExtensionAnalysisResult({
+  outcome,
+  kind,
+}: {
+  outcome: ExtensionAnalysisOutcome
+  kind: Kind
+}) {
+  const chart = buildExtensionChart(outcome)
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-xs font-medium text-fg-muted">
+        {t('plugins.analysis.resultFrom', {
+          name: kind.declaration.title,
+        })}{' '}
+        · {t('plugins.analysis.timing', { ms: outcome.durationMs })}
+      </p>
+      {chart ? (
+        <div className="rounded-md border p-2">
+          <ChartRenderer
+            title={kind.declaration.title}
+            hideTitle
+            spec={chart.spec}
+            materialised={chart.materialised}
+            frozen={null}
+            showTableAlternative={false}
+            plotHeight={220}
+          />
+        </div>
+      ) : null}
+      {outcome.rows.length === 0 ? (
+        <p className="text-xs text-fg-muted">{t('plugins.analysis.noRows')}</p>
+      ) : (
+        <div className="max-h-80 overflow-auto rounded-md border">
+          <Table>
+            <caption className="sr-only">{kind.declaration.title}</caption>
+            <TableHeader>
+              <TableRow>
+                {outcome.columns.map((column) => (
+                  <TableHead key={column.name} scope="col">
+                    {column.name}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {outcome.rows.slice(0, 200).map((row, index) => {
+                return (
+                  // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- Runner results are immutable positional output, duplicates are allowed, and cells contain text only with no editable, selected or local row state. Result-replacement tests retain duplicate rows.
+                  <TableRow key={index}>
+                    {outcome.columns.map((column) => (
+                      <TableCell
+                        key={column.name}
+                        className={
+                          column.type === 'number'
+                            ? 'font-mono tabular-nums'
+                            : undefined
+                        }
+                      >
+                        {String(row[column.name] ?? '—')}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   )
 }

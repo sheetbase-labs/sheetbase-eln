@@ -12,6 +12,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '#/components/ui/popover'
+import type { DataClient } from '#/lib/data-client'
+import { notebookDataClient } from '#/lib/notebook-data'
 import {
   fetchLatestReviews,
   fetchMyNotifications,
@@ -25,12 +27,16 @@ import {
  * a list of the caller's notifications linking to their records, mark all
  * read, and links to the Inbox and notification settings.
  */
-export function NotificationsBell() {
+export function NotificationsBell({
+  client = notebookDataClient,
+}: {
+  client?: DataClient
+}) {
   const queryClient = useQueryClient()
 
   const query = useQuery({
     queryKey: notificationsQueryKeys.list(),
-    queryFn: () => fetchMyNotifications(),
+    queryFn: () => fetchMyNotifications(client),
     staleTime: 30_000,
     retry: false,
   })
@@ -45,7 +51,7 @@ export function NotificationsBell() {
       'reviews',
       notifications.length,
     ],
-    queryFn: () => fetchLatestReviews(notifications),
+    queryFn: () => fetchLatestReviews(notifications, client),
     enabled: notifications.length > 0,
     staleTime: 30_000,
     retry: false,
@@ -54,7 +60,7 @@ export function NotificationsBell() {
   const unread = notifications.filter((item) => item.readAt === null)
 
   const markRead = useMutation({
-    mutationFn: () => markNotificationsRead(),
+    mutationFn: () => markNotificationsRead(client),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: notificationsQueryKeys.list(),

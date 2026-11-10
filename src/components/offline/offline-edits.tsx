@@ -13,187 +13,28 @@
  * store and renders. Nothing here decides whether an edit is allowed.
  */
 
-import { t } from '#/copy'
-import { formatTime } from '#/lib/format-date'
 import * as React from 'react'
-
-import { isRichTextPayload, richTextToPlainText } from '#/lib/blocks'
-import { richTextPayloadFromText } from '#/lib/offline/replay'
+import {
+  blockEditTargetKey,
+  cellEditTargetKey,
+  offlineEditTargetKey,
+  canEditBlockOffline,
+  losslessPlainText,
+  isConnectionDown,
+} from './offline-edit-model'
 
 import {
   useLiveCoordinator,
   useLiveStatus,
 } from '#/components/live/live-event-provider'
 import type { LiveStatus } from '#/lib/live-events'
+import type { NotebookBlock } from '#/lib/notebook-data'
 import type {
   OfflineEdit,
   OfflineEditScope,
   OfflineEditStore,
   OfflineJsonValue,
 } from '#/lib/offline/store'
-
-// ---------------------------------------------------------------------------
-// Targets — where an unsynced edit belongs, as a comparable key.
-// ---------------------------------------------------------------------------
-
-/** Target key for an unsynced text-block edit. */
-export function blockEditTargetKey(blockId: string): string {
-  return `block:${blockId}`
-}
-
-/** Target key for an unsynced sheet-cell edit. */
-export function cellEditTargetKey(
-  sheetInstanceId: string,
-  rowId: string,
-  columnId: string,
-): string {
-  return `cell:${sheetInstanceId}:${rowId}:${columnId}`
-}
-
-/**
- * Target key for an unsynced added sheet row. A row draft carries no row id
- * yet (the server mints it on replay), so it marks the Sheet the row belongs
- * to.
- */
-export function rowEditTargetKey(sheetInstanceId: string): string {
-  return `row:${sheetInstanceId}`
-}
-
-/** Target key for an unsynced draft comment. */
-export function commentEditTargetKey(sheetInstanceId: string): string {
-  return `comment:${sheetInstanceId}`
-}
-
-/** The target key an edit marks, whatever its kind. */
-export function offlineEditTargetKey(edit: OfflineEdit): string {
-  switch (edit.kind) {
-    case 'block_text':
-    case 'block_payload':
-      return blockEditTargetKey(edit.blockId)
-    case 'cell':
-      return cellEditTargetKey(edit.sheetInstanceId, edit.rowId, edit.columnId)
-    case 'row':
-      return rowEditTargetKey(edit.sheetInstanceId)
-    case 'comment':
-      return commentEditTargetKey(edit.sheetInstanceId)
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Descriptions — one honest line per unsynced edit for the inspector list.
-// ---------------------------------------------------------------------------
-
-/** Clock time, e.g. "10:02", for the last-sync note and the edit list. */
-export function formatClockTime(iso: string): string {
-  const date = new Date(iso)
-
-  if (Number.isNaN(date.getTime())) return iso
-
-  return formatTime(date)
-}
-
-function shortText(value: string, limit = 60): string {
-  const collapsed = value.replace(/\s+/g, ' ').trim()
-
-  return collapsed.length > limit
-    ? `${collapsed.slice(0, limit - 1)}…`
-    : collapsed
-}
-
-function previewValue(value: unknown): string {
-  if (value === null || value === undefined) return 'empty'
-
-  if (typeof value === 'string') return shortText(value, 40)
-
-  if (typeof value === 'object') return shortText(JSON.stringify(value), 40)
-
-  return String(value)
-}
-
-function blockTypeLabel(type: string): string {
-  return type.replace(/_/g, ' ')
-}
-
-/** The first readable strings of a payload, for the one-line description. */
-export function blockPayloadSummary(payload: unknown): string {
-  if (isRichTextPayload(payload)) return richTextToPlainText(payload)
-  const found: string[] = []
-
-  const walk = (value: unknown, depth: number) => {
-    if (found.length >= 4 || depth > 4) return
-
-    if (typeof value === 'string') {
-      if (value.trim() && !/^[0-9a-f-]{20,}$/i.test(value)) found.push(value)
-    } else if (Array.isArray(value)) {
-      for (const item of value) walk(item, depth + 1)
-    } else if (value && typeof value === 'object') {
-      for (const [key, item] of Object.entries(value)) {
-        // Ids, kinds and keys are plumbing, not what the person wrote.
-        if (/^(id|type|kind|key)$|Id$|_id$/.test(key)) continue
-        walk(item, depth + 1)
-      }
-    }
-  }
-
-  walk(payload, 0)
-
-  return found.join(' · ')
-}
-
-/** A readable, id-grounded description of one unsynced edit. */
-export interface OfflineEditDescription {
-  /** ISO timestamp the edit was made. */
-  at: string
-  /** What changed, e.g. "Edited a Sheet cell". */
-  title: string
-  /** The detail line, e.g. "Load (L/m²) · row 6 · 4.1". */
-  detail: string
-}
-
-export function describeOfflineEdit(edit: OfflineEdit): OfflineEditDescription {
-  switch (edit.kind) {
-    case 'block_text':
-      return {
-        at: edit.createdAt,
-        title: t('notebook.offlineEdits.title'),
-        detail: shortText(edit.text) || t('notebook.offlineEdits.detail'),
-      }
-    case 'block_payload':
-      return {
-        at: edit.createdAt,
-        title: t('notebook.offlineEdits.editedBlockTitle', {
-          blockType: blockTypeLabel(edit.blockType),
-        }),
-        detail:
-          shortText(blockPayloadSummary(edit.payload)) ||
-          t('notebook.offlineEdits.detail'),
-      }
-    case 'cell':
-      return {
-        at: edit.createdAt,
-        title: t('notebook.offlineEdits.editedASheetCellTitle'),
-        detail: t('notebook.offlineEdits.detail2', {
-          columnId: edit.columnId,
-          rowId: edit.rowId,
-          previewValue: previewValue(edit.value),
-        }),
-      }
-    case 'row':
-      return {
-        at: edit.createdAt,
-        title: t('notebook.offlineEdits.addedASheetRowTitle'),
-        detail: t('notebook.offlineEdits.values', {
-          count: Object.keys(edit.values).length,
-        }),
-      }
-    case 'comment':
-      return {
-        at: edit.createdAt,
-        title: t('notebook.offlineEdits.addedACommentTitle'),
-        detail: shortText(edit.body) || t('notebook.offlineEdits.detail3'),
-      }
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Provider — one scope's unsynced edits, readable anywhere in the tree.
@@ -220,6 +61,7 @@ export interface OfflineEditsContextValue {
    */
   queueBlockText: (
     block: { id: string; version: number },
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw editor input is immediately decoded by losslessPlainText through canonical isRichTextPayload acceptance.
     payload: unknown,
   ) => Promise<boolean>
   /**
@@ -234,7 +76,7 @@ export interface OfflineEditsContextValue {
       version: number
       payloadSchemaVersion: number
     },
-    payload: Record<string, unknown>,
+    payload: NotebookBlock['payload'],
   ) => Promise<boolean>
   /** Keep sheet cell changes on the device to send later. */
   queueSheetCells: (
@@ -246,70 +88,6 @@ export interface OfflineEditsContextValue {
     sheet: { instanceId: string; revision: number },
     row: { rowKey: string; values: Record<string, OfflineJsonValue> },
   ) => Promise<void>
-}
-
-/**
- * Block types whose payload is edited in place and can be sent back later.
- * The rest (files, dataset imports, pipeline output, signatures, linked
- * records) are made by a server action, so they say they need a connection.
- */
-export const OFFLINE_EDITABLE_BLOCK_TYPES: ReadonlySet<string> = new Set([
-  'rich_text',
-  'checklist',
-  'callout',
-  'conclusion',
-  'metric',
-  'procedure_step',
-  'materials',
-  'plate_map',
-  'corrective_actions',
-  // The drawing needs the editor, which loads on demand; the rest is typed.
-  'structure',
-  'reaction',
-])
-
-export function canEditBlockOffline(type: string): boolean {
-  return OFFLINE_EDITABLE_BLOCK_TYPES.has(type)
-}
-
-/**
- * The plain text of a rich-text payload, or null when plain text would lose
- * something (formatting, headings, lists, links). Only a lossless round trip
- * is kept offline, because replay rebuilds the block from text alone.
- */
-export function losslessPlainText(payload: unknown): string | null {
-  if (!isRichTextPayload(payload)) return null
-  const text = richTextToPlainText(payload)
-  const rebuilt = richTextPayloadFromText(text)
-
-  return JSON.stringify(rebuilt) === JSON.stringify(payload) ? text : null
-}
-
-/**
- * The blocks as the person left them: each block with a queued edit shows the
- * queued payload, so a re-render or reload does not put the server's older
- * text back in front of them while the edit waits to sync. Blocks without a
- * queued edit are returned untouched.
- */
-export function overlayQueuedBlocks<
-  T extends { id: string; payload: Record<string, unknown> },
->(blocks: T[], edits: readonly OfflineEdit[]): T[] {
-  const queued = new Map<string, Record<string, unknown>>()
-
-  for (const edit of edits) {
-    if (edit.kind === 'block_payload') queued.set(edit.blockId, edit.payload)
-    else if (edit.kind === 'block_text') {
-      queued.set(edit.blockId, richTextPayloadFromText(edit.text))
-    }
-  }
-
-  if (queued.size === 0) return blocks
-
-  return blocks.map((block) => {
-    const payload = queued.get(block.id)
-
-    return payload ? { ...block, payload } : block
-  })
 }
 
 const EMPTY_OFFLINE_EDITS: OfflineEditsContextValue = {
@@ -441,10 +219,14 @@ export function OfflineEditsProvider({
         blockId: block.id,
         blockType: block.type,
         payloadSchemaVersion: block.payloadSchemaVersion,
+        // Legacy transport compatibility: JSON coercion is intentional; this cast does not validate the cloned contents.
+        // oxlint-disable anti-slop/require-safety-comment-for-type-assertion -- Only this unchecked legacy transport cast; post-clone validation still belongs to the store.
+        // react-doctor-disable-next-line no-json-parse-stringify-clone -- Preserve toJSON, omission and native serialization failures before the store validates.
         payload: JSON.parse(JSON.stringify(payload)) as Record<
           string,
           OfflineJsonValue
         >,
+        // oxlint-enable anti-slop/require-safety-comment-for-type-assertion
         expectedRevision,
       })
       refresh()
@@ -472,6 +254,7 @@ export function OfflineEditsProvider({
         )
 
         if (row && row.kind === 'row') {
+          // react-doctor-disable-next-line async-await-in-loop -- Removal and insertion share one ordered queue; failure must stop all later writes.
           await store.removeEdits(scopeKey, [row.id])
           await store.putEdit(scopeKey, {
             kind: 'row',
@@ -594,16 +377,6 @@ export function useUnsyncedCellState(
 // ---------------------------------------------------------------------------
 // Connection facts — the same live-event signal the app shell already uses.
 // ---------------------------------------------------------------------------
-
-/**
- * Whether the live-event stream is down, from its status. `connecting` is a
- * bootstrap state (the outcome is not yet known) and `live` is healthy;
- * `reconnecting` and `offline` both mean the stream is not delivering, which
- * is what the offline surface and connection-requiring actions key on.
- */
-export function isConnectionDown(status: LiveStatus['status']): boolean {
-  return status === 'reconnecting' || status === 'offline'
-}
 
 /** True while the live-event stream is delivering (or still bootstrapping). */
 export function useIsOnline(status?: LiveStatus): boolean {

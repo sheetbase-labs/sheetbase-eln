@@ -1,4 +1,5 @@
 import { t } from '#/copy'
+import { z } from 'zod'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
@@ -63,10 +64,6 @@ export function OutputEditor({
         ? (dataset?.schemaVersionId ?? '')
         : ''
 
-  const fields = useSchemaVersionFields(fieldsSchemaVersion)
-  const fieldList = fields.data ?? []
-  const fit = checkOutputFit(fieldList, value.fieldMapping, resultColumns)
-
   return (
     <div className="flex flex-col gap-4">
       <Field
@@ -77,7 +74,11 @@ export function OutputEditor({
           aria-label={t('data.outputEditor.ariaOutputMode')}
           value={value.mode}
           onChange={(event) =>
-            onChange({ mode: event.target.value as OutputMode })
+            onChange({
+              mode: z
+                .enum(['create', 'append', 'none'])
+                .parse(event.target.value),
+            })
           }
         >
           <option value="none">
@@ -93,51 +94,12 @@ export function OutputEditor({
       </Field>
 
       {value.mode === 'create' ? (
-        <>
-          <Field
-            label={t('data.outputEditor.datasetName')}
-            error={fieldErrors.datasetName}
-            hint={t('data.outputEditor.shownDatasetsListChanging')}
-          >
-            <Input
-              aria-label={t('data.outputEditor.datasetName')}
-              value={value.datasetName}
-              onChange={(e) => onChange({ datasetName: e.target.value })}
-            />
-          </Field>
-          <Field
-            label={t('data.outputEditor.datasetSchemaVersion')}
-            error={fieldErrors.schemaVersionId}
-            hint={t('data.outputEditor.columnsDatasetHasResult')}
-          >
-            <Select
-              aria-label={t('data.outputEditor.datasetSchemaVersion')}
-              value={value.schemaVersionId}
-              onChange={(e) =>
-                onChange({
-                  schemaVersionId: e.target.value,
-                  fieldMapping: null,
-                })
-              }
-            >
-              <option value="">
-                {t('data.outputEditor.chooseSchemaVersion')}
-              </option>
-              {(targets.data?.schemaVersions ?? []).map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          {!targets.isLoading &&
-          !targets.isError &&
-          (targets.data?.schemaVersions.length ?? 0) === 0 ? (
-            <Notice tone="warn">
-              {t('data.outputEditor.workspaceHasActiveDataset')}
-            </Notice>
-          ) : null}
-        </>
+        <CreateOutputFields
+          value={value}
+          onChange={onChange}
+          fieldErrors={fieldErrors}
+          targets={targets}
+        />
       ) : null}
 
       {value.mode === 'append' ? (
@@ -178,115 +140,12 @@ export function OutputEditor({
       ) : null}
 
       {value.mode !== 'none' && fieldsSchemaVersion ? (
-        <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
-          <legend className="mb-1 p-0 text-label font-medium text-fg">
-            {t('data.outputEditor.columnsResultMustProduce')}
-          </legend>
-          {fields.isLoading ? (
-            <p className="m-0 text-label text-fg-muted">
-              {t('data.outputEditor.loadingColumns')}
-            </p>
-          ) : fieldList.length === 0 ? (
-            <p className="m-0 text-label text-fg-muted">
-              {t('data.outputEditor.schemaHasActiveFields')}
-            </p>
-          ) : (
-            <>
-              <p className="m-0 text-label text-fg-muted">
-                {t('data.outputEditor.nameEachResultColumn')}
-              </p>
-              <datalist id="pipeline-result-columns">
-                {resultColumns.map((column) => (
-                  <option key={column} value={column} />
-                ))}
-              </datalist>
-              <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-                {fieldList.map((field) => (
-                  <li
-                    key={field.key}
-                    className="flex flex-wrap items-center gap-2"
-                  >
-                    <span className="w-[200px] min-w-0">
-                      <span className="mono text-xs">{field.key}</span>
-                      {field.required ? (
-                        <span aria-hidden="true"> *</span>
-                      ) : null}
-                      <span className="block text-caption text-fg-muted">
-                        {field.label} · {field.type}
-                      </span>
-                    </span>
-                    <span aria-hidden="true" className="text-fg-muted">
-                      ←
-                    </span>
-                    <Input
-                      className="mono h-8 w-[200px] text-xs"
-                      list="pipeline-result-columns"
-                      aria-label={t('data.outputEditor.ariaResultColumn', {
-                        key: field.key,
-                      })}
-                      placeholder={field.key}
-                      value={columnForField(value.fieldMapping, field.key)}
-                      onChange={(e) =>
-                        onChange({
-                          fieldMapping: setFieldColumn(
-                            value.fieldMapping,
-                            field.key,
-                            e.target.value,
-                          ),
-                        })
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
-              {resultColumns.length ? (
-                fit.missing.length || fit.unmatched.length ? (
-                  <Notice
-                    tone="warn"
-                    title={t('data.outputEditor.lastRunSColumns')}
-                  >
-                    {[
-                      fit.missing.length
-                        ? t('data.outputEditor.columnFeeds', {
-                            fields: fit.missing.join(', '),
-                          })
-                        : null,
-                      fit.unmatched.length
-                        ? t('data.outputEditor.noField', {
-                            count: fit.unmatched.length,
-                            fields: fit.unmatched.join(', '),
-                          })
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                  </Notice>
-                ) : (
-                  <p className="m-0 text-label text-fg-muted">
-                    {t('data.outputEditor.columnsLastRunFit', {
-                      columns: resultColumns.join(', '),
-                    })}
-                  </p>
-                )
-              ) : (
-                <p className="m-0 text-label text-fg-muted">
-                  {t('data.outputEditor.runPipelineOnceResult')}
-                </p>
-              )}
-              {value.fieldMapping ? (
-                <div>
-                  <Button
-                    size="sm"
-                    variant="quiet"
-                    onClick={() => onChange({ fieldMapping: null })}
-                  >
-                    {t('data.outputEditor.clearColumnMatching')}
-                  </Button>
-                </div>
-              ) : null}
-            </>
-          )}
-        </fieldset>
+        <OutputMapping
+          schemaVersionId={fieldsSchemaVersion}
+          fieldMapping={value.fieldMapping}
+          resultColumns={resultColumns}
+          onChange={onChange}
+        />
       ) : null}
 
       {value.mode !== 'none' && targets.isError ? (
@@ -298,5 +157,200 @@ export function OutputEditor({
         </Notice>
       ) : null}
     </div>
+  )
+}
+
+function CreateOutputFields({
+  value,
+  onChange,
+  fieldErrors,
+  targets,
+}: {
+  value: OutputDraft
+  onChange: (patch: Partial<OutputDraft>) => void
+  fieldErrors: Record<string, string>
+  targets: Pick<
+    ReturnType<typeof usePipelineOutputTargets>,
+    'data' | 'isLoading' | 'isError'
+  >
+}) {
+  return (
+    <>
+      <Field
+        label={t('data.outputEditor.datasetName')}
+        error={fieldErrors.datasetName}
+        hint={t('data.outputEditor.shownDatasetsListChanging')}
+      >
+        <Input
+          aria-label={t('data.outputEditor.datasetName')}
+          value={value.datasetName}
+          onChange={(e) => onChange({ datasetName: e.target.value })}
+        />
+      </Field>
+      <Field
+        label={t('data.outputEditor.datasetSchemaVersion')}
+        error={fieldErrors.schemaVersionId}
+        hint={t('data.outputEditor.columnsDatasetHasResult')}
+      >
+        <Select
+          aria-label={t('data.outputEditor.datasetSchemaVersion')}
+          value={value.schemaVersionId}
+          onChange={(e) =>
+            onChange({ schemaVersionId: e.target.value, fieldMapping: null })
+          }
+        >
+          <option value="">{t('data.outputEditor.chooseSchemaVersion')}</option>
+          {(targets.data?.schemaVersions ?? []).map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.label}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      {!targets.isLoading &&
+      !targets.isError &&
+      (targets.data?.schemaVersions.length ?? 0) === 0 ? (
+        <Notice tone="warn">
+          {t('data.outputEditor.workspaceHasActiveDataset')}
+        </Notice>
+      ) : null}
+    </>
+  )
+}
+
+function OutputMapping({
+  schemaVersionId,
+  fieldMapping,
+  resultColumns,
+  onChange,
+}: {
+  schemaVersionId: string
+  fieldMapping: OutputDraft['fieldMapping']
+  resultColumns: string[]
+  onChange: (patch: Partial<OutputDraft>) => void
+}) {
+  const fields = useSchemaVersionFields(schemaVersionId)
+  const fieldList = fields.data ?? []
+
+  return (
+    <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
+      <legend className="mb-1 p-0 text-label font-medium text-fg">
+        {t('data.outputEditor.columnsResultMustProduce')}
+      </legend>
+      {fields.isLoading ? (
+        <p className="m-0 text-label text-fg-muted">
+          {t('data.outputEditor.loadingColumns')}
+        </p>
+      ) : fieldList.length === 0 ? (
+        <p className="m-0 text-label text-fg-muted">
+          {t('data.outputEditor.schemaHasActiveFields')}
+        </p>
+      ) : (
+        <>
+          <p className="m-0 text-label text-fg-muted">
+            {t('data.outputEditor.nameEachResultColumn')}
+          </p>
+          <datalist id="pipeline-result-columns">
+            {resultColumns.map((column) => (
+              <option key={column} value={column} />
+            ))}
+          </datalist>
+          <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+            {fieldList.map((field) => (
+              <li key={field.key} className="flex flex-wrap items-center gap-2">
+                <span className="w-[200px] min-w-0">
+                  <span className="mono text-xs">{field.key}</span>
+                  {field.required ? <span aria-hidden="true"> *</span> : null}
+                  <span className="block text-caption text-fg-muted">
+                    {field.label} · {field.type}
+                  </span>
+                </span>
+                <span aria-hidden="true" className="text-fg-muted">
+                  ←
+                </span>
+                <Input
+                  className="mono h-8 w-[200px] text-xs"
+                  list="pipeline-result-columns"
+                  aria-label={t('data.outputEditor.ariaResultColumn', {
+                    key: field.key,
+                  })}
+                  placeholder={field.key}
+                  value={columnForField(fieldMapping, field.key)}
+                  onChange={(e) =>
+                    onChange({
+                      fieldMapping: setFieldColumn(
+                        fieldMapping,
+                        field.key,
+                        e.target.value,
+                      ),
+                    })
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+          <OutputFitFeedback
+            fieldList={fieldList}
+            fieldMapping={fieldMapping}
+            resultColumns={resultColumns}
+          />
+          {fieldMapping ? (
+            <div>
+              <Button
+                size="sm"
+                variant="quiet"
+                onClick={() => onChange({ fieldMapping: null })}
+              >
+                {t('data.outputEditor.clearColumnMatching')}
+              </Button>
+            </div>
+          ) : null}
+        </>
+      )}
+    </fieldset>
+  )
+}
+
+function OutputFitFeedback({
+  fieldList,
+  fieldMapping,
+  resultColumns,
+}: {
+  fieldList: Parameters<typeof checkOutputFit>[0]
+  fieldMapping: OutputDraft['fieldMapping']
+  resultColumns: string[]
+}) {
+  const fit = checkOutputFit(fieldList, fieldMapping, resultColumns)
+
+  return resultColumns.length ? (
+    fit.missing.length || fit.unmatched.length ? (
+      <Notice tone="warn" title={t('data.outputEditor.lastRunSColumns')}>
+        {[
+          fit.missing.length
+            ? t('data.outputEditor.columnFeeds', {
+                fields: fit.missing.join(', '),
+              })
+            : null,
+          fit.unmatched.length
+            ? t('data.outputEditor.noField', {
+                count: fit.unmatched.length,
+                fields: fit.unmatched.join(', '),
+              })
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      </Notice>
+    ) : (
+      <p className="m-0 text-label text-fg-muted">
+        {t('data.outputEditor.columnsLastRunFit', {
+          columns: resultColumns.join(', '),
+        })}
+      </p>
+    )
+  ) : (
+    <p className="m-0 text-label text-fg-muted">
+      {t('data.outputEditor.runPipelineOnceResult')}
+    </p>
   )
 }

@@ -5,7 +5,7 @@ import {
   partQueryKeys,
   partsProgress,
 } from '#/lib/experiment-parts'
-import type { PartBlockLike, PartProgress } from '#/lib/experiment-parts'
+import type { PartBlockLike } from '#/lib/experiment-parts'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 /** The parts of an experiment as stored; empty while loading or when it has none. */
@@ -22,8 +22,9 @@ export function useRecordPartsProgress(
   recordId: string,
   blocks: readonly PartBlockLike[],
   enabled = true,
-): { parts: PartProgress[]; isLoading: boolean } {
+) {
   const query = useRecordParts(recordId, enabled)
+
   return {
     parts: partsProgress(query.data ?? [], blocks),
     isLoading: query.isLoading,

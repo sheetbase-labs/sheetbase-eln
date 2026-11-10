@@ -72,22 +72,28 @@ export function CurrentStepCard({
   currentUserName?: string
 }) {
   const timers = useStepTimers()
+
   const timerBlockIds = React.useMemo(
     () => new Set((timers.data ?? []).map((timer) => timer.blockId)),
     [timers.data],
   )
+
   const { parts } = useRecordPartsProgress(recordId, blocks)
+
   const signoffs = usePartSignoffs(
     recordId,
     parts.some((p) => p.requiresSignOff),
   )
+
   const steps = React.useMemo(
     () => stepProgress(blocks, timerBlockIds, parts),
     [blocks, timerBlockIds, parts],
   )
+
   if (steps.length === 0 && parts.length === 0) return null
   const current = currentStep(steps)
   const nowPart = currentPart(parts)
+
   return (
     <section
       aria-label={t('notebook.currentStep.label')}
@@ -140,6 +146,7 @@ export function CurrentStepCard({
 
 function useRefreshSteps(recordId: string) {
   const queryClient = useQueryClient()
+
   return React.useCallback(async () => {
     await Promise.all([
       queryClient.invalidateQueries({
@@ -159,7 +166,9 @@ function partLaterLine(
   startedAt: string | undefined,
 ): string | null {
   if (!part || !startedAt) return null
+
   if (daysSinceStart(startedAt) >= part.dayOffset) return null
+
   return t('notebook.parts.partOpensLater', {
     number: String(part.number),
     date: formatPartDate(partDate(startedAt, part.dayOffset)),
@@ -181,6 +190,7 @@ function RunningPart({
   submit?: React.ReactNode
 }) {
   const queryClient = useQueryClient()
+
   const done = useMutation({
     mutationFn: () => setPartDone(notebookDataClient, part.id, true),
     onSuccess: async () => {
@@ -198,7 +208,9 @@ function RunningPart({
     },
     onError: () => toast.error(t('notebook.parts.couldNotChange')),
   })
+
   const later = partLaterLine(part, startedAt)
+
   return (
     <>
       <div className="flex flex-col gap-1">
@@ -252,6 +264,9 @@ function RunningStep({
 }) {
   const refresh = useRefreshSteps(recordId)
   const [adding, setAdding] = React.useState(false)
+
+  // useRefreshSteps owns block, part and step-timer invalidation on success.
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation
   const markDone = useMutation({
     mutationFn: () =>
       notebookDataClient.rpc('set_step_done', {
@@ -271,12 +286,14 @@ function RunningStep({
         gateRefusal(error)?.message ?? t('notebook.currentStep.couldNotFinish'),
       ),
   })
+
   const evidence = [
     stepEvidence(step, timerRunning),
     partLaterLine(part, startedAt),
   ]
     .filter(Boolean)
     .join(' · ')
+
   return (
     <>
       <div className="flex flex-col gap-1">
@@ -339,11 +356,15 @@ function stepEvidence(step: StepProgress, timerRunning: boolean): string {
       ? t('notebook.currentStep.inProgress')
       : t('notebook.currentStep.notStarted'),
   )
+
   if (timerRunning) parts.push(t('notebook.currentStep.timerRunning'))
+
   if (step.results > 0) {
     parts.push(t('notebook.currentStep.results', { count: step.results }))
   }
+
   if (step.note) parts.push(step.note.split('\n')[0].slice(0, 120))
+
   return parts.join(' · ')
 }
 
@@ -395,15 +416,18 @@ function BookStepInstrument({
   step: StepProgress
 }) {
   const instruments = useInstruments()
+
   const named = React.useMemo(() => {
     const list = (instruments.data ?? []).filter(
       (instrument) => !instrument.retiredAt && !instrument.outOfServiceAt,
     )
+
     return (
       list.find((instrument) => instrument.id === step.instrumentId) ??
       instrumentNamedBy(step.text, list)
     )
   }, [instruments.data, step.instrumentId, step.text])
+
   return (
     <Button
       variant="quiet"
@@ -413,7 +437,7 @@ function BookStepInstrument({
         <Link
           to="/schedule"
           search={{
-            ...(named ? { book: named.id } : {}),
+            book: named?.id,
             experiment: recordId,
             returnTo: `/experiments/${encodeURIComponent(recordId)}`,
           }}
@@ -440,6 +464,9 @@ function AddResultDialog({
   const [label, setLabel] = React.useState('')
   const [value, setValue] = React.useState('')
   const [unit, setUnit] = React.useState('')
+
+  // useRefreshSteps owns block, part and step-timer invalidation on success.
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation
   const add = useMutation({
     mutationFn: () =>
       notebookDataClient.rpc('add_step_result', {
@@ -455,7 +482,9 @@ function AddResultDialog({
     },
     onError: () => toast.error(t('notebook.currentStep.couldNotAdd')),
   })
+
   const ready = label.trim() !== '' && value.trim() !== ''
+
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="max-w-md">
@@ -470,6 +499,7 @@ function AddResultDialog({
           className="flex min-h-0 flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault()
+
             if (ready && !add.isPending) add.mutate()
           }}
         >

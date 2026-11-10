@@ -87,6 +87,94 @@ export interface ESignDialogProps {
   onSubmit: (input: ESignSubmitInput) => void
 }
 
+/** Credentials and focus are local to the signing challenge, never its parent flow. */
+function useSignatureCredentials({
+  open,
+  blocked,
+  requireConfirmation,
+  busy,
+  subject,
+  signingAs,
+}: Pick<ESignDialogProps, 'open' | 'blocked' | 'subject' | 'signingAs'> & {
+  requireConfirmation: boolean
+  busy: boolean
+}) {
+  const demo = useDemoSigning()
+  const [confirmation, setConfirmation] = useState('')
+  const [password, setPassword] = useState('')
+  const passwordRef = useRef<HTMLInputElement>(null)
+  const confirmationRef = useRef<HTMLInputElement>(null)
+
+  // The demo has no password, so its confirmation field takes initial focus.
+  useEffect(() => {
+    if (open && !blocked)
+      (demo ? confirmationRef : passwordRef).current?.focus()
+  }, [open, blocked, demo])
+
+  const confirmationMatches =
+    confirmation.trim().toLowerCase() === signingAs.trim().toLowerCase()
+
+  const digestMissing = subject !== undefined && !subject.digest
+  const mustConfirm = requireConfirmation || demo
+
+  const canSubmit =
+    !busy &&
+    !blocked &&
+    (demo || Boolean(password)) &&
+    (!mustConfirm || confirmationMatches) &&
+    !digestMissing
+
+  const reset = () => {
+    setConfirmation('')
+    setPassword('')
+  }
+
+  return {
+    demo,
+    confirmation,
+    setConfirmation,
+    password,
+    setPassword,
+    passwordRef,
+    confirmationRef,
+    mustConfirm,
+    canSubmit,
+    reset,
+  }
+}
+
+/** Keep the selected attestation within the meanings the server currently accepts. */
+function useSignatureMeaning({
+  meanings,
+  initialMeaning,
+}: Pick<ESignDialogProps, 'meanings' | 'initialMeaning'>) {
+  // `meanings` may be empty while eligibility loads; the selection still needs
+  // a value, and the select renders only what the server accepts.
+  const fallbackMeaning =
+    meanings.length > 0 ? meanings[0] : 'reviewed-and-approved'
+
+  const [meaning, setMeaning] = useState<PostSubmissionSignatureMeaning>(
+    initialMeaning ?? fallbackMeaning,
+  )
+
+  const allowedMeanings = new Set(meanings)
+  const firstMeaning = meanings.at(0)
+
+  if (!allowedMeanings.has(meaning) && firstMeaning) setMeaning(firstMeaning)
+
+  const selected =
+    SIGNATURE_MEANING_OPTIONS.find((option) => option.value === meaning) ??
+    SIGNATURE_MEANING_OPTIONS[0]
+
+  return {
+    meaning,
+    setMeaning,
+    allowedMeanings,
+    selected,
+    reset: () => setMeaning(initialMeaning ?? fallbackMeaning),
+  }
+}
+
 export function ESignDialog({
   open,
   onOpenChange,
@@ -105,49 +193,38 @@ export function ESignDialog({
   cancelLabel = t('common.actions.cancel'),
   onSubmit,
 }: ESignDialogProps) {
-  // `meanings` may be empty while eligibility loads; the selection still needs
-  // a value, and the select renders only what the server accepts.
-  const fallbackMeaning =
-    meanings.length > 0 ? meanings[0] : 'reviewed-and-approved'
-  const [meaning, setMeaning] = useState<PostSubmissionSignatureMeaning>(
-    initialMeaning ?? fallbackMeaning,
-  )
-  const demo = useDemoSigning()
-  const [confirmation, setConfirmation] = useState('')
-  const [password, setPassword] = useState('')
-  const passwordRef = useRef<HTMLInputElement>(null)
-  const confirmationRef = useRef<HTMLInputElement>(null)
+  const {
+    meaning,
+    setMeaning,
+    allowedMeanings,
+    selected,
+    reset: resetMeaning,
+  } = useSignatureMeaning({ meanings, initialMeaning })
 
-  // The password field takes focus on open, as REV-03.4 requires. The demo has
-  // no password, so the name it is confirmed with takes it instead.
-  useEffect(() => {
-    if (open && !blocked)
-      (demo ? confirmationRef : passwordRef).current?.focus()
-  }, [open, blocked, demo])
-  // Keep the selection inside what the server currently accepts.
-  useEffect(() => {
-    if (!meanings.includes(meaning) && meanings[0]) setMeaning(meanings[0])
-  }, [meaning, meanings])
+  const {
+    demo,
+    confirmation,
+    setConfirmation,
+    password,
+    setPassword,
+    passwordRef,
+    confirmationRef,
+    mustConfirm,
+    canSubmit,
+    reset: resetCredentials,
+  } = useSignatureCredentials({
+    open,
+    blocked,
+    requireConfirmation,
+    busy,
+    subject,
+    signingAs,
+  })
 
   const reset = () => {
-    setConfirmation('')
-    setPassword('')
-    setMeaning(initialMeaning ?? fallbackMeaning)
+    resetCredentials()
+    resetMeaning()
   }
-  const confirmationMatches =
-    confirmation.trim().toLowerCase() === signingAs.trim().toLowerCase()
-  const digestMissing = subject !== undefined && !subject.digest
-  // The demo has no passwords, so the typed name is the whole confirmation.
-  const mustConfirm = requireConfirmation || demo
-  const canSubmit =
-    !busy &&
-    !blocked &&
-    (demo || Boolean(password)) &&
-    (!mustConfirm || confirmationMatches) &&
-    !digestMissing
-  const selected =
-    SIGNATURE_MEANING_OPTIONS.find((option) => option.value === meaning) ??
-    SIGNATURE_MEANING_OPTIONS[0]
 
   return (
     <Dialog
@@ -166,6 +243,7 @@ export function ESignDialog({
           className="flex min-h-0 flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault()
+
             if (!canSubmit) return
             const enteredPassword = password
             // Do not retain the secret once the step-up has been handed it.
@@ -179,37 +257,11 @@ export function ESignDialog({
             ) : (
               <>
                 {beforeYouSign}
-                <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-label">
-                  <dt className="text-fg-muted">
-                    {t('notebook.eSignDialog.signingAs')}
-                  </dt>
-                  <dd className="m-0">{signingAs}</dd>
-                  <dt className="text-fg-muted">
-                    {t('notebook.eSignDialog.meaning')}
-                  </dt>
-                  <dd className="m-0 font-medium">{selected.label}</dd>
-                  {subject ? (
-                    <>
-                      <dt className="text-fg-muted">
-                        {t('notebook.eSignDialog.whatYouSign')}
-                      </dt>
-                      <dd
-                        className="m-0"
-                        title={t('notebook.eSignDialog.versionTooltip')}
-                      >
-                        {digestMissing
-                          ? t('notebook.eSignDialog.versionUnavailable')
-                          : t('notebook.eSignDialog.submittedVersion')}
-                      </dd>
-                    </>
-                  ) : null}
-                  <dt className="text-fg-muted">
-                    {t('notebook.eSignDialog.time')}
-                  </dt>
-                  <dd className="m-0">
-                    {t('notebook.eSignDialog.recordedAsTheTime')}
-                  </dd>
-                </dl>
+                <SignatureFacts
+                  signingAs={signingAs}
+                  meaningLabel={selected.label}
+                  subject={subject}
+                />
                 {demo ? (
                   <Notice
                     tone="info"
@@ -241,14 +293,16 @@ export function ESignDialog({
                         'notebook.eSignDialog.signatureMeaningLabel',
                       )}
                       value={meaning}
-                      onChange={(event) =>
-                        setMeaning(
-                          event.target.value as PostSubmissionSignatureMeaning,
+                      onChange={(event) => {
+                        const chosenMeaning = meanings.find(
+                          (value) => value === event.target.value,
                         )
-                      }
+
+                        if (chosenMeaning) setMeaning(chosenMeaning)
+                      }}
                     >
                       {SIGNATURE_MEANING_OPTIONS.filter((option) =>
-                        meanings.includes(option.value),
+                        allowedMeanings.has(option.value),
                       ).map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
@@ -295,5 +349,35 @@ export function ESignDialog({
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** These facts describe the server-bound subject, not a client signing time. */
+function SignatureFacts({
+  signingAs,
+  meaningLabel,
+  subject,
+}: Pick<ESignDialogProps, 'signingAs' | 'subject'> & { meaningLabel: string }) {
+  return (
+    <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-label">
+      <dt className="text-fg-muted">{t('notebook.eSignDialog.signingAs')}</dt>
+      <dd className="m-0">{signingAs}</dd>
+      <dt className="text-fg-muted">{t('notebook.eSignDialog.meaning')}</dt>
+      <dd className="m-0 font-medium">{meaningLabel}</dd>
+      {subject ? (
+        <>
+          <dt className="text-fg-muted">
+            {t('notebook.eSignDialog.whatYouSign')}
+          </dt>
+          <dd className="m-0" title={t('notebook.eSignDialog.versionTooltip')}>
+            {!subject.digest
+              ? t('notebook.eSignDialog.versionUnavailable')
+              : t('notebook.eSignDialog.submittedVersion')}
+          </dd>
+        </>
+      ) : null}
+      <dt className="text-fg-muted">{t('notebook.eSignDialog.time')}</dt>
+      <dd className="m-0">{t('notebook.eSignDialog.recordedAsTheTime')}</dd>
+    </dl>
   )
 }

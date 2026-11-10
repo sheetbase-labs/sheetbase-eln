@@ -7,6 +7,7 @@ import { Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { INPUT_NAME_RE, MAX_INPUTS } from '#/lib/pipelines/config'
 import type { PipelineInput } from '#/lib/pipelines/config'
+import { useEditorRows } from './use-editor-rows'
 import {
   schemasOf,
   useDatasetVersionChoices,
@@ -29,10 +30,12 @@ export function InputsEditor({
   /** Put text (a column reference) into the transform. */
   onInsert: (text: string) => void
 }) {
-  const patch = (index: number, change: Partial<PipelineInput>) =>
-    onChange(
+  const { rows, change } = useEditorRows(inputs, onChange)
+
+  const patch = (index: number, changes: Partial<PipelineInput>) =>
+    change(
       inputs.map((item, position) =>
-        position === index ? { ...item, ...change } : item,
+        position === index ? { ...item, ...changes } : item,
       ),
     )
 
@@ -43,15 +46,16 @@ export function InputsEditor({
           {t('data.inputsEditor.inputsDeclaredPipelineInputs')}
         </p>
       ) : null}
-      {inputs.map((input, index) => (
+      {rows.map(({ id, value: input }, index) => (
         <InputRow
-          key={index}
+          key={id}
           input={input}
           index={index}
-          onPatch={(change) => patch(index, change)}
-          onRemove={() =>
-            onChange(inputs.filter((_, position) => position !== index))
-          }
+          onPatch={(changes) => patch(index, changes)}
+          onRemove={() => {
+            const remaining = inputs.filter((_, position) => position !== index)
+            change(remaining, remaining)
+          }}
           onInsert={onInsert}
         />
       ))}
@@ -60,7 +64,7 @@ export function InputsEditor({
           size="sm"
           icon="plus"
           disabled={inputs.length >= MAX_INPUTS}
-          onClick={() => onChange([...inputs, { name: '', required: true }])}
+          onClick={() => change([...inputs, { name: '', required: true }])}
         >
           {t('data.inputsEditor.addInput')}
         </Button>
@@ -88,7 +92,6 @@ function InputRow({
   const n = index + 1
   const [example, setExample] = useState('')
   const choices = useDatasetVersionChoices(true)
-  const fields = useDatasetVersionFields(example)
   const nameInvalid = input.name !== '' && !INPUT_NAME_RE.test(input.name)
 
   return (
@@ -170,47 +173,72 @@ function InputRow({
         </Select>
         <span>{t('data.inputsEditor.runDialogListsDataset')}</span>
       </label>
-      {example ? (
-        fields.isLoading ? (
-          <span className="text-label text-fg-muted">
-            {t('data.inputsEditor.loadingColumns')}
-          </span>
-        ) : (fields.data ?? []).length === 0 ? (
-          <span className="text-label text-fg-muted">
-            {t('data.inputsEditor.datasetHasColumnsShow')}
-          </span>
-        ) : (
-          <div
-            role="group"
-            aria-label={t('data.inputsEditor.ariaColumnsExample', {
-              value: input.name || `input ${n}`,
-            })}
-            className="flex flex-wrap gap-1.5"
-          >
-            {(fields.data ?? []).map((field) => (
-              <Button
-                key={field.key}
-                size="sm"
-                variant="quiet"
-                className="mono text-xs"
-                title={t('data.inputsEditor.clickAddSql', {
-                  label: field.label,
-                  type: field.type,
-                })}
-                disabled={!input.name}
-                onClick={() =>
-                  onInsert(
-                    input.name ? `${input.name}.${field.key}` : field.key,
-                  )
-                }
-              >
-                {field.key}
-                <span className="ml-1 text-fg-muted">{field.type}</span>
-              </Button>
-            ))}
-          </div>
-        )
-      ) : null}
+      <ExampleColumns
+        example={example}
+        input={input}
+        n={n}
+        onInsert={onInsert}
+      />
+    </div>
+  )
+}
+
+function ExampleColumns({
+  example,
+  input,
+  n,
+  onInsert,
+}: {
+  example: string
+  input: PipelineInput
+  n: number
+  onInsert: (text: string) => void
+}) {
+  const fields = useDatasetVersionFields(example)
+
+  if (!example) return null
+
+  if (fields.isLoading)
+    return (
+      <span className="text-label text-fg-muted">
+        {t('data.inputsEditor.loadingColumns')}
+      </span>
+    )
+
+  if ((fields.data ?? []).length === 0)
+    return (
+      <span className="text-label text-fg-muted">
+        {t('data.inputsEditor.datasetHasColumnsShow')}
+      </span>
+    )
+
+  return (
+    <div
+      role="group"
+      aria-label={t('data.inputsEditor.ariaColumnsExample', {
+        value: input.name || `input ${n}`,
+      })}
+      className="flex flex-wrap gap-1.5"
+    >
+      {(fields.data ?? []).map((field) => (
+        <Button
+          key={field.key}
+          size="sm"
+          variant="quiet"
+          className="mono text-xs"
+          title={t('data.inputsEditor.clickAddSql', {
+            label: field.label,
+            type: field.type,
+          })}
+          disabled={!input.name}
+          onClick={() =>
+            onInsert(input.name ? `${input.name}.${field.key}` : field.key)
+          }
+        >
+          {field.key}
+          <span className="ml-1 text-fg-muted">{field.type}</span>
+        </Button>
+      ))}
     </div>
   )
 }

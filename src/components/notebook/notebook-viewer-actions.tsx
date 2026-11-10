@@ -41,12 +41,13 @@ import { requestProjectEditAccess } from '#/lib/workspace-access'
  * Comment action opens the same thread the block's own button opens, so there
  * is one comment surface, not a second one.
  */
-export function blockCommentButton(
+function blockCommentButton(
   root: HTMLElement | null,
   blockId: string | null,
 ): HTMLButtonElement | null {
   if (!blockId) return null
   const block = root?.querySelector(`[id="block-${blockId}"]`)
+
   return (
     block?.querySelector<HTMLButtonElement>(
       '[aria-label^="Comments on block"]:not(:disabled)',
@@ -72,6 +73,7 @@ export function RequestEditAccessDialog({
   onRequested: () => void
 }) {
   const [reason, setReason] = React.useState('')
+
   const request = useMutation({
     mutationFn: () =>
       requestProjectEditAccess(notebookDataClient, { projectId, reason }),
@@ -97,6 +99,7 @@ export function RequestEditAccessDialog({
           setReason('')
           request.reset()
         }
+
         onOpenChange(next)
       }}
     >
@@ -163,19 +166,22 @@ export interface NotebookViewerActionsProps {
  * record" when another pane shows this same record; otherwise it says which
  * pane holds the editing seat.
  */
-export function referenceCopyMessage(
+function referenceCopyMessage(
   editingPane: NotebookViewerActionsProps['editingPane'],
 ): string {
   const rest = t('notebook.notebookViewerActions.youCanReadCopy')
+
   if (editingPane?.sameRecord)
     return t('notebook.notebookViewerActions.referenceCopyAnotherPane', {
       rest,
     })
+
   const holder = editingPane?.identifier
     ? t('notebook.notebookViewerActions.theIdentifierPane', {
         identifier: editingPane.identifier,
       })
     : t('notebook.notebookViewerActions.anotherPane')
+
   return t('notebook.notebookViewerActions.readOnlyHereEditing', {
     holder,
     rest,
@@ -217,8 +223,10 @@ export function NotebookViewerActions({
           : '',
       )
     }
+
     read()
     document.addEventListener('selectionchange', read)
+
     return () => document.removeEventListener('selectionchange', read)
   }, [documentRef])
 
@@ -232,6 +240,7 @@ export function NotebookViewerActions({
 
   async function copySelection() {
     if (selection.length === 0) return
+
     try {
       await navigator.clipboard.writeText(selection)
       setCopyError(null)
@@ -337,6 +346,7 @@ export function NotebookSignedSection({ recordId }: { recordId: string }) {
     queryKey: signatureQueryKeys.forRecord(recordId),
     queryFn: () => fetchSignaturesForRecord(notebookDataClient, recordId),
   })
+
   return (
     <div className="mt-6 w-full">
       <SignaturesTable

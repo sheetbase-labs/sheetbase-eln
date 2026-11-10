@@ -63,17 +63,7 @@ interface ProjectOption {
   title: string
 }
 
-export function RetentionPanel({
-  workspaceId,
-  canManage,
-}: {
-  workspaceId: string
-  canManage: boolean
-}) {
-  const options = useQualityOptions(workspaceId)
-  const queryClient = useQueryClient()
-  const on = options.retention
-
+function useRetentionOverview(on: boolean) {
   const models = useQuery({
     queryKey: ['quality', 'models'],
     queryFn: () =>
@@ -118,6 +108,50 @@ export function RetentionPanel({
     enabled: on,
   })
 
+  const ruleOf = new Map(
+    (rules.data ?? []).map((rule) => [rule.kind, rule] as const),
+  )
+
+  const dueRows = due.data ?? []
+  const dueByKind = new Map<string, number>()
+
+  for (const row of dueRows)
+    dueByKind.set(row.kind, (dueByKind.get(row.kind) ?? 0) + 1)
+
+  return {
+    models: models.data ?? [],
+    projects: projects.data ?? [],
+    holds: holds.data ?? [],
+    counts: counts.data,
+    failed: rules.error ?? due.error ?? holds.error,
+    ruleOf,
+    dueRows,
+    dueByKind,
+  }
+}
+
+export function RetentionPanel({
+  workspaceId,
+  canManage,
+}: {
+  workspaceId: string
+  canManage: boolean
+}) {
+  const options = useQualityOptions(workspaceId)
+  const queryClient = useQueryClient()
+  const on = options.retention
+
+  const {
+    models,
+    projects,
+    holds,
+    counts,
+    failed,
+    ruleOf,
+    dueRows,
+    dueByKind,
+  } = useRetentionOverview(on)
+
   const [editing, setEditing] = useState<string | null>(null)
   const [placing, setPlacing] = useState(false)
   const [releasing, setReleasing] = useState<LegalHold | null>(null)
@@ -131,7 +165,7 @@ export function RetentionPanel({
       void refresh()
       toast.success(t('quality.retention.due.archived', { count }))
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('quality.retention.due.couldNotArchive'))),
   })
 
@@ -142,8 +176,6 @@ export function RetentionPanel({
       </SettingsBody>
     )
   }
-
-  const failed = rules.error ?? due.error ?? holds.error
 
   if (failed) {
     return (
@@ -156,41 +188,10 @@ export function RetentionPanel({
   }
 
   const modelName = (key: string) =>
-    models.data?.find((m) => m.key === key)?.name ?? key
+    models.find((m) => m.key === key)?.name ?? key
 
   const projectName = (id: string | null) =>
-    projects.data?.find((p) => p.id === id)?.title ?? ''
-
-  const ruleOf = new Map((rules.data ?? []).map((r) => [r.kind, r] as const))
-  const dueRows = due.data ?? []
-  const dueByKind = new Map<string, number>()
-
-  for (const row of dueRows) {
-    dueByKind.set(row.kind, (dueByKind.get(row.kind) ?? 0) + 1)
-  }
-
-  const covers = (hold: LegalHold) => {
-    if (hold.project_id && hold.kind) {
-      return t('quality.retention.holds.coversModelInProject', {
-        model: modelName(hold.kind),
-        project: projectName(hold.project_id),
-      })
-    }
-
-    if (hold.project_id) {
-      return t('quality.retention.holds.coversProject', {
-        project: projectName(hold.project_id),
-      })
-    }
-
-    if (hold.kind) {
-      return t('quality.retention.holds.coversModel', {
-        model: modelName(hold.kind),
-      })
-    }
-
-    return t('quality.retention.holds.coversPicked')
-  }
+    projects.find((p) => p.id === id)?.title ?? ''
 
   return (
     <SettingsBody>
@@ -205,62 +206,13 @@ export function RetentionPanel({
             {t('quality.retention.rules.intro')}
           </p>
         </div>
-        <TableBox>
-          <Table caption={t('quality.retention.rules.tableLabel')}>
-            <TableHeader>
-              <tr>
-                <TableHead>{t('quality.retention.rules.model')}</TableHead>
-                <TableHead>{t('quality.retention.rules.keep')}</TableHead>
-                <TableHead>{t('quality.retention.rules.due')}</TableHead>
-                <TableHead>{t('quality.retention.rules.note')}</TableHead>
-                <TableHead>
-                  <span className="sr-only">
-                    {t('quality.retention.rules.change')}
-                  </span>
-                </TableHead>
-              </tr>
-            </TableHeader>
-            <TableBody>
-              {(models.data ?? []).map((model) => {
-                const rule = ruleOf.get(model.key)
-
-                return (
-                  <TableRow key={model.key}>
-                    <TableCell>
-                      <span className="font-medium text-fg">{model.name}</span>
-                    </TableCell>
-                    <TableCell>
-                      {rule ? (
-                        keepTimeLabel(rule.keep_months)
-                      ) : (
-                        <span className="text-fg-muted">
-                          {t('quality.retention.rules.noRule')}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {rule ? (dueByKind.get(model.key) ?? 0) : ''}
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      <span className="block max-w-[28rem] truncate">
-                        {rule?.note ?? ''}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {canManage ? (
-                        <Button size="sm" onClick={() => setEditing(model.key)}>
-                          {rule
-                            ? t('quality.retention.rules.change')
-                            : t('quality.retention.rules.set')}
-                        </Button>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </TableBox>
+        <RetentionRulesTable
+          models={models}
+          rules={ruleOf}
+          dueByKind={dueByKind}
+          canManage={canManage}
+          onEdit={setEditing}
+        />
       </section>
 
       <section className="flex flex-col gap-3">
@@ -341,70 +293,14 @@ export function RetentionPanel({
             </Button>
           ) : null}
         </div>
-        {(holds.data ?? []).length === 0 ? (
-          <Muted>{t('quality.retention.holds.none')}</Muted>
-        ) : (
-          <TableBox>
-            <Table caption={t('quality.retention.holds.tableLabel')}>
-              <TableHeader>
-                <tr>
-                  <TableHead>{t('quality.retention.holds.name')}</TableHead>
-                  <TableHead>{t('quality.retention.holds.covers')}</TableHead>
-                  <TableHead>{t('quality.retention.holds.records')}</TableHead>
-                  <TableHead>{t('quality.retention.holds.placed')}</TableHead>
-                  <TableHead>{t('quality.retention.holds.status')}</TableHead>
-                  <TableHead>
-                    <span className="sr-only">
-                      {t('quality.retention.holds.release')}
-                    </span>
-                  </TableHead>
-                </tr>
-              </TableHeader>
-              <TableBody>
-                {(holds.data ?? []).map((hold) => (
-                  <TableRow key={hold.id}>
-                    <TableCell>
-                      <span className="block max-w-[16rem] truncate font-medium text-fg">
-                        {hold.name}
-                      </span>
-                      {hold.reason ? (
-                        <span
-                          className="block max-w-[16rem] truncate text-label text-fg-muted"
-                          title={hold.reason}
-                        >
-                          {hold.reason}
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      <span className="block max-w-[14rem] whitespace-normal">
-                        {covers(hold)}
-                      </span>
-                    </TableCell>
-                    <TableCell>{counts.data?.get(hold.id) ?? ''}</TableCell>
-                    <TableCell className="text-fg-muted">
-                      {formatDate(hold.created_at)}
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={hold.released_at ? 'none' : 'warn'}>
-                        {hold.released_at
-                          ? t('quality.retention.holds.released')
-                          : t('quality.retention.holds.active')}
-                      </Status>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {canManage && !hold.released_at ? (
-                        <Button size="sm" onClick={() => setReleasing(hold)}>
-                          {t('quality.retention.holds.release')}
-                        </Button>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableBox>
-        )}
+        <LegalHoldsTable
+          holds={holds}
+          counts={counts}
+          canManage={canManage}
+          onRelease={setReleasing}
+          modelName={modelName}
+          projectName={projectName}
+        />
       </section>
 
       {editing ? (
@@ -418,8 +314,8 @@ export function RetentionPanel({
       ) : null}
       {placing ? (
         <PlaceHoldDialog
-          models={models.data ?? []}
-          projects={projects.data ?? []}
+          models={models}
+          projects={projects}
           onClose={() => setPlacing(false)}
           onSaved={() => void refresh()}
         />
@@ -432,6 +328,193 @@ export function RetentionPanel({
         />
       ) : null}
     </SettingsBody>
+  )
+}
+
+function RetentionRulesTable({
+  models,
+  rules,
+  dueByKind,
+  canManage,
+  onEdit,
+}: {
+  models: ModelOption[]
+  rules: ReadonlyMap<string, RetentionRule>
+  dueByKind: ReadonlyMap<string, number>
+  canManage: boolean
+  onEdit: (key: string) => void
+}) {
+  return (
+    <TableBox>
+      <Table caption={t('quality.retention.rules.tableLabel')}>
+        <TableHeader>
+          <tr>
+            {[
+              t('quality.retention.rules.model'),
+              t('quality.retention.rules.keep'),
+              t('quality.retention.rules.due'),
+              t('quality.retention.rules.note'),
+            ].map((label) => (
+              <TableHead key={label}>{label}</TableHead>
+            ))}
+            <TableHead>
+              <span className="sr-only">
+                {t('quality.retention.rules.change')}
+              </span>
+            </TableHead>
+          </tr>
+        </TableHeader>
+        <TableBody>
+          {models.map((model) => {
+            const rule = rules.get(model.key)
+
+            return (
+              <TableRow key={model.key}>
+                <TableCell>
+                  <span className="font-medium text-fg">{model.name}</span>
+                </TableCell>
+                <TableCell>
+                  {rule ? (
+                    keepTimeLabel(rule.keep_months)
+                  ) : (
+                    <span className="text-fg-muted">
+                      {t('quality.retention.rules.noRule')}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {rule ? (dueByKind.get(model.key) ?? 0) : ''}
+                </TableCell>
+                <TableCell className="text-fg-muted">
+                  <span className="block max-w-[28rem] truncate">
+                    {rule?.note ?? ''}
+                  </span>
+                </TableCell>
+                <TableCell className="text-right">
+                  {canManage ? (
+                    <Button size="sm" onClick={() => onEdit(model.key)}>
+                      {rule
+                        ? t('quality.retention.rules.change')
+                        : t('quality.retention.rules.set')}
+                    </Button>
+                  ) : null}
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    </TableBox>
+  )
+}
+
+function holdCoverage(
+  hold: LegalHold,
+  modelName: (key: string) => string,
+  projectName: (id: string | null) => string,
+) {
+  if (hold.project_id && hold.kind)
+    return t('quality.retention.holds.coversModelInProject', {
+      model: modelName(hold.kind),
+      project: projectName(hold.project_id),
+    })
+
+  if (hold.project_id)
+    return t('quality.retention.holds.coversProject', {
+      project: projectName(hold.project_id),
+    })
+
+  if (hold.kind)
+    return t('quality.retention.holds.coversModel', {
+      model: modelName(hold.kind),
+    })
+
+  return t('quality.retention.holds.coversPicked')
+}
+
+function LegalHoldsTable({
+  holds,
+  counts,
+  canManage,
+  onRelease,
+  modelName,
+  projectName,
+}: {
+  holds: LegalHold[]
+  counts: Awaited<ReturnType<typeof fetchHoldCounts>> | undefined
+  canManage: boolean
+  onRelease: (hold: LegalHold) => void
+  modelName: (key: string) => string
+  projectName: (id: string | null) => string
+}) {
+  if (holds.length === 0)
+    return <Muted>{t('quality.retention.holds.none')}</Muted>
+
+  return (
+    <TableBox>
+      <Table caption={t('quality.retention.holds.tableLabel')}>
+        <TableHeader>
+          <tr>
+            {[
+              t('quality.retention.holds.name'),
+              t('quality.retention.holds.covers'),
+              t('quality.retention.holds.records'),
+              t('quality.retention.holds.placed'),
+              t('quality.retention.holds.status'),
+            ].map((label) => (
+              <TableHead key={label}>{label}</TableHead>
+            ))}
+            <TableHead>
+              <span className="sr-only">
+                {t('quality.retention.holds.release')}
+              </span>
+            </TableHead>
+          </tr>
+        </TableHeader>
+        <TableBody>
+          {holds.map((hold) => (
+            <TableRow key={hold.id}>
+              <TableCell>
+                <span className="block max-w-[16rem] truncate font-medium text-fg">
+                  {hold.name}
+                </span>
+                {hold.reason ? (
+                  <span
+                    className="block max-w-[16rem] truncate text-label text-fg-muted"
+                    title={hold.reason}
+                  >
+                    {hold.reason}
+                  </span>
+                ) : null}
+              </TableCell>
+              <TableCell>
+                <span className="block max-w-[14rem] whitespace-normal">
+                  {holdCoverage(hold, modelName, projectName)}
+                </span>
+              </TableCell>
+              <TableCell>{counts?.get(hold.id) ?? ''}</TableCell>
+              <TableCell className="text-fg-muted">
+                {formatDate(hold.created_at)}
+              </TableCell>
+              <TableCell>
+                <Status tone={hold.released_at ? 'none' : 'warn'}>
+                  {hold.released_at
+                    ? t('quality.retention.holds.released')
+                    : t('quality.retention.holds.active')}
+                </Status>
+              </TableCell>
+              <TableCell className="text-right">
+                {canManage && !hold.released_at ? (
+                  <Button size="sm" onClick={() => onRelease(hold)}>
+                    {t('quality.retention.holds.release')}
+                  </Button>
+                ) : null}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableBox>
   )
 }
 
@@ -465,7 +548,7 @@ function RuleDialog({
       onSaved()
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('quality.retention.rules.couldNotSave'))),
   })
 
@@ -559,7 +642,7 @@ function PlaceHoldDialog({
       onSaved()
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('quality.retention.holds.couldNotCreate'))),
   })
 
@@ -658,7 +741,7 @@ function ReleaseHoldDialog({
       onSaved()
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('quality.retention.holds.couldNotRelease'))),
   })
 

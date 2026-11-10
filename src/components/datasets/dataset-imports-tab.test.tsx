@@ -1,48 +1,16 @@
-/**
- * R5-SURF-01 — the dataset Imports tab. A committed import receipt appears in
- * the table; no imports, denied and failure are distinct states.
- */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router'
+import { render, screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
 
-import { DataClientError } from '#/lib/data-client'
 import type { DatasetImportRecord } from '#/lib/import/types'
 import { DatasetImportsTab } from './dataset-imports-tab'
-
-const dataClient = vi.hoisted(() => ({ rpc: vi.fn(), list: vi.fn() }))
-
-vi.mock('#/lib/notebook-data', async (importOriginal) => ({
-  ...(await importOriginal()),
-  notebookDataClient: dataClient,
-}))
-
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    search,
-    children,
-    ...props
-  }: {
-    to: string
-    params?: Record<string, string>
-    search?: unknown
-    children: React.ReactNode
-  } & Record<string, unknown>) => {
-    void search
-    let href = to
-
-    for (const [key, value] of Object.entries(params ?? {}))
-      href = href.replace(`$${key}`, encodeURIComponent(String(value)))
-
-    return (
-      <a href={href} {...props}>
-        {children}
-      </a>
-    )
-  },
-}))
+import { datasetTabTestServer } from './dataset-tab-test-server'
 
 const committed: DatasetImportRecord = {
   id: 'imp-1',
@@ -62,63 +30,123 @@ const committed: DatasetImportRecord = {
   created_at: '2026-09-25T10:11:00.000Z',
 }
 
-function renderTab() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+async function renderTab(...replies: Parameters<typeof datasetTabTestServer>) {
+  const context = await datasetTabTestServer(...replies)
+
+  const root = createRootRoute({
+    component: () => (
+      <DatasetImportsTab datasetId="ds-1" client={context.client} />
+    ),
   })
 
-  return render(
-    <QueryClientProvider client={client}>
-      <DatasetImportsTab datasetId="ds-1" />
+  const router = createRouter({
+    routeTree: root,
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  render(
+    <QueryClientProvider client={context.queryClient}>
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
-}
 
-afterEach(() => {
-  cleanup()
-  vi.clearAllMocks()
-})
+  return context
+}
 
 describe('DatasetImportsTab', () => {
   it('lists a committed import receipt from the canonical read model', async () => {
-    dataClient.rpc.mockResolvedValue([committed])
-    renderTab()
-
+    const { requests } = await renderTab({ body: JSON.stringify([committed]) })
     expect(await screen.findByText('readings.csv')).toBeTruthy()
     expect(screen.getByText('Ambr parser v3')).toBeTruthy()
     expect(screen.getByText('Committed')).toBeTruthy()
     expect(screen.getByText('2')).toBeTruthy()
-    expect(dataClient.rpc).toHaveBeenCalledWith('dataset_import_list', {
-      p_dataset_id: 'ds-1',
-    })
+    expect(requests).toEqual([
+      {
+        path: '/api/db/rpc/dataset_import_list',
+        body: JSON.stringify({ p_dataset_id: 'ds-1' }),
+      },
+    ])
   })
 
   it('opens a failed import at its retained file so it can be retried', async () => {
-    dataClient.rpc.mockResolvedValue([
-      { ...committed, status: 'failed', file_id: 'file-9', outcome: {} },
-    ])
-    renderTab()
-
+    await renderTab({
+      body: JSON.stringify([
+        {
+          ...committed,
+          status: 'failed',
+          file_id: 'file-9',
+          outcome: {},
+          experiment_record_id: 'experiment-9',
+          parser_provenance: {
+            ...committed.parser_provenance,
+            key: 'retained-parser',
+          },
+        },
+      ]),
+    })
     const link = await screen.findByRole('link', { name: 'readings.csv' })
-    expect(link.getAttribute('href')).toBe('/import/file-9')
+
+    const destination = new URL(
+      link.getAttribute('href') ?? '',
+      'http://localhost',
+    )
+
+    expect(destination.pathname).toBe('/import/file-9')
+    expect(destination.searchParams.get('step')).toBe('map')
+    expect(destination.searchParams.get('dataset')).toBe('ds-1')
+    expect(destination.searchParams.get('experiment')).toBe('experiment-9')
+    expect(destination.searchParams.get('parser')).toBe('retained-parser')
   })
 
   it('shows an honest empty state when nothing has been imported', async () => {
-    dataClient.rpc.mockResolvedValue([])
-    renderTab()
-
+    await renderTab({ body: '[]' })
     expect(await screen.findByText('No imports yet')).toBeTruthy()
+    expect(
+      screen
+        .getByRole('button', { name: 'Import a file' })
+        .getAttribute('href'),
+    ).toContain('dataset=ds-1')
   })
 
   it('shows a denied state rather than an empty list', async () => {
-    dataClient.rpc.mockRejectedValue(
-      new DataClientError('permission_denied', 'denied', 403),
-    )
-    renderTab()
-
+    await renderTab({
+      status: 403,
+      body: JSON.stringify({
+        error: { code: 'permission_denied', message: 'denied' },
+      }),
+    })
     expect(
       await screen.findByText('Imports aren’t available to you'),
     ).toBeTruthy()
     expect(screen.queryByText('No imports yet')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+  })
+
+  it('keeps loading distinct from empty, then renders receipts', async () => {
+    let release: () => void = () => undefined
+
+    const ready = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    await renderTab({ body: JSON.stringify([committed]), ready })
+    expect(await screen.findByText('Loading imports…')).toBeTruthy()
+    expect(screen.queryByText('No imports yet')).toBeNull()
+    release()
+    expect(await screen.findByText('readings.csv')).toBeTruthy()
+  })
+
+  it('offers retry for a server error instead of claiming no imports', async () => {
+    await renderTab({
+      status: 500,
+      body: JSON.stringify({
+        error: { code: 'upstream_error', message: 'failed' },
+      }),
+    })
+    expect(
+      await screen.findByRole('button', { name: 'Try again' }),
+    ).toBeTruthy()
+    expect(screen.queryByText('No imports yet')).toBeNull()
+    expect(screen.queryByText('Imports aren’t available to you')).toBeNull()
   })
 })

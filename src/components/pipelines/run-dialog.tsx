@@ -19,51 +19,13 @@ import {
   schemasOf,
   useDatasetVersionChoices,
 } from '#/components/pipelines/pipelines-data'
-import type { PipelineParameter } from '#/lib/pipelines/config'
+import { parameterText, parameterValue, parameterError } from './run-parameters'
 import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
+import type { DataClient } from '#/lib/data-client'
 
 export interface RunDetails {
   inputVersions: Record<string, string>
-  parameters: Record<string, unknown>
-}
-
-export function parameterValue(
-  parameter: PipelineParameter,
-  raw: string,
-): unknown | undefined {
-  const text = raw.trim()
-
-  if (text === '') return undefined
-
-  switch (parameter.type) {
-    case 'integer':
-    case 'decimal':
-      return Number(text)
-    case 'boolean':
-      return text === 'true'
-    default:
-      return text
-  }
-}
-
-export function parameterError(
-  parameter: PipelineParameter,
-  raw: string,
-): string | undefined {
-  const text = raw.trim()
-
-  if (text === '') return parameter.required ? 'Required.' : undefined
-
-  if (parameter.type === 'integer' && !/^-?\d+$/.test(text))
-    return t('data.runDialog.enterWholeNumber')
-
-  if (parameter.type === 'decimal' && Number.isNaN(Number(text)))
-    return t('data.runDialog.enterNumber')
-
-  if (parameter.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(text))
-    return t('data.runDialog.useFormatYyyyMm')
-
-  return undefined
+  parameters: PipelineDefinitionVersionWire['configuration']
 }
 
 /**
@@ -79,6 +41,7 @@ export function RunDialog({
   onSubmit,
   initial,
   trial,
+  client,
 }: {
   pipelineName: string
   version: PipelineDefinitionVersionWire
@@ -88,9 +51,10 @@ export function RunDialog({
   initial?: Partial<RunDetails>
   /** Set to try an unsaved draft: the dialog then promises that nothing is kept. */
   trial?: boolean
+  client?: DataClient
 }) {
   const { inputs, parameters } = declaredRunInputs(version)
-  const choices = useDatasetVersionChoices(inputs.length > 0)
+  const choices = useDatasetVersionChoices(inputs.length > 0, client)
 
   const [pinned, setPinned] = useState<Record<string, string>>(
     initial?.inputVersions ?? {},
@@ -109,7 +73,7 @@ export function RunDialog({
       parameters.map((p) => {
         const given = initial?.parameters?.[p.name] ?? p.default
 
-        return [p.name, given === undefined ? '' : String(given)]
+        return [p.name, parameterText({ ...p, default: given })]
       }),
     ),
   )

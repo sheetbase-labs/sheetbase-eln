@@ -14,6 +14,11 @@
  * location cannot be derived says so (`unresolvedReason`) instead of pointing
  * at a guessed place.
  */
+import { z } from 'zod'
+
+import type { NotebookBlock } from '#/lib/notebook-data'
+import type { CheckItemResult } from '#/lib/review-checks'
+import type { CommentTarget } from '#/lib/comments-data'
 
 /** Block identity needed to resolve a sheet instance to its notebook anchor. */
 export interface ReadinessBlock {
@@ -22,7 +27,7 @@ export interface ReadinessBlock {
   type?: string
   /** The part of the experiment the block is in, when it has parts. */
   partId?: string | null
-  payload: Record<string, unknown>
+  payload: NotebookBlock['payload']
 }
 
 /**
@@ -56,6 +61,7 @@ export function protocolStepProgress(
   for (const block of blocks) {
     if (block.type !== 'procedure_step') continue
     const payload = block.payload
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Preserve the original two text getter reads and native trim behavior after the primitive probe.
     const text = typeof payload.text === 'string' ? payload.text.trim() : ''
 
     if (!text) continue
@@ -63,22 +69,28 @@ export function protocolStepProgress(
       blockId: block.id,
       partId: block.partId ?? null,
       stepNumber:
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Preserve both getter reads and native number acceptance, including NaN and Infinity.
         typeof payload.stepNumber === 'number' ? payload.stepNumber : null,
       text,
       completed: payload.completed === true,
       completedAt:
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Preserve the two ordered getter reads rather than consolidating into one parsed snapshot.
         typeof payload.completedAt === 'string' ? payload.completedAt : null,
       completedByUserId:
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Preserve the two ordered getter reads and the original primitive-string gate.
         typeof payload.completedByUserId === 'string'
           ? payload.completedByUserId
           : null,
       note:
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Preserve all three note getter reads and the existing truthiness fallback.
         typeof payload.note === 'string' && payload.note ? payload.note : null,
       sourceProtocolRevisionId:
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Preserve the two ordered source-revision getter reads without reconstructing notebook metadata.
         typeof payload.sourceProtocolRevisionId === 'string'
           ? payload.sourceProtocolRevisionId
           : null,
       sourceStepBlockId:
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Preserve the two ordered source-block getter reads and primitive-string gate.
         typeof payload.sourceStepBlockId === 'string'
           ? payload.sourceStepBlockId
           : null,
@@ -105,10 +117,10 @@ export type ReadinessSeverity = 'blocking' | 'warning' | 'informational'
 export interface ReadinessCheckResult {
   key: string
   category: string
-  severity: ReadinessSeverity | string
+  severity: string
   label: string
   status: ReadinessCheckStatus
-  evidence: Record<string, unknown>
+  evidence: CheckItemResult['evidence']
 }
 
 /** A check result that did not pass on the latest revision. */
@@ -128,13 +140,11 @@ export interface ReadinessCommentThread {
   commentId: string
   body: string
   authorUserId: string | null
-  target: {
-    blockId?: string
-    instanceId?: string
-    rowKeys?: string[]
-    fieldIds?: string[]
-    [key: string]: unknown
-  }
+  target: Pick<
+    CommentTarget,
+    'blockId' | 'instanceId' | 'rowKeys' | 'fieldIds'
+  > &
+    NotebookBlock['payload']
   createdAt: string
 }
 
@@ -174,19 +184,16 @@ export interface ReadinessItem {
   unresolvedReason: string | null
 }
 
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : []
-}
+const evidenceArray = z.custom<unknown[]>(Array.isArray).catch(() => [])
+const evidenceText = z.string().min(1).nullable().catch(null)
 
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {}
-}
+const evidenceRecord = z
+  .custom<CheckItemResult['evidence']>(
+    (value) =>
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Evidence accepts native non-array objects, including inherited members and accessors; retain identity without JSON validation or reconstruction.
+      value !== null && typeof value === 'object' && !Array.isArray(value),
+  )
+  .catch(() => ({}))
 
 /** Map each canonical Sheet instance to the block that renders it. */
 export function blockIdByInstanceId(
@@ -197,7 +204,9 @@ export function blockIdByInstanceId(
   for (const block of blocks) {
     const instanceId = block.payload.instanceId
 
-    if (typeof instanceId === 'string') map.set(instanceId, block.id)
+    const parsed = z.string().safeParse(instanceId)
+
+    if (parsed.success) map.set(parsed.data, block.id)
   }
 
   return map
@@ -211,17 +220,20 @@ interface DerivedLocation {
 
 /** Resolve the deepest location a check's evidence names, without inventing one. */
 function locationForCheck(result: ReadinessCheckResult): DerivedLocation {
-  const evidence = asRecord(result.evidence)
+  const evidence = evidenceRecord.parse(result.evidence)
 
-  const invalidColumns = asArray(evidence.invalidColumns)
+  const invalidColumns = evidenceArray.parse(evidence.invalidColumns)
 
   if (invalidColumns.length > 0) {
-    const first = asRecord(invalidColumns[0])
-    const fieldName = asString(first.fieldName) ?? asString(first.columnId)
-    const logicalType = asString(first.logicalType)
+    const first = evidenceRecord.parse(invalidColumns[0])
+
+    const fieldName =
+      evidenceText.parse(first.fieldName) ?? evidenceText.parse(first.columnId)
+
+    const logicalType = evidenceText.parse(first.logicalType)
 
     return {
-      blockId: asString(first.tableId),
+      blockId: evidenceText.parse(first.tableId),
       detail:
         fieldName != null
           ? `Column “${fieldName}”${
@@ -237,13 +249,15 @@ function locationForCheck(result: ReadinessCheckResult): DerivedLocation {
     'staleFormulas',
     'missingResults',
   ]) {
-    const formulas = asArray(evidence[key])
+    const formulas = evidenceArray.parse(evidence[key])
 
     if (formulas.length > 0) {
-      const first = asRecord(formulas[0])
-      const formulaId = asString(first.id)
+      const first = evidenceRecord.parse(formulas[0])
+      const formulaId = evidenceText.parse(first.id)
       const separator = formulaId?.indexOf(':') ?? -1
-      const reason = asString(first.reason) ?? asString(first.status)
+
+      const reason =
+        evidenceText.parse(first.reason) ?? evidenceText.parse(first.status)
 
       return {
         blockId:
@@ -256,7 +270,7 @@ function locationForCheck(result: ReadinessCheckResult): DerivedLocation {
     }
   }
 
-  const missingLinkTypes = asArray(evidence.missingLinkTypes)
+  const missingLinkTypes = evidenceArray.parse(evidence.missingLinkTypes)
 
   if (missingLinkTypes.length > 0) {
     return {
@@ -269,7 +283,7 @@ function locationForCheck(result: ReadinessCheckResult): DerivedLocation {
     }
   }
 
-  const path = asString(evidence.path)
+  const path = evidenceText.parse(evidence.path)
 
   if (path != null) {
     const count = evidence.count
@@ -277,9 +291,13 @@ function locationForCheck(result: ReadinessCheckResult): DerivedLocation {
 
     return {
       blockId: null,
-      detail: `Found ${String(count ?? 0)} of ${String(
-        minCount ?? 0,
-      )} required at ${path}.`,
+      detail: `Found ${
+        // oxlint-disable-next-line typescript/no-base-to-string -- Preserve native readiness count coercion, including objects, arrays, Symbols and custom throws; do not fabricate numeric evidence.
+        String(count ?? 0)
+      } of ${
+        // oxlint-disable-next-line typescript/no-base-to-string -- Preserve the existing minimum-count native coercion after count, without JSON reconstruction.
+        String(minCount ?? 0)
+      } required at ${path}.`,
       unresolvedReason:
         'The check is record-level; no cell location resolves it.',
     }
@@ -310,11 +328,11 @@ function locationForComment(
   thread: ReadinessCommentThread,
   blocksById: Map<string, string>,
 ): DerivedLocation {
-  const blockId = asString(thread.target.blockId)
+  const blockId = evidenceText.parse(thread.target.blockId)
 
   if (blockId) return { blockId, detail: null, unresolvedReason: null }
 
-  const instanceId = asString(thread.target.instanceId)
+  const instanceId = evidenceText.parse(thread.target.instanceId)
 
   if (instanceId) {
     const resolved = blocksById.get(instanceId) ?? null

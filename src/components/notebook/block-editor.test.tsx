@@ -10,77 +10,58 @@
  * through blur (tab) which calls `flush()` synchronously.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { BlockEditor } from './block-editor'
-import type * as notebookDataModule from '#/lib/notebook-data'
+import { extensionQueryKeys } from '#/lib/extensions/client'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import type { RichTextPayload } from '#/lib/blocks'
 
-vi.mock('#/components/extensions/use-plugin-points', () => ({
-  usePluginPoints: () => ({
-    operations: [],
-    analysisKinds: [],
-    blocks: [],
-    panels: [],
-    tableCells: [],
-    columns: [],
-    rowActions: [],
-    fieldTypes: [],
-    descriptors: [],
-    isLoading: false,
-    installed: new Map(),
+function renderWithQuery(
+  ui: ReactNode,
+  client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   }),
-  operationAccess: () => ({}),
-}))
+) {
+  client.setQueryData([...extensionQueryKeys.extensions, 'points'], [])
 
-vi.mock('#/lib/notebook-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof notebookDataModule>()
-  return {
-    ...actual,
-    notebookDataClient: {
-      ...actual.notebookDataClient,
-      list: vi.fn().mockResolvedValue([]),
-    },
-  }
-})
-
-vi.mock('#/lib/dataset-explorer-data', () => ({
-  fetchDatasetSummaries: vi.fn().mockResolvedValue([]),
-}))
-
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-    ...rest
-  }: {
-    to: string
-    children?: ReactNode
-    [key: string]: unknown
-  }) => (
-    <a href={to} {...rest}>
-      {children}
-    </a>
-  ),
-}))
-
-function renderWithQuery(ui: ReactNode) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
   })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+
+  return render(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>
+        <RouterContextProvider router={router}>
+          {children}
+        </RouterContextProvider>
+      </QueryClientProvider>
+    ),
+  })
 }
 
 beforeAll(() => {
   // ProseMirror asks the browser for caret geometry. jsdom intentionally
   // omits these layout APIs, so provide inert rectangles for interactions.
   document.elementFromPoint = () => null
-  Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+  Range.prototype.getClientRects = () => Object.assign([], { item: () => null })
   Range.prototype.getBoundingClientRect = () => new DOMRect()
 })
 
@@ -147,6 +128,7 @@ describe('BlockEditor — rich_text', () => {
     editor.focus()
     await user.paste('result')
     await user.keyboard('{Control>}a{/Control}')
+
     // The floating BubbleMenu toolbar appears when text is selected.
     for (const name of [
       'Paragraph',
@@ -165,6 +147,7 @@ describe('BlockEditor — rich_text', () => {
     ]) {
       expect(screen.getByRole('button', { name })).toBeTruthy()
     }
+
     await user.click(screen.getByRole('button', { name: 'Bold' }))
     await user.tab()
     expect(save).toHaveBeenCalledWith({
@@ -211,24 +194,34 @@ describe('BlockEditor — rich_text', () => {
   })
 
   it('server-renders stable structured content without starting Tiptap', () => {
+    const client = new QueryClient()
+
     const html = renderToString(
-      <BlockEditor
-        block={block({ type: 'rich_text', payload: richText('SSR objective') })}
-        save={okSave}
-      />,
+      <QueryClientProvider client={client}>
+        <BlockEditor
+          block={block({
+            type: 'rich_text',
+            payload: richText('SSR objective'),
+          })}
+          save={okSave}
+        />
+      </QueryClientProvider>,
     )
+
     expect(html).toContain('SSR objective')
     expect(html).not.toContain('contenteditable')
   })
 
   it('reconciles clean server state without emitting a save loop', async () => {
     const save = vi.fn(async () => ({ ok: true }))
-    const { rerender } = render(
+
+    const { rerender } = renderWithQuery(
       <BlockEditor
         block={block({ type: 'rich_text', payload: richText('first') })}
         save={save}
       />,
     )
+
     expect(
       (await screen.findByRole('textbox', { name: 'Text content' }))
         .textContent,
@@ -254,11 +247,78 @@ describe('BlockEditor — rich_text', () => {
 })
 
 describe('BlockEditor — checklist', () => {
-  it('renders existing items and toggles a checkbox into a save', async () => {
+  it('keeps identical rows distinct through edits, earlier deletion and save acknowledgement', async () => {
     const user = userEvent.setup()
-    const save = vi.fn(async (_payload: Record<string, unknown>) => ({
+
+    const save = vi.fn(async (_payload: NotebookBlock['payload']) => ({
       ok: true,
     }))
+
+    const payload = {
+      items: [
+        { text: 'Repeat', checked: false },
+        { text: 'Repeat', checked: true },
+        { text: 'Repeat', checked: false },
+      ],
+    }
+
+    const ui = (current: typeof payload) => (
+      <BlockEditor
+        block={block({ type: 'checklist', payload: current })}
+        save={save}
+      />
+    )
+
+    const { rerender } = renderWithQuery(ui(payload))
+    const second = screen.getByRole('textbox', { name: 'Item 2 text' })
+    const third = screen.getByRole('textbox', { name: 'Item 3 text' })
+    await user.type(second, ' edited')
+    expect(document.activeElement).toBe(second)
+    expect(screen.getByRole('textbox', { name: 'Item 2 text' })).toBe(second)
+
+    // An earlier row is removed while the second row owns focus.
+    fireEvent.click(screen.getByRole('button', { name: 'Remove item 1' }))
+    expect(document.activeElement).toBe(second)
+    expect(screen.getByRole('textbox', { name: 'Item 1 text' })).toBe(second)
+    expect(screen.getByRole('textbox', { name: 'Item 2 text' })).toBe(third)
+    expect(
+      screen
+        .getAllByRole('checkbox')
+        .map((item) => item.getAttribute('aria-checked')),
+    ).toEqual(['true', 'false'])
+    fireEvent.blur(second)
+
+    const saved = {
+      items: [
+        { text: 'Repeat edited', checked: true },
+        { text: 'Repeat', checked: false },
+      ],
+    }
+
+    await waitFor(() => expect(save).toHaveBeenLastCalledWith(saved))
+
+    // The canonical acknowledgement must not remount the same edited rows.
+    rerender(ui(saved))
+    expect(screen.getByRole('textbox', { name: 'Item 1 text' })).toBe(second)
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Item 2 text' })).toBe(third),
+    )
+    rerender(ui({ items: [{ text: 'Server reset', checked: false }] }))
+    await waitFor(() =>
+      expect(
+        screen.getByRole('textbox', { name: 'Item 1 text' }),
+      ).toHaveProperty('value', 'Server reset'),
+    )
+    expect(screen.queryByRole('textbox', { name: 'Item 2 text' })).toBeNull()
+  })
+
+  it('renders existing items and toggles a checkbox into a save', async () => {
+    const user = userEvent.setup()
+
+    const save = vi.fn(async (_payload: NotebookBlock['payload']) => ({
+      ok: true,
+    }))
+
     renderWithQuery(
       <BlockEditor
         block={block({
@@ -280,10 +340,13 @@ describe('BlockEditor — checklist', () => {
     await user.tab()
     await user.tab()
     expect(save).toHaveBeenCalled()
-    const saved = save.mock.calls[0][0] as {
-      items: Array<{ checked: boolean }>
-    }
-    expect(saved.items[0].checked).toBe(true)
+
+    expect(save.mock.calls[0][0]).toMatchObject({
+      items: [
+        { text: 'step one', checked: true },
+        { text: 'step two', checked: true },
+      ],
+    })
   })
 
   it('adds a new item through the Add item button', async () => {
@@ -407,10 +470,16 @@ describe('BlockEditor — linked_record stable identity (NOTE-03)', () => {
   it('captures the canonical UUID when a record is picked from search', async () => {
     const user = userEvent.setup()
     const save = vi.fn(async () => ({ ok: true }))
-    const { notebookDataClient } = await import('#/lib/notebook-data')
-    ;(notebookDataClient.list as ReturnType<typeof vi.fn>)
-      .mockReset()
-      .mockResolvedValue([SAMPLE_ROW])
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    })
+
+    client.setQueryDefaults(['notebook-linked-search', 'sample'], {
+      initialData: [SAMPLE_ROW],
+      staleTime: Infinity,
+    })
+
     renderWithQuery(
       <BlockEditor
         block={block({
@@ -424,6 +493,7 @@ describe('BlockEditor — linked_record stable identity (NOTE-03)', () => {
         })}
         save={save}
       />,
+      client,
     )
     await user.type(
       screen.getByRole('textbox', { name: 'Search records or datasets' }),
@@ -469,26 +539,81 @@ describe('BlockEditor — linked_record stable identity (NOTE-03)', () => {
     )
   })
 
-  it('offers the canonical Open affordance in read-only mode', () => {
+  it.each([
+    { version: undefined, name: 'Open', suffix: '' },
+    {
+      version: '00000000-0000-4000-8000-000000000171',
+      name: 'Open cited snapshot',
+      suffix: '/rows?snapshot=00000000-0000-4000-8000-000000000171',
+    },
+  ])(
+    'offers the canonical $name affordance in read-only mode',
+    ({ version, name, suffix }) => {
+      renderWithQuery(
+        <BlockEditor
+          block={block({
+            type: 'linked_record',
+            payload: {
+              targetKind: 'dataset',
+              targetIdentifier: 'Stability readings',
+              targetId: '00000000-0000-4000-8000-000000000170',
+              datasetVersionId: version,
+              linkType: 'dataset',
+              label: '',
+            },
+          })}
+          save={okSave}
+          readOnly
+        />,
+      )
+      const open = screen.getByRole('link', { name })
+      expect(open.getAttribute('href')).toBe(
+        `/datasets/00000000-0000-4000-8000-000000000170${suffix}`,
+      )
+    },
+  )
+
+  it('preserves a cited dataset version during label edits and clears it on retargeting', async () => {
+    const user = userEvent.setup()
+    const save = vi.fn(async () => ({ ok: true }))
+    const datasetId = '00000000-0000-4000-8000-000000000170'
+    const datasetVersionId = '00000000-0000-4000-8000-000000000171'
     renderWithQuery(
       <BlockEditor
         block={block({
           type: 'linked_record',
           payload: {
             targetKind: 'dataset',
-            targetIdentifier: 'Stability readings',
-            targetId: '00000000-0000-4000-8000-000000000170',
+            targetIdentifier: 'DS-1',
+            targetId: datasetId,
+            datasetVersionId,
             linkType: 'dataset',
             label: '',
           },
         })}
-        save={okSave}
-        readOnly
+        save={save}
       />,
     )
-    const open = screen.getByRole('link', { name: 'Open' })
-    expect(open.getAttribute('href')).toBe(
-      '/datasets/00000000-0000-4000-8000-000000000170',
+    await user.type(screen.getByLabelText('Label'), 'Pinned measurements')
+    await user.tab()
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          targetId: datasetId,
+          datasetVersionId,
+          label: 'Pinned measurements',
+        }),
+      ),
+    )
+    await user.type(screen.getByPlaceholderText('EXP-2025-0001'), ' changed')
+    await user.tab()
+    await waitFor(() =>
+      expect(save).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          targetId: undefined,
+          datasetVersionId: undefined,
+        }),
+      ),
     )
   })
 
@@ -581,11 +706,13 @@ describe('BlockEditor — read-only mode', () => {
 describe('BlockEditor — failed save surface', () => {
   it('renders the failure message when save returns a validation error', async () => {
     const user = userEvent.setup()
+
     const save = vi.fn(async () => ({
       ok: false,
       kind: 'validation' as const,
       message: 'This notebook was edited elsewhere.',
     }))
+
     renderWithQuery(
       <BlockEditor
         block={block({
@@ -609,6 +736,7 @@ describe('BlockEditor — failed save surface', () => {
 describe('BlockEditor — failed save retry (J-NBK-16)', () => {
   it('offers Try again after a failed save and saves on the second attempt', async () => {
     const user = userEvent.setup()
+
     const save = vi
       .fn()
       .mockResolvedValueOnce({
@@ -617,6 +745,7 @@ describe('BlockEditor — failed save retry (J-NBK-16)', () => {
         message: 'Save failed after several attempts.',
       })
       .mockResolvedValue({ ok: true })
+
     renderWithQuery(
       <BlockEditor
         block={block({ type: 'rich_text', payload: richText('Hi') })}
@@ -678,12 +807,14 @@ describe('BlockEditor — explain surface (ASSIST-01)', () => {
 describe('BlockEditor — conflict surface', () => {
   it('renders the conflict banner with a server preview', async () => {
     const user = userEvent.setup()
+
     const save = vi.fn(async () => ({
       ok: false,
       kind: 'conflict' as const,
       message: 'This block was changed elsewhere.',
       serverValue: richText('server version'),
     }))
+
     renderWithQuery(
       <BlockEditor
         block={block({
@@ -710,12 +841,14 @@ describe('BlockEditor — conflict surface', () => {
   it('preserves a rich-text draft and adopts structured server content explicitly', async () => {
     const user = userEvent.setup()
     const serverValue = richText('server objective')
+
     const save = vi.fn(async () => ({
       ok: false,
       kind: 'conflict' as const,
       message: 'This block was changed elsewhere.',
       serverValue,
     }))
+
     renderWithQuery(
       <BlockEditor
         block={block({

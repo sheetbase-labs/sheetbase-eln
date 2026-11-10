@@ -9,6 +9,7 @@
  */
 
 import type { IconName } from '#/components/icons'
+import { z } from 'zod'
 
 export interface CalloutStyle {
   container: string
@@ -16,7 +17,7 @@ export interface CalloutStyle {
   iconClass: string
 }
 
-export const CALLOUT_STYLES: Record<string, CalloutStyle> = {
+export const CALLOUT_STYLES = {
   info: {
     container: 'bg-info/[0.07] text-fg',
     icon: 'info',
@@ -37,7 +38,7 @@ export const CALLOUT_STYLES: Record<string, CalloutStyle> = {
     icon: 'comment',
     iconClass: 'text-success-text',
   },
-}
+} satisfies Record<CalloutVariant, CalloutStyle>
 
 /** The tones the contract accepts, in menu order. */
 export const CALLOUT_VARIANTS = ['info', 'warning', 'note', 'danger'] as const
@@ -52,7 +53,5 @@ export const CALLOUT_VARIANT_LABELS: Record<CalloutVariant, string> = {
 }
 
 /** The tone named by a payload, or `info` when it names none. */
-export function calloutVariantOf(value: unknown): CalloutVariant {
-  const match = CALLOUT_VARIANTS.find((variant) => variant === value)
-  return match ?? 'info'
-}
+const calloutVariant = z.enum(CALLOUT_VARIANTS).catch('info')
+export const calloutVariantOf = calloutVariant.parse.bind(calloutVariant)

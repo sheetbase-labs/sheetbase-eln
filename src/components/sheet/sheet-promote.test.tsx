@@ -12,8 +12,8 @@ import userEvent from '@testing-library/user-event'
 import type { UserEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from '#/lib/data-client'
-import { DataClientError } from '#/lib/data-client'
+import { createDataClient, DataClientError } from '#/lib/data-client'
+import { z } from 'zod'
 import type { ColumnPromotion } from '#/lib/schema-evolution'
 
 import { PromoteRejected } from './promote-rejected'
@@ -45,28 +45,46 @@ const DEFINITION = {
 }
 
 function makeClient(
-  options: { promotions?: ColumnPromotion[]; rpcError?: unknown } = {},
+  options: { promotions?: ColumnPromotion[]; rpcError?: DataClientError } = {},
 ) {
-  const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+  const argsSchema = z.record(z.string(), z.json())
+  const calls: Array<{ name: string; args: z.infer<typeof argsSchema> }> = []
 
-  const client = {
-    list: vi.fn(async (resource: string) => {
-      if (resource === 'dataset_schema_definitions') return [DEFINITION]
+  const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input.toString(),
+      'http://localhost',
+    )
 
-      if (resource === 'column_promotions') return options.promotions ?? []
+    if (url.pathname.endsWith('/dataset_schema_definitions'))
+      return Response.json([DEFINITION])
 
-      return []
-    }),
-    rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
-      calls.push({ name, args })
+    if (url.pathname.endsWith('/column_promotions'))
+      return Response.json(options.promotions ?? [])
 
-      if (options.rpcError) throw options.rpcError
+    if (url.pathname.includes('/rpc/')) {
+      calls.push({
+        name: url.pathname.split('/').at(-1) ?? '',
+        args: argsSchema.parse(await new Response(init?.body).json()),
+      })
 
-      return { ok: true, promotionId: 'promo-1', state: 'pending' }
-    }),
-  } as unknown as DataClient
+      if (options.rpcError)
+        return Response.json(
+          { code: options.rpcError.code, message: options.rpcError.message },
+          { status: options.rpcError.status },
+        )
 
-  return { client, calls }
+      return Response.json({
+        ok: true,
+        promotionId: 'promo-1',
+        state: 'pending',
+      })
+    }
+
+    throw new Error(`Unexpected request: ${url}`)
+  })
+
+  return { client: createDataClient(fetcher), calls, fetcher }
 }
 
 function renderWithQuery(ui: React.ReactElement) {
@@ -188,6 +206,10 @@ describe('SheetPromote', () => {
     expect(onSubmitted).not.toHaveBeenCalled()
     // The refusal leaves the dialog open so its reason stays visible.
     expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(screen.getByLabelText(/Reason/)).toHaveProperty(
+      'value',
+      'Used in every batch',
+    )
     expect(calls.some((call) => call.name === 'promote_local_field')).toBe(
       false,
     )
@@ -231,7 +253,7 @@ describe('PromoteRejected', () => {
   })
 
   it('renders nothing while the promotion is still pending', async () => {
-    const { client } = makeClient({
+    const { client, fetcher } = makeClient({
       promotions: [{ ...RETURNED, state: 'pending', reason: null }],
     })
 
@@ -244,9 +266,9 @@ describe('PromoteRejected', () => {
     )
 
     await waitFor(() =>
-      expect(client.list).toHaveBeenCalledWith(
-        'column_promotions',
+      expect(fetcher).toHaveBeenCalledWith(
         expect.stringContaining(`sheet_instance_id=eq.${INSTANCE}`),
+        expect.any(Object),
       ),
     )
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())

@@ -1,49 +1,43 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { BlockPreview } from './block-preview'
-import type * as sheetInstanceData from '#/lib/sheet-instance-data'
-import { fetchSheetInstance } from '#/lib/sheet-instance-data'
-
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-    ...rest
-  }: {
-    to: string
-    children?: ReactNode
-    [key: string]: unknown
-  }) => (
-    <a href={to} {...rest}>
-      {children}
-    </a>
-  ),
-}))
-
-vi.mock('#/lib/sheet-instance-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof sheetInstanceData>()
-  return { ...actual, fetchSheetInstance: vi.fn() }
-})
-
-const mockFetchSheetInstance = vi.mocked(fetchSheetInstance)
+import type { NotebookBlock } from '#/lib/notebook-data'
+import type { SheetInstance } from '#/lib/sheet-instance-data'
 
 afterEach(() => cleanup())
 
-function renderWithQuery(ui: ReactNode) {
-  const client = new QueryClient({
+function renderWithQuery(
+  ui: ReactNode,
+  client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  }),
+) {
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
   })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterContextProvider router={router}>{ui}</RouterContextProvider>
+    </QueryClientProvider>,
+  )
 }
 
-const block = (type: string, payload: unknown) => ({
+const block = (type: string, payload: NotebookBlock['payload']) => ({
   id: 'b1',
   recordId: 'r1',
   type,
-  payload: payload as Record<string, unknown>,
+  payload,
   payloadSchemaVersion: 1,
   order: 1,
   version: 1,
@@ -72,6 +66,7 @@ describe('BlockPreview callout (SCI-009 contract fix)', () => {
         block={block('callout', { text: 'Heads up', variant: 'warning' })}
       />,
     )
+
     // Warning callouts use a semantic warning background tint.
     const callout = container.querySelector('[class*="bg-warning"]')
     expect(callout).toBeTruthy()
@@ -83,6 +78,7 @@ describe('BlockPreview callout (SCI-009 contract fix)', () => {
         block={block('callout', { text: 'FYI', variant: 'info' })}
       />,
     )
+
     // Info callouts use a semantic info background tint.
     const callout = container.querySelector('[class*="bg-info"]')
     expect(callout).toBeTruthy()
@@ -92,13 +88,73 @@ describe('BlockPreview callout (SCI-009 contract fix)', () => {
     const { container } = render(
       <BlockPreview block={block('callout', { body: 'old', tone: 'info' })} />,
     )
+
     // The renderer now reads text/variant; a payload without `text` renders
     // an empty callout body, confirming the old shape is no longer honoured.
     expect(container.textContent).not.toContain('old')
   })
 })
 
+describe('BlockPreview frozen evidence boundary', () => {
+  it.each(['chart', 'analysis'])(
+    'does not read live data for a malformed frozen %s',
+    (type) => {
+      // No QueryClient is installed. Falling through to a live query would throw,
+      // rather than silently replacing historical evidence with today's rows.
+      render(
+        <BlockPreview
+          block={block(type, {
+            definitionId: 'saved-definition',
+            spec: { specVersion: 1 },
+            frozen: { frozenAt: '2026-08-23T10:00:00Z' },
+          })}
+        />,
+      )
+      expect(screen.getByRole('alert').textContent).toContain(
+        'Frozen dataset version couldn’t be reconstructed.',
+      )
+    },
+  )
+})
+
 describe('BlockPreview table (canonical string-array payload)', () => {
+  it('preserves distinct row identity when an earlier row disappears without collapsing repeated rows or columns', () => {
+    const columns = ['Recovery', 'Recovery']
+
+    const view = render(
+      <BlockPreview
+        block={block('table', {
+          columns,
+          rows: [
+            [9, 8],
+            [5.75, false],
+            [5.75, false],
+          ],
+        })}
+      />,
+    )
+
+    const before = screen.getAllByRole('row')
+    expect(screen.getAllByRole('columnheader')).toHaveLength(2)
+    expect(screen.getAllByText('5.75')).toHaveLength(2)
+    view.rerender(
+      <BlockPreview
+        block={block('table', {
+          columns,
+          rows: [
+            [5.75, false],
+            [5.75, false],
+          ],
+        })}
+      />,
+    )
+    const after = screen.getAllByRole('row')
+    expect(after).toHaveLength(3)
+    expect(after[1]).toBe(before[2])
+    expect(after[2]).toBe(before[3])
+    expect(screen.getAllByText('5.75')).toHaveLength(2)
+  })
+
   it('renders column labels and row values from the canonical format', () => {
     render(
       <BlockPreview
@@ -127,6 +183,7 @@ describe('BlockPreview table (canonical string-array payload)', () => {
         })}
       />,
     )
+
     const cells = container.querySelectorAll('tbody td')
     expect(cells).toHaveLength(2)
     expect(cells[0].textContent).toBe('')
@@ -183,6 +240,7 @@ describe('BlockPreview metric (number formatting)', () => {
         block={block('metric', { label: 'Volume', value: 100, unit: 'µL' })}
       />,
     )
+
     expect(screen.getByText('Volume')).toBeTruthy()
     const value = screen.getByText('100')
     // The value sits in a font-display dd, the label in a muted dt.
@@ -295,18 +353,50 @@ describe('BlockPreview linked_record (NOTE-03 canonical open affordance)', () =>
 describe('BlockPreview sheet (NOTE-03 read-preview open affordance)', () => {
   it('offers the canonical Open full sheet link built from the instance UUID', async () => {
     const instanceId = '00000000-0000-4000-8000-00000000abc1'
-    mockFetchSheetInstance.mockResolvedValue({
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+    })
+
+    client.setQueryData(['sheet-instance', instanceId], {
       id: instanceId,
       name: 'Titration working sheet',
       lifecycle: 'active',
       sourceDefinitionVersionId: null,
-    } as never)
+      workspaceId: '00000000-0000-4000-8000-000000000001',
+      projectId: null,
+      notebookRecordId: null,
+      description: null,
+      revision: 1,
+      duplicatedFromInstanceId: null,
+      createdAt: '2026-11-09T12:00:00Z',
+      updatedAt: '2026-11-09T12:00:00Z',
+      createdByUserId: 'u1',
+      updatedByUserId: null,
+      state: {
+        bindings: [],
+        localFields: [],
+        localValues: {},
+        calculationOverrides: {},
+        presentation: {
+          columnOrder: [],
+          hiddenColumnIds: [],
+          columnWidths: {},
+          frozenColumnCount: 0,
+          density: 'standard',
+          filters: [],
+          sorts: [],
+        },
+        provenance: { createdFrom: 'ad_hoc' },
+      },
+    } satisfies SheetInstance)
     renderWithQuery(
       <BlockPreview
         block={block('sheet', {
           instanceId,
         })}
       />,
+      client,
     )
     const open = await screen.findByRole('link', { name: 'Open full sheet' })
     expect(open.getAttribute('href')).toBe(`/sheets/${instanceId}`)
@@ -396,14 +486,17 @@ describe('BlockPreview chart (NOTE-03 Dataset source affordances)', () => {
         })}
       />,
     )
+
     // Both sources are visible immediately (the frame renders its actions
     // while reconstruction is pending).
     const first = screen.getByRole('link', {
       name: `Dataset 1 · version ${CHART_VERSION_A.slice(0, 8)}`,
     })
+
     const second = screen.getByRole('link', {
       name: `Dataset 2 · version ${CHART_VERSION_B.slice(0, 8)}`,
     })
+
     // Each link opens the exact pinned Version, never the live Dataset.
     expect(first.getAttribute('href')).toBe(
       `/datasets/${CHART_DATASET_A}/rows?snapshot=${CHART_VERSION_A}`,

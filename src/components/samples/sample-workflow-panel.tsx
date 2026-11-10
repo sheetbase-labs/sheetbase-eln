@@ -20,7 +20,6 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { sampleQueryKeys } from '#/lib/samples'
 import {
   advanceRun,
-  daysUntil,
   enrolSample,
   fetchSampleRuns,
   fetchSampleWorkflowEvents,
@@ -30,39 +29,12 @@ import {
 import type { WorkflowEvent, WorkflowRun } from '#/lib/sample-workflows'
 import { useState } from 'react'
 import { t } from '#/copy'
+import { dueSummary } from './sample-workflow-due'
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: Error): string {
   return error instanceof Error
     ? error.message
     : t('settings.sampleWorkflows.databaseRefused')
-}
-
-/** Due date wording and tone: ok until two days out, warn then, bad once late. */
-export function dueSummary(
-  dueAt: string | null,
-  now = Date.now(),
-): { text: string; tone: 'ok' | 'warn' | 'bad' | 'none' } {
-  const days = daysUntil(dueAt, now)
-
-  if (days === null)
-    return { text: t('settings.sampleWorkflows.onSample.noDue'), tone: 'none' }
-
-  if (days < 0)
-    return {
-      text: t('settings.sampleWorkflows.onSample.overdue', { count: -days }),
-      tone: 'bad',
-    }
-
-  if (days === 0)
-    return {
-      text: t('settings.sampleWorkflows.onSample.dueToday'),
-      tone: 'warn',
-    }
-
-  return {
-    text: t('settings.sampleWorkflows.onSample.dueIn', { count: days }),
-    tone: days <= 2 ? 'warn' : 'ok',
-  }
 }
 
 /**

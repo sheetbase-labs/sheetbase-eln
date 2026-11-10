@@ -6,41 +6,84 @@
  * in frozen mode — reconstructs the pinned spec with no live reads.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Mock } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BlockPreview } from './block-preview'
+import { BlockEditor } from './block-editor'
 import type { NotebookBlock } from '#/lib/notebook-data'
-import { fetchRecordById } from '#/lib/scientific-records'
-import type * as ScientificRecords from '#/lib/scientific-records'
+import { dropSharedReads } from '#/lib/data-client'
 import type { PlateMapSpec } from '#/lib/plate-map'
 import { PLATE_MAP_SPEC_VERSION } from '#/lib/plate-map'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-    ...rest
-  }: {
-    to: string
-    children?: ReactNode
-    [key: string]: unknown
-  }) => (
-    <a href={to} {...rest}>
-      {children}
-    </a>
-  ),
-}))
+const transport = vi.hoisted(() => {
+  const http = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', http)
 
-vi.mock('#/lib/scientific-records', async (importOriginal) => {
-  const actual = await importOriginal<typeof ScientificRecords>()
-  return { ...actual, fetchRecordById: vi.fn() }
+  return http
 })
 
-const mockFetchRecordById = fetchRecordById as unknown as Mock
+let archivedAt: string | null = null
+let missing = false
+
+beforeEach(() => {
+  dropSharedReads()
+  archivedAt = null
+  missing = false
+  transport.mockReset()
+  transport.mockImplementation(async (input) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://localhost',
+    )
+
+    if (url.pathname !== '/api/db/records')
+      throw new Error(`Unexpected request: ${url.pathname}`)
+
+    return Response.json(
+      missing
+        ? []
+        : [
+            {
+              id: RECORD_ID,
+              workspace_id: 'ws-1',
+              project_id: null,
+              folder_id: null,
+              kind: 'sample',
+              identifier: 'SMP-991',
+              title: 'Assay sample',
+              status: 'active',
+              tags: [],
+              structure_version: 1,
+              metadata_version: 1,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+              archived_at: archivedAt,
+              deleted_at: null,
+              created_by_user_id: 'u1',
+              updated_by_user_id: null,
+              properties: {},
+              locked_at: null,
+              locked_by_revision_id: null,
+            },
+          ],
+    )
+  })
+})
 
 afterEach(() => {
   cleanup()
@@ -51,7 +94,17 @@ function renderWithQuery(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterContextProvider router={router}>{ui}</RouterContextProvider>
+    </QueryClientProvider>,
+  )
 }
 
 const RECORD_ID = '00000000-0000-4000-8000-000000000991'
@@ -80,7 +133,7 @@ function specWithSample(): PlateMapSpec {
   }
 }
 
-function makeBlock(payload: Record<string, unknown>): NotebookBlock {
+function makeBlock(payload: NotebookBlock['payload']): NotebookBlock {
   return {
     id: 'block-plate',
     recordId: 'experiment-1',
@@ -93,8 +146,32 @@ function makeBlock(payload: Record<string, unknown>): NotebookBlock {
 }
 
 describe('PlateMapBlockPreview — live representation', () => {
+  it('names volume inputs and groups required-role controls in the editor', async () => {
+    const user = userEvent.setup()
+    renderWithQuery(
+      <BlockEditor
+        block={makeBlock({ spec: specWithSample() })}
+        save={vi.fn(async () => ({ ok: true }))}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /A1 · Sample/ }))
+    const volume = screen.getByRole('spinbutton', { name: 'Volume' })
+    await user.type(volume, '12.5')
+    expect(screen.getByRole('spinbutton', { name: 'Volume' })).toHaveProperty(
+      'value',
+      '12.5',
+    )
+    expect(
+      within(
+        screen.getByRole('spinbutton', { name: 'Volume' }).parentElement!,
+      ).getByRole('textbox', { name: 'Unit' }),
+    ).toHaveProperty('value', 'µL')
+    await user.click(screen.getByText('Validation config'))
+    expect(screen.getByRole('group', { name: 'Required roles' })).toBeTruthy()
+  })
+
   it('renders inside a live frame and resolves the linked sample', async () => {
-    mockFetchRecordById.mockResolvedValue({ id: RECORD_ID, archivedAt: null })
+    archivedAt = null
     renderWithQuery(
       <BlockPreview
         block={makeBlock({ title: 'Titration plate', spec: specWithSample() })}
@@ -103,9 +180,9 @@ describe('PlateMapBlockPreview — live representation', () => {
     expect(screen.getByText('Titration plate')).toBeTruthy()
     expect(screen.getByText('Live')).toBeTruthy()
     await waitFor(() => {
-      expect(mockFetchRecordById).toHaveBeenCalledWith(
-        expect.anything(),
-        RECORD_ID,
+      expect(transport).toHaveBeenCalledWith(
+        `/api/db/records?id=eq.${RECORD_ID}`,
+        expect.objectContaining({ method: 'GET' }),
       )
     })
     // Canonical open affordance carries the stable record ID.
@@ -114,7 +191,7 @@ describe('PlateMapBlockPreview — live representation', () => {
   })
 
   it('selects a well to show linked-record context with an open action', async () => {
-    mockFetchRecordById.mockResolvedValue({ id: RECORD_ID, archivedAt: null })
+    archivedAt = null
     const user = userEvent.setup()
     renderWithQuery(
       <BlockPreview
@@ -122,7 +199,7 @@ describe('PlateMapBlockPreview — live representation', () => {
       />,
     )
     await waitFor(() => {
-      expect(mockFetchRecordById).toHaveBeenCalled()
+      expect(transport).toHaveBeenCalled()
     })
     await user.click(screen.getByRole('button', { name: /A1 · Sample/ }))
     expect(screen.getByText(/Well A1/)).toBeTruthy()
@@ -132,10 +209,7 @@ describe('PlateMapBlockPreview — live representation', () => {
   })
 
   it('marks archived samples honestly', async () => {
-    mockFetchRecordById.mockResolvedValue({
-      id: RECORD_ID,
-      archivedAt: '2026-02-01T00:00:00Z',
-    })
+    archivedAt = '2026-02-01T00:00:00Z'
     const user = userEvent.setup()
     renderWithQuery(
       <BlockPreview
@@ -143,14 +217,14 @@ describe('PlateMapBlockPreview — live representation', () => {
       />,
     )
     await waitFor(() => {
-      expect(mockFetchRecordById).toHaveBeenCalled()
+      expect(transport).toHaveBeenCalled()
     })
     await user.click(screen.getByRole('button', { name: /A1 · Sample/ }))
     expect(screen.getByText(/archived/)).toBeTruthy()
   })
 
   it('marks unresolvable samples as missing without hiding the snapshot', async () => {
-    mockFetchRecordById.mockResolvedValue(null)
+    missing = true
     const user = userEvent.setup()
     renderWithQuery(
       <BlockPreview
@@ -158,7 +232,7 @@ describe('PlateMapBlockPreview — live representation', () => {
       />,
     )
     await waitFor(() => {
-      expect(mockFetchRecordById).toHaveBeenCalled()
+      expect(transport).toHaveBeenCalled()
     })
     await user.click(screen.getByRole('button', { name: /A1 · Sample/ }))
     expect(screen.getByText(/missing — deleted or inaccessible/)).toBeTruthy()
@@ -169,7 +243,7 @@ describe('PlateMapBlockPreview — live representation', () => {
   it('prompts for configuration on an empty draft', () => {
     renderWithQuery(<BlockPreview block={makeBlock({})} />)
     expect(screen.getByText(/No plate map configured/)).toBeTruthy()
-    expect(mockFetchRecordById).not.toHaveBeenCalled()
+    expect(transport).not.toHaveBeenCalled()
   })
 })
 
@@ -191,7 +265,7 @@ describe('PlateMapBlockPreview — frozen reconstruction', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /A1 · Sample/ })).toBeTruthy()
     })
-    expect(mockFetchRecordById).not.toHaveBeenCalled()
+    expect(transport).not.toHaveBeenCalled()
   })
 
   it('selects wells from snapshot state in frozen mode', async () => {
@@ -208,6 +282,6 @@ describe('PlateMapBlockPreview — frozen reconstruction', () => {
     await user.click(screen.getByRole('button', { name: /A1 · Sample/ }))
     expect(screen.getByText(/Well A1/)).toBeTruthy()
     expect(screen.getByText(/active \(snapshot\)/)).toBeTruthy()
-    expect(mockFetchRecordById).not.toHaveBeenCalled()
+    expect(transport).not.toHaveBeenCalled()
   })
 })

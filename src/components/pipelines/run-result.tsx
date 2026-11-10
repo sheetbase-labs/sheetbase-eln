@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { rich, t } from '#/copy'
 import { Button } from '#/components/ui/button'
@@ -33,7 +34,7 @@ export function RunResult({
 
   const rowCount =
     preview?.rowCount ??
-    (typeof run.result.rowCount === 'number' ? run.result.rowCount : null)
+    z.number().nullable().catch(null).parse(run.result.rowCount)
 
   return (
     <section

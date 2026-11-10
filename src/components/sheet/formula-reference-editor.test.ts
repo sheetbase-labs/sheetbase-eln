@@ -1,4 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createElement, createRef } from 'react'
+import { act, cleanup, fireEvent, render, within } from '@testing-library/react'
+import { Spreadsheet } from '@sheetbase-labs/sheetbase-table'
+import type { SpreadsheetHandle } from '@sheetbase-labs/sheetbase-table'
+import { createFormulaReferenceEditor } from './formula-reference-editor-factory'
 
 import {
   REFERENCE_COLORS,
@@ -10,8 +15,8 @@ import {
   shiftFormulaReferences,
   toA1,
   toA1Range,
-} from './formula-reference-editor'
-import type { ReferenceGridHost } from './formula-reference-editor'
+} from './formula-references'
+import type { ReferenceGridHost } from './formula-references'
 
 /** jsdom converts hex border colours to rgb(...) — normalise for assertions. */
 function hexToRgb(hex: string): string {
@@ -117,6 +122,16 @@ describe('shiftFormulaReferences', () => {
     expect(shiftFormulaReferences('=A1+B1*C1', 1, 0)).toBe('=A2+B2*C2')
   })
 
+  it('leaves quoted strings and sheet identifiers unchanged', () => {
+    expect(shiftFormulaReferences('="A1"&A1', 1, 1)).toBe('="A1"&B2')
+    expect(shiftFormulaReferences('="say ""A1"""&A1', 1, 0)).toBe(
+      '="say ""A1"""&A2',
+    )
+    expect(shiftFormulaReferences("='A1 sheet''s'!$B2+C$3", 1, 1)).toBe(
+      "='A1 sheet''s'!$B3+D$3",
+    )
+  })
+
   it('refuses to shift to negative references', () => {
     expect(shiftFormulaReferences('=A1*2', -1, 0)).toBe('=A1*2')
     expect(shiftFormulaReferences('=A1*2', 0, -1)).toBe('=A1*2')
@@ -152,10 +167,7 @@ describe('buildReference', () => {
  * Build a mocked grid host backed by an in-memory cell layer of `gridcell`
  * elements (the engine renders data cells as `div[role="gridcell"]`).
  */
-function mockGrid(cellGrid: HTMLElement[][]): {
-  hot: ReferenceGridHost
-  root: HTMLElement
-} {
+function mockGrid(cellGrid: HTMLElement[][]) {
   const doc = document
   const root = doc.createElement('div')
   root.className = 'grid-canvas'
@@ -211,40 +223,50 @@ function pointer(
     button: number
     pointerId: number
   }> = {},
-): PointerEvent {
-  return {
-    type,
-    target,
+) {
+  const event = new PointerEvent(type, {
+    bubbles: true,
+    cancelable: true,
     clientX,
     clientY,
     isPrimary: true,
     button: 0,
     pointerId: 1,
     ...overrides,
-    preventDefault: vi.fn(),
-    stopPropagation: vi.fn(),
-  } as unknown as PointerEvent
+  })
+
+  Object.defineProperty(event, 'target', { value: target })
+  const preventDefault = vi.spyOn(event, 'preventDefault')
+  const stopPropagation = vi.spyOn(event, 'stopPropagation')
+
+  return Object.assign(event, { preventDefault, stopPropagation })
 }
 
 /** Build a mock MouseEvent resembling a capture-phase mousedown. */
 function mouseEvent(
   target: HTMLElement | null,
   overrides: Partial<{ button: number; clientX: number; clientY: number }> = {},
-): MouseEvent {
-  return {
-    type: 'mousedown',
-    target,
+) {
+  const event = new MouseEvent('mousedown', {
+    bubbles: true,
+    cancelable: true,
     button: 0,
     clientX: 0,
     clientY: 0,
     ...overrides,
-    preventDefault: vi.fn(),
-    stopPropagation: vi.fn(),
-  } as unknown as MouseEvent
+  })
+
+  Object.defineProperty(event, 'target', { value: target })
+  const preventDefault = vi.spyOn(event, 'preventDefault')
+  const stopPropagation = vi.spyOn(event, 'stopPropagation')
+
+  return Object.assign(event, { preventDefault, stopPropagation })
 }
 
 afterEach(() => {
+  cleanup()
   document.body.innerHTML = ''
+  vi.restoreAllMocks()
 })
 
 describe('ReferencePicker', () => {
@@ -309,7 +331,7 @@ describe('ReferencePicker', () => {
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
       writable: true,
-      value: () => [cells[4][0] as Element],
+      value: () => [cells[4][0]],
     })
 
     try {
@@ -319,10 +341,7 @@ describe('ReferencePicker', () => {
       if (descriptor) {
         Object.defineProperty(document, 'elementsFromPoint', descriptor)
       } else {
-        // @ts-expect-error -- elementsFromPoint is declared on the prototype,
-        // not as an own property, so TS rejects the delete even though it is
-        // safe here because we defined an own property above.
-        delete document.elementsFromPoint
+        Reflect.deleteProperty(document, 'elementsFromPoint')
       }
     }
 
@@ -505,22 +524,28 @@ describe('ReferencePicker', () => {
     picker.onPointerDown(pointer('pointerdown', cells[0][1]))
     picker.onPointerUp(pointer('pointerup', cells[0][1]))
 
-    const overlay = root.querySelector(
+    const overlay = root.querySelector<HTMLDivElement>(
       '.sheetbase-ref-highlight',
-    ) as HTMLDivElement
+    )
 
     expect(overlay).not.toBeNull()
+
+    if (!overlay) throw new Error('Expected a reference overlay')
     const leftBefore = overlay.style.left
 
     // Simulate a scroll: move the cell's bounding rect and reposition.
     const originalGetBoundingClientRect =
       cells[0][1].getBoundingClientRect.bind(cells[0][1])
 
-    vi.spyOn(cells[0][1], 'getBoundingClientRect').mockReturnValue({
-      ...originalGetBoundingClientRect(),
-      left: originalGetBoundingClientRect().left + 50,
-      right: originalGetBoundingClientRect().right + 50,
-    })
+    const originalRect = originalGetBoundingClientRect()
+    vi.spyOn(cells[0][1], 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(
+        originalRect.x + 50,
+        originalRect.y,
+        originalRect.width,
+        originalRect.height,
+      ),
+    )
     picker.repositionHighlights()
     const leftAfter = overlay.style.left
     expect(leftAfter).not.toBe(leftBefore)
@@ -889,5 +914,234 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
     expect(highlights).toHaveLength(1)
     // The new reference uses the same colour as the popped one.
     expect(highlights[0].style.border).toContain(hexToRgb(REFERENCE_COLORS[0]))
+  })
+})
+
+/** Exercise the package's real editor host and imperative controller. */
+function renderFormulaGrid(initialDraft: string) {
+  const ref = createRef<SpreadsheetHandle>()
+  const onMutation = vi.fn()
+
+  const rendered = render(
+    createElement(Spreadsheet, {
+      ref,
+      initialData: new Map([['B2', '4']]),
+      rowCount: 4,
+      columnCount: 4,
+      // Pinned cells render without a browser layout/virtualizer measurement.
+      frozenRows: 1,
+      frozenColumns: 1,
+      height: 300,
+      defaultRowHeight: 28,
+      customEditors: [createFormulaReferenceEditor(() => true)],
+      onMutation,
+    }),
+  )
+
+  const getHandle = () => {
+    if (!ref.current) throw new Error('Expected the real spreadsheet handle')
+
+    return ref.current
+  }
+
+  act(() => getHandle().selectCell(1, 1))
+  act(() => getHandle().editActiveInput(initialDraft))
+
+  const input = rendered.container.querySelector(
+    'input.sheetbase-formula-editor',
+  )
+
+  if (!(input instanceof HTMLInputElement))
+    throw new Error('Expected the custom formula input')
+  const editorHost = input.parentElement
+
+  if (!editorHost) throw new Error('Expected the custom editor host')
+
+  return {
+    ...rendered,
+    input,
+    getHandle,
+    onMutation,
+    editor: within(editorHost),
+  }
+}
+
+describe('FormulaReferenceEditorCell with the real Spreadsheet', () => {
+  const scrollDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'scrollIntoView',
+  )
+
+  beforeEach(() => {
+    // jsdom supplies DOM nodes but no layout/scroll implementation.
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      writable: true,
+      value: vi.fn(),
+    })
+  })
+
+  afterEach(() => {
+    if (scrollDescriptor)
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'scrollIntoView',
+        scrollDescriptor,
+      )
+    else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
+  })
+
+  it('commits Enter through the real controller and normalizes exponentiation', () => {
+    const { input, getHandle, onMutation } = renderFormulaGrid('=2**3')
+    expect(document.activeElement).toBe(input)
+    expect(input.selectionStart).toBe(input.value.length)
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(getHandle().snapshot().data.get('B2')).toBe('=2^3')
+    expect(onMutation).toHaveBeenCalledTimes(1)
+  })
+
+  it('cancels Escape without writing the draft', () => {
+    const { input, getHandle, onMutation } = renderFormulaGrid('=2**3')
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(getHandle().snapshot().data.get('B2')).toBe('4')
+    expect(onMutation).not.toHaveBeenCalled()
+  })
+
+  it('commits Tab and blur once', () => {
+    const { input, getHandle, onMutation } = renderFormulaGrid('=3**2')
+    fireEvent.keyDown(input, { key: 'Tab' })
+    fireEvent.blur(input, { relatedTarget: null })
+    expect(getHandle().snapshot().data.get('B2')).toBe('=3^2')
+    expect(onMutation).toHaveBeenCalledTimes(1)
+  })
+
+  it('commits a changed draft when focus leaves the editor', () => {
+    const { input, getHandle, onMutation } = renderFormulaGrid('=')
+    fireEvent.change(input, { target: { value: '=5**2' } })
+    fireEvent.blur(input, { relatedTarget: null })
+    expect(getHandle().snapshot().data.get('B2')).toBe('=5^2')
+    expect(onMutation).toHaveBeenCalledTimes(1)
+  })
+
+  it('replaces consecutive arrow picks and extends ranges with Shift', () => {
+    const { input, container, getHandle } = renderFormulaGrid('=')
+    fireEvent.keyDown(input, { key: 'ArrowLeft' })
+    expect(input.value).toBe('=A2')
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    expect(input.value).toBe('=A3')
+    fireEvent.keyDown(input, { key: 'ArrowRight', shiftKey: true })
+    expect(input.value).toBe('=A3:B3')
+    expect(container.querySelectorAll('.sheetbase-ref-highlight')).toHaveLength(
+      1,
+    )
+    expect(input.selectionStart).toBe(6)
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(getHandle().snapshot().data.get('B2')).toBe('=A3:B3')
+    expect(container.querySelectorAll('.sheetbase-ref-highlight')).toHaveLength(
+      0,
+    )
+  })
+
+  it('lets autocomplete own navigation and Enter before committing', () => {
+    const { input, getHandle, onMutation, editor } = renderFormulaGrid('=SU')
+    const options = editor.getAllByRole('option')
+    expect(options[0].getAttribute('aria-selected')).toBe('true')
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    expect(options[1].getAttribute('aria-selected')).toBe('true')
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(input.value).toBe(
+      `=${options[1].querySelector('span')?.textContent}()`,
+    )
+    expect(input.selectionStart).toBe(input.value.length - 1)
+    expect(onMutation).not.toHaveBeenCalled()
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(getHandle().snapshot().data.get('B2')).toBe(input.value)
+    expect(onMutation).toHaveBeenCalledTimes(1)
+  })
+
+  it('dismisses suggestions with Escape before cancelling the edit', () => {
+    const { input, getHandle, onMutation, editor } = renderFormulaGrid('=SU')
+    expect(editor.getByRole('listbox').className).toContain('bg-popover')
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(editor.queryByRole('listbox')).toBeNull()
+    expect(input.isConnected).toBe(true)
+    expect(onMutation).not.toHaveBeenCalled()
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(input.isConnected).toBe(false)
+    expect(getHandle().snapshot().data.get('B2')).toBe('4')
+  })
+
+  it('accepts a dropdown mousedown without blurring or committing', () => {
+    const { input, onMutation, editor } = renderFormulaGrid('=SU')
+    const option = editor.getAllByRole('option')[0]
+    expect(fireEvent.mouseDown(option)).toBe(false)
+    expect(document.activeElement).toBe(input)
+    expect(input.value).toBe(`=${option.querySelector('span')?.textContent}()`)
+    expect(editor.queryByRole('listbox')).toBeNull()
+    expect(onMutation).not.toHaveBeenCalled()
+  })
+
+  it('inserts a reference through actual cell pointer events and clears overlays on cancel', () => {
+    const { input, container, onMutation } = renderFormulaGrid('=')
+
+    const target = container.querySelector(
+      '[role="gridcell"][aria-rowindex="1"][aria-colindex="1"]',
+    )
+
+    if (!(target instanceof HTMLElement))
+      throw new Error('Expected the rendered A1 cell')
+    fireEvent.pointerDown(target, { isPrimary: true, pointerId: 1, button: 0 })
+    expect(container.querySelector('.sheetbase-ref-preview')).not.toBeNull()
+    fireEvent.pointerUp(target, { isPrimary: true, pointerId: 1, button: 0 })
+    expect(input.value).toBe('=A1')
+
+    const overlay = container.querySelector<HTMLDivElement>(
+      '.sheetbase-ref-highlight',
+    )
+
+    expect(overlay?.style.pointerEvents).toBe('none')
+    expect(overlay?.style.border).toContain('dashed')
+    expect(document.activeElement).toBe(input)
+    expect(onMutation).not.toHaveBeenCalled()
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(container.querySelector('.sheetbase-ref-highlight')).toBeNull()
+  })
+
+  it('keeps modified arrows native and stops picking at grid edges', () => {
+    const { input } = renderFormulaGrid('=')
+    expect(fireEvent.keyDown(input, { key: 'ArrowLeft', ctrlKey: true })).toBe(
+      true,
+    )
+    expect(input.value).toBe('=')
+    fireEvent.keyDown(input, { key: 'ArrowLeft' })
+    expect(input.value).toBe('=A2')
+    expect(fireEvent.keyDown(input, { key: 'ArrowLeft' })).toBe(true)
+    expect(input.value).toBe('=A2')
+  })
+
+  it('derives new suggestions from native input and resets keyboard navigation', () => {
+    const { input, editor } = renderFormulaGrid('=')
+    fireEvent.input(input, { target: { value: '=SU' } })
+    const options = editor.getAllByRole('option')
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    expect(options[1].getAttribute('aria-selected')).toBe('true')
+    fireEvent.input(input, { target: { value: '=SUM' } })
+    expect(editor.getAllByRole('option')[0].getAttribute('aria-selected')).toBe(
+      'true',
+    )
+  })
+
+  it('follows caret selection and preserves text after the accepted function', () => {
+    const { input, editor, onMutation } = renderFormulaGrid('=SU+1')
+    expect(editor.queryByRole('listbox')).toBeNull()
+    input.setSelectionRange(3, 3)
+    fireEvent.select(input)
+    const option = editor.getAllByRole('option')[0]
+    fireEvent.mouseDown(option)
+    expect(input.value).toBe(
+      `=${option.querySelector('span')?.textContent}()+1`,
+    )
+    expect(input.selectionStart).toBe(input.value.length - 3)
+    expect(onMutation).not.toHaveBeenCalled()
   })
 })

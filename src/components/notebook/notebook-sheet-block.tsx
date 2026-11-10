@@ -2,7 +2,6 @@ import { t } from '#/copy'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { ZodError } from 'zod'
 
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
 import type { SheetCellSelection } from '#/components/sheet/canonical-sheet-workspace'
@@ -23,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui/table'
-import { DataClientError } from '#/lib/data-client'
+import { sheetInstanceEmbedErrorMessage } from './sheet-embed-error'
 import { frozenSheetGridFromEvidence } from '#/lib/frozen-sheet-grid'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 import {
@@ -37,7 +36,10 @@ import {
   sheetDefinitionDataClient,
 } from '#/lib/sheet-definition-data'
 import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
-import { sheetCommentAnchorSchema } from '#/lib/sheet-comment-anchor'
+import {
+  sheetCommentAnchorSchema,
+  sheetCommentCells,
+} from '#/lib/sheet-comment-anchor'
 import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
 import {
   fetchSheetInstance,
@@ -65,6 +67,7 @@ export function NotebookSheetBlock({
   if (frozenEvidence) {
     return <FrozenSheetEvidencePanel evidence={frozenEvidence} />
   }
+
   if (frozenEvidence === null || record.lockedAt) {
     return (
       <p className="p-3 text-sm text-fg-muted" role="status">
@@ -72,7 +75,9 @@ export function NotebookSheetBlock({
       </p>
     )
   }
+
   const instanceId = sheetBlockInstanceId(block.payload)
+
   if (!instanceId) {
     return (
       <p className="p-3 text-sm text-fg-muted" role="status">
@@ -80,6 +85,7 @@ export function NotebookSheetBlock({
       </p>
     )
   }
+
   return (
     <NotebookInstanceSheetEmbed
       instanceId={instanceId}
@@ -91,6 +97,55 @@ export function NotebookSheetBlock({
   )
 }
 
+type FrozenSheetSelection = {
+  start: { row: number; column: number }
+  end: { row: number; column: number }
+}
+
+/** Translate view coordinates into canonical evidence identities before enabling comments. */
+function frozenCommentTarget({
+  instanceId,
+  grid,
+  selection,
+  targetKind,
+}: {
+  instanceId: string
+  grid: ReturnType<typeof frozenSheetGridFromEvidence>
+  selection: FrozenSheetSelection | null
+  targetKind: SheetCommentAnchor['targetKind']
+}) {
+  return selection && grid.rowKeys
+    ? sheetCommentAnchorSchema.safeParse({
+        targetKind,
+        target: {
+          instanceId,
+          rowKeys:
+            targetKind === 'sheet_range'
+              ? grid.rowKeys
+                  .slice(
+                    Math.min(selection.start.row, selection.end.row),
+                    Math.max(selection.start.row, selection.end.row) + 1,
+                  )
+                  .sort()
+              : [grid.rowKeys[selection.end.row]],
+          fieldIds:
+            targetKind === 'sheet_row'
+              ? []
+              : targetKind === 'sheet_range'
+                ? grid.columns
+                    .slice(
+                      Math.min(selection.start.column, selection.end.column),
+                      Math.max(selection.start.column, selection.end.column) +
+                        1,
+                    )
+                    .map((column) => column.id)
+                    .sort()
+                : [grid.columns[selection.end.column]?.id],
+        },
+      })
+    : null
+}
+
 export function FrozenSheetEvidencePanel({
   evidence,
   onCommentTarget,
@@ -99,47 +154,34 @@ export function FrozenSheetEvidencePanel({
   onCommentTarget?: (anchor: SheetCommentAnchor) => void
 }) {
   const grid = frozenSheetGridFromEvidence(evidence)
-  const [selection, setSelection] = useState<{
-    start: { row: number; column: number }
-    end: { row: number; column: number }
-  } | null>(null)
+  const [selection, setSelection] = useState<FrozenSheetSelection | null>(null)
+
   const [targetKind, setTargetKind] =
     useState<SheetCommentAnchor['targetKind']>('sheet_cell')
-  const target =
-    selection && grid.rowKeys
-      ? sheetCommentAnchorSchema.safeParse({
-          targetKind,
-          target: {
-            instanceId: evidence.instanceId,
-            rowKeys:
-              targetKind === 'sheet_range'
-                ? grid.rowKeys
-                    .slice(
-                      Math.min(selection.start.row, selection.end.row),
-                      Math.max(selection.start.row, selection.end.row) + 1,
-                    )
-                    .sort()
-                : [grid.rowKeys[selection.end.row]],
-            fieldIds:
-              targetKind === 'sheet_row'
-                ? []
-                : targetKind === 'sheet_range'
-                  ? grid.columns
-                      .slice(
-                        Math.min(selection.start.column, selection.end.column),
-                        Math.max(selection.start.column, selection.end.column) +
-                          1,
-                      )
-                      .map((column) => column.id)
-                      .sort()
-                  : [grid.columns[selection.end.column]?.id],
-          },
-        })
-      : null
+
+  const target = frozenCommentTarget({
+    instanceId: evidence.instanceId,
+    grid,
+    selection,
+    targetKind,
+  })
+
+  const selectedCells = new Set(
+    target?.success
+      ? sheetCommentCells(
+          target.data,
+          evidence.instanceId,
+          (grid.rowKeys ?? []).map((id) => ({ id })),
+          grid.columns,
+        ).map(({ row, column }) => `${row}:${column}`)
+      : [],
+  )
+
   const origin =
     evidence.sourceDefinitionVersionId === null
       ? t('notebook.notebookSheetBlock.adHocSheet')
       : t('notebook.notebookSheetBlock.sheetDefinition')
+
   const bindingCount = evidence.datasetBindings.length
 
   return (
@@ -169,73 +211,13 @@ export function FrozenSheetEvidencePanel({
         .
       </p>
       {onCommentTarget ? (
-        grid.rowKeys ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-xs text-fg-muted">
-              {t('notebook.notebookSheetBlock.commentTarget')}
-              <select
-                aria-label={t(
-                  'notebook.notebookSheetBlock.frozenCommentTargetAriaLabel',
-                )}
-                value={targetKind}
-                onChange={(event) => {
-                  const kind = event.target.value
-                  if (
-                    kind === 'sheet_cell' ||
-                    kind === 'sheet_row' ||
-                    kind === 'sheet_range'
-                  )
-                    setTargetKind(kind)
-                }}
-                className="ml-2 rounded border bg-surface px-2 py-1 text-fg"
-              >
-                <option value="sheet_cell">
-                  {t('notebook.notebookSheetBlock.cell')}
-                </option>
-                <option value="sheet_row">
-                  {t('notebook.notebookSheetBlock.row')}
-                </option>
-                <option value="sheet_range">
-                  {t('notebook.notebookSheetBlock.range')}
-                </option>
-              </select>
-            </label>
-            <Button
-              size="sm"
-              disabled={!target?.success}
-              onClick={() => {
-                if (target?.success) onCommentTarget(target.data)
-              }}
-            >
-              {t('notebook.notebookSheetBlock.commentOnFrozenSelection')}
-            </Button>
-            <p className="text-xs text-fg-muted">
-              {t('notebook.notebookSheetBlock.selectACellShift')}
-            </p>
-            {target?.success ? (
-              <p className="text-xs text-fg" role="status">
-                {targetKind === 'sheet_row'
-                  ? t('notebook.notebookSheetBlock.selectedRows', {
-                      rows: t('common.counts.rows', {
-                        count: target.data.target.rowKeys.length,
-                      }),
-                    })
-                  : t('notebook.notebookSheetBlock.selectedRowsFields', {
-                      rows: t('common.counts.rows', {
-                        count: target.data.target.rowKeys.length,
-                      }),
-                      fields: t('notebook.commentThread.fields', {
-                        count: target.data.target.fieldIds.length,
-                      }),
-                    })}
-              </p>
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-xs text-fg-muted" role="status">
-            {t('notebook.notebookSheetBlock.cellCommentsAreNot')}
-          </p>
-        )
+        <FrozenCommentControls
+          hasRowKeys={Boolean(grid.rowKeys)}
+          targetKind={targetKind}
+          onTargetKindChange={setTargetKind}
+          target={target?.success ? target.data : null}
+          onCommentTarget={onCommentTarget}
+        />
       ) : null}
       {grid.columns.length === 0 ? (
         <p className="text-sm text-fg-muted">
@@ -279,39 +261,15 @@ export function FrozenSheetEvidencePanel({
                                 rowIndex: rowIndex + 1,
                               },
                             )}
-                            aria-pressed={
-                              selection !== null &&
-                              (targetKind === 'sheet_row'
-                                ? rowIndex === selection.end.row
-                                : targetKind === 'sheet_cell'
-                                  ? rowIndex === selection.end.row &&
-                                    cellIndex === selection.end.column
-                                  : rowIndex >=
-                                      Math.min(
-                                        selection.start.row,
-                                        selection.end.row,
-                                      ) &&
-                                    rowIndex <=
-                                      Math.max(
-                                        selection.start.row,
-                                        selection.end.row,
-                                      ) &&
-                                    cellIndex >=
-                                      Math.min(
-                                        selection.start.column,
-                                        selection.end.column,
-                                      ) &&
-                                    cellIndex <=
-                                      Math.max(
-                                        selection.start.column,
-                                        selection.end.column,
-                                      ))
-                            }
+                            aria-pressed={selectedCells.has(
+                              `${rowIndex}:${cellIndex}`,
+                            )}
                             onClick={(event) => {
                               const position = {
                                 row: rowIndex,
                                 column: cellIndex,
                               }
+
                               setSelection((current) => ({
                                 start:
                                   event.shiftKey && current
@@ -339,29 +297,123 @@ export function FrozenSheetEvidencePanel({
   )
 }
 
-export function sheetInstanceEmbedErrorMessage(
-  error: unknown,
-  missing: boolean,
-): string {
-  if (
-    error instanceof DataClientError &&
-    (error.status === 401 || error.status === 403)
-  ) {
-    return t('notebook.notebookSheetBlock.youDoNotHave')
+/** Comments address immutable row/field identities, not display coordinates. */
+function FrozenCommentControls({
+  hasRowKeys,
+  targetKind,
+  onTargetKindChange,
+  target,
+  onCommentTarget,
+}: {
+  hasRowKeys: boolean
+  targetKind: SheetCommentAnchor['targetKind']
+  onTargetKindChange: (kind: SheetCommentAnchor['targetKind']) => void
+  target: SheetCommentAnchor | null
+  onCommentTarget: (anchor: SheetCommentAnchor) => void
+}) {
+  if (!hasRowKeys) {
+    return (
+      <p className="text-xs text-fg-muted" role="status">
+        {t('notebook.notebookSheetBlock.cellCommentsAreNot')}
+      </p>
+    )
   }
-  if (
-    error instanceof ZodError ||
-    (error instanceof Error && error.name === 'ZodError')
-  ) {
-    return t('notebook.notebookSheetBlock.thisSheetCouldNot')
-  }
-  if (
-    (error instanceof DataClientError && error.status === 404) ||
-    (!error && missing)
-  ) {
-    return t('notebook.notebookSheetBlock.thisSheetInstanceCould')
-  }
-  return t('notebook.notebookSheetBlock.thisSheetCouldNot2')
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="text-xs text-fg-muted">
+        {t('notebook.notebookSheetBlock.commentTarget')}
+        <select
+          aria-label={t(
+            'notebook.notebookSheetBlock.frozenCommentTargetAriaLabel',
+          )}
+          value={targetKind}
+          onChange={(event) => {
+            const kind = event.target.value
+
+            if (
+              kind === 'sheet_cell' ||
+              kind === 'sheet_row' ||
+              kind === 'sheet_range'
+            )
+              onTargetKindChange(kind)
+          }}
+          className="ml-2 rounded border bg-surface px-2 py-1 text-fg"
+        >
+          <option value="sheet_cell">
+            {t('notebook.notebookSheetBlock.cell')}
+          </option>
+          <option value="sheet_row">
+            {t('notebook.notebookSheetBlock.row')}
+          </option>
+          <option value="sheet_range">
+            {t('notebook.notebookSheetBlock.range')}
+          </option>
+        </select>
+      </label>
+      <Button
+        size="sm"
+        disabled={!target}
+        onClick={() => {
+          if (target) onCommentTarget(target)
+        }}
+      >
+        {t('notebook.notebookSheetBlock.commentOnFrozenSelection')}
+      </Button>
+      <p className="text-xs text-fg-muted">
+        {t('notebook.notebookSheetBlock.selectACellShift')}
+      </p>
+      {target ? (
+        <p className="text-xs text-fg" role="status">
+          {targetKind === 'sheet_row'
+            ? t('notebook.notebookSheetBlock.selectedRows', {
+                rows: t('common.counts.rows', {
+                  count: target.target.rowKeys.length,
+                }),
+              })
+            : t('notebook.notebookSheetBlock.selectedRowsFields', {
+                rows: t('common.counts.rows', {
+                  count: target.target.rowKeys.length,
+                }),
+                fields: t('notebook.commentThread.fields', {
+                  count: target.target.fieldIds.length,
+                }),
+              })}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+/** Resolve provenance labels independently of the instance workspace's lifecycle. */
+function useSheetDefinitionLabel(definitionVersionId: string | null) {
+  const definitionVersion = useQuery({
+    queryKey: ['sheet-definition-version', definitionVersionId],
+    enabled: Boolean(definitionVersionId),
+    queryFn: () =>
+      fetchSheetDefinitionVersion(
+        definitionVersionId!,
+        sheetDefinitionDataClient,
+      ),
+  })
+
+  const definitionId = definitionVersion.data?.definitionId ?? null
+
+  const definition = useQuery({
+    queryKey: ['sheet-definition', definitionId],
+    enabled: Boolean(definitionId),
+    queryFn: () =>
+      fetchSheetDefinition(definitionId!, sheetDefinitionDataClient),
+  })
+
+  if (!definitionVersionId) return t('notebook.notebookSheetBlock.adHocSheet')
+
+  if (!definition.data) return t('notebook.notebookSheetBlock.sheetDefinition')
+
+  return t('notebook.notebookSheetBlock.definitionVersion', {
+    name: definition.data.name,
+    version: definitionVersion.data?.version ?? '',
+  })
 }
 
 function NotebookInstanceSheetEmbed({
@@ -381,8 +433,10 @@ function NotebookInstanceSheetEmbed({
     queryKey: ['sheet-instance', instanceId],
     queryFn: () => fetchSheetInstance(instanceId, sheetInstanceDataClient),
   })
+
   // EXP-05.2: paint `unsynced` on cells with a local draft.
   const unsyncedCellState = useUnsyncedCellState(instanceId)
+
   const embeddings = useQuery({
     queryKey: ['sheet-instance-embeddings', instanceId],
     queryFn: () =>
@@ -391,23 +445,10 @@ function NotebookInstanceSheetEmbed({
         notebookTemplateDataClient,
       ),
   })
-  const definitionVersionId = instance.data?.sourceDefinitionVersionId ?? null
-  const definitionVersion = useQuery({
-    queryKey: ['sheet-definition-version', definitionVersionId],
-    enabled: Boolean(definitionVersionId),
-    queryFn: () =>
-      fetchSheetDefinitionVersion(
-        definitionVersionId!,
-        sheetDefinitionDataClient,
-      ),
-  })
-  const definitionId = definitionVersion.data?.definitionId ?? null
-  const definition = useQuery({
-    queryKey: ['sheet-definition', definitionId],
-    enabled: Boolean(definitionId),
-    queryFn: () =>
-      fetchSheetDefinition(definitionId!, sheetDefinitionDataClient),
-  })
+
+  const definitionLabel = useSheetDefinitionLabel(
+    instance.data?.sourceDefinitionVersionId ?? null,
+  )
 
   if (instance.isPending) {
     return (
@@ -416,6 +457,7 @@ function NotebookInstanceSheetEmbed({
       </p>
     )
   }
+
   if (instance.error || !instance.data) {
     return (
       <p className="p-3 text-sm text-destructive" role="alert">
@@ -427,15 +469,8 @@ function NotebookInstanceSheetEmbed({
   const others =
     embeddings.data?.embeddings.filter((item) => item.recordId !== recordId) ??
     []
+
   const sharedCount = embeddings.data?.count ?? 0
-  const definitionLabel = instance.data.sourceDefinitionVersionId
-    ? definition.data
-      ? t('notebook.notebookSheetBlock.definitionVersion', {
-          name: definition.data.name,
-          version: definitionVersion.data?.version ?? '',
-        })
-      : t('notebook.notebookSheetBlock.sheetDefinition')
-    : t('notebook.notebookSheetBlock.adHocSheet')
 
   return (
     <div className="flex min-h-[24rem] flex-col gap-2">
@@ -494,6 +529,7 @@ function SharedNotebooksBadge({
   total: number
 }) {
   const extra = Math.max(0, total - 1)
+
   return (
     <Popover>
       <PopoverTrigger

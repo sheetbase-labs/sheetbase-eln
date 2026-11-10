@@ -3,50 +3,42 @@
  * resolves a live dataset through the shared scientific-sheet-data client,
  * surfaces missing-field, empty-dataset, log-scale-invalid and stale
  * states, renders a frozen snapshot without live re-read, and shows
- * loading/permission/empty states. The data client is mocked so no
- * PostgREST is required.
+ * loading/permission/empty states, using real query providers and controlled HTTP.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Mock } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BlockPreview } from './block-preview'
 import type { NotebookBlock } from '#/lib/notebook-data'
-import type * as chartData from '#/lib/chart-data'
-import { useFrozenPinnedRows, useLiveChartDataset } from '#/lib/chart-data'
+import type { ResolvedDataset, CanonicalDatasetSource } from '#/lib/chart-data'
+import { chartQueryKeys } from '#/lib/chart-data'
+import { dropSharedReads } from '#/lib/data-client'
 import { CHART_PALETTE } from '#/lib/chart-spec'
 import type { ChartSpec } from '#/lib/chart-spec'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-    ...rest
-  }: {
-    to: string
-    children?: ReactNode
-    [key: string]: unknown
-  }) => (
-    <a href={to} {...rest}>
-      {children}
-    </a>
-  ),
-}))
+const transport = vi.hoisted(() => {
+  const http = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', http)
 
-vi.mock('#/lib/chart-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof chartData>()
-  return {
-    ...actual,
-    // Loosely typed: tests install narrow shapes per case.
-    useLiveChartDataset: vi.fn(),
-    useFrozenPinnedRows: vi.fn(),
-  }
+  return http
 })
 
-const mockUseLive = useLiveChartDataset as unknown as Mock
-const mockUsePinned = useFrozenPinnedRows as unknown as Mock
+let dataset: ResolvedDataset | null = null
+
+beforeEach(() => {
+  dropSharedReads()
+  dataset = makeResolved()
+  transport.mockReset()
+  transport.mockReturnValue(new Promise(() => {}))
+})
 
 afterEach(() => {
   cleanup()
@@ -55,18 +47,41 @@ afterEach(() => {
 
 function renderWithQuery(ui: ReactNode) {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0, staleTime: Infinity },
+    },
   })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+
+  if (dataset)
+    client.setQueryData([chartQueryKeys.dataset(TABLE_ID), 0, null], dataset)
+  client.setQueryData(
+    [
+      ...chartQueryKeys.versionRows('22222222-2222-4222-8222-222222222222'),
+      1,
+      undefined,
+    ],
+    { rows: [{ c1: 0, c2: 7.2 }], totalCount: 1, matchesProvenance: true },
+  )
+
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterContextProvider router={router}>{ui}</RouterContextProvider>
+    </QueryClientProvider>,
+  )
 }
 
 const TABLE_ID = '00000000-0000-4000-8000-000000000170'
 
 function makeResolved(
-  rowsOverrides?: Array<Record<string, unknown>>,
+  rowsOverrides?: ResolvedDataset['rows'],
   state?: 'ok' | 'empty',
-): chartData.ResolvedDataset {
-  const source: chartData.CanonicalDatasetSource = {
+): ResolvedDataset {
+  const source: CanonicalDatasetSource = {
     datasetId: TABLE_ID,
     name: 'Stability readings (qPCR)',
     workspaceId: 'ws-1',
@@ -89,6 +104,7 @@ function makeResolved(
       { id: 'c3', label: 'Condition', logicalType: 'text' },
     ],
   }
+
   const rows =
     state === 'empty'
       ? []
@@ -98,6 +114,7 @@ function makeResolved(
           { c1: 0, c2: 7.1, c3: '−20 °C' },
           { c1: 28, c2: 6.4, c3: '−20 °C' },
         ])
+
   return { source, rows, truncated: false, totalCount: rows.length }
 }
 
@@ -133,7 +150,7 @@ function lineSpec(overrides: Partial<ChartSpec> = {}): ChartSpec {
   }
 }
 
-function makeBlock(payload: Record<string, unknown>): NotebookBlock {
+function makeBlock(payload: NotebookBlock['payload']): NotebookBlock {
   return {
     id: 'block-chart',
     recordId: 'experiment-1',
@@ -146,9 +163,7 @@ function makeBlock(payload: Record<string, unknown>): NotebookBlock {
 }
 
 function mockOkDataset() {
-  mockUseLive.mockImplementation(() => ({
-    datasetQuery: { data: makeResolved(), isLoading: false },
-  }))
+  dataset = makeResolved()
 }
 
 describe('ChartBlockPreview — live resolution', () => {
@@ -176,9 +191,7 @@ describe('ChartBlockPreview — live resolution', () => {
   })
 
   it('renders a loading state while the dataset resolves', () => {
-    mockUseLive.mockImplementation(() => ({
-      datasetQuery: { data: null, isLoading: true },
-    }))
+    dataset = null
     renderWithQuery(
       <BlockPreview
         block={makeBlock({
@@ -192,13 +205,8 @@ describe('ChartBlockPreview — live resolution', () => {
   })
 
   it('renders a permission/error state when the dataset cannot be loaded', async () => {
-    mockUseLive.mockImplementation(() => ({
-      datasetQuery: {
-        data: null,
-        isLoading: false,
-        error: new Error('permission denied'),
-      },
-    }))
+    dataset = null
+    transport.mockRejectedValue(new Error('permission denied'))
     renderWithQuery(
       <BlockPreview
         block={makeBlock({
@@ -220,9 +228,7 @@ describe('ChartBlockPreview — live resolution', () => {
   })
 
   it('surfaces a missing-field state when a bound column is absent', async () => {
-    mockUseLive.mockImplementation(() => ({
-      datasetQuery: { data: makeResolved(), isLoading: false },
-    }))
+    dataset = makeResolved()
     renderWithQuery(
       <BlockPreview
         block={makeBlock({
@@ -247,9 +253,7 @@ describe('ChartBlockPreview — live resolution', () => {
   })
 
   it('surfaces an empty-dataset state when filters match no rows', async () => {
-    mockUseLive.mockImplementation(() => ({
-      datasetQuery: { data: makeResolved([], 'empty'), isLoading: false },
-    }))
+    dataset = makeResolved([], 'empty')
     renderWithQuery(
       <BlockPreview
         block={makeBlock({
@@ -265,12 +269,7 @@ describe('ChartBlockPreview — live resolution', () => {
   })
 
   it('surfaces a log-scale-invalid state for non-positive values on a log axis', async () => {
-    mockUseLive.mockImplementation(() => ({
-      datasetQuery: {
-        data: makeResolved([{ c1: 0, c2: -1, c3: '4 °C' }]),
-        isLoading: false,
-      },
-    }))
+    dataset = makeResolved([{ c1: 0, c2: -1, c3: '4 °C' }])
     renderWithQuery(
       <BlockPreview
         block={makeBlock({
@@ -294,14 +293,11 @@ describe('ChartBlockPreview — live resolution', () => {
   })
 
   it('renders the too-large state when the dataset exceeds the client ceiling', async () => {
-    const resolved = makeResolved()
-    mockUseLive.mockImplementation(() => ({
-      datasetQuery: { data: null, isLoading: false },
-    }))
-    void resolved
-    // materialiseLiveChart reports dataset_too_large via ResolvedDataset.truncated;
-    // BlockPreview surfaces whatever honest state the materialiser returns.
-    expect(true).toBe(true)
+    dataset = { ...makeResolved(), truncated: true, totalCount: 100001 }
+    renderWithQuery(<BlockPreview block={makeBlock({ spec: lineSpec() })} />)
+    expect(screen.getByRole('status').textContent).toContain(
+      'This dataset has 100,001 rows, above the 100,000-row analysis limit.',
+    )
   })
 })
 
@@ -359,7 +355,7 @@ describe('ChartBlockPreview — frozen snapshot', () => {
     expect(screen.getByText('Snapshot')).toBeTruthy()
     expect(screen.queryByText('Live')).toBeNull()
     // Frozen path must not call the live dataset resolver.
-    expect(mockUseLive).not.toHaveBeenCalled()
+    expect(transport).not.toHaveBeenCalled()
     expect(document.querySelector('[role="img"]')).toBeTruthy()
   })
 })
@@ -387,14 +383,6 @@ describe('ChartBlockPreview — NOTE-03 canonical dataset affordances', () => {
 
   it('surfaces the pinned Dataset version and open affordance on a frozen chart', async () => {
     const versionId = '22222222-2222-4222-8222-222222222222'
-    mockUsePinned.mockImplementation(() => ({
-      data: {
-        rows: [{ c1: 0, c2: 7.2 }],
-        totalCount: 1,
-        matchesProvenance: true,
-      },
-      isLoading: false,
-    }))
     renderWithQuery(
       <BlockPreview
         block={makeBlock({

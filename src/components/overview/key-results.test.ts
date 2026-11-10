@@ -6,7 +6,7 @@ import type { NotebookBlock } from '#/lib/notebook-data'
 const block = (
   order: number,
   type: string,
-  payload: Record<string, unknown>,
+  payload: NotebookBlock['payload'],
 ): NotebookBlock => ({
   id: `b${order}`,
   recordId: 'r',
@@ -50,5 +50,95 @@ describe('keyResultsFrom', () => {
 
     expect(metrics).toEqual([])
     expect(conclusions).toEqual([])
+  })
+
+  it('accepts only primitive text without coercing native values', () => {
+    const cannotCoerce = {
+      toString() {
+        throw new Error('must not stringify metadata')
+      },
+    }
+
+    const result = keyResultsFrom([
+      block(1, 'metric', { value: 0 }),
+      block(2, 'metric', { value: 1n }),
+      block(3, 'metric', { value: Symbol('value') }),
+      block(4, 'metric', { value: cannotCoerce }),
+      block(5, 'conclusion', { text: ['not primitive'] }),
+      block(6, 'metric', {
+        value: ' 0 ',
+        label: '\tYield ',
+        unit: ' mg/mL ',
+        provenance: cannotCoerce,
+      }),
+    ])
+
+    expect(result).toEqual({
+      metrics: [
+        { id: 'b6', value: '0', label: 'Yield', unit: 'mg/mL', provenance: '' },
+      ],
+      conclusions: [],
+    })
+  })
+
+  it('retains document order ties without mutating the input array', () => {
+    const blocks = [
+      { id: 'late', type: 'metric', order: 2, payload: { value: '9' } },
+      { id: 'first', type: 'metric', payload: { value: '1' } },
+      { id: 'second', type: 'metric', order: 0, payload: { value: '2' } },
+    ]
+
+    expect(keyResultsFrom(blocks).metrics.map((metric) => metric.id)).toEqual([
+      'first',
+      'second',
+      'late',
+    ])
+    expect(blocks.map((entry) => entry.id)).toEqual(['late', 'first', 'second'])
+  })
+
+  it('reads only the selected block members, preserving getter order and throws', () => {
+    const reads: string[] = []
+
+    const payload = {
+      get value() {
+        reads.push('value')
+
+        return ' 4.7 '
+      },
+      get label() {
+        reads.push('label')
+
+        return 'Titre'
+      },
+      get unit() {
+        reads.push('unit')
+
+        return 'PFU/mL'
+      },
+      get provenance() {
+        reads.push('provenance')
+
+        return 'measured'
+      },
+      get unrelated() {
+        throw new Error('must remain unread')
+      },
+    }
+
+    expect(keyResultsFrom([block(1, 'metric', payload)]).metrics[0].value).toBe(
+      '4.7',
+    )
+    expect(reads).toEqual(['value', 'label', 'unit', 'provenance'])
+    const failure = new Error('native value getter failed')
+
+    expect(() =>
+      keyResultsFrom([
+        block(2, 'metric', {
+          get value() {
+            throw failure
+          },
+        }),
+      ]),
+    ).toThrow(failure)
   })
 })

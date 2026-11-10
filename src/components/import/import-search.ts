@@ -1,4 +1,5 @@
 import { safeReturnTo } from '#/lib/create-context-search'
+import { z } from 'zod'
 
 /**
  * R5-SURF-04 — the flow's addressable state. The path identifies the retained
@@ -24,31 +25,23 @@ export interface ImportSearch {
   returnTo?: string
 }
 
-/** Parse the raw search record; unknown or malformed values are dropped. */
-export function parseImportSearch(
-  search: Record<string, unknown>,
-): ImportSearch {
-  const text = (value: unknown) =>
-    typeof value === 'string' && value ? value : undefined
+const optionalText = z.string().min(1).optional().catch(undefined)
 
-  return {
-    step:
-      search.step === 'check'
-        ? 'check'
-        : search.step === 'map'
-          ? 'map'
-          : undefined,
-    dataset: text(search.dataset),
-    experiment: text(search.experiment),
-    instrument: text(search.instrument),
-    parser: text(search.parser),
-    map: text(search.map),
-    sheet: text(search.sheet),
-    units: text(search.units),
-    project: text(search.project),
-    returnTo: safeReturnTo(search.returnTo),
-  }
-}
+const searchSchema = z.object({
+  step: z.enum(['map', 'check']).optional().catch(undefined),
+  dataset: optionalText,
+  experiment: optionalText,
+  instrument: optionalText,
+  parser: optionalText,
+  map: optionalText,
+  sheet: optionalText,
+  units: optionalText,
+  project: optionalText,
+  returnTo: z.unknown().transform(safeReturnTo).optional(),
+})
+
+/** Parse the raw search record; unknown or malformed values are dropped. */
+export const parseImportSearch = searchSchema.parse.bind(searchSchema)
 
 /** Compact, URL-safe `source:field` pairs; skipped columns carry no pair. */
 export function serializeImportMapping(
@@ -64,9 +57,7 @@ export function serializeImportMapping(
     .join(',')
 }
 
-export function parseImportMapping(
-  value: string | undefined,
-): Record<string, string> {
+export function parseImportMapping(value: string | undefined) {
   if (!value) return {}
   const values: Record<string, string> = {}
 

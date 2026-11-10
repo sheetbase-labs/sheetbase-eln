@@ -1,4 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
+import { z } from 'zod'
 
 /**
  * SET-03.1 — the caller's own display name.
@@ -15,9 +16,9 @@ import { createServerFn } from '@tanstack/react-start'
 const MAX_NAME_LENGTH = 120
 
 export const updateProfileNameFn = createServerFn({ method: 'POST' })
-  .validator((input: { name: string }) => input)
+  .validator(z.object({ name: z.string().catch('') }))
   .handler(async ({ data }): Promise<{ name: string }> => {
-    const name = typeof data.name === 'string' ? data.name.trim() : ''
+    const name = data.name.trim()
 
     if (!name) throw new Error('Enter your full name.')
 
@@ -29,9 +30,15 @@ export const updateProfileNameFn = createServerFn({ method: 'POST' })
 
     // Loaded inside the handler: `#/lib/auth` reads server-only env and the DB
     // client, and a static import would pull it into the browser bundle.
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    const { isDevAuthFreeEnabled } = await import('#/lib/auth')
+    const [
+      { getRequestHeaders },
+      { getCurrentContext },
+      { isDevAuthFreeEnabled },
+    ] = await Promise.all([
+      import('@tanstack/react-start/server'),
+      import('#/lib/current-user'),
+      import('#/lib/auth'),
+    ])
 
     const headers = getRequestHeaders()
     const context = await getCurrentContext(headers)

@@ -21,6 +21,7 @@ import {
 } from '#/lib/review-workspace'
 import { reviewsDataClient } from '#/lib/reviews'
 import type { ReviewSubmissionWire } from '#/lib/reviews'
+import type { DataClient } from '#/lib/data-client'
 
 /**
  * Take a notebook back out of review from the notebook itself. The submitter
@@ -32,10 +33,12 @@ export function WithdrawReviewDialog({
   open,
   onOpenChange,
   submission,
+  client = reviewsDataClient,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   submission: ReviewSubmissionWire
+  client?: DataClient
 }) {
   const queryClient = useQueryClient()
   const [note, setNote] = useState('')
@@ -46,17 +49,20 @@ export function WithdrawReviewDialog({
     if (pending) return
     setPending(true)
     setError(null)
+
     try {
       const revision = await fetchRevisionRow(
-        reviewsDataClient,
+        client,
         submission.revision_id,
       )
+
       if (!revision?.integrity_digest) {
         throw new Error(
           t('notebook.withdrawReviewDialog.theRevisionUnderReview'),
         )
       }
-      await withdrawReview(reviewsDataClient, {
+
+      await withdrawReview(client, {
         submissionId: submission.id,
         note: note.trim() || undefined,
         expectedRevisionDigest: revision.integrity_digest,

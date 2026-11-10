@@ -36,9 +36,12 @@ describe('ChartRenderer (lazy wrapper)', () => {
       />,
     )
 
-    const placeholder = container.querySelector('[aria-hidden="true"]')
+    const placeholder = container.querySelector<HTMLElement>(
+      '[aria-hidden="true"]',
+    )
+
     expect(placeholder).not.toBeNull()
-    expect((placeholder as HTMLElement).style.height).toBe('180px')
+    expect(placeholder?.style.height).toBe('180px')
     expect(
       await screen.findByText('Lazy chart', undefined, { timeout: 10_000 }),
     ).toBeTruthy()

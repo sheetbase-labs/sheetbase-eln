@@ -8,11 +8,8 @@ import {
   createOfflineEditStore,
 } from '#/lib/offline/store'
 import { richTextPayloadFromText } from '#/lib/offline/replay'
-import {
-  OfflineEditsProvider,
-  losslessPlainText,
-  useOfflineEdits,
-} from './offline-edits'
+import { OfflineEditsProvider, useOfflineEdits } from './offline-edits'
+import { losslessPlainText } from './offline-edit-model'
 
 const scope = { userId: 'u1', recordId: 'r1' }
 

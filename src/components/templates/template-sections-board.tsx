@@ -146,8 +146,10 @@ export function TemplateSectionsBoard({
 
   const protocolLabel =
     protocolEntry?.kind === 'narrative' &&
+    // eslint-disable-next-line anti-slop/no-runtime-typeof -- Permissive narrative payloads retain the original native first-read discriminator; it does not validate the second getter read.
     typeof protocolEntry.payload.protocol === 'string'
-      ? `${protocolEntry.payload.protocol} v${String(protocolEntry.payload.version ?? '')}`.trim()
+      ? // eslint-disable-next-line typescript/no-base-to-string -- Preserve the permissive native version value's String coercion after the second protocol getter read.
+        `${protocolEntry.payload.protocol} v${String(protocolEntry.payload.version ?? '')}`.trim()
       : null
 
   const referencedModels = useMemo(() => {
@@ -259,155 +261,233 @@ export function TemplateSectionsBoard({
         )}
       </div>
 
-      <Inspector
-        label={t('library.templates.templateSectionsBoard.version')}
-        width={300}
-      >
-        <div className="flex flex-col gap-0.5">
-          <span className="mono text-label text-fg-muted">
-            {displayId ?? templateKey}
-          </span>
-          <div className="font-heading text-doc font-semibold">
-            {isDraft
-              ? t('library.templates.templateSectionsBoard.draft')
-              : t('library.templates.templateSectionsBoard.published')}{' '}
-            v{version.version}
-          </div>
-          <span className="text-label text-fg-muted">
-            {[
-              previous
-                ? t('library.templates.templateSectionsBoard.basedOnV', {
-                    version: previous.version,
-                  })
-                : '',
-              isDraft && editedBy
-                ? t(
-                    editedAt
-                      ? 'library.templates.templateSectionsBoard.editedByAt'
-                      : 'library.templates.templateSectionsBoard.editedBy',
-                    { editedBy, editedAt: editedAt ?? '' },
-                  )
-                : version.publishedAt
-                  ? t('library.templates.templateSectionsBoard.publishedOn', {
-                      date: formatDate(version.publishedAt),
-                    })
-                  : '',
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </span>
-        </div>
-        {isDraft ? (
-          <div className="flex gap-2">
-            <Button
-              variant="primary"
-              nativeButton={false}
-              render={
-                <Link
-                  to="/templates/$templateId/versions"
-                  params={params}
-                  search={{ v: version.id }}
-                />
-              }
-            >
-              {t('library.templates.templateSectionsBoard.publishV', {
-                version: version.version,
-              })}
-            </Button>
-          </div>
-        ) : null}
-
-        <InspectorSection
-          title={
-            previous
-              ? t('library.templates.templateSectionsBoard.changesSinceV', {
-                  version: previous.version,
-                })
-              : t('library.templates.templateSectionsBoard.firstVersion')
-          }
-        >
-          {changes.length ? (
-            <FieldChangeList
-              changes={changes}
-              label={t(
-                'library.templates.templateSectionsBoard.changesSinceV',
-                { version: previous?.version ?? 0 },
-              )}
-            />
-          ) : (
-            <Muted>
-              {previous
-                ? t('library.templates.templateSectionsBoard.nothingChanged')
-                : t(
-                    'library.templates.templateSectionsBoard.everySectionIsNew',
-                  )}
-            </Muted>
-          )}
-        </InspectorSection>
-
-        {isDraft ? (
-          <InspectorSection
-            title={t('library.templates.templateSectionsBoard.whenYouPublish')}
-          >
-            <Muted>
-              {t(
-                'library.templates.templateSectionsBoard.nothingAlreadyMadeChanges',
-              )}{' '}
-              {olderInUse.length
-                ? t(
-                    'library.templates.templateSectionsBoard.areToldVExistsEach',
-                    {
-                      join: olderInUse
-                        .map((v, i) => {
-                          const n = recordCounts.get(v.id) ?? 0
-
-                          return t(
-                            i === 0
-                              ? 'library.templates.templateSectionsBoard.notebooksOnV'
-                              : 'library.templates.templateSectionsBoard.countOnV',
-                            { count: n, version: v.version },
-                          )
-                        })
-                        .join(' and '),
-                      version: version.version,
-                    },
-                  )
-                : ''}
-              {t(
-                'library.templates.templateSectionsBoard.newNotebooksStartFromV',
-                { version: version.version },
-              )}
-            </Muted>
-          </InspectorSection>
-        ) : null}
-
-        <InspectorSection
-          title={t('library.templates.templateSectionsBoard.builtOn')}
-        >
-          <DescriptionList
-            labelWidth={72}
-            items={[
-              [
-                t('library.templates.templateSectionsBoard.protocol'),
-                protocolLabel ?? '—',
-              ],
-              [
-                t('library.templates.templateSectionsBoard.models'),
-                referencedModels.length
-                  ? referencedModels.map(modelLabel).join(', ')
-                  : '—',
-              ],
-              [
-                t('library.templates.templateSectionsBoard.review'),
-                isDraft
-                  ? t('library.templates.templateSectionsBoard.needs1Approver')
-                  : `${countTemplateUse((users.data ?? []).filter((r) => r.source_notebook_template_version_id === version.id)).total} records`,
-              ],
-            ]}
-          />
-        </InspectorSection>
-      </Inspector>
+      <VersionInspector
+        version={version}
+        previous={previous}
+        changes={changes}
+        isDraft={isDraft}
+        params={params}
+        displayId={displayId}
+        templateKey={templateKey}
+        editedBy={editedBy}
+        editedAt={editedAt}
+        olderInUse={olderInUse}
+        recordCounts={recordCounts}
+        referencedModels={referencedModels}
+        protocolLabel={protocolLabel}
+        users={users}
+      />
     </div>
+  )
+}
+
+function VersionHeading({
+  version,
+  previous,
+  isDraft,
+  displayId,
+  templateKey,
+  editedBy,
+  editedAt,
+}: {
+  version: NotebookTemplateVersion
+  previous: NotebookTemplateVersion | null
+  isDraft: boolean
+  displayId: string | null
+  templateKey: string
+  editedBy: string | null
+  editedAt: string | null
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="mono text-label text-fg-muted">
+        {displayId ?? templateKey}
+      </span>
+      <div className="font-heading text-doc font-semibold">
+        {isDraft
+          ? t('library.templates.templateSectionsBoard.draft')
+          : t('library.templates.templateSectionsBoard.published')}{' '}
+        v{version.version}
+      </div>
+      <span className="text-label text-fg-muted">
+        {[
+          previous
+            ? t('library.templates.templateSectionsBoard.basedOnV', {
+                version: previous.version,
+              })
+            : '',
+          isDraft && editedBy
+            ? t(
+                editedAt
+                  ? 'library.templates.templateSectionsBoard.editedByAt'
+                  : 'library.templates.templateSectionsBoard.editedBy',
+                { editedBy, editedAt: editedAt ?? '' },
+              )
+            : version.publishedAt
+              ? t('library.templates.templateSectionsBoard.publishedOn', {
+                  date: formatDate(version.publishedAt),
+                })
+              : '',
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+      </span>
+    </div>
+  )
+}
+
+function VersionInspector({
+  version,
+  previous,
+  changes,
+  isDraft,
+  params,
+  displayId,
+  templateKey,
+  editedBy,
+  editedAt,
+  olderInUse,
+  recordCounts,
+  referencedModels,
+  protocolLabel,
+  users,
+}: {
+  version: NotebookTemplateVersion
+  previous: NotebookTemplateVersion | null
+  changes: ReturnType<typeof diffTemplatePlacements>
+  isDraft: boolean
+  params: { templateId: string }
+  displayId: string | null
+  templateKey: string
+  editedBy: string | null
+  editedAt: string | null
+  olderInUse: NotebookTemplateVersion[]
+  recordCounts: Map<string, number>
+  referencedModels: string[]
+  protocolLabel: string | null
+  users: ReturnType<typeof useTemplateUsers>
+}) {
+  return (
+    <Inspector
+      label={t('library.templates.templateSectionsBoard.version')}
+      width={300}
+    >
+      <VersionHeading
+        version={version}
+        previous={previous}
+        isDraft={isDraft}
+        displayId={displayId}
+        templateKey={templateKey}
+        editedBy={editedBy}
+        editedAt={editedAt}
+      />
+      {isDraft ? (
+        <div className="flex gap-2">
+          <Button
+            variant="primary"
+            nativeButton={false}
+            render={
+              <Link
+                to="/templates/$templateId/versions"
+                params={params}
+                search={{ v: version.id }}
+              />
+            }
+          >
+            {t('library.templates.templateSectionsBoard.publishV', {
+              version: version.version,
+            })}
+          </Button>
+        </div>
+      ) : null}
+
+      <InspectorSection
+        title={
+          previous
+            ? t('library.templates.templateSectionsBoard.changesSinceV', {
+                version: previous.version,
+              })
+            : t('library.templates.templateSectionsBoard.firstVersion')
+        }
+      >
+        {changes.length ? (
+          <FieldChangeList
+            changes={changes}
+            label={t('library.templates.templateSectionsBoard.changesSinceV', {
+              version: previous?.version ?? 0,
+            })}
+          />
+        ) : (
+          <Muted>
+            {previous
+              ? t('library.templates.templateSectionsBoard.nothingChanged')
+              : t('library.templates.templateSectionsBoard.everySectionIsNew')}
+          </Muted>
+        )}
+      </InspectorSection>
+
+      {isDraft ? (
+        <InspectorSection
+          title={t('library.templates.templateSectionsBoard.whenYouPublish')}
+        >
+          <Muted>
+            {t(
+              'library.templates.templateSectionsBoard.nothingAlreadyMadeChanges',
+            )}{' '}
+            {olderInUse.length
+              ? t(
+                  'library.templates.templateSectionsBoard.areToldVExistsEach',
+                  {
+                    join: olderInUse
+                      .map((v, i) => {
+                        const n = recordCounts.get(v.id) ?? 0
+
+                        return t(
+                          i === 0
+                            ? 'library.templates.templateSectionsBoard.notebooksOnV'
+                            : 'library.templates.templateSectionsBoard.countOnV',
+                          { count: n, version: v.version },
+                        )
+                      })
+                      .join(' and '),
+                    version: version.version,
+                  },
+                )
+              : ''}
+            {t(
+              'library.templates.templateSectionsBoard.newNotebooksStartFromV',
+              { version: version.version },
+            )}
+          </Muted>
+        </InspectorSection>
+      ) : null}
+
+      <InspectorSection
+        title={t('library.templates.templateSectionsBoard.builtOn')}
+      >
+        <DescriptionList
+          labelWidth={72}
+          items={[
+            [
+              t('library.templates.templateSectionsBoard.protocol'),
+              protocolLabel ?? '—',
+            ],
+            [
+              t('library.templates.templateSectionsBoard.models'),
+              referencedModels.length
+                ? referencedModels.map(modelLabel).join(', ')
+                : '—',
+            ],
+            [
+              t('library.templates.templateSectionsBoard.review'),
+              isDraft
+                ? t('library.templates.templateSectionsBoard.needs1Approver')
+                : `${countTemplateUse((users.data ?? []).filter((r) => r.source_notebook_template_version_id === version.id)).total} records`,
+            ],
+          ]}
+        />
+      </InspectorSection>
+    </Inspector>
   )
 }
 
@@ -525,9 +605,7 @@ function SectionDetail({
 
   const payload = placement.kind === 'narrative' ? placement.payload : {}
 
-  const fields = Array.isArray(payload.fields)
-    ? (payload.fields as string[])
-    : null
+  const fields = Array.isArray(payload.fields) ? payload.fields : null
 
   return (
     <div className="flex flex-col gap-3">

@@ -33,13 +33,16 @@ export function AnalysisChartPicker({
 }) {
   const queryClient = useQueryClient()
   const [viewId, setViewId] = useState('')
+
   const views = useQuery({
     queryKey: ['analysis-views', 'list'] as const,
     queryFn: () => fetchAnalysisViews(analysisStudioDataClient),
     staleTime: 10_000,
   })
+
   const list = views.data ?? []
   const chosen = list.find((view) => view.id === viewId)
+
   const compose = useMutation({
     mutationFn: () =>
       composeAnalysisDefinition(analysisDefinitionsDataClient, {

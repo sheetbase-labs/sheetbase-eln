@@ -77,6 +77,7 @@ export interface SaveStatusProps {
 
 export function SaveStatus({ status, message, className }: SaveStatusProps) {
   const meta = META[status]
+
   return (
     <span
       className={cn(

@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { z } from 'zod'
 
 import { t } from '#/copy'
 import { Button } from '#/components/ui/button'
@@ -26,6 +27,7 @@ import type {
   PipelineReproductionWire,
 } from '#/lib/pipelines/types'
 import { explainRunError } from '#/lib/pipelines/run-errors'
+import type { DiffCell, DiffRow } from '#/lib/pipelines/reproduce-diff'
 import {
   pipelineDataQueryKeys,
   useRunReproductions,
@@ -51,7 +53,7 @@ export function ReproductionBadge({
   return <Status tone={view.tone}>{view.label}</Status>
 }
 
-const COMPARED: Record<string, string> = {
+const COMPARED = {
   dataset_version: t('data.reproduce.comparedVersion'),
   preview: t('data.reproduce.comparedPreview'),
   digest: t('data.reproduce.comparedDigest'),
@@ -88,7 +90,7 @@ export function useReproduceRun(
       )
       onDone?.(reproduction)
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
@@ -104,7 +106,6 @@ export function ReproductionResult({
   reproduction: PipelineReproductionWire
 }) {
   const summary = summaryOf(reproduction)
-  const changes = reproduction.changes
 
   const inputChanged = (summary.inputs ?? []).some(
     (input) => input.unchanged === false,
@@ -122,26 +123,9 @@ export function ReproductionResult({
     )
   }
 
-  const rows = summary.reproducedRows ?? 0
-
   return (
     <div className="flex flex-col gap-3">
-      <Notice
-        tone={reproduction.status === 'matches' ? 'info' : 'warn'}
-        icon={reproduction.status === 'matches' ? 'check' : 'warn'}
-        title={STATUS[reproduction.status].label}
-      >
-        {reproduction.status === 'matches'
-          ? summary.identical
-            ? t('data.reproduce.matchesDetail', { count: rows })
-            : t('data.reproduce.matchesToleranceDetail', { count: rows })
-          : t('data.reproduce.differsDetail', {
-              changed: summary.changedRows ?? 0,
-              added: summary.addedRows ?? 0,
-              removed: summary.removedRows ?? 0,
-            })}
-        {summary.note ? <> {summary.note}</> : null}
-      </Notice>
+      <ReproductionVerdict reproduction={reproduction} />
       {inputChanged ? (
         <Notice tone="warn">{t('data.reproduce.inputChanged')}</Notice>
       ) : null}
@@ -159,96 +143,157 @@ export function ReproductionResult({
           })}
         </Muted>
       ) : null}
-      {changes.length > 0 ? (
-        <section className="flex flex-col gap-1.5">
-          <h3 className="m-0 font-sans text-label font-semibold">
-            {t('data.reproduce.changesTitle')}
-          </h3>
-          <TableBox>
-            <Table aria-label={t('data.reproduce.changesTitle')}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('data.reproduce.kind')}</TableHead>
-                  <TableHead>{t('data.reproduce.row')}</TableHead>
-                  <TableHead>{t('data.reproduce.column')}</TableHead>
-                  <TableHead>{t('data.reproduce.recorded')}</TableHead>
-                  <TableHead>{t('data.reproduce.now')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {changes.flatMap((change, index) =>
-                  change.kind === 'changed'
-                    ? change.cells.map((cell) => (
-                        <TableRow key={`${index}-${cell.column}`}>
-                          <TableCell>
-                            <Status tone="warn">
-                              {t('data.reproduce.kindChanged')}
-                            </Status>
-                          </TableCell>
-                          <TableCell>
-                            {rowLabel(
-                              change.row,
-                              change.cells.map((c) => c.column),
-                            )}
-                          </TableCell>
-                          <TableCell>{cell.column}</TableCell>
-                          <TableCell className="num">
-                            {formatCell(cell.before)}
-                          </TableCell>
-                          <TableCell className="num">
-                            {formatCell(cell.after)}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    : [
-                        <TableRow key={index}>
-                          <TableCell>
-                            <Status
-                              tone={change.kind === 'added' ? 'ok' : 'bad'}
-                            >
-                              {change.kind === 'added'
-                                ? t('data.reproduce.kindAdded')
-                                : t('data.reproduce.kindRemoved')}
-                            </Status>
-                          </TableCell>
-                          <TableCell colSpan={4}>
-                            {Object.entries(change.row)
-                              .slice(0, 6)
-                              .map(([k, v]) => `${k}: ${formatCell(v)}`)
-                              .join(' · ')}
-                          </TableCell>
-                        </TableRow>,
-                      ],
-                )}
-              </TableBody>
-            </Table>
-          </TableBox>
-          {summary.truncated ? (
-            <Muted>{t('data.reproduce.moreChanges')}</Muted>
-          ) : null}
-        </section>
-      ) : null}
+      <ReproductionChanges reproduction={reproduction} />
     </div>
   )
 }
 
+function ReproductionVerdict({
+  reproduction,
+}: {
+  reproduction: PipelineReproductionWire
+}) {
+  const summary = summaryOf(reproduction)
+  const rows = summary.reproducedRows ?? 0
+
+  return (
+    <Notice
+      tone={reproduction.status === 'matches' ? 'info' : 'warn'}
+      icon={reproduction.status === 'matches' ? 'check' : 'warn'}
+      title={STATUS[reproduction.status].label}
+    >
+      {reproduction.status === 'matches'
+        ? summary.identical
+          ? t('data.reproduce.matchesDetail', { count: rows })
+          : t('data.reproduce.matchesToleranceDetail', { count: rows })
+        : t('data.reproduce.differsDetail', {
+            changed: summary.changedRows ?? 0,
+            added: summary.addedRows ?? 0,
+            removed: summary.removedRows ?? 0,
+          })}
+      {summary.note ? <> {summary.note}</> : null}
+    </Notice>
+  )
+}
+
+function ReproductionTableHeader({ headings }: { headings: string[] }) {
+  return (
+    <TableHeader>
+      <TableRow>
+        {headings.map((heading) => (
+          <TableHead key={heading}>{heading}</TableHead>
+        ))}
+      </TableRow>
+    </TableHeader>
+  )
+}
+
+function ReproductionChanges({
+  reproduction,
+}: {
+  reproduction: PipelineReproductionWire
+}) {
+  const summary = summaryOf(reproduction)
+  const occurrences = new Map<string, number>()
+
+  const changes = reproduction.changes.map((change) => {
+    const content = JSON.stringify(change)
+    const occurrence = occurrences.get(content) ?? 0
+    occurrences.set(content, occurrence + 1)
+
+    return { change, key: `${content}:${occurrence}` }
+  })
+
+  return changes.length > 0 ? (
+    <section className="flex flex-col gap-1.5">
+      <h3 className="m-0 font-sans text-label font-semibold">
+        {t('data.reproduce.changesTitle')}
+      </h3>
+      <TableBox>
+        <Table aria-label={t('data.reproduce.changesTitle')}>
+          <ReproductionTableHeader
+            headings={[
+              t('data.reproduce.kind'),
+              t('data.reproduce.row'),
+              t('data.reproduce.column'),
+              t('data.reproduce.recorded'),
+              t('data.reproduce.now'),
+            ]}
+          />
+          <TableBody>
+            {changes.flatMap(({ change, key }) =>
+              change.kind === 'changed'
+                ? change.cells.map((cell) => (
+                    <TableRow key={`${key}-${cell.column}`}>
+                      <TableCell>
+                        <Status tone="warn">
+                          {t('data.reproduce.kindChanged')}
+                        </Status>
+                      </TableCell>
+                      <TableCell>
+                        {rowLabel(
+                          change.row,
+                          change.cells.map((c) => c.column),
+                        )}
+                      </TableCell>
+                      <TableCell>{cell.column}</TableCell>
+                      <TableCell className="num">
+                        {formatCell(cell.before)}
+                      </TableCell>
+                      <TableCell className="num">
+                        {formatCell(cell.after)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : [
+                    <TableRow key={key}>
+                      <TableCell>
+                        <Status tone={change.kind === 'added' ? 'ok' : 'bad'}>
+                          {change.kind === 'added'
+                            ? t('data.reproduce.kindAdded')
+                            : t('data.reproduce.kindRemoved')}
+                        </Status>
+                      </TableCell>
+                      <TableCell colSpan={4}>
+                        {Object.entries(change.row)
+                          .slice(0, 6)
+                          .map(([k, v]) => `${k}: ${formatCell(v)}`)
+                          .join(' · ')}
+                      </TableCell>
+                    </TableRow>,
+                  ],
+            )}
+          </TableBody>
+        </Table>
+      </TableBox>
+      {summary.truncated ? (
+        <Muted>{t('data.reproduce.moreChanges')}</Muted>
+      ) : null}
+    </section>
+  ) : null
+}
+
 /** Which row a change is in: the values that did not change, since rows have no number. */
-function rowLabel(row: Record<string, unknown>, changed: string[]): string {
+function rowLabel(row: DiffRow, changed: string[]): string {
+  const changedColumns = new Set(changed)
+
   const parts = Object.entries(row)
-    .filter(([column, value]) => !changed.includes(column) && value !== null)
+    .filter(([column, value]) => !changedColumns.has(column) && value !== null)
     .slice(0, 3)
     .map(([column, value]) => `${column}: ${formatCell(value)}`)
 
   return parts.length > 0 ? parts.join(' · ') : '—'
 }
 
-function formatCell(value: unknown): string {
+function formatCell(value: DiffCell | undefined): string {
   if (value === null || value === undefined) return '—'
 
-  if (typeof value === 'number') {
-    return Number.isInteger(value)
-      ? String(value)
-      : String(Number(value.toPrecision(10)))
+  const numeric = z.number().safeParse(value)
+
+  if (numeric.success) {
+    return Number.isInteger(numeric.data)
+      ? String(numeric.data)
+      : String(Number(numeric.data.toPrecision(10)))
   }
 
   return String(value)
@@ -311,15 +356,15 @@ export function RunReproductions({
           </h3>
           <TableBox>
             <Table aria-label={t('data.reproduce.historyTitle')}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('data.reproduce.when')}</TableHead>
-                  <TableHead>{t('data.reproduce.result')}</TableHead>
-                  <TableHead>{t('data.reproduce.rowsChecked')}</TableHead>
-                  <TableHead>{t('data.reproduce.comparedBy')}</TableHead>
-                  <TableHead>{t('data.reproduce.checkedBy')}</TableHead>
-                </TableRow>
-              </TableHeader>
+              <ReproductionTableHeader
+                headings={[
+                  t('data.reproduce.when'),
+                  t('data.reproduce.result'),
+                  t('data.reproduce.rowsChecked'),
+                  t('data.reproduce.comparedBy'),
+                  t('data.reproduce.checkedBy'),
+                ]}
+              />
               <TableBody>
                 {earlier.map((entry) => (
                   <TableRow key={entry.id}>

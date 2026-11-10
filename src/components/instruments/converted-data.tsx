@@ -16,6 +16,7 @@ import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
 import { createDataClient } from '#/lib/data-client'
 import { asmFileName, deviceLabel } from '#/lib/instrument-data/asm'
+import type { InstrumentRunDocument } from '#/lib/instrument-data/asm'
 
 const client = createDataClient()
 
@@ -26,7 +27,7 @@ interface DocumentWire {
   converter: string
   converter_version: string | null
   measurements: number
-  device: Record<string, unknown>
+  device: InstrumentRunDocument['device']
   created_at: string
   instrument_runs: { name: string; run_identifier: string } | null
 }

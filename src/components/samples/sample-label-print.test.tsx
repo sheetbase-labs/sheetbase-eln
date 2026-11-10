@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from '#/lib/data-client'
+import { createDataClient } from '#/lib/data-client'
+import { Toaster, toast } from '#/components/ui/sonner'
+import type { SampleLabelPrintEvent } from '#/lib/samples'
 
 import { PrintLabelButton, SampleLabelPrint } from './sample-label-print'
 
@@ -16,13 +18,6 @@ import { PrintLabelButton, SampleLabelPrint } from './sample-label-print'
  * (`record_sample_label_print`, the sample-event RPC) rather than on a
  * fabricated event row.
  */
-
-const sonner = vi.hoisted(() => ({ toast: vi.fn(), error: vi.fn() }))
-
-vi.mock('#/components/ui/sonner', () => ({
-  toast: Object.assign(sonner.toast, { error: sonner.error }),
-  Toaster: () => null,
-}))
 
 const HOST = 'app.sheetbase.test'
 
@@ -38,33 +33,20 @@ const LABEL_RECORD = {
 const SAMPLE = { id: 's-1', identifier: 'SMP-2231', metadataVersion: 7 }
 
 /** The sample_events row the print RPC appends. */
-const EDITED_ROW = {
-  id: 's-1',
-  workspace_id: 'ws-1',
-  project_id: null,
-  folder_id: null,
-  kind: 'sample',
-  identifier: 'SMP-2231',
-  title: 'Harvest lot HL-0934',
-  status: 'available',
-  tags: [],
-  structure_version: 1,
-  metadata_version: 8,
-  created_at: '2026-09-20T00:00:00.000Z',
-  updated_at: '2026-10-10T00:00:00.000Z',
-  archived_at: null,
-  deleted_at: null,
-  created_by_user_id: 'user-1',
-  updated_by_user_id: 'user-1',
-  properties: {},
-  custom_fields: {},
-  locked_at: null,
-  locked_by_revision_id: null,
-  source_notebook_template_version_id: null,
-}
+const PRINT_EVENT = {
+  id: 'event-1',
+  operation: 'print',
+  notes: 'Printed label SMP-2231',
+  created_at: '2026-10-10T00:00:00.000Z',
+} satisfies SampleLabelPrintEvent
+
+const queryClients: QueryClient[] = []
 
 afterEach(() => {
+  toast.dismiss()
   cleanup()
+  queryClients.forEach((client) => client.clear())
+  queryClients.length = 0
   vi.clearAllMocks()
   vi.restoreAllMocks()
 })
@@ -74,10 +56,37 @@ function renderWithQuery(ui: ReactNode) {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
 
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+  queryClients.push(client)
+
+  return render(
+    <QueryClientProvider client={client}>
+      {ui}
+      <Toaster />
+    </QueryClientProvider>,
+  )
 }
 
 describe('SampleLabelPrint', () => {
+  it('uses the chosen dimensions for both the printed card and the page', () => {
+    const { container } = render(
+      <SampleLabelPrint
+        record={LABEL_RECORD}
+        host={HOST}
+        template={{ widthMm: 30, heightMm: 15 }}
+      />,
+    )
+
+    expect(screen.getByRole('group').getAttribute('style')).toContain(
+      'width: 30mm; height: 15mm',
+    )
+    expect(container.querySelector('style')?.textContent).toContain(
+      'size: 30mm 15mm;',
+    )
+    expect(container.querySelector('style')?.textContent).toContain(
+      'margin: 0;',
+    )
+  })
+
   it('renders the print document as the label template: code, identifier, lot and storage line', () => {
     render(<SampleLabelPrint record={LABEL_RECORD} host={HOST} />)
 
@@ -110,17 +119,53 @@ describe('SampleLabelPrint', () => {
 })
 
 describe('PrintLabelButton', () => {
+  it('opens print while recording is pending, then calls back only after success', async () => {
+    let settle: ((response: Response) => void) | undefined
+
+    const pending = new Promise<Response>((resolve) => {
+      settle = resolve
+    })
+
+    const http = vi.fn<typeof fetch>(() => pending)
+    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
+    const onPrinted = vi.fn()
+    renderWithQuery(
+      <PrintLabelButton
+        record={SAMPLE}
+        client={createDataClient(http)}
+        onPrinted={onPrinted}
+      />,
+    )
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Print label' }))
+    expect(print).toHaveBeenCalledTimes(1)
+    expect(onPrinted).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Print label' })
+        .disabled,
+    ).toBe(true)
+    expect(screen.queryByText('Label sent to print')).toBeNull()
+    settle?.(
+      Response.json({
+        id: 'event-1',
+        operation: 'print',
+        notes: 'Printed label SMP-2231',
+        created_at: '2026-10-10T00:00:00Z',
+      }),
+    )
+    expect(await screen.findByText('Label sent to print')).toBeTruthy()
+    expect(onPrinted).toHaveBeenCalledTimes(1)
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Print label' })
+        .disabled,
+    ).toBe(false)
+  })
+
   it('opens the browser print for the label document and records the print through the sample event path', async () => {
     const print = vi.spyOn(window, 'print').mockImplementation(() => {})
-    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
-
-    const client = {
-      rpc: (name: string, args: Record<string, unknown>) => {
-        calls.push({ name, args })
-
-        return Promise.resolve(EDITED_ROW)
-      },
-    } as unknown as DataClient
+    const http = vi.fn<typeof fetch>(async () => Response.json(PRINT_EVENT))
+    const client = createDataClient(http)
 
     const onPrinted = vi.fn()
     const user = userEvent.setup()
@@ -145,29 +190,48 @@ describe('PrintLabelButton', () => {
 
     // The print is recorded on the sample through the existing sample-event
     // RPC, with the print note — not a direct insert into the event table.
-    await waitFor(() => expect(calls).toHaveLength(1))
-    expect(calls[0].name).toBe('record_sample_label_print')
-    expect(calls[0].args).toMatchObject({
+    await waitFor(() => expect(http).toHaveBeenCalledTimes(1))
+    expect(http.mock.calls[0][0]).toBe('/api/db/rpc/record_sample_label_print')
+    expect(http.mock.calls[0][1]?.method).toBe('POST')
+    expect(
+      await new Response(http.mock.calls[0][1]?.body).json(),
+    ).toMatchObject({
       p_record_id: 's-1',
       p_expected_metadata_version: 7,
       p_note: 'Printed label SMP-2231',
     })
     await waitFor(() => expect(onPrinted).toHaveBeenCalledTimes(1))
-    expect(sonner.toast).toHaveBeenCalledWith('Label sent to print')
+    expect(await screen.findByText('Label sent to print')).toBeTruthy()
   })
 
   it('surfaces a refused print instead of an unhandled error', async () => {
     vi.spyOn(window, 'print').mockImplementation(() => {})
 
-    const client = {
-      rpc: () => Promise.reject(new Error('record not found')),
-    } as unknown as DataClient
+    const http = vi.fn<typeof fetch>(async () =>
+      Response.json(
+        { code: 'not_found', message: 'record not found' },
+        { status: 404 },
+      ),
+    )
+
+    const client = createDataClient(http)
 
     const user = userEvent.setup()
 
-    renderWithQuery(<PrintLabelButton record={SAMPLE} client={client} />)
+    const onPrinted = vi.fn()
+    renderWithQuery(
+      <PrintLabelButton
+        record={SAMPLE}
+        client={client}
+        onPrinted={onPrinted}
+      />,
+    )
     await user.click(screen.getByRole('button', { name: 'Print label' }))
 
-    await waitFor(() => expect(sonner.error).toHaveBeenCalledTimes(1))
+    expect(await screen.findByText('record not found')).toBeTruthy()
+    expect(
+      document.querySelector('[data-sonner-toast][data-type="error"]'),
+    ).toBeTruthy()
+    expect(onPrinted).not.toHaveBeenCalled()
   })
 })

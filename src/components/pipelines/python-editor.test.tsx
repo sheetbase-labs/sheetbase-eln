@@ -6,10 +6,16 @@ import {
   waitFor,
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useState } from 'react'
+import { z } from 'zod'
 
-import { PythonPackagesEditor, PythonStepEditor } from './python-editor'
+import {
+  ColumnsEditor,
+  PythonPackagesEditor,
+  PythonStepEditor,
+} from './python-editor'
 import type { PythonStepEditorProps } from './python-editor'
-import type { PythonContract } from '#/lib/pipelines/python'
+import type { PythonColumn, PythonContract } from '#/lib/pipelines/python'
 
 afterEach(() => {
   cleanup()
@@ -58,7 +64,8 @@ describe('PythonStepEditor feedback', () => {
   })
 
   it('offers a starter only while the code is still a starter', () => {
-    const onStatementChange = vi.fn()
+    const onStatementChange =
+      vi.fn<PythonStepEditorProps['onStatementChange']>()
 
     const { rerender } = render(
       <PythonStepEditor {...props({ statement: '', onStatementChange })} />,
@@ -69,7 +76,7 @@ describe('PythonStepEditor feedback', () => {
         name: 'Transform start from declared inputs',
       }),
     )
-    const written = onStatementChange.mock.calls[0][0] as string
+    const written = onStatementChange.mock.calls[0][0]
     expect(written).toContain('readings = pd.DataFrame(inputs["readings"])')
     expect(written).toContain('dose = parameters["dose"]')
     rerender(<PythonStepEditor {...props({ onStatementChange })} />)
@@ -82,6 +89,39 @@ describe('PythonStepEditor feedback', () => {
 })
 
 describe('PythonStepEditor contract', () => {
+  it('keeps each column control through renaming, removal and duplicate blank names', () => {
+    function Editor() {
+      const [columns, setColumns] = useState<PythonColumn[]>([
+        { name: '', type: 'text' },
+        { name: '', type: 'text' },
+      ])
+
+      return (
+        <ColumnsEditor label="Output" columns={columns} onChange={setColumns} />
+      )
+    }
+
+    render(<Editor />)
+    const first = screen.getByLabelText('Output column 1 name')
+    const second = screen.getByLabelText('Output column 2 name')
+
+    second.focus()
+    fireEvent.change(second, { target: { value: 'value' } })
+    expect(screen.getByLabelText('Output column 2 name')).toBe(second)
+    expect(document.activeElement).toBe(second)
+    fireEvent.change(second, { target: { value: 'values' } })
+    expect(document.activeElement).toBe(second)
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove Output column 1' }),
+    )
+    expect(screen.getByLabelText('Output column 1 name')).toBe(second)
+    expect(first.isConnected).toBe(false)
+    expect(document.activeElement).toBe(second)
+    fireEvent.click(screen.getByRole('button', { name: 'Add Output column' }))
+    expect(screen.getByLabelText('Output column 1 name')).toBe(second)
+    expect(screen.getByLabelText('Output column 2 name')).not.toBe(first)
+  })
+
   it('adds an output column to the contract', () => {
     const onContractChange = vi.fn()
     render(<PythonStepEditor {...props({ onContractChange })} />)
@@ -157,7 +197,7 @@ describe('PythonStepEditor test run', () => {
   }
 
   it('sends the code, the parsed sample, parameters and packages, and shows the result', async () => {
-    const fetchMock = vi.fn(async () => Response.json(ok))
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json(ok))
     vi.stubGlobal('fetch', fetchMock)
     const onContractChange = vi.fn()
     render(
@@ -178,13 +218,10 @@ describe('PythonStepEditor test run', () => {
       screen.getByRole('group', { name: 'Transform test output' }).textContent,
     ).toBe('loaded')
 
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [
-      string,
-      RequestInit,
-    ]
+    const [url, init] = fetchMock.mock.calls[0]
 
     expect(url).toBe('/api/pipelines/python-test')
-    expect(JSON.parse(init.body as string)).toEqual({
+    expect(JSON.parse(z.string().parse(init?.body))).toEqual({
       statement: CODE,
       inputs: { readings: [{ value: 1 }, { value: 2 }] },
       parameters: { dose: 7 },
@@ -198,6 +235,43 @@ describe('PythonStepEditor test run', () => {
     expect(onContractChange).toHaveBeenCalledWith({
       output: { columns: ok.columns },
     })
+  })
+
+  it('rejects a malformed runner result before rendering its rows', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ ...ok, rows: [1] })),
+    )
+    render(<PythonStepEditor {...props()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Transform run test' }))
+    expect(
+      await screen.findByText('The test run couldn’t be started'),
+    ).toBeTruthy()
+    expect(screen.queryByRole('table')).toBeNull()
+  })
+
+  it('renders JSON cells without changing scalar or missing-value formatting', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({
+          ...ok,
+          rows: [{ detail: { values: [1, true] }, flag: false, missing: null }],
+          columns: [
+            { name: 'detail', type: 'json' },
+            { name: 'flag', type: 'boolean' },
+            { name: 'missing', type: 'text' },
+          ],
+        }),
+      ),
+    )
+    render(<PythonStepEditor {...props()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Transform run test' }))
+    expect(
+      await screen.findByRole('cell', { name: '{"values":[1,true]}' }),
+    ).toBeTruthy()
+    expect(screen.getByRole('cell', { name: 'false' })).toBeTruthy()
+    expect(screen.getByRole('cell', { name: '—' })).toBeTruthy()
   })
 
   it('shows the failing line and the step’s output', async () => {
@@ -247,6 +321,82 @@ describe('PythonStepEditor test run', () => {
     await waitFor(() =>
       expect(screen.getByText('Too many test runs.')).toBeTruthy(),
     )
+  })
+
+  it('retains structured errors and logs from an HTTP failure', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json(
+          {
+            ok: false,
+            error: 'Worker stopped',
+            code: 'transform_failed',
+            logs: ['started'],
+            line: 3,
+            durationMs: 9,
+          },
+          { status: 503 },
+        ),
+      ),
+    )
+    render(<PythonStepEditor {...props()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Transform run test' }))
+    expect(await screen.findByText('Failed at line 3')).toBeTruthy()
+    expect(screen.getByText('Worker stopped')).toBeTruthy()
+    expect(
+      screen.getByRole('group', { name: 'Transform test output' }).textContent,
+    ).toBe('started')
+    expect(screen.queryByRole('table')).toBeNull()
+  })
+
+  it('does not present an HTTP failure as a successful result', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json(ok, { status: 500 })),
+    )
+    render(<PythonStepEditor {...props()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Transform run test' }))
+    expect(
+      await screen.findByText('The test run couldn’t be started'),
+    ).toBeTruthy()
+    expect(screen.queryByRole('table')).toBeNull()
+  })
+
+  it('reports an HTTP failure without a JSON body', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('Unavailable', { status: 503 })),
+    )
+    render(<PythonStepEditor {...props()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Transform run test' }))
+    expect(
+      await screen.findByText('The test run couldn’t be started'),
+    ).toBeTruthy()
+    expect(screen.queryByRole('table')).toBeNull()
+  })
+
+  it('keeps duplicate result rows without replacing them on an unrelated edit', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({
+          ...ok,
+          rows: [ok.rows[0], ok.rows[0]],
+          rowCount: 2,
+        }),
+      ),
+    )
+    render(<PythonStepEditor {...props()} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Transform run test' }))
+    await screen.findByRole('table')
+    const cells = screen.getAllByRole('cell', { name: '1.5' })
+
+    expect(cells).toHaveLength(2)
+    fireEvent.change(screen.getByLabelText('Transform test value for dose'), {
+      target: { value: '8' },
+    })
+    expect(screen.getAllByRole('cell', { name: '1.5' })).toEqual(cells)
   })
 })
 

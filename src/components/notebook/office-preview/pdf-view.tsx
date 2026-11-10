@@ -1,20 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import type { PDFDocumentProxy } from 'pdfjs-dist'
 
 import { Button } from '#/components/ui/button'
 import { t } from '#/copy'
-
-interface PdfDocument {
-  numPages: number
-  getPage: (n: number) => Promise<{
-    getViewport: (o: { scale: number }) => { width: number; height: number }
-    render: (o: {
-      canvasContext: CanvasRenderingContext2D
-      canvas: HTMLCanvasElement
-      viewport: { width: number; height: number }
-    }) => { promise: Promise<void> }
-  }>
-  destroy: () => Promise<void>
-}
 
 /** A PDF drawn by pdf.js, one page at a time. */
 export default function PdfView({
@@ -28,42 +16,53 @@ export default function PdfView({
 }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const frame = useRef<HTMLDivElement>(null)
-  const [doc, setDoc] = useState<PdfDocument | null>(null)
+  const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
   const [page, setPage] = useState(1)
   const [failed, setFailed] = useState(false)
+  const [previousBytes, setPreviousBytes] = useState(bytes)
+
+  if (previousBytes !== bytes) {
+    setPreviousBytes(bytes)
+    setDoc(null)
+    setPage(1)
+    setFailed(false)
+  }
 
   useEffect(() => {
-    const run: { cancelled: boolean; loaded: PdfDocument | null } = {
-      cancelled: false,
-      loaded: null,
-    }
+    const lifetime = { cancelled: false, destroy: () => {} }
+
     void (async () => {
       try {
         const pdfjs = await import('pdfjs-dist')
+
         const worker = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url'))
           .default
+
         pdfjs.GlobalWorkerOptions.workerSrc = worker
         const task = pdfjs.getDocument({ data: bytes.slice() })
-        const opened = (await task.promise) as unknown as PdfDocument
-        run.loaded = opened
-        if (run.cancelled) {
-          void opened.destroy()
-          return
+        lifetime.destroy = () => {
+          void task.destroy()
         }
-        setDoc(opened)
+
+        // Import can finish after unmount; the newly acquired task still needs release.
+        if (lifetime.cancelled) lifetime.destroy()
+        const opened = await task.promise
+
+        if (!lifetime.cancelled) setDoc(opened)
       } catch {
-        if (!run.cancelled) setFailed(true)
+        if (!lifetime.cancelled) setFailed(true)
       }
     })()
+
     return () => {
-      run.cancelled = true
-      if (run.loaded) void run.loaded.destroy()
+      lifetime.cancelled = true
+      lifetime.destroy()
     }
   }, [bytes])
 
   useEffect(() => {
     if (!doc || !canvas.current || !frame.current) return
-    const run = { cancelled: false }
+    const run = { cancelled: false, cancel: () => {} }
     const target = canvas.current
     const width = frame.current.clientWidth || 640
     void (async () => {
@@ -74,20 +73,30 @@ export default function PdfView({
         const viewport = p.getViewport({ scale })
         const ratio = window.devicePixelRatio || 1
         const context = target.getContext('2d')
+
         if (!context || run.cancelled) return
         target.width = Math.floor(viewport.width * ratio)
         target.height = Math.floor(viewport.height * ratio)
         target.style.width = `${Math.floor(viewport.width)}px`
         target.style.height = `${Math.floor(viewport.height)}px`
         context.setTransform(ratio, 0, 0, ratio, 0, 0)
-        await p.render({ canvasContext: context, canvas: target, viewport })
-          .promise
+
+        const task = p.render({
+          canvasContext: context,
+          canvas: target,
+          viewport,
+        })
+
+        run.cancel = () => task.cancel()
+        await task.promise
       } catch {
         if (!run.cancelled) setFailed(true)
       }
     })()
+
     return () => {
       run.cancelled = true
+      run.cancel()
     }
   }, [doc, page])
 
@@ -98,6 +107,7 @@ export default function PdfView({
       </p>
     )
   }
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">

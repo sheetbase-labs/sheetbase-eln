@@ -3,14 +3,9 @@ import { useEffect, useState } from 'react'
 import { CopyButton } from '#/components/ui/copy-button'
 import { Section } from '#/components/ui/layout'
 import { rich, t } from '#/copy'
+import { apiExampleCommand } from './api-example-data'
 
-/** A request that works with any token: list the projects it can see. */
-export function apiExampleCommand(origin: string): string {
-  return [
-    `curl "${origin}/api/db/projects?select=id,key,title&limit=5" \\`,
-    '  -H "Authorization: Bearer $SHEETBASE_TOKEN"',
-  ].join('\n')
-}
+export { apiExampleCommand } from './api-example-data'
 
 /**
  * A request to try a new token with, ready to paste. The token itself is shown

@@ -38,7 +38,8 @@ import type { LiveStatus } from '#/lib/live-events'
 import { OFFLINE_SYNC_EVENT } from '#/lib/offline/service-worker'
 import { Button } from '#/components/ui/button'
 import { BlockConflictDiff } from './block-conflict-diff'
-import { describeOfflineEdit, useOfflineEdits } from './offline-edits'
+import { useOfflineEdits } from './offline-edits'
+import { describeOfflineEdit } from './offline-edit-model'
 
 export interface OfflineReplayRunnerProps {
   store: OfflineEditStore

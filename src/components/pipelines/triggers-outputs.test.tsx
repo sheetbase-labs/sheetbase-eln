@@ -1,36 +1,19 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import * as React from 'react'
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
+import { renderPipeline as wrap } from './test-support'
 
 import { ElnActions, RunKeeps, WebhookCard } from './triggers-outputs'
-
-import type * as router from '@tanstack/react-router'
-
-vi.mock('@tanstack/react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof router>()),
-  Link: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
-}))
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
 })
 
-function wrap(node: React.ReactNode) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  })
-
-  return render(
-    <QueryClientProvider client={client}>{node}</QueryClientProvider>,
-  )
-}
-
 describe('WebhookCard', () => {
   it('turns the webhook on and shows the token once', async () => {
     const fetchMock = vi
-      .fn()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(
         Response.json({
           enabled: false,
@@ -44,13 +27,46 @@ describe('WebhookCard', () => {
           token: 'tok-123',
         }),
       )
+      .mockResolvedValueOnce(
+        Response.json({
+          enabled: false,
+          url: 'https://x/api/pipelines/webhook/d',
+        }),
+      )
 
     vi.stubGlobal('fetch', fetchMock)
     wrap(<WebhookCard definitionId="d" />)
     fireEvent.click(await screen.findByText('Turn on'))
     expect(await screen.findByText('tok-123')).toBeTruthy()
     const [, init] = fetchMock.mock.calls[1] ?? []
-    expect(JSON.parse(init.body)).toEqual({ action: 'rotate' })
+    expect(JSON.parse(z.string().parse(init?.body))).toEqual({
+      action: 'rotate',
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Turn off' }))
+    await waitFor(() => expect(screen.queryByText('tok-123')).toBeNull())
+    expect(screen.getByRole('button', { name: 'Turn on' })).toBeTruthy()
+  })
+
+  it('refuses malformed webhook state instead of exposing its token', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(async () =>
+        Response.json({
+          enabled: 'true',
+          url: 'https://x/api/pipelines/webhook/d',
+          token: 'untrusted-token',
+        }),
+      ),
+    )
+    wrap(<WebhookCard definitionId="d" />)
+    await screen.findByText(/expected boolean/)
+    await waitFor(() =>
+      expect(
+        screen.getByRole<HTMLButtonElement>('button', { name: 'Turn on' })
+          .disabled,
+      ).toBe(true),
+    )
+    expect(screen.queryByText('untrusted-token')).toBeNull()
   })
 })
 
@@ -83,7 +99,7 @@ describe('ElnActions', () => {
               operation: 'insert_block',
               mode: 'propose',
               arguments: { p_record_id: 'r' },
-            } as never,
+            },
           ],
         }}
       />,

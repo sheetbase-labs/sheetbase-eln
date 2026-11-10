@@ -1,23 +1,26 @@
-import { usePluginGridCellDisplays } from '#/components/extensions/table-hooks'
 import { t } from '#/copy'
 import { usePaneReadOnly } from '#/components/workspace/workspace-navigation'
-import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query'
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useRouteContext } from '@tanstack/react-router'
 
-import type { FieldDefinition } from '#/lib/field-definition'
 import { SheetbaseTableGrid } from '#/components/sheet/sheetbase-grid'
+import { usePluginGridCellDisplays } from '#/components/extensions/table-hooks'
 import { SheetKeyboardShortcuts } from '#/components/shortcuts/sheet-keyboard-shortcuts'
 import { CommentPanel } from '#/components/comments/comment-panel'
 import type {
   SheetbaseCellState,
   SheetbaseGridCellChange,
-  SheetbaseGridColumn,
+  SheetbaseGridCellValue,
   SheetbaseGridFilter,
   SheetbaseGridHandle,
   SheetbaseGridMenuEntry,
@@ -45,33 +48,22 @@ import type { SheetPromoteLocalField } from '#/components/sheet/sheet-promote'
 import { BenchCalculatorDialog } from '#/components/calculators/bench-calculator-dialog'
 import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-record-toolbar'
 import { CanonicalSheetLifecyclePanel } from '#/components/sheet/canonical-sheet-lifecycle-panel'
-import {
-  CellConflictPanel,
-  fetchCellConflicts,
-} from '#/components/sheet/cell-conflict-panel'
-import type { CellConflictRow } from '#/components/sheet/cell-conflict-panel'
+import { CellConflictPanel } from '#/components/sheet/cell-conflict-panel'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { explainSheetWriteBack } from '#/lib/assist-explain'
 import { AiExplainPanel } from '#/components/assist/ai-explain-panel'
-import { createDataClient, DataClientError } from '#/lib/data-client'
+import { createDataClient } from '#/lib/data-client'
 import {
   applySheetPresentation,
-  canonicalSheetColumnHeader,
   canonicalSheetGridMatrix,
-  categoryCellDisplayText,
   parseSheetCellInput,
   validateCanonicalCell,
 } from '#/lib/canonical-sheet-grid'
 import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
-import { fetchComposedSheetPaged } from '#/lib/sheet-composition-data'
-import type {
-  ComposedSheetPagedSnapshot,
-  ComposedSheetSnapshot,
-} from '#/lib/sheet-composition-data'
-import { selectableFieldOptions } from '#/lib/field-presentation'
+import type { ComposedSheetSnapshot } from '#/lib/sheet-composition-data'
 import {
   fetchSheetInstance,
   sheetInstanceDataClient,
@@ -97,8 +89,6 @@ import {
   createAdHocTextField,
   mutateSheetInstanceCalculations,
   mutateSheetLocalState,
-  readSheetInstanceCalculationResults,
-  recalculateSheetInstance,
 } from '#/lib/sheet-local-data'
 import type { LocalFieldChange } from '#/lib/sheet-local-data'
 import { resolveSheetRecordActions } from '#/lib/sheet-record-actions'
@@ -114,10 +104,7 @@ import {
   sheetRecordSearchHitsAsNotebookRecords,
 } from '#/lib/sheet-record-search'
 import { linkSheetRecordReference } from '#/lib/sheet-record-link'
-import {
-  formatRecordReferenceLabel,
-  RECORD_REFERENCE_CELL_FORMAT,
-} from '#/lib/record-reference-cell'
+import { RECORD_REFERENCE_CELL_FORMAT } from '#/lib/record-reference-cell'
 import {
   nextSheetRecordGridError,
   sheetRecordGridErrorsFromValidation,
@@ -132,155 +119,33 @@ import {
   writeSheetCells,
 } from '#/lib/sheet-write-back'
 import { sheetRecordTargetModelKey } from '#/lib/sheet-record-target'
-import { hasCapability } from '#/lib/capability'
 import type { CurrentContext } from '#/lib/current-user'
-import { formatMagnitude } from '#/lib/format-numbers'
 import { useOfflineEdits } from '#/components/offline/offline-edits'
 import { overlayOfflineSheetEdits } from '#/lib/offline/sheet-overlay'
 import { requestBackgroundSync } from '#/lib/offline/service-worker'
 import type { OfflineJsonValue } from '#/lib/offline/store'
-import { commentsQueryKeys, fetchCommentsForSheet } from '#/lib/comments-data'
+import { pipelineJsonValueSchema } from '#/lib/pipelines/types'
 import {
   sheetCommentAnchorSchema,
   sheetCommentCells,
 } from '#/lib/sheet-comment-anchor'
 import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
+import {
+  promotableLocalField,
+  recordPickerTargetModelKey,
+  canonicalWorkspaceGridColumn,
+} from './canonical-workspace-fields'
+import { useCanonicalWorkspaceCalculations } from './canonical-workspace-calculations'
+import { useCanonicalWorkspaceConflicts } from './canonical-workspace-conflicts'
+import { useCanonicalWorkspaceComposition } from './canonical-workspace-composition'
+import { useCanonicalWorkspaceComments } from './canonical-workspace-comments'
+import { prepareCanonicalWorkspaceWrite } from './canonical-workspace-write-policy'
 
 const client = createDataClient()
-
-function errorText(error: unknown) {
-  if (error instanceof DataClientError) return error.message
-  if (error instanceof Error) return error.message
-  return null
-}
 
 /** GRID-04: keep persisted column widths inside the canonical 40–2000 range. */
 function clampColumnWidth(width: number): number {
   return Math.min(2_000, Math.max(40, Math.round(width)))
-}
-
-/**
- * GRID-03 — the target Model key of a Record-reference field's relationship,
- * or null when the field is not a Model-scoped reference.
- */
-export function recordPickerTargetModelKey(
-  field: FieldDefinition | null,
-): string | null {
-  const target = field?.relationship?.target
-  return target?.kind === 'model' ? target.modelKey : null
-}
-
-/**
- * GRID-03 — display-only text for a Record-reference cell. The canonical
- * stored value is the Record UUID; a known pick's human label
- * (`RECORD_REFERENCE_CELL_FORMAT` label/identity form) is shown instead.
- * Unknown or persisted-without-session-label values render the UUID as-is —
- * the display never invents identity that the server did not confirm.
- */
-export function recordCellDisplayText(
-  labels: Record<string, { identifier: string; title: string } | undefined>,
-  value: unknown,
-): string {
-  const recordId = typeof value === 'string' ? value : null
-  if (recordId === null) return ''
-  const snapshot = labels[recordId]
-  return snapshot ? formatRecordReferenceLabel(snapshot) : recordId
-}
-
-/**
- * SHEET-02.3 — the local field a column can be promoted *from*, or null when
- * the column cannot be promoted. Only a column the Sheet itself owns can be
- * promoted: a bound column already lives in a Dataset, a calculated column is
- * derived rather than stored, and a retired local field is no longer offered.
- * The dialog needs no more than this slice of the field.
- */
-export function promotableLocalField(
-  instance: SheetInstance,
-  column: CanonicalSheetGridColumn | undefined,
-): SheetPromoteLocalField | null {
-  if (!column || column.origin !== 'local' || !column.field) return null
-  const field = instance.state.localFields.find(
-    (item) => item.fieldId === column.id && item.lifecycle === 'active',
-  )
-  if (!field) return null
-  return {
-    fieldId: field.fieldId,
-    key: field.key,
-    label: field.label,
-    logicalType: field.logicalType,
-    quantity: field.quantity
-      ? {
-          storageUnit: field.quantity.storageUnit,
-          preferredDisplayUnit: field.quantity.preferredDisplayUnit ?? null,
-        }
-      : null,
-  }
-}
-
-/**
- * COMP-06 — the vendor-neutral column contract. The wrapper maps each neutral
- * type onto the engine (including the Record picker editor and display
- * renderers), so callers never build engine column settings.
- */
-function sheetbaseColumn(
-  column: CanonicalSheetGridColumn,
-  canWrite: boolean,
-  labels: () => Record<
-    string,
-    { identifier: string; title: string } | undefined
-  >,
-): SheetbaseGridColumn {
-  const kind = column.presentation.kind
-  const readOnly = !canWrite || !column.editable
-  const base: Omit<SheetbaseGridColumn, 'type'> = {
-    id: column.id,
-    label: canonicalSheetColumnHeader(column),
-    source: column.origin === 'calculation' ? 'calculated' : column.origin,
-    readOnly,
-    // EXP-04.2: the header's group row and `Source` badge name where the
-    // column comes from (the source dataset, this Sheet, or derivation).
-    group: column.group,
-    sourceLabel: column.sourceLabel,
-  }
-  if (kind === 'checkbox') return { ...base, type: 'checkbox' }
-  if (kind === 'number') {
-    return { ...base, type: 'number', displayText: formatMagnitude }
-  }
-  if (kind === 'date') return { ...base, type: 'date' }
-  // GRID-03 review fix: the previous grid's `date` cell type could not hold or
-  // produce a time and rejected canonical `…Z` instants on edit, which would
-  // make timestamp columns uneditable. Timestamps keep the text editor;
-  // parseSheetCellInput coerces bare input to a canonical UTC instant before
-  // validation (bare input is interpreted as UTC because the grid carries no
-  // timezone context).
-  if (kind === 'datetime-local') return { ...base, type: 'datetime' }
-  if (kind === 'record-picker' && canWrite) {
-    // GRID-03: Record/reference cells edit through the shared search-select
-    // Record picker. Selection writes the canonical Record UUID through the
-    // normal change pipeline; the human label is display only.
-    return {
-      ...base,
-      type: 'record',
-      displayText: (value) => recordCellDisplayText(labels(), value),
-    }
-  }
-  if (kind === 'category-select' && column.field) {
-    // GRID-03: the dropdown is seeded from the field's canonical vocabulary
-    // (active embedded options). Vocabulary-backed fields without a local
-    // option list keep a text editor — the server still owns validation.
-    const options = selectableFieldOptions(column.field, null).map(
-      (option) => option.label,
-    )
-    if (options.length > 0) {
-      return {
-        ...base,
-        type: 'select',
-        options,
-        displayText: (value) => categoryCellDisplayText(column.field, value),
-      }
-    }
-  }
-  return { ...base, type: 'text' }
 }
 
 /**
@@ -340,10 +205,12 @@ export function CanonicalSheetWorkspace({
   onCellSelectionChange?: (selection: SheetCellSelection | null) => void
 }) {
   const { auth } = useRouteContext({ from: '__root__' })
+
   const instanceQuery = useQuery({
     queryKey: ['sheet-instance', instanceId],
     queryFn: () => fetchSheetInstance(instanceId, sheetInstanceDataClient),
   })
+
   if (instanceQuery.isPending) {
     return (
       <p className="p-3 text-sm text-fg-muted" role="status">
@@ -351,6 +218,7 @@ export function CanonicalSheetWorkspace({
       </p>
     )
   }
+
   if (instanceQuery.error || !instanceQuery.data) {
     return (
       <p className="p-3 text-sm text-danger-text" role="alert">
@@ -358,6 +226,7 @@ export function CanonicalSheetWorkspace({
       </p>
     )
   }
+
   return (
     <CanonicalSheetEditor
       key={instanceQuery.data.id}
@@ -388,7 +257,9 @@ function WriteBackExplain({
 }) {
   const [showExplain, setShowExplain] = useState(false)
   const explanation = explainSheetWriteBack(failure)
+
   if (!explanation) return null
+
   return (
     <span className="inline-flex flex-col gap-1">
       <Button
@@ -407,7 +278,7 @@ function WriteBackExplain({
   )
 }
 
-export function CanonicalSheetEditor({
+function useCanonicalWorkspaceSession({
   instance,
   projectId,
   readOnly = false,
@@ -430,75 +301,66 @@ export function CanonicalSheetEditor({
 }) {
   const queryClient = useQueryClient()
   const instanceRef = useRef(instance)
-  instanceRef.current = instance
+  // Stable grid callbacks read only committed props, never an abandoned
+  // concurrent render. Successful writes still advance this ref immediately.
+  useLayoutEffect(() => {
+    instanceRef.current = instance
+  }, [instance])
   const composed = Boolean(instance.sourceDefinitionVersionId)
   // Only the primary pane of a workspace edits; the others read.
   const paneReadOnly = usePaneReadOnly()
+
   const canWrite =
     Boolean(projectId) &&
     !readOnly &&
     !paneReadOnly &&
     instance.lifecycle === 'active'
+
   const gridContainerRef = useRef<HTMLDivElement | null>(null)
   const [gridHandle, setGridHandle] = useState<SheetbaseGridHandle | null>(null)
   const [activeInput, setActiveInput] = useState('')
+
   const [commentSelection, setCommentSelection] =
     useState<SheetbaseGridSelection | null>(null)
-  const [commentDraft, setCommentDraft] = useState<{
-    anchor: SheetCommentAnchor
-    expectedRevision: number
-  } | null>(null)
-  const canComment =
-    commentActor?.workspace?.id === instance.workspaceId &&
-    hasCapability(commentActor.workspace.role, 'record.create') &&
-    instance.lifecycle === 'active'
-  const comments = useQuery({
-    queryKey: commentsQueryKeys.forSheet(instance.id),
-    queryFn: () => fetchCommentsForSheet(client, instance.id),
-    enabled: Boolean(commentActor),
-  })
-  const openedCommentRequest = useRef({ key: '', applied: false })
-  useEffect(() => {
-    const request = `${instance.id}:${commentId ?? ''}`
-    if (openedCommentRequest.current.key !== request)
-      openedCommentRequest.current = { key: request, applied: false }
-    if (!commentId || openedCommentRequest.current.applied) return
-    const hit = comments.data?.find((comment) => comment.id === commentId)
-    if (!hit) return
-    const anchor = sheetCommentAnchorSchema.safeParse({
-      targetKind: hit.target_kind,
-      target: hit.target,
+
+  const { commentDraft, setCommentDraft, canComment, comments } =
+    useCanonicalWorkspaceComments({
+      instance,
+      actor: commentActor,
+      commentId,
+      client,
     })
-    if (!anchor.success || anchor.data.target.instanceId !== instance.id) return
-    setCommentDraft({
-      anchor: anchor.data,
-      expectedRevision: instance.revision,
-    })
-    openedCommentRequest.current.applied = true
-  }, [commentId, comments.data, instance.id, instance.revision])
+
   const [columnLabel, setColumnLabel] = useState('')
   const [columnType, setColumnType] = useState<'text' | 'decimal'>('text')
   const [calculatorOpen, setCalculatorOpen] = useState(false)
+
   const [pasteOpen, setPasteOpen] = useState(
     openPasteOnLoad && canWrite && instance.state.localFields.length === 0,
   )
+
   const [pasting, setPasting] = useState(false)
+
   // Which authoring panel is open under the toolbar; the table comes first.
   const [sheetTool, setSheetTool] = useState<
     'column' | 'calculation' | 'view' | null
   >(null)
+
   const [formula, setFormula] = useState('')
   const [formulaLabel, setFormulaLabel] = useState('Calculated')
   const [formulaQuantityColumn, setFormulaQuantityColumn] = useState('')
+
   const [selected, setSelected] = useState<{ row: number; col: number }>({
     row: 0,
     col: 0,
   })
+
   // SHEET-02.3: the local column whose Promote dialog is open, or null. The
   // dialog is mounted only while a field is chosen, so its draft reason never
   // leaks from one column to the next.
   const [promoteField, setPromoteField] =
     useState<SheetPromoteLocalField | null>(null)
+
   // QA-156: a destructive menu action is held here until the shared
   // confirmation dialog is answered.
   const [pendingDestructive, setPendingDestructive] = useState<{
@@ -507,25 +369,30 @@ export function CanonicalSheetEditor({
     confirmLabel: string
     run: () => void
   } | null>(null)
+
   // QA-153: a returned promotion the scientist has acknowledged with "Keep
   // local" stops being announced for this Sheet session (the promotion row
   // itself is unchanged — the app has no server path to withdraw it).
   const [keptLocalFields, setKeptLocalFields] = useState<ReadonlySet<string>>(
     () => new Set(),
   )
+
   const [writeStatus, setWriteStatus] = useState<string | null>(null)
+
   // ASSIST-01: structured write-back rejection kept beside the status line
   // so the Explain affordance can cite rule codes, rows and fields.
   const [writeBackFailure, setWriteBackFailure] = useState<{
     errors: Array<{ code: string; rowId?: string; fieldId?: string }>
     mixedAuthority: boolean
   } | null>(null)
+
   // GRID-04: saved working view lives in localStorage per Sheet Instance and
   // is re-validated against the active columns before restore (untrusted
   // persisted state, Dataset Explorer saved-view pattern).
   const [savedViewExists, setSavedViewExists] = useState(() =>
     hasSavedSheetView(instance.id),
   )
+
   // GRID-03: the shared Record picker serves both the toolbar link flow and
   // record-picker cell edits. `cell` is set when the edit originated in a
   // specific cell (the pick writes that cell's UUID); null means the toolbar
@@ -537,19 +404,24 @@ export function CanonicalSheetEditor({
     /** Grid-side editor handle when the pick originated in a cell. */
     editor?: SheetbaseGridRecordEditor
   } | null>(null)
+
   const recordLabelsRef = useRef<
     Record<string, { identifier: string; title: string } | undefined>
   >({})
+
   const [createOpen, setCreateOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [custom, setCustom] = useState<Record<string, string | boolean>>({})
   const [query, setQuery] = useState('')
+
   const [pendingValues, setPendingValues] = useState<
-    Record<string, Record<string, unknown>>
+    Record<string, Record<string, SheetbaseGridCellValue>>
   >({})
-  const [errors, setErrors] = useState(
+
+  const [errors, setErrors] = useState(() =>
     sheetRecordGridErrorsFromValidation({ rows: [] }),
   )
+
   const [errorCursor, setErrorCursor] = useState<
     (typeof errors)[number] | null
   >(null)
@@ -565,116 +437,30 @@ export function CanonicalSheetEditor({
   // the revision mid-paging restarts from offset 0 with a visible notice
   // instead of silently duplicating or skipping rows.
   const [pageCount, setPageCount] = useState(1)
-  useEffect(() => {
-    setPageCount(1)
-  }, [instance.id])
-  const composition = useQuery({
-    queryKey: ['composed-sheet', instance.id, pageCount],
-    queryFn: async () => {
-      const previous =
-        pageCount > 1
-          ? queryClient.getQueryData<ComposedSheetPagedSnapshot>([
-              'composed-sheet',
-              instance.id,
-              pageCount - 1,
-            ])
-          : undefined
-      const previousState =
-        pageCount > 1
-          ? queryClient.getQueryState([
-              'composed-sheet',
-              instance.id,
-              pageCount - 1,
-            ])
-          : undefined
-      // A write-back/link/create invalidation marks every composed-sheet key
-      // stale: the cached merge is no longer authoritative, so refetch from
-      // offset 0 instead of appending a fresh window onto stale rows.
-      const reusable =
-        previous && !previousState?.isInvalidated ? previous : undefined
-      return fetchComposedSheetPaged(instance.id, {
-        pageCount,
-        previous: reusable?.snapshot ?? null,
-        previousPageCount: reusable ? pageCount - 1 : 0,
-        client,
-      })
-    },
+
+  const composition = useCanonicalWorkspaceComposition({
+    instanceId: instance.id,
+    pageCount,
     enabled: composed,
-    placeholderData: keepPreviousData,
+    client,
   })
+
   const composedSnapshot = composition.data?.snapshot ?? null
 
-  const rowKeysForCalc = useMemo(() => {
-    if (composedSnapshot) return composedSnapshot.rows.map((row) => row.rowKey)
-    return Object.keys(instance.state.localValues)
-  }, [composedSnapshot, instance.state.localValues])
-
-  const calculations = useQuery({
-    queryKey: [
-      'sheet-calc-results',
-      instance.id,
-      instance.revision,
-      rowKeysForCalc,
-      canWrite,
-    ],
-    enabled: rowKeysForCalc.length > 0,
-    queryFn: async () => {
-      if (
-        canWrite &&
-        composedSnapshot &&
-        (instance.state.instanceCalculations?.some(
-          (calculation) => calculation.lifecycle === 'active',
-        ) ||
-          composedSnapshot.definitionConfiguration?.calculations.length)
-      ) {
-        const offsets = new Set(
-          composedSnapshot.rows.map((row) => row.compositionOffset ?? 0),
-        )
-        for (const offset of offsets) {
-          await recalculateSheetInstance({
-            instanceId: instance.id,
-            expectedRevision: instance.revision,
-            offset,
-            limit: 200,
-          })
-        }
-      }
-      const batches = []
-      for (let offset = 0; offset < rowKeysForCalc.length; offset += 200) {
-        batches.push(
-          await readSheetInstanceCalculationResults(
-            instance.id,
-            rowKeysForCalc.slice(offset, offset + 200),
-            client,
-          ),
-        )
-      }
-      const rows = batches.flatMap(
-        (raw) =>
-          (
-            raw as {
-              results?: Array<{
-                calculationId: string
-                rowKey: string
-                calculatedValue: unknown
-                calculationStatus?: string
-              }>
-            }
-          ).results ?? [],
-      )
-      const mapped: Record<string, Record<string, unknown>> = {}
-      for (const row of rows) {
-        mapped[row.rowKey] ??= {}
-        mapped[row.rowKey][row.calculationId] = row.calculatedValue
-      }
-      return { mapped, rows }
-    },
+  const calculations = useCanonicalWorkspaceCalculations({
+    instance,
+    composedSnapshot,
+    canWrite,
+    client,
   })
 
   // Edits made offline wait on the device; show them where they will land.
   const offlineEdits = useOfflineEdits()
   const offlineEditsRef = useRef(offlineEdits)
-  offlineEditsRef.current = offlineEdits
+  useLayoutEffect(() => {
+    offlineEditsRef.current = offlineEdits
+  }, [offlineEdits])
+
   const canonicalMatrix = useMemo(
     () =>
       overlayOfflineSheetEdits(
@@ -688,42 +474,54 @@ export function CanonicalSheetEditor({
       ),
     [instance, composedSnapshot, calculations.data, offlineEdits.edits],
   )
+
   // GRID-04: presentation (sort/filter/freeze/hide/widths/order) is local
   // working state. It resequences the *display* columns only — the canonical
   // matrix, row identity and write attribution are untouched, and the Dataset
   // explorer / ChartSpec analysis filters are entirely separate surfaces.
   const presentation = instance.state.presentation
+
   const matrix = useMemo(
     () => applySheetPresentation(canonicalMatrix, presentation),
     [canonicalMatrix, presentation],
   )
+
   const matrixRef = useRef(matrix)
-  matrixRef.current = matrix
+  useLayoutEffect(() => {
+    matrixRef.current = matrix
+  }, [matrix])
   // QA-156: the grid's latest selection report, so a menu action confirmed
   // later still clears what the user selected.
   const selectionRef = useRef<SheetbaseGridSelection | null>(null)
   const compositionRef = useRef<ComposedSheetSnapshot | null>(composedSnapshot)
-  compositionRef.current = composedSnapshot
+  useLayoutEffect(() => {
+    compositionRef.current = composedSnapshot
+  }, [composedSnapshot])
 
   const modelKey = sheetRecordTargetModelKey(
     composedSnapshot?.definitionConfiguration,
   )
+
   const fields = useQuery({
     queryKey: ['model-fields', modelKey],
     queryFn: () => fetchModelFields(client, modelKey!),
     enabled: Boolean(modelKey) && createOpen,
   })
+
   const search = useQuery({
     queryKey: ['sheet-record-search', picker?.modelKey, query],
     queryFn: () =>
       searchSheetRecords({ modelKey: picker!.modelKey, query }, client),
     enabled: picker !== null && Boolean(picker.modelKey),
   })
+
   const actions = resolveSheetRecordActions(
     composedSnapshot?.definitionConfiguration ?? null,
   )
+
   const selectedColumn = matrix.columns.at(selected.col)
   const selectedRowKey = matrix.rowKeys.at(selected.row)
+
   // QA-153: a promotion request that is still pending (or already approved and
   // waiting to be applied) is otherwise invisible on the Sheet — only a
   // returned one was announced. The read is the same `column_promotions`
@@ -737,11 +535,13 @@ export function CanonicalSheetEditor({
     queryFn: () => listInstanceColumnPromotions(client, instance.id),
     enabled: selectedColumn?.origin === 'local',
   })
+
   const openPromotion = promotions.data?.find(
     (promotion) =>
       promotion.field_id === selectedColumn?.id &&
       (promotion.state === 'pending' || promotion.state === 'approved'),
   )
+
   const provenance =
     composedSnapshot?.boundProjection?.rows.find(
       (row) => row.rowKey === selectedRowKey,
@@ -760,6 +560,10 @@ export function CanonicalSheetEditor({
   const selectedCellValue = matrix.data[selected.row]?.[selected.col] ?? null
   useEffect(() => {
     if (!onCellSelectionChange) return
+    // Synchronize the notebook inspector after committed async values/provenance.
+    // useNotebookCellFacts keeps these as inspector-only facts; its stable callback
+    // does not feed selection or matrix inputs back into this workspace.
+    // react-doctor-disable-next-line react-doctor/no-pass-live-state-to-parent
     onCellSelectionChange(
       commentSelection && selectedColumn
         ? {
@@ -772,6 +576,7 @@ export function CanonicalSheetEditor({
           }
         : null,
     )
+
     return () => onCellSelectionChange(null)
   }, [
     onCellSelectionChange,
@@ -784,46 +589,28 @@ export function CanonicalSheetEditor({
     selectedRowKey,
   ])
 
-  // EXP-05.4: this Sheet's open cell conflicts. A conflict is addressed by the
-  // stable row identity and field id, so the selected cell can be matched to
-  // one without depending on display position.
-  const conflicts = useQuery({
-    queryKey: ['sheet-cell-conflicts', instance.id, 'open'] as const,
-    queryFn: () => fetchCellConflicts(client, instance.id, { state: 'open' }),
-  })
-  // A conflict settled in this session stays in the panel (which shows the
-  // decision) but must no longer count as open or be offered again. The query
-  // itself still lists it until the Sheet reloads, so track the decisions
-  // here rather than dropping the panel the moment it settles.
-  const [resolvedConflictIds, setResolvedConflictIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set())
-  const cachedConflicts = conflicts.data ?? []
-  const openConflicts = cachedConflicts.filter(
-    (conflict) => !resolvedConflictIds.has(conflict.id),
-  )
-  // The conflict the inspector shows: the one on the selected cell. Kept from
-  // the cached rows (not the open filter) so a just-resolved conflict still
-  // renders its decision instead of vanishing under the user.
-  const selectedConflict: CellConflictRow | null =
-    commentSelection && selectedColumn
-      ? (cachedConflicts.find(
-          (conflict) =>
-            conflict.row_key === selectedRowKey &&
-            conflict.field_id === selectedColumn.id,
-        ) ?? null)
-      : null
+  const { openConflicts, selectedConflict, setResolvedConflictIds } =
+    useCanonicalWorkspaceConflicts({
+      instanceId: instance.id,
+      hasSelection: Boolean(commentSelection),
+      selectedRowKey,
+      selectedColumnId: selectedColumn?.id,
+      client,
+    })
 
   // EXP-05.4: reaching a conflict means selecting its cell, which is what the
   // inspector renders against. Reveal through the grid's own handle so the
   // selection callback and reveal stay the grid's contract.
   function revealFirstConflict() {
     const first = openConflicts.at(0)
+
     if (!first) return
     const rowIndex = matrixRef.current.rowKeys.indexOf(first.row_key)
+
     const columnIndex = matrixRef.current.columns.findIndex(
       (column) => column.id === first.field_id,
     )
+
     if (rowIndex < 0 || columnIndex < 0) return
     gridHandle?.selectCell(rowIndex, columnIndex)
   }
@@ -836,12 +623,14 @@ export function CanonicalSheetEditor({
     },
   })
 
+  const mutateLocalAsync = localMutate.mutateAsync
+
   /**
    * Both write paths send the revision they read from `instanceRef`, so a
    * sibling write landing first makes the server answer 'stale'. Re-read the
    * authoritative instance and adopt its revision before retrying.
    */
-  async function refreshInstanceForRetry(): Promise<boolean> {
+  const refreshInstanceForRetry = useCallback(async (): Promise<boolean> => {
     const fresh = await queryClient.fetchQuery({
       queryKey: ['sheet-instance', instance.id],
       // The client default is a 30s staleTime, which would hand back the same
@@ -850,190 +639,255 @@ export function CanonicalSheetEditor({
       staleTime: 0,
       queryFn: () => fetchSheetInstance(instance.id, sheetInstanceDataClient),
     })
+
     if (!fresh) return false
     instanceRef.current = fresh
+
     return true
-  }
+  }, [instance.id, queryClient])
 
   /**
    * Without a connection, keep the typed cells (and any row they start) on the
    * device to send later, instead of failing the write. Returns true when they
    * were kept. Changes to the columns themselves need the server.
    */
-  async function keepCellsOnDevice(
-    cells: Array<{ rowKey: string; fieldId: string; value: unknown }>,
-    extra?: { fieldChanges?: LocalFieldChange[] },
-  ): Promise<boolean> {
-    const offline = offlineEditsRef.current
-    if (!offline.canQueue || typeof navigator === 'undefined') return false
-    if (navigator.onLine) return false
-    if (extra?.fieldChanges?.length) {
-      throw new Error(t('notebook.offlineEdits.needsConnection'))
-    }
-    const sheet = {
-      instanceId: instanceRef.current.id,
-      revision: instanceRef.current.revision,
-    }
-    const known = new Set(matrixRef.current.rowKeys)
-    const fresh = new Map<string, Record<string, OfflineJsonValue>>()
-    const existing: Array<{
-      rowId: string
-      columnId: string
-      value: OfflineJsonValue
-    }> = []
-    for (const cell of cells) {
-      const value = (cell.value ?? null) as OfflineJsonValue
-      if (known.has(cell.rowKey)) {
-        existing.push({ rowId: cell.rowKey, columnId: cell.fieldId, value })
-      } else {
-        const values = fresh.get(cell.rowKey) ?? {}
-        values[cell.fieldId] = value
-        fresh.set(cell.rowKey, values)
-      }
-    }
-    for (const [rowKey, values] of fresh) {
-      await offline.queueSheetRow(sheet, { rowKey, values })
-    }
-    if (existing.length > 0) await offline.queueSheetCells(sheet, existing)
-    void requestBackgroundSync()
-    return true
-  }
+  const keepCellsOnDevice = useCallback(
+    async (
+      cells: Array<{
+        rowKey: string
+        fieldId: string
+        value: SheetbaseGridCellValue
+      }>,
+      extra?: { fieldChanges?: LocalFieldChange[] },
+    ): Promise<boolean> => {
+      const offline = offlineEditsRef.current
 
-  async function persistLocalCells(
-    cells: Array<{ rowKey: string; fieldId: string; value: unknown }>,
-    extra?: {
-      fieldChanges?: LocalFieldChange[]
-      rows?: Parameters<typeof mutateSheetLocalState>[0]['rows']
+      if (!offline.canQueue || typeof navigator === 'undefined') return false
+
+      if (navigator.onLine) return false
+
+      if (extra?.fieldChanges?.length) {
+        throw new Error(t('notebook.offlineEdits.needsConnection'))
+      }
+
+      const sheet = {
+        instanceId: instanceRef.current.id,
+        revision: instanceRef.current.revision,
+      }
+
+      const known = new Set(matrixRef.current.rowKeys)
+      const fresh = new Map<string, Record<string, OfflineJsonValue>>()
+
+      const existing: Array<{
+        rowId: string
+        columnId: string
+        value: OfflineJsonValue
+      }> = []
+
+      for (const cell of cells) {
+        const value = pipelineJsonValueSchema.parse(cell.value)
+
+        if (known.has(cell.rowKey)) {
+          existing.push({ rowId: cell.rowKey, columnId: cell.fieldId, value })
+        } else {
+          const values = fresh.get(cell.rowKey) ?? {}
+          values[cell.fieldId] = value
+          fresh.set(cell.rowKey, values)
+        }
+      }
+
+      for (const [rowKey, values] of fresh) {
+        // putEdit reads/assigns/replaces the shared scope array. Parallel rows
+        // overwrite each other; canonical-workspace-offline.test.ts proves it.
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop
+        await offline.queueSheetRow(sheet, { rowKey, values })
+      }
+
+      if (existing.length > 0) await offline.queueSheetCells(sheet, existing)
+      void requestBackgroundSync()
+
+      return true
     },
-    attempt = 0,
-  ) {
-    const current = instanceRef.current
-    if (await keepCellsOnDevice(cells, extra)) return current
-    const rows = new Map((extra?.rows ?? []).map((row) => [row.rowKey, row]))
-    for (const { rowKey } of cells) {
-      if (rows.has(rowKey)) continue
-      if (rowKey.startsWith('sb-row-v1:')) {
-        const snapshot = compositionRef.current
-        const row = snapshot?.rows.find(
-          (candidate) => candidate.rowKey === rowKey,
-        )
-        if (!row || !snapshot)
-          throw new Error(
-            t('notebook.canonicalSheetWorkspace.theComposedRowIs'),
+    [],
+  )
+
+  const persistLocalCells = useCallback(
+    async (
+      cells: Array<{
+        rowKey: string
+        fieldId: string
+        value: SheetbaseGridCellValue
+      }>,
+      extra?: {
+        fieldChanges?: LocalFieldChange[]
+        rows?: Parameters<typeof mutateSheetLocalState>[0]['rows']
+      },
+      attempt = 0,
+    ): Promise<SheetInstance> => {
+      const current = instanceRef.current
+
+      if (await keepCellsOnDevice(cells, extra)) return current
+      const rows = new Map((extra?.rows ?? []).map((row) => [row.rowKey, row]))
+
+      for (const { rowKey } of cells) {
+        if (rows.has(rowKey)) continue
+
+        if (rowKey.startsWith('sb-row-v1:')) {
+          const snapshot = compositionRef.current
+
+          const row = snapshot?.rows.find(
+            (candidate) => candidate.rowKey === rowKey,
           )
-        rows.set(rowKey, {
-          kind: 'composed',
-          rowKey,
-          identityValues: row.identityValues,
-          compositionOffset: row.compositionOffset ?? snapshot.offset,
-        })
-      } else {
-        rows.set(rowKey, { kind: 'local', rowKey })
-      }
-    }
-    try {
-      const next = await localMutate.mutateAsync({
-        instanceId: current.id,
-        expectedRevision: current.revision,
-        retryToken: crypto.randomUUID(),
-        fieldChanges: extra?.fieldChanges,
-        rows: [...rows.values()],
-        cells,
-      })
-      instanceRef.current = next
-      return next
-    } catch (error) {
-      // The request never reached the server (the connection dropped between
-      // the last event and this write): keep the cells instead of losing them.
-      if (
-        error instanceof TypeError &&
-        offlineEditsRef.current.canQueue &&
-        !extra?.fieldChanges?.length
-      ) {
-        const sheet = {
-          instanceId: current.id,
-          revision: current.revision,
-        }
-        const known = new Set(matrixRef.current.rowKeys)
-        const existing = cells.filter((cell) => known.has(cell.rowKey))
-        for (const cell of cells.filter((item) => !known.has(item.rowKey))) {
-          await offlineEditsRef.current.queueSheetRow(sheet, {
-            rowKey: cell.rowKey,
-            values: {
-              [cell.fieldId]: (cell.value ?? null) as OfflineJsonValue,
-            },
+
+          if (!row || !snapshot)
+            throw new Error(
+              t('notebook.canonicalSheetWorkspace.theComposedRowIs'),
+            )
+          rows.set(rowKey, {
+            kind: 'composed',
+            rowKey,
+            identityValues: row.identityValues,
+            compositionOffset: row.compositionOffset ?? snapshot.offset,
           })
-        }
-        if (existing.length > 0) {
-          await offlineEditsRef.current.queueSheetCells(
-            sheet,
-            existing.map((cell) => ({
-              rowId: cell.rowKey,
-              columnId: cell.fieldId,
-              value: (cell.value ?? null) as OfflineJsonValue,
-            })),
-          )
-        }
-        void requestBackgroundSync()
-        return current
-      }
-      // GRID-04 review fix: a committed cell reads the same expected revision
-      // a concurrent working-view write reads, so a stale rejection means a
-      // sibling write landed first — not that the value is bad. Re-read the
-      // instance and retry once so the typed value is not dropped.
-      if (attempt === 0 && /stale/i.test(errorText(error) ?? '')) {
-        if (await refreshInstanceForRetry()) {
-          return persistLocalCells(cells, extra, attempt + 1)
+        } else {
+          rows.set(rowKey, { kind: 'local', rowKey })
         }
       }
-      throw error
-    }
-  }
+
+      try {
+        const next = await mutateLocalAsync({
+          instanceId: current.id,
+          expectedRevision: current.revision,
+          retryToken: crypto.randomUUID(),
+          fieldChanges: extra?.fieldChanges,
+          rows: [...rows.values()],
+          cells,
+        })
+
+        instanceRef.current = next
+
+        return next
+      } catch (error) {
+        // The request never reached the server (the connection dropped between
+        // the last event and this write): keep the cells instead of losing them.
+        if (
+          error instanceof TypeError &&
+          offlineEditsRef.current.canQueue &&
+          !extra?.fieldChanges?.length
+        ) {
+          const sheet = {
+            instanceId: current.id,
+            revision: current.revision,
+          }
+
+          const known = new Set(matrixRef.current.rowKeys)
+          const existing = cells.filter((cell) => known.has(cell.rowKey))
+
+          for (const cell of cells.filter((item) => !known.has(item.rowKey))) {
+            // The same scope read/assign/replace must finish before the next row.
+            // canonical-workspace-offline.test.ts reproduces the parallel loss.
+            // react-doctor-disable-next-line react-doctor/async-await-in-loop
+            await offlineEditsRef.current.queueSheetRow(sheet, {
+              rowKey: cell.rowKey,
+              values: {
+                [cell.fieldId]: pipelineJsonValueSchema.parse(cell.value),
+              },
+            })
+          }
+
+          if (existing.length > 0) {
+            await offlineEditsRef.current.queueSheetCells(
+              sheet,
+              existing.map((cell) => ({
+                rowId: cell.rowKey,
+                columnId: cell.fieldId,
+                value: pipelineJsonValueSchema.parse(cell.value),
+              })),
+            )
+          }
+
+          void requestBackgroundSync()
+
+          return current
+        }
+
+        // GRID-04 review fix: a committed cell reads the same expected revision
+        // a concurrent working-view write reads, so a stale rejection means a
+        // sibling write landed first — not that the value is bad. Re-read the
+        // instance and retry once so the typed value is not dropped.
+        if (
+          attempt === 0 &&
+          error instanceof Error &&
+          /stale/i.test(error.message)
+        ) {
+          if (await refreshInstanceForRetry()) {
+            return persistLocalCells(cells, extra, attempt + 1)
+          }
+        }
+
+        throw error
+      }
+    },
+    [keepCellsOnDevice, mutateLocalAsync, refreshInstanceForRetry],
+  )
 
   // GRID-04: presentation writes go through the existing sheet-instance state
   // mutation path (`update_sheet_instance` with an expected revision), which
   // is the same optimistic-revision contract the rest of the editor uses. The
   // server rejects any change to localFields/localValues here, so a
   // presentation write can never smuggle scientific data changes through.
-  async function persistPresentation(
-    patch: Partial<SheetPresentation>,
-    attempt = 0,
-  ): Promise<boolean> {
-    const current = instanceRef.current
-    try {
-      const next = await updateSheetInstance(
-        current.id,
-        current.revision,
-        {
-          ...current.state,
-          presentation: { ...current.state.presentation, ...patch },
-        },
-        sheetInstanceDataClient,
-      )
-      instanceRef.current = next
-      queryClient.setQueryData(['sheet-instance', instance.id], next)
-      return true
-    } catch (error) {
-      // GRID-04 review fix: rapid view controls read the same expected
-      // revision, so a stale-revision rejection would silently drop the
-      // second write. Re-read the authoritative instance and retry once.
-      if (attempt === 0 && /stale/i.test(errorText(error) ?? '')) {
-        if (await refreshInstanceForRetry()) {
-          return persistPresentation(patch, attempt + 1)
+  const persistPresentation = useCallback(
+    async (
+      patch: Partial<SheetPresentation>,
+      attempt = 0,
+    ): Promise<boolean> => {
+      const current = instanceRef.current
+
+      try {
+        const next = await updateSheetInstance(
+          current.id,
+          current.revision,
+          {
+            ...current.state,
+            presentation: { ...current.state.presentation, ...patch },
+          },
+          sheetInstanceDataClient,
+        )
+
+        instanceRef.current = next
+        queryClient.setQueryData(['sheet-instance', instance.id], next)
+
+        return true
+      } catch (error) {
+        // GRID-04 review fix: rapid view controls read the same expected
+        // revision, so a stale-revision rejection would silently drop the
+        // second write. Re-read the authoritative instance and retry once.
+        if (
+          attempt === 0 &&
+          error instanceof Error &&
+          /stale/i.test(error.message)
+        ) {
+          if (await refreshInstanceForRetry()) {
+            return persistPresentation(patch, attempt + 1)
+          }
         }
+
+        setWriteStatus(
+          (error instanceof Error && error.message) ||
+            t('notebook.canonicalSheetWorkspace.theWorkingViewCould'),
+        )
+
+        return false
       }
-      setWriteStatus(
-        errorText(error) ||
-          t('notebook.canonicalSheetWorkspace.theWorkingViewCould'),
-      )
-      return false
-    }
-  }
+    },
+    [instance.id, queryClient, refreshInstanceForRetry],
+  )
 
   async function addColumn() {
     const activeFields = instance.state.localFields.filter(
       (field) => field.lifecycle === 'active',
     )
+
     const field = {
       ...createAdHocTextField(
         columnLabel,
@@ -1041,6 +895,7 @@ export function CanonicalSheetEditor({
       ),
       logicalType: columnType,
     }
+
     await persistLocalCells([], {
       fieldChanges: [{ operation: 'add', field }],
     })
@@ -1051,14 +906,17 @@ export function CanonicalSheetEditor({
     const activeFields = instance.state.localFields.filter(
       (field) => field.lifecycle === 'active',
     )
+
     const fieldChanges: LocalFieldChange[] = []
     const existing = activeFields.at(0)
+
     const field =
       existing ??
       createAdHocTextField(
         columnLabel,
         activeFields.map((item) => item.key),
       )
+
     if (!existing) fieldChanges.push({ operation: 'add', field })
     const rowKey = crypto.randomUUID()
     await persistLocalCells([{ rowKey, fieldId: field.fieldId, value: null }], {
@@ -1074,52 +932,67 @@ export function CanonicalSheetEditor({
    */
   async function pasteTable(table: PastedTable) {
     setPasting(true)
+
     try {
       const keys = instanceRef.current.state.localFields
         .filter((field) => field.lifecycle === 'active')
         .map((field) => field.key)
-      const fields = table.headers.map((label) => {
+
+      const pastedFields = table.headers.map((label) => {
         const field = createAdHocTextField(label, keys)
         keys.push(field.key)
+
         return field
       })
+
       const perGroup = Math.max(
         1,
-        Math.min(200, Math.floor(1_000 / fields.length)),
+        Math.min(200, Math.floor(1_000 / pastedFields.length)),
       )
+
       for (let start = 0; start < table.rows.length; start += perGroup) {
         const group = table.rows.slice(start, start + perGroup)
+
         const rows = group.map(() => ({
           kind: 'local' as const,
           rowKey: crypto.randomUUID(),
         }))
+
         const cells = group.flatMap((values, rowIndex) =>
           values.map((value, column) => ({
             rowKey: rows[rowIndex].rowKey,
-            fieldId: fields[column].fieldId,
+            fieldId: pastedFields[column].fieldId,
             value: value === '' ? null : value,
           })),
         )
+
+        // Each batch consumes/advances instanceRef's authoritative revision;
+        // the first also creates the fields required by subsequent batches.
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop
         await persistLocalCells(cells, {
           fieldChanges:
             start === 0
-              ? fields.map((field) => ({ operation: 'add' as const, field }))
+              ? pastedFields.map((field) => ({
+                  operation: 'add' as const,
+                  field,
+                }))
               : undefined,
           rows,
         })
       }
+
       setPasteOpen(false)
       setWriteStatus(
         t('notebook.canonicalSheetWorkspace.pasted', {
           rows: t('common.counts.rows', { count: table.rows.length }),
           columns: t('notebook.canonicalSheetWorkspace.newLocalColumns', {
-            count: fields.length,
+            count: pastedFields.length,
           }),
         }),
       )
     } catch (error) {
       setWriteStatus(
-        errorText(error) ??
+        (error instanceof Error ? error.message : null) ??
           t('notebook.canonicalSheetWorkspace.thePastedDataCould'),
       )
     } finally {
@@ -1129,10 +1002,12 @@ export function CanonicalSheetEditor({
 
   async function deleteLocalRowAt(rowIndex: number) {
     const rowKey = matrix.rowKeys[rowIndex]
+
     if (!rowKey || matrix.rowKinds[rowIndex] !== 'local') return
     const current = instanceRef.current
     const nextValues = { ...current.state.localValues }
     delete nextValues[rowKey]
+
     // QA-155: the grid removes the row as soon as the preflight allows it, so a
     // refused delete has to say so — otherwise the row silently reappears on
     // the next read with no explanation.
@@ -1143,11 +1018,12 @@ export function CanonicalSheetEditor({
         { ...current.state, localValues: nextValues },
         sheetInstanceDataClient,
       )
+
       instanceRef.current = next
       queryClient.setQueryData(['sheet-instance', instance.id], next)
     } catch (error) {
       setWriteStatus(
-        errorText(error) ??
+        (error instanceof Error ? error.message : null) ??
           t('notebook.canonicalSheetWorkspace.theLocalRowCould'),
       )
     }
@@ -1159,6 +1035,7 @@ export function CanonicalSheetEditor({
 
   async function deleteSelectedColumn() {
     const column = matrix.columns.at(selected.col)
+
     if (!column || column.origin === 'bound') return
     await persistLocalCells([], {
       fieldChanges: [{ operation: 'retire', fieldId: column.id }],
@@ -1176,17 +1053,22 @@ export function CanonicalSheetEditor({
 
   function restoreView() {
     const raw = loadSheetView(instance.id)
+
     // Validate against the canonical column set, not the display matrix:
     // columns the view itself hides are absent from the display matrix but
     // remain restorable canonical columns.
     const columnIds = new Set(
       canonicalMatrix.columns.map((column) => column.id),
     )
+
     const restored = raw ? sanitizeSheetPresentation(raw, columnIds) : null
+
     if (!restored) {
       setWriteStatus(t('notebook.canonicalSheetWorkspace.noUsableSavedView'))
+
       return
     }
+
     void persistPresentation(restored).then((saved) => {
       if (!saved) return
       setWriteStatus(t('notebook.canonicalSheetWorkspace.workingViewRestored'))
@@ -1210,25 +1092,31 @@ export function CanonicalSheetEditor({
   const addCalculation = useMutation({
     mutationFn: async () => {
       const id = crypto.randomUUID()
+
       const keyBase = formulaLabel
         .trim()
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '_')
         .replace(/^_+|_+$/g, '')
         .slice(0, 40)
+
       const key = /^[a-z]/.test(keyBase) ? keyBase || 'calc' : `calc_${keyBase}`
+
       const quantityColumn = matrix.columns.find(
         (column) => column.id === formulaQuantityColumn,
       )
+
       if (formulaQuantityColumn && !quantityColumn?.field?.quantity) {
         throw new Error(
           t('notebook.canonicalSheetWorkspace.chooseAnAvailableCalculation'),
         )
       }
+
       const expression = buildSheetCalculationExpression({
         source: formula,
         columns: matrix.columns,
       })
+
       const outputField = {
         fieldId: id,
         key,
@@ -1246,6 +1134,7 @@ export function CanonicalSheetEditor({
         computation: { mode: 'computed' as const, expressionId: id },
         lifecycle: 'active' as const,
       }
+
       return mutateSheetInstanceCalculations(
         {
           instanceId: instance.id,
@@ -1286,7 +1175,9 @@ export function CanonicalSheetEditor({
   const writeBack = useMutation({
     mutationFn: async () => {
       const snapshot = compositionRef.current
+
       if (!snapshot) return
+
       // PLAT-05: one grouped dispatch per dataset/record instead of one RPC
       // per cell — a multi-cell paste over bound columns is a single batch.
       const cells = Object.entries(pendingValues).flatMap(
@@ -1297,7 +1188,9 @@ export function CanonicalSheetEditor({
             value,
           })),
       )
+
       if (cells.length === 0) return
+
       if (
         offlineEditsRef.current.canQueue &&
         typeof navigator !== 'undefined' &&
@@ -1311,12 +1204,14 @@ export function CanonicalSheetEditor({
           cells.map((cell) => ({
             rowId: cell.rowKey,
             columnId: cell.columnId,
-            value: (cell.value ?? null) as OfflineJsonValue,
+            value: pipelineJsonValueSchema.parse(cell.value),
           })),
         )
         void requestBackgroundSync()
+
         return
       }
+
       await writeSheetCells(
         {
           composition: snapshot,
@@ -1347,8 +1242,10 @@ export function CanonicalSheetEditor({
           }),
         )
         setWriteBackFailure({ errors: error.errors, mixedAuthority: false })
+
         return
       }
+
       if (error instanceof SheetMixedAuthorityWriteError) {
         // GRID-02: the range operation spanned more than one authoritative
         // target and was rejected before any write. Keep the pending values
@@ -1356,8 +1253,10 @@ export function CanonicalSheetEditor({
         // semantics that were never attempted.
         setWriteStatus(error.message)
         setWriteBackFailure({ errors: [], mixedAuthority: true })
+
         return
       }
+
       setWriteStatus(
         t('notebook.canonicalSheetWorkspace.writeBackSheetcellwriteerror', {
           sheetCellWriteError: sheetCellWriteError(error),
@@ -1370,15 +1269,19 @@ export function CanonicalSheetEditor({
   const link = useMutation({
     mutationFn: async (recordId: string) => {
       const snapshot = composedSnapshot
+
       const column = matrix.columns.find(
         (item) => item.presentation.kind === 'record-picker' && item.editable,
       )
+
       if (!snapshot || !column || !selectedRowKey || !modelKey) return
+
       const resolved = resolveSheetWriteTarget({
         composition: snapshot,
         rowKey: selectedRowKey,
         columnId: column.id,
       })
+
       return linkSheetRecordReference(
         {
           composition: snapshot,
@@ -1412,7 +1315,7 @@ export function CanonicalSheetEditor({
     // reports are (and the cell keeps its previous value).
     onError: (error) =>
       setWriteStatus(
-        errorText(error) ??
+        (error instanceof Error ? error.message : null) ??
           t('notebook.canonicalSheetWorkspace.theRecordCouldNot'),
       ),
   })
@@ -1420,16 +1323,20 @@ export function CanonicalSheetEditor({
   const create = useMutation({
     mutationFn: async () => {
       const snapshot = composedSnapshot
+
       const column = matrix.columns.find(
         (item) => item.presentation.kind === 'record-picker' && item.editable,
       )
+
       if (!snapshot || !column || !selectedRowKey || !projectId || !modelKey)
         return
+
       const resolved = resolveSheetWriteTarget({
         composition: snapshot,
         rowKey: selectedRowKey,
         columnId: column.id,
       })
+
       return createAndLinkSheetRecord(
         {
           projectId,
@@ -1453,7 +1360,7 @@ export function CanonicalSheetEditor({
     // is reported here instead of looking like it succeeded.
     onError: (error) =>
       setWriteStatus(
-        errorText(error) ??
+        (error instanceof Error ? error.message : null) ??
           t('notebook.canonicalSheetWorkspace.theRecordCouldNot2'),
       ),
   })
@@ -1463,11 +1370,13 @@ export function CanonicalSheetEditor({
   const deleteRowRef = useRef(deleteSelectedRow)
   const deleteColumnRef = useRef(deleteSelectedColumn)
   const deleteLocalRowAtRef = useRef(deleteLocalRowAt)
-  addRowRef.current = addRow
-  addColumnRef.current = addColumn
-  deleteRowRef.current = deleteSelectedRow
-  deleteColumnRef.current = deleteSelectedColumn
-  deleteLocalRowAtRef.current = deleteLocalRowAt
+  useLayoutEffect(() => {
+    addRowRef.current = addRow
+    addColumnRef.current = addColumn
+    deleteRowRef.current = deleteSelectedRow
+    deleteColumnRef.current = deleteSelectedColumn
+    deleteLocalRowAtRef.current = deleteLocalRowAt
+  })
 
   // COMP-06.2: the engine's own row menu drives insert/delete. A bound Sheet
   // only owns local rows, so bound rows fail the delete preflight; the host
@@ -1475,15 +1384,18 @@ export function CanonicalSheetEditor({
   const handleBeforeRowsRemove = useCallback(
     (rowIndex: number) => {
       if (!canWrite) return false
+
       return matrixRef.current.rowKinds[rowIndex] === 'local'
         ? undefined
         : false
     },
     [canWrite],
   )
+
   const handleRowsRemoved = useCallback((rowIndex: number) => {
     void deleteLocalRowAtRef.current(rowIndex)
   }, [])
+
   const handleRowsInserted = useCallback(
     (_rowIndex: number, amount: number) => {
       for (let index = 0; index < amount; index += 1) void addRowRef.current()
@@ -1497,10 +1409,15 @@ export function CanonicalSheetEditor({
   const sheetColumns = useMemo(
     () =>
       matrix.columns.map((column) =>
-        sheetbaseColumn(column, canWrite, () => recordLabelsRef.current),
+        canonicalWorkspaceGridColumn(
+          column,
+          canWrite,
+          () => recordLabelsRef.current,
+        ),
       ),
     [matrix, canWrite],
   )
+
   const columnKeys = useMemo(
     () =>
       matrix.columns.flatMap((column) =>
@@ -1517,6 +1434,7 @@ export function CanonicalSheetEditor({
     [matrix],
   )
   const cellDisplays = usePluginGridCellDisplays(columnKeys)
+
   const sheetRows = useMemo(
     () =>
       matrix.rowKeys.map((rowKey, index) => ({
@@ -1534,51 +1452,15 @@ export function CanonicalSheetEditor({
   // the authoritative state.
   const handleBeforeCellsChange = useCallback(
     (changes: SheetbaseGridCellChange[], source: SheetbaseGridWriteSource) => {
-      if (changes.length === 0) return undefined
-      const columnsById = new Map(
-        matrixRef.current.columns.map((column) => [column.id, column]),
-      )
-      const verb =
-        source === 'paste'
-          ? t('notebook.canonicalSheetWorkspace.paste')
-          : source === 'fill'
-            ? t('notebook.canonicalSheetWorkspace.fill')
-            : source === 'clear'
-              ? t('common.actions.clear')
-              : t('common.actions.edit')
-      for (const change of changes) {
-        const column = columnsById.get(change.columnId)
-        // COMP-06.2 / sheetbase-table 0.4.0: a bulk operation's intended
-        // target set marks cells the backend will not write (`editable:false`)
-        // so one read-only or derived target refuses the whole operation
-        // instead of letting the editable subset land.
-        if (change.editable === false || (column && !column.editable)) {
-          setWriteStatus(
-            t('notebook.canonicalSheetWorkspace.verbRejectedTheRange', {
-              verb,
-            }),
-          )
-          return false
-        }
-        if (!column) continue
-        const value = parseSheetCellInput(column.field, change.next)
-        const invalid = validateCanonicalCell(column.field, value)
-        if (invalid) {
-          setWriteStatus(
-            t('notebook.canonicalSheetWorkspace.verbRejectedInvalidIn', {
-              verb,
-              invalid,
-              label: column.label,
-            }),
-          )
-          return false
-        }
-        // GRID-03: apply the coerced canonical value (category option id, UTC
-        // instant, grouped-number) so the grid shows what will be written,
-        // not the raw editor output.
-        change.next = value
-      }
-      return undefined
+      const decision = prepareCanonicalWorkspaceWrite({
+        columns: matrixRef.current.columns,
+        changes,
+        source,
+      })
+
+      if (decision.status !== null) setWriteStatus(decision.status)
+
+      return decision.result
     },
     [],
   )
@@ -1591,29 +1473,37 @@ export function CanonicalSheetEditor({
       if (source === 'load' || !canWrite) return
       const currentMatrix = matrixRef.current
       const snapshot = compositionRef.current
+
       const localCells: Array<{
         rowKey: string
         fieldId: string
-        value: unknown
+        value: SheetbaseGridCellValue
       }> = []
-      const pending: Record<string, Record<string, unknown>> = {}
+
+      const pending: Record<string, Record<string, SheetbaseGridCellValue>> = {}
       const created = new Map<number, string>()
+
       const columnsById = new Map(
         currentMatrix.columns.map((column) => [column.id, column]),
       )
+
       for (const change of changes) {
         const column = columnsById.get(change.columnId)
+
         if (!column || !column.editable) continue
         let rowKey = change.rowId ?? created.get(change.rowIndex)
+
         if (!rowKey) {
           rowKey = crypto.randomUUID()
           created.set(change.rowIndex, rowKey)
         }
+
         const value = parseSheetCellInput(column.field, change.next)
         // GRID-03 safety net: beforeChange already rejected and reverted
         // invalid values for every write source, so this branch only fires if
         // a change reaches the change handler without passing through it.
         const invalid = validateCanonicalCell(column.field, value)
+
         if (invalid) {
           setWriteStatus(
             t('notebook.canonicalSheetWorkspace.invalidValueInvalidIn', {
@@ -1623,31 +1513,37 @@ export function CanonicalSheetEditor({
           )
           continue
         }
+
         if (column.origin === 'bound' && snapshot) {
           pending[rowKey] = { ...pending[rowKey], [column.id]: value }
         } else {
           localCells.push({ rowKey, fieldId: column.id, value })
         }
       }
+
       if (Object.keys(pending).length > 0) {
         setPendingValues((current) => {
           const next = { ...current }
+
           for (const [rowKey, cells] of Object.entries(pending)) {
             next[rowKey] = { ...next[rowKey], ...cells }
           }
+
           return next
         })
       }
+
       if (localCells.length > 0) {
         const newRows = [...created.values()].map((rowKey) => ({
           kind: 'local' as const,
           rowKey,
         }))
+
         void persistLocalCells(localCells, {
           rows: newRows.length > 0 ? newRows : undefined,
-        }).catch((error: unknown) => {
+        }).catch((error) => {
           setWriteStatus(
-            errorText(error) ??
+            (error instanceof Error ? error.message : null) ??
               t(
                 'notebook.canonicalSheetWorkspace.localWriteSheetcellwriteerror',
                 { sheetCellWriteError: sheetCellWriteError(error) },
@@ -1656,10 +1552,11 @@ export function CanonicalSheetEditor({
         })
       }
     },
-    [canWrite],
+    [canWrite, persistLocalCells],
   )
 
   const selectionKeyRef = useRef<string | null>(null)
+
   // GRID-04: selection is stored in physical coordinates so delete, provenance
   // and status resolve the column/row the user actually selected, whatever the
   // current sort/filter/move state is.
@@ -1669,15 +1566,19 @@ export function CanonicalSheetEditor({
       // storing it again as a new object re-renders the grid in turn, so an
       // identical selection is ignored.
       const key = selection ? JSON.stringify(selection) : null
+
       if (key === selectionKeyRef.current) return
       selectionKeyRef.current = key
       setCommentSelection(selection)
       selectionRef.current = selection
+
       if (!selection) return
       setActiveInput(selection.input ?? '')
+
       const columnIndex = matrixRef.current.columns.findIndex(
         (column) => column.id === selection.columnId,
       )
+
       setSelected({
         row: selection.rowIndex,
         col: columnIndex >= 0 ? columnIndex : 0,
@@ -1694,16 +1595,18 @@ export function CanonicalSheetEditor({
         columnWidths: { ...current, [columnId]: clampColumnWidth(newSize) },
       })
     },
-    // persistPresentation reads refs and the query client only.
-    [],
+    [persistPresentation],
   )
 
   // GRID-04: persist the new column order as stable column IDs. The wrapper
   // resets its own visual index map afterwards (`resetColumnOrderOnChange`),
   // so the rebuilt rows already carry the persisted order.
-  const handleColumnOrderChange = useCallback((columnIds: string[]) => {
-    void persistPresentation({ columnOrder: columnIds })
-  }, [])
+  const handleColumnOrderChange = useCallback(
+    (columnIds: string[]) => {
+      void persistPresentation({ columnOrder: columnIds })
+    },
+    [persistPresentation],
+  )
 
   // GRID-04: sorting and filtering are visual only; the wrapper owns the
   // engine conversion, the caller persists stable ids and skips identical
@@ -1717,17 +1620,26 @@ export function CanonicalSheetEditor({
         return
       void persistPresentation({ sorts })
     },
-    // persistPresentation reads refs and the query client only.
-    [],
+    [persistPresentation],
   )
-  const handleFiltersChange = useCallback((filters: SheetbaseGridFilter[]) => {
-    if (
-      JSON.stringify(filters) ===
-      JSON.stringify(instanceRef.current.state.presentation.filters)
-    )
-      return
-    void persistPresentation({ filters })
-  }, [])
+
+  const handleFiltersChange = useCallback(
+    (filters: SheetbaseGridFilter[]) => {
+      // Column-menu Apply moves that column's filter to the end. Unlike sort
+      // precedence, conjunction order does not change the working view.
+      const next = [...filters].sort((a, b) =>
+        a.columnId.localeCompare(b.columnId),
+      )
+
+      const current = [...instanceRef.current.state.presentation.filters].sort(
+        (a, b) => a.columnId.localeCompare(b.columnId),
+      )
+
+      if (JSON.stringify(next) === JSON.stringify(current)) return
+      void persistPresentation({ filters })
+    },
+    [persistPresentation],
+  )
 
   // GRID-03: editing a record-picker cell opens the shared Record picker
   // scoped to the column's own relationship target.
@@ -1738,6 +1650,7 @@ export function CanonicalSheetEditor({
     ) => {
       const column = matrixRef.current.columns.at(cell.columnIndex)
       const targetModelKey = recordPickerTargetModelKey(column?.field ?? null)
+
       if (
         !column ||
         column.presentation.kind !== 'record-picker' ||
@@ -1745,8 +1658,10 @@ export function CanonicalSheetEditor({
         !targetModelKey
       ) {
         editor.cancel()
+
         return
       }
+
       setPicker({
         modelKey: targetModelKey,
         cell: { row: cell.rowIndex, col: cell.columnIndex },
@@ -1765,42 +1680,62 @@ export function CanonicalSheetEditor({
   // through the same change pipeline as every other write (editable check,
   // parse, validate, then the authoritative local or write-back target),
   // skipping cells that are already empty.
-  function clearSelectedCells() {
+  const clearSelectedCells = useCallback(() => {
     const current = matrixRef.current
     const selection = selectionRef.current
+
     const rowIds = selection?.rowIds?.length
       ? selection.rowIds
       : selection?.rowId
         ? [selection.rowId]
         : []
+
     const columnIds = selection?.columnIds?.length
       ? selection.columnIds
       : selection?.columnId
         ? [selection.columnId]
         : []
+
     const changes: SheetbaseGridCellChange[] = []
+
+    const columnIndices = new Map(
+      current.columns.map((column, index) => [column.id, index]),
+    )
+
+    const rowIndices = new Map(
+      current.rowKeys.map((rowKey, index) => [rowKey, index]),
+    )
+
     for (const columnId of columnIds) {
-      const columnIndex = current.columns.findIndex(
-        (column) => column.id === columnId,
-      )
+      const columnIndex = columnIndices.get(columnId)
+
+      if (columnIndex === undefined) continue
+
       const column = current.columns.at(columnIndex)
+
       if (!column || !column.editable) continue
+
       for (const rowId of rowIds) {
-        const rowIndex = current.rowKeys.indexOf(rowId)
-        if (rowIndex < 0) continue
+        const rowIndex = rowIndices.get(rowId)
+
+        if (rowIndex === undefined) continue
         const previous = current.data[rowIndex]?.[columnIndex] ?? null
+
         // The engine skips cells that are already empty; clearing one again
         // would write nothing.
         if (previous === null || previous === '') continue
         changes.push({ rowIndex, rowId, columnId, previous, next: '' })
       }
     }
+
     if (changes.length === 0) {
       handleNothingToClear()
+
       return
     }
+
     handleCellsChange(changes, 'clear')
-  }
+  }, [handleCellsChange, handleNothingToClear])
 
   const columnMenu = useMemo<SheetbaseGridMenuEntry[]>(
     () => [
@@ -1811,10 +1746,13 @@ export function CanonicalSheetEditor({
         disabled: () => !canWrite,
         onSelect: (context) => {
           const anchor = context.ranges[0]?.columnIds[0]
+
           if (!anchor) return
+
           const index = matrixRef.current.columns.findIndex(
             (column) => column.id === anchor,
           )
+
           if (index < 0) return
           void persistPresentation({
             frozenColumnCount: Math.min(
@@ -1839,10 +1777,13 @@ export function CanonicalSheetEditor({
         disabled: () => !canWrite,
         onSelect: (context) => {
           const range = context.ranges.at(0)
+
           if (!range || range.columnIds.length === 0) return
+
           const hidden = new Set(
             instanceRef.current.state.presentation.hiddenColumnIds,
           )
+
           for (const columnId of range.columnIds) hidden.add(columnId)
           void persistPresentation({ hiddenColumnIds: [...hidden] })
         },
@@ -1859,15 +1800,24 @@ export function CanonicalSheetEditor({
           !canWrite || promotableLocalField(instance, selectedColumn) === null,
         onSelect: (context) => {
           const anchor = context.ranges[0]?.columnIds[0]
+
           const column = matrixRef.current.columns.find(
             (item) => item.id === anchor,
           )
+
           const field = promotableLocalField(instanceRef.current, column)
+
           if (field) setPromoteField(field)
         },
       },
     ],
-    [canWrite, instance, presentation.frozenColumnCount, selectedColumn],
+    [
+      canWrite,
+      instance,
+      presentation.frozenColumnCount,
+      selectedColumn,
+      persistPresentation,
+    ],
   )
 
   const contextMenu = useMemo<SheetbaseGridMenuEntry[]>(
@@ -1946,7 +1896,7 @@ export function CanonicalSheetEditor({
           }),
       },
     ],
-    [canWrite],
+    [canWrite, clearSelectedCells],
   )
 
   useEffect(() => {
@@ -1958,18 +1908,21 @@ export function CanonicalSheetEditor({
   const staleCalc = calculations.data?.rows.some(
     (row) => row.calculationStatus === 'stale',
   )
+
   const visualiseDatasetId = composedSnapshot?.rows
     .flatMap((row) => row.sources)
     .find((source) => source.sourceKind === 'dataset')?.datasetId
 
   function openSelectionComment(kind?: SheetCommentAnchor['targetKind']) {
     if (!canComment || !commentSelection?.rowId) return
+
     const targetKind =
       kind ??
       ((commentSelection.rowIds?.length ?? 1) > 1 ||
       (commentSelection.columnIds?.length ?? 1) > 1
         ? 'sheet_range'
         : 'sheet_cell')
+
     const result = sheetCommentAnchorSchema.safeParse({
       targetKind,
       target: {
@@ -1986,24 +1939,30 @@ export function CanonicalSheetEditor({
               : [commentSelection.columnId],
       },
     })
+
     if (result.success)
       setCommentDraft({
         anchor: result.data,
         expectedRevision: instance.revision,
       })
   }
+
   const commentAnnotations = useMemo(() => {
     const notes = new Map<
       string,
       { rowId: string; columnId: string; text: string }
     >()
+
     for (const comment of comments.data ?? []) {
       if (comment.parent_id !== null) continue
+
       const anchor = sheetCommentAnchorSchema.safeParse({
         targetKind: comment.target_kind,
         target: comment.target,
       })
+
       if (!anchor.success) continue
+
       for (const cell of sheetCommentCells(
         anchor.data,
         instance.id,
@@ -2022,161 +1981,375 @@ export function CanonicalSheetEditor({
         })
       }
     }
+
     return [...notes.values()]
   }, [comments.data, instance.id, matrix.rowKeys, matrix.columns])
 
+  const availableRowKeys = useMemo(
+    () => new Set(matrix.rowKeys),
+    [matrix.rowKeys],
+  )
+
+  const availableColumnIds = useMemo(
+    () => new Set(matrix.columns.map((column) => column.id)),
+    [matrix.columns],
+  )
+
+  return {
+    instance,
+    projectId,
+    readOnly,
+    commentActor,
+    commentId,
+    cellState,
+    queryClient,
+    instanceRef,
+    composed,
+    canWrite,
+    gridContainerRef,
+    gridHandle,
+    setGridHandle,
+    activeInput,
+    commentSelection,
+    commentDraft,
+    setCommentDraft,
+    canComment,
+    columnLabel,
+    setColumnLabel,
+    columnType,
+    setColumnType,
+    calculatorOpen,
+    setCalculatorOpen,
+    pasteOpen,
+    setPasteOpen,
+    pasting,
+    sheetTool,
+    setSheetTool,
+    formula,
+    setFormula,
+    formulaLabel,
+    setFormulaLabel,
+    formulaQuantityColumn,
+    setFormulaQuantityColumn,
+    selected,
+    promoteField,
+    setPromoteField,
+    pendingDestructive,
+    setPendingDestructive,
+    keptLocalFields,
+    setKeptLocalFields,
+    writeStatus,
+    writeBackFailure,
+    savedViewExists,
+    picker,
+    setPicker,
+    recordLabelsRef,
+    createOpen,
+    setCreateOpen,
+    title,
+    setTitle,
+    custom,
+    setCustom,
+    setQuery,
+    pendingValues,
+    errors,
+    setErrors,
+    errorCursor,
+    setErrorCursor,
+    setPageCount,
+    composition,
+    composedSnapshot,
+    calculations,
+    presentation,
+    matrix,
+    modelKey,
+    fields,
+    search,
+    actions,
+    selectedColumn,
+    openPromotion,
+    provenance,
+    openConflicts,
+    selectedConflict,
+    setResolvedConflictIds,
+    revealFirstConflict,
+    localMutate,
+    persistPresentation,
+    addColumn,
+    addRow,
+    pasteTable,
+    saveView,
+    restoreView,
+    resetView,
+    addCalculation,
+    writeBack,
+    link,
+    create,
+    sheetColumns,
+    sheetRows,
+    handleBeforeRowsRemove,
+    handleRowsRemoved,
+    handleRowsInserted,
+    handleBeforeCellsChange,
+    handleCellsChange,
+    handleSelectionChange,
+    handleColumnResize,
+    handleColumnOrderChange,
+    handleSortsChange,
+    handleFiltersChange,
+    handleOpenRecordPicker,
+    handleNothingToClear,
+    columnMenu,
+    contextMenu,
+    staleCalc,
+    visualiseDatasetId,
+    openSelectionComment,
+    commentAnnotations,
+    availableRowKeys,
+    availableColumnIds,
+  }
+}
+
+const CanonicalWorkspaceContext = createContext<ReturnType<
+  typeof useCanonicalWorkspaceSession
+> | null>(null)
+
+function useCanonicalWorkspace() {
+  const session = useContext(CanonicalWorkspaceContext)
+
+  if (!session) throw new Error('Canonical workspace session is unavailable')
+
+  return session
+}
+
+/** Instance identity owns the editor session, including paging and drafts. */
+export function CanonicalSheetEditor(
+  props: Parameters<typeof useCanonicalWorkspaceSession>[0],
+) {
+  return <CanonicalWorkspaceSession key={props.instance.id} {...props} />
+}
+
+function CanonicalWorkspaceSession(
+  props: Parameters<typeof useCanonicalWorkspaceSession>[0],
+) {
+  const session = useCanonicalWorkspaceSession(props)
+
   return (
-    <div className="flex h-full min-h-[24rem] min-w-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-2 py-1">
-        {canWrite ? (
-          <div
-            role="group"
-            aria-label={t('notebook.canonicalSheetWorkspace.ariaLabel')}
-            className="flex flex-wrap items-center gap-2"
-          >
-            <Button
-              type="button"
-              size="sm"
-              disabled={localMutate.isPending}
-              onClick={() => void addRow()}
-            >
-              {t('notebook.canonicalSheetWorkspace.addRow')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              aria-expanded={sheetTool === 'column'}
-              onClick={() =>
-                setSheetTool(sheetTool === 'column' ? null : 'column')
-              }
-            >
-              {t('notebook.canonicalSheetWorkspace.newColumn')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              aria-expanded={sheetTool === 'calculation'}
-              onClick={() =>
-                setSheetTool(sheetTool === 'calculation' ? null : 'calculation')
-              }
-            >
-              {t('notebook.canonicalSheetWorkspace.newCalculation')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={localMutate.isPending}
-              onClick={() => setPasteOpen(true)}
-            >
-              {t('notebook.canonicalSheetWorkspace.pasteData')}
-            </Button>
-            {matrix.columns.length > 0 ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="quiet"
-                aria-expanded={sheetTool === 'view'}
-                onClick={() =>
-                  setSheetTool(sheetTool === 'view' ? null : 'view')
-                }
-              >
-                {t('notebook.canonicalSheetWorkspace.workingView')}
-              </Button>
-            ) : null}
-            {presentation.hiddenColumnIds.length > 0 ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() =>
-                  void persistPresentation({ hiddenColumnIds: [] })
-                }
-              >
-                {t('notebook.canonicalSheetWorkspace.showHiddenColumns', {
-                  count: presentation.hiddenColumnIds.length,
-                })}
-              </Button>
-            ) : null}
-            {composed ? (
-              <Button
-                type="button"
-                size="sm"
-                disabled={
-                  writeBack.isPending || Object.keys(pendingValues).length === 0
-                }
-                onClick={() => writeBack.mutate()}
-              >
-                {t('notebook.canonicalSheetWorkspace.writeBack')}
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-        <span className="flex-1" />
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          icon="calculator"
-          onClick={() => setCalculatorOpen(true)}
+    <CanonicalWorkspaceContext.Provider value={session}>
+      <div className="flex h-full min-h-[24rem] min-w-0 flex-col">
+        <CanonicalWorkspaceToolbar />
+        <CanonicalWorkspaceAuthoring />
+        <CanonicalWorkspaceRecordToolbar />
+        <CanonicalWorkspacePagination />
+        <CanonicalWorkspaceGrid />
+        <CanonicalWorkspaceStatus />
+        <CanonicalWorkspaceComments />
+        <CanonicalWorkspaceDialogs />
+        <CanonicalWorkspaceRecords />
+      </div>
+    </CanonicalWorkspaceContext.Provider>
+  )
+}
+
+function CanonicalWorkspaceToolbar() {
+  const {
+    canWrite,
+    localMutate,
+    addRow,
+    sheetTool,
+    setSheetTool,
+    setPasteOpen,
+    matrix,
+    presentation,
+    persistPresentation,
+    composed,
+    writeBack,
+    pendingValues,
+    setCalculatorOpen,
+    calculatorOpen,
+    commentActor,
+    canComment,
+    commentSelection,
+    openSelectionComment,
+    visualiseDatasetId,
+    instance,
+  } = useCanonicalWorkspace()
+
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-2 py-1">
+      {canWrite ? (
+        <div
+          role="group"
+          aria-label={t('notebook.canonicalSheetWorkspace.ariaLabel')}
+          className="flex flex-wrap items-center gap-2"
         >
-          {t('calculators.open')}
-        </Button>
-        <BenchCalculatorDialog
-          open={calculatorOpen}
-          onOpenChange={setCalculatorOpen}
-        />
-        {commentActor ? (
+          <Button
+            type="button"
+            size="sm"
+            disabled={localMutate.isPending}
+            onClick={() => void addRow()}
+          >
+            {t('notebook.canonicalSheetWorkspace.addRow')}
+          </Button>
           <Button
             type="button"
             size="sm"
             variant="secondary"
-            data-sheet-comment-selection
-            disabled={!canComment || !commentSelection?.rowId}
-            onClick={() => openSelectionComment()}
-          >
-            {t('notebook.canonicalSheetWorkspace.commentOnSelection')}
-          </Button>
-        ) : null}
-        {visualiseDatasetId ? (
-          <Button
-            render={
-              <Link
-                to="/analysis/new"
-                search={{ dataset: visualiseDatasetId }}
-              />
+            aria-expanded={sheetTool === 'column'}
+            onClick={() =>
+              setSheetTool(sheetTool === 'column' ? null : 'column')
             }
-            nativeButton={false}
+          >
+            {t('notebook.canonicalSheetWorkspace.newColumn')}
+          </Button>
+          <Button
+            type="button"
             size="sm"
             variant="secondary"
+            aria-expanded={sheetTool === 'calculation'}
+            onClick={() =>
+              setSheetTool(sheetTool === 'calculation' ? null : 'calculation')
+            }
           >
-            {t('notebook.canonicalSheetWorkspace.visualise')}
+            {t('notebook.canonicalSheetWorkspace.newCalculation')}
           </Button>
-        ) : null}
-        <ObjectHistoryDialog
-          objectId={instance.id}
-          objectLabel={t('notebook.canonicalSheetWorkspace.objectLabel')}
-        />
-        <ExportMenu
-          path={`/api/export/sheet-instance/${instance.id}`}
-          formats={[
-            {
-              format: 'json',
-              label: t('notebook.canonicalSheetWorkspace.jsonFullStateLabel'),
-            },
-            {
-              format: 'csv',
-              label: t('notebook.canonicalSheetWorkspace.csvLocalGridLabel'),
-            },
-            {
-              format: 'xlsx',
-              label: t('notebook.canonicalSheetWorkspace.xlsxLocalGridLabel'),
-            },
-          ]}
-        />
-      </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={localMutate.isPending}
+            onClick={() => setPasteOpen(true)}
+          >
+            {t('notebook.canonicalSheetWorkspace.pasteData')}
+          </Button>
+          {matrix.columns.length > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="quiet"
+              aria-expanded={sheetTool === 'view'}
+              onClick={() => setSheetTool(sheetTool === 'view' ? null : 'view')}
+            >
+              {t('notebook.canonicalSheetWorkspace.workingView')}
+            </Button>
+          ) : null}
+          {presentation.hiddenColumnIds.length > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => void persistPresentation({ hiddenColumnIds: [] })}
+            >
+              {t('notebook.canonicalSheetWorkspace.showHiddenColumns', {
+                count: presentation.hiddenColumnIds.length,
+              })}
+            </Button>
+          ) : null}
+          {composed ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={
+                writeBack.isPending || Object.keys(pendingValues).length === 0
+              }
+              onClick={() => writeBack.mutate()}
+            >
+              {t('notebook.canonicalSheetWorkspace.writeBack')}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      <span className="flex-1" />
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        icon="calculator"
+        onClick={() => setCalculatorOpen(true)}
+      >
+        {t('calculators.open')}
+      </Button>
+      <BenchCalculatorDialog
+        open={calculatorOpen}
+        onOpenChange={setCalculatorOpen}
+      />
+      {commentActor ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          data-sheet-comment-selection
+          disabled={!canComment || !commentSelection?.rowId}
+          onClick={() => openSelectionComment()}
+        >
+          {t('notebook.canonicalSheetWorkspace.commentOnSelection')}
+        </Button>
+      ) : null}
+      {visualiseDatasetId ? (
+        <Button
+          render={
+            <Link to="/analysis/new" search={{ dataset: visualiseDatasetId }} />
+          }
+          nativeButton={false}
+          size="sm"
+          variant="secondary"
+        >
+          {t('notebook.canonicalSheetWorkspace.visualise')}
+        </Button>
+      ) : null}
+      <ObjectHistoryDialog
+        objectId={instance.id}
+        objectLabel={t('notebook.canonicalSheetWorkspace.objectLabel')}
+      />
+      <ExportMenu
+        path={`/api/export/sheet-instance/${instance.id}`}
+        formats={[
+          {
+            format: 'json',
+            label: t('notebook.canonicalSheetWorkspace.jsonFullStateLabel'),
+          },
+          {
+            format: 'csv',
+            label: t('notebook.canonicalSheetWorkspace.csvLocalGridLabel'),
+          },
+          {
+            format: 'xlsx',
+            label: t('notebook.canonicalSheetWorkspace.xlsxLocalGridLabel'),
+          },
+        ]}
+      />
+    </div>
+  )
+}
+
+function CanonicalWorkspaceAuthoring() {
+  const {
+    canWrite,
+    sheetTool,
+    columnLabel,
+    setColumnLabel,
+    columnType,
+    setColumnType,
+    localMutate,
+    addColumn,
+    formula,
+    setFormula,
+    formulaLabel,
+    setFormulaLabel,
+    formulaQuantityColumn,
+    setFormulaQuantityColumn,
+    matrix,
+    addCalculation,
+    presentation,
+    persistPresentation,
+    saveView,
+    savedViewExists,
+    restoreView,
+    resetView,
+  } = useCanonicalWorkspace()
+
+  return (
+    <>
       {canWrite && sheetTool === 'column' ? (
         <div
           role="group"
@@ -2363,6 +2536,31 @@ export function CanonicalSheetEditor({
           </span>
         </div>
       ) : null}
+    </>
+  )
+}
+
+function CanonicalWorkspaceRecordToolbar() {
+  const {
+    composed,
+    canWrite,
+    actions,
+    errors,
+    setPicker,
+    modelKey,
+    setCreateOpen,
+    projectId,
+    composedSnapshot,
+    pendingValues,
+    setErrors,
+    setErrorCursor,
+    queryClient,
+    instance,
+    errorCursor,
+  } = useCanonicalWorkspace()
+
+  return (
+    <>
       {composed && canWrite ? (
         <ComposedSheetRecordToolbar
           actions={actions}
@@ -2371,40 +2569,37 @@ export function CanonicalSheetEditor({
           onCreate={() => setCreateOpen(true)}
           onValidate={async () => {
             if (!projectId || !composedSnapshot || !modelKey) return
+
             const rows = composedSheetRecordLinkBatchRows(
               composedSnapshot,
               pendingValues,
             )
+
             if (rows.length === 0) {
               setErrors([])
               setErrorCursor(null)
+
               return
             }
+
             const result = await validateSheetRecordBatch(
               { projectId, modelKey, rows },
               client,
             )
-            const next = sheetRecordGridErrorsFromValidation(
-              result as {
-                rows?: Array<{
-                  rowKey: string
-                  errors?: Array<{
-                    code?: string
-                    fieldName?: string
-                    message?: string
-                  }>
-                }>
-              },
-            )
+
+            const next = sheetRecordGridErrorsFromValidation(result)
+
             setErrors(next)
             setErrorCursor(next[0] ?? null)
           }}
           onCommit={async () => {
             if (!projectId || !composedSnapshot || !modelKey) return
+
             const rows = composedSheetRecordLinkBatchRows(
               composedSnapshot,
               pendingValues,
             )
+
             if (rows.length === 0) return
             await commitSheetRecordBatch(
               {
@@ -2424,47 +2619,99 @@ export function CanonicalSheetEditor({
           }
         />
       ) : null}
-      {composed ? (
-        <div
-          className="flex flex-wrap items-center gap-2 border-b px-2 py-1 text-xs text-fg-muted"
-          role="status"
-          aria-live="polite"
-        >
-          {composition.isLoading ? (
+    </>
+  )
+}
+
+function CanonicalWorkspacePagination() {
+  const { composed } = useCanonicalWorkspace()
+
+  return <>{composed ? <CanonicalWorkspacePageStatus /> : null}</>
+}
+
+function CanonicalWorkspacePageStatus() {
+  const { composition, composedSnapshot, matrix, setPageCount } =
+    useCanonicalWorkspace()
+
+  return (
+    <>
+      <div
+        className="flex flex-wrap items-center gap-2 border-b px-2 py-1 text-xs text-fg-muted"
+        role="status"
+        aria-live="polite"
+      >
+        {composition.isLoading ? (
+          <span>
+            {t('notebook.canonicalSheetWorkspace.loadingComposedRows')}
+          </span>
+        ) : (
+          <>
             <span>
-              {t('notebook.canonicalSheetWorkspace.loadingComposedRows')}
+              {composedSnapshot?.hasMore
+                ? t('notebook.canonicalSheetWorkspace.showingCountRowsMore', {
+                    count: matrix.rowKeys.length,
+                  })
+                : t('notebook.canonicalSheetWorkspace.showingAllCountRows', {
+                    count: matrix.rowKeys.length,
+                  })}
             </span>
-          ) : (
-            <>
-              <span>
-                {composedSnapshot?.hasMore
-                  ? t('notebook.canonicalSheetWorkspace.showingCountRowsMore', {
-                      count: matrix.rowKeys.length,
-                    })
-                  : t('notebook.canonicalSheetWorkspace.showingAllCountRows', {
-                      count: matrix.rowKeys.length,
-                    })}
-              </span>
-              {composition.data?.notice ? (
-                <span>{composition.data.notice}</span>
-              ) : null}
-            </>
-          )}
-          {composedSnapshot?.hasMore ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={composition.isFetching}
-              onClick={() => setPageCount((count) => count + 1)}
-            >
-              {composition.isFetching
-                ? t('notebook.canonicalSheetWorkspace.loadingMore')
-                : t('notebook.canonicalSheetWorkspace.loadMore')}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+            {composition.data?.notice ? (
+              <span>{composition.data.notice}</span>
+            ) : null}
+          </>
+        )}
+        {composedSnapshot?.hasMore ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={composition.isFetching}
+            onClick={() => setPageCount((count) => count + 1)}
+          >
+            {composition.isFetching
+              ? t('notebook.canonicalSheetWorkspace.loadingMore')
+              : t('notebook.canonicalSheetWorkspace.loadMore')}
+          </Button>
+        ) : null}
+      </div>
+    </>
+  )
+}
+
+function CanonicalWorkspaceGrid() {
+  const {
+    matrix,
+    composition,
+    gridContainerRef,
+    gridHandle,
+    canWrite,
+    activeInput,
+    sheetRows,
+    sheetColumns,
+    commentAnnotations,
+    instanceRef,
+    presentation,
+    columnMenu,
+    contextMenu,
+    handleBeforeCellsChange,
+    handleCellsChange,
+    handleSelectionChange,
+    setGridHandle,
+    cellState,
+    instance,
+    handleColumnResize,
+    handleColumnOrderChange,
+    handleSortsChange,
+    handleFiltersChange,
+    handleOpenRecordPicker,
+    handleNothingToClear,
+    handleBeforeRowsRemove,
+    handleRowsRemoved,
+    handleRowsInserted,
+  } = useCanonicalWorkspace()
+
+  return (
+    <>
       {matrix.columns.length === 0 ? (
         <p className="p-3 text-sm text-fg-muted" role="status">
           {t('notebook.canonicalSheetWorkspace.thisSheetHasNo')}
@@ -2537,107 +2784,164 @@ export function CanonicalSheetEditor({
           />
         </div>
       )}
-      <div className="space-y-1 border-t px-3 py-2 text-xs text-fg-muted">
-        {openConflicts.length > 0 ? (
-          // EXP-05.4: a Sheet-wide count, with a way to reach the first one —
-          // selecting its cell is what puts it in the inspector.
-          <p className="flex flex-wrap items-center gap-2" role="status">
-            <span>
-              {t('notebook.canonicalSheetWorkspace.openConflicts', {
-                count: openConflicts.length,
-              })}
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={revealFirstConflict}
-            >
-              {t('notebook.canonicalSheetWorkspace.reviewFirstConflict')}
-            </Button>
-          </p>
-        ) : null}
-        {/* SHEET-02.3/QA-153: the promotion against the selected column is
+    </>
+  )
+}
+
+function CanonicalWorkspacePromotionStatus() {
+  const {
+    openConflicts,
+    revealFirstConflict,
+    openPromotion,
+    keptLocalFields,
+    selectedColumn,
+    instance,
+    setKeptLocalFields,
+    canWrite,
+    setPromoteField,
+  } = useCanonicalWorkspace()
+
+  return (
+    <>
+      {openConflicts.length > 0 ? (
+        // EXP-05.4: a Sheet-wide count, with a way to reach the first one —
+        // selecting its cell is what puts it in the inspector.
+        <p className="flex flex-wrap items-center gap-2" role="status">
+          <span>
+            {t('notebook.canonicalSheetWorkspace.openConflicts', {
+              count: openConflicts.length,
+            })}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={revealFirstConflict}
+          >
+            {t('notebook.canonicalSheetWorkspace.reviewFirstConflict')}
+          </Button>
+        </p>
+      ) : null}
+      {/* SHEET-02.3/QA-153: the promotion against the selected column is
         announced whenever it has something to say — a request still waiting on
         a reviewer, one already approved and waiting to be applied, or a
         returned one, which is the banner below. Anything acknowledged with
         "Keep local" stays silent for the rest of the session. */}
-        {openPromotion && !keptLocalFields.has(openPromotion.field_id) ? (
-          <p role="status">
-            {openPromotion.state === 'pending'
-              ? t('notebook.canonicalSheetWorkspace.promotionRequestedASchema')
-              : t(
-                  'notebook.canonicalSheetWorkspace.promotionApprovedTheColumn',
-                )}
-          </p>
-        ) : null}
-        {selectedColumn &&
-        selectedColumn.origin === 'local' &&
-        !keptLocalFields.has(selectedColumn.id) ? (
-          <PromoteRejected
-            instanceId={instance.id}
-            fieldId={selectedColumn.id}
-            client={client}
-            onKeepLocal={() =>
-              setKeptLocalFields((current) =>
-                new Set(current).add(selectedColumn.id),
-              )
-            }
-            onEditAndResubmit={
-              canWrite
-                ? () => {
-                    const field = promotableLocalField(instance, selectedColumn)
-                    if (field) setPromoteField(field)
-                  }
-                : undefined
-            }
-          />
-        ) : null}
-        <p>
-          {t('notebook.canonicalSheetWorkspace.sortingFiltersFreezingHidden')}
+      {openPromotion && !keptLocalFields.has(openPromotion.field_id) ? (
+        <p role="status">
+          {openPromotion.state === 'pending'
+            ? t('notebook.canonicalSheetWorkspace.promotionRequestedASchema')
+            : t('notebook.canonicalSheetWorkspace.promotionApprovedTheColumn')}
         </p>
-        {staleCalc ? (
-          <p role="status" className="flex flex-wrap items-center gap-2">
-            {t('notebook.canonicalSheetWorkspace.calculationStale')}
-            {readOnly ? null : (
-              <Button
-                size="sm"
-                disabled={calculations.isFetching}
-                onClick={() => void calculations.refetch()}
-              >
-                {calculations.isFetching
-                  ? t('notebook.canonicalSheetWorkspace.recalculating')
-                  : t('notebook.canonicalSheetWorkspace.recalculate')}
-              </Button>
-            )}
-          </p>
-        ) : null}
-        {writeStatus ? <p role="status">{writeStatus}</p> : null}
-        {writeBackFailure ? (
-          <WriteBackExplain failure={writeBackFailure} />
-        ) : null}
-        {errorText(localMutate.error) ||
-        errorText(addCalculation.error) ||
-        errorText(calculations.error) ? (
-          <p className="text-danger-text" role="alert">
-            {errorText(localMutate.error) ??
-              errorText(addCalculation.error) ??
-              errorText(calculations.error)}
-          </p>
-        ) : null}
-        {errorCursor ? (
-          <p role="status">
-            {errorCursor.rowKey}: {errorCursor.message}
-          </p>
-        ) : null}
-        {selectedColumn ? (
-          <SheetProvenanceLine
-            columnLabel={selectedColumn.label}
-            columnOrigin={selectedColumn.origin}
-            provenance={provenance}
-          />
-        ) : null}
-      </div>
+      ) : null}
+      {selectedColumn &&
+      selectedColumn.origin === 'local' &&
+      !keptLocalFields.has(selectedColumn.id) ? (
+        <PromoteRejected
+          instanceId={instance.id}
+          fieldId={selectedColumn.id}
+          client={client}
+          onKeepLocal={() =>
+            setKeptLocalFields((current) =>
+              new Set(current).add(selectedColumn.id),
+            )
+          }
+          onEditAndResubmit={
+            canWrite
+              ? () => {
+                  const field = promotableLocalField(instance, selectedColumn)
+
+                  if (field) setPromoteField(field)
+                }
+              : undefined
+          }
+        />
+      ) : null}
+    </>
+  )
+}
+
+function CanonicalWorkspaceStatus() {
+  const {
+    staleCalc,
+    readOnly,
+    calculations,
+    writeStatus,
+    writeBackFailure,
+    localMutate,
+    addCalculation,
+    errorCursor,
+    selectedColumn,
+    provenance,
+  } = useCanonicalWorkspace()
+
+  const error =
+    localMutate.error?.message ??
+    addCalculation.error?.message ??
+    calculations.error?.message
+
+  return (
+    <div className="space-y-1 border-t px-3 py-2 text-xs text-fg-muted">
+      <CanonicalWorkspacePromotionStatus />
+      <p>
+        {t('notebook.canonicalSheetWorkspace.sortingFiltersFreezingHidden')}
+      </p>
+      {staleCalc ? (
+        <p role="status" className="flex flex-wrap items-center gap-2">
+          {t('notebook.canonicalSheetWorkspace.calculationStale')}
+          {readOnly ? null : (
+            <Button
+              size="sm"
+              disabled={calculations.isFetching}
+              onClick={() => void calculations.refetch()}
+            >
+              {calculations.isFetching
+                ? t('notebook.canonicalSheetWorkspace.recalculating')
+                : t('notebook.canonicalSheetWorkspace.recalculate')}
+            </Button>
+          )}
+        </p>
+      ) : null}
+      {writeStatus ? <p role="status">{writeStatus}</p> : null}
+      {writeBackFailure ? (
+        <WriteBackExplain failure={writeBackFailure} />
+      ) : null}
+      {error ? (
+        <p className="text-danger-text" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {errorCursor ? (
+        <p role="status">
+          {errorCursor.rowKey}: {errorCursor.message}
+        </p>
+      ) : null}
+      {selectedColumn ? (
+        <SheetProvenanceLine
+          columnLabel={selectedColumn.label}
+          columnOrigin={selectedColumn.origin}
+          provenance={provenance}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function CanonicalWorkspaceComments() {
+  const {
+    commentDraft,
+    commentActor,
+    openSelectionComment,
+    setCommentDraft,
+    commentId,
+    canComment,
+    availableRowKeys,
+    availableColumnIds,
+    instance,
+  } = useCanonicalWorkspace()
+
+  return (
+    <>
       {commentDraft && commentActor ? (
         <aside
           className="space-y-3 border-t p-3"
@@ -2704,10 +3008,10 @@ export function CanonicalSheetEditor({
             canComment={canComment}
             canCreate={
               commentDraft.anchor.target.rowKeys.every((id) =>
-                matrix.rowKeys.includes(id),
+                availableRowKeys.has(id),
               ) &&
               commentDraft.anchor.target.fieldIds.every((id) =>
-                matrix.columns.some((column) => column.id === id),
+                availableColumnIds.has(id),
               )
             }
             isTargetAvailable={(comment) => {
@@ -2715,20 +3019,47 @@ export function CanonicalSheetEditor({
                 targetKind: comment.target_kind,
                 target: comment.target,
               })
+
               return (
                 anchor.success &&
                 anchor.data.target.instanceId === instance.id &&
                 anchor.data.target.rowKeys.every((id) =>
-                  matrix.rowKeys.includes(id),
+                  availableRowKeys.has(id),
                 ) &&
                 anchor.data.target.fieldIds.every((id) =>
-                  matrix.columns.some((column) => column.id === id),
+                  availableColumnIds.has(id),
                 )
               )
             }}
           />
         </aside>
       ) : null}
+    </>
+  )
+}
+
+function CanonicalWorkspaceDialogs() {
+  const {
+    selectedConflict,
+    commentActor,
+    selectedColumn,
+    selected,
+    setResolvedConflictIds,
+    queryClient,
+    instance,
+    pendingDestructive,
+    setPendingDestructive,
+    pasteOpen,
+    setPasteOpen,
+    pasting,
+    pasteTable,
+    promoteField,
+    setPromoteField,
+    canWrite,
+  } = useCanonicalWorkspace()
+
+  return (
+    <>
       {selectedConflict ? (
         // EXP-05.4: an open conflict on the selected cell is settled here —
         // the panel shows both attributable edits and records the decision.
@@ -2838,6 +3169,33 @@ export function CanonicalSheetEditor({
           }
         />
       ) : null}
+    </>
+  )
+}
+
+function CanonicalWorkspaceRecords() {
+  const {
+    canWrite,
+    picker,
+    search,
+    projectId,
+    setQuery,
+    recordLabelsRef,
+    link,
+    setPicker,
+    createOpen,
+    modelKey,
+    create,
+    setCreateOpen,
+    title,
+    setTitle,
+    fields,
+    custom,
+    setCustom,
+  } = useCanonicalWorkspace()
+
+  return (
+    <>
       {canWrite && picker && picker.modelKey ? (
         <div className="border-t">
           <SheetRecordPicker
@@ -2860,6 +3218,7 @@ export function CanonicalSheetEditor({
                 identifier: result.identifier,
                 title: result.title,
               }
+
               if (picker.cell) {
                 // The backend owns the cell editor: commit through its own
                 // pre-commit gate so the picked id is validated and written
@@ -2868,6 +3227,7 @@ export function CanonicalSheetEditor({
               } else {
                 link.mutate(result.id)
               }
+
               setPicker(null)
             }}
           />
@@ -2909,7 +3269,7 @@ export function CanonicalSheetEditor({
           </Button>
         </form>
       ) : null}
-    </div>
+    </>
   )
 }
 

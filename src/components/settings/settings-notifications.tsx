@@ -33,6 +33,18 @@ import type { NotificationPreference } from '#/lib/notification-preferences'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { t } from '#/copy'
 
+function matchesPreference(
+  before: NotificationPreference | undefined,
+  row: NotificationPreference,
+) {
+  return (
+    before?.inApp === row.inApp &&
+    before.email === row.email &&
+    before.digest === row.digest &&
+    before.push === row.push
+  )
+}
+
 /**
  * WORK-03.1 — SettingsNotifications: choose where each event reaches the
  * caller, quiet hours and the daily digest time. UI port: app-3's v3 kit.
@@ -56,7 +68,6 @@ export function SettingsNotifications() {
     staleTime: 5 * 60_000,
   })
 
-  const zone = useDisplayTimeZone()
   const [rows, setRows] = useState<NotificationPreference[]>(defaultPreferences)
   const [quietStart, setQuietStart] = useState<string | null>(null)
   const [quietEnd, setQuietEnd] = useState<string | null>(null)
@@ -73,21 +84,16 @@ export function SettingsNotifications() {
     setDigestTime(timingQuery.data.digestTime)
   }, [timingQuery.data])
 
+  const savedRows = preferencesQuery.data ?? defaultPreferences()
+  const savedByEvent = new Map(savedRows.map((row) => [row.eventType, row]))
+
   const save = useMutation({
     mutationFn: async () => {
-      const saved = preferencesQuery.data ?? defaultPreferences()
-
       for (const row of rows) {
-        const before = saved.find((s) => s.eventType === row.eventType)
+        const before = savedByEvent.get(row.eventType)
 
-        if (
-          before &&
-          before.inApp === row.inApp &&
-          before.email === row.email &&
-          before.digest === row.digest &&
-          before.push === row.push
-        )
-          continue
+        if (matchesPreference(before, row)) continue
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Preserve fail-stop saves: a refused preference prevents later preference writes and the final timing write.
         await saveNotificationPreference(row)
       }
 
@@ -113,28 +119,22 @@ export function SettingsNotifications() {
   // The form is dirty only against what the server last returned, so Save is
   // inert until something actually changes. Times are wall-clock values in the
   // person's own zone; the delivery and digest queries read them there.
-  const savedRows = preferencesQuery.data ?? defaultPreferences()
-
   const dirty =
     rows.some((row) => {
-      const before = savedRows.find((s) => s.eventType === row.eventType)
+      const before = savedByEvent.get(row.eventType)
 
-      return (
-        !before ||
-        before.inApp !== row.inApp ||
-        before.email !== row.email ||
-        before.digest !== row.digest ||
-        before.push !== row.push
-      )
+      return !matchesPreference(before, row)
     }) ||
     quietStart !== (timingQuery.data?.quietHoursStart ?? null) ||
     quietEnd !== (timingQuery.data?.quietHoursEnd ?? null) ||
     digestTime !== (timingQuery.data?.digestTime ?? null)
 
+  const rowsByEvent = new Map(rows.map((row) => [row.eventType, row]))
+
   const groups = NOTIFICATION_EVENTS.reduce<
     Array<{ name: string; rows: NotificationPreference[] }>
   >((acc, event) => {
-    const row = rows.find((r) => r.eventType === event.key)
+    const row = rowsByEvent.get(event.key)
 
     if (!row) return acc
     const last = acc.at(-1)
@@ -238,6 +238,43 @@ export function SettingsNotifications() {
         </Table>
       </TableBox>
 
+      <NotificationTimingFields
+        quietStart={quietStart}
+        quietEnd={quietEnd}
+        digestTime={digestTime}
+        onQuietStartChange={setQuietStart}
+        onQuietEndChange={setQuietEnd}
+        onDigestTimeChange={setDigestTime}
+      />
+      <SettingsSaveBar
+        dirty={dirty}
+        pending={save.isPending}
+        disabled={preferencesQuery.isLoading || timingQuery.isLoading}
+        onSave={() => save.mutate()}
+      />
+    </div>
+  )
+}
+
+function NotificationTimingFields({
+  quietStart,
+  quietEnd,
+  digestTime,
+  onQuietStartChange,
+  onQuietEndChange,
+  onDigestTimeChange,
+}: {
+  quietStart: string | null
+  quietEnd: string | null
+  digestTime: string | null
+  onQuietStartChange: (value: string | null) => void
+  onQuietEndChange: (value: string | null) => void
+  onDigestTimeChange: (value: string | null) => void
+}) {
+  const zone = useDisplayTimeZone()
+
+  return (
+    <>
       <div className="flex flex-col gap-2">
         <h3 className="text-label font-medium text-fg">
           {t('settings.notifications.quietHours')}
@@ -251,7 +288,7 @@ export function SettingsNotifications() {
             aria-label={t('settings.notifications.quietHoursStartAria')}
             className="w-32"
             value={quietStart ?? ''}
-            onChange={(event) => setQuietStart(event.target.value || null)}
+            onChange={(event) => onQuietStartChange(event.target.value || null)}
           />
           <span className="text-fg-muted">and</span>
           <Input
@@ -259,7 +296,7 @@ export function SettingsNotifications() {
             aria-label={t('settings.notifications.quietHoursEndAria')}
             className="w-32"
             value={quietEnd ?? ''}
-            onChange={(event) => setQuietEnd(event.target.value || null)}
+            onChange={(event) => onQuietEndChange(event.target.value || null)}
           />
         </div>
         <p className="m-0 text-label text-fg-muted">
@@ -280,7 +317,7 @@ export function SettingsNotifications() {
             aria-label={t('settings.notifications.digestTimeAria')}
             className="w-32"
             value={digestTime ?? ''}
-            onChange={(event) => setDigestTime(event.target.value || null)}
+            onChange={(event) => onDigestTimeChange(event.target.value || null)}
           />
           <span className="text-fg-muted">
             {t('settings.notifications.everyDay', { zone })}
@@ -290,12 +327,6 @@ export function SettingsNotifications() {
           {t('settings.notifications.digestGoesOut')}
         </p>
       </div>
-      <SettingsSaveBar
-        dirty={dirty}
-        pending={save.isPending}
-        disabled={preferencesQuery.isLoading || timingQuery.isLoading}
-        onSave={() => save.mutate()}
-      />
-    </div>
+    </>
   )
 }

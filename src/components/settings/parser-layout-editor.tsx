@@ -19,36 +19,11 @@ import { Button } from '#/components/ui/button'
 import { readWithLayout } from '#/lib/import/parser-layout'
 import type { ParserLayout } from '#/lib/import/parser-layout'
 import { t } from '#/copy'
+import { tidyLayout } from './parser-layout-settings'
+
+export { tidyLayout } from './parser-layout-settings'
 
 const PREVIEW_ROWS = 6
-
-/** Drops options that say nothing, so a stored layout holds only what was chosen. */
-export function tidyLayout(layout: ParserLayout): ParserLayout {
-  const out: ParserLayout = {}
-
-  if (layout.delimiter && layout.delimiter !== 'auto')
-    out.delimiter = layout.delimiter
-
-  if (layout.headerStartsWith?.trim())
-    out.headerStartsWith = layout.headerStartsWith.trim()
-  else if (layout.headerLine) out.headerLine = layout.headerLine
-
-  if (layout.readDetails) out.readDetails = true
-  const ignore = (layout.ignoreLines ?? []).filter(Boolean)
-
-  if (ignore.length) out.ignoreLines = ignore
-
-  if (layout.stopAt?.trim()) out.stopAt = layout.stopAt.trim()
-
-  if (layout.units && layout.units !== 'none') out.units = layout.units
-
-  if (layout.decimalComma) out.decimalComma = true
-
-  if (layout.plateGrid?.valueName.trim())
-    out.plateGrid = { valueName: layout.plateGrid.valueName.trim() }
-
-  return out
-}
 
 type Start = 'first' | 'text' | 'number'
 
@@ -78,9 +53,7 @@ export function ParserLayoutEditor({
   onUseColumns?: (headers: string[]) => void
   disabled?: boolean
 }) {
-  const [sample, setSample] = useState<string | null>(null)
-
-  const [ignoreText, setIgnoreText] = useState(
+  const [ignoreText, setIgnoreText] = useState(() =>
     (value.ignoreLines ?? []).join(', '),
   )
 
@@ -92,24 +65,6 @@ export function ParserLayoutEditor({
         : 'first'
 
   const set = (patch: Partial<ParserLayout>) => onChange({ ...value, ...patch })
-
-  const preview = useMemo(() => {
-    if (sample === null) return null
-
-    try {
-      return {
-        ok: true as const,
-        read: readWithLayout(sample, tidyLayout(value)),
-      }
-    } catch (error) {
-      return {
-        ok: false as const,
-        reason: error instanceof Error ? error.message : String(error),
-      }
-    }
-  }, [sample, value])
-
-  const details = preview?.ok ? Object.entries(preview.read.metadata) : []
 
   return (
     <div className="flex flex-col gap-3 md:col-span-2">
@@ -125,7 +80,7 @@ export function ParserLayoutEditor({
             value={start}
             disabled={disabled}
             onChange={(e) => {
-              const next = e.target.value as Start
+              const next = e.target.value
               onChange({
                 ...value,
                 headerStartsWith: next === 'text' ? '' : undefined,
@@ -200,11 +155,13 @@ export function ParserLayoutEditor({
           <Select
             value={value.units ?? 'none'}
             disabled={disabled}
-            onChange={(e) =>
-              set({
-                units: e.target.value as NonNullable<ParserLayout['units']>,
-              })
-            }
+            onChange={(e) => {
+              const units = (['none', 'header', 'row'] as const).find(
+                (unit) => unit === e.target.value,
+              )
+
+              if (units) set({ units })
+            }}
           >
             <option value="none">{t('settings.parserLayout.unitsNone')}</option>
             <option value="header">
@@ -217,13 +174,13 @@ export function ParserLayoutEditor({
           <Select
             value={value.delimiter ?? 'auto'}
             disabled={disabled}
-            onChange={(e) =>
-              set({
-                delimiter: e.target.value as NonNullable<
-                  ParserLayout['delimiter']
-                >,
-              })
-            }
+            onChange={(e) => {
+              const delimiter = (
+                ['auto', 'comma', 'semicolon', 'tab'] as const
+              ).find((option) => option === e.target.value)
+
+              if (delimiter) set({ delimiter })
+            }}
           >
             <option value="auto">
               {t('settings.parserLayout.delimiterAuto')}
@@ -288,6 +245,46 @@ export function ParserLayoutEditor({
           </Field>
         ) : null}
       </div>
+      <ParserSamplePreview
+        value={value}
+        onUseColumns={onUseColumns}
+        disabled={disabled}
+      />
+    </div>
+  )
+}
+
+function ParserSamplePreview({
+  value,
+  onUseColumns,
+  disabled,
+}: {
+  value: ParserLayout
+  onUseColumns?: (headers: string[]) => void
+  disabled?: boolean
+}) {
+  const [sample, setSample] = useState<string | null>(null)
+
+  const preview = useMemo(() => {
+    if (sample === null) return null
+
+    try {
+      return {
+        ok: true as const,
+        read: readWithLayout(sample, tidyLayout(value)),
+      }
+    } catch (error) {
+      return {
+        ok: false as const,
+        reason: error instanceof Error ? error.message : String(error),
+      }
+    }
+  }, [sample, value])
+
+  const details = preview?.ok ? Object.entries(preview.read.metadata) : []
+
+  return (
+    <>
       <FileDrop
         label={t('settings.parserLayout.sample')}
         inputLabel={t('settings.parserLayout.sample')}
@@ -317,6 +314,7 @@ export function ParserLayoutEditor({
               </TableHeader>
               <TableBody>
                 {preview.read.rows.slice(0, PREVIEW_ROWS).map((row, index) => (
+                  // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- This read-only preview has no row identities or interactive state; duplicate source rows are valid and cells always render from the current sample.
                   <TableRow key={index}>
                     {preview.read.headers.map((header) => (
                       <TableCell key={header}>{row[header]}</TableCell>
@@ -352,6 +350,6 @@ export function ParserLayoutEditor({
           {t('settings.parserLayout.cantRead', { reason: preview.reason })}
         </p>
       )}
-    </div>
+    </>
   )
 }

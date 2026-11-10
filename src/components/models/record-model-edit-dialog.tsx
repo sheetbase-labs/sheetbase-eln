@@ -16,7 +16,10 @@ import {
   fetchRecordModelFieldValues,
   updateRecordModelFieldValues,
 } from '#/lib/model-fields'
-import type { ModelFieldDefinition } from '#/lib/model-fields'
+import type {
+  ModelFieldDefinition,
+  ModelFieldRecordValues,
+} from '#/lib/model-fields'
 import {
   changedModelFieldValues,
   describeFieldEditError,
@@ -55,7 +58,7 @@ export function RecordModelEditDialog({
   /** The model the record belongs to; plugin field types are checked for it. */
   modelKey?: string
   fields: ModelFieldDefinition[]
-  stored: Record<string, unknown> | null | undefined
+  stored: ModelFieldRecordValues['customFields'] | null | undefined
   client?: typeof notebookDataClient
 }) {
   const queryClient = useQueryClient()

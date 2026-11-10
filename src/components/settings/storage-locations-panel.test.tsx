@@ -11,19 +11,21 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
-import type { DataClient } from '#/lib/data-client'
+import { createDataClient, dropSharedReads } from '#/lib/data-client'
+import { Toaster, toast } from '#/components/ui/sonner'
 
 import { StorageLocationsPanel } from './storage-locations-panel'
 
-vi.mock('#/components/ui/sonner', () => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
-}))
+afterEach(() => {
+  toast.dismiss()
+  cleanup()
+  dropSharedReads()
+})
 
-afterEach(cleanup)
-
-const TABLES: Record<string, Record<string, unknown>[]> = {
+const TABLES = {
   storage_sites: [
     { id: 's1', name: 'Cambridge lab', code: 'CAM', archived_at: null },
   ],
@@ -81,18 +83,34 @@ const TABLES: Record<string, Record<string, unknown>[]> = {
     },
   ],
   storage_positions: [{ box_id: 'b1' }, { box_id: 'b1' }],
+  records: [],
 }
 
-function client() {
-  return {
-    list: vi.fn(async (resource: string) => TABLES[resource] ?? []),
-    insert: vi.fn(async () => ({})),
-    rpc: vi.fn(async () => ({})),
-    patch: vi.fn(async () => []),
-  } as unknown as DataClient & {
-    patch: ReturnType<typeof vi.fn>
-    insert: ReturnType<typeof vi.fn>
-  }
+function client(empty = false) {
+  const tables = new Map(Object.entries(TABLES))
+  const bodySchema = z.json()
+  const writes: { method: string; resource: string; query: string; body: z.infer<typeof bodySchema> }[] = []
+  const unexpected: string[] = []
+
+  const dataClient = createDataClient(async (input, init) => {
+    const url = new URL(input instanceof Request ? input.url : String(input), 'http://localhost')
+    const resource = url.pathname.replace('/api/db/', '')
+    const rows = tables.get(resource)
+    const method = init?.method ?? 'GET'
+
+    if (!rows || !['GET', 'POST', 'PATCH'].includes(method)) {
+      unexpected.push(`${method} ${url}`)
+      throw new Error(`Unexpected storage request: ${method} ${url}`)
+    }
+
+    if (method === 'GET') return Response.json(empty ? [] : rows)
+
+    writes.push({ method, resource, query: url.search, body: bodySchema.parse(await new Response(init?.body).json()) })
+
+    return Response.json(method === 'POST' ? [{}] : [])
+  })
+
+  return { dataClient, writes, unexpected }
 }
 
 function renderPanel(canManage: boolean, c = client()) {
@@ -105,8 +123,9 @@ function renderPanel(canManage: boolean, c = client()) {
       <StorageLocationsPanel
         workspaceId="ws"
         canManage={canManage}
-        client={c}
+        client={c.dataClient}
       />
+      <Toaster />
     </QueryClientProvider>,
   )
 
@@ -154,10 +173,12 @@ describe('StorageLocationsPanel', () => {
     expect(empty.matches(':disabled')).toBe(false)
     await user.click(empty)
     await waitFor(() =>
-      expect(c.patch).toHaveBeenCalledWith('storage_boxes', '?id=eq.b2', {
-        archived_at: expect.any(String),
-      }),
+      expect(c.writes).toEqual([{
+        method: 'PATCH', resource: 'storage_boxes', query: '?id=eq.b2',
+        body: { archived_at: expect.any(String) },
+      }]),
     )
+    expect(c.unexpected).toEqual([])
   })
 
   it('adds a freezer under a room', async () => {
@@ -172,15 +193,16 @@ describe('StorageLocationsPanel', () => {
     )
     await user.click(within(dialog).getByRole('button', { name: 'Add unit' }))
     await waitFor(() =>
-      expect(c.insert).toHaveBeenCalledWith(
-        'storage_units',
-        expect.objectContaining({
+      expect(c.writes).toEqual([{
+        method: 'POST', resource: 'storage_units', query: '',
+        body: expect.objectContaining({
           room_id: 'r1',
           name: 'Freezer F-9',
           unit_type: 'freezer',
         }),
-      ),
+      }]),
     )
+    expect(c.unexpected).toEqual([])
   })
 
   it('is read-only without manage access', async () => {
@@ -194,12 +216,7 @@ describe('StorageLocationsPanel', () => {
   })
 
   it('explains an empty workspace', async () => {
-    const empty = {
-      ...client(),
-      list: vi.fn(async () => []),
-    } as unknown as DataClient
-
-    renderPanel(true, empty as never)
+    renderPanel(true, client(true))
     expect(await screen.findByText('No storage locations yet')).toBeTruthy()
   })
 })

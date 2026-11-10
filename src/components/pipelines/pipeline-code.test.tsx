@@ -6,40 +6,31 @@
  * its own contract is tested at `src/components/ui/code-block.test.tsx`.
  */
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router'
+import type { ReactElement } from 'react'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   PipelineSteps,
   TemporaryArtefact,
   TemporaryResultNote,
-  pipelineStepsLink,
-  pipelineStepsRoute,
 } from './pipeline-code'
 
-// Stub the router Link as a plain anchor, substituting route params so the
-// destination the person actually follows can be asserted.
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    children,
-    ...props
-  }: {
-    to: string
-    params?: Record<string, string>
-    children: React.ReactNode
-  } & Record<string, unknown>) => (
-    <a
-      href={Object.entries(params ?? {}).reduce(
-        (href, [key, value]) => href.replace(`$${key}`, String(value)),
-        to,
-      )}
-      {...props}
-    >
-      {children}
-    </a>
-  ),
-}))
+async function renderWithRouter(node: ReactElement) {
+  const router = createRouter({
+    routeTree: createRootRoute({ component: () => node }),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  await router.load()
+
+  return render(<RouterProvider router={router} />)
+}
 
 afterEach(cleanup)
 
@@ -70,17 +61,8 @@ describe('TemporaryResultNote', () => {
 })
 
 describe('step navigation', () => {
-  it('stays the already-linkable steps route, with no search parameter', () => {
-    expect(pipelineStepsRoute).toBe('/pipelines/$pipelineId/steps')
-    expect(pipelineStepsLink('p-1')).toEqual({
-      to: '/pipelines/$pipelineId/steps',
-      params: { pipelineId: 'p-1' },
-    })
-    expect(pipelineStepsLink('p-1')).not.toHaveProperty('search')
-  })
-
-  it('renders the initial transform before further steps, with their stored code', () => {
-    const { container } = render(
+  it('renders the initial transform before further steps, with their stored code', async () => {
+    const { container } = await renderWithRouter(
       <PipelineSteps
         pipelineId="p-1"
         transform={{
@@ -107,8 +89,8 @@ describe('step navigation', () => {
     ).toHaveLength(3)
   })
 
-  it('links a step to the steps route, not to a ?step= parameter', () => {
-    render(
+  it('links a step to the steps route, not to a ?step= parameter', async () => {
+    await renderWithRouter(
       <PipelineSteps
         pipelineId="p-1"
         steps={[{ name: 'Clean', language: 'sql', statement: 'select 1' }]}
@@ -117,6 +99,6 @@ describe('step navigation', () => {
 
     const link = screen.getByRole('link', { name: 'Edit steps' })
     expect(link.getAttribute('href')).toBe('/pipelines/p-1/steps')
-    expect(link.getAttribute('href')).not.toContain('step=')
+    expect(link.getAttribute('href')).not.toContain('?')
   })
 })

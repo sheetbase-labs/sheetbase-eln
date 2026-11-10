@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { RouterProvider, useRouter } from '@tanstack/react-router'
 import type { HistoryLocation, RouterHistory } from '@tanstack/react-router'
 
@@ -76,15 +76,21 @@ function PanePageInstance({
     onMakePrimary,
   })
 
-  callbacks.current = {
-    onLocationChange,
-    onReady,
-    onNewer,
-    onSelect,
-    onFrozen,
-    onMissing,
-    onMakePrimary,
-  }
+  useLayoutEffect(() => {
+    callbacks.current = {
+      onLocationChange,
+      onReady,
+      onNewer,
+      onSelect,
+      onFrozen,
+      onMissing,
+      onMakePrimary,
+    }
+  })
+
+  const hasEditingPane = editingPane !== undefined
+  const editingIdentifier = editingPane?.identifier
+  const editingSameRecord = editingPane?.sameRecord ?? false
 
   const paneContext = useMemo(
     () => ({
@@ -100,14 +106,17 @@ function PanePageInstance({
         callbacks.current.onMissing?.(missing),
       makePrimary: () => callbacks.current.onMakePrimary?.(),
       followedSelection,
-      editingPane,
+      editingPane: hasEditingPane
+        ? { identifier: editingIdentifier, sameRecord: editingSameRecord }
+        : undefined,
     }),
     [
       id,
       readOnly,
       followedSelection,
-      editingPane?.identifier,
-      editingPane?.sameRecord,
+      hasEditingPane,
+      editingIdentifier,
+      editingSameRecord,
     ],
   )
 
@@ -204,7 +213,7 @@ function PanePageInstance({
 
       if (!(await canLeaveEditors())) return false
 
-      for (const blocker of [...blockers]) {
+      for (const blocker of Array.from(blockers)) {
         if (
           await blocker.blockerFn({
             currentLocation: router.history.location,
@@ -222,9 +231,7 @@ function PanePageInstance({
     router.navigate = async (options) => {
       const targetHref =
         options.href ??
-        router.buildLocation(
-          options as Parameters<typeof router.buildLocation>[0],
-        ).href
+        router.buildLocation({ leaveParams: undefined, ...options }).href
 
       if (!workspaceHref(targetHref, window.location.origin)) {
         return outerRouter.navigate({ href: targetHref })

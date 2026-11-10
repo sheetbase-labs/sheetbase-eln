@@ -16,70 +16,22 @@ import {
 } from '#/components/ui/dropdown-menu'
 import { toast } from '#/components/ui/sonner'
 import { getColumnHeaderLabel } from '#/components/reui/data-grid/data-grid'
-import type {
-  DataGridFeatures,
-  DataGridTableInstance,
-} from '#/components/reui/data-grid/data-grid'
+import type { DataGridFeatures } from '#/components/reui/data-grid/data-grid'
 import { downloadTextFile } from '#/lib/download'
 import { XLSX_TYPE, tableCsv, tableXlsx } from '#/lib/export/table-file'
-import type { ExportTable, ExportValue } from '#/lib/export/table-file'
 import type { ListView } from '#/lib/list-views'
 import { t } from '#/copy'
-import type { Column, RowData } from '@tanstack/react-table'
+import type { RowData, Table } from '@tanstack/react-table'
+import { exportFileName, exportTable } from './list-view-export'
 
-/** The columns an export can write: shown, and with a value to write. */
-function exportable<T extends RowData>(
-  table: DataGridTableInstance<T>,
-): Column<DataGridFeatures, T, unknown>[] {
-  return table
-    .getVisibleLeafColumns()
-    .filter(
-      (column) =>
-        column.id !== '__bulk' &&
-        column.id !== '__view' &&
-        (column.columnDef.meta?.exportValue !== undefined ||
-          'accessorFn' in column.columnDef),
-    )
-}
-
-/** What is on screen, in the order it is shown: the visible columns of every
- * record row (group bands carry no record). */
-export function exportTable<T extends RowData>(
-  table: DataGridTableInstance<T>,
-): ExportTable {
-  const columns = exportable(table)
-
-  const rows = table
-    .getRowModel()
-    .rows.filter((row) => !('__band' in (row.original as object)))
-    .map((row) =>
-      columns.map((column): ExportValue => {
-        const custom = column.columnDef.meta?.exportValue
-
-        return custom ? custom(row.original) : row.getValue(column.id)
-      }),
-    )
-
-  return { headers: columns.map(getColumnHeaderLabel), rows }
-}
-
-/** A file name from the list's name: "Samples" → "samples-2026-11-05". */
-export function exportFileName(name: string, extension: string): string {
-  const stem =
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'list'
-
-  return `${stem}-${new Date().toISOString().slice(0, 10)}.${extension}`
-}
+export { exportFileName, exportTable } from './list-view-export'
 
 export function ListViewMenu<T extends RowData>({
   table,
   view,
   name,
 }: {
-  table: DataGridTableInstance<T>
+  table: Table<DataGridFeatures, T>
   view?: ListView
   /** What the list is called, for the file name. */
   name: string
@@ -105,7 +57,9 @@ export function ListViewMenu<T extends RowData>({
       } else {
         downloadTextFile(
           file,
-          new Blob([tableXlsx(data, name) as BlobPart], { type: XLSX_TYPE }),
+          new Blob([new Uint8Array(tableXlsx(data, name))], {
+            type: XLSX_TYPE,
+          }),
         )
       }
 

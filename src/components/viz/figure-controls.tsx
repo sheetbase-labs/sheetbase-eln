@@ -16,7 +16,6 @@ import {
   setLegendPosition,
   setLegendVisible,
 } from '#/lib/figure-display'
-import type { FigureAxis } from '#/lib/figure-display'
 
 const LEGEND_LABELS: Record<LegendPosition, string> = {
   right: t('data.figureControls.right'),
@@ -41,7 +40,7 @@ export function FigureControls({
   return (
     <InspectorSection title={t('data.figureControls.publicationFigure')}>
       <div className="flex flex-col gap-3">
-        {(['x', 'y'] as FigureAxis[]).map((axis) => {
+        {(['x', 'y'] as const).map((axis) => {
           const problem = axisRangeProblem(spec, axis)
           const display = spec.display.axes[axis]
           const name = axis.toUpperCase()
@@ -126,11 +125,13 @@ export function FigureControls({
             {t('data.figureControls.legendPosition')}
             <Select
               value={spec.display.legend?.position ?? 'right'}
-              onChange={(e) =>
-                onSpecChange(
-                  setLegendPosition(spec, e.target.value as LegendPosition),
+              onChange={(e) => {
+                const position = LEGEND_POSITIONS.find(
+                  (candidate) => candidate === e.target.value,
                 )
-              }
+
+                if (position) onSpecChange(setLegendPosition(spec, position))
+              }}
             >
               {LEGEND_POSITIONS.map((position) => (
                 <option key={position} value={position}>

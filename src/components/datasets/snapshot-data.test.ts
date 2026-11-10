@@ -88,6 +88,15 @@ describe('describeSnapshotRetention', () => {
 })
 
 describe('describeSnapshotSource', () => {
+  const sourceDefaults = {
+    runId: null,
+    definitionName: null,
+    triggerKind: null,
+    status: null,
+    label: null,
+    startedAt: null,
+  }
+
   it('joins the pipeline run identity for a run-produced snapshot', () => {
     expect(
       describeSnapshotSource({
@@ -103,10 +112,10 @@ describe('describeSnapshotSource', () => {
   })
 
   it('distinguishes API and manual snapshots', () => {
-    expect(describeSnapshotSource({ kind: 'api' } as never)).toBe(
+    expect(describeSnapshotSource({ ...sourceDefaults, kind: 'api' })).toBe(
       'Saved through the API',
     )
-    expect(describeSnapshotSource({ kind: 'manual' } as never)).toBe(
+    expect(describeSnapshotSource({ ...sourceDefaults, kind: 'manual' })).toBe(
       'Saved by hand',
     )
     expect(describeSnapshotSource(null)).toBe('—')
@@ -125,9 +134,9 @@ describe('describeSnapshotSource', () => {
       }),
     ).toBe('Imported from qa3-append.csv')
     // A connector's import has no file behind it.
-    expect(
-      describeSnapshotSource({ kind: 'import', label: null } as never),
-    ).toBe('Imported')
+    expect(describeSnapshotSource({ ...sourceDefaults, kind: 'import' })).toBe(
+      'Imported',
+    )
   })
 })
 
@@ -192,7 +201,7 @@ describe('snapshot compare paging', () => {
         counts: { added: 120, removed: 0, changed: 0, flags: 0 },
         offset: 0,
         limit: 100,
-        rows: new Array(100).fill({}),
+        rows: Array.from({ length: 100 }, () => ({})),
       }),
     ).toBe(true)
   })
@@ -203,7 +212,7 @@ describe('snapshot compare paging', () => {
         counts: { added: 5, removed: 0, changed: 0, flags: 0 },
         offset: 0,
         limit: 100,
-        rows: new Array(5).fill({}),
+        rows: Array.from({ length: 5 }, () => ({})),
       }),
     ).toBe(false)
   })

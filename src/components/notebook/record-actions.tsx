@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { createPortal } from 'react-dom'
 import type { ReactNode } from 'react'
 import { useNavigate } from '@tanstack/react-router'
@@ -62,6 +70,7 @@ export function RecordActionsProvider({
   const [actions, setActions] = useState<readonly RecordAction[]>([])
   const [slot, setSlot] = useState<HTMLElement | null>(null)
   const [hosted, setHosted] = useState(false)
+
   const value = useMemo(
     () => ({
       actions,
@@ -75,6 +84,7 @@ export function RecordActionsProvider({
     }),
     [actions, slot, hosted, submitVariant, reviewing],
   )
+
   return (
     <RecordActionsContext.Provider value={value}>
       {children}
@@ -98,13 +108,31 @@ export function useOfferRecordActions(
 ): boolean {
   const context = useContext(RecordActionsContext)
   const setActions = context?.setActions
-  const key = actions.map((a) => `${a.id}:${a.label}:${a.href ?? ''}`).join('|')
+  const committedActions = useRef(actions)
+  useLayoutEffect(() => {
+    committedActions.current = actions
+  }, [actions])
+
+  const key = actions
+    .map((a) => `${a.id}:${a.label}:${a.icon}:${a.href ?? ''}:${a.to ?? ''}`)
+    .join('|')
+
   // The handlers are read when an item is picked, not when it is registered.
   useEffect(() => {
     if (!setActions || !enabled) return
-    setActions(actions)
+    setActions(
+      committedActions.current.map((action) => ({
+        ...action,
+        onSelect: () =>
+          committedActions.current
+            .find((current) => current.id === action.id)
+            ?.onSelect?.(),
+      })),
+    )
+
     return () => setActions([])
   }, [setActions, enabled, key])
+
   return Boolean(context) && enabled
 }
 
@@ -115,6 +143,7 @@ export function useOfferRecordActions(
  */
 export function RecordMainActionsSlot() {
   const setSlot = useContext(RecordActionsContext)?.setSlot
+
   return <span ref={setSlot} className="contents" data-record-main-actions />
 }
 
@@ -154,9 +183,12 @@ export function RecordMainActions({
   useEffect(() => {
     if (!setHosted || !hosting) return
     setHosted(true)
+
     return () => setHosted(false)
   }, [setHosted, hosting])
+
   if (!context || !enabled) return <>{children}</>
+
   return context.slot ? createPortal(children, context.slot) : null
 }
 
@@ -167,6 +199,7 @@ export function RecordActionItems({
   actions: readonly RecordAction[]
 }) {
   const navigate = useNavigate()
+
   return (
     <>
       {actions.map((action) =>
@@ -174,7 +207,12 @@ export function RecordActionItems({
           <DropdownMenuLinkItem
             key={action.id}
             icon={action.icon}
-            render={<a href={action.href} />}
+            render={
+              // Base UI injects the visible action.label child into this native
+              // anchor. The real menu DOM regression verifies its accessible name.
+              // react-doctor-disable-next-line react-doctor/anchor-has-content
+              <a href={action.href} />
+            }
           >
             {action.label}
           </DropdownMenuLinkItem>
@@ -201,6 +239,7 @@ export function RecordActionsMenu({
   actions: readonly RecordAction[]
 }) {
   if (actions.length === 0) return null
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

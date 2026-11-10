@@ -13,16 +13,23 @@ import {
 import { toast } from '#/components/ui/sonner'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { describeSampleError, recordSampleLabelPrint } from '#/lib/samples'
+import { describeSampleError } from '#/lib/samples'
 
+import { LabelTemplatePicker } from './label-template-picker'
+import { useLabelTemplateChoice } from './use-label-template-choice'
 import {
-  LabelTemplatePicker,
-  useLabelTemplateChoice,
-} from './label-template-picker'
+  LABEL_SHEET_LIMIT,
+  batchLabelKind,
+  isSample,
+  recordBatchPrints,
+} from './label-sheet-data'
+import type { BatchLabelRecord } from './label-sheet-data'
 import { SampleLabelCard } from './sample-label-card'
-import type { LabelLook, SampleLabelRecord } from './sample-label-card'
+import type { LabelLook } from './sample-label-card'
 import { SampleLabelPrintStyles } from './sample-label-print'
 import { t } from '#/copy'
+
+export type { BatchLabelRecord, BatchPrintOutcome } from './label-sheet-data'
 
 /**
  * Batch label printing. One print document holds a label per sample, laid out
@@ -34,29 +41,6 @@ import { t } from '#/copy'
  * The document is portalled to the body so the print rule that shows only the
  * `sample-label-print` slot is not clipped by a dialog's own positioning.
  */
-
-export const LABEL_SHEET_LIMIT = 96
-
-/** A sample that can be labelled and have the print recorded on it. */
-export interface BatchLabelRecord extends SampleLabelRecord {
-  id: string
-  metadataVersion: number
-  /** The record's kind; anything but a sample prints identifier and title. */
-  kind?: string
-}
-
-const isSample = (record: { kind?: string }) =>
-  !record.kind || record.kind === 'sample'
-
-/**
- * The template kind a batch prints with: the kind all its records share, or
- * the catch-all `record` when the batch mixes kinds.
- */
-export function batchLabelKind(records: readonly BatchLabelRecord[]): string {
-  const kinds = new Set(records.map((record) => record.kind ?? 'sample'))
-
-  return kinds.size === 1 ? [...kinds][0] : 'record'
-}
 
 export function SampleLabelSheet({
   records,
@@ -97,45 +81,6 @@ export function SampleLabelSheet({
     </div>,
     document.body,
   )
-}
-
-export interface BatchPrintOutcome {
-  recorded: number
-  failed: { identifier: string; error: unknown }[]
-}
-
-/**
- * Record a print on every sample in the batch. A sample whose record is refused
- * (changed by someone else, no access) is reported by identifier; the others
- * are still recorded, because the sheet has printed either way.
- */
-export async function recordBatchPrints(
-  client: DataClient,
-  records: readonly BatchLabelRecord[],
-): Promise<BatchPrintOutcome> {
-  // Only a sample keeps a print in its history; other records just print.
-  const samples = records.filter(isSample)
-
-  const settled = await Promise.allSettled(
-    samples.map((record) =>
-      recordSampleLabelPrint(client, {
-        recordId: record.id,
-        expectedMetadataVersion: record.metadataVersion,
-        identifier: record.identifier,
-      }),
-    ),
-  )
-
-  const failed: BatchPrintOutcome['failed'] = []
-  settled.forEach((result, index) => {
-    if (result.status === 'rejected')
-      failed.push({
-        identifier: samples[index].identifier,
-        error: result.reason,
-      })
-  })
-
-  return { recorded: samples.length - failed.length, failed }
 }
 
 /** The dialog that prints a batch of labels: the sheet, then the recording. */

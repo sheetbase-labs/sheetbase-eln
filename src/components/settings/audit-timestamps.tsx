@@ -45,6 +45,8 @@ const dataClient = createDataClient()
 
 type Choice = 'off' | 'dfn' | 'digicert' | 'custom'
 
+const CHOICES: readonly Choice[] = ['off', 'dfn', 'digicert', 'custom']
+
 const STATUS_TONE: Record<TimestampStatus, 'ok' | 'warn' | 'bad'> = {
   stamped: 'ok',
   pending: 'warn',
@@ -59,32 +61,12 @@ function statusLabel(status: TimestampStatus): string {
       : t('settings.timestamps.statusFailed')
 }
 
-/** Which time-stamping service signatures go to, and how each signature's
- * stamp is doing. */
-export function TimestampsDialog({
-  workspaceId,
-  canManage,
-  onClose,
-}: {
-  workspaceId: string
-  canManage: boolean
-  onClose: () => void
-}) {
+function useTimestampSettings(workspaceId: string) {
   const queryClient = useQueryClient()
 
   const settings = useQuery({
     queryKey: timestampKeys.settings(workspaceId),
     queryFn: () => fetchTimestampSettings(dataClient, workspaceId),
-  })
-
-  const stamps = useQuery({
-    queryKey: timestampKeys.list(workspaceId),
-    queryFn: () => fetchSignatureTimestamps(dataClient),
-  })
-
-  const key = useQuery({
-    queryKey: timestampKeys.key(workspaceId),
-    queryFn: () => fetchSigningKey(dataClient, workspaceId),
   })
 
   const current: TimestampSettings | undefined = settings.data
@@ -121,6 +103,51 @@ export function TimestampsDialog({
     },
   })
 
+  return {
+    settings,
+    picked,
+    address,
+    customReady,
+    dirty,
+    save,
+    setChoice,
+    setUrl,
+  }
+}
+
+/** Which time-stamping service signatures go to, and how each signature's stamp is doing. */
+export function TimestampsDialog({
+  workspaceId,
+  canManage,
+  onClose,
+}: {
+  workspaceId: string
+  canManage: boolean
+  onClose: () => void
+}) {
+  const {
+    settings,
+    picked,
+    address,
+    customReady,
+    dirty,
+    save,
+    setChoice,
+    setUrl,
+  } = useTimestampSettings(workspaceId)
+
+  const queryClient = useQueryClient()
+
+  const stamps = useQuery({
+    queryKey: timestampKeys.list(workspaceId),
+    queryFn: () => fetchSignatureTimestamps(dataClient),
+  })
+
+  const key = useQuery({
+    queryKey: timestampKeys.key(workspaceId),
+    queryFn: () => fetchSigningKey(dataClient, workspaceId),
+  })
+
   const again = useMutation({
     mutationFn: (signatureId: string) =>
       requestSignatureTimestamp(dataClient, signatureId),
@@ -132,11 +159,6 @@ export function TimestampsDialog({
     },
     onError: (error) => toast(describeAdminError(error)),
   })
-
-  const rows = stamps.data ?? []
-
-  const count = (status: TimestampStatus) =>
-    rows.filter((r) => r.status === status).length
 
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
@@ -152,7 +174,13 @@ export function TimestampsDialog({
               <Select
                 value={picked}
                 disabled={!canManage || settings.isLoading}
-                onChange={(e) => setChoice(e.target.value as Choice)}
+                onChange={(e) => {
+                  const value = CHOICES.find(
+                    (candidate) => candidate === e.target.value,
+                  )
+
+                  if (value) setChoice(value)
+                }}
               >
                 <option value="off">{t('settings.timestamps.off')}</option>
                 <option value="dfn">{t('settings.timestamps.dfn')}</option>
@@ -201,65 +229,13 @@ export function TimestampsDialog({
             <Notice tone="bad">{describeAdminError(save.error)}</Notice>
           ) : null}
 
-          <div className="flex flex-wrap gap-4 text-label">
-            <span>
-              {t('settings.timestamps.stamped', { count: count('stamped') })}
-            </span>
-            <span>
-              {t('settings.timestamps.waiting', { count: count('pending') })}
-            </span>
-            <span>
-              {t('settings.timestamps.failed', { count: count('failed') })}
-            </span>
-          </div>
-          {rows.length === 0 && stamps.isSuccess ? (
-            <Muted>{t('settings.timestamps.none')}</Muted>
-          ) : (
-            <Table caption={t('settings.timestamps.title')}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('settings.timestamps.signature')}</TableHead>
-                  <TableHead>{t('settings.timestamps.status')}</TableHead>
-                  <TableHead>{t('settings.timestamps.service')}</TableHead>
-                  <TableHead>{t('settings.timestamps.time')}</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>
-                      {formatDate(row.created_at, { time: true })}
-                    </TableCell>
-                    <TableCell>
-                      <span title={row.last_error ?? undefined}>
-                        <Status tone={STATUS_TONE[row.status]}>
-                          {statusLabel(row.status)}
-                        </Status>
-                      </span>
-                    </TableCell>
-                    <TableCell>{row.authority_name ?? '—'}</TableCell>
-                    <TableCell>
-                      {row.gen_time
-                        ? formatDate(row.gen_time, { time: true })
-                        : '—'}
-                    </TableCell>
-                    <TableCell>
-                      {canManage && row.status === 'failed' ? (
-                        <Button
-                          size="sm"
-                          disabled={again.isPending}
-                          onClick={() => again.mutate(row.signature_id)}
-                        >
-                          {t('settings.timestamps.tryAgain')}
-                        </Button>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <TimestampHistory
+            rows={stamps.data ?? []}
+            loaded={stamps.isSuccess}
+            canManage={canManage}
+            retrying={again.isPending}
+            onRetry={(id) => again.mutate(id)}
+          />
 
           <div className="flex flex-col gap-1 border-t border-border-subtle pt-3">
             <span className="text-label font-medium">
@@ -278,5 +254,90 @@ export function TimestampsDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function TimestampHistory({
+  rows,
+  loaded,
+  canManage,
+  retrying,
+  onRetry,
+}: {
+  rows: Awaited<ReturnType<typeof fetchSignatureTimestamps>>
+  loaded: boolean
+  canManage: boolean
+  retrying: boolean
+  onRetry: (id: string) => void
+}) {
+  const count = (status: TimestampStatus) =>
+    rows.filter((row) => row.status === status).length
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-4 text-label">
+        <span>
+          {t('settings.timestamps.stamped', { count: count('stamped') })}
+        </span>
+        <span>
+          {t('settings.timestamps.waiting', { count: count('pending') })}
+        </span>
+        <span>
+          {t('settings.timestamps.failed', { count: count('failed') })}
+        </span>
+      </div>
+      {rows.length === 0 && loaded ? (
+        <Muted>{t('settings.timestamps.none')}</Muted>
+      ) : (
+        <Table caption={t('settings.timestamps.title')}>
+          <TableHeader>
+            <TableRow>
+              {[
+                t('settings.timestamps.signature'),
+                t('settings.timestamps.status'),
+                t('settings.timestamps.service'),
+                t('settings.timestamps.time'),
+              ].map((label) => (
+                <TableHead key={label}>{label}</TableHead>
+              ))}
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.id}>
+                <TableCell>
+                  {formatDate(row.created_at, { time: true })}
+                </TableCell>
+                <TableCell>
+                  <span title={row.last_error ?? undefined}>
+                    <Status tone={STATUS_TONE[row.status]}>
+                      {statusLabel(row.status)}
+                    </Status>
+                  </span>
+                </TableCell>
+                <TableCell>{row.authority_name ?? '—'}</TableCell>
+                <TableCell>
+                  {row.gen_time
+                    ? formatDate(row.gen_time, { time: true })
+                    : '—'}
+                </TableCell>
+                <TableCell>
+                  {canManage && row.status === 'failed' ? (
+                    <Button
+                      size="sm"
+                      disabled={retrying}
+                      onClick={() => onRetry(row.signature_id)}
+                    >
+                      {t('settings.timestamps.tryAgain')}
+                    </Button>
+                  ) : null}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </>
   )
 }

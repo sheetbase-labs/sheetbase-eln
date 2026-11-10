@@ -3,7 +3,7 @@ import * as React from 'react'
 import { useUpdateMyPresence } from '#/lib/collaboration/room-hooks'
 import type { ActiveObjectRef } from '#/lib/collaboration/types'
 
-import { useCollaborationRoomReady } from './collaboration-room'
+import { useCollaborationRoomReady } from './room-ready'
 
 /**
  * COLLAB-01 presence self-reporting. Presence is ephemeral awareness only —
@@ -50,13 +50,13 @@ function presenceSyncKey(fields: SettablePresenceFields): string {
  */
 export function useSetPresence(fields: SettablePresenceFields): void {
   const updateMyPresence = useUpdateMyPresence()
-  const fieldsRef = React.useRef(fields)
-  fieldsRef.current = fields
+  const syncKey = presenceSyncKey(fields)
+  const publish = React.useEffectEvent(() => updateMyPresence(fields))
 
   React.useEffect(() => {
-    updateMyPresence(fieldsRef.current)
+    publish()
     // The semantic field identity is the dependency, not the literal.
-  }, [updateMyPresence, presenceSyncKey(fields)])
+  }, [updateMyPresence, syncKey])
 
   React.useEffect(() => {
     return () => {

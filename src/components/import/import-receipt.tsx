@@ -20,73 +20,7 @@ import { uploadImportFile } from '#/lib/import/data'
 import type { DatasetImportRecord } from '#/lib/import/types'
 import { safeReturnTo } from '#/lib/create-context-search'
 
-import { serializeImportMapping } from './import-search'
-import type { ImportSearch } from './import-search'
-
-/** The committed receipt for a stored import file, if there is one. A failed
- * or preview row is not a receipt: the file can still be mapped and imported. */
-export function findCommittedReceipt(
-  receipts: readonly DatasetImportRecord[] | undefined,
-  fileId: string,
-  sheetName?: string,
-): DatasetImportRecord | null {
-  return (
-    receipts?.find(
-      (receipt) =>
-        receipt.status === 'committed' &&
-        receipt.file_id === fileId &&
-        (!sheetName || receipt.mapping?.sheetName === sheetName),
-    ) ?? null
-  )
-}
-
-function text(value: unknown): string | undefined {
-  return typeof value === 'string' && value ? value : undefined
-}
-
-/**
- * The settings a corrected file starts from: the Dataset, experiment,
- * instrument, parser and column mapping the committed import used. The person
- * re-checks them on the map step; nothing is committed until they do.
- */
-export function carriedOverSettings(
-  receipt: DatasetImportRecord,
-): ImportSearch {
-  const values: Record<string, string> = {}
-
-  for (const entry of receipt.mapping?.sources ?? []) {
-    if (entry.fieldId) values[entry.source] = entry.fieldId
-  }
-
-  const map = serializeImportMapping(values)
-
-  const units = serializeImportMapping(
-    Object.fromEntries(
-      (receipt.mapping?.sources ?? []).flatMap((entry) =>
-        entry.sourceUnit ? [[entry.source, entry.sourceUnit]] : [],
-      ),
-    ),
-  )
-
-  return {
-    step: 'map',
-    dataset: receipt.dataset_id,
-    experiment: receipt.experiment_record_id ?? undefined,
-    instrument: receipt.instrument_id ?? undefined,
-    parser: text(receipt.parser_provenance.key),
-    map: map || undefined,
-    units: units || undefined,
-    sheet: receipt.mapping?.sheetName,
-  }
-}
-
-const OUTCOME_LABELS: Record<string, string> = {
-  added: t('data.importReceipt.added'),
-  planned: t('data.importReceipt.planned'),
-  new: t('common.actions.new'),
-  flagged: t('data.importReceipt.flagged'),
-  skipped: t('data.importReceipt.skipped'),
-}
+import { carriedOverSettings, receiptPresentation } from './import-receipt-data'
 
 /**
  * A committed import is a receipt, not a draft: what was imported, with which
@@ -111,20 +45,8 @@ export function ImportReceipt({
       ? `/experiments/${encodeURIComponent(receipt.experiment_record_id)}/notebook`
       : undefined)
 
-  const filename =
-    text(receipt.source_provenance.filename) ??
-    t('data.importReceipt.importedFile')
-
-  const parserName = text(receipt.parser_provenance.name)
-  const parserVersion = receipt.parser_provenance.version
-
-  const sources = (receipt.mapping?.sources ?? []).filter(
-    (entry) => entry.fieldId,
-  )
-
-  const outcome = Object.entries(receipt.outcome).filter(
-    (entry): entry is [string, number] => typeof entry[1] === 'number',
-  )
+  const { filename, parser, sources, worksheet, checksum, rows } =
+    receiptPresentation(receipt)
 
   async function uploadCorrected(file: File) {
     setError('')
@@ -203,34 +125,15 @@ export function ImportReceipt({
               </Link>
             </dd>
             <dt className="text-fg-muted">{t('data.importReceipt.parser')}</dt>
-            <dd className="m-0">
-              {parserName
-                ? `${parserName}${typeof parserVersion === 'number' ? ` v${parserVersion}` : ''}`
-                : t('data.importReceipt.mappedHand')}
-            </dd>
+            <dd className="m-0">{parser}</dd>
             <dt className="text-fg-muted">
               {t('data.importReceipt.worksheet')}
             </dt>
-            <dd className="m-0">
-              {text(receipt.source_provenance.sheetName) ??
-                receipt.mapping?.sheetName ??
-                t('data.importReceipt.notRecorded')}
-            </dd>
+            <dd className="m-0">{worksheet}</dd>
             <dt className="text-fg-muted">{t('data.importReceipt.sha256')}</dt>
-            <dd className="m-0 break-all font-mono text-xs">
-              {text(receipt.source_provenance.checksum) ??
-                t('data.importReceipt.notRecorded')}
-            </dd>
+            <dd className="m-0 break-all font-mono text-xs">{checksum}</dd>
             <dt className="text-fg-muted">{t('data.importReceipt.rows')}</dt>
-            <dd className="m-0">
-              {outcome.length
-                ? outcome
-                    .map(([key, count]) =>
-                      `${count} ${OUTCOME_LABELS[key] ?? key}`.toLowerCase(),
-                    )
-                    .join(' · ')
-                : `${receipt.imported_row_ids.length} imported`}
-            </dd>
+            <dd className="m-0">{rows}</dd>
             {receipt.snapshot_version_id ? (
               <>
                 <dt className="text-fg-muted">

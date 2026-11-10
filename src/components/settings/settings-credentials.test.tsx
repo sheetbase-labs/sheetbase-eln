@@ -9,9 +9,16 @@
  * callback fires from its action. The route surfaces a failed write
  * (src/routes/settings/account/api.tsx:150-154).
  */
-import { cleanup, render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { Toaster, toast } from '#/components/ui/sonner'
 
 import type { CredentialWire } from '#/lib/api-credential-admin'
 import type {
@@ -25,14 +32,6 @@ import {
   serviceCredentialsCopy,
 } from './settings-credentials'
 import type { CredentialPanelCopy } from './settings-credentials'
-
-// The reveal panel copies through the shared Secret, so the toast is the
-// confirmation the panel never gave before.
-const sonner = vi.hoisted(() => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
-}))
-
-vi.mock('#/components/ui/sonner', () => ({ toast: sonner.toast }))
 
 const TOKEN: PersonalTokenWire = {
   id: 'token-1',
@@ -128,10 +127,9 @@ const PANELS: PanelCase[] = [
 ]
 
 afterEach(() => {
+  toast.dismiss()
   cleanup()
   vi.restoreAllMocks()
-  sonner.toast.mockClear()
-  sonner.toast.error.mockClear()
 })
 
 function renderPanel(
@@ -142,15 +140,18 @@ function renderPanel(
   const onRevoke = vi.fn()
   const onRotate = vi.fn()
   render(
-    <SettingsCredentials
-      copy={panel.copy}
-      tokens={[panel.row]}
-      revealed={revealed}
-      onCreate={onCreate}
-      onRevoke={onRevoke}
-      onRotate={onRotate}
-      onDismissRevealed={vi.fn()}
-    />,
+    <>
+      <SettingsCredentials
+        copy={panel.copy}
+        tokens={[panel.row]}
+        revealed={revealed}
+        onCreate={onCreate}
+        onRevoke={onRevoke}
+        onRotate={onRotate}
+        onDismissRevealed={vi.fn()}
+      />
+      <Toaster />
+    </>,
   )
 
   return { onCreate, onRevoke, onRotate }
@@ -307,8 +308,10 @@ describe.each(PANELS)('SettingsCredentials — $name', (panel) => {
     await user.click(screen.getByRole('button', { name: panel.copyLabel }))
 
     expect(writeText).toHaveBeenCalledWith(panel.revealed.secret)
-    expect(sonner.toast).toHaveBeenCalledWith(panel.copied)
-    expect(sonner.toast.error).not.toHaveBeenCalled()
+    expect(await screen.findByText(panel.copied)).toBeTruthy()
+    expect(
+      document.querySelector('[data-sonner-toast][data-type="error"]'),
+    ).toBeNull()
   })
 
   it('states a refused copy instead of confirming one', async () => {
@@ -320,7 +323,11 @@ describe.each(PANELS)('SettingsCredentials — $name', (panel) => {
 
     await user.click(screen.getByRole('button', { name: panel.copyLabel }))
 
-    expect(sonner.toast.error).toHaveBeenCalled()
-    expect(sonner.toast).not.toHaveBeenCalled()
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-sonner-toast][data-type="error"]'),
+      ).not.toBeNull(),
+    )
+    expect(screen.queryByText(panel.copied)).toBeNull()
   })
 })

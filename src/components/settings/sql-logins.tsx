@@ -57,6 +57,8 @@ const STATUS_LABEL: Record<SqlLogin['status'], string> = {
   suspended: t('settings.sqlLogins.pausedRoleLost'),
 }
 
+type LoginConfirmation = { kind: 'revoke' | 'rotate'; login: SqlLogin }
+
 /**
  * Settings → API: the member's personal read-only SQL logins. A login sees the
  * same data its member sees and can only read the reporting views. The password
@@ -72,10 +74,7 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
     (SqlLoginSecret & { name: string }) | null
   >(null)
 
-  const [confirming, setConfirming] = useState<{
-    kind: 'revoke' | 'rotate'
-    login: SqlLogin
-  } | null>(null)
+  const [confirming, setConfirming] = useState<LoginConfirmation | null>(null)
 
   const ready = useQuery({
     queryKey: dataAccessKeys.ready(workspaceId),
@@ -153,13 +152,7 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
       }
     >
       <Muted>{t('settings.sqlLogins.readWorkspaceData')}</Muted>
-      {!setUp ? (
-        <Notice tone="info" title={t('settings.sqlLogins.sqlAccessIsn')}>
-          {ready.data === true
-            ? t('settings.sqlLogins.askAdministratorSet')
-            : t('settings.sqlLogins.databaseHasnPrepared')}
-        </Notice>
-      ) : null}
+      <SqlReadiness setUp={setUp} prepared={ready.data === true} />
       {failed ? (
         <Notice tone="bad" title={t('settings.sqlLogins.didnWork')}>
           {failed instanceof Error
@@ -167,85 +160,16 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
             : t('settings.sqlLogins.pleaseTryAgain')}
         </Notice>
       ) : null}
-      {revealed && connection.data ? (
-        <div className="flex flex-col gap-3 rounded-md bg-warning-wash p-3">
-          <Notice tone="warn" className="p-0">
-            {t('settings.sqlLogins.copyPasswordNow')}
-          </Notice>
-          <Secret
-            value={revealed.username}
-            copyLabel={t('settings.sqlLogins.copyUsername')}
-          />
-          <Secret
-            value={revealed.password}
-            copyLabel={t('settings.sqlLogins.copyPassword')}
-          />
-          <Secret
-            value={formatSqlUrl(connection.data, revealed.username).replace(
-              '<password>',
-              revealed.password,
-            )}
-            copyLabel={t('settings.sqlLogins.copyConnectionString')}
-          />
-          <div>
-            <Button type="button" size="sm" onClick={() => setRevealed(null)}>
-              {t('settings.sqlLogins.iStored')}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-      {setUp && connection.data ? (
-        <Muted>
-          {rich('settings.sqlLogins.connectTo', {
-            host: <code>{connection.data.host}</code>,
-            port: <code>{connection.data.port}</code>,
-            database: <code>{connection.data.database}</code>,
-            schema: <code>{t('settings.sqlLogins.dataSchemaName')}</code>,
-          })}
-        </Muted>
-      ) : null}
+      <SqlConnectionInfo
+        connection={connection.data}
+        revealed={revealed}
+        setUp={setUp}
+        onHide={() => setRevealed(null)}
+      />
       {setUp && logins.isSuccess && rows.length === 0 ? (
         <Muted>{t('settings.sqlLogins.sqlLoginsYet')}</Muted>
       ) : null}
-      {rows.length ? (
-        <ul className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
-          {rows.map((login) => (
-            <li
-              key={login.id}
-              className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2"
-            >
-              <span className="min-w-40 font-medium">{login.name}</span>
-              <code className="text-label">{login.username}</code>
-              <Badge>{STATUS_LABEL[login.status]}</Badge>
-              <span className="text-label text-fg-muted">
-                {t('settings.sqlLogins.created')}
-                {formatDate(login.createdAt)}
-                {login.expiresAt
-                  ? ` · expires ${formatDate(login.expiresAt)}`
-                  : ''}
-              </span>
-              <span className="ml-auto flex gap-2">
-                {login.status === 'active' ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setConfirming({ kind: 'rotate', login })}
-                  >
-                    {t('settings.sqlLogins.newPassword')}
-                  </Button>
-                ) : null}
-                <Button
-                  size="sm"
-                  variant="quiet"
-                  onClick={() => setConfirming({ kind: 'revoke', login })}
-                >
-                  {t('settings.sqlLogins.revoke')}
-                </Button>
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <SqlLoginList rows={rows} onConfirm={setConfirming} />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
@@ -304,53 +228,188 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog
-        open={confirming !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfirming(null)
+      <SqlLoginConfirmation
+        confirming={confirming}
+        onClose={() => setConfirming(null)}
+        onConfirm={(confirmation) => {
+          if (confirmation.kind === 'rotate') rotate.mutate(confirmation.login)
+          else revoke.mutate(confirmation.login)
+          setConfirming(null)
         }}
-      >
-        <ConfirmDialogContent>
-          <ConfirmDialogHeader>
-            <ConfirmDialogTitle>
-              {confirming?.kind === 'revoke'
-                ? t('settings.sqlLogins.revoke2', {
-                    name: confirming.login.name,
-                  })
-                : t('settings.sqlLogins.newPasswordFor', {
-                    name: confirming?.login.name ?? '',
-                  })}
-            </ConfirmDialogTitle>
-            <ConfirmDialogDescription>
-              {confirming?.kind === 'revoke'
-                ? t('settings.sqlLogins.stopsWorkingStraight')
-                : t('settings.sqlLogins.oldPasswordStops')}
-            </ConfirmDialogDescription>
-          </ConfirmDialogHeader>
-          <ConfirmDialogFooter>
-            <ConfirmDialogCancel>
-              {t('common.actions.cancel')}
-            </ConfirmDialogCancel>
-            <ConfirmDialogAction
-              variant={
-                confirming?.kind === 'revoke' ? 'danger-fill' : 'primary'
-              }
-              onClick={() => {
-                if (!confirming) return
-
-                if (confirming.kind === 'rotate')
-                  rotate.mutate(confirming.login)
-                else revoke.mutate(confirming.login)
-                setConfirming(null)
-              }}
-            >
-              {confirming?.kind === 'revoke'
-                ? t('settings.sqlLogins.revokeLogin')
-                : t('settings.sqlLogins.getNewPassword')}
-            </ConfirmDialogAction>
-          </ConfirmDialogFooter>
-        </ConfirmDialogContent>
-      </ConfirmDialog>
+      />
     </Section>
+  )
+}
+
+function SqlReadiness({
+  setUp,
+  prepared,
+}: {
+  setUp: boolean
+  prepared: boolean
+}) {
+  if (setUp) return null
+
+  return (
+    <Notice tone="info" title={t('settings.sqlLogins.sqlAccessIsn')}>
+      {prepared
+        ? t('settings.sqlLogins.askAdministratorSet')
+        : t('settings.sqlLogins.databaseHasnPrepared')}
+    </Notice>
+  )
+}
+
+function SqlConnectionInfo({
+  connection,
+  revealed,
+  setUp,
+  onHide,
+}: {
+  connection: Awaited<ReturnType<typeof getSqlConnectionFn>> | undefined
+  revealed: SqlLoginSecret | null
+  setUp: boolean
+  onHide: () => void
+}) {
+  return (
+    <>
+      {revealed && connection ? (
+        <div className="flex flex-col gap-3 rounded-md bg-warning-wash p-3">
+          <Notice tone="warn" className="p-0">
+            {t('settings.sqlLogins.copyPasswordNow')}
+          </Notice>
+          <Secret
+            value={revealed.username}
+            copyLabel={t('settings.sqlLogins.copyUsername')}
+          />
+          <Secret
+            value={revealed.password}
+            copyLabel={t('settings.sqlLogins.copyPassword')}
+          />
+          <Secret
+            value={formatSqlUrl(connection, revealed.username).replace(
+              '<password>',
+              revealed.password,
+            )}
+            copyLabel={t('settings.sqlLogins.copyConnectionString')}
+          />
+          <div>
+            <Button type="button" size="sm" onClick={onHide}>
+              {t('settings.sqlLogins.iStored')}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {setUp && connection ? (
+        <Muted>
+          {rich('settings.sqlLogins.connectTo', {
+            host: <code>{connection.host}</code>,
+            port: <code>{connection.port}</code>,
+            database: <code>{connection.database}</code>,
+            schema: <code>{t('settings.sqlLogins.dataSchemaName')}</code>,
+          })}
+        </Muted>
+      ) : null}
+    </>
+  )
+}
+
+function SqlLoginList({
+  rows,
+  onConfirm,
+}: {
+  rows: SqlLogin[]
+  onConfirm: (confirmation: LoginConfirmation) => void
+}) {
+  if (!rows.length) return null
+
+  return (
+    <ul className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
+      {rows.map((login) => (
+        <li
+          key={login.id}
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2"
+        >
+          <span className="min-w-40 font-medium">{login.name}</span>
+          <code className="text-label">{login.username}</code>
+          <Badge>{STATUS_LABEL[login.status]}</Badge>
+          <span className="text-label text-fg-muted">
+            {t('settings.sqlLogins.created')}
+            {formatDate(login.createdAt)}
+            {login.expiresAt ? ` · expires ${formatDate(login.expiresAt)}` : ''}
+          </span>
+          <span className="ml-auto flex gap-2">
+            {login.status === 'active' ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => onConfirm({ kind: 'rotate', login })}
+              >
+                {t('settings.sqlLogins.newPassword')}
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant="quiet"
+              onClick={() => onConfirm({ kind: 'revoke', login })}
+            >
+              {t('settings.sqlLogins.revoke')}
+            </Button>
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function SqlLoginConfirmation({
+  confirming,
+  onClose,
+  onConfirm,
+}: {
+  confirming: LoginConfirmation | null
+  onClose: () => void
+  onConfirm: (confirmation: LoginConfirmation) => void
+}) {
+  const revoking = confirming?.kind === 'revoke'
+
+  return (
+    <ConfirmDialog
+      open={confirming !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <ConfirmDialogContent>
+        <ConfirmDialogHeader>
+          <ConfirmDialogTitle>
+            {revoking
+              ? t('settings.sqlLogins.revoke2', { name: confirming.login.name })
+              : t('settings.sqlLogins.newPasswordFor', {
+                  name: confirming?.login.name ?? '',
+                })}
+          </ConfirmDialogTitle>
+          <ConfirmDialogDescription>
+            {revoking
+              ? t('settings.sqlLogins.stopsWorkingStraight')
+              : t('settings.sqlLogins.oldPasswordStops')}
+          </ConfirmDialogDescription>
+        </ConfirmDialogHeader>
+        <ConfirmDialogFooter>
+          <ConfirmDialogCancel>
+            {t('common.actions.cancel')}
+          </ConfirmDialogCancel>
+          <ConfirmDialogAction
+            variant={revoking ? 'danger-fill' : 'primary'}
+            onClick={() => {
+              if (confirming) onConfirm(confirming)
+            }}
+          >
+            {revoking
+              ? t('settings.sqlLogins.revokeLogin')
+              : t('settings.sqlLogins.getNewPassword')}
+          </ConfirmDialogAction>
+        </ConfirmDialogFooter>
+      </ConfirmDialogContent>
+    </ConfirmDialog>
   )
 }

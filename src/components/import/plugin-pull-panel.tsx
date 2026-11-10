@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { FieldForm, readFieldValues } from '#/components/plugins/field-form'
 import type { FieldValues } from '#/components/plugins/field-form'
@@ -50,6 +51,7 @@ export function PluginPullPanel({
 
   const parameterFields = declaration.parameters
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- Pull produces a browser File and awaits caller-owned onFile; this handoff owns no canonical cache key to invalidate.
   const pull = useMutation({
     mutationFn: async () => {
       const parameters = readFieldValues(parameterFields, values)
@@ -76,9 +78,11 @@ export function PluginPullPanel({
         parameters: parameters.input,
         settings: Object.fromEntries(
           declaration.settings.flatMap((setting) => {
-            const value = settings.input[`setting_${setting.name}`]
+            const value = z
+              .string()
+              .safeParse(settings.input[`setting_${setting.name}`])
 
-            return typeof value === 'string' ? [[setting.name, value]] : []
+            return value.success ? [[setting.name, value.data]] : []
           }),
         ),
       })

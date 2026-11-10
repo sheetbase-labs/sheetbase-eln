@@ -15,13 +15,15 @@ import type { PreviewSheet } from '#/lib/office-preview/sheets'
 import { cn } from '#/lib/utils'
 
 /** A column letter the way a spreadsheet writes it: A, B … Z, AA. */
-export function columnLetter(index: number): string {
+function columnLetter(index: number): string {
   let n = index
   let out = ''
+
   do {
     out = String.fromCharCode(65 + (n % 26)) + out
     n = Math.floor(n / 26) - 1
   } while (n >= 0)
+
   return out
 }
 
@@ -37,6 +39,7 @@ export function SheetView({
 }) {
   const [active, setActive] = useState(0)
   const sheet = sheets.at(Math.min(active, sheets.length - 1))
+
   if (!sheet)
     return (
       <p className="text-sm text-fg-muted">
@@ -45,6 +48,7 @@ export function SheetView({
     )
   const width = sheet.rows.reduce((n, row) => Math.max(n, row.length), 0)
   const shownColumns = Array.from({ length: width }, (_, i) => i)
+
   return (
     <div className="space-y-2">
       {sheets.length > 1 ? (

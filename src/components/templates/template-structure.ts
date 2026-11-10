@@ -1,6 +1,7 @@
 import type { FieldChange } from '#/components/models/record-model-fields'
 import type { NotebookTemplatePlacement } from '#/lib/notebook-template'
 import type { SheetDefinitionVersion } from '#/lib/sheet-definition-data'
+import { z } from 'zod'
 
 /** Sheet definition versions a template's placements pin, by version id. */
 export type SheetVersionLookup = ReadonlyMap<string, SheetDefinitionVersion>
@@ -116,12 +117,14 @@ export interface SectionEntry {
 }
 
 function payloadText(
-  payload: Record<string, unknown>,
+  payload: Extract<NotebookTemplatePlacement, { kind: 'narrative' }>['payload'],
   key: string,
 ): string | null {
   const value = payload[key]
 
-  return typeof value === 'string' && value ? value : null
+  const text = z.string().safeParse(value)
+
+  return text.success && text.data ? text.data : null
 }
 
 export function placementName(placement: NotebookTemplatePlacement): string {
@@ -176,7 +179,8 @@ export function describeSections(
             placement,
             name,
             subtitle: protocol
-              ? `From protocol ${protocol} v${String(p.version ?? '')}`.trim()
+              ? // eslint-disable-next-line typescript/no-base-to-string -- Narrative payload versions are permissive native values; retain String coercion and its throws.
+                `From protocol ${protocol} v${String(p.version ?? '')}`.trim()
               : 'From protocol',
           }
         }
@@ -224,6 +228,7 @@ export function diffTemplatePlacements(
 
     if (!old) {
       changes.push({
+        id: `placement:${placement.id}:added`,
         kind: 'Added',
         subject: name,
         detail: sheetSubtitle(placement),
@@ -252,12 +257,14 @@ export function diffTemplatePlacements(
 
         if (!was) {
           changes.push({
+            id: `placement:${placement.id}:column:${row.id}:added`,
             kind: 'Added',
             subject: `${row.label} column`,
             detail: `${name}${row.calculated ? ` · ƒx = ${row.formula}` : ''}${row.rule && !row.calculated ? ` · ${row.rule}` : ''}`,
           })
         } else if (!row.calculated && (was.rule ?? '') !== (row.rule ?? '')) {
           changes.push({
+            id: `placement:${placement.id}:column:${row.id}:rule`,
             kind: 'Changed',
             subject: `${row.label} rule`,
             detail: name,
@@ -270,6 +277,7 @@ export function diffTemplatePlacements(
       for (const [id, row] of oldRows)
         if (!newRows.some((r) => r.id === id))
           changes.push({
+            id: `placement:${placement.id}:column:${id}:removed`,
             kind: 'Removed',
             subject: `${row.label} column`,
             detail: name,
@@ -281,25 +289,33 @@ export function diffTemplatePlacements(
       if (JSON.stringify(placement.payload) === JSON.stringify(old.payload))
         if (placement.blockType === old.blockType) continue
 
-      const was = Array.isArray(old.payload.fields)
-        ? (old.payload.fields as string[])
-        : null
+      const was = Array.isArray(old.payload.fields) ? old.payload.fields : null
 
       const now = Array.isArray(placement.payload.fields)
-        ? (placement.payload.fields as string[])
+        ? placement.payload.fields
         : null
 
       if (was && now) {
-        for (const field of now.filter((f) => !was.includes(f)))
+        const occurrences = new Map<string, number>()
+
+        // react-doctor-disable-next-line react-doctor/js-set-map-lookups -- Unknown narrative fields retain native includes/accessor evaluation; eager Set traversal changes this boundary.
+        for (const field of now.filter((f) => !was.includes(f))) {
+          const subject = `${field} field`
+          const occurrence = occurrences.get(subject) ?? 0
+          occurrences.set(subject, occurrence + 1)
           changes.push({
+            id: `placement:${placement.id}:field:${subject}:${occurrence}:added`,
             kind: 'Added',
-            subject: `${field} field`,
+            subject,
             detail: name,
           })
+        }
+
         continue
       }
 
       changes.push({
+        id: `placement:${placement.id}:content`,
         kind: 'Changed',
         subject: name,
         detail: sheetSubtitle(placement),
@@ -310,6 +326,7 @@ export function diffTemplatePlacements(
   for (const [id, placement] of prior)
     if (!next.has(id))
       changes.push({
+        id: `placement:${id}:removed`,
         kind: 'Removed',
         subject: placementName(placement),
         detail: sheetSubtitle(placement),

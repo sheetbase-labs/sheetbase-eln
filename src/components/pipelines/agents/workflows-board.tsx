@@ -20,6 +20,9 @@ import type { AgentDefinition, AgentRun } from '#/lib/agent-registry'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'
+import { workflowOrder } from './board-data'
+
+export { workflowOrder } from './board-data'
 
 /**
  * The Agents Workflows board: each automation with what starts it, where it
@@ -42,21 +45,6 @@ function triggerIcon(label: string): IconName {
 
 function WorkflowId({ id }: { id: string }) {
   return <span className="font-mono">{id}</span>
-}
-
-/** Most recently run first, paused workflows last (runs arrive newest first). */
-export function workflowOrder(
-  definitions: readonly AgentDefinition[],
-  runs: readonly AgentRun[],
-): AgentDefinition[] {
-  const latest = (d: AgentDefinition) =>
-    runs.find((r) => r.definition_id === d.id)?.started_at ?? ''
-
-  return [...definitions].sort(
-    (a, b) =>
-      Number(b.enabled) - Number(a.enabled) ||
-      latest(b).localeCompare(latest(a)),
-  )
 }
 
 export function AgentWorkflowsBoard({

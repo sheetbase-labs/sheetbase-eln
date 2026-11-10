@@ -4,118 +4,83 @@
  * import they were fixing.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider } from '@tanstack/react-router'
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
+import type { ParserTestFile, ParserSettingsRow, ParserVersionStatus } from '#/lib/parser-settings'
 
-import { ParserSettings } from './parser-settings'
+interface ParserFixtureState {
+  status: ParserVersionStatus
+  requestedAt: string | undefined
+}
 
-const state = vi.hoisted(() => ({
+const state: ParserFixtureState = {
   status: 'approved',
-  requestedAt: undefined as string | undefined,
-}))
+  requestedAt: undefined,
+}
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    search,
-    children,
-  }: {
-    to: string
-    params?: Record<string, string>
-    search?: Record<string, string | undefined>
-    children: React.ReactNode
-  }) => {
-    const path = Object.entries(params ?? {}).reduce(
-      (acc, [key, value]) => acc.replace(`$${key}`, value),
-      to,
-    )
+const unexpected: string[] = []
 
-    const query = new URLSearchParams(
-      Object.entries(search ?? {}).filter(
-        (entry): entry is [string, string] => entry[1] != null,
-      ),
-    ).toString()
+vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(input instanceof Request ? input.url : String(input), 'http://localhost')
 
-    return <a href={query ? `${path}?${query}` : path}>{children}</a>
-  },
-}))
+  if (!init?.method || init.method === 'GET') {
+    const resource = url.pathname.replace('/api/db/', '')
 
-vi.mock('#/lib/data-client', () => ({ createDataClient: () => ({}) }))
+    switch (resource) {
+      case 'parsers': {
+        if (!url.searchParams.has('workspace_id')) return Response.json([])
 
-vi.mock('#/lib/import/data', () => ({ uploadImportFile: vi.fn() }))
+        const rows: ParserSettingsRow[] = [{ id: 'p1', key: 'plate-export', name: 'Plate export', format: 'csv', instrument_id: null, instruments: null,
+          parser_versions: [{ id: 'v1', version: 1, status: state.status === 'draft' ? 'draft' : 'approved', signature: {}, mapping: {}, test_result: null, validated_at: null, approved_at: null, approved_by_user_id: null }] }]
 
-vi.mock('#/components/instruments/instruments-data', () => ({
-  useInstruments: () => ({ data: [] }),
-}))
+        return Response.json(rows)
+      }
 
-vi.mock('./instrument-parser-table', () => ({
-  InstrumentParserTable: () => null,
-}))
+      case 'dataset_import_files': {
+        const rows: ParserTestFile[] = [{ id: 'file-1', filename: 'plate-7.csv', checksum: 'abc', parser_failure: { message: 'Unrecognised headers', requestedAt: state.requestedAt } }]
 
-vi.mock('#/lib/parser-settings', () => ({
-  parserSettingsQueryKeys: {
-    list: (id: string) => ['parsers', id],
-    files: (id: string) => ['parser-files', id],
-  },
-  fetchParserSettings: async () => [
-    {
-      id: 'p1',
-      key: 'plate-export',
-      name: 'Plate export',
-      format: 'csv',
-      instrument_id: null,
-      instruments: null,
-      parser_versions: [
-        {
-          id: 'v1',
-          version: 1,
-          status: state.status,
-          signature: {},
-          mapping: {},
-          test_result: null,
-          validated_at: null,
-          approved_at: null,
-          approved_by_user_id: null,
-        },
-      ],
-    },
-  ],
-  fetchParserTestFiles: async () => [
-    {
-      id: 'file-1',
-      filename: 'plate-7.csv',
-      checksum: 'abc',
-      parser_failure: {
-        message: 'Unrecognised headers',
-        requestedAt: state.requestedAt,
-      },
-    },
-  ],
-  approveParserVersion: vi.fn(),
-  createParserDraft: vi.fn(),
-  validateParserVersion: vi.fn(),
-}))
+        return Response.json(rows)
+      }
+
+      case 'instruments':
+      case 'instrument_calibrations':
+      case 'dataset_imports':
+      case 'extensions':
+        return Response.json([])
+    }
+  }
+
+  unexpected.push(`${init?.method ?? 'GET'} ${url}`)
+  throw new Error(`Unexpected parser settings request: ${url}`)
+})
+
+const { ParserSettings } = await import('./parser-settings')
+const { dropSharedReads } = await import('#/lib/data-client')
 
 afterEach(() => {
   cleanup()
   state.status = 'approved'
   state.requestedAt = undefined
+  dropSharedReads()
+  expect(unexpected).toEqual([])
 })
 
+afterAll(() => vi.unstubAllGlobals())
+
 function renderSettings(role: string, versionId?: string) {
+  const root = createRootRoute()
+  const settings = createRoute({ getParentRoute: () => root, path: '/', component: () => <ParserSettings workspaceId="ws-1" role={role} fileId="file-1" versionId={versionId} /> })
+  const importRoute = createRoute({ getParentRoute: () => root, path: '/import/$fileId' })
+  const router = createRouter({ routeTree: root.addChildren([settings, importRoute]), history: createMemoryHistory({ initialEntries: ['/'] }) })
+
   return render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <ParserSettings
-        workspaceId="ws-1"
-        role={role}
-        fileId="file-1"
-        versionId={versionId}
-      />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
 }

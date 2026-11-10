@@ -5,10 +5,17 @@ import {
   createRootRoute,
   createRouter,
 } from '@tanstack/react-router'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { createDataClient, onRowsChanged } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import { choose } from '../../../tests/unit/picker'
 
@@ -27,11 +34,32 @@ const wire = (n: number, title: string) => ({
   tags: [],
 })
 
-function mount(rpc: ReturnType<typeof vi.fn>, onRegistered = vi.fn()) {
-  const client = {
-    rpc,
-    list: vi.fn(async () => []),
-  } as unknown as DataClient
+function mount(
+  rpc: (
+    name: string | undefined,
+    args: Parameters<DataClient['rpc']>[1],
+  ) => Promise<ReturnType<typeof wire>[] | Response>,
+  onRegistered: NonNullable<
+    Parameters<typeof BulkRegisterDialog>[0]['onRegistered']
+  > = vi.fn(),
+) {
+  const client = createDataClient(async (input, init) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://localhost',
+    )
+
+    if (init?.method === 'POST') {
+      const result = await rpc(
+        url.pathname.split('/').at(-1),
+        await new Request(url, init).json(),
+      )
+
+      return result instanceof Response ? result : Response.json(result)
+    }
+
+    return Response.json([])
+  })
 
   const root = createRootRoute({
     component: () => (
@@ -129,5 +157,116 @@ describe('BulkRegisterDialog', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Register 2 samples' }))
     expect(await screen.findByText('Nothing was registered')).toBeTruthy()
+  })
+
+  it('keeps the source line identity when an earlier issue is repaired', async () => {
+    mount(vi.fn())
+    const input = await screen.findByLabelText(/^Samples/)
+    fireEvent.change(input, {
+      target: { value: 'Name,Quantity\nA,lots\nB,many' },
+    })
+    const second = screen.getByText(/Line 3: Quantity "many"/)
+    fireEvent.change(input, {
+      target: { value: 'Name,Quantity\nA,1 mL\nB,many' },
+    })
+    expect(screen.getByText(/Line 3: Quantity "many"/)).toBe(second)
+    expect(screen.queryByText(/Line 2:/)).toBeNull()
+  })
+
+  it('preserves tiny quantities, zero, duplicates and per-line places', async () => {
+    const rpc = vi.fn(async () => [wire(1, 'A'), wire(2, 'A')])
+    const { onRegistered } = mount(rpc)
+    await choose(userEvent.setup(), /^Project/, /Gene therapy/)
+    fireEvent.change(screen.getByLabelText(/^Samples/), {
+      target: {
+        value: 'Name,Quantity,Location\nA,0.000001 µL,Freezer\nA,0 mg,',
+      },
+    })
+    fireEvent.change(screen.getByLabelText(/Location for rows without one/), {
+      target: { value: '  Bench  ' },
+    })
+    expect(screen.getByText('Some names repeat')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Register 2 samples' }))
+    await screen.findByText('Registered 2 samples')
+    expect(rpc).toHaveBeenCalledWith('register_samples', {
+      p_project_id: 'p-1',
+      p_samples: [
+        {
+          title: 'A',
+          quantity: 0.000001,
+          quantityUnit: 'µL',
+          storageLocation: 'Freezer',
+        },
+        {
+          title: 'A',
+          quantity: 0,
+          quantityUnit: 'mg',
+          storageLocation: 'Bench',
+        },
+      ],
+    })
+    expect(onRegistered).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves retry to the person and calls the refresh owner only after success', async () => {
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ code: '42501', message: 'refused' }, { status: 403 }),
+      )
+      .mockResolvedValueOnce([wire(1, 'One')])
+
+    const { onRegistered } = mount(rpc)
+    await choose(userEvent.setup(), /^Project/, /Gene therapy/)
+    fireEvent.change(screen.getByLabelText(/^Samples/), {
+      target: { value: 'One' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Register 1 sample' }))
+    await screen.findByText('Nothing was registered')
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(onRegistered).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Register 1 sample' }))
+    await screen.findByText('Registered 1 sample')
+    await waitFor(() => expect(onRegistered).toHaveBeenCalledTimes(1))
+    expect(rpc).toHaveBeenCalledTimes(2)
+    expect(rpc.mock.calls[1]).toEqual(rpc.mock.calls[0])
+  })
+
+  it('keeps the native file filter without turning it into a validation policy', async () => {
+    mount(vi.fn())
+    const input = await screen.findByLabelText('Sample list file')
+    expect(input.getAttribute('accept')).toBe(
+      '.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain',
+    )
+  })
+
+  it('announces the canonical write before calling the registry refresh owner', async () => {
+    const order: string[] = []
+
+    const stop = onRowsChanged((path) => {
+      if (path === '/rpc/register_samples') order.push('rows changed')
+    })
+
+    try {
+      const rpc = vi.fn(async () => {
+        order.push('request')
+
+        return [wire(1, 'One')]
+      })
+
+      mount(
+        rpc,
+        vi.fn(() => order.push('registered')),
+      )
+      await choose(userEvent.setup(), /^Project/, /Gene therapy/)
+      fireEvent.change(screen.getByLabelText(/^Samples/), {
+        target: { value: 'One' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Register 1 sample' }))
+      await screen.findByText('Registered 1 sample')
+      expect(order).toEqual(['request', 'rows changed', 'registered'])
+    } finally {
+      stop()
+    }
   })
 })

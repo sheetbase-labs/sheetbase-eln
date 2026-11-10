@@ -1,7 +1,6 @@
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 
-import type { ScientificRecordKind } from '#/lib/scientific-records'
 import { RecordPicker } from '#/components/scientific/record-picker'
 import type { RecordPickerResult } from '#/components/scientific/record-picker'
 import {
@@ -14,19 +13,7 @@ import {
   CommandLoading,
 } from '#/components/ui/command'
 import type { NotebookRecord } from '#/lib/notebook-data'
-import { formatRecordReferenceLabel } from '#/lib/record-reference-cell'
-
-const MODEL_KIND: Record<string, ScientificRecordKind> = {
-  sample: 'sample',
-  material: 'material',
-  protocol_template: 'protocol_template',
-}
-
-export function sheetRecordPickerKind(
-  modelKey: string,
-): ScientificRecordKind | null {
-  return MODEL_KIND[modelKey] ?? null
-}
+import { sheetRecordPickerKind } from './sheet-record-picker-helpers'
 
 export function SheetRecordPicker({
   modelKey,
@@ -137,11 +124,4 @@ export function SheetRecordPicker({
       </CommandList>
     </Command>
   )
-}
-
-export function sheetRecordSelectionLabel(result: RecordPickerResult): string {
-  return formatRecordReferenceLabel({
-    identifier: result.identifier,
-    title: result.title,
-  })
 }

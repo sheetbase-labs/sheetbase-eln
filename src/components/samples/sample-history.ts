@@ -8,16 +8,20 @@ import type { SampleEvent } from '#/lib/samples'
  * missing (`null`) so the table can show an honest em dash.
  */
 
-const ACTION_LABELS: Record<string, string> = {
-  create: 'Registered',
-  receive: 'Received',
-  consume: 'Withdrew',
-  transfer: 'Moved',
-  edit: 'Edited',
-  archive: 'Archived',
-  restore: 'Restored',
-  print: 'Printed label',
-}
+const ACTION_LABELS = Object.fromEntries<string>(
+  Object.entries({
+    create: 'Registered',
+    receive: 'Received',
+    consume: 'Withdrew',
+    transfer: 'Moved',
+    edit: 'Edited',
+    archive: 'Archived',
+    restore: 'Restored',
+    print: 'Printed label',
+  }),
+)
+
+Object.setPrototypeOf(ACTION_LABELS, null)
 
 /** Human action for a sample_events operation, e.g. consume → "Withdrew". */
 export function sampleEventAction(operation: string): string {

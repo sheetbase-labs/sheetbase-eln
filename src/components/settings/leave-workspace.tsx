@@ -17,7 +17,7 @@ import { t } from '#/copy'
 
 const client = createDataClient()
 
-function leaveMessage(error: unknown): string {
+function leaveMessage(error: Error): string {
   if (error instanceof DataClientError) {
     if (error.code === 'SB051') return t('account.leave.lastOwner')
 

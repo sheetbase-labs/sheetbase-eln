@@ -24,8 +24,12 @@ export const listMySessionsFn = createServerFn({ method: 'GET' }).handler(
   async (): Promise<MySession[]> => {
     // Loaded inside the handler: `#/lib/auth` reads server-only env and the DB
     // client, and a static import would pull it into the browser bundle.
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getAppSession, isDevAuthFreeEnabled } = await import('#/lib/auth')
+    const [{ getRequestHeaders }, { getAppSession, isDevAuthFreeEnabled }] =
+      await Promise.all([
+        import('@tanstack/react-start/server'),
+        import('#/lib/auth'),
+      ])
+
     const headers = getRequestHeaders()
     const appSession = await getAppSession(headers)
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -20,8 +20,9 @@ import { toast } from '#/components/ui/sonner'
 import { authClient } from '#/lib/auth-client'
 import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
+import { passkeysQueryKey, usePasskeysSupported } from './settings-passkeys-data'
 
-export const passkeysQueryKey = ['passkeys'] as const
+export { passkeysQueryKey, usePasskeysSupported } from './settings-passkeys-data'
 
 interface PasskeyRow {
   id: string
@@ -30,18 +31,8 @@ interface PasskeyRow {
   createdAt?: string | Date | null
 }
 
-function messageOf(error: unknown): string {
+function messageOf(error: Error): string {
   return error instanceof Error ? error.message : t('people.passkeys.failed')
-}
-
-/** True once the browser is known to create and use passkeys (never on the server). */
-export function usePasskeysSupported(): boolean {
-  const [supported, setSupported] = useState(false)
-  useEffect(() => {
-    setSupported('PublicKeyCredential' in window)
-  }, [])
-
-  return supported
 }
 
 /**

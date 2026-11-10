@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Icon } from '#/components/icons'
@@ -56,13 +56,12 @@ import type {
   StorageLevel,
   StorageNode,
   StorageTree,
-  UnitType,
 } from '#/lib/storage-locations'
 import { t } from '#/copy'
 
 const defaultClient = createDataClient()
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: Error): string {
   return error instanceof Error
     ? error.message
     : t('settings.storageLocationsPanel.databaseRefused')
@@ -314,9 +313,6 @@ function TreeBranch({
   onSelect: (id: string) => void
   onToggle: (id: string) => void
 }) {
-  const outBelow = outOfRange.counts.get(node.id) ?? 0
-  const outHere = outOfRange.own.has(node.id)
-
   const children = tree
     .childrenOf(node)
     .filter((c) => showArchived || !c.archivedAt)
@@ -353,7 +349,9 @@ function TreeBranch({
         {/* A span, not a button: the settings layout disables every button in a
             read-only section, and a person who can only view still opens the
             tree. The arrow keys on the row do the same for the keyboard. */}
+        {/* react-doctor-disable-next-line react-doctor/click-events-have-key-events -- The containing focusable treeitem handles ArrowLeft/ArrowRight; this pointer-only disclosure is deliberately outside the tab order. */}
         <span
+          // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- Read-only settings disable native buttons; viewers must still expand the tree through this disclosure and the parent treeitem's arrow keys.
           role="button"
           aria-label={
             isOpen
@@ -374,33 +372,7 @@ function TreeBranch({
         >
           <Icon name={isOpen ? 'chevronDown' : 'chevronRight'} size={12} />
         </span>
-        <Icon
-          name={LEVEL_ICON[node.level]}
-          size={14}
-          className="shrink-0 text-fg-muted"
-        />
-        <span className="min-w-0 flex-1 truncate">{node.name}</span>
-        {outBelow > 0 ? (
-          <Status tone="bad">
-            {outHere
-              ? t('settings.storageReadings.treeOut')
-              : t('settings.storageReadings.treeOutBelow', { count: outBelow })}
-          </Status>
-        ) : null}
-        {node.archivedAt ? (
-          <span className="text-label text-fg-muted">
-            {t('settings.storageLocationsPanel.archived')}
-          </span>
-        ) : node.unitType ? (
-          <span className="text-label text-fg-muted">
-            {UNIT_TYPE_LABELS[node.unitType]}
-          </span>
-        ) : null}
-        {node.held > 0 ? (
-          <span className="num text-label text-fg-muted">
-            {node.held} {node.held === 1 ? 'sample' : 'samples'}
-          </span>
-        ) : null}
+        <StorageNodeLabels node={node} outOfRange={outOfRange} />
       </div>
       {isOpen
         ? children.map((child) => (
@@ -419,6 +391,49 @@ function TreeBranch({
           ))
         : null}
     </div>
+  )
+}
+
+function StorageNodeLabels({
+  node,
+  outOfRange,
+}: {
+  node: StorageNode
+  outOfRange: ReturnType<typeof useOutOfRangeCounts>
+}) {
+  const outBelow = outOfRange.counts.get(node.id) ?? 0
+  const outHere = outOfRange.own.has(node.id)
+
+  return (
+    <>
+      <Icon
+        name={LEVEL_ICON[node.level]}
+        size={14}
+        className="shrink-0 text-fg-muted"
+      />
+      <span className="min-w-0 flex-1 truncate">{node.name}</span>
+      {outBelow > 0 ? (
+        <Status tone="bad">
+          {outHere
+            ? t('settings.storageReadings.treeOut')
+            : t('settings.storageReadings.treeOutBelow', { count: outBelow })}
+        </Status>
+      ) : null}
+      {node.archivedAt ? (
+        <span className="text-label text-fg-muted">
+          {t('settings.storageLocationsPanel.archived')}
+        </span>
+      ) : node.unitType ? (
+        <span className="text-label text-fg-muted">
+          {UNIT_TYPE_LABELS[node.unitType]}
+        </span>
+      ) : null}
+      {node.held > 0 ? (
+        <span className="num text-label text-fg-muted">
+          {node.held} {node.held === 1 ? 'sample' : 'samples'}
+        </span>
+      ) : null}
+    </>
   )
 }
 
@@ -441,8 +456,6 @@ function LocationDetails({
   const [input, setInput] = useState<NodeInput>(() => inputFromNode(node))
   const dirty = JSON.stringify(input) !== JSON.stringify(inputFromNode(node))
   const problem = validateNodeInput(node.level, input, true)
-  const inherited = !node.archivedAt && isArchived(tree, node)
-  const child = childLevel(node.level)
 
   const hasTemperature =
     (node.level === 'site' || node.level === 'room' || node.level === 'unit') &&
@@ -450,32 +463,104 @@ function LocationDetails({
       node.temperatureMinC !== null ||
       node.temperatureMaxC !== null)
 
-  const save = useMutation({
-    mutationFn: () => updateStorageNode(client, node, input),
-    onSuccess: () => {
-      toast(
-        t('settings.storageLocationsPanel.savedToast', { label: meta.label }),
-      )
-      onChanged()
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  })
-
-  const archive = useMutation({
-    mutationFn: (archived: boolean) =>
-      setStorageNodeArchived(client, node, archived),
-    onSuccess: (_, archived) => {
-      toast(archived ? `${node.name} archived` : `${node.name} restored`)
-      onChanged()
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  })
-
-  const contents = tree.childrenOf(node).filter((c) => !c.archivedAt)
   const set = (patch: Partial<NodeInput>) => setInput({ ...input, ...patch })
 
   return (
     <div className="flex flex-col gap-4">
+      <LocationSummary node={node} tree={tree} client={client} />
+
+      <div className="flex flex-col gap-3">
+        <Field label={t('settings.storageLocationsPanel.name')}>
+          <Input
+            value={input.name}
+            disabled={!canManage}
+            onChange={(e) => set({ name: e.target.value })}
+          />
+        </Field>
+        {meta.hasCode ? (
+          <Field label={t('settings.storageLocationsPanel.code')}>
+            <Input
+              value={input.code}
+              disabled={!canManage}
+              onChange={(e) => set({ code: e.target.value })}
+            />
+          </Field>
+        ) : null}
+        {node.level === 'unit' ? (
+          <Field label={t('settings.storageLocationsPanel.type')}>
+            <Select
+              value={input.unitType}
+              disabled={!canManage}
+              onChange={(e) => {
+                const unitType = UNIT_TYPES.find(
+                  (type) => type === e.target.value,
+                )
+
+                if (unitType) set({ unitType })
+              }}
+            >
+              {UNIT_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {UNIT_TYPE_LABELS[type]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
+        {hasTemperature ? (
+          <div className="grid grid-cols-2 gap-2">
+            <Field label={t('settings.storageLocationsPanel.lowestC')}>
+              <Input
+                inputMode="decimal"
+                value={input.temperatureMinC}
+                disabled={!canManage}
+                onChange={(e) => set({ temperatureMinC: e.target.value })}
+              />
+            </Field>
+            <Field label={t('settings.storageLocationsPanel.highestC')}>
+              <Input
+                inputMode="decimal"
+                value={input.temperatureMaxC}
+                disabled={!canManage}
+                onChange={(e) => set({ temperatureMaxC: e.target.value })}
+              />
+            </Field>
+          </div>
+        ) : null}
+        {canManage && dirty && problem ? (
+          <span className="text-label text-danger-text">{problem}</span>
+        ) : null}
+      </div>
+
+      {canManage ? (
+        <LocationActions
+          node={node}
+          input={input}
+          client={client}
+          onAdd={onAdd}
+          onChanged={onChanged}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function LocationSummary({
+  node,
+  tree,
+  client,
+}: {
+  node: StorageNode
+  tree: StorageTree
+  client: DataClient
+}) {
+  const meta = LEVEL_META[node.level]
+  const inherited = !node.archivedAt && isArchived(tree, node)
+  const child = childLevel(node.level)
+  const contents = tree.childrenOf(node).filter((c) => !c.archivedAt)
+
+  return (
+    <>
       <div>
         <h2 className="m-0 text-section">{node.name}</h2>
         <p className="m-0 mt-0.5 text-label text-fg-muted">
@@ -516,112 +601,95 @@ function LocationDetails({
           client={client}
         />
       ) : null}
+    </>
+  )
+}
 
-      <div className="flex flex-col gap-3">
-        <Field label={t('settings.storageLocationsPanel.name')}>
-          <Input
-            value={input.name}
-            disabled={!canManage}
-            onChange={(e) => set({ name: e.target.value })}
-          />
-        </Field>
-        {meta.hasCode ? (
-          <Field label={t('settings.storageLocationsPanel.code')}>
-            <Input
-              value={input.code}
-              disabled={!canManage}
-              onChange={(e) => set({ code: e.target.value })}
-            />
-          </Field>
-        ) : null}
-        {node.level === 'unit' ? (
-          <Field label={t('settings.storageLocationsPanel.type')}>
-            <Select
-              value={input.unitType}
-              disabled={!canManage}
-              onChange={(e) => set({ unitType: e.target.value as UnitType })}
-            >
-              {UNIT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {UNIT_TYPE_LABELS[type]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        ) : null}
-        {hasTemperature ? (
-          <div className="grid grid-cols-2 gap-2">
-            <Field label={t('settings.storageLocationsPanel.lowestC')}>
-              <Input
-                inputMode="decimal"
-                value={input.temperatureMinC}
-                disabled={!canManage}
-                onChange={(e) => set({ temperatureMinC: e.target.value })}
-              />
-            </Field>
-            <Field label={t('settings.storageLocationsPanel.highestC')}>
-              <Input
-                inputMode="decimal"
-                value={input.temperatureMaxC}
-                disabled={!canManage}
-                onChange={(e) => set({ temperatureMaxC: e.target.value })}
-              />
-            </Field>
-          </div>
-        ) : null}
-        {canManage && dirty && problem ? (
-          <span className="text-label text-danger-text">{problem}</span>
+function LocationActions({
+  node,
+  input,
+  client,
+  onAdd,
+  onChanged,
+}: {
+  node: StorageNode
+  input: NodeInput
+  client: DataClient
+  onAdd: (level: StorageLevel) => void
+  onChanged: () => void
+}) {
+  const meta = LEVEL_META[node.level]
+  const child = childLevel(node.level)
+  const dirty = JSON.stringify(input) !== JSON.stringify(inputFromNode(node))
+  const problem = validateNodeInput(node.level, input, true)
+
+  const save = useMutation({
+    mutationFn: () => updateStorageNode(client, node, input),
+    onSuccess: () => {
+      toast(
+        t('settings.storageLocationsPanel.savedToast', { label: meta.label }),
+      )
+      onChanged()
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  })
+
+  const archive = useMutation({
+    mutationFn: (archived: boolean) =>
+      setStorageNodeArchived(client, node, archived),
+    onSuccess: (_, archived) => {
+      toast(archived ? `${node.name} archived` : `${node.name} restored`)
+      onChanged()
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  })
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="primary"
+          disabled={!dirty || Boolean(problem) || save.isPending}
+          onClick={() => save.mutate()}
+        >
+          {save.isPending
+            ? t('common.states.saving')
+            : t('common.actions.saveChanges')}
+        </Button>
+        {child && !node.archivedAt ? (
+          <Button icon="plus" onClick={() => onAdd(child)}>
+            {t('settings.storageLocationsPanel.add', {
+              label: LEVEL_META[child].label.toLowerCase(),
+            })}
+          </Button>
         ) : null}
       </div>
-
-      {canManage ? (
-        <div className="flex flex-col items-start gap-2">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="primary"
-              disabled={!dirty || Boolean(problem) || save.isPending}
-              onClick={() => save.mutate()}
-            >
-              {save.isPending
-                ? t('common.states.saving')
-                : t('common.actions.saveChanges')}
-            </Button>
-            {child && !node.archivedAt ? (
-              <Button icon="plus" onClick={() => onAdd(child)}>
-                {t('settings.storageLocationsPanel.add', {
-                  label: LEVEL_META[child].label.toLowerCase(),
-                })}
-              </Button>
-            ) : null}
-          </div>
-          {node.archivedAt ? (
-            <Button
-              disabled={archive.isPending}
-              onClick={() => archive.mutate(false)}
-            >
-              {t('common.actions.restore')}
-            </Button>
-          ) : (
-            <>
-              <Button
-                variant="danger"
-                icon="archive"
-                disabled={node.held > 0 || archive.isPending}
-                onClick={() => archive.mutate(true)}
-              >
-                {t('settings.storageLocationsPanel.archive', {
-                  label: meta.label.toLowerCase(),
-                })}
-              </Button>
-              <span className="text-label text-fg-muted">
-                {node.held > 0
-                  ? t('settings.storageLocationsPanel.moveSamplesSomewhere')
-                  : t('settings.storageLocationsPanel.archivedLocationsStay')}
-              </span>
-            </>
-          )}
-        </div>
-      ) : null}
+      {node.archivedAt ? (
+        <Button
+          disabled={archive.isPending}
+          onClick={() => archive.mutate(false)}
+        >
+          {t('common.actions.restore')}
+        </Button>
+      ) : (
+        <>
+          <Button
+            variant="danger"
+            icon="archive"
+            disabled={node.held > 0 || archive.isPending}
+            onClick={() => archive.mutate(true)}
+          >
+            {t('settings.storageLocationsPanel.archive', {
+              label: meta.label.toLowerCase(),
+            })}
+          </Button>
+          <span className="text-label text-fg-muted">
+            {node.held > 0
+              ? t('settings.storageLocationsPanel.moveSamplesSomewhere')
+              : t('settings.storageLocationsPanel.archivedLocationsStay')}
+          </span>
+        </>
+      )}
     </div>
   )
 }
@@ -645,7 +713,7 @@ function AddLocationDialog({
 }) {
   const meta = LEVEL_META[level]
   const [input, setInput] = useState<NodeInput>(EMPTY_NODE_INPUT)
-  const [codeEdited, setCodeEdited] = useState(false)
+  const codeEdited = useRef(false)
   const problem = validateNodeInput(level, input, false)
   const siblings = tree.childrenOf(parent)
 
@@ -692,12 +760,12 @@ function AddLocationDialog({
             <Input
               autoFocus
               value={input.name}
-              onChange={(e) =>
-                set({
-                  name: e.target.value,
-                  ...(codeEdited ? {} : { code: suggestCode(e.target.value) }),
-                })
-              }
+              onChange={(e) => {
+                const next: Partial<typeof input> = { name: e.target.value }
+
+                if (!codeEdited.current) next.code = suggestCode(e.target.value)
+                set(next)
+              }}
             />
           </Field>
           {meta.hasCode ? (
@@ -709,7 +777,7 @@ function AddLocationDialog({
               <Input
                 value={input.code}
                 onChange={(e) => {
-                  setCodeEdited(true)
+                  codeEdited.current = true
                   set({ code: e.target.value })
                 }}
               />
@@ -719,7 +787,13 @@ function AddLocationDialog({
             <Field label={t('settings.storageLocationsPanel.type')}>
               <Select
                 value={input.unitType}
-                onChange={(e) => set({ unitType: e.target.value as UnitType })}
+                onChange={(e) => {
+                  const unitType = UNIT_TYPES.find(
+                    (type) => type === e.target.value,
+                  )
+
+                  if (unitType) set({ unitType })
+                }}
               >
                 {UNIT_TYPES.map((type) => (
                   <option key={type} value={type}>

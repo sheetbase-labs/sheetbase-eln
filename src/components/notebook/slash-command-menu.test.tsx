@@ -7,12 +7,12 @@ import {
   BLOCK_PICKER_OPTIONS,
 } from '#/lib/blocks/registry'
 import type { BlockPickerOption } from '#/lib/blocks/registry'
+import { SlashCommandMenu } from './slash-command-menu'
 import {
-  SlashCommandMenu,
   slashCommandFilterCount,
   slashCommandFilteredOptions,
   pluginSlashOptions,
-} from './slash-command-menu'
+} from './slash-command-options'
 
 afterEach(() => cleanup())
 
@@ -170,6 +170,7 @@ describe('plugin blocks in the slash menu', () => {
       declaration: { title: 'Colony counter', description: 'Tap to count.' },
     },
   ]
+
   const options = pluginSlashOptions(blocks, 'plugin:')
 
   it('lists them after the built-in blocks and filters by name or plugin', () => {

@@ -15,7 +15,7 @@ import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 import { Button } from '#/components/ui/button'
 import { Spinner } from '#/components/ui/spinner'
-import { formatClockTime } from '#/components/offline/offline-edits'
+import { formatClockTime } from './offline-edit-model'
 
 export interface OfflineBannerProps {
   /** True while the live-event stream is offline. */

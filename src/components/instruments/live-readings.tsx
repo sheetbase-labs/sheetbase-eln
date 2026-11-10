@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { clockOption } from '#/lib/display-clock'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ClientOnly } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
 import {
@@ -42,6 +43,7 @@ import {
   formatAgo,
   formatReadingValue,
   layoutSeries,
+  limitsLabel,
   liveFeedQueryKeys,
   outOfRangeQueryKey,
   removeFeed,
@@ -49,6 +51,7 @@ import {
   setFeedLimits,
   useFeedSeries,
   useInstrumentFeeds,
+  unitSuffix,
 } from '#/components/instruments/live-feeds-data'
 import type {
   FeedRow,
@@ -80,36 +83,6 @@ export function useNow(): number {
   }, [])
 
   return now
-}
-
-export function unitSuffix(feed: Pick<FeedRow, 'unit'>): string {
-  return feed.unit ? ` ${feed.unit}` : ''
-}
-
-export function limitsLabel(feed: FeedRow): string {
-  const { lowLimit: low, highLimit: high } = feed
-  const unit = unitSuffix(feed)
-
-  if (low !== null && high !== null) {
-    return t('library.instruments.live.limitRange', {
-      low: formatReadingValue(low),
-      high: `${formatReadingValue(high)}${unit}`,
-    })
-  }
-
-  if (low !== null) {
-    return t('library.instruments.live.limitLowOnly', {
-      low: `${formatReadingValue(low)}${unit}`,
-    })
-  }
-
-  if (high !== null) {
-    return t('library.instruments.live.limitHighOnly', {
-      high: `${formatReadingValue(high)}${unit}`,
-    })
-  }
-
-  return t('library.instruments.live.noLimits')
 }
 
 export function FeedState({ feed, now }: { feed: FeedRow; now: number }) {
@@ -192,6 +165,7 @@ export function LiveChart({
           {shown
             ? t('library.instruments.live.hoverReading', {
                 value: `${formatReadingValue(shown.avg)}${unitSuffix(feed)}`,
+                // react-doctor-disable-next-line react-doctor/no-locale-format-in-render -- Hover starts null and is set only by browser pointer events; keep the reader's native local clock.
                 time: new Date(shown.at).toLocaleTimeString('en-GB', {
                   hour: '2-digit',
                   minute: '2-digit',
@@ -295,17 +269,21 @@ export function LiveChart({
           {formatReadingValue(geometry.yMin)}
         </span>
         <span className="num pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 text-label text-fg-muted">
-          {new Date(data.since).toLocaleTimeString('en-GB', {
-            hour: '2-digit',
-            minute: '2-digit',
-            ...clockOption(),
-          })}
-          {' – '}
-          {new Date(data.until).toLocaleTimeString('en-GB', {
-            hour: '2-digit',
-            minute: '2-digit',
-            ...clockOption(),
-          })}
+          <ClientOnly>
+            {/* react-doctor-disable-next-line react-doctor/no-locale-format-in-render -- ClientOnly omits native-local range text from SSR and the first hydration render while retaining the static SVG. */}
+            {new Date(data.since).toLocaleTimeString('en-GB', {
+              hour: '2-digit',
+              minute: '2-digit',
+              ...clockOption(),
+            })}
+            {' – '}
+            {/* react-doctor-disable-next-line react-doctor/no-locale-format-in-render -- ClientOnly preserves browser-local clock semantics without serialising the server's zone into the hydrated markup. */}
+            {new Date(data.until).toLocaleTimeString('en-GB', {
+              hour: '2-digit',
+              minute: '2-digit',
+              ...clockOption(),
+            })}
+          </ClientOnly>
         </span>
       </div>
     </div>
@@ -322,8 +300,8 @@ export function LimitsDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
-  const [low, setLow] = useState(feed.lowLimit?.toString() ?? '')
-  const [high, setHigh] = useState(feed.highLimit?.toString() ?? '')
+  const [low, setLow] = useState(() => feed.lowLimit?.toString() ?? '')
+  const [high, setHigh] = useState(() => feed.highLimit?.toString() ?? '')
   const [unit, setUnit] = useState(feed.unit ?? '')
   const lowNumber = low.trim() === '' ? null : Number(low)
   const highNumber = high.trim() === '' ? null : Number(high)
@@ -351,7 +329,7 @@ export function LimitsDialog({
       onOpenChange(false)
       toast(t('library.instruments.live.limitsSaved'))
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       toast(t('library.instruments.live.couldNotSaveLimits'), {
         description: error instanceof Error ? error.message : undefined,
       })
@@ -446,10 +424,11 @@ export function LiveSetupDialog({
 
   const mutation = useMutation({
     mutationFn: () => {
-      const extra = {
-        ...(feed.trim() ? { feed: feed.trim() } : {}),
-        ...(unit.trim() ? { unit: unit.trim() } : {}),
-      }
+      const extra: Pick<LiveSourceInput, 'feed' | 'unit'> = {}
+
+      if (feed.trim()) extra.feed = feed.trim()
+
+      if (unit.trim()) extra.unit = unit.trim()
 
       const source: LiveSourceInput =
         kind === 'file'
@@ -469,7 +448,7 @@ export function LiveSetupDialog({
       onOpenChange(false)
       toast(t('library.instruments.live.downloaded', { file: fileName }))
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       toast(t('library.instruments.live.couldNotDownload'), {
         description: error instanceof Error ? error.message : undefined,
       })
@@ -490,7 +469,13 @@ export function LiveSetupDialog({
             <Field label={t('library.instruments.live.system')}>
               <Select
                 value={system}
-                onChange={(e) => setSystem(e.target.value as AgentSystem)}
+                onChange={(event) => {
+                  const selected = AGENT_SYSTEMS.find(
+                    (entry) => entry.value === event.target.value,
+                  )
+
+                  if (selected) setSystem(selected.value)
+                }}
               >
                 {AGENT_SYSTEMS.map((s) => (
                   <option key={s.value} value={s.value}>
@@ -508,7 +493,12 @@ export function LiveSetupDialog({
             <Field label={t('library.instruments.live.source')}>
               <Select
                 value={kind}
-                onChange={(e) => setKind(e.target.value as 'file' | 'network')}
+                onChange={(event) => {
+                  const selected = event.target.value
+
+                  if (selected === 'file' || selected === 'network')
+                    setKind(selected)
+                }}
               >
                 <option value="file">
                   {t('library.instruments.live.sourceFile')}
@@ -739,7 +729,7 @@ export function ReadingsSection({
       setRemoving(false)
       toast(t('library.instruments.live.removed', { name: target.name }))
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       toast(t('library.instruments.live.couldNotRemove'), {
         description: error instanceof Error ? error.message : undefined,
       })
@@ -821,9 +811,13 @@ export function ReadingsSection({
                   <Select
                     aria-label={t('library.instruments.live.windowLabel')}
                     value={windowId}
-                    onChange={(e) =>
-                      setWindowId(e.target.value as LiveWindowId)
-                    }
+                    onChange={(event) => {
+                      const chosen = LIVE_WINDOWS.find(
+                        (entry) => entry.id === event.target.value,
+                      )
+
+                      if (chosen) setWindowId(chosen.id)
+                    }}
                   >
                     {LIVE_WINDOWS.map((w) => (
                       <option key={w.id} value={w.id}>

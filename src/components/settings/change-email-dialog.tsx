@@ -53,6 +53,7 @@ export function ChangeEmailDialog({
   const [value, setValue] = useState('')
   const forOther = Boolean(userId)
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- Requesting verification changes no account email; the receipt/link or refusal is shown from this mutation's result until the separate confirmation endpoint succeeds.
   const request = useMutation({
     mutationFn: () =>
       requestEmailChangeFn({
@@ -92,37 +93,7 @@ export function ChangeEmailDialog({
         />
         <DialogBody>
           {sent ? (
-            <div className="flex flex-col gap-3">
-              <Notice tone="info">
-                {forOther
-                  ? t('account.email.sentNoteAdmin', { email: result.email })
-                  : t('account.email.sentNote', { email: result.email })}
-              </Notice>
-              {result.status === 'link' ? (
-                <Notice tone="warn" title={t('account.email.noMailTitle')}>
-                  <div className="flex w-full flex-col gap-2">
-                    <span>{t('account.email.noMailBody')}</span>
-                    <code className="mono break-all text-label">
-                      {result.link}
-                    </code>
-                    <div>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          void navigator.clipboard
-                            .writeText(result.link)
-                            .then(() =>
-                              toast(t('account.email.linkCopiedToast')),
-                            )
-                        }}
-                      >
-                        {t('account.email.copyLink')}
-                      </Button>
-                    </div>
-                  </div>
-                </Notice>
-              ) : null}
-            </div>
+            <EmailChangeReceipt result={result} forOther={forOther} />
           ) : (
             <div className="flex flex-col gap-3">
               <label className="flex flex-col gap-1 text-label">
@@ -162,5 +133,43 @@ export function ChangeEmailDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function EmailChangeReceipt({
+  result,
+  forOther,
+}: {
+  result: Exclude<EmailChangeRequestResult, { status: 'refused' }>
+  forOther: boolean
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <Notice tone="info">
+        {forOther
+          ? t('account.email.sentNoteAdmin', { email: result.email })
+          : t('account.email.sentNote', { email: result.email })}
+      </Notice>
+      {result.status === 'link' ? (
+        <Notice tone="warn" title={t('account.email.noMailTitle')}>
+          <div className="flex w-full flex-col gap-2">
+            <span>{t('account.email.noMailBody')}</span>
+            <code className="mono break-all text-label">{result.link}</code>
+            <div>
+              <Button
+                size="sm"
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(result.link)
+                    .then(() => toast(t('account.email.linkCopiedToast')))
+                }}
+              >
+                {t('account.email.copyLink')}
+              </Button>
+            </div>
+          </div>
+        </Notice>
+      ) : null}
+    </div>
   )
 }

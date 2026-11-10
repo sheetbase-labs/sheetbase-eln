@@ -12,17 +12,17 @@
  * Model Fields tab, so a Columns tab would be a second, thinner view of the
  * same facts. A later audit should not re-open this.
  */
+import { z } from 'zod'
 import { DataClientError } from '#/lib/data-client'
 
 export const datasetDetailTabs = ['imports', 'used-by', 'history'] as const
 
 export type DatasetDetailTab = (typeof datasetDetailTabs)[number]
 
+const datasetDetailTabSchema = z.enum(datasetDetailTabs)
+
 export function isDatasetDetailTab(value: unknown): value is DatasetDetailTab {
-  return (
-    typeof value === 'string' &&
-    (datasetDetailTabs as readonly string[]).includes(value)
-  )
+  return datasetDetailTabSchema.safeParse(value).success
 }
 
 /**
@@ -33,15 +33,15 @@ export function isDatasetDetailTab(value: unknown): value is DatasetDetailTab {
 export type DatasetTabAccess = 'denied' | 'error'
 
 export function classifyDatasetTabAccess(
-  error: unknown,
+  cause: unknown,
 ): DatasetTabAccess | null {
-  if (!error) return null
+  if (!cause) return null
 
   if (
-    error instanceof DataClientError &&
-    (error.code === 'permission_denied' ||
-      error.code === 'unauthenticated' ||
-      error.code === '42501')
+    cause instanceof DataClientError &&
+    (cause.code === 'permission_denied' ||
+      cause.code === 'unauthenticated' ||
+      cause.code === '42501')
   ) {
     return 'denied'
   }

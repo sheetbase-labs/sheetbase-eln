@@ -26,16 +26,20 @@ export interface SampleListRow {
   ownerId: string
 }
 
-const STATUS: Record<string, { tone: Tone; label: string }> = {
-  available: { tone: 'ok', label: 'Available' },
-  reserved: { tone: 'progress', label: 'Reserved' },
-  frozen: { tone: 'stored', label: 'Frozen' },
-  quarantined: { tone: 'warn', label: 'Quarantine' },
-  expired: { tone: 'bad', label: 'Expired' },
-  hold_exceeded: { tone: 'bad', label: 'Hold exceeded' },
-  consumed: { tone: 'stored', label: 'Consumed' },
-  disposed: { tone: 'stored', label: 'Disposed' },
-}
+const STATUS = Object.fromEntries<SampleListRow['status']>(
+  Object.entries({
+    available: { tone: 'ok', label: 'Available' },
+    reserved: { tone: 'progress', label: 'Reserved' },
+    frozen: { tone: 'stored', label: 'Frozen' },
+    quarantined: { tone: 'warn', label: 'Quarantine' },
+    expired: { tone: 'bad', label: 'Expired' },
+    hold_exceeded: { tone: 'bad', label: 'Hold exceeded' },
+    consumed: { tone: 'stored', label: 'Consumed' },
+    disposed: { tone: 'stored', label: 'Disposed' },
+  }),
+)
+
+Object.setPrototypeOf(STATUS, null)
 
 /**
  * How the registry words a sample's state. A sample that is in stock reads
@@ -46,7 +50,7 @@ const STATUS: Record<string, { tone: Tone; label: string }> = {
 export function sampleStatus(
   status: string,
   releasedAt?: string | null,
-): { tone: Tone; label: string } {
+): SampleListRow['status'] {
   if (status === 'available') {
     return releasedAt
       ? { tone: 'ok', label: 'Released' }
@@ -176,13 +180,17 @@ export function sampleListFilters(
 
 /** The database's column for each column a person can sort the list by. The
  * others (quantity, added fields) order the rows already loaded. */
-const SAMPLE_SORT_COLUMNS: Record<string, string> = {
-  identifier: 'identifier',
-  name: 'title',
-  type: 'properties->>sampleType',
-  location: 'properties->>storageLocation',
-  status: 'status',
-}
+const SAMPLE_SORT_COLUMNS = Object.fromEntries<string>(
+  Object.entries({
+    identifier: 'identifier',
+    name: 'title',
+    type: 'properties->>sampleType',
+    location: 'properties->>storageLocation',
+    status: 'status',
+  }),
+)
+
+Object.setPrototypeOf(SAMPLE_SORT_COLUMNS, null)
 
 /** The PostgREST `order` for a header sort: newest first unless a column was
  * clicked. Sorting in the database keeps a click right past the first page. */
@@ -240,18 +248,25 @@ export function useSampleTabCounts(
     queryKey: [...sampleListQueryKeys.page, 'counts', userId, query],
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<Record<SampleTabKey, number>> => {
-      const totals = await Promise.all(
-        SAMPLE_TABS.map((tab) =>
-          client.count(
+      const totals: Record<SampleTabKey, number> = {
+        instock: 0,
+        mine: 0,
+        awaiting: 0,
+        quarantine: 0,
+        consumed: 0,
+        archived: 0,
+      }
+
+      await Promise.all(
+        SAMPLE_TABS.map(async (tab) => {
+          totals[tab] = await client.count(
             'records',
             `?${sampleListFilters(tab, userId, query).join('&')}`,
-          ),
-        ),
+          )
+        }),
       )
 
-      return Object.fromEntries(
-        SAMPLE_TABS.map((tab, i) => [tab, totals[i]]),
-      ) as Record<SampleTabKey, number>
+      return totals
     },
     staleTime: 15_000,
   })

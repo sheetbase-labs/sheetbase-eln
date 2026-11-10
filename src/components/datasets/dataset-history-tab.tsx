@@ -17,21 +17,28 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import { t } from '#/copy'
 import { ObjectHistoryTimeline } from '#/components/audit/object-history-timeline'
 import { classifyDatasetTabAccess } from '#/components/datasets/dataset-detail-tabs'
+import type { DataClient } from '#/lib/data-client'
 import {
   auditHistoryDataClient,
   auditHistoryQueryKeys,
   fetchAuditEvents,
 } from '#/lib/audit-history'
 
-export function DatasetHistoryTab({ datasetId }: { datasetId: string }) {
+export function DatasetHistoryTab({
+  datasetId,
+  client = auditHistoryDataClient,
+}: {
+  datasetId: string
+  client?: DataClient
+}) {
   const historyQuery = useInfiniteQuery({
     queryKey: auditHistoryQueryKeys.events({ object: datasetId }),
-    initialPageParam: undefined as number | undefined,
-    queryFn: ({ pageParam }) =>
-      fetchAuditEvents(auditHistoryDataClient, {
+    initialPageParam: undefined,
+    queryFn: ({ pageParam }: { pageParam: number | undefined }) =>
+      fetchAuditEvents(client, {
         object: datasetId,
         limit: 50,
-        ...(pageParam === undefined ? {} : { beforeSequence: pageParam }),
+        beforeSequence: pageParam,
       }),
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? (lastPage.nextCursor ?? undefined) : undefined,

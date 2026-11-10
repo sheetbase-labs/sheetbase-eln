@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { t } from '#/copy'
@@ -12,6 +11,7 @@ import {
   CHART_TYPE_LABELS,
   HEATMAP_AGGREGATES,
   MAX_ANNOTATIONS,
+  chartStringParameter,
 } from '#/lib/chart-spec'
 import {
   ROLE_SPEC_KEY,
@@ -21,19 +21,10 @@ import {
 } from '#/lib/chart-encodings'
 import type { ChartRole } from '#/lib/chart-encodings'
 import { ChartEncodingEditor } from '#/components/viz/chart-encodings'
-import type { ChartAnnotation, ChartSpec, FieldBinding } from '#/lib/chart-spec'
+import type { ChartAnnotation, ChartSpec } from '#/lib/chart-spec'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
-import {
-  proposeChartSpec,
-  proposeChartSpecFromChoice,
-} from '#/lib/assist-drafts'
-import { usePageAi } from '#/lib/use-page-ai'
-import {
-  chartSuggestionInstruction,
-  parseChartChoice,
-} from '#/lib/ai-explain-data'
-import type { AssistChartProposal } from '#/lib/assist-drafts'
-import { DraftProposalPanel } from '#/components/assist/draft-proposal-panel'
+import { AuthoringProposal } from './authoring-proposal'
+import { changeAuthoringField, changeAuthoringType } from './authoring-spec'
 
 export interface ChartConfiguratorProps {
   source: CanonicalDatasetSource
@@ -52,87 +43,117 @@ export function ChartConfigurator({
   idPrefix = 'chart',
   layout = 'wrap',
 }: ChartConfiguratorProps) {
-  const columns = source.columns
-  const numericColumns = columns.filter(isMeasuredColumn)
-  const categoryColumns = columns.filter(isCategoryColumn)
-
-  const errorColumns = numericColumns.filter(
-    (column) =>
-      column.id !== spec.fields.x?.fieldId &&
-      column.id !== spec.fields.y.fieldId &&
-      /\b(sd|se|sem|error|ci|confidence|deviation)\b/i.test(column.label),
-  )
-
-  const aggregateTransform = spec.transformations.find(
-    (transformation) => transformation.kind === 'aggregate',
-  )
-
-  const normaliseTransform = spec.transformations.find(
-    (transformation) => transformation.kind === 'normalise',
-  )
-
-  // ASSIST-02: deterministic chart-config proposal from the current
-  // dataset/fields. Previewed in DraftProposalPanel; Accept loads the spec
-  // through the ordinary onSpecChange; Discard leaves zero state.
-  const [chartProposal, setChartProposal] =
-    useState<AssistChartProposal | null>(null)
-
-  const [proposalStatus, setProposalStatus] = useState('')
-
-  const ai = usePageAi()
-  const [proposing, setProposing] = useState(false)
-
-  async function proposeFromDataset() {
-    const fields = source.columns.map((column) => ({
-      fieldId: column.id,
-      label: column.label,
-      logicalType: column.logicalType,
-    }))
-
-    let proposal: AssistChartProposal | null = null
-
-    if (ai.live) {
-      // The workspace's model picks the chart; anything it gets wrong (an
-      // unknown field, a type the validator refuses) falls back to the rules.
-      setProposing(true)
-
-      try {
-        const result = await ai.run({
-          task: 'suggest_chart',
-          instruction: chartSuggestionInstruction(fields, CHART_TYPES),
-        })
-
-        const choice =
-          result.status === 'ok'
-            ? parseChartChoice(result.text, fields, CHART_TYPES)
-            : null
-
-        if (choice)
-          proposal = proposeChartSpecFromChoice({
-            datasetId: source.datasetId,
-            fields,
-            type: choice.type as ChartSpec['type'],
-            xFieldId: choice.xFieldId,
-            yFieldId: choice.yFieldId,
-            reason: choice.reason,
-          })
-      } finally {
-        setProposing(false)
-      }
-    }
-
-    proposal ??= proposeChartSpec({ datasetId: source.datasetId, fields })
-    setChartProposal(proposal)
-    setProposalStatus(
-      proposal
-        ? ''
-        : t('data.chartConfigurator.suggestionAvailableTheseFields'),
+  function assignRole(role: ChartRole, fieldId: string | null) {
+    onSpecChange(
+      changeAuthoringField(
+        spec,
+        source.columns,
+        ROLE_SPEC_KEY[role],
+        fieldId ?? '',
+      ),
     )
   }
 
-  function update(patch: Partial<ChartSpec>) {
-    onSpecChange({ ...spec, ...patch })
-  }
+  return (
+    <div
+      className={
+        layout === 'rail'
+          ? 'space-y-2.5 p-2'
+          : 'shrink-0 space-y-2.5 border-b pb-3'
+      }
+      aria-labelledby={`${idPrefix}-controls-title`}
+    >
+      <h2 id={`${idPrefix}-controls-title`} className="sr-only">
+        {t('data.chartConfigurator.chartConfiguration')}
+      </h2>
+      <AuthoringProposal source={source} onSpecChange={onSpecChange} />
+      <AuthoringBindings
+        source={source}
+        spec={spec}
+        onSpecChange={onSpecChange}
+        idPrefix={idPrefix}
+        layout={layout}
+      />
+      <AuthoringStatistics
+        source={source}
+        spec={spec}
+        onSpecChange={onSpecChange}
+        idPrefix={idPrefix}
+      />
+      <AuthoringOverlays
+        source={source}
+        spec={spec}
+        onSpecChange={onSpecChange}
+        idPrefix={idPrefix}
+      />
+      <AuthoringTypeParams
+        source={source}
+        spec={spec}
+        onSpecChange={onSpecChange}
+        idPrefix={idPrefix}
+      />
+      <div className="flex flex-wrap items-end gap-3 pt-2.5">
+        <div className="min-w-40 flex-1">
+          <label
+            className="text-label text-fg-muted"
+            htmlFor={`${idPrefix}-facet`}
+          >
+            {t('data.chartConfigurator.facetOptional')}
+          </label>
+          <Select
+            id={`${idPrefix}-facet`}
+            aria-label={t('data.chartConfigurator.ariaFacetColumn')}
+            value={spec.fields.facet?.fieldId ?? ''}
+            onChange={(event) =>
+              onSpecChange(
+                changeAuthoringField(
+                  spec,
+                  source.columns,
+                  'facet',
+                  event.target.value,
+                ),
+              )
+            }
+            className="h-8 bg-surface"
+          >
+            <option value="">{t('data.chartConfigurator.noFacets')}</option>
+            {columnsForRole('facet', source.columns, spec.type).map(
+              (column) => (
+                <option key={column.id} value={column.id}>
+                  {column.label}
+                </option>
+              ),
+            )}
+          </Select>
+        </div>
+      </div>
+      <div className="pt-2.5">
+        <ChartEncodingEditor
+          idPrefix={`${idPrefix}-enc`}
+          columns={source.columns}
+          spec={spec}
+          onAssign={assignRole}
+        />
+      </div>
+      <AuthoringAnnotations
+        spec={spec}
+        onSpecChange={onSpecChange}
+        idPrefix={idPrefix}
+      />
+    </div>
+  )
+}
+
+function AuthoringBindings({
+  source,
+  spec,
+  onSpecChange,
+  idPrefix = 'chart',
+  layout = 'wrap',
+}: ChartConfiguratorProps) {
+  const columns = source.columns
+  const numericColumns = columns.filter(isMeasuredColumn)
+  const categoryColumns = columns.filter(isCategoryColumn)
 
   const TYPE_ICONS: Record<ChartSpec['type'], ReactNode> = {
     line: <Icon name="lineChart" className="size-3.5" aria-hidden />,
@@ -157,202 +178,14 @@ export function ChartConfigurator({
   /** Switching types keeps the spec coherent: fields that carry no meaning
    * for the new type are cleared and stale type-specific params dropped. */
   function setType(next: ChartSpec['type']) {
-    const fields = { ...spec.fields }
-    let overlays = spec.overlays
-    let typeParams: ChartSpec['typeParams'] = {}
-
-    if (
-      next === 'histogram' ||
-      next === 'box' ||
-      next === 'violin' ||
-      next === 'strip'
-    ) {
-      fields.x = next === 'strip' || next === 'violin' ? spec.fields.x : null
-
-      if (next === 'box') typeParams = { box: { showOutliers: true } }
-      else if (next === 'histogram') typeParams = { histogram: { bins: 10 } }
-      else if (next === 'strip') typeParams = { strip: { jitter: 0.18 } }
-      else typeParams = {}
-    } else if (next === 'heatmap') {
-      // A heatmap's grid needs both dimensions, and its X is cleared by the
-      // histogram/box types this can be switched in from. Fall back to the
-      // first measured field so the switch yields a grid rather than a spec
-      // the materialiser has to refuse.
-      fields.x =
-        fields.x ??
-        (numericColumns[0] ? { fieldId: numericColumns[0].id } : null)
-      fields.series = null
-      fields.color = null
-      fields.size = null
-      overlays = { errorBars: null }
-      typeParams = {
-        heatmap: { aggregate: 'count', valueField: null, xBins: 10, yBins: 10 },
-      }
-    }
-
-    const display = CARTESIAN_CHART_TYPES.includes(next)
-      ? spec.display
-      : { ...spec.display, annotations: [] }
-
-    update({
-      type: next,
-      fields,
-      overlays,
-      typeParams,
-      display,
-    })
-  }
-
-  function updateHistogramParams(
-    patch: Partial<{ bins: number; binWidth: number }>,
-  ) {
-    update({
-      typeParams: {
-        ...spec.typeParams,
-        histogram: { ...(spec.typeParams.histogram ?? {}), ...patch },
-      },
-    })
-  }
-
-  function updateHeatmapParams(
-    patch: Partial<NonNullable<ChartSpec['typeParams']['heatmap']>>,
-  ) {
-    update({
-      typeParams: {
-        ...spec.typeParams,
-        heatmap: {
-          aggregate: 'count',
-          valueField: null,
-          ...(spec.typeParams.heatmap ?? {}),
-          ...patch,
-        },
-      },
-    })
-  }
-
-  function setAnnotations(annotations: ChartAnnotation[]) {
-    update({ display: { ...spec.display, annotations } })
+    onSpecChange(changeAuthoringType(spec, numericColumns, next))
   }
 
   function setField(
     key: 'x' | 'y' | 'series' | 'color' | 'size' | 'facet',
     fieldId: string,
   ) {
-    const column = columns.find((candidate) => candidate.id === fieldId)
-    const binding: FieldBinding | null = column ? { fieldId: column.id } : null
-    const fields = { ...spec.fields, [key]: binding }
-
-    const transformations = spec.transformations.map((transformation) => {
-      if (transformation.kind === 'aggregate') {
-        return {
-          ...transformation,
-          params: {
-            ...transformation.params,
-            xField: fields.x?.fieldId ?? null,
-            yField: fields.y.fieldId,
-            seriesField: fields.series?.fieldId ?? null,
-          },
-        }
-      }
-
-      if (transformation.kind === 'normalise') {
-        return {
-          ...transformation,
-          params: {
-            ...transformation.params,
-            yField: fields.y.fieldId,
-            seriesField: fields.series?.fieldId ?? null,
-          },
-        }
-      }
-
-      return transformation
-    })
-
-    const display = { ...spec.display }
-
-    if (key === 'x') {
-      display.axes = {
-        ...display.axes,
-        x: {
-          ...display.axes.x,
-          label: column?.label ?? t('data.chartConfigurator.row'),
-          unit: column ? display.axes.x.unit : undefined,
-        },
-      }
-    }
-
-    if (key === 'y' && column) {
-      display.axes = {
-        ...display.axes,
-        y: { ...display.axes.y, label: column.label },
-      }
-    }
-
-    const overlays =
-      spec.overlays.errorBars &&
-      (spec.overlays.errorBars.fieldId === fields.x?.fieldId ||
-        spec.overlays.errorBars.fieldId === fields.y.fieldId)
-        ? { ...spec.overlays, errorBars: null }
-        : spec.overlays
-
-    onSpecChange({ ...spec, fields, transformations, display, overlays })
-  }
-
-  /** One entry point for both authoring paths (drag/drop and dropdowns). */
-  function assignRole(role: ChartRole, fieldId: string | null) {
-    setField(ROLE_SPEC_KEY[role], fieldId ?? '')
-  }
-
-  function setTransformation(kind: 'aggregate' | 'normalise', value: string) {
-    const others = spec.transformations.filter(
-      (transformation) => transformation.kind !== kind,
-    )
-
-    if (!value) return update({ transformations: others })
-    update({
-      transformations: [
-        ...others,
-        kind === 'aggregate'
-          ? {
-              kind,
-              params: {
-                function: value,
-                xField: spec.fields.x?.fieldId ?? null,
-                yField: spec.fields.y.fieldId,
-                seriesField: spec.fields.series?.fieldId ?? null,
-              },
-            }
-          : {
-              kind,
-              params: {
-                method: value,
-                yField: spec.fields.y.fieldId,
-                seriesField: spec.fields.series?.fieldId ?? null,
-              },
-            },
-      ],
-    })
-  }
-
-  function setErrorBarColumn(fieldId: string) {
-    if (!fieldId) {
-      return update({ overlays: { ...spec.overlays, errorBars: null } })
-    }
-
-    const column = errorColumns.find((candidate) => candidate.id === fieldId)
-
-    if (!column) return
-    update({
-      overlays: {
-        ...spec.overlays,
-        errorBars: {
-          fieldId: column.id,
-          basis: 'custom',
-          multiplier: 1,
-        },
-      },
-    })
+    onSpecChange(changeAuthoringField(spec, columns, key, fieldId))
   }
 
   // Histograms and box plots measure fields.y directly (no x mapping);
@@ -421,183 +254,255 @@ export function ChartConfigurator({
 
   return (
     <div
+      data-chart-encoding-fields
       className={
         layout === 'rail'
-          ? 'space-y-2.5 p-2'
-          : 'shrink-0 space-y-2.5 border-b pb-3'
+          ? 'flex flex-col gap-3'
+          : 'flex flex-wrap items-end gap-3'
       }
-      aria-labelledby={`${idPrefix}-controls-title`}
     >
-      <h2 id={`${idPrefix}-controls-title`} className="sr-only">
-        {t('data.chartConfigurator.chartConfiguration')}
-      </h2>
-      <div className="flex flex-wrap items-center gap-2" data-print-hide>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={proposing}
-          onClick={() => void proposeFromDataset()}
+      <div className={layout === 'rail' ? 'w-full' : 'min-w-fit shrink-0'}>
+        <span
+          id={`${idPrefix}-type-label`}
+          className="text-label text-fg-muted"
         >
-          {proposing
-            ? t('data.chartConfigurator.proposingChart')
-            : t('data.chartConfigurator.proposeChart')}
-        </Button>
-        {proposalStatus ? (
-          <p className="text-xs text-fg-muted">{proposalStatus}</p>
-        ) : null}
-      </div>
-      {chartProposal ? (
-        <DraftProposalPanel
-          proposal={chartProposal}
-          onAccept={() => {
-            onSpecChange(chartProposal.spec)
-            setChartProposal(null)
-          }}
-          onDiscard={() => setChartProposal(null)}
-        />
-      ) : null}
-      <div
-        data-chart-encoding-fields
-        className={
-          layout === 'rail'
-            ? 'flex flex-col gap-3'
-            : 'flex flex-wrap items-end gap-3'
-        }
-      >
-        <div className={layout === 'rail' ? 'w-full' : 'min-w-fit shrink-0'}>
-          <label className="text-label text-fg-muted">
-            {t('data.chartConfigurator.chartType')}
-          </label>
-          {layout === 'rail' ? (
-            <div
-              role="radiogroup"
-              aria-label={t('data.chartConfigurator.chartType')}
-              className="grid grid-cols-4 gap-1"
-            >
-              {typeButtons}
-            </div>
-          ) : (
-            <div
-              role="radiogroup"
-              aria-label={t('data.chartConfigurator.chartType')}
-              className="flex items-center gap-1"
-            >
-              {typeButtons}
-            </div>
-          )}
-        </div>
-        {fields.map((field) => (
+          {t('data.chartConfigurator.chartType')}
+        </span>
+        {layout === 'rail' ? (
           <div
-            key={field.key}
-            className={layout === 'rail' ? 'w-full' : 'min-w-36 flex-1'}
+            role="radiogroup"
+            aria-labelledby={`${idPrefix}-type-label`}
+            className="grid grid-cols-4 gap-1"
           >
-            <label
-              className="text-label text-fg-muted"
-              htmlFor={`${idPrefix}-${field.key}`}
-            >
-              {field.label}
-            </label>
-            <Select
-              id={`${idPrefix}-${field.key}`}
-              aria-label={field.ariaLabel}
-              value={field.value}
-              onChange={(event) => setField(field.key, event.target.value)}
-              className="h-8 bg-surface"
-            >
-              {field.empty ? <option value="">{field.empty}</option> : null}
-              {field.columns.map((column) => (
-                <option key={column.id} value={column.id}>
-                  {column.label}
-                </option>
-              ))}
-            </Select>
+            {typeButtons}
           </div>
-        ))}
+        ) : (
+          <div
+            role="radiogroup"
+            aria-labelledby={`${idPrefix}-type-label`}
+            className="flex items-center gap-1"
+          >
+            {typeButtons}
+          </div>
+        )}
       </div>
-      <div className="flex flex-wrap items-end gap-3 pt-2.5">
-        <div className="min-w-36 flex-1">
+      {fields.map((field) => (
+        <div
+          key={field.key}
+          className={layout === 'rail' ? 'w-full' : 'min-w-36 flex-1'}
+        >
           <label
             className="text-label text-fg-muted"
-            htmlFor={`${idPrefix}-aggregation`}
+            htmlFor={`${idPrefix}-${field.key}`}
           >
-            {t('data.chartConfigurator.aggregation')}
+            {field.label}
           </label>
           <Select
-            id={`${idPrefix}-aggregation`}
-            aria-label={t('data.chartConfigurator.ariaAggregationFunction')}
-            value={
-              typeof aggregateTransform?.params.function === 'string'
-                ? aggregateTransform.params.function
-                : ''
-            }
-            onChange={(event) =>
-              setTransformation('aggregate', event.target.value)
-            }
+            id={`${idPrefix}-${field.key}`}
+            aria-label={field.ariaLabel}
+            value={field.value}
+            onChange={(event) => setField(field.key, event.target.value)}
             className="h-8 bg-surface"
           >
-            <option value="">{t('data.chartConfigurator.noneRawRows')}</option>
-            <option value="mean">{t('data.chartConfigurator.meanX')}</option>
-            <option value="sum">{t('data.chartConfigurator.sumX')}</option>
-            <option value="min">{t('data.chartConfigurator.minimumX')}</option>
-            <option value="max">{t('data.chartConfigurator.maximumX')}</option>
-            <option value="count">{t('data.chartConfigurator.countX')}</option>
+            {field.empty ? <option value="">{field.empty}</option> : null}
+            {field.columns.map((column) => (
+              <option key={column.id} value={column.id}>
+                {column.label}
+              </option>
+            ))}
           </Select>
         </div>
-        <div className="min-w-36 flex-1">
+      ))}
+    </div>
+  )
+}
+
+/** Error columns are shared by the explicit interval and statistics controls. */
+function authoringErrorColumns(
+  source: CanonicalDatasetSource,
+  spec: ChartSpec,
+) {
+  return source.columns.filter(
+    (column) =>
+      isMeasuredColumn(column) &&
+      column.id !== spec.fields.x?.fieldId &&
+      column.id !== spec.fields.y.fieldId &&
+      /\b(sd|se|sem|error|ci|confidence|deviation)\b/i.test(column.label),
+  )
+}
+
+function AuthoringStatistics({
+  source,
+  spec,
+  onSpecChange,
+  idPrefix,
+}: ChartConfiguratorProps) {
+  const errorColumns = authoringErrorColumns(source, spec)
+
+  const aggregateTransform = spec.transformations.find(
+    (transformation) => transformation.kind === 'aggregate',
+  )
+
+  const normaliseTransform = spec.transformations.find(
+    (transformation) => transformation.kind === 'normalise',
+  )
+
+  function setTransformation(kind: 'aggregate' | 'normalise', value: string) {
+    const others = spec.transformations.filter(
+      (transformation) => transformation.kind !== kind,
+    )
+
+    if (!value) return onSpecChange({ ...spec, transformations: others })
+    onSpecChange({
+      ...spec,
+      transformations: [
+        ...others,
+        kind === 'aggregate'
+          ? {
+              kind,
+              params: {
+                function: value,
+                xField: spec.fields.x?.fieldId ?? null,
+                yField: spec.fields.y.fieldId,
+                seriesField: spec.fields.series?.fieldId ?? null,
+              },
+            }
+          : {
+              kind,
+              params: {
+                method: value,
+                yField: spec.fields.y.fieldId,
+                seriesField: spec.fields.series?.fieldId ?? null,
+              },
+            },
+      ],
+    })
+  }
+
+  function setErrorBarColumn(fieldId: string) {
+    const next = changeAuthoringErrorColumn(spec, errorColumns, fieldId)
+
+    if (next !== spec) onSpecChange(next)
+  }
+
+  return (
+    <div className="flex flex-wrap items-end gap-3 pt-2.5">
+      <div className="min-w-36 flex-1">
+        <label
+          className="text-label text-fg-muted"
+          htmlFor={`${idPrefix}-aggregation`}
+        >
+          {t('data.chartConfigurator.aggregation')}
+        </label>
+        <Select
+          id={`${idPrefix}-aggregation`}
+          aria-label={t('data.chartConfigurator.ariaAggregationFunction')}
+          value={chartStringParameter(aggregateTransform?.params.function)}
+          onChange={(event) =>
+            setTransformation('aggregate', event.target.value)
+          }
+          className="h-8 bg-surface"
+        >
+          <option value="">{t('data.chartConfigurator.noneRawRows')}</option>
+          <option value="mean">{t('data.chartConfigurator.meanX')}</option>
+          <option value="sum">{t('data.chartConfigurator.sumX')}</option>
+          <option value="min">{t('data.chartConfigurator.minimumX')}</option>
+          <option value="max">{t('data.chartConfigurator.maximumX')}</option>
+          <option value="count">{t('data.chartConfigurator.countX')}</option>
+        </Select>
+      </div>
+      <div className="min-w-36 flex-1">
+        <label
+          className="text-label text-fg-muted"
+          htmlFor={`${idPrefix}-normalisation`}
+        >
+          {t('data.chartConfigurator.normalisation')}
+        </label>
+        <Select
+          id={`${idPrefix}-normalisation`}
+          aria-label={t('data.chartConfigurator.ariaNormalisationMethod')}
+          value={chartStringParameter(normaliseTransform?.params.method)}
+          onChange={(event) =>
+            setTransformation('normalise', event.target.value)
+          }
+          className="h-8 bg-surface"
+        >
+          <option value="">{t('common.states.none')}</option>
+          <option value="percent_of_max">
+            {t('data.chartConfigurator.percentMaximum')}
+          </option>
+          <option value="z_score">{t('data.chartConfigurator.zScore')}</option>
+        </Select>
+      </div>
+      {errorColumns.length ? (
+        <div className="min-w-40 flex-1">
           <label
             className="text-label text-fg-muted"
-            htmlFor={`${idPrefix}-normalisation`}
+            htmlFor={`${idPrefix}-error-column`}
           >
-            {t('data.chartConfigurator.normalisation')}
+            {t('data.chartConfigurator.errorBars')}
           </label>
           <Select
-            id={`${idPrefix}-normalisation`}
-            aria-label={t('data.chartConfigurator.ariaNormalisationMethod')}
-            value={
-              typeof normaliseTransform?.params.method === 'string'
-                ? normaliseTransform.params.method
-                : ''
-            }
-            onChange={(event) =>
-              setTransformation('normalise', event.target.value)
-            }
+            id={`${idPrefix}-error-column`}
+            aria-label={t('data.chartConfigurator.ariaErrorBarColumn')}
+            value={spec.overlays.errorBars?.fieldId ?? ''}
+            onChange={(event) => setErrorBarColumn(event.target.value)}
             className="h-8 bg-surface"
           >
             <option value="">{t('common.states.none')}</option>
-            <option value="percent_of_max">
-              {t('data.chartConfigurator.percentMaximum')}
-            </option>
-            <option value="z_score">
-              {t('data.chartConfigurator.zScore')}
-            </option>
+            {errorColumns.map((column) => (
+              <option key={column.id} value={column.id}>
+                {column.label}
+              </option>
+            ))}
           </Select>
         </div>
-        {errorColumns.length ? (
-          <div className="min-w-40 flex-1">
-            <label
-              className="text-label text-fg-muted"
-              htmlFor={`${idPrefix}-error-column`}
-            >
-              {t('data.chartConfigurator.errorBars')}
-            </label>
-            <Select
-              id={`${idPrefix}-error-column`}
-              aria-label={t('data.chartConfigurator.ariaErrorBarColumn')}
-              value={spec.overlays.errorBars?.fieldId ?? ''}
-              onChange={(event) => setErrorBarColumn(event.target.value)}
-              className="h-8 bg-surface"
-            >
-              <option value="">{t('common.states.none')}</option>
-              {errorColumns.map((column) => (
-                <option key={column.id} value={column.id}>
-                  {column.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-        ) : null}
-      </div>
+      ) : null}
+    </div>
+  )
+}
+
+function changeAuthoringErrorColumn(
+  spec: ChartSpec,
+  columns: CanonicalDatasetSource['columns'],
+  fieldId: string,
+): ChartSpec {
+  if (!fieldId)
+    return { ...spec, overlays: { ...spec.overlays, errorBars: null } }
+
+  const column = columns.find((candidate) => candidate.id === fieldId)
+
+  if (!column) return spec
+
+  return {
+    ...spec,
+    overlays: {
+      ...spec.overlays,
+      errorBars: { fieldId: column.id, basis: 'custom', multiplier: 1 },
+    },
+  }
+}
+
+function AuthoringOverlays({
+  source,
+  spec,
+  onSpecChange,
+  idPrefix,
+}: ChartConfiguratorProps) {
+  const errorColumns = authoringErrorColumns(source, spec)
+
+  function update(patch: Partial<ChartSpec>) {
+    onSpecChange({ ...spec, ...patch })
+  }
+
+  function setErrorBarColumn(fieldId: string) {
+    const next = changeAuthoringErrorColumn(spec, errorColumns, fieldId)
+
+    if (next !== spec) onSpecChange(next)
+  }
+
+  return (
+    <>
       <div className="flex flex-wrap items-end gap-3 pt-2.5">
         <div className="min-w-36 flex-1">
           <label
@@ -670,12 +575,14 @@ export function ChartConfigurator({
                 return
               }
 
+              if (value !== 'sd' && value !== 'sem' && value !== 'ci') return
+
               update({
                 overlays: {
                   ...spec.overlays,
                   errorBars: {
                     source: 'computed',
-                    basis: value as 'sd' | 'sem' | 'ci',
+                    basis: value,
                     multiplier: 1,
                     statistic: 'mean',
                   },
@@ -749,6 +656,49 @@ export function ChartConfigurator({
           />
         </div>
       </div>
+    </>
+  )
+}
+
+function AuthoringTypeParams({
+  source,
+  spec,
+  onSpecChange,
+  idPrefix,
+}: ChartConfiguratorProps) {
+  const numericColumns = source.columns.filter(isMeasuredColumn)
+
+  function updateHistogramParams(
+    patch: Partial<NonNullable<ChartSpec['typeParams']['histogram']>>,
+  ) {
+    onSpecChange({
+      ...spec,
+      typeParams: {
+        ...spec.typeParams,
+        histogram: { ...spec.typeParams.histogram, ...patch },
+      },
+    })
+  }
+
+  function updateHeatmapParams(
+    patch: Partial<NonNullable<ChartSpec['typeParams']['heatmap']>>,
+  ) {
+    onSpecChange({
+      ...spec,
+      typeParams: {
+        ...spec.typeParams,
+        heatmap: {
+          aggregate: 'count',
+          valueField: null,
+          ...spec.typeParams.heatmap,
+          ...patch,
+        },
+      },
+    })
+  }
+
+  return (
+    <>
       {spec.type === 'histogram' ? (
         <div className="flex flex-wrap items-end gap-3 pt-2.5">
           <div className="min-w-32 flex-1">
@@ -821,9 +771,11 @@ export function ChartConfigurator({
               )}
               value={spec.typeParams.heatmap?.aggregate ?? 'count'}
               onChange={(event) => {
-                const aggregate = event.target.value as NonNullable<
-                  ChartSpec['typeParams']['heatmap']
-                >['aggregate']
+                const aggregate = HEATMAP_AGGREGATES.find(
+                  (candidate) => candidate === event.target.value,
+                )
+
+                if (!aggregate) return
 
                 updateHeatmapParams(
                   aggregate === 'count'
@@ -926,162 +878,140 @@ export function ChartConfigurator({
           </div>
         </div>
       ) : null}
-      <div className="flex flex-wrap items-end gap-3 pt-2.5">
-        <div className="min-w-40 flex-1">
-          <label
-            className="text-label text-fg-muted"
-            htmlFor={`${idPrefix}-facet`}
-          >
-            {t('data.chartConfigurator.facetOptional')}
-          </label>
-          <Select
-            id={`${idPrefix}-facet`}
-            aria-label={t('data.chartConfigurator.ariaFacetColumn')}
-            value={spec.fields.facet?.fieldId ?? ''}
-            onChange={(event) => setField('facet', event.target.value)}
-            className="h-8 bg-surface"
-          >
-            <option value="">{t('data.chartConfigurator.noFacets')}</option>
-            {columnsForRole('facet', columns, spec.type).map((column) => (
-              <option key={column.id} value={column.id}>
-                {column.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-      </div>
-      <div className="pt-2.5">
-        <ChartEncodingEditor
-          idPrefix={`${idPrefix}-enc`}
-          columns={columns}
-          spec={spec}
-          onAssign={assignRole}
-        />
-      </div>
-      {CARTESIAN_CHART_TYPES.includes(spec.type) ? (
-        <div className="space-y-2 pt-2.5">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-fg-muted">
-              {t('data.chartConfigurator.annotations', {
-                length: (spec.display.annotations ?? []).length,
-                MAX_ANNOTATIONS,
-              })}
-            </p>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={
-                (spec.display.annotations ?? []).length >= MAX_ANNOTATIONS
-              }
-              onClick={() =>
-                setAnnotations([
-                  ...(spec.display.annotations ?? []),
-                  {
-                    x: 0,
-                    y: 0,
-                    label: t('data.chartConfigurator.newAnnotation'),
-                  },
-                ])
-              }
-            >
-              <Icon name="plus" /> {t('data.chartConfigurator.addAnnotation')}
-            </Button>
-          </div>
-          {(spec.display.annotations ?? []).map((annotation, i) => (
-            <div key={i} className="flex items-end gap-2">
-              <div className="w-20">
-                <label
-                  className="text-label text-fg-muted"
-                  htmlFor={`${idPrefix}-ann-${i}-x`}
-                >
-                  X
-                </label>
-                <Input
-                  id={`${idPrefix}-ann-${i}-x`}
-                  aria-label={t('data.chartConfigurator.ariaAnnotationX', {
-                    value: i + 1,
-                  })}
-                  type="number"
-                  step="any"
-                  value={annotation.x}
-                  onChange={(event) =>
-                    setAnnotations(
-                      (spec.display.annotations ?? []).map((a, j) =>
-                        j === i ? { ...a, x: Number(event.target.value) } : a,
-                      ),
-                    )
-                  }
-                  className="h-8 bg-surface"
-                />
-              </div>
-              <div className="w-20">
-                <label
-                  className="text-label text-fg-muted"
-                  htmlFor={`${idPrefix}-ann-${i}-y`}
-                >
-                  Y
-                </label>
-                <Input
-                  id={`${idPrefix}-ann-${i}-y`}
-                  aria-label={t('data.chartConfigurator.ariaAnnotationY', {
-                    value: i + 1,
-                  })}
-                  type="number"
-                  step="any"
-                  value={annotation.y}
-                  onChange={(event) =>
-                    setAnnotations(
-                      (spec.display.annotations ?? []).map((a, j) =>
-                        j === i ? { ...a, y: Number(event.target.value) } : a,
-                      ),
-                    )
-                  }
-                  className="h-8 bg-surface"
-                />
-              </div>
-              <div className="flex-1">
-                <label
-                  className="text-label text-fg-muted"
-                  htmlFor={`${idPrefix}-ann-${i}-label`}
-                >
-                  {t('data.chartConfigurator.label')}
-                </label>
-                <Input
-                  id={`${idPrefix}-ann-${i}-label`}
-                  aria-label={t('data.chartConfigurator.ariaAnnotationLabel', {
-                    value: i + 1,
-                  })}
-                  value={annotation.label}
-                  onChange={(event) =>
-                    setAnnotations(
-                      (spec.display.annotations ?? []).map((a, j) =>
-                        j === i ? { ...a, label: event.target.value } : a,
-                      ),
-                    )
-                  }
-                  className="h-8 bg-surface"
-                />
-              </div>
-              <Button
-                type="button"
-                variant="quiet"
-                size="icon"
-                aria-label={t('data.chartConfigurator.ariaRemoveAnnotation', {
-                  value: i + 1,
-                })}
-                onClick={() =>
-                  setAnnotations(
-                    (spec.display.annotations ?? []).filter((_, j) => j !== i),
-                  )
-                }
-              >
-                <Icon name="trash" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
+    </>
   )
+}
+
+function AuthoringAnnotations({
+  spec,
+  onSpecChange,
+  idPrefix,
+}: Pick<ChartConfiguratorProps, 'spec' | 'onSpecChange' | 'idPrefix'>) {
+  function setAnnotations(annotations: ChartAnnotation[]) {
+    onSpecChange({ ...spec, display: { ...spec.display, annotations } })
+  }
+
+  return CARTESIAN_CHART_TYPES.includes(spec.type) ? (
+    <div className="space-y-2 pt-2.5">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-fg-muted">
+          {t('data.chartConfigurator.annotations', {
+            length: (spec.display.annotations ?? []).length,
+            MAX_ANNOTATIONS,
+          })}
+        </p>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={(spec.display.annotations ?? []).length >= MAX_ANNOTATIONS}
+          onClick={() =>
+            setAnnotations([
+              ...(spec.display.annotations ?? []),
+              {
+                x: 0,
+                y: 0,
+                label: t('data.chartConfigurator.newAnnotation'),
+              },
+            ])
+          }
+        >
+          <Icon name="plus" /> {t('data.chartConfigurator.addAnnotation')}
+        </Button>
+      </div>
+      {(spec.display.annotations ?? []).map((annotation, i) => (
+        // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- Approved positional ChartAnnotation contract: duplicate values are valid and controlled callers can replace the whole array. DOM tests cover editing, removal and caller replacement; persistent row IDs require an owner contract change.
+        <div key={i} className="flex items-end gap-2">
+          <div className="w-20">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor={`${idPrefix}-ann-${i}-x`}
+            >
+              X
+            </label>
+            <Input
+              id={`${idPrefix}-ann-${i}-x`}
+              aria-label={t('data.chartConfigurator.ariaAnnotationX', {
+                value: i + 1,
+              })}
+              type="number"
+              step="any"
+              value={annotation.x}
+              onChange={(event) =>
+                setAnnotations(
+                  (spec.display.annotations ?? []).map((a, j) =>
+                    j === i ? { ...a, x: Number(event.target.value) } : a,
+                  ),
+                )
+              }
+              className="h-8 bg-surface"
+            />
+          </div>
+          <div className="w-20">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor={`${idPrefix}-ann-${i}-y`}
+            >
+              Y
+            </label>
+            <Input
+              id={`${idPrefix}-ann-${i}-y`}
+              aria-label={t('data.chartConfigurator.ariaAnnotationY', {
+                value: i + 1,
+              })}
+              type="number"
+              step="any"
+              value={annotation.y}
+              onChange={(event) =>
+                setAnnotations(
+                  (spec.display.annotations ?? []).map((a, j) =>
+                    j === i ? { ...a, y: Number(event.target.value) } : a,
+                  ),
+                )
+              }
+              className="h-8 bg-surface"
+            />
+          </div>
+          <div className="flex-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor={`${idPrefix}-ann-${i}-label`}
+            >
+              {t('data.chartConfigurator.label')}
+            </label>
+            <Input
+              id={`${idPrefix}-ann-${i}-label`}
+              aria-label={t('data.chartConfigurator.ariaAnnotationLabel', {
+                value: i + 1,
+              })}
+              value={annotation.label}
+              onChange={(event) =>
+                setAnnotations(
+                  (spec.display.annotations ?? []).map((a, j) =>
+                    j === i ? { ...a, label: event.target.value } : a,
+                  ),
+                )
+              }
+              className="h-8 bg-surface"
+            />
+          </div>
+          <Button
+            type="button"
+            variant="quiet"
+            size="icon"
+            aria-label={t('data.chartConfigurator.ariaRemoveAnnotation', {
+              value: i + 1,
+            })}
+            onClick={() =>
+              setAnnotations(
+                (spec.display.annotations ?? []).filter((_, j) => j !== i),
+              )
+            }
+          >
+            <Icon name="trash" />
+          </Button>
+        </div>
+      ))}
+    </div>
+  ) : null
 }

@@ -62,8 +62,6 @@ export function HandoverDialog({
     queryFn: () => fetchHandoverPreview(dataClient, { workspaceId, userId }),
   })
 
-  const items = preview.data ?? []
-
   // Everything open starts ticked: handing over is usually all of it.
   const ticked = useRef(false)
   useEffect(() => {
@@ -93,23 +91,6 @@ export function HandoverDialog({
   const recipientName =
     candidates.find((candidate) => candidate.id === recipient)?.label ?? ''
 
-  const columns: RegistryColumn<HandoverItem>[] = [
-    {
-      id: 'work',
-      header: t('people.handover.workColumn'),
-      cell: ({ row }) => row.original.label,
-    },
-    {
-      id: 'open',
-      header: t('people.handover.openColumn'),
-      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
-      cell: ({ row }) => row.original.count,
-    },
-  ]
-
-  const moved = result ? sumCounts(result.moved) : 0
-  const kept = result ? sumCounts(result.kept) : 0
-
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
@@ -123,22 +104,7 @@ export function HandoverDialog({
         />
         <DialogBody>
           {result ? (
-            <>
-              <Notice tone="info" icon="check">
-                {t('people.handover.handedOver', {
-                  count: moved,
-                  name: recipientName,
-                })}
-              </Notice>
-              {kept > 0 ? (
-                <Notice tone="warn">
-                  {t('people.handover.keptNote', {
-                    count: kept,
-                    name: recipientName,
-                  })}
-                </Notice>
-              ) : null}
-            </>
+            <HandoverReceipt result={result} recipientName={recipientName} />
           ) : (
             <>
               <Field label={t('people.handover.recipient')}>
@@ -156,26 +122,14 @@ export function HandoverDialog({
                   ))}
                 </Select>
               </Field>
-              {preview.isError ? (
-                <Notice tone="bad">{describeAdminError(preview.error)}</Notice>
-              ) : preview.isPending ? (
-                <Muted>{t('people.handover.loading')}</Muted>
-              ) : items.length === 0 ? (
-                <Muted>{t('people.handover.noneBody', { name })}</Muted>
-              ) : (
-                <TableBox>
-                  <RegistryGrid
-                    label={t('people.handover.tableLabel')}
-                    rows={items}
-                    columns={columns}
-                    getRowId={(item) => item.key}
-                    rowLabel={(item) => item.label}
-                    selectable={false}
-                    sortable={false}
-                    bulk={bulk}
-                  />
-                </TableBox>
-              )}
+              <HandoverPreview
+                items={preview.data ?? []}
+                name={name}
+                failed={preview.isError}
+                error={preview.error}
+                pending={preview.isPending}
+                bulk={bulk}
+              />
               {send.isError ? (
                 <Notice tone="bad">{describeAdminError(send.error)}</Notice>
               ) : null}
@@ -206,6 +160,82 @@ export function HandoverDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function HandoverPreview({
+  items,
+  name,
+  failed,
+  error,
+  pending,
+  bulk,
+}: {
+  items: HandoverItem[]
+  name: string
+  failed: boolean
+  error: Error | null
+  pending: boolean
+  bulk: ReturnType<typeof useBulkSelection>
+}) {
+  const columns: RegistryColumn<HandoverItem>[] = [
+    {
+      id: 'work',
+      header: t('people.handover.workColumn'),
+      cell: ({ row }) => row.original.label,
+    },
+    {
+      id: 'open',
+      header: t('people.handover.openColumn'),
+      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+      cell: ({ row }) => row.original.count,
+    },
+  ]
+
+  if (failed) return <Notice tone="bad">{describeAdminError(error)}</Notice>
+
+  if (pending) return <Muted>{t('people.handover.loading')}</Muted>
+
+  if (items.length === 0)
+    return <Muted>{t('people.handover.noneBody', { name })}</Muted>
+
+  return (
+    <TableBox>
+      <RegistryGrid
+        label={t('people.handover.tableLabel')}
+        rows={items}
+        columns={columns}
+        getRowId={(item) => item.key}
+        rowLabel={(item) => item.label}
+        selectable={false}
+        sortable={false}
+        bulk={bulk}
+      />
+    </TableBox>
+  )
+}
+
+function HandoverReceipt({
+  result,
+  recipientName,
+}: {
+  result: HandoverResult
+  recipientName: string
+}) {
+  const moved = sumCounts(result.moved)
+  const kept = sumCounts(result.kept)
+
+  return (
+    <>
+      <Notice tone="info" icon="check">
+        {t('people.handover.handedOver', { count: moved, name: recipientName })}
+      </Notice>
+      {kept > 0 ? (
+        <Notice tone="warn">
+          {t('people.handover.keptNote', { count: kept, name: recipientName })}
+        </Notice>
+      ) : null}
+    </>
   )
 }
 

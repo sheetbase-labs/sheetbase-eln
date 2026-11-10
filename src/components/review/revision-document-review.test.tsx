@@ -1,7 +1,22 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { Suspense, startTransition, useState } from 'react'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import type { CanonicalRevisionEnvelope } from '#/lib/revision-diff'
 import { buildRevisionDocument } from '#/lib/revision-document'
@@ -14,30 +29,44 @@ import {
 
 import { RevisionDocumentReview } from './revision-document-review'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-    ...rest
-  }: {
-    to: string
-    children?: ReactNode
-    [key: string]: unknown
-  }) => (
-    <a href={to} {...rest}>
-      {children}
-    </a>
-  ),
-}))
+// Production notebook clients capture fetch at import time. Control only their
+// HTTP transport; the real notebook previews and DataClient still run.
+const transport = vi.hoisted(() => {
+  const fetcher = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', fetcher)
 
-afterEach(cleanup)
+  return fetcher
+})
+
+beforeEach(() => {
+  transport.mockReset()
+  transport.mockImplementation(() =>
+    Promise.reject(new Error('Unexpected live read from a frozen revision')),
+  )
+})
+
+afterEach(() => {
+  cleanup()
+  expect(transport).not.toHaveBeenCalled()
+})
+
+afterAll(() => vi.unstubAllGlobals())
 
 function renderDocument(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
 
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterContextProvider router={router}>{ui}</RouterContextProvider>
+    </QueryClientProvider>,
+  )
 }
 
 function blockSection(container: HTMLElement, blockId: string) {
@@ -123,7 +152,7 @@ describe('RevisionDocumentReview', () => {
     })
 
     fireEvent.click(marker)
-    expect((document.activeElement as HTMLElement).dataset.commentId).toBe(
+    expect(document.activeElement?.getAttribute('data-comment-id')).toBe(
       'comment-block',
     )
 
@@ -131,7 +160,7 @@ describe('RevisionDocumentReview', () => {
     fireEvent.click(
       screen.getByRole('button', { name: /Show the place this comment/ }),
     )
-    expect((document.activeElement as HTMLElement).dataset.docLocation).toBe(
+    expect(document.activeElement?.getAttribute('data-doc-location')).toBe(
       'block-method',
     )
     expect(blockSection(container, 'block-method').className).toContain(
@@ -312,6 +341,447 @@ describe('RevisionDocumentReview', () => {
     ).toBeGreaterThan(0)
     expect(fetchSpy).not.toHaveBeenCalled()
     fetchSpy.mockRestore()
+  })
+
+  it.each([
+    [NaN, 'NaN'],
+    [Infinity, 'Infinity'],
+    [-Infinity, '-Infinity'],
+    [0, '0'],
+    [-0, '0'],
+    [false, 'false'],
+    [true, 'true'],
+    ['  frozen size  ', 'frozen size'],
+  ])('keeps the native frozen scalar %s readable', (byteSize, expected) => {
+    const { after } = documentFixtures()
+
+    renderDocument(
+      <RevisionDocumentReview
+        after={{
+          ...after,
+          blocks: [{ id: 'file-native', type: 'file', payload: { byteSize } }],
+        }}
+      />,
+    )
+
+    expect(screen.getByText(String(expected))).toBeTruthy()
+  })
+
+  it('accepts inherited frozen facts without reading live content', () => {
+    const { after } = documentFixtures()
+
+    class FrozenFileFacts {
+      get mediaType() {
+        return 'application/x-frozen'
+      }
+    }
+
+    renderDocument(
+      <RevisionDocumentReview
+        after={{
+          ...after,
+          blocks: [
+            {
+              id: 'file-inherited',
+              type: 'file',
+              payload: new FrozenFileFacts(),
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('application/x-frozen')).toBeTruthy()
+  })
+
+  it('keeps repeated frozen preview getter reads in native evaluation order', () => {
+    const { after } = documentFixtures()
+    const source = after.blocks.find((block) => block.id === 'block-objective')
+
+    if (!source) throw new Error('Missing objective fixture')
+
+    const reads: string[] = []
+
+    const block = {
+      get id() {
+        reads.push('id')
+
+        return source.id
+      },
+      get payload() {
+        reads.push('payload')
+
+        return source.payload
+      },
+      get type() {
+        reads.push('type')
+
+        return source.type
+      },
+      get payloadSchemaVersion() {
+        reads.push('payloadSchemaVersion')
+
+        return 1
+      },
+      get order() {
+        reads.push('order')
+
+        return NaN
+      },
+      get version() {
+        reads.push('version')
+
+        return Infinity
+      },
+    }
+
+    renderDocument(
+      <RevisionDocumentReview after={{ ...after, blocks: [block] }} />,
+    )
+
+    expect(screen.getByText('Measure virus stability at 4 °C.')).toBeTruthy()
+    expect(reads.slice(-11)).toEqual([
+      'payload',
+      'payload',
+      'id',
+      'type',
+      'type',
+      'payloadSchemaVersion',
+      'payloadSchemaVersion',
+      'order',
+      'order',
+      'version',
+      'version',
+    ])
+  })
+
+  it('preserves native record identity string coercion', () => {
+    const { after } = documentFixtures()
+    const hints: string[] = []
+
+    const id = {
+      [Symbol.toPrimitive](hint: string) {
+        hints.push(hint)
+
+        return 'record-native'
+      },
+    }
+
+    renderDocument(
+      <RevisionDocumentReview
+        after={{ ...after, record: { ...after.record, id } }}
+      />,
+    )
+
+    // The diff owner reads the identity first; the preview adapter reads it next.
+    expect(hints).toEqual(['string', 'string'])
+    expect(screen.getByText('Measure virus stability at 4 °C.')).toBeTruthy()
+  })
+
+  it('does not swallow native record identity coercion exceptions', () => {
+    const { after } = documentFixtures()
+    const failure = new Error('Frozen identity cannot be stringified')
+
+    const id = {
+      [Symbol.toPrimitive]() {
+        throw failure
+      },
+    }
+
+    expect(() =>
+      renderDocument(
+        <RevisionDocumentReview
+          after={{ ...after, record: { ...after.record, id } }}
+        />,
+      ),
+    ).toThrow(failure)
+  })
+
+  it('renders production notebook links with the actual router provider', () => {
+    const { after } = documentFixtures()
+
+    renderDocument(
+      <RevisionDocumentReview
+        after={{
+          ...after,
+          blocks: [
+            {
+              id: 'linked-dataset',
+              type: 'linked_record',
+              payloadSchemaVersion: 1,
+              payload: {
+                targetKind: 'dataset',
+                targetId: 'dataset-frozen',
+                targetIdentifier: 'DATA-1',
+              },
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByRole('link').getAttribute('href')).toBe(
+      '/datasets/dataset-frozen',
+    )
+    expect(screen.getByText('DATA-1')).toBeTruthy()
+  })
+
+  it('focuses a deep-linked comment and preserves two-way navigation after prop changes', () => {
+    const { before, after } = documentFixtures()
+
+    const comments = [
+      commentFixture({
+        id: 'first',
+        target_kind: 'block',
+        target: { blockId: 'block-method' },
+      }),
+      commentFixture({
+        id: 'second',
+        target_kind: 'block',
+        target: { blockId: 'block-objective' },
+      }),
+    ]
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+
+    const router = createRouter({
+      routeTree: createRootRoute(),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+
+    function review(focusCommentId: string) {
+      return (
+        <QueryClientProvider client={client}>
+          <RouterContextProvider router={router}>
+            <RevisionDocumentReview
+              after={after}
+              before={before}
+              revisionId={DOCUMENT_REVISION_ID}
+              comments={comments}
+              focusCommentId={focusCommentId}
+            />
+          </RouterContextProvider>
+        </QueryClientProvider>
+      )
+    }
+
+    const { container, rerender } = render(review('first'))
+    expect(document.activeElement?.getAttribute('data-comment-id')).toBe(
+      'first',
+    )
+    expect(
+      container.querySelector('[data-comment-id="first"]')?.className,
+    ).toContain('ring-2')
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show the place this comment is about, first',
+      }),
+    )
+    expect(document.activeElement?.getAttribute('data-doc-location')).toBe(
+      'block-method',
+    )
+    rerender(review('second'))
+    expect(document.activeElement?.getAttribute('data-comment-id')).toBe(
+      'second',
+    )
+    expect(
+      container.querySelector('[data-comment-id="second"]')?.className,
+    ).toContain('ring-2')
+  })
+
+  it('resets manual highlighting when anchors change and ignores unmatched focus requests', () => {
+    const { before, after } = documentFixtures()
+
+    const comment = commentFixture({
+      id: 'anchor-focus',
+      target_kind: 'block',
+      target: { blockId: 'block-method' },
+    })
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+
+    const router = createRouter({
+      routeTree: createRootRoute(),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+
+    function review(
+      comments: readonly ReturnType<typeof commentFixture>[],
+      focusCommentId = 'anchor-focus',
+    ) {
+      return (
+        <QueryClientProvider client={client}>
+          <RouterContextProvider router={router}>
+            <RevisionDocumentReview
+              after={after}
+              before={before}
+              revisionId={DOCUMENT_REVISION_ID}
+              comments={comments}
+              focusCommentId={focusCommentId}
+            />
+          </RouterContextProvider>
+        </QueryClientProvider>
+      )
+    }
+
+    const comments = [comment]
+    const { container, rerender } = render(review(comments))
+    const location = blockSection(container, 'block-method')
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show the place this comment is about, anchor-focus',
+      }),
+    )
+    expect(location.className).toContain('ring-2')
+    rerender(review(comments, 'not-available'))
+    expect(document.activeElement).toBe(location)
+    expect(location.className).toContain('ring-2')
+    rerender(review([...comments]))
+    expect(document.activeElement?.getAttribute('data-comment-id')).toBe(
+      'anchor-focus',
+    )
+    expect(location.className).not.toContain('ring-2')
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show the place this comment is about, anchor-focus',
+      }),
+    )
+    rerender(review([...comments]))
+    expect(document.activeElement?.getAttribute('data-comment-id')).toBe(
+      'anchor-focus',
+    )
+    expect(
+      container.querySelector('[data-comment-id="anchor-focus"]')?.className,
+    ).toContain('ring-2')
+  })
+
+  it('does not commit highlight or focus from an abandoned Suspense render', async () => {
+    const { before, after } = documentFixtures()
+
+    const comments = [
+      commentFixture({
+        id: 'first',
+        target_kind: 'block',
+        target: { blockId: 'block-method' },
+      }),
+      commentFixture({
+        id: 'second',
+        target_kind: 'block',
+        target: { blockId: 'block-objective' },
+      }),
+    ]
+
+    const identityReads: string[] = []
+
+    const observedAfter = {
+      ...after,
+      record: {
+        ...after.record,
+        get id() {
+          identityReads.push('read')
+
+          return after.record.id
+        },
+      },
+    }
+
+    const pending = new Promise<never>(() => undefined)
+
+    function PendingDocument({ suspend }: { suspend: boolean }) {
+      if (suspend) throw pending
+
+      return null
+    }
+
+    function ConcurrentReview() {
+      const [request, setRequest] = useState({
+        focusCommentId: 'first',
+        suspend: false,
+      })
+
+      return (
+        <>
+          <button
+            onClick={() =>
+              startTransition(() =>
+                setRequest({ focusCommentId: 'second', suspend: true }),
+              )
+            }
+          >
+            Review second later
+          </button>
+          <button
+            onClick={() =>
+              setRequest({ focusCommentId: 'first', suspend: false })
+            }
+          >
+            Cancel pending review
+          </button>
+          <button
+            onClick={() =>
+              setRequest({ focusCommentId: 'second', suspend: false })
+            }
+          >
+            Commit second review
+          </button>
+          <Suspense fallback={<p>Waiting for revision</p>}>
+            <RevisionDocumentReview
+              after={observedAfter}
+              before={before}
+              revisionId={DOCUMENT_REVISION_ID}
+              comments={comments}
+              focusCommentId={request.focusCommentId}
+            />
+            <PendingDocument suspend={request.suspend} />
+          </Suspense>
+        </>
+      )
+    }
+
+    const { container } = renderDocument(<ConcurrentReview />)
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show the place this comment is about, first',
+      }),
+    )
+    const location = blockSection(container, 'block-method')
+    const readsBeforeTransition = identityReads.length
+    expect(document.activeElement).toBe(location)
+    expect(location.className).toContain('ring-2')
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Review second later' }),
+      )
+    })
+    expect(identityReads.length).toBeGreaterThan(readsBeforeTransition)
+    expect(screen.queryByText('Waiting for revision')).toBeNull()
+    expect(document.activeElement).toBe(location)
+    expect(location.className).toContain('ring-2')
+    expect(
+      container.querySelector('[data-comment-id="second"]')?.className,
+    ).not.toContain('ring-2')
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Cancel pending review' }),
+    )
+    expect(document.activeElement).toBe(location)
+    expect(location.className).toContain('ring-2')
+    expect(
+      container.querySelector('[data-comment-id="first"]')?.className,
+    ).not.toContain('ring-2')
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Commit second review' }),
+    )
+    expect(document.activeElement?.getAttribute('data-comment-id')).toBe(
+      'second',
+    )
+    expect(
+      container.querySelector('[data-comment-id="second"]')?.className,
+    ).toContain('ring-2')
+    expect(location.className).not.toContain('ring-2')
   })
 
   it('hides the change marks on request but keeps the anchored comments', () => {

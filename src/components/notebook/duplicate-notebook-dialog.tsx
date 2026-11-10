@@ -40,11 +40,14 @@ export function DuplicateNotebookDialog({
   const defaultTitle = t('notebook.duplicateNotebookDialog.copyTitle', {
     title: source.title,
   })
+
   const [title, setTitle] = useState(defaultTitle)
   const [joinSeries, setJoinSeries] = useState(false)
+
   const membership = useSeriesMembership(
     source.kind === 'experiment' ? source.id : undefined,
   )
+
   const join = useJoinSeries()
 
   useEffect(() => {

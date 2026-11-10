@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { tableAncestors, tableParentChoices } from './dataset-subtype-ui'
+import { tableAncestors, tableParentChoices } from './dataset-subtype-data'
 
 const tables = [
   { id: 'vicell', name: 'ViCell', parentId: null },

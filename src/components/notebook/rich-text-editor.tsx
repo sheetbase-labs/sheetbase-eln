@@ -5,6 +5,7 @@ import { EditorContent, Extension, useEditor } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
+import type { EditorView } from '@tiptap/pm/view'
 import StarterKit from '@tiptap/starter-kit'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCaret from '@tiptap/extension-collaboration-caret'
@@ -23,22 +24,26 @@ import { RECORD_REF, useRecordRefs } from '#/lib/record-refs'
 
 import { Button } from '#/components/ui/button'
 import { RichTextContent } from '#/lib/blocks/rich-text'
-import type { RichTextDocument, RichTextPayload } from '#/lib/blocks/rich-text'
+import type {
+  RichTextDocument,
+  RichTextPayload,
+} from '#/lib/blocks/rich-text-data'
 import { cn } from '#/lib/utils'
 import { colorForUser } from '#/lib/collaboration/provider'
+import { SlashCommandMenu } from './slash-command-menu'
 import {
   AI_SLASH_TYPE,
-  SlashCommandMenu,
   slashCommandFilterCount,
   slashCommandFilteredOptions,
   pluginSlashOptions,
-} from './slash-command-menu'
+} from './slash-command-options'
 import { PLUGIN_BLOCK_PREFIX } from './add-block-menu'
 import { usePluginPoints } from '#/components/extensions/use-plugin-points'
 import { AiComposer } from './ai-composer'
 import { usePageAi } from '#/lib/use-page-ai'
 import { useAnchoredPlacement } from '#/lib/use-anchored-placement'
 import { fingerprint, liveFieldName, useLiveRichText } from './live-rich-text'
+import { useCommittedRef } from './use-committed-ref'
 
 /** The slash menu's natural cap; it shrinks to fit above the keyboard. */
 const SLASH_MENU_MAX_HEIGHT = 320
@@ -51,7 +56,7 @@ const SLASH_MENU_MAX_HEIGHT = 320
 function contentExtensions(live: boolean) {
   return [
     StarterKit.configure({
-      ...(live ? { undoRedo: false as const } : {}),
+      undoRedo: live ? false : undefined,
       blockquote: false,
       codeBlock: false,
       hardBreak: false,
@@ -60,6 +65,8 @@ function contentExtensions(live: boolean) {
       link: false,
       strike: false,
       trailingNode: false,
+      // Underline is not a persisted RichTextMark, including through Mod-U.
+      underline: false,
     }),
     Link.configure({
       openOnClick: false,
@@ -74,8 +81,14 @@ function contentExtensions(live: boolean) {
 const baseExtensions = contentExtensions(false)
 const liveContentExtensions = contentExtensions(true)
 
+function documentOf(editor: Pick<Editor, 'getJSON'>): RichTextDocument {
+  // SAFETY: contentExtensions restricts nodes, heading levels and marks to the persisted rich-text schema. The keyboard-formatting regression checks this boundary too.
+  return editor.getJSON() as RichTextDocument
+}
+
 /** How long a shared block must stay quiet before this person saves it too. */
 const ADOPT_AFTER_MS = 4000
+
 /** A conflict on a shared block is settled automatically at most this often. */
 const MAX_AUTO_RESOLVES = 8
 
@@ -184,14 +197,18 @@ function createRecordRefPlugin(
     props: {
       decorations(state) {
         const known = knownRef.current
+
         if (known.size === 0) return DecorationSet.empty
         const decorations: Decoration[] = []
         state.doc.descendants((node, pos) => {
           if (!node.isText || !node.text) return
+
           if (node.marks.some((mark) => mark.type.name === 'link')) return
+
           for (const match of node.text.matchAll(RECORD_REF)) {
             const kind = known.get(match[0])
             const href = kind ? objectPath(kind, match[0]) : null
+
             if (!href) continue
             const from = pos + match.index
             decorations.push(
@@ -204,14 +221,19 @@ function createRecordRefPlugin(
             )
           }
         })
+
         return DecorationSet.create(state.doc, decorations)
       },
       handleClick(view, _pos, event) {
-        const target = (
-          event.target as HTMLElement | null
-        )?.closest<HTMLElement>('[data-record-link][data-href]')
+        const target =
+          event.target instanceof Element
+            ? event.target.closest<HTMLElement>('[data-record-link][data-href]')
+            : null
+
         const href = target?.dataset.href
+
         if (!href) return false
+
         return followRef.current(href, event, view.editable)
       },
     },
@@ -230,10 +252,14 @@ function createPlaceholderPlugin(placeholderRef: React.RefObject<string>) {
     props: {
       decorations(state) {
         const { doc } = state
+
         if (doc.childCount !== 1) return DecorationSet.empty
         const only = doc.firstChild
+
         if (!only || only.type.name !== 'paragraph') return DecorationSet.empty
+
         if (only.content.size > 0) return DecorationSet.empty
+
         // A node decoration + CSS ::before (see styles.css), not an inline
         // widget: a widget sits in the text flow, so browsers (iOS Safari
         // especially) drop the caret after it instead of at the start.
@@ -262,6 +288,7 @@ function createDecorationPlugins(
     props: {
       decorations(state) {
         const prefix = anchorPrefixRef.current
+
         if (!prefix) return DecorationSet.empty
         const decorations: Decoration[] = []
         state.doc.forEach((node, offset, index) => {
@@ -273,15 +300,18 @@ function createDecorationPlugins(
             }),
           )
         })
+
         return DecorationSet.create(state.doc, decorations)
       },
     },
   })
+
   const hiddenNodes = new Plugin({
     key: HIDDEN_NODES_PLUGIN_KEY,
     props: {
       decorations(state) {
         const hidden = hiddenIndexesRef.current
+
         if (!hidden || hidden.size === 0) return DecorationSet.empty
         const decorations: Decoration[] = []
         state.doc.forEach((node, offset, index) => {
@@ -292,10 +322,12 @@ function createDecorationPlugins(
             }),
           )
         })
+
         return DecorationSet.create(state.doc, decorations)
       },
     },
   })
+
   return [
     headingAnchors,
     hiddenNodes,
@@ -304,22 +336,13 @@ function createDecorationPlugins(
   ]
 }
 
-/** The router, or null where the editor is shown outside an app (tests, docs). */
-function useOptionalRouter() {
-  try {
-    return useRouter()
-  } catch {
-    return null
-  }
-}
-
-export function RichTextEditor({
+/** Owns Tiptap callbacks, shared-document lifetime and editor-local command state. */
+function useNotebookTextEditing({
   payload,
   onChange,
   onBlur,
   autoFocus,
   caretHint,
-  className,
   anchorPrefix,
   hiddenNodeIndexes,
   liveBlockId,
@@ -342,34 +365,32 @@ export function RichTextEditor({
   const [hasSelection, setHasSelection] = React.useState(false)
 
   // Refs so Tiptap's once-created callbacks always read the latest values.
-  const slashMenuRef = React.useRef(slashMenu)
-  slashMenuRef.current = slashMenu
+  const slashMenuRef = useCommittedRef(slashMenu)
 
   // "Write with AI": offered only when a real model is connected.
   const ai = usePageAi()
-  const aiLiveRef = React.useRef(ai.live)
-  aiLiveRef.current = ai.live
+  const aiLiveRef = useCommittedRef(ai.live)
   const pluginPoints = usePluginPoints()
+
   const pluginOptions = React.useMemo(
     () => pluginSlashOptions(pluginPoints.blocks, PLUGIN_BLOCK_PREFIX),
     [pluginPoints.blocks],
   )
-  const pluginOptionsRef = React.useRef(pluginOptions)
-  pluginOptionsRef.current = pluginOptions
+
+  const pluginOptionsRef = useCommittedRef(pluginOptions)
+
   const [aiComposer, setAiComposer] = React.useState<{
     selection: string
   } | null>(null)
 
   // NOTE-02 decoration inputs, read through refs by the plugins above so a
   // changed prefix or collapse state never recreates the editor.
-  const anchorPrefixRef = React.useRef(anchorPrefix)
-  anchorPrefixRef.current = anchorPrefix
-  const hiddenIndexesRef = React.useRef(hiddenNodeIndexes)
-  hiddenIndexesRef.current = hiddenNodeIndexes
+  const anchorPrefixRef = useCommittedRef(anchorPrefix)
+  const hiddenIndexesRef = useCommittedRef(hiddenNodeIndexes)
   // The placeholder text is read through a ref for the same reason: the plugin
   // must stay stable, and the text is a prop with a default.
-  const placeholderRef = React.useRef(placeholder)
-  placeholderRef.current = placeholder
+  const placeholderRef = useCommittedRef(placeholder)
+
   // Created once — the plugin instances must stay stable for the editor's
   // lifetime or ProseMirror would tear down state on every render.
   // Identifiers in the text that name real records, and how a click on one
@@ -378,25 +399,31 @@ export function RichTextEditor({
     () => [...new Set(JSON.stringify(payload.doc).match(RECORD_REF) ?? [])],
     [payload.doc],
   )
+
   const knownRefs = useRecordRefs(refsInText)
-  const knownRefsRef = React.useRef<ReadonlyMap<string, string>>(knownRefs)
-  knownRefsRef.current = knownRefs
+  const knownRefsRef = useCommittedRef<ReadonlyMap<string, string>>(knownRefs)
   const workspace = useWorkspaceNavigation()
-  const router = useOptionalRouter()
-  const followRef = React.useRef<
+  const router = useRouter({ warn: false })
+
+  const followRef = useCommittedRef<
     (href: string, event: MouseEvent, editable: boolean) => boolean
-  >(() => false)
-  followRef.current = (href, event, editable) => {
+  >((href, event, editable) => {
     // Typing in a page you can edit: a bare click only places the caret.
     if (editable && !event.altKey && !event.ctrlKey && !event.metaKey)
       return false
+
     if (openBesideOnAlt(workspace, href, event)) return true
     event.preventDefault()
+
+    // TanStack declares AnyRouter, but its context defaults to null without a provider.
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- Standalone editor regression exercises the installed hook's null return.
     if (router) void router.navigate({ href })
     else window.location.assign(href)
+
     return true
-  }
-  const decorationPlugins = React.useRef(
+  })
+
+  const [decorationPlugins] = React.useState(() =>
     createDecorationPlugins(
       anchorPrefixRef,
       hiddenIndexesRef,
@@ -404,24 +431,29 @@ export function RichTextEditor({
       knownRefsRef,
       followRef,
     ),
-  ).current
-  const payloadRef = React.useRef(payload)
-  payloadRef.current = payload
+  )
+
+  const payloadRef = useCommittedRef(payload)
   const editedRef = React.useRef(false)
+
   const { live, provider } = useLiveRichText({
     blockId: liveBlockId,
     extensions: baseExtensions,
     getSaved: () => payloadRef.current.doc,
     edited: () => editedRef.current,
   })
+
   const liveProvider = live ? provider : null
+
   const extensions = React.useMemo(() => {
     const decorations = Extension.create({
       name: 'notebookDecorations',
       addProseMirrorPlugins: () => decorationPlugins,
     })
+
     if (!liveProvider || !liveBlockId) return [...baseExtensions, decorations]
     const identity = liveProvider.identity
+
     return [
       ...liveContentExtensions,
       decorations,
@@ -443,7 +475,7 @@ export function RichTextEditor({
     ]
   }, [decorationPlugins, liveProvider, liveBlockId])
 
-  const cbRef = React.useRef({
+  const cbRef = useCommittedRef({
     onChange,
     onBlur,
     onSlashCommand,
@@ -452,15 +484,6 @@ export function RichTextEditor({
     onArrowUpFromStart,
     onArrowDownFromEnd,
   })
-  cbRef.current = {
-    onChange,
-    onBlur,
-    onSlashCommand,
-    onEnterAtEnd,
-    onBackspaceAtStart,
-    onArrowUpFromStart,
-    onArrowDownFromEnd,
-  }
 
   const adoptTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   React.useEffect(
@@ -469,8 +492,8 @@ export function RichTextEditor({
     },
     [],
   )
-  const savedDocRef = React.useRef(savedDoc)
-  savedDocRef.current = savedDoc
+  const savedDocRef = useCommittedRef(savedDoc)
+
   // Joining the shared document swaps the editor for one bound to the room.
   // The text is the same, so the swap must not cost the person their place:
   // remember where the caret was and put it back in the new editor.
@@ -479,10 +502,13 @@ export function RichTextEditor({
     to: number
     focused: boolean
   } | null>(null)
+
   const restoreRef = React.useRef<typeof placeRef.current>(null)
   const editorRef = React.useRef<Editor | null>(null)
   const lastLiveProvider = React.useRef(liveProvider)
-  if (lastLiveProvider.current !== liveProvider) {
+
+  React.useLayoutEffect(() => {
+    if (lastLiveProvider.current === liveProvider) return
     lastLiveProvider.current = liveProvider
     // Read the place from the editor being replaced rather than from the last
     // focus event, which a click that has only just landed may not have fired.
@@ -495,17 +521,21 @@ export function RichTextEditor({
             focused: true,
           }
         : null
-  }
+  }, [liveProvider])
+
   // Every state this editor has shown. A save that beat ours to the server and
   // matches one of them came from a collaborator, whose text we already hold;
   // a save that matches none came from outside the room and must not be
   // overwritten without asking.
   const seenStates = React.useRef<string[]>([])
-  const noteState = (current: { getJSON: () => unknown }) => {
+
+  const noteState = (current: Pick<Editor, 'getJSON'>) => {
     const seen = seenStates.current
     const key = fingerprint(current.getJSON())
+
     if (seen[seen.length - 1] === key) return
     seen.push(key)
+
     if (seen.length > 200) seen.splice(0, seen.length - 200)
   }
 
@@ -531,31 +561,41 @@ export function RichTextEditor({
           if (menu.open) {
             if (event.key === 'ArrowDown') {
               event.preventDefault()
+
               const count = slashCommandFilterCount(
                 menu.query,
                 aiLiveRef.current,
                 pluginOptionsRef.current,
               )
+
               setSlashMenu((m) => ({
                 ...m,
                 index: Math.min(m.index + 1, Math.max(count - 1, 0)),
               }))
+
               return true
             }
+
             if (event.key === 'ArrowUp') {
               event.preventDefault()
               setSlashMenu((m) => ({ ...m, index: Math.max(m.index - 1, 0) }))
+
               return true
             }
+
             if (event.key === 'Enter') {
               event.preventDefault()
+
               const filtered = slashCommandFilteredOptions(
                 menu.query,
                 aiLiveRef.current,
                 pluginOptionsRef.current,
               )
+
               const selected = filtered.at(menu.index)
+
               if (!selected) return true
+
               if (selected.type === AI_SLASH_TYPE) {
                 removeSlashQuery(view)
                 setAiComposer({ selection: '' })
@@ -566,12 +606,16 @@ export function RichTextEditor({
                 // Block will be replaced — no need to clean up editor text.
                 cb.onSlashCommand?.(selected.type)
               }
+
               setSlashMenu(SLASH_MENU_CLOSED)
+
               return true
             }
+
             if (event.key === 'Escape') {
               event.preventDefault()
               setSlashMenu(SLASH_MENU_CLOSED)
+
               return true
             }
             // Any other key falls through to Tiptap, then onUpdate re-checks.
@@ -581,17 +625,21 @@ export function RichTextEditor({
           if (!menu.open) {
             const { doc, selection } = view.state
             const isCollapsed = selection.from === selection.to
+
             const hasModifier =
               event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
 
             // Enter at end of the last top-level paragraph/heading → new block
             if (event.key === 'Enter' && !hasModifier && isCollapsed) {
               const $from = selection.$from
+
               const isLastTopLevel =
                 $from.depth === 1 &&
                 $from.index(0) === doc.content.childCount - 1
+
               const isAtBlockEnd =
                 $from.parentOffset === $from.parent.content.size
+
               if (
                 isLastTopLevel &&
                 isAtBlockEnd &&
@@ -599,6 +647,7 @@ export function RichTextEditor({
               ) {
                 event.preventDefault()
                 cb.onEnterAtEnd?.()
+
                 return true
               }
             }
@@ -611,9 +660,11 @@ export function RichTextEditor({
             if (event.key === 'Backspace' && !hasModifier && isCollapsed) {
               const $from = selection.$from
               const isFirstTopLevel = $from.depth === 1 && $from.index(0) === 0
+
               if (isFirstTopLevel && $from.parentOffset === 0) {
                 event.preventDefault()
                 cb.onBackspaceAtStart?.()
+
                 return true
               }
             }
@@ -622,9 +673,11 @@ export function RichTextEditor({
             if (event.key === 'ArrowUp' && !hasModifier && isCollapsed) {
               const $from = selection.$from
               const isFirstTopLevel = $from.depth === 1 && $from.index(0) === 0
+
               if ($from.parentOffset === 0 && isFirstTopLevel) {
                 event.preventDefault()
                 cb.onArrowUpFromStart?.()
+
                 return true
               }
             }
@@ -632,14 +685,18 @@ export function RichTextEditor({
             // ArrowDown at end of last paragraph → next block
             if (event.key === 'ArrowDown' && !hasModifier && isCollapsed) {
               const $from = selection.$from
+
               const isLastTopLevel =
                 $from.depth === 1 &&
                 $from.index(0) === doc.content.childCount - 1
+
               const isAtParaEnd =
                 $from.parentOffset === $from.parent.content.size
+
               if (isAtParaEnd && isLastTopLevel) {
                 event.preventDefault()
                 cb.onArrowDownFromEnd?.()
+
                 return true
               }
             }
@@ -652,6 +709,7 @@ export function RichTextEditor({
         noteState(created)
         const place = restoreRef.current
         restoreRef.current = null
+
         if (!place) return
         const end = created.state.doc.content.size
         created.commands.setTextSelection({
@@ -668,29 +726,36 @@ export function RichTextEditor({
       },
       onUpdate: ({ editor: currentEditor, transaction }) => {
         noteState(currentEditor)
+
         // A change that arrived from a collaborator (not this person's own
         // typing or undo) is not an edit of theirs: it is saved by its author,
         // or by this person once the author has been quiet for a while.
+        // SAFETY: ySyncPluginKey metadata is owned by y-tiptap; these optional flags are the booleans set by its sync/undo plugins, not external payload fields.
         const sync = transaction.getMeta(ySyncPluginKey) as
           | { isChangeOrigin?: boolean; isUndoRedoOperation?: boolean }
           | undefined
+
         if (sync?.isChangeOrigin && !sync.isUndoRedoOperation) {
           if (adoptTimer.current) clearTimeout(adoptTimer.current)
           adoptTimer.current = setTimeout(() => {
             adoptTimer.current = null
             const saved = savedDocRef.current
+
             if (currentEditor.isDestroyed || !saved) return
-            const current = currentEditor.getJSON()
+            const current = documentOf(currentEditor)
             const normalised = currentEditor.schema.nodeFromJSON(saved).toJSON()
+
             if (JSON.stringify(current) === JSON.stringify(normalised)) return
             editedRef.current = true
-            cbRef.current.onChange({ doc: current as RichTextDocument })
+            cbRef.current.onChange({ doc: current })
           }, ADOPT_AFTER_MS)
+
           return
         }
+
         editedRef.current = true
         cbRef.current.onChange({
-          doc: currentEditor.getJSON() as RichTextDocument,
+          doc: documentOf(currentEditor),
         })
         checkSlashCommand(currentEditor)
       },
@@ -713,13 +778,17 @@ export function RichTextEditor({
     },
     [liveProvider],
   )
-  editorRef.current = editor
+
+  React.useLayoutEffect(() => {
+    editorRef.current = editor
+  }, [editor])
 
   // A shared block's text comes from the room, so the saved copy must not be
   // pushed back into the editor.
   const serializedPayload = JSON.stringify(payload.doc)
   React.useEffect(() => {
     if (liveProvider) return
+
     if (
       !editor ||
       editor.isDestroyed ||
@@ -733,25 +802,28 @@ export function RichTextEditor({
   // conflict on a shared block is settled by saving it rather than asking the
   // person to choose between their half and someone else's.
   const autoResolves = React.useRef(0)
-  const resolveRef = React.useRef(onResolveConflict)
-  resolveRef.current = onResolveConflict
+  const resolveRef = useCommittedRef(onResolveConflict)
   React.useEffect(() => {
     if (!conflict || !liveProvider?.synced || !editor || editor.isDestroyed) {
       return
     }
+
     if (autoResolves.current >= MAX_AUTO_RESOLVES) return
+
     // Only a collaborator's save is settled here. Anything else that changed
     // the block is shown to the person to choose, as for any editor.
     if (!conflictServerDoc) return
+
     const theirs = fingerprint(
       editor.schema.nodeFromJSON(conflictServerDoc).toJSON(),
     )
+
     if (!seenStates.current.includes(theirs)) return
     autoResolves.current += 1
     editedRef.current = true
-    cbRef.current.onChange({ doc: editor.getJSON() as RichTextDocument })
+    cbRef.current.onChange({ doc: documentOf(editor) })
     resolveRef.current?.()
-  }, [conflict, conflictServerDoc, editor, liveProvider])
+  }, [conflict, conflictServerDoc, editor, liveProvider, cbRef, resolveRef])
 
   React.useEffect(() => {
     if (!editor || editor.isDestroyed) return
@@ -760,11 +832,14 @@ export function RichTextEditor({
     // reported as a blur, which can have switched it off by now, and the
     // person never left the block.
     const place = restoreRef.current
+
     if (place) {
       // The view is shown by now, so the focus can be given back.
       if (place.focused) editor.commands.focus(null, { scrollIntoView: false })
+
       return
     }
+
     if (!autoFocus) return
     editor.commands.focus(caretHint === 'start' ? 'start' : 'end')
   }, [autoFocus, caretHint, editor])
@@ -778,64 +853,20 @@ export function RichTextEditor({
     editor.view.dispatch(editor.state.tr.setMeta('notebookDecorations', 1))
   }, [editor, anchorPrefix, hiddenNodeIndexes, knownRefs])
 
-  // Both floating surfaces are placed from the live caret or selection on
-  // every re-place, so they stay beside it inside the visible part of the
-  // screen as the keyboard opens, the page pans or a pane scrolls.
-  const slashMenuElRef = React.useRef<HTMLDivElement>(null)
-  const slashPlacement = useAnchoredPlacement({
-    open: slashMenu.open,
-    ref: slashMenuElRef,
-    maxHeight: SLASH_MENU_MAX_HEIGHT,
-    getAnchor: () => {
-      if (!editor || editor.isDestroyed) return null
-      const c = editor.view.coordsAtPos(editor.state.selection.from)
-      return { top: c.top, bottom: c.bottom, left: c.left }
-    },
-  })
-  const toolbarRef = React.useRef<HTMLDivElement>(null)
-  const toolbarPlacement = useAnchoredPlacement({
-    open: hasSelection,
-    ref: toolbarRef,
-    maxHeight: Number.POSITIVE_INFINITY,
-    prefer: 'top',
-    gap: 8,
-    getAnchor: () => {
-      if (!editor || editor.isDestroyed) return null
-      const { from, to } = editor.state.selection
-      const start = editor.view.coordsAtPos(from)
-      const end = editor.view.coordsAtPos(to)
-      const width = toolbarRef.current?.offsetWidth ?? 0
-      return {
-        top: Math.min(start.top, end.top),
-        bottom: Math.max(start.bottom, end.bottom),
-        left: (start.left + end.right) / 2 - width / 2,
-      }
-    },
-  })
-
   // Close the slash menu when clicking outside the editor.
   React.useEffect(() => {
     if (!slashMenu.open) return
+
     function handleClickOutside(e: MouseEvent) {
-      const target = e.target as HTMLElement
-      if (target.closest('[data-slash-menu]')) return
+      if (e.target instanceof Element && e.target.closest('[data-slash-menu]'))
+        return
       setSlashMenu(SLASH_MENU_CLOSED)
     }
+
     document.addEventListener('mousedown', handleClickOutside)
+
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [slashMenu.open])
-
-  if (!editor) {
-    return (
-      <div className={className}>
-        <RichTextContent
-          payload={payload}
-          anchorPrefix={anchorPrefix}
-          hiddenNodeIndexes={hiddenNodeIndexes}
-        />
-      </div>
-    )
-  }
 
   // --- Slash command detection -------------------------------------------
 
@@ -846,10 +877,13 @@ export function RichTextEditor({
   function updateSelectionState(ed: typeof editor) {
     if (!ed) return
     const { from, to, empty } = ed.state.selection
+
     if (empty || from === to || slashMenuRef.current.open) {
       setHasSelection(false)
+
       return
     }
+
     setHasSelection(true)
   }
 
@@ -875,15 +909,9 @@ export function RichTextEditor({
     }
   }
 
-  function removeSlashQuery(view: { state: unknown; dispatch: unknown }) {
+  function removeSlashQuery(view: EditorView) {
     // Delete from the start of the current paragraph to the cursor.
-    const { state, dispatch } = view as {
-      state: {
-        selection: { $from: { start: () => number; pos: number } }
-        tr: { delete: (from: number, to: number) => unknown }
-      }
-      dispatch: (tr: unknown) => void
-    }
+    const { state, dispatch } = view
     const start = state.selection.$from.start()
     const end = state.selection.$from.pos
     dispatch(state.tr.delete(start, end))
@@ -898,16 +926,108 @@ export function RichTextEditor({
     } else {
       cbRef.current.onSlashCommand?.(type)
     }
+
     setSlashMenu(SLASH_MENU_CLOSED)
+  }
+
+  return {
+    editor,
+    slashMenu,
+    setSlashMenu,
+    hasSelection,
+    ai,
+    pluginOptions,
+    aiComposer,
+    setAiComposer,
+    handleSlashSelect,
+  }
+}
+
+/** Renders the editor and places its floating command surfaces in the visible viewport. */
+export function RichTextEditor(props: RichTextEditorProps) {
+  const { className, payload, anchorPrefix, hiddenNodeIndexes } = props
+
+  const {
+    editor,
+    slashMenu,
+    setSlashMenu,
+    hasSelection,
+    ai,
+    pluginOptions,
+    aiComposer,
+    setAiComposer,
+    handleSlashSelect,
+  } = useNotebookTextEditing(props)
+
+  const [portalTarget, setPortalTarget] = React.useState<HTMLElement | null>(
+    null,
+  )
+
+  const mountEditor = React.useCallback((node: HTMLDivElement | null) => {
+    setPortalTarget(node?.ownerDocument.body ?? null)
+  }, [])
+
+  // Both surfaces follow the current caret/selection as the visible viewport changes.
+  const slashMenuElRef = React.useRef<HTMLDivElement>(null)
+
+  const slashPlacement = useAnchoredPlacement({
+    open: slashMenu.open,
+    ref: slashMenuElRef,
+    maxHeight: SLASH_MENU_MAX_HEIGHT,
+    getAnchor: () => {
+      if (!editor || editor.isDestroyed) return null
+      const c = editor.view.coordsAtPos(editor.state.selection.from)
+
+      return { top: c.top, bottom: c.bottom, left: c.left }
+    },
+  })
+
+  const toolbarRef = React.useRef<HTMLDivElement>(null)
+
+  const toolbarPlacement = useAnchoredPlacement({
+    open: hasSelection,
+    ref: toolbarRef,
+    maxHeight: Number.POSITIVE_INFINITY,
+    prefer: 'top',
+    gap: 8,
+    getAnchor: () => {
+      if (!editor || editor.isDestroyed) return null
+      const { from, to } = editor.state.selection
+      const start = editor.view.coordsAtPos(from)
+      const end = editor.view.coordsAtPos(to)
+      const width = toolbarRef.current?.offsetWidth ?? 0
+
+      return {
+        top: Math.min(start.top, end.top),
+        bottom: Math.max(start.bottom, end.bottom),
+        left: (start.left + end.right) / 2 - width / 2,
+      }
+    },
+  })
+
+  if (!editor) {
+    return (
+      <div className={className}>
+        <RichTextContent
+          payload={payload}
+          anchorPrefix={anchorPrefix}
+          hiddenNodeIndexes={hiddenNodeIndexes}
+        />
+      </div>
+    )
   }
 
   function setLink() {
     if (!editor) return
+
     if (editor.isActive('link')) {
       editor.chain().focus().unsetLink().run()
+
       return
     }
+
     const href = window.prompt(t('notebook.richTextEditor.linkUrl'), 'https://')
+
     if (href) editor.chain().focus().setLink({ href }).run()
   }
 
@@ -1011,7 +1131,7 @@ export function RichTextEditor({
   ]
 
   return (
-    <div className={className}>
+    <div className={className} ref={mountEditor}>
       <EditorContent editor={editor} />
       {aiComposer && ai.live ? (
         <AiComposer
@@ -1054,7 +1174,7 @@ export function RichTextEditor({
           ))}
         </div>
       ) : null}
-      {slashMenu.open
+      {slashMenu.open && portalTarget
         ? createPortal(
             <div data-slash-menu className="contents">
               <SlashCommandMenu
@@ -1070,7 +1190,7 @@ export function RichTextEditor({
                 style={slashPlacement.style}
               />
             </div>,
-            document.body,
+            portalTarget,
           )
         : null}
     </div>

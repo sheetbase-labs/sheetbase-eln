@@ -1,4 +1,5 @@
 import { t } from '#/copy'
+import { z } from 'zod'
 import { SqlEditor } from '#/components/pipelines/sql-editor'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
@@ -7,15 +8,14 @@ import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { personOption } from '#/components/record-picker/entity-options'
 import { Select } from '#/components/ui/select'
 import { PythonStepEditor } from '#/components/pipelines/python-editor'
-import {
-  ArgumentField,
-  pluginStepSources,
-} from '#/components/pipelines/plugin-steps-editor'
+import { ArgumentField } from '#/components/pipelines/plugin-steps-editor'
+import { pluginStepSources } from '#/components/pipelines/plugin-step-sources'
 import { Banner } from '#/components/ui/alert'
 import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
 import { parsePluginName } from '#/lib/extensions/points'
 import type { OperationInput } from '#/lib/operations/descriptor'
 import type { PythonRuntimeInfo } from '#/components/pipelines/pipelines-data'
+import { useEditorRows } from './use-editor-rows'
 import { CONFIRM_NO_ANSWER_OUTCOMES } from '#/lib/pipelines/config'
 import type {
   ConfirmNoAnswerOutcome,
@@ -76,6 +76,7 @@ export function StepsEditor({
     transformRuns: boolean
   }
 }) {
+  const { rows, change } = useEditorRows(steps, onChange)
   const memberIds = Object.keys(members)
   const points = useExtensionPoints()
 
@@ -92,13 +93,13 @@ export function StepsEditor({
         </p>
       ) : null}
       <ol className="m-0 flex list-none flex-col gap-3 p-0">
-        {steps.map((step, index) => {
+        {rows.map(({ id: rowId, value: step }, index) => {
           const n = index + 1
           const confirm = step.confirm
 
           return (
             <li
-              key={index}
+              key={rowId}
               hidden={activeIndex !== undefined && activeIndex !== index}
               className={
                 activeIndex === undefined
@@ -115,7 +116,7 @@ export function StepsEditor({
                   aria-label={t('data.stepsEditor.ariaStepName', { n })}
                   value={step.name}
                   onChange={(e) =>
-                    onChange(updateStep(steps, index, { name: e.target.value }))
+                    change(updateStep(steps, index, { name: e.target.value }))
                   }
                 />
                 <Select
@@ -123,11 +124,13 @@ export function StepsEditor({
                   aria-label={t('data.stepsEditor.ariaStepLanguage', { n })}
                   value={step.language}
                   onChange={(e) =>
-                    onChange(
+                    change(
                       setStepLanguage(
                         steps,
                         index,
-                        e.target.value as PipelineStep['language'],
+                        z
+                          .enum(['sql', 'python', 'plugin'])
+                          .parse(e.target.value),
                         {
                           inputs: python?.inputs ?? [],
                           parameters: python?.parameters ?? [],
@@ -152,7 +155,10 @@ export function StepsEditor({
                   variant="quiet"
                   aria-label={t('data.stepsEditor.ariaMoveStepUp', { n })}
                   disabled={index === 0}
-                  onClick={() => onChange(moveStep(steps, index, -1))}
+                  onClick={() => {
+                    const moved = moveStep(steps, index, -1)
+                    change(moved, moved)
+                  }}
                 >
                   {t('data.stepsEditor.up')}
                 </Button>
@@ -161,7 +167,10 @@ export function StepsEditor({
                   variant="quiet"
                   aria-label={t('data.stepsEditor.ariaMoveStepDown', { n })}
                   disabled={index === steps.length - 1}
-                  onClick={() => onChange(moveStep(steps, index, 1))}
+                  onClick={() => {
+                    const moved = moveStep(steps, index, 1)
+                    change(moved, moved)
+                  }}
                 >
                   {t('data.stepsEditor.down')}
                 </Button>
@@ -169,7 +178,12 @@ export function StepsEditor({
                   size="sm"
                   variant="quiet"
                   aria-label={t('data.stepsEditor.ariaRemoveStep', { n })}
-                  onClick={() => onChange(removeStep(steps, index))}
+                  onClick={() =>
+                    change(
+                      removeStep(steps, index),
+                      steps.filter((_, position) => position !== index),
+                    )
+                  }
                 >
                   {t('common.actions.remove')}
                 </Button>
@@ -192,7 +206,7 @@ export function StepsEditor({
                   })}
                   parameters={python?.parameters ?? []}
                   onChange={(plugin) =>
-                    onChange(setStepPlugin(steps, index, plugin))
+                    change(setStepPlugin(steps, index, plugin))
                   }
                 />
               ) : step.language === 'python' && python ? (
@@ -200,11 +214,11 @@ export function StepsEditor({
                   label={t('data.stepsEditor.step', { n })}
                   statement={step.statement}
                   onStatementChange={(statement) =>
-                    onChange(updateStep(steps, index, { statement }))
+                    change(updateStep(steps, index, { statement }))
                   }
                   contract={step.contract}
                   onContractChange={(contract) =>
-                    onChange(setStepContract(steps, index, contract))
+                    change(setStepContract(steps, index, contract))
                   }
                   inputs={python.inputs}
                   parameters={python.parameters}
@@ -218,7 +232,7 @@ export function StepsEditor({
                   value={step.statement}
                   rows={activeIndex === undefined ? 4 : 12}
                   onChange={(e) =>
-                    onChange(
+                    change(
                       updateStep(steps, index, { statement: e.target.value }),
                     )
                   }
@@ -231,7 +245,7 @@ export function StepsEditor({
                   })}
                   checked={Boolean(confirm)}
                   onCheckedChange={(on) =>
-                    onChange(
+                    change(
                       setStepConfirm(
                         steps,
                         index,
@@ -253,7 +267,7 @@ export function StepsEditor({
                       })}
                       value={confirm.askedUserIds[0] ?? ''}
                       onChange={(id) =>
-                        onChange(
+                        change(
                           setConfirmPatch(steps, index, {
                             askedUserIds: id ? [id] : [],
                           }),
@@ -270,9 +284,11 @@ export function StepsEditor({
                       aria-label={t('data.stepsEditor.ariaStepAnswer', { n })}
                       value={confirm.noAnswer ?? 'reask'}
                       onChange={(e) =>
-                        onChange(
+                        change(
                           setConfirmPatch(steps, index, {
-                            noAnswer: e.target.value as ConfirmNoAnswerOutcome,
+                            noAnswer: z
+                              .enum(CONFIRM_NO_ANSWER_OUTCOMES)
+                              .parse(e.target.value),
                           }),
                         )
                       }
@@ -291,7 +307,7 @@ export function StepsEditor({
                       multiple
                       value={confirm.skipSteps ?? []}
                       onChange={(e) =>
-                        onChange(
+                        change(
                           setConfirmPatch(steps, index, {
                             skipSteps: [...e.target.selectedOptions].map(
                               (o) => o.value,
@@ -300,10 +316,10 @@ export function StepsEditor({
                         )
                       }
                     >
-                      {steps
+                      {rows
                         .filter((_, position) => position !== index)
-                        .map((other) => (
-                          <option key={other.name} value={other.name}>
+                        .map(({ id: otherId, value: other }) => (
+                          <option key={otherId} value={other.name}>
                             {other.name}
                           </option>
                         ))}
@@ -321,7 +337,7 @@ export function StepsEditor({
             size="sm"
             icon="plus"
             disabled={steps.length >= 9}
-            onClick={() => onChange(addStep(steps))}
+            onClick={() => change(addStep(steps))}
           >
             {t('data.stepsEditor.addStep')}
           </Button>
@@ -363,6 +379,7 @@ function PluginStepBody({
   const descriptor = descriptors.get(operation)
   const args = step.plugin?.arguments ?? {}
   const known = pluginSteps.some((entry) => entry.name === operation)
+  const tableNames = new Set(tablesOf(operation))
 
   return (
     <div className="flex flex-col gap-3">
@@ -418,7 +435,7 @@ function PluginStepBody({
           <ArgumentField
             key={input.name}
             input={input}
-            isTable={tablesOf(operation).includes(input.name)}
+            isTable={tableNames.has(input.name)}
             value={args[input.name]}
             parameters={parameters}
             tableSources={sources}

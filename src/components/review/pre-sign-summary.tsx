@@ -109,6 +109,7 @@ export function PreSignSummary({ input }: { input: PreSignInput }) {
                       count: line.count,
                     })
                   : t(
+                      // SAFETY: preSignReview's first-version contents emit only these four areas; the assertion changes no runtime key or missing-key fallback.
                       `projects.preSign.contents.${line.area as 'blocks' | 'tables' | 'files' | 'links'}`,
                       { count: line.count },
                     )}

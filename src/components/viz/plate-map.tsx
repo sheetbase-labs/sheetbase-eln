@@ -212,9 +212,9 @@ export function PlateMap({
   // Keyboard navigation: arrow keys move focus between cells
   function handleKeyDown(e: React.KeyboardEvent) {
     if (!interactive) return
-    const focused = document.activeElement as HTMLButtonElement | null
+    const focused = document.activeElement
 
-    if (!focused || !focused.dataset.cell) return
+    if (!(focused instanceof HTMLButtonElement) || !focused.dataset.cell) return
 
     const [r, c] = focused.dataset.cell.split(':').map(Number)
     let nr = r
@@ -260,9 +260,9 @@ export function PlateMap({
     if (nr === r && nc === c) return
 
     // Find the button at the target cell
-    const targetBtn = gridRef.current?.querySelector(
+    const targetBtn = gridRef.current?.querySelector<HTMLButtonElement>(
       `button[data-cell="${nr}:${nc}"]`,
-    ) as HTMLButtonElement | null
+    )
 
     if (targetBtn) {
       targetBtn.focus()

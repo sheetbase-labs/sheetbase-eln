@@ -34,13 +34,6 @@ import type {
 } from '#/components/instruments/instruments-data'
 import { t } from '#/copy'
 
-/** Whether the instrument has been marked out of service (and is not retired). */
-export function isOutOfService(
-  instrument: Pick<InstrumentRow, 'outOfServiceAt' | 'retiredAt'>,
-): boolean {
-  return Boolean(instrument.outOfServiceAt) && !instrument.retiredAt
-}
-
 function kindLabel(kind: ServiceKind): string {
   switch (kind) {
     case 'repair':
@@ -128,7 +121,7 @@ function useServiceStateMutation(
             }),
       )
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       toast(t('library.instruments.outOfService.couldNotChange'), {
         description: error instanceof Error ? error.message : undefined,
       })
@@ -301,7 +294,7 @@ function LogVisitDialog({
 }) {
   const queryClient = useQueryClient()
   const [kind, setKind] = useState<ServiceKind>('service')
-  const [visitedOn, setVisitedOn] = useState(isoDay())
+  const [visitedOn, setVisitedOn] = useState(() => isoDay())
   const [summary, setSummary] = useState('')
   const [performedBy, setPerformedBy] = useState('')
   const [details, setDetails] = useState('')
@@ -326,7 +319,7 @@ function LogVisitDialog({
       setDetails('')
       toast(t('library.instruments.serviceLog.logged'))
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       toast(t('library.instruments.serviceLog.couldNotLog'), {
         description: error instanceof Error ? error.message : undefined,
       })
@@ -348,7 +341,13 @@ function LogVisitDialog({
               <Field label={t('library.instruments.serviceLog.kind')} required>
                 <Select
                   value={kind}
-                  onChange={(e) => setKind(e.target.value as ServiceKind)}
+                  onChange={(event) => {
+                    const selected = SERVICE_KINDS.find(
+                      (entry) => entry === event.target.value,
+                    )
+
+                    if (selected) setKind(selected)
+                  }}
                 >
                   {SERVICE_KINDS.map((k) => (
                     <option key={k} value={k}>

@@ -52,32 +52,39 @@ function useNow(active: boolean): number {
     // A hidden tab may not tick; catch up the moment it is shown again.
     const onVisible = () => setNow(Date.now())
     document.addEventListener('visibilitychange', onVisible)
+
     return () => {
       window.clearInterval(id)
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [active])
+
   return now
 }
 
 function useTimerActions() {
   const queryClient = useQueryClient()
+
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: stepTimerQueryKeys.all })
+
   const start = useMutation({
     mutationFn: async (blockId: string) => {
       // Asked from this tap, which is the only time a browser allows it.
       await prepareTimerAlerts()
+
       return startStepTimer(blockId)
     },
     onSuccess: refresh,
     onError: () => toast.error(t('notebook.stepTimers.couldNotStart')),
   })
+
   const end = useMutation({
     mutationFn: (timerId: string) => endStepTimer(timerId),
     onSuccess: refresh,
     onError: () => toast.error(t('notebook.stepTimers.couldNotStop')),
   })
+
   return { start, end }
 }
 
@@ -194,6 +201,7 @@ export function StepTimersHost() {
   const nextMs = nextEndInMs(list, now)
   React.useEffect(() => {
     if (nextMs === null) return
+
     const id = window.setTimeout(
       () =>
         void queryClient.invalidateQueries({
@@ -201,8 +209,9 @@ export function StepTimersHost() {
         }),
       Math.min(nextMs + 250, 2_000_000_000),
     )
+
     return () => window.clearTimeout(id)
-  }, [nextMs === null ? null : Math.floor(nextMs / 1000), queryClient])
+  }, [nextMs, queryClient])
 
   const finished = finishedTimers(list, now)
   React.useEffect(() => {
@@ -210,7 +219,7 @@ export function StepTimersHost() {
       if (!claimAlert(timer.id)) continue
       void alertTimerFinished(timer.id, timer.label, recordPath(timer.recordId))
     }
-  }, [finished.map((timer) => timer.id).join(',')])
+  }, [finished])
 
   // A phone that dims mid-timer may stop counting and alerting, so keep the
   // screen on while any timer is still running.
@@ -221,16 +230,19 @@ export function StepTimersHost() {
     .filter((timer) => remainingMs(timer, now) > 0)
     .sort((a, b) => remainingMs(a, now) - remainingMs(b, now))
     .at(0)
+
   React.useEffect(() => {
     if (!soonest) return
     const base = document.title.replace(/^[\d:]+ · /, '')
     document.title = `${formatCountdown(remainingMs(soonest, now))} · ${base}`
+
     return () => {
       document.title = base
     }
   })
 
   if (list.length === 0) return null
+
   return (
     <section
       aria-label={t('notebook.stepTimers.tray.ariaLabel')}
@@ -259,6 +271,7 @@ function TrayTimer({
 }) {
   const left = remainingMs(timer, now)
   const done = left === 0
+
   return (
     <div
       className={cn(

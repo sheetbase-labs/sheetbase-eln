@@ -91,7 +91,7 @@ export function useRunLauncher(
       )
       onStarted?.(started)
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       toast(t('data.useRunLauncher.couldStartRun'), {
         description:
           error instanceof Error

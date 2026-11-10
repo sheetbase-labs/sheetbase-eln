@@ -13,6 +13,7 @@ describe('NotebookBlock', () => {
         body
       </NotebookBlock>,
     )
+
     expect(container.querySelector('[data-block-type="H2"]')).toBeTruthy()
     expect(screen.getByText('Methods')).toBeTruthy()
     expect(screen.getByText('body')).toBeTruthy()
@@ -24,6 +25,7 @@ describe('NotebookBlock', () => {
         body
       </NotebookBlock>,
     )
+
     expect(container.querySelector('[data-state="invalid"]')).toBeTruthy()
   })
 

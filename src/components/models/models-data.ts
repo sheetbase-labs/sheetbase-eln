@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
 
-import type { Tone } from '#/components/ui/status'
 import type { DataClient } from '#/lib/data-client'
 import {
   listCanonicalDatasetSchemaDefinitions,
@@ -56,23 +56,23 @@ export interface ModelRow extends CanonicalDatasetSchemaDefinition {
   datasetCount: number
 }
 
-export function modelStatus(lifecycle: string): { tone: Tone; label: string } {
+export function modelStatus(lifecycle: string) {
   switch (lifecycle) {
     // One word for a model in service: Published, as the version pages say.
     case 'active':
     case 'published':
-      return { tone: 'ok', label: 'Published' }
+      return { tone: 'ok', label: 'Published' } as const
     case 'draft':
-      return { tone: 'draft', label: 'Draft' }
+      return { tone: 'draft', label: 'Draft' } as const
     case 'retired':
-      return { tone: 'stored', label: 'Retired' }
+      return { tone: 'stored', label: 'Retired' } as const
     default:
       return {
         tone: 'none',
         label:
           lifecycle.charAt(0).toUpperCase() +
           lifecycle.slice(1).replace(/_/g, ' '),
-      }
+      } as const
   }
 }
 
@@ -247,12 +247,16 @@ export function useModels(client: DataClient = notebookDataClient) {
       const fields = fieldGroups.flat()
       const datasets = datasetGroups.flat()
 
+      const modelsByKey = new Map(
+        recordModels.map((model) => [model.key, model]),
+      )
+
       const rootOf = (key: string): string => {
         const seen = new Set<string>()
         let current = key
 
         for (;;) {
-          const parent = recordModels.find((m) => m.key === current)?.parent_key
+          const parent = modelsByKey.get(current)?.parent_key
 
           if (!parent || seen.has(current)) return current
           seen.add(current)
@@ -391,13 +395,15 @@ export function useModelFields(
   return useQuery({
     queryKey: modelsQueryKeys.fields(versionId ?? ''),
     queryFn: () =>
-      listCanonicalDatasetSchemaVersionFields(client, versionId as string),
+      versionId
+        ? listCanonicalDatasetSchemaVersionFields(client, versionId)
+        : [],
     enabled: Boolean(versionId),
     staleTime: 15_000,
   })
 }
 
-export interface ModelVersionField extends CanonicalDatasetSchemaField {
+export type ModelVersionField = CanonicalDatasetSchemaField & {
   schema_version_id: string
 }
 
@@ -502,8 +508,8 @@ export interface RecordModelRecord {
   title: string
   kind: string
   status: string
-  custom_fields: Record<string, unknown> | null
-  properties: Record<string, unknown> | null
+  custom_fields: ReturnType<typeof pipelineJsonObjectSchema.parse> | null
+  properties: ReturnType<typeof pipelineJsonObjectSchema.parse> | null
   tags: string[]
   created_at: string
   updated_at: string
@@ -511,6 +517,17 @@ export interface RecordModelRecord {
   metadata_version?: number
   model_version_id?: string | null
   model_version?: { version: number } | null
+}
+
+/** Decode the extensible scientific values at the PostgREST boundary. */
+function decodeRecordModelValues(record: RecordModelRecord): RecordModelRecord {
+  return {
+    ...record,
+    custom_fields: pipelineJsonObjectSchema
+      .nullable()
+      .parse(record.custom_fields),
+    properties: pipelineJsonObjectSchema.nullable().parse(record.properties),
+  }
 }
 
 export const recordModelQueryKeys = {
@@ -589,10 +606,12 @@ export function useRecordModelRecords(
   return useQuery({
     queryKey: recordModelQueryKeys.records(key),
     queryFn: () =>
-      client.list<RecordModelRecord>(
-        'records',
-        `?kind=eq.${encodeURIComponent(key)}&deleted_at=is.null&order=updated_at.desc&select=${RECORD_MODEL_RECORD_COLUMNS}`,
-      ),
+      client
+        .list<RecordModelRecord>(
+          'records',
+          `?kind=eq.${encodeURIComponent(key)}&deleted_at=is.null&order=updated_at.desc&select=${RECORD_MODEL_RECORD_COLUMNS}`,
+        )
+        .then((rows) => rows.map(decodeRecordModelValues)),
     enabled: Boolean(key),
     staleTime: 15_000,
   })
@@ -608,15 +627,16 @@ type BuiltInKindSurface =
   | '/templates'
   | '/models'
 
-export const BUILT_IN_KIND_SURFACES: Partial<
-  Record<string, { to: BuiltInKindSurface; label: string }>
-> = {
-  sample: { to: '/samples', label: 'Samples' },
-  material: { to: '/materials', label: 'Materials' },
-  protocol_template: { to: '/protocols', label: 'Protocols' },
-  experiment: { to: '/experiments', label: 'Experiments' },
-  notebook_template: { to: '/templates', label: 'Templates' },
-}
+export const BUILT_IN_KIND_SURFACES = new Map<
+  string,
+  { to: BuiltInKindSurface; label: string }
+>([
+  ['sample', { to: '/samples', label: 'Samples' }],
+  ['material', { to: '/materials', label: 'Materials' }],
+  ['protocol_template', { to: '/protocols', label: 'Protocols' }],
+  ['experiment', { to: '/experiments', label: 'Experiments' }],
+  ['notebook_template', { to: '/templates', label: 'Templates' }],
+])
 
 /**
  * Workspace models store field values in `custom_fields`; the legacy registry
@@ -625,7 +645,7 @@ export const BUILT_IN_KIND_SURFACES: Partial<
 export function recordFieldValue(
   record: Pick<RecordModelRecord, 'custom_fields' | 'properties'>,
   fieldName: string,
-): unknown {
+) {
   const custom = record.custom_fields?.[fieldName]
 
   if (custom !== undefined) return custom
@@ -679,6 +699,8 @@ export function filterRecordModelRecords(
       if (!shown.includes(fieldValue)) return false
     }
 
+    // buildRecordSearchText returns string; partial matches must remain substring searches, not Set membership.
+    // react-doctor-disable-next-line react-doctor/js-set-map-lookups
     if (q && !buildRecordSearchText(record, fields).includes(q)) return false
 
     return true
@@ -687,7 +709,9 @@ export function filterRecordModelRecords(
 
 /** Distinct statuses present in the data, for the status filter. */
 export function recordStatusOptions(records: RecordModelRecord[]): string[] {
-  return [...new Set(records.map((r) => r.status).filter(Boolean))].sort()
+  return [
+    ...new Set(records.flatMap((r) => (r.status ? [r.status] : []))),
+  ].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
 }
 
 /** Export the visible rows as CSV via the canonical delimited serializers. */
@@ -827,6 +851,7 @@ export function useRecordModelRecord(
           'records',
           `?id=eq.${encodeURIComponent(recordId)}&select=${RECORD_MODEL_RECORD_COLUMNS}`,
         )
+        .then((rows) => rows.map(decodeRecordModelValues))
         .then((rows) => rows[0] ?? null),
     enabled: Boolean(recordId),
     staleTime: 15_000,
@@ -897,7 +922,7 @@ export function recordModelNextIdentifier(
 export function modelFieldInputErrors(
   fields: ModelFieldDefinition[],
   values: Record<string, string | boolean>,
-): Record<string, string> {
+) {
   const errors: Record<string, string> = {}
 
   for (const field of fields) {
@@ -920,30 +945,30 @@ export function modelFieldInputErrors(
   return errors
 }
 
-const MODEL_FIELD_ERROR_MESSAGES: Record<string, string> = {
-  required_value: 'A required value is missing.',
-  numeric_validation: 'The value is outside the allowed range.',
-  text_validation: 'The text does not match the field’s rules.',
-  invalid_value_type: 'The value type does not match the field.',
-  invalid_value: 'That value is not allowed.',
-  invalid_reference: 'The linked record was not found in this workspace.',
-  invalid_category_option: 'That category option is not available.',
-  invalid_cardinality: 'The number of values is wrong for this field.',
-}
+const MODEL_FIELD_ERROR_MESSAGES = new Map([
+  ['required_value', 'A required value is missing.'],
+  ['numeric_validation', 'The value is outside the allowed range.'],
+  ['text_validation', 'The text does not match the field’s rules.'],
+  ['invalid_value_type', 'The value type does not match the field.'],
+  ['invalid_value', 'That value is not allowed.'],
+  ['invalid_reference', 'The linked record was not found in this workspace.'],
+  ['invalid_category_option', 'That category option is not available.'],
+  ['invalid_cardinality', 'The number of values is wrong for this field.'],
+])
 
 /** Human message for a kernel validation code; unknown codes stay visible. */
 export function modelFieldErrorMessage(code: string): string {
   // A plugin field type's own sentence arrives whole; a database code does not.
   if (code.includes(' ')) return code
 
-  return MODEL_FIELD_ERROR_MESSAGES[code] ?? `Couldn’t save (${code}).`
+  return MODEL_FIELD_ERROR_MESSAGES.get(code) ?? `Couldn’t save (${code}).`
 }
 
 /** Build the `custom_fields` object the RPC receives, omitting blank values. */
 export function buildRecordModelCustomFields(
   fields: ModelFieldDefinition[],
   values: Record<string, string | boolean>,
-): Record<string, unknown> {
+) {
   return modelFieldValuesFromInput(fields, values, true)
 }
 

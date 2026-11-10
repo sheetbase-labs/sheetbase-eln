@@ -1,63 +1,124 @@
-import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { renderToString } from 'react-dom/server'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterContextProvider,
+  RouterProvider,
+} from '@tanstack/react-router'
+import type { ReactNode } from 'react'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { SignatureWire } from '#/lib/signatures'
+import type { PartSummary } from '#/lib/experiment-parts'
+import type { AuditVerificationStatus } from '#/lib/audit-verification-status'
 import type { ReadinessBlock } from './readiness'
 import type { ExperimentOverviewProps } from './overview-view'
-import { ExperimentOverview } from './overview-view'
 
-const linkCalls = vi.hoisted(() => ({
-  calls: [] as Array<{
-    to?: string
-    params?: Record<string, string>
-    hash?: string
-  }>,
-}))
+const clients: QueryClient[] = []
 
-// The overview renders router links; record the invocations and interpolate
-// route params + hash so the resulting href can be asserted without a router.
-// The verification line reads the server on its own; these tests are about the table.
-vi.mock('#/components/review/audit-check-line', () => ({
-  AuditCheckLine: () => null,
-}))
+const requests: { url: string; method: string; body: RequestInit['body'] }[] =
+  []
 
-vi.mock('@tanstack/react-router', () => ({
-  useNavigate: () => vi.fn(),
-  Link: ({
-    to,
-    params,
-    hash,
-    children,
-    ...props
-  }: {
-    to?: string
-    params?: Record<string, string>
-    hash?: string
-    children?: React.ReactNode
-  } & Record<string, unknown>) => {
-    linkCalls.calls.push({ to, params, hash })
-    let href = typeof to === 'string' ? to : '#'
+const unexpected: string[] = []
+const pending = new Set<Promise<Response>>()
+const releases: (() => void)[] = []
+let auditReply = () => Promise.resolve(Response.json(null))
 
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        href = href.replace(`$${key}`, encodeURIComponent(value))
-      }
-    }
+// AuditCheckLine captures fetch when its module creates the production client.
+// Install the controlled HTTP boundary before importing that module tree.
+vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = input instanceof Request ? input.url : input.toString()
 
-    if (hash) href += `#${hash}`
+  requests.push({ url, method: init?.method ?? 'GET', body: init?.body })
 
-    return (
-      <a href={href} {...props}>
-        {children}
-      </a>
-    )
-  },
-}))
+  if (
+    url !== '/api/db/rpc/audit_verification_status' ||
+    init?.method !== 'POST'
+  ) {
+    unexpected.push(url)
+  }
 
-afterEach(() => {
-  cleanup()
-  linkCalls.calls = []
+  const response =
+    url === '/api/db/rpc/audit_verification_status' && init?.method === 'POST'
+      ? auditReply()
+      : Promise.resolve(new Response(null, { status: 500 }))
+
+  pending.add(response)
+  void response.finally(() => pending.delete(response))
+
+  return response
 })
+
+const { ExperimentOverview } = await import('./overview-view')
+
+afterEach(async () => {
+  cleanup()
+  clients.splice(0).forEach((client) => client.clear())
+  releases.splice(0).forEach((release) => release())
+  await Promise.all(pending)
+  expect(unexpected).toEqual([])
+  requests.length = 0
+  auditReply = () => Promise.resolve(Response.json(null))
+})
+
+afterAll(() => {
+  vi.unstubAllGlobals()
+})
+
+async function renderOverview(ui: ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  })
+
+  clients.push(client)
+
+  const root = createRootRoute({ component: () => ui })
+
+  const fallback = createRoute({
+    getParentRoute: () => root,
+    path: '$',
+    validateSearch: (search) => search,
+  })
+
+  const router = createRouter({
+    routeTree: root.addChildren([fallback]),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+    scrollRestoration: false,
+    defaultHashScrollIntoView: false,
+  })
+
+  await router.load()
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
+
+  return { router, client }
+}
+
+function overviewMarkup(props: ExperimentOverviewProps) {
+  const client = new QueryClient()
+  clients.push(client)
+
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory(),
+  })
+
+  return renderToString(
+    <QueryClientProvider client={client}>
+      <RouterContextProvider router={router}>
+        <ExperimentOverview {...props} />
+      </RouterContextProvider>
+    </QueryClientProvider>,
+  )
+}
 
 const SHEET_BLOCK = 'blk-sheet'
 const OBJECTIVE_BLOCK = 'blk-objective'
@@ -240,8 +301,10 @@ const STEP_BLOCKS: ReadinessBlock[] = [
 ]
 
 describe('EXP-02.2 protocol progress', () => {
-  it('derives each step from the notebook, with who finished it and when', () => {
-    render(<ExperimentOverview {...baseProps()} blocks={STEP_BLOCKS} />)
+  it('derives each step from the notebook, with who finished it and when', async () => {
+    await renderOverview(
+      <ExperimentOverview {...baseProps()} blocks={STEP_BLOCKS} />,
+    )
     expect(screen.getByText('Equilibrate the column')).toBeDefined()
     expect(screen.getByText('Load the clarified harvest')).toBeDefined()
     // The completed step names who finished it and when.
@@ -252,8 +315,8 @@ describe('EXP-02.2 protocol progress', () => {
     expect(screen.getByText('Not started')).toBeDefined()
   })
 
-  it('says no progress is recorded rather than inventing steps', () => {
-    render(<ExperimentOverview {...baseProps()} />)
+  it('says no progress is recorded rather than inventing steps', async () => {
+    await renderOverview(<ExperimentOverview {...baseProps()} />)
     expect(
       screen.getByText('Steps appear here as you work through the protocol.'),
     ).toBeDefined()
@@ -261,8 +324,8 @@ describe('EXP-02.2 protocol progress', () => {
 })
 
 describe('EXP-02.4 ExperimentOverview', () => {
-  it('deep-links every readiness item to the block that resolves it', () => {
-    render(<ExperimentOverview {...baseProps()} />)
+  it('deep-links every readiness item to the block that resolves it', async () => {
+    await renderOverview(<ExperimentOverview {...baseProps()} />)
 
     expect(screen.getByText('Sheet columns valid')).toBeDefined()
     expect(screen.getByText('Open comment thread')).toBeDefined()
@@ -284,8 +347,8 @@ describe('EXP-02.4 ExperimentOverview', () => {
     ).toBeDefined()
   })
 
-  it('renders linked experiments and signatures from real data', () => {
-    render(<ExperimentOverview {...baseProps()} />)
+  it('renders linked experiments and signatures from real data', async () => {
+    await renderOverview(<ExperimentOverview {...baseProps()} />)
 
     const upstream = screen.getByRole('link', { name: 'EXP-0138' })
     expect(upstream.getAttribute('href')).toBe('/experiments/exp-2')
@@ -299,8 +362,8 @@ describe('EXP-02.4 ExperimentOverview', () => {
     expect(screen.getByText('Reviewed and approved')).toBeDefined()
   })
 
-  it('counts a dataset linked by identifier, as the Datasets tab does', () => {
-    render(
+  it('counts a dataset linked by identifier, as the Datasets tab does', async () => {
+    await renderOverview(
       <ExperimentOverview
         {...baseProps()}
         links={[
@@ -323,8 +386,8 @@ describe('EXP-02.4 ExperimentOverview', () => {
     ).toBeNull()
   })
 
-  it('leads key results with the notebook metrics and conclusion', () => {
-    render(
+  it('leads key results with the notebook metrics and conclusion', async () => {
+    await renderOverview(
       <ExperimentOverview
         {...baseProps()}
         blocks={[
@@ -353,8 +416,8 @@ describe('EXP-02.4 ExperimentOverview', () => {
     expect(screen.getByText('Doubling at 72 h.')).toBeDefined()
   })
 
-  it('names an absent fact rather than faking it', () => {
-    render(
+  it('names an absent fact rather than faking it', async () => {
+    await renderOverview(
       <ExperimentOverview
         {...baseProps()}
         record={{
@@ -380,14 +443,17 @@ describe('EXP-02.4 ExperimentOverview', () => {
 })
 
 describe('parts', () => {
-  const part = (number: number, extra: Record<string, unknown> = {}) => ({
+  const part = (
+    number: number,
+    extra: Partial<PartSummary> = {},
+  ): PartSummary => ({
     partId: `part-${number}`,
     number,
     title: `Stage ${number}`,
     dayOffset: number - 1,
     dueOn: null,
     assigneeUserId: null,
-    status: 'later' as const,
+    status: 'later',
     completedAt: null,
     completedByUserId: null,
     stepCount: 0,
@@ -397,13 +463,13 @@ describe('parts', () => {
     ...extra,
   })
 
-  it('shows nothing for an experiment that is one page', () => {
-    render(<ExperimentOverview {...baseProps()} />)
+  it('shows nothing for an experiment that is one page', async () => {
+    await renderOverview(<ExperimentOverview {...baseProps()} />)
     expect(screen.queryByRole('table', { name: 'Parts' })).toBeNull()
   })
 
-  it('lists the parts with their day, who finished them and the steps done', () => {
-    render(
+  it('lists the parts with their day, who finished them and the steps done', async () => {
+    await renderOverview(
       <ExperimentOverview
         {...baseProps()}
         parts={[
@@ -428,4 +494,401 @@ describe('parts', () => {
       screen.getByRole('link', { name: 'Stage 2' }).getAttribute('href'),
     ).toBe('/experiments/rec-1/notebook/2')
   })
+})
+
+describe('readiness presentation', () => {
+  it.each([
+    {
+      status: 'in_review',
+      loading: true,
+      error: 'Unavailable',
+      message: 'Submitted for review. Nothing to close until it comes back.',
+    },
+    {
+      status: 'in_progress',
+      loading: true,
+      error: 'Unavailable',
+      message: 'Checking readiness…',
+    },
+    {
+      status: 'in_progress',
+      loading: false,
+      error: 'Unavailable',
+      message: 'Couldn’t check readiness: Unavailable',
+    },
+    {
+      status: 'in_progress',
+      loading: false,
+      error: null,
+      message: 'Nothing open. The record is ready for submission',
+    },
+  ])(
+    'prefers $message over stale blockers',
+    async ({ status, loading, error, message }) => {
+      const props = baseProps()
+
+      await renderOverview(
+        <ExperimentOverview
+          {...props}
+          record={{ ...props.record, status }}
+          readiness={
+            loading || error || status === 'in_review'
+              ? props.readiness
+              : {
+                  recordId: props.record.id,
+                  ready: true,
+                  validationErrors: [],
+                  openCommentThreads: [],
+                  emptyRequiredFields: [],
+                }
+          }
+          readinessIsLoading={loading}
+          readinessError={error}
+        />,
+      )
+      expect(screen.getByText(message)).toBeDefined()
+      expect(screen.queryByRole('link', { name: 'Go to cell' })).toBeNull()
+
+      if (status === 'in_review') {
+        expect(
+          screen.queryByRole('button', { name: 'Submit for review' }),
+        ).toBeNull()
+      }
+    },
+  )
+
+  it('opens the real notebook submit location', async () => {
+    const { router } = await renderOverview(
+      <ExperimentOverview {...baseProps()} />,
+    )
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Submit for review' }))
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/experiments/rec-1/notebook')
+      expect(router.state.location.search).toEqual({ reopen: 'submit' })
+      expect(router.state.location.href).toBe(
+        '/experiments/rec-1/notebook?reopen=submit',
+      )
+    })
+  })
+})
+
+describe('audit verification over the production data client', () => {
+  it('makes no audit claim while pending, then exposes a failed check', async () => {
+    const status: AuditVerificationStatus = {
+      ok: false,
+      checkedAt: '2026-09-25T10:00:00.000Z',
+      entriesChecked: 10,
+      signaturesChecked: 1,
+      firstBadRevisionId: 'rev-1',
+    }
+
+    let release: () => void = () => {
+      throw new Error('The audit response gate is not initialized')
+    }
+
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    releases.push(release)
+    auditReply = async () => {
+      await gate
+
+      return Response.json(status)
+    }
+
+    await renderOverview(<ExperimentOverview {...baseProps()} />)
+    await userEvent.hover(
+      screen.getByRole('button', { name: 'About these signatures' }),
+    )
+    expect(
+      await screen.findByText(/bound to the frozen revision it attests/),
+    ).toBeDefined()
+    expect(
+      screen.queryByText(/verified intact|haven’t been checked yet/),
+    ).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(requests).toEqual([
+      {
+        url: '/api/db/rpc/audit_verification_status',
+        method: 'POST',
+        body: '{}',
+      },
+    ])
+
+    release()
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'The latest check of the signatures and audit trail failed',
+    )
+  })
+
+  it.each([false, true])(
+    'distinguishes an unchecked audit from HTTP refusal: refused=%s',
+    async (refused) => {
+      auditReply = () =>
+        Promise.resolve(
+          refused
+            ? Response.json(
+                { error: { code: 'refused', message: 'Not available' } },
+                { status: 403 },
+              )
+            : Response.json(null),
+        )
+
+      const { client } = await renderOverview(
+        <ExperimentOverview {...baseProps()} />,
+      )
+
+      await waitFor(() => {
+        expect(client.isFetching()).toBe(0)
+        expect(client.getQueryState(['audit-verification'])?.status).toBe(
+          refused ? 'error' : 'success',
+        )
+      })
+      await userEvent.hover(
+        screen.getByRole('button', { name: 'About these signatures' }),
+      )
+      expect(
+        await screen.findByText(/bound to the frozen revision it attests/),
+      ).toBeDefined()
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(screen.queryByText(/verified intact/)).toBeNull()
+
+      if (refused) {
+        expect(
+          screen.queryByText(
+            'The signatures and audit trail haven’t been checked yet.',
+          ),
+        ).toBeNull()
+      } else {
+        expect(
+          screen.getByText(
+            'The signatures and audit trail haven’t been checked yet.',
+          ),
+        ).toBeDefined()
+      }
+    },
+  )
+})
+
+describe('native overview prose and properties', () => {
+  it('reads readiness status before resolving the owner label', () => {
+    let statusReads = 0
+    let label = 'native-before'
+    const props = baseProps()
+    props.blocks = []
+    props.links = []
+    props.readiness = null
+    props.signatures = []
+    props.record = {
+      ...props.record,
+      get status() {
+        statusReads += 1
+
+        if (statusReads === 3) label = 'native-after'
+
+        return 'in_progress'
+      },
+    }
+    props.userLabel = () => label
+
+    expect(overviewMarkup(props)).toContain('native-after')
+    expect(statusReads).toBe(3)
+  })
+
+  it('constructs the submit action before a stateful owner callback changes status', () => {
+    const props = baseProps()
+    props.blocks = []
+    props.links = []
+    props.readiness = null
+    props.signatures = []
+    props.userLabel = () => {
+      props.record.status = 'approved'
+
+      return 'Native owner'
+    }
+
+    expect(overviewMarkup(props)).toContain('Submit for review')
+    expect(props.record.status).toBe('approved')
+  })
+
+  it('propagates the readiness getter throw before calling the owner callback', () => {
+    const failure = new Error('third status read')
+    let statusReads = 0
+    const labels: string[] = []
+    const props = baseProps()
+    props.blocks = []
+    props.links = []
+    props.readiness = null
+    props.signatures = []
+    props.record = {
+      ...props.record,
+      get status() {
+        statusReads += 1
+
+        if (statusReads === 3) throw failure
+
+        return 'in_progress'
+      },
+    }
+    props.userLabel = (id) => {
+      labels.push(id)
+
+      return id
+    }
+
+    expect(() => overviewMarkup(props)).toThrow(failure)
+    expect(labels).toEqual([])
+  })
+
+  it('reads inherited array prose, preferring text without reading unrelated getters', async () => {
+    class Prose extends Array<never> {
+      get text() {
+        return 'Inherited objective text'
+      }
+
+      get content(): never {
+        throw new Error('Text takes precedence over content')
+      }
+    }
+
+    class Document {
+      get content() {
+        return [new Prose()]
+      }
+
+      get unrelated(): never {
+        throw new Error('Unrelated document metadata must remain unread')
+      }
+    }
+
+    await renderOverview(
+      <ExperimentOverview
+        {...baseProps()}
+        blocks={[{ id: 'native-prose', payload: { doc: new Document() } }]}
+      />,
+    )
+    expect(screen.getByText('Inherited objective text')).toBeDefined()
+  })
+
+  it.each([false, true])(
+    'preserves Objective-heading fallback, empty=%s',
+    async (empty) => {
+      await renderOverview(
+        <ExperimentOverview
+          {...baseProps()}
+          blocks={[
+            {
+              id: 'other-prose',
+              payload: { doc: { content: [{ text: 'Context' }] } },
+            },
+            {
+              id: 'objective',
+              payload: {
+                doc: {
+                  content: [
+                    { type: 'heading', text: 'Objective' },
+                    { text: empty ? '' : 'Specific objective' },
+                  ],
+                },
+              },
+            },
+          ]}
+        />,
+      )
+      expect(
+        screen.getByText(empty ? 'Context Objective' : 'Specific objective'),
+      ).toBeDefined()
+      expect(
+        screen.queryByText(empty ? 'Specific objective' : 'Context'),
+      ).toBeNull()
+    },
+  )
+
+  it('captures each primitive property value once and ignores unrelated metadata', async () => {
+    let reviewerReads = 0
+    let collaboratorReads = 0
+
+    const properties: ExperimentOverviewProps['record']['properties'] = {
+      get reviewerId() {
+        reviewerReads += 1
+
+        return reviewerReads === 1 ? 'user-ps' : null
+      },
+      get collaboratorIds() {
+        collaboratorReads += 1
+
+        return collaboratorReads === 1 ? ['user-gp'] : null
+      },
+      get unrelated(): never {
+        throw new Error('Unrelated native metadata must remain unread')
+      },
+    }
+
+    await renderOverview(
+      <ExperimentOverview
+        {...baseProps()}
+        record={{ ...baseProps().record, properties }}
+      />,
+    )
+    expect(screen.getByText('Priya S.')).toBeDefined()
+    expect(screen.getAllByText('Gareth P.')).toHaveLength(2)
+    expect(reviewerReads).toBe(1)
+    expect(collaboratorReads).toBe(1)
+  })
+
+  it.each(['prose', 'property'])(
+    'propagates native %s getter errors during rendering',
+    (source) => {
+      const failure = new Error('Native accessor refused the read')
+      const props = baseProps()
+
+      if (source === 'prose') {
+        props.blocks = [
+          {
+            id: 'throwing-prose',
+            payload: {
+              doc: {
+                content: [
+                  {
+                    get text(): never {
+                      throw failure
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        ]
+      } else {
+        props.record.properties = {
+          get reviewerId(): never {
+            throw failure
+          },
+        }
+      }
+
+      const client = new QueryClient()
+
+      clients.push(client)
+
+      const router = createRouter({
+        routeTree: createRootRoute(),
+        history: createMemoryHistory(),
+      })
+
+      expect(() =>
+        renderToString(
+          <QueryClientProvider client={client}>
+            <RouterContextProvider router={router}>
+              <ExperimentOverview {...props} />
+            </RouterContextProvider>
+          </QueryClientProvider>,
+        ),
+      ).toThrow(failure)
+    },
+  )
 })

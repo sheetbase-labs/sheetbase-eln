@@ -49,6 +49,7 @@ export function AiComposer({
 
   function pageText(): string {
     if (!notebook) return ''
+
     return summariseNotebookBlocks({
       recordId: notebook.recordId,
       title: notebook.title,
@@ -60,10 +61,12 @@ export function AiComposer({
   async function run(task: PageAiTask, ask: string, text: string) {
     const request = ++requestRef.current
     setPhase({ name: 'working' })
+
     const context =
       notebook !== null
         ? ({ kind: 'record', id: notebook.recordId } as const)
         : contextFromPathname(window.location.pathname)
+
     try {
       const result = await ai.run({
         task,
@@ -71,6 +74,7 @@ export function AiComposer({
         text,
         objectRefs: context ? [context] : [],
       })
+
       if (request !== requestRef.current) return
       setPhase(
         result.status === 'ok' && result.text !== ''
@@ -86,12 +90,14 @@ export function AiComposer({
     if (phase.name !== 'result') return
     const { doc } = plainTextToRichText(phase.text)
     const chain = editor.chain().focus()
+
     if (replace && !selection) chain.setContent(doc).run()
     else chain.insertContent(doc.content).run()
     onClose()
   }
 
   const busy = phase.name === 'working'
+
   const chips: Array<{ label: string; run: () => void }> = [
     {
       label: t('notebook.aiComposer.draftThisPage'),

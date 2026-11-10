@@ -1,18 +1,44 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { SignatureWire } from '#/lib/signatures'
+import { signatureBindingNote } from './signature-binding'
 
-import { SignaturesTable, signatureBindingNote } from './signatures-table'
+const transport = vi.fn<typeof fetch>(async () => Response.json(null))
 
-// The verification line reads the server on its own; these tests are about the table.
-vi.mock('#/components/review/audit-check-line', () => ({
-  AuditCheckLine: ({ note }: { note?: string }) => (
-    <p data-testid="signature-note">{note}</p>
-  ),
-}))
+vi.stubGlobal('fetch', transport)
 
-afterEach(cleanup)
+const { SignaturesTable } = await import('./signatures-table')
+const { dropSharedReads } = await import('#/lib/data-client')
+const clients: QueryClient[] = []
+
+afterEach(() => {
+  cleanup()
+  clients.splice(0).forEach((client) => client.clear())
+  dropSharedReads()
+
+  for (const [input, init] of transport.mock.calls) {
+    expect(input).toBe('/api/db/rpc/audit_verification_status')
+    expect(init?.method).toBe('POST')
+    expect(init?.body).toBe('{}')
+  }
+
+  transport.mockClear()
+})
+
+afterAll(() => vi.unstubAllGlobals())
+
+function show(ui: React.ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+
+  clients.push(client)
+
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+}
 
 function signature(
   overrides: Partial<SignatureWire> & { id: string },
@@ -44,8 +70,8 @@ function bodyRows() {
 }
 
 describe('SignaturesTable', () => {
-  it('renders the record signatures oldest-first with their meaning labels, times, IDs and the binding note', () => {
-    render(
+  it('renders the record signatures oldest-first with their meaning labels, times, IDs and the binding note', async () => {
+    show(
       <SignaturesTable
         revisionVersions={{ 'revision-1': 1 }}
         signatures={[
@@ -79,8 +105,11 @@ describe('SignaturesTable', () => {
     expect(times[0].getAttribute('dateTime')).toBe('2026-09-18T16:22:00Z')
     expect(times[1].getAttribute('dateTime')).toBe('2026-09-19T10:05:00Z')
 
+    await userEvent.hover(
+      screen.getByRole('button', { name: 'About these signatures' }),
+    )
     expect(
-      screen.getByText(
+      await screen.findByText(
         'Each signature was made with a password re-entry and is bound to version 1 of this record.',
       ),
     ).toBeTruthy()
@@ -96,24 +125,54 @@ describe('SignaturesTable', () => {
     expect(signatureBindingNote([])).toBe(
       'Each signature was made with a password re-entry and is bound to the frozen revision it attests.',
     )
+    expect(signatureBindingNote([NaN, Infinity])).toBe(
+      'Each signature was made with a password re-entry and is bound to versions NaN and ∞ of this record.',
+    )
+  })
+
+  it('keeps native numeric versions but refuses inherited prototype functions', async () => {
+    show(
+      <SignaturesTable
+        revisionVersions={{ 'revision-1': NaN, 'revision-2': Infinity }}
+        signatures={[
+          signature({ id: 'SIG-native-1' }),
+          signature({ id: 'SIG-native-2', revision_id: 'revision-2' }),
+          signature({ id: 'SIG-inherited', revision_id: 'constructor' }),
+        ]}
+      />,
+    )
+    await userEvent.hover(
+      screen.getByRole('button', { name: 'About these signatures' }),
+    )
+    expect(
+      await screen.findByText(
+        'Each signature was made with a password re-entry and is bound to versions NaN and ∞ of this record.',
+      ),
+    ).toBeTruthy()
+    expect(screen.queryByText(/function Object/)).toBeNull()
   })
 
   it('puts the notes control beside the heading when one is given', () => {
-    render(
+    show(
       <SignaturesTable
         heading="Signatures"
         signatures={[signature({ id: 'SIG-1' })]}
       />,
     )
 
-    const row = screen.getByRole('heading', { name: 'Signatures' })
-      .parentElement as HTMLElement
+    const row = screen.getByRole('heading', {
+      name: 'Signatures',
+    }).parentElement
 
-    expect(within(row).getByTestId('signature-note')).toBeTruthy()
+    if (!row) throw new Error('Missing heading row')
+
+    expect(
+      within(row).getByRole('button', { name: 'About these signatures' }),
+    ).toBeTruthy()
   })
 
   it('states an empty record honestly instead of rendering a blank table', () => {
-    render(<SignaturesTable signatures={[]} />)
+    show(<SignaturesTable signatures={[]} />)
 
     expect(screen.getByText('No signatures yet')).toBeTruthy()
     expect(screen.queryByRole('table')).toBeNull()
@@ -121,7 +180,7 @@ describe('SignaturesTable', () => {
   })
 
   it('reports a failed load as a failure, not as an empty or successful table', () => {
-    render(<SignaturesTable signatures={[]} isError />)
+    show(<SignaturesTable signatures={[]} isError />)
 
     const alert = screen.getByRole('alert')
     expect(alert.textContent).toContain('Couldn’t load the signatures')
@@ -130,7 +189,7 @@ describe('SignaturesTable', () => {
   })
 
   it('does not present a pending load as a result', () => {
-    render(<SignaturesTable signatures={[]} isLoading />)
+    show(<SignaturesTable signatures={[]} isLoading />)
 
     expect(screen.getByText('Loading signatures…')).toBeTruthy()
     expect(screen.queryByRole('table')).toBeNull()

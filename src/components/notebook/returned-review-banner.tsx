@@ -38,23 +38,29 @@ export function ReturnedReviewBanner({
     queryKey: reviewWorkspaceQueryKeys.decisions(submission.id),
     queryFn: () => fetchReviewDecisions(reviewsDataClient, submission.id),
   })
+
   const comments = useQuery({
     queryKey: commentsQueryKeys.forRevision(submission.revision_id),
     queryFn: () =>
       fetchCommentsForRevision(reviewsDataClient, submission.revision_id),
   })
+
   const latestReturn =
     [...(decisions.data ?? [])]
       .reverse()
       .find((decision) => decision.decision === 'request_changes') ?? null
+
   const returnedBy = latestReturn?.actor_user_id ?? null
+
   const names = useUserNames(returnedBy ? [returnedBy] : [], {
     id: currentUserId,
     name: currentUserName,
   })
+
   const returnedByName = returnedBy
     ? (names.names[returnedBy] ?? t('notebook.returnedReviewBanner.aColleague'))
     : null
+
   const open = comments.data
     ? groupCommentsIntoThreads(comments.data).filter(
         (thread) => threadState(thread) === 'open',

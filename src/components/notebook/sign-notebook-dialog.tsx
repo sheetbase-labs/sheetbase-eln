@@ -1,6 +1,7 @@
 import { t } from '#/copy'
 import { returnToHere } from '#/lib/return-to'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
 import { Notice } from '#/components/ui/alert'
@@ -45,31 +46,37 @@ import type { ESignSubmitInput } from './e-sign-dialog'
  * purpose: those are things the dialog helps them fix, not reasons to hide it.
  * Stays true until everything it depends on has loaded.
  */
-export function useHasSignatureToGive({
+function useSignatureTarget({
   revisionId,
   currentUserId,
+  enabled,
 }: {
   revisionId: string | null | undefined
   currentUserId: string | undefined
-}): boolean {
+  enabled: boolean
+}) {
   const submissionQuery = useQuery({
     queryKey: reviewWorkspaceQueryKeys.submissionForRevision(revisionId ?? ''),
     queryFn: () =>
       fetchReviewSubmissionByRevision(notebookDataClient, revisionId!),
-    enabled: Boolean(revisionId && currentUserId),
+    enabled,
   })
+
   const revisionQuery = useQuery({
     queryKey: reviewWorkspaceQueryKeys.revision(revisionId ?? ''),
     queryFn: () => fetchRevisionRow(notebookDataClient, revisionId!),
-    enabled: Boolean(revisionId && currentUserId),
+    enabled,
   })
+
   const submission = submissionQuery.data ?? null
+
   const signaturesQuery = useQuery({
     queryKey: signatureQueryKeys.forSubmission(submission?.id ?? 'none'),
     queryFn: () =>
       fetchSignaturesForSubmission(notebookDataClient, submission!.id),
-    enabled: Boolean(submission?.id),
+    enabled: enabled && Boolean(submission?.id),
   })
+
   const eligibility = useQuery({
     queryKey: signatureQueryKeys.eligibility(
       submission?.id ?? 'none',
@@ -81,9 +88,35 @@ export function useHasSignatureToGive({
         submission!,
         currentUserId!,
       ),
-    enabled: Boolean(submission && currentUserId),
+    enabled: enabled && Boolean(submission && currentUserId),
   })
+
   const { policy } = useSignaturePolicy(submission?.workspace_id)
+
+  return {
+    submissionQuery,
+    revisionQuery,
+    submission,
+    signaturesQuery,
+    eligibility,
+    policy,
+  }
+}
+
+export function useHasSignatureToGive({
+  revisionId,
+  currentUserId,
+}: {
+  revisionId: string | null | undefined
+  currentUserId: string | undefined
+}): boolean {
+  const { submission, revisionQuery, signaturesQuery, eligibility, policy } =
+    useSignatureTarget({
+      revisionId,
+      currentUserId,
+      enabled: Boolean(revisionId && currentUserId),
+    })
+
   if (
     !submission ||
     !currentUserId ||
@@ -92,6 +125,7 @@ export function useHasSignatureToGive({
     !eligibility.isSuccess
   )
     return true
+
   return (
     availableSignatureMeanings({
       policy,
@@ -128,34 +162,15 @@ export function SignNotebookDialog({
 }) {
   const queryClient = useQueryClient()
 
-  const submissionQuery = useQuery({
-    queryKey: reviewWorkspaceQueryKeys.submissionForRevision(revisionId),
-    queryFn: () =>
-      fetchReviewSubmissionByRevision(notebookDataClient, revisionId),
-    enabled: open,
-  })
-  const revisionQuery = useQuery({
-    queryKey: reviewWorkspaceQueryKeys.revision(revisionId),
-    queryFn: () => fetchRevisionRow(notebookDataClient, revisionId),
-    enabled: open,
-  })
-  const submission = submissionQuery.data ?? null
-  const signaturesQuery = useQuery({
-    queryKey: signatureQueryKeys.forSubmission(submission?.id ?? 'none'),
-    queryFn: () =>
-      fetchSignaturesForSubmission(notebookDataClient, submission!.id),
-    enabled: open && Boolean(submission?.id),
-  })
+  const {
+    submissionQuery,
+    revisionQuery,
+    submission,
+    signaturesQuery,
+    eligibility,
+    policy,
+  } = useSignatureTarget({ revisionId, currentUserId, enabled: open })
 
-  const eligibility = useQuery({
-    queryKey: signatureQueryKeys.eligibility(
-      submission?.id ?? 'none',
-      currentUserId,
-    ),
-    queryFn: () =>
-      fetchSignatureEligibility(notebookDataClient, submission!, currentUserId),
-    enabled: open && Boolean(submission),
-  })
   // A signature needs a current certification (DEC-04 / ADR-0045). Read the
   // signer's own attestation so the dialog can say so before a password attempt
   // is refused by the server.
@@ -170,11 +185,14 @@ export function SignNotebookDialog({
       ),
     enabled: open && Boolean(submission),
   })
+
   const certification = (certificationsQuery.data ?? []).find(
     (row) => row.userId === currentUserId,
   )
+
   const certificationCurrent = isCurrentStatement(certification)
   const integrityDigest = revisionQuery.data?.integrity_digest ?? null
+
   // The sign target also requires the revision's checks to have passed for the
   // signed digest (SB008). Read them so the dialog states the requirement
   // before a password attempt is refused.
@@ -183,9 +201,11 @@ export function SignNotebookDialog({
     queryFn: () => fetchReviewCheckResults(notebookDataClient, revisionId),
     enabled: open,
   })
+
   const checksPassed = checksQuery.isSuccess
     ? signatureChecksPassed(checksQuery.data, integrityDigest)
     : true
+
   const runChecks = useMutation({
     mutationFn: () => runDefaultRevisionChecks(notebookDataClient, revisionId),
     onSuccess: () =>
@@ -193,7 +213,7 @@ export function SignNotebookDialog({
         queryKey: reviewCheckQueryKeys.resultsForRevision(revisionId),
       }),
   })
-  const { policy } = useSignaturePolicy(submission?.workspace_id)
+
   const meanings = availableSignatureMeanings({
     policy,
     currentUserId,
@@ -206,6 +226,7 @@ export function SignNotebookDialog({
     checksPassed,
     signatures: signaturesQuery.data ?? [],
   })
+
   const canSign = meanings.length > 0
 
   const sign = useMutation({
@@ -221,6 +242,7 @@ export function SignNotebookDialog({
           400,
         )
       }
+
       const proof = await requestSignatureStepUp({
         workspaceId: submission.workspace_id,
         password: input.password,
@@ -229,6 +251,7 @@ export function SignNotebookDialog({
         revisionDigest: integrityDigest,
         signatureMeaning: input.meaning,
       })
+
       return signRevision(notebookDataClient, {
         submissionId: submission.id,
         signatureMeaning: input.meaning,
@@ -250,6 +273,7 @@ export function SignNotebookDialog({
           queryKey: signatureQueryKeys.forRecord(submission.record_id),
         })
       }
+
       onOpenChange(false)
     },
   })
@@ -263,12 +287,68 @@ export function SignNotebookDialog({
           ? submissionQuery.error.message
           : null
 
-  const blocked = !canSign ? (
-    !certificationsQuery.isSuccess ? (
+  return (
+    <ESignDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t('notebook.signNotebookDialog.title')}
+      description={t('notebook.signNotebookDialog.description')}
+      signingAs={currentUserName}
+      subject={{ revisionId, digest: integrityDigest }}
+      meanings={meanings}
+      blocked={
+        !canSign ? (
+          <SignatureBlockedReason
+            certificationPending={!certificationsQuery.isSuccess}
+            checksQuery={checksQuery}
+            checksPassed={checksPassed}
+            runChecks={runChecks}
+            integrityDigest={integrityDigest}
+            revisionId={revisionId}
+            certificationCurrent={certificationCurrent}
+          />
+        ) : null
+      }
+      busy={sign.isPending}
+      errorMessage={errorMessage}
+      onSubmit={(input) => sign.mutate(input)}
+    />
+  )
+}
+
+/** Explain the first unmet signing prerequisite without changing eligibility. */
+function SignatureBlockedReason({
+  certificationPending,
+  checksQuery,
+  checksPassed,
+  runChecks,
+  integrityDigest,
+  revisionId,
+  certificationCurrent,
+}: {
+  certificationPending: boolean
+  checksQuery: UseQueryResult<
+    Awaited<ReturnType<typeof fetchReviewCheckResults>>
+  >
+  checksPassed: boolean
+  runChecks: UseMutationResult<
+    Awaited<ReturnType<typeof runDefaultRevisionChecks>>,
+    Error,
+    void
+  >
+  integrityDigest: string | null
+  revisionId: string
+  certificationCurrent: boolean
+}) {
+  if (certificationPending)
+    return (
       <p className="m-0 text-body text-fg-muted">
         {t('notebook.signNotebookDialog.checkingYourSignatureCertification')}
       </p>
-    ) : checksQuery.isSuccess && !checksPassed ? (
+    )
+
+  if (checksQuery.isSuccess && !checksPassed)
+    return (
       <Notice tone="warn">
         <p className="m-0">
           {t('notebook.signNotebookDialog.requiresChecks')}{' '}
@@ -309,44 +389,32 @@ export function SignNotebookDialog({
           </Link>
         </p>
       </Notice>
-    ) : certificationCurrent ? (
+    )
+
+  if (certificationCurrent)
+    return (
       <p className="m-0 text-body text-fg-muted">
         {t('notebook.signNotebookDialog.noEligibleSignatureMeaning')}
       </p>
-    ) : (
-      <Notice tone="warn">
-        <p className="m-0">
-          {t('notebook.signNotebookDialog.certificationIsRequiredBefore')}
-        </p>
-        <p className="m-0 mt-1.5 text-label">
-          {t('notebook.signNotebookDialog.certifyInSettingsElectronic')}
-        </p>
-        <p className="m-0 mt-1.5">
-          <Link
-            to="/settings/account/signature"
-            search={{ returnTo: returnToHere('sign') }}
-            className="underline"
-          >
-            {t('notebook.signNotebookDialog.openSignatureSettings')}
-          </Link>
-        </p>
-      </Notice>
     )
-  ) : null
 
   return (
-    <ESignDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={t('notebook.signNotebookDialog.title')}
-      description={t('notebook.signNotebookDialog.description')}
-      signingAs={currentUserName}
-      subject={{ revisionId, digest: integrityDigest }}
-      meanings={meanings}
-      blocked={blocked}
-      busy={sign.isPending}
-      errorMessage={errorMessage}
-      onSubmit={(input) => sign.mutate(input)}
-    />
+    <Notice tone="warn">
+      <p className="m-0">
+        {t('notebook.signNotebookDialog.certificationIsRequiredBefore')}
+      </p>
+      <p className="m-0 mt-1.5 text-label">
+        {t('notebook.signNotebookDialog.certifyInSettingsElectronic')}
+      </p>
+      <p className="m-0 mt-1.5">
+        <Link
+          to="/settings/account/signature"
+          search={{ returnTo: returnToHere('sign') }}
+          className="underline"
+        >
+          {t('notebook.signNotebookDialog.openSignatureSettings')}
+        </Link>
+      </p>
+    </Notice>
   )
 }

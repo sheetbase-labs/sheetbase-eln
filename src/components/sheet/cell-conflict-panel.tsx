@@ -26,82 +26,14 @@ import { formatCellValue } from '#/lib/format-numbers'
 import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
+import {
+  CONFLICT_REASON_MAX,
+  parseEnteredValue,
+  resolveCellConflict,
+} from './cell-conflict-data'
+import type { CellConflictRow } from './cell-conflict-data'
 
-/** Matches `chk_sheet_cell_conflicts_state`. */
-export type CellConflictState = 'open' | 'resolved'
-
-/** Wire shape of one `api.sheet_cell_conflicts` row (snake_case via PostgREST). */
-export interface CellConflictRow {
-  id: string
-  sheet_instance_id: string
-  row_key: string
-  field_id: string
-  /** The value this device had edited but not yet sent. */
-  local_value: unknown
-  local_author_user_id: string
-  local_at: string
-  /** The value that arrived first from elsewhere. */
-  remote_value: unknown
-  remote_author_user_id: string | null
-  remote_at: string | null
-  state: CellConflictState
-  resolved_value: unknown
-  resolved_by_user_id: string | null
-  resolved_at: string | null
-  reason: string | null
-}
-
-/** Matches `chk_sheet_cell_conflicts_resolution`'s reason bound. */
-export const CONFLICT_REASON_MAX = 2000
-
-/** Fetch a Sheet Instance's cell conflicts, newest first. */
-export function fetchCellConflicts(
-  client: DataClient,
-  instanceId: string,
-  options: { state?: CellConflictState; limit?: number } = {},
-): Promise<CellConflictRow[]> {
-  const state = options.state ? `&state=eq.${options.state}` : ''
-  const limit = options.limit ?? 50
-
-  return client.list<CellConflictRow>(
-    'sheet_cell_conflicts',
-    `?sheet_instance_id=eq.${instanceId}${state}&order=created_at.desc&limit=${limit}`,
-  )
-}
-
-/** Settle one conflict: the chosen value, the reason, and (server-side) who decided. */
-export function resolveCellConflict(
-  client: DataClient,
-  conflictId: string,
-  value: unknown,
-  reason: string,
-): Promise<CellConflictRow> {
-  return client.rpc<CellConflictRow>('resolve_cell_conflict', {
-    p_conflict_id: conflictId,
-    p_value: value,
-    p_reason: reason,
-  })
-}
-
-/**
- * Interpret text typed into "Enter another value" the way a cell stores it:
- * numbers as numbers, `true`/`false` as booleans, everything else as a
- * trimmed string. Empty text stays empty and the caller rejects it.
- */
-export function parseEnteredValue(text: string): unknown {
-  const trimmed = text.trim()
-
-  if (trimmed === '') return ''
-
-  if (trimmed === 'true') return true
-
-  if (trimmed === 'false') return false
-  const asNumber = Number(trimmed)
-
-  if (Number.isFinite(asNumber)) return asNumber
-
-  return trimmed
-}
+export type { CellConflictRow, CellConflictState } from './cell-conflict-data'
 
 type SelectedSide = 'remote' | 'local' | 'other'
 
@@ -139,11 +71,6 @@ export function CellConflictPanel({
   className,
 }: CellConflictPanelProps) {
   const [conflict, setConflict] = useState(initialConflict)
-  const [side, setSide] = useState<SelectedSide>('remote')
-  const [entered, setEntered] = useState('')
-  const [reason, setReason] = useState('')
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const authorIds = useMemo(() => {
     // `useUserNames` de-duplicates; this only drops the signed-in user, whose
@@ -178,6 +105,44 @@ export function CellConflictPanel({
     )
   }
 
+  return (
+    <OpenConflict
+      conflict={conflict}
+      currentUserId={currentUserId}
+      cellLabel={cellLabel}
+      previousValue={previousValue}
+      unit={unit}
+      client={client}
+      onAsk={onAsk}
+      askLabel={askLabel}
+      className={className}
+      userLabel={userLabel}
+      onResolved={(next) => {
+        setConflict(next)
+        onResolved?.(next)
+      }}
+    />
+  )
+}
+
+function OpenConflict({
+  conflict,
+  currentUserId,
+  cellLabel,
+  previousValue,
+  unit,
+  client = notebookDataClient,
+  onResolved,
+  onAsk,
+  askLabel,
+  className,
+  userLabel,
+}: CellConflictPanelProps & { userLabel: (id: string) => string }) {
+  const [side, setSide] = useState<SelectedSide>('remote')
+  const [entered, setEntered] = useState('')
+  const [reason, setReason] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const trimmedReason = reason.trim()
 
   const reasonValid =
@@ -207,7 +172,6 @@ export function CellConflictPanel({
         trimmedReason,
       )
 
-      setConflict(next)
       onResolved?.(next)
     } catch (cause) {
       setError(
@@ -262,7 +226,10 @@ export function CellConflictPanel({
       <RadioGroup
         aria-label={t('notebook.cellConflictPanel.chooseValueAriaLabel')}
         value={side}
-        onValueChange={(value) => setSide(value as SelectedSide)}
+        onValueChange={(value) => {
+          if (value === 'remote' || value === 'local' || value === 'other')
+            setSide(value)
+        }}
         className="flex flex-col gap-2"
       >
         <Choice

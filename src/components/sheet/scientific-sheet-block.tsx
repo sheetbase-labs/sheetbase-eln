@@ -1,46 +1,51 @@
 import { rich, t } from '#/copy'
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from 'react'
+import { z } from 'zod'
+import { ScientificColumnForm } from './scientific-sheet-column-form'
+import { ScientificFormulaBar } from './scientific-sheet-formula-bar'
+import { ScientificSheetFooter } from './scientific-sheet-footer'
+import { ScientificSheetMessages } from './scientific-sheet-messages'
+import {
+  ScientificSchemaColumn,
+  ScientificSchemaConfirmation,
+} from './scientific-sheet-schema-column'
+import { useScientificEditCoordinator } from './scientific-sheet-edit-coordinator'
+import type { ScientificDraftCell as DraftCell } from './scientific-sheet-edit-coordinator'
+import { useScientificSheetWorkbook } from './scientific-sheet-workbook'
+import type { ScientificDisplayRow } from './scientific-sheet-workbook'
+import {
+  sheetbaseColumn,
+  readColumnWidths,
+  readColumnOrder,
+  writeColumnPreferences,
+} from './scientific-sheet-presentation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  shiftFormulaReferences,
-  toA1,
-} from '#/components/sheet/formula-reference-editor'
+import { shiftFormulaReferences } from './formula-references'
 import { normalizeExponentiation } from '#/lib/formula-ir'
-import {
-  FunctionAutocompleteDropdown,
-  useFunctionAutocomplete,
-} from '#/components/sheet/function-autocomplete'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { DataClientError } from '#/lib/data-client'
-import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
-import { IconButton } from '#/components/ui/icon-button'
 import { Dialog, DialogContent, DialogHeader } from '#/components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '#/components/ui/dropdown-menu'
 import { Input } from '#/components/ui/input'
-import { Textarea } from '#/components/inventory/list'
-import { Icon } from '#/components/icons'
-import { Spinner } from '#/components/ui/spinner'
 import { SheetbaseTableGrid } from './sheetbase-grid'
 import type {
   SheetbaseGridCellChange,
   SheetbaseGridCellValue,
   SheetbaseGridClipboardRange,
-  SheetbaseGridColumn,
   SheetbaseGridHandle,
   SheetbaseGridMenuEntry,
   SheetbaseGridSelection,
   SheetbaseGridWriteSource,
 } from './sheetbase-grid'
 import { ScientificApiInspector } from './scientific-api-inspector'
-import { DataAccessButton } from '#/components/data-access/data-access-panel'
 import { useDataAccess, useIsWorkspaceAdmin } from '#/lib/data-access'
-import { scientificTableHandle } from '#/lib/data-access-handles'
 import { ScientificTransferPanel } from './scientific-transfer-panel'
 import {
   addScientificColumn,
@@ -51,300 +56,23 @@ import {
   fetchScientificCalculationResults,
   fetchScientificTable,
   mutateScientificFormula,
-  preflightScientificConversion,
   requestScientificCalculation,
-  preflightScientificRetirement,
   renameScientificTable,
   scientificDataClient,
   scientificQueryKeys,
-  updateScientificColumnDisplay,
 } from '#/lib/scientific-sheet-data'
-import { fieldEditorPresentation } from '#/lib/field-presentation'
 import type {
-  ScientificColumnWire,
   FormulaDependencyWire,
-  FormulaDefinitionWire,
-  ScientificLogicalType,
   ScientificRowWire,
-  ScientificSchemaEvidence,
   ScientificTableWire,
 } from '#/lib/scientific-sheet-data'
-import { SchemaBadge } from '#/components/dataset-schema/schema-badge'
 import { upgradeScientificSchema } from '#/lib/dataset-schema-data'
-import type {
-  ScientificWorkbook,
-  WorkbookCellAddress,
-  WorkbookResult,
-  WorkbookTable,
-} from '#/lib/scientific-workbook'
-import { useNotebookScientificWorkbook } from '#/components/notebook/scientific-workbook-provider'
-import { GridOperationCoordinator } from '#/lib/grid-operation-coordinator'
-import type {
-  SaveStatus,
-  PendingCell as CoordinatorCell,
-} from '#/lib/grid-operation-coordinator'
+import type { WorkbookCellAddress } from '#/lib/scientific-workbook'
+import type { SaveStatus } from '#/lib/grid-operation-coordinator'
 
-interface PendingCell {
-  rowIndex: number
-  rowId: string | null
-  columnId: string
-  fieldName: string
-  raw: unknown
-}
-
-interface DraftCell extends PendingCell {
-  generation: number
-}
-
-function persistedFormula(formula: FormulaDefinitionWire) {
-  const dependencies = new Map<
-    string,
-    { tableId: string; rowId: string; columnId: string }
-  >()
-
-  const bindings = Array.isArray(formula.bindings) ? formula.bindings : []
-
-  for (const value of bindings) {
-    const binding = value as {
-      kind?: string
-      tableId?: string
-      cell?: { rowId: string; columnId: string }
-      members?: Array<Array<{ rowId: string; columnId: string }>>
-    }
-
-    const cells =
-      binding.kind === 'cell' && binding.cell
-        ? [binding.cell]
-        : binding.kind === 'range'
-          ? (binding.members ?? []).flat()
-          : []
-
-    for (const cell of cells) {
-      const tableId = binding.tableId ?? formula.target_table_id
-      dependencies.set(`${tableId}/${cell.rowId}/${cell.columnId}`, {
-        tableId,
-        ...cell,
-      })
-    }
-  }
-
-  return {
-    version: 1,
-    syntaxProfile: formula.syntax_profile,
-    functionProfile: formula.function_profile,
-    literalProfile: formula.literal_profile,
-    engineVersion: formula.engine_version,
-    status: formula.status,
-    source: formula.source_expression,
-    template: formula.template,
-    bindings: formula.bindings,
-    engineExpression: formula.engine_expression,
-    dependencies: [...dependencies.values()].sort((a, b) =>
-      `${a.rowId}/${a.columnId}`.localeCompare(`${b.rowId}/${b.columnId}`),
-    ),
-  }
-}
-
-function displayResult(result: WorkbookResult | null) {
-  if (!result) return null
-
-  if (result.status === 'error') return formulaErrorDisplay(result.error)
-
-  return result.logical.ok ? result.logical.value : `#${result.logical.code}!`
-}
-
-const FORMULA_ERROR_DISPLAY: Record<string, string> = {
-  DIV_BY_ZERO: '#DIV/0!',
-  VALUE: '#VALUE!',
-  NAME: '#NAME?',
-  REF: '#REF!',
-  NUM: '#NUM!',
-  NA: '#N/A',
-  ERROR: '#ERROR!',
-  CYCLE: '#CYCLE!',
-  SPILL: '#SPILL!',
-  LIC: '#LIC!',
-}
-
-export function formulaErrorDisplay(code: string): string {
-  return FORMULA_ERROR_DISPLAY[code] ?? '#ERROR!'
-}
-
-function readColumnPreferences<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback
-
-  try {
-    const value: unknown = JSON.parse(
-      window.localStorage.getItem(key) ?? 'null',
-    )
-
-    return value === null ? fallback : (value as T)
-  } catch {
-    return fallback
-  }
-}
-
-function writeColumnPreferences(key: string, value: unknown): void {
-  if (typeof window === 'undefined') return
-
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    // Storage can be unavailable in private browsing or a locked-down iframe.
-  }
-}
-
-/**
- * Guard `ScientificWorkbook.get` against a stale workbook. The workbook is
- * rebuilt asynchronously (a `setTimeout(0)` in the workbook provider) when
- * table data changes, so a `tableWorkbook` reference held across a render can
- * briefly predate the row/column identity it is asked to look up. An
- * unguarded `locate()` throws `Unknown stable cell identity.` and crashes
- * render, which cascades into the grid's teardown path (`Cannot read
- * properties of undefined (reading 'off')`). Returning `null` lets the UI
- * degrade gracefully until the rebuilt workbook arrives.
- *
- * Exported for unit testing.
- */
-export function safeWorkbookGet(
-  workbook: ScientificWorkbook,
-  address: WorkbookCellAddress,
-): WorkbookResult | null {
-  try {
-    return workbook.get(address)
-  } catch {
-    return null
-  }
-}
-
-/**
- * Small save-status indicator for the grid footer. Shows Saved (green check),
- * Saving… (spinner), or Save failed (red, with retry). Only visible when the
- * mutation has been triggered at least once — idle state is hidden to avoid
- * clutter on initial load.
- */
-function SaveStatusIndicator({
-  status,
-  onRetry,
-}: {
-  status: SaveStatus
-  onRetry: () => void
-}) {
-  if (status === 'saving' || status === 'retrying')
-    return (
-      <span
-        className="flex items-center gap-1 text-fg-muted"
-        aria-label={
-          status === 'retrying'
-            ? t('notebook.scientificSheetBlock.ariaLabel')
-            : t('notebook.scientificSheetBlock.savingAriaLabel')
-        }
-      >
-        <Spinner size={12} />
-        {status === 'retrying'
-          ? t('notebook.scientificSheetBlock.offlineRetrying')
-          : t('common.states.saving')}
-      </span>
-    )
-
-  if (status === 'error')
-    return (
-      <span
-        className="flex items-center gap-1 text-danger-text"
-        aria-label={t('notebook.scientificSheetBlock.saveFailed')}
-      >
-        <Icon name="warn" className="size-3" />
-        {t('notebook.scientificSheetBlock.saveFailed')}
-        <Button
-          type="button"
-          variant="quiet"
-          size="sm"
-          className="text-danger-text"
-          onClick={onRetry}
-        >
-          <Icon name="rotateCcw" className="size-3" />
-          {t('notebook.scientificSheetBlock.retry')}
-        </Button>
-      </span>
-    )
-
-  if (status === 'saved')
-    return (
-      <span
-        className="flex items-center gap-1 text-success-text-foreground"
-        aria-label={t('common.states.saved')}
-      >
-        <Icon name="check" className="size-3" />
-        {t('common.states.saved')}
-      </span>
-    )
-
-  return null
-}
-
-const LOGICAL_TYPES: ScientificLogicalType[] = [
-  'text',
-  'integer',
-  'decimal',
-  'boolean',
-  'date',
-  'timestamp',
-  'category',
-]
-
-/** Native `<select>` styled to match the design-system input. There is no
- * shadcn Select primitive in this project, so we style the native control with
- * the same tokens as `Input`. */
-const selectClass =
-  'h-8 rounded-md border border-border bg-surface px-2 text-xs shadow-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50'
-
-/** Native checkbox styled to match the design system (no Checkbox primitive). */
-const checkboxClass =
-  'size-4 rounded border-border text-primary accent-primary focus-visible:ring-2 focus-visible:ring-ring/50'
-
-type Confirmation =
-  | {
-      kind: 'convert'
-      column: ScientificColumnWire
-      evidence: ScientificSchemaEvidence
-    }
-  | {
-      kind: 'retire'
-      column: ScientificColumnWire
-      evidence: ScientificSchemaEvidence
-    }
-
-function parseJsonObject(value: string, label: string) {
-  if (!value.trim()) return {}
-  const parsed: unknown = JSON.parse(value)
-
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
-    throw new Error(t('notebook.scientificSheetBlock.labelMustBeA', { label }))
-
-  return parsed as Record<string, unknown>
-}
-
-function typedDefault(type: ScientificLogicalType, value: string) {
-  if (type === 'text' || type === 'date' || type === 'timestamp') return value
-
-  if (type === 'boolean') {
-    if (value !== 'true' && value !== 'false')
-      throw new Error(t('notebook.scientificSheetBlock.booleanDefaultMustBe'))
-
-    return value === 'true'
-  }
-
-  const number = Number(value)
-
-  if (
-    !Number.isFinite(number) ||
-    (type === 'integer' && !Number.isSafeInteger(number)) ||
-    (type === 'decimal' && value.replace(/[^0-9]/g, '').length > 15)
-  )
-    throw new Error(t('notebook.scientificSheetBlock.defaultMustBeA', { type }))
-
-  return number
-}
+type Confirmation = Parameters<
+  typeof ScientificSchemaConfirmation
+>[0]['confirmation']
 
 function SchemaConfigurator({
   table,
@@ -364,15 +92,8 @@ function SchemaConfigurator({
   onSuccess: () => Promise<void>
 }) {
   const isAdmin = useIsWorkspaceAdmin()
-  const [name, setName] = useState(table.name)
-  const [label, setLabel] = useState('')
-  const [type, setType] = useState<ScientificLogicalType>('text')
-  const [nullable, setNullable] = useState(true)
-  const [hasDefault, setHasDefault] = useState(false)
-  const [defaultText, setDefaultText] = useState('')
-  const [unit, setUnit] = useState('')
-  const [validation, setValidation] = useState('')
-  const [options, setOptions] = useState('')
+  const [nameDraft, setName] = useState<string | null>(null)
+  const name = nameDraft ?? table.name
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null)
   const [status, setStatus] = useState('')
   const version = useRef(table.schema_version)
@@ -383,7 +104,7 @@ function SchemaConfigurator({
 
   const schemaMutation = useMutation({
     scope: { id: `scientific-table:${tableId}` },
-    mutationFn: async (run: (schemaVersion: number) => Promise<unknown>) => {
+    mutationFn: async (run: (schemaVersion: number) => PromiseLike<object>) => {
       setStatus(t('notebook.scientificSheetBlock.migrationInProgress'))
 
       return run(version.current)
@@ -413,81 +134,6 @@ function SchemaConfigurator({
   })
 
   const disabled = readOnly || schemaMutation.isPending
-
-  const addColumn = () => {
-    try {
-      if (!label.trim())
-        throw new Error(
-          t('notebook.scientificSheetBlock.columnLabelIsRequired'),
-        )
-
-      const optionValues =
-        type === 'category'
-          ? options
-              .split('\n')
-              .map((value) => value.trim())
-              .filter(Boolean)
-              .map((optionLabel) => ({
-                id: crypto.randomUUID(),
-                label: optionLabel,
-              }))
-          : undefined
-
-      if (
-        optionValues &&
-        new Set(optionValues.map((option) => option.label)).size !==
-          optionValues.length
-      )
-        throw new Error(
-          t('notebook.scientificSheetBlock.categoryOptionLabelsMust'),
-        )
-      let defaultValue: unknown
-
-      if (hasDefault) {
-        defaultValue =
-          type === 'category'
-            ? optionValues?.find((option) => option.label === defaultText)?.id
-            : typedDefault(type, defaultText)
-
-        if (defaultValue === undefined)
-          throw new Error(
-            t('notebook.scientificSheetBlock.categoryDefaultMustExactly'),
-          )
-
-        if (defaultValue === null && !nullable)
-          throw new Error(
-            t('notebook.scientificSheetBlock.aRequiredColumnCannot'),
-          )
-      }
-
-      const parsedUnit = unit.trim()
-        ? parseJsonObject(unit, t('notebook.scientificSheetBlock.unit'))
-        : undefined
-
-      const parsedValidation = parseJsonObject(
-        validation,
-        t('notebook.scientificSheetBlock.validation'),
-      )
-
-      schemaMutation.mutate((schemaVersion) =>
-        addScientificColumn(scientificDataClient, tableId, schemaVersion, {
-          label: label.trim(),
-          logicalType: type,
-          nullable,
-          ...(hasDefault ? { defaultValue } : {}),
-          unit: parsedUnit,
-          validation: parsedValidation,
-          options: optionValues,
-        }),
-      )
-    } catch (error) {
-      setStatus(
-        error instanceof Error
-          ? error.message
-          : t('notebook.scientificSheetBlock.invalidColumn'),
-      )
-    }
-  }
 
   return (
     <div className="space-y-5">
@@ -540,320 +186,45 @@ function SchemaConfigurator({
 
       <hr className="border-border" />
 
-      <div className="space-y-3">
-        <label className="text-label font-medium text-fg-muted">
-          {t('notebook.scientificSheetBlock.addColumn')}
-        </label>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div className="space-y-1">
-            <label className="text-label text-fg-muted" htmlFor="new-col-label">
-              {t('notebook.scientificSheetBlock.label')}
-            </label>
-            <Input
-              id="new-col-label"
-              aria-label={t(
-                'notebook.scientificSheetBlock.newColumnLabelAriaLabel',
-              )}
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-label text-fg-muted" htmlFor="new-col-type">
-              {t('notebook.scientificSheetBlock.type')}
-            </label>
-            <select
-              id="new-col-type"
-              aria-label={t(
-                'notebook.scientificSheetBlock.newColumnTypeAriaLabel',
-              )}
-              className={selectClass}
-              value={type}
-              onChange={(e) => setType(e.target.value as ScientificLogicalType)}
-            >
-              {LOGICAL_TYPES.map((value) => (
-                <option key={value}>{value}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-4 text-xs">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              className={checkboxClass}
-              checked={!nullable}
-              onChange={(e) => setNullable(!e.target.checked)}
-            />
-            {t('common.states.required')}
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              className={checkboxClass}
-              checked={hasDefault}
-              onChange={(e) => setHasDefault(e.target.checked)}
-            />
-            {t('notebook.scientificSheetBlock.setDefault')}
-          </label>
-          {hasDefault ? (
-            <Input
-              aria-label={t(
-                'notebook.scientificSheetBlock.typedDefaultAriaLabel',
-              )}
-              value={defaultText}
-              onChange={(e) => setDefaultText(e.target.value)}
-              className="h-8 max-w-48"
-            />
-          ) : null}
-        </div>
-        {type === 'category' ? (
-          <div className="space-y-1">
-            <label className="text-label text-fg-muted" htmlFor="cat-options">
-              {t('notebook.scientificSheetBlock.categoryOptionsOnePer')}
-            </label>
-            <Textarea
-              id="cat-options"
-              aria-label={t(
-                'notebook.scientificSheetBlock.categoryOptionsAriaLabel',
-              )}
-              value={options}
-              onChange={(e) => setOptions(e.target.value)}
-              className="min-h-24"
-            />
-          </div>
-        ) : null}
-        {isAdmin ? (
-          <details className="rounded-md border bg-surface-muted/20 p-2 text-xs">
-            <summary className="cursor-pointer font-medium text-fg-muted">
-              {t('notebook.scientificSheetBlock.advancedCustomJson')}
-            </summary>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <div className="space-y-1">
-                <label className="text-label text-fg-muted" htmlFor="unit-json">
-                  {t('notebook.scientificSheetBlock.unitJson')}
-                </label>
-                <Textarea
-                  id="unit-json"
-                  aria-label={t('notebook.scientificSheetBlock.unitJson')}
-                  // copy-ignore-next-line
-                  placeholder='{"code":"mg","symbol":"mg"}'
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                  className="min-h-20 font-mono"
-                />
-              </div>
-              <div className="space-y-1">
-                <label
-                  className="text-label text-fg-muted"
-                  htmlFor="validation-json"
-                >
-                  {t('notebook.scientificSheetBlock.validationJson')}
-                </label>
-                <Textarea
-                  id="validation-json"
-                  aria-label={t('notebook.scientificSheetBlock.validationJson')}
-                  // copy-ignore-next-line
-                  placeholder='{"min":0}'
-                  value={validation}
-                  onChange={(e) => setValidation(e.target.value)}
-                  className="min-h-20 font-mono"
-                />
-              </div>
-            </div>
-          </details>
-        ) : null}
-        <Button type="button" size="sm" disabled={disabled} onClick={addColumn}>
-          {t('notebook.scientificSheetBlock.addColumn')}
-        </Button>
-      </div>
+      <ScientificColumnForm
+        disabled={disabled}
+        isAdmin={isAdmin}
+        onError={setStatus}
+        onAdd={(input) =>
+          schemaMutation.mutate((schemaVersion) =>
+            addScientificColumn(
+              scientificDataClient,
+              tableId,
+              schemaVersion,
+              input,
+            ),
+          )
+        }
+      />
 
       <hr className="border-border" />
 
       <div className="space-y-2">
-        <label className="text-label font-medium text-fg-muted">
+        <div className="text-label font-medium text-fg-muted">
           {t('notebook.scientificSheetBlock.columns')}
-        </label>
+        </div>
         <ol
           className="space-y-1.5"
           aria-label={t('notebook.scientificSheetBlock.columns')}
         >
           {table.columns.map((column, index) => (
-            <li
+            <ScientificSchemaColumn
               key={column.id}
-              className="flex flex-wrap items-center gap-2 rounded-md border bg-surface/40 p-2"
-            >
-              <Input
-                aria-label={t(
-                  'notebook.scientificSheetBlock.labelForLabelAriaLabel',
-                  { label: column.label },
-                )}
-                defaultValue={column.label}
-                onBlur={(e) => {
-                  if (e.target.value !== column.label)
-                    schemaMutation.mutate((v) =>
-                      updateScientificColumnDisplay(
-                        scientificDataClient,
-                        column.id,
-                        v,
-                        e.target.value,
-                        null,
-                      ),
-                    )
-                }}
-                className="h-8 min-w-36 flex-1"
-              />
-              <Badge variant="chg">{column.logical_type}</Badge>
-              <Badge variant="kind">
-                {column.nullable ? 'nullable' : 'required'}
-              </Badge>
-              <select
-                aria-label={t(
-                  'notebook.scientificSheetBlock.convertLabelAriaLabel',
-                  { label: column.label },
-                )}
-                defaultValue=""
-                className={selectClass}
-                disabled={
-                  disabled ||
-                  rowMutationPending ||
-                  draftColumnIds.has(column.id)
-                }
-                onChange={async (e) => {
-                  const next = e.target.value
-                  e.target.value = ''
-
-                  if (!next) return
-
-                  try {
-                    setStatus(
-                      t(
-                        'notebook.scientificSheetBlock.checkingConversionConsequences',
-                      ),
-                    )
-
-                    const evidence = await preflightScientificConversion(
-                      scientificDataClient,
-                      column.id,
-                      version.current,
-                      next as ScientificLogicalType,
-                    )
-
-                    setConfirmation({
-                      kind: 'convert',
-                      column,
-                      evidence: evidence as ScientificSchemaEvidence,
-                    })
-                    setStatus(
-                      t('notebook.scientificSheetBlock.reviewAndConfirmThe'),
-                    )
-                  } catch (error) {
-                    setStatus(
-                      t('notebook.scientificSheetBlock.conversionRejected', {
-                        reason: error instanceof Error ? error.message : '',
-                      }),
-                    )
-                  }
-                }}
-              >
-                <option value="">
-                  {t('notebook.scientificSheetBlock.convert')}
-                </option>
-                {LOGICAL_TYPES.filter(
-                  (value) => value !== column.logical_type,
-                ).map((value) => (
-                  <option key={value}>{value}</option>
-                ))}
-              </select>
-              <Button
-                type="button"
-                variant="quiet"
-                size="icon"
-                aria-label={t(
-                  'notebook.scientificSheetBlock.moveLeftAriaLabel',
-                )}
-                disabled={disabled || index === 0}
-                onClick={() =>
-                  schemaMutation.mutate((v) =>
-                    updateScientificColumnDisplay(
-                      scientificDataClient,
-                      column.id,
-                      v,
-                      null,
-                      index,
-                    ),
-                  )
-                }
-              >
-                <Icon name="chevronRight" className="size-4 rotate-180" />
-              </Button>
-              <Button
-                type="button"
-                variant="quiet"
-                size="icon"
-                aria-label={t(
-                  'notebook.scientificSheetBlock.moveRightAriaLabel',
-                )}
-                disabled={disabled || index === table.columns.length - 1}
-                onClick={() =>
-                  schemaMutation.mutate((v) =>
-                    updateScientificColumnDisplay(
-                      scientificDataClient,
-                      column.id,
-                      v,
-                      null,
-                      index + 2,
-                    ),
-                  )
-                }
-              >
-                <Icon name="chevronRight" className="size-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="quiet"
-                size="sm"
-                disabled={
-                  disabled ||
-                  rowMutationPending ||
-                  draftColumnIds.has(column.id)
-                }
-                onClick={async () => {
-                  try {
-                    setStatus(
-                      t(
-                        'notebook.scientificSheetBlock.checkingRetirementConsequences',
-                      ),
-                    )
-
-                    const evidence = await preflightScientificRetirement(
-                      scientificDataClient,
-                      column.id,
-                      version.current,
-                    )
-
-                    setConfirmation({
-                      kind: 'retire',
-                      column,
-                      evidence: evidence as ScientificSchemaEvidence,
-                    })
-                    setStatus(
-                      t(
-                        'notebook.scientificSheetBlock.reviewAndConfirmRetirement',
-                      ),
-                    )
-                  } catch (error) {
-                    setStatus(
-                      t('notebook.scientificSheetBlock.retirementCheckFailed', {
-                        reason: error instanceof Error ? error.message : '',
-                      }),
-                    )
-                  }
-                }}
-              >
-                {t('notebook.scientificSheetBlock.retire')}
-              </Button>
-            </li>
+              column={column}
+              index={index}
+              last={index === table.columns.length - 1}
+              disabled={disabled}
+              blocked={rowMutationPending || draftColumnIds.has(column.id)}
+              schemaVersion={() => version.current}
+              mutate={schemaMutation.mutate}
+              onStatus={setStatus}
+              onConfirm={setConfirmation}
+            />
           ))}
         </ol>
         {rowMutationPending || draftColumnIds.size > 0 ? (
@@ -864,88 +235,27 @@ function SchemaConfigurator({
       </div>
 
       {confirmation ? (
-        <div
-          role="alertdialog"
-          aria-label={t(
-            'notebook.scientificSheetBlock.confirmSchemaChangeAriaLabel',
-          )}
-          className="space-y-2 rounded-md border border-destructive/50 bg-destructive/5 p-3 text-xs"
-        >
-          <strong className="font-medium">
-            {t('notebook.scientificSheetBlock.confirmKindOfLabel', {
-              kind: confirmation.kind,
-              label: confirmation.column.label,
-            })}
-          </strong>
-          <p>
-            {t('notebook.scientificSheetBlock.nonNullRowsNonnullrows', {
-              nonNullRows: confirmation.evidence.nonNullRows ?? 'n/a',
-              invalidRows: confirmation.evidence.invalidRows ?? 'n/a',
-              formulaMarkers: confirmation.evidence.formulaMarkers,
-              size: new Set(
-                formulaDependencies
-                  .filter(
-                    (item) => item.source_column_id === confirmation.column.id,
-                  )
-                  .map((item) => item.formula_id),
-              ).size,
-            })}
-          </p>
-          <p className="text-fg-muted">
-            {t('notebook.scientificSheetBlock.thisCanAffectFormulas', {
-              field_name: confirmation.column.field_name,
-            })}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="danger"
-              disabled={
-                disabled ||
-                rowMutationPending ||
-                draftColumnIds.has(confirmation.column.id) ||
-                (confirmation.kind === 'convert' &&
-                  ((confirmation.evidence.invalidRows ?? 0) > 0 ||
-                    confirmation.evidence.formulaMarkers > 0))
-              }
-              onClick={() =>
-                schemaMutation.mutate(() =>
-                  confirmation.kind === 'convert'
-                    ? preflightScientificConversion(
-                        scientificDataClient,
-                        confirmation.column.id,
-                        confirmation.evidence.schemaVersion,
-                        confirmation.evidence.targetType!,
-                        confirmation.evidence.hash,
-                      )
-                    : preflightScientificRetirement(
-                        scientificDataClient,
-                        confirmation.column.id,
-                        confirmation.evidence.schemaVersion,
-                        confirmation.evidence.hash,
-                      ),
-                )
-              }
-            >
-              {t('notebook.scientificSheetBlock.confirmChange')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              disabled={disabled}
-              onClick={() => {
-                setConfirmation(null)
-                setStatus(
-                  t('notebook.scientificSheetBlock.schemaChangeCancelled'),
-                )
-              }}
-            >
-              {t('common.actions.cancel')}
-            </Button>
-          </div>
-        </div>
+        <ScientificSchemaConfirmation
+          confirmation={confirmation}
+          blocked={
+            rowMutationPending || draftColumnIds.has(confirmation.column.id)
+          }
+          disabled={disabled}
+          dependencyCount={
+            new Set(
+              formulaDependencies.flatMap((item) =>
+                item.source_column_id === confirmation.column.id
+                  ? [item.formula_id]
+                  : [],
+              ),
+            ).size
+          }
+          mutate={schemaMutation.mutate}
+          onCancel={() => {
+            setConfirmation(null)
+            setStatus(t('notebook.scientificSheetBlock.schemaChangeCancelled'))
+          }}
+        />
       ) : null}
 
       {status ? (
@@ -984,61 +294,8 @@ function SchemaConfigurator({
   )
 }
 
-/**
- * COMP-06 — the vendor-neutral column contract. Formula-reference editing is
- * requested with `formula`; the wrapper builds the engine's editor.
- */
-function sheetbaseColumn(
-  column: ScientificColumnWire,
-  readOnly: boolean,
-): SheetbaseGridColumn {
-  const unitSuffix =
-    column.unit && typeof column.unit === 'object' && 'symbol' in column.unit
-      ? ` (${String(column.unit.symbol)})`
-      : ''
-
-  const presentation = fieldEditorPresentation(column.logical_type)
-
-  const base: Omit<SheetbaseGridColumn, 'type'> = {
-    id: column.id,
-    label: `${column.label}${unitSuffix}`,
-    source: 'bound',
-    readOnly,
-  }
-
-  if (presentation.kind === 'number')
-    return {
-      ...base,
-      type: 'number',
-      numberFormat:
-        column.format ?? (column.logical_type === 'decimal' ? '0.00' : '0'),
-      formula: !readOnly,
-    }
-
-  if (presentation.kind === 'checkbox') return { ...base, type: 'checkbox' }
-
-  if (presentation.kind === 'date')
-    return { ...base, type: 'date', dateFormat: 'YYYY-MM-DD' }
-
-  if (presentation.kind === 'category-select')
-    return {
-      ...base,
-      type: 'select',
-      options: column.options.map((option) => option.label),
-    }
-
-  return { ...base, type: 'text', formula: !readOnly }
-}
-
-export function ScientificSheetBlock({
-  block,
-  readOnly = false,
-}: {
-  block: NotebookBlock
-  readOnly?: boolean
-}) {
-  const tableId =
-    typeof block.payload.tableId === 'string' ? block.payload.tableId : ''
+function useScientificSheetController(block: NotebookBlock, readOnly: boolean) {
+  const tableId = z.string().catch('').parse(block.payload.tableId)
 
   const [issues, setIssues] = useState<Array<{ key: string; message: string }>>(
     [],
@@ -1056,25 +313,9 @@ export function ScientificSheetBlock({
   const [transferOpen, setTransferOpen] = useState(false)
   const [inspectorOpen, setInspectorOpen] = useState(false)
   const dataAccess = useDataAccess()
-  const [formulaSource, setFormulaSource] = useState('')
   const [formulaStatus, setFormulaStatus] = useState('')
-  const [exponentHint, setExponentHint] = useState(false)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const nextGeneration = useRef(0)
-  const formulaInputRef = useRef<HTMLInputElement>(null)
-
-  const formulaAutocomplete = useFunctionAutocomplete({
-    value: formulaSource,
-    inputRef: formulaInputRef,
-    onInsert: ({ text, cursor }) => {
-      setFormulaSource(text)
-      // Defer cursor positioning until after React re-renders the input.
-      requestAnimationFrame(() => {
-        formulaInputRef.current?.focus()
-        formulaInputRef.current?.setSelectionRange(cursor, cursor)
-      })
-    },
-  })
 
   const queryClient = useQueryClient()
 
@@ -1145,106 +386,19 @@ export function ScientificSheetBlock({
       ),
   })
 
-  const formulaByCell = useMemo(
-    () =>
-      new Map(
-        (formulasQuery.data ?? []).map((formula) => [
-          `${formula.target_row_id}/${formula.target_column_id}`,
-          formula,
-        ]),
-      ),
-    [formulasQuery.data],
-  )
-
-  const workbookTable = useMemo<WorkbookTable | null>(() => {
-    if (!table || !allRowsQuery.data || !formulasQuery.data) return null
-
-    if (allRowsQuery.data.length > 10_000) return null
-
-    try {
-      return {
-        id: table.id,
-        name: table.name,
-        columns: table.columns.map((column) => ({
-          id: column.id,
-          label: column.label,
-          createdAt:
-            column.created_at ?? table.created_at ?? '1970-01-01T00:00:00Z',
-          logicalType: column.logical_type,
-          categoryOptionIds: column.options.map((option) => option.id),
-        })),
-        rows: allRowsQuery.data.map((row) => ({
-          id: row.id,
-          createdAt: row.created_at ?? '1970-01-01T00:00:00Z',
-          cells: Object.fromEntries(
-            table.columns.map((column) => {
-              const formula = formulaByCell.get(`${row.id}/${column.id}`)
-
-              return [
-                column.id,
-                {
-                  literal: row[column.field_name],
-                  ...(formula ? { formula: persistedFormula(formula) } : {}),
-                },
-              ]
-            }),
-          ),
-        })),
-      }
-    } catch (error) {
-      // Persisted artifacts are untrusted wire data. A malformed artifact must
-      // disable calculation without preventing literal grid access.
-      void error
-
-      return null
-    }
-  }, [allRowsQuery.data, formulaByCell, formulasQuery.data, table])
-
-  const workbook = useNotebookScientificWorkbook(block.id, workbookTable)
-  const tableWorkbook = workbook?.hasTable(tableId) ? workbook : null
-
-  const calculationProblem =
-    (allRowsQuery.data?.length ?? 0) > 10_000
-      ? t('notebook.scientificSheetBlock.calculationIsUnavailableBecause')
-      : allRowsQuery.isError || formulasQuery.isError
-        ? t('notebook.scientificSheetBlock.calculationDataCouldNot')
-        : formulasQuery.data && allRowsQuery.data && !workbookTable
-          ? t('notebook.scientificSheetBlock.persistedFormulaDataIs')
-          : null
+  const { formulaByCell, tableWorkbook, calculationProblem, gridData } =
+    useScientificSheetWorkbook({
+      blockId: block.id,
+      tableId,
+      table,
+      rows: allRowsQuery.data,
+      formulas: formulasQuery.data,
+      failed: allRowsQuery.isError || formulasQuery.isError,
+    })
 
   const selectedFormula = selected
     ? formulaByCell.get(`${selected.rowId}/${selected.columnId}`)
     : undefined
-
-  // Compute the canonical formula-bar display value for the selected cell:
-  // the formula source expression for formula cells, or the raw cell value
-  // for non-formula cells (like Excel). Used by the selection effect and the
-  // Escape-key handler so they stay consistent.
-  const selectedCellDisplay = useCallback((): string => {
-    if (selectedFormula) return selectedFormula.source_expression
-
-    if (!selected) return ''
-    const rows = localRowsRef.current
-    const row = rows.find((candidate) => candidate.id === selected.rowId)
-
-    const column = table?.columns.find(
-      (candidate) => candidate.id === selected.columnId,
-    )
-
-    return row && column ? String(row[column.field_name] ?? '') : ''
-  }, [selected, selectedFormula, table])
-
-  useEffect(() => {
-    setFormulaSource(selectedCellDisplay())
-    setFormulaStatus('')
-  }, [selectedCellDisplay])
-  // Auto-dismiss the ** → ^ conversion hint after 4 seconds.
-  useEffect(() => {
-    if (!exponentHint) return
-    const timer = setTimeout(() => setExponentHint(false), 4000)
-
-    return () => clearTimeout(timer)
-  }, [exponentHint])
 
   const refreshCalculation = async (reconcileRows = false) => {
     // Literal edits update the all-rows cache optimistically in onSuccess; do
@@ -1264,7 +418,7 @@ export function ScientificSheetBlock({
     // invalidate the formulas query so it refetches in the background
     // (non-awaited) and replaces the optimistic data when it completes —
     // hopefully when the user is not mid-interaction.
-    queryClient.invalidateQueries({
+    void queryClient.invalidateQueries({
       queryKey: scientificQueryKeys.formulas(tableId),
     })
 
@@ -1286,185 +440,24 @@ export function ScientificSheetBlock({
     }
   }
 
-  // Refs that hold the latest values for the coordinator callbacks. The
-  // coordinator is created once and its callbacks capture these refs, so
-  // they always read current state without being recreated.
-  const tableRef = useRef<ScientificTableWire | null>(table ?? null)
-  tableRef.current = table ?? null
+  const { coordinator, cacheFormula, recalculate } =
+    useScientificEditCoordinator({
+      tableId,
+      table,
+      readOnly,
+      formulaByCell,
+      workbook: tableWorkbook,
+      onCalculate: refreshCalculation,
+      setSelected,
+      setDrafts,
+      setIssues,
+      setSaveStatus,
+    })
+
   const formulaByCellRef = useRef(formulaByCell)
-  formulaByCellRef.current = formulaByCell
-  const readOnlyRef = useRef(readOnly)
-  readOnlyRef.current = readOnly
-  const refreshCalculationRef = useRef(refreshCalculation)
-  refreshCalculationRef.current = refreshCalculation
-  // Mirror `selected` into a ref so the coordinator's
-  // onProvisionalRowReplaced callback can migrate the active selection when
-  // a provisional row ID is swapped for the server-assigned UUID. Without
-  // this, the formula bar and address box would keep pointing at the stale
-  // `prov:` id after the insert resolves, so a subsequent formula-bar
-  // commit would target the wrong (now-removed) identity.
-  const selectedRef = useRef(selected)
-  selectedRef.current = selected
-
-  // The coordinator replaces the per-afterChange mutation pattern with a
-  // coalesced, ordered, status-aware write pipeline. It persists edits with
-  // a ~300ms coalescing window, serialises literal and formula writes
-  // against one canonical snapshot, and exposes save status states.
-  const coordinator = useMemo(
-    () =>
-      new GridOperationCoordinator({
-        client: scientificDataClient,
-        coalesceMs: 300,
-        getCanonicalRows: () =>
-          queryClient.getQueryData<ScientificRowWire[]>(allRowsKey) ?? [],
-        getFormulaByCell: () => formulaByCellRef.current,
-        getTable: () => tableRef.current,
-        isReadOnly: () => readOnlyRef.current,
-        onRowsUpdated: (rows) =>
-          queryClient.setQueryData<ScientificRowWire[]>(
-            allRowsKey,
-            (old = []) => {
-              const map = new Map(old.map((r) => [r.id, r]))
-
-              for (const row of rows) map.set(row.id, row)
-
-              return [...map.values()]
-            },
-          ),
-        onProvisionalRowReplaced: (provisionalId, realId) => {
-          queryClient.setQueryData<ScientificRowWire[]>(
-            allRowsKey,
-            (old = []) =>
-              old.map((row) =>
-                row.id === provisionalId
-                  ? { ...row, id: realId, version: 1 }
-                  : row,
-              ),
-          )
-
-          // Migrate the active selection off the stale provisional id so the
-          // formula bar, address box, and subsequent commits target the real
-          // UUID after the insert resolves.
-          if (selectedRef.current?.rowId === provisionalId) {
-            setSelected({ ...selectedRef.current, rowId: realId })
-          }
-
-          // Migrate any in-flight draft keys that still reference the
-          // provisional id (e.g. an empty cell the user typed into but
-          // hasn't committed yet).
-          setDrafts((current) => {
-            const prefix = `${provisionalId}:`
-            let changed = false
-            const next: typeof current = {}
-
-            for (const [key, value] of Object.entries(current)) {
-              if (key.startsWith(prefix)) {
-                next[`${realId}:${key.slice(prefix.length)}`] = value
-                changed = true
-              } else {
-                next[key] = value
-              }
-            }
-
-            return changed ? next : current
-          })
-        },
-        onDraftsCleared: (cells) =>
-          setDrafts((current) => {
-            const next = { ...current }
-
-            for (const cell of cells) {
-              const key = `${cell.rowId ?? `new:${cell.rowIndex}`}:${cell.columnId}`
-
-              // The draft may have been discarded or replaced while this
-              // request was in flight; keep the optional lookup intentionally.
-              // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-              if (next[key]?.generation === cell.generation) delete next[key]
-            }
-
-            return next
-          }),
-        onIssues: setIssues,
-        onStatusChange: setSaveStatus,
-        onCalculationNeeded: (reconcileRows) =>
-          void refreshCalculationRef.current(reconcileRows),
-        onRefetchRows: () =>
-          void queryClient.invalidateQueries({ queryKey: allRowsKey }),
-        onFormulaPersisted: (target, source) => {
-          // Optimistically update the formulas query cache so the formula
-          // bar shows the source expression immediately after a formula
-          // write, without waiting for the refetch in onCalculationNeeded.
-          // The refetch will replace this with the full server-side
-          // formula definition (including engine_expression, template,
-          // bindings, etc.) shortly after.
-          queryClient.setQueryData<FormulaDefinitionWire[]>(
-            scientificQueryKeys.formulas(tableId),
-            (old = []) => {
-              if (source === null)
-                return old.filter(
-                  (formula) =>
-                    formula.target_row_id !== target.rowId ||
-                    formula.target_column_id !== target.columnId,
-                )
-              const normalized = normalizeExponentiation(source)
-
-              const idx = old.findIndex(
-                (f) =>
-                  f.target_row_id === target.rowId &&
-                  f.target_column_id === target.columnId,
-              )
-
-              const entry: FormulaDefinitionWire = {
-                id: idx >= 0 ? old[idx].id : '',
-                target_table_id: target.tableId,
-                target_row_id: target.rowId,
-                target_column_id: target.columnId,
-                source_expression: normalized,
-                template: idx >= 0 ? old[idx].template : null,
-                bindings: idx >= 0 ? old[idx].bindings : [],
-                engine_expression: `(${normalized})`,
-                syntax_profile: 'sheetbase-hf-en-us-v1',
-                function_profile: 'scientific-core-v2',
-                literal_profile: 'sheetbase-literal-v1',
-                engine_version: '3.3.0',
-                status: 'supported',
-                version: idx >= 0 ? old[idx].version : 1,
-                created_at:
-                  idx >= 0 ? old[idx].created_at : new Date().toISOString(),
-              }
-
-              if (idx >= 0) {
-                const next = [...old]
-                next[idx] = entry
-
-                return next
-              }
-
-              return [...old, entry]
-            },
-          )
-        },
-      }),
-    [queryClient, allRowsKey, tableId],
-  )
-
-  // Destroy the coordinator on unmount.
-  useEffect(() => () => coordinator.destroy(), [coordinator])
-  // Warn before route exit if durable writes remain unsent.
-  useEffect(() => {
-    if (readOnly) return
-
-    const handler = (event: BeforeUnloadEvent) => {
-      if (coordinator.hasPendingEdits()) {
-        event.preventDefault()
-        event.returnValue = ''
-      }
-    }
-
-    window.addEventListener('beforeunload', handler)
-
-    return () => window.removeEventListener('beforeunload', handler)
-  }, [coordinator, readOnly])
+  useLayoutEffect(() => {
+    formulaByCellRef.current = formulaByCell
+  }, [formulaByCell])
 
   /**
    * Commit the formula bar's current text to the selected cell via
@@ -1472,229 +465,126 @@ export function ScientificSheetBlock({
    * Called when the user presses Enter in the formula input. Errors are
    * surfaced through `formulaStatus`.
    */
-  const commitFormula = useCallback(async () => {
-    if (!selected || !table) return
+  const commitFormula = useCallback(
+    async (formulaSource: string) => {
+      if (!selected || !table) return
 
-    if (!formulaSource.startsWith('=')) return
-    const normalized = normalizeExponentiation(formulaSource)
+      if (!formulaSource.startsWith('=')) return
+      const normalized = normalizeExponentiation(formulaSource)
 
-    if (normalized !== formulaSource) {
-      setFormulaSource(normalized)
-      setExponentHint(true)
-    }
+      // Provisional rows (optimistic Add Row) must route through the
+      // coordinator, which will insert the row first and then apply the
+      // formula to the server-created UUID. Calling mutateScientificFormula
+      // directly with a `prov:` ID would fail because the server doesn't
+      // know about the row yet.
+      if (selected.rowId.startsWith('prov:')) {
+        const column = table.columns.find((c) => c.id === selected.columnId)
 
-    // Provisional rows (optimistic Add Row) must route through the
-    // coordinator, which will insert the row first and then apply the
-    // formula to the server-created UUID. Calling mutateScientificFormula
-    // directly with a `prov:` ID would fail because the server doesn't
-    // know about the row yet.
-    if (selected.rowId.startsWith('prov:')) {
-      const column = table.columns.find((c) => c.id === selected.columnId)
+        if (!column) return
 
-      if (!column) return
+        const rowIndex = (allRowsQuery.data ?? []).findIndex(
+          (item) => item.id === selected.rowId,
+        )
 
-      const rowIndex = (allRowsQuery.data ?? []).findIndex(
+        coordinator.enqueue([
+          {
+            rowIndex:
+              rowIndex >= 0 ? rowIndex : (allRowsQuery.data ?? []).length - 1,
+            rowId: selected.rowId,
+            columnId: selected.columnId,
+            fieldName: column.field_name,
+            raw: normalized,
+            generation: ++nextGeneration.current,
+          },
+        ])
+        setFormulaStatus('')
+
+        return
+      }
+
+      const row = (allRowsQuery.data ?? []).find(
         (item) => item.id === selected.rowId,
       )
 
-      coordinator.enqueue([
-        {
-          rowIndex:
-            rowIndex >= 0 ? rowIndex : (allRowsQuery.data ?? []).length - 1,
-          rowId: selected.rowId,
-          columnId: selected.columnId,
-          fieldName: column.field_name,
-          raw: normalized,
-          generation: ++nextGeneration.current,
-        },
-      ])
-      setFormulaStatus('')
+      if (!row) {
+        // The row may have been removed by a refetch after a failed insert.
+        // Don't tell the user to "save the row" — that's confusing when the
+        // formula already evaluated locally. Route through the coordinator
+        // which will re-insert if needed.
+        coordinator.enqueue([
+          {
+            rowIndex: selectedCoords?.row ?? 0,
+            rowId: selected.rowId,
+            columnId: selected.columnId,
+            fieldName:
+              table.columns.find((c) => c.id === selected.columnId)
+                ?.field_name ?? '',
+            raw: normalized,
+            generation: ++nextGeneration.current,
+          },
+        ])
+        setFormulaStatus('')
 
-      return
-    }
-
-    const row = (allRowsQuery.data ?? []).find(
-      (item) => item.id === selected.rowId,
-    )
-
-    if (!row) {
-      // The row may have been removed by a refetch after a failed insert.
-      // Don't tell the user to "save the row" — that's confusing when the
-      // formula already evaluated locally. Route through the coordinator
-      // which will re-insert if needed.
-      coordinator.enqueue([
-        {
-          rowIndex: selectedCoords?.row ?? 0,
-          rowId: selected.rowId,
-          columnId: selected.columnId,
-          fieldName:
-            table.columns.find((c) => c.id === selected.columnId)?.field_name ??
-            '',
-          raw: normalized,
-          generation: ++nextGeneration.current,
-        },
-      ])
-      setFormulaStatus('')
-
-      return
-    }
-
-    try {
-      await mutateScientificFormula({
-        operation: selectedFormula ? 'update' : 'create',
-        target: selected,
-        expectedSchemaVersion: table.schema_version,
-        expectedRowVersion: row.version,
-        ...(selectedFormula
-          ? { expectedFormulaVersion: Number(selectedFormula.version) }
-          : {}),
-        source: normalized,
-      } as Parameters<typeof mutateScientificFormula>[0])
-      // Optimistically update the formulas query cache so the formula bar
-      // shows the source expression immediately. The refetch in
-      // refreshCalculation will replace this with the full server-side
-      // formula definition shortly after.
-      queryClient.setQueryData<FormulaDefinitionWire[]>(
-        scientificQueryKeys.formulas(tableId),
-        (old = []) => {
-          const idx = old.findIndex(
-            (f) =>
-              f.target_row_id === selected.rowId &&
-              f.target_column_id === selected.columnId,
-          )
-
-          const entry: FormulaDefinitionWire = {
-            id: idx >= 0 ? old[idx].id : '',
-            target_table_id: selected.tableId,
-            target_row_id: selected.rowId,
-            target_column_id: selected.columnId,
-            source_expression: normalized,
-            template: idx >= 0 ? old[idx].template : null,
-            bindings: idx >= 0 ? old[idx].bindings : [],
-            engine_expression: `(${normalized})`,
-            syntax_profile: 'sheetbase-hf-en-us-v1',
-            function_profile: 'scientific-core-v2',
-            literal_profile: 'sheetbase-literal-v1',
-            engine_version: '3.3.0',
-            status: 'supported',
-            version: idx >= 0 ? old[idx].version : 1,
-            created_at:
-              idx >= 0 ? old[idx].created_at : new Date().toISOString(),
-          }
-
-          if (idx >= 0) {
-            const next = [...old]
-            next[idx] = entry
-
-            return next
-          }
-
-          return [...old, entry]
-        },
-      )
-      setFormulaStatus('')
-      // Don't reconcile rows for formula bar commits. Formula writes change
-      // row versions on the server but don't change the row data that
-      // gridData uses. Avoiding the allRows invalidation prevents a
-      // background refetch that would recompute gridData → settings →
-      // updateSettings on HotTable, which calls loadData() and can
-      // overwrite the formula expression in the source data. If a stale
-      // version error occurs on a subsequent literal edit, the coordinator
-      // handles it by refetching.
-      await refreshCalculationRef.current(false)
-    } catch (error) {
-      setFormulaStatus(
-        error instanceof Error
-          ? error.message
-          : t('notebook.scientificSheetBlock.couldNotSaveThe'),
-      )
-    }
-  }, [
-    selected,
-    selectedCoords,
-    table,
-    formulaSource,
-    selectedFormula,
-    allRowsQuery.data,
-    coordinator,
-  ])
-
-  // gridData: canonical rows + formula overlays, WITHOUT drafts.
-  //
-  // This is the data passed to the grid's `rows` prop. It is deliberately NOT
-  // overlaid with draft (optimistic) values because the grid's own editor
-  // already writes optimistic values to its internal data source as the edit
-  // commits. If we also put drafts in the rows prop, every setDrafts() call
-  // (fired synchronously inside the change hook) would give the rows array a
-  // new identity. The adapter would then push a `replaceData` into the live
-  // grid mid-commit, disrupting the editor while its validation is still
-  // pending so it never completes its close cycle — leaving the editor open
-  // and blocking autofill and all other grid interactions.
-  //
-  // By keeping drafts OUT of gridData, the rows prop keeps the same array
-  // reference across draft changes, so the adapter does not re-push data
-  // during a commit. Drafts are still tracked in React state (for refetch
-  // recovery and coordinator cleanup) and overlaid in `localRows` for the
-  // footer row count and localRowsRef — just not in the data passed to the
-  // grid.
-  const gridData = useMemo(() => {
-    const detached: Array<Record<string, unknown>> = (
-      allRowsQuery.data ?? []
-    ).map((row) => {
-      const copy = { ...row }
-
-      for (const column of table?.columns ?? [])
-        if (column.logical_type === 'category')
-          copy[column.field_name] =
-            column.options.find((o) => o.id === row[column.field_name])
-              ?.label ?? row[column.field_name]
-
-      return copy
-    })
-
-    for (const row of detached) {
-      if (typeof row.id !== 'string') continue
-
-      for (const column of table?.columns ?? []) {
-        const formula = formulaByCell.get(`${row.id}/${column.id}`)
-
-        if (!formula) continue
-
-        // Same-sheet formulas (no `!` cross-sheet prefix) are injected as
-        // engine expressions so the grid recognises the cell as a formula,
-        // computes it inline, and — crucially — enables formula-preserving
-        // copy-paste and autofill. This does NOT require `tableWorkbook`:
-        // the grid evaluates the expression on its own sheet.
-        const isSameSheet =
-          formula.status === 'supported' &&
-          !!formula.engine_expression &&
-          !formula.engine_expression.includes('!')
-
-        if (isSameSheet) {
-          row[column.field_name] = formula.engine_expression
-        } else if (tableWorkbook) {
-          // Cross-sheet formulas fall back to the pre-computed workbook
-          // result. This branch DOES require `tableWorkbook` because only
-          // the notebook-level engine has cross-sheet references.
-          row[column.field_name] = displayResult(
-            safeWorkbookGet(tableWorkbook, {
-              tableId,
-              rowId: row.id,
-              columnId: column.id,
-            }),
-          )
-        }
+        return
       }
-    }
 
-    return detached
-  }, [formulaByCell, allRowsQuery.data, table, tableId, tableWorkbook])
+      try {
+        const input = {
+          target: selected,
+          expectedSchemaVersion: table.schema_version,
+          expectedRowVersion: row.version,
+          source: normalized,
+        }
+
+        await mutateScientificFormula(
+          selectedFormula
+            ? {
+                ...input,
+                operation: 'update',
+                expectedFormulaVersion: Number(selectedFormula.version),
+              }
+            : { ...input, operation: 'create' },
+        )
+        // Optimistically update the formulas query cache so the formula bar
+        // shows the source expression immediately. The refetch in
+        // refreshCalculation will replace this with the full server-side
+        // formula definition shortly after.
+        cacheFormula(selected, normalized)
+        setFormulaStatus('')
+        // Don't reconcile rows for formula bar commits. Formula writes change
+        // row versions on the server but don't change the row data that
+        // gridData uses. Avoiding the allRows invalidation prevents a
+        // background refetch that would recompute gridData → settings →
+        // updateSettings on HotTable, which calls loadData() and can
+        // overwrite the formula expression in the source data. If a stale
+        // version error occurs on a subsequent literal edit, the coordinator
+        // handles it by refetching.
+        await recalculate(false)
+      } catch (error) {
+        setFormulaStatus(
+          error instanceof Error
+            ? error.message
+            : t('notebook.scientificSheetBlock.couldNotSaveThe'),
+        )
+      }
+    },
+    [
+      selected,
+      selectedCoords,
+      table,
+      selectedFormula,
+      allRowsQuery.data,
+      coordinator,
+      cacheFormula,
+      recalculate,
+    ],
+  )
 
   // localRows: gridData + draft overlays. Used for localRowsRef (read by
   // afterChange/afterSelectionEnd callbacks to get row IDs) and the footer
   // row count. NOT passed to the grid — see gridData comment above.
   const localRows = useMemo(() => {
-    const detached = gridData.map((row) => ({ ...row }))
+    const detached: ScientificDisplayRow[] = gridData.map((row) => ({ ...row }))
 
     for (const draft of Object.values(drafts)) {
       const rowIndex = draft.rowId
@@ -1709,6 +599,30 @@ export function ScientificSheetBlock({
     return detached
   }, [gridData, drafts])
 
+  const selectedCellDisplay = useMemo(() => {
+    if (selectedFormula) return selectedFormula.source_expression
+
+    if (!selected) return ''
+    const row = localRows.find((candidate) => candidate.id === selected.rowId)
+
+    const column = table?.columns.find(
+      (candidate) => candidate.id === selected.columnId,
+    )
+
+    if (!row || !column) return ''
+    const value = row[column.field_name]
+
+    const scalar = z
+      .union([z.string(), z.number(), z.boolean()])
+      .safeParse(value)
+
+    return scalar.success
+      ? String(scalar.data)
+      : value == null
+        ? ''
+        : JSON.stringify(value)
+  }, [selectedFormula, selected, localRows, table])
+
   // Mirror `localRows` into a ref so the afterChange and afterSelectionEnd
   // callbacks can read current grid data without depending on `localRows` in
   // their useCallback deps. This keeps the callbacks stable across renders,
@@ -1717,7 +631,9 @@ export function ScientificSheetBlock({
   // and can interfere with the formulas plugin during multi-cell operations
   // like autofill.
   const localRowsRef = useRef(localRows)
-  localRowsRef.current = localRows
+  useLayoutEffect(() => {
+    localRowsRef.current = localRows
+  }, [localRows])
 
   // Track the source range of the last copy/cut so beforePaste can
   // translate relative A1 references by the row/column offset.
@@ -1766,7 +682,7 @@ export function ScientificSheetBlock({
         if (i >= rows.length) continue
         const row = rows[i]
 
-        if (typeof row.id === 'string') {
+        if (row.id) {
           if (row.id.startsWith('prov:')) continue
           ids.push(row.id)
         }
@@ -1842,7 +758,7 @@ export function ScientificSheetBlock({
           rowIds,
         )
         setIssues([])
-        void refreshCalculationRef.current(true)
+        void recalculate(true)
       } catch (error) {
         // The DB trigger blocks deletion of rows with formula dependencies.
         // Refetch to restore the row in the grid (the grid already
@@ -1873,7 +789,7 @@ export function ScientificSheetBlock({
     // SheetbaseGridClient to re-render and HotTable to call
     // updateSettings() — reloading all data and reverting formulas set
     // by autofill. Use the ref instead.
-    [readOnly, table, allRowsKey, queryClient],
+    [readOnly, table, allRowsKey, queryClient, recalculate],
   )
 
   // Memoize columns, colHeaders, and formulas config so they don't get new
@@ -1896,7 +812,7 @@ export function ScientificSheetBlock({
     () =>
       table
         ? gridData.map((row) => ({
-            id: typeof row.id === 'string' ? String(row.id) : undefined,
+            id: row.id,
             cells: table.columns.map(
               (column) => row[column.field_name] ?? null,
             ),
@@ -1947,10 +863,7 @@ export function ScientificSheetBlock({
   const initialColumnWidths = useMemo(() => {
     if (!table) return undefined
 
-    const stored = readColumnPreferences<Partial<Record<string, number>>>(
-      columnWidthsKey,
-      {},
-    )
+    const stored = readColumnWidths(columnWidthsKey)
 
     return table.columns.map(
       (column) => stored[column.id] ?? column.width ?? 120,
@@ -1959,14 +872,15 @@ export function ScientificSheetBlock({
 
   const initialColumnOrder = useMemo(() => {
     if (!table) return undefined
-    const stored = readColumnPreferences<string[]>(columnOrderKey, [])
+    const stored = readColumnOrder(columnOrderKey)
     const currentIds = new Set(table.columns.map((column) => column.id))
+    const storedIds = new Set(stored)
 
     return [
       ...stored.filter((id) => currentIds.has(id)),
       ...table.columns
         .map((column) => column.id)
-        .filter((id) => !stored.includes(id)),
+        .filter((id) => !storedIds.has(id)),
     ]
   }, [columnOrderKey, table])
 
@@ -1981,18 +895,16 @@ export function ScientificSheetBlock({
       const generation = ++nextGeneration.current
       const rows = localRowsRef.current
 
-      const cells: CoordinatorCell[] = changes.flatMap((change) => {
-        const column = table?.columns.find(
-          (candidate) => candidate.id === change.columnId,
-        )
+      const columns = new Map(
+        table?.columns.map((column) => [column.id, column]),
+      )
+
+      const cells: DraftCell[] = changes.flatMap((change) => {
+        const column = columns.get(change.columnId)
 
         if (!column || !table) return []
 
-        const rowId =
-          change.rowId ??
-          (typeof rows[change.rowIndex]?.id === 'string'
-            ? String(rows[change.rowIndex].id)
-            : null)
+        const rowId = change.rowId ?? rows[change.rowIndex]?.id ?? null
 
         return [
           {
@@ -2040,6 +952,7 @@ export function ScientificSheetBlock({
       )
 
       const rowId = selection.rowId ?? null
+      setFormulaStatus('')
       setSelectedCoords({ row: selection.rowIndex, col: displayIndex })
       setSelected(
         rowId && column
@@ -2059,6 +972,11 @@ export function ScientificSheetBlock({
   const preserveFormulaClipboard = useCallback(
     (data: SheetbaseGridCellValue[][], range: SheetbaseGridClipboardRange) => {
       if (!table) return
+
+      const columns = new Map(
+        table.columns.map((column) => [column.id, column]),
+      )
+
       // Record the source start for paste-time reference translation.
       copySourceRef.current = {
         startRow: range.startRow,
@@ -2079,15 +997,18 @@ export function ScientificSheetBlock({
           const columnId = range.columnIds?.[colOffset]
 
           const column = columnId
-            ? table.columns.find((candidate) => candidate.id === columnId)
+            ? columns.get(columnId)
             : table.columns.at(range.startColumn + colOffset)
 
-          if (!row || !column || typeof row.id !== 'string') continue
+          if (!row?.id || !column) continue
           const formula = formulaByCellRef.current.get(`${row.id}/${column.id}`)
-          const source = formula?.source_expression ?? row[column.field_name]
 
-          if (typeof source === 'string' && source.startsWith('='))
-            data[rowOffset][colOffset] = source
+          const source = z
+            .string()
+            .safeParse(formula?.source_expression ?? row[column.field_name])
+
+          if (source.success && source.data.startsWith('='))
+            data[rowOffset][colOffset] = source.data
         }
       }
     },
@@ -2107,10 +1028,14 @@ export function ScientificSheetBlock({
 
       for (const row of data)
         for (let column = 0; column < row.length; column++) {
-          const value = row[column]
+          const value = z.string().safeParse(row[column])
 
-          if (typeof value === 'string' && value.startsWith('='))
-            row[column] = shiftFormulaReferences(value, rowOffset, colOffset)
+          if (value.success && value.data.startsWith('='))
+            row[column] = shiftFormulaReferences(
+              value.data,
+              rowOffset,
+              colOffset,
+            )
         }
 
       // Clear so a subsequent external paste doesn't use a stale offset.
@@ -2121,10 +1046,7 @@ export function ScientificSheetBlock({
 
   const handleColumnResize = useCallback(
     (columnId: string, newSize: number) => {
-      const widths = readColumnPreferences<Partial<Record<string, number>>>(
-        columnWidthsKey,
-        {},
-      )
+      const widths = readColumnWidths(columnWidthsKey)
 
       writeColumnPreferences(columnWidthsKey, {
         ...widths,
@@ -2168,6 +1090,189 @@ export function ScientificSheetBlock({
     [],
   )
 
+  return {
+    tableId,
+    table,
+    tableQuery,
+    allRowsQuery,
+    calculationResultsQuery,
+    issues,
+    calculationProblem,
+    upgradeMutation,
+    selected,
+    selectedCoords,
+    selectedCellDisplay,
+    formulaStatus,
+    commitFormula,
+    setFormulaStatus,
+    selectedFormula,
+    sheetColumns,
+    sheetRows,
+    gridData,
+    initialColumnWidths,
+    initialColumnOrder,
+    preserveFormulaClipboard,
+    handlePaste,
+    contextMenu,
+    handleCellsChange,
+    handleSelectionChange,
+    handleColumnResize,
+    handleColumnOrderChange,
+    handleBeforeRemoveRow,
+    handleAfterRemoveRow,
+    handleRowsInserted,
+    handleGridReady,
+    localRows,
+    saveStatus,
+    coordinator,
+    addRow,
+    dataAccess,
+    configurationOpen,
+    setConfigurationOpen,
+    transferOpen,
+    setTransferOpen,
+    inspectorOpen,
+    setInspectorOpen,
+    drafts,
+    dependenciesQuery,
+    refreshCalculation,
+    onSchemaSuccess: async () => {
+      await tableQuery.refetch()
+      await queryClient.invalidateQueries({ queryKey: allRowsKey })
+    },
+  }
+}
+
+function ScientificSchemaDialog({
+  open,
+  onOpenChange,
+  table,
+  readOnly,
+  drafts,
+  saveStatus,
+  dependencies,
+  onSuccess,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  table: ScientificTableWire
+  readOnly: boolean
+  drafts: Record<string, DraftCell>
+  saveStatus: SaveStatus
+  dependencies: FormulaDependencyWire[] | undefined
+  onSuccess: () => Promise<void>
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+        <SchemaConfigurator
+          table={table}
+          tableId={table.id}
+          readOnly={readOnly}
+          draftColumnIds={
+            new Set(Object.values(drafts).map((draft) => draft.columnId))
+          }
+          rowMutationPending={
+            saveStatus === 'saving' || saveStatus === 'retrying'
+          }
+          formulaDependencies={dependencies ?? []}
+          onSuccess={onSuccess}
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ScientificInspectorDialog({
+  open,
+  onOpenChange,
+  table,
+  rows,
+  selected,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  table: ScientificTableWire
+  rows: ScientificRowWire[]
+  selected: WorkbookCellAddress | null
+}) {
+  const selectedRow = rows.find((row) => row.id === selected?.rowId)
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+        <DialogHeader
+          title={t('notebook.scientificSheetBlock.apiInspector')}
+          description={t(
+            'notebook.scientificSheetBlock.fieldsAndRequestExamplesDescription',
+          )}
+        />
+        <ScientificApiInspector
+          table={table}
+          selectedRowId={selected?.rowId}
+          selectedRowVersion={selectedRow?.version}
+          selectedColumnId={selected?.columnId}
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function ScientificSheetBlock({
+  block,
+  readOnly = false,
+}: {
+  block: NotebookBlock
+  readOnly?: boolean
+}) {
+  const {
+    tableId,
+    table,
+    tableQuery,
+    allRowsQuery,
+    calculationResultsQuery,
+    issues,
+    calculationProblem,
+    upgradeMutation,
+    selected,
+    selectedCoords,
+    selectedCellDisplay,
+    formulaStatus,
+    commitFormula,
+    setFormulaStatus,
+    sheetColumns,
+    sheetRows,
+    gridData,
+    initialColumnWidths,
+    initialColumnOrder,
+    preserveFormulaClipboard,
+    handlePaste,
+    contextMenu,
+    handleCellsChange,
+    handleSelectionChange,
+    handleColumnResize,
+    handleColumnOrderChange,
+    handleBeforeRemoveRow,
+    handleAfterRemoveRow,
+    handleRowsInserted,
+    handleGridReady,
+    localRows,
+    saveStatus,
+    coordinator,
+    addRow,
+    dataAccess,
+    configurationOpen,
+    setConfigurationOpen,
+    transferOpen,
+    setTransferOpen,
+    inspectorOpen,
+    setInspectorOpen,
+    drafts,
+    dependenciesQuery,
+    refreshCalculation,
+    onSchemaSuccess,
+  } = useScientificSheetController(block, readOnly)
+
   if (!tableId)
     return (
       <p role="alert">{t('notebook.scientificSheetBlock.invalidSheetBlock')}</p>
@@ -2196,111 +1301,25 @@ export function ScientificSheetBlock({
 
   return (
     <div className="group/sheet border-t border-border/50 pt-1.5">
-      {issues.length ? (
-        <ul
-          role="alert"
-          className="mb-2 space-y-0.5 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-danger-text"
-        >
-          {issues.map((issue) => (
-            <li key={issue.key} data-cell={issue.key}>
-              {issue.message}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {calculationProblem ? (
-        <p
-          role="alert"
-          className="mb-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-danger-text"
-        >
-          {calculationProblem}
-        </p>
-      ) : null}
-
-      {/* SCI-010: bound schema name + revision badge with upgrade indicator. */}
-      {table.dataset_schema && (
-        <div className="flex items-center justify-between px-1 pb-1.5">
-          <SchemaBadge
-            schema={table.dataset_schema}
-            onUpgrade={
-              readOnly || !table.dataset_schema.latest_published_revision
-                ? undefined
-                : () => {
-                    void upgradeMutation.mutateAsync(
-                      table.dataset_schema!.latest_published_revision!,
-                    )
-                  }
-            }
-            upgrading={upgradeMutation.isPending}
-          />
-        </div>
-      )}
+      <ScientificSheetMessages
+        issues={issues}
+        calculationProblem={calculationProblem}
+        schema={table.dataset_schema}
+        readOnly={readOnly}
+        upgrading={upgradeMutation.isPending}
+        onUpgrade={upgradeMutation.mutate}
+      />
 
       {readOnly ? null : (
-        <section
-          aria-label={t('notebook.scientificSheetBlock.formulaBarAriaLabel')}
-          className="mb-2 flex items-center gap-1.5 border-y bg-surface-muted/20 px-3 py-2 text-xs"
-        >
-          <span
-            className="flex h-5 w-12 shrink-0 items-center justify-center rounded bg-surface font-mono text-[10px] font-semibold text-fg-muted"
-            aria-label={t(
-              'notebook.scientificSheetBlock.activeCellAddressAriaLabel',
-            )}
-          >
-            {selectedCoords ? toA1(selectedCoords.row, selectedCoords.col) : ''}
-          </span>
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-surface-muted font-mono text-[10px] font-semibold italic text-fg-muted">
-            fx
-          </span>
-          <div className="relative flex-1">
-            <Input
-              ref={formulaInputRef}
-              aria-label={t(
-                'notebook.scientificSheetBlock.formulaSourceAriaLabel',
-              )}
-              placeholder={
-                selected ? '' : t('notebook.scientificSheetBlock.placeholder')
-              }
-              value={formulaSource}
-              disabled={!selected}
-              onChange={(event) => setFormulaSource(event.target.value)}
-              onKeyDown={(event) => {
-                formulaAutocomplete.handleKeyDown(event)
-
-                if (event.defaultPrevented) return
-
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  void commitFormula()
-                } else if (event.key === 'Escape') {
-                  event.preventDefault()
-                  setFormulaSource(selectedCellDisplay())
-                  setFormulaStatus('')
-                }
-              }}
-              className="h-6 min-w-40 flex-1 border-muted font-mono text-xs"
-            />
-            <FunctionAutocompleteDropdown
-              suggestions={formulaAutocomplete.suggestions}
-              activeIndex={formulaAutocomplete.activeIndex}
-              listRef={formulaAutocomplete.listRef}
-              onSelect={formulaAutocomplete.selectSuggestion}
-            />
-          </div>
-          {exponentHint ? (
-            <span
-              role="status"
-              className="shrink-0 text-[10px] text-fg-muted italic"
-            >
-              {t('notebook.scientificSheetBlock.convertedTo')}
-            </span>
-          ) : null}
-          {formulaStatus ? (
-            <span role="status" className="text-fg-muted">
-              {formulaStatus}
-            </span>
-          ) : null}
-        </section>
+        <ScientificFormulaBar
+          key={JSON.stringify(selected)}
+          display={selectedCellDisplay}
+          selected={!!selected}
+          coords={selectedCoords}
+          status={formulaStatus}
+          onCommit={commitFormula}
+          onStatusClear={() => setFormulaStatus('')}
+        />
       )}
 
       <SheetbaseTableGrid
@@ -2336,112 +1355,31 @@ export function ScientificSheetBlock({
         onReady={handleGridReady}
       />
 
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-fg-muted">
-        <div className="flex items-center gap-2">
-          <span>
-            {localRows.length} {localRows.length === 1 ? 'row' : 'rows'}
-          </span>
-          {readOnly ? null : (
-            <SaveStatusIndicator
-              status={saveStatus}
-              onRetry={() => void coordinator.retry()}
-            />
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          {!readOnly ? (
-            <Button
-              type="button"
-              variant="quiet"
-              size="sm"
-              aria-label={t('notebook.scientificSheetBlock.addRowAriaLabel')}
-              onClick={addRow}
-            >
-              {t('notebook.scientificSheetBlock.addRow')}
-            </Button>
-          ) : null}
-          <Button
-            variant="quiet"
-            size="sm"
-            nativeButton={false}
-            render={
-              <a
-                href={`/datasets/${encodeURIComponent(tableId)}`}
-                role="link"
-              />
-            }
-          >
-            {t('notebook.scientificSheetBlock.exploreDataset')}
-          </Button>
-          {!readOnly ? (
-            <Button
-              type="button"
-              variant="quiet"
-              size="icon"
-              aria-label={t(
-                'notebook.scientificSheetBlock.configureTableAriaLabel',
-              )}
-              onClick={() => setConfigurationOpen(true)}
-            >
-              <Icon name="settings" className="size-4" />
-            </Button>
-          ) : null}
-          {dataAccess ? (
-            <DataAccessButton handle={scientificTableHandle(table)} />
-          ) : null}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <IconButton
-                  type="button"
-                  variant="quiet"
-                  label={t('notebook.scientificSheetBlock.sheetToolsAriaLabel')}
-                  icon="more"
-                />
-              }
-            />
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setTransferOpen(true)}>
-                {t('notebook.scientificSheetBlock.exportCsv')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setInspectorOpen(true)}>
-                {t('notebook.scientificSheetBlock.apiInspector')}
-              </DropdownMenuItem>
-              {readOnly ? null : (
-                <DropdownMenuItem
-                  disabled={calculationResultsQuery.isFetching}
-                  onClick={() => void refreshCalculation()}
-                >
-                  {t('notebook.scientificSheetBlock.recalculate')}
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      <ScientificSheetFooter
+        table={table}
+        rowCount={localRows.length}
+        readOnly={readOnly}
+        saveStatus={saveStatus}
+        dataAccess={dataAccess}
+        calculating={calculationResultsQuery.isFetching}
+        onRetry={() => void coordinator.retry()}
+        onAdd={addRow}
+        onConfigure={() => setConfigurationOpen(true)}
+        onExport={() => setTransferOpen(true)}
+        onInspect={() => setInspectorOpen(true)}
+        onRecalculate={() => void refreshCalculation()}
+      />
 
-      <Dialog open={configurationOpen} onOpenChange={setConfigurationOpen}>
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-          <SchemaConfigurator
-            table={table}
-            tableId={tableId}
-            readOnly={readOnly}
-            draftColumnIds={
-              new Set(Object.values(drafts).map((draft) => draft.columnId))
-            }
-            rowMutationPending={
-              saveStatus === 'saving' || saveStatus === 'retrying'
-            }
-            formulaDependencies={dependenciesQuery.data ?? []}
-            onSuccess={async () => {
-              await tableQuery.refetch()
-              await queryClient.invalidateQueries({
-                queryKey: allRowsKey,
-              })
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      <ScientificSchemaDialog
+        open={configurationOpen}
+        onOpenChange={setConfigurationOpen}
+        table={table}
+        readOnly={readOnly}
+        drafts={drafts}
+        saveStatus={saveStatus}
+        dependencies={dependenciesQuery.data}
+        onSuccess={onSchemaSuccess}
+      />
 
       <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
@@ -2458,28 +1396,13 @@ export function ScientificSheetBlock({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={inspectorOpen} onOpenChange={setInspectorOpen}>
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-          <DialogHeader
-            title={t('notebook.scientificSheetBlock.apiInspector')}
-            description={t(
-              'notebook.scientificSheetBlock.fieldsAndRequestExamplesDescription',
-            )}
-          />
-          <ScientificApiInspector
-            table={table}
-            selectedRowId={selected?.rowId}
-            selectedRowVersion={
-              selected
-                ? (allRowsQuery.data ?? []).find(
-                    (row) => row.id === selected.rowId,
-                  )?.version
-                : undefined
-            }
-            selectedColumnId={selected?.columnId}
-          />
-        </DialogContent>
-      </Dialog>
+      <ScientificInspectorDialog
+        open={inspectorOpen}
+        onOpenChange={setInspectorOpen}
+        table={table}
+        rows={allRowsQuery.data ?? []}
+        selected={selected}
+      />
     </div>
   )
 }

@@ -56,6 +56,16 @@ export function goToCommands(
 /** The create screens, carrying the project, sample or dataset in view. */
 export function newCommands(pathname: string | undefined): PaletteCommand[] {
   const context = createContextFromPath(pathname ?? '')
+  const experimentSearch: NonNullable<PaletteCommand['search']> = {}
+  const importSearch: NonNullable<PaletteCommand['search']> = {}
+
+  if (context.project) experimentSearch.project = context.project
+
+  if (context.sample) experimentSearch.sample = context.sample
+
+  if (context.experiment) importSearch.experiment = context.experiment
+
+  if (context.dataset) importSearch.dataset = context.dataset
 
   return [
     {
@@ -64,10 +74,7 @@ export function newCommands(pathname: string | undefined): PaletteCommand[] {
       label: t('projects.paletteCommands.newExperiment'),
       icon: 'flask',
       to: '/experiments/new',
-      search: {
-        ...(context.project ? { project: context.project } : {}),
-        ...(context.sample ? { sample: context.sample } : {}),
-      },
+      search: experimentSearch,
     },
     {
       id: 'new-sample',
@@ -106,10 +113,7 @@ export function newCommands(pathname: string | undefined): PaletteCommand[] {
       label: t('projects.paletteCommands.importData'),
       icon: 'upload',
       to: '/import',
-      search: {
-        ...(context.experiment ? { experiment: context.experiment } : {}),
-        ...(context.dataset ? { dataset: context.dataset } : {}),
-      },
+      search: importSearch,
     },
   ]
 }
@@ -120,10 +124,7 @@ const COMMAND_PREFIX = /^(go to|goto|go|open|new|create)\s+/i
  * The query as a command search: a leading verb ("go to", "new") names the
  * group it asks for and is not part of the label being matched.
  */
-export function parseCommandQuery(query: string): {
-  group: PaletteCommand['group'] | null
-  text: string
-} {
+export function parseCommandQuery(query: string) {
   const trimmed = query.trim()
   const verb = COMMAND_PREFIX.exec(trimmed)
 
@@ -131,7 +132,10 @@ export function parseCommandQuery(query: string): {
   const word = verb[1].toLowerCase()
 
   return {
-    group: word === 'new' || word === 'create' ? 'New' : 'Go to',
+    group:
+      word === 'new' || word === 'create'
+        ? ('New' as const)
+        : ('Go to' as const),
     text: trimmed.slice(verb[0].length).trim().toLowerCase(),
   }
 }
@@ -141,10 +145,7 @@ export function parseCommandQuery(query: string): {
  * ("new") lists its group; otherwise a command matches when its label contains
  * the text (the "New " in "New sample" is not held against "sample").
  */
-export function matchCommands(
-  commands: PaletteCommand[],
-  query: string,
-): { commands: PaletteCommand[]; leads: boolean } {
+export function matchCommands(commands: PaletteCommand[], query: string) {
   const { group, text } = parseCommandQuery(query)
   const verbOnly = /^(go to|goto|go|open|new|create)$/i.test(query.trim())
 

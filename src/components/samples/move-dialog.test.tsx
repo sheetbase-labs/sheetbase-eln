@@ -6,10 +6,10 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { MoveSampleDialog } from './move-dialog'
-import type * as Positions from '#/lib/storage-positions'
+import { createDataClient } from '#/lib/data-client'
 import type { BoxChoice, PositionCell } from '#/lib/storage-positions'
 
 const box: BoxChoice = {
@@ -53,35 +53,82 @@ const cells = [
   cell(1, 2),
 ]
 
-const mocks = vi.hoisted(() => ({
-  boxes: vi.fn(),
-  positions: vi.fn(),
-  current: vi.fn(),
-}))
-
-vi.mock('#/lib/storage-positions', async (importOriginal) => ({
-  ...(await importOriginal<typeof Positions>()),
-  fetchBoxChoices: mocks.boxes,
-  fetchBoxPositions: mocks.positions,
-  fetchSamplePosition: mocks.current,
-}))
-
-beforeEach(() => {
-  mocks.boxes.mockResolvedValue([box])
-  mocks.positions.mockResolvedValue(cells)
-  mocks.current.mockResolvedValue(null)
-})
-
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
 })
 
-function mount(storageLocation: string | null = 'Lab / Bench 1') {
+function storageFetch(hasBoxes: boolean): typeof fetch {
+  const nodes = new Map([
+    ['storage_sites', [{ id: 'site', name: 'Lab' }]],
+    ['storage_rooms', [{ id: 'room', name: 'Room 2', site_id: 'site' }]],
+    ['storage_units', [{ id: 'unit', name: 'Freezer F-1', room_id: 'room' }]],
+    ['storage_shelves', [{ id: 'shelf', name: 'Shelf 1', unit_id: 'unit' }]],
+    ['storage_racks', [{ id: 'rack', name: 'Rack A', shelf_id: 'shelf' }]],
+    [
+      'storage_boxes',
+      hasBoxes
+        ? [
+            {
+              id: box.id,
+              name: box.name,
+              rack_id: 'rack',
+              rows: box.rows,
+              cols: box.cols,
+              code: box.code,
+            },
+          ]
+        : [],
+    ],
+  ])
+
+  return async (input) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://localhost',
+    )
+
+    const resource = url.pathname.split('/').at(-1) ?? ''
+
+    if (resource === 'storage_positions') {
+      if (url.searchParams.has('box_id')) {
+        return Response.json(
+          cells.map((position) => ({
+            id: position.id,
+            box_id: position.boxId,
+            row_index: position.rowIndex,
+            col_index: position.colIndex,
+            label: position.label,
+            status: position.status,
+            occupied_record_id: position.occupant?.id ?? null,
+          })),
+        )
+      }
+
+      return Response.json(
+        url.searchParams.get('occupied_record_id') === 'not.is.null' && hasBoxes
+          ? [{ box_id: box.id }]
+          : [],
+      )
+    }
+
+    if (resource === 'records')
+      return Response.json([{ id: 'r1', identifier: 'SMP-9', title: null }])
+
+    return Response.json(nodes.get(resource) ?? [])
+  }
+}
+
+function mount(
+  storageLocation: string | null = 'Lab / Bench 1',
+  hasBoxes = true,
+) {
   const onSubmit = vi.fn()
+  const client = createDataClient(storageFetch(hasBoxes))
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MoveSampleDialog
+        client={client}
         open
         onOpenChange={() => {}}
         sample={{ id: 's1', identifier: 'SMP-1', storageLocation }}
@@ -177,8 +224,7 @@ describe('MoveSampleDialog', () => {
   })
 
   it('falls back to typing when no boxes are set up', async () => {
-    mocks.boxes.mockResolvedValue([])
-    mount()
+    mount('Lab / Bench 1', false)
     expect(
       await screen.findByText(/No storage boxes are set up yet/),
     ).toBeTruthy()

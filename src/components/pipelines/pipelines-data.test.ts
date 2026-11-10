@@ -1,20 +1,34 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
   buildPipelineRows,
   currentVersion,
+  declaredRunInputs,
   draftVersion,
   fetchPipelineOutputTargets,
   fetchSchemaVersionFields,
   resolveRunForWorkItem,
   runStatus,
+  runNeedsDetails,
 } from './pipelines-data'
-import type { DataClient } from '#/lib/data-client'
+import { createDataClient } from '#/lib/data-client'
 import type {
   PipelineDefinitionVersionWire,
   PipelineDefinitionWire,
   PipelineRunWire,
 } from '#/lib/pipelines/types'
+
+function listing(rows: Record<string, z.core.util.JSONType[]>) {
+  const fetchRows = vi.fn<typeof fetch>(async (input) => {
+    const resource =
+      z.string().parse(input).split('?')[0].split('/').at(-1) ?? ''
+
+    return Response.json(rows[resource] ?? [])
+  })
+
+  return { ...createDataClient(fetchRows), fetchRows }
+}
 
 function definition(
   overrides: Partial<PipelineDefinitionWire> = {},
@@ -136,6 +150,58 @@ describe('currentVersion and draftVersion', () => {
   })
 })
 
+it('keeps run inputs and parameters whose optional flags are omitted or null', () => {
+  const configured = version({
+    configuration: {
+      inputs: [{ name: 'readings' }, { name: 'controls', required: null }],
+      parameters: [
+        {
+          name: 'threshold',
+          type: 'decimal',
+          required: null,
+          default: 0,
+          description: null,
+        },
+      ],
+    },
+  })
+
+  const declarations = declaredRunInputs(configured)
+
+  expect(declarations.inputs.map((input) => input.name)).toEqual([
+    'readings',
+    'controls',
+  ])
+  expect(declarations.parameters.map((parameter) => parameter.name)).toEqual([
+    'threshold',
+  ])
+  expect(runNeedsDetails(configured)).toBe(true)
+})
+
+it('retains finite defaults and refuses nonfinite persisted parameter values', () => {
+  const configured = version({
+    configuration: {
+      inputs: [{ name: 'readings' }],
+      parameters: [{ name: 'threshold', type: 'decimal', default: 1.25 }],
+    },
+  })
+
+  expect(declaredRunInputs(configured).parameters[0]?.default).toBe(1.25)
+
+  for (const invalid of [NaN, Infinity, -Infinity]) {
+    const decoded = declaredRunInputs({
+      ...configured,
+      configuration: {
+        ...configured.configuration,
+        parameters: [{ name: 'threshold', type: 'decimal', default: invalid }],
+      },
+    })
+
+    expect(decoded.inputs.map((input) => input.name)).toEqual(['readings'])
+    expect(decoded.parameters).toEqual([])
+  }
+})
+
 describe('runStatus', () => {
   it('maps run statuses to tone and label', () => {
     expect(runStatus('running')).toEqual({ tone: 'progress', label: 'Running' })
@@ -153,18 +219,15 @@ describe('runStatus', () => {
 })
 
 describe('resolveRunForWorkItem', () => {
-  const client = (rows: Record<string, unknown[]>) =>
-    ({
-      list: vi.fn(async (resource: string) => rows[resource] ?? []),
-    }) as unknown as DataClient
+  const client = listing
 
   it('finds the run a waiting item’s prompt belongs to', async () => {
-    const run = await resolveRunForWorkItem(
+    const runId = await resolveRunForWorkItem(
       { kind: 'run_waiting', sourceId: 'prompt-1', identifier: 'glucose' },
       client({ pipeline_run_prompts: [{ run_id: 'run-7' }] }),
     )
 
-    expect(run).toBe('run-7')
+    expect(runId).toBe('run-7')
   })
 
   it('finds the newest failed run of the pipeline a failed item names', async () => {
@@ -174,13 +237,13 @@ describe('resolveRunForWorkItem', () => {
       pipeline_runs: [{ id: 'run-9' }],
     })
 
-    const run = await resolveRunForWorkItem(
+    const runId = await resolveRunForWorkItem(
       { kind: 'run_failed', sourceId: null, identifier: 'glucose' },
       c,
     )
 
-    expect(run).toBe('run-9')
-    expect(vi.mocked(c.list).mock.calls.at(-1)?.[1]).toContain(
+    expect(runId).toBe('run-9')
+    expect(c.fetchRows.mock.calls.at(-1)?.[0]).toContain(
       'definition_version_id=in.(v-1,v-2)&status=eq.failed',
     )
   })
@@ -202,11 +265,6 @@ describe('resolveRunForWorkItem', () => {
 })
 
 describe('pipeline output targets', () => {
-  const listing = (rows: Record<string, unknown[]>) =>
-    ({
-      list: vi.fn(async (resource: string) => rows[resource] ?? []),
-    }) as unknown as DataClient
-
   it('offers active schema versions (a schema version is never "published")', async () => {
     const c = listing({
       dataset_schema_versions: [{ id: 'sv-1', schema_id: 's-1', version: 2 }],
@@ -233,7 +291,11 @@ describe('pipeline output targets', () => {
         schemaVersionId: 'sv-1',
       },
     ])
-    const queries = vi.mocked(c.list).mock.calls.map((call) => call[1])
+
+    const queries = c.fetchRows.mock.calls.map((call) =>
+      z.string().parse(call[0]),
+    )
+
     expect(queries.join(' ')).toContain('lifecycle=eq.active')
     expect(queries.join(' ')).not.toContain('lifecycle=eq.published')
   })

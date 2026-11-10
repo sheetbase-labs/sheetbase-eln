@@ -1,14 +1,15 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { t } from '#/copy'
 import {
   GateDialog,
   GoOnDialog,
-  gateTargetsFrom,
   useRefreshGates,
 } from '#/components/notebook/gates'
 import type { GateDraft, GatesState } from '#/components/notebook/gates'
+import { gateTargetsFrom } from './gate-description'
 import { toast } from '#/components/ui/sonner'
 import {
   blocksBehindGates,
@@ -27,6 +28,33 @@ import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { updateBlockPayload } from '#/lib/notebook-mutations'
+
+/** Both configured gates and their checked table versions can change the persisted result. */
+function gateInputsVersion(
+  blocks: readonly NotebookBlock[],
+  parts: readonly PartProgress[],
+) {
+  const checkedTables = new Set(
+    blocks
+      .filter((block) => block.type === 'gate')
+      .flatMap((block) => gateConditionsOf(block.payload))
+      .flatMap((condition) =>
+        condition.kind === 'plugin_check' ? [condition.blockId] : [],
+      ),
+  )
+
+  return [
+    ...blocks.flatMap((block) =>
+      block.type === 'gate' || checkedTables.has(block.id)
+        ? [`${block.id}:${block.version}`]
+        : [],
+    ),
+    ...parts.map(
+      (part) =>
+        `${part.id}:${JSON.stringify(part.opensWhen ?? null)}:${part.gateMode ?? ''}`,
+    ),
+  ].join('|')
+}
 
 /**
  * The gates of an experiment as the page shows them: the database's answer,
@@ -48,48 +76,39 @@ export function useNotebookGates({
   enabled: boolean
   /** A protocol: gates are shown as written, and hold nothing back. */
   describeOnly?: boolean
-}): { state: GatesState | null; dialogs: React.ReactNode } {
+}) {
   const queryClient = useQueryClient()
   const refresh = useRefreshGates(recordId)
+
   const query = useQuery({
     queryKey: gateQueryKeys.forRecord(recordId),
     queryFn: () => fetchRecordGates(notebookDataClient, recordId),
     enabled,
   })
+
   const names = useUserNames(
     (query.data ?? [])
       .map((gate) => gate.overriddenByUserId)
       .filter((id): id is string => Boolean(id)),
   )
+
   const nameOf = React.useCallback(
     (userId: string | null) => (userId ? names.userLabel(userId) : ''),
     [names],
   )
+
   // A gate added, changed or removed on the page: ask the database again.
   // A table a plugin check reads: when it changes, the stored answer is stale.
-  const checkedTables = new Set(
-    blocks
-      .filter((b) => b.type === 'gate')
-      .flatMap((b) => gateConditionsOf(b.payload))
-      .flatMap((c) => (c.kind === 'plugin_check' ? [c.blockId] : [])),
-  )
-  const shape = [
-    ...blocks
-      .filter((b) => b.type === 'gate' || checkedTables.has(b.id))
-      .map((b) => `${b.id}:${b.version}`),
-    ...parts.map(
-      (p) =>
-        `${p.id}:${JSON.stringify(p.opensWhen ?? null)}:${p.gateMode ?? ''}`,
-    ),
-  ].join('|')
-  const seen = React.useRef(shape)
+  const gateVersionKey = gateInputsVersion(blocks, parts)
+
+  const seen = React.useRef(gateVersionKey)
   React.useEffect(() => {
-    if (seen.current === shape) return
-    seen.current = shape
+    if (seen.current === gateVersionKey) return
+    seen.current = gateVersionKey
     void queryClient.invalidateQueries({
       queryKey: gateQueryKeys.forRecord(recordId),
     })
-  }, [shape, queryClient, recordId])
+  }, [gateVersionKey, queryClient, recordId])
   const [goingOn, setGoingOn] = React.useState<RecordGate | null>(null)
   const [editing, setEditing] = React.useState<RecordGate | null>(null)
 
@@ -115,9 +134,11 @@ export function useNotebookGates({
 
   const gates = React.useMemo(() => {
     const today = new Date()
+
     return (query.data ?? []).map((gate) => {
       if (gate.kind === 'block') {
         const block = blocks.find((b) => b.id === gate.blockId)
+
         return liveGate(
           gate,
           block ? gateConditionsOf(block.payload) : null,
@@ -125,7 +146,9 @@ export function useNotebookGates({
           today,
         )
       }
+
       const part = parts.find((p) => p.id === gate.partId)
+
       return liveGate(gate, part?.opensWhen ?? null, context, today)
     })
   }, [query.data, blocks, parts, context])
@@ -137,6 +160,7 @@ export function useNotebookGates({
         : blocksBehindGates(context.blocks, gates),
     [context.blocks, gates, describeOnly],
   )
+
   const stepWaits = React.useMemo(
     () =>
       describeOnly
@@ -198,8 +222,10 @@ export function useNotebookGates({
   const save = useMutation({
     mutationFn: async (draft: GateDraft) => {
       if (!editing) return
+
       if (editing.kind === 'block') {
         const block = blocks.find((b) => b.id === editing.blockId)
+
         if (!block) return
         await updateBlockPayload(notebookDataClient, {
           blockId: block.id,
@@ -211,8 +237,10 @@ export function useNotebookGates({
             conditions: draft.conditions,
           },
         })
+
         return
       }
+
       await setPartGate(notebookDataClient, editing.partId!, {
         conditions: draft.conditions,
         mode: draft.mode,
@@ -235,6 +263,8 @@ export function useNotebookGates({
     },
   })
 
+  // useRefreshGates refreshes gate and part queries after this mutation.
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation
   const clearPart = useMutation({
     mutationFn: async () => {
       if (editing?.kind !== 'part') return
@@ -250,15 +280,6 @@ export function useNotebookGates({
     },
     onError: () => toast.error(t('notebook.gates.couldNotSave')),
   })
-
-  const editingBlock =
-    editing?.kind === 'block'
-      ? blocks.find((b) => b.id === editing.blockId)
-      : undefined
-  const editingPart =
-    editing?.kind === 'part'
-      ? parts.find((p) => p.id === editing.partId)
-      : undefined
 
   const dialogs = (
     <>
@@ -277,35 +298,12 @@ export function useNotebookGates({
           }}
         />
       ) : null}
-      {editing && (editingBlock || editingPart) ? (
-        <GateDialog
-          part={editingPart?.number}
-          initial={
-            editingBlock
-              ? {
-                  label:
-                    typeof editingBlock.payload.label === 'string'
-                      ? editingBlock.payload.label
-                      : '',
-                  mode: gateModeOf(editingBlock.payload),
-                  conditions: gateConditionsOf(editingBlock.payload),
-                }
-              : {
-                  mode: editingPart!.gateMode ?? 'warn',
-                  conditions: editingPart!.opensWhen ?? [],
-                  stepsInOrder: editingPart!.stepsInOrder ?? false,
-                }
-          }
-          targets={
-            editingBlock
-              ? targetsFor(editingBlock.order)
-              : gateTargetsFrom(context.blocks, context.parts, {
-                  beforePart: editingPart!.number,
-                })
-          }
-          named={Boolean(editingBlock)}
-          canStepsInOrder={Boolean(editingPart)}
-          removable={Boolean(editingPart) && !editingPart!.gateFromTemplate}
+      {editing ? (
+        <EditingGateDialog
+          gate={editing}
+          blocks={blocks}
+          parts={parts}
+          context={context}
           saving={save.isPending || clearPart.isPending}
           onSave={(draft) => save.mutateAsync(draft).then(() => undefined)}
           onRemove={() => clearPart.mutateAsync().then(() => undefined)}
@@ -316,4 +314,67 @@ export function useNotebookGates({
   )
 
   return { state, dialogs }
+}
+
+/** Resolve the editable source separately from the live gate evaluation. */
+function EditingGateDialog({
+  gate,
+  blocks,
+  parts,
+  context,
+  ...actions
+}: {
+  gate: RecordGate
+  blocks: readonly NotebookBlock[]
+  parts: readonly PartProgress[]
+  context: GateContext
+  saving: boolean
+  onSave: (draft: GateDraft) => Promise<void>
+  onRemove: () => Promise<void>
+  onClose: () => void
+}) {
+  if (gate.kind === 'block') {
+    const block = blocks.find((candidate) => candidate.id === gate.blockId)
+
+    if (!block) return null
+
+    return (
+      <GateDialog
+        {...actions}
+        initial={{
+          label: z.string().catch('').parse(block.payload.label),
+          mode: gateModeOf(block.payload),
+          conditions: gateConditionsOf(block.payload),
+        }}
+        targets={gateTargetsFrom(context.blocks, context.parts, {
+          beforeOrder: block.order,
+        })}
+        named
+        canStepsInOrder={false}
+        removable={false}
+      />
+    )
+  }
+
+  const part = parts.find((candidate) => candidate.id === gate.partId)
+
+  if (!part) return null
+
+  return (
+    <GateDialog
+      {...actions}
+      part={part.number}
+      initial={{
+        mode: part.gateMode ?? 'warn',
+        conditions: part.opensWhen ?? [],
+        stepsInOrder: part.stepsInOrder ?? false,
+      }}
+      targets={gateTargetsFrom(context.blocks, context.parts, {
+        beforePart: part.number,
+      })}
+      named={false}
+      canStepsInOrder
+      removable={!part.gateFromTemplate}
+    />
+  )
 }

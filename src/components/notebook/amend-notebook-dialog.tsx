@@ -39,6 +39,7 @@ export function AmendNotebookDialog({
   onAmended: (result: CreateAmendmentResult) => void | Promise<void>
 }) {
   const [note, setNote] = useState('')
+
   // A reason is mandatory only where the workspace asks for one; until that is
   // known the dialog asks, as it always has.
   const general = useQuery({
@@ -46,7 +47,9 @@ export function AmendNotebookDialog({
     queryFn: () => fetchWorkspaceGeneral(),
     enabled: open,
   })
+
   const reasonRequired = general.data?.requireChangeReason ?? true
+
   const amend = useMutation({
     mutationFn: () =>
       createAmendment(sign002DataClient, {

@@ -1,4 +1,9 @@
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { skipToken, useQueries, useQuery } from '@tanstack/react-query'
+import type { Parameter } from '#/lib/parameter'
+import type {
+  NotebookUpgradeDecisionDraft,
+  NotebookUpgradePreview,
+} from '#/lib/notebook-template-upgrade'
 
 import type { Tone } from '#/components/ui/status'
 import type { DataClient } from '#/lib/data-client'
@@ -12,6 +17,7 @@ import {
 } from '#/lib/notebook-template-data'
 import type {
   NotebookTemplate,
+  NotebookTemplateParameterInput,
   NotebookTemplateVersion,
 } from '#/lib/notebook-template-data'
 import { chunkIds, listByIds } from '#/lib/chunk-ids'
@@ -25,6 +31,80 @@ import type {
   SheetDefinition,
   SheetDefinitionVersion,
 } from '#/lib/sheet-definition-data'
+
+/** Parameters the form can ask for: required scalars with no default. */
+export function askedParameters(version: NotebookTemplateVersion): Parameter[] {
+  return version.configuration.parameters.filter(
+    (p) =>
+      p.required && p.type.kind === 'scalar' && p.defaultValue === undefined,
+  )
+}
+
+export function parameterInput(
+  parameter: Parameter,
+  raw: string,
+): NotebookTemplateParameterInput | null {
+  if (parameter.type.kind !== 'scalar') return null
+  const text = raw.trim()
+
+  if (text === '') return null
+
+  switch (parameter.type.valueType) {
+    case 'integer':
+    case 'decimal': {
+      const value = Number(text)
+
+      return Number.isFinite(value)
+        ? { parameterId: parameter.id, kind: 'scalar', value }
+        : null
+    }
+
+    case 'boolean':
+      return {
+        parameterId: parameter.id,
+        kind: 'scalar',
+        value: text === 'true',
+      }
+    default:
+      return { parameterId: parameter.id, kind: 'scalar', value: text }
+  }
+}
+
+type NestedDrafts = NonNullable<
+  NotebookUpgradeDecisionDraft['instanceDecisionDrafts']
+>
+
+type NotebookUpgradeDrafts = Record<string, NotebookUpgradeDecisionDraft>
+
+function defaultNestedDrafts(
+  conflict: NotebookUpgradePreview['conflicts'][number],
+): NestedDrafts {
+  const drafts: NestedDrafts = {}
+
+  for (const nested of conflict.instancePreview?.conflicts ?? []) {
+    const chosen = nested.allowedOutcomes[0]
+    drafts[nested.id] = {
+      outcome: chosen,
+      targetId: chosen === 'map' ? nested.targetCandidates[0] : undefined,
+    }
+  }
+
+  return drafts
+}
+
+/** Seed each conflict with its first allowed outcome, before owner choices. */
+export function defaultNotebookUpgradeDrafts(preview: NotebookUpgradePreview) {
+  const drafts: NotebookUpgradeDrafts = {}
+
+  for (const conflict of preview.conflicts) {
+    drafts[conflict.id] = {
+      outcome: conflict.allowedOutcomes[0],
+      instanceDecisionDrafts: defaultNestedDrafts(conflict),
+    }
+  }
+
+  return drafts
+}
 
 /**
  * UI port (roadmap-4/ui-app3): the Templates board reads the CORE-06 notebook
@@ -40,10 +120,12 @@ export interface TemplateRow extends NotebookTemplate {
   inUse: number
 }
 
-export function templateLifecycle(lifecycle: string): {
+interface TemplateStatus {
   tone: Tone
   label: string
-} {
+}
+
+export function templateLifecycle(lifecycle: string): TemplateStatus {
   switch (lifecycle) {
     case 'active':
       return { tone: 'ok', label: 'Active' }
@@ -341,12 +423,11 @@ export function useTemplateUpgradePreview(
       recordId ?? '',
       targetVersionId ?? '',
     ],
-    queryFn: () =>
-      previewNotebookTemplateUpgrade(
-        recordId as string,
-        targetVersionId as string,
-        client,
-      ),
+    queryFn:
+      recordId && targetVersionId
+        ? () =>
+            previewNotebookTemplateUpgrade(recordId, targetVersionId, client)
+        : skipToken,
     enabled: Boolean(recordId && targetVersionId),
     staleTime: 15_000,
   })
@@ -359,10 +440,7 @@ export const NOTEBOOK_TEMPLATE_VERSION_KIND = 'notebook_template_version'
 export function useSheetDefinitions(
   versions: NotebookTemplateVersion[],
   client: DataClient = notebookTemplateDataClient,
-): {
-  versionsById: Map<string, SheetDefinitionVersion>
-  definitionsById: Map<string, SheetDefinition>
-} {
+) {
   const versionIds = [
     ...new Set(
       versions.flatMap((v) =>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Banner } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
@@ -37,6 +38,7 @@ import { t } from '#/copy'
 import { serializeImportMapping } from './import-search'
 
 const client = createDataClient()
+const inferredType = z.enum(INFERRED_TYPES)
 
 const TYPE_LABEL: Record<InferredType, () => string> = {
   text: () => t('data.importFlow.fileColumns.typeText'),
@@ -53,7 +55,7 @@ interface Row extends InferredColumn {
 }
 
 /** "plate3_readout.xlsx" → "plate3 readout". */
-export function datasetNameFromFile(filename: string): string {
+function datasetNameFromFile(filename: string): string {
   return (
     filename
       .replace(/\.[a-z0-9]+$/i, '')
@@ -194,7 +196,10 @@ function ColumnsEditor({
   onCreated: (result: FileColumnsResult) => Promise<void>
 }) {
   const queryClient = useQueryClient()
-  const [datasetName, setDatasetName] = useState(datasetNameFromFile(filename))
+
+  const [datasetName, setDatasetName] = useState(() =>
+    datasetNameFromFile(filename),
+  )
 
   const [rows, setRows] = useState<Row[]>(() =>
     columnsOf(sheet).map((column) => ({
@@ -304,6 +309,7 @@ function ColumnsEditor({
           ? failure.message
           : t('data.importFlow.fileColumns.failed'),
       )
+      // react-doctor-disable-next-line react-doctor/no-loading-flag-reset-outside-finally -- Creation and the awaited handoff keep the success lock to prevent duplicate writes. Request or handoff failure permits retry, not rollback of any completed writes.
       setBusy(false)
     }
   }
@@ -368,7 +374,7 @@ function ColumnsEditor({
                       disabled={!row.keep}
                       onChange={(event) =>
                         update(row.source, {
-                          type: event.target.value as InferredType,
+                          type: inferredType.parse(event.target.value),
                         })
                       }
                     >

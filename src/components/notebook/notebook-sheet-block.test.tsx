@@ -1,25 +1,35 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router'
 
 import { DataClientError } from '#/lib/data-client'
 import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
+import type { SheetInstance } from '#/lib/sheet-instance-data'
 
 import {
   FrozenSheetEvidencePanel,
   NotebookSheetBlock,
-  sheetInstanceEmbedErrorMessage,
 } from './notebook-sheet-block'
+import { sheetInstanceEmbedErrorMessage } from './sheet-embed-error'
 
-vi.mock('#/components/sheet/canonical-sheet-workspace', () => ({
-  CanonicalSheetWorkspace: ({ readOnly }: { readOnly: boolean }) => (
-    <div data-testid="live-workspace" data-read-only={String(readOnly)} />
-  ),
-}))
-vi.mock('@tanstack/react-router', () => ({
-  Link: () => <span>Open full sheet</span>,
-}))
+const transport = vi.hoisted(() => {
+  const http = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', http)
+
+  return http
+})
+
+beforeEach(() => {
+  transport.mockReset()
+  transport.mockResolvedValue(Response.json([]))
+})
 
 afterEach(() => cleanup())
 
@@ -99,9 +109,11 @@ describe('FrozenSheetEvidencePanel', () => {
         onCommentTarget={onCommentTarget}
       />,
     )
+
     const submit = screen.getByRole('button', {
       name: 'Comment on frozen selection',
     })
+
     fireEvent.click(screen.getByRole('button', { name: 'Select Sample row 1' }))
     expect(
       screen
@@ -212,7 +224,8 @@ describe('NotebookSheetBlock', () => {
       expect(screen.getByRole('status').textContent).toContain(
         'Frozen sheet evidence is unavailable',
       )
-      expect(screen.queryByTestId('live-workspace')).toBeNull()
+      expect(screen.queryByRole('button', { name: /^Paste data/ })).toBeNull()
+      expect(transport).not.toHaveBeenCalled()
     },
   )
 
@@ -225,36 +238,89 @@ describe('NotebookSheetBlock', () => {
       />,
     )
     expect(screen.getByText('independent value')).toBeTruthy()
-    expect(screen.queryByTestId('live-workspace')).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Paste data/ })).toBeNull()
+    expect(transport).not.toHaveBeenCalled()
   })
 
   it.each([true, false])(
     'preserves a legitimate live preview with readOnly=%s',
-    (readOnly) => {
+    async (readOnly) => {
       const client = new QueryClient({
         defaultOptions: { queries: { staleTime: Infinity, retry: false } },
       })
+
       client.setQueryData(['sheet-instance', frozen.instanceId], {
+        id: frozen.instanceId,
+        workspaceId: 'ws-1',
+        projectId: record.projectId,
+        notebookRecordId: record.id,
         lifecycle: 'active',
         sourceDefinitionVersionId: null,
         name: 'Live preview',
-      })
+        description: null,
+        revision: 1,
+        duplicatedFromInstanceId: null,
+        createdAt: '2026-11-09T00:00:00Z',
+        updatedAt: '2026-11-09T00:00:00Z',
+        createdByUserId: 'u1',
+        updatedByUserId: null,
+        state: {
+          bindings: [],
+          localFields: [],
+          localValues: {},
+          calculationOverrides: {},
+          provenance: { createdFrom: 'ad_hoc' },
+          presentation: {
+            columnOrder: [],
+            hiddenColumnIds: [],
+            columnWidths: {},
+            frozenColumnCount: 0,
+            density: 'standard',
+            filters: [],
+            sorts: [],
+          },
+        },
+      } satisfies SheetInstance)
       client.setQueryData(['sheet-instance-embeddings', frozen.instanceId], {
         embeddings: [],
         count: 1,
       })
-      render(
-        <QueryClientProvider client={client}>
+      client.setQueryData(
+        ['sheet-cell-conflicts', frozen.instanceId, 'open'],
+        [],
+      )
+
+      const root = createRootRoute({
+        beforeLoad: () => ({ auth: null }),
+        component: () => (
           <NotebookSheetBlock
             block={sheetBlock}
             record={record}
             readOnly={readOnly}
           />
+        ),
+      })
+
+      const router = createRouter({
+        routeTree: root,
+        history: createMemoryHistory({ initialEntries: ['/'] }),
+      })
+
+      await router.load()
+      render(
+        <QueryClientProvider client={client}>
+          <RouterProvider router={router} />
         </QueryClientProvider>,
       )
+      expect(await screen.findByText('Live preview')).toBeTruthy()
       expect(
-        screen.getByTestId('live-workspace').getAttribute('data-read-only'),
-      ).toBe(String(readOnly))
+        screen
+          .getByRole('link', { name: 'Open full sheet' })
+          .getAttribute('href'),
+      ).toBe(`/sheets/${frozen.instanceId}?projectId=p1`)
+      expect(
+        Boolean(screen.queryByRole('button', { name: /^Paste data/ })),
+      ).toBe(!readOnly)
       client.clear()
     },
   )
@@ -269,6 +335,7 @@ describe('NotebookSheetBlock', () => {
       order: 1,
       version: 1,
     }
+
     render(<NotebookSheetBlock block={block} record={record} />)
     expect(screen.getByText('This block has no sheet.')).toBeTruthy()
     expect(

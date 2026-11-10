@@ -1,7 +1,5 @@
 import { t } from '#/copy'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
@@ -14,39 +12,26 @@ import {
   DialogHeader,
 } from '#/components/ui/dialog'
 import { Field, Input } from '#/components/ui/input'
-import { createDataClient } from '#/lib/data-client'
-import type { DataClient } from '#/lib/data-client'
-import { listCanonicalDatasetSchemaDefinitions } from '#/lib/dataset-schema-definition-rpc'
-import {
-  describeColumnPromotionError,
-  requestColumnPromotion,
-} from '#/lib/schema-evolution'
-import type { ColumnPromotionRequestResult } from '#/lib/schema-evolution'
+import { useSheetPromote } from './sheet-promote-controller'
+import type {
+  SheetPromoteLocalField,
+  SheetPromoteProps,
+} from './sheet-promote-controller'
 
-const sheetPromoteDataClient = createDataClient()
+export type { SheetPromoteLocalField } from './sheet-promote-controller'
 
-/** The slice of a sheet's local field the dialog needs to describe it. */
-export interface SheetPromoteLocalField {
-  fieldId: string
-  key: string
-  label: string
-  logicalType: string
-  quantity?: {
-    storageUnit?: string | null
-    preferredDisplayUnit?: string | null
-  } | null
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  text: t('notebook.sheetPromote.text'),
-  integer: t('notebook.sheetPromote.numberWhole'),
-  decimal: t('notebook.sheetPromote.number'),
-  boolean: t('notebook.sheetPromote.yesNo'),
-  date: t('notebook.sheetPromote.date'),
-  timestamp: t('notebook.sheetPromote.dateAndTime'),
-  category: t('notebook.sheetPromote.choice'),
-  reference: t('notebook.sheetPromote.reference'),
-}
+const TYPE_LABELS = new Map(
+  Object.entries({
+    text: t('notebook.sheetPromote.text'),
+    integer: t('notebook.sheetPromote.numberWhole'),
+    decimal: t('notebook.sheetPromote.number'),
+    boolean: t('notebook.sheetPromote.yesNo'),
+    date: t('notebook.sheetPromote.date'),
+    timestamp: t('notebook.sheetPromote.dateAndTime'),
+    category: t('notebook.sheetPromote.choice'),
+    reference: t('notebook.sheetPromote.reference'),
+  }),
+)
 
 /**
  * SHEET-02.3 — the Promote local columns dialog (canvas/SheetPromote).
@@ -57,92 +42,25 @@ const TYPE_LABELS: Record<string, string> = {
  * `request_column_promotion` — never the direct `promote_local_field` path —
  * so nothing is written to the dataset until the MDL-03 approval is granted.
  */
-export function SheetPromote({
-  instanceId,
-  field,
-  client = sheetPromoteDataClient,
-  expectedRevision,
-  triggerLabel = t('notebook.sheetPromote.promoteColumn'),
-  open: controlledOpen,
-  onOpenChange,
-  trigger = true,
-  onSubmitted,
-}: {
-  instanceId: string
-  field: SheetPromoteLocalField
-  client?: DataClient
-  expectedRevision?: number | null
-  triggerLabel?: string
-  /**
-   * Controlled visibility. Omit to let the dialog own its open state behind
-   * its own trigger (the default). The Sheet's column menu sets it so a menu
-   * entry — not a button rendered next to the grid — opens the dialog.
-   */
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
-  /** Render the built-in trigger button. Set false when the host opens it. */
-  trigger?: boolean
-  onSubmitted?: (result: ColumnPromotionRequestResult) => void
-}) {
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
-  const controlled = controlledOpen !== undefined
-  const open = controlled ? controlledOpen : uncontrolledOpen
+export function SheetPromote(props: SheetPromoteProps) {
+  const {
+    field,
+    trigger = true,
+    triggerLabel = t('notebook.sheetPromote.promoteColumn'),
+  } = props
 
-  const setOpen = (next: boolean) => {
-    if (!controlled) setUncontrolledOpen(next)
-    onOpenChange?.(next)
-  }
-
-  const [definitionId, setDefinitionId] = useState('')
-  const [reason, setReason] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const definitions = useQuery({
-    queryKey: ['dataset-schema-definitions', 'promote-target'],
-    enabled: open,
-    queryFn: () => listCanonicalDatasetSchemaDefinitions(client),
-  })
-
-  const submit = async () => {
-    if (!definitionId) {
-      setError(t('notebook.sheetPromote.chooseTheDatasetSchema'))
-
-      return
-    }
-
-    if (!reason.trim()) {
-      setError(t('notebook.sheetPromote.giveAReasonFor'))
-
-      return
-    }
-
-    setBusy(true)
-    setError(null)
-
-    try {
-      const result = await requestColumnPromotion(client, {
-        instanceId,
-        fieldId: field.fieldId,
-        target: 'dataset_schema',
-        schemaDefinitionId: definitionId,
-        reason: reason.trim(),
-        idempotencyKey: crypto.randomUUID(),
-        expectedRevision,
-      })
-
-      onSubmitted?.(result)
-      setOpen(false)
-      setReason('')
-      setDefinitionId('')
-    } catch (e) {
-      // The server owns compatibility (SB071) and draft-version rules (SB072);
-      // show its refusal rather than claiming the promotion succeeded.
-      setError(describeColumnPromotionError(e))
-    } finally {
-      setBusy(false)
-    }
-  }
+  const {
+    open,
+    setOpen,
+    definitionId,
+    setDefinitionId,
+    reason,
+    setReason,
+    busy,
+    error,
+    definitions,
+    submit,
+  } = useSheetPromote(props)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -209,22 +127,7 @@ export function SheetPromote({
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td className="border-b border-border-subtle py-1.5 pr-2">
-                  {field.label}
-                </td>
-                <td className="border-b border-border-subtle py-1.5 pr-2 font-mono">
-                  {field.key}
-                </td>
-                <td className="border-b border-border-subtle py-1.5 pr-2">
-                  {TYPE_LABELS[field.logicalType] ?? field.logicalType}
-                </td>
-                <td className="border-b border-border-subtle py-1.5">
-                  {field.quantity?.preferredDisplayUnit ??
-                    field.quantity?.storageUnit ??
-                    '—'}
-                </td>
-              </tr>
+              <PromoteFieldRow field={field} />
             </tbody>
           </table>
           <Field
@@ -271,5 +174,26 @@ export function SheetPromote({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function PromoteFieldRow({ field }: { field: SheetPromoteLocalField }) {
+  return (
+    <tr>
+      <td className="border-b border-border-subtle py-1.5 pr-2">
+        {field.label}
+      </td>
+      <td className="border-b border-border-subtle py-1.5 pr-2 font-mono">
+        {field.key}
+      </td>
+      <td className="border-b border-border-subtle py-1.5 pr-2">
+        {TYPE_LABELS.get(field.logicalType) ?? field.logicalType}
+      </td>
+      <td className="border-b border-border-subtle py-1.5">
+        {field.quantity?.preferredDisplayUnit ??
+          field.quantity?.storageUnit ??
+          '—'}
+      </td>
+    </tr>
   )
 }

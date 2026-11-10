@@ -6,43 +6,116 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
+import { z } from 'zod'
+import type { SavedSearchFacets } from '#/lib/search'
 
-import { SavedSearches } from './saved-searches'
+const bodySchema = z.record(z.string(), z.json())
 
-const mocks = vi.hoisted(() => ({
-  rows: [] as Array<Record<string, unknown>>,
-  list: vi.fn(),
+const rowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  query: z.string(),
+  facets: z.json(),
+  created_at: z.string(),
+  visibility: z.enum(['private', 'workspace']).optional(),
+  user_id: z.string().optional(),
+  saved_search_uses: z.array(z.object({ last_used_at: z.string() })).optional(),
+})
+
+const mocks = {
+  rows: new Array<z.infer<typeof rowSchema>>(),
   members: [{ user_id: 'u-ana', name: 'Ana', role: 'member' }],
-  rpc: vi.fn(),
-}))
+  rpc: vi.fn<
+    (
+      name: string,
+      args: z.infer<typeof bodySchema>,
+    ) => Promise<z.infer<ReturnType<typeof z.json>>>
+  >(),
+}
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
-    <a href={to}>{children}</a>
-  ),
-}))
+const unexpected: string[] = []
 
-vi.mock('#/lib/notebook-data', () => ({
-  notebookDataClient: { list: mocks.list, rpc: mocks.rpc },
-}))
+vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
+
+  if (url.pathname === '/api/db/saved_searches' && init?.method === 'GET')
+    return Response.json(mocks.rows)
+  const rpc = url.pathname.replace('/api/db/rpc/', '')
+
+  if (
+    [
+      'workspace_members_list',
+      'save_search',
+      'update_saved_search',
+      'delete_saved_search',
+      'touch_saved_search',
+    ].includes(rpc) &&
+    init?.method === 'POST'
+  ) {
+    try {
+      return Response.json(
+        await mocks.rpc(
+          rpc,
+          bodySchema.parse(await new Response(init.body).json()),
+        ),
+      )
+    } catch (error) {
+      return Response.json(
+        {
+          error: {
+            code: 'failed',
+            message: error instanceof Error ? error.message : 'failed',
+          },
+        },
+        { status: 503 },
+      )
+    }
+  }
+
+  unexpected.push(`${init?.method} ${url}`)
+  throw new Error(`Unexpected saved-search HTTP request: ${url}`)
+})
+
+const { SavedSearches } = await import('./saved-searches')
+const { dropSharedReads } = await import('#/lib/data-client')
+
+afterAll(() => vi.unstubAllGlobals())
 
 beforeEach(() => {
   localStorage.clear()
   mocks.rows = []
-  mocks.list.mockImplementation(async () => mocks.rows)
-  mocks.rpc.mockImplementation(async (name: string, args: any) => {
+  mocks.rpc.mockImplementation(async (name, args) => {
     if (name === 'workspace_members_list') return mocks.members
 
     if (name === 'save_search') {
       mocks.rows = [
         {
           id: `s-${mocks.rows.length + 1}`,
-          name: args.p_name,
-          query: args.p_query,
-          facets: args.p_facets,
+          name: z.string().parse(args.p_name),
+          query: z.string().parse(args.p_query),
+          facets: args.p_facets ?? {},
           created_at: '2026-10-30T12:00:00Z',
-          visibility: args.p_visibility ?? 'private',
+          visibility: z
+            .enum(['private', 'workspace'])
+            .parse(args.p_visibility ?? 'private'),
           user_id: 'u-me',
         },
         ...mocks.rows,
@@ -50,7 +123,13 @@ beforeEach(() => {
     } else if (name === 'update_saved_search') {
       mocks.rows = mocks.rows.map((r) =>
         r.id === args.p_id
-          ? { ...r, visibility: args.p_visibility ?? r.visibility }
+          ? {
+              ...r,
+              visibility: z
+                .enum(['private', 'workspace'])
+                .optional()
+                .parse(args.p_visibility ?? r.visibility),
+            }
           : r,
       )
     } else if (name === 'delete_saved_search') {
@@ -63,6 +142,8 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  dropSharedReads()
+  expect(unexpected).toEqual([])
   vi.clearAllMocks()
 })
 
@@ -74,7 +155,7 @@ function row(id: string, name: string, created: string, used?: string) {
     query: 'plate',
     facets: {},
     created_at: created,
-    visibility: 'private',
+    visibility: 'private' as const,
     user_id: 'u-me',
     saved_search_uses: used ? [{ last_used_at: used }] : [],
   }
@@ -82,7 +163,7 @@ function row(id: string, name: string, created: string, used?: string) {
 
 function failSave(message: string) {
   const answer = mocks.rpc.getMockImplementation()!
-  mocks.rpc.mockImplementation(async (name: string, args: unknown) => {
+  mocks.rpc.mockImplementation(async (name, args) => {
     if (name === 'save_search') throw new Error(message)
 
     return answer(name, args)
@@ -90,7 +171,7 @@ function failSave(message: string) {
 }
 
 function mount(
-  current: { q: string } & Record<string, unknown>,
+  current: { q: string } & SavedSearchFacets,
   onApply = vi.fn(),
   who: { role?: string; userId?: string } = {},
 ) {
@@ -100,13 +181,20 @@ function mount(
 
   render(
     <QueryClientProvider client={client}>
-      <SavedSearches
-        workspaceId="ws-1"
-        current={current}
-        onApply={onApply}
-        userId={who.userId ?? 'u-me'}
-        role={who.role ?? 'scientist'}
-      />
+      <RouterContextProvider
+        router={createRouter({
+          routeTree: createRootRoute(),
+          history: createMemoryHistory(),
+        })}
+      >
+        <SavedSearches
+          workspaceId="ws-1"
+          current={current}
+          onApply={onApply}
+          userId={who.userId ?? 'u-me'}
+          role={who.role ?? 'scientist'}
+        />
+      </RouterContextProvider>
     </QueryClientProvider>,
   )
 
@@ -324,8 +412,10 @@ describe('SavedSearches', () => {
 
     expect(buttons[0].textContent).toContain('Old favourite')
     fireEvent.click(buttons[1])
-    expect(mocks.rpc).toHaveBeenCalledWith('touch_saved_search', {
-      p_id: 's-2',
-    })
+    await waitFor(() =>
+      expect(mocks.rpc).toHaveBeenCalledWith('touch_saved_search', {
+        p_id: 's-2',
+      }),
+    )
   })
 })

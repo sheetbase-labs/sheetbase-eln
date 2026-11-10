@@ -1,31 +1,43 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 
 import { Button } from '#/components/ui/button'
 import { t } from '#/copy'
 import type { PreviewSlide } from '#/lib/office-preview/slides'
+import { readOnlyEntries } from '../read-only-entries'
+
+function SlideImage({ image }: { image: PreviewSlide['images'][number] }) {
+  const mount = useCallback(
+    (node: HTMLImageElement | null) => {
+      if (!node) return
+
+      const url = URL.createObjectURL(
+        new Blob([image.data.slice().buffer], { type: image.mediaType }),
+      )
+
+      node.src = url
+
+      // React 19 runs this ref teardown on image replacement and unmount.
+      return () => URL.revokeObjectURL(url)
+    },
+    [image],
+  )
+
+  return (
+    <img
+      ref={mount}
+      alt=""
+      className="max-h-56 max-w-full rounded-sm border border-border-subtle"
+    />
+  )
+}
 
 /** One slide at a time: title, picture(s) and the text. */
 export function SlidesView({ slides }: { slides: PreviewSlide[] }) {
   const [index, setIndex] = useState(0)
   const slide = slides.at(Math.min(index, slides.length - 1))
-  const urls = useMemo(
-    () =>
-      slide
-        ? slide.images.map((image) =>
-            URL.createObjectURL(
-              new Blob([image.data as BlobPart], { type: image.mediaType }),
-            ),
-          )
-        : [],
-    [slide],
-  )
-  useEffect(
-    () => () => {
-      for (const url of urls) URL.revokeObjectURL(url)
-    },
-    [urls],
-  )
+
   if (!slide) return null
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
@@ -59,23 +71,22 @@ export function SlidesView({ slides }: { slides: PreviewSlide[] }) {
               number: slide.number,
             })}
         </h4>
-        {urls.length > 0 ? (
+        {slide.images.length > 0 ? (
           <div className="flex flex-wrap gap-3">
-            {urls.map((url) => (
-              <img
-                key={url}
-                src={url}
-                alt=""
-                className="max-h-56 max-w-full rounded-sm border border-border-subtle"
-              />
+            {slide.images.map((image, i) => (
+              // Duplicate image objects have no placement IDs; the image-dependent ref replaces/revokes each slot's URL.
+              // react-doctor-disable-next-line react-doctor/no-array-index-as-key
+              <SlideImage key={i} image={image} />
             ))}
           </div>
         ) : null}
         {slide.lines.length > 0 ? (
           <ul className="list-disc space-y-1 pl-5 text-body">
-            {slide.lines.map((line, i) => (
-              <li key={i}>{line}</li>
-            ))}
+            {readOnlyEntries(slide.lines, (line) => line).map(
+              ({ key, value }) => (
+                <li key={key}>{value}</li>
+              ),
+            )}
           </ul>
         ) : null}
       </div>

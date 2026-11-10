@@ -1,7 +1,7 @@
 import { cn } from '#/lib/utils'
 import { useOthers } from '#/lib/collaboration/room-hooks'
 
-import { useCollaborationRoomReady } from './collaboration-room'
+import { useCollaborationRoomReady } from './room-ready'
 import { remoteSelectionChips } from './selection-label'
 import type { SelectionPeer } from './selection-label'
 

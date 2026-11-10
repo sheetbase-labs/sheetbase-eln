@@ -1,18 +1,23 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-
-import { DataClientError } from '#/lib/data-client'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AmendNotebookDialog } from './amend-notebook-dialog'
+import { workspaceGeneralQueryKey } from '#/lib/workspace-general'
+import type { WorkspaceGeneral } from '#/lib/workspace-general'
 
-vi.mock('#/lib/sign-002', async (importOriginal) => ({
-  ...(await importOriginal()),
-  createAmendment: vi.fn(),
-  sign002DataClient: { rpc: vi.fn() },
-}))
+const transport = vi.hoisted(() => {
+  const http = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', http)
+
+  return http
+})
+
+beforeEach(() => {
+  transport.mockReset()
+})
 
 afterEach(() => {
   cleanup()
@@ -21,22 +26,42 @@ afterEach(() => {
 
 function renderDialog(ui: ReactNode) {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    defaultOptions: {
+      queries: { retry: false, staleTime: Infinity },
+      mutations: { retry: false },
+    },
   })
+
+  client.setQueryData(workspaceGeneralQueryKey, {
+    name: 'Lab',
+    site: null,
+    timezone: 'UTC',
+    dateFormat: 'yyyy-MM-dd',
+    numberFormat: 'decimal',
+    publicationApprovalRequired: false,
+    offlineEditingAllowed: false,
+    requireChangeReason: true,
+    lockOnSign: true,
+    regulatedLab: false,
+    specLimitsEnabled: false,
+    retentionEnabled: false,
+    idPrefixes: {},
+  } satisfies WorkspaceGeneral)
+
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
 describe('AmendNotebookDialog', () => {
   it('starts an amendment with the reason given', async () => {
-    const { createAmendment, sign002DataClient } =
-      await import('#/lib/sign-002')
-    vi.mocked(createAmendment).mockResolvedValue({
-      revisionId: 'rev-new',
-      supersedesRevisionId: 'rev-old',
-      recordId: 'r1',
-      integrityDigest: 'abc',
-      unlockedAt: '2026-08-19T00:00:00.000Z',
-    })
+    transport.mockResolvedValue(
+      Response.json({
+        revisionId: 'rev-new',
+        supersedesRevisionId: 'rev-old',
+        recordId: 'r1',
+        integrityDigest: 'abc',
+        unlockedAt: '2026-08-19T00:00:00.000Z',
+      }),
+    )
     const onAmended = vi.fn()
     const user = userEvent.setup()
     renderDialog(
@@ -52,15 +77,17 @@ describe('AmendNotebookDialog', () => {
       'Protocol tweak',
     )
     await user.click(screen.getByRole('button', { name: 'Confirm amendment' }))
-    expect(createAmendment).toHaveBeenCalledWith(sign002DataClient, {
-      recordId: 'r1',
-      note: 'Protocol tweak',
-    })
-    expect(onAmended).toHaveBeenCalled()
+    expect(transport).toHaveBeenCalledWith(
+      '/api/db/rpc/create_amendment',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ p_record_id: 'r1', p_note: 'Protocol tweak' }),
+      }),
+    )
+    await waitFor(() => expect(onAmended).toHaveBeenCalled())
   })
 
   it('keeps the confirm action off until a reason is given', async () => {
-    const { createAmendment } = await import('#/lib/sign-002')
     const user = userEvent.setup()
     renderDialog(
       <AmendNotebookDialog
@@ -74,13 +101,15 @@ describe('AmendNotebookDialog', () => {
     expect(confirm.hasAttribute('disabled')).toBe(true)
     await user.type(screen.getByLabelText('Reason for the amendment'), '   ')
     expect(confirm.hasAttribute('disabled')).toBe(true)
-    expect(createAmendment).not.toHaveBeenCalled()
+    expect(transport).not.toHaveBeenCalled()
   })
 
   it('shows the DataClientError message when amendment fails', async () => {
-    const { createAmendment } = await import('#/lib/sign-002')
-    vi.mocked(createAmendment).mockRejectedValue(
-      new DataClientError('forbidden', 'You cannot amend this Notebook.', 403),
+    transport.mockResolvedValue(
+      Response.json(
+        { code: 'forbidden', message: 'You cannot amend this Notebook.' },
+        { status: 403 },
+      ),
     )
     const user = userEvent.setup()
     renderDialog(

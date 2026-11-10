@@ -21,23 +21,43 @@ import {
   previewDatasetModelUpgrade,
 } from '#/lib/dataset-model-upgrade'
 import { notebookDataClient } from '#/lib/notebook-data'
+import type { DatasetModelUpgradePreview } from '#/lib/dataset-model-upgrade'
+import { datasetModelPositionKey } from './dataset-model-upgrade-data'
 
-export const datasetModelPositionKey = (datasetId: string) =>
-  ['ui-port', 'dataset-model-position', datasetId] as const
+function UpgradeEffects({ data }: { data: DatasetModelUpgradePreview }) {
+  if (data.blocked) {
+    return (
+      <Banner
+        tone="warn"
+        title={t('data.datasetModelUpgrade.versionCannotAppliedYet')}
+      >
+        {data.reason}
+        {data.semanticChanges.length ? (
+          <p className="mb-0 mt-2">
+            {t('data.datasetModelUpgrade.affectedFields', {
+              join: data.semanticChanges.map((field) => field.label).join(', '),
+            })}
+          </p>
+        ) : null}
+      </Banner>
+    )
+  }
 
-/**
- * Offers the move to a newer published version of the dataset's model, and
- * shows what the move changes before anything is written. Renders nothing when
- * the dataset is already on the newest version or the viewer cannot edit.
- */
-export function DatasetModelUpgrade({
+  return (
+    <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-label">
+      {describeUpgradeEffects(data).map((line) => (
+        <li key={line}>{line}</li>
+      ))}
+    </ul>
+  )
+}
+
+function useModelUpgrade({
   datasetId,
-  canEdit,
-  client = notebookDataClient,
+  client,
 }: {
   datasetId: string
-  canEdit: boolean
-  client?: typeof notebookDataClient
+  client: typeof notebookDataClient
 }) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -76,6 +96,26 @@ export function DatasetModelUpgrade({
       )
     },
   })
+
+  return { position, newer, target, preview, apply, open, setOpen, setChosen }
+}
+
+/**
+ * Offers the move to a newer published version of the dataset's model, and
+ * shows what the move changes before anything is written. Renders nothing when
+ * the dataset is already on the newest version or the viewer cannot edit.
+ */
+export function DatasetModelUpgrade({
+  datasetId,
+  canEdit,
+  client = notebookDataClient,
+}: {
+  datasetId: string
+  canEdit: boolean
+  client?: typeof notebookDataClient
+}) {
+  const { position, newer, target, preview, apply, open, setOpen, setChosen } =
+    useModelUpgrade({ datasetId, client })
 
   if (!canEdit || !position.data || newer.length === 0) return null
   const latest = newer.at(-1)!
@@ -126,30 +166,7 @@ export function DatasetModelUpgrade({
                   {t('data.datasetModelUpgrade.reloadPageAskAdmin')}
                 </Banner>
               ) : null}
-              {data?.blocked ? (
-                <Banner
-                  tone="warn"
-                  title={t('data.datasetModelUpgrade.versionCannotAppliedYet')}
-                >
-                  {data.reason}
-                  {data.semanticChanges.length ? (
-                    <p className="mb-0 mt-2">
-                      {t('data.datasetModelUpgrade.affectedFields', {
-                        join: data.semanticChanges
-                          .map((field) => field.label)
-                          .join(', '),
-                      })}
-                    </p>
-                  ) : null}
-                </Banner>
-              ) : null}
-              {data && !data.blocked ? (
-                <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-label">
-                  {describeUpgradeEffects(data).map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ul>
-              ) : null}
+              {data ? <UpgradeEffects data={data} /> : null}
               {apply.isError ? (
                 <p role="alert" className="m-0 text-label text-danger-text">
                   {apply.error instanceof Error

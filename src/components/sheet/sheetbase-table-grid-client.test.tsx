@@ -1,163 +1,48 @@
-import { act, cleanup, render, waitFor } from '@testing-library/react'
-import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { SpreadsheetClipboardPayload } from '@sheetbase-labs/sheetbase-table'
 
-import { RangeStore, sourceBadgeLabel } from '@sheetbase-labs/sheetbase-table'
 import type {
-  CellFormat,
-  SpreadsheetClipboardPayload,
-  SpreadsheetHandle,
-  SpreadsheetProps,
-} from '@sheetbase-labs/sheetbase-table'
-import type * as SheetbaseTableModule from '@sheetbase-labs/sheetbase-table'
-
-import type {
+  SheetbaseGridCellValue,
   SheetbaseGridClipboardRange,
   SheetbaseGridHandle,
   SheetbaseGridProps,
 } from './sheetbase-grid'
+import { sheetbaseGridCellValueSchema } from './grid-client-values'
 import { SheetbaseTableGridClient } from './sheetbase-table-grid-client'
+import { useGridLayout } from './grid-client-layout'
+import { gridClipboard } from './grid-client-clipboard'
+import {
+  captureGridFilters,
+  gridQuery,
+  gridSelection,
+} from './grid-client-presentation'
+import { gridWrites } from './grid-client-writes'
+import { useGridEditors } from './grid-client-editors'
 
-/**
- * COMP-06.2/.3 — the `sheetbase-table` adapter. The package's `Spreadsheet` is
- * replaced with a props recorder so every translation (layout props, row
- * hooks, clipboard transforms, the neutral handle and the Record editor) can
- * be exercised without the engine.
- */
-const captured = vi.hoisted(() => ({
-  props: [] as SpreadsheetProps[],
-}))
-
-const engineHandle = {
-  selectCell: vi.fn(),
-  selectCellAddress: vi.fn(() => true),
-  scrollCellIntoView: vi.fn(),
-  undo: vi.fn(),
-  redo: vi.fn(),
-  setActiveInput: vi.fn(),
-  editActiveInput: vi.fn(),
-  commitEdit: vi.fn(),
-  cancelEdit: vi.fn(),
-  snapshot: vi.fn(),
-  insertRows: vi.fn(),
-  deleteRows: vi.fn(),
-  insertColumns: vi.fn(),
-  deleteColumns: vi.fn(),
-  autoFitColumn: vi.fn(),
-  autoFitRow: vi.fn(),
-  find: vi.fn(),
-  replaceAll: vi.fn(),
-  applyFormat: vi.fn(),
-  focus: vi.fn(),
-  hydrate: vi.fn(),
-  replaceData: vi.fn(),
-  clearWriteState: vi.fn(),
-  setFilter: vi.fn(),
-  clearFilter: vi.fn(),
-  getQuery: vi.fn(),
-  setAnnotation: vi.fn(),
-  removeAnnotation: vi.fn(),
-  heldFieldWrites: vi.fn(() => []),
-  commitHeldFieldWrites: vi.fn(),
-  discardHeldFieldWrites: vi.fn(),
-} satisfies SpreadsheetHandle
-
-vi.mock('@sheetbase-labs/sheetbase-table', async (importOriginal) => {
-  // Vitest hoists `vi.mock` above imports, so the factory must load React and
-  // the real module dynamically; static bindings are not yet initialised here.
-  const actual = await importOriginal<typeof SheetbaseTableModule>()
-  const React = await import('react')
-
-  const Spreadsheet = React.forwardRef<SpreadsheetHandle, SpreadsheetProps>(
-    (props, ref) => {
-      captured.props.push(props)
-      const { rowCount, columnCount } = props
-
-      if (rowCount === undefined || columnCount === undefined)
-        throw new Error('The adapter must supply grid dimensions')
-
-      // Match 0.6.0: imperative annotation writes use a captured array, not a
-      // functional updater. Several writes on one handle can overwrite each other.
-      const [annotations, setAnnotations] = React.useState(
-        props.initialAnnotations ?? [],
-      )
-
-      function annotationCell(address: string) {
-        const { row, column } = actual.parseAddress(address)
-
-        return {
-          address,
-          recordId: props.datasetHeader?.recordIdForRow?.(row),
-          fieldId: props.fieldIds?.[column],
-          bound: true,
-        }
-      }
-
-      const handle: SpreadsheetHandle = {
-        ...engineHandle,
-        setAnnotation: (address, text) => {
-          engineHandle.setAnnotation(address, text)
-          const cell = annotationCell(address)
-
-          const next = [
-            ...annotations.filter(
-              (note) =>
-                note.recordId !== cell.recordId ||
-                note.fieldId !== cell.fieldId,
-            ),
-            { address, recordId: cell.recordId, fieldId: cell.fieldId, text },
-          ]
-
-          setAnnotations(next)
-          props.onAnnotationsChange?.(next)
-        },
-        removeAnnotation: (address) => {
-          engineHandle.removeAnnotation(address)
-          const cell = annotationCell(address)
-
-          const next = annotations.filter(
-            (note) =>
-              note.recordId !== cell.recordId || note.fieldId !== cell.fieldId,
-          )
-
-          setAnnotations(next)
-          props.onAnnotationsChange?.(next)
-        },
-        snapshot: () => ({
-          data: props.initialData,
-          annotations,
-          formats: new RangeStore<CellFormat>(),
-          columnWidths: [],
-          rowHeights: [],
-          selection: {
-            anchor: { row: 0, column: 0 },
-            focus: { row: rowCount - 1, column: columnCount - 1 },
-          },
-          scroll: { top: 0, left: 0 },
-          frozenRows: 0,
-          frozenColumns: 0,
-        }),
-      }
-
-      React.useImperativeHandle(ref, () => handle)
-      React.useEffect(() => {
-        props.onReady?.(handle)
-      }, [])
-
-      return React.createElement('div', {
-        'data-testid': 'spreadsheet',
-        'data-annotation-texts': annotations.map((note) => note.text).join('|'),
-      })
-    },
+// jsdom supplies no geometry. Give the real engine/virtualizer a viewport;
+// neither Spreadsheet nor any provider is replaced by a props recorder.
+beforeEach(() => {
+  vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(1200)
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(2400)
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1200)
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(2400)
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+    () => new DOMRect(0, 0, 1200, 2400),
   )
-
-  return { ...actual, Spreadsheet }
 })
 
 afterEach(() => {
   cleanup()
-  captured.props.length = 0
-  vi.clearAllMocks()
+  vi.restoreAllMocks()
 })
 
 const columns: SheetbaseGridProps['columns'] = [
@@ -183,17 +68,33 @@ function baseProps(
   return { columns, rows, ...overrides }
 }
 
-function lastProps(): SpreadsheetProps {
-  const props = captured.props.at(-1)
+function liveGrid(overrides: Partial<SheetbaseGridProps> = {}) {
+  const onReady = vi.fn<(handle: SheetbaseGridHandle | null) => void>()
 
-  if (!props) throw new Error('Spreadsheet did not render.')
+  const view = render(
+    <SheetbaseTableGridClient {...baseProps({ ...overrides, onReady })} />,
+  )
 
-  return props
+  const handle = onReady.mock.calls[0]?.[0]
+
+  if (!handle) throw new Error('Expected a live grid handle')
+
+  return { ...view, handle, onReady }
+}
+
+function cell(row: number, column: number): HTMLElement {
+  const node = document.querySelector<HTMLElement>(
+    `[role="gridcell"][aria-rowindex="${row + 1}"][aria-colindex="${column + 1}"]`,
+  )
+
+  if (!node) throw new Error(`Missing display cell ${row}:${column}`)
+
+  return node
 }
 
 function clipboardPayload(): SpreadsheetClipboardPayload {
   return {
-    text: 'a1\tb1',
+    text: 'a1\tb1\na2\tb2',
     values: [
       ['a1', 'b1'],
       ['a2', 'b2'],
@@ -210,34 +111,115 @@ function clipboardPayload(): SpreadsheetClipboardPayload {
 
 describe('SheetbaseTableGridClient layout props', () => {
   it('forwards height, stretch and row headers to the engine', () => {
-    render(
-      <SheetbaseTableGridClient
-        {...baseProps({ height: 320, stretch: 'all', rowHeaders: false })}
-      />,
-    )
-    const props = lastProps()
-    expect(props.height).toBe(320)
-    expect(props.stretch).toBe('all')
-    expect(props.rowHeaders).toBe(false)
+    liveGrid({ height: 320, stretch: 'all', rowHeaders: false })
+    expect(screen.getByRole('grid').style.height).toBe('320px')
+    expect(screen.queryAllByRole('rowheader')).toHaveLength(0)
+    expect(cell(0, 0).textContent).toBe('a1')
+    expect(cell(0, 0).style.width).toBe('400px')
   })
 
   it('applies a persisted column order to fields, ids and A1 data', () => {
-    render(
+    const props = baseProps({ columnOrder: ['record', 'beta', 'alpha'] })
+    const { result } = renderHook(() => useGridLayout(props))
+    expect(result.current.fieldIds).toEqual(['record', 'beta', 'alpha'])
+    expect(
+      result.current.datasetHeader.fields.map((field) => field.id),
+    ).toEqual(['record', 'beta', 'alpha'])
+    const { handle } = liveGrid(props)
+    expect(handle.snapshot().data.get('A1')).toBe('rec-1')
+    expect(handle.snapshot().data.get('B1')).toBe('1')
+    expect(handle.snapshot().data.get('C1')).toBe('a1')
+    expect(cell(0, 0).textContent).toBe('rec-1')
+  })
+
+  it('hydrates new persisted rows without remounting or losing stable identities', () => {
+    const { handle, rerender, onReady } = liveGrid()
+    const engine = screen.getByRole('grid')
+    rerender(
       <SheetbaseTableGridClient
-        {...baseProps({ columnOrder: ['record', 'beta', 'alpha'] })}
+        {...baseProps({ onReady, rows: [rows[1], rows[0]] })}
       />,
     )
-    const props = lastProps()
-    expect(props.fieldIds).toEqual(['record', 'beta', 'alpha'])
-    expect(props.datasetHeader?.fields.map((field) => field.id)).toEqual([
-      'record',
-      'beta',
-      'alpha',
+    expect(handle.snapshot().data.get('A1')).toBe('a2')
+    expect(screen.getByRole('grid')).toBe(engine)
+    expect(onReady).toHaveBeenCalledOnce()
+  })
+
+  it('does not replace live edits when only column metadata changes', () => {
+    const { handle, rerender, onReady } = liveGrid()
+    act(() => handle.selectCell(0, 0))
+    act(() => handle.editActiveInput('waiting for persistence'))
+    act(() => handle.commitEdit())
+    rerender(
+      <SheetbaseTableGridClient
+        {...baseProps({
+          columns: columns.map((column) => ({
+            ...column,
+            label: `${column.label} updated`,
+          })),
+          onReady,
+        })}
+      />,
+    )
+    expect(handle.snapshot().data.get('A1')).toBe('waiting for persistence')
+  })
+
+  it('preserves legacy structured display plus scalar, Date, formula and blank input', () => {
+    const date = new Date('2026-11-10T12:00:00Z')
+
+    const values: SheetbaseGridCellValue[] = [
+      { readings: [0, false, null, 'µg'] },
+      [1, 'x'],
+      0,
+      false,
+      null,
+      date,
+      [1, null, [2, null, 'x'], { amount: 3 }, false],
+      [],
+      [null],
+      '=B1+1',
+      '',
+    ]
+
+    const valueRows = values.map((value, index) => ({
+      id: `value-${index}`,
+      cells: [value],
+    }))
+
+    const { handle, rerender, onReady } = liveGrid({ rows: valueRows })
+
+    expect(handle.snapshot().data.get('A1')).toBe('[object Object]')
+    expect(cell(0, 0).textContent).toBe('[object Object]')
+    expect(cell(6, 0).textContent).toBe('1,,2,,x,[object Object],false')
+    expect(handle.snapshot().data.get('A2')).toBe('1,x')
+    expect(handle.snapshot().data.get('A3')).toBe('0')
+    expect(handle.snapshot().data.get('A4')).toBe('false')
+    // The engine's sparse store drops empty literals, including neutral null.
+    expect(handle.snapshot().data.get('A5')).toBeUndefined()
+    expect(handle.snapshot().data.get('A6')).toBe(date.toString())
+    expect(handle.snapshot().data.get('A7')).toBe(
+      '1,,2,,x,[object Object],false',
+    )
+    expect(handle.snapshot().data.get('A8')).toBeUndefined()
+    expect(handle.snapshot().data.get('A9')).toBeUndefined()
+    expect(handle.snapshot().data.get('A10')).toBe('=B1+1')
+    expect(handle.snapshot().data.get('A11')).toBeUndefined()
+
+    const mountedData = [...handle.snapshot().data]
+    rerender(
+      <SheetbaseTableGridClient
+        {...baseProps({ rows: [...valueRows], onReady })}
+      />,
+    )
+    expect([...handle.snapshot().data]).toEqual(mountedData)
+    expect(valueRows[0].cells[0]).toEqual({ readings: [0, false, null, 'µg'] })
+    expect(valueRows[6].cells[0]).toEqual([
+      1,
+      null,
+      [2, null, 'x'],
+      { amount: 3 },
+      false,
     ])
-    // Display column A is now the record column; row 1 shows its stored value.
-    expect(props.initialData.get('A1')).toBe('rec-1')
-    expect(props.initialData.get('B1')).toBe('1')
-    expect(props.initialData.get('C1')).toBe('a1')
   })
 })
 
@@ -279,53 +261,40 @@ describe('Sheet header chrome (EXP-04.2)', () => {
     { id: 'run-1', cells: ['A-50', 'MAT-0418', 6.2, 86] },
   ]
 
-  function renderChrome(overrides: Partial<SheetbaseGridProps> = {}) {
-    render(
-      <SheetbaseTableGridClient
-        {...baseProps({
-          columns: chromeColumns,
-          rows: chromeRows,
-          ...overrides,
-        })}
-      />,
+  it('groups contiguous same-source columns and names the dataset in the Source badge', () => {
+    const { result } = renderHook(() =>
+      useGridLayout(baseProps({ columns: chromeColumns, rows: chromeRows })),
     )
 
-    return lastProps()
-  }
-
-  it('groups contiguous same-source columns and names the dataset in the Source badge', () => {
-    const props = renderChrome()
-    expect(props.columnGroups).toEqual([
+    expect(result.current.columnGroups).toEqual([
       { label: 'This experiment', columns: [0, 1] },
       { label: 'Results', columns: [2] },
       { label: 'Derived', columns: [3] },
     ])
-    const turbidity = props.datasetHeader?.fields.at(2)
-    expect(turbidity?.source).toBe('dataset')
-    expect(turbidity?.sourceLabel).toBe('Results · rev 9')
+    liveGrid({ columns: chromeColumns, rows: chromeRows })
+    expect(screen.getByText('Results · rev 9')).toBeTruthy()
+    expect(screen.getByText('This experiment')).toBeTruthy()
   })
 
   it('marks a calculated column with the ƒx badge and leaves a bound column unmarked', () => {
-    const fields = renderChrome().datasetHeader?.fields ?? []
-    const derived = fields.at(3)
-    expect(derived?.computed).toBe(true)
-    expect(derived?.source).toBe('calc')
-    // The engine prints the design's `ƒx` label when the host gives none.
-    expect(sourceBadgeLabel(derived?.source, derived?.sourceLabel)).toBe('ƒx')
-    const bound = fields.at(2)
-    expect(bound?.computed).toBeFalsy()
-    expect(sourceBadgeLabel(bound?.source, bound?.sourceLabel)).not.toBe('ƒx')
-    expect(sourceBadgeLabel(bound?.source, bound?.sourceLabel)).toBe(
-      'Results · rev 9',
-    )
+    liveGrid({ columns: chromeColumns, rows: chromeRows })
+    expect(screen.getByText('ƒx')).toBeTruthy()
+    expect(cell(0, 3).classList.contains('read-only')).toBe(true)
+    expect(cell(0, 2).classList.contains('read-only')).toBe(false)
   })
 
   it('rebuilds the group row from the displayed column order', () => {
-    const props = renderChrome({
-      columnOrder: ['yield', 'turbidity', 'condition', 'train'],
-    })
+    const { result } = renderHook(() =>
+      useGridLayout(
+        baseProps({
+          columns: chromeColumns,
+          rows: chromeRows,
+          columnOrder: ['yield', 'turbidity', 'condition', 'train'],
+        }),
+      ),
+    )
 
-    expect(props.columnGroups).toEqual([
+    expect(result.current.columnGroups).toEqual([
       { label: 'Derived', columns: [0] },
       { label: 'Results', columns: [1] },
       { label: 'This experiment', columns: [2, 3] },
@@ -333,37 +302,45 @@ describe('Sheet header chrome (EXP-04.2)', () => {
   })
 
   it('forwards the New-run append row only when the caller sets it', () => {
-    expect(renderChrome().appendRow).toBeUndefined()
-    expect(renderChrome({ appendRow: true }).appendRow).toBe(true)
+    const { rerender, onReady } = liveGrid({
+      columns: chromeColumns,
+      rows: chromeRows,
+      spareRows: 1,
+    })
+
+    expect(document.querySelector('.append-row')).toBeNull()
+    rerender(
+      <SheetbaseTableGridClient
+        {...baseProps({
+          columns: chromeColumns,
+          rows: chromeRows,
+          spareRows: 1,
+          appendRow: true,
+          onReady,
+        })}
+      />,
+    )
+    expect(document.querySelector('.append-row')).not.toBeNull()
   })
 })
 
 describe('SheetbaseTableGridClient neutral handle', () => {
   it('keeps methods and selection current after the package replaces its handle, and clears on teardown', () => {
-    const onReady = vi.fn<(handle: SheetbaseGridHandle | null) => void>()
-
-    const { rerender, unmount } = render(
-      <SheetbaseTableGridClient {...baseProps({ onReady })} />,
-    )
-
-    const handle = onReady.mock.calls[0][0]
-
-    if (!handle) throw new Error('Expected a live grid handle')
-    expect(handle).not.toBe(engineHandle)
-    expect(handle.snapshot().selection.focus).toEqual({ row: 1, column: 2 })
+    const { handle, rerender, unmount, onReady } = liveGrid()
+    act(() => handle.selectCell(1, 1))
+    expect(handle.snapshot().selection.focus).toEqual({ row: 1, column: 1 })
+    act(() => handle.editActiveInput('5'))
+    act(() => handle.commitEdit())
+    expect(handle.snapshot().data.get('B2')).toBe('5')
+    act(() => handle.editActiveInput('discard'))
+    act(() => handle.cancelEdit())
+    expect(handle.snapshot().data.get('B2')).toBe('5')
     rerender(
       <SheetbaseTableGridClient {...baseProps({ onReady, spareRows: 3 })} />,
     )
-    expect(onReady).toHaveBeenCalledTimes(1)
-    expect(handle.snapshot().selection.focus).toEqual({ row: 4, column: 2 })
-    handle.editActiveInput('=SUM(A1:A2)')
-    handle.commitEdit()
-    handle.cancelEdit()
-    handle.selectCell(4, 1)
-    expect(engineHandle.editActiveInput).toHaveBeenCalledWith('=SUM(A1:A2)')
-    expect(engineHandle.commitEdit).toHaveBeenCalledOnce()
-    expect(engineHandle.cancelEdit).toHaveBeenCalledOnce()
-    expect(engineHandle.selectCell).toHaveBeenCalledWith(4, 1, undefined)
+    act(() => handle.selectCell(4, 1))
+    expect(handle.snapshot().selection.focus).toEqual({ row: 4, column: 1 })
+    expect(onReady).toHaveBeenCalledOnce()
     unmount()
     expect(onReady).toHaveBeenLastCalledWith(null)
   })
@@ -371,50 +348,51 @@ describe('SheetbaseTableGridClient neutral handle', () => {
 
 describe('Sheet comment selection membership', () => {
   it('clears a previous anchor when the engine restores a view with no selection', () => {
-    const onSelectionChange = vi.fn()
-    render(<SheetbaseTableGridClient {...baseProps({ onSelectionChange })} />)
-    lastProps().onSelectionChange?.({
-      address: 'B2',
-      range: 'B2',
-      input: 'previous',
-    })
-    expect(onSelectionChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({ columnId: 'beta' }),
-    )
-    lastProps().onSelectionChange?.({ address: '', range: '', input: '' })
-    expect(onSelectionChange).toHaveBeenLastCalledWith(null)
+    const { result } = renderHook(() => useGridLayout(baseProps()))
+    expect(
+      gridSelection(
+        { address: 'B2', range: 'B2', input: 'previous' },
+        result.current.layout,
+        null,
+        {},
+      ),
+    ).toMatchObject({ columnId: 'beta' })
+    expect(
+      gridSelection(
+        { address: '', range: '', input: '' },
+        result.current.layout,
+        null,
+        {},
+      ),
+    ).toBeNull()
   })
 
   it('resolves each sorted, filtered display row and reordered field independently', () => {
-    const onSelectionChange = vi.fn()
-    render(
-      <SheetbaseTableGridClient
-        {...baseProps({
-          columns: [
-            { id: 'amount', label: 'Amount', type: 'number', source: 'local' },
-            { id: 'group', label: 'Group', type: 'text', source: 'local' },
-          ],
-          rows: [
-            { id: 'row-a', cells: [37, 'keep'] },
-            { id: 'row-b', cells: [4, 'hide'] },
-            { id: 'row-c', cells: [91, 'keep'] },
-            { id: 'row-d', cells: [13, 'keep'] },
-          ],
-          columnOrder: ['group', 'amount'],
-          sorts: [{ columnId: 'amount', direction: 'desc' }],
-          filters: [{ columnId: 'group', operator: 'equals', value: 'keep' }],
-          onSelectionChange,
-        })}
-      />,
-    )
-    // Display rows C/A/D differ from source rows A/B/C/D. Active address is
-    // source B3, but the range is display B1:B2 and must capture C/A, not C/D.
-    lastProps().onSelectionChange?.({
-      address: 'B3',
-      range: 'B1:B2',
-      input: '91',
+    const props = baseProps({
+      columns: [
+        { id: 'amount', label: 'Amount', type: 'number', source: 'local' },
+        { id: 'group', label: 'Group', type: 'text', source: 'local' },
+      ],
+      rows: [
+        { id: 'row-a', cells: [37, 'keep'] },
+        { id: 'row-b', cells: [4, 'hide'] },
+        { id: 'row-c', cells: [91, 'keep'] },
+        { id: 'row-d', cells: [13, 'keep'] },
+      ],
+      columnOrder: ['group', 'amount'],
+      sorts: [{ columnId: 'amount', direction: 'desc' }],
+      filters: [{ columnId: 'group', operator: 'equals', value: 'keep' }],
     })
-    expect(onSelectionChange).toHaveBeenLastCalledWith({
+
+    const { result } = renderHook(() => useGridLayout(props))
+    expect(
+      gridSelection(
+        { address: 'B3', range: 'B1:B2', input: '91' },
+        result.current.layout,
+        null,
+        gridQuery(props),
+      ),
+    ).toEqual({
       rowIndex: 2,
       rowId: 'row-c',
       columnId: 'amount',
@@ -422,12 +400,14 @@ describe('Sheet comment selection membership', () => {
       rowIds: ['row-c', 'row-a'],
       columnIds: ['amount'],
     })
-    lastProps().onSelectionChange?.({
-      address: 'A4',
-      range: 'B3:A2',
-      input: 'keep',
-    })
-    expect(onSelectionChange).toHaveBeenLastCalledWith({
+    expect(
+      gridSelection(
+        { address: 'A4', range: 'B3:A2', input: 'keep' },
+        result.current.layout,
+        null,
+        gridQuery(props),
+      ),
+    ).toEqual({
       rowIndex: 3,
       rowId: 'row-d',
       columnId: 'group',
@@ -435,18 +415,45 @@ describe('Sheet comment selection membership', () => {
       rowIds: ['row-a', 'row-d'],
       columnIds: ['group', 'amount'],
     })
+
+    const onSelectionChange =
+      vi.fn<NonNullable<SheetbaseGridProps['onSelectionChange']>>()
+
+    const onCellsChange = vi.fn()
+    const { handle } = liveGrid({ ...props, onSelectionChange, onCellsChange })
+    act(() => handle.selectCell(0, 1))
+    act(() => handle.selectCell(1, 1, { extend: true }))
+    expect(onSelectionChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        rowId: 'row-a',
+        columnId: 'amount',
+        rowIds: ['row-c', 'row-a'],
+      }),
+    )
+    act(() => handle.selectCell(0, 1))
+    act(() => handle.editActiveInput('92'))
+    act(() => handle.commitEdit())
+    expect(onCellsChange).toHaveBeenLastCalledWith(
+      [
+        expect.objectContaining({
+          rowIndex: 2,
+          rowId: 'row-c',
+          columnId: 'amount',
+          previous: '91',
+          next: '92',
+        }),
+      ],
+      'edit',
+    )
+    expect(handle.snapshot().data.get('B3')).toBe('92')
+    expect(handle.snapshot().data.get('B1')).toBe('37')
   })
 })
 
 describe('Sheet comment markers', () => {
   it('retains all notes arriving after mount without remounting the engine', async () => {
-    const onReady = vi.fn()
-
-    const { rerender, getByTestId } = render(
-      <SheetbaseTableGridClient {...baseProps({ onReady })} />,
-    )
-
-    const engine = getByTestId('spreadsheet')
+    const { rerender, onReady } = liveGrid()
+    const engine = screen.getByRole('grid')
     rerender(
       <SheetbaseTableGridClient
         {...baseProps({
@@ -460,19 +467,12 @@ describe('Sheet comment markers', () => {
       />,
     )
     await waitFor(() =>
-      expect(engine.getAttribute('data-annotation-texts')).toBe(
-        'first|second|third',
-      ),
+      expect(document.querySelectorAll('.annotated')).toHaveLength(3),
     )
-    expect(engineHandle.setAnnotation.mock.calls).toEqual([
-      ['A1', 'first'],
-      ['B2', 'second'],
-      ['C2', 'third'],
-    ])
-    expect(engine.getAttribute('data-annotation-texts')).toBe(
-      'first|second|third',
-    )
-    expect(getByTestId('spreadsheet')).toBe(engine)
+    expect(cell(0, 0).title).toBe('first')
+    expect(cell(1, 1).title).toBe('second')
+    expect(cell(1, 2).title).toBe('third')
+    expect(screen.getByRole('grid')).toBe(engine)
     expect(onReady).toHaveBeenCalledOnce()
   })
 
@@ -491,103 +491,88 @@ describe('Sheet comment markers', () => {
     const errors = vi.spyOn(console, 'error')
 
     try {
-      const { rerender, getByTestId } = render(
-        <SheetbaseTableGridClient {...baseProps({ rows: rangeRows })} />,
-      )
-
+      const { rerender, onReady } = liveGrid({ rows: rangeRows })
       rerender(
         <SheetbaseTableGridClient
-          {...baseProps({ rows: rangeRows, annotations })}
+          {...baseProps({ rows: rangeRows, annotations, onReady })}
         />,
       )
-      await waitFor(() =>
-        expect(
-          getByTestId('spreadsheet').getAttribute('data-annotation-texts'),
-        ).toBe(annotations.map((note) => note.text).join('|')),
+      await waitFor(
+        () => expect(document.querySelectorAll('.annotated')).toHaveLength(64),
+        { timeout: 5000 },
       )
-      expect(engineHandle.setAnnotation).toHaveBeenCalledTimes(64)
+      annotations.forEach((note, index) =>
+        expect(cell(index, 0).title).toBe(note.text),
+      )
       expect(errors).not.toHaveBeenCalled()
     } finally {
       errors.mockRestore()
     }
   })
 
-  it('maps persisted identities to bound annotations after row and field reorder, never to deleted targets', () => {
+  it('maps persisted identities to bound annotations after row and field reorder, never to deleted targets', async () => {
     const annotations = [
       { rowId: 'row-2', columnId: 'beta', text: 'Check recovery' },
     ]
 
-    const { rerender } = render(
-      <SheetbaseTableGridClient {...baseProps({ annotations })} />,
-    )
-
-    expect(lastProps().initialAnnotations).toEqual([
-      {
-        address: 'B2',
-        recordId: 'row-2',
-        fieldId: 'beta',
-        text: 'Check recovery',
-      },
-    ])
+    const { rerender, onReady } = liveGrid({ annotations })
+    expect(cell(1, 1).title).toBe('Check recovery')
     rerender(
       <SheetbaseTableGridClient
         {...baseProps({
           annotations,
           rows: [rows[1], rows[0]],
           columnOrder: ['beta', 'record', 'alpha'],
+          onReady,
         })}
       />,
     )
-    expect(lastProps().initialAnnotations).toEqual([
-      {
-        address: 'A1',
-        recordId: 'row-2',
-        fieldId: 'beta',
-        text: 'Check recovery',
-      },
-    ])
-    engineHandle.setAnnotation.mockClear()
-    engineHandle.removeAnnotation.mockClear()
+    expect(cell(0, 0).title).toBe('Check recovery')
     rerender(
       <SheetbaseTableGridClient
         {...baseProps({
           annotations,
           rows: [rows[0]],
           columnOrder: ['beta', 'record', 'alpha'],
+          onReady,
         })}
       />,
     )
-    expect(lastProps().initialAnnotations).toEqual([])
-    expect(engineHandle.setAnnotation).not.toHaveBeenCalled()
-    expect(engineHandle.removeAnnotation).not.toHaveBeenCalled()
+    await waitFor(() =>
+      expect(document.querySelectorAll('.annotated')).toHaveLength(0),
+    )
   })
 
-  it('refreshes and removes a visible note through the current identity, without a second persistence callback', () => {
+  it('refreshes and removes a visible note through the current identity, without a second persistence callback', async () => {
     const annotations = [
       { rowId: 'row-2', columnId: 'beta', text: 'Check recovery' },
     ]
 
-    const { rerender } = render(
-      <SheetbaseTableGridClient {...baseProps({ annotations })} />,
-    )
-
+    const onCellsChange = vi.fn()
+    const { rerender, onReady } = liveGrid({ annotations, onCellsChange })
     rerender(
       <SheetbaseTableGridClient
         {...baseProps({
           annotations: [
             { ...annotations[0], text: 'Resolved: recovery confirmed' },
           ],
+          onReady,
+          onCellsChange,
         })}
       />,
     )
-    expect(engineHandle.setAnnotation).toHaveBeenLastCalledWith(
-      'B2',
-      'Resolved: recovery confirmed',
+    await waitFor(() =>
+      expect(cell(1, 1).title).toBe('Resolved: recovery confirmed'),
     )
-    // This is an internal render acknowledgment, not a host persistence hook.
-    expect(lastProps().onAnnotationsChange).toBeTypeOf('function')
-    rerender(<SheetbaseTableGridClient {...baseProps({ annotations: [] })} />)
-    expect(engineHandle.removeAnnotation).toHaveBeenLastCalledWith('B2')
+    rerender(
+      <SheetbaseTableGridClient
+        {...baseProps({ annotations: [], onReady, onCellsChange })}
+      />,
+    )
+    await waitFor(() =>
+      expect(document.querySelectorAll('.annotated')).toHaveLength(0),
+    )
+    expect(onCellsChange).not.toHaveBeenCalled()
   })
 })
 
@@ -595,30 +580,34 @@ describe('SheetbaseTableGridClient row hooks', () => {
   it('routes the remove pair through the host preflight and persistence', () => {
     const before = vi.fn(() => false)
     const removed = vi.fn()
-    render(
-      <SheetbaseTableGridClient
-        {...baseProps({ onBeforeRowsRemove: before, onRowsRemoved: removed })}
-      />,
-    )
-    const props = lastProps()
-    expect(props.onBeforeRowsRemove?.(1, 1)).toBe(false)
+
+    const props = baseProps({
+      onBeforeRowsRemove: before,
+      onRowsRemoved: removed,
+    })
+
+    const { result } = renderHook(() => useGridLayout(props))
+    const writes = gridWrites(props, result.current.layout)
+    expect(writes.onBeforeRowsRemove(1, 1)).toBe(false)
     expect(before).toHaveBeenCalledWith(1, 1)
-    props.onRowsRemoved?.(1, 1)
+    writes.onRowsRemoved(1, 1)
     expect(removed).toHaveBeenCalledWith(1, 1, 'edit')
   })
 
   it('routes the insert pair through the host preflight and persistence', () => {
     const before = vi.fn()
     const inserted = vi.fn()
-    render(
-      <SheetbaseTableGridClient
-        {...baseProps({ onBeforeRowsInsert: before, onRowsInserted: inserted })}
-      />,
-    )
-    const props = lastProps()
-    expect(props.onBeforeRowsInsert?.(0, 2)).toBeUndefined()
+
+    const props = baseProps({
+      onBeforeRowsInsert: before,
+      onRowsInserted: inserted,
+    })
+
+    const { result } = renderHook(() => useGridLayout(props))
+    const writes = gridWrites(props, result.current.layout)
+    expect(writes.onBeforeRowsInsert(0, 2)).toBeUndefined()
     expect(before).toHaveBeenCalledWith(0, 2)
-    props.onRowsInserted?.(0, 2)
+    writes.onRowsInserted(0, 2)
     expect(inserted).toHaveBeenCalledWith(0, 2, 'edit')
   })
 })
@@ -626,17 +615,20 @@ describe('SheetbaseTableGridClient row hooks', () => {
 describe('SheetbaseTableGridClient clipboard transforms', () => {
   it('re-serialises a returned copy transform for the engine', () => {
     const onCopy = vi.fn(
-      (data: unknown[][], _range: SheetbaseGridClipboardRange) => {
+      (
+        data: SheetbaseGridCellValue[][],
+        _range: SheetbaseGridClipboardRange,
+      ) => {
         data[0][0] = '=SUM(A1:A2)'
 
-        return data as string[][]
+        return data
       },
     )
 
-    render(
-      <SheetbaseTableGridClient {...baseProps({ clipboard: { onCopy } })} />,
+    const result = gridClipboard(baseProps({ clipboard: { onCopy } })).onCopy?.(
+      clipboardPayload(),
     )
-    const result = lastProps().clipboard?.onCopy?.(clipboardPayload())
+
     expect(result).toMatchObject({
       text: '=SUM(A1:A2)\tb1\na2\tb2',
       values: [
@@ -648,26 +640,21 @@ describe('SheetbaseTableGridClient clipboard transforms', () => {
   })
 
   it('leaves an unchanged copy payload to the engine', () => {
-    const onCopy = vi.fn()
-    render(
-      <SheetbaseTableGridClient {...baseProps({ clipboard: { onCopy } })} />,
-    )
-    expect(lastProps().clipboard?.onCopy?.(clipboardPayload())).toBeUndefined()
+    expect(
+      gridClipboard(baseProps({ clipboard: { onCopy: vi.fn() } })).onCopy?.(
+        clipboardPayload(),
+      ),
+    ).toBeUndefined()
   })
 
   it('applies an in-place paste transform', () => {
-    const onPaste = vi.fn((data: unknown[][]) => {
+    const onPaste = vi.fn((data: SheetbaseGridCellValue[][]) => {
       data[0][0] = '=A1+1'
     })
 
-    render(
-      <SheetbaseTableGridClient {...baseProps({ clipboard: { onPaste } })} />,
-    )
-
-    const result = lastProps().clipboard?.onPaste?.(clipboardPayload(), {
-      row: 3,
-      column: 2,
-    })
+    const result = gridClipboard(
+      baseProps({ clipboard: { onPaste } }),
+    ).onPaste?.(clipboardPayload(), { row: 3, column: 2 })
 
     expect(result).toMatchObject({ text: '=A1+1\tb1\na2\tb2' })
     expect(onPaste).toHaveBeenCalledWith(expect.anything(), {
@@ -679,44 +666,40 @@ describe('SheetbaseTableGridClient clipboard transforms', () => {
 
 describe('SheetbaseTableGridClient Record editor', () => {
   it('offers a custom editor for relationship fields only', () => {
-    const onOpenRecordPicker = vi.fn()
-    render(<SheetbaseTableGridClient {...baseProps({ onOpenRecordPicker })} />)
-    const editors = lastProps().customEditors
-    expect(editors).toHaveLength(1)
+    const { result } = renderHook(() => {
+      const { layout } = useGridLayout(baseProps())
 
-    const relationship = {
-      id: 'r',
-      label: 'R',
-      column: 0,
-      dataType: 'relationship' as const,
-    }
+      return useGridEditors(vi.fn(), layout)
+    })
 
-    const text = { id: 't', label: 'T', column: 1, dataType: 'text' as const }
-    const point = { row: 0, column: 0 }
-    expect(editors?.[0].matches({ point, field: relationship })).toBe(true)
-    expect(editors?.[0].matches({ point, field: text })).toBe(false)
+    expect(result.current).toHaveLength(1)
+    expect(
+      result.current?.[0].matches({
+        point: { row: 0, column: 0 },
+        field: { id: 'r', label: 'R', column: 0, dataType: 'relationship' },
+      }),
+    ).toBe(true)
+    expect(
+      result.current?.[0].matches({
+        point: { row: 0, column: 1 },
+        field: { id: 't', label: 'T', column: 1, dataType: 'text' },
+      }),
+    ).toBe(false)
   })
 
   it('opens the shared picker with the editor commit/cancel handle', () => {
-    const onOpenRecordPicker = vi.fn()
-    render(<SheetbaseTableGridClient {...baseProps({ onOpenRecordPicker })} />)
-    const editor = lastProps().customEditors?.[0]
+    const onOpenRecordPicker =
+      vi.fn<NonNullable<SheetbaseGridProps['onOpenRecordPicker']>>()
 
-    if (!editor) throw new Error('editor missing')
-    let node: ReactNode = null
-    act(() => {
-      node = editor.render({
-        point: { row: 0, column: 2 },
-        address: 'C1',
-        columnId: 'record',
-        field: undefined,
-        storedValue: 'rec-1',
-        initialDraft: 'rec-1',
-        commit: vi.fn(),
-        cancel: vi.fn(),
-      })
-    })
-    render(<>{node}</>)
+    const onCellsChange = vi.fn()
+
+    const writableColumns = columns.map((column) => ({
+      ...column,
+      readOnly: false,
+    }))
+
+    liveGrid({ columns: writableColumns, onOpenRecordPicker, onCellsChange })
+    fireEvent.doubleClick(cell(0, 2))
     expect(onOpenRecordPicker).toHaveBeenCalledWith(
       { rowIndex: 0, columnIndex: 2, columnId: 'record' },
       expect.objectContaining({
@@ -724,5 +707,296 @@ describe('SheetbaseTableGridClient Record editor', () => {
         cancel: expect.any(Function),
       }),
     )
+    const editor = onOpenRecordPicker.mock.calls[0][1]
+    act(() => editor.commit('rec-new'))
+    expect(onCellsChange).toHaveBeenLastCalledWith(
+      [
+        expect.objectContaining({
+          rowId: 'row-1',
+          columnId: 'record',
+          next: 'rec-new',
+        }),
+      ],
+      'edit',
+    )
+  })
+})
+
+describe('real engine edit and history gates', () => {
+  it('carries host coercion through edits, undo and redo without changing record identity', () => {
+    const beforeCellsChange = vi.fn<
+      NonNullable<SheetbaseGridProps['beforeCellsChange']>
+    >((changes) => {
+      changes[0].next = 42
+    })
+
+    const onCellsChange = vi.fn()
+    const { handle } = liveGrid({ beforeCellsChange, onCellsChange })
+    act(() => handle.selectCell(0, 1))
+    act(() => handle.editActiveInput('41.99'))
+    act(() => handle.commitEdit())
+    expect(handle.snapshot().data.get('B1')).toBe('42')
+    expect(onCellsChange).toHaveBeenLastCalledWith(
+      [
+        expect.objectContaining({
+          rowId: 'row-1',
+          columnId: 'beta',
+          previous: '1',
+          next: '42',
+        }),
+      ],
+      'edit',
+    )
+    fireEvent.keyDown(screen.getByRole('grid'), { key: 'z', ctrlKey: true })
+    expect(handle.snapshot().data.get('B1')).toBe('1')
+    fireEvent.keyDown(screen.getByRole('grid'), {
+      key: 'z',
+      ctrlKey: true,
+      shiftKey: true,
+    })
+    expect(handle.snapshot().data.get('B1')).toBe('42')
+    expect(onCellsChange).toHaveBeenCalledTimes(3)
+  })
+
+  it('refuses an entire paste containing a read-only target, without history or mutation', () => {
+    const beforeCellsChange = vi.fn<
+      NonNullable<SheetbaseGridProps['beforeCellsChange']>
+    >((changes) => !changes.some((change) => change.editable === false))
+
+    const onCellsChange = vi.fn()
+    const { handle } = liveGrid({ beforeCellsChange, onCellsChange })
+    act(() => handle.selectCell(0, 1))
+    fireEvent.paste(screen.getByRole('grid'), {
+      clipboardData: {
+        getData: (type: string) => (type === 'text/plain' ? '99\trec-new' : ''),
+      },
+    })
+    expect(beforeCellsChange).toHaveBeenLastCalledWith(
+      [
+        expect.objectContaining({
+          columnId: 'beta',
+          rowId: 'row-1',
+          next: '99',
+        }),
+        expect.objectContaining({ columnId: 'record', editable: false }),
+      ],
+      'paste',
+    )
+    expect(handle.snapshot().data.get('B1')).toBe('1')
+    expect(handle.snapshot().data.get('C1')).toBe('rec-1')
+    fireEvent.keyDown(screen.getByRole('grid'), { key: 'z', ctrlKey: true })
+    expect(onCellsChange).not.toHaveBeenCalled()
+  })
+
+  it('blocks all writes in a read-only grid but retains selection and copy', () => {
+    const onCellsChange = vi.fn()
+    const onCopy = vi.fn()
+
+    const { handle } = liveGrid({
+      readOnly: true,
+      onCellsChange,
+      clipboard: { onCopy },
+    })
+
+    act(() => handle.selectCell(0, 0))
+    act(() => handle.editActiveInput('blocked'))
+    act(() => handle.commitEdit())
+    fireEvent.paste(screen.getByRole('grid'), {
+      clipboardData: { getData: () => 'blocked' },
+    })
+    fireEvent.keyDown(screen.getByRole('grid'), { key: 'Delete' })
+    const setData = vi.fn()
+    fireEvent.copy(screen.getByRole('grid'), { clipboardData: { setData } })
+    expect(setData).toHaveBeenCalledWith('text/plain', 'a1')
+    expect(onCopy).toHaveBeenCalledOnce()
+    expect(handle.snapshot().data.get('A1')).toBe('a1')
+    expect(onCellsChange).not.toHaveBeenCalled()
+  })
+
+  it('rewrites real clipboard copy and paste, and refuses cut over guarded columns', () => {
+    const onCellsChange = vi.fn()
+
+    const { handle } = liveGrid({
+      onCellsChange,
+      clipboard: {
+        onCopy: (data) => {
+          data[0][0] = '=B1'
+        },
+        onPaste: (data) => {
+          data[0][0] = 'rewritten'
+        },
+      },
+    })
+
+    act(() => handle.selectCell(0, 0))
+    const setData = vi.fn()
+    fireEvent.copy(screen.getByRole('grid'), { clipboardData: { setData } })
+    expect(setData).toHaveBeenCalledWith('text/plain', '=B1')
+    fireEvent.paste(screen.getByRole('grid'), {
+      clipboardData: { getData: () => 'original' },
+    })
+    expect(handle.snapshot().data.get('A1')).toBe('rewritten')
+    act(() => handle.selectCell(0, 1))
+    act(() => handle.selectCell(0, 2, { extend: true }))
+    setData.mockClear()
+    onCellsChange.mockClear()
+    fireEvent.cut(screen.getByRole('grid'), { clipboardData: { setData } })
+    expect(setData).not.toHaveBeenCalled()
+    expect(onCellsChange).not.toHaveBeenCalled()
+    expect(handle.snapshot().data.get('B1')).toBe('1')
+  })
+
+  it('uses legacy structured coercion in real clipboard transforms and the write gate', () => {
+    const structured: SheetbaseGridCellValue = [null, [1, null, [2]], {}, []]
+    const onCellsChange = vi.fn()
+
+    const { handle } = liveGrid({
+      onCellsChange,
+      clipboard: {
+        onCopy: (data) => {
+          data[0][0] = structured
+        },
+        onPaste: (data) => {
+          data[0][0] = structured
+        },
+      },
+      beforeCellsChange: (changes) => {
+        changes[0].next = structured
+      },
+    })
+
+    act(() => handle.selectCell(0, 0))
+    const setData = vi.fn()
+    fireEvent.copy(screen.getByRole('grid'), { clipboardData: { setData } })
+    expect(setData).toHaveBeenCalledWith('text/plain', ',1,,2,[object Object],')
+    fireEvent.paste(screen.getByRole('grid'), {
+      clipboardData: { getData: () => 'incoming' },
+    })
+    expect(handle.snapshot().data.get('A1')).toBe(',1,,2,[object Object],')
+    expect(onCellsChange).toHaveBeenLastCalledWith(
+      [
+        expect.objectContaining({
+          rowId: 'row-1',
+          columnId: 'alpha',
+          previous: 'a1',
+          next: ',1,,2,[object Object],',
+        }),
+      ],
+      'paste',
+    )
+    expect(structured).toEqual([null, [1, null, [2]], {}, []])
+  })
+
+  it('opens the real formula-reference editor and gates its commit', () => {
+    const beforeCellsChange = vi.fn<
+      NonNullable<SheetbaseGridProps['beforeCellsChange']>
+    >(() => false)
+
+    const onCellsChange = vi.fn()
+
+    const { handle, rerender, onReady } = liveGrid({
+      columns: columns.map((column) => ({ ...column, formula: true })),
+      beforeCellsChange,
+      onCellsChange,
+    })
+
+    fireEvent.doubleClick(cell(0, 0))
+    const input = screen.getByRole('textbox')
+    fireEvent.change(input, { target: { value: '=B1+1' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(beforeCellsChange).toHaveBeenLastCalledWith(
+      [
+        expect.objectContaining({
+          rowId: 'row-1',
+          columnId: 'alpha',
+          next: '=B1+1',
+        }),
+      ],
+      'edit',
+    )
+    expect(handle.snapshot().data.get('A1')).toBe('a1')
+    expect(onCellsChange).not.toHaveBeenCalled()
+    rerender(
+      <SheetbaseTableGridClient
+        {...baseProps({
+          columns: columns.map((column) => ({ ...column, formula: true })),
+          onReady,
+          onCellsChange,
+        })}
+      />,
+    )
+    act(() => handle.cancelEdit())
+    fireEvent.doubleClick(cell(0, 0))
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: '=B1+1' },
+    })
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' })
+    expect(handle.snapshot().data.get('A1')).toBe('=B1+1')
+    expect(onCellsChange).toHaveBeenLastCalledWith(
+      [
+        expect.objectContaining({
+          rowId: 'row-1',
+          columnId: 'alpha',
+          next: '=B1+1',
+        }),
+      ],
+      'edit',
+    )
+  })
+})
+
+describe('external query boundary', () => {
+  it('decodes finite scientific JSON and valid Dates only at an erased host boundary', () => {
+    expect(
+      sheetbaseGridCellValueSchema.parse({ readings: [0, false, null, 'µg'] }),
+    ).toEqual({ readings: [0, false, null, 'µg'] })
+    expect(sheetbaseGridCellValueSchema.parse(new Date('2026-11-10'))).toEqual(
+      new Date('2026-11-10'),
+    )
+
+    for (const invalid of [
+      Infinity,
+      NaN,
+      undefined,
+      new Date('invalid'),
+      { amount: Infinity },
+      { method: () => 1 },
+    ]) {
+      expect(sheetbaseGridCellValueSchema.safeParse(invalid).success).toBe(
+        false,
+      )
+    }
+  })
+
+  it('keeps only finite primitive engine filter values and preserves hidden filters', () => {
+    const props = baseProps({
+      filters: [{ columnId: 'hidden', operator: 'equals', value: 'saved' }],
+    })
+
+    expect(
+      captureGridFilters(
+        [
+          { fieldId: 'alpha', operator: 'eq', value: { unexpected: true } },
+          { fieldId: 'beta', operator: 'neq', value: Infinity },
+        ],
+        props,
+      ),
+    ).toEqual([
+      { columnId: 'hidden', operator: 'equals', value: 'saved' },
+      { columnId: 'alpha', operator: 'equals', value: undefined },
+      { columnId: 'beta', operator: 'not-equals', value: undefined },
+    ])
+    expect(
+      captureGridFilters(
+        [
+          { fieldId: 'beta', operator: 'eq', value: 0 },
+          { fieldId: 'alpha', operator: 'eq', value: false },
+        ],
+        baseProps(),
+      ),
+    ).toEqual([
+      { columnId: 'beta', operator: 'equals', value: 0 },
+      { columnId: 'alpha', operator: 'equals', value: false },
+    ])
   })
 })

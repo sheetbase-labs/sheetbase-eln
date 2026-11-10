@@ -76,6 +76,7 @@ export function LineageSection({
     },
   })
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- onSuccess awaits refresh(), whose useRefreshLineage helper invalidates lineageAdminKeys.settings(workspaceId).
   const retry = useMutation({
     mutationFn: (id: string) =>
       retryLineageDeliveriesFn({ data: { workspaceId, id } }),
@@ -88,6 +89,7 @@ export function LineageSection({
     },
   })
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- onSuccess is refresh(), whose useRefreshLineage helper invalidates lineageAdminKeys.settings(workspaceId).
   const remove = useMutation({
     mutationFn: (id: string) =>
       deleteLineageTargetFn({ data: { workspaceId, id } }),
@@ -124,52 +126,13 @@ export function LineageSection({
       id: 'status',
       size: 150,
       header: t('settings.lineage.status'),
-      cell: ({ row }) => {
-        const { failed, pending } = row.original
-
-        if (failed > 0) {
-          return (
-            <Status tone="bad">
-              {t('settings.lineage.failedCount', { count: failed })}
-            </Status>
-          )
-        }
-
-        if (pending > 0) {
-          return (
-            <Status tone="warn">
-              {t('settings.lineage.waiting', { count: pending })}
-            </Status>
-          )
-        }
-
-        return <Status tone="ok">{t('settings.lineage.allSent')}</Status>
-      },
+      cell: ({ row }) => <LineageDeliveryStatus target={row.original} />,
     },
     {
       id: 'test',
       size: 230,
       header: t('settings.lineage.lastTest'),
-      cell: ({ row }) => {
-        const target = row.original
-
-        if (target.lastTestOk == null || !target.lastTestAt) {
-          return <Muted>{t('settings.lineage.testNever')}</Muted>
-        }
-
-        return (
-          <span title={target.lastTestMessage ?? undefined}>
-            <Status tone={target.lastTestOk ? 'ok' : 'bad'}>
-              {target.lastTestOk
-                ? t('settings.lineage.testOk')
-                : t('settings.lineage.testFailed')}
-            </Status>{' '}
-            <span className="text-label text-fg-muted">
-              {formatDate(target.lastTestAt, { time: true })}
-            </span>
-          </span>
-        )
-      },
+      cell: ({ row }) => <LineageLastTest target={row.original} />,
     },
     ...(canManage
       ? [
@@ -225,35 +188,12 @@ export function LineageSection({
           <Notice tone={notice.ok ? 'info' : 'bad'}>{notice.text}</Notice>
         ) : null}
       </SettingsBody>
-      {settings.isError ? (
-        <p
-          role="alert"
-          className="px-4 py-3 text-label text-danger-text md:px-6"
-        >
-          {t('settings.lineage.loadFailed')}
-        </p>
-      ) : targets.length ? (
-        <section
-          aria-label={t('settings.lineage.tableLabel')}
-          className="flex flex-col"
-        >
-          <RegistryGrid
-            label={t('settings.lineage.tableLabel')}
-            rows={targets}
-            columns={columns}
-            getRowId={(target) => target.id}
-            selectable={false}
-          />
-        </section>
-      ) : settings.isLoading ? (
-        <Muted className="px-4 py-3 md:px-6">
-          {t('settings.lineage.loading')}
-        </Muted>
-      ) : (
-        <Muted className="px-4 py-3 md:px-6">
-          {t('settings.lineage.empty')}
-        </Muted>
-      )}
+      <LineageTargets
+        targets={targets}
+        columns={columns}
+        failed={settings.isError}
+        loading={settings.isLoading}
+      />
       {settings.data ? (
         <RetentionField
           workspaceId={workspaceId}
@@ -285,6 +225,83 @@ export function LineageSection({
   )
 }
 
+function LineageTargets({
+  targets,
+  columns,
+  failed,
+  loading,
+}: {
+  targets: LineageTargetWire[]
+  columns: RegistryColumn<LineageTargetWire>[]
+  failed: boolean
+  loading: boolean
+}) {
+  if (failed)
+    return (
+      <p role="alert" className="px-4 py-3 text-label text-danger-text md:px-6">
+        {t('settings.lineage.loadFailed')}
+      </p>
+    )
+
+  if (targets.length)
+    return (
+      <section
+        aria-label={t('settings.lineage.tableLabel')}
+        className="flex flex-col"
+      >
+        <RegistryGrid
+          label={t('settings.lineage.tableLabel')}
+          rows={targets}
+          columns={columns}
+          getRowId={(target) => target.id}
+          selectable={false}
+        />
+      </section>
+    )
+
+  return (
+    <Muted className="px-4 py-3 md:px-6">
+      {loading ? t('settings.lineage.loading') : t('settings.lineage.empty')}
+    </Muted>
+  )
+}
+
+function LineageDeliveryStatus({ target }: { target: LineageTargetWire }) {
+  if (target.failed > 0)
+    return (
+      <Status tone="bad">
+        {t('settings.lineage.failedCount', { count: target.failed })}
+      </Status>
+    )
+
+  if (target.pending > 0)
+    return (
+      <Status tone="warn">
+        {t('settings.lineage.waiting', { count: target.pending })}
+      </Status>
+    )
+
+  return <Status tone="ok">{t('settings.lineage.allSent')}</Status>
+}
+
+function LineageLastTest({ target }: { target: LineageTargetWire }) {
+  if (target.lastTestOk == null || !target.lastTestAt)
+    return <Muted>{t('settings.lineage.testNever')}</Muted>
+
+  return (
+    <span title={target.lastTestMessage ?? undefined}>
+      <Status tone={target.lastTestOk ? 'ok' : 'bad'}>
+        {target.lastTestOk
+          ? t('settings.lineage.testOk')
+          : t('settings.lineage.testFailed')}
+      </Status>{' '}
+      <span className="text-label text-fg-muted">
+        {formatDate(target.lastTestAt, { time: true })}
+      </span>
+    </span>
+  )
+}
+
 function RetentionField({
   workspaceId,
   days,
@@ -296,7 +313,7 @@ function RetentionField({
   days: number
   canManage: boolean
   dataAccess: boolean
-  onSaved: () => Promise<unknown>
+  onSaved: () => Promise<void>
 }) {
   const [value, setValue] = useState(String(days))
 
@@ -359,7 +376,7 @@ function TargetDialog({
   workspaceId: string
   target: LineageTargetWire | null
   onClose: () => void
-  onSaved: () => Promise<unknown>
+  onSaved: () => Promise<void>
   onRemove?: () => void
 }) {
   const [name, setName] = useState(target?.name ?? '')

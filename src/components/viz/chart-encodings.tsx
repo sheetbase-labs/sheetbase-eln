@@ -38,6 +38,7 @@ import {
   roleAvailableForType,
 } from '#/lib/chart-encodings'
 import type { ChartRole } from '#/lib/chart-encodings'
+import { chartShelfUnitLabel } from '#/lib/chart-spec'
 import type { ChartColumn, ChartSpec } from '#/lib/chart-spec'
 import { cn } from '#/lib/utils'
 
@@ -50,18 +51,6 @@ export interface ChartEncodingEditorProps {
 }
 
 type Notice = { tone: 'info' | 'refused'; message: string }
-
-/** The unit recorded on a field, whether the schema stores a symbol or text. */
-function unitLabel(unit: unknown): string | null {
-  if (typeof unit === 'string' && unit.trim() !== '') return unit
-
-  if (unit && typeof unit === 'object' && 'symbol' in unit) {
-    if (typeof unit.symbol === 'string' && unit.symbol !== '')
-      return unit.symbol
-  }
-
-  return null
-}
 
 export function ChartEncodingEditor({
   idPrefix,
@@ -145,7 +134,7 @@ export function ChartEncodingEditor({
                   )
 
                   const unit = isMeasuredColumn(column)
-                    ? unitLabel(column.unit)
+                    ? chartShelfUnitLabel(column.unit)
                     : null
 
                   const filled = CHART_ROLES.filter(
@@ -287,11 +276,7 @@ export function ChartEncodingEditor({
                 key={role}
                 data-drop-role={role}
                 onDragOver={(event) => {
-                  if (
-                    Array.from(event.dataTransfer.types).includes(
-                      FIELD_DRAG_TYPE,
-                    )
-                  ) {
+                  if (new Set(event.dataTransfer.types).has(FIELD_DRAG_TYPE)) {
                     event.preventDefault()
                     setOver(role)
                   }

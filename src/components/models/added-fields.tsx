@@ -25,19 +25,17 @@ import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { builtInModel, saveAddedFieldValues } from '#/lib/built-in-models'
 import type { BuiltInModel } from '#/lib/built-in-models'
-import {
-  displayModelFieldValue,
-  modelFieldColumnId,
-  modelFieldValuesFromInput,
+import { modelFieldValuesFromInput } from '#/lib/model-fields'
+import type {
+  ModelFieldDefinition,
+  ModelFieldRecordValues,
 } from '#/lib/model-fields'
-import type { ModelFieldDefinition } from '#/lib/model-fields'
 import {
   changedModelFieldValues,
   describeFieldEditError,
   initialModelFieldValues,
 } from '#/lib/model-record-edit'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { formatDate } from '#/lib/format-date'
 import {
   setModelType,
   typeForVersion,
@@ -58,42 +56,12 @@ import {
   useTypeFields,
 } from './model-subtype-data'
 import { t } from '#/copy'
-
-/** A field's value as the record pages show it. */
-export function addedFieldDisplay(
-  field: ModelFieldDefinition,
-  raw: unknown,
-): string {
-  if (field.logicalType === 'date')
-    return raw == null || raw === '' ? '—' : formatDate(String(raw))
-
-  if (field.logicalType === 'timestamp')
-    return raw == null || raw === ''
-      ? '—'
-      : formatDate(String(raw), { time: true })
-
-  return displayModelFieldValue(field, raw)
-}
-
-/** Fields grouped under their page heading, in first-appearance order; the
- * unnamed group takes the model's own "… details" heading and comes first. */
-export function groupAddedFields(
-  fields: readonly ModelFieldDefinition[],
-  defaultHeading: string,
-): Array<{ heading: string; fields: ModelFieldDefinition[] }> {
-  const groups = new Map<string, ModelFieldDefinition[]>()
-
-  for (const field of fields) {
-    const heading = field.section?.trim() || defaultHeading
-    groups.set(heading, [...(groups.get(heading) ?? []), field])
-  }
-
-  return [...groups.entries()]
-    .sort(([a], [b]) =>
-      a === defaultHeading ? -1 : b === defaultHeading ? 1 : 0,
-    )
-    .map(([heading, grouped]) => ({ heading, fields: grouped }))
-}
+import {
+  addedFieldDisplay,
+  addedFieldGroups,
+  addedFieldListQueryKey,
+} from './added-field-values'
+import { addedFieldColumns } from './added-field-columns'
 
 /**
  * The fields a workspace added to a built-in model, shown on one record's
@@ -103,23 +71,7 @@ export function groupAddedFields(
  * model has no added fields and no subtypes, so a workspace that never
  * extends a model sees its pages unchanged.
  */
-export function AddedFields({
-  modelKey,
-  objectId,
-  variant = 'inspector',
-  labelWidth = 110,
-  editable = true,
-  exclude,
-}: {
-  modelKey: string
-  objectId: string
-  /** `inspector` for a side panel, `section` for the page body. */
-  variant?: 'inspector' | 'section'
-  labelWidth?: number
-  editable?: boolean
-  /** Field keys the page already shows in its own layout. */
-  exclude?: readonly string[]
-}) {
+function useAddedFieldsSource(modelKey: string, objectId: string) {
   const model = builtInModel(modelKey)
   const values = useAddedFieldValues(model, objectId)
   const family = usePickableTypes(modelKey)
@@ -137,31 +89,39 @@ export function AddedFields({
     { enabled: Boolean(model && pinned) },
   )
 
+  return { model, values, family, pinned, builtInFields, typeFields }
+}
+
+function useAddedFieldsRecord({
+  modelKey,
+  objectId,
+  editable = true,
+  exclude,
+}: {
+  modelKey: string
+  objectId: string
+  /** `inspector` for a side panel, `section` for the page body. */
+  variant?: 'inspector' | 'section'
+  labelWidth?: number
+  editable?: boolean
+  /** Field keys the page already shows in its own layout. */
+  exclude?: readonly string[]
+}) {
+  const { model, values, family, pinned, builtInFields, typeFields } =
+    useAddedFieldsSource(modelKey, objectId)
+
   const [editing, setEditing] = useState(false)
   const [changingType, setChangingType] = useState(false)
 
   if (!model) return null
 
-  const keep = (field: ModelFieldDefinition) =>
-    !exclude?.includes(field.fieldName)
+  const groups = addedFieldGroups(
+    model,
+    builtInFields.data ?? [],
+    pinned ? (typeFields.data ?? []) : null,
+    exclude,
+  )
 
-  // The built-in model's own added fields keep their headings; each subtype's
-  // fields sit under the subtype's name unless a field names a heading.
-  const fieldGroups = pinned
-    ? (typeFields.data ?? []).flatMap((group) =>
-        group.modelKey === model.key
-          ? groupAddedFields(
-              group.fields.filter(keep),
-              t('library.models.shared.nameDetails', { name: model.name }),
-            )
-          : groupAddedFields(group.fields.filter(keep), group.modelName),
-      )
-    : groupAddedFields(
-        (builtInFields.data ?? []).filter(keep),
-        t('library.models.shared.nameDetails', { name: model.name }),
-      )
-
-  const groups = fieldGroups.filter((group) => group.fields.length > 0)
   const hasTypes = family.options.length > 0 || pinned !== null
 
   if (groups.length === 0 && !hasTypes) return null
@@ -172,26 +132,61 @@ export function AddedFields({
   const allFields = groups.flatMap((group) => group.fields)
   const typeName = pinned?.name ?? model.name
 
+  return {
+    model,
+    values,
+    family,
+    pinned,
+    builtInFields,
+    typeFields,
+    groups,
+    hasTypes,
+    stored,
+    locked,
+    canEdit,
+    allFields,
+    typeName,
+    editing,
+    setEditing,
+    changingType,
+    setChangingType,
+  }
+}
+
+export function AddedFields(props: Parameters<typeof useAddedFieldsRecord>[0]) {
+  const state = useAddedFieldsRecord(props)
+  const { objectId, variant = 'inspector', labelWidth = 110 } = props
+
+  if (!state) return null
+
+  const {
+    model,
+    values,
+    family,
+    pinned,
+    builtInFields,
+    typeFields,
+    groups,
+    hasTypes,
+    stored,
+    locked,
+    canEdit,
+    allFields,
+    typeName,
+    editing,
+    setEditing,
+    changingType,
+    setChangingType,
+  } = state
+
   const actions =
     canEdit && (allFields.length > 0 || hasTypes) ? (
-      <span className="flex flex-wrap gap-1">
-        {allFields.length > 0 ? (
-          <IconButton
-            icon="edit"
-            label={t('common.actions.edit')}
-            onClick={() => setEditing(true)}
-          />
-        ) : null}
-        {hasTypes ? (
-          <Button
-            size="sm"
-            variant="quiet"
-            onClick={() => setChangingType(true)}
-          >
-            {t('library.models.addedFields.changeType')}
-          </Button>
-        ) : null}
-      </span>
+      <AddedFieldActions
+        hasFields={allFields.length > 0}
+        hasTypes={hasTypes}
+        onEdit={() => setEditing(true)}
+        onChangeType={() => setChangingType(true)}
+      />
     ) : null
 
   const shown = groups.length
@@ -209,30 +204,17 @@ export function AddedFields({
     shown.findIndex((group) => group.heading === typeName),
   )
 
-  const body = (group: (typeof shown)[number], index: number) =>
-    values.isError ? (
-      <Muted>{t('library.models.addedFields.theseDetailsCouldNotBe')}</Muted>
-    ) : (
-      <DescriptionList
-        labelWidth={labelWidth}
-        items={[
-          ...(index === typeRow && hasTypes
-            ? [
-                [
-                  t('library.models.addedFields.type'),
-                  values.isLoading ? '…' : typeName,
-                ] as [React.ReactNode, React.ReactNode],
-              ]
-            : []),
-          ...group.fields.map<[React.ReactNode, React.ReactNode]>((field) => [
-            field.label,
-            values.isLoading
-              ? '…'
-              : addedFieldDisplay(field, stored[field.fieldName]),
-          ]),
-        ]}
-      />
-    )
+  const body = (group: (typeof shown)[number], index: number) => (
+    <AddedFieldsDescription
+      fields={group.fields}
+      stored={stored}
+      labelWidth={labelWidth}
+      isError={values.isError}
+      isLoading={values.isLoading}
+      showType={index === typeRow && hasTypes}
+      typeName={typeName}
+    />
+  )
 
   return (
     <>
@@ -296,6 +278,78 @@ export function AddedFields({
   )
 }
 
+function AddedFieldActions({
+  hasFields,
+  hasTypes,
+  onEdit,
+  onChangeType,
+}: {
+  hasFields: boolean
+  hasTypes: boolean
+  onEdit: () => void
+  onChangeType: () => void
+}) {
+  return (
+    <span className="flex flex-wrap gap-1">
+      {hasFields ? (
+        <IconButton
+          icon="edit"
+          label={t('common.actions.edit')}
+          onClick={onEdit}
+        />
+      ) : null}
+      {hasTypes ? (
+        <Button size="sm" variant="quiet" onClick={onChangeType}>
+          {t('library.models.addedFields.changeType')}
+        </Button>
+      ) : null}
+    </span>
+  )
+}
+
+function AddedFieldsDescription({
+  fields,
+  stored,
+  labelWidth,
+  isError,
+  isLoading,
+  showType,
+  typeName,
+}: {
+  fields: readonly ModelFieldDefinition[]
+  stored: ModelFieldRecordValues['customFields']
+  labelWidth: number
+  isError: boolean
+  isLoading: boolean
+  showType: boolean
+  typeName: string
+}) {
+  if (isError)
+    return (
+      <Muted>{t('library.models.addedFields.theseDetailsCouldNotBe')}</Muted>
+    )
+
+  return (
+    <DescriptionList
+      labelWidth={labelWidth}
+      items={[
+        ...(showType
+          ? [
+              [
+                t('library.models.addedFields.type'),
+                isLoading ? '…' : typeName,
+              ] satisfies [React.ReactNode, React.ReactNode],
+            ]
+          : []),
+        ...fields.map<[React.ReactNode, React.ReactNode]>((field) => [
+          field.label,
+          isLoading ? '…' : addedFieldDisplay(field, stored[field.fieldName]),
+        ]),
+      ]}
+    />
+  )
+}
+
 /**
  * Pick another type for an object. What the new type keeps carries over, the
  * values it would drop are named before saving, and its fields can be filled
@@ -318,7 +372,7 @@ function ChangeTypeDialog({
   options: readonly TypeOption[]
   current: ModelType | null
   currentGroups: readonly FieldGroup[]
-  stored: Record<string, unknown>
+  stored: ModelFieldRecordValues['customFields']
   onClose: () => void
   client?: DataClient
 }) {
@@ -326,7 +380,7 @@ function ChangeTypeDialog({
   const [target, setTarget] = useState<string>(current?.key ?? '')
   const targetKey = target || null
   const targetFields = useTypeFields(types, model.key, targetKey)
-  const groups = targetFields.data ?? []
+  const groups = useMemo(() => targetFields.data ?? [], [targetFields.data])
 
   const fields = useMemo(
     () => groups.flatMap((group) => group.fields),
@@ -472,7 +526,7 @@ function AddedFieldsEditDialog({
   model: BuiltInModel
   objectId: string
   fields: ModelFieldDefinition[]
-  stored: Record<string, unknown>
+  stored: ModelFieldRecordValues['customFields']
   onClose: () => void
   client?: DataClient
 }) {
@@ -637,14 +691,13 @@ export function useAddedFieldDraft(modelKey: string) {
     enabled: typeKey !== null,
   })
 
-  const source = typeKey
-    ? (typeFields.data ?? []).flatMap((group) => group.fields)
-    : (builtInFields.data ?? [])
+  const asked = useMemo(() => {
+    const source = typeKey
+      ? (typeFields.data ?? []).flatMap((group) => group.fields)
+      : (builtInFields.data ?? [])
 
-  const asked = useMemo(
-    () => source.filter((field) => field.askOnCreate !== false),
-    [source],
-  )
+    return source.filter((field) => field.askOnCreate !== false)
+  }, [typeKey, typeFields.data, builtInFields.data])
 
   const [values, setValues] = useState<Record<string, string | boolean>>({})
 
@@ -729,65 +782,6 @@ export function AddedFieldsFormSection({
   )
 }
 
-export function addedFieldListQueryKey(modelKey: string) {
-  return [...builtInModelQueryKeys.all, 'list-values', modelKey] as const
-}
-
-/** What a list sorts an added field's column by: the date as written, a
- * number as a number, anything else as the text a person reads. Empty is
- * nothing, so it sorts after the rest. */
-function addedFieldSortValue(
-  field: ModelFieldDefinition,
-  customFields: Record<string, unknown> | null | undefined,
-): string | number | undefined {
-  const raw = customFields?.[field.fieldName]
-
-  if (raw == null || raw === '') return undefined
-
-  if (field.logicalType === 'date' || field.logicalType === 'timestamp')
-    return String(raw)
-
-  if (field.logicalType === 'integer' || field.logicalType === 'decimal') {
-    const number = Number(raw)
-
-    if (Number.isFinite(number)) return number
-  }
-
-  return addedFieldDisplay(field, raw)
-}
-
-/** List columns for the added fields marked "show as a column". */
-export function addedFieldColumns<T extends object>(
-  fields: readonly ModelFieldDefinition[] | undefined,
-  customFieldsOf: (row: T) => Record<string, unknown> | null | undefined,
-): RegistryColumn<T>[] {
-  return (fields ?? [])
-    .filter((field) => field.showInList)
-    .map((field) => ({
-      id: modelFieldColumnId(field.fieldName),
-      header: field.label,
-      // Dates and numbers order by their value, not by how they read.
-      accessorFn: (row) => addedFieldSortValue(field, customFieldsOf(row)),
-      meta: {
-        exportValue: (row) =>
-          addedFieldDisplay(field, customFieldsOf(row)?.[field.fieldName]),
-      },
-      cell: ({ row }) => {
-        const value = customFieldsOf(row.original)?.[field.fieldName]
-
-        return (
-          <span
-            className={
-              value == null || value === '' ? 'text-fg-muted' : undefined
-            }
-          >
-            {addedFieldDisplay(field, value)}
-          </span>
-        )
-      },
-    }))
-}
-
 const LIST_HOST: Record<BuiltInModel['host'], string> = {
   record: 'records',
   project: 'projects',
@@ -821,7 +815,7 @@ export function useAddedFieldListColumns<T extends object>(
     queryFn: async () => {
       const rows = await client.list<{
         id: string
-        custom_fields: Record<string, unknown> | null
+        custom_fields: ModelFieldRecordValues['customFields'] | null
         model_version_id: string | null
       }>(
         LIST_HOST[model!.host],
@@ -869,17 +863,6 @@ export function useAddedFieldListColumns<T extends object>(
 
     return [typeColumn, ...columns]
   }, [listed, byId, idField, typed, model, types])
-}
-
-/** The list's own columns with the added ones placed before its last column
- * (status, owner or updated), which stays at the end. */
-export function withAddedColumns<T extends object>(
-  base: RegistryColumn<T>[],
-  added: RegistryColumn<T>[],
-): RegistryColumn<T>[] {
-  if (added.length === 0) return base
-
-  return [...base.slice(0, -1), ...added, ...base.slice(-1)]
 }
 
 /** The name of an object's type: its subtype when it has one, else `fallback`. */

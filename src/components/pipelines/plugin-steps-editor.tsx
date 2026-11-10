@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { z } from 'zod'
 
 import { Banner } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
@@ -10,6 +11,7 @@ import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
 import { parsePluginName } from '#/lib/extensions/points'
 import type { OperationInput } from '#/lib/operations/descriptor'
 import type { PipelineConfig, PipelineParameter } from '#/lib/pipelines/config'
+import type { TableSource } from './plugin-step-sources'
 
 export type PipelineActionConfig = NonNullable<
   PipelineConfig['actions']
@@ -18,17 +20,16 @@ export type PipelineActionConfig = NonNullable<
 const isPlugin = (action: PipelineActionConfig) =>
   parsePluginName(action.operation) !== null
 
-const isRef = (value: unknown): value is { $ref: string } =>
-  typeof value === 'object' && value !== null && '$ref' in value
+const referenceSchema = z.object({ $ref: z.string() })
 
 /** `plugin_step_2`-style name that is free in this pipeline. */
 function freeName(base: string, taken: readonly string[]): string {
   const stem = base.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
   const start = /^[a-z]/.test(stem) ? stem : `p_${stem}`
+  const names = new Set(taken)
   let name = start.slice(0, 44)
 
-  for (let n = 2; taken.includes(name); n += 1)
-    name = `${start.slice(0, 44)}_${n}`
+  for (let n = 2; names.has(name); n += 1) name = `${start.slice(0, 44)}_${n}`
 
   return name
 }
@@ -70,7 +71,7 @@ export function PluginStepsEditor({
 
     if (!descriptor) return
     const callable = points.callables.get(operation)
-    const args: Record<string, unknown> = {}
+    const args: PipelineActionConfig['arguments'] = {}
 
     // A table the plugin reads starts as the result so far, the usual case.
     for (const name of callable?.tableNames ?? [])
@@ -104,7 +105,7 @@ export function PluginStepsEditor({
         {plugin.map((action, index) => {
           const descriptor = byName.get(action.operation)
           const callable = points.callables.get(action.operation)
-          const tables = callable?.tableNames ?? []
+          const tables = new Set(callable?.tableNames ?? [])
 
           const earlierSteps = plugin
             .slice(0, index)
@@ -179,7 +180,7 @@ export function PluginStepsEditor({
                   <ArgumentField
                     key={input.name}
                     input={input}
-                    isTable={tables.includes(input.name)}
+                    isTable={tables.has(input.name)}
                     value={action.arguments[input.name]}
                     parameters={parameters}
                     tableSources={[
@@ -243,45 +244,6 @@ export function PluginStepsEditor({
 }
 
 /**
- * Where a plugin step in the middle of a pipeline can read a table from: the
- * result so far (when a step ran before it), any input, or an earlier step.
- */
-export function pluginStepSources(args: {
-  hasPrevious: boolean
-  transformRuns: boolean
-  inputs: Array<{ name: string }>
-  earlier: string[]
-}): TableSource[] {
-  return [
-    ...(args.hasPrevious
-      ? [{ ref: 'previous', label: t('data.pluginSteps.resultSoFar') }]
-      : []),
-    ...args.inputs.map((input) => ({
-      ref: `inputs.${input.name}`,
-      label: t('data.pluginSteps.inputTable', { name: input.name }),
-    })),
-    ...(args.transformRuns
-      ? [
-          {
-            ref: 'steps.analysis',
-            label: t('data.pluginSteps.rowsFrom', { name: 'analysis' }),
-          },
-        ]
-      : []),
-    ...args.earlier.map((name) => ({
-      ref: `steps.${name}`,
-      label: t('data.pluginSteps.rowsFrom', { name }),
-    })),
-  ]
-}
-
-/** One place a plugin's table box can read from: a reference path and its words. */
-export interface TableSource {
-  ref: string
-  label: string
-}
-
-/**
  * One box of a plugin step: a table (picked from where it can come from), a
  * yes/no, or a value typed here or taken from a pipeline setting.
  */
@@ -295,17 +257,20 @@ export function ArgumentField({
 }: {
   input: OperationInput
   isTable: boolean
-  value: unknown
+  value: PipelineActionConfig['arguments'][string] | undefined
   parameters: PipelineParameter[]
   tableSources: TableSource[]
-  onChange: (value: unknown) => void
+  onChange: (
+    value: PipelineActionConfig['arguments'][string] | undefined,
+  ) => void
 }) {
   const label = input.name.replaceAll('_', ' ')
   const caption = label.charAt(0).toUpperCase() + label.slice(1)
+  const reference = referenceSchema.safeParse(value)
 
   if (isTable) {
-    const current = isRef(value)
-      ? value.$ref
+    const current = reference.success
+      ? reference.data.$ref
       : (tableSources.at(0)?.ref ?? 'previous')
 
     return (
@@ -327,12 +292,13 @@ export function ArgumentField({
 
   const matching = parameters.filter((parameter) =>
     input.type === 'num' || input.type === 'int'
-      ? ['number', 'integer', 'decimal'].includes(parameter.type as string)
+      ? ['number', 'integer', 'decimal'].includes(parameter.type)
       : true,
   )
 
-  const ref = isRef(value) ? value.$ref : null
+  const ref = reference.success ? reference.data.$ref : null
   const mode = ref?.startsWith('parameters.') ? ref : 'typed'
+  const typed = z.union([z.string(), z.number()]).safeParse(value)
 
   if (input.type === 'bool')
     return (
@@ -374,11 +340,7 @@ export function ArgumentField({
         ) : null}
         {mode === 'typed' ? (
           <Input
-            value={
-              typeof value === 'string' || typeof value === 'number'
-                ? String(value)
-                : ''
-            }
+            value={typed.success ? String(typed.data) : ''}
             inputMode={
               input.type === 'num' || input.type === 'int'
                 ? 'decimal'

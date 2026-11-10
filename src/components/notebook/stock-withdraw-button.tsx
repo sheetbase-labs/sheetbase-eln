@@ -1,5 +1,5 @@
 import { t } from '#/copy'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
 import { toast } from '#/components/ui/sonner'
@@ -27,9 +27,35 @@ export function StockWithdrawButton({
   onWithdrawn: (note: string) => void
   client?: DataClient
 }) {
+  const queryClient = useQueryClient()
+
   const withdraw = useMutation({
     mutationFn: () => withdrawItemFromStock(client, item, { id: experimentId }),
     onSuccess: (result) => {
+      // Both registry generations still have readers. Refresh their stock and
+      // ledger families, not the notebook alone. Sample withdrawal also links
+      // the sample to the experiment.
+      const affectedKeys =
+        item.kind === 'material'
+          ? [
+              ['ui-port', 'materials'],
+              ['reg-003', 'reagents'],
+            ]
+          : [
+              ['ui-port', 'samples', 'page'],
+              ['reg-002', 'samples'],
+              ['ui-port', 'sample', item.materialRecordId],
+              ['ui-port', 'sample-events', item.materialRecordId],
+              ['ui-port', 'sample-linked-experiments', item.materialRecordId],
+              ['ui-port', 'sample-used-in', item.materialRecordId],
+              ['ui-port', 'experiment-links', experimentId],
+              ['ui-port', 'experiment-samples-table', experimentId],
+            ]
+
+      for (const queryKey of affectedKeys) {
+        void queryClient.invalidateQueries({ queryKey })
+      }
+
       toast(
         t('notebook.stockWithdrawButton.identifierWithdrawnFromStock', {
           identifier: item.identifier,
@@ -44,9 +70,11 @@ export function StockWithdrawButton({
           : t('notebook.stockWithdrawButton.couldNotWithdraw'),
       ),
   })
+
   if (isWithdrawn({ note })) {
     return <span className="text-xs text-fg-muted">{note}</span>
   }
+
   return (
     <Button
       type="button"

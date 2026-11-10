@@ -161,7 +161,11 @@ export interface OfflineEditStore {
 
 /** Minimal async key/value persistence; the store owns all domain meaning. */
 export interface OfflineStorage {
+  // Stored bytes are untrusted; readValidEdits validates each edit after reading.
+  // oxlint-disable-next-line anti-slop/no-unknown-returns
   get: (key: string) => Promise<unknown>
+  // The backend also holds malformed values so domain reads can refuse corruption.
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters
   set: (key: string, value: unknown) => Promise<void>
   delete: (key: string) => Promise<void>
   /** Every key currently persisted; omit if the backend cannot enumerate. */
@@ -171,14 +175,20 @@ export interface OfflineStorage {
 const DEFAULT_DATABASE_NAME = 'sheetbase-offline'
 const DEFAULT_STORE_NAME = 'edits'
 
-function cloneJsonValue<T>(value: T): T {
+// Native JSON cloning is deliberately not validation or an identity-preserving conversion.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns
+function cloneJsonValue(value: unknown): unknown {
   if (value === null || value === undefined) return value
 
-  return JSON.parse(JSON.stringify(value)) as T
+  // Keep JSON snapshot coercion/refusal, rather than structuredClone's native-object semantics.
+  // react-doctor-disable-next-line no-json-parse-stringify-clone
+  return JSON.parse(JSON.stringify(value))
 }
 
 /** In-memory backend for tests and for browsers where IndexedDB is denied. */
 export function createInMemoryStorage(
+  // Initial persisted values may be corrupt; edit validation belongs to the store reader.
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
   initial?: Record<string, unknown>,
 ): OfflineStorage {
   const entries = new Map<string, unknown>()
@@ -205,11 +215,7 @@ export function createInMemoryStorage(
   }
 }
 
-/**
- * The DOM lib types `indexedDB` as always present, but Node, SSR and jsdom do
- * not provide it; this named cast keeps the runtime absence guard meaningful.
- */
-const indexedDbGlobal = globalThis as { indexedDB?: IDBFactory }
+const indexedDbGlobal = globalThis
 
 /**
  * Thin IndexedDB wrapper: one database, one object store, no schema beyond
@@ -228,6 +234,8 @@ export function createIndexedDbStorage(
     databasePromise = new Promise<IDBDatabase>((resolve, reject) => {
       const factory = indexedDbGlobal.indexedDB
 
+      // DOM types assume IndexedDB exists; SSR, jsdom and denied environments do not.
+      // oxlint-disable-next-line typescript/no-unnecessary-condition
       if (!factory) {
         reject(new Error('IndexedDB is not available in this environment.'))
 
@@ -257,35 +265,37 @@ export function createIndexedDbStorage(
 
   async function run<T>(
     mode: IDBTransactionMode,
-    operation: (store: IDBObjectStore) => IDBRequest,
+    operation: (store: IDBObjectStore) => IDBRequest<T>,
   ): Promise<T> {
     const database = await openDatabase()
 
     return new Promise<T>((resolve, reject) => {
-      let result: T | undefined
+      let result: T
       let settled = false
 
-      const fail = (error: unknown) => {
+      const fail = (error: DOMException | null) => {
         if (settled) return
         settled = true
         reject(
           error instanceof Error
             ? error
-            : new Error(String(error ?? 'Offline database request failed.')),
+            : // A foreign-realm DOMException need not inherit this realm's Error.
+              // oxlint-disable-next-line typescript/no-unnecessary-condition
+              new Error(String(error ?? 'Offline database request failed.')),
         )
       }
 
       const transaction = database.transaction(storeName, mode)
       const request = operation(transaction.objectStore(storeName))
       request.onsuccess = () => {
-        result = request.result as T
+        result = request.result
       }
 
       request.onerror = () => fail(request.error)
       transaction.oncomplete = () => {
         if (settled) return
         settled = true
-        resolve(result as T)
+        resolve(result)
       }
 
       transaction.onerror = () => fail(transaction.error)
@@ -467,6 +477,8 @@ export function createOfflineEditStore(
       const scopes: string[] = []
 
       for (const recordId of recordIds) {
+        // Read in key order; a refused scope must not start reads for later records.
+        // react-doctor-disable-next-line async-await-in-loop
         const edits = await readValidEdits(storage, { userId, recordId })
 
         if (edits.length > 0) scopes.push(recordId)

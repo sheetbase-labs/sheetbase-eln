@@ -18,6 +18,32 @@ describe('pickup config form', () => {
     })
   })
 
+  it('defaults malformed fields independently without dropping valid settings', () => {
+    expect(
+      pickupFormValues({
+        pickup: {
+          projectId: 'project-1',
+          schemaVersionId: 42,
+          datasetId: null,
+          datasetNamePattern: '',
+          autoDetect: 'true',
+          instrumentId: 'instrument-2',
+        },
+      }),
+    ).toEqual({
+      projectId: 'project-1',
+      schemaVersionId: '',
+      datasetId: '',
+      datasetNamePattern: DEFAULT_DATASET_NAME_PATTERN,
+      autoDetect: false,
+      instrumentId: 'instrument-2',
+    })
+
+    for (const pickup of [null, 42, 'pickup', []]) {
+      expect(pickupFormValues({ pickup })).toEqual(pickupFormValues({}))
+    }
+  })
+
   it('requires a project and a schema', () => {
     const result = buildPickupConfig({}, pickupFormValues({}))
     expect(result.ok).toBe(false)
@@ -53,9 +79,10 @@ describe('pickup config form', () => {
         },
       },
     })
-    expect(
-      pickupFormValues((result as { config: Record<string, unknown> }).config),
-    ).toMatchObject({
+
+    if (!result.ok) throw new Error('Valid pickup settings were rejected')
+
+    expect(pickupFormValues(result.config)).toMatchObject({
       projectId: 'p',
       instrumentId: 'i',
       autoDetect: true,

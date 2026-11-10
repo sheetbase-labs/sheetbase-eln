@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { extractJsonObject } from '../ai-import-mapping'
 import { validatePipelineConfig } from './config'
 import type { PipelineConfig } from './config'
@@ -40,6 +41,18 @@ export interface FailureExplanation {
 
 const MAX_LOG_LINES = 12
 const MAX_STATEMENT_CHARS = 6_000
+
+const failureReply = z.object({
+  explanation: z.string().catch(''),
+  fix: z
+    .object({
+      target: z.string().catch(''),
+      statement: z.string().catch(''),
+      language: z.enum(['sql', 'python']),
+    })
+    .nullable()
+    .catch(null),
+})
 
 function stepStatements(config: Partial<PipelineConfig>): string[] {
   const out: string[] = []
@@ -129,31 +142,26 @@ export function parseFailureReply(
   const raw = text.trim()
 
   if (!raw) return null
-  const value = extractJsonObject(raw)
+  const parsed = failureReply.safeParse(extractJsonObject(raw))
 
-  if (typeof value !== 'object' || value === null) {
+  if (!parsed.success) {
     return { explanation: raw, fix: null }
   }
 
-  const record = value as Record<string, unknown>
-
-  const explanation =
-    typeof record.explanation === 'string' ? record.explanation.trim() : ''
+  const explanation = parsed.data.explanation.trim()
 
   if (!explanation) return null
-  const fix = record.fix
+  const f = parsed.data.fix
 
-  if (typeof fix !== 'object' || fix === null) return { explanation, fix: null }
-  const f = fix as Record<string, unknown>
-  const target = typeof f.target === 'string' ? f.target : ''
-  const statement = typeof f.statement === 'string' ? f.statement.trim() : ''
+  if (f === null) return { explanation, fix: null }
+  const target = f.target
+  const statement = f.statement.trim()
   const current = statementOf(config, target)
 
   if (
     !current ||
     !statement ||
     statement.length > MAX_STATEMENT_CHARS * 3 ||
-    (f.language !== 'sql' && f.language !== 'python') ||
     // The fix may rewrite a step but never change what language it runs in.
     f.language !== current.language ||
     statement === current.statement.trim()
@@ -172,26 +180,67 @@ export function parseFailureReply(
  * that stop it from being a valid pipeline. The base is the draft when one
  * exists (so work already in it is kept), otherwise the version that failed.
  */
+const draftObjectEnvelope = z.looseObject({})
+
+const draftObject = z.custom<z.infer<typeof draftObjectEnvelope>>(
+  (value) => draftObjectEnvelope.safeParse(value).success,
+)
+
+const fixedConfiguration = z.custom<PipelineConfig>(
+  (value) => validatePipelineConfig(value).length === 0,
+  {
+    error: (issue) =>
+      validatePipelineConfig(issue.input)[0]?.message ??
+      'Not a valid pipeline.',
+  },
+)
+
 export function applyStepFix(
-  base: PipelineConfig,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Saved drafts enter here as raw input; decode their shape before applying the correction and validate the resulting configuration.
+  base: unknown,
   fix: StepFix,
 ): { ok: true; config: PipelineConfig } | { ok: false; reason: string } {
-  const config: PipelineConfig = structuredClone(base)
+  const decoded = draftObject.safeParse(base)
+
+  if (!decoded.success)
+    return {
+      ok: false,
+      reason:
+        validatePipelineConfig(base)[0]?.message ?? 'Not a valid pipeline.',
+    }
+
+  const draft = structuredClone(decoded.data)
+
   // Older drafts may omit the empty lists; they mean the same as empty.
-  const lists = config as Partial<PipelineConfig>
-  lists.parameters ??= []
-  lists.inputs ??= []
+  draft.parameters ??= []
+  draft.inputs ??= []
 
   if (fix.target === TRANSFORM_TARGET) {
-    if (config.transform.language === 'none') {
+    const transform = draftObject.safeParse(draft.transform)
+
+    if (!transform.success)
+      return {
+        ok: false,
+        reason:
+          validatePipelineConfig(draft)[0]?.message ?? 'Not a valid pipeline.',
+      }
+
+    if (transform.data.language === 'none') {
       return { ok: false, reason: 'The draft has no transform to correct.' }
     }
 
-    config.transform = { ...config.transform, statement: fix.statement }
+    transform.data.statement = fix.statement
   } else {
-    const step = config.steps?.find(
-      (candidate) => candidate.name === fix.target,
-    )
+    const steps = z.array(draftObject).safeParse(draft.steps ?? [])
+
+    if (!steps.success)
+      return {
+        ok: false,
+        reason:
+          validatePipelineConfig(draft)[0]?.message ?? 'Not a valid pipeline.',
+      }
+
+    const step = steps.data.find((candidate) => candidate.name === fix.target)
 
     if (!step) {
       return {
@@ -203,11 +252,12 @@ export function applyStepFix(
     step.statement = fix.statement
   }
 
-  const errors = validatePipelineConfig(config)
+  const result = fixedConfiguration.safeParse(draft)
 
-  if (errors.length) {
-    return { ok: false, reason: errors[0]?.message ?? 'Not a valid pipeline.' }
-  }
-
-  return { ok: true, config }
+  return result.success
+    ? { ok: true, config: result.data }
+    : {
+        ok: false,
+        reason: result.error.issues[0]?.message ?? 'Not a valid pipeline.',
+      }
 }

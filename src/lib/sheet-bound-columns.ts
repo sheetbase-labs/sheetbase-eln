@@ -2,8 +2,12 @@ import { z } from 'zod'
 
 import { fieldEditorPresentation } from './field-presentation'
 import type { FieldEditorPresentation } from './field-presentation'
-import type { ComposedSheetRow } from './sheet-composition-data'
+import type {
+  ComposedSheetCellValue,
+  ComposedSheetRow,
+} from './sheet-composition-data'
 import type { SheetDefinitionConfiguration } from './sheet-definition'
+import { pipelineJsonValueSchema } from './pipelines/types'
 
 type BoundDefinitionColumn = SheetDefinitionConfiguration['columns'][number] & {
   source: { kind: 'bound'; bindingId: string; sourceFieldId: string }
@@ -32,7 +36,11 @@ export type BoundColumnProvenance =
     })
 
 export type BoundValueState =
-  | { kind: 'present'; value: unknown; provenance: BoundColumnProvenance }
+  | {
+      kind: 'present'
+      value: ComposedSheetCellValue
+      provenance: BoundColumnProvenance
+    }
   | { kind: 'unmatched'; provenance: BoundColumnProvenance }
 
 export interface ProjectedBoundColumn {
@@ -57,6 +65,11 @@ export interface ProjectedBoundRow {
   values: Record<string, BoundValueState>
 }
 
+export interface ProjectedBoundColumns {
+  columns: ProjectedBoundColumn[]
+  rows: ProjectedBoundRow[]
+}
+
 function structuralError(message: string): never {
   throw new Error(`Invalid composed bound-column mapping: ${message}`)
 }
@@ -69,13 +82,15 @@ export function projectBoundColumns(input: {
   definitionVersionId: string
   configuration: SheetDefinitionConfiguration
   rows: ComposedSheetRow[]
-}): { columns: ProjectedBoundColumn[]; rows: ProjectedBoundRow[] } {
+}): ProjectedBoundColumns {
   const columns = input.configuration.columns.filter(
     (column): column is BoundDefinitionColumn => column.source.kind === 'bound',
   )
+
   const knownBindings = new Set(
     input.configuration.bindings.map(({ id }) => id),
   )
+
   for (const column of columns) {
     if (!knownBindings.has(column.source.bindingId)) {
       structuralError(
@@ -83,11 +98,13 @@ export function projectBoundColumns(input: {
       )
     }
   }
+
   const writableColumns = new Set(
     input.configuration.writeBackRules.flatMap((rule) =>
       rule.mappings
         .filter((mapping) => {
           const column = columns.find(({ id }) => id === mapping.columnId)
+
           return (
             column?.source.bindingId === rule.bindingId &&
             column.source.sourceFieldId === mapping.targetFieldId
@@ -123,11 +140,13 @@ export function projectBoundColumns(input: {
           const source = row.sources.find(
             ({ bindingId }) => bindingId === column.source.bindingId,
           )
+
           if (!source) {
             structuralError(
               `row ${row.rowKey} is missing binding ${column.source.bindingId}`,
             )
           }
+
           if (
             source.sourceKind === 'record' &&
             !Object.hasOwn(source.fieldNames, column.source.sourceFieldId)
@@ -136,6 +155,7 @@ export function projectBoundColumns(input: {
               `row ${row.rowKey} binding ${source.bindingId} lacks stable field-name mapping ${column.source.sourceFieldId}`,
             )
           }
+
           const provenance: BoundColumnProvenance =
             source.sourceKind === 'dataset'
               ? {
@@ -160,14 +180,17 @@ export function projectBoundColumns(input: {
                     source.fieldNames[column.source.sourceFieldId],
                   sourceFieldId: column.source.sourceFieldId,
                 }
+
           if (!source.matched) {
             return [column.id, { kind: 'unmatched', provenance }]
           }
+
           if (!Object.hasOwn(source.values, column.source.sourceFieldId)) {
             structuralError(
               `row ${row.rowKey} binding ${source.bindingId} lacks source field ${column.source.sourceFieldId}`,
             )
           }
+
           return [
             column.id,
             {
@@ -182,14 +205,12 @@ export function projectBoundColumns(input: {
   }
 }
 
-const definitionProvenanceSchema = z
-  .object({
-    definitionVersionId: z.string().uuid(),
-    definitionColumnId: z.string().uuid(),
-    bindingId: z.string().uuid(),
-    sourceFieldId: z.string().uuid(),
-  })
-  .strict()
+const definitionProvenanceSchema = z.strictObject({
+  definitionVersionId: z.string().uuid(),
+  definitionColumnId: z.string().uuid(),
+  bindingId: z.string().uuid(),
+  sourceFieldId: z.string().uuid(),
+})
 
 const provenanceSchema = z.discriminatedUnion('sourceKind', [
   definitionProvenanceSchema
@@ -212,17 +233,13 @@ const provenanceSchema = z.discriminatedUnion('sourceKind', [
 ])
 
 export const boundValueInspectorSchema = z.discriminatedUnion('kind', [
-  z
-    .object({
-      kind: z.literal('present'),
-      value: z.unknown(),
-      provenance: provenanceSchema,
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('unmatched'),
-      provenance: provenanceSchema,
-    })
-    .strict(),
+  z.strictObject({
+    kind: z.literal('present'),
+    value: pipelineJsonValueSchema,
+    provenance: provenanceSchema,
+  }),
+  z.strictObject({
+    kind: z.literal('unmatched'),
+    provenance: provenanceSchema,
+  }),
 ])

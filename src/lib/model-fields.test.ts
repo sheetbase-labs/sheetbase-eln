@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
+import { pipelineJsonObjectSchema } from './pipelines/types'
 import {
   createModelFieldWithSemantics,
   displayModelFieldValue,
@@ -118,17 +119,26 @@ describe('model field semantics flow', () => {
   })
 
   it('drafts, configures, options and activates using only existing RPCs', async () => {
-    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const calls: Array<{
+      name: string
+      args: ReturnType<typeof pipelineJsonObjectSchema.parse>
+    }> = []
 
-    const client = {
-      rpc: async (name: string, args: Record<string, unknown>) => {
-        calls.push({ name, args })
+    const client = createDataClient(async (input, init) => {
+      const request = new Request(
+        new URL(
+          input instanceof Request ? input.url : input,
+          'http://localhost',
+        ),
+        init,
+      )
 
-        if (name === 'create_model_field') return { id: 'definition-1' }
+      const name = new URL(request.url).pathname.split('/').at(-1) ?? ''
+      const args = pipelineJsonObjectSchema.parse(await request.json())
+      calls.push({ name, args })
 
-        return { id: 'definition-1' }
-      },
-    } as unknown as DataClient
+      return Response.json({ id: 'definition-1' })
+    })
 
     await createModelFieldWithSemantics(client, {
       workspaceId: 'workspace-1',
@@ -216,15 +226,19 @@ describe('fetchModelFields', () => {
   it('reads a built-in model straight from its definitions', async () => {
     const tables: string[] = []
 
-    const client = {
-      list: async (table: string) => {
-        tables.push(table)
+    const client = createDataClient(async (input) => {
+      const url = new URL(
+        input instanceof Request ? input.url : input,
+        'http://localhost',
+      )
 
-        // A built-in model has no record model, and a version lookup without
-        // an id must not loop back into the record-model branch.
-        return table === 'record_models' ? [{}] : []
-      },
-    } as unknown as DataClient
+      const table = url.pathname.split('/').at(-1) ?? ''
+      tables.push(table)
+
+      // A built-in model has no record model, and a version lookup without
+      // an id must not loop back into the record-model branch.
+      return Response.json(table === 'record_models' ? [{}] : [])
+    })
 
     await expect(fetchModelFields(client, 'instrument')).resolves.toEqual([])
     expect(tables).toEqual(['record_models', 'record_field_definitions'])

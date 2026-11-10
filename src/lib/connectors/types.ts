@@ -7,6 +7,7 @@
  * observable through `connector_run_logs`. Wire shapes are PostgREST
  * snake_case; see docs/subsystems/integrations.md for the contract.
  */
+import type { z } from 'zod'
 
 export type ConnectorType =
   'instrument' | 'storage' | 'webhook' | 'database' | 'custom'
@@ -42,7 +43,7 @@ export interface ConnectorWire {
   direction: ConnectorDirection
   status: ConnectorStatus
   parser_id: string | null
-  config: Record<string, unknown>
+  config: Record<string, z.core.util.JSONType>
   created_at: string
   updated_at: string
 }
@@ -56,7 +57,7 @@ export interface ConnectorRunWire {
   attempt: number
   retry_of_run_id: string | null
   request_digest: string | null
-  result: Record<string, unknown>
+  result: Record<string, z.core.util.JSONType>
   error_code: string | null
   error_message: string | null
   started_at: string
@@ -71,6 +72,6 @@ export interface ConnectorRunLogWire {
   level: 'info' | 'warning' | 'error'
   stage: string
   message: string
-  detail: Record<string, unknown>
+  detail: Record<string, z.core.util.JSONType>
   at: string
 }

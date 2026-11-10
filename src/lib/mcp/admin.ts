@@ -36,15 +36,13 @@ export const ADMIN_RESOURCES = [
 
 export type AdminResource = (typeof ADMIN_RESOURCES)[number]
 
-export const adminReadSchema = z
-  .object({
-    resource: z.enum(ADMIN_RESOURCES),
-    limit: z.number().int().min(1).max(100).default(20),
-    offset: z.number().int().min(0).max(10_000).default(0),
-    /** Required only for `comments`; scopes the read to one record. */
-    recordId: z.string().uuid().optional(),
-  })
-  .strict()
+export const adminReadSchema = z.strictObject({
+  resource: z.enum(ADMIN_RESOURCES),
+  limit: z.number().int().min(1).max(100).default(20),
+  offset: z.number().int().min(0).max(10_000).default(0),
+  /** Required only for `comments`; scopes the read to one record. */
+  recordId: z.string().uuid().optional(),
+})
 
 export type AdminReadInput = z.infer<typeof adminReadSchema>
 
@@ -83,6 +81,7 @@ export function adminReadTool() {
 function pageQuery(input: AdminReadInput): string {
   const limit = Math.min(100, Math.max(1, Math.floor(input.limit)))
   const offset = Math.max(0, Math.floor(input.offset))
+
   return `&order=created_at.desc&limit=${limit}&offset=${offset}`
 }
 
@@ -98,6 +97,7 @@ async function workspaceCounts(
       client.count('connectors'),
       client.count('pipeline_runs'),
     ])
+
   return {
     members: memberCount,
     records,
@@ -111,7 +111,7 @@ async function workspaceCounts(
 export async function readAdminResource(
   input: AdminReadInput,
   context: AdminReadContext,
-): Promise<Record<string, unknown>> {
+) {
   if (context.actor.kind !== 'user') {
     throw new Error('Administration reads require a personal token.')
   }
@@ -123,101 +123,129 @@ export async function readAdminResource(
     'workspace_members_list',
     {},
   )
+
   const me = members.find((member) => member.user_id === context.actor.id)
+
   if (!me || !ADMIN_ROLES.has(me.role)) {
     throw new Error('Workspace owner, admin or steward role required.')
   }
 
   switch (input.resource) {
     case 'workspace': {
-      const settings = await context.client.list<Record<string, unknown>>(
+      const settings = await context.client.list<{
+        [column: string]: z.JSONType
+      }>(
         'workspace_settings',
         `?select=workspace_id,registration_mode,review_workflow_enabled,audit_retention_days,site,timezone,date_format,number_format,publication_approval_required,require_change_reason,lock_on_sign,allow_offline_editing,ai_enabled,ai_provider_profile,ai_model,ai_cloud_egress_enabled,ai_max_tokens_per_call,ai_max_cost_microusd_per_call,ai_feature_flags,updated_at&workspace_id=eq.${encodeURIComponent(context.workspaceId)}&limit=1`,
       )
+
       return {
         resource: input.resource,
         settings: settings[0] ?? null,
         counts: await workspaceCounts(context.client, members.length),
       }
     }
+
     case 'members':
       return { resource: input.resource, items: members }
     case 'credentials': {
       if (me.role !== 'owner') {
         throw new Error('Only a workspace owner can read credential metadata.')
       }
+
       const items = await context.client.rpc<unknown[]>(
         'agent_admin_credentials',
         {},
       )
+
       return { resource: input.resource, items }
     }
+
     case 'connectors': {
-      const items = await context.client.list<Record<string, unknown>>(
+      const items = await context.client.list<{ [column: string]: z.JSONType }>(
         'connectors',
         `?select=id,key,name,connector_type,direction,status,parser_id,created_at,updated_at${pageQuery(input)}`,
       )
+
       return { resource: input.resource, items }
     }
+
     case 'pipeline_runs': {
-      const items = await context.client.list<Record<string, unknown>>(
+      const items = await context.client.list<{ [column: string]: z.JSONType }>(
         'pipeline_runs',
         `?select=id,definition_version_id,schedule_id,trigger_kind,status,attempt,error_code,error_message,started_at,finished_at,created_at${pageQuery(input)}`,
       )
+
       return { resource: input.resource, items }
     }
+
     case 'pipeline_schedules': {
-      const items = await context.client.list<Record<string, unknown>>(
+      const items = await context.client.list<{ [column: string]: z.JSONType }>(
         'pipeline_schedules',
         `?select=id,definition_id,kind,spec,enabled,last_run_at,next_run_at,created_at,updated_at${pageQuery(input)}`,
       )
+
       return { resource: input.resource, items }
     }
+
     case 'instruments': {
-      const items = await context.client.list<Record<string, unknown>>(
+      const items = await context.client.list<{ [column: string]: z.JSONType }>(
         'instruments',
         `?select=id,display_id,name,instrument_type,model,serial_number,vendor,connection_status,last_connected_at,location,retired_at,created_at,updated_at${pageQuery(input)}`,
       )
+
       return { resource: input.resource, items }
     }
+
     case 'protocol_versions': {
-      const items = await context.client.list<Record<string, unknown>>(
+      const items = await context.client.list<{ [column: string]: z.JSONType }>(
         'protocol_versions',
         `?select=id,protocol_record_id,version,status,change_summary,effective_at,review_due_at,created_at,updated_at${pageQuery(input)}`,
       )
+
       return { resource: input.resource, items }
     }
+
     case 'analysis_definitions': {
-      const items = await context.client.list<Record<string, unknown>>(
+      const items = await context.client.list<{ [column: string]: z.JSONType }>(
         'analysis_definitions',
         `?select=id,name,version,owner_user_id,created_at,updated_at${pageQuery(input)}`,
       )
+
       return { resource: input.resource, items }
     }
+
     case 'files': {
-      const items = await context.client.list<Record<string, unknown>>(
+      const items = await context.client.list<{ [column: string]: z.JSONType }>(
         'file_objects',
         `?select=id,record_id,display_name,media_type,byte_size,status,created_at,deleted_at${pageQuery(input)}`,
       )
+
       return { resource: input.resource, items }
     }
+
     case 'comments': {
       if (!input.recordId) {
         throw new Error('comments reads require recordId.')
       }
-      const items = await context.client.list<Record<string, unknown>>(
+
+      const items = await context.client.list<{ [column: string]: z.JSONType }>(
         'comments',
         `?select=id,record_id,sheet_instance_id,root_id,parent_id,target_kind,state,author_user_id,body,created_at,updated_at&record_id=eq.${encodeURIComponent(input.recordId)}${pageQuery(input)}`,
       )
+
       return { resource: input.resource, recordId: input.recordId, items }
     }
+
     case 'audit': {
-      const items = await context.client.list<Record<string, unknown>>(
+      const items = await context.client.list<{ [column: string]: z.JSONType }>(
         'change_events',
         `?select=id,sequence,entity_type,entity_uuid,operation,record_id,project_id,actor_user_id,actor_credential_id,created_at${pageQuery(input)}`,
       )
+
       return { resource: input.resource, items }
     }
+
     case 'usage':
       return {
         resource: input.resource,

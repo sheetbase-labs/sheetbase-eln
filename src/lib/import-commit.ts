@@ -7,11 +7,12 @@ import type { ContractGateReport } from '#/lib/data-contracts/types'
 import { createRegistryEntry, isDuplicateError } from './bio-registry'
 import type { DataClient } from './data-client'
 import { validateDatasetRowBatch } from './dataset-product'
-import type { DatasetCommitResult } from './dataset-product'
+import type { DatasetCommitResult, DatasetCommitRow } from './dataset-product'
 import { assertPinnedSchemaVersion } from './import-mapping'
 import type { MappedImport } from './import-mapping'
 import { getSamenessRule } from './registry-sameness'
 import { validateSheetRecordBatch } from './sheet-record-mapping'
+import { pipelineJsonObjectSchema } from './pipelines/types'
 
 export interface DatasetImportTarget {
   kind: 'dataset'
@@ -83,12 +84,17 @@ async function commitDatasetImport(
   mapped: MappedImport,
   idempotencyKey: string,
 ): Promise<ImportCommitReport> {
-  const rows = mapped.rows.map((row) => ({
-    operation: 'create' as const,
-    rowId: row.rowId,
-    values: row.values,
-    ...(row.plannedKey ? { plannedKey: row.plannedKey } : {}),
-  }))
+  const rows = mapped.rows.map((row): DatasetCommitRow => {
+    const payload: DatasetCommitRow = {
+      operation: 'create',
+      rowId: row.rowId,
+      values: row.values,
+    }
+
+    if (row.plannedKey) payload.plannedKey = row.plannedKey
+
+    return payload
+  })
 
   const validated = await validateDatasetRowBatch(client, {
     datasetId: target.datasetId,
@@ -182,37 +188,25 @@ async function commitRecordImport(
     {
       projectId: target.projectId,
       modelKey: target.modelKey,
-      rows: batchRows,
+      rows: batchRows.map((row) => ({
+        ...row,
+        values: pipelineJsonObjectSchema.parse(row.values),
+      })),
     },
     client,
   )
 
-  const validationRecord = asRecord(validation)
-
-  if (validationRecord && validationRecord.ok === false) {
-    const rows = Array.isArray(validationRecord.rows)
-      ? validationRecord.rows
-      : []
-
+  if (!validation.ok) {
     return {
       ok: false,
       committed: 0,
-      errors: rows.flatMap((item) => {
-        const row = asRecord(item)
-
-        if (!row) return []
-        const errors = Array.isArray(row.errors) ? row.errors : []
-
-        return errors.map((error) => {
-          const detail = asRecord(error)
-
-          return {
-            row: typeof row.rowIndex === 'number' ? row.rowIndex : undefined,
-            code: String(detail?.code ?? 'invalid'),
-            message: String(detail?.message ?? 'Record validation failed.'),
-          }
-        })
-      }),
+      errors: validation.rows.flatMap((row) =>
+        row.errors.map((error) => ({
+          row: row.rowIndex,
+          code: error.code,
+          message: error.message,
+        })),
+      ),
     }
   }
 
@@ -271,14 +265,6 @@ function defaultRecordStatus(kind: string): string {
   if (kind === 'sample' || kind === 'material') return 'available'
 
   return 'draft'
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as Record<string, unknown>
-  }
-
-  return null
 }
 
 export function describeImportRpcCode(code: string): string {

@@ -97,10 +97,12 @@ export async function fetchLatestReviews(
 ): Promise<Map<string, LatestReview>> {
   const recordIds = [
     ...new Set(
-      items
-        .filter(isReviewNotification)
-        .map((item) => item.recordId)
-        .filter((id): id is string => id !== null),
+      items.flatMap((item) => {
+        if (!isReviewNotification(item)) return []
+        const id = item.recordId
+
+        return id === null ? [] : [id]
+      }),
     ),
   ]
 

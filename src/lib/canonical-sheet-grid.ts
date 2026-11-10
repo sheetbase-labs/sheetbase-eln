@@ -1,17 +1,25 @@
+import { z } from 'zod'
+
 import { composedSheetGridMatrix } from './composed-sheet-grid'
 import type { ComposedSheetGridColumn } from './composed-sheet-grid'
 import type {
+  ComposedSheetCellValue,
   ComposedSheetRow,
   ComposedSheetSnapshot,
 } from './sheet-composition-data'
 import { fieldEditorPresentation } from './field-presentation'
 import type { FieldEditorPresentation } from './field-presentation'
 import type { FieldDefinition, FieldOption } from './field-definition'
-import { parseQuantityNumericValue } from './field-value-validation'
+import {
+  parseQuantityNumericValue,
+  validateFieldValue,
+} from './field-value-validation'
 import type { SheetDefinitionConfiguration } from './sheet-definition'
 import type { SheetInstance } from './sheet-instance-data'
-import type { SheetPresentation } from './sheet-instance'
+import { sheetLocalScalarSchema, sheetLocalValueSchema } from './sheet-instance'
+import type { SheetLocalValue, SheetPresentation } from './sheet-instance'
 import { sheetLocalValueError } from './sheet-local-data'
+import type { SheetInstanceCalculationResult } from './sheet-local-data'
 
 export type CanonicalSheetColumnOrigin = 'bound' | 'local' | 'calculation'
 
@@ -45,11 +53,16 @@ export interface CanonicalSheetGridColumn {
   sourceLabel?: string
 }
 
+export type CanonicalSheetCellValue =
+  | ComposedSheetCellValue
+  | SheetLocalValue
+  | SheetInstanceCalculationResult['calculatedValue']
+
 export interface CanonicalSheetGridMatrix {
   columns: CanonicalSheetGridColumn[]
   rowKeys: string[]
   rowKinds: Array<'local' | 'composed'>
-  data: unknown[][]
+  data: CanonicalSheetCellValue[][]
 }
 
 function activeLocalFields(instance: SheetInstance) {
@@ -170,16 +183,21 @@ function canonicalCategoryOption(
   )
 }
 
-export function parseSheetCellInput(
+/** Preserve raw editor values, including immutable JSON and Date, until the
+ * canonical field validator accepts or rejects them. Coercion does not make
+ * an otherwise invalid input a persisted local value. */
+export function parseSheetCellInput<Input>(
   field: FieldDefinition | null,
-  raw: unknown,
-): unknown {
+  raw: Input,
+): Input | SheetLocalValue {
   if (raw === '' || raw === undefined) return null
 
   if (!field) return raw
 
   if (field.logicalType === 'boolean') {
-    if (typeof raw === 'boolean') return raw
+    const boolean = z.boolean().safeParse(raw)
+
+    if (boolean.success) return boolean.data
 
     if (raw === 'true' || raw === 'TRUE' || raw === 1 || raw === '1')
       return true
@@ -193,23 +211,25 @@ export function parseSheetCellInput(
   if (field.logicalType === 'integer' || field.logicalType === 'decimal') {
     // MODEL-02: one numeric coercion (quantity-unit suffixes, thousands
     // separators) shared with Record input; unparseable input fails closed.
-    const parsed = parseQuantityNumericValue(field, raw)
+    const parsed = z.number().safeParse(parseQuantityNumericValue(field, raw))
 
-    if (typeof parsed === 'number') return parsed
+    if (parsed.success) return parsed.data
 
     return raw
   }
 
-  if (field.logicalType === 'timestamp' && typeof raw === 'string') {
-    const coerced = canonicalTimestampInput(raw)
+  const text = z.string().safeParse(raw)
+
+  if (field.logicalType === 'timestamp' && text.success) {
+    const coerced = canonicalTimestampInput(text.data)
 
     if (coerced) return coerced
 
     return raw
   }
 
-  if (field.logicalType === 'category' && typeof raw === 'string') {
-    const option = canonicalCategoryOption(field, raw)
+  if (field.logicalType === 'category' && text.success) {
+    const option = canonicalCategoryOption(field, text.data)
 
     if (option) return option.id
 
@@ -222,7 +242,10 @@ export function parseSheetCellInput(
 export function canonicalSheetGridMatrix(input: {
   instance: SheetInstance
   composition: ComposedSheetSnapshot | null
-  calculationResults?: Record<string, Record<string, unknown>>
+  calculationResults?: Record<
+    string,
+    Record<string, SheetInstanceCalculationResult['calculatedValue']>
+  >
 }): CanonicalSheetGridMatrix {
   const localFields = activeLocalFields(input.instance)
   const calculations = input.instance.state.instanceCalculations ?? []
@@ -316,8 +339,9 @@ export function canonicalSheetGridMatrix(input: {
 
       // GRID-05: a composed row without a local entry has no local values —
       // read them safely instead of throwing (mirrors frozen-sheet-grid).
-      const localRow = input.instance.state.localValues[rowKey] as
-        Record<string, unknown> | undefined
+      const localRow = Object.hasOwn(input.instance.state.localValues, rowKey)
+        ? input.instance.state.localValues[rowKey]
+        : undefined
 
       const calculatedRow = input.calculationResults?.[rowKey]
 
@@ -369,13 +393,21 @@ export function canonicalSheetGridMatrix(input: {
   }
 }
 
-export function validateCanonicalCell(
+export function validateCanonicalCell<Input>(
   field: FieldDefinition | null,
-  value: unknown,
+  value: Input,
 ): string | null {
-  if (!field) return null
+  if (field) {
+    const error = validateFieldValue(field, value)
 
-  return sheetLocalValueError(field, value)
+    if (error) return error
+  }
+
+  const parsed = sheetLocalValueSchema.safeParse(value)
+
+  if (!parsed.success) return 'invalid_value'
+
+  return field ? sheetLocalValueError(field, parsed.data) : null
 }
 
 /**
@@ -422,9 +454,13 @@ export function applySheetPresentation(
     matrix.columns.map((column, index) => [column.id, index]),
   )
 
-  const orderIndex = ordered.map(
-    (column) => sourceIndexById.get(column.id) as number,
-  )
+  const orderIndex = ordered.map((column) => {
+    const index = sourceIndexById.get(column.id)
+
+    if (index === undefined) throw new Error('Missing canonical column index.')
+
+    return index
+  })
 
   const data = matrix.data.map((row) => orderIndex.map((index) => row[index]))
 
@@ -463,8 +499,7 @@ export function resolveCanonicalCellChanges(
   const resolved: Array<[number, string | number, unknown, unknown]> = []
 
   for (const change of changes) {
-    const columnIndex =
-      typeof change[1] === 'number' ? change[1] : Number(change[1])
+    const columnIndex = Number(change[1])
 
     const column = columns.at(columnIndex)
 
@@ -520,16 +555,16 @@ export function firstBulkChangeRejection(
  * mapping via `toPhysicalColumn`; returned coordinates stay visual so
  * `setDataAtCell` applies them unchanged.
  */
-export function clearContentsUpdates(
+export function clearContentsUpdates<Input>(
   columns: CanonicalSheetGridColumn[],
   ranges: Array<{
     from: { row: number | null; col: number | null }
     to: { row: number | null; col: number | null }
   }>,
-  readCell: (row: number, col: number) => unknown,
+  readCell: (row: number, col: number) => Input,
   toPhysicalColumn: (visualColumn: number) => number = (col) => col,
-): Array<[number, number, unknown]> {
-  const updates: Array<[number, number, unknown]> = []
+): Array<[number, number, null]> {
+  const updates: Array<[number, number, null]> = []
 
   for (const range of ranges) {
     const fromRow = range.from.row ?? 0
@@ -575,9 +610,9 @@ export function canonicalSheetColumnHeader(
  * is the option id; known options render as their label, unknown or
  * vocabulary-backed values render as-is. This never changes stored state.
  */
-export function categoryCellDisplayText(
+export function categoryCellDisplayText<Input>(
   field: FieldDefinition | null,
-  value: unknown,
+  value: Input,
 ): string {
   if (value == null) return ''
 
@@ -621,15 +656,11 @@ export interface HotFilterAddition {
 
 const CAPTURED_FILTER_CAP = 32
 
-function isFilterValue(
-  value: unknown,
-): value is string | number | boolean | null {
-  return (
-    value === null ||
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  )
+function isFilterValue<Input>(
+  value: Input,
+): value is Input &
+  Exclude<SheetPresentation['filters'][number]['value'], undefined> {
+  return sheetLocalScalarSchema.safeParse(value).success
 }
 
 /**

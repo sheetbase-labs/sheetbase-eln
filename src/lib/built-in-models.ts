@@ -2,6 +2,7 @@ import { t } from '#/copy'
 import { isUuid } from '#/lib/field-value-validation'
 import type { DataClient } from '#/lib/data-client'
 import { updateRecordModelFieldValues } from '#/lib/model-fields'
+import type { ModelFieldRecordValues } from '#/lib/model-fields'
 
 /**
  * The built-in models a workspace can add its own fields to. Their standard
@@ -227,7 +228,7 @@ export function fieldKeyFromLabel(
 }
 
 export interface AddedFieldValues {
-  customFields: Record<string, unknown>
+  customFields: ModelFieldRecordValues['customFields']
   locked: boolean
   /** The subtype version the object is pinned to, if it has a subtype. */
   modelVersionId: string | null
@@ -251,7 +252,7 @@ export async function fetchAddedFieldValues(
 
   const row = (
     await client.list<{
-      custom_fields: Record<string, unknown> | null
+      custom_fields: ModelFieldRecordValues['customFields'] | null
       locked_at?: string | null
       model_version_id: string | null
     }>(
@@ -280,7 +281,7 @@ export async function saveAddedFieldValues(
   client: DataClient,
   model: BuiltInModel,
   objectId: string,
-  values: Record<string, unknown>,
+  values: ModelFieldRecordValues['customFields'],
 ): Promise<void> {
   if (Object.keys(values).length === 0) return
 

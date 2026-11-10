@@ -27,15 +27,18 @@ export async function handleBuiltInPlugins(
 ): Promise<Response> {
   if (request.method !== 'POST')
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
+
   const auth = await resolvePersonalAuth(
     request.headers,
     'admin:write',
     deps.auth,
   )
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
   const client = deps.makeClient(context.token)
+
   try {
     await client.rpc('require_capability', {
       p_workspace_id: context.workspaceId,
@@ -48,8 +51,10 @@ export async function handleBuiltInPlugins(
       'Only an owner or administrator can install plugins.',
     )
   }
+
   try {
     const results = await ensureBuiltInPlugins(client, context)
+
     return Response.json({ plugins: results })
   } catch (error) {
     return requestErrorResponse(

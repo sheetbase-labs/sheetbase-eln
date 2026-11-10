@@ -6,6 +6,8 @@
  * says so.
  */
 
+import type { ChangeEventInput } from '#/lib/webhook-events'
+
 export const OPENLINEAGE_SCHEMA_URL =
   'https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent'
 
@@ -33,16 +35,40 @@ export interface LineageActivity {
 export interface OpenLineageDataset {
   namespace: string
   name: string
-  facets: Record<string, unknown>
+  facets: {
+    version?: ReturnType<typeof facetBase> & { datasetVersion: string }
+    schema?: ReturnType<typeof facetBase> & { fields: { name: string }[] }
+    columnLineage?: NonNullable<ReturnType<typeof columnLineageFor>>
+  }
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- OpenLineage extension facets are transported unchanged; this owner does not interpret or restrict custom facet payloads.
   inputFacets?: Record<string, unknown>
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- OpenLineage extension facets are transported unchanged; this owner does not interpret or restrict custom facet payloads.
   outputFacets?: Record<string, unknown>
 }
 
 export interface OpenLineageRunEvent {
   eventType: LineageEventType
   eventTime: string
-  run: { runId: string; facets: Record<string, unknown> }
-  job: { namespace: string; name: string; facets: Record<string, unknown> }
+  run: {
+    runId: string
+    facets: {
+      errorMessage?: ReturnType<typeof facetBase> & {
+        message: string
+        programmingLanguage: string
+      }
+    }
+  }
+  job: {
+    namespace: string
+    name: string
+    facets: {
+      jobType: ReturnType<typeof facetBase> & {
+        processingType: string
+        integration: string
+        jobType: LineageActivity['jobType']
+      }
+    }
+  }
   inputs: OpenLineageDataset[]
   outputs: OpenLineageDataset[]
   producer: string
@@ -62,7 +88,7 @@ function datasetOf(
   namespace: string,
   ref: LineageDatasetRef,
 ): OpenLineageDataset {
-  const facets: Record<string, unknown> = {}
+  const facets: OpenLineageDataset['facets'] = {}
 
   if (ref.versionId) {
     facets.version = {
@@ -86,10 +112,18 @@ export function columnLineageFor(
   namespace: string,
   inputs: LineageDatasetRef[],
   output: LineageDatasetRef,
-): Record<string, unknown> | null {
-  const fields: Record<string, unknown> = {}
+) {
+  const fields: Record<
+    string,
+    {
+      inputFields: { namespace: string; name: string; field: string }[]
+      transformationDescription: string
+      transformationType: string
+    }
+  > = {}
 
   for (const column of output.columns ?? []) {
+    // oxlint-disable-next-line anti-slop/no-array-filter-map -- Finish every input-column predicate before reading matched dataset IDs; interleaving those getter reads changes native mutation and throw behavior.
     const sources = inputs
       .filter((input) =>
         (input.columns ?? []).some(
@@ -130,7 +164,7 @@ export function buildRunEvent(
     return dataset
   })
 
-  const runFacets: Record<string, unknown> = {}
+  const runFacets: OpenLineageRunEvent['run']['facets'] = {}
 
   if (activity.errorMessage) {
     runFacets.errorMessage = {
@@ -167,7 +201,7 @@ export function buildRunEvent(
 export interface LineageChange {
   entityType: string
   operation: string
-  payload: Record<string, unknown>
+  payload: ChangeEventInput['payload']
 }
 
 export interface LineageIntent {
@@ -223,7 +257,7 @@ export function lineageIntent(change: LineageChange): LineageIntent | null {
   }
 }
 
-function payloadSaysCompleted(payload: Record<string, unknown>): boolean {
+function payloadSaysCompleted(payload: ChangeEventInput['payload']): boolean {
   return payload.status === 'completed' || payload.action === 'completed'
 }
 

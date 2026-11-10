@@ -29,13 +29,17 @@ async function loadSession(workspaceId: string): Promise<Session> {
   const { resolveSessionAuth } = await import('#/lib/request-auth')
   const headers = getRequestHeaders()
   const context = await getCurrentContext(headers)
+
   if (!context?.workspace || context.workspace.id !== workspaceId) {
     throw new Error('You do not have access to this workspace.')
   }
+
   const auth = await resolveSessionAuth(headers)
+
   if (!auth.ok || auth.context.workspaceId !== workspaceId) {
     throw new Error('You do not have access to this workspace.')
   }
+
   return {
     userId: context.user.id,
     workspaceId,
@@ -47,6 +51,7 @@ async function loadSession(workspaceId: string): Promise<Session> {
 async function dataClient(token: string) {
   const { createServerDataClient } =
     await import('#/lib/server-data-client.server')
+
   return createServerDataClient(token)
 }
 
@@ -59,12 +64,15 @@ export interface SemanticSettingsView {
 
 async function buildView(session: Session): Promise<SemanticSettingsView> {
   const client = await dataClient(session.token)
+
   const { getPublicProviderProfiles } =
     await import('#/lib/ai-providers/config.server')
+
   const settings = await client.rpc<SemanticSettings>(
     'semantic_search_settings',
     { p_workspace_id: session.workspaceId },
   )
+
   return {
     settings,
     profiles: getPublicProviderProfiles().profiles.filter(
@@ -80,41 +88,47 @@ export const getSemanticSettingsFn = createServerFn({ method: 'POST' })
     return buildView(await loadSession(data.workspaceId))
   })
 
-const updateSchema = z
-  .object({
-    workspaceId: z.string().uuid(),
-    enabled: z.boolean(),
-    profile: z.string().min(1).max(80).nullable(),
-    literatureEnabled: z.boolean(),
-  })
-  .strict()
+const updateSchema = z.strictObject({
+  workspaceId: z.string().uuid(),
+  enabled: z.boolean(),
+  profile: z.string().min(1).max(80).nullable(),
+  literatureEnabled: z.boolean(),
+})
 
 export const updateSemanticSettingsFn = createServerFn({ method: 'POST' })
   .validator((input: z.input<typeof updateSchema>) => updateSchema.parse(input))
   .handler(async ({ data }): Promise<SemanticSettingsView> => {
     const session = await loadSession(data.workspaceId)
+
     if (!session.canManage) {
       throw new Error('Your role cannot change AI settings.')
     }
+
     const view = await buildView(session)
+
     const chosen = data.profile
       ? view.profiles.find((profile) => profile.id === data.profile)
       : undefined
+
     if (data.profile && !chosen) {
       throw new Error('That embeddings model is not set up on this deployment.')
     }
+
     const client = await dataClient(session.token)
+
     if (data.enabled && chosen?.dataClass === 'cloud') {
       const rows = await client.list<{ ai_cloud_egress_enabled: boolean }>(
         'workspace_settings',
         `?select=ai_cloud_egress_enabled&workspace_id=eq.${encodeURIComponent(data.workspaceId)}`,
       )
+
       if (!rows[0]?.ai_cloud_egress_enabled) {
         throw new Error(
           'That model sends text to a cloud provider. Allow that for this workspace in the assistant section first.',
         )
       }
     }
+
     await client.rpc('set_semantic_search_settings', {
       p_workspace_id: data.workspaceId,
       p_enabled: data.enabled,
@@ -131,6 +145,7 @@ export const updateSemanticSettingsFn = createServerFn({ method: 'POST' })
         literatureEnabled: data.literatureEnabled,
       }),
     )
+
     return buildView(session)
   })
 
@@ -138,22 +153,23 @@ export const reindexEmbeddingsFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<SemanticSettingsView> => {
     const session = await loadSession(data.workspaceId)
+
     if (!session.canManage) {
       throw new Error('Your role cannot change AI settings.')
     }
+
     const client = await dataClient(session.token)
     await client.rpc('reindex_embeddings', { p_workspace_id: data.workspaceId })
+
     return buildView(session)
   })
 
-const searchSchema = z
-  .object({
-    workspaceId: z.string().uuid(),
-    query: z.string().trim().min(1).max(500),
-    limit: z.number().int().min(1).max(50).optional(),
-    types: z.array(z.enum(SEARCH_RESULT_TYPES)).max(20).optional(),
-  })
-  .strict()
+const searchSchema = z.strictObject({
+  workspaceId: z.string().uuid(),
+  query: z.string().trim().min(1).max(500),
+  limit: z.number().int().min(1).max(50).optional(),
+  types: z.array(z.enum(SEARCH_RESULT_TYPES)).max(20).optional(),
+})
 
 export interface HybridSearchView {
   hits: HybridHit[]
@@ -168,12 +184,15 @@ export const hybridSearchFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<HybridSearchView> => {
     const session = await loadSession(data.workspaceId)
     const client = await dataClient(session.token)
+
     const { hybridSearch, semanticUnavailableMessage } =
       await import('#/lib/semantic-search.server')
+
     const out = await hybridSearch(client, data.workspaceId, data.query, {
       limit: data.limit,
       types: data.types,
     })
+
     return {
       hits: out.hits,
       meaning: out.meaning.used
@@ -201,8 +220,10 @@ export const pluginSearchFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const session = await loadSession(data.workspaceId)
     const client = await dataClient(session.token)
+
     const { searchWithPlugins } =
       await import('#/lib/extensions/plugin-search.server')
+
     return searchWithPlugins(client, {
       workspaceId: data.workspaceId,
       actorUserId: session.userId,

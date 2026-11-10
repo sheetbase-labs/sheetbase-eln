@@ -5,7 +5,9 @@ import {
   nextRunAt,
   normalizeTriggerEventName,
   PIPELINE_TRIGGER_EVENTS,
+  producerForTriggerEvent,
   specBindings,
+  specTimeZone,
   upcomingRuns,
   validateScheduleSpec,
 } from './pipeline-schedule'
@@ -41,6 +43,80 @@ describe('validateScheduleSpec instrument filter', () => {
 })
 
 describe('validateScheduleSpec', () => {
+  it('rejects malformed raw specs and event names without throwing', () => {
+    for (const value of [null, undefined, false, 7, 'interval', []]) {
+      expect(validateScheduleSpec('interval', value)).toEqual({
+        message: 'schedule spec must be an object',
+      })
+      expect(normalizeTriggerEventName(value)).toBeNull()
+      expect(producerForTriggerEvent(value)).toBeNull()
+    }
+
+    expect(producerForTriggerEvent('dataset_version_created')).toEqual({
+      entityType: 'dataset_version',
+      operation: 'create',
+    })
+  })
+
+  it('preserves common-field diagnostic priority over kind-specific fields', () => {
+    const invalid = {
+      dailyAt: '25:00',
+      missedRunPolicy: 'later',
+      parameters: [],
+      inputs: { readings: [] },
+    }
+
+    expect(validateScheduleSpec('daily', invalid)).toEqual({
+      message: 'missedRunPolicy must be run_once or skip',
+    })
+    expect(
+      validateScheduleSpec('daily', { ...invalid, missedRunPolicy: null }),
+    ).toEqual({
+      message: 'parameters must be an object',
+    })
+    expect(
+      validateScheduleSpec('daily', {
+        ...invalid,
+        missedRunPolicy: null,
+        parameters: null,
+      }),
+    ).toEqual({
+      message: 'input readings needs a binding',
+    })
+    expect(
+      validateScheduleSpec('daily', {
+        ...invalid,
+        missedRunPolicy: null,
+        parameters: null,
+        inputs: null,
+      }),
+    ).toEqual({
+      message: 'dailyAt must be an HH:MM time',
+    })
+    expect(
+      validateScheduleSpec('daily', {
+        dailyAt: '06:30',
+        missedRunPolicy: undefined,
+        parameters: { optional: undefined },
+        inputs: null,
+        timeZone: null,
+      }),
+    ).toBeNull()
+  })
+
+  it('enforces both interval bounds and rejects nonfinite values', () => {
+    for (const intervalMinutes of [0, 525_601, 1.5, NaN, Infinity, '1']) {
+      expect(validateScheduleSpec('interval', { intervalMinutes })).toEqual({
+        message: 'intervalMinutes must be an integer between 1 and 525600',
+      })
+    }
+
+    expect(validateScheduleSpec('interval', { intervalMinutes: 1 })).toBeNull()
+    expect(
+      validateScheduleSpec('interval', { intervalMinutes: 525_600 }),
+    ).toBeNull()
+  })
+
   it('accepts valid interval/daily/event specs', () => {
     expect(validateScheduleSpec('interval', { intervalMinutes: 30 })).toBeNull()
     expect(validateScheduleSpec('daily', { dailyAt: '09:30' })).toBeNull()
@@ -324,5 +400,33 @@ describe('input bindings and the missed-run policy', () => {
       a: { mode: 'pinned', versionId: version },
       b: { mode: 'latest', datasetId: dataset },
     })
+  })
+
+  it('does not discard own reserved input keys during validation or legacy binding reads', () => {
+    const inputs = Object.fromEntries([
+      ['__proto__', { mode: 'pinned', versionId: version }],
+    ])
+
+    expect(validateScheduleSpec('daily', { dailyAt: '06:00', inputs })).toEqual(
+      {
+        message: 'input __proto__ is not a valid input identifier',
+      },
+    )
+
+    const bindings = specBindings({
+      inputVersions: Object.fromEntries([['__proto__', version]]),
+    })
+
+    expect(Object.hasOwn(bindings, '__proto__')).toBe(true)
+    expect(bindings.__proto__).toEqual({ mode: 'pinned', versionId: version })
+    expect(Object.getPrototypeOf(bindings)).toBe(Object.prototype)
+  })
+
+  it('retains the UTC fallback for missing or malformed stored zones', () => {
+    expect(specTimeZone({})).toBe('UTC')
+    expect(specTimeZone({ timeZone: null })).toBe('UTC')
+    expect(specTimeZone({ timeZone: '' })).toBe('UTC')
+    expect(specTimeZone({ timeZone: 7 })).toBe('UTC')
+    expect(specTimeZone({ timeZone: 'Europe/London' })).toBe('Europe/London')
   })
 })

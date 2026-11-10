@@ -58,11 +58,11 @@ interface NamedLabelWire {
 }
 
 /** The table each pinnable thing with only a name and display id lives in. */
-const NAMED_KINDS = {
-  instrument: 'instruments',
-  pipeline: 'pipeline_definitions',
-  analysis_view: 'analysis_views',
-} as const
+const NAMED_KINDS = new Map([
+  ['instrument', 'instruments'],
+  ['pipeline', 'pipeline_definitions'],
+  ['analysis_view', 'analysis_views'],
+] as const)
 
 /** Wire shape of `api.user_favourites` (snake_case via PostgREST). */
 export interface FavouriteWire {
@@ -220,6 +220,7 @@ export function setFavourite(
       p_favourite: favourite,
     })
     .then((row) => {
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Dispatch the declared native scalar-or-object RPC union without parsing or restricting the created_at fallback.
       if (typeof row === 'string') return row
 
       return row?.created_at ?? null
@@ -279,71 +280,77 @@ export async function resolveFavouriteItems(
     idsByKind.set(favourite.kind, ids)
   }
 
-  const [recordRows, datasetRows, sheetRows, projectRows, templateRows] =
-    await Promise.all([
-      idsByKind.has('record')
-        ? listByIds(idsByKind.get('record')!, (inList) =>
-            client.list<RecordLabelWire>(
-              'records',
-              `?id=in.(${inList})&select=id,kind,identifier,title,archived_at,deleted_at`,
-            ),
-          )
-        : Promise.resolve([]),
-      idsByKind.has('dataset')
-        ? listByIds(idsByKind.get('dataset')!, (inList) =>
-            client.list<DatasetLabelWire>(
-              'datasets',
-              `?id=in.(${inList})&select=id,name,lifecycle`,
-            ),
-          )
-        : Promise.resolve([]),
-      idsByKind.has('sheet')
-        ? listByIds(idsByKind.get('sheet')!, (inList) =>
-            client.list<SheetLabelWire>(
-              'sheet_instances',
-              `?id=in.(${inList})&select=id,name,lifecycle`,
-            ),
-          )
-        : Promise.resolve([]),
-      idsByKind.has('project')
-        ? listByIds(idsByKind.get('project')!, (inList) =>
-            client.list<ProjectWire>(
-              'projects',
-              `?id=in.(${inList})&select=id,key,title,status,archived_at`,
-            ),
-          )
-        : Promise.resolve([]),
-      idsByKind.has('notebook_template')
-        ? listByIds(idsByKind.get('notebook_template')!, (inList) =>
-            client.list<TemplateLabelWire>(
-              'notebook_templates',
-              `?id=in.(${inList})&select=id,key,name,lifecycle`,
-            ),
-          )
-        : Promise.resolve([]),
-    ])
-
-  const namedRows = await Promise.all(
-    (Object.keys(NAMED_KINDS) as (keyof typeof NAMED_KINDS)[]).map(
-      async (kind) => {
-        const ids = idsByKind.get(kind)
-
-        if (!ids) return [] as [string, NamedLabelWire][]
-
-        const rows = await listByIds(ids, (inList) =>
-          client.list<NamedLabelWire>(
-            NAMED_KINDS[kind],
-            `?id=in.(${inList})&select=id,name,display_id`,
+  const [
+    recordRows,
+    datasetRows,
+    sheetRows,
+    projectRows,
+    templateRows,
+    namedRows,
+  ] = await Promise.all([
+    idsByKind.has('record')
+      ? listByIds(idsByKind.get('record')!, (inList) =>
+          client.list<RecordLabelWire>(
+            'records',
+            `?id=in.(${inList})&select=id,kind,identifier,title,archived_at,deleted_at`,
           ),
         )
+      : Promise.resolve([]),
+    idsByKind.has('dataset')
+      ? listByIds(idsByKind.get('dataset')!, (inList) =>
+          client.list<DatasetLabelWire>(
+            'datasets',
+            `?id=in.(${inList})&select=id,name,lifecycle`,
+          ),
+        )
+      : Promise.resolve([]),
+    idsByKind.has('sheet')
+      ? listByIds(idsByKind.get('sheet')!, (inList) =>
+          client.list<SheetLabelWire>(
+            'sheet_instances',
+            `?id=in.(${inList})&select=id,name,lifecycle`,
+          ),
+        )
+      : Promise.resolve([]),
+    idsByKind.has('project')
+      ? listByIds(idsByKind.get('project')!, (inList) =>
+          client.list<ProjectWire>(
+            'projects',
+            `?id=in.(${inList})&select=id,key,title,status,archived_at`,
+          ),
+        )
+      : Promise.resolve([]),
+    idsByKind.has('notebook_template')
+      ? listByIds(idsByKind.get('notebook_template')!, (inList) =>
+          client.list<TemplateLabelWire>(
+            'notebook_templates',
+            `?id=in.(${inList})&select=id,key,name,lifecycle`,
+          ),
+        )
+      : Promise.resolve([]),
+    Promise.all(
+      Array.from(
+        NAMED_KINDS,
+        async ([kind, table]): Promise<[string, NamedLabelWire][]> => {
+          const ids = idsByKind.get(kind)
 
-        return rows.map((row): [string, NamedLabelWire] => [
-          `${kind}:${row.id}`,
-          row,
-        ])
-      },
+          if (!ids) return []
+
+          const rows = await listByIds(ids, (inList) =>
+            client.list<NamedLabelWire>(
+              table,
+              `?id=in.(${inList})&select=id,name,display_id`,
+            ),
+          )
+
+          return rows.map((row): [string, NamedLabelWire] => [
+            `${kind}:${row.id}`,
+            row,
+          ])
+        },
+      ),
     ),
-  )
+  ])
 
   const namedByKey = new Map(namedRows.flat())
 
@@ -542,15 +549,12 @@ export interface SetFavouriteVariables {
  * raw list and the resolved home items are invalidated afterwards so the
  * home surface refetches canonical labels.
  */
-export function useSetFavourite(
-  client: DataClient = notebookDataClient,
-): ReturnType<typeof useMutation<void, Error, SetFavouriteVariables>> {
+export function useSetFavourite(client: DataClient = notebookDataClient) {
   const queryClient = useQueryClient()
 
   // The sidebar's pins (every kind) come from the shell loader, not a query.
   // Outside a router (unit tests, isolated renders) there is none to refresh.
-  const router = useRouter({ warn: false }) as
-    ReturnType<typeof useRouter> | undefined
+  const router = useRouter({ warn: false })
 
   return useMutation({
     mutationFn: async ({
@@ -607,6 +611,7 @@ export function useSetFavourite(
       }
     },
     onSettled: () => {
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- The installed useRouter returns null outside a provider despite its non-null declaration; warn:false intentionally permits that runtime case.
       void router?.invalidate()
       // A record page sits in a pane with its own router, so the shell's
       // router (the sidebar's pins) is asked separately.
@@ -633,12 +638,7 @@ export function useFavouriteState(
   kind: FavouriteObjectKind,
   objectId: string | null | undefined,
   client: DataClient = notebookDataClient,
-): {
-  isFavourite: boolean
-  setFavourite: (favourite: boolean) => void
-  pending: boolean
-  error: unknown
-} {
+) {
   const listQuery = useFavouritesList(client)
   const mutation = useSetFavourite(client)
 

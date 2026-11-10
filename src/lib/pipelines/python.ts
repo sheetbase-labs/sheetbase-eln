@@ -1,4 +1,6 @@
 import { t } from '#/copy'
+import { z } from 'zod'
+import { pipelineJsonObjectSchema } from './types'
 /**
  * Python step contract: what a Python step declares about its environment and
  * its data, as pure functions shared by the authoring UI, the configuration
@@ -56,7 +58,7 @@ export interface PythonEnvironment {
 /** What the test-run route returns for a step that ran. */
 export interface PythonTestRunSuccess {
   ok: true
-  rows: Array<Record<string, unknown>>
+  rows: PythonResultRow[]
   rowCount: number
   truncated: boolean
   /** The result's columns with the types its values have. */
@@ -85,8 +87,16 @@ export const PYTHON_COLUMN_NAME_RE = /^[^\s\0][^\0]{0,127}$/
 export const PYTHON_REQUIREMENT_RE =
   /^([A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)==([A-Za-z0-9](?:[A-Za-z0-9.!+_-]*[A-Za-z0-9])?)$/
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
+const rawObjectSchema = z.record(z.string(), z.unknown())
+
+/** JSON rows returned by the isolated worker, after scientific-value serialization. */
+export const pythonResultRowsSchema = z.array(pipelineJsonObjectSchema)
+
+export type PythonResultRow = z.infer<typeof pythonResultRowsSchema>[number]
+
+const rawColumnsSchema = z.array(z.unknown())
+const columnNameSchema = z.string().regex(PYTHON_COLUMN_NAME_RE)
+const columnTypeSchema = z.enum(PYTHON_COLUMN_TYPES)
 
 /** PEP 503 name normalisation, so `Scikit_Learn` and `scikit-learn` agree. */
 export function normalisePackageName(name: string): string {
@@ -104,12 +114,14 @@ export function parseRequirement(
 }
 
 /** Why a list of requirement lines cannot be saved; empty when it can. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This public validator is the untrusted authoring/HTTP boundary; schema failures must become the existing user-facing diagnostics.
 export function requirementErrors(requirements: unknown): string[] {
-  if (!Array.isArray(requirements))
-    return [t('data.pipelinePython.requirementsMustListName')]
+  const list = rawColumnsSchema.safeParse(requirements)
+
+  if (!list.success) return [t('data.pipelinePython.requirementsMustListName')]
   const errors: string[] = []
 
-  if (requirements.length > MAX_PYTHON_REQUIREMENTS)
+  if (list.data.length > MAX_PYTHON_REQUIREMENTS)
     errors.push(
       t('data.pipelinePython.mostPackagesDeclared', {
         MAX_PYTHON_REQUIREMENTS,
@@ -117,18 +129,20 @@ export function requirementErrors(requirements: unknown): string[] {
     )
   const seen = new Set<string>()
 
-  for (const entry of requirements) {
-    if (typeof entry !== 'string') {
+  for (const entry of list.data) {
+    const text = z.string().safeParse(entry)
+
+    if (!text.success) {
       errors.push(t('data.pipelinePython.eachRequirementMustText'))
       continue
     }
 
-    const parsed = parseRequirement(entry)
+    const parsed = parseRequirement(text.data)
 
     if (!parsed) {
       errors.push(
         t('data.pipelinePython.pinnedWriteNameVersion', {
-          slice: entry.slice(0, 80),
+          slice: text.data.slice(0, 80),
         }),
       )
       continue
@@ -169,36 +183,43 @@ export function unmetRequirements(
   return unmet
 }
 
-function columnErrors(columns: unknown, where: string): string[] {
-  if (!Array.isArray(columns)) return [`${where} must be a list of columns.`]
+function columnErrors(
+  list: ReturnType<typeof rawColumnsSchema.safeParse>,
+  where: string,
+): string[] {
+  if (!list.success) return [`${where} must be a list of columns.`]
   const errors: string[] = []
 
-  if (columns.length > MAX_CONTRACT_COLUMNS)
+  if (list.data.length > MAX_CONTRACT_COLUMNS)
     errors.push(`${where} has more than ${MAX_CONTRACT_COLUMNS} columns.`)
   const names = new Set<string>()
 
-  for (const column of columns) {
-    if (
-      !isObject(column) ||
-      typeof column.name !== 'string' ||
-      !PYTHON_COLUMN_NAME_RE.test(column.name)
-    ) {
+  for (const entry of list.data) {
+    const parsed = rawObjectSchema.safeParse(entry)
+
+    const name = columnNameSchema.safeParse(
+      parsed.success ? parsed.data.name : undefined,
+    )
+
+    if (!parsed.success || !name.success) {
       errors.push(`${where} has a column without a valid name.`)
       continue
     }
 
-    if (names.has(column.name))
-      errors.push(`${where} lists column “${column.name}” twice.`)
-    names.add(column.name)
+    const column = parsed.data
 
-    if (!(PYTHON_COLUMN_TYPES as readonly unknown[]).includes(column.type))
+    if (names.has(name.data))
+      errors.push(`${where} lists column “${name.data}” twice.`)
+    names.add(name.data)
+
+    if (!columnTypeSchema.safeParse(column.type).success)
       errors.push(
-        `${where} column “${column.name}” needs a type: ${PYTHON_COLUMN_TYPES.join(', ')}.`,
+        `${where} column “${name.data}” needs a type: ${PYTHON_COLUMN_TYPES.join(', ')}.`,
       )
 
-    if (column.nullable !== undefined && typeof column.nullable !== 'boolean')
+    if (!z.boolean().optional().safeParse(column.nullable).success)
       errors.push(
-        `${where} column “${column.name}” nullable must be true or false.`,
+        `${where} column “${name.data}” nullable must be true or false.`,
       )
   }
 
@@ -206,32 +227,47 @@ function columnErrors(columns: unknown, where: string): string[] {
 }
 
 /** Why a contract cannot be saved; empty when it can. */
-export function contractErrors(contract: unknown): string[] {
-  if (!isObject(contract)) return [t('data.pipelinePython.contractMustObject')]
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This public validator decodes untrusted saved/HTTP contracts and returns all existing diagnostics instead of throwing.
+export function contractErrors(input: unknown): string[] {
+  const parsed = rawObjectSchema.safeParse(input)
+
+  if (!parsed.success) return [t('data.pipelinePython.contractMustObject')]
+  const contract = parsed.data
   const errors: string[] = []
 
   if (contract.inputs !== undefined) {
-    if (!isObject(contract.inputs))
+    const inputs = rawObjectSchema.safeParse(contract.inputs)
+
+    if (!inputs.success)
       errors.push(t('data.pipelinePython.contractInputsMustMap'))
     else
-      for (const [alias, columns] of Object.entries(contract.inputs)) {
+      for (const [alias, columns] of Object.entries(inputs.data)) {
         if (!/^[a-z][a-z0-9_]{0,47}$/.test(alias))
           errors.push(t('data.pipelinePython.validInputName', { alias }))
         errors.push(
-          ...columnErrors(columns, t('data.pipelinePython.input', { alias })),
+          ...columnErrors(
+            rawColumnsSchema.safeParse(columns),
+            t('data.pipelinePython.input', { alias }),
+          ),
         )
       }
   }
 
   if (contract.output !== undefined) {
-    if (!isObject(contract.output))
+    const output = rawObjectSchema.safeParse(contract.output)
+
+    if (!output.success)
       errors.push(t('data.pipelinePython.contractOutputMustObject'))
     else {
-      errors.push(...columnErrors(contract.output.columns, 'Output'))
+      errors.push(
+        ...columnErrors(
+          rawColumnsSchema.safeParse(output.data.columns),
+          'Output',
+        ),
+      )
 
       if (
-        contract.output.additionalColumns !== undefined &&
-        typeof contract.output.additionalColumns !== 'boolean'
+        !z.boolean().optional().safeParse(output.data.additionalColumns).success
       )
         errors.push(t('data.pipelinePython.outputAdditionalcolumnsMustTrue'))
     }
@@ -359,16 +395,16 @@ const STDLIB = new Set(
 )
 
 /** Import names that differ from their distribution name. */
-const MODULE_DISTRIBUTION: Record<string, string> = {
-  sklearn: 'scikit-learn',
-  yaml: 'pyyaml',
-  PIL: 'pillow',
-  cv2: 'opencv-python',
-  dateutil: 'python-dateutil',
-  bs4: 'beautifulsoup4',
-  skimage: 'scikit-image',
-  statsmodels: 'statsmodels',
-}
+const MODULE_DISTRIBUTION = new Map([
+  ['sklearn', 'scikit-learn'],
+  ['yaml', 'pyyaml'],
+  ['PIL', 'pillow'],
+  ['cv2', 'opencv-python'],
+  ['dateutil', 'python-dateutil'],
+  ['bs4', 'beautifulsoup4'],
+  ['skimage', 'scikit-image'],
+  ['statsmodels', 'statsmodels'],
+])
 
 /** Top-level module names a program imports (approximate, line-based). */
 export function importedModules(
@@ -428,7 +464,10 @@ export function analysePython(
 
     for (const { module, line } of importedModules(code)) {
       if (STDLIB.has(module) || reported.has(module)) continue
-      const dist = normalisePackageName(MODULE_DISTRIBUTION[module] ?? module)
+
+      const dist = normalisePackageName(
+        MODULE_DISTRIBUTION.get(module) ?? module,
+      )
 
       if (installed[dist] !== undefined) continue
       reported.add(module)
@@ -473,10 +512,13 @@ export function normaliseContract(
 
   if (!Object.keys(inputs).length && !output) return undefined
 
-  return {
-    ...(Object.keys(inputs).length ? { inputs } : {}),
-    ...(output ? { output } : {}),
-  }
+  const normalised: PythonContract = {}
+
+  if (Object.keys(inputs).length) normalised.inputs = inputs
+
+  if (output) normalised.output = output
+
+  return normalised
 }
 
 export function setContractInput(
@@ -495,28 +537,33 @@ export function setContractOutput(
   columns: PythonColumn[],
   additionalColumns?: boolean,
 ): PythonContract | undefined {
+  const output: NonNullable<PythonContract['output']> = { columns }
+
+  if (additionalColumns) output.additionalColumns = true
+
   return normaliseContract({
     ...contract,
-    output: {
-      columns,
-      ...(additionalColumns ? { additionalColumns: true } : {}),
-    },
+    output,
   })
 }
 
 const TIMESTAMP_TEXT = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/
 const DATE_TEXT = /^\d{4}-\d{2}-\d{2}$/
 
-function columnTypeOf(value: unknown): PythonColumnType {
-  if (typeof value === 'boolean') return 'boolean'
+function columnTypeOf(value: PythonResultRow[string]): PythonColumnType {
+  if (z.boolean().safeParse(value).success) return 'boolean'
 
-  if (typeof value === 'number')
-    return Number.isInteger(value) ? 'integer' : 'decimal'
+  const number = z.number().safeParse(value)
 
-  if (typeof value === 'string') {
-    if (DATE_TEXT.test(value)) return 'date'
+  if (number.success)
+    return Number.isInteger(number.data) ? 'integer' : 'decimal'
 
-    if (TIMESTAMP_TEXT.test(value)) return 'timestamp'
+  const text = z.string().safeParse(value)
+
+  if (text.success) {
+    if (DATE_TEXT.test(text.data)) return 'date'
+
+    if (TIMESTAMP_TEXT.test(text.data)) return 'timestamp'
 
     return 'text'
   }
@@ -529,7 +576,7 @@ function columnTypeOf(value: unknown): PythonColumnType {
  * value. Used to turn a test run's result into a contract in one click.
  */
 export function inferColumns(
-  rows: ReadonlyArray<Record<string, unknown>>,
+  rows: readonly Partial<PythonResultRow>[],
 ): PythonColumn[] {
   const order: string[] = []
   const types = new Map<string, Set<PythonColumnType>>()
@@ -558,6 +605,10 @@ export function inferColumns(
       type = 'timestamp'
     else type = [...seen].every((ty) => ty !== 'json') ? 'text' : 'json'
 
-    return { name, type, ...(nullable.has(name) ? {} : { nullable: false }) }
+    const column: PythonColumn = { name, type }
+
+    if (!nullable.has(name)) column.nullable = false
+
+    return column
   })
 }

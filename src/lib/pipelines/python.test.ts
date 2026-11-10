@@ -9,6 +9,7 @@ import {
   normaliseContract,
   parseRequirement,
   parseRequirementsText,
+  pythonResultRowsSchema,
   pythonSkeleton,
   requirementErrors,
   setContractInput,
@@ -42,6 +43,10 @@ describe('requirements', () => {
     expect(requirementErrors('scipy==1')).toHaveLength(1)
   })
 
+  it('rejects non-text requirement entries without throwing', () => {
+    expect(requirementErrors([null, 42, {}, 'numpy==2.2.6'])).toHaveLength(3)
+  })
+
   it('names what the runtime does not provide', () => {
     expect(parseRequirement('Pandas==2.2.3')).toEqual({
       name: 'pandas',
@@ -66,6 +71,27 @@ describe('requirements', () => {
 })
 
 describe('contractErrors', () => {
+  it('rejects malformed containers and columns without throwing', () => {
+    for (const contract of [null, [], 'contract'])
+      expect(contractErrors(contract)).toHaveLength(1)
+
+    expect(contractErrors({ inputs: [], output: [] })).toHaveLength(2)
+    expect(contractErrors({ output: { columns: null } })).toEqual([
+      'Output must be a list of columns.',
+    ])
+    expect(
+      contractErrors({
+        output: { columns: [null, 42, [], { name: '\u0000' }] },
+      }),
+    ).toHaveLength(4)
+    expect(
+      contractErrors({
+        inputs: undefined,
+        output: { columns: [{ name: 'a', type: 'json', nullable: undefined }] },
+      }),
+    ).toEqual([])
+  })
+
   it('accepts a contract with input and output columns', () => {
     expect(
       contractErrors({
@@ -227,6 +253,58 @@ describe('editing a contract', () => {
 })
 
 describe('inferColumns', () => {
+  it('retains own __proto__ columns and nested JSON keys without prototype pollution', () => {
+    const rows = pythonResultRowsSchema.parse(
+      JSON.parse(
+        '[{"__proto__":7,"value":{"__proto__":{"polluted":true},"nested":[{"__proto__":9}]}}]',
+      ),
+    )
+
+    expect(Object.hasOwn(rows[0], '__proto__')).toBe(true)
+    expect(JSON.stringify(rows)).toBe(
+      '[{"__proto__":7,"value":{"__proto__":{"polluted":true},"nested":[{"__proto__":9}]}}]',
+    )
+    expect(Object.hasOwn(Object.prototype, 'polluted')).toBe(false)
+    expect(inferColumns(rows)[0]).toEqual({
+      name: '__proto__',
+      type: 'integer',
+      nullable: false,
+    })
+  })
+
+  it('rejects non-JSON own __proto__ values at every nesting level', () => {
+    for (const invalid of [() => 7, undefined, 1n, NaN, Infinity, -Infinity]) {
+      const value = Object.fromEntries([['__proto__', invalid]])
+
+      expect(pythonResultRowsSchema.safeParse([value]).success).toBe(false)
+      expect(
+        pythonResultRowsSchema.safeParse([{ nested: value }]).success,
+      ).toBe(false)
+      expect(
+        pythonResultRowsSchema.safeParse([{ nested: [value] }]).success,
+      ).toBe(false)
+    }
+  })
+
+  it('keeps null and undefined cells nullable', () => {
+    expect(inferColumns([{ absent: undefined, empty: null }])).toEqual([
+      { name: 'absent', type: 'text' },
+      { name: 'empty', type: 'text' },
+    ])
+  })
+
+  it('decodes worker JSON rows including nested scientific metadata', () => {
+    const rows = [{ measured: 1.5, metadata: { units: ['mg'], valid: true } }]
+
+    expect(pythonResultRowsSchema.parse(rows)).toEqual(rows)
+    expect(pythonResultRowsSchema.safeParse([{ value: 1n }]).success).toBe(
+      false,
+    )
+    expect(
+      pythonResultRowsSchema.safeParse([{ value: new Date() }]).success,
+    ).toBe(false)
+  })
+
   it('names columns in first-seen order with the narrowest type', () => {
     expect(
       inferColumns([

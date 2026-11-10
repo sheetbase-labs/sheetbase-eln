@@ -10,6 +10,7 @@ import {
   describeExtensionCompat,
   isTrustedExtensionSource,
   isUpdateAvailable,
+  parseSemver,
   requiresTrustAcknowledgement,
   validateCompatRange,
 } from './compat'
@@ -37,6 +38,28 @@ describe('compareSemver', () => {
 })
 
 describe('validateCompatRange', () => {
+  it.each([undefined, null, false, 123, {}, ['1.0.0']])(
+    'rejects malformed external version/range input %j',
+    (input) => {
+      expect(parseSemver(input)).toBeNull()
+      expect(validateCompatRange(input)).toEqual([
+        'compatibleWith must be a non-empty version range',
+      ])
+    },
+  )
+
+  it('checks the raw range length and accumulates malformed comparators in order', () => {
+    expect(validateCompatRange(`1.0.0${' '.repeat(196)}`)).toEqual([
+      'compatibleWith must be at most 200 characters',
+    ])
+    expect(validateCompatRange(`1.0.0${' '.repeat(195)}`)).toEqual([])
+    expect(validateCompatRange('^1.0.0 >=1.0 ~2.0.0')).toEqual([
+      'invalid compatibleWith comparator: ^1.0.0',
+      'invalid compatibleWith comparator: >=1.0',
+      'invalid compatibleWith comparator: ~2.0.0',
+    ])
+  })
+
   it('accepts wildcards, exact versions and comparator ranges', () => {
     expect(validateCompatRange('*')).toEqual([])
     expect(validateCompatRange('1.2.3')).toEqual([])
@@ -57,6 +80,22 @@ describe('validateCompatRange', () => {
 })
 
 describe('checkExtensionCompat', () => {
+  it.each([
+    ['1.2.3', '1.2.2', 'incompatible'],
+    ['1.2.3', '1.2.3', 'compatible'],
+    ['>1.2.3', '1.2.3', 'incompatible'],
+    ['>1.2.3', '1.2.4', 'compatible'],
+    ['>=1.2.3', '1.2.3', 'compatible'],
+    ['<1.2.3', '1.2.3', 'incompatible'],
+    ['<1.2.3', '1.2.2', 'compatible'],
+    ['<=1.2.3', '1.2.3', 'compatible'],
+  ])(
+    'evaluates comparator %s at app version %s',
+    (compatibleWith, version, expected) => {
+      expect(checkExtensionCompat({ compatibleWith }, version)).toBe(expected)
+    },
+  )
+
   it('reports compatible when the app satisfies the declared range', () => {
     expect(
       checkExtensionCompat({ compatibleWith: '>=1.0.0 <2.0.0' }, '1.4.0'),
@@ -95,6 +134,7 @@ describe('checkExtensionCompat', () => {
     for (const state of ['compatible', 'unknown', 'incompatible'] as const) {
       expect(describeExtensionCompat(state)).toMatch(/\S/)
     }
+
     expect(describeExtensionCompat('incompatible')).toMatch(/acknowledgement/)
   })
 })

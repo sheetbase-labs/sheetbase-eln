@@ -155,11 +155,12 @@ export function chainStage(
 ): ChainStage {
   if (approved) return 'complete'
 
-  const technical = decisions.some(
-    (d) =>
-      d.decision === 'approved' &&
-      (TECHNICAL_REVIEW_ROLES as readonly string[]).includes(d.role),
-  )
+  const technical = decisions.some((d) => {
+    if (d.decision !== 'approved') return false
+    const decisionRole = d.role
+
+    return TECHNICAL_REVIEW_ROLES.some((role) => role === decisionRole)
+  })
 
   return technical ? 'qa' : 'technical'
 }

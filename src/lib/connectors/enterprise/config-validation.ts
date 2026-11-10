@@ -6,6 +6,8 @@
  * at runtime; the browser may use them for pre-flight UI feedback, but the
  * server always re-validates.
  */
+import { z } from 'zod'
+
 import type { PostgresConnectorConfig, S3ConnectorConfig } from './types'
 import { ConnectorExecutionError } from './errors'
 import {
@@ -14,10 +16,20 @@ import {
 } from './host-policy.server'
 
 export function parseS3Config(
-  config: Record<string, unknown>,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Stored connector settings are untrusted and decoded immediately below.
+  config: unknown,
 ): S3ConnectorConfig {
-  const bucket =
-    typeof config['bucket'] === 'string' ? config['bucket'].trim() : ''
+  const input = z
+    .object({
+      bucket: z.string().trim().catch(''),
+      endpoint: z.string().trim().catch(''),
+      prefix: z.string().trim().catch(''),
+      region: z.string().optional().catch(undefined),
+      forcePathStyle: z.coerce.boolean().default(false),
+    })
+    .parse(config)
+
+  const { bucket, endpoint, prefix } = input
 
   if (!/^[a-z0-9][a-z0-9._-]{1,251}$/i.test(bucket)) {
     throw new ConnectorExecutionError(
@@ -26,32 +38,15 @@ export function parseS3Config(
     )
   }
 
-  const endpoint =
-    typeof config['endpoint'] === 'string' ? config['endpoint'].trim() : ''
-
   if (endpoint) validateConnectorEndpointUrl(endpoint)
-
-  const prefix =
-    typeof config['prefix'] === 'string' ? config['prefix'].trim() : ''
-
-  if (prefix && !prefix.endsWith('/')) {
-    // Normalise: discovery and imports treat the prefix as a folder.
-    return {
-      endpoint: endpoint || undefined,
-      region:
-        typeof config['region'] === 'string' ? config['region'] : undefined,
-      bucket,
-      prefix: `${prefix}/`,
-      forcePathStyle: Boolean(config['forcePathStyle']),
-    }
-  }
 
   return {
     endpoint: endpoint || undefined,
-    region: typeof config['region'] === 'string' ? config['region'] : undefined,
+    region: input.region,
     bucket,
-    prefix: prefix || undefined,
-    forcePathStyle: Boolean(config['forcePathStyle']),
+    prefix:
+      prefix && !prefix.endsWith('/') ? `${prefix}/` : prefix || undefined,
+    forcePathStyle: input.forcePathStyle,
   }
 }
 
@@ -65,15 +60,27 @@ export const POSTGRES_SYSTEM_SCHEMAS = new Set([
 ])
 
 export function parsePostgresConfig(
-  config: Record<string, unknown>,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Stored connector settings are untrusted and decoded immediately below.
+  config: unknown,
 ): PostgresConnectorConfig {
-  const host = typeof config['host'] === 'string' ? config['host'].trim() : ''
-  const port = Number(config['port'])
+  const input = z
+    .object({
+      host: z.string().trim().catch(''),
+      port: z.coerce.number().catch(NaN),
+      database: z.string().trim().catch(''),
+      sslMode: z.unknown().optional(),
+      allowedSchemas: z
+        .array(z.string().regex(PG_IDENTIFIER).catch(''))
+        .optional()
+        .catch(undefined),
+      allowedTables: z
+        .array(z.string().regex(PG_QUALIFIED).catch(''))
+        .optional()
+        .catch(undefined),
+    })
+    .parse(config)
 
-  const database =
-    typeof config['database'] === 'string' ? config['database'].trim() : ''
-
-  const sslMode = config['sslMode'] ?? 'disable'
+  const { host, port, database } = input
 
   if (!host) {
     throw new ConnectorExecutionError(
@@ -98,28 +105,25 @@ export function parsePostgresConfig(
     )
   }
 
-  if (sslMode !== 'disable' && sslMode !== 'prefer' && sslMode !== 'require') {
+  const sslMode = z
+    .enum(['disable', 'prefer', 'require'])
+    .safeParse(input.sslMode ?? 'disable')
+
+  if (!sslMode.success) {
     throw new ConnectorExecutionError(
       'invalid_destination',
       'sslMode must be disable, prefer or require.',
     )
   }
 
-  const allowedSchemas = Array.isArray(config['allowedSchemas'])
-    ? (config['allowedSchemas'] as unknown[]).filter(
-        (entry): entry is string =>
-          typeof entry === 'string' && PG_IDENTIFIER.test(entry),
-      )
-    : undefined
-
-  const allowedTables = Array.isArray(config['allowedTables'])
-    ? (config['allowedTables'] as unknown[]).filter(
-        (entry): entry is string =>
-          typeof entry === 'string' && PG_QUALIFIED.test(entry),
-      )
-    : undefined
-
-  return { host, port, database, sslMode, allowedSchemas, allowedTables }
+  return {
+    host,
+    port,
+    database,
+    sslMode: sslMode.data,
+    allowedSchemas: input.allowedSchemas?.filter(Boolean),
+    allowedTables: input.allowedTables?.filter(Boolean),
+  }
 }
 
 /** Quote a validated identifier; non-conforming names are refused outright. */

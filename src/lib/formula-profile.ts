@@ -230,12 +230,13 @@ export const SCIENTIFIC_CORE_FUNCTIONS = Object.freeze([
   'N',
 ] as const)
 
-function canonical(value: unknown): string {
-  if (typeof value === 'function') return value.name
+/** The declared profile and runtime contain only named string properties. */
+interface FingerprintProperties {
+  [property: string]: string | undefined | FingerprintProperties
+}
 
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
-
-  if (value && typeof value === 'object')
+function canonical(value: FingerprintProperties | string | undefined): string {
+  if (value instanceof Object)
     return `{${Object.entries(value)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`)

@@ -132,6 +132,23 @@ describe('JSON records parser', () => {
     expect(parsed.rows).toEqual([{ w: 'A1' }])
   })
 
+  it('preserves JSON cell formatting without coercing objects or losing nested scientific keys', () => {
+    const parsed = parseJsonRecords(
+      '{"rows":[{"blank":null,"flag":false,"zero":0,"text":"0","array":[1,"x"],"object":{"__proto__":{"value":7}}}]}',
+    )
+
+    expect(parsed.rows).toEqual([
+      {
+        blank: '',
+        flag: 'false',
+        zero: '0',
+        text: '0',
+        array: '[1,"x"]',
+        object: '{"__proto__":{"value":7}}',
+      },
+    ])
+  })
+
   it('fails closed on malformed or non-tabular JSON', () => {
     expect(() => parseJsonRecords('{nope')).toThrow(/isn’t valid JSON/)
     expect(() => parseJsonRecords('{"a":1}')).toThrow(/rows array/)

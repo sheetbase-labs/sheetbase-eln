@@ -1,7 +1,14 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
+import { z } from 'zod'
 
 import { extensionQueryKeys } from './client'
+
+const builtInAnswer = z.object({
+  plugins: z.array(
+    z.object({ action: z.enum(['installed', 'updated', 'unchanged']) }),
+  ),
+})
 
 /**
  * Owners and administrators install or update the plugins that ship with
@@ -11,32 +18,44 @@ import { extensionQueryKeys } from './client'
  */
 export function useBuiltInPlugins(workspaceId: string | null, role: string) {
   const queryClient = useQueryClient()
+
+  const { mutate } = useMutation({
+    mutationFn: async (_workspaceId: string) => {
+      const response = await fetch('/api/plugins/built-in', { method: 'POST' })
+
+      if (!response.ok) throw new Error('refused')
+      const body = builtInAnswer.parse(await response.json())
+
+      return body.plugins.some((plugin) => plugin.action !== 'unchanged')
+    },
+    onSuccess: async (changed) => {
+      if (changed)
+        await queryClient.invalidateQueries({
+          queryKey: extensionQueryKeys.extensions,
+        })
+    },
+    onError: (_error, failedWorkspaceId) => {
+      try {
+        window.sessionStorage.removeItem(
+          `sheetbase.built-in-plugins.${failedWorkspaceId}`,
+        )
+      } catch {
+        // Nothing to undo.
+      }
+    },
+  })
+
   useEffect(() => {
     if (!workspaceId || (role !== 'owner' && role !== 'admin')) return
     const key = `sheetbase.built-in-plugins.${workspaceId}`
+
     try {
       if (window.sessionStorage.getItem(key)) return
       window.sessionStorage.setItem(key, '1')
     } catch {
       // No session storage: run it, once per page load.
     }
-    void fetch('/api/plugins/built-in', { method: 'POST' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error('refused')
-        const body = (await response.json()) as {
-          plugins?: Array<{ action: string }>
-        }
-        if (body.plugins?.some((plugin) => plugin.action !== 'unchanged'))
-          await queryClient.invalidateQueries({
-            queryKey: extensionQueryKeys.extensions,
-          })
-      })
-      .catch(() => {
-        try {
-          window.sessionStorage.removeItem(key)
-        } catch {
-          // Nothing to undo.
-        }
-      })
-  }, [workspaceId, role, queryClient])
+
+    mutate(workspaceId)
+  }, [workspaceId, role, mutate])
 }

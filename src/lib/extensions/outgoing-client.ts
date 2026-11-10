@@ -59,12 +59,14 @@ export const channelsQueryKey = ['plugins', 'channels'] as const
 async function read<T>(response: Response, fallback: string): Promise<T> {
   const body = (await response.json().catch(() => null)) as
     (T & { error?: string | { message?: string } }) | null
+
   if (!response.ok || !body) {
     const error = body?.error
     throw new Error(
       (typeof error === 'string' ? error : error?.message) ?? fallback,
     )
   }
+
   return body
 }
 
@@ -79,6 +81,7 @@ export async function listConnections(): Promise<ConnectionWire[]> {
     await fetch('/api/plugins/connections', { cache: 'no-store' }),
     'The connections could not be read.',
   )
+
   return body.connections
 }
 
@@ -93,6 +96,7 @@ export async function saveConnection(input: {
     await fetch('/api/plugins/connections', json(input)),
     'The connection could not be saved.',
   )
+
   return body.connection
 }
 
@@ -101,6 +105,7 @@ export async function listChannels(): Promise<ChannelWire[]> {
     await fetch('/api/plugins/channels', { cache: 'no-store' }),
     'The channels could not be read.',
   )
+
   return body.channels
 }
 
@@ -119,6 +124,7 @@ export async function changeChannel(
     await fetch('/api/plugins/channels', json(input)),
     'The channel could not be changed.',
   )
+
   return body.channels
 }
 

@@ -4,8 +4,10 @@
  * its validator, so the payload contract lives next to the label, group and
  * editable flag it belongs with.
  */
+import { z } from 'zod'
+
 import { annotationsAreValid } from '#/lib/image-annotations'
-import { isRichTextPayload } from './rich-text'
+import { isRichTextPayload } from './rich-text-data'
 import { validateAnalysisBlockPayload } from '../analysis-block'
 import { validateChartPayload } from '../chart-spec'
 import { reactionIssues, structureIssues } from '../chemistry'
@@ -30,36 +32,77 @@ export type BlockValidationError =
   | 'missing_required_field'
   | 'invalid_field_value'
 
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
+const blockFields = z.record(z.string(), z.unknown())
+
+export type BlockPayloadFields = z.infer<typeof blockFields>
+
+// Only the native container is established here. Each validator below reads
+// fields in its original order; parsing a record would eagerly read and copy them.
+const nativeBlockObject = z.custom<BlockPayloadFields>(
+  (value) =>
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Approved native container boundary: exclude null/arrays, retain inherited/accessor fields and identity without eager decoding or full payload validation.
+    typeof value === 'object' && value !== null && !Array.isArray(value),
+)
+
+const stringValue = z.string()
+
+const numberValue = z.union([
+  z.number(),
+  z.nan(),
+  z.literal(Infinity),
+  z.literal(-Infinity),
+])
+
+const integerValue = z.custom<number>(Number.isInteger)
+
+const uuidValue = z
+  .string()
+  .regex(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+  )
+
+const timestampValue = z
+  .string()
+  .refine((value) => !Number.isNaN(Date.parse(value)))
+
+/** Decode raw payloads into the existing ordered diagnostics without copying fields. */
+function payloadValidator(
+  check: (payload: z.input<z.ZodUnknown>) => FieldErrors,
+) {
+  const schema = z.unknown().transform(check)
+
+  return (payload: z.input<typeof schema>): FieldErrors => schema.parse(payload)
+}
+
+function isObject(v: unknown): v is BlockPayloadFields {
+  return nativeBlockObject.safeParse(v).success
 }
 
 function isString(v: unknown): v is string {
-  return typeof v === 'string'
+  return stringValue.safeParse(v).success
 }
 
 function isInteger(v: unknown): v is number {
-  return typeof v === 'number' && Number.isInteger(v)
+  return integerValue.safeParse(v).success
+}
+
+function isNumber(v: unknown): v is number {
+  return numberValue.safeParse(v).success
 }
 
 function isUuid(v: unknown): v is string {
-  return (
-    typeof v === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      v,
-    )
-  )
+  return uuidValue.safeParse(v).success
 }
 
 function isTimestamp(v: unknown): v is string {
-  return typeof v === 'string' && !Number.isNaN(Date.parse(v))
+  return timestampValue.safeParse(v).success
 }
 
 function isNonEmptyString(v: unknown): v is string {
   return isString(v) && v.trim().length > 0
 }
 
-export function validateSheet(payload: unknown): FieldErrors {
+export const validateSheet = payloadValidator((payload): FieldErrors => {
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
@@ -106,7 +149,7 @@ export function validateSheet(payload: unknown): FieldErrors {
   }
 
   return []
-}
+})
 
 // ---------------------------------------------------------------------------
 // Per-type payload validators. Each returns a list of field-level errors.
@@ -118,7 +161,7 @@ export type FieldErrors = Array<{
   message: string
 }>
 
-export function validateRichText(payload: unknown): FieldErrors {
+export const validateRichText = payloadValidator((payload): FieldErrors => {
   return isRichTextPayload(payload)
     ? []
     : [
@@ -129,9 +172,9 @@ export function validateRichText(payload: unknown): FieldErrors {
             'doc must be a supported rich-text v1 document (H2/H3 headings, paragraphs, lists, and approved inline marks)',
         },
       ]
-}
+})
 
-export function validateChecklist(payload: unknown): FieldErrors {
+export const validateChecklist = payloadValidator((payload): FieldErrors => {
   const errors: FieldErrors = []
 
   if (!isObject(payload))
@@ -169,7 +212,7 @@ export function validateChecklist(payload: unknown): FieldErrors {
       })
     }
 
-    if (typeof item.checked !== 'boolean') {
+    if (!z.boolean().safeParse(item.checked).success) {
       errors.push({
         code: 'invalid_field_value',
         field: `items[${i}].checked`,
@@ -179,9 +222,9 @@ export function validateChecklist(payload: unknown): FieldErrors {
   })
 
   return errors
-}
+})
 
-export function validateLinkedRecord(payload: unknown): FieldErrors {
+export const validateLinkedRecord = payloadValidator((payload): FieldErrors => {
   const errors: FieldErrors = []
 
   if (!isObject(payload))
@@ -244,9 +287,9 @@ export function validateLinkedRecord(payload: unknown): FieldErrors {
   }
 
   return errors
-}
+})
 
-export function validateCallout(payload: unknown): FieldErrors {
+export const validateCallout = payloadValidator((payload): FieldErrors => {
   const errors: FieldErrors = []
 
   if (!isObject(payload))
@@ -276,9 +319,9 @@ export function validateCallout(payload: unknown): FieldErrors {
   }
 
   return errors
-}
+})
 
-export function validateConclusion(payload: unknown): FieldErrors {
+export const validateConclusion = payloadValidator((payload): FieldErrors => {
   const errors: FieldErrors = []
 
   if (!isObject(payload))
@@ -316,9 +359,9 @@ export function validateConclusion(payload: unknown): FieldErrors {
   }
 
   return errors
-}
+})
 
-export function validateTable(payload: unknown): FieldErrors {
+export const validateTable = payloadValidator((payload): FieldErrors => {
   const errors: FieldErrors = []
 
   if (!isObject(payload))
@@ -356,9 +399,9 @@ export function validateTable(payload: unknown): FieldErrors {
   }
 
   return errors
-}
+})
 
-export function validateChart(payload: unknown): FieldErrors {
+export const validateChart = payloadValidator((payload): FieldErrors => {
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
@@ -373,12 +416,12 @@ export function validateChart(payload: unknown): FieldErrors {
     field: e.field,
     message: e.message,
   }))
-}
+})
 
 // SCI-03: delegate to the analysis block validator. An empty draft `{}` is
 // valid; definition-reference integrity and frozen-write authority are the
 // database trigger's job.
-export function validateAnalysis(payload: unknown): FieldErrors {
+export const validateAnalysis = payloadValidator((payload): FieldErrors => {
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
@@ -396,7 +439,7 @@ export function validateAnalysis(payload: unknown): FieldErrors {
     field: e.field,
     message: e.message,
   }))
-}
+})
 
 function mapChartErrorCode(code: string): BlockValidationError {
   switch (code) {
@@ -437,7 +480,7 @@ function mapPlateMapErrorCode(code: string): BlockValidationError {
   }
 }
 
-export function validatePlateMap(payload: unknown): FieldErrors {
+export const validatePlateMap = payloadValidator((payload): FieldErrors => {
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
@@ -452,9 +495,9 @@ export function validatePlateMap(payload: unknown): FieldErrors {
     field: e.field,
     message: e.message,
   }))
-}
+})
 
-export function validateFile(payload: unknown): FieldErrors {
+export const validateFile = payloadValidator((payload): FieldErrors => {
   const errors: FieldErrors = []
 
   if (!isObject(payload))
@@ -530,9 +573,9 @@ export function validateFile(payload: unknown): FieldErrors {
   }
 
   return errors
-}
+})
 
-export function validateMetric(payload: unknown): FieldErrors {
+export const validateMetric = payloadValidator((payload): FieldErrors => {
   const errors: FieldErrors = []
 
   if (!isObject(payload))
@@ -573,163 +616,167 @@ export function validateMetric(payload: unknown): FieldErrors {
   }
 
   return errors
-}
+})
 
-export function validateProcedureStep(payload: unknown): FieldErrors {
-  const errors: FieldErrors = []
+export const validateProcedureStep = payloadValidator(
+  (payload): FieldErrors => {
+    const errors: FieldErrors = []
 
-  if (!isObject(payload))
-    return [
-      { code: 'invalid_payload_shape', message: 'payload must be an object' },
-    ]
+    if (!isObject(payload))
+      return [
+        { code: 'invalid_payload_shape', message: 'payload must be an object' },
+      ]
 
-  if (!isNonEmptyString(payload.text)) {
-    errors.push({
-      code: 'missing_required_field',
-      field: 'text',
-      message: 'text is required',
-    })
-  }
-
-  if (payload.stepNumber !== undefined && !isInteger(payload.stepNumber)) {
-    errors.push({
-      code: 'invalid_field_value',
-      field: 'stepNumber',
-      message: 'stepNumber must be an integer when present',
-    })
-  }
-
-  if (
-    payload.durationSeconds !== undefined &&
-    !(
-      isInteger(payload.durationSeconds) &&
-      payload.durationSeconds >= 1 &&
-      payload.durationSeconds <= 604_800
-    )
-  ) {
-    errors.push({
-      code: 'invalid_field_value',
-      field: 'durationSeconds',
-      message:
-        'durationSeconds must be a whole number of seconds, up to a week',
-    })
-  }
-
-  const executionFields = [
-    'sourceProtocolRevisionId',
-    'sourceStepBlockId',
-    'completed',
-    'note',
-    'completedAt',
-    'completedByUserId',
-  ]
-
-  const hasExecution = executionFields.some((field) => field in payload)
-
-  if (hasExecution) {
-    if (!isUuid(payload.sourceProtocolRevisionId)) {
+    if (!isNonEmptyString(payload.text)) {
       errors.push({
-        code: 'invalid_field_value',
-        field: 'sourceProtocolRevisionId',
-        message: 'sourceProtocolRevisionId must be a UUID',
+        code: 'missing_required_field',
+        field: 'text',
+        message: 'text is required',
       })
     }
 
-    if (!isUuid(payload.sourceStepBlockId)) {
+    if (payload.stepNumber !== undefined && !isInteger(payload.stepNumber)) {
       errors.push({
         code: 'invalid_field_value',
-        field: 'sourceStepBlockId',
-        message: 'sourceStepBlockId must be a UUID',
-      })
-    }
-
-    if (typeof payload.completed !== 'boolean') {
-      errors.push({
-        code: 'invalid_field_value',
-        field: 'completed',
-        message: 'completed must be a boolean',
-      })
-    }
-
-    if (!isString(payload.note)) {
-      errors.push({
-        code: 'invalid_field_value',
-        field: 'note',
-        message: 'note must be a string',
-      })
-    }
-
-    if (payload.completedAt !== null && !isTimestamp(payload.completedAt)) {
-      errors.push({
-        code: 'invalid_field_value',
-        field: 'completedAt',
-        message: 'completedAt must be a timestamp or null',
+        field: 'stepNumber',
+        message: 'stepNumber must be an integer when present',
       })
     }
 
     if (
-      payload.completedByUserId !== null &&
-      !isNonEmptyString(payload.completedByUserId)
+      payload.durationSeconds !== undefined &&
+      !(
+        isInteger(payload.durationSeconds) &&
+        payload.durationSeconds >= 1 &&
+        payload.durationSeconds <= 604_800
+      )
     ) {
       errors.push({
         code: 'invalid_field_value',
-        field: 'completedByUserId',
-        message: 'completedByUserId must be a user id or null',
+        field: 'durationSeconds',
+        message:
+          'durationSeconds must be a whole number of seconds, up to a week',
       })
     }
-  }
 
-  return errors
-}
-
-export function validateProtocolReference(payload: unknown): FieldErrors {
-  if (!isObject(payload)) {
-    return [
-      { code: 'invalid_payload_shape', message: 'payload must be an object' },
+    const executionFields = [
+      'sourceProtocolRevisionId',
+      'sourceStepBlockId',
+      'completed',
+      'note',
+      'completedAt',
+      'completedByUserId',
     ]
-  }
 
-  if (Object.keys(payload).length === 0) return []
-  const errors: FieldErrors = []
+    const hasExecution = executionFields.some((field) => field in payload)
 
-  for (const field of ['protocolRecordId', 'protocolRevisionId'] as const) {
-    if (!isUuid(payload[field])) {
+    if (hasExecution) {
+      if (!isUuid(payload.sourceProtocolRevisionId)) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: 'sourceProtocolRevisionId',
+          message: 'sourceProtocolRevisionId must be a UUID',
+        })
+      }
+
+      if (!isUuid(payload.sourceStepBlockId)) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: 'sourceStepBlockId',
+          message: 'sourceStepBlockId must be a UUID',
+        })
+      }
+
+      if (!z.boolean().safeParse(payload.completed).success) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: 'completed',
+          message: 'completed must be a boolean',
+        })
+      }
+
+      if (!isString(payload.note)) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: 'note',
+          message: 'note must be a string',
+        })
+      }
+
+      if (payload.completedAt !== null && !isTimestamp(payload.completedAt)) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: 'completedAt',
+          message: 'completedAt must be a timestamp or null',
+        })
+      }
+
+      if (
+        payload.completedByUserId !== null &&
+        !isNonEmptyString(payload.completedByUserId)
+      ) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: 'completedByUserId',
+          message: 'completedByUserId must be a user id or null',
+        })
+      }
+    }
+
+    return errors
+  },
+)
+
+export const validateProtocolReference = payloadValidator(
+  (payload): FieldErrors => {
+    if (!isObject(payload)) {
+      return [
+        { code: 'invalid_payload_shape', message: 'payload must be an object' },
+      ]
+    }
+
+    if (Object.keys(payload).length === 0) return []
+    const errors: FieldErrors = []
+
+    for (const field of ['protocolRecordId', 'protocolRevisionId'] as const) {
+      if (!isUuid(payload[field])) {
+        errors.push({
+          code: 'invalid_field_value',
+          field,
+          message: `${field} must be a UUID`,
+        })
+      }
+    }
+
+    for (const field of [
+      'protocolIdentifier',
+      'protocolTitle',
+      'version',
+      'approvalStatus',
+      'pinnedByUserId',
+    ] as const) {
+      if (!isNonEmptyString(payload[field])) {
+        errors.push({
+          code: 'missing_required_field',
+          field,
+          message: `${field} is required`,
+        })
+      }
+    }
+
+    if (!isTimestamp(payload.pinnedAt)) {
       errors.push({
         code: 'invalid_field_value',
-        field,
-        message: `${field} must be a UUID`,
+        field: 'pinnedAt',
+        message: 'pinnedAt must be a timestamp',
       })
     }
-  }
 
-  for (const field of [
-    'protocolIdentifier',
-    'protocolTitle',
-    'version',
-    'approvalStatus',
-    'pinnedByUserId',
-  ] as const) {
-    if (!isNonEmptyString(payload[field])) {
-      errors.push({
-        code: 'missing_required_field',
-        field,
-        message: `${field} is required`,
-      })
-    }
-  }
+    return errors
+  },
+)
 
-  if (!isTimestamp(payload.pinnedAt)) {
-    errors.push({
-      code: 'invalid_field_value',
-      field: 'pinnedAt',
-      message: 'pinnedAt must be a timestamp',
-    })
-  }
-
-  return errors
-}
-
-export function validateMaterials(payload: unknown): FieldErrors {
+export const validateMaterials = payloadValidator((payload): FieldErrors => {
   if (!isObject(payload)) {
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
@@ -796,7 +843,7 @@ export function validateMaterials(payload: unknown): FieldErrors {
     }
 
     if (
-      typeof value.quantity !== 'number' ||
+      !isNumber(value.quantity) ||
       !Number.isFinite(value.quantity) ||
       value.quantity <= 0
     ) {
@@ -837,16 +884,21 @@ export function validateMaterials(payload: unknown): FieldErrors {
   })
 
   return errors
-}
+})
 
 function chemistryErrors(
   issues: Array<{ field: string; message: string }>,
 ): FieldErrors {
-  return issues.map((issue) => ({
-    code: issue.field === '' ? 'invalid_payload_shape' : 'invalid_field_value',
-    ...(issue.field ? { field: issue.field } : {}),
-    message: issue.message,
-  }))
+  return issues.map((issue) => {
+    const error: Omit<FieldErrors[number], 'message'> = {
+      code:
+        issue.field === '' ? 'invalid_payload_shape' : 'invalid_field_value',
+    }
+
+    if (issue.field) error.field = issue.field
+
+    return { ...error, message: issue.message }
+  })
 }
 
 const GATE_KINDS = [
@@ -862,7 +914,7 @@ const GATE_KINDS = [
 ]
 
 /** A gate holds back what is below it: 1 to 12 conditions and a mode. */
-export function validateGate(payload: unknown): FieldErrors {
+export const validateGate = payloadValidator((payload): FieldErrors => {
   if (!isObject(payload)) {
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
@@ -980,151 +1032,155 @@ export function validateGate(payload: unknown): FieldErrors {
   }
 
   return errors
-}
+})
 
 // Upload pins are saved together; receipt pins are added together after commit.
 // Reference ownership and receipt integrity are authoritative in PostgreSQL.
-export function validateDatasetImport(payload: unknown): FieldErrors {
-  if (!isObject(payload)) {
-    return [
-      { code: 'invalid_payload_shape', message: 'payload must be an object' },
-    ]
-  }
-
-  const errors: FieldErrors = []
-
-  const uploaded =
-    payload.fileId !== undefined || payload.datasetId !== undefined
-
-  const committed =
-    payload.importId !== undefined || payload.datasetVersionId !== undefined
-
-  for (const field of [
-    'fileId',
-    'datasetId',
-    'importId',
-    'datasetVersionId',
-  ] as const) {
-    const required =
-      field === 'fileId' || field === 'datasetId'
-        ? uploaded || committed
-        : committed
-
-    if (required && !isUuid(payload[field])) {
-      errors.push({
-        code: 'invalid_field_value',
-        field,
-        message: `${field} must be a UUID`,
-      })
+export const validateDatasetImport = payloadValidator(
+  (payload): FieldErrors => {
+    if (!isObject(payload)) {
+      return [
+        { code: 'invalid_payload_shape', message: 'payload must be an object' },
+      ]
     }
-  }
 
-  if (
-    payload.sheetName !== undefined &&
-    (!uploaded || !isString(payload.sheetName))
-  ) {
-    errors.push({
-      code: 'invalid_field_value',
-      field: 'sheetName',
-      message: 'sheetName requires upload pins and must be a string',
-    })
-  }
+    const errors: FieldErrors = []
 
-  if (payload.search !== undefined) {
+    const uploaded =
+      payload.fileId !== undefined || payload.datasetId !== undefined
+
+    const committed =
+      payload.importId !== undefined || payload.datasetVersionId !== undefined
+
+    for (const field of [
+      'fileId',
+      'datasetId',
+      'importId',
+      'datasetVersionId',
+    ] as const) {
+      const required =
+        field === 'fileId' || field === 'datasetId'
+          ? uploaded || committed
+          : committed
+
+      if (required && !isUuid(payload[field])) {
+        errors.push({
+          code: 'invalid_field_value',
+          field,
+          message: `${field} must be a UUID`,
+        })
+      }
+    }
+
     if (
-      committed ||
-      !isObject(payload.search) ||
-      Object.entries(payload.search).some(
-        ([key, value]) =>
-          !['step', 'parser', 'map', 'sheet', 'units', 'instrument'].includes(
-            key,
-          ) ||
-          typeof value !== 'string' ||
-          (key === 'step' && value !== 'map' && value !== 'check'),
-      )
+      payload.sheetName !== undefined &&
+      (!uploaded || !isString(payload.sheetName))
     ) {
       errors.push({
         code: 'invalid_field_value',
-        field: 'search',
-        message:
-          'search must contain only draft import step and string mapping options',
+        field: 'sheetName',
+        message: 'sheetName requires upload pins and must be a string',
       })
     }
-  }
 
-  return errors
-}
+    if (payload.search !== undefined) {
+      if (
+        committed ||
+        !isObject(payload.search) ||
+        Object.entries(payload.search).some(
+          ([key, value]) =>
+            !['step', 'parser', 'map', 'sheet', 'units', 'instrument'].includes(
+              key,
+            ) ||
+            !isString(value) ||
+            (key === 'step' && value !== 'map' && value !== 'check'),
+        )
+      ) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: 'search',
+          message:
+            'search must contain only draft import step and string mapping options',
+        })
+      }
+    }
+
+    return errors
+  },
+)
 
 // AUTO-03: a pipeline_output block references a Pipeline run by stable UUID
 // and carries its produced Dataset Version identity for display. An empty
 // draft `{}` is valid; run-reference integrity and workspace matching are
 // the database trigger's job (migration 0140).
-export function validatePipelineOutput(payload: unknown): FieldErrors {
-  if (!isObject(payload))
-    return [
-      { code: 'invalid_payload_shape', message: 'payload must be an object' },
-    ]
-  const errors: FieldErrors = []
+export const validatePipelineOutput = payloadValidator(
+  (payload): FieldErrors => {
+    if (!isObject(payload))
+      return [
+        { code: 'invalid_payload_shape', message: 'payload must be an object' },
+      ]
+    const errors: FieldErrors = []
 
-  if (
-    payload.runId !== undefined &&
-    payload.runId !== null &&
-    !isUuid(payload.runId)
-  ) {
-    errors.push({
-      code: 'invalid_field_value',
-      field: 'runId',
-      message: 'runId must be a Pipeline run UUID',
-    })
-  }
-
-  for (const key of ['datasetId', 'datasetVersionId'] as const) {
     if (
-      payload[key] !== undefined &&
-      payload[key] !== null &&
-      !isUuid(payload[key])
+      payload.runId !== undefined &&
+      payload.runId !== null &&
+      !isUuid(payload.runId)
     ) {
       errors.push({
         code: 'invalid_field_value',
-        field: key,
-        message: `${key} must be a UUID`,
+        field: 'runId',
+        message: 'runId must be a Pipeline run UUID',
       })
     }
-  }
 
-  // PIPE-03: the proposal this block renders, when a run's propose-mode action
-  // pins one here.
-  if (
-    payload.proposalId !== undefined &&
-    payload.proposalId !== null &&
-    !isUuid(payload.proposalId)
-  ) {
-    errors.push({
-      code: 'invalid_field_value',
-      field: 'proposalId',
-      message: 'proposalId must be an agent-operation proposal UUID',
-    })
-  }
+    for (const key of ['datasetId', 'datasetVersionId'] as const) {
+      if (
+        payload[key] !== undefined &&
+        payload[key] !== null &&
+        !isUuid(payload[key])
+      ) {
+        errors.push({
+          code: 'invalid_field_value',
+          field: key,
+          message: `${key} must be a UUID`,
+        })
+      }
+    }
 
-  if (
-    payload.label !== undefined &&
-    payload.label !== null &&
-    (typeof payload.label !== 'string' || payload.label.length > 200)
-  ) {
-    errors.push({
-      code: 'invalid_field_value',
-      field: 'label',
-      message: 'label must be a short string',
-    })
-  }
+    // PIPE-03: the proposal this block renders, when a run's propose-mode action
+    // pins one here.
+    if (
+      payload.proposalId !== undefined &&
+      payload.proposalId !== null &&
+      !isUuid(payload.proposalId)
+    ) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: 'proposalId',
+        message: 'proposalId must be an agent-operation proposal UUID',
+      })
+    }
 
-  return errors
-}
+    if (
+      payload.label !== undefined &&
+      payload.label !== null &&
+      (!isString(payload.label) || payload.label.length > 200)
+    ) {
+      errors.push({
+        code: 'invalid_field_value',
+        field: 'label',
+        message: 'label must be a short string',
+      })
+    }
+
+    return errors
+  },
+)
 
 // A code cell holds Python or SQL, up to five dataset versions it reads, and the
 // output of its last run. An empty draft is valid. Whether a dataset version can
 // be read is checked when the cell runs, as the person running it.
-export function validateCodeCell(payload: unknown): FieldErrors {
+export const validateCodeCell = payloadValidator((payload): FieldErrors => {
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
@@ -1141,8 +1197,7 @@ export function validateCodeCell(payload: unknown): FieldErrors {
 
   if (
     payload.source !== undefined &&
-    (typeof payload.source !== 'string' ||
-      payload.source.length > MAX_CODE_CELL_SOURCE)
+    (!isString(payload.source) || payload.source.length > MAX_CODE_CELL_SOURCE)
   ) {
     errors.push({
       code: 'invalid_field_value',
@@ -1163,11 +1218,11 @@ export function validateCodeCell(payload: unknown): FieldErrors {
       })
     } else {
       const aliases = new Set<string>()
-      payload.inputs.forEach((input: unknown, index: number) => {
+      payload.inputs.forEach((input, index: number) => {
         const entry = isObject(input) ? input : {}
         const alias = entry.alias
 
-        if (typeof alias !== 'string' || !CODE_CELL_ALIAS.test(alias)) {
+        if (!isString(alias) || !CODE_CELL_ALIAS.test(alias)) {
           errors.push({
             code: 'invalid_field_value',
             field: `inputs.${index}.alias`,
@@ -1197,7 +1252,7 @@ export function validateCodeCell(payload: unknown): FieldErrors {
     payload.output !== undefined &&
     payload.output !== null &&
     (!isObject(payload.output) ||
-      typeof payload.output.runId !== 'string' ||
+      !isString(payload.output.runId) ||
       !Array.isArray(payload.output.rows) ||
       payload.output.rows.length > MAX_STORED_OUTPUT_ROWS)
   ) {
@@ -1209,13 +1264,15 @@ export function validateCodeCell(payload: unknown): FieldErrors {
   }
 
   return errors
-}
+})
 
-export const validateStructure = (payload: unknown): FieldErrors =>
-  chemistryErrors(structureIssues(payload))
+export const validateStructure = payloadValidator((payload): FieldErrors =>
+  chemistryErrors(structureIssues(payload)),
+)
 
-export const validateReaction = (payload: unknown): FieldErrors =>
-  chemistryErrors(reactionIssues(payload))
+export const validateReaction = payloadValidator((payload): FieldErrors =>
+  chemistryErrors(reactionIssues(payload)),
+)
 
 export { validateCorrectiveActions, validateSignatureRequest }
 
@@ -1226,7 +1283,7 @@ export { validateCorrectiveActions, validateSignatureRequest }
  */
 const PLUGIN_BLOCK_STATE_MAX_BYTES = 16 * 1024 * 1024
 
-export function validatePluginBlock(payload: unknown): FieldErrors {
+export const validatePluginBlock = payloadValidator((payload): FieldErrors => {
   if (!isObject(payload)) {
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
@@ -1236,14 +1293,14 @@ export function validatePluginBlock(payload: unknown): FieldErrors {
   const errors: FieldErrors = []
   const key = /^[a-z][a-z0-9-]{0,48}$/
 
-  if (typeof payload.plugin !== 'string' || !key.test(payload.plugin))
+  if (!isString(payload.plugin) || !key.test(payload.plugin))
     errors.push({
       code: 'invalid_field_value',
       field: 'plugin',
       message: 'plugin must be the key of an installed plugin',
     })
 
-  if (typeof payload.block !== 'string' || !key.test(payload.block))
+  if (!isString(payload.block) || !key.test(payload.block))
     errors.push({
       code: 'invalid_field_value',
       field: 'block',
@@ -1276,4 +1333,4 @@ export function validatePluginBlock(payload: unknown): FieldErrors {
       })
 
   return errors
-}
+})

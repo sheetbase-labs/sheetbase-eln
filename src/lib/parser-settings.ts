@@ -1,4 +1,5 @@
 import type { DataClient } from './data-client'
+import type { z } from 'zod'
 
 export type ParserVersionStatus = 'draft' | 'validated' | 'approved' | 'retired'
 
@@ -6,7 +7,7 @@ export interface ParserSettingsVersion {
   id: string
   version: number
   status: ParserVersionStatus
-  signature: Record<string, unknown>
+  signature: Record<string, z.core.util.JSONType>
   mapping: Record<string, unknown>
   test_result: Record<string, unknown> | null
   validated_at: string | null

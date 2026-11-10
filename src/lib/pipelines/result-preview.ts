@@ -5,6 +5,8 @@
  * writes; this is a look, not a copy.
  */
 
+import { z } from 'zod'
+
 export const PREVIEW_MAX_ROWS = 50
 export const PREVIEW_MAX_COLUMNS = 40
 export const PREVIEW_MAX_CELL_CHARS = 200
@@ -20,60 +22,99 @@ export interface ResultPreview {
   truncated: boolean
 }
 
-function previewCell(value: unknown): PreviewCell {
-  if (value === null || value === undefined) return null
+const previewCellSchema = z.union([
+  z
+    .null()
+    .optional()
+    .transform(() => null),
+  z.number(),
+  z
+    .union([z.nan(), z.literal(Infinity), z.literal(-Infinity)])
+    .transform(() => null),
+  z.boolean(),
+  z
+    .union([
+      z.date().transform((value) => value.toISOString()),
+      z.string(),
+      z
+        .unknown()
+        .transform((value) => JSON.stringify(value))
+        .pipe(z.string()),
+    ])
+    .transform((text) =>
+      text.length > PREVIEW_MAX_CELL_CHARS
+        ? `${text.slice(0, PREVIEW_MAX_CELL_CHARS)}…`
+        : text,
+    ),
+])
 
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+const rawRowSchema = z.record(z.string(), z.unknown())
 
-  if (typeof value === 'boolean') return value
+// Validate row shape without Zod's record copy dropping an own __proto__ column.
+const previewRowSchema = z.custom<z.infer<typeof rawRowSchema>>(
+  (row) => rawRowSchema.safeParse(row).success,
+)
 
-  const text =
-    value instanceof Date
-      ? value.toISOString()
-      : typeof value === 'string'
-        ? value
-        : JSON.stringify(value)
+const resultPreviewSchema = z
+  .array(previewRowSchema)
+  .transform((rows): ResultPreview => {
+    const allColumns = rows[0] ? Object.keys(rows[0]) : []
+    const columns = allColumns.slice(0, PREVIEW_MAX_COLUMNS)
+    const shown = rows.slice(0, PREVIEW_MAX_ROWS)
 
-  return text.length > PREVIEW_MAX_CELL_CHARS
-    ? `${text.slice(0, PREVIEW_MAX_CELL_CHARS)}…`
-    : text
-}
+    return {
+      columns,
+      rows: shown.map((row) =>
+        columns.map((column) => previewCellSchema.parse(row[column])),
+      ),
+      rowCount: rows.length,
+      truncated:
+        rows.length > PREVIEW_MAX_ROWS ||
+        allColumns.length > PREVIEW_MAX_COLUMNS,
+    }
+  })
 
-export function buildResultPreview(
-  rows: ReadonlyArray<Record<string, unknown>>,
-): ResultPreview {
-  const allColumns = rows[0] ? Object.keys(rows[0]) : []
-  const columns = allColumns.slice(0, PREVIEW_MAX_COLUMNS)
-  const shown = rows.slice(0, PREVIEW_MAX_ROWS)
+export const buildResultPreview =
+  resultPreviewSchema.parse.bind(resultPreviewSchema)
 
-  return {
-    columns,
-    rows: shown.map((row) => columns.map((column) => previewCell(row[column]))),
-    rowCount: rows.length,
-    truncated:
-      rows.length > PREVIEW_MAX_ROWS || allColumns.length > PREVIEW_MAX_COLUMNS,
-  }
-}
+const storedPreviewSchema = z
+  .object({
+    columns: z.array(z.string()),
+    rows: z.array(
+      z.array(
+        z.union([
+          z.string(),
+          z.number(),
+          z.nan(),
+          z.literal(Infinity),
+          z.literal(-Infinity),
+          z.boolean(),
+          z.null(),
+        ]),
+      ),
+    ),
+    rowCount: z
+      .union([z.number(), z.nan(), z.literal(Infinity), z.literal(-Infinity)])
+      .optional()
+      .catch(undefined),
+    truncated: z.boolean().catch(false),
+  })
+  .transform((preview): ResultPreview => ({
+    ...preview,
+    rowCount: preview.rowCount ?? preview.rows.length,
+  }))
 
 /** The preview a run stored, or null for older runs and shapes we don't know. */
-export function readResultPreview(
-  result: Record<string, unknown>,
-): ResultPreview | null {
-  const raw = result.resultPreview
+const storedResultPreviewSchema = z
+  .unknown()
+  .transform((result): ResultPreview | null => {
+    const parsed = z
+      .object({ resultPreview: storedPreviewSchema })
+      .safeParse(result)
 
-  if (typeof raw !== 'object' || raw === null) return null
-  const { columns, rows, rowCount, truncated } = raw as Record<string, unknown>
+    return parsed.success ? parsed.data.resultPreview : null
+  })
 
-  if (!Array.isArray(columns) || !Array.isArray(rows)) return null
-
-  if (!columns.every((c) => typeof c === 'string')) return null
-
-  if (!rows.every((r) => Array.isArray(r))) return null
-
-  return {
-    columns,
-    rows: rows as PreviewCell[][],
-    rowCount: typeof rowCount === 'number' ? rowCount : rows.length,
-    truncated: truncated === true,
-  }
-}
+export const readResultPreview = storedResultPreviewSchema.parse.bind(
+  storedResultPreviewSchema,
+)

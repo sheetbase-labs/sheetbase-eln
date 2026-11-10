@@ -21,6 +21,7 @@
  * that cannot be run says so rather than reporting a pass.
  */
 
+import { z } from 'zod'
 import { CURVE_MODELS, curveEc50, curveInverse, fitCurve } from './curve-fit'
 import type { CurveFit, CurveModel, CurveParameterEstimate } from './curve-fit'
 import {
@@ -56,6 +57,7 @@ import type { DatasetValueFlag } from './dataset-flags'
 import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 
 import type { ChartColumn, ChartSpec, DatasetRef } from './chart-spec'
+import type { DatasetVersionRowPage } from './dataset-product'
 import { t } from '#/copy'
 
 export const ANALYSIS_DEFINITION_VERSION = 1 as const
@@ -387,10 +389,7 @@ export interface ChartDefinition {
 export type AnalysisBlockDefinition = AnalysisDefinition | ChartDefinition
 
 /** The statistic and the chart a block definition holds; either may be absent. */
-export function analysisBlockParts(definition: AnalysisBlockDefinition): {
-  statistic: AnalysisDefinition | null
-  chart: ChartSpec | null
-} {
+export function analysisBlockParts(definition: AnalysisBlockDefinition) {
   return {
     statistic: definition.kind === 'chart' ? null : definition,
     chart: definition.chart ?? null,
@@ -623,16 +622,77 @@ export type AnalysisDefinitionError = {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
+const objectInput = z.custom<object>(
+  (value) =>
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Canonical analysis validation accepts any nonarray native object, not just JSON/plain objects; inspect without reading getters or normalising scientific metadata.
+    typeof value === 'object' && value !== null && !Array.isArray(value),
+)
+
+const stringInput = z.string()
+const numberInput = z.number()
+const booleanInput = z.boolean()
+const kindInput = z.enum(ANALYSIS_BLOCK_KINDS)
+const comparisonTestInput = z.enum(COMPARISON_TESTS)
+const postHocInput = z.enum(COMPARISON_POST_HOCS)
+const curveModelInput = z.enum(CURVE_MODELS)
+const transformInput = z.enum(COLUMN_TRANSFORMS)
+
+function isInput<Schema extends z.ZodType, Value>(
+  schema: Schema,
+  value: Value,
+): value is Value & z.infer<Schema> {
+  return schema.safeParse(value).success
 }
 
-function isUuid(v: unknown): v is string {
-  return typeof v === 'string' && UUID_RE.test(v)
+// These optional unknown properties describe only what each validation stage
+// reads. Object predicates leave the original payload and read order intact.
+const definitionInput = z.custom<{
+  definitionVersion?: unknown
+  datasets?: unknown
+  kind?: unknown
+  chart?: unknown
+  value?: unknown
+  group?: unknown
+  pair?: unknown
+  test?: unknown
+  postHoc?: unknown
+  alpha?: unknown
+  control?: unknown
+  time?: unknown
+  event?: unknown
+  dose?: unknown
+  response?: unknown
+  label?: unknown
+  model?: unknown
+  outcome?: unknown
+  predictor?: unknown
+  degree?: unknown
+  outcomeTransform?: unknown
+  predictorTransform?: unknown
+}>((value) => isInput(objectInput, value))
+
+const bindingInput = z.custom<{ fieldId?: unknown }>((value) =>
+  isInput(objectInput, value),
+)
+
+const datasetRefInput = z.custom<{ datasetId?: unknown }>((value) =>
+  isInput(objectInput, value),
+)
+
+const chartInput = z.custom<{ datasets?: unknown; fields?: unknown }>((value) =>
+  isInput(objectInput, value),
+)
+
+const chartFieldsInput = z.custom<{ y?: unknown }>((value) =>
+  isInput(objectInput, value),
+)
+
+function isUuid<Value>(v: Value): v is Value & string {
+  return isInput(stringInput, v) && UUID_RE.test(v)
 }
 
-function validateBinding(
-  v: unknown,
+function validateBinding<Value>(
+  v: Value,
   field: string,
   required: boolean,
 ): AnalysisDefinitionError[] {
@@ -642,7 +702,7 @@ function validateBinding(
       : []
   }
 
-  if (!isObject(v))
+  if (!isInput(bindingInput, v))
     return [
       { code: 'invalid_shape', field, message: `${field} must be an object` },
     ]
@@ -664,7 +724,7 @@ function validateBinding(
  * chart spec validator that draws it.
  */
 function validateCompanionChart(
-  v: Record<string, unknown>,
+  v: z.infer<typeof definitionInput>,
   required: boolean,
 ): AnalysisDefinitionError[] {
   const chart = v.chart
@@ -681,7 +741,7 @@ function validateCompanionChart(
       : []
   }
 
-  if (!isObject(chart))
+  if (!isInput(chartInput, chart))
     return [
       {
         code: 'invalid_shape',
@@ -696,8 +756,8 @@ function validateCompanionChart(
   if (
     !Array.isArray(datasets) ||
     datasets.length !== 1 ||
-    !isObject(datasets[0]) ||
-    !isObject(own) ||
+    !isInput(datasetRefInput, datasets[0]) ||
+    !isInput(datasetRefInput, own) ||
     datasets[0].datasetId !== own.datasetId
   )
     errors.push({
@@ -705,7 +765,7 @@ function validateCompanionChart(
       field: 'chart.datasets',
       message: t('data.analysisDefinition.chartMustReadSame'),
     })
-  const fields = isObject(chart.fields) ? chart.fields : null
+  const fields = isInput(chartFieldsInput, chart.fields) ? chart.fields : null
   errors.push(...validateBinding(fields?.y, 'chart.fields.y', true))
 
   return errors
@@ -715,10 +775,10 @@ function validateCompanionChart(
  * Structural validation only. Dataset reference integrity against live
  * Datasets is the database's job (mirrored in validate_scientific_block).
  */
-export function validateAnalysisDefinition(
-  v: unknown,
+export function validateAnalysisDefinition<Value>(
+  v: Value,
 ): AnalysisDefinitionError[] {
-  if (!isObject(v))
+  if (!isInput(definitionInput, v))
     return [
       {
         code: 'invalid_shape',
@@ -741,7 +801,10 @@ export function validateAnalysisDefinition(
       field: 'datasets',
       message: 'datasets must contain exactly one dataset',
     })
-  else if (!isObject(v.datasets[0]) || !isUuid(v.datasets[0].datasetId))
+  else if (
+    !isInput(datasetRefInput, v.datasets[0]) ||
+    !isUuid(v.datasets[0].datasetId)
+  )
     errors.push({
       code: 'invalid_value',
       field: 'datasets[0].datasetId',
@@ -750,10 +813,7 @@ export function validateAnalysisDefinition(
 
   const kind = v.kind
 
-  if (
-    typeof kind !== 'string' ||
-    !(ANALYSIS_BLOCK_KINDS as readonly string[]).includes(kind)
-  ) {
+  if (!isInput(kindInput, kind)) {
     errors.push({
       code: 'unsupported_kind',
       field: 'kind',
@@ -775,20 +835,14 @@ export function validateAnalysisDefinition(
     errors.push(...validateBinding(v.group, 'group', true))
     errors.push(...validateBinding(v.pair ?? null, 'pair', v.test === 'paired'))
 
-    if (
-      v.test !== undefined &&
-      !(COMPARISON_TESTS as readonly string[]).includes(v.test as string)
-    )
+    if (v.test !== undefined && !isInput(comparisonTestInput, v.test))
       errors.push({
         code: 'invalid_value',
         field: 'test',
         message: `test must be one of ${COMPARISON_TESTS.join(', ')}`,
       })
 
-    if (
-      v.postHoc !== undefined &&
-      !(COMPARISON_POST_HOCS as readonly string[]).includes(v.postHoc as string)
-    )
+    if (v.postHoc !== undefined && !isInput(postHocInput, v.postHoc))
       errors.push({
         code: 'invalid_value',
         field: 'postHoc',
@@ -797,7 +851,7 @@ export function validateAnalysisDefinition(
 
     if (
       v.alpha !== undefined &&
-      (typeof v.alpha !== 'number' || !(v.alpha > 0 && v.alpha < 1))
+      (!isInput(numberInput, v.alpha) || !(v.alpha > 0 && v.alpha < 1))
     )
       errors.push({
         code: 'invalid_value',
@@ -808,7 +862,7 @@ export function validateAnalysisDefinition(
     if (
       v.control !== undefined &&
       v.control !== null &&
-      typeof v.control !== 'string'
+      !isInput(stringInput, v.control)
     )
       errors.push({
         code: 'invalid_value',
@@ -825,10 +879,7 @@ export function validateAnalysisDefinition(
     errors.push(...validateBinding(v.label ?? null, 'label', false))
     errors.push(...validateBinding(v.group ?? null, 'group', false))
 
-    if (
-      v.model !== undefined &&
-      !(CURVE_MODELS as readonly string[]).includes(v.model as string)
-    )
+    if (v.model !== undefined && !isInput(curveModelInput, v.model))
       errors.push({
         code: 'invalid_value',
         field: 'model',
@@ -841,7 +892,7 @@ export function validateAnalysisDefinition(
 
     if (
       v.degree !== undefined &&
-      (typeof v.degree !== 'number' ||
+      (!isInput(numberInput, v.degree) ||
         !Number.isInteger(v.degree) ||
         v.degree < 1 ||
         v.degree > MAX_DEGREE)
@@ -855,11 +906,7 @@ export function validateAnalysisDefinition(
     for (const key of ['outcomeTransform', 'predictorTransform'] as const) {
       const tv = v[key]
 
-      if (
-        tv !== undefined &&
-        tv !== null &&
-        !(COLUMN_TRANSFORMS as readonly string[]).includes(tv as string)
-      )
+      if (tv !== undefined && tv !== null && !isInput(transformInput, tv))
         errors.push({
           code: 'invalid_value',
           field: key,
@@ -871,17 +918,40 @@ export function validateAnalysisDefinition(
   return errors
 }
 
+/** Decode the canonical saved block contract without normalising its payload.
+ * A successful chart-only definition still is not a statistical definition;
+ * consumers must narrow its kind before loading a statistics editor. */
+export function decodeAnalysisBlockDefinition<Value>(
+  value: Value,
+):
+  | { ok: true; definition: AnalysisBlockDefinition }
+  | { ok: false; errors: AnalysisDefinitionError[] } {
+  const errors: AnalysisDefinitionError[] = []
+
+  const parsed = z
+    .custom<AnalysisBlockDefinition>((input) => {
+      errors.push(...validateAnalysisDefinition(input))
+
+      return errors.length === 0
+    })
+    .safeParse(value)
+
+  if (!parsed.success) return { ok: false, errors }
+
+  return { ok: true, definition: parsed.data }
+}
+
 // ---------------------------------------------------------------------------
 // Execution
 // ---------------------------------------------------------------------------
 
-function groupRows(
-  rows: Record<string, unknown>[],
-  fieldId: string | null,
-): Map<string, Record<string, unknown>[]> {
-  const groups = new Map<string, Record<string, unknown>[]>()
+type AnalysisRow = DatasetVersionRowPage['rows'][number]['values']
+
+function groupRows(rows: AnalysisRow[], fieldId: string | null) {
+  const groups = new Map<string, AnalysisRow[]>()
 
   for (const row of rows) {
+    // eslint-disable-next-line @typescript-eslint/no-base-to-string -- Native scientific labels historically use String, including arrays and objects; JSON would change group identity and ordering.
     const key = fieldId ? String(row[fieldId] ?? '—') : 'all'
 
     if (!groups.has(key)) groups.set(key, [])
@@ -895,17 +965,14 @@ function groupRows(
   )
 }
 
-function toNumeric(rowValues: unknown[]): {
-  values: number[]
-  missing: number
-} {
+function toNumeric<Value>(rowValues: Value[]) {
   let missing = 0
   const values: number[] = []
 
   for (const v of rowValues) {
-    if (typeof v === 'number' && Number.isFinite(v)) values.push(v)
+    if (isInput(numberInput, v) && Number.isFinite(v)) values.push(v)
     else if (
-      typeof v === 'string' &&
+      isInput(stringInput, v) &&
       v.trim() !== '' &&
       Number.isFinite(Number(v))
     )
@@ -924,7 +991,7 @@ function toNumeric(rowValues: unknown[]): {
 export function runAnalysis(
   definition: AnalysisBlockDefinition,
   columns: ChartColumn[],
-  rows: Record<string, unknown>[],
+  rows: AnalysisRow[],
   flags: readonly DatasetValueFlag[] = [],
 ): { ok: true; result: AnalysisResult } | { ok: false; error: AnalysisError } {
   // A chart-only analysis has no statistic to run; its chart is drawn by the
@@ -954,14 +1021,14 @@ export function runAnalysis(
               : [definition.outcome, definition.predictor, definition.group]
     )
       .map((binding) => binding?.fieldId)
-      .filter((fieldId): fieldId is string => typeof fieldId === 'string')
+      .filter((fieldId) => isInput(stringInput, fieldId))
 
     if (usedFields.length > 0) {
       const index = buildFlagIndex(flags)
       rows = rows.filter((row) => {
         const rowId = row[CHART_ROW_ID_KEY]
 
-        if (typeof rowId !== 'string') return true
+        if (!isInput(stringInput, rowId)) return true
 
         const flagged = usedFields.some((fieldId) =>
           isValueFlagged(index, rowId, fieldId),
@@ -1239,21 +1306,27 @@ function pairedChecks(
   const normality = jarqueBeraTest(differences)
   checks.push(
     normality
-      ? {
-          id: 'difference_normality',
-          label: t('data.analysisDefinition.differencesNormal'),
-          status:
-            normality.p < 0.01 ? 'fail' : normality.p < 0.05 ? 'warn' : 'pass',
-          statistic: normality.statistic,
-          pValue: normality.p,
-          detail: t('data.analysisDefinition.differencesNormalDetail', {
-            count: differences.length,
-            p: formatPValue(normality.p),
-          }),
-          ...(normality.p < 0.05
-            ? { remedy: t('data.analysisDefinition.tryRankTest') }
-            : {}),
-        }
+      ? withRemedy(
+          {
+            id: 'difference_normality',
+            label: t('data.analysisDefinition.differencesNormal'),
+            status:
+              normality.p < 0.01
+                ? 'fail'
+                : normality.p < 0.05
+                  ? 'warn'
+                  : 'pass',
+            statistic: normality.statistic,
+            pValue: normality.p,
+            detail: t('data.analysisDefinition.differencesNormalDetail', {
+              count: differences.length,
+              p: formatPValue(normality.p),
+            }),
+          },
+          normality.p < 0.05
+            ? t('data.analysisDefinition.tryRankTest')
+            : undefined,
+        )
       : {
           id: 'difference_normality',
           label: t('data.analysisDefinition.differencesNormal'),
@@ -1278,10 +1351,17 @@ function pairedChecks(
   return checks
 }
 
+/** Keep absent remedies omitted from scientific check evidence. */
+function withRemedy(check: AssumptionCheck, remedy: string | undefined) {
+  if (remedy !== undefined) check.remedy = remedy
+
+  return check
+}
+
 function runComparison(
   definition: ComparisonDefinition,
   resolve: Resolve,
-  rows: Record<string, unknown>[],
+  rows: AnalysisRow[],
   excludedRows: number,
 ): RunOutcome {
   const valueCol = resolve(definition.value)
@@ -1354,6 +1434,7 @@ function runComparison(
         const num = toNumeric([row[valueCol.id]]).values
 
         if (num.length !== 1) continue
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string -- Paired-subject identity uses native String coercion; JSON encoding would split or merge historically paired scientific labels.
         const id = String(row[pairCol!.id] ?? '')
 
         if (id === '') continue
@@ -1516,10 +1597,10 @@ function runComparison(
         return { ok: false, error: { code: 'unknown_control', control } }
     }
 
-    const ph = postHocComparisons(data, postHoc, {
-      alpha,
-      ...(control ? { control } : {}),
-    })
+    const options: Parameters<typeof postHocComparisons>[2] = { alpha }
+
+    if (control) options.control = control
+    const ph = postHocComparisons(data, postHoc, options)
 
     if (ph)
       pairs = ph.comparisons.map((c) => ({
@@ -1578,13 +1659,13 @@ const EVENT_NO = new Set([
 ])
 
 /** Did the event happen? null when the cell says neither. */
-function parseEvent(value: unknown): boolean | null {
-  if (typeof value === 'boolean') return value
+function parseEvent<Value>(value: Value): boolean | null {
+  if (isInput(booleanInput, value)) return value
 
-  if (typeof value === 'number')
+  if (isInput(numberInput, value))
     return value === 1 ? true : value === 0 ? false : null
 
-  if (typeof value !== 'string') return null
+  if (!isInput(stringInput, value)) return null
   const v = value.trim().toLowerCase()
 
   if (EVENT_YES.has(v)) return true
@@ -1597,7 +1678,7 @@ function parseEvent(value: unknown): boolean | null {
 function runSurvival(
   definition: SurvivalDefinition,
   resolve: Resolve,
-  rows: Record<string, unknown>[],
+  rows: AnalysisRow[],
   excludedRows: number,
 ): RunOutcome {
   const timeCol = resolve(definition.time)
@@ -1718,17 +1799,21 @@ function curveChecks(input: {
   const { fit, range, responses, readBack, zeroDose } = input
   const checks: AssumptionCheck[] = []
 
-  checks.push({
-    id: 'curve_converged',
-    label: t('data.analysisDefinition.curveConverged'),
-    status: fit.converged ? 'pass' : 'fail',
-    detail: t('data.analysisDefinition.curveConvergedDetail', {
-      iterations: fit.iterations,
-    }),
-    ...(fit.converged
-      ? {}
-      : { remedy: t('data.analysisDefinition.curveConvergedRemedy') }),
-  })
+  checks.push(
+    withRemedy(
+      {
+        id: 'curve_converged',
+        label: t('data.analysisDefinition.curveConverged'),
+        status: fit.converged ? 'pass' : 'fail',
+        detail: t('data.analysisDefinition.curveConvergedDetail', {
+          iterations: fit.iterations,
+        }),
+      },
+      fit.converged
+        ? undefined
+        : t('data.analysisDefinition.curveConvergedRemedy'),
+    ),
+  )
 
   if (fit.dfResidual === 0)
     checks.push({
@@ -1742,21 +1827,23 @@ function curveChecks(input: {
     })
 
   const inside = fit.ec50 >= range.min && fit.ec50 <= range.max
-  checks.push({
-    id: 'curve_midpoint_inside',
-    label: t('data.analysisDefinition.curveMidpointInside', {
-      ecLabel: fit.falling ? 'IC50' : 'EC50',
-    }),
-    status: inside ? 'pass' : 'warn',
-    detail: t('data.analysisDefinition.curveMidpointDetail', {
-      ec50: formatQuantity(fit.ec50),
-      min: formatQuantity(range.min),
-      max: formatQuantity(range.max),
-    }),
-    ...(inside
-      ? {}
-      : { remedy: t('data.analysisDefinition.curveMidpointRemedy') }),
-  })
+  checks.push(
+    withRemedy(
+      {
+        id: 'curve_midpoint_inside',
+        label: t('data.analysisDefinition.curveMidpointInside', {
+          ecLabel: fit.falling ? 'IC50' : 'EC50',
+        }),
+        status: inside ? 'pass' : 'warn',
+        detail: t('data.analysisDefinition.curveMidpointDetail', {
+          ec50: formatQuantity(fit.ec50),
+          min: formatQuantity(range.min),
+          max: formatQuantity(range.max),
+        }),
+      },
+      inside ? undefined : t('data.analysisDefinition.curveMidpointRemedy'),
+    ),
+  )
 
   // Both plateaus should be backed by data; an asymptote far beyond every
   // observed response is an extrapolation, not a measurement.
@@ -1768,20 +1855,24 @@ function curveChecks(input: {
     (value) => value < low - 0.25 * span || value > high + 0.25 * span,
   ).length
 
-  checks.push({
-    id: 'curve_plateaus',
-    label: t('data.analysisDefinition.curvePlateaus'),
-    status: unsupported === 0 ? 'pass' : 'warn',
-    detail:
+  checks.push(
+    withRemedy(
+      {
+        id: 'curve_plateaus',
+        label: t('data.analysisDefinition.curvePlateaus'),
+        status: unsupported === 0 ? 'pass' : 'warn',
+        detail:
+          unsupported === 0
+            ? t('data.analysisDefinition.curvePlateausDetail')
+            : t('data.analysisDefinition.curvePlateausMissing', {
+                count: unsupported,
+              }),
+      },
       unsupported === 0
-        ? t('data.analysisDefinition.curvePlateausDetail')
-        : t('data.analysisDefinition.curvePlateausMissing', {
-            count: unsupported,
-          }),
-    ...(unsupported === 0
-      ? {}
-      : { remedy: t('data.analysisDefinition.curvePlateausRemedy') }),
-  })
+        ? undefined
+        : t('data.analysisDefinition.curvePlateausRemedy'),
+    ),
+  )
 
   const standards = readBack.filter(
     (r) => r.role === 'standard' && r.recovery !== null,
@@ -1792,38 +1883,46 @@ function curveChecks(input: {
       (r) => r.recovery! < RECOVERY_BAND.lo || r.recovery! > RECOVERY_BAND.hi,
     ).length
 
-    checks.push({
-      id: 'curve_standard_recovery',
-      label: t('data.analysisDefinition.curveRecovery'),
-      status: off === 0 ? 'pass' : 'warn',
-      detail: t('data.analysisDefinition.curveRecoveryDetail', {
-        off,
-        total: standards.length,
-        lo: RECOVERY_BAND.lo,
-        hi: RECOVERY_BAND.hi,
-      }),
-      ...(off === 0
-        ? {}
-        : { remedy: t('data.analysisDefinition.curveRecoveryRemedy') }),
-    })
+    checks.push(
+      withRemedy(
+        {
+          id: 'curve_standard_recovery',
+          label: t('data.analysisDefinition.curveRecovery'),
+          status: off === 0 ? 'pass' : 'warn',
+          detail: t('data.analysisDefinition.curveRecoveryDetail', {
+            off,
+            total: standards.length,
+            lo: RECOVERY_BAND.lo,
+            hi: RECOVERY_BAND.hi,
+          }),
+        },
+        off === 0
+          ? undefined
+          : t('data.analysisDefinition.curveRecoveryRemedy'),
+      ),
+    )
   }
 
   const unknowns = readBack.filter((r) => r.role === 'unknown')
 
   if (unknowns.length > 0) {
     const outside = unknowns.filter((r) => r.status !== 'in_range').length
-    checks.push({
-      id: 'curve_unknowns_inside',
-      label: t('data.analysisDefinition.curveUnknownsInside'),
-      status: outside === 0 ? 'pass' : 'warn',
-      detail: t('data.analysisDefinition.curveUnknownsDetail', {
-        outside,
-        total: unknowns.length,
-      }),
-      ...(outside === 0
-        ? {}
-        : { remedy: t('data.analysisDefinition.curveUnknownsRemedy') }),
-    })
+    checks.push(
+      withRemedy(
+        {
+          id: 'curve_unknowns_inside',
+          label: t('data.analysisDefinition.curveUnknownsInside'),
+          status: outside === 0 ? 'pass' : 'warn',
+          detail: t('data.analysisDefinition.curveUnknownsDetail', {
+            outside,
+            total: unknowns.length,
+          }),
+        },
+        outside === 0
+          ? undefined
+          : t('data.analysisDefinition.curveUnknownsRemedy'),
+      ),
+    )
   }
 
   if (zeroDose > 0)
@@ -1844,7 +1943,7 @@ function runCurve(
   resolve: (
     binding: AnalysisFieldBinding | null | undefined,
   ) => ChartColumn | null,
-  rows: Record<string, unknown>[],
+  rows: AnalysisRow[],
   excludedRows: number,
 ): { ok: true; result: AnalysisResult } | { ok: false; error: AnalysisError } {
   const doseCol = resolve(definition.dose)
@@ -1888,7 +1987,8 @@ function runCurve(
       const label =
         labelCell === null || labelCell === undefined || labelCell === ''
           ? null
-          : String(labelCell)
+          : // eslint-disable-next-line @typescript-eslint/no-base-to-string -- Read-back labels retain native scientific String semantics, not JSON formatting or coercion before numeric parsing.
+            String(labelCell)
 
       const dose = toNumeric([row[doseCol!.id]]).values
 
@@ -2097,28 +2197,28 @@ function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
       detail: t('data.analysisDefinition.jarqueBeraNeedsLeast', { n }),
     })
   else
-    checks.push({
-      id: 'residual_normality',
-      label: t('data.analysisDefinition.residualsNormal'),
-      status:
-        normality.p < 0.01 ? 'fail' : normality.p < 0.05 ? 'warn' : 'pass',
-      statistic: normality.statistic,
-      pValue: normality.p,
-      detail: t('data.analysisDefinition.jarqueBeraResidualsSkewness', {
-        value: formatQuantity(normality.statistic),
-        n,
-        value2: formatQuantity(normality.skewness),
-        value3: formatQuantity(normality.excessKurtosis),
-        value4: formatPValue(normality.p),
-      }),
-      ...(normality.p < 0.05
-        ? {
-            remedy: t(
-              'data.analysisDefinition.inspectResidualsConsiderTransform',
-            ),
-          }
-        : {}),
-    })
+    checks.push(
+      withRemedy(
+        {
+          id: 'residual_normality',
+          label: t('data.analysisDefinition.residualsNormal'),
+          status:
+            normality.p < 0.01 ? 'fail' : normality.p < 0.05 ? 'warn' : 'pass',
+          statistic: normality.statistic,
+          pValue: normality.p,
+          detail: t('data.analysisDefinition.jarqueBeraResidualsSkewness', {
+            value: formatQuantity(normality.statistic),
+            n,
+            value2: formatQuantity(normality.skewness),
+            value3: formatQuantity(normality.excessKurtosis),
+            value4: formatPValue(normality.p),
+          }),
+        },
+        normality.p < 0.05
+          ? t('data.analysisDefinition.inspectResidualsConsiderTransform')
+          : undefined,
+      ),
+    )
 
   const heteroscedasticity = breuschPaganTest(fitted, fit.residuals)
 
@@ -2130,23 +2230,25 @@ function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
       detail: t('data.analysisDefinition.breuschPaganNeedsLeast'),
     })
   else
-    checks.push({
-      id: 'constant_variance',
-      label: t('data.analysisDefinition.residualVarianceConstant'),
-      status: heteroscedasticity.p < 0.05 ? 'fail' : 'pass',
-      statistic: heteroscedasticity.statistic,
-      pValue: heteroscedasticity.p,
-      detail: t('data.analysisDefinition.breuschPaganAgainstFitted', {
-        value: formatQuantity(heteroscedasticity.statistic),
-        df: heteroscedasticity.df,
-        value2: formatPValue(heteroscedasticity.p),
-      }),
-      ...(heteroscedasticity.p < 0.05
-        ? {
-            remedy: t('data.analysisDefinition.residualSpreadChangesFitted'),
-          }
-        : {}),
-    })
+    checks.push(
+      withRemedy(
+        {
+          id: 'constant_variance',
+          label: t('data.analysisDefinition.residualVarianceConstant'),
+          status: heteroscedasticity.p < 0.05 ? 'fail' : 'pass',
+          statistic: heteroscedasticity.statistic,
+          pValue: heteroscedasticity.p,
+          detail: t('data.analysisDefinition.breuschPaganAgainstFitted', {
+            value: formatQuantity(heteroscedasticity.statistic),
+            df: heteroscedasticity.df,
+            value2: formatPValue(heteroscedasticity.p),
+          }),
+        },
+        heteroscedasticity.p < 0.05
+          ? t('data.analysisDefinition.residualSpreadChangesFitted')
+          : undefined,
+      ),
+    )
 
   checks.push(independentObservationsCheck())
 
@@ -2178,24 +2280,22 @@ function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
           status: 'not_checked',
           detail: t('data.analysisDefinition.cookSDistanceNeeds'),
         }
-      : {
-          id: 'influence',
-          label: t('data.analysisDefinition.singleObservationDrivesFit'),
-          status: cooks > 1 ? 'warn' : 'pass',
-          statistic: cooks,
-          detail: t('data.analysisDefinition.largestCookSDistance', {
-            value: formatQuantity(cooks),
-            value2:
-              cooks > 1 ? ' — above the conventional threshold of 1.' : '.',
-          }),
-          ...(cooks > 1
-            ? {
-                remedy: t(
-                  'data.analysisDefinition.checkInfluentialObservationAgainst',
-                ),
-              }
-            : {}),
-        },
+      : withRemedy(
+          {
+            id: 'influence',
+            label: t('data.analysisDefinition.singleObservationDrivesFit'),
+            status: cooks > 1 ? 'warn' : 'pass',
+            statistic: cooks,
+            detail: t('data.analysisDefinition.largestCookSDistance', {
+              value: formatQuantity(cooks),
+              value2:
+                cooks > 1 ? ' — above the conventional threshold of 1.' : '.',
+            }),
+          },
+          cooks > 1
+            ? t('data.analysisDefinition.checkInfluentialObservationAgainst')
+            : undefined,
+        ),
   )
 
   checks.push(
@@ -2292,26 +2392,28 @@ function anovaAssumptionChecks(
       }),
     })
   else
-    checks.push({
-      id: 'residual_normality',
-      label: t('data.analysisDefinition.residualsNormal'),
-      status:
-        normality.p < 0.01 ? 'fail' : normality.p < 0.05 ? 'warn' : 'pass',
-      statistic: normality.statistic,
-      pValue: normality.p,
-      detail: t('data.analysisDefinition.jarqueBeraWithinGroup', {
-        value: formatQuantity(normality.statistic),
-        length: residuals.length,
-        value2: formatQuantity(normality.skewness),
-        value3: formatQuantity(normality.excessKurtosis),
-        value4: formatPValue(normality.p),
-      }),
-      ...(normality.p < 0.05
-        ? {
-            remedy: t('data.analysisDefinition.inspectWithinGroupResiduals'),
-          }
-        : {}),
-    })
+    checks.push(
+      withRemedy(
+        {
+          id: 'residual_normality',
+          label: t('data.analysisDefinition.residualsNormal'),
+          status:
+            normality.p < 0.01 ? 'fail' : normality.p < 0.05 ? 'warn' : 'pass',
+          statistic: normality.statistic,
+          pValue: normality.p,
+          detail: t('data.analysisDefinition.jarqueBeraWithinGroup', {
+            value: formatQuantity(normality.statistic),
+            length: residuals.length,
+            value2: formatQuantity(normality.skewness),
+            value3: formatQuantity(normality.excessKurtosis),
+            value4: formatPValue(normality.p),
+          }),
+        },
+        normality.p < 0.05
+          ? t('data.analysisDefinition.inspectWithinGroupResiduals')
+          : undefined,
+      ),
+    )
 
   const variance = brownForsytheTest(used)
 
@@ -2323,24 +2425,26 @@ function anovaAssumptionChecks(
       detail: t('data.analysisDefinition.brownForsytheNeedsTwo'),
     })
   else
-    checks.push({
-      id: 'equal_variance',
-      label: t('data.analysisDefinition.equalVarianceEveryGroup'),
-      status: variance.p < 0.05 ? 'fail' : 'pass',
-      statistic: variance.f,
-      pValue: variance.p,
-      detail: t('data.analysisDefinition.brownForsytheMedianCentred', {
-        df1: variance.df1,
-        df2: variance.df2,
-        value: formatQuantity(variance.f),
-        value2: formatPValue(variance.p),
-      }),
-      ...(variance.p < 0.05
-        ? {
-            remedy: t('data.analysisDefinition.groupSpreadsDifferVariance'),
-          }
-        : {}),
-    })
+    checks.push(
+      withRemedy(
+        {
+          id: 'equal_variance',
+          label: t('data.analysisDefinition.equalVarianceEveryGroup'),
+          status: variance.p < 0.05 ? 'fail' : 'pass',
+          statistic: variance.f,
+          pValue: variance.p,
+          detail: t('data.analysisDefinition.brownForsytheMedianCentred', {
+            df1: variance.df1,
+            df2: variance.df2,
+            value: formatQuantity(variance.f),
+            value2: formatPValue(variance.p),
+          }),
+        },
+        variance.p < 0.05
+          ? t('data.analysisDefinition.groupSpreadsDifferVariance')
+          : undefined,
+      ),
+    )
 
   checks.push(independentObservationsCheck())
 

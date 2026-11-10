@@ -29,14 +29,17 @@ describe('describeRecordWrite', () => {
         custom_fields: { a: 1 },
       }),
     })!
+
     expect(plan.whens).toEqual(['created'])
     expect(plan.after(null).record).toMatchObject({
       kind: 'sample',
       title: 'S-1',
     })
+
     const body = JSON.parse(
       plan.withFill({ custom_fields: { b: 2 }, tags: ['x'] })!,
     )
+
     expect(body).toMatchObject({ custom_fields: { a: 1, b: 2 }, tags: ['x'] })
   })
 
@@ -51,6 +54,7 @@ describe('describeRecordWrite', () => {
         { kind: 'sample', title: 'b' },
       ]),
     })!
+
     expect(plans).toHaveLength(2)
   })
 
@@ -62,6 +66,7 @@ describe('describeRecordWrite', () => {
       query: `?id=eq.${ID}`,
       body: JSON.stringify({ title: 'New', status: 'in_progress' }),
     })!
+
     expect(plan.recordId).toBe(ID)
     expect(plan.whens).toEqual(['edited', 'status-changed'])
     const { record, changed } = plan.after(previous)
@@ -97,6 +102,7 @@ describe('describeRecordWrite', () => {
         p_tags: ['t'],
       }),
     })!
+
     expect(plain.after(null).record).toMatchObject({
       kind: 'experiment',
       status: 'draft',
@@ -116,6 +122,7 @@ describe('describeRecordWrite', () => {
         p_custom_fields: { a: 1 },
       }),
     })!
+
     expect(
       JSON.parse(model.withFill({ custom_fields: { b: 2 } })!).p_custom_fields,
     ).toEqual({ a: 1, b: 2 })
@@ -133,6 +140,7 @@ describe('describeRecordWrite', () => {
         p_values: { ph: 8 },
       }),
     })!
+
     expect(edit.whens).toEqual(['edited'])
     expect(edit.after(previous).record.custom_fields).toEqual({ ph: 8 })
 
@@ -157,10 +165,46 @@ describe('describeRecordWrite', () => {
         query: '',
         body: JSON.stringify(args),
       })!
+
       expect(plan.whens).toEqual(['status-changed'])
       expect(plan.after(previous).record.status).toBe(status)
       expect(plan.withFill({ tags: ['x'] })).toBeNull()
     }
+  })
+
+  it('keeps JSON values and own scientific keys while malformed snapshot fields fall back', () => {
+    const body =
+      '{"title":"","status":false,"tags":["valid",4],"properties":{"__proto__":{"units":"µL"},"reading":6.02e23},"custom_fields":[1],"future":{"Δμ":false}}'
+    const plan = describeRecordWrite({
+      method: 'PATCH',
+      kind: 'table',
+      resource: 'records',
+      query: `id=eq.${ID}`,
+      body,
+    })?.[0]
+
+    if (!plan) throw new Error('The single-record patch must have a plan')
+
+    expect(plan.whens).toEqual(['edited'])
+    expect(plan.after(previous).record).toMatchObject({
+      title: '',
+      status: 'draft',
+      tags: ['a'],
+      custom_fields: { ph: 7 },
+      properties: JSON.parse('{"__proto__":{"units":"µL"},"reading":6.02e23}'),
+    })
+    expect(JSON.parse(plan.withFill({ properties: undefined })!)).toEqual(
+      JSON.parse(body),
+    )
+    expect(
+      JSON.parse(plan.withFill({ properties: { measured: 0 }, tags: [] })!),
+    ).toEqual({
+      ...JSON.parse(body),
+      properties: JSON.parse(
+        '{"__proto__":{"units":"µL"},"reading":6.02e23,"measured":0}',
+      ),
+      tags: [],
+    })
   })
 
   it('passes over everything else', () => {

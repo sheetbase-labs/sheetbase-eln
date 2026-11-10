@@ -11,6 +11,7 @@
  */
 import { z } from 'zod'
 
+const referenceText = z.string()
 const uuid = z.string().uuid()
 
 export const RECORD_REFERENCE_CELL_FORMAT = 'sb-record-ref-v1' as const
@@ -68,6 +69,7 @@ export class RecordReferenceCellError extends Error {
 }
 
 export function parsePersistedRecordReference(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Persisted cells enter raw; required/empty handling precedes immediate string and UUID decoding to preserve the existing exception codes and messages.
   value: unknown,
   contract: Pick<RecordReferenceCellContract, 'nullable'>,
 ): string | null {
@@ -82,18 +84,22 @@ export function parsePersistedRecordReference(
     return null
   }
 
-  if (typeof value !== 'string') {
+  const text = referenceText.safeParse(value)
+
+  if (!text.success) {
     throw new RecordReferenceCellError(
       'not-uuid',
       'Record reference must be a UUID string.',
     )
   }
 
-  const parsed = uuid.safeParse(value)
+  const parsed = uuid.safeParse(text.data)
 
   if (!parsed.success) {
     throw new RecordReferenceCellError(
-      /^[A-Z]{2,4}-\d{4}-\d{4}$/.test(value) ? 'label-identity' : 'not-uuid',
+      /^[A-Z]{2,4}-\d{4}-\d{4}$/.test(text.data)
+        ? 'label-identity'
+        : 'not-uuid',
       'Choose the record from the list instead of typing its ID or name.',
     )
   }
@@ -177,9 +183,13 @@ export function selectRecordReference(input: {
     )
   }
 
-  return parsePersistedRecordReference(input.record.recordId, {
+  const recordId = input.record.recordId
+
+  parsePersistedRecordReference(recordId, {
     nullable: false,
-  }) as string
+  })
+
+  return recordId
 }
 
 export function clearRecordReference(

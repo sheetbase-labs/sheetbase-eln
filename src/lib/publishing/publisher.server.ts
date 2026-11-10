@@ -219,8 +219,14 @@ async function buildDatasetPackage(
       token,
     ).catch(() => [])
 
+    const fieldsById = new Map<string, (typeof fields)[number]>()
+
+    for (const field of fields) {
+      if (!fieldsById.has(field.id)) fieldsById.set(field.id, field)
+    }
+
     for (const a of annotations) {
-      const field = fields.find((f) => f.id === a.target_id)
+      const field = fieldsById.get(a.target_id)
 
       if (!field) continue
       ;(terms[field.key] ??= []).push({
@@ -519,7 +525,9 @@ export function startPublisher(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
+
+  const g: typeof globalThis & { __sheetbasePublisherStarted?: boolean } =
+    globalThis
 
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
@@ -557,5 +565,9 @@ export function stopPublisher(): void {
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null
-  delete (globalThis as unknown as Record<string, unknown>)[startedGlobalKey]
+
+  const g: typeof globalThis & { __sheetbasePublisherStarted?: boolean } =
+    globalThis
+
+  delete g[startedGlobalKey]
 }

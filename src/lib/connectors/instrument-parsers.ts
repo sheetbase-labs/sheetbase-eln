@@ -15,6 +15,7 @@
  * parsers) from the file content, so a folder-pickup agent can
  * drop mixed instrument output into a single connector.
  */
+import type { z } from 'zod'
 import { t } from '#/copy'
 import { parseImportText } from '#/lib/import-parse'
 
@@ -180,7 +181,7 @@ export function parsePlateGridCsv(text: string): ParsedInstrumentPayload {
     }
   }
 
-  if (blocks.length === 0 || blocks.every((block) => block.rows.length === 0)) {
+  if (blocks.every((block) => block.rows.length === 0)) {
     throw new Error('No plate grid found in instrument output.')
   }
 
@@ -204,17 +205,16 @@ export function parsePlateGridCsv(text: string): ParsedInstrumentPayload {
       block.columns.forEach((column, index) => {
         const value = gridRow.values[index] ?? ''
 
-        const record: Record<string, string> = {
+        const record = {
           Well: `${gridRow.row}${Number(column)}`,
           Row: gridRow.row,
           Column: String(Number(column)),
           Value: value,
         }
 
-        if (multiple) record.Plate = plate
-
         // Unread wells in a partial plate stay out of the table.
-        if (value !== '') rows.push(record)
+        if (value !== '')
+          rows.push(multiple ? { ...record, Plate: plate } : record)
       })
     }
   })
@@ -441,16 +441,19 @@ export function parseHplcPeaksCsv(text: string): ParsedInstrumentPayload {
 // JSON records
 // ---------------------------------------------------------------------------
 
-function stringifyValue(value: unknown): string {
-  if (value === null || value === undefined) return ''
+function stringifyValue(value: z.core.util.JSONType): string {
+  if (value === null) return ''
 
-  if (typeof value === 'string') return value
-
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- JSON.parse already establishes the recursive JSON contract; primitive variants have distinct instrument-cell formatting.
+  switch (typeof value) {
+    case 'string':
+      return value
+    case 'number':
+    case 'boolean':
+      return String(value)
+    default:
+      return JSON.stringify(value)
   }
-
-  return JSON.stringify(value)
 }
 
 /**
@@ -459,31 +462,32 @@ function stringifyValue(value: unknown): string {
  * `data`, `results`) plus an optional flat `metadata` object.
  */
 export function parseJsonRecords(text: string): ParsedInstrumentPayload {
-  let doc: unknown
+  let doc: z.core.util.JSONType
 
   try {
-    doc = JSON.parse(stripBom(text))
+    // SAFETY: Built-in JSON.parse without a reviver can only construct recursive JSON values, never undefined, functions, symbols or native class instances.
+    doc = JSON.parse(stripBom(text)) as z.core.util.JSONType
   } catch {
     throw new Error(t('data.instrumentParsers.instrumentOutputValidJson'))
   }
 
   const metadata: Record<string, string> = {}
-  let records: unknown = doc
+  let records = doc
 
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Discriminate the parsed JSON union's object envelope from arrays and primitive documents.
   if (doc && typeof doc === 'object' && !Array.isArray(doc)) {
-    const object = doc as Record<string, unknown>
-
     const key = ['rows', 'records', 'data', 'results'].find((name) =>
-      Array.isArray(object[name]),
+      Array.isArray(doc[name]),
     )
 
     if (!key) {
       throw new Error(t('data.instrumentParsers.jsonOutputMustArray'))
     }
 
-    records = object[key]
-    const meta = object.metadata
+    records = doc[key]
+    const meta = doc.metadata
 
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Optional metadata is an object variant of the already parsed JSON union; non-object metadata remains ignored.
     if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
       for (const [name, value] of Object.entries(meta)) {
         metadata[normaliseKey(name)] = stringifyValue(value)
@@ -510,6 +514,7 @@ export function parseJsonRecords(text: string): ParsedInstrumentPayload {
   const rows: Array<Record<string, string>> = []
 
   for (const record of records) {
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Parsed JSON row variants must be objects, not primitives or arrays, before reading cells.
     if (!record || typeof record !== 'object' || Array.isArray(record)) {
       throw new Error(t('data.instrumentParsers.everyJsonRowMust'))
     }

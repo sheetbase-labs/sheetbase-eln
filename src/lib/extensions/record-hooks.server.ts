@@ -126,25 +126,33 @@ export function clearRecordHookCache(): void {
 
 async function loadHooks(workspaceId: string): Promise<RecordHook[]> {
   const hit = cache.get(workspaceId)
+
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.hooks
-  const { db } = await import('#/db/client.server')
-  const { extensions } = await import('#/db/schema')
-  const { eq } = await import('drizzle-orm')
+
+  const [{ db }, { extensions }, { eq }] = await Promise.all([
+    import('#/db/client.server'),
+    import('#/db/schema'),
+    import('drizzle-orm'),
+  ])
+
   const rows = await db
     .select()
     .from(extensions)
     .where(eq(extensions.workspaceId, workspaceId))
+
   const hooks = resolveRunnerPoints(
     rows.map((row) => ({
       id: row.id,
       key: row.key,
       name: row.name,
       status: row.status,
-      manifest: row.manifest as never,
+      manifest: row.manifest,
       disabled_points: row.disabledPoints,
     })),
   ).data['record-hooks']
+
   cache.set(workspaceId, { at: Date.now(), hooks })
+
   return hooks
 }
 
@@ -192,10 +200,16 @@ export function defaultHookStore(): HookStore {
       )
     },
     changeRecord: async (args) => {
-      const { env } = await import('#/env.server')
-      const { mintPostgrestToken } = await import('#/lib/postgrest-token')
-      const { postgrestRpc, postgrestPatch, postgrestSelect } =
-        await import('#/lib/request-auth')
+      const [
+        { env },
+        { mintPostgrestToken },
+        { postgrestRpc, postgrestPatch, postgrestSelect },
+      ] = await Promise.all([
+        import('#/env.server'),
+        import('#/lib/postgrest-token'),
+        import('#/lib/request-auth'),
+      ])
+
       const token = await mintPostgrestToken(env.PGRST_JWT_SECRET, {
         userId: args.actorUserId,
         workspaceId: args.workspaceId,
@@ -203,6 +217,7 @@ export function defaultHookStore(): HookStore {
         clientId: PLUGIN_CLIENT_ID,
         ttlSeconds: 60,
       })
+
       const found = await postgrestSelect<
         Array<{ metadata_version: number; properties: unknown; tags: string[] }>
       >(
@@ -210,10 +225,13 @@ export function defaultHookStore(): HookStore {
         `id=eq.${args.recordId}&select=metadata_version,properties,tags`,
         token,
       )
+
       const row = Array.isArray(found.body) ? found.body[0] : undefined
+
       if (found.status >= 400 || !row)
         throw new Error('That record is not there, or you can’t change it.')
       let version = row.metadata_version
+
       if (args.set.custom_fields) {
         const done = await postgrestRpc<{ metadata_version: number }>(
           'update_record_custom_fields',
@@ -224,11 +242,13 @@ export function defaultHookStore(): HookStore {
           },
           token,
         )
+
         if (done.status >= 400)
           throw new Error(describeFailure(done.body, 'custom fields'))
         const body = done.body as { metadata_version?: number }
         version = body.metadata_version ?? version + 1
       }
+
       if (args.set.properties || args.set.tags) {
         const done = await postgrestPatch(
           'records',
@@ -247,6 +267,7 @@ export function defaultHookStore(): HookStore {
           },
           token,
         )
+
         if (done.status >= 400)
           throw new Error(describeFailure(done.body, 'properties or tags'))
       }
@@ -267,6 +288,7 @@ function describeFailure(body: unknown, what: string): string {
           typeof body.error.message === 'string'
         ? body.error.message
         : null
+
   return message ?? `The ${what} could not be changed.`
 }
 
@@ -275,11 +297,13 @@ export function defaultRecordHookDeps(): RecordHookDeps {
     hooksFor: loadHooks,
     loadRecord: async (token, recordId) => {
       const { postgrestSelect } = await import('#/lib/request-auth')
+
       const found = await postgrestSelect<RecordSnapshot[]>(
         'records',
         `id=eq.${recordId}&select=${SNAPSHOT_SELECT}`,
         token,
       )
+
       return Array.isArray(found.body) && found.body[0] ? found.body[0] : null
     },
     store: defaultHookStore(),
@@ -298,18 +322,29 @@ export function matchHooks(
   record: Pick<RecordSnapshot, 'kind' | 'status'>,
 ): Array<{ hook: RecordHook; when: RecordHookWhen }> {
   const out: Array<{ hook: RecordHook; when: RecordHookWhen }> = []
+
   for (const hook of hooks) {
     const d = hook.declaration
+
     if (d.timing !== timing) continue
+
+    // react-doctor-disable-next-line react-doctor/js-set-map-lookups -- Each hook owns a different kind list and performs one membership query; constructing a Set here adds a full scan and allocation. matchHooks tests cover disjoint kinds.
     if (d.kinds && !d.kinds.includes(record.kind)) continue
+
     const when = whens.find((candidate) => {
+      // react-doctor-disable-next-line react-doctor/js-set-map-lookups -- A hook has at most the four RECORD_HOOK_WHEN literals; this preserves first matching caller order without allocating a Set per hook (matchHooks first-moment regression).
       if (!d.when.includes(candidate)) return false
+
       if (candidate === 'status-changed' && d.statuses)
+        // react-doctor-disable-next-line react-doctor/js-set-map-lookups -- Each hook owns a distinct status list queried for the current record's status; allocating a Set here adds a full scan per hook. matchHooks tests cover accepted/refused status changes and first-match fallthrough.
         return d.statuses.includes(record.status)
+
       return true
     })
+
     if (when) out.push({ hook, when })
   }
+
   return out
 }
 
@@ -344,7 +379,9 @@ interface TokenClaims {
 /** Reads who and where from a token the caller has already verified. */
 export function claimsOf(token: string): TokenClaims | null {
   const part = token.split('.')[1]
+
   if (!part) return null
+
   try {
     const claims = JSON.parse(
       Buffer.from(
@@ -352,9 +389,12 @@ export function claimsOf(token: string): TokenClaims | null {
         'base64',
       ).toString('utf8'),
     ) as Record<string, unknown>
+
     const workspaceId = claims.workspace_id
     const sub = claims.sub
+
     if (typeof workspaceId !== 'string' || typeof sub !== 'string') return null
+
     return { workspaceId, actorUserId: sub }
   } catch {
     return null
@@ -379,16 +419,22 @@ export async function guardRecordWrite(
   deps: RecordHookDeps = defaultRecordHookDeps(),
 ): Promise<WriteGuardResult> {
   const method = input.method.toUpperCase()
+
   if (method === 'GET' || method === 'HEAD' || method === 'DELETE')
     return passThrough(input.body)
+
   if (input.kind === 'rpc' && isStorageMove(input.resource)) {
     const claimed = claimsOf(input.token)
+
     const moved = claimed
       ? await guardStorageMove(input, claimed, deps.storage)
       : null
+
     if (moved?.kind === 'refused') return moved
+
     return { ...passThrough(input.body), warnings: moved?.warnings ?? [] }
   }
+
   const planned = describeRecordWrite({
     method,
     kind: input.kind,
@@ -396,11 +442,14 @@ export async function guardRecordWrite(
     query: input.query,
     body: input.body,
   })
+
   if (!planned) return passThrough(input.body)
   const claims = claimsOf(input.token)
+
   if (!claims) return passThrough(input.body)
 
   let hooks: RecordHook[]
+
   try {
     hooks = (await deps.hooksFor(claims.workspaceId)).filter(
       (hook) => hook.declaration.timing === 'before',
@@ -409,8 +458,10 @@ export async function guardRecordWrite(
     logger.warn('plugin hooks could not be looked up', {
       error: error instanceof Error ? error.message : String(error),
     })
+
     return passThrough(input.body)
   }
+
   if (hooks.length === 0) return passThrough(input.body)
 
   const warnings: string[] = []
@@ -418,16 +469,21 @@ export async function guardRecordWrite(
 
   for (const [index, plan] of planned.entries()) {
     let previous: RecordSnapshot | null = null
+
     if (plan.recordId) {
       try {
         previous = await deps.loadRecord(input.token, plan.recordId)
       } catch {
         previous = null
       }
+
       // Not there, or not the person's to see: leave it to the database to say so.
       if (!previous) continue
     }
+
     let { record, changed } = plan.after(previous)
+    const changedFields = new Set(changed)
+
     for (const { hook, when } of matchHooks(
       hooks,
       'before',
@@ -448,7 +504,9 @@ export async function guardRecordWrite(
         },
         warnings,
       )
+
       if (!answer) continue
+
       if (answer.refuse)
         return {
           kind: 'refused',
@@ -456,17 +514,22 @@ export async function guardRecordWrite(
           plugin: hook.extensionName,
           hook: hook.declaration.title,
         }
+
       if (answer.warn) warnings.push(`${hook.extensionName}: ${answer.warn}`)
+
       if (answer.set) {
         fills[index] = mergeFill(fills[index], answer.set)
         record = applyFill(record, answer.set)
-        changed = [...new Set([...changed, ...Object.keys(answer.set)])]
+
+        for (const field of Object.keys(answer.set)) changedFields.add(field)
+        changed = [...changedFields]
       }
     }
   }
 
   if (fills.every((fill) => !fill))
     return { ...passThrough(input.body), warnings }
+
   return {
     kind: 'pass',
     body: withFills(input.body, planned, fills, warnings),
@@ -482,24 +545,31 @@ function withFills(
 ): string | undefined {
   const parsed = planned.map((plan, index) => {
     const fill = fills[index]
+
     if (!fill) return undefined
     const next = plan.withFill(fill)
+
     if (next === null)
       warnings.push(
         'A plugin tried to fill in fields on a change that has nowhere to put them.',
       )
+
     return next
   })
+
   if (parsed.every((entry) => entry === undefined || entry === null))
     return body
+
   if (body !== undefined && body.trimStart().startsWith('[')) {
     const rows = JSON.parse(body) as unknown[]
+
     return JSON.stringify(
       rows.map((row, index) =>
         parsed[index] ? (JSON.parse(parsed[index]) as unknown) : row,
       ),
     )
   }
+
   return parsed[0] ?? body
 }
 
@@ -531,6 +601,7 @@ async function runBefore(
       error: error instanceof Error ? error.message : String(error),
     })
     warnings.push(`${hook.extensionName} could not check this.`)
+
     return null
   }
 }
@@ -566,22 +637,29 @@ export async function runUploadHooks(
 ): Promise<UploadHookResult> {
   const warnings: string[] = []
   const answers: AfterAnswer[] = []
+
   const claims = {
     workspaceId: input.workspaceId,
     actorUserId: input.actorUserId,
   }
+
   let hooks: RecordHook[]
+
   try {
     hooks = await deps.hooksFor(input.workspaceId)
   } catch {
     return { kind: 'pass', warnings, answers }
   }
+
   const matched = matchHooks(hooks, input.timing, ['uploaded'], input.record)
+
   if (matched.length === 0) return { kind: 'pass', warnings, answers }
   let bytes: Uint8Array | null = null
+
   for (const { hook, when } of matched) {
     const wants = hook.declaration.file
     let content: string | undefined
+
     if (wants) {
       try {
         bytes ??= await input.readContent()
@@ -594,6 +672,7 @@ export async function runUploadHooks(
         continue
       }
     }
+
     const hookInput: RecordHookInput = {
       when,
       record: input.record,
@@ -602,9 +681,12 @@ export async function runUploadHooks(
       changes: {},
       file: { ...input.file, ...(wants ? { content, encoding: wants } : {}) },
     }
+
     if (input.timing === 'before') {
       const answer = await runBefore(deps, claims, hook, hookInput, warnings)
+
       if (!answer) continue
+
       if (answer.refuse)
         return {
           kind: 'refused',
@@ -612,9 +694,11 @@ export async function runUploadHooks(
           plugin: hook.extensionName,
           hook: hook.declaration.title,
         }
+
       if (answer.warn) warnings.push(`${hook.extensionName}: ${answer.warn}`)
     } else {
       const answer = await runAfter(deps, claims, hook, hookInput)
+
       if (answer) {
         answers.push(answer)
         await applyHookAnswer(
@@ -631,6 +715,7 @@ export async function runUploadHooks(
       }
     }
   }
+
   return { kind: 'pass', warnings, answers }
 }
 
@@ -662,6 +747,7 @@ async function runAfter(
       hook: hook.id,
       error: error instanceof Error ? error.message : String(error),
     })
+
     return null
   }
 }
@@ -687,18 +773,24 @@ export function whensOfEvent(event: ChangeEventLike): {
 } | null {
   if (event.entityType !== 'record') return null
   const payload = isObject(event.payload) ? event.payload : {}
+
   const changes = isObject(payload.changes)
     ? (payload.changes as Record<string, { from: unknown; to: unknown }>)
     : {}
+
   const kind = typeof payload.kind === 'string' ? payload.kind : ''
   const status = typeof payload.status === 'string' ? payload.status : ''
+
   if (event.operation === 'create')
     return { whens: ['created'], kind, status, changes }
+
   if (event.operation === 'update') {
     const whens: RecordHookWhen[] =
       'status' in changes ? ['status-changed', 'edited'] : ['edited']
+
     return { whens, kind, status, changes }
   }
+
   return null
 }
 
@@ -713,36 +805,46 @@ export async function runAfterRecordHooksForEvent(
 ): Promise<number> {
   if (event.clientId === PLUGIN_CLIENT_ID) return 0
   const meaning = whensOfEvent(event)
+
   if (!meaning || !event.actorUserId) return 0
+
   try {
     const hooks = (await deps.hooksFor(event.workspaceId)).filter(
       (hook) => hook.declaration.timing === 'after',
     )
+
     if (hooks.length === 0) return 0
+
     const claims = {
       workspaceId: event.workspaceId,
       actorUserId: event.actorUserId,
     }
+
     let record: RecordSnapshot | null = null
     let ran = 0
     let { kind, status } = meaning
+
     if (!kind) {
       // An update in the log does not say what kind of record it was (only the
       // creation does), so a hook limited to a kind needs the record itself.
       record = await loadAsActor(deps, claims, event.entityUuid)
+
       if (!record) return 0
       kind = record.kind
       status ||= record.status
     }
+
     for (const { hook, when } of matchHooks(hooks, 'after', meaning.whens, {
       kind,
       status,
     })) {
       if (!record) {
         record = await loadAsActor(deps, claims, event.entityUuid)
+
         // Gone, or not the person's to see: nothing to show a plugin.
         if (!record) return ran
       }
+
       const answer = await runAfter(deps, claims, hook, {
         when,
         record,
@@ -751,6 +853,7 @@ export async function runAfterRecordHooksForEvent(
         changes: meaning.changes,
         file: null,
       })
+
       if (!answer) continue
       ran += 1
       await applyHookAnswer(
@@ -765,18 +868,23 @@ export async function runAfterRecordHooksForEvent(
         answer,
       )
     }
+
     return ran
   } catch (error) {
     logger.warn('plugin hooks could not run after a save', {
       error: error instanceof Error ? error.message : String(error),
     })
+
     return 0
   }
 }
 
 async function mintActorToken(claims: TokenClaims): Promise<string> {
-  const { env } = await import('#/env.server')
-  const { mintPostgrestToken } = await import('#/lib/postgrest-token')
+  const [{ env }, { mintPostgrestToken }] = await Promise.all([
+    import('#/env.server'),
+    import('#/lib/postgrest-token'),
+  ])
+
   return mintPostgrestToken(env.PGRST_JWT_SECRET, {
     userId: claims.actorUserId,
     workspaceId: claims.workspaceId,
@@ -794,6 +902,7 @@ async function loadAsActor(
   const token = deps.mintToken
     ? await deps.mintToken(claims)
     : await mintActorToken(claims)
+
   return deps.loadRecord(token, recordId)
 }
 
@@ -834,6 +943,7 @@ export async function applyHookAnswer(
   answer: AfterAnswer,
 ): Promise<AnswerOutcome> {
   const outcome: AnswerOutcome = { done: [], problems: [] }
+
   const step = async (label: string, work: () => Promise<void>) => {
     try {
       await work()
@@ -849,6 +959,7 @@ export async function applyHookAnswer(
       })
     }
   }
+
   const hook = {
     extensionKey: ctx.hook.extensionKey,
     extensionName: ctx.hook.extensionName,
@@ -861,12 +972,15 @@ export async function applyHookAnswer(
       store.storeSummary({ recordId, hook, summary: answer.summary ?? '' }),
     )
   }
+
   if (answer.index?.length && ctx.recordId) {
     const recordId = ctx.recordId
+
     const byIndex = new Map<
       string,
       Array<{ entry: string; body: string; vector?: number[] }>
     >()
+
     for (const item of answer.index) {
       const list = byIndex.get(item.index) ?? []
       list.push({
@@ -876,7 +990,9 @@ export async function applyHookAnswer(
       })
       byIndex.set(item.index, list)
     }
+
     for (const [index, entries] of byIndex)
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Hook answers commit one step at a time and report completion in that order; record-hooks.server.test.ts delayed-store regression preserves index replacement order and partial-failure reporting.
       await step(`index ${index}`, () =>
         store.storeIndex({
           recordId,
@@ -886,9 +1002,12 @@ export async function applyHookAnswer(
         }),
       )
   }
+
   if (ctx.recordId) {
     const recordId = ctx.recordId
+
     for (const flag of answer.flags ?? [])
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Flag upserts must finish before later sign-off upserts or clears of the same key; the delayed-store regression proves no raised flag survives its later clear.
       await step(`flag ${flag.key}`, () =>
         store.raiseFlag({
           recordId,
@@ -903,7 +1022,9 @@ export async function applyHookAnswer(
           actorUserId: ctx.actorUserId,
         }),
       )
+
     for (const request of answer.sign_off ?? [])
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Sign-off requests share flag keys with later clears; wait for the upsert before clearing, as tested with delayed writes in record-hooks.server.test.ts.
       await step(`sign-off ${request.key}`, () =>
         store.raiseFlag({
           recordId,
@@ -918,20 +1039,26 @@ export async function applyHookAnswer(
           actorUserId: ctx.actorUserId,
         }),
       )
+
     for (const key of answer.clear ?? [])
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Finish ordered flag clears before record changes and their completion report; record-hooks.server.test.ts delays the first clear to detect reordered steps.
       await step(`clear ${key}`, () =>
         store.clearFlag({ recordId, extensionKey: hook.extensionKey, key }),
       )
   }
+
   for (const change of answer.changes ?? []) {
     const target = change.record ?? ctx.recordId
+
     if (!target || !ctx.actorUserId) {
       outcome.problems.push(
         'changes: there is no person to make the change as, or no record to change',
       )
       continue
     }
+
     const actorUserId = ctx.actorUserId
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Multiple changes can write the same record field; parallel writes would let an earlier delayed value overwrite the last one. The delayed-store regression asserts the final reading is 2, not 1.
     await step(`change ${target}`, () =>
       store.changeRecord({
         workspaceId: ctx.workspaceId,
@@ -941,10 +1068,13 @@ export async function applyHookAnswer(
       }),
     )
   }
+
   if (answer.notes?.length && ctx.actorUserId && ctx.eventId) {
     const userId = ctx.actorUserId
     const eventId = ctx.eventId
+
     for (const note of answer.notes)
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Inbox notes retain the plugin's declared order; the delayed-store regression delays First and verifies it still precedes Second.
       await step(`note ${note.title}`, () =>
         store.saveNote({
           workspaceId: ctx.workspaceId,
@@ -957,5 +1087,6 @@ export async function applyHookAnswer(
         }),
       )
   }
+
   return outcome
 }

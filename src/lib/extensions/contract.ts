@@ -16,10 +16,10 @@
  *   flows through the external-token allowlist, which stays fail-closed
  *   (no extension tables or RPCs are added to it).
  */
-import { capabilitiesForRole } from '../capability'
+import { hasCapability } from '../capability'
 import type { Capability } from '../capability'
-import type { WorkspaceRole } from '../workspace-admin'
 import type { ExtensionManifest } from './manifest'
+
 /**
  * Declared capabilities the given role could actually exercise: the
  * manifest's ask intersected with what `api.has_capability` grants the
@@ -27,13 +27,13 @@ import type { ExtensionManifest } from './manifest'
  */
 export function effectiveExtensionCapabilities(
   manifest: Pick<ExtensionManifest, 'capabilities'>,
-  role: WorkspaceRole | string | null | undefined,
+  role: string | null | undefined,
 ): Capability[] {
   if (!role) return []
-  const granted = new Set<Capability>(
-    capabilitiesForRole(role as WorkspaceRole),
+
+  return manifest.capabilities.filter((capability) =>
+    hasCapability(role, capability),
   )
-  return manifest.capabilities.filter((capability) => granted.has(capability))
 }
 
 /** Stable fragment stamped into `change_events` payloads for extension work. */

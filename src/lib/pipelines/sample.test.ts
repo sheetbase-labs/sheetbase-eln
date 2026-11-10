@@ -37,6 +37,17 @@ describe('parseSample', () => {
     })
   })
 
+  it('preserves JSON column names and parsed numeric representation without schema copying', () => {
+    const result = parseSample('[{"__proto__":{"reading":1},"value":1e500}]')
+
+    if (!('rows' in result)) throw new Error(result.error)
+
+    expect(Object.hasOwn(result.rows[0], '__proto__')).toBe(true)
+    expect(result.rows[0]['__proto__']).toEqual({ reading: 1 })
+    expect(result.rows[0].value).toBe(Infinity)
+    expect(Object.getPrototypeOf(result.rows[0])).toBe(Object.prototype)
+  })
+
   it('names what is wrong', () => {
     expect(parseSample('[1, 2]')).toEqual({
       error: 'Use a list of row objects, like [{"value": 1}].',

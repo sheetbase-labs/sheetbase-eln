@@ -1,4 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+// @vitest-environment node
+import { createHash } from 'node:crypto'
+import { strFromU8, unzipSync } from 'fflate'
+import { Pool } from 'pg'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { SessionAuthDeps } from '#/lib/request-auth'
 
@@ -6,81 +10,17 @@ import type { BackupDeps } from './backup.server'
 import { handleBackupDownload, handleWorkspaceExport } from './routes.server'
 import type { WorkspaceExportRouteDeps } from './routes.server'
 
-// The real session and database modules read server environment variables.
-vi.mock('#/lib/request-auth', () => ({
-  requestErrorResponse: (status: number, code: string, message: string) =>
-    new Response(JSON.stringify({ error: { code, message } }), { status }),
-  resolveSessionAuth: async (
-    headers: Headers,
-    deps: {
-      getSession: (h: Headers) => Promise<{ user: { id: string } } | null>
-      getWorkspaceForUser: (id: string) => Promise<{ id: string } | null>
-    },
-  ) => {
-    const session = await deps.getSession(headers)
+vi.hoisted(() => {
+  vi.stubEnv('DATABASE_URL', 'postgresql://unused:unused@127.0.0.1:1/unused')
+  vi.stubEnv(
+    'FORMULA_DATABASE_URL',
+    'postgresql://unused:unused@127.0.0.1:1/unused',
+  )
+  vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret-at-least-thirty-two-characters')
+  vi.stubEnv('PGRST_JWT_SECRET', 'test-jwt-secret-at-least-thirty-two-chars')
+})
 
-    if (!session) {
-      return { ok: false, status: 401, code: 'unauthenticated', message: '' }
-    }
-
-    const membership = await deps.getWorkspaceForUser(session.user.id)
-
-    return membership
-      ? {
-          ok: true,
-          context: { userId: session.user.id, workspaceId: membership.id },
-        }
-      : { ok: false, status: 403, code: 'no_workspace', message: '' }
-  },
-}))
-
-vi.mock('./backup.server', () => ({
-  findBackup: async (
-    pool: {
-      query: (
-        t: string,
-        v: unknown[],
-      ) => Promise<{ rows: Record<string, unknown>[] }>
-    },
-    workspaceId: string,
-    id: string,
-  ) => {
-    const { rows } = await pool.query(
-      'SELECT FROM internal.workspace_backups',
-      [workspaceId, id],
-    )
-
-    const row = rows.at(0)
-
-    return row
-      ? {
-          id: row.id,
-          status: row.status,
-          startedAt: row.started_at,
-          byteSize: Number(row.byte_size),
-          rowCount: Number(row.row_count),
-          storageKey: row.storage_key ?? null,
-        }
-      : null
-  },
-}))
-
-vi.mock('./archive.server', () => ({
-  createWorkspaceArchive: vi.fn(() => ({
-    stream: new ReadableStream<Uint8Array>({
-      start(c) {
-        c.enqueue(new Uint8Array([80, 75, 3, 4]))
-        c.close()
-      },
-    }),
-    summary: Promise.resolve({
-      tableCount: 3,
-      rowCount: 42,
-      fileCount: 1,
-      missingFileCount: 0,
-    }),
-  })),
-}))
+afterAll(() => vi.unstubAllEnvs())
 
 const WS = '00000000-0000-4000-8000-000000000002'
 const BACKUP = '00000000-0000-4000-8000-0000000000b1'
@@ -94,63 +34,112 @@ const auth: SessionAuthDeps = {
 function setup(
   options: {
     canManage?: boolean
-    backupRow?: Record<string, unknown> | null
+    backupRow?: { status?: 'failed'; storage_key?: string | null } | null
   } = {},
 ) {
   const queries: { text: string; values: unknown[] }[] = []
   const stored = new Uint8Array([1, 2, 3, 4, 5])
+  const pool = new Pool()
+  const archivePool = new Pool()
+  let fetched = false
 
-  const backup = {
-    pool: {
-      query: vi.fn(async (text: string, values: unknown[] = []) => {
-        queries.push({ text, values })
+  vi.spyOn(archivePool, 'query').mockImplementation(async (text) => {
+    let rows: object[] = []
 
-        if (text.includes('FROM api.workspaces'))
-          return { rows: [{ slug: 'my lab!' }] }
+    if (text.includes('FROM pg_class c')) {
+      rows = [{ schema: 'api', name: 'workspaces', columns: ['id', 'name'] }]
+    } else if (text.includes('FROM pg_constraint con')) {
+      rows = []
+    } else if (text.includes('SELECT id::text, name, slug')) {
+      rows = [{ id: WS, name: 'My lab', slug: 'my lab!' }]
+    } else if (text.startsWith('FETCH')) {
+      rows = fetched
+        ? []
+        : [{ row: JSON.stringify({ id: WS, name: 'My lab' }) }]
+      fetched = true
+    } else if (text.includes('FROM api.file_objects')) {
+      rows = [
+        {
+          id: 'file-1',
+          record_id: null,
+          storage_key: 'file-1',
+          display_name: 'data.bin',
+          media_type: 'application/octet-stream',
+          byte_size: '5',
+          checksum: null,
+          checksum_algorithm: null,
+        },
+      ]
+    } else if (!/^(BEGIN|DECLARE|CLOSE|COMMIT|ROLLBACK)/.test(text)) {
+      throw new Error(`unexpected archive query: ${text}`)
+    }
 
-        if (text.includes('FROM internal.workspace_backups')) {
-          return {
-            rows:
-              options.backupRow === null
-                ? []
-                : [
-                    {
-                      id: BACKUP,
-                      trigger: 'scheduled',
-                      status: 'succeeded',
-                      started_at: '2026-10-29T03:00:00Z',
-                      finished_at: '2026-10-29T03:01:00Z',
-                      destination: 'database',
-                      byte_size: '5',
-                      row_count: '42',
-                      storage_key: `backups/${WS}/b.zip`,
-                      ...options.backupRow,
-                    },
-                  ],
-          }
-        }
+    return { rows, command: '', rowCount: rows.length, oid: 0, fields: [] }
+  })
 
-        return { rows: [] }
-      }),
+  vi.spyOn(pool, 'query').mockImplementation(async (text, values) => {
+    queries.push({ text, values })
+
+    const rows = text.includes('FROM api.workspaces')
+      ? [{ slug: 'my lab!' }]
+      : text.includes('FROM internal.workspace_backups') &&
+          options.backupRow !== null
+        ? [
+            {
+              id: BACKUP,
+              trigger: 'scheduled',
+              status: 'succeeded',
+              started_at: '2026-10-29T03:00:00Z',
+              finished_at: '2026-10-29T03:01:00Z',
+              destination: 'database',
+              byte_size: '5',
+              row_count: '42',
+              storage_key: `backups/${WS}/b.zip`,
+              ...options.backupRow,
+            },
+          ]
+        : []
+
+    return { rows, command: '', rowCount: rows.length, oid: 0, fields: [] }
+  })
+
+  const storage = {
+    putStream: async () => {
+      throw new Error('unexpected write')
     },
-    archive: { connect: vi.fn(), storage: {} },
+    getStream: async () => ({
+      stream: new ReadableStream<Uint8Array>({
+        start(c) {
+          c.enqueue(stored)
+          c.close()
+        },
+      }),
+      byteSize: stored.length,
+    }),
+    head: async () => {
+      throw new Error('unexpected head')
+    },
+    delete: async () => {
+      throw new Error('unexpected delete')
+    },
+  }
+
+  const backup: BackupDeps = {
+    pool,
+    archive: {
+      connect: async () => ({
+        query: (text, values) => archivePool.query(text, values),
+        end: async () => undefined,
+      }),
+      storage,
+    },
     destination: {
       name: 'database',
       separate: false,
-      storage: {
-        getStream: vi.fn(async () => ({
-          stream: new ReadableStream<Uint8Array>({
-            start(c) {
-              c.enqueue(stored)
-              c.close()
-            },
-          }),
-          byteSize: stored.length,
-        })),
-      },
+      storage,
     },
     now: () => new Date('2026-10-30T09:00:00Z'),
-  } as unknown as BackupDeps
+  }
 
   const deps: WorkspaceExportRouteDeps = {
     auth,
@@ -186,8 +175,34 @@ describe('handleWorkspaceExport', () => {
     expect(response.headers.get('content-disposition')).toBe(
       'attachment; filename="sheetbase-my-lab-20261030.zip"',
     )
+    expect(
+      queries.some((q) => q.text.includes('INSERT INTO api.data_exports')),
+    ).toBe(false)
     const body = new Uint8Array(await response.arrayBuffer())
-    expect([...body]).toEqual([80, 75, 3, 4])
+    expect(body.slice(0, 4)).toEqual(new Uint8Array([80, 75, 3, 4]))
+    const entries = unzipSync(body)
+    const row = `${JSON.stringify({ id: WS, name: 'My lab' })}\n`
+    expect(strFromU8(entries['data/api.workspaces.ndjson'])).toBe(row)
+    expect([...entries['files/file-1']]).toEqual([1, 2, 3, 4, 5])
+    expect(JSON.parse(strFromU8(entries['manifest.json']))).toMatchObject({
+      totals: { tables: 1, rows: 1, files: 1, missingFiles: 0 },
+      tables: [
+        {
+          name: 'api.workspaces',
+          rows: 1,
+          sha256: createHash('sha256').update(row).digest('hex'),
+        },
+      ],
+      files: [
+        {
+          id: 'file-1',
+          sha256: createHash('sha256')
+            .update(new Uint8Array([1, 2, 3, 4, 5]))
+            .digest('hex'),
+          status: 'ok',
+        },
+      ],
+    })
 
     const receipt = queries.find((q) =>
       q.text.includes('INSERT INTO api.data_exports'),
@@ -197,8 +212,8 @@ describe('handleWorkspaceExport', () => {
       WS,
       expect.any(String),
       'zip',
-      42,
-      4,
+      1,
+      body.length,
       'u1',
     ])
   })
@@ -252,6 +267,11 @@ describe('handleBackupDownload', () => {
     expect([...new Uint8Array(await response.arrayBuffer())]).toEqual([
       1, 2, 3, 4, 5,
     ])
+
+    expect(
+      queries.find((q) => q.text.includes('FROM internal.workspace_backups'))
+        ?.values,
+    ).toEqual([WS, BACKUP])
 
     const receipt = queries.find((q) =>
       q.text.includes('INSERT INTO api.data_exports'),

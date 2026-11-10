@@ -9,6 +9,10 @@ import { logger } from '../logger'
 import { reproducePipelineRun } from '../pipeline-execute.server'
 import type { PipelineExecuteDeps } from '../pipeline-execute.server'
 
+declare global {
+  var __sheetbaseReproductionSchedulerStarted: unknown
+}
+
 export const REPRODUCTION_SWEEP_INTERVAL_MS = 10_000
 
 interface RequestRow {
@@ -96,10 +100,9 @@ function disabled(): boolean {
 
 export function startReproductionScheduler(): void {
   if (typeof window !== 'undefined' || disabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
 
-  if (g[startedKey]) return
-  g[startedKey] = true
+  if (globalThis[startedKey]) return
+  globalThis[startedKey] = true
 
   const open = async () => {
     const client = new PooledClient({ connectionString: env.DATABASE_URL })
@@ -150,6 +153,5 @@ export function startReproductionScheduler(): void {
 export function stopReproductionScheduler(): void {
   if (timer) clearInterval(timer)
   timer = null
-  const g = globalThis as unknown as Record<string, unknown>
-  delete g[startedKey]
+  delete globalThis[startedKey]
 }

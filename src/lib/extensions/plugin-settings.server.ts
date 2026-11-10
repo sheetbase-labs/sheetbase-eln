@@ -8,6 +8,8 @@
  * learns only that one is set. A plugin receives the values for the call that
  * needs them and nothing else.
  */
+import { z } from 'zod'
+
 import { openSecret, sealSecret, secretKey } from '../connector-secrets.server'
 import type {
   ExtensionConnectorDeclaration,
@@ -19,6 +21,7 @@ export const SETTINGS_POINTS = [
   'publishers',
   'notification-channels',
 ] as const
+
 export type SettingsPoint = (typeof SETTINGS_POINTS)[number]
 
 export const settingsScope = (point: SettingsPoint, itemId: string) =>
@@ -50,8 +53,11 @@ export interface SettingsStore {
 export function databaseSettingsStore(): SettingsStore {
   return {
     async list(workspaceId, extensionId, scope) {
-      const { db } = await import('#/db/client.server')
-      const { sql } = await import('drizzle-orm')
+      const [{ db }, { sql }] = await Promise.all([
+        import('#/db/client.server'),
+        import('drizzle-orm'),
+      ])
+
       const result = await db.execute(
         sql`SELECT scope, name, value, secret
               FROM internal.extension_settings
@@ -59,11 +65,24 @@ export function databaseSettingsStore(): SettingsStore {
                AND extension_id = ${extensionId}::uuid
                AND (${scope ?? null}::text IS NULL OR scope = ${scope ?? null}::text)`,
       )
-      return result.rows as unknown as StoredSetting[]
+
+      return z
+        .array(
+          z.object({
+            scope: z.string(),
+            name: z.string(),
+            value: z.string(),
+            secret: z.boolean(),
+          }),
+        )
+        .parse(result.rows)
     },
     async save(workspaceId, extensionId, scope, values, actorUserId) {
-      const { db } = await import('#/db/client.server')
-      const { sql } = await import('drizzle-orm')
+      const [{ db }, { sql }] = await Promise.all([
+        import('#/db/client.server'),
+        import('drizzle-orm'),
+      ])
+
       for (const entry of values) {
         if (entry.value === null) {
           await db.execute(
@@ -74,9 +93,11 @@ export function databaseSettingsStore(): SettingsStore {
           )
           continue
         }
+
         const stored = entry.secret
           ? sealSecret(entry.value, secretKey())
           : entry.value
+
         await db.execute(
           sql`INSERT INTO internal.extension_settings
                 (extension_id, workspace_id, scope, name, value, secret, updated_by)
@@ -100,6 +121,7 @@ export async function openSettings(
 ): Promise<Record<string, string>> {
   const rows = await store.list(workspaceId, extensionId, scope)
   const out: Record<string, string> = {}
+
   for (const row of rows) {
     try {
       out[row.name] = row.secret
@@ -109,6 +131,7 @@ export async function openSettings(
       // A value sealed with another key reads as not set.
     }
   }
+
   return out
 }
 
@@ -124,6 +147,7 @@ export function describeSettings(
 ) {
   return declaration.settings.map((setting) => {
     const row = stored.find((entry) => entry.name === setting.name)
+
     return {
       name: setting.name,
       label: setting.label,

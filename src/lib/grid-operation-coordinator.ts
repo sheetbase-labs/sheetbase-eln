@@ -1,4 +1,5 @@
 import type { DataClient } from './data-client'
+import { z } from 'zod'
 import {
   applyScientificRowChanges,
   decodeScientificValue,
@@ -8,7 +9,11 @@ import type {
   FormulaDefinitionWire,
   ScientificRowWire,
   ScientificTableWire,
+  ScientificEdit,
+  ScientificValues,
+  FormulaMutationInput,
 } from './scientific-sheet-data'
+import type { ScientificScalar } from './scientific-literals'
 import { normalizeExponentiation } from './formula-ir'
 import { DataClientError } from './data-client'
 
@@ -23,13 +28,25 @@ export interface PendingCell {
   generation: number
 }
 
-interface PendingFormulaWrite {
+type PendingFormulaWrite = {
   rowId: string
   columnId: string
-  source?: string
-  replacement?: unknown
-  existing?: FormulaDefinitionWire
-}
+} & (
+  | { source: string; existing?: FormulaDefinitionWire }
+  | { replacement: ScientificScalar; existing: FormulaDefinitionWire }
+)
+
+class LocalValidationError extends Error {}
+
+const formulaSourceSchema = z.string().startsWith('=')
+
+const rawScalarSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+  z.undefined(),
+])
 
 export interface CoordinatorConfig {
   /** Data client for RPC calls. */
@@ -237,7 +254,7 @@ export class GridOperationCoordinator {
       // handles it by refetching.
       const formulaChanged = cells.some(
         (cell) =>
-          (typeof cell.raw === 'string' && cell.raw.startsWith('=')) ||
+          formulaSourceSchema.safeParse(cell.raw).success ||
           (!!cell.rowId &&
             this.config
               .getFormulaByCell()
@@ -247,8 +264,7 @@ export class GridOperationCoordinator {
       this.config.onCalculationNeeded(formulaChanged && changedRows.length > 0)
       this.setStatus('saved')
     } catch (error) {
-      const isLocalValidation = (error as { localValidation?: boolean })
-        .localValidation
+      const isLocalValidation = error instanceof LocalValidationError
 
       // stale_version is a deterministic conflict, not a transient failure —
       // do NOT retry. Surface it immediately so the user sees the conflict.
@@ -340,23 +356,21 @@ export class GridOperationCoordinator {
   ): Promise<ScientificRowWire[]> {
     const canonical = this.config.getCanonicalRows()
     const canonicalById = new Map(canonical.map((row) => [row.id, row]))
+
+    const columnsById = new Map(
+      table.columns.map((column) => [column.id, column]),
+    )
+
     const formulaByCell = this.config.getFormulaByCell()
 
-    const edits = new Map<
-      string,
-      {
-        rowId: string
-        expectedVersion: number
-        values: Record<string, unknown>
-      }
-    >()
+    const edits = new Map<string, ScientificEdit>()
 
     // Ordered insert entries so we can match returned rows to their source
     // key. For spare-row inserts the key is `rowIndex:N`; for provisional
     // rows (Add Row button) the key is the provisional ID itself.
     const insertEntries: Array<{
       key: string
-      values: Record<string, unknown>
+      values: ScientificValues
     }> = []
 
     const insertByKey = new Map<string, number>()
@@ -374,7 +388,7 @@ export class GridOperationCoordinator {
     const isProvisional = (id: string | null): boolean =>
       !!id && id.startsWith('prov:')
 
-    const ensureInsert = (key: string): Record<string, unknown> => {
+    const ensureInsert = (key: string): ScientificValues => {
       let idx = insertByKey.get(key)
 
       if (idx === undefined) {
@@ -388,7 +402,7 @@ export class GridOperationCoordinator {
 
     for (const cell of cells) {
       const { rowIndex, rowId, columnId, raw } = cell
-      const column = table.columns.find((c) => c.id === columnId)
+      const column = columnsById.get(columnId)
 
       if (!column) continue
 
@@ -401,22 +415,25 @@ export class GridOperationCoordinator {
         ? formulaByCell.get(`${row.id}/${column.id}`)
         : undefined
 
-      const insertKey = isProvisional(rowId) ? rowId! : `rowIndex:${rowIndex}`
+      const insertKey =
+        rowId && isProvisional(rowId) ? rowId : `rowIndex:${rowIndex}`
 
-      if (typeof raw === 'string' && raw.startsWith('=')) {
+      const source = formulaSourceSchema.safeParse(raw)
+
+      if (source.success) {
         if (!row) {
           // Formula on a new or provisional row — insert the row first,
           // then apply the formula to the server-created UUID.
           ensureInsert(insertKey)
           insertFormulas.set(insertKey, {
             columnId,
-            source: normalizeExponentiation(raw),
+            source: normalizeExponentiation(source.data),
           })
         } else {
           formulaWrites.push({
             rowId: row.id,
             columnId,
-            source: normalizeExponentiation(raw),
+            source: normalizeExponentiation(source.data),
             existing: existingFormula,
           })
         }
@@ -424,10 +441,15 @@ export class GridOperationCoordinator {
         continue
       }
 
-      let value: unknown
+      let value: ScientificScalar
 
       try {
-        value = decodeScientificValue(column, raw)
+        const decoded = rawScalarSchema.safeParse(raw)
+
+        if (!decoded.success)
+          throw new Error(`${column.label} must be a scalar value.`)
+
+        value = decodeScientificValue(column, decoded.data)
       } catch (error) {
         errors.push({
           key: `${rowIndex}:${columnId}`,
@@ -447,7 +469,7 @@ export class GridOperationCoordinator {
           continue
         }
 
-        const edit = edits.get(row.id) ?? {
+        const edit: ScientificEdit = edits.get(row.id) ?? {
           rowId: row.id,
           expectedVersion: Math.max(
             Number(row.version),
@@ -473,9 +495,7 @@ export class GridOperationCoordinator {
 
     if (errors.length) {
       this.config.onIssues(errors)
-      throw Object.assign(new Error('Some cells are invalid.'), {
-        localValidation: true,
-      })
+      throw new LocalValidationError('Some cells are invalid.')
     }
 
     let changedRows: ScientificRowWire[] = []
@@ -548,35 +568,36 @@ export class GridOperationCoordinator {
       const expectedRowVersion = rowVersions.get(formula.rowId)
 
       if (expectedRowVersion === undefined) continue
-      await mutateScientificFormula(
-        formula.source
-          ? ({
-              operation: formula.existing ? 'update' : 'create',
-              target: {
-                tableId: table.id,
-                rowId: formula.rowId,
-                columnId: formula.columnId,
-              },
-              expectedSchemaVersion: table.schema_version,
-              expectedRowVersion,
-              ...(formula.existing
-                ? { expectedFormulaVersion: Number(formula.existing.version) }
-                : {}),
-              source: formula.source,
-            } as Parameters<typeof mutateScientificFormula>[0])
+
+      const common = {
+        target: {
+          tableId: table.id,
+          rowId: formula.rowId,
+          columnId: formula.columnId,
+        },
+        expectedSchemaVersion: table.schema_version,
+        expectedRowVersion,
+      }
+
+      const mutation: FormulaMutationInput =
+        'source' in formula
+          ? formula.existing
+            ? {
+                ...common,
+                operation: 'update',
+                expectedFormulaVersion: Number(formula.existing.version),
+                source: formula.source,
+              }
+            : { ...common, operation: 'create', source: formula.source }
           : {
+              ...common,
               operation: 'remove',
-              target: {
-                tableId: table.id,
-                rowId: formula.rowId,
-                columnId: formula.columnId,
-              },
-              expectedSchemaVersion: table.schema_version,
-              expectedRowVersion,
-              expectedFormulaVersion: Number(formula.existing!.version),
+              expectedFormulaVersion: Number(formula.existing.version),
               replacement: formula.replacement,
-            },
-      )
+            }
+
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each successful write advances the row version used by the next formula; a failed write must stop the batch before later mutations.
+      await mutateScientificFormula(mutation)
       rowVersions.set(formula.rowId, expectedRowVersion + 1)
       this.formulaRowVersions.set(formula.rowId, expectedRowVersion + 1)
       // Notify the caller so it can optimistically update the formulas
@@ -589,7 +610,7 @@ export class GridOperationCoordinator {
           rowId: formula.rowId,
           columnId: formula.columnId,
         },
-        formula.source ?? null,
+        'source' in formula ? formula.source : null,
       )
     }
 

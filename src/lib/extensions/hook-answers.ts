@@ -52,97 +52,85 @@ export interface RecordSnapshot {
 const objectOfValues = z.record(z.string(), z.unknown())
 
 /** The fields a plugin may fill in or change. */
-export const fieldFill = z
-  .object({
-    custom_fields: objectOfValues.optional(),
-    properties: objectOfValues.optional(),
-    tags: z.array(z.string().min(1)).optional(),
-  })
-  .strict()
+export const fieldFill = z.strictObject({
+  custom_fields: objectOfValues.optional(),
+  properties: objectOfValues.optional(),
+  tags: z.array(z.string().min(1)).optional(),
+})
+
 export type FieldFill = z.infer<typeof fieldFill>
 
-export const beforeAnswer = z
-  .object({
-    /** Stops the save. The words are shown to the person who tried to save. */
-    refuse: z.string().min(1).optional(),
-    /** Lets the save through and shows these words. */
-    warn: z.string().min(1).optional(),
-    set: fieldFill.optional(),
-  })
-  .strict()
+export const beforeAnswer = z.strictObject({
+  /** Stops the save. The words are shown to the person who tried to save. */
+  refuse: z.string().min(1).optional(),
+  /** Lets the save through and shows these words. */
+  warn: z.string().min(1).optional(),
+  set: fieldFill.optional(),
+})
+
 export type BeforeAnswer = z.infer<typeof beforeAnswer>
 
-export const afterAnswer = z
-  .object({
-    notes: z
-      .array(
-        z
-          .object({
-            title: z.string().min(1).max(120),
-            body: z.string().max(500).optional(),
-          })
-          .strict(),
-      )
-      .max(5)
-      .optional(),
-    /** One summary per hook, replacing the last. An empty string removes it. */
-    summary: z.string().optional(),
-    index: z
-      .array(
-        z
-          .object({
-            /** Which of the plugin's indexes. */
-            index: z.string().regex(INDEX_NAME_RE),
-            /** Several entries per record are fine; defaults to `main`. */
-            entry: z.string().regex(INDEX_ENTRY_RE).optional(),
-            text: z.string().optional(),
-            vector: z.array(z.number().finite()).min(1).optional(),
-          })
-          .strict()
-          .refine((entry) => entry.text !== undefined || entry.vector, {
-            message: 'an index entry needs text, a vector or both',
-          }),
-      )
-      .optional(),
-    flags: z
-      .array(
-        z
-          .object({
-            key: z.string().regex(FLAG_KEY_RE),
-            title: z.string().min(1),
-            message: z.string().optional(),
-          })
-          .strict(),
-      )
-      .optional(),
-    clear: z.array(z.string().regex(FLAG_KEY_RE)).optional(),
-    sign_off: z
-      .array(
-        z
-          .object({
-            key: z.string().regex(FLAG_KEY_RE),
-            title: z.string().min(1),
-            message: z.string().optional(),
-            roles: z.array(z.enum(SIGN_OFF_ROLES)).min(1),
-            approvals: z.number().int().min(1).optional(),
-            independent: z.boolean().optional(),
-          })
-          .strict(),
-      )
-      .optional(),
-    changes: z
-      .array(
-        z
-          .object({
-            /** Defaults to the record the hook or event is about. */
-            record: z.string().uuid().optional(),
-            set: fieldFill,
-          })
-          .strict(),
-      )
-      .optional(),
-  })
-  .strict()
+export const afterAnswer = z.strictObject({
+  notes: z
+    .array(
+      z.strictObject({
+        title: z.string().min(1).max(120),
+        body: z.string().max(500).optional(),
+      }),
+    )
+    .max(5)
+    .optional(),
+  /** One summary per hook, replacing the last. An empty string removes it. */
+  summary: z.string().optional(),
+  index: z
+    .array(
+      z
+        .strictObject({
+          /** Which of the plugin's indexes. */
+          index: z.string().regex(INDEX_NAME_RE),
+          /** Several entries per record are fine; defaults to `main`. */
+          entry: z.string().regex(INDEX_ENTRY_RE).optional(),
+          text: z.string().optional(),
+          vector: z.array(z.number().finite()).min(1).optional(),
+        })
+        .refine((entry) => entry.text !== undefined || entry.vector, {
+          message: 'an index entry needs text, a vector or both',
+        }),
+    )
+    .optional(),
+  flags: z
+    .array(
+      z.strictObject({
+        key: z.string().regex(FLAG_KEY_RE),
+        title: z.string().min(1),
+        message: z.string().optional(),
+      }),
+    )
+    .optional(),
+  clear: z.array(z.string().regex(FLAG_KEY_RE)).optional(),
+  sign_off: z
+    .array(
+      z.strictObject({
+        key: z.string().regex(FLAG_KEY_RE),
+        title: z.string().min(1),
+        message: z.string().optional(),
+        roles: z.array(z.enum(SIGN_OFF_ROLES)).min(1),
+        approvals: z.number().int().min(1).optional(),
+        independent: z.boolean().optional(),
+      }),
+    )
+    .optional(),
+  changes: z
+    .array(
+      z.strictObject({
+        /** Defaults to the record the hook or event is about. */
+        record: z.string().uuid().optional(),
+        set: fieldFill,
+      }),
+    )
+    .optional(),
+})
+
 export type AfterAnswer = z.infer<typeof afterAnswer>
 
 /** Applies a fill to a snapshot: custom fields and properties merge by key, tags are replaced. */
@@ -151,10 +139,11 @@ export function applyFill(
   fill: FieldFill | undefined,
 ): RecordSnapshot {
   if (!fill) return record
+
   return {
     ...record,
-    custom_fields: { ...record.custom_fields, ...(fill.custom_fields ?? {}) },
-    properties: { ...record.properties, ...(fill.properties ?? {}) },
+    custom_fields: { ...record.custom_fields, ...fill.custom_fields },
+    properties: { ...record.properties, ...fill.properties },
     tags: fill.tags ?? record.tags,
   }
 }
@@ -165,14 +154,19 @@ export function mergeFill(
   second: FieldFill | undefined,
 ): FieldFill | undefined {
   if (!first) return second
+
   if (!second) return first
-  return {
-    ...(first.custom_fields || second.custom_fields
-      ? { custom_fields: { ...first.custom_fields, ...second.custom_fields } }
-      : {}),
-    ...(first.properties || second.properties
-      ? { properties: { ...first.properties, ...second.properties } }
-      : {}),
-    ...((second.tags ?? first.tags) ? { tags: second.tags ?? first.tags } : {}),
-  }
+
+  const merged: FieldFill = {}
+
+  if (first.custom_fields || second.custom_fields)
+    merged.custom_fields = { ...first.custom_fields, ...second.custom_fields }
+
+  if (first.properties || second.properties)
+    merged.properties = { ...first.properties, ...second.properties }
+  const tags = second.tags ?? first.tags
+
+  if (tags) merged.tags = tags
+
+  return merged
 }

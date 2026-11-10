@@ -12,6 +12,11 @@ import {
   scientificSheetName,
 } from './scientific-workbook'
 import type { WorkbookTable } from './scientific-workbook'
+import {
+  decodeScientificResult,
+  encodeScientificLiteral,
+  normalizeEngineScalar,
+} from './scientific-literals'
 
 /**
  * COMP-06.4 — the server's calculation contract on the `sheetbase-table` engine
@@ -275,5 +280,242 @@ describe('scientific workbook on the sheetbase-table engine', () => {
     expect(() =>
       buildScientificWorkbook([table([{ [c1]: { formula: { version: 1 } } }])]),
     ).toThrow(/Invalid persisted formula/)
+  })
+
+  it('retains arithmetic evaluation order for asymmetric cancellation', () => {
+    const workbook = buildScientificWorkbook([
+      table([
+        {
+          [c1]: { literal: 999999999999999 },
+          [c2]: { formula: persisted('=(A1+A2)+A3') },
+        },
+        {
+          [c1]: { literal: -999999999999999 },
+          [c2]: { formula: persisted('=A1+(A2+A3)') },
+        },
+        { [c1]: { literal: 0.1 } },
+      ]),
+    ])
+
+    expect(workbook.get({ tableId, rowId: r1, columnId: c2 })).toMatchObject({
+      value: 0.1,
+    })
+    expect(workbook.get({ tableId, rowId: r2, columnId: c2 })).toMatchObject({
+      value: 0.125,
+    })
+    workbook.destroy()
+  })
+
+  it('looks up identity before coercion and retains formula-removal ordering on a failed literal write', () => {
+    const workbook = buildScientificWorkbook([
+      table([{ [c1]: { literal: 3 }, [c2]: { formula: persisted('=A1*3') } }]),
+    ])
+
+    let coercions = 0
+
+    const invalidLiteral = {
+      toString() {
+        coercions += 1
+
+        return 'not numeric'
+      },
+    }
+
+    expect(() =>
+      workbook.setLiteral(
+        { tableId: 'missing', rowId: r1, columnId: c2 },
+        invalidLiteral,
+      ),
+    ).toThrow('Unknown table.')
+    expect(coercions).toBe(0)
+    expect(() =>
+      workbook.setLiteral({ tableId, rowId: r1, columnId: c2 }, invalidLiteral),
+    ).toThrow('Decimal input is not numeric.')
+    expect(coercions).toBe(1)
+    expect(workbook.get({ tableId, rowId: r1, columnId: c2 })).toEqual({
+      status: 'literal',
+      source: undefined,
+      engineFormula: '=(A1*3)',
+      value: 9,
+      logical: { ok: true, value: 9 },
+    })
+    workbook.destroy()
+  })
+
+  it('formats real binding-resolver failures without replacing native messages or conversion failures', () => {
+    const workbook = buildScientificWorkbook([
+      table([{ [c1]: { literal: 3 } }]),
+    ])
+
+    const worksheet = workbook.engine.sheet(scientificSheetName(tableId))
+    const address = { tableId, rowId: r1, columnId: c1 }
+
+    worksheet.set('A1', {
+      kind: 'record-field',
+      datasetId: 'dataset',
+      recordId: r1,
+      fieldId: c1,
+    })
+    worksheet.setBindingResolver(() => {
+      throw { toString: () => '#DIV/0!' }
+    })
+    expect(workbook.get(address)).toMatchObject({
+      status: 'error',
+      error: 'DIV_BY_ZERO',
+      message: '#DIV/0!',
+    })
+
+    worksheet.setBindingResolver(() => {
+      throw new Error('Circular reference at A1')
+    })
+    expect(workbook.get(address)).toMatchObject({
+      status: 'error',
+      error: 'CYCLE',
+      message: 'Circular reference at A1',
+    })
+
+    const failure = new Error('native coercion failed')
+    worksheet.setBindingResolver(() => {
+      throw {
+        toString() {
+          throw failure
+        },
+      }
+    })
+    expect(() => workbook.get(address)).toThrow(failure)
+    workbook.destroy()
+  })
+})
+
+describe('scientific literal and result codecs', () => {
+  it('preserves native String coercion and strict Boolean input without pre-normalizing objects', () => {
+    let coercions = 0
+
+    const decimalInput = {
+      [Symbol.toPrimitive](hint: string) {
+        expect(hint).toBe('string')
+        coercions += 1
+
+        return '2.75'
+      },
+    }
+
+    expect(encodeScientificLiteral('decimal', decimalInput)).toBe(2.75)
+    expect(coercions).toBe(1)
+    expect(encodeScientificLiteral('text', Symbol('dose'))).toBe('Symbol(dose)')
+    expect(
+      encodeScientificLiteral('reference', { toString: () => 'raw-reference' }),
+    ).toBe('raw-reference')
+    expect(encodeScientificLiteral('integer', 17n)).toBe(17)
+    expect(encodeScientificLiteral('boolean', false)).toBe(false)
+    expect(encodeScientificLiteral('boolean', undefined)).toBeNull()
+    expect(() => encodeScientificLiteral('boolean', 'false')).toThrow(
+      'Boolean input must be a Boolean.',
+    )
+    expect(() =>
+      encodeScientificLiteral('boolean', { valueOf: () => true }),
+    ).toThrow('Boolean input must be a Boolean.')
+  })
+
+  it('keeps precision limits, grammar and numeric-error precedence', () => {
+    expect(encodeScientificLiteral('decimal', '123456789012345')).toBe(
+      123456789012345,
+    )
+    expect(encodeScientificLiteral('decimal', '000.0012300e+2')).toBe(0.123)
+    expect(() =>
+      encodeScientificLiteral('decimal', '1234567890123456'),
+    ).toThrow('Numeric input has more than 15 significant digits.')
+    expect(() => encodeScientificLiteral('integer', '1e3')).toThrow(
+      'Integer input is not an integer.',
+    )
+    expect(() => encodeScientificLiteral('decimal', ' 2.5 ')).toThrow(
+      'Decimal input is not numeric.',
+    )
+    expect(() => encodeScientificLiteral('decimal', '1e309')).toThrow(
+      'Numeric input is outside the safe range.',
+    )
+    expect(() =>
+      encodeScientificLiteral('integer', '9007199254740992'),
+    ).toThrow('Numeric input has more than 15 significant digits.')
+  })
+
+  it('preserves serial epoch, fractional milliseconds, offsets and exact date failures', () => {
+    expect(encodeScientificLiteral('date', '1899-12-30')).toBe(0)
+    expect(encodeScientificLiteral('date', '1900-03-01')).toBe(61)
+    expect(
+      encodeScientificLiteral('timestamp', '1899-12-31T00:30:00.125+01:00'),
+    ).toBe((86_400_000 - 30 * 60_000 + 125) / 86_400_000)
+    expect(encodeScientificLiteral('timestamp', '1899-12-30T00:00:00.7Z')).toBe(
+      700 / 86_400_000,
+    )
+    expect(
+      encodeScientificLiteral('timestamp', '1899-12-30T00:00:00.070Z'),
+    ).toBe(70 / 86_400_000)
+    expect(() => encodeScientificLiteral('date', '1900-02-29')).toThrow(
+      'Invalid ISO date/time components.',
+    )
+    expect(() =>
+      encodeScientificLiteral('timestamp', '2024-02-29T00:00:00+24:00'),
+    ).toThrow('Timestamp has an invalid UTC offset.')
+    expect(() =>
+      encodeScientificLiteral('timestamp', '2024-02-29T00:00:00'),
+    ).toThrow('Timestamp must be RFC 3339 with an explicit offset.')
+  })
+
+  it('converts Date values only and retains native non-Date result identity', () => {
+    const metadata = new Map([['dose', 2]])
+    const matrix = [[2, 7]]
+
+    expect(normalizeEngineScalar(new Date('1900-01-01T12:00:00Z'))).toBe(2.5)
+    expect(normalizeEngineScalar(new Date(NaN))).toBeNaN()
+    expect(normalizeEngineScalar(metadata)).toBe(metadata)
+    expect(normalizeEngineScalar(matrix)).toBe(matrix)
+    expect(normalizeEngineScalar(undefined)).toBeUndefined()
+    expect(normalizeEngineScalar(Infinity)).toBe(Infinity)
+  })
+
+  it('retains target-specific diagnostics without coercing derived scientific values', () => {
+    expect(decodeScientificResult('text', null)).toEqual({
+      ok: true,
+      value: null,
+    })
+    expect(decodeScientificResult('text', undefined)).toEqual({
+      ok: false,
+      code: 'VALUE',
+      message: 'Expected text result.',
+    })
+    expect(decodeScientificResult('category', false, ['active'])).toEqual({
+      ok: false,
+      code: 'VALUE',
+      message: 'Expected category UUID result.',
+    })
+    expect(decodeScientificResult('category', 'retired', ['active'])).toEqual({
+      ok: false,
+      code: 'VALUE',
+      message: 'Expected an active option of the target category.',
+    })
+    expect(decodeScientificResult('category', 'active', ['active'])).toEqual({
+      ok: true,
+      value: 'active',
+    })
+    expect(decodeScientificResult('decimal', '2.75')).toEqual({
+      ok: false,
+      code: 'VALUE',
+      message: 'Expected a safe decimal result.',
+    })
+    expect(decodeScientificResult('decimal', Infinity)).toEqual({
+      ok: false,
+      code: 'VALUE',
+      message: 'Expected a safe decimal result.',
+    })
+    expect(decodeScientificResult('date', 2.5)).toEqual({
+      ok: false,
+      code: 'VALUE',
+      message: 'Expected an integral date serial.',
+    })
+    expect(decodeScientificResult('timestamp', 2.5)).toEqual({
+      ok: true,
+      value: '1900-01-01T12:00:00.000Z',
+    })
   })
 })

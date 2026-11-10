@@ -71,14 +71,20 @@ export function clearStorageRuleCache(): void {
 
 async function loadRules(workspaceId: string): Promise<StorageRule[]> {
   const hit = cache.get(workspaceId)
+
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.rules
-  const { db } = await import('#/db/client.server')
-  const { extensions } = await import('#/db/schema')
-  const { eq } = await import('drizzle-orm')
+
+  const [{ db }, { extensions }, { eq }] = await Promise.all([
+    import('#/db/client.server'),
+    import('#/db/schema'),
+    import('drizzle-orm'),
+  ])
+
   const rows = await db
     .select()
     .from(extensions)
     .where(eq(extensions.workspaceId, workspaceId))
+
   const rules = resolveRunnerPoints(
     rows.map((row) => ({
       id: row.id,
@@ -89,7 +95,9 @@ async function loadRules(workspaceId: string): Promise<StorageRule[]> {
       disabled_points: row.disabledPoints,
     })),
   ).data['storage-rules']
+
   cache.set(workspaceId, { at: Date.now(), rules })
+
   return rules
 }
 
@@ -98,20 +106,24 @@ export function defaultStorageGuardDeps(): StorageGuardDeps {
     rulesFor: loadRules,
     loadRecord: async (token, recordId) => {
       const { postgrestSelect } = await import('#/lib/request-auth')
+
       const found = await postgrestSelect<RecordSnapshot[]>(
         'records',
         `id=eq.${recordId}&select=id,identifier,kind,title,status,tags,properties,custom_fields,project_id`,
         token,
       )
+
       return Array.isArray(found.body) && found.body[0] ? found.body[0] : null
     },
     readTree: async (token) => {
       const { createServerDataClient } =
         await import('#/lib/server-data-client.server')
+
       return fetchStorageTree(createServerDataClient(token))
     },
     readPosition: async (token, positionId) => {
       const { postgrestSelect } = await import('#/lib/request-auth')
+
       const found = await postgrestSelect<
         Array<{ box_id: string; label: string }>
       >(
@@ -119,7 +131,9 @@ export function defaultStorageGuardDeps(): StorageGuardDeps {
         `id=eq.${positionId}&select=box_id,label&limit=1`,
         token,
       )
+
       const row = Array.isArray(found.body) ? found.body[0] : undefined
+
       return row ? { boxId: row.box_id, label: row.label } : null
     },
   }
@@ -130,8 +144,10 @@ const UUID_RE =
 
 function parseArgs(body: string | undefined): Record<string, unknown> | null {
   if (!body) return null
+
   try {
     const value = JSON.parse(body) as unknown
+
     return value && typeof value === 'object' && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : null
@@ -149,7 +165,9 @@ export async function describeDestination(
 ): Promise<StorageRulePlace | null> {
   if (resource === 'transfer_sample') {
     const text = args.p_to_location
+
     if (typeof text !== 'string' || !text.trim()) return null
+
     return {
       path: text
         .split('/')
@@ -163,18 +181,23 @@ export async function describeDestination(
       held: null,
     }
   }
+
   const positionId = args.p_to_position_id
+
   if (typeof positionId !== 'string' || !UUID_RE.test(positionId)) return null
   const position = await deps.readPosition(token, positionId)
+
   if (!position) return null
   const tree = await deps.readTree(token)
   const box = tree.byId.get(position.boxId)
+
   if (!box) return null
   const path = nodePath(tree, box)
   // The coldest and warmest the place is kept at: the nearest level above that says.
   let temperatureC: StorageRulePlace['temperatureC'] = null
   let unitType: string | null = null
   let cursor = box
+
   for (;;) {
     if (
       !temperatureC &&
@@ -184,11 +207,14 @@ export async function describeDestination(
         min: cursor.temperatureMinC,
         max: cursor.temperatureMaxC,
       }
+
     if (cursor.unitType) unitType = cursor.unitType
     const parent = cursor.parentId ? tree.byId.get(cursor.parentId) : undefined
+
     if (!parent) break
     cursor = parent
   }
+
   return {
     path,
     box: box.name,
@@ -204,6 +230,7 @@ export async function describeDestination(
 function fromWhere(sample: RecordSnapshot): string | null {
   const place = (sample.properties as Record<string, unknown> | null)
     ?.storageLocation
+
   return typeof place === 'string' && place.trim() ? place : null
 }
 
@@ -219,23 +246,28 @@ export async function guardStorageMove(
 ): Promise<StorageGuardResult | null> {
   if (!isStorageMove(input.resource)) return null
   let rules: StorageRule[]
+
   try {
     rules = await deps.rulesFor(claims.workspaceId)
   } catch (error) {
     logger.warn('plugin storage rules could not be looked up', {
       error: error instanceof Error ? error.message : String(error),
     })
+
     return null
   }
+
   if (rules.length === 0) return null
   const args = parseArgs(input.body)
   const recordId = args?.p_record_id
+
   if (!args || typeof recordId !== 'string' || !UUID_RE.test(recordId))
     return null
 
   const warnings: string[] = []
   let sample: RecordSnapshot | null
   let to: StorageRulePlace | null
+
   try {
     sample = await deps.loadRecord(input.token, recordId)
     to = await describeDestination(input.resource, args, input.token, deps)
@@ -243,8 +275,10 @@ export async function guardStorageMove(
     logger.warn('plugin storage rules could not read the move', {
       error: error instanceof Error ? error.message : String(error),
     })
+
     return null
   }
+
   // Not there or not the person's to see, or a place we can't describe: leave it to the database to say so.
   if (!sample || !to) return null
 
@@ -262,6 +296,7 @@ export async function guardStorageMove(
         },
         deps.runtime,
       )
+
       if (verdict.status === 'refuse')
         return {
           kind: 'refused',
@@ -269,6 +304,7 @@ export async function guardStorageMove(
           plugin: rule.extensionName,
           hook: rule.declaration.title,
         }
+
       if (verdict.status === 'warn')
         warnings.push(`${rule.extensionName}: ${verdict.message}`)
     } catch (error) {
@@ -282,5 +318,6 @@ export async function guardStorageMove(
       warnings.push(`${rule.extensionName} could not check this.`)
     }
   }
+
   return { kind: 'pass', warnings }
 }

@@ -6,35 +6,30 @@ import { sheetDefinitionUuidSchema as uuid } from './sheet-definition'
 import { sheetInstanceFromWire } from './sheet-instance-data'
 import type { SheetInstance, SheetParameterInput } from './sheet-instance-data'
 
-const previewSchema = z
-  .object({
+const previewSchema = z.looseObject({
+  instanceId: uuid,
+  instanceRevision: z.number().int().positive(),
+  notebookRecordId: uuid.nullable(),
+  compatible: z.boolean(),
+  errorCode: z.string().nullable().optional(),
+  errorMessage: z.string().nullable().optional(),
+  unmatchedLocalRowKeys: z.array(z.string()).default([]),
+  preserved: z.looseObject({
     instanceId: uuid,
-    instanceRevision: z.number().int().positive(),
     notebookRecordId: uuid.nullable(),
-    compatible: z.boolean(),
-    errorCode: z.string().nullable().optional(),
-    errorMessage: z.string().nullable().optional(),
-    unmatchedLocalRowKeys: z.array(z.string()).default([]),
-    preserved: z
-      .object({
-        instanceId: uuid,
-        notebookRecordId: uuid.nullable(),
-        localFieldIds: z.array(uuid),
-        localValueRowCount: z.number().int().min(0),
-        instanceCalculationIds: z.array(uuid),
-      })
-      .passthrough(),
-    target: z
-      .object({
-        definitionId: uuid,
-        versionId: uuid,
-        version: z.number().int().positive(),
-        workspaceId: uuid,
-      })
-      .passthrough()
-      .optional(),
-  })
-  .passthrough()
+    localFieldIds: z.array(uuid),
+    localValueRowCount: z.number().int().min(0),
+    instanceCalculationIds: z.array(uuid),
+  }),
+  target: z
+    .looseObject({
+      definitionId: uuid,
+      versionId: uuid,
+      version: z.number().int().positive(),
+      workspaceId: uuid,
+    })
+    .optional(),
+})
 
 export type SheetCompositionAdoptionPreview = z.infer<typeof previewSchema>
 
@@ -80,7 +75,9 @@ export async function applySheetInstanceCompositionAdoption(
   client: DataClient = createDataClient(),
 ): Promise<SheetCompositionAdoptionResult> {
   const preview = await previewSheetInstanceCompositionAdoption(input, client)
+
   if (!preview.compatible) return { status: 'incompatible', preview }
+
   const result = await client.rpc<{
     status: string
     idempotent?: boolean
@@ -94,6 +91,7 @@ export async function applySheetInstanceCompositionAdoption(
     p_parameter_inputs: input.parameterInputs ?? [],
     p_retry_token: uuid.parse(input.retryToken),
   })
+
   return {
     status: 'applied',
     idempotent: Boolean(result.idempotent),

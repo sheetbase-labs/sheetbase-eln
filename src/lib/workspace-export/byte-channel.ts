@@ -9,6 +9,8 @@ export class ByteChannel {
   private queue: Uint8Array[] = []
   private queued = 0
   private closed = false
+  // Stream errors can originate as arbitrary JavaScript rejection reasons.
+  // oxlint-disable-next-line anti-slop/no-known-value-widening
   private failure: unknown = null
   private cancelled = false
   private readWaiter: (() => void) | null = null
@@ -91,6 +93,8 @@ export class ByteChannel {
     this.readWaiter = null
   }
 
+  // Rejection reasons are untrusted; retain the existing nullish fallback.
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters
   fail(error: unknown): void {
     this.failure = error ?? new Error('archive failed')
     this.readWaiter?.()

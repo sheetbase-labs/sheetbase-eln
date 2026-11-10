@@ -2,7 +2,7 @@ import type {
   RichTextDocument,
   RichTextListItemNode,
   RichTextPayload,
-} from './rich-text'
+} from './rich-text-data'
 
 /**
  * Plain text to a rich-text block payload. Blank lines separate paragraphs;

@@ -11,6 +11,8 @@
  * - `runtime-settings-route.server.ts` is how Settings → Plugins reads and
  *   changes them.
  */
+import { z } from 'zod'
+
 import {
   getPythonEnvironment,
   requestPythonEnvironment,
@@ -75,11 +77,6 @@ export const runnerEnvironments: EnvironmentRunner = {
   status: getPythonEnvironment,
 }
 
-const message = (error: unknown) =>
-  error instanceof Error
-    ? error.message
-    : 'The packages could not be installed.'
-
 /**
  * Asks the runner to install the plugin's packages (a no-op when they are
  * already there) and records where that stands. A runner that can't be reached
@@ -98,6 +95,7 @@ export async function ensureEnvironment(
       state: 'none',
       error: null,
     })
+
     return {
       ...row,
       environmentId: null,
@@ -105,33 +103,42 @@ export async function ensureEnvironment(
       environmentError: null,
     }
   }
+
   let status: PythonEnvironmentStatus
+
   try {
     status = await deps.runner.request(row.requirements)
   } catch (error) {
     return {
       ...row,
       environmentState: 'failed',
-      environmentError: message(error),
+      environmentError:
+        error instanceof Error
+          ? error.message
+          : 'The packages could not be installed.',
     }
   }
+
   const state: PluginRuntimeRow['environmentState'] =
     status.state === 'ready'
       ? 'ready'
       : status.state === 'failed'
         ? 'failed'
         : 'building'
+
   const next = {
     id: status.id,
     state,
     error: status.state === 'failed' ? (status.error ?? null) : null,
   }
+
   if (
     row.environmentId !== next.id ||
     row.environmentState !== next.state ||
     row.environmentError !== next.error
   )
     await deps.store.saveEnvironment(workspaceId, row.extensionId, next)
+
   return {
     ...row,
     environmentId: next.id,
@@ -147,34 +154,44 @@ export async function refreshEnvironment(
   row: PluginRuntimeRow,
 ): Promise<{ row: PluginRuntimeRow; packages: Record<string, string> | null }> {
   if (row.requirements.length === 0) return { row, packages: null }
+
   if (!row.environmentId) {
     const asked = await ensureEnvironment(deps, workspaceId, row)
+
     return { row: asked, packages: null }
   }
+
   let status: PythonEnvironmentStatus
+
   try {
     status = await deps.runner.status(row.environmentId)
   } catch {
     return { row, packages: null }
   }
+
   if (status.state === 'missing') {
     // The runner lost it (a new runner, a pruned image): install again.
     const asked = await ensureEnvironment(deps, workspaceId, row)
+
     return { row: asked, packages: null }
   }
+
   const state: PluginRuntimeRow['environmentState'] =
     status.state === 'ready'
       ? 'ready'
       : status.state === 'failed'
         ? 'failed'
         : 'building'
+
   const error = status.state === 'failed' ? (status.error ?? null) : null
+
   if (row.environmentState !== state || row.environmentError !== error)
     await deps.store.saveEnvironment(workspaceId, row.extensionId, {
       id: row.environmentId,
       state,
       error,
     })
+
   return {
     row: { ...row, environmentState: state, environmentError: error },
     packages: status.packages ?? null,
@@ -187,8 +204,10 @@ export function describeRuntime(
 ): PluginRuntimeInfo {
   const checked = validateLimitOverrides(row.limitOverrides)
   const overrides = checked.errors.length === 0 ? checked.value : {}
+
   const state: PluginEnvironmentState =
     row.requirements.length === 0 ? 'none' : row.environmentState
+
   return {
     extensionId: row.extensionId,
     requirements: row.requirements,
@@ -218,14 +237,16 @@ function rowFrom(row: {
 }): PluginRuntimeRow {
   return {
     ...row,
-    environmentState:
-      row.environmentState as PluginRuntimeRow['environmentState'],
+    environmentState: z
+      .enum(['none', 'building', 'ready', 'failed'])
+      .parse(row.environmentState),
   }
 }
 
 export function databaseStore(): RuntimeStore {
   const columns = async () => {
     const { extensionPackages } = await import('#/db/schema')
+
     return {
       table: extensionPackages,
       select: {
@@ -239,11 +260,15 @@ export function databaseStore(): RuntimeStore {
       },
     }
   }
+
   return {
     async load(workspaceId, extensionId) {
-      const { db } = await import('#/db/client.server')
-      const { and, eq } = await import('drizzle-orm')
-      const { table, select } = await columns()
+      const [{ db }, { and, eq }, { table, select }] = await Promise.all([
+        import('#/db/client.server'),
+        import('drizzle-orm'),
+        columns(),
+      ])
+
       const rows = await db
         .select(select)
         .from(table)
@@ -253,34 +278,47 @@ export function databaseStore(): RuntimeStore {
             eq(table.extensionId, extensionId),
           ),
         )
+
       return rows[0] ? rowFrom(rows[0]) : null
     },
     async loadByKey(workspaceId, key) {
-      const { db } = await import('#/db/client.server')
-      const { and, eq } = await import('drizzle-orm')
-      const { extensions } = await import('#/db/schema')
-      const { table, select } = await columns()
+      const [{ db }, { and, eq }, { extensions }, { table, select }] =
+        await Promise.all([
+          import('#/db/client.server'),
+          import('drizzle-orm'),
+          import('#/db/schema'),
+          columns(),
+        ])
+
       const rows = await db
         .select(select)
         .from(table)
         .innerJoin(extensions, eq(extensions.id, table.extensionId))
         .where(and(eq(table.workspaceId, workspaceId), eq(extensions.key, key)))
+
       return rows[0] ? rowFrom(rows[0]) : null
     },
     async list(workspaceId) {
-      const { db } = await import('#/db/client.server')
-      const { eq } = await import('drizzle-orm')
-      const { table, select } = await columns()
+      const [{ db }, { eq }, { table, select }] = await Promise.all([
+        import('#/db/client.server'),
+        import('drizzle-orm'),
+        columns(),
+      ])
+
       const rows = await db
         .select(select)
         .from(table)
         .where(eq(table.workspaceId, workspaceId))
+
       return rows.map(rowFrom)
     },
     async saveEnvironment(workspaceId, extensionId, environment) {
-      const { db } = await import('#/db/client.server')
-      const { and, eq } = await import('drizzle-orm')
-      const { table } = await columns()
+      const [{ db }, { and, eq }, { table }] = await Promise.all([
+        import('#/db/client.server'),
+        import('drizzle-orm'),
+        columns(),
+      ])
+
       await db
         .update(table)
         .set({
@@ -297,9 +335,12 @@ export function databaseStore(): RuntimeStore {
         )
     },
     async saveOverrides(workspaceId, extensionId, overrides) {
-      const { db } = await import('#/db/client.server')
-      const { and, eq } = await import('drizzle-orm')
-      const { table } = await columns()
+      const [{ db }, { and, eq }, { table }] = await Promise.all([
+        import('#/db/client.server'),
+        import('drizzle-orm'),
+        columns(),
+      ])
+
       await db
         .update(table)
         .set({ limitOverrides: overrides })
@@ -311,9 +352,12 @@ export function databaseStore(): RuntimeStore {
         )
     },
     async saveDeclaration(workspaceId, extensionId, declaration) {
-      const { db } = await import('#/db/client.server')
-      const { and, eq } = await import('drizzle-orm')
-      const { table } = await columns()
+      const [{ db }, { and, eq }, { table }] = await Promise.all([
+        import('#/db/client.server'),
+        import('drizzle-orm'),
+        columns(),
+      ])
+
       await db
         .update(table)
         .set({

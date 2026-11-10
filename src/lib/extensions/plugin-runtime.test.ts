@@ -14,11 +14,14 @@ import { validateExtensionManifest } from './manifest'
 import { buildPluginPackage } from './package'
 import { parsePluginName, pluginOperationName } from './points'
 import { describeRunnerAdds, resolveRunnerPoints } from './runner-points'
+import type { RunnerInstallLike } from './runner-points'
+import type { PluginRuntimeRow } from './runtime-settings.server'
 import {
   ExtensionRunError,
   checkDeclaredValues,
   invokeExtension,
   openExtensionPoint,
+  runPackage,
   runExtensionAnalysis,
 } from './runtime.server'
 import type { ExtensionRuntimeDeps } from './runtime.server'
@@ -31,20 +34,24 @@ import {
 
 const files = readExample('cell-count')
 const pkg = buildPluginPackage(files)
-const manifest = () => structuredClone(pkg.manifest) as any
+const manifest = () => structuredClone(pkg.manifest)
 
 function withWriteOperation() {
   const m = manifest()
-  m.contributions.operations.push({
-    ...m.contributions.operations[0],
+  const operations = m.contributions.operations
+
+  if (!operations?.[0]) throw new Error('cell-count must declare an operation')
+  operations.push({
+    ...operations[0],
     id: 'record-count',
     access: 'write',
   })
+
   return m
 }
 
 describe('resolveRunnerPoints and the generated surfaces', () => {
-  const install = (over: Record<string, unknown> = {}) => ({
+  const install = (over: Partial<RunnerInstallLike> = {}) => ({
     id: 'e1',
     key: 'cell-count',
     status: 'enabled',
@@ -78,9 +85,11 @@ describe('resolveRunnerPoints and the generated surfaces', () => {
     expect(assistantToolsFrom(descriptors, 'propose')).toEqual([
       'plugin.cell-count.record-count',
     ])
+
     const action = pipelineActionsFrom(descriptors).find(
       (a) => a.operation === 'plugin.cell-count.viability',
     )!
+
     expect(action.label).toBe('Cell viability')
     expect(action.arguments.map((a) => [a.name, a.type, a.required])).toEqual([
       ['live', 'integer', true],
@@ -93,9 +102,11 @@ describe('resolveRunnerPoints and the generated surfaces', () => {
       resolveRunnerPoints([install({ status: 'disabled' })]).operations,
     ).toEqual([])
     expect(resolveRunnerPoints([]).descriptors).toEqual([])
+
     const off = resolveRunnerPoints([
       install({ disabled_points: ['operations'] }),
     ])
+
     expect(off.operations).toEqual([])
     expect(off.descriptors).toEqual([])
   })
@@ -131,6 +142,53 @@ describe('checkDeclaredValues', () => {
     { name: 'n', type: 'integer' as const, required: true },
     { name: 'note', type: 'text' as const, required: false },
   ]
+
+  it.each([
+    ['number', Infinity],
+    ['number', NaN],
+    ['number', '2'],
+    ['integer', Number.MAX_SAFE_INTEGER + 1],
+    ['integer', -1.5],
+    ['boolean', 0],
+    ['date', '2026-1-01'],
+    ['text', false],
+  ] as const)(
+    'refuses malformed declared %s values without coercion',
+    (type, value) => {
+      expect(() =>
+        checkDeclaredValues(
+          [{ name: 'value', type, required: true }],
+          { value },
+          'input',
+        ),
+      ).toThrow(ExtensionRunError)
+    },
+  )
+
+  it('preserves falsy primitives and native json values until the transport boundary', () => {
+    const native = Symbol('Δμ')
+
+    const declarations = [
+      { name: 'number', type: 'number', required: true },
+      { name: 'integer', type: 'integer', required: true },
+      { name: 'boolean', type: 'boolean', required: true },
+      { name: 'text', type: 'text', required: true },
+      { name: 'date', type: 'date', required: true },
+      { name: 'json', type: 'json', required: true },
+    ] as const
+
+    const values = {
+      number: 0,
+      integer: -Number.MAX_SAFE_INTEGER,
+      boolean: false,
+      text: '',
+      date: '2026-11-10',
+      json: native,
+    }
+
+    expect(checkDeclaredValues(declarations, values, 'input')).toEqual(values)
+  })
+
   it('returns the declared fields and refuses others', () => {
     expect(checkDeclaredValues(fields, { n: 2 }, 'input')).toEqual({ n: 2 })
     expect(() =>
@@ -150,6 +208,7 @@ describe('checkDeclaredValues', () => {
 
 function deps(over: Partial<ExtensionRuntimeDeps> = {}) {
   const audit = vi.fn(async () => undefined)
+
   const d: ExtensionRuntimeDeps = {
     loadInstall: async () => ({
       id: 'e1',
@@ -171,6 +230,7 @@ function deps(over: Partial<ExtensionRuntimeDeps> = {}) {
     now: () => 0,
     ...over,
   }
+
   return { d, audit }
 }
 
@@ -193,6 +253,7 @@ describe('the gate', () => {
         ...over,
       }),
     })
+
     await expect(
       openExtensionPoint(d, 'w', 'cell-count', 'operations'),
     ).rejects.toMatchObject({ code })
@@ -230,17 +291,104 @@ describe('the Python step', () => {
     expect(statement).toContain('sheetbase_plugin/host.py')
     expect(statement).not.toContain('README')
   })
+
+  it('decodes scientific input without normalizing values or dropping own keys', async () => {
+    const executePython = vi
+      .fn<ExtensionRuntimeDeps['executePython']>()
+      .mockResolvedValue({ rows: [], logs: [], runtime: 'fixture' })
+
+    const { d } = deps({ executePython })
+
+    const resolved = await openExtensionPoint(
+      d,
+      'w',
+      'cell-count',
+      'operations',
+    )
+
+    const at = new Date('2026-11-10T12:34:56Z')
+    const bytes = Buffer.from([0, 127, 255])
+
+    const row = Object.fromEntries([
+      ['__proto__', { measurement: 2 }],
+      ['at', at],
+      ['bytes', bytes],
+      ['nested', [null, false, 0, '', 1n, undefined, NaN, Infinity, -Infinity]],
+      ['optional', undefined],
+    ])
+
+    await runPackage(d, 'w', resolved, {
+      inputs: { data: [row] },
+      parameters: { input: row },
+    })
+
+    const sent = executePython.mock.calls[0][0]
+    expect(sent.inputs.data).toEqual([row])
+    expect(sent.parameters.input).toEqual(row)
+    expect(Object.hasOwn(sent.inputs.data[0], '__proto__')).toBe(true)
+    expect(Object.hasOwn(sent.inputs.data[0], 'optional')).toBe(true)
+    expect(sent.inputs.data[0].at).toBe(at)
+    expect(sent.inputs.data[0].bytes).toBe(bytes)
+    expect(sent.inputs.data[0].nested).toEqual([
+      null,
+      false,
+      0,
+      '',
+      1n,
+      undefined,
+      NaN,
+      Infinity,
+      -Infinity,
+    ])
+  })
+
+  it.each([Symbol('unsupported'), () => null])(
+    'rejects unsupported extension input %s before Python execution',
+    async (value) => {
+      const executePython = vi
+        .fn<ExtensionRuntimeDeps['executePython']>()
+        .mockResolvedValue({ rows: [], logs: [], runtime: 'fixture' })
+
+      const { d } = deps({ executePython })
+
+      const resolved = await openExtensionPoint(
+        d,
+        'w',
+        'cell-count',
+        'operations',
+      )
+
+      await expect(
+        runPackage(d, 'w', resolved, {
+          inputs: { data: [{ nested: [value] }] },
+          parameters: {},
+        }),
+      ).rejects.toMatchObject({
+        code: 'transform_failed',
+        message:
+          'The plugin stopped with an error. Python inputs and parameters must contain finite JSON values.',
+      })
+      await expect(
+        runPackage(d, 'w', resolved, {
+          inputs: {},
+          parameters: Object.fromEntries([['__proto__', value]]),
+        }),
+      ).rejects.toMatchObject({ code: 'transform_failed' })
+      expect(executePython).not.toHaveBeenCalled()
+    },
+  )
 })
 
 describe.skipIf(!pythonAvailable)(
   'invokeExtension with the real Python worker',
   () => {
-    const run = (
+    const run = <T extends object>(
       itemId: string,
-      input: Record<string, unknown>,
+      input: T,
       over: Partial<ExtensionRuntimeDeps> = {},
     ) => {
       const { d, audit } = deps(over)
+
       return {
         audit,
         promise: invokeExtension({ ...base, itemId, input }, d),
@@ -280,11 +428,13 @@ describe.skipIf(!pythonAvailable)(
         ...files,
         'python/counting.py': 'def viability(input):\n    return 1 / 0\n',
       }
+
       const { promise } = run(
         'viability',
         { live: 1, dead: 1 },
         { loadPackage: async () => broken },
       )
+
       await expect(promise).rejects.toMatchObject({ code: 'transform_failed' })
       await expect(promise).rejects.toThrow(/ZeroDivisionError/)
     })
@@ -295,11 +445,13 @@ describe.skipIf(!pythonAvailable)(
         'python/counting.py':
           'def viability(input):\n    return {"viability": "lots", "total": 1}\n',
       }
+
       const { promise } = run(
         'viability',
         { live: 1, dead: 1 },
         { loadPackage: async () => wrong },
       )
+
       await expect(promise).rejects.toMatchObject({ code: 'bad_answer' })
     })
 
@@ -312,11 +464,13 @@ describe.skipIf(!pythonAvailable)(
         'python/counting.py':
           'def viability(input):\n    import counting_secret\n    return {}\n',
       }
+
       const { promise } = run(
         'viability',
         { live: 1, dead: 1 },
         { loadPackage: async () => peek },
       )
+
       await expect(promise).rejects.toThrow(
         /ModuleNotFoundError|No module named/,
       )
@@ -346,6 +500,7 @@ describe.skipIf(!pythonAvailable)('analysis kinds', () => {
       'python/stats.py':
         'def smooth(df):\n    df = df.sort_values("x")\n    df["y"] = df["y"].rolling(2, min_periods=1).mean()\n    return df[["x", "y"]]\n',
     }
+
     const m = manifest()
     m.contributions['analysis-kinds'] = [
       {
@@ -365,6 +520,7 @@ describe.skipIf(!pythonAvailable)('analysis kinds', () => {
         },
       },
     ]
+
     const { d } = deps({
       loadInstall: async () => ({
         id: 'e1',
@@ -376,6 +532,7 @@ describe.skipIf(!pythonAvailable)('analysis kinds', () => {
       }),
       loadPackage: async () => analysisFiles,
     })
+
     const out = await runExtensionAnalysis(
       {
         workspaceId: 'w',
@@ -390,29 +547,37 @@ describe.skipIf(!pythonAvailable)('analysis kinds', () => {
       },
       d,
     )
+
     expect(out.rows.map((r) => r.y)).toEqual([2, 3, 6])
     expect(out.chart).toEqual({ type: 'line', x: 'x', y: 'y' })
   })
 })
 
 describe('what a call runs with', () => {
-  const runtimeRow = (over: Record<string, unknown> = {}) => ({
+  const runtimeRow = (
+    over: Partial<PluginRuntimeRow> = {},
+  ): PluginRuntimeRow => ({
     extensionId: 'e1',
-    requirements: [] as string[],
-    networkHosts: [] as string[],
+    requirements: [],
+    networkHosts: [],
     limitOverrides: {},
-    environmentId: null as string | null,
-    environmentState: 'none' as const,
-    environmentError: null as string | null,
+    environmentId: null,
+    environmentState: 'none',
+    environmentError: null,
     ...over,
   })
+
   const call = (over: Partial<ExtensionRuntimeDeps>) => {
-    const executePython = vi.fn(async (_job: unknown) => ({
-      rows: [{ viability: 92, total: 100 }],
-      logs: [],
-      runtime: 'x',
-    }))
+    const executePython = vi.fn<ExtensionRuntimeDeps['executePython']>(
+      async () => ({
+        rows: [{ viability: 92, total: 100 }],
+        logs: [],
+        runtime: 'x',
+      }),
+    )
+
     const { d } = deps({ executePython, ...over })
+
     return {
       executePython,
       promise: invokeExtension(
@@ -429,7 +594,7 @@ describe('what a call runs with', () => {
   it('gives a plugin with no settings the generous defaults and no packages or hosts', async () => {
     const { executePython, promise } = call({})
     await promise
-    const sent = executePython.mock.calls[0][0] as any
+    const sent = executePython.mock.calls[0][0]
     expect(sent.limits).toMatchObject({
       timeoutSeconds: 600,
       memoryMb: 4096,
@@ -450,23 +615,28 @@ describe('what a call runs with', () => {
           environmentState: 'ready',
         }),
     })
+
     await promise
-    const sent = executePython.mock.calls[0][0] as any
+    const sent = executePython.mock.calls[0][0]
     expect(sent.limits).toMatchObject({ memoryMb: 32768, timeoutSeconds: 3600 })
     expect(sent.environment).toBe('pe-0123456789abcdef')
     expect(sent.network).toEqual(['eutils.ncbi.nlm.nih.gov'])
   })
 
   it('does not run until the packages are installed, and says why', async () => {
-    const settle = vi.fn(async (_w: string, row: any) => ({
+    const settle = vi.fn<
+      NonNullable<ExtensionRuntimeDeps['settleEnvironment']>
+    >(async (_w, row) => ({
       ...row,
       environmentId: 'pe-0123456789abcdef',
-      environmentState: 'building' as const,
+      environmentState: 'building',
     }))
+
     const { executePython, promise } = call({
       loadRuntime: async () => runtimeRow({ requirements: ['rdkit'] }),
       settleEnvironment: settle,
     })
+
     await expect(promise).rejects.toMatchObject({
       code: 'environment_not_ready',
       message: expect.stringMatching(/still being installed/),
@@ -485,6 +655,7 @@ describe('what a call runs with', () => {
           environmentError: 'No matching distribution found for nope',
         }),
     })
+
     await expect(promise).rejects.toMatchObject({
       code: 'environment_failed',
       message: expect.stringMatching(/No matching distribution found for nope/),
@@ -492,7 +663,10 @@ describe('what a call runs with', () => {
   })
 
   it('asks for the packages again when the runner has lost them', async () => {
-    const settle = vi.fn(async (_w: string, row: any) => row)
+    const settle = vi.fn<
+      NonNullable<ExtensionRuntimeDeps['settleEnvironment']>
+    >(async (_w, row) => row)
+
     const { promise } = call({
       loadRuntime: async () =>
         runtimeRow({
@@ -507,6 +681,7 @@ describe('what a call runs with', () => {
         })
       },
     })
+
     await expect(promise).rejects.toMatchObject({
       code: 'environment_not_ready',
     })
@@ -530,6 +705,7 @@ describe('what a call runs with', () => {
         )
       },
     })
+
     await expect(promise).rejects.toMatchObject({
       message: expect.stringMatching(/allow this plugin more time/),
     })

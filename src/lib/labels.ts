@@ -17,35 +17,34 @@ export const LABEL_QR_PATH = '/r/'
 /** `plugin.<plugin>.<item>`: a layout or code a plugin supplies. */
 export const PLUGIN_ITEM_RE = /^plugin\.[a-z0-9_-]{1,64}\.[a-z][a-z0-9-]{0,48}$/
 
-export const labelTemplateSchema = z
-  .object({
-    id: z.string().uuid(),
-    workspaceId: z.string().uuid(),
-    name: z.string().min(1).max(120),
-    /** The record kind this template labels, e.g. 'sample'. */
-    recordKind: z.string().min(1).max(48),
-    showCondition: z.boolean(),
-    showUseBy: z.boolean(),
-    showLot: z.boolean().default(true),
-    showSampleType: z.boolean().default(false),
-    widthMm: z.number().int().min(10).max(200).default(50),
-    heightMm: z.number().int().min(10).max(200).default(25),
-    // `qr`, `code128`, or a barcode format a plugin draws: `plugin.<plugin>.<format>`.
-    barcodeType: z
-      .union([z.enum(['qr', 'code128']), z.string().regex(PLUGIN_ITEM_RE)])
-      .default('qr'),
-    // `standard`, or a layout a plugin lays out: `plugin.<plugin>.<format>`.
-    layout: z
-      .union([z.literal('standard'), z.string().regex(PLUGIN_ITEM_RE)])
-      .default('standard'),
-    isDefault: z.boolean().default(false),
-    archivedAt: z.string().nullable().default(null),
-    createdAt: z.string(),
-    updatedAt: z.string(),
-  })
-  .strict()
+export const labelTemplateSchema = z.strictObject({
+  id: z.string().uuid(),
+  workspaceId: z.string().uuid(),
+  name: z.string().min(1).max(120),
+  /** The record kind this template labels, e.g. 'sample'. */
+  recordKind: z.string().min(1).max(48),
+  showCondition: z.boolean(),
+  showUseBy: z.boolean(),
+  showLot: z.boolean().default(true),
+  showSampleType: z.boolean().default(false),
+  widthMm: z.number().int().min(10).max(200).default(50),
+  heightMm: z.number().int().min(10).max(200).default(25),
+  // `qr`, `code128`, or a barcode format a plugin draws: `plugin.<plugin>.<format>`.
+  barcodeType: z
+    .union([z.enum(['qr', 'code128']), z.string().regex(PLUGIN_ITEM_RE)])
+    .default('qr'),
+  // `standard`, or a layout a plugin lays out: `plugin.<plugin>.<format>`.
+  layout: z
+    .union([z.literal('standard'), z.string().regex(PLUGIN_ITEM_RE)])
+    .default('standard'),
+  isDefault: z.boolean().default(false),
+  archivedAt: z.string().nullable().default(null),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
 
 export type LabelTemplate = z.infer<typeof labelTemplateSchema>
+
 export type BarcodeType = LabelTemplate['barcodeType']
 
 export const BARCODE_TYPE_LABELS: Record<'qr' | 'code128', string> = {
@@ -115,10 +114,13 @@ export function parseLabelTemplate(value: unknown): LabelTemplate {
  */
 export function labelQrPayload(host: string, identifier: string): string {
   const trimmedHost = host.trim().replace(/\/+$/, '')
+
   if (!trimmedHost) throw new Error('A label needs a host to build its code.')
+
   const base = /^https?:\/\//i.test(trimmedHost)
     ? trimmedHost
     : `https://${trimmedHost}`
+
   return `${base}${LABEL_QR_PATH}${encodeURIComponent(identifier.trim())}`
 }
 
@@ -158,17 +160,23 @@ export function buildLabelLines(
     showCondition = true,
     showUseBy = true,
   } = show
+
   const lines: LabelLine[] = [
     { kind: 'identifier', text: source.identifier.trim() },
   ]
+
   const sampleType = source.sampleType?.trim()
+
   if (showSampleType && sampleType) {
     lines.push({ kind: 'type', text: sampleType })
   }
+
   const lot = source.lot?.trim()
+
   if (showLot && lot) lines.push({ kind: 'lot', text: lot })
   const condition = showCondition ? source.condition?.trim() : undefined
   const useBy = showUseBy ? source.useBy?.trim() : undefined
+
   if (condition && useBy) {
     lines.push({ kind: 'storage', text: `${condition} · use by ${useBy}` })
   } else if (useBy) {
@@ -176,7 +184,10 @@ export function buildLabelLines(
   } else if (condition) {
     lines.push({ kind: 'storage', text: condition })
   }
+
   const signalWord = source.signalWord?.trim()
+
   if (signalWord) lines.push({ kind: 'signal', text: signalWord.toUpperCase() })
+
   return lines
 }

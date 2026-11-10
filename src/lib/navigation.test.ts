@@ -4,6 +4,7 @@ import {
   datasetPath,
   notebookTemplatePath,
   objectContextBreadcrumbs,
+  objectPath,
   projectPath,
   recordDestination,
   recordPath,
@@ -65,6 +66,21 @@ describe('canonical navigation destinations', () => {
 
   it('encodes IDs without depending on display labels', () => {
     expect(recordPath('stable/id')).toBe('/records/stable%2Fid')
+  })
+
+  it('resolves supported aliases without inventing destinations for unknown kinds', () => {
+    expect(objectPath('protocol', 'protocol/id')).toBe(
+      '/templates?protocol=protocol%2Fid',
+    )
+    expect(objectPath('reagent', 'reagent/id')).toBe('/materials/reagent%2Fid')
+    expect(objectPath('analysis_view', 'analysis/id')).toBe(
+      '/analysis/analysis%2Fid',
+    )
+    expect(objectPath('dataset_import', 'dataset/id')).toBe(
+      '/datasets/dataset%2Fid',
+    )
+    expect(objectPath('unknown-kind', 'id')).toBeNull()
+    expect(objectPath('toString', 'id')).toBeNull()
   })
 
   it('keeps comment identity separate from its visible live or frozen owner', () => {

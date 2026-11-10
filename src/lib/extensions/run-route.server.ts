@@ -35,81 +35,66 @@ const idPattern = /^[a-z][a-z0-9-]{0,48}$/
 const rowsSchema = z.array(z.record(z.string(), z.unknown())).min(1)
 
 const bodySchema = z.discriminatedUnion('kind', [
-  z
-    .object({
-      kind: z.literal('screen'),
-      extensionKey: z.string().regex(idPattern),
-      point: z.enum(['blocks', 'panels']),
-      itemId: z.string().regex(idPattern),
-      context: z.record(z.string(), z.unknown()),
-      state: z.unknown().optional(),
-      event: z
-        .object({
-          action: z.string().regex(/^[a-z][a-z0-9_-]{0,47}$/),
-          values: z.record(z.string(), z.unknown()),
-        })
-        .strict()
-        .nullable()
-        .optional(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('column'),
-      extensionKey: z.string().regex(idPattern),
-      itemId: z.string().regex(idPattern),
-      rows: rowsSchema,
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('column-action'),
-      extensionKey: z.string().regex(idPattern),
-      itemId: z.string().regex(idPattern),
-      actionId: z.string().regex(idPattern),
-      rows: rowsSchema,
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('row-action'),
-      extensionKey: z.string().regex(idPattern),
-      itemId: z.string().regex(idPattern),
-      rows: rowsSchema,
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('operation'),
-      extensionKey: z.string().regex(idPattern),
-      operationId: z.string().regex(idPattern),
-      input: z.record(z.string(), z.unknown()),
-      /** Answers to the calls the operation made into the app so far, handed back by the screen that was told to ask the person. */
-      hostResults: z
-        .array(
-          z
-            .object({
-              ok: z.boolean(),
-              result: z.unknown().optional(),
-              error: z.string().optional(),
-              code: z.string().optional(),
-            })
-            .strict(),
-        )
-        .optional(),
-      /** Which calls (by position) the person said yes to. */
-      approved: z.array(z.number().int().nonnegative()).optional(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('analysis'),
-      extensionKey: z.string().regex(idPattern),
-      kindId: z.string().regex(idPattern),
-      // How many rows a plugin takes is that plugin's own setting, checked below.
-      rows: z.array(z.record(z.string(), z.unknown())),
-    })
-    .strict(),
+  z.strictObject({
+    kind: z.literal('screen'),
+    extensionKey: z.string().regex(idPattern),
+    point: z.enum(['blocks', 'panels']),
+    itemId: z.string().regex(idPattern),
+    context: z.record(z.string(), z.unknown()),
+    state: z.unknown().optional(),
+    event: z
+      .strictObject({
+        action: z.string().regex(/^[a-z][a-z0-9_-]{0,47}$/),
+        values: z.record(z.string(), z.unknown()),
+      })
+      .nullable()
+      .optional(),
+  }),
+  z.strictObject({
+    kind: z.literal('column'),
+    extensionKey: z.string().regex(idPattern),
+    itemId: z.string().regex(idPattern),
+    rows: rowsSchema,
+  }),
+  z.strictObject({
+    kind: z.literal('column-action'),
+    extensionKey: z.string().regex(idPattern),
+    itemId: z.string().regex(idPattern),
+    actionId: z.string().regex(idPattern),
+    rows: rowsSchema,
+  }),
+  z.strictObject({
+    kind: z.literal('row-action'),
+    extensionKey: z.string().regex(idPattern),
+    itemId: z.string().regex(idPattern),
+    rows: rowsSchema,
+  }),
+  z.strictObject({
+    kind: z.literal('operation'),
+    extensionKey: z.string().regex(idPattern),
+    operationId: z.string().regex(idPattern),
+    input: z.record(z.string(), z.unknown()),
+    /** Answers to the calls the operation made into the app so far, handed back by the screen that was told to ask the person. */
+    hostResults: z
+      .array(
+        z.strictObject({
+          ok: z.boolean(),
+          result: z.unknown().optional(),
+          error: z.string().optional(),
+          code: z.string().optional(),
+        }),
+      )
+      .optional(),
+    /** Which calls (by position) the person said yes to. */
+    approved: z.array(z.number().int().nonnegative()).optional(),
+  }),
+  z.strictObject({
+    kind: z.literal('analysis'),
+    extensionKey: z.string().regex(idPattern),
+    kindId: z.string().regex(idPattern),
+    // How many rows a plugin takes is that plugin's own setting, checked below.
+    rows: z.array(z.record(z.string(), z.unknown())),
+  }),
 ])
 
 export type HostAccess = { client: DataClient } & Pick<
@@ -139,8 +124,11 @@ async function defaultHostDeps(request: Request): Promise<HostAccess | null> {
       import('../request-auth'),
       import('../connectors/enterprise/execution.server'),
     ])
+
   const auth = await resolveSessionAuth(request.headers, realSessionAuthDeps)
+
   if (!auth.ok) return null
+
   return { client: execution.createServerDataClient(auth.context.token) }
 }
 
@@ -156,10 +144,12 @@ export function rateDecision(
 ): ReturnType<RateLimiter['hit']> {
   if (perMinute === null) return { allowed: true }
   let limiter = limiters.get(perMinute)
+
   if (!limiter) {
     limiter = createRateLimiter({ maxRequests: perMinute, windowSeconds: 60 })
     limiters.set(perMinute, limiter)
   }
+
   return limiter.hit(key)
 }
 
@@ -172,16 +162,19 @@ export async function largestDataLimitBytes(
   workspaceId: string,
 ): Promise<number> {
   const rows = (await deps.listRuntime?.(workspaceId)) ?? []
+
   const mb = rows.reduce(
     (largest, row) =>
       Math.max(largest, resolveLimits(row.limitOverrides).dataMb),
     resolveLimits(undefined).dataMb,
   )
+
   return Math.round(mb * 1024 * 1024)
 }
 
 export const reply = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
+
 export const refuse = (status: number, message: string) =>
   reply({ error: message }, status)
 
@@ -198,8 +191,10 @@ export function failure(error: unknown): Response {
             : error.code === 'environment_not_ready'
               ? 503
               : 502
+
     return refuse(status, error.message)
   }
+
   return refuse(500, 'The plugin could not do that.')
 }
 
@@ -208,14 +203,18 @@ export async function handleExtensionRun(
   deps: ExtensionRunRouteDeps = defaultRouteDeps(),
 ): Promise<Response> {
   const session = await deps.getSession(request.headers)
+
   if (!session) return refuse(401, 'Sign in to use plugins.')
   const member = await deps.getMember(session.user.id)
+
   if (!member) return refuse(403, 'You need a workspace to use plugins.')
   let raw: unknown
   let size = 0
+
   try {
     const text = await request.text()
     size = text.length
+
     // The most any plugin here takes; the plugin's own limit is checked once we know which.
     if (size > (await largestDataLimitBytes(deps.runtime, member.workspaceId)))
       return refuse(413, 'That is too much data to send to a plugin.')
@@ -223,36 +222,45 @@ export async function handleExtensionRun(
   } catch {
     return refuse(400, 'Send a JSON body.')
   }
+
   const parsed = bodySchema.safeParse(raw)
+
   if (!parsed.success) return refuse(400, 'The request could not be read.')
   const body = parsed.data
+
   try {
     // Which plugin it is decides the limits; whether it may do this is checked by the run itself.
     const install = await deps.runtime.loadInstall(
       member.workspaceId,
       body.extensionKey,
     )
+
     const limits = await pluginLimits(
       deps.runtime,
       member.workspaceId,
       install?.id ?? '',
     )
+
     const decision = rateDecision(
       limits.callsPerMinute,
       `extension-run:${body.extensionKey}:${session.user.id}`,
     )
+
     if (!decision.allowed)
       return refuse(
         429,
         `Too many calls to this plugin. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
       )
+
     if (size > limits.dataMb * 1024 * 1024)
       return refuse(413, tooMuchData(limits.dataMb))
+
     if (body.kind === 'analysis' && body.rows.length > limits.rows)
       return refuse(
         413,
         `That dataset has more rows than this plugin is set up to take (${limits.rows}). An administrator can raise this in Settings → Plugins.`,
       )
+
     if (body.kind === 'operation') {
       const { callable } = await openCallable(
         deps.runtime,
@@ -260,7 +268,9 @@ export async function handleExtensionRun(
         body.extensionKey,
         body.operationId,
       )
+
       const operation = callable.declaration
+
       // The writer set: anyone but the read-only viewer.
       if (operation.access === 'write' && member.role === 'viewer')
         return refuse(403, 'Running this needs a workspace you can edit.')
@@ -269,12 +279,14 @@ export async function handleExtensionRun(
       // with the answers. A call that changes something waits for the person.
       // The person's own data access is only opened if the operation calls in.
       let hostPromise: ReturnType<NonNullable<typeof deps.host>> | null = null
+
       const getHost = () =>
         (hostPromise ??= (deps.host ?? defaultHostDeps)(
           request,
           member.workspaceId,
           body.extensionKey,
         ))
+
       const outcome = await invokeWithHostCalls(
         {
           workspaceId: member.workspaceId,
@@ -288,21 +300,27 @@ export async function handleExtensionRun(
           userId: session.user.id,
           client: async () => {
             const host = await getHost()
+
             if (!host) throw new Error('Sign in to use plugins.')
+
             return host.client
           },
           approve: new Set(body.approved ?? []),
           hostResults: body.hostResults ?? [],
           perform: async (d, call) => {
             const host = await getHost()
+
             if (host?.perform) return host.perform(d, call)
             const { performHostCall } = await import('./host-route.server')
+
             return performHostCall(d, call)
           },
           install: async (key) => {
             const host = await getHost()
+
             if (host?.install) return host.install(key)
             const { listExtensions } = await import('./client')
+
             return (await listExtensions(host!.client)).find(
               (row) => row.key === key,
             )
@@ -310,16 +328,19 @@ export async function handleExtensionRun(
         },
         deps.runtime,
       )
+
       if (outcome.kind === 'confirm')
         return reply(
           { confirm: outcome.confirm, hostResults: outcome.hostResults },
           409,
         )
+
       return reply({
         output: outcome.result.output,
         durationMs: outcome.result.durationMs,
       })
     }
+
     if (
       body.kind === 'screen' ||
       body.kind === 'column' ||
@@ -331,6 +352,7 @@ export async function handleExtensionRun(
         actorUserId: session.user.id,
         extensionKey: body.extensionKey,
       }
+
       const outcome = await runExtensionHook(
         body.kind === 'screen'
           ? {
@@ -360,8 +382,10 @@ export async function handleExtensionRun(
                 },
         deps.runtime,
       )
+
       return reply(outcome)
     }
+
     const outcome = await runExtensionAnalysis(
       {
         workspaceId: member.workspaceId,
@@ -372,6 +396,7 @@ export async function handleExtensionRun(
       },
       deps.runtime,
     )
+
     return reply(outcome)
   } catch (error) {
     return failure(error)
@@ -387,6 +412,7 @@ export function defaultRouteDeps(): ExtensionRunRouteDeps {
         import('#/db/client.server'),
         import('#/db/schema'),
       ])
+
       const [preference, memberships] = await Promise.all([
         db.query.userPreferences.findFirst({
           where: eq(schema.userPreferences.userId, userId),
@@ -395,10 +421,12 @@ export function defaultRouteDeps(): ExtensionRunRouteDeps {
           where: eq(schema.workspaceMemberships.userId, userId),
         }),
       ])
+
       const membership = pickActiveMembership(
         memberships,
         preference?.activeWorkspaceId,
       )
+
       return membership && !membership.suspendedAt
         ? { workspaceId: membership.workspaceId, role: membership.role }
         : null

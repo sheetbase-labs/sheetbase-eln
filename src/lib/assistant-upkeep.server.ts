@@ -850,7 +850,7 @@ export async function buildUpkeepProposal(
         if (!input.experiment) return fail('Which experiment?')
         const found = await findExperiment(client, input.experiment)
 
-        if (typeof found === 'string') return fail(found)
+        if ('message' in found) return fail(found.message)
         const publicationTitle = input.publicationTitle?.trim() || found.title
 
         return card(name, input, {
@@ -1572,7 +1572,7 @@ export async function buildUpkeepProposal(
 
       const experiment = await findExperiment(client, input.experiment)
 
-      if (typeof experiment === 'string') return fail(experiment)
+      if ('message' in experiment) return fail(experiment.message)
 
       return card(name, input, {
         target: sampleLabel(row),

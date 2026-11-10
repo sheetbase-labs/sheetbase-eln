@@ -108,23 +108,39 @@ const RECORD_COLUMNS = `id::text, trigger, status, started_at::text, finished_at
   destination, byte_size::text, sha256, table_count, row_count::text, file_count,
   missing_file_count, error`
 
-function toRecord(row: Record<string, unknown>): BackupRecord {
-  const num = (v: unknown) => (v === null || v === undefined ? null : Number(v))
+interface BackupDatabaseRow {
+  id: string
+  trigger: BackupRecord['trigger']
+  status: BackupRecord['status']
+  started_at: string
+  finished_at: string | null
+  destination: string | null
+  byte_size: string | null
+  sha256: string | null
+  table_count: number | null
+  row_count: string | null
+  file_count: number | null
+  missing_file_count: number | null
+  error: string | null
+}
+
+function toRecord(row: BackupDatabaseRow): BackupRecord {
+  const num = (v: number | string | null) => (v == null ? null : Number(v))
 
   return {
-    id: row.id as string,
-    trigger: row.trigger as BackupRecord['trigger'],
-    status: row.status as BackupRecord['status'],
-    startedAt: row.started_at as string,
-    finishedAt: (row.finished_at as string | null) ?? null,
-    destination: (row.destination as string | null) ?? null,
+    id: row.id,
+    trigger: row.trigger,
+    status: row.status,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at ?? null,
+    destination: row.destination ?? null,
     byteSize: num(row.byte_size),
-    sha256: (row.sha256 as string | null) ?? null,
+    sha256: row.sha256 ?? null,
     tableCount: num(row.table_count),
     rowCount: num(row.row_count),
     fileCount: num(row.file_count),
     missingFileCount: num(row.missing_file_count),
-    error: (row.error as string | null) ?? null,
+    error: row.error ?? null,
   }
 }
 
@@ -132,15 +148,17 @@ export async function readBackupSettings(
   pool: Pick<Pool, 'query'>,
   workspaceId: string,
 ): Promise<BackupSettings> {
-  const { rows } = await pool.query(
+  const { rows } = await pool.query<{
+    enabled: boolean
+    frequency: BackupFrequency
+    keep_count: number
+  }>(
     `SELECT enabled, frequency, keep_count FROM internal.workspace_backup_settings
       WHERE workspace_id = $1::uuid`,
     [workspaceId],
   )
 
-  const row = rows[0] as
-    | { enabled: boolean; frequency: BackupFrequency; keep_count: number }
-    | undefined
+  const row = rows.at(0)
 
   return row
     ? {
@@ -180,7 +198,7 @@ export async function listBackups(
   workspaceId: string,
   limit = 30,
 ): Promise<BackupRecord[]> {
-  const { rows } = await pool.query(
+  const { rows } = await pool.query<BackupDatabaseRow>(
     `SELECT ${RECORD_COLUMNS} FROM internal.workspace_backups
       WHERE workspace_id = $1::uuid ORDER BY started_at DESC LIMIT $2`,
     [workspaceId, limit],
@@ -194,18 +212,20 @@ export async function findBackup(
   workspaceId: string,
   backupId: string,
 ): Promise<(BackupRecord & { storageKey: string | null }) | null> {
-  const { rows } = await pool.query(
+  const { rows } = await pool.query<
+    BackupDatabaseRow & { storage_key: string | null }
+  >(
     `SELECT ${RECORD_COLUMNS}, storage_key FROM internal.workspace_backups
       WHERE workspace_id = $1::uuid AND id = $2::uuid`,
     [workspaceId, backupId],
   )
 
-  const row = rows[0] as Record<string, unknown> | undefined
+  const row = rows.at(0)
 
   return row
     ? {
         ...toRecord(row),
-        storageKey: (row.storage_key as string | null) ?? null,
+        storageKey: row.storage_key ?? null,
       }
     : null
 }
@@ -219,7 +239,7 @@ export async function latestBackupStatus(
   lastFailed: BackupRecord | null
   running: boolean
 }> {
-  const { rows } = await pool.query(
+  const { rows } = await pool.query<BackupDatabaseRow>(
     `SELECT DISTINCT ON (status) ${RECORD_COLUMNS}
        FROM internal.workspace_backups
       WHERE workspace_id = $1::uuid
@@ -227,12 +247,7 @@ export async function latestBackupStatus(
     [workspaceId],
   )
 
-  const by = new Map(
-    rows.map((r) => [
-      r.status as string,
-      toRecord(r as Record<string, unknown>),
-    ]),
-  )
+  const by = new Map(rows.map((r) => [r.status, toRecord(r)]))
 
   const failed = by.get('failed') ?? null
   const succeeded = by.get('succeeded') ?? null
@@ -249,9 +264,9 @@ export async function latestBackupStatus(
 }
 
 export type BackupOutcome =
-  | { ok: true; backup: BackupRecord }
+  | { ok: true; backup: BackupRecord | null }
   | { ok: false; reason: 'already_running' }
-  | { ok: false; reason: 'failed'; backup: BackupRecord }
+  | { ok: false; reason: 'failed'; backup: BackupRecord | null }
 
 /**
  * Makes one backup of a workspace. Only one run per workspace at a time (a
@@ -297,6 +312,8 @@ export async function runBackup(
       ],
     )
   } catch (error) {
+    // Read the unvalidated SQLSTATE property with native getter/nullish behavior.
+    // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
     if ((error as { code?: string }).code === '23505') {
       return { ok: false, reason: 'already_running' }
     }
@@ -345,11 +362,7 @@ export async function runBackup(
     )
     await pruneBackups(deps, input.workspaceId)
 
-    const backup = (await findBackup(
-      pool,
-      input.workspaceId,
-      id,
-    )) as BackupRecord
+    const backup = await findBackup(pool, input.workspaceId, id)
 
     return { ok: true, backup }
   } catch (error) {
@@ -366,18 +379,18 @@ export async function runBackup(
       [id, message],
     )
 
-    const backup = (await findBackup(
-      pool,
-      input.workspaceId,
-      id,
-    )) as BackupRecord
+    const backup = await findBackup(pool, input.workspaceId, id)
 
     return { ok: false, reason: 'failed', backup }
   }
 }
 
 /** A reason a person can read; never a connection string or a stack. */
+// Caught JavaScript rejections may be any value; preserve their native coercion.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
 function failureMessage(error: unknown): string {
+  // Preserve ordinary property access, including inherited getters and nullish throws.
+  // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
   const name = (error as { name?: string }).name
 
   if (name === 'OversizeError') {
@@ -396,14 +409,17 @@ export async function pruneBackups(
 ): Promise<number> {
   const settings = await readBackupSettings(deps.pool, workspaceId)
 
-  const { rows } = await deps.pool.query(
+  const { rows } = await deps.pool.query<{
+    id: string
+    storage_key: string | null
+  }>(
     `SELECT id::text, storage_key FROM internal.workspace_backups
       WHERE workspace_id = $1::uuid AND status = 'succeeded'
       ORDER BY started_at DESC OFFSET $2`,
     [workspaceId, settings.keepCount],
   )
 
-  for (const row of rows as { id: string; storage_key: string | null }[]) {
+  for (const row of rows) {
     if (row.storage_key) {
       await deps.destination.storage.delete(row.storage_key)
     }
@@ -431,7 +447,14 @@ export async function pruneBackups(
 export async function sweepBackups(
   deps: BackupDeps,
 ): Promise<{ checked: number; ran: number; failed: number }> {
-  const { rows } = await deps.pool.query(
+  const { rows } = await deps.pool.query<{
+    id: string
+    enabled: boolean
+    frequency: BackupFrequency
+    keep_count: number
+    last_succeeded: Date | string | null
+    last_failed: Date | string | null
+  }>(
     `SELECT w.id::text AS id,
             coalesce(s.enabled, $1) AS enabled,
             coalesce(s.frequency, $2) AS frequency,
@@ -452,20 +475,18 @@ export async function sweepBackups(
   let ran = 0
   let failed = 0
 
-  for (const row of rows as Record<string, unknown>[]) {
+  for (const row of rows) {
     const due = backupIsDue(
       {
-        enabled: row.enabled as boolean,
-        frequency: row.frequency as BackupFrequency,
-        keepCount: row.keep_count as number,
+        enabled: row.enabled,
+        frequency: row.frequency,
+        keepCount: row.keep_count,
       },
       {
         lastSucceededAt: row.last_succeeded
-          ? new Date(row.last_succeeded as string)
+          ? new Date(row.last_succeeded)
           : null,
-        lastFailedAt: row.last_failed
-          ? new Date(row.last_failed as string)
-          : null,
+        lastFailedAt: row.last_failed ? new Date(row.last_failed) : null,
       },
       deps.now(),
     )
@@ -473,7 +494,7 @@ export async function sweepBackups(
     if (!due) continue
 
     const outcome = await runBackup(deps, {
-      workspaceId: row.id as string,
+      workspaceId: row.id,
       trigger: 'scheduled',
     })
 

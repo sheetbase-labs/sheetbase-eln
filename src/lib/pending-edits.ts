@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 
 /**
  * A page with edits it has not saved yet (an unsaved analysis, say) tells the
@@ -59,7 +59,11 @@ export function usePendingEdit(options: {
   discard: () => void
 }) {
   const latest = useRef(options)
-  latest.current = options
+
+  useLayoutEffect(() => {
+    latest.current = options
+  })
+
   const { dirty, paneId, label } = options
   useEffect(() => {
     if (!dirty) return

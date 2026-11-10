@@ -54,7 +54,7 @@ export function solveMolarity(input: MolarityInput): CalcResult {
     return { ok: false, reason: 'missing' }
 
   if (!need.every(valid)) return { ok: false, reason: 'invalid' }
-  const [a, b] = need as [Quantity, Quantity]
+  const [a, b] = need
   let baseValue: number
   let kind: UnitKind
 
@@ -96,7 +96,8 @@ export function solveDilution(input: DilutionInput): CalcResult {
     return { ok: false, reason: 'missing' }
 
   if (!qs.every(valid)) return { ok: false, reason: 'invalid' }
-  const b = (k: DilutionTarget) => base(input[k as 'c1'] as Quantity)
+  // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- Preserve the historical post-validation property reread, including native failure if a getter removes its quantity. A narrowed snapshot or another validation pass would change mutation/getter and first-failure behavior.
+  const b = (k: DilutionTarget) => base(input[k] as Quantity)
   let baseValue: number
 
   switch (target) {

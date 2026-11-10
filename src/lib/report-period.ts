@@ -6,6 +6,8 @@
  * calendar in. A period is a half-open range: `from` is included, `to` is not.
  */
 
+import { dateTimeFormat } from './intl-cache'
+
 export type ReportPeriod =
   | 'this_month'
   | 'last_month'
@@ -37,7 +39,7 @@ interface LocalDay {
 }
 
 function localDay(instant: Date, timeZone: string): LocalDay {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
@@ -52,7 +54,7 @@ function localDay(instant: Date, timeZone: string): LocalDay {
 
 /** How far the zone's clock is ahead of UTC at an instant, in milliseconds. */
 function zoneOffsetMs(instant: Date, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = dateTimeFormat('en-CA', {
     timeZone,
     hourCycle: 'h23',
     year: 'numeric',
@@ -196,6 +198,7 @@ export function isoDay(instant: Date, timeZone: string): string {
 /** `YYYY-MM` for an instant in a time zone: the month a line belongs to. */
 export function monthKey(instant: Date | string, timeZone: string): string {
   const d = localDay(
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Preserve native Date coercion for the declared Date|string union; only strings are parsed, and invalid dates retain Intl's RangeError.
     typeof instant === 'string' ? new Date(instant) : instant,
     timeZone,
   )
@@ -269,7 +272,7 @@ export function formatShare(share: number): string {
 /** "1 Nov 2026 to 30 Nov 2026": the days a period covers, last day included. */
 export function formatRange(range: DateRange, timeZone: string): string {
   const day = (instant: Date) =>
-    new Intl.DateTimeFormat('en-GB', {
+    dateTimeFormat('en-GB', {
       timeZone,
       day: 'numeric',
       month: 'short',
@@ -291,7 +294,7 @@ export function formatMonthKey(key: string): string {
 
   if (!match) return key
 
-  return new Intl.DateTimeFormat('en-GB', {
+  return dateTimeFormat('en-GB', {
     timeZone: 'UTC',
     month: 'short',
     year: 'numeric',

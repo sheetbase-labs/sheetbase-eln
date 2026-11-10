@@ -80,7 +80,9 @@ export const DATA_ITEM_POINTS = [
   'barcode-formats',
   'storage-rules',
 ] as const
+
 export type DataItemPoint = (typeof DATA_ITEM_POINTS)[number]
+
 type DataDeclaration<TPoint extends DataItemPoint> = NonNullable<
   ExtensionDataContributions[TPoint]
 >[number]
@@ -152,15 +154,19 @@ export function resolveRunnerPoints(
     reportSections: [],
     descriptors: [],
   }
+
   for (const install of installs) {
     if (install.status !== 'enabled') continue
     let manifest
+
     try {
       manifest = parseExtensionManifest(install.manifest)
     } catch {
       continue
     }
+
     const off = new Set(install.disabled_points ?? [])
+
     const base = {
       extensionId: install.id,
       extensionKey: install.key,
@@ -168,7 +174,9 @@ export function resolveRunnerPoints(
       manifestId: manifest.id,
       manifestVersion: manifest.version,
     }
+
     const live = callableItems(manifest).filter((item) => !off.has(item.point))
+
     for (const item of live) {
       const name = pluginOperationName(install.key, item.id)
       out.operations.push({
@@ -180,6 +188,7 @@ export function resolveRunnerPoints(
       })
       out.callables.set(name, item)
     }
+
     if (live.length) {
       const liveIds = new Set(live.map((item) => item.id))
       out.descriptors.push(
@@ -190,6 +199,7 @@ export function resolveRunnerPoints(
         ),
       )
     }
+
     if (!off.has('analysis-kinds')) {
       for (const declaration of manifest.contributions['analysis-kinds'] ??
         []) {
@@ -202,54 +212,53 @@ export function resolveRunnerPoints(
         })
       }
     }
-    const hooks = [
-      ['blocks', out.blocks],
-      ['panels', out.panels],
-      ['table-cells', out.tableCells],
-      ['columns', out.columns],
-      ['row-actions', out.rowActions],
-      ['field-types', out.fieldTypes],
-      ['pages', out.pages],
-      ['settings-pages', out.settingsPages],
-      ['dashboard-widgets', out.dashboardWidgets],
-      ['report-sections', out.reportSections],
-    ] as const
-    for (const [point, target] of hooks) {
-      if (off.has(point)) continue
-      const declared = manifest.contributions[point] as
-        Array<{ id: string }> | undefined
-      for (const declaration of declared ?? []) {
-        // A plain panel (no screen, no bundle) belongs to the older sample slot.
-        if (
-          point === 'panels' &&
-          !('screen' in declaration) &&
-          !('ui' in declaration)
-        )
-          continue
-        ;(target as Array<RunnerItem<unknown>>).push({
+
+    const resolve = <T extends { id: string }>(
+      point: ExtensionRunnerPoint,
+      declarations: T[] | undefined,
+    ): Array<RunnerItem<T>> => {
+      if (off.has(point)) return []
+
+      return (declarations ?? [])
+        .filter((declaration) => {
+          // A plain panel (no screen, no bundle) belongs to the older sample slot.
+          return (
+            point !== 'panels' || 'screen' in declaration || 'ui' in declaration
+          )
+        })
+        .map((declaration) => ({
           ...base,
           point,
           id: declaration.id,
           name: pluginOperationName(install.key, declaration.id),
           declaration,
-        })
-      }
+        }))
     }
-    for (const point of DATA_ITEM_POINTS) {
-      if (off.has(point)) continue
-      for (const declaration of manifest.contributions[point] ?? []) {
-        ;(out.data[point] as Array<RunnerItem<unknown>>).push({
-          ...base,
-          point,
-          id: declaration.id,
-          name: pluginOperationName(install.key, declaration.id),
-          declaration,
-        })
-      }
+
+    const c = manifest.contributions
+    out.blocks.push(...resolve('blocks', c.blocks))
+    out.panels.push(...resolve('panels', c.panels))
+    out.tableCells.push(...resolve('table-cells', c['table-cells']))
+    out.columns.push(...resolve('columns', c.columns))
+    out.rowActions.push(...resolve('row-actions', c['row-actions']))
+    out.fieldTypes.push(...resolve('field-types', c['field-types']))
+    out.pages.push(...resolve('pages', c.pages))
+    out.settingsPages.push(...resolve('settings-pages', c['settings-pages']))
+    out.dashboardWidgets.push(
+      ...resolve('dashboard-widgets', c['dashboard-widgets']),
+    )
+    out.reportSections.push(...resolve('report-sections', c['report-sections']))
+
+    const appendData = <P extends DataItemPoint>(point: P) => {
+      out.data[point].push(...resolve(point, c[point]))
     }
+
+    for (const point of DATA_ITEM_POINTS) appendData(point)
   }
+
   out.operations.sort(byName)
   out.analysisKinds.sort(byName)
+
   for (const group of [
     out.blocks,
     out.panels,
@@ -262,9 +271,11 @@ export function resolveRunnerPoints(
     out.dashboardWidgets,
     out.reportSections,
   ])
-    (group as Array<{ name: string }>).sort(byName)
+    group.sort(byName)
   out.descriptors.sort(byName)
+
   for (const point of DATA_ITEM_POINTS) out.data[point].sort(byName)
+
   return out
 }
 
@@ -294,19 +305,23 @@ export interface ExtensionAdds {
   items: Array<{ id: string; title: string; detail: string }>
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Administrator previews receive raw uploaded manifests; parseExtensionManifest rejects malformed declarations before any items are described.
 export function describeRunnerAdds(manifest: unknown): ExtensionAdds[] {
   let parsed
+
   try {
     parsed = parseExtensionManifest(manifest)
   } catch {
     return []
   }
+
   const adds: ExtensionAdds[] = []
   const c = parsed.contributions
-  const add = (
+
+  const add = <T extends { id: string; title: string }>(
     point: ExtensionRunnerPoint,
-    items: Array<{ id: string; title: string }> | undefined,
-    detail: (item: never) => string,
+    items: T[] | undefined,
+    detail: (item: T) => string,
   ) => {
     if (items?.length)
       adds.push({
@@ -314,10 +329,11 @@ export function describeRunnerAdds(manifest: unknown): ExtensionAdds[] {
         items: items.map((item) => ({
           id: item.id,
           title: item.title,
-          detail: detail(item as never),
+          detail: detail(item),
         })),
       })
   }
+
   const hookItems = (
     point: ExtensionRunnerPoint,
     items: Array<{ id: string; title: string }> | undefined,
@@ -333,6 +349,7 @@ export function describeRunnerAdds(manifest: unknown): ExtensionAdds[] {
         })),
       })
   }
+
   hookItems('blocks', parsed.contributions.blocks, 'block')
   hookItems(
     'panels',
@@ -386,6 +403,7 @@ export function describeRunnerAdds(manifest: unknown): ExtensionAdds[] {
     parsed.contributions['report-sections'],
     'section',
   )
+
   return adds
 }
 

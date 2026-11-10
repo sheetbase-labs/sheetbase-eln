@@ -36,9 +36,13 @@ interface ConnectorOperationInput {
 }
 
 async function resolveSession(input: { workspaceId: string }) {
-  const { getRequestHeaders } = await import('@tanstack/react-start/server')
-  const { getCurrentContext } = await import('#/lib/current-user')
-  const { getAppSession } = await import('#/lib/auth')
+  const [{ getRequestHeaders }, { getCurrentContext }, { getAppSession }] =
+    await Promise.all([
+      import('@tanstack/react-start/server'),
+      import('#/lib/current-user'),
+      import('#/lib/auth'),
+    ])
+
   const headers = getRequestHeaders()
   const session = await getAppSession(headers)
 
@@ -66,9 +70,7 @@ async function resolveSession(input: { workspaceId: string }) {
   })
 }
 
-// One cast per adapter at this single dispatch point keeps the generic
-// adapter interfaces clean; the dispatcher only ever hands each adapter the
-// source shape its own parseConfig produced.
+// Each adapter receives only the source its own parseConfig produced.
 const ADAPTERS: Record<EnterpriseAdapterId, AnyEnterpriseConnectorAdapter> = {
   s3: s3Adapter,
   postgres: postgresAdapter,
@@ -112,6 +114,7 @@ async function resolveConnector(input: ConnectorOperationInput): Promise<{
   }
 
   const adapter = ADAPTERS[adapterId]
+  // SAFETY: The selected adapter parses this source and is the only adapter to consume it; never bridges the erased generic dispatch, not unvalidated input.
   const source = adapter.parseConfig(connector.config) as never
 
   const secrets = await loadConnectorSecrets({
@@ -148,7 +151,7 @@ export async function testConnectorConnection(input: ConnectorOperationInput) {
 }
 
 export async function discoverConnectorSource(
-  input: ConnectorOperationInput & { query?: Record<string, unknown> },
+  input: ConnectorOperationInput & { query?: ConnectorWire['config'] },
 ) {
   const resolved = await resolveConnector(input)
 
@@ -160,7 +163,7 @@ export async function discoverConnectorSource(
 }
 
 export async function previewConnectorSource(
-  input: ConnectorOperationInput & { selector: Record<string, unknown> },
+  input: ConnectorOperationInput & { selector: ConnectorWire['config'] },
 ) {
   const resolved = await resolveConnector(input)
 
@@ -172,20 +175,20 @@ export async function previewConnectorSource(
 }
 
 export interface ConnectorImportInput extends ConnectorOperationInput {
-  source: Record<string, unknown>
+  source: ConnectorWire['config']
   projectId?: string | null
   target: ConnectorImportRequest<never>['target']
-  mappings?: Array<Record<string, unknown>> | null
+  mappings?: ConnectorImportRequest<never>['mappings'] | null
 }
 
 export async function importConnectorSource(input: ConnectorImportInput) {
   const resolved = await resolveConnector(input)
 
-  const request: ConnectorImportRequest<Record<string, unknown>> = {
+  const request: ConnectorImportRequest<ConnectorWire['config']> = {
     source: input.source,
     projectId: input.projectId ?? null,
     target: input.target,
-    mappings: (input.mappings ?? undefined) as never,
+    mappings: input.mappings ?? undefined,
   }
 
   return resolved.adapter.ingest(resolved.context, resolved.source, request)

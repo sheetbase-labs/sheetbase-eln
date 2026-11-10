@@ -20,6 +20,7 @@ export async function handlePluginUiFrame(
   deps: ExtensionRunRouteDeps = defaultRouteDeps(),
 ): Promise<Response> {
   const point = new URL(request.url).searchParams.get('point')
+
   if (
     !idPattern.test(params.key) ||
     !idPattern.test(params.id) ||
@@ -28,9 +29,12 @@ export async function handlePluginUiFrame(
   )
     return refuse(404, 'No such plugin screen.')
   const session = await deps.getSession(request.headers)
+
   if (!session) return refuse(401, 'Sign in to use plugins.')
   const member = await deps.getMember(session.user.id)
+
   if (!member) return refuse(403, 'You need a workspace to use plugins.')
+
   try {
     const { install, manifest } = await openExtensionPoint(
       deps.runtime,
@@ -38,18 +42,24 @@ export async function handlePluginUiFrame(
       params.key,
       point,
     )
-    const declared = (
-      manifest.contributions[point] as Array<{ id: string }> | undefined
-    )?.find((item) => item.id === params.id)
+
+    const declared = manifest.contributions[point]?.find(
+      (item) => item.id === params.id,
+    )
+
     const entry = frameEntryOf(point, declared)
+
     if (!entry) return refuse(404, 'That plugin doesn’t offer this any more.')
     const files = await deps.runtime.loadPackage(member.workspaceId, install.id)
     const html = files ? buildPluginFrame(files, entry, sdkSource) : null
+
     if (!html) return refuse(404, 'That plugin’s screen is missing.')
+
     return new Response(html, { status: 200, headers: PLUGIN_FRAME_HEADERS })
   } catch (error) {
     if (error instanceof ExtensionRunError)
       return refuse(error.code === 'not_installed' ? 404 : 409, error.message)
+
     return refuse(500, 'The plugin’s screen could not be loaded.')
   }
 }

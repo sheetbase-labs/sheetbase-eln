@@ -5,6 +5,8 @@
  * keeps only the index entries they answer with: no notes, flags or field
  * changes. Safe to run again. Server-only.
  */
+import { z } from 'zod'
+
 import { createServerDataClient } from '../connectors/enterprise/execution.server'
 import type { DataClient } from '../data-client'
 import { logger } from '../logger'
@@ -25,6 +27,7 @@ import type { RecordHookDeps } from './record-hooks.server'
 
 const PAGE = 200
 const WORKERS = 4
+
 const SELECT =
   'id,identifier,kind,title,status,tags,properties,custom_fields,project_id'
 
@@ -42,26 +45,33 @@ export async function reindexPlugin(
   deps: RecordHookDeps = defaultRecordHookDeps(),
 ): Promise<ReindexResult> {
   clearRecordHookCache()
+
   const hooks = (await deps.hooksFor(caller.workspaceId)).filter(
     (hook) =>
       hook.extensionKey === extensionKey && hook.declaration.timing === 'after',
   )
+
   const result: ReindexResult = { indexed: 0, skipped: 0 }
+
   for (const hook of hooks) {
     const kinds = hook.declaration.kinds
+
     const filter = kinds?.length
       ? `&kind=in.(${kinds.map(encodeURIComponent).join(',')})`
       : ''
+
     for (let offset = 0; ; offset += PAGE) {
       const page = await client.list<RecordSnapshot>(
         'records',
         `?select=${SELECT}&deleted_at=is.null${filter}&order=created_at.asc&limit=${PAGE}&offset=${offset}`,
       )
+
       let next = 0
       await Promise.all(
         Array.from({ length: Math.min(WORKERS, page.length) }, async () => {
           while (next < page.length) {
             const record = page[next++]
+
             try {
               const answer = await runExtensionRecordHook(
                 {
@@ -81,10 +91,12 @@ export async function reindexPlugin(
                 },
                 deps.runtime,
               )
+
               if (!answer.index?.length || !record.id) {
                 result.skipped++
                 continue
               }
+
               await applyHookAnswer(
                 deps.store,
                 {
@@ -107,9 +119,11 @@ export async function reindexPlugin(
           }
         }),
       )
+
       if (page.length < PAGE) break
     }
   }
+
   return result
 }
 
@@ -124,23 +138,25 @@ export async function handlePluginReindex(
 ): Promise<Response> {
   if (request.method !== 'POST')
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
+
   const auth = await resolvePersonalAuth(
     request.headers,
     'admin:write',
     deps.auth,
   )
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
-  const body = (await request.json().catch(() => null)) as {
-    extensionKey?: unknown
-  } | null
-  if (
-    typeof body?.extensionKey !== 'string' ||
-    !/^[a-z][a-z0-9-]{0,48}$/.test(body.extensionKey)
-  )
+
+  const body = z
+    .object({ extensionKey: z.string().regex(/^[a-z][a-z0-9-]{0,48}$/) })
+    .safeParse(await request.json().catch(() => null))
+
+  if (!body.success)
     return requestErrorResponse(400, 'invalid_request', 'Name the plugin.')
   const client = deps.makeClient(context.token)
+
   try {
     await client.rpc('require_capability', {
       p_workspace_id: context.workspaceId,
@@ -153,10 +169,12 @@ export async function handlePluginReindex(
       'Only an owner or administrator can manage plugins.',
     )
   }
+
   const result = await (deps.reindex ?? reindexPlugin)(
     client,
     { workspaceId: context.workspaceId, actorUserId: context.userId },
-    body.extensionKey,
+    body.data.extensionKey,
   )
+
   return Response.json(result, { headers: { 'Cache-Control': 'no-store' } })
 }

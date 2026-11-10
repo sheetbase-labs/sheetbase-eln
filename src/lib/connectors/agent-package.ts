@@ -101,14 +101,13 @@ export function agentFiles(input: {
   const settings = JSON.stringify(
     {
       url: input.url,
-      ...(input.connectorKey ? { connector: input.connectorKey } : {}),
-      ...(input.folder ? { dir: input.folder } : {}),
+      connector: input.connectorKey || undefined,
+      dir: input.folder || undefined,
       credential: input.credential,
-      ...(input.live?.length || input.robot
-        ? { instrumentId: input.instrumentId }
-        : {}),
-      ...(input.live?.length ? { live: input.live } : {}),
-      ...(input.robot ? { robot: input.robot } : {}),
+      instrumentId:
+        input.live?.length || input.robot ? input.instrumentId : undefined,
+      live: input.live?.length ? input.live : undefined,
+      robot: input.robot,
     },
     null,
     2,

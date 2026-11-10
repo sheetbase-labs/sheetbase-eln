@@ -12,6 +12,7 @@ import {
   parseSearchSort,
   withoutNode,
 } from './search-filter'
+import type { FilterParam } from './search-filter'
 
 const tree: GroupNode = {
   type: 'group',
@@ -74,7 +75,7 @@ describe('filter URL value', () => {
   })
 
   it('keeps to the depth and size the server accepts', () => {
-    let deep: unknown = { f: 'status', o: 'eq', v: 'x' }
+    let deep: FilterParam = { f: 'status', o: 'eq', v: 'x' }
 
     for (let i = 0; i < 6; i += 1) deep = { g: 'AND', k: [deep] }
     expect(decodeFilter(deep)).toBeUndefined()
@@ -88,7 +89,65 @@ describe('filter URL value', () => {
       })),
     }
 
-    expect(countConditions(decodeFilter(many) as GroupNode)).toBe(50)
+    const decoded = decodeFilter(many)
+    expect(decoded).toBeDefined()
+
+    if (!decoded) throw new Error('expected a decoded filter')
+
+    expect(countConditions(decoded)).toBe(50)
+  })
+
+  it('drops invalid nodes without spending the budget and keeps native values', () => {
+    const value = { measured: new Date('2026-01-01T00:00:00Z') }
+
+    const decoded = decodeFilter({
+      g: 'AND',
+      k: [
+        { f: '', o: 'eq' },
+        { f: 'status', o: 'equals', v: value },
+        ...Array.from({ length: 50 }, (_, i) => ({ f: `f${i}`, o: 'eq' })),
+      ],
+    })
+
+    expect(decoded?.children).toHaveLength(50)
+    expect(decoded?.children[0]).toMatchObject({ operator: 'eq', value })
+    const first = decoded?.children[0]
+
+    expect(first?.type === 'condition' && first.value).toBe(value)
+  })
+
+  it('reads compact properties in their original order', () => {
+    const reads: string[] = []
+
+    const raw = {
+      get g() {
+        reads.push('g')
+
+        return undefined
+      },
+      get f() {
+        reads.push('f')
+
+        return 'status'
+      },
+      get o() {
+        reads.push('o')
+
+        return 'equals'
+      },
+      get v() {
+        reads.push('v')
+
+        return 'approved'
+      },
+    }
+
+    expect(decodeFilter(raw)?.children[0]).toMatchObject({
+      field: 'status',
+      operator: 'eq',
+      value: 'approved',
+    })
+    expect(reads).toEqual(['g', 'f', 'o', 'o', 'f', 'f', 'v', 'v'])
   })
 })
 
@@ -99,7 +158,12 @@ describe('filter tree helpers', () => {
       k: [{ f: 'tags', o: 'contains', v: 'x' }],
     })
 
-    expect(countConditions(andFilters(tree, other) as GroupNode)).toBe(3)
+    const combined = andFilters(tree, other)
+    expect(combined).toBeDefined()
+
+    if (!combined) throw new Error('expected combined filters')
+
+    expect(countConditions(combined)).toBe(3)
     expect(andFilters(undefined, other)).toBe(other)
     expect(andFilters(undefined, undefined)).toBeUndefined()
   })

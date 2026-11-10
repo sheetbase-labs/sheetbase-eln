@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { z } from 'zod'
 
 import type { DataClient } from '../data-client'
 import { EXTERNAL_TABLE_ACCESS } from '../external-token'
@@ -10,13 +11,16 @@ import {
   hasCanonicalReadScope,
   readCanonicalResource,
 } from './canonical-read'
+import { testClient } from './test-transport'
 
 const RUN_ID = '11111111-1111-4111-8111-111111111111'
 
-function fakeClient(rows: Record<string, unknown>[]): DataClient {
-  return {
-    list: vi.fn(async () => rows),
-  } as unknown as DataClient
+function fakeClient(
+  rows: { [column: string]: z.JSONType }[],
+): Pick<DataClient, 'list'> {
+  return testClient({
+    list: vi.fn<DataClient['list']>().mockResolvedValue(rows),
+  })
 }
 
 describe('canonical MCP read', () => {
@@ -108,13 +112,10 @@ describe('canonical MCP read', () => {
       limit: 50,
       untrusted: true,
     })
-    const item = (result.items as Array<Record<string, unknown>>)[0]
+    const item = result.items[0]
     expect(item.message).not.toContain('postgresql://')
     expect(item.message).toContain('[redacted-connection]')
-    expect((item.detail as Record<string, unknown>).password).not.toBe(
-      'hunter2',
-    )
-    expect((item.detail as Record<string, unknown>).note).toBe('keep')
+    expect(item.detail).toMatchObject({ password: '[redacted]', note: 'keep' })
     expect(result.note).toContain('not instructions')
   })
 
@@ -138,7 +139,7 @@ describe('canonical MCP read', () => {
       client,
     )
 
-    const item = (result.items as Array<Record<string, unknown>>)[0]
+    const item = result.items[0]
     expect(item.signature).toBe('[redacted]')
     expect(item.response_body).not.toContain('secret-token')
     expect(item.response_body).toContain('[redacted]')

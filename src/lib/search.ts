@@ -18,7 +18,10 @@
  */
 
 import { t } from '#/copy'
+import { z } from 'zod'
 import type { DataClient } from '#/lib/data-client'
+import type { ModelFieldRecordValues } from '#/lib/model-fields'
+import type { NotebookBlock } from '#/lib/notebook-data'
 import { richTextToPlainText } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
 import { searchResultDestination } from '#/lib/navigation'
@@ -51,7 +54,7 @@ export interface SearchResultWire {
   /** The thing a nested hit sits in: the sheet a comment is on, the dataset a row is in. */
   parent_title?: string | null
   /** The per-type values the object carries, keyed as the filter builder reads them. */
-  fields?: Record<string, unknown> | null
+  fields?: ModelFieldRecordValues['customFields'] | null
   /** A notebook found by an embedded file's text: the block holding that file. */
   matched_block_id?: string | null
   /** ...and the file's name. */
@@ -138,14 +141,14 @@ export interface SearchResult {
   createdAt: string
   updatedAt: string
   matchedContext: string
-  matchedField: MatchedField
+  matchedField: SearchResultWire['matched_field']
   rank: number
   deepLink: string
   totalCount: number
   /** What a nested hit (comment, row, block) sits in; empty for top-level hits. */
   parentTitle: string
   /** Per-type values, as `api.search` returns them for the filter builder. */
-  fields: Record<string, unknown>
+  fields: NonNullable<SearchResultWire['fields']>
   /** The file block a notebook hit was found through, or null. */
   matchedBlockId: string | null
   /** The name of the embedded file that matched, or empty. */
@@ -205,11 +208,8 @@ export type SearchableKind = (typeof SEARCHABLE_KINDS)[number]
 // ---------------------------------------------------------------------------
 
 export function toSearchResult(row: SearchResultWire): RpcSearchResult {
-  const resultType = (SEARCH_RESULT_TYPES as readonly string[]).includes(
-    row.result_type,
-  )
-    ? (row.result_type as SearchResultType)
-    : 'record'
+  const resultType =
+    SEARCH_RESULT_TYPES.find((type) => type === row.result_type) ?? 'record'
 
   return {
     resultType,
@@ -224,7 +224,7 @@ export function toSearchResult(row: SearchResultWire): RpcSearchResult {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     matchedContext: row.matched_context,
-    matchedField: row.matched_field as MatchedField,
+    matchedField: row.matched_field,
     rank: Number(row.rank),
     deepLink: withBlockAnchor(
       searchResultDestination(resultType, row.record_id, row.deep_link),
@@ -253,10 +253,24 @@ function withBlockAnchor(link: string, blockId: string | null | undefined) {
  * kind is a known record kind and resultType a known object class if
  * provided.
  */
-export function buildSearchRpcArgs(
-  filters: SearchFilters,
-): Record<string, unknown> {
-  const args: Record<string, unknown> = {
+type SearchRpcArgs = {
+  p_query: string
+  p_limit: number
+  p_offset: number
+  p_project_id?: SearchFilters['projectId']
+  p_kind?: SearchFilters['kind']
+  p_status?: SearchFilters['status']
+  p_owner_id?: SearchFilters['ownerId']
+  p_date_from?: SearchFilters['dateFrom']
+  p_date_to?: SearchFilters['dateTo']
+  p_result_type?: SearchFilters['resultType']
+  p_include_archived?: SearchFilters['includeArchived']
+  p_filter?: ReturnType<typeof filterToRpc>
+  p_sort?: SearchFilters['sort']
+}
+
+export function buildSearchRpcArgs(filters: SearchFilters): SearchRpcArgs {
+  const args: SearchRpcArgs = {
     p_query: filters.query.trim(),
     p_limit: filters.limit ?? 20,
     p_offset: filters.offset ?? 0,
@@ -443,18 +457,18 @@ export function groupSearchResults(
     else buckets.set(group, [result])
   }
 
-  return SEARCH_RESULT_GROUPS.filter((group) => buckets.has(group)).map(
-    (group) => {
-      const list = buckets.get(group) ?? []
+  return SEARCH_RESULT_GROUPS.flatMap((group) => {
+    const list = buckets.get(group)
 
-      const limit =
-        maxPerGroup && maxPerGroup > 0
-          ? Math.min(maxPerGroup, list.length)
-          : list.length
+    if (!list) return []
 
-      return { group, results: list.slice(0, limit), total: list.length }
-    },
-  )
+    const limit =
+      maxPerGroup && maxPerGroup > 0
+        ? Math.min(maxPerGroup, list.length)
+        : list.length
+
+    return [{ group, results: list.slice(0, limit), total: list.length }]
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -585,28 +599,33 @@ export interface SearchUrlFilterInput {
 }
 
 /** Object classes behind the groups that are not one of the original facets. */
-const GROUP_OBJECT_TYPES: Partial<Record<SearchResultGroup, string[]>> = {
-  Instruments: ['instrument', 'instrument_run'],
-  Bookings: ['booking'],
-  Storage: ['storage_location'],
-  People: ['person'],
-  Clients: ['client'],
-  Deviations: ['deviation'],
-  'Plate designs': ['plate_design'],
-  Parsers: ['parser'],
-}
+const GROUP_OBJECT_TYPES = new Map<string, string[]>([
+  ['Instruments', ['instrument', 'instrument_run']],
+  ['Bookings', ['booking']],
+  ['Storage', ['storage_location']],
+  ['People', ['person']],
+  ['Clients', ['client']],
+  ['Deviations', ['deviation']],
+  ['Plate designs', ['plate_design']],
+  ['Parsers', ['parser']],
+])
 
 /** A calendar day as written by an `<input type="date">`. */
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 /** The day if it is a real calendar day, else undefined. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw router input is decoded here; invalid and non-string days remain absent.
 export function parseSearchDay(value: unknown): string | undefined {
-  if (typeof value !== 'string' || !DAY_PATTERN.test(value)) return undefined
-  const ms = Date.parse(`${value}T00:00:00Z`)
+  const day = z.string().safeParse(value)
+
+  if (!day.success || !DAY_PATTERN.test(day.data)) return undefined
+  const ms = Date.parse(`${day.data}T00:00:00Z`)
 
   if (Number.isNaN(ms)) return undefined
 
-  return new Date(ms).toISOString().slice(0, 10) === value ? value : undefined
+  return new Date(ms).toISOString().slice(0, 10) === day.data
+    ? day.data
+    : undefined
 }
 
 /** UTC start of a day, or the end of it when `endOfDay`. */
@@ -662,7 +681,7 @@ export function urlFiltersToSearchFilters(
         filters.kind = 'sample'
         break
       default: {
-        const objects = GROUP_OBJECT_TYPES[type[0] as SearchResultGroup]
+        const objects = GROUP_OBJECT_TYPES.get(type[0])
 
         if (objects)
           filters.filter = andFilters(input.filter, {
@@ -722,8 +741,8 @@ export function filterSearchResults(
   results: SearchResult[],
   input: SearchUrlFilterInput,
 ): SearchResult[] {
-  const type = input.type ?? []
-  const project = input.project ?? []
+  const type = new Set(input.type)
+  const project = new Set(input.project)
   const fromDay = parseSearchDay(input.from)
   const toDay = parseSearchDay(input.to)
 
@@ -737,12 +756,9 @@ export function filterSearchResults(
   return results.filter((result) => {
     if (input.owner && result.createdByUserId !== input.owner) return false
 
-    if (type.length && !type.includes(searchResultGroup(result))) return false
+    if (type.size && !type.has(searchResultGroup(result))) return false
 
-    if (
-      project.length &&
-      (!result.projectId || !project.includes(result.projectId))
-    )
+    if (project.size && (!result.projectId || !project.has(result.projectId)))
       return false
 
     if (dateFromMs !== undefined) {
@@ -837,9 +853,10 @@ export const MATCHED_FIELD_LABELS: Record<MatchedField, string> = {
 }
 
 export function matchedFieldLabel(field: string): string {
-  return field in MATCHED_FIELD_LABELS
-    ? MATCHED_FIELD_LABELS[field as MatchedField]
-    : t('projects.search.matched')
+  return (
+    Object.entries(MATCHED_FIELD_LABELS).find(([key]) => key === field)?.[1] ??
+    t('projects.search.matched')
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -855,12 +872,13 @@ export function matchedFieldLabel(field: string): string {
  */
 export function extractBlockText(
   type: string,
-  payload: Record<string, unknown>,
+  payload: NotebookBlock['payload'] | null,
 ): string {
   switch (type) {
     case 'rich_text':
       try {
-        return richTextToPlainText(payload as unknown as RichTextPayload)
+        // SAFETY: Canonical notebook prose supplies RichTextPayload; extraction deliberately trusts it, including H1 text, rather than revalidating. Malformed input retains the existing empty-text catch.
+        return richTextToPlainText(payload as RichTextPayload)
       } catch {
         return ''
       }
@@ -895,8 +913,11 @@ export function extractBlockText(
       return extractStringField(payload, 'label')
     case 'structure':
       return ['title', 'caption', 'name', 'formula', 'smiles']
-        .map((field) => extractStringField(payload, field))
-        .filter(Boolean)
+        .flatMap((field) => {
+          const text = extractStringField(payload, field)
+
+          return text ? [text] : []
+        })
         .join(' ')
     case 'reaction':
       return [
@@ -929,16 +950,14 @@ export function extractBlockText(
         .filter(Boolean)
         .join(' ')
     case 'table': {
-      const rows = payload.rows
+      const rows = payload?.rows
 
       if (!Array.isArray(rows)) return ''
 
       return rows
         .map((row) =>
           Array.isArray(row)
-            ? row
-                .map((cell) => (typeof cell === 'string' ? cell : ''))
-                .join(' ')
+            ? row.map((cell) => z.string().safeParse(cell).data ?? '').join(' ')
             : '',
         )
         .join(' ')
@@ -950,34 +969,42 @@ export function extractBlockText(
 }
 
 function extractStringField(
-  payload: Record<string, unknown>,
+  payload: NotebookBlock['payload'] | null,
   field: string,
 ): string {
-  const value = payload[field]
+  const value = z.string().safeParse(payload?.[field])
 
-  return typeof value === 'string' ? value : ''
+  return value.success ? value.data : ''
 }
 
 function extractFromArrayField(
-  payload: Record<string, unknown>,
+  payload: NotebookBlock['payload'] | null,
   field: string,
   keys: string[],
 ): string {
-  const arr = payload[field]
+  const arr = payload?.[field]
 
   if (!Array.isArray(arr)) return ''
 
   return arr
-    .map((item) => {
-      if (typeof item !== 'object' || item === null) return ''
-      const obj = item as Record<string, unknown>
+    .flatMap((item) => {
+      if (!z.object({}).safeParse(item).success && !Array.isArray(item))
+        return []
+      // SAFETY: Only object/array membership is checked; payload field values remain raw, just as NotebookBlock's boundary contract specifies. Each requested key is decoded below, not the whole object.
+      const obj = item as NotebookBlock['payload']
 
-      return keys
-        .map((k) => (typeof obj[k] === 'string' ? obj[k] : ''))
-        .filter(Boolean)
+      // oxlint-disable-next-line typescript/no-base-to-string -- Preserve the historical second getter read and native join coercion after all requested fields are read; that value can differ from the first string read.
+      const text = keys
+        .flatMap((k) => {
+          if (!z.string().safeParse(obj[k]).success) return []
+          const value = obj[k]
+
+          return value ? [value] : []
+        })
         .join(' ')
+
+      return text ? [text] : []
     })
-    .filter(Boolean)
     .join(' ')
 }
 
@@ -985,17 +1012,18 @@ function extractFromArrayField(
  * Recursively extract all string values from a JSONB-like object. Mirrors the
  * PL/pgSQL `internal.extract_jsonb_text` function.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Permissive text-extraction boundary, not JSON validation: native objects and scientific numeric values remain accepted.
 export function extractAllStrings(value: unknown): string {
   if (value === null || value === undefined) return ''
 
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- String leaves are returned unchanged; no coercion or finite-JSON constraint belongs in extraction.
   if (typeof value === 'string') return value
-
-  if (typeof value === 'number' || typeof value === 'boolean') return ''
 
   if (Array.isArray(value)) {
     return value.map(extractAllStrings).filter(Boolean).join(' ')
   }
 
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Preserve native enumerable own-value/getter traversal; primitive non-strings fall through without coercion.
   if (typeof value === 'object') {
     return Object.values(value).map(extractAllStrings).filter(Boolean).join(' ')
   }
@@ -1042,14 +1070,14 @@ export const searchQueryKeys = {
   search: (filters: SearchFilters) => {
     const parts: (string | number | boolean)[] = ['search-001', 'search']
 
-    for (const name of Object.keys(filters).sort()) {
-      const value = filters[name as keyof SearchFilters]
-
+    for (const [name, value] of Object.entries(filters).sort(([a], [b]) =>
+      a < b ? -1 : a > b ? 1 : 0,
+    )) {
       // The filter tree is an object: `String()` would make every tree
       // "[object Object]", so editing an applied filter served the old page.
       if (value !== undefined)
         parts.push(
-          `${name}=${typeof value === 'object' ? JSON.stringify(value) : String(value)}`,
+          `${name}=${name === 'filter' ? JSON.stringify(value) : String(value)}`,
         )
     }
 
@@ -1079,7 +1107,7 @@ export type MatchTier = 0 | 1 | 2 | 3 | 4
  *   4 — fuzzy text match (block_text, file_metadata, properties, relationship)
  */
 export function matchTierForField(
-  field: MatchedField,
+  field: string,
   query: string,
   identifier: string,
 ): MatchTier {
@@ -1191,18 +1219,21 @@ export function loadSavedQueries(workspaceId: string): SavedQuery[] {
     const raw = localStorage.getItem(savedQueriesKey(workspaceId))
 
     if (!raw) return []
-    const parsed = JSON.parse(raw)
+    const parsed = z.array(z.unknown()).safeParse(JSON.parse(raw))
 
-    if (!Array.isArray(parsed)) return []
+    if (!parsed.success) return []
 
-    return parsed
-      .filter(
-        (s: unknown): s is SavedQuery =>
-          typeof s === 'object' &&
-          s !== null &&
-          typeof (s as SavedQuery).id === 'string' &&
-          typeof (s as SavedQuery).name === 'string',
-      )
+    return parsed.data
+      .flatMap((entry) => {
+        if (
+          !z.object({ id: z.string(), name: z.string() }).safeParse(entry)
+            .success
+        )
+          return []
+
+        // SAFETY: Preserve the historical browser-entry contract: only id/name are checked here; remaining fields were written by saveQuery and older versions remain unnormalised.
+        return [entry as SavedQuery]
+      })
       .slice(0, SAVED_MAX)
   } catch {
     return []
@@ -1376,7 +1407,7 @@ export function deriveSuggestions(
 }
 
 function kindLabelForSuggestion(kind: string): string {
-  const labels: Record<string, string> = {
+  const labels = {
     experiment: t('projects.search.experiments'),
     sample: t('projects.search.samples'),
     material: t('projects.search.materials'),
@@ -1386,7 +1417,7 @@ function kindLabelForSuggestion(kind: string): string {
     notebook_template: t('projects.search.templates'),
   }
 
-  return labels[kind] ?? kind
+  return Object.entries(labels).find(([key]) => key === kind)?.[1] ?? kind
 }
 
 // ---------------------------------------------------------------------------
@@ -1428,28 +1459,32 @@ export const SEARCH_URL_DEFAULTS: SearchUrlParams = {
  * Parse and validate URL search params, applying defaults for missing/invalid
  * values. Used by the route's validateSearch.
  */
-export function parseSearchUrl(
-  search: Record<string, unknown>,
-): SearchUrlParams {
-  return {
-    q: typeof search.q === 'string' ? search.q : '',
-    type:
-      typeof search.type === 'string' &&
-      (SEARCH_RESULT_TYPES as readonly string[]).includes(search.type)
-        ? search.type
-        : '',
-    kind: typeof search.kind === 'string' ? search.kind : '',
-    project: typeof search.project === 'string' ? search.project : '',
-    status: typeof search.status === 'string' ? search.status : '',
-    owner: typeof search.owner === 'string' ? search.owner : '',
-    date: typeof search.date === 'string' ? search.date : 'all',
-    sort:
-      typeof search.sort === 'string' &&
-      ['relevance', 'updated'].includes(search.sort)
-        ? search.sort
-        : 'relevance',
-    selected: typeof search.selected === 'string' ? search.selected : '',
-  }
+const searchUrlSchema = z.object({
+  q: z.string().catch(''),
+  type: z.enum(SEARCH_RESULT_TYPES).or(z.literal('')).catch(''),
+  kind: z.string().catch(''),
+  project: z.string().catch(''),
+  status: z.string().catch(''),
+  owner: z.string().catch(''),
+  date: z.string().catch('all'),
+  sort: z.enum(['relevance', 'updated']).catch('relevance'),
+  selected: z.string().catch(''),
+})
+
+interface SearchUrlInput {
+  q?: unknown
+  type?: unknown
+  kind?: unknown
+  project?: unknown
+  status?: unknown
+  owner?: unknown
+  date?: unknown
+  sort?: unknown
+  selected?: unknown
+}
+
+export function parseSearchUrl(search: SearchUrlInput): SearchUrlParams {
+  return searchUrlSchema.parse(search)
 }
 
 /**
@@ -1545,36 +1580,59 @@ export function savedQueryToSearch(saved: SavedQuery): {
 } & SavedSearchFacets {
   const facets = saved.facets ?? {}
 
-  return {
-    q: typeof facets.text === 'string' ? facets.text : saved.query,
-    ...(facets.filter ? { filter: facets.filter } : {}),
-    ...(facets.sort ? { sort: facets.sort } : {}),
-    ...(facets.type?.length ? { type: facets.type } : {}),
-    ...(facets.project?.length ? { project: facets.project } : {}),
-    ...(facets.updated === '7d' ? { updated: '7d' as const } : {}),
-    ...(facets.owner ? { owner: facets.owner } : {}),
-    ...(facets.from ? { from: facets.from } : {}),
-    ...(facets.to ? { to: facets.to } : {}),
-    ...(facets.archived ? { archived: true } : {}),
+  const text = z.string().safeParse(facets.text)
+
+  const search: { q: string } & SavedSearchFacets = {
+    q: text.success ? text.data : saved.query,
   }
+
+  if (facets.filter) search.filter = facets.filter
+
+  if (facets.sort) search.sort = facets.sort
+
+  if (facets.type?.length) search.type = facets.type
+
+  if (facets.project?.length) search.project = facets.project
+
+  if (facets.updated === '7d') search.updated = '7d'
+
+  if (facets.owner) search.owner = facets.owner
+
+  if (facets.from) search.from = facets.from
+
+  if (facets.to) search.to = facets.to
+
+  if (facets.archived) search.archived = true
+
+  return search
 }
 
 /** The facets of the results page worth keeping with a saved search. */
 export function facetsOfSearch(
   search: { q: string } & SavedSearchFacets,
 ): SavedSearchFacets {
-  return {
-    ...(search.type?.length ? { type: search.type } : {}),
-    ...(search.project?.length ? { project: search.project } : {}),
-    ...(search.updated === '7d' ? { updated: '7d' as const } : {}),
-    ...(search.owner ? { owner: search.owner } : {}),
-    ...(search.from ? { from: search.from } : {}),
-    ...(search.to ? { to: search.to } : {}),
-    ...(search.archived ? { archived: true } : {}),
-    ...(search.filter ? { filter: search.filter } : {}),
-    ...(search.sort ? { sort: search.sort } : {}),
-    text: search.q.trim(),
-  }
+  const facets: SavedSearchFacets = {}
+
+  if (search.type?.length) facets.type = search.type
+
+  if (search.project?.length) facets.project = search.project
+
+  if (search.updated === '7d') facets.updated = '7d'
+
+  if (search.owner) facets.owner = search.owner
+
+  if (search.from) facets.from = search.from
+
+  if (search.to) facets.to = search.to
+
+  if (search.archived) facets.archived = true
+
+  if (search.filter) facets.filter = search.filter
+
+  if (search.sort) facets.sort = search.sort
+  facets.text = search.q.trim()
+
+  return facets
 }
 
 /** Save the results page's current search under a name, in this browser. */
@@ -1650,7 +1708,7 @@ export function saveSearchOnAccount(
   name: string,
   search: { q: string } & SavedSearchFacets,
   visibility: 'private' | 'workspace' = 'private',
-): Promise<unknown> {
+): Promise<SavedSearchWire | SavedSearchWire[]> {
   const {
     p_limit: _limit,
     p_offset: _offset,
@@ -1662,7 +1720,7 @@ export function saveSearchOnAccount(
     ),
   )
 
-  return client.rpc('save_search', {
+  return client.rpc<SavedSearchWire | SavedSearchWire[]>('save_search', {
     p_name: name.trim(),
     p_query: search.q.trim(),
     p_facets: facetsOfSearch(search),
@@ -1676,8 +1734,8 @@ export function saveSearchOnAccount(
 export function touchSavedSearch(
   client: DataClient,
   id: string,
-): Promise<unknown> {
-  return client.rpc('touch_saved_search', { p_id: id })
+): Promise<void> {
+  return client.rpc<void>('touch_saved_search', { p_id: id })
 }
 
 /**
@@ -1698,26 +1756,32 @@ export function setSavedSearchVisibility(
   client: DataClient,
   id: string,
   visibility: 'private' | 'workspace',
-): Promise<unknown> {
-  return client.rpc('update_saved_search', {
-    p_id: id,
-    p_visibility: visibility,
-  })
+): Promise<SavedSearchWire | SavedSearchWire[]> {
+  return client.rpc<SavedSearchWire | SavedSearchWire[]>(
+    'update_saved_search',
+    {
+      p_id: id,
+      p_visibility: visibility,
+    },
+  )
 }
 
 export function renameSavedSearch(
   client: DataClient,
   id: string,
   name: string,
-): Promise<unknown> {
-  return client.rpc('update_saved_search', { p_id: id, p_name: name.trim() })
+): Promise<SavedSearchWire | SavedSearchWire[]> {
+  return client.rpc<SavedSearchWire | SavedSearchWire[]>(
+    'update_saved_search',
+    { p_id: id, p_name: name.trim() },
+  )
 }
 
 export function deleteSavedSearchOnAccount(
   client: DataClient,
   id: string,
-): Promise<unknown> {
-  return client.rpc('delete_saved_search', { p_id: id })
+): Promise<void> {
+  return client.rpc<void>('delete_saved_search', { p_id: id })
 }
 
 /**
@@ -1736,7 +1800,7 @@ export async function moveBrowserSavedSearches(
   for (const saved of [...local].reverse()) {
     await saveSearchOnAccount(client, saved.name, {
       q: saved.query,
-      ...(saved.facets ?? {}),
+      ...saved.facets,
     })
   }
 
@@ -1786,7 +1850,9 @@ export function fetchSearchFacets(
     .then((raw) =>
       (Array.isArray(raw) ? raw : [raw]).map((row) => ({
         group: searchResultGroup({
-          resultType: row.result_type as SearchResultType,
+          resultType:
+            SEARCH_RESULT_TYPES.find((type) => type === row.result_type) ??
+            'record',
           kind: row.kind,
           matchedField: row.in_text ? 'block_text' : 'title',
         }),
@@ -1804,18 +1870,18 @@ export function fetchSearchFacets(
 export function summariseSearchFacets(
   rows: readonly SearchFacetRow[],
   chosen: { type?: readonly string[]; project?: readonly string[] },
-): { types: Map<SearchResultGroup, number>; projects: Map<string, number> } {
+) {
   const types = new Map<SearchResultGroup, number>()
   const projects = new Map<string, number>()
-  const wantType = chosen.type ?? []
-  const wantProject = chosen.project ?? []
+  const wantType = new Set(chosen.type)
+  const wantProject = new Set(chosen.project)
 
   for (const row of rows) {
     const inProject =
-      !wantProject.length ||
-      (row.projectId !== null && wantProject.includes(row.projectId))
+      !wantProject.size ||
+      (row.projectId !== null && wantProject.has(row.projectId))
 
-    const inType = !wantType.length || wantType.includes(row.group)
+    const inType = !wantType.size || wantType.has(row.group)
 
     if (inProject) types.set(row.group, (types.get(row.group) ?? 0) + row.count)
 

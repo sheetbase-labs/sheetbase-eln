@@ -116,34 +116,34 @@ export function noAiFeatureFlags(): AiFeatureFlags {
  */
 export function resolveAiFeatureFlags(value: unknown): AiFeatureFlags {
   const resolved = defaultAiFeatureFlags()
+
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return resolved
   }
+
   const stored = value as Record<string, unknown>
+
   for (const key of AI_FEATURE_FLAG_KEYS) {
     if (typeof stored[key] === 'boolean') resolved[key] = stored[key]
   }
+
   return resolved
 }
 
-const featureFlagsSchema = z
-  .object({
-    assistant: z.boolean(),
-    mcp_read: z.boolean(),
-    mcp_draft: z.boolean(),
-    mcp_workflow: z.boolean(),
-    mcp_admin_read: z.boolean(),
-    mcp_admin_propose: z.boolean(),
-    mcp_lab: z.boolean(),
-  })
-  .strict()
+const featureFlagsSchema = z.strictObject({
+  assistant: z.boolean(),
+  mcp_read: z.boolean(),
+  mcp_draft: z.boolean(),
+  mcp_workflow: z.boolean(),
+  mcp_admin_read: z.boolean(),
+  mcp_admin_propose: z.boolean(),
+  mcp_lab: z.boolean(),
+})
 
-export const updateAiFeatureFlagsSchema = z
-  .object({
-    workspaceId: z.string().uuid(),
-    featureFlags: featureFlagsSchema,
-  })
-  .strict()
+export const updateAiFeatureFlagsSchema = z.strictObject({
+  workspaceId: z.string().uuid(),
+  featureFlags: featureFlagsSchema,
+})
 
 export type UpdateAiFeatureFlagsInput = z.infer<
   typeof updateAiFeatureFlagsSchema
@@ -162,5 +162,6 @@ export async function readAiFeatureFlags(
     'workspace_settings',
     `?select=ai_feature_flags&workspace_id=eq.${encodeURIComponent(workspaceId)}&limit=1`,
   )
+
   return resolveAiFeatureFlags(rows[0]?.ai_feature_flags)
 }

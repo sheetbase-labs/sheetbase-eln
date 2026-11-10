@@ -17,4 +17,32 @@ describe('signInRedirect', () => {
     expect(signInRedirect({ href: '//evil.example' }).search).toEqual({})
     expect(safeNextPath('/\\evil')).toBeUndefined()
   })
+
+  it('rejects raw non-string input without coercion', () => {
+    for (const raw of [
+      undefined,
+      null,
+      42,
+      {},
+      [],
+      new URL('https://evil.example'),
+    ]) {
+      expect(safeNextPath(raw)).toBeUndefined()
+    }
+  })
+
+  it('rejects every ASCII control character and preserves rooted Unicode paths', () => {
+    for (let code = 0; code < 0x20; code += 1) {
+      expect(
+        safeNextPath(`/review/${String.fromCharCode(code)}next`),
+      ).toBeUndefined()
+    }
+
+    expect(
+      safeNextPath(`/review/${String.fromCharCode(0x7f)}next`),
+    ).toBeUndefined()
+    expect(safeNextPath('/records/🧬?title=測定#résumé')).toBe(
+      '/records/🧬?title=測定#résumé',
+    )
+  })
 })

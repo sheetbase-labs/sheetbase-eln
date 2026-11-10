@@ -33,6 +33,122 @@ function validManifestInput() {
 }
 
 describe('extension manifest validation', () => {
+  it.each([null, false, [], 42])(
+    'rejects non-object manifest input %j',
+    (input) => {
+      expect(validateExtensionManifest(input)).toEqual([
+        'manifest must be an object',
+      ])
+      expect(() => parseExtensionManifest(input)).toThrow(
+        ExtensionManifestError,
+      )
+    },
+  )
+
+  it('keeps the complete diagnostic order and legacy malformed-authority text', () => {
+    const input = {
+      ...validManifestInput(),
+      id: 1,
+      name: ' ',
+      version: false,
+      source: null,
+      compatibleWith: 2,
+      description: false,
+      author: 0,
+      capabilities: [{}],
+      scopes: [{}],
+      contributions: {
+        widgets: [],
+        panels: [{ id: 'p', title: 'P', ui: '../escape.html' }],
+        commands: [
+          { id: 'x', title: 'X' },
+          { id: 'x', title: '' },
+        ],
+      },
+    }
+
+    const errors = [
+      'id must be a namespaced package identity (e.g. acme.retest-tracker)',
+      'name must be 1-200 non-blank characters',
+      'version must be semver (e.g. 1.2.3)',
+      'source must be 1-500 characters',
+      'compatibleWith must be a version range string',
+      'description must be 1-600 characters',
+      'author must be 1-200 characters',
+      'unknown capability: [object Object]',
+      'unknown scope: [object Object]',
+      'unknown contribution point: widgets',
+      'contributions.panels.p ui must be an .html file in ui/, such as ui/index.html',
+      'contributions.commands entry titles must be 1-120 characters',
+    ]
+
+    expect(validateExtensionManifest(input)).toEqual(errors)
+    expect(() => parseExtensionManifest(input)).toThrow(
+      new ExtensionManifestError(errors),
+    )
+  })
+
+  it('preserves named-entry forward compatibility and normalized optional fields', () => {
+    const input = validManifestInput()
+
+    const parsed = parseExtensionManifest({
+      ...input,
+      compatibleWith: ' >=1.0.0 <2.0.0 ',
+      description: ' About ',
+      author: ' Author ',
+      scopes: ['projects:read', 'projects:read', 'projects:write'],
+      contributions: {
+        commands: [{ id: 'x', title: ' X ', futureSetting: true }],
+        panels: [
+          {
+            id: 'p',
+            title: ' P ',
+            ui: 'ui/panel.html',
+            models: ['sample', 'sample'],
+            futureSetting: true,
+          },
+        ],
+      },
+    })
+
+    expect(parsed).toEqual({
+      ...input,
+      compatibleWith: '>=1.0.0 <2.0.0',
+      description: 'About',
+      author: 'Author',
+      contributions: {
+        commands: [{ id: 'x', title: 'X' }],
+        panels: [
+          { id: 'p', title: 'P', ui: 'ui/panel.html', models: ['sample'] },
+        ],
+      },
+    })
+    const absent = parseExtensionManifest(input)
+
+    for (const key of ['compatibleWith', 'description', 'author', 'python'])
+      expect(Object.hasOwn(absent, key)).toBe(false)
+  })
+
+  it('rejects unknown original JSON keys and duplicate canonical event aliases', () => {
+    expect(
+      validateExtensionManifest({
+        ...validManifestInput(),
+        contributions: Object.fromEntries([['__proto__', []]]),
+      }),
+    ).toEqual(['unknown contribution point: __proto__'])
+    expect(
+      validateExtensionManifest({
+        ...validManifestInput(),
+        contributions: {
+          'event-subscriptions': [
+            { eventType: 'sheet_instance.created' },
+            { eventType: 'sheet.created' },
+          ],
+        },
+      }),
+    ).toEqual(['duplicate event subscription: sheet.created'])
+  })
+
   it('accepts a fully declared manifest', () => {
     expect(validateExtensionManifest(validManifestInput())).toEqual([])
     expect(
@@ -54,6 +170,7 @@ describe('extension manifest validation', () => {
         'event-subscriptions': [{ eventType: 'sheet_instance.created' }],
       },
     })
+
     expect(parsed.name).toBe('Retest Tracker')
     expect(parsed.capabilities).toEqual(['record.create'])
     expect(parsed.contributions['event-subscriptions']).toEqual([
@@ -95,6 +212,7 @@ describe('extension manifest validation', () => {
       ...validManifestInput(),
       contributions: { widgets: [{ id: 'x', title: 'X' }] },
     })
+
     expect(
       errors.some((error) =>
         error.includes('unknown contribution point: widgets'),
@@ -181,12 +299,8 @@ describe('extension manifest validation', () => {
 
 describe('extension capability mapping', () => {
   const manifest = {
-    capabilities: [
-      'record.create',
-      'schema.edit',
-      'extensions.manage',
-    ] as const,
-  } as unknown as Parameters<typeof effectiveExtensionCapabilities>[0]
+    capabilities: ['record.create', 'schema.edit', 'extensions.manage'],
+  } satisfies Parameters<typeof effectiveExtensionCapabilities>[0]
 
   it('intersects declared capabilities with the caller role', () => {
     expect(effectiveExtensionCapabilities(manifest, 'steward')).toEqual([

@@ -10,6 +10,9 @@
  *
  * Browser safe, no server imports.
  */
+import { z } from 'zod'
+
+import { isRecord } from './points'
 
 export const CELL_DISPLAY_TONES = [
   'neutral',
@@ -18,6 +21,7 @@ export const CELL_DISPLAY_TONES = [
   'danger',
   'info',
 ] as const
+
 export type CellDisplayTone = (typeof CELL_DISPLAY_TONES)[number]
 
 export type CellDisplaySpec =
@@ -32,7 +36,7 @@ export type CellDisplaySpec =
   | {
       kind: 'badge'
       /** Value to tone. A value not listed uses `fallback`. */
-      tones: Record<string, CellDisplayTone>
+      tones: Partial<Record<string, CellDisplayTone>>
       /** Value to the words shown. A value not listed shows as it is. */
       labels?: Record<string, string>
       fallback?: CellDisplayTone
@@ -62,221 +66,293 @@ const MAX_MAP = 24
 const MAX_TEXT = 40
 const MAX_THRESHOLDS = 6
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function tone(value: unknown): value is CellDisplayTone {
-  return (
-    typeof value === 'string' &&
-    (CELL_DISPLAY_TONES as readonly string[]).includes(value)
-  )
-}
-
-function short(value: unknown, max = MAX_TEXT): value is string {
-  return typeof value === 'string' && value.length >= 1 && value.length <= max
-}
-
 function onlyKeys(
-  spec: Record<string, unknown>,
+  actual: readonly string[],
   allowed: readonly string[],
   where: string,
   errors: string[],
 ): boolean {
-  const extra = Object.keys(spec).find((key) => !allowed.includes(key))
+  const known = new Set(allowed)
+  const extra = actual.find((key) => !known.has(key))
+
   if (extra) {
     errors.push(`${where} has an unknown setting: ${extra}`)
+
     return false
   }
+
   return true
 }
 
 /** Checks a display spec and returns the normalised copy, or null with the problems in `errors`. */
 export function parseCellDisplay(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Plugin display declarations cross here; inspect original keys and parse each kind's bounded settings before constructing the renderer's spec, including original badge-map keys.
   value: unknown,
   where: string,
   errors: string[],
 ): CellDisplaySpec | null {
-  if (!isRecord(value) || typeof value.kind !== 'string') {
+  const kind = z.string().safeParse(isRecord(value) ? value.kind : undefined)
+
+  if (!isRecord(value) || !kind.success) {
     errors.push(`${where} display needs a kind`)
+
     return null
   }
-  switch (value.kind) {
+
+  switch (kind.data) {
     case 'text': {
-      if (!onlyKeys(value, ['kind', 'prefix', 'suffix', 'mono'], where, errors))
-        return null
       if (
-        (value.prefix !== undefined && !short(value.prefix)) ||
-        (value.suffix !== undefined && !short(value.suffix)) ||
-        (value.mono !== undefined && typeof value.mono !== 'boolean')
-      ) {
+        !onlyKeys(
+          Object.keys(value),
+          ['kind', 'prefix', 'suffix', 'mono'],
+          where,
+          errors,
+        )
+      )
+        return null
+
+      const settings = z
+        .object({
+          prefix: z.string().min(1).max(MAX_TEXT).optional(),
+          suffix: z.string().min(1).max(MAX_TEXT).optional(),
+          mono: z.boolean().optional(),
+        })
+        .safeParse(value)
+
+      if (!settings.success) {
         errors.push(
           `${where} text display: prefix and suffix are 1-${MAX_TEXT} characters, mono is true or false`,
         )
+
         return null
       }
-      return {
+
+      const result: Extract<CellDisplaySpec, { kind: 'text' }> = {
         kind: 'text',
-        ...(value.prefix !== undefined ? { prefix: value.prefix } : {}),
-        ...(value.suffix !== undefined ? { suffix: value.suffix } : {}),
-        ...(value.mono !== undefined ? { mono: value.mono } : {}),
       }
+
+      if (settings.data.prefix !== undefined)
+        result.prefix = settings.data.prefix
+
+      if (settings.data.suffix !== undefined)
+        result.suffix = settings.data.suffix
+
+      if (settings.data.mono !== undefined) result.mono = settings.data.mono
+
+      return result
     }
+
     case 'number': {
       if (
         !onlyKeys(
-          value,
+          Object.keys(value),
           ['kind', 'decimals', 'unit', 'grouping'],
           where,
           errors,
         )
       )
         return null
-      if (
-        (value.decimals !== undefined &&
-          !(
-            Number.isInteger(value.decimals) &&
-            (value.decimals as number) >= 0 &&
-            (value.decimals as number) <= 8
-          )) ||
-        (value.unit !== undefined && !short(value.unit, 12)) ||
-        (value.grouping !== undefined && typeof value.grouping !== 'boolean')
-      ) {
+
+      const settings = z
+        .object({
+          decimals: z.number().int().min(0).max(8).optional(),
+          unit: z.string().min(1).max(12).optional(),
+          grouping: z.boolean().optional(),
+        })
+        .safeParse(value)
+
+      if (!settings.success) {
         errors.push(
           `${where} number display: decimals is 0-8, unit is 1-12 characters, grouping is true or false`,
         )
+
         return null
       }
-      return {
+
+      const result: Extract<CellDisplaySpec, { kind: 'number' }> = {
         kind: 'number',
-        ...(value.decimals !== undefined
-          ? { decimals: value.decimals as number }
-          : {}),
-        ...(value.unit !== undefined ? { unit: value.unit } : {}),
-        ...(value.grouping !== undefined ? { grouping: value.grouping } : {}),
       }
+
+      if (settings.data.decimals !== undefined)
+        result.decimals = settings.data.decimals
+
+      if (settings.data.unit !== undefined) result.unit = settings.data.unit
+
+      if (settings.data.grouping !== undefined)
+        result.grouping = settings.data.grouping
+
+      return result
     }
+
     case 'badge': {
       if (
-        !onlyKeys(value, ['kind', 'tones', 'labels', 'fallback'], where, errors)
+        !onlyKeys(
+          Object.keys(value),
+          ['kind', 'tones', 'labels', 'fallback'],
+          where,
+          errors,
+        )
       )
         return null
-      const tones = value.tones
-      if (
-        !isRecord(tones) ||
-        Object.keys(tones).length < 1 ||
-        Object.keys(tones).length > MAX_MAP ||
-        !Object.entries(tones).every(([key, t]) => short(key, 60) && tone(t))
-      ) {
+
+      const tones = z
+        .array(z.tuple([z.string().min(1).max(60), z.enum(CELL_DISPLAY_TONES)]))
+        .min(1)
+        .max(MAX_MAP)
+        .safeParse(
+          isRecord(value.tones) ? Object.entries(value.tones) : undefined,
+        )
+
+      if (!tones.success) {
         errors.push(
           `${where} badge display needs tones: 1-${MAX_MAP} values, each one of ${CELL_DISPLAY_TONES.join(', ')}`,
         )
+
         return null
       }
-      if (
-        value.labels !== undefined &&
-        (!isRecord(value.labels) ||
-          Object.keys(value.labels).length > MAX_MAP ||
-          !Object.entries(value.labels).every(
-            ([key, label]) => short(key, 60) && short(label, 40),
-          ))
-      ) {
+
+      const labels = z
+        .array(z.tuple([z.string().min(1).max(60), z.string().min(1).max(40)]))
+        .max(MAX_MAP)
+        .optional()
+        .safeParse(
+          value.labels === undefined
+            ? undefined
+            : isRecord(value.labels)
+              ? Object.entries(value.labels)
+              : null,
+        )
+
+      if (!labels.success) {
         errors.push(`${where} badge labels are up to ${MAX_MAP} short words`)
+
         return null
       }
-      if (value.fallback !== undefined && !tone(value.fallback)) {
+
+      const fallback = z
+        .enum(CELL_DISPLAY_TONES)
+        .optional()
+        .safeParse(value.fallback)
+
+      if (!fallback.success) {
         errors.push(`${where} badge fallback must be a tone`)
+
         return null
       }
-      return {
+
+      const result: Extract<CellDisplaySpec, { kind: 'badge' }> = {
         kind: 'badge',
-        tones: tones as Record<string, CellDisplayTone>,
-        ...(value.labels !== undefined
-          ? { labels: value.labels as Record<string, string> }
-          : {}),
-        ...(value.fallback !== undefined ? { fallback: value.fallback } : {}),
+        tones: Object.fromEntries(tones.data),
       }
+
+      if (labels.data !== undefined)
+        result.labels = Object.fromEntries(labels.data)
+
+      if (fallback.data !== undefined) result.fallback = fallback.data
+
+      return result
     }
+
     case 'bar': {
       if (
         !onlyKeys(
-          value,
+          Object.keys(value),
           ['kind', 'min', 'max', 'tone', 'thresholds', 'showValue'],
           where,
           errors,
         )
       )
         return null
-      const min = value.min === undefined ? 0 : value.min
-      if (
-        typeof min !== 'number' ||
-        typeof value.max !== 'number' ||
-        !Number.isFinite(min) ||
-        !Number.isFinite(value.max) ||
-        value.max <= min ||
-        (value.tone !== undefined && !tone(value.tone)) ||
-        (value.showValue !== undefined && typeof value.showValue !== 'boolean')
-      ) {
+
+      const settings = z
+        .object({
+          min: z.number().optional(),
+          max: z.number(),
+          tone: z.enum(CELL_DISPLAY_TONES).optional(),
+          showValue: z.boolean().optional(),
+        })
+        .refine((range) => range.max > (range.min ?? 0))
+        .safeParse(value)
+
+      if (!settings.success) {
         errors.push(
           `${where} bar display needs a max above its min (default 0), an optional tone and showValue`,
         )
+
         return null
       }
+
       let thresholds:
         Array<{ below: number; tone: CellDisplayTone }> | undefined
+
       if (value.thresholds !== undefined) {
-        if (
-          !Array.isArray(value.thresholds) ||
-          value.thresholds.length > MAX_THRESHOLDS ||
-          !value.thresholds.every(
-            (entry) =>
-              isRecord(entry) &&
-              typeof entry.below === 'number' &&
-              Number.isFinite(entry.below) &&
-              tone(entry.tone),
+        const parsed = z
+          .array(
+            z.object({ below: z.number(), tone: z.enum(CELL_DISPLAY_TONES) }),
           )
-        ) {
+          .max(MAX_THRESHOLDS)
+          .safeParse(value.thresholds)
+
+        if (!parsed.success) {
           errors.push(
             `${where} bar thresholds are up to ${MAX_THRESHOLDS} of { below, tone }`,
           )
+
           return null
         }
-        thresholds = (
-          value.thresholds as Array<{ below: number; tone: CellDisplayTone }>
-        )
-          .map((entry) => ({ below: entry.below, tone: entry.tone }))
-          .sort((a, b) => a.below - b.below)
+
+        thresholds = parsed.data.sort((a, b) => a.below - b.below)
       }
-      return {
+
+      const result: Extract<CellDisplaySpec, { kind: 'bar' }> = {
         kind: 'bar',
-        ...(value.min !== undefined ? { min } : {}),
-        max: value.max,
-        ...(value.tone !== undefined ? { tone: value.tone } : {}),
-        ...(thresholds ? { thresholds } : {}),
-        ...(value.showValue !== undefined
-          ? { showValue: value.showValue }
-          : {}),
+        max: settings.data.max,
       }
+
+      if (settings.data.min !== undefined) result.min = settings.data.min
+
+      if (settings.data.tone !== undefined) result.tone = settings.data.tone
+
+      if (thresholds !== undefined) result.thresholds = thresholds
+
+      if (settings.data.showValue !== undefined)
+        result.showValue = settings.data.showValue
+
+      return result
     }
+
     case 'sparkline': {
-      if (!onlyKeys(value, ['kind', 'tone'], where, errors)) return null
-      if (value.tone !== undefined && !tone(value.tone)) {
+      if (!onlyKeys(Object.keys(value), ['kind', 'tone'], where, errors))
+        return null
+
+      const tone = z.enum(CELL_DISPLAY_TONES).optional().safeParse(value.tone)
+
+      if (!tone.success) {
         errors.push(`${where} sparkline tone must be a tone`)
+
         return null
       }
-      return {
+
+      const result: Extract<CellDisplaySpec, { kind: 'sparkline' }> = {
         kind: 'sparkline',
-        ...(value.tone !== undefined ? { tone: value.tone } : {}),
       }
+
+      if (tone.data !== undefined) result.tone = tone.data
+
+      return result
     }
+
     case 'svg': {
-      if (!onlyKeys(value, ['kind'], where, errors)) return null
+      if (!onlyKeys(Object.keys(value), ['kind'], where, errors)) return null
+
       return { kind: 'svg' }
     }
+
     default:
       errors.push(
-        `${where} display kind ${value.kind} is unknown (use ${CELL_DISPLAY_KINDS.join(', ')})`,
+        `${where} display kind ${kind.data} is unknown (use ${CELL_DISPLAY_KINDS.join(', ')})`,
       )
+
       return null
   }
 }
@@ -299,13 +375,18 @@ export type CellDisplayModel =
   | { kind: 'sparkline'; values: number[]; tone: CellDisplayTone }
   | { kind: 'svg'; svg: string }
 
-function asNumber(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
-  if (typeof value === 'string' && value.trim() !== '') {
-    const n = Number(value)
-    return Number.isFinite(n) ? n : null
-  }
-  return null
+const displayNumberSchema = z.union([
+  z.number(),
+  z.string().trim().min(1).transform(Number).refine(Number.isFinite),
+])
+
+function asNumber(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A display's cell or sparkline element is parsed here as a finite number or nonblank numeric text; all other values keep the existing null/fallback behavior.
+  value: unknown,
+): number | null {
+  const parsed = displayNumberSchema.safeParse(value)
+
+  return parsed.success ? parsed.data : null
 }
 
 export function formatDisplayNumber(
@@ -314,27 +395,40 @@ export function formatDisplayNumber(
   grouping: boolean | undefined,
 ): string {
   const fixed = decimals === undefined ? String(n) : n.toFixed(decimals)
+
   if (!grouping) return fixed
   const dot = fixed.indexOf('.')
   const whole = dot < 0 ? fixed : fixed.slice(0, dot)
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+
   return dot < 0 ? grouped : `${grouped}${fixed.slice(dot)}`
 }
 
 /** The numbers in a sparkline cell: a JSON list, or numbers split by commas, spaces or semicolons. */
-export function sparklineValues(value: unknown): number[] {
-  if (Array.isArray(value))
-    return value.map(asNumber).filter((n): n is number => n !== null)
-  if (typeof value !== 'string') return []
-  const trimmed = value.trim()
+export function sparklineValues(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Sparkline cells may contain a list, JSON list text or delimited numeric text; list/text schemas select the representation and asNumber rejects unsupported elements without coercing booleans/objects.
+  value: unknown,
+): number[] {
+  const list = z.array(z.unknown()).safeParse(value)
+
+  if (list.success)
+    return list.data.map(asNumber).filter((n): n is number => n !== null)
+
+  const text = z.string().safeParse(value)
+
+  if (!text.success) return []
+  const trimmed = text.data.trim()
+
   if (trimmed.startsWith('[')) {
     try {
-      const parsed: unknown = JSON.parse(trimmed)
-      return Array.isArray(parsed) ? sparklineValues(parsed) : []
+      const parsed = z.array(z.unknown()).safeParse(JSON.parse(trimmed))
+
+      return parsed.success ? sparklineValues(parsed.data) : []
     } catch {
       return []
     }
   }
+
   return trimmed
     .split(/[\s,;]+/)
     .map(asNumber)
@@ -343,11 +437,15 @@ export function sparklineValues(value: unknown): number[] {
 
 export function cellDisplayModel(
   spec: CellDisplaySpec,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Display values intentionally accept arbitrary native values, not just JSON. Blank handling and one native String conversion precede every spec branch; hooks.test.ts covers Symbols, custom coercion, Unicode and arbitrary throws.
   value: unknown,
 ): CellDisplayModel {
   const blank = value === null || value === undefined || value === ''
+
   if (blank) return { kind: 'empty' }
+  // oxlint-disable-next-line typescript/no-base-to-string -- Native object/Symbol/custom coercion and thrown values are the public display fallback contract. Coerce exactly once before kind-specific parsing; do not JSON-normalize or catch it (hooks.test.ts).
   const raw = String(value)
+
   switch (spec.kind) {
     case 'text':
       return {
@@ -357,30 +455,32 @@ export function cellDisplayModel(
       }
     case 'number': {
       const n = asNumber(value)
+
       if (n === null) return { kind: 'text', text: raw, mono: false }
       const text = formatDisplayNumber(n, spec.decimals, spec.grouping)
+
       return {
         kind: 'text',
         text: spec.unit ? `${text} ${spec.unit}` : text,
         mono: false,
       }
     }
+
     case 'badge':
       return {
         kind: 'badge',
         text: spec.labels?.[raw] ?? raw,
-        tone:
-          (spec.tones as Record<string, CellDisplayTone | undefined>)[raw] ??
-          spec.fallback ??
-          'neutral',
+        tone: spec.tones[raw] ?? spec.fallback ?? 'neutral',
       }
     case 'bar': {
       const n = asNumber(value)
+
       if (n === null) return { kind: 'text', text: raw, mono: false }
       const min = spec.min ?? 0
       const fraction = Math.min(1, Math.max(0, (n - min) / (spec.max - min)))
       const matched = spec.thresholds?.find((entry) => n < entry.below)
       const above = spec.thresholds?.at(-1)
+
       return {
         kind: 'bar',
         fraction,
@@ -391,12 +491,15 @@ export function cellDisplayModel(
             : formatDisplayNumber(n, undefined, false),
       }
     }
+
     case 'sparkline': {
       const values = sparklineValues(value)
+
       return values.length < 2
         ? { kind: 'text', text: raw, mono: false }
         : { kind: 'sparkline', values, tone: spec.tone ?? 'info' }
     }
+
     case 'svg':
       return { kind: 'svg', svg: raw }
   }

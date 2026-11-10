@@ -11,6 +11,7 @@ import {
   delimitedHeaderLine,
   delimitedRowLine,
   formatCell,
+  isExportFormat,
   xlsxDocument,
 } from './serializers'
 import { ZipWriter } from './zip'
@@ -44,6 +45,12 @@ const rows = [
 ]
 
 describe('delimited rendering', () => {
+  it('accepts only supported export formats', () => {
+    expect(isExportFormat('xlsx')).toBe(true)
+    expect(isExportFormat('XLSX')).toBe(false)
+    expect(isExportFormat(null)).toBe(false)
+  })
+
   it('renders RFC 4180 CSV with quoted specials', () => {
     expect(delimitedHeaderLine(fields, ',')).toBe('Sample,pH')
     expect(delimitedRowLine(fields, rows[0], ',')).toBe('plain,7.2')
@@ -63,6 +70,13 @@ describe('delimited rendering', () => {
       ),
     ).toBe('00000000-0000-4000-8000-000000000001')
     expect(formatCell(fields[0], null)).toBe('')
+  })
+
+  it('keeps JavaScript string conversion for non-JSON values', () => {
+    expect(formatCell(fields[0], 42n)).toBe('42')
+    expect(formatCell(fields[0], { toString: () => 'custom value' })).toBe(
+      'custom value',
+    )
   })
 })
 
@@ -92,17 +106,36 @@ describe('xlsxDocument', () => {
       ['state', 'live'],
     ])
 
-    const preview = await parseImportBytes(
-      bytes.buffer.slice(
-        bytes.byteOffset,
-        bytes.byteOffset + bytes.byteLength,
-      ) as ArrayBuffer,
-      { fileName: 'export.xlsx' },
-    )
+    const preview = await parseImportBytes(new Uint8Array(bytes).buffer, {
+      fileName: 'export.xlsx',
+    })
 
     const sheet = preview.sheets[0]
     expect(sheet.rows[0]).toEqual({ Sample: 'plain', pH: '7.2' })
     expect(sheet.rows[1].Sample).toBe('has,comma "and" quote\nnew')
+  })
+
+  it('preserves custom string conversion and bigint numeric cells', async () => {
+    const bytes = await xlsxDocument(
+      fields,
+      [
+        {
+          rowId: 'custom',
+          revision: 1,
+          values: { f1: { toString: () => 'custom value' }, f2: 42n },
+        },
+      ],
+      [],
+    )
+
+    const preview = await parseImportBytes(new Uint8Array(bytes).buffer, {
+      fileName: 'export.xlsx',
+    })
+
+    expect(preview.sheets[0].rows[0]).toEqual({
+      Sample: 'custom value',
+      pH: '42',
+    })
   })
 })
 

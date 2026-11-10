@@ -42,62 +42,54 @@ const summary = z.string().min(1).max(400)
 
 const shared = { title, summary }
 
-export const proposeNotebookInsertSchema = z
-  .object({
-    ...shared,
-    recordId: uuid.describe('The notebook record to add the text block to.'),
-    afterBlockId: uuid
-      .nullish()
-      .describe('Block to add it after; leave out to add at the end.'),
-    text: z
-      .string()
-      .min(1)
-      .max(8_000)
-      .describe(
-        'The text of the new block. Blank line between paragraphs; "- " for bullets; "## " for a heading.',
-      ),
-  })
-  .strict()
+export const proposeNotebookInsertSchema = z.strictObject({
+  ...shared,
+  recordId: uuid.describe('The notebook record to add the text block to.'),
+  afterBlockId: uuid
+    .nullish()
+    .describe('Block to add it after; leave out to add at the end.'),
+  text: z
+    .string()
+    .min(1)
+    .max(8_000)
+    .describe(
+      'The text of the new block. Blank line between paragraphs; "- " for bullets; "## " for a heading.',
+    ),
+})
 
-export const proposeNotebookUpdateSchema = z
-  .object({
-    ...shared,
-    blockId: uuid.describe('The text block to change.'),
-    text: z
-      .string()
-      .min(1)
-      .max(8_000)
-      .describe('The whole new text of the block, replacing what is there.'),
-  })
-  .strict()
+export const proposeNotebookUpdateSchema = z.strictObject({
+  ...shared,
+  blockId: uuid.describe('The text block to change.'),
+  text: z
+    .string()
+    .min(1)
+    .max(8_000)
+    .describe('The whole new text of the block, replacing what is there.'),
+})
 
-export const proposeFieldsUpdateSchema = z
-  .object({
-    ...shared,
-    recordId: uuid,
-    values: z
-      .record(z.string().min(1).max(80), z.unknown())
-      .refine((values) => Object.keys(values).length > 0, {
-        message: 'Give at least one field.',
-      })
-      .describe('Field name to new value, only the fields to change.'),
-  })
-  .strict()
+export const proposeFieldsUpdateSchema = z.strictObject({
+  ...shared,
+  recordId: uuid,
+  values: z
+    .record(z.string().min(1).max(80), z.unknown())
+    .refine((values) => Object.keys(values).length > 0, {
+      message: 'Give at least one field.',
+    })
+    .describe('Field name to new value, only the fields to change.'),
+})
 
-export const proposeSheetValuesSchema = z
-  .object({
-    ...shared,
-    instanceId: uuid,
-    localValues: z
-      .record(z.string(), z.record(z.string(), z.unknown()))
-      .refine((values) => Object.keys(values).length > 0, {
-        message: 'Give at least one row.',
-      })
-      .describe(
-        'Row id to { field id: new value }, only the cells to change. Ids come from reading the sheet.',
-      ),
-  })
-  .strict()
+export const proposeSheetValuesSchema = z.strictObject({
+  ...shared,
+  instanceId: uuid,
+  localValues: z
+    .record(z.string(), z.record(z.string(), z.unknown()))
+    .refine((values) => Object.keys(values).length > 0, {
+      message: 'Give at least one row.',
+    })
+    .describe(
+      'Row id to { field id: new value }, only the cells to change. Ids come from reading the sheet.',
+    ),
+})
 
 const pipelineName = z
   .string()
@@ -117,7 +109,7 @@ const pipelineStatement = z
 const pipelineSteps = z
   .array(
     z
-      .object({
+      .strictObject({
         name: pipelineName.describe(
           'Lowercase letters, digits and underscores, starting with a letter.',
         ),
@@ -125,7 +117,7 @@ const pipelineSteps = z
           .optional()
           .describe('The SQL of the step. Leave out for a plugin step.'),
         plugin: z
-          .object({
+          .strictObject({
             operation: z
               .string()
               .regex(/^plugin\.[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/)
@@ -133,18 +125,16 @@ const pipelineSteps = z
                 'The plugin step to run, as `plugin.<plugin>.<step>` (a pipeline step an installed plugin offers).',
               ),
             arguments: z
-              .record(z.string(), z.unknown())
+              .record(z.string(), z.json())
               .describe(
                 'What the plugin step is given. A table is `{ "$ref": "previous" }`, `{ "$ref": "inputs.<name>" }` or `{ "$ref": "steps.<step>" }`; a pipeline setting is `{ "$ref": "parameters.<name>" }`; anything else is a plain value.',
               ),
           })
-          .strict()
           .optional()
           .describe(
             'Instead of SQL: a step a plugin runs between two other steps. It turns tables into a table, and the next step reads that table as `previous`.',
           ),
       })
-      .strict()
       .refine(
         (step) =>
           (step.statement === undefined) !== (step.plugin === undefined),
@@ -161,50 +151,44 @@ const pipelineSteps = z
 
 const pipelineInputs = z
   .array(
-    z
-      .object({
-        name: pipelineName.describe('The table name the SQL uses.'),
-        description: z.string().max(400).optional(),
-        required: z.boolean().optional(),
-      })
-      .strict(),
+    z.strictObject({
+      name: pipelineName.describe('The table name the SQL uses.'),
+      description: z.string().max(400).optional(),
+      required: z.boolean().optional(),
+    }),
   )
   .max(MAX_INPUTS)
   .describe('Dataset versions the pipeline reads, by the table name SQL uses.')
 
 const pipelineParameters = z
   .array(
-    z
-      .object({
-        name: pipelineName,
-        type: z.enum(PARAMETER_TYPES),
-        required: z.boolean().optional(),
-        default: z.unknown().optional(),
-        description: z.string().max(400).optional(),
-      })
-      .strict(),
+    z.strictObject({
+      name: pipelineName,
+      type: z.enum(PARAMETER_TYPES),
+      required: z.boolean().optional(),
+      default: z.json().optional(),
+      description: z.string().max(400).optional(),
+    }),
   )
   .max(MAX_PARAMETERS)
   .describe('Values chosen when the pipeline is run.')
 
-export const proposePipelineDraftSchema = z
-  .object({
-    ...shared,
-    key: z
-      .string()
-      .regex(/^[a-z][a-z0-9_]{0,59}$/)
-      .describe('Short id: lowercase letters, digits, underscores.'),
-    name: z.string().min(1).max(200).describe('The name people see.'),
-    description: z.string().max(2000).optional(),
-    inputs: pipelineInputs.optional(),
-    parameters: pipelineParameters.optional(),
-    statement: pipelineStatement,
-    steps: pipelineSteps.optional(),
-  })
-  .strict()
+export const proposePipelineDraftSchema = z.strictObject({
+  ...shared,
+  key: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{0,59}$/)
+    .describe('Short id: lowercase letters, digits, underscores.'),
+  name: z.string().min(1).max(200).describe('The name people see.'),
+  description: z.string().max(2000).optional(),
+  inputs: pipelineInputs.optional(),
+  parameters: pipelineParameters.optional(),
+  statement: pipelineStatement,
+  steps: pipelineSteps.optional(),
+})
 
 export const proposePipelineStepsSchema = z
-  .object({
+  .strictObject({
     ...shared,
     pipelineId: uuid.describe(
       'The pipeline (definition) id. Its draft is edited; if it has none, a new draft is made from the latest published version.',
@@ -218,7 +202,6 @@ export const proposePipelineStepsSchema = z
     inputs: pipelineInputs.optional(),
     parameters: pipelineParameters.optional(),
   })
-  .strict()
   .refine(
     (value) =>
       value.statement !== undefined ||
@@ -274,6 +257,7 @@ export function proposalToolDefs(): ProviderToolDef[] {
       PROPOSAL_TOOLS[name].schema,
       { io: 'input' },
     )
+
     return {
       name: toWireToolName(name),
       description: PROPOSAL_TOOLS[name].description,
@@ -336,7 +320,9 @@ export function proposalFromOutput(output: unknown): AssistantProposal | null {
   if (output === null || typeof output !== 'object' || !('proposal' in output))
     return null
   const proposal = output.proposal
+
   if (proposal === null || typeof proposal !== 'object') return null
+
   return 'tool' in proposal &&
     ('operation' in proposal || 'action' in proposal) &&
     'changes' in proposal

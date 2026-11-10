@@ -1,6 +1,8 @@
-import type { ComposedSheetSnapshot } from './sheet-composition-data'
+import type {
+  ComposedSheetCellValue,
+  ComposedSheetSnapshot,
+} from './sheet-composition-data'
 import type { FieldEditorPresentation } from './field-presentation'
-import type { BoundValueState } from './sheet-bound-columns'
 
 export interface ComposedSheetGridColumn {
   id: string
@@ -12,7 +14,7 @@ export interface ComposedSheetGridColumn {
 export interface ComposedSheetGridMatrix {
   columns: ComposedSheetGridColumn[]
   rowKeys: string[]
-  data: unknown[][]
+  data: ComposedSheetCellValue[][]
 }
 
 export function composedSheetGridMatrix(
@@ -35,7 +37,7 @@ export function composedSheetGridMatrix(
     rowKeys: rows.map((row) => row.rowKey),
     data: rows.map((row) =>
       columnIds.map((id) => {
-        const value = row.values[id] as BoundValueState | undefined
+        const value = Object.hasOwn(row.values, id) ? row.values[id] : undefined
 
         return value && value.kind === 'present' ? value.value : null
       }),

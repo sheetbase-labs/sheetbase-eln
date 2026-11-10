@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import { recordRunSampleResults, sampleResultsFromPayload } from './run-results'
 import type { DataClient } from '../data-client'
+import { createDataClient } from '../data-client'
 
 const payload = (
   headers: string[],
@@ -98,7 +100,7 @@ describe('recordRunSampleResults', () => {
       .fn()
       .mockResolvedValue({ linked: 1, checks: 1, unknown: ['X'] })
 
-    const client = { rpc } as unknown as DataClient
+    const client: DataClient = { ...createDataClient(), rpc }
 
     const results = Array.from({ length: 401 }, (_, i) => ({
       sample: `S-${i}`,
@@ -114,5 +116,46 @@ describe('recordRunSampleResults', () => {
     expect(rpc).toHaveBeenCalledTimes(2)
     expect(rpc.mock.calls[0][1].p_results).toHaveLength(400)
     expect(outcome).toEqual({ linked: 2, checks: 2, unknown: ['X', 'X'] })
+  })
+
+  it('does not write later chunks after an earlier chunk is refused', async () => {
+    const received: string[][] = []
+
+    const client = createDataClient(async (input, init) => {
+      const request = new Request(
+        new URL(
+          input instanceof Request ? input.url : input,
+          'http://eln.test',
+        ),
+        init,
+      )
+
+      const body = z
+        .object({
+          p_results: z.array(z.object({ sample: z.string() })),
+        })
+        .parse(await request.json())
+
+      received.push(body.p_results.map((row) => row.sample))
+
+      return Response.json(
+        { error: { code: '42501', message: 'Run no longer writable.' } },
+        { status: 403 },
+      )
+    })
+
+    await expect(
+      recordRunSampleResults(client, {
+        workspaceId: 'w',
+        runId: 'r',
+        results: Array.from({ length: 801 }, (_, index) => ({
+          sample: `S-${index}`,
+          checks: [],
+        })),
+      }),
+    ).rejects.toMatchObject({ code: '42501', status: 403 })
+    expect(received).toEqual([
+      Array.from({ length: 400 }, (_, index) => `S-${index}`),
+    ])
   })
 })

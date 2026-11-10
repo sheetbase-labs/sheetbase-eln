@@ -39,45 +39,45 @@ export const EXPERIMENT_STATUSES = [
   'in_progress',
   'completed',
 ] as const
+
 export const EXPERIMENT_OUTCOMES = [
   'supported',
   'refuted',
   'inconclusive',
 ] as const
 
-export const proposeExperimentStartSchema = z
-  .object({ title, summary, experiment, reason: reason.optional() })
-  .strict()
+export const proposeExperimentStartSchema = z.strictObject({
+  title,
+  summary,
+  experiment,
+  reason: reason.optional(),
+})
 
-export const proposeExperimentStatusSchema = z
-  .object({
-    title,
-    summary,
-    experiment,
-    status: z
-      .enum(EXPERIMENT_STATUSES)
-      .describe(
-        'on_hold pauses it, in_progress resumes it, completed ends it.',
-      ),
-    reason,
-  })
-  .strict()
+export const proposeExperimentStatusSchema = z.strictObject({
+  title,
+  summary,
+  experiment,
+  status: z
+    .enum(EXPERIMENT_STATUSES)
+    .describe('on_hold pauses it, in_progress resumes it, completed ends it.'),
+  reason,
+})
 
-export const proposeExperimentOutcomeSchema = z
-  .object({
-    title,
-    summary,
-    experiment,
-    outcome: z
-      .enum(EXPERIMENT_OUTCOMES)
-      .describe('What the experiment showed against its hypothesis.'),
-    notes: z.string().min(1).max(2000).optional().describe('Why, briefly.'),
-  })
-  .strict()
+export const proposeExperimentOutcomeSchema = z.strictObject({
+  title,
+  summary,
+  experiment,
+  outcome: z
+    .enum(EXPERIMENT_OUTCOMES)
+    .describe('What the experiment showed against its hypothesis.'),
+  notes: z.string().min(1).max(2000).optional().describe('Why, briefly.'),
+})
 
-export const proposeExperimentDeleteDraftSchema = z
-  .object({ title, summary, experiment })
-  .strict()
+export const proposeExperimentDeleteDraftSchema = z.strictObject({
+  title,
+  summary,
+  experiment,
+})
 
 const aliasFields = {
   title,
@@ -90,19 +90,17 @@ const aliasFields = {
     .describe('The other name, such as a supplier code.'),
 }
 
-export const proposeAliasAddSchema = z.object(aliasFields).strict()
-export const proposeAliasRemoveSchema = z.object(aliasFields).strict()
+export const proposeAliasAddSchema = z.strictObject(aliasFields)
+export const proposeAliasRemoveSchema = z.strictObject(aliasFields)
 
-export const proposeLabelTemplateArchiveSchema = z
-  .object({
-    title,
-    summary,
-    template: named('The label template, by its name.'),
-    archived: z
-      .boolean()
-      .describe('true to stop offering it, false to bring it back.'),
-  })
-  .strict()
+export const proposeLabelTemplateArchiveSchema = z.strictObject({
+  title,
+  summary,
+  template: named('The label template, by its name.'),
+  archived: z
+    .boolean()
+    .describe('true to stop offering it, false to bring it back.'),
+})
 
 export type ExperimentAction =
   | {

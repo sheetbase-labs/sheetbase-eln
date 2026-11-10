@@ -24,29 +24,23 @@ import type { ExtensionRunRouteDeps } from './run-route.server'
 const id = z.string().regex(/^[a-z][a-z0-9-]{0,48}$/)
 
 const bodySchema = z.discriminatedUnion('action', [
-  z
-    .object({
-      action: z.literal('save'),
-      extensionKey: id,
-      channelId: id,
-      destination: z.string().trim().min(1).max(500),
-      scope: z.enum(['phone', 'all']),
-    })
-    .strict(),
-  z
-    .object({
-      action: z.literal('remove'),
-      extensionKey: id,
-      channelId: id,
-    })
-    .strict(),
-  z
-    .object({
-      action: z.literal('test'),
-      extensionKey: id,
-      channelId: id,
-    })
-    .strict(),
+  z.strictObject({
+    action: z.literal('save'),
+    extensionKey: id,
+    channelId: id,
+    destination: z.string().trim().min(1).max(500),
+    scope: z.enum(['phone', 'all']),
+  }),
+  z.strictObject({
+    action: z.literal('remove'),
+    extensionKey: id,
+    channelId: id,
+  }),
+  z.strictObject({
+    action: z.literal('test'),
+    extensionKey: id,
+    channelId: id,
+  }),
 ])
 
 export interface ChannelWire {
@@ -95,8 +89,11 @@ async function listChannels(
   workspaceId: string,
   userId: string,
 ): Promise<ChannelWire[]> {
-  const { db } = await import('#/db/client.server')
-  const { sql } = await import('drizzle-orm')
+  const [{ db }, { sql }] = await Promise.all([
+    import('#/db/client.server'),
+    import('drizzle-orm'),
+  ])
+
   const installs = (
     await db.execute(
       sql`SELECT id, key, name, manifest, disabled_points
@@ -105,6 +102,7 @@ async function listChannels(
            ORDER BY name`,
     )
   ).rows as unknown as InstallRow[]
+
   const mine = (
     await db.execute(
       sql`SELECT extension_id, channel_id, destination, scope, last_sent_at, last_error
@@ -112,20 +110,27 @@ async function listChannels(
            WHERE workspace_id = ${workspaceId}::uuid AND user_id = ${userId}`,
     )
   ).rows as unknown as SubscriptionRow[]
+
   const out: ChannelWire[] = []
+
   for (const install of installs) {
     if (install.disabled_points.includes('notification-channels')) continue
     let manifest
+
     try {
       manifest = parseExtensionManifest(install.manifest)
     } catch {
       continue
     }
+
     const channels = manifest.contributions['notification-channels'] ?? []
+
     if (channels.length === 0) continue
     const stored = await deps.settings.list(workspaceId, install.id)
+
     for (const channel of channels) {
       const scope = settingsScope('notification-channels', channel.id)
+
       const ready = channel.settings.every(
         (setting) =>
           !setting.required ||
@@ -133,10 +138,12 @@ async function listChannels(
             (row) => row.scope === scope && row.name === setting.name,
           ),
       )
+
       const choice = mine.find(
         (row) =>
           row.extension_id === install.id && row.channel_id === channel.id,
       )
+
       out.push({
         extensionKey: install.key,
         extensionName: install.name,
@@ -157,6 +164,7 @@ async function listChannels(
       })
     }
   }
+
   return out
 }
 
@@ -171,30 +179,42 @@ export async function handleChannels(
   if (request.method !== 'GET' && request.method !== 'POST')
     return refuse(405, 'Use GET or POST.')
   const session = await deps.getSession(request.headers)
+
   if (!session) return refuse(401, 'Sign in to use plugins.')
   const member = await deps.getMember(session.user.id)
+
   if (!member) return refuse(403, 'You need a workspace to use plugins.')
+
   if (request.method === 'GET')
     return reply({
       channels: await listChannels(deps, member.workspaceId, session.user.id),
     })
   let raw: unknown
+
   try {
     raw = await request.json()
   } catch {
     return refuse(400, 'Send a JSON body.')
   }
+
   const parsed = bodySchema.safeParse(raw)
+
   if (!parsed.success) return refuse(400, 'The request could not be read.')
   const body = parsed.data
+
   const install = await deps.runtime.loadInstall(
     member.workspaceId,
     body.extensionKey,
   )
+
   if (!install || install.status !== 'enabled')
     return refuse(404, 'That plugin is not installed.')
-  const { db } = await import('#/db/client.server')
-  const { sql } = await import('drizzle-orm')
+
+  const [{ db }, { sql }] = await Promise.all([
+    import('#/db/client.server'),
+    import('drizzle-orm'),
+  ])
+
   if (body.action === 'remove') {
     await db.execute(
       sql`DELETE FROM internal.plugin_channel_subscriptions
@@ -203,21 +223,27 @@ export async function handleChannels(
              AND extension_id = ${install.id}::uuid
              AND channel_id = ${body.channelId}`,
     )
+
     return reply({
       channels: await listChannels(deps, member.workspaceId, session.user.id),
     })
   }
+
   let manifest
+
   try {
     manifest = parseExtensionManifest(install.manifest)
   } catch {
     return refuse(409, 'That plugin’s declaration can’t be read.')
   }
+
   const channel = manifest.contributions['notification-channels']?.find(
     (entry) => entry.id === body.channelId,
   )
+
   if (!channel || install.disabledPoints.includes('notification-channels'))
     return refuse(404, 'That plugin doesn’t offer this channel.')
+
   if (body.action === 'save') {
     await db.execute(
       sql`INSERT INTO internal.plugin_channel_subscriptions
@@ -228,10 +254,12 @@ export async function handleChannels(
           DO UPDATE SET destination = EXCLUDED.destination, scope = EXCLUDED.scope,
                         last_error = NULL, last_error_at = NULL`,
     )
+
     return reply({
       channels: await listChannels(deps, member.workspaceId, session.user.id),
     })
   }
+
   // test: send the person a message now, to where they saved, or tell them why not.
   const saved = (
     await db.execute(
@@ -242,7 +270,9 @@ export async function handleChannels(
              AND channel_id = ${body.channelId}`,
     )
   ).rows[0] as { destination: string } | undefined
+
   if (!saved) return refuse(400, 'Save where to send it first.')
+
   try {
     await runChannelDelivery(
       {
@@ -269,6 +299,7 @@ export async function handleChannels(
              AND extension_id = ${install.id}::uuid
              AND channel_id = ${body.channelId}`,
     )
+
     return reply({
       sent: true,
       channels: await listChannels(deps, member.workspaceId, session.user.id),

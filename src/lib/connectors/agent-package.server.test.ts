@@ -1,48 +1,141 @@
+// @vitest-environment node
 import { unzipSync, strFromU8 } from 'fflate'
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
+import { Duplex } from 'node:stream'
+import { Client } from 'pg'
+import { drizzle } from 'drizzle-orm/node-postgres'
+import type { z } from 'zod'
 
-import type { DataClient } from '../data-client'
-import type { SessionAuthDeps } from '../request-auth'
+import * as schema from '#/db/schema'
+import { createDataClient } from '../data-client'
+import type { CredentialRecord } from '../api-credentials'
+import type { pipelineJsonObjectSchema } from '../pipelines/types'
+import type { ConnectorWire } from './types'
+import { AGENT_SCOPES } from './agent-package'
 import { handleAgentPackage } from './agent-package.server'
 import type { AgentPackageDeps } from './agent-package.server'
 
-// The real module opens the database; a session check against the fake deps is
-// all these tests need.
-vi.mock('../request-auth', () => ({
-  realSessionAuthDeps: {},
-  requestErrorResponse: (status: number, code: string, message: string) =>
-    Response.json({ error: { code, message } }, { status }),
-  resolveSessionAuth: async (headers: Headers, deps: SessionAuthDeps) => {
-    const session = await deps.getSession(headers)
+vi.hoisted(() => {
+  vi.stubEnv('DATABASE_URL', 'postgresql://unused:unused@127.0.0.1:1/unused')
+  vi.stubEnv(
+    'FORMULA_DATABASE_URL',
+    'postgresql://unused:unused@127.0.0.1:1/unused',
+  )
+  vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret-at-least-thirty-two-characters')
+  vi.stubEnv('PGRST_JWT_SECRET', 'test-jwt-secret-at-least-thirty-two-chars')
+})
 
-    if (!session) {
-      return { ok: false, status: 401, code: 'unauthenticated', message: '' }
-    }
+afterAll(() => vi.unstubAllEnvs())
 
-    const workspace = await deps.getWorkspaceForUser(session.user.id)
+const clients = new Set<Client>()
 
-    return {
-      ok: true,
-      context: {
-        userId: session.user.id,
-        workspaceId: workspace!.id,
-        sessionId: session.session.id,
-        token: 'jwt',
-      },
-    }
-  },
-}))
+afterEach(async () => {
+  await Promise.all([...clients].map((client) => client.end()))
+  clients.clear()
+})
+
+function pgMessage(code: string, payload: Buffer) {
+  const header = Buffer.alloc(5)
+  header.write(code)
+  header.writeInt32BE(payload.length + 4, 1)
+
+  return Buffer.concat([header, payload])
+}
+
+/** Real pg and Drizzle transaction control over a socket-free protocol transport. */
+function transactionDatabase(commands: string[]) {
+  let startup = true
+
+  const stream = new Duplex({
+    read() {
+      /* Responses follow frontend messages. */
+    },
+    write(chunk: Buffer, _encoding, done) {
+      if (startup) {
+        startup = false
+        stream.push(
+          Buffer.concat([
+            pgMessage('R', Buffer.alloc(4)),
+            pgMessage('Z', Buffer.from('I')),
+          ]),
+        )
+      } else if (chunk[0] === 81) {
+        const command = chunk.subarray(5, -1).toString().toLowerCase()
+        commands.push(command)
+
+        if (!['begin', 'commit', 'rollback'].includes(command)) {
+          done(new Error(`Unexpected fixture SQL: ${command}`))
+
+          return
+        }
+
+        stream.push(
+          Buffer.concat([
+            pgMessage('C', Buffer.from(`${command.toUpperCase()}\0`)),
+            pgMessage('Z', Buffer.from(command === 'begin' ? 'T' : 'I')),
+          ]),
+        )
+      } else if (chunk[0] === 88) {
+        stream.push(null)
+      }
+
+      done()
+    },
+  })
+
+  Object.assign(stream, {
+    setNoDelay: () => stream,
+    connect: () => {
+      queueMicrotask(() => stream.emit('connect'))
+
+      return stream
+    },
+  })
+
+  const client = new Client({
+    user: 'fixture',
+    database: 'fixture',
+    stream: () => stream,
+  })
+
+  const db = drizzle({ client, schema })
+  let connected: Promise<Client> | undefined
+
+  return async () => {
+    clients.add(client)
+    await (connected ??= client.connect())
+
+    return db
+  }
+}
 
 const WS = '11111111-1111-4111-8111-111111111111'
 const CONNECTOR = '55555555-5555-4555-8555-555555555555'
 const NOW = new Date('2026-10-29T12:00:00Z')
 
-function connector(overrides: Record<string, unknown> = {}) {
+interface InstrumentFixture {
+  id: string
+  name: string
+  display_id: string | null
+  retired_at: string | null
+}
+
+type SourceFixture = Partial<ConnectorWire> & Partial<InstrumentFixture>
+
+type Credentials = Awaited<ReturnType<AgentPackageDeps['loadCredentials']>>
+
+function connector(overrides: SourceFixture = {}) {
   return {
     id: CONNECTOR,
+    workspace_id: WS,
     key: 'qpcr-bench',
     name: 'qPCR bench',
     connector_type: 'instrument',
+    direction: 'inbound',
+    status: 'active',
+    parser_id: null,
+    created_at: NOW.toISOString(),
+    updated_at: NOW.toISOString(),
     config: { pickup: { projectId: 'p', schemaVersionId: 's' } },
     ...overrides,
   }
@@ -50,41 +143,68 @@ function connector(overrides: Record<string, unknown> = {}) {
 
 function setup(options: {
   signedIn?: boolean
-  connector?: Record<string, unknown> | null
-  existing?: Array<Record<string, unknown>>
+  workspace?: boolean
+  connector?: SourceFixture | null
+  existing?: Partial<CredentialRecord>[]
   denied?: boolean
+  failAt?: 'revoke' | 'audit-revoke' | 'create' | 'audit-create'
 }) {
   const revoked: string[] = []
-  const created: Array<Record<string, unknown>> = []
-  const audit = vi.fn(async () => {})
+  const created: Parameters<Credentials['createCredential']>[1][] = []
+  const steps: string[] = []
+  const commands: string[] = []
 
-  const client = {
-    list: async <T>() =>
-      (options.connector === null ? [] : [connector(options.connector)]) as T[],
-    rpc: async () => {
-      if (options.denied) throw new Error('capability required')
+  const audit = vi.fn<NonNullable<AgentPackageDeps['emitAudit']>>(
+    async (_db, input) => {
+      steps.push(`audit-${input.operation}:${input.credentialId}`)
 
-      return {}
+      if (options.failAt === `audit-${input.operation}`)
+        throw new Error(`failed ${options.failAt}`)
     },
-  } as unknown as DataClient
+  )
+
+  const fetchImpl: typeof fetch = async (input) => {
+    const path = new URL(
+      input instanceof Request ? input.url : input.toString(),
+      'https://eln.example.com',
+    ).pathname
+
+    if (path === '/api/db/connectors' || path === '/api/db/instruments')
+      return Response.json(
+        options.connector === null ? [] : [connector(options.connector)],
+      )
+
+    if (path === '/api/db/rpc/require_capability')
+      return options.denied
+        ? Response.json(
+            { error: { code: '42501', message: 'capability required' } },
+            { status: 403 },
+          )
+        : Response.json({})
+    throw new Error(`Unexpected HTTP request: ${path}`)
+  }
 
   const deps: AgentPackageDeps = {
     getSession: async () =>
       options.signedIn === false
         ? null
         : { user: { id: 'user-1' }, session: { id: 'session-1' } },
-    getWorkspaceForUser: async () => ({ id: WS }),
+    getWorkspaceForUser: async () =>
+      options.workspace === false ? null : { id: WS },
     mintToken: async () => 'jwt',
-    loadDb: async () =>
-      ({
-        transaction: async (fn: (tx: unknown) => unknown) => fn({}),
-      }) as never,
+    loadDb: transactionDatabase(commands),
     loadCredentials: async () => ({
-      listCredentials: async () => (options.existing ?? []) as never,
+      listCredentials: async () => (options.existing ?? []).map(credential),
       revokeCredential: async (_db, input) => {
+        steps.push(`revoke:${input.credentialId}`)
+
+        if (options.failAt === 'revoke') throw new Error('failed revoke')
         revoked.push(input.credentialId)
       },
       createCredential: async (_db, input) => {
+        steps.push('create')
+
+        if (options.failAt === 'create') throw new Error('failed create')
         created.push(input)
 
         return {
@@ -92,21 +212,43 @@ function setup(options: {
           secret: 'sbk_fresh',
           displayPrefix: 'sbk_fresh',
           name: input.name,
-          scopes: [...input.scopes],
+          scopes: [...AGENT_SCOPES],
           kind: 'personal',
-        } as never
+        }
       },
     }),
     agentSource: async () => '// the agent',
-    createClient: () => client,
+    createClient: () => createDataClient(fetchImpl),
     emitAudit: audit,
     now: () => NOW,
   }
 
-  return { deps, revoked, created, audit }
+  return { deps, revoked, created, audit, steps, commands }
 }
 
-const post = (body: unknown) =>
+function credential(overrides: Partial<CredentialRecord>): CredentialRecord {
+  return {
+    id: 'credential',
+    workspaceId: WS,
+    kind: 'personal',
+    displayPrefix: 'sbk_old',
+    name: 'Folder agent · qpcr-bench',
+    scopes: [...AGENT_SCOPES],
+    createdAt: NOW,
+    lastUsedAt: null,
+    revokedAt: null,
+    expiresAt: null,
+    refusalCount: 0,
+    lastRefusedAt: null,
+    expired: false,
+    unusedDays: null,
+    needsReplacement: false,
+    createdByUserId: 'user-1',
+    ...overrides,
+  }
+}
+
+const post = (body: z.infer<typeof pipelineJsonObjectSchema>) =>
   new Request('https://eln.example.com/api/connectors/agent', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -117,6 +259,35 @@ const get = (id = CONNECTOR) =>
   new Request(`https://eln.example.com/api/connectors/agent?connector=${id}`)
 
 describe('agent download', () => {
+  it('retains the first loader failure even when the credential import rejects sooner', async () => {
+    const { deps, commands } = setup({})
+    const databaseFailure = new Error('database import failed')
+    deps.loadDb = async () => {
+      await Promise.resolve()
+      throw databaseFailure
+    }
+
+    deps.loadCredentials = async () => {
+      throw new Error('credential import failed')
+    }
+
+    await expect(handleAgentPackage(get(), deps)).rejects.toBe(databaseFailure)
+    expect(commands).toEqual([])
+  })
+
+  it('preserves credential import failures when database loading succeeds', async () => {
+    const { deps, commands } = setup({})
+    const credentialFailure = new Error('credential import failed')
+    deps.loadCredentials = async () => {
+      throw credentialFailure
+    }
+
+    await expect(handleAgentPackage(get(), deps)).rejects.toBe(
+      credentialFailure,
+    )
+    expect(commands).toEqual([])
+  })
+
   it('returns a zip with the settings filled in and a new token', async () => {
     const { deps, created } = setup({})
 
@@ -157,7 +328,7 @@ describe('agent download', () => {
   })
 
   it('replaces an earlier token so an old copy stops working', async () => {
-    const { deps, revoked, audit } = setup({
+    const { deps, revoked, audit, steps, commands } = setup({
       existing: [
         { id: 'old-1', name: 'Folder agent · qpcr-bench', revokedAt: null },
         { id: 'other', name: 'Folder agent · other', revokedAt: null },
@@ -175,7 +346,67 @@ describe('agent download', () => {
     )
     expect(revoked).toEqual(['old-1'])
     expect(audit).toHaveBeenCalledTimes(2)
+    expect(steps).toEqual([
+      'revoke:old-1',
+      'audit-revoke:old-1',
+      'create',
+      'audit-create:new-cred',
+    ])
+    expect(commands).toEqual(['begin', 'commit'])
   })
+
+  it.each([
+    { failAt: 'revoke', expected: ['revoke:old-1'] },
+    {
+      failAt: 'audit-revoke',
+      expected: ['revoke:old-1', 'audit-revoke:old-1'],
+    },
+    {
+      failAt: 'create',
+      expected: [
+        'revoke:old-1',
+        'audit-revoke:old-1',
+        'revoke:old-2',
+        'audit-revoke:old-2',
+        'create',
+      ],
+    },
+    {
+      failAt: 'audit-create',
+      expected: [
+        'revoke:old-1',
+        'audit-revoke:old-1',
+        'revoke:old-2',
+        'audit-revoke:old-2',
+        'create',
+        'audit-create:new-cred',
+      ],
+    },
+  ] satisfies Array<{
+    failAt: NonNullable<Parameters<typeof setup>[0]['failAt']>
+    expected: string[]
+  }>)(
+    'stops replacement at the first $failAt failure and rolls the transaction back',
+    async ({ failAt, expected }) => {
+      const { deps, steps, commands } = setup({
+        failAt,
+        existing: [{ id: 'old-1' }, { id: 'old-2' }],
+      })
+
+      const response = await handleAgentPackage(
+        post({ connectorId: CONNECTOR, system: 'linux', folder: '/data' }),
+        deps,
+      )
+
+      expect(response.status).toBe(502)
+      expect(await response.json()).toEqual({
+        error: { code: 'agent_package_failed', message: `failed ${failAt}` },
+      })
+      expect(steps).toEqual(expected)
+      expect(commands).toEqual(['begin', 'rollback'])
+      expect(response.headers.get('content-type')).not.toBe('application/zip')
+    },
+  )
 
   it('needs a signed-in person who can manage integrations', async () => {
     const body = { connectorId: CONNECTOR, system: 'mac', folder: '/r' }
@@ -187,6 +418,18 @@ describe('agent download', () => {
       (await handleAgentPackage(post(body), setup({ denied: true }).deps))
         .status,
     ).toBe(403)
+  })
+
+  it('uses the real session-auth rejection for a person without a workspace', async () => {
+    const response = await handleAgentPackage(
+      get(),
+      setup({ workspace: false }).deps,
+    )
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toMatchObject({
+      error: { code: 'no_workspace' },
+    })
   })
 
   it('asks for the destination first, and rejects unknown instruments and bad requests', async () => {
@@ -212,7 +455,7 @@ describe('agent status', () => {
   it('says whether it was downloaded and when it last checked in', async () => {
     const name = 'Folder agent · qpcr-bench'
 
-    const read = async (existing: Array<Record<string, unknown>>) =>
+    const read = async (existing: Partial<CredentialRecord>[]) =>
       (await handleAgentPackage(get(), setup({ existing }).deps)).json()
 
     expect(await read([])).toEqual({
@@ -269,7 +512,7 @@ describe('agent status', () => {
 describe('live readings agent', () => {
   const INSTRUMENT = '66666666-6666-4666-8666-666666666666'
 
-  const instrument = (overrides: Record<string, unknown> = {}) => ({
+  const instrument = (overrides: Partial<InstrumentFixture> = {}) => ({
     id: INSTRUMENT,
     name: 'Freezer F-01',
     display_id: 'INS-0007',

@@ -3,6 +3,7 @@
  * Server-only because the signing key never leaves the server.
  */
 import { createHmac } from 'node:crypto'
+import { z } from 'zod'
 
 import {
   openSecret,
@@ -122,10 +123,10 @@ export async function callWebhookParser(
           call.bytes,
         ),
       },
-      body: call.bytes as BodyInit,
+      body: new Uint8Array(call.bytes),
     })
   } catch (error) {
-    const name = (error as { name?: unknown } | null)?.name
+    const name = z.object({ name: z.string() }).safeParse(error).data?.name
 
     if (name === 'TimeoutError' || name === 'AbortError') {
       throw new WebhookParserError(
@@ -141,11 +142,13 @@ export async function callWebhookParser(
   }
 
   const text = await readLimited(response)
+  // oxlint-disable-next-line anti-slop/no-known-value-widening -- This raw HTTP JSON slot can receive any JSON shape, not only its null failure sentinel; the answer/error readers validate it before use.
   let body: unknown = null
 
   try {
     body = text ? JSON.parse(text) : null
   } catch {
+    // oxlint-disable-next-line anti-slop/no-known-value-widening -- Malformed JSON uses the same null sentinel as an empty response; do not claim that successfully decoded external data is trusted.
     body = null
   }
 
@@ -173,8 +176,11 @@ export async function rotateParserWebhookSecret(input: {
 }): Promise<string> {
   // The database is loaded when a key is read or made, so reading a file's
   // answer (and its tests) never opens a connection.
-  const { db } = await import('#/db/client.server')
-  const { parserWebhookSecrets } = await import('#/db/schema')
+  const [{ db }, { parserWebhookSecrets }] = await Promise.all([
+    import('#/db/client.server'),
+    import('#/db/schema'),
+  ])
+
   const secret = generateSigningSecret()
   const ciphertext = Buffer.from(sealSecret(secret, secretKey()), 'utf8')
   await db
@@ -197,9 +203,11 @@ export async function loadParserWebhookSecret(
   workspaceId: string,
   parserId: string,
 ): Promise<string> {
-  const { db } = await import('#/db/client.server')
-  const { parserWebhookSecrets } = await import('#/db/schema')
-  const { eq } = await import('drizzle-orm')
+  const [{ db }, { parserWebhookSecrets }, { eq }] = await Promise.all([
+    import('#/db/client.server'),
+    import('#/db/schema'),
+    import('drizzle-orm'),
+  ])
 
   const rows = await db
     .select({

@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest'
 
 import { ConnectorStepError, executeConnectorRun } from './run'
 import type { ConnectorRunObservability } from './run'
-import type { DataClient } from '#/lib/data-client'
+import { createDataClient } from '#/lib/data-client'
 import type { ConnectorRunWire } from './types'
 
 function wire(overrides: Partial<ConnectorRunWire>): ConnectorRunWire {
@@ -30,27 +30,44 @@ function wire(overrides: Partial<ConnectorRunWire>): ConnectorRunWire {
   }
 }
 
-function fakeClient(
-  startResult: ConnectorRunWire,
-  failShouldSucceed = true,
-): DataClient {
-  return {
-    rpc: async (name: string) => {
-      if (name === 'start_connector_run') return startResult
+function fakeClient(startResult: ConnectorRunWire, failShouldSucceed = true) {
+  return createDataClient(async (input, init) => {
+    expect(init?.method).toBe('POST')
 
-      if (name === 'complete_connector_run')
-        return { ...startResult, status: 'succeeded', finished_at: 'x' }
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://eln.test',
+    )
 
-      if (name === 'fail_connector_run') {
-        if (!failShouldSucceed) throw new Error('rpc down')
+    const name = url.pathname.replace('/api/db/rpc/', '')
 
-        return { ...startResult, status: 'failed', finished_at: 'x' }
+    if (name === 'start_connector_run') return Response.json(startResult)
+
+    if (name === 'complete_connector_run')
+      return Response.json({
+        ...startResult,
+        status: 'succeeded',
+        finished_at: 'x',
+      })
+
+    if (name === 'fail_connector_run') {
+      if (!failShouldSucceed) {
+        return Response.json(
+          { error: { code: 'unavailable', message: 'rpc down' } },
+          { status: 503 },
+        )
       }
 
-      if (name === 'append_connector_run_log') return { id: 'log' }
-      throw new Error(`unexpected rpc ${name}`)
-    },
-  } as unknown as DataClient
+      return Response.json({
+        ...startResult,
+        status: 'failed',
+        finished_at: 'x',
+      })
+    }
+
+    if (name === 'append_connector_run_log') return Response.json({ id: 'log' })
+    throw new Error(`unexpected rpc ${name}`)
+  })
 }
 
 function recordingObservability(): ConnectorRunObservability & {

@@ -56,6 +56,7 @@ describe('hosts', () => {
   it('accepts names and sub-domain wildcards, not URLs, paths or ports', () => {
     expect(hostProblem('eutils.ncbi.nlm.nih.gov')).toBeNull()
     expect(hostProblem('*.ebi.ac.uk')).toBeNull()
+
     for (const bad of [
       'https://x.org',
       'x.org/a',
@@ -75,6 +76,50 @@ describe('hosts', () => {
 })
 
 describe('parsePythonDeclaration', () => {
+  it('reports stripped JSON keys while retaining independently valid entries', () => {
+    const input = JSON.parse(
+      '{"requirements":["numpy"],"__proto__":{},"network":["api.example.org"]}',
+    )
+
+    expect(parsePythonDeclaration(input)).toEqual({
+      value: { requirements: ['numpy'], network: ['api.example.org'] },
+      errors: ['unknown key in python: __proto__'],
+    })
+  })
+
+  it('refuses malformed metadata without treating it as package or host text', () => {
+    for (const input of [true, 42, 'python', []])
+      expect(parsePythonDeclaration(input).errors).toEqual([
+        'python must be an object',
+      ])
+
+    expect(
+      parsePythonDeclaration({
+        requirements: {},
+        network: ['api.example.org', 42],
+      }),
+    ).toEqual({
+      value: { requirements: [], network: ['api.example.org'] },
+      errors: [
+        'python.requirements must be a list',
+        'python.network: a host must be written as text',
+      ],
+    })
+    expect(
+      parsePythonDeclaration({
+        requirements: [null, {}, 'numpy'],
+        network: false,
+      }),
+    ).toEqual({
+      value: { requirements: ['numpy'], network: [] },
+      errors: [
+        'python.requirements: a package must be written as text',
+        'python.requirements: a package must be written as text',
+        'python.network must be a list',
+      ],
+    })
+  })
+
   it('is empty when the plugin declares nothing', () => {
     expect(parsePythonDeclaration(undefined)).toEqual({
       value: { requirements: [], network: [] },
@@ -87,6 +132,7 @@ describe('parsePythonDeclaration', () => {
       requirements: [' rdkit>=2024.3 ', 'rdkit>=2024.3'],
       network: ['api.example.org', 'api.example.org'],
     })
+
     expect(errors).toEqual([])
     expect(value.requirements).toEqual(['rdkit>=2024.3'])
     expect(value.network).toEqual(['api.example.org'])
@@ -98,6 +144,7 @@ describe('parsePythonDeclaration', () => {
       network: ['https://x.org'],
       extra: 1,
     })
+
     expect(errors.join('\n')).toMatch(/python.requirements: -r x/)
     expect(errors.join('\n')).toMatch(/python.network: https:\/\/x.org/)
     expect(errors.join('\n')).toMatch(/unknown key in python: extra/)
@@ -136,6 +183,41 @@ describe('limits', () => {
     expect(
       resolveLimits({ memoryMb: -1, rows: 'lots', cpus: Infinity }),
     ).toEqual(DEFAULT_PLUGIN_LIMITS)
+    expect(
+      resolveLimits({
+        cpus: 0.25,
+        rows: -1,
+        memoryMb: 8192,
+        callsPerMinute: 1.5,
+      }),
+    ).toEqual({
+      ...DEFAULT_PLUGIN_LIMITS,
+      cpus: 0.25,
+      memoryMb: 8192,
+    })
+
+    for (const input of [null, true, 'limits', []]) {
+      expect(resolveLimits(input)).toEqual(DEFAULT_PLUGIN_LIMITS)
+      expect(validateLimitOverrides(input)).toEqual({
+        value: {},
+        errors: ['limits must be an object'],
+      })
+    }
+
+    expect(
+      validateLimitOverrides({
+        cpus: 0.25,
+        rows: 1.5,
+        memoryMb: 8192,
+        surprise: 1,
+      }),
+    ).toEqual({
+      value: { cpus: 0.25, memoryMb: 8192 },
+      errors: [
+        'unknown limit: surprise',
+        'rows must be a whole number above zero',
+      ],
+    })
   })
 
   it('accepts any positive value: nothing caps what an administrator may give', () => {
@@ -149,8 +231,12 @@ describe('limits', () => {
       rows: 1_000_000_000,
       callsPerMinute: 1_000_000,
     })
+
     expect(errors).toEqual([])
     expect(value.memoryMb).toBe(1_000_000)
+    expect(
+      validateLimitOverrides({ rows: 1e20, callsPerMinute: 1e20 }).errors,
+    ).toEqual([])
   })
 
   it('refuses what makes no sense', () => {

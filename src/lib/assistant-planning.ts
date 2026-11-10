@@ -66,69 +66,55 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD.')
 const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM.')
 const named = (what: string) => z.string().min(1).max(200).describe(what)
 
-export const inboxReadSchema = z
-  .object({
-    limit: z.number().int().min(1).max(50).optional(),
-  })
-  .strict()
+export const inboxReadSchema = z.strictObject({
+  limit: z.number().int().min(1).max(50).optional(),
+})
 
-export const stepsReadSchema = z
-  .object({
-    record: named('The experiment by identifier (EXP-12) or title.'),
-  })
-  .strict()
+export const stepsReadSchema = z.strictObject({
+  record: named('The experiment by identifier (EXP-12) or title.'),
+})
 
-export const seriesReadSchema = z
-  .object({
-    record: named(
-      'The series, or any experiment in it, by identifier (EXP-12) or title.',
+export const seriesReadSchema = z.strictObject({
+  record: named(
+    'The series, or any experiment in it, by identifier (EXP-12) or title.',
+  ),
+})
+
+export const proposeSeriesAddSchema = z.strictObject({
+  title,
+  summary,
+  series: named(
+    'The experiment that heads the series, by identifier (EXP-12) or title. It becomes a series if it is not one yet.',
+  ),
+  experiment: named('The experiment to add, by identifier or title.'),
+  plannedOn: day
+    .optional()
+    .describe('The day it is planned to run, YYYY-MM-DD. Optional.'),
+})
+
+export const proposeSeriesRemoveSchema = z.strictObject({
+  title,
+  summary,
+  experiment: named(
+    'The experiment to take out of its series, by identifier or title.',
+  ),
+})
+
+export const partsReadSchema = z.strictObject({
+  record: named('The experiment by identifier (EXP-12) or title.'),
+})
+
+export const gatesReadSchema = z.strictObject({
+  record: named('The experiment by identifier (EXP-12) or title.'),
+  part: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      'Only the gates that hold this part, by its number ("4") or words from its title. Leave out for every gate of the experiment.',
     ),
-  })
-  .strict()
-
-export const proposeSeriesAddSchema = z
-  .object({
-    title,
-    summary,
-    series: named(
-      'The experiment that heads the series, by identifier (EXP-12) or title. It becomes a series if it is not one yet.',
-    ),
-    experiment: named('The experiment to add, by identifier or title.'),
-    plannedOn: day
-      .optional()
-      .describe('The day it is planned to run, YYYY-MM-DD. Optional.'),
-  })
-  .strict()
-
-export const proposeSeriesRemoveSchema = z
-  .object({
-    title,
-    summary,
-    experiment: named(
-      'The experiment to take out of its series, by identifier or title.',
-    ),
-  })
-  .strict()
-
-export const partsReadSchema = z
-  .object({
-    record: named('The experiment by identifier (EXP-12) or title.'),
-  })
-  .strict()
-
-export const gatesReadSchema = z
-  .object({
-    record: named('The experiment by identifier (EXP-12) or title.'),
-    part: z
-      .string()
-      .min(1)
-      .max(200)
-      .optional()
-      .describe(
-        'Only the gates that hold this part, by its number ("4") or words from its title. Leave out for every gate of the experiment.',
-      ),
-  })
-  .strict()
+})
 
 const partWords = z
   .string()
@@ -139,100 +125,90 @@ const partWords = z
   )
   .optional()
 
-export const proposePartAddSchema = z
-  .object({
-    title,
-    summary,
-    record: named('The experiment by identifier (EXP-12) or title.'),
-    part: z.string().min(1).max(200).describe('The title of the new part.'),
-    day: z
-      .number()
-      .int()
-      .min(0)
-      .max(3650)
-      .optional()
-      .describe(
-        'The day it falls on, counted from the start of the experiment (day 0). Default: the day after the part before.',
-      ),
-  })
-  .strict()
-
-export const proposePartUpdateSchema = z
-  .object({
-    title,
-    summary,
-    record: named('The experiment by identifier (EXP-12) or title.'),
-    part: partWords,
-    newTitle: z.string().min(1).max(200).optional().describe('A new title.'),
-    day: z.number().int().min(0).max(3650).optional(),
-    assignee: named('The person who does it, by name.').optional(),
-    unassign: z
-      .boolean()
-      .optional()
-      .describe(
-        'true to clear who does it: the experiment owner is told instead.',
-      ),
-  })
-  .strict()
-
-export const proposePartDoneSchema = z
-  .object({
-    title,
-    summary,
-    record: named('The experiment by identifier (EXP-12) or title.'),
-    part: partWords,
-    done: z
-      .boolean()
-      .optional()
-      .describe(
-        'false to reopen. Default true. Only for a part with no steps: a part with steps is done when its steps are.',
-      ),
-  })
-  .strict()
-
-export const proposeGateGoOnSchema = z
-  .object({
-    title,
-    summary,
-    record: named('The experiment by identifier (EXP-12) or title.'),
-    part: z
-      .string()
-      .min(1)
-      .max(200)
-      .optional()
-      .describe(
-        'The part that is not open yet, by its number ("4") or words from its title.',
-      ),
-    gate: z
-      .string()
-      .min(1)
-      .max(200)
-      .optional()
-      .describe(
-        'Words from the name of a gate on the page, when it is a gate on the page and not a part.',
-      ),
-    reason: z
-      .string()
-      .min(1)
-      .max(2000)
-      .describe(
-        'Why the person is going on before it is open, in their words. Ask them if they have not said. It is kept with the experiment and shown to the reviewer.',
-      ),
-  })
-  .strict()
-
-export const proposePartSignoffRequestSchema = z
-  .object({
-    title,
-    summary,
-    record: named('The experiment by identifier (EXP-12) or title.'),
-    part: partWords,
-    person: named(
-      'The person to ask, by name: to sign a finished part, or to countersign one that is signed.',
+export const proposePartAddSchema = z.strictObject({
+  title,
+  summary,
+  record: named('The experiment by identifier (EXP-12) or title.'),
+  part: z.string().min(1).max(200).describe('The title of the new part.'),
+  day: z
+    .number()
+    .int()
+    .min(0)
+    .max(3650)
+    .optional()
+    .describe(
+      'The day it falls on, counted from the start of the experiment (day 0). Default: the day after the part before.',
     ),
-    note: z.string().min(1).max(500).optional().describe('A line for them.'),
-  })
-  .strict()
+})
+
+export const proposePartUpdateSchema = z.strictObject({
+  title,
+  summary,
+  record: named('The experiment by identifier (EXP-12) or title.'),
+  part: partWords,
+  newTitle: z.string().min(1).max(200).optional().describe('A new title.'),
+  day: z.number().int().min(0).max(3650).optional(),
+  assignee: named('The person who does it, by name.').optional(),
+  unassign: z
+    .boolean()
+    .optional()
+    .describe(
+      'true to clear who does it: the experiment owner is told instead.',
+    ),
+})
+
+export const proposePartDoneSchema = z.strictObject({
+  title,
+  summary,
+  record: named('The experiment by identifier (EXP-12) or title.'),
+  part: partWords,
+  done: z
+    .boolean()
+    .optional()
+    .describe(
+      'false to reopen. Default true. Only for a part with no steps: a part with steps is done when its steps are.',
+    ),
+})
+
+export const proposeGateGoOnSchema = z.strictObject({
+  title,
+  summary,
+  record: named('The experiment by identifier (EXP-12) or title.'),
+  part: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      'The part that is not open yet, by its number ("4") or words from its title.',
+    ),
+  gate: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      'Words from the name of a gate on the page, when it is a gate on the page and not a part.',
+    ),
+  reason: z
+    .string()
+    .min(1)
+    .max(2000)
+    .describe(
+      'Why the person is going on before it is open, in their words. Ask them if they have not said. It is kept with the experiment and shown to the reviewer.',
+    ),
+})
+
+export const proposePartSignoffRequestSchema = z.strictObject({
+  title,
+  summary,
+  record: named('The experiment by identifier (EXP-12) or title.'),
+  part: partWords,
+  person: named(
+    'The person to ask, by name: to sign a finished part, or to countersign one that is signed.',
+  ),
+  note: z.string().min(1).max(500).optional().describe('A line for them.'),
+})
 
 const stepWords = z
   .string()
@@ -243,88 +219,78 @@ const stepWords = z
     'Words from the step, such as "incubate". Leave out for the current step, the first one not yet done.',
   )
 
-export const proposeStepDoneSchema = z
-  .object({
-    title,
-    summary,
-    record: named('The experiment by identifier (EXP-12) or title.'),
-    step: stepWords,
-    done: z
-      .boolean()
-      .optional()
-      .describe('false to reopen a finished step. Default true.'),
-    note: z
-      .string()
-      .max(2_000)
-      .optional()
-      .describe('A note for the step, such as what was done differently.'),
-  })
-  .strict()
+export const proposeStepDoneSchema = z.strictObject({
+  title,
+  summary,
+  record: named('The experiment by identifier (EXP-12) or title.'),
+  step: stepWords,
+  done: z
+    .boolean()
+    .optional()
+    .describe('false to reopen a finished step. Default true.'),
+  note: z
+    .string()
+    .max(2_000)
+    .optional()
+    .describe('A note for the step, such as what was done differently.'),
+})
 
-export const proposeStepResultSchema = z
-  .object({
-    title,
-    summary,
-    record: named('The experiment by identifier (EXP-12) or title.'),
-    step: stepWords,
-    label: z.string().min(1).max(200).describe('What was measured.'),
-    value: z
-      .union([z.string().min(1).max(200), z.number()])
-      .describe('The measured value.'),
-    unit: z.string().max(40).optional(),
-  })
-  .strict()
+export const proposeStepResultSchema = z.strictObject({
+  title,
+  summary,
+  record: named('The experiment by identifier (EXP-12) or title.'),
+  step: stepWords,
+  label: z.string().min(1).max(200).describe('What was measured.'),
+  value: z
+    .union([z.string().min(1).max(200), z.number()])
+    .describe('The measured value.'),
+  unit: z.string().max(40).optional(),
+})
 
-export const proposeExperimentStartSchema = z
-  .object({
-    title,
-    summary,
-    template: named(
-      'The template as the person names it: its title or PRT number.',
+export const proposeExperimentStartSchema = z.strictObject({
+  title,
+  summary,
+  template: named(
+    'The template as the person names it: its title or PRT number.',
+  ),
+  project: named('The project by name or key.'),
+  experimentTitle: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      'A title for the new experiment. Leave out to use the template’s.',
     ),
-    project: named('The project by name or key.'),
-    experimentTitle: z
-      .string()
-      .min(1)
-      .max(200)
-      .optional()
-      .describe(
-        'A title for the new experiment. Leave out to use the template’s.',
-      ),
-  })
-  .strict()
+})
 
-export const proposeRecordAssignSchema = z
-  .object({
-    title,
-    summary,
-    record: named('The record by identifier (EXP-12) or title.'),
-    assignee: named('The person, by name.'),
-  })
-  .strict()
+export const proposeRecordAssignSchema = z.strictObject({
+  title,
+  summary,
+  record: named('The record by identifier (EXP-12) or title.'),
+  assignee: named('The person, by name.'),
+})
 
-export const proposeRecordAskSchema = z
-  .object({
-    title,
-    summary,
-    record: named('The record by identifier (EXP-12) or title.'),
-    people: z
-      .array(named('A person, by name.'))
-      .min(1)
-      .max(10)
-      .describe('Who to mention in the comment.'),
-    message: z
-      .string()
-      .min(1)
-      .max(2_000)
-      .describe(
-        'The comment, written as the person would write it. Do not include an @ mention; the people are added for you.',
-      ),
-  })
-  .strict()
+export const proposeRecordAskSchema = z.strictObject({
+  title,
+  summary,
+  record: named('The record by identifier (EXP-12) or title.'),
+  people: z
+    .array(named('A person, by name.'))
+    .min(1)
+    .max(10)
+    .describe('Who to mention in the comment.'),
+  message: z
+    .string()
+    .min(1)
+    .max(2_000)
+    .describe(
+      'The comment, written as the person would write it. Do not include an @ mention; the people are added for you.',
+    ),
+})
 
 export const proposeBookingRepeatSchema = z
-  .object({
+  .strictObject({
     title,
     summary,
     instrument: named('The instrument by name or INS number.'),
@@ -359,7 +325,6 @@ export const proposeBookingRepeatSchema = z
     bookingTitle: z.string().min(1).max(200).optional(),
     notes: z.string().max(2_000).optional(),
   })
-  .strict()
   .refine((value) => value.endTime !== undefined || value.durationMinutes, {
     message: 'Give an end time or a duration.',
   })
@@ -367,88 +332,79 @@ export const proposeBookingRepeatSchema = z
     message: 'Give how many times, or the last day.',
   })
 
-export const proposeTimerStartSchema = z
-  .object({
-    title,
-    summary,
-    record: named('The notebook or protocol by identifier (EXP-12) or title.'),
-    step: z
-      .string()
-      .min(1)
-      .max(200)
-      .optional()
-      .describe(
-        'Words from the step, such as "incubation". Leave out when there is one timed step.',
-      ),
-    minutes: z
-      .number()
-      .min(0.5)
-      .max(10_080)
-      .optional()
-      .describe('Length in minutes. Leave out to use the step’s own duration.'),
-  })
-  .strict()
-
-export const proposeShipmentSendSchema = z
-  .object({
-    title,
-    summary,
-    counterparty: named('Who it goes to, or comes from.'),
-    direction: z
-      .enum(['outbound', 'inbound'])
-      .optional()
-      .describe('Default outbound.'),
-    carrier: z.string().max(120).optional(),
-    trackingReference: z.string().max(120).optional(),
-    expectedOn: day.optional(),
-    project: z.string().min(1).max(200).optional(),
-    notes: z.string().max(2_000).optional(),
-    items: z
-      .array(
-        z
-          .object({
-            record: z
-              .string()
-              .min(1)
-              .max(200)
-              .optional()
-              .describe('A sample or record by identifier, when it is one.'),
-            title: z.string().min(1).max(200).optional(),
-            quantity: z.number().positive().optional(),
-            unit: z.string().max(40).optional(),
-            note: z.string().max(400).optional(),
-          })
-          .strict()
-          .refine((item) => item.record || item.title, {
-            message: 'Each item needs a record or a title.',
-          }),
-      )
-      .min(1)
-      .max(200),
-    markSent: z
-      .boolean()
-      .optional()
-      .describe(
-        'Mark it as on its way as soon as it is created. Default true.',
-      ),
-  })
-  .strict()
-
-export const proposeShipmentReceiveSchema = z
-  .object({
-    title,
-    summary,
-    shipment: named(
-      'The shipment by number (SHP-0012), or words from who it is from.',
+export const proposeTimerStartSchema = z.strictObject({
+  title,
+  summary,
+  record: named('The notebook or protocol by identifier (EXP-12) or title.'),
+  step: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      'Words from the step, such as "incubation". Leave out when there is one timed step.',
     ),
-    missing: z
-      .array(z.string().min(1).max(200))
-      .max(200)
-      .optional()
-      .describe('Items that did not arrive, by title or identifier.'),
-    conditionNote: z.string().max(1_000).optional(),
-  })
-  .strict()
+  minutes: z
+    .number()
+    .min(0.5)
+    .max(10_080)
+    .optional()
+    .describe('Length in minutes. Leave out to use the step’s own duration.'),
+})
+
+export const proposeShipmentSendSchema = z.strictObject({
+  title,
+  summary,
+  counterparty: named('Who it goes to, or comes from.'),
+  direction: z
+    .enum(['outbound', 'inbound'])
+    .optional()
+    .describe('Default outbound.'),
+  carrier: z.string().max(120).optional(),
+  trackingReference: z.string().max(120).optional(),
+  expectedOn: day.optional(),
+  project: z.string().min(1).max(200).optional(),
+  notes: z.string().max(2_000).optional(),
+  items: z
+    .array(
+      z
+        .strictObject({
+          record: z
+            .string()
+            .min(1)
+            .max(200)
+            .optional()
+            .describe('A sample or record by identifier, when it is one.'),
+          title: z.string().min(1).max(200).optional(),
+          quantity: z.number().positive().optional(),
+          unit: z.string().max(40).optional(),
+          note: z.string().max(400).optional(),
+        })
+        .refine((item) => item.record || item.title, {
+          message: 'Each item needs a record or a title.',
+        }),
+    )
+    .min(1)
+    .max(200),
+  markSent: z
+    .boolean()
+    .optional()
+    .describe('Mark it as on its way as soon as it is created. Default true.'),
+})
+
+export const proposeShipmentReceiveSchema = z.strictObject({
+  title,
+  summary,
+  shipment: named(
+    'The shipment by number (SHP-0012), or words from who it is from.',
+  ),
+  missing: z
+    .array(z.string().min(1).max(200))
+    .max(200)
+    .optional()
+    .describe('Items that did not arrive, by title or identifier.'),
+  conditionNote: z.string().max(1_000).optional(),
+})
 
 /** What a planning card does when its button is pressed. */
 export type PlanningAction =
@@ -576,12 +532,14 @@ export interface PlanningActionResult {
 
 function isoWeekdayOf(dayText: string): number {
   const d = new Date(`${dayText}T12:00:00Z`).getUTCDay()
+
   return d === 0 ? 7 : d
 }
 
 function addDays(dayText: string, days: number): string {
   const date = new Date(`${dayText}T12:00:00Z`)
   date.setUTCDate(date.getUTCDate() + days)
+
   return date.toISOString().slice(0, 10)
 }
 
@@ -606,17 +564,20 @@ export function repeatDates(input: {
   const out: string[] = []
   const last = input.until ?? addDays(input.firstDay, 3_660)
   const weekStart = addDays(input.firstDay, -(isoWeekdayOf(input.firstDay) - 1))
+
   const [fy, fm, fd] = input.firstDay.split('-').map(Number) as [
     number,
     number,
     number,
   ]
+
   for (
     let cursor = input.firstDay;
     cursor <= last && out.length < limit;
     cursor = addDays(cursor, 1)
   ) {
     let hit = false
+
     if (input.frequency === 'daily') {
       hit = daysBetween(input.firstDay, cursor) % input.every === 0
     } else if (input.frequency === 'weekly') {
@@ -629,11 +590,14 @@ export function repeatDates(input: {
         number,
         number,
       ]
+
       const monthsApart = cy * 12 + cm - (fy * 12 + fm)
       const lastOfMonth = new Date(Date.UTC(cy, cm, 0)).getUTCDate()
       hit = monthsApart % input.every === 0 && cd === Math.min(fd, lastOfMonth)
     }
+
     if (hit) out.push(cursor)
   }
+
   return out
 }

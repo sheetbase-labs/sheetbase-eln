@@ -12,42 +12,40 @@ import {
 } from './formula-ir'
 
 const uuid = z.string().uuid()
-const target = z.object({ tableId: uuid, rowId: uuid, columnId: uuid }).strict()
+const target = z.strictObject({ tableId: uuid, rowId: uuid, columnId: uuid })
+
 const versions = {
   expectedSchemaVersion: z.number().int().positive(),
   expectedRowVersion: z.number().int().positive(),
 }
+
 export const formulaWriteInput = z.discriminatedUnion('operation', [
-  z
-    .object({
-      operation: z.literal('create'),
-      target,
-      ...versions,
-      source: z.string().min(1).max(8192),
-    })
-    .strict(),
-  z
-    .object({
-      operation: z.literal('update'),
-      target,
-      ...versions,
-      expectedFormulaVersion: z.number().int().positive(),
-      source: z.string().min(1).max(8192),
-    })
-    .strict(),
-  z
-    .object({
-      operation: z.literal('remove'),
-      target,
-      ...versions,
-      expectedFormulaVersion: z.number().int().positive(),
-      replacement: z.unknown(),
-    })
-    .strict(),
+  z.strictObject({
+    operation: z.literal('create'),
+    target,
+    ...versions,
+    source: z.string().min(1).max(8192),
+  }),
+  z.strictObject({
+    operation: z.literal('update'),
+    target,
+    ...versions,
+    expectedFormulaVersion: z.number().int().positive(),
+    source: z.string().min(1).max(8192),
+  }),
+  z.strictObject({
+    operation: z.literal('remove'),
+    target,
+    ...versions,
+    expectedFormulaVersion: z.number().int().positive(),
+    replacement: z.unknown(),
+  }),
 ])
+
 export type FormulaWriteInput = z.infer<typeof formulaWriteInput>
 
 type QueryResult<T extends QueryResultRow> = { rows: T[] }
+
 export interface FormulaWriteDeps {
   getSession: (headers: Headers) => Promise<{ user: { id: string } } | null>
   query: <T extends QueryResultRow>(
@@ -90,7 +88,9 @@ export async function executeFormulaWrite(
           (SELECT can_edit FROM internal.project_permissions_for(r.project_id,$2)))`,
     [input.target.tableId, actor],
   )
+
   const table = context.rows.at(0)
+
   if (
     !table ||
     !table.membership_id ||
@@ -101,6 +101,7 @@ export async function executeFormulaWrite(
       status: 403,
       code: 'forbidden',
     })
+
   if (!/^sheet_[a-z2-7]{26}$/.test(table.resource_name))
     throw new Error('Invalid generated scientific resource.')
 
@@ -113,10 +114,12 @@ export async function executeFormulaWrite(
       WHERE record_id=$1 AND lifecycle='active' ORDER BY created_at,id`,
     [table.record_id],
   )
+
   const maps = await Promise.all(
     notebookTables.rows.map(async (candidate) => {
       if (!/^sheet_[a-z2-7]{26}$/.test(candidate.resource_name))
         throw new Error('Invalid generated scientific resource.')
+
       const [columns, rows] = await Promise.all([
         deps.query<{ id: string }>(
           `SELECT id FROM api.scientific_columns
@@ -129,11 +132,13 @@ export async function executeFormulaWrite(
           [],
         ),
       ])
+
       if (rows.rows.length > 10_000 || columns.rows.length > 256)
         throw Object.assign(new Error('Formula calculation limits exceeded.'), {
           status: 422,
           code: 'limit',
         })
+
       return {
         tableId: candidate.id,
         name: candidate.name,
@@ -142,24 +147,30 @@ export async function executeFormulaWrite(
       }
     }),
   )
+
   const targetMaps = maps.find((candidate) => candidate.tableId === table.id)
+
   if (!targetMaps) throw new Error('Formula target map is unavailable.')
+
   const write: Record<string, unknown> = {
     operation: input.operation,
     target: input.target,
     expectedSchemaVersion: input.expectedSchemaVersion,
     expectedRowVersion: input.expectedRowVersion,
   }
+
   if (input.operation === 'remove') {
     write.expectedFormulaVersion = input.expectedFormulaVersion
     write.replacement = input.replacement
   } else {
     if (input.operation === 'update')
       write.expectedFormulaVersion = input.expectedFormulaVersion
+
     const parsed = parseFormula(input.source, {
       ...targetMaps,
       tables: maps,
     })
+
     if (parsed.status === 'supported') {
       if (
         !targetMaps.rowIds.includes(input.target.rowId) ||
@@ -169,6 +180,7 @@ export async function executeFormulaWrite(
           status: 422,
           code: 'invalid_formula',
         })
+
       // Normalization is a compatibility check, not persisted meaning: the
       // engine must accept the expression the server is about to store.
       try {
@@ -180,8 +192,10 @@ export async function executeFormulaWrite(
         )
       }
     }
+
     write.artifact = buildPersistedFormulaArtifact(parsed, table.id)
   }
+
   return deps.trustedWrite(actor, write)
 }
 
@@ -194,9 +208,11 @@ export async function handleFormulaWrite(
   deps: FormulaWriteDeps = defaultDeps,
 ) {
   const session = await deps.getSession(request.headers)
+
   if (!session)
     return responseError(401, 'unauthenticated', 'Authentication is required.')
   let json: unknown
+
   try {
     json = await request.json()
   } catch {
@@ -206,40 +222,50 @@ export async function handleFormulaWrite(
       'A JSON request body is required.',
     )
   }
+
   const parsed = formulaWriteInput.safeParse(json)
+
   if (!parsed.success)
     return responseError(
       400,
       'invalid_request',
       'Invalid formula write request.',
     )
+
   try {
     const result = await executeFormulaWrite(session.user.id, parsed.data, deps)
+
     return Response.json(result)
   } catch (error) {
     const candidate = error as { code?: string; status?: number }
+
     if (error instanceof FormulaSyntaxError)
       return responseError(422, error.code, error.message)
+
     if (candidate.code === 'SB001')
       return responseError(
         409,
         'stale_version',
         'Formula data changed; reload and retry.',
       )
+
     if (candidate.code === '42501' || candidate.status === 403)
       return responseError(403, 'forbidden', 'Formula target is unavailable.')
+
     if (candidate.code === 'P0002')
       return responseError(
         404,
         'not_found',
         'Formula target row was not found.',
       )
+
     if (candidate.status === 422 || candidate.code === '22023')
       return responseError(
         422,
         candidate.code ?? 'invalid_formula',
         error instanceof Error ? error.message : 'Invalid formula.',
       )
+
     return responseError(
       500,
       'formula_write_failed',
@@ -253,6 +279,7 @@ const defaultDeps: FormulaWriteDeps = {
   async query<T extends QueryResultRow>(text: string, values: unknown[]) {
     const client = new PooledClient({ connectionString: env.DATABASE_URL })
     await client.connect()
+
     try {
       return await client.query<T>(text, values)
     } finally {
@@ -263,15 +290,20 @@ const defaultDeps: FormulaWriteDeps = {
     const client = new PooledClient({
       connectionString: env.FORMULA_DATABASE_URL,
     })
+
     await client.connect()
+
     try {
       await client.query('BEGIN')
       await client.query('SET LOCAL ROLE formula_writer')
+
       const result = await client.query<{ result: unknown }>(
         'SELECT internal.apply_trusted_formula_write($1,$2::jsonb) result',
         [actor, JSON.stringify(write)],
       )
+
       await client.query('COMMIT')
+
       return result.rows[0]?.result ?? null
     } catch (error) {
       await client.query('ROLLBACK')

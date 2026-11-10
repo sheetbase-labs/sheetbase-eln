@@ -9,6 +9,7 @@ import type { ExtensionRunRouteDeps } from './run-route.server'
 
 const invoke = vi.hoisted(() => vi.fn())
 const perform = vi.hoisted(() => vi.fn())
+
 vi.mock('./runtime.server', async () => ({
   ExtensionRunError: class extends Error {},
   invokeExtension: invoke,
@@ -24,14 +25,18 @@ vi.mock('./runtime.server', async () => ({
   runExtensionHook: vi.fn(),
   defaultDeps: () => ({}),
 }))
+
 vi.mock('../auth', () => ({ getAppSession: vi.fn() }))
+
 vi.mock('../connectors/enterprise/execution.server', () => ({
   createServerDataClient: () => ({}),
 }))
+
 vi.mock('../request-auth', () => ({
   realSessionAuthDeps: {},
   resolveSessionAuth: vi.fn(),
 }))
+
 vi.mock('./client', () => ({ listExtensions: vi.fn() }))
 
 const deps: ExtensionRunRouteDeps = {
@@ -64,6 +69,7 @@ const read = {
   name: 'sheetbase.lab.act',
   arguments: { action: 'list_compound_lots' },
 }
+
 const write = {
   name: 'sheetbase.lab.act',
   arguments: { action: 'add_compound_lot' },
@@ -107,10 +113,12 @@ describe('an operation that calls into the app', () => {
       })
     const response = await handleExtensionRun(post(), deps)
     expect(response.status).toBe(409)
+
     const body = (await response.json()) as {
       confirm: { index: number; summary: string }
       hostResults: unknown[]
     }
+
     expect(body.confirm).toMatchObject({
       index: 1,
       summary: 'Add a lot to a compound',
@@ -126,10 +134,12 @@ describe('an operation that calls into the app', () => {
       ok: true,
       result: { identifier: 'LOT-0003' },
     })
+
     const response = await handleExtensionRun(
       post({ hostResults: [{ ok: true, result: [] }], approved: [1] }),
       deps,
     )
+
     expect(response.status).toBe(200)
     expect(perform.mock.calls[0][1].confirmed).toBe(true)
   })

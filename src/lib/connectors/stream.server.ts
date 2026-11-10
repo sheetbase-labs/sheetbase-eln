@@ -15,6 +15,8 @@
  * database exactly as it is for a person working in the app. The folder agent
  * (scripts/instrument-agent.mjs) is the usual sender.
  */
+import { z } from 'zod'
+
 import { DataClientError } from '../data-client'
 import type { DataClient } from '../data-client'
 import type { ExternalClaims } from '../external-token'
@@ -26,6 +28,20 @@ export const STREAM_MAX_BYTES = 512 * 1024
 export const STREAM_MAX_READINGS = 2000
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const streamBodySchema = z.object({
+  instrumentId: z.unknown().optional(),
+  storageUnitId: z.unknown().optional(),
+  storageRoomId: z.unknown().optional(),
+  readings: z.unknown().optional(),
+})
+
+const streamReadingSchema = z.object({
+  feed: z.string().trim().catch(''),
+  value: z.number().catch(NaN),
+  unit: z.string().optional().catch(undefined),
+  at: z.string().optional().catch(undefined),
+})
 
 export interface StreamDeps {
   verifyCredential: (token: string) => Promise<ExternalClaims>
@@ -54,18 +70,17 @@ function errorResponse(status: number, code: string, message: string) {
 }
 
 /** The body, checked down to what the database will accept. */
-export function parseStreamBody(raw: unknown): {
-  target:
-    | { kind: 'instrument'; id: string }
-    | { kind: 'unit'; id: string }
-    | { kind: 'room'; id: string }
-  readings: StreamReading[]
-} {
-  if (!raw || typeof raw !== 'object') {
+export function parseStreamBody(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- HTTP JSON is untrusted; the schemas below decode each field before use.
+  raw: unknown,
+) {
+  const parsed = streamBodySchema.safeParse(raw)
+
+  if (!parsed.success) {
     throw new PickupError(400, 'invalid_request', 'Send a JSON body.')
   }
 
-  const body = raw as Record<string, unknown>
+  const body = parsed.data
 
   const named = (
     [
@@ -84,9 +99,9 @@ export function parseStreamBody(raw: unknown): {
   }
 
   const [idKey, kind] = named[0]
-  const targetId = body[idKey]
+  const targetId = z.string().regex(UUID).safeParse(body[idKey])
 
-  if (typeof targetId !== 'string' || !UUID.test(targetId)) {
+  if (!targetId.success) {
     throw new PickupError(
       400,
       'invalid_request',
@@ -94,12 +109,12 @@ export function parseStreamBody(raw: unknown): {
     )
   }
 
-  const list = body['readings']
+  const list = z.array(z.unknown()).safeParse(body.readings)
 
   if (
-    !Array.isArray(list) ||
-    list.length === 0 ||
-    list.length > STREAM_MAX_READINGS
+    !list.success ||
+    list.data.length === 0 ||
+    list.data.length > STREAM_MAX_READINGS
   ) {
     throw new PickupError(
       400,
@@ -108,10 +123,14 @@ export function parseStreamBody(raw: unknown): {
     )
   }
 
-  const readings = list.map((item, index): StreamReading => {
-    const row = (item ?? {}) as Record<string, unknown>
-    const feed = typeof row['feed'] === 'string' ? row['feed'].trim() : ''
-    const value = row['value']
+  const readings = list.data.map((item, index): StreamReading => {
+    const parsedReading = streamReadingSchema.safeParse(item)
+
+    const row = parsedReading.success
+      ? parsedReading.data
+      : { feed: '', value: NaN }
+
+    const { feed, value } = row
 
     if (!feed || feed.length > 80) {
       throw new PickupError(
@@ -121,7 +140,7 @@ export function parseStreamBody(raw: unknown): {
       )
     }
 
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
+    if (!Number.isFinite(value)) {
       throw new PickupError(
         400,
         'invalid_reading',
@@ -131,12 +150,12 @@ export function parseStreamBody(raw: unknown): {
 
     const reading: StreamReading = { feed, value }
 
-    if (typeof row['unit'] === 'string' && row['unit'].trim()) {
-      reading.unit = row['unit'].trim().slice(0, 20)
+    if (row.unit?.trim()) {
+      reading.unit = row.unit.trim().slice(0, 20)
     }
 
-    if (typeof row['at'] === 'string' && row['at']) {
-      if (Number.isNaN(Date.parse(row['at']))) {
+    if (row.at) {
+      if (Number.isNaN(Date.parse(row.at))) {
         throw new PickupError(
           400,
           'invalid_reading',
@@ -144,13 +163,13 @@ export function parseStreamBody(raw: unknown): {
         )
       }
 
-      reading.at = new Date(row['at']).toISOString()
+      reading.at = new Date(row.at).toISOString()
     }
 
     return reading
   })
 
-  return { target: { kind, id: targetId }, readings }
+  return { target: { kind, id: targetId.data }, readings }
 }
 
 export async function runStream(
@@ -170,7 +189,7 @@ export async function runStream(
   } catch (error) {
     const code =
       error instanceof Error && 'code' in error
-        ? String((error as { code: unknown }).code)
+        ? String(error.code)
         : 'invalid_token'
 
     throw new PickupError(

@@ -4,18 +4,32 @@
  * on the server (`/api/connectors/intake`) so every route reads files with the
  * same approved parsers.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '../data-client'
 
-export interface IntakeResultWire {
-  runId: string
-  alreadyCompleted: boolean
-  datasetId: string
-  datasetRevision: number | null
-  rowCount: number
-  parser: string
-  fileRecordId: string | null
-  warnings: string[]
-}
+const intakeResultSchema = z.looseObject({
+  runId: z.string(),
+  alreadyCompleted: z.boolean(),
+  datasetId: z.string(),
+  datasetRevision: z.number().nullable(),
+  rowCount: z.number(),
+  parser: z.string(),
+  fileRecordId: z.string().nullable(),
+  warnings: z.array(z.string()),
+})
+
+export type IntakeResultWire = z.infer<typeof intakeResultSchema>
+
+const intakeFailureSchema = z.object({
+  error: z
+    .object({
+      code: z.string().optional().catch(undefined),
+      message: z.string().optional().catch(undefined),
+    })
+    .nullish(),
+  failureId: z.string().nullish().catch(null),
+})
 
 export interface IntakeProblem {
   id: string
@@ -63,29 +77,28 @@ type IntakeRequest =
 
 export async function postIntake(
   body: IntakeRequest,
+  fetchImpl: typeof fetch = fetch,
 ): Promise<IntakeResultWire> {
-  const response = await fetch('/api/connectors/intake', {
+  const response = await fetchImpl('/api/connectors/intake', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
 
-  const payload = (await response.json().catch(() => null)) as
-    | (Partial<IntakeResultWire> & {
-        error?: { code?: string; message?: string }
-        failureId?: string | null
-      })
-    | null
+  const payload = await response.json().catch(() => null)
+  const failure = intakeFailureSchema.safeParse(payload)
+  const result = intakeResultSchema.safeParse(payload)
+  const error = failure.success ? failure.data.error : undefined
 
-  if (!response.ok || !payload || payload.error) {
+  if (!response.ok || !result.success || error) {
     throw new IntakeClientError(
-      payload?.error?.code ?? 'intake_failed',
-      payload?.error?.message ?? 'The file couldn’t be read.',
-      payload?.failureId ?? null,
+      error?.code ?? 'intake_failed',
+      error?.message ?? 'The file couldn’t be read.',
+      failure.success ? (failure.data.failureId ?? null) : null,
     )
   }
 
-  return payload as IntakeResultWire
+  return result.data
 }
 
 const PROBLEM_COLUMNS =

@@ -127,6 +127,20 @@ describe('S3 connector config', () => {
     expect(source.prefix).toBe('data/')
     expect(source.endpoint).toBe('https://minio.internal.test')
     expect(source.forcePathStyle).toBe(true)
+    expect(
+      parseS3Config({
+        bucket: ' exports ',
+        endpoint: 42,
+        prefix: null,
+        region: false,
+      }),
+    ).toEqual({
+      bucket: 'exports',
+      endpoint: undefined,
+      region: undefined,
+      prefix: undefined,
+      forcePathStyle: false,
+    })
   })
 
   it('refuses invalid buckets and credential-bearing endpoints', () => {
@@ -153,6 +167,22 @@ describe('PostgreSQL connector config + identifiers', () => {
 
     expect(source.host).toBe('db.internal.test')
     expect(source.sslMode).toBe('require')
+    expect(
+      parsePostgresConfig({
+        host: ' db.internal.test ',
+        port: '5432',
+        database: ' warehouse ',
+        allowedSchemas: ['lims', 42, 'bad name', ''],
+        allowedTables: ['lims.readings', false, 'readings', 'lims.bad table'],
+      }),
+    ).toEqual({
+      host: 'db.internal.test',
+      port: 5432,
+      database: 'warehouse',
+      sslMode: 'disable',
+      allowedSchemas: ['lims'],
+      allowedTables: ['lims.readings'],
+    })
   })
 
   it('refuses malformed hosts, ports and ssl modes', () => {

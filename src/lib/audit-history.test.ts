@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -9,6 +10,8 @@ import {
   isRoutineAuditCheck,
   auditKnockOnEvents,
   describeAuditEvent,
+  formatChangeValue,
+  fetchAuditEvents,
   fetchAllAuditEvents,
   fetchRecordAuditHistory,
   groupAuditEvents,
@@ -211,6 +214,111 @@ describe('describeAuditEvent', () => {
     expect(described.subject).toBe('Record Some Notebook')
   })
 
+  it('distinguishes captured false and zero from absent or null endpoints', () => {
+    const captured = event({
+      payload: {
+        changes: {
+          disabled: { from: true, to: false },
+          zero: { from: -3, to: 0 },
+          absentFrom: { to: false },
+          absentTo: { from: 0 },
+          nullTo: { from: false, to: null },
+          nullFrom: { from: null, to: 0 },
+          empty: {},
+        },
+      },
+    })
+
+    expect(describeAuditEvent(captured).changes).toEqual([
+      { label: 'disabled', kind: 'changed', from: 'yes', to: 'no' },
+      { label: 'zero', kind: 'changed', from: '-3', to: '0' },
+      { label: 'absentFrom', kind: 'added', from: undefined, to: 'no' },
+      { label: 'absentTo', kind: 'removed', from: '0', to: undefined },
+      { label: 'nullTo', kind: 'removed', from: 'no', to: undefined },
+      { label: 'nullFrom', kind: 'added', from: undefined, to: '0' },
+    ])
+    expect(captured.payload.changes).toEqual({
+      disabled: { from: true, to: false },
+      zero: { from: -3, to: 0 },
+      absentFrom: { to: false },
+      absentTo: { from: 0 },
+      nullTo: { from: false, to: null },
+      nullFrom: { from: null, to: 0 },
+      empty: {},
+    })
+  })
+
+  it('retains native captured values and inherited endpoints without reading unrelated getters', () => {
+    const date = new Date('2026-09-12T03:04:05Z')
+    const bytes = Buffer.from([0, 255])
+
+    class CapturedPair {
+      get from() {
+        return date
+      }
+
+      get to() {
+        return bytes
+      }
+
+      get unrelated() {
+        throw new Error('not a captured endpoint')
+      }
+    }
+
+    const pair = new CapturedPair()
+    const captured = event({ payload: { changes: { 'Flux (L/m²)': pair } } })
+
+    expect(describeAuditEvent(captured).changes).toEqual([
+      {
+        label: 'Flux (L/m²)',
+        kind: 'changed',
+        from: '"2026-09-12T03:04:05.000Z"',
+        to: '{"type":"Buffer","data":[0,255]}',
+      },
+    ])
+    expect(captured.payload.changes).toEqual({ 'Flux (L/m²)': pair })
+    expect(pair.from).toBe(date)
+    expect(pair.to).toBe(bytes)
+  })
+
+  it('keeps native scalar formatting and the first serialization failure', () => {
+    expect(
+      [
+        null,
+        undefined,
+        false,
+        0,
+        NaN,
+        Infinity,
+        -Infinity,
+        17n,
+        Symbol('dose'),
+      ].map(formatChangeValue),
+    ).toEqual([
+      '—',
+      '—',
+      'no',
+      '0',
+      'NaN',
+      'Infinity',
+      '-Infinity',
+      '17',
+      'Symbol(dose)',
+    ])
+
+    const failure = new Error('captured serialization failed')
+
+    const captured = {
+      toJSON() {
+        throw failure
+      },
+    }
+
+    expect(() => formatChangeValue(captured)).toThrow(failure)
+    expect(() => formatChangeValue({ dose: 17n })).toThrow(TypeError)
+  })
+
   it('names a block by its kind, never by its opaque internal id', () => {
     // A block event carries no title, only its type; the internal uuid names
     // nothing to a reader, so the subject reads as the block kind instead.
@@ -317,7 +425,7 @@ describe('experiment history presentation', () => {
     ]
 
     const client = createDataClient(async (_request, init) => {
-      args.push(JSON.parse(String(init?.body)))
+      args.push(await new Response(init?.body).json())
 
       return Response.json(pages.shift())
     })
@@ -372,7 +480,7 @@ describe('experiment history presentation', () => {
     ]
 
     const client = createDataClient(async (_request, init) => {
-      args.push(JSON.parse(String(init?.body)))
+      args.push(await new Response(init?.body).json())
 
       return Response.json(pages.shift())
     })
@@ -476,9 +584,9 @@ describe('experiment history presentation', () => {
       Object.fromEntries(
         auditHistoryCategories.map((category) => [
           category,
-          events
-            .filter((entry) => auditEventMatchesCategory(entry, category))
-            .map((entry) => entry.id),
+          events.flatMap((entry) =>
+            auditEventMatchesCategory(entry, category) ? [entry.id] : [],
+          ),
         ]),
       ),
     ).toEqual({
@@ -522,6 +630,65 @@ describe('experiment history presentation', () => {
         events: [event({ createdAt: 'not a date' })],
       }).success,
     ).toBe(false)
+  })
+
+  it('preserves ordered page diagnostics and captured native payload acceptance', () => {
+    const date = new Date('2026-09-12T03:04:05Z')
+
+    const page = {
+      formatVersion: 1,
+      events: [event({ payload: { date, count: NaN, absent: undefined } })],
+      hasMore: false,
+      nextCursor: null,
+    }
+
+    const accepted = auditEventsPageSchema.parse(page)
+
+    expect(accepted.events[0].payload.date).toBe(date)
+    expect(accepted.events[0].payload.count).toBeNaN()
+    expect(Object.hasOwn(accepted.events[0].payload, 'absent')).toBe(true)
+
+    const rejected = auditEventsPageSchema.safeParse({
+      ...page,
+      formatVersion: 2,
+      events: [event({ sequence: 0, createdAt: 'not a date' })],
+      hasMore: 'yes',
+      nextCursor: -1,
+    })
+
+    expect(rejected.success).toBe(false)
+
+    if (!rejected.success) {
+      expect(rejected.error.issues.map((issue) => issue.path)).toEqual([
+        ['formatVersion'],
+        ['events', 0, 'sequence'],
+        ['events', 0, 'createdAt'],
+        ['hasMore'],
+        ['nextCursor'],
+      ])
+    }
+  })
+
+  it('preserves permission failures instead of interpreting unavailable history as an empty page', async () => {
+    const client = createDataClient(async () =>
+      Response.json(
+        { error: { code: 'forbidden', message: 'Audit access denied.' } },
+        { status: 403 },
+      ),
+    )
+
+    await expect(fetchAuditEvents(client, {})).rejects.toMatchObject({
+      name: 'DataClientError',
+      code: 'forbidden',
+      status: 403,
+      message: 'Audit access denied.',
+    })
+    await expect(
+      fetchRecordAuditHistory(client, 'not-visible'),
+    ).rejects.toMatchObject({
+      code: 'forbidden',
+      status: 403,
+    })
   })
 
   it('groups by workspace day across UTC midnight without reordering events', () => {

@@ -1,30 +1,36 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { Mock } from 'vitest'
+import { z } from 'zod'
 
 import type { DataClient } from '../data-client'
-import { AI_FEATURE_FLAGS } from '../ai-feature-flags'
 import type { AiFeatureFlags } from '../ai-feature-flags'
 import { LAB_RPCS } from '../lab-api-surface'
 import { handleMcpMessage } from './handler'
 import type { McpContext } from './handler'
 import { LAB_ACT_TOOL_NAME } from './lab'
+import { testClient } from './test-transport'
 
 const ORDER_ID = '33333333-3333-4333-8333-333333333333'
 
-const flags = Object.fromEntries(
-  AI_FEATURE_FLAGS.map((flag) => [flag.key, true]),
-) as AiFeatureFlags
+const flags: AiFeatureFlags = {
+  assistant: true,
+  mcp_read: true,
+  mcp_draft: true,
+  mcp_workflow: true,
+  mcp_admin_read: true,
+  mcp_admin_propose: true,
+  mcp_lab: true,
+}
 
 function client(
-  rpc: (...args: any[]) => any = vi.fn(async () => ({ id: ORDER_ID })),
+  rpc: Mock<DataClient['rpc']> = vi
+    .fn<DataClient['rpc']>()
+    .mockResolvedValue({ id: ORDER_ID }),
+  list: Mock<DataClient['list']> = vi
+    .fn<DataClient['list']>()
+    .mockResolvedValue([]),
 ): DataClient {
-  return {
-    list: vi.fn(async () => []),
-    count: vi.fn(async () => 0),
-    rpc,
-    insert: vi.fn(),
-    patch: vi.fn(),
-    remove: vi.fn(),
-  }
+  return testClient({ rpc, list })
 }
 
 function ctx(overrides: Partial<McpContext> = {}): McpContext {
@@ -39,8 +45,8 @@ function ctx(overrides: Partial<McpContext> = {}): McpContext {
   }
 }
 
-async function call(args: Record<string, unknown>, context: McpContext) {
-  const response = (await handleMcpMessage(
+async function call(args: { [name: string]: z.JSONType }, context: McpContext) {
+  const response = await handleMcpMessage(
     {
       jsonrpc: '2.0',
       id: 1,
@@ -48,20 +54,30 @@ async function call(args: Record<string, unknown>, context: McpContext) {
       params: { name: LAB_ACT_TOOL_NAME, arguments: args },
     },
     context,
-  )) as unknown as {
-    result: { isError?: boolean; content: { text: string }[] }
-  }
+  )
 
-  return response.result
+  return z
+    .object({
+      result: z.object({
+        isError: z.boolean().optional(),
+        content: z.array(z.object({ text: z.string() })),
+      }),
+    })
+    .parse(response).result
 }
 
 async function toolNames(context: McpContext): Promise<string[]> {
-  const response = (await handleMcpMessage(
+  const response = await handleMcpMessage(
     { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} },
     context,
-  )) as unknown as { result: { tools: { name: string }[] } }
+  )
 
-  return response.result.tools.map((tool) => tool.name)
+  return z
+    .object({
+      result: z.object({ tools: z.array(z.object({ name: z.string() })) }),
+    })
+    .parse(response)
+    .result.tools.map((tool) => tool.name)
 }
 
 describe('MCP lab actions', () => {
@@ -86,9 +102,9 @@ describe('MCP lab actions', () => {
   /** An RPC double: the database decides the level, everything else answers `reply`. */
   function guarded(
     status: 'pending' | 'approved' | 'refused',
-    reply: unknown = { id: ORDER_ID },
+    reply: z.JSONType = { id: ORDER_ID },
   ) {
-    return vi.fn(async (name: string) => {
+    return vi.fn<DataClient['rpc']>().mockImplementation(async (name) => {
       if (name === 'request_agent_action') {
         return {
           id: 'request-1',
@@ -230,15 +246,17 @@ describe('MCP lab actions', () => {
 
   it('does not ask twice for the same request while it is waiting', async () => {
     const rpc = guarded('pending')
-    const waiting = client(rpc)
-    waiting.list = vi.fn(async () => [
+
+    const list = vi.fn<DataClient['list']>().mockResolvedValue([
       {
         id: 'request-0',
         status: 'pending',
         level: 'ask',
         arguments: { p_order_id: ORDER_ID },
       },
-    ]) as unknown as DataClient['list']
+    ])
+
+    const waiting = client(rpc, list)
 
     const result = await call(
       { action: 'cancel_reagent_order', arguments: { p_order_id: ORDER_ID } },
@@ -336,14 +354,22 @@ describe('MCP lab actions', () => {
   })
 
   it('lists every lab action in the tool description', async () => {
-    const response = (await handleMcpMessage(
+    const response = await handleMcpMessage(
       { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} },
       ctx(),
-    )) as unknown as {
-      result: { tools: { name: string; description: string }[] }
-    }
+    )
 
-    const tool = response.result.tools.find((t) => t.name === LAB_ACT_TOOL_NAME)
+    const tools = z
+      .object({
+        result: z.object({
+          tools: z.array(
+            z.object({ name: z.string(), description: z.string() }),
+          ),
+        }),
+      })
+      .parse(response).result.tools
+
+    const tool = tools.find((t) => t.name === LAB_ACT_TOOL_NAME)
 
     for (const name of Object.keys(LAB_RPCS)) {
       expect(tool?.description).toContain(`- ${name}(`)

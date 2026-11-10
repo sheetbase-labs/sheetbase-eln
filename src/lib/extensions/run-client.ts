@@ -61,14 +61,17 @@ export async function runPluginHook<T = PluginHookAnswer>(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
+
   const answer = (await response.json().catch(() => null)) as
     (Record<string, unknown> & { error?: string }) | null
+
   if (!response.ok || !answer)
     throw new Error(
       typeof answer?.error === 'string'
         ? answer.error
         : 'The plugin could not do that.',
     )
+
   return answer as T
 }
 
@@ -92,10 +95,12 @@ export async function runPluginHost(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
+
   const answer = (await response.json().catch(() => null)) as {
     result?: unknown
     error?: { message?: string; code?: string } | string
   } | null
+
   if (!response.ok || !answer) {
     const error = answer?.error
     throw Object.assign(
@@ -107,6 +112,7 @@ export async function runPluginHost(
       { code: typeof error === 'object' ? error.code : undefined },
     )
   }
+
   return answer.result ?? null
 }
 
@@ -138,6 +144,7 @@ export async function runPluginOperation<T = { output: unknown }>(
 ): Promise<T> {
   let hostResults: unknown[] | undefined
   const approved: number[] = []
+
   for (;;) {
     const response = await fetcher('/api/plugins/run', {
       method: 'POST',
@@ -149,21 +156,26 @@ export async function runPluginOperation<T = { output: unknown }>(
         ...(approved.length > 0 ? { approved } : {}),
       }),
     })
+
     const answer = (await response.json().catch(() => null)) as
       (Record<string, unknown> & { error?: string }) | null
+
     const confirm = answer?.confirm as HostConfirmation | undefined
+
     if (response.status === 409 && confirm) {
       if (!(await ask(confirm))) throw new Error(declined)
       hostResults = answer?.hostResults as unknown[]
       approved.push(confirm.index)
       continue
     }
+
     if (!response.ok || !answer)
       throw new Error(
         typeof answer?.error === 'string'
           ? answer.error
           : 'The plugin could not do that.',
       )
+
     return answer as T
   }
 }

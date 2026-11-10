@@ -1,4 +1,7 @@
+import { z } from 'zod'
+
 import { t } from '#/copy'
+import type { ConnectorWire } from './types'
 
 /**
  * INT-02 — the connector `config.pickup` block that file pickup reads
@@ -16,34 +19,39 @@ export interface PickupFormValues {
 
 export const DEFAULT_DATASET_NAME_PATTERN = '{connector} — {file}'
 
+const pickupSchema = z
+  .object({
+    projectId: z.string().optional().catch(undefined),
+    schemaVersionId: z.string().optional().catch(undefined),
+    datasetId: z.string().optional().catch(undefined),
+    datasetNamePattern: z.string().optional().catch(undefined),
+    autoDetect: z.boolean().optional().catch(undefined),
+    instrumentId: z.string().optional().catch(undefined),
+  })
+  .catch({})
+
 export function pickupFormValues(
-  config: Record<string, unknown>,
+  config: ConnectorWire['config'],
 ): PickupFormValues {
-  const raw = config['pickup']
-
-  const pickup =
-    raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
-
-  const text = (key: string) =>
-    typeof pickup[key] === 'string' ? pickup[key] : ''
+  const pickup = pickupSchema.parse(config.pickup)
 
   return {
-    projectId: text('projectId'),
-    schemaVersionId: text('schemaVersionId'),
-    datasetId: text('datasetId'),
+    projectId: pickup.projectId ?? '',
+    schemaVersionId: pickup.schemaVersionId ?? '',
+    datasetId: pickup.datasetId ?? '',
     datasetNamePattern:
-      text('datasetNamePattern') || DEFAULT_DATASET_NAME_PATTERN,
-    autoDetect: pickup['autoDetect'] === true,
-    instrumentId: text('instrumentId'),
+      pickup.datasetNamePattern || DEFAULT_DATASET_NAME_PATTERN,
+    autoDetect: pickup.autoDetect === true,
+    instrumentId: pickup.instrumentId ?? '',
   }
 }
 
 /** Merges the form into the connector's existing config, keeping other keys. */
 export function buildPickupConfig(
-  config: Record<string, unknown>,
+  config: ConnectorWire['config'],
   values: PickupFormValues,
 ):
-  | { ok: true; config: Record<string, unknown> }
+  | { ok: true; config: ConnectorWire['config'] }
   | { ok: false; errors: Partial<Record<keyof PickupFormValues, string>> } {
   const errors: Partial<Record<keyof PickupFormValues, string>> = {}
 
@@ -56,7 +64,8 @@ export function buildPickupConfig(
 
   if (Object.keys(errors).length > 0) return { ok: false, errors }
 
-  const pickup: Record<string, unknown> = {
+  const pickup: Omit<PickupFormValues, 'datasetId' | 'instrumentId'> &
+    Partial<Pick<PickupFormValues, 'datasetId' | 'instrumentId'>> = {
     projectId: values.projectId,
     schemaVersionId: values.schemaVersionId,
     autoDetect: values.autoDetect,

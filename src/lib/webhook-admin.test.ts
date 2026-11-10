@@ -214,3 +214,189 @@ describe('webhookAdminKeys', () => {
     )
   })
 })
+
+describe('webhook row boundaries', () => {
+  const date = new Date('2026-09-05T10:00:00Z')
+
+  const subscription = {
+    id: 'sub-1',
+    key: 'email',
+    url: null,
+    channel_type: 'email',
+    recipient_user_id: 'user-1',
+    recipient_name: null,
+    description: null,
+    status: 'active',
+    max_retries: '5',
+    failure_threshold: '10',
+    consecutive_failures: '0',
+    rate_limit_per_minute: '60',
+    created_at: date,
+    updated_at: null,
+  }
+
+  const health = {
+    subscription_id: 'sub-1',
+    key: 'email',
+    url: null,
+    status: 'active',
+    consecutive_failures: '0',
+    failure_threshold: 10,
+    max_retries: 5,
+    total_24h: '4',
+    delivered_24h: 3,
+    failed_24h: 1,
+    dead_letter_24h: 0,
+    retrying_24h: 0,
+    pending_24h: 0,
+    success_rate_24h: '0.75',
+    last_delivered_at: date,
+    oldest_pending_at: null,
+    last_error: { code: null, message: null, at: date, delivery_id: 'del-1' },
+  }
+
+  const delivery = {
+    id: 'del-1',
+    subscription_id: 'sub-1',
+    change_event_id: 'evt-1',
+    event_type: 'record.created',
+    attempt: '2',
+    status: 'delivered',
+    response_status: '204',
+    response_body: null,
+    error_code: null,
+    error_message: null,
+    replay_of_delivery_id: null,
+    next_attempt_at: null,
+    delivered_at: date,
+    created_at: date,
+    updated_at: null,
+  }
+
+  it('preserves native PG Date stringification and email/nullable defaults', () => {
+    expect(toSubscriptionWire(subscription)).toMatchObject({
+      channelType: 'email',
+      url: '',
+      recipientUserId: 'user-1',
+      recipientName: null,
+      description: null,
+      eventTypes: [],
+      maxRetries: 5,
+      failureThreshold: 10,
+      consecutiveFailures: 0,
+      rateLimitPerMinute: 60,
+      createdAt: String(date),
+      updatedAt: 'null',
+    })
+    expect(toHealthWire(health)).toMatchObject({
+      url: '',
+      total24h: 4,
+      delivered24h: 3,
+      successRate24h: 0.75,
+      rateLimitPerMinute: null,
+      lastDeliveredAt: String(date),
+      oldestPendingAt: null,
+      lastError: {
+        code: null,
+        message: null,
+        at: String(date),
+        deliveryId: 'del-1',
+      },
+    })
+    expect(toDeliveryWire(delivery)).toMatchObject({
+      attempt: 2,
+      responseStatus: 204,
+      responseBody: null,
+      errorCode: null,
+      errorMessage: null,
+      nextAttemptAt: null,
+      deliveredAt: String(date),
+      createdAt: String(date),
+      updatedAt: 'null',
+    })
+  })
+
+  it.each(['active', 'paused', 'disabled', 'archived'])(
+    'accepts subscription status %s',
+    (status) => {
+      expect(toSubscriptionWire({ ...subscription, status }).status).toBe(
+        status,
+      )
+      expect(toHealthWire({ ...health, status }).status).toBe(status)
+    },
+  )
+
+  it.each(['pending', 'delivered', 'failed', 'retrying', 'dead_letter'])(
+    'accepts delivery status %s',
+    (status) => {
+      expect(toDeliveryWire({ ...delivery, status }).status).toBe(status)
+    },
+  )
+
+  it.each(['webhook', 'teams', 'email', null, undefined])(
+    'accepts destination %s',
+    (channelType) => {
+      expect(
+        toSubscriptionWire({ ...subscription, channel_type: channelType })
+          .channelType,
+      ).toBe(channelType ?? 'webhook')
+    },
+  )
+
+  it('retains JSONB event allowlist mapping without imposing an absent SQL CHECK', () => {
+    expect(
+      toSubscriptionWire({
+        ...subscription,
+        event_types: ['record.created', 2, null],
+      }).eventTypes,
+    ).toEqual(['record.created', '2', 'null'])
+    expect(
+      toSubscriptionWire({ ...subscription, event_types: { legacy: true } })
+        .eventTypes,
+    ).toEqual([])
+  })
+
+  it('rejects malformed subscription fields rather than casting them into public enums', () => {
+    for (const patch of [
+      { status: 'sending' },
+      { channel_type: 'sms' },
+      { max_retries: 'many' },
+      { recipient_user_id: {} },
+      { created_at: {} },
+    ]) {
+      expect(() => toSubscriptionWire({ ...subscription, ...patch })).toThrow()
+    }
+  })
+
+  it('rejects malformed health counts, statuses and nested errors', () => {
+    for (const patch of [
+      { status: 'unknown' },
+      { total_24h: false },
+      { success_rate_24h: 'NaN' },
+      { last_error: [] },
+      { last_error: { message: 1 } },
+    ]) {
+      expect(() => toHealthWire({ ...health, ...patch })).toThrow()
+    }
+  })
+
+  it('rejects malformed delivery fields', () => {
+    for (const patch of [
+      { status: 'sending' },
+      { attempt: {} },
+      { response_status: 'not-http' },
+      { error_message: [] },
+      { delivered_at: false },
+    ]) {
+      expect(() => toDeliveryWire({ ...delivery, ...patch })).toThrow()
+    }
+  })
+
+  it('rejects missing row identities and non-object wire data', () => {
+    for (const input of [null, undefined, [], 'row', {}]) {
+      expect(() => toSubscriptionWire(input)).toThrow()
+      expect(() => toHealthWire(input)).toThrow()
+      expect(() => toDeliveryWire(input)).toThrow()
+    }
+  })
+})

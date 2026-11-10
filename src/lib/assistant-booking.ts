@@ -52,7 +52,7 @@ const title = z.string().min(1).max(120)
 const summary = z.string().min(1).max(400)
 
 export const proposeBookingCreateSchema = z
-  .object({
+  .strictObject({
     title,
     summary,
     instrument: z
@@ -85,38 +85,27 @@ export const proposeBookingCreateSchema = z
       .describe('The experiment it is for, by identifier (EXP-12) or name.'),
     notes: z.string().max(2_000).optional(),
   })
-  .strict()
   .refine((value) => value.end !== undefined || value.durationMinutes, {
     message: 'Give an end or a duration.',
   })
 
-export const proposeBookingMoveSchema = z
-  .object({
-    title,
-    summary,
-    bookingId: z
-      .string()
-      .uuid()
-      .describe('The booking, from a schedule lookup.'),
-    start: localDateTime.describe(
-      'New start, YYYY-MM-DDTHH:MM on the person’s clock.',
-    ),
-    end: localDateTime
-      .optional()
-      .describe('New end. Leave out to keep the same length.'),
-  })
-  .strict()
+export const proposeBookingMoveSchema = z.strictObject({
+  title,
+  summary,
+  bookingId: z.string().uuid().describe('The booking, from a schedule lookup.'),
+  start: localDateTime.describe(
+    'New start, YYYY-MM-DDTHH:MM on the person’s clock.',
+  ),
+  end: localDateTime
+    .optional()
+    .describe('New end. Leave out to keep the same length.'),
+})
 
-export const proposeBookingCancelSchema = z
-  .object({
-    title,
-    summary,
-    bookingId: z
-      .string()
-      .uuid()
-      .describe('The booking, from a schedule lookup.'),
-  })
-  .strict()
+export const proposeBookingCancelSchema = z.strictObject({
+  title,
+  summary,
+  bookingId: z.string().uuid().describe('The booking, from a schedule lookup.'),
+})
 
 /**
  * What a booking card does when the person presses its button. Plain data,
@@ -180,6 +169,7 @@ export async function runAssistantAction(
         notes: action.notes,
         linkedExperimentRecordId: action.linkedExperimentRecordId,
       })
+
       return
     case 'booking.move':
       await editBooking(client, {
@@ -188,69 +178,92 @@ export async function runAssistantAction(
         endsAt: action.endsAt,
         expectedMetadataVersion: action.expectedMetadataVersion,
       })
+
       return
     case 'booking.cancel':
       await cancelBooking(client, {
         bookingId: action.bookingId,
         expectedMetadataVersion: action.expectedMetadataVersion,
       })
+
       return
     default: {
       if (isPlanningAction(action)) {
         // Planning jobs load only when a card's button is pressed.
         const { runPlanningAction } = await import('./assistant-planning-run')
+
         return runPlanningAction(client, action)
       }
+
       if (isLabworkAction(action)) {
         // Lab-work jobs load only when a card's button is pressed.
         const { runLabworkAction } = await import('./assistant-labwork-run')
+
         return runLabworkAction(client, action)
       }
+
       if (isExtensionToolAction(action)) {
         // Extension tools load only when a card's button is pressed.
         const { runExtensionToolAction } =
           await import('./assistant-extensions-run')
+
         return runExtensionToolAction(action)
       }
+
       if (isAutomationAction(action)) {
         const { runAutomationAction } =
           await import('./assistant-automation-run')
+
         return runAutomationAction(client, action)
       }
+
       if (isPlannerAction(action)) {
         const { runPlannerAction } = await import('./assistant-planner-run')
+
         return runPlannerAction(client, action)
       }
+
       if (isStudiesAction(action)) {
         // Planning and reporting jobs load only when a card's button is pressed.
         const { runStudiesAction } = await import('./assistant-studies-run')
+
         return runStudiesAction(client, action)
       }
+
       if (isInstrumentsAction(action)) {
         const { runInstrumentsAction } =
           await import('./assistant-instruments-run')
+
         return runInstrumentsAction(client, action)
       }
+
       if (isQcAction(action)) {
         const { runQcAction } = await import('./assistant-qc-run')
+
         return runQcAction(client, action)
       }
+
       if (isPlatesAction(action)) {
         // Plate jobs load only when a card's button is pressed.
         const { runPlatesAction } = await import('./assistant-plates-run')
+
         return runPlatesAction(client, action)
       }
+
       // Each feature folder's cards (`src/features/<name>/assistant.ts`).
       for (const feature of FEATURES_WITH_CARDS) {
         if (feature.isAction(action)) {
           return (await feature.run(client, action)) ?? undefined
         }
       }
+
       if (isUpkeepAction(action)) {
         // Upkeep jobs load only when a card's button is pressed.
         const { runUpkeepAction } = await import('./assistant-upkeep-run')
+
         return runUpkeepAction(client, action)
       }
+
       // Bench jobs load only when a card's button is pressed. Every other
       // kind was handled above, feature cards included.
       const { runBenchAction } = await import('./assistant-bench-run')
@@ -275,9 +288,12 @@ function offsetMs(instant: Date, timeZone: string): number {
     minute: '2-digit',
     second: '2-digit',
   }).formatToParts(instant)
+
   const get = (type: string) =>
     Number(parts.find((part) => part.type === type)?.value ?? 0)
+
   const hour = get('hour') === 24 ? 0 : get('hour')
+
   return (
     Date.UTC(
       get('year'),
@@ -298,6 +314,7 @@ export function instantFromLocal(local: string, timeZone: string): Date {
   const wall = Date.UTC(y, m - 1, d, hh, mm)
   // Two passes settle the offset either side of a clock change.
   const first = wall - offsetMs(new Date(wall), timeZone)
+
   return new Date(wall - offsetMs(new Date(first), timeZone))
 }
 
@@ -312,9 +329,12 @@ export function localFromInstant(instant: Date, timeZone: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).formatToParts(instant)
+
   const get = (type: string) =>
     parts.find((part) => part.type === type)?.value ?? '00'
+
   const hour = get('hour') === '24' ? '00' : get('hour')
+
   return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}`
 }
 
@@ -326,15 +346,18 @@ export function describeSlot(start: Date, end: Date, timeZone: string): string {
     day: 'numeric',
     month: 'short',
   }).format(start)
+
   const time = new Intl.DateTimeFormat('en-GB', {
     timeZone,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
   })
+
   const sameDay =
     localFromInstant(start, timeZone).slice(0, 10) ===
     localFromInstant(end, timeZone).slice(0, 10)
+
   return sameDay
     ? `${day}, ${time.format(start)}–${time.format(end)}`
     : `${day}, ${time.format(start)} – ${new Intl.DateTimeFormat('en-GB', {
@@ -369,14 +392,18 @@ export function findFreeGaps(input: {
   const limit = input.limit ?? 20
   const quarter = 15 * 60_000
   const length = input.minutes * 60_000
+
   const busy = [...input.busy].sort(
     (a, b) => a.start.getTime() - b.start.getTime(),
   )
+
   const gaps: Array<{ start: Date; end: Date }> = []
+
   for (const day of input.days) {
     const open = instantFromLocal(`${day}T${input.dayStart}`, input.timeZone)
     const close = instantFromLocal(`${day}T${input.dayEnd}`, input.timeZone)
     let cursor = Math.max(open.getTime(), input.now.getTime())
+
     for (const interval of [
       ...busy.filter(
         (b) =>
@@ -387,12 +414,16 @@ export function findFreeGaps(input: {
     ]) {
       const snapped = Math.ceil(cursor / quarter) * quarter
       const gapEnd = Math.min(interval.start.getTime(), close.getTime())
+
       if (gapEnd - snapped >= length) {
         gaps.push({ start: new Date(snapped), end: new Date(gapEnd) })
+
         if (gaps.length >= limit) return gaps
       }
+
       cursor = Math.max(cursor, interval.end.getTime())
     }
   }
+
   return gaps
 }

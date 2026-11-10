@@ -6,6 +6,7 @@ import type {
   FilterOperator,
   GroupNode,
 } from '@sheetbase-labs/sheetbase-shared'
+import { z } from 'zod'
 
 import {
   MODEL_FIELD_PREFIX,
@@ -25,6 +26,8 @@ export const SEARCH_SORTS = ['relevance', 'updated', 'created'] as const
 
 export type SearchSort = (typeof SEARCH_SORTS)[number]
 
+// Router input is untrusted and can be any JavaScript value.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
 export function parseSearchSort(value: unknown): SearchSort | undefined {
   return value === 'updated' || value === 'created' ? value : undefined
 }
@@ -53,10 +56,12 @@ export function isEmptyFilter(
 
 const VALUELESS_OPERATORS: ReadonlySet<string> = new Set(['isNull', 'notNull'])
 
-function hasValue(value: unknown): boolean {
+function hasValue(value: ConditionNode['value']): boolean {
   if (value === undefined || value === null) return false
 
-  if (typeof value === 'string') return value.trim() !== ''
+  const text = z.string().safeParse(value)
+
+  if (text.success) return text.data.trim() !== ''
 
   if (Array.isArray(value)) return value.some(hasValue)
 
@@ -85,7 +90,8 @@ export function completeFilter(node: GroupNode): GroupNode | undefined {
 }
 
 export type FilterParam =
-  { f: string; o: string; v?: unknown } | { g: string; k: FilterParam[] }
+  | { f: string; o: string; v?: ConditionNode['value'] }
+  | { g: string; k: FilterParam[] }
 
 type Compact = FilterParam
 
@@ -115,19 +121,38 @@ export function encodeFilter(
   return compact(node) ?? undefined
 }
 
+// Only check the container: reading or reconstructing its properties here would
+// change getter order and the condition budget in the recursive decoder.
+const compactObject = z.custom<Record<string, ConditionNode['value']>>(
+  (value) =>
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof
+    typeof value === 'object' && value !== null && !Array.isArray(value),
+)
+
+type MutableCondition = {
+  -readonly [K in keyof ConditionNode]: ConditionNode[K]
+}
+
+// This recursive decoder is the boundary for untrusted compact URL nodes.
 function expand(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters
   raw: unknown,
   path: string,
   depth: number,
   budget: { left: number },
 ): FilterNode | undefined {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw))
-    return undefined
-  const body = raw as Record<string, unknown>
+  const parsed = compactObject.safeParse(raw)
 
+  if (!parsed.success) return undefined
+  const body = parsed.data
+
+  // Keep the native property reads, including stateful getters, in their original order.
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof
   if (typeof body.g === 'string') {
     if (depth >= FILTER_MAX_DEPTH) return undefined
 
+    // includes checks the second getter read without changing native semantics.
+    // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
     if (!COMBINATORS.includes(body.g as Combinator)) return undefined
 
     if (!Array.isArray(body.k)) return undefined
@@ -142,24 +167,29 @@ function expand(
     return {
       type: 'group',
       id: `n${path}`,
+      // The third read retains the original getter semantics.
+      // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
       combinator: body.g as Combinator,
       children,
     }
   }
 
+  // Preserve repeated native reads of field and operator getters.
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof
   if (typeof body.f !== 'string' || typeof body.o !== 'string') return undefined
   const operator = normaliseOperator(body.o)
 
   if (!body.f || !operator || budget.left <= 0) return undefined
   budget.left -= 1
 
-  const condition: ConditionNode = {
+  const condition: MutableCondition = {
     type: 'condition',
     id: `n${path}`,
     field: body.f,
     operator,
-    ...(body.v === undefined ? {} : { value: body.v }),
   }
+
+  if (body.v !== undefined) condition.value = body.v
 
   return condition
 }
@@ -168,12 +198,16 @@ function expand(
  * The tree for a `filter` URL value. A link someone hand-edited, or one from a
  * newer version, decodes to nothing rather than breaking the page.
  */
+// The public URL boundary accepts parsed values as well as JSON text.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
 export function decodeFilter(raw: unknown): GroupNode | undefined {
   let parsed: unknown = raw
 
-  if (typeof raw === 'string') {
+  const text = z.string().safeParse(raw)
+
+  if (text.success) {
     try {
-      parsed = JSON.parse(raw)
+      parsed = JSON.parse(text.data)
     } catch {
       return undefined
     }
@@ -190,6 +224,8 @@ export function decodeFilter(raw: unknown): GroupNode | undefined {
 }
 
 /** The URL value as it round-trips: what a router should hold for `filter`. */
+// Router input is untrusted until decodeFilter has inspected it.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
 export function normaliseFilterParam(raw: unknown): FilterParam | undefined {
   return encodeFilter(decodeFilter(raw))
 }
@@ -243,7 +279,12 @@ function routeType(condition: ConditionNode): FilterNode {
       ? []
       : [condition.value]
 
-  const isKind = (v: unknown) => typeof v === 'string' && RECORD_KINDS.has(v)
+  const isKind = (v: ConditionNode['value']) => {
+    const text = z.string().safeParse(v)
+
+    return text.success && RECORD_KINDS.has(text.data)
+  }
+
   const kinds = values.filter(isKind)
   const objects = values.filter((v) => !isKind(v))
 
@@ -311,11 +352,13 @@ const ORDERING_OPERATORS = new Set<FilterOperator>([
  * string "10" matched every passage. Numeric text becomes a number for the
  * ordering operators.
  */
-function numericValue(value: unknown): unknown {
+function numericValue(value: ConditionNode['value']): ConditionNode['value'] {
   if (Array.isArray(value)) return value.map(numericValue)
 
-  if (typeof value !== 'string' || value.trim() === '') return value
-  const n = Number(value)
+  const text = z.string().safeParse(value)
+
+  if (!text.success || text.data.trim() === '') return value
+  const n = Number(text.data)
 
   return Number.isFinite(n) ? n : value
 }
@@ -362,18 +405,22 @@ type WireNode =
       type: 'condition'
       field: string
       operator: FilterOperator
-      value?: unknown
+      value?: ConditionNode['value']
     }
   | { type: 'group'; combinator: Combinator; children: WireNode[] }
 
 function toWire(node: FilterNode): WireNode {
-  if (node.type === 'condition')
-    return {
+  if (node.type === 'condition') {
+    const condition: Extract<WireNode, { type: 'condition' }> = {
       type: 'condition',
       field: node.field,
       operator: node.operator,
-      ...(node.value === undefined ? {} : { value: node.value }),
     }
+
+    if (node.value !== undefined) condition.value = node.value
+
+    return condition
+  }
 
   return {
     type: 'group',

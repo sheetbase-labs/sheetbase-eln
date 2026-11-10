@@ -14,8 +14,9 @@ const uuid = parameterUuidSchema
 const key = z.string().regex(/^[a-z][a-z0-9_]{0,59}$/)
 const label = z.string().trim().min(1).max(200)
 const jsonObject = z.record(z.string(), z.unknown())
+
 const presentationFilterSchema = z
-  .object({
+  .strictObject({
     columnId: uuid,
     operator: z.enum(['equals', 'not-equals', 'is-empty', 'is-not-empty']),
     value: z
@@ -27,21 +28,23 @@ const presentationFilterSchema = z
       ])
       .optional(),
   })
-  .strict()
   .refine(
     (value) =>
       (value.operator === 'is-empty' || value.operator === 'is-not-empty') ===
       (value.value === undefined),
     'Only equality filters require a value.',
   )
-const presentationSortSchema = z
-  .object({ columnId: uuid, direction: z.enum(['asc', 'desc']) })
-  .strict()
+
+const presentationSortSchema = z.strictObject({
+  columnId: uuid,
+  direction: z.enum(['asc', 'desc']),
+})
 
 function isCalendarDate(year: number, month: number, day: number) {
   if (year < 1 || month < 1 || month > 12 || day < 1) return false
   const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
   const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
   return day <= days[month - 1]
 }
 
@@ -50,10 +53,13 @@ const isoDate = z
   .regex(/^(\d{4})-(\d{2})-(\d{2})$/)
   .refine((value) => {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+
     if (!match) return false
     const [, year, month, day] = match
+
     return isCalendarDate(Number(year), Number(month), Number(day))
   }, 'Invalid calendar date.')
+
 const isoTimestamp = z
   .string()
   .regex(
@@ -64,9 +70,12 @@ const isoTimestamp = z
       /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(
         value,
       )
+
     if (!match) return false
+
     const [, year, month, day, hour, minute, second, offsetHour, offsetMinute] =
       match
+
     return (
       isCalendarDate(Number(year), Number(month), Number(day)) &&
       Number(hour) <= 23 &&
@@ -97,38 +106,32 @@ function scalarValueSchema(valueType: (typeof FIELD_LOGICAL_TYPES)[number]) {
   }
 }
 
-const optionSchema = z
-  .object({
-    id: uuid,
-    key,
-    label,
-    displayOrder: z.number().int().min(0).max(10_000),
-    lifecycle: z.enum(['active', 'retired']),
-  })
-  .strict()
+const optionSchema = z.strictObject({
+  id: uuid,
+  key,
+  label,
+  displayOrder: z.number().int().min(0).max(10_000),
+  lifecycle: z.enum(['active', 'retired']),
+})
 
 const categorySchema = z.discriminatedUnion('kind', [
-  z
-    .object({
-      kind: z.literal('embedded'),
-      options: z.array(optionSchema).max(256),
-    })
-    .strict(),
-  z.object({ kind: z.literal('vocabulary'), vocabularyId: uuid }).strict(),
+  z.strictObject({
+    kind: z.literal('embedded'),
+    options: z.array(optionSchema).max(256),
+  }),
+  z.strictObject({ kind: z.literal('vocabulary'), vocabularyId: uuid }),
 ])
 
-const relationshipSchema = z
-  .object({
-    target: z.discriminatedUnion('kind', [
-      z.object({ kind: z.literal('model'), modelKey: key }).strict(),
-      z.object({ kind: z.literal('dataset-schema'), schemaId: uuid }).strict(),
-    ]),
-    cardinality: z.enum(['one', 'many']),
-  })
-  .strict()
+const relationshipSchema = z.strictObject({
+  target: z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('model'), modelKey: key }),
+    z.strictObject({ kind: z.literal('dataset-schema'), schemaId: uuid }),
+  ]),
+  cardinality: z.enum(['one', 'many']),
+})
 
 export const sheetFieldDefinitionSchema = z
-  .object({
+  .strictObject({
     fieldId: parameterUuidSchema,
     key,
     label,
@@ -138,34 +141,30 @@ export const sheetFieldDefinitionSchema = z
     defaultValue: z.unknown(),
     cardinality: z.enum(['one', 'many']),
     quantity: z
-      .object({
+      .strictObject({
         kind: label,
         dimension: label,
         storageUnit: label,
         allowedInputUnits: z.array(label).max(32).optional(),
         preferredDisplayUnit: label.optional(),
       })
-      .strict()
       .nullable(),
-    validation: z
-      .object({
-        min: z.number().finite().optional(),
-        max: z.number().finite().optional(),
-        minLength: z.number().int().min(0).max(100_000).optional(),
-        maxLength: z.number().int().min(0).max(100_000).optional(),
-        pattern: z.string().max(1_000).optional(),
-        extensions: jsonObject.optional(),
-      })
-      .strict(),
+    validation: z.strictObject({
+      min: z.number().finite().optional(),
+      max: z.number().finite().optional(),
+      minLength: z.number().int().min(0).max(100_000).optional(),
+      maxLength: z.number().int().min(0).max(100_000).optional(),
+      pattern: z.string().max(1_000).optional(),
+      extensions: jsonObject.optional(),
+    }),
     category: categorySchema.nullable(),
     relationship: relationshipSchema.nullable(),
     computation: z.discriminatedUnion('mode', [
-      z.object({ mode: z.literal('stored') }).strict(),
-      z.object({ mode: z.literal('computed'), expressionId: uuid }).strict(),
+      z.strictObject({ mode: z.literal('stored') }),
+      z.strictObject({ mode: z.literal('computed'), expressionId: uuid }),
     ]),
     lifecycle: z.enum(['draft', 'backfilling', 'active', 'retired']),
   })
-  .strict()
   .superRefine((field, context) => {
     for (const issue of validateFieldDefinition(field)) {
       context.addIssue({
@@ -174,6 +173,7 @@ export const sheetFieldDefinitionSchema = z
         message: issue.message,
       })
     }
+
     if (
       field.category?.kind === 'embedded' &&
       (new Set(field.category.options.map((item) => item.id)).size !==
@@ -187,6 +187,7 @@ export const sheetFieldDefinitionSchema = z
         message: 'Category option IDs and keys must be unique.',
       })
     }
+
     if (
       field.validation.min !== undefined &&
       field.validation.max !== undefined &&
@@ -198,6 +199,7 @@ export const sheetFieldDefinitionSchema = z
         message: 'Validation min must not exceed max.',
       })
     }
+
     if (
       field.validation.minLength !== undefined &&
       field.validation.maxLength !== undefined &&
@@ -209,6 +211,7 @@ export const sheetFieldDefinitionSchema = z
         message: 'Validation minLength must not exceed maxLength.',
       })
     }
+
     if (field.validation.pattern !== undefined) {
       try {
         new RegExp(field.validation.pattern)
@@ -220,8 +223,10 @@ export const sheetFieldDefinitionSchema = z
         })
       }
     }
+
     if (field.quantity?.allowedInputUnits) {
       const units = field.quantity.allowedInputUnits
+
       if (new Set(units).size !== units.length) {
         context.addIssue({
           code: 'custom',
@@ -229,6 +234,7 @@ export const sheetFieldDefinitionSchema = z
           message: 'Allowed input units must be unique.',
         })
       }
+
       if (
         field.quantity.preferredDisplayUnit !== undefined &&
         field.quantity.preferredDisplayUnit !== field.quantity.storageUnit &&
@@ -250,6 +256,7 @@ export const sheetFieldDefinitionSchema = z
         message: 'Preferred display unit must be the storage unit.',
       })
     }
+
     if (
       field.defaultValue !== null &&
       !scalarValueSchema(field.logicalType).safeParse(field.defaultValue)
@@ -261,6 +268,7 @@ export const sheetFieldDefinitionSchema = z
         message: 'Default value must match the field logical type.',
       })
     }
+
     if (
       field.defaultValue !== null &&
       field.logicalType === 'category' &&
@@ -279,117 +287,99 @@ export const sheetFieldDefinitionSchema = z
   })
 
 const configurationSchema = z
-  .object({
+  .strictObject({
     formatVersion: z.literal(SHEET_DEFINITION_CONFIGURATION_FORMAT_VERSION),
     parameters: z.array(parameterSchema).max(64),
     bindings: z
-      .array(z.object({ id: uuid, key, parameterId: uuid }).strict())
+      .array(z.strictObject({ id: uuid, key, parameterId: uuid }))
       .max(64),
-    rowIdentity: z
-      .object({
-        kind: z.enum(['source', 'composite', 'local']),
-        columnIds: z.array(uuid).min(1).max(8),
-      })
-      .strict(),
+    rowIdentity: z.strictObject({
+      kind: z.enum(['source', 'composite', 'local']),
+      columnIds: z.array(uuid).min(1).max(8),
+    }),
     joins: z
       .array(
-        z
-          .object({
-            id: uuid,
-            leftBindingId: uuid,
-            rightBindingId: uuid,
-            leftColumnId: uuid,
-            rightColumnId: uuid,
-            joinType: z.enum(['inner', 'left']),
-            cardinality: z.enum(['one-to-one', 'many-to-one']),
-          })
-          .strict(),
+        z.strictObject({
+          id: uuid,
+          leftBindingId: uuid,
+          rightBindingId: uuid,
+          leftColumnId: uuid,
+          rightColumnId: uuid,
+          joinType: z.enum(['inner', 'left']),
+          cardinality: z.enum(['one-to-one', 'many-to-one']),
+        }),
       )
       .max(16),
     columns: z
       .array(
-        z
-          .object({
-            id: uuid,
-            field: sheetFieldDefinitionSchema,
-            source: z.discriminatedUnion('kind', [
-              z.object({ kind: z.literal('declared') }).strict(),
-              z
-                .object({
-                  kind: z.literal('bound'),
-                  bindingId: uuid,
-                  sourceFieldId: uuid,
-                })
-                .strict(),
-              z
-                .object({ kind: z.literal('calculated'), calculationId: uuid })
-                .strict(),
-            ]),
-          })
-          .strict(),
+        z.strictObject({
+          id: uuid,
+          field: sheetFieldDefinitionSchema,
+          source: z.discriminatedUnion('kind', [
+            z.strictObject({ kind: z.literal('declared') }),
+            z.strictObject({
+              kind: z.literal('bound'),
+              bindingId: uuid,
+              sourceFieldId: uuid,
+            }),
+            z.strictObject({
+              kind: z.literal('calculated'),
+              calculationId: uuid,
+            }),
+          ]),
+        }),
       )
       .max(256),
     calculations: z
       .array(
-        z
-          .object({
-            id: uuid,
-            key,
-            label,
-            outputColumnId: uuid,
-            inputColumnIds: z.array(uuid).max(64),
-            expression: z
-              .object({
-                language: z.literal('sheetbase-formula-v1'),
-                source: z.string().trim().min(1).max(8_192),
-              })
-              .strict(),
-          })
-          .strict(),
+        z.strictObject({
+          id: uuid,
+          key,
+          label,
+          outputColumnId: uuid,
+          inputColumnIds: z.array(uuid).max(64),
+          expression: z.strictObject({
+            language: z.literal('sheetbase-formula-v1'),
+            source: z.string().trim().min(1).max(8_192),
+          }),
+        }),
       )
       .max(128),
     writeBackRules: z
       .array(
-        z
-          .object({
-            id: uuid,
-            bindingId: uuid,
-            mode: z.literal('update'),
-            mappings: z
-              .array(z.object({ columnId: uuid, targetFieldId: uuid }).strict())
-              .min(1)
-              .max(128),
-          })
-          .strict(),
+        z.strictObject({
+          id: uuid,
+          bindingId: uuid,
+          mode: z.literal('update'),
+          mappings: z
+            .array(z.strictObject({ columnId: uuid, targetFieldId: uuid }))
+            .min(1)
+            .max(128),
+        }),
       )
       .max(64),
     actions: z
       .array(
-        z
-          .object({
-            id: uuid,
-            key,
-            label,
-            kind: z.enum(['create-record', 'link-record', 'open-record']),
-            bindingId: uuid.optional(),
-            parameterId: uuid.optional(),
-          })
-          .strict(),
+        z.strictObject({
+          id: uuid,
+          key,
+          label,
+          kind: z.enum(['create-record', 'link-record', 'open-record']),
+          bindingId: uuid.optional(),
+          parameterId: uuid.optional(),
+        }),
       )
       .max(64),
-    presentation: z
-      .object({
-        columnOrder: z.array(uuid).max(256),
-        hiddenColumnIds: z.array(uuid).max(256),
-        columnWidths: z.record(uuid, z.number().int().min(40).max(1_000)),
-        frozenColumnCount: z.number().int().min(0).max(256),
-        density: z.enum(['compact', 'standard', 'comfortable']),
-        filters: z.array(presentationFilterSchema).max(32).default([]),
-        sorts: z.array(presentationSortSchema).max(8).default([]),
-      })
-      .strict(),
+    presentation: z.strictObject({
+      columnOrder: z.array(uuid).max(256),
+      hiddenColumnIds: z.array(uuid).max(256),
+      columnWidths: z.record(uuid, z.number().int().min(40).max(1_000)),
+      frozenColumnCount: z.number().int().min(0).max(256),
+      density: z.enum(['compact', 'standard', 'comfortable']),
+      filters: z.array(presentationFilterSchema).max(32).default([]),
+      sorts: z.array(presentationSortSchema).max(8).default([]),
+    }),
   })
-  .strict()
   .superRefine((configuration, context) => {
     const unique = (items: Array<{ id: string }>, path: string) => {
       if (new Set(items.map((item) => item.id)).size !== items.length) {
@@ -400,6 +390,7 @@ const configurationSchema = z
         })
       }
     }
+
     const uniqueKeys = (items: Array<{ key: string }>, path: string) => {
       if (new Set(items.map((item) => item.key)).size !== items.length) {
         context.addIssue({
@@ -409,6 +400,7 @@ const configurationSchema = z
         })
       }
     }
+
     unique(configuration.parameters, 'parameters')
     unique(configuration.bindings, 'bindings')
     unique(configuration.joins, 'joins')
@@ -428,14 +420,18 @@ const configurationSchema = z
     const parameterIds = new Set(
       configuration.parameters.map((item) => item.id),
     )
+
     const bindingIds = new Set(configuration.bindings.map((item) => item.id))
     const columnIds = new Set(configuration.columns.map((item) => item.id))
+
     const calculationIds = new Set(
       configuration.calculations.map((item) => item.id),
     )
+
     const columnsById = new Map(
       configuration.columns.map((column) => [column.id, column]),
     )
+
     const requireRef = (
       ok: boolean,
       path: (string | number)[],
@@ -461,6 +457,7 @@ const configurationSchema = z
         const parameterBindings = configuration.bindings.filter(
           (binding) => binding.parameterId === parameter.id,
         )
+
         requireRef(
           parameterBindings.length === 1 &&
             parameter.type.contract.requiredFieldIds.every((fieldId) =>
@@ -483,22 +480,27 @@ const configurationSchema = z
         'Unknown column ID.',
       ),
     )
+
     const identityColumns = configuration.rowIdentity.columnIds.map((id) =>
       columnsById.get(id),
     )
+
     const stableIdentityColumn = (
       column: (typeof configuration.columns)[number] | undefined,
     ) =>
       column?.field.computation.mode === 'stored' &&
       column.field.cardinality === 'one' &&
       column.source.kind !== 'calculated'
+
     const sameReferenceRelationship = (
       left: (typeof configuration.columns)[number] | undefined,
       right: (typeof configuration.columns)[number] | undefined,
     ) => {
       const leftRelationship = left?.field.relationship
       const rightRelationship = right?.field.relationship
+
       if (!leftRelationship || !rightRelationship) return false
+
       return (
         leftRelationship.cardinality === rightRelationship.cardinality &&
         leftRelationship.target.kind === rightRelationship.target.kind &&
@@ -511,6 +513,7 @@ const configurationSchema = z
               rightRelationship.target.schemaId)
       )
     }
+
     requireRef(
       new Set(configuration.rowIdentity.columnIds).size ===
         configuration.rowIdentity.columnIds.length,
@@ -543,12 +546,14 @@ const configurationSchema = z
         ['columns', index, 'field', 'fieldId'],
         'Column and FieldDefinition IDs must match.',
       )
+
       if (item.source.kind === 'bound')
         requireRef(
           bindingIds.has(item.source.bindingId),
           ['columns', index, 'source', 'bindingId'],
           'Unknown binding ID.',
         )
+
       if (item.source.kind === 'calculated') {
         requireRef(
           calculationIds.has(item.source.calculationId),
@@ -606,11 +611,13 @@ const configurationSchema = z
         ['calculations', index, 'outputColumnId'],
         'Unknown output column ID.',
       )
+
       const outputs = configuration.columns.filter(
         (column) =>
           column.source.kind === 'calculated' &&
           column.source.calculationId === item.id,
       )
+
       requireRef(
         outputs.length === 1 && outputs[0].id === item.outputColumnId,
         ['calculations', index, 'outputColumnId'],
@@ -668,6 +675,7 @@ const configurationSchema = z
           ['actions', index, 'bindingId'],
           'Unknown binding ID.',
         )
+
       if (item.parameterId)
         requireRef(
           parameterIds.has(item.parameterId),
@@ -675,6 +683,7 @@ const configurationSchema = z
           'Unknown parameter ID.',
         )
     })
+
     for (const [path, ids] of [
       ['columnOrder', configuration.presentation.columnOrder],
       ['hiddenColumnIds', configuration.presentation.hiddenColumnIds],
@@ -692,6 +701,7 @@ const configurationSchema = z
         ),
       )
     }
+
     Object.keys(configuration.presentation.columnWidths).forEach((id) =>
       requireRef(
         columnIds.has(id),

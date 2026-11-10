@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
   applyFavouriteChange,
@@ -8,7 +9,7 @@ import {
   resolveFavouriteItems,
   setFavourite,
 } from './favourites'
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
 import type { Favourite, FavouriteObjectKind } from './favourites'
 
 // ---------------------------------------------------------------------------
@@ -24,6 +25,53 @@ const favourite = (
   id: string,
   createdAt: string,
 ): Favourite => ({ kind, id, createdAt })
+
+function listClient(response: (url: URL) => Response) {
+  return createDataClient((input, init) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input.toString(),
+      'http://localhost',
+    )
+
+    expect(init?.method).toBe('GET')
+    expect(url.pathname).toMatch(
+      /^\/api\/db\/(user_favourites|records|datasets|sheet_instances|projects|notebook_templates|instruments|pipeline_definitions|analysis_views)$/,
+    )
+
+    return Promise.resolve(response(url))
+  })
+}
+
+function clientWithRows(
+  rows: Record<string, z.infer<ReturnType<typeof z.json>>[]>,
+) {
+  const byPath = new Map(
+    Object.entries(rows).map(([resource, values]) => [
+      `/api/db/${resource}`,
+      values,
+    ]),
+  )
+
+  return listClient((url) => Response.json(byPath.get(url.pathname) ?? []))
+}
+
+const favouriteWrite = z.object({
+  p_object_kind: z.string(),
+  p_object_id: z.string(),
+  p_favourite: z.boolean(),
+})
+
+class NativeFavouriteResponse extends Response {
+  constructor(
+    private readonly result: string | { created_at?: string } | null,
+  ) {
+    super(null)
+  }
+
+  override async json() {
+    return this.result
+  }
+}
 
 // ---------------------------------------------------------------------------
 // orderFavourites — deterministic ordering and capping.
@@ -134,26 +182,24 @@ describe('fetchFavourites', () => {
   it('reads RLS-scoped rows through the /api/db boundary, newest first', async () => {
     const queries: string[] = []
 
-    const client = {
-      list: (resource: string, query: string) => {
-        queries.push(resource + query)
+    const client = listClient((url) => {
+      queries.push(url.pathname.slice('/api/db/'.length) + url.search)
 
-        return Promise.resolve([
-          {
-            user_id: 'user-1',
-            object_kind: 'record',
-            object_id: 'r-1',
-            created_at: T1,
-          },
-          {
-            user_id: 'user-1',
-            object_kind: 'sheet',
-            object_id: 's-1',
-            created_at: T2,
-          },
-        ])
-      },
-    } as unknown as DataClient
+      return Response.json([
+        {
+          user_id: 'user-1',
+          object_kind: 'record',
+          object_id: 'r-1',
+          created_at: T1,
+        },
+        {
+          user_id: 'user-1',
+          object_kind: 'sheet',
+          object_id: 's-1',
+          created_at: T2,
+        },
+      ])
+    })
 
     const favourites = await fetchFavourites(client)
     expect(favourites.map((f) => `${f.kind}:${f.id}`)).toEqual([
@@ -168,15 +214,25 @@ describe('fetchFavourites', () => {
 
 describe('setFavourite', () => {
   it('writes through the set_record_favourite RPC with stable identity', async () => {
-    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const calls: Array<{ name: string; args: z.infer<typeof favouriteWrite> }> =
+      []
 
-    const client = {
-      rpc: (name: string, args: Record<string, unknown>) => {
-        calls.push({ name, args })
+    const client = createDataClient(async (input, init) => {
+      const url = new URL(
+        input instanceof Request ? input.url : input.toString(),
+        'http://localhost',
+      )
 
-        return Promise.resolve(T1)
-      },
-    } as unknown as DataClient
+      const request = new Request(url, init)
+      expect(request.method).toBe('POST')
+      expect(url.pathname).toBe('/api/db/rpc/set_record_favourite')
+      calls.push({
+        name: url.pathname.split('/').at(-1) ?? '',
+        args: favouriteWrite.parse(await request.json()),
+      })
+
+      return Response.json(T1)
+    })
 
     const createdAt = await setFavourite(client, 'project', 'p-1', true)
     expect(createdAt).toBe(T1)
@@ -193,17 +249,70 @@ describe('setFavourite', () => {
   })
 
   it('normalises the scalar timestamptz return and the null (removed/ignored) return', async () => {
-    const stringClient = {
-      rpc: () => Promise.resolve(T2),
-    } as unknown as DataClient
+    const stringClient = createDataClient(() =>
+      Promise.resolve(Response.json(T2)),
+    )
 
     expect(await setFavourite(stringClient, 'record', 'r-1', true)).toBe(T2)
 
-    const nullClient = {
-      rpc: () => Promise.resolve(null),
-    } as unknown as DataClient
+    const nullClient = createDataClient(() =>
+      Promise.resolve(Response.json(null)),
+    )
 
     expect(await setFavourite(nullClient, 'record', 'r-1', false)).toBeNull()
+  })
+
+  it('preserves empty strings, object timestamps, missing timestamps and native getter results without coercion', async () => {
+    for (const { value, expected } of [
+      { value: '', expected: '' },
+      { value: { created_at: T0 }, expected: T0 },
+      { value: { created_at: '' }, expected: '' },
+      { value: {}, expected: null },
+    ]) {
+      const client = createDataClient(() =>
+        Promise.resolve(Response.json(value)),
+      )
+
+      expect(await setFavourite(client, 'record', 'r-1', true)).toBe(expected)
+    }
+
+    const reads: string[] = []
+
+    const native = {
+      get created_at() {
+        reads.push('created_at')
+
+        return T2
+      },
+      get unused() {
+        throw new Error('must not inspect unrelated native fields')
+      },
+      toString() {
+        throw new Error('must not coerce native results')
+      },
+    }
+
+    const client = createDataClient(() =>
+      Promise.resolve(new NativeFavouriteResponse(native)),
+    )
+
+    expect(await setFavourite(client, 'record', 'r-1', true)).toBe(T2)
+    expect(reads).toEqual(['created_at'])
+    const failure = new Error('timestamp getter')
+
+    const failing = createDataClient(() =>
+      Promise.resolve(
+        new NativeFavouriteResponse({
+          get created_at(): string {
+            throw failure
+          },
+        }),
+      ),
+    )
+
+    await expect(setFavourite(failing, 'record', 'r-1', true)).rejects.toBe(
+      failure,
+    )
   })
 })
 
@@ -212,16 +321,120 @@ describe('setFavourite', () => {
 // ---------------------------------------------------------------------------
 
 describe('resolveFavouriteItems', () => {
-  function clientWithRows(rows: Record<string, unknown[]>): DataClient {
-    return {
-      list: (resource: string) => Promise.resolve(rows[resource] ?? []),
-      count: () => Promise.resolve(0),
-      rpc: () => Promise.resolve({}),
-      insert: () => Promise.resolve({}),
-      patch: () => Promise.resolve([]),
-      remove: () => Promise.resolve([]),
-    } as unknown as DataClient
-  }
+  it('resolves independent canonical kinds concurrently without changing input order when reads finish out of order', async () => {
+    let resolveRecord: ((response: Response) => void) | undefined
+
+    const record = new Promise<Response>((resolve) => {
+      resolveRecord = resolve
+    })
+
+    const started: string[] = []
+
+    const client = createDataClient((input) => {
+      const path = new URL(
+        input instanceof Request ? input.url : input.toString(),
+        'http://localhost',
+      ).pathname
+
+      started.push(path)
+
+      if (path === '/api/db/records') return record
+
+      const names = new Map([
+        [
+          '/api/db/instruments',
+          { id: 'i', name: 'Instrument', display_id: 'INS-1' },
+        ],
+        [
+          '/api/db/pipeline_definitions',
+          { id: 'p', name: 'Pipeline', display_id: 'PIP-1' },
+        ],
+        [
+          '/api/db/analysis_views',
+          { id: 'a', name: 'Analysis', display_id: 'AN-1' },
+        ],
+      ])
+
+      const row = names.get(path)
+      expect(row).toBeDefined()
+
+      return Promise.resolve(Response.json([row]))
+    })
+
+    const result = resolveFavouriteItems(client, [
+      favourite('analysis_view', 'a', T0),
+      favourite('record', 'r', T1),
+      favourite('pipeline', 'p', T2),
+      favourite('instrument', 'i', T0),
+    ])
+
+    if (!resolveRecord)
+      throw new Error('Deferred HTTP response was not initialized')
+
+    try {
+      await vi.waitFor(() => expect(started).toHaveLength(4))
+    } finally {
+      resolveRecord(
+        Response.json([
+          {
+            id: 'r',
+            kind: 'experiment',
+            identifier: 'EXP-1',
+            title: 'Notebook',
+            archived_at: null,
+            deleted_at: null,
+          },
+        ]),
+      )
+    }
+
+    expect(
+      (await result).map(({ label, destination }) => [label, destination]),
+    ).toEqual([
+      ['Analysis', '/analysis/a'],
+      ['Notebook', '/experiments/r'],
+      ['Pipeline', '/pipelines/p'],
+      ['Instrument', '/instruments/i'],
+    ])
+  })
+
+  it('propagates canonical read refusal instead of returning partial visible favourites', async () => {
+    const client = createDataClient((input) => {
+      const path = new URL(
+        input instanceof Request ? input.url : input.toString(),
+        'http://localhost',
+      ).pathname
+
+      return Promise.resolve(
+        path === '/api/db/instruments'
+          ? Response.json(
+              { code: 'permission_denied', message: 'not visible' },
+              { status: 403 },
+            )
+          : Response.json([
+              {
+                id: 'r',
+                kind: 'experiment',
+                identifier: 'EXP-1',
+                title: 'Notebook',
+                archived_at: null,
+                deleted_at: null,
+              },
+            ]),
+      )
+    })
+
+    await expect(
+      resolveFavouriteItems(client, [
+        favourite('record', 'r', T1),
+        favourite('instrument', 'i', T0),
+      ]),
+    ).rejects.toMatchObject({
+      code: 'permission_denied',
+      status: 403,
+      message: 'not visible',
+    })
+  })
 
   it('labels every kind and routes through the canonical destination helpers', async () => {
     const items = await resolveFavouriteItems(
@@ -368,49 +581,50 @@ describe('resolveFavouriteItems', () => {
 
 describe('fetchFavouriteItems', () => {
   it('fetches rows then resolves labels, preserving the order and cap', async () => {
-    const client = {
-      list: (resource: string, query: string) => {
-        if (resource === 'user_favourites') {
-          expect(query).toContain('order=created_at.desc')
+    const client = listClient((url) => {
+      const resource = url.pathname.split('/').at(-1)
+      const query = url.search
 
-          return Promise.resolve([
-            {
-              user_id: 'u',
-              object_kind: 'project',
-              object_id: 'p-1',
-              created_at: T0,
-            },
-            {
-              user_id: 'u',
-              object_kind: 'record',
-              object_id: 'r-1',
-              created_at: T1,
-            },
-          ])
-        }
+      if (resource === 'user_favourites') {
+        expect(query).toContain('order=created_at.desc')
 
-        if (resource === 'records') {
-          return Promise.resolve([
-            {
-              id: 'r-1',
-              kind: 'experiment',
-              identifier: 'EXP-1',
-              title: 'Experiment one',
-              archived_at: null,
-              deleted_at: null,
-            },
-          ])
-        }
+        return Response.json([
+          {
+            user_id: 'u',
+            object_kind: 'project',
+            object_id: 'p-1',
+            created_at: T0,
+          },
+          {
+            user_id: 'u',
+            object_kind: 'record',
+            object_id: 'r-1',
+            created_at: T1,
+          },
+        ])
+      }
 
-        if (resource === 'projects') {
-          return Promise.resolve([
-            { id: 'p-1', key: 'LV-1', title: 'Stability', archived_at: null },
-          ])
-        }
+      if (resource === 'records') {
+        return Response.json([
+          {
+            id: 'r-1',
+            kind: 'experiment',
+            identifier: 'EXP-1',
+            title: 'Experiment one',
+            archived_at: null,
+            deleted_at: null,
+          },
+        ])
+      }
 
-        return Promise.resolve([])
-      },
-    } as unknown as DataClient
+      if (resource === 'projects') {
+        return Response.json([
+          { id: 'p-1', key: 'LV-1', title: 'Stability', archived_at: null },
+        ])
+      }
+
+      return Response.json([])
+    })
 
     const items = await fetchFavouriteItems(client, 1)
     expect(items).toHaveLength(1)
@@ -426,49 +640,49 @@ describe('fetchFavouriteItems', () => {
     // A hidden (archived) favourite sits newest. Capping raw rows before
     // resolution would consume the whole visible budget on it; resolving a
     // wider window first must surface the next open favourite instead.
-    const client = {
-      list: (resource: string) => {
-        if (resource === 'user_favourites') {
-          return Promise.resolve([
-            {
-              user_id: 'u',
-              object_kind: 'record',
-              object_id: 'r-hidden',
-              created_at: T2,
-            },
-            {
-              user_id: 'u',
-              object_kind: 'record',
-              object_id: 'r-visible',
-              created_at: T1,
-            },
-          ])
-        }
+    const client = listClient((url) => {
+      const resource = url.pathname.split('/').at(-1)
 
-        if (resource === 'records') {
-          return Promise.resolve([
-            {
-              id: 'r-hidden',
-              kind: 'experiment',
-              identifier: 'EXP-0',
-              title: 'Archived experiment',
-              archived_at: T0,
-              deleted_at: null,
-            },
-            {
-              id: 'r-visible',
-              kind: 'experiment',
-              identifier: 'EXP-1',
-              title: 'Open experiment',
-              archived_at: null,
-              deleted_at: null,
-            },
-          ])
-        }
+      if (resource === 'user_favourites') {
+        return Response.json([
+          {
+            user_id: 'u',
+            object_kind: 'record',
+            object_id: 'r-hidden',
+            created_at: T2,
+          },
+          {
+            user_id: 'u',
+            object_kind: 'record',
+            object_id: 'r-visible',
+            created_at: T1,
+          },
+        ])
+      }
 
-        return Promise.resolve([])
-      },
-    } as unknown as DataClient
+      if (resource === 'records') {
+        return Response.json([
+          {
+            id: 'r-hidden',
+            kind: 'experiment',
+            identifier: 'EXP-0',
+            title: 'Archived experiment',
+            archived_at: T0,
+            deleted_at: null,
+          },
+          {
+            id: 'r-visible',
+            kind: 'experiment',
+            identifier: 'EXP-1',
+            title: 'Open experiment',
+            archived_at: null,
+            deleted_at: null,
+          },
+        ])
+      }
+
+      return Response.json([])
+    })
 
     const items = await fetchFavouriteItems(client, 1)
     expect(items).toHaveLength(1)

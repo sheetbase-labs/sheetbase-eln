@@ -18,108 +18,110 @@ export interface RunErrorGuidance {
   retryHelps: boolean
 }
 
-const GUIDANCE: Record<string, RunErrorGuidance> = {
-  invalid_configuration: {
-    title: t('data.runErrors.pipelineSetUpCorrectly'),
-    hint: t('data.runErrors.openPipelineFixWhat'),
-    fix: 'steps',
-    retryHelps: false,
-  },
-  invalid_run_request: {
-    title: t('data.runErrors.runStartedValuesPipeline'),
-    hint: t('data.runErrors.startAgainCheckParameters'),
-    fix: 'inputs',
-    retryHelps: false,
-  },
-  input_not_found: {
-    title: t('data.runErrors.inputDatasetVersionAvailable'),
-    hint: t('data.runErrors.startNewRunPick'),
-    fix: 'inputs',
-    retryHelps: false,
-  },
-  input_too_large: {
-    title: t('data.runErrors.inputLargerThanPipeline'),
-    hint: t('data.runErrors.narrowInputExampleSmaller'),
-    fix: 'inputs',
-    retryHelps: false,
-  },
-  transform_rejected: {
-    title: t('data.runErrors.transformUsesSomethingPipelines'),
-    hint: t('data.runErrors.editSqlStepsTab'),
-    fix: 'steps',
-    retryHelps: false,
-  },
-  transform_failed: {
-    title: t('data.runErrors.transformCouldRun'),
-    hint: t('data.runErrors.editSqlStepsTab2'),
-    fix: 'steps',
-    retryHelps: false,
-  },
-  transform_timed_out: {
-    title: t('data.runErrors.transformTookTooLong'),
-    hint: t('data.runErrors.simplifySqlReadLess'),
-    fix: 'steps',
-    retryHelps: true,
-  },
-  PL003: {
-    title: t('data.runErrors.pipelineRanOutTemporary'),
-    hint: t('data.runErrors.freeExpandPipelineWorker'),
-    fix: null,
-    retryHelps: true,
-  },
-  row_limit_exceeded: {
-    title: t('data.runErrors.resultTooLarge'),
-    hint: t('data.runErrors.filterAggregateTransformSo'),
-    fix: 'steps',
-    retryHelps: false,
-  },
-  output_schema_not_found: {
-    title: t('data.runErrors.outputSchemaAvailable'),
-    hint: t('data.runErrors.chooseActiveSchemaVersion'),
-    fix: 'output',
-    retryHelps: false,
-  },
-  output_target_not_found: {
-    title: t('data.runErrors.outputDatasetAvailable'),
-    hint: t('data.runErrors.chooseAnotherDatasetOutput'),
-    fix: 'output',
-    retryHelps: false,
-  },
-  output_column_mapping: {
-    title: t('data.runErrors.resultDoesFitOutput'),
-    hint: t('data.runErrors.renameResultColumnsSql'),
-    fix: 'output',
-    retryHelps: false,
-  },
-  output_value_invalid: {
-    title: t('data.runErrors.resultValueDoesFit'),
-    hint: t('data.runErrors.checkValueTypesSql'),
-    fix: 'output',
-    retryHelps: false,
-  },
-  contract_blocked: {
-    title: t('contracts.pipeline.blockedTitle'),
-    hint: t('contracts.pipeline.blockedHint'),
-    fix: 'output',
-    retryHelps: false,
-  },
-  dataset_commit_failed: {
-    title: t('data.runErrors.outputDatasetRefusedRows'),
-    hint: t('data.runErrors.messageBelowSaysWhich'),
-    fix: 'output',
-    retryHelps: false,
-  },
-  pipeline_internal: {
-    title: t('data.runErrors.runFailedInsideSheetbase'),
-    hint: t('data.runErrors.runningAgainMayWork'),
-    fix: null,
-    retryHelps: true,
-  },
-}
+const GUIDANCE = new Map<string, RunErrorGuidance>(
+  Object.entries({
+    invalid_configuration: {
+      title: t('data.runErrors.pipelineSetUpCorrectly'),
+      hint: t('data.runErrors.openPipelineFixWhat'),
+      fix: 'steps',
+      retryHelps: false,
+    },
+    invalid_run_request: {
+      title: t('data.runErrors.runStartedValuesPipeline'),
+      hint: t('data.runErrors.startAgainCheckParameters'),
+      fix: 'inputs',
+      retryHelps: false,
+    },
+    input_not_found: {
+      title: t('data.runErrors.inputDatasetVersionAvailable'),
+      hint: t('data.runErrors.startNewRunPick'),
+      fix: 'inputs',
+      retryHelps: false,
+    },
+    input_too_large: {
+      title: t('data.runErrors.inputLargerThanPipeline'),
+      hint: t('data.runErrors.narrowInputExampleSmaller'),
+      fix: 'inputs',
+      retryHelps: false,
+    },
+    transform_rejected: {
+      title: t('data.runErrors.transformUsesSomethingPipelines'),
+      hint: t('data.runErrors.editSqlStepsTab'),
+      fix: 'steps',
+      retryHelps: false,
+    },
+    transform_failed: {
+      title: t('data.runErrors.transformCouldRun'),
+      hint: t('data.runErrors.editSqlStepsTab2'),
+      fix: 'steps',
+      retryHelps: false,
+    },
+    transform_timed_out: {
+      title: t('data.runErrors.transformTookTooLong'),
+      hint: t('data.runErrors.simplifySqlReadLess'),
+      fix: 'steps',
+      retryHelps: true,
+    },
+    PL003: {
+      title: t('data.runErrors.pipelineRanOutTemporary'),
+      hint: t('data.runErrors.freeExpandPipelineWorker'),
+      fix: null,
+      retryHelps: true,
+    },
+    row_limit_exceeded: {
+      title: t('data.runErrors.resultTooLarge'),
+      hint: t('data.runErrors.filterAggregateTransformSo'),
+      fix: 'steps',
+      retryHelps: false,
+    },
+    output_schema_not_found: {
+      title: t('data.runErrors.outputSchemaAvailable'),
+      hint: t('data.runErrors.chooseActiveSchemaVersion'),
+      fix: 'output',
+      retryHelps: false,
+    },
+    output_target_not_found: {
+      title: t('data.runErrors.outputDatasetAvailable'),
+      hint: t('data.runErrors.chooseAnotherDatasetOutput'),
+      fix: 'output',
+      retryHelps: false,
+    },
+    output_column_mapping: {
+      title: t('data.runErrors.resultDoesFitOutput'),
+      hint: t('data.runErrors.renameResultColumnsSql'),
+      fix: 'output',
+      retryHelps: false,
+    },
+    output_value_invalid: {
+      title: t('data.runErrors.resultValueDoesFit'),
+      hint: t('data.runErrors.checkValueTypesSql'),
+      fix: 'output',
+      retryHelps: false,
+    },
+    contract_blocked: {
+      title: t('contracts.pipeline.blockedTitle'),
+      hint: t('contracts.pipeline.blockedHint'),
+      fix: 'output',
+      retryHelps: false,
+    },
+    dataset_commit_failed: {
+      title: t('data.runErrors.outputDatasetRefusedRows'),
+      hint: t('data.runErrors.messageBelowSaysWhich'),
+      fix: 'output',
+      retryHelps: false,
+    },
+    pipeline_internal: {
+      title: t('data.runErrors.runFailedInsideSheetbase'),
+      hint: t('data.runErrors.runningAgainMayWork'),
+      fix: null,
+      retryHelps: true,
+    },
+  } satisfies Record<string, RunErrorGuidance>),
+)
 
 /** Guidance for a code; an unknown code (Python, newer engines) may be retried. */
 export function explainRunError(code: string | null): RunErrorGuidance {
-  const known = code ? GUIDANCE[code] : undefined
+  const known = code ? GUIDANCE.get(code) : undefined
 
   return (
     known ?? {

@@ -17,9 +17,13 @@ function field(over: Partial<ModelFieldDefinition>): ModelFieldDefinition {
     logicalType: 'integer',
     nullable: true,
     defaultValue: null,
+    displayOrder: 1,
+    unit: null,
+    validation: {},
+    lifecycle: 'active',
     options: [],
     ...over,
-  } as unknown as ModelFieldDefinition
+  }
 }
 
 describe('model record edit', () => {
@@ -56,8 +60,30 @@ describe('model record edit', () => {
     ).toEqual({})
   })
 
+  it('preserves an own scientific __proto__ field through edit and clearing', () => {
+    const scientific = field({ fieldName: '__proto__', logicalType: 'text' })
+    const stored = JSON.parse('{"__proto__":"before"}')
+    const initial = initialModelFieldValues([scientific], stored)
+    expect(Object.hasOwn(initial, '__proto__')).toBe(true)
+    expect(initial.__proto__).toBe('before')
+    const current = Object.fromEntries([['__proto__', 'after']])
+    const changed = changedModelFieldValues([scientific], initial, current)
+    expect(Object.hasOwn(changed, '__proto__')).toBe(true)
+    expect(changed.__proto__).toBe('after')
+    expect(
+      changedModelFieldValues(
+        [scientific],
+        initial,
+        Object.fromEntries([['__proto__', '']]),
+      ),
+    ).toEqual(JSON.parse('{"__proto__":null}'))
+  })
+
   it('names a concurrent edit and a locked record', () => {
     expect(describeFieldEditError({ code: 'SB001' })).toMatch(/Someone else/)
     expect(describeFieldEditError({ code: 'SB011' })).toMatch(/locked/)
+    expect(describeFieldEditError({ code: { nested: 'SB011' } })).toBe(
+      'Could not save the changes.',
+    )
   })
 })

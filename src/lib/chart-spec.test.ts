@@ -6,6 +6,9 @@ import {
   applyFilters,
   formatScientific,
   chartSpecReferencedFieldIds,
+  chartStringParameter,
+  chartShelfUnitLabel,
+  chartUnitSymbol,
   materialiseChart,
   materialiseFacetedCharts,
   validateChartPayload,
@@ -18,6 +21,54 @@ const COL_DAYS = '0198d970-e266-4000-8000-000000000002'
 const COL_GCN = '0198d970-e266-4000-8000-000000000003'
 const COL_REP = '0198d970-e266-4000-8000-000000000004'
 const COL_ERR = '0198d970-e266-4000-8000-000000000005'
+
+describe('authoring display metadata', () => {
+  it('retains arbitrary parameter strings and uses the caller fallback only for nonstrings', () => {
+    expect(chartStringParameter('future-aggregate', 'mean')).toBe(
+      'future-aggregate',
+    )
+    expect(chartStringParameter('', 'zscore')).toBe('')
+    expect(chartStringParameter('  future method  ', 'zscore')).toBe(
+      '  future method  ',
+    )
+
+    for (const value of [undefined, null, 7, false, {}, ['mean']]) {
+      expect(chartStringParameter(value)).toBe('')
+      expect(chartStringParameter(value, 'mean')).toBe('mean')
+      expect(chartStringParameter(value, 'zscore')).toBe('zscore')
+    }
+  })
+
+  it('keeps shelf symbols distinct from storage units and preserves their whitespace', () => {
+    const metadata = { storageUnit: 'g/L', symbol: ' mg/mL ' }
+    expect(chartShelfUnitLabel(metadata)).toBe(' mg/mL ')
+    expect(chartUnitSymbol(metadata)).toBe('g/L')
+    expect(chartShelfUnitLabel(' mg/L ')).toBe(' mg/L ')
+    expect(chartUnitSymbol(' mg/L ')).toBeUndefined()
+    expect(chartShelfUnitLabel({ symbol: ' ' })).toBe(' ')
+    expect(
+      chartShelfUnitLabel(Object.assign([], { symbol: 'array-symbol' })),
+    ).toBe('array-symbol')
+    expect(
+      chartShelfUnitLabel(
+        Object.assign(new Date(), { symbol: 'native-symbol' }),
+      ),
+    ).toBe('native-symbol')
+
+    for (const invalidMetadata of [
+      '',
+      '  ',
+      undefined,
+      null,
+      4,
+      { symbol: '' },
+      { symbol: 4 },
+      { storageUnit: 'g/L' },
+    ]) {
+      expect(chartShelfUnitLabel(invalidMetadata)).toBeNull()
+    }
+  })
+})
 
 function baseSpec(overrides: Partial<ChartSpec> = {}): ChartSpec {
   return {
@@ -103,9 +154,7 @@ describe('validateChartSpec', () => {
   })
 
   it('rejects an unsupported chart type', () => {
-    const errors = validateChartSpec(
-      baseSpec({ type: 'pie' as unknown as ChartSpec['type'] }),
-    )
+    const errors = validateChartSpec({ ...baseSpec(), type: 'pie' })
 
     expect(errors.some((e) => e.code === 'unsupported_type')).toBe(true)
   })
@@ -167,29 +216,27 @@ describe('validateChartSpec', () => {
   })
 
   it('rejects error bars without a basis', () => {
-    const errors = validateChartSpec(
-      baseSpec({
-        overlays: {
-          errorBars: {
-            fieldId: COL_ERR,
-            basis: 'magic' as unknown as never,
-          },
+    const errors = validateChartSpec({
+      ...baseSpec(),
+      overlays: {
+        errorBars: {
+          fieldId: COL_ERR,
+          basis: 'magic',
         },
-      }),
-    )
+      },
+    })
 
     expect(errors.some((e) => e.field === 'spec.overlays.errorBars')).toBe(true)
   })
 
   it('rejects a missing y field binding', () => {
-    const errors = validateChartSpec(
-      baseSpec({
-        fields: {
-          ...baseSpec().fields,
-          y: null as unknown as ChartSpec['fields']['y'],
-        },
-      }),
-    )
+    const errors = validateChartSpec({
+      ...baseSpec(),
+      fields: {
+        ...baseSpec().fields,
+        y: null,
+      },
+    })
 
     expect(errors.some((e) => e.field === 'spec.fields.y')).toBe(true)
   })
@@ -223,20 +270,18 @@ describe('validateChartSpec', () => {
       ).some((e) => e.field === 'spec.typeParams.strip.jitter'),
     ).toBe(true)
     expect(
-      validateChartSpec(
-        baseSpec({
-          type: 'summary',
-          typeParams: { summary: { statistic: 'mode' as never } },
-        }),
-      ).some((e) => e.field === 'spec.typeParams.summary.statistic'),
+      validateChartSpec({
+        ...baseSpec(),
+        type: 'summary',
+        typeParams: { summary: { statistic: 'mode' } },
+      }).some((e) => e.field === 'spec.typeParams.summary.statistic'),
     ).toBe(true)
     expect(
-      validateChartSpec(
-        baseSpec({
-          type: 'bar',
-          typeParams: { bar: { stacking: 'overlay' as never } },
-        }),
-      ).some((e) => e.field === 'spec.typeParams.bar.stacking'),
+      validateChartSpec({
+        ...baseSpec(),
+        type: 'bar',
+        typeParams: { bar: { stacking: 'overlay' } },
+      }).some((e) => e.field === 'spec.typeParams.bar.stacking'),
     ).toBe(true)
     expect(
       validateChartSpec(
@@ -261,6 +306,82 @@ describe('validateChartSpec', () => {
   })
 })
 
+describe('persisted chart validation compatibility', () => {
+  it('retains diagnostic order across independent invalid fields', () => {
+    const errors = validateChartSpec({
+      specVersion: 99,
+      type: 'pie',
+      datasets: [{ datasetId: 'bad', datasetVersionId: 'also-bad' }],
+      fields: { y: null },
+      filters: [{ fieldId: 'bad', op: 'bad' }],
+      transformations: [{ kind: 'bad', params: null }],
+      typeParams: [],
+      display: {
+        axes: { x: { scale: 'bad', label: 2, unit: false }, y: null },
+        series: [],
+      },
+      overlays: { errorBars: { basis: 'bad', multiplier: 0 } },
+    })
+
+    expect(errors.map(({ code, field }) => ({ code, field }))).toEqual([
+      { code: 'unsupported_spec_version', field: 'spec.specVersion' },
+      { code: 'unsupported_type', field: 'spec.type' },
+      {
+        code: 'invalid_dataset_reference',
+        field: 'spec.datasets[0].datasetId',
+      },
+      { code: 'missing_field', field: 'spec.fields.y' },
+      { code: 'invalid_value', field: 'spec.filters[0]' },
+      { code: 'invalid_value', field: 'spec.filters[0].op' },
+      { code: 'invalid_value', field: 'spec.transformations[0].kind' },
+      { code: 'invalid_value', field: 'spec.transformations[0].params' },
+      { code: 'invalid_shape', field: 'spec.typeParams' },
+      { code: 'invalid_value', field: 'spec.display.axes.x.label' },
+      { code: 'invalid_value', field: 'spec.display.axes.x.scale' },
+      { code: 'invalid_value', field: 'spec.display.axes.x.unit' },
+      { code: 'invalid_shape', field: 'spec.display.axes.y' },
+      { code: 'invalid_value', field: 'spec.overlays.errorBars' },
+      { code: 'invalid_value', field: 'spec.overlays.errorBars.multiplier' },
+    ])
+  })
+
+  it('does not tighten partial historical display metadata or mutate extension keys', () => {
+    const metadata = Object.fromEntries([
+      ['__proto__', { scientific: 'retained' }],
+    ])
+
+    const spec = {
+      ...baseSpec(),
+      fields: { x: { fieldId: COL_DAYS }, y: { fieldId: COL_GCN } },
+      typeParams: null,
+      display: {
+        axes: { x: { scale: 'linear', label: null }, y: { scale: 'linear' } },
+        series: [],
+      },
+      scientific: metadata,
+    }
+
+    expect(validateChartSpec(spec)).toEqual([])
+    expect(Object.hasOwn(spec.fields, 'series')).toBe(false)
+    expect(Object.hasOwn(spec.display.axes.y, 'unit')).toBe(false)
+    expect(
+      Object.getOwnPropertyDescriptor(spec.scientific, '__proto__')?.value,
+    ).toEqual({ scientific: 'retained' })
+    expect(
+      validateChartPayload({
+        title: 'Retained evidence',
+        spec,
+        frozen: {
+          frozenAt: 'historical',
+          frozenByUserId: 'user',
+          datasetProvenance: [],
+          data: {},
+        },
+      }),
+    ).toEqual([])
+  })
+})
+
 describe('validateChartPayload', () => {
   it('accepts an empty draft payload', () => {
     expect(validateChartPayload({})).toEqual([])
@@ -281,6 +402,7 @@ describe('validateChartPayload', () => {
 describe('applyFilters', () => {
   it('passes all rows when no filters', () => {
     expect(applyFilters(ROWS, [])).toHaveLength(ROWS.length)
+    expect(applyFilters(ROWS, [])).toBe(ROWS)
   })
   it('filters by a numeric gt predicate', () => {
     const out = applyFilters(ROWS, [{ fieldId: COL_DAYS, op: 'gt', value: 0 }])
@@ -307,6 +429,90 @@ describe('applyFilters', () => {
 })
 
 describe('materialiseChart', () => {
+  it('retains raw scientific keys and native category labels at the public row boundary', () => {
+    const nested = Object.fromEntries([['__proto__', { value: 5 }]])
+
+    const row = Object.fromEntries([
+      [COL_DAYS, 1],
+      [COL_GCN, 5],
+      [COL_REP, nested],
+      ['__proto__', nested],
+    ])
+
+    const spec = baseSpec({
+      fields: { ...baseSpec().fields, series: { fieldId: COL_REP } },
+    })
+
+    const chart = materialiseChart(spec, COLUMNS, [row])
+
+    expect(chart.state.kind).toBe('ok')
+    expect(chart.rows[0]).toBe(row)
+    expect(chart.rows[0]?.['__proto__']).toBe(nested)
+    expect(Object.hasOwn(nested, '__proto__')).toBe(true)
+    expect(chart.series.map((series) => series.identifier)).toEqual([
+      '[object Object]',
+    ])
+    expect(chart.series[0]?.points[0]?.y).toBe(5)
+  })
+
+  it('counts missing and non-finite cells without changing boolean and numeric-text conversion', () => {
+    const values = [
+      NaN,
+      Infinity,
+      -Infinity,
+      undefined,
+      null,
+      false,
+      true,
+      '2.5',
+      '',
+      {},
+    ]
+
+    const rows = values.map((value, index) => ({
+      [COL_DAYS]: index + 1,
+      [COL_GCN]: value,
+    }))
+
+    const spec = baseSpec({
+      display: {
+        ...baseSpec().display,
+        axes: { x: { scale: 'linear' }, y: { scale: 'linear' } },
+      },
+    })
+
+    const chart = materialiseChart(spec, COLUMNS, rows)
+
+    expect(chart.state.kind).toBe('ok')
+    expect(chart.series[0]?.points.map((point) => point.y)).toEqual([
+      null,
+      null,
+      null,
+      null,
+      null,
+      0,
+      1,
+      2.5,
+      null,
+      null,
+    ])
+    expect(chart.droppedPoints).toBe(7)
+    expect(chart.rows[3]?.[COL_GCN]).toBeUndefined()
+    expect(Object.hasOwn(chart.rows[3] ?? {}, COL_GCN)).toBe(true)
+  })
+
+  it('reports unavailable field bindings before decoding unused raw data', () => {
+    const rows = [{ unsupported: Symbol('raw input') }]
+    expect(materialiseChart(baseSpec(), [], rows).state).toEqual({
+      kind: 'missing_field',
+      fields: ['x', 'y'],
+    })
+    expect(materialiseFacetedCharts(baseSpec(), [], rows)).toEqual({
+      panels: [],
+      total: 0,
+    })
+  })
+
   it('groups rows into series by the series field', () => {
     const spec = baseSpec({
       fields: {
@@ -414,7 +620,7 @@ describe('materialiseChart', () => {
 
     const m = materialiseChart(spec, COLUMNS, ROWS)
     expect(m.state.kind).toBe('ok')
-    expect(m.series[0].points.every((p) => typeof p.yError === 'number')).toBe(
+    expect(m.series[0].points.every((p) => Number.isFinite(p.yError))).toBe(
       true,
     )
   })
@@ -702,9 +908,9 @@ describe('SCI-01 distribution chart types', () => {
     ]
 
     const m = materialiseChart(spec, DIST_COLUMNS, rows)
-    const box4c = m.series.find((s) => s.identifier === '4C')!.points[0].box!
-    expect(box4c.outliers).toEqual([10])
-    expect(box4c.n).toBe(5)
+    const box4c = m.series.find((s) => s.identifier === '4C')?.points[0]?.box
+    expect(box4c?.outliers).toEqual([10])
+    expect(box4c?.n).toBe(5)
   })
 
   it('aggregates heatmaps into labelled count grids', () => {
@@ -726,11 +932,11 @@ describe('SCI-01 distribution chart types', () => {
     const m = materialiseChart(spec, DIST_COLUMNS, DIST_ROWS)
     expect(m.state.kind).toBe('ok')
     expect(m.heatmap).toBeDefined()
-    expect(m.heatmap!.xLabels).toEqual(['20C', '4C'])
-    expect(m.heatmap!.yLabels).toHaveLength(2)
-    expect(m.heatmap!.cells.every((c) => c.value === 2)).toBe(true)
-    expect(m.heatmap!.min).toBe(2)
-    expect(m.heatmap!.max).toBe(2)
+    expect(m.heatmap?.xLabels).toEqual(['20C', '4C'])
+    expect(m.heatmap?.yLabels).toHaveLength(2)
+    expect(m.heatmap?.cells.every((c) => c.value === 2)).toBe(true)
+    expect(m.heatmap?.min).toBe(2)
+    expect(m.heatmap?.max).toBe(2)
     expect(m.series).toEqual([])
   })
 
@@ -781,7 +987,7 @@ describe('SCI-01 distribution chart types', () => {
     // Three omitted ROWS — the doubly-invalid row contributes 1, not 2.
     expect(m.droppedPoints).toBe(3)
     expect(m.heatmap).toBeDefined()
-    expect(m.heatmap!.cells.reduce((a, c) => a + c.count, 0)).toBe(2)
+    expect(m.heatmap?.cells.reduce((a, c) => a + c.count, 0)).toBe(2)
   })
 
   it('lists every ChartSpec field id including heatmap valueField', () => {

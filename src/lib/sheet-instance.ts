@@ -17,14 +17,22 @@ const jsonScalar = z.union([
   z.boolean(),
   z.null(),
 ])
-const localValue = z.union([jsonScalar, z.array(jsonScalar).min(1).max(1_000)])
+
+export { jsonScalar as sheetLocalScalarSchema }
+
+export const sheetLocalValueSchema = z.union([
+  jsonScalar,
+  z.array(jsonScalar).min(1).max(1_000),
+])
+
+export type SheetLocalValue = z.infer<typeof sheetLocalValueSchema>
+
 const presentationFilter = z
-  .object({
+  .strictObject({
     columnId: uuid,
     operator: z.enum(['equals', 'not-equals', 'is-empty', 'is-not-empty']),
     value: jsonScalar.optional(),
   })
-  .strict()
   .superRefine((filter, context) => {
     if (
       (filter.operator === 'is-empty' || filter.operator === 'is-not-empty') !==
@@ -35,102 +43,88 @@ const presentationFilter = z
         message: 'Only equality filters require a value.',
       })
   })
+
 export const composedRowKeySchema = z.string().regex(/^sb-row-v1:[0-9a-f]{64}$/)
+
 const localRow = z
-  .record(uuid, localValue)
+  .record(uuid, sheetLocalValueSchema)
   .refine(
     (value) => Object.keys(value).length <= 256,
     'A local row may contain at most 256 values.',
   )
 
-const datasetResolution = z
-  .object({
-    compatibilityMode: z.enum(['exact', 'lineage', 'semantic']),
-    candidateSchemaVersionId: uuid,
-    baselineSchemaVersionId: uuid.nullable(),
-    requiredFieldIds: z.array(uuid).max(64),
-  })
-  .strict()
+const datasetResolution = z.strictObject({
+  compatibilityMode: z.enum(['exact', 'lineage', 'semantic']),
+  candidateSchemaVersionId: uuid,
+  baselineSchemaVersionId: uuid.nullable(),
+  requiredFieldIds: z.array(uuid).max(64),
+})
 
 const binding = z.discriminatedUnion('kind', [
-  z
-    .object({
-      bindingId: uuid,
-      parameterId: uuid,
-      kind: z.literal('dataset'),
-      datasetId: uuid,
-      resolution: datasetResolution.optional(),
-      policy: z.discriminatedUnion('mode', [
-        z.object({ mode: z.literal('live') }).strict(),
-        z
-          .object({ mode: z.literal('version'), datasetVersionId: uuid })
-          .strict(),
-      ]),
-    })
-    .strict(),
-  z
-    .object({
-      bindingId: uuid,
-      parameterId: uuid,
-      kind: z.literal('record'),
-      recordId: uuid,
-      modelKey: z
-        .string()
-        .regex(/^[a-z][a-z0-9_]{0,59}$/)
-        .optional(),
-      policy: z.literal('live'),
-    })
-    .strict(),
+  z.strictObject({
+    bindingId: uuid,
+    parameterId: uuid,
+    kind: z.literal('dataset'),
+    datasetId: uuid,
+    resolution: datasetResolution.optional(),
+    policy: z.discriminatedUnion('mode', [
+      z.strictObject({ mode: z.literal('live') }),
+      z.strictObject({ mode: z.literal('version'), datasetVersionId: uuid }),
+    ]),
+  }),
+  z.strictObject({
+    bindingId: uuid,
+    parameterId: uuid,
+    kind: z.literal('record'),
+    recordId: uuid,
+    modelKey: z
+      .string()
+      .regex(/^[a-z][a-z0-9_]{0,59}$/)
+      .optional(),
+    policy: z.literal('live'),
+  }),
 ])
 
-const parameterValue = z
-  .object({
-    parameterId: uuid,
-    kind: z.literal('scalar'),
-    valueType: z.enum([
-      'text',
-      'integer',
-      'decimal',
-      'boolean',
-      'date',
-      'timestamp',
-      'category',
-      'reference',
-    ]),
-    value: jsonScalar,
-    source: z.enum(['supplied', 'default']),
-  })
-  .strict()
+const parameterValue = z.strictObject({
+  parameterId: uuid,
+  kind: z.literal('scalar'),
+  valueType: z.enum([
+    'text',
+    'integer',
+    'decimal',
+    'boolean',
+    'date',
+    'timestamp',
+    'category',
+    'reference',
+  ]),
+  value: jsonScalar,
+  source: z.enum(['supplied', 'default']),
+})
 
-const resolutionProvenance = z
-  .object({
-    sourceDefinitionVersionId: uuid,
-    resolvedAt: rfc3339TimestampSchema,
-    resolvedByUserId: z.string().min(1).max(1_000),
-    parameters: z
-      .array(
-        z
-          .object({
-            parameterId: uuid,
-            bindingId: uuid.nullable(),
-            kind: z.enum(['scalar', 'record', 'dataset', 'dataset-version']),
-            compatibilityMode: z
-              .enum(['exact', 'lineage', 'semantic'])
-              .nullable(),
-            datasetId: uuid.nullable(),
-            datasetVersionId: uuid.nullable(),
-            candidateSchemaVersionId: uuid.nullable(),
-            baselineSchemaVersionId: uuid.nullable(),
-            requiredFieldIds: z.array(uuid).max(64),
-          })
-          .strict(),
-      )
-      .max(64),
-  })
-  .strict()
+const resolutionProvenance = z.strictObject({
+  sourceDefinitionVersionId: uuid,
+  resolvedAt: rfc3339TimestampSchema,
+  resolvedByUserId: z.string().min(1).max(1_000),
+  parameters: z
+    .array(
+      z.strictObject({
+        parameterId: uuid,
+        bindingId: uuid.nullable(),
+        kind: z.enum(['scalar', 'record', 'dataset', 'dataset-version']),
+        compatibilityMode: z.enum(['exact', 'lineage', 'semantic']).nullable(),
+        datasetId: uuid.nullable(),
+        datasetVersionId: uuid.nullable(),
+        candidateSchemaVersionId: uuid.nullable(),
+        baselineSchemaVersionId: uuid.nullable(),
+        requiredFieldIds: z.array(uuid).max(64),
+      }),
+    )
+    .max(64),
+})
 
 const resolvedRowIdentity = z
-  .object({
+  .strictObject({
     formatVersion: z.literal(1),
     kind: z.enum(['source', 'composite', 'local']),
     columnIds: z.array(uuid).min(1).max(8),
@@ -152,9 +146,9 @@ const resolvedRowIdentity = z
     sourceBindingId: uuid.nullable(),
     sourceFieldId: uuid.nullable(),
   })
-  .strict()
   .superRefine((value, context) => {
     const expected = value.kind === 'composite' ? [2, 8] : [1, 1]
+
     if (
       value.columnIds.length < expected[0] ||
       value.columnIds.length > expected[1] ||
@@ -166,6 +160,7 @@ const resolvedRowIdentity = z
         code: 'custom',
         message: 'Invalid resolved row identity columns.',
       })
+
     if (
       value.kind === 'source'
         ? value.sourceBindingId === null || value.sourceFieldId === null
@@ -178,7 +173,7 @@ const resolvedRowIdentity = z
   })
 
 export const sheetInstanceStateSchema = z
-  .object({
+  .strictObject({
     bindings: z.array(binding).max(64),
     parameterValues: z.array(parameterValue).max(64).optional(),
     localFields: z.array(sheetFieldDefinitionSchema).max(256),
@@ -188,55 +183,47 @@ export const sheetInstanceStateSchema = z
     calculationOverrides: z
       .record(
         uuid,
-        z
-          .object({
-            enabled: z.boolean(),
-            expression: z
-              .object({
-                language: z.literal('sheetbase-formula-v1'),
-                source: z.string().trim().min(1).max(8_192),
-              })
-              .strict(),
-          })
-          .strict(),
+        z.strictObject({
+          enabled: z.boolean(),
+          expression: z.strictObject({
+            language: z.literal('sheetbase-formula-v1'),
+            source: z.string().trim().min(1).max(8_192),
+          }),
+        }),
       )
       .refine((value) => Object.keys(value).length <= 128),
     instanceCalculations: z
       .array(sheetInstanceCalculationSchema)
       .max(128)
       .optional(),
-    presentation: z
-      .object({
-        columnOrder: z.array(uuid).max(512),
-        hiddenColumnIds: z.array(uuid).max(512),
-        columnWidths: z.record(uuid, z.number().int().min(40).max(2_000)),
-        frozenColumnCount: z.number().int().min(0).max(512),
-        density: z.enum(['compact', 'standard', 'comfortable']),
-        filters: z.array(presentationFilter).max(32).default([]),
-        sorts: z
-          .array(
-            z
-              .object({ columnId: uuid, direction: z.enum(['asc', 'desc']) })
-              .strict(),
-          )
-          .max(8)
-          .default([]),
-      })
-      .strict(),
+    presentation: z.strictObject({
+      columnOrder: z.array(uuid).max(512),
+      hiddenColumnIds: z.array(uuid).max(512),
+      columnWidths: z.record(uuid, z.number().int().min(40).max(2_000)),
+      frozenColumnCount: z.number().int().min(0).max(512),
+      density: z.enum(['compact', 'standard', 'comfortable']),
+      filters: z.array(presentationFilter).max(32).default([]),
+      sorts: z
+        .array(
+          z.strictObject({
+            columnId: uuid,
+            direction: z.enum(['asc', 'desc']),
+          }),
+        )
+        .max(8)
+        .default([]),
+    }),
     provenance: z.discriminatedUnion('createdFrom', [
-      z.object({ createdFrom: z.literal('ad_hoc') }).strict(),
-      z.object({ createdFrom: z.literal('definition_version') }).strict(),
-      z
-        .object({
-          createdFrom: z.literal('duplicate'),
-          duplicatedFromInstanceId: uuid,
-        })
-        .strict(),
+      z.strictObject({ createdFrom: z.literal('ad_hoc') }),
+      z.strictObject({ createdFrom: z.literal('definition_version') }),
+      z.strictObject({
+        createdFrom: z.literal('duplicate'),
+        duplicatedFromInstanceId: uuid,
+      }),
     ]),
     resolutionProvenance: resolutionProvenance.optional(),
     resolvedRowIdentity: resolvedRowIdentity.optional(),
   })
-  .strict()
   .superRefine((value, context) => {
     for (const [path, values] of [
       ['bindings.bindingId', value.bindings.map((item) => item.bindingId)],
@@ -258,12 +245,15 @@ export const sheetInstanceStateSchema = z
           message: `${path} must be unique.`,
         })
     }
+
     const localFields = new Map(
       value.localFields.map((item) => [item.fieldId, item]),
     )
+
     for (const [rowId, row] of Object.entries(value.localValues)) {
       for (const fieldId of Object.keys(row)) {
         const field = localFields.get(fieldId)
+
         if (!field)
           context.addIssue({
             code: 'custom',
@@ -278,6 +268,7 @@ export const sheetInstanceStateSchema = z
           })
       }
     }
+
     if (utf8ByteLength(JSON.stringify(value)) > 1_048_576)
       context.addIssue({
         code: 'custom',
@@ -286,17 +277,21 @@ export const sheetInstanceStateSchema = z
   })
 
 export type SheetInstanceState = z.infer<typeof sheetInstanceStateSchema>
+
 /** GRID-04 — presentation preferences (sort/filter/freeze/hide/widths/order).
  * Local working state only: it never changes Dataset or analysis semantics. */
 export type SheetPresentation = SheetInstanceState['presentation']
+
 export type SheetInstanceParseResult = ReturnType<
   typeof safeParseSheetInstanceState
 >
 
-export function safeParseSheetInstanceState(value: unknown) {
+export function safeParseSheetInstanceState<Input>(value: Input) {
   return sheetInstanceStateSchema.safeParse(value)
 }
 
-export function parseSheetInstanceState(value: unknown): SheetInstanceState {
+export function parseSheetInstanceState<Input>(
+  value: Input,
+): SheetInstanceState {
   return sheetInstanceStateSchema.parse(value)
 }

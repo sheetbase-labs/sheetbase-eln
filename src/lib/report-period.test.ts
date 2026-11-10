@@ -79,6 +79,46 @@ describe('resolvePeriod', () => {
 })
 
 describe('days and months', () => {
+  it('keeps native Date coercion and invalid date errors without calendar tightening', () => {
+    let reads = 0
+
+    class ObservedDate extends Date {
+      override valueOf() {
+        reads += 1
+
+        return Date.UTC(2026, 10, 1)
+      }
+    }
+
+    expect(monthKey(new ObservedDate('2026-10-31T23:30:00Z'), 'UTC')).toBe(
+      '2026-11',
+    )
+    expect(reads).toBe(1)
+    expect(() => monthKey(new Date(NaN), 'UTC')).toThrow(RangeError)
+    expect(() => monthKey('not a date', 'UTC')).toThrow(RangeError)
+    expect(dayStart('2026-02-30', 'UTC')?.toISOString()).toBe(
+      '2026-03-02T00:00:00.000Z',
+    )
+    expect(dayEnd('2026-02-30', 'UTC')?.toISOString()).toBe(
+      '2026-03-03T00:00:00.000Z',
+    )
+
+    const range = {
+      from: new Date('2026-09-30T23:30:00Z'),
+      to: new Date('2026-10-01T01:00:00Z'),
+    }
+
+    expect(formatRange(range, 'UTC')).toBe('30 Sep 2026 to 1 Oct 2026')
+    expect(formatRange(range, 'Asia/Tokyo')).toBe('1 Oct 2026')
+    expect(formatRange(range, 'UTC')).toBe('30 Sep 2026 to 1 Oct 2026')
+    expect(() => formatRange(range, 'not/a-zone')).toThrow(RangeError)
+    expect(() => formatRange({ ...range, from: new Date(NaN) }, 'UTC')).toThrow(
+      RangeError,
+    )
+    expect(formatMonthKey('2026-13')).toBe('Jan 2027')
+    expect(formatMonthKey('2026-00')).toBe('Dec 2025')
+  })
+
   it('turns date fields into a half-open range', () => {
     expect(dayStart('2026-03-01', 'UTC')?.toISOString()).toBe(
       '2026-03-01T00:00:00.000Z',

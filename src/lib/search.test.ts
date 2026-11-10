@@ -15,6 +15,7 @@
  */
 import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   buildSearchRpcArgs,
@@ -51,9 +52,10 @@ import {
   urlFiltersToSearchFilters,
   filterSearchResults,
   SEARCH_PAGE_SIZE,
+  moveBrowserSavedSearches,
 } from './search'
 import type { SearchResultWire, SearchFilters, SearchResult } from './search'
-import type { DataClient } from './data-client'
+import { createDataClient, DataClientError } from './data-client'
 
 // ---------------------------------------------------------------------------
 // Canonical Tiptap JSON fixtures (ADR 0025).
@@ -166,9 +168,7 @@ describe('extractBlockText — rich_text canonical Tiptap', () => {
 
   it('returns empty string for malformed rich_text payload', () => {
     expect(extractBlockText('rich_text', { foo: 'bar' })).toBe('')
-    expect(
-      extractBlockText('rich_text', null as unknown as Record<string, unknown>),
-    ).toBe('')
+    expect(extractBlockText('rich_text', null)).toBe('')
   })
 })
 
@@ -293,6 +293,158 @@ describe('extractAllStrings', () => {
     expect(extractAllStrings(null)).toBe('')
     expect(extractAllStrings(undefined)).toBe('')
   })
+
+  it('preserves native own-value traversal, getter order and whitespace without constraining numeric leaves', () => {
+    const reads: string[] = []
+    const native = Object.assign(new Date('2026-01-01'), { label: ' native ' })
+
+    const payload = {
+      get first() {
+        reads.push('first')
+
+        return {
+          get nested() {
+            reads.push('nested')
+
+            return '  alpha  '
+          },
+        }
+      },
+      get second() {
+        reads.push('second')
+
+        return [NaN, Infinity, -Infinity, 'beta', native]
+      },
+    }
+
+    expect(extractAllStrings(payload)).toBe('  alpha   beta  native ')
+    expect(reads).toEqual(['first', 'second', 'nested'])
+
+    for (const value of [
+      NaN,
+      Infinity,
+      -Infinity,
+      2n,
+      Symbol('value'),
+      () => 'ignored',
+      true,
+    ]) {
+      expect(extractAllStrings(value)).toBe('')
+    }
+
+    expect(() =>
+      extractAllStrings({
+        get text() {
+          throw new Error('Unreadable source')
+        },
+      }),
+    ).toThrow('Unreadable source')
+  })
+
+  it('reads only selected block fields in their original order and lets field errors propagate', () => {
+    const reads: string[] = []
+
+    const item = {
+      get identifier() {
+        reads.push('identifier')
+
+        return 'SMP-7'
+      },
+      get title() {
+        reads.push('title')
+
+        return ' Plasma '
+      },
+      get note() {
+        reads.push('note')
+
+        return NaN
+      },
+      get unrelated() {
+        throw new Error('Unrelated field must not be read')
+      },
+    }
+
+    expect(extractBlockText('materials', { items: [null, 42, item] })).toBe(
+      'SMP-7  Plasma ',
+    )
+    expect(reads).toEqual([
+      'identifier',
+      'identifier',
+      'title',
+      'title',
+      'note',
+    ])
+    expect(() =>
+      extractBlockText('callout', {
+        get text() {
+          throw new Error('Unreadable field')
+        },
+      }),
+    ).toThrow('Unreadable field')
+  })
+
+  it.each(['object', 'falsy', 'throwing'] as const)(
+    'preserves changed second getter values and deferred native coercion: %s',
+    (mode) => {
+      const reads: string[] = []
+      let identifierReads = 0
+
+      const value = {
+        toString() {
+          reads.push('coerce')
+
+          if (mode === 'throwing') throw new Error('Coercion refused')
+
+          return 'Native identifier'
+        },
+      }
+
+      const item = {
+        get identifier() {
+          identifierReads += 1
+          reads.push(`identifier-${identifierReads}`)
+
+          if (identifierReads === 1) return 'Checked string'
+
+          return mode === 'falsy' ? 0 : value
+        },
+        get title() {
+          reads.push('title')
+
+          return 'Plasma'
+        },
+        get note() {
+          reads.push('note')
+
+          return null
+        },
+      }
+
+      if (mode === 'throwing') {
+        expect(() => extractBlockText('materials', { items: [item] })).toThrow(
+          'Coercion refused',
+        )
+      } else {
+        expect(extractBlockText('materials', { items: [item] })).toBe(
+          mode === 'falsy' ? 'Plasma' : 'Native identifier Plasma',
+        )
+      }
+
+      expect(reads).toEqual(
+        mode === 'falsy'
+          ? ['identifier-1', 'identifier-2', 'title', 'title', 'note']
+          : [
+              'identifier-1',
+              'identifier-2',
+              'title',
+              'title',
+              'note',
+              'coerce',
+            ],
+      )
+    },
+  )
 })
 
 // ---------------------------------------------------------------------------
@@ -614,57 +766,124 @@ describe('searchQueryKeys', () => {
 // executeSearch — verifies the client RPC call and array normalisation.
 // ---------------------------------------------------------------------------
 
-describe('executeSearch', () => {
-  function mockClient(rows: SearchResultWire | SearchResultWire[]): DataClient {
-    return {
-      list: async () => [],
-      insert: async () => ({}),
-      patch: async () => [],
-      rpc: async () => rows,
-    } as unknown as DataClient
-  }
+const requestArgs = z.object({
+  p_query: z.string(),
+  p_limit: z.number(),
+  p_offset: z.number(),
+  p_result_type: z.string().optional(),
+  p_include_archived: z.boolean().optional(),
+})
 
+function searchClient(
+  response: (
+    args: z.infer<typeof requestArgs>,
+  ) => SearchResultWire | SearchResultWire[],
+) {
+  return createDataClient(async (input, init) => {
+    const url = new URL(
+      input instanceof Request ? input.url : String(input),
+      'http://localhost',
+    )
+
+    expect(url.pathname).toBe('/api/db/rpc/search')
+    expect(init?.method).toBe('POST')
+    const args = requestArgs.parse(await new Response(init?.body).json())
+
+    return Response.json(response(args))
+  })
+}
+
+describe('executeSearch', () => {
   it('maps an array of wire rows to domain results', async () => {
-    const results = await executeSearch(mockClient([wireRow()]), {
-      query: 'virus',
-    })
+    const results = await executeSearch(
+      searchClient(() => [wireRow()]),
+      {
+        query: 'virus',
+      },
+    )
 
     expect(results).toHaveLength(1)
     expect(results[0].identifier).toBe('EXP-2025-0001')
   })
 
   it('normalises a single-object RPC response into an array', async () => {
-    const results = await executeSearch(mockClient(wireRow()), {
-      query: 'virus',
-    })
+    const results = await executeSearch(
+      searchClient(() => wireRow()),
+      {
+        query: 'virus',
+      },
+    )
 
     expect(results).toHaveLength(1)
+  })
+
+  it('sends trimmed args with intentional false values and omitted empty/default filters through real HTTP', async () => {
+    const bodies: z.infer<ReturnType<typeof z.json>>[] = []
+
+    const client = createDataClient(async (input, init) => {
+      expect(input instanceof Request ? input.url : input.toString()).toBe(
+        '/api/db/rpc/search',
+      )
+      expect(init?.method).toBe('POST')
+      bodies.push(z.json().parse(await new Response(init?.body).json()))
+
+      return Response.json([])
+    })
+
+    expect(
+      await executeSearch(client, {
+        query: '  plasma  ',
+        kind: '',
+        status: '',
+        includeArchived: false,
+        sort: 'relevance',
+      }),
+    ).toEqual([])
+    expect(bodies).toEqual([
+      {
+        p_query: 'plasma',
+        p_limit: 20,
+        p_offset: 0,
+        p_include_archived: false,
+      },
+    ])
+  })
+
+  it('propagates the real DataClient refusal without treating it as an empty result', async () => {
+    const client = createDataClient(async () =>
+      Response.json(
+        { code: '42501', message: 'Search refused' },
+        { status: 403 },
+      ),
+    )
+
+    const result = executeSearch(client, { query: 'plasma' })
+    await expect(result).rejects.toBeInstanceOf(DataClientError)
+    await expect(result).rejects.toMatchObject({
+      code: '42501',
+      status: 403,
+      message: 'Search refused',
+    })
   })
 })
 
 describe('search cache behaviour (filters in query key)', () => {
-  function countingClient(): { client: DataClient; calls: string[] } {
+  function countingClient() {
     const calls: string[] = []
 
     return {
       calls,
-      client: {
-        list: async () => [],
-        insert: async () => ({}),
-        patch: async () => [],
-        rpc: async (_name: string, args: Record<string, unknown>) => {
-          const resultType =
-            (args as { p_result_type?: string }).p_result_type ?? 'all'
+      client: searchClient((args) => {
+        const resultType = args.p_result_type ?? 'all'
 
-          calls.push(resultType)
+        calls.push(resultType)
 
-          return [
-            wireRow({
-              result_type: resultType === 'all' ? 'record' : resultType,
-            }),
-          ]
-        },
-      } as unknown as DataClient,
+        return [
+          wireRow({
+            result_type: resultType === 'all' ? 'record' : resultType,
+          }),
+        ]
+      }),
     }
   }
 
@@ -698,21 +917,16 @@ describe('search cache behaviour (filters in query key)', () => {
   it('refetches instead of serving the previous cache when the archived scope changes', async () => {
     const calls: Array<string> = []
 
-    const client = {
-      list: async () => [],
-      insert: async () => ({}),
-      patch: async () => [],
-      rpc: async (_name: string, args: Record<string, unknown>) => {
-        const archived =
-          args.p_include_archived === undefined
-            ? true
-            : Boolean(args.p_include_archived)
+    const client = searchClient((args) => {
+      const archived =
+        args.p_include_archived === undefined
+          ? true
+          : Boolean(args.p_include_archived)
 
-        calls.push(String(archived))
+      calls.push(String(archived))
 
-        return [wireRow({ archived })]
-      },
-    } as unknown as DataClient
+      return [wireRow({ archived })]
+    })
 
     const queryClient = new QueryClient()
 
@@ -1350,7 +1564,7 @@ describe('urlFiltersToSearchFilters', () => {
   it('converts the 7-day facet into a stable p_date_from', () => {
     const filters = urlFiltersToSearchFilters({ q: 'x', updated: '7d' }, 0)
     expect(filters.dateFrom).toBeDefined()
-    const from = Date.parse(filters.dateFrom as string)
+    const from = Date.parse(z.string().parse(filters.dateFrom))
     expect(Number.isNaN(from)).toBe(false)
     // Anchored to start-of-day, so always at or before "now - 7 days".
     expect(from).toBeLessThanOrEqual(Date.now() - 7 * 86_400_000)
@@ -1518,6 +1732,18 @@ describe('owner and date-range facets', () => {
     expect(parseSearchDay('2026-02-28')).toBe('2026-02-28')
     const filters = urlFiltersToSearchFilters({ q: 'x', to: 'soon' }, 0)
     expect(filters.dateTo).toBeUndefined()
+
+    for (const raw of [
+      null,
+      20260228,
+      NaN,
+      Infinity,
+      new Date('2026-02-28'),
+      ['2026-02-28'],
+      {},
+    ]) {
+      expect(parseSearchDay(raw)).toBeUndefined()
+    }
   })
 })
 
@@ -1632,6 +1858,82 @@ describe('saved searches keep the results-page facets', () => {
     const next = saveCurrentSearch(wsId, 'Same', { q: 'x', owner: 'u-1' })
     expect(next).toHaveLength(2)
   })
+
+  it.each([false, true])(
+    'moves browser searches oldest-first and clears only after complete success; refused=%s',
+    async (refused) => {
+      saveCurrentSearch(wsId, 'Old', { q: '  plasma  ' })
+      saveCurrentSearch(wsId, 'Middle', { q: 'plate', type: ['Files'] })
+      saveCurrentSearch(wsId, 'New', { q: 'new' })
+      const before = localStorage.getItem(savedQueriesKey(wsId))
+
+      const requests: {
+        name: string
+        args: z.infer<ReturnType<typeof z.json>>
+      }[] = []
+
+      const bodySchema = z.object({
+        p_name: z.string(),
+        p_query: z.string(),
+        p_facets: z.json(),
+        p_visibility: z.literal('private'),
+        p_arguments: z.json(),
+      })
+
+      const client = createDataClient(async (input, init) => {
+        expect(input instanceof Request ? input.url : input.toString()).toBe(
+          '/api/db/rpc/save_search',
+        )
+        expect(init?.method).toBe('POST')
+        const body = bodySchema.parse(await new Response(init?.body).json())
+        requests.push({ name: body.p_name, args: body.p_arguments })
+
+        if (refused && body.p_name === 'Middle')
+          return Response.json(
+            { code: '42501', message: 'Migration refused' },
+            { status: 403 },
+          )
+        expect(body.p_query).toBe(
+          body.p_name === 'Old'
+            ? 'plasma'
+            : body.p_name === 'Middle'
+              ? 'plate'
+              : 'new',
+        )
+
+        return Response.json({ id: body.p_name })
+      })
+
+      if (refused) {
+        await expect(
+          moveBrowserSavedSearches(client, wsId),
+        ).rejects.toMatchObject({ message: 'Migration refused', status: 403 })
+        expect(requests.map((request) => request.name)).toEqual([
+          'Old',
+          'Middle',
+        ])
+        expect(localStorage.getItem(savedQueriesKey(wsId))).toBe(before)
+      } else {
+        expect(await moveBrowserSavedSearches(client, wsId)).toBe(3)
+        expect(requests.map((request) => request.name)).toEqual([
+          'Old',
+          'Middle',
+          'New',
+        ])
+        expect(localStorage.getItem(savedQueriesKey(wsId))).toBeNull()
+      }
+
+      expect(requests[0].args).toEqual({
+        p_query: 'plasma',
+        p_include_archived: false,
+      })
+      expect(requests[1].args).toEqual({
+        p_query: 'plate',
+        p_include_archived: false,
+        p_result_type: 'file',
+      })
+    },
+  )
 })
 
 describe('summariseSearchFacets', () => {

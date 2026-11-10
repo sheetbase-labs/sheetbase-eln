@@ -16,6 +16,8 @@ import {
 import type { SessionAuthDeps } from '../request-auth'
 import { listExtensions } from './client'
 import { validateLimitOverrides } from './runtime-config'
+import type { PluginLimitOverrides } from './runtime-config'
+import type { SettingsPoint } from './plugin-settings.server'
 import {
   databaseStore,
   describeRuntime,
@@ -26,20 +28,16 @@ import {
 import type { EnvironmentRunner, RuntimeStore } from './runtime-settings.server'
 
 const bodySchema = z.discriminatedUnion('action', [
-  z
-    .object({
-      action: z.literal('set-limits'),
-      extensionId: z.string().uuid(),
-      /** Only what differs from the defaults; an empty object restores them all. */
-      limits: z.record(z.string(), z.unknown()),
-    })
-    .strict(),
-  z
-    .object({
-      action: z.literal('reinstall-packages'),
-      extensionId: z.string().uuid(),
-    })
-    .strict(),
+  z.strictObject({
+    action: z.literal('set-limits'),
+    extensionId: z.string().uuid(),
+    /** Only what differs from the defaults; an empty object restores them all. */
+    limits: z.record(z.string(), z.unknown()),
+  }),
+  z.strictObject({
+    action: z.literal('reinstall-packages'),
+    extensionId: z.string().uuid(),
+  }),
 ])
 
 export interface PluginRuntimeRouteDeps {
@@ -52,7 +50,19 @@ export interface PluginRuntimeRouteDeps {
     workspaceId: string
     actorUserId: string
     extensionId: string
-    payload: Record<string, unknown>
+    payload: {
+      change: 'settings_changed'
+      extensionKey: string
+    } & (
+      | { setting: 'limits'; overrides: PluginLimitOverrides }
+      | { setting: 'packages' }
+      | {
+          setting: 'connection'
+          point: SettingsPoint
+          itemId: string
+          names: string[]
+        }
+    )
   }) => Promise<void>
 }
 
@@ -62,15 +72,18 @@ export async function handlePluginRuntime(
 ): Promise<Response> {
   if (request.method !== 'GET' && request.method !== 'POST')
     return requestErrorResponse(405, 'method_not_allowed', 'Use GET or POST.')
+
   const auth = await resolvePersonalAuth(
     request.headers,
     request.method === 'GET' ? 'admin:read' : 'admin:write',
     deps.auth,
   )
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
   const client = deps.makeClient(context.token)
+
   try {
     await client.rpc('require_capability', {
       p_workspace_id: context.workspaceId,
@@ -83,23 +96,30 @@ export async function handlePluginRuntime(
       'Only an owner or administrator can manage plugins.',
     )
   }
+
   if (request.method === 'GET') {
     const rows = await deps.store.list(context.workspaceId)
+
     const settled = await Promise.all(
       rows.map((row) => refreshEnvironment(deps, context.workspaceId, row)),
     )
+
     return Response.json(
       { runtime: settled.map((s) => describeRuntime(s.row, s.packages)) },
       { headers: { 'Cache-Control': 'no-store' } },
     )
   }
+
   let raw: unknown
+
   try {
     raw = await request.json()
   } catch {
     return requestErrorResponse(400, 'bad_request', 'Send a JSON body.')
   }
+
   const parsed = bodySchema.safeParse(raw)
+
   if (!parsed.success)
     return requestErrorResponse(
       400,
@@ -107,17 +127,24 @@ export async function handlePluginRuntime(
       'The request could not be read.',
     )
   const body = parsed.data
-  const row = await deps.store.load(context.workspaceId, body.extensionId)
-  const installs = await listExtensions(client)
+
+  const [row, installs] = await Promise.all([
+    deps.store.load(context.workspaceId, body.extensionId),
+    listExtensions(client),
+  ])
+
   const install = installs.find((entry) => entry.id === body.extensionId)
+
   if (!row || !install)
     return requestErrorResponse(
       404,
       'not_found',
       'That plugin is not installed.',
     )
+
   if (body.action === 'set-limits') {
     const checked = validateLimitOverrides(body.limits)
+
     if (checked.errors.length > 0)
       return requestErrorResponse(400, 'bad_limits', checked.errors.join('; '))
     await deps.store.saveOverrides(
@@ -136,10 +163,12 @@ export async function handlePluginRuntime(
         overrides: checked.value,
       },
     })
+
     return Response.json({
       runtime: describeRuntime({ ...row, limitOverrides: checked.value }),
     })
   }
+
   const asked = await ensureEnvironment(
     deps,
     context.workspaceId,
@@ -150,6 +179,7 @@ export async function handlePluginRuntime(
         row.environmentState === 'failed' ? 'none' : row.environmentState,
     },
   )
+
   await deps.audit({
     workspaceId: context.workspaceId,
     actorUserId: context.userId,
@@ -160,17 +190,18 @@ export async function handlePluginRuntime(
       setting: 'packages',
     },
   })
+
   return Response.json({ runtime: describeRuntime(asked) })
 }
 
-export async function auditSettingsChange(event: {
-  workspaceId: string
-  actorUserId: string
-  extensionId: string
-  payload: Record<string, unknown>
-}): Promise<void> {
-  const { db } = await import('#/db/client.server')
-  const { sql } = await import('drizzle-orm')
+export async function auditSettingsChange(
+  event: Parameters<PluginRuntimeRouteDeps['audit']>[0],
+): Promise<void> {
+  const [{ db }, { sql }] = await Promise.all([
+    import('#/db/client.server'),
+    import('drizzle-orm'),
+  ])
+
   await db.execute(
     sql`SELECT internal.emit_change_event_as_actor(
       ${event.actorUserId}, ${event.workspaceId}::uuid, 'extension', ${event.extensionId}::uuid,

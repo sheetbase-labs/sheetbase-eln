@@ -1,11 +1,34 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { z } from 'zod'
 
 import {
   describeRejectedImport,
   validateAndCommitImport,
 } from './import-commit'
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
 import type { MappedImport } from './import-mapping'
+import { pipelineJsonObjectSchema } from './pipelines/types'
+
+function clientFor(
+  rpc: (
+    name: string,
+    args: z.core.util.JSONType,
+  ) => Promise<z.core.util.JSONType>,
+) {
+  return createDataClient(async (input, init) => {
+    const request = new Request(
+      new URL(input instanceof Request ? input.url : input, 'http://eln.test'),
+      init,
+    )
+
+    const path = new URL(request.url).pathname
+
+    if (!path.startsWith('/api/db/rpc/')) return Response.json([])
+    const args = pipelineJsonObjectSchema.parse(await request.json())
+
+    return Response.json(await rpc(path.slice('/api/db/rpc/'.length), args))
+  })
+}
 
 const mapped: MappedImport = {
   schemaVersionId: 'ver-1',
@@ -26,7 +49,7 @@ const provenance = {
 
 describe('import validate-before-commit', () => {
   it('validates then commits Dataset rows through canonical RPCs only', async () => {
-    const rpc = vi.fn(async (name: string) => {
+    const rpc = vi.fn(async (name: string): Promise<z.core.util.JSONType> => {
       if (name === 'validate_dataset_row_batch') return { ok: true }
 
       if (name === 'commit_dataset_import') {
@@ -41,7 +64,7 @@ describe('import validate-before-commit', () => {
     })
 
     const result = await validateAndCommitImport(
-      { rpc, list: async () => [] } as unknown as DataClient,
+      clientFor(rpc),
       {
         kind: 'dataset',
         datasetId: 'ds-1',
@@ -65,10 +88,12 @@ describe('import validate-before-commit', () => {
   })
 
   it('does not commit when client-side coercion failed', async () => {
-    const rpc = vi.fn()
+    const rpc = vi.fn(async () => {
+      throw new Error('Invalid input must not reach the database.')
+    })
 
     const result = await validateAndCommitImport(
-      { rpc, list: async () => [] } as unknown as DataClient,
+      clientFor(rpc),
       {
         kind: 'dataset',
         datasetId: 'ds-1',
@@ -108,7 +133,7 @@ describe('import validate-before-commit', () => {
     })
 
     const result = await validateAndCommitImport(
-      { rpc, list: async () => [] } as unknown as DataClient,
+      clientFor(rpc),
       {
         kind: 'dataset',
         datasetId: 'ds-1',
@@ -126,9 +151,20 @@ describe('import validate-before-commit', () => {
   })
 
   it('validates Records then creates through create_model_record', async () => {
-    const rpc = vi.fn(async (name: string) => {
+    const rpc = vi.fn(async (name: string): Promise<z.core.util.JSONType> => {
       if (name === 'validate_sheet_record_batch') {
-        return { ok: true, rows: [{ classification: 'create' }] }
+        return {
+          ok: true,
+          mutated: false,
+          rows: [
+            {
+              rowIndex: 1,
+              rowKey: 'row-1',
+              classification: 'create',
+              errors: [],
+            },
+          ],
+        }
       }
 
       if (name === 'create_model_record') return { id: 'rec-1' }
@@ -136,7 +172,7 @@ describe('import validate-before-commit', () => {
     })
 
     const result = await validateAndCommitImport(
-      { rpc, list: async () => [] } as unknown as DataClient,
+      clientFor(rpc),
       {
         kind: 'record',
         projectId: 'proj-1',
@@ -172,10 +208,39 @@ describe('import validate-before-commit', () => {
     expect(result.ok).toBe(true)
   })
 
+  it('rejects non-finite Record values before JSON transport can turn them into null', async () => {
+    const rpc = vi.fn(async () => {
+      throw new Error('Invalid scientific values must not reach transport.')
+    })
+
+    await expect(
+      validateAndCommitImport(
+        clientFor(rpc),
+        {
+          kind: 'record',
+          projectId: 'proj-1',
+          modelKey: 'sample',
+          recordKind: 'sample',
+        },
+        {
+          schemaVersionId: null,
+          errors: [],
+          rows: [
+            { rowId: 'row-1', title: 'Sample', values: { titre: Infinity } },
+          ],
+        },
+        'unused',
+      ),
+    ).rejects.toThrow()
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
   it('refuses to commit when the Dataset Schema Version pin does not match', async () => {
     await expect(
       validateAndCommitImport(
-        { rpc: vi.fn() } as unknown as DataClient,
+        clientFor(async () => {
+          throw new Error('A stale schema pin must not reach the database.')
+        }),
         {
           kind: 'dataset',
           datasetId: 'ds-1',

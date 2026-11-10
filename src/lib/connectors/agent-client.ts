@@ -2,6 +2,8 @@
  * The browser's side of the folder-agent download and its check-in status
  * (`/api/connectors/agent`).
  */
+import { z } from 'zod'
+
 import { t } from '#/copy'
 import type { AgentSystem, LiveSourceInput, RobotInput } from './agent-package'
 
@@ -14,6 +16,16 @@ export interface AgentStatus {
   running: boolean
 }
 
+const agentStatusSchema = z.object({
+  downloaded: z.boolean(),
+  lastSeenAt: z.string().nullable(),
+  running: z.boolean(),
+}) satisfies z.ZodType<AgentStatus>
+
+const agentFailureSchema = z.object({
+  error: z.object({ message: z.string() }),
+})
+
 export const agentQueryKeys = {
   liveStatus: (instrumentId: string) =>
     ['instrument-live', 'agent', instrumentId] as const,
@@ -24,12 +36,14 @@ export const agentQueryKeys = {
 }
 
 async function failure(response: Response): Promise<Error> {
-  const body = (await response.json().catch(() => null)) as {
-    error?: { message?: string }
-  } | null
+  const body = agentFailureSchema.safeParse(
+    await response.json().catch(() => null),
+  )
 
   return new Error(
-    body?.error?.message ?? t('library.instruments.agent.cantDownload'),
+    body.success
+      ? body.data.error.message
+      : t('library.instruments.agent.cantDownload'),
   )
 }
 
@@ -44,7 +58,7 @@ export async function fetchAgentStatus(
 
   if (!response.ok) throw await failure(response)
 
-  return (await response.json()) as AgentStatus
+  return agentStatusSchema.parse(await response.json())
 }
 
 /** Is the live-readings agent for this instrument running? */
@@ -59,7 +73,7 @@ export async function fetchLiveAgentStatus(
 
   if (!response.ok) throw await failure(response)
 
-  return (await response.json()) as AgentStatus
+  return agentStatusSchema.parse(await response.json())
 }
 
 /** Is the robot agent for this instrument running? */
@@ -74,7 +88,7 @@ export async function fetchRobotAgentStatus(
 
   if (!response.ok) throw await failure(response)
 
-  return (await response.json()) as AgentStatus
+  return agentStatusSchema.parse(await response.json())
 }
 
 /** The robot agent: how it reaches the robot, with its access key already in. */
@@ -106,7 +120,10 @@ export async function downloadLiveAgent(
 }
 
 async function downloadZip(
-  input: object,
+  input:
+    | Parameters<typeof downloadAgent>[0]
+    | Parameters<typeof downloadLiveAgent>[0]
+    | Parameters<typeof downloadRobotAgent>[0],
   fetchImpl: typeof fetch,
 ): Promise<string> {
   const response = await fetchImpl('/api/connectors/agent', {

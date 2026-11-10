@@ -5,82 +5,85 @@ import type { DataClient } from './data-client'
 import { rowIdentityKey } from './row-identity'
 import { projectBoundColumns } from './sheet-bound-columns'
 import {
+  pipelineJsonObjectSchema,
+  pipelineJsonValueSchema,
+} from './pipelines/types'
+import {
   parseSheetDefinitionConfiguration,
   sheetDefinitionUuidSchema as uuid,
 } from './sheet-definition'
 import type { SheetDefinitionConfiguration } from './sheet-definition'
 
-const datasetSourceSchema = z
-  .object({
-    sourceKind: z.literal('dataset'),
-    bindingId: uuid,
-    datasetId: uuid,
-    datasetRevision: z.number().int().positive(),
-    rowId: uuid.nullable(),
-    revision: z.number().int().nullable(),
-    matched: z.boolean(),
-    values: z.record(z.string(), z.unknown()),
-  })
-  .strict()
+const datasetSourceSchema = z.strictObject({
+  sourceKind: z.literal('dataset'),
+  bindingId: uuid,
+  datasetId: uuid,
+  datasetRevision: z.number().int().positive(),
+  rowId: uuid.nullable(),
+  revision: z.number().int().nullable(),
+  matched: z.boolean(),
+  values: pipelineJsonObjectSchema,
+})
 
-const recordSourceSchema = z
-  .object({
-    sourceKind: z.literal('record'),
-    bindingId: uuid,
-    recordId: uuid,
-    metadataVersion: z.number().int().positive(),
-    fieldNames: z.record(z.string(), z.string()),
-    matched: z.literal(true),
-    values: z.record(z.string(), z.unknown()),
-  })
-  .strict()
+const recordSourceSchema = z.strictObject({
+  sourceKind: z.literal('record'),
+  bindingId: uuid,
+  recordId: uuid,
+  metadataVersion: z.number().int().positive(),
+  fieldNames: z.custom<Record<string, string>>((value) => {
+    const result = pipelineJsonObjectSchema.safeParse(value)
+
+    return (
+      result.success &&
+      Object.values(result.data).every(
+        (name) => z.string().safeParse(name).success,
+      )
+    )
+  }),
+  matched: z.literal(true),
+  values: pipelineJsonObjectSchema,
+})
 
 const sourceSchema = z.discriminatedUnion('sourceKind', [
   datasetSourceSchema,
   recordSourceSchema,
 ])
 
-export const composedSheetWireSchema = z
-  .object({
-    instanceId: uuid,
-    definitionVersionId: uuid.optional(),
-    definitionConfiguration: z.unknown().optional(),
-    revision: z.number().int().positive(),
-    offset: z.number().int().min(0),
-    limit: z.number().int().min(1).max(200),
-    hasMore: z.boolean(),
-    localFieldIds: z.array(uuid).max(256),
-    identity: z
-      .object({
-        kind: z.enum(['source', 'composite', 'local']),
-        columnIds: z.array(uuid).min(1).max(8),
-        logicalTypes: z
-          .array(
-            z.enum([
-              'text',
-              'integer',
-              'decimal',
-              'boolean',
-              'date',
-              'timestamp',
-              'category',
-              'reference',
-            ]),
-          )
-          .min(1)
-          .max(8),
-      })
-      .strict(),
-    rows: z.array(
-      z
-        .object({
-          identityValues: z.array(z.unknown()).min(1).max(8),
-          sources: z.array(sourceSchema).min(1).max(17),
-        })
-        .strict(),
-    ),
-  })
-  .strict()
+export const composedSheetWireSchema = z.strictObject({
+  instanceId: uuid,
+  definitionVersionId: uuid.optional(),
+  definitionConfiguration: z.unknown().optional(),
+  revision: z.number().int().positive(),
+  offset: z.number().int().min(0),
+  limit: z.number().int().min(1).max(200),
+  hasMore: z.boolean(),
+  localFieldIds: z.array(uuid).max(256),
+  identity: z.strictObject({
+    kind: z.enum(['source', 'composite', 'local']),
+    columnIds: z.array(uuid).min(1).max(8),
+    logicalTypes: z
+      .array(
+        z.enum([
+          'text',
+          'integer',
+          'decimal',
+          'boolean',
+          'date',
+          'timestamp',
+          'category',
+          'reference',
+        ]),
+      )
+      .min(1)
+      .max(8),
+  }),
+  rows: z.array(
+    z.strictObject({
+      identityValues: z.array(pipelineJsonValueSchema).min(1).max(8),
+      sources: z.array(sourceSchema).min(1).max(17),
+    }),
+  ),
+})
 
 export type ComposedSheetRow = z.infer<
   typeof composedSheetWireSchema
@@ -88,6 +91,9 @@ export type ComposedSheetRow = z.infer<
   rowKey: string
   compositionOffset?: number
 }
+
+export type ComposedSheetCellValue =
+  ComposedSheetRow['sources'][number]['values'][string]
 
 export interface ComposedSheetSnapshot extends Omit<
   z.infer<typeof composedSheetWireSchema>,
@@ -116,36 +122,44 @@ export async function fetchComposedSheetRows(
       p_offset: options.offset ?? 0,
     }),
   )
+
   // All output rows use the Instance's immutable resolved identity spec. The
   // RPC returns only typed values; hashing remains exactly CORE-03.5's shared
   // implementation rather than duplicating its encoding in SQL.
   const rowKey = (
     row: z.infer<typeof composedSheetWireSchema>['rows'][number],
   ) => rowIdentityKey(result.identity, row.identityValues)
+
   const rows = result.rows.map((row) => ({
     ...row,
     rowKey: rowKey(row),
     compositionOffset: result.offset,
   }))
+
   const configuration = result.definitionConfiguration
     ? parseSheetDefinitionConfiguration(result.definitionConfiguration)
     : undefined
+
   const { definitionConfiguration: _, ...authoritative } = result
-  return {
+
+  const snapshot: ComposedSheetSnapshot = {
     ...authoritative,
-    ...(configuration ? { definitionConfiguration: configuration } : {}),
     rows,
-    ...(result.definitionVersionId && configuration
-      ? {
-          boundProjection: projectBoundColumns({
-            definitionVersionId: result.definitionVersionId,
-            configuration,
-            rows,
-          }),
-        }
-      : {}),
   }
+
+  if (configuration) snapshot.definitionConfiguration = configuration
+
+  if (result.definitionVersionId && configuration) {
+    snapshot.boundProjection = projectBoundColumns({
+      definitionVersionId: result.definitionVersionId,
+      configuration,
+      rows,
+    })
+  }
+
+  return snapshot
 }
+
 /** GRID-05 — one server composition window. The server clamps a single
  * `query_sheet_instance_rows` window to this many rows; larger Sheets page
  * with offset/limit and merge windows (see `mergeComposedSheetSnapshots`). */
@@ -208,13 +222,17 @@ export async function fetchComposedSheetPaged(
   const pageSize = options.pageSize ?? COMPOSED_SHEET_PAGE_SIZE
   const maxRestarts = options.maxRestarts ?? 1
   const client = options.client ?? createDataClient()
+
   const fetchPage =
     options.fetchPage ??
     ((offset: number, limit: number) =>
       fetchComposedSheetRows(instanceId, { offset, limit }, client))
+
   let fetchedPages = 0
+
   const pull = async (page: number): Promise<ComposedSheetSnapshot> => {
     fetchedPages += 1
+
     return fetchPage(page * pageSize, pageSize)
   }
 
@@ -228,6 +246,7 @@ export async function fetchComposedSheetPaged(
       fetchedPages,
     }
   }
+
   if (
     options.previous &&
     (options.previousPageCount ?? 0) > 0 &&
@@ -242,21 +261,30 @@ export async function fetchComposedSheetPaged(
     }
   }
 
+  const revisionMoved = new Error('Sheet composition revision moved.')
+
   const collect = async (
     wanted: number,
   ): Promise<{ pages: ComposedSheetSnapshot[]; pin: number }> => {
     const pages: ComposedSheetSnapshot[] = []
+
     for (let page = 0; page < wanted; page += 1) {
       const next = await pull(page)
       const pin = pages.at(0)?.revision
+
       if (pin !== undefined && next.revision !== pin) {
-        throw { moved: true }
+        throw revisionMoved
       }
+
       pages.push(next)
+
       if (!next.hasMore) break
     }
+
     const first = pages.at(0)
+
     if (!first) throw new Error('no pages')
+
     return { pages, pin: first.revision }
   }
 
@@ -265,22 +293,29 @@ export async function fetchComposedSheetPaged(
   // here consumes the restart below, so the notice survives the handoff.
   let restarts = 0
   const cachedCount = Math.max(0, Math.floor(options.previousPageCount ?? 0))
+
   if (options.previous && cachedCount > 0) {
     const pin = options.previous.revision
     const pages: ComposedSheetSnapshot[] = []
+
     try {
       for (let page = cachedCount; page < pageCount; page += 1) {
         const next = await pull(page)
-        if (next.revision !== pin) throw { moved: true }
+
+        if (next.revision !== pin) throw revisionMoved
         pages.push(next)
+
         if (!next.hasMore) break
       }
+
       const merged = mergeComposedSheetSnapshots([options.previous, ...pages])
+
       if (!merged) {
         throw new Error(
           'This Sheet could not be composed from its Dataset or Record bindings.',
         )
       }
+
       return {
         snapshot: merged,
         pinnedRevision: pin,
@@ -289,14 +324,10 @@ export async function fetchComposedSheetPaged(
         fetchedPages,
       }
     } catch (error) {
-      if (
-        !error ||
-        typeof error !== 'object' ||
-        !('moved' in error) ||
-        maxRestarts < 1
-      ) {
+      if (error !== revisionMoved || maxRestarts < 1) {
         throw error
       }
+
       // Fall through to a full restart from offset 0 below.
       restarts += 1
     }
@@ -308,11 +339,13 @@ export async function fetchComposedSheetPaged(
     try {
       const { pages: done, pin } = await collect(pageCount)
       const merged = mergeComposedSheetSnapshots(done)
+
       if (!merged) {
         throw new Error(
           'This Sheet could not be composed from its Dataset or Record bindings.',
         )
       }
+
       return {
         snapshot: merged,
         pinnedRevision: pin,
@@ -324,23 +357,26 @@ export async function fetchComposedSheetPaged(
         fetchedPages,
       }
     } catch (error) {
-      const moved = !!error && typeof error === 'object' && 'moved' in error
-      if (!moved) throw error
+      if (error !== revisionMoved) throw error
+
       if (restarts < maxRestarts) {
         restarts += 1
         continue
       }
+
       // The revision kept moving under paging. Fall back to the fresh first
       // window alone: always coherent at the latest revision with `hasMore`
       // intact, so the grid shows current rows and Load more stays
       // available instead of looping or mixing revisions.
       const fresh = await pull(0)
       const merged = mergeComposedSheetSnapshots([fresh])
+
       if (!merged) {
         throw new Error(
           'This Sheet could not be composed from its Dataset or Record bindings.',
         )
       }
+
       return {
         snapshot: merged,
         pinnedRevision: fresh.revision,
@@ -366,20 +402,23 @@ export function mergeComposedSheetSnapshots(
   pages: ComposedSheetSnapshot[],
 ): ComposedSheetSnapshot | null {
   const first = pages.at(0)
+
   if (!first) return null
   const last = pages.at(-1)
-  return {
+
+  const merged: ComposedSheetSnapshot = {
     ...first,
     offset: first.offset,
     hasMore: last?.hasMore ?? false,
     rows: pages.flatMap((page) => page.rows),
-    ...(first.boundProjection
-      ? {
-          boundProjection: {
-            columns: first.boundProjection.columns,
-            rows: pages.flatMap((page) => page.boundProjection?.rows ?? []),
-          },
-        }
-      : {}),
   }
+
+  if (first.boundProjection) {
+    merged.boundProjection = {
+      columns: first.boundProjection.columns,
+      rows: pages.flatMap((page) => page.boundProjection?.rows ?? []),
+    }
+  }
+
+  return merged
 }

@@ -1,17 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
-import { DataClientError } from '#/lib/data-client'
-import {
-  applyScientificRowChanges,
-  mutateScientificFormula,
-} from '#/lib/scientific-sheet-data'
+import { createDataClient } from '#/lib/data-client'
+import { buildPersistedFormulaArtifact, parseFormula } from '#/lib/formula-ir'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
 import type {
   FormulaDefinitionWire,
   ScientificRowWire,
   ScientificTableWire,
 } from '#/lib/scientific-sheet-data'
-import type * as DataClientModule from '#/lib/data-client'
-import type * as ScientificSheetDataModule from '#/lib/scientific-sheet-data'
 
 import { GridOperationCoordinator } from './grid-operation-coordinator'
 import type {
@@ -19,24 +16,74 @@ import type {
   PendingCell,
 } from './grid-operation-coordinator'
 
-vi.mock('#/lib/scientific-sheet-data', async (importOriginal) => {
-  const original = await importOriginal<typeof ScientificSheetDataModule>()
+const literalRequestSchema = z.object({
+  p_table_id: z.string(),
+  p_expected_schema_version: z.number(),
+  p_edits: z.array(
+    z.object({
+      rowId: z.string(),
+      expectedVersion: z.number(),
+      values: pipelineJsonObjectSchema,
+    }),
+  ),
+  p_inserts: z.array(pipelineJsonObjectSchema),
+})
 
-  return {
-    ...original,
-    applyScientificRowChanges: vi.fn(),
-    mutateScientificFormula: vi.fn(),
+const formulaRequestSchema = z.object({
+  operation: z.enum(['create', 'update', 'remove']),
+  target: z.object({
+    tableId: z.string(),
+    rowId: z.string(),
+    columnId: z.string(),
+  }),
+  expectedSchemaVersion: z.number(),
+  expectedRowVersion: z.number(),
+  expectedFormulaVersion: z.number().optional(),
+  source: z.string().optional(),
+  replacement: z
+    .union([z.string(), z.number(), z.boolean(), z.null()])
+    .optional(),
+})
+
+const literalRequests: z.infer<typeof literalRequestSchema>[] = []
+const formulaRequests: z.infer<typeof formulaRequestSchema>[] = []
+const formulaResponses: Response[] = []
+const requestOrder: string[] = []
+const coordinators: GridOperationCoordinator[] = []
+const applyChanges = vi.fn<typeof fetch>()
+
+const transport: typeof fetch = async (input, init) => {
+  const request =
+    input instanceof Request
+      ? new Request(input, init)
+      : new Request(new URL(input, 'http://localhost'), init)
+
+  expect(request.method).toBe('POST')
+  const path = new URL(request.url).pathname
+  requestOrder.push(path)
+
+  if (path === '/api/db/rpc/apply_scientific_row_changes') {
+    literalRequests.push(literalRequestSchema.parse(await request.json()))
+
+    return applyChanges(input, init)
   }
-})
 
-vi.mock('#/lib/data-client', async (importOriginal) => {
-  const original = await importOriginal<typeof DataClientModule>()
+  if (path === '/api/formulas') {
+    formulaRequests.push(formulaRequestSchema.parse(await request.json()))
 
-  return { ...original, DataClientError: original.DataClientError }
-})
+    return formulaResponses.shift() ?? Response.json({ ok: true })
+  }
 
-const applyChanges = vi.mocked(applyScientificRowChanges)
-const mutateFormula = vi.mocked(mutateScientificFormula)
+  throw new Error(`Unexpected HTTP request: ${path}`)
+}
+
+function rowResponse(resultRows: ScientificRowWire[] = rows) {
+  return Response.json({
+    ok: true,
+    schemaVersion: table.schema_version,
+    rows: resultRows,
+  })
+}
 
 const table: ScientificTableWire = {
   id: 'table-1',
@@ -81,7 +128,7 @@ function cell(
   rowIndex: number,
   rowId: string | null,
   columnId: string,
-  raw: unknown,
+  raw: string,
   generation = 1,
 ): PendingCell {
   return {
@@ -95,20 +142,28 @@ function cell(
 }
 
 function formula(rowId: string, columnId: string, version = 1) {
+  const artifact = buildPersistedFormulaArtifact(
+    parseFormula('=1', {
+      rowIds: rows.map((row) => row.id),
+      columnIds: table.columns.map((column) => column.id),
+    }),
+    table.id,
+  )
+
   return {
     id: `formula-${rowId}-${columnId}`,
     target_table_id: table.id,
     target_row_id: rowId,
     target_column_id: columnId,
     source_expression: '=1',
-    template: {},
-    bindings: {},
-    engine_expression: '1',
-    syntax_profile: 'default',
-    function_profile: 'default',
-    literal_profile: 'default',
-    engine_version: '1',
-    status: 'supported',
+    template: artifact.template,
+    bindings: artifact.bindings,
+    engine_expression: artifact.engineExpression,
+    syntax_profile: artifact.syntaxProfile,
+    function_profile: artifact.functionProfile,
+    literal_profile: artifact.literalProfile,
+    engine_version: artifact.engineVersion,
+    status: artifact.status,
     version,
     created_at: '2026-01-01T00:00:00Z',
   } satisfies FormulaDefinitionWire
@@ -126,7 +181,7 @@ function setup(overrides: Partial<CoordinatorConfig> = {}) {
   }
 
   const config: CoordinatorConfig = {
-    client: {} as CoordinatorConfig['client'],
+    client: createDataClient(transport),
     getCanonicalRows: () => rows,
     getFormulaByCell: () => new Map(),
     getTable: () => table,
@@ -135,8 +190,11 @@ function setup(overrides: Partial<CoordinatorConfig> = {}) {
     ...overrides,
   }
 
+  const coordinator = new GridOperationCoordinator(config)
+  coordinators.push(coordinator)
+
   return {
-    coordinator: new GridOperationCoordinator(config),
+    coordinator,
     callbacks,
   }
 }
@@ -148,16 +206,18 @@ async function elapseCoalescingWindow() {
 describe('GridOperationCoordinator', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.clearAllMocks()
-    applyChanges.mockResolvedValue({
-      ok: true,
-      schemaVersion: table.schema_version,
-      rows,
-    })
-    mutateFormula.mockResolvedValue(null)
+    literalRequests.length = 0
+    formulaRequests.length = 0
+    formulaResponses.length = 0
+    requestOrder.length = 0
+    applyChanges.mockReset().mockImplementation(async () => rowResponse())
+    vi.stubGlobal('fetch', transport)
   })
 
   afterEach(() => {
+    for (const coordinator of coordinators) coordinator.destroy()
+    coordinators.length = 0
+    vi.unstubAllGlobals()
     vi.useRealTimers()
     vi.restoreAllMocks()
   })
@@ -170,7 +230,7 @@ describe('GridOperationCoordinator', () => {
     await elapseCoalescingWindow()
 
     expect(applyChanges).toHaveBeenCalledTimes(1)
-    expect(applyChanges.mock.calls[0][3]).toEqual([
+    expect(literalRequests[0].p_edits).toEqual([
       { rowId: 'row-1', expectedVersion: 2, values: { 'col-a': 'second' } },
     ])
   })
@@ -183,21 +243,18 @@ describe('GridOperationCoordinator', () => {
     await elapseCoalescingWindow()
 
     expect(applyChanges).toHaveBeenCalledTimes(2)
-    expect(applyChanges.mock.calls.map((call) => call[3][0].values)).toEqual([
-      { 'col-a': 'first' },
-      { 'col-a': 'second' },
-    ])
+    expect(literalRequests.map((request) => request.p_edits[0].values)).toEqual(
+      [{ 'col-a': 'first' }, { 'col-a': 'second' }],
+    )
   })
 
   it('uses one literal batch and separate writes for formulas on different rows', async () => {
-    applyChanges.mockResolvedValue({
-      ok: true,
-      schemaVersion: table.schema_version,
-      rows: [
+    applyChanges.mockImplementation(async () =>
+      rowResponse([
         { id: 'row-1', version: 3 },
         { id: 'row-2', version: 8 },
-      ],
-    })
+      ]),
+    )
     const { coordinator } = setup()
     coordinator.enqueue([
       cell(0, 'row-1', 'col-a', 'literal one'),
@@ -209,11 +266,20 @@ describe('GridOperationCoordinator', () => {
     await elapseCoalescingWindow()
 
     expect(applyChanges).toHaveBeenCalledTimes(1)
-    expect(applyChanges.mock.calls[0][3]).toHaveLength(2)
-    expect(mutateFormula).toHaveBeenCalledTimes(2)
-    expect(
-      mutateFormula.mock.calls.map(([write]) => write.target.rowId),
-    ).toEqual(['row-1', 'row-2'])
+    expect(literalRequests[0].p_edits).toHaveLength(2)
+    expect(formulaRequests).toHaveLength(2)
+    expect(formulaRequests.map((write) => write.target.rowId)).toEqual([
+      'row-1',
+      'row-2',
+    ])
+    expect(requestOrder).toEqual([
+      '/api/db/rpc/apply_scientific_row_changes',
+      '/api/formulas',
+      '/api/formulas',
+    ])
+    expect(formulaRequests.map((write) => write.expectedRowVersion)).toEqual([
+      3, 8,
+    ])
   })
 
   it('writes multiple formulas in one batch with each row version', async () => {
@@ -226,8 +292,8 @@ describe('GridOperationCoordinator', () => {
     await elapseCoalescingWindow()
 
     expect(applyChanges).not.toHaveBeenCalled()
-    expect(mutateFormula).toHaveBeenCalledTimes(2)
-    expect(mutateFormula.mock.calls.map(([write]) => write)).toEqual([
+    expect(formulaRequests).toHaveLength(2)
+    expect(formulaRequests).toEqual([
       expect.objectContaining({
         operation: 'create',
         expectedRowVersion: 2,
@@ -242,23 +308,22 @@ describe('GridOperationCoordinator', () => {
   })
 
   it('maps a registered provisional token to the inserted server UUID', async () => {
-    applyChanges.mockResolvedValue({
-      ok: true,
-      schemaVersion: table.schema_version,
-      rows: [{ id: 'real-uuid', version: 1 }],
-    })
+    applyChanges.mockImplementation(async () =>
+      rowResponse([{ id: 'real-uuid', version: 1 }]),
+    )
     const { coordinator, callbacks } = setup()
     coordinator.registerProvisionalRow('prov:new-row')
 
     await elapseCoalescingWindow()
 
-    expect(applyChanges).toHaveBeenCalledWith(
-      expect.anything(),
-      table.id,
-      table.schema_version,
-      [],
-      [{}],
-    )
+    expect(literalRequests).toEqual([
+      {
+        p_table_id: table.id,
+        p_expected_schema_version: table.schema_version,
+        p_edits: [],
+        p_inserts: [{}],
+      },
+    ])
     expect(callbacks.onProvisionalRowReplaced).toHaveBeenCalledWith(
       'prov:new-row',
       'real-uuid',
@@ -268,11 +333,7 @@ describe('GridOperationCoordinator', () => {
   it('retries a transient failure after backoff', async () => {
     applyChanges
       .mockRejectedValueOnce(new Error('network unavailable'))
-      .mockResolvedValueOnce({
-        ok: true,
-        schemaVersion: table.schema_version,
-        rows,
-      })
+      .mockImplementationOnce(async () => rowResponse())
     const { coordinator, callbacks } = setup()
     coordinator.enqueue([cell(0, 'row-1', 'col-a', 'new')])
 
@@ -283,9 +344,91 @@ describe('GridOperationCoordinator', () => {
     expect(callbacks.onRowsUpdated).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps the newest cell value when an in-flight batch fails', async () => {
+    let rejectWrite: ((error: Error) => void) | undefined
+    applyChanges.mockImplementationOnce(
+      () =>
+        new Promise<Response>((_resolve, reject) => {
+          rejectWrite = reject
+        }),
+    )
+    const { coordinator, callbacks } = setup({ coalesceMs: 1000 })
+    coordinator.enqueue([cell(0, 'row-1', 'col-a', 'older')])
+    const firstFlush = vi.advanceTimersByTimeAsync(1000)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(literalRequests).toHaveLength(1)
+    coordinator.enqueue([cell(0, 'row-1', 'col-a', 'newer', 2)])
+
+    if (!rejectWrite) throw new Error('The first HTTP write did not start.')
+    rejectWrite(new Error('network unavailable'))
+    await vi.advanceTimersByTimeAsync(500)
+    await firstFlush
+
+    expect(literalRequests.map((request) => request.p_edits)).toEqual([
+      [{ rowId: 'row-1', expectedVersion: 2, values: { 'col-a': 'older' } }],
+      [{ rowId: 'row-1', expectedVersion: 2, values: { 'col-a': 'newer' } }],
+    ])
+    expect(callbacks.onStatusChange).toHaveBeenCalledWith('retrying')
+    expect(callbacks.onRowsUpdated).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    { raw: { nested: 'not a scalar' } },
+    { raw: ['not a scalar'] },
+    { raw: Number.NaN },
+    { raw: Number.POSITIVE_INFINITY },
+    { raw: 1n },
+  ])(
+    'rejects malformed raw input without HTTP writes or retries: $raw',
+    async ({ raw }) => {
+      const { coordinator, callbacks } = setup()
+      coordinator.enqueue([{ ...cell(0, 'row-1', 'col-a', ''), raw }])
+      await elapseCoalescingWindow()
+      await vi.runAllTimersAsync()
+
+      expect(requestOrder).toEqual([])
+      expect(callbacks.onIssues).toHaveBeenCalledWith([
+        { key: '0:col-a', message: 'A must be a scalar value.' },
+      ])
+      expect(callbacks.onStatusChange).toHaveBeenCalledWith('error')
+      expect(callbacks.onStatusChange).not.toHaveBeenCalledWith('retrying')
+    },
+  )
+
+  it.each([
+    { raw: undefined, expected: null },
+    { raw: null, expected: null },
+    { raw: false, expected: false },
+    { raw: 0, expected: false },
+    { raw: true, expected: true },
+  ])(
+    'decodes optional and boolean raw inputs before writing: $raw',
+    async ({ raw, expected }) => {
+      const { coordinator } = setup({
+        getTable: () => ({
+          ...table,
+          columns: table.columns.map((column) => ({
+            ...column,
+            logical_type: 'boolean',
+          })),
+        }),
+      })
+
+      coordinator.enqueue([{ ...cell(0, 'row-1', 'col-a', ''), raw }])
+      await elapseCoalescingWindow()
+
+      expect(literalRequests[0].p_edits).toEqual([
+        { rowId: 'row-1', expectedVersion: 2, values: { 'col-a': expected } },
+      ])
+    },
+  )
+
   it('surfaces stale_version immediately without retrying', async () => {
-    applyChanges.mockRejectedValue(
-      new DataClientError('stale_version', 'Version conflict', 409),
+    applyChanges.mockImplementation(async () =>
+      Response.json(
+        { error: { code: 'stale_version', message: 'Version conflict' } },
+        { status: 409 },
+      ),
     )
     const { coordinator, callbacks } = setup()
     coordinator.enqueue([cell(0, 'row-1', 'col-a', 'new')])
@@ -302,8 +445,11 @@ describe('GridOperationCoordinator', () => {
   })
 
   it('surfaces 400 bad request immediately without retrying', async () => {
-    applyChanges.mockRejectedValue(
-      new DataClientError('validation_error', 'Invalid value', 400),
+    applyChanges.mockImplementation(async () =>
+      Response.json(
+        { error: { code: 'validation_error', message: 'Invalid value' } },
+        { status: 400 },
+      ),
     )
     const { coordinator, callbacks } = setup()
     coordinator.enqueue([cell(0, 'row-1', 'col-a', 'bad')])
@@ -337,10 +483,10 @@ describe('GridOperationCoordinator', () => {
     await elapseCoalescingWindow()
     expect(applyChanges).not.toHaveBeenCalled()
 
-    let resolveWrite!: (value: Awaited<ReturnType<typeof applyChanges>>) => void
+    let resolveWrite: ((response: Response) => void) | undefined
     applyChanges.mockImplementationOnce(
       () =>
-        new Promise((resolve) => {
+        new Promise<Response>((resolve) => {
           resolveWrite = resolve
         }),
     )
@@ -349,7 +495,10 @@ describe('GridOperationCoordinator', () => {
     const timerAdvance = vi.advanceTimersByTimeAsync(300)
     await vi.advanceTimersByTimeAsync(0)
     active.coordinator.destroy()
-    resolveWrite({ ok: true, schemaVersion: table.schema_version, rows })
+
+    if (!resolveWrite)
+      throw new Error('The in-flight HTTP write did not start.')
+    resolveWrite(rowResponse())
     await timerAdvance
 
     expect(active.callbacks.onRowsUpdated).not.toHaveBeenCalled()
@@ -371,9 +520,115 @@ describe('GridOperationCoordinator', () => {
     ])
     await elapseCoalescingWindow()
 
+    expect(formulaRequests.map((write) => write.expectedRowVersion)).toEqual([
+      2, 3,
+    ])
     expect(
-      mutateFormula.mock.calls.map(([write]) => write.expectedRowVersion),
-    ).toEqual([2, 3])
+      formulaRequests.map((write) => write.expectedFormulaVersion),
+    ).toEqual([5, 8])
+  })
+
+  it('removes a formula with a scalar replacement and advances the next literal version', async () => {
+    const formulas = new Map([['row-1/col-a', formula('row-1', 'col-a', 5)]])
+    const onFormulaPersisted = vi.fn()
+
+    const { coordinator } = setup({
+      getFormulaByCell: () => formulas,
+      onFormulaPersisted,
+    })
+
+    coordinator.enqueue([cell(0, 'row-1', 'col-a', 'replacement')])
+    await elapseCoalescingWindow()
+
+    expect(literalRequests).toEqual([])
+    expect(formulaRequests).toEqual([
+      {
+        operation: 'remove',
+        target: { tableId: table.id, rowId: 'row-1', columnId: 'col-a' },
+        expectedSchemaVersion: 4,
+        expectedRowVersion: 2,
+        expectedFormulaVersion: 5,
+        replacement: 'replacement',
+      },
+    ])
+    expect(onFormulaPersisted).toHaveBeenCalledWith(
+      { tableId: table.id, rowId: 'row-1', columnId: 'col-a' },
+      null,
+    )
+
+    formulas.clear()
+    coordinator.enqueue([cell(0, 'row-1', 'col-a', 'later literal')])
+    await elapseCoalescingWindow()
+    expect(literalRequests[0].p_edits).toEqual([
+      {
+        rowId: 'row-1',
+        expectedVersion: 3,
+        values: { 'col-a': 'later literal' },
+      },
+    ])
+  })
+
+  it('stops at a failed formula without advancing the row version or starting later writes', async () => {
+    formulaResponses.push(
+      Response.json(
+        { error: { code: 'formula_write_failed', message: 'Write failed' } },
+        { status: 500 },
+      ),
+    )
+    const onFormulaPersisted = vi.fn()
+
+    const { coordinator, callbacks } = setup({
+      maxRetries: 0,
+      onFormulaPersisted,
+    })
+
+    coordinator.enqueue([
+      cell(0, 'row-1', 'col-a', '=11'),
+      cell(0, 'row-1', 'col-b', '=12'),
+    ])
+    await elapseCoalescingWindow()
+
+    expect(formulaRequests).toHaveLength(1)
+    expect(formulaRequests[0].source).toBe('=11')
+    expect(onFormulaPersisted).not.toHaveBeenCalled()
+    expect(callbacks.onStatusChange).toHaveBeenCalledWith('error')
+    expect(callbacks.onRefetchRows).toHaveBeenCalledTimes(1)
+
+    coordinator.enqueue([cell(0, 'row-1', 'col-a', '=13')])
+    await elapseCoalescingWindow()
+    expect(formulaRequests.map((write) => write.expectedRowVersion)).toEqual([
+      2, 2,
+    ])
+    expect(onFormulaPersisted).toHaveBeenCalledTimes(1)
+  })
+
+  it('writes a provisional formula only after receiving its durable row identity', async () => {
+    applyChanges.mockImplementation(async () =>
+      rowResponse([{ id: 'real-uuid', version: 1 }]),
+    )
+    const { coordinator, callbacks } = setup()
+    coordinator.registerProvisionalRow('prov:new-row')
+    coordinator.enqueue([cell(2, 'prov:new-row', 'col-b', '=2**3')])
+    await elapseCoalescingWindow()
+
+    expect(literalRequests[0].p_inserts).toEqual([{}])
+    expect(requestOrder).toEqual([
+      '/api/db/rpc/apply_scientific_row_changes',
+      '/api/formulas',
+    ])
+    expect(formulaRequests).toEqual([
+      {
+        operation: 'create',
+        target: { tableId: table.id, rowId: 'real-uuid', columnId: 'col-b' },
+        expectedSchemaVersion: 4,
+        expectedRowVersion: 1,
+        source: '=2^3',
+      },
+    ])
+    expect(callbacks.onProvisionalRowReplaced).toHaveBeenCalledWith(
+      'prov:new-row',
+      'real-uuid',
+    )
   })
 
   it('preserves engine-translated formula strings from autofill (relative, absolute, mixed)', async () => {
@@ -391,9 +646,9 @@ describe('GridOperationCoordinator', () => {
     await elapseCoalescingWindow()
 
     expect(applyChanges).not.toHaveBeenCalled()
-    expect(mutateFormula).toHaveBeenCalledTimes(4)
+    expect(formulaRequests).toHaveLength(4)
     // Each formula source must be exactly what the engine produced.
-    expect(mutateFormula.mock.calls.map(([w]) => (w as any).source)).toEqual([
+    expect(formulaRequests.map((write) => write.source)).toEqual([
       '=A2',
       '=$A$1',
       '=$A2',

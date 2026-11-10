@@ -6,7 +6,10 @@
  * from wiping keys the form does not show, because the RPC replaces `config`
  * wholesale.
  */
+import { z } from 'zod'
+
 import type { EnterpriseAdapterId } from './types'
+import type { ConnectorWire } from '../types'
 
 export type ConnectorConfigField = {
   name: string
@@ -60,8 +63,8 @@ export type ConnectorConfigValues = Record<string, string | boolean>
 
 export function configFormValues(
   adapter: EnterpriseAdapterId,
-  config: Record<string, unknown>,
-): ConnectorConfigValues {
+  config: ConnectorWire['config'],
+) {
   const values: ConnectorConfigValues = {}
 
   for (const field of CONNECTOR_CONFIG_FIELDS[adapter]) {
@@ -69,10 +72,11 @@ export function configFormValues(
 
     if (field.kind === 'boolean') values[field.name] = Boolean(raw)
     else if (field.kind === 'select')
-      values[field.name] = typeof raw === 'string' ? raw : 'disable'
+      values[field.name] = z.string().catch('disable').parse(raw)
     else
-      values[field.name] =
-        typeof raw === 'string' || typeof raw === 'number' ? String(raw) : ''
+      values[field.name] = String(
+        z.union([z.string(), z.number()]).catch('').parse(raw),
+      )
   }
 
   return values
@@ -82,7 +86,7 @@ function validateField(
   field: ConnectorConfigField,
   value: string | boolean | undefined,
 ): string | null {
-  const text = typeof value === 'string' ? value.trim() : ''
+  const text = z.string().trim().catch('').parse(value)
 
   if (field.required && !text) return `${field.label} is required.`
 
@@ -106,7 +110,7 @@ function validateField(
 /** Required settings that are empty or invalid in the stored config. */
 export function missingConfigLabels(
   adapter: EnterpriseAdapterId,
-  config: Record<string, unknown>,
+  config: ConnectorWire['config'],
 ): string[] {
   const values = configFormValues(adapter, config)
 
@@ -119,17 +123,17 @@ export function missingConfigLabels(
 }
 
 export type BuiltConnectorConfig =
-  | { ok: true; config: Record<string, unknown> }
+  | { ok: true; config: ConnectorWire['config'] }
   | { ok: false; errors: Record<string, string> }
 
 /** Merge edited values over the stored config, keeping keys the form does not own. */
 export function buildConnectorConfig(
   adapter: EnterpriseAdapterId,
-  existing: Record<string, unknown>,
+  existing: ConnectorWire['config'],
   values: ConnectorConfigValues,
 ): BuiltConnectorConfig {
   const errors: Record<string, string> = {}
-  const config: Record<string, unknown> = { ...existing }
+  const config = { ...existing }
 
   for (const field of CONNECTOR_CONFIG_FIELDS[adapter]) {
     const value = values[field.name]
@@ -140,7 +144,7 @@ export function buildConnectorConfig(
       continue
     }
 
-    const text = typeof value === 'string' ? value.trim() : ''
+    const text = z.string().trim().catch('').parse(value)
 
     if (field.kind === 'boolean') config[field.name] = Boolean(value)
     else if (field.kind === 'port') config[field.name] = Number(text)

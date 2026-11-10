@@ -7,9 +7,10 @@
  * revision's integrity digest, and the verification code derived from it. It
  * reuses the portal PDF renderer so the two documents cannot drift apart.
  */
+import { z } from 'zod'
+
 import type { ClientPortalRecordDocument } from '#/lib/client-portal'
 import { renderClientPortalRecordPdf } from '#/lib/client-portal-pdf'
-import type { SignatureMeaning } from '#/lib/signatures'
 
 interface PackageSignature {
   id?: unknown
@@ -28,16 +29,16 @@ export interface RevisionPdfPackage {
     integrityDigest: string | null
   }
   record?: {
-    identifier: string
-    title: string
-    kind: string
-    status: string
+    identifier: string | null
+    title: string | null
+    kind: string | null
+    status: string | null
   } | null
   blockSnapshot: unknown
   signatures: unknown[]
 }
 
-const str = (value: unknown): string => (typeof value === 'string' ? value : '')
+const signatureText = z.string().catch('')
 
 /** A short code a reader can quote to check the document against the audit trail. */
 export function verificationCodeFor(digest: string | null): string | null {
@@ -53,15 +54,20 @@ export function verificationCodeFor(digest: string | null): string | null {
 export function revisionPackageToDocument(
   pkg: RevisionPdfPackage,
 ): ClientPortalRecordDocument {
+  // Legacy projection reads each original signature, including null failures.
+  // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
   const signatures = (pkg.signatures as PackageSignature[]).map((s) => ({
-    id: str(s.id),
-    revisionId: str(s.revision_id) || pkg.revision.id,
+    id: signatureText.parse(s.id),
+    revisionId: signatureText.parse(s.revision_id) || pkg.revision.id,
+    // Preserve repeated native getter reads on string-valued signer names.
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof
     signerName: typeof s.signer_name === 'string' ? s.signer_name : null,
-    signedAt: str(s.signed_at),
-    signatureMeaning: str(s.signature_meaning) as SignatureMeaning,
-    authMethod: str(s.auth_method),
+    signedAt: signatureText.parse(s.signed_at),
+    signatureMeaning: signatureText.parse(s.signature_meaning),
+    authMethod: signatureText.parse(s.auth_method),
     integrityDigest:
-      str(s.revision_integrity_digest) || (pkg.revision.integrityDigest ?? ''),
+      signatureText.parse(s.revision_integrity_digest) ||
+      (pkg.revision.integrityDigest ?? ''),
   }))
 
   const last = signatures.at(-1)

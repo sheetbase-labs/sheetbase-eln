@@ -18,33 +18,29 @@ const PROVIDER_KINDS = [
   'local',
 ] as const satisfies readonly ProviderKind[]
 
-const pricingSchema = z
-  .object({
-    inputMicrousdPerMillionTokens: z.number().int().min(0),
-    outputMicrousdPerMillionTokens: z.number().int().min(0),
-  })
-  .strict()
+const pricingSchema = z.strictObject({
+  inputMicrousdPerMillionTokens: z.number().int().min(0),
+  outputMicrousdPerMillionTokens: z.number().int().min(0),
+})
 
-const profileSchema = z
-  .object({
-    id: z.string().regex(/^[a-z][a-z0-9-]{0,48}$/),
-    label: z.string().min(1).max(80),
-    kind: z.enum(PROVIDER_KINDS),
-    baseUrl: z.string().min(1).max(500),
-    model: z.string().min(1).max(200),
-    apiKeyEnv: z
-      .string()
-      .regex(/^[A-Z][A-Z0-9_]{0,80}$/)
-      .optional(),
-    pricing: pricingSchema,
-    maxOutputTokens: z.number().int().min(1).max(100_000).optional(),
-    embeddingModel: z.string().min(1).max(200).optional(),
-  })
-  .strict()
+const profileSchema = z.strictObject({
+  id: z.string().regex(/^[a-z][a-z0-9-]{0,48}$/),
+  label: z.string().min(1).max(80),
+  kind: z.enum(PROVIDER_KINDS),
+  baseUrl: z.string().min(1).max(500),
+  model: z.string().min(1).max(200),
+  apiKeyEnv: z
+    .string()
+    .regex(/^[A-Z][A-Z0-9_]{0,80}$/)
+    .optional(),
+  pricing: pricingSchema,
+  maxOutputTokens: z.number().int().min(1).max(100_000).optional(),
+  embeddingModel: z.string().min(1).max(200).optional(),
+})
 
 const profilesFileSchema = z.union([
   z.array(profileSchema),
-  z.object({ profiles: z.array(profileSchema) }).strict(),
+  z.strictObject({ profiles: z.array(profileSchema) }),
 ])
 
 export interface PublicProviderProfile {
@@ -70,6 +66,7 @@ export function parseProviderProfiles(
 ): ProviderProfile[] {
   if (raw === undefined || raw.trim() === '') return []
   let parsed: unknown
+
   try {
     parsed = JSON.parse(raw)
   } catch (cause) {
@@ -79,7 +76,9 @@ export function parseProviderProfiles(
       { providerId: 'deployment', cause },
     )
   }
+
   const result = profilesFileSchema.safeParse(parsed)
+
   if (!result.success) {
     throw new AiProviderError(
       'config_invalid',
@@ -87,12 +86,16 @@ export function parseProviderProfiles(
       { providerId: 'deployment', cause: result.error },
     )
   }
+
   const profiles = Array.isArray(result.data)
     ? result.data
     : result.data.profiles
+
   const seen = new Set<string>()
+
   for (const profile of profiles) {
     assertProviderProfile(profile)
+
     if (seen.has(profile.id)) {
       throw new AiProviderError(
         'config_invalid',
@@ -100,14 +103,17 @@ export function parseProviderProfiles(
         { providerId: profile.id },
       )
     }
+
     seen.add(profile.id)
   }
+
   return profiles
 }
 
 /** Validate the non-schema rules: URL shape, TLS and key naming. */
 export function assertProviderProfile(profile: ProviderProfile): void {
   let url: URL
+
   try {
     url = new URL(profile.baseUrl)
   } catch (cause) {
@@ -117,6 +123,7 @@ export function assertProviderProfile(profile: ProviderProfile): void {
       { providerId: profile.id, cause },
     )
   }
+
   if (url.username || url.password) {
     throw new AiProviderError(
       'config_invalid',
@@ -124,6 +131,7 @@ export function assertProviderProfile(profile: ProviderProfile): void {
       { providerId: profile.id },
     )
   }
+
   if (url.search || url.hash) {
     throw new AiProviderError(
       'config_invalid',
@@ -131,7 +139,9 @@ export function assertProviderProfile(profile: ProviderProfile): void {
       { providerId: profile.id },
     )
   }
+
   const cloud = isCloudProvider(profile.kind)
+
   if (cloud && url.protocol !== 'https:') {
     throw new AiProviderError(
       'config_invalid',
@@ -139,6 +149,7 @@ export function assertProviderProfile(profile: ProviderProfile): void {
       { providerId: profile.id },
     )
   }
+
   if (profile.kind === 'local' && !['http:', 'https:'].includes(url.protocol)) {
     throw new AiProviderError(
       'config_invalid',
@@ -146,6 +157,7 @@ export function assertProviderProfile(profile: ProviderProfile): void {
       { providerId: profile.id },
     )
   }
+
   if (profile.embeddingModel && profile.kind === 'anthropic') {
     throw new AiProviderError(
       'config_invalid',
@@ -153,6 +165,7 @@ export function assertProviderProfile(profile: ProviderProfile): void {
       { providerId: profile.id },
     )
   }
+
   if (cloud && !profile.apiKeyEnv) {
     throw new AiProviderError(
       'config_invalid',
@@ -168,6 +181,7 @@ export function createModelProvider(
   deps: ProviderDeps = {},
 ): ModelProvider {
   assertProviderProfile(profile)
+
   if (isCloudProvider(profile.kind) && !apiKey) {
     throw new AiProviderError(
       'config_invalid',
@@ -175,10 +189,13 @@ export function createModelProvider(
       { providerId: profile.id },
     )
   }
+
   const config = { ...profile, apiKey }
+
   if (profile.kind === 'anthropic') {
     return new AnthropicProvider(config, deps)
   }
+
   return new OpenAiCompatibleProvider(config, deps)
 }
 
@@ -192,6 +209,7 @@ export function estimatedMicrousdPerToken(pricing: ProviderPricing): number {
     pricing.inputMicrousdPerMillionTokens,
     pricing.outputMicrousdPerMillionTokens,
   )
+
   return worst / 1_000_000
 }
 

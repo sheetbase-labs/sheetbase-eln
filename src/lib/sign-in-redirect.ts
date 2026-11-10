@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 /**
  * Sign-in redirects that remember where the person was going.
  *
@@ -15,22 +17,21 @@
  * no control character is a path on this origin; anything else is dropped, so
  * the callback falls back to the app root.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Route validators and public callers provide raw URL input; decode strings here before checking rooted-path safety.
 export function safeNextPath(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
+  const path = z.string().safeParse(value)
 
-  if (!value.startsWith('/')) return undefined
+  if (!path.success || !path.data.startsWith('/')) return undefined
 
-  if (value.startsWith('//') || value.includes('\\')) return undefined
+  if (path.data.startsWith('//') || path.data.includes('\\')) return undefined
 
-  const control = [...value].some((char) => {
+  for (const char of path.data) {
     const code = char.charCodeAt(0)
 
-    return code < 0x20 || code === 0x7f
-  })
+    if (code < 0x20 || code === 0x7f) return undefined
+  }
 
-  if (control) return undefined
-
-  return value
+  return path.data
 }
 
 /**

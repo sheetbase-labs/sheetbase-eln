@@ -286,11 +286,13 @@ export async function endRepeat(
 // Words.
 // ---------------------------------------------------------------------------
 
+const repeatListFormat = new Intl.ListFormat('en', {
+  style: 'long',
+  type: 'conjunction',
+})
+
 function listWords(items: string[]): string {
-  return new Intl.ListFormat('en', {
-    style: 'long',
-    type: 'conjunction',
-  }).format(items)
+  return repeatListFormat.format(items)
 }
 
 /** "Every week on Mon and Wed", "Days 0, 7 and 30 after the start". */
@@ -312,6 +314,7 @@ export function describeRepeatRule(schedule: {
       const days = listWords(
         schedule.weekdays.map((d) =>
           t(
+            // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- Legacy unchecked copy lookup preserves missing numeric weekday keys, including their pseudo-locale fallback; the assertion does not establish a valid catalogue key.
             `projects.recurring.weekdaysShort.${d}` as 'projects.recurring.weekdaysShort.1',
           ),
         ),

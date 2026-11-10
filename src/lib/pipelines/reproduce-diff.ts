@@ -8,7 +8,52 @@
  * as a removed row and an added row.
  */
 
-export type DiffRow = Record<string, unknown>
+import { z } from 'zod'
+
+const numericCellSchema = z.union([
+  z.number(),
+  z.nan(),
+  z.literal(Infinity),
+  z.literal(-Infinity),
+])
+
+const diffCellSchema = z.union([
+  z
+    .null()
+    .optional()
+    .transform(() => null),
+  numericCellSchema.transform((value) =>
+    Number.isFinite(value) ? value : null,
+  ),
+  z.boolean(),
+  z.bigint().transform((value) => Number(value)),
+  z.date().transform((value) => value.toISOString()),
+  z.string(),
+  z
+    .unknown()
+    .transform((value) => JSON.stringify(value))
+    .pipe(z.string()),
+])
+
+const rawRowSchema = z.record(z.string(), z.unknown())
+
+// Keep original own keys, then parse every cell, including __proto__.
+const diffRowSchema = z
+  .custom<z.infer<typeof rawRowSchema>>(
+    (row) => rawRowSchema.safeParse(row).success,
+  )
+  .transform((row) =>
+    Object.fromEntries(
+      Object.keys(row)
+        .sort()
+        .map((key): [string, DiffCell] => [
+          key,
+          diffCellSchema.parse(row[key]),
+        ]),
+    ),
+  )
+
+export type DiffRow = z.output<typeof diffRowSchema>
 
 /** A relative tolerance; two numbers agree when they differ by at most this share of the larger. */
 export const DEFAULT_REPRODUCE_TOLERANCE = 1e-9
@@ -62,29 +107,7 @@ export interface ReproduceDiff {
  * Turn any cell into something comparable and JSON-safe. Text stays text: a
  * caller that reads numerics back as strings converts them by column type first.
  */
-export function normaliseCell(value: unknown): DiffCell {
-  if (value === null || value === undefined) return null
-
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
-
-  if (typeof value === 'boolean') return value
-
-  if (typeof value === 'bigint') return Number(value)
-
-  if (value instanceof Date) return value.toISOString()
-
-  if (typeof value === 'string') return value
-
-  return JSON.stringify(value)
-}
-
-function normaliseRow(row: DiffRow): Record<string, DiffCell> {
-  const out: Record<string, DiffCell> = {}
-
-  for (const key of Object.keys(row).sort()) out[key] = normaliseCell(row[key])
-
-  return out
-}
+export const normaliseCell = diffCellSchema.parse.bind(diffCellSchema)
 
 export function cellsAgree(
   a: DiffCell,
@@ -93,10 +116,13 @@ export function cellsAgree(
 ): boolean {
   if (a === b) return true
 
-  if (typeof a === 'number' && typeof b === 'number') {
-    const scale = Math.max(1, Math.abs(a), Math.abs(b))
+  const numericA = numericCellSchema.safeParse(a)
+  const numericB = numericCellSchema.safeParse(b)
 
-    return Math.abs(a - b) <= tolerance * scale
+  if (numericA.success && numericB.success) {
+    const scale = Math.max(1, Math.abs(numericA.data), Math.abs(numericB.data))
+
+    return Math.abs(numericA.data - numericB.data) <= tolerance * scale
   }
 
   return false
@@ -117,10 +143,9 @@ function rowKey(
   return JSON.stringify(
     columns.map((column) => {
       const value = row[column]
+      const numeric = numericCellSchema.safeParse(value)
 
-      return typeof value === 'number'
-        ? Number(value.toPrecision(digits))
-        : value
+      return numeric.success ? Number(numeric.data.toPrecision(digits)) : value
     }),
   )
 }
@@ -149,13 +174,13 @@ function agreement(
   return score
 }
 
-export function diffResultRows(
+function compareResultRows(
   original: ReadonlyArray<DiffRow>,
   reproduced: ReadonlyArray<DiffRow>,
   tolerance: number = DEFAULT_REPRODUCE_TOLERANCE,
 ): ReproduceDiff {
-  const before = original.map(normaliseRow)
-  const after = reproduced.map(normaliseRow)
+  const before = original
+  const after = reproduced
   const beforeColumns = new Set(before.flatMap((row) => Object.keys(row)))
   const afterColumns = new Set(after.flatMap((row) => Object.keys(row)))
 
@@ -204,9 +229,9 @@ export function diffResultRows(
     matched++
   })
 
-  const leftoverAfter = after
-    .map((_, index) => index)
-    .filter((index) => !usedAfter.has(index))
+  const leftoverAfter = after.flatMap((_, index) =>
+    usedAfter.has(index) ? [] : [index],
+  )
 
   // Pass 2: pair what is left by how much of the row still agrees.
   const pairs: Array<[number, number]> = []
@@ -247,8 +272,8 @@ export function diffResultRows(
   const pairedBefore = new Set(pairs.map(([i]) => i))
 
   const examples: DiffExample[] = []
-  const changedColumns: Record<string, number> = {}
-  const largestDelta: Record<string, number> = {}
+  const changedColumns = new Map<string, number>()
+  const largestDelta = new Map<string, number>()
   let changedRows = 0
   let changedCells = 0
   let removedRows = 0
@@ -269,12 +294,18 @@ export function diffResultRows(
 
       if (cellsAgree(a, b, tolerance)) continue
       cells.push({ column, before: a, after: b })
-      changedColumns[column] = (changedColumns[column] ?? 0) + 1
+      changedColumns.set(column, (changedColumns.get(column) ?? 0) + 1)
 
-      if (typeof a === 'number' && typeof b === 'number') {
-        largestDelta[column] = Math.max(
-          largestDelta[column] ?? 0,
-          Math.abs(a - b),
+      const numericA = numericCellSchema.safeParse(a)
+      const numericB = numericCellSchema.safeParse(b)
+
+      if (numericA.success && numericB.success) {
+        largestDelta.set(
+          column,
+          Math.max(
+            largestDelta.get(column) ?? 0,
+            Math.abs(numericA.data - numericB.data),
+          ),
         )
       }
     }
@@ -310,12 +341,22 @@ export function diffResultRows(
     changedCells,
     columnsAdded,
     columnsRemoved,
-    changedColumns,
-    largestDelta,
+    changedColumns: Object.fromEntries(changedColumns),
+    largestDelta: Object.fromEntries(largestDelta),
     examples,
     truncated,
   }
 }
+
+export const diffResultRows = z
+  .function({
+    input: z.tuple([
+      z.array(diffRowSchema).readonly(),
+      z.array(diffRowSchema).readonly(),
+      numericCellSchema.optional(),
+    ]),
+  })
+  .implement(compareResultRows)
 
 /** Matches means nothing differs: no rows, cells or columns. */
 export function diffMatches(diff: ReproduceDiff): boolean {

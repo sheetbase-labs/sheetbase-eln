@@ -16,7 +16,7 @@
  * These helpers are pure so the rules can be tested without a DOM.
  */
 
-import { isRichTextPayload } from './blocks/rich-text'
+import { isRichTextPayload } from './blocks/rich-text-data'
 
 export interface ProseRunPosition {
   /** Number of rows in the run; a run member always belongs to at least two. */

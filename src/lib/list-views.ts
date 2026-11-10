@@ -5,7 +5,9 @@
  */
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { functionalUpdate } from '@tanstack/react-table'
 import type { SortingState, Updater } from '@tanstack/react-table'
+import { z } from 'zod'
 
 import { notebookDataClient } from './notebook-data'
 import type { DataClient } from './data-client'
@@ -46,34 +48,31 @@ export function toListViewChoice(
 
   const sorting = Array.isArray(row.sorting)
     ? row.sorting.flatMap((entry): SortingState => {
-        if (
-          entry &&
-          typeof entry === 'object' &&
-          typeof (entry as { id?: unknown }).id === 'string'
-        ) {
-          return [
-            {
-              id: (entry as { id: string }).id,
-              desc: (entry as { desc?: unknown }).desc === true,
-            },
-          ]
-        }
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Stored preferences retain native objects, including arrays with properties, rather than imposing a JSON-only contract.
+        if (!entry || typeof entry !== 'object') return []
 
-        return []
+        // SAFETY: An object can be inspected through optional unknown properties; this promises neither their presence nor their value types.
+        const candidate = entry as { id?: unknown; desc?: unknown }
+        const parsed = z.string().safeParse(candidate.id)
+
+        if (!parsed.success) return []
+
+        // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- Legacy output compatibility only: a native getter's second read is unchecked and can differ from the decoded first read.
+        const id = candidate.id as string
+
+        return [{ id, desc: candidate.desc === true }]
       })
     : []
 
   const hidden = Array.isArray(row.hidden_columns)
-    ? row.hidden_columns.filter((id): id is string => typeof id === 'string')
+    ? row.hidden_columns.flatMap((id) => {
+        const parsed = z.string().safeParse(id)
+
+        return parsed.success ? [parsed.data] : []
+      })
     : []
 
   return { sorting: sorting.slice(0, 4), hidden }
-}
-
-function resolve<T>(updater: Updater<T>, current: T): T {
-  return typeof updater === 'function'
-    ? (updater as (old: T) => T)(current)
-    : updater
 }
 
 /**
@@ -150,13 +149,13 @@ export function useListView(
 
   const setSorting = useCallback(
     (updater: Updater<SortingState>) =>
-      update((c) => ({ ...c, sorting: resolve(updater, c.sorting) })),
+      update((c) => ({ ...c, sorting: functionalUpdate(updater, c.sorting) })),
     [update],
   )
 
   const setHidden = useCallback(
     (updater: Updater<string[]>) =>
-      update((c) => ({ ...c, hidden: resolve(updater, c.hidden) })),
+      update((c) => ({ ...c, hidden: functionalUpdate(updater, c.hidden) })),
     [update],
   )
 

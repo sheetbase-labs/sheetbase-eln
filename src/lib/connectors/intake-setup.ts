@@ -3,6 +3,8 @@
  * an instrument's files in, made and changed from the instrument's page so
  * nobody types a connector key or a UUID.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '../data-client'
 import { parseImportText } from '../import-parse'
 import type { ParserSettingsRow } from '../parser-settings'
@@ -59,13 +61,11 @@ export async function findInstrumentConnector(
 
   return (
     rows.find((row) => {
-      const pickup = row.config['pickup']
+      const pickup = z
+        .object({ instrumentId: z.string() })
+        .safeParse(row.config.pickup)
 
-      return (
-        pickup !== null &&
-        typeof pickup === 'object' &&
-        (pickup as Record<string, unknown>)['instrumentId'] === instrumentId
-      )
+      return pickup.success && pickup.data.instrumentId === instrumentId
     }) ?? null
   )
 }
@@ -214,9 +214,13 @@ export function previewSample(
     }
   }
 
-  const required = Array.isArray(version?.signature['requiredHeaders'])
-    ? (version.signature['requiredHeaders'] as string[])
-    : []
+  const required = z
+    .array(z.string())
+    .optional()
+    .safeParse(version?.signature.requiredHeaders)
+
+  if (!required.success)
+    return { status: 'unreadable', reason: 'columns', missing: [] }
 
   let sheet: ReturnType<typeof parseImportText>['sheets'][number]
 
@@ -227,7 +231,10 @@ export function previewSample(
   }
 
   const have = new Set(sheet.headers.map((h) => h.trim().toLowerCase()))
-  const missing = required.filter((h) => !have.has(h.toLowerCase()))
+
+  const missing = (required.data ?? []).filter(
+    (h) => !have.has(h.toLowerCase()),
+  )
 
   if (missing.length > 0)
     return { status: 'unreadable', reason: 'columns', missing }

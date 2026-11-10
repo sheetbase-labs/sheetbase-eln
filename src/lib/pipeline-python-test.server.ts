@@ -16,6 +16,7 @@ import { INPUT_NAME_RE, MAX_STATEMENT_LENGTH } from './pipelines/config'
 import {
   contractErrors,
   inferColumns,
+  pythonResultRowsSchema,
   requirementErrors,
 } from './pipelines/python'
 import type {
@@ -26,6 +27,8 @@ import type {
 import {
   PipelinePythonError,
   executePythonTransform,
+  pythonInputsSchema,
+  pythonInputRowSchema,
 } from './pipeline-python.server'
 import type { PythonTransformResult } from './pipeline-python.server'
 
@@ -165,18 +168,20 @@ export async function handlePythonTestRun(
   try {
     const result = await deps.execute({
       statement: job.statement,
-      inputs: job.inputs,
-      parameters: job.parameters,
+      inputs: pythonInputsSchema.parse(job.inputs),
+      parameters: pythonInputRowSchema.parse(job.parameters),
       requirements: job.requirements,
       contract: job.contract,
     })
 
+    const rows = pythonResultRowsSchema.parse(result.rows)
+
     const success: PythonTestRunSuccess = {
       ok: true,
-      rows: result.rows.slice(0, TEST_RESULT_ROWS),
-      rowCount: result.rows.length,
-      truncated: result.rows.length > TEST_RESULT_ROWS,
-      columns: inferColumns(result.rows),
+      rows: rows.slice(0, TEST_RESULT_ROWS),
+      rowCount: rows.length,
+      truncated: rows.length > TEST_RESULT_ROWS,
+      columns: inferColumns(rows),
       logs: result.logs,
       runtime: result.runtime,
       environment: result.environment,

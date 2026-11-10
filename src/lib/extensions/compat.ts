@@ -25,6 +25,7 @@
  * admin Deploy section). Callers pass it in; a missing or unparsable
  * version reports `unknown`, never `compatible`.
  */
+import { z } from 'zod'
 
 export type ExtensionCompatState = 'compatible' | 'unknown' | 'incompatible'
 
@@ -40,10 +41,17 @@ const SEMVER_CORE =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/
 
 /** Parse a semver string; returns null instead of throwing. */
-export function parseSemver(version: unknown): ParsedSemver | null {
-  if (typeof version !== 'string') return null
-  const match = SEMVER_CORE.exec(version.trim())
+export function parseSemver(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Deployment versions can be absent or malformed; parse text here before checking the semver grammar, and return null on rejection (compat.test.ts).
+  version: unknown,
+): ParsedSemver | null {
+  const parsed = z.string().safeParse(version)
+
+  if (!parsed.success) return null
+  const match = SEMVER_CORE.exec(parsed.data.trim())
+
   if (!match) return null
+
   return {
     major: Number(match[1]),
     minor: Number(match[2]),
@@ -55,11 +63,15 @@ export function parseSemver(version: unknown): ParsedSemver | null {
 function compareIdentifiers(a: string, b: string): number {
   const aNum = /^(0|[1-9]\d*)$/.test(a) ? Number(a) : null
   const bNum = /^(0|[1-9]\d*)$/.test(b) ? Number(b) : null
+
   if (aNum !== null && bNum !== null)
     return aNum < bNum ? -1 : aNum > bNum ? 1 : 0
+
   // Numeric identifiers sort below alphanumeric ones (semver §11.4.4).
   if (aNum !== null) return -1
+
   if (bNum !== null) return 1
+
   return a < b ? -1 : a > b ? 1 : 0
 }
 
@@ -70,20 +82,29 @@ function compareIdentifiers(a: string, b: string): number {
 export function compareSemver(a: string, b: string): number {
   const pa = parseSemver(a)
   const pb = parseSemver(b)
+
   if (!pa || !pb) return NaN
+
   for (const key of ['major', 'minor', 'patch'] as const) {
     if (pa[key] !== pb[key]) return pa[key] < pb[key] ? -1 : 1
   }
+
   if (pa.prerelease === null && pb.prerelease === null) return 0
+
   if (pa.prerelease === null) return 1
+
   if (pb.prerelease === null) return -1
   const length = Math.max(pa.prerelease.length, pb.prerelease.length)
+
   for (let i = 0; i < length; i++) {
     if (i >= pa.prerelease.length) return -1
+
     if (i >= pb.prerelease.length) return 1
     const order = compareIdentifiers(pa.prerelease[i], pb.prerelease[i])
+
     if (order !== 0) return order
   }
+
   return 0
 }
 
@@ -102,26 +123,37 @@ const RANGE_TOKEN =
  * Never throws. The grammar is deliberately small — `*`, exact versions
  * and explicit comparators only; no caret/tilde/fuzzy shims.
  */
-export function validateCompatRange(input: unknown): string[] {
-  if (typeof input !== 'string' || input.trim().length === 0) {
+export function validateCompatRange(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- External manifest compatibility ranges enter here; reject non-text/blank input before checking every comparator with the established grammar.
+  input: unknown,
+): string[] {
+  const parsed = z.string().safeParse(input)
+
+  if (!parsed.success || parsed.data.trim().length === 0) {
     return ['compatibleWith must be a non-empty version range']
   }
-  if (input.length > 200) {
+
+  if (parsed.data.length > 200) {
     return ['compatibleWith must be at most 200 characters']
   }
+
   const errors: string[] = []
-  const tokens = input.trim().split(/\s+/)
+  const tokens = parsed.data.trim().split(/\s+/)
+
   for (const token of tokens) {
     if (token === '*') continue
+
     if (!RANGE_TOKEN.test(token)) {
       errors.push(`invalid compatibleWith comparator: ${token}`)
     }
   }
+
   return errors
 }
 
 function parseCompatComparators(range: string): CompatComparator[] | null {
   const out: CompatComparator[] = []
+
   for (const token of range.trim().split(/\s+/)) {
     if (token === '*') {
       out.push({
@@ -130,10 +162,12 @@ function parseCompatComparators(range: string): CompatComparator[] | null {
       })
       continue
     }
+
     const match = RANGE_TOKEN.exec(token)
+
     if (!match) return null
     out.push({
-      op: ((match[1] as string | undefined) ?? '=') as ComparatorOp,
+      op: z.enum(['>=', '<=', '>', '<', '=']).parse(match.at(1) ?? '='),
       version: {
         major: Number(match[2]),
         minor: Number(match[3]),
@@ -142,6 +176,7 @@ function parseCompatComparators(range: string): CompatComparator[] | null {
       },
     })
   }
+
   return out
 }
 
@@ -149,16 +184,23 @@ function compareParsed(a: ParsedSemver, b: ParsedSemver): number {
   for (const key of ['major', 'minor', 'patch'] as const) {
     if (a[key] !== b[key]) return a[key] < b[key] ? -1 : 1
   }
+
   if (a.prerelease === null && b.prerelease === null) return 0
+
   if (a.prerelease === null) return 1
+
   if (b.prerelease === null) return -1
   const length = Math.max(a.prerelease.length, b.prerelease.length)
+
   for (let i = 0; i < length; i++) {
     if (i >= a.prerelease.length) return -1
+
     if (i >= b.prerelease.length) return 1
     const order = compareIdentifiers(a.prerelease[i], b.prerelease[i])
+
     if (order !== 0) return order
   }
+
   return 0
 }
 
@@ -175,14 +217,19 @@ export function checkExtensionCompat(
   appVersion: string | null | undefined,
 ): ExtensionCompatState {
   const range = manifest.compatibleWith?.trim() ?? ''
+
   if (!range) return 'unknown'
   const app = parseSemver(appVersion)
+
   if (!app) return 'unknown'
   const comparators = parseCompatComparators(range)
+
   if (!comparators) return 'unknown'
+
   for (const comparator of comparators) {
     if (comparator.op === '*') continue
     const order = compareParsed(app, comparator.version)
+
     const satisfied =
       comparator.op === '='
         ? order === 0
@@ -193,8 +240,10 @@ export function checkExtensionCompat(
             : comparator.op === '>'
               ? order > 0
               : order < 0
+
     if (!satisfied) return 'incompatible'
   }
+
   return 'compatible'
 }
 
@@ -219,6 +268,7 @@ export function isUpdateAvailable(
   knownVersion: string,
 ): boolean {
   const order = compareSemver(installedVersion, knownVersion)
+
   return Number.isNaN(order) ? false : order < 0
 }
 

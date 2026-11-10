@@ -13,6 +13,9 @@
  * The same strict rules as `hooks.ts`: anything unknown is rejected, never
  * ignored. Browser safe, no server imports.
  */
+import { z } from 'zod'
+
+import type { ExtensionContributions } from './manifest'
 import { EXTENSION_ID_RE, MAX_EXTENSION_DECLARATIONS } from './points'
 
 export const EXTENSION_UI_POINTS = [
@@ -21,10 +24,11 @@ export const EXTENSION_UI_POINTS = [
   'dashboard-widgets',
   'report-sections',
 ] as const
+
 export type ExtensionUiPoint = (typeof EXTENSION_UI_POINTS)[number]
 
 export function isUiPoint(value: string): value is ExtensionUiPoint {
-  return (EXTENSION_UI_POINTS as readonly string[]).includes(value)
+  return z.enum(EXTENSION_UI_POINTS).safeParse(value).success
 }
 
 /** The `.html` file in `ui/` a screen runs as. */
@@ -53,104 +57,154 @@ export interface ExtensionUiContributions {
   'report-sections'?: ExtensionUiDeclaration[]
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function words(value: unknown, min: number, max: number): value is string {
-  return (
-    typeof value === 'string' &&
-    value.trim().length >= min &&
-    value.trim().length <= max
-  )
-}
+// Fields are checked below in contract order so an author gets the same first
+// error as before. A separate strict parse retains unknown-key diagnostics,
+// including __proto__, which a parsed object's output deliberately omits.
+const uiEntryInput = z.object({
+  id: z.unknown().optional(),
+  title: z.unknown().optional(),
+  description: z.unknown().optional(),
+  icon: z.unknown().optional(),
+  ui: z.unknown().optional(),
+  size: z.unknown().optional(),
+})
 
 export function parseUiPoint(
   point: ExtensionUiPoint,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Uploaded contribution lists enter here; list/object/field schemas reject malformed data before a declaration is returned (ui-points.test.ts).
   value: unknown,
   errors: string[],
 ): ExtensionWidgetDeclaration[] | null {
-  if (!Array.isArray(value) || value.length > MAX_EXTENSION_DECLARATIONS) {
+  const list = z
+    .array(z.unknown())
+    .max(MAX_EXTENSION_DECLARATIONS)
+    .safeParse(value)
+
+  if (!list.success) {
     errors.push(
       `contributions.${point} must be a list of at most ${MAX_EXTENSION_DECLARATIONS}`,
     )
+
     return null
   }
-  const allowed = [
-    'id',
-    'title',
-    'description',
-    'icon',
-    'ui',
-    ...(point === 'dashboard-widgets' ? ['size'] : []),
-  ]
+
+  const knownKeys = (
+    point === 'dashboard-widgets'
+      ? uiEntryInput
+      : uiEntryInput.omit({ size: true })
+  ).strict()
+
   const seen = new Set<string>()
   const out: ExtensionWidgetDeclaration[] = []
-  for (const entry of value as unknown[]) {
-    if (!isRecord(entry)) {
+
+  for (const raw of list.data) {
+    const object = uiEntryInput.safeParse(raw)
+
+    if (!object.success) {
       errors.push(`contributions.${point} entries must be objects`)
+
       return null
     }
-    if (typeof entry.id !== 'string' || !EXTENSION_ID_RE.test(entry.id)) {
+
+    const entry = object.data
+    const id = z.string().regex(EXTENSION_ID_RE).safeParse(entry.id)
+
+    if (!id.success) {
       errors.push(
         `contributions.${point} entry ids must match ^[a-z][a-z0-9-]{0,48}$`,
       )
+
       return null
     }
-    const name = `contributions.${point}.${entry.id}`
-    if (seen.has(entry.id)) {
-      errors.push(`contributions.${point} has a duplicate id: ${entry.id}`)
+
+    const name = `contributions.${point}.${id.data}`
+
+    if (seen.has(id.data)) {
+      errors.push(`contributions.${point} has a duplicate id: ${id.data}`)
+
       return null
     }
-    seen.add(entry.id)
-    const extra = Object.keys(entry).find((key) => !allowed.includes(key))
+
+    seen.add(id.data)
+    const keys = knownKeys.safeParse(raw)
+
+    const extra = keys.success
+      ? undefined
+      : keys.error.issues
+          .flatMap((issue) =>
+            issue.code === 'unrecognized_keys' ? issue.keys : [],
+          )
+          .at(0)
+
     if (extra) {
       errors.push(`${name} has an unknown setting: ${extra}`)
+
       return null
     }
-    if (!words(entry.title, 1, 120)) {
+
+    const title = z.string().trim().min(1).max(120).safeParse(entry.title)
+
+    if (!title.success) {
       errors.push(`${name} title must be 1-120 characters`)
+
       return null
     }
-    if (entry.description !== undefined && !words(entry.description, 1, 600)) {
+
+    const description = z
+      .string()
+      .trim()
+      .min(1)
+      .max(600)
+      .optional()
+      .safeParse(entry.description)
+
+    if (!description.success) {
       errors.push(`${name} description must be 1-600 characters`)
+
       return null
     }
-    if (
-      entry.icon !== undefined &&
-      !(typeof entry.icon === 'string' && ICON_RE.test(entry.icon))
-    ) {
+
+    const icon = z.string().regex(ICON_RE).optional().safeParse(entry.icon)
+
+    if (!icon.success) {
       errors.push(`${name} icon must be an icon name such as flask`)
+
       return null
     }
-    if (
-      typeof entry.ui !== 'string' ||
-      !PLUGIN_UI_FILE_ENTRY_RE.test(entry.ui)
-    ) {
+
+    const ui = z.string().regex(PLUGIN_UI_FILE_ENTRY_RE).safeParse(entry.ui)
+
+    if (!ui.success) {
       errors.push(
         `${name} ui must be an .html file in ui/, such as ui/page.html`,
       )
+
       return null
     }
-    if (
-      entry.size !== undefined &&
-      entry.size !== 'normal' &&
-      entry.size !== 'wide'
-    ) {
+
+    const size = z.enum(['normal', 'wide']).optional().safeParse(entry.size)
+
+    if (!size.success) {
       errors.push(`${name} size is normal or wide`)
+
       return null
     }
-    out.push({
-      id: entry.id,
-      title: entry.title.trim(),
-      ...(typeof entry.description === 'string'
-        ? { description: entry.description.trim() }
-        : {}),
-      ...(typeof entry.icon === 'string' ? { icon: entry.icon } : {}),
-      ui: entry.ui,
-      ...(entry.size ? { size: entry.size } : {}),
-    })
+
+    const declaration: ExtensionWidgetDeclaration = {
+      id: id.data,
+      title: title.data,
+      ui: ui.data,
+    }
+
+    if (description.data !== undefined)
+      declaration.description = description.data
+
+    if (icon.data !== undefined) declaration.icon = icon.data
+
+    if (size.data) declaration.size = size.data
+    out.push(declaration)
   }
+
   return out
 }
 
@@ -165,6 +219,7 @@ export const PLUGIN_FRAME_POINTS = {
   'table-cells': 'render',
   'field-types': 'input',
 } as const
+
 export type PluginFramePoint = keyof typeof PLUGIN_FRAME_POINTS
 
 export function isFramePoint(value: string): value is PluginFramePoint {
@@ -174,10 +229,18 @@ export function isFramePoint(value: string): value is PluginFramePoint {
 /** The bundle entry a declaration of `point` runs, or undefined when it draws no UI. */
 export function frameEntryOf(
   point: PluginFramePoint,
-  declaration: object | undefined,
+  declaration:
+    | Partial<NonNullable<ExtensionContributions[PluginFramePoint]>[number]>
+    | undefined,
 ): string | undefined {
-  const value = (declaration as Record<string, unknown> | undefined)?.[
-    PLUGIN_FRAME_POINTS[point]
-  ]
-  return typeof value === 'string' ? value : undefined
+  if (!declaration) return undefined
+  const entry = PLUGIN_FRAME_POINTS[point]
+
+  if (entry === 'ui' && 'ui' in declaration) return declaration.ui
+
+  if (entry === 'render' && 'render' in declaration) return declaration.render
+
+  if (entry === 'input' && 'input' in declaration) return declaration.input
+
+  return undefined
 }

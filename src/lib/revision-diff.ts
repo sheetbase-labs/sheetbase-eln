@@ -12,9 +12,13 @@ export type RevisionChangeArea =
   | 'formulas'
   | 'files'
 
+// Snapshots retain arbitrary native scientific values instead of JSON coercion.
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
 type RevisionEntity = Record<string, unknown>
 
-export type CanonicalRevisionEntity = RevisionEntity & { id: string }
+export interface CanonicalRevisionEntity extends RevisionEntity {
+  id: string
+}
 
 export interface CanonicalRevisionEnvelope {
   formatVersion: number
@@ -103,15 +107,22 @@ const TECHNICAL_FIELDS = new Set([
 
 const MISSING = Symbol('missing revision value')
 
-function isEntity(value: unknown): value is RevisionEntity {
+function isEntity(value: RevisionChange['before']): value is RevisionEntity {
+  // Native objects remain intact, including non-JSON snapshot values.
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function stableIdentity(value: RevisionEntity): string | null {
+  // Preserve both reads of a potentially stateful identity getter.
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof
   return typeof value.id === 'string' ? value.id : null
 }
 
-function exactEqual(before: unknown, after: unknown): boolean {
+function exactEqual(
+  before: RevisionChange['before'],
+  after: RevisionChange['after'],
+): boolean {
   if (Object.is(before, after)) return true
 
   if (Array.isArray(before) && Array.isArray(after)) {
@@ -156,6 +167,8 @@ function displayName(entity: RevisionEntity, fallback: string): string {
     'identifier',
     'formula_text',
   ]) {
+    // Preserve the original label getter reads and native coercion order.
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof
     if (typeof entity[key] === 'string' && entity[key]) {
       return String(entity[key])
     }
@@ -196,8 +209,8 @@ function compareValue({
   identity: string
   label: string
   path: string[]
-  before: unknown | typeof MISSING
-  after: unknown | typeof MISSING
+  before: RevisionChange['before']
+  after: RevisionChange['after']
   changes: RevisionChange[]
   table?: Pick<RevisionChange, 'tableId' | 'rowId' | 'columnId'>
 }) {
@@ -228,18 +241,18 @@ function compareValue({
   const kind: RevisionChangeKind =
     before === MISSING ? 'added' : after === MISSING ? 'removed' : 'modified'
 
-  changes.push(
-    makeChange({
-      area,
-      identity,
-      label: path.length > 0 ? `${label} — ${humanise(path.at(-1)!)}` : label,
-      path,
-      kind,
-      ...(before === MISSING ? {} : { before }),
-      ...(after === MISSING ? {} : { after }),
-      ...table,
-    }),
-  )
+  const change: Omit<RevisionChange, 'id'> = {
+    area,
+    identity,
+    label: path.length > 0 ? `${label} — ${humanise(path.at(-1)!)}` : label,
+    path,
+    kind,
+  }
+
+  if (before !== MISSING) change.before = before
+
+  if (after !== MISSING) change.after = after
+  changes.push(makeChange({ ...change, ...table }))
 }
 
 function byIdentity(items: RevisionEntity[]): Map<string, RevisionEntity> {
@@ -260,6 +273,8 @@ function byIdentity(items: RevisionEntity[]): Map<string, RevisionEntity> {
 
 function orderValue(entity: RevisionEntity, fallback: number): number {
   for (const key of ['order', 'displayOrder', 'display_order']) {
+    // Preserve both reads of the native order property.
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof
     if (typeof entity[key] === 'number') return entity[key]
   }
 
@@ -268,18 +283,20 @@ function orderValue(entity: RevisionEntity, fallback: number): number {
 
 function orderedIds(items: RevisionEntity[]): string[] {
   return items
-    .map((item, index) => ({
-      id: stableIdentity(item),
-      order: orderValue(item, index),
-    }))
-    .filter((item): item is { id: string; order: number } => item.id !== null)
+    .flatMap((item, index) => {
+      const id = stableIdentity(item)
+      const order = orderValue(item, index)
+
+      return id === null ? [] : [{ id, order }]
+    })
     .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
     .map((item) => item.id)
 }
 
 /** Identities outside a deterministic longest common subsequence truly moved. */
 function movedIdentities(beforeIds: string[], afterIds: string[]): Set<string> {
-  const common = new Set(beforeIds.filter((id) => afterIds.includes(id)))
+  const afterSet = new Set(afterIds)
+  const common = new Set(beforeIds.filter((id) => afterSet.has(id)))
   const before = beforeIds.filter((id) => common.has(id))
   const after = afterIds.filter((id) => common.has(id))
 
@@ -363,7 +380,9 @@ function compareEntityCollection({
   }
 }
 
-function blockArea(type: unknown): RevisionChangeArea {
+function blockArea(type: RevisionEntity['type']): RevisionChangeArea {
+  // Snapshot types use the original native String coercion.
+  // oxlint-disable-next-line typescript/no-base-to-string
   const value = String(type ?? '').toLowerCase()
 
   if (value.includes('checklist')) return 'checklists'
@@ -376,10 +395,12 @@ function blockArea(type: unknown): RevisionChangeArea {
 function richTextValue(payload: RevisionEntity): string | null {
   if (!isEntity(payload.doc) || payload.doc.type !== 'doc') return null
 
-  function nodeText(node: unknown): string {
+  function nodeText(node: RevisionEntity['content']): string {
     if (!isEntity(node)) return ''
 
     if (node.type === 'text')
+      // Preserve repeated text getter reads on native snapshot nodes.
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof
       return typeof node.text === 'string' ? node.text : ''
 
     if (!Array.isArray(node.content)) return ''
@@ -407,6 +428,8 @@ function checklistItems(items: RevisionEntity[]): Map<string, RevisionEntity> {
 
       if (id) return [`id:${id}`, item]
 
+      // Preserve the checklist text getter reads and identity selection order.
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof
       if (typeof item.text === 'string') {
         const occurrence = occurrences.get(item.text) ?? 0
         occurrences.set(item.text, occurrence + 1)
@@ -593,6 +616,8 @@ function tableColumnName(column: RevisionEntity, id: string): string {
 
 function tableColumnKey(column: RevisionEntity): string | null {
   for (const key of ['apiName', 'api_name', 'field_name', 'name']) {
+    // Preserve both reads of each native column property.
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof
     if (typeof column[key] === 'string') return column[key]
   }
 
@@ -600,6 +625,8 @@ function tableColumnKey(column: RevisionEntity): string | null {
 }
 
 function tableColumnUnit(column: RevisionEntity): string | undefined {
+  // Preserve both reads of the unit getter.
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof
   return typeof column.unit === 'string' ? column.unit : undefined
 }
 
@@ -813,15 +840,21 @@ function compareTables(
                 : 'modified'
 
           const columnLabel = tableColumnName(afterColumn, columnId)
+
+          const change: Omit<RevisionChange, 'id'> = {
+            area: 'tables',
+            identity: `${tableId}:${rowId}:${columnId}`,
+            label: `${label} — Row ${rowId}, ${columnLabel}`,
+            path: ['rows', rowId, columnId],
+            kind,
+          }
+
+          if (beforeValue !== MISSING) change.before = beforeValue
+
+          if (afterValue !== MISSING) change.after = afterValue
           tableChanges.push(
             makeChange({
-              area: 'tables',
-              identity: `${tableId}:${rowId}:${columnId}`,
-              label: `${label} — Row ${rowId}, ${columnLabel}`,
-              path: ['rows', rowId, columnId],
-              kind,
-              ...(beforeValue === MISSING ? {} : { before: beforeValue }),
-              ...(afterValue === MISSING ? {} : { after: afterValue }),
+              ...change,
               beforeUnit: tableColumnUnit(beforeColumn),
               afterUnit: tableColumnUnit(afterColumn),
               tableId,
@@ -884,6 +917,8 @@ function sheetTables(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
 
       if (
         rowKeys.length !== rows.length ||
+        // Keep the primitive string check for the native frozen row identities.
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof
         rowKeys.some((key) => typeof key !== 'string')
       ) {
         throw new Error(
@@ -892,6 +927,8 @@ function sheetTables(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
       }
 
       const columns = grid.columns.map((column) => {
+        // Check this read without reconstructing the native column object.
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof
         if (typeof column.id !== 'string')
           throw new Error('Frozen Sheet column identity is missing')
         const field = isEntity(column.field) ? column.field : column
@@ -945,10 +982,9 @@ function sheetTables(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
         id: field.fieldId,
         field_name: field.fieldId,
       })),
-      rows: Object.entries(values).map(([rowKey, cells]) => ({
-        ...(isEntity(cells) ? cells : {}),
-        id: rowKey,
-      })),
+      rows: Object.entries(values).map(([rowKey, cells]) =>
+        isEntity(cells) ? { ...cells, id: rowKey } : { id: rowKey },
+      ),
     }
   })
 }
@@ -980,6 +1016,8 @@ export function diffRevisionEnvelopes(
 
   const unavailableSheetComparisons = [
     ...new Set(
+      // Keep separate filter and map passes so getter reads stay ordered.
+      // oxlint-disable-next-line anti-slop/no-array-filter-map
       [...(before.sheetEvidence ?? []), ...(after.sheetEvidence ?? [])]
         .filter(
           (sheet) =>
@@ -990,8 +1028,12 @@ export function diffRevisionEnvelopes(
     ),
   ]
 
+  const unavailableSheetIds = new Set(unavailableSheetComparisons)
+
   compareValue({
     area: 'metadata',
+    // Preserve native identity coercion, including user-defined toString.
+    // oxlint-disable-next-line typescript/no-base-to-string
     identity: String(after.record.id ?? before.record.id ?? 'record'),
     label: 'Record metadata',
     path: [],
@@ -1013,7 +1055,7 @@ export function diffRevisionEnvelopes(
       ...before.scientificTables,
       ...sheetTables(
         before.sheetEvidence?.filter(
-          (sheet) => !unavailableSheetComparisons.includes(sheet.blockId),
+          (sheet) => !unavailableSheetIds.has(sheet.blockId),
         ),
       ),
     ],
@@ -1021,7 +1063,7 @@ export function diffRevisionEnvelopes(
       ...after.scientificTables,
       ...sheetTables(
         after.sheetEvidence?.filter(
-          (sheet) => !unavailableSheetComparisons.includes(sheet.blockId),
+          (sheet) => !unavailableSheetIds.has(sheet.blockId),
         ),
       ),
     ],

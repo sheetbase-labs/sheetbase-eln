@@ -1,4 +1,4 @@
-import type { z } from 'zod'
+import { z } from 'zod'
 
 import {
   BENCH_PROPOSE_TOOL_NAMES,
@@ -139,32 +139,45 @@ export function benchProposalDefs(): ProviderToolDef[] {
 export function isBenchProposalTool(
   name: string,
 ): name is BenchProposeToolName {
-  return (BENCH_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+  return BENCH_PROPOSE_TOOL_NAMES.some((tool) => tool === name)
 }
 
 // ---------------------------------------------------------------------------
 // Lookups by the words people use.
 // ---------------------------------------------------------------------------
 
-interface FoundRecord {
-  id: string
-  identifier: string
-  title: string
-  metadata_version: number
-  properties: Record<string, unknown> | null
-}
+const benchRecordSchema = z.object({
+  id: z.string(),
+  identifier: z.string(),
+  title: z.string(),
+  metadata_version: z.number(),
+  properties: z
+    .object({
+      quantity: z.number().nullable().catch(null),
+      quantityUnit: z.string().catch(''),
+      storageLocation: z.string().nullable().catch(null),
+    })
+    .nullish()
+    .catch({ quantity: null, quantityUnit: '', storageLocation: null }),
+})
+
+type FoundRecord = z.infer<typeof benchRecordSchema>
 
 async function findRecord(
   client: DataClient,
   kind: 'sample' | 'material',
   text: string,
-): Promise<FoundRecord | string> {
+): Promise<FoundRecord | { message: string }> {
   const like = likeValue(text)
 
-  const rows = await client.list<FoundRecord>(
-    'records',
-    `?kind=eq.${kind}&deleted_at=is.null&archived_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title,metadata_version,properties&order=updated_at.desc&limit=6`,
-  )
+  const rows = z
+    .array(benchRecordSchema)
+    .parse(
+      await client.list<unknown>(
+        'records',
+        `?kind=eq.${kind}&deleted_at=is.null&archived_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title,metadata_version,properties&order=updated_at.desc&limit=6`,
+      ),
+    )
 
   const lower = text.trim().toLowerCase()
 
@@ -178,23 +191,24 @@ async function findRecord(
 
   if (rows.length === 1) return rows[0]
 
-  if (rows.length === 0) return `No ${kind} matches "${text}".`
+  if (rows.length === 0) return { message: `No ${kind} matches "${text}".` }
 
-  return `More than one ${kind} matches "${text}": ${rows
-    .map((row) => `${row.identifier} ${row.title}`)
-    .join(', ')}. Ask which one.`
+  return {
+    message: `More than one ${kind} matches "${text}": ${rows
+      .map((row) => `${row.identifier} ${row.title}`)
+      .join(', ')}. Ask which one.`,
+  }
 }
 
 function label(row: { identifier: string; title: string }): string {
   return `${row.identifier} · ${row.title}`
 }
 
-function amountOf(row: FoundRecord): { quantity: number | null; unit: string } {
-  const props = row.properties ?? {}
-  const quantity = typeof props.quantity === 'number' ? props.quantity : null
-  const unit = typeof props.quantityUnit === 'string' ? props.quantityUnit : ''
-
-  return { quantity, unit }
+function amountOf(row: FoundRecord) {
+  return {
+    quantity: row.properties?.quantity ?? null,
+    unit: row.properties?.quantityUnit ?? '',
+  }
 }
 
 function amount(quantity: number, unit: string): string {
@@ -204,7 +218,7 @@ function amount(quantity: number, unit: string): string {
 async function findProject(
   client: DataClient,
   name: string | undefined,
-): Promise<{ id: string; title: string } | string> {
+): Promise<{ id: string; title: string } | { message: string }> {
   const rows = await client.list<{ id: string; title: string }>(
     'projects',
     '?archived_at=is.null&select=id,title&order=title.asc&limit=200',
@@ -213,12 +227,15 @@ async function findProject(
   if (!name) {
     if (rows.length === 1) return rows[0]
 
-    return rows.length === 0
-      ? 'There is no project to put this in yet.'
-      : `Which project? Ask the person: ${rows
-          .slice(0, 12)
-          .map((row) => row.title)
-          .join(', ')}.`
+    return {
+      message:
+        rows.length === 0
+          ? 'There is no project to put this in yet.'
+          : `Which project? Ask the person: ${rows
+              .slice(0, 12)
+              .map((row) => row.title)
+              .join(', ')}.`,
+    }
   }
 
   const lower = name.trim().toLowerCase()
@@ -233,20 +250,23 @@ async function findProject(
 
   if (partial.length === 1) return partial[0]
 
-  return partial.length === 0
-    ? `No project matches "${name}". The projects are: ${rows
-        .slice(0, 12)
-        .map((row) => row.title)
-        .join(', ')}.`
-    : `More than one project matches "${name}": ${partial
-        .map((row) => row.title)
-        .join(', ')}. Ask which one.`
+  return {
+    message:
+      partial.length === 0
+        ? `No project matches "${name}". The projects are: ${rows
+            .slice(0, 12)
+            .map((row) => row.title)
+            .join(', ')}.`
+        : `More than one project matches "${name}": ${partial
+            .map((row) => row.title)
+            .join(', ')}. Ask which one.`,
+  }
 }
 
 async function findBox(
   client: DataClient,
   name: string,
-): Promise<BoxChoice | string> {
+): Promise<BoxChoice | { message: string }> {
   const boxes = await fetchBoxChoices(client)
   const lower = name.trim().toLowerCase()
 
@@ -269,16 +289,20 @@ async function findBox(
   if (partial.length === 1) return partial[0]
 
   if (partial.length === 0) {
-    return `No box matches "${name}". Boxes: ${boxes
-      .slice(0, 15)
-      .map((box) => box.path)
-      .join('; ')}.`
+    return {
+      message: `No box matches "${name}". Boxes: ${boxes
+        .slice(0, 15)
+        .map((box) => box.path)
+        .join('; ')}.`,
+    }
   }
 
-  return `More than one box matches "${name}": ${partial
-    .slice(0, 8)
-    .map((box) => box.path)
-    .join('; ')}. Ask which one.`
+  return {
+    message: `More than one box matches "${name}": ${partial
+      .slice(0, 8)
+      .map((box) => box.path)
+      .join('; ')}. Ask which one.`,
+  }
 }
 
 /** `count` free positions in a box, in reading order, with the words for each. */
@@ -286,11 +310,13 @@ async function freeSpots(
   client: DataClient,
   box: BoxChoice,
   count: number,
-): Promise<{ ids: string[]; labels: string[] } | string> {
+): Promise<{ ids: string[]; labels: string[] } | { message: string }> {
   const free = freePositions(await fetchBoxPositions(client, box.id), count)
 
   if (free.length < count) {
-    return `${box.path} has only ${free.length} free position${free.length === 1 ? '' : 's'}; ${count} needed. Offer another box.`
+    return {
+      message: `${box.path} has only ${free.length} free position${free.length === 1 ? '' : 's'}; ${count} needed. Offer another box.`,
+    }
   }
 
   return { ids: free.map((cell) => cell.id), labels: free.map((c) => c.label) }
@@ -304,12 +330,12 @@ function coerceField(
   field: ModelFieldDefinition,
   value: string | number | boolean,
 ):
-  { ok: true; value: unknown; shown: string } | { ok: false; message: string } {
+  | { ok: true; value: string | number | boolean; shown: string }
+  | { ok: false; message: string } {
   switch (field.logicalType) {
     case 'integer':
     case 'decimal': {
-      const number =
-        typeof value === 'number' ? value : Number.parseFloat(String(value))
+      const number = Number.parseFloat(String(value))
 
       return Number.isFinite(number)
         ? { ok: true, value: number, shown: String(number) }
@@ -361,11 +387,11 @@ function matchFields(
 ):
   | {
       ok: true
-      customFields: Record<string, unknown>
+      customFields: Record<string, string | number | boolean>
       changes: ProposalChange[]
     }
   | { ok: false; message: string } {
-  const customFields: Record<string, unknown> = {}
+  const customFields: Record<string, string | number | boolean> = {}
   const changes: ProposalChange[] = []
   const asked = fields.filter((field) => field.lifecycle === 'active')
 
@@ -420,9 +446,11 @@ async function pickForm(
   keys: string[],
   wanted: string | undefined,
   what: string,
-): Promise<{ key: string; name: string } | string> {
+): Promise<{ key: string; name: string } | { message: string }> {
   if (keys.length === 0) {
-    return `This lab has not set up ${what} yet. It is set up from Settings > Lab setup.`
+    return {
+      message: `This lab has not set up ${what} yet. It is set up from Settings > Lab setup.`,
+    }
   }
 
   const models = await client.list<{ key: string; name: string }>(
@@ -433,7 +461,9 @@ async function pickForm(
   if (!wanted) {
     if (models.length === 1) return models[0]
 
-    return `Which form? Ask the person: ${models.map((model) => model.name).join(', ')}.`
+    return {
+      message: `Which form? Ask the person: ${models.map((model) => model.name).join(', ')}.`,
+    }
   }
 
   const lower = wanted.trim().toLowerCase()
@@ -452,9 +482,11 @@ async function pickForm(
 
   if (partial.length === 1) return partial[0]
 
-  return `No ${what} form matches "${wanted}". The forms are: ${models
-    .map((model) => model.name)
-    .join(', ')}.`
+  return {
+    message: `No ${what} form matches "${wanted}". The forms are: ${models
+      .map((model) => model.name)
+      .join(', ')}.`,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -463,6 +495,7 @@ async function pickForm(
 
 function parse<T extends z.ZodType>(
   schema: T,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Each model-supplied argument is decoded by this schema before a builder uses it.
   args: unknown,
 ): { ok: true; data: z.infer<T> } | { ok: false; message: string } {
   const parsed = schema.safeParse(args)
@@ -567,6 +600,7 @@ async function resolveStoragePlace(
 
 export async function buildBenchProposal(
   name: BenchProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Assistant tool arguments are untrusted; each selected operation immediately decodes its own schema.
   args: unknown,
   context: LabToolContext,
 ): Promise<BenchProposalOutcome> {
@@ -580,7 +614,7 @@ export async function buildBenchProposal(
       const input = parsed.data
       const material = await findRecord(client, 'material', input.material)
 
-      if (typeof material === 'string') return fail(material)
+      if ('message' in material) return fail(material.message)
       const unit = input.unit ?? amountOf(material).unit
 
       const open = await client.list<{ number: number; status: string }>(
@@ -859,18 +893,18 @@ export async function buildBenchProposal(
       const input = parsed.data
       const project = await findProject(client, input.project)
 
-      if (typeof project === 'string') return fail(project)
+      if ('message' in project) return fail(project.message)
       let spots: { ids: string[]; labels: string[] } | null = null
       let box: BoxChoice | null = null
 
       if (input.box) {
         const found = await findBox(client, input.box)
 
-        if (typeof found === 'string') return fail(found)
+        if ('message' in found) return fail(found.message)
         box = found
         const free = await freeSpots(client, box, input.samples.length)
 
-        if (typeof free === 'string') return fail(free)
+        if ('message' in free) return fail(free.message)
         spots = free
       }
 
@@ -894,17 +928,22 @@ export async function buildBenchProposal(
         action: {
           kind: 'samples.log',
           projectId: project.id,
-          samples: input.samples.map((sample) => ({
-            title: sample.name,
-            ...(sample.sampleType ? { sampleType: sample.sampleType } : {}),
-            ...(sample.quantity !== undefined
-              ? { quantity: sample.quantity }
-              : {}),
-            ...(sample.quantityUnit
-              ? { quantityUnit: sample.quantityUnit }
-              : {}),
-            ...(!box && input.place ? { storageLocation: input.place } : {}),
-          })),
+          samples: input.samples.map((sample) => {
+            const logged: Extract<
+              BenchAction,
+              { kind: 'samples.log' }
+            >['samples'][number] = { title: sample.name }
+
+            if (sample.sampleType) logged.sampleType = sample.sampleType
+
+            if (sample.quantity !== undefined) logged.quantity = sample.quantity
+
+            if (sample.quantityUnit) logged.quantityUnit = sample.quantityUnit
+
+            if (!box && input.place) logged.storageLocation = input.place
+
+            return logged
+          }),
           positionIds: spots?.ids ?? [],
         },
       })
@@ -917,7 +956,7 @@ export async function buildBenchProposal(
       const input = parsed.data
       const sample = await findRecord(client, 'sample', input.sample)
 
-      if (typeof sample === 'string') return fail(sample)
+      if ('message' in sample) return fail(sample.message)
       const { quantity: have, unit } = amountOf(sample)
 
       if (have !== null && input.quantity > have) {
@@ -932,7 +971,7 @@ export async function buildBenchProposal(
       if (input.experiment) {
         const found = await findExperiment(client, input.experiment)
 
-        if (typeof found === 'string') return fail(found)
+        if ('message' in found) return fail(found.message)
         experiment = found
       }
 
@@ -985,7 +1024,7 @@ export async function buildBenchProposal(
       for (const text of input.samples) {
         const found = await findRecord(client, 'sample', text)
 
-        if (typeof found === 'string') return fail(found)
+        if ('message' in found) return fail(found.message)
         samples.push(found)
       }
 
@@ -995,31 +1034,24 @@ export async function buildBenchProposal(
       if (input.box) {
         const found = await findBox(client, input.box)
 
-        if (typeof found === 'string') return fail(found)
+        if ('message' in found) return fail(found.message)
         box = found
         const free = await freeSpots(client, box, samples.length)
 
-        if (typeof free === 'string') return fail(free)
+        if ('message' in free) return fail(free.message)
         spots = free
       }
 
       return card(name, input, {
         target: box ? box.path : (input.place ?? ''),
         deepLink: '/samples',
-        changes: samples.map((sample, index) => {
-          const props = sample.properties ?? {}
-
-          return {
-            label: label(sample),
-            before:
-              typeof props.storageLocation === 'string'
-                ? props.storageLocation
-                : null,
-            after: spots
-              ? `${box?.name} · ${spots.labels[index]}`
-              : (input.place ?? ''),
-          }
-        }),
+        changes: samples.map((sample, index) => ({
+          label: label(sample),
+          before: sample.properties?.storageLocation ?? null,
+          after: spots
+            ? `${box?.name} · ${spots.labels[index]}`
+            : (input.place ?? ''),
+        })),
         action: {
           kind: 'sample.move',
           moves: samples.map((sample, index) => ({
@@ -1040,10 +1072,10 @@ export async function buildBenchProposal(
       const input = parsed.data
       const sample = await findRecord(client, 'sample', input.sample)
 
-      if (typeof sample === 'string') return fail(sample)
+      if ('message' in sample) return fail(sample.message)
       const experiment = await findExperiment(client, input.experiment)
 
-      if (typeof experiment === 'string') return fail(experiment)
+      if ('message' in experiment) return fail(experiment.message)
       const { quantity: have, unit } = amountOf(sample)
       const total = Math.round(input.count * input.quantityEach * 1e6) / 1e6
 
@@ -1103,10 +1135,10 @@ export async function buildBenchProposal(
         'incident log',
       )
 
-      if (typeof form === 'string') return fail(form)
+      if ('message' in form) return fail(form.message)
       const project = await findProject(client, input.project)
 
-      if (typeof project === 'string') return fail(project)
+      if ('message' in project) return fail(project.message)
       const fields = await fetchModelFields(client, form.key)
       const matched = matchFields(fields, input.fields ?? {})
 
@@ -1148,13 +1180,13 @@ export async function buildBenchProposal(
         'request',
       )
 
-      if (typeof form === 'string') return fail(form)
+      if ('message' in form) return fail(form.message)
       let project: { id: string; title: string } | null = null
 
       if (input.project) {
         const found = await findProject(client, input.project)
 
-        if (typeof found === 'string') return fail(found)
+        if ('message' in found) return fail(found.message)
         project = found
       }
 
@@ -1198,7 +1230,7 @@ export async function buildBenchProposal(
       const input = parsed.data
       const sample = await findRecord(client, 'sample', input.sample)
 
-      if (typeof sample === 'string') return fail(sample)
+      if ('message' in sample) return fail(sample.message)
 
       const runs = (await fetchSampleRuns(client, sample.id)).filter(
         (run) => !run.completedAt,

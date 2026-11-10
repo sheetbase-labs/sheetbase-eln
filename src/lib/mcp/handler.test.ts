@@ -1,30 +1,28 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import type { DataClient } from '../data-client'
-import { AI_FEATURE_FLAGS } from '../ai-feature-flags'
 import type { AiFeatureFlags } from '../ai-feature-flags'
-import { CONTEXT_TOOL_NAME, handleMcpMessage } from './handler'
+import { CONTEXT_TOOL_NAME, handleMcpBody, handleMcpMessage } from './handler'
 import type { McpContext } from './handler'
 import { JSON_RPC_ERRORS } from './protocol'
+import { runFileRead, runFileUpload } from './files'
+import { runPluginSearch } from './plugin-search'
+import { runLabAct, runGuardedLabAct } from './lab'
+import { testClient as fakeClient } from './test-transport'
 
 const WORKSPACE_ID = '11111111-1111-4111-8111-111111111111'
 const DATASET_ID = '22222222-2222-4222-8222-222222222222'
 
-function fakeClient(overrides: Partial<DataClient> = {}): DataClient {
-  return {
-    list: vi.fn(async () => []),
-    count: vi.fn(async () => 0),
-    rpc: vi.fn(async () => ({})),
-    insert: vi.fn(async () => ({})),
-    patch: vi.fn(async () => []),
-    remove: vi.fn(async () => []),
-    ...overrides,
-  } as DataClient
+const allFeatureFlags: AiFeatureFlags = {
+  assistant: true,
+  mcp_read: true,
+  mcp_draft: true,
+  mcp_workflow: true,
+  mcp_admin_read: true,
+  mcp_admin_propose: true,
+  mcp_lab: true,
 }
-
-const allFeatureFlags = Object.fromEntries(
-  AI_FEATURE_FLAGS.map((flag) => [flag.key, true]),
-) as AiFeatureFlags
 
 function withFlags(overrides: Partial<AiFeatureFlags>): AiFeatureFlags {
   return { ...allFeatureFlags, ...overrides }
@@ -47,30 +45,53 @@ function context(
 }
 
 interface TestResponse {
-  result?: Record<string, unknown>
+  result?: unknown
   error?: { code: number }
 }
 
 async function request(
   method: string,
-  params: Record<string, unknown>,
+  params: { [name: string]: z.JSONType },
   ctx: McpContext,
 ): Promise<TestResponse | null> {
-  return (await handleMcpMessage(
-    { jsonrpc: '2.0', id: 1, method, params },
-    ctx,
-  )) as unknown as TestResponse | null
+  return handleMcpMessage({ jsonrpc: '2.0', id: 1, method, params }, ctx)
+}
+
+function toolsOf(response: TestResponse | null) {
+  return z
+    .object({
+      tools: z.array(
+        z.object({
+          name: z.string(),
+          inputSchema: z.object({ type: z.string() }),
+        }),
+      ),
+    })
+    .parse(response?.result).tools
 }
 
 describe('MCP initialize and discovery', () => {
   it('advertises the supported protocol, tools, resources and prompts', async () => {
     const response = await request('initialize', {}, context(['datasets:read']))
     expect(response).not.toBeNull()
-    const result = response?.result as Record<string, unknown>
+
+    const result = z
+      .object({
+        protocolVersion: z.string(),
+        serverInfo: z.object({ name: z.string() }),
+        instructions: z.string(),
+        capabilities: z.object({
+          tools: z.object({}),
+          resources: z.object({}),
+          prompts: z.object({}),
+        }),
+      })
+      .parse(response?.result)
+
     expect(result.protocolVersion).toBe('2025-06-18')
     expect(result.serverInfo).toMatchObject({ name: 'sheetbase' })
     expect(result.instructions).toContain('propose_agent_operation')
-    const capabilities = result.capabilities as Record<string, unknown>
+    const capabilities = result.capabilities
     expect(capabilities).toHaveProperty('tools')
     expect(capabilities).toHaveProperty('resources')
     expect(capabilities).toHaveProperty('prompts')
@@ -79,8 +100,7 @@ describe('MCP initialize and discovery', () => {
   it('lists only tools the credential can use', async () => {
     const readOnly = await request('tools/list', {}, context(['datasets:read']))
 
-    const readTools = (readOnly?.result as { tools: Array<{ name: string }> })
-      .tools
+    const readTools = toolsOf(readOnly)
 
     expect(readTools.map((tool) => tool.name)).toContain(
       'sheetbase.dataset_rows.query',
@@ -96,8 +116,7 @@ describe('MCP initialize and discovery', () => {
       context(['agent_operations:write', 'pipelines:write']),
     )
 
-    const writeTools = (writer?.result as { tools: Array<{ name: string }> })
-      .tools
+    const writeTools = toolsOf(writer)
 
     expect(writeTools.map((tool) => tool.name)).toContain(
       'sheetbase.pipeline_definition.draft',
@@ -110,9 +129,7 @@ describe('MCP initialize and discovery', () => {
       context(['agent_operations:write']),
     )
 
-    const underScopedTools = (
-      underScoped?.result as { tools: Array<{ name: string }> }
-    ).tools
+    const underScopedTools = toolsOf(underScoped)
 
     expect(underScopedTools.map((tool) => tool.name)).not.toContain(
       'sheetbase.pipeline_definition.draft',
@@ -126,11 +143,7 @@ describe('MCP initialize and discovery', () => {
       context(['datasets:read', 'agent_operations:write', 'pipelines:write']),
     )
 
-    const tools = (
-      response?.result as {
-        tools: Array<{ inputSchema: Record<string, unknown> }>
-      }
-    ).tools
+    const tools = toolsOf(response)
 
     for (const tool of tools) {
       expect(tool.inputSchema.type).toBe('object')
@@ -140,10 +153,10 @@ describe('MCP initialize and discovery', () => {
 
 describe('MCP read tools', () => {
   it('maps the dataset read tool onto the canonical RPC arguments', async () => {
-    const rpc = vi.fn(async () => ({
+    const rpc = vi.fn<DataClient['rpc']>().mockResolvedValue({
       rows: [],
       total: 0,
-    })) as unknown as DataClient['rpc']
+    })
 
     const client = fakeClient({ rpc })
 
@@ -203,7 +216,7 @@ describe('MCP read tools', () => {
 describe('MCP draft tools', () => {
   it('wraps a draft in propose_agent_operation with MCP provenance', async () => {
     const proposal = { id: 'proposal-1', status: 'pending' }
-    const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
+    const rpc = vi.fn<DataClient['rpc']>().mockResolvedValue(proposal)
     const client = fakeClient({ rpc })
 
     const response = await request(
@@ -277,11 +290,9 @@ describe('MCP draft tools', () => {
       context(['agent_operations:write', 'projects:write']),
     )
 
-    expect(
-      (scoped?.result as { tools: Array<{ name: string }> }).tools.map(
-        (tool) => tool.name,
-      ),
-    ).toContain('sheetbase.notebook_block.insert')
+    expect(toolsOf(scoped).map((tool) => tool.name)).toContain(
+      'sheetbase.notebook_block.insert',
+    )
 
     const underScoped = await request(
       'tools/list',
@@ -289,16 +300,14 @@ describe('MCP draft tools', () => {
       context(['agent_operations:write']),
     )
 
-    expect(
-      (underScoped?.result as { tools: Array<{ name: string }> }).tools.map(
-        (tool) => tool.name,
-      ),
-    ).not.toContain('sheetbase.notebook_block.insert')
+    expect(toolsOf(underScoped).map((tool) => tool.name)).not.toContain(
+      'sheetbase.notebook_block.insert',
+    )
   })
 
   it('wraps a notebook block insert in a proposal with its revision', async () => {
     const proposal = { id: 'proposal-notebook', status: 'pending' }
-    const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
+    const rpc = vi.fn<DataClient['rpc']>().mockResolvedValue(proposal)
     const client = fakeClient({ rpc })
 
     const response = await request(
@@ -346,7 +355,7 @@ describe('MCP draft tools', () => {
 
   it('proposes a record creation only with projects:write', async () => {
     const proposal = { id: 'proposal-record', status: 'pending' }
-    const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
+    const rpc = vi.fn<DataClient['rpc']>().mockResolvedValue(proposal)
     const client = fakeClient({ rpc })
 
     const response = await request(
@@ -407,9 +416,7 @@ describe('MCP draft tools', () => {
       )
 
       expect(
-        (unscoped?.result as { tools: Array<{ name: string }> }).tools.map(
-          (tool) => tool.name,
-        ),
+        toolsOf(unscoped).map((tool) => tool.name),
         entry.name,
       ).not.toContain(entry.name)
 
@@ -420,9 +427,7 @@ describe('MCP draft tools', () => {
       )
 
       expect(
-        (scoped?.result as { tools: Array<{ name: string }> }).tools.map(
-          (tool) => tool.name,
-        ),
+        toolsOf(scoped).map((tool) => tool.name),
         entry.name,
       ).toContain(entry.name)
     }
@@ -509,7 +514,7 @@ describe('MCP agent lifecycle tools', () => {
 
   it('proposes the nested operation when the write scope is present', async () => {
     const proposal = { id: 'proposal-1', status: 'pending' }
-    const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
+    const rpc = vi.fn<DataClient['rpc']>().mockResolvedValue(proposal)
     const client = fakeClient({ rpc })
 
     const response = await request(
@@ -548,9 +553,52 @@ describe('MCP agent lifecycle tools', () => {
     expect(response?.result).toMatchObject({ structuredContent: proposal })
   })
 
+  it.each<{ [field: string]: z.JSONType }>([
+    {},
+    { kind: 'not_an_operation' },
+    {
+      kind: 'dataset_rows.commit',
+      datasetId: 'invalid',
+      expectedRevision: 1,
+      rows: [],
+    },
+    {
+      kind: 'dataset_rows.commit',
+      datasetId: DATASET_ID,
+      expectedRevision: '1',
+      rows: [],
+    },
+  ])(
+    'refuses an invalid embedded proposal operation %# before RPC',
+    async (operation) => {
+      const client = fakeClient()
+
+      const response = await request(
+        'tools/call',
+        {
+          name: 'sheetbase.agent.propose',
+          arguments: {
+            workspaceId: WORKSPACE_ID,
+            title: 'Invalid proposal',
+            summary: 'Must not reach the canonical RPC.',
+            operation,
+            provenance,
+            idempotencyKey: 'invalid-operation',
+          },
+        },
+        context(['agent_operations:write', 'datasets:write'], client),
+      )
+
+      expect(response?.result).toMatchObject({ isError: true })
+      expect(client.rpc).not.toHaveBeenCalled()
+    },
+  )
+
   it('dispatches workflow creation and revision calls to their RPCs', async () => {
-    const rpcMock = vi.fn(async () => ({ id: 'workflow-1' }))
-    const rpc = rpcMock as unknown as DataClient['rpc']
+    const rpc = vi
+      .fn<DataClient['rpc']>()
+      .mockResolvedValue({ id: 'workflow-1' })
+
     const client = fakeClient({ rpc })
 
     const workflowContext = context(
@@ -592,7 +640,7 @@ describe('MCP agent lifecycle tools', () => {
       }),
     )
 
-    rpcMock.mockClear()
+    rpc.mockClear()
     await request(
       'tools/call',
       {
@@ -606,7 +654,7 @@ describe('MCP agent lifecycle tools', () => {
       p_expected_revision: 2,
     })
 
-    rpcMock.mockClear()
+    rpc.mockClear()
     await request(
       'tools/call',
       {
@@ -627,7 +675,7 @@ describe('MCP agent lifecycle tools', () => {
       p_cost_microusd: 20,
     })
 
-    rpcMock.mockClear()
+    rpc.mockClear()
     await request(
       'tools/call',
       {
@@ -659,9 +707,7 @@ describe('MCP workspace AI access flags', () => {
       context(['datasets:read'], client, undefined, flags),
     )
 
-    const names = (
-      list?.result as { tools: Array<{ name: string }> }
-    ).tools.map((tool) => tool.name)
+    const names = toolsOf(list).map((tool) => tool.name)
 
     expect(names).not.toContain(CONTEXT_TOOL_NAME)
     expect(names).not.toContain('sheetbase.dataset_rows.query')
@@ -690,9 +736,7 @@ describe('MCP workspace AI access flags', () => {
       context([...scopes], client, undefined, flags),
     )
 
-    const names = (
-      list?.result as { tools: Array<{ name: string }> }
-    ).tools.map((tool) => tool.name)
+    const names = toolsOf(list).map((tool) => tool.name)
 
     expect(names).not.toContain('sheetbase.pipeline_definition.draft')
 
@@ -731,11 +775,9 @@ describe('MCP workspace AI access flags', () => {
       context([...scopes], fakeClient(), undefined, allFeatureFlags),
     )
 
-    expect(
-      (enabled?.result as { tools: Array<{ name: string }> }).tools.map(
-        (tool) => tool.name,
-      ),
-    ).toContain('sheetbase.agent.workflow_create')
+    expect(toolsOf(enabled).map((tool) => tool.name)).toContain(
+      'sheetbase.agent.workflow_create',
+    )
 
     const disabled = await request(
       'tools/list',
@@ -748,11 +790,9 @@ describe('MCP workspace AI access flags', () => {
       ),
     )
 
-    expect(
-      (disabled?.result as { tools: Array<{ name: string }> }).tools.map(
-        (tool) => tool.name,
-      ),
-    ).not.toContain('sheetbase.agent.workflow_create')
+    expect(toolsOf(disabled).map((tool) => tool.name)).not.toContain(
+      'sheetbase.agent.workflow_create',
+    )
   })
 
   it('hides and refuses admin reads when mcp_admin_read is off', async () => {
@@ -765,11 +805,9 @@ describe('MCP workspace AI access flags', () => {
       context(['admin:read'], client, undefined, flags),
     )
 
-    expect(
-      (list?.result as { tools: Array<{ name: string }> }).tools.map(
-        (tool) => tool.name,
-      ),
-    ).not.toContain('sheetbase.admin.read')
+    expect(toolsOf(list).map((tool) => tool.name)).not.toContain(
+      'sheetbase.admin.read',
+    )
 
     const call = await request(
       'tools/call',
@@ -795,11 +833,9 @@ describe('MCP workspace AI access flags', () => {
       context([...scopes], client, undefined, flags),
     )
 
-    expect(
-      (list?.result as { tools: Array<{ name: string }> }).tools.map(
-        (tool) => tool.name,
-      ),
-    ).not.toContain('sheetbase.workspace_ai_settings.update')
+    expect(toolsOf(list).map((tool) => tool.name)).not.toContain(
+      'sheetbase.workspace_ai_settings.update',
+    )
 
     const call = await request(
       'tools/call',
@@ -833,19 +869,17 @@ describe('MCP workspace AI access flags', () => {
       context(['datasets:read'], fakeClient(), undefined, allFeatureFlags),
     )
 
-    expect(
-      (list?.result as { tools: Array<{ name: string }> }).tools.map(
-        (tool) => tool.name,
-      ),
-    ).not.toContain('sheetbase.admin.read')
+    expect(toolsOf(list).map((tool) => tool.name)).not.toContain(
+      'sheetbase.admin.read',
+    )
   })
 })
 
 describe('MCP canonical read', () => {
   it('lists and reads an allowlisted collection with its scope', async () => {
-    const list = vi.fn(async () => [
-      { id: 'ds-1', name: 'Growth' },
-    ]) as unknown as DataClient['list']
+    const list = vi
+      .fn<DataClient['list']>()
+      .mockResolvedValue([{ id: 'ds-1', name: 'Growth' }])
 
     const client = fakeClient({ list })
 
@@ -855,11 +889,9 @@ describe('MCP canonical read', () => {
       context(['datasets:read'], client),
     )
 
-    expect(
-      (tools?.result as { tools: Array<{ name: string }> }).tools.map(
-        (tool) => tool.name,
-      ),
-    ).toContain('sheetbase.canonical.read')
+    expect(toolsOf(tools).map((tool) => tool.name)).toContain(
+      'sheetbase.canonical.read',
+    )
 
     const response = await request(
       'tools/call',
@@ -924,11 +956,9 @@ describe('MCP canonical read', () => {
       context(['datasets:read'], client, undefined, flags),
     )
 
-    expect(
-      (tools?.result as { tools: Array<{ name: string }> }).tools.map(
-        (tool) => tool.name,
-      ),
-    ).not.toContain('sheetbase.canonical.read')
+    expect(toolsOf(tools).map((tool) => tool.name)).not.toContain(
+      'sheetbase.canonical.read',
+    )
 
     const response = await request(
       'tools/call',
@@ -943,13 +973,13 @@ describe('MCP canonical read', () => {
   })
 
   it('marks pipeline logs untrusted and redacts a connection string', async () => {
-    const list = vi.fn(async () => [
+    const list = vi.fn<DataClient['list']>().mockResolvedValue([
       {
         sequence: 3,
         message: 'postgresql://user:pass@db/app failed',
         detail: { password: 'hunter2' },
       },
-    ]) as unknown as DataClient['list']
+    ])
 
     const client = fakeClient({ list })
 
@@ -976,9 +1006,7 @@ describe('MCP canonical read', () => {
   })
 
   it('allows a service token with the read scope', async () => {
-    const list = vi.fn(async () => [
-      { id: 'ds-1' },
-    ]) as unknown as DataClient['list']
+    const list = vi.fn<DataClient['list']>().mockResolvedValue([{ id: 'ds-1' }])
 
     const client = fakeClient({ list })
 
@@ -991,11 +1019,9 @@ describe('MCP canonical read', () => {
       }),
     )
 
-    expect(
-      (tools?.result as { tools: Array<{ name: string }> }).tools.map(
-        (tool) => tool.name,
-      ),
-    ).toContain('sheetbase.canonical.read')
+    expect(toolsOf(tools).map((tool) => tool.name)).toContain(
+      'sheetbase.canonical.read',
+    )
 
     const response = await request(
       'tools/call',
@@ -1023,7 +1049,7 @@ describe('MCP administration tools', () => {
   })
 
   function adminClient(role = 'owner'): DataClient {
-    const rpc = vi.fn(async (name: string) => {
+    const rpc = vi.fn<DataClient['rpc']>().mockImplementation(async (name) => {
       if (name === 'workspace_members_list') return [memberRow(role)]
 
       if (name === 'agent_admin_credentials') {
@@ -1038,17 +1064,17 @@ describe('MCP administration tools', () => {
       }
 
       return {}
-    }) as unknown as DataClient['rpc']
+    })
 
     return fakeClient({
       rpc,
-      list: vi.fn(async (resource: string) => {
+      list: vi.fn<DataClient['list']>().mockImplementation(async (resource) => {
         if (resource === 'workspace_settings') {
           return [{ workspace_id: WORKSPACE_ID, ai_enabled: true }]
         }
 
         return []
-      }) as unknown as DataClient['list'],
+      }),
       count: vi.fn(async () => 2),
     })
   }
@@ -1060,9 +1086,7 @@ describe('MCP administration tools', () => {
       context(['admin:read'], adminClient()),
     )
 
-    const personalTools = (
-      personal?.result as { tools: Array<{ name: string }> }
-    ).tools
+    const personalTools = toolsOf(personal)
 
     expect(personalTools.map((tool) => tool.name)).toContain(
       'sheetbase.admin.read',
@@ -1077,8 +1101,7 @@ describe('MCP administration tools', () => {
       }),
     )
 
-    const serviceTools = (service?.result as { tools: Array<{ name: string }> })
-      .tools
+    const serviceTools = toolsOf(service)
 
     expect(serviceTools.map((tool) => tool.name)).not.toContain(
       'sheetbase.admin.read',
@@ -1215,7 +1238,7 @@ describe('MCP administration tools', () => {
 
   it('proposes an administration change with both scopes', async () => {
     const proposal = { id: 'proposal-1', approval_policy: 'human_required' }
-    const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
+    const rpc = vi.fn<DataClient['rpc']>().mockResolvedValue(proposal)
     const client = fakeClient({ rpc })
 
     const response = await request(
@@ -1253,8 +1276,9 @@ describe('MCP resources and prompts', () => {
   it('serves the shared domain resource text', async () => {
     const list = await request('resources/list', {}, context([]))
 
-    const resources = (list?.result as { resources: Array<{ uri: string }> })
-      .resources
+    const resources = z
+      .object({ resources: z.array(z.object({ uri: z.string() })) })
+      .parse(list?.result).resources
 
     expect(resources.map((resource) => resource.uri)).toContain(
       'sheetbase://domain/core-model',
@@ -1266,8 +1290,9 @@ describe('MCP resources and prompts', () => {
       context([]),
     )
 
-    const contents = (read?.result as { contents: Array<{ text: string }> })
-      .contents
+    const contents = z
+      .object({ contents: z.array(z.object({ text: z.string() })) })
+      .parse(read?.result).contents
 
     expect(contents[0]?.text).toContain('Sheetbase core model')
   })
@@ -1282,9 +1307,13 @@ describe('MCP resources and prompts', () => {
       context([]),
     )
 
-    const messages = (
-      good?.result as { messages: Array<{ content: { text: string } }> }
-    ).messages
+    const messages = z
+      .object({
+        messages: z.array(
+          z.object({ content: z.object({ text: z.string() }) }),
+        ),
+      })
+      .parse(good?.result).messages
 
     expect(messages[0]?.content.text).toContain(DATASET_ID)
     expect(messages[0]?.content.text).toContain('stable id')
@@ -1302,6 +1331,83 @@ describe('MCP resources and prompts', () => {
 })
 
 describe('MCP protocol errors', () => {
+  it.each([
+    null,
+    false,
+    'not a request',
+    [],
+    {},
+    { jsonrpc: '1.0', id: 1, method: 'ping' },
+    { jsonrpc: '2.0', id: null, method: 'ping' },
+    { jsonrpc: '2.0', id: 1, method: 123 },
+    { jsonrpc: '2.0', id: 1, method: 'ping', params: [] },
+    { jsonrpc: '2.0', id: 1, method: 'ping', params: null },
+  ])('rejects malformed HTTP input %# before dispatch', async (body) => {
+    const client = fakeClient()
+    const response = await handleMcpBody(body, context(['lab:write'], client))
+
+    expect(response).toMatchObject({
+      id: null,
+      error: { code: JSON_RPC_ERRORS.invalidRequest },
+    })
+    expect(client.rpc).not.toHaveBeenCalled()
+  })
+
+  it('decodes valid requests and notifications without changing their response contract', async () => {
+    expect(
+      await handleMcpBody(
+        { jsonrpc: '2.0', id: 'probe', method: 'ping' },
+        context([]),
+      ),
+    ).toEqual({ jsonrpc: '2.0', id: 'probe', result: {} })
+    expect(
+      await handleMcpBody(
+        { jsonrpc: '2.0', method: 'notifications/initialized' },
+        context([]),
+      ),
+    ).toBeNull()
+  })
+
+  it.each([null, [], 'input', { unexpected: true }])(
+    'rejects malformed standalone tool input %# before I/O',
+    async (input) => {
+      const client = fakeClient()
+
+      const fileContext = {
+        workspaceId: WORKSPACE_ID,
+        userId: 'user-1',
+        credentialId: 'credential-1',
+        token: 'unit-test-only',
+      }
+
+      expect(await runFileRead(input, fileContext)).toMatchObject({ ok: false })
+      expect(await runFileUpload(input, fileContext)).toMatchObject({
+        ok: false,
+      })
+      expect(
+        await runPluginSearch(input, {
+          client,
+          workspaceId: WORKSPACE_ID,
+          actorUserId: 'user-1',
+        }),
+      ).toMatchObject({ isError: true })
+      expect(await runLabAct(input, ['lab:write'], client)).toMatchObject({
+        ok: false,
+        code: 'invalid_arguments',
+      })
+      expect(
+        await runGuardedLabAct(input, {
+          client,
+          workspaceId: WORKSPACE_ID,
+          credentialId: 'credential-1',
+          scopes: ['lab:write'],
+        }),
+      ).toMatchObject({ ok: false, code: 'invalid_arguments' })
+      expect(client.rpc).not.toHaveBeenCalled()
+      expect(client.list).not.toHaveBeenCalled()
+    },
+  )
+
   it('returns method-not-found for an unknown method', async () => {
     const response = await request('no/such/method', {}, context([]))
     expect(response).toMatchObject({
@@ -1333,21 +1439,18 @@ describe('MCP spend and usage reports', () => {
   it('offers the reports only with the facility read scope, and calls the report RPCs', async () => {
     const without = await request('tools/list', {}, context(['datasets:read']))
 
-    const names = (
-      without?.result as { tools: Array<{ name: string }> }
-    ).tools.map((tool) => tool.name)
+    const names = toolsOf(without).map((tool) => tool.name)
 
     expect(names).not.toContain('sheetbase.spend.report')
 
-    const rpc = vi.fn(async () => [{ order_id: 'o1' }] as unknown)
+    const rpc = vi
+      .fn<DataClient['rpc']>()
+      .mockResolvedValue([{ order_id: 'o1' }])
 
-    const ctx = context(
-      ['facility:read'],
-      fakeClient({ rpc: rpc as unknown as DataClient['rpc'] }),
-    )
+    const ctx = context(['facility:read'], fakeClient({ rpc }))
 
     const listed = await request('tools/list', {}, ctx)
-    const tools = (listed?.result as { tools: Array<{ name: string }> }).tools
+    const tools = toolsOf(listed)
     expect(tools.map((tool) => tool.name)).toEqual(
       expect.arrayContaining([
         'sheetbase.spend.report',
@@ -1385,11 +1488,9 @@ describe('MCP money proposals', () => {
 
   it('offers the money proposals only with the facility write scope', async () => {
     const names = async (scopes: Parameters<typeof context>[0]) =>
-      (
-        (await request('tools/list', {}, context(scopes)))?.result as {
-          tools: Array<{ name: string }>
-        }
-      ).tools.map((tool) => tool.name)
+      toolsOf(await request('tools/list', {}, context(scopes))).map(
+        (tool) => tool.name,
+      )
 
     expect(await names(['agent_operations:write'])).not.toContain(
       'sheetbase.reagent_order.mark_ordered',
@@ -1404,7 +1505,7 @@ describe('MCP money proposals', () => {
   })
 
   it('refuses a money proposal without the facility write scope', async () => {
-    const rpc = vi.fn(async () => ({})) as unknown as DataClient['rpc']
+    const rpc = vi.fn<DataClient['rpc']>().mockResolvedValue({})
 
     const response = await request(
       'tools/call',
@@ -1425,7 +1526,7 @@ describe('MCP money proposals', () => {
 
   it('wraps a price and a rate in a proposal that a person approves', async () => {
     const proposal = { id: 'proposal-money', approval_policy: 'human_required' }
-    const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
+    const rpc = vi.fn<DataClient['rpc']>().mockResolvedValue(proposal)
 
     const ctx = context(
       ['agent_operations:write', 'facility:write'],
@@ -1477,25 +1578,20 @@ describe('MCP money proposals', () => {
 describe('MCP directory sync status', () => {
   it('is offered with the people read scope and calls the status RPC', async () => {
     const without = await request('tools/list', {}, context(['datasets:read']))
-    expect(
-      (without?.result as { tools: Array<{ name: string }> }).tools.map(
-        (tool) => tool.name,
-      ),
-    ).not.toContain('sheetbase.directory_sync.status')
-
-    const rpc = vi.fn(async () => ({ active_tokens: 1 }))
-
-    const ctx = context(
-      ['people:read'],
-      fakeClient({ rpc: rpc as unknown as DataClient['rpc'] }),
+    expect(toolsOf(without).map((tool) => tool.name)).not.toContain(
+      'sheetbase.directory_sync.status',
     )
 
+    const rpc = vi
+      .fn<DataClient['rpc']>()
+      .mockResolvedValue({ active_tokens: 1 })
+
+    const ctx = context(['people:read'], fakeClient({ rpc }))
+
     const listed = await request('tools/list', {}, ctx)
-    expect(
-      (listed?.result as { tools: Array<{ name: string }> }).tools.map(
-        (tool) => tool.name,
-      ),
-    ).toContain('sheetbase.directory_sync.status')
+    expect(toolsOf(listed).map((tool) => tool.name)).toContain(
+      'sheetbase.directory_sync.status',
+    )
     await request(
       'tools/call',
       {

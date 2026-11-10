@@ -30,7 +30,10 @@
  *    short-circuited as a replay — no duplicate retained files, no duplicate
  *    rows.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '../data-client'
+import { pipelineJsonObjectSchema } from '../pipelines/types'
 import { describeImportRpcCode } from '../import-commit'
 import { createDataset } from '../dataset-product'
 import type { DatasetCommitResult } from '../dataset-product'
@@ -43,6 +46,18 @@ import type { ConnectorType } from '#/lib/metrics'
 import type { ConnectorRunObservability } from './run'
 import { ConnectorStepError, executeConnectorRun } from './run'
 import { sha256Hex } from './digest'
+import type { ConnectorRunLogWire, ConnectorRunWire } from './types'
+
+const metadataSchema = z.custom<Record<string, string>>((value) => {
+  const parsed = pipelineJsonObjectSchema.safeParse(value)
+
+  return (
+    parsed.success &&
+    Object.values(parsed.data).every(
+      (entry) => z.string().safeParse(entry).success,
+    )
+  )
+})
 
 /** Parsed tabular payload handed to the shared ingestion primitive. */
 export interface ParsedTabularPayload {
@@ -90,7 +105,7 @@ export interface TabularIngestionInput {
    */
   parserVersion?: { parserId: string; parserVersionId: string }
   /** Source descriptor (bucket/key, host/database/schema/table, ...). */
-  source: Record<string, unknown>
+  source: Record<string, z.core.util.JSONType>
   /**
    * Retained raw-source evidence through the canonical file platform.
    * Storage connectors always supply it; database imports have no raw file.
@@ -155,7 +170,7 @@ interface IngestionWork {
   datasetId: string
   datasetRevision?: number
   /** Result payload recorded verbatim on completion. */
-  resultPayload: Record<string, unknown>
+  resultPayload: ConnectorRunWire['result']
 }
 
 /**
@@ -181,7 +196,7 @@ export interface StageLog {
   (
     stage: string,
     message: string,
-    detail?: Record<string, unknown>,
+    detail?: ConnectorRunLogWire['detail'],
     level?: 'info' | 'warning' | 'error',
   ): Promise<void>
 }
@@ -226,7 +241,7 @@ async function mapValidateCommitStages(input: {
   parserIdentity: string
   parserVersion?: { parserId: string; parserVersionId: string }
   runId: string
-  sourceProvenance: Record<string, unknown>
+  sourceProvenance: Record<string, z.core.util.JSONType>
   instrumentId?: string | null
   payload: ParsedTabularPayload
   log: StageLog
@@ -234,6 +249,7 @@ async function mapValidateCommitStages(input: {
   const { client, payload, log } = input
 
   for (const warning of payload.warnings) {
+    // react-doctor-disable-next-line async-await-in-loop -- Log RPCs allocate max(sequence)+1; preserve warning order and stop before later logs or writes when one fails.
     await log('parse', warning, {}, 'warning')
   }
 
@@ -281,7 +297,7 @@ async function mapValidateCommitStages(input: {
 
   if (mapped.errors.length > 0) {
     throw new ConnectorStepError('mapping_failed', mapped.errors[0].message, {
-      errors: mapped.errors.slice(0, 20),
+      errors: mapped.errors.slice(0, 20).map((error) => ({ ...error })),
     })
   }
 
@@ -406,7 +422,7 @@ async function mapValidateCommitStages(input: {
       committedCount,
       datasetId,
     }),
-    { revision: datasetRevision },
+    datasetRevision === undefined ? {} : { revision: datasetRevision },
   )
 
   return {
@@ -418,7 +434,7 @@ async function mapValidateCommitStages(input: {
 
 function digestParts(input: {
   connectorId: string
-  source: Record<string, unknown>
+  source: Record<string, z.core.util.JSONType>
   contentSha256: string
   parserIdentity: string
   target: TabularIngestionTarget
@@ -482,9 +498,11 @@ export async function ingestTabularPayload(
       const ownCode =
         error instanceof Error &&
         'code' in error &&
-        typeof error.code === 'string' &&
-        /^[a-z][a-z0-9_]{0,59}$/.test(error.code)
-          ? error.code
+        z
+          .string()
+          .regex(/^[a-z][a-z0-9_]{0,59}$/)
+          .safeParse(error.code).success
+          ? z.string().parse(error.code)
           : null
 
       throw new ConnectorStepError(
@@ -603,12 +621,15 @@ export async function ingestTabularPayload(
       attempt: report.run.attempt,
       alreadyCompleted: true,
       rowCount: Number(stored.rowCount ?? 0),
-      datasetId: String(stored.datasetId ?? input.target.datasetId ?? ''),
+      datasetId: z.coerce
+        .string()
+        .parse(stored.datasetId ?? input.target.datasetId ?? ''),
       datasetRevision: stored.datasetRevision
         ? Number(stored.datasetRevision)
         : undefined,
-      metadata: (stored[input.metadataResultKey ?? 'contentMetadata'] ??
-        {}) as Record<string, string>,
+      metadata: metadataSchema.parse(
+        stored[input.metadataResultKey ?? 'contentMetadata'] ?? {},
+      ),
       warnings: [],
       contentSha256,
     }
@@ -649,7 +670,7 @@ export interface ExternalContentResolution {
   parse?: () => ParsedTabularPayload
   parseErrorCode?: string
   /** Full source descriptor, including `contentSha256`. */
-  source: Record<string, unknown>
+  source: Record<string, z.core.util.JSONType>
   contentSha256: string
   byteSize?: number | null
 }
@@ -668,7 +689,7 @@ export interface ExternalIngestionInput {
    * mapping) — no content. Known before the run starts; guards concurrent
    * duplicate attempts and carries retry lineage.
    */
-  selectorSource: Record<string, unknown>
+  selectorSource: Record<string, z.core.util.JSONType>
   /** Bounded source read executed inside the run. */
   resolveContent: (log: StageLog) => Promise<ExternalContentResolution>
   /** Optional retention stage (storage connectors), after dedupe. */
@@ -807,7 +828,7 @@ export async function ingestExternalPayload(
         const prior = await client.list<{
           id: string
           attempt: number
-          result: Record<string, unknown>
+          result: ConnectorRunWire['result']
         }>(
           'connector_runs',
           `?connector_id=eq.${encodeURIComponent(input.connectorId)}&request_digest=eq.${encodeURIComponent(requestDigest)}&status=eq.succeeded&order=started_at.desc&limit=1`,
@@ -817,12 +838,15 @@ export async function ingestExternalPayload(
         replay = {
           runId: prior[0]?.id ?? '',
           rowCount: Number(stored.rowCount ?? 0),
-          datasetId: String(stored.datasetId ?? input.target.datasetId ?? ''),
+          datasetId: z.coerce
+            .string()
+            .parse(stored.datasetId ?? input.target.datasetId ?? ''),
           datasetRevision: stored.datasetRevision
             ? Number(stored.datasetRevision)
             : undefined,
-          metadata: (stored[input.metadataResultKey ?? 'contentMetadata'] ??
-            {}) as Record<string, string>,
+          metadata: metadataSchema.parse(
+            stored[input.metadataResultKey ?? 'contentMetadata'] ?? {},
+          ),
         }
         await log(
           'dedupe',
@@ -946,6 +970,8 @@ export async function ingestExternalPayload(
     datasetRevision: report.value.datasetRevision,
     metadata: report.value.metadata,
     warnings: report.value.warnings,
-    contentSha256: String(report.value.resultPayload['fileSha256'] ?? ''),
+    contentSha256: z.coerce
+      .string()
+      .parse(report.value.resultPayload['fileSha256'] ?? ''),
   }
 }

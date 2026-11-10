@@ -27,57 +27,51 @@ export type AutomationProposeToolName =
 const title = z.string().min(1).max(120)
 const summary = z.string().min(1).max(400)
 
-export const proposeRobotSendSchema = z
-  .object({
-    title,
-    summary,
-    worklist: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe(
-        'The worklist by its name or number such as WL-0004. It must be planned, not yet completed.',
-      ),
-    robot: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The robot instrument, by name or INS number.'),
-    note: z
-      .string()
-      .max(500)
-      .optional()
-      .describe('A note for the person who presses Start.'),
-  })
-  .strict()
+export const proposeRobotSendSchema = z.strictObject({
+  title,
+  summary,
+  worklist: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      'The worklist by its name or number such as WL-0004. It must be planned, not yet completed.',
+    ),
+  robot: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The robot instrument, by name or INS number.'),
+  note: z
+    .string()
+    .max(500)
+    .optional()
+    .describe('A note for the person who presses Start.'),
+})
 
-export const proposeSchedulePlanSchema = z
-  .object({
-    title,
-    summary,
-    experiment: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe(
-        'The experiment by identifier such as EXP-0145 or by title. It must be split into parts.',
-      ),
-  })
-  .strict()
+export const proposeSchedulePlanSchema = z.strictObject({
+  title,
+  summary,
+  experiment: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      'The experiment by identifier such as EXP-0145 or by title. It must be split into parts.',
+    ),
+})
 
-export const proposeScheduleAcceptSchema = z
-  .object({
-    title,
-    summary,
-    experiment: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe(
-        'The experiment whose latest proposed schedule to accept, by identifier or title.',
-      ),
-  })
-  .strict()
+export const proposeScheduleAcceptSchema = z.strictObject({
+  title,
+  summary,
+  experiment: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      'The experiment whose latest proposed schedule to accept, by identifier or title.',
+    ),
+})
 
 /** What an automation card does when its button is pressed. */
 export type AutomationAction =

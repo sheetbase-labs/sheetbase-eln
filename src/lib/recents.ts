@@ -20,6 +20,7 @@
 import { sampleStatus } from '#/components/samples/samples-data'
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import type { DataClient } from './data-client'
 import { notebookDataClient } from './notebook-data'
@@ -422,15 +423,21 @@ export function recordRecentView(
   objectId: string,
 ): Promise<string | null> {
   return client
-    .rpc<string | { viewed_at?: string } | null>('record_recent_view', {
+    .rpc<unknown>('record_recent_view', {
       p_object_kind: kind,
       p_object_id: objectId,
     })
-    .then((row) => {
-      if (typeof row === 'string') return row
-
-      return row?.viewed_at ?? null
-    })
+    .then((row) =>
+      z
+        .union([
+          z.string(),
+          z
+            .object({ viewed_at: z.string().nullish() })
+            .nullable()
+            .transform((value) => value?.viewed_at ?? null),
+        ])
+        .parse(row),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -719,6 +726,7 @@ export function describeRecentChange(
   return `Viewed ${noun}`
 }
 
+// oxlint-disable-next-line anti-slop/no-known-value-widening -- This open lookup accepts server-defined statuses as well as the fixed labels below; the caller retains the existing unknown-status fallback.
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
   planned: 'Planned',

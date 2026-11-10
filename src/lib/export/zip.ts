@@ -52,6 +52,8 @@ export class ZipWriter {
   /** Add an entry; text is UTF-8 encoded. Call before `stream()`. */
   add(name: string, content: string | Uint8Array): void {
     const data =
+      // Uint8Array values from another realm do not pass instanceof checks.
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof
       typeof content === 'string' ? new TextEncoder().encode(content) : content
 
     this.staged.push({

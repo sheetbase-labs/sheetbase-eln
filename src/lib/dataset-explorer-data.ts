@@ -17,6 +17,8 @@
  * untrusted browser input and re-validates it against the active dataset's
  * columns and the safe limits below, mirroring the registry view sanitiser.
  */
+import { z } from 'zod'
+
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import {
@@ -29,6 +31,7 @@ import type {
   ScientificColumnWire,
   ScientificRowWire,
   ScientificTableWire,
+  ScientificValues,
 } from './scientific-sheet-data'
 import type {
   DatasetSchemaFieldWire,
@@ -39,6 +42,10 @@ import { fetchDatasetSchemaFields } from './dataset-schema-data'
 import { CHART_SPEC_VERSION } from './chart-spec'
 import type { ChartSpec } from './chart-spec'
 import type { RegistryFilterValue } from './registry'
+import {
+  modelFieldUnitSchema,
+  modelFieldValidationSchema,
+} from './model-fields'
 
 // --- Safe limits ----------------------------------------------------------
 //
@@ -113,7 +120,7 @@ interface DatasetVersionFieldWire {
   logical_type: ScientificColumnWire['logical_type']
   nullable: boolean
   quantity: unknown
-  validation: Record<string, unknown>
+  validation: unknown
   lifecycle: 'active' | 'retired'
   display_order: number
 }
@@ -319,8 +326,8 @@ export async function fetchDatasetSummaries(
           display_order: field.display_order,
           logical_type: field.logical_type,
           nullable: field.nullable,
-          unit: field.quantity,
-          validation: field.validation,
+          unit: modelFieldUnitSchema.nullable().parse(field.quantity),
+          validation: modelFieldValidationSchema.parse(field.validation),
           width: null,
           options: [],
         })),
@@ -337,6 +344,15 @@ export interface DatasetRowQuery {
   sorting: Array<{ id: string; desc: boolean }>
   /** Field-name → predicate value filters (eq semantics). */
   filters: RegistryFilterValue[]
+}
+
+interface DatasetRowRpcQuery {
+  filters: Array<
+    Pick<RegistryFilterValue, 'fieldId' | 'operator'> & {
+      value: RegistryFilterValue['values'][number]
+    }
+  >
+  sort?: { fieldId: string; direction: 'desc' | 'asc' }
 }
 
 export interface DatasetRowPage {
@@ -417,25 +433,27 @@ export async function fetchDatasetRowPage(
     throw new Error(`Unsupported dataset sort field: ${sort.id}`)
   const limit = Math.min(Math.max(1, query.pageSize), DATASET_MAX_PAGE_SIZE)
 
+  const filters = query.filters.slice(0, DATASET_MAX_FILTERS).map((filter) => ({
+    fieldId: filter.fieldId,
+    operator: filter.operator,
+    value: filter.values[0],
+  }))
+
+  const rowQuery: DatasetRowRpcQuery = { filters }
+
+  if (sort)
+    rowQuery.sort = { fieldId: sort.id, direction: sort.desc ? 'desc' : 'asc' }
+
   const result = await client.rpc<{
     rows: Array<{
       rowId: string
       revision: number
-      values: Record<string, unknown>
+      values: ScientificValues
     }>
     totalCount: number
   }>('query_dataset_rows', {
     p_dataset_id: table.id,
-    p_query: {
-      filters: query.filters.slice(0, DATASET_MAX_FILTERS).map((filter) => ({
-        fieldId: filter.fieldId,
-        operator: filter.operator,
-        value: filter.values[0],
-      })),
-      ...(sort
-        ? { sort: { fieldId: sort.id, direction: sort.desc ? 'desc' : 'asc' } }
-        : {}),
-    },
+    p_query: rowQuery,
     p_limit: limit,
     p_offset: Math.max(0, query.pageIndex) * limit,
   })
@@ -570,76 +588,39 @@ export function datasetSavedViewStorageKey(
     .join(':')
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
+const savedViewScalarSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  // JSON.parse can overflow a numeric exponent. Retain the former number check.
+  z.literal(Infinity),
+  z.literal(-Infinity),
+])
 
-function isDatasetRowQuery(value: unknown): value is DatasetRowQuery {
-  if (!isRecord(value)) return false
-
-  if (!Number.isInteger(value.pageIndex) || Number(value.pageIndex) < 0)
-    return false
-
-  if (!Number.isInteger(value.pageSize) || Number(value.pageSize) <= 0)
-    return false
-
-  if (!Array.isArray(value.sorting)) return false
-
-  if (
-    !value.sorting.every(
-      (s) =>
-        isRecord(s) && typeof s.id === 'string' && typeof s.desc === 'boolean',
-    )
-  )
-    return false
-
-  if (!Array.isArray(value.filters)) return false
-
-  if (
-    !value.filters.every(
-      (f) =>
-        isRecord(f) &&
-        typeof f.fieldId === 'string' &&
-        f.operator === 'eq' &&
-        Array.isArray(f.values) &&
-        f.values.every(
-          (item) =>
-            typeof item === 'string' ||
-            typeof item === 'number' ||
-            typeof item === 'boolean',
-        ),
-    )
-  )
-    return false
-
-  return true
-}
-
-function isDatasetViewSpec(value: unknown): value is DatasetViewSpec {
-  if (!isRecord(value)) return false
-
-  if (!isDatasetRowQuery(value.query)) return false
-
-  if (!Array.isArray(value.hiddenFields)) return false
-
-  if (!value.hiddenFields.every((f) => typeof f === 'string')) return false
-
-  if (value.density !== 'comfortable' && value.density !== 'compact')
-    return false
-
-  return true
-}
+const savedViewSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  datasetId: z.string(),
+  spec: z.object({
+    query: z.object({
+      pageIndex: z.number().refine(Number.isInteger).nonnegative(),
+      pageSize: z.number().refine(Number.isInteger).positive(),
+      sorting: z.array(z.object({ id: z.string(), desc: z.boolean() })),
+      filters: z.array(
+        z.object({
+          fieldId: z.string(),
+          operator: z.literal('eq'),
+          values: z.array(savedViewScalarSchema),
+        }),
+      ),
+    }),
+    hiddenFields: z.array(z.string()),
+    density: z.enum(['comfortable', 'compact']),
+  }),
+})
 
 function isDatasetSavedView(value: unknown): value is DatasetSavedView {
-  if (
-    !isRecord(value) ||
-    typeof value.id !== 'string' ||
-    typeof value.name !== 'string' ||
-    typeof value.datasetId !== 'string'
-  )
-    return false
-
-  return isDatasetViewSpec(value.spec)
+  return savedViewSchema.safeParse(value).success
 }
 
 /**
@@ -666,8 +647,8 @@ export function sanitizeDatasetView(
 
   const hiddenFields = view.spec.hiddenFields.filter((f) => fieldNames.has(f))
 
-  const pageSize = (DATASET_PAGE_SIZES as readonly number[]).includes(
-    view.spec.query.pageSize,
+  const pageSize = DATASET_PAGE_SIZES.some(
+    (size) => size === view.spec.query.pageSize,
   )
     ? view.spec.query.pageSize
     : DATASET_DEFAULT_PAGE_SIZE
@@ -801,7 +782,7 @@ export function buildDefaultChartSpec(
       facet: null,
       facetRow: null,
       facetCol: null,
-      shape: null,
+      ['shape']: null,
       group: null,
       label: null,
     },
@@ -825,6 +806,8 @@ export function buildDefaultChartSpec(
     overlays: { errorBars: null, fit: null, references: [] },
   }
 }
+
+const transformationParamsSchema = z.object({})
 
 /**
  * Validate that a transformation list stays within the safe limits and uses
@@ -850,11 +833,7 @@ export function validateTransformations(
       errors.push(`Unsupported transformation kind: ${String(t.kind)}.`)
     }
 
-    if (
-      typeof t.params !== 'object' ||
-      t.params === null ||
-      Array.isArray(t.params)
-    ) {
+    if (!transformationParamsSchema.safeParse(t.params).success) {
       errors.push('Transformation params must be an object.')
     }
   }

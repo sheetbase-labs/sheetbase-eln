@@ -1,3 +1,5 @@
+import type { z } from 'zod'
+
 import { listExtensions } from '../extensions/client'
 import { fieldsJsonSchema, parsePluginName } from '../extensions/points'
 import { resolveRunnerPoints } from '../extensions/runner-points'
@@ -9,7 +11,7 @@ import {
 } from '../extensions/runtime.server'
 import { invokeWithHostCalls } from '../extensions/operation-host.server'
 import type { Scope } from '../api-credential-scopes'
-import type { McpContext } from './handler'
+import type { McpContext, McpTool } from './handler'
 
 /**
  * Tools an installed plugin adds to MCP.
@@ -21,19 +23,6 @@ import type { McpContext } from './handler'
  * permission decides, and by default a person approves it in the Inbox, when
  * the plugin runs as them. Personal tokens only.
  */
-
-export interface ExtensionMcpTool {
-  name: string
-  description: string
-  inputSchema: Record<string, unknown>
-  annotations: {
-    title: string
-    readOnlyHint: boolean
-    destructiveHint: boolean
-    idempotentHint: boolean
-    openWorldHint: boolean
-  }
-}
 
 type Item = RunnerItem<ExtensionOperationDeclaration>
 
@@ -58,7 +47,7 @@ async function items(context: McpContext): Promise<Item[]> {
 
 export async function listExtensionMcpTools(
   context: McpContext,
-): Promise<ExtensionMcpTool[]> {
+): Promise<McpTool[]> {
   if (context.actor.kind !== 'user') return []
 
   return (await items(context))
@@ -69,7 +58,11 @@ export async function listExtensionMcpTools(
         item.declaration.access === 'write'
           ? `${item.declaration.description} (Plugin: ${item.extensionName}. Follows the workspace's agent permissions: it may wait for a person to approve it.)`
           : `${item.declaration.description} (Plugin: ${item.extensionName}.)`,
-      inputSchema: fieldsJsonSchema(item.declaration.inputs),
+      // SAFETY: fieldsJsonSchema constructs an object JSON Schema from the
+      // declared field catalogue, with properties, required and additionalProperties.
+      inputSchema: fieldsJsonSchema(
+        item.declaration.inputs,
+      ) as McpTool['inputSchema'],
       annotations: {
         title: item.declaration.title,
         readOnlyHint: item.declaration.access === 'read',
@@ -99,7 +92,7 @@ export function isExtensionMcpTool(name: string): boolean {
 
 export async function callExtensionMcpTool(
   name: string,
-  args: Record<string, unknown>,
+  args: { [name: string]: z.JSONType },
   context: McpContext,
 ): Promise<ExtensionMcpOutcome> {
   const item = (await items(context)).find((entry) => entry.name === name)
@@ -112,10 +105,14 @@ export async function callExtensionMcpTool(
   }
 
   const { declaration } = item
-  let input: Record<string, unknown>
+  let input: { [name: string]: z.JSONType }
 
   try {
-    input = checkDeclaredValues(declaration.inputs, args, 'input')
+    // SAFETY: args comes from the MCP JSON decoder. checkDeclaredValues
+    // only projects its declared keys and never constructs non-JSON values.
+    input = checkDeclaredValues(declaration.inputs, args, 'input') as {
+      [name: string]: z.JSONType
+    }
   } catch (error) {
     return {
       ok: false,
@@ -175,7 +172,11 @@ export async function callExtensionMcpTool(
 
   const waiting = await context.client.list<{
     id: string
-    arguments: Record<string, unknown>
+    arguments: {
+      extensionKey: string
+      operationId: string
+      input: { [name: string]: z.JSONType }
+    }
   }>(
     'agent_action_requests',
     `?select=id,arguments&status=eq.pending&action_key=eq.${encodeURIComponent(actionKey)}&order=created_at.desc&limit=20`,

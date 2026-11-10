@@ -5,9 +5,11 @@ import {
   convertTemperature,
   dilutionRecipe,
   massToMoles,
+  molesToMass,
   solveDilution,
   solveMolarity,
 } from './calculators'
+import { formatQuantity, friendlyUnit, unitById } from './units'
 
 describe('molarity', () => {
   it('weighs out 58.44 g/mol NaCl for 1 L of 1 M', () => {
@@ -164,5 +166,210 @@ describe('conversion', () => {
     expect(m).toEqual({ value: expect.closeTo(1, 6), unit: 'mmol' })
     expect(convertTemperature(37, 'C', 'F')).toBeCloseTo(98.6)
     expect(convertTemperature(0, 'C', 'K')).toBeCloseTo(273.15)
+  })
+})
+
+describe('calculator boundary preservation', () => {
+  it('retains molarity input traversal and concentration-before-volume unit lookup', () => {
+    const reads: string[] = []
+
+    const result = solveMolarity({
+      target: 'mass',
+      molecularWeight: 17,
+      get mass() {
+        reads.push('mass')
+
+        return undefined
+      },
+      get volume() {
+        reads.push('volume')
+
+        return {
+          value: 3,
+          get unit() {
+            reads.push('volume.unit')
+
+            return 'mL'
+          },
+        }
+      },
+      get concentration() {
+        reads.push('concentration')
+
+        return {
+          value: 7,
+          get unit() {
+            reads.push('concentration.unit')
+
+            return 'mM'
+          },
+        }
+      },
+      get resultUnit() {
+        reads.push('resultUnit')
+
+        return 'mg'
+      },
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: expect.closeTo(0.357, 12),
+      unit: 'mg',
+      summary: 'mass:mg',
+    })
+    expect(reads).toEqual([
+      'volume',
+      'concentration',
+      'mass',
+      'concentration',
+      'mass',
+      'volume',
+      'concentration.unit',
+      'volume.unit',
+      'resultUnit',
+    ])
+  })
+
+  it('rereads dilution properties after validation, including native failure if a getter removes a quantity', () => {
+    let reads = 0
+
+    const result = solveDilution({
+      target: 'c2',
+      get c1() {
+        reads++
+
+        return { value: reads === 1 ? 10 : 4, unit: 'mM' }
+      },
+      v1: { value: 3, unit: 'mL' },
+      v2: { value: 6, unit: 'mL' },
+      resultUnit: 'mM',
+    })
+
+    expect(result).toMatchObject({ ok: true, value: 2, unit: 'mM' })
+    expect(reads).toBe(2)
+
+    let removingReads = 0
+    expect(() =>
+      solveDilution({
+        target: 'c2',
+        get c1() {
+          removingReads++
+
+          return removingReads === 1 ? { value: 10, unit: 'mM' } : undefined
+        },
+        v1: { value: 3, unit: 'mL' },
+        v2: { value: 6, unit: 'mL' },
+      }),
+    ).toThrow(TypeError)
+    expect(removingReads).toBe(2)
+  })
+
+  it('preserves missing/invalid and unknown-unit priority rather than eagerly validating every quantity', () => {
+    expect(
+      solveMolarity({
+        target: 'mass',
+        molecularWeight: 17,
+        volume: { value: -1, unit: 'unknown-volume' },
+        concentration: { value: Infinity, unit: 'unknown-concentration' },
+      }),
+    ).toEqual({ ok: false, reason: 'missing' })
+    expect(
+      solveMolarity({
+        target: 'mass',
+        molecularWeight: 17,
+        volume: { value: -1, unit: 'unknown-volume' },
+        concentration: { value: 1, unit: 'unknown-concentration' },
+      }),
+    ).toEqual({ ok: false, reason: 'invalid' })
+    expect(() =>
+      solveMolarity({
+        target: 'mass',
+        molecularWeight: 17,
+        volume: { value: 1, unit: 'unknown-volume' },
+        concentration: { value: 1, unit: 'unknown-concentration' },
+      }),
+    ).toThrow('Unknown unit unknown-concentration')
+    expect(
+      convertQuantity({
+        value: 1,
+        from: 'unknown-source',
+        to: 'unknown-target',
+      }),
+    ).toEqual({ ok: false, reason: 'invalid' })
+    expect(() =>
+      convertWithWeight({
+        value: 1,
+        from: 'unknown-source',
+        to: 'unknown-target',
+        molecularWeight: 0,
+      }),
+    ).toThrow('Unknown unit unknown-source')
+    expect(
+      solveMolarity({
+        target: 'mass',
+        molecularWeight: 1,
+        volume: { value: 1, unit: 'L' },
+        concentration: { value: 1, unit: 'M' },
+        resultUnit: 'mL',
+      }),
+    ).toEqual({ ok: true, value: 1000, unit: 'mL', summary: 'mass:mL' })
+  })
+
+  it('retains unit-selection tolerance, zero/nonfinite defaults and display rounding boundaries', () => {
+    expect(friendlyUnit(1e-3 * (1 - 1e-9 + 1e-12), 'mass').unit.id).toBe('mg')
+    expect(friendlyUnit(1e-3 * (1 - 1e-9 - 1e-12), 'mass').unit.id).toBe('ug')
+    expect(friendlyUnit(-1e-3 * (1 - 1e-9 - 1e-12), 'mass').unit.id).toBe('ug')
+    expect(friendlyUnit(0, 'mass')).toEqual({ value: 0, unit: unitById('kg') })
+    expect(friendlyUnit(Infinity, 'mass')).toEqual({
+      value: Infinity,
+      unit: unitById('kg'),
+    })
+    const invalid = friendlyUnit(NaN, 'mass')
+    expect(invalid.unit.id).toBe('ng')
+    expect(invalid.value).toBeNaN()
+    expect(formatQuantity(999999)).toBe('1000000')
+    expect(formatQuantity(1000000)).toBe('1e+6')
+    expect(formatQuantity(0.001)).toBe('0.001')
+    expect(formatQuantity(0.000999999)).toBe('1e-3')
+    expect(formatQuantity(-0)).toBe('0')
+    expect(formatQuantity(Infinity)).toBe('')
+  })
+
+  it('retains floating-point operation order and existing nonfinite molecular-weight acceptance', () => {
+    expect(
+      solveMolarity({
+        target: 'mass',
+        molecularWeight: 1e200,
+        volume: { value: 1e-200, unit: 'L' },
+        concentration: { value: 1e-200, unit: 'M' },
+        resultUnit: 'g',
+      }),
+    ).toEqual({ ok: true, value: 0, unit: 'g', summary: 'mass:g' })
+    expect(
+      solveDilution({
+        target: 'c2',
+        c1: { value: 1e308, unit: 'M' },
+        v1: { value: 1e308, unit: 'L' },
+        v2: { value: 1e308, unit: 'L' },
+        resultUnit: 'M',
+      }),
+    ).toEqual({ ok: true, value: Infinity, unit: 'M', summary: 'c2' })
+    expect(massToMoles({ value: 1, unit: 'g' }, Infinity)).toEqual({
+      value: 0,
+      unit: 'mol',
+    })
+    expect(molesToMass({ value: 1, unit: 'mol' }, Infinity)).toEqual({
+      value: Infinity,
+      unit: 'kg',
+    })
+    expect(
+      convertWithWeight({
+        value: 1,
+        from: 'g',
+        to: 'mol',
+        molecularWeight: Infinity,
+      }),
+    ).toEqual({ ok: true, value: 0, unit: 'mol', summary: 'convert' })
   })
 })

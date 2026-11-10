@@ -2,31 +2,13 @@
  * DATA-02 Parquet serializer. Kept in its own module so the WASM engine and
  * Arrow column mapping stay isolated from the streaming serializers; the
  * dynamic imports are the documented runtime-selection exception (only this
- * format needs the engine). Module shapes are structurally typed below so no
- * inline import() type annotations leak into signatures.
+ * format needs the engine).
  */
 import type * as arrowTypes from 'apache-arrow'
 
 import type { ExportField, ExportRow } from './serializers'
 
 export const PARQUET_MAX_ROWS = 200_000
-
-/** Minimal structural shape of the apache-arrow module surface we use. */
-interface ArrowModule extends Omit<typeof arrowTypes, 'tableFromArrays'> {
-  tableFromArrays: (columns: Record<string, unknown>) => arrowTypes.Table
-}
-
-/** Minimal structural shape of the parquet-wasm/node module surface we use. */
-interface ParquetModule {
-  Table: { fromIPCStream: (ipc: Uint8Array) => unknown }
-  WriterPropertiesBuilder: new () => {
-    setCompression: (codec: unknown) => {
-      build: () => unknown
-    }
-  }
-  Compression: Record<'UNCOMPRESSED', unknown>
-  writeParquet: (table: unknown, properties: unknown) => Uint8Array
-}
 
 export async function parquetDocument(
   fields: ExportField[],
@@ -40,12 +22,12 @@ export async function parquetDocument(
     )
   }
 
-  const arrow = (await import('apache-arrow')) as unknown as ArrowModule
+  const [arrow, parquet] = await Promise.all([
+    import('apache-arrow'),
+    import('parquet-wasm/node'),
+  ])
 
-  const parquet =
-    (await import('parquet-wasm/node')) as unknown as ParquetModule
-
-  const columns: Record<string, unknown> = {}
+  const columns: Record<string, arrowTypes.Vector> = {}
 
   for (const field of fields) {
     columns[field.key] = columnVector(
@@ -55,7 +37,7 @@ export async function parquetDocument(
     )
   }
 
-  const table = arrow.tableFromArrays(columns)
+  const table = new arrow.Table(columns)
 
   const wasmTable = parquet.Table.fromIPCStream(
     arrow.tableToIPC(table, 'stream'),
@@ -69,10 +51,10 @@ export async function parquetDocument(
 }
 
 function columnVector(
-  arrow: ArrowModule,
+  arrow: typeof arrowTypes,
   logicalType: string,
   raw: unknown[],
-): unknown {
+): arrowTypes.Vector {
   switch (logicalType) {
     case 'integer': {
       const ints = raw.map((v) =>
@@ -95,6 +77,8 @@ function columnVector(
       )
     default:
       return arrow.vectorFromArray(
+        // Preserve the serializer's JavaScript coercion for non-null values.
+        // oxlint-disable-next-line typescript/no-base-to-string
         raw.map((v) => (v === null || v === undefined ? null : String(v))),
         new arrow.Utf8(),
       )

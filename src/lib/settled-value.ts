@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 /**
  * How long a search box waits after the last keystroke before it tells the
@@ -31,26 +31,24 @@ export function useSettledValue(
   value: string,
   ms: number,
   onSettle?: (next: string) => void,
-): {
-  /** What the field shows. */
-  value: string
-  /** The field's change handler, which settles before it reports. */
-  setValue: (next: string) => void
-  /** The value after it has been still for `ms`. */
-  settled: string
-} {
+) {
   const [text, setText] = useState(value)
   const [settled, setSettled] = useState(value)
   const sent = useRef(value)
   const timer = useRef<number | null>(null)
   const settle = useRef(onSettle)
-  settle.current = onSettle
 
+  useLayoutEffect(() => {
+    settle.current = onSettle
+  })
+
+  // react-doctor-disable-next-line react-doctor/no-derived-state-effect -- This synchronizes external navigation with an independent typing draft and cancels its queued report; the field cannot be derived from the route value without dropping keystrokes.
   useEffect(() => {
     if (value === sent.current) return
     clearTimeout(timer.current ?? undefined)
     timer.current = null
     sent.current = value
+    // react-doctor-disable-next-line react-doctor/no-derived-state -- Text is an independently edited draft; external navigation replaces it and cancels queued typing, while echoes leave newer keystrokes intact.
     setText(value)
     setSettled(value)
   }, [value])

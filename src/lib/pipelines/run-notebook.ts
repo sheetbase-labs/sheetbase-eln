@@ -1,7 +1,10 @@
 import type { DataClient } from '#/lib/data-client'
 import { fetchRecord, formatNotebookDateTime } from '#/lib/notebook-data'
 import { insertBlock } from '#/lib/notebook-mutations'
-import type { RichTextPayload } from '#/lib/blocks/rich-text'
+import type {
+  RichTextPayload,
+  RichTextTextNode,
+} from '#/lib/blocks/rich-text-data'
 import type { PipelineRunWire } from './types'
 
 /** A stretch of citation text, a link when it has an `href`. */
@@ -120,13 +123,13 @@ export function runCitationPayload(
       type: 'doc',
       content: paragraphs.map((segments) => ({
         type: 'paragraph' as const,
-        content: segments.map(({ text, href }) => ({
-          type: 'text' as const,
-          text,
-          ...(href
-            ? { marks: [{ type: 'link' as const, attrs: { href } }] }
-            : {}),
-        })),
+        content: segments.map(({ text, href }): RichTextTextNode => {
+          const node: RichTextTextNode = { type: 'text', text }
+
+          if (href) node.marks = [{ type: 'link', attrs: { href } }]
+
+          return node
+        }),
       })),
     },
   }

@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 export const ROW_IDENTITY_FORMAT_VERSION = 1 as const
 
 export type RowIdentitySpec = {
@@ -32,10 +34,6 @@ const uuid =
 
 const nilUuid = '00000000-0000-0000-0000-000000000000'
 
-function scalar(value: unknown): string | null {
-  return typeof value === 'string' ? `s:${JSON.stringify(value)}` : null
-}
-
 function isCalendarDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
 
@@ -61,53 +59,46 @@ function isCalendarDate(value: string) {
   )
 }
 
-function encode(
-  value: unknown,
-  logicalType: RowIdentityLogicalType,
-): string | null {
-  switch (logicalType) {
-    case 'text':
-      return scalar(value)
-    case 'integer':
-      return typeof value === 'number' && Number.isSafeInteger(value)
-        ? `i:${value}`
-        : null
-    case 'decimal':
-      return typeof value === 'number' && Number.isFinite(value)
-        ? `d:${value}`
-        : null
-    case 'boolean':
-      return typeof value === 'boolean' ? `b:${value}` : null
-    case 'date':
-      return typeof value === 'string' && isCalendarDate(value)
-        ? `d:${value}`
-        : null
-    case 'timestamp': {
-      if (typeof value !== 'string') return null
+function isTimestamp(value: string) {
+  const match =
+    /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(
+      value,
+    )
 
-      const match =
-        /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(
-          value,
-        )
-
-      return match &&
-        isCalendarDate(match[1]) &&
-        Number(match[2]) <= 23 &&
-        Number(match[3]) <= 59 &&
-        Number(match[4]) <= 59 &&
-        (value.endsWith('Z') ||
-          (Number(match[5]) <= 23 && Number(match[6]) <= 59))
-        ? `t:${value}`
-        : null
-    }
-
-    case 'category':
-    case 'reference':
-      return typeof value === 'string' && uuid.test(value) && value !== nilUuid
-        ? `u:${value.toLowerCase()}`
-        : null
-  }
+  return (
+    match &&
+    isCalendarDate(match[1]) &&
+    Number(match[2]) <= 23 &&
+    Number(match[3]) <= 59 &&
+    Number(match[4]) <= 59 &&
+    (value.endsWith('Z') || (Number(match[5]) <= 23 && Number(match[6]) <= 59))
+  )
 }
+
+const referenceIdentity = z
+  .string()
+  .refine((value) => uuid.test(value) && value !== nilUuid)
+  .transform((value) => `u:${value.toLowerCase()}`)
+
+const identityValueSchemas = {
+  text: z.string().transform((value) => `s:${JSON.stringify(value)}`),
+  integer: z
+    .number()
+    .refine(Number.isSafeInteger)
+    .transform((value) => `i:${value}`),
+  decimal: z.number().transform((value) => `d:${value}`),
+  boolean: z.boolean().transform((value) => `b:${value}`),
+  date: z
+    .string()
+    .refine(isCalendarDate)
+    .transform((value) => `d:${value}`),
+  timestamp: z
+    .string()
+    .refine(isTimestamp)
+    .transform((value) => `t:${value}`),
+  category: referenceIdentity,
+  reference: referenceIdentity,
+} satisfies Record<RowIdentityLogicalType, z.ZodType<string>>
 
 function canonical(spec: RowIdentitySpec, values: unknown[]) {
   return JSON.stringify({
@@ -126,6 +117,7 @@ export function rowIdentityKey(spec: RowIdentitySpec, values: unknown[]) {
 /** Resolves a batch without ever deriving identity from input order or labels. */
 export function resolveRowIdentityBatch(
   spec: RowIdentitySpec,
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- Raw scientific rows are inspected only at declared identity columns and immediately decoded by their logical-type schema; eager whole-row decoding would inspect unrelated native values/getters and change first-failure order.
   rows: Array<Record<string, unknown> & { localId?: string }>,
 ): RowIdentityBatchResult {
   const errors: RowIdentityError[] = []
@@ -173,10 +165,11 @@ export function resolveRowIdentityBatch(
         continue
       }
 
-      const encoded = encode(value, spec.logicalTypes[index])
+      const encoded =
+        identityValueSchemas[spec.logicalTypes[index]].safeParse(value)
 
-      if (encoded === null) errors.push({ code: 'invalid', row, columnId })
-      else values.push(encoded)
+      if (!encoded.success) errors.push({ code: 'invalid', row, columnId })
+      else values.push(encoded.data)
     }
 
     if (errors.some((error) => error.row === row)) continue

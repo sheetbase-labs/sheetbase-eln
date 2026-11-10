@@ -15,13 +15,15 @@
  * Entries are in the order `chk_blocks_type` names them. `picker.order` is the
  * order the insert menus show them in, which follows the notebook design.
  */
+import { z } from 'zod'
+
 import { t } from '#/copy'
 import type { IconName } from '#/components/icons'
 import {
   EMPTY_RICH_TEXT_PAYLOAD,
   isRichTextPayload,
   richTextToPlainText,
-} from './rich-text'
+} from './rich-text-data'
 import { EMPTY_CONCLUSION_PAYLOAD } from '../conclusion-block'
 import { EMPTY_REACTION_PAYLOAD, EMPTY_STRUCTURE_PAYLOAD } from '../chemistry'
 import {
@@ -54,7 +56,7 @@ import {
   validateCorrectiveActions,
   validateSignatureRequest,
 } from './validators'
-import type { FieldErrors } from './validators'
+import type { BlockPayloadFields } from './validators'
 
 export type BlockGroupId = 'structure' | 'writing' | 'evidence' | 'sign'
 
@@ -86,14 +88,14 @@ export interface BlockDeclaration {
    */
   editable: boolean
   /** A minimal, valid payload so a new block enters editing focus cleanly. */
-  defaultPayload: () => Record<string, unknown>
+  defaultPayload: () => BlockPayloadFields
   /**
    * One-line readable preview, used by the conflict banner. Absent where the
    * reader should see the payload as JSON.
    */
-  summary?: (payload: Record<string, unknown>) => string
+  summary?: (payload: BlockPayloadFields) => string
   /** The payload contract: field-level errors, none when the payload is valid. */
-  validate: (payload: unknown) => FieldErrors
+  validate: typeof validateSheet
 }
 
 /** Declares a block and keeps its literal type for the `BlockType` union. */
@@ -101,6 +103,21 @@ export function defineBlocks<const T extends readonly BlockDeclaration[]>(
   declarations: T,
 ): T {
   return declarations
+}
+
+const summaryString = z.string()
+
+const nativeSummaryObject = z.custom<object>(
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Approved native summary container includes arrays and inherited/accessor objects; establish only object membership without reading or copying fields.
+  (value) => typeof value === 'object' && value !== null,
+)
+
+function isSummaryString(value: unknown): value is string {
+  return summaryString.safeParse(value).success
+}
+
+function isSummaryObject(value: unknown): value is object {
+  return nativeSummaryObject.safeParse(value).success
 }
 
 export const BLOCK_DECLARATIONS = defineBlocks([
@@ -142,16 +159,12 @@ export const BLOCK_DECLARATIONS = defineBlocks([
       return items
         .map((item) => {
           const checked =
-            typeof item === 'object' &&
-            item !== null &&
-            'checked' in item &&
-            item.checked === true
+            isSummaryObject(item) && 'checked' in item && item.checked === true
 
           const text =
-            typeof item === 'object' &&
-            item !== null &&
+            isSummaryObject(item) &&
             'text' in item &&
-            typeof item.text === 'string'
+            isSummaryString(item.text)
               ? item.text
               : ''
 
@@ -178,10 +191,12 @@ export const BLOCK_DECLARATIONS = defineBlocks([
       linkType: 'general',
       label: '',
     }),
+    /* oxlint-disable typescript/no-base-to-string, typescript/restrict-template-expressions -- Approved native summary interpolation: preserve string-hint coercion, Symbol refusal, repeated reads and native throws rather than reinterpreting raw values. */
     summary: (payload) =>
       `${payload.linkType ?? 'general'}: ${payload.targetKind ?? ''} ${
         payload.targetIdentifier ?? ''
       }${payload.label ? ` — ${payload.label}` : ''}`,
+    /* oxlint-enable typescript/no-base-to-string, typescript/restrict-template-expressions */
     validate: validateLinkedRecord,
   },
   {
@@ -243,6 +258,7 @@ export const BLOCK_DECLARATIONS = defineBlocks([
     editable: true,
     defaultPayload: () => ({}),
     summary: (payload) =>
+      // oxlint-disable-next-line typescript/no-base-to-string, typescript/restrict-template-expressions -- Approved native title interpolation: retain truthiness, string-hint coercion, Symbol refusal and throws without added decoding.
       `${payload.title || t('notebook.blockRegistry.analysis')}${payload.frozen ? t('notebook.blockRegistry.frozenSuffix') : ''}`,
     validate: validateAnalysis,
   },
@@ -261,13 +277,11 @@ export const BLOCK_DECLARATIONS = defineBlocks([
     // opens immediately; the user sets dimensions and assigns wells.
     defaultPayload: () => ({}),
     summary: (payload) => {
-      const title = typeof payload.title === 'string' ? payload.title : ''
+      const title = isSummaryString(payload.title) ? payload.title : ''
       const spec = 'spec' in payload ? payload.spec : undefined
 
       const wells =
-        typeof spec === 'object' && spec !== null && 'wells' in spec
-          ? spec.wells
-          : undefined
+        isSummaryObject(spec) && 'wells' in spec ? spec.wells : undefined
 
       return t('notebook.blockRegistry.plateMapSummary', {
         title: title || t('notebook.blockRegistry.plateMapLabel'),
@@ -356,6 +370,7 @@ export const BLOCK_DECLARATIONS = defineBlocks([
       `${t('notebook.blockRegistry.pipelineOutputLabel')}${
         payload.runId
           ? t('notebook.blockRegistry.runId', {
+              // oxlint-disable-next-line typescript/no-base-to-string -- Approved explicit String conversion accepts Symbol and preserves custom coercion/throws before the original eight-character truncation.
               runId: String(payload.runId).slice(0, 8),
             })
           : ''
@@ -409,7 +424,7 @@ export const BLOCK_DECLARATIONS = defineBlocks([
     editable: true,
     defaultPayload: () => ({ ...EMPTY_CONCLUSION_PAYLOAD }),
     summary: (payload) =>
-      typeof payload.text === 'string' && payload.text ? payload.text : '',
+      isSummaryString(payload.text) && payload.text ? payload.text : '',
     validate: validateConclusion,
   },
   {
@@ -447,12 +462,12 @@ export const BLOCK_DECLARATIONS = defineBlocks([
     defaultPayload: () => ({ ...EMPTY_STRUCTURE_PAYLOAD }),
     summary: (payload) =>
       [
-        typeof payload.title === 'string' && payload.title
+        isSummaryString(payload.title) && payload.title
           ? payload.title
-          : typeof payload.name === 'string'
+          : isSummaryString(payload.name)
             ? payload.name
             : '',
-        typeof payload.formula === 'string' ? payload.formula : '',
+        isSummaryString(payload.formula) ? payload.formula : '',
       ]
         .filter(Boolean)
         .join(' · ') || t('notebook.blockRegistry.structureLabel'),
@@ -480,7 +495,7 @@ export const BLOCK_DECLARATIONS = defineBlocks([
     summary: (payload) =>
       t('notebook.blockRegistry.reactionSummary', {
         title:
-          typeof payload.title === 'string' && payload.title
+          isSummaryString(payload.title) && payload.title
             ? payload.title
             : t('notebook.blockRegistry.reactionLabel'),
         count: Array.isArray(payload.rows) ? payload.rows.length : 0,
@@ -509,7 +524,7 @@ export const BLOCK_DECLARATIONS = defineBlocks([
     defaultPayload: () => ({ language: 'python', source: '', inputs: [] }),
     summary: (payload) =>
       `${t('notebook.blockRegistry.codeCellLabel')}${
-        typeof payload.language === 'string' ? ` (${payload.language})` : ''
+        isSummaryString(payload.language) ? ` (${payload.language})` : ''
       }`,
     validate: validateCodeCell,
   },
@@ -529,7 +544,7 @@ export const BLOCK_DECLARATIONS = defineBlocks([
     editable: false,
     defaultPayload: () => ({ mode: 'warn', conditions: [] }),
     summary: (payload) =>
-      typeof payload.label === 'string' && payload.label
+      isSummaryString(payload.label) && payload.label
         ? payload.label
         : t('notebook.gates.blockLabel'),
     validate: validateGate,
@@ -542,7 +557,7 @@ export const BLOCK_DECLARATIONS = defineBlocks([
     editable: true,
     defaultPayload: () => ({}),
     summary: (payload) =>
-      typeof payload.block === 'string' ? payload.block : 'Plugin block',
+      isSummaryString(payload.block) ? payload.block : 'Plugin block',
     validate: validatePluginBlock,
   },
 ])

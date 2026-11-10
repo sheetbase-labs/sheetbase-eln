@@ -25,7 +25,7 @@ import type { TimelineEventWire } from './sign-002'
 import { notebookDataClient } from './notebook-data'
 import { datasetPath, recordPath, sheetPath } from './navigation'
 import { csvEscape } from './export/delimited'
-import { isRichTextPayload, richTextToPlainText } from './blocks/rich-text'
+import { isRichTextPayload, richTextToPlainText } from './blocks/rich-text-data'
 import { dateTimeFormat } from '#/lib/intl-cache'
 
 // ---------------------------------------------------------------------------
@@ -62,6 +62,40 @@ export const auditEventsPageSchema = z
 export type AuditEventsPageWire = z.infer<typeof auditEventsPageSchema>
 
 export type AuditEventWire = AuditEventsPageWire['events'][number]
+
+const stringInput = z.string()
+const booleanInput = z.boolean()
+const capturedTextInput = z.unknown().transform((value) => String(value))
+
+const numberInput = z.union([
+  z.number(),
+  z.nan(),
+  z.literal(Infinity),
+  z.literal(-Infinity),
+])
+
+const objectInput = z.custom<object>(
+  (value) =>
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Audit evidence includes native objects and arrays; inspecting their category must not copy them or invoke captured getters.
+    typeof value === 'object' && value !== null,
+)
+
+function isString<Value>(value: Value): value is Value & string {
+  return stringInput.safeParse(value).success
+}
+
+function isObject<Value>(
+  value: Value,
+): value is Value & AuditEventWire['payload'] {
+  return objectInput.safeParse(value).success
+}
+
+function hasKey<ObjectType extends object>(
+  object: ObjectType,
+  key: PropertyKey,
+): key is keyof ObjectType {
+  return key in object
+}
 
 export const auditHistoryCategories = [
   'all',
@@ -180,11 +214,14 @@ export async function fetchAllAuditEvents(
   const limit = filter.limit ?? AUDIT_PAGE_SIZE
 
   for (;;) {
-    const page = await fetchAuditEvents(client, {
+    const pageFilter = {
       ...filter,
       limit,
-      ...(beforeSequence === undefined ? {} : { beforeSequence }),
-    })
+    }
+
+    if (beforeSequence !== undefined) pageFilter.beforeSequence = beforeSequence
+
+    const page = await fetchAuditEvents(client, pageFilter)
 
     if (beforeSequence === undefined) onFirstPage?.(page)
     events.push(...page.events)
@@ -280,7 +317,12 @@ export interface DescribedAuditEvent {
   changes: FieldChange[]
 }
 
-export const ENTITY_LABELS: Record<string, string> = {
+/** Public catalogue lookups accept future entity names without inventing labels. */
+interface AuditEntityLabels {
+  [entityType: string]: string | undefined
+}
+
+export const ENTITY_LABELS: AuditEntityLabels = {
   project: 'Project',
   folder: 'Folder',
   record: 'Record',
@@ -346,7 +388,7 @@ export const ENTITY_LABELS: Record<string, string> = {
   intake_batch: 'Intake batch',
 }
 
-const OPERATION_LABELS: Record<string, string> = {
+const OPERATION_LABELS = {
   create: 'Created',
   update: 'Updated',
   delete: 'Deleted',
@@ -376,13 +418,17 @@ export function entityLabel(entityType: string): string {
 
 /** An audit operation in plain words ("Updated", not `update`). */
 export function operationLabel(operation: string): string {
-  return OPERATION_LABELS[operation] ?? humanizeToken(operation)
+  return (
+    (hasKey(OPERATION_LABELS, operation)
+      ? OPERATION_LABELS[operation]
+      : undefined) ?? humanizeToken(operation)
+  )
 }
 
 /** Block kinds, named the way the Notebook surfaces name them. A block event
  * carries no title — only its `type` — so this is the one readable descriptor
  * it has (the block's internal id names nothing to a reader). */
-export const BLOCK_TYPE_LABELS: Record<string, string> = {
+export const BLOCK_TYPE_LABELS = {
   rich_text: 'Text',
   checklist: 'Checklist',
   callout: 'Note',
@@ -408,7 +454,7 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   conclusion: 'Conclusion',
 }
 
-export const ACTION_LABELS: Record<string, string> = {
+export const ACTION_LABELS = {
   create: 'created',
   update: 'updated',
   move: 'moved',
@@ -428,11 +474,11 @@ export const ACTION_LABELS: Record<string, string> = {
 
 interface FieldStyle {
   label: string
-  render?: (value: unknown) => string
+  render?: <Value>(value: Value) => string
 }
 
 /** Per-field display styling; unknown fields fall back to String(value). */
-const FIELD_STYLES: Partial<Record<string, FieldStyle>> = {
+const FIELD_STYLES = {
   title: { label: 'Title' },
   name: { label: 'Name' },
   description: { label: 'Description' },
@@ -449,25 +495,28 @@ const FIELD_STYLES: Partial<Record<string, FieldStyle>> = {
     label: 'Definition version',
     render: (v) => `v${String(v)}`,
   },
-}
+} satisfies Record<string, FieldStyle>
 
-function humanizeToken(value: unknown): string {
-  return String(value)
+function humanizeToken<Value>(value: Value): string {
+  return capturedTextInput
+    .parse(value)
     .replace(/[_-]+/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 /** Preserve captured values in the inspector and exported audit trail. */
-export function formatChangeValue(value: unknown): string {
+export function formatChangeValue<Value>(value: Value): string {
   if (value === null || value === undefined) return '—'
 
-  if (typeof value === 'boolean') return value ? 'yes' : 'no'
+  const boolean = booleanInput.safeParse(value)
 
-  if (typeof value === 'number') return String(value)
+  if (boolean.success) return boolean.data ? 'yes' : 'no'
+
+  if (numberInput.safeParse(value).success) return String(value)
 
   if (isRichTextPayload(value)) return richTextToPlainText(value)
 
-  if (typeof value === 'object') return JSON.stringify(value)
+  if (isObject(value)) return JSON.stringify(value)
 
   return String(value)
 }
@@ -505,7 +554,7 @@ function sentenceSubjectFor(event: AuditEventWire): string {
     const meaning = event.payload['signatureMeaning']
 
     return meaning
-      ? `as ${String(meaning).replace(/[_-]+/g, ' ').toLowerCase()}`
+      ? `as ${capturedTextInput.parse(meaning).replace(/[_-]+/g, ' ').toLowerCase()}`
       : 'a signature'
   }
 
@@ -546,13 +595,13 @@ function subjectFor(event: AuditEventWire, withId = true): string {
   if (event.entityType === 'signature') {
     const meaning = payload['signatureMeaning']
 
-    return `${label} (${meaning ? humanizeToken(String(meaning)) : 'recorded'})`
+    return `${label} (${meaning ? humanizeToken(capturedTextInput.parse(meaning)) : 'recorded'})`
   }
 
   if (event.entityType === 'review_decision') {
     const decision = payload['decision']
 
-    return `${label} (${decision ? humanizeToken(String(decision)) : 'recorded'})`
+    return `${label} (${decision ? humanizeToken(capturedTextInput.parse(decision)) : 'recorded'})`
   }
 
   if (event.entityType === 'review_submission') {
@@ -560,10 +609,10 @@ function subjectFor(event: AuditEventWire, withId = true): string {
   }
 
   if (event.entityType === 'block') {
-    const type = typeof payload['type'] === 'string' ? payload['type'] : null
+    const type = isString(payload['type']) ? payload['type'] : null
 
     return type
-      ? `${label} (${BLOCK_TYPE_LABELS[type] ?? humanizeToken(type)})`
+      ? `${label} (${(hasKey(BLOCK_TYPE_LABELS, type) ? BLOCK_TYPE_LABELS[type] : undefined) ?? humanizeToken(type)})`
       : label
   }
 
@@ -576,14 +625,15 @@ function actionFor(event: AuditEventWire): string {
     return event.payload['ok'] === false ? 'found a problem in' : 'verified'
 
   const base =
-    ACTION_LABELS[event.operation] ??
-    humanizeToken(event.operation).toLowerCase()
+    (hasKey(ACTION_LABELS, event.operation)
+      ? ACTION_LABELS[event.operation]
+      : undefined) ?? humanizeToken(event.operation).toLowerCase()
 
   // Review decisions carry their own verb in the payload decision value.
   if (event.entityType === 'review_decision') {
     const decision = event.payload['decision']
 
-    if (typeof decision === 'string') {
+    if (isString(decision)) {
       switch (decision) {
         case 'request_changes':
           return 'requested changes on review'
@@ -619,7 +669,7 @@ function actionFor(event: AuditEventWire): string {
   if (event.entityType === 'check') {
     const status = event.payload['overallStatus']
 
-    return `ran checks (${typeof status === 'string' ? humanizeToken(status) : 'recorded'})`
+    return `ran checks (${isString(status) ? humanizeToken(status) : 'recorded'})`
   }
 
   if (event.entityType === 'review_submission') {
@@ -645,24 +695,22 @@ function actionFor(event: AuditEventWire): string {
 }
 
 function firstString(
-  payload: Record<string, unknown>,
+  payload: AuditEventWire['payload'],
   keys: string[],
 ): string | null {
   for (const key of keys) {
     const value = payload[key]
 
-    if (typeof value === 'string' && value.length > 0) return value
+    if (isString(value) && value.length > 0) return value
   }
 
   return null
 }
 
-function changesOf(event: AuditEventWire): Record<string, unknown> {
+function changesOf(event: AuditEventWire): AuditEventWire['payload'] {
   const changes = event.payload['changes']
 
-  return changes && typeof changes === 'object' && !Array.isArray(changes)
-    ? (changes as Record<string, unknown>)
-    : {}
+  return isObject(changes) && !Array.isArray(changes) ? changes : {}
 }
 
 function hasChange(event: AuditEventWire, key: string): boolean {
@@ -680,8 +728,7 @@ export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
 
   for (const [key, value] of Object.entries(changes)) {
     if (
-      typeof value !== 'object' ||
-      value === null ||
+      !isObject(value) ||
       Array.isArray(value) ||
       (!('from' in value) && !('to' in value))
     ) {
@@ -691,7 +738,9 @@ export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
     const style: FieldStyle | undefined =
       key === 'payload' && event.payload.type === 'rich_text'
         ? { label: 'Text' }
-        : FIELD_STYLES[key]
+        : hasKey(FIELD_STYLES, key)
+          ? FIELD_STYLES[key]
+          : undefined
 
     const fromValue = 'from' in value ? value.from : null
     const toValue = 'to' in value ? value.to : null
@@ -713,9 +762,7 @@ export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
     fields.push({
       label:
         style?.label ??
-        ('label' in value && typeof value.label === 'string'
-          ? value.label
-          : key),
+        ('label' in value && isString(value.label) ? value.label : key),
       kind: from === null ? 'added' : to === null ? 'removed' : 'changed',
       from: from ?? undefined,
       to: to ?? undefined,
@@ -860,7 +907,7 @@ export function auditEventsCsv(events: AuditEventWire[]): string {
           change?.label ?? '',
           change?.from ?? '',
           change?.to ?? '',
-          typeof event.payload.reason === 'string' ? event.payload.reason : '',
+          isString(event.payload.reason) ? event.payload.reason : '',
           event.clientId ?? '',
           JSON.stringify(event.payload),
         ]
@@ -921,7 +968,7 @@ export function groupAuditEvents(events: AuditEventWire[]): AuditGroup[] {
       const related: AuditEventWire[] = []
 
       for (const counterpartId of [revokedId, createdId]) {
-        if (typeof counterpartId !== 'string') continue
+        if (!isString(counterpartId)) continue
 
         for (const candidate of byEntityUuid.get(counterpartId) ?? []) {
           if (candidate.id === event.id || consumed.has(candidate.id)) continue
@@ -980,7 +1027,7 @@ export function auditLinkFor(event: AuditEventWire): AuditLink | null {
     case 'review_decision': {
       const revisionId = event.payload['revisionId']
 
-      return typeof revisionId === 'string'
+      return isString(revisionId)
         ? { href: `/review/${revisionId}`, label: 'Open review' }
         : null
     }
@@ -989,7 +1036,7 @@ export function auditLinkFor(event: AuditEventWire): AuditLink | null {
       const revisionId = event.payload['revisionId']
 
       return {
-        href: `/review/${typeof revisionId === 'string' ? revisionId : event.entityUuid}`,
+        href: `/review/${isString(revisionId) ? revisionId : event.entityUuid}`,
         label: 'Open review',
       }
     }
@@ -998,7 +1045,9 @@ export function auditLinkFor(event: AuditEventWire): AuditLink | null {
     case 'dataset_version':
       return {
         href: datasetPath(
-          String(event.payload['datasetId'] ?? event.entityUuid),
+          capturedTextInput.parse(
+            event.payload['datasetId'] ?? event.entityUuid,
+          ),
         ),
         label: 'Open dataset',
       }
@@ -1024,7 +1073,7 @@ export function timelineToAuditEvents(
 ): AuditEventWire[] {
   return events.map((entry) => {
     const { type, id, seq, ts, actorUserId, ...rest } = entry
-    const derived: Record<string, unknown> = { ...rest }
+    const derived: AuditEventWire['payload'] = { ...rest }
     delete derived.title
 
     let entityType: string = type
@@ -1032,11 +1081,10 @@ export function timelineToAuditEvents(
 
     switch (type) {
       case 'change_event':
-        entityType = typeof rest.eventType === 'string' ? rest.eventType : type
-        operation =
-          typeof rest.operation === 'string' ? rest.operation : 'update'
+        entityType = isString(rest.eventType) ? rest.eventType : type
+        operation = isString(rest.operation) ? rest.operation : 'update'
 
-        if (rest.payload && typeof rest.payload === 'object') {
+        if (isObject(rest.payload)) {
           Object.assign(derived, rest.payload)
         }
 
@@ -1071,7 +1119,7 @@ export function timelineToAuditEvents(
     }
 
     return {
-      sequence: typeof seq === 'number' ? seq : 0,
+      sequence: numberInput.safeParse(seq).success ? (seq ?? 0) : 0,
       id,
       createdAt: ts,
       entityType,

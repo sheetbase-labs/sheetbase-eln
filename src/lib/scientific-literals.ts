@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import type { ScientificLogicalType } from './scientific-sheet-data'
 
 export const SHEETBASE_LITERAL_PROFILE = 'sheetbase-literal-v1' as const
@@ -17,6 +18,29 @@ const datePattern = /^(\d{4})-(\d{2})-(\d{2})$/
 
 const timestampPattern =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|[+-]\d{2}:\d{2})$/
+
+const literalTextInput = z.unknown().transform((value) => String(value))
+const stringInput = z.string()
+const booleanInput = z.boolean()
+
+const numberInput = z.union([
+  z.number(),
+  z.nan(),
+  z.literal(Infinity),
+  z.literal(-Infinity),
+])
+
+function isString(value: unknown): value is string {
+  return stringInput.safeParse(value).success
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return booleanInput.safeParse(value).success
+}
+
+function isNumber(value: unknown): value is number {
+  return numberInput.safeParse(value).success
+}
 
 function utc(
   year: number,
@@ -95,9 +119,7 @@ function timestampSerial(value: string) {
   return (instant - NULL_DATE) / DAY
 }
 
-function safeNumber(value: unknown, integer: boolean) {
-  const text = typeof value === 'number' ? String(value) : String(value)
-
+function safeNumber(text: string, integer: boolean) {
   if (integer && !/^[+-]?\d+$/.test(text))
     throw new Error('Integer input is not an integer.')
 
@@ -123,6 +145,7 @@ function safeNumber(value: unknown, integer: boolean) {
 /** Converts authoritative values to the engine's scalar input. Dates and timestamps become serials. */
 export function encodeScientificLiteral(
   type: ScientificLogicalType,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the raw literal codec boundary: each logical type below applies its historical native String coercion or exact Boolean check without restricting scientific input beforehand.
   value: unknown,
 ): ScientificScalar {
   if (value === null || value === undefined) return null
@@ -131,20 +154,19 @@ export function encodeScientificLiteral(
     case 'text':
     case 'category':
     case 'reference':
-      return String(value)
+      return literalTextInput.parse(value)
     case 'integer':
-      return safeNumber(value, true)
+      return safeNumber(literalTextInput.parse(value), true)
     case 'decimal':
-      return safeNumber(value, false)
+      return safeNumber(literalTextInput.parse(value), false)
     case 'boolean':
-      if (typeof value !== 'boolean')
-        throw new Error('Boolean input must be a Boolean.')
+      if (!isBoolean(value)) throw new Error('Boolean input must be a Boolean.')
 
       return value
     case 'date':
-      return dateSerial(String(value))
+      return dateSerial(literalTextInput.parse(value))
     case 'timestamp':
-      return timestampSerial(String(value))
+      return timestampSerial(literalTextInput.parse(value))
   }
 }
 
@@ -153,10 +175,14 @@ export function encodeScientificLiteral(
  * constructed dates as `Date`; storage and citation carry the Excel serial, so
  * the adapter converts at this boundary and never changes the persisted value.
  */
-export function normalizeEngineScalar(value: unknown): ScientificScalar {
+export function normalizeEngineScalar(
+  value: ScientificScalar | Date,
+): ScientificScalar
+export function normalizeEngineScalar<Value>(value: Value): Value | number
+export function normalizeEngineScalar<Value>(value: Value): Value | number {
   if (value instanceof Date) return (value.getTime() - NULL_DATE) / DAY
 
-  return value as ScientificScalar
+  return value
 }
 
 const isoDate = (serial: number) =>
@@ -168,6 +194,7 @@ const isoTimestamp = (serial: number) =>
 /** Validates a derived scalar against its logical SQL target; never implicitly casts. */
 export function decodeScientificResult(
   type: ScientificLogicalType,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Engine outputs enter here before logical SQL-target validation; schema-backed scalar checks below preserve ordered type-specific VALUE diagnostics for malformed native results.
   value: unknown,
   categoryOptionIds?: readonly string[],
 ): LiteralCodecResult {
@@ -176,35 +203,32 @@ export function decodeScientificResult(
   try {
     switch (type) {
       case 'text':
-        if (typeof value !== 'string') throw new Error('Expected text result.')
+        if (!isString(value)) throw new Error('Expected text result.')
 
         return { ok: true, value }
       case 'reference':
-        if (typeof value !== 'string')
-          throw new Error('Expected reference UUID result.')
+        if (!isString(value)) throw new Error('Expected reference UUID result.')
 
         return { ok: true, value }
       case 'category':
-        if (typeof value !== 'string')
-          throw new Error('Expected category UUID result.')
+        if (!isString(value)) throw new Error('Expected category UUID result.')
 
         if (!categoryOptionIds?.includes(value))
           throw new Error('Expected an active option of the target category.')
 
         return { ok: true, value }
       case 'boolean':
-        if (typeof value !== 'boolean')
-          throw new Error('Expected Boolean result.')
+        if (!isBoolean(value)) throw new Error('Expected Boolean result.')
 
         return { ok: true, value }
       case 'integer':
-        if (typeof value !== 'number' || !Number.isSafeInteger(value))
+        if (!isNumber(value) || !Number.isSafeInteger(value))
           throw new Error('Expected a safe integer result.')
 
         return { ok: true, value }
       case 'decimal':
         if (
-          typeof value !== 'number' ||
+          !isNumber(value) ||
           !Number.isFinite(value) ||
           String(value).replace(/\D/g, '').length > 15
         )
@@ -213,7 +237,7 @@ export function decodeScientificResult(
         return { ok: true, value }
       case 'date':
         if (
-          typeof value !== 'number' ||
+          !isNumber(value) ||
           !Number.isFinite(value) ||
           !Number.isInteger(value)
         )
@@ -221,7 +245,7 @@ export function decodeScientificResult(
 
         return { ok: true, value: isoDate(value) }
       case 'timestamp':
-        if (typeof value !== 'number' || !Number.isFinite(value))
+        if (!isNumber(value) || !Number.isFinite(value))
           throw new Error('Expected a timestamp serial.')
 
         return { ok: true, value: isoTimestamp(value) }

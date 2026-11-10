@@ -15,6 +15,7 @@ import type { RecordSnapshot } from './hook-answers'
 vi.mock('#/lib/logger', () => ({
   logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
+
 vi.mock('./data-runtime.server', () => ({
   runExtensionStorageRule: vi.fn(),
   runExtensionRecordHook: vi.fn(),
@@ -137,6 +138,7 @@ describe('describeDestination', () => {
       'x',
       deps([]),
     )
+
     expect(place).toEqual({
       path: ['Site', 'Room', 'Ultra', 'Shelf 1', 'Rack A', 'Box 3'],
       box: 'Box 3',
@@ -154,6 +156,7 @@ describe('describeDestination', () => {
       'x',
       deps([]),
     )
+
     expect(place?.path).toEqual(['Lab', 'Bench 2'])
     expect(place?.position).toBeNull()
   })
@@ -174,11 +177,13 @@ describe('guardStorageMove', () => {
 
   it('hands the rule the sample and the place, and stops on a refusal with its words', async () => {
     run.mockResolvedValue({ status: 'refuse', message: 'Too warm.' })
+
     const result = await guardStorageMove(
       move,
       claims,
       deps([rule('a'), rule('b')]),
     )
+
     expect(result).toEqual({
       kind: 'refused',
       message: 'Too warm.',
@@ -196,11 +201,13 @@ describe('guardStorageMove', () => {
     run
       .mockResolvedValueOnce({ status: 'warn', message: 'Nearly full.' })
       .mockResolvedValueOnce({ status: 'ok', message: '' })
+
     const result = await guardStorageMove(
       move,
       claims,
       deps([rule('a'), rule('b')]),
     )
+
     expect(result).toEqual({
       kind: 'pass',
       warnings: ['Lab inventory: Nearly full.'],
@@ -227,6 +234,7 @@ describe('guardRecordWrite on a move', () => {
   const token = `x.${Buffer.from(
     JSON.stringify({ workspace_id: WS, sub: 'user-1' }),
   ).toString('base64url')}.y`
+
   const recordDeps = (rules: StorageRule[]) => ({
     hooksFor: async () => [],
     loadRecord: async () => sample,
@@ -236,19 +244,23 @@ describe('guardRecordWrite on a move', () => {
 
   it('refuses the write the way a hook before a save does', async () => {
     run.mockResolvedValue({ status: 'refuse', message: 'Too warm.' })
+
     const result = await guardRecordWrite(
       { method: 'POST', kind: 'rpc', query: '', ...move, token },
       recordDeps([rule('a')]),
     )
+
     expect(result).toMatchObject({ kind: 'refused', message: 'Too warm.' })
   })
 
   it('lets it through, with the warning, untouched', async () => {
     run.mockResolvedValue({ status: 'warn', message: 'Nearly full.' })
+
     const result = await guardRecordWrite(
       { method: 'POST', kind: 'rpc', query: '', ...move, token },
       recordDeps([rule('a')]),
     )
+
     expect(result).toEqual({
       kind: 'pass',
       body: move.body,

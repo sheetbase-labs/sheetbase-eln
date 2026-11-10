@@ -7,6 +7,7 @@
  * `initialize`, `tools/*`, `resources/*`, `prompts/*` and `ping`, returned as
  * `application/json` (Streamable HTTP permits a JSON response).
  */
+import { z } from 'zod'
 
 export const MCP_PROTOCOL_VERSION = '2025-06-18'
 export const MCP_SERVER_NAME = 'sheetbase'
@@ -16,13 +17,14 @@ export interface JsonRpcRequest {
   jsonrpc: '2.0'
   id: string | number
   method: string
-  params?: Record<string, unknown>
+  params?: { [name: string]: z.JSONType }
 }
 
 export interface JsonRpcNotification {
   jsonrpc: '2.0'
+  id?: never
   method: string
-  params?: Record<string, unknown>
+  params?: { [name: string]: z.JSONType }
 }
 
 export type JsonRpcMessage = JsonRpcRequest | JsonRpcNotification
@@ -55,9 +57,9 @@ export const JSON_RPC_ERRORS = {
 
 export class JsonRpcError extends Error {
   readonly code: number
-  readonly data?: unknown
+  readonly data?: z.JSONType
 
-  constructor(code: number, message: string, data?: unknown) {
+  constructor(code: number, message: string, data?: z.JSONType) {
     super(message)
     this.name = 'JsonRpcError'
     this.code = code
@@ -65,31 +67,28 @@ export class JsonRpcError extends Error {
   }
 }
 
-export function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
-  if (value === null || typeof value !== 'object') return false
-  const record = value as Record<string, unknown>
+const requestSchema = z.object({
+  jsonrpc: z.literal('2.0'),
+  id: z.union([z.string(), z.number()]),
+  method: z.string(),
+  params: z.record(z.string(), z.json()).optional(),
+})
 
-  return (
-    record.jsonrpc === '2.0' &&
-    typeof record.method === 'string' &&
-    (typeof record.id === 'string' || typeof record.id === 'number')
-  )
+const notificationSchema = requestSchema.omit({ id: true }).passthrough()
+
+export function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
+  return requestSchema.safeParse(value).success
 }
 
 export function isJsonRpcNotification(
   value: unknown,
 ): value is JsonRpcNotification {
-  if (value === null || typeof value !== 'object') return false
-  const record = value as Record<string, unknown>
+  const parsed = notificationSchema.safeParse(value)
 
-  return (
-    record.jsonrpc === '2.0' &&
-    typeof record.method === 'string' &&
-    !('id' in record)
-  )
+  return parsed.success && !('id' in parsed.data)
 }
 
-export function success(id: string | number, result: unknown): JsonRpcSuccess {
+export function success<T>(id: string | number, result: T): JsonRpcSuccess {
   return { jsonrpc: '2.0', id, result }
 }
 
@@ -97,11 +96,11 @@ export function failure(
   id: string | number | null,
   code: number,
   message: string,
-  data?: unknown,
+  data?: z.JSONType,
 ): JsonRpcFailure {
   return {
     jsonrpc: '2.0',
     id,
-    error: { code, message, ...(data === undefined ? {} : { data }) },
+    error: { code, message, ...(data !== undefined && { data }) },
   }
 }

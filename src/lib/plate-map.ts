@@ -14,6 +14,8 @@
  * biotech-specific assay semantics are baked into global infrastructure.
  */
 
+import { z } from 'zod'
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -311,24 +313,106 @@ export function isValidWellCode(
 // Validators
 // ---------------------------------------------------------------------------
 
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
+const objectInput = z.custom<object>(
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Plate validation accepts native objects without enumerating properties or reading getters; permission errors also historically accept arrays, but not functions.
+  (value) => typeof value === 'object' && value !== null,
+)
+
+const nonArrayObjectInput = objectInput.refine((value) => !Array.isArray(value))
+const arrayInput = z.custom<unknown[]>(Array.isArray)
+const stringInput = z.string()
+
+const nonEmptyStringInput = stringInput.refine(
+  (value) => value.trim().length > 0,
+)
+
+const numberInput = z.union([
+  z.number(),
+  z.nan(),
+  z.literal(Infinity),
+  z.literal(-Infinity),
+])
+
+const positiveIntegerInput = z.number().refine(Number.isInteger).positive()
+const positiveFiniteInput = z.number().positive()
+const formatInput = z.enum(PLATE_FORMATS)
+const roleInput = z.enum(ASSIGNMENT_ROLES)
+
+function isInput<Schema extends z.ZodType, Value>(
+  schema: Schema,
+  value: Value,
+): value is Value & z.infer<Schema> {
+  return schema.safeParse(value).success
 }
 
-function isNonEmptyString(v: unknown): v is string {
-  return typeof v === 'string' && v.trim().length > 0
+// Each stage inspects its original object. Optional unknown fields retain
+// malformed evidence for the canonical diagnostics without reading ahead.
+const specInput = z.custom<{
+  specVersion?: unknown
+  format?: unknown
+  rows?: unknown
+  cols?: unknown
+  wells?: unknown
+  validation?: unknown
+}>((value) => isInput(nonArrayObjectInput, value))
+
+const wellInput = z.custom<{
+  wellCode?: unknown
+  row?: unknown
+  col?: unknown
+  role?: unknown
+  sampleRef?: unknown
+  replicate?: unknown
+  volume?: unknown
+  notes?: unknown
+}>((value) => isInput(nonArrayObjectInput, value))
+
+const sampleRefInput = z.custom<{
+  recordId?: unknown
+  identifier?: unknown
+  title?: unknown
+}>((value) => isInput(nonArrayObjectInput, value))
+
+const volumeInput = z.custom<{ value?: unknown; unit?: unknown }>((value) =>
+  isInput(nonArrayObjectInput, value),
+)
+
+const validationInput = z.custom<{
+  requiredRoles?: unknown
+  volumeMin?: unknown
+  volumeMax?: unknown
+}>((value) => isInput(nonArrayObjectInput, value))
+
+const payloadInput = z.custom<{
+  title?: unknown
+  spec?: unknown
+  provenance?: unknown
+}>((value) => isInput(nonArrayObjectInput, value))
+
+const errorInput = z.custom<{
+  status?: unknown
+  statusCode?: unknown
+  message?: unknown
+}>((value) => isInput(objectInput, value))
+
+function isNonEmptyString<Value>(v: Value): v is Value & string {
+  return isInput(nonEmptyStringInput, v)
 }
 
-function isPositiveInteger(v: unknown): boolean {
-  return typeof v === 'number' && Number.isInteger(v) && v > 0
+function isPositiveInteger<Value>(v: Value): v is Value & number {
+  return isInput(positiveIntegerInput, v)
 }
 
-function isPositiveFinite(v: unknown): boolean {
-  return typeof v === 'number' && Number.isFinite(v) && v > 0
+function isPositiveFinite<Value>(v: Value): v is Value & number {
+  return isInput(positiveFiniteInput, v)
 }
 
-function isString(v: unknown): v is string {
-  return typeof v === 'string'
+function isString<Value>(v: Value): v is Value & string {
+  return isInput(stringInput, v)
+}
+
+function isNumber<Value>(v: Value): v is Value & number {
+  return isInput(numberInput, v)
 }
 
 /**
@@ -336,10 +420,10 @@ function isString(v: unknown): v is string {
  * reference integrity (same-workspace sample existence) is enforced by the
  * DB trigger. Returns all discoverable errors.
  */
-export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
+export function validatePlateMapSpec<Value>(spec: Value): PlateMapSpecError[] {
   const errors: PlateMapSpecError[] = []
 
-  if (!isObject(spec)) {
+  if (!isInput(specInput, spec)) {
     return [{ code: 'invalid_shape', message: 'spec must be an object' }]
   }
 
@@ -357,7 +441,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
   // format
   const format = spec.format
 
-  if (!isString(format) || !PLATE_FORMATS.includes(format as PlateFormat)) {
+  if (!isInput(formatInput, format)) {
     errors.push({
       code: 'unsupported_format',
       field: 'spec.format',
@@ -367,13 +451,13 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     return errors // Can't validate dimensions without a known format
   }
 
-  const expectedDims = FORMAT_DIMENSIONS[format as PlateFormat]
+  const expectedDims = FORMAT_DIMENSIONS[format]
 
   // rows
   const rows = spec.rows
 
   if (
-    typeof rows !== 'number' ||
+    !isNumber(rows) ||
     !Number.isInteger(rows) ||
     rows !== expectedDims.rows
   ) {
@@ -388,7 +472,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
   const cols = spec.cols
 
   if (
-    typeof cols !== 'number' ||
+    !isNumber(cols) ||
     !Number.isInteger(cols) ||
     cols !== expectedDims.cols
   ) {
@@ -404,13 +488,13 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     return errors
   }
 
-  const actualRows = rows as number
-  const actualCols = cols as number
+  const actualRows = expectedDims.rows
+  const actualCols = expectedDims.cols
 
   // wells
   const wells = spec.wells
 
-  if (!Array.isArray(wells)) {
+  if (!isInput(arrayInput, wells)) {
     errors.push({
       code: 'missing_field',
       field: 'spec.wells',
@@ -432,7 +516,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
   // validation config
   const validation = spec.validation
 
-  if (!isObject(validation)) {
+  if (!isInput(validationInput, validation)) {
     errors.push({
       code: 'missing_field',
       field: 'spec.validation',
@@ -446,7 +530,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
   wells.forEach((well, i) => {
     const prefix = `spec.wells[${i}]`
 
-    if (!isObject(well)) {
+    if (!isInput(wellInput, well)) {
       errors.push({
         code: 'invalid_shape',
         field: prefix,
@@ -476,12 +560,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     // row
     const r = well.row
 
-    if (
-      typeof r !== 'number' ||
-      !Number.isInteger(r) ||
-      r < 0 ||
-      r >= actualRows
-    ) {
+    if (!isNumber(r) || !Number.isInteger(r) || r < 0 || r >= actualRows) {
       errors.push({
         code: 'out_of_bounds',
         field: `${prefix}.row`,
@@ -492,12 +571,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     // col
     const c = well.col
 
-    if (
-      typeof c !== 'number' ||
-      !Number.isInteger(c) ||
-      c < 0 ||
-      c >= actualCols
-    ) {
+    if (!isNumber(c) || !Number.isInteger(c) || c < 0 || c >= actualCols) {
       errors.push({
         code: 'out_of_bounds',
         field: `${prefix}.col`,
@@ -508,11 +582,11 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     // Cross-check wellCode ↔ row/col
     if (
       isString(code) &&
-      typeof r === 'number' &&
+      isNumber(r) &&
       Number.isInteger(r) &&
       r >= 0 &&
       r < actualRows &&
-      typeof c === 'number' &&
+      isNumber(c) &&
       Number.isInteger(c) &&
       c >= 0 &&
       c < actualCols
@@ -544,7 +618,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     // role
     const role = well.role
 
-    if (!isString(role) || !ASSIGNMENT_ROLES.includes(role as AssignmentRole)) {
+    if (!isInput(roleInput, role)) {
       errors.push({
         code: 'unsupported_role',
         field: `${prefix}.role`,
@@ -556,7 +630,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     const sampleRef = well.sampleRef
 
     if (sampleRef !== undefined && sampleRef !== null) {
-      if (!isObject(sampleRef)) {
+      if (!isInput(sampleRefInput, sampleRef)) {
         errors.push({
           code: 'invalid_sample_ref',
           field: `${prefix}.sampleRef`,
@@ -607,7 +681,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     if (well.volume !== undefined && well.volume !== null) {
       const vol = well.volume
 
-      if (!isObject(vol)) {
+      if (!isInput(volumeInput, vol)) {
         errors.push({
           code: 'invalid_volume',
           field: `${prefix}.volume`,
@@ -644,15 +718,22 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     }
 
     // Track assignments for duplicate detection
-    if (isString(role) && isObject(sampleRef) && isString(sampleRef.recordId)) {
+    if (
+      isString(role) &&
+      isInput(sampleRefInput, sampleRef) &&
+      isString(sampleRef.recordId)
+    ) {
       const ref = sampleRef
       const repKey = well.replicate ?? 0
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions -- Malformed replicates still participate in ordered duplicate diagnostics using native template coercion, including its string hint and symbol failures.
       const key = `${ref.recordId}:${role}:${repKey}`
 
-      if (!assignmentMap.has(key)) {
+      const indices = assignmentMap.get(key)
+
+      if (!indices) {
         assignmentMap.set(key, [i])
       } else {
-        assignmentMap.get(key)!.push(i)
+        indices.push(i)
       }
     }
   })
@@ -669,22 +750,19 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
   }
 
   // Required roles check
-  if (isObject(validation)) {
+  if (isInput(validationInput, validation)) {
     const requiredRoles = validation.requiredRoles
 
-    if (Array.isArray(requiredRoles)) {
+    if (isInput(arrayInput, requiredRoles)) {
       const presentRoles = new Set(
         wells
-          .filter((w: unknown): w is Record<string, unknown> => isObject(w))
+          .filter((w) => isInput(wellInput, w))
           .map((w) => w.role)
           .filter((r): r is string => isString(r)),
       )
 
       for (const required of requiredRoles) {
-        if (
-          isString(required) &&
-          ASSIGNMENT_ROLES.includes(required as AssignmentRole)
-        ) {
+        if (isInput(roleInput, required)) {
           if (!presentRoles.has(required)) {
             errors.push({
               code: 'missing_required_role',
@@ -700,7 +778,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     const volMin = validation.volumeMin
     const volMax = validation.volumeMax
 
-    if (volMin !== undefined && typeof volMin !== 'number') {
+    if (volMin !== undefined && !isNumber(volMin)) {
       errors.push({
         code: 'invalid_value',
         field: 'spec.validation.volumeMin',
@@ -708,7 +786,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
       })
     }
 
-    if (volMax !== undefined && typeof volMax !== 'number') {
+    if (volMax !== undefined && !isNumber(volMax)) {
       errors.push({
         code: 'invalid_value',
         field: 'spec.validation.volumeMax',
@@ -716,11 +794,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
       })
     }
 
-    if (
-      typeof volMin === 'number' &&
-      typeof volMax === 'number' &&
-      volMin > volMax
-    ) {
+    if (isNumber(volMin) && isNumber(volMax) && volMin > volMax) {
       errors.push({
         code: 'invalid_value',
         field: 'spec.validation',
@@ -729,25 +803,27 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     }
 
     // Check volumes against constraints
-    if (typeof volMin === 'number' || typeof volMax === 'number') {
+    if (isNumber(volMin) || isNumber(volMax)) {
       wells.forEach((well, i) => {
-        if (!isObject(well)) return
+        if (!isInput(wellInput, well)) return
         const vol = well.volume
 
-        if (!isObject(vol) || typeof vol.value !== 'number') return
+        if (!isInput(volumeInput, vol) || !isNumber(vol.value)) return
 
-        if (typeof volMin === 'number' && vol.value < volMin) {
+        if (isNumber(volMin) && vol.value < volMin) {
           errors.push({
             code: 'invalid_volume',
             field: `spec.wells[${i}].volume`,
+            // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions -- Preserve native unit coercion in diagnostics for malformed volumes; JSON formatting changes reported evidence and symbol failures.
             message: `volume ${vol.value} ${vol.unit ?? ''} is below minimum ${volMin}`,
           })
         }
 
-        if (typeof volMax === 'number' && vol.value > volMax) {
+        if (isNumber(volMax) && vol.value > volMax) {
           errors.push({
             code: 'invalid_volume',
             field: `spec.wells[${i}].volume`,
+            // eslint-disable-next-line @typescript-eslint/no-base-to-string, @typescript-eslint/restrict-template-expressions -- Preserve native unit coercion in diagnostics for malformed volumes; JSON formatting changes reported evidence and symbol failures.
             message: `volume ${vol.value} ${vol.unit ?? ''} exceeds maximum ${volMax}`,
           })
         }
@@ -762,8 +838,10 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
  * Validate a `PlateMapBlockPayload`. An empty draft `{}` is valid. A
  * populated payload requires a non-empty title and a valid spec.
  */
-export function validatePlateMapPayload(payload: unknown): PlateMapSpecError[] {
-  if (!isObject(payload)) {
+export function validatePlateMapPayload<Value>(
+  payload: Value,
+): PlateMapSpecError[] {
+  if (!isInput(payloadInput, payload)) {
     return [{ code: 'invalid_shape', message: 'payload must be an object' }]
   }
 
@@ -968,14 +1046,13 @@ export function liveSampleObservationFromQuery(query: {
   return { status: 'found', archivedAt: query.data.archivedAt }
 }
 
-function isForbiddenError(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) return false
-  const record = error as Record<string, unknown>
+function isForbiddenError<Value>(error: Value): boolean {
+  if (!isInput(errorInput, error)) return false
+  const record = error
 
   if (record.status === 403 || record.statusCode === 403) return true
 
-  const message =
-    typeof record.message === 'string' ? record.message : String(error)
+  const message = isString(record.message) ? record.message : String(error)
 
   return /403|forbidden|permission denied|not permitted|unauthorised|unauthorized/i.test(
     message,

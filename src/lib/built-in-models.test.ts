@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import type { z } from 'zod'
 
-import type { DataClient } from '#/lib/data-client'
+import { createDataClient } from '#/lib/data-client'
 import {
   BUILT_IN_MODELS,
   fieldKeyFromLabel,
@@ -8,17 +9,21 @@ import {
   saveAddedFieldValues,
 } from './built-in-models'
 
-function fakeClient(rows: unknown[] = []) {
-  const client = {
-    list: vi.fn(async () => rows),
-    count: vi.fn(async () => 0),
-    rpc: vi.fn(async () => ({})),
-    insert: vi.fn(),
-    patch: vi.fn(async () => []),
-    remove: vi.fn(),
-  }
+function recordingClient(rows: z.core.util.JSONType[] = []) {
+  const requests: Request[] = []
 
-  return client as typeof client & DataClient
+  const client = createDataClient(async (input, init) => {
+    const request = new Request(
+      new URL(input instanceof Request ? input.url : input, 'http://localhost'),
+      init,
+    )
+
+    requests.push(request)
+
+    return Response.json(request.method === 'GET' ? rows : {})
+  })
+
+  return { client, requests }
 }
 
 describe('built-in models', () => {
@@ -47,23 +52,29 @@ describe('built-in models', () => {
 
 describe('saveAddedFieldValues', () => {
   it('writes nothing when there is nothing to save', async () => {
-    const client = fakeClient()
+    const { client, requests } = recordingClient()
     await saveAddedFieldValues(
       client,
       requireBuiltInModel('experiment'),
       'r1',
       {},
     )
-    expect(client.list).not.toHaveBeenCalled()
-    expect(client.rpc).not.toHaveBeenCalled()
+    expect(requests).toHaveLength(0)
   })
 
   it('writes a record through the history-keeping RPC at its current version', async () => {
-    const client = fakeClient([{ metadata_version: 4, locked_at: null }])
+    const { client, requests } = recordingClient([
+      { metadata_version: 4, locked_at: null },
+    ])
+
     await saveAddedFieldValues(client, requireBuiltInModel('sample'), 'r1', {
       batch: 'B-7',
     })
-    expect(client.rpc).toHaveBeenCalledWith('update_record_custom_fields', {
+    expect(new URL(requests[1].url).pathname).toBe(
+      '/api/db/rpc/update_record_custom_fields',
+    )
+    expect(requests[1].method).toBe('POST')
+    expect(await requests[1].json()).toEqual({
       p_record_id: 'r1',
       p_expected_metadata_version: 4,
       p_values: { batch: 'B-7' },
@@ -71,7 +82,7 @@ describe('saveAddedFieldValues', () => {
   })
 
   it('refuses a signed record before writing', async () => {
-    const client = fakeClient([
+    const { client, requests } = recordingClient([
       { metadata_version: 4, locked_at: '2026-10-01T00:00:00Z' },
     ])
 
@@ -80,15 +91,21 @@ describe('saveAddedFieldValues', () => {
         cell_passage: 3,
       }),
     ).rejects.toMatchObject({ code: 'SB011' })
-    expect(client.rpc).not.toHaveBeenCalled()
+    expect(requests.every((request) => request.method === 'GET')).toBe(true)
   })
 
   it('merges into a project’s existing values', async () => {
-    const client = fakeClient([{ custom_fields: { budget_code: 'BX-1' } }])
+    const { client, requests } = recordingClient([
+      { custom_fields: { budget_code: 'BX-1' } },
+    ])
+
     await saveAddedFieldValues(client, requireBuiltInModel('project'), 'p1', {
       site: 'Oxford',
     })
-    expect(client.patch).toHaveBeenCalledWith('projects', '?id=eq.p1', {
+    expect(new URL(requests[1].url).pathname).toBe('/api/db/projects')
+    expect(new URL(requests[1].url).searchParams.get('id')).toBe('eq.p1')
+    expect(requests[1].method).toBe('PATCH')
+    expect(await requests[1].json()).toEqual({
       custom_fields: { budget_code: 'BX-1', site: 'Oxford' },
     })
   })

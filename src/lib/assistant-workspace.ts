@@ -53,27 +53,23 @@ const LIST_ROUTES = [
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export const workspaceRequestSchema = z
-  .object({
-    pages: z
-      .array(
-        z
-          .object({
-            route: z.enum([...RECORD_ROUTES, ...LIST_ONLY_ROUTES]),
-            id: z.string().regex(UUID).optional(),
-            title: z.string().max(80).optional(),
-          })
-          .strict(),
-      )
-      .min(1)
-      .max(MAX_WORKSPACE_PANES),
-    layout: z
-      .enum(['columns-2', 'columns-3', 'primary-context', 'rows-2'])
-      .optional(),
-    newWorkspace: z.boolean().optional(),
-    name: z.string().max(60).optional(),
-  })
-  .strict()
+export const workspaceRequestSchema = z.strictObject({
+  pages: z
+    .array(
+      z.strictObject({
+        route: z.enum([...RECORD_ROUTES, ...LIST_ONLY_ROUTES]),
+        id: z.string().regex(UUID).optional(),
+        title: z.string().max(80).optional(),
+      }),
+    )
+    .min(1)
+    .max(MAX_WORKSPACE_PANES),
+  layout: z
+    .enum(['columns-2', 'columns-3', 'primary-context', 'rows-2'])
+    .optional(),
+  newWorkspace: z.boolean().optional(),
+  name: z.string().max(60).optional(),
+})
 
 export interface WorkspaceComposeRequest {
   pages: Array<{ href: string; title?: string }>
@@ -87,8 +83,10 @@ export function parseWorkspaceRequest(
   args: unknown,
 ): WorkspaceComposeRequest | null {
   const parsed = workspaceRequestSchema.safeParse(args)
+
   if (!parsed.success) return null
   const pages: WorkspaceComposeRequest['pages'] = []
+
   for (const page of parsed.data.pages) {
     if (page.id === undefined) {
       if (!(LIST_ROUTES as readonly string[]).includes(page.route)) return null
@@ -97,9 +95,11 @@ export function parseWorkspaceRequest(
       if ((LIST_ONLY_ROUTES as readonly string[]).includes(page.route)) {
         return null
       }
+
       pages.push({ href: `/${page.route}/${page.id}`, title: page.title })
     }
   }
+
   return {
     pages,
     layout: parsed.data.layout,
@@ -121,6 +121,8 @@ export function registerAssistantWorkspace(
     if (!(event instanceof CustomEvent)) return
     compose(event.detail as WorkspaceComposeRequest)
   }
+
   window.addEventListener(COMPOSE_WORKSPACE_EVENT, listener)
+
   return () => window.removeEventListener(COMPOSE_WORKSPACE_EVENT, listener)
 }

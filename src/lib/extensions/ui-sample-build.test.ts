@@ -21,25 +21,30 @@ describe('the sample is built from its source', () => {
     __dirname,
     '../../../sdks/plugin-python/examples/sequence-tools',
   )
+
   const ready = existsSync(path.join(dir, 'ui-src/node_modules/d3-shape'))
   it.skipIf(!ready)(
     'rebuilding ui-src gives the checked-in ui folder',
     async () => {
       const work = mkdtempSync(path.join(tmpdir(), 'seq-tools-'))
+
       try {
         cpSync(path.join(dir, 'ui-src'), path.join(work, 'ui-src'), {
           recursive: true,
           dereference: true,
         })
+
         const { buildPluginUi } = (await import(
           // @ts-expect-error the build tool is plain JavaScript
           '../../../sdks/plugin-ui/build.mjs'
         )) as {
           buildPluginUi: (options: { dir: string }) => Promise<unknown>
         }
+
         await buildPluginUi({ dir: work })
         const built = readdirSync(path.join(work, 'ui')).sort()
         expect(built).toEqual(readdirSync(path.join(dir, 'ui')).sort())
+
         for (const file of built)
           expect(readFileSync(path.join(work, 'ui', file), 'utf8'), file).toBe(
             readFileSync(path.join(dir, 'ui', file), 'utf8'),

@@ -7,6 +7,8 @@
  * formula engine; the Sheet calculation engine remains the mechanism.
  */
 
+import { z } from 'zod'
+import { chartRowSchema } from './chart-spec'
 import {
   fitQuality,
   linearMeanConfidenceBand,
@@ -18,9 +20,10 @@ import {
 import type { SummaryStats } from './stats'
 import type {
   ChartFilter,
+  ChartRow,
   ChartSpec,
+  ChartValue,
   ErrorBarBasis,
-  FrozenChartPoint,
   MaterialisedChart,
   MaterialisedSeries,
   Transformation,
@@ -43,10 +46,28 @@ export type FieldTransformKind = (typeof FIELD_TRANSFORM_KINDS)[number]
 
 export const SCI_RENDER_POINT_CAP = 4000
 
-export function toNumeric(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+const numericInput = z.number()
+const textInput = z.string()
+const fieldTransformKindSchema = z.enum(FIELD_TRANSFORM_KINDS)
+const rowsInput = z.array(z.lazy(() => chartRowSchema))
 
-  if (typeof value === 'string' && value.trim() !== '') {
+function isInput<Schema extends z.ZodType, Value>(
+  schema: Schema,
+  value: Value,
+): value is Value & z.infer<Schema> {
+  return schema.safeParse(value).success
+}
+
+function decodeRows<Row>(rows: Row[]): ChartRow[] {
+  if (isInput(rowsInput, rows)) return rows
+
+  return rowsInput.parse(rows)
+}
+
+export function toNumeric<Value>(value: Value): number | null {
+  if (isInput(numericInput, value)) return value
+
+  if (isInput(textInput, value) && value.trim() !== '') {
     const n = Number(value)
 
     return Number.isFinite(n) ? n : null
@@ -66,10 +87,11 @@ function unitHash(value: string): number {
   return (hash >>> 0) / 4294967296
 }
 
-export function rowMatchesFilterSci04(
-  row: Record<string, unknown>,
+export function rowMatchesFilterSci04<Row>(
+  input: Row,
   filter: ChartFilter,
 ): boolean {
+  const row = chartRowSchema.parse(input)
   const value = row[filter.fieldId]
 
   if (filter.op === 'is_null') {
@@ -106,9 +128,9 @@ export function rowMatchesFilterSci04(
         return false
 
       if (
-        typeof filter.value[0] === 'string' &&
-        typeof filter.value[1] === 'string' &&
-        typeof value === 'string'
+        isInput(textInput, filter.value[0]) &&
+        isInput(textInput, filter.value[1]) &&
+        isInput(textInput, value)
       ) {
         return value >= filter.value[0] && value <= filter.value[1]
       }
@@ -126,10 +148,12 @@ export function rowMatchesFilterSci04(
   }
 }
 
-export function applyFiltersSci04(
-  rows: Record<string, unknown>[],
+export function applyFiltersSci04<Row>(
+  input: Row[],
   filters: ChartFilter[],
-): Record<string, unknown>[] {
+): ChartRow[] {
+  const rows = decodeRows(input)
+
   if (filters.length === 0) return rows
 
   return rows.filter((row) =>
@@ -137,19 +161,20 @@ export function applyFiltersSci04(
   )
 }
 
-function strParam(
-  params: Record<string, unknown>,
-  key: string,
-  fallback: string,
-): string {
-  return typeof params[key] === 'string' ? params[key] : fallback
+function strParam(params: ChartRow, key: string, fallback: string): string {
+  return isInput(textInput, params[key]) ? params[key] : fallback
+}
+
+function groupLabel(value: ChartValue): string {
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string -- Group identity historically uses native String coercion for arrays and object-valued categories; JSON encoding would split or rename existing groups.
+  return String(value)
 }
 
 function applyAggregate(
-  rows: Record<string, unknown>[],
-  params: Record<string, unknown>,
+  rows: ChartRow[],
+  params: ChartRow,
   spec: ChartSpec,
-): Record<string, unknown>[] {
+): ChartRow[] {
   const fn = strParam(params, 'function', 'mean')
   const xField = strParam(params, 'xField', spec.fields.x?.fieldId ?? 'x')
   const yField = strParam(params, 'yField', spec.fields.y.fieldId)
@@ -164,21 +189,22 @@ function applyAggregate(
 
   const groups = new Map<
     string,
-    { x: unknown; series: unknown; ys: number[] }
+    { x: ChartValue; series: ChartValue; ys: number[] }
   >()
 
   for (const row of rows) {
     const x = row[xField]
     const series = seriesField ? row[seriesField] : null
-    const key = `${String(x ?? '—')}::${String(series ?? '—')}`
+    const key = `${groupLabel(x ?? '—')}::${groupLabel(series ?? '—')}`
     const y = toNumeric(row[yField])
 
-    if (!groups.has(key)) groups.set(key, { x, series, ys: [] })
+    const group = groups.get(key) ?? { x, series, ys: [] }
 
-    if (y !== null) groups.get(key)!.ys.push(y)
+    if (y !== null) group.ys.push(y)
+    groups.set(key, group)
   }
 
-  const out: Record<string, unknown>[] = []
+  const out: ChartRow[] = []
 
   for (const group of groups.values()) {
     let reduced: number
@@ -199,23 +225,23 @@ function applyAggregate(
       reduced = group.ys.reduce((a, b) => a + b, 0) / group.ys.length
     }
 
-    const next: Record<string, unknown> = {
+    const next: ChartRow = {
       [xField]: group.x,
       [yField]: reduced,
     }
 
-    if (seriesField) next[seriesField] = group.series
-    out.push(next)
+    if (seriesField) out.push({ ...next, [seriesField]: group.series })
+    else out.push(next)
   }
 
   return out
 }
 
 function applyNormalise(
-  rows: Record<string, unknown>[],
-  params: Record<string, unknown>,
+  rows: ChartRow[],
+  params: ChartRow,
   spec: ChartSpec,
-): Record<string, unknown>[] {
+): ChartRow[] {
   const method = strParam(params, 'method', 'percent_of_max')
   const yField = strParam(params, 'yField', spec.fields.y.fieldId)
 
@@ -232,10 +258,11 @@ function applyNormalise(
     const y = toNumeric(row[yField])
 
     if (y === null) continue
-    const key = seriesField ? String(row[seriesField] ?? '—') : 'all'
+    const key = seriesField ? groupLabel(row[seriesField] ?? '—') : 'all'
 
-    if (!bySeries.has(key)) bySeries.set(key, [])
-    bySeries.get(key)!.push(y)
+    const values = bySeries.get(key) ?? []
+    values.push(y)
+    bySeries.set(key, values)
   }
 
   const stats = new Map<string, { max: number; mean: number; sd: number }>()
@@ -256,7 +283,7 @@ function applyNormalise(
     const y = toNumeric(row[yField])
 
     if (y === null) return row
-    const key = seriesField ? String(row[seriesField] ?? '—') : 'all'
+    const key = seriesField ? groupLabel(row[seriesField] ?? '—') : 'all'
     const s = stats.get(key) ?? { max: 0, mean: 0, sd: 0 }
     let normalised: number
 
@@ -271,11 +298,11 @@ function applyNormalise(
 }
 
 function applyFieldTransform(
-  rows: Record<string, unknown>[],
+  rows: ChartRow[],
   kind: FieldTransformKind,
-  params: Record<string, unknown>,
+  params: ChartRow,
   spec: ChartSpec,
-): { rows: Record<string, unknown>[]; invalid: number; reasons: string[] } {
+) {
   const fieldId = strParam(params, 'fieldId', spec.fields.y.fieldId)
   let invalid = 0
   const reasons: string[] = []
@@ -337,7 +364,7 @@ function applyFieldTransform(
 function reasonForInvalidTransform(
   kind: FieldTransformKind,
   _y: number,
-  params: Record<string, unknown>,
+  params: ChartRow,
 ): string {
   if (kind === 'log10' || kind === 'ln') return `${kind} of non-positive value`
 
@@ -356,30 +383,24 @@ function reasonForInvalidTransform(
   return `${kind} produced a non-numeric result`
 }
 
-export function applyTransformations(
-  rows: Record<string, unknown>[],
+export function applyTransformations<Row>(
+  rows: Row[],
   transformations: readonly Transformation[],
   spec: ChartSpec,
-): {
-  rows: Record<string, unknown>[]
-  transformInvalid: number
-  reasons: string[]
-} {
-  let current = rows
+) {
+  let current = decodeRows(rows)
   let transformInvalid = 0
-  const reasons: string[] = []
+  const reasons = new Set<string>()
 
   for (const transformation of transformations) {
     if (transformation.kind === 'aggregate') {
       current = applyAggregate(current, transformation.params, spec)
     } else if (transformation.kind === 'normalise') {
       current = applyNormalise(current, transformation.params, spec)
-    } else if (
-      (FIELD_TRANSFORM_KINDS as readonly string[]).includes(transformation.kind)
-    ) {
+    } else if (isInput(fieldTransformKindSchema, transformation.kind)) {
       const applied = applyFieldTransform(
         current,
-        transformation.kind as FieldTransformKind,
+        transformation.kind,
         transformation.params,
         spec,
       )
@@ -388,12 +409,12 @@ export function applyTransformations(
       transformInvalid += applied.invalid
 
       for (const reason of applied.reasons) {
-        if (!reasons.includes(reason)) reasons.push(reason)
+        reasons.add(reason)
       }
     }
   }
 
-  return { rows: current, transformInvalid, reasons }
+  return { rows: current, transformInvalid, reasons: Array.from(reasons) }
 }
 
 export function formatAxisTitle(label: string, unit?: string): string {
@@ -442,14 +463,17 @@ export function orderCategories(
   mode: 'natural' | 'alpha' | 'numeric' | 'explicit',
   explicit?: string[],
 ): string[] {
-  const unique = Array.from(new Set(values))
+  const known = new Set(values)
+  const unique = Array.from(known)
 
   if (mode === 'explicit' && explicit && explicit.length > 0) {
+    const specified = new Set(explicit)
+
     const rest = unique
-      .filter((value) => !explicit.includes(value))
+      .filter((value) => !specified.has(value))
       .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
 
-    return [...explicit.filter((value) => unique.includes(value)), ...rest]
+    return [...explicit.filter((value) => known.has(value)), ...rest]
   }
 
   if (mode === 'numeric') {
@@ -474,21 +498,17 @@ export function orderCategories(
   return unique
 }
 
-export function seriesKeyForRow(
-  row: Record<string, unknown>,
-  spec: ChartSpec,
-): string {
+export function seriesKeyForRow<Row>(input: Row, spec: ChartSpec): string {
   const seriesId = spec.fields.series?.fieldId ?? spec.fields.color?.fieldId
 
   if (!seriesId) return 'all'
 
-  return String(row[seriesId] ?? '—')
+  const row = chartRowSchema.parse(input)
+
+  return groupLabel(row[seriesId] ?? '—')
 }
 
-export function deterministicSample<T>(
-  items: T[],
-  cap: number,
-): { items: T[]; sampled: boolean; stride: number } {
+export function deterministicSample<T>(items: T[], cap: number) {
   if (items.length <= cap) return { items, sampled: false, stride: 1 }
 
   if (cap <= 0) return { items: [], sampled: true, stride: items.length }
@@ -504,41 +524,42 @@ export function deterministicSample<T>(
 
 export interface GroupedSummary {
   key: string
-  x: unknown
+  x: ChartValue
   series: string
   stats: SummaryStats
   interval: { lo: number; hi: number; basis: ErrorBarBasis }
 }
 
-export function groupedNumericSummaries(
-  rows: Record<string, unknown>[],
+export function groupedNumericSummaries<Row>(
+  input: Row[],
   spec: ChartSpec,
   yField: string,
   xField: string | null,
 ): GroupedSummary[] {
-  const groups = new Map<string, { x: unknown; series: string; ys: number[] }>()
-  const order: string[] = []
+  const rows = decodeRows(input)
+
+  const groups = new Map<
+    string,
+    { x: ChartValue; series: string; ys: number[] }
+  >()
 
   for (const row of rows) {
     const series = seriesKeyForRow(row, spec)
     const x = xField ? row[xField] : series
-    const key = `${String(x ?? '—')}::${series}`
+    const key = `${groupLabel(x ?? '—')}::${series}`
     const y = toNumeric(row[yField])
 
-    if (!groups.has(key)) {
-      groups.set(key, { x, series, ys: [] })
-      order.push(key)
-    }
+    const group = groups.get(key) ?? { x, series, ys: [] }
 
-    if (y !== null) groups.get(key)!.ys.push(y)
+    if (y !== null) group.ys.push(y)
+    groups.set(key, group)
   }
 
   const basis: ErrorBarBasis = spec.overlays.errorBars?.basis ?? 'sd'
   const multiplier = spec.overlays.errorBars?.multiplier ?? 1
   const out: GroupedSummary[] = []
 
-  for (const key of order) {
-    const group = groups.get(key)!
+  for (const [key, group] of groups) {
     const stats = summaryStats(group.ys)
 
     if (!stats) continue
@@ -634,10 +655,7 @@ function equationFromCoefficients(coefficients: number[]): string {
 export function attachFitOverlay(
   spec: ChartSpec,
   series: MaterialisedSeries[],
-): {
-  series: MaterialisedSeries[]
-  fit: MaterialisedChart['fit']
-} {
+) {
   const overlay = spec.overlays.fit
 
   if (overlay == null) {
@@ -670,7 +688,7 @@ export function attachFitOverlay(
         equation: '',
         error: 'insufficient_data',
       },
-    }
+    } satisfies Pick<MaterialisedChart, 'series' | 'fit'>
   }
 
   const fit = olsFit(xs, ys, degree)
@@ -687,14 +705,14 @@ export function attachFitOverlay(
         equation: '',
         error: 'singular_fit',
       },
-    }
+    } satisfies Pick<MaterialisedChart, 'series' | 'fit'>
   }
 
   const quality = fitQuality(xs, ys, fit.coefficients)
   const min = Math.min(...xs)
   const max = Math.max(...xs)
   const samples = 40
-  const curve: FrozenChartPoint[] = []
+  const curve = []
 
   for (let i = 0; i < samples; i++) {
     const x = min + ((max - min) * i) / (samples - 1)
@@ -711,7 +729,7 @@ export function attachFitOverlay(
       ? linearMeanConfidenceBand(
           xs,
           ys,
-          curve.map((p) => p.x as number),
+          curve.map((p) => p.x),
         )
       : null
 
@@ -736,7 +754,7 @@ export function attachFitOverlay(
         ? band.map((b) => ({ x: b.x, lo: b.lo, hi: b.hi }))
         : undefined,
     },
-  }
+  } satisfies Pick<MaterialisedChart, 'series' | 'fit'>
 }
 
 export function apportionRenderBudget(
@@ -792,15 +810,10 @@ function accSum(sum: number, count: number): number {
   return sum + count
 }
 
-export function sampleSeriesForRender(series: MaterialisedSeries[]): {
-  series: MaterialisedSeries[]
-  sampling: MaterialisedChart['sampling']
-} {
-  const displayIndexes = series
-    .map((item, index) =>
-      item.renderAs === 'line' || item.identifier === '__fit' ? -1 : index,
-    )
-    .filter((index) => index >= 0)
+export function sampleSeriesForRender(series: MaterialisedSeries[]) {
+  const displayIndexes = series.flatMap((item, index) =>
+    item.renderAs === 'line' || item.identifier === '__fit' ? [] : [index],
+  )
 
   const counts = displayIndexes.map((index) => series[index].points.length)
   const total = counts.reduce((sum, count) => accSum(sum, count), 0)

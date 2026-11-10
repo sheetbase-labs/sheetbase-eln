@@ -1,6 +1,8 @@
+// @vitest-environment node
 import { unzipSync, strFromU8 } from 'fflate'
 import { describe, expect, it } from 'vitest'
 
+import { parseImportBytes } from '../import-parse'
 import { columnLetters, sheetName, tableCsv, tableXlsx } from './table-file'
 
 describe('tableCsv', () => {
@@ -49,6 +51,25 @@ describe('tableXlsx', () => {
     expect(sheet).toContain('a &amp; &lt;b&gt;')
     // An empty cell is left out rather than written as an empty string.
     expect(sheet).not.toContain('r="A4"')
+  })
+
+  it('round-trips numeric and boolean values through the import parser', async () => {
+    const bytes = tableXlsx({
+      headers: ['Number', 'Flag'],
+      rows: [
+        [12.5, true],
+        [-3, false],
+      ],
+    })
+
+    const preview = await parseImportBytes(new Uint8Array(bytes).buffer, {
+      fileName: 'table.xlsx',
+    })
+
+    expect(preview.sheets[0].rows).toEqual([
+      { Number: '12.5', Flag: 'true' },
+      { Number: '-3', Flag: 'false' },
+    ])
   })
 })
 

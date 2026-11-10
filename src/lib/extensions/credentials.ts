@@ -23,8 +23,6 @@ import { and, eq } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 
 import { hasCapability } from '#/lib/capability'
-import type { WorkspaceRole } from '#/lib/workspace-admin'
-import { hasScope } from '#/lib/external-token'
 import * as schema from '#/db/schema'
 import { createCredential } from '#/lib/api-credentials'
 import type { CreatedCredential } from '#/lib/api-credentials'
@@ -59,7 +57,7 @@ export interface IssueExtensionCredentialInput {
   workspaceId: string
   extensionId: string
   /** Role of the human performing the issuance (must hold extensions.manage). */
-  actorRole: WorkspaceRole | string
+  actorRole: string
   actorUserId: string
   /** Minimal scopes for this credential; must be ⊆ the manifest's scopes. */
   scopes: Scope[]
@@ -83,23 +81,28 @@ export async function issueExtensionCredential(
       'extensions.manage is required to issue an extension credential.',
     )
   }
+
   if (input.scopes.length === 0) {
     throw new ExtensionCredentialError(
       'scope_not_declared',
       'An extension credential needs at least one scope.',
     )
   }
+
   const extension = await db.query.extensions.findFirst({
     where: and(
       eq(schema.extensions.id, input.extensionId),
       eq(schema.extensions.workspaceId, input.workspaceId),
     ),
   })
+
   if (!extension) {
     throw new ExtensionCredentialError('not_found', 'Extension not found.')
   }
+
   const manifest = parseExtensionManifest(extension.manifest)
   const declared = new Set<string>(manifest.scopes)
+
   for (const scope of input.scopes) {
     if (!declared.has(scope)) {
       throw new ExtensionCredentialError(
@@ -108,6 +111,7 @@ export async function issueExtensionCredential(
       )
     }
   }
+
   return await db.transaction(async (tx) => {
     const created = await createCredential(tx, {
       workspaceId: input.workspaceId,
@@ -116,6 +120,7 @@ export async function issueExtensionCredential(
       scopes: input.scopes,
       expiresAt: input.expiresAt ?? null,
     })
+
     await tx
       .update(schema.extensions)
       .set({ credentialId: created.id, updatedAt: new Date() })
@@ -131,6 +136,7 @@ export async function issueExtensionCredential(
         kind: created.kind,
       },
     })
+
     return created
   })
 }
@@ -156,40 +162,48 @@ export async function resolveExtensionCall(
   const credential = await db.query.apiCredentials.findFirst({
     where: eq(schema.apiCredentials.id, input.credentialId),
   })
+
   if (!credential || credential.revokedAt) {
     throw new ExtensionCredentialError(
       'revoked',
       'Credential has been revoked.',
     )
   }
+
   if (credential.expiresAt && credential.expiresAt.getTime() <= Date.now()) {
     throw new ExtensionCredentialError('expired', 'Credential has expired.')
   }
-  if (!hasScope(credential.scopes as Scope[], input.requiredScope)) {
+
+  if (!credential.scopes.includes(input.requiredScope)) {
     throw new ExtensionCredentialError(
       'insufficient_scope',
       `Credential lacks scope: ${input.requiredScope}`,
     )
   }
+
   const extension = await db.query.extensions.findFirst({
     where: and(
       eq(schema.extensions.credentialId, credential.id),
       eq(schema.extensions.workspaceId, credential.workspaceId),
     ),
   })
+
   if (!extension) {
     throw new ExtensionCredentialError(
       'not_found',
       'Credential is not bound to an extension.',
     )
   }
+
   if (extension.status !== 'enabled') {
     throw new ExtensionCredentialError(
       'extension_disabled',
       'Extension is not enabled.',
     )
   }
+
   const manifest = parseExtensionManifest(extension.manifest)
+
   return {
     workspaceId: credential.workspaceId,
     credentialId: credential.id,

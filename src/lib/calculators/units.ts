@@ -78,10 +78,7 @@ export function formatQuantity(value: number): string {
 }
 
 /** Pick the unit of a kind that gives the most readable number (1 to 999). */
-export function friendlyUnit(
-  baseValue: number,
-  kind: UnitKind,
-): { value: number; unit: UnitDef } {
+export function friendlyUnit(baseValue: number, kind: UnitKind) {
   const candidates = unitsOfKind(kind).sort((a, b) => b.factor - a.factor)
 
   if (baseValue === 0) return { value: 0, unit: candidates[0] }

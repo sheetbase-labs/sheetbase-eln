@@ -24,10 +24,11 @@ export const CALLABLE_POINTS = [
   'pipeline-steps',
   'publishers',
 ] as const
+
 export type CallablePoint = (typeof CALLABLE_POINTS)[number]
 
 export function isCallablePoint(value: string): value is CallablePoint {
-  return (CALLABLE_POINTS as readonly string[]).includes(value)
+  return CALLABLE_POINTS.some((point) => point === value)
 }
 
 /** How the Python function is called: a dictionary in, or named tables in. */
@@ -48,6 +49,7 @@ export const STEP_OUTPUT_NAME = 'rows'
 
 export function callableItems(manifest: ExtensionManifest): CallableItem[] {
   const out: CallableItem[] = []
+
   for (const declaration of manifest.contributions.operations ?? []) {
     out.push({
       point: 'operations',
@@ -57,6 +59,7 @@ export function callableItems(manifest: ExtensionManifest): CallableItem[] {
       tableNames: [],
     })
   }
+
   for (const calc of manifest.contributions.calculators ?? []) {
     out.push({
       point: 'calculators',
@@ -74,6 +77,7 @@ export function callableItems(manifest: ExtensionManifest): CallableItem[] {
       tableNames: [],
     })
   }
+
   for (const step of manifest.contributions['pipeline-steps'] ?? []) {
     const tables: ExtensionField[] = step.tables.map((table) => ({
       name: table.name,
@@ -81,6 +85,7 @@ export function callableItems(manifest: ExtensionManifest): CallableItem[] {
       required: table.required,
       description: `Rows of ${table.label}: a list of objects, one per row.`,
     }))
+
     out.push({
       point: 'pipeline-steps',
       id: step.id,
@@ -106,6 +111,7 @@ export function callableItems(manifest: ExtensionManifest): CallableItem[] {
       tableNames: step.tables.map((table) => table.name),
     })
   }
+
   for (const publisher of manifest.contributions.publishers ?? []) {
     out.push({
       point: 'publishers',
@@ -143,6 +149,7 @@ export function callableItems(manifest: ExtensionManifest): CallableItem[] {
       tableNames: [PUBLISHER_ROWS],
     })
   }
+
   return out
 }
 

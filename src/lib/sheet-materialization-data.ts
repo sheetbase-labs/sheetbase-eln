@@ -8,78 +8,68 @@ import {
 } from './sheet-definition'
 
 const definitionSourceSchema = z.discriminatedUnion('kind', [
-  z
-    .object({ kind: z.literal('bound'), bindingId: uuid, sourceFieldId: uuid })
-    .strict(),
-  z.object({ kind: z.literal('declared') }).strict(),
-  z.object({ kind: z.literal('calculated'), calculationId: uuid }).strict(),
+  z.strictObject({
+    kind: z.literal('bound'),
+    bindingId: uuid,
+    sourceFieldId: uuid,
+  }),
+  z.strictObject({ kind: z.literal('declared') }),
+  z.strictObject({ kind: z.literal('calculated'), calculationId: uuid }),
 ])
 
 const outputFieldSchema = z.discriminatedUnion('kind', [
-  z
-    .object({
-      id: uuid,
-      kind: z.literal('definition-column'),
-      field: sheetFieldDefinitionSchema,
-      source: definitionSourceSchema,
-    })
-    .strict(),
-  z
-    .object({
-      id: uuid,
-      kind: z.literal('local-field'),
-      field: sheetFieldDefinitionSchema,
-    })
-    .strict(),
-  z
-    .object({
-      id: uuid,
-      kind: z.literal('instance-calculation'),
-      field: sheetFieldDefinitionSchema,
-      calculationId: uuid,
-    })
-    .strict(),
+  z.strictObject({
+    id: uuid,
+    kind: z.literal('definition-column'),
+    field: sheetFieldDefinitionSchema,
+    source: definitionSourceSchema,
+  }),
+  z.strictObject({
+    id: uuid,
+    kind: z.literal('local-field'),
+    field: sheetFieldDefinitionSchema,
+  }),
+  z.strictObject({
+    id: uuid,
+    kind: z.literal('instance-calculation'),
+    field: sheetFieldDefinitionSchema,
+    calculationId: uuid,
+  }),
 ])
 
-const sourceVersionSchema = z
-  .object({
-    bindingId: uuid,
-    datasetId: uuid,
-    datasetRevision: z.number().int().positive(),
-    schemaVersionId: uuid,
-    pinKind: z.enum(['live-snapshot', 'pinned-version']),
-    datasetVersionId: uuid.nullable(),
-    policy: z.discriminatedUnion('mode', [
-      z.object({ mode: z.literal('live') }).strict(),
-      z.object({ mode: z.literal('version'), datasetVersionId: uuid }).strict(),
-    ]),
-  })
-  .strict()
+const sourceVersionSchema = z.strictObject({
+  bindingId: uuid,
+  datasetId: uuid,
+  datasetRevision: z.number().int().positive(),
+  schemaVersionId: uuid,
+  pinKind: z.enum(['live-snapshot', 'pinned-version']),
+  datasetVersionId: uuid.nullable(),
+  policy: z.discriminatedUnion('mode', [
+    z.strictObject({ mode: z.literal('live') }),
+    z.strictObject({ mode: z.literal('version'), datasetVersionId: uuid }),
+  ]),
+})
 
-const previewSchema = z
-  .object({
-    instanceId: uuid,
-    instanceRevision: z.number().int().positive(),
-    definitionVersionId: uuid,
-    outputSchemaVersionId: uuid.nullable(),
-    derivedOutputFields: z.array(outputFieldSchema).min(1),
-    sourceVersions: z.array(sourceVersionSchema).min(1),
-    previewDigest: z.string().regex(/^[0-9a-f]{64}$/),
-  })
-  .strict()
+const previewSchema = z.strictObject({
+  instanceId: uuid,
+  instanceRevision: z.number().int().positive(),
+  definitionVersionId: uuid,
+  outputSchemaVersionId: uuid.nullable(),
+  derivedOutputFields: z.array(outputFieldSchema).min(1),
+  sourceVersions: z.array(sourceVersionSchema).min(1),
+  previewDigest: z.string().regex(/^[0-9a-f]{64}$/),
+})
 
 export type SheetMaterializationPreview = z.infer<typeof previewSchema>
 
-const resultSchema = z
-  .object({
-    materializationId: uuid,
-    datasetId: uuid,
-    datasetVersionId: uuid,
-    schemaVersionId: uuid.optional(),
-    sourceVersions: z.array(sourceVersionSchema).optional(),
-    idempotent: z.boolean(),
-  })
-  .strict()
+const resultSchema = z.strictObject({
+  materializationId: uuid,
+  datasetId: uuid,
+  datasetVersionId: uuid,
+  schemaVersionId: uuid.optional(),
+  sourceVersions: z.array(sourceVersionSchema).optional(),
+  idempotent: z.boolean(),
+})
 
 export type SheetMaterializationResult = z.infer<typeof resultSchema>
 

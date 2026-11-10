@@ -6,12 +6,14 @@
 import { spawnSync } from 'node:child_process'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
+import { z } from 'zod'
 
 import { PipelinePythonError } from '../../pipeline-python.server'
 import type {
   PythonTransformInput,
   PythonTransformResult,
 } from '../../pipeline-python.server'
+import { pythonResultRowsSchema } from '../../pipelines/python'
 
 const root = path.resolve(__dirname, '../../../..')
 const worker = path.join(root, 'docker/pipeline-python/worker.py')
@@ -20,6 +22,7 @@ export const pluginExamplesDir = path.join(root, 'sdks/plugin-python/examples')
 
 export const pythonAvailable = (() => {
   const probe = spawnSync('python3', ['-c', 'import pandas, numpy'])
+
   return probe.status === 0
 })()
 
@@ -37,16 +40,21 @@ export async function localPython(
     encoding: 'utf8',
     timeout: 30_000,
   })
-  const result = JSON.parse(run.stdout) as {
-    rows?: Record<string, unknown>[]
-    logs?: string[]
-    error?: string
-  }
+
+  const result = z
+    .object({
+      rows: pythonResultRowsSchema.optional(),
+      logs: z.array(z.string()).optional(),
+      error: z.string().optional(),
+    })
+    .parse(JSON.parse(run.stdout))
+
   if (run.status !== 0 || result.error)
     throw new PipelinePythonError(
       result.error ?? 'Python failed.',
       'transform_failed',
     )
+
   return {
     rows: result.rows ?? [],
     logs: result.logs ?? [],
@@ -62,14 +70,18 @@ export async function localPython(
 export function readExample(name: string): Record<string, string> {
   const base = path.join(pluginExamplesDir, name)
   const files: Record<string, string> = {}
+
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir)) {
       const full = path.join(dir, entry)
+
       if (entry === '__pycache__' || entry === 'node_modules') continue
+
       if (statSync(full).isDirectory()) walk(full)
       else {
         const rel = path.relative(base, full).split(path.sep).join('/')
         const top = rel.split('/')[0]
+
         if (
           top === 'python' ||
           top === 'ui' ||
@@ -79,6 +91,8 @@ export function readExample(name: string): Record<string, string> {
       }
     }
   }
+
   walk(base)
+
   return files
 }

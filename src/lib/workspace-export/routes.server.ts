@@ -66,12 +66,12 @@ async function workspaceSlug(
   deps: BackupDeps,
   workspaceId: string,
 ): Promise<string> {
-  const { rows } = await deps.pool.query(
+  const { rows } = await deps.pool.query<{ slug: string }>(
     'SELECT slug FROM api.workspaces WHERE id = $1::uuid',
     [workspaceId],
   )
 
-  return (rows[0]?.slug as string | undefined) ?? 'workspace'
+  return rows.at(0)?.slug ?? 'workspace'
 }
 
 async function recordReceipt(

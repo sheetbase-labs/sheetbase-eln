@@ -41,14 +41,18 @@ export async function fetchExtensionHistory(
     }),
     fetchAuditEvents(client, { object: extensionId, limit }),
   ])
+
   const seen = new Set<string>()
   const merged: AuditEventWire[] = []
+
   for (const event of [...lifecycle.events, ...attributed.events]) {
     if (seen.has(event.id)) continue
     seen.add(event.id)
     merged.push(event)
   }
+
   merged.sort((a, b) => b.sequence - a.sequence)
+
   return merged.slice(0, limit).map((event) => ({
     event,
     kind: classifyExtensionHistoryEvent(event, extensionId),
@@ -63,15 +67,18 @@ export function classifyExtensionHistoryEvent(
   if (event.entityType === 'extension' && event.entityUuid === extensionId) {
     return 'lifecycle'
   }
+
   if (event.entityType === 'api_credential') return 'credential'
-  const payload =
-    (event.payload as Record<string, unknown> | null | undefined) ?? {}
+
+  const payload = event.payload
+
   if (
     payload['extension_id'] === extensionId ||
     payload['extensionId'] === extensionId
   ) {
     return 'invocation'
   }
+
   return 'other'
 }
 
@@ -80,6 +87,7 @@ export function describeExtensionHistoryEvent(
   entry: ExtensionHistoryEntry,
 ): string {
   const { event, kind } = entry
+
   if (kind === 'lifecycle') {
     switch (event.operation) {
       case 'create':
@@ -92,14 +100,17 @@ export function describeExtensionHistoryEvent(
         return `Lifecycle: ${event.operation}`
     }
   }
+
   if (kind === 'credential') {
     return event.operation === 'revoke'
       ? 'Extension credential revoked'
       : `Extension credential ${event.operation}`
   }
+
   if (kind === 'invocation') {
     return `Extension-attributed ${event.entityType} ${event.operation}`
   }
+
   return `${event.entityType} ${event.operation}`
 }
 

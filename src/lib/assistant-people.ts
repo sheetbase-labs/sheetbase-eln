@@ -61,16 +61,19 @@ export type PeopleProposeToolName =
 
 const title = z.string().min(1).max(120)
 const summary = z.string().min(1).max(400)
+
 const person = z
   .string()
   .min(1)
   .max(200)
   .describe('The person, by the name people use for them.')
+
 const projectRef = z
   .string()
   .min(1)
   .max(200)
   .describe('The project, by name or key.')
+
 const role = z.enum([
   'owner',
   'admin',
@@ -81,148 +84,130 @@ const role = z.enum([
   'reviewer',
   'viewer',
 ])
+
 const accessLevel = z.enum(['owner', 'editor', 'reviewer', 'viewer'])
 
-export const proposeMemberInviteSchema = z
-  .object({
-    title,
-    summary,
-    email: z.string().email().max(320),
-    role: role.optional().describe('Their role. Default member.'),
-    projects: z
-      .array(
-        z
-          .object({ project: projectRef, access: accessLevel.optional() })
-          .strict(),
-      )
-      .max(20)
-      .optional()
-      .describe('Projects they join on accepting, with the access they get.'),
-    client: z
-      .string()
-      .max(200)
-      .optional()
-      .describe('For a client viewer: the client, by name or code.'),
-    clientViewer: z
-      .boolean()
-      .optional()
-      .describe('true to invite them as a client viewer (needs `client`).'),
-  })
-  .strict()
+export const proposeMemberInviteSchema = z.strictObject({
+  title,
+  summary,
+  email: z.string().email().max(320),
+  role: role.optional().describe('Their role. Default member.'),
+  projects: z
+    .array(
+      z.strictObject({ project: projectRef, access: accessLevel.optional() }),
+    )
+    .max(20)
+    .optional()
+    .describe('Projects they join on accepting, with the access they get.'),
+  client: z
+    .string()
+    .max(200)
+    .optional()
+    .describe('For a client viewer: the client, by name or code.'),
+  clientViewer: z
+    .boolean()
+    .optional()
+    .describe('true to invite them as a client viewer (needs `client`).'),
+})
 
-export const proposeInvitationRevokeSchema = z
-  .object({
-    title,
-    summary,
-    email: z.string().min(1).max(320).describe('The email it was sent to.'),
-  })
-  .strict()
+export const proposeInvitationRevokeSchema = z.strictObject({
+  title,
+  summary,
+  email: z.string().min(1).max(320).describe('The email it was sent to.'),
+})
 
-export const proposeMemberRoleSchema = z
-  .object({ title, summary, member: person, role })
-  .strict()
+export const proposeMemberRoleSchema = z.strictObject({
+  title,
+  summary,
+  member: person,
+  role,
+})
 
-export const proposeMemberStatusSchema = z
-  .object({ title, summary, member: person })
-  .strict()
+export const proposeMemberStatusSchema = z.strictObject({
+  title,
+  summary,
+  member: person,
+})
 
-export const proposeAccessGrantSchema = z
-  .object({
-    title,
-    summary,
-    member: person,
-    project: projectRef,
-    access: accessLevel.describe(
-      'owner manages and edits, editor edits, reviewer reviews, viewer reads.',
-    ),
-  })
-  .strict()
+export const proposeAccessGrantSchema = z.strictObject({
+  title,
+  summary,
+  member: person,
+  project: projectRef,
+  access: accessLevel.describe(
+    'owner manages and edits, editor edits, reviewer reviews, viewer reads.',
+  ),
+})
 
-export const proposeAccessRevokeSchema = z
-  .object({ title, summary, member: person, project: projectRef })
-  .strict()
+export const proposeAccessRevokeSchema = z.strictObject({
+  title,
+  summary,
+  member: person,
+  project: projectRef,
+})
 
-export const proposeAccessDecideSchema = z
-  .object({
-    title,
-    summary,
-    member: person.describe('Who asked for edit access.'),
-    project: projectRef.optional(),
-    approve: z.boolean(),
-  })
-  .strict()
+export const proposeAccessDecideSchema = z.strictObject({
+  title,
+  summary,
+  member: person.describe('Who asked for edit access.'),
+  project: projectRef.optional(),
+  approve: z.boolean(),
+})
 
-export const proposeGroupCreateSchema = z
-  .object({
-    title,
-    summary,
-    name: z.string().min(1).max(120).describe('The group’s name.'),
-  })
-  .strict()
+export const proposeGroupCreateSchema = z.strictObject({
+  title,
+  summary,
+  name: z.string().min(1).max(120).describe('The group’s name.'),
+})
 
-export const proposeGroupDeleteSchema = z
-  .object({ title, summary, group: z.string().min(1).max(120) })
-  .strict()
+export const proposeGroupDeleteSchema = z.strictObject({
+  title,
+  summary,
+  group: z.string().min(1).max(120),
+})
 
-export const proposeGroupMemberSchema = z
-  .object({
-    title,
-    summary,
-    group: z.string().min(1).max(120),
-    member: person,
-    add: z
-      .boolean()
-      .optional()
-      .describe('false to take them out. Default true.'),
-  })
-  .strict()
+export const proposeGroupMemberSchema = z.strictObject({
+  title,
+  summary,
+  group: z.string().min(1).max(120),
+  member: person,
+  add: z.boolean().optional().describe('false to take them out. Default true.'),
+})
 
-export const proposeWorkspaceRenameSchema = z
-  .object({ title, summary, name: z.string().min(1).max(120) })
-  .strict()
+export const proposeWorkspaceRenameSchema = z.strictObject({
+  title,
+  summary,
+  name: z.string().min(1).max(120),
+})
 
-export const proposeWorkspaceGeneralSchema = z
-  .object({
-    title,
-    summary,
-    site: z.string().max(120).optional(),
-    timezone: z
-      .string()
-      .max(80)
-      .optional()
-      .describe('IANA zone, Europe/London.'),
-    dateFormat: z
-      .enum(['d MMM yyyy', 'dd/MM/yyyy', 'yyyy-MM-dd'])
-      .optional()
-      .describe('d MMM yyyy (25 Sep 2026), dd/MM/yyyy or yyyy-MM-dd.'),
-    numberFormat: z.enum(['decimal', 'scientific']).optional(),
-  })
-  .strict()
+export const proposeWorkspaceGeneralSchema = z.strictObject({
+  title,
+  summary,
+  site: z.string().max(120).optional(),
+  timezone: z.string().max(80).optional().describe('IANA zone, Europe/London.'),
+  dateFormat: z
+    .enum(['d MMM yyyy', 'dd/MM/yyyy', 'yyyy-MM-dd'])
+    .optional()
+    .describe('d MMM yyyy (25 Sep 2026), dd/MM/yyyy or yyyy-MM-dd.'),
+  numberFormat: z.enum(['decimal', 'scientific']).optional(),
+})
 
-export const proposeClientCreateSchema = z
-  .object({
-    title,
-    summary,
-    name: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The client organisation’s name.'),
-  })
-  .strict()
+export const proposeClientCreateSchema = z.strictObject({
+  title,
+  summary,
+  name: z.string().min(1).max(200).describe('The client organisation’s name.'),
+})
 
-export const proposeClientShareSchema = z
-  .object({
-    title,
-    summary,
-    client: z.string().min(1).max(200).describe('The client, by name or code.'),
-    record: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The approved record, by identifier (EXP-12) or title.'),
-  })
-  .strict()
+export const proposeClientShareSchema = z.strictObject({
+  title,
+  summary,
+  client: z.string().min(1).max(200).describe('The client, by name or code.'),
+  record: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The approved record, by identifier (EXP-12) or title.'),
+})
 
 /** What a people card does when its button is pressed. */
 export type PeopleAction =

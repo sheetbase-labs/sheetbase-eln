@@ -134,6 +134,24 @@ describe('handlePythonTestRun', () => {
     expect(body.truncated).toBe(true)
   })
 
+  it('rejects malformed runner output instead of silently serializing a non-finite result as null', async () => {
+    const response = await handlePythonTestRun(
+      post(good),
+      deps({
+        execute: async () => ({
+          rows: [{ value: Number.POSITIVE_INFINITY }],
+          logs: [],
+          runtime,
+        }),
+      }),
+    )
+
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({
+      error: 'The test run failed unexpectedly.',
+    })
+  })
+
   it('returns a failing step as a result, with its logs and line', async () => {
     const response = await handlePythonTestRun(
       post(good),

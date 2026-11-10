@@ -1,26 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   addRunToNotebook,
   runCitation,
   runCitationPayload,
 } from './run-notebook'
-import type { DataClient } from '#/lib/data-client'
-
-const mutations = vi.hoisted(() => ({
-  insertBlock: vi.fn(async () => ({ block: {}, structureVersion: 3 })),
-}))
-
-vi.mock('#/lib/notebook-mutations', () => mutations)
-
-vi.mock('#/lib/notebook-data', () => ({
-  formatNotebookDateTime: (iso: string, options: { zone?: boolean }) =>
-    `${iso.slice(0, 10)} ${iso.slice(11, 16)}${options.zone ? ' UTC' : ''}`,
-  fetchRecord: vi.fn(async () => ({
-    identifier: 'EXP-0001',
-    structureVersion: 7,
-  })),
-}))
+import { createDataClient } from '#/lib/data-client'
 
 const run = {
   id: '12345678-aaaa',
@@ -102,13 +88,12 @@ describe('runCitation', () => {
       }),
     )
 
-    const first = payload.doc.content[0] as {
-      content: Array<{
-        marks?: Array<{ type: string; attrs: { href: string } }>
-      }>
-    }
+    const first = payload.doc.content[0]
 
-    expect(first.content[1].marks).toEqual([
+    if (first.type !== 'paragraph')
+      throw new Error('Expected a citation paragraph')
+
+    expect(first.content?.[1].marks).toEqual([
       { type: 'link', attrs: { href: '/pipelines/def-1' } },
     ])
   })
@@ -116,20 +101,66 @@ describe('runCitation', () => {
 
 describe('addRunToNotebook', () => {
   it('inserts a rich text block at the notebook structure version', async () => {
-    const result = await addRunToNotebook({} as DataClient, {
+    const writes: string[] = []
+
+    const client = createDataClient(async (_input, init) => {
+      if (init?.method === 'POST') {
+        writes.push(z.string().parse(init.body))
+
+        return Response.json({
+          block: {
+            id: 'block-1',
+            record_id: 'rec-1',
+            type: 'rich_text',
+            payload: {},
+            payload_schema_version: 1,
+            order: 1,
+            version: 1,
+            created_at: run.started_at,
+            updated_at: run.started_at,
+          },
+          structure_version: 8,
+        })
+      }
+
+      return Response.json([
+        {
+          id: 'rec-1',
+          workspace_id: 'ws-1',
+          project_id: null,
+          folder_id: null,
+          kind: 'experiment',
+          identifier: 'EXP-0001',
+          title: 'Experiment',
+          status: 'draft',
+          tags: [],
+          structure_version: 7,
+          metadata_version: 1,
+          created_at: run.started_at,
+          updated_at: run.started_at,
+          archived_at: null,
+          deleted_at: null,
+          created_by_user_id: 'user-1',
+          updated_by_user_id: null,
+          properties: {},
+          locked_at: null,
+          locked_by_revision_id: null,
+        },
+      ])
+    })
+
+    const result = await addRunToNotebook(client, {
       recordId: 'rec-1',
       paragraphs: [[{ text: 'One.' }], [{ text: 'Two.' }]],
     })
 
     expect(result.identifier).toBe('EXP-0001')
-    expect(mutations.insertBlock).toHaveBeenCalledWith(
-      {},
-      expect.objectContaining({
-        recordId: 'rec-1',
-        type: 'rich_text',
-        expectedStructureVersion: 7,
-        payload: runCitationPayload([[{ text: 'One.' }], [{ text: 'Two.' }]]),
-      }),
-    )
+    expect(writes).toHaveLength(1)
+    expect(JSON.parse(writes[0])).toMatchObject({
+      p_record_id: 'rec-1',
+      p_type: 'rich_text',
+      p_expected_structure_version: 7,
+      p_payload: runCitationPayload([[{ text: 'One.' }], [{ text: 'Two.' }]]),
+    })
   })
 })

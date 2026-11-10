@@ -136,7 +136,7 @@ export interface IntakeFailureRow {
   code: string
   message: string
   parser_key: string | null
-  target: Record<string, unknown>
+  target: ConnectorWire['config']
   status: 'open' | 'resolved' | 'dismissed'
   attempts: number
   created_at: string
@@ -216,12 +216,7 @@ export function describeIntakeFailure(
  */
 async function readIntakeText(bytes: Uint8Array): Promise<string> {
   if (isXlsxBytes(bytes)) {
-    const sheet = await readXlsxMatrices(
-      bytes.buffer.slice(
-        bytes.byteOffset,
-        bytes.byteOffset + bytes.byteLength,
-      ) as ArrayBuffer,
-    )
+    const sheet = await readXlsxMatrices(Uint8Array.from(bytes).buffer)
       .then((sheets) => sheets.at(0))
       .catch(() => {
         throw new IntakeError(
@@ -625,7 +620,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
       return fail(
         TRANSIENT.has(error.code) ? 502 : 422,
         error.code,
-        error.message,
+        boundedErrorMessage(error),
       )
     }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import { createDataClient } from './data-client'
 import {
@@ -36,13 +37,28 @@ const requestRow = (state: string) => ({
 })
 
 /** A fetcher that answers each RPC by name and records the call order. */
-function rpcClient(answers: Record<string, unknown>) {
-  const calls: { name: string; body: Record<string, unknown> }[] = []
+function rpcClient(
+  answers: Record<
+    string,
+    ReturnType<typeof versionRow> | ReturnType<typeof requestRow> | Error
+  >,
+) {
+  const calls: { name: string; body: Record<string, z.core.util.JSONType> }[] =
+    []
 
   const fetcher = vi.fn(
     async (input: RequestInfo | URL, init?: RequestInit) => {
-      const name = String(input).split('/rpc/')[1] ?? ''
-      calls.push({ name, body: JSON.parse(String(init?.body ?? '{}')) })
+      const request =
+        input instanceof Request
+          ? new Request(input, init)
+          : new Request(
+              new URL(input.toString(), 'http://sheetbase.test'),
+              init,
+            )
+
+      const name = request.url.split('/rpc/')[1] ?? ''
+      const body = z.record(z.string(), z.json()).parse(await request.json())
+      calls.push({ name, body })
       const answer = answers[name]
 
       if (answer instanceof Error) {
@@ -178,6 +194,35 @@ describe('approveProtocolRevision', () => {
 })
 
 describe('chain stage', () => {
+  it('reads an approved decision role once and skips roles of other decisions', () => {
+    let roleReads = 0
+
+    const decision = {
+      decision: 'approved',
+      get role() {
+        roleReads += 1
+
+        return roleReads === 1 ? 'steward' : 'reviewer'
+      },
+    }
+
+    expect(chainStage([decision], false)).toBe('qa')
+    expect(roleReads).toBe(1)
+    expect(
+      chainStage(
+        [
+          {
+            decision: 'rejected',
+            get role(): string {
+              throw new Error('A rejected decision has no technical role')
+            },
+          },
+        ],
+        false,
+      ),
+    ).toBe('technical')
+  })
+
   it('waits for technical review first, then QA', () => {
     expect(chainStage([], false)).toBe('technical')
     expect(chainStage([{ decision: 'approved', role: 'steward' }], false)).toBe(

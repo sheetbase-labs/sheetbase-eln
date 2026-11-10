@@ -153,7 +153,9 @@ function pgDataClient(owner: Client): DataClient {
         ).replace('eq.', '')
         return (
           await owner.query(
-            `select field_id, key, label, logical_type, nullable, lifecycle, display_order
+            `select field_id, key, label, description, logical_type, nullable,
+                    default_value, quantity, validation, category, relationship,
+                    cardinality, lifecycle, display_order
                from api.dataset_schema_version_fields where schema_version_id = $1 order by display_order`,
             [id],
           )

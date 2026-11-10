@@ -26,7 +26,7 @@ import {
 } from './serializers'
 import type { ExportField, ExportFormat, ExportRow } from './serializers'
 import { parquetDocument } from './parquet'
-import { buildEvidencePackage } from './evidence-package'
+import { buildEvidencePackage, parseEvidencePackage } from './evidence-package'
 import { renderRevisionPdf } from './revision-pdf'
 import {
   auditEventMatchesCategory,
@@ -68,11 +68,7 @@ interface SchemaFieldWire {
 }
 
 interface QueryRowsResult {
-  rows: Array<{
-    rowId: string
-    revision: number | string
-    values: Record<string, unknown>
-  }>
+  rows: ExportRow[]
   totalCount?: number
   hasMore?: boolean
   datasetRevision?: number | string
@@ -90,6 +86,19 @@ function exportResponse(
       'cache-control': 'no-store',
     },
   })
+}
+
+function binaryExportResponse(
+  bytes: Uint8Array,
+  contentType: string,
+  filename: string,
+): Response {
+  const body =
+    bytes.buffer instanceof ArrayBuffer
+      ? new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+      : new Uint8Array(bytes)
+
+  return exportResponse(body, contentType, filename)
 }
 
 async function insertReceipt(input: {
@@ -244,14 +253,14 @@ const queryRowsSchema = z.object({
 
 export function pagedRows(
   rpcName: string,
-  args: Record<string, unknown>,
+  args: Parameters<typeof postgrestRpc>[1],
   token: string,
   liveDataset?: {
     id: string
     revision: number | string
     schemaVersionId: string
   },
-): { rows: AsyncIterable<ExportRow>; totalCount: () => number | null } {
+) {
   let totalCount: number | null = null
 
   async function* iterate(): AsyncIterable<ExportRow> {
@@ -350,9 +359,8 @@ export async function handleDatasetExport(
 
   // A plugin format is written by the plugin after the rows are collected;
   // the built-in writers below never see it.
-  const format: ExportFormat = pluginFormat
-    ? 'json'
-    : (formatParam as ExportFormat)
+  const format: ExportFormat =
+    !pluginFormat && isExportFormat(formatParam) ? formatParam : 'json'
 
   let dataset: DatasetWire | null = null
 
@@ -409,7 +417,10 @@ export async function handleDatasetExport(
         }
 
   let rpcName = 'query_dataset_rows'
-  let rpcArgs: Record<string, unknown> = { p_dataset_id: datasetId }
+
+  let rpcArgs: { p_dataset_id: string } | { p_dataset_version_id: string } = {
+    p_dataset_id: datasetId,
+  }
 
   if (variant === 'version') {
     // `datasetId` is the Dataset Version id here. The parent dataset only
@@ -486,7 +497,7 @@ export async function handleDatasetExport(
   )
 
   if (pluginFormat) {
-    const all: Array<Record<string, unknown>> = []
+    const all: ExportRow['values'][] = []
 
     // The plugin reads columns by their names (the field keys), not by id.
     for await (const row of rows.rows)
@@ -575,8 +586,8 @@ export async function handleDatasetExport(
       byteSize: bytes.byteLength,
     })
 
-    return exportResponse(
-      bytes as unknown as BodyInit,
+    return binaryExportResponse(
+      bytes,
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       filename,
     )
@@ -613,11 +624,7 @@ export async function handleDatasetExport(
       byteSize: bytes.byteLength,
     })
 
-    return exportResponse(
-      bytes as unknown as BodyInit,
-      'application/octet-stream',
-      filename,
-    )
+    return binaryExportResponse(bytes, 'application/octet-stream', filename)
   }
 
   if (format === 'csv' || format === 'tsv') {
@@ -678,6 +685,16 @@ function slug(name: string): string {
 // canonical source per object) instead of being duplicated through Sheets.
 // ---------------------------------------------------------------------------
 
+interface SheetExportField {
+  fieldId?: z.core.util.JSONType
+  key?: z.core.util.JSONType
+  label?: z.core.util.JSONType
+  logicalType?: z.core.util.JSONType
+  lifecycle?: z.core.util.JSONType
+  nullable?: z.core.util.JSONType
+  quantity?: z.core.util.JSONType
+}
+
 interface SheetInstanceWire {
   id: string
   workspace_id: string
@@ -687,13 +704,15 @@ interface SheetInstanceWire {
   lifecycle: string
   revision: number | string
   state: {
-    localFields?: Array<Record<string, unknown>>
-    localValues?: Record<string, Record<string, unknown>>
+    localFields?: SheetExportField[]
+    localValues?: Record<string, ExportRow['values']>
     presentation?: { columnOrder?: string[]; hiddenColumnIds?: string[] }
   }
 }
 
-function fieldKey(field: Record<string, unknown>, fallback: string): string {
+function fieldKey(field: SheetExportField, fallback: string): string {
+  // Preserve native key checks and repeated property reads on legacy fields.
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof
   return typeof field.key === 'string' && field.key ? field.key : fallback
 }
 
@@ -740,6 +759,8 @@ export async function handleSheetInstanceExport(
     ? presentation.columnOrder
     : []
 
+  const orderedIds = new Set(order)
+
   const hidden = new Set(
     Array.isArray(presentation.hiddenColumnIds)
       ? presentation.hiddenColumnIds
@@ -750,26 +771,42 @@ export async function handleSheetInstanceExport(
     ...order
       .map((id) => activeFields.find((f) => f.fieldId === id))
       .filter(
-        (f): f is Record<string, unknown> =>
+        (f): f is SheetExportField =>
+          // Keep native field-ID coercion when excluding hidden columns.
+          // oxlint-disable-next-line typescript/no-base-to-string
           Boolean(f) && !hidden.has(String(f?.fieldId)),
       ),
     ...activeFields.filter(
       (f) =>
-        !order.includes(String(f.fieldId)) && !hidden.has(String(f.fieldId)),
+        // Both reads preserve the original ordering and hidden-column tests.
+        // oxlint-disable-next-line typescript/no-base-to-string
+        !orderedIds.has(String(f.fieldId)) && !hidden.has(String(f.fieldId)),
     ),
   ]
 
   const fields: ExportField[] = ordered.map((f, index) => ({
+    // Export keys preserve native field-ID coercion for legacy field data.
+    // oxlint-disable-next-line typescript/no-base-to-string
     id: String(f.fieldId),
     key: fieldKey(f, `field_${index + 1}`),
+    // The fallback uses the same native coercion as the existing export.
+    // oxlint-disable-next-line typescript/no-base-to-string, anti-slop/no-runtime-typeof
     label: typeof f.label === 'string' ? f.label : String(f.fieldId),
+    // Preserve repeated reads of the original logical type.
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof
     logicalType: typeof f.logicalType === 'string' ? f.logicalType : 'text',
     nullable: f.nullable !== false,
     unit:
       f.quantity &&
+      // The legacy check accepts native objects without reconstructing them.
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof
       typeof f.quantity === 'object' &&
+      // The first lookup is unchecked and retains native getter behavior.
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof, anti-slop/require-safety-comment-for-type-assertion
       typeof (f.quantity as { storageUnit?: unknown }).storageUnit === 'string'
-        ? String((f.quantity as { storageUnit: string }).storageUnit)
+        ? // The second original lookup may itself invoke a getter.
+          // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
+          String((f.quantity as { storageUnit: string }).storageUnit)
         : null,
   }))
 
@@ -845,8 +882,8 @@ export async function handleSheetInstanceExport(
     const bytes = await xlsxDocument(fields, rawRows, metaLines)
     await recordSheetReceipt(bytes.byteLength)
 
-    return exportResponse(
-      bytes as unknown as BodyInit,
+    return binaryExportResponse(
+      bytes,
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       filename,
     )
@@ -867,11 +904,7 @@ export async function handleSheetInstanceExport(
 
     await recordSheetReceipt(bytes.byteLength)
 
-    return exportResponse(
-      bytes as unknown as BodyInit,
-      'application/octet-stream',
-      filename,
-    )
+    return binaryExportResponse(bytes, 'application/octet-stream', filename)
   }
 
   // CSV / TSV of the local grid.
@@ -1179,7 +1212,7 @@ export async function handleRevisionEvidencePackage(
     return requestErrorResponse(404, 'not_found', 'Revision not found.')
   }
 
-  const pkg = rpcRes.body as Parameters<typeof buildEvidencePackage>[0]
+  const pkg = parseEvidencePackage(rpcRes.body)
   const bytes = await buildEvidencePackage(pkg)
 
   await insertReceipt({
@@ -1191,8 +1224,8 @@ export async function handleRevisionEvidencePackage(
     byteSize: bytes.byteLength,
   })
 
-  return exportResponse(
-    bytes as unknown as BodyInit,
+  return binaryExportResponse(
+    bytes,
     'application/zip',
     `evidence-${pkg.revision.id}.zip`,
   )
@@ -1224,7 +1257,7 @@ export async function handleRevisionSignedBundle(
     return requestErrorResponse(404, 'not_found', 'Revision not found.')
   }
 
-  const pkg = rpcRes.body as Parameters<typeof buildEvidencePackage>[0]
+  const pkg = parseEvidencePackage(rpcRes.body)
 
   const stampRes = await postgrestSelect<
     Array<{
@@ -1251,9 +1284,13 @@ export async function handleRevisionSignedBundle(
     )
   }
 
-  const { buildSignedBundle } = await import('./signed-bundle')
-  const { ensureWorkspaceKey } = await import('./bundle-key.server')
-  const { signWithKey } = await import('./bundle-key')
+  const [{ buildSignedBundle }, { ensureWorkspaceKey }, { signWithKey }] =
+    await Promise.all([
+      import('./signed-bundle'),
+      import('./bundle-key.server'),
+      import('./bundle-key'),
+    ])
+
   const key = await ensureWorkspaceKey(pkg.revision.workspaceId)
 
   const bytes = await buildSignedBundle({
@@ -1283,8 +1320,8 @@ export async function handleRevisionSignedBundle(
     byteSize: bytes.byteLength,
   })
 
-  return exportResponse(
-    bytes as unknown as BodyInit,
+  return binaryExportResponse(
+    bytes,
     'application/zip',
     `signed-bundle-${pkg.revision.id}.zip`,
   )
@@ -1315,7 +1352,7 @@ export async function handleRevisionPdf(
     return requestErrorResponse(404, 'not_found', 'Revision not found.')
   }
 
-  const pkg = rpcRes.body as Parameters<typeof buildEvidencePackage>[0]
+  const pkg = parseEvidencePackage(rpcRes.body)
   const { readWorkspaceLogoBytes } = await import('#/lib/workspace-logo-routes')
 
   const logo = await readWorkspaceLogoBytes(context.workspaceId).catch(
@@ -1333,8 +1370,8 @@ export async function handleRevisionPdf(
     byteSize: bytes.byteLength,
   })
 
-  return exportResponse(
-    bytes as unknown as BodyInit,
+  return binaryExportResponse(
+    bytes,
     'application/pdf',
     `evidence-${pkg.revision.id}.pdf`,
   )

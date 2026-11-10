@@ -12,16 +12,17 @@
 import { annotateRequest } from '#/lib/request-log'
 import { createRateLimiter } from '#/lib/rate-limit'
 import {
-  shapePage,
+  publicEventPage,
   sseFrame,
   knownEventNames,
   entityTypesFor,
 } from './event-stream'
-import type { ShapedPage, StreamPage } from './event-stream'
+import type { PublicEventPage, StreamPage } from './event-stream'
 
 export interface StreamCaller {
   workspaceId: string
   /** What to stamp on the database session for the permission filter. */
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- Session claims are serialized unchanged for PostgreSQL's permission filter; replacing arbitrary claims would change authorization input.
   claims: Record<string, unknown>
 }
 
@@ -138,7 +139,7 @@ export async function handleEventStream(
 
     if (page.expired) return expired(page)
 
-    return Response.json(shapePage(caller.workspaceId, page, names))
+    return Response.json(publicEventPage(caller.workspaceId, page, names))
   }
 
   return stream(request, caller, cursorParam, limit, names, deps)
@@ -222,14 +223,18 @@ function stream(
             break
           }
 
-          const shaped: ShapedPage = shapePage(caller.workspaceId, page, names)
+          const publicPage: PublicEventPage = publicEventPage(
+            caller.workspaceId,
+            page,
+            names,
+          )
 
-          for (const event of shaped.events) send(sseFrame(event))
+          for (const event of publicPage.events) send(sseFrame(event))
 
-          if (shaped.events.length > 0) lastSent = now()
-          cursor = shaped.nextCursor
+          if (publicPage.events.length > 0) lastSent = now()
+          cursor = publicPage.nextCursor
 
-          if (shaped.hasMore) continue
+          if (publicPage.hasMore) continue
 
           if (now() - lastSent >= heartbeatMs) {
             send(': keep-alive\n\n')

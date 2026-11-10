@@ -10,6 +10,10 @@ import { logger } from '#/lib/logger'
 import { defaultBackupDeps, sweepBackups } from './backup.server'
 import type { BackupDeps } from './backup.server'
 
+declare global {
+  var __sheetbaseBackupSchedulerStarted: boolean | undefined
+}
+
 export const BACKUP_SWEEP_INTERVAL_MS = 60 * 60 * 1000
 
 export function createBackupTick(
@@ -40,7 +44,6 @@ export function createBackupTick(
 
 let backupTimer: ReturnType<typeof setInterval> | null = null
 let backupBootTimer: ReturnType<typeof setTimeout> | null = null
-const startedGlobalKey = '__sheetbaseBackupSchedulerStarted'
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
@@ -63,10 +66,9 @@ export function startBackupScheduler(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
 
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+  if (globalThis.__sheetbaseBackupSchedulerStarted) return
+  globalThis.__sheetbaseBackupSchedulerStarted = true
 
   const tick = createBackupTick(options.makeDeps)
   // The first pass waits a minute so a deploy's own start-up is not slowed,
@@ -91,6 +93,5 @@ export function stopBackupScheduler(): void {
     backupTimer = null
   }
 
-  const g = globalThis as unknown as Record<string, unknown>
-  delete g[startedGlobalKey]
+  delete globalThis.__sheetbaseBackupSchedulerStarted
 }

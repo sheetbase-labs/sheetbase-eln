@@ -135,8 +135,10 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
 export type BlockDescriptor = Omit<BlockDeclaration, 'type' | 'picker'>
 
 export const BLOCK_DESCRIPTORS = Object.fromEntries(
-  BLOCK_DECLARATIONS.map((declaration) => [declaration.type, declaration]),
-) as unknown as Record<BlockType, BlockDescriptor>
+  BLOCK_DECLARATIONS.map(
+    (declaration) => [declaration.type, declaration] as const,
+  ),
+)
 
 /** The descriptor for a type, or `undefined` for a type this build rejects. */
 export function blockDescriptor(type: string): BlockDescriptor | undefined {
@@ -158,14 +160,16 @@ export function editableBlockTypes(): readonly BlockType[] {
  * minimal and valid so the new block enters editing focus immediately without
  * surfacing a validation error first.
  */
-export function defaultPayloadFor(type: string): Record<string, unknown> {
+export function defaultPayloadFor(
+  type: string,
+): ReturnType<BlockDescriptor['defaultPayload']> {
   return blockDescriptor(type)?.defaultPayload() ?? {}
 }
 
 /** Readable one-line payload preview for the conflict banner. */
 export function summarizeBlockPayload(
   type: string,
-  payload: Record<string, unknown>,
+  payload: Parameters<NonNullable<BlockDescriptor['summary']>>[0],
 ): string {
   const summary = blockDescriptor(type)?.summary
 

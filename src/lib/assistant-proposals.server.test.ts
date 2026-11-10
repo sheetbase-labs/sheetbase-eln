@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
+import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
+import type { PipelineDefinitionVersionWire } from './pipelines/types'
 import { plainTextToRichText } from './blocks/plain-text'
 import { buildAssistantProposal } from './assistant-proposals.server'
 import { proposalToolDefs } from './assistant-proposals'
@@ -34,26 +36,29 @@ const recordRow = {
 }
 
 function client(): DataClient {
-  return {
-    list: (resource: string) => {
-      if (resource === 'records') return Promise.resolve([recordRow])
+  return createDataClient(async (input) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://app.test',
+    )
 
-      if (resource === 'blocks')
-        return Promise.resolve([
-          {
-            id: BLOCK,
-            record_id: RECORD,
-            type: 'rich_text',
-            payload: plainTextToRichText('Old aim'),
-            payload_schema_version: 1,
-            order: 1,
-            version: 3,
-          },
-        ])
+    if (url.pathname === '/api/db/records') return Response.json([recordRow])
 
-      return Promise.resolve([])
-    },
-  } as unknown as DataClient
+    if (url.pathname === '/api/db/blocks')
+      return Response.json([
+        {
+          id: BLOCK,
+          record_id: RECORD,
+          type: 'rich_text',
+          payload: plainTextToRichText('Old aim'),
+          payload_schema_version: 1,
+          order: 1,
+          version: 3,
+        },
+      ])
+
+    return Response.json([])
+  })
 }
 
 describe('buildAssistantProposal', () => {
@@ -174,29 +179,38 @@ describe('buildAssistantProposal', () => {
 const PIPELINE = '44444444-4444-4444-8444-444444444444'
 const DRAFT = '55555555-5555-4555-8555-555555555555'
 
-function pipelineClient(versions: unknown[], lifecycle = 'active'): DataClient {
-  return {
-    list: (resource: string) => {
-      if (resource === 'pipeline_definitions')
-        return Promise.resolve([
-          {
-            id: PIPELINE,
-            workspace_id: WORKSPACE,
-            key: 'clean_plate',
-            display_id: 'PL-0007',
-            name: 'Clean plate reads',
-            description: null,
-            lifecycle,
-            revision: 5,
-          },
-        ])
+function pipelineClient(
+  versions: Pick<
+    PipelineDefinitionVersionWire,
+    'id' | 'lifecycle' | 'revision' | 'configuration'
+  >[],
+  lifecycle = 'active',
+): DataClient {
+  return createDataClient(async (input) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://app.test',
+    )
 
-      if (resource === 'pipeline_definition_versions')
-        return Promise.resolve(versions)
+    if (url.pathname === '/api/db/pipeline_definitions')
+      return Response.json([
+        {
+          id: PIPELINE,
+          workspace_id: WORKSPACE,
+          key: 'clean_plate',
+          display_id: 'PL-0007',
+          name: 'Clean plate reads',
+          description: null,
+          lifecycle,
+          revision: 5,
+        },
+      ])
 
-      return Promise.resolve([])
-    },
-  } as unknown as DataClient
+    if (url.pathname === '/api/db/pipeline_definition_versions')
+      return Response.json(versions)
+
+    return Response.json([])
+  })
 }
 
 const baseConfig = {
@@ -366,7 +380,10 @@ describe('pipeline proposals', () => {
             name: 'join_plates',
             plugin: {
               operation: 'plugin.plate-tools.join',
-              arguments: { left: { $ref: 'previous' } },
+              arguments: {
+                left: { $ref: 'previous' },
+                columns: JSON.parse('{"__proto__":"sample label","x":1}'),
+              },
             },
           },
         ],
@@ -381,7 +398,12 @@ describe('pipeline proposals', () => {
             name: 'join_plates',
             language: 'plugin',
             statement: '',
-            plugin: { operation: 'plugin.plate-tools.join' },
+            plugin: {
+              operation: 'plugin.plate-tools.join',
+              arguments: {
+                columns: JSON.parse('{"__proto__":"sample label","x":1}'),
+              },
+            },
           },
         ],
       },
@@ -393,6 +415,62 @@ describe('pipeline proposals', () => {
         after: expect.stringContaining('plugin.plate-tools.join'),
       },
     ])
+  })
+
+  it('refuses non-finite plugin data hidden under an own __proto__ key', async () => {
+    const built = await buildAssistantProposal(
+      pipelineClient([]),
+      WORKSPACE,
+      'sheetbase.pipeline_definition.draft',
+      {
+        title: 'Join plates',
+        summary: 'Adds a plugin step.',
+        key: 'plate_join',
+        name: 'Plate join',
+        statement: 'select 1',
+        steps: [
+          {
+            name: 'join_plates',
+            plugin: {
+              operation: 'plugin.plate-tools.join',
+              arguments: JSON.parse('{"__proto__":{"dose":1e400}}'),
+            },
+          },
+        ],
+      },
+    )
+
+    expect(built).toMatchObject({
+      ok: false,
+      message: expect.stringContaining('not valid'),
+    })
+  })
+
+  it('refuses non-finite parameter defaults hidden under a scientific key', async () => {
+    const built = await buildAssistantProposal(
+      pipelineClient([]),
+      WORKSPACE,
+      'sheetbase.pipeline_definition.draft',
+      {
+        title: 'Threshold',
+        summary: 'Adds a threshold.',
+        key: 'threshold',
+        name: 'Threshold',
+        statement: 'select 1',
+        parameters: [
+          {
+            name: 'cutoff',
+            type: 'decimal',
+            default: JSON.parse('{"__proto__":{"dose":1e400}}'),
+          },
+        ],
+      },
+    )
+
+    expect(built).toMatchObject({
+      ok: false,
+      message: expect.stringContaining('not valid'),
+    })
   })
 
   it('refuses a step that is both SQL and a plugin', async () => {
@@ -473,7 +551,7 @@ describe('pipeline proposals', () => {
   it('refuses a retired pipeline, a missing pipeline and a no-op', async () => {
     const args = { title: 'x', summary: 'y', statement: 'select * from raw' }
 
-    const versions = [
+    const versions: Parameters<typeof pipelineClient>[0] = [
       { id: DRAFT, lifecycle: 'draft', revision: 1, configuration: baseConfig },
     ]
 

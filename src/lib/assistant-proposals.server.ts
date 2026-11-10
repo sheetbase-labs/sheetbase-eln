@@ -1,6 +1,7 @@
+import { z } from 'zod'
 import { PAYLOAD_SCHEMA_VERSION, validateBlock } from './blocks'
 import { plainTextToRichText } from './blocks/plain-text'
-import { isRichTextPayload, richTextToPlainText } from './blocks/rich-text'
+import { isRichTextPayload, richTextToPlainText } from './blocks/rich-text-data'
 import type { DataClient } from './data-client'
 import { recordDestination, sheetPath } from './navigation'
 import { fetchRecordById } from './scientific-records'
@@ -8,7 +9,11 @@ import { toBlock } from './notebook-data'
 import type { BlockWire } from './notebook-data'
 import { sheetInstanceFromWire } from './sheet-instance-data'
 import { sheetInstanceStateSchema } from './sheet-instance'
-import { PROPOSAL_TOOLS, isProposalTool } from './assistant-proposals'
+import {
+  PROPOSAL_TOOLS,
+  isProposalTool,
+  proposePipelineDraftSchema,
+} from './assistant-proposals'
 import type { AssistantProposal, ProposalChange } from './assistant-proposals'
 import {
   getPipelineDefinition,
@@ -24,6 +29,7 @@ import type {
   PipelineParameter,
   PipelineStep,
 } from './pipelines/config'
+import { pipelineJsonValueSchema } from './pipelines/types'
 
 /**
  * Turns a model's proposal arguments into a card payload, against the person's
@@ -60,23 +66,12 @@ async function fetchBlock(client: DataClient, blockId: string) {
   return rows.at(0) ? toBlock(rows[0]) : null
 }
 
-type PipelineArgs = {
-  description?: string
-  statement?: string
-  steps?: Array<{
-    name: string
-    statement?: string
-    plugin?: { operation: string; arguments: Record<string, unknown> }
-  }>
-  inputs?: Array<{ name: string; description?: string; required?: boolean }>
-  parameters?: Array<{
-    name: string
-    type: PipelineParameter['type']
-    required?: boolean
-    default?: unknown
-    description?: string
-  }>
-}
+type PipelineArgs = Partial<
+  Pick<
+    z.infer<typeof proposePipelineDraftSchema>,
+    'description' | 'statement' | 'steps' | 'inputs' | 'parameters'
+  >
+>
 
 function blankPipelineConfig(): PipelineConfig {
   return {
@@ -279,7 +274,29 @@ export async function buildAssistantProposal(
     }
   }
 
-  const input = parsed.data as Record<string, unknown>
+  // The model-facing defaults use z.json(); validate their original values too,
+  // because its record clone can omit a scientific key named __proto__.
+  if (
+    (name === 'sheetbase.pipeline_definition.draft' ||
+      name === 'sheetbase.pipeline_definition.update_draft') &&
+    !z
+      .object({
+        parameters: z
+          .array(z.object({ default: pipelineJsonValueSchema.optional() }))
+          .optional(),
+      })
+      .safeParse(args).success
+  ) {
+    return {
+      ok: false,
+      message:
+        'The proposal was not valid: parameter defaults must contain only finite JSON values.',
+    }
+  }
+
+  // SAFETY: the exact tool schema above validated args with no defaults or transforms.
+  // Keep the original so record cloning cannot discard own __proto__ scientific keys.
+  const input = args as Record<string, unknown>
   const title = String(input.title)
   const summary = String(input.summary)
 

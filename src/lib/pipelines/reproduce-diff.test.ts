@@ -1,8 +1,126 @@
 import { describe, expect, it } from 'vitest'
 
-import { diffMatches, diffResultRows } from './reproduce-diff'
+import {
+  cellsAgree,
+  diffMatches,
+  diffResultRows,
+  normaliseCell,
+} from './reproduce-diff'
+
+describe('normaliseCell', () => {
+  it('preserves the scientific cell representations without coercing text', () => {
+    expect(
+      [
+        null,
+        undefined,
+        1.25,
+        NaN,
+        Infinity,
+        -Infinity,
+        true,
+        false,
+        42n,
+        new Date('2026-01-02T03:04:05Z'),
+        '42',
+        { measurements: [1, null, false], missing: undefined },
+      ].map((value) => normaliseCell(value)),
+    ).toEqual([
+      null,
+      null,
+      1.25,
+      null,
+      null,
+      null,
+      true,
+      false,
+      42,
+      '2026-01-02T03:04:05.000Z',
+      '42',
+      '{"measurements":[1,null,false]}',
+    ])
+    expect(normaliseCell(10n ** 400n)).toBe(Infinity)
+  })
+})
+
+describe('cellsAgree', () => {
+  it('uses the larger magnitude with a unit floor, without coercing strings', () => {
+    expect(cellsAgree(0, 1e-9, 1e-9)).toBe(true)
+    expect(cellsAgree(0, 2e-9, 1e-9)).toBe(false)
+    expect(cellsAgree(-1e6, -1e6 - 0.0005, 1e-9)).toBe(true)
+    expect(cellsAgree(-1e6, -1e6 - 0.002, 1e-9)).toBe(false)
+    expect(cellsAgree('1', 1, 1e-9)).toBe(false)
+    expect(cellsAgree(1, 1 + Number.EPSILON, 0)).toBe(false)
+    expect(cellsAgree(Infinity, Infinity, 0)).toBe(true)
+  })
+})
 
 describe('diffResultRows', () => {
+  it.each([
+    { before: 1, after: 2, expected: 1 },
+    {
+      before: { polluted: true },
+      after: { polluted: false },
+      expected: '{"polluted":true}',
+    },
+  ])(
+    'retains and compares an own __proto__ cell $expected',
+    ({ before, after, expected }) => {
+      const original = { id: 'a', ['__proto__']: before }
+      const reproduced = { id: 'a', ['__proto__']: after }
+      const diff = diffResultRows([original], [reproduced])
+
+      expect(diffMatches(diffResultRows([original], [original]))).toBe(true)
+      expect(diff.changedRows).toBe(1)
+      expect(diff.changedColumns).toEqual({ ['__proto__']: 1 })
+      expect(diff.examples[0]).toMatchObject({
+        kind: 'changed',
+        row: { id: 'a', ['__proto__']: expected },
+        cells: [{ column: '__proto__', before: expected }],
+      })
+
+      for (const example of diff.examples) {
+        expect(Object.hasOwn(example.row, '__proto__')).toBe(true)
+        expect(Object.getPrototypeOf(example.row)).toBe(Object.prototype)
+      }
+
+      expect(Object.getPrototypeOf(diff.changedColumns)).toBe(Object.prototype)
+      expect(Object.getPrototypeOf(original)).toBe(Object.prototype)
+      expect(Object.hasOwn(Object.prototype, 'polluted')).toBe(false)
+    },
+  )
+
+  it('records numeric __proto__ deltas without treating them as prototypes', () => {
+    const diff = diffResultRows(
+      [{ id: 'a', ['__proto__']: 1 }],
+      [{ id: 'a', ['__proto__']: 3 }],
+    )
+
+    expect(diff.largestDelta).toEqual({ ['__proto__']: 2 })
+    expect(Object.hasOwn(diff.largestDelta, '__proto__')).toBe(true)
+    expect(Object.getPrototypeOf(diff.largestDelta)).toBe(Object.prototype)
+  })
+
+  it('normalises raw rows at the comparison boundary', () => {
+    expect(
+      diffMatches(
+        diffResultRows(
+          [
+            {
+              id: 'a',
+              value: 42n,
+              data: { values: [1, null] },
+              missing: undefined,
+            },
+          ],
+          [{ id: 'a', value: 42, data: '{"values":[1,null]}', missing: null }],
+        ),
+      ),
+    ).toBe(true)
+    expect(
+      diffMatches(diffResultRows([{ value: '42' }], [{ value: 42 }])),
+    ).toBe(false)
+  })
+
   it('matches identical rows in any order', () => {
     const diff = diffResultRows(
       [

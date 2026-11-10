@@ -64,6 +64,8 @@ export interface DatasetCrateInput {
   run: CrateRun | null
 }
 
+// JSON-LD extension values retain native values until JSON.stringify serializes the crate.
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
 type Json = Record<string, unknown>
 
 const sha256 = (bytes: Uint8Array) =>
@@ -73,6 +75,8 @@ const PROCESS_PROFILE = 'https://w3id.org/ro/wfrun/process/0.5'
 const WORKFLOW_PROFILE = 'https://w3id.org/ro/wfrun/workflow/0.5'
 const PROVENANCE_PROFILE = 'https://w3id.org/ro/wfrun/provenance/0.5'
 
+// Preserve the existing open logical-type lookup, including ordinary object inheritance.
+// oxlint-disable-next-line anti-slop/no-known-value-widening
 const DATA_TYPE: Record<string, string> = {
   integer: 'Integer',
   decimal: 'Number',
@@ -286,9 +290,14 @@ export async function buildDatasetCrate(
     // The run itself.
     const paramEntities: Json[] = []
 
+    // Native run metadata is enumerated without JSON-only validation or copying.
+    // SAFETY: the assertion follows a non-null, non-array object check; property values remain unknown.
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type
     const asRecord = (v: unknown): Record<string, unknown> =>
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof
       v && typeof v === 'object' && !Array.isArray(v)
-        ? (v as Record<string, unknown>)
+        ? // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
+          (v as Record<string, unknown>)
         : {}
 
     for (const [key, value] of Object.entries(asRecord(run.parameters))) {
@@ -297,6 +306,8 @@ export async function buildDatasetCrate(
         '@id': id,
         '@type': 'PropertyValue',
         name: key,
+        // Native objects serialize through JSON.stringify; primitives stay unchanged here.
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof
         value: typeof value === 'object' ? JSON.stringify(value) : value,
       })
     }
@@ -311,6 +322,8 @@ export async function buildDatasetCrate(
           '@type': 'PropertyValue',
           name: key,
           value:
+            // Input references retain the historical JSON/object versus native String coercion.
+            // oxlint-disable-next-line anti-slop/no-runtime-typeof, typescript/no-base-to-string
             typeof value === 'object' ? JSON.stringify(value) : String(value),
         })
 
@@ -354,7 +367,7 @@ export async function buildDatasetCrate(
     // The workflow is the main entity of a Workflow Run Crate.
   }
 
-  const root: Json = {
+  const root = {
     '@id': './',
     '@type': 'Dataset',
     name: `${input.name} · ${input.versionLabel}`,

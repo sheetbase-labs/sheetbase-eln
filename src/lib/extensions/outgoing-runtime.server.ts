@@ -43,44 +43,39 @@ interface Caller {
   extensionKey: string
 }
 
-const sendPlan = z
-  .object({
-    requests: z
-      .array(
-        z
-          .object({
-            method: z.enum(['POST', 'PUT', 'PATCH']).default('POST'),
-            url: z.string().min(1).max(2000),
-            headers: z
-              .record(
-                z.string().regex(/^[A-Za-z][A-Za-z0-9-]{0,40}$/),
-                z.string().max(4000),
-              )
-              .optional(),
-            body: z.string().optional(),
-            json: z.unknown().optional(),
-          })
-          .strict()
-          .refine((r) => r.body === undefined || r.json === undefined, {
-            message: 'A request has a body or json, not both.',
-          }),
-      )
-      .min(1)
-      .max(CONNECTOR_MAX_REQUESTS),
-  })
-  .strict()
+const sendPlan = z.strictObject({
+  requests: z
+    .array(
+      z
+        .strictObject({
+          method: z.enum(['POST', 'PUT', 'PATCH']).default('POST'),
+          url: z.string().min(1).max(2000),
+          headers: z
+            .record(
+              z.string().regex(/^[A-Za-z][A-Za-z0-9-]{0,40}$/),
+              z.string().max(4000),
+            )
+            .optional(),
+          body: z.string().optional(),
+          json: z.unknown().optional(),
+        })
+        .refine((r) => r.body === undefined || r.json === undefined, {
+          message: 'A request has a body or json, not both.',
+        }),
+    )
+    .min(1)
+    .max(CONNECTOR_MAX_REQUESTS),
+})
 
-const publishAnswer = z
-  .object({
-    message: z.string().trim().min(1).max(500),
-    link: z
-      .string()
-      .url()
-      .max(500)
-      .refine((value) => /^https?:\/\//i.test(value))
-      .optional(),
-  })
-  .strict()
+const publishAnswer = z.strictObject({
+  message: z.string().trim().min(1).max(500),
+  link: z
+    .string()
+    .url()
+    .max(500)
+    .refine((value) => /^https?:\/\//i.test(value))
+    .optional(),
+})
 
 const bad = (message: string) => new ExtensionRunError('bad_answer', message)
 
@@ -90,15 +85,19 @@ function requireSettings(
   given: Record<string, string>,
 ): Record<string, string> {
   const out: Record<string, string> = {}
+
   for (const setting of declaration.settings) {
     const value = (given as Partial<Record<string, string>>)[setting.name]
+
     if (setting.required && !value?.trim())
       throw new ExtensionRunError(
         'not_set_up',
         `“${setting.label}” isn’t set up yet. An administrator sets it in Settings › Plugins.`,
       )
+
     if (value !== undefined) out[setting.name] = value
   }
+
   return out
 }
 
@@ -113,11 +112,14 @@ async function plan(
     inputs: {},
     parameters: { kind: 'operation', entry, input },
   })
+
   const parsed = sendPlan.safeParse(planned.rows.at(0))
+
   if (!parsed.success)
     throw bad(
       'The plugin’s plan isn’t a list of requests (method, url, optional headers and body or json).',
     )
+
   return parsed.data.requests
 }
 
@@ -134,14 +136,17 @@ async function send(
       request.json !== undefined ? JSON.stringify(request.json) : request.body,
     json: request.json !== undefined,
   }))
+
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), CONNECTOR_TIMEOUT_MS)
   const responses: ConnectorResponse[] = []
+
   try {
     for (const request of checked) {
       const hasType = Object.keys(request.headers).some(
         (name) => name.toLowerCase() === 'content-type',
       )
+
       const answer = await fetchUrl(request.url, {
         method: request.method,
         ...(request.body !== undefined ? { body: request.body } : {}),
@@ -164,13 +169,16 @@ async function send(
           `${request.url.hostname} could not be reached.`,
         )
       })
+
       const text = new TextDecoder().decode(answer.body)
       let json: unknown = null
+
       try {
         json = JSON.parse(text)
       } catch {
         json = null
       }
+
       responses.push({
         url: request.url.toString(),
         status: answer.status,
@@ -181,6 +189,7 @@ async function send(
   } finally {
     clearTimeout(timer)
   }
+
   return responses
 }
 
@@ -203,6 +212,7 @@ function asRows(value: unknown): Row[] {
       'bad_input',
       '“rows” should be a list of rows, each an object of column values.',
     )
+
   return value as Row[]
 }
 
@@ -215,11 +225,13 @@ async function publish(
   fetchUrl: ConnectorFetch,
 ): Promise<PublishOutcome> {
   const rows = asRows(args.rows)
+
   const parameters = checkDeclaredValues(
     declaration.parameters,
     args.parameters ?? {},
     'input',
   )
+
   const settings = requireSettings(
     declaration,
     (await deps.loadSettings?.(
@@ -228,6 +240,7 @@ async function publish(
       settingsScope('publishers', declaration.id),
     )) ?? {},
   )
+
   // 1. The plugin says which requests to make.
   const requests = await plan(
     deps,
@@ -236,8 +249,10 @@ async function publish(
     declaration.runner.entry,
     { rows, name: args.name ?? '', parameters, settings },
   )
+
   // 2. The app makes them, to the declared hosts and nowhere else.
   const responses = await send(declaration, requests, fetchUrl)
+
   // 3. The plugin reads the answers and says what happened.
   const parsed = await runPackage(deps, workspaceId, resolved, {
     inputs: {},
@@ -247,11 +262,14 @@ async function publish(
       input: { responses, parameters },
     },
   })
+
   const answer = publishAnswer.safeParse(parsed.rows.at(0))
+
   if (!answer.success)
     throw bad(
       'The plugin’s answer should be a message of up to 500 characters and optionally a link.',
     )
+
   return { ...answer.data, requests: responses.length }
 }
 
@@ -267,12 +285,14 @@ export async function publishFromCallable(
   const declaration = resolved.manifest.contributions.publishers?.find(
     (entry) => entry.id === itemId,
   )
+
   if (!declaration)
     throw new ExtensionRunError(
       'not_declared',
       'That plugin doesn’t offer this any more.',
     )
   const { rows, name, ...parameters } = input
+
   const outcome = await publish(
     deps,
     workspaceId,
@@ -285,6 +305,7 @@ export async function publishFromCallable(
     },
     fetchUrl,
   )
+
   return { ...outcome }
 }
 
@@ -307,6 +328,7 @@ export async function runExtensionPublisher(
     (declaration, resolved) =>
       publish(deps, args.workspaceId, resolved, declaration, args, fetchUrl),
   )
+
   return { ...value, durationMs }
 }
 
@@ -344,6 +366,7 @@ async function deliver(
       settingsScope('notification-channels', declaration.id),
     )) ?? {},
   )
+
   const requests = await plan(
     deps,
     workspaceId,
@@ -355,7 +378,9 @@ async function deliver(
       settings,
     },
   )
+
   const responses = await send(declaration, requests, fetchUrl)
+
   if (declaration.parse) {
     // The plugin knows what its service calls a refusal (Slack answers 200 with ok: false).
     await runPackage(deps, workspaceId, resolved, {
@@ -366,11 +391,14 @@ async function deliver(
         input: { responses, destination: args.destination },
       },
     })
+
     return
   }
+
   const refused = responses.find(
     (response) => response.status < 200 || response.status >= 300,
   )
+
   if (refused)
     throw new ExtensionRunError('service_refused', failureLine(refused))
 }
@@ -393,5 +421,6 @@ export async function runChannelDelivery(
     (declaration, resolved) =>
       deliver(deps, args.workspaceId, resolved, declaration, args, fetchUrl),
   )
+
   return { durationMs }
 }

@@ -1,68 +1,115 @@
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
+import { z } from 'zod'
+import { FIELD_LOGICAL_TYPES } from '#/lib/field-definition'
 import type { FieldLogicalType } from '#/lib/field-definition'
+import {
+  modelFieldUnitSchema,
+  modelFieldValidationSchema,
+  modelMetadataSchema,
+} from '#/lib/model-fields'
+import type { ModelMetadataPatch } from '#/lib/model-fields'
+import {
+  pipelineJsonObjectSchema,
+  pipelineJsonValueSchema,
+} from '#/lib/pipelines/types'
+import { decodeFormulaBindings, decodeFormulaNode } from '#/lib/formula-ir'
+import type { PersistedFormulaArtifact } from '#/lib/formula-ir'
+import type { ScientificScalar } from '#/lib/scientific-literals'
 
 export type ScientificLogicalType = FieldLogicalType
 
-export interface ScientificOptionWire {
-  id: string
-  label: string
-  display_order: number
-}
+/** Known wire properties retain their original optional/required contract.
+ * The decoders retain extra scientific JSON without exposing an untyped index. */
+type ScientificWire<Schema extends z.ZodType> = Pick<
+  z.infer<Schema>,
+  keyof ModelMetadataPatch<z.infer<Schema>>
+>
 
-export interface ScientificColumnWire {
-  id: string
-  created_at?: string
-  field_name: string
-  label: string
-  display_order: number
-  logical_type: ScientificLogicalType
-  nullable: boolean
-  default_value?: unknown
-  unit: unknown
-  validation: Record<string, unknown>
-  width: number | null
+const scientificOptionSchema = modelMetadataSchema({
+  id: z.string(),
+  label: z.string(),
+  display_order: z.number(),
+})
+
+export type ScientificOptionWire = ScientificWire<typeof scientificOptionSchema>
+
+export const scientificColumnSchema = modelMetadataSchema({
+  id: z.string(),
+  created_at: z.string().optional(),
+  field_name: z.string(),
+  label: z.string(),
+  display_order: z.number(),
+  logical_type: z.enum(FIELD_LOGICAL_TYPES),
+  nullable: z.boolean(),
+  default_value: pipelineJsonValueSchema.optional(),
+  unit: modelFieldUnitSchema.nullable(),
+  validation: modelFieldValidationSchema,
+  width: z.number().nullable(),
   /** Optional numeric format override (for example `0.0E+0`). */
-  format?: string | null
-  options: ScientificOptionWire[]
-}
+  format: z.string().nullable().optional(),
+  options: z.array(scientificOptionSchema),
+})
 
-export interface ScientificDatasetSchemaBinding {
-  id: string
-  slug: string
-  name: string
-  revision: number
-  status: string
-  latest_published_revision: number | null
-}
+export type ScientificColumnWire = Omit<
+  ScientificWire<typeof scientificColumnSchema>,
+  'options'
+> & { options: ScientificOptionWire[] }
 
-export interface ScientificTableWire {
-  id: string
-  created_at?: string
-  resource_name: string
-  name: string
-  schema_version: number
-  lifecycle: string
-  columns: ScientificColumnWire[]
+const scientificDatasetSchemaBindingSchema = modelMetadataSchema({
+  id: z.string(),
+  slug: z.string(),
+  name: z.string(),
+  revision: z.number(),
+  status: z.string(),
+  latest_published_revision: z.number().nullable(),
+})
+
+export type ScientificDatasetSchemaBinding = ScientificWire<
+  typeof scientificDatasetSchemaBindingSchema
+>
+
+export const scientificTableSchema = modelMetadataSchema({
+  id: z.string(),
+  created_at: z.string().optional(),
+  resource_name: z.string(),
+  name: z.string(),
+  schema_version: z.number(),
+  lifecycle: z.string(),
+  columns: z.array(scientificColumnSchema),
   /** Present in the `scientific_table_metadata` RPC result; omitted by some stubs. */
-  record_id?: string
+  record_id: z.string().optional(),
   /** SCI-010: dataset schema binding. null for legacy unbound sheets. */
-  dataset_schema_id?: string | null
-  dataset_schema_revision?: number | null
+  dataset_schema_id: z.string().nullable().optional(),
+  dataset_schema_revision: z.number().nullable().optional(),
+  dataset_schema: scientificDatasetSchemaBindingSchema.nullable().optional(),
+})
+
+export type ScientificTableWire = Omit<
+  ScientificWire<typeof scientificTableSchema>,
+  'columns' | 'dataset_schema'
+> & {
+  columns: ScientificColumnWire[]
   dataset_schema?: ScientificDatasetSchemaBinding | null
 }
 
-export interface ScientificRowWire {
-  id: string
-  created_at?: string
-  version: number
-  [field: string]: unknown
-}
+export const scientificRowSchema = modelMetadataSchema({
+  id: z.string(),
+  created_at: z.string().optional(),
+  version: z.number(),
+})
+
+/** Missing fields read as undefined; an explicit non-JSON value is still
+ * rejected by scientificRowSchema, rather than omitted or converted. */
+export type ScientificRowWire = ScientificWire<typeof scientificRowSchema> &
+  Partial<z.infer<typeof pipelineJsonObjectSchema>>
+
+export type ScientificValues = z.infer<typeof pipelineJsonObjectSchema>
 
 export interface ScientificEdit {
   rowId: string
   expectedVersion: number
-  values: Record<string, unknown>
+  values: ScientificValues
 }
 
 export type ScientificEditResult =
@@ -76,6 +123,32 @@ export type ScientificEditResult =
         message: string
       }>
     }
+
+const scientificEditResultSchema = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    schemaVersion: z.number(),
+    rows: z.array(scientificRowSchema),
+  }),
+  z.object({
+    ok: z.literal(false),
+    errors: z.array(
+      z.object({
+        rowId: z.string(),
+        columnId: z.string(),
+        code: z.string(),
+        message: z.string(),
+      }),
+    ),
+  }),
+])
+
+const scientificResponseSchema = modelMetadataSchema({
+  error: modelMetadataSchema({
+    code: z.string().optional(),
+    message: z.string().optional(),
+  }).optional(),
+})
 
 export const SCIENTIFIC_PAGE_SIZE = 200
 
@@ -95,9 +168,9 @@ export interface ScientificColumnInput {
   label: string
   logicalType: ScientificLogicalType
   nullable: boolean
-  defaultValue?: unknown
-  unit?: Record<string, unknown>
-  validation: Record<string, unknown>
+  defaultValue?: ScientificColumnWire['default_value']
+  unit?: NonNullable<ScientificColumnWire['unit']>
+  validation: ScientificColumnWire['validation']
   options?: Array<{ id: string; label: string }>
 }
 
@@ -116,10 +189,11 @@ export interface ScientificSchemaEvidence {
 export async function fetchScientificTable(
   client: DataClient,
   tableId: string,
-) {
-  const result = await client.rpc<ScientificTableWire[]>(
-    'scientific_table_metadata',
-    { p_table_id: tableId },
+): Promise<ScientificTableWire | null> {
+  const result = z.array(scientificTableSchema).parse(
+    await client.rpc<unknown>('scientific_table_metadata', {
+      p_table_id: tableId,
+    }),
   )
 
   return result.length > 0 ? result[0] : null
@@ -129,70 +203,98 @@ export async function fetchScientificRows(
   client: DataClient,
   table: ScientificTableWire,
   page = 0,
-) {
+): Promise<ScientificRowWire[]> {
   const offset = Math.max(0, Math.trunc(page)) * SCIENTIFIC_PAGE_SIZE
   const query = `?select=*&order=created_at.asc,id.asc&limit=${SCIENTIFIC_PAGE_SIZE}&offset=${offset}`
 
-  return client.list<ScientificRowWire>(
-    encodeURIComponent(table.resource_name),
-    query,
-  )
+  return z
+    .array(scientificRowSchema)
+    .parse(
+      await client.list<unknown>(
+        encodeURIComponent(table.resource_name),
+        query,
+      ),
+    )
 }
 
-export function fetchAllScientificRows(
+export async function fetchAllScientificRows(
   client: DataClient,
   table: ScientificTableWire,
-) {
-  return client.list<ScientificRowWire>(
-    encodeURIComponent(table.resource_name),
-    '?select=*&order=created_at.asc,id.asc&limit=10001',
+): Promise<ScientificRowWire[]> {
+  return z
+    .array(scientificRowSchema)
+    .parse(
+      await client.list<unknown>(
+        encodeURIComponent(table.resource_name),
+        '?select=*&order=created_at.asc,id.asc&limit=10001',
+      ),
+    )
+}
+
+const formulaDefinitionSchema = modelMetadataSchema({
+  id: z.string(),
+  target_table_id: z.string(),
+  target_row_id: z.string(),
+  target_column_id: z.string(),
+  source_expression: z.string(),
+  template: pipelineJsonValueSchema,
+  bindings: pipelineJsonValueSchema,
+  engine_expression: z.string(),
+  syntax_profile: z.string(),
+  function_profile: z.string(),
+  literal_profile: z.string(),
+  engine_version: z.string(),
+  status: z.enum(['supported', 'unsupported']),
+  version: z.union([z.number(), z.string()]),
+  created_at: z.string(),
+}).transform((value) => {
+  const bindings: PersistedFormulaArtifact['bindings'] = decodeFormulaBindings(
+    value.bindings,
   )
-}
 
-export interface FormulaDefinitionWire {
-  id: string
-  target_table_id: string
-  target_row_id: string
-  target_column_id: string
-  source_expression: string
-  template: unknown
-  bindings: unknown
-  engine_expression: string
-  syntax_profile: string
-  function_profile: string
-  literal_profile: string
-  engine_version: string
-  status: 'supported' | 'unsupported'
-  version: number | string
-  created_at: string
-}
+  const template = decodeFormulaNode(value.template, bindings.length)
 
-export interface FormulaDependencyWire {
-  formula_id: string
-  source_table_id: string
-  source_row_id: string
-  source_column_id: string
-}
+  return { ...value, bindings, template }
+})
 
-export interface FormulaResultWire {
-  formula_id: string
-  target_table_id: string
-  target_row_id: string
-  target_column_id: string
-  cell_kind: 'formula'
-  value_is_authoritative: false
-  definition_status: 'supported' | 'unsupported'
-  formula_version: number | string
-  current_input_revision: number | string
-  calculation_status: 'pending' | 'current' | 'stale' | 'failed' | 'unavailable'
-  calculated_value: unknown
-  calculation_error_code: string | null
-  cache_input_revision: number | string | null
-  engine_version: string | null
-  profile_fingerprint: string | null
-  runtime_fingerprint: string | null
-  calculated_at: string | null
-}
+export type FormulaDefinitionWire = z.infer<typeof formulaDefinitionSchema>
+
+const formulaDependencySchema = modelMetadataSchema({
+  formula_id: z.string(),
+  source_table_id: z.string(),
+  source_row_id: z.string(),
+  source_column_id: z.string(),
+})
+
+export type FormulaDependencyWire = z.infer<typeof formulaDependencySchema>
+
+const formulaResultSchema = modelMetadataSchema({
+  formula_id: z.string(),
+  target_table_id: z.string(),
+  target_row_id: z.string(),
+  target_column_id: z.string(),
+  cell_kind: z.literal('formula'),
+  value_is_authoritative: z.literal(false),
+  definition_status: z.enum(['supported', 'unsupported']),
+  formula_version: z.union([z.number(), z.string()]),
+  current_input_revision: z.union([z.number(), z.string()]),
+  calculation_status: z.enum([
+    'pending',
+    'current',
+    'stale',
+    'failed',
+    'unavailable',
+  ]),
+  calculated_value: pipelineJsonValueSchema,
+  calculation_error_code: z.string().nullable(),
+  cache_input_revision: z.union([z.number(), z.string(), z.null()]),
+  engine_version: z.string().nullable(),
+  profile_fingerprint: z.string().nullable(),
+  runtime_fingerprint: z.string().nullable(),
+  calculated_at: z.string().nullable(),
+})
+
+export type FormulaResultWire = z.infer<typeof formulaResultSchema>
 
 export async function fetchScientificCalculationResults(
   client: DataClient,
@@ -202,10 +304,14 @@ export async function fetchScientificCalculationResults(
   const pageSize = 1000
 
   for (let offset = 0; ; offset += pageSize) {
-    const page = await client.list<FormulaResultWire>(
-      'formula_results',
-      `?target_table_id=eq.${encodeURIComponent(tableId)}&order=formula_id.asc&limit=${pageSize}&offset=${offset}`,
-    )
+    const page = z
+      .array(formulaResultSchema)
+      .parse(
+        await client.list<unknown>(
+          'formula_results',
+          `?target_table_id=eq.${encodeURIComponent(tableId)}&order=formula_id.asc&limit=${pageSize}&offset=${offset}`,
+        ),
+      )
 
     result.push(...page)
 
@@ -223,9 +329,11 @@ export async function requestScientificCalculation(
     body: JSON.stringify({ recordId }),
   })
 
-  const body = (await response.json().catch(() => null)) as {
-    error?: { message?: string }
-  } | null
+  const parsed = scientificResponseSchema.safeParse(
+    await response.json().catch(() => null),
+  )
+
+  const body = parsed.success ? parsed.data : null
 
   if (!response.ok)
     throw new Error(body?.error?.message ?? 'Trusted calculation failed.')
@@ -241,10 +349,14 @@ export async function fetchScientificDependencies(
   const pageSize = 1000
 
   for (let offset = 0; ; offset += pageSize) {
-    const page = await client.list<FormulaDependencyWire>(
-      'formula_dependencies',
-      `?source_table_id=eq.${encodeURIComponent(tableId)}&order=formula_id.asc,source_row_id.asc,source_column_id.asc&limit=${pageSize}&offset=${offset}`,
-    )
+    const page = z
+      .array(formulaDependencySchema)
+      .parse(
+        await client.list<unknown>(
+          'formula_dependencies',
+          `?source_table_id=eq.${encodeURIComponent(tableId)}&order=formula_id.asc,source_row_id.asc,source_column_id.asc&limit=${pageSize}&offset=${offset}`,
+        ),
+      )
 
     result.push(...page)
 
@@ -260,10 +372,14 @@ export async function fetchScientificFormulas(
   const pageSize = 1000
 
   for (let offset = 0; ; offset += pageSize) {
-    const page = await client.list<FormulaDefinitionWire>(
-      'formula_definitions',
-      `?target_table_id=eq.${encodeURIComponent(tableId)}&order=created_at.asc,id.asc&limit=${pageSize}&offset=${offset}`,
-    )
+    const page = z
+      .array(formulaDefinitionSchema)
+      .parse(
+        await client.list<unknown>(
+          'formula_definitions',
+          `?target_table_id=eq.${encodeURIComponent(tableId)}&order=created_at.asc,id.asc&limit=${pageSize}&offset=${offset}`,
+        ),
+      )
 
     result.push(...page)
 
@@ -304,13 +420,16 @@ export type FormulaMutationInput =
       expectedSchemaVersion: number
       expectedRowVersion: number
       expectedFormulaVersion: number
-      replacement: unknown
+      replacement: ScientificScalar
     }
 
 export async function mutateScientificFormula(
   input: FormulaMutationInput,
   fetchImpl: typeof fetch = fetch,
 ) {
+  // Reject non-finite replacement values before JSON serialization changes them.
+  pipelineJsonObjectSchema.parse(input)
+
   const response = await fetchImpl('/api/formulas', {
     method: 'POST',
     credentials: 'same-origin',
@@ -318,9 +437,11 @@ export async function mutateScientificFormula(
     body: JSON.stringify(input),
   })
 
-  const body = (await response.json().catch(() => null)) as {
-    error?: { code?: string; message?: string }
-  } | null
+  const parsed = scientificResponseSchema.safeParse(
+    await response.json().catch(() => null),
+  )
+
+  const body = parsed.success ? parsed.data : null
 
   if (!response.ok)
     throw new FormulaMutationError(
@@ -332,19 +453,25 @@ export async function mutateScientificFormula(
   return body
 }
 
-export function applyScientificRowChanges(
+export async function applyScientificRowChanges(
   client: DataClient,
   tableId: string,
   schemaVersion: number,
   edits: ScientificEdit[],
-  inserts: Array<Record<string, unknown>>,
-) {
-  return client.rpc<ScientificEditResult>('apply_scientific_row_changes', {
+  inserts: ScientificValues[],
+): Promise<ScientificEditResult> {
+  const args = {
     p_table_id: tableId,
     p_expected_schema_version: schemaVersion,
     p_edits: edits,
     p_inserts: inserts,
-  })
+  }
+
+  pipelineJsonObjectSchema.parse(args)
+
+  return scientificEditResultSchema.parse(
+    await client.rpc<unknown>('apply_scientific_row_changes', args),
+  )
 }
 
 export interface ScientificImportInput {
@@ -358,42 +485,53 @@ export interface ScientificImportInput {
     delimiter: string
     header: boolean
   }
-  mappings: Array<Record<string, unknown>>
-  rows: Array<Record<string, unknown>>
+  mappings: ScientificValues[]
+  rows: ScientificValues[]
   duplicateStrategy: 'allow' | 'reject_file' | 'skip_file'
 }
 
-export function importScientificRows(
+export async function importScientificRows(
   client: DataClient,
   input: ScientificImportInput,
 ) {
-  return client.rpc<
-    ScientificEditResult & {
-      transferId: string
-      importedRows: number
-      skippedDuplicates: number
-      schemaVersion: number
-    }
-  >('import_scientific_rows', {
+  const args = {
     p_table_id: input.tableId,
     p_expected_schema_version: input.schemaVersion,
     p_file: input.file,
     p_mappings: input.mappings,
     p_rows: input.rows,
     p_duplicate_strategy: input.duplicateStrategy,
-  })
+  }
+
+  pipelineJsonObjectSchema.parse(args)
+
+  const response = await client.rpc<unknown>('import_scientific_rows', args)
+
+  return {
+    ...scientificEditResultSchema.parse(response),
+    ...z
+      .object({
+        transferId: z.string(),
+        importedRows: z.number(),
+        skippedDuplicates: z.number(),
+        schemaVersion: z.number(),
+      })
+      .parse(response),
+  }
 }
 
-export function recordScientificExport(
+export async function recordScientificExport(
   client: DataClient,
   tableId: string,
   rowCount: number,
 ) {
-  return client.rpc('record_scientific_export', {
-    p_table_id: tableId,
-    p_row_count: rowCount,
-    p_format: 'csv+metadata',
-  })
+  return pipelineJsonObjectSchema.parse(
+    await client.rpc<unknown>('record_scientific_export', {
+      p_table_id: tableId,
+      p_row_count: rowCount,
+      p_format: 'csv+metadata',
+    }),
+  )
 }
 
 /**
@@ -412,58 +550,63 @@ export async function deleteScientificRows(
   return client.remove(encodeURIComponent(resource), query)
 }
 
-export function renameScientificTable(
+export async function renameScientificTable(
   client: DataClient,
   tableId: string,
   schemaVersion: number,
   name: string,
 ) {
-  return client.rpc('update_scientific_table_display', {
-    p_table_id: tableId,
-    p_expected_schema_version: schemaVersion,
-    p_name: name,
-  })
+  return pipelineJsonObjectSchema.parse(
+    await client.rpc<unknown>('update_scientific_table_display', {
+      p_table_id: tableId,
+      p_expected_schema_version: schemaVersion,
+      p_name: name,
+    }),
+  )
 }
 
-export function addScientificColumn(
+export async function addScientificColumn(
   client: DataClient,
   tableId: string,
   schemaVersion: number,
   input: ScientificColumnInput,
 ) {
-  const args: Record<string, unknown> = {
+  const args = {
     p_table_id: tableId,
     p_expected_schema_version: schemaVersion,
     p_label: input.label,
     p_logical_type: input.logicalType,
     p_nullable: input.nullable,
-    p_unit: input.unit ?? null,
-    p_validation: input.validation,
+    p_unit: modelFieldUnitSchema.nullable().parse(input.unit ?? null),
+    p_validation: modelFieldValidationSchema.parse(input.validation),
     p_options: input.options ?? null,
+    // Undefined means no default. The SQL contract deliberately also treats
+    // JSON null as omitted; required defaults therefore cannot be null.
+    p_default: Object.hasOwn(input, 'defaultValue')
+      ? pipelineJsonValueSchema.optional().parse(input.defaultValue)
+      : null,
   }
 
-  // Undefined means no default. The SQL contract deliberately also treats
-  // JSON null as omitted; required defaults therefore cannot be null.
-  args.p_default = Object.hasOwn(input, 'defaultValue')
-    ? input.defaultValue
-    : null
-
-  return client.rpc('add_scientific_column', args)
+  return pipelineJsonObjectSchema.parse(
+    await client.rpc<unknown>('add_scientific_column', args),
+  )
 }
 
-export function updateScientificColumnDisplay(
+export async function updateScientificColumnDisplay(
   client: DataClient,
   columnId: string,
   schemaVersion: number,
   label: string | null,
   displayOrder: number | null,
 ) {
-  return client.rpc('update_scientific_column_display', {
-    p_column_id: columnId,
-    p_expected_schema_version: schemaVersion,
-    p_label: label,
-    p_display_order: displayOrder,
-  })
+  return pipelineJsonObjectSchema.parse(
+    await client.rpc<unknown>('update_scientific_column_display', {
+      p_column_id: columnId,
+      p_expected_schema_version: schemaVersion,
+      p_label: label,
+      p_display_order: displayOrder,
+    }),
+  )
 }
 
 export function preflightScientificConversion(
@@ -509,16 +652,23 @@ export interface CellValidationError {
 /** Strict, total conversion at the client boundary. Throws before any RPC. */
 export function decodeScientificValue(
   column: ScientificColumnWire,
-  input: unknown,
-): unknown {
+  input: ScientificColumnWire['default_value'],
+): ScientificScalar {
+  const decoded = z
+    .union([z.string(), z.number(), z.boolean(), z.null(), z.undefined()])
+    .safeParse(input)
+
+  if (!decoded.success)
+    throw new Error(`${column.label} must be a scalar value.`)
+
   if (input === '' || input === null || input === undefined) {
     if (!column.nullable) throw new Error(`${column.label} is required.`)
 
     return null
   }
 
-  let value: unknown
-  const text = typeof input === 'string' ? input : String(input)
+  let value: ScientificScalar
+  const text = String(decoded.data)
 
   switch (column.logical_type) {
     case 'integer':
@@ -530,7 +680,7 @@ export function decodeScientificValue(
         throw new Error(`${column.label} is outside the integer range.`)
       break
     case 'decimal':
-      value = typeof input === 'number' ? input : Number(text)
+      value = Number(text)
 
       if (!Number.isFinite(value))
         throw new Error(`${column.label} must be a finite number.`)
@@ -582,22 +732,24 @@ export function decodeScientificValue(
   }
 
   const v = column.validation
-  const n = typeof value === 'number' ? value : null
-  const s = typeof value === 'string' ? value : null
+  const numeric = z.number().safeParse(value)
+  const string = z.string().safeParse(value)
+  const n = numeric.success ? numeric.data : null
+  const s = string.success ? string.data : null
 
-  if (n !== null && typeof v.min === 'number' && n < v.min)
+  if (n !== null && v.min !== undefined && n < v.min)
     throw new Error(`${column.label} is below its minimum.`)
 
-  if (n !== null && typeof v.max === 'number' && n > v.max)
+  if (n !== null && v.max !== undefined && n > v.max)
     throw new Error(`${column.label} is above its maximum.`)
 
-  if (s !== null && typeof v.minLength === 'number' && s.length < v.minLength)
+  if (s !== null && v.minLength !== undefined && s.length < v.minLength)
     throw new Error(`${column.label} is too short.`)
 
-  if (s !== null && typeof v.maxLength === 'number' && s.length > v.maxLength)
+  if (s !== null && v.maxLength !== undefined && s.length > v.maxLength)
     throw new Error(`${column.label} is too long.`)
 
-  if (s !== null && typeof v.pattern === 'string') {
+  if (s !== null && v.pattern !== undefined) {
     let regex: RegExp
 
     try {

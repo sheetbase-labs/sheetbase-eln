@@ -66,7 +66,7 @@ const TASK_INSTRUCTIONS: Record<PageAiTask, string> = {
 }
 
 export const pageAiSchema = z
-  .object({
+  .strictObject({
     workspaceId: z.string().uuid(),
     task: z.enum(PAGE_AI_TASKS),
     /** What the person asked for, e.g. "make this more formal". */
@@ -75,18 +75,15 @@ export const pageAiSchema = z
     text: z.string().max(PAGE_AI_MAX_TEXT_CHARS).default(''),
     objectRefs: z
       .array(
-        z
-          .object({
-            kind: z.enum(AI_OBJECT_REF_KINDS),
-            id: z.string().uuid(),
-            pinnedVersionId: z.string().uuid().nullish(),
-          })
-          .strict(),
+        z.strictObject({
+          kind: z.enum(AI_OBJECT_REF_KINDS),
+          id: z.string().uuid(),
+          pinnedVersionId: z.string().uuid().nullish(),
+        }),
       )
       .max(PAGE_AI_MAX_OBJECT_REFS)
       .default([]),
   })
-  .strict()
   .refine(
     (input) =>
       input.text.trim() !== '' ||
@@ -115,10 +112,14 @@ export type PageAiResult =
 /** The prompt body: the instruction, then the text, in labelled parts. */
 export function buildPageAiPrompt(input: PageAiInput): string {
   const parts: string[] = []
+
   if (input.instruction.trim())
     parts.push(`Instruction: ${input.instruction.trim()}`)
+
   if (input.text.trim()) parts.push(`Text:\n${input.text.trim()}`)
+
   if (parts.length === 0) parts.push('Instruction: Use the supplied context.')
+
   return parts.join('\n\n')
 }
 
@@ -131,7 +132,9 @@ export async function runPageAi(
   deps: AssistantDeps,
 ): Promise<PageAiResult> {
   const prepared = await prepare({ objectRefs: input.objectRefs }, deps)
+
   if ('status' in prepared) return prepared
+
   try {
     const result = await callModel(
       deps.actor,
@@ -149,6 +152,7 @@ export async function runPageAi(
       },
       { provider: prepared.provider, pricing: pricingFor(prepared, deps) },
     )
+
     return {
       status: 'ok',
       text: result.text.trim(),

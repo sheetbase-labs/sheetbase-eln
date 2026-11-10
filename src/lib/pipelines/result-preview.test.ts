@@ -2,12 +2,67 @@ import { describe, expect, it } from 'vitest'
 
 import {
   PREVIEW_MAX_CELL_CHARS,
+  PREVIEW_MAX_COLUMNS,
   PREVIEW_MAX_ROWS,
   buildResultPreview,
   readResultPreview,
 } from './result-preview'
 
 describe('buildResultPreview', () => {
+  it.each([
+    { value: 1, expected: 1 },
+    { value: { polluted: true }, expected: '{"polluted":true}' },
+  ])(
+    'retains an own __proto__ column with $expected',
+    ({ value, expected }) => {
+      const row = { sample: 'a', ['__proto__']: value }
+      const preview = buildResultPreview([row])
+
+      expect(preview.columns).toEqual(['sample', '__proto__'])
+      expect(preview.rows).toEqual([['a', expected]])
+      expect(readResultPreview({ resultPreview: preview })).toEqual(preview)
+      expect(Object.hasOwn(row, '__proto__')).toBe(true)
+      expect(Object.getPrototypeOf(row)).toBe(Object.prototype)
+      expect(Object.hasOwn(Object.prototype, 'polluted')).toBe(false)
+    },
+  )
+
+  it('keeps text, JSON, booleans and absent or nonfinite values distinct', () => {
+    expect(
+      buildResultPreview([
+        {
+          text: '1',
+          json: { values: [1, null] },
+          ok: false,
+          absent: undefined,
+          n: NaN,
+        },
+        { text: '2', json: [true, 'x'], ok: true, n: Infinity },
+      ]).rows,
+    ).toEqual([
+      ['1', '{"values":[1,null]}', false, null, null],
+      ['2', '[true,"x"]', true, null, null],
+    ])
+  })
+
+  it('does not serialize cells outside the bounded rows and columns', () => {
+    const row = Object.fromEntries(
+      Array.from({ length: PREVIEW_MAX_COLUMNS }, (_, i) => [`c${i}`, i]),
+    )
+
+    const rows = Array.from({ length: PREVIEW_MAX_ROWS }, () => ({
+      ...row,
+      hidden: 1n,
+    }))
+
+    const preview = buildResultPreview([...rows, { hidden: 1n }])
+
+    expect(preview.columns).toHaveLength(PREVIEW_MAX_COLUMNS)
+    expect(preview.rows).toHaveLength(PREVIEW_MAX_ROWS)
+    expect(preview.rowCount).toBe(PREVIEW_MAX_ROWS + 1)
+    expect(preview.truncated).toBe(true)
+  })
+
   it('keeps columns in order and turns values into plain cells', () => {
     const preview = buildResultPreview([
       {
@@ -51,6 +106,51 @@ describe('buildResultPreview', () => {
 })
 
 describe('readResultPreview', () => {
+  it('decodes stored cells without normalising, bounding or coercing them', () => {
+    const rows = [
+      [
+        null,
+        false,
+        1.25,
+        '1.25',
+        'x'.repeat(PREVIEW_MAX_CELL_CHARS + 20),
+        NaN,
+        Infinity,
+      ],
+    ]
+
+    expect(
+      readResultPreview({
+        resultPreview: {
+          columns: ['a'],
+          rows,
+          rowCount: -2.5,
+          truncated: 'true',
+        },
+      }),
+    ).toEqual({ columns: ['a'], rows, rowCount: -2.5, truncated: false })
+    expect(
+      readResultPreview({
+        resultPreview: {
+          columns: [],
+          rows: [[], []],
+          rowCount: '2',
+        },
+      }),
+    ).toEqual({ columns: [], rows: [[], []], rowCount: 2, truncated: false })
+  })
+
+  it('rejects cells outside the stored preview contract', () => {
+    expect(
+      readResultPreview({
+        resultPreview: {
+          columns: ['a'],
+          rows: [[{ nested: true }]],
+        },
+      }),
+    ).toBeNull()
+  })
+
   it('round-trips a stored preview', () => {
     const preview = buildResultPreview([{ a: 1 }])
     expect(readResultPreview({ resultPreview: preview })).toEqual(preview)

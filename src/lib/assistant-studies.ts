@@ -22,6 +22,7 @@ export const REPORT_GENERATE_TOOL = 'sheetbase.report.generate'
 export const PLATE_DESIGN_ARCHIVE_TOOL = 'sheetbase.plate_design.archive'
 export const STUDY_TASK_DELETE_TOOL = 'sheetbase.study.task_delete'
 export const ANALYSIS_VIEW_DELETE_TOOL = 'sheetbase.analysis_view.delete'
+
 export const ANALYSIS_DEFINITION_DELETE_TOOL =
   'sheetbase.analysis_definition.delete'
 
@@ -41,6 +42,7 @@ export type StudiesProposeToolName = (typeof STUDIES_PROPOSE_TOOL_NAMES)[number]
 const title = z.string().min(1).max(120)
 const summary = z.string().min(1).max(400)
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD.')
+
 const STATUSES = [
   'not_started',
   'in_progress',
@@ -49,138 +51,119 @@ const STATUSES = [
   'blocked',
   'cancelled',
 ] as const
+
 const PRIORITIES = ['low', 'medium', 'high', 'critical'] as const
 
-export const proposeStudyTaskAddSchema = z
-  .object({
-    title,
-    summary,
-    task: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe(
-        'The name of the new task or milestone, in the person’s words.',
-      ),
-    type: z
-      .enum(['task', 'milestone'])
-      .optional()
-      .describe('`milestone` for a date that matters. Default `task`.'),
-    project: z
-      .string()
-      .min(1)
-      .max(200)
-      .optional()
-      .describe('The project it belongs to, by name or key, if they said.'),
-    dueOn: day.optional().describe('When it is due, if they said.'),
-    priority: z.enum(PRIORITIES).optional(),
-    description: z.string().min(1).max(1000).optional(),
-  })
-  .strict()
+export const proposeStudyTaskAddSchema = z.strictObject({
+  title,
+  summary,
+  task: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The name of the new task or milestone, in the person’s words.'),
+  type: z
+    .enum(['task', 'milestone'])
+    .optional()
+    .describe('`milestone` for a date that matters. Default `task`.'),
+  project: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('The project it belongs to, by name or key, if they said.'),
+  dueOn: day.optional().describe('When it is due, if they said.'),
+  priority: z.enum(PRIORITIES).optional(),
+  description: z.string().min(1).max(1000).optional(),
+})
 
-export const proposeStudyTaskUpdateSchema = z
-  .object({
-    title,
-    summary,
-    task: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The planner task, by words from its name.'),
-    status: z.enum(STATUSES).optional(),
-    priority: z.enum(PRIORITIES).optional(),
-    progressPercent: z.number().int().min(1).max(100).optional(),
-    dueOn: day
-      .optional()
-      .describe(
-        'A new due date. Needs a reason, which is kept in its history.',
-      ),
-    reason: z
-      .string()
-      .min(1)
-      .max(500)
-      .optional()
-      .describe('Why the due date moved, in the person’s words.'),
-  })
-  .strict()
+export const proposeStudyTaskUpdateSchema = z.strictObject({
+  title,
+  summary,
+  task: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The planner task, by words from its name.'),
+  status: z.enum(STATUSES).optional(),
+  priority: z.enum(PRIORITIES).optional(),
+  progressPercent: z.number().int().min(1).max(100).optional(),
+  dueOn: day
+    .optional()
+    .describe('A new due date. Needs a reason, which is kept in its history.'),
+  reason: z
+    .string()
+    .min(1)
+    .max(500)
+    .optional()
+    .describe('Why the due date moved, in the person’s words.'),
+})
 
-export const proposeStudyDeliverableAddSchema = z
-  .object({
-    title,
-    summary,
-    task: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The planner task or milestone it belongs to.'),
-    name: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('What the task must produce, in the person’s words.'),
-    dueOn: day.optional(),
-  })
-  .strict()
+export const proposeStudyDeliverableAddSchema = z.strictObject({
+  title,
+  summary,
+  task: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The planner task or milestone it belongs to.'),
+  name: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('What the task must produce, in the person’s words.'),
+  dueOn: day.optional(),
+})
 
-export const proposeReportGenerateSchema = z
-  .object({
-    title,
-    summary,
-    report: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The report, by words from its title or its document number.'),
-  })
-  .strict()
+export const proposeReportGenerateSchema = z.strictObject({
+  title,
+  summary,
+  report: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The report, by words from its title or its document number.'),
+})
 
-export const proposePlateDesignArchiveSchema = z
-  .object({
-    title,
-    summary,
-    design: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The plate design, by words from its name.'),
-  })
-  .strict()
+export const proposePlateDesignArchiveSchema = z.strictObject({
+  title,
+  summary,
+  design: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The plate design, by words from its name.'),
+})
 
-export const proposeStudyTaskDeleteSchema = z
-  .object({
-    title,
-    summary,
-    task: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The planner task or milestone to delete, by its name.'),
-  })
-  .strict()
+export const proposeStudyTaskDeleteSchema = z.strictObject({
+  title,
+  summary,
+  task: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The planner task or milestone to delete, by its name.'),
+})
 
-export const proposeAnalysisViewDeleteSchema = z
-  .object({
-    title,
-    summary,
-    view: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The saved analysis view to delete, by its name.'),
-  })
-  .strict()
+export const proposeAnalysisViewDeleteSchema = z.strictObject({
+  title,
+  summary,
+  view: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The saved analysis view to delete, by its name.'),
+})
 
-export const proposeAnalysisDefinitionDeleteSchema = z
-  .object({
-    title,
-    summary,
-    definition: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The saved analysis definition to delete, by its name.'),
-  })
-  .strict()
+export const proposeAnalysisDefinitionDeleteSchema = z.strictObject({
+  title,
+  summary,
+  definition: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The saved analysis definition to delete, by its name.'),
+})
 
 /** What a planning or reporting card does when its button is pressed. */
 export type StudiesAction =

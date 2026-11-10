@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   changedRevisionFixture,
@@ -213,6 +214,30 @@ describe('diffRevisionEnvelopes', () => {
     ).toBe(true)
   })
 
+  it('preserves native scientific values and record identity coercion', () => {
+    const before = revisionFixture()
+    const after = revisionFixture()
+    const reads: string[] = []
+    const value = { sample: 'unmodified', amount: 7n }
+
+    before.record.identityValue = 2n
+    after.record.identityValue = value
+    after.record.id = {
+      toString() {
+        reads.push('identity')
+
+        return 'scientific-record'
+      },
+    }
+
+    const diff = diffRevisionEnvelopes(before, after)
+    const change = diff.changes.find((item) => item.path[0] === 'identityValue')
+
+    expect(change).toMatchObject({ identity: 'scientific-record', before: 2n })
+    expect(change?.after).toBe(value)
+    expect(reads).toEqual(['identity'])
+  })
+
   it('reports exact frozen Sheet calculation expression changes without evaluating formulas', () => {
     const before = revisionFixture()
     before.formulas = []
@@ -333,11 +358,10 @@ describe('diffRevisionEnvelopes', () => {
 
   it('fails closed when a canonical entity has no stable identity', () => {
     const invalid = revisionFixture()
-    invalid.blocks.push({
-      type: 'note',
-      order: 4,
-      payload: { text: 'Unidentifiable' },
-    } as never)
+    Reflect.set(invalid, 'blocks', [
+      ...invalid.blocks,
+      { type: 'note', order: 4, payload: { text: 'Unidentifiable' } },
+    ])
     expect(() => diffRevisionEnvelopes(revisionFixture(), invalid)).toThrow(
       /stable string identity/,
     )
@@ -377,9 +401,9 @@ describe('diffRevisionEnvelopes', () => {
     const before = revisionFixture()
     const after = revisionFixture()
 
-    const columns = after.scientificTables[0].columns as Array<
-      Record<string, unknown>
-    >
+    const columns = z
+      .array(z.record(z.string(), z.unknown()))
+      .parse(after.scientificTables[0].columns)
 
     columns[0].display_order = 1
     columns[1].display_order = 0
@@ -502,12 +526,15 @@ describe('diffRevisionEnvelopes', () => {
     const tableBefore = before.scientificTables[0]
     const tableAfter = after.scientificTables[0]
 
-    const toFieldName = (columns: unknown) =>
-      (columns as Array<Record<string, unknown>>).map((column) => {
-        const { api_name, ...rest } = column
+    const toFieldName = (columns: (typeof tableBefore)['columns']) =>
+      z
+        .array(z.record(z.string(), z.unknown()))
+        .parse(columns)
+        .map((column) => {
+          const { api_name, ...rest } = column
 
-        return { ...rest, field_name: api_name }
-      })
+          return { ...rest, field_name: api_name }
+        })
 
     tableBefore.columns = toFieldName(tableBefore.columns)
     tableAfter.columns = toFieldName(tableAfter.columns)

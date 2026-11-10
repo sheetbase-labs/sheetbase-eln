@@ -38,11 +38,15 @@ export const LINK_RULE_SET_TOOL = 'sheetbase.model_link_rule.set'
 export const LINK_RULE_REMOVE_TOOL = 'sheetbase.model_link_rule.remove'
 export const MODEL_VERSION_START_TOOL = 'sheetbase.model_version.start'
 export const MODEL_VERSION_PUBLISH_TOOL = 'sheetbase.model_version.publish'
+
 export const SHEET_DEFINITION_PUBLISH_TOOL =
   'sheetbase.sheet_definition.publish'
+
 export const SHEET_DEFINITION_RETIRE_TOOL = 'sheetbase.sheet_definition.retire'
+
 export const SHEET_DEFINITION_RESTORE_TOOL =
   'sheetbase.sheet_definition.restore'
+
 export const TEMPLATE_PUBLISH_TOOL = 'sheetbase.template.publish'
 export const SHEET_RENAME_TOOL = 'sheetbase.sheet.rename'
 
@@ -76,9 +80,11 @@ const model = named('The record type, by name or key, such as Cell line.')
 const field = named('The field, by its label or name.')
 const option = named('The choice, by what people see or what is stored.')
 const reason = z.string().min(1).max(500).describe('Why, in a sentence.')
+
 const key = z
   .string()
   .regex(/^[a-z][a-z0-9_]{0,59}$/, 'Lower case letters, digits and _.')
+
 const prefix = z
   .string()
   .regex(/^[A-Z][A-Z0-9]{0,9}$/, 'Capital letters and digits, such as CL.')
@@ -120,174 +126,167 @@ const effect = z
     'warn shows it; block refuses the save; flag_block_submit lets it be saved but not submitted.',
   )
 
-export const modelsReadSchema = z
-  .object({
-    model: model
-      .optional()
-      .describe(
-        'One record type, to see its fields, choices, rules, link rules and versions. Leave out to list them all.',
-      ),
-  })
-  .strict()
+export const modelsReadSchema = z.strictObject({
+  model: model
+    .optional()
+    .describe(
+      'One record type, to see its fields, choices, rules, link rules and versions. Leave out to list them all.',
+    ),
+})
 
-export const sheetDefinitionsReadSchema = z
-  .object({
-    definition: named('One sheet definition, by name or key.')
-      .optional()
-      .describe('Leave out to list them all.'),
-  })
-  .strict()
+export const sheetDefinitionsReadSchema = z.strictObject({
+  definition: named('One sheet definition, by name or key.')
+    .optional()
+    .describe('Leave out to list them all.'),
+})
 
-export const templatesReadSchema = z
-  .object({
-    template: named('One notebook template, by name or key.')
-      .optional()
-      .describe('Leave out to list them all.'),
-  })
-  .strict()
+export const templatesReadSchema = z.strictObject({
+  template: named('One notebook template, by name or key.')
+    .optional()
+    .describe('Leave out to list them all.'),
+})
 
-export const modelDependenciesSchema = z.object({ model }).strict()
+export const modelDependenciesSchema = z.strictObject({ model })
 
-export const proposeModelCreateSchema = z
-  .object({
-    title,
-    summary,
-    name: z.string().min(1).max(120).describe('What people call it.'),
-    key: key.optional().describe('Leave out to make one from the name.'),
-    prefix: prefix.describe('What identifiers start with.'),
-    description: z.string().max(500).optional(),
-  })
-  .strict()
+export const proposeModelCreateSchema = z.strictObject({
+  title,
+  summary,
+  name: z.string().min(1).max(120).describe('What people call it.'),
+  key: key.optional().describe('Leave out to make one from the name.'),
+  prefix: prefix.describe('What identifiers start with.'),
+  description: z.string().max(500).optional(),
+})
 
 export const proposeModelSubtypeSchema = proposeModelCreateSchema
   .extend({ parent: named('The record type it is a kind of.') })
   .strict()
 
-export const proposeFieldRetireSchema = z
-  .object({ title, summary, model, field })
-  .strict()
+export const proposeFieldRetireSchema = z.strictObject({
+  title,
+  summary,
+  model,
+  field,
+})
 
-export const proposeOptionAddSchema = z
-  .object({
-    title,
-    summary,
-    model,
-    field,
-    label: z.string().min(1).max(120).describe('What people see.'),
-    key: key.optional().describe('What is stored; leave out to make one.'),
-  })
-  .strict()
+export const proposeOptionAddSchema = z.strictObject({
+  title,
+  summary,
+  model,
+  field,
+  label: z.string().min(1).max(120).describe('What people see.'),
+  key: key.optional().describe('What is stored; leave out to make one.'),
+})
 
-export const proposeOptionRenameSchema = z
-  .object({
-    title,
-    summary,
-    model,
-    field,
-    option,
-    label: z.string().min(1).max(120).describe('The new label.'),
-  })
-  .strict()
+export const proposeOptionRenameSchema = z.strictObject({
+  title,
+  summary,
+  model,
+  field,
+  option,
+  label: z.string().min(1).max(120).describe('The new label.'),
+})
 
-export const proposeOptionRetireSchema = z
-  .object({ title, summary, model, field, option })
-  .strict()
+export const proposeOptionRetireSchema = z.strictObject({
+  title,
+  summary,
+  model,
+  field,
+  option,
+})
 
-export const proposeRuleAddSchema = z
-  .object({
-    title,
-    summary,
-    model,
-    name: z.string().min(1).max(200),
-    fields: z.array(field).min(1).max(10).describe('The fields it looks at.'),
-    condition,
-    effect,
-    message: z.string().min(1).max(500).describe('What people see.'),
-  })
-  .strict()
+export const proposeRuleAddSchema = z.strictObject({
+  title,
+  summary,
+  model,
+  name: z.string().min(1).max(200),
+  fields: z.array(field).min(1).max(10).describe('The fields it looks at.'),
+  condition,
+  effect,
+  message: z.string().min(1).max(500).describe('What people see.'),
+})
 
-export const proposeRuleUpdateSchema = z
-  .object({
-    title,
-    summary,
-    model,
-    rule: named('The rule, by its name.'),
-    name: z.string().min(1).max(200).optional(),
-    condition: condition.optional(),
-    effect: effect.optional(),
-    message: z.string().min(1).max(500).optional(),
-  })
-  .strict()
+export const proposeRuleUpdateSchema = z.strictObject({
+  title,
+  summary,
+  model,
+  rule: named('The rule, by its name.'),
+  name: z.string().min(1).max(200).optional(),
+  condition: condition.optional(),
+  effect: effect.optional(),
+  message: z.string().min(1).max(500).optional(),
+})
 
-export const proposeRuleRemoveSchema = z
-  .object({ title, summary, model, rule: named('The rule, by its name.') })
-  .strict()
+export const proposeRuleRemoveSchema = z.strictObject({
+  title,
+  summary,
+  model,
+  rule: named('The rule, by its name.'),
+})
 
-export const proposeLinkRuleSetSchema = z
-  .object({
-    title,
-    summary,
-    from: named('The record type the link is from.'),
-    to: named('The record type the link is to.'),
-    linkType: z
-      .enum([
-        'sample',
-        'protocol',
-        'dataset',
-        'material',
-        'analysis',
-        'file',
-        'general',
-        'template',
-        'follows',
-        'upstream',
-        'booking',
-      ])
-      .describe('The kind of link.'),
-    min: z.number().int().min(0).max(100).optional(),
-    max: z.number().int().min(0).max(100).optional(),
-    label: z.string().min(1).max(120).optional(),
-  })
-  .strict()
+export const proposeLinkRuleSetSchema = z.strictObject({
+  title,
+  summary,
+  from: named('The record type the link is from.'),
+  to: named('The record type the link is to.'),
+  linkType: z
+    .enum([
+      'sample',
+      'protocol',
+      'dataset',
+      'material',
+      'analysis',
+      'file',
+      'general',
+      'template',
+      'follows',
+      'upstream',
+      'booking',
+    ])
+    .describe('The kind of link.'),
+  min: z.number().int().min(0).max(100).optional(),
+  max: z.number().int().min(0).max(100).optional(),
+  label: z.string().min(1).max(120).optional(),
+})
 
-export const proposeLinkRuleRemoveSchema = z
-  .object({
-    title,
-    summary,
-    from: named('The record type the link is from.'),
-    to: named('The record type the link is to.'),
-  })
-  .strict()
+export const proposeLinkRuleRemoveSchema = z.strictObject({
+  title,
+  summary,
+  from: named('The record type the link is from.'),
+  to: named('The record type the link is to.'),
+})
 
-export const proposeModelVersionStartSchema = z
-  .object({ title, summary, model, reason })
-  .strict()
+export const proposeModelVersionStartSchema = z.strictObject({
+  title,
+  summary,
+  model,
+  reason,
+})
 
-export const proposeModelVersionPublishSchema = z
-  .object({ title, summary, model })
-  .strict()
+export const proposeModelVersionPublishSchema = z.strictObject({
+  title,
+  summary,
+  model,
+})
 
-export const proposeSheetDefinitionSchema = z
-  .object({ title, summary, definition: named('The sheet definition.') })
-  .strict()
+export const proposeSheetDefinitionSchema = z.strictObject({
+  title,
+  summary,
+  definition: named('The sheet definition.'),
+})
 
-export const proposeTemplatePublishSchema = z
-  .object({
-    title,
-    summary,
-    template: named('The notebook template.'),
-    reason,
-  })
-  .strict()
+export const proposeTemplatePublishSchema = z.strictObject({
+  title,
+  summary,
+  template: named('The notebook template.'),
+  reason,
+})
 
-export const proposeSheetRenameSchema = z
-  .object({
-    title,
-    summary,
-    sheet: named('The sheet, by its id (SHT-12) or name.'),
-    name: z.string().min(1).max(200).describe('The new name.'),
-  })
-  .strict()
+export const proposeSheetRenameSchema = z.strictObject({
+  title,
+  summary,
+  sheet: named('The sheet, by its id (SHT-12) or name.'),
+  name: z.string().min(1).max(200).describe('The new name.'),
+})
 
 export type SchemaAction =
   | {
@@ -387,5 +386,6 @@ export function keyFromName(name: string): string {
     .replaceAll(/[^a-z0-9]+/g, '_')
     .replaceAll(/^_+|_+$/g, '')
     .slice(0, 60)
+
   return /^[a-z]/.test(made) ? made : `x_${made}`.slice(0, 60)
 }

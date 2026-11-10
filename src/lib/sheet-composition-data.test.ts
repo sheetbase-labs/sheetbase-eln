@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
+import { validSheetInstanceState } from './sheet-instance.test'
+import type { ProjectedBoundColumn } from './sheet-bound-columns'
 import { rowIdentityKey } from './row-identity'
 import {
   fetchComposedSheetPaged,
@@ -12,52 +14,153 @@ import type { ComposedSheetSnapshot } from './sheet-composition-data'
 const ID = '20000000-0000-4000-8000-000000000001'
 const ROW = '20000000-0000-4000-8000-000000000002'
 
+const projectedColumn: ProjectedBoundColumn = {
+  id: 'col',
+  key: 'sample',
+  label: 'Sample',
+  field: validSheetInstanceState().localFields[0],
+  source: { kind: 'bound', bindingId: ID, sourceFieldId: ROW },
+  presentation: { kind: 'text', inputType: 'text' },
+  permission: {
+    read: true,
+    editability: 'read-only',
+    evidence: 'authenticated-composition-membership',
+    reason: 'No exact validated write-back mapping.',
+  },
+}
+
 describe('fetchComposedSheetRows', () => {
+  function response(sources: object[]) {
+    return {
+      instanceId: ID,
+      revision: 2,
+      offset: 0,
+      limit: 25,
+      hasMore: false,
+      localFieldIds: [],
+      identity: {
+        kind: 'source',
+        columnIds: [ID],
+        logicalTypes: ['reference'],
+      },
+      rows: [{ identityValues: [ROW], sources }],
+    }
+  }
+
+  const datasetSource = {
+    sourceKind: 'dataset',
+    bindingId: ID,
+    datasetId: ID,
+    datasetRevision: 4,
+    rowId: ROW,
+    revision: 3,
+    matched: true,
+    values: { [ID]: ROW },
+  }
+
+  it('preserves source dictionaries and metadata through the actual JSON transport', async () => {
+    const values: object = JSON.parse(
+      '{"__proto__":{"nested":{"__proto__":"kept"}},"missingValue":null}',
+    )
+
+    const fieldNames = { ['__proto__']: 'Scientific name', [ID]: 'Sample' }
+
+    const sources = [
+      { ...datasetSource, values },
+      {
+        sourceKind: 'record',
+        bindingId: ROW,
+        recordId: ROW,
+        metadataVersion: 7,
+        matched: true,
+        fieldNames,
+        values,
+      },
+    ]
+
+    const client = createDataClient(async () =>
+      Response.json(response(sources)),
+    )
+
+    const result = await fetchComposedSheetRows(ID, {}, client)
+
+    expect(result.rows[0].sources).toEqual(sources)
+    expect(Object.hasOwn(result.rows[0].sources[0].values, '__proto__')).toBe(
+      true,
+    )
+    expect(result.rows[0].sources[0].values.missingValue).toBeNull()
+    expect(Object.hasOwn(result.rows[0].sources[0].values, 'omitted')).toBe(
+      false,
+    )
+    expect(Object.hasOwn(result, 'definitionConfiguration')).toBe(false)
+  })
+
+  it.each([null, [], 'not a dictionary'])(
+    'rejects a malformed source dictionary from the JSON transport: %j',
+    async (values) => {
+      const client = createDataClient(async () =>
+        Response.json(response([{ ...datasetSource, values }])),
+      )
+
+      await expect(fetchComposedSheetRows(ID, {}, client)).rejects.toThrow()
+    },
+  )
+
+  it.each([NaN, Infinity, new Date('2026-01-01'), () => 1, undefined])(
+    'rejects raw malformed source values before any JSON normalization: %j',
+    async (value) => {
+      const client = createDataClient()
+      vi.spyOn(client, 'rpc').mockResolvedValue(
+        response([
+          { ...datasetSource, values: { ['__proto__']: { nested: value } } },
+        ]),
+      )
+
+      await expect(fetchComposedSheetRows(ID, {}, client)).rejects.toThrow()
+    },
+  )
+
   it('maps the bounded RPC response and derives the existing sb-row-v1 key', async () => {
-    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const client = createDataClient()
 
-    const client = {
-      rpc: async (name: string, args: Record<string, unknown>) => {
-        calls.push({ name, args })
-
-        return {
-          instanceId: ID,
-          revision: 2,
-          offset: 3,
-          limit: 25,
-          hasMore: true,
-          localFieldIds: [],
-          identity: {
-            kind: 'source',
-            columnIds: [ID],
-            logicalTypes: ['reference'],
-          },
-          rows: [
+    const rpc = vi.spyOn(client, 'rpc').mockResolvedValue({
+      instanceId: ID,
+      revision: 2,
+      offset: 3,
+      limit: 25,
+      hasMore: true,
+      localFieldIds: [],
+      identity: {
+        kind: 'source',
+        columnIds: [ID],
+        logicalTypes: ['reference'],
+      },
+      rows: [
+        {
+          identityValues: [ROW],
+          sources: [
             {
-              identityValues: [ROW],
-              sources: [
-                {
-                  sourceKind: 'dataset',
-                  bindingId: ID,
-                  datasetId: ID,
-                  datasetRevision: 1,
-                  rowId: ROW,
-                  revision: 1,
-                  matched: true,
-                  values: { [ID]: ROW },
-                },
-              ],
+              sourceKind: 'dataset',
+              bindingId: ID,
+              datasetId: ID,
+              datasetRevision: 1,
+              rowId: ROW,
+              revision: 1,
+              matched: true,
+              values: { [ID]: ROW },
             },
           ],
-        }
-      },
-    } as unknown as DataClient
+        },
+      ],
+    })
 
     const result = await fetchComposedSheetRows(
       ID,
       { limit: 25, offset: 3 },
       client,
     )
+
+    const calls = rpc.mock.calls.map(([name, args]) => ({ name, args }))
 
     expect(calls).toEqual([
       {
@@ -76,22 +179,31 @@ describe('fetchComposedSheetRows', () => {
 
 describe('mergeComposedSheetSnapshots', () => {
   it('concatenates pages and takes hasMore from the last page', () => {
-    const page = (offset: number, hasMore: boolean) =>
-      ({
-        instanceId: ID,
-        revision: 1,
-        offset,
-        limit: 200,
-        hasMore,
-        localFieldIds: [],
-        rows: [
-          { rowKey: `sb-row-v1:row-${offset}`, compositionOffset: offset },
-        ],
-        boundProjection: {
-          columns: [{ id: 'col' }],
-          rows: [{ rowKey: `sb-row-v1:row-${offset}`, values: {} }],
+    const page = (offset: number, hasMore: boolean): ComposedSheetSnapshot => ({
+      instanceId: ID,
+      revision: 1,
+      offset,
+      limit: 200,
+      hasMore,
+      localFieldIds: [],
+      identity: {
+        kind: 'source',
+        columnIds: [ID],
+        logicalTypes: ['reference'],
+      },
+      rows: [
+        {
+          rowKey: `sb-row-v1:row-${offset}`,
+          compositionOffset: offset,
+          identityValues: [ROW],
+          sources: [],
         },
-      }) as unknown as ComposedSheetSnapshot
+      ],
+      boundProjection: {
+        columns: [projectedColumn],
+        rows: [{ rowKey: `sb-row-v1:row-${offset}`, values: {} }],
+      },
+    })
 
     const merged = mergeComposedSheetSnapshots([
       page(0, true),
@@ -136,10 +248,10 @@ describe('fetchComposedSheetPaged', () => {
         sources: [],
       })),
       boundProjection: {
-        columns: [{ id: 'col' }],
+        columns: [projectedColumn],
         rows: options.keys.map((rowKey) => ({ rowKey, values: {} })),
       },
-    } as unknown as ComposedSheetSnapshot
+    }
   }
 
   it('fetches only the missing window per page — 3 pages cost exactly 3 fetches', async () => {

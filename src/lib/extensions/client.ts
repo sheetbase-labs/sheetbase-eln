@@ -63,6 +63,7 @@ export async function enableExtension(
     p_extension_id: input.extensionId,
   })
 }
+
 export async function disableExtension(
   client: DataClient,
   input: { workspaceId: string; extensionId: string },
@@ -164,6 +165,7 @@ export async function getExtension(
     'extensions',
     `?select=${EXTENSION_FIELDS}&id=eq.${encodeURIComponent(extensionId)}`,
   )
+
   return rows[0]
 }
 
@@ -174,18 +176,23 @@ export const extensionQueryKeys = {
 
 export function describeExtensionsError(cause: unknown): string {
   const message = cause instanceof Error ? cause.message : 'The request failed.'
+
   if (/capability required/i.test(message)) {
     return 'You do not have permission to manage extensions in this workspace.'
   }
+
   if (/untrusted extension source|acknowledgement/i.test(message)) {
     return 'That source is untrusted. Acknowledge the source explicitly to install or update from it.'
   }
+
   if (/extension not found/i.test(message)) {
     return 'That extension is no longer installed in this workspace.'
   }
+
   if (/extension key|invalid extension/i.test(message)) {
     return 'Choose a different lowercase key for this workspace.'
   }
+
   if (
     /unknown contribution point|unknown capability|unknown scope|unknown event subscription/i.test(
       message,
@@ -193,5 +200,6 @@ export function describeExtensionsError(cause: unknown): string {
   ) {
     return 'The extension manifest declares something this workspace does not support.'
   }
+
   return message
 }

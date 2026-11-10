@@ -6,6 +6,7 @@
  * exactly the ChartColumn.id values specs bind to.
  */
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   SCI_ANALYSIS_ROW_LIMIT,
@@ -19,7 +20,7 @@ import {
 import type { CanonicalDatasetSource, ResolvedDataset } from './chart-data'
 import { CHART_PALETTE } from './chart-spec'
 import type { ChartSpec, FrozenChart } from './chart-spec'
-import type { DataClient } from './data-client'
+import { createDataClient, dropSharedReads } from './data-client'
 import { runAnalysis } from './analysis-definition'
 
 const DATASET_ID = '00000000-0000-4000-8000-000000000170'
@@ -55,7 +56,7 @@ function makeSource(): CanonicalDatasetSource {
 }
 
 // Runtime rows are keyed by the stable schema-version fieldId.
-function makeRows(): Record<string, unknown>[] {
+function makeRows() {
   return [
     { c1: 0, c2: 7.2, c3: '4 °C' },
     { c1: 28, c2: 5.9, c3: '4 °C' },
@@ -110,48 +111,83 @@ interface RowPage {
   rows: Array<{
     rowId: string
     revision: number
-    values: Record<string, unknown>
+    values: ResolvedDataset['rows'][number]
   }>
   totalCount: number
   datasetRevision: number
 }
 
 /**
- * Mock a DataClient whose `query_dataset_rows` (or any paged rows RPC)
- * serves `total` rows of 1000-per-call pages, recording every call.
+ * Decode pagination arguments received through the real DataClient HTTP path.
  */
+const pageArgsSchema = z.object({
+  p_offset: z.number(),
+  p_limit: z.number(),
+  p_dataset_id: z.string().optional(),
+  p_dataset_version_id: z.string().optional(),
+  p_query: z.object({}).optional(),
+})
+
+function httpClient(route: (url: URL, request: Request) => Promise<Response>) {
+  return createDataClient(async (input, init) => {
+    const request =
+      input instanceof Request
+        ? new Request(input, init)
+        : new Request(new URL(input, 'http://chart.test'), init)
+
+    return route(new URL(request.url), request)
+  })
+}
+
 function pagedRowsClient(
   total: number,
   revisionAtOffset = (_offset: number) => 1,
-): {
-  client: DataClient
-  calls: Array<Record<string, unknown>>
-} {
-  const calls: Array<Record<string, unknown>> = []
+) {
+  const calls: z.infer<typeof pageArgsSchema>[] = []
 
-  const client = {
-    rpc: async (_name: string, args: Record<string, unknown>) => {
-      calls.push(args)
-      const offset = args.p_offset as number
-      const limit = args.p_limit as number
-      const count = Math.max(0, Math.min(limit, total - offset))
+  const client = httpClient(async (_url, request) => {
+    const args = pageArgsSchema.parse(await request.json())
+    calls.push(args)
+    const offset = args.p_offset
+    const limit = args.p_limit
+    const count = Math.max(0, Math.min(limit, total - offset))
 
-      return {
-        rows: Array.from({ length: count }, (_, i) => ({
-          rowId: `r${offset + i + 1}`,
-          revision: 1,
-          values: { n: offset + i + 1 },
-        })),
-        totalCount: total,
-        datasetRevision: revisionAtOffset(offset),
-      } satisfies RowPage
-    },
-  } as unknown as DataClient
+    return Response.json({
+      rows: Array.from({ length: count }, (_, i) => ({
+        rowId: `r${offset + i + 1}`,
+        revision: 1,
+        values: { n: offset + i + 1 },
+      })),
+      totalCount: total,
+      datasetRevision: revisionAtOffset(offset),
+    } satisfies RowPage)
+  })
 
   return { client, calls }
 }
 
 describe('fetchDatasetRows', () => {
+  it('retains own scientific keys and authoritative row identity over HTTP', async () => {
+    const client = httpClient(
+      async () =>
+        new Response(
+          '{"rows":[{"rowId":"r-original","revision":1,"values":{"__proto__":{"n":91},"__sheetbaseRowId":"r-shadow","μ":null,"nested":{"signal":[3,7]}}}],"totalCount":1,"datasetRevision":4}',
+          { headers: { 'content-type': 'application/json' } },
+        ),
+    )
+
+    const result = await fetchDatasetRows(client, DATASET_ID)
+
+    expect(result.rows[0]).toEqual({
+      ['__proto__']: { n: 91 },
+      __sheetbaseRowId: 'r-original',
+      μ: null,
+      nested: { signal: [3, 7] },
+    })
+    expect(Object.hasOwn(result.rows[0], '__proto__')).toBe(true)
+    expect(Object.hasOwn(result.rows[0], 'omitted')).toBe(false)
+  })
+
   it('rejects same-size pages from different live revisions', async () => {
     const { client } = pagedRowsClient(1500, (offset) => (offset === 0 ? 7 : 8))
     await expect(fetchDatasetRows(client, DATASET_ID)).rejects.toThrow(
@@ -317,16 +353,44 @@ describe('fetchFrozenAnalysisRows', () => {
 })
 
 describe('resolveDatasetRef on live data', () => {
-  it.each(['unchanged', 'schema', 'flags'])(
+  it.each(['unchanged', 'schema', 'flags', 'flag-failure'])(
     'accepts only a coherent population when %s is read around the rows',
     async (change) => {
       let metadataReads = 0
       let flagReads = 0
+      let rowReads = 0
       const { client: pages } = pagedRowsClient(1)
 
-      const client = {
-        rpc: pages.rpc,
-        list: async (table: string) => {
+      const client = httpClient(async (url, request) => {
+        if (url.pathname.includes('/rpc/')) {
+          rowReads++
+          // Model a live change notification so coherence rechecks reach HTTP
+          // rather than DataClient's one-second shared read cache.
+          dropSharedReads()
+
+          return Response.json(
+            await pages.rpc(
+              url.pathname.split('/').at(-1) ?? '',
+              pageArgsSchema.parse(await request.json()),
+            ),
+          )
+        }
+
+        const table = url.pathname.split('/').at(-1)
+
+        if (table === 'dataset_value_flags' && change === 'flag-failure') {
+          return Response.json(
+            {
+              error: {
+                code: 'flag_failure',
+                message: 'Flag read failed first',
+              },
+            },
+            { status: 503 },
+          )
+        }
+
+        const list = () => {
           if (table === 'datasets') {
             metadataReads++
 
@@ -377,8 +441,10 @@ describe('resolveDatasetRef on live data', () => {
           }
 
           throw new Error(`Unexpected resource ${table}`)
-        },
-      } as unknown as DataClient
+        }
+
+        return Response.json(list())
+      })
 
       const result = resolveDatasetRef(client, { datasetId: DATASET_ID })
 
@@ -388,6 +454,10 @@ describe('resolveDatasetRef on live data', () => {
           rows: [{ n: 1, __sheetbaseRowId: 'r1' }],
           flags: [],
         })
+      } else if (change === 'flag-failure') {
+        await expect(result).rejects.toThrow('Flag read failed first')
+        expect(rowReads).toBe(0)
+        expect(metadataReads).toBe(1)
       } else {
         await expect(result).rejects.toThrow(/changed/i)
       }
@@ -397,49 +467,55 @@ describe('resolveDatasetRef on live data', () => {
 
 describe('resolveDatasetRef on a snapshot', () => {
   it('reads the snapshot rows, not the live rows, and carries no live flags', async () => {
-    const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const rpcCalls: Array<{
+      name: string
+      args: z.infer<typeof pageArgsSchema>
+    }> = []
 
-    const client = {
-      list: async (table: string) =>
-        table === 'datasets'
-          ? [
-              {
-                id: DATASET_ID,
-                workspace_id: 'ws-1',
-                schema_version_id: 'sv-1',
-                name: 'Stability readings',
-                lifecycle: 'active',
-                revision: 4,
-              },
-            ]
-          : table === 'dataset_versions'
+    const client = httpClient(async (url, request) => {
+      const table = url.pathname.split('/').at(-1) ?? ''
+
+      if (!url.pathname.includes('/rpc/'))
+        return Response.json(
+          table === 'datasets'
             ? [
                 {
-                  id: 'ver-9',
-                  dataset_id: DATASET_ID,
-                  schema_version_id: 'sv-old',
-                  source_dataset_revision: 2,
+                  id: DATASET_ID,
+                  workspace_id: 'ws-1',
+                  schema_version_id: 'sv-1',
+                  name: 'Stability readings',
+                  lifecycle: 'active',
+                  revision: 4,
                 },
               ]
-            : table === 'dataset_schema_versions'
-              ? [{ id: 'sv-old', version: 1 }]
-              : [
+            : table === 'dataset_versions'
+              ? [
                   {
-                    field_id: 'c2',
-                    label: 'Original titer',
-                    logical_type: 'decimal',
-                    quantity: { symbol: 'mg/L' },
+                    id: 'ver-9',
+                    dataset_id: DATASET_ID,
+                    schema_version_id: 'sv-old',
+                    source_dataset_revision: 2,
                   },
-                ],
-      rpc: async (name: string, args: Record<string, unknown>) => {
-        rpcCalls.push({ name, args })
+                ]
+              : table === 'dataset_schema_versions'
+                ? [{ id: 'sv-old', version: 1 }]
+                : [
+                    {
+                      field_id: 'c2',
+                      label: 'Original titer',
+                      logical_type: 'decimal',
+                      quantity: { symbol: 'mg/L' },
+                    },
+                  ],
+        )
+      const args = pageArgsSchema.parse(await request.json())
+      rpcCalls.push({ name: table, args })
 
-        return {
-          rows: [{ rowId: 'r1', revision: 1, values: { c1: 0, c2: 7.2 } }],
-          totalCount: 1,
-        }
-      },
-    } as unknown as DataClient
+      return Response.json({
+        rows: [{ rowId: 'r1', revision: 1, values: { c1: 0, c2: 7.2 } }],
+        totalCount: 1,
+      })
+    })
 
     const resolved = await resolveDatasetRef(client, {
       datasetId: DATASET_ID,
@@ -463,7 +539,7 @@ describe('resolveDatasetRef on a snapshot', () => {
   })
 
   it('is null when the dataset is gone, whatever the snapshot', async () => {
-    const client = { list: async () => [] } as unknown as DataClient
+    const client = httpClient(async () => Response.json([]))
     expect(
       await resolveDatasetRef(client, {
         datasetId: DATASET_ID,
@@ -474,6 +550,53 @@ describe('resolveDatasetRef on a snapshot', () => {
 })
 
 describe('materialiseLiveChart', () => {
+  it('keeps the resolved dataset contract usable by scientific analysis', () => {
+    const nativeDate = new Date('2026-10-01T00:00:00Z')
+    const nativeBytes = Buffer.from([7, 11])
+
+    const row = {
+      c2: 3,
+      nativeDate,
+      nativeBytes,
+      absent: undefined,
+      infinite: Infinity,
+      integer: 7n,
+      ['__proto__']: { c2: 99 },
+    }
+
+    const dataset: ResolvedDataset = {
+      ...makeDataset(),
+      rows: [row],
+      totalCount: 1,
+    }
+
+    const analysis = runAnalysis(
+      {
+        definitionVersion: 1,
+        kind: 'descriptive',
+        datasets: [{ datasetId: DATASET_ID }],
+        value: { fieldId: 'c2' },
+      },
+      dataset.source.columns,
+      dataset.rows,
+    )
+
+    expect(analysis.ok).toBe(true)
+
+    if (analysis.ok && analysis.result.kind === 'descriptive') {
+      expect(analysis.result.rows[0].stats.mean).toBe(3)
+    }
+
+    expect(dataset.rows[0]).toBe(row)
+    expect(dataset.rows[0].nativeDate).toBe(nativeDate)
+    expect(dataset.rows[0].nativeBytes).toBe(nativeBytes)
+    expect(Object.hasOwn(dataset.rows[0], '__proto__')).toBe(true)
+    expect(Object.hasOwn(dataset.rows[0], 'absent')).toBe(true)
+    expect(Object.hasOwn(dataset.rows[0], 'omitted')).toBe(false)
+    expect(dataset.rows[0].infinite).toBe(Infinity)
+    expect(dataset.rows[0].integer).toBe(7n)
+  })
+
   it('returns missing_dataset when the resolved dataset is null', () => {
     const result = materialiseLiveChart(lineSpec(), null)
     expect(result.state.kind).toBe('missing_dataset')

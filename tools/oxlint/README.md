@@ -33,35 +33,16 @@ or overriding the root Oxlint binary.
 
 ## Registry-owned components
 
-[ADR-0055](../../docs/knowledge/decisions/0055-component-primitives-and-the-reui-registry-contract.md)
-pins the ReUI registry to the Base UI build and says `src/components/reui/**`
-"is not edited beyond import-path fixes and restyling to Sheetbase tokens,
-which is why it carries its own scoped lint relaxation". The migration
-preserves that relaxation as an `overrides` entry for the directory: the
-import-style and assertion rules the retired ESLint configuration relaxed, plus
-the anti-slop rules for unparsed input and assertions. Those rules assume we own
-the source and would otherwise force semantic edits to copied registry code.
+[ADR-0055](../../docs/knowledge/decisions/0055-component-primitives-and-reui-registry.md)
+pinned the ReUI registry to the Base UI build and installed its items as
+copy-and-own source under `src/components/reui/**`. [ADR-0057](../../docs/knowledge/decisions/0057-we-own-patches-to-reui-source.md)
+supersedes its no-hand-edit clause: that directory is now linted and fixed like
+the rest of `src`. There is no directory-level exception for it in
+`.oxlintrc.json` or `doctor.config.json`.
 
-The relaxation is directory-scoped and covers no first-party code. Every other
-rule still runs on those files; the eight remaining findings were real defects
-and are fixed in place.
-
-`doctor.config.json` ignores the same directory. Its findings there are
-maintainability refactors and hook rewrites of copied registry source, which
-the same ADR forbids; the files repeat that instruction in their own headers
-("do not extend or hand-edit this file beyond import-path fixes and restyling
-to Sheetbase tokens").
-
-Two defects found while triaging are therefore recorded here rather than fixed
-in place, because both need a restructuring edit:
-
-- `use-file-upload.ts` calls `onFilesChange` from inside the state updater,
-  which React may invoke twice under StrictMode.
-- `stepper.tsx` memoises and depends on `ref.current`, so the trigger
-  registration does not re-run when the button ref changes.
-
-Both belong upstream in the pinned registry item, or to a deliberate
-replace-or-patch decision that supersedes ADR-0055 decision 2.
+Each patched file records what diverged from its registry item in the
+provenance header it already carries, so a future re-sync sees the delta
+instead of overwriting a fix. Updating an item is a merge, not an overwrite.
 
 ## Ordered seed writes
 

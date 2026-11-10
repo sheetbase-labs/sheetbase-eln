@@ -1,3 +1,10 @@
+import type { z } from 'zod'
+
+import type { pipelineJsonObjectSchema } from './pipelines/types'
+
+/** The row values a paste preserved and the edits layered over them. */
+type SheetRecordRowValues = z.input<typeof pipelineJsonObjectSchema>
+
 export type SheetRecordGridErrorKind =
   'validation' | 'duplicate' | 'permission' | 'conflict'
 
@@ -64,8 +71,8 @@ export function nextSheetRecordGridError(
 }
 
 export function applySheetRecordValidationRerun(
-  previousPasted: Record<string, unknown>,
-  edited: Record<string, unknown>,
-): Record<string, unknown> {
+  previousPasted: SheetRecordRowValues,
+  edited: SheetRecordRowValues,
+): SheetRecordRowValues {
   return { ...previousPasted, ...edited }
 }

@@ -90,10 +90,12 @@ export const updateAiSettingsSchema = z.strictObject({
 
 export type UpdateAiSettingsInput = z.infer<typeof updateAiSettingsSchema>
 
+const aiModelSchema = updateAiSettingsSchema.shape.model
+
 function asModel(value: string): AiModel {
-  return (MODEL_NAMES as readonly string[]).includes(value)
-    ? (value as AiModel)
-    : 'sheetbase-assist-1'
+  const model = aiModelSchema.safeParse(value)
+
+  return model.success ? model.data : 'sheetbase-assist-1'
 }
 
 export function toWorkspaceAiSettings(

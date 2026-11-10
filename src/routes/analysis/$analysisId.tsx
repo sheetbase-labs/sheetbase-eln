@@ -10,8 +10,8 @@ import {
   ChartSettings,
   ChartStack,
   FieldsPane,
-  exclusionCounts,
 } from '#/components/analysis/analysis-document'
+import { exclusionCounts } from '#/components/analysis/analysis-exclusions'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { toast } from '#/components/ui/sonner'
 import {

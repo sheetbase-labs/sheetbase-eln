@@ -148,18 +148,20 @@ const PAGE_BUTTON_WIDTH_CLASS = 'min-w-7'
 function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
   const { i18n, table, recordCount, isLoading } = useDataGrid()
 
-  const defaultProps: Partial<DataGridPaginationProps> = {
-    sizes: [5, 10, 25, 50, 100],
-    sizesSkeleton: <Skeleton className="h-8 w-44" />,
-    moreLimit: 5,
-    infoSkeleton: <Skeleton className="h-8 w-60" />,
-    rowsPerPageLabel: i18n.labels.rowsPerPage,
-    previousPageLabel: i18n.labels.previousPage,
-    nextPageLabel: i18n.labels.nextPage,
-    ellipsisText: i18n.labels.paginationEllipsis,
-  }
-
-  const mergedProps: DataGridPaginationProps = { ...defaultProps, ...props }
+  // Defaults live in the destructuring so a prop passed as `undefined` reads
+  // as absent, which is what the label fallbacks already assumed.
+  const {
+    sizes = [5, 10, 25, 50, 100],
+    sizesSkeleton = <Skeleton className="h-8 w-44" />,
+    moreLimit = 5,
+    info,
+    infoSkeleton = <Skeleton className="h-8 w-60" />,
+    className,
+    rowsPerPageLabel = i18n.labels.rowsPerPage,
+    previousPageLabel = i18n.labels.previousPage,
+    nextPageLabel = i18n.labels.nextPage,
+    ellipsisText = i18n.labels.paginationEllipsis,
+  } = props
 
   const btnBaseClasses = 'p-0 text-body'
   const btnArrowClasses = btnBaseClasses + ' rtl:transform rtl:rotate-180'
@@ -171,8 +173,8 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
 
   // A supplied `info` keeps its placeholder-template contract; the default
   // routes through the i18n label function, where word order is free.
-  const paginationInfo = mergedProps.info
-    ? mergedProps.info
+  const paginationInfo = info
+    ? info
         .replaceAll('{from}', from.toString())
         .replaceAll('{to}', to.toString())
         .replaceAll('{count}', recordCount.toString())
@@ -181,7 +183,7 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
   const paginationItems = getDataGridPaginationItems(
     pageIndex,
     pageCount,
-    mergedProps.moreLimit ?? 5,
+    moreLimit,
   )
 
   return (
@@ -189,16 +191,16 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
       data-slot="data-grid-pagination"
       className={cn(
         'flex grow flex-col flex-wrap items-center justify-between gap-2.5 py-2.5 sm:flex-row sm:py-0',
-        mergedProps.className,
+        className,
       )}
     >
       <div className="order-2 flex flex-wrap items-center gap-x-2.5 pb-2.5 sm:order-1 sm:pb-0">
         {isLoading ? (
-          mergedProps.sizesSkeleton
+          sizesSkeleton
         ) : (
           <>
             <div className="text-fg-muted text-body">
-              {mergedProps.rowsPerPageLabel}
+              {rowsPerPageLabel}
             </div>
             {/* Sheetbase has no v3 select: the app's own convention for a
                 small control like this is a native select in the input's
@@ -208,7 +210,7 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
                 (ADR-0055 decision 1), so this is the one control the copy
                 re-points rather than restyles. */}
             <select
-              aria-label={mergedProps.rowsPerPageLabel}
+              aria-label={rowsPerPageLabel}
               value={`${pageSize}`}
               onChange={(event) => {
                 const newPageSize = Number(event.target.value)
@@ -216,7 +218,7 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
               }}
               className="h-[26px] w-fit min-w-16 cursor-pointer rounded-md border border-border bg-surface px-1.5 text-label text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
             >
-              {mergedProps.sizes?.map((size: number) => (
+              {sizes.map((size: number) => (
                 <option key={size} value={`${size}`}>
                   {size}
                 </option>
@@ -227,7 +229,7 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
       </div>
       <div className="order-1 flex flex-col items-center justify-center gap-2.5 pt-2.5 sm:order-2 sm:flex-row sm:justify-end sm:pt-0">
         {isLoading ? (
-          mergedProps.infoSkeleton
+          infoSkeleton
         ) : (
           <>
             <div className="text-fg-muted order-2 text-body text-nowrap sm:order-1">
@@ -243,7 +245,7 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
                   disabled={!table.getCanPreviousPage()}
                 >
                   <span className="sr-only">
-                    {mergedProps.previousPageLabel}
+                    {previousPageLabel}
                   </span>
                   <Icon name="chevronLeft" className="size-4" />
                 </Button>
@@ -286,7 +288,7 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
                       aria-label={i18n.labels.goToPage(item.target + 1)}
                       onClick={() => table.setPageIndex(item.target)}
                     >
-                      {mergedProps.ellipsisText}
+                      {ellipsisText}
                     </Button>
                   ),
                 )}
@@ -298,7 +300,7 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
                   onClick={() => table.nextPage()}
                   disabled={!table.getCanNextPage()}
                 >
-                  <span className="sr-only">{mergedProps.nextPageLabel}</span>
+                  <span className="sr-only">{nextPageLabel}</span>
                   <Icon name="chevronRight" className="size-4" />
                 </Button>
               </div>

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import type { DataClient } from '#/lib/data-client'
-import type { RevisionWire } from '#/lib/notebook-data'
+import type { NotebookBlock, RevisionWire } from '#/lib/notebook-data'
 import { t } from '#/copy'
 
 /**
@@ -25,6 +25,11 @@ export type ReportStatus = (typeof REPORT_STATUSES)[number]
 export type SectionValidation =
   'pending' | 'valid' | 'missing_source' | 'stale' | 'locked'
 
+/** A JSONB value the database stores for a report section. */
+const storedJsonSchema = z.json()
+
+type StoredJson = z.infer<typeof storedJsonSchema>
+
 export interface ReportListRow {
   /** The report's record id: what the page address carries. */
   recordId: string
@@ -42,6 +47,41 @@ export interface ReportListRow {
   updatedAt: string
 }
 
+/** The evidence a section was bound to, as `bind_report_section_source` stored it. */
+export interface ReportSectionSourceRef {
+  blockId?: string
+  recordId?: string
+  recordIdentifier?: string
+  revisionVersion?: number
+}
+
+/** A block as the source revision's snapshot stored it, ready for preview. */
+interface FrozenBlockWire {
+  id?: string
+  type?: string
+  payload?: NotebookBlock['payload']
+  payload_schema_version?: number
+  order?: number
+  version?: number
+}
+
+/** The evidence frozen for a section when its source was bound. */
+export interface ReportSectionFrozenPayload {
+  /** The frozen block of a `notebook_block` section. */
+  block?: FrozenBlockWire
+  /** The frozen snapshot of a block-less section (files, tables). */
+  snapshot?: StoredJson
+  /** The digest of the source revision the evidence was frozen from. */
+  revisionDigest?: string
+}
+
+/** Why a section's last check failed, as the database recorded it. */
+export interface ReportSectionValidationDetail {
+  blockId?: string
+  reason?: string
+  lockedAt?: string
+}
+
 export interface ReportSection {
   id: string
   position: number
@@ -50,10 +90,10 @@ export interface ReportSection {
   sectionType: string
   sourceType: string
   sourceRevisionId: string | null
-  sourceRef: Record<string, unknown>
-  frozenPayload: Record<string, unknown>
+  sourceRef: ReportSectionSourceRef
+  frozenPayload: ReportSectionFrozenPayload
   validationStatus: SectionValidation
-  validationDetail: Record<string, unknown>
+  validationDetail: ReportSectionValidationDetail
 }
 
 export interface ReportDetail {
@@ -106,10 +146,13 @@ export const reportKeys = {
     ['ui-port', 'reports', 'evidence', recordId] as const,
 }
 
-export function reportStatus(status: string): {
+/** The tone and words a report's status shows as. */
+export interface ReportStatusBadge {
   tone: 'ok' | 'review' | 'draft' | 'stored' | 'none'
   label: string
-} {
+}
+
+export function reportStatus(status: string): ReportStatusBadge {
   switch (status) {
     case 'approved':
     case 'published':
@@ -188,10 +231,10 @@ interface DetailWire {
     section_type: string
     source_type: string
     source_revision_id: string | null
-    source_ref: Record<string, unknown>
-    frozen_payload: Record<string, unknown>
+    source_ref: ReportSectionSourceRef
+    frozen_payload: ReportSectionFrozenPayload
     validation_status: SectionValidation
-    validation_detail: Record<string, unknown>
+    validation_detail: ReportSectionValidationDetail
   }>
 }
 
@@ -289,10 +332,12 @@ export async function updateReport(
 }
 
 /** What kind of section a block of evidence becomes. */
-export function sectionKindForBlock(blockType: string): {
+export interface SectionKind {
   sectionType: string
   sourceType: string
-} {
+}
+
+export function sectionKindForBlock(blockType: string): SectionKind {
   switch (blockType) {
     case 'chart':
     case 'analysis':
@@ -569,20 +614,22 @@ export interface EvidenceBlock {
 }
 
 /** Every `text` value in a block's payload, in order, as one line. */
-export function payloadText(payload: unknown): string {
+export function payloadText(payload: StoredJson): string {
   const out: string[] = []
 
-  const walk = (node: unknown) => {
-    if (!node || typeof node !== 'object') return
-
+  const walk = (node: StoredJson) => {
     if (Array.isArray(node)) {
       for (const item of node) walk(item)
 
       return
     }
 
+    if (!z.util.isObject(node)) return
+
     for (const [key, value] of Object.entries(node)) {
-      if (key === 'text' && typeof value === 'string') out.push(value)
+      const text = z.string().safeParse(value)
+
+      if (key === 'text' && text.success) out.push(text.data)
       else walk(value)
     }
   }
@@ -605,39 +652,26 @@ export async function fetchRevisionBlocks(
 
   const blocks = rows.at(0)?.block_snapshot ?? []
 
-  return blocks.map((b) => ({
-    id: b.id,
-    type: b.type,
-    text: payloadText(b.payload),
-  }))
+  return blocks.map((b) => {
+    const payload = storedJsonSchema.safeParse(b.payload)
+
+    return {
+      id: b.id,
+      type: b.type,
+      text: payload.success ? payloadText(payload.data) : '',
+    }
+  })
 }
 
 /** The block a section froze, in the shape the notebook's preview takes. */
-export function frozenBlockOf(section: ReportSection): {
-  id: string
-  recordId: string
-  type: string
-  payload: Record<string, unknown>
-  payloadSchemaVersion: number
-  order: number
-  version: number
-} | null {
-  const block = section.frozenPayload.block as
-    | {
-        id?: string
-        type?: string
-        payload?: Record<string, unknown>
-        payload_schema_version?: number
-        order?: number
-        version?: number
-      }
-    | undefined
+export function frozenBlockOf(section: ReportSection): NotebookBlock | null {
+  const block = section.frozenPayload.block
 
   if (!block?.id || !block.type) return null
 
   return {
     id: block.id,
-    recordId: String(section.sourceRef.recordId ?? ''),
+    recordId: section.sourceRef.recordId ?? '',
     type: block.type,
     payload: block.payload ?? {},
     payloadSchemaVersion: block.payload_schema_version ?? 1,
@@ -647,10 +681,12 @@ export function frozenBlockOf(section: ReportSection): {
 }
 
 /** Plain-language label for a section's check result. */
-export function validationLabel(status: SectionValidation): {
+export interface SectionValidationBadge {
   tone: 'ok' | 'warn' | 'bad' | 'none'
   label: string
-} {
+}
+
+export function validationLabel(status: SectionValidation): SectionValidationBadge {
   switch (status) {
     case 'valid':
       return { tone: 'ok', label: t('projects.reports.check.valid') }

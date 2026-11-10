@@ -6,28 +6,42 @@
  *
  * Copy-and-own source, placed by hand at `src/components/reui/stepper.tsx` (the
  * item's own `files[].target` names the same path; a plain install here would
- * still resolve its bare `cn` dependency into the repository). The only changes
- * are the two ADR-0055 permits: the `cn` import, re-pointed from the `cn`
- * package to `#/lib/utils` (the helper that teaches tailwind-merge the
- * Sheetbase type scale), and the classes restyled from the item's own palette
- * names onto the app-3 token vocabulary in `src/styles.css` (`bg-surface`,
- * `text-fg-muted`, `bg-accent-strong`, `text-on-accent`, `bg-border-strong`,
- * `outline-focus`, `text-label`). Do not extend or hand-edit this file beyond
- * import-path fixes and restyling to Sheetbase tokens; the semantics it renders
- * — `<nav>`, `<div>` items, a `role="tablist"` trigger set — are the item's, and
- * they are what the comparison in `docs/knowledge/design/component-comparison-record.md`
- * measures.
+ * still resolve its bare `cn` dependency into the repository). The `cn` import
+ * is re-pointed from the `cn` package to `#/lib/utils` (the helper that teaches
+ * tailwind-merge the Sheetbase type scale), and the classes are restyled from
+ * the item's own palette names onto the app-3 token vocabulary in
+ * `src/styles.css` (`bg-surface`, `text-fg-muted`, `bg-accent-strong`,
+ * `text-on-accent`, `bg-border-strong`, `outline-focus`, `text-label`). The
+ * semantics it renders — `<nav>`, `<div>` items, a `role="tablist"` trigger set
+ * — are the item's, and they are what the comparison in
+ * `docs/knowledge/design/component-comparison-record.md` measures.
+ *
+ * Local patches after ADR-0057 (this file is first-party-maintained source; a
+ * registry re-sync merges these rather than taking the item over them):
+ * - Each trigger registers through a stable callback ref keyed by its step.
+ *   The registry form registered from an effect whose dependency was
+ *   `ref.current`, so the effect could not re-run when the rendered element
+ *   changed: the stepper kept a detached node, and the arrow keys stopped
+ *   moving between steps. Registration is now also removed when a trigger
+ *   unmounts, which the registry form never did.
+ * - The trigger's key handling is a module-level function, so the component is
+ *   a render function rather than a switch with a closure over six values.
+ * - Both context values are memoised, and the `indicators` default is one
+ *   module constant, so a step change is the only thing that re-renders the
+ *   steps. The item context previously rebuilt its object every render.
+ * - `stepsCount` counts children whose type is `StepperItem`; the registry form
+ *   read a `displayName` this file never sets, so it always counted zero.
+ * - `tabIndex` falls back with `??`, and the indicator picks its node once
+ *   instead of evaluating the same four-way `||` chain twice.
  */
-import type { HTMLAttributes, ReactElement } from 'react'
+import type { HTMLAttributes, KeyboardEvent, ReactElement } from 'react'
 import {
   Children,
   createContext,
   isValidElement,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react'
 import { mergeProps } from '@base-ui/react/merge-props'
@@ -50,19 +64,32 @@ type StepIndicators = {
   loading?: React.ReactNode
 }
 
-interface StepperContextValue {
-  activeStep: number
-  setActiveStep: (step: number) => void
-  stepsCount: number
-  orientation: StepperOrientation
-  registerTrigger: (node: HTMLButtonElement | null) => void
-  triggerNodes: HTMLButtonElement[]
+/** One shared empty set, so an unset `indicators` does not change identity. */
+const NO_INDICATORS: StepIndicators = {}
+
+/** The handlers that move focus between the registered steps. */
+type StepperFocusActions = {
   focusNext: (currentIdx: number) => void
   focusPrev: (currentIdx: number) => void
   focusFirst: () => void
   focusLast: () => void
+}
+
+interface StepperContextValue extends StepperFocusActions {
+  activeStep: number
+  setActiveStep: (step: number) => void
+  stepsCount: number
+  orientation: StepperOrientation
+  registerTrigger: (step: number, node: HTMLButtonElement | null) => void
+  /** Registered triggers in document order. */
+  triggerNodes: HTMLButtonElement[]
+  /** The steps those triggers belong to, in the same order. */
+  triggerSteps: number[]
   indicators: StepIndicators
 }
+
+/** Registered triggers, keyed by step; replaced on every change, never mutated. */
+type TriggerMap = ReadonlyMap<number, HTMLButtonElement>
 
 interface StepItemContextValue {
   step: number
@@ -93,6 +120,51 @@ function useStepItem() {
   return ctx
 }
 
+/** A child that is this item and nothing else, for counting a stepper's steps. */
+function isStepperItem(child: React.ReactNode): child is ReactElement {
+  return isValidElement(child) && child.type === StepperItem
+}
+
+/**
+ * The roving tab stop's key handling: the arrow keys move to a sibling step,
+ * Home and End to the ends, and Enter or Space selects this one. Module-level,
+ * so the trigger stays a render function rather than a switch over six values.
+ */
+function handleTriggerKeyDown(
+  event: KeyboardEvent<HTMLButtonElement>,
+  index: number,
+  focus: StepperFocusActions,
+  select: () => void,
+): void {
+  switch (event.key) {
+    case 'ArrowRight':
+    case 'ArrowDown':
+      event.preventDefault()
+
+      if (index !== -1) focus.focusNext(index)
+      break
+    case 'ArrowLeft':
+    case 'ArrowUp':
+      event.preventDefault()
+
+      if (index !== -1) focus.focusPrev(index)
+      break
+    case 'Home':
+      event.preventDefault()
+      focus.focusFirst()
+      break
+    case 'End':
+      event.preventDefault()
+      focus.focusLast()
+      break
+    case 'Enter':
+    case ' ':
+      event.preventDefault()
+      select()
+      break
+  }
+}
+
 interface StepperProps extends HTMLAttributes<HTMLDivElement> {
   defaultValue?: number
   value?: number
@@ -108,24 +180,59 @@ function Stepper({
   orientation = 'horizontal',
   className,
   children,
-  indicators = {},
+  indicators = NO_INDICATORS,
   ...props
 }: StepperProps) {
   const [activeStep, setActiveStep] = useState(defaultValue)
-  const [triggerNodes, setTriggerNodes] = useState<HTMLButtonElement[]>([])
 
-  // Register/unregister triggers
-  const registerTrigger = useCallback((node: HTMLButtonElement | null) => {
-    setTriggerNodes((prev) => {
-      if (node && !prev.includes(node)) {
-        return [...prev, node]
-      } else if (!node && prev.includes(node!)) {
-        return prev.filter((n) => n !== node)
-      } else {
-        return prev
-      }
-    })
-  }, [])
+  const [triggers, setTriggers] = useState<TriggerMap>(() => new Map())
+
+  /**
+   * Register or release one step's trigger. Stable, so a trigger can use it as
+   * the identity of its own callback ref: the ref then runs again exactly when
+   * the element it is attached to is replaced or removed.
+   */
+  const registerTrigger = useCallback(
+    (step: number, node: HTMLButtonElement | null) => {
+      setTriggers((prev) => {
+        const current = prev.get(step)
+
+        if (node === null) {
+          if (current === undefined) return prev
+
+          const next = new Map(prev)
+          next.delete(step)
+
+          return next
+        }
+
+        if (current === node) return prev
+
+        const next = new Map(prev)
+        next.set(step, node)
+
+        return next
+      })
+    },
+    [],
+  )
+
+  // Document order, not registration order: a step added above another must not
+  // put the arrow keys out of order.
+  const orderedTriggers = useMemo(
+    () => [...triggers.entries()].sort(([left], [right]) => left - right),
+    [triggers],
+  )
+
+  const triggerNodes = useMemo(
+    () => orderedTriggers.map(([, node]) => node),
+    [orderedTriggers],
+  )
+
+  const triggerSteps = useMemo(
+    () => orderedTriggers.map(([step]) => step),
+    [orderedTriggers],
+  )
 
   const handleSetActiveStep = useCallback(
     (step: number) => {
@@ -141,37 +248,50 @@ function Stepper({
   const currentStep = value ?? activeStep
 
   // Keyboard navigation logic
-  const focusTrigger = (idx: number) => {
-    if (triggerNodes[idx]) triggerNodes[idx].focus()
-  }
+  const focusTrigger = useCallback(
+    (idx: number) => {
+      triggerNodes[idx]?.focus()
+    },
+    [triggerNodes],
+  )
 
-  const focusNext = (currentIdx: number) =>
-    focusTrigger((currentIdx + 1) % triggerNodes.length)
+  const focusNext = useCallback(
+    (currentIdx: number) =>
+      focusTrigger((currentIdx + 1) % triggerNodes.length),
+    [focusTrigger, triggerNodes.length],
+  )
 
-  const focusPrev = (currentIdx: number) =>
-    focusTrigger((currentIdx - 1 + triggerNodes.length) % triggerNodes.length)
+  const focusPrev = useCallback(
+    (currentIdx: number) =>
+      focusTrigger(
+        (currentIdx - 1 + triggerNodes.length) % triggerNodes.length,
+      ),
+    [focusTrigger, triggerNodes.length],
+  )
 
-  const focusFirst = () => focusTrigger(0)
-  const focusLast = () => focusTrigger(triggerNodes.length - 1)
+  const focusFirst = useCallback(() => focusTrigger(0), [focusTrigger])
+
+  const focusLast = useCallback(
+    () => focusTrigger(triggerNodes.length - 1),
+    [focusTrigger, triggerNodes.length],
+  )
+
+  const focusActions = useMemo<StepperFocusActions>(
+    () => ({ focusNext, focusPrev, focusFirst, focusLast }),
+    [focusNext, focusPrev, focusFirst, focusLast],
+  )
 
   // Context value
   const contextValue = useMemo<StepperContextValue>(
     () => ({
       activeStep: currentStep,
       setActiveStep: handleSetActiveStep,
-      stepsCount: Children.toArray(children).filter(
-        (child): child is ReactElement =>
-          isValidElement(child) &&
-          (child.type as { displayName?: string }).displayName ===
-            'StepperItem',
-      ).length,
+      stepsCount: Children.toArray(children).filter(isStepperItem).length,
       orientation,
       registerTrigger,
-      focusNext,
-      focusPrev,
-      focusFirst,
-      focusLast,
       triggerNodes,
+      triggerSteps,
+      ...focusActions,
       indicators,
     }),
     [
@@ -181,6 +301,9 @@ function Stepper({
       orientation,
       registerTrigger,
       triggerNodes,
+      triggerSteps,
+      focusActions,
+      indicators,
     ],
   )
 
@@ -227,10 +350,13 @@ function StepperItem({
 
   const isLoading = loading && step === activeStep
 
+  const itemContext = useMemo<StepItemContextValue>(
+    () => ({ step, state, isDisabled: disabled, isLoading }),
+    [step, state, disabled, isLoading],
+  )
+
   return (
-    <StepItemContext.Provider
-      value={{ step, state, isDisabled: disabled, isLoading }}
-    >
+    <StepItemContext.Provider value={itemContext}>
       <div
         data-slot="stepper-item"
         className={cn(
@@ -256,78 +382,34 @@ function StepperTrigger({
   render,
   ...props
 }: StepperTriggerProps) {
-  const { state, isLoading } = useStepItem()
+  const { state, isLoading, step, isDisabled } = useStepItem()
   const stepperCtx = useStepper()
 
-  const {
-    setActiveStep,
-    activeStep,
-    registerTrigger,
-    triggerNodes,
-    focusNext,
-    focusPrev,
-    focusFirst,
-    focusLast,
-  } = stepperCtx
+  const { setActiveStep, activeStep, registerTrigger, triggerSteps } =
+    stepperCtx
 
-  const { step, isDisabled } = useStepItem()
   const isSelected = activeStep === step
   const id = `stepper-tab-${step}`
   const panelId = `stepper-panel-${step}`
 
-  // Register this trigger for keyboard navigation
-  const btnRef = useRef<HTMLButtonElement>(null)
-  useEffect(() => {
-    if (btnRef.current) {
-      registerTrigger(btnRef.current)
-    }
-  }, [btnRef.current])
-
-  // Find our index among triggers for navigation
-  const myIdx = useMemo(
-    () =>
-      triggerNodes.findIndex((n: HTMLButtonElement) => n === btnRef.current),
-    [triggerNodes, btnRef.current],
+  // Stable for this step, so React calls it exactly when the element it is
+  // attached to is mounted, replaced or removed.
+  const triggerRef = useCallback(
+    (element: HTMLButtonElement | null) => registerTrigger(step, element),
+    [registerTrigger, step],
   )
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    switch (e.key) {
-      case 'ArrowRight':
-      case 'ArrowDown':
-        e.preventDefault()
+  // Find our index among triggers for navigation
+  const myIdx = triggerSteps.indexOf(step)
 
-        if (myIdx !== -1 && focusNext) focusNext(myIdx)
-        break
-      case 'ArrowLeft':
-      case 'ArrowUp':
-        e.preventDefault()
-
-        if (myIdx !== -1 && focusPrev) focusPrev(myIdx)
-        break
-      case 'Home':
-        e.preventDefault()
-
-        if (focusFirst) focusFirst()
-        break
-      case 'End':
-        e.preventDefault()
-
-        if (focusLast) focusLast()
-        break
-      case 'Enter':
-      case ' ':
-        e.preventDefault()
-        setActiveStep(step)
-        break
-    }
-  }
+  const select = useCallback(() => setActiveStep(step), [setActiveStep, step])
 
   const defaultProps = {
     role: 'tab',
     id,
     'aria-selected': isSelected,
     'aria-controls': panelId,
-    tabIndex: typeof tabIndex === 'number' ? tabIndex : isSelected ? 0 : -1,
+    tabIndex: tabIndex ?? (isSelected ? 0 : -1),
     'data-slot': 'stepper-trigger',
     'data-state': state,
     'data-loading': isLoading,
@@ -336,8 +418,9 @@ function StepperTrigger({
       'gap-2.5 rounded-full',
       className,
     ),
-    onClick: () => setActiveStep(step),
-    onKeyDown: handleKeyDown,
+    onClick: select,
+    onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) =>
+      handleTriggerKeyDown(event, myIdx, stepperCtx, select),
     disabled: isDisabled,
     children,
   }
@@ -345,7 +428,7 @@ function StepperTrigger({
   return useRender({
     defaultTagName: 'button',
     render,
-    ref: btnRef,
+    ref: triggerRef,
     props: mergeProps<'button'>(defaultProps, props),
   })
 }
@@ -357,6 +440,12 @@ function StepperIndicator({
   const { state, isLoading } = useStepItem()
   const { indicators } = useStepper()
 
+  const indicator =
+    (isLoading && indicators.loading) ||
+    (state === 'completed' && indicators.completed) ||
+    (state === 'active' && indicators.active) ||
+    (state === 'inactive' && indicators.inactive)
+
   return (
     <div
       data-slot="stepper-indicator"
@@ -367,18 +456,7 @@ function StepperIndicator({
         className,
       )}
     >
-      <div className="absolute">
-        {indicators &&
-        ((isLoading && indicators.loading) ||
-          (state === 'completed' && indicators.completed) ||
-          (state === 'active' && indicators.active) ||
-          (state === 'inactive' && indicators.inactive))
-          ? (isLoading && indicators.loading) ||
-            (state === 'completed' && indicators.completed) ||
-            (state === 'active' && indicators.active) ||
-            (state === 'inactive' && indicators.inactive)
-          : children}
-      </div>
+      <div className="absolute">{indicator || children}</div>
     </div>
   )
 }

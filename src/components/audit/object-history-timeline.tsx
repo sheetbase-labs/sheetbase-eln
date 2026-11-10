@@ -2,8 +2,8 @@ import { Avatar } from '#/components/ui/avatar'
 import {
   AUDIT_ENTITY_ICONS,
   AUDIT_OPERATION_ICONS,
-  HistoryTimeline,
-} from './history-timeline'
+} from './audit-icons'
+import { HistoryTimeline } from './history-timeline'
 import type { HistoryEntry } from './history-timeline'
 import { Badge } from '#/components/ui/badge'
 import {

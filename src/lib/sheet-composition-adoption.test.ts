@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import type { DataClient } from './data-client'
 import {
   applySheetInstanceCompositionAdoption,
   previewSheetInstanceCompositionAdoption,
@@ -30,6 +31,12 @@ const preview = {
   },
 }
 
+/** A transport that answers only the RPC a case asserts on. */
+function rpcClient(rpc: DataClient['rpc']): DataClient {
+  // SAFETY: both adoption helpers read only `rpc` from their client, so the other transport methods are never reached.
+  return { rpc } as DataClient
+}
+
 describe('sheet composition adoption client', () => {
   it('previews H2 adoption through the existing RPC', async () => {
     const rpc = vi.fn().mockResolvedValue(preview)
@@ -40,7 +47,7 @@ describe('sheet composition adoption client', () => {
         expectedRevision: 2,
         targetDefinitionVersionId: VERSION,
       },
-      { rpc } as never,
+      rpcClient(rpc),
     )
 
     expect(rpc).toHaveBeenCalledWith(
@@ -64,7 +71,7 @@ describe('sheet composition adoption client', () => {
         targetDefinitionVersionId: VERSION,
         retryToken: RETRY,
       },
-      { rpc } as never,
+      rpcClient(rpc),
     )
 
     expect(result.status).toBe('incompatible')

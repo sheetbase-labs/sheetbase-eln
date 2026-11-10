@@ -1,5 +1,9 @@
 import type { DataClient } from './data-client'
-import type { DatasetsAction, DatasetsActionResult } from './assistant-datasets'
+import type {
+  DatasetsAction,
+  DatasetsActionResult,
+  TableField,
+} from './assistant-datasets'
 
 const tableHref = (definitionId: string) => `/models/${definitionId}`
 const datasetHref = (datasetId: string) => `/datasets/${datasetId}`
@@ -37,7 +41,7 @@ export async function runDatasetsAction(
       if (action.parentId && action.fields.length > 0) {
         // A table that extends another starts with the parent's columns; its
         // own come after them.
-        const inherited = await client.list<Record<string, unknown>>(
+        const inherited = await client.list<TableField>(
           'dataset_schema_version_fields',
           `?schema_version_id=eq.${encodeURIComponent(created.schema_version_id)}&order=display_order.asc`,
         )
@@ -149,6 +153,7 @@ export async function runDatasetsAction(
 
       return { openHref: `/datasets/${action.datasetId}/snapshots` }
     case 'dataset.plan_rows':
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each planned key is its own write; they stay one at a time so a refusal stops the loop and the keys after it stay unplanned.
       for (const key of action.keys)
         await client.rpc('plan_dataset_row', {
           p_dataset_id: action.datasetId,

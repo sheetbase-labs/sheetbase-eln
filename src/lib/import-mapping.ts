@@ -1,9 +1,33 @@
 /**
  * DATA-01 column mapping and fail-closed coercion against a pinned schema.
  */
+import { z } from 'zod'
+
 import { coerceDatasetCellValue } from './dataset-product'
+import { FIELD_LOGICAL_TYPES } from './field-definition'
 import type { ImportSheet } from './import-parse'
 import type { ScientificColumnWire } from './scientific-sheet-data'
+
+/** A value this mapper hands to a Dataset row or Record custom field. */
+export type ImportCellValue = string | number | boolean | null | undefined
+
+/** The scalar representations a coerced cell may take; anything else is refused. */
+const importCellValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+])
+
+/** A pinned logical type; an unrecognised one is read as text, as it always was. */
+const columnLogicalTypeSchema = z.enum(FIELD_LOGICAL_TYPES).catch('text')
+
+/** Schema-field quantity metadata read from the pinned column wire. */
+const quantityUnitMetadataSchema = z.looseObject({
+  storageUnit: z.unknown().optional(),
+  symbol: z.unknown().optional(),
+  unit: z.unknown().optional(),
+})
 
 export interface ImportTargetField {
   id: string
@@ -66,7 +90,7 @@ export interface ImportRowError {
 
 export interface MappedImportRow {
   rowId: string
-  values: Record<string, unknown>
+  values: Record<string, ImportCellValue>
   title?: string
   status?: string
   /**
@@ -94,9 +118,9 @@ export function suggestImportMappings(
     const bare = normalised.replace(/\s*(?:\([^()]+\)|\[[^[\]]+\])\s*$/, '')
 
     const field = fields.find((item) => {
-      const labels = [item.label, item.key, item.id]
-        .filter(Boolean)
-        .map((value) => String(value).trim().toLowerCase())
+      const labels = [item.label, item.key, item.id].flatMap((value) =>
+        value ? [value.trim().toLowerCase()] : [],
+      )
 
       return labels.includes(normalised) || labels.includes(bare)
     })
@@ -123,12 +147,17 @@ export function datasetFieldsFromColumns(
 }
 
 /** Read a display unit from a Schema field's quantity metadata. */
-function columnUnit(quantity: unknown): string | null {
-  if (!quantity || typeof quantity !== 'object') return null
-  const record = quantity as Record<string, unknown>
-  const unit = record.storageUnit ?? record.symbol ?? record.unit
+function columnUnit(quantity: ScientificColumnWire['unit']): string | null {
+  const metadata = quantityUnitMetadataSchema.safeParse(quantity)
 
-  return typeof unit === 'string' && unit.trim() ? unit.trim() : null
+  if (!metadata.success) return null
+
+  const declared =
+    metadata.data.storageUnit ?? metadata.data.symbol ?? metadata.data.unit
+
+  const decoded = z.string().safeParse(declared)
+
+  return decoded.success && decoded.data.trim() ? decoded.data.trim() : null
 }
 
 export function recordFieldsFromModel(
@@ -159,17 +188,21 @@ export function recordFieldsFromModel(
     kind: 'record-status',
   }
 
-  const model = fields
-    .filter((field) => field.lifecycle !== 'retired')
-    .map((field) => ({
-      id: field.fieldName,
-      key: field.fieldName,
-      label: field.label,
-      logicalType: field.logicalType,
-      nullable: field.nullable,
-      options: field.options,
-      kind: 'record-field' as const,
-    }))
+  const model = fields.flatMap((field) =>
+    field.lifecycle === 'retired'
+      ? []
+      : [
+          {
+            id: field.fieldName,
+            key: field.fieldName,
+            label: field.label,
+            logicalType: field.logicalType,
+            nullable: field.nullable,
+            options: field.options,
+            kind: 'record-field' as const,
+          },
+        ],
+  )
 
   return [title, status, ...model]
 }
@@ -183,7 +216,7 @@ export function mapImportSheet(
   const errors: ImportRowError[] = []
 
   const rows = sheet.rows.map((sourceRow, index) => {
-    const values: Record<string, unknown> = {}
+    const values: Record<string, ImportCellValue> = {}
     let title: string | undefined
     let status: string | undefined
 
@@ -201,7 +234,7 @@ export function mapImportSheet(
         const coerced = coerceImportValue(mapping.field, raw)
 
         if (mapping.field.kind === 'record-title') {
-          title = typeof coerced === 'string' ? coerced : String(coerced ?? '')
+          title = String(coerced ?? '')
         } else if (mapping.field.kind === 'record-status') {
           status =
             coerced === null || coerced === undefined
@@ -230,13 +263,13 @@ export function mapImportSheet(
 export function coerceImportValue(
   field: ImportTargetField,
   raw: string,
-): unknown {
+): ImportCellValue {
   const column: ScientificColumnWire = {
     id: field.id,
     field_name: field.key ?? field.id,
     label: field.label,
     display_order: 0,
-    logical_type: field.logicalType as ScientificColumnWire['logical_type'],
+    logical_type: columnLogicalTypeSchema.parse(field.logicalType),
     nullable: field.nullable,
     unit: null,
     validation: {},
@@ -262,7 +295,9 @@ export function coerceImportValue(
     case 'integer':
     case 'decimal':
     case 'boolean':
-      return coerceDatasetCellValue(column, trimmed)
+      return importCellValueSchema.parse(
+        coerceDatasetCellValue(column, trimmed),
+      )
     case 'date':
       if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
         throw new Error(`Invalid date: ${field.label}`)

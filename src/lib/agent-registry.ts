@@ -3,6 +3,8 @@
  * with a trigger, an owner and a policy), their runs, the numbered revisions of
  * the policy, and how a proposal reads from a person's point of view.
  */
+import { z } from 'zod'
+
 import { formatInstant } from './display-time-zone'
 import type { DataClient } from './data-client'
 import type { AgentOperationProposal } from './agent-operations'
@@ -269,11 +271,15 @@ export function actionLabel(kind: string): string {
 
 export type Risk = 'high' | 'medium' | 'low'
 
-export function proposalRisk(proposal: AgentOperationProposal): Risk {
-  const stated = (proposal.policy_evidence as { risk?: unknown }).risk
+/** The risk the policy evidence states, when it states one. */
+const statedRisk = z.object({
+  risk: z.enum(['high', 'medium', 'low']).optional(),
+})
 
-  if (stated === 'high' || stated === 'medium' || stated === 'low')
-    return stated
+export function proposalRisk(proposal: AgentOperationProposal): Risk {
+  const stated = statedRisk.safeParse(proposal.policy_evidence).data?.risk
+
+  if (stated) return stated
 
   return proposal.risk_class === 'safe_draft' ? 'low' : 'medium'
 }
@@ -339,43 +345,69 @@ export interface ProposalEvidence {
   approverRole: string | null
 }
 
+/** The evidence a policy evaluation recorded, as the proposal carries it. */
+const policyEvidence = z.object({
+  evidence: z
+    .array(
+      z.object({
+        label: z.string(),
+        value: z.string(),
+        href: z.string().optional(),
+      }),
+    )
+    .optional(),
+  confidence: z.object({ level: z.string(), note: z.string() }).nullish(),
+  approverRole: z.string().nullish(),
+})
+
 export function proposalEvidence(
   proposal: AgentOperationProposal,
 ): ProposalEvidence {
-  const raw = proposal.policy_evidence as Partial<{
-    evidence: ProposalEvidence['evidence']
-    confidence: ProposalEvidence['confidence']
-    approverRole: string
-  }>
+  const raw = policyEvidence.safeParse(proposal.policy_evidence).data
 
   return {
-    evidence: Array.isArray(raw.evidence) ? raw.evidence : [],
-    confidence: raw.confidence ?? null,
-    approverRole: raw.approverRole ?? null,
+    evidence: raw?.evidence ?? [],
+    confidence: raw?.confidence ?? null,
+    approverRole: raw?.approverRole ?? null,
   }
 }
 
-export interface RenderedChange {
-  sections: Array<{
-    kind: 'unchanged' | 'added' | 'changed' | 'removed'
-    title: string
-    subtitle?: string
-    table?: { columns: string[]; rows: string[][] }
-    caption?: string
-  }>
-  footer?: string
-}
+const renderedChange = z.object({
+  sections: z.array(
+    z.object({
+      kind: z.enum(['unchanged', 'added', 'changed', 'removed']),
+      title: z.string(),
+      subtitle: z.string().optional(),
+      table: z
+        .object({
+          columns: z.array(z.string()),
+          rows: z.array(z.array(z.string())),
+        })
+        .optional(),
+      caption: z.string().optional(),
+    }),
+  ),
+  footer: z.string().optional(),
+})
+
+export type RenderedChange = z.infer<typeof renderedChange>
+
+/** A preview that carries the agent's own rendered change, when it wrote one. */
+const renderedPreview = z.object({ rendered: renderedChange.optional() })
 
 /** What the agent says the change looks like, when it said. */
 export function proposalRendered(
   proposal: AgentOperationProposal,
 ): RenderedChange | null {
-  const rendered = (
-    proposal.preview as unknown as { rendered?: RenderedChange }
-  ).rendered
-
-  return rendered && Array.isArray(rendered.sections) ? rendered : null
+  return renderedPreview.safeParse(proposal.preview).data?.rendered ?? null
 }
+
+/** The record a proposal names, as its policy evaluation targeted it. */
+const policyTarget = z.object({
+  identifier: z.string().optional(),
+  context: z.string().optional(),
+  label: z.string().optional(),
+})
 
 export interface ProposalSubject {
   identifier: string | null
@@ -386,16 +418,12 @@ export interface ProposalSubject {
 export function proposalSubject(
   proposal: AgentOperationProposal,
 ): ProposalSubject {
-  const target = proposal.policy_target as Partial<{
-    identifier: string
-    context: string
-    label: string
-  }>
+  const target = policyTarget.safeParse(proposal.policy_target).data
 
   return {
-    identifier: target.identifier ?? null,
-    context: target.context ?? null,
-    label: target.label ?? proposal.impact.target.label,
+    identifier: target?.identifier ?? null,
+    context: target?.context ?? null,
+    label: target?.label ?? proposal.impact.target.label,
   }
 }
 
@@ -411,11 +439,17 @@ export function revisionTitle(
     : `Revision ${revision.revision}`
 }
 
+/** The word and tone a run shows. */
+export interface RunStatus {
+  label: string
+  tone: 'review' | 'ok' | 'bad' | 'stored'
+}
+
 /** The word and tone a run shows, from its proposal when it made one. */
 export function runStatus(
   run: AgentRun,
   proposal: AgentOperationProposal | undefined,
-): { label: string; tone: 'review' | 'ok' | 'bad' | 'stored' } {
+): RunStatus {
   if (proposal) {
     switch (proposal.status) {
       case 'pending':

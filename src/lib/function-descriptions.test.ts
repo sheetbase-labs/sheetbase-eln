@@ -19,7 +19,7 @@ describe('FUNCTION_DESCRIPTIONS', () => {
   it('does not describe functions outside the allow-list', () => {
     for (const id of Object.keys(FUNCTION_DESCRIPTIONS)) {
       expect(
-        (SCIENTIFIC_CORE_FUNCTIONS as readonly string[]).includes(id),
+        new Set<string>(SCIENTIFIC_CORE_FUNCTIONS).has(id),
         `description for disallowed function ${id}`,
       ).toBe(true)
     }

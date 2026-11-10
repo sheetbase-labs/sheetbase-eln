@@ -17,6 +17,7 @@ export interface PropertyProps {
 }
 
 function CodeValue({ children }: { children: React.ReactNode }) {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- `React.ReactNode` is a closed union with no discriminator of its own, so `typeof` is the only runtime test for a text child; every other node (element, number, null) passes through untouched.
   if (typeof children !== 'string') return children
 
   return children.split(/([,;/:=])/).map((part, index) => (

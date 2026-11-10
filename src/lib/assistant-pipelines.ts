@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import type { PipelineScheduleWire } from './pipelines/types'
+
 /**
  * Pipelines and plugins from the assistant: run a pipeline, retry or cancel a
  * run, publish its newest draft, retire it or bring it back, add a schedule,
@@ -69,6 +71,8 @@ const scheduleKind = z
     'Which of the pipeline’s schedules, when it has more than one: `interval`, `daily`, `cron` or `event`.',
   )
 
+const pipelineParametersSchema = z.record(z.string().min(1).max(64), z.json())
+
 export const proposePipelineRunSchema = z.strictObject({
   title,
   summary,
@@ -79,8 +83,7 @@ export const proposePipelineRunSchema = z.strictObject({
     .describe(
       'Which dataset each input reads, as input name to dataset name. The newest version of each dataset is used. Leave out for a pipeline without inputs.',
     ),
-  parameters: z
-    .record(z.string().min(1).max(64), z.unknown())
+  parameters: pipelineParametersSchema
     .optional()
     .describe('Values for the pipeline’s settings, by name, if they said.'),
 })
@@ -176,13 +179,16 @@ export const proposePluginRemoveSchema = z.strictObject({
   plugin,
 })
 
+/** The pipeline settings a run is given, as the card's schema carried them. */
+type PipelineRunParameters = z.infer<typeof pipelineParametersSchema>
+
 /** What a pipeline or plugin card does when its button is pressed. */
 export type PipelinesAction =
   | {
       kind: 'pipeline.run'
       definitionId: string
       versionId: string
-      parameters: Record<string, unknown>
+      parameters: PipelineRunParameters
       inputVersions: Record<string, string>
     }
   | { kind: 'pipeline.retry'; definitionId: string; runId: string }
@@ -209,7 +215,7 @@ export type PipelinesAction =
       workspaceId: string
       definitionId: string
       scheduleKind: 'interval' | 'daily' | 'cron' | 'event'
-      spec: Record<string, unknown>
+      spec: PipelineScheduleWire['spec']
     }
   | {
       kind: 'pipeline.schedule_switch'

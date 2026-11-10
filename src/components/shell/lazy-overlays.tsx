@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react'
-import type { ComponentProps, ComponentType } from 'react'
+import type { ComponentProps } from 'react'
 
 import type { SearchPalette as SearchPaletteComponent } from '#/components/search/search-palette'
 import type { RegistryShortcutsDialog as ShortcutsDialogComponent } from '#/components/shortcuts/shortcuts-dialog'
@@ -12,9 +12,7 @@ const SearchPalette = lazy(() =>
 
 const ShortcutsDialog = lazy(() =>
   import('#/components/shortcuts/shortcuts-dialog').then((module) => ({
-    default: module.RegistryShortcutsDialog as ComponentType<
-      ComponentProps<typeof ShortcutsDialogComponent>
-    >,
+    default: module.RegistryShortcutsDialog,
   })),
 )
 

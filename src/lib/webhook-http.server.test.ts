@@ -1,12 +1,22 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
-import { lookup } from 'node:dns/promises'
 import {
   isPublicWebhookAddress,
   resolveWebhookHost,
 } from './webhook-http.server'
 
-vi.mock('node:dns/promises', () => ({ lookup: vi.fn() }))
+const dns = vi.hoisted(() => ({
+  lookup:
+    vi.fn<
+      (
+        hostname: string,
+        options: { all: true; verbatim: true },
+      ) => Promise<Array<{ address: string; family: number }>>
+    >(),
+}))
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The destination policy resolves through Node's built-in DNS module, which takes no resolver seam; this stands in for it so each case presents fixed answers.
+vi.mock('node:dns/promises', () => ({ lookup: dns.lookup }))
 
 describe('webhook socket destination policy', () => {
   it.each([
@@ -33,18 +43,16 @@ describe('webhook socket destination policy', () => {
     },
   )
   it('rejects mixed DNS answers, rather than trusting the first address', async () => {
-    vi.mocked(lookup).mockResolvedValueOnce([
+    dns.lookup.mockResolvedValueOnce([
       { address: '1.1.1.1', family: 4 },
       { address: '127.0.0.1', family: 4 },
-    ] as never)
+    ])
     await expect(resolveWebhookHost('receiver.example')).rejects.toThrow(
       'non-public',
     )
   })
   it('returns the exact validated address for the socket lookup', async () => {
-    vi.mocked(lookup).mockResolvedValueOnce([
-      { address: '1.1.1.1', family: 4 },
-    ] as never)
+    dns.lookup.mockResolvedValueOnce([{ address: '1.1.1.1', family: 4 }])
     await expect(resolveWebhookHost('receiver.example')).resolves.toEqual({
       address: '1.1.1.1',
       family: 4,

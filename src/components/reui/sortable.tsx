@@ -4,14 +4,26 @@
  *   pnpm dlx shadcn@latest add @reui/sortable
  *   @reui -> https://reui.io/r/base-nova/{name}.json
  *
- * Copy-and-own source. The only change is the `cn` import, re-pointed from the
- * `cn` package to `#/lib/utils` (the helper that teaches tailwind-merge the
- * Sheetbase type scale) as ADR-0055's consequences section requires. Do not
- * extend or hand-edit this file beyond import-path fixes and restyling to
- * Sheetbase tokens; see docs/knowledge/design/component-comparison-record.md.
+ * Copy-and-own source. The changes from the registry item, and the local patches
+ * after ADR-0057, which makes this file first-party-maintained source — a
+ * registry re-sync merges these rather than taking the item over them:
+ * - `cn` re-pointed from the `cn` package to `#/lib/utils`, the helper that
+ *   teaches tailwind-merge the Sheetbase type scale (ADR-0055).
+ * - The two `@dnd-kit/core` imports are one value import and one top-level type
+ *   import, as the repository's import rules require.
+ * - The drag overlay's active child is found through a typed `isValidElement`
+ *   call and cloned from its own props, instead of asserting the child's props
+ *   four times. Same child, same merge, no assertion.
+ * - `style` is annotated rather than asserted, `STRATEGY_MAP` no longer carries
+ *   an unreachable `??` fallback, and the item context value is memoised so a
+ *   drag does not re-render every row through a fresh provider value.
+ * - `SortableOverlay` tells a render-prop child from a node through one
+ *   documented type guard; a public prop union of `ReactNode` and a function
+ *   is only distinguishable by its runtime representation, and that guard is
+ *   the one line where it is decided.
  */
 import * as React from 'react'
-import type { CSSProperties, ReactElement, ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import {
   Children,
   cloneElement,
@@ -29,6 +41,7 @@ import type {
   DragCancelEvent,
   DragEndEvent,
   DragStartEvent,
+  DraggableSyntheticListeners,
   DropAnimation,
   Modifiers,
   UniqueIdentifier,
@@ -43,8 +56,8 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  type DraggableSyntheticListeners,
 } from '@dnd-kit/core'
+import type { AnimateLayoutChanges } from '@dnd-kit/sortable'
 import {
   arrayMove,
   defaultAnimateLayoutChanges,
@@ -53,7 +66,6 @@ import {
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
-  type AnimateLayoutChanges,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { createPortal } from 'react-dom'
@@ -282,12 +294,18 @@ function Sortable<T>({
     if (!activeId) return null
     let result: ReactNode = null
     Children.forEach(children, (child) => {
-      if (isValidElement(child) && (child.props as any).value === activeId) {
-        result = cloneElement(child as ReactElement<any>, {
-          ...(child.props as any),
-          className: cn((child.props as any).className, 'z-50'),
-        })
+      if (
+        !isValidElement<{ value?: UniqueIdentifier; className?: string }>(child)
+      ) {
+        return
       }
+
+      if (child.props.value !== activeId) return
+
+      result = cloneElement(child, {
+        ...child.props,
+        className: cn(child.props.className, 'z-50'),
+      })
     })
 
     return result
@@ -304,10 +322,7 @@ function Sortable<T>({
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        <SortableContext
-          items={itemIds}
-          strategy={STRATEGY_MAP[strategy] ?? verticalListSortingStrategy}
-        >
+        <SortableContext items={itemIds} strategy={STRATEGY_MAP[strategy]}>
           {useRender({
             defaultTagName: 'div',
             render,
@@ -359,10 +374,18 @@ function SortableItem({
     animateLayoutChanges,
   })
 
-  const style = {
+  const style: CSSProperties = {
     transition,
     transform: CSS.Transform.toString(transform),
-  } as CSSProperties
+  }
+
+  const itemContext = useMemo(
+    () =>
+      isOverlay
+        ? { listeners: undefined, isDragging: true, disabled: false }
+        : { listeners, isDragging: isSortableDragging, disabled },
+    [isOverlay, listeners, isSortableDragging, disabled],
+  )
 
   const defaultProps = isOverlay
     ? {
@@ -385,13 +408,7 @@ function SortableItem({
       }
 
   return (
-    <SortableItemContext.Provider
-      value={
-        isOverlay
-          ? { listeners: undefined, isDragging: true, disabled: false }
-          : { listeners, isDragging: isSortableDragging, disabled }
-      }
-    >
+    <SortableItemContext.Provider value={itemContext}>
       {useRender({
         defaultTagName: 'div',
         render,
@@ -439,6 +456,21 @@ export interface SortableOverlayProps extends Omit<
   children?: ReactNode | ((params: { value: UniqueIdentifier }) => ReactNode)
 }
 
+/** The render-prop half of `SortableOverlayProps['children']`. */
+type SortableOverlayRender = (params: { value: UniqueIdentifier }) => ReactNode
+
+/**
+ * Which of the overlay's two child forms this is. `children` is a public prop
+ * typed as a node or a render prop, and nothing in the type survives to
+ * runtime, so the representation is the only evidence there is.
+ */
+function isOverlayRender(
+  children: NonNullable<SortableOverlayProps['children']>,
+): children is SortableOverlayRender {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- `children` is a public prop union of ReactNode and a render function; a function-valued child carries no other marker, and this is the boundary where the union is decided.
+  return typeof children === 'function'
+}
+
 function SortableOverlay({
   children,
   className,
@@ -454,7 +486,7 @@ function SortableOverlay({
 
   const content =
     activeId && children
-      ? typeof children === 'function'
+      ? isOverlayRender(children)
         ? children({ value: activeId })
         : children
       : null

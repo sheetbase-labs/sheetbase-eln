@@ -308,7 +308,7 @@ export function availableSignatureMeanings(input: {
   )
     return []
 
-  return SIGNATURE_MEANING_OPTIONS.filter((option) => {
+  const available = (option: (typeof SIGNATURE_MEANING_OPTIONS)[number]) => {
     if (!signatureMeaningEnabled(input.policy, option.value)) return false
 
     if (
@@ -331,7 +331,11 @@ export function availableSignatureMeanings(input: {
       submission.assigned_reviewer_user_ids.includes(currentUserId) &&
       (option.value === 'reviewed' || submission.state === 'approved')
     )
-  }).map((option) => option.value)
+  }
+
+  return SIGNATURE_MEANING_OPTIONS.flatMap((option) =>
+    available(option) ? [option.value] : [],
+  )
 }
 
 export function requestSignatureWitness(
@@ -410,11 +414,13 @@ export async function requestSignatureStepUp(input: SignatureStepUpInput) {
     .parse(await postSignatureAuthentication(input))
 }
 
+export type SignatureCredentialInput = { workspaceId: string } & (
+  | { purpose: 'enroll-request' | 'recover-request' }
+  | { purpose: 'enroll' | 'recover'; password: string; secret: string }
+)
+
 export async function requestSignatureCredential(
-  input: { workspaceId: string } & (
-    | { purpose: 'enroll-request' | 'recover-request' }
-    | { purpose: 'enroll' | 'recover'; password: string; secret: string }
-  ),
+  input: SignatureCredentialInput,
 ): Promise<void> {
   await postSignatureAuthentication(input)
 }
@@ -449,25 +455,32 @@ export function isExpiredSigningSession(
   )
 }
 
-/** The search the sign-in route uses to say why it is showing and where to return. */
-export function expiredSigningSignInSearch(pathname: string): {
+/** The sign-in search that says why the sign-in is showing and where to return. */
+export interface ExpiredSigningSignInSearch {
   state: 'expired-signing'
   next: string
-} {
+}
+
+/** The search the sign-in route uses to say why it is showing and where to return. */
+export function expiredSigningSignInSearch(
+  pathname: string,
+): ExpiredSigningSignInSearch {
   return {
     state: 'expired-signing',
     next: pathname.startsWith('/') ? pathname : '/',
   }
 }
 
-async function postSignatureAuthentication(input: object): Promise<unknown> {
+async function postSignatureAuthentication(
+  input: SignatureStepUpInput | SignatureCredentialInput,
+): Promise<z.core.util.JSONType> {
   const response = await fetch('/api/signatures/step-up', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   })
 
-  const body: unknown = await response.json()
+  const body = z.json().parse(await response.json())
 
   if (!response.ok) {
     const error = z

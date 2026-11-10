@@ -541,10 +541,10 @@ export function paneMode(
 
   if (missing) return { kind: 'plain' }
 
-  if (/^\/evidence\//.test(path)) return { kind: 'signed' }
+  if (path.startsWith('/evidence/')) return { kind: 'signed' }
 
   if (primary) {
-    if (/^\/review\//.test(path)) return { kind: 'reviewing' }
+    if (path.startsWith('/review/')) return { kind: 'reviewing' }
 
     // Only pages with something to edit say so; Home and lists stay quiet.
     if (!EDITABLE_PAGE.test(path)) return { kind: 'plain' }
@@ -738,7 +738,7 @@ export function restoreWorkspace(
     const tabs = parsed.data.tabs.map((tab) => validTab(tab, origin))
 
     if (tabs.some((tab) => tab === null)) return initialWorkspace(href)
-    const valid = tabs as WorkspaceTab[]
+    const valid = tabs.filter((tab): tab is WorkspaceTab => tab !== null)
 
     if (new Set(valid.map((tab) => tab.id)).size !== valid.length)
       return initialWorkspace(href)
@@ -842,12 +842,14 @@ export function restoreSavedLayouts(
           (pane) => workspaceHref(pane.href, origin) === pane.href,
         ) ||
         !isPaneTree(layout.tree) ||
-        listPaneIds(layout.tree).some((id) => !ids.includes(id)) ||
-        ids.some((id) => !hasPane(layout.tree as PaneTree, id))
+        listPaneIds(layout.tree).some((id) => !ids.includes(id))
       )
         return []
+      const tree = layout.tree
 
-      return [{ ...layout, tree: layout.tree }]
+      if (ids.some((id) => !hasPane(tree, id))) return []
+
+      return [{ ...layout, tree }]
     })
   } catch {
     return []

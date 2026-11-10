@@ -41,47 +41,14 @@ import {
   useSyncExternalStore,
 } from 'react'
 import type { ReactNode } from 'react'
-import {
-  mergeDataGridI18n,
-  type DataGridI18nConfig,
-  type DataGridI18nOverrides,
-} from '#/components/reui/data-grid/data-grid-i18n'
-import {
-  cellSelectionFeature,
-  columnFacetingFeature,
-  columnFilteringFeature,
-  columnOrderingFeature,
-  columnPinningFeature,
-  columnResizingFeature,
-  columnSizingFeature,
-  columnVisibilityFeature,
-  createExpandedRowModel,
-  createFacetedRowModel,
-  createFacetedUniqueValues,
-  createFilteredRowModel,
-  createPaginatedRowModel,
-  createSortedRowModel,
-  globalFilteringFeature,
-  metaHelper,
-  rowExpandingFeature,
-  rowPaginationFeature,
-  rowPinningFeature,
-  rowSelectionFeature,
-  rowSortingFeature,
-  sortFn_alphanumeric,
-  sortFn_alphanumericCaseSensitive,
-  sortFn_basic,
-  sortFn_datetime,
-  sortFn_text,
-  sortFn_textCaseSensitive,
-  tableFeatures,
-} from '@tanstack/react-table'
+import { mergeDataGridI18n } from '#/components/reui/data-grid/data-grid-i18n'
 import type {
-  Cell,
-  Column,
+  DataGridI18nConfig,
+  DataGridI18nOverrides,
+} from '#/components/reui/data-grid/data-grid-i18n'
+import type { DataGridTableInstance } from '#/components/reui/data-grid/data-grid-features'
+import type {
   ColumnFiltersState,
-  ReactTable,
-  RowData,
   SortingState,
   Table,
   TableFeatures,
@@ -89,357 +56,30 @@ import type {
 
 import { cn } from '#/lib/utils'
 
-/**
- * Per-column extras the grid reads off `columnDef.meta`.
- *
- * TanStack v9 resolves this through the `columnMeta` slot on the feature
- * bundle below instead of a global `declare module` augmentation, so
- * installing the data grid no longer widens `ColumnMeta` for every other
- * table in the consuming app.
- */
-/**
- * Per-column write contract for the spreadsheet operations (paste, fill,
- * clear, cut). Presence marks the column writable; every write still flows
- * through `onCellsChange`, so the consumer's state stays the only data owner.
- */
-export interface DataGridColumnCellEdit<TData> {
-  /**
-   * Set false for a column that formats clipboard output but is never
-   * written; a function decides per row, so locked rows (archived, another
-   * user's, a totals row) reject like any read-only cell. Defaults to true.
-   */
-  editable?: boolean | ((row: TData) => boolean)
-  /**
-   * Clipboard or fill string to typed value. Return undefined to reject the
-   * cell into `rejected`. Without it the raw string passes through unchanged -
-   * a deliberate non-coercion, so a number column receives strings only when
-   * the consumer chose not to parse.
-   */
-  parse?: (raw: string, row: TData) => unknown
-  /** Typed value to clipboard string. Fallback: String(value ?? ""). */
-  format?: (value: unknown, row: TData) => string
-  /** Value dispatched by Delete/Backspace and cut. Defaults to null. */
-  clearValue?: unknown
-  /**
-   * Opt into the grid's built-in free-text editor: an overlay input (or
-   * auto-growing textarea) flush over the focused cell, opened by Enter, F2,
-   * typing, or double-click, committing through `onCellsChange` as source
-   * `"edit"` with `parse` applied. Columns without it stay consumer-edited
-   * via `onCellEditRequest` or their own cell renderers.
-   */
-  control?: 'text' | 'textarea'
-}
+// The non-component surface lives in its own modules (ADR-0057): a component
+// module may export only components and hooks, so these are re-exported here
+// to keep every existing import path working.
+export { dataGridFeatures } from '#/components/reui/data-grid/data-grid-features'
 
-export interface DataGridColumnMeta<TData> {
-  headerTitle?: string
-  headerClassName?: string
-  cellClassName?: string
-  skeleton?: ReactNode
-  expandedContent?: (row: TData) => ReactNode
-  autoSize?: boolean
-  /**
-   * What an export writes for this column's cell, when the cell shows more
-   * than the column's value (a link, a status chip). Without it the export
-   * writes the column's accessor value; a column with neither is left out.
-   */
-  exportValue?: (row: TData) => string | number | boolean | null | undefined
-  /** Header spans this many leaves: this one and its next adjacent siblings. */
-  headerColSpan?: number
-  cellEdit?: DataGridColumnCellEdit<TData>
-  /**
-   * Under `columnsResizable`, this column absorbs the free space the filler
-   * strip would otherwise hold, so the grid always reads full-width and the
-   * built-in editor covers the whole cell. One column per grid; while free
-   * space remains, manual resizing of this column is visually a no-op (the
-   * absorbed space compensates), the flex-column trade-off.
-   */
-  fillWidth?: boolean
-}
-
-/**
- * The batteries-included feature bundle every ReUI data-grid example builds
- * on. v9 requires each table to declare its features up front, and the grid's
- * render path needs the ones registered here: `columnVisibilityFeature` alone
- * gates `row.getVisibleCells()`, so even a grid that never hides a column
- * needs it to render at all.
- *
- * Pass it straight through for the full grid:
- *
- * ```tsx
- * const table = useTable({ features: dataGridFeatures, columns, data })
- * ```
- *
- * Extend it when a grid needs more, keeping each prerequisite feature ahead of
- * the slot that depends on it:
- *
- * ```tsx
- * const features = tableFeatures({
- *   ...dataGridFeatures,
- *   columnGroupingFeature,
- *   groupedRowModel: createGroupedRowModel(),
- * })
- * ```
- *
- * Or drop it entirely and hand `<DataGrid>` a leaner table - the components
- * accept any bundle, so you keep full ownership of the TanStack core.
- */
-export const dataGridFeatures = tableFeatures({
-  columnVisibilityFeature,
-  columnOrderingFeature,
-  columnPinningFeature,
-  columnSizingFeature,
-  // columnResizingFeature requires columnSizingFeature, declared above.
-  columnResizingFeature,
-  columnFilteringFeature,
-  // Powers DataGridColumnFilter's column.getFacetedUniqueValues(). On v8 an
-  // unregistered facet silently returned an empty map; on v9 the method would
-  // not exist at all, so the faceted row models below are required, not
-  // optional.
-  columnFacetingFeature,
-  // globalFilteringFeature requires columnFilteringFeature, declared above.
-  globalFilteringFeature,
-  rowSortingFeature,
-  rowPaginationFeature,
-  rowSelectionFeature,
-  rowExpandingFeature,
-  rowPinningFeature,
-  // Registration alone is inert: it seeds a `cellSelection: []` slice and
-  // prototype methods but binds no DOM handlers, so grids without
-  // `tableLayout.cellSelection` render and behave exactly as before.
-  cellSelectionFeature,
-  sortedRowModel: createSortedRowModel(),
-  filteredRowModel: createFilteredRowModel(),
-  paginatedRowModel: createPaginatedRowModel(),
-  expandedRowModel: createExpandedRowModel(),
-  facetedRowModel: createFacetedRowModel(),
-  facetedUniqueValues: createFacetedUniqueValues(),
-  // Every built-in v9 ships. A string `sortFn` resolves against this map
-  // alone, and `sortFn: "auto"` infers a name ("alphanumeric", "text" or
-  // "datetime") from the first row's value - so a partial map makes auto
-  // sorting warn and silently fall back on ordinary string columns.
-  sortFns: {
-    alphanumeric: sortFn_alphanumeric,
-    alphanumericCaseSensitive: sortFn_alphanumericCaseSensitive,
-    basic: sortFn_basic,
-    datetime: sortFn_datetime,
-    text: sortFn_text,
-    textCaseSensitive: sortFn_textCaseSensitive,
-  },
-  columnMeta: metaHelper<DataGridColumnMeta<any>>(),
-})
-
-/** The feature set `dataGridFeatures` registers. */
-export type DataGridFeatures = typeof dataGridFeatures
-
-/**
- * The grid's internal view of the table.
- *
- * `TFeatures` is invariant in v9 and an unresolved generic one collapses to a
- * union that includes the bare core arm, so no generic signature can call
- * `getVisibleCells()`, `getStartVisibleLeafColumns()` and friends. The public
- * components stay generic so consumers can pass any bundle they like; the
- * table is widened to this concrete type exactly once, on the way into
- * context, and every internal component reads it from there.
- */
-export type DataGridTableInstance<TData extends object> = ReactTable<
+export type {
+  DataGridColumnCellEdit,
+  DataGridColumnMeta,
   DataGridFeatures,
-  TData
->
+  DataGridTableInstance,
+} from '#/components/reui/data-grid/data-grid-features'
 
-/** Label for headers / column visibility: `meta.headerTitle`, string `columnDef.header`, or `column.id`. */
-export function getColumnHeaderLabel<TData extends RowData, TValue>(
-  column: Column<DataGridFeatures, TData, TValue>,
-): string {
-  const meta = column.columnDef.meta as { headerTitle?: string } | undefined
+export {
+  getColumnHeaderLabel,
+  getDataGridHeaderSpans,
+  toDataGridDomId,
+} from '#/components/reui/data-grid/data-grid-columns'
 
-  if (typeof meta?.headerTitle === 'string') return meta.headerTitle
-  const defHeader = column.columnDef.header
+export {
+  dataGridCellSelectionCellClasses,
+  getDataGridCellSelectionCellAttrs,
+} from '#/components/reui/data-grid/data-grid-selection'
 
-  if (typeof defHeader === 'string') return defHeader
-
-  return String(column.id)
-}
-
-/**
- * meta.headerColSpan: the sibling leaves each owning leaf's header covers,
- * by owner id. Each must render right after the last in its pin family, or
- * the span ends there; the header rows, the resize indicator and the move
- * and drop targets all read spans from here.
- */
-export function getDataGridHeaderSpans<TData extends object>(
-  table: DataGridTableInstance<TData>,
-) {
-  const spans = new Map<string, Column<DataGridFeatures, TData, unknown>[]>()
-
-  const families = [
-    table.getStartVisibleLeafColumns(),
-    table.getCenterVisibleLeafColumns(),
-    table.getEndVisibleLeafColumns(),
-  ] as Column<DataGridFeatures, TData, unknown>[][]
-
-  for (const family of families) {
-    for (let index = 0; index < family.length; index++) {
-      const owner = family[index]!
-      const span = Math.floor(owner.columnDef.meta?.headerColSpan ?? 1)
-
-      if (span < 2) continue
-
-      // The next span - 1 siblings in definition order, so a span never
-      // leaves its parent group; a hidden one is skipped, not a gap.
-      const siblings = owner.parent?.columns ?? table.getAllColumns()
-      const at = siblings.findIndex((sibling) => sibling.id === owner.id)
-
-      const intended =
-        at < 0
-          ? []
-          : siblings
-              .slice(at + 1, at + span)
-              .filter((sibling) => sibling.getIsVisible())
-
-      const covered: Column<DataGridFeatures, TData, unknown>[] = []
-
-      for (const sibling of intended) {
-        const next = family[index + 1 + covered.length]
-
-        if (next?.id !== sibling.id) break
-        covered.push(next)
-      }
-
-      if (!covered.length) continue
-
-      spans.set(owner.id, covered)
-      index += covered.length
-    }
-  }
-
-  return spans
-}
-
-/**
- * The td contract for spreadsheet selection. Call inside a
- * `Subscribe source={table.atoms.cellSelection}` render only: the reads are
- * builder calls whose state dependency React Compiler cannot see, exactly the
- * trap the row-selection checkbox documents.
- */
-export function getDataGridCellSelectionCellAttrs<TData extends object>(
-  cell: Cell<DataGridFeatures, TData, unknown>,
-): {
-  'aria-selected': boolean
-  'data-col-id': string
-  'data-cell-selected': true | undefined
-  'data-cell-focused': true | undefined
-  'data-cell-edge-top': true | undefined
-  'data-cell-edge-right': true | undefined
-  'data-cell-edge-bottom': true | undefined
-  'data-cell-edge-left': true | undefined
-} {
-  const selected = cell.getIsSelected()
-  const edges = cell.getSelectionEdges()
-
-  return {
-    'aria-selected': selected,
-    'data-col-id': cell.column.id,
-    'data-cell-selected': selected || undefined,
-    'data-cell-focused': cell.getIsFocused() || undefined,
-    'data-cell-edge-top': edges.top || undefined,
-    'data-cell-edge-right': edges.right || undefined,
-    'data-cell-edge-bottom': edges.bottom || undefined,
-    'data-cell-edge-left': edges.left || undefined,
-  }
-}
-
-/**
- * Selection chrome for a body td, activated by the data attributes above plus
- * the imperatively toggled `data-cell-fill-target` (fill-drag preview, written
- * outside React like the resize indicator). A ::before overlay, not outline
- * or box-shadow: an outline ring hugs the cell box and cannot line up with
- * the gridlines the perimeter paints on, and the pinned-column dividers
- * already own the cell's shadow slot (tailwind-merge would collapse a second
- * shadow-[...] into it).
- */
-export const dataGridCellSelectionCellClasses = cn(
-  'relative select-none',
-  // A light tint: the selection must read as a range without drowning the
-  // gridlines under a heavy fill. The focused cell stays unfilled. Pinned
-  // cells must stay OPAQUE (they hide scrolled content), so they get the
-  // tint pre-mixed over the background, and the focused pinned cell keeps
-  // a solid background instead of turning transparent.
-  'data-[cell-selected]:bg-primary/4',
-  'data-[cell-selected]:data-pinned:bg-[color-mix(in_oklab,var(--primary)_4%,var(--data-grid-surface,var(--data-grid-card-surface,var(--background))))]',
-  'data-[cell-focused]:bg-transparent!',
-  'data-[cell-focused]:data-pinned:bg-[color:var(--data-grid-surface,var(--data-grid-card-surface,var(--background)))]!',
-  // Every selection line is one layout-free ::before overlay per cell. It
-  // reaches 1px BEYOND the cell so each line paints exactly ON the shared
-  // gridline it replaces: the range perimeter and the interior dividers
-  // share this geometry, so where they meet they coincide instead of
-  // stacking into a wider edge, every side stays exactly 1px, and
-  // selecting never adds real borders that shift layout. At the table's
-  // own boundary there is no shared gridline and the overshoot leaves the
-  // scrollable content box, where it is CLIPPED - the perimeter simply
-  // vanished on the first column, last column and last row. So every
-  // overshoot that can hit a boundary goes through a variable the
-  // boundary cells zero out. Longhand inset utilities only, logical
-  // start/end
-  // so RTL mirrors for free; a separate override rule cannot do this,
-  // equal-specificity variants leave shorthand-vs-longhand to sort order.
-  "data-[cell-selected]:before:pointer-events-none data-[cell-selected]:before:absolute data-[cell-selected]:before:top-[var(--data-grid-overlay-top,-1px)] data-[cell-selected]:before:start-[var(--data-grid-overlay-start,-1px)] data-[cell-selected]:before:end-[var(--data-grid-overlay-end,-1px)] data-[cell-selected]:before:bottom-[var(--data-grid-overlay-bottom,-1px)] data-[cell-selected]:before:border-primary data-[cell-selected]:before:content-['']",
-  "data-[cell-focused]:before:pointer-events-none data-[cell-focused]:before:absolute data-[cell-focused]:before:top-[var(--data-grid-overlay-top,-1px)] data-[cell-focused]:before:start-[var(--data-grid-overlay-start,-1px)] data-[cell-focused]:before:end-[var(--data-grid-overlay-end,-1px)] data-[cell-focused]:before:bottom-[var(--data-grid-overlay-bottom,-1px)] data-[cell-focused]:before:border-primary data-[cell-focused]:before:content-['']",
-  // Interior dividers: selected cells repaint their own end and bottom
-  // gridlines on the overlay, so gridline-less grids still divide a range.
-  // The gray color is guarded by not- variants (higher specificity), so a
-  // side that belongs to the range perimeter deterministically stays
-  // primary.
-  'data-[cell-selected]:before:border-e data-[cell-selected]:before:border-b',
-  'data-[cell-selected]:not-data-[cell-edge-right]:before:border-e-border',
-  'data-[cell-selected]:not-data-[cell-edge-bottom]:before:border-b-border',
-  // The Sheets model: a single selected cell IS its own range, so the four
-  // edge attributes below already draw its full primary box; inside a
-  // larger range the anchor reads by its unfilled background alone. The
-  // explicit ring only covers a focused cell with no selection at all.
-  // Edge sides are logical (border-e/border-s): the feature derives edges
-  // from display-order column indexes, which mirror in RTL.
-  'data-[cell-focused]:not-data-[cell-selected]:before:border',
-  'data-[cell-edge-top]:before:border-t data-[cell-edge-right]:before:border-e data-[cell-edge-bottom]:before:border-b data-[cell-edge-left]:before:border-s',
-  // While a fill drag is live the preview border is the ONE painter for
-  // the whole pending region, so the source cells' own chrome rests -
-  // otherwise its lines double against the region border at every shared
-  // edge. display is the no-cascade-fight switch (see below).
-  'in-data-[cell-filling]:data-[cell-selected]:before:hidden',
-  'in-data-[cell-filling]:data-[cell-focused]:before:hidden',
-  // While the built-in editor is open its outline is the one border; the
-  // edited cell's own overlay chrome hides so nothing peeks around the
-  // flush editor. display is the switch because no other before: rule
-  // sets it, so there is no cascade order to lose.
-  'in-data-[cell-editing]:data-[cell-focused]:before:hidden',
-  // Clamped to the cell edge at the grid's own boundary, the overlay's
-  // lines sit flush against the container border instead of being clipped
-  // away outside the scrollable content. A custom property has no cascade
-  // fight to lose. First/last-child cover the boundary columns: when a
-  // filler td follows the last data column, that cell's overshoot lands
-  // INSIDE the table and needs no clamp, and the td:first/last-child of a
-  // row are its logical start/end in RTL too.
-  'in-[tr:last-child]:[--data-grid-overlay-bottom:0px]',
-  // The top overshoot lands under a sticky header, which is positioned and
-  // paints over it - so the first row's perimeter lost its top line. Clamp
-  // inside the cell there, exactly like the other three boundaries.
-  'in-[tr:first-child]:[--data-grid-overlay-top:0px]',
-  'first:[--data-grid-overlay-start:0px]',
-  'last:[--data-grid-overlay-end:0px]',
-  // A pinned column is a boundary like the grid's own edges: the sticky
-  // neighbor would cover an on-gridline overlay line, and re-painting it
-  // from the pinned side doubles into a 2px blur whenever subpixel
-  // positions disagree (browser zoom, fractional fill widths). One
-  // painter instead: the overlay clamps inside its own cell there, the
-  // same custom-property clamp the first and last cells use.
-  '[&:has(+td[data-pinned])]:[--data-grid-overlay-end:0px]',
-  '[&:has(+[data-slot=data-grid-table-fill-body-cell]:last-child)]:[--data-grid-overlay-end:0px]',
-  '[&:has(+[data-slot=data-grid-table-fill-body-cell]+td[data-pinned])]:[--data-grid-overlay-end:0px]',
-  '[td[data-pinned]+&]:[--data-grid-overlay-start:0px]',
-  // Tint only: the dashed region outline is one overlay element drawn by
-  // the fill session, so neighboring target cells never double their edges.
-  'data-[cell-fill-target]:bg-primary/4',
-  'data-[cell-fill-target]:data-pinned:bg-[color-mix(in_oklab,var(--primary)_4%,var(--data-grid-surface,var(--data-grid-card-surface,var(--background))))]',
-)
+export type { DataGridCellSelectionCellAttrs } from '#/components/reui/data-grid/data-grid-selection'
 
 export type DataGridApiFetchParams = {
   pageIndex: number
@@ -484,15 +124,6 @@ export interface DataGridContextProps<TData extends object> {
   autoSize?: DataGridAutoSizeController
 }
 
-/**
- * Row and column ids are consumer strings; DOM ids cannot carry spaces or
- * quotes. One shared sanitizer so `aria-activedescendant` writers and the id
- * renderers always agree on the same encoding.
- */
-export function toDataGridDomId(value: string): string {
-  return value.replace(/[^\w-]/g, '_')
-}
-
 export type DataGridAutoSizeController = {
   /**
    * Feeds the controller one viewport measurement: the SIGNED free space
@@ -533,6 +164,35 @@ type DataGridAutoSizeReflowState = {
 }
 
 /**
+ * The grid's own view of the table state and atoms, as an OPTIONAL slice each.
+ *
+ * `DataGrid` widens whatever feature bundle a consumer built to
+ * `DataGridFeatures`, so a slice or atom that bundle declares can be absent on
+ * the table that actually arrived (a leaner bundle is explicitly supported:
+ * the components accept any table). Reading through these two accessors keeps
+ * that check honest instead of describing a member the runtime may not carry.
+ */
+type DataGridPartialState<TData extends object> = Partial<
+  DataGridTableInstance<TData>['state']
+>
+
+type DataGridPartialAtoms<TData extends object> = Partial<
+  DataGridTableInstance<TData>['atoms']
+>
+
+function readDataGridState<TData extends object>(
+  table: DataGridTableInstance<TData>,
+): DataGridPartialState<TData> {
+  return table.state
+}
+
+function readDataGridAtoms<TData extends object>(
+  table: DataGridTableInstance<TData>,
+): DataGridPartialAtoms<TData> {
+  return table.atoms
+}
+
+/**
  * Bookkeeping keyed on the TABLE STORE, never on a React instance: dev
  * StrictMode double-mounts the tree, so two controller instances serve one
  * page and only the first would remember what it absorbed - the second
@@ -541,12 +201,20 @@ type DataGridAutoSizeReflowState = {
  * absorbed sizing rides inside it), and the WeakMap lets a discarded
  * table take its bookkeeping with it.
  */
+/**
+ * The table's state store. It is the one identity that survives a v9 wrapper
+ * rebuild, so the autoSize bookkeeping is keyed on it rather than on the table.
+ */
+type DataGridTableStore = DataGridTableInstance<object>['store']
+
 const dataGridAutoSizeStates = new WeakMap<
-  object,
+  DataGridTableStore,
   DataGridAutoSizeReflowState
 >()
 
-function getDataGridAutoSizeState(store: object): DataGridAutoSizeReflowState {
+function getDataGridAutoSizeState(
+  store: DataGridTableStore,
+): DataGridAutoSizeReflowState {
   let state = dataGridAutoSizeStates.get(store)
 
   if (!state) {
@@ -593,8 +261,8 @@ function createDataGridAutoSizeController<TData extends object>(
     // LIVE state, never the render snapshot: a measurement can run between
     // our own sizing commit and React's re-render, and the stale snapshot
     // would hide the width this controller just wrote.
-    const columnSizing =
-      table.atoms.columnSizing?.get() ?? table.state.columnSizing
+    const columnSizing: Record<string, number | undefined> =
+      readDataGridAtoms(table).columnSizing?.get() ?? table.state.columnSizing
 
     if (!state.applied) return null
 
@@ -688,8 +356,8 @@ function createDataGridAutoSizeController<TData extends object>(
 
       // Same live read as `reflow`; the snapshot race is what made the
       // re-arm check clear the bookkeeping right after the first absorb.
-      const columnSizing =
-        table.atoms.columnSizing?.get() ?? table.state.columnSizing
+      const columnSizing: Record<string, number | undefined> =
+        readDataGridAtoms(table).columnSizing?.get() ?? table.state.columnSizing
 
       // Re-arm after reset flows (double-click resetSize, resetColumnSizing,
       // controlled state replacement) so the column re-fills instead of
@@ -1038,8 +706,7 @@ const DataGridContext = createContext<DataGridContextProps<any> | undefined>(
 function useDataGrid<
   TData extends object = any,
 >(): DataGridContextProps<TData> {
-  const context = useContext(DataGridContext) as
-    DataGridContextProps<TData> | undefined
+  const context = useContext(DataGridContext)
 
   if (!context) {
     throw new Error('useDataGrid must be used within a DataGridProvider')
@@ -1063,11 +730,17 @@ const noopUnsubscribe = () => {}
  * variables, the resize line and indicator) subscribes here. `select` must
  * return the slice itself or a primitive, or every write re-renders.
  */
-function useDataGridAtom<TValue, TSelected = TValue | undefined>(
+function useDataGridAtom<TValue>(
   atom: DataGridStateAtom<TValue> | undefined,
-  select: (value: TValue | undefined) => TSelected = (value) =>
-    value as TSelected,
-): TSelected {
+): TValue | undefined
+function useDataGridAtom<TValue, TSelected>(
+  atom: DataGridStateAtom<TValue> | undefined,
+  select: (value: TValue | undefined) => TSelected,
+): TSelected
+function useDataGridAtom<TValue, TSelected>(
+  atom: DataGridStateAtom<TValue> | undefined,
+  select?: (value: TValue | undefined) => TSelected,
+): TSelected | TValue | undefined {
   const subscribe = useCallback(
     (onChange: () => void) => {
       if (!atom) return noopUnsubscribe
@@ -1078,7 +751,7 @@ function useDataGridAtom<TValue, TSelected = TValue | undefined>(
     [atom],
   )
 
-  const getSnapshot = () => select(atom?.get())
+  const getSnapshot = () => (select ? select(atom?.get()) : atom?.get())
 
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
@@ -1087,16 +760,28 @@ function useDataGridAtom<TValue, TSelected = TValue | undefined>(
 // own Subscribe, and a resize drag paints through useDataGridAtom.
 const DATA_GRID_UNPUBLISHED_STATE = new Set(['cellSelection', 'columnResizing'])
 
-const isDataGridPropNode = (value: unknown) =>
-  value !== null &&
-  typeof value === 'object' &&
-  !Array.isArray(value) &&
-  ('$$typeof' in value || Object.getPrototypeOf(value) !== Object.prototype)
+/**
+ * A prop value that takes part in the signature by identity: a React node or a
+ * class instance (an atom, a controller, a Date). Plain data, arrays and
+ * callbacks are value-compared or handled by the caller.
+ */
+function isDataGridPropNode(value: unknown): value is object {
+  // `instanceof Object` is the identity test that stays out of `typeof`: a
+  // React node is created by this realm's React, so it always passes.
+  if (!(value instanceof Object) || value instanceof Function) return false
+
+  if (Array.isArray(value)) return false
+
+  return (
+    '$$typeof' in value || Object.getPrototypeOf(value) !== Object.prototype
+  )
+}
 
 // Functions and React nodes count by presence here; their identity is a
 // callback input.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- JSON.stringify calls a replacer with each prop's raw value, and a prop may hold anything its declared type allows (callback, React node, state slice, class instance).
 function dataGridPropsSignatureReplacer(_key: string, value: unknown) {
-  if (typeof value === 'function') return 'fn'
+  if (value instanceof Function) return 'fn'
 
   if (isDataGridPropNode(value)) return 'node'
 
@@ -1129,7 +814,7 @@ function getDataGridCallbackInputs<TData extends object>(
   props: DataGridLayoutProps<TData>,
 ): unknown[] {
   return Object.values(props).filter(
-    (value) => typeof value === 'function' || isDataGridPropNode(value),
+    (value) => value instanceof Function || isDataGridPropNode(value),
   )
 }
 
@@ -1147,17 +832,18 @@ function DataGridProvider<TData extends object>({
 }) {
   // Stable for the grid's lifetime; ARIA ids and relations hang off it.
   const gridId = useId()
-  // Latest-value refs behind the context getters: a reader always gets the
+  // Latest-value cells behind the context getters: a reader always gets the
   // current props, labels and table, while the published value changes only
   // when its inputs do (below). v9 re-creates the table on every state
   // change, including each resize tick.
-  const propsRef = useRef(props)
-  propsRef.current = props
   const i18n = mergeDataGridI18n(props.i18n)
-  const i18nRef = useRef(i18n)
-  i18nRef.current = i18n
-  const tableRef = useRef(table)
-  tableRef.current = table
+  const latestRef = useRef({ props, i18n, table })
+  // The write belongs to render: the published context value outlives the
+  // render that built it and reads these cells through its getters. Deferring
+  // it to a layout effect would hand the consumers of this very commit the
+  // previous props and the previous table, and nothing re-renders them after.
+  // react-doctor-disable-next-line react-doctor/no-ref-current-in-render -- stable context identity with live reads is the whole point of the getters; an effect write is a commit stale.
+  latestRef.current = { props, i18n, table }
 
   // Re-assert an explicit tableLayout resize mode so consumer-level useTable
   // options cannot flip it back between drags. v9 makes `table.options`
@@ -1183,7 +869,9 @@ function DataGridProvider<TData extends object>({
   // default here.
   const cellSelectionOn = !!props.tableLayout?.cellSelection
   useEffect(() => {
-    if (!cellSelectionOn || table.atoms.cellSelection == null) return
+    if (!cellSelectionOn || readDataGridAtoms(table).cellSelection == null) {
+      return
+    }
 
     if (table.options.autoResetCellSelection === false) return
     table.setOptions((old) => ({ ...old, autoResetCellSelection: false }))
@@ -1193,14 +881,21 @@ function DataGridProvider<TData extends object>({
   // re-lights the same positions over different rows. A page change clears
   // the selection instead - the rule Excel-family grids apply to paginated
   // range selection.
-  const pageKey = `${table.state.pagination?.pageIndex}:${table.state.pagination?.pageSize}`
+  const pagination = readDataGridState(table).pagination
+  const pageKey = `${pagination?.pageIndex}:${pagination?.pageSize}`
   const previousPageKeyRef = useRef(pageKey)
   useEffect(() => {
     if (previousPageKeyRef.current === pageKey) return
     previousPageKeyRef.current = pageKey
 
-    if (!cellSelectionOn || table.atoms.cellSelection == null) return
-    tableRef.current.resetCellSelection(true)
+    if (
+      !cellSelectionOn ||
+      readDataGridAtoms(latestRef.current.table).cellSelection == null
+    ) {
+      return
+    }
+
+    latestRef.current.table.resetCellSelection(true)
   }, [pageKey, cellSelectionOn])
 
   // One autoSize coordinator per table instance so split header/body viewports
@@ -1209,7 +904,7 @@ function DataGridProvider<TData extends object>({
   // wrapper is re-created on every state change, and re-creating the
   // controller with it would reset its applied-once bookkeeping mid-drag.
   const autoSize = useMemo(
-    () => createDataGridAutoSizeController(() => tableRef.current),
+    () => createDataGridAutoSizeController(() => latestRef.current.table),
     [table.store],
   )
 
@@ -1231,7 +926,7 @@ function DataGridProvider<TData extends object>({
   useLayoutEffect(() => {
     committedOptionsRef.current = table.options
   })
-  const isResizing = !!table.state.columnResizing?.isResizingColumn
+  const isResizing = !!readDataGridState(table).columnResizing?.isResizingColumn
 
   const publishedRef = useRef<{
     stateInputs: unknown[]
@@ -1260,13 +955,13 @@ function DataGridProvider<TData extends object>({
         callbackInputs,
         value: {
           get props() {
-            return propsRef.current
+            return latestRef.current.props
           },
           get table() {
-            return tableRef.current
+            return latestRef.current.table
           },
           get i18n() {
-            return i18nRef.current
+            return latestRef.current.i18n
           },
           recordCount: props.recordCount,
           isLoading: props.isLoading || false,
@@ -1274,6 +969,10 @@ function DataGridProvider<TData extends object>({
           autoSize,
         },
       }
+      // The published value is a cross-render memo, so it is written where it
+      // is computed. An effect would publish it a commit late, and the parts
+      // reading it through context would miss the update entirely.
+      // react-doctor-disable-next-line react-doctor/no-ref-current-in-render -- the publish memo is computed during render by design; deferring it drops the update.
       publishedRef.current = published
     }
   }
@@ -1281,13 +980,10 @@ function DataGridProvider<TData extends object>({
   const value = published!.value
 
   return (
-    // One React context serves every TData, but v9 declares both TFeatures and
-    // TData invariant, so a `DataGridContextProps<any>` context cannot accept a
-    // `DataGridContextProps<TData>` value structurally. The erasure happens
-    // here and is undone by the TData generic on each consumer component.
-    <DataGridContext.Provider
-      value={value as unknown as DataGridContextProps<TData>}
-    >
+    // One React context serves every TData. The context holds
+    // `DataGridContextProps<any>`, so the TData-typed value needs no erasure:
+    // `useDataGrid<TData>` at each consumer restores the row type.
+    <DataGridContext.Provider value={value}>
       {children}
     </DataGridContext.Provider>
   )
@@ -1359,9 +1055,17 @@ function DataGrid<TFeatures extends TableFeatures, TData extends object>({
   // The single widening point. Consumers own the TanStack core and may hand
   // over any feature bundle; internals need a concrete one to resolve the
   // feature-gated APIs they call, and v9's invariant TFeatures rules out
-  // expressing that with a generic constraint.
-  const internalTable = table as unknown as DataGridTableInstance<TData>
-  const internalProps = mergedProps as unknown as DataGridLayoutProps<TData>
+  // expressing that with a generic constraint. The erasure goes through a
+  // widened local so the one assertion left is the deliberate, documented one.
+  const ownedTable: unknown = table
+  // SAFETY: no runtime change - `table` is the same object; the assertion only
+  // tells the compiler which bundle the internals were written against.
+  // `DataGrid` still requires a real TanStack table, and every consumer of this
+  // grid passes `dataGridFeatures`, the bundle it registers. A leaner bundle
+  // leaves feature members undefined, which is why the state and atom reads
+  // go through readDataGridState/readDataGridAtoms and check for absence.
+  const internalTable = ownedTable as DataGridTableInstance<TData>
+  const internalProps: DataGridLayoutProps<TData> = mergedProps
 
   return (
     <DataGridProvider table={internalTable} {...internalProps}>

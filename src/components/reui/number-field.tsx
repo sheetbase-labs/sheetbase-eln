@@ -1,7 +1,23 @@
 'use client'
 
+/**
+ * ReUI `number-field`, installed from the pinned Base UI registry (ADR-0055):
+ *
+ *   pnpm dlx shadcn@latest add @reui/number-field
+ *   @reui -> https://reui.io/r/base-nova/{name}.json
+ *
+ * Copy-and-own source. Registry installs carry no header of their own; this one
+ * records the restyle (`cn` from `#/lib/utils`, classes on Sheetbase tokens) and
+ * the local patches after ADR-0057, which makes this file first-party-maintained
+ * source: a registry re-sync merges these rather than taking the item over them.
+ * - The field's context value is memoised, so a re-render of the field does not
+ *   re-render every part through a fresh provider value.
+ * - `NumberFieldInput` omits the native `size` attribute from its props: the
+ *   attribute's `number` and this component's `'sm' | 'default' | 'lg'`
+ *   intersected to `undefined`, so the size fallback was unreachable.
+ */
 import type { ReactNode } from 'react'
-import { createContext, useContext, useId } from 'react'
+import { createContext, useContext, useId, useMemo } from 'react'
 import { NumberField as NumberFieldPrimitive } from '@base-ui/react/number-field'
 import type { VariantProps } from 'class-variance-authority'
 import { cva } from 'class-variance-authority'
@@ -80,8 +96,13 @@ function NumberField({
   const fieldId = id ?? generatedId
   const sizeValue = size ?? 'default'
 
+  const contextValue = useMemo(
+    () => ({ fieldId, size: sizeValue }),
+    [fieldId, sizeValue],
+  )
+
   return (
-    <NumberFieldContext.Provider value={{ fieldId, size: sizeValue }}>
+    <NumberFieldContext.Provider value={contextValue}>
       <NumberFieldPrimitive.Root
         className={cn('flex w-full flex-col items-start gap-2', className)}
         data-size={sizeValue}
@@ -190,7 +211,7 @@ function NumberFieldInput({
   className,
   size: sizeProp,
   ...props
-}: NumberFieldPrimitive.Input.Props &
+}: Omit<NumberFieldPrimitive.Input.Props, 'size'> &
   Partial<VariantProps<typeof numberFieldInputVariants>>) {
   const context = useContext(NumberFieldContext)
 

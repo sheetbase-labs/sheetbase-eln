@@ -8,6 +8,8 @@
  * steps as doing it by hand.
  */
 
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 import { nodePath } from '#/lib/storage-locations'
 import type {
@@ -21,11 +23,18 @@ export const STOCKTAKE_LEVELS = ['unit', 'shelf', 'rack', 'box'] as const
 
 export type StocktakeLevel = (typeof STOCKTAKE_LEVELS)[number]
 
+const stocktakeLevelSchema = z.enum(STOCKTAKE_LEVELS)
+
 export function isStocktakeLevel(level: StorageLevel): level is StocktakeLevel {
-  return (STOCKTAKE_LEVELS as readonly string[]).includes(level)
+  return stocktakeLevelSchema.safeParse(level).success
 }
 
-export type StocktakeStatus = 'open' | 'completed' | 'cancelled'
+/** An unrecognised status is read as still open, as the database's default is. */
+const stocktakeStatusSchema = z
+  .enum(['open', 'completed', 'cancelled'])
+  .catch('open')
+
+export type StocktakeStatus = z.infer<typeof stocktakeStatusSchema>
 
 /**
  * Where an item stands once it has been looked for.
@@ -35,16 +44,37 @@ export type StocktakeStatus = 'open' | 'completed' | 'cancelled'
  *   unexpected  found here although the records put it elsewhere
  *   missing     on the list and never found
  */
-export type StocktakeItemState =
-  'expected' | 'confirmed' | 'misplaced' | 'unexpected' | 'missing'
+export const STOCKTAKE_ITEM_STATES = [
+  'expected',
+  'confirmed',
+  'misplaced',
+  'unexpected',
+  'missing',
+] as const
+
+export type StocktakeItemState = (typeof STOCKTAKE_ITEM_STATES)[number]
+
+const stocktakeItemStateSchema = z.enum(STOCKTAKE_ITEM_STATES)
 
 /** The differences a finished count asks someone to deal with. */
 export const DIFFERENCE_STATES = ['misplaced', 'unexpected', 'missing'] as const
 
+const differenceStateSchema = z.enum(DIFFERENCE_STATES)
+
 export type DifferenceState = (typeof DIFFERENCE_STATES)[number]
 
-export type StocktakeAction =
-  'accept' | 'returned' | 'refile' | 'mark_lost' | 'clear_location'
+/** The database check constraint allows exactly these resolutions, or none. */
+export const STOCKTAKE_ACTIONS = [
+  'accept',
+  'returned',
+  'refile',
+  'mark_lost',
+  'clear_location',
+] as const
+
+export type StocktakeAction = (typeof STOCKTAKE_ACTIONS)[number]
+
+const stocktakeActionSchema = z.enum(STOCKTAKE_ACTIONS).nullable().catch(null)
 
 export type StocktakeItemKind = 'sample' | 'material'
 
@@ -125,27 +155,15 @@ export function stocktakeReference(number: number): string {
 }
 
 function asLevel(value: string): StocktakeLevel {
-  return (STOCKTAKE_LEVELS as readonly string[]).includes(value)
-    ? (value as StocktakeLevel)
-    : 'box'
+  return stocktakeLevelSchema.catch('box').parse(value)
 }
 
 function asStatus(value: string): StocktakeStatus {
-  return value === 'completed' || value === 'cancelled' ? value : 'open'
+  return stocktakeStatusSchema.parse(value)
 }
 
-const STATES: readonly StocktakeItemState[] = [
-  'expected',
-  'confirmed',
-  'misplaced',
-  'unexpected',
-  'missing',
-]
-
 function asState(value: string): StocktakeItemState {
-  return (STATES as readonly string[]).includes(value)
-    ? (value as StocktakeItemState)
-    : 'expected'
+  return stocktakeItemStateSchema.catch('expected').parse(value)
 }
 
 export function toStocktake(row: StocktakeWire): Stocktake {
@@ -181,7 +199,7 @@ export function toStocktakeItem(row: StocktakeItemWire): StocktakeItem {
     foundBoxId: row.found_box_id,
     foundPath: row.found_path,
     scannedAt: row.scanned_at,
-    resolution: (row.resolution as StocktakeAction | null) ?? null,
+    resolution: stocktakeActionSchema.parse(row.resolution),
     resolutionNote: row.resolution_note,
     resolvedAt: row.resolved_at,
   }
@@ -208,8 +226,8 @@ export function summariseItems(
   const count = (state: StocktakeItemState) =>
     items.filter((item) => item.state === state).length
 
-  const differences = items.filter((item) =>
-    (DIFFERENCE_STATES as readonly string[]).includes(item.state),
+  const differences = items.filter(
+    (item) => differenceStateSchema.safeParse(item.state).success,
   )
 
   const resolved = differences.filter((item) => item.resolvedAt).length

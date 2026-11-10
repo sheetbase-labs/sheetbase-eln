@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   channelBody,
@@ -63,7 +64,9 @@ describe('teamsMessageCard', () => {
       result: { rowCount: 0 },
     })
 
-    const facts = card.facts as Array<{ name: string; value: string }>
+    const facts = z
+      .array(z.object({ name: z.string(), value: z.string() }))
+      .parse(card.facts)
     expect(facts.map((fact) => fact.name)).toEqual(['Run', 'Rows'])
     expect(facts.find((fact) => fact.name === 'Rows')?.value).toBe('0')
   })

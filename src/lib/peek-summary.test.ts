@@ -5,10 +5,13 @@ import { fetchPeekSummary, humanise, peekRef } from './peek-summary'
 
 const SAMPLE = '00000000-0000-4000-8000-000000000340'
 
-function clientWith(rows: Record<string, unknown[]>): DataClient {
+/** A transport that answers each resource with the rows a case supplies. */
+function clientWith(rows: Record<string, readonly unknown[]>): DataClient {
+  // SAFETY: the summariser reads only `list` from its client, and each `list<T>` caller names the row shape it supplied here.
   return {
-    list: (resource: string) => Promise.resolve(rows[resource] ?? []),
-  } as unknown as DataClient
+    list: <T>(resource: string) =>
+      Promise.resolve((rows[resource] ?? []) as T[]),
+  } as DataClient
 }
 
 describe('peek summary', () => {

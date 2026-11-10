@@ -10,6 +10,8 @@
  * the UI mirroring those guards can never offer an action the database will
  * refuse.
  */
+import { z } from 'zod'
+
 import { t } from '#/copy'
 import type { DataClient } from './data-client'
 import { fetchRevisionSheetEvidence, notebookDataClient } from './notebook-data'
@@ -158,6 +160,29 @@ export function fetchReviewDecisions(
 // ---------------------------------------------------------------------------
 
 /**
+ * One frozen area of a stored envelope. The envelope is JSON the app itself
+ * wrote, and the diff engine reads whichever fields each area carries, so an
+ * entity is any JSON object — not only one with an `id`.
+ */
+const canonicalEntitySchema = z.record(z.string(), z.json())
+
+/**
+ * The envelope `internal.prepare_revision_insert` writes: a format version, the
+ * record as it stood, and one array per area of the notebook. Evidence frozen
+ * with the revision rides along as the stored rows the app wrote.
+ */
+const canonicalEnvelopeSchema = z.looseObject({
+  formatVersion: z.number(),
+  record: canonicalEntitySchema,
+  blocks: z.array(canonicalEntitySchema),
+  links: z.array(canonicalEntitySchema),
+  scientificTables: z.array(canonicalEntitySchema),
+  formulas: z.array(canonicalEntitySchema),
+  files: z.array(canonicalEntitySchema),
+  sheetEvidence: z.array(z.custom<FrozenSheetEvidence>()).optional(),
+})
+
+/**
  * Parse a revision's `canonical_snapshot` into a `CanonicalRevisionEnvelope`.
  * Falls back to a minimal envelope built from `metadata_snapshot` +
  * `block_snapshot` for legacy revisions that predate REV-002's
@@ -166,14 +191,12 @@ export function fetchReviewDecisions(
 export function toCanonicalEnvelope(
   revision: RevisionWire & { frozenSheetEvidence?: FrozenSheetEvidence[] },
 ): CanonicalRevisionEnvelope {
-  const canonical = revision.canonical_snapshot
+  const parsed = canonicalEnvelopeSchema.safeParse(revision.canonical_snapshot)
 
-  if (canonical && typeof canonical === 'object' && 'blocks' in canonical) {
-    const envelope = canonical as unknown as CanonicalRevisionEnvelope
-
+  if (parsed.success) {
     return revision.frozenSheetEvidence?.length
-      ? { ...envelope, sheetEvidence: revision.frozenSheetEvidence }
-      : envelope
+      ? { ...parsed.data, sheetEvidence: revision.frozenSheetEvidence }
+      : parsed.data
   }
 
   return {

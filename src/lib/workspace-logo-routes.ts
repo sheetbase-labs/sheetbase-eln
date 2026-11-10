@@ -15,6 +15,8 @@
  */
 import { webcrypto } from 'node:crypto'
 
+import { z } from 'zod'
+
 import type { ObjectStorage } from '#/lib/file-storage'
 import { getObjectStorage, OversizeError } from '#/lib/file-storage'
 import {
@@ -105,13 +107,12 @@ function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
   })
 }
 
-function previousKey(body: unknown): string | null {
-  return typeof body === 'string' && body.startsWith('logos/') ? body : null
-}
+/** The key `clear_workspace_logo` hands back for the logo it replaced. */
+const replacedLogoKey = z.string().startsWith('logos/')
 
 async function removeQuietly(storage: ObjectStorage, key: string | null) {
   if (!key) return
-  await storage.delete(key).catch((error: unknown) => {
+  await storage.delete(key).catch((error) => {
     logger.warn('old lab logo not removed', {
       error: error instanceof Error ? error.message : String(error),
     })
@@ -149,7 +150,9 @@ export async function handleLogoWrite(
       )
     }
 
-    await removeQuietly(storage, previousKey(cleared.body))
+    const replaced = replacedLogoKey.safeParse(cleared.body)
+
+    await removeQuietly(storage, replaced.success ? replaced.data : null)
 
     return new Response(null, { status: 204 })
   }
@@ -199,7 +202,9 @@ export async function handleLogoWrite(
     )
   }
 
-  await removeQuietly(storage, previousKey(saved.body))
+  const removed = replacedLogoKey.safeParse(saved.body)
+
+  await removeQuietly(storage, removed.success ? removed.data : null)
 
   return new Response(JSON.stringify({ mediaType }), {
     status: 200,
@@ -238,8 +243,10 @@ export async function findLogo(
 
 /** The install's logo, for the pages shown before anyone has signed in. */
 export async function anonymousLogo(): Promise<LogoLookup | null> {
-  const { env } = await import('#/env.server')
-  const { getPool } = await import('#/db/pool.server')
+  const [{ env }, { getPool }] = await Promise.all([
+    import('#/env.server'),
+    import('#/db/pool.server'),
+  ])
 
   const { rows } = await getPool(env.DATABASE_URL).query<{
     logo_storage_key: string
@@ -295,8 +302,10 @@ export async function readWorkspaceLogoBytes(
   workspaceId: string,
   storage: ObjectStorage = getObjectStorage(),
 ): Promise<{ bytes: Uint8Array; mediaType: LogoMediaType } | null> {
-  const { env } = await import('#/env.server')
-  const { getPool } = await import('#/db/pool.server')
+  const [{ env }, { getPool }] = await Promise.all([
+    import('#/env.server'),
+    import('#/db/pool.server'),
+  ])
 
   const { rows } = await getPool(env.DATABASE_URL).query<{
     logo_storage_key: string

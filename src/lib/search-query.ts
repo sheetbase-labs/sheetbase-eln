@@ -5,6 +5,7 @@ import type {
   GroupNode,
   SheetbaseField,
 } from '@sheetbase-labs/sheetbase-shared'
+import { z } from 'zod'
 
 import { isEmptyFilter } from '#/lib/search-filter'
 
@@ -20,17 +21,22 @@ export interface TypedSearch {
   filter?: GroupNode
 }
 
+/** The text a token was typed with; any other value in the tree is not a name. */
+const typedName = z.string()
+
 /** A name typed in a token (`project:"AAV8 TFF"`) stands for an id the search filters on. */
 async function resolveValue(
   field: SheetbaseField,
-  value: unknown,
-): Promise<unknown> {
-  if (typeof value !== 'string' || !field.loadOptions) return value
-  const options = await field.loadOptions(value).catch(() => [])
-  const wanted = value.trim().toLowerCase()
+  value: ConditionNode['value'],
+): Promise<ConditionNode['value']> {
+  const name = typedName.safeParse(value)
+
+  if (!name.success || !field.loadOptions) return value
+  const options = await field.loadOptions(name.data).catch(() => [])
+  const wanted = name.data.trim().toLowerCase()
 
   const exact =
-    options.find((o) => o.value === value) ??
+    options.find((o) => o.value === name.data) ??
     options.find((o) => o.label.toLowerCase() === wanted)
 
   if (exact) return exact.value
@@ -39,28 +45,40 @@ async function resolveValue(
   return options.length === 1 && options[0] ? options[0].value : value
 }
 
-async function resolveNode(
-  node: FilterNode,
+async function resolveCondition(
+  node: ConditionNode,
   fields: ReadonlyMap<string, SheetbaseField>,
-): Promise<FilterNode> {
-  if (node.type === 'group')
-    return {
-      ...node,
-      children: await Promise.all(
-        node.children.map((child) => resolveNode(child, fields)),
-      ),
-    }
+): Promise<ConditionNode> {
   const field = fields.get(node.field)
 
   if (!field?.loadOptions || node.value === undefined) return node
 
   const value = Array.isArray(node.value)
-    ? await Promise.all(node.value.map((v) => resolveValue(field, v)))
+    ? await Promise.all(node.value.map((item) => resolveValue(field, item)))
     : await resolveValue(field, node.value)
 
-  const resolved: ConditionNode = { ...node, value }
+  return { ...node, value }
+}
 
-  return resolved
+async function resolveGroup(
+  node: GroupNode,
+  fields: ReadonlyMap<string, SheetbaseField>,
+): Promise<GroupNode> {
+  return {
+    ...node,
+    children: await Promise.all(
+      node.children.map((child) => resolveNode(child, fields)),
+    ),
+  }
+}
+
+function resolveNode(
+  node: FilterNode,
+  fields: ReadonlyMap<string, SheetbaseField>,
+): Promise<FilterNode> {
+  return node.type === 'group'
+    ? resolveGroup(node, fields)
+    : resolveCondition(node, fields)
 }
 
 export async function parseTypedSearch(
@@ -71,7 +89,7 @@ export async function parseTypedSearch(
 
   if (isEmptyFilter(parsed.filter)) return { q: parsed.text.trim() }
   const byId = new Map(fields.map((f) => [f.id, f]))
-  const filter = (await resolveNode(parsed.filter, byId)) as GroupNode
+  const filter = await resolveGroup(parsed.filter, byId)
 
   return { q: parsed.text.trim(), filter }
 }

@@ -55,7 +55,7 @@ export function handoverLabel(key: string): string {
     })
   }
 
-  switch (key as HandoverCategory) {
+  switch (key) {
     case 'record_reviewer':
       return t('people.handover.work.recordReviewer')
     case 'task':

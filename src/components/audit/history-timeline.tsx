@@ -47,62 +47,6 @@ import { t } from '#/copy'
  */
 
 // ---------------------------------------------------------------------------
-// Icon vocabulary. One module owns how an audit event is illustrated: the
-// operation it records, the entity it happened to, a review decision, or the
-// event kind an `AuditTrail` carries.
-// ---------------------------------------------------------------------------
-
-export const AUDIT_OPERATION_ICONS: Partial<Record<string, IconName>> = {
-  create: 'gitCommit',
-  update: 'history',
-  move: 'arrowRightLeft',
-  delete: 'fileWarning',
-  archive: 'archive',
-  restore: 'archiveRestore',
-  link: 'link',
-  unlink: 'link',
-  quarantine: 'fileWarning',
-  resolve: 'history',
-  reopen: 'history',
-  lock: 'lock',
-  amend: 'gitCommit',
-  revoke: 'key',
-}
-
-export const AUDIT_ENTITY_ICONS: Partial<Record<string, IconName>> = {
-  record: 'protocol',
-  file: 'protocol',
-  folder: 'folderTree',
-  dataset: 'database',
-  dataset_version: 'database',
-  sheet_instance: 'table',
-  sheet_definition: 'template',
-  sheet_definition_version: 'template',
-  notebook_template: 'template',
-  notebook_template_version: 'template',
-  review_submission: 'table',
-  review_decision: 'table',
-  signature: 'edit',
-  api_credential: 'key',
-  comment: 'comment',
-}
-
-export const AUDIT_DECISION_ICONS: Partial<Record<string, IconName>> = {
-  approve: 'checkCircle',
-  reject: 'xCircle',
-  request_changes: 'undo',
-  withdraw: 'undo',
-}
-
-/** Defaults for the typed events `AuditTrail` renders. */
-export const AUDIT_TYPE_ICONS: Partial<Record<string, IconName>> = {
-  created: 'flask',
-  uploaded: 'upload',
-  'review-requested': 'fileCheck',
-  'review-started': 'userCheck',
-}
-
-// ---------------------------------------------------------------------------
 // The row model.
 // ---------------------------------------------------------------------------
 

@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import {
@@ -103,17 +104,19 @@ const meta = {
   tags: ['autodocs'],
   args: { recordId: RECORD_ID, revisionId: REVISION_ID },
   decorators: [
-    (Story, context) => (
-      <QueryClientProvider
-        client={
-          context.parameters.client as ReturnType<typeof screenQueryClient>
-        }
-      >
-        <div className="w-[420px] max-w-full">
-          <Story />
-        </div>
-      </QueryClientProvider>
-    ),
+    (Story, context) => {
+      // Storybook keeps `parameters` as an open bag; every story in this file
+      // supplies the client it seeded, built by `screenQueryClient`.
+      const client: QueryClient = context.parameters.client
+
+      return (
+        <QueryClientProvider client={client}>
+          <div className="w-[420px] max-w-full">
+            <Story />
+          </div>
+        </QueryClientProvider>
+      )
+    },
   ],
 } satisfies Meta<typeof EvidenceSignatures>
 

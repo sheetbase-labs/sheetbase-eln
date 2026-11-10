@@ -11,6 +11,8 @@
  */
 import { webcrypto } from 'node:crypto'
 
+import { z } from 'zod'
+
 import type { ObjectStorage } from '#/lib/file-storage'
 import { getObjectStorage, OversizeError } from '#/lib/file-storage'
 import {
@@ -107,15 +109,20 @@ function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
   })
 }
 
-function previousKey(body: unknown): string | null {
-  return typeof body === 'string' && body.startsWith('avatars/') ? body : null
+function previousKey<Body>(body: Body): string | null {
+  return z.string().startsWith('avatars/').safeParse(body).data ?? null
+}
+
+/** The message from a caught throw, whose type JavaScript does not narrow. */
+function messageOf<Cause>(cause: Cause): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }
 
 async function removeQuietly(storage: ObjectStorage, key: string | null) {
   if (!key) return
-  await storage.delete(key).catch((error: unknown) => {
+  await storage.delete(key).catch((error) => {
     logger.warn('old profile photo not removed', {
-      error: error instanceof Error ? error.message : String(error),
+      error: messageOf(error),
     })
   })
 }

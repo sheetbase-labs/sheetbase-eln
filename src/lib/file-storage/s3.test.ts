@@ -13,6 +13,14 @@ const config = {
   prefix: 'sheetbase',
 }
 
+/** The command input fields the storage sets, as the fake service reads them. */
+interface S3CommandInput {
+  Bucket: string
+  Key: string
+  Body?: Readable
+  ContentLength?: number
+}
+
 /** An in-memory stand-in for an S3-compatible service. */
 function fakeService() {
   const objects = new Map<string, Buffer>()
@@ -21,7 +29,7 @@ function fakeService() {
   const client = {
     async send(command: {
       constructor: { name: string }
-      input: Record<string, unknown>
+      input: S3CommandInput
     }) {
       const name = command.constructor.name
       const key = `${command.input.Bucket}/${command.input.Key}`
@@ -30,7 +38,7 @@ function fakeService() {
       if (name === 'PutObjectCommand') {
         const chunks: Buffer[] = []
 
-        for await (const c of command.input.Body as Readable) chunks.push(c)
+        for await (const c of command.input.Body ?? []) chunks.push(c)
         const body = Buffer.concat(chunks)
 
         if (body.length !== command.input.ContentLength) {
@@ -72,7 +80,8 @@ function fakeService() {
     },
   }
 
-  return { client: client as unknown as S3Client, objects, calls }
+  // SAFETY: the storage calls only `send` on its client, and every command it sends carries the Bucket, Key and Body this double reads.
+  return { client: client as S3Client, objects, calls }
 }
 
 const streamOf = (bytes: Uint8Array) =>

@@ -89,7 +89,7 @@ export function withReadDeadline<T>(
         clearTimeout(timer)
         resolve(value)
       },
-      (error: unknown) => {
+      (error) => {
         clearTimeout(timer)
         reject(error)
       },
@@ -412,10 +412,16 @@ interface MilestoneWire {
   linked_record_identifier: string | null
 }
 
+/** The record a milestone's own condition cites: the evidence that it was reached. */
+interface MilestoneEvidence {
+  linkedRecordId: string | null
+  linkedRecordIdentifier: string | null
+}
+
 function evidenceOf(
   rows: readonly MilestoneWire[],
   taskId: string,
-): { linkedRecordId: string | null; linkedRecordIdentifier: string | null } {
+): MilestoneEvidence {
   const cited = rows.find((r) => r.task_id === taskId && r.linked_record_id)
 
   return {
@@ -452,6 +458,7 @@ export function useProjectMilestones(projectId: string) {
           .map((id) => encodeURIComponent(id))
           .join(',')
 
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The chunks go one at a time on purpose: a large project would otherwise ask the same proxy for every twelve tasks at once.
         const part = await projectDataClient.list<MilestoneWire>(
           'study_deliverables',
           `?task_id=in.(${chunk})&select=id,task_id,name,status,due_at,linked_record_id,linked_record_identifier&order=due_at.asc.nullslast,id.asc`,
@@ -479,18 +486,22 @@ export function useProjectMilestones(projectId: string) {
             ...evidenceOf(rows, task.id),
           })),
         ...tasks.flatMap((task) =>
-          rows
-            .filter((row) => row.task_id === task.id)
-            .map((r) => ({
-              id: r.id,
-              kind: 'condition' as const,
-              name: r.name,
-              status: r.status,
-              dueAt: r.due_at,
-              timezone: task.timezone,
-              linkedRecordId: r.linked_record_id,
-              linkedRecordIdentifier: r.linked_record_identifier,
-            })),
+          rows.flatMap((row) =>
+            row.task_id === task.id
+              ? [
+                  {
+                    id: row.id,
+                    kind: 'condition' as const,
+                    name: row.name,
+                    status: row.status,
+                    dueAt: row.due_at,
+                    timezone: task.timezone,
+                    linkedRecordId: row.linked_record_id,
+                    linkedRecordIdentifier: row.linked_record_identifier,
+                  },
+                ]
+              : [],
+          ),
         ),
       ].sort((a, b) => (a.dueAt ?? '9999').localeCompare(b.dueAt ?? '9999'))
     },

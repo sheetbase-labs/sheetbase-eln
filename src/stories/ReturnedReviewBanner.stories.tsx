@@ -119,6 +119,7 @@ const meta = {
     (Story, context) => (
       <QueryClientProvider
         client={
+          // SAFETY: the only `client` parameter this file writes is one of the three `screenQueryClient(...)` constants above; Storybook types `parameters` as an open bag, so the cast restates what this file itself wrote.
           context.parameters.client as ReturnType<typeof screenQueryClient>
         }
       >

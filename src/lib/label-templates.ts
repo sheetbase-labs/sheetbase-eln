@@ -7,6 +7,12 @@
 import type { DataClient } from '#/lib/data-client'
 import { labelTemplateFromRow } from '#/lib/labels'
 import type { BarcodeType, LabelTemplate } from '#/lib/labels'
+import { z } from 'zod'
+
+/** One `api.label_templates` row, as the list and save calls return it. */
+const labelTemplateRow = z.record(z.string(), z.json())
+
+type LabelTemplateRow = z.output<typeof labelTemplateRow>
 
 export const labelTemplateKeys = {
   all: (workspaceId: string) => ['label-templates', workspaceId] as const,
@@ -29,7 +35,7 @@ export const LABEL_SIZE_PRESETS = [
 export async function fetchLabelTemplates(
   client: DataClient,
 ): Promise<LabelTemplate[]> {
-  const rows = await client.list<Record<string, unknown>>(
+  const rows = await client.list<LabelTemplateRow>(
     'label_templates',
     '?select=*&order=name.asc&limit=500',
   )
@@ -121,7 +127,7 @@ export async function saveLabelTemplate(
   id: string | null,
   input: LabelTemplateInput,
 ): Promise<LabelTemplate> {
-  const row = await client.rpc<Record<string, unknown>>('save_label_template', {
+  const row = await client.rpc<LabelTemplateRow>('save_label_template', {
     p_workspace_id: workspaceId,
     p_id: id,
     p_name: input.name.trim(),

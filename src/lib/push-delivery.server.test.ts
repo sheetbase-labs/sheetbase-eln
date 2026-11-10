@@ -3,13 +3,24 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { runPushWorker, vapidSubject } from './push-delivery.server'
 import type { PushConnection } from './push-delivery.server'
+import type { PushMessage } from './web-push.server'
 import { generateVapidKeys } from './web-push.server'
 
-function fakeConnection(deliveries: Array<Record<string, unknown>>) {
+/** A due delivery as `claim_due_push_deliveries` returns it. */
+interface DeliveryRow {
+  id: string
+  endpoint: string
+  p256dh: string
+  auth: string
+  payload: Partial<PushMessage>
+}
+
+function fakeConnection(deliveries: ReadonlyArray<DeliveryRow>) {
   const keys = generateVapidKeys()
   const calls: Array<{ text: string; values?: unknown[] }> = []
 
   const conn: PushConnection = {
+    // SAFETY: the worker asks this double for the two row types it declares (the VAPID key row and the delivery rows), which are the rows the branches below return.
     query: (async (text: string, values?: unknown[]) => {
       calls.push({ text, values })
 

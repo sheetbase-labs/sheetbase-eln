@@ -7,6 +7,12 @@
  * `radix-ui`, `cn` from `#/lib/utils`, and the classes restyled to Sheetbase
  * tokens (`bg-muted` → `bg-surface-muted`, `bg-accent`/`text-accent-foreground`
  * → `bg-selection`/`text-fg`).
+ *
+ * Local patches after ADR-0057 (this file is first-party-maintained source; a
+ * registry re-sync merges these rather than taking the item over them):
+ * - `toggleVariants` carries a line-local `only-export-components` suppression:
+ *   `toggle-group.tsx` imports it to style the group's items, and it is a value
+ *   rather than a component.
  */
 import * as React from 'react'
 import { Toggle as TogglePrimitive } from 'radix-ui'
@@ -50,4 +56,8 @@ const Toggle = React.forwardRef<
 
 Toggle.displayName = TogglePrimitive.Root.displayName
 
-export { Toggle, toggleVariants }
+export {
+  Toggle,
+  // react-doctor-disable-next-line react-doctor/only-export-components -- toggle-group.tsx imports toggleVariants to style the group's items; it is a value rather than a component, and splitting it into its own module would break the item's single-file install.
+  toggleVariants,
+}

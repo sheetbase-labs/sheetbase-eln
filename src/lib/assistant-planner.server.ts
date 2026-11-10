@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import {
   PLANNER_PROPOSE_TOOL_NAMES,
   PLAN_TOOL,
@@ -31,10 +33,14 @@ export type PlannerOutcome =
 const NOTE =
   'The person sees a card and presses a button to do it; nothing changes until they do.'
 
+const PLANNER_PROPOSE_TOOLS: ReadonlySet<string> = new Set(
+  PLANNER_PROPOSE_TOOL_NAMES,
+)
+
 export function isPlannerProposalTool(
   name: string,
 ): name is PlannerProposeToolName {
-  return (PLANNER_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+  return PLANNER_PROPOSE_TOOLS.has(name)
 }
 
 export function plannerProposalDefs(): ProviderToolDef[] {
@@ -86,6 +92,7 @@ async function findRecord(
 
 export async function buildPlannerProposal(
   name: PlannerProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw external tool arguments; the first statement parses them with proposePlanSchema.
   args: unknown,
   context: LabToolContext,
 ): Promise<PlannerOutcome> {
@@ -169,14 +176,15 @@ export async function buildPlannerProposal(
       instruments.push({ key, minutes: need.minutes ?? 30 })
     }
 
-    partsAnswer.push({
+    const answer = {
       title: part.title,
       day: part.day ?? 0,
       handsOnMinutes: part.handsOnMinutes ?? 30,
       waitMinutes: part.waitMinutes ?? 0,
-      ...(part.gate ? { gate: part.gate } : {}),
       instruments,
-    })
+    }
+
+    partsAnswer.push(part.gate ? { ...answer, gate: part.gate } : answer)
   }
 
   const samplesAnswer = []
@@ -187,16 +195,22 @@ export async function buildPlannerProposal(
     if (!found.ok) return fail(found.message)
 
     const props = await context.client.list<{
-      properties: Record<string, unknown> | null
+      properties: Record<string, z.core.util.JSONType> | null
     }>('records', `?id=eq.${found.value.id}&select=properties&limit=1`)
 
     const quantity = Number(props[0]?.properties?.['quantity'])
-    const unit = props[0]?.properties?.['quantityUnit']
+
+    const unit = z
+      .string()
+      .min(1)
+      .safeParse(props[0]?.properties?.['quantityUnit'])
+
     planContext.samples.push({
       ...found.value,
       quantity: Number.isFinite(quantity) ? quantity : null,
-      unit: typeof unit === 'string' && unit ? unit : null,
+      unit: unit.success ? unit.data : null,
     })
+
     samplesAnswer.push({
       key: `s${planContext.samples.length}`,
       quantity: wanted.quantity,

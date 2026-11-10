@@ -8,9 +8,15 @@
  * full-explorer deep-link is rendered.
  */
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactElement } from 'react'
+import { afterEach, describe, expect, it } from 'vitest'
 
-import { buildLineageGraph } from '#/lib/lineage-data'
+import {
+  buildLineageGraph,
+  LINEAGE_MINI_DEPTH,
+  lineageQueryKeys,
+} from '#/lib/lineage-data'
 import type {
   RecordLinkWire,
   RecordWire,
@@ -98,13 +104,23 @@ function makeGraph() {
   return buildLineageGraph(records, links, reviews, [], [], [], SEED_ID, 2)
 }
 
-vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({
-    data: makeGraph(),
-    isLoading: false,
-    error: null,
-  }),
-}))
+/**
+ * The live section reads its graph through the real query client; the seeded
+ * miniature is put in the cache under the key the section asks for, so no
+ * transport is stubbed and the component's own query wiring is exercised.
+ */
+function renderWithGraph(node: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+
+  client.setQueryData(
+    lineageQueryKeys.graphFor(SEED_ID, LINEAGE_MINI_DEPTH),
+    makeGraph(),
+  )
+
+  return render(<QueryClientProvider client={client}>{node}</QueryClientProvider>)
+}
 
 afterEach(() => {
   cleanup()
@@ -184,7 +200,7 @@ describe('RecordLineageList', () => {
 
 describe('RecordLineageSection', () => {
   it('renders the inspector section and links out', () => {
-    render(<RecordLineageSection recordId={SEED_ID} />)
+    renderWithGraph(<RecordLineageSection recordId={SEED_ID} />)
 
     expect(screen.getByText('Lineage')).toBeTruthy()
     expect(

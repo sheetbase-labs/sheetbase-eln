@@ -9,15 +9,24 @@
  * `#/components/ui`, which ADR-0055 decision 1 says is not extended). See
  * `docs/knowledge/design/component-comparison-record.md`.
  *
- * Changes from the registry file, and nothing else:
+ * Changes from the registry file:
  * - `cn` re-pointed from the `cn` package to `#/lib/utils`, the helper that
  *   teaches tailwind-merge the Sheetbase type scale.
  * - Restyled to the app-3 token vocabulary the v3 kit writes
  *   (`src/styles.css:683-707`), with row states on the v3 table's own
  *   `bg-row-hover` / `bg-selection` tokens.
  * - Imports wired to the v3 twins that exist.
+ *
+ * Local patches after ADR-0057 (this file is first-party-maintained source; a
+ * registry re-sync merges these rather than taking the item over them):
+ * - `VariantProps` imported as a top-level type import, so the file passes the
+ *   repository's `consistent-type-specifier-style` rule. No behaviour change.
+ * - `frameVariants` carries a line-local `only-export-components` suppression:
+ *   it is the item's public variant contract, and moving it to a second module
+ *   would split one registry item across two files.
  */
-import { cva, type VariantProps } from 'class-variance-authority'
+import { cva } from 'class-variance-authority'
+import type { VariantProps } from 'class-variance-authority'
 
 import { cn } from '#/lib/utils'
 
@@ -196,5 +205,6 @@ export {
   FrameTitle,
   FrameDescription,
   FrameFooter,
+  // react-doctor-disable-next-line react-doctor/only-export-components -- frameVariants is the item's public variant contract, a value rather than a component; splitting it into its own module would break one registry item across two files.
   frameVariants,
 }

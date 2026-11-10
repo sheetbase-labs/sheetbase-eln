@@ -22,8 +22,8 @@ export interface MaterialListRow {
   lot: string
   stock: string
   location: string
-  status: { tone: Tone; label: string }
-  attention?: { tone: Tone; label: string }
+  status: MaterialStatus
+  attention?: MaterialStatus
   /** The lot's expiry date as stored (YYYY-MM-DD), for the Expiry column. */
   expiry: string | null
   tabs: string[]
@@ -53,7 +53,18 @@ const EMPTY_QUERY: RegistryQuery = {
   filters: [],
 }
 
-const STATUS: Record<string, { tone: Tone; label: string }> = {
+/** One lot's standing as the list shows it: a tone and the words beside it. */
+export interface MaterialStatus {
+  readonly tone: Tone
+  readonly label: string
+}
+
+/** Statuses the list names in its own words; a stored status not named here reads as itself. */
+interface MaterialStatusVocabulary {
+  readonly [status: string]: MaterialStatus
+}
+
+const STATUS: MaterialStatusVocabulary = {
   available: { tone: 'ok', label: 'Available' },
   reserved: { tone: 'progress', label: 'Reserved' },
   consumed: { tone: 'stored', label: 'Consumed' },
@@ -70,7 +81,7 @@ const STATUS: Record<string, { tone: Tone; label: string }> = {
 function lotStatus(
   reagent: Reagent,
   attention: ReturnType<typeof reagentAttention>,
-): { tone: Tone; label: string } {
+): MaterialStatus {
   if (reagent.status === 'quarantined') return STATUS.quarantined
   const expiry = reagent.expiry ? new Date(reagent.expiry) : null
 

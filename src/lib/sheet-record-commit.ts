@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import type { DataClient } from './data-client'
 import { createDataClient } from './data-client'
 import type { ComposedSheetSnapshot } from './sheet-composition-data'
@@ -35,9 +37,9 @@ export function enrichSheetRecordWriteTarget(
   }
 }
 
-export function composedSheetRecordLinkBatchRows(
+export function composedSheetRecordLinkBatchRows<CellValue>(
   composition: ComposedSheetSnapshot,
-  pendingValues: Record<string, Record<string, unknown>> = {},
+  pendingValues: Record<string, Record<string, CellValue>> = {},
 ): Array<{
   rowKey: string
   operation: 'link'
@@ -64,7 +66,9 @@ export function composedSheetRecordLinkBatchRows(
     const raw =
       pending ?? (projected.kind === 'present' ? projected.value : null)
 
-    if (typeof raw !== 'string' || !RECORD_UUID.test(raw)) return []
+    const decoded = z.string().safeParse(raw)
+
+    if (!decoded.success || !RECORD_UUID.test(decoded.data)) return []
 
     try {
       const resolved = resolveSheetWriteTarget({
@@ -77,7 +81,7 @@ export function composedSheetRecordLinkBatchRows(
         {
           rowKey: row.rowKey,
           operation: 'link' as const,
-          recordId: raw,
+          recordId: decoded.data,
           writeTarget: enrichSheetRecordWriteTarget(
             composition,
             row.rowKey,
@@ -96,7 +100,8 @@ export function createAndLinkSheetRecord(
     projectId: string
     modelKey: string
     title: string
-    customFields?: Record<string, unknown>
+    /** Text, number, boolean or empty values the create form sends for the new Record. */
+    customFields?: Record<string, string | number | boolean | null>
     writeTarget: SheetRecordWriteTarget
   },
   client: DataClient = createDataClient(),

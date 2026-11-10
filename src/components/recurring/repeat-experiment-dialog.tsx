@@ -31,7 +31,7 @@ import { RepeatFields } from './repeat-fields'
 import { recurringQueryKeys, useStartableTemplates } from './recurring-data'
 
 /** Days written as "0, 7, 14, 30" → [0, 7, 14, 30], or `null` when they aren't. */
-export function parseTimePoints(text: string): number[] | null {
+function parseTimePoints(text: string): number[] | null {
   const parts = text.split(/[\s,;]+/).filter(Boolean)
 
   if (parts.length === 0 || parts.length > 60) return null
@@ -46,6 +46,9 @@ export function parseTimePoints(text: string): number[] | null {
 }
 
 const LEAD_DAYS = [0, 1, 2, 3, 7] as const
+
+/** How the schedule is stated: a repeating rule, or fixed time points. */
+const MODES = ['regular', 'points'] as const
 
 const tomorrow = () =>
   new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
@@ -238,7 +241,11 @@ export function RepeatExperimentDialog({
             variant="segment"
             label={t('projects.recurring.experiment.how')}
             value={mode}
-            onValueChange={(next) => setMode(next as 'regular' | 'points')}
+            onValueChange={(next) => {
+              const chosen = MODES.find((candidate) => candidate === next)
+
+              if (chosen) setMode(chosen)
+            }}
             items={[
               {
                 key: 'regular',

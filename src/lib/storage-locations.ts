@@ -6,6 +6,8 @@
  * positions, which is where a sample sits. Nothing here deletes: a location is
  * archived, and one that still holds a sample cannot be (the database refuses).
  */
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 
 export const STORAGE_LEVELS = [
@@ -41,10 +43,13 @@ export const UNIT_TYPE_LABELS: Record<UnitType, string> = {
   cabinet: 'Cabinet',
 }
 
+/** The column that points at the parent level. */
+type ParentColumn = 'site_id' | 'room_id' | 'unit_id' | 'shelf_id' | 'rack_id'
+
 interface LevelMeta {
   table: string
   /** The column that points at the parent level. */
-  parentColumn: string | null
+  parentColumn: ParentColumn | null
   parent: StorageLevel | null
   child: StorageLevel | null
   label: string
@@ -144,8 +149,30 @@ interface RawNode {
   rows?: number | null
   cols?: number | null
   archived_at: string | null
-  [key: string]: unknown
+  site_id?: string | null
+  room_id?: string | null
+  unit_id?: string | null
+  shelf_id?: string | null
+  rack_id?: string | null
 }
+
+/** A row written for a location: only the columns its level has. */
+type StorageNodeRow = {
+  name: string
+  workspace_id?: string
+  code?: string
+  position?: number
+  unit_type?: UnitType
+  site_id?: string | null
+  room_id?: string | null
+  unit_id?: string | null
+  shelf_id?: string | null
+  rack_id?: string | null
+  temperature_min_c?: number | null
+  temperature_max_c?: number | null
+}
+
+const unitTypeSchema = z.enum(UNIT_TYPES)
 
 function num(value: string | number | null | undefined): number | null {
   if (value === null || value === undefined || value === '') return null
@@ -161,12 +188,14 @@ export function nodeFromRow(level: StorageLevel, row: RawNode): StorageNode {
   return {
     level,
     id: row.id,
-    parentId: typeof parent === 'string' ? parent : null,
+    parentId: parent ?? null,
     name: row.name,
     code: row.code ?? null,
     position: row.position ?? null,
     unitType:
-      level === 'unit' && row.unit_type ? (row.unit_type as UnitType) : null,
+      level === 'unit'
+        ? (unitTypeSchema.safeParse(row.unit_type).data ?? null)
+        : null,
     temperatureMinC: num(row.temperature_min_c),
     temperatureMaxC: num(row.temperature_max_c),
     rows: row.rows ?? null,
@@ -362,7 +391,13 @@ export function validateNodeInput(
   return null
 }
 
-function temperatureColumns(input: NodeInput): Record<string, number | null> {
+/** A location's temperature limits, as the row stores them. */
+interface TemperatureColumns {
+  temperature_min_c: number | null
+  temperature_max_c: number | null
+}
+
+function temperatureColumns(input: NodeInput): TemperatureColumns {
   const lo = input.temperatureMinC.trim()
   const hi = input.temperatureMaxC.trim()
 
@@ -405,7 +440,7 @@ export async function fetchStorageTree(
           'storage_positions',
           '?select=box_id&occupied_record_id=not.is.null&limit=20000',
         )
-      : Promise.resolve([] as { box_id: string }[]),
+      : Promise.resolve<{ box_id: string }[]>([]),
   ])
 
   const held = new Map<string, number>()
@@ -440,7 +475,7 @@ export async function createStorageNode(
     return
   }
 
-  const row: Record<string, unknown> = { workspace_id: workspaceId, name }
+  const row: StorageNodeRow = { workspace_id: workspaceId, name }
 
   if (meta.parentColumn) row[meta.parentColumn] = parent?.id
 
@@ -461,7 +496,7 @@ export async function updateStorageNode(
   input: NodeInput,
 ): Promise<void> {
   const meta = LEVEL_META[node.level]
-  const row: Record<string, unknown> = { name: input.name.trim() }
+  const row: StorageNodeRow = { name: input.name.trim() }
 
   if (meta.hasCode) row.code = input.code.trim()
 

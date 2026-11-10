@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import type { UpdateModelRulePatch } from '#/lib/model-rules'
+
 /**
  * Record types (models), sheet definitions and templates from the assistant.
  * Reads answer in the reply; writes are cards. As with the other cards, the
@@ -319,14 +321,16 @@ export type SchemaAction =
       modelKey: string
       name: string
       fieldKeys: string[]
-      condition: Record<string, unknown>
+      /** Decoded by `condition` above, so the card carries the tool's own contract. */
+      condition: z.infer<typeof condition>
       effect: 'warn' | 'block' | 'flag_block_submit'
       message: string
     }
   | {
       kind: 'schema.rule_update'
       ruleId: string
-      patch: Record<string, unknown>
+      /** Only the parts of the rule the person was shown a change for. */
+      patch: UpdateModelRulePatch
     }
   | { kind: 'schema.rule_remove'; ruleId: string }
   | {

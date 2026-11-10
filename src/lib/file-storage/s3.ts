@@ -19,6 +19,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3'
+import { z } from 'zod'
 
 import { MissingStorageObjectError, OversizeError } from './types'
 import type { ObjectStorage, PutResult } from './types'
@@ -33,16 +34,20 @@ export interface S3StorageConfig {
   prefix: string
 }
 
-function isNotFound(error: unknown): boolean {
-  const e = error as {
-    name?: string
-    $metadata?: { httpStatusCode?: number }
-  } | null
+/** The fields an S3 refusal carries: the service error's name and HTTP status. */
+const storageError = z.object({
+  name: z.string().nullish(),
+  $metadata: z.object({ httpStatusCode: z.number().nullish() }).nullish(),
+})
+
+function isNotFound(error: Error): boolean {
+  const refusal = storageError.safeParse(error)
 
   return (
-    e?.name === 'NoSuchKey' ||
-    e?.name === 'NotFound' ||
-    e?.$metadata?.httpStatusCode === 404
+    refusal.success &&
+    (refusal.data.name === 'NoSuchKey' ||
+      refusal.data.name === 'NotFound' ||
+      refusal.data.$metadata?.httpStatusCode === 404)
   )
 }
 
@@ -151,11 +156,12 @@ export class S3ObjectStorage implements ObjectStorage {
 
       return {
         stream:
+          // SAFETY: the S3 SDK's Body is a mixin that always provides transformToWebStream for a response body.
           response.Body.transformToWebStream() as ReadableStream<Uint8Array>,
         byteSize: Number(response.ContentLength ?? 0),
       }
     } catch (error) {
-      if (isNotFound(error)) {
+      if (error instanceof Error && isNotFound(error)) {
         throw new MissingStorageObjectError(
           `storage object not found: ${storageKey}`,
         )
@@ -176,7 +182,7 @@ export class S3ObjectStorage implements ObjectStorage {
 
       return { byteSize: Number(response.ContentLength ?? 0) }
     } catch (error) {
-      if (isNotFound(error)) return null
+      if (error instanceof Error && isNotFound(error)) return null
       throw error
     }
   }

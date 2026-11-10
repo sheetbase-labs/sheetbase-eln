@@ -32,7 +32,7 @@ import type { DataClient } from '../data-client'
 
 const idPattern = /^[a-z][a-z0-9-]{0,48}$/
 
-const rowsSchema = z.array(z.record(z.string(), z.unknown())).min(1)
+const rowsSchema = z.array(z.record(z.string(), z.json())).min(1)
 
 const bodySchema = z.discriminatedUnion('kind', [
   z.strictObject({
@@ -93,7 +93,7 @@ const bodySchema = z.discriminatedUnion('kind', [
     extensionKey: z.string().regex(idPattern),
     kindId: z.string().regex(idPattern),
     // How many rows a plugin takes is that plugin's own setting, checked below.
-    rows: z.array(z.record(z.string(), z.unknown())),
+    rows: z.array(z.record(z.string(), z.json())),
   }),
 ])
 
@@ -172,6 +172,7 @@ export async function largestDataLimitBytes(
   return Math.round(mb * 1024 * 1024)
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A response body is whatever a plugin route serialises; this helper only sets the status and no-store header.
 export const reply = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
 
@@ -179,7 +180,10 @@ export const refuse = (status: number, message: string) =>
   reply({ error: message }, status)
 
 /** How a failed run reaches the person: a plain message and a fitting status. */
-export function failure(error: unknown): Response {
+export function failure(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught error is untyped by definition; a run's typed error is mapped below and anything else becomes a generic refusal.
+  error: unknown,
+): Response {
   if (error instanceof ExtensionRunError) {
     const status =
       error.code === 'not_installed' || error.code === 'not_declared'

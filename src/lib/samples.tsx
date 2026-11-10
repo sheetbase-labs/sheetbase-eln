@@ -16,6 +16,7 @@
  * access-control boundary; these helpers improve errors and drive the UI.
  */
 import { t } from '#/copy'
+import { z } from 'zod'
 import type { ColumnDef, RowData } from '@tanstack/react-table'
 
 import type { DataGridFieldFeatures } from '#/components/data-grid'
@@ -37,6 +38,21 @@ import { listByIds } from '#/lib/chunk-ids'
 // ---------------------------------------------------------------------------
 // Sample properties (records.properties JSONB).
 // ---------------------------------------------------------------------------
+
+/** One JSON value as a `jsonb` column or an RPC answer holds it. */
+type SampleJson = z.core.util.JSONType
+
+/**
+ * The release-check snapshot `api.release_sample` stores: the counts the
+ * release screen reads, still unparsed because a stored row can hold anything.
+ */
+export interface SampleReleaseChecks {
+  ruleCount?: unknown
+  failedCount?: unknown
+}
+
+/** A JSON object: `records.properties`, link metadata and RPC payloads. */
+type SampleJsonObject = { [key: string]: SampleJson }
 
 export interface SampleProperties {
   sampleType?: string
@@ -65,7 +81,7 @@ export interface SampleProperties {
   disposalReason?: string
   disposedAt?: string
   releasedAt?: string
-  releaseChecks?: Record<string, unknown>
+  releaseChecks?: SampleReleaseChecks
 }
 
 /** Property keys owned by the samples registry. */
@@ -90,20 +106,22 @@ export const SAMPLE_PROPERTY_KEYS = [
   'releaseChecks',
 ] as const
 
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value !== '' ? value : null
+function asString(value: SampleJson): string | null {
+  const parsed = z.string().min(1).safeParse(value)
+
+  return parsed.success ? parsed.data : null
 }
 
-function asNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null
-  const n = typeof value === 'number' ? value : Number(value)
+function asNumber(value: SampleJson): number | null {
+  if (value === null || value === '') return null
+  const n = Number(value)
 
   return Number.isFinite(n) ? n : null
 }
 
 /** Parse the raw `properties` JSONB into a typed view. */
 export function parseSampleProperties(
-  properties: Record<string, unknown>,
+  properties: SampleJsonObject,
 ): SampleProperties {
   return {
     sampleType: asString(properties.sampleType) ?? undefined,
@@ -127,18 +145,21 @@ export function parseSampleProperties(
   }
 }
 
-function asObject(value: unknown): Record<string, unknown> | undefined {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined
+function asObject(value: SampleJson): SampleJsonObject | undefined {
+  if (Array.isArray(value)) return undefined
+  const parsed = pipelineJsonObjectSchema.safeParse(value)
+
+  return parsed.success ? parsed.data : undefined
 }
 
-function asStringArray(value: unknown): string[] | undefined {
+function asStringArray(value: SampleJson): string[] | undefined {
   if (!Array.isArray(value)) return undefined
 
-  const out = value.filter(
-    (item): item is string => typeof item === 'string' && item !== '',
-  )
+  const out = value.flatMap((item) => {
+    const parsed = z.string().min(1).safeParse(item)
+
+    return parsed.success ? [parsed.data] : []
+  })
 
   return out.length > 0 ? out : undefined
 }
@@ -163,12 +184,15 @@ export interface SampleRecord extends NotebookRecord {
   disposalReason: string | null
   disposedAt: string | null
   releasedAt: string | null
-  releaseChecks: Record<string, unknown> | null
+  releaseChecks: SampleReleaseChecks | null
 }
 
 export function toSampleRecord(row: RecordWire): SampleRecord {
   const base = toRecord(row)
-  const props = parseSampleProperties(row.properties ?? {})
+
+  const props = parseSampleProperties(
+    pipelineJsonObjectSchema.parse(row.properties ?? {}),
+  )
 
   return {
     ...base,
@@ -195,10 +219,8 @@ export function toSampleRecord(row: RecordWire): SampleRecord {
 }
 
 /** The properties payload to send to `create_record` for a new sample. */
-export function samplePropertiesPayload(
-  props: SampleProperties,
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
+export function samplePropertiesPayload(props: SampleProperties) {
+  const out: SampleJsonObject = {}
 
   if (props.sampleType != null) out.sampleType = props.sampleType
 
@@ -238,7 +260,13 @@ export function samplePropertiesPayload(
 
   if (props.releasedAt != null) out.releasedAt = props.releasedAt
 
-  if (props.releaseChecks != null) out.releaseChecks = props.releaseChecks
+  if (props.releaseChecks != null) {
+    const releaseChecks = pipelineJsonObjectSchema.safeParse(
+      props.releaseChecks,
+    )
+
+    if (releaseChecks.success) out.releaseChecks = releaseChecks.data
+  }
 
   return out
 }
@@ -338,17 +366,17 @@ export const SAMPLE_FILTER_IDS = [
  * PostgREST order expressions. Properties-backed columns use the
  * `properties->>key` text accessor.
  */
-export const SAMPLE_SORT_FIELDS: Record<string, string> = {
-  identifier: 'identifier',
-  title: 'title',
-  status: 'status',
-  updatedAt: 'updated_at',
-  createdAt: 'created_at',
-  sampleType: 'properties->>sampleType',
-  storageLocation: 'properties->>storageLocation',
-  barcode: 'properties->>barcode',
-  quantity: '(properties->>quantity)::numeric',
-}
+export const SAMPLE_SORT_FIELDS = new Map([
+  ['identifier', 'identifier'],
+  ['title', 'title'],
+  ['status', 'status'],
+  ['updatedAt', 'updated_at'],
+  ['createdAt', 'created_at'],
+  ['sampleType', 'properties->>sampleType'],
+  ['storageLocation', 'properties->>storageLocation'],
+  ['barcode', 'properties->>barcode'],
+  ['quantity', '(properties->>quantity)::numeric'],
+])
 
 const SAMPLE_STATUS_VALUES = [
   'available',
@@ -386,9 +414,9 @@ export function buildSamplesFilter(filters: RegistryFilterValue[]): string[] {
 
   for (const filter of filters) {
     const raw = filter.values[0]
-    const value = typeof raw === 'string' ? raw.trim() : ''
+    const value = z.string().catch('').parse(raw).trim()
 
-    if (!value && typeof raw !== 'boolean') continue
+    if (!value && !z.boolean().safeParse(raw).success) continue
 
     if (filter.fieldId.startsWith('custom:')) {
       const key = filter.fieldId.slice('custom:'.length)
@@ -492,7 +520,7 @@ function sampleSortField(id: string): string | undefined {
       : undefined
   }
 
-  return SAMPLE_SORT_FIELDS[id]
+  return SAMPLE_SORT_FIELDS.get(id)
 }
 
 /** Full PostgREST query string (with leading `?`) for a registry page list. */
@@ -574,7 +602,11 @@ export function toSampleEvent(row: SampleEventWire): SampleEvent {
 
 // LAB-01 step 2 — reservations and the used/reserved/free balance.
 
-export type SampleReservationState = 'active' | 'cancelled' | 'fulfilled'
+const SAMPLE_RESERVATION_STATES = ['active', 'cancelled', 'fulfilled'] as const
+
+const sampleReservationStateSchema = z.enum(SAMPLE_RESERVATION_STATES)
+
+export type SampleReservationState = (typeof SAMPLE_RESERVATION_STATES)[number]
 
 export interface SampleReservationWire {
   id: string
@@ -619,7 +651,7 @@ export function toSampleReservation(
     quantity: Number(row.quantity),
     unit: row.unit,
     planned: row.planned,
-    state: row.state as SampleReservationState,
+    state: sampleReservationStateSchema.parse(row.state),
     notes: row.notes,
     createdByUserId: row.created_by_user_id,
     cancelledByUserId: row.cancelled_by_user_id,
@@ -644,17 +676,17 @@ export interface SampleQuantityBalances {
   free: number
 }
 
-function toNumber(value: unknown): number {
-  const n = typeof value === 'number' ? value : Number(value)
+function toNumber(value: SampleJson): number {
+  const n = Number(value)
 
   return Number.isFinite(n) ? n : 0
 }
 
 export function toSampleQuantityBalances(
-  raw: Record<string, unknown>,
+  raw: SampleJsonObject,
 ): SampleQuantityBalances {
   return {
-    sampleRecordId: String(raw.sampleRecordId ?? ''),
+    sampleRecordId: asString(raw.sampleRecordId) ?? '',
     unit: asString(raw.unit),
     current: toNumber(raw.current),
     used: toNumber(raw.used),
@@ -670,7 +702,7 @@ export interface SampleLinkWire {
   target_kind: string
   target_identifier: string
   link_type: string
-  link_metadata?: Record<string, unknown>
+  link_metadata?: SampleJsonObject
   created_at: string
 }
 
@@ -780,7 +812,7 @@ export async function fetchSampleQuantityBalances(
   client: DataClient,
   recordId: string,
 ): Promise<SampleQuantityBalances> {
-  const raw = await client.rpc<Record<string, unknown> | null>(
+  const raw = await client.rpc<SampleJsonObject | null>(
     'sample_quantity_balances',
     { p_record_id: recordId },
   )
@@ -881,31 +913,25 @@ export interface DerivedSample {
   depth: number
 }
 
-const DERIVATION_ORIGIN_LABELS: Record<string, string> = {
-  withdraw_sample: 'Derived by withdrawal',
-  request_repeat: 'Repeat dilution',
-  pool_samples: 'Pooled',
-}
+const DERIVATION_ORIGIN_LABELS = new Map([
+  ['withdraw_sample', 'Derived by withdrawal'],
+  ['request_repeat', 'Repeat dilution'],
+  ['pool_samples', 'Pooled'],
+])
 
 /** The human relation for a derivation link, from its provenance metadata. */
 export function derivationRelation(
-  metadata: Record<string, unknown> | undefined,
+  metadata: SampleJsonObject | undefined,
 ): string | null {
   if (!metadata) return null
 
-  if (
-    typeof metadata.relation === 'string' &&
-    metadata.relation.trim() !== ''
-  ) {
-    return metadata.relation.trim()
-  }
+  const relation = asString(metadata.relation)
 
-  const origin = metadata.origin
+  if (relation?.trim()) return relation.trim()
 
-  if (typeof origin === 'string')
-    return DERIVATION_ORIGIN_LABELS[origin] ?? null
+  const origin = asString(metadata.origin)
 
-  return null
+  return origin === null ? null : (DERIVATION_ORIGIN_LABELS.get(origin) ?? null)
 }
 
 /** LAB-03 measurement provenance, read by the sample detail and Measurements tab. */
@@ -981,9 +1007,9 @@ export async function fetchSampleDerivedSamples(
     ...nested.map((link) => ({ link, depth: 1 })),
   ]
 
-  const targetIds = links
-    .map(({ link }) => link.target_record_id)
-    .filter((id): id is string => Boolean(id))
+  const targetIds = links.flatMap(({ link }) =>
+    link.target_record_id ? [link.target_record_id] : [],
+  )
 
   const records = targetIds.length
     ? await listByIds(targetIds, (inList) =>
@@ -1295,7 +1321,7 @@ export interface CreateSampleInput {
   status?: string
   tags?: string[]
   properties: SampleProperties
-  customFields?: Record<string, unknown>
+  customFields?: ModelFieldRecordValues['customFields']
 }
 
 export async function createSample(
@@ -1520,7 +1546,7 @@ export interface EditSampleInput {
   properties?: Partial<SampleProperties>
   tags?: string[]
   notes?: string
-  customFields?: Record<string, unknown>
+  customFields?: ModelFieldRecordValues['customFields']
 }
 
 export async function editSample(
@@ -1840,6 +1866,15 @@ export interface SampleReleaseCheck {
   detail: string | null
 }
 
+/** One release check as the database evaluates it, before the view reads it. */
+const sampleReleaseCheckSchema = z.object({
+  key: z.string().optional(),
+  label: z.string().optional(),
+  kind: z.string().optional(),
+  passed: z.boolean().optional(),
+  detail: z.string().nullable().optional(),
+})
+
 export interface SampleReleaseCheckStatus {
   passed: boolean
   ruleCount: number
@@ -1852,23 +1887,25 @@ export async function fetchSampleReleaseCheckStatus(
   client: DataClient,
   recordId: string,
 ): Promise<SampleReleaseCheckStatus> {
-  const raw = await client.rpc<Record<string, unknown> | null>(
+  const raw = await client.rpc<SampleJsonObject | null>(
     'sample_release_check_status',
     { p_record_id: recordId },
   )
 
-  const checks = Array.isArray(raw?.checks) ? raw.checks : []
+  const checks = z.array(sampleReleaseCheckSchema).catch([]).parse(raw?.checks)
+  const ruleCount = asNumber(raw?.ruleCount ?? checks.length)
+  const failedCount = asNumber(raw?.failedCount ?? 0)
 
   return {
     passed: raw?.passed === true,
-    ruleCount: Number(raw?.ruleCount ?? checks.length),
-    failedCount: Number(raw?.failedCount ?? 0),
-    checks: checks.map((c: Record<string, unknown>) => ({
-      key: String(c.key ?? ''),
-      label: String(c.label ?? c.key ?? 'Check'),
-      kind: String(c.kind ?? ''),
-      passed: c.passed === true,
-      detail: typeof c.detail === 'string' && c.detail ? c.detail : null,
+    ruleCount: ruleCount ?? checks.length,
+    failedCount: failedCount ?? 0,
+    checks: checks.map((check) => ({
+      key: check.key ?? '',
+      label: check.label ?? check.key ?? 'Check',
+      kind: check.kind ?? '',
+      passed: check.passed === true,
+      detail: check.detail ? check.detail : null,
     })),
   }
 }
@@ -1878,7 +1915,10 @@ export async function fetchSampleReleaseCheckStatus(
  * `release checks failed: ["Purity","Identity"]`). Null when the error is not a
  * release-check refusal or carries no labels.
  */
-export function releaseFailedChecks(error: unknown): string[] | null {
+export function releaseFailedChecks(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- An error caught at a call site can be any thrown value; this reads the release-check refusal text from its message.
+  error: unknown,
+): string[] | null {
   if (!(error instanceof DataClientError)) return null
   const match = /release checks failed:\s*(\[.*\])/s.exec(error.message)
 
@@ -1900,7 +1940,10 @@ export function releaseFailedChecks(error: unknown): string[] | null {
  * Map a DataClientError to a short, actionable user-facing message keyed by
  * the database error code. Unknown codes fall back to the upstream message.
  */
-export function describeSampleError(error: unknown): string {
+export function describeSampleError(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- An error caught at a call site can be any thrown value; this maps the sample RPC codes and falls back to the upstream message.
+  error: unknown,
+): string {
   if (error instanceof DataClientError) {
     switch (error.code) {
       case 'SB006':

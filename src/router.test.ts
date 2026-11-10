@@ -5,12 +5,14 @@ import { getRouter } from './router'
 
 // The real route tree reads server configuration; this test is about the
 // router's own behaviour, so a bare root route stands in for it.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The generated route tree reads server configuration at import time; this test is about the router's own behaviour, so the module boundary supplies a bare root route.
 vi.mock('./routeTree.gen', async () => {
   const { createRootRoute } = await import('@tanstack/react-router')
 
   return { routeTree: createRootRoute() }
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The root route module imports the not-found screen, which the router never renders here; the boundary replaces that screen.
 vi.mock('#/components/shell/not-found', () => ({ NotFound: () => null }))
 
 describe('getRouter', () => {

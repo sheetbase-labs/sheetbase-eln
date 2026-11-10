@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { instantFromLocal } from './assistant-booking'
 import {
@@ -40,21 +41,25 @@ const experiment = {
   assignee_user_id: null,
 }
 
+/** One wire row of a fixture resource: the keys the tool under test reads. */
+type FixtureRow = Record<string, z.core.util.JSONType>
+
 function fakeClient(
   data: {
-    records?: Array<Record<string, unknown>>
-    bookings?: Array<Record<string, unknown>>
-    blocks?: Array<Record<string, unknown>>
-    shipments?: Array<Record<string, unknown>>
-    shipmentItems?: Array<Record<string, unknown>>
-    steps?: Array<Record<string, unknown>>
-    membership?: Record<string, Record<string, unknown>>
-    seriesMembers?: Array<Record<string, unknown>>
-    parts?: Array<Record<string, unknown>>
-    gates?: Array<Record<string, unknown>>
-    signoffs?: Array<Record<string, unknown>>
+    records?: Array<FixtureRow>
+    bookings?: Array<FixtureRow>
+    blocks?: Array<FixtureRow>
+    shipments?: Array<FixtureRow>
+    shipmentItems?: Array<FixtureRow>
+    steps?: Array<FixtureRow>
+    membership?: Record<string, FixtureRow>
+    seriesMembers?: Array<FixtureRow>
+    parts?: Array<FixtureRow>
+    gates?: Array<FixtureRow>
+    signoffs?: Array<FixtureRow>
   } = {},
 ) {
+  // oxlint-disable-next-line anti-slop/no-chained-type-assertions, anti-slop/require-safety-comment-for-type-assertion -- the double answers only the reads and RPCs these tools call; a whole DataClient would add untested methods to a fixture.
   const client = {
     list: (resource: string, query = '') => {
       switch (resource) {
@@ -96,13 +101,17 @@ function fakeClient(
           return Promise.resolve([])
       }
     },
-    rpc: (name: string, args?: Record<string, unknown>) => {
+    rpc: (name: string, args?: FixtureRow) => {
       if (name === 'record_steps') return Promise.resolve(data.steps ?? [])
 
       if (name === 'record_gates') return Promise.resolve(data.gates ?? [])
 
       if (name === 'record_series') {
-        const row = data.membership?.[String(args?.p_record_id)]
+        const recordId = z.string().safeParse(args?.p_record_id)
+
+        const row = recordId.success
+          ? data.membership?.[recordId.data]
+          : undefined
 
         return Promise.resolve(row ? [row] : [])
       }
@@ -171,10 +180,12 @@ describe('what is waiting on me', () => {
   it('lists the inbox with a link to each item', async () => {
     const result = await readInbox({}, context(fakeClient()))
 
-    const parsed = JSON.parse(result.text) as {
-      waitingOnPerson: number
-      items: Array<{ open: string; title: string }>
-    }
+    const parsed = z
+      .object({
+        waitingOnPerson: z.number(),
+        items: z.array(z.object({ open: z.string(), title: z.string() })),
+      })
+      .parse(JSON.parse(result.text))
 
     expect(parsed.waitingOnPerson).toBe(1)
     expect(parsed.items[0]).toMatchObject({
@@ -497,11 +508,7 @@ describe('shipments', () => {
   })
 })
 
-const step = (
-  n: number,
-  text: string,
-  extra: Record<string, unknown> = {},
-) => ({
+const step = (n: number, text: string, extra: FixtureRow = {}) => ({
   block_id: `step-${n}`,
   step_number: n,
   step_text: text,
@@ -524,11 +531,7 @@ const steps = [
   step(3, 'Read the plate at 450 nm'),
 ]
 
-function part(
-  number: number,
-  title: string,
-  extra: Record<string, unknown> = {},
-) {
+function part(number: number, title: string, extra: FixtureRow = {}) {
   return {
     part_id: `part-${number}`,
     part_number: number,
@@ -717,7 +720,7 @@ describe('parts', () => {
   })
 })
 
-const gate = (number: number, extra: Record<string, unknown> = {}) => ({
+const gate = (number: number, extra: FixtureRow = {}) => ({
   gate_id: `part:part-${number}`,
   gate_kind: 'part',
   block_id: null,

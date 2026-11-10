@@ -5,6 +5,7 @@
  */
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { createDataClient } from '#/lib/data-client'
 
@@ -12,11 +13,13 @@ import { AvatarPhotosContext } from './avatar-photos-context'
 
 export { avatarPhotoUrl, useAvatarPhotoUrl } from './avatar-photos-context'
 
+// react-doctor-disable-next-line react-doctor/only-export-components -- The photo query key and its reads live beside the provider that owns their cache entry.
 export const memberPhotosQueryKey = ['member-photos'] as const
 
 const client = createDataClient()
 
 /** `userId → version` for every member with a photo. */
+// react-doctor-disable-next-line react-doctor/only-export-components -- The provider and the profile photo dialog share this read; it is exported so the dialog can refresh the same cache entry.
 export async function fetchMemberPhotos(): Promise<Map<string, string>> {
   // A GET, like the other reads every page makes: it carries no body, so a
   // navigation that cancels it mid-flight leaves nothing half-read.
@@ -28,6 +31,7 @@ export async function fetchMemberPhotos(): Promise<Map<string, string>> {
 }
 
 /** Stores a photo as yours. */
+// react-doctor-disable-next-line react-doctor/only-export-components -- The profile photo dialog calls this write; the provider owns the cache it invalidates.
 export async function uploadMyPhoto(photo: Blob): Promise<void> {
   const response = await fetch('/api/avatars/me', {
     method: 'PUT',
@@ -39,17 +43,23 @@ export async function uploadMyPhoto(photo: Blob): Promise<void> {
 }
 
 /** Removes your photo; your initials show again. */
+// react-doctor-disable-next-line react-doctor/only-export-components -- The profile photo dialog calls this write; the provider owns the cache it invalidates.
 export async function removeMyPhoto(): Promise<void> {
   const response = await fetch('/api/avatars/me', { method: 'DELETE' })
 
   if (!response.ok) throw new Error(await errorMessage(response))
 }
 
+/** The API error envelope, when the response carried one. */
+const apiError = z.object({
+  error: z.object({ message: z.string().optional() }).optional(),
+})
+
 async function errorMessage(response: Response): Promise<string> {
   try {
-    const body = (await response.json()) as { error?: { message?: string } }
+    const body = apiError.safeParse(await response.json())
 
-    if (body.error?.message) return body.error.message
+    if (body.success && body.data.error?.message) return body.data.error.message
   } catch {
     // Fall through to the status text.
   }

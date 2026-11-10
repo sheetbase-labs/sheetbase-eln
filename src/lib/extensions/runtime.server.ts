@@ -103,7 +103,7 @@ export interface ExtensionRuntimeDeps {
     workspaceId: string
     actorUserId: string
     extensionId: string
-    payload: Record<string, unknown>
+    payload: NamedValues
   }) => Promise<void>
   now: () => number
 }
@@ -111,6 +111,19 @@ export interface ExtensionRuntimeDeps {
 // ---------------------------------------------------------------------------
 // Declared values.
 // ---------------------------------------------------------------------------
+
+/**
+ * A plugin's named values: the field names its manifest declares and whatever
+ * it sent for them. The declaration, not this module, owns each field's type.
+ */
+const namedValuesSchema = z.record(z.string(), z.unknown())
+
+type NamedValues = z.infer<typeof namedValuesSchema>
+
+/** One table row a plugin receives or returns: column names to values. */
+const tableRowSchema = z.record(z.string(), z.json())
+
+type TableRow = z.infer<typeof tableRowSchema>
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -141,10 +154,13 @@ function matches(
  */
 export function checkDeclaredValues(
   fields: readonly ExtensionField[],
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Declared values arrive from a plugin or its runner unparsed; this function is the boundary that checks every declared name and rejects the rest.
   value: unknown,
   what: 'input' | 'answer',
-): Record<string, unknown> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+): NamedValues {
+  const parsed = namedValuesSchema.safeParse(value)
+
+  if (!parsed.success) {
     throw new ExtensionRunError(
       what === 'input' ? 'bad_input' : 'bad_answer',
       what === 'input'
@@ -153,8 +169,8 @@ export function checkDeclaredValues(
     )
   }
 
-  const given = value as Record<string, unknown>
-  const out: Record<string, unknown> = {}
+  const given = parsed.data
+  const out: NamedValues = {}
 
   for (const field of fields) {
     const present =
@@ -200,17 +216,22 @@ export function checkDeclaredValues(
 // Python runner.
 // ---------------------------------------------------------------------------
 
+/** A failed run's text: an Error's own message, or the rejection's own words. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A failed run rejects with the runner's own value; the audit log records its message when it has one and its primitive text otherwise.
+function failureText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 /** What a failure in the plugin's code says to the person: its own refusal word for word, a crash as a crash. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A failed Python run rejects with the runner's own value; an Error carries the refusal text and the refusal code is read from the runner's envelope.
 function pythonMessage(error: unknown): ExtensionRunError {
   const raw = error instanceof Error ? error.message : String(error)
 
   if (raw.startsWith('PluginError: '))
     return new ExtensionRunError('plugin_refused', raw.slice(13, 513))
 
-  const code =
-    error && typeof error === 'object' && 'code' in error
-      ? String(error.code)
-      : 'python_failed'
+  const refusal = z.looseObject({ code: z.string() }).safeParse(error)
+  const code = refusal.success ? refusal.data.code : 'python_failed'
 
   return new ExtensionRunError(
     code,
@@ -291,26 +312,29 @@ export async function runPackage(
         'Python inputs and parameters must contain finite JSON values.',
       )
 
-    return await deps.executePython({
+    const call: PythonTransformInput = {
+      ...job,
       statement: pluginStatement(files),
       limits: runnerLimits(limits),
-      ...(environment ? { environment } : {}),
-      ...(runtime && runtime.networkHosts.length > 0
-        ? { network: runtime.networkHosts }
-        : {}),
-      ...job,
       inputs: inputs.data,
       parameters: parameters.data,
-    })
+    }
+
+    if (environment) call.environment = environment
+
+    if (runtime && runtime.networkHosts.length > 0)
+      call.network = runtime.networkHosts
+
+    return await deps.executePython(call)
   } catch (error) {
+    const refused = z.looseObject({ code: z.string() }).safeParse(error)
+
     // The runner lost the packages (a new runner, a pruned image): install again.
     if (
       environment &&
       runtime &&
-      error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      error.code === 'environment_not_ready'
+      refused.success &&
+      refused.data.code === 'environment_not_ready'
     )
       await deps
         .settleEnvironment?.(workspaceId, {
@@ -441,15 +465,45 @@ export interface HostAnswer {
 
 export interface HostCallRequest {
   name: string
-  arguments: Record<string, unknown>
+  arguments: NamedValues
 }
 
 export interface InvokeResult {
-  output: Record<string, unknown>
+  output: NamedValues
   runner: 'python'
   durationMs: number
   /** The plugin stopped to ask for these calls; make them and run it again with the answers. */
   hostCalls?: HostCallRequest[]
+}
+
+/** The change-log payload written for one invocation of a plugin point. */
+function auditPayload(args: {
+  resolved: ResolvedInstall
+  point: ExtensionRunnerPoint
+  itemId: string
+  ok: boolean
+  runner: string
+  durationMs: number
+  error?: string
+}): NamedValues {
+  const payload: NamedValues = {
+    change: 'invoked',
+    extensionKey: args.resolved.install.key,
+    point: args.point,
+    itemId: args.itemId,
+    ok: args.ok,
+    runner: args.runner,
+    durationMs: args.durationMs,
+    ...extensionAuditIdentity({
+      extensionId: args.resolved.install.id,
+      extensionKey: args.resolved.install.key,
+      manifest: args.resolved.manifest,
+    }),
+  }
+
+  if (args.error) payload.error = args.error.slice(0, 300)
+
+  return payload
 }
 
 export function audit(
@@ -471,21 +525,7 @@ export function audit(
       workspaceId: args.workspaceId,
       actorUserId: args.actorUserId,
       extensionId: args.resolved.install.id,
-      payload: {
-        change: 'invoked',
-        extensionKey: args.resolved.install.key,
-        point: args.point,
-        itemId: args.itemId,
-        ok: args.ok,
-        runner: args.runner,
-        durationMs: args.durationMs,
-        ...(args.error ? { error: args.error.slice(0, 300) } : {}),
-        ...extensionAuditIdentity({
-          extensionId: args.resolved.install.id,
-          extensionKey: args.resolved.install.key,
-          manifest: args.resolved.manifest,
-        }),
-      },
+      payload: auditPayload(args),
     })
     .catch(() => undefined)
 }
@@ -536,20 +576,19 @@ export async function invokeExtension(
 
     const step = callable.runKind === 'step'
     const tableNames = new Set(callable.tableNames)
-    const tables: Record<string, Array<Record<string, unknown>>> = {}
-    const settings: Record<string, unknown> = {}
+    const tables: Record<string, TableRow[]> = {}
+    const settings: NamedValues = {}
 
     for (const [name, value] of Object.entries(input)) {
       if (step && tableNames.has(name)) {
-        if (
-          !Array.isArray(value) ||
-          !value.every((row) => row && typeof row === 'object')
-        )
+        const rows = z.array(tableRowSchema).safeParse(value)
+
+        if (!rows.success)
           throw new ExtensionRunError(
             'bad_input',
             `“${name}” should be a list of rows, each an object of column values.`,
           )
-        tables[name] = value as Array<Record<string, unknown>>
+        tables[name] = rows.data
       } else settings[name] = value
     }
 
@@ -562,17 +601,22 @@ export async function invokeExtension(
         )
       : undefined
 
-    const result = await runPackage(deps, args.workspaceId, resolved, {
+    const contract = stepDeclaration
+      ? columnContract(stepDeclaration.result.columns)
+      : undefined
+
+    const job: Parameters<typeof runPackage>[3] = {
       inputs: tables,
       parameters: {
         kind: callable.runKind,
         entry: declaration.runner.entry,
         input: settings,
       },
-      ...(stepDeclaration
-        ? { contract: columnContract(stepDeclaration.result.columns) }
-        : {}),
-    })
+    }
+
+    if (contract) job.contract = contract
+
+    const result = await runPackage(deps, args.workspaceId, resolved, job)
 
     const asked = step ? undefined : result.rows.at(0)?.__host_calls__
 
@@ -584,16 +628,18 @@ export async function invokeExtension(
         )
       const hostCalls: HostCallRequest[] = []
 
-      for (const entry of asked as unknown[]) {
-        const call = entry as Partial<HostCallRequest> | null
+      for (const entry of z.array(z.unknown()).parse(asked)) {
+        const call = z
+          .looseObject({
+            name: z.string(),
+            arguments: namedValuesSchema.optional(),
+          })
+          .safeParse(entry)
 
-        if (!call || typeof call.name !== 'string') continue
+        if (!call.success) continue
         hostCalls.push({
-          name: call.name,
-          arguments:
-            call.arguments && typeof call.arguments === 'object'
-              ? call.arguments
-              : {},
+          name: call.data.name,
+          arguments: call.data.arguments ?? {},
         })
       }
 
@@ -665,12 +711,12 @@ export interface AnalysisArgs {
   extensionKey: string
   kindId: string
   /** Declared input name to the rows' values, one object per dataset row. */
-  rows: Array<Record<string, unknown>>
+  rows: TableRow[]
 }
 
 export interface AnalysisOutcome {
   columns: ExtensionAnalysisKindDeclaration['result']['columns']
-  rows: Array<Record<string, unknown>>
+  rows: TableRow[]
   chart: ExtensionAnalysisKindDeclaration['result']['chart'] | null
   durationMs: number
 }
@@ -754,25 +800,25 @@ export type HookArgs = {
       kind: 'screen'
       point: 'blocks' | 'panels'
       itemId: string
-      context: Record<string, unknown>
+      context: NamedValues
       state: unknown
-      event: { action: string; values: Record<string, unknown> } | null
+      event: { action: string; values: NamedValues } | null
     }
   | {
       kind: 'column'
       itemId: string
-      rows: Array<Record<string, unknown>>
+      rows: TableRow[]
     }
   | {
       kind: 'column-action'
       itemId: string
       actionId: string
-      rows: Array<Record<string, unknown>>
+      rows: TableRow[]
     }
   | {
       kind: 'row-action'
       itemId: string
-      rows: Array<Record<string, unknown>>
+      rows: TableRow[]
     }
 )
 
@@ -811,11 +857,7 @@ function columnValue(
   return parsed.data
 }
 
-function checkRows(
-  rows: Array<Record<string, unknown>>,
-  maxRows: number,
-  inputs?: string[],
-) {
+function checkRows(rows: TableRow[], maxRows: number, inputs?: string[]) {
   if (rows.length > maxRows)
     throw new ExtensionRunError(
       'bad_input',
@@ -862,7 +904,7 @@ export async function runExtensionHook(
   let entry: string
   let job: Parameters<typeof runPackage>[3]
   let column: ExtensionColumnDeclaration | undefined
-  let rowsGiven: Array<Record<string, unknown>> = []
+  let rowsGiven: TableRow[] = []
 
   if (args.kind === 'screen') {
     const declared = (
@@ -941,8 +983,11 @@ export async function runExtensionHook(
   const itemId = args.itemId
   const started = deps.now()
 
-  const record = (ok: boolean, error?: unknown) =>
-    audit(deps, {
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A refused hook rejects with the runner's own value; failureText reads its message or primitive text for the change log.
+  const record = (ok: boolean, error?: unknown) => {
+    const failure = error === undefined ? {} : { error: failureText(error) }
+
+    return audit(deps, {
       workspaceId: args.workspaceId,
       actorUserId: args.actorUserId,
       resolved,
@@ -951,10 +996,9 @@ export async function runExtensionHook(
       ok,
       runner: 'python',
       durationMs: deps.now() - started,
-      ...(error
-        ? { error: error instanceof Error ? error.message : String(error) }
-        : {}),
+      ...failure,
     })
+  }
 
   try {
     const result = await runPackage(deps, args.workspaceId, resolved, job)
@@ -1075,7 +1119,10 @@ export function defaultDeps(): ExtensionRuntimeDeps {
           ),
         )
 
-      return (rows.at(0)?.files as Record<string, string> | undefined) ?? null
+      return (
+        z.record(z.string(), z.string()).safeParse(rows.at(0)?.files).data ??
+        null
+      )
     },
     audit: async ({ workspaceId, actorUserId, extensionId, payload }) => {
       const [{ db }, { sql }] = await Promise.all([

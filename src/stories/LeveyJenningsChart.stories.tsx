@@ -28,7 +28,10 @@ const values = [
   101, 98, 103, 99, 100, 104, 97, 102, 106, 109, 108, 100, 99, 112, 101,
 ]
 
-function pointsFor(rows: number[], broken: Record<number, string[]> = {}) {
+function pointsFor(
+  rows: number[],
+  broken: Record<number, QcPointRow['violations']> = {},
+) {
   return rows.map((value, index): QcPointRow => ({
     id: `p${index}`,
     series_id: 's1',
@@ -38,7 +41,7 @@ function pointsFor(rows: number[], broken: Record<number, string[]> = {}) {
     at: new Date(Date.UTC(2026, 10, 1 + index)).toISOString(),
     label: `Run ${index + 1}`,
     z: (value - 100) / 4,
-    violations: (broken[index] ?? []) as QcPointRow['violations'],
+    violations: broken[index] ?? [],
     excluded: false,
     acknowledged_at: null,
     acknowledged_by_user_id: null,

@@ -9,6 +9,7 @@
  */
 
 import { and, eq } from 'drizzle-orm'
+import { z } from 'zod'
 
 import { db } from '#/db/client.server'
 import * as schema from '#/db/schema'
@@ -124,6 +125,7 @@ export function isCollaborationEnabled(): boolean {
  */
 export async function resolveRoomAccess(
   headers: Headers,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The room id arrives on a live-editing connection request; it is decoded against the room-id parser immediately below.
   room: unknown,
   deps: CollaborationAuthDeps = realCollaborationAuthDeps,
 ): Promise<RoomAccessResolution> {
@@ -136,7 +138,9 @@ export async function resolveRoomAccess(
     }
   }
 
-  if (typeof room !== 'string') {
+  const roomId = z.string().safeParse(room)
+
+  if (!roomId.success) {
     return {
       ok: false,
       status: 400,
@@ -145,7 +149,7 @@ export async function resolveRoomAccess(
     }
   }
 
-  const parsed = parseRoomId(room)
+  const parsed = parseRoomId(roomId.data)
 
   if (!parsed.ok) {
     return {

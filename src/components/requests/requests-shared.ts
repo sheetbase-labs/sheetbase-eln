@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import type { RequestRow, RequestStatus } from '#/lib/requests'
 import type { Tone } from '#/components/ui/status'
 
@@ -14,12 +16,24 @@ export function statusTone(status: RequestStatus): Tone {
   }
 }
 
-function asText(value: unknown): string {
-  if (typeof value === 'string') return value.trim()
+/** The three answer shapes a request form collects, each with a text form. */
+const answerText = z.string()
+const answerNumber = z.number()
+const answerFlag = z.boolean()
 
-  if (typeof value === 'number') return String(value)
+/** An answer as one line of text, or nothing when it has no text form. */
+function asText<Value>(answer: Value): string {
+  const text = answerText.safeParse(answer)
 
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (text.success) return text.data.trim()
+
+  const number = answerNumber.safeParse(answer)
+
+  if (number.success) return String(number.data)
+
+  const flag = answerFlag.safeParse(answer)
+
+  if (flag.success) return flag.data ? 'Yes' : 'No'
 
   return ''
 }

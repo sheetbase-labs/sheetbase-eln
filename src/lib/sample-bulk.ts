@@ -51,7 +51,12 @@ const POSITIONAL: Column[] = [
   'barcode',
 ]
 
-const HEADER_NAMES: Record<string, Column> = {
+/** Header names a pasted first row may use, and the column each one means. */
+interface HeaderNames {
+  [name: string]: Column | undefined
+}
+
+const HEADER_NAMES: HeaderNames = {
   name: 'title',
   title: 'title',
   sample: 'title',
@@ -94,17 +99,16 @@ export function splitQuantity(
   const quantity = Number(match[1].replace(',', '.'))
 
   if (!Number.isFinite(quantity)) return null
-  const unit = (match[2] as string | undefined)?.trim()
+  const unit = match.at(2)?.trim()
 
   return unit ? { quantity, unit } : { quantity }
 }
 
 function headerColumns(cells: string[]): Column[] | null {
-  const names: Partial<Record<string, Column>> = HEADER_NAMES
   const mapped: Column[] = []
 
   for (const cell of cells) {
-    const column = names[cell.trim().toLowerCase()]
+    const column = HEADER_NAMES[cell.trim().toLowerCase()]
 
     // Every cell must be a known column name, or the first row is data.
     if (!column) return null

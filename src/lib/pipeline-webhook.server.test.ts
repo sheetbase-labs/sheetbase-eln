@@ -1,17 +1,21 @@
+// @vitest-environment node
 import { createHash } from 'node:crypto'
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import { handlePipelineWebhook } from './pipeline-webhook.server'
 import type { PipelineWebhookDeps } from './pipeline-webhook.server'
 import type { ExecConnection } from './pipeline-execute.server'
 
-vi.mock('#/env.server', () => ({ env: {} }))
+vi.hoisted(() => {
+  vi.stubEnv('DATABASE_URL', 'postgresql://test:test@localhost:5432/test')
+  vi.stubEnv(
+    'FORMULA_DATABASE_URL',
+    'postgresql://test:test@localhost:5432/test',
+  )
+  vi.stubEnv('BETTER_AUTH_SECRET', 'test-secret-at-least-thirty-two-characters')
+  vi.stubEnv('PGRST_JWT_SECRET', 'test-jwt-secret-at-least-thirty-two-chars')
+})
 
-vi.mock('#/lib/auth', () => ({ getAppSession: vi.fn() }))
-
-vi.mock('./pipeline-queue.server', () => ({
-  enqueuePipelineRun: vi.fn(),
-  wakePipelineWorker: vi.fn(),
-}))
+afterAll(() => vi.unstubAllEnvs())
 
 const definition = '00000000-0000-4000-8000-000000000001'
 const token = 'a'.repeat(43)
@@ -58,13 +62,16 @@ function setup(
     return { rows: [] }
   })
 
+  // SAFETY: the webhook drives this connection through `query`, `begin`,
+  // `commit`, `rollback` and `end` only, and reads the rows below as plain
+  // records rather than through a caller-chosen QueryResultRow.
   const conn = {
     query,
     begin: vi.fn(),
     commit: vi.fn(),
     rollback: vi.fn(),
     end: vi.fn(),
-  } as unknown as ExecConnection
+  } as ExecConnection
 
   const deps: PipelineWebhookDeps = {
     getSession: vi.fn(async () => ({ user: { id: 'owner' } })),

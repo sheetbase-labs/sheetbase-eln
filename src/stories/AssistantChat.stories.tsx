@@ -4,6 +4,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { expect, userEvent, within } from 'storybook/test'
 
 import AssistantChat from '#/components/assist/assistant-chat'
+import type { AiReadiness } from '#/lib/ai-settings'
 import { ASSISTANT_CHAT_PATH } from '#/lib/assistant-chat'
 import { AI_WORKSPACE_ID } from './assist-fixtures'
 import { holdRead, screenQueryClient, screenRoutes } from './screen-stories'
@@ -18,14 +19,17 @@ import { holdRead, screenQueryClient, screenRoutes } from './screen-stories'
  * The conversation lives in a store keyed by workspace so it survives closing
  * the panel; each answered story therefore uses its own workspace id.
  */
-const READY = {
+const READY: AiReadiness = {
   ready: true,
   mode: 'provider',
   profileId: 'workspace-model',
   dataClass: 'cloud',
 }
 
-function client(readiness: unknown | 'pending' | 'error', workspaceId: string) {
+/** A settled readiness, or the query held in its pending or error state. */
+type ReadinessState = AiReadiness | 'pending' | 'error'
+
+function client(readiness: ReadinessState, workspaceId: string) {
   const instance = screenQueryClient()
   const key = ['ai-settings', workspaceId]
 
@@ -105,12 +109,7 @@ function ChatEndpoint({
   const original = window.fetch
   useEffect(() => {
     window.fetch = (input, init) => {
-      const url =
-        typeof input === 'string'
-          ? input
-          : input instanceof URL
-            ? input.pathname
-            : input.url
+      const url = input instanceof Request ? input.url : input.toString()
 
       if (url.startsWith(ASSISTANT_CHAT_PATH)) return Promise.resolve(respond())
 
@@ -127,7 +126,7 @@ function ChatEndpoint({
 
 function frame(
   workspaceId: string,
-  readiness: unknown | 'pending' | 'error',
+  readiness: ReadinessState,
   respond: () => Response = () => sse(ANSWER),
 ) {
   const instance = client(readiness, workspaceId)

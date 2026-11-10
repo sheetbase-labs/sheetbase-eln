@@ -14,21 +14,30 @@ export function formatDate(
 
   // A bare day ("2026-09-25") is a calendar date, not an instant: read it at
   // noon so no time zone moves it to the neighbouring day.
-  const iso =
-    typeof value === 'string'
-      ? /^\d{4}-\d{2}-\d{2}$/.test(value)
-        ? `${value}T12:00:00Z`
-        : value
-      : value.toISOString()
+  let iso: string
+
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- The declared parameter union is exactly string | Date; typeof takes the string alternative so a Date keeps its own toISOString instant.
+  if (typeof value === 'string') {
+    iso = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00Z` : value
+  } else {
+    iso = value.toISOString()
+  }
 
   const { time = false, year = true } = options
 
-  return formatInstant(iso, {
+  const format: Intl.DateTimeFormatOptions = {
     day: 'numeric',
     month: 'short',
-    ...(year ? { year: 'numeric' as const } : {}),
-    ...(time ? { hour: '2-digit' as const, minute: '2-digit' as const } : {}),
-  }).replace('Sept', 'Sep')
+  }
+
+  if (year) format.year = 'numeric'
+
+  if (time) {
+    format.hour = '2-digit'
+    format.minute = '2-digit'
+  }
+
+  return formatInstant(iso, format).replace('Sept', 'Sep')
 }
 
 /**
@@ -37,6 +46,7 @@ export function formatDate(
  */
 export function formatTime(value: string | Date | null | undefined): string {
   if (!value) return '—'
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- The declared parameter union is exactly string | Date; typeof takes the string alternative so a Date keeps its own toISOString instant.
   const iso = typeof value === 'string' ? value : value.toISOString()
 
   return formatInstant(iso, { hour: '2-digit', minute: '2-digit' })

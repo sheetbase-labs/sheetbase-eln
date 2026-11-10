@@ -7,8 +7,11 @@
  * Model-configurable modes can extend `RecordIdPolicy.mode` without changing
  * Sheet identity (UUID remains the relationship key).
  */
-import { KIND_PREFIX, identifierPattern } from './scientific-records'
-import type { ScientificRecordKind } from './scientific-records'
+import {
+  KIND_PREFIX,
+  identifierPattern,
+  isScientificRecordKind,
+} from './scientific-records'
 
 export const RECORD_ID_POLICY_OWNER = 'api.create_model_record' as const
 
@@ -29,22 +32,22 @@ export const CURRENT_RECORD_ID_POLICY: RecordIdPolicy = {
 }
 
 /** Prefixes assigned by `create_model_record` / `create_record`. */
-export const RECORD_KIND_PREFIX: Record<string, string> = {
-  experiment: 'EXP',
-  protocol_template: 'PRT',
-  report: 'RPT',
-  sample: KIND_PREFIX.sample,
-  material: KIND_PREFIX.material,
-  file: 'FILE',
-  notebook_template: 'NBK',
-}
+export const RECORD_KIND_PREFIX = new Map<string, string>([
+  ['experiment', 'EXP'],
+  ['protocol_template', 'PRT'],
+  ['report', 'RPT'],
+  ['sample', KIND_PREFIX.sample],
+  ['material', KIND_PREFIX.material],
+  ['file', 'FILE'],
+  ['notebook_template', 'NBK'],
+])
 
 export function recordIdPattern(kind: string): RegExp | null {
-  if (kind in KIND_PREFIX) {
-    return identifierPattern(kind as ScientificRecordKind)
+  if (isScientificRecordKind(kind)) {
+    return identifierPattern(kind)
   }
 
-  const prefix = RECORD_KIND_PREFIX[kind]
+  const prefix = RECORD_KIND_PREFIX.get(kind)
 
   if (!prefix) return null
 

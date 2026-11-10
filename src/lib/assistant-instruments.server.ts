@@ -39,10 +39,14 @@ export type InstrumentsOutcome =
 const NOTE =
   'The person sees a card and presses a button to do it; nothing changes until they do.'
 
+const INSTRUMENTS_PROPOSE_TOOLS: ReadonlySet<string> = new Set(
+  INSTRUMENTS_PROPOSE_TOOL_NAMES,
+)
+
 export function isInstrumentsProposalTool(
   name: string,
 ): name is InstrumentsProposeToolName {
-  return (INSTRUMENTS_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+  return INSTRUMENTS_PROPOSE_TOOLS.has(name)
 }
 
 export function instrumentsProposalDefs(): ProviderToolDef[] {
@@ -141,6 +145,7 @@ const startOf = (day: string) => `${day}T00:00:00Z`
 
 export async function buildInstrumentsProposal(
   name: InstrumentsProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Tool arguments arrive from the model as raw JSON; every case below parses them with its own schema before reading a field.
   args: unknown,
   context: LabToolContext,
 ): Promise<InstrumentsOutcome> {

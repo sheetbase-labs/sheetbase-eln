@@ -4,14 +4,14 @@ import { t } from '#/copy'
 
 // The rendered documents live in the repository's docs tree; map each stable
 // name to its file so the surface renders the document it names.
-const DOC_PATHS: Record<string, string> = {
-  deployment: 'docs/operations/deployment.md',
-  recovery: 'docs/operations/recovery.md',
-  security: 'docs/operations/security.md',
-  performance: 'docs/subsystems/performance.md',
-  observability: 'docs/operations/observability.md',
-  administration: 'docs/subsystems/administration.md',
-}
+const DOC_PATHS = new Map([
+  ['deployment', 'docs/operations/deployment.md'],
+  ['recovery', 'docs/operations/recovery.md'],
+  ['security', 'docs/operations/security.md'],
+  ['performance', 'docs/subsystems/performance.md'],
+  ['observability', 'docs/operations/observability.md'],
+  ['administration', 'docs/subsystems/administration.md'],
+])
 
 export const Route = createFileRoute('/docs/$name')({
   beforeLoad: async ({ context: rootContext, location }) => {
@@ -27,18 +27,21 @@ export const Route = createFileRoute('/docs/$name')({
     const name = params.name
     // An unknown name is a missing document, not a server error: report it in
     // the page so the route's error boundary stays for real failures.
-    const relativePath = DOC_PATHS[name]
+    const relativePath = DOC_PATHS.get(name)
 
     if (!relativePath) {
       return { name, html: null, known: false }
     }
 
-    const { readFileSync } = await import('node:fs')
-    const { resolve } = await import('node:path')
-    const filePath = resolve(process.cwd(), relativePath)
+    const [fs, path] = await Promise.all([
+      import('node:fs'),
+      import('node:path'),
+    ])
+
+    const filePath = path.resolve(process.cwd(), relativePath)
 
     try {
-      const content = readFileSync(filePath, 'utf-8')
+      const content = fs.readFileSync(filePath, 'utf-8')
       // Loaded here so the markdown parser stays out of the app's first load.
       const { marked } = await import('marked')
       const html = marked.parse(content, { async: false })
@@ -51,18 +54,18 @@ export const Route = createFileRoute('/docs/$name')({
   component: DocPage,
 })
 
-const DOC_TITLES: Record<string, string> = {
-  deployment: t('settings.docs.deployment'),
-  recovery: t('settings.docs.recovery'),
-  security: t('settings.docs.security'),
-  performance: t('settings.docs.performance'),
-  observability: t('settings.docs.observability'),
-  administration: t('settings.docs.administration'),
-}
+const DOC_TITLES = new Map([
+  ['deployment', t('settings.docs.deployment')],
+  ['recovery', t('settings.docs.recovery')],
+  ['security', t('settings.docs.security')],
+  ['performance', t('settings.docs.performance')],
+  ['observability', t('settings.docs.observability')],
+  ['administration', t('settings.docs.administration')],
+])
 
 function DocPage() {
   const { name, html, known } = Route.useLoaderData()
-  const title = DOC_TITLES[name] ?? name
+  const title = DOC_TITLES.get(name) ?? name
 
   if (!html) {
     return (

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { handleLakeFile } from './lake-files.server'
 import type { LakeFileDeps } from './lake-files.server'
 import { MissingStorageObjectError } from '../file-storage/types'
+import type { ObjectStorage } from '../file-storage/types'
 
 const WS = '00000000-0000-4000-8000-000000000300'
 const OTHER = '00000000-0000-4000-8000-000000000301'
@@ -12,24 +13,33 @@ const SECRET = 'sbk_secret'
 const HASH = createHash('sha256').update(SECRET).digest('hex')
 const DATA = Uint8Array.from({ length: 100 }, (_, i) => i)
 
+/** The one object this suite serves; every other key is absent. */
+const storage: ObjectStorage = {
+  getStream: async (key: string) => {
+    if (key !== `lake/${WS}/main/samples/a.parquet`)
+      throw new MissingStorageObjectError('absent')
+
+    return {
+      byteSize: DATA.length,
+      stream: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(DATA)
+          controller.close()
+        },
+      }),
+    }
+  },
+  // The lake reader only ever opens a stream; these keep the storage contract.
+  putStream: async () => {
+    throw new Error('the lake reader never writes')
+  },
+  head: async () => null,
+  delete: async () => {},
+}
+
 const deps: LakeFileDeps = {
   tokenWorkspace: async (hash) => (hash === HASH ? WS : null),
-  storage: {
-    getStream: async (key: string) => {
-      if (key !== `lake/${WS}/main/samples/a.parquet`)
-        throw new MissingStorageObjectError('absent')
-
-      return {
-        byteSize: DATA.length,
-        stream: new ReadableStream<Uint8Array>({
-          start(controller) {
-            controller.enqueue(DATA)
-            controller.close()
-          },
-        }),
-      }
-    },
-  } as unknown as LakeFileDeps['storage'],
+  storage,
 }
 
 const get = (

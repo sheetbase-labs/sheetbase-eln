@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import type { AiContextActor, AiContextEnvelope } from './ai-context'
 import { AI_CONTEXT_VERSION, DEFAULT_AI_CONTEXT_BUDGETS } from './ai-context'
@@ -86,12 +87,15 @@ function baseInput(overrides: Partial<CallModelInput> = {}): CallModelInput {
   }
 }
 
+/** The structured fields one logged gateway event carries. */
+const eventFields = z.record(z.string(), z.unknown())
+
 async function gatewayError(
   promise: Promise<unknown>,
 ): Promise<ModelGatewayError> {
   const outcome: unknown = await promise.then(
     () => null,
-    (error: unknown) => error,
+    (error) => error,
   )
 
   expect(outcome).toBeInstanceOf(ModelGatewayError)
@@ -126,7 +130,7 @@ describe('ai-gateway allowlist', () => {
     expect(second.text).toBe(first.text)
     expect(second.usage).toEqual({
       ...first.usage,
-      latencyMs: expect.any(Number) as number,
+      latencyMs: expect.any(Number),
     })
   })
 
@@ -296,15 +300,19 @@ describe('ai-gateway logging policy', () => {
       // Secret material in a known prompt field (section body) plus
       // secret-shaped keys where free-form content could carry them.
       const envelope = baseEnvelope()
-      envelope.objects[0].sections = [
-        {
-          heading: 'Summary',
-          body: `Benign summary of the experiment. Operator note ${SECRET}.`,
-          truncated: false,
-          ...{ apiToken: SECRET },
-        },
-      ]
-      const citations = [{ ...baseCitations()[0], ...{ sessionToken: SECRET } }]
+
+      // A known field plus a secret-shaped key free-form content could carry.
+      const section = {
+        heading: 'Summary',
+        body: `Benign summary of the experiment. Operator note ${SECRET}.`,
+        truncated: false,
+        apiToken: SECRET,
+      }
+
+      envelope.objects[0].sections = [section]
+
+      const secretCitation = { ...baseCitations()[0], sessionToken: SECRET }
+      const citations = [secretCitation]
       const input = baseInput({ contextEnvelope: envelope, citations })
       await callModel(ACTOR, input, { registry })
 
@@ -328,7 +336,7 @@ describe('ai-gateway logging policy', () => {
       )
 
       expect(callRecord).toBeDefined()
-      const fields = callRecord?.[1] as Record<string, unknown>
+      const fields = eventFields.parse(callRecord?.[1])
       expect(Object.keys(fields).sort()).toEqual(
         [
           'model',
@@ -355,7 +363,7 @@ describe('ai-gateway logging policy', () => {
       )
 
       expect(resultRecord).toBeDefined()
-      const resultFields = resultRecord?.[1] as Record<string, unknown>
+      const resultFields = eventFields.parse(resultRecord?.[1])
       expect(resultFields['promptHash']).toBe(hashPrompt(fullPrompt))
       expect(resultFields).not.toHaveProperty('text')
       expect(resultFields).not.toHaveProperty('outputExcerpt')
@@ -402,7 +410,7 @@ describe('ai-gateway logging policy', () => {
           (call) => call[0] === 'ai.gateway.call',
         )
 
-        const fields = callRecord?.[1] as Record<string, unknown>
+        const fields = eventFields.parse(callRecord?.[1])
         expect(fields).not.toHaveProperty('debugPromptExcerpt')
         expect(fields).not.toHaveProperty('promptExcerpt')
 
@@ -436,9 +444,9 @@ describe('ai-gateway logging policy', () => {
           (call) => call[0] === 'ai.gateway.call',
         )
 
-        const fields = callRecord?.[1] as Record<string, unknown>
+        const fields = eventFields.parse(callRecord?.[1])
         const excerpt = fields['debugPromptExcerpt']
-        expect(typeof excerpt).toBe('string')
+        expect(excerpt).toEqual(expect.any(String))
         expect(String(excerpt).length).toBeLessThanOrEqual(
           GATEWAY_EXCERPT_CHARS,
         )

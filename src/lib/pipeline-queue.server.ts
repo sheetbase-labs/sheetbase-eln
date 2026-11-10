@@ -45,13 +45,18 @@ export interface QueueConnection {
 
 export type PipelineJobKind = 'execute' | 'resume'
 
+/** What a queue payload carries: the answer a paused run is resumed with. */
+export interface PipelineJobPayload {
+  readonly answer?: unknown
+}
+
 export interface PipelineJob {
   id: string
   runId: string
   workspaceId: string
   kind: PipelineJobKind
   actorUserId: string
-  payload: Record<string, unknown>
+  payload: PipelineJobPayload
   attempts: number
   maxAttempts: number
 }
@@ -86,7 +91,7 @@ interface JobRow {
   workspace_id: string
   kind: PipelineJobKind
   actor_user_id: string
-  payload: Record<string, unknown>
+  payload: PipelineJobPayload
   attempts: number
   max_attempts: number
 }
@@ -316,6 +321,7 @@ export interface PipelineWorkerDeps {
   resume: (
     actor: string,
     runId: string,
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The answer is opaque JSON owned by the pipeline executor: this worker carries it from the queue payload to the executor and never reads it.
     answer: unknown,
   ) => Promise<PipelineExecuteReport>
   /** Fail a run whose job can no longer be attempted. */
@@ -344,6 +350,7 @@ export async function reapAbandonedJobs(
   )
 
   for (const row of rows)
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each abandoned job is failed in its own call and a refusal is swallowed, so the remaining jobs still get their turn.
     await deps
       .failRun(
         row.run_id,
@@ -609,6 +616,19 @@ export function wakePipelineWorker(): void {
 let stopWorker: (() => void) | null = null
 const startedGlobalKey = '__sheetbasePipelineWorkerStarted'
 
+/** The one process-global flag this module owns. */
+interface WorkerGuard {
+  [startedGlobalKey]?: boolean
+}
+
+/** The process global object, seen as the module's own guard. */
+function workerGuard(): WorkerGuard {
+  // SAFETY: `globalThis` is the process global object, and this module alone
+  // reads and writes its `__sheetbasePipelineWorkerStarted` property, which it
+  // sets to `true`; nothing else defines it.
+  return globalThis as WorkerGuard
+}
+
 /**
  * Start the worker loop in this process. Disable it on a replica that should
  * only serve requests with SHEETBASE_PIPELINE_WORKER=false; set
@@ -627,10 +647,10 @@ export function startPipelineWorker(
     return
   }
 
-  const g = globalThis as unknown as Record<string, unknown>
+  const guard = workerGuard()
 
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+  if (guard[startedGlobalKey]) return
+  guard[startedGlobalKey] = true
 
   const parsed = Number.parseInt(
     process.env.PIPELINE_WORKER_CONCURRENCY ?? '',

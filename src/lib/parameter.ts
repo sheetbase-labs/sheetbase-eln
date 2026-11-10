@@ -112,47 +112,77 @@ const constraintsSchema = z.strictObject({
 
 type ParameterConstraints = z.infer<typeof constraintsSchema>
 
-function scalarSatisfiesConstraints(
-  valueType: (typeof FIELD_LOGICAL_TYPES)[number],
-  value: unknown,
+/** A scalar parameter value the declared value type already accepted. */
+type ScalarValue = string | number | boolean
+
+/** Range constraints on a numeric scalar; other representations never pass. */
+function numberSatisfiesConstraints(
+  value: ScalarValue,
   constraints: ParameterConstraints,
-) {
-  if (!scalarParameterValueSchema(valueType).safeParse(value).success)
+): boolean {
+  const numeric = z.number().finite().safeParse(value)
+
+  if (!numeric.success) return false
+
+  if (constraints.min !== undefined && numeric.data < constraints.min)
     return false
 
+  if (constraints.max !== undefined && numeric.data > constraints.max)
+    return false
+
+  return true
+}
+
+/** Length and pattern constraints on a text scalar. */
+function textSatisfiesConstraints(
+  value: ScalarValue,
+  constraints: ParameterConstraints,
+): boolean {
+  const text = z.string().safeParse(value)
+
+  if (!text.success) return false
+
+  if (
+    constraints.minLength !== undefined &&
+    text.data.length < constraints.minLength
+  )
+    return false
+
+  if (
+    constraints.maxLength !== undefined &&
+    text.data.length > constraints.maxLength
+  )
+    return false
+
+  if (
+    constraints.pattern !== undefined &&
+    !new RegExp(constraints.pattern).test(text.data)
+  )
+    return false
+
+  return true
+}
+
+function scalarSatisfiesConstraints(
+  valueType: (typeof FIELD_LOGICAL_TYPES)[number],
+  value: ScalarValue,
+  constraints: ParameterConstraints,
+): boolean {
   if (
     constraints.allowedValues !== undefined &&
     !constraints.allowedValues.some((allowed) => allowed === value)
   )
     return false
 
-  if (typeof value === 'number') {
-    if (constraints.min !== undefined && value < constraints.min) return false
-
-    if (constraints.max !== undefined && value > constraints.max) return false
+  switch (valueType) {
+    case 'integer':
+    case 'decimal':
+      return numberSatisfiesConstraints(value, constraints)
+    case 'text':
+      return textSatisfiesConstraints(value, constraints)
+    default:
+      return true
   }
-
-  if (typeof value === 'string' && valueType === 'text') {
-    if (
-      constraints.minLength !== undefined &&
-      value.length < constraints.minLength
-    )
-      return false
-
-    if (
-      constraints.maxLength !== undefined &&
-      value.length > constraints.maxLength
-    )
-      return false
-
-    if (
-      constraints.pattern !== undefined &&
-      !new RegExp(constraints.pattern).test(value)
-    )
-      return false
-  }
-
-  return true
 }
 
 export const parameterSchema = z
@@ -286,11 +316,14 @@ export const parameterSchema = z
       parameter.defaultValue !== undefined &&
       scalar.safeParse(parameter.defaultValue).success
     ) {
+      // The check above guarantees the parse succeeds; its value is decoded here.
+      const defaultValue = scalar.parse(parameter.defaultValue)
+
       try {
         if (
           !scalarSatisfiesConstraints(
             parameter.type.valueType,
-            parameter.defaultValue,
+            defaultValue,
             parameter.constraints,
           )
         )
@@ -307,10 +340,12 @@ export const parameterSchema = z
 
 export type Parameter = z.infer<typeof parameterSchema>
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw parameter JSON is unparsed input by definition; parameterSchema is the decoder applied on the next line.
 export function parseParameter(value: unknown): Parameter {
   return parameterSchema.parse(value)
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw parameter JSON is unparsed input by definition; parameterSchema is the decoder applied on the next line.
 export function safeParseParameter(value: unknown) {
   return parameterSchema.safeParse(value)
 }

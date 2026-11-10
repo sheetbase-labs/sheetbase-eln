@@ -9,21 +9,38 @@ import {
   semanticToolDefs,
 } from './semantic-tools.server'
 
-function clientWith(row: Record<string, unknown> | null): DataClient {
-  return {
-    list: async () => (row ? [row] : []),
-    rpc: async () => [],
-  } as unknown as DataClient
-}
-
-const settings = (extra: Record<string, unknown>) => ({
+const baseSettings = {
   ai_enabled: true,
   ai_cloud_egress_enabled: false,
   semantic_search_enabled: false,
   embeddings_profile: null,
   literature_search_enabled: false,
+}
+
+/** The workspace settings row these tools read, with the flags a case overrides. */
+const settings = (extra: Partial<typeof baseSettings>) => ({
+  ...baseSettings,
   ...extra,
 })
+
+type SettingsRow = ReturnType<typeof settings>
+
+function clientWith(row: SettingsRow | null): DataClient {
+  const rows: SettingsRow[] = row ? [row] : []
+
+  const methods: Partial<DataClient> = {
+    // SAFETY: the tools list only the settings row this double holds, so the
+    // list contract's `T` is that row.
+    list: async <T>(): Promise<T[]> => rows as T[],
+    // SAFETY: these tools read no RPC result; the double answers an empty list
+    // exactly as the suite's original stub did.
+    rpc: async <T>(): Promise<T> => [] as T,
+  }
+
+  // SAFETY: the semantic search tools call only `list` and `rpc`, which this
+  // double supplies; no other DataClient member is reached.
+  return methods as DataClient
+}
 
 describe('search tools for the assistant and MCP', () => {
   it('offers the literature tool only when it is allowed', () => {

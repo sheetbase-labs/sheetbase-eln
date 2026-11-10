@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import {
   PIPELINES_PROPOSE_TOOL_NAMES,
   PIPELINE_CANCEL_TOOL,
@@ -35,6 +37,7 @@ import {
   normalizeTriggerEventName,
   validateScheduleSpec,
 } from './pipeline-schedule'
+import type { PipelineScheduleWire } from './pipelines/types'
 
 /**
  * Cards for pipelines and plugins (see `assistant-pipelines.ts`). Each builder
@@ -51,7 +54,7 @@ const NOTE =
 export function isPipelinesProposalTool(
   name: string,
 ): name is PipelinesProposeToolName {
-  return (PIPELINES_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+  return PIPELINES_PROPOSE_TOOL_NAMES.some((tool) => tool === name)
 }
 
 export function pipelinesProposalDefs(): ProviderToolDef[] {
@@ -138,7 +141,7 @@ interface RunRow {
 interface ScheduleRow {
   id: string
   kind: string
-  spec: Record<string, unknown>
+  spec: PipelineScheduleWire['spec']
   enabled: boolean
 }
 
@@ -251,22 +254,29 @@ async function findPlugin(
   )
 }
 
+/** A spec value as the sentence states it; absent reads as the em dash. */
+const SPEC_TEXT = z.coerce.string()
+
+function specText(value: z.core.util.JSONType | undefined): string {
+  return value === undefined ? '—' : SPEC_TEXT.parse(value)
+}
+
 /** "every 60 minutes", "daily at 06:00", "on dataset.versioned". */
 export function describeSchedule(schedule: {
   kind: string
-  spec: Record<string, unknown>
+  spec: PipelineScheduleWire['spec']
   enabled?: boolean
 }): string {
   const { spec } = schedule
 
   const when =
     schedule.kind === 'interval'
-      ? `every ${String(spec.intervalMinutes)} minutes`
+      ? `every ${specText(spec.intervalMinutes)} minutes`
       : schedule.kind === 'daily'
-        ? `daily at ${String(spec.dailyAt)}`
+        ? `daily at ${specText(spec.dailyAt)}`
         : schedule.kind === 'cron'
-          ? `on the cron ${String(spec.cron)}`
-          : `when ${String(spec.eventType)} happens`
+          ? `on the cron ${specText(spec.cron)}`
+          : `when ${specText(spec.eventType)} happens`
 
   return schedule.enabled === false ? `${when} (off)` : when
 }
@@ -297,6 +307,7 @@ function card(
 
 export async function buildPipelinesProposal(
   name: PipelinesProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw external tool arguments; each tool parses them with its own schema before reading a field.
   args: unknown,
   context: LabToolContext,
 ): Promise<PipelinesOutcome> {
@@ -552,7 +563,7 @@ export async function buildPipelinesProposal(
           'Give exactly one of everyMinutes, dailyAt, cron and onEvent.',
         )
       let scheduleKind: 'interval' | 'daily' | 'cron' | 'event'
-      let spec: Record<string, unknown>
+      let spec: PipelineScheduleWire['spec']
 
       if (input.everyMinutes !== undefined) {
         scheduleKind = 'interval'

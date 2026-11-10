@@ -325,7 +325,7 @@ function capturingClient(queries: string[]): DataClient {
   const list = async <T>(resource: string, query = ''): Promise<T[]> => {
     queries.push(`${resource}${query}`)
 
-    return [] as T[]
+    return []
   }
 
   return {
@@ -384,6 +384,8 @@ describe('seeded fetch filter syntax', () => {
           if (resource === 'records' && !query.includes(`id=eq.${datasetId}`))
             rows = [experiment]
 
+          // SAFETY: each branch holds the wire row the caller asks for when it
+          // lists this resource, and the list contract's `T` is that row.
           return rows as T[]
         },
       }
@@ -450,6 +452,8 @@ describe('seeded fetch filter syntax', () => {
           `${resource}${query}`.startsWith(r.prefix),
         )
 
+        // SAFETY: each route carries the wire rows its resource prefix returns,
+        // and the list contract's `T` is that row.
         return Promise.resolve((route ? route.rows : []) as T[])
       },
     }

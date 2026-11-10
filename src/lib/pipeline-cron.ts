@@ -60,9 +60,15 @@ function parseField(field: string, min: number, max: number): number[] | null {
   return [...values].sort((a, b) => a - b)
 }
 
+/**
+ * A cron expression as a pipeline schedule form or stored configuration supplies
+ * it. `null` and `undefined` mean "no expression" and are not valid crons.
+ */
+export type CronExpressionInput = string | null | undefined
+
 /** The parsed expression, or null when it is not a valid 5-field cron. */
-export function parseCron(expression: unknown): CronFields | null {
-  if (typeof expression !== 'string') return null
+export function parseCron(expression: CronExpressionInput): CronFields | null {
+  if (expression === null || expression === undefined) return null
   const parts = expression.trim().split(/\s+/)
 
   if (parts.length !== 5) return null

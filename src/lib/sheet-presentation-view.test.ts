@@ -62,15 +62,23 @@ describe('sheet presentation saved views (GRID-04)', () => {
   })
 
   it('tolerates unavailable storage on save and read', () => {
-    const throwing = {
-      ...memoryStorage(),
-      setItem: () => {
+    const healthy = memoryStorage()
+
+    const throwing: Storage = {
+      get length() {
+        return healthy.length
+      },
+      clear: () => healthy.clear(),
+      key: (index) => healthy.key(index),
+      removeItem: (key) => healthy.removeItem(key),
+      setItem: (key) => {
+        void key
         throw new Error('quota')
       },
       getItem: () => {
         throw new Error('blocked')
       },
-    } as Storage
+    }
 
     expect(() =>
       saveSheetView('instance-1', fullPresentation(), throwing),

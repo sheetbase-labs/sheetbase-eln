@@ -65,7 +65,7 @@ export function fieldEditorPresentation(
  * is intentionally deferred with the vocabulary product. */
 export function selectableFieldOptions(
   field: FieldDefinition,
-  currentValue: unknown,
+  currentValue: string | boolean | null,
 ) {
   if (field.category?.kind !== 'embedded') return []
 

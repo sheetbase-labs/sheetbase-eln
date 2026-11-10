@@ -91,12 +91,11 @@ export function ShortcutGroups({
   const Heading = headingLevel === 2 ? 'h2' : 'h3'
   const scopes = ['global', 'panes', 'list', 'notebook', 'review'] as const
 
-  const groups = scopes
-    .map((scope) => ({
-      scope,
-      items: definitions.filter((d) => d.scope === scope),
-    }))
-    .filter((group) => group.items.length > 0)
+  const groups = scopes.flatMap((scope) => {
+    const items = definitions.filter((d) => d.scope === scope)
+
+    return items.length > 0 ? [{ scope, items }] : []
+  })
 
   return (
     <div

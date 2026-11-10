@@ -8,6 +8,7 @@
  * `src/lib/live-events.ts`.
  */
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { DataClientError } from '../data-client'
 import type { DataClient } from '../data-client'
@@ -97,7 +98,7 @@ export interface WorkItem {
   fieldId?: string | null
 }
 
-const KINDS: readonly WorkItemKind[] = [
+const KINDS = [
   'review_requested',
   'witness_requested',
   'run_failed',
@@ -131,25 +132,27 @@ const KINDS: readonly WorkItemKind[] = [
   'qualification_granted',
   'following',
   'project_following',
-]
+] as const satisfies readonly WorkItemKind[]
 
-const STATES: readonly WorkItemState[] = [
+const STATES = [
   'needs_action',
   'following',
   'overdue',
   'done_today',
-]
+] as const satisfies readonly WorkItemState[]
+
+/** A wire kind this client does not know yet reads as a plain following item. */
+const kindSchema = z.enum(KINDS).catch('following')
+
+/** A wire state this client does not know yet reads as needing action. */
+const stateSchema = z.enum(STATES).catch('needs_action')
 
 function asKind(value: string): WorkItemKind {
-  return (KINDS as readonly string[]).includes(value)
-    ? (value as WorkItemKind)
-    : 'following'
+  return kindSchema.parse(value)
 }
 
 function asState(value: string): WorkItemState {
-  return (STATES as readonly string[]).includes(value)
-    ? (value as WorkItemState)
-    : 'needs_action'
+  return stateSchema.parse(value)
 }
 
 /** A `snake_case` key a person never types or reads. */
@@ -177,7 +180,7 @@ export function toWorkItem(row: WorkItemWire, now: Date = appNow()): WorkItem {
   // as both identifier and title: the title says it as words.
   const keyOnly = !row.title && isMachineKey(row.identifier)
 
-  return {
+  const item: WorkItem = {
     kind: asKind(row.kind),
     recordId: row.record_id,
     identifier: row.identifier,
@@ -192,16 +195,18 @@ export function toWorkItem(row: WorkItemWire, now: Date = appNow()): WorkItem {
     datasetId: row.dataset_id,
     rowId: row.row_id,
     fieldId: row.field_id,
-    ...(row.revision_id ? { revisionId: row.revision_id } : {}),
-    ...(row.source_type
-      ? {
-          sourceType: row.source_type,
-          sourceId: row.source_id,
-          parserVersionId: row.parser_version_id,
-          connectorId: row.connector_id,
-        }
-      : {}),
   }
+
+  if (row.revision_id) item.revisionId = row.revision_id
+
+  if (row.source_type) {
+    item.sourceType = row.source_type
+    item.sourceId = row.source_id
+    item.parserVersionId = row.parser_version_id
+    item.connectorId = row.connector_id
+  }
+
+  return item
 }
 
 // ---------------------------------------------------------------------------

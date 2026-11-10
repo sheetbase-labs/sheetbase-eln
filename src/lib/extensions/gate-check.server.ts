@@ -7,8 +7,10 @@
  * cannot be opened by sending "pass".
  */
 import { sql } from 'drizzle-orm'
+import type { z } from 'zod'
 
 import { db } from '#/db/client.server'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
 import { createServerDataClient } from '#/lib/server-data-client.server'
 import { resolveSessionAuth } from '#/lib/request-auth'
 import { runExtensionCheck } from './data-runtime.server'
@@ -26,10 +28,16 @@ export interface GateCheckRequest {
   columns: Record<string, string>
 }
 
+/** A table block's stored payload: the JSON object the block owns. */
+type TableBlockPayload = z.infer<typeof pipelineJsonObjectSchema>
+
 export interface GateCheckDeps {
   runtime: ExtensionRuntimeDeps
   /** The table block's payload, read with the person's own access. */
-  readTable: (headers: Headers, req: GateCheckRequest) => Promise<unknown>
+  readTable: (
+    headers: Headers,
+    req: GateCheckRequest,
+  ) => Promise<TableBlockPayload | null>
   store: (
     req: GateCheckRequest,
     outcome: { status: string; message: string },
@@ -52,7 +60,7 @@ export function defaultGateCheckDeps(): GateCheckDeps {
           `&record_id=eq.${encodeURIComponent(req.recordId)}&type=eq.table`,
       )
 
-      return rows[0]?.payload
+      return pipelineJsonObjectSchema.safeParse(rows[0]?.payload).data ?? null
     },
     store: async (req, outcome) => {
       await db.execute(

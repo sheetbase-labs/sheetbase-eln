@@ -13,7 +13,8 @@ import { screenQueryClient, screenRoutes, withApiReads } from './screen-stories'
  * the card's failed state.
  */
 const PROPOSAL: AssistantProposal = {
-  tool: 'propose_pipeline',
+  // The tool that proposes a pipeline draft, as the assistant declares it.
+  tool: 'sheetbase.pipeline_definition.draft',
   title: 'Add a nightly titre export',
   summary: 'Creates a pipeline that exports titre results to the shared drive.',
   target: 'Pipelines',
@@ -32,7 +33,7 @@ const PROPOSAL: AssistantProposal = {
     key: 'nightly-titre-export',
     name: 'Nightly titre export',
   },
-} as unknown as AssistantProposal
+}
 
 const client = screenQueryClient()
 

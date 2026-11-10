@@ -6,6 +6,7 @@
  * mirrors the database columns; the UI groups rows into threads by
  * `rootId` and renders unavailable targets and departed users honestly.
  */
+import { z } from 'zod'
 import type { DataClient } from './data-client'
 import { sheetCommentAnchorSchema } from './sheet-comment-anchor'
 import type { SheetCommentAnchor } from './sheet-comment-anchor'
@@ -35,8 +36,24 @@ export interface CommentTarget {
   changeId?: string
   area?: string
   identity?: string
-  [key: string]: unknown
 }
+
+/** The stored descriptor, tolerant of a row written before a field was added. */
+const commentTargetSchema = z
+  .looseObject({
+    blockId: z.string().optional(),
+    tableId: z.string().optional(),
+    rowId: z.string().optional(),
+    columnId: z.string().optional(),
+    instanceId: z.string().optional(),
+    rowKeys: z.array(z.string()).optional(),
+    fieldIds: z.array(z.string()).optional(),
+    comparisonRevisionId: z.string().optional(),
+    changeId: z.string().optional(),
+    area: z.string().optional(),
+    identity: z.string().optional(),
+  })
+  .catch({})
 
 /** Wire shape of a comment row, as delivered by PostgREST. */
 export interface CommentWire {
@@ -268,6 +285,6 @@ export function threadState(thread: CommentThread): 'open' | 'resolved' {
 function normaliseComment(row: CommentWire): CommentWire {
   return {
     ...row,
-    target: typeof row.target === 'object' ? row.target : {},
+    target: commentTargetSchema.parse(row.target),
   }
 }

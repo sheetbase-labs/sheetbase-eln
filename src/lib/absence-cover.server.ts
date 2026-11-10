@@ -44,7 +44,14 @@ export async function sweepAbsenceCover(
 
 let timer: ReturnType<typeof setInterval> | null = null
 let bootTimer: ReturnType<typeof setTimeout> | null = null
-const startedGlobalKey = '__sheetbaseAbsenceCoverSchedulerStarted'
+
+declare global {
+  /**
+   * The scheduler's process-wide guard: a hot reload can load this module
+   * twice, so the "already started" flag lives on the global object.
+   */
+  var __sheetbaseAbsenceCoverSchedulerStarted: boolean | undefined
+}
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
@@ -68,10 +75,9 @@ export function startAbsenceCoverScheduler(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
 
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+  if (globalThis.__sheetbaseAbsenceCoverSchedulerStarted) return
+  globalThis.__sheetbaseAbsenceCoverSchedulerStarted = true
 
   const deps = options.deps ?? { connect: defaultConnect }
 
@@ -103,6 +109,5 @@ export function stopAbsenceCoverScheduler(): void {
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null
-  const g = globalThis as unknown as Record<string, unknown>
-  delete g[startedGlobalKey]
+  delete globalThis.__sheetbaseAbsenceCoverSchedulerStarted
 }

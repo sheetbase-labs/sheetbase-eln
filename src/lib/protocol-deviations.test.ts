@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createDataClient } from './data-client'
+import type { ProtocolDeviation } from './protocol-deviations'
 import {
   fetchStepDeviations,
   isPinnedProtocolStep,
@@ -26,7 +27,7 @@ const row = {
   created_at: '2026-09-01T00:00:00Z',
 }
 
-function clientReturning(value: unknown) {
+function clientReturning(value: ProtocolDeviation | ProtocolDeviation[]) {
   const fetcher = vi.fn().mockResolvedValue(
     new Response(JSON.stringify(value), {
       status: 200,

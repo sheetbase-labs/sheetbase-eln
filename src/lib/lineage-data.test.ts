@@ -7,6 +7,8 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import { createDataClient } from './data-client'
+
 import {
   buildLineageGraph,
   buildTableData,
@@ -1147,13 +1149,17 @@ describe('bulk filters stay under the proxy limit', () => {
   function recordingClient() {
     const queries: string[] = []
 
-    const client = {
-      list: async (_table: string, query: string) => {
-        queries.push(query)
+    /** The list read is the recorded mock; the rest of the transport is real. */
+    const client: Parameters<typeof fetchLineageSignatures>[0] = Object.assign(
+      createDataClient(),
+      {
+        list: async (_table: string, query: string) => {
+          queries.push(query)
 
-        return []
+          return []
+        },
       },
-    } as unknown as Parameters<typeof fetchLineageSignatures>[0]
+    )
 
     return { client, queries }
   }

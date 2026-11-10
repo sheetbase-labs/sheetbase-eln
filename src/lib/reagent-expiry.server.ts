@@ -40,10 +40,13 @@ export interface ReagentExpiryDeps {
   connect: () => Promise<ExpiryConnection>
 }
 
+/** The primitive fields one sweep reports to the log. */
+export type ExpiryLogFields = Record<string, string | number | boolean | null>
+
 /** Structured log sink, injectable for unit tests. */
 export interface ExpiryLog {
-  info: (message: string, fields: Record<string, unknown>) => void
-  warn: (message: string, fields: Record<string, unknown>) => void
+  info: (message: string, fields: ExpiryLogFields) => void
+  warn: (message: string, fields: ExpiryLogFields) => void
 }
 
 const defaultLog: ExpiryLog = {
@@ -101,6 +104,19 @@ let expiryTimer: ReturnType<typeof setInterval> | null = null
 let expiryBootTimer: ReturnType<typeof setTimeout> | null = null
 const startedGlobalKey = '__sheetbaseReagentExpirySchedulerStarted'
 
+/** The one process-global flag this module owns. */
+interface SchedulerGuard {
+  [startedGlobalKey]?: boolean
+}
+
+/** The process global object, seen as the module's own guard. */
+function schedulerGuard(): SchedulerGuard {
+  // SAFETY: `globalThis` is the process global object, and this module alone
+  // reads and writes its `__sheetbaseReagentExpirySchedulerStarted` property,
+  // which it sets to `true` and deletes; nothing else defines it.
+  return globalThis as SchedulerGuard
+}
+
 /**
  * Disabled under test runners unless explicitly enabled with
  * `SHEETBASE_SCHEDULER_ENABLED=true`; always disabled when that flag is `false`.
@@ -126,10 +142,10 @@ export function startReagentExpiryScheduler(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
+  const guard = schedulerGuard()
 
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+  if (guard[startedGlobalKey]) return
+  guard[startedGlobalKey] = true
 
   const deps = options.deps ?? { connect: defaultConnect }
   const intervalMs = options.intervalMs ?? REAGENT_EXPIRY_INTERVAL_MS
@@ -159,8 +175,7 @@ export function stopReagentExpiryScheduler(): void {
     expiryTimer = null
   }
 
-  const g = globalThis as unknown as Record<string, unknown>
-  delete g[startedGlobalKey]
+  delete schedulerGuard()[startedGlobalKey]
 }
 
 async function defaultConnect(): Promise<ExpiryConnection> {

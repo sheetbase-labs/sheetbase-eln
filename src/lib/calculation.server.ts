@@ -10,10 +10,27 @@ import {
   sheetbaseRuntimeFingerprint,
 } from './formula-profile'
 import { buildScientificWorkbook } from './scientific-workbook'
-import type { WorkbookCellAddress, WorkbookTable } from './scientific-workbook'
+import type {
+  WorkbookCell,
+  WorkbookCellAddress,
+  WorkbookTable,
+} from './scientific-workbook'
 import type { ScientificLogicalType } from './scientific-sheet-data'
 
 const requestInput = z.strictObject({ recordId: z.string().uuid() })
+
+/** What a failed request carries: the server's code, and its HTTP status. */
+const serverRejection = z.object({
+  code: z.string().optional(),
+  status: z.number().optional(),
+})
+
+/** The server's rejection code, when the thrown value carries one. */
+function rejectionCode<Thrown>(thrown: Thrown): string | undefined {
+  const rejection = serverRejection.safeParse(thrown)
+
+  return rejection.success ? rejection.data.code : undefined
+}
 
 interface SnapshotFormula {
   id: string
@@ -90,7 +107,7 @@ export async function executeCalculation(
     throw new CalculationError(
       'snapshot',
       'Calculation snapshot could not be loaded.',
-      (error as { code?: string }).code,
+      rejectionCode(error),
     )
   }
 
@@ -158,7 +175,7 @@ export async function executeCalculation(
       throw new CalculationError(
         'finalize',
         'Trusted finalize failed after workbook error.',
-        (finalizeError as { code?: string }).code,
+        rejectionCode(finalizeError),
       )
     }
   } finally {
@@ -173,7 +190,7 @@ export async function executeCalculation(
     throw new CalculationError(
       'finalize',
       'Trusted finalize failed.',
-      (error as { code?: string }).code,
+      rejectionCode(error),
     )
   }
 }
@@ -212,11 +229,8 @@ export async function handleCalculation(
       status: result.status === 'failed' ? 500 : 200,
     })
   } catch (error) {
-    const candidate = error as {
-      code?: string
-      status?: number
-      stage?: string
-    }
+    const rejection = serverRejection.safeParse(error)
+    const candidate = rejection.success ? rejection.data : {}
 
     if (candidate.code === 'SB001')
       return errorResponse(
@@ -246,6 +260,15 @@ export async function handleCalculation(
     )
   }
 }
+
+/**
+ * One generated scientific row as `to_jsonb` returns it: its identity, and each
+ * column's stored value under that column's field name.
+ */
+type CalculatedRow = { created_at: string; id: string } & Record<
+  string,
+  z.core.util.JSONType
+>
 
 type RecordRow = QueryResultRow & {
   id: string
@@ -364,7 +387,7 @@ async function loadSnapshot(actor: string, recordId: string) {
       ).rows
 
       const rows = (
-        await client.query<{ row: Record<string, unknown> }>(
+        await client.query<{ row: CalculatedRow }>(
           `SELECT to_jsonb(source) row FROM api."${table.resource_name}" source ORDER BY created_at,id LIMIT 10001`,
         )
       ).rows.map((item) => item.row)
@@ -390,29 +413,26 @@ async function loadSnapshot(actor: string, recordId: string) {
                 `${table.id}/${String(row.id)}/${column.id}`,
               )
 
-              return [
-                column.id,
-                {
-                  literal: row[column.field_name],
-                  ...(formula
-                    ? {
-                        formula: {
-                          version: 1,
-                          syntaxProfile: formula.syntax_profile,
-                          functionProfile: formula.function_profile,
-                          literalProfile: formula.literal_profile,
-                          engineVersion: formula.engine_version,
-                          status: formula.status,
-                          source: formula.source_expression,
-                          template: formula.template,
-                          bindings: formula.bindings,
-                          engineExpression: formula.engine_expression,
-                          dependencies: formula.dependencies,
-                        },
-                      }
-                    : {}),
-                },
-              ]
+              const cell: WorkbookCell = {
+                literal: row[column.field_name],
+              }
+
+              if (formula)
+                cell.formula = {
+                  version: 1,
+                  syntaxProfile: formula.syntax_profile,
+                  functionProfile: formula.function_profile,
+                  literalProfile: formula.literal_profile,
+                  engineVersion: formula.engine_version,
+                  status: formula.status,
+                  source: formula.source_expression,
+                  template: formula.template,
+                  bindings: formula.bindings,
+                  engineExpression: formula.engine_expression,
+                  dependencies: formula.dependencies,
+                }
+
+              return [column.id, cell]
             }),
           ),
         })),

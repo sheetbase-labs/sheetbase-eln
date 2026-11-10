@@ -6,7 +6,14 @@ import type { Scope } from '#/lib/api-credential-scopes'
 import { LAB_PARAM_NOTES, LAB_RPCS, LAB_TABLES } from '#/lib/lab-api-surface'
 import type { LabType } from '#/lib/lab-api-surface'
 
-type JsonSchema = Record<string, unknown>
+/** A value a JSON Schema document can carry. */
+type JsonSchemaValue =
+  string | number | boolean | null | JsonSchemaValue[] | JsonSchema
+
+/** One JSON Schema object: its keywords and their JSON values. */
+interface JsonSchema {
+  [keyword: string]: JsonSchemaValue
+}
 
 const SCALARS: Record<LabType, JsonSchema> = {
   uuid: { type: 'string', format: 'uuid' },
@@ -27,6 +34,11 @@ const SCALARS: Record<LabType, JsonSchema> = {
   'uuid[]': { type: 'array', items: { type: 'string', format: 'uuid' } },
 }
 
+/** True for the scalar column types `SCALARS` documents, and nothing else. */
+function isScalarType(value: string | undefined): value is LabType {
+  return value !== undefined && Object.hasOwn(SCALARS, value)
+}
+
 function schemaFor(type: LabType): JsonSchema {
   return type === 'json'
     ? {
@@ -36,9 +48,14 @@ function schemaFor(type: LabType): JsonSchema {
     : { ...SCALARS[type] }
 }
 
+/** Row schemas keyed by the lab table they document. */
+interface LabRowSchemas {
+  [table: string]: JsonSchema
+}
+
 /** Row schemas for the lab tables, keyed like TABLE_ROW_SCHEMAS. */
-export function labTableRowSchemas(): Record<string, JsonSchema> {
-  const out: Record<string, JsonSchema> = {}
+export function labTableRowSchemas(): LabRowSchemas {
+  const out: LabRowSchemas = {}
 
   for (const [table, def] of Object.entries(LAB_TABLES)) {
     const properties: Record<string, JsonSchema> = {}
@@ -124,8 +141,8 @@ function resultSchema(result: string, summary: string): JsonSchema {
     const properties: Record<string, JsonSchema> = {}
 
     for (const part of result.slice(5).split(',')) {
-      const [name, type] = part.split('=') as [string, LabType]
-      properties[name] = schemaFor(type)
+      const [name, type] = part.split('=')
+      properties[name] = isScalarType(type) ? schemaFor(type) : {}
     }
 
     return {
@@ -138,7 +155,7 @@ function resultSchema(result: string, summary: string): JsonSchema {
     }
   }
 
-  return schemaFor(result as LabType)
+  return isScalarType(result) ? schemaFor(result) : {}
 }
 
 function describeParam(name: string): string | undefined {
@@ -153,9 +170,14 @@ export interface LabRpcContract {
   result: JsonSchema
 }
 
+/** Request/result contracts keyed by the lab RPC they document. */
+interface LabRpcContractMap {
+  [rpc: string]: LabRpcContract
+}
+
 /** Request/result contracts for the lab RPCs, keyed like RPC_CONTRACTS. */
-export function labRpcContracts(): Record<string, LabRpcContract> {
-  const out: Record<string, LabRpcContract> = {}
+export function labRpcContracts(): LabRpcContractMap {
+  const out: LabRpcContractMap = {}
 
   for (const [name, def] of Object.entries(LAB_RPCS)) {
     const properties: Record<string, JsonSchema> = {}
@@ -163,10 +185,11 @@ export function labRpcContracts(): Record<string, LabRpcContract> {
 
     for (const [pname, type, req] of def.params) {
       const note = describeParam(pname)
-      properties[pname] = {
-        ...schemaFor(type),
-        ...(note ? { description: note } : {}),
-      }
+      const schema: JsonSchema = { ...schemaFor(type) }
+
+      if (note) schema.description = note
+
+      properties[pname] = schema
 
       if (req) required.push(pname)
     }

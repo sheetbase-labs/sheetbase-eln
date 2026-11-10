@@ -1,5 +1,6 @@
 import { Person } from '#/components/ui/person'
 import { Fragment, useState } from 'react'
+import { z } from 'zod'
 import { clockOption } from '#/lib/display-clock'
 import { useQuery } from '@tanstack/react-query'
 
@@ -45,9 +46,14 @@ function actor(event: AuditEventWire) {
   )
 }
 
+/** Payload values are captured evidence: only the string ones are stated. */
+const capturedText = z.string()
+
 function captured(event: AuditEventWire, key: string) {
-  return typeof event.payload[key] === 'string'
-    ? event.payload[key]
+  const value = capturedText.safeParse(event.payload[key])
+
+  return value.success
+    ? value.data
     : t('projects.experimentHistory.notCaptured')
 }
 
@@ -168,7 +174,10 @@ export function ExperimentHistoryView({
           label={t('projects.experimentHistory.category')}
           value={category}
           onValueChange={(next) => {
-            setCategory(next as (typeof auditHistoryCategories)[number])
+            const chosen = auditHistoryCategories.find((kind) => kind === next)
+
+            if (chosen) setCategory(chosen)
+
             setSelectedId(null)
           }}
           items={auditHistoryCategories.map((kind) => ({

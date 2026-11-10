@@ -23,11 +23,11 @@ export function withReopen(path: string, task: ReopenTask): string {
 }
 
 /** The task a page should reopen, from its raw search. */
-export function reopenTaskFromSearch(search: unknown): ReopenTask | undefined {
-  if (!search || typeof search !== 'object') return undefined
-  const value = (search as Record<string, unknown>).reopen
-
-  return TASKS.find((task) => task === value)
+export function reopenTaskFromSearch(
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- TanStack Router hands this the location's raw URL values, whose keys no route declares; only `reopen` is read, and a value naming no task simply reopens nothing.
+  search: Record<string, unknown> | undefined,
+): ReopenTask | undefined {
+  return TASKS.find((task) => task === search?.reopen)
 }
 
 /** The task a return path reopens, for naming the way back. */

@@ -1,59 +1,88 @@
+import { z } from 'zod'
+
+/** One value as a `jsonb` column holds it. */
+const jsonValue = z.json()
+
+type SheetEvidenceJson = z.output<typeof jsonValue>
+
+/** A stored JSON object: what a sheet's state, grid columns and bindings are. */
+const jsonObjectSchema = z.record(z.string(), jsonValue)
+
+type SheetEvidenceObject = z.output<typeof jsonObjectSchema>
+
 export type FrozenSheetEvidence = {
   blockId: string
   instanceId: string
   instanceRevision: number
   sourceDefinitionVersionId: string | null
-  instanceState: Record<string, unknown>
-  datasetBindings: Array<Record<string, unknown>>
+  instanceState: SheetEvidenceObject
+  datasetBindings: SheetEvidenceObject[]
   composedGrid?: {
-    columns?: Array<Record<string, unknown>>
-    rowKeys?: unknown
-    rows?: unknown
-    fields?: unknown
-    calculations?: unknown
+    columns?: SheetEvidenceObject[]
+    rowKeys?: SheetEvidenceJson
+    rows?: SheetEvidenceJson
+    fields?: SheetEvidenceJson
+    calculations?: SheetEvidenceJson
   } | null
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
+/**
+ * A frozen sheet's composed grid, decoded from stored JSON. A non-object is no
+ * grid at all; a column that is not an object is kept as an empty one, so the
+ * grid still lines up with its rows.
+ */
+const composedGridSchema = z
+  .object({
+    columns: z
+      .array(jsonValue)
+      .transform((columns) =>
+        columns.map((column) => jsonObjectSchema.catch({}).parse(column)),
+      )
+      .optional(),
+    rowKeys: jsonValue.optional(),
+    rows: jsonValue.optional(),
+    fields: jsonValue.optional(),
+    calculations: jsonValue.optional(),
+  })
+  .nullable()
+  .catch(null)
 
-function parseComposedGrid(
-  value: unknown,
-): FrozenSheetEvidence['composedGrid'] {
-  if (!isRecord(value)) return null
+/** The bindings a frozen sheet was computed from: its stored dataset versions. */
+const datasetBindingsSchema = z
+  .array(jsonValue)
+  .catch([])
+  .transform((bindings) =>
+    bindings.flatMap((binding) => {
+      const parsed = jsonObjectSchema.safeParse(binding)
 
-  return {
-    columns: Array.isArray(value.columns)
-      ? value.columns.map((column) => {
-          if (!isRecord(column)) return {}
+      return parsed.success ? [parsed.data] : []
+    }),
+  )
 
-          return column
-        })
-      : undefined,
-    rowKeys: value.rowKeys,
-    rows: value.rows,
-    fields: value.fields,
-    calculations: value.calculations,
-  }
-}
+/** One evidence item as the notebook envelope carries it, before decoding. */
+const envelopeItemSchema = z.object({
+  blockId: z.string(),
+  instanceId: z.string(),
+  instanceRevision: z.union([z.number(), z.string()]).optional(),
+  sourceDefinitionVersionId: z.string().nullable().optional(),
+  instanceState: z.unknown().optional(),
+  datasetBindings: z.unknown().optional(),
+  composedGrid: z.unknown().optional(),
+})
 
-function parseBindings(value: unknown): Array<Record<string, unknown>> {
-  if (!Array.isArray(value)) return []
-
-  return value.filter(isRecord)
+/** A stored evidence row, before decoding: the database returns these as JSON. */
+export interface RevisionSheetEvidenceRow {
+  block_id: string
+  instance_id: string
+  instance_revision: number | string
+  source_definition_version_id: string | null
+  instance_state: unknown
+  dataset_versions: unknown
+  composed_grid: unknown
 }
 
 export function sheetEvidenceFromRevisionRows(
-  rows: Array<{
-    block_id: string
-    instance_id: string
-    instance_revision: number | string
-    source_definition_version_id: string | null
-    instance_state: Record<string, unknown> | null
-    dataset_versions: unknown
-    composed_grid: unknown
-  }>,
+  rows: readonly RevisionSheetEvidenceRow[],
 ): Map<string, FrozenSheetEvidence> {
   const map = new Map<string, FrozenSheetEvidence>()
 
@@ -63,9 +92,9 @@ export function sheetEvidenceFromRevisionRows(
       instanceId: row.instance_id,
       instanceRevision: Number(row.instance_revision),
       sourceDefinitionVersionId: row.source_definition_version_id,
-      instanceState: row.instance_state ?? {},
-      datasetBindings: parseBindings(row.dataset_versions),
-      composedGrid: parseComposedGrid(row.composed_grid),
+      instanceState: jsonObjectSchema.catch({}).parse(row.instance_state),
+      datasetBindings: datasetBindingsSchema.parse(row.dataset_versions),
+      composedGrid: composedGridSchema.parse(row.composed_grid),
     })
   }
 
@@ -75,32 +104,22 @@ export function sheetEvidenceFromRevisionRows(
 export function sheetEvidenceFromEnvelope(
   envelope: { sheetEvidence?: unknown } | null | undefined,
 ): Map<string, FrozenSheetEvidence> {
-  const items = envelope?.sheetEvidence
   const map = new Map<string, FrozenSheetEvidence>()
-
-  if (!Array.isArray(items)) return map
+  const items = z.array(z.unknown()).catch([]).parse(envelope?.sheetEvidence)
 
   for (const item of items) {
-    if (!isRecord(item)) continue
+    const parsed = envelopeItemSchema.safeParse(item)
 
-    if (
-      typeof item.blockId !== 'string' ||
-      typeof item.instanceId !== 'string'
-    ) {
-      continue
-    }
-
-    map.set(item.blockId, {
-      blockId: item.blockId,
-      instanceId: item.instanceId,
-      instanceRevision: Number(item.instanceRevision ?? 0),
-      sourceDefinitionVersionId:
-        typeof item.sourceDefinitionVersionId === 'string'
-          ? item.sourceDefinitionVersionId
-          : null,
-      instanceState: isRecord(item.instanceState) ? item.instanceState : {},
-      datasetBindings: parseBindings(item.datasetBindings),
-      composedGrid: parseComposedGrid(item.composedGrid),
+    if (!parsed.success) continue
+    const found = parsed.data
+    map.set(found.blockId, {
+      blockId: found.blockId,
+      instanceId: found.instanceId,
+      instanceRevision: Number(found.instanceRevision ?? 0),
+      sourceDefinitionVersionId: found.sourceDefinitionVersionId ?? null,
+      instanceState: jsonObjectSchema.catch({}).parse(found.instanceState),
+      datasetBindings: datasetBindingsSchema.parse(found.datasetBindings),
+      composedGrid: composedGridSchema.parse(found.composedGrid),
     })
   }
 

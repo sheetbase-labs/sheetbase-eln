@@ -379,7 +379,7 @@ export const Steps: Story = {
           noAnswer: 'reask',
         },
       },
-    ] as PipelineStep[])
+    ])
 
     return (
       <StepsEditor

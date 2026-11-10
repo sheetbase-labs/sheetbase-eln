@@ -10,44 +10,72 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type * as router from '@tanstack/react-router'
 
+import type { SavedSearchFacets } from '#/lib/search'
+
 import { Route } from './saved-searches'
 
-const mocks = vi.hoisted(() => ({
-  rows: [] as Array<Record<string, unknown>>,
-  list: vi.fn(),
-  rpc: vi.fn(),
-  navigate: vi.fn(),
-  role: 'scientist',
-}))
+/** What the page's route hands createFileRoute: its component. */
+interface SavedSearchesRouteOptions {
+  component: () => React.JSX.Element
+}
 
+/** One `saved_searches` row as PostgREST returns it. */
+interface SavedSearchRow {
+  id: string
+  name: string
+  query: string
+  facets: SavedSearchFacets | null
+  created_at: string
+  visibility?: 'private' | 'workspace'
+  user_id?: string
+}
+
+const mocks = vi.hoisted(() => {
+  const rows: SavedSearchRow[] = []
+
+  return {
+    rows,
+    list: vi.fn(),
+    rpc: vi.fn(),
+    navigate: vi.fn(),
+    role: 'scientist',
+  }
+})
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the page builds its route with the router's createFileRoute at import time, so the route's context and navigation are the only seam a unit test has; every other router export stays real.
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
 
   return {
     ...actual,
-    createFileRoute: () => (options: unknown) => ({
-      options,
-      useRouteContext: () => ({
-        context: {
-          user: { id: 'u-me' },
-          workspace: { id: 'ws-1', role: mocks.role },
-        },
+    createFileRoute:
+      () =>
+      <Options extends SavedSearchesRouteOptions>(options: Options) => ({
+        options,
+        useRouteContext: () => ({
+          context: {
+            user: { id: 'u-me' },
+            workspace: { id: 'ws-1', role: mocks.role },
+          },
+        }),
       }),
-    }),
     useNavigate: () => mocks.navigate,
-    redirect: (options: unknown) => options,
+    redirect: <Options,>(options: Options) => options,
   }
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the page reads through the shared notebookDataClient module instance and takes no client parameter, so that client is the only seam; the test asserts the queries and RPCs the real hooks issue.
 vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: { list: mocks.list, rpc: mocks.rpc },
 }))
 
-const Page = (
-  Route as unknown as { options: { component: () => React.JSX.Element } }
-).options.component
+const PageOption = Route.options.component
 
-function row(over: Record<string, unknown>) {
+if (!PageOption) throw new Error('the route declares its component')
+
+const Page = PageOption
+
+function row(over: Partial<SavedSearchRow>): SavedSearchRow {
   return {
     id: 's-1',
     name: 'Buffers',

@@ -5,9 +5,20 @@
  * When the plugin is off or removed the block says so and keeps its data.
  */
 
+import { z } from 'zod'
+
 import { t } from '#/copy'
+import type { NotebookBlock } from '#/lib/notebook-data'
 import { PluginScreen } from './plugin-screen'
+import type { PluginScreenProps } from './plugin-screen'
 import { operationAccess, usePluginPoints } from './use-plugin-points'
+
+/** The stored payload of a plugin block: which plugin block, and its state. */
+const storedPayloadSchema = z.object({
+  plugin: z.string().optional().catch(undefined),
+  block: z.string().optional().catch(undefined),
+  state: z.json().optional().catch(undefined),
+})
 
 export function PluginBlockView({
   payload,
@@ -16,21 +27,17 @@ export function PluginBlockView({
   onState,
   insertBelow,
 }: {
-  payload: unknown
+  payload: NotebookBlock['payload']
   recordId?: string
   blockId?: string
   /** Given in the editor so the screen's state is kept with the block. */
-  onState?: (state: unknown) => void
+  onState?: PluginScreenProps['onState']
   /** Put a block below this one; given in the editor. */
-  insertBelow?: (type: string, payload: Record<string, unknown>) => void
+  insertBelow?: PluginScreenProps['insertBelow']
 }) {
   const points = usePluginPoints()
 
-  const body = (payload ?? {}) as {
-    plugin?: string
-    block?: string
-    state?: unknown
-  }
+  const body = storedPayloadSchema.parse(payload)
 
   const item = points.blocks.find(
     (b) => b.extensionKey === body.plugin && b.id === body.block,

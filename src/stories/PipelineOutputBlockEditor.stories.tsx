@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { PipelineOutputBlockEditor } from '#/components/notebook/pipeline-output-block-editor'
 import type { SaveResult } from '#/components/notebook/use-autosave'
+import type { NotebookBlock } from '#/lib/notebook-data'
 import { pipelineQueryKeys } from '#/lib/pipelines/data'
 import type {
   PipelineRunOutputWire,
@@ -66,7 +67,7 @@ function client() {
   return instance
 }
 
-async function save(): Promise<SaveResult<Record<string, unknown>>> {
+async function save(): Promise<SaveResult<NotebookBlock['payload']>> {
   return { ok: true }
 }
 

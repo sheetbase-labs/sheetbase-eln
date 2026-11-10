@@ -102,7 +102,7 @@ export function MakeSolutionDialog({
       onOpenChange(false)
       onMade?.(solution)
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       toast(
         error instanceof Error
           ? error.message

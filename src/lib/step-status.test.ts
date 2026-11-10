@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest'
 
 import { currentStep, instrumentNamedBy, stepProgress } from './step-status'
 
-const step = (id: string, payload: Record<string, unknown>) => ({
+/** The fields these tests put on a step block's payload. */
+interface StepPayload {
+  text?: string
+  completed?: boolean
+  completedAt?: string
+  note?: string
+}
+
+const step = (id: string, payload: StepPayload) => ({
   id,
   type: 'procedure_step',
   payload: { text: `Step ${id}`, ...payload },

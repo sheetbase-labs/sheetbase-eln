@@ -66,11 +66,11 @@ export function openBesideOnAlt(
 ) {
   if (!workspace || !event?.altKey || isBrowserClick(event)) return false
   event.preventDefault()
-  workspace.open(href, {
-    beside: true,
-    ...(event.shiftKey ? { below: true } : {}),
-    title,
-  })
+  const options: WorkspaceOpenOptions = { beside: true, title }
+
+  if (event.shiftKey) options.below = true
+
+  workspace.open(href, options)
 
   return true
 }
@@ -83,14 +83,17 @@ export function openBesideOnAlt(
  * (no event, so it navigates itself).
  */
 export function useOpenRow<T>(
-  navigate: (options: { href: string }) => unknown,
+  navigate: (options: { href: string }) => void,
   hrefFor: (row: T) => string | null,
   titleFor: (row: T) => string,
 ) {
   const workspace = useWorkspaceNavigation()
   // Callers pass inline arrows; the handler stays stable so column memos do too.
   const latest = useRef({ hrefFor, titleFor })
-  latest.current = { hrefFor, titleFor }
+
+  useEffect(() => {
+    latest.current = { hrefFor, titleFor }
+  }, [hrefFor, titleFor])
 
   return useCallback(
     (row: T, event?: ReactMouseEvent) => {
@@ -104,7 +107,7 @@ export function useOpenRow<T>(
       if (openBesideOnAlt(workspace, href, event, latest.current.titleFor(row)))
         return
 
-      if (!event) void navigate({ href })
+      if (!event) navigate({ href })
     },
     [workspace, navigate],
   )
@@ -199,6 +202,8 @@ export function registerOpenBeside(
   const listener = (event: Event) => {
     if (!(event instanceof CustomEvent)) return
 
+    // SAFETY: `openBesideInPane` above is the only dispatcher of
+    // `BESIDE_EVENT`, and its detail is exactly `{ href, title, below }`.
     const { href, title, below } = event.detail as {
       href: string
       title?: string

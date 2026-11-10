@@ -5,25 +5,66 @@
  * that still hold volume, and its count is the number of rows it shows. A
  * cancelled reservation holds no volume, so it must not appear in the list or
  * inflate the count.
+ *
+ * Only the `/api/db` boundary is answered here: the sample data layer, the
+ * route's params and the grid all run for real.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { SampleEventWire, SampleReservationWire } from '#/lib/samples'
 import { SampleActionsProvider } from '#/components/samples/quantity-actions-provider'
 import { Route } from './usage'
 
-const samples = vi.hoisted(() => ({
-  fetchSampleEvents: vi.fn(),
-  fetchSampleReservations: vi.fn(),
-  fetchSampleQuantityBalances: vi.fn(),
-  cancelSampleReservation: vi.fn(),
-  describeSampleError: vi.fn(() => 'Could not complete it.'),
-  sampleQueryKeys: {
-    balances: (recordId: string) => ['balances', recordId],
-    reservations: (recordId: string) => ['reservations', recordId],
-  },
-}))
+const api = vi.hoisted(() => {
+  const reservations: SampleReservationWire[] = []
+  const events: SampleEventWire[] = []
+
+  const state = {
+    reservations,
+    events,
+    balances: {
+      sampleRecordId: 's-1',
+      unit: 'mg',
+      current: 9.5,
+      used: 3,
+      reserved: 2,
+      free: 7.5,
+    },
+  }
+
+  vi.stubGlobal(
+    'fetch',
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input instanceof Request ? input.url : String(input)
+      const request = new Request(new URL(url, 'http://localhost'), init)
+      const { pathname } = new URL(request.url)
+
+      if (pathname === '/api/db/rpc/sample_quantity_balances') {
+        return Response.json(state.balances)
+      }
+
+      if (pathname === '/api/db/sample_reservations') {
+        return Response.json(state.reservations)
+      }
+
+      if (pathname === '/api/db/sample_events')
+        return Response.json(state.events)
+
+      return Response.json([])
+    },
+  )
+
+  return state
+})
 
 // jsdom reports no layout, so the grid's virtualiser would render no rows: give
 // every element the viewport a browser would report for the list area.
@@ -34,109 +75,110 @@ for (const prop of ['offsetHeight', 'clientHeight'] as const) {
   })
 }
 
-vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useParams: () => ({ sampleId: 's-1' }),
-    options: config,
-  }),
-  Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
-}))
+const SampleUsageOption = Route.options.component
 
-// The tab only borrows the frame's event query key; mocking it keeps the
-// sample frame (and its dialogs) out of this harness.
-vi.mock('../$sampleId', () => ({
-  sampleEventsQueryKey: (recordId: string) => ['sample-events', recordId],
-}))
+if (!SampleUsageOption) throw new Error('the route declares its component')
 
-vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
+const SampleUsage = SampleUsageOption
 
-vi.mock('#/lib/samples', () => samples)
-
-vi.mock('#/lib/user-names', () => ({
-  useUserNames: () => ({ names: {}, userLabel: (id: string) => id }),
-}))
-
-vi.mock('#/components/ui/sonner', () => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
-}))
-
-const SampleUsage = Route.options.component as React.ComponentType
-
-function reservation(overrides: Record<string, unknown> = {}) {
+function reservation(
+  overrides: Partial<SampleReservationWire> = {},
+): SampleReservationWire {
   return {
     id: 'r-1',
-    sampleRecordId: 's-1',
-    experimentRecordId: 'exp-1',
-    quantity: 2,
+    workspace_id: 'w-1',
+    sample_record_id: 's-1',
+    experiment_record_id: 'exp-1',
+    quantity: '2',
     unit: 'mg',
     planned: true,
     state: 'active',
     notes: null,
-    createdByUserId: 'u-1',
-    cancelledByUserId: null,
-    cancelledAt: null,
-    createdAt: '2026-09-16T00:00:00.000Z',
-    updatedAt: '2026-09-16T00:00:00.000Z',
+    created_by_user_id: 'u-1',
+    cancelled_by_user_id: null,
+    cancelled_at: null,
+    created_at: '2026-09-16T00:00:00.000Z',
+    updated_at: '2026-09-16T00:00:00.000Z',
     ...overrides,
   }
 }
 
-function consumeEvent() {
+function consumeEvent(): SampleEventWire {
   return {
     id: 'e-1',
-    recordId: 's-1',
+    workspace_id: 'w-1',
+    record_id: 's-1',
     operation: 'consume',
-    quantityDelta: -3,
-    quantityBefore: 12.5,
-    quantityAfter: 9.5,
-    quantityUnit: 'mg',
-    fromLocation: null,
-    toLocation: null,
-    actorUserId: 'u-1',
-    purposeRecordId: null,
+    quantity_delta: '-3',
+    quantity_before: '12.5',
+    quantity_after: '9.5',
+    quantity_unit: 'mg',
+    from_location: null,
+    to_location: null,
+    actor_user_id: 'u-1',
+    purpose_record_id: null,
     notes: null,
-    createdAt: '2026-09-11T10:40:00.000Z',
+    created_at: '2026-09-11T10:40:00.000Z',
   }
 }
 
 beforeEach(() => {
-  samples.fetchSampleQuantityBalances.mockResolvedValue({
+  api.balances = {
     sampleRecordId: 's-1',
     unit: 'mg',
     current: 9.5,
     used: 3,
     reserved: 2,
     free: 7.5,
-  })
-  samples.fetchSampleEvents.mockResolvedValue([consumeEvent()])
+  }
+  api.events = [consumeEvent()]
 })
 
 afterEach(() => {
   cleanup()
-  vi.clearAllMocks()
+  api.reservations = []
+  api.events = []
 })
+
+/** The tab inside the router it reads its sample id from. */
+function renderUsage(children: React.ReactNode = <SampleUsage />) {
+  const root = createRootRoute()
+
+  const route = createRoute({
+    getParentRoute: () => root,
+    path: '/samples/$sampleId/usage',
+    component: () => <>{children}</>,
+  })
+
+  const router = createRouter({
+    routeTree: root.addChildren([route]),
+    history: createMemoryHistory({ initialEntries: ['/samples/s-1/usage'] }),
+  })
+
+  return render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
+}
 
 describe('QA-121 — the Usage list counts live usage', () => {
   it('leaves a cancelled reservation out of the list and its count', async () => {
-    samples.fetchSampleReservations.mockResolvedValue([
-      reservation({ id: 'r-live', experimentRecordId: 'exp-live' }),
+    api.reservations = [
+      reservation({ id: 'r-live', experiment_record_id: 'exp-live' }),
       reservation({
         id: 'r-cancelled',
-        experimentRecordId: 'exp-cancelled',
+        experiment_record_id: 'exp-cancelled',
         state: 'cancelled',
-        cancelledAt: '2026-09-16T09:00:00.000Z',
-        cancelledByUserId: 'u-1',
+        cancelled_at: '2026-09-16T09:00:00.000Z',
+        cancelled_by_user_id: 'u-1',
       }),
-    ])
-    render(
-      <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
-        <SampleUsage />
-      </QueryClientProvider>,
-    )
+    ]
+    renderUsage()
 
     // One withdrawal plus one live reservation: the header count and the rows
     // it counts agree, and nothing cancelled is listed.
@@ -150,27 +192,21 @@ describe('QA-121 — the Usage list counts live usage', () => {
 
 describe('QA3 — the Usage tab offers only the actions the sample state allows', () => {
   function renderWithActions(canWithdraw: boolean) {
-    render(
-      <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
+    renderUsage(
+      <SampleActionsProvider
+        actions={{
+          openWithdraw: vi.fn(),
+          openReserve: vi.fn(),
+          canWithdraw,
+        }}
       >
-        <SampleActionsProvider
-          actions={{
-            openWithdraw: vi.fn(),
-            openReserve: vi.fn(),
-            canWithdraw,
-          }}
-        >
-          <SampleUsage />
-        </SampleActionsProvider>
-      </QueryClientProvider>,
+        <SampleUsage />
+      </SampleActionsProvider>,
     )
   }
 
   it('withholds Withdraw when the sample cannot be withdrawn', async () => {
-    samples.fetchSampleReservations.mockResolvedValue([])
+    api.reservations = []
     renderWithActions(false)
 
     expect(
@@ -182,7 +218,7 @@ describe('QA3 — the Usage tab offers only the actions the sample state allows'
   })
 
   it('offers Withdraw when the sample can be withdrawn', async () => {
-    samples.fetchSampleReservations.mockResolvedValue([])
+    api.reservations = []
     renderWithActions(true)
 
     expect(

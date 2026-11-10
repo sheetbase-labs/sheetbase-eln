@@ -11,12 +11,16 @@ import {
   groupRowsByFields,
   pairComparativeSources,
   promoteToChartSpec,
-  shapeComparativeView,
   summarizeValues,
   toComparableNumber,
   validateComparativeViewConfig,
 } from './comparative-view'
+import * as comparativeView from './comparative-view'
 import type { ComparativeViewConfig } from './comparative-view'
+import type { ChartRow } from './chart-spec'
+
+/** The engine call this suite names for its own domain role. */
+const buildComparativeGroups = comparativeView.shapeComparativeView
 
 const DATASET_ID = '11111111-1111-1111-8111-111111111111'
 const TIME = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01'
@@ -110,13 +114,13 @@ describe('groupRowsByFields', () => {
   })
 })
 
-describe('shapeComparativeView', () => {
-  it('shapes groups with statistics and honest null counts', () => {
-    const shaped = shapeComparativeView(rows(), timeSeriesConfig())
-    expect(shaped.totalRows).toBe(5)
-    expect(shaped.droppedNullValues).toBe(2)
-    const a = shaped.groups.find((g) => g.label === 'A')
-    const b = shaped.groups.find((g) => g.label === 'B')
+describe('comparative view groups', () => {
+  it('builds groups with statistics and honest null counts', () => {
+    const view = buildComparativeGroups(rows(), timeSeriesConfig())
+    expect(view.totalRows).toBe(5)
+    expect(view.droppedNullValues).toBe(2)
+    const a = view.groups.find((g) => g.label === 'A')
+    const b = view.groups.find((g) => g.label === 'B')
     expect(a?.stats).toMatchObject({ n: 2, min: 7.0, max: 7.2 })
     expect(a?.stats?.mean).toBeCloseTo(7.1)
     expect(a?.nullCount).toBe(0)
@@ -125,7 +129,7 @@ describe('shapeComparativeView', () => {
     expect(b?.nullCount).toBe(1)
     expect(b?.stats).toMatchObject({ n: 1, min: 6.8, max: 6.8 })
     // Non-numeric pH lands in the missing group as a null, not a zero.
-    const missing = shaped.groups.find((g) => g.label === '(missing)')
+    const missing = view.groups.find((g) => g.label === '(missing)')
     expect(missing?.count).toBe(1)
     expect(missing?.nullCount).toBe(1)
     expect(missing?.stats).toBeNull()
@@ -133,12 +137,12 @@ describe('shapeComparativeView', () => {
   })
 
   it('emits expected-but-absent groups as empty instead of dropping them', () => {
-    const shaped = shapeComparativeView(rows(), timeSeriesConfig(), {
+    const view = buildComparativeGroups(rows(), timeSeriesConfig(), {
       expectedKeys: [{ key: JSON.stringify(['C']), label: 'C' }],
     })
 
-    expect(shaped.emptyGroupKeys).toEqual([JSON.stringify(['C'])])
-    const empty = shaped.groups.find((g) => g.label === 'C')
+    expect(view.emptyGroupKeys).toEqual([JSON.stringify(['C'])])
+    const empty = view.groups.find((g) => g.label === 'C')
     expect(empty).toMatchObject({ count: 0, nullCount: 0, stats: null })
   })
 
@@ -148,17 +152,17 @@ describe('shapeComparativeView', () => {
       [BATCH]: i < 2 ? 'batch-1' : 'batch-2',
     }))
 
-    const shaped = shapeComparativeView(
+    const view = buildComparativeGroups(
       withBatch,
       timeSeriesConfig({ facetBy: BATCH }),
     )
 
-    const a = shaped.groups.find((g) => g.label === 'A')
+    const a = view.groups.find((g) => g.label === 'A')
     expect(a?.facet).toBe('batch-1')
 
     // Group B spans both batches after row 4 joins it... rows 2,3 are
     // batch-2, so B is uniform batch-2 here; mix facet across one group:
-    const mixed = shapeComparativeView(
+    const mixed = buildComparativeGroups(
       withBatch,
       timeSeriesConfig({ facetBy: TIME }),
     )
@@ -187,9 +191,10 @@ describe('validateComparativeViewConfig', () => {
 
   it('rejects unknown view types and facet/groupBy duplication', () => {
     expect(
-      validateComparativeViewConfig(
-        timeSeriesConfig({ viewType: 'heatmap' as never }),
-      ),
+      validateComparativeViewConfig({
+        ...timeSeriesConfig(),
+        viewType: 'heatmap',
+      }),
     ).toContain('config.viewType must be one of time_series, distribution')
     expect(
       validateComparativeViewConfig(timeSeriesConfig({ facetBy: BUFFER })),
@@ -286,7 +291,10 @@ describe('buildDefaultComparativeViewConfig', () => {
 })
 
 describe('pairComparativeSources', () => {
-  const row = (id: string, values: Record<string, unknown>) => ({
+  const row = (
+    id: string,
+    values: Omit<ChartRow, typeof CHART_ROW_ID_KEY>,
+  ) => ({
     [CHART_ROW_ID_KEY]: id,
     ...values,
   })

@@ -8,14 +8,32 @@ import {
   peopleProposalDefs,
 } from './assistant-people.server'
 import type { LabToolContext } from './assistant-lab-tools.server'
+import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 
 const WS = '33333333-3333-4333-8333-333333333333'
 const base = { title: 'T', summary: 'S' }
 
+/** One fixture row: the JSON a workspace read returns. */
+type FixtureValue =
+  | string
+  | number
+  | boolean
+  | null
+  | FixtureValue[]
+  | { [key: string]: FixtureValue }
+
+type FixtureRow = Record<string, FixtureValue>
+
 type Rows = Partial<
-  Record<string, Array<Record<string, unknown>> | ((q: string) => unknown[])>
+  Record<string, FixtureRow[] | ((query: string) => FixtureRow[])>
 >
+
+/** What `context` hands a proposal builder, plus the reads it made. */
+interface FixtureContext {
+  ctx: LabToolContext
+  calls: string[]
+}
 
 const members = [
   { user_id: 'me', name: 'Gareth Price', role: 'owner' },
@@ -23,21 +41,21 @@ const members = [
   { user_id: 'u3', name: 'Ada Yonath', role: 'viewer' },
 ]
 
-function context(rows: Rows): { ctx: LabToolContext; calls: string[] } {
+function context(rows: Rows): FixtureContext {
   const calls: string[] = []
 
-  const client = {
+  const client: DataClient = Object.assign(createDataClient(), {
     list: (resource: string, query = '') => {
       calls.push(`${resource}${query}`)
       const source = rows[resource]
 
       return Promise.resolve(
-        typeof source === 'function' ? source(query) : (source ?? []),
+        Array.isArray(source) ? source : (source?.(query) ?? []),
       )
     },
     rpc: (name: string) =>
       Promise.resolve(name === 'workspace_members_list' ? members : []),
-  } as unknown as DataClient
+  })
 
   return {
     ctx: { client, workspaceId: WS, userId: 'me', timeZone: 'Europe/London' },
@@ -272,10 +290,10 @@ describe('people cards', () => {
   })
 
   it('shares and unshares a record with a client', async () => {
-    const rows: Rows = {
+    const rows = {
       clients: [{ id: 'c1', code: 'CL-001', name: 'Acme Bio' }],
       records: [{ id: 'r1', identifier: 'EXP-12', title: 'ELISA' }],
-    }
+    } satisfies Rows
 
     const { ctx } = context(rows)
     expect(
@@ -336,7 +354,7 @@ describe('running a people card', () => {
       ),
     )
 
-    const client = { rpc } as unknown as DataClient
+    const client: DataClient = Object.assign(createDataClient(), { rpc })
     vi.stubGlobal('window', { location: { origin: 'https://lab.example' } })
 
     const invited = await runPeopleAction(client, {

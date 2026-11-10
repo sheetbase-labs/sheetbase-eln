@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import { itemLink, runLink, Route, rowKey } from './inbox'
 import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
@@ -13,12 +14,33 @@ import type * as workItems from '#/lib/work-items/data'
 import type { WorkItem } from '#/lib/work-items/data'
 import { itemKey, itemTab, workItemType } from '#/lib/work-items/predicate'
 
+/** The search the inbox page writes into its own address. */
+interface InboxSearch {
+  item?: string
+  tab?: string
+  type?: string
+}
+
+/** A navigate call that sets the tab, the type chip or the open row. */
+interface SearchUpdaterCall {
+  to?: string
+  replace?: boolean
+  search: (previous: InboxSearch) => InboxSearch
+}
+
+/** The inbox's page state, held between renders. */
+interface InboxState {
+  error: Error | null
+  loading: boolean
+  search: InboxSearch
+}
+
 const { navigate, items, state, invalidate, seen, listeners } = vi.hoisted(
   () => {
     const navigateMock = vi.fn()
     const invalidateMock = vi.fn()
     const seenKeys: string[] = []
-    const seenSearch: { item?: string; tab?: string; type?: string } = {}
+    const seenSearch: InboxSearch = {}
 
     const workItems: WorkItem[] = [
       {
@@ -45,21 +67,24 @@ const { navigate, items, state, invalidate, seen, listeners } = vi.hoisted(
       },
     ]
 
+    const inboxState: InboxState = {
+      error: null,
+      loading: false,
+      search: seenSearch,
+    }
+
     return {
       navigate: navigateMock,
       invalidate: invalidateMock,
       items: workItems,
       seen: seenKeys,
       listeners: new Set<() => void>(),
-      state: {
-        error: null as Error | null,
-        loading: false,
-        search: seenSearch,
-      },
+      state: inboxState,
     }
   },
 )
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The inbox takes its navigate, router and search from the router at render time; this double keeps the real router's location building and drives the recorded store.
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
   const { useSyncExternalStore } = await import('react')
@@ -76,9 +101,11 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
 
   return {
     ...actual,
-    Link: ({ to, children }: { to?: unknown; children?: React.ReactNode }) => (
-      <a href={typeof to === 'string' ? to : '#'}>{children}</a>
-    ),
+    Link: ({ to, children }: { to?: unknown; children?: React.ReactNode }) => {
+      const target = z.string().safeParse(to)
+
+      return <a href={target.success ? target.data : '#'}>{children}</a>
+    },
     useNavigate: () => navigate,
     useRouter: () => inboxRouter,
     useSearch: () =>
@@ -93,10 +120,12 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   }
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Sonner mounts its own portal and store; the assertions read the mutation calls, not the toast markup.
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- notebook-data opens its client at module scope; the recorded client below is what the assertions read.
 vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: {
     list: vi.fn(async () => seen.map((item_key) => ({ item_key }))),
@@ -104,6 +133,7 @@ vi.mock('#/lib/notebook-data', () => ({
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The work-item reads are the data under test; the page's own list, grouping and actions are what these tests exercise.
 vi.mock('#/lib/work-items/data', async (importOriginal) => {
   const actual = await importOriginal<typeof workItems>()
 
@@ -162,9 +192,8 @@ vi.mock('#/lib/work-items/data', async (importOriginal) => {
 
 beforeEach(() => {
   navigate.mockImplementation(
-    (arg: {
-      search?: (previous: typeof state.search) => typeof state.search
-    }) => {
+    (arg: { search?: (previous: InboxSearch) => InboxSearch }) => {
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- navigate is also called with a plain search object; only the functional updater form re-renders the recorded store.
       if (typeof arg.search === 'function') {
         state.search = arg.search(state.search)
         listeners.forEach((listener) => listener())
@@ -712,10 +741,7 @@ describe('Inbox URL and tab keyboard (QA3-inbox-3, QA3-inbox-4)', () => {
     const { getByRole } = renderInbox()
     fireEvent.click(getByRole('tab', { name: /^Following/ }))
 
-    const tabCall = navigate.mock.calls[0][0] as {
-      to: string
-      search: (previous: Record<string, unknown>) => Record<string, unknown>
-    }
+    const tabCall: SearchUpdaterCall = navigate.mock.calls[0][0]
 
     expect(tabCall.to).toBe('/inbox')
     expect(tabCall.search({ type: 'reviews' })).toEqual({
@@ -728,9 +754,7 @@ describe('Inbox URL and tab keyboard (QA3-inbox-3, QA3-inbox-4)', () => {
     const { getByRole } = renderInbox()
     fireEvent.click(getByRole('button', { name: /^Reviews 1$/ }))
 
-    const typeCall = navigate.mock.calls[0][0] as {
-      search: (previous: Record<string, unknown>) => Record<string, unknown>
-    }
+    const typeCall: SearchUpdaterCall = navigate.mock.calls[0][0]
 
     expect(typeCall.search({ type: undefined })).toEqual({ type: 'reviews' })
   })
@@ -799,16 +823,11 @@ describe('Inbox selection lives in the URL', () => {
     const { getByRole } = renderInbox()
     fireEvent.click(getByRole('button', { name: /Second review/ }))
 
-    const call = navigate.mock.calls.find(
-      ([arg]) => arg && typeof arg === 'object' && 'replace' in arg,
-    )
+    const call = navigate.mock.calls.find(([arg]) => arg?.replace !== undefined)
 
     expect(call).toBeTruthy()
 
-    const arg = call![0] as {
-      replace: boolean
-      search: (previous: object) => object
-    }
+    const arg: SearchUpdaterCall = call![0]
 
     expect(arg.replace).toBe(true)
     expect(arg.search({ tab: 'following' })).toEqual({

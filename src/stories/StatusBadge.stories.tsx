@@ -4,6 +4,12 @@ import {
   StatusBadge,
   statusVocabularies,
 } from '#/components/scientific/status-badge'
+import type { StatusDomain } from '#/components/scientific/status-badge'
+
+/** True for the badge domains the shared vocabulary defines. */
+function isStatusDomain(value: string): value is StatusDomain {
+  return Object.hasOwn(statusVocabularies, value)
+}
 
 const meta = {
   title: 'Scientific/Status badge',
@@ -24,20 +30,21 @@ export const Failed: Story = { args: { status: 'failed' } }
 export const EveryVocabulary: Story = {
   render: () => (
     <div className="space-y-5">
-      {Object.entries(statusVocabularies).map(([domain, vocabulary]) => (
-        <section key={domain}>
-          <h3 className="mb-2 font-semibold">{domain.replace('_', ' ')}</h3>
-          <div className="flex flex-wrap gap-2">
-            {Object.keys(vocabulary).map((status) => (
-              <StatusBadge
-                key={status}
-                domain={domain as keyof typeof statusVocabularies}
-                status={status}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+      {Object.keys(statusVocabularies).map((domain) => {
+        if (!isStatusDomain(domain)) return null
+        const vocabulary = statusVocabularies[domain]
+
+        return (
+          <section key={domain}>
+            <h3 className="mb-2 font-semibold">{domain.replace('_', ' ')}</h3>
+            <div className="flex flex-wrap gap-2">
+              {Object.keys(vocabulary).map((status) => (
+                <StatusBadge key={status} domain={domain} status={status} />
+              ))}
+            </div>
+          </section>
+        )
+      })}
     </div>
   ),
 }

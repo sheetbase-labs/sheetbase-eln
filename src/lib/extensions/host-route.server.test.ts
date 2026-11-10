@@ -1,29 +1,27 @@
+// @vitest-environment node
 /**
  * What a plugin screen may do in the app: the plugin's own scopes, a person's
  * yes for a change, and the answer coming back.
  */
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
+import { createDataClient } from '../data-client'
 import type { DataClient } from '../data-client'
-
+import type { SessionAuthDeps } from '../request-auth'
 import { checkAppAction } from './app-actions'
+import type { ExtensionWire } from './client'
 import { handlePluginHost, performHostCall } from './host-route.server'
 import type { PluginHostRouteDeps } from './host-route.server'
 import { parseExtensionManifest } from './manifest'
 
-vi.mock('../request-auth', () => ({
-  realSessionAuthDeps: {},
-  requestErrorResponse: (status: number, code: string, message: string) =>
-    Response.json({ error: { code, message } }, { status }),
-  resolveSessionAuth: async () => ({
-    ok: true,
-    context: { token: 't', workspaceId: 'w', userId: 'u' },
-  }),
-}))
-
-vi.mock('../connectors/enterprise/execution.server', () => ({
-  createServerDataClient: () => ({}),
-}))
+vi.hoisted(() => {
+  process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test'
+  process.env.FORMULA_DATABASE_URL =
+    'postgresql://test:test@localhost:5432/test'
+  process.env.BETTER_AUTH_SECRET = 'test-secret-at-least-thirty-two-characters'
+  process.env.PGRST_JWT_SECRET = 'test-jwt-secret-at-least-thirty-two-chars'
+})
 
 const manifest = (scopes: string[]) => ({
   id: 'sheetbase.chemistry',
@@ -35,33 +33,83 @@ const manifest = (scopes: string[]) => ({
   contributions: {},
 })
 
-let installed: Record<string, unknown> | null = null
-
-vi.mock('./client', () => ({
-  listExtensions: async () => (installed ? [installed] : []),
-}))
-
-function setup(scopes: string[], status = 'enabled') {
-  installed = {
+/** One row of `api.extensions`, as the plugin host reads it. */
+function installRow(
+  scopes: string[],
+  status: ExtensionWire['status'] = 'enabled',
+): ExtensionWire {
+  return {
     id: '11111111-1111-4111-8111-111111111111',
+    workspace_id: 'w',
     key: 'chemistry',
+    name: 'Chemistry',
+    version: '1.0.0',
+    source: 'package:sheetbase.chemistry',
+    manifest: parseExtensionManifest(manifest(scopes)),
     status,
     disabled_points: [],
-    manifest: manifest(scopes),
+    credential_id: null,
+    created_at: '',
+    updated_at: '',
   }
-  const rpc = vi.fn(async () => [{ id: 'lot-1' }])
-  const audit = vi.fn(async () => undefined)
-
-  const deps = {
-    auth: {},
-    makeClient: () => ({ rpc }) as unknown as DataClient,
-    runtime: { audit },
-  } as unknown as PluginHostRouteDeps
-
-  return { deps, rpc, audit }
 }
 
-const post = (body: Record<string, unknown>) =>
+interface Fixture {
+  installed: ExtensionWire | null
+  calls: { name: string; args: z.infer<ReturnType<typeof z.json>> }[]
+}
+
+const fixtures: Fixture = { installed: null, calls: [] }
+
+const rpcBody = z.record(z.string(), z.json())
+
+/** The compiled transport a server-side plugin tool runs against. */
+function fixtureClient(): DataClient {
+  return createDataClient(async (input, init) => {
+    const request = new Request(
+      new URL(input instanceof Request ? input.url : input, 'http://localhost'),
+      init,
+    )
+
+    const { pathname } = new URL(request.url)
+
+    if (request.method === 'GET' && pathname === '/api/db/extensions') {
+      return Response.json(fixtures.installed ? [fixtures.installed] : [])
+    }
+
+    if (request.method === 'POST' && pathname.startsWith('/api/db/rpc/')) {
+      fixtures.calls.push({
+        name: pathname.slice('/api/db/rpc/'.length),
+        args: rpcBody.parse(await request.json()),
+      })
+
+      return Response.json([{ id: 'lot-1' }])
+    }
+
+    throw new Error(`Unexpected request: ${request.method} ${pathname}`)
+  })
+}
+
+const auth: SessionAuthDeps = {
+  getSession: async () => ({ user: { id: 'u' }, session: { id: 's' } }),
+  getWorkspaceForUser: async () => ({ id: 'w' }),
+  mintToken: async () => 't',
+}
+
+function setup(scopes: string[], status: ExtensionWire['status'] = 'enabled') {
+  fixtures.installed = installRow(scopes, status)
+  const audit = vi.fn(async () => undefined)
+
+  const deps: PluginHostRouteDeps = {
+    auth,
+    makeClient: () => fixtureClient(),
+    runtime: { audit },
+  }
+
+  return { deps, audit }
+}
+
+const post = (body: NodeJS.Dict<unknown>) =>
   new Request('http://app/api/plugins/host', {
     method: 'POST',
     body: JSON.stringify({
@@ -148,31 +196,23 @@ describe('POST /api/plugins/host', () => {
   ])(
     'rejects non-JSON host-call arguments before calling tools: %s',
     async (value) => {
-      const { deps, rpc, audit } = setup(['lab:read'])
+      fixtures.calls = []
+      fixtures.installed = installRow(['lab:read'])
+      const audit = vi.fn(async () => undefined)
 
-      const outcome = await performHostCall(deps, {
-        workspaceId: 'w',
-        userId: 'u',
-        client: deps.makeClient('t'),
-        install: {
-          id: 'e',
-          workspace_id: 'w',
-          key: 'chemistry',
-          name: 'Chemistry',
-          version: '1.0.0',
-          source: 'package:sheetbase.chemistry',
-          manifest: parseExtensionManifest(manifest(['lab:read'])),
-          status: 'enabled',
-          disabled_points: [],
-          credential_id: null,
-          created_at: '',
-          updated_at: '',
+      const outcome = await performHostCall(
+        { runtime: { audit } },
+        {
+          workspaceId: 'w',
+          userId: 'u',
+          client: fixtureClient(),
+          install: installRow(['lab:read']),
+          point: 'panels',
+          name: listLots.name,
+          arguments: { ...listLots.arguments, nested: { value } },
+          confirmed: false,
         },
-        point: 'panels',
-        name: listLots.name,
-        arguments: { ...listLots.arguments, nested: { value } },
-        confirmed: false,
-      })
+      )
 
       expect(outcome).toEqual({
         ok: false,
@@ -180,13 +220,14 @@ describe('POST /api/plugins/host', () => {
         code: 'invalid_arguments',
         message: 'The tool arguments must be a JSON object.',
       })
-      expect(rpc).not.toHaveBeenCalled()
+      expect(fixtures.calls).toHaveLength(0)
       expect(audit).not.toHaveBeenCalled()
     },
   )
 
   it('does not strip unknown JSON keys before strict action validation', async () => {
-    const { deps, rpc } = setup(['lab:read'])
+    fixtures.calls = []
+    const { deps } = setup(['lab:read'])
 
     const response = await handlePluginHost(
       post({
@@ -206,31 +247,36 @@ describe('POST /api/plugins/host', () => {
     expect(await response.json()).toMatchObject({
       error: { code: 'invalid_arguments' },
     })
-    expect(rpc).not.toHaveBeenCalled()
+    expect(fixtures.calls).toHaveLength(0)
   })
 
   it('runs a read as the person and records it', async () => {
-    const { deps, rpc, audit } = setup(['lab:read', 'lab:write'])
+    fixtures.calls = []
+    const { deps, audit } = setup(['lab:read', 'lab:write'])
     const response = await handlePluginHost(post(listLots), deps)
+
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({
       result: [{ id: 'lot-1' }],
     })
-    expect(rpc).toHaveBeenCalledWith('list_compound_lots', {
-      p_compound_id: COMPOUND,
-    })
+    expect(fixtures.calls).toEqual([
+      { name: 'list_compound_lots', args: { p_compound_id: COMPOUND } },
+    ])
     expect(audit).toHaveBeenCalledOnce()
   })
 
   it('refuses a change the person was not asked about', async () => {
-    const { deps, rpc } = setup(['lab:read', 'lab:write'])
+    fixtures.calls = []
+    const { deps } = setup(['lab:read', 'lab:write'])
     const response = await handlePluginHost(post(addLot), deps)
+
     expect(response.status).toBe(409)
-    expect(rpc).not.toHaveBeenCalled()
+    expect(fixtures.calls).toHaveLength(0)
   })
 
   it('runs a confirmed change', async () => {
-    const { deps, rpc } = setup(['lab:read', 'lab:write'])
+    fixtures.calls = []
+    const { deps } = setup(['lab:read', 'lab:write'])
 
     const response = await handlePluginHost(
       post({ ...addLot, confirmed: true }),
@@ -238,13 +284,14 @@ describe('POST /api/plugins/host', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(rpc).toHaveBeenCalledWith('add_compound_lot', {
-      p_compound_id: COMPOUND,
-    })
+    expect(fixtures.calls).toEqual([
+      { name: 'add_compound_lot', args: { p_compound_id: COMPOUND } },
+    ])
   })
 
   it('refuses what the plugin never asked for', async () => {
-    const { deps, rpc } = setup(['lab:read'])
+    fixtures.calls = []
+    const { deps } = setup(['lab:read'])
 
     const response = await handlePluginHost(
       post({ ...addLot, confirmed: true }),
@@ -252,13 +299,15 @@ describe('POST /api/plugins/host', () => {
     )
 
     expect(response.status).toBe(403)
-    expect(rpc).not.toHaveBeenCalled()
+    expect(fixtures.calls).toHaveLength(0)
   })
 
   it('does nothing while the plugin is off', async () => {
-    const { deps, rpc } = setup(['lab:read'], 'disabled')
+    fixtures.calls = []
+    const { deps } = setup(['lab:read'], 'disabled')
     const response = await handlePluginHost(post(listLots), deps)
+
     expect(response.status).toBe(409)
-    expect(rpc).not.toHaveBeenCalled()
+    expect(fixtures.calls).toHaveLength(0)
   })
 })

@@ -1,28 +1,48 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { QueryResultRow } from 'pg'
+import { z } from 'zod'
 
 import { sweepRecurringWork } from './recurring-work.server'
 import type { RecurringConnection } from './recurring-work.server'
 
+/** What `api.materialise_recurring_schedule` answers for one schedule. */
+interface MaterialisedCounts {
+  created: number
+  skipped: number
+  failed: number
+}
+
 function connection(
-  schedules: { id: string; workspace_id: string; created_by_user_id: string }[],
-  materialise: (id: string) => unknown,
+  schedules: QueryResultRow[],
+  materialise: (id: string) => MaterialisedCounts,
 ) {
   const calls: { text: string; values?: unknown[] }[] = []
 
   const conn: RecurringConnection = {
-    query: ((text: string, values?: unknown[]) => {
+    query: async <Row extends QueryResultRow = QueryResultRow>(
+      text: string,
+      values?: unknown[],
+    ) => {
       calls.push({ text, values })
 
-      if (text.includes('FROM api.recurring_schedules'))
-        return Promise.resolve({ rows: schedules })
+      if (text.includes('FROM api.recurring_schedules')) {
+        // SAFETY: the sweep asks for DueSchedule rows on this read, and the
+        // fixture schedules carry exactly those three fields.
+        return { rows: schedules as Row[] }
+      }
 
-      if (text.includes('materialise_recurring_schedule'))
-        return Promise.resolve({
-          rows: [{ r: materialise(values?.[0] as string) }],
-        })
+      if (text.includes('materialise_recurring_schedule')) {
+        // SAFETY: the sweep asks for the materialise answer, which is the
+        // counts object this fixture returns for the schedule id it is given.
+        const counts: QueryResultRow = {
+          r: materialise(z.string().parse(values?.[0])),
+        }
 
-      return Promise.resolve({ rows: [] })
-    }) as RecurringConnection['query'],
+        return { rows: [counts] as Row[] }
+      }
+
+      return { rows: [] }
+    },
     end: vi.fn().mockResolvedValue(undefined),
   }
 
@@ -53,7 +73,7 @@ describe('sweepRecurringWork', () => {
 
     const claims = calls
       .filter((c) => c.text.includes('set_config'))
-      .map((c) => JSON.parse(c.values![0] as string))
+      .map((c) => JSON.parse(z.string().parse(c.values?.[0])))
 
     expect(claims).toEqual([
       { role: 'authenticated', sub: 'u1', workspace_id: 'w1' },

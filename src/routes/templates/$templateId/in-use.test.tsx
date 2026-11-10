@@ -3,49 +3,22 @@
  * filter that was parsed but unused, the stale (records-behind) banner, and the
  * hidden-record (denied) state. The route reads the version/governance records
  * unchanged; these tests drive the four acceptance states over the real
- * fetch/parse path with a mocked /api/db client.
+ * fetch/parse path with a fixture HTTP transport.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router'
 import { cleanup, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { z } from 'zod'
 
-import { Route } from './in-use'
-import { TEMPLATE_USERS_PAGE_SIZE } from '#/components/templates/templates-data'
-import type * as NotebookTemplateData from '#/lib/notebook-template-data'
-
-const router = vi.hoisted(() => {
-  const search: Record<string, unknown> = {}
-
-  return { search, navigate: vi.fn() }
-})
-
-vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (options: object) => ({
-    options,
-    useParams: () => ({ templateId: 'tpl-1' }),
-    useSearch: () => router.search,
-    useNavigate: () => router.navigate,
-  }),
-  Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
-  useNavigate: () => router.navigate,
-}))
-
-vi.mock('#/lib/user-names', () => ({
-  useUserNames: () => ({ userLabel: (id: string) => id, names: {} }),
-}))
-
-const client = vi.hoisted(() => ({
-  list: vi.fn(),
-  count: vi.fn(),
-  rpc: vi.fn(),
-}))
-
-vi.mock('#/lib/notebook-template-data', async (importOriginal) => ({
-  ...(await importOriginal<typeof NotebookTemplateData>()),
-  notebookTemplateDataClient: client,
-}))
-
-type VersionWire = Record<string, unknown>
+import { dropSharedReads } from '#/lib/data-client'
+import type { notebookTemplateVersionWireSchema } from '#/lib/notebook-template-data'
 
 const uuid = (n: number) =>
   `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
@@ -56,7 +29,84 @@ const V2 = uuid(2)
 const PRJ1 = uuid(11)
 const PRJ2 = uuid(12)
 
-function versionWire(overrides: VersionWire = {}): VersionWire {
+type VersionWire = z.input<typeof notebookTemplateVersionWireSchema>
+
+interface RecordWire {
+  id: string
+  identifier: string
+  title: string
+  source_notebook_template_version_id: string | null
+  status: string
+  locked_at: string | null
+  project_id: string | null
+  created_by_user_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+interface Fixtures {
+  versions: VersionWire[]
+  records: RecordWire[]
+  projects: { id: string; title: string }[]
+  madeCount: number
+}
+
+const fixtures: Fixtures = {
+  versions: [],
+  records: [],
+  projects: [],
+  madeCount: 0,
+}
+
+/** Keep the compiled DataClient real; fixture only the HTTP it sends. */
+const fixtureFetch: typeof fetch = async (input, init) => {
+  const request = new Request(
+    new URL(input instanceof Request ? input.url : input, 'http://localhost'),
+    init,
+  )
+
+  const { pathname, searchParams } = new URL(request.url)
+
+  switch (pathname) {
+    case '/api/db/notebook_template_versions':
+      return Response.json(fixtures.versions)
+
+    case '/api/db/reading_planned_rows':
+      return Response.json([])
+
+    case '/api/db/records': {
+      const offset = Number(searchParams.get('offset') ?? 0)
+
+      return Response.json(
+        fixtures.records.slice(offset, offset + TEMPLATE_USERS_PAGE_SIZE),
+      )
+    }
+
+    case '/api/db/projects':
+      return Response.json(fixtures.projects)
+
+    case '/api/db/notebook_template_instantiations':
+      return new Response('[]', {
+        headers: {
+          'content-type': 'application/json',
+          'content-range': `0-0/${fixtures.madeCount}`,
+        },
+      })
+
+    default:
+      // User names resolve through the server-function endpoint; ids stand in.
+      return Response.json({})
+  }
+}
+
+vi.stubGlobal('fetch', fixtureFetch)
+
+const { TEMPLATE_USERS_PAGE_SIZE } =
+  await import('#/components/templates/templates-data')
+
+const { Route } = await import('./in-use')
+
+function versionWire(overrides: Partial<VersionWire> = {}): VersionWire {
   return {
     id: V1,
     template_id: TPL,
@@ -93,19 +143,6 @@ function versionWire(overrides: VersionWire = {}): VersionWire {
   }
 }
 
-interface RecordWire {
-  id: string
-  identifier: string
-  title: string
-  source_notebook_template_version_id: string | null
-  status: string
-  locked_at: string | null
-  project_id: string | null
-  created_by_user_id: string | null
-  created_at: string
-  updated_at: string
-}
-
 function recordWire(overrides: Partial<RecordWire> = {}): RecordWire {
   return {
     id: uuid(31),
@@ -122,37 +159,18 @@ function recordWire(overrides: Partial<RecordWire> = {}): RecordWire {
   }
 }
 
-const VERSIONS = [
-  versionWire({ id: V2, version: 2 }),
-  versionWire({ id: V1, version: 1, lifecycle: 'retired' }),
-]
-
-const PROJECTS = [
-  { id: PRJ1, title: 'Stability' },
-  { id: PRJ2, title: 'Assay' },
-]
-
-function renderRoute() {
-  const Component = Route.options.component as React.ComponentType
-
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  })
-
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <Component />
-    </QueryClientProvider>,
-  )
+function resetFixtures() {
+  fixtures.versions = [
+    versionWire({ id: V2, version: 2 }),
+    versionWire({ id: V1, version: 1, lifecycle: 'retired' }),
+  ]
+  fixtures.records = []
+  fixtures.projects = [
+    { id: PRJ1, title: 'Stability' },
+    { id: PRJ2, title: 'Assay' },
+  ]
+  fixtures.madeCount = 0
 }
-
-afterEach(() => {
-  cleanup()
-  router.search = {}
-  client.list.mockReset()
-  client.count.mockReset()
-  client.rpc.mockReset()
-})
 
 /**
  * `madeCount` is the workspace-wide count of records made from the template's
@@ -161,17 +179,54 @@ afterEach(() => {
  * defaults to the rows themselves: nothing proven hidden.
  */
 function withRecords(records: RecordWire[], madeCount = records.length) {
-  client.list.mockImplementation((resource: string) => {
-    if (resource === 'notebook_template_versions')
-      return Promise.resolve(VERSIONS)
+  fixtures.records = records
+  fixtures.madeCount = madeCount
+}
 
-    if (resource === 'records') return Promise.resolve(records)
+afterEach(() => {
+  cleanup()
+  dropSharedReads()
+})
 
-    if (resource === 'projects') return Promise.resolve(PROJECTS)
+beforeEach(() => {
+  resetFixtures()
+  dropSharedReads()
+})
 
-    return Promise.resolve([])
+async function renderRoute(search = '') {
+  const root = createRootRoute()
+
+  const route = createRoute({
+    getParentRoute: () => root,
+    path: '/templates/$templateId/in-use',
+    component: Route.options.component,
+    validateSearch: Route.options.validateSearch,
   })
-  client.count.mockResolvedValue(madeCount)
+
+  const elsewhere = createRoute({
+    getParentRoute: () => root,
+    path: '$',
+    component: () => null,
+  })
+
+  const router = createRouter({
+    routeTree: root.addChildren([route, elsewhere]),
+    history: createMemoryHistory({
+      initialEntries: [`/templates/tpl-1/in-use${search}`],
+    }),
+  })
+
+  await router.load()
+
+  return render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
 }
 
 describe('Template in-use', () => {
@@ -185,7 +240,7 @@ describe('Template in-use', () => {
         status: 'in_review',
       }),
     ])
-    renderRoute()
+    await renderRoute()
 
     const matrix = await screen.findByRole('table', {
       name: 'Records by version',
@@ -210,16 +265,15 @@ describe('Template in-use', () => {
 
   it('shows the empty state when no record uses the template', async () => {
     withRecords([])
-    renderRoute()
+    await renderRoute()
     expect(
       await screen.findByText('No records use this template yet'),
     ).toBeTruthy()
   })
 
   it('states the hidden-record behaviour in the denied state', async () => {
-    router.search = { state: 'denied' }
     withRecords([recordWire()])
-    renderRoute()
+    await renderRoute('?state=denied')
     const banner = await screen.findByText(/not a member of the project/)
     expect(banner.textContent).toContain('You can see 1 record')
   })
@@ -229,16 +283,15 @@ describe('Template in-use', () => {
     // this viewer can open: the row set alone cannot say that, the
     // workspace-scoped instantiation count can, and no URL flag is involved.
     withRecords([recordWire()], 3)
-    renderRoute()
+    await renderRoute()
     const banner = await screen.findByText(/aren’t listed here/)
     expect(banner.textContent).toContain('2 records made from this template')
     expect(banner.textContent).toContain('You can see 1 record')
   })
 
   it('does not claim hidden records the row set cannot prove', async () => {
-    router.search = { state: 'denied' }
     withRecords([recordWire()], 1)
-    renderRoute()
+    await renderRoute('?state=denied')
     const banner = await screen.findByText(/not a member of the project/)
     expect(banner.textContent).not.toMatch(
       /\d+ records? made from this template/,
@@ -247,7 +300,7 @@ describe('Template in-use', () => {
 
   it('says access, not absence, when every record is in a project the viewer cannot open', async () => {
     withRecords([], 2)
-    renderRoute()
+    await renderRoute()
     expect(
       await screen.findByText('No records you can access yet'),
     ).toBeTruthy()
@@ -273,24 +326,8 @@ describe('Template in-use', () => {
       }),
     ]
 
-    let served = false
-    client.list.mockImplementation((resource: string) => {
-      if (resource === 'notebook_template_versions')
-        return Promise.resolve(VERSIONS)
-
-      if (resource === 'records') {
-        const rows = served ? lastPage : firstPage
-        served = true
-
-        return Promise.resolve(rows)
-      }
-
-      if (resource === 'projects') return Promise.resolve(PROJECTS)
-
-      return Promise.resolve([])
-    })
-    client.count.mockResolvedValue(TEMPLATE_USERS_PAGE_SIZE + 1)
-    renderRoute()
+    withRecords([...firstPage, ...lastPage], TEMPLATE_USERS_PAGE_SIZE + 1)
+    await renderRoute()
 
     const matrix = await screen.findByRole('table', {
       name: 'Records by version',
@@ -316,18 +353,17 @@ describe('Template in-use', () => {
       }),
       recordWire({ id: 'rec-2', identifier: 'EXP-2' }),
     ])
-    renderRoute()
+    await renderRoute()
     const banner = await screen.findByText(/older\s+versions?/)
     expect(banner.textContent).toContain('1 can move to v2 now')
   })
 
   it('wires the project filter to the records shown', async () => {
-    router.search = { project: PRJ2 }
     withRecords([
       recordWire({ id: 'rec-1', identifier: 'EXP-1', project_id: PRJ1 }),
       recordWire({ id: 'rec-2', identifier: 'EXP-2', project_id: PRJ2 }),
     ])
-    renderRoute()
+    await renderRoute(`?project=${PRJ2}`)
 
     expect(await screen.findByLabelText('Filter by project')).toHaveProperty(
       'value',
@@ -339,7 +375,6 @@ describe('Template in-use', () => {
   })
 
   it('wires the version filter to the record groups', async () => {
-    router.search = { version: V1 }
     withRecords([
       recordWire({ id: 'rec-1', identifier: 'EXP-1' }),
       recordWire({
@@ -348,7 +383,7 @@ describe('Template in-use', () => {
         source_notebook_template_version_id: V1,
       }),
     ])
-    renderRoute()
+    await renderRoute(`?version=${V1}`)
 
     expect(
       await screen.findByRole('table', { name: 'Records on version 1' }),

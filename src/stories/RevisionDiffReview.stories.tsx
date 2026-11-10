@@ -3,7 +3,7 @@ import { expect, userEvent, within } from 'storybook/test'
 import { RevisionDiffReview } from '#/components/review/revision-diff-review'
 import type { CanonicalRevisionEnvelope } from '#/lib/revision-diff'
 
-const base = {
+const base: CanonicalRevisionEnvelope = {
   formatVersion: 1,
   record: { id: 'record', title: 'Protein assay', status: 'draft' },
   blocks: [
@@ -13,9 +13,9 @@ const base = {
   scientificTables: [],
   formulas: [],
   files: [],
-} as unknown as CanonicalRevisionEnvelope
+}
 
-const changed = {
+const changed: CanonicalRevisionEnvelope = {
   ...base,
   record: { id: 'record', title: 'Protein stability assay', status: 'active' },
   blocks: [
@@ -27,7 +27,7 @@ const changed = {
     },
     { id: 'block-2', type: 'text', order: 1, content: 'New results' },
   ],
-} as unknown as CanonicalRevisionEnvelope
+}
 
 const meta = {
   title: 'Features/RevisionDiffReview',

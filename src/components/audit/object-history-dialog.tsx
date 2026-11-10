@@ -10,8 +10,15 @@ import {
 } from '#/components/ui/dialog'
 import { ObjectHistoryTimeline } from './object-history-timeline'
 import { auditHistoryDataClient, fetchAuditEvents } from '#/lib/audit-history'
+import type { AuditEventsFilter } from '#/lib/audit-history'
 import { DataClientError } from '#/lib/data-client'
 import { t } from '#/copy'
+
+/**
+ * No page is loaded yet, so the first request carries no cursor; every later
+ * request carries the numeric cursor `getNextPageParam` returns.
+ */
+const FIRST_PAGE: number | undefined = undefined
 
 /**
  * ObjectHistoryDialog — GOV-03 history surface for objects whose main
@@ -39,13 +46,14 @@ export function ObjectHistoryDialog({
 
   const historyQuery = useInfiniteQuery({
     queryKey: ['audit-events', 'object', objectId],
-    initialPageParam: undefined as number | undefined,
-    queryFn: ({ pageParam }) =>
-      fetchAuditEvents(auditHistoryDataClient, {
-        object: objectId,
-        limit: 50,
-        ...(pageParam === undefined ? {} : { beforeSequence: pageParam }),
-      }),
+    initialPageParam: FIRST_PAGE,
+    queryFn: ({ pageParam }) => {
+      const filter: AuditEventsFilter = { object: objectId, limit: 50 }
+
+      if (pageParam !== undefined) filter.beforeSequence = pageParam
+
+      return fetchAuditEvents(auditHistoryDataClient, filter)
+    },
     getNextPageParam: (lastPage) =>
       lastPage.hasMore ? (lastPage.nextCursor ?? undefined) : undefined,
     enabled: open,

@@ -20,10 +20,8 @@ import type { ReportListRow } from '#/lib/reports'
 import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
 
-function compareRegistryText(a: unknown, b: unknown): number {
-  return String(a ?? '').localeCompare(String(b ?? ''), 'en-GB', {
-    numeric: true,
-  })
+function compareRegistryText(a: string, b: string): number {
+  return a.localeCompare(b, 'en-GB', { numeric: true })
 }
 
 export interface ReportsRegistryGridProps {
@@ -58,8 +56,8 @@ export function ReportsRegistryGrid({
         accessorFn: (r) => r.identifier,
         header: t('projects.reports.grid.id'),
         enableHiding: false,
-        sortFn: (a, b, id) =>
-          compareRegistryText(a.getValue(id), b.getValue(id)),
+        sortFn: (a, b) =>
+          compareRegistryText(a.original.identifier, b.original.identifier),
         cell: ({ row }) => (
           <ObjectLink
             kind="report"
@@ -73,8 +71,8 @@ export function ReportsRegistryGrid({
         accessorFn: (r) => r.title,
         header: t('projects.reports.grid.report'),
         meta: { cellClassName: 'min-w-[220px]' },
-        sortFn: (a, b, id) =>
-          compareRegistryText(a.getValue(id), b.getValue(id)),
+        sortFn: (a, b) =>
+          compareRegistryText(a.original.title, b.original.title),
         cell: ({ row }) => (
           <Link
             to="/reports/$reportId"
@@ -90,15 +88,21 @@ export function ReportsRegistryGrid({
         accessorFn: (r) => r.projectTitle ?? '',
         header: t('projects.reports.grid.project'),
         meta: { cellClassName: 'text-fg-muted' },
-        sortFn: (a, b, id) =>
-          compareRegistryText(a.getValue(id), b.getValue(id)),
+        sortFn: (a, b) =>
+          compareRegistryText(
+            a.original.projectTitle ?? '',
+            b.original.projectTitle ?? '',
+          ),
       },
       {
         id: 'status',
         accessorFn: (r) => reportStatus(r.status).label,
         header: t('projects.reports.grid.status'),
-        sortFn: (a, b, id) =>
-          compareRegistryText(a.getValue(id), b.getValue(id)),
+        sortFn: (a, b) =>
+          compareRegistryText(
+            reportStatus(a.original.status).label,
+            reportStatus(b.original.status).label,
+          ),
         cell: ({ row }) => {
           const status = reportStatus(row.original.status)
 
@@ -119,8 +123,11 @@ export function ReportsRegistryGrid({
         accessorFn: (r) => ownerLabel(r.createdByUserId),
         header: t('projects.reports.grid.owner'),
         meta: { cellClassName: 'text-fg-muted' },
-        sortFn: (a, b, id) =>
-          compareRegistryText(a.getValue(id), b.getValue(id)),
+        sortFn: (a, b) =>
+          compareRegistryText(
+            ownerLabel(a.original.createdByUserId),
+            ownerLabel(b.original.createdByUserId),
+          ),
       },
       {
         id: 'updatedAt',
@@ -130,8 +137,8 @@ export function ReportsRegistryGrid({
           ...rightAligned<ReportListRow>().meta,
           cellClassName: 'text-right text-fg-muted',
         },
-        sortFn: (a, b, id) =>
-          compareRegistryText(a.getValue(id), b.getValue(id)),
+        sortFn: (a, b) =>
+          compareRegistryText(a.original.updatedAt, b.original.updatedAt),
         cell: ({ row }) => formatDate(row.original.updatedAt),
       },
     ],

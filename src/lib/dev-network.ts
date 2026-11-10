@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { z } from 'zod'
 
 /**
  * Data request instrumentation for the dev toolbar: a log of recent requests
@@ -29,6 +30,19 @@ export const noSimulation: DevNetworkSettings = {
   offline: false,
 }
 
+/**
+ * What the toolbar last stored. Each field keeps its own fallback so one bad
+ * value never discards the others, and a payload that is not an object at all
+ * reads as no simulation.
+ */
+const storedNetworkSettings = z
+  .object({
+    latencyMs: z.number().min(0).catch(noSimulation.latencyMs),
+    failRate: z.number().min(0).max(1).catch(noSimulation.failRate),
+    offline: z.boolean().catch(noSimulation.offline),
+  })
+  .catch(noSimulation)
+
 const MAX_LOG = 40
 const STORAGE_KEY = 'sb-dev-network'
 const listeners = new Set<() => void>()
@@ -45,17 +59,7 @@ export function parseNetworkSettings(raw: string | null): DevNetworkSettings {
   if (!raw) return noSimulation
 
   try {
-    const v = JSON.parse(raw) as Partial<DevNetworkSettings>
-
-    return {
-      latencyMs:
-        typeof v.latencyMs === 'number' && v.latencyMs >= 0 ? v.latencyMs : 0,
-      failRate:
-        typeof v.failRate === 'number' && v.failRate >= 0 && v.failRate <= 1
-          ? v.failRate
-          : 0,
-      offline: v.offline === true,
-    }
+    return storedNetworkSettings.parse(JSON.parse(raw))
   } catch {
     return noSimulation
   }

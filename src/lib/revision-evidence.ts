@@ -55,6 +55,8 @@ export interface RevisionEvidencePackage {
   decisions?: unknown[]
   checkResults?: unknown[]
   datasetVersions?: unknown[]
+  // The package is raw `revision_evidence_package` JSON here; its canonical validator is `parseEvidencePackage` in export/evidence-package.ts.
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
   [key: string]: unknown
 }
 

@@ -11,6 +11,11 @@ import {
 import type { ChangeEventWire, SseDeps } from './sse-events'
 import { mapChangeEventRow } from './sse-subscribe'
 
+/** Holder for a live callback that `subscribe` replaces once the stream starts. */
+interface LiveEventHolder {
+  cb: (event: ChangeEventWire) => void
+}
+
 function event(seq: number, workspaceId = 'ws-1'): ChangeEventWire {
   return {
     id: `evt-${seq}`,
@@ -266,7 +271,7 @@ describe('handleSseRequest — stream', () => {
     const body = await readUntil(response, (b) => b.includes('id: 4'))
     expect(body).toContain('event: hello')
     expect(body).toContain('"resumeFrom":2')
-    expect(body.indexOf('id: 3')) < expect(body.indexOf('id: 4'))
+    expect(body.indexOf('id: 3')).toBeLessThan(body.indexOf('id: 4'))
     expect(body).toContain('id: 3')
     expect(body).toContain('id: 4')
   })
@@ -330,7 +335,7 @@ describe('handleSseRequest — stream', () => {
   it('forwards live events after replay, skipping duplicates already replayed', async () => {
     // Holder for the live callback; starts as a no-op so it is always
     // callable. subscribe() replaces it with the real onEvent.
-    const live: { cb: (e: ChangeEventWire) => void } = {
+    const live: LiveEventHolder = {
       cb: () => {},
     }
 

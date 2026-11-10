@@ -6,7 +6,8 @@ import { fieldWire } from './dataset-schema-definition-rpc'
 export type EvolutionClass = 'compatible' | 'migration-requiring' | 'breaking'
 
 export interface EvolutionPreview {
-  classification?: EvolutionClass | string
+  /** The server's classification; it may add classes this client does not name yet. */
+  classification?: string
   blocked?: boolean
   ok?: boolean
   reason?: string | null
@@ -16,7 +17,6 @@ export interface EvolutionPreview {
   advancesLiveDatasets?: boolean
   copiesValues?: boolean
   historicalValuesRemainLocal?: boolean
-  [key: string]: unknown
 }
 
 export interface EvolutionResult extends EvolutionPreview {
@@ -58,6 +58,7 @@ export async function previewModelFieldEvolution(
   input: {
     definitionId: string
     action: 'update' | 'retire'
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The patch is a partial model-field definition forwarded as p_patch; the RPC validates its keys and values.
     patch?: Record<string, unknown>
   },
 ): Promise<EvolutionPreview> {
@@ -73,6 +74,7 @@ export async function applyModelFieldEvolution(
   input: {
     definitionId: string
     action: 'update' | 'retire'
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The patch is a partial model-field definition forwarded as p_patch; the RPC validates its keys and values.
     patch?: Record<string, unknown>
     confirm?: boolean
   },
@@ -172,7 +174,7 @@ export interface ColumnPromotion {
 export interface ColumnPromotionRequestResult {
   ok?: boolean
   promotionId?: string
-  state?: ColumnPromotionState | string
+  state?: string
   targetKind?: string
   schemaVersionId?: string
   approvalRequestId?: string
@@ -235,7 +237,7 @@ export function listOpenColumnPromotions(
 
 export interface ColumnPromotionApplyResult {
   ok?: boolean
-  state?: ColumnPromotionState | string
+  state?: string
   /** True when the dataset was written; false when the decision was a return. */
   applied?: boolean
   reason?: string | null
@@ -260,20 +262,27 @@ export function applyColumnPromotion(
 }
 
 /** The server's reason for refusing a promotion, in the language of the UI. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A catch handler receives arbitrary thrown values; DataClientError is checked first and anything else gets the generic message.
 export function describeColumnPromotionError(error: unknown): string {
   if (!(error instanceof DataClientError))
     return 'Could not request the promotion. Try again.'
 
-  const messages: Record<string, string> = {
-    SB071:
+  const messages = new Map<string, string>([
+    [
+      'SB071',
       'Some values in this column cannot be promoted to the dataset. Fix or clear them, then try again.',
-    SB072:
+    ],
+    [
+      'SB072',
       'This dataset already has a draft schema version pending. Publish or discard it before promoting again.',
-    SB089:
+    ],
+    [
+      'SB089',
       'The dataset the model describes needs values for fields this sheet does not have. Promote into a model whose other fields are optional, or bring those columns into the sheet first.',
-    '22023': 'Check the dataset and reason, then try again.',
-    '42501': 'You do not have permission to promote columns in this sheet.',
-  }
+    ],
+    ['22023', 'Check the dataset and reason, then try again.'],
+    ['42501', 'You do not have permission to promote columns in this sheet.'],
+  ])
 
-  return messages[error.code] ?? error.message
+  return messages.get(error.code) ?? error.message
 }

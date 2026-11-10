@@ -14,14 +14,54 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
-import { Route } from './$instrumentId'
+import './$instrumentId'
 
-const InstrumentPage = Route.options.component as React.ComponentType
+/** One `instrument_feeds` row, as the live readings list reads it. */
+interface FeedFixture {
+  id: string
+  instrument_id: string
+  name: string
+  unit: string | null
+  low_limit: number | null
+  high_limit: number | null
+  limit_state: 'ok' | 'low' | 'high'
+  last_value: number
+  last_at: string
+  reading_count: number
+}
+
+/** One value a link puts in the address bar. */
+type LinkSearchValue = string | number | boolean | null | undefined
+
+/** What the route registers with the router double. */
+interface RouteConfig {
+  component?: React.ComponentType
+}
+
+interface RegisteredRoute {
+  component: React.ComponentType | undefined
+}
+
+const registered: RegisteredRoute = vi.hoisted(() => ({
+  component: undefined,
+}))
+
+/** The component the route registered with the router double. */
+function routeComponent(): React.ComponentType {
+  const component = registered.component
+
+  if (!component) throw new Error('the instrument route has no component')
+
+  return component
+}
+
+const InstrumentPage = routeComponent()
 
 const dataClient = vi.hoisted(() => ({
   list: vi.fn<(...args: unknown[]) => Promise<unknown[]>>(async () => []),
-  rpc: vi.fn<(name: string) => Promise<unknown>>(async () => ({})),
+  rpc: vi.fn<(name: string) => Promise<object>>(async () => ({})),
 }))
 
 const role = vi.hoisted(() => ({ current: 'owner' }))
@@ -38,17 +78,24 @@ const qualifications = vi.hoisted(() => ({
   ],
 }))
 
-const requests = vi.hoisted(() => ({ current: [] as unknown[] }))
-const calibrations = vi.hoisted(() => ({ current: [] as unknown[] }))
+const requests: { current: object[] } = vi.hoisted(() => ({ current: [] }))
 
-const intake = vi.hoisted(() => ({
+const calibrations: { current: object[] } = vi.hoisted(() => ({ current: [] }))
+
+interface IntakeState {
+  method: string
+  parsers: object[]
+  lastImport: { status: string; createdAt: string } | null
+}
+
+const intake: IntakeState = vi.hoisted(() => ({
   method: 'none',
-  parsers: [] as unknown[],
-  lastImport: null as null | { status: string; createdAt: string },
+  parsers: [],
+  lastImport: null,
 }))
 
 const search = vi.hoisted(() => ({ current: {} }))
-const feeds = vi.hoisted(() => ({ current: [] as unknown[] }))
+const feeds: { current: object[] } = vi.hoisted(() => ({ current: [] }))
 
 // jsdom reports no layout, so the grid's virtualiser would render no rows: give
 // every element the viewport a browser would report for the list area.
@@ -59,42 +106,49 @@ for (const prop of ['offsetHeight', 'clientHeight'] as const) {
   })
 }
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The favourite toggle reads its own workspace queries; the page under test only needs the slot to render empty.
 vi.mock('#/components/favourites/favourite-toggle', () => ({
   FavouriteToggle: () => null,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The page takes its params, search and route context from the router at render time, so it is rendered through a router double.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useParams: () => ({ instrumentId: 'inst-1' }),
-    useSearch: () => search.current,
-    useRouteContext: () => ({
-      context: {
-        workspace: { id: 'ws-1', role: role.current },
-        user: { id: 'u-0', name: 'Gareth P.' },
-      },
-    }),
-    fullPath: '/instruments/$instrumentId',
-    options: config,
-  }),
+  createFileRoute: () => (config: RouteConfig) => {
+    registered.component = config.component
+
+    return {
+      useParams: () => ({ instrumentId: 'inst-1' }),
+      useSearch: () => search.current,
+      useRouteContext: () => ({
+        context: {
+          workspace: { id: 'ws-1', role: role.current },
+          user: { id: 'u-0', name: 'Gareth P.' },
+        },
+      }),
+      fullPath: '/instruments/$instrumentId',
+      options: config,
+    }
+  },
   Outlet: () => null,
-  redirect: (options: unknown) => options,
+  redirect: <T,>(options: T): T => options,
   useNavigate: () => vi.fn(),
   Link: ({
     to,
-    search,
+    search: linkSearch,
     children,
   }: {
     to?: unknown
-    search?: Record<string, unknown>
+    search?: Record<string, LinkSearchValue>
     children?: React.ReactNode
   }) => {
     // The href is what the page hands the browser, search included: a Book
     // action that dropped the instrument would render the same href as a link
     // that never carried it.
-    const path = typeof to === 'string' ? to : '#'
+    const target = z.string().safeParse(to)
+    const path = target.success ? target.data : '#'
 
     const query = new URLSearchParams(
-      Object.entries(search ?? {})
+      Object.entries(linkSearch ?? {})
         .filter(([, value]) => value != null)
         .map(([key, value]) => [key, String(value)]),
     ).toString()
@@ -103,11 +157,13 @@ vi.mock('@tanstack/react-router', () => ({
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- notebook-data opens its client at module scope; the reads under test go through the recorded client below.
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal()),
   notebookDataClient: dataClient,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Names are read through a provider the page mounts; this keeps the labels to the ids the assertions use.
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({
     names: {},
@@ -115,6 +171,7 @@ vi.mock('#/lib/user-names', () => ({
   }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The instrument reads are the data under test; each hook is replaced with a fixed row so the page's own rendering and actions are what is exercised.
 vi.mock(
   '#/components/instruments/instruments-data',
   async (importOriginal) => ({
@@ -212,7 +269,7 @@ afterEach(() => {
 })
 
 describe('live readings', () => {
-  const feed = (overrides: Record<string, unknown> = {}) => ({
+  const feed = (overrides: Partial<FeedFixture> = {}): FeedFixture => ({
     id: 'feed-1',
     instrument_id: 'inst-1',
     name: 'Chamber temperature',
@@ -429,11 +486,11 @@ describe('asking to be qualified', () => {
     requests.current = [pendingRequest('u-0')]
     renderPage()
 
-    const button = await screen.findByRole('button', {
+    const button = await screen.findByRole<HTMLButtonElement>('button', {
       name: 'Qualification requested',
     })
 
-    expect((button as HTMLButtonElement).disabled).toBe(true)
+    expect(button.disabled).toBe(true)
   })
 })
 

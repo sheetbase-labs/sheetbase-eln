@@ -77,12 +77,23 @@ interface FileWire {
   byte_size: string
 }
 
+/** What one validation run records about the retained bytes and the parsed sheet. */
+interface ValidationRecord {
+  ok: boolean
+  fileId: string
+  checksum: string
+  sheetName: string | null
+  rowCount: number
+  headers: string[]
+  errors: string[]
+}
+
 /** Only the server role can persist evidence. Browser RPCs cannot call it. */
 async function recordValidation(
   context: SessionAuthContext,
   version: VersionWire,
   file: FileWire,
-  result: Record<string, unknown>,
+  result: ValidationRecord,
 ): Promise<ParserSettingsVersion> {
   return withParserActor(context, async (query) => {
     const persisted = await query<{ version: ParserSettingsVersion }>(
@@ -187,10 +198,8 @@ export async function handleParserValidation(
   const signature = signatureSchema.safeParse(version.signature)
   const layout = layoutOf(version.signature)
 
-  const engine =
-    typeof version.signature.engine === 'string'
-      ? version.signature.engine
-      : null
+  const engineName = z.string().safeParse(version.signature.engine)
+  const engine = engineName.success ? engineName.data : null
 
   const registeredEngine = engine ? getParser(engine.split('@')[0]) : undefined
   const webhook = webhookTarget(version.signature)
@@ -275,10 +284,11 @@ export async function handleParserValidation(
     if (executeEngine && text === null)
       throw new Error('This engine requires a retained text file.')
 
-    const selectedSheet =
-      typeof version.mapping.sheetName === 'string'
-        ? version.mapping.sheetName
-        : undefined
+    const selectedSheetName = z.string().safeParse(version.mapping.sheetName)
+
+    const selectedSheet = selectedSheetName.success
+      ? selectedSheetName.data
+      : undefined
 
     if (
       preview &&
@@ -360,10 +370,12 @@ export async function handleParserValidation(
       if (!target.ok) throw new Error(target.message)
       const fields = toTargetFields(target.fields)
 
+      const headerNames = new Set(headers)
+
       if (
         mapping.data.sources.some(
           (entry) =>
-            !headers.includes(entry.source) ||
+            !headerNames.has(entry.source) ||
             (entry.fieldId &&
               !fields.some((field) => field.id === entry.fieldId)),
         )
@@ -394,7 +406,7 @@ export async function handleParserValidation(
     )
   }
 
-  const result = {
+  const result: ValidationRecord = {
     ok: errors.length === 0,
     fileId: file.id,
     checksum,
@@ -409,10 +421,8 @@ export async function handleParserValidation(
   try {
     persisted = await recordValidation(context, version, file, result)
   } catch (error) {
-    const code =
-      typeof error === 'object' && error !== null && 'code' in error
-        ? error.code
-        : null
+    const failure = z.object({ code: z.string() }).safeParse(error)
+    const code = failure.success ? failure.data.code : null
 
     if (code === '42501')
       return requestErrorResponse(

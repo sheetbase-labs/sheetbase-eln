@@ -110,7 +110,14 @@ export async function sweepRecurringWork(
 
 let timer: ReturnType<typeof setInterval> | null = null
 let bootTimer: ReturnType<typeof setTimeout> | null = null
-const startedGlobalKey = '__sheetbaseRecurringWorkSchedulerStarted'
+
+declare global {
+  /**
+   * The scheduler's process-wide guard: a hot reload can load this module
+   * twice, so the "already started" flag lives on the global object.
+   */
+  var __sheetbaseRecurringWorkSchedulerStarted: boolean | undefined
+}
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
@@ -134,10 +141,10 @@ export function startRecurringWorkScheduler(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
 
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+  if (globalThis.__sheetbaseRecurringWorkSchedulerStarted) return
+
+  globalThis.__sheetbaseRecurringWorkSchedulerStarted = true
 
   const deps = options.deps ?? { connect: defaultConnect }
 
@@ -176,6 +183,5 @@ export function stopRecurringWorkScheduler(): void {
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null
-  const g = globalThis as unknown as Record<string, unknown>
-  delete g[startedGlobalKey]
+  delete globalThis.__sheetbaseRecurringWorkSchedulerStarted
 }

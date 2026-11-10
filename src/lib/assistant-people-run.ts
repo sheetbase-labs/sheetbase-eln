@@ -1,6 +1,6 @@
 import type { DataClient } from './data-client'
 import { createInvitation, invitationLink } from './workspace-admin'
-import type { WorkspaceRole } from './workspace-admin'
+import type { InvitationProjectGrant, WorkspaceRole } from './workspace-admin'
 import type { PeopleAction, PeopleActionResult } from './assistant-people'
 
 /** Runs a people card's action. Loaded only in the browser, when a button is pressed. */
@@ -16,10 +16,15 @@ export async function runPeopleAction(
       const made = await createInvitation(client, {
         workspaceId: action.workspaceId,
         email: action.email,
+        // SAFETY: buildPeopleProposal builds this action's role as the
+        // invitation schema's role enum, 'member', or 'client_viewer' — every
+        // one of them a WorkspaceRole.
         role: action.role as WorkspaceRole,
         expiresAfterDays: 7,
         clientId: action.clientId,
-        projectGrants: action.projectGrants as never,
+        // SAFETY: the same card fills access_level from the invitation schema's
+        // access enum, whose four values are exactly InvitedProjectLevel.
+        projectGrants: action.projectGrants as InvitationProjectGrant[],
       })
 
       return {

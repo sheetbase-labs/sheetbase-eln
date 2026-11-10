@@ -149,6 +149,8 @@ const ASSISTANT_SCOPES: Scope[] = VALID_SCOPES.filter(
     scope !== 'webhooks:read',
 )
 
+// SAFETY: DOMAIN_RESOURCES is a non-empty literal list of guide topics, so the
+// names it maps to are a non-empty tuple at runtime; zod only needs one member.
 const guideSchema = z.strictObject({
   topic: z.enum(
     DOMAIN_RESOURCES.map((resource) => resource.name) as [string, ...string[]],
@@ -175,9 +177,35 @@ function workspaceDef(): ProviderToolDef {
   }
 }
 
+/**
+ * The `tools/list` answer the MCP handler gives: one entry per available tool,
+ * with the JSON Schema its arguments accept.
+ */
+const toolsListSchema = z.object({
+  tools: z.array(
+    z.object({
+      name: z.string(),
+      description: z.string(),
+      inputSchema: z.looseObject({}),
+      annotations: z
+        .object({ readOnlyHint: z.boolean().optional() })
+        .optional(),
+    }),
+  ),
+})
+
+/** The `tools/call` answer: text parts, and whether the tool reported a failure. */
+const toolCallResultSchema = z.object({
+  content: z
+    .array(z.object({ type: z.string(), text: z.string().optional() }))
+    .optional(),
+  isError: z.boolean().optional(),
+})
+
+/** Drop the JSON Schema dialect marker; a tool's parameters carry keywords only. */
 function stripSchemaKeyword(
-  schema: Record<string, unknown>,
-): Record<string, unknown> {
+  schema: z.core.JSONSchema.BaseSchema,
+): z.core.JSONSchema.BaseSchema {
   const { $schema: _ignored, ...rest } = schema
 
   return rest
@@ -291,19 +319,9 @@ export async function createAssistantToolkit(deps: {
     context,
   )
 
-  const available =
-    (
-      (listed && 'result' in listed ? listed.result : undefined) as
-        | {
-            tools?: Array<{
-              name: string
-              description: string
-              inputSchema: Record<string, unknown>
-              annotations?: { readOnlyHint?: boolean }
-            }>
-          }
-        | undefined
-    )?.tools ?? []
+  const available = toolsListSchema.parse(
+    listed && 'result' in listed ? listed.result : undefined,
+  ).tools
 
   const defs: ProviderToolDef[] = available
     .filter(
@@ -416,13 +434,15 @@ export async function createAssistantToolkit(deps: {
           client: deps.client,
         })
 
-        return outcome.ok
+        if (!outcome.ok) return { text: outcome.message, isError: true }
+
+        return outcome.proposal
           ? {
               text: clip(outcome.text),
               isError: false,
-              ...(outcome.proposal ? { proposal: outcome.proposal } : {}),
+              proposal: outcome.proposal,
             }
-          : { text: outcome.message, isError: true }
+          : { text: clip(outcome.text), isError: false }
       }
 
       // Each feature folder's tools (`src/features/<name>/assistant.server.ts`).
@@ -669,10 +689,7 @@ export async function createAssistantToolkit(deps: {
         return { text: 'The lookup failed.', isError: true }
       }
 
-      const result = response.result as {
-        content?: Array<{ type: string; text?: string }>
-        isError?: boolean
-      }
+      const result = toolCallResultSchema.parse(response.result)
 
       const text = (result.content ?? [])
         .map((part) => (part.type === 'text' ? (part.text ?? '') : ''))

@@ -1,32 +1,62 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { runAssistantAction } from './assistant-booking'
 import { repeatDates } from './assistant-planning'
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
 
-vi.mock('./step-timer-alert', () => ({
-  prepareTimerAlerts: () => Promise.resolve(),
-}))
-
+/** A data client on a real transport, recording each RPC it is asked for. */
 function recordingClient() {
-  const rpcs: Array<{ name: string; args: Record<string, unknown> }> = []
+  const rpcs: Array<{ name: string; args: unknown }> = []
 
-  const client = {
-    list: () => Promise.resolve([]),
-    rpc: (name: string, args: Record<string, unknown>) => {
-      rpcs.push({ name, args })
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const url = input instanceof Request ? input.url : String(input)
+    const request = new Request(new URL(url, 'http://localhost'), init)
+    const { pathname } = new URL(request.url)
 
-      if (name === 'instantiate_template') {
-        return Promise.resolve({ record: { id: 'new-exp' } })
-      }
+    if (!pathname.startsWith('/api/db/rpc/')) return Response.json([])
 
-      if (name === 'create_shipment') return Promise.resolve({ id: 'ship-1' })
+    const name = pathname.slice('/api/db/rpc/'.length)
 
-      return Promise.resolve({})
-    },
-  } as unknown as DataClient
+    rpcs.push({ name, args: JSON.parse(await request.text()) })
 
-  return { client, rpcs }
+    if (name === 'instantiate_template') {
+      return Response.json({ record: { id: 'new-exp' } })
+    }
+
+    if (name === 'create_shipment') return Response.json({ id: 'ship-1' })
+
+    if (name === 'create_recurring_schedule') {
+      return Response.json({
+        schedule: {
+          id: 's',
+          kind: 'booking',
+          title: 'x',
+          status: 'active',
+          frequency: 'weekly',
+          interval_count: 1,
+          weekdays: [1],
+          offsets_days: null,
+          starts_on: '2026-11-09',
+          ends_on: null,
+          max_occurrences: 8,
+          timezone: 'Europe/London',
+          resource_id: 'r',
+          start_time: '09:00:00',
+          end_time: '10:00:00',
+          notebook_template_id: null,
+          lead_days: 0,
+          project_id: null,
+          created_by_user_id: 'me',
+          created_at: '2026-11-05T00:00:00Z',
+        },
+        result: { created: 8, skipped: 0, failed: 0, problems: [] },
+      })
+    }
+
+    return Response.json({})
+  }
+
+  return { client: createDataClient(fetchImpl), rpcs }
 }
 
 describe('repeatDates', () => {
@@ -208,7 +238,7 @@ describe('running a planning card', () => {
       'create_shipment',
       'mark_shipment_in_transit',
     ])
-    expect(rpcs[1].args.p_shipment_id).toBe('ship-1')
+    expect(rpcs[1]).toMatchObject({ args: { p_shipment_id: 'ship-1' } })
   })
 
   it('receives a shipment with what arrived', async () => {
@@ -227,39 +257,6 @@ describe('running a planning card', () => {
 
   it('repeats a booking through the schedule rpc', async () => {
     const { client, rpcs } = recordingClient()
-
-    ;(client as unknown as { rpc: unknown }).rpc = (
-      name: string,
-      args: Record<string, unknown>,
-    ) => {
-      rpcs.push({ name, args })
-
-      return Promise.resolve({
-        schedule: {
-          id: 's',
-          kind: 'booking',
-          title: 'x',
-          status: 'active',
-          frequency: 'weekly',
-          interval_count: 1,
-          weekdays: [1],
-          offsets_days: null,
-          starts_on: '2026-11-09',
-          ends_on: null,
-          max_occurrences: 8,
-          timezone: 'Europe/London',
-          resource_id: 'r',
-          start_time: '09:00:00',
-          end_time: '10:00:00',
-          notebook_template_id: null,
-          lead_days: 0,
-          project_id: null,
-          created_by_user_id: 'me',
-          created_at: '2026-11-05T00:00:00Z',
-        },
-        result: { created: 8, skipped: 0, failed: 0, problems: [] },
-      })
-    }
 
     const result = await runAssistantAction(client, {
       kind: 'booking.repeat',

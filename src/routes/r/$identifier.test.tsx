@@ -2,34 +2,59 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { Route } from './$identifier'
+import './$identifier'
 
-const hoisted = vi.hoisted(() => ({
+interface RouterDouble {
+  identifier: string
+  navigate: ReturnType<typeof vi.fn>
+  resolve: ReturnType<typeof vi.fn>
+  /** Filled by the router double when the route registers its component. */
+  component: React.ComponentType | undefined
+}
+
+const hoisted: RouterDouble = vi.hoisted(() => ({
   identifier: 'SMP-1',
   navigate: vi.fn(),
   resolve: vi.fn(),
+  component: undefined,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route resolves its params and navigate from the router at import time, so the test renders it through a router double.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useParams: () => ({ identifier: hoisted.identifier }),
-    options: config,
-  }),
-  redirect: (options: unknown) => options,
+  createFileRoute: () => (config: { component?: React.ComponentType }) => {
+    hoisted.component = config.component
+
+    return {
+      useParams: () => ({ identifier: hoisted.identifier }),
+      options: config,
+    }
+  },
+  redirect: <T,>(options: T): T => options,
   useNavigate: () => hoisted.navigate,
   Link: ({ to, children }: { to?: string; children: React.ReactNode }) => (
     <a href={to}>{children}</a>
   ),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- notebook-data opens its client at module scope; the route under test never reads through it.
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The identifier lookup is the read under test; it is replaced so the redirect can be driven without a database.
 vi.mock('#/lib/object-resolver', async () => ({
   ...(await vi.importActual<object>('#/lib/object-resolver')),
   resolveObjectByIdentifier: hoisted.resolve,
 }))
 
-const Resolve = Route.options.component as React.ComponentType
+/** The component the route registered with the router double. */
+function routeComponent(): React.ComponentType {
+  const component = hoisted.component
+
+  if (!component) throw new Error('the resolve route has no component')
+
+  return component
+}
+
+const Resolve = routeComponent()
 
 function renderRoute() {
   return render(

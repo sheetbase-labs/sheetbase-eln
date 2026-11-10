@@ -13,79 +13,119 @@ import {
   waitFor,
   within,
 } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
-import type { DataClient } from '#/lib/data-client'
-import type * as Positions from '#/lib/storage-positions'
+import { createDataClient, dropSharedReads } from '#/lib/data-client'
+import type { RecordWire } from '#/lib/notebook-data'
 
 import { ScanSampleActions } from './scan-sample-actions'
 
-vi.mock('#/lib/storage-positions', async (importOriginal) => ({
-  ...(await importOriginal<typeof Positions>()),
-  fetchBoxChoices: vi.fn().mockResolvedValue([]),
-  fetchSamplePosition: vi.fn().mockResolvedValue(null),
-}))
+/** Which sample the fixture answers with; `null` is a sample that is gone. */
+let sampleRow: RecordWire | null = null
 
-vi.mock('#/components/ui/sonner', () => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
-  Toaster: () => null,
-}))
+const rpcCalls: { name: string; args: z.infer<ReturnType<typeof z.json>> }[] =
+  []
 
-afterEach(cleanup)
+const rpcArgs = z.record(z.string(), z.json())
 
-function sampleWire(overrides: Record<string, unknown> = {}) {
+/** Keep the compiled DataClient real; fixture only the HTTP it sends. */
+const fixtureFetch: typeof fetch = async (input, init) => {
+  const request = new Request(
+    new URL(input instanceof Request ? input.url : input, 'http://localhost'),
+    init,
+  )
+
+  const { pathname } = new URL(request.url)
+
+  if (request.method === 'POST' && pathname.startsWith('/api/db/rpc/')) {
+    const name = pathname.slice('/api/db/rpc/'.length)
+
+    rpcCalls.push({ name, args: rpcArgs.parse(await request.json()) })
+
+    if (name === 'transfer_sample') return Response.json(sampleRow)
+
+    if (name === 'sample_release_check_status') {
+      return Response.json({
+        passed: false,
+        ruleCount: 1,
+        failedCount: 1,
+        checks: [
+          {
+            key: 'p',
+            label: 'Purity result',
+            kind: 'measurement_required',
+            passed: false,
+            detail: 'missing',
+          },
+        ],
+      })
+    }
+
+    return Response.json({})
+  }
+
+  const { pathname: resource } = new URL(request.url)
+
+  if (resource === '/api/db/records') {
+    return Response.json(sampleRow ? [sampleRow] : [])
+  }
+
+  // Every storage-location table and position read starts empty.
+  if (resource.startsWith('/api/db/')) return Response.json([])
+
+  throw new Error(`Unexpected request: ${request.method} ${request.url}`)
+}
+
+vi.stubGlobal('fetch', fixtureFetch)
+
+const client = createDataClient(fixtureFetch)
+
+afterEach(() => {
+  cleanup()
+  dropSharedReads()
+})
+
+beforeEach(() => {
+  rpcCalls.length = 0
+  dropSharedReads()
+  sampleRow = sampleWire()
+})
+
+function sampleWire(overrides: Partial<RecordWire> = {}): RecordWire {
   return {
     id: 's-1',
-    identifier: 'SMP-1',
+    workspace_id: 'ws-1',
+    project_id: null,
+    folder_id: null,
     kind: 'sample',
+    identifier: 'SMP-1',
     title: 'Lysate',
     status: 'available',
     tags: [],
+    structure_version: 1,
     metadata_version: 5,
+    created_at: '2026-10-01T00:00:00Z',
+    updated_at: '2026-10-01T00:00:00Z',
+    archived_at: null,
+    deleted_at: null,
+    created_by_user_id: 'u-1',
+    updated_by_user_id: null,
     properties: {
       quantity: 12.5,
       quantityUnit: 'mL',
       storageLocation: 'Freezer 1',
     },
     custom_fields: {},
-    archived_at: null,
+    locked_at: null,
+    locked_by_revision_id: null,
     ...overrides,
   }
 }
 
-function mount(opts: {
-  sample?: Record<string, unknown> | null
-  onChanged?: () => void
-}) {
-  const rpc = vi.fn(async (name: string) =>
-    name === 'transfer_sample'
-      ? sampleWire()
-      : name === 'sample_release_check_status'
-        ? {
-            passed: false,
-            ruleCount: 1,
-            failedCount: 1,
-            checks: [
-              {
-                key: 'p',
-                label: 'Purity result',
-                kind: 'measurement_required',
-                passed: false,
-                detail: 'missing',
-              },
-            ],
-          }
-        : {},
-  )
-
-  const list = vi.fn(async (table: string, query: string) => {
-    if (table === 'records' && query.includes('kind=eq.sample&select'))
-      return opts.sample === null ? [] : [opts.sample ?? sampleWire()]
-
-    return []
-  })
-
-  const client = { rpc, list } as unknown as DataClient
+function mount(opts: { sample?: RecordWire | null; onChanged?: () => void }) {
+  const onChanged = opts.onChanged
+  sampleRow = opts.sample === undefined ? sampleRow : opts.sample
 
   const root = createRootRoute({
     component: () => (
@@ -94,7 +134,7 @@ function mount(opts: {
           sampleId="s-1"
           returnTo="/scan?code=SMP-1"
           client={client}
-          onChanged={opts.onChanged}
+          onChanged={onChanged}
         />
       </QueryClientProvider>
     ),
@@ -108,8 +148,6 @@ function mount(opts: {
       })}
     />,
   )
-
-  return { rpc, list }
 }
 
 describe('ScanSampleActions', () => {
@@ -126,7 +164,7 @@ describe('ScanSampleActions', () => {
 
   it('moves the sample in place and tells the scan to refresh', async () => {
     const onChanged = vi.fn()
-    const { rpc } = mount({ onChanged })
+    mount({ onChanged })
     await screen.findByText('12.5 mL · Freezer 1')
     fireEvent.click(screen.getByRole('button', { name: 'Move' }))
     const dialog = await screen.findByRole('dialog')
@@ -135,11 +173,14 @@ describe('ScanSampleActions', () => {
     })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Move' }))
     await waitFor(() =>
-      expect(rpc).toHaveBeenCalledWith('transfer_sample', {
-        p_record_id: 's-1',
-        p_to_location: 'Bench',
-        p_expected_metadata_version: 5,
-        p_notes: null,
+      expect(rpcCalls).toContainEqual({
+        name: 'transfer_sample',
+        args: {
+          p_record_id: 's-1',
+          p_to_location: 'Bench',
+          p_expected_metadata_version: 5,
+          p_notes: null,
+        },
       }),
     )
     await waitFor(() => expect(onChanged).toHaveBeenCalled())

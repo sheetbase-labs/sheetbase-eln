@@ -72,7 +72,8 @@ export interface ChatTurn {
 export interface ProviderToolDef {
   name: string
   description: string
-  /** JSON Schema for the arguments. */
+  /** JSON Schema for the arguments, as the schema library emits it. */
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- z.toJSONSchema() owns these keywords and every tool definition assigns its output here verbatim; narrowing the value type would reject them all.
   parameters: Record<string, unknown>
 }
 

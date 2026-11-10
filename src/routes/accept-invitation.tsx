@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { LabLogo } from '#/components/ui/lab-logo'
 import { Button } from '#/components/ui/button'
@@ -17,13 +18,19 @@ import { t } from '#/copy'
  * The invited workspace then becomes the active one, so they land in it rather
  * than in the personal workspace created at first sign-in.
  */
+/** The invitation token in the link, when there is one. */
+type AcceptInvitationSearch = { token?: string }
+
+const invitationSearchSchema = z.object({
+  token: z.string().min(1).optional().catch(undefined),
+})
+
 export const Route = createFileRoute('/accept-invitation')({
-  validateSearch: (search: Record<string, unknown>): { token?: string } => ({
-    token:
-      typeof search.token === 'string' && search.token
-        ? search.token
-        : undefined,
-  }),
+  validateSearch: (search): AcceptInvitationSearch => {
+    const parsed = invitationSearchSchema.parse(search)
+
+    return { token: parsed.token }
+  },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
 
@@ -60,6 +67,7 @@ export function AcceptInvitationSurface({
       onDone()
     } catch (err) {
       setError(describeAdminError(err))
+    } finally {
       setBusy(false)
     }
   }

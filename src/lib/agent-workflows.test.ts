@@ -115,6 +115,33 @@ const workflow: AgentWorkflow = {
   updated_at: '2026-08-30T16:00:00Z',
 }
 
+/** A workflow step with the fields a test names, and stable defaults elsewhere. */
+function makeStep(fields: Partial<AgentWorkflowStep>): AgentWorkflowStep {
+  return {
+    id: 'step-1',
+    workflow_id: 'workflow-1',
+    position: 0,
+    step_key: 'first_commit',
+    title: 'First',
+    summary: 'First commit.',
+    tool_name: 'sheetbase.dataset_rows.commit',
+    operation: {
+      kind: 'dataset_rows.commit',
+      datasetId: 'dataset-1',
+      expectedRevision: 7,
+      rows: [],
+    },
+    input_references: [],
+    status: 'planned',
+    attempt: 0,
+    proposal_id: null,
+    completed_at: null,
+    created_at: '2026-08-30T16:00:00Z',
+    updated_at: '2026-08-30T16:00:00Z',
+    ...fields,
+  }
+}
+
 describe('agent workflow client contract', () => {
   it('submits a pinned plan, provenance, initial usage, and hard budgets', async () => {
     const rpc = vi.fn().mockResolvedValue(workflow)
@@ -202,47 +229,89 @@ describe('agent workflow client contract', () => {
 })
 
 describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
-  const draftStep = {
+  const draftStep = makeStep({
     operation: {
       kind: 'pipeline_definition.create',
       workspaceId: 'workspace-1',
       key: 'pipe',
       name: 'Pipe',
     },
-  } as unknown as AgentWorkflowStep
+  })
 
-  const commitStep = {
+  const commitStep = makeStep({
     operation: {
       kind: 'dataset_rows.commit',
       datasetId: 'dataset-1',
       expectedRevision: 7,
       rows: [],
     },
-  } as unknown as AgentWorkflowStep
+  })
 
   function proposal(
     overrides: Partial<AgentOperationProposal>,
   ): AgentOperationProposal {
     return {
       id: 'proposal-1',
-      status: 'pending',
-      approval_policy: 'human_required',
+      workspace_id: 'workspace-1',
+      title: 'Commit first reviewed batch',
+      summary: 'Apply the first reviewed values.',
+      operation_kind: 'dataset_rows.commit',
+      operation: {
+        kind: 'dataset_rows.commit',
+        datasetId: 'dataset-1',
+        expectedRevision: 7,
+        rows: [],
+      },
       preview: {
         formatVersion: 1,
         kind: 'dataset_rows.commit',
-        target: { type: 'dataset', id: 'dataset-1' },
+        target: { type: 'dataset', id: 'dataset-1', label: 'Plate reads v2' },
         changes: [],
       },
       impact: {
         formatVersion: 1,
         mutationClass: 'data',
-        target: { type: 'dataset', id: 'dataset-1' },
+        target: { type: 'dataset', id: 'dataset-1', label: 'Plate reads v2' },
         createsDraft: false,
         affectedRows: 1,
         destructive: false,
       },
+      risk_class: 'consequential_write',
+      approval_policy: 'human_required',
+      policy_id: 'policy-1',
+      policy_reason: 'Human approval policy matched.',
+      policy_limits: { maxAffectedRows: 10 },
+      policy_target: { type: 'dataset', id: 'dataset-1' },
+      policy_evidence: { scope: 'datasets:write' },
+      status: 'pending',
+      revision: 1,
+      idempotency_key: 'workflow:workflow-1:first_commit:1',
+      request_digest: 'b'.repeat(64),
+      provenance: workflow.provenance,
+      proposed_by_user_id: null,
+      proposed_by_credential_id: 'credential-1',
+      approved_by_user_id: null,
+      approved_at: null,
+      rejected_by_user_id: null,
+      rejected_at: null,
+      rejection_reason: null,
+      executed_by_user_id: null,
+      executed_by_credential_id: null,
+      executed_at: null,
+      result: null,
+      error_code: null,
+      error_message: null,
+      display_id: null,
+      agent_definition_id: null,
+      agent_run_id: null,
+      approver_user_id: null,
+      signature_required: false,
+      approval_meaning: null,
+      approval_signed_at: null,
+      created_at: '2026-08-30T16:00:00Z',
+      updated_at: '2026-08-30T16:00:00Z',
       ...overrides,
-    } as AgentOperationProposal
+    }
   }
 
   it('marks only dataset_rows.commit as consequential and mutate-mode', () => {
@@ -257,7 +326,7 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
   })
 
   it('observes the stored decide/policy outcome per gate', () => {
-    const waiting = { status: 'waiting_approval' } as AgentWorkflowStep
+    const waiting = makeStep({ status: 'waiting_approval' })
     expect(
       workflowStepGate(
         waiting,
@@ -291,7 +360,7 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
   it('dry-runs a plan without touching state: stored preview where proposed, prediction where planned', () => {
     const live = proposal({ id: 'proposal-1' })
 
-    const steps = [
+    const steps: AgentWorkflowStep[] = [
       {
         ...commitStep,
         id: 'step-0',
@@ -326,7 +395,7 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
         created_at: '2026-08-30T16:00:00Z',
         updated_at: '2026-08-30T16:00:00Z',
       },
-    ] as AgentWorkflowStep[]
+    ]
 
     const dryRun = dryRunAgentWorkflow(steps, { [live.id]: live })
     expect(dryRun).toHaveLength(2)
@@ -367,7 +436,7 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
     expect(workflowRetriesRemaining({ ...workflow, used_operations: 3 })).toBe(
       0,
     )
-    const paused = { ...workflow, status: 'paused' } as AgentWorkflow
+    const paused: AgentWorkflow = { ...workflow, status: 'paused' }
     expect(canRetryWorkflowStep(paused, { status: 'failed' })).toBe(true)
     expect(canRetryWorkflowStep(paused, { status: 'succeeded' })).toBe(false)
     expect(
@@ -385,13 +454,21 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
   })
 
   it('keeps completed results, retryable failures, and terminal cancellation distinct', () => {
-    const paused = { ...workflow, status: 'paused' } as AgentWorkflow
+    const paused: AgentWorkflow = { ...workflow, status: 'paused' }
 
     const steps = [
-      { step_key: 'done', status: 'succeeded', proposal_id: 'proposal-0' },
-      { step_key: 'broken', status: 'failed', proposal_id: 'proposal-1' },
-      { step_key: 'later', status: 'planned', proposal_id: null },
-    ] as AgentWorkflowStep[]
+      makeStep({
+        step_key: 'done',
+        status: 'succeeded',
+        proposal_id: 'proposal-0',
+      }),
+      makeStep({
+        step_key: 'broken',
+        status: 'failed',
+        proposal_id: 'proposal-1',
+      }),
+      makeStep({ step_key: 'later', status: 'planned', proposal_id: null }),
+    ]
 
     expect(summarizeWorkflowRecovery(paused, steps)).toEqual({
       completed: [{ stepKey: 'done', proposalId: 'proposal-0' }],
@@ -399,7 +476,7 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
       terminal: false,
       retriesRemaining: 2,
     })
-    const cancelled = { ...workflow, status: 'cancelled' } as AgentWorkflow
+    const cancelled: AgentWorkflow = { ...workflow, status: 'cancelled' }
     const recovery = summarizeWorkflowRecovery(cancelled, steps)
     expect(recovery.terminal).toBe(true)
     expect(recovery.retryable).toEqual([])

@@ -204,9 +204,9 @@ export function mapModel(
     bands: heatBands(),
     legend:
       effective === 'roles'
-        ? (Object.keys(ROLE_STYLES) as AssignmentRole[]).map((role) => ({
-            label: ROLE_STYLES[role].label,
-            className: ROLE_STYLES[role].cellClass,
+        ? Object.values(ROLE_STYLES).map((style) => ({
+            label: style.label,
+            className: style.cellClass,
           }))
         : effective === 'hits'
           ? [

@@ -1,44 +1,18 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import type { ObjectStorage } from '#/lib/file-storage'
 import type { SessionAuthDeps } from '#/lib/request-auth'
 
-const rpc = vi.fn()
-
-// The real session, storage and logging modules read server environment
-// variables; the handlers only need their shapes.
-vi.mock('#/lib/request-auth', () => ({
-  requestErrorResponse: (status: number, code: string, message: string) =>
-    new Response(JSON.stringify({ error: { code, message } }), { status }),
-  resolveSessionAuth: async (
-    headers: Headers,
-    deps: {
-      getSession: (h: Headers) => Promise<{ user: { id: string } } | null>
-    },
-  ) => {
-    const session = await deps.getSession(headers)
-
-    return session
-      ? { ok: true, context: { userId: session.user.id, token: 'token' } }
-      : { ok: false, status: 401, code: 'unauthenticated', message: '' }
-  },
-  postgrestRpc: (...args: unknown[]) => rpc(...args),
-}))
-
-vi.mock('#/lib/file-storage', () => {
-  class OversizeError extends Error {
-    constructor(
-      message: string,
-      readonly limit: number,
-    ) {
-      super(message)
-    }
-  }
-
-  return { OversizeError, getObjectStorage: () => undefined }
+vi.hoisted(() => {
+  process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test'
+  process.env.FORMULA_DATABASE_URL =
+    'postgresql://test:test@localhost:5432/test'
+  process.env.BETTER_AUTH_SECRET = 'test-secret-at-least-thirty-two-characters'
+  process.env.PGRST_JWT_SECRET = 'test-jwt-secret-at-least-thirty-two-chars'
+  process.env.POSTGREST_URL = 'http://postgrest.test'
 })
-
-vi.mock('#/lib/logger', () => ({ logger: { warn: vi.fn() } }))
 
 const {
   AVATAR_MAX_BYTES,
@@ -48,13 +22,60 @@ const {
   sniffAvatarType,
 } = await import('./avatar-routes')
 
+const rpcArgs = z.record(z.string(), z.json())
+
+interface RpcCall {
+  name: string
+  args: z.infer<typeof rpcArgs>
+  token: string | null
+}
+
+/** What the RPC answers next: a status and the response body PostgREST sends. */
+interface RpcReply {
+  status: number
+  body: z.infer<ReturnType<typeof z.json>>
+}
+
+const rpcCalls: RpcCall[] = []
+let rpcReply: RpcReply = { status: 200, body: null }
+
+/** PostgREST, as the avatar RPCs reach it: the compiled transport, not a stub. */
+const fixtureFetch: typeof fetch = async (input, init) => {
+  const request = new Request(
+    new URL(input instanceof Request ? input.url : input, 'http://localhost'),
+    init,
+  )
+
+  const { pathname } = new URL(request.url)
+
+  if (request.method === 'POST' && pathname.startsWith('/rpc/')) {
+    rpcCalls.push({
+      name: pathname.slice('/rpc/'.length),
+      args: rpcArgs.parse(await request.json()),
+      token:
+        request.headers.get('authorization')?.replace(/^Bearer /, '') ?? null,
+    })
+
+    return Response.json(rpcReply.body, { status: rpcReply.status })
+  }
+
+  throw new Error(`Unexpected request: ${request.method} ${pathname}`)
+}
+
+vi.stubGlobal('fetch', fixtureFetch)
+
 const ME = 'user-1'
 
-const signedIn = {
-  getSession: async () => ({ user: { id: ME } }),
-} as unknown as SessionAuthDeps
+const signedIn: SessionAuthDeps = {
+  getSession: async () => ({ user: { id: ME }, session: { id: 'session-1' } }),
+  getWorkspaceForUser: async () => ({ id: 'workspace-1' }),
+  mintToken: async () => 'token',
+}
 
-const signedOut = { getSession: async () => null } as unknown as SessionAuthDeps
+const signedOut: SessionAuthDeps = {
+  ...signedIn,
+  getSession: async () => null,
+}
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1])
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0])
@@ -100,7 +121,8 @@ function put(body: BodyInit) {
 }
 
 beforeEach(() => {
-  rpc.mockReset()
+  rpcCalls.length = 0
+  rpcReply = { status: 200, body: null }
 })
 
 describe('sniffAvatarType', () => {
@@ -132,20 +154,17 @@ describe('handleMyAvatar', () => {
   it('stores the photo, saves its key and removes the one it replaces', async () => {
     const { storage, objects } = memoryStorage()
     objects.set('avatars/user-1/old', PNG)
-    rpc.mockResolvedValue({ status: 200, body: 'avatars/user-1/old' })
+    rpcReply = { status: 200, body: 'avatars/user-1/old' }
 
     const response = await handleMyAvatar(put(WEBP), signedIn, storage)
 
     expect(response.status).toBe(200)
 
-    const [name, args] = rpc.mock.calls[0] as [
-      string,
-      { p_storage_key: string; p_media_type: string },
-    ]
+    const [call] = rpcCalls
 
-    expect(name).toBe('set_my_photo')
-    expect(args.p_media_type).toBe('image/webp')
-    expect([...objects.keys()]).toEqual([args.p_storage_key])
+    expect(call.name).toBe('set_my_photo')
+    expect(call.args['p_media_type']).toBe('image/webp')
+    expect([...objects.keys()]).toEqual([call.args['p_storage_key']])
   })
 
   it('refuses a file that is not an image', async () => {
@@ -153,7 +172,7 @@ describe('handleMyAvatar', () => {
     const response = await handleMyAvatar(put('<svg/>'), signedIn, storage)
     expect(response.status).toBe(415)
     expect(objects.size).toBe(0)
-    expect(rpc).not.toHaveBeenCalled()
+    expect(rpcCalls).toHaveLength(0)
   })
 
   it('refuses a photo over the cap', async () => {
@@ -166,7 +185,7 @@ describe('handleMyAvatar', () => {
 
   it('drops the new bytes when the database refuses the change', async () => {
     const { storage, objects } = memoryStorage()
-    rpc.mockResolvedValue({ status: 403, body: { message: 'no' } })
+    rpcReply = { status: 403, body: { message: 'no' } }
     const response = await handleMyAvatar(put(PNG), signedIn, storage)
     expect(response.status).toBe(403)
     expect(objects.size).toBe(0)
@@ -175,7 +194,7 @@ describe('handleMyAvatar', () => {
   it('removes the photo on DELETE', async () => {
     const { storage, objects } = memoryStorage()
     objects.set('avatars/user-1/old', PNG)
-    rpc.mockResolvedValue({ status: 200, body: 'avatars/user-1/old' })
+    rpcReply = { status: 200, body: 'avatars/user-1/old' }
 
     const response = await handleMyAvatar(
       new Request('http://x/api/avatars/me', { method: 'DELETE' }),
@@ -184,7 +203,9 @@ describe('handleMyAvatar', () => {
     )
 
     expect(response.status).toBe(204)
-    expect(rpc).toHaveBeenCalledWith('clear_my_photo', {}, 'token')
+    expect(rpcCalls).toEqual([
+      { name: 'clear_my_photo', args: {}, token: 'token' },
+    ])
     expect(objects.size).toBe(0)
   })
 })
@@ -193,10 +214,10 @@ describe('handleAvatarDownload', () => {
   it('serves a photo the caller may see, as an image that is never sniffed', async () => {
     const { storage, objects } = memoryStorage()
     objects.set('avatars/user-2/abc', JPEG)
-    rpc.mockResolvedValue({
+    rpcReply = {
       status: 200,
       body: [{ storage_key: 'avatars/user-2/abc', media_type: 'image/jpeg' }],
-    })
+    }
 
     const response = await handleAvatarDownload(
       new Request('http://x/api/avatars/user-2'),
@@ -213,7 +234,7 @@ describe('handleAvatarDownload', () => {
 
   it('answers 404 for someone without a photo or outside the workspace', async () => {
     const { storage } = memoryStorage()
-    rpc.mockResolvedValue({ status: 200, body: [] })
+    rpcReply = { status: 200, body: [] }
 
     const response = await handleAvatarDownload(
       new Request('http://x/api/avatars/user-9'),

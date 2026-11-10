@@ -1,5 +1,5 @@
 /** A handler's view of one request: what was asked, and accept, decline or complete it. */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -28,15 +28,23 @@ import type { RequestDecision, RequestRow } from '#/lib/requests'
 
 import { requestDetails } from './requests-shared'
 
-export function DecideRequestDialog({
-  request,
-  askerName,
-  onClose,
-}: {
+export function DecideRequestDialog(props: DecideRequestDialogProps) {
+  // Another request is another decision: a new body starts with an empty note
+  // rather than resetting this one's state after the prop changes.
+  return <RequestDecision key={props.request?.id ?? ''} {...props} />
+}
+
+interface DecideRequestDialogProps {
   request: RequestRow | null
   askerName: string
   onClose: () => void
-}) {
+}
+
+function RequestDecision({
+  request,
+  askerName,
+  onClose,
+}: DecideRequestDialogProps) {
   const fields = useRecordModelFields(request?.kind ?? '')
 
   const fieldLabels = new Map(
@@ -45,7 +53,6 @@ export function DecideRequestDialog({
 
   const queryClient = useQueryClient()
   const [note, setNote] = useState('')
-  useEffect(() => setNote(''), [request?.id])
 
   const decide = useMutation({
     mutationFn: (decision: RequestDecision) =>
@@ -64,7 +71,7 @@ export function DecideRequestDialog({
       )
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('requests.decide.couldNotSave'))),
   })
 

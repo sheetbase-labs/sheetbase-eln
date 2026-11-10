@@ -40,9 +40,8 @@ describe('Collapsible', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
     const panelId = trigger.getAttribute('aria-controls')
     expect(panelId).toBeTruthy()
-    expect(document.getElementById(panelId as string)?.textContent).toBe(
-      'AG-2026-014',
-    )
+    const panel = panelId === null ? null : document.getElementById(panelId)
+    expect(panel?.textContent).toBe('AG-2026-014')
   })
 
   it('opens from the keyboard', async () => {

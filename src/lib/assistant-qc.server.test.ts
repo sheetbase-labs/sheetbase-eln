@@ -13,7 +13,19 @@ import {
 } from './assistant-qc.server'
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from './agent-tool-catalogue'
 import type { LabToolContext } from './assistant-lab-tools.server'
+import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
+
+/** One qc_points fixture row: the JSON the read returns. */
+interface QcPointFixture {
+  id?: string
+  series_id?: string
+  value?: number
+  at?: string
+  violations?: string[]
+  z?: number | null
+  acknowledged_at?: string | null
+}
 
 const SERIES = {
   id: '22222222-2222-4222-8222-222222222222',
@@ -23,10 +35,8 @@ const SERIES = {
   state: 'out_of_control',
 }
 
-function context(
-  breaches: Array<Record<string, unknown>> = [],
-): LabToolContext {
-  const client = {
+function context(breaches: QcPointFixture[] = []): LabToolContext {
+  const client: DataClient = Object.assign(createDataClient(), {
     list: (resource: string) =>
       Promise.resolve(
         resource === 'qc_series'
@@ -35,7 +45,7 @@ function context(
             ? breaches
             : [],
       ),
-  } as unknown as DataClient
+  })
 
   return { client, workspaceId: 'w', userId: 'u', timeZone: 'UTC' }
 }

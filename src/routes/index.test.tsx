@@ -9,24 +9,46 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import type * as router from '@tanstack/react-router'
-import type * as projectData from '#/components/projects/project-data'
-import type * as notebookData from '#/lib/notebook-data'
 
 import { Home, Route } from './index'
 
-const fixture = vi.hoisted(() => ({
+/** The options the file-route factory receives; the mock only stores them. */
+type FileRouteOptions = Parameters<ReturnType<typeof router.createFileRoute>>[0]
+
+/** A link's `search` values, as the address bar would carry them. */
+const linkSearch = z.record(z.string(), z.unknown())
+
+/** One search value written as text; anything else is left out. */
+const searchText = z
+  .union([z.string(), z.number(), z.boolean()])
+  .catch('')
+  .transform((value) => String(value))
+
+/** What each test asks the fake counts to report. */
+interface HomeFixture {
+  inbox: number
+  reviews: number
+  datasetsWithErrors: number
+  unread: number
+  hasRecents: boolean
+  shellInbox: string | null
+  failing: string[]
+}
+
+const fixture = vi.hoisted<HomeFixture>(() => ({
   inbox: 0,
   reviews: 0,
   datasetsWithErrors: 0,
   unread: 0,
   hasRecents: true,
-  shellInbox: null as string | null,
-  failing: [] as string[],
+  shellInbox: null,
+  failing: [],
 }))
 
-const fake = vi.hoisted(() => {
+vi.hoisted(() => {
   // Dates are relative to the run so the "next two weeks" window always holds
   // the rows without freezing the clock the page reads.
   const at = (hours: number) =>
@@ -317,52 +339,61 @@ const fake = vi.hoisted(() => {
     return []
   }
 
+  const respond = (body: z.core.util.JSONType, contentRange?: string) => {
+    const headers = new Headers({ 'Content-Type': 'application/json' })
+
+    if (contentRange) headers.set('content-range', contentRange)
+
+    return new Response(JSON.stringify(body), { status: 200, headers })
+  }
+
+  // The one boundary this suite fakes: the same-origin `/api/db` transport.
+  const transport = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const requestUrl = z
+      .union([z.string(), z.instanceof(URL), z.instanceof(Request)])
+      .transform((value) => {
+        if (value instanceof URL) return value.toString()
+
+        if (value instanceof Request) return value.url
+
+        return value
+      })
+      .catch('http://localhost/')
+      .parse(input)
+
+    const url = new URL(requestUrl, 'http://localhost')
+    const path = url.pathname.replace(/^\/api\/db\//, '')
+    console.error('FETCH', init?.method, url.pathname)
+    const headers = new Headers(init?.headers)
+
+    if (headers.get('prefer')?.includes('count=exact')) {
+      const total = await count(path, url.search)
+
+      // PostgREST answers an empty set with `*/0`; a non-empty one names the
+      // single ranged row it returned.
+      return respond([], total === 0 ? '*/0' : `0-0/${total}`)
+    }
+
+    if (init?.method === 'POST')
+      return respond(await rpc(path.replace(/^rpc\//, '')))
+
+    return respond(await list(path, url.search))
+  }
+
+  globalThis.fetch = transport
+
   return { list, count, rpc }
 })
 
-vi.mock('#/lib/notebook-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof notebookData>()
-
-  return { ...actual, notebookDataClient: fake }
-})
-
-vi.mock('#/components/projects/project-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof projectData>()
-
-  return {
-    ...actual,
-    fetchProjectSummaries: async () => [
-      {
-        id: '00000000-0000-4000-8000-000000000320',
-        key: 'aav9-process-transfer',
-        title: 'AAV9 process transfer',
-        status: 'active',
-        displayId: 'PRJ-0217',
-        clientId: null,
-        clientCode: null,
-        clientName: null,
-        modality: 'AAV9',
-        stage: 'Clarification development',
-        leadUserId: 'user-1',
-        leadName: 'Gareth P.',
-        defaultReviewerUserId: null,
-        agreementReference: null,
-        startedOn: '2026-08-03',
-        revision: '3',
-        archivedAt: null,
-        updatedAt: '2026-09-25T08:00:00.000Z',
-        experimentCount: 14,
-      },
-    ],
-  }
-})
-
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time and this suite renders the page component directly, supplying the router context the shell would.
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
 
   return {
     ...actual,
-    createFileRoute: () => (options: object) => ({
+    // The generated route tree and the shell's router context are not built in
+    // a unit test; this factory stands in for them so the page renders here.
+    createFileRoute: () => (options: FileRouteOptions) => ({
       options,
       useSearch: () => ({}),
       useRouteContext: () => ({
@@ -373,7 +404,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
         shellCounts: fixture.shellInbox ? { inbox: fixture.shellInbox } : {},
       }),
     }),
-    redirect: (options: unknown) => options,
+    redirect: (options: { to: string }) => options,
     // The real Link spreads the props Base UI injects (role, class, handlers),
     // so the mock must too: a Button rendered as a Link is a `role="button"`.
     Link: ({
@@ -389,18 +420,20 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
     }) => {
       void params
 
-      const suffix =
-        search && typeof search === 'object'
-          ? '?' +
-            new URLSearchParams(
-              Object.entries(search as Record<string, unknown>).map(
-                ([key, value]) => [key, String(value)],
-              ),
-            ).toString()
-          : ''
+      const values = linkSearch.safeParse(search)
+
+      const suffix = values.success
+        ? '?' +
+          new URLSearchParams(
+            Object.entries(values.data).map(([key, value]) => [
+              key,
+              searchText.parse(value),
+            ]),
+          ).toString()
+        : ''
 
       return (
-        <a href={`${typeof to === 'string' ? to : '#'}${suffix}`} {...rest}>
+        <a href={`${z.string().catch('#').parse(to)}${suffix}`} {...rest}>
           {children}
         </a>
       )
@@ -434,7 +467,13 @@ function renderHome() {
 
 describe('Home landing', () => {
   it('sends a client viewer straight to the portal', async () => {
-    const beforeLoad = Route.options.beforeLoad as (args: unknown) => unknown
+    // SAFETY: the gate reads only `context.auth` and `location`; the router's
+    // full before-load options are not needed to exercise it.
+    const beforeLoad = Route.options.beforeLoad as (args: {
+      context: { auth: { workspace?: { role: string } | null } }
+      location: { href: string }
+    }) => Promise<{ context: object }>
+
     await expect(
       Promise.resolve().then(() =>
         beforeLoad({

@@ -24,10 +24,14 @@ interface MigrationJournal {
   entries: Array<{ when: number; tag: string }>
 }
 
-export function latestMigrationVersion(journal: MigrationJournal): {
+export interface LatestMigrationVersion {
   version: string
   tag: string
-} {
+}
+
+export function latestMigrationVersion(
+  journal: MigrationJournal,
+): LatestMigrationVersion {
   const latest = journal.entries.at(-1)
 
   if (!latest || !Number.isSafeInteger(latest.when) || !latest.tag) {
@@ -53,19 +57,20 @@ export interface ArtifactImageMetadata {
   expectedMigration: string
 }
 
+/** OCI labels from `docker image inspect`; every label value is text. */
+type ImageLabels = Record<string, string>
+
 export function validateArtifactImageMetadata(
-  labels: Record<string, unknown>,
+  labels: ImageLabels,
 ): ArtifactImageMetadata {
   const version = labels['org.opencontainers.image.version']
   const sourceRevision = labels['org.opencontainers.image.revision']
   const expectedMigration = labels['uk.co.sheetbase.expected-migration']
 
   if (
-    typeof version !== 'string' ||
-    version.length === 0 ||
-    typeof sourceRevision !== 'string' ||
-    sourceRevision.length === 0 ||
-    typeof expectedMigration !== 'string' ||
+    !version ||
+    !sourceRevision ||
+    !expectedMigration ||
     !/^\d{13}$/.test(expectedMigration)
   ) {
     throw new Error(

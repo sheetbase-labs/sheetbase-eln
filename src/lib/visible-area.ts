@@ -35,7 +35,12 @@ export function isIos(): boolean {
 }
 
 /** The keyboard's height (0 when closed) and the room its accessory bar takes. */
-export function keyboardInset(): { inset: number; accessory: number } {
+export interface KeyboardInset {
+  inset: number
+  accessory: number
+}
+
+export function keyboardInset(): KeyboardInset {
   const viewport = typeof window === 'undefined' ? null : window.visualViewport
 
   if (!viewport) return { inset: 0, accessory: 0 }
@@ -159,6 +164,7 @@ export function useVisibleArea(active: boolean): VisibleArea | null {
   const [area, setArea] = useState<VisibleArea | null>(null)
   useEffect(() => {
     if (!active) {
+      // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change -- The measurement belongs to the active subscription: deactivating clears it so a later activation never reports an area measured for an earlier keyboard and screen.
       setArea(null)
 
       return
@@ -244,6 +250,20 @@ export function placeBeside(options: {
   return { top, left, maxHeight: room, side }
 }
 
+/** A popup boundary box, in the coordinates `position: fixed` uses. */
+export interface CollisionBoundary {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** Collision props for a Base UI positioner. */
+export interface FloatingBoundary {
+  collisionBoundary?: CollisionBoundary
+  collisionPadding: number
+}
+
 /**
  * Collision props for a Base UI positioner (menus, popovers, tooltips): keep
  * the popup inside the visible area rather than the window, so it flips or
@@ -251,10 +271,7 @@ export function placeBeside(options: {
  * component rendered inside the popup's portal, so it only listens while the
  * popup is open.
  */
-export function useFloatingBoundary(): {
-  collisionBoundary?: { x: number; y: number; width: number; height: number }
-  collisionPadding: number
-} {
+export function useFloatingBoundary(): FloatingBoundary {
   const area = useVisibleArea(true)
 
   if (!area) return { collisionPadding: EDGE_GAP_PX }

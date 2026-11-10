@@ -86,14 +86,18 @@ describe('validateAnalysisBlockPayload', () => {
   })
 
   it('validates the pinned definition inside a frozen payload', () => {
+    // SAFETY: `degree: 99` is deliberately outside the definition contract, so
+    // this fixture is the invalid definition the validator must refuse.
+    const invalidDefinition = {
+      ...DEFINITION,
+      degree: 99,
+    } as AnalysisDefinition
+
     const errors = validateAnalysisBlockPayload({
       ...completePayload(),
       frozen: {
         ...frozen(),
-        definition: {
-          ...DEFINITION,
-          degree: 99,
-        } as unknown as AnalysisDefinition,
+        definition: invalidDefinition,
       },
     })
 
@@ -298,6 +302,7 @@ describe('frozen evidence reproduction', () => {
       },
     ]
 
+    // oxlint-disable-next-line anti-slop/no-chained-type-assertions, anti-slop/require-safety-comment-for-type-assertion -- the double answers only the one RPC this path calls; a whole DataClient would add untested methods to a fixture.
     const client = {
       rpc: async (
         _name: string,
@@ -341,6 +346,7 @@ describe('frozen evidence reproduction', () => {
       values: { [FIELD_TIME]: i, [FIELD_RECOVERY]: i },
     }))
 
+    // oxlint-disable-next-line anti-slop/no-chained-type-assertions, anti-slop/require-safety-comment-for-type-assertion -- the double answers only the one RPC this path calls; a whole DataClient would add untested methods to a fixture.
     const client = {
       rpc: async (
         _name: string,
@@ -373,9 +379,12 @@ describe('merged analysis block: a chart, a statistic or both', () => {
     filters: [],
     transformations: [],
     typeParams: {},
-    display: {},
+    display: {
+      axes: { x: { scale: 'linear' }, y: { scale: 'linear' } },
+      series: [],
+    },
     overlays: { errorBars: null },
-  } as unknown as NonNullable<AnalysisDefinition['chart']>
+  } satisfies NonNullable<AnalysisDefinition['chart']>
 
   const withChart: AnalysisDefinition = { ...DEFINITION, chart: CHART }
 
@@ -386,7 +395,7 @@ describe('merged analysis block: a chart, a statistic or both', () => {
     chart: CHART,
   }
 
-  const payloadWith = (definition: unknown) => ({
+  const payloadWith = <Definition>(definition: Definition) => ({
     title: 'Recovery',
     definitionId: DATASET_ID,
     frozen: { ...frozen(), definition },

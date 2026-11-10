@@ -3,6 +3,18 @@ import { dateTimeFormat } from '#/lib/intl-cache'
 
 const DAY_MS = 86_400_000
 
+const BARE_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * A bare date ("2026-09-30") is already a calendar day; no zone moves it.
+ * `undefined` when the value is not a bare date at all.
+ */
+function bareCalendarDay(value: string): number | undefined {
+  return BARE_DATE.test(value)
+    ? Math.round(Date.parse(value) / DAY_MS)
+    : undefined
+}
+
 /**
  * The calendar day an instant falls on, on the display time zone's clock, as a
  * day number (days since 1970-01-01). Counting days between two of these is
@@ -10,13 +22,13 @@ const DAY_MS = 86_400_000
  * whatever the hour either side. `null` when the value does not parse.
  */
 export function calendarDay(value: string | Date): number | null {
-  // A bare date ("2026-09-30") is already a calendar day; no zone moves it.
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return Math.round(Date.parse(value) / DAY_MS)
+  if (!(value instanceof Date)) {
+    const bare = bareCalendarDay(value)
+
+    if (bare !== undefined) return bare
   }
 
-  const instant =
-    typeof value === 'string' ? Date.parse(value) : value.getTime()
+  const instant = value instanceof Date ? value.getTime() : Date.parse(value)
 
   if (Number.isNaN(instant)) return null
 

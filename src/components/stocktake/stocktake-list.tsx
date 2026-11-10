@@ -54,7 +54,17 @@ const client: DataClient = notebookDataClient
 
 type Filter = 'all' | StocktakeStatus
 
-const FILTERS: Filter[] = ['all', 'open', 'completed', 'cancelled']
+const FILTERS = [
+  'all',
+  'open',
+  'completed',
+  'cancelled',
+] as const satisfies readonly Filter[]
+
+/** True for the tab keys the filter bar offers. */
+function isFilter(value: string): value is Filter {
+  return FILTERS.some((filter) => filter === value)
+}
 
 interface PlaceOption {
   id: string
@@ -63,6 +73,7 @@ interface PlaceOption {
 }
 
 /** Every part of the storage tree a count can cover, that holds at least one box. */
+// react-doctor-disable-next-line react-doctor/only-export-components -- Exported so the storage-tree walk is unit-tested without rendering the list.
 export function placeOptions(tree: StorageTree): PlaceOption[] {
   const hasBox = new Map<string, boolean>()
 
@@ -82,33 +93,34 @@ export function placeOptions(tree: StorageTree): PlaceOption[] {
     return found
   }
 
-  return tree.nodes
-    .filter(
-      (node) =>
-        isStocktakeLevel(node.level) &&
-        !isArchived(tree, node) &&
-        check(node.id),
-    )
-    .map((node) => {
-      const path = nodePath(tree, node).join(' / ')
+  const options: PlaceOption[] = []
 
-      return {
-        id: node.id,
-        level: node.level as StocktakeLevel,
-        label: t('library.stocktake.optionLabel', {
-          path,
-          level: t(`library.stocktake.levels.${node.level as StocktakeLevel}`),
-        }),
-      }
+  for (const node of tree.nodes) {
+    if (!isStocktakeLevel(node.level)) continue
+
+    if (isArchived(tree, node) || !check(node.id)) continue
+    const level = node.level
+    const path = nodePath(tree, node).join(' / ')
+
+    options.push({
+      id: node.id,
+      level,
+      label: t('library.stocktake.optionLabel', {
+        path,
+        level: t(`library.stocktake.levels.${level}`),
+      }),
     })
-    .sort((a, b) =>
-      a.label.localeCompare(b.label, undefined, { numeric: true }),
-    )
+  }
+
+  return options.sort((a, b) =>
+    a.label.localeCompare(b.label, undefined, { numeric: true }),
+  )
 }
 
 interface ItemSummaryWire {
   stocktake_id: string
-  state: string
+  /** The database's `chk_stocktake_items_state` check holds the item state. */
+  state: StocktakeItemState
   resolved_at: string | null
 }
 
@@ -126,10 +138,7 @@ async function fetchSummaries(): Promise<Map<string, StocktakeSummary>> {
 
   for (const row of rows) {
     const list = grouped.get(row.stocktake_id) ?? []
-    list.push({
-      state: row.state as StocktakeItemState,
-      resolvedAt: row.resolved_at,
-    })
+    list.push({ state: row.state, resolvedAt: row.resolved_at })
     grouped.set(row.stocktake_id, list)
   }
 
@@ -183,7 +192,7 @@ export function StartCountDialog({
       onOpenChange(false)
       onStarted(created.id)
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('library.stocktake.couldNotStart'))),
   })
 
@@ -271,10 +280,16 @@ export function StartCountDialog({
   )
 }
 
+/** How one count's outcome reads in the list. */
+interface StocktakeResult {
+  tone: 'ok' | 'warn' | 'none'
+  label: string
+}
+
 function resultOf(
   count: Stocktake,
   summary: StocktakeSummary | undefined,
-): { tone: 'ok' | 'warn' | 'none'; label: string } {
+): StocktakeResult {
   if (count.status !== 'completed' || !summary)
     return { tone: 'none', label: t('library.stocktake.resultNone') }
   const differences = summary.misplaced + summary.unexpected + summary.missing
@@ -409,7 +424,9 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
           variant="segment"
           label={t('library.stocktake.filterLabel')}
           value={filter}
-          onValueChange={(value) => setFilter(value as Filter)}
+          onValueChange={(value) => {
+            if (isFilter(value)) setFilter(value)
+          }}
           items={FILTERS.map((key) => ({
             key,
             label: t(`library.stocktake.filters.${key}`),

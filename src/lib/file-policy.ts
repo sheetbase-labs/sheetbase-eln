@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 /**
  * SCI-003 upload policy (decision 0028). The allowed media types and maximum
  * byte size are enforced at the application boundary (for a useful early
@@ -35,6 +37,15 @@ export function isInlinePreviewableImage(mediaType: string): boolean {
   return mediaType.startsWith('image/') && !mediaType.startsWith('image/tiff')
 }
 
+/** A client metadata member that reads as trimmed text; anything else is absent. */
+const textMember = z.string().catch('')
+
+/** A client metadata member that reads as a whole byte count; anything else is -1. */
+const byteSizeMember = z.number().catch(-1)
+
+/** A client metadata member that reads as trimmed text or stays absent. */
+const textOrNullMember = z.string().nullable().catch(null)
+
 export interface PolicyViolation {
   field: 'mediaType' | 'byteSize' | 'displayName'
   message: string
@@ -55,8 +66,7 @@ export function validateUploadRequest(input: {
   | { ok: false; violations: PolicyViolation[] } {
   const violations: PolicyViolation[] = []
 
-  const displayName =
-    typeof input.displayName === 'string' ? input.displayName.trim() : ''
+  const displayName = textMember.parse(input.displayName).trim()
 
   if (displayName.length === 0 || displayName.length > 255) {
     violations.push({
@@ -65,8 +75,7 @@ export function validateUploadRequest(input: {
     })
   }
 
-  const mediaType =
-    typeof input.mediaType === 'string' ? input.mediaType.trim() : ''
+  const mediaType = textMember.parse(input.mediaType).trim()
 
   if (!isAllowedMediaType(mediaType)) {
     violations.push({
@@ -75,11 +84,8 @@ export function validateUploadRequest(input: {
     })
   }
 
-  let byteSize = -1
-
-  if (typeof input.byteSize === 'number' && Number.isFinite(input.byteSize)) {
-    byteSize = Math.floor(input.byteSize)
-  }
+  const requestedSize = byteSizeMember.parse(input.byteSize)
+  const byteSize = requestedSize < 0 ? -1 : Math.floor(requestedSize)
 
   if (byteSize < 0 || byteSize > FILE_MAX_BYTES) {
     violations.push({
@@ -88,8 +94,7 @@ export function validateUploadRequest(input: {
     })
   }
 
-  const checksum =
-    typeof input.checksum === 'string' ? input.checksum.trim() : null
+  const checksum = textOrNullMember.parse(input.checksum)?.trim() ?? null
 
   if (checksum !== null && !/^[0-9a-f]{64}$/.test(checksum)) {
     violations.push({

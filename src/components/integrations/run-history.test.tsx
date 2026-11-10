@@ -14,19 +14,24 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RunHistory } from './run-history'
 import type { ConnectorRunWire } from '#/lib/connectors/types'
 
-const runs = vi.hoisted(() => ({ current: [] as unknown[] }))
+const runs = vi.hoisted(() => {
+  const current: ConnectorRunWire[] = []
 
+  return { current }
+})
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The component reads connector runs and logs through the shared connector client; the suite drives its own run list through this module boundary.
 vi.mock('#/lib/connectors/client', () => ({
   connectorQueryKeys: {
     runs: (id: string) => ['connector-runs', id],
     runLogs: (id: string) => ['connector-run-logs', id],
   },
-  describeConnectorsError: (error: unknown) =>
-    error instanceof Error ? error.message : 'Unknown error',
+  describeConnectorsError: (error: Error) => error.message,
   listConnectorRuns: async () => runs.current,
   listRunLogs: async () => [],
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The connector client is built from the shared data client at import time; the suite replaces that constructor so no transport is created.
 vi.mock('#/lib/data-client', () => ({
   createDataClient: () => ({}),
 }))

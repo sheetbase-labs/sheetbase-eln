@@ -4,9 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AcceptInvitationSurface, Route } from './accept-invitation'
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route module builds its route object from createFileRoute at import time; the test drives that route's beforeLoad and the surface it returns, which needs the framework's factories replaced.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (options: object) => ({ options }),
-  redirect: (value: unknown) => value,
+  createFileRoute:
+    () =>
+    <TOptions,>(options: TOptions) => ({ options }),
+  redirect: <TValue,>(value: TValue) => value,
   useRouter: () => ({}),
 }))
 
@@ -32,12 +35,15 @@ function surface(
 
 describe('/accept-invitation', () => {
   it('keeps the invitation link through sign-in when signed out', async () => {
-    await expect(
-      Route.options.beforeLoad?.({
-        context: { auth: null },
-        location: { href: '/accept-invitation?token=abc' },
-      } as never),
-    ).rejects.toMatchObject({
+    // SAFETY: this route's beforeLoad reads only `context.auth` and
+    // `location`; the remaining router arguments are supplied by the framework
+    // and are not reachable without rendering the whole router.
+    const routerArgs = {
+      context: { auth: null },
+      location: { href: '/accept-invitation?token=abc' },
+    } as never
+
+    await expect(Route.options.beforeLoad?.(routerArgs)).rejects.toMatchObject({
       to: '/sign-in',
       search: { next: '/accept-invitation?token=abc' },
     })

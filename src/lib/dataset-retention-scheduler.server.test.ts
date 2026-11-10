@@ -22,6 +22,9 @@ vi.hoisted(() => {
 
 function fakeConnection(prunedCount = 0, calls: string[] = []) {
   const conn: RetentionConnection = {
+    // SAFETY: the fake answers every statement with one row carrying `result`,
+    // the only column the sweep reads; `query`'s generic is the caller's row
+    // contract, and no other column is read here.
     query: (async (text: string, values?: unknown[]) => {
       calls.push(text)
       void values
@@ -55,6 +58,8 @@ describe('sweepDatasetRetention', () => {
     const values: unknown[][] = []
 
     const conn: RetentionConnection = {
+      // SAFETY: the fake answers every statement with one row carrying `result`,
+      // the only column the sweep reads.
       query: (async (text: string, params?: unknown[]) => {
         calls.push(text)
         values.push(params ?? [])
@@ -79,6 +84,8 @@ describe('sweepDatasetRetention', () => {
     const values: unknown[][] = []
 
     const conn: RetentionConnection = {
+      // SAFETY: the fake answers every statement with one row carrying `result`,
+      // the only column the sweep reads.
       query: (async (_text: string, params?: unknown[]) => {
         values.push(params ?? [])
 

@@ -15,6 +15,7 @@
  */
 import { createHash, randomUUID } from 'node:crypto'
 import type { QueryResultRow } from 'pg'
+import { z } from 'zod'
 
 import { logger } from '../logger'
 import type { ObjectStorage } from '../file-storage/types'
@@ -136,11 +137,24 @@ function datasetType(logicalType: string): LakeType {
   }
 }
 
+/** One value read from a data view or a dataset page; pg gives dates for timestamptz. */
+type LakeCellValue =
+  | string
+  | number
+  | boolean
+  | Date
+  | null
+  | LakeCellValue[]
+  | { [key: string]: LakeCellValue }
+
+const jsonObject = z.record(z.string(), z.json())
+
 /** Arrays and objects (a field that holds several values) become JSON text. */
-function cell(value: unknown): unknown {
-  if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
+function cell(value: LakeCellValue): string | LakeCellValue {
+  if (value === null) return value
+
+  if (Array.isArray(value) || jsonObject.safeParse(value).success)
     return JSON.stringify(value)
-  }
 
   return value
 }
@@ -367,7 +381,7 @@ async function datasetSources(conn: LakeConnection): Promise<LakeSource[]> {
                 rows: Array<{
                   rowId: string
                   revision: number | string
-                  values: Record<string, unknown>
+                  values: Record<string, LakeCellValue>
                 }>
                 totalCount: number
               }
@@ -454,11 +468,14 @@ async function writeFiles(
   }
 
   for (const chunk of chunks) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Writes stay in order and bounded in memory: each chunk's Parquet file is uploaded before the next is built.
     const parquet = await writeLakeParquet(columns, chunk)
     const name = `ducklake-${randomUUID()}.parquet`
     await deps.storage.putStream(
       lakeFileKey(workspaceId, tableName, name),
-      new Blob([parquet.bytes as unknown as BlobPart]).stream(),
+      // SAFETY: `parquet.bytes` is a plain `Uint8Array` view of a Node buffer; a
+      // Blob part accepts any array buffer view, whatever buffer backs it.
+      new Blob([parquet.bytes as BlobPart]).stream(),
       MAX_FILE_BYTES,
     )
     files.push({
@@ -663,7 +680,7 @@ async function writeSource(
   let byteSize = 0
   let fileCount = 0
   let columns = source.columns
-  let snapshots = knownRow?.snapshots ?? []
+  const snapshots = [...(knownRow?.snapshots ?? [])]
 
   if (source.kind === 'dataset' && source.versions) {
     // Every dataset version is a snapshot of the table, oldest first.
@@ -701,14 +718,11 @@ async function writeSource(
         message: `Dataset version ${version.label}`,
       })
 
-      snapshots = [
-        ...snapshots,
-        {
-          versionId: version.id,
-          label: version.label,
-          snapshotId: committed.snapshotId,
-        },
-      ]
+      snapshots.push({
+        versionId: version.id,
+        label: version.label,
+        snapshotId: committed.snapshotId,
+      })
       snapshotId = committed.snapshotId
       tableId = committed.tableId
       rowCount = committed.rowCount

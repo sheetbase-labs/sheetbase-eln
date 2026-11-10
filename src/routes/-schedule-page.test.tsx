@@ -8,21 +8,33 @@
  * instruments by display id and name.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type * as router from '@tanstack/react-router'
-import type * as notebookData from '#/lib/notebook-data'
-import type * as clockModule from '#/lib/clock'
-
-import { DataClientError } from '#/lib/data-client'
+import type { CalendarBookingWire } from '#/lib/calendar'
 import { Schedule } from './-schedule-page'
 
 const AMBR = '00000000-0000-4000-8000-0000000003e1'
 const PR01 = '00000000-0000-4000-8000-0000000003e0'
 
-const fake = vi.hoisted(() => {
+/**
+ * The `/api/db` boundary and the app's pinned clock. Hoisted so both are in
+ * place before the data client and `#/lib/clock` are first imported.
+ */
+const api = vi.hoisted(() => {
+  const today = new Date().toISOString().slice(0, 10)
+
+  process.env.SHEETBASE_ENV = 'test'
+  process.env.SHEETBASE_NOW = `${today}T10:30:00.000Z`
+
   const instruments = [
     {
       id: '00000000-0000-4000-8000-0000000003e0',
@@ -47,108 +59,146 @@ const fake = vi.hoisted(() => {
     },
   ]
 
+  const bookings: CalendarBookingWire[] = []
+  const rpcs: Array<{ name: string; args: unknown }> = []
+
+  /** A PostgREST error body, when a refusal is tested. */
+  interface Refusal {
+    code: string
+    message: string
+  }
+
+  let edited: CalendarBookingWire | null = null
+  let refusal: Refusal | null = null
+
   const state = {
+    today,
     instruments: [...instruments],
-    bookings: [] as Record<string, unknown>[],
-  }
-
-  const list = async (resource: string) => {
-    switch (resource) {
-      case 'instruments':
-        return state.instruments
-      case 'calendar_bookings':
-        return state.bookings
-      default:
-        return []
-    }
-  }
-
-  return {
-    list,
-    rpc: vi.fn(async (_name?: string, _args?: unknown) => [] as unknown[]),
-    state,
     defaultInstruments: instruments,
-  }
-})
-
-vi.mock('#/lib/notebook-data', async (importOriginal) => ({
-  ...(await importOriginal<typeof notebookData>()),
-  notebookDataClient: fake,
-}))
-
-const clock = vi.hoisted(() => ({ now: null as Date | null }))
-
-vi.mock('#/lib/clock', async (importOriginal) => {
-  const actual = await importOriginal<typeof clockModule>()
-
-  return { ...actual, now: () => clock.now ?? actual.now() }
-})
-
-vi.mock('#/components/ui/sonner', () => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
-}))
-
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof router>()
-
-  return {
-    ...actual,
-    getRouteApi: () => ({
-      useSearch: () => ({}),
-      useRouteContext: () => ({
-        context: {
-          user: { id: 'user-1' },
-          workspace: { id: 'ws-1', name: 'Process Development' },
-        },
-      }),
-    }),
-    redirect: vi.fn(),
-    Link: ({
-      to,
-      children,
-      params,
-      ...rest
-    }: React.ComponentProps<'a'> & {
-      to?: unknown
-      params?: Record<string, string>
-    }) => {
-      const href =
-        typeof to === 'string' && params
-          ? Object.entries(params).reduce(
-              (path, [key, value]) => path.replace(`$${key}`, value),
-              to,
-            )
-          : typeof to === 'string'
-            ? to
-            : '#'
-
-      return (
-        <a href={href} {...rest}>
-          {children}
-        </a>
-      )
+    bookings,
+    rpcs,
+    get edited() {
+      return edited
+    },
+    set edited(row: CalendarBookingWire | null) {
+      edited = row
+    },
+    get cancelError() {
+      return refusal
+    },
+    set cancelError(body: Refusal | null) {
+      refusal = body
     },
   }
+
+  vi.stubGlobal(
+    'fetch',
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input instanceof Request ? input.url : String(input)
+      const request = new Request(new URL(url, 'http://localhost'), init)
+      const { pathname } = new URL(request.url)
+
+      if (pathname.startsWith('/api/db/rpc/')) {
+        const name = pathname.slice('/api/db/rpc/'.length)
+        const args = JSON.parse(await request.text())
+
+        state.rpcs.push({ name, args })
+
+        if (name === 'cancel_booking' && state.cancelError) {
+          return Response.json(state.cancelError, { status: 409 })
+        }
+
+        if (name === 'edit_booking') return Response.json(state.edited)
+
+        return Response.json([])
+      }
+
+      if (pathname === '/api/db/instruments') {
+        return Response.json(state.instruments)
+      }
+
+      if (pathname === '/api/db/calendar_bookings') {
+        return Response.json(state.bookings)
+      }
+
+      return Response.json([])
+    },
+  )
+
+  return state
 })
 
 afterEach(() => {
   cleanup()
-  clock.now = null
-  fake.state.instruments = [...fake.defaultInstruments]
-  fake.state.bookings = []
-  fake.rpc.mockReset()
+  api.instruments = [...api.defaultInstruments]
+  api.bookings = []
+  api.edited = null
+  api.cancelError = null
+  api.rpcs = []
 })
 
 function renderSchedule() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+
+  const root = createRootRoute()
+
+  const route = createRoute({
+    getParentRoute: () => root,
+    path: '/schedule',
+    beforeLoad: () => ({
+      context: {
+        user: { id: 'user-1' },
+        workspace: { id: 'ws-1', name: 'Process Development' },
+      },
+    }),
+    component: () => <Schedule />,
+  })
+
+  const router = createRouter({
+    routeTree: root.addChildren([route]),
+    history: createMemoryHistory({ initialEntries: ['/schedule'] }),
+  })
+
   return render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
-      <Schedule />
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
+}
+
+/** A calendar_bookings row as the PostgREST boundary returns it. */
+function bookingRow(
+  overrides: Partial<CalendarBookingWire>,
+): CalendarBookingWire {
+  const day = api.today
+
+  return {
+    id: 'b-1',
+    workspace_id: 'ws-1',
+    resource_id: PR01,
+    project_id: null,
+    title: 'Overnight digest',
+    status: 'tentative',
+    all_day: false,
+    starts_at: `${day}T19:00:00.000Z`,
+    ends_at: `${day}T20:30:00.000Z`,
+    timezone: 'UTC',
+    location: null,
+    color: null,
+    notes: null,
+    linked_experiment_record_id: null,
+    linked_experiment_identifier: null,
+    linked_experiment_title: null,
+    metadata_version: 1,
+    cancelled_at: null,
+    created_at: `${day}T00:00:00.000Z`,
+    updated_at: `${day}T00:00:00.000Z`,
+    created_by_user_id: null,
+    updated_by_user_id: null,
+    ...overrides,
+  }
 }
 
 describe('ADR-0054 Schedule', () => {
@@ -189,40 +239,9 @@ describe('ADR-0054 Schedule', () => {
   })
 })
 
-/** A calendar_bookings row as the PostgREST boundary returns it. */
-function bookingRow(overrides: Record<string, unknown>) {
-  const day = new Date().toISOString().slice(0, 10)
-
-  return {
-    id: 'b-1',
-    workspace_id: 'ws-1',
-    resource_id: PR01,
-    project_id: null,
-    title: 'Overnight digest',
-    status: 'tentative',
-    all_day: false,
-    starts_at: `${day}T19:00:00.000Z`,
-    ends_at: `${day}T20:30:00.000Z`,
-    timezone: 'UTC',
-    location: null,
-    color: null,
-    notes: null,
-    linked_experiment_record_id: null,
-    linked_experiment_identifier: null,
-    linked_experiment_title: null,
-    metadata_version: 1,
-    cancelled_at: null,
-    created_at: `${day}T00:00:00.000Z`,
-    updated_at: `${day}T00:00:00.000Z`,
-    created_by_user_id: null,
-    updated_by_user_id: null,
-    ...overrides,
-  }
-}
-
 describe('Schedule grid bounds, empty state and phone navigation', () => {
   it('draws a booking outside 08:00–18:00 inside the widened grid', async () => {
-    fake.state.bookings = [bookingRow({})]
+    api.bookings = [bookingRow({})]
     const user = userEvent.setup()
     renderSchedule()
     await user.click(await screen.findByRole('tab', { name: 'Day' }))
@@ -245,7 +264,7 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
   })
 
   it('shows each booking in the week with its times, title and who booked it', async () => {
-    fake.state.bookings = [bookingRow({})]
+    api.bookings = [bookingRow({})]
     renderSchedule()
 
     const grid = await screen.findByRole('region', {
@@ -261,9 +280,8 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
   })
 
   it('marks where today has got to in the day view, and only on today', async () => {
-    const day = new Date().toISOString().slice(0, 10)
-    clock.now = new Date(`${day}T10:30:00.000Z`)
-    fake.state.bookings = [
+    const day = api.today
+    api.bookings = [
       bookingRow({
         starts_at: `${day}T09:00:00.000Z`,
         ends_at: `${day}T11:00:00.000Z`,
@@ -274,9 +292,8 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
     await user.click(await screen.findByRole('tab', { name: 'Day' }))
     const line = await screen.findByTestId('schedule-now')
 
-    const left = Number(
-      /([\d.]+)%/.exec((line.firstChild as HTMLElement).style.left)?.[1],
-    )
+    const marker = line.querySelector('div')
+    const left = Number(/([\d.]+)%/.exec(marker?.style.left ?? '')?.[1])
 
     // 08:00–18:00 window: 10:30 is a quarter of the way along.
     expect(left).toBeCloseTo(25, 0)
@@ -286,7 +303,7 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
   })
 
   it('states that no instruments are configured instead of drawing an empty grid', async () => {
-    fake.state.instruments = []
+    api.instruments = []
     renderSchedule()
 
     expect(await screen.findByText('No instruments configured')).toBeTruthy()
@@ -315,8 +332,7 @@ describe('Schedule booking cancellation', () => {
   const TITLE = '19:00–20:30 · A colleague · Overnight digest'
 
   it('opens a booking and cancels it through the cancel_booking RPC', async () => {
-    fake.state.bookings = [bookingRow({})]
-    fake.rpc.mockResolvedValue([])
+    api.bookings = [bookingRow({})]
     const user = userEvent.setup()
     renderSchedule()
     await user.click(await screen.findByRole('tab', { name: 'Day' }))
@@ -328,27 +344,20 @@ describe('Schedule booking cancellation', () => {
       within(dialog).getByRole('button', { name: 'Cancel booking' }),
     )
 
-    expect(fake.rpc).toHaveBeenCalledWith('cancel_booking', {
-      p_booking_id: 'b-1',
-      p_expected_metadata_version: null,
+    expect(api.rpcs).toContainEqual({
+      name: 'cancel_booking',
+      args: { p_booking_id: 'b-1', p_expected_metadata_version: null },
     })
     // The row is gone once the server accepts the cancellation.
     await vi.waitFor(() => expect(screen.queryByTitle(TITLE)).toBeNull())
   })
 
   it('says why when the server refuses to cancel', async () => {
-    fake.state.bookings = [bookingRow({})]
-    fake.rpc.mockImplementation(async (name?: string) => {
-      if (name === 'cancel_booking') {
-        throw new DataClientError(
-          'SB024',
-          'This booking is already cancelled.',
-          409,
-        )
-      }
-
-      return []
-    })
+    api.bookings = [bookingRow({})]
+    api.cancelError = {
+      code: 'SB024',
+      message: 'This booking is already cancelled.',
+    }
     const user = userEvent.setup()
     renderSchedule()
     await user.click(await screen.findByRole('tab', { name: 'Day' }))
@@ -371,7 +380,7 @@ describe('Schedule booking detail and edit', () => {
   const TITLE = '19:00–20:30 · A colleague · Overnight digest'
 
   it('names the experiment, links it, and edits the booking in place', async () => {
-    fake.state.bookings = [
+    api.bookings = [
       bookingRow({
         linked_experiment_record_id: 'exp-1',
         linked_experiment_identifier: 'EXP-0145',
@@ -379,19 +388,16 @@ describe('Schedule booking detail and edit', () => {
         notes: 'Bring the plate',
       }),
     ]
-    const day = new Date().toISOString().slice(0, 10)
-    fake.rpc.mockResolvedValue(
-      // The RPC answers with the saved booking row.
-      bookingRow({
-        title: 'Overnight digest, later',
-        starts_at: `${day}T21:00:00.000Z`,
-        ends_at: `${day}T22:00:00.000Z`,
-        metadata_version: 2,
-        linked_experiment_record_id: 'exp-1',
-        linked_experiment_identifier: 'EXP-0145',
-        linked_experiment_title: 'Titration',
-      }) as never,
-    )
+    const day = api.today
+    api.edited = bookingRow({
+      title: 'Overnight digest, later',
+      starts_at: `${day}T21:00:00.000Z`,
+      ends_at: `${day}T22:00:00.000Z`,
+      metadata_version: 2,
+      linked_experiment_record_id: 'exp-1',
+      linked_experiment_identifier: 'EXP-0145',
+      linked_experiment_title: 'Titration',
+    })
     const user = userEvent.setup()
     renderSchedule()
     await user.click(await screen.findByRole('tab', { name: 'Day' }))
@@ -415,14 +421,14 @@ describe('Schedule booking detail and edit', () => {
     await user.click(within(edit).getByRole('button', { name: 'Save changes' }))
 
     await vi.waitFor(() =>
-      expect(fake.rpc).toHaveBeenCalledWith(
-        'edit_booking',
-        expect.objectContaining({
+      expect(api.rpcs).toContainEqual({
+        name: 'edit_booking',
+        args: expect.objectContaining({
           p_booking_id: 'b-1',
           p_title: 'Overnight digest, later',
           p_expected_metadata_version: 1,
         }),
-      ),
+      }),
     )
     // The grid shows the saved booking, not the old one.
     await vi.waitFor(() =>

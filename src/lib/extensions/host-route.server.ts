@@ -38,11 +38,23 @@ import { checkAppAction } from './app-actions'
 import { listExtensions } from './client'
 import type { ExtensionWire } from './client'
 import { extensionAuditIdentity } from './contract'
+import type { ExtensionAuditIdentity } from './contract'
 import { parseExtensionManifest } from './manifest'
 import { defaultDeps } from './runtime.server'
 import type { ExtensionRuntimeDeps } from './runtime.server'
 
 const idPattern = /^[a-z][a-z0-9-]{0,48}$/
+
+/** One answer from a tool: the protocol envelope this route reads. */
+const toolResultSchema = z.object({
+  content: z.array(z.object({ text: z.string().optional() })).optional(),
+  isError: z.boolean().optional(),
+  structuredContent: z.unknown().optional(),
+})
+
+type ToolResult = z.infer<typeof toolResultSchema>
+
+const EMPTY_TOOL_RESULT: ToolResult = {}
 
 const bodySchema = z.strictObject({
   extensionKey: z.string().regex(idPattern),
@@ -59,8 +71,9 @@ export interface PluginHostRouteDeps {
   runtime: Pick<ExtensionRuntimeDeps, 'audit'>
 }
 
-const isScope = (value: string): value is Scope =>
-  (VALID_SCOPES as readonly string[]).includes(value)
+const scopeNames = new Set<string>(VALID_SCOPES)
+
+const isScope = (value: string): value is Scope => scopeNames.has(value)
 
 export async function handlePluginHost(
   request: Request,
@@ -133,6 +146,17 @@ export async function handlePluginHost(
   )
 }
 
+/** The change-log payload written for one call into the app. */
+type HostCallAuditPayload = {
+  change: 'used-app'
+  extensionKey: string
+  point: string
+  tool: string
+  writes: boolean
+  ok: boolean
+  error?: string
+} & ExtensionAuditIdentity
+
 export type HostCallOutcome =
   | { ok: true; result: unknown }
   | {
@@ -149,13 +173,11 @@ const fail = (
   code: string,
   message: string,
   summary?: string,
-): HostCallOutcome => ({
-  ok: false,
-  status,
-  code,
-  message,
-  ...(summary ? { summary } : {}),
-})
+): HostCallOutcome => {
+  if (!summary) return { ok: false, status, code, message }
+
+  return { ok: false, status, code, message, summary }
+}
 
 export interface HostCall {
   workspaceId: string
@@ -164,6 +186,7 @@ export interface HostCall {
   install: ExtensionWire
   point: string
   name: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- Host-call arguments are raw untrusted JSON from a plugin; performHostCall's first act is pipelineJsonObjectSchema validation, whose refusal of non-JSON values is tested.
   arguments: Record<string, unknown>
   confirmed: boolean
 }
@@ -198,6 +221,7 @@ export async function performHostCall(
 
   let writes = false
   let label = call.name
+  // oxlint-disable-next-line anti-slop/no-unknown-returns -- A plugin tool answers with its own JSON result, which this route serialises unchanged; the tool, not this route, owns that shape.
   let run: () => Promise<unknown>
 
   if (call.name === LAB_ACT_TOOL_NAME) {
@@ -228,6 +252,8 @@ export async function performHostCall(
       workspaceId: call.workspaceId,
       actor: { kind: 'user', id: call.userId },
       scopes: granted,
+      // SAFETY: `AiFeatureFlagKey` is derived from `AI_FEATURE_FLAG_KEYS`, so mapping
+      // every key to `true` produces exactly `Record<AiFeatureFlagKey, boolean>`.
       flags: Object.fromEntries(
         AI_FEATURE_FLAG_KEYS.map((key) => [key, true]),
       ) as AiFeatureFlags,
@@ -253,11 +279,11 @@ export async function performHostCall(
             : 'The tool did not answer.',
         )
 
-      const result = response.result as {
-        content?: Array<{ text?: string }>
-        isError?: boolean
-        structuredContent?: unknown
-      }
+      const parsedResult = toolResultSchema.safeParse(response.result)
+
+      const result = parsedResult.success
+        ? parsedResult.data
+        : EMPTY_TOOL_RESULT
 
       const text = result.content?.map((part) => part.text ?? '').join('\n')
 
@@ -267,35 +293,39 @@ export async function performHostCall(
         return result.structuredContent
 
       try {
-        return JSON.parse(text ?? 'null') as unknown
+        return JSON.parse(text ?? 'null')
       } catch {
         return text ?? null
       }
     }
   }
 
-  const audit = (ok: boolean, error?: string) =>
-    deps.runtime
+  const audit = (ok: boolean, error?: string) => {
+    const payload: HostCallAuditPayload = {
+      change: 'used-app',
+      extensionKey: call.install.key,
+      point: call.point,
+      tool: label,
+      writes,
+      ok,
+      ...extensionAuditIdentity({
+        extensionId: call.install.id,
+        extensionKey: call.install.key,
+        manifest,
+      }),
+    }
+
+    if (error) payload.error = error.slice(0, 300)
+
+    return deps.runtime
       .audit({
         workspaceId: call.workspaceId,
         actorUserId: call.userId,
         extensionId: call.install.id,
-        payload: {
-          change: 'used-app',
-          extensionKey: call.install.key,
-          point: call.point,
-          tool: label,
-          writes,
-          ok,
-          ...(error ? { error: error.slice(0, 300) } : {}),
-          ...extensionAuditIdentity({
-            extensionId: call.install.id,
-            extensionKey: call.install.key,
-            manifest,
-          }),
-        },
+        payload: { ...payload },
       })
       .catch(() => undefined)
+  }
 
   try {
     const result = await run()

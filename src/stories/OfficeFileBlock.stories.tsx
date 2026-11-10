@@ -85,11 +85,7 @@ const meta = {
   args: { payload, save: async () => ({ ok: true }) },
   decorators: [
     (Story, context) => (
-      <QueryClientProvider
-        client={
-          context.parameters.client as ReturnType<typeof screenQueryClient>
-        }
-      >
+      <QueryClientProvider client={context.parameters.client}>
         <div className="w-[720px] max-w-full">
           <Story />
         </div>

@@ -14,7 +14,8 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
     const path = join(dir, entry)
 
     if (statSync(path).isDirectory()) sourceFiles(path, out)
-    else if (/\.tsx$/.test(path) && !/\.test\.tsx$/.test(path)) out.push(path)
+    else if (path.endsWith('.tsx') && !path.endsWith('.test.tsx'))
+      out.push(path)
   }
 
   return out

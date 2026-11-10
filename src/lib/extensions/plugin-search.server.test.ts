@@ -10,28 +10,56 @@ import { searchWithPlugins } from './plugin-search.server'
 
 const run = vi.hoisted(() => vi.fn())
 
+// A search provider is Python running in the isolated runner process, which a
+// unit test cannot start: this call is the transport seam to that process.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The provider itself runs in the isolated Python runner; substituting this one runtime call is how the suite sees what each provider stage is handed.
 vi.mock('./data-runtime.server', () => ({ runExtensionSearch: run }))
 
-vi.mock('./client', () => ({ listExtensions: async () => [] }))
-
-const provider = vi.hoisted(() => ({
-  value: {
-    extensionKey: 'chemistry',
-    extensionName: 'Chemistry',
-    id: 'structures',
-    declaration: {
-      title: 'Structure search',
-      types: ['record'],
-      indexed: true,
+/** The install the fake database answers with: one chemistry search provider. */
+const install = {
+  id: 'ext-1',
+  workspace_id: 'w',
+  key: 'chemistry',
+  name: 'Chemistry',
+  version: '1.0.0',
+  source: 'https://extensions.example.com/chemistry.tgz',
+  manifest: {
+    id: 'acme.chemistry',
+    name: 'Chemistry',
+    version: '1.0.0',
+    source: 'https://extensions.example.com/chemistry.tgz',
+    capabilities: [],
+    scopes: ['schema:read'],
+    contributions: {
+      'search-providers': [
+        {
+          id: 'structures',
+          title: 'Structure search',
+          description: 'Find records by their structure',
+          types: ['record'],
+          runner: { kind: 'python', entry: 'main:search' },
+          indexed: true,
+        },
+      ],
     },
   },
-}))
+  status: 'enabled',
+  disabled_points: [],
+  credential_id: null,
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+}
 
-vi.mock('./runner-points', () => ({
-  resolveRunnerPoints: () => ({
-    data: { 'search-providers': [provider.value] },
-  }),
-}))
+/** What the runtime was asked for at one stage, as this suite inspects it. */
+interface SearchCall {
+  stage?: string
+  documents: Array<{ id: string }>
+}
+
+/** The provider this install declares, as the manifest holds it. */
+function provider() {
+  return install.manifest.contributions['search-providers'][0]
+}
 
 const row = (id: string) => ({
   object_type: 'record',
@@ -46,26 +74,29 @@ const row = (id: string) => ({
 })
 
 function client() {
-  const list = vi.fn(async (_table: string, query: string) =>
-    query.includes('object_id=in.')
+  const list = vi.fn(async (table: string, query: string) => {
+    if (table === 'extensions') return [install]
+
+    return query.includes('object_id=in.')
       ? [row('a'), row('b')]
-      : [row('a'), row('b'), row('c')],
-  )
+      : [row('a'), row('b'), row('c')]
+  })
 
   const rpc = vi.fn(async () => [
     { record_id: 'a', entry_key: 'main', score: 0.9, snippet: null },
     { record_id: 'b', entry_key: 'main', score: 0.8, snippet: null },
   ])
 
-  return { list, rpc } as unknown as DataClient & {
-    list: ReturnType<typeof vi.fn>
-    rpc: ReturnType<typeof vi.fn>
-  }
+  const fake = { list, rpc }
+
+  // SAFETY: searchWithPlugins reads installs and documents through `list` and
+  // ranks through `rpc`; no other data-client method is reached.
+  return fake as typeof fake & DataClient
 }
 
 beforeEach(() => {
   run.mockReset()
-  provider.value.declaration.indexed = true
+  provider().indexed = true
 })
 
 describe('searchWithPlugins with an indexed provider', () => {
@@ -99,10 +130,7 @@ describe('searchWithPlugins with an indexed provider', () => {
       expect.objectContaining({ p_query: 'p1 p2', p_limit: 700 }),
     )
 
-    const second = run.mock.calls[1][0] as {
-      stage: string
-      documents: Array<{ id: string }>
-    }
+    const second: SearchCall = run.mock.calls[1][0]
 
     expect(second.stage).toBe('rank')
     expect(second.documents.map((d) => d.id)).toEqual(['a', 'b'])
@@ -119,14 +147,16 @@ describe('searchWithPlugins with an indexed provider', () => {
     })
     expect(
       c.list.mock.calls.filter(
-        (call) => !String(call[1]).includes('object_id=in.'),
+        ([table, query]) =>
+          table === 'search_documents' &&
+          !String(query).includes('object_id=in.'),
       ),
     ).toHaveLength(1)
     expect(run).toHaveBeenCalledTimes(1)
   })
 
   it('leaves an ordinary provider as it was: every document, one call', async () => {
-    provider.value.declaration.indexed = false
+    provider().indexed = false
     run.mockResolvedValueOnce({ hits: [], nearest: null })
     await searchWithPlugins(client(), {
       workspaceId: 'w',
@@ -134,10 +164,7 @@ describe('searchWithPlugins with an indexed provider', () => {
       query: 'x',
     })
 
-    const call = run.mock.calls[0][0] as {
-      documents: unknown[]
-      stage?: string
-    }
+    const call: SearchCall = run.mock.calls[0][0]
 
     expect(call.documents).toHaveLength(3)
     expect(call.stage).toBeUndefined()

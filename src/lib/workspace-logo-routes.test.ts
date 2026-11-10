@@ -1,6 +1,15 @@
+// @vitest-environment node
+/**
+ * The lab logo's byte routes: what they sniff from the bytes, what key they
+ * store under, and which requests they refuse.
+ *
+ * The routes and the auth/error helpers are the real ones. Only the two seams
+ * the routes already take are supplied: the session deps and the object store.
+ */
 import { describe, expect, it, vi } from 'vitest'
 
 import type { ObjectStorage } from '#/lib/file-storage'
+import type { SessionAuthDeps } from '#/lib/request-auth'
 
 import {
   LOGO_MAX_BYTES,
@@ -10,6 +19,14 @@ import {
   sniffLogoType,
 } from './workspace-logo-routes'
 
+vi.hoisted(() => {
+  process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test'
+  process.env.FORMULA_DATABASE_URL =
+    'postgresql://test:test@localhost:5432/test'
+  process.env.BETTER_AUTH_SECRET = 'test-secret-at-least-thirty-two-characters'
+  process.env.PGRST_JWT_SECRET = 'test-jwt-secret-at-least-thirty-two-chars'
+})
+
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0])
 const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0])
 const WEBP = new TextEncoder().encode('RIFF\0\0\0\0WEBPVP8 ')
@@ -18,50 +35,83 @@ const SVG = new TextEncoder().encode(
   '<svg xmlns="http://www.w3.org/2000/svg"/>',
 )
 
-// The request helpers reach for the database at import; the route logic under
-// test only needs to know whether there is a session.
-vi.mock('#/lib/request-auth', () => ({
-  resolveSessionAuth: (_headers: Headers, deps: { signedIn: boolean }) =>
-    Promise.resolve(
-      deps.signedIn
-        ? {
-            ok: true,
-            context: {
-              userId: 'u1',
-              workspaceId: 'w1',
-              sessionId: 's1',
-              token: 'token',
-            },
-          }
-        : {
-            ok: false,
-            status: 401,
-            code: 'unauthenticated',
-            message: 'Sign in.',
+/** A signed-in session in workspace `w1`, or nobody signed in. */
+function authDeps(signedIn: boolean): SessionAuthDeps {
+  return {
+    getSession: async () =>
+      signedIn ? { user: { id: 'u1' }, session: { id: 's1' } } : null,
+    getWorkspaceForUser: async () => ({ id: 'w1' }),
+    mintToken: async () => 'token',
+  }
+}
+
+const signedIn = authDeps(true)
+const signedOut = authDeps(false)
+
+/** An in-memory object store: the routes' storage seam, with real behaviour. */
+function memoryStorage(): ObjectStorage {
+  const objects = new Map<string, Uint8Array>()
+
+  return {
+    putStream: async (storageKey, body) => {
+      const reader = body.getReader()
+      const parts: Uint8Array[] = []
+      let byteSize = 0
+
+      for (;;) {
+        const { done, value } = await reader.read()
+
+        if (done) break
+        parts.push(value)
+        byteSize += value.byteLength
+      }
+
+      const joined = new Uint8Array(byteSize)
+      let offset = 0
+
+      for (const part of parts) {
+        joined.set(part, offset)
+        offset += part.byteLength
+      }
+
+      objects.set(storageKey, joined)
+
+      return { byteSize: BigInt(byteSize), checksum: '' }
+    },
+    getStream: async (storageKey) => {
+      const bytes = objects.get(storageKey)
+
+      if (!bytes) throw new Error(`No object at ${storageKey}.`)
+
+      return {
+        stream: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(bytes)
+            controller.close()
           },
-    ),
-  postgrestRpc: () => Promise.resolve({ status: 200, body: null }),
-  requestErrorResponse: (status: number, code: string, message: string) =>
-    new Response(JSON.stringify({ code, message }), { status }),
-}))
+        }),
+        byteSize: bytes.byteLength,
+      }
+    },
+    head: async (storageKey) => {
+      const bytes = objects.get(storageKey)
 
-vi.mock('#/lib/logger', () => ({
-  logger: { warn: () => undefined, info: () => undefined },
-}))
+      return bytes ? { byteSize: bytes.byteLength } : null
+    },
+    delete: async (storageKey) => {
+      objects.delete(storageKey)
+    },
+  }
+}
 
-const signedIn = { signedIn: true } as never
-const signedOut = { signedIn: false } as never
+const storage = memoryStorage()
 
-const storage = {
-  head: () => Promise.resolve(null),
-  delete: () => Promise.resolve(),
-} as unknown as ObjectStorage
-
-const put = (body: Uint8Array) =>
-  new Request('http://app/api/workspace-logo', {
+function put(body: Uint8Array) {
+  return new Request('http://app/api/workspace-logo', {
     method: 'PUT',
-    body: body as BodyInit,
+    body: body.slice(),
   })
+}
 
 describe('sniffLogoType', () => {
   it('reads PNG and JPEG from the bytes', () => {

@@ -48,30 +48,30 @@ interface ParsedBinding {
  * translate both ways, so `'space'` matches `event.key === ' '` and formats as
  * the design's `Space`.
  */
-const KEY_ALIASES: Record<string, string> = {
-  space: ' ',
-  spacebar: ' ',
-  esc: 'escape',
-  up: 'arrowup',
-  down: 'arrowdown',
-  left: 'arrowleft',
-  right: 'arrowright',
-}
+const KEY_ALIASES = new Map([
+  ['space', ' '],
+  ['spacebar', ' '],
+  ['esc', 'escape'],
+  ['up', 'arrowup'],
+  ['down', 'arrowdown'],
+  ['left', 'arrowleft'],
+  ['right', 'arrowright'],
+])
 
-const SHIFTED_KEYS: Record<string, string | undefined> = { '\\': '|' }
+const SHIFTED_KEYS = new Map([['\\', '|']])
 
-const KEY_LABELS: Record<string, string | undefined> = {
-  ' ': 'Space',
-  escape: 'Esc',
-  enter: '↵',
-  tab: 'Tab',
-  arrowup: '↑',
-  arrowdown: '↓',
-  arrowleft: '←',
-  arrowright: '→',
-  backspace: '⌫',
-  delete: 'Del',
-}
+const KEY_LABELS = new Map([
+  [' ', 'Space'],
+  ['escape', 'Esc'],
+  ['enter', '↵'],
+  ['tab', 'Tab'],
+  ['arrowup', '↑'],
+  ['arrowdown', '↓'],
+  ['arrowleft', '←'],
+  ['arrowright', '→'],
+  ['backspace', '⌫'],
+  ['delete', 'Del'],
+])
 
 export function currentPlatform(): Platform {
   if (typeof navigator === 'undefined') return 'other'
@@ -87,7 +87,7 @@ export function parseBinding(
 ): ParsedBinding {
   const parts = binding.split('+')
   const rawKey = parts.pop() ?? ''
-  const key = KEY_ALIASES[rawKey.toLowerCase()] ?? rawKey
+  const key = KEY_ALIASES.get(rawKey.toLowerCase()) ?? rawKey
 
   const parsed: ParsedBinding = {
     key,
@@ -127,7 +127,7 @@ export function bindingMatches(
   const keyMatches =
     event.key.toLowerCase() === parsed.key.toLowerCase() ||
     // Shift turns `\\` into `|` on most layouts, so ⌘⇧\\ arrives as `|`.
-    (parsed.shift && SHIFTED_KEYS[parsed.key] === event.key)
+    (parsed.shift && SHIFTED_KEYS.get(parsed.key) === event.key)
 
   return (
     keyMatches &&
@@ -165,8 +165,8 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 
   if (tag === 'textarea' || tag === 'select') return true
 
-  if (tag === 'input') {
-    const type = (target as HTMLInputElement).type
+  if (target instanceof HTMLInputElement) {
+    const type = target.type
 
     return !['button', 'submit', 'reset', 'checkbox', 'radio'].includes(type)
   }
@@ -193,7 +193,7 @@ export function formatShortcut(binding: string, platform: Platform): string {
   if (parsed.alt) parts.push(platform === 'mac' ? '⌥' : 'Alt')
 
   if (parsed.shift) parts.push(platform === 'mac' ? '⇧' : 'Shift')
-  const label = KEY_LABELS[parsed.key]
+  const label = KEY_LABELS.get(parsed.key)
   const key = label ?? (parsed.key === '\\' ? '\\' : parsed.key.toUpperCase())
   parts.push(key)
 

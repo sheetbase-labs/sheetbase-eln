@@ -1,4 +1,9 @@
+import { z } from 'zod'
+
 import type { RegistryEntry, RegistryModel } from '#/lib/bio-registry'
+
+/** A custom field value that reads as words: the stored JSON string or number. */
+const readableScalar = z.union([z.string(), z.number()])
 
 export function entryStatus(entry: RegistryEntry): 'active' | 'retired' {
   return entry.archived_at ? 'retired' : 'active'
@@ -11,11 +16,11 @@ function readableValues(
 ): string[] {
   return Object.entries(entry.custom_fields ?? {})
     .filter(([key]) => key !== model?.registry_sequence_field)
-    .map(([, value]) =>
-      typeof value === 'string' || typeof value === 'number'
-        ? String(value).trim()
-        : '',
-    )
+    .map(([, value]) => {
+      const scalar = readableScalar.safeParse(value)
+
+      return scalar.success ? String(scalar.data).trim() : ''
+    })
     .filter(
       (value) =>
         value !== '' &&

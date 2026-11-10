@@ -103,7 +103,9 @@ export interface ReadSequence {
   name: string
   fingerprint: string
   length: number
-  shape: string
+  // The sequence's topology, named `shape` for the record field it fills and the `{shape}` copy placeholder.
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names
+  shape: 'circular' | 'linear'
   molecule: 'dna' | 'rna' | 'protein'
 }
 
@@ -135,6 +137,7 @@ export function SequenceReader({
         name: first.name,
         fingerprint: info.fingerprint,
         length: info.length,
+        // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- The record field this fills and the copy placeholder both call the topology `shape`.
         shape: info.topology === 'circular' ? 'circular' : 'linear',
         molecule: info.molecule,
       })
@@ -162,6 +165,7 @@ export function SequenceReader({
           ref={fileInput}
           type="file"
           accept={SEQUENCE_ACCEPT}
+          aria-label={t('registry.form.chooseSequence')}
           className="sr-only"
           tabIndex={-1}
           onChange={(e) => void choose(e.target.files?.[0])}
@@ -183,7 +187,8 @@ export function SequenceReader({
                 length: t(`sequences.summary.length.${value.molecule}`, {
                   count: value.length,
                 }),
-                shape: t(`sequences.summary.${value.shape as 'circular'}`),
+                // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- The message's placeholder is `{shape}`; it is the sequence topology.
+                shape: t(`sequences.summary.${value.shape}`),
               })}
             </span>
             <Button

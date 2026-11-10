@@ -171,10 +171,9 @@ export function startTimestampScheduler(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
 
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+  if (Object.hasOwn(globalThis, startedGlobalKey)) return
+  Object.assign(globalThis, { [startedGlobalKey]: true })
 
   const deps = options.deps ?? { connect: defaultConnect }
 
@@ -213,6 +212,5 @@ export function stopTimestampScheduler(): void {
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null
-  const g = globalThis as unknown as Record<string, unknown>
-  delete g[startedGlobalKey]
+  Reflect.deleteProperty(globalThis, startedGlobalKey)
 }

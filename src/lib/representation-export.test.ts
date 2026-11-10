@@ -264,9 +264,13 @@ describe('provenance-stamped figure export', () => {
   })
 
   it('resolves presets into figure settings without a new engine', () => {
-    for (const preset of Object.keys(EXPORT_PRESETS)) {
-      const settings = presetFigureExport(preset as keyof typeof EXPORT_PRESETS)
-      const dims = EXPORT_PRESETS[preset as keyof typeof EXPORT_PRESETS]
+    // SAFETY: `Object.keys` returns exactly `EXPORT_PRESETS`' own keys, so each
+    // iteration passes a real preset key to both lookups.
+    for (const preset of Object.keys(EXPORT_PRESETS) as Array<
+      keyof typeof EXPORT_PRESETS
+    >) {
+      const settings = presetFigureExport(preset)
+      const dims = EXPORT_PRESETS[preset]
       expect(settings.width).toBe(dims.width)
       expect(settings.height).toBe(dims.height)
       expect(settings.scale).toBe(dims.scale)
@@ -704,7 +708,7 @@ describe('representation metadata surface', () => {
 
     const blocksRow = contract
       .split('\n')
-      .find((line) => /^\| `blocks`/.test(line))
+      .find((line) => line.startsWith('| `blocks`'))
 
     expect(blocksRow, 'blocks must stay on the public contract').toBeTruthy()
     expect(blocksRow).toMatch(/projects:read/)

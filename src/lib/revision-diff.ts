@@ -1,4 +1,20 @@
+import { z } from 'zod'
+
 import type { FrozenSheetEvidence } from './sheet-evidence'
+
+/** A stored JSON object: what a frozen sheet keeps its fields, values and calculations as. */
+const jsonObjectSchema = z.record(z.string(), z.json())
+
+/** Every stored object in a JSON array, keeping the order the sheet wrote. */
+function storedObjects(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) return []
+
+  return value.flatMap((entry) => {
+    const parsed = jsonObjectSchema.safeParse(entry)
+
+    return parsed.success ? [parsed.data] : []
+  })
+}
 
 export type RevisionChangeKind = 'added' | 'removed' | 'modified' | 'moved'
 
@@ -964,13 +980,11 @@ function sheetTables(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
       }
     }
 
-    const fields = Array.isArray(sheet.instanceState.localFields)
-      ? sheet.instanceState.localFields.filter(isEntity)
-      : []
-
-    const values = isEntity(sheet.instanceState.localValues)
-      ? sheet.instanceState.localValues
-      : {}
+    const fields = storedObjects(sheet.instanceState.localFields)
+    const storedValues = jsonObjectSchema.safeParse(
+      sheet.instanceState.localValues,
+    )
+    const values = storedValues.success ? storedValues.data : {}
 
     return {
       id: sheet.blockId,
@@ -995,7 +1009,7 @@ function sheetFormulas(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
       sheet.composedGrid?.calculations ??
       sheet.instanceState.instanceCalculations
 
-    const calculations = Array.isArray(frozen) ? frozen.filter(isEntity) : []
+    const calculations = storedObjects(frozen)
 
     return [...byIdentity(calculations)].map(([id, calculation]) => ({
       ...calculation,

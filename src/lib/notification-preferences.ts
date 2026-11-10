@@ -341,9 +341,14 @@ export type NotificationEventType = (typeof NOTIFICATION_EVENTS)[number]['key']
 export const NOTIFICATION_EVENT_TYPES: readonly NotificationEventType[] =
   NOTIFICATION_EVENTS.map((event) => event.key)
 
-export const NOTIFICATION_EVENT_LABELS = Object.fromEntries(
-  NOTIFICATION_EVENTS.map((event) => [event.key, event.label]),
-) as Record<NotificationEventType, string>
+const eventLabels = new Map<NotificationEventType, string>()
+
+for (const event of NOTIFICATION_EVENTS) eventLabels.set(event.key, event.label)
+
+export const NOTIFICATION_EVENT_LABELS: Record<NotificationEventType, string> =
+  // SAFETY: NOTIFICATION_EVENTS declares one entry per NotificationEventType, so
+  // the map holds every key of the union once.
+  Object.fromEntries(eventLabels) as Record<NotificationEventType, string>
 
 const eventDefinition = (
   eventType: NotificationEventType,
@@ -384,7 +389,7 @@ export const notificationPreferencesQueryKeys = {
 }
 
 const isEventType = (value: string): value is NotificationEventType =>
-  (NOTIFICATION_EVENT_TYPES as readonly string[]).includes(value)
+  NOTIFICATION_EVENT_TYPES.some((eventType) => eventType === value)
 
 /** The default when a user has no saved row: in-app on, email as the event says. */
 export function defaultPreference(
@@ -411,23 +416,22 @@ export async function fetchNotificationPreferences(
     '?select=event_type,in_app,email,digest,push',
   )
 
-  const saved = new Map(
-    rows
-      .filter((row) => isEventType(row.event_type))
-      .map((row) => [
-        row.event_type as NotificationEventType,
-        {
-          eventType: row.event_type as NotificationEventType,
-          inApp: row.in_app,
-          email: row.email,
-          digest: row.digest,
-          push:
-            row.push ??
-            eventDefinition(row.event_type as NotificationEventType)
-              .defaultPush,
-        },
-      ]),
-  )
+  const saved = new Map<NotificationEventType, NotificationPreference>()
+
+  for (const row of rows) {
+    // A row for an event this build does not know is not this build's to show.
+    if (!isEventType(row.event_type)) continue
+
+    const eventType = row.event_type
+
+    saved.set(eventType, {
+      eventType,
+      inApp: row.in_app,
+      email: row.email,
+      digest: row.digest,
+      push: row.push ?? eventDefinition(eventType).defaultPush,
+    })
+  }
 
   return NOTIFICATION_EVENT_TYPES.map(
     (eventType) => saved.get(eventType) ?? defaultPreference(eventType),

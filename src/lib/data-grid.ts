@@ -3,6 +3,9 @@ import { dateTimeFormat } from './intl-cache'
 
 export type DataGridScalar = string | number | boolean
 
+/** What one grid cell holds, as read from a row: a JSON scalar or its parsed date. */
+export type DataGridValue = DataGridScalar | Date | null | undefined
+
 export type DataGridFilterOperator =
   | 'eq'
   | 'contains'
@@ -31,13 +34,13 @@ export type DataGridValueFormat =
 
 /** Sheetbase-owned formatting available to every shared data grid. */
 export function formatDataGridValue(
-  value: unknown,
+  value: DataGridValue,
   format: DataGridValueFormat = { kind: 'text' },
 ): string {
   if (value === null || value === undefined || value === '') return '—'
 
   if (format.kind === 'scientific') {
-    const numeric = typeof value === 'number' ? value : Number(value)
+    const numeric = Number(value)
 
     const rendered = Number.isFinite(numeric)
       ? formatCount(numeric)

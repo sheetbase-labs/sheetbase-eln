@@ -8,8 +8,13 @@ import { fetchRecord } from './notebook-data'
 import { insertBlock } from './notebook-mutations'
 import { isDuplicateLinkError } from './scientific-records'
 
+/** Section path segments mapped to the kind of object each one holds. */
+interface SectionKinds {
+  [section: string]: string
+}
+
 /** The part of the app a link points into, and the kind of object it holds. */
-const SECTIONS: Record<string, string> = {
+const SECTIONS: SectionKinds = {
   experiments: 'experiment',
   samples: 'sample',
   materials: 'material',

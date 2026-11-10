@@ -20,7 +20,6 @@ function fixture(
 ): NotebookRecord {
   return {
     id: `00000000-0000-4000-8000-0000000000${identifier.slice(-3)}`,
-    workspaceId: '00000000-0000-4000-8000-000000000000',
     projectId: null,
     folderId: null,
     kind: 'protocol_template',
@@ -39,7 +38,7 @@ function fixture(
     lockedAt: null,
     lockedByRevisionId: null,
     properties: {},
-  } as NotebookRecord
+  }
 }
 
 const ROWS: NotebookRecord[] = [

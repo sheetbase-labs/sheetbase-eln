@@ -11,11 +11,11 @@ import { CollabProvider, colorForUser } from './provider'
 const ROOM =
   'workspace:11111111-1111-4111-8111-111111111111:record:22222222-2222-4222-8222-222222222222'
 
-const people: Record<string, Authorization> = {
-  ada: { ok: true, user: { id: 'u-ada', name: 'Ada' }, canWrite: true },
-  bo: { ok: true, user: { id: 'u-bo', name: 'Bo' }, canWrite: true },
-  vic: { ok: true, user: { id: 'u-vic', name: 'Vic' }, canWrite: false },
-}
+const people = new Map<string, Authorization>([
+  ['ada', { ok: true, user: { id: 'u-ada', name: 'Ada' }, canWrite: true }],
+  ['bo', { ok: true, user: { id: 'u-bo', name: 'Bo' }, canWrite: true }],
+  ['vic', { ok: true, user: { id: 'u-vic', name: 'Vic' }, canWrite: false }],
+])
 
 let server: Server
 let collab: ReturnType<typeof createCollabServer>
@@ -26,6 +26,7 @@ const open: CollabProvider[] = []
 class PersonSocket extends WebSocket {
   static who = 'ada'
   constructor(url: string) {
+    // SAFETY: Node's WebSocket takes undici ClientOptions (including `headers`) as its second argument; the DOM declaration only names subprotocols.
     super(url, { headers: { cookie: PersonSocket.who } } as never)
   }
 }
@@ -33,7 +34,9 @@ class PersonSocket extends WebSocket {
 function join(who: string): CollabProvider {
   PersonSocket.who = who
   const original = globalThis.WebSocket
-  globalThis.WebSocket = PersonSocket as unknown as typeof WebSocket
+
+  // SAFETY: PersonSocket extends WebSocket and only adds the cookie header its constructor sends, so it satisfies the global constructor's contract for the one-argument call the provider makes.
+  globalThis.WebSocket = PersonSocket as typeof WebSocket
 
   const provider = new CollabProvider(
     `ws://127.0.0.1:${port}/api/collaboration/ws?room=${encodeURIComponent(ROOM)}`,
@@ -57,13 +60,14 @@ async function until(check: () => boolean, ms = 3000) {
 beforeEach(async () => {
   collab = createCollabServer({
     authorize: async (request) =>
-      people[String(request.headers.cookie)] ?? { ok: false, status: 401 },
+      people.get(String(request.headers.cookie)) ?? { ok: false, status: 401 },
   })
   server = createServer()
   server.on('upgrade', (request, socket, head) => {
     collab.handleUpgrade(request, socket, head)
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  // SAFETY: the listen callback resolves only after a bound TCP socket exists, and a TCP server's address is its AddressInfo.
   port = (server.address() as AddressInfo).port
 })
 
@@ -89,7 +93,7 @@ describe('CollabProvider', () => {
       () => ada.synced && bo.synced && !!ada.identity && !!bo.identity,
     )
     ada.doc.getText('t').insert(0, 'shared')
-    await until(() => bo.doc.getText('t').toString() === 'shared')
+    await until(() => bo.doc.getText('t').toJSON() === 'shared')
     ada.setPresence({ activeBlockId: 'b1', mode: 'editing' })
     await until(() =>
       [...bo.awareness.getStates().values()].some(

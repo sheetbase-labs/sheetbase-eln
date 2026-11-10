@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import {
   helpArticles,
@@ -27,10 +28,13 @@ import { rich, t } from '#/copy'
  * Help centre (redesign of the legacy /help). `?q=` searches the help
  * articles; with no match it offers support.
  */
+/** `?q=` is the only search the help centre carries; anything else is dropped. */
+const helpSearchSchema = z.object({
+  q: z.string().optional().catch(undefined),
+})
+
 export const Route = createFileRoute('/help/')({
-  validateSearch: (search: Record<string, unknown>): { q?: string } => ({
-    q: typeof search.q === 'string' ? search.q : undefined,
-  }),
+  validateSearch: (search): { q?: string } => helpSearchSchema.parse(search),
   component: HelpCentre,
 })
 
@@ -318,69 +322,7 @@ function HelpCentre() {
             </p>
           </Section>
 
-          <Section
-            title={
-              <span id="whats-new">{t('settings.help.index.whatNew')}</span>
-            }
-          >
-            {RELEASE_NOTES.map((r, i) => (
-              <article
-                key={r.version}
-                className={cn(
-                  'flex flex-col gap-2',
-                  i > 0 && 'border-t border-border-subtle pt-3',
-                )}
-              >
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <h3 className="font-heading text-[14px] font-semibold">
-                    {t('settings.help.index.sheetbase', { version: r.version })}
-                  </h3>
-                  <span className="text-label text-fg-muted">{r.date}</span>
-                  <span className="text-label">
-                    <Status tone={r.validation.tone}>
-                      {r.validation.label}
-                    </Status>
-                  </span>
-                  <span className="mono text-[11px] text-fg-muted">
-                    {r.changeControl}
-                  </span>
-                  {help?.release.version === r.version ? (
-                    <span className="text-label text-fg-muted">
-                      {t('settings.help.index.running')}
-                    </span>
-                  ) : null}
-                </div>
-                <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-                  {r.items.map((it) => (
-                    <li
-                      key={it.text}
-                      className="grid grid-cols-[64px_1fr] items-baseline gap-2 text-body leading-5"
-                    >
-                      <span>
-                        <Badge
-                          variant={
-                            it.kind === 'New'
-                              ? 'add'
-                              : it.kind === 'Changed'
-                                ? 'chg'
-                                : 'kind'
-                          }
-                          className={
-                            it.kind === 'Fixed'
-                              ? 'font-sans text-[11px] tracking-normal'
-                              : undefined
-                          }
-                        >
-                          {it.kind}
-                        </Badge>
-                      </span>
-                      <span>{it.text}</span>
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </Section>
+          <ReleaseNotes />
 
           <SupportSection />
         </div>
@@ -405,6 +347,76 @@ function HelpCentre() {
         </aside>
       </div>
     </div>
+  )
+}
+
+/**
+ * The release notes the help centre lists: each version's validation state and
+ * change-control reference, with the running version marked.
+ */
+function ReleaseNotes() {
+  const help = useHelp()
+
+  return (
+    <Section
+      title={<span id="whats-new">{t('settings.help.index.whatNew')}</span>}
+    >
+      {RELEASE_NOTES.map((r, i) => (
+        <article
+          key={r.version}
+          className={cn(
+            'flex flex-col gap-2',
+            i > 0 && 'border-t border-border-subtle pt-3',
+          )}
+        >
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h3 className="font-heading text-[14px] font-semibold">
+              {t('settings.help.index.sheetbase', { version: r.version })}
+            </h3>
+            <span className="text-label text-fg-muted">{r.date}</span>
+            <span className="text-label">
+              <Status tone={r.validation.tone}>{r.validation.label}</Status>
+            </span>
+            <span className="mono text-[11px] text-fg-muted">
+              {r.changeControl}
+            </span>
+            {help?.release.version === r.version ? (
+              <span className="text-label text-fg-muted">
+                {t('settings.help.index.running')}
+              </span>
+            ) : null}
+          </div>
+          <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+            {r.items.map((it) => (
+              <li
+                key={it.text}
+                className="grid grid-cols-[64px_1fr] items-baseline gap-2 text-body leading-5"
+              >
+                <span>
+                  <Badge
+                    variant={
+                      it.kind === 'New'
+                        ? 'add'
+                        : it.kind === 'Changed'
+                          ? 'chg'
+                          : 'kind'
+                    }
+                    className={
+                      it.kind === 'Fixed'
+                        ? 'font-sans text-[11px] tracking-normal'
+                        : undefined
+                    }
+                  >
+                    {it.kind}
+                  </Badge>
+                </span>
+                <span>{it.text}</span>
+              </li>
+            ))}
+          </ul>
+        </article>
+      ))}
+    </Section>
   )
 }
 

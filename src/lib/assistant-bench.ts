@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { ModelFieldRecordValues } from './model-fields'
 
 /**
  * Everyday bench jobs from the assistant: order a reagent, log samples, use,
@@ -434,14 +435,14 @@ export type BenchAction =
       projectId: string
       modelKey: string
       title: string
-      customFields: Record<string, unknown>
+      customFields: ModelFieldRecordValues['customFields']
     }
   | {
       kind: 'request.send'
       projectId: string | null
       modelKey: string
       title: string
-      customFields: Record<string, unknown>
+      customFields: ModelFieldRecordValues['customFields']
       note: string
     }
   | {
@@ -470,6 +471,7 @@ export type BenchAction =
 export type BenchActionKind = BenchAction['kind']
 
 /** Plain words for why an action failed. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A refused action rejects with whatever the transport threw; an Error supplies its message and anything else falls back to the retry line.
 export function describeActionError(error: unknown): string {
   if (error instanceof Error && error.message) return error.message
 

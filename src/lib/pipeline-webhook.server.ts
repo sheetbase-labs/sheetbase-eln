@@ -1,4 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import { z } from 'zod'
 import { annotateRequest } from '#/lib/request-log'
 import { PooledClient } from '#/db/pool.server'
 import { isSameOriginRequest } from '#/lib/request-origin'
@@ -52,7 +53,7 @@ const deliveryLimit = createRateLimiter({ maxRequests: 120, windowSeconds: 60 })
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 
-const reply = (value: unknown, status = 200) => {
+const reply = (value: z.core.util.JSONType, status = 200) => {
   if (status >= 500) annotateRequest({ error: value })
 
   return Response.json(value, {
@@ -64,10 +65,22 @@ const reply = (value: unknown, status = 200) => {
 const error = (status: number, message: string) =>
   reply({ error: message }, status)
 
-const object = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
+/**
+ * A JSON object, as a webhook body and each nested input must be one. A key
+ * the sender left out reads as absent.
+ */
+type JsonObject = Record<string, z.core.util.JSONType | undefined>
 
-async function body(request: Request): Promise<Record<string, unknown>> {
+const jsonObject = z.record(z.string(), z.json())
+const actionValue = z.string()
+
+function isJsonObject<Value>(value: Value): value is Value & JsonObject {
+  return jsonObject.safeParse(value).success && !Array.isArray(value)
+}
+
+const datasetId = z.string().regex(uuid)
+
+async function body(request: Request): Promise<JsonObject> {
   const reader = request.body?.getReader()
 
   if (!reader) return {}
@@ -92,7 +105,7 @@ async function body(request: Request): Promise<Record<string, unknown>> {
     Buffer.concat(chunks).toString('utf8') || '{}',
   )
 
-  if (!object(parsed)) throw new Error('invalid_body')
+  if (!isJsonObject(parsed)) throw new Error('invalid_body')
 
   return parsed
 }
@@ -151,7 +164,7 @@ export async function handlePipelineWebhook(
       400,
       'Supply an Idempotency-Key of 1–128 printable characters.',
     )
-  let payload: Record<string, unknown> = {}
+  let payload: JsonObject = {}
 
   try {
     if (request.method !== 'GET') payload = await body(request)
@@ -162,13 +175,16 @@ export async function handlePipelineWebhook(
     )
   }
 
+  const parameters = payload.parameters
+  const inputVersions = payload.inputVersions
+
   if (
     invoke &&
-    ((payload.parameters !== undefined && !object(payload.parameters)) ||
-      (payload.inputVersions !== undefined &&
-        (!object(payload.inputVersions) ||
-          Object.values(payload.inputVersions).some(
-            (value) => typeof value !== 'string' || !uuid.test(value),
+    ((parameters !== undefined && !isJsonObject(parameters)) ||
+      (inputVersions !== undefined &&
+        (!isJsonObject(inputVersions) ||
+          Object.values(inputVersions).some(
+            (value) => !datasetId.safeParse(value).success,
           ))))
   )
     return error(
@@ -176,10 +192,12 @@ export async function handlePipelineWebhook(
       'Parameters and input versions must be objects with valid dataset version identifiers.',
     )
 
+  const action = actionValue.safeParse(payload.action)
+
   if (
     !invoke &&
     request.method === 'PUT' &&
-    !['rotate', 'disable'].includes(String(payload.action))
+    (!action.success || !['rotate', 'disable'].includes(action.data))
   )
     return error(400, 'Choose rotate or disable.')
   const conn = await deps.connect()
@@ -243,12 +261,10 @@ export async function handlePipelineWebhook(
 
       await conn.commit()
 
-      return reply({
-        enabled,
-        url: new URL(`/api/pipelines/webhook/${definitionId}`, request.url)
-          .href,
-        ...(secret ? { token: secret } : {}),
-      })
+      const url = new URL(`/api/pipelines/webhook/${definitionId}`, request.url)
+        .href
+
+      return reply(secret ? { enabled, url, token: secret } : { enabled, url })
     }
 
     if (

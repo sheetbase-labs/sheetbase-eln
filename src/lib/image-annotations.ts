@@ -4,6 +4,7 @@
  * touch the stored image, so the original stays exactly as it was uploaded.
  * Positions are fractions of the image (0 to 1), so they hold at any size.
  */
+import { z } from 'zod'
 
 export const ANNOTATION_COLORS = [
   'yellow',
@@ -63,67 +64,77 @@ export type ImageAnnotation =
       color: AnnotationColor
     }
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
+/** A position on the image: a fraction of its width or height. */
+const unit = z.number().min(0).max(1)
 
-function unit(v: unknown): number | null {
-  return typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1
-    ? v
-    : null
-}
+/** A colour on the palette; a mark that names none keeps the default yellow. */
+const annotationColour = z.enum(ANNOTATION_COLORS).catch('yellow')
 
-function colorOf(v: unknown): AnnotationColor {
-  return ANNOTATION_COLORS.includes(v as AnnotationColor)
-    ? (v as AnnotationColor)
-    : 'yellow'
-}
+/** Label text: trimmed, capped, and refused when nothing readable is left. */
+const annotationText = z
+  .string()
+  .transform((text) => text.trim().slice(0, MAX_ANNOTATION_TEXT))
+  .refine((text) => text.length > 0)
 
-function textOf(v: unknown): string | null {
-  if (typeof v !== 'string') return null
-  const s = v.trim().slice(0, MAX_ANNOTATION_TEXT)
+const arrowAnnotation = z.object({
+  id: z.string().min(1),
+  kind: z.literal('arrow'),
+  x1: unit,
+  y1: unit,
+  x2: unit,
+  y2: unit,
+  color: annotationColour,
+})
 
-  return s.length > 0 ? s : null
-}
+const labelAnnotation = z.object({
+  id: z.string().min(1),
+  kind: z.literal('label'),
+  x: unit,
+  y: unit,
+  text: annotationText,
+  color: annotationColour,
+})
+
+const laneAnnotation = z.object({
+  id: z.string().min(1),
+  kind: z.literal('lane'),
+  x: unit,
+  text: annotationText,
+  color: annotationColour,
+})
+
+/** One stored mark; a malformed mark is dropped rather than repaired. */
+const storedAnnotation = z.discriminatedUnion('kind', [
+  arrowAnnotation,
+  labelAnnotation,
+  laneAnnotation,
+])
+
+/** A payload that carries a marks list at all; each mark is decoded on its own. */
+const annotationsList = z.looseObject({ annotations: z.array(z.unknown()) })
 
 /** Read annotations out of a file block payload, dropping anything malformed. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A stored file block payload is arbitrary JSON; every mark is decoded by `storedAnnotation` before it is returned.
 export function readAnnotations(payload: unknown): ImageAnnotation[] {
-  if (!isRecord(payload) || !Array.isArray(payload.annotations)) return []
+  const list = annotationsList.safeParse(payload)
+
+  if (!list.success) return []
   const out: ImageAnnotation[] = []
 
-  for (const raw of payload.annotations.slice(0, MAX_ANNOTATIONS)) {
-    if (!isRecord(raw) || typeof raw.id !== 'string' || raw.id === '') continue
-    const color = colorOf(raw.color)
+  for (const raw of list.data.annotations.slice(0, MAX_ANNOTATIONS)) {
+    const mark = storedAnnotation.safeParse(raw)
 
-    if (raw.kind === 'arrow') {
-      const x1 = unit(raw.x1)
-      const y1 = unit(raw.y1)
-      const x2 = unit(raw.x2)
-      const y2 = unit(raw.y2)
-
-      if (x1 === null || y1 === null || x2 === null || y2 === null) continue
-      out.push({ id: raw.id, kind: 'arrow', x1, y1, x2, y2, color })
-    } else if (raw.kind === 'label') {
-      const x = unit(raw.x)
-      const y = unit(raw.y)
-      const text = textOf(raw.text)
-
-      if (x === null || y === null || text === null) continue
-      out.push({ id: raw.id, kind: 'label', x, y, text, color })
-    } else if (raw.kind === 'lane') {
-      const x = unit(raw.x)
-      const text = textOf(raw.text)
-
-      if (x === null || text === null) continue
-      out.push({ id: raw.id, kind: 'lane', x, text, color })
-    }
+    if (mark.success) out.push(mark.data)
   }
 
   return out
 }
 
 /** True when the payload's `annotations` is absent or fully well formed. */
-export function annotationsAreValid(payload: Record<string, unknown>): boolean {
+export function annotationsAreValid(
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The caller hands over NotebookBlock.payload, whose stored JSON fields are Record<string, unknown>; only `annotations` is read.
+  payload: Record<string, unknown>,
+): boolean {
   if (payload.annotations === undefined) return true
 
   if (!Array.isArray(payload.annotations)) return false
@@ -135,8 +146,10 @@ export function annotationsAreValid(payload: Record<string, unknown>): boolean {
 
 /** The file payload with these annotations (removed entirely when empty). */
 export function withAnnotations(
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- NotebookBlock.payload is the stored JSON record this returns a copy of; only `annotations` is replaced.
   payload: Record<string, unknown>,
   annotations: readonly ImageAnnotation[],
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The result is the same stored block payload the caller passed in, with `annotations` replaced.
 ): Record<string, unknown> {
   const { annotations: _old, ...rest } = payload
 

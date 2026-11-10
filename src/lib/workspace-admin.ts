@@ -16,7 +16,12 @@ import { DataClientError } from './data-client'
 import type { AuditEventWire } from './audit-history'
 import { now as appNow } from '#/lib/clock'
 
-export type JsonObject = Record<string, unknown>
+/** A JSON value stored in a workspace setting. */
+export type JsonValue =
+  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+
+/** One stored workspace setting object, as the RPCs carry it. */
+export type JsonObject = Record<string, JsonValue>
 
 export type WorkspaceRole =
   | 'owner'
@@ -698,27 +703,30 @@ export function formatDate(timestamp: string | null | undefined): string {
   return formatDateOnly(timestamp, { time: true })
 }
 
-export function describeAdminError(error: unknown): string {
+export function describeAdminError(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught error is untyped by definition; this maps DataClientError codes and falls back for anything else.
+  error: unknown,
+): string {
   if (!(error instanceof DataClientError))
     return 'Could not complete the administration operation. Try again.'
 
-  const messages: Record<string, string> = {
-    SB050: 'You cannot perform this action on your own account.',
-    SB051: 'This action would remove the last workspace owner.',
-    SB052: 'The selected member was not found in this workspace.',
-    SB053: 'That role is not valid.',
-    SB054: 'The session was not found.',
-    SB055: 'You do not have owner access to perform this action.',
-    SB056: 'The registration mode is not valid.',
-    SB057: 'Audit retention days must be a positive number.',
-    SB058: 'That access level is not valid.',
-    SB059: 'The project was not found in this workspace.',
-    SB060: 'The export limit exceeds the maximum allowed (5000 rows).',
-    SB061: 'The invitation is invalid, expired, or already used.',
-    SB062: 'Your identity does not match the invitation recipient.',
-    SB033: 'This action belongs to a different workspace.',
-    '42501': 'You do not have owner access to perform this action.',
-  }
+  const messages = new Map<string, string>([
+    ['SB050', 'You cannot perform this action on your own account.'],
+    ['SB051', 'This action would remove the last workspace owner.'],
+    ['SB052', 'The selected member was not found in this workspace.'],
+    ['SB053', 'That role is not valid.'],
+    ['SB054', 'The session was not found.'],
+    ['SB055', 'You do not have owner access to perform this action.'],
+    ['SB056', 'The registration mode is not valid.'],
+    ['SB057', 'Audit retention days must be a positive number.'],
+    ['SB058', 'That access level is not valid.'],
+    ['SB059', 'The project was not found in this workspace.'],
+    ['SB060', 'The export limit exceeds the maximum allowed (5000 rows).'],
+    ['SB061', 'The invitation is invalid, expired, or already used.'],
+    ['SB062', 'Your identity does not match the invitation recipient.'],
+    ['SB033', 'This action belongs to a different workspace.'],
+    ['42501', 'You do not have owner access to perform this action.'],
+  ])
 
-  return messages[error.code] ?? error.message
+  return messages.get(error.code) ?? error.message
 }

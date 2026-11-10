@@ -151,6 +151,14 @@ export function dissolveSeries(client: DataClient, recordId: string) {
   return client.rpc('dissolve_experiment_series', { p_record_id: recordId })
 }
 
+/** Arguments for `add_series_member`; each optional value is sent only when known. */
+type AddSeriesMemberArgs = {
+  p_series_record_id: string
+  p_member_record_id: string
+  p_planned_on?: string
+  p_position?: number
+}
+
 export function addSeriesMember(
   client: DataClient,
   input: {
@@ -160,12 +168,16 @@ export function addSeriesMember(
     position?: number
   },
 ) {
-  return client.rpc('add_series_member', {
+  const args: AddSeriesMemberArgs = {
     p_series_record_id: input.seriesId,
     p_member_record_id: input.memberId,
-    ...(input.plannedOn ? { p_planned_on: input.plannedOn } : {}),
-    ...(input.position !== undefined ? { p_position: input.position } : {}),
-  })
+  }
+
+  if (input.plannedOn) args.p_planned_on = input.plannedOn
+
+  if (input.position !== undefined) args.p_position = input.position
+
+  return client.rpc('add_series_member', args)
 }
 
 export function removeSeriesMember(client: DataClient, memberId: string) {
@@ -183,15 +195,24 @@ export function moveSeriesMember(
   })
 }
 
+/** Arguments for `set_series_member_day`; the day is sent only when it is set. */
+type SetSeriesMemberDayArgs = {
+  p_member_record_id: string
+  p_planned_on?: string
+}
+
 export function setSeriesMemberDay(
   client: DataClient,
   memberId: string,
   plannedOn: string | null,
 ) {
-  return client.rpc('set_series_member_day', {
+  const args: SetSeriesMemberDayArgs = {
     p_member_record_id: memberId,
-    ...(plannedOn ? { p_planned_on: plannedOn } : {}),
-  })
+  }
+
+  if (plannedOn) args.p_planned_on = plannedOn
+
+  return client.rpc('set_series_member_day', args)
 }
 
 /**

@@ -7,11 +7,12 @@ import {
   startExperimentRecord,
 } from '#/lib/experiment-lifecycle'
 import type { DataClient } from '#/lib/data-client'
+import type { BlockWire } from '#/lib/notebook-data'
 
 const block = (
   type: string,
   order: number,
-  payload: Record<string, unknown> = {},
+  payload: BlockWire['payload'] = {},
 ) => ({ type, payload, payloadSchemaVersion: 1, order })
 
 describe('partsForNewRun', () => {
@@ -81,12 +82,14 @@ describe('blocksForNewRun', () => {
 
 describe('status transitions', () => {
   function client() {
-    return {
+    const fake = {
       list: vi.fn(async () => [{ metadata_version: 7 }]),
       rpc: vi.fn(async () => undefined),
-    } as unknown as DataClient & {
-      rpc: ReturnType<typeof vi.fn>
     }
+
+    // SAFETY: both transitions below read the record version through `list` and
+    // make one `rpc` call; nothing else on the data client is reached.
+    return fake as typeof fake & DataClient
   }
 
   it('starts with the record’s current metadata version', async () => {

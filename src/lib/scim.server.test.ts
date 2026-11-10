@@ -63,12 +63,10 @@ function call(
   path: string,
   options: { body?: unknown; token?: string | null; query?: string } = {},
 ) {
-  const headers: Record<string, string> = {
-    'content-type': 'application/scim+json',
-  }
+  const headers = new Headers({ 'content-type': 'application/scim+json' })
 
   if (options.token !== null) {
-    headers.authorization = `Bearer ${options.token ?? SECRET}`
+    headers.set('authorization', `Bearer ${options.token ?? SECRET}`)
   }
 
   return handleScimRequest(

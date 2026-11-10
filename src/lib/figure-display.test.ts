@@ -13,7 +13,22 @@ import {
 } from './figure-display'
 import type { ChartSpec } from './chart-spec'
 
+/** A live chart spec whose display the figure controls edit. */
 const spec = {
+  specVersion: 1,
+  type: 'line',
+  datasets: [],
+  fields: {
+    x: { fieldId: 'f-x' },
+    y: { fieldId: 'f-y' },
+    series: null,
+    color: null,
+    size: null,
+    facet: null,
+  },
+  filters: [],
+  transformations: [],
+  typeParams: {},
   display: {
     axes: {
       x: { scale: 'linear', label: 'Time' },
@@ -21,7 +36,8 @@ const spec = {
     },
     series: [],
   },
-} as unknown as ChartSpec
+  overlays: { errorBars: null },
+} satisfies ChartSpec
 
 describe('figure display controls', () => {
   it('sets and clears an axis title and unit without touching the other axis', () => {

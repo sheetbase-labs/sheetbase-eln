@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Mock } from 'vitest'
 
 import { runExtensionRecordHook } from './data-runtime.server'
 import {
@@ -15,33 +16,44 @@ import type {
   RecordHook,
   RecordHookDeps,
 } from './record-hooks.server'
-import type { RecordSnapshot } from './hook-answers'
+import type { ExtensionRecordHookDeclaration } from './data-points'
+import type { AfterAnswer, BeforeAnswer, RecordSnapshot } from './hook-answers'
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- A refused or broken hook is logged through the module-level logger; the suite keeps its output quiet.
 vi.mock('#/lib/logger', () => ({
   logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The extension runner is imported directly by the guard (RecordHookDeps carries only its runtime deps), so the suite replaces the module's export.
 vi.mock('./data-runtime.server', () => ({
   runExtensionRecordHook: vi.fn(),
 }))
 
-// The hook runner has overloads by timing; the tests drive it loosely.
-const hookMock = vi.mocked(runExtensionRecordHook) as unknown as ReturnType<
-  typeof vi.fn
+/** The runner's arguments, from its last overload (before-or-after timing). */
+type HookRunnerArgs = Parameters<typeof runExtensionRecordHook>[0]
+
+/** The runner, mocked: each case chooses its answers and inspects the call. */
+// SAFETY: `vi.mocked` returns the same function object with Vitest's mock
+// surface; the overloads only narrow the answer type, which each case chooses.
+const hookMock = vi.mocked(runExtensionRecordHook) as Mock<
+  (args: HookRunnerArgs) => Promise<BeforeAnswer | AfterAnswer>
 >
 
 const WS = '00000000-0000-4000-8000-000000000002'
 const ID = '11111111-2222-4333-8444-555555555555'
 
 function token(
-  claims: Record<string, unknown> = { workspace_id: WS, sub: 'user-1' },
+  claims: Record<string, string> = { workspace_id: WS, sub: 'user-1' },
 ) {
   const part = Buffer.from(JSON.stringify(claims)).toString('base64url')
 
   return `x.${part}.y`
 }
 
-function hook(id: string, declaration: Record<string, unknown>): RecordHook {
+function hook(
+  id: string,
+  declaration: Partial<ExtensionRecordHookDeclaration> = {},
+): RecordHook {
   return {
     extensionId: 'e1',
     extensionKey: 'lab-rules',
@@ -60,7 +72,7 @@ function hook(id: string, declaration: Record<string, unknown>): RecordHook {
       runner: { kind: 'python', entry: 'a:b' },
       ...declaration,
     },
-  } as never
+  }
 }
 
 const snapshot: RecordSnapshot = {
@@ -203,9 +215,8 @@ describe('guardRecordWrite', () => {
   it('puts fills into the save, one hook seeing what the one before filled in', async () => {
     hookMock
       .mockResolvedValueOnce({ set: { custom_fields: { b: 2 } } })
-      .mockImplementationOnce(async (args: never) => {
-        const seen = (args as { input: { record: RecordSnapshot } }).input
-          .record
+      .mockImplementationOnce(async (args) => {
+        const seen = args.input.record
 
         return {
           set: {
@@ -263,20 +274,11 @@ describe('guardRecordWrite', () => {
 
     await guardRecordWrite(patch, deps([hook('a', {})]))
 
-    const input = (
-      hookMock.mock.calls[0][0] as {
-        input: {
-          record: RecordSnapshot
-          previous: RecordSnapshot
-          changed: string[]
-          when: string
-        }
-      }
-    ).input
+    const input = hookMock.mock.calls[0][0].input
 
     expect(input.when).toBe('edited')
     expect(input.record.title).toBe('New')
-    expect(input.previous.title).toBe('Titration')
+    expect(input.previous?.title).toBe('Titration')
     expect(input.changed).toEqual(['title'])
     hookMock.mockClear()
     const gone = await guardRecordWrite(patch, deps([hook('a', {})], null))
@@ -285,9 +287,9 @@ describe('guardRecordWrite', () => {
   })
 
   it('lets the save go on, with a word, when a hook breaks', async () => {
-    hookMock.mockImplementation((() => {
+    hookMock.mockImplementation(() => {
       throw new Error('boom')
-    }) as never)
+    })
     const result = await guardRecordWrite(create, deps([hook('a', {})]))
     expect(result).toMatchObject({
       kind: 'pass',

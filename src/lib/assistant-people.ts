@@ -38,7 +38,7 @@ export const CLIENT_UNSHARE_TOOL = 'sheetbase.client.unshare_record'
 export const PEOPLE_PROPOSE_TOOL_NAMES = assistantToolsFrom(
   PEOPLE_OPERATIONS,
   'propose',
-) as readonly string[]
+)
 
 export type PeopleProposeToolName =
   | typeof MEMBER_INVITE_TOOL

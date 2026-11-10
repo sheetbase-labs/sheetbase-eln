@@ -82,6 +82,19 @@ export async function fetchSpendLines(
   return rows.map(toSpendLine)
 }
 
+/** What one line is grouped by when spend is totalled: its key and its label. */
+export interface SpendKey {
+  key: string
+  label: string
+}
+
+/** A whole period's money: totals per currency and how many orders have no price. */
+export interface SpendTotals {
+  orders: number
+  unpriced: number
+  totals: MoneyTotals
+}
+
 export type SpendGrouping = 'project' | 'supplier' | 'month'
 
 export interface SpendGroup {
@@ -99,7 +112,7 @@ export function spendKey(
   line: SpendLine,
   by: SpendGrouping,
   timeZone: string,
-): { key: string; label: string } {
+): SpendKey {
   if (by === 'project') {
     return {
       key: line.projectId ?? NONE,
@@ -156,11 +169,7 @@ export function groupSpend(
 }
 
 /** The whole period in one go: totals per currency and how many have no price. */
-export function totalSpend(lines: readonly SpendLine[]): {
-  orders: number
-  unpriced: number
-  totals: MoneyTotals
-} {
+export function totalSpend(lines: readonly SpendLine[]): SpendTotals {
   const totals: MoneyTotals = {}
   let unpriced = 0
 

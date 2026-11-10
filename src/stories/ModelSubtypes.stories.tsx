@@ -6,9 +6,9 @@ import {
   TableSubtypeOf,
   TableSubtypesList,
   NewTableSubtypeDialog,
-  measurementTableKeys,
 } from '#/components/models/dataset-subtype-ui'
-import type { MeasurementTable } from '#/components/models/dataset-subtype-ui'
+import { measurementTableKeys } from '#/components/models/dataset-subtype-data'
+import type { MeasurementTable } from '#/components/models/dataset-subtype-data'
 import { modelTypeQueryKeys } from '#/components/models/model-subtype-data'
 import {
   BasedOnDialog,

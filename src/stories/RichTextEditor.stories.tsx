@@ -2,8 +2,8 @@ import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { RichTextEditor } from '#/components/notebook/rich-text-editor'
-import { EMPTY_RICH_TEXT_PAYLOAD } from '#/lib/blocks/rich-text'
-import type { RichTextPayload } from '#/lib/blocks/rich-text'
+import { EMPTY_RICH_TEXT_PAYLOAD } from '#/lib/blocks/rich-text-data'
+import type { RichTextPayload } from '#/lib/blocks/rich-text-data'
 
 /**
  * The canonical rich-text editor. It is controlled by its payload and does

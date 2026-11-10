@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { instrumentQueryKeys } from '#/components/instruments/instruments-data'
 import { CreateWebhookDialog } from '#/components/settings/create-webhook-dialog'
+import { CreationDialogFooter } from '#/components/settings/creation-dialog-footer'
 import { ReleaseRulesPanel } from '#/components/settings/release-rules-panel'
 import { SampleWorkflowsPanel } from '#/components/settings/sample-workflows-panel'
 import { WebhookParserDialog } from '#/components/settings/webhook-parser-dialog'
@@ -15,6 +16,8 @@ import { workflowKeys } from '#/lib/sample-workflows'
 import type { WorkflowDraft, WorkflowSummary } from '#/lib/sample-workflows'
 import { webhookAdminKeys, webhookRecipientKeys } from '#/lib/webhook-admin'
 import type { WebhookSubscriptionWire } from '#/lib/webhook-admin'
+import { Dialog, DialogContent, DialogHeader } from '#/components/ui/dialog'
+import { t } from '#/copy'
 import { holdRead, screenQueryClient, screenRoutes } from './screen-stories'
 import type { ReadSeed } from './screen-stories'
 
@@ -194,6 +197,45 @@ export const AddOutgoingWebhook: Story = {
     ]),
   ],
   render: () => <CreateWebhookDialog workspaceId={WS} onClose={() => {}} />,
+}
+
+function creationFooter(state: {
+  complete: boolean
+  pending: boolean
+  ready: boolean
+}) {
+  return (
+    <Dialog defaultOpen>
+      <DialogContent>
+        <DialogHeader title={t('settings.createWebhookDialog.addWebhook')} />
+        <CreationDialogFooter
+          {...state}
+          onCreate={() => {}}
+          createLabel={t('settings.createWebhookDialog.addWebhook')}
+          pendingLabel={t('settings.createWebhookDialog.adding')}
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Shared creation actions, without performing a server write or minting a secret. */
+export const CreationActions: Story = {
+  render: () =>
+    creationFooter({ complete: false, pending: false, ready: true }),
+}
+
+export const CreationActionsNotReady: Story = {
+  render: () =>
+    creationFooter({ complete: false, pending: false, ready: false }),
+}
+
+export const CreationActionsPending: Story = {
+  render: () => creationFooter({ complete: false, pending: true, ready: true }),
+}
+
+export const CreationActionsComplete: Story = {
+  render: () => creationFooter({ complete: true, pending: false, ready: true }),
 }
 
 function parserDialogProvider() {

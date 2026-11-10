@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { AnalysisResultTable } from '#/components/viz/analysis-panel'
+import { AnalysisResultTable } from '#/components/viz/analysis-results'
 import { runAnalysis } from '#/lib/analysis-definition'
 import type { AnalysisDefinition } from '#/lib/analysis-definition'
-import type { ChartColumn } from '#/lib/chart-spec'
+import type { ChartColumn, ChartRow } from '#/lib/chart-spec'
 
 /**
  * R5-STUDIO-01 result panel. Results come from the real kernel
@@ -22,7 +22,7 @@ const columns: ChartColumn[] = [
   { id: CONDITION, label: 'Condition', logicalType: 'category' },
 ]
 
-const rows: Record<string, unknown>[] = [
+const rows: ChartRow[] = [
   { [TIME]: 2, [RECOVERY]: 88.1, [CONDITION]: '4 °C' },
   { [TIME]: 4, [RECOVERY]: 85.4, [CONDITION]: '4 °C' },
   { [TIME]: 6, [RECOVERY]: 82.9, [CONDITION]: '4 °C' },

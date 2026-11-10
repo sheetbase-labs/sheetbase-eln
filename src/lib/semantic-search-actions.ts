@@ -24,9 +24,13 @@ interface Session {
 }
 
 async function loadSession(workspaceId: string): Promise<Session> {
-  const { getRequestHeaders } = await import('@tanstack/react-start/server')
-  const { getCurrentContext } = await import('#/lib/current-user')
-  const { resolveSessionAuth } = await import('#/lib/request-auth')
+  const [{ getRequestHeaders }, { getCurrentContext }, { resolveSessionAuth }] =
+    await Promise.all([
+      import('@tanstack/react-start/server'),
+      import('#/lib/current-user'),
+      import('#/lib/request-auth'),
+    ])
+
   const headers = getRequestHeaders()
   const context = await getCurrentContext(headers)
 
@@ -63,10 +67,10 @@ export interface SemanticSettingsView {
 }
 
 async function buildView(session: Session): Promise<SemanticSettingsView> {
-  const client = await dataClient(session.token)
-
-  const { getPublicProviderProfiles } =
-    await import('#/lib/ai-providers/config.server')
+  const [client, { getPublicProviderProfiles }] = await Promise.all([
+    dataClient(session.token),
+    import('#/lib/ai-providers/config.server'),
+  ])
 
   const settings = await client.rpc<SemanticSettings>(
     'semantic_search_settings',
@@ -182,11 +186,13 @@ export interface HybridSearchView {
 export const hybridSearchFn = createServerFn({ method: 'POST' })
   .validator((input: z.input<typeof searchSchema>) => searchSchema.parse(input))
   .handler(async ({ data }): Promise<HybridSearchView> => {
-    const session = await loadSession(data.workspaceId)
-    const client = await dataClient(session.token)
+    const [session, { hybridSearch, semanticUnavailableMessage }] =
+      await Promise.all([
+        loadSession(data.workspaceId),
+        import('#/lib/semantic-search.server'),
+      ])
 
-    const { hybridSearch, semanticUnavailableMessage } =
-      await import('#/lib/semantic-search.server')
+    const client = await dataClient(session.token)
 
     const out = await hybridSearch(client, data.workspaceId, data.query, {
       limit: data.limit,
@@ -218,11 +224,12 @@ export const pluginSearchFn = createServerFn({ method: 'POST' })
     pluginSearchSchema.parse(input),
   )
   .handler(async ({ data }) => {
-    const session = await loadSession(data.workspaceId)
-    const client = await dataClient(session.token)
+    const [session, { searchWithPlugins }] = await Promise.all([
+      loadSession(data.workspaceId),
+      import('#/lib/extensions/plugin-search.server'),
+    ])
 
-    const { searchWithPlugins } =
-      await import('#/lib/extensions/plugin-search.server')
+    const client = await dataClient(session.token)
 
     return searchWithPlugins(client, {
       workspaceId: data.workspaceId,

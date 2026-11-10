@@ -33,6 +33,10 @@ Collabora needs about 2 GB of memory.
    `SHEETBASE_OFFICE_EDITOR_IMAGE` to a pinned `collabora/code` image, by digest.
 2. Put it behind HTTPS on its own address (for example `office.example.com`)
    with your reverse proxy or tunnel. Browsers must reach it directly.
+   Use a different origin from the app: a separate path on the app's origin
+   is not sufficient. The browser refuses same-origin editor sessions before
+   posting their access token. The editor needs scripts and its own origin
+   inside its sandbox, so origin separation is required for isolation.
 3. Set on the app:
 
    ```

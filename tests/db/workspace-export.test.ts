@@ -313,7 +313,7 @@ describe('backups', () => {
       userId: USER_A,
     })
     expect(outcome.ok).toBe(true)
-    if (!outcome.ok) return
+    if (!outcome.ok || !outcome.backup) throw new Error('expected a backup')
     const { backup } = outcome
     expect(backup).toMatchObject({
       status: 'succeeded',
@@ -334,6 +334,29 @@ describe('backups', () => {
       format: 'backup',
       actor_user_id: USER_A,
     })
+  })
+
+  it('keeps a successful archive when its metadata row disappears', async () => {
+    backups = memoryStorage()
+    const storage: ObjectStorage = {
+      ...backups.storage,
+      async putStream(key, body, maxBytes) {
+        const result = await backups.storage.putStream(key, body, maxBytes)
+        await admin.query(
+          `delete from internal.workspace_backups where workspace_id = $1 and status = 'running'`,
+          [WS_A],
+        )
+        return result
+      },
+    }
+
+    const outcome = await runBackup(
+      deps({ destination: { name: 'database', separate: false, storage } }),
+      { workspaceId: WS_A, trigger: 'manual', userId: USER_A },
+    )
+
+    expect(outcome).toEqual({ ok: true, backup: null })
+    expect(backups.objects.size).toBe(1)
   })
 
   it('refuses a second run while one is going', async () => {
@@ -376,7 +399,7 @@ describe('backups', () => {
       { workspaceId: WS_A, trigger: 'scheduled' },
     )
     expect(outcome.ok).toBe(false)
-    if (outcome.ok || outcome.reason !== 'failed')
+    if (outcome.ok || outcome.reason !== 'failed' || !outcome.backup)
       throw new Error('expected a failure')
     expect(outcome.backup.status).toBe('failed')
     expect(outcome.backup.error).toBe('bucket unreachable at somewhere stack')

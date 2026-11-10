@@ -1,0 +1,7 @@
+{
+  "extends": "../../../tsconfig.json",
+  "include": ["./**/*.ts", "./**/*.tsx", "../../../src/routeTree.gen.ts"],
+  "compilerOptions": {
+    "tsBuildInfoFile": "../../../node_modules/.cache/tsc/settings-browser.tsbuildinfo"
+  }
+}

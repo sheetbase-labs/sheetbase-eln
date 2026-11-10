@@ -6,9 +6,11 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
 import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Muted } from '#/components/ui/layout'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
@@ -51,6 +53,7 @@ function IntegrationsRoute() {
     select: (state) =>
       state.location.pathname === '/settings/workspace/integrations',
   })
+
   return isIndex ? <IntegrationsList /> : <Outlet />
 }
 
@@ -102,6 +105,7 @@ function IntegrationsList() {
     queryFn: () => listConnectors(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const connectors = connectorsQuery.data ?? []
 
   return (
@@ -125,76 +129,21 @@ function IntegrationsList() {
         {t('settings.integrations.connectInstrumentsStorage')}
       </SettingsHeader>
       <div className="min-h-0 shrink-0">
-        {connectorsQuery.error instanceof Error ? (
-          <p
-            role="alert"
-            className="px-4 pt-4 text-label text-danger-text md:px-6"
-          >
-            {describeConnectorsError(connectorsQuery.error)}
-          </p>
-        ) : connectors.length ? (
-          <RegistryGrid
-            label={t('settings.integrations.integrations')}
-            rows={connectors}
-            columns={connectorColumns}
-            getRowId={(connector) => connector.id}
-            selectable={false}
-          />
-        ) : connectorsQuery.isLoading ? (
-          <Muted className="px-4 pt-4 md:px-6">
-            {t('settings.integrations.loadingIntegrations')}
-          </Muted>
-        ) : (
-          <div className="px-4 py-4 md:px-6">
-            <EmptyState
-              icon="pipeline"
-              title={t('settings.integrations.connectorsYet')}
-              description={t(
-                'settings.integrations.registerInstrumentStorageDescription',
-              )}
-              action={
-                canManage ? (
-                  <Button
-                    variant="primary"
-                    icon="plus"
-                    onClick={() => setRegisterOpen(true)}
-                  >
-                    {t('settings.integrations.registerConnector')}
-                  </Button>
-                ) : undefined
-              }
-            />
-          </div>
-        )}
+        <ConnectorRegistry
+          connectors={connectors}
+          error={connectorsQuery.error}
+          loading={connectorsQuery.isLoading}
+          onRegister={canManage ? () => setRegisterOpen(true) : undefined}
+        />
       </div>
       {canManage ? <OfficeEditorSection /> : null}
       {canOpenSettings(context.workspace, 'integrations') ? (
-        <>
-          <SettingsBody className="gap-3 border-t border-border-subtle pb-0">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-section">
-                {t('settings.integrations.outgoingWebhooks')}
-              </h2>
-              {canManage ? (
-                <Button icon="plus" onClick={() => setWebhookOpen(true)}>
-                  {t('settings.integrations.addWebhook')}
-                </Button>
-              ) : null}
-            </div>
-          </SettingsBody>
-          <OutgoingWebhooks workspaceId={workspaceId} />
-          <SettingsBody className="gap-3 pb-0">
-            <h2 className="text-section">
-              {t('settings.integrations.incomingWebhooks')}
-            </h2>
-          </SettingsBody>
-          <IncomingWebhooks workspaceId={workspaceId} />
-          <LineageSection
-            workspaceId={workspaceId}
-            canManage={canManage}
-            dataAccess={Boolean(context.dataAccess)}
-          />
-        </>
+        <WorkspaceWebhooks
+          workspaceId={workspaceId}
+          canManage={canManage}
+          dataAccess={Boolean(context.dataAccess)}
+          onAddWebhook={() => setWebhookOpen(true)}
+        />
       ) : null}
       {webhookOpen ? (
         <CreateWebhookDialog
@@ -211,46 +160,158 @@ function IntegrationsList() {
   )
 }
 
+function ConnectorRegistry({
+  connectors,
+  error,
+  loading,
+  onRegister,
+}: {
+  connectors: ConnectorRow[]
+  error: Error | null
+  loading: boolean
+  onRegister: (() => void) | undefined
+}) {
+  if (error instanceof Error) {
+    return (
+      <p role="alert" className="px-4 pt-4 text-label text-danger-text md:px-6">
+        {describeConnectorsError(error)}
+      </p>
+    )
+  }
+
+  if (connectors.length) {
+    return (
+      <RegistryGrid
+        label={t('settings.integrations.integrations')}
+        rows={connectors}
+        columns={connectorColumns}
+        getRowId={(connector) => connector.id}
+        selectable={false}
+      />
+    )
+  }
+
+  if (loading) {
+    return (
+      <Muted className="px-4 pt-4 md:px-6">
+        {t('settings.integrations.loadingIntegrations')}
+      </Muted>
+    )
+  }
+
+  return (
+    <div className="px-4 py-4 md:px-6">
+      <EmptyState
+        icon="pipeline"
+        title={t('settings.integrations.connectorsYet')}
+        description={t(
+          'settings.integrations.registerInstrumentStorageDescription',
+        )}
+        action={
+          onRegister ? (
+            <Button variant="primary" icon="plus" onClick={onRegister}>
+              {t('settings.integrations.registerConnector')}
+            </Button>
+          ) : undefined
+        }
+      />
+    </div>
+  )
+}
+
+function WorkspaceWebhooks({
+  workspaceId,
+  canManage,
+  dataAccess,
+  onAddWebhook,
+}: {
+  workspaceId: string
+  canManage: boolean
+  dataAccess: boolean
+  onAddWebhook: () => void
+}) {
+  return (
+    <>
+      <SettingsBody className="gap-3 border-t border-border-subtle pb-0">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-section">
+            {t('settings.integrations.outgoingWebhooks')}
+          </h2>
+          {canManage ? (
+            <Button icon="plus" onClick={onAddWebhook}>
+              {t('settings.integrations.addWebhook')}
+            </Button>
+          ) : null}
+        </div>
+      </SettingsBody>
+      <OutgoingWebhooks workspaceId={workspaceId} />
+      <SettingsBody className="gap-3 pb-0">
+        <h2 className="text-section">
+          {t('settings.integrations.incomingWebhooks')}
+        </h2>
+      </SettingsBody>
+      <IncomingWebhooks workspaceId={workspaceId} />
+      <LineageSection
+        workspaceId={workspaceId}
+        canManage={canManage}
+        dataAccess={dataAccess}
+      />
+    </>
+  )
+}
+
 /** Admin view of the optional browser editor: on, off, or not answering. */
 function OfficeEditorSection() {
   const status = useQuery({
     queryKey: ['office-editor', 'status', 'check'],
     queryFn: async () => {
       const res = await fetch('/api/office-editor/status?check=1')
+
       if (!res.ok) throw new Error('status')
-      return (await res.json()) as {
-        enabled: boolean
-        reachable?: boolean
-        editorOrigin?: string
-      }
+
+      return z
+        .object({
+          enabled: z.boolean(),
+          reachable: z.boolean().optional(),
+          editorOrigin: z.string().optional(),
+        })
+        .parse(await res.json())
     },
     retry: false,
   })
+
   const data = status.data
   const origin = data?.editorOrigin ?? ''
+  let tone: Tone = 'stored'
+  let label = 'Off'
+  let description = t('settings.integrations.officeEditor.off')
+
+  if (data?.enabled) {
+    if (data.reachable) {
+      tone = 'ok'
+      label = 'On'
+      description = t('settings.integrations.officeEditor.on', { origin })
+    } else {
+      tone = 'warn'
+      label = 'Not answering'
+      description = t('settings.integrations.officeEditor.unreachable', {
+        origin,
+      })
+    }
+  }
+
+  if (status.isLoading)
+    description = t('settings.integrations.officeEditor.checking')
+
   return (
     <SettingsBody className="gap-2 border-t border-border-subtle pb-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-section">
           {t('settings.integrations.officeEditor.title')}
         </h2>
-        {data ? (
-          <Status
-            tone={!data.enabled ? 'stored' : data.reachable ? 'ok' : 'warn'}
-          >
-            {!data.enabled ? 'Off' : data.reachable ? 'On' : 'Not answering'}
-          </Status>
-        ) : null}
+        {data ? <Status tone={tone}>{label}</Status> : null}
       </div>
-      <Muted>
-        {status.isLoading
-          ? t('settings.integrations.officeEditor.checking')
-          : !data?.enabled
-            ? t('settings.integrations.officeEditor.off')
-            : data.reachable
-              ? t('settings.integrations.officeEditor.on', { origin })
-              : t('settings.integrations.officeEditor.unreachable', { origin })}
-      </Muted>
+      <Muted>{description}</Muted>
     </SettingsBody>
   )
 }

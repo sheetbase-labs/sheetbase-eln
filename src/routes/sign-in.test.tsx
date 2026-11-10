@@ -17,11 +17,21 @@ import {
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { SignInSurface, Route, states } from './sign-in'
-import type { SignInState, SignInSurfaceProps } from './sign-in'
+import { SignInSurface, Route } from './sign-in'
+import type { SignInSurfaceProps } from './sign-in'
+import { parseSignInSearch, states } from './-sign-in-search'
+
+// Better Auth captures fetch at construction; keep its real client and replace only HTTP.
+const passkeyHttp = vi.hoisted(() => {
+  const transport = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', transport)
+
+  return transport
+})
 
 afterEach(() => {
   cleanup()
+  passkeyHttp.mockReset()
   vi.unstubAllGlobals()
 })
 
@@ -45,11 +55,11 @@ function renderSurface(props: Partial<SignInSurfaceProps> = {}) {
   )
 }
 
-function credentialInputs(): HTMLElement[] {
+function credentialInputs() {
   return [
     ...document.querySelectorAll('input'),
     ...document.querySelectorAll('form'),
-  ] as HTMLElement[]
+  ]
 }
 
 describe('R5-SHELL-05 sign-in states', () => {
@@ -87,7 +97,7 @@ describe('R5-SHELL-05 sign-in states', () => {
   })
 
   it('explains the signing session that ended and returns to the review after sign-in', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({}) })
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({}))
     vi.stubGlobal('fetch', fetchMock)
     renderSurface({ state: 'expired-signing', next: '/review/rev-42' })
 
@@ -103,9 +113,9 @@ describe('R5-SHELL-05 sign-in states', () => {
       screen.getByRole('button', { name: /Continue with GitHub/ }),
     )
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/api/auth/sign-in/social')
-    expect(JSON.parse(String(init.body))).toEqual({
+    expect(await new Response(init?.body).json()).toEqual({
       provider: 'github',
       callbackURL: '/review/rev-42',
     })
@@ -199,9 +209,11 @@ describe('R5-SHELL-05 sign-in states', () => {
 })
 
 describe('R5-SHELL-05 — the callback stays on this origin', () => {
-  const validateSearch = Route.options.validateSearch as (search: {
-    [key: string]: unknown
-  }) => { next?: string }
+  const validateSearch = parseSignInSearch
+
+  it('uses the URL parser at the actual route boundary', () => {
+    expect(Route.options.validateSearch).toBe(validateSearch)
+  })
 
   it.each([
     '//evil.example',
@@ -223,7 +235,7 @@ describe('R5-SHELL-05 — the callback stays on this origin', () => {
   })
 
   it('never hands a protocol-relative return path to the provider', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({}) })
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({}))
     vi.stubGlobal('fetch', fetchMock)
     renderSurface({ state: 'expired-signing', next: '//evil.example' })
 
@@ -231,8 +243,8 @@ describe('R5-SHELL-05 — the callback stays on this origin', () => {
       screen.getByRole('button', { name: /Continue with GitHub/ }),
     )
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(JSON.parse(String(init.body))).toEqual({
+    const [, init] = fetchMock.mock.calls[0]
+    expect(await new Response(init?.body).json()).toEqual({
       provider: 'github',
       callbackURL: '/',
     })
@@ -255,24 +267,52 @@ describe('R5-SHELL-05 — the callback stays on this origin', () => {
 })
 
 describe('R5-SHELL-05 — a locked-out person cannot bypass the lock through a direct URL', () => {
-  it.each<[SignInState | undefined]>([
-    ...states.map((state) => [state] as [SignInState]),
-    [undefined],
-  ])('offers no credential path in state %s', (state) => {
-    // Whatever sign-in URL a locked-out person opens (any `?state=` value),
-    // this surface exposes no password/email form and no second method: the
-    // signing lock lives on the step-up endpoint and cannot be unlocked here.
-    renderSurface({ state })
-    expect(credentialInputs()).toHaveLength(0)
-    expect(
-      screen.getByRole('button', { name: /Continue with GitHub/ }),
-    ).toBeTruthy()
-  })
+  it.each([...states, undefined])(
+    'offers no credential path in state %s',
+    (state) => {
+      // Whatever sign-in URL a locked-out person opens (any `?state=` value),
+      // this surface exposes no password/email form and no second method: the
+      // signing lock lives on the step-up endpoint and cannot be unlocked here.
+      renderSurface({ state })
+      expect(credentialInputs()).toHaveLength(0)
+      expect(
+        screen.getByRole('button', { name: /Continue with GitHub/ }),
+      ).toBeTruthy()
+    },
+  )
 })
 
 describe('company OIDC and emailed sign-in link', () => {
+  it('restores the passkey action after its options HTTP request rejects', async () => {
+    vi.stubGlobal('PublicKeyCredential', class {})
+    passkeyHttp.mockImplementation(async (input, init) => {
+      const url = new URL(
+        input instanceof Request ? input.url : input.toString(),
+        'http://localhost',
+      )
+
+      expect(url.pathname).toBe(
+        '/api/auth/passkey/generate-authenticate-options',
+      )
+      expect(init?.method).toBe('GET')
+
+      throw new Error('Offline')
+    })
+    renderSurface()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Sign in with a passkey' }),
+    )
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'That passkey did not work. Try another way to sign in.',
+    )
+    expect(
+      screen.getByRole('button', { name: 'Sign in with a passkey' }),
+    ).toHaveProperty('disabled', false)
+    expect(passkeyHttp).toHaveBeenCalledOnce()
+  })
+
   it('starts company sign-in through the OIDC endpoint and returns to the requested path', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({}) })
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({}))
     vi.stubGlobal('fetch', fetchMock)
     renderSurface({
       githubEnabled: false,
@@ -284,9 +324,9 @@ describe('company OIDC and emailed sign-in link', () => {
       screen.getByRole('button', { name: /Continue with Acme SSO/ }),
     )
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/api/auth/sign-in/social')
-    expect(JSON.parse(String(init.body))).toEqual({
+    expect(await new Response(init?.body).json()).toEqual({
       provider: 'oidc',
       callbackURL: '/inbox',
     })
@@ -312,9 +352,7 @@ describe('company OIDC and emailed sign-in link', () => {
   })
 
   it('asks for a link and answers the same whoever the address belongs to', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: async () => ({}) })
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({}))
 
     vi.stubGlobal('fetch', fetchMock)
     renderSurface({
@@ -330,9 +368,9 @@ describe('company OIDC and emailed sign-in link', () => {
       screen.getByRole('button', { name: 'Email me a sign-in link' }),
     )
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/api/auth/sign-in/magic-link')
-    expect(JSON.parse(String(init.body))).toEqual({
+    expect(await new Response(init?.body).json()).toEqual({
       email: 'Someone@Example.com',
       callbackURL: '/review/rev-42',
       errorCallbackURL: '/sign-in',
@@ -345,7 +383,9 @@ describe('company OIDC and emailed sign-in link', () => {
   it('says the link could not be requested instead of pretending it was sent', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response(null, { status: 500 })),
     )
     renderSurface({ githubEnabled: false, emailLinkEnabled: true })
     fireEvent.change(screen.getByLabelText(/emailed link/i), {

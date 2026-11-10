@@ -10,7 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { SampleActionsProvider } from '#/components/samples/withdraw-dialog'
+import { SampleActionsProvider } from '#/components/samples/quantity-actions-provider'
 import { Route } from './usage'
 
 const samples = vi.hoisted(() => ({

@@ -107,12 +107,13 @@ import {
   AddedFieldsFormSection,
   useAddedFieldDraft,
   useAddedFieldListColumns,
-  withAddedColumns,
 } from '#/components/models/added-fields'
+import { withAddedColumns } from '#/components/models/added-field-columns'
 import type { Reagent } from '#/lib/reagent-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { now as appNow } from '#/lib/clock'
 import { requireBuiltInModel } from '#/lib/built-in-models'
+import type { ModelFieldRecordValues } from '#/lib/model-fields'
 import { saveNewObjectFields } from '#/lib/model-subtypes'
 import { formatDate } from '#/lib/format-date'
 import { useListView } from '#/lib/list-views'
@@ -1251,9 +1252,9 @@ interface RegisterLotInput {
   quantity: number
   unit?: string
   storage?: string
-  customFields?: Record<string, unknown>
+  customFields?: ModelFieldRecordValues['customFields']
   typeKey?: string | null
-  typeFields?: Record<string, unknown>
+  typeFields?: ModelFieldRecordValues['customFields']
 }
 
 function RegisterLotForm({

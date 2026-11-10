@@ -31,6 +31,7 @@ import {
   useWorkspaceRecordModel,
 } from '#/components/models/models-data'
 import { t } from '#/copy'
+import { modelFieldValueText } from '#/lib/model-fields'
 
 /**
  * UI port (roadmap-4/ui-app3): the Rules tab authors `api.model_rules`. Rules
@@ -54,7 +55,7 @@ const EFFECTS: Array<{ value: ModelRuleEffect; label: string }> = [
   },
 ]
 
-function parseConditionValue(op: Op, raw: string): unknown {
+function parseConditionValue(op: Op, raw: string) {
   if (op === 'in' || op === 'not_in') {
     return raw
       .split(',')
@@ -71,8 +72,10 @@ function parseConditionValue(op: Op, raw: string): unknown {
 function describeCondition(condition: ModelRuleCondition): string {
   if ('field' in condition && condition.field) {
     const value = Array.isArray(condition.value)
-      ? condition.value.join(', ')
-      : String(condition.value ?? '')
+      ? condition.value.map(modelFieldValueText).join(', ')
+      : condition.value == null
+        ? ''
+        : modelFieldValueText(condition.value)
 
     return `${condition.field} ${condition.op ?? 'eq'} ${value}`.trim()
   }
@@ -103,7 +106,7 @@ function ModelRules() {
   return <RecordModelRules modelKey={modelId} workspaceId={workspaceId} />
 }
 
-function RecordModelRules({
+function useRuleAuthoring({
   modelKey,
   workspaceId,
 }: {
@@ -197,6 +200,52 @@ function RecordModelRules({
     }
   }
 
+  return {
+    model,
+    modelKey,
+    fieldOptions,
+    rows,
+    name,
+    setName,
+    fieldKeys,
+    setFieldKeys,
+    conditionFieldName,
+    setConditionField,
+    op,
+    setOp,
+    value,
+    setValue,
+    effect,
+    setEffect,
+    message,
+    setMessage,
+    busy,
+    error,
+    removeError,
+    pendingRemove,
+    setPendingRemove,
+    canSubmit,
+    submit,
+    remove,
+  }
+}
+
+type RuleAuthoring = ReturnType<typeof useRuleAuthoring>
+
+function RecordModelRules(props: { modelKey: string; workspaceId: string }) {
+  const authoring = useRuleAuthoring(props)
+
+  const {
+    model,
+    modelKey,
+    rows,
+    busy,
+    removeError,
+    pendingRemove,
+    setPendingRemove,
+    remove,
+  } = authoring
+
   const columns: RegistryColumn<(typeof rows)[number]>[] = [
     {
       id: 'name',
@@ -284,128 +333,7 @@ function RecordModelRules({
         )}
       </Section>
 
-      <Section title={t('library.models.rules.addARule')}>
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="text-xs text-fg-muted">
-              {t('library.models.rules.name2')}
-              <Input
-                className="mt-1 h-8 text-xs"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                aria-label={t('library.models.rules.ruleName')}
-              />
-            </label>
-            <label className="text-xs text-fg-muted">
-              {t('library.models.rules.effect')}
-              <Select
-                className="mt-1 h-8 text-xs"
-                value={effect}
-                onChange={(event) =>
-                  setEffect(event.target.value as ModelRuleEffect)
-                }
-                aria-label={t('library.models.rules.ruleEffect')}
-              >
-                {EFFECTS.map((entry) => (
-                  <option key={entry.value} value={entry.value}>
-                    {entry.label}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <label className="text-xs text-fg-muted">
-              {t('library.models.rules.field')}
-              <Select
-                className="mt-1 h-8 text-xs"
-                value={conditionFieldName}
-                onChange={(event) => setConditionField(event.target.value)}
-                aria-label={t('library.models.rules.ruleField')}
-              >
-                {fieldOptions.map((field) => (
-                  <option key={field.fieldName} value={field.fieldName}>
-                    {field.label}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <label className="text-xs text-fg-muted">
-              {t('library.models.rules.condition')}
-              <div className="mt-1 flex gap-2">
-                <Select
-                  className="h-8 text-xs"
-                  value={op}
-                  onChange={(event) => setOp(event.target.value as Op)}
-                  aria-label={t('library.models.rules.ruleOperator')}
-                >
-                  {OPS.map((entry) => (
-                    <option key={entry} value={entry}>
-                      {entry}
-                    </option>
-                  ))}
-                </Select>
-                <Input
-                  className="h-8 text-xs"
-                  value={value}
-                  onChange={(event) => setValue(event.target.value)}
-                  aria-label={t('library.models.rules.ruleValue')}
-                  placeholder="value"
-                />
-              </div>
-            </label>
-          </div>
-
-          <fieldset className="m-0 border-0 p-0">
-            <legend className="mb-1 text-xs text-fg-muted">
-              {t('library.models.rules.appliesTo2')}
-            </legend>
-            <div className="flex flex-wrap gap-3">
-              {fieldOptions.map((field) => (
-                <label
-                  key={field.fieldName}
-                  className="flex items-center gap-1.5 text-xs"
-                >
-                  <Checkbox
-                    checked={fieldKeys.includes(field.fieldName)}
-                    onCheckedChange={(checked) =>
-                      setFieldKeys((current) =>
-                        checked === true
-                          ? [...current, field.fieldName]
-                          : current.filter((key) => key !== field.fieldName),
-                      )
-                    }
-                    aria-label={field.label}
-                  />
-                  {field.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <label className="text-xs text-fg-muted">
-            {t('library.models.rules.message2')}
-            <Input
-              className="mt-1 h-8 text-xs"
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              aria-label={t('library.models.rules.ruleMessage')}
-            />
-          </label>
-
-          {error ? (
-            <p role="alert" className="m-0 text-label text-danger-text">
-              {error}
-            </p>
-          ) : null}
-
-          <div>
-            <Button type="submit" variant="primary" disabled={!canSubmit}>
-              {busy
-                ? t('common.states.saving')
-                : t('library.models.rules.addRule')}
-            </Button>
-          </div>
-        </form>
-      </Section>
+      <RuleForm authoring={authoring} />
 
       <ConfirmDialog
         open={Boolean(pendingRemove)}
@@ -443,5 +371,164 @@ function RecordModelRules({
         </ConfirmDialogContent>
       </ConfirmDialog>
     </div>
+  )
+}
+
+function RuleForm({ authoring }: { authoring: RuleAuthoring }) {
+  const {
+    fieldOptions,
+    name,
+    setName,
+    fieldKeys,
+    setFieldKeys,
+    conditionFieldName,
+    setConditionField,
+    op,
+    setOp,
+    value,
+    setValue,
+    effect,
+    setEffect,
+    message,
+    setMessage,
+    busy,
+    error,
+    canSubmit,
+    submit,
+  } = authoring
+
+  const selectedFields = new Set(fieldKeys)
+
+  return (
+    <Section title={t('library.models.rules.addARule')}>
+      <form onSubmit={submit} className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <label className="text-xs text-fg-muted">
+            {t('library.models.rules.name2')}
+            <Input
+              className="mt-1 h-8 text-xs"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              aria-label={t('library.models.rules.ruleName')}
+            />
+          </label>
+          <label className="text-xs text-fg-muted">
+            {t('library.models.rules.effect')}
+            <Select
+              className="mt-1 h-8 text-xs"
+              value={effect}
+              onChange={(event) => {
+                const next = EFFECTS.find(
+                  (entry) => entry.value === event.target.value,
+                )
+
+                if (next) setEffect(next.value)
+              }}
+              aria-label={t('library.models.rules.ruleEffect')}
+            >
+              {EFFECTS.map((entry) => (
+                <option key={entry.value} value={entry.value}>
+                  {entry.label}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="text-xs text-fg-muted">
+            {t('library.models.rules.field')}
+            <Select
+              className="mt-1 h-8 text-xs"
+              value={conditionFieldName}
+              onChange={(event) => setConditionField(event.target.value)}
+              aria-label={t('library.models.rules.ruleField')}
+            >
+              {fieldOptions.map((field) => (
+                <option key={field.fieldName} value={field.fieldName}>
+                  {field.label}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="text-xs text-fg-muted">
+            {t('library.models.rules.condition')}
+            <div className="mt-1 flex gap-2">
+              <Select
+                className="h-8 text-xs"
+                value={op}
+                onChange={(event) => {
+                  const next = OPS.find((entry) => entry === event.target.value)
+
+                  if (next) setOp(next)
+                }}
+                aria-label={t('library.models.rules.ruleOperator')}
+              >
+                {OPS.map((entry) => (
+                  <option key={entry} value={entry}>
+                    {entry}
+                  </option>
+                ))}
+              </Select>
+              <Input
+                className="h-8 text-xs"
+                value={value}
+                onChange={(event) => setValue(event.target.value)}
+                aria-label={t('library.models.rules.ruleValue')}
+                placeholder="value"
+              />
+            </div>
+          </label>
+        </div>
+
+        <fieldset className="m-0 border-0 p-0">
+          <legend className="mb-1 text-xs text-fg-muted">
+            {t('library.models.rules.appliesTo2')}
+          </legend>
+          <div className="flex flex-wrap gap-3">
+            {fieldOptions.map((field) => (
+              <label
+                key={field.fieldName}
+                className="flex items-center gap-1.5 text-xs"
+              >
+                <Checkbox
+                  checked={selectedFields.has(field.fieldName)}
+                  onCheckedChange={(checked) =>
+                    setFieldKeys((current) =>
+                      checked === true
+                        ? [...current, field.fieldName]
+                        : current.filter((key) => key !== field.fieldName),
+                    )
+                  }
+                  aria-label={field.label}
+                />
+                {field.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <label className="text-xs text-fg-muted">
+          {t('library.models.rules.message2')}
+          <Input
+            className="mt-1 h-8 text-xs"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            aria-label={t('library.models.rules.ruleMessage')}
+          />
+        </label>
+
+        {error ? (
+          <p role="alert" className="m-0 text-label text-danger-text">
+            {error}
+          </p>
+        ) : null}
+
+        <div>
+          <Button type="submit" variant="primary" disabled={!canSubmit}>
+            {busy
+              ? t('common.states.saving')
+              : t('library.models.rules.addRule')}
+          </Button>
+        </div>
+      </form>
+    </Section>
   )
 }

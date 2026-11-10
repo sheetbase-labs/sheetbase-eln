@@ -18,7 +18,7 @@ import {
 } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { stickyCell, stickyHead } from '#/components/inventory/list'
-import { FLAG_KIND_LABELS } from '#/components/datasets/value-actions'
+import { FLAG_KIND_LABELS } from '#/components/datasets/value-action-labels'
 import {
   hasMoreSnapshotCompareRows,
   snapshotCompareTotalRows,

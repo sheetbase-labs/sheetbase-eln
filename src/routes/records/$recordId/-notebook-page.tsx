@@ -41,10 +41,8 @@ import {
 import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
 import { SAMPLE_EXTENSION_KEY } from '#/lib/extensions/sample/manifest'
 import { SampleExtensionPanel } from '#/lib/extensions/sample/panel'
-import {
-  CollaborationRoom,
-  safeBuildRoomId,
-} from '#/components/collaboration/collaboration-room'
+import { CollaborationRoom } from '#/components/collaboration/collaboration-room'
+import { safeBuildRoomId } from '#/components/collaboration/collaboration-room-id'
 import { useCollaborationEnabled } from '#/lib/collaboration/collaboration-enabled'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
 import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog'
@@ -101,10 +99,8 @@ import { reopenTaskFromSearch } from '#/lib/return-to'
 import { useShortcutScope } from '#/components/shortcuts/shortcut-provider'
 import { NotebookDocument } from '#/components/notebook'
 import type { NotebookDocumentProps, SaveResult } from '#/components/notebook'
-import {
-  canonicalCellFacts,
-  NotebookCellProperties,
-} from '#/components/notebook/notebook-inspector'
+import { NotebookCellProperties } from '#/components/notebook/notebook-inspector'
+import { canonicalCellFacts } from '#/components/notebook/inspector-cell-facts'
 import type { NotebookInspectorCellFacts } from '#/components/notebook/notebook-inspector'
 import type { SheetCellSelection } from '#/components/sheet/canonical-sheet-workspace'
 import { CommentPanel } from '#/components/comments'
@@ -112,19 +108,19 @@ import { useLiveStatus } from '#/components/live/live-event-provider'
 import { deviceOfflineEditStore } from '#/components/offline/device-store'
 import {
   OfflineEditsProvider,
-  blockEditTargetKey,
   useIsOnline,
-  canEditBlockOffline,
-  overlayQueuedBlocks,
   useOfflineEdits,
 } from '#/components/offline/offline-edits'
+import {
+  blockEditTargetKey,
+  canEditBlockOffline,
+  overlayQueuedBlocks,
+} from '#/components/offline/offline-edit-model'
 import { requestBackgroundSync } from '#/lib/offline/service-worker'
 import { UnsyncedChangesSection } from '#/components/offline/offline-status'
 import { NotebookOfflineSurfaces } from '#/components/offline/notebook-offline-surfaces'
-import {
-  CONNECTION_REQUIRED_REASONS,
-  ConnectionRequired,
-} from '#/components/offline/connection-required'
+import { ConnectionRequired } from '#/components/offline/connection-required'
+import { CONNECTION_REQUIRED_REASONS } from '#/components/offline/connection-reasons'
 import {
   ActivityFeed,
   ContributorAvatars,
@@ -289,7 +285,16 @@ function RouteShell({
 }: {
   children: ReactNode
   inspector?: ReactNode
-  [key: string]: unknown
+  context: {
+    workspace: { name: string } | null
+    user: { name: string; email: string }
+  }
+  breadcrumbs: ReturnType<typeof loadingBreadcrumbs>
+  fullBleed?: boolean
+  projectTree?: ReactNode
+  inspectorCollapsible?: boolean
+  extensionCommands?: ReturnType<typeof useExtensionPoints>['commands']
+  onExtensionCommand?: (contribution: ResolvedExtensionContribution) => void
 }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
@@ -367,7 +372,7 @@ export function RecordNotebookRoute() {
     void navigate({
       to: '/experiments/$expId/notebook',
       params: { expId: recordId },
-      search: search as Record<string, unknown>,
+      search: true,
       hash: hash || undefined,
       replace: true,
     })
@@ -378,7 +383,9 @@ export function RecordNotebookRoute() {
   return <RecordNotebookPage context={context} recordId={recordId} />
 }
 
+// eslint-disable-next-line anti-slop/no-unknown-parameters -- Search accepts the existing raw query-string or native object form; inspect only revision without copying or validating unrelated values.
 function historicalRevisionFromSearch(search: unknown): string | undefined {
+  // eslint-disable-next-line anti-slop/no-runtime-typeof -- Preserve native string dispatch before URLSearchParams coercion.
   if (typeof search === 'string') {
     const value = new URLSearchParams(
       search.startsWith('?') ? search.slice(1) : search,
@@ -387,9 +394,11 @@ function historicalRevisionFromSearch(search: unknown): string | undefined {
     return value || undefined
   }
 
+  // eslint-disable-next-line anti-slop/no-runtime-typeof -- Preserve inherited/accessor revision reads on native objects and exclude functions, as before.
   if (search && typeof search === 'object' && 'revision' in search) {
-    const value = (search as { revision?: unknown }).revision
+    const value = search.revision
 
+    // eslint-disable-next-line anti-slop/no-runtime-typeof -- Only a nonempty native string selects historical evidence; do not coerce other captured values.
     return typeof value === 'string' && value.length > 0 ? value : undefined
   }
 
@@ -437,7 +446,7 @@ export function useNotebookCellFacts(options: { enabled?: boolean } = {}) {
  * The notebook surface. `embedded` is the experiment page, where the frame
  * above already carries the title and identifier.
  */
-export function RecordNotebookPage({
+function useNotebookPageQueries({
   context,
   recordId,
   embedded = false,
@@ -563,6 +572,64 @@ export function RecordNotebookPage({
     enabled: true,
   })
 
+  return {
+    context,
+    recordId,
+    embedded,
+    partParam,
+    collaborationRoomId,
+    historicalRevisionId,
+    selectedCell,
+    onCellSelectionChange,
+    queryClient,
+    tab,
+    setTab,
+    recordQuery,
+    projectId,
+    projectQuery,
+    projectFoldersQuery,
+    projectRecordsQuery,
+    blocksQuery,
+    linksQuery,
+    revisionsQuery,
+    signaturesQuery,
+    requiredSectionLabels,
+    activityQuery,
+    historicalRevisionQuery,
+    reviewQuery,
+  }
+}
+
+function useNotebookPageModel(
+  props: Parameters<typeof useNotebookPageQueries>[0],
+) {
+  const {
+    context,
+    recordId,
+    embedded,
+    partParam,
+    collaborationRoomId,
+    historicalRevisionId,
+    selectedCell,
+    onCellSelectionChange,
+    queryClient,
+    tab,
+    setTab,
+    recordQuery,
+    projectId,
+    projectQuery,
+    projectFoldersQuery,
+    projectRecordsQuery,
+    blocksQuery,
+    linksQuery,
+    revisionsQuery,
+    signaturesQuery,
+    requiredSectionLabels,
+    activityQuery,
+    historicalRevisionQuery,
+    reviewQuery,
+  } = useNotebookPageQueries(props)
+
   // EXT-02: enabled-install contributions for this caller. The hook reads
   // the workspace installs through the public client surface and resolves
   // them through the single registry; loading/failure degrades to empty
@@ -605,9 +672,6 @@ export function RecordNotebookPage({
   // submit dialog's readiness checklist reflects unsaved drafts. It mirrors
   // NotebookDocument's own signal; the document re-emits on record change.
   const [hasUnsavedWork, setHasUnsavedWork] = useState(false)
-  useEffect(() => {
-    setHasUnsavedWork(false)
-  }, [recordId, historicalRevisionId])
 
   // NOTE-02: section collapse is presentation state owned by the route so
   // the inspector's Outline tab and the canvas stay in sync. It resets when
@@ -616,9 +680,19 @@ export function RecordNotebookPage({
     ReadonlySet<string>
   >(() => new Set<string>())
 
-  useEffect(() => {
+  const [viewIdentity, setViewIdentity] = useState({
+    recordId,
+    historicalRevisionId,
+  })
+
+  if (
+    viewIdentity.recordId !== recordId ||
+    viewIdentity.historicalRevisionId !== historicalRevisionId
+  ) {
+    setViewIdentity({ recordId, historicalRevisionId })
+    setHasUnsavedWork(false)
     setCollapsedSections(new Set())
-  }, [recordId, historicalRevisionId])
+  }
 
   const toggleSection = (anchorId: string) => {
     setCollapsedSections((current) => {
@@ -690,7 +764,7 @@ export function RecordNotebookPage({
   const project = projectQuery.data ?? null
   const record = recordQuery.data ?? null
   const sequences = useLinkedSequences(record?.id ?? null)
-  const blocks = blocksQuery.data ?? []
+  const blocks = blocksQuery.data ?? EMPTY_BLOCKS
 
   // Parts: when the experiment is split, the page shows one part at a time and
   // the rest of the notebook stays a click away. With none it is one page.
@@ -818,6 +892,68 @@ export function RecordNotebookPage({
     user: { name: context.user.name, email: context.user.email },
   }
 
+  return {
+    context,
+    recordId,
+    embedded,
+    collaborationRoomId,
+    historicalRevisionId,
+    selectedCell,
+    onCellSelectionChange,
+    queryClient,
+    tab,
+    setTab,
+    recordQuery,
+    projectId,
+    projectFoldersQuery,
+    projectRecordsQuery,
+    blocksQuery,
+    linksQuery,
+    signaturesQuery,
+    requiredSectionLabels,
+    activityQuery,
+    historicalRevisionQuery,
+    reviewQuery,
+    workspaceRole,
+    extensionPoints,
+    pluginPoints,
+    samplePanelOpen,
+    setSamplePanelOpen,
+    extensionError,
+    runExtensionContribution,
+    hasUnsavedWork,
+    setHasUnsavedWork,
+    loadSampleSummary,
+    project,
+    record,
+    sequences,
+    blocks,
+    partsView,
+    partsList,
+    shownPartNow,
+    nowPart,
+    lockedPartGate,
+    gatesHost,
+    shownSignoff,
+    partRequests,
+    canvasBlocks,
+    stepNumbers,
+    links,
+    revisions,
+    activity,
+    outlineControls,
+    shellContext,
+    userLabelForParts,
+    navigate,
+  }
+}
+
+export function RecordNotebookPage(
+  props: Parameters<typeof useNotebookPageModel>[0],
+) {
+  const model = useNotebookPageModel(props)
+  const { recordQuery, project, shellContext, record } = model
+
   // Loading — record is the authoritative gate; project loads in parallel.
   if (recordQuery.isLoading) {
     return (
@@ -872,6 +1008,66 @@ export function RecordNotebookPage({
       </RouteShell>
     )
   }
+
+  return notebookReadyPage({ ...model, record })
+}
+
+function notebookReadyPage(
+  model: ReturnType<typeof useNotebookPageModel> & { record: NotebookRecord },
+) {
+  const {
+    context,
+    recordId,
+    embedded,
+    collaborationRoomId,
+    historicalRevisionId,
+    selectedCell,
+    onCellSelectionChange,
+    queryClient,
+    tab,
+    setTab,
+    projectId,
+    projectFoldersQuery,
+    projectRecordsQuery,
+    blocksQuery,
+    linksQuery,
+    signaturesQuery,
+    requiredSectionLabels,
+    activityQuery,
+    historicalRevisionQuery,
+    reviewQuery,
+    workspaceRole,
+    extensionPoints,
+    pluginPoints,
+    samplePanelOpen,
+    setSamplePanelOpen,
+    extensionError,
+    runExtensionContribution,
+    hasUnsavedWork,
+    setHasUnsavedWork,
+    loadSampleSummary,
+    project,
+    record,
+    sequences,
+    blocks,
+    partsView,
+    partsList,
+    shownPartNow,
+    nowPart,
+    lockedPartGate,
+    gatesHost,
+    shownSignoff,
+    partRequests,
+    canvasBlocks,
+    stepNumbers,
+    links,
+    revisions,
+    activity,
+    outlineControls,
+    shellContext,
+    userLabelForParts,
+    navigate,
+  } = model
 
   const isArchived = record.archivedAt !== null
   const review = reviewQuery.data ?? null
@@ -1440,6 +1636,12 @@ export function RecordTitleInput({
 }) {
   const queryClient = useQueryClient()
   const [titleDraft, setTitleDraft] = useState(title)
+  const [draftTitle, setDraftTitle] = useState(title)
+
+  if (draftTitle !== title) {
+    setDraftTitle(title)
+    setTitleDraft(title)
+  }
 
   const saveTitle = useMutation({
     mutationFn: (next: string) =>
@@ -1456,7 +1658,7 @@ export function RecordTitleInput({
         queryKey: ['ui-port', 'experiment', recordId],
       })
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       // A refused rename leaves the title unchanged, so the draft has to be
       // put back by hand or the typed title looks applied.
       setTitleDraft(title)
@@ -1468,10 +1670,6 @@ export function RecordTitleInput({
       })
     },
   })
-
-  useEffect(() => {
-    setTitleDraft(title)
-  }, [title])
 
   // A long title wraps onto more lines instead of running off the edge of a
   // narrow screen, so the field grows to fit what is typed.
@@ -1519,7 +1717,11 @@ export function RecordTitleInput({
   )
 }
 
-export function StickyRecordHeader({
+const EMPTY_BLOCKS: NotebookBlockDomain[] = []
+const EMPTY_EXTENSION_ACTIONS: ResolvedExtensionContribution[] = []
+const EMPTY_ACTIVITY: RecordActivityItem[] = []
+
+function useRecordHeaderModel({
   record,
   projectName,
   projectId,
@@ -1527,7 +1729,7 @@ export function StickyRecordHeader({
   currentUserName,
   workspaceId,
   embedded = false,
-  blocks = [],
+  blocks = EMPTY_BLOCKS,
   hasParts = false,
   partsStrip = null,
   notices = null,
@@ -1540,7 +1742,7 @@ export function StickyRecordHeader({
    * buttons in the header action row; invocation (with the server-side
    * assert) stays with the host via `onExtensionAction`.
    */
-  extensionActions = [],
+  extensionActions = EMPTY_EXTENSION_ACTIONS,
   onExtensionAction,
   extensionError = null,
   liveLockedAt,
@@ -1678,6 +1880,18 @@ export function StickyRecordHeader({
     select: (state) => reopenTaskFromSearch(state.location.search),
   })
 
+  const readyReopen =
+    reopenTask === 'submit' ? canSubmit && reopenTask : canSign && reopenTask
+
+  const [handledReopen, setHandledReopen] = useState<typeof readyReopen>(false)
+
+  if (handledReopen !== readyReopen) {
+    setHandledReopen(readyReopen)
+
+    if (readyReopen === 'submit') setSubmitOpen(true)
+    else if (readyReopen === 'sign') setSignOpen(true)
+  }
+
   useEffect(() => {
     const task = reopenTask
 
@@ -1687,11 +1901,12 @@ export function StickyRecordHeader({
 
     if (task === 'sign' && !canSign) return
 
-    if (task === 'submit') setSubmitOpen(true)
-    else setSignOpen(true)
+    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- Installed merged route declarations cannot express this unchanged relative search reducer across embedded routes; this does not validate search.
     void navigate({
       to: '.',
-      search: (previous: Record<string, unknown>) => ({
+      search: (
+        previous: ReturnType<typeof useRouterState>['location']['search'],
+      ) => ({
         ...previous,
         reopen: undefined,
       }),
@@ -1734,6 +1949,75 @@ export function StickyRecordHeader({
       }),
   })
 
+  return {
+    record,
+    projectName,
+    projectId,
+    currentUserId,
+    currentUserName,
+    workspaceId,
+    embedded,
+    blocks,
+    partsStrip,
+    notices,
+    historicalRevisionId,
+    review,
+    hasUnsavedWork,
+    extensionActions,
+    onExtensionAction,
+    extensionError,
+    liveLockedAt,
+    canWrite,
+    navigate,
+    online,
+    submitVariant,
+    submitOpen,
+    setSubmitOpen,
+    duplicateOpen,
+    setDuplicateOpen,
+    labelOpen,
+    setLabelOpen,
+    shareOpen,
+    setShareOpen,
+    signOpen,
+    setSignOpen,
+    withdrawOpen,
+    setWithdrawOpen,
+    linkOpen,
+    setLinkOpen,
+    lockedAt,
+    activeReview,
+    lifecycle,
+    reviewRevisionId,
+    canSubmit,
+    canEditTitle,
+    showSubmit,
+    stepCardOn,
+    canSign,
+    canWithdraw,
+    linkRecords,
+    canOpenReview,
+    evidenceRevisionId,
+  }
+}
+
+function recordHeaderActions({
+  record,
+  projectId,
+  embedded,
+  historicalRevisionId,
+  canWrite,
+  lockedAt,
+  canOpenReview,
+  reviewRevisionId,
+  evidenceRevisionId,
+  canWithdraw,
+  setLinkOpen,
+  setLabelOpen,
+  setDuplicateOpen,
+  setShareOpen,
+  setWithdrawOpen,
+}: ReturnType<typeof useRecordHeaderModel>): RecordAction[] {
   // Everything that is not the one main button lives in one ⋯ menu. On the
   // experiment page that is the page header's menu; elsewhere it is this one.
   const recordActions: RecordAction[] = [
@@ -1830,6 +2114,41 @@ export function StickyRecordHeader({
       : []),
   ]
 
+  return recordActions
+}
+
+export function StickyRecordHeader(
+  props: Parameters<typeof useRecordHeaderModel>[0],
+) {
+  const model = useRecordHeaderModel(props)
+
+  const {
+    record,
+    projectName,
+    currentUserId,
+    currentUserName,
+    workspaceId,
+    embedded,
+    blocks,
+    partsStrip,
+    notices,
+    extensionActions,
+    onExtensionAction,
+    extensionError,
+    canWrite,
+    online,
+    submitVariant,
+    setSubmitOpen,
+    setSignOpen,
+    lockedAt,
+    lifecycle,
+    canEditTitle,
+    showSubmit,
+    stepCardOn,
+    canSign,
+  } = model
+
+  const recordActions = recordHeaderActions(model)
   const offered = useOfferRecordActions(recordActions, embedded)
 
   const submitButton = (variant: 'primary' | 'secondary') => (
@@ -2008,6 +2327,45 @@ export function StickyRecordHeader({
           currentUserName={currentUserName}
         />
       ) : null}
+      {notebookHeaderDialogs(model)}
+    </div>
+  )
+}
+
+function notebookHeaderDialogs({
+  record,
+  projectId,
+  currentUserId,
+  currentUserName,
+  workspaceId,
+  blocks,
+  historicalRevisionId,
+  review,
+  hasUnsavedWork,
+  liveLockedAt,
+  navigate,
+  submitOpen,
+  setSubmitOpen,
+  duplicateOpen,
+  setDuplicateOpen,
+  labelOpen,
+  setLabelOpen,
+  shareOpen,
+  setShareOpen,
+  signOpen,
+  setSignOpen,
+  withdrawOpen,
+  setWithdrawOpen,
+  linkOpen,
+  setLinkOpen,
+  activeReview,
+  reviewRevisionId,
+  canSubmit,
+  canWithdraw,
+  linkRecords,
+}: ReturnType<typeof useRecordHeaderModel>) {
+  return (
+    <>
       {canSubmit && submitOpen && projectId && currentUserId ? (
         <SubmitNotebookDialog
           open={submitOpen}
@@ -2024,7 +2382,7 @@ export function StickyRecordHeader({
           activeReview={activeReview}
         />
       ) : null}
-      {withdrawOpen && canWithdraw && review.submission ? (
+      {withdrawOpen && canWithdraw && review?.submission ? (
         <WithdrawReviewDialog
           open={withdrawOpen}
           onOpenChange={setWithdrawOpen}
@@ -2091,7 +2449,7 @@ export function StickyRecordHeader({
           currentUserName={currentUserName}
         />
       ) : null}
-    </div>
+    </>
   )
 }
 
@@ -2377,9 +2735,7 @@ export function HistoricalEvidenceBanner({ recordId }: { recordId: string }) {
 }
 
 /** Why a restore attempt failed, in words that name who can fix it. */
-function restoreErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : ''
-
+function restoreErrorMessage(message: string): string {
   if (
     /row-level security|permission_denied|permission denied|42501/i.test(
       message,
@@ -2402,6 +2758,7 @@ export function ArchivedBanner({
   /** True when the whole project is archived: restoring the project comes first. */
   projectArchived?: boolean
   /** Restores the notebook; rejects with the server's reason. */
+  // eslint-disable-next-line anti-slop/no-unknown-returns -- Successful callback values are deliberately ignored by await; arbitrary existing returns remain accepted.
   onRestore?: () => Promise<unknown>
 }) {
   const [restoring, setRestoring] = useState(false)
@@ -2415,7 +2772,7 @@ export function ArchivedBanner({
     try {
       await onRestore()
     } catch (err) {
-      setError(restoreErrorMessage(err))
+      setError(restoreErrorMessage(err instanceof Error ? err.message : ''))
     } finally {
       setRestoring(false)
     }
@@ -2545,6 +2902,7 @@ export function NotebookCanvas({
   viewOnly = false,
   partLocked = false,
   onCellSelectionChange,
+  onUnsavedWorkChange,
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
@@ -2664,6 +3022,7 @@ export function NotebookCanvas({
       collaborationRole={collaborationRole}
       outline={outline}
       onCellSelectionChange={onCellSelectionChange}
+      onUnsavedWorkChange={onUnsavedWorkChange}
     />
   )
 }
@@ -2677,7 +3036,7 @@ export function NotebookCanvas({
 // mutation sends the right expected version.
 // ---------------------------------------------------------------------------
 
-function EditableNotebook({
+function useEditableNotebook({
   record,
   blocks,
   partId = null,
@@ -2840,7 +3199,7 @@ function EditableNotebook({
       options?: {
         datasetSchemaId?: string
         instanceId?: string
-        payload?: Record<string, unknown>
+        payload?: NotebookBlockDomain['payload']
       }
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
@@ -2938,7 +3297,7 @@ function EditableNotebook({
       destination,
     }: {
       type: string
-      payload: Record<string, unknown>
+      payload: NotebookBlockDomain['payload']
       destination: {
         afterBlockId: string | null
         beforeBlockId: string | null
@@ -3016,8 +3375,8 @@ function EditableNotebook({
 
   async function handleSave(
     block: NotebookBlockDomain,
-    payload: Record<string, unknown>,
-  ): Promise<SaveResult<Record<string, unknown>>> {
+    payload: NotebookBlockDomain['payload'],
+  ): Promise<SaveResult<NotebookBlockDomain['payload']>> {
     // ELN-007 — read the latest block version from the cache at call time
     // so an autosave firing after a live-event version bump targets the
     // right version. The client identity is attached automatically by
@@ -3031,7 +3390,7 @@ function EditableNotebook({
     // payload on the device and send it on reconnect, in order. Blocks that
     // need the server (files, imports, signatures) fall through and say so.
     const keepOnDevice = async (): Promise<SaveResult<
-      Record<string, unknown>
+      NotebookBlockDomain['payload']
     > | null> => {
       if (!offlineEdits.canQueue || !canEditBlockOffline(current.type)) {
         return null
@@ -3144,7 +3503,7 @@ function EditableNotebook({
     options?: {
       datasetSchemaId?: string
       instanceId?: string
-      payload?: Record<string, unknown>
+      payload?: NotebookBlockDomain['payload']
     },
   ) {
     if (type === 'sheet_shared' && !options?.instanceId) {
@@ -3183,6 +3542,18 @@ function EditableNotebook({
       description: request.description,
       made: request.made,
     })
+
+    // Creation already persisted even if inserting its block later refuses.
+    // Every record's embed picker reads all instances, not just its own.
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: ['sheet-instances', 'embed-picker'],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'project-sheets', record.projectId, 'active'],
+        exact: true,
+      }),
+    ])
 
     await handleInsert('sheet', block.id, { instanceId: instance.id })
   }
@@ -3333,7 +3704,7 @@ function EditableNotebook({
     type: string,
     options?: {
       datasetSchemaId?: string
-      payload?: Record<string, unknown>
+      payload?: NotebookBlockDomain['payload']
     },
   ): Promise<string | undefined> {
     const newId = await handleInsert(type, block.id, options)
@@ -3344,7 +3715,7 @@ function EditableNotebook({
 
   async function handleUndoDelete(
     type: string,
-    payload: Record<string, unknown>,
+    payload: NotebookBlockDomain['payload'],
     destination: {
       afterBlockId: string | null
       beforeBlockId: string | null
@@ -3392,6 +3763,76 @@ function EditableNotebook({
       afterBlockId = res.block.id
     }
   }
+
+  return {
+    record,
+    shownBlocks,
+    offline,
+    outline,
+    collaborationWorkspaceId,
+    collaborationRole,
+    onCellSelectionChange,
+    onUnsavedWorkChange,
+    setHasUnsavedWork,
+    handleAddSteps,
+    handleSave,
+    handleInsert,
+    handlePinProtocol,
+    handleAttachFile,
+    handleMakeSheet,
+    handleFreezeChart,
+    handleUnfreezeChart,
+    handleFreezeAnalysis,
+    handleUnfreezeAnalysis,
+    handleDuplicate,
+    handleDelete,
+    handleUndoDelete,
+    handleMove,
+    handleReplaceBlock,
+    embedOpen,
+    setEmbedOpen,
+    embedInstanceId,
+    setEmbedInstanceId,
+    embedCandidates,
+    insertMutation,
+    embedAfterBlockId,
+  }
+}
+
+function EditableNotebook(props: Parameters<typeof useEditableNotebook>[0]) {
+  const {
+    record,
+    shownBlocks,
+    offline,
+    outline,
+    collaborationWorkspaceId,
+    collaborationRole,
+    onCellSelectionChange,
+    onUnsavedWorkChange,
+    setHasUnsavedWork,
+    handleAddSteps,
+    handleSave,
+    handleInsert,
+    handlePinProtocol,
+    handleAttachFile,
+    handleMakeSheet,
+    handleFreezeChart,
+    handleUnfreezeChart,
+    handleFreezeAnalysis,
+    handleUnfreezeAnalysis,
+    handleDuplicate,
+    handleDelete,
+    handleUndoDelete,
+    handleMove,
+    handleReplaceBlock,
+    embedOpen,
+    setEmbedOpen,
+    embedInstanceId,
+    setEmbedInstanceId,
+    embedCandidates,
+    insertMutation,
+    embedAfterBlockId,
+  } = useEditableNotebook(props)
 
   return (
     <>
@@ -3708,6 +4149,7 @@ export function PermissionRestrictedState() {
 // Inspector tabs: Properties, History, and (live only) Activity.
 // ---------------------------------------------------------------------------
 
+// eslint-disable-next-line anti-slop/no-known-value-widening -- Preserve the legacy dynamic lookup, including inherited keys; this annotation does not validate inherited values.
 const OPERATION_LABELS: Record<string, string> = {
   create: 'created',
   update: 'updated',
@@ -3720,6 +4162,7 @@ const OPERATION_LABELS: Record<string, string> = {
   quarantine: 'quarantined',
 }
 
+// eslint-disable-next-line anti-slop/no-known-value-widening -- Preserve the legacy dynamic lookup, including inherited keys; this annotation does not validate inherited values.
 const ENTITY_LABELS: Record<string, string> = {
   block: t('notebook.notebookPage.aBlock'),
   record: t('notebook.notebookPage.theRecord'),
@@ -3747,14 +4190,18 @@ function fileItemsFromBlocks(
     const p = b.payload
 
     const displayName =
+      // eslint-disable-next-line anti-slop/no-runtime-typeof -- Preserve native payload access and the second getter read on a string, rather than decoding a copy.
       typeof p.displayName === 'string'
         ? p.displayName
         : t('notebook.notebookPage.file')
 
+    // eslint-disable-next-line anti-slop/no-runtime-typeof -- Preserve native payload getter reads and string-only media type fallback.
     const mediaType = typeof p.mediaType === 'string' ? p.mediaType : ''
+    // eslint-disable-next-line anti-slop/no-runtime-typeof -- Preserve repeated native reads and acceptance of nonfinite numeric sizes.
     const byteSize = typeof p.byteSize === 'number' ? p.byteSize : 0
 
     const fileRecordId =
+      // eslint-disable-next-line anti-slop/no-runtime-typeof -- Preserve repeated native reads and the original download-link string fallback.
       typeof p.fileRecordId === 'string' ? p.fileRecordId : ''
 
     return {
@@ -3855,6 +4302,7 @@ function contributorsFromActivity(
 }
 
 /** Group links by target kind for the "Link to" count pills. */
+// eslint-disable-next-line anti-slop/no-known-value-widening -- Preserve the legacy dynamic lookup, including inherited keys; this annotation does not validate inherited values.
 const LINK_KIND_LABELS: Record<string, string> = {
   sample: t('notebook.notebookPage.samples'),
   material: t('notebook.notebookPage.materials'),
@@ -3983,7 +4431,7 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
 
 function NotebookTagsEditor({ record }: { record: NotebookRecord }) {
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState(record.tags.join(', '))
+  const [draft, setDraft] = useState(() => record.tags.join(', '))
 
   const save = useMutation({
     mutationFn: (tags: string[]) =>
@@ -4021,7 +4469,7 @@ function NotebookTagsEditor({ record }: { record: NotebookRecord }) {
   )
 }
 
-export function NotebookInspector({
+function useNotebookInspectorModel({
   record,
   projectName,
   currentUserId,
@@ -4112,7 +4560,11 @@ export function NotebookInspector({
     : (blocks ?? [])
 
   const evidenceLinks = isHistorical ? (revisionEvidence?.links ?? []) : links
-  const evidenceActivity = isHistorical ? [] : (activity ?? [])
+
+  const evidenceActivity = isHistorical
+    ? EMPTY_ACTIVITY
+    : (activity ?? EMPTY_ACTIVITY)
+
   const fileBlocks = evidenceBlocks.filter((b) => b.type === 'file')
 
   const fileItems = fileItemsFromBlocks(fileBlocks, {
@@ -4181,187 +4633,263 @@ export function NotebookInspector({
     requiredSectionLabels,
   )
 
+  return {
+    record,
+    projectName,
+    currentUserId,
+    currentUserName,
+    workspaceId,
+    linksLoading,
+    actionContext,
+    activityLoading,
+    defaultTab,
+    canEditMetadata,
+    isHistorical,
+    revisionEvidence,
+    commentsRevisionId,
+    outlineControls,
+    partsOutline,
+    partsAction,
+    cell,
+    unsynced,
+    extensionPanels,
+    evidenceBlocks,
+    evidenceLinks,
+    fileItems,
+    activityItems,
+    ownerName,
+    contributors,
+    linkCounts,
+    fmtDateTime,
+    lifecycle,
+    outlineEntries,
+    requiredSections,
+  }
+}
+
+function notebookProperties({
+  record,
+  projectName,
+  currentUserId,
+  linksLoading,
+  canEditMetadata,
+  isHistorical,
+  cell,
+  unsynced,
+  evidenceLinks,
+  fileItems,
+  ownerName,
+  contributors,
+  linkCounts,
+  fmtDateTime,
+  lifecycle,
+}: ReturnType<typeof useNotebookInspectorModel>) {
+  return (
+    <div className="space-y-2">
+      {/* EXP-05.2: what is waiting to sync, from the device store. */}
+      {unsynced}
+      {/* EXP-04.4: the selected Sheet cell — its value, validation,
+              provenance and column definition — heads the tab. The record's
+              own metadata below is unchanged, so the panel is an addition to
+              this live surface rather than a replacement of it. */}
+      {cell ? <NotebookCellProperties cell={cell} /> : null}
+      {/* Core metadata — Type & Status as semantic badges, then
+                  dense key-value rows matching the mockup's layout. */}
+      <PropertyList>
+        <Property label={t('notebook.notebookPage.typeLabel')}>
+          <Badge variant="kind" className="text-xs">
+            <ObjectTypeName
+              modelKey={record.kind}
+              objectId={record.id}
+              fallback={recordKindLabel(record.kind)}
+            />
+          </Badge>
+        </Property>
+        <Property label={t('notebook.notebookPage.label')}>
+          <StatusBadge
+            domain={statusDomainForKind(record.kind)}
+            status={record.status}
+          />
+        </Property>
+        <Property label={t('notebook.notebookPage.idLabel')} mono>
+          {record.identifier}
+        </Property>
+        {projectName ? (
+          <Property label={t('notebook.notebookPage.projectLabel')}>
+            <ObjectLink kind="project" id={record.projectId} mono={false}>
+              {projectName}
+            </ObjectLink>
+          </Property>
+        ) : null}
+        <Property label={t('notebook.notebookPage.createdLabel')}>
+          {fmtDateTime(record.createdAt)}
+        </Property>
+        <Property label={t('notebook.notebookPage.updatedLabel')}>
+          {fmtDateTime(record.updatedAt)}
+        </Property>
+        {ownerName ? (
+          <Property label={t('notebook.notebookPage.createdByLabel')}>
+            {ownerName}
+          </Property>
+        ) : null}
+      </PropertyList>
+
+      {/* Contributors + Review status — same key-value rhythm. */}
+      {contributors.length > 0 ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {t('notebook.notebookPage.contributors')}
+          </span>
+          <ContributorAvatars contributors={contributors} />
+        </div>
+      ) : null}
+
+      {/* An experiment's status is in its page header and its frozen
+              banner; saying it a third time here only adds noise. */}
+      {record.kind === 'experiment' ? null : (
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {t('notebook.notebookPage.notebookState')}
+          </span>
+          {lifecycle === 'Submitted' ? (
+            <Badge variant="add" className="text-xs">
+              {t('notebook.notebookPage.submittedEvidenceFrozen')}
+            </Badge>
+          ) : lifecycle === 'In review' ? (
+            <Badge variant="kind" className="text-xs">
+              {t('notebook.notebookPage.inReview')}
+            </Badge>
+          ) : lifecycle === 'Archived' ? (
+            <Badge variant="kind" className="text-xs">
+              {t('notebook.notebookPage.archived')}
+            </Badge>
+          ) : (
+            <Badge variant="kind" className="text-xs">
+              {t('notebook.notebookPage.working')}
+            </Badge>
+          )}
+        </div>
+      )}
+      {record.sourceNotebookTemplateVersionId ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {t('notebook.notebookPage.template')}
+          </span>
+          <NotebookTemplateVersionLabel
+            versionId={record.sourceNotebookTemplateVersionId}
+          />
+        </div>
+      ) : null}
+
+      {/* Tags — coloured pills, always visible */}
+      <InspectorSection title={t('notebook.notebookPage.tagsTitle')}>
+        {canEditMetadata ? (
+          <NotebookTagsEditor record={record} />
+        ) : record.tags.length > 0 ? (
+          <TagPills tags={record.tags} />
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {t('notebook.notebookPage.noTags')}
+          </p>
+        )}
+      </InspectorSection>
+
+      {/* Link to — snapshot pills only in historical mode */}
+      <InspectorSection title={t('notebook.notebookPage.linkToTitle')}>
+        {isHistorical ? (
+          linkCounts.length > 0 ? (
+            <LinkToPills
+              items={linkCounts.map((lc) => ({
+                label: lc.label,
+                count: lc.count,
+              }))}
+            />
+          ) : (
+            <EmptyHint>
+              {t('notebook.notebookPage.noLinkedRecordsIn')}
+            </EmptyHint>
+          )
+        ) : linksLoading ? (
+          <EmptyHint>{t('notebook.notebookPage.loadingLinks')}</EmptyHint>
+        ) : (
+          <>
+            <LinkToPills
+              items={linkCounts.map((lc) => ({
+                label: lc.label,
+                count: lc.count,
+              }))}
+            />
+            <ScientificRecordLinker
+              sourceRecordId={record.id}
+              links={evidenceLinks}
+              hideSummaries
+            />
+          </>
+        )}
+      </InspectorSection>
+      {/* FIND-03: contextual discovery across links, provenance and
+              project membership. Silent when empty. */}
+      {/* Plugin hooks: summaries, holds and sign-off steps. Silent when empty. */}
+      {isHistorical ? null : (
+        <PluginRecordPanel
+          recordId={record.id}
+          myUserId={currentUserId ?? null}
+        />
+      )}
+      {isHistorical ? null : <RelatedWorkPanel kind="record" id={record.id} />}
+      {/* KNOW-01: complete bidirectional typed traversal. Related work
+              above is ranked discovery with reasons; this panel is the full
+              incoming/outgoing edge list with lifecycle states. Historical
+              revisions show the pinned outgoing snapshot without actions. */}
+      {isHistorical ? (
+        <PinnedRelationshipPanel links={evidenceLinks} />
+      ) : (
+        <RelationshipPanel recordId={record.id} sourceModelKey={record.kind} />
+      )}
+      {/* KNOW-02: per-object lineage — the existing traversal BFS seeded
+              from this record at a bounded depth. Historical revisions show
+              pinned evidence only, so the live traversal stays hidden there. */}
+      {isHistorical ? null : <RecordLineageSection recordId={record.id} />}
+
+      <InspectorSection title={t('notebook.notebookPage.filesTitle')}>
+        <FileList items={fileItems} />
+      </InspectorSection>
+    </div>
+  )
+}
+
+export function NotebookInspector(
+  props: Parameters<typeof useNotebookInspectorModel>[0],
+) {
+  const model = useNotebookInspectorModel(props)
+
+  const {
+    record,
+    currentUserId,
+    currentUserName,
+    workspaceId,
+    actionContext,
+    activityLoading,
+    defaultTab,
+    canEditMetadata,
+    isHistorical,
+    revisionEvidence,
+    commentsRevisionId,
+    outlineControls,
+    partsOutline,
+    partsAction,
+    extensionPanels,
+    evidenceBlocks,
+    activityItems,
+    outlineEntries,
+    requiredSections,
+  } = model
+
   const tabs = [
     {
       id: 'properties',
       label: t('notebook.notebookPage.propertiesLabel'),
-      content: (
-        <div className="space-y-2">
-          {/* EXP-05.2: what is waiting to sync, from the device store. */}
-          {unsynced}
-          {/* EXP-04.4: the selected Sheet cell — its value, validation,
-              provenance and column definition — heads the tab. The record's
-              own metadata below is unchanged, so the panel is an addition to
-              this live surface rather than a replacement of it. */}
-          {cell ? <NotebookCellProperties cell={cell} /> : null}
-          {/* Core metadata — Type & Status as semantic badges, then
-                  dense key-value rows matching the mockup's layout. */}
-          <PropertyList>
-            <Property label={t('notebook.notebookPage.typeLabel')}>
-              <Badge variant="kind" className="text-xs">
-                <ObjectTypeName
-                  modelKey={record.kind}
-                  objectId={record.id}
-                  fallback={recordKindLabel(record.kind)}
-                />
-              </Badge>
-            </Property>
-            <Property label={t('notebook.notebookPage.label')}>
-              <StatusBadge
-                domain={statusDomainForKind(record.kind)}
-                status={record.status}
-              />
-            </Property>
-            <Property label={t('notebook.notebookPage.idLabel')} mono>
-              {record.identifier}
-            </Property>
-            {projectName ? (
-              <Property label={t('notebook.notebookPage.projectLabel')}>
-                <ObjectLink kind="project" id={record.projectId} mono={false}>
-                  {projectName}
-                </ObjectLink>
-              </Property>
-            ) : null}
-            <Property label={t('notebook.notebookPage.createdLabel')}>
-              {fmtDateTime(record.createdAt)}
-            </Property>
-            <Property label={t('notebook.notebookPage.updatedLabel')}>
-              {fmtDateTime(record.updatedAt)}
-            </Property>
-            {ownerName ? (
-              <Property label={t('notebook.notebookPage.createdByLabel')}>
-                {ownerName}
-              </Property>
-            ) : null}
-          </PropertyList>
-
-          {/* Contributors + Review status — same key-value rhythm. */}
-          {contributors.length > 0 ? (
-            <div className="flex items-center justify-between gap-2">
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {t('notebook.notebookPage.contributors')}
-              </span>
-              <ContributorAvatars contributors={contributors} />
-            </div>
-          ) : null}
-
-          {/* An experiment's status is in its page header and its frozen
-              banner; saying it a third time here only adds noise. */}
-          {record.kind === 'experiment' ? null : (
-            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {t('notebook.notebookPage.notebookState')}
-              </span>
-              {lifecycle === 'Submitted' ? (
-                <Badge variant="add" className="text-xs">
-                  {t('notebook.notebookPage.submittedEvidenceFrozen')}
-                </Badge>
-              ) : lifecycle === 'In review' ? (
-                <Badge variant="kind" className="text-xs">
-                  {t('notebook.notebookPage.inReview')}
-                </Badge>
-              ) : lifecycle === 'Archived' ? (
-                <Badge variant="kind" className="text-xs">
-                  {t('notebook.notebookPage.archived')}
-                </Badge>
-              ) : (
-                <Badge variant="kind" className="text-xs">
-                  {t('notebook.notebookPage.working')}
-                </Badge>
-              )}
-            </div>
-          )}
-          {record.sourceNotebookTemplateVersionId ? (
-            <div className="flex items-center justify-between gap-2">
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {t('notebook.notebookPage.template')}
-              </span>
-              <NotebookTemplateVersionLabel
-                versionId={record.sourceNotebookTemplateVersionId}
-              />
-            </div>
-          ) : null}
-
-          {/* Tags — coloured pills, always visible */}
-          <InspectorSection title={t('notebook.notebookPage.tagsTitle')}>
-            {canEditMetadata ? (
-              <NotebookTagsEditor record={record} />
-            ) : record.tags.length > 0 ? (
-              <TagPills tags={record.tags} />
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                {t('notebook.notebookPage.noTags')}
-              </p>
-            )}
-          </InspectorSection>
-
-          {/* Link to — snapshot pills only in historical mode */}
-          <InspectorSection title={t('notebook.notebookPage.linkToTitle')}>
-            {isHistorical ? (
-              linkCounts.length > 0 ? (
-                <LinkToPills
-                  items={linkCounts.map((lc) => ({
-                    label: lc.label,
-                    count: lc.count,
-                  }))}
-                />
-              ) : (
-                <EmptyHint>
-                  {t('notebook.notebookPage.noLinkedRecordsIn')}
-                </EmptyHint>
-              )
-            ) : linksLoading ? (
-              <EmptyHint>{t('notebook.notebookPage.loadingLinks')}</EmptyHint>
-            ) : (
-              <>
-                <LinkToPills
-                  items={linkCounts.map((lc) => ({
-                    label: lc.label,
-                    count: lc.count,
-                  }))}
-                />
-                <ScientificRecordLinker
-                  sourceRecordId={record.id}
-                  links={evidenceLinks}
-                  hideSummaries
-                />
-              </>
-            )}
-          </InspectorSection>
-          {/* FIND-03: contextual discovery across links, provenance and
-              project membership. Silent when empty. */}
-          {/* Plugin hooks: summaries, holds and sign-off steps. Silent when empty. */}
-          {isHistorical ? null : (
-            <PluginRecordPanel
-              recordId={record.id}
-              myUserId={currentUserId ?? null}
-            />
-          )}
-          {isHistorical ? null : (
-            <RelatedWorkPanel kind="record" id={record.id} />
-          )}
-          {/* KNOW-01: complete bidirectional typed traversal. Related work
-              above is ranked discovery with reasons; this panel is the full
-              incoming/outgoing edge list with lifecycle states. Historical
-              revisions show the pinned outgoing snapshot without actions. */}
-          {isHistorical ? (
-            <PinnedRelationshipPanel links={evidenceLinks} />
-          ) : (
-            <RelationshipPanel
-              recordId={record.id}
-              sourceModelKey={record.kind}
-            />
-          )}
-          {/* KNOW-02: per-object lineage — the existing traversal BFS seeded
-              from this record at a bounded depth. Historical revisions show
-              pinned evidence only, so the live traversal stays hidden there. */}
-          {isHistorical ? null : <RecordLineageSection recordId={record.id} />}
-
-          <InspectorSection title={t('notebook.notebookPage.filesTitle')}>
-            <FileList items={fileItems} />
-          </InspectorSection>
-        </div>
-      ),
+      content: notebookProperties(model),
     },
     {
       id: 'outline',

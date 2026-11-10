@@ -4,98 +4,107 @@
  */
 import { cleanup, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createMemoryHistory,
+  RouterProvider,
+} from '@tanstack/react-router'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 
-import { Route } from './integrations'
+vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
 
-const IntegrationsRoute = Route.options.component as React.ComponentType
+  if (url.pathname.endsWith('/connectors'))
+    return Response.json([
+      {
+        id: 'c1',
+        workspace_id: 'workspace-1',
+        key: 'plate-reader-bench',
+        name: 'Plate reader bench',
+        connector_type: 'instrument',
+        direction: 'inbound',
+        status: 'active',
+        parser_id: 'sheetbase.plate-reader-csv',
+        config: {},
+        created_at: '2026-10-01T09:00:00Z',
+        updated_at: '2026-10-01T09:00:00Z',
+      },
+    ])
+
+  if (url.pathname === '/api/office-editor/status')
+    return Response.json({ enabled: false })
+
+  return Response.json([])
+})
+
+const { Route } = await import('./integrations')
+const { dropSharedReads } = await import('#/lib/data-client')
 
 function renderRoute() {
+  const Component = Route.options.component
+
+  if (!Component) throw new Error('Integrations component required')
+
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <IntegrationsRoute />
-    </QueryClientProvider>,
-  )
-}
 
-vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useRouteContext: () => ({
+  const root = createRootRoute({
+    beforeLoad: () => ({
       context: {
         workspace: { id: 'workspace-1', name: 'Test workspace', role: 'owner' },
         user: { name: 'Test User', email: 'test@example.com' },
       },
     }),
-    useParams: () => ({}),
-    options: config,
-  }),
-  redirect: (options: unknown) => options,
-  useNavigate: () => vi.fn(),
-  useRouterState: ({ select }: { select: (s: unknown) => unknown }) =>
-    select({ location: { pathname: '/settings/workspace/integrations' } }),
-  Outlet: () => null,
-  Link: ({
-    to,
-    children,
-    ...props
-  }: {
-    to: string
-    children: React.ReactNode
-  } & Record<string, unknown>) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  ),
-}))
+  })
 
-vi.mock('@tanstack/react-query', async () => {
-  const actual = await vi.importActual('@tanstack/react-query')
-  return {
-    ...actual,
-    useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) =>
-      queryKey[0] === 'admin-001'
-        ? { data: [], isLoading: false, error: null, refetch: vi.fn() }
-        : {
-            data: [
-              {
-                id: 'c1',
-                workspace_id: 'workspace-1',
-                key: 'plate-reader-bench',
-                name: 'Plate reader bench',
-                connector_type: 'instrument',
-                direction: 'inbound',
-                status: 'active',
-                parser_id: 'sheetbase.plate-reader-csv',
-                config: {},
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-            ],
-            isLoading: false,
-            error: null,
-            refetch: vi.fn(),
-          },
-  }
+  const route = createRoute({
+    getParentRoute: () => root,
+    path: '/settings/workspace/integrations',
+    component: Component,
+  })
+
+  const router = createRouter({
+    routeTree: root.addChildren([route]),
+    history: createMemoryHistory({
+      initialEntries: ['/settings/workspace/integrations'],
+    }),
+  })
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
+}
+
+afterEach(() => {
+  cleanup()
+  dropSharedReads()
 })
 
-afterEach(cleanup)
+afterAll(() => vi.unstubAllGlobals())
 
 describe('INT-01 integrations route', () => {
-  it('lists registered connectors with identity and status', () => {
+  it('lists registered connectors with identity and status', async () => {
     renderRoute()
-    expect(screen.getByText('Plate reader bench')).toBeTruthy()
+    expect(await screen.findByText('Plate reader bench')).toBeTruthy()
     expect(screen.getByText(/^instrument$/i)).toBeTruthy()
     expect(screen.getByText(/^inbound$/i)).toBeTruthy()
   })
 
-  it('offers connector registration to governed roles', () => {
+  it('offers connector registration to governed roles', async () => {
     renderRoute()
-    const buttons = screen.getAllByRole('button', {
+
+    const buttons = await screen.findAllByRole('button', {
       name: /Register connector/i,
     })
+
     expect(buttons.length).toBeGreaterThan(0)
   })
 })

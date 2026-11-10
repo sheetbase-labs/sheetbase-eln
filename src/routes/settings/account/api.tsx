@@ -50,12 +50,15 @@ function ApiSettings() {
   const workspaceId = context.workspace?.id ?? ''
   const isOwner = context.workspace?.role === 'owner'
   const dataAccess = useDataAccess()
+
   const [credentialType, setCredentialType] = useState<'personal' | 'service'>(
     'personal',
   )
+
   const [revealed, setRevealed] = useState<CreatedPersonalTokenWire | null>(
     null,
   )
+
   const [revealedService, setRevealedService] =
     useState<CreatedCredentialWire | null>(null)
 
@@ -75,6 +78,7 @@ function ApiSettings() {
     queryClient.invalidateQueries({
       queryKey: personalTokenQueryKey(context.user.id, workspaceId),
     })
+
   const invalidateService = () =>
     queryClient.invalidateQueries({
       queryKey: apiCredentialQueryKey(workspaceId),
@@ -93,7 +97,8 @@ function ApiSettings() {
       createPersonalTokenFn({ data: { workspaceId, name, scopes, expiresAt } }),
     onSuccess: (created) => {
       setRevealed(created)
-      invalidate()
+
+      return invalidate()
     },
   })
 
@@ -108,7 +113,8 @@ function ApiSettings() {
       rotatePersonalTokenFn({ data: { workspaceId, tokenId } }),
     onSuccess: (created) => {
       setRevealed(created)
-      invalidate()
+
+      return invalidate()
     },
   })
 
@@ -125,7 +131,8 @@ function ApiSettings() {
       createApiCredentialFn({ data: { workspaceId, name, scopes, expiresAt } }),
     onSuccess: (created) => {
       setRevealedService(created)
-      invalidateService()
+
+      return invalidateService()
     },
   })
 
@@ -140,17 +147,19 @@ function ApiSettings() {
       rotateApiCredentialFn({ data: { workspaceId, credentialId } }),
     onSuccess: (created) => {
       setRevealedService(created)
-      invalidateService()
+
+      return invalidateService()
     },
   })
 
-  const failed =
-    createToken.error ??
-    revokeToken.error ??
-    rotateToken.error ??
-    createService.error ??
-    revokeService.error ??
-    rotateService.error
+  const failed = [
+    createToken.error,
+    revokeToken.error,
+    rotateToken.error,
+    createService.error,
+    revokeService.error,
+    rotateService.error,
+  ].find((error) => error !== null)
 
   return (
     <>
@@ -192,20 +201,13 @@ function ApiSettings() {
           ) : null}
 
           {credentialType === 'personal' ? (
-            query.isLoading ? (
-              <Muted aria-busy="true">
-                {t('settings.api.loadingPersonalTokens')}
-              </Muted>
-            ) : query.isError ? (
-              <Notice tone="bad" title={t('settings.api.personalTokensCould')}>
-                <Button
-                  variant="secondary"
-                  onClick={() => void query.refetch()}
-                >
-                  {t('common.actions.tryAgain')}
-                </Button>
-              </Notice>
-            ) : (
+            <CredentialQuery
+              loading={query.isLoading}
+              failed={query.isError}
+              loadingText={t('settings.api.loadingPersonalTokens')}
+              failureTitle={t('settings.api.personalTokensCould')}
+              onRetry={() => void query.refetch()}
+            >
               <SettingsCredentials
                 key="personal"
                 copy={personalTokensCopy}
@@ -218,25 +220,15 @@ function ApiSettings() {
                 onRotate={(tokenId) => rotateToken.mutate(tokenId)}
                 onDismissRevealed={() => setRevealed(null)}
               />
-            )
+            </CredentialQuery>
           ) : isOwner ? (
-            serviceQuery.isLoading ? (
-              <Muted aria-busy="true">
-                {t('settings.api.loadingServiceCredentials')}
-              </Muted>
-            ) : serviceQuery.isError ? (
-              <Notice
-                tone="bad"
-                title={t('settings.api.serviceCredentialsCould')}
-              >
-                <Button
-                  variant="secondary"
-                  onClick={() => void serviceQuery.refetch()}
-                >
-                  {t('common.actions.tryAgain')}
-                </Button>
-              </Notice>
-            ) : (
+            <CredentialQuery
+              loading={serviceQuery.isLoading}
+              failed={serviceQuery.isError}
+              loadingText={t('settings.api.loadingServiceCredentials')}
+              failureTitle={t('settings.api.serviceCredentialsCould')}
+              onRetry={() => void serviceQuery.refetch()}
+            >
               <SettingsCredentials
                 key="service"
                 copy={serviceCredentialsCopy}
@@ -250,7 +242,7 @@ function ApiSettings() {
                 onDismissRevealed={() => setRevealedService(null)}
                 scopeGroups={SERVICE_SCOPE_GROUPS}
               />
-            )
+            </CredentialQuery>
           ) : null}
         </div>
 
@@ -260,4 +252,34 @@ function ApiSettings() {
       </SettingsBody>
     </>
   )
+}
+
+function CredentialQuery({
+  loading,
+  failed,
+  loadingText,
+  failureTitle,
+  onRetry,
+  children,
+}: {
+  loading: boolean
+  failed: boolean
+  loadingText: string
+  failureTitle: string
+  onRetry: () => void
+  children: React.ReactNode
+}) {
+  if (loading) return <Muted aria-busy="true">{loadingText}</Muted>
+
+  if (failed) {
+    return (
+      <Notice tone="bad" title={failureTitle}>
+        <Button variant="secondary" onClick={onRetry}>
+          {t('common.actions.tryAgain')}
+        </Button>
+      </Notice>
+    )
+  }
+
+  return children
 }

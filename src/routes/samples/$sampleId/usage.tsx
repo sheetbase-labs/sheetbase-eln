@@ -14,10 +14,8 @@ import {
 } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { UsageBalanceBar } from '#/components/samples/sample-usage'
-import {
-  formatQuantityAmount,
-  useSampleActions,
-} from '#/components/samples/withdraw-dialog'
+import { formatQuantityAmount } from '#/components/samples/quantity-input'
+import { useSampleActions } from '#/components/samples/quantity-actions'
 import {
   formatSampleEventDay,
   formatSampleEventTime,

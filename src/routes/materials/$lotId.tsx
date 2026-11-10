@@ -82,10 +82,8 @@ import {
   SignalWordBadge,
   useMaterialSafety,
 } from '#/components/materials/material-safety'
-import {
-  LabelTemplatePicker,
-  useLabelTemplateChoice,
-} from '#/components/samples/label-template-picker'
+import { LabelTemplatePicker } from '#/components/samples/label-template-picker'
+import { useLabelTemplateChoice } from '#/components/samples/use-label-template-choice'
 import { SampleLabelCard } from '#/components/samples/sample-label-card'
 import { SampleLabelPrint } from '#/components/samples/sample-label-print'
 import { useHasCapability } from '#/lib/use-capability'

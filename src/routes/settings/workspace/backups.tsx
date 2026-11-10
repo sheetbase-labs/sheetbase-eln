@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui/table'
-import { WorkspaceAdminsLine } from '#/components/settings/workspace-admins-line'
+import { WorkspaceAdminRefusal } from './-admin-refusal'
 import {
   CheckRow,
   SettingsBody,
@@ -72,21 +72,12 @@ function Backups() {
 
   if (!open) {
     return (
-      <>
-        <SettingsHeader title={t('settings.backups.title')} />
-        <div className="px-4 md:px-6">
-          <EmptyState
-            icon="lock"
-            title={t('settings.backups.onlyAdmins')}
-            description={
-              <>
-                {t('settings.backups.onlyAdminsDescription')}
-                <WorkspaceAdminsLine workspaceId={workspaceId} />
-              </>
-            }
-          />
-        </div>
-      </>
+      <WorkspaceAdminRefusal
+        workspaceId={workspaceId}
+        title={t('settings.backups.title')}
+        reason={t('settings.backups.onlyAdmins')}
+        description={t('settings.backups.onlyAdminsDescription')}
+      />
     )
   }
 
@@ -165,10 +156,12 @@ function BackupsBody({
   }, [saved.enabled, saved.frequency, saved.keepCount])
 
   const keepCount = Number(keep)
+
   const keepValid =
     Number.isInteger(keepCount) &&
     keepCount >= KEEP_COUNT_RANGE.min &&
     keepCount <= KEEP_COUNT_RANGE.max
+
   const dirty =
     enabled !== saved.enabled ||
     frequency !== saved.frequency ||
@@ -202,14 +195,6 @@ function BackupsBody({
   })
 
   const running = overview.backups.some((b) => b.status === 'running')
-  const { destination } = overview
-  const where = t(
-    destination.name === 'database'
-      ? 'settings.backups.whereDatabase'
-      : destination.name === 'local'
-        ? 'settings.backups.whereLocal'
-        : 'settings.backups.whereS3',
-  )
 
   return (
     <>
@@ -225,7 +210,10 @@ function BackupsBody({
               icon="download"
               disabled={!canManage}
               nativeButton={false}
-              render={<a href="/api/export/workspace" download />}
+              render={
+                // react-doctor-disable-next-line react-doctor/anchor-has-content -- Button forwards its visible download-label children; the browser regression asserts this rendered link.
+                <a href="/api/export/workspace" download />
+              }
             >
               {t('settings.backups.exportButton')}
             </Button>
@@ -246,6 +234,7 @@ function BackupsBody({
                 <Select
                   value={frequency}
                   disabled={!canManage || !enabled}
+                  // SAFETY: The select only offers the daily and weekly BackupFrequency values below.
                   onChange={(e) =>
                     setFrequency(e.target.value as BackupFrequency)
                   }
@@ -272,16 +261,7 @@ function BackupsBody({
                 />
               </Field>
             </div>
-            <Muted>{t('settings.backups.storedIn', { where })}</Muted>
-            {!destination.separate ? (
-              <Notice tone="warn">
-                {t(
-                  destination.name === 'local'
-                    ? 'settings.backups.localNotice'
-                    : 'settings.backups.sameDatabaseNotice',
-                )}
-              </Notice>
-            ) : null}
+            <BackupDestination destination={overview.destination} />
           </div>
         </Section>
 
@@ -323,6 +303,35 @@ function BackupsBody({
   )
 }
 
+function BackupDestination({
+  destination,
+}: {
+  destination: BackupsOverview['destination']
+}) {
+  const where = t(
+    destination.name === 'database'
+      ? 'settings.backups.whereDatabase'
+      : destination.name === 'local'
+        ? 'settings.backups.whereLocal'
+        : 'settings.backups.whereS3',
+  )
+
+  return (
+    <>
+      <Muted>{t('settings.backups.storedIn', { where })}</Muted>
+      {!destination.separate ? (
+        <Notice tone="warn">
+          {t(
+            destination.name === 'local'
+              ? 'settings.backups.localNotice'
+              : 'settings.backups.sameDatabaseNotice',
+          )}
+        </Notice>
+      ) : null}
+    </>
+  )
+}
+
 function BackupsTable({
   backups,
   canManage,
@@ -347,6 +356,7 @@ function BackupsTable({
       <TableBody>
         {backups.map((b) => {
           const when = formatDate(b.startedAt, { time: true })
+
           return (
             <TableRow key={b.id}>
               <TableCell className="num">{when}</TableCell>
@@ -378,6 +388,7 @@ function BackupsTable({
                     label={t('settings.backups.downloadAria', { when })}
                     nativeButton={false}
                     render={
+                      // react-doctor-disable-next-line react-doctor/anchor-has-content -- IconButton forwards its required label as aria-label through Button to this anchor.
                       <a
                         href={`/api/export/workspace-backup/${b.id}`}
                         download
@@ -398,6 +409,7 @@ function ResultStatus({ backup }: { backup: BackupRecord }) {
   if (backup.status === 'running') {
     return <Status tone="progress">{t('settings.backups.running')}</Status>
   }
+
   if (backup.status === 'failed') {
     return (
       <span title={backup.error ?? undefined}>
@@ -405,7 +417,9 @@ function ResultStatus({ backup }: { backup: BackupRecord }) {
       </span>
     )
   }
+
   const missing = backup.missingFileCount ?? 0
+
   return missing > 0 ? (
     <span title={t('settings.backups.missingFilesHelp')}>
       <Status tone="warn">

@@ -312,16 +312,16 @@ function DatasetModelLayout({
   )
 }
 
-function RecordModelLayout({
-  modelKey,
+function WorkspaceRecordModelLayout({
+  m,
   role,
   workspaceId,
 }: {
-  modelKey: string
+  m: NonNullable<ReturnType<typeof useWorkspaceRecordModel>['data']>
   role: string | null | undefined
   workspaceId: string | null
 }) {
-  const model = useWorkspaceRecordModel(modelKey)
+  const modelKey = m.key
   const canEdit = hasCapability(role, 'schema.edit')
   const [subtypeOpen, setSubtypeOpen] = useState(false)
   const [basedOnOpen, setBasedOnOpen] = useState(false)
@@ -332,14 +332,13 @@ function RecordModelLayout({
   const [requestsOpen, setRequestsOpen] = useState(false)
   const recordCount = useRecordModelRecordCount(modelKey)
   const typed = useTypedObjects(modelKey)
-  const recordVersions = useRecordModelVersionList(model.data?.id)
+  const recordVersions = useRecordModelVersionList(m.id)
 
   const publishedVersion = recordVersions.data?.find(
     (v) => v.lifecycle === 'published',
   )
 
   const draftVersion = recordVersions.data?.find((v) => v.lifecycle === 'draft')
-  const builtIn = useBuiltInModelKind(modelKey)
 
   const contract = useContractForTarget({
     kind: 'record_model',
@@ -350,203 +349,216 @@ function RecordModelLayout({
     { label: t('library.models.overview.models'), link: { to: '/models' } },
   ]
 
-  const m = model.data
+  const params = { modelId: m.key }
 
-  if (m) {
-    const params = { modelId: m.key }
-
-    return (
-      <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader
-          trail={[
-            ...trail,
-            { label: `${m.identifier_prefix}-####`, mono: true },
-          ]}
-          title={m.name}
-          meta={
-            <>
-              <span className="text-fg">
-                <Status tone={modelStatus(m.lifecycle).tone}>
-                  {modelStatus(m.lifecycle).label}
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <PageHeader
+        trail={[...trail, { label: `${m.identifier_prefix}-####`, mono: true }]}
+        title={m.name}
+        meta={
+          <>
+            <span className="text-fg">
+              <Status tone={modelStatus(m.lifecycle).tone}>
+                {modelStatus(m.lifecycle).label}
+              </Status>
+            </span>
+            {draftVersion ? (
+              <span>
+                <Status tone="stored">
+                  {t('library.models.overview.draftV', {
+                    version: draftVersion.version,
+                  })}
                 </Status>
               </span>
-              {draftVersion ? (
-                <span>
-                  <Status tone="stored">
-                    {t('library.models.overview.draftV', {
-                      version: draftVersion.version,
-                    })}
-                  </Status>
+            ) : null}
+            {contract.data ? (
+              <span className="inline-flex items-center gap-1.5 text-fg">
+                <span className="text-fg-muted">
+                  {t('contracts.dataset.status')}
                 </span>
-              ) : null}
-              {contract.data ? (
-                <span className="inline-flex items-center gap-1.5 text-fg">
-                  <span className="text-fg-muted">
-                    {t('contracts.dataset.status')}
-                  </span>
-                  <ContractStatusBadge status={contract.data.lastStatus} />
-                </span>
-              ) : null}
-              {m.parent_key ? (
-                <SubtypeOf modelKey={m.key} />
-              ) : (
-                <span>{t('library.models.overview.recordModel')}</span>
-              )}
-              <span>
-                {rich('library.models.overview.idPrefix', {
-                  identifierPrefix: m.identifier_prefix,
-                  span: (text) => <span className="mono">{text}</span>,
-                })}
+                <ContractStatusBadge status={contract.data.lastStatus} />
               </span>
-              <SubtypesList modelKey={m.key} />
-            </>
-          }
-          actions={
-            <>
-              {canEdit ? (
-                <>
-                  <Button onClick={() => setBasedOnOpen(true)}>
-                    {t('library.models.overview.basedOn')}
-                  </Button>
-                  <Button onClick={() => setSubtypeOpen(true)}>
-                    {t('library.models.overview.newSubtype')}
-                  </Button>
-                  <Button onClick={() => setRegistryOpen(true)}>
-                    {m.is_registry
-                      ? t('registry.settings.buttonOn')
-                      : t('registry.settings.button')}
-                  </Button>
-                  <Button onClick={() => setSuppliersOpen(true)}>
-                    {t('spend.suppliers.listDialog.button')}
-                  </Button>
-                  <Button onClick={() => setQualityOpen(true)}>
-                    {t('quality.limits.button')}
-                  </Button>
-                  <Button onClick={() => setRequestsOpen(true)}>
-                    {t('requests.settings.button')}
-                  </Button>
-                </>
-              ) : null}
-              <Button
-                nativeButton={false}
-                render={<Link to="/models/$modelId/edit" params={params} />}
-              >
-                {draftVersion
-                  ? t('library.models.overview.editDraftV', {
-                      version: draftVersion.version,
-                    })
-                  : t('library.models.overview.editFields')}
-              </Button>
-            </>
-          }
-          tabs={
-            <Tabs
-              mode="url"
-              label={t('library.models.overview.modelRecordSections')}
-              items={[
-                {
-                  label: t('library.models.overview.records'),
-                  count: m.parent_key
-                    ? typed.objects.data?.length
-                    : recordCount.data,
-                  link: {
-                    to: '/models/$modelId/records',
-                    params,
-                  },
+            ) : null}
+            {m.parent_key ? (
+              <SubtypeOf modelKey={m.key} />
+            ) : (
+              <span>{t('library.models.overview.recordModel')}</span>
+            )}
+            <span>
+              {rich('library.models.overview.idPrefix', {
+                identifierPrefix: m.identifier_prefix,
+                span: (text) => <span className="mono">{text}</span>,
+              })}
+            </span>
+            <SubtypesList modelKey={m.key} />
+          </>
+        }
+        actions={
+          <>
+            {canEdit ? (
+              <>
+                <Button onClick={() => setBasedOnOpen(true)}>
+                  {t('library.models.overview.basedOn')}
+                </Button>
+                <Button onClick={() => setSubtypeOpen(true)}>
+                  {t('library.models.overview.newSubtype')}
+                </Button>
+                <Button onClick={() => setRegistryOpen(true)}>
+                  {m.is_registry
+                    ? t('registry.settings.buttonOn')
+                    : t('registry.settings.button')}
+                </Button>
+                <Button onClick={() => setSuppliersOpen(true)}>
+                  {t('spend.suppliers.listDialog.button')}
+                </Button>
+                <Button onClick={() => setQualityOpen(true)}>
+                  {t('quality.limits.button')}
+                </Button>
+                <Button onClick={() => setRequestsOpen(true)}>
+                  {t('requests.settings.button')}
+                </Button>
+              </>
+            ) : null}
+            <Button
+              nativeButton={false}
+              render={<Link to="/models/$modelId/edit" params={params} />}
+            >
+              {draftVersion
+                ? t('library.models.overview.editDraftV', {
+                    version: draftVersion.version,
+                  })
+                : t('library.models.overview.editFields')}
+            </Button>
+          </>
+        }
+        tabs={
+          <Tabs
+            mode="url"
+            label={t('library.models.overview.modelRecordSections')}
+            items={[
+              {
+                label: t('library.models.overview.records'),
+                count: m.parent_key
+                  ? typed.objects.data?.length
+                  : recordCount.data,
+                link: {
+                  to: '/models/$modelId/records',
+                  params,
                 },
-                {
-                  label: t('library.models.overview.fields'),
-                  count: publishedVersion?.definition.fields.length,
-                  link: {
-                    to: '/models/$modelId/fields',
-                    params,
-                  },
+              },
+              {
+                label: t('library.models.overview.fields'),
+                count: publishedVersion?.definition.fields.length,
+                link: {
+                  to: '/models/$modelId/fields',
+                  params,
                 },
-                {
-                  label: t('library.models.overview.versions'),
-                  count: recordVersions.data?.filter(
-                    (v) => v.lifecycle === 'published',
-                  ).length,
-                  link: {
-                    to: '/models/$modelId/versions',
-                    params,
-                  },
+              },
+              {
+                label: t('library.models.overview.versions'),
+                count: recordVersions.data?.filter(
+                  (v) => v.lifecycle === 'published',
+                ).length,
+                link: {
+                  to: '/models/$modelId/versions',
+                  params,
                 },
-                {
-                  label: t('library.models.overview.rules'),
-                  link: {
-                    to: '/models/$modelId/rules',
-                    params,
-                  },
+              },
+              {
+                label: t('library.models.overview.rules'),
+                link: {
+                  to: '/models/$modelId/rules',
+                  params,
                 },
-                {
-                  label: t('library.models.overview.relations'),
-                  link: {
-                    to: '/models/$modelId/relations',
-                    params,
-                  },
+              },
+              {
+                label: t('library.models.overview.relations'),
+                link: {
+                  to: '/models/$modelId/relations',
+                  params,
                 },
-                {
-                  label: t('library.models.overview.usage'),
-                  link: {
-                    to: '/models/$modelId/usage',
-                    params,
-                  },
+              },
+              {
+                label: t('library.models.overview.usage'),
+                link: {
+                  to: '/models/$modelId/usage',
+                  params,
                 },
-                {
-                  label: t('contracts.tab'),
-                  link: {
-                    to: '/models/$modelId/contract',
-                    params,
-                  },
+              },
+              {
+                label: t('contracts.tab'),
+                link: {
+                  to: '/models/$modelId/contract',
+                  params,
                 },
-              ]}
-            />
-          }
-        />
-        <div className="flex min-h-0 flex-1">
-          <Outlet />
-        </div>
-        <NewSubtypeDialog
-          open={subtypeOpen}
-          onOpenChange={setSubtypeOpen}
-          workspaceId={workspaceId}
-          parentKey={m.key}
-          parentName={m.name}
-        />
-        {basedOnOpen ? (
-          <BasedOnDialog open onOpenChange={setBasedOnOpen} model={m} />
-        ) : null}
-        {qualityOpen ? (
-          <ModelQualityDialog
-            open
-            onOpenChange={setQualityOpen}
-            model={m}
-            specLimitsOn={quality.specLimits}
+              },
+            ]}
           />
-        ) : null}
-        {requestsOpen ? (
-          <RequestSettingsDialog
-            open
-            onOpenChange={setRequestsOpen}
-            model={m}
-          />
-        ) : null}
-        {suppliersOpen ? (
-          <SupplierListDialog
-            open
-            onOpenChange={setSuppliersOpen}
-            modelKey={m.key}
-          />
-        ) : null}
-        {registryOpen ? (
-          <RegistrySettingsDialog
-            open
-            onOpenChange={setRegistryOpen}
-            model={m}
-          />
-        ) : null}
+        }
+      />
+      <div className="flex min-h-0 flex-1">
+        <Outlet />
       </div>
+      <NewSubtypeDialog
+        open={subtypeOpen}
+        onOpenChange={setSubtypeOpen}
+        workspaceId={workspaceId}
+        parentKey={m.key}
+        parentName={m.name}
+      />
+      {basedOnOpen ? (
+        <BasedOnDialog open onOpenChange={setBasedOnOpen} model={m} />
+      ) : null}
+      {qualityOpen ? (
+        <ModelQualityDialog
+          open
+          onOpenChange={setQualityOpen}
+          model={m}
+          specLimitsOn={quality.specLimits}
+        />
+      ) : null}
+      {requestsOpen ? (
+        <RequestSettingsDialog open onOpenChange={setRequestsOpen} model={m} />
+      ) : null}
+      {suppliersOpen ? (
+        <SupplierListDialog
+          open
+          onOpenChange={setSuppliersOpen}
+          modelKey={m.key}
+        />
+      ) : null}
+      {registryOpen ? (
+        <RegistrySettingsDialog open onOpenChange={setRegistryOpen} model={m} />
+      ) : null}
+    </div>
+  )
+}
+
+function RecordModelLayout({
+  modelKey,
+  role,
+  workspaceId,
+}: {
+  modelKey: string
+  role: string | null | undefined
+  workspaceId: string | null
+}) {
+  const model = useWorkspaceRecordModel(modelKey)
+  const builtIn = useBuiltInModelKind(modelKey)
+
+  const trail: Crumb[] = [
+    { label: t('library.models.overview.models'), link: { to: '/models' } },
+  ]
+
+  if (model.data) {
+    return (
+      <WorkspaceRecordModelLayout
+        key={model.data.id}
+        m={model.data}
+        role={role}
+        workspaceId={workspaceId}
+      />
     )
   }
 
@@ -564,7 +576,7 @@ function RecordModelLayout({
   const kind = builtIn.data
 
   if (kind) {
-    const surface = BUILT_IN_KIND_SURFACES[modelKey]
+    const surface = BUILT_IN_KIND_SURFACES.get(modelKey)
 
     return (
       <div className="flex min-w-0 flex-1 flex-col">

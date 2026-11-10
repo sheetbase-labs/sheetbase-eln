@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
+import { editorConfiguration } from '../-configuration'
+import { scheduleParametersLabel, scheduleSpecLabel } from '../-schedule-labels'
 import { t } from '#/copy'
 import { Status } from '#/components/ui/status'
 import { Button } from '#/components/ui/button'
@@ -32,16 +35,10 @@ import {
   updatePipelineSchedule,
 } from '#/lib/pipelines/data'
 import type {
-  PipelineScheduleKind,
   PipelineScheduleWire,
   PipelineDefinitionVersionWire,
 } from '#/lib/pipelines/types'
-import {
-  describeInputs,
-  describeParameters,
-  describeSchedule,
-  relativeTime,
-} from '#/lib/pipeline-schedule-form'
+import { describeInputs, relativeTime } from '#/lib/pipeline-schedule-form'
 import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import {
   pipelineDataQueryKeys,
@@ -59,7 +56,7 @@ import {
   RunNotifications,
   WebhookCard,
 } from '#/components/pipelines/triggers-outputs'
-import type { PipelineConfig } from '#/lib/pipelines/config'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
 import { ScheduleDialog } from '#/components/pipelines/schedule-dialog'
 import { ScheduleHistoryDialog } from '#/components/pipelines/schedule-history'
 
@@ -70,23 +67,6 @@ import { ScheduleHistoryDialog } from '#/components/pipelines/schedule-history'
 export const Route = createFileRoute('/pipelines/$pipelineId/triggers')({
   component: PipelineTriggers,
 })
-
-/** The stored spec in the words a scientist uses: an interval, a time of day
- * in its zone, a weekday or monthly rule, or the event with its Dataset
- * filter. A spec this build cannot read renders as a gap, never raw jsonb. */
-export function scheduleSpecLabel(
-  kind: PipelineScheduleKind,
-  spec: Record<string, unknown>,
-  datasetNames: Map<string, string>,
-): string {
-  return describeSchedule(kind, spec, datasetNames)
-}
-
-/** The parameter values a trigger passes to every run it starts, as
- * `name=value` pairs, or an empty string when it passes none. */
-export function scheduleParametersLabel(spec: Record<string, unknown>): string {
-  return describeParameters(spec)
-}
 
 /** Dataset id → name, for the Datasets a trigger names. Only read when a
  * caller actually has an id to resolve. */
@@ -108,18 +88,15 @@ function useDatasetNames(enabled: boolean) {
   return query.data ?? new Map<string, string>()
 }
 
-function namesDatasets(spec: Record<string, unknown>): boolean {
-  if (typeof spec.datasetId === 'string') return true
-  const inputs = spec.inputs
+function namesDatasets(spec: PipelineScheduleWire['spec']): boolean {
+  if (z.string().safeParse(spec.datasetId).success) return true
+  const inputs = pipelineJsonObjectSchema.safeParse(spec.inputs)
 
   return (
-    !!inputs &&
-    typeof inputs === 'object' &&
-    Object.values(inputs).some(
+    inputs.success &&
+    Object.values(inputs.data).some(
       (binding) =>
-        !!binding &&
-        typeof binding === 'object' &&
-        typeof (binding as { datasetId?: unknown }).datasetId === 'string',
+        z.object({ datasetId: z.string() }).safeParse(binding).success,
     )
   )
 }
@@ -142,7 +119,27 @@ function OutputsSection({
   version: PipelineDefinitionVersionWire | undefined
 }) {
   if (!version) return null
-  const config = version.configuration as Partial<PipelineConfig>
+  const edited = editorConfiguration.parse(version.configuration)
+
+  const config = {
+    actions: edited.actions,
+    output: edited.output
+      ? {
+          ...edited.output,
+          mode: edited.output.mode ?? 'none',
+          datasetLabel: edited.output.datasetLabel ?? '',
+        }
+      : undefined,
+    notifications: z
+      .array(
+        z.object({
+          subscriptionId: z.string(),
+          payload: pipelineJsonObjectSchema.optional(),
+        }),
+      )
+      .optional()
+      .parse(version.configuration.notifications),
+  }
 
   return (
     <Section
@@ -205,7 +202,7 @@ function RunBoundaries() {
   )
 }
 
-function PipelineTriggers() {
+function useTriggerEditor() {
   const { pipelineId } = Route.useParams()
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
@@ -264,7 +261,7 @@ function PipelineTriggers() {
         },
       )
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast(t('data.pipelineTriggers.couldChangeTrigger'), {
         description:
           error instanceof Error
@@ -280,7 +277,7 @@ function PipelineTriggers() {
       void invalidate()
       toast(t('data.pipelineTriggers.triggerDeleted'))
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast(t('data.pipelineTriggers.couldDeleteTrigger'), {
         description:
           error instanceof Error
@@ -298,7 +295,40 @@ function PipelineTriggers() {
       scheduleSpecLabel(s.kind, s.spec, datasetNames) === '—',
   )
 
-  const columns: RegistryColumn<(typeof rows)[number]>[] = [
+  return {
+    pipelineId,
+    workspaceId,
+    schedules,
+    rows,
+    datasetNames,
+    latestRuns,
+    editing,
+    setEditing,
+    adding,
+    setAdding,
+    history,
+    setHistory,
+    hasPublishedVersion,
+    shownVersion,
+    declared,
+    toggle,
+    remove,
+    uninterpretable,
+  }
+}
+
+type TriggerEditor = ReturnType<typeof useTriggerEditor>
+
+function scheduleColumns({
+  datasetNames,
+  latestRuns,
+  hasPublishedVersion,
+  setHistory,
+  setEditing,
+  toggle,
+  remove,
+}: TriggerEditor): RegistryColumn<PipelineScheduleWire>[] {
+  return [
     {
       id: 'spec',
       header: t('data.pipelineTriggers.trigger'),
@@ -475,9 +505,33 @@ function PipelineTriggers() {
           </ConfirmDialog>
         </div>
       ),
-      meta: rightAligned<(typeof rows)[number]>().meta,
+      meta: rightAligned<PipelineScheduleWire>().meta,
     },
   ]
+}
+
+function PipelineTriggers() {
+  const editor = useTriggerEditor()
+
+  const {
+    pipelineId,
+    workspaceId,
+    schedules,
+    rows,
+    datasetNames,
+    editing,
+    setEditing,
+    adding,
+    setAdding,
+    history,
+    setHistory,
+    hasPublishedVersion,
+    shownVersion,
+    declared,
+    uninterpretable,
+  } = editor
+
+  const columns = scheduleColumns(editor)
 
   const addButton = (
     <Button variant="primary" icon="plus" onClick={() => setAdding(true)}>

@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
@@ -71,6 +72,7 @@ import { describeRunnerAdds } from '#/lib/extensions/runner-points'
 import type { ExtensionAddDetail } from '#/lib/extensions/runner-points'
 import type { PluginCheckResult } from '#/lib/extensions/install.server'
 import type { ExtensionRunnerPoint } from '#/lib/extensions/points'
+import { EXTENSION_RUNNER_POINTS } from '#/lib/extensions/points'
 
 /**
  * Settings → Plugins: what each installed plugin adds, with a switch for the
@@ -87,16 +89,26 @@ const client = createDataClient()
 const formatSize = (bytes: number) =>
   bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
 
+function addDetailLabel(detail: string) {
+  // SAFETY: Both installed and checked plugins get these keys from describeRunnerAdds' fixed ExtensionAddDetail vocabulary.
+  const key = detail as ExtensionAddDetail
+
+  return t(`plugins.admin.access.${key}`)
+}
+
 function Plugins() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
+
   // Owners and administrators only; the database checks the same on every change.
   const canManage =
     context.workspace?.role === 'owner' || context.workspace?.role === 'admin'
+
   const queryClient = useQueryClient()
   const [installOpen, setInstallOpen] = useState(false)
   const [removing, setRemoving] = useState<ExtensionWire | null>(null)
   const [settingsFor, setSettingsFor] = useState<ExtensionWire | null>(null)
+
   const [connectionsFor, setConnectionsFor] = useState<ExtensionWire | null>(
     null,
   )
@@ -107,29 +119,14 @@ function Plugins() {
     enabled: Boolean(workspaceId) && canManage,
   })
 
-  // Each plugin's Python packages and limits. Follows an installation until it ends.
-  const runtime = useQuery({
-    queryKey: [...pluginRuntimeQueryKey, workspaceId],
-    queryFn: listPluginRuntime,
-    enabled: Boolean(workspaceId) && canManage,
-    refetchInterval: (query) =>
-      query.state.data?.some((info) => info.environment.state === 'building')
-        ? 4000
-        : false,
+  const { runtime, connectionsOf, runtimeOf } = usePluginConfiguration({
+    workspaceId,
+    canManage,
   })
-  // What each plugin's publishers, channels and connectors need set up.
-  const connections = useQuery({
-    queryKey: [...connectionsQueryKey, workspaceId],
-    queryFn: listConnections,
-    enabled: Boolean(workspaceId) && canManage,
-  })
-  const connectionsOf = (install: ExtensionWire): ConnectionWire[] =>
-    connections.data?.filter((entry) => entry.extensionId === install.id) ?? []
-  const runtimeOf = (install: ExtensionWire): PluginRuntimeInfo | undefined =>
-    runtime.data?.find((info) => info.extensionId === install.id)
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: pluginRuntimeQueryKey })
+
     return queryClient.invalidateQueries({
       queryKey: extensionQueryKeys.extensions,
     })
@@ -355,8 +352,10 @@ function PluginRow({
   onRemove: () => void
 }) {
   const adds = useMemo(() => describeRunnerAdds(install.manifest), [install])
+  const disabledPoints = new Set(install.disabled_points)
   const on = install.status === 'enabled'
   const { description, author } = install.manifest
+
   return (
     <TableRow>
       <TableCell className="max-w-[320px] py-3 align-top">
@@ -417,8 +416,9 @@ function PluginRow({
             <span className="text-fg-muted">—</span>
           ) : (
             adds.map((group) => {
-              const pointOn = !install.disabled_points.includes(group.point)
+              const pointOn = !disabledPoints.has(group.point)
               const label = t(`plugins.admin.points.${group.point}`)
+
               return (
                 <div key={group.point} className="flex flex-col gap-0.5">
                   <label
@@ -444,10 +444,7 @@ function PluginRow({
                         {item.title}
                         <span className="text-fg-faint">
                           {' '}
-                          ·{' '}
-                          {t(
-                            `plugins.admin.access.${item.detail as ExtensionAddDetail}`,
-                          )}
+                          · {addDetailLabel(item.detail)}
                         </span>
                       </li>
                     ))}
@@ -490,10 +487,44 @@ type InstallStep =
   | { kind: 'problems'; problems: string[] }
   | { kind: 'review'; file: File; plugin: PluginCheckResult }
 
+const pluginCheckSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  version: z.string(),
+  description: z.string(),
+  author: z.string().nullable(),
+  permissions: z.array(z.string()),
+  adds: z.array(
+    z.object({
+      point: z.enum(EXTENSION_RUNNER_POINTS),
+      items: z.array(
+        z.object({ id: z.string(), title: z.string(), detail: z.string() }),
+      ),
+    }),
+  ),
+  fileCount: z.number(),
+  size: z.number(),
+  sha256: z.string(),
+  python: z.object({
+    requirements: z.array(z.string()),
+    network: z.array(z.string()),
+  }),
+  existing: z
+    .object({ key: z.string(), version: z.string(), status: z.string() })
+    .nullable(),
+  changes: z.object({
+    added: z.array(z.string()),
+    removed: z.array(z.string()),
+  }),
+  examples: z.number(),
+  hasUi: z.boolean(),
+}) satisfies z.ZodType<PluginCheckResult>
+
 async function sendPlugin(
   file: File,
   mode: 'check' | 'install',
 ): Promise<{ plugin: PluginCheckResult } | { problems: string[] }> {
+  // react-doctor-disable-next-line react-doctor/no-fetch-response-used-without-status-check -- The response.ok branch validates success; the other branch deliberately parses the API error envelope into problems.
   const response = await fetch(
     `/api/plugins/install?mode=${mode}${mode === 'install' ? '&acknowledge=1' : ''}`,
     {
@@ -502,15 +533,34 @@ async function sendPlugin(
       body: await file.arrayBuffer(),
     },
   )
-  const body = (await response.json().catch(() => null)) as {
-    plugin?: PluginCheckResult
-    error?: { message?: string; problems?: string[] }
-  } | null
-  if (response.ok && body?.plugin) return { plugin: body.plugin }
+
+  if (response.ok) {
+    const body = z
+      .object({ plugin: pluginCheckSchema })
+      .safeParse(await response.json().catch(() => null))
+
+    return body.success
+      ? { plugin: body.data.plugin }
+      : { problems: [t('plugins.admin.install.readFailed')] }
+  }
+
+  const body = z
+    .object({
+      error: z
+        .object({
+          message: z.string().optional(),
+          problems: z.array(z.string()).optional(),
+        })
+        .optional(),
+    })
+    .safeParse(await response.json().catch(() => null))
+
   return {
-    problems: body?.error?.problems ?? [
-      body?.error?.message ?? t('plugins.admin.install.readFailed'),
-    ],
+    problems: body.success
+      ? (body.data.error?.problems ?? [
+          body.data.error?.message ?? t('plugins.admin.install.readFailed'),
+        ])
+      : [t('plugins.admin.install.readFailed')],
   }
 }
 
@@ -530,6 +580,7 @@ function InstallDialog({
   function reset() {
     setStep({ kind: 'choose' })
     setTrusted(false)
+
     if (input.current) input.current.value = ''
   }
 
@@ -537,9 +588,11 @@ function InstallDialog({
     if (!file) return
     setStep({ kind: 'reading', file: file.name })
     setTrusted(false)
+
     const result = await sendPlugin(file, 'check').catch(() => ({
       problems: [t('plugins.admin.install.readFailed')],
     }))
+
     setStep(
       'plugin' in result
         ? { kind: 'review', file, plugin: result.plugin }
@@ -547,10 +600,13 @@ function InstallDialog({
     )
   }
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- onInstalled calls the parent's refresh(), invalidating extensionQueryKeys.extensions and pluginRuntimeQueryKey.
   const install = useMutation({
     mutationFn: async (file: File) => {
       const result = await sendPlugin(file, 'install')
+
       if ('problems' in result) throw new Error(result.problems[0])
+
       return result.plugin
     },
     onSuccess: (plugin) => {
@@ -622,118 +678,9 @@ function InstallDialog({
           ) : null}
           {plugin ? (
             <div className="flex flex-col gap-4">
-              <div>
-                <div className="text-heading font-medium text-fg">
-                  {plugin.name}{' '}
-                  <span className="text-body font-normal text-fg-muted">
-                    {plugin.version}
-                    {plugin.author
-                      ? ` · ${t('plugins.admin.by', { author: plugin.author })}`
-                      : ''}
-                  </span>
-                </div>
-                <p className="mt-1 text-body text-fg-muted">
-                  {plugin.description}
-                </p>
-              </div>
-              {plugin.existing ? (
-                <Notice
-                  tone="info"
-                  title={t('plugins.admin.install.newVersion', {
-                    version: plugin.existing.version,
-                  })}
-                >
-                  <p>{t('plugins.admin.install.newVersionBody')}</p>
-                  {plugin.changes.added.length > 0 ? (
-                    <p>
-                      {t('plugins.admin.install.changesAdded', {
-                        items: plugin.changes.added
-                          .map((item) => item.split(':')[1])
-                          .join(', '),
-                      })}
-                    </p>
-                  ) : null}
-                  {plugin.changes.removed.length > 0 ? (
-                    <p>
-                      {t('plugins.admin.install.changesRemoved', {
-                        items: plugin.changes.removed
-                          .map((item) => item.split(':')[1])
-                          .join(', '),
-                      })}
-                    </p>
-                  ) : null}
-                </Notice>
-              ) : null}
-              <section aria-labelledby="plugin-asks">
-                <h3 id="plugin-asks" className="text-body font-medium text-fg">
-                  {t('plugins.admin.install.asks')}
-                </h3>
-                <ul className="mt-1 list-disc pl-5 text-body text-fg-muted">
-                  <li>{t('plugins.admin.install.asksCode')}</li>
-                  {plugin.hasUi ? (
-                    <li>{t('plugins.admin.install.asksUi')}</li>
-                  ) : null}
-                  <li>
-                    {plugin.python.requirements.length > 0
-                      ? t('plugins.admin.install.asksPackages', {
-                          packages: plugin.python.requirements.join(', '),
-                        })
-                      : t('plugins.admin.install.asksNoPackages')}
-                  </li>
-                  <li>
-                    {plugin.python.network.length > 0
-                      ? t('plugins.admin.install.asksNetwork', {
-                          hosts: plugin.python.network.join(', '),
-                        })
-                      : t('plugins.admin.install.asksNoNetwork')}
-                  </li>
-                  <li>
-                    {plugin.permissions.length > 0 &&
-                    !(
-                      plugin.permissions.length === 1 &&
-                      plugin.permissions[0] === 'projects:read'
-                    )
-                      ? t('plugins.admin.install.asksScopes', {
-                          scopes: plugin.permissions.join(', '),
-                        })
-                      : t('plugins.admin.install.asksNothing')}
-                  </li>
-                </ul>
-              </section>
-              <section aria-labelledby="plugin-adds">
-                <h3 id="plugin-adds" className="text-body font-medium text-fg">
-                  {t('plugins.admin.install.adds')}
-                </h3>
-                {plugin.adds.length === 0 ? (
-                  <p className="text-body text-fg-muted">
-                    {t('plugins.admin.install.addsNothing')}
-                  </p>
-                ) : (
-                  <ul className="mt-1 flex flex-col gap-1 text-body text-fg-muted">
-                    {plugin.adds.map((group) => (
-                      <li key={group.point}>
-                        <span className="font-medium text-fg">
-                          {t(`plugins.admin.points.${group.point}`)}
-                        </span>
-                        <ul className="list-disc pl-5">
-                          {group.items.map((item) => (
-                            <li key={item.id}>
-                              {item.title}
-                              <span className="text-fg-faint">
-                                {' '}
-                                ·{' '}
-                                {t(
-                                  `plugins.admin.access.${item.detail as ExtensionAddDetail}`,
-                                )}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
+              <PluginPackageSummary plugin={plugin} />
+              <PluginPermissions plugin={plugin} />
+              <PluginContributions adds={plugin.adds} />
               <p className="text-caption text-fg-faint">
                 {t('plugins.admin.install.files', {
                   count: plugin.fileCount,
@@ -779,5 +726,161 @@ function InstallDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function usePluginConfiguration({
+  workspaceId,
+  canManage,
+}: {
+  workspaceId: string
+  canManage: boolean
+}) {
+  // Follow the Python build until it ends, independently of the installed-plugin list.
+  const runtime = useQuery({
+    queryKey: [...pluginRuntimeQueryKey, workspaceId],
+    queryFn: listPluginRuntime,
+    enabled: Boolean(workspaceId) && canManage,
+    refetchInterval: (query) =>
+      query.state.data?.some((info) => info.environment.state === 'building')
+        ? 4000
+        : false,
+  })
+
+  const connections = useQuery({
+    queryKey: [...connectionsQueryKey, workspaceId],
+    queryFn: listConnections,
+    enabled: Boolean(workspaceId) && canManage,
+  })
+
+  return {
+    runtime,
+    connectionsOf: (install: ExtensionWire): ConnectionWire[] =>
+      connections.data?.filter((entry) => entry.extensionId === install.id) ??
+      [],
+    runtimeOf: (install: ExtensionWire): PluginRuntimeInfo | undefined =>
+      runtime.data?.find((info) => info.extensionId === install.id),
+  }
+}
+
+function PluginContributions({ adds }: Pick<PluginCheckResult, 'adds'>) {
+  return (
+    <section aria-labelledby="plugin-adds">
+      <h3 id="plugin-adds" className="text-body font-medium text-fg">
+        {t('plugins.admin.install.adds')}
+      </h3>
+      {adds.length === 0 ? (
+        <p className="text-body text-fg-muted">
+          {t('plugins.admin.install.addsNothing')}
+        </p>
+      ) : (
+        <ul className="mt-1 flex flex-col gap-1 text-body text-fg-muted">
+          {adds.map((group) => (
+            <li key={group.point}>
+              <span className="font-medium text-fg">
+                {t(`plugins.admin.points.${group.point}`)}
+              </span>
+              <ul className="list-disc pl-5">
+                {group.items.map((item) => (
+                  <li key={item.id}>
+                    {item.title}
+                    <span className="text-fg-faint">
+                      {' '}
+                      · {addDetailLabel(item.detail)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function PluginPackageSummary({ plugin }: { plugin: PluginCheckResult }) {
+  return (
+    <>
+      <div>
+        <div className="text-heading font-medium text-fg">
+          {plugin.name}{' '}
+          <span className="text-body font-normal text-fg-muted">
+            {plugin.version}
+            {plugin.author
+              ? ` · ${t('plugins.admin.by', { author: plugin.author })}`
+              : ''}
+          </span>
+        </div>
+        <p className="mt-1 text-body text-fg-muted">{plugin.description}</p>
+      </div>
+      {plugin.existing ? (
+        <Notice
+          tone="info"
+          title={t('plugins.admin.install.newVersion', {
+            version: plugin.existing.version,
+          })}
+        >
+          <p>{t('plugins.admin.install.newVersionBody')}</p>
+          {plugin.changes.added.length > 0 ? (
+            <p>
+              {t('plugins.admin.install.changesAdded', {
+                items: plugin.changes.added
+                  .map((item) => item.split(':')[1])
+                  .join(', '),
+              })}
+            </p>
+          ) : null}
+          {plugin.changes.removed.length > 0 ? (
+            <p>
+              {t('plugins.admin.install.changesRemoved', {
+                items: plugin.changes.removed
+                  .map((item) => item.split(':')[1])
+                  .join(', '),
+              })}
+            </p>
+          ) : null}
+        </Notice>
+      ) : null}
+    </>
+  )
+}
+
+function PluginPermissions({ plugin }: { plugin: PluginCheckResult }) {
+  return (
+    <section aria-labelledby="plugin-asks">
+      <h3 id="plugin-asks" className="text-body font-medium text-fg">
+        {t('plugins.admin.install.asks')}
+      </h3>
+      <ul className="mt-1 list-disc pl-5 text-body text-fg-muted">
+        <li>{t('plugins.admin.install.asksCode')}</li>
+        {plugin.hasUi ? <li>{t('plugins.admin.install.asksUi')}</li> : null}
+        <li>
+          {plugin.python.requirements.length > 0
+            ? t('plugins.admin.install.asksPackages', {
+                packages: plugin.python.requirements.join(', '),
+              })
+            : t('plugins.admin.install.asksNoPackages')}
+        </li>
+        <li>
+          {plugin.python.network.length > 0
+            ? t('plugins.admin.install.asksNetwork', {
+                hosts: plugin.python.network.join(', '),
+              })
+            : t('plugins.admin.install.asksNoNetwork')}
+        </li>
+        <li>
+          {plugin.permissions.length > 0 &&
+          !(
+            plugin.permissions.length === 1 &&
+            plugin.permissions[0] === 'projects:read'
+          )
+            ? t('plugins.admin.install.asksScopes', {
+                scopes: plugin.permissions.join(', '),
+              })
+            : t('plugins.admin.install.asksNothing')}
+        </li>
+      </ul>
+    </section>
   )
 }

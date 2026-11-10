@@ -7,7 +7,7 @@
  * files than one page says so rather than dropping the rest.
  */
 import { useMemo } from 'react'
-import { formatDate } from '#/lib/format-date'
+import { z } from 'zod'
 import { useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 
@@ -23,30 +23,37 @@ import { ProjectFolders } from './-folders-panel'
 import {
   PROJECT_LIST_PAGE_SIZE,
   parseProjectPage,
-  projectPageOffset,
   projectPageSummary,
 } from '#/components/projects/project-lists'
 import { useUserNames } from '#/lib/user-names'
 import { notebookDataClient } from '#/lib/notebook-data'
-import type { DataClient } from '#/lib/data-client'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
-import { getFileType } from '#/components/reui/file-type'
+import { fetchProjectFilesPage, toFileDisplayRows } from './-files-data'
 
 export const Route = createFileRoute('/projects/$projectId/files')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { page?: number; view?: FilesView } => {
+  validateSearch: (search) => {
     const page = parseProjectPage(search.page)
-    const view =
-      search.view === 'folders' || search.view === 'sheets'
-        ? search.view
-        : undefined
-    return { ...(page > 1 ? { page } : {}), ...(view ? { view } : {}) }
+
+    const view = z
+      .enum(['folders', 'sheets'])
+      .optional()
+      .catch(undefined)
+      .parse(search.view)
+
+    const result: FilesSearch = {}
+
+    if (page > 1) result.page = page
+
+    if (view) result.view = view
+
+    return result
   },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) throw redirect(signInRedirect(location))
+
     return { context }
   },
   component: ProjectFilesPage,
@@ -56,121 +63,9 @@ export const Route = createFileRoute('/projects/$projectId/files')({
  * organised in, or the project's working sheets. */
 type FilesView = 'folders' | 'sheets'
 
-interface FileRecordWire {
-  id: string
-  identifier: string
-  title: string
-  created_by_user_id: string | null
-  created_at: string
-}
-
-interface FileObjectWire {
-  record_id: string | null
-  display_name: string
-  media_type: string | null
-  byte_size: number | null
-}
-
-interface ProjectFile {
-  id: string
-  identifier: string
-  name: string
-  mediaType: string | null
-  byteSize: number | null
-  uploadedBy: string | null
-  uploadedAt: string
-}
-
-/** The row the tab renders; `uploadedBy` is the resolved name, never a raw id. */
-export interface ProjectFileDisplayRow {
-  key: string
-  id: string
-  name: string
-  kind: string
-  size: string
-  uploadedBy: string
-  uploaded: string
-}
-
-export function toFileDisplayRows(
-  files: readonly ProjectFile[],
-  userLabel: (userId: string) => string,
-): ProjectFileDisplayRow[] {
-  return files.map((file) => ({
-    key: file.id,
-    id: file.identifier,
-    name: file.name,
-    kind: formatKind(file.mediaType),
-    size: formatSize(file.byteSize),
-    uploadedBy: file.uploadedBy ? userLabel(file.uploadedBy) : '—',
-    uploaded: formatDate(file.uploadedAt),
-  }))
-}
-
-export interface ProjectFilesPage {
-  rows: ProjectFile[]
-  total: number
-  page: number
-}
-
-const FILE_FILTER = (projectId: string) =>
-  `project_id=eq.${encodeURIComponent(projectId)}&kind=eq.file&deleted_at=is.null`
-
-export async function fetchProjectFilesPage(
-  client: DataClient,
-  projectId: string,
-  page: number,
-): Promise<ProjectFilesPage> {
-  const filter = FILE_FILTER(projectId)
-  const offset = projectPageOffset(page)
-  const [records, total] = await Promise.all([
-    client.list<FileRecordWire>(
-      'records',
-      `?${filter}&order=created_at.desc,id.asc&limit=${PROJECT_LIST_PAGE_SIZE}&offset=${offset}` +
-        `&select=id,identifier,title,created_by_user_id,created_at`,
-    ),
-    client.count('records', `?${filter}`),
-  ])
-  if (records.length === 0) return { rows: [], total, page }
-  const ids = records.map((record) => record.id)
-  const objects = await client.list<FileObjectWire>(
-    'file_objects',
-    `?record_id=in.(${ids.map(encodeURIComponent).join(',')})` +
-      `&select=record_id,display_name,media_type,byte_size`,
-  )
-  const byRecord = new Map(objects.map((object) => [object.record_id, object]))
-  const rows = records.map((record) => {
-    const object = byRecord.get(record.id)
-    return {
-      id: record.id,
-      identifier: record.identifier,
-      name: object?.display_name ?? record.title,
-      mediaType: object?.media_type ?? null,
-      byteSize: object?.byte_size ?? null,
-      uploadedBy: record.created_by_user_id,
-      uploadedAt: record.created_at,
-    }
-  })
-  return { rows, total, page }
-}
-
-function formatSize(bytes: number | null): string {
-  if (bytes == null) return '—'
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function formatKind(mediaType: string | null): string {
-  if (!mediaType) return '—'
-  // The short name a scientist knows (XLSX, PDF); a long subtype that maps to
-  // nothing reads as its family (Image, Text) rather than the whole string.
-  const key = getFileType(mediaType)
-  if (key !== 'empty' && key.length <= 6) return key.toUpperCase()
-  const family = mediaType.split('/')[0]
-  return family && family !== 'application'
-    ? family.charAt(0).toUpperCase() + family.slice(1)
-    : t('projects.projectFiles.otherKind')
+interface FilesSearch {
+  page?: number
+  view?: FilesView
 }
 
 /** One Files tab for everything the project keeps: files, folders and sheets. */
@@ -178,6 +73,7 @@ function ProjectFilesPage() {
   const { projectId } = Route.useParams()
   const { view } = Route.useSearch()
   const params = { projectId }
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="px-4 pt-3 md:px-8">
@@ -230,13 +126,15 @@ function ProjectFilesTab() {
   const { projectId } = Route.useParams()
   const { page: pageParam } = Route.useSearch()
   const page = pageParam ?? 1
+
   const query = useQuery({
     queryKey: ['ui-port', 'project-files', projectId, page],
     queryFn: () => fetchProjectFilesPage(notebookDataClient, projectId, page),
     enabled: projectId.length > 0,
     staleTime: 15_000,
   })
-  const rows = query.data?.rows ?? []
+
+  const rows = useMemo(() => query.data?.rows ?? [], [query.data?.rows])
   const total = query.data?.total ?? 0
 
   const { userLabel } = useUserNames(
@@ -245,6 +143,7 @@ function ProjectFilesTab() {
       [rows],
     ),
   )
+
   const display = useMemo(
     () => toFileDisplayRows(rows, userLabel),
     [rows, userLabel],

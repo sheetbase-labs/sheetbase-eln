@@ -73,11 +73,13 @@ function Validation() {
     queryFn: () => fetchCanRunValidation(dataClient, workspaceId),
     enabled: Boolean(workspaceId) && regulated,
   })
+
   const runs = useQuery({
     queryKey: validationKeys.runs(workspaceId),
     queryFn: () => fetchValidationRuns(dataClient),
     enabled: Boolean(workspaceId) && regulated,
   })
+
   const run = useMutation({
     mutationFn: startValidationRun,
     onSuccess: async () => {
@@ -106,10 +108,10 @@ function Validation() {
 
   const can = canManage && allowed.data === true
   const latest = runs.data?.[0]
-  const resultById = new Map((latest?.results ?? []).map((r) => [r.id, r]))
 
   const download = async () => {
     setDownloading(true)
+
     try {
       downloadTextFile(
         'validation-pack.zip',
@@ -149,155 +151,176 @@ function Validation() {
           </>
         }
       />
-      <SettingsBody>
-        <Muted>{t('settings.validation.description')}</Muted>
-        {!can && allowed.isSuccess ? (
-          <Notice>{t('settings.validation.needsAccess')}</Notice>
-        ) : null}
-        {run.isError ? (
-          <Notice tone="bad">
-            {run.error instanceof Error ? run.error.message : String(run.error)}
-          </Notice>
-        ) : null}
+      <ValidationEvidence
+        runs={runs.data}
+        runsLoaded={runs.isSuccess}
+        accessRefused={!can && allowed.isSuccess}
+        runError={run.isError ? run.error : null}
+      />
+    </>
+  )
+}
 
-        {latest ? (
-          <section className="flex flex-col gap-2">
-            <h2 className="text-heading">
-              {t('settings.validation.resultsTitle')}
-            </h2>
-            <Muted>
-              {t('settings.validation.lastRun')}:{' '}
-              {formatDate(latest.finished_at, { time: true })} ·{' '}
-              {t('settings.validation.summary', {
-                passed: latest.passed,
-                failed: latest.failed,
-                skipped: latest.skipped,
-              })}
-            </Muted>
-            <Table caption={t('settings.validation.resultsTitle')}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('settings.validation.check')}</TableHead>
-                  <TableHead>{t('settings.validation.kind')}</TableHead>
-                  <TableHead>{t('settings.validation.result')}</TableHead>
-                  <TableHead>{t('settings.validation.found')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {latest.results.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell>
-                      <span title={`${r.method}\n${r.expected}`}>
-                        {r.title}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {r.kind === 'iq'
-                        ? t('settings.validation.iq')
-                        : t('settings.validation.oq')}
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={TONE[r.status]}>
-                        {statusLabel(r.status)}
-                      </Status>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        title={r.detail}
-                        className="block max-w-[44ch] truncate"
-                      >
-                        {r.detail}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </section>
-        ) : runs.isSuccess ? (
-          <Muted>{t('settings.validation.neverRun')}</Muted>
-        ) : null}
+function ValidationEvidence({
+  runs,
+  runsLoaded,
+  accessRefused,
+  runError,
+}: {
+  runs: Awaited<ReturnType<typeof fetchValidationRuns>> | undefined
+  runsLoaded: boolean
+  accessRefused: boolean
+  runError: Error | null
+}) {
+  const latest = runs?.[0]
+  const resultById = new Map((latest?.results ?? []).map((r) => [r.id, r]))
 
-        {runs.data && runs.data.length > 1 ? (
-          <section className="flex flex-col gap-2">
-            <h2 className="text-heading">
-              {t('settings.validation.historyTitle')}
-            </h2>
-            <Table caption={t('settings.validation.historyTitle')}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('settings.validation.when')}</TableHead>
-                  <TableHead>{t('settings.validation.result')}</TableHead>
-                  <TableHead>{t('settings.validation.version')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {runs.data.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell>
-                      {formatDate(r.finished_at, { time: true })}
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={r.status === 'passed' ? 'ok' : 'bad'}>
-                        {t('settings.validation.summary', {
-                          passed: r.passed,
-                          failed: r.failed,
-                          skipped: r.skipped,
-                        })}
-                      </Status>
-                    </TableCell>
-                    <TableCell>{r.app_version}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </section>
-        ) : null}
+  return (
+    <SettingsBody>
+      <Muted>{t('settings.validation.description')}</Muted>
+      {accessRefused ? (
+        <Notice>{t('settings.validation.needsAccess')}</Notice>
+      ) : null}
+      {runError ? (
+        <Notice tone="bad">
+          {runError instanceof Error ? runError.message : String(runError)}
+        </Notice>
+      ) : null}
 
+      {latest ? (
         <section className="flex flex-col gap-2">
           <h2 className="text-heading">
-            {t('settings.validation.traceTitle')}
+            {t('settings.validation.resultsTitle')}
           </h2>
-          <Muted>{t('settings.validation.traceHint')}</Muted>
-          <Table caption={t('settings.validation.traceTitle')}>
+          <Muted>
+            {t('settings.validation.lastRun')}:{' '}
+            {formatDate(latest.finished_at, { time: true })} ·{' '}
+            {t('settings.validation.summary', {
+              passed: latest.passed,
+              failed: latest.failed,
+              skipped: latest.skipped,
+            })}
+          </Muted>
+          <Table caption={t('settings.validation.resultsTitle')}>
             <TableHeader>
               <TableRow>
-                <TableHead>{t('settings.validation.requirement')}</TableHead>
-                <TableHead>{t('settings.validation.area')}</TableHead>
-                <TableHead>{t('settings.validation.tests')}</TableHead>
-                <TableHead>{t('settings.validation.checks')}</TableHead>
+                <TableHead>{t('settings.validation.check')}</TableHead>
+                <TableHead>{t('settings.validation.kind')}</TableHead>
+                <TableHead>{t('settings.validation.result')}</TableHead>
+                <TableHead>{t('settings.validation.found')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {REQUIREMENTS.map((req) => (
-                <TableRow key={req.id}>
+              {latest.results.map((r) => (
+                <TableRow key={r.id}>
                   <TableCell>
-                    <span title={req.statement}>{req.id}</span>
+                    <span title={`${r.method}\n${r.expected}`}>{r.title}</span>
                   </TableCell>
-                  <TableCell>{req.area}</TableCell>
-                  <TableCell>{testCount(req.id)}</TableCell>
                   <TableCell>
-                    {req.checks.length === 0
-                      ? '—'
-                      : req.checks.map((id) => {
-                          const r = resultById.get(id)
-                          return (
-                            <span key={id} className="mr-2 inline-block">
-                              {r ? (
-                                <Status tone={TONE[r.status]}>{r.title}</Status>
-                              ) : (
-                                id
-                              )}
-                            </span>
-                          )
-                        })}
+                    {r.kind === 'iq'
+                      ? t('settings.validation.iq')
+                      : t('settings.validation.oq')}
+                  </TableCell>
+                  <TableCell>
+                    <Status tone={TONE[r.status]}>
+                      {statusLabel(r.status)}
+                    </Status>
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      title={r.detail}
+                      className="block max-w-[44ch] truncate"
+                    >
+                      {r.detail}
+                    </span>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </section>
-      </SettingsBody>
-    </>
+      ) : runsLoaded ? (
+        <Muted>{t('settings.validation.neverRun')}</Muted>
+      ) : null}
+
+      {runs && runs.length > 1 ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-heading">
+            {t('settings.validation.historyTitle')}
+          </h2>
+          <Table caption={t('settings.validation.historyTitle')}>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('settings.validation.when')}</TableHead>
+                <TableHead>{t('settings.validation.result')}</TableHead>
+                <TableHead>{t('settings.validation.version')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {runs.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell>
+                    {formatDate(r.finished_at, { time: true })}
+                  </TableCell>
+                  <TableCell>
+                    <Status tone={r.status === 'passed' ? 'ok' : 'bad'}>
+                      {t('settings.validation.summary', {
+                        passed: r.passed,
+                        failed: r.failed,
+                        skipped: r.skipped,
+                      })}
+                    </Status>
+                  </TableCell>
+                  <TableCell>{r.app_version}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </section>
+      ) : null}
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-heading">{t('settings.validation.traceTitle')}</h2>
+        <Muted>{t('settings.validation.traceHint')}</Muted>
+        <Table caption={t('settings.validation.traceTitle')}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('settings.validation.requirement')}</TableHead>
+              <TableHead>{t('settings.validation.area')}</TableHead>
+              <TableHead>{t('settings.validation.tests')}</TableHead>
+              <TableHead>{t('settings.validation.checks')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {REQUIREMENTS.map((req) => (
+              <TableRow key={req.id}>
+                <TableCell>
+                  <span title={req.statement}>{req.id}</span>
+                </TableCell>
+                <TableCell>{req.area}</TableCell>
+                <TableCell>{testCount(req.id)}</TableCell>
+                <TableCell>
+                  {req.checks.length === 0
+                    ? '—'
+                    : req.checks.map((id) => {
+                        const r = resultById.get(id)
+
+                        return (
+                          <span key={id} className="mr-2 inline-block">
+                            {r ? (
+                              <Status tone={TONE[r.status]}>{r.title}</Status>
+                            ) : (
+                              id
+                            )}
+                          </span>
+                        )
+                      })}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </section>
+    </SettingsBody>
   )
 }

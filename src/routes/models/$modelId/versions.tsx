@@ -103,12 +103,12 @@ function ModelVersions() {
   )
 }
 
-function DatasetModelVersions() {
+function useDatasetVersionHistory() {
   const { modelId } = Route.useParams()
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const versions = useModelVersions(modelId)
-  const rows = versions.data ?? []
+  const rows = useMemo(() => versions.data ?? [], [versions.data])
   const versionIds = useMemo(() => rows.map((v) => v.id), [rows])
   const versionFields = useModelVersionFields(versionIds)
   const datasets = useModelDatasets(versionIds)
@@ -157,7 +157,7 @@ function DatasetModelVersions() {
         description: t('library.models.versions.newAndExistingDatasetsCan'),
       })
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       toast(t('library.models.versions.couldNotPublish'), {
         description:
           error instanceof Error
@@ -166,6 +166,49 @@ function DatasetModelVersions() {
       })
     },
   })
+
+  return {
+    modelId,
+    rows,
+    impacts,
+    loading,
+    approval,
+    policy,
+    draft,
+    panelVersion,
+    fieldsByVersion,
+    latestPublished,
+    role,
+    user,
+    workspaceId,
+    requestsFor,
+    publish,
+  }
+}
+
+type DatasetVersionHistory = ReturnType<typeof useDatasetVersionHistory>
+
+type DatasetVersion = DatasetVersionHistory['rows'][number]
+
+function DatasetModelVersions() {
+  const history = useDatasetVersionHistory()
+
+  const {
+    modelId,
+    rows,
+    impacts,
+    loading,
+    approval,
+    policy,
+    draft,
+    panelVersion,
+    fieldsByVersion,
+    latestPublished,
+    role,
+    user,
+    workspaceId,
+    requestsFor,
+  } = history
 
   if (!rows.length) {
     return (
@@ -281,27 +324,12 @@ function DatasetModelVersions() {
         <span className="sr-only">{t('library.models.versions.actions')}</span>
       ),
       cell: ({ row }) => {
-        const v = row.original.version
-
-        return v.lifecycle === 'draft' &&
-          hasCapability(role, 'schema.publish') &&
-          policy.isSuccess &&
-          !approval.isLoading &&
-          !approval.isError &&
-          canPublishDraft(
-            requestsFor(v.id),
-            policy.data?.publicationApprovalRequired ?? false,
-            v.revision,
-          ) ? (
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={publish.isPending}
-            onClick={() => publish.mutate(v.id)}
-          >
-            {t('library.models.versions.publish')}
-          </Button>
-        ) : null
+        return (
+          <VersionPublishAction
+            version={row.original.version}
+            history={history}
+          />
+        )
       },
       meta: {
         ...rightAligned<(typeof impacts)[number]>().meta,
@@ -365,6 +393,36 @@ function DatasetModelVersions() {
       </Muted>
     </div>
   )
+}
+
+function VersionPublishAction({
+  version,
+  history,
+}: {
+  version: DatasetVersion
+  history: DatasetVersionHistory
+}) {
+  const { role, policy, approval, requestsFor, publish } = history
+
+  return version.lifecycle === 'draft' &&
+    hasCapability(role, 'schema.publish') &&
+    policy.isSuccess &&
+    !approval.isLoading &&
+    !approval.isError &&
+    canPublishDraft(
+      requestsFor(version.id),
+      policy.data?.publicationApprovalRequired ?? false,
+      version.revision,
+    ) ? (
+    <Button
+      size="sm"
+      variant="primary"
+      disabled={publish.isPending}
+      onClick={() => publish.mutate(version.id)}
+    >
+      {t('library.models.versions.publish')}
+    </Button>
+  ) : null
 }
 
 function VersionChanges({

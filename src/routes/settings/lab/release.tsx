@@ -13,9 +13,11 @@ export const Route = createFileRoute('/settings/lab/release')({
 
 function ReleaseSettings() {
   const { context } = Route.useRouteContext()
+
   const canManage =
     canManageSettings(context.workspace, 'storage') &&
     canReleaseSample(context.workspace?.role)
+
   return (
     <>
       <SettingsHeader title={t('settings.storage.releaseChecks')} />

@@ -56,7 +56,7 @@ function Away() {
   const workspaceId = context.workspace?.id ?? ''
   const me = context.user.id
   const queryClient = useQueryClient()
-  const [startsOn, setStartsOn] = useState(today())
+  const [startsOn, setStartsOn] = useState(today)
   const [endsOn, setEndsOn] = useState('')
   const [delegate, setDelegate] = useState('')
   const [note, setNote] = useState('')
@@ -67,11 +67,13 @@ function Away() {
     queryFn: () => fetchWorkspaceMembers(dataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   const absences = useQuery({
     queryKey: absenceKeys.all(workspaceId),
     queryFn: () => fetchAbsences(dataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   const names = useUserNames(
     [
       ...(members.data ?? []).map((m) => m.userId),
@@ -118,13 +120,14 @@ function Away() {
       await refresh()
     },
   })
+
   const cancel = useMutation({
     mutationFn: (id: string) => cancelAbsence(dataClient, id),
     onSuccess: async () => {
       toast(t('people.away.cancelledToast'))
       await refresh()
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(t('people.away.couldNotSave'), {
         description: describeAdminError(error),
       }),
@@ -180,6 +183,7 @@ function Away() {
       ),
     },
   ]
+
   const othersColumns: RegistryColumn<Absence>[] = [
     {
       id: 'person',

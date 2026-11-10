@@ -1,57 +1,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createMemoryHistory,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-import { DataClientError } from '#/lib/data-client'
-import { Route } from './experiments'
-
-const client = vi.hoisted(() => ({
-  list: vi.fn(),
-  count: vi.fn(),
-  rpc: vi.fn(),
-}))
-const search = vi.hoisted(() => ({ value: {} }))
-
-vi.mock('#/lib/use-capability', () => ({ useHasCapability: () => true }))
-vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useParams: () => ({ projectId: 'project-1' }),
-    useSearch: () => search.value,
-    options: config,
-  }),
-  Outlet: () => null,
-  redirect: (options: unknown) => options,
-  Link: ({
-    to,
-    params,
-    search: _search,
-    activeProps: _activeProps,
-    activeOptions: _activeOptions,
-    children,
-    ...props
-  }: {
-    to?: string
-    params?: Record<string, string>
-    children?: React.ReactNode
-  } & Record<string, unknown>) => {
-    let href = typeof to === 'string' ? to : '#'
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        href = href.replace(`$${key}`, encodeURIComponent(String(value)))
-      }
-    }
-    return (
-      <a href={href} {...props}>
-        {children}
-      </a>
-    )
-  },
-}))
-
-vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: client }))
-vi.mock('#/lib/user-names', () => ({
-  useUserNames: () => ({ userLabel: (id: string) => `name:${id}` }),
-}))
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 const EXPERIMENT = {
   id: 'exp-1',
@@ -64,32 +28,99 @@ const EXPERIMENT = {
   updated_at: '2026-01-02T00:00:00Z',
 }
 
+interface ExperimentsFixture {
+  rows: Array<typeof EXPERIMENT>
+  total: number
+  denied: boolean
+  page: number
+}
+
+const fixture: ExperimentsFixture = {
+  rows: [],
+  total: 0,
+  denied: false,
+  page: 1,
+}
+
+vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
+
+  if (new Headers(init?.headers).has('range'))
+    return Response.json([], {
+      headers: {
+        'content-range': fixture.total ? `0-0/${fixture.total}` : '*/0',
+      },
+    })
+
+  if (fixture.denied)
+    return Response.json(
+      { code: 'permission_denied', message: 'no access' },
+      { status: 403 },
+    )
+
+  return Response.json(url.pathname.endsWith('/records') ? fixture.rows : [])
+})
+
+const { Route } = await import('./experiments')
+const { dropSharedReads } = await import('#/lib/data-client')
+
 function renderRoute() {
   const Component = Route.options.component
+
   if (!Component) throw new Error('Project experiments component required')
+
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  })
+
+  client.setQueryData(['user-names', ['u1']], { u1: 'name:u1' })
+
+  const root = createRootRoute({
+    beforeLoad: () => ({ auth: { workspace: { role: 'owner' } } }),
+  })
+
+  const route = createRoute({
+    getParentRoute: () => root,
+    path: '/projects/$projectId/experiments',
+    validateSearch: Route.options.validateSearch,
+    component: Component,
+  })
+
+  const router = createRouter({
+    routeTree: root.addChildren([route]),
+    history: createMemoryHistory({
+      initialEntries: [`/projects/project-1/experiments?page=${fixture.page}`],
+    }),
+  })
+
   return render(
-    <QueryClientProvider
-      client={
-        new QueryClient({
-          defaultOptions: { queries: { retry: false } },
-        })
-      }
-    >
-      <Component />
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   )
 }
 
-afterEach(cleanup)
+afterAll(() => vi.unstubAllGlobals())
+
+afterEach(() => {
+  cleanup()
+  dropSharedReads()
+})
+
 beforeEach(() => {
-  vi.resetAllMocks()
-  search.value = {}
+  fixture.rows = []
+  fixture.total = 0
+  fixture.denied = false
+  fixture.page = 1
 })
 
 describe('project experiments tab (R5-SURF-02)', () => {
   it('lists the project’s experiments with a count', async () => {
-    client.list.mockResolvedValue([EXPERIMENT])
-    client.count.mockResolvedValue(1)
+    fixture.rows = [EXPERIMENT]
+    fixture.total = 1
 
     renderRoute()
 
@@ -100,8 +131,8 @@ describe('project experiments tab (R5-SURF-02)', () => {
   })
 
   it('shows the honest empty state when the project has no experiments', async () => {
-    client.list.mockResolvedValue([])
-    client.count.mockResolvedValue(0)
+    fixture.rows = []
+    fixture.total = 0
 
     renderRoute()
 
@@ -110,10 +141,8 @@ describe('project experiments tab (R5-SURF-02)', () => {
   })
 
   it('says denied, not empty, when the read is refused', async () => {
-    client.list.mockRejectedValue(
-      new DataClientError('permission_denied', 'no access', 403),
-    )
-    client.count.mockResolvedValue(0)
+    fixture.denied = true
+    fixture.total = 0
 
     renderRoute()
 
@@ -124,14 +153,12 @@ describe('project experiments tab (R5-SURF-02)', () => {
   })
 
   it('says the page is bounded and offers the next page when there is more', async () => {
-    client.list.mockResolvedValue(
-      Array.from({ length: 25 }, (_, i) => ({
-        ...EXPERIMENT,
-        id: `exp-${i}`,
-        identifier: `EXP-000${i}`,
-      })),
-    )
-    client.count.mockResolvedValue(60)
+    fixture.rows = Array.from({ length: 25 }, (_, i) => ({
+      ...EXPERIMENT,
+      id: `exp-${i}`,
+      identifier: `EXP-000${i}`,
+    }))
+    fixture.total = 60
 
     const { container } = renderRoute()
 
@@ -139,17 +166,16 @@ describe('project experiments tab (R5-SURF-02)', () => {
     expect(container.textContent).toContain('Showing 1–25 of 60 experiments')
     // On the first page "Previous" is present and disabled, not absent: a
     // control that vanishes moves the row and reads as a missing control rather
-    // than a first page. (The router's `Link` is mocked in this suite, so the
-    // `aria-disabled` and the dropped `href` it adds are asserted in the
-    // component's story and in the browser check.)
+    // than a first page. Check the real router's disabled-link semantics.
     const previous = screen.getByRole('link', { name: 'Previous' })
-    expect(previous.getAttribute('disabled')).not.toBeNull()
+    expect(previous.getAttribute('aria-disabled')).toBe('true')
+    expect(previous.getAttribute('href')).toBeNull()
   })
 
   it('says a hand-edited page past the end is out of range, not empty', async () => {
-    search.value = { page: 9 }
-    client.list.mockResolvedValue([])
-    client.count.mockResolvedValue(30)
+    fixture.page = 9
+    fixture.rows = []
+    fixture.total = 30
 
     renderRoute()
 

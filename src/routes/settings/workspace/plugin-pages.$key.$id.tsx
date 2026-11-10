@@ -9,5 +9,6 @@ export const Route = createFileRoute(
 
 function PluginSettingsPage() {
   const { key, id } = Route.useParams()
+
   return <PluginPage extensionKey={key} id={id} kind="settings-pages" />
 }

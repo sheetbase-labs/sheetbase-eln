@@ -1,6 +1,6 @@
 import { t } from '#/copy'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { WorkspaceAdminsLine } from '#/components/settings/workspace-admins-line'
+import { WorkspaceAdminRefusal } from './-admin-refusal'
 import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -32,6 +32,7 @@ import {
   fetchWorkspaceMembers,
   WORKSPACE_ROLE_LABELS,
 } from '#/lib/workspace-admin'
+import type { WorkspaceMember, WorkspaceRole } from '#/lib/workspace-admin'
 import { formatFileSize } from '#/lib/format-numbers'
 import { cn } from '#/lib/utils'
 import { now as appNow } from '#/lib/clock'
@@ -46,11 +47,15 @@ import { canOpenSettings } from '#/lib/settings-access'
  * of inventing a number. `?state=denied` drives the acceptance suite.
  */
 export const Route = createFileRoute('/settings/workspace/usage')({
-  validateSearch: (search: Record<string, unknown>): { state?: 'denied' } => ({
+  validateSearch: (search): UsageSearch => ({
     state: search.state === 'denied' ? 'denied' : undefined,
   }),
   component: Usage,
 })
+
+interface UsageSearch {
+  state?: 'denied'
+}
 
 const dataClient = createDataClient()
 
@@ -64,13 +69,14 @@ function csvCell(value: string | number): string {
  * render so the export and the screen cannot disagree: a figure the deployment
  * does not measure is left out rather than exported as an invented zero.
  */
-export function buildUsageCsv(input: {
+function buildUsageCsv(input: {
   workspaceName: string
   period: string
   usage: UsageResult
   storage: StorageOverviewResult | null
 }): string {
   const { usage: d, storage: s } = input
+
   const rows: Array<[string, string | number]> = [
     ['Workspace', input.workspaceName],
     ['Period', input.period],
@@ -84,9 +90,11 @@ export function buildUsageCsv(input: {
     ['Connector runs', d.connectorRuns],
     ['Connectors', d.connectors],
   ]
+
   for (const point of d.trend) {
     rows.push([`Runs ${point.month}`, point.pipelineRuns + point.connectorRuns])
   }
+
   return [
     ['metric', 'value'].map(csvCell).join(','),
     ...rows.map((row) => row.map(csvCell).join(',')),
@@ -94,6 +102,7 @@ export function buildUsageCsv(input: {
 }
 
 const usageKey = (workspaceId: string) => ['admin-usage', workspaceId]
+
 const storageKey = (workspaceId: string) => [
   'admin',
   workspaceId,
@@ -111,11 +120,13 @@ function Usage() {
     queryFn: () => fetchUsageFn({ data: { workspaceId } }),
     enabled: Boolean(workspaceId) && admin,
   })
+
   const storage = useQuery({
     queryKey: storageKey(workspaceId),
     queryFn: () => fetchStorageOverviewFn({ data: { workspaceId } }),
     enabled: Boolean(workspaceId) && admin,
   })
+
   const members = useQuery({
     queryKey: adminQueryKeys.members(workspaceId),
     queryFn: () => fetchWorkspaceMembers(dataClient, workspaceId),
@@ -124,21 +135,12 @@ function Usage() {
 
   if (!admin || state === 'denied') {
     return (
-      <>
-        <SettingsHeader title={t('settings.usage.usage')} />
-        <div className="px-4 md:px-6">
-          <EmptyState
-            icon="lock"
-            title={t('settings.usage.onlyWorkspaceAdmins')}
-            description={
-              <>
-                {t('settings.usage.usageShowsSeats')}
-                <WorkspaceAdminsLine workspaceId={workspaceId} />
-              </>
-            }
-          />
-        </div>
-      </>
+      <WorkspaceAdminRefusal
+        workspaceId={workspaceId}
+        title={t('settings.usage.usage')}
+        reason={t('settings.usage.onlyWorkspaceAdmins')}
+        description={t('settings.usage.usageShowsSeats')}
+      />
     )
   }
 
@@ -190,22 +192,8 @@ function Usage() {
   }
 
   const d = usage.data
-  const membersByRole = new Map<string, number>()
-  for (const m of members.data ?? []) {
-    const key = m.clientId ? 'client' : m.role
-    membersByRole.set(key, (membersByRole.get(key) ?? 0) + 1)
-  }
-  const seatsByRole = [...membersByRole.entries()].sort((a, b) =>
-    a[0].localeCompare(b[0]),
-  )
   const s = storage.data
-  const seatLimit = d.limits.seats.seatLimit
-  const byteLimit = d.limits.fileBytes.byteLimit
-  const storageBytes = s ? s.fileBytes : d.fileBytes
-  // Percent and thresholds only appear where a limit is actually configured;
-  // an unmeasured or unlimited figure never gets a bar or a colour.
-  const seatPercent = seatLimit ? (d.members / seatLimit) * 100 : null
-  const storagePercent = byteLimit ? (storageBytes / byteLimit) * 100 : null
+
   const storageRows = s
     ? [
         ['Files and instrument exports', formatFileSize(s.fileBytes)],
@@ -258,60 +246,10 @@ function Usage() {
         {t('settings.usage.currentWorkspace', { formatPeriod: formatPeriod() })}
       </SettingsHeader>
       <SettingsBody>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <MeterCard
-            label={t('settings.usage.seats')}
-            value={d.members.toLocaleString('en-GB')}
-            limit={
-              seatLimit ? `${seatLimit.toLocaleString('en-GB')} seats` : null
-            }
-            percent={seatPercent}
-            note={
-              seatLimit
-                ? t('settings.usage.everyoneWorkspaceAccess')
-                : t('settings.usage.everyoneWorkspaceAccess2')
-            }
-          />
-          <MeterCard
-            label={t('settings.usage.storage')}
-            value={formatFileSize(storageBytes)}
-            limit={byteLimit ? formatFileSize(byteLimit) : null}
-            percent={storagePercent}
-            note={
-              byteLimit
-                ? `${(s ? s.fileCount : d.files).toLocaleString('en-GB')} files · ${d.limits.fileBytes.atLimitBehaviour ?? ''}`.trim()
-                : s
-                  ? `${s.fileCount.toLocaleString('en-GB')} files. No storage quota is configured.`
-                  : t('settings.usage.filesInstrumentExports')
-            }
-          />
-        </div>
+        <UsageMeters usage={d} storage={s} />
 
         <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-2">
-          <Section
-            title={t('settings.usage.seatsRole')}
-            action={
-              <Link to="/settings/workspace/members" className="text-label">
-                {t('settings.usage.membersRoles')}
-              </Link>
-            }
-          >
-            {seatsByRole.length ? (
-              <BreakdownTable
-                head={['Role', 'People']}
-                rows={seatsByRole.map(([roleKey, n]) => [
-                  roleKey === 'client'
-                    ? 'Client viewer'
-                    : WORKSPACE_ROLE_LABELS[
-                        roleKey as keyof typeof WORKSPACE_ROLE_LABELS
-                      ],
-                  String(n),
-                ])}
-              />
-            ) : (
-              <Muted>{t('settings.usage.membersBreakDown')}</Muted>
-            )}
-          </Section>
+          <SeatsByRole members={members.data ?? []} />
 
           <Section title={t('settings.usage.storageKind')}>
             {storageRows.length ? (
@@ -377,6 +315,89 @@ function Usage() {
   )
 }
 
+function SeatsByRole({ members }: { members: WorkspaceMember[] }) {
+  const membersByRole = new Map<WorkspaceRole | 'client', number>()
+
+  for (const member of members) {
+    const key = member.clientId ? 'client' : member.role
+    membersByRole.set(key, (membersByRole.get(key) ?? 0) + 1)
+  }
+
+  const seatsByRole = [...membersByRole.entries()].sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  )
+
+  return (
+    <Section
+      title={t('settings.usage.seatsRole')}
+      action={
+        <Link to="/settings/workspace/members" className="text-label">
+          {t('settings.usage.membersRoles')}
+        </Link>
+      }
+    >
+      {seatsByRole.length ? (
+        <BreakdownTable
+          head={['Role', 'People']}
+          rows={seatsByRole.map(([roleKey, n]) => [
+            roleKey === 'client'
+              ? 'Client viewer'
+              : WORKSPACE_ROLE_LABELS[roleKey],
+            String(n),
+          ])}
+        />
+      ) : (
+        <Muted>{t('settings.usage.membersBreakDown')}</Muted>
+      )}
+    </Section>
+  )
+}
+
+function UsageMeters({
+  usage: d,
+  storage: s,
+}: {
+  usage: UsageResult
+  storage: StorageOverviewResult | null | undefined
+}) {
+  const seatLimit = d.limits.seats.seatLimit
+  const byteLimit = d.limits.fileBytes.byteLimit
+  const storageBytes = s ? s.fileBytes : d.fileBytes
+  // Percent and thresholds only appear where a limit is actually configured;
+  // an unmeasured or unlimited figure never gets a bar or a colour.
+  const seatPercent = seatLimit ? (d.members / seatLimit) * 100 : null
+  const storagePercent = byteLimit ? (storageBytes / byteLimit) * 100 : null
+
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <MeterCard
+        label={t('settings.usage.seats')}
+        value={d.members.toLocaleString('en-GB')}
+        limit={seatLimit ? `${seatLimit.toLocaleString('en-GB')} seats` : null}
+        percent={seatPercent}
+        note={
+          seatLimit
+            ? t('settings.usage.everyoneWorkspaceAccess')
+            : t('settings.usage.everyoneWorkspaceAccess2')
+        }
+      />
+      <MeterCard
+        label={t('settings.usage.storage')}
+        value={formatFileSize(storageBytes)}
+        limit={byteLimit ? formatFileSize(byteLimit) : null}
+        percent={storagePercent}
+        note={
+          byteLimit
+            ? `${(s ? s.fileCount : d.files).toLocaleString('en-GB')} files · ${d.limits.fileBytes.atLimitBehaviour ?? ''}`.trim()
+            : s
+              ? `${s.fileCount.toLocaleString('en-GB')} files. No storage quota is configured.`
+              : t('settings.usage.filesInstrumentExports')
+        }
+      />
+    </div>
+  )
+}
+
 function MeterCard({
   label,
   value,
@@ -392,14 +413,6 @@ function MeterCard({
   percent: number | null
   note: string
 }) {
-  const level =
-    percent == null
-      ? null
-      : percent >= 90
-        ? 'danger'
-        : percent >= 80
-          ? 'warning'
-          : 'ok'
   return (
     <section
       className="flex flex-col gap-2 rounded-md border border-border p-3.5"
@@ -415,38 +428,41 @@ function MeterCard({
         ) : null}
       </div>
       {percent != null ? (
-        <div className="flex flex-col gap-1">
-          <Progress
-            label={t('settings.usage.used', { label })}
-            value={percent}
-            tone={
-              level === 'danger'
-                ? 'danger'
-                : level === 'warning'
-                  ? 'warning'
-                  : 'accent'
-            }
-          />
-          {level === 'danger' || level === 'warning' ? (
-            <span
-              className={cn(
-                'num text-label',
-                level === 'danger' ? 'text-danger-text' : 'text-warning-text',
-              )}
-            >
-              ⚠ {Math.round(percent)}%
-            </span>
-          ) : null}
-        </div>
+        <UsageProgress label={label} percent={percent} />
       ) : null}
       <Muted>{note}</Muted>
     </section>
   )
 }
 
+function UsageProgress({ label, percent }: { label: string; percent: number }) {
+  const tone = percent >= 90 ? 'danger' : percent >= 80 ? 'warning' : 'accent'
+
+  return (
+    <div className="flex flex-col gap-1">
+      <Progress
+        label={t('settings.usage.used', { label })}
+        value={percent}
+        tone={tone}
+      />
+      {tone !== 'accent' ? (
+        <span
+          className={cn(
+            'num text-label',
+            tone === 'danger' ? 'text-danger-text' : 'text-warning-text',
+          )}
+        >
+          ⚠ {Math.round(percent)}%
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
 function monthLabel(month: string): string {
   const [year, m] = month.split('-')
   const date = new Date(Date.UTC(Number(year), Number(m) - 1, 1))
+
   return date.toLocaleDateString('en-GB', { month: 'short' })
 }
 
@@ -463,20 +479,25 @@ function RunTrend({ trend }: { trend: UsageTrendPoint[] }) {
   const height = 40
   const pad = 3
   const step = totals.length > 1 ? (width - pad * 2) / (totals.length - 1) : 0
+
   const points = totals
     .map((value, i) => {
       const x = pad + i * step
       const y = height - pad - (value / max) * (height - pad * 2)
+
       return `${x.toFixed(1)},${y.toFixed(1)}`
     })
     .join(' ')
+
   const series = trend
     .map(
       (p, i) =>
         `${monthLabel(p.month)} ${p.month.slice(0, 4)}: ${totals[i]} runs`,
     )
     .join('; ')
+
   const latest = totals[totals.length - 1] ?? 0
+
   return (
     <div className="mt-2 flex flex-col gap-1">
       <svg
@@ -511,26 +532,34 @@ function BreakdownTable({
   rows: React.ReactNode[][]
 }) {
   const gridRows = rows.map((cells, index) => ({ id: String(index), cells }))
+
   const columns: RegistryColumn<(typeof gridRows)[number]>[] = head.map(
-    (heading, index) => ({
-      id: `column-${index}`,
-      header: heading,
-      meta: {
-        ...(index > 0 ? rightAligned<(typeof gridRows)[number]>().meta : {}),
-        ...(index === 0
-          ? {
-              headerClassName: `pl-3!${index === head.length - 1 ? ' pr-3!' : ''}`,
-              cellClassName:
-                'pl-3! min-w-[150px] whitespace-normal py-1.5! leading-[17px]',
-            }
-          : {}),
-        ...(index === head.length - 1 && index > 0
-          ? { headerClassName: 'pr-3! text-right', cellClassName: 'pr-3!' }
-          : {}),
-      },
-      cell: ({ row }) => row.original.cells[index] ?? null,
-    }),
+    (heading, index) => {
+      const meta =
+        index > 0
+          ? { ...rightAligned<(typeof gridRows)[number]>().meta }
+          : { headerClassName: '', cellClassName: '' }
+
+      if (index === 0) {
+        meta.headerClassName = `pl-3!${index === head.length - 1 ? ' pr-3!' : ''}`
+        meta.cellClassName =
+          'pl-3! min-w-[150px] whitespace-normal py-1.5! leading-[17px]'
+      }
+
+      if (index === head.length - 1 && index > 0) {
+        meta.headerClassName = 'pr-3! text-right'
+        meta.cellClassName = 'pr-3!'
+      }
+
+      return {
+        id: `column-${index}`,
+        header: heading,
+        meta,
+        cell: ({ row }) => row.original.cells[index] ?? null,
+      }
+    },
   )
+
   return (
     <div className="overflow-hidden rounded-md border border-border">
       <RegistryGrid
@@ -547,7 +576,9 @@ function BreakdownTable({
 function formatPeriod(): string {
   const now = appNow()
   const first = new Date(now.getFullYear(), now.getMonth(), 1)
+
   const fmt = (d: Date) =>
     d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+
   return `${fmt(first)} – ${fmt(now)} ${now.getFullYear()}`
 }

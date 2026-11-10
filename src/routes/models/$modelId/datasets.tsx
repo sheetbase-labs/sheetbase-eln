@@ -32,8 +32,13 @@ function ModelDatasets() {
   const datasets = useModelDatasets(list.map((v) => v.id))
   const rows = datasets.data ?? []
 
-  const versionNumber = (versionId: string) =>
-    list.find((v) => v.id === versionId)?.version
+  const versionNumbers = useMemo(
+    () =>
+      new Map(
+        (versions.data ?? []).map((version) => [version.id, version.version]),
+      ),
+    [versions.data],
+  )
 
   const columns = useMemo<RegistryColumn<ModelDatasetUse>[]>(
     () => [
@@ -62,7 +67,7 @@ function ModelDatasets() {
         id: 'version',
         header: t('library.models.datasets.version'),
         cell: ({ row }) => {
-          const version = versionNumber(row.original.schema_version_id)
+          const version = versionNumbers.get(row.original.schema_version_id)
 
           return version ? `v${version}` : '—'
         },
@@ -89,7 +94,7 @@ function ModelDatasets() {
         meta: rightAligned<ModelDatasetUse>().meta,
       },
     ],
-    [list],
+    [versionNumbers],
   )
 
   if (!rows.length) {

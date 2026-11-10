@@ -15,13 +15,13 @@ import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   computeSampleHold,
   formatHoldDate,
-} from '#/components/samples/sample-hold-meter'
+} from '#/components/samples/sample-hold-data'
 import {
   describeReleaseChecks,
   isTerminalSampleStatus,
 } from '#/components/samples/sample-state'
 import { sampleStatus } from '#/components/samples/samples-data'
-import { useLabelTemplateChoice } from '#/components/samples/label-template-picker'
+import { useLabelTemplateChoice } from '#/components/samples/use-label-template-choice'
 import { SampleLabelCard } from '#/components/samples/sample-label-card'
 import { AddedFields } from '#/components/models/added-fields'
 import {

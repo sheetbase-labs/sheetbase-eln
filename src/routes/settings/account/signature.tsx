@@ -114,14 +114,16 @@ const signatureMeaningColumns: RegistryColumn<(typeof MEANING_ROWS)[number]>[] =
 const getSigningAvailability = createServerFn({ method: 'GET' }).handler(
   async () => {
     const { isDevAuthFreeEnabled } = await import('#/lib/auth')
+
     return { signInAvailable: !isDevAuthFreeEnabled() }
   },
 )
 
 export const Route = createFileRoute('/settings/account/signature')({
   // A page that sent the person here to certify hands over where to go back to.
-  validateSearch: (search: Record<string, unknown>): { returnTo?: string } => {
+  validateSearch: (search): { returnTo?: string } => {
     const returnTo = safeReturnTo(search.returnTo)
+
     return returnTo ? { returnTo } : {}
   },
   loader: () => getSigningAvailability(),
@@ -146,6 +148,7 @@ export function VerificationPath({
 }) {
   if (requested) {
     const names = formatAdminNames(admins)
+
     return (
       <Muted>
         <span>
@@ -157,6 +160,7 @@ export function VerificationPath({
       </Muted>
     )
   }
+
   if (loaded && admins.length === 0) {
     return (
       <div className="flex flex-col gap-2">
@@ -185,7 +189,9 @@ export function VerificationPath({
       </div>
     )
   }
+
   const names = formatAdminNames(admins)
+
   return (
     <Muted>
       {t('settings.mySignature.askDifferentAdmin', {
@@ -195,9 +201,9 @@ export function VerificationPath({
   )
 }
 
-function MySignature() {
+function useSignatureCertification() {
   const { context } = Route.useRouteContext()
-  const { returnTo } = Route.useSearch()
+  const returnTo = safeReturnTo(Route.useSearch().returnTo)
   const { signInAvailable } = Route.useLoaderData()
   const workspaceId = context.workspace?.id ?? ''
   const canManage = canManageSettings(context.workspace, 'members')
@@ -226,17 +232,22 @@ function MySignature() {
       ),
     enabled: Boolean(workspaceId),
   })
+
   const { regulated } = useRegulatedLab(workspaceId)
+
   const mine = (certifications.data ?? []).find(
     (c) => c.userId === context.user.id,
   )
+
   const current = isCurrentStatement(mine)
+
   const statementQuery = useQuery({
     queryKey: signatureStatementQueryKeys.workspace(workspaceId),
     queryFn: () =>
       fetchSignatureStatement(signatureCertificationDataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   const statement = statementQuery.data ?? {
     text: SIGNATURE_STATEMENT,
     version: SIGNATURE_STATEMENT_VERSION,
@@ -253,6 +264,7 @@ function MySignature() {
     mutationFn: () => {
       const enteredPassword = password
       setPassword('')
+
       return certifySignature(
         signatureCertificationDataClient,
         workspaceId,
@@ -269,7 +281,7 @@ function MySignature() {
         ),
       })
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast(t('settings.mySignature.couldCertifyToast'), {
         description:
           error instanceof Error
@@ -283,6 +295,7 @@ function MySignature() {
       requestIdentityVerification(signatureCertificationDataClient),
     onSuccess: invalidate,
   })
+
   const confirmSelf = useMutation({
     mutationFn: async () => {
       await requestIdentityVerification(signatureCertificationDataClient)
@@ -296,10 +309,13 @@ function MySignature() {
       toast(t('settings.mySignature.identityConfirmedToast'))
     },
   })
+
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- Practice stores no record signature; completion clears the password and reports a toast, with errors rendered locally.
   const practice = useMutation({
     mutationFn: () => {
       const enteredPassword = password
       setPassword('')
+
       return practiceSignature(
         signatureCertificationDataClient,
         workspaceId,
@@ -326,7 +342,7 @@ function MySignature() {
         description: t('settings.mySignature.cannotSignUntilDescription'),
       })
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast(t('settings.mySignature.couldWithdrawToast'), {
         description:
           error instanceof Error
@@ -335,6 +351,52 @@ function MySignature() {
       }),
   })
 
+  return {
+    context,
+    returnTo,
+    signInAvailable,
+    workspaceId,
+    canManage,
+    agreed,
+    setAgreed,
+    password,
+    setPassword,
+    confirmWithdraw,
+    setConfirmWithdraw,
+    certifications,
+    otherAdmins,
+    regulated,
+    mine,
+    current,
+    statement,
+    invalidate,
+    certify,
+    verify,
+    confirmSelf,
+    practice,
+    withdraw,
+  }
+}
+
+function MySignature() {
+  const signature = useSignatureCertification()
+
+  const {
+    context,
+    returnTo,
+    signInAvailable,
+    workspaceId,
+    password,
+    setPassword,
+    confirmWithdraw,
+    setConfirmWithdraw,
+    mine,
+    current,
+    invalidate,
+    practice,
+    withdraw,
+  } = signature
+
   return (
     <>
       <SettingsHeader title={t('settings.mySignature.mySignature')}>
@@ -342,30 +404,7 @@ function MySignature() {
         {t('settings.mySignature.signatureDeliberateAct')}
       </SettingsHeader>
       <SettingsBody>
-        {returnTo ? (
-          <Notice
-            title={
-              current
-                ? t('settings.mySignature.signNow')
-                : t('settings.mySignature.cameCertify')
-            }
-          >
-            <p className="m-0">
-              {current
-                ? t('settings.mySignature.signatureCertifiedTask')
-                : t('settings.mySignature.finishCertifyingBelow')}
-            </p>
-            <p className="m-0 mt-1.5">
-              <Button
-                size="sm"
-                nativeButton={false}
-                render={<Link to={returnTo} />}
-              >
-                {returnLabel(returnTo)}
-              </Button>
-            </p>
-          </Notice>
-        ) : null}
+        <SignatureReturnNotice returnTo={returnTo} current={current} />
         {signInAvailable ? null : (
           <Notice
             tone="warn"
@@ -374,58 +413,7 @@ function MySignature() {
             {t('settings.mySignature.environmentRunsWithout')}
           </Notice>
         )}
-        <Section title={t('settings.mySignature.confirmIdentity')}>
-          {mine?.identityVerifiedAt ? (
-            <p className="m-0 text-body">
-              {t('settings.mySignature.verifiedBy', {
-                name:
-                  (certifications.data ?? []).find(
-                    (c) => c.userId === mine.identityVerifiedBy,
-                  )?.name ?? t('settings.mySignature.aDifferentAdmin'),
-                when: formatDate(mine.identityVerifiedAt),
-                email: mine.verifiedEmail ?? '',
-              })}
-            </p>
-          ) : !regulated ? (
-            <Muted>{t('settings.mySignature.selfConfirmNote')}</Muted>
-          ) : (
-            <VerificationPath
-              requested={Boolean(mine?.verificationRequested)}
-              canInvite={canManage}
-              admins={otherAdmins.data ?? []}
-              loaded={otherAdmins.isSuccess}
-            />
-          )}
-          <Button
-            className="self-start"
-            size="sm"
-            variant={
-              !regulated && !mine?.identityVerifiedAt ? 'primary' : undefined
-            }
-            disabled={
-              !signInAvailable ||
-              verify.isPending ||
-              confirmSelf.isPending ||
-              certifications.isPending
-            }
-            onClick={() => (regulated ? verify.mutate() : confirmSelf.mutate())}
-          >
-            {!regulated
-              ? t('settings.mySignature.confirmItsMe')
-              : mine?.identityVerifiedAt
-                ? t('settings.mySignature.requestNewVerification')
-                : t('settings.mySignature.requestIdentityVerification')}
-          </Button>
-          <Muted>
-            {t('settings.mySignature.requestingVerificationRevokes')}
-          </Muted>
-          {verify.error ? (
-            <Notice tone="bad">{verify.error.message}</Notice>
-          ) : null}
-          {confirmSelf.error ? (
-            <Notice tone="bad">{confirmSelf.error.message}</Notice>
-          ) : null}
-        </Section>
+        <IdentityVerification {...signature} />
         <CredentialEnrollment
           workspaceId={workspaceId}
           verified={Boolean(mine?.identityVerifiedAt)}
@@ -491,66 +479,7 @@ function MySignature() {
               ) : null}
             </div>
           ) : (
-            <>
-              {mine?.certifiedAt ? (
-                <p className="m-0 mb-2 text-label text-warning-text">
-                  {t('settings.mySignature.certificationLongerEligible')}
-                </p>
-              ) : null}
-              <p className="m-0 rounded-md bg-surface-muted px-3 py-2.5 text-body leading-[19px]">
-                {statement.text}
-              </p>
-              <label className="flex cursor-pointer items-center gap-2 text-body">
-                <Checkbox
-                  checked={agreed}
-                  onCheckedChange={(v) => setAgreed(Boolean(v))}
-                />
-                {t('settings.mySignature.iReadAgree')}
-              </label>
-              <Field
-                label={t('settings.mySignature.enterSigningPassword')}
-                hint={t('settings.mySignature.useLocalSigningHint')}
-              >
-                <Input
-                  type="password"
-                  autoComplete="current-password"
-                  disabled={!signInAvailable}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-              </Field>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="primary"
-                  disabled={
-                    !signInAvailable ||
-                    !agreed ||
-                    !password ||
-                    !mine?.identityVerifiedAt ||
-                    certify.isPending
-                  }
-                  onClick={() => certify.mutate()}
-                >
-                  {t('settings.mySignature.certifySignature')}
-                </Button>
-                {!mine?.identityVerifiedAt ? (
-                  <span className="text-label text-fg-muted">
-                    {t('settings.mySignature.independentIdentityVerification')}
-                  </span>
-                ) : !agreed ? (
-                  <span className="text-label text-fg-muted">
-                    {t('settings.mySignature.agreeStatementContinue')}
-                  </span>
-                ) : null}
-              </div>
-              {certify.error ? (
-                <Notice tone="bad">
-                  {certify.error instanceof Error
-                    ? certify.error.message
-                    : t('settings.mySignature.certificationRefused')}
-                </Notice>
-              ) : null}
-            </>
+            <SignatureCertificationForm {...signature} />
           )}
         </Section>
 
@@ -597,6 +526,205 @@ function MySignature() {
   )
 }
 
+function SignatureReturnNotice({
+  returnTo,
+  current,
+}: {
+  returnTo: string | undefined
+  current: boolean
+}) {
+  if (!returnTo) return null
+
+  return (
+    <Notice
+      title={
+        current
+          ? t('settings.mySignature.signNow')
+          : t('settings.mySignature.cameCertify')
+      }
+    >
+      <p className="m-0">
+        {current
+          ? t('settings.mySignature.signatureCertifiedTask')
+          : t('settings.mySignature.finishCertifyingBelow')}
+      </p>
+      <p className="m-0 mt-1.5">
+        <Button size="sm" nativeButton={false} render={<Link to={returnTo} />}>
+          {returnLabel(returnTo)}
+        </Button>
+      </p>
+    </Notice>
+  )
+}
+
+function SignatureCertificationForm({
+  mine,
+  statement,
+  agreed,
+  setAgreed,
+  password,
+  setPassword,
+  signInAvailable,
+  certify,
+}: Pick<
+  ReturnType<typeof useSignatureCertification>,
+  | 'mine'
+  | 'statement'
+  | 'agreed'
+  | 'setAgreed'
+  | 'password'
+  | 'setPassword'
+  | 'signInAvailable'
+  | 'certify'
+>) {
+  return (
+    <>
+      {mine?.certifiedAt ? (
+        <p className="m-0 mb-2 text-label text-warning-text">
+          {t('settings.mySignature.certificationLongerEligible')}
+        </p>
+      ) : null}
+      <p className="m-0 rounded-md bg-surface-muted px-3 py-2.5 text-body leading-[19px]">
+        {statement.text}
+      </p>
+      <label className="flex cursor-pointer items-center gap-2 text-body">
+        <Checkbox
+          checked={agreed}
+          onCheckedChange={(v) => setAgreed(Boolean(v))}
+        />
+        {t('settings.mySignature.iReadAgree')}
+      </label>
+      <Field
+        label={t('settings.mySignature.enterSigningPassword')}
+        hint={t('settings.mySignature.useLocalSigningHint')}
+      >
+        <Input
+          type="password"
+          autoComplete="current-password"
+          disabled={!signInAvailable}
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+        />
+      </Field>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="primary"
+          disabled={
+            !signInAvailable ||
+            !agreed ||
+            !password ||
+            !mine?.identityVerifiedAt ||
+            certify.isPending
+          }
+          onClick={() => certify.mutate()}
+        >
+          {t('settings.mySignature.certifySignature')}
+        </Button>
+        {!mine?.identityVerifiedAt ? (
+          <span className="text-label text-fg-muted">
+            {t('settings.mySignature.independentIdentityVerification')}
+          </span>
+        ) : !agreed ? (
+          <span className="text-label text-fg-muted">
+            {t('settings.mySignature.agreeStatementContinue')}
+          </span>
+        ) : null}
+      </div>
+      {certify.error ? (
+        <Notice tone="bad">
+          {certify.error instanceof Error
+            ? certify.error.message
+            : t('settings.mySignature.certificationRefused')}
+        </Notice>
+      ) : null}
+    </>
+  )
+}
+
+function VerifiedIdentity({
+  mine,
+  certifications,
+}: {
+  mine: NonNullable<ReturnType<typeof useSignatureCertification>['mine']>
+  certifications: ReturnType<typeof useSignatureCertification>['certifications']
+}) {
+  return (
+    <p className="m-0 text-body">
+      {t('settings.mySignature.verifiedBy', {
+        name:
+          (certifications.data ?? []).find(
+            (c) => c.userId === mine.identityVerifiedBy,
+          )?.name ?? t('settings.mySignature.aDifferentAdmin'),
+        when: formatDate(mine.identityVerifiedAt),
+        email: mine.verifiedEmail ?? '',
+      })}
+    </p>
+  )
+}
+
+function IdentityVerification({
+  mine,
+  certifications,
+  regulated,
+  canManage,
+  otherAdmins,
+  signInAvailable,
+  verify,
+  confirmSelf,
+}: Pick<
+  ReturnType<typeof useSignatureCertification>,
+  | 'mine'
+  | 'certifications'
+  | 'regulated'
+  | 'canManage'
+  | 'otherAdmins'
+  | 'signInAvailable'
+  | 'verify'
+  | 'confirmSelf'
+>) {
+  return (
+    <Section title={t('settings.mySignature.confirmIdentity')}>
+      {mine?.identityVerifiedAt ? (
+        <VerifiedIdentity mine={mine} certifications={certifications} />
+      ) : !regulated ? (
+        <Muted>{t('settings.mySignature.selfConfirmNote')}</Muted>
+      ) : (
+        <VerificationPath
+          requested={Boolean(mine?.verificationRequested)}
+          canInvite={canManage}
+          admins={otherAdmins.data ?? []}
+          loaded={otherAdmins.isSuccess}
+        />
+      )}
+      <Button
+        className="self-start"
+        size="sm"
+        variant={
+          !regulated && !mine?.identityVerifiedAt ? 'primary' : undefined
+        }
+        disabled={
+          !signInAvailable ||
+          verify.isPending ||
+          confirmSelf.isPending ||
+          certifications.isPending
+        }
+        onClick={() => (regulated ? verify.mutate() : confirmSelf.mutate())}
+      >
+        {!regulated
+          ? t('settings.mySignature.confirmItsMe')
+          : mine?.identityVerifiedAt
+            ? t('settings.mySignature.requestNewVerification')
+            : t('settings.mySignature.requestIdentityVerification')}
+      </Button>
+      <Muted>{t('settings.mySignature.requestingVerificationRevokes')}</Muted>
+      {verify.error ? <Notice tone="bad">{verify.error.message}</Notice> : null}
+      {confirmSelf.error ? (
+        <Notice tone="bad">{confirmSelf.error.message}</Notice>
+      ) : null}
+    </Section>
+  )
+}
+
 function CredentialEnrollment({
   workspaceId,
   verified,
@@ -612,6 +740,8 @@ function CredentialEnrollment({
   const [secret, setSecret] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState<string | null>(null)
+
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- Sending a one-use email secret changes no certification; local message/error state reports delivery and secrets stay server-side.
   const send = useMutation({
     mutationFn: () =>
       requestSignatureCredential({
@@ -620,6 +750,7 @@ function CredentialEnrollment({
       }),
     onSuccess: () => setMessage(t('settings.mySignature.oneUseSecret')),
   })
+
   const enroll = useMutation({
     mutationFn: () => {
       const input = {
@@ -628,8 +759,10 @@ function CredentialEnrollment({
         secret,
         password,
       } satisfies Parameters<typeof requestSignatureCredential>[0]
+
       setPassword('')
       setSecret('')
+
       return requestSignatureCredential(input)
     },
     onSuccess: () => {
@@ -641,6 +774,7 @@ function CredentialEnrollment({
       )
     },
   })
+
   return (
     <Section title={t('settings.mySignature.signingPassword2')}>
       <Collapsible>

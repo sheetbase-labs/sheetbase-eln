@@ -32,13 +32,16 @@ import { useHasCapability } from '#/lib/use-capability'
  * and paged so a project with more experiments than one page says so.
  */
 export const Route = createFileRoute('/projects/$projectId/experiments')({
-  validateSearch: (search: Record<string, unknown>): { page?: number } => {
+  validateSearch: (search): { page?: number } => {
     const page = parseProjectPage(search.page)
+
     return page > 1 ? { page } : {}
   },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) throw redirect(signInRedirect(location))
+
     return { context }
   },
   component: ProjectExperimentsTab,
@@ -50,14 +53,17 @@ function ProjectExperimentsTab() {
   const { page: pageParam } = Route.useSearch()
   const page = pageParam ?? 1
   const query = useProjectExperimentsPage(projectId, page)
-  const rows = query.data?.rows ?? []
+  const rows = useMemo(() => query.data?.rows ?? [], [query.data?.rows])
   const total = query.data?.total ?? 0
 
   const ownerIds = useMemo(() => rows.map((r) => r.created_by_user_id), [rows])
   const { userLabel } = useUserNames(ownerIds)
+
   const ownerNames = useMemo(() => {
     const map = new Map<string, string>()
+
     for (const id of ownerIds) map.set(id, userLabel(id))
+
     return map
   }, [ownerIds, userLabel])
 

@@ -42,9 +42,11 @@ export const Route = createFileRoute(
 )({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ConnectorDetailRoute,
@@ -77,11 +79,13 @@ function ConnectorDetailRoute() {
 
   const connector = connectorQuery.data
   const canManage = canManageSettings(context.workspace, 'integrations')
+
   const parsers = useQuery({
     queryKey: parserSettingsQueryKeys.list(workspaceId),
     queryFn: () => fetchParserSettings(dataClient, workspaceId),
     enabled: Boolean(workspaceId && connector?.parser_id),
   })
+
   const parserName = connector?.parser_id
     ? (parsers.data?.find((p) => p.key === connector.parser_id)?.name ??
       connector.parser_id)
@@ -172,98 +176,119 @@ function ConnectorDetailRoute() {
         </div>
       ) : null}
 
-      <div className="grid min-h-0 flex-1 gap-4 overflow-auto p-4 md:p-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <div className="flex flex-col gap-4">
-          <Section title={t('settings.integrationsConnectorid.configuration')}>
-            {parserName ? (
-              <p className="m-0 text-body">
-                <span className="text-fg-muted">
-                  {t('settings.integrationsConnectorid.parserIdentity')}
-                </span>{' '}
-                {parserName}
-              </p>
-            ) : null}
+      <ConnectorPanels
+        connector={connector}
+        workspaceId={workspaceId}
+        canManage={canManage}
+        parserName={parserName}
+      />
+    </div>
+  )
+}
+
+function ConnectorPanels({
+  connector,
+  workspaceId,
+  canManage,
+  parserName,
+}: {
+  connector: NonNullable<Awaited<ReturnType<typeof getConnector>>>
+  workspaceId: string
+  canManage: boolean
+  parserName: string | null
+}) {
+  const adapter = enterpriseAdapterId(connector)
+
+  return (
+    <div className="grid min-h-0 flex-1 gap-4 overflow-auto p-4 md:p-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div className="flex flex-col gap-4">
+        <Section title={t('settings.integrationsConnectorid.configuration')}>
+          {parserName ? (
             <p className="m-0 text-body">
               <span className="text-fg-muted">
-                {t('settings.integrationsConnectorid.settings')}
-              </span>
-              {t('settings.integrationsConnectorid.configNonSecret')}
+                {t('settings.integrationsConnectorid.parserIdentity')}
+              </span>{' '}
+              {parserName}
             </p>
-            <p className="m-0 border-t border-border pt-2 text-label text-fg-muted">
-              {t('settings.integrationsConnectorid.registeredUpdated', {
-                created: formatNotebookDateTime(connector.created_at, {
-                  zone: true,
-                }),
-                updated: formatNotebookDateTime(connector.updated_at, {
-                  zone: true,
-                }),
-              })}
-            </p>
-          </Section>
-
-          {connector.connector_type === 'instrument' &&
-            connector.parser_id &&
-            connector.status === 'active' && (
-              <IngestPanel
-                connectorId={connector.id}
-                parserKey={connector.parser_id}
-                parserName={parserName ?? connector.parser_id}
-              />
-            )}
-
-          {connector.connector_type === 'instrument' ? (
-            <IntakeProblems
-              workspaceId={workspaceId}
-              connectorId={connector.id}
-              canManage={canManage}
-            />
           ) : null}
-
-          {connector.connector_type === 'instrument' ? (
-            <PickupCard
-              workspaceId={workspaceId}
-              connector={connector}
-              canManage={canManage}
-            />
-          ) : null}
-
-          {enterpriseAdapterId(connector) ? (
-            <ConnectorConfigCard
-              workspaceId={workspaceId}
-              connector={connector}
-              adapter={enterpriseAdapterId(connector)!}
-              canManage={canManage}
-            />
-          ) : null}
-
-          {enterpriseAdapterId(connector) && connector.status === 'active' ? (
-            <EnterpriseSourcePanel
-              workspaceId={workspaceId}
-              connector={connector}
-            />
-          ) : null}
-
-          {enterpriseAdapterId(connector) ? (
-            <ConnectorCredentialsCard
-              workspaceId={workspaceId}
-              connectorId={connector.id}
-              requiredSecrets={
-                enterpriseAdapterId(connector) === 'postgres'
-                  ? POSTGRES_SECRET_NAMES
-                  : S3_SECRET_NAMES
-              }
-              canManage={canManage}
-            />
-          ) : null}
-        </div>
-
-        <Section
-          title={t('settings.integrationsConnectorid.runHistory')}
-          className="self-start"
-        >
-          <RunHistory connectorId={connector.id} />
+          <p className="m-0 text-body">
+            <span className="text-fg-muted">
+              {t('settings.integrationsConnectorid.settings')}
+            </span>
+            {t('settings.integrationsConnectorid.configNonSecret')}
+          </p>
+          <p className="m-0 border-t border-border pt-2 text-label text-fg-muted">
+            {t('settings.integrationsConnectorid.registeredUpdated', {
+              created: formatNotebookDateTime(connector.created_at, {
+                zone: true,
+              }),
+              updated: formatNotebookDateTime(connector.updated_at, {
+                zone: true,
+              }),
+            })}
+          </p>
         </Section>
+
+        {connector.connector_type === 'instrument' &&
+          connector.parser_id &&
+          connector.status === 'active' && (
+            <IngestPanel
+              connectorId={connector.id}
+              parserKey={connector.parser_id}
+              parserName={parserName ?? connector.parser_id}
+            />
+          )}
+
+        {connector.connector_type === 'instrument' ? (
+          <IntakeProblems
+            workspaceId={workspaceId}
+            connectorId={connector.id}
+            canManage={canManage}
+          />
+        ) : null}
+
+        {connector.connector_type === 'instrument' ? (
+          <PickupCard
+            workspaceId={workspaceId}
+            connector={connector}
+            canManage={canManage}
+          />
+        ) : null}
+
+        {adapter ? (
+          <ConnectorConfigCard
+            workspaceId={workspaceId}
+            connector={connector}
+            adapter={adapter}
+            canManage={canManage}
+          />
+        ) : null}
+
+        {adapter && connector.status === 'active' ? (
+          <EnterpriseSourcePanel
+            workspaceId={workspaceId}
+            connector={connector}
+          />
+        ) : null}
+
+        {adapter ? (
+          <ConnectorCredentialsCard
+            workspaceId={workspaceId}
+            connectorId={connector.id}
+            requiredSecrets={
+              adapter === 'postgres' ? POSTGRES_SECRET_NAMES : S3_SECRET_NAMES
+            }
+            canManage={canManage}
+          />
+        ) : null}
       </div>
+
+      <Section
+        title={t('settings.integrationsConnectorid.runHistory')}
+        className="self-start"
+      >
+        <RunHistory connectorId={connector.id} />
+      </Section>
     </div>
   )
 }

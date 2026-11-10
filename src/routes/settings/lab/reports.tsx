@@ -21,6 +21,7 @@ function ScheduledReportsSettings() {
     queryFn: () => fetchEmailStatusFn(),
     staleTime: 60_000,
   })
+
   return (
     <>
       <SettingsHeader title={t('spend.schedule.title')}>

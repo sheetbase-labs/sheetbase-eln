@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 
+import { editorConfiguration } from '../-configuration'
+import type { PipelineConfiguration } from '../-configuration'
 import { rich, t } from '#/copy'
 import {
   PipelineSteps,
@@ -31,20 +33,6 @@ import {
 export const Route = createFileRoute('/pipelines/$pipelineId/')({
   component: PipelineOverview,
 })
-
-interface ConfigShape {
-  description?: string
-  parameters?: { name: string; type: string; required?: boolean }[]
-  inputs?: { name: string; required?: boolean }[]
-  transform?: { language?: string; statement?: string }
-  steps?: { name: string; language: string; statement: string }[]
-  output?: {
-    mode?: string
-    datasetName?: string
-    datasetLabel?: string
-    datasetId?: string
-  }
-}
 
 function PipelineOverview() {
   useDisplayTimeZone()
@@ -97,9 +85,11 @@ function PipelineOverview() {
     )
   }
 
-  type ConfigInput = NonNullable<ConfigShape['inputs']>[number]
+  type ConfigInput = NonNullable<PipelineConfiguration['inputs']>[number]
 
-  type ConfigParameter = NonNullable<ConfigShape['parameters']>[number]
+  type ConfigParameter = NonNullable<
+    PipelineConfiguration['parameters']
+  >[number]
 
   const inputColumns: RegistryColumn<ConfigInput>[] = [
     {
@@ -162,13 +152,11 @@ function PipelineOverview() {
     },
   ]
 
-  const config = shown.configuration as ConfigShape
+  const config = editorConfiguration.parse(shown.configuration)
   // R5-SHELL-06: what the run keeps, and where a person can act on its
   // retention. Only an append output has a dataset to link to; a create output
   // makes its dataset at run time.
   const output = config.output
-  const keepsArtefact = Boolean(output && output.mode !== 'none')
-  const keptDatasetId = output?.mode === 'append' ? output.datasetId : undefined
 
   return (
     <div className="@container/overview min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
@@ -208,35 +196,7 @@ function PipelineOverview() {
 
         <div className="grid min-w-0 grid-cols-1 gap-6 @min-[900px]/overview:grid-cols-[minmax(0,1fr)_300px]">
           <div className="flex min-w-0 flex-col gap-6">
-            <Section
-              title={t('data.pipelineOverview.executionOrder')}
-              count={
-                (config.transform?.statement &&
-                config.transform.language !== 'none'
-                  ? 1
-                  : 0) + (config.steps?.length ?? 0)
-              }
-            >
-              <Muted>
-                {rich('data.pipelineOverview.transformRunsFirstFurther', {
-                  code: (text) => <code>{text}</code>,
-                })}
-              </Muted>
-              <PipelineSteps
-                pipelineId={pipelineId}
-                steps={config.steps ?? []}
-                transform={
-                  config.transform?.statement &&
-                  config.transform.language !== 'none'
-                    ? {
-                        name: t('data.pipelineOverview.transform'),
-                        language: config.transform.language ?? 'sql',
-                        statement: config.transform.statement,
-                      }
-                    : undefined
-                }
-              />
-            </Section>
+            <OverviewExecution pipelineId={pipelineId} config={config} />
             <Section
               title={t('data.pipelineOverview.versionHistory')}
               count={list.length}
@@ -303,55 +263,108 @@ function PipelineOverview() {
               )}
             </Section>
 
-            <Section title={t('data.pipelineOverview.output')}>
-              <div className="flex flex-col gap-1.5">
-                <Muted>
-                  {!output || output.mode === 'none'
-                    ? t('data.pipelineOverview.previewOnlyDatasetSnapshot')
-                    : output.mode === 'append'
-                      ? t('data.pipelineOverview.appendsDataset', {
-                          dataset: output.datasetId ?? '',
-                          label: output.datasetLabel ?? '',
-                        })
-                      : output.datasetName
-                        ? t('data.pipelineOverview.createsDatasetNamed', {
-                            name: output.datasetName,
-                            label: output.datasetLabel ?? '',
-                          })
-                        : t('data.pipelineOverview.createsDatasetLabelled', {
-                            label: output.datasetLabel ?? '',
-                          })}
-                </Muted>
-                {keepsArtefact ? (
-                  <>
-                    <Muted className="text-caption">
-                      {t('data.pipelineOverview.keptDatasetSnapshotRun')}
-                    </Muted>
-                    {keptDatasetId ? (
-                      <Link
-                        to="/datasets/$datasetId/snapshots"
-                        params={{ datasetId: keptDatasetId }}
-                        className="text-link self-start text-label"
-                      >
-                        {t('data.pipelineOverview.snapshotsRetention')}
-                      </Link>
-                    ) : null}
-                  </>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <TemporaryArtefact>
-                      {t('data.pipelineOverview.nothingKept')}
-                    </TemporaryArtefact>
-                    <Muted className="text-caption">
-                      {t('data.pipelineOverview.intermediateStepTablesDropped')}
-                    </Muted>
-                  </div>
-                )}
-              </div>
-            </Section>
+            <OverviewOutput output={output} />
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+function OverviewExecution({
+  pipelineId,
+  config,
+}: {
+  pipelineId: string
+  config: PipelineConfiguration
+}) {
+  const transform =
+    config.transform?.statement && config.transform.language !== 'none'
+      ? {
+          name: t('data.pipelineOverview.transform'),
+          language: config.transform.language ?? 'sql',
+          statement: config.transform.statement,
+        }
+      : undefined
+
+  return (
+    <Section
+      title={t('data.pipelineOverview.executionOrder')}
+      count={(transform ? 1 : 0) + (config.steps?.length ?? 0)}
+    >
+      <Muted>
+        {rich('data.pipelineOverview.transformRunsFirstFurther', {
+          code: (text) => <code>{text}</code>,
+        })}
+      </Muted>
+      <PipelineSteps
+        pipelineId={pipelineId}
+        steps={config.steps ?? []}
+        transform={transform}
+      />
+    </Section>
+  )
+}
+
+function outputDescription(output: PipelineConfiguration['output']) {
+  if (!output || output.mode === 'none')
+    return t('data.pipelineOverview.previewOnlyDatasetSnapshot')
+
+  if (output.mode === 'append')
+    return t('data.pipelineOverview.appendsDataset', {
+      dataset: output.datasetId ?? '',
+      label: output.datasetLabel ?? '',
+    })
+
+  if (output.datasetName)
+    return t('data.pipelineOverview.createsDatasetNamed', {
+      name: output.datasetName,
+      label: output.datasetLabel ?? '',
+    })
+
+  return t('data.pipelineOverview.createsDatasetLabelled', {
+    label: output.datasetLabel ?? '',
+  })
+}
+
+function OverviewOutput({
+  output,
+}: {
+  output: PipelineConfiguration['output']
+}) {
+  const keepsArtefact = Boolean(output && output.mode !== 'none')
+  const keptDatasetId = output?.mode === 'append' ? output.datasetId : undefined
+
+  return (
+    <Section title={t('data.pipelineOverview.output')}>
+      <div className="flex flex-col gap-1.5">
+        <Muted>{outputDescription(output)}</Muted>
+        {keepsArtefact ? (
+          <>
+            <Muted className="text-caption">
+              {t('data.pipelineOverview.keptDatasetSnapshotRun')}
+            </Muted>
+            {keptDatasetId ? (
+              <Link
+                to="/datasets/$datasetId/snapshots"
+                params={{ datasetId: keptDatasetId }}
+                className="text-link self-start text-label"
+              >
+                {t('data.pipelineOverview.snapshotsRetention')}
+              </Link>
+            ) : null}
+          </>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <TemporaryArtefact>
+              {t('data.pipelineOverview.nothingKept')}
+            </TemporaryArtefact>
+            <Muted className="text-caption">
+              {t('data.pipelineOverview.intermediateStepTablesDropped')}
+            </Muted>
+          </div>
+        )}
+      </div>
+    </Section>
   )
 }

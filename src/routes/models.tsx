@@ -34,11 +34,9 @@ import {
   useModels,
 } from '#/components/models/models-data'
 import type { ModelRow } from '#/components/models/models-data'
-import {
-  ModelCreateDialog,
-  describeModelCreateError,
-} from '#/components/models/model-create-dialog'
-import type { ModelCreateInput } from '#/components/models/model-create-dialog'
+import { ModelCreateDialog } from '#/components/models/model-create-dialog'
+import { describeModelCreateError } from '#/components/models/model-create-validation'
+import type { ModelCreateInput } from '#/components/models/model-create-validation'
 import { useWorkspaceMemberNames } from '#/components/projects/project-data'
 import { toast } from '#/components/ui/sonner'
 import { hasCapability } from '#/lib/capability'

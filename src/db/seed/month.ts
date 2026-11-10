@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { Client } from 'pg'
 import type { QueryResultRow } from 'pg'
 
+import type { WellAssignment } from '#/lib/plate-map'
 import * as schema from '../schema'
 import { eq, sql } from 'drizzle-orm'
 import type { SeedStep } from './run'
@@ -64,7 +65,7 @@ export async function authClient(db: Parameters<SeedStep['run']>[0]) {
 
   return {
     client,
-    rpc: async <T extends QueryResultRow = Record<string, unknown>>(
+    rpc: async <T extends QueryResultRow = object>(
       name: string,
       params: unknown[],
     ) => {
@@ -73,7 +74,7 @@ export async function authClient(db: Parameters<SeedStep['run']>[0]) {
 
       return client.query<T>(`select * from api.${name}(${args})`, params)
     },
-    migratorRpc: async <T extends QueryResultRow = Record<string, unknown>>(
+    migratorRpc: async <T extends QueryResultRow = object>(
       name: string,
       params: unknown[],
     ) => {
@@ -876,7 +877,7 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
     for (const [i, [title, subtitle, projIdx]] of reportDefs.entries()) {
       const docId = `RPT-2026-${String(i + 1).padStart(4, '0')}`
 
-      const found = await auth.client.query(
+      const found = await auth.client.query<{ id: string }>(
         'select id from api.report_definitions where workspace_id=$1 and document_identifier=$2',
         [WORKSPACE, docId],
       )
@@ -884,16 +885,16 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
       let reportId: string
 
       if (found.rowCount) {
-        reportId = found.rows[0].id as string
+        reportId = found.rows[0].id
       } else {
-        const res = await auth.rpc('create_report_definition', [
+        const res = await auth.rpc<{ id: string }>('create_report_definition', [
           WORKSPACE,
           title,
           subtitle,
           uuid(0x200 + projIdx),
         ])
 
-        reportId = res.rows[0].id as string
+        reportId = res.rows[0].id
         // Update document_identifier to our stable value
         await auth.client.query(
           'update api.report_definitions set document_identifier=$1 where id=$2',
@@ -1284,7 +1285,7 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
 const SHOWCASE_RECORD = uuid(0x3fe)
 
 function buildPlateMapWells() {
-  const wells: Array<Record<string, unknown>> = []
+  const wells: WellAssignment[] = []
   const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
   const sampleIds = [uuid(0x340), uuid(0x341), uuid(0x342), uuid(0x343)]
 
@@ -1305,8 +1306,8 @@ function buildPlateMapWells() {
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 12; c++) {
       const wellCode = `${rows[r]}${c + 1}`
-      let role = 'empty'
-      let sampleRef: Record<string, unknown> | undefined
+      let role: WellAssignment['role'] = 'empty'
+      let sampleRef: WellAssignment['sampleRef']
       let replicate: number | undefined
 
       if (c < 3) {
@@ -1339,7 +1340,7 @@ function buildPlateMapWells() {
         replicate = c - 8
       }
 
-      const well: Record<string, unknown> = {
+      const well: WellAssignment = {
         wellCode,
         row: r,
         col: c,
@@ -1471,7 +1472,11 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
   }
 
   // --- Helper for rich text payloads ---
-  const doc = (content: unknown[]) => ({
+  const doc = (
+    content: Array<
+      ReturnType<typeof para> | ReturnType<typeof h> | ReturnType<typeof bullet>
+    >,
+  ) => ({
     doc: { type: 'doc' as const, content },
   })
 
@@ -1497,10 +1502,7 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
   // --- Phase 1: Insert blocks before the protocol reference ---
   // These go in first, then we pin the protocol (which copies procedure_step
   // blocks and reorders), then we insert the remaining blocks after.
-  const preProtocolBlocks: Array<{
-    type: string
-    payload: Record<string, unknown>
-  }> = [
+  const preProtocolBlocks = [
     // 1. Rich text — Objective
     {
       type: 'rich_text',
@@ -1651,10 +1653,7 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
 
     // --- Phase 3: Insert remaining blocks after the protocol steps ---
     // Use high order values so they come after the pinned procedure_step blocks.
-    const postProtocolBlocks: Array<{
-      type: string
-      payload: Record<string, unknown>
-    }> = [
+    const postProtocolBlocks = [
       // Linked record
       {
         type: 'linked_record',

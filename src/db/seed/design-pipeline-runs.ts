@@ -152,7 +152,7 @@ async function writeRuns(db: Db) {
         ),
       )
 
-    const lines: Array<[string, string, Record<string, unknown>?]> = [
+    const lines: Array<[string, string, { step: string }?]> = [
       ['info', 'step 3 python: resampling 2,416 traces at 0.1 s'],
       ['info', 'temporary storage 1.6 GB'],
       ['warning', 'temporary storage 2.0 GB · limit reached'],

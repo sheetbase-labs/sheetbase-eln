@@ -36,10 +36,10 @@ const ROLE_LIST = sql.join(
 )
 
 /** Approved records left unsigned so the person viewing still has some to sign. */
-const LEAVE_UNSIGNED: Record<string, number> = {
-  'Mei L.': 4,
-  'Gareth P.': 3,
-}
+const LEAVE_UNSIGNED = new Map([
+  ['Mei L.', 4],
+  ['Gareth P.', 3],
+])
 
 /** Only where sign-in is off: a real install never gets demo signers. */
 export function demoSigningEnabled(env: NodeJS.ProcessEnv = process.env) {
@@ -210,27 +210,26 @@ async function signApprovedRecords(db: Db): Promise<void> {
   }))
 
   const kept = new Map<string, number>()
-  const skipped: string[] = []
+  let skipped = 0
 
   for (const item of pending) {
     // Newest first: the ones left for the viewer are the freshest approvals.
     const left = kept.get(item.approverName) ?? 0
 
-    if (left < (LEAVE_UNSIGNED[item.approverName] ?? 0)) {
+    if (left < (LEAVE_UNSIGNED.get(item.approverName) ?? 0)) {
       kept.set(item.approverName, left + 1)
       continue
     }
 
     try {
       await whileProjectOpen(db, item.projectId, () => signAsDemo(db, item))
-    } catch (error) {
+    } catch {
       // A review in an archived project cannot be signed; it stays as it is.
-      skipped.push((error as Error).message)
+      skipped += 1
     }
   }
 
-  if (skipped.length)
-    console.log(`seed: ${skipped.length} approved records left unsigned`)
+  if (skipped) console.log(`seed: ${skipped} approved records left unsigned`)
 }
 
 async function signAsDemo(db: Db, item: Pending): Promise<void> {

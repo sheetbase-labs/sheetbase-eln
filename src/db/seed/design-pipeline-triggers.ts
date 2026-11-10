@@ -5,6 +5,7 @@
  * Idempotent: it does nothing once the draft and trigger exist.
  */
 import { sql } from 'drizzle-orm'
+import type { core } from 'zod'
 
 import { withDesignClaims } from './claims'
 import type { SeedStep } from './run'
@@ -16,11 +17,11 @@ const GARETH = '00000000-0000-4000-8000-000000000310'
 const EXP_0142 = '00000000-0000-4000-8000-000000000351'
 
 export async function seedDesignPipelineTriggers(db: Db): Promise<void> {
-  const { rows: defs } = await db.execute(
+  const { rows: defs } = await db.execute<{ id: string }>(
     sql`select id from api.pipeline_definitions where workspace_id = ${PROCESS} and key = 'clarification_step_yield'`,
   )
 
-  const definitionId = (defs as Array<{ id: string }>)[0]?.id
+  const definitionId = defs[0]?.id
 
   if (!definitionId) return
 
@@ -31,21 +32,19 @@ export async function seedDesignPipelineTriggers(db: Db): Promise<void> {
            'https://example.webhook.office.com/aav9-process', '[]'::jsonb, 'active'
     where not exists (select 1 from api.webhook_subscriptions where workspace_id = ${PROCESS} and key = 'aav9-process-teams')`)
 
-  const { rows: subs } = await db.execute(
+  const { rows: subs } = await db.execute<{ id: string }>(
     sql`select id from api.webhook_subscriptions where workspace_id = ${PROCESS} and key = 'aav9-process-teams'`,
   )
 
-  const subscriptionId = (subs as Array<{ id: string }>)[0]?.id
+  const subscriptionId = subs[0]?.id
 
-  const { rows: versions } = await db.execute(
-    sql`select id, lifecycle, configuration from api.pipeline_definition_versions where definition_id = ${definitionId} order by version`,
-  )
-
-  const all = versions as Array<{
+  const { rows: all } = await db.execute<{
     id: string
     lifecycle: string
-    configuration: Record<string, unknown>
-  }>
+    configuration: Record<string, core.util.JSONType>
+  }>(
+    sql`select id, lifecycle, configuration from api.pipeline_definition_versions where definition_id = ${definitionId} order by version`,
+  )
 
   const published = all.find((v) => v.lifecycle === 'published')
 
@@ -84,11 +83,11 @@ export async function seedDesignPipelineTriggers(db: Db): Promise<void> {
   )
 
   if (events.length === 0) {
-    const { rows: ds } = await db.execute(
+    const { rows: ds } = await db.execute<{ id: string }>(
       sql`select id from api.datasets where workspace_id = ${PROCESS} and display_id = 'DS-0311' limit 1`,
     )
 
-    const datasetId = (ds as Array<{ id: string }>)[0]?.id
+    const datasetId = ds[0]?.id
 
     if (datasetId) {
       await withDesignClaims(db, GARETH, PROCESS, async (client) => {

@@ -99,7 +99,9 @@ export async function seedDesignIntakeStory(db: Db): Promise<void> {
     GARETH,
     PROCESS,
     async (client) => {
-      const created = await client.query(
+      const created = await client.query<{
+        result: { schema_version_id: string }
+      }>(
         'select api.create_dataset_schema_definition($1,$2,$3,$4,$5::jsonb) as result',
         [
           PROCESS,
@@ -135,7 +137,7 @@ export async function seedDesignIntakeStory(db: Db): Promise<void> {
         ],
       )
 
-      const versionId = created.rows[0].result.schema_version_id as string
+      const versionId = created.rows[0].result.schema_version_id
       await client.query('select api.publish_dataset_schema_version($1)', [
         versionId,
       ])

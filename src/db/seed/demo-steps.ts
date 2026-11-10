@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { Client } from 'pg'
+import type { QueryResultRow } from 'pg'
 
 import * as schema from '../schema'
 import {
@@ -1962,11 +1963,11 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             mediaType: 'text/csv',
             byteSize: BigInt(activeCsv.length),
             checksum: activeChecksum,
-            status: 'active' as const,
-            statusReason: null as string | null,
+            status: 'active',
+            statusReason: null,
             storageKey: activeStorageKey,
-            quarantinedAt: null as Date | null,
-            deletedAt: null as Date | null,
+            quarantinedAt: null,
+            deletedAt: null,
           },
           {
             recordId: DEMO_FILE_IDS.quarantinedRecord,
@@ -1977,11 +1978,11 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             mediaType: 'text/csv',
             byteSize: BigInt(2048),
             checksum: null,
-            status: 'quarantined' as const,
+            status: 'quarantined',
             statusReason: 'suspected contamination on plate B',
             storageKey: `${FIXTURE_WORKSPACE_ID}/${DEMO_FILE_IDS.quarantinedRecord}/b2c3d4e5f60718293a4b5c6d7e8f9a10`,
             quarantinedAt: new Date('2025-06-18T09:30:00Z'),
-            deletedAt: null as Date | null,
+            deletedAt: null,
           },
           {
             recordId: DEMO_FILE_IDS.deletedRecord,
@@ -1992,10 +1993,10 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             mediaType: 'application/pdf',
             byteSize: BigInt(524288),
             checksum: null,
-            status: 'deleted' as const,
-            statusReason: null as string | null,
+            status: 'deleted',
+            statusReason: null,
             storageKey: `${FIXTURE_WORKSPACE_ID}/${DEMO_FILE_IDS.deletedRecord}/c3d4e5f60718293a4b5c6d7e8f9a1b20`,
-            quarantinedAt: null as Date | null,
+            quarantinedAt: null,
             deletedAt: new Date('2025-06-20T12:00:00Z'),
           },
           {
@@ -2007,11 +2008,11 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             mediaType: 'application/json',
             byteSize: BigInt(8192),
             checksum: null,
-            status: 'missing' as const,
+            status: 'missing',
             statusReason: 'storage object absent',
             storageKey: `${FIXTURE_WORKSPACE_ID}/${DEMO_FILE_IDS.missingRecord}/d4e5f60718293a4b5c6d7e8f9a1b2c30`,
-            quarantinedAt: null as Date | null,
-            deletedAt: null as Date | null,
+            quarantinedAt: null,
+            deletedAt: null,
           },
         ] as const
 
@@ -2555,10 +2556,13 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             ],
           )
 
-          const rpc = async (name: string, params: unknown[]) => {
+          const rpc = async <T extends QueryResultRow>(
+            name: string,
+            params: unknown[],
+          ) => {
             const args = params.map((_, i) => `$${i + 1}`).join(',')
 
-            return client.query(`select * from api.${name}(${args})`, params)
+            return client.query<T>(`select * from api.${name}(${args})`, params)
           }
 
           interface ReportDef {
@@ -2567,7 +2571,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             docId: string
             status: 'draft' | 'in_review'
             projectId: string
-            customFields: Record<string, unknown>
+            customFields: { programme: string; reporting_period_end: string }
             sections: Array<{
               title: string
               description: string
@@ -2682,7 +2686,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
 
           for (const report of reports) {
             // Lookup-or-create by document_identifier.
-            const found = await client.query(
+            const found = await client.query<{ id: string }>(
               'select id from api.report_definitions where workspace_id=$1 and document_identifier=$2',
               [FIXTURE_WORKSPACE_ID, report.docId],
             )
@@ -2690,16 +2694,19 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             let reportId: string
 
             if (found.rowCount) {
-              reportId = found.rows[0].id as string
+              reportId = found.rows[0].id
             } else {
-              const res = await rpc('create_report_definition', [
-                FIXTURE_WORKSPACE_ID,
-                report.title,
-                report.subtitle,
-                report.projectId,
-              ])
+              const res = await rpc<{ id: string }>(
+                'create_report_definition',
+                [
+                  FIXTURE_WORKSPACE_ID,
+                  report.title,
+                  report.subtitle,
+                  report.projectId,
+                ],
+              )
 
-              reportId = res.rows[0].id as string
+              reportId = res.rows[0].id
             }
 
             // Refresh title, subtitle, and status so reruns converge even if a

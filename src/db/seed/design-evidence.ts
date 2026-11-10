@@ -46,7 +46,9 @@ interface FileSpec {
   feeds: Array<{
     kind: 'dataset' | 'protocol_template'
     identifier: string
-    receipt: Record<string, unknown>
+    receipt:
+      | { instrument: string; parser: string; rows: number; kind: string }
+      | { kind: string; version: number }
   }>
   text?: string
 }
@@ -148,11 +150,11 @@ const FILES: FileSpec[] = [
 ]
 
 async function recordId(db: Db, identifier: string): Promise<string | null> {
-  const found = await db.execute(sql`
+  const found = await db.execute<{ id: string }>(sql`
     select id from api.records
      where workspace_id = ${PROCESS} and identifier = ${identifier}`)
 
-  return (found.rows[0] as { id: string } | undefined)?.id ?? null
+  return found.rows[0]?.id ?? null
 }
 
 async function seedSamples(db: Db): Promise<void> {

@@ -5,6 +5,8 @@
  */
 import type { Client } from 'pg'
 
+import type { SheetInstanceState } from '#/lib/sheet-instance'
+
 const seedUuid = (n: number) =>
   `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`
 
@@ -35,7 +37,7 @@ export function storedLocalField(
 type SeededInstance = {
   id: string
   revision: string
-  state: Record<string, unknown>
+  state: Partial<Pick<SheetInstanceState, 'localFields' | 'localValues'>>
 }
 
 type LocalField = ReturnType<typeof storedLocalField>
@@ -43,7 +45,7 @@ type LocalField = ReturnType<typeof storedLocalField>
 function asInstance(row: {
   id: string
   revision: string | number | bigint
-  state: Record<string, unknown>
+  state: SeededInstance['state']
 }): SeededInstance {
   return {
     id: row.id,
@@ -59,7 +61,7 @@ async function loadInstance(
   const loaded = await client.query<{
     id: string
     revision: string
-    state: Record<string, unknown>
+    state: SeededInstance['state']
   }>(
     `SELECT id, revision::text, state FROM api.sheet_instances WHERE id = $1`,
     [instanceId],
@@ -98,7 +100,7 @@ export async function ensureNotebookSheetInstance(
   const fromBlock = await client.query<{
     id: string
     revision: string
-    state: Record<string, unknown>
+    state: SeededInstance['state']
   }>(
     `SELECT i.id, i.revision::text, i.state
        FROM api.sheet_instances i
@@ -114,7 +116,7 @@ export async function ensureNotebookSheetInstance(
   const owned = await client.query<{
     id: string
     revision: string
-    state: Record<string, unknown>
+    state: SeededInstance['state']
   }>(
     `SELECT id, revision::text, state
        FROM api.sheet_instances
@@ -139,18 +141,11 @@ export async function seedAdHocSheetGrid(
     rows: Array<{ rowKey: string; values: Record<string, string | number> }>
   },
 ): Promise<void> {
-  const localValues = (instance.state.localValues ?? {}) as Record<
-    string,
-    unknown
-  >
+  const localValues = instance.state.localValues ?? {}
 
   if (Object.keys(localValues).length >= input.rows.length) return
 
-  const existingFields = (instance.state.localFields ?? []) as Array<{
-    fieldId: string
-    key: string
-    lifecycle: string
-  }>
+  const existingFields = instance.state.localFields ?? []
 
   const active = existingFields.filter((field) => field.lifecycle === 'active')
 

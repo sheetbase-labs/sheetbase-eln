@@ -28,13 +28,15 @@ export async function withDesignClaims<T>(
 
   try {
     await client.query('SET ROLE authenticated')
+
+    const claims = {
+      sub: actorId,
+      workspace_id: workspaceId,
+      role: 'authenticated',
+    }
+
     await client.query("SELECT set_config('request.jwt.claims',$1,false)", [
-      JSON.stringify({
-        sub: actorId,
-        workspace_id: workspaceId,
-        role: 'authenticated',
-        ...(sessionId ? { session_id: sessionId } : {}),
-      }),
+      JSON.stringify(sessionId ? { ...claims, session_id: sessionId } : claims),
     ])
 
     return await fn(client)

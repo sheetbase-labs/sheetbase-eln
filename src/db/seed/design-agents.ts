@@ -53,7 +53,7 @@ const DEFINITIONS = [
     kind: 'rule',
     owner: MEI,
     trigger: 'Any new snapshot with range rules',
-    projects: [] as string[],
+    projects: [],
     description:
       'Checks every new snapshot against the range rules in its schema and proposes a flag for each value outside them.',
     reads: ['Datasets with range rules'],
@@ -150,7 +150,7 @@ const DEFINITIONS = [
 ]
 
 /** Runs per workflow: [number, outcome, list headline, history line, started at (Sep 2026, BST)]. */
-const RUNS: Record<string, Array<[number, string, string, string, string]>> = {
+const RUNS = {
   'AG-0003': [
     [
       26,
@@ -243,7 +243,7 @@ const RUNS: Record<string, Array<[number, string, string, string, string]>> = {
       '2026-09-24T09:31:00+01:00',
     ],
   ],
-}
+} satisfies Record<string, Array<[number, string, string, string, string]>>
 
 const REVISIONS = [
   {
@@ -589,7 +589,7 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
   const definitionIds = new Map<string, string>()
 
   for (const d of DEFINITIONS) {
-    const { rows } = await db.execute(sql`
+    const { rows } = await db.execute<{ id: string }>(sql`
       insert into api.agent_definitions
         (workspace_id, display_id, name, kind, description, trigger_label, project_ids,
          owner_user_id, model_label, reads, proposes, enabled, policy)
@@ -599,7 +599,7 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
               ${d.proposes}, ${d.enabled}, ${JSON.stringify(d.policy)}::jsonb)
       returning id`)
 
-    definitionIds.set(d.id, (rows as Array<{ id: string }>)[0].id)
+    definitionIds.set(d.id, rows[0].id)
   }
 
   // The range checker runs on every snapshot: 42 runs this week, the last one
@@ -616,20 +616,20 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
 
   const runIds = new Map<string, string>()
 
-  const { rows: flagged } = await db.execute(
+  const { rows: flagged } = await db.execute<{ id: string }>(
     sql`select id from api.agent_runs where definition_id = ${rangeChecker} and run_number = 412`,
   )
 
-  runIds.set('AG-0001#412', (flagged as Array<{ id: string }>)[0].id)
+  runIds.set('AG-0001#412', flagged[0].id)
 
   for (const [agent, runs] of Object.entries(RUNS)) {
     for (const [number, outcome, summary, detail, at] of runs) {
-      const { rows } = await db.execute(sql`
+      const { rows } = await db.execute<{ id: string }>(sql`
         insert into api.agent_runs (workspace_id, definition_id, run_number, outcome, summary, detail, started_at)
         values (${PROCESS}, ${definitionIds.get(agent)!}, ${number}, ${outcome}, ${summary}, ${detail}, ${at}::timestamptz)
         returning id`)
 
-      runIds.set(`${agent}#${number}`, (rows as Array<{ id: string }>)[0].id)
+      runIds.set(`${agent}#${number}`, rows[0].id)
     }
   }
 
@@ -641,20 +641,21 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
               'I approve this change', ${r.at}::timestamptz)`)
   }
 
-  const { rows: credentials } = await db.execute(
+  const { rows: credentials } = await db.execute<{ id: string }>(
     sql`select id from internal.api_credentials where workspace_id = ${PROCESS} and name = 'Seed agent credential' limit 1`,
   )
 
-  const credentialId = (credentials as Array<{ id: string }>)[0]?.id ?? null
+  const credentialId = credentials[0]?.id ?? null
 
   const recordId = async (identifier: string) => {
-    const { rows } = await db.execute(
+    const { rows } = await db.execute<{
+      id: string
+      structure_version: number
+    }>(
       sql`select id, structure_version from api.records where workspace_id = ${PROCESS} and identifier = ${identifier} limit 1`,
     )
 
-    return (
-      (rows as Array<{ id: string; structure_version: number }>).at(0) ?? null
-    )
+    return rows.at(0) ?? null
   }
 
   const provenance = (agent: string, name: string, model: boolean) => ({

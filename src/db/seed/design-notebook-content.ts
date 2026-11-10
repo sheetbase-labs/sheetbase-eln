@@ -40,11 +40,33 @@ export interface Kit {
   holdReason: string
 }
 
-export type NotebookBlock = {
-  type: string
-  order: number
-  payload: Record<string, unknown>
-}
+type NotebookBlockContent =
+  | { type: 'rich_text'; payload: ReturnType<typeof doc> }
+  | {
+      type: 'checklist'
+      payload: { items: Array<{ text: string; checked: boolean }> }
+    }
+  | { type: 'table'; payload: { columns: string[]; rows: string[][] } }
+  | {
+      type: 'metric'
+      payload: {
+        label: string
+        value: string
+        unit: string
+        provenance: string
+      }
+    }
+  | {
+      type: 'conclusion'
+      payload: {
+        text: string
+        verdict: 'inconclusive' | 'not_supported' | 'supported'
+        basis: string
+      }
+    }
+  | { type: 'callout'; payload: { variant: 'warning' | 'note'; text: string } }
+
+export type NotebookBlock = NotebookBlockContent & { order: number }
 
 export type NotebookStatus =
   | 'draft'
@@ -138,7 +160,7 @@ export const RETURN_NOTES = [
 
 export interface BuildInput {
   identifier: string
-  status: NotebookStatus
+  status: string
   topic: Topic
   kit: Kit
   /** First free block order in the record. */
@@ -156,7 +178,7 @@ export function buildNotebook(input: BuildInput): NotebookBlock[] {
     topic.conditions ?? kit.conditions,
   )
 
-  const blocks: Array<Omit<NotebookBlock, 'order'>> = []
+  const blocks: NotebookBlockContent[] = []
 
   blocks.push({ type: 'rich_text', payload: doc('Objective', topic.objective) })
 
@@ -295,7 +317,7 @@ export function buildNotebook(input: BuildInput): NotebookBlock[] {
 }
 
 function number(
-  blocks: Array<Omit<NotebookBlock, 'order'>>,
+  blocks: NotebookBlockContent[],
   firstOrder: number,
 ): NotebookBlock[] {
   return blocks.map((block, i) => ({ ...block, order: firstOrder + i }))

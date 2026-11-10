@@ -47,6 +47,8 @@ function quoteIdent(identifier: string): string {
   return `"${identifier.replaceAll('"', '""')}"`
 }
 
+// Rejection reasons can be any value; narrow Error before logging and exiting.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
 main().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : error)
   process.exit(1)

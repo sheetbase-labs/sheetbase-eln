@@ -23,7 +23,7 @@ function field(
   label: string,
   type: string,
   order: number,
-  extra: Record<string, unknown> = {},
+  extra: { unit?: string } = {},
 ) {
   return {
     id,
@@ -119,11 +119,11 @@ export async function seedDesignSubtypes(db: Db): Promise<void> {
     })
   }
 
-  const vicell = await db.execute(sql`
+  const vicell = await db.execute<{ id: string }>(sql`
     select id from api.dataset_schema_definitions
      where workspace_id = ${PROCESS} and key = 'vicell_viability'`)
 
-  const parentId = (vicell.rows[0] as { id: string } | undefined)?.id
+  const parentId = vicell.rows[0]?.id
 
   const blu = await db.execute(sql`
     select id from api.dataset_schema_definitions
@@ -140,7 +140,18 @@ export async function seedDesignSubtypes(db: Db): Promise<void> {
 
     const versionId = created.rows[0].result.schema_version_id
 
-    const inherited = await client.query<Record<string, unknown>>(
+    const inherited = await client.query<{
+      field_id: string
+      key: string
+      label: string
+      logical_type: string
+      nullable: boolean
+      quantity: unknown
+      validation: unknown
+      category: unknown
+      cardinality: string
+      display_order: number
+    }>(
       `select field_id, key, label, logical_type, nullable, quantity, validation,
               category, cardinality, display_order
          from api.dataset_schema_version_fields

@@ -30,22 +30,28 @@ const OFFLINE_PAGE =
   '<button onclick="location.reload()" style="padding:8px 16px">Try again</button></div>'
 
 function isCacheableStatic(url) {
-  return url.pathname.startsWith('/assets/') ||
-    /^\/(favicon(-dark)?\.svg|favicon(-dark)?-32\.png|icon-\d+\.png|apple-touch-icon\.png|manifest\.webmanifest)$/.test(url.pathname)
+  return (
+    url.pathname.startsWith('/assets/') ||
+    /^\/(favicon(-dark)?\.svg|favicon(-dark)?-32\.png|icon-\d+\.png|apple-touch-icon\.png|manifest\.webmanifest)$/.test(
+      url.pathname,
+    )
+  )
 }
 
 function isNeverCached(url) {
-  return url.pathname.startsWith('/api/') ||
+  return (
+    url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/_serverFn') ||
     url.pathname.startsWith('/sign-in') ||
     url.pathname.startsWith('/auth')
+  )
 }
 
 async function trim(cacheName, max) {
   const cache = await caches.open(cacheName)
   const keys = await cache.keys()
   // Oldest entries go first; deleting them concurrently would race the eviction order.
-  // react-doctor-disable-next-line async-await-in-loop
+  // react-doctor-disable-next-line react-doctor/async-await-in-loop
   for (let i = 0; i < keys.length - max; i++) await cache.delete(keys[i])
 }
 
@@ -69,7 +75,11 @@ async function networkFirstPage(request) {
     const timer = setTimeout(() => controller.abort(), PAGE_TIMEOUT_MS)
     const response = await fetch(request, { signal: controller.signal })
     clearTimeout(timer)
-    if (response.ok && !response.redirected && !response.headers.get('content-type')?.includes('json')) {
+    if (
+      response.ok &&
+      !response.redirected &&
+      !response.headers.get('content-type')?.includes('json')
+    ) {
       await cache.put(key, response.clone())
       trim(PAGE_CACHE, MAX_PAGES)
     }
@@ -92,7 +102,7 @@ self.addEventListener('activate', (event) =>
     (async () => {
       for (const name of await caches.keys()) {
         if (name.startsWith('sheetbase-pages-') && name !== PAGE_CACHE) {
-          // react-doctor-disable-next-line async-await-in-loop -- Cache deletes run one at a time so a failed delete stops before the next cache is dropped.
+          // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Cache deletes run one at a time so a failed delete stops before the next cache is dropped.
           await caches.delete(name)
         }
       }
@@ -123,8 +133,9 @@ self.addEventListener('message', (event) => {
         for (const raw of data.urls) {
           try {
             const url = new URL(raw, self.location.origin)
-            if (url.origin !== self.location.origin || !isCacheableStatic(url)) continue
-            // react-doctor-disable-next-line async-await-in-loop -- Each URL is checked then fetched in turn; overlapping would hammer the server with the whole precache list.
+            if (url.origin !== self.location.origin || !isCacheableStatic(url))
+              continue
+            // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each URL is checked then fetched in turn; overlapping would hammer the server with the whole precache list.
             if (await cache.match(url.pathname)) continue
             const response = await fetch(url.pathname)
             if (response.ok) await cache.put(url.pathname, response)
@@ -150,10 +161,14 @@ self.addEventListener('message', (event) => {
 self.addEventListener('sync', (event) => {
   if (event.tag !== 'sheetbase-replay') return
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      if (clients.length === 0) throw new Error('No window open to send edits')
-      for (const client of clients) client.postMessage({ type: 'sheetbase:replay' })
-    }),
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clients) => {
+        if (clients.length === 0)
+          throw new Error('No window open to send edits')
+        for (const client of clients)
+          client.postMessage({ type: 'sheetbase:replay' })
+      }),
   )
 })
 
@@ -165,15 +180,17 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const target = (event.notification.data && event.notification.data.url) || '/'
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      for (const client of clients) {
-        if ('focus' in client) {
-          if ('navigate' in client) client.navigate(target).catch(() => {})
-          return client.focus()
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clients) => {
+        for (const client of clients) {
+          if ('focus' in client) {
+            if ('navigate' in client) client.navigate(target).catch(() => {})
+            return client.focus()
+          }
         }
-      }
-      return self.clients.openWindow(target)
-    }),
+        return self.clients.openWindow(target)
+      }),
   )
 })
 
@@ -196,7 +213,7 @@ async function receiveShare(request) {
     let index = 0
     for (const value of form.getAll('files')) {
       if (typeof value === 'string') continue
-      // react-doctor-disable-next-line async-await-in-loop -- The index counter assigns each file its slot, so the puts must stay in form order.
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The index counter assigns each file its slot, so the puts must stay in form order.
       await cache.put(
         '/__shared/' + index++,
         new Response(value, {
@@ -209,7 +226,8 @@ async function receiveShare(request) {
     }
     for (const key of ['title', 'text', 'url']) {
       const value = form.get(key)
-      if (typeof value === 'string' && value.trim()) params.set(key, value.trim())
+      if (typeof value === 'string' && value.trim())
+        params.set(key, value.trim())
     }
   } catch {
     // Fall through: the page explains that nothing came through.
@@ -246,10 +264,16 @@ self.addEventListener('push', (event) => {
       badge: '/icon-192.png',
       data: { url: message.url || '/' },
       renotify: Boolean(message.tag),
-      requireInteraction: Boolean(message.tag && message.tag.indexOf('step-timer-') === 0),
+      requireInteraction: Boolean(
+        message.tag && message.tag.indexOf('step-timer-') === 0,
+      ),
     }),
   ]
-  if (typeof message.badge === 'number' && self.navigator && self.navigator.setAppBadge) {
+  if (
+    typeof message.badge === 'number' &&
+    self.navigator &&
+    self.navigator.setAppBadge
+  ) {
     work.push(
       (message.badge > 0
         ? self.navigator.setAppBadge(message.badge)

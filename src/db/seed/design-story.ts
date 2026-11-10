@@ -109,11 +109,11 @@ async function linkStorySamples(db: Db): Promise<void> {
   ]
 
   // They were made on the dates the design shows, not on the day of seeding.
-  const made: Record<string, string> = {
-    'SMP-2231': '2026-09-20T16:30:00Z',
-    'SMP-2249': '2026-09-25T09:34:00Z',
-    'SMP-2250': '2026-09-21T10:02:00Z',
-  }
+  const made = new Map([
+    ['SMP-2231', '2026-09-20T16:30:00Z'],
+    ['SMP-2249', '2026-09-25T09:34:00Z'],
+    ['SMP-2250', '2026-09-21T10:02:00Z'],
+  ])
 
   for (const identifier of identifiers) {
     const targetId = await recordId(db, identifier)
@@ -121,7 +121,7 @@ async function linkStorySamples(db: Db): Promise<void> {
     if (!targetId) continue
     await db.execute(sql`
       update api.records
-         set created_at = ${made[identifier] ?? '2026-09-23T09:15:00Z'}
+         set created_at = ${made.get(identifier) ?? '2026-09-23T09:15:00Z'}
        where id = ${targetId}`)
 
     const existing = await db.execute(sql`
@@ -266,12 +266,7 @@ async function writeStory(db: Db): Promise<void> {
     )
     .limit(1)
 
-  const blocks: Array<{
-    n: number
-    type: string
-    order: number
-    payload: Record<string, unknown>
-  }> = [
+  const blocks = [
     {
       n: 1,
       type: 'materials',

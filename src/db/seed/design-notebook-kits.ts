@@ -31,7 +31,7 @@ const yieldPct = (base = 86): Readout => ({
   digits: 1,
 })
 
-export const KITS: Record<string, Kit> = {
+export const KITS = {
   aav9: {
     factor: 'Condition',
     conditions: ['2 L bench', '10 L pilot', '50 L engineering', '2 L repeat'],
@@ -1194,10 +1194,10 @@ export const KITS: Record<string, Kit> = {
       },
     ],
   },
-}
+} satisfies Record<string, Kit>
 
 /** Which kit each project's numbered runs draw from. */
-export const KIT_FOR_PROJECT: Record<string, keyof typeof KITS> = {
+export const KIT_FOR_PROJECT = {
   'aav9-process-transfer': 'aav9',
   'legacy-gareth-aav9-old': 'aav9',
   'lvv-stability-2-8c': 'lvvStability',
@@ -1222,14 +1222,14 @@ export const KIT_FOR_PROJECT: Record<string, keyof typeof KITS> = {
   'lvv-downstream-chromatography': 'lvvChrom',
   'legacy-lvv-chromatography-old': 'lvvChrom',
   'legacy-aav1-vector-design': 'aav1',
-}
+} satisfies Record<string, keyof typeof KITS>
 
 /**
  * Experiments the design names, with the question each one answers. The title
  * stays as the design has it; the topic supplies what was being asked and how
  * the work was set up.
  */
-export const NAMED_TOPICS: Record<string, Omit<Topic, 'title'>> = {
+export const NAMED_TOPICS = {
   'EXP-0091': {
     objective:
       'Screen three clarification options on a small harvest volume before the Ambr runs start.',
@@ -1442,9 +1442,21 @@ export const NAMED_TOPICS: Record<string, Omit<Topic, 'title'>> = {
       },
     ],
   },
+} satisfies Record<string, Omit<Topic, 'title'>>
+
+const projectKits = new Map<string, keyof typeof KITS>(
+  Object.entries(KIT_FOR_PROJECT),
+)
+
+const namedTopics = new Map<string, Omit<Topic, 'title'>>(
+  Object.entries(NAMED_TOPICS),
+)
+
+export function namedTopicFor(identifier: string) {
+  return namedTopics.get(identifier)
 }
 
 /** Which kit a named experiment draws its defaults from, by its project. */
 export function kitFor(projectKey: string): Kit {
-  return KITS[KIT_FOR_PROJECT[projectKey] ?? 'aav9']
+  return KITS[projectKits.get(projectKey) ?? 'aav9']
 }

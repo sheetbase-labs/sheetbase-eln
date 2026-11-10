@@ -4,7 +4,7 @@ import { readWithColumns } from '#/lib/connectors/parser-resolution'
 import type { ResolvedParser } from '#/lib/connectors/parser-resolution'
 import { DEMO_FILES, demoFileKey } from './design-intake-story'
 
-function parser(signature: Record<string, unknown>): ResolvedParser {
+function parser(signature: ResolvedParser['signature']): ResolvedParser {
   return {
     parserId: 'p',
     parserVersionId: 'v',

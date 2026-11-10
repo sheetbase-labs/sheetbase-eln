@@ -58,6 +58,12 @@ interface ColumnSpec {
 }
 
 function column(spec: ColumnSpec) {
+  const validation: Pick<ColumnSpec, 'min' | 'max'> = {}
+
+  if (spec.min !== undefined) validation.min = spec.min
+
+  if (spec.max !== undefined) validation.max = spec.max
+
   const field = {
     fieldId: spec.id,
     key: spec.key,
@@ -74,10 +80,7 @@ function column(spec: ColumnSpec) {
           storageUnit: spec.unit,
         }
       : null,
-    validation: {
-      ...(spec.min === undefined ? {} : { min: spec.min }),
-      ...(spec.max === undefined ? {} : { max: spec.max }),
-    },
+    validation,
     category: null,
     relationship:
       spec.type === 'reference'
@@ -113,19 +116,23 @@ function sheetConfiguration(
     rowIdentity: { kind: 'local', columnIds: [identityColumn] },
     joins: [],
     columns: specs.map(column),
-    calculations: specs
-      .filter((s) => s.calc)
-      .map((s) => ({
-        id: s.calc!.id,
-        key: s.key,
-        label: calcLabels[s.key] ?? s.label,
-        outputColumnId: s.id,
-        inputColumnIds: s.calc!.inputs,
-        expression: {
-          language: 'sheetbase-formula-v1',
-          source: s.calc!.source,
-        },
-      })),
+    calculations: specs.flatMap((s) =>
+      s.calc
+        ? [
+            {
+              id: s.calc.id,
+              key: s.key,
+              label: calcLabels[s.key] ?? s.label,
+              outputColumnId: s.id,
+              inputColumnIds: s.calc.inputs,
+              expression: {
+                language: 'sheetbase-formula-v1',
+                source: s.calc.source,
+              },
+            },
+          ]
+        : [],
+    ),
     writeBackRules: [],
     actions: [],
     presentation: {
@@ -282,14 +289,40 @@ function narrative(
   n: number,
   order: number,
   blockType: string,
-  payload: Record<string, unknown>,
+  payload: {
+    title: string
+    doc?: {
+      type: string
+      content: Array<{
+        type: string
+        content: Array<{ type: string; text: string }>
+      }>
+    }
+    modelKey?: string
+    label?: string
+    protocol?: string
+    version?: number
+    source?: string
+    fields?: string[]
+  },
 ) {
   return { id: id(0x50 + n), kind: 'narrative', order, blockType, payload }
 }
 
 /** The template's placements for a template version, in order. */
 function placements(version: number, sheetAVersion: string) {
-  const out: Array<Record<string, unknown>> = []
+  const out: Array<
+    | ReturnType<typeof narrative>
+    | {
+        id: string
+        kind: 'sheet'
+        order: number
+        definitionVersionId: string
+        title: string
+        parameterMappings: never[]
+      }
+  > = []
+
   out.push(
     narrative(1, 0, 'rich_text', {
       title: 'Objective',
@@ -466,7 +499,7 @@ export async function seedDesignTemplateStory(db: Db) {
     versionId: string,
     version: number,
     at: string,
-    configuration: unknown,
+    configuration: ReturnType<typeof sheetConfiguration>,
   ) => {
     const existing = await db
       .select({ id: schema.sheetDefinitionVersions.id })

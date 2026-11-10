@@ -20,7 +20,7 @@ import type { SeedStep } from './run'
 import { withDesignClaims } from './claims'
 import { rechainAuditLog } from './design-clock-sweep'
 import { DESIGN_SESSION_IDS } from './identities'
-import { NAMED_TOPICS, kitFor } from './design-notebook-kits'
+import { kitFor, namedTopicFor } from './design-notebook-kits'
 import { FINAL_PROJECT_KEY } from './design-lists'
 import {
   APPROVAL_NOTES,
@@ -42,13 +42,13 @@ const SAM = '00000000-0000-4000-8000-000000000314'
 const CLOCK = new Date('2026-09-25T09:40:00+01:00')
 const DAY = 86_400_000
 
-const SESSIONS: Record<string, string> = {
-  [GARETH]: DESIGN_SESSION_IDS.gareth,
-  [PRIYA]: DESIGN_SESSION_IDS.priya,
-  [MEI]: DESIGN_SESSION_IDS.mei,
-  [SAM]: DESIGN_SESSION_IDS.sam,
-  [TOM]: DESIGN_SESSION_IDS.tom,
-}
+const SESSIONS = new Map([
+  [GARETH, DESIGN_SESSION_IDS.gareth],
+  [PRIYA, DESIGN_SESSION_IDS.priya],
+  [MEI, DESIGN_SESSION_IDS.mei],
+  [SAM, DESIGN_SESSION_IDS.sam],
+  [TOM, DESIGN_SESSION_IDS.tom],
+])
 
 /** Experiments whose notebook the design story already tells in full. */
 const HAND_WRITTEN = new Set(['EXP-0142'])
@@ -65,7 +65,10 @@ async function withArchivedProjectsOpen<T>(
   db: Db,
   fn: () => Promise<T>,
 ): Promise<T> {
-  const archived = await db.execute(sql`
+  const archived = await db.execute<{
+    id: string
+    archived_at: Date | string
+  }>(sql`
     select id, archived_at from api.projects
      where workspace_id = ${PROCESS} and archived_at is not null`)
 
@@ -88,7 +91,7 @@ async function withArchivedProjectsOpen<T>(
       for (const project of archived.rows) {
         await db.execute(sql`
           update api.projects
-             set archived_at = ${new Date(project.archived_at as string).toISOString()}::timestamptz
+             set archived_at = ${new Date(project.archived_at).toISOString()}::timestamptz
            where id = ${String(project.id)}`)
       }
     } finally {
@@ -115,7 +118,7 @@ interface ExperimentRow {
 interface Planned {
   row: ExperimentRow
   topic: Topic
-  status: NotebookStatus
+  status: string
   /** Position within the project's numbered runs, oldest first. */
   index: number
   count: number
@@ -135,7 +138,20 @@ function blockId(identifier: string, n: number): string {
 }
 
 async function loadExperiments(db: Db): Promise<ExperimentRow[]> {
-  const result = await db.execute(sql`
+  const result = await db.execute<{
+    id: string
+    identifier: string
+    title: string
+    status: string
+    project_key: string
+    project_status: string
+    project_lead: string | null
+    created_by: string
+    created_at: Date
+    blocks: number
+    max_order: number
+    submissions: number
+  }>(sql`
     select r.id, r.identifier, r.title, r.status,
            p.key as project_key, p.status as project_status, p.lead_user_id as project_lead,
            r.created_by_user_id as created_by, r.created_at,
@@ -155,9 +171,9 @@ async function loadExperiments(db: Db): Promise<ExperimentRow[]> {
     projectKey:
       FINAL_PROJECT_KEY[String(row.identifier)] ?? String(row.project_key),
     projectStatus: String(row.project_status),
-    projectLead: row.project_lead ? String(row.project_lead) : null,
+    projectLead: row.project_lead || null,
     createdBy: String(row.created_by),
-    createdAt: new Date(row.created_at as string),
+    createdAt: new Date(row.created_at),
     blocks: Number(row.blocks),
     maxOrder: Number(row.max_order),
     submissions: Number(row.submissions),
@@ -209,14 +225,13 @@ export function planExperiments(rows: ExperimentRow[]): Planned[] {
   const planned: Planned[] = []
 
   for (const row of rows) {
-    const named = NAMED_TOPICS[row.identifier] as
-      (typeof NAMED_TOPICS)[string] | undefined
+    const named = namedTopicFor(row.identifier)
 
     if (named) {
       planned.push({
         row,
         topic: { title: row.title, ...named },
-        status: row.status as NotebookStatus,
+        status: row.status,
         index: 0,
         count: 1,
         generated: false,
@@ -420,12 +435,14 @@ interface Marks {
 }
 
 async function dbNow(db: Db): Promise<Date> {
-  const result = await db.execute(sql`select clock_timestamp() as t`)
+  const result = await db.execute<{ t: Date | string }>(
+    sql`select clock_timestamp() as t`,
+  )
 
-  return new Date(result.rows[0]?.t as string)
+  return new Date(result.rows[0].t)
 }
 
-function people(p: Planned): { reviewers: string[]; submitters: string[] } {
+function people(p: Planned) {
   const lead = p.row.projectLead ?? p.row.createdBy
   const odd = unit01(`${p.row.identifier}:r`) > 0.5
   // Analytical reviews everywhere; Gareth reviews what Mei leads, and shares
@@ -438,7 +455,7 @@ function people(p: Planned): { reviewers: string[]; submitters: string[] } {
   else reviewers = [MEI]
 
   const submitters = [lead, PRIYA, TOM, SAM, GARETH, MEI].filter(
-    (id, i, all) => SESSIONS[id] && all.indexOf(id) === i,
+    (id, i, all) => SESSIONS.get(id) && all.indexOf(id) === i,
   )
 
   return { reviewers, submitters }
@@ -502,11 +519,11 @@ async function submitAndDecide(
               digest: result.revision.integrityDigest,
             }
           },
-          SESSIONS[submitter],
+          SESSIONS.get(submitter),
         )
       } catch (error) {
         console.warn(
-          `seed: ${row.identifier} not submitted by ${submitter}/${reviewer}: ${(error as Error).message}`,
+          `seed: ${row.identifier} not submitted by ${submitter}/${reviewer}: ${error instanceof Error ? error.message : String(error)}`,
         )
         continue
       }
@@ -527,7 +544,7 @@ async function submitAndDecide(
               [submission.revisionId, `${key}-checks`],
             )
           },
-          SESSIONS[runner],
+          SESSIONS.get(runner),
         )
 
         if (p.status !== 'in_review') {
@@ -567,12 +584,12 @@ async function submitAndDecide(
                 )
               }
             },
-            SESSIONS[reviewer],
+            SESSIONS.get(reviewer),
           )
         }
       } catch (error) {
         console.warn(
-          `seed: ${row.identifier} review step failed (${reviewer}): ${(error as Error).message}`,
+          `seed: ${row.identifier} review step failed (${reviewer}): ${error instanceof Error ? error.message : String(error)}`,
         )
       }
 
@@ -736,10 +753,7 @@ function decisionFor(
 
   if (!conclusion) return null
 
-  const { verdict, text } = conclusion.payload as {
-    verdict: string
-    text: string
-  }
+  const { verdict, text } = conclusion.payload
 
   return {
     verdict: verdict === 'not_supported' ? 'refuted' : verdict,

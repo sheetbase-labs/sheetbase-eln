@@ -7,6 +7,7 @@
  */
 import { and, desc, eq } from 'drizzle-orm'
 
+import type { ResolvedParser } from '#/lib/connectors/parser-resolution'
 import * as schema from '../schema'
 import type { SeedStep } from './run'
 
@@ -30,7 +31,7 @@ interface Intake {
   format: 'csv' | 'xlsx' | 'json'
   datasetId: string
   /** What the version looks for in a file; blank when it reads by its own code. */
-  signature?: Record<string, unknown>
+  signature?: ResolvedParser['signature']
   /** ISO times of the imports, with how each ended. */
   imports: Array<{
     at: string

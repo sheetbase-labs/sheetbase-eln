@@ -33,15 +33,16 @@ export function getPool(
 
   if (existing) return existing
 
-  const pool = new Pool({
+  const config: ConstructorParameters<typeof Pool>[0] = {
     connectionString,
     max: poolMax(),
     idleTimeoutMillis: 10_000,
     connectionTimeoutMillis: 10_000,
-    ...(options.queryTimeoutMs
-      ? { query_timeout: options.queryTimeoutMs }
-      : {}),
-  })
+  }
+
+  if (options.queryTimeoutMs) config.query_timeout = options.queryTimeoutMs
+
+  const pool = new Pool(config)
 
   // An idle connection the server drops (restart, failover) emits 'error' on
   // the pool. Unhandled, that takes the whole process down.
@@ -83,13 +84,19 @@ export class PooledClient {
     this.client = await this.pool.connect()
   }
 
+  // SAFETY: The public query overloads constrain callers; the wrapper forwards
+  // every argument and result unchanged to the checked-out PoolClient.
   readonly query = ((...args: unknown[]) => {
     const client = this.client
 
     if (!client) return Promise.reject(new Error('Client is not connected'))
     const first = args[0]
 
+    // SAFETY: Query overloads accept SQL strings or configs/Submittable
+    // instances, whose optional text is read without changing the argument.
     const text =
+      // String and query-config overloads expose their SQL differently.
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof
       typeof first === 'string'
         ? first
         : ((first as { text?: string } | undefined)?.text ?? '')
@@ -101,6 +108,9 @@ export class PooledClient {
     if (TX_OPEN.test(text)) this.inTransaction = true
     else if (TX_CLOSE.test(text)) this.inTransaction = false
 
+    // SAFETY: The public PoolClient overloads constrain args, and forwarding
+    // preserves whichever callback, Promise or Submittable result pg returns.
+    // oxlint-disable-next-line anti-slop/no-unknown-returns
     return (client.query as (...a: unknown[]) => unknown)(...args)
   }) as PoolClient['query']
 

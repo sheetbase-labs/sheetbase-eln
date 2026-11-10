@@ -338,6 +338,13 @@ export const designSteps: Array<SeedStep> = [
         const properties =
           'properties' in sample ? sample.properties : undefined
 
+        const optionalProperties: Pick<
+          typeof schema.records.$inferInsert,
+          'properties'
+        > = {}
+
+        if (properties) optionalProperties.properties = properties
+
         await db
           .insert(schema.records)
           .values({
@@ -349,7 +356,7 @@ export const designSteps: Array<SeedStep> = [
             title: sample.title,
             status: sample.status,
             customFields: sample.customFields,
-            ...(properties ? { properties } : {}),
+            ...optionalProperties,
             createdByUserId: DESIGN_USER_IDS.gareth,
           })
           .onConflictDoUpdate({
@@ -358,7 +365,7 @@ export const designSteps: Array<SeedStep> = [
               title: sample.title,
               status: sample.status,
               customFields: sample.customFields,
-              ...(properties ? { properties } : {}),
+              ...optionalProperties,
               deletedAt: null,
               archivedAt: null,
             },
@@ -398,6 +405,13 @@ export const designSteps: Array<SeedStep> = [
         })
 
       for (const field of DESIGN_CELL_BANK_FIELDS) {
+        const timestamps: Pick<
+          typeof schema.recordFieldDefinitions.$inferInsert,
+          'createdAt'
+        > = {}
+
+        if (field.createdAt) timestamps.createdAt = field.createdAt
+
         await db
           .insert(schema.recordFieldDefinitions)
           .values({
@@ -413,7 +427,7 @@ export const designSteps: Array<SeedStep> = [
             validation: field.validation ?? {},
             lifecycle: 'active',
             createdByUserId: DESIGN_USER_IDS.gareth,
-            ...(field.createdAt ? { createdAt: field.createdAt } : {}),
+            ...timestamps,
           })
           .onConflictDoUpdate({
             target: [
@@ -429,7 +443,7 @@ export const designSteps: Array<SeedStep> = [
               unit: field.unit ?? null,
               validation: field.validation ?? {},
               lifecycle: 'active',
-              ...(field.createdAt ? { createdAt: field.createdAt } : {}),
+              ...timestamps,
             },
           })
 
@@ -478,9 +492,10 @@ export const designSteps: Array<SeedStep> = [
           validation: field.validation ?? {},
           section: DESIGN_CELL_BANK_FIELD_META[field.fieldName]?.section,
           source: DESIGN_CELL_BANK_FIELD_META[field.fieldName]?.source,
-          ...(DESIGN_CELL_BANK_FIELD_META[field.fieldName]?.requiredFor
-            ? { required_for: 'release' }
-            : {}),
+          required_for: DESIGN_CELL_BANK_FIELD_META[field.fieldName]
+            ?.requiredFor
+            ? 'release'
+            : undefined,
           cardinality: 'one',
           // Published snapshots own category interpretation. Preserve the real
           // option identity, order and lifecycle, not just presentation labels.
@@ -619,23 +634,28 @@ export const designSteps: Array<SeedStep> = [
       // something to show; v4 stays the version records use.
       const v4Fields = versions.find((v) => v.version === 4)!
 
-      const publishedFields = (
-        (
-          await db
-            .select({ definition: schema.recordModelVersions.definition })
-            .from(schema.recordModelVersions)
-            .where(eq(schema.recordModelVersions.id, v4Fields.id))
-        ).at(0)?.definition as { fields: Array<Record<string, unknown>> }
-      ).fields
+      const publishedVersion = (
+        await db
+          .select({ definition: schema.recordModelVersions.definition })
+          .from(schema.recordModelVersions)
+          .where(eq(schema.recordModelVersions.id, v4Fields.id))
+      ).at(0)
+
+      const publishedFields = z
+        .object({
+          fields: z.array(z.looseObject({ field_name: z.string() })),
+        })
+        .parse(publishedVersion?.definition).fields
 
       const draftFields = [
         ...publishedFields.map((field) => {
           if (field.field_name === 'cell_line')
             return {
               ...field,
-              options: (field.options as Array<{ key: string }>).filter(
-                (option) => option.key !== 'cho_k1',
-              ),
+              options: z
+                .array(z.looseObject({ key: z.string() }))
+                .parse(field.options)
+                .filter((option) => option.key !== 'cho_k1'),
             }
 
           if (field.field_name === 'vials')
@@ -1695,7 +1715,11 @@ const DESIGN_TEMPLATES: ReadonlyArray<{
   key: string
   name: string
   description?: string
-  configuration: Record<string, unknown>
+  configuration: {
+    formatVersion: number
+    parameters: never[]
+    placements: Array<ReturnType<typeof templateSection>>
+  }
 }> = [
   {
     id: '00000000-0000-4000-8000-000000000380',
@@ -1804,10 +1828,10 @@ async function seedDesignMaterialLedger(
   const gareth = DESIGN_USER_IDS.gareth
 
   for (const material of DESIGN_MATERIALS) {
-    const current = Number(material.properties.quantity ?? 0)
+    const current = material.properties.quantity
     const initial = Number(material.customFields?.initial_quantity ?? current)
-    const unit = (material.properties.unit as string | undefined) ?? null
-    const received = String(material.customFields?.received ?? '2026-06-01')
+    const unit = material.properties.unit
+    const received = material.customFields?.received ?? '2026-06-01'
     const receivedAt = `${received}T09:30:00+01:00`
     const used = Math.max(0, initial - current)
 
@@ -1842,16 +1866,20 @@ async function seedDesignMaterialLedger(
         operation: 'receive',
         delta: initial,
         at: receivedAt,
-        reason: `Received lot ${String(material.properties.lot ?? '')}`.trim(),
+        reason: `Received lot ${material.properties.lot}`.trim(),
       },
-      ...uses
-        .filter((use) => use.quantity > 0)
-        .map((use) => ({
-          operation: 'consume',
-          delta: -use.quantity,
-          at: use.at,
-          reason: use.reason,
-        })),
+      ...uses.flatMap((use) =>
+        use.quantity > 0
+          ? [
+              {
+                operation: 'consume',
+                delta: -use.quantity,
+                at: use.at,
+                reason: use.reason,
+              },
+            ]
+          : [],
+      ),
     ]
 
     let balance = 0
@@ -1864,8 +1892,8 @@ async function seedDesignMaterialLedger(
            resulting_quantity, unit, supplier, lot, reason, actor_user_id, created_at)
         SELECT ${processId}, ${material.id}, ${movement.operation},
                ${movement.delta}, ${balance}, ${unit},
-               ${(material.properties.supplier as string | undefined) ?? null},
-               ${(material.properties.lot as string | undefined) ?? null},
+               ${material.properties.supplier},
+               ${material.properties.lot},
                ${movement.reason}, ${gareth}, ${movement.at}::timestamptz
          WHERE ${index} >= 0
            AND NOT EXISTS (
@@ -1882,9 +1910,23 @@ const DESIGN_MATERIALS: ReadonlyArray<{
   identifier: string
   title: string
   status: string
-  properties: Record<string, unknown>
+  properties: {
+    supplier: string
+    lot: string
+    expiry: string
+    quantity: number
+    unit: string
+    storage: string
+    catalog_no?: string
+  }
   /** Model-declared lot detail, stored in custom_fields. */
-  customFields?: Record<string, unknown>
+  customFields?: {
+    initial_quantity: number
+    received: string
+    released_by: string
+    released_at: string
+    certificate: string
+  }
 }> = [
   {
     id: '00000000-0000-4000-8000-0000000003a0',
@@ -2165,7 +2207,7 @@ const DESIGN_SAMPLE_FIELDS: ReadonlyArray<{
   logicalType: 'text' | 'decimal' | 'category'
   nullable: boolean
   unit?: unknown
-  validation?: Record<string, unknown>
+  validation?: { min?: number; max?: number }
 }> = [
   {
     id: '00000000-0000-4000-8000-000000000330',
@@ -2537,7 +2579,7 @@ const DESIGN_CELL_BANK_FIELDS: ReadonlyArray<{
   logicalType: 'text' | 'integer' | 'decimal' | 'date' | 'category'
   nullable: boolean
   unit?: unknown
-  validation?: Record<string, unknown>
+  validation?: { min?: number; max?: number }
   options?: ReadonlyArray<{ key: string; label: string }>
   /** Later than the records below, so the detail "added in a later version"
    * banner has a real example (mycoplasma arrived in model v4). */
@@ -2664,10 +2706,12 @@ const DESIGN_CELL_BANK_FIELD_META: Partial<
       requiredFor?: 'release'
       /** Validation by first version it applies to. */
       validation?: ReadonlyArray<
-        readonly [1 | 2 | 3 | 4 | 5, Record<string, unknown>]
+        readonly [1 | 2 | 3 | 4 | 5, { min?: number; max?: number }]
       >
     }
   >
+  // DB field names are dynamic, and fields without metadata have no entry.
+  // oxlint-disable-next-line anti-slop/no-known-value-widening
 > = {
   cell_line: { section: 'Identity', since: 1, source: 'By hand' },
   passage: {
@@ -2721,7 +2765,18 @@ const DESIGN_CELL_BANK_RECORDS: ReadonlyArray<{
   identifier: string
   title: string
   status: string
-  customFields: Record<string, unknown>
+  customFields: {
+    cell_line: string
+    passage: number
+    parent_bank?: string
+    vials: number
+    vials_left: number
+    location: string | null
+    frozen_on: string
+    sterility: string
+    mycoplasma?: string
+    identity_str: string
+  }
   modelVersion: 3 | 4
   createdAt: Date
 }> = [
@@ -2948,7 +3003,9 @@ interface DesignDatasetField {
   unit?: string
   required?: boolean
   /** Canonical field validation wire, e.g. soft `extensions.systemFlags`. */
-  validation?: Record<string, unknown>
+  validation?: {
+    extensions: { systemFlags: { out_of_range: { min: number; max: number } } }
+  }
 }
 
 interface DesignDataset {
@@ -2963,7 +3020,7 @@ interface DesignDataset {
   description: string
   fields: ReadonlyArray<DesignDatasetField>
   snapshotLabels: ReadonlyArray<string>
-  rows: () => Array<Record<string, unknown>>
+  rows: () => Array<Partial<Record<string, string | number | boolean | null>>>
   /** Design-clock updated time; the list shows it as the dataset's "Updated". */
   updatedAt: Date
   createdAt?: Date
@@ -3177,13 +3234,13 @@ const STANDARD_CURVE_FIELDS: ReadonlyArray<DesignDatasetField> = [
  * 22 ng/mL) and six unknowns, which have a reading but no concentration.
  * Deterministic, so every reseed produces the same plate.
  */
-function standardCurveRows(): Array<Record<string, unknown>> {
+function standardCurveRows(): ReturnType<DesignDataset['rows']> {
   const od = (x: number, wobble: number) =>
     Number((2.35 + (0.06 - 2.35) / (1 + (x / 22) ** 1.15) + wobble).toFixed(3))
 
   const doses = [200, 66.7, 22.2, 7.41, 2.47, 0.82, 0.27]
   const wobble = [0.006, -0.004, 0.005, -0.006, 0.004, -0.003, 0.003]
-  const rows: Array<Record<string, unknown>> = []
+  const rows: ReturnType<DesignDataset['rows']> = []
   doses.forEach((dose, i) => {
     for (const [copy, sign] of [
       ['a', 1],
@@ -3471,9 +3528,9 @@ const AMBR_DAY = {
   },
 } as const
 
-function ambrRows(): Array<Record<string, unknown>> {
+function ambrRows(): ReturnType<DesignDataset['rows']> {
   const vessels = ['V01', 'V02', 'V03', 'V04'] as const
-  const rows: Array<Record<string, unknown>> = []
+  const rows: ReturnType<DesignDataset['rows']> = []
 
   for (let day = 1; day <= 21; day += 1) {
     vessels.forEach((vessel, vesselIndex) => {
@@ -3522,7 +3579,7 @@ function ambrRows(): Array<Record<string, unknown>> {
   return rows
 }
 
-function elisaRows(): Array<Record<string, unknown>> {
+function elisaRows(): ReturnType<DesignDataset['rows']> {
   // Immutable DatasetCompare's nine displayed readings. Nullable measurements
   // mean "not recorded", not zero. Values use the schema's ×10¹⁰ scale.
   const comparedReadings = [
@@ -3579,7 +3636,7 @@ function elisaRows(): Array<Record<string, unknown>> {
     'B6',
   ]
 
-  const rows: Array<Record<string, unknown>> = []
+  const rows: ReturnType<DesignDataset['rows']> = []
   plates.forEach((plate, plateIndex) => {
     wells.forEach((well, wellIndex) => {
       const rowNumber = plateIndex * 12 + wellIndex + 1
@@ -3638,7 +3695,7 @@ function elisaRows(): Array<Record<string, unknown>> {
 
 /** EXP-0142's clarification screen: three filter trains at three loads. Train
  * C at 150 L/m² reads 61.5 NTU, outside the 0-50 range, so it is flagged. */
-function clarificationRows(): Array<Record<string, unknown>> {
+function clarificationRows(): ReturnType<DesignDataset['rows']> {
   const runs: Array<[string, number, number, number, number]> = [
     ['A', 50, 86.0, 11.2, 0.62],
     ['A', 100, 83.4, 14.9, 0.88],
@@ -3661,7 +3718,7 @@ function clarificationRows(): Array<Record<string, unknown>> {
 }
 
 /** Deterministic rows for the datasets the design's list shows. */
-function filtrationRows(count: number): Array<Record<string, unknown>> {
+function filtrationRows(count: number): ReturnType<DesignDataset['rows']> {
   return Array.from({ length: count }, (_, i) => ({
     run: `R-${String(i + 1).padStart(2, '0')}`,
     time_min: i * 5,
@@ -3670,7 +3727,7 @@ function filtrationRows(count: number): Array<Record<string, unknown>> {
   }))
 }
 
-function vicellRows(count: number): Array<Record<string, unknown>> {
+function vicellRows(count: number): ReturnType<DesignDataset['rows']> {
   return Array.from({ length: count }, (_, i) => ({
     sample: `S-${String(i + 1).padStart(3, '0')}`,
     vcd: Number((4.2 + (i % 9) * 0.7).toFixed(1)),
@@ -3678,7 +3735,7 @@ function vicellRows(count: number): Array<Record<string, unknown>> {
   }))
 }
 
-function ddpcrRows(count: number): Array<Record<string, unknown>> {
+function ddpcrRows(count: number): ReturnType<DesignDataset['rows']> {
   return Array.from({ length: count }, (_, i) => ({
     sample: `S-${String(i + 1).padStart(3, '0')}`,
     dilution: [10, 100, 1000][i % 3],
@@ -3686,14 +3743,14 @@ function ddpcrRows(count: number): Array<Record<string, unknown>> {
   }))
 }
 
-function aucRows(count: number): Array<Record<string, unknown>> {
+function aucRows(count: number): ReturnType<DesignDataset['rows']> {
   return Array.from({ length: count }, (_, i) => ({
     sample: `S-${String(i + 1).padStart(3, '0')}`,
     ratio: Number((78.5 + (i % 15) * 1.1).toFixed(1)),
   }))
 }
 
-function chromatographyRows(count: number): Array<Record<string, unknown>> {
+function chromatographyRows(count: number): ReturnType<DesignDataset['rows']> {
   const letters = 'ABCDEFGH'
 
   return Array.from({ length: count }, (_, i) => ({
@@ -3710,16 +3767,14 @@ function datasetFieldsWire(dataset: DesignDataset) {
     logical_type: field.logicalType,
     nullable: !field.required,
     validation: field.validation ?? {},
-    ...(field.unit
+    quantity: field.unit
       ? {
-          quantity: {
-            kind: 'quantity',
-            dimension: field.unit,
-            storageUnit: field.unit,
-            symbol: field.unit,
-          },
+          kind: 'quantity',
+          dimension: field.unit,
+          storageUnit: field.unit,
+          symbol: field.unit,
         }
-      : {}),
+      : undefined,
     display_order: index + 1,
   }))
 }
@@ -4439,7 +4494,7 @@ const DESIGN_CLIENTS = [
 ]
 
 /** Experiments shown by the design's Experiments list, by project. */
-const DESIGN_EXPERIMENT_PROJECTS: Record<string, string> = {
+const DESIGN_EXPERIMENT_PROJECTS = {
   'EXP-0138': '00000000-0000-4000-8000-000000000320',
   'EXP-0142': '00000000-0000-4000-8000-000000000320',
   'EXP-0136': '00000000-0000-4000-8000-000000000320',
@@ -4467,7 +4522,7 @@ const DESIGN_EXPERIMENT_PROJECTS: Record<string, string> = {
   'EXP-0130': '00000000-0000-4000-8000-000000000324',
   'EXP-0144': '00000000-0000-4000-8000-00000000032a',
   'EXP-0139': '00000000-0000-4000-8000-00000000032e',
-}
+} satisfies Record<string, string>
 
 function designPaddingId(projectIndex: number, run: number): string {
   const n = 0x900000 + projectIndex * 100 + run
@@ -4725,7 +4780,7 @@ const MEI_LED_ACCESS: readonly DesignProjectRule[] = [
   { user: DESIGN_USER_IDS.gareth, view: true, edit: false, review: true },
 ]
 
-const DESIGN_PROJECT_ACCESS: Record<string, readonly DesignProjectRule[]> = {
+const DESIGN_PROJECT_ACCESS = {
   // Edit: Process Development leads, Upstream, Downstream · Review: Analytical ·
   // View: QA
   'aav9-process-transfer': [
@@ -4768,7 +4823,7 @@ const DESIGN_PROJECT_ACCESS: Record<string, readonly DesignProjectRule[]> = {
   'aav-full-empty-assay-qualification': [
     { user: DESIGN_USER_IDS.gareth, view: true, edit: false, review: false },
   ],
-}
+} satisfies Record<string, readonly DesignProjectRule[]>
 
 /** Idempotently ensure one design access rule, written by the project's lead. */
 async function applyDesignProjectRule(
@@ -4811,10 +4866,7 @@ async function applyDesignProjectRule(
 }
 
 /** Rules for the projects created with the project details, written once they exist. */
-const DESIGN_DETAIL_PROJECT_ACCESS: Record<
-  string,
-  readonly DesignProjectRule[]
-> = {
+const DESIGN_DETAIL_PROJECT_ACCESS = {
   'aav-full-empty-assay-qualification': MEI_LED_ACCESS,
   'capsid-elisa-method-transfer': MEI_LED_ACCESS,
   'legacy-elisa-old': MEI_LED_ACCESS,
@@ -4836,7 +4888,7 @@ const DESIGN_DETAIL_PROJECT_ACCESS: Record<
   'legacy-ambr-old': TEAM_ACCESS,
   'legacy-aav8-old': TEAM_ACCESS,
   'legacy-car-t-old': TEAM_ACCESS,
-}
+} satisfies Record<string, readonly DesignProjectRule[]>
 
 /**
  * The Projects board lists rows whose design user is neither the lead nor in
@@ -6296,7 +6348,7 @@ async function seedDesignMilestones(
  * exactly the values the design's Validation column shows: DS-0311 "1 out of
  * range", DS-0298 "2 columns missing units", every other row "Valid".
  */
-const DESIGN_DATASET_EXPERIMENTS: Record<string, string> = {
+const DESIGN_DATASET_EXPERIMENTS = {
   'DS-0311': 'EXP-0142',
   'DS-0310': 'EXP-0142',
   'DS-0298': 'EXP-0140',
@@ -6307,26 +6359,26 @@ const DESIGN_DATASET_EXPERIMENTS: Record<string, string> = {
   'DS-0296': 'EXP-0133',
   'DS-0290': 'EXP-0125',
   'DS-0287': 'EXP-0139',
-}
+} satisfies Record<string, string>
 
 /** Open issues per design dataset: field key + flag kind. */
-const DESIGN_DATASET_FLAGS: Record<
-  string,
-  ReadonlyArray<{ fieldKey: string; kind: string; reason: string }>
-> = {
-  'DS-0298': [
-    {
-      fieldKey: 'glucose',
-      kind: 'missing_unit',
-      reason: 'Unit missing on the recorded value',
-    },
-    {
-      fieldKey: 'osmolality',
-      kind: 'missing_unit',
-      reason: 'Unit missing on the recorded value',
-    },
+const DESIGN_DATASET_FLAGS = new Map([
+  [
+    'DS-0298',
+    [
+      {
+        fieldKey: 'glucose',
+        kind: 'missing_unit',
+        reason: 'Unit missing on the recorded value',
+      },
+      {
+        fieldKey: 'osmolality',
+        kind: 'missing_unit',
+        reason: 'Unit missing on the recorded value',
+      },
+    ],
   ],
-}
+])
 
 async function seedDesignDatasetFlags(
   db: Parameters<SeedStep['run']>[0],
@@ -6372,7 +6424,7 @@ async function seedDesignDatasetFlags(
         }
       }
 
-      const flags = DESIGN_DATASET_FLAGS[displayId] ?? []
+      const flags = DESIGN_DATASET_FLAGS.get(displayId) ?? []
 
       if (flags.length === 0) return
 
@@ -6557,7 +6609,7 @@ async function seedDesignAnalyses(
         id.get('turbidity_out')
       ) {
         const chart = (
-          y: string,
+          yKey: string,
           yLabel: string,
           unit: string,
           reference: { value: number; label: string },
@@ -6567,7 +6619,7 @@ async function seedDesignAnalyses(
           datasets: [{ datasetId: clarification.id }],
           fields: {
             x: { fieldId: id.get('load') },
-            y: { fieldId: id.get(y) },
+            y: { fieldId: id.get(yKey) },
             series: { fieldId: id.get('train') },
             color: null,
             size: null,
@@ -6880,7 +6932,7 @@ async function seedDesignPipelines(
             description: p.description,
             inputs: [{ name: 'measurements', required: false }],
             transform: { language: 'sql', statement: p.statement },
-            ...('steps' in p ? { steps: p.steps } : {}),
+            steps: 'steps' in p ? p.steps : undefined,
             output: {
               mode: 'create',
               schemaVersionId,
@@ -6953,8 +7005,8 @@ async function seedDesignPipelines(
             error_message: string | null
             actor_user_id: string
             trigger_kind: string
-            parameters: Record<string, unknown>
-            input_versions: Record<string, unknown>
+            parameters: Record<string, z.core.util.JSONType>
+            input_versions: Record<string, z.core.util.JSONType>
             trigger_occurrence_id: string | null
             schedule_id: string | null
           }>(
@@ -7181,12 +7233,12 @@ function designSheetState(input: {
   name: string
   fields: ReadonlyArray<ReturnType<typeof designSheetField>>
   rows: ReadonlyArray<Partial<Record<string, string | number | null>>>
-}): Record<string, unknown> {
-  const localValues: Record<string, Record<string, unknown>> = {}
+}) {
+  const localValues: Record<string, Record<string, string | number>> = {}
 
   for (const row of input.rows) {
     const rowKey = randomUUID()
-    const values: Record<string, unknown> = {}
+    const values: Record<string, string | number> = {}
 
     for (const field of input.fields) {
       const value = row[field.key]
@@ -7243,7 +7295,7 @@ async function seedDesignSheets(
         on conflict (workspace_id, kind) do update set last_number = 18`,
   )
 
-  const clarificationRows = CLARIFICATION_SHEET_ROWS.map((row) => ({
+  const clarificationSheetRows = CLARIFICATION_SHEET_ROWS.map((row) => ({
     filter_train: row[0],
     load: row[1],
     turbidity: row[2],
@@ -7272,7 +7324,7 @@ async function seedDesignSheets(
             designSheetState({
               name: 'Clarification working sheet',
               fields: CLARIFICATION_SHEET_FIELDS,
-              rows: clarificationRows,
+              rows: clarificationSheetRows,
             }),
           ),
         ],
@@ -8295,7 +8347,7 @@ async function seedDesignConnectorsAndTokens(
         type: 'instrument' | 'storage' | 'webhook' | 'database' | 'custom'
         direction: 'inbound' | 'outbound' | 'bidirectional'
         parserId?: string
-        config: Record<string, unknown>
+        config: { description: string }
       }> = [
         {
           key: 'qc-lims',

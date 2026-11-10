@@ -58,13 +58,14 @@ function plateWorkbook(): Uint8Array {
   const sheets = [1, 2, 3].map((plate) => {
     const rows: string[] = []
 
-    const cell = (ref: string, value: string | number) =>
-      typeof value === 'number'
-        ? `<c r="${ref}"><v>${value}</v></c>`
-        : `<c r="${ref}" t="inlineStr"><is><t>${xmlEscape(value)}</t></is></c>`
+    const numberCell = (ref: string, value: number) =>
+      `<c r="${ref}"><v>${value}</v></c>`
+
+    const textCell = (ref: string, value: string) =>
+      `<c r="${ref}" t="inlineStr"><is><t>${xmlEscape(value)}</t></is></c>`
 
     rows.push(
-      `<row r="1">${cell('A1', `Plate ${plate}, OD450`)}${Array.from({ length: 12 }, (_, c) => cell(`${column(c + 1)}1`, c + 1)).join('')}</row>`,
+      `<row r="1">${textCell('A1', `Plate ${plate}, OD450`)}${Array.from({ length: 12 }, (_, c) => numberCell(`${column(c + 1)}1`, c + 1)).join('')}</row>`,
     )
 
     for (let r = 0; r < 8; r++) {
@@ -75,16 +76,18 @@ function plateWorkbook(): Uint8Array {
         const od =
           c < 2 ? 2.4 / 2 ** r : 0.1 + unit(`p${plate}`, r * 12 + c) * 1.9
 
-        return cell(`${column(c + 1)}${r + 2}`, Number(od.toFixed(3)))
+        return numberCell(`${column(c + 1)}${r + 2}`, Number(od.toFixed(3)))
       }).join('')
 
-      rows.push(`<row r="${r + 2}">${cell(`A${r + 2}`, label)}${values}</row>`)
+      rows.push(
+        `<row r="${r + 2}">${textCell(`A${r + 2}`, label)}${values}</row>`,
+      )
     }
 
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rows.join('')}</sheetData></worksheet>`
   })
 
-  const files: Record<string, Uint8Array> = {
+  const files = {
     '[Content_Types].xml': strToU8(
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`,
     ),
@@ -97,11 +100,10 @@ function plateWorkbook(): Uint8Array {
     'xl/_rels/workbook.xml.rels': strToU8(
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}</Relationships>`,
     ),
+    ...Object.fromEntries(
+      sheets.map((xml, i) => [`xl/worksheets/sheet${i + 1}.xml`, strToU8(xml)]),
+    ),
   }
-
-  sheets.forEach((xml, i) => {
-    files[`xl/worksheets/sheet${i + 1}.xml`] = strToU8(xml)
-  })
 
   return zipSync(files, { mtime: new Date('2026-09-24T15:03:00Z') })
 }
@@ -130,7 +132,7 @@ async function textPdf(title: string, lines: string[]): Promise<Uint8Array> {
 type Make = () => Uint8Array | Promise<Uint8Array>
 
 /** What each seeded file contains, by the name it is shown under. */
-const CONTENT: Record<string, Make | undefined> = {
+const CONTENT = {
   'PR-01_EXP-0142_plates1-3.xlsx': plateWorkbook,
   'pressure_logger_trains_A-C.csv': () => strToU8(pressureLog()),
   'PRT-021_v3_depth_filtration.pdf': () =>
@@ -190,7 +192,9 @@ const CONTENT: Record<string, Make | undefined> = {
       '',
       'Result: released for research use.',
     ]),
-}
+} satisfies Record<string, Make>
+
+const contentByName = new Map<string, Make>(Object.entries(CONTENT))
 
 export async function seedDemoFileBytes(db: Db): Promise<void> {
   const files = await db.execute<{
@@ -208,7 +212,7 @@ export async function seedDemoFileBytes(db: Db): Promise<void> {
        AND NOT EXISTS (SELECT 1 FROM internal.file_blobs b WHERE b.storage_key = f.storage_key)`)
 
   for (const file of files.rows) {
-    const make = CONTENT[file.display_name]
+    const make = contentByName.get(file.display_name)
 
     const bytes = make
       ? await make()

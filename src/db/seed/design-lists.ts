@@ -226,7 +226,17 @@ interface SampleRow {
   identifier: string
   title: string
   status?: string
-  properties: Record<string, unknown>
+  properties: {
+    sampleType: string
+    releasedAt?: string
+    quantity?: number
+    quantityUnit?: string
+    storageLocation?: string
+    holdCondition?: string
+    holdStartedAt?: string
+    holdDurationDays?: number
+    holdUntil?: string
+  }
 }
 
 /** Samples whose placeholder names differ from the registry and lineage boards. */
@@ -384,19 +394,19 @@ async function correctSamples(db: Db): Promise<void> {
  */
 export async function seedDesignDatasetModels(db: Db): Promise<void> {
   for (const key of ['elisa_turbidity', 'vicell_viability']) {
-    const definition = await db.execute(sql`
+    const definition = await db.execute<{ id: string }>(sql`
       select id from api.dataset_schema_definitions
        where workspace_id = ${PROCESS} and key = ${key}`)
 
-    const definitionId = (definition.rows[0] as { id: string } | undefined)?.id
+    const definitionId = definition.rows[0]?.id
 
     if (!definitionId) continue
 
-    const latest = await db.execute(sql`
+    const latest = await db.execute<{ id: string; version: number }>(sql`
       select id, version from api.dataset_schema_versions
        where schema_id = ${definitionId} order by version desc limit 1`)
 
-    const current = latest.rows[0] as { id: string; version: number }
+    const current = latest.rows[0]
 
     const nextId =
       Number(current.version) >= 2

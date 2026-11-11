@@ -20,21 +20,13 @@
 import { z } from 'zod'
 
 import { t } from '#/copy'
-import { PickerSelect } from '#/components/record-picker/entity-picker'
-import { datasetOption } from '#/components/record-picker/entity-options'
-import { specSourceDatasetId } from '#/lib/analysis-spec-source'
-import { AnalysisFigureGuide } from '#/components/assist/analysis-figure-guide'
 import { RecordPicker } from '#/components/record-picker/record-picker'
 import type { PickerItem } from '#/components/record-picker/record-picker-data'
 import { insertBlock } from '#/lib/notebook-mutations'
-import { stableStringify } from '#/lib/notebook-submission'
-import { DataClientError } from '#/lib/data-client'
 import { downloadTextFile } from '#/lib/download'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
 import { toast } from '#/components/ui/sonner'
 import { Spinner } from '#/components/ui/spinner'
-import { usePaneContext } from '#/components/workspace/workspace-navigation'
-import { usePendingEdit } from '#/lib/pending-edits'
 import {
   Dialog,
   DialogBody,
@@ -43,20 +35,7 @@ import {
   DialogFooter,
   DialogHeader,
 } from '#/components/ui/dialog'
-import { CompareView } from '#/components/viz/compare-view'
-import { SourceComparison } from '#/components/viz/source-comparison'
-import { SnapshotSourceBanner } from '#/components/viz/snapshot-source-banner'
-import {
-  ConfirmDialog,
-  ConfirmDialogAction,
-  ConfirmDialogCancel,
-  ConfirmDialogContent,
-  ConfirmDialogDescription,
-  ConfirmDialogFooter,
-  ConfirmDialogHeader,
-  ConfirmDialogTitle,
-} from '#/components/ui/confirm-dialog'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
   Link,
   getRouteApi,
@@ -67,18 +46,15 @@ import {
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import type { ChartSelection } from '#/components/viz/chart-renderer'
-import { AnalysisPanel } from '#/components/viz/analysis-panel'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { Icon } from '#/components/icons'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
+import { Inspector as InspectorPanel } from '#/components/ui/layout'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
-import { returnLabel } from '#/lib/return-to'
 import { Notice } from '#/components/ui/alert'
-import { Tabs } from '#/components/ui/tabs'
 import { Field, Input } from '#/components/ui/input'
 import { Skeleton } from '#/components/ui/skeleton'
-import { Inspector as InspectorPanel } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import {
   Table,
@@ -92,13 +68,17 @@ import { Inspector } from '#/components/record/inspector'
 import { InspectorSection, InspectorSectionStack } from '#/components/record'
 import { FigureControls } from '#/components/viz/figure-controls'
 import { Property, PropertyList } from '#/components/scientific'
-import {
-  freezeChart,
+import { freezeChart } from '#/lib/chart-data'
+import { specSourceDatasetId } from '#/lib/analysis-spec-source'
+import { stableStringify } from '#/lib/notebook-submission'
+import type { ComparativeViewConfig } from '#/lib/comparative-view'
+import { buildDefaultChartSpec } from '#/lib/dataset-explorer-data'
+import { buildDefaultComparativeViewConfig } from '#/lib/comparative-view'
+import type {
+  CanonicalDatasetSource,
   materialiseLiveChart,
-  toCanonicalDatasetSource,
   useLiveChartDataset,
 } from '#/lib/chart-data'
-import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import {
   composeAnalysisDefinition,
   freezeAnalysisBlock,
@@ -115,24 +95,15 @@ import {
   ANALYSIS_MAX_FILTERS,
   ANALYSIS_MAX_RESULT_ROWS,
   analysisStudioDataClient,
-  analysisStudioQueryKeys,
   buildExportProvenance,
-  captureSourceRevisions,
   DEFAULT_EXPORT_SETTINGS,
-  deleteAnalysisView,
+  captureSourceRevisions,
   detectStaleSources,
   captionBlockHeight,
   exportChartSvg,
   exportDataCsv,
   exportViewJson,
-  fetchAnalysisViewCitations,
-  fetchAnalysisViewSourceStatus,
-  fetchAnalysisViews,
-  fetchDatasetSummaries,
-  materialiseAnalysisChart,
-  materialiseAnalysisFacets,
   recordAnalysisCitation,
-  resolveAnalysisViewSources,
   saveAnalysisView,
   validateAnalysisSpec,
 } from '#/lib/analysis-studio-data'
@@ -146,27 +117,37 @@ import type {
   ExportSettings,
 } from '#/lib/analysis-studio-data'
 import { CitationList } from '#/components/viz/citation-list'
-import { buildDefaultChartSpec } from '#/lib/dataset-explorer-data'
-import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
-import { buildDefaultComparativeViewConfig } from '#/lib/comparative-view'
-import type { ComparativeViewConfig } from '#/lib/comparative-view'
 import { formatCount } from '#/lib/format-numbers'
 import { cn } from '#/lib/utils'
 import { rasteriseSvgToPng } from '#/lib/visualisation-export'
 import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
+
+import {
+  AnalysisModeSection,
+  AnalysisStudioHeader,
+  AnalysisStudioSnapshotBanner,
+  AnalysisStudioToolbar,
+  CompareModeSection,
+  DeleteAnalysisViewDialog,
+  EmptyAnalysisState,
+} from './-analysis-studio-sections'
+import type { StudioMode } from './-analysis-studio-modes'
+import {
+  chartsToSave,
+  useAnalysisStudioChartData,
+  useAnalysisStudioReads,
+  useAnalysisStudioSavedViews,
+  useAnalysisStudioSources,
+  useAnalysisStudioSourceStatus,
+} from './-analysis-studio-hooks'
+
+export { AnalysisStudioHeader, EmptyAnalysisState }
 
 const Route = getRouteApi('/analysis/new')
 
 // ---------------------------------------------------------------------------
 // Route component
 // ---------------------------------------------------------------------------
-
-/** The studio modes, in tab order: the strip announces these as tabs. */
-const STUDIO_MODES = ['chart', 'analyse', 'compare'] as const
-
-const studioModeSchema = z.enum(STUDIO_MODES)
-
-type StudioMode = z.infer<typeof studioModeSchema>
 
 const axisScaleSchema = z.enum(AXIS_SCALES)
 
@@ -186,14 +167,11 @@ function filterText(
   return decoded.success ? `${decoded.data}` : ''
 }
 
-const STUDIO_MODE_LABEL: Record<StudioMode, string> = {
-  chart: t('data.analysisStudio.chartBuilder'),
-  analyse: t('data.analysisStudio.analyse'),
-  compare: t('data.analysisStudio.compare'),
-}
-
-/** The studio's state, reads and writes, in one hook: what the header,
- * the configuration rail, the preview and the inspector all act on. */
+/** The studio's state: what it reads, which dataset and snapshot are selected,
+ * the chart draft and its saved views, the compare configuration, and the
+ * materialised preview. The reads and writes live in the hooks beside it; the
+ * state they feed, and the effects that adjust it, stay here so each effect
+ * reads only values this hook owns. */
 function useAnalysisStudio() {
   const instanceId = useId()
   const chartConfigId = `${instanceId}-chart-config`
@@ -203,31 +181,13 @@ function useAnalysisStudio() {
   const workspaceId = context.workspace?.id ?? 'no-workspace'
   const userId = context.user.id
 
-  const summariesQuery = useQuery({
-    queryKey: analysisStudioQueryKeys.datasets,
-    queryFn: () => fetchDatasetSummaries(),
-    staleTime: 30_000,
-  })
+  const reads = useAnalysisStudioReads()
+  const { datasets, views } = reads
 
-  const datasets = useMemo(
-    () => summariesQuery.data ?? [],
-    [summariesQuery.data],
-  )
-
-  const viewsQuery = useQuery({
-    queryKey: analysisStudioQueryKeys.views,
-    queryFn: () => fetchAnalysisViews(analysisStudioDataClient),
-    staleTime: 10_000,
-  })
-
-  const views = useMemo(() => viewsQuery.data ?? [], [viewsQuery.data])
-
+  // -- Selection ------------------------------------------------------------
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
     search.dataset ?? null,
   )
-
-  const [spec, setSpec] = useState<ChartSpec | null>(null)
-  const [inspectorOpen, setInspectorOpen] = useState(false)
 
   // The snapshot named by `?snapshot=` belongs to the dataset named by
   // `?dataset=`; choosing another dataset leaves it behind.
@@ -244,32 +204,41 @@ function useAnalysisStudio() {
   useEffect(() => {
     activeSnapshotRef.current = activeSnapshotId
   }, [activeSnapshotId])
-  const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
 
-  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(
-    null,
+  // Auto-select the first dataset once the list loads.
+  useEffect(() => {
+    if (!selectedDatasetId && datasets.length > 0) {
+      setSelectedDatasetId(datasets[0].id)
+    }
+
+    if (
+      selectedDatasetId &&
+      datasets.length > 0 &&
+      !datasets.some((d) => d.id === selectedDatasetId)
+    ) {
+      setSelectedDatasetId(datasets[0].id)
+    }
+  }, [datasets, selectedDatasetId])
+
+  const { selectedDataset, selectedSource, sources } = useAnalysisStudioSources(
+    {
+      datasets,
+      selectedDatasetId,
+    },
   )
 
-  // SCI-02: the studio serves both chart authoring and reusable analysis
-  // definitions; the mode is session state, never persisted server-side.
-  // VIEW-03 adds the compare mode: grouped time-series / distribution
-  // inspection over the same live rows, promoting into the chart builder.
-  const [mode, setMode] = useState<StudioMode>(
-    search.mode === 'analyse' || search.mode === 'compare'
-      ? search.mode
-      : 'chart',
-  )
+  // The default-spec rebuild below is keyed on the dataset's id, not the
+  // object: a background refetch of the list hands back new objects for the
+  // same dataset, and rebuilding then would drop the saved view just opened.
+  const selectedDatasetSnapshot = useRef<
+    Parameters<typeof buildDefaultChartSpec>[0] | null
+  >(null)
 
-  const [compareConfig, setCompareConfig] =
-    useState<ComparativeViewConfig | null>(null)
+  useEffect(() => {
+    selectedDatasetSnapshot.current = selectedDataset ?? null
+  }, [selectedDataset])
 
-  // ASSIST-03: whether the live compare config was promoted through the
-  // canonical hand-off (CompareView Promote or the guide accept — both feed
-  // the same follow-on). Session state only; resets with the dataset.
-  const [comparePromoted, setComparePromoted] = useState(false)
-  const [configOpen, setConfigOpen] = useState(true)
-  const [viewName, setViewName] = useState('')
-
+  // -- Export settings ------------------------------------------------------
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
     DEFAULT_EXPORT_SETTINGS,
   )
@@ -282,6 +251,10 @@ function useAnalysisStudio() {
     exportSettingsSnapshot.current = exportSettings
   }, [exportSettings])
 
+  // -- Chart draft ----------------------------------------------------------
+  const [spec, setSpec] = useState<ChartSpec | null>(null)
+  const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
+  const [viewName, setViewName] = useState('')
   const [cleanChart, setCleanChart] = useState('')
 
   // What the chart looked like when it was last saved or loaded, so Discard
@@ -327,15 +300,6 @@ function useAnalysisStudio() {
     setExportSettings(snapshot.exportSettings)
   }
 
-  const paneId = usePaneContext().paneId
-  const saveRef = useRef<() => Promise<boolean>>(async () => false)
-  usePendingEdit({
-    dirty: chartDirty,
-    label: t('data.analysisStudio.analysisStudio'),
-    paneId,
-    save: () => saveRef.current(),
-    discard: discardChart,
-  })
   // A saved view whose dataset differs from the current selection is applied
   // by the dataset-change effect below; until then it waits here, so loading
   // it does not have its spec overwritten by the default rebuild.
@@ -347,51 +311,6 @@ function useAnalysisStudio() {
   // reruns the default-spec rebuild right after the view lands; the rebuild
   // skips once for this dataset so the opened view survives it.
   const requestedViewAppliedOnRef = useRef<string | null>(null)
-
-  const [deleteTarget, setDeleteTarget] = useState<AnalysisViewWire | null>(
-    null,
-  )
-
-  // Auto-select the first dataset once the list loads.
-  useEffect(() => {
-    if (!selectedDatasetId && datasets.length > 0) {
-      setSelectedDatasetId(datasets[0].id)
-    }
-
-    if (
-      selectedDatasetId &&
-      datasets.length > 0 &&
-      !datasets.some((d) => d.id === selectedDatasetId)
-    ) {
-      setSelectedDatasetId(datasets[0].id)
-    }
-  }, [datasets, selectedDatasetId])
-
-  const selectedDataset = useMemo(
-    () => datasets.find((d) => d.id === selectedDatasetId) ?? null,
-    [datasets, selectedDatasetId],
-  )
-
-  // The default-spec rebuild below is keyed on the dataset's id, not the
-  // object: a background refetch of the list hands back new objects for the
-  // same dataset, and rebuilding then would drop the saved view just opened.
-  const selectedDatasetSnapshot = useRef<
-    Parameters<typeof buildDefaultChartSpec>[0] | null
-  >(null)
-
-  useEffect(() => {
-    selectedDatasetSnapshot.current = selectedDataset ?? null
-  }, [selectedDataset])
-
-  const selectedSource = useMemo(
-    () => (selectedDataset ? toCanonicalDatasetSource(selectedDataset) : null),
-    [selectedDataset],
-  )
-
-  const sources = useMemo(
-    () => datasets.map(toCanonicalDatasetSource),
-    [datasets],
-  )
 
   // Build a default spec when the dataset changes, or apply the saved view
   // whose dataset the user just switched to (loadView hands it over here so
@@ -442,221 +361,6 @@ function useAnalysisStudio() {
     // Keyed on the dataset's id: the dataset object itself arrives again on
     // every list refetch, and the guard above is what keeps the open view.
   }, [selectedDataset?.id, search.x, search.y])
-  // Build a default compare config when the dataset (or its columns) change.
-  // Explicit source fields only — never label-inferred.
-  useEffect(() => {
-    if (selectedSource) {
-      setCompareConfig(
-        buildDefaultComparativeViewConfig({
-          datasetId: selectedSource.datasetId,
-          columns: selectedSource.columns.map((column) => ({
-            id: column.id,
-            logicalType: column.logicalType,
-          })),
-        }),
-      )
-    } else {
-      setCompareConfig(null)
-    }
-
-    setComparePromoted(false)
-  }, [selectedSource])
-
-  // Live preview resolution: read source data read-only (never mutate). The
-  // materialised chart is lifted here so the preview and the export panel
-  // share one authoritative materialisation.
-  const { datasetQuery } = useLiveChartDataset(spec)
-
-  const liveMaterialised = useMemo(
-    () =>
-      spec
-        ? materialiseLiveChart(spec, datasetQuery.data ?? null)
-        : missingDatasetChart(),
-    [spec, datasetQuery.data],
-  )
-
-  const analysisMaterialised = useMemo(() => {
-    if (!spec || !datasetQuery.data) return liveMaterialised
-
-    return materialiseAnalysisChart(
-      spec,
-      datasetQuery.data.source.columns,
-      datasetQuery.data.rows,
-      datasetQuery.data.flags ?? [],
-    )
-  }, [spec, datasetQuery.data, liveMaterialised])
-
-  const analysisFacets = useMemo(() => {
-    if (!spec || !datasetQuery.data || !spec.fields.facet) {
-      return { panels: [], total: 0 }
-    }
-
-    return materialiseAnalysisFacets(
-      spec,
-      datasetQuery.data.source.columns,
-      datasetQuery.data.rows,
-      datasetQuery.data.flags ?? [],
-    )
-  }, [spec, datasetQuery.data])
-
-  // Canonical hand-off shared by the CompareView Promote button and the
-  // ASSIST-03 guide accept: the promoted ChartSpec becomes the chart builder
-  // spec, where save/export/freeze already live.
-  function promoteCompareToChart(promoted: ChartSpec) {
-    setSpec(promoted)
-    setSelectedViewId(null)
-    setViewName('')
-    setComparePromoted(true)
-    setMode('chart')
-  }
-
-  const queryClient = useQueryClient()
-  const navigate = useNavigate({ from: '/analysis/new' })
-  const router = useRouter()
-
-  const saveMutation = useMutation({
-    mutationFn: async (options?: { asNew?: boolean; name?: string }) => {
-      const name = (options?.name ?? viewName).trim()
-
-      if (!spec || !name) return
-      const sourceRevisions = captureSourceRevisions(sources, spec)
-
-      return saveAnalysisView(
-        analysisStudioDataClient,
-        {
-          id: options?.asNew ? undefined : (selectedViewId ?? undefined),
-          name,
-          charts: chartsToSave(
-            views,
-            options?.asNew ? null : selectedViewId,
-            spec,
-          ),
-          source_revisions: sourceRevisions,
-          export_settings: exportSettings,
-        },
-        workspaceId,
-        userId,
-      )
-    },
-    onSuccess: (view) => {
-      if (view) {
-        setSelectedViewId(view.id)
-        setViewName(view.name)
-      }
-
-      // A saved view has an address: reloading or sharing the page finds it.
-      if (view) {
-        markClean(
-          view.charts[0],
-          view.name,
-          view.export_settings ?? exportSettings,
-        )
-        void navigate({
-          search: (current) => ({ ...current, view: view.id }),
-          replace: true,
-          ignoreBlocker: true,
-        })
-      }
-
-      if (view) {
-        toast(t('data.analysisStudio.analysisViewSaved'), {
-          description: `${view.name} v${view.version}`,
-          action: search.returnTo
-            ? {
-                label: returnLabel(search.returnTo),
-                onClick: () => void navigate({ to: search.returnTo }),
-              }
-            : undefined,
-        })
-      }
-
-      void queryClient.invalidateQueries({
-        queryKey: analysisStudioQueryKeys.views,
-      })
-    },
-    onError: (error) => {
-      // The view the panel is armed on can be gone (deleted here, or in
-      // another tab). The panel then holds an id nothing can update, so it
-      // falls back to saving a new view — with the name the user typed.
-      if (
-        error instanceof DataClientError &&
-        error.code === 'analysis_view_missing'
-      ) {
-        setSelectedViewId(null)
-      }
-
-      toast(t('data.analysisStudio.couldSaveAnalysisView'), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t('data.analysisStudio.databaseRefused'),
-      })
-    },
-  })
-
-  // Save from the header or the leave prompt. A chart with no name yet gets
-  // one from its dataset, so saving is never blocked on typing.
-  async function saveChart(): Promise<boolean> {
-    if (!spec) return false
-
-    // Names take letters, digits, spaces and _ . - only, so a dataset name
-    // like "ELISA standard curve, plate PR-01" is cleaned to fit.
-    const generated = t('data.analysisStudio.defaultViewName', {
-      name: selectedDataset?.name ?? t('data.analysisStudio.analysisStudio'),
-    })
-      .replace(/[^\p{L}\p{N} _.-]+/gu, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 100)
-      .replace(/[ _.-]+$/, '')
-
-    // Names are unique per person, so a second unnamed chart becomes "… 2".
-    const taken = new Set(views.map((view) => view.name))
-    let generatedName = generated
-
-    for (let n = 2; taken.has(generatedName); n += 1) {
-      generatedName = `${generated} ${n}`
-    }
-
-    const name = viewName.trim() || generatedName
-
-    try {
-      return Boolean(await saveMutation.mutateAsync({ name }))
-    } catch {
-      return false
-    }
-  }
-
-  useEffect(() => {
-    saveRef.current = saveChart
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) =>
-      deleteAnalysisView(analysisStudioDataClient, id),
-    onSuccess: (_deleted, id) => {
-      toast(t('data.analysisStudio.analysisViewDeleted'))
-
-      // The deleted view is gone from the list; the panel must not stay armed
-      // on it, or its Update button would write to a row that no longer exists.
-      if (selectedViewId === id) {
-        setSelectedViewId(null)
-        setViewName('')
-      }
-
-      void queryClient.invalidateQueries({
-        queryKey: analysisStudioQueryKeys.views,
-      })
-    },
-    onError: (error) => {
-      toast(t('data.analysisStudio.couldDeleteAnalysisView'), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t('data.analysisStudio.databaseRefused'),
-      })
-    },
-  })
 
   function loadView(view: AnalysisViewWire) {
     const datasetId = specSourceDatasetId(view.charts[0]) ?? null
@@ -693,7 +397,8 @@ function useAnalysisStudio() {
 
     // Wait for the dataset list too: until it loads, the view's dataset cannot
     // be matched, and the default-spec rebuild after auto-select would wipe it.
-    if (!requested || views.length === 0 || summariesQuery.isLoading) return
+    if (!requested || views.length === 0 || reads.summariesQuery.isLoading)
+      return
     requestedViewRef.current = null
     const view = views.find((candidate) => candidate.id === requested)
 
@@ -721,112 +426,104 @@ function useAnalysisStudio() {
       view.name,
       view.export_settings ?? exportSettingsSnapshot.current,
     )
-  }, [views, datasets, selectedDatasetId, summariesQuery.isLoading])
+  }, [views, datasets, selectedDatasetId, reads.summariesQuery.isLoading])
 
-  // R5-STUDIO-03: staleness and citations are answered by the canonical
-  // boundary, not re-derived in the browser, so the resolution the user
-  // chooses is the one the database records.
-  const sourceStatusQuery = useQuery({
-    queryKey: selectedViewId
-      ? analysisStudioQueryKeys.sourceStatus(selectedViewId)
-      : ['analysis-view', 'none', 'source-status'],
-    queryFn: () =>
-      fetchAnalysisViewSourceStatus(analysisStudioDataClient, selectedViewId!),
-    enabled: Boolean(selectedViewId),
-    staleTime: 5_000,
-  })
+  // -- Mode and inspector ---------------------------------------------------
+  // SCI-02: the studio serves both chart authoring and reusable analysis
+  // definitions; the mode is session state, never persisted server-side.
+  // VIEW-03 adds the compare mode: grouped time-series / distribution
+  // inspection over the same live rows, promoting into the chart builder.
+  const [mode, setMode] = useState<StudioMode>(
+    search.mode === 'analyse' || search.mode === 'compare'
+      ? search.mode
+      : 'chart',
+  )
 
-  const citationsQuery = useQuery({
-    queryKey: selectedViewId
-      ? analysisStudioQueryKeys.citations(selectedViewId)
-      : ['analysis-view', 'none', 'citations'],
-    queryFn: () =>
-      fetchAnalysisViewCitations(analysisStudioDataClient, selectedViewId!),
-    enabled: Boolean(selectedViewId),
-    staleTime: 5_000,
-  })
+  const [inspectorOpen, setInspectorOpen] = useState(false)
+  const [configOpen, setConfigOpen] = useState(true)
 
-  const resolveMutation = useMutation({
-    mutationFn: (resolution: AnalysisSourceResolution) =>
-      resolveAnalysisViewSources(analysisStudioDataClient, {
-        // SAFETY: the source panel that arms this mutation is only drawn while a view is selected.
-        viewId: selectedViewId as string,
-        expectedVersion: sourceStatusQuery.data?.version ?? 0,
-        resolution,
-      }),
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({
-        queryKey: analysisStudioQueryKeys.views,
-      })
+  const [chartSelection, setChartSelection] = useState<ChartSelection | null>(
+    null,
+  )
 
-      if (selectedViewId) {
-        void queryClient.invalidateQueries({
-          queryKey: analysisStudioQueryKeys.sourceStatus(selectedViewId),
-        })
-        void queryClient.invalidateQueries({
-          queryKey: analysisStudioQueryKeys.citations(selectedViewId),
-        })
-      }
+  // -- Compare configuration ------------------------------------------------
+  const [compareConfig, setCompareConfig] =
+    useState<ComparativeViewConfig | null>(null)
 
-      toast(
-        result.resolution === 'keep'
-          ? t('data.analysisStudio.keepingPinnedVersions')
-          : t('data.analysisStudio.updatedCurrentVersionsV', {
-              version: result.version,
-            }),
-        {
-          description:
-            result.resolution === 'keep'
-              ? t('data.analysisStudio.decisionRecordedAgainstAnalysis')
-              : t('data.analysisStudio.viewRePinnedLive'),
-        },
+  // ASSIST-03: whether the live compare config was promoted through the
+  // canonical hand-off (CompareView Promote or the guide accept — both feed
+  // the same follow-on). Session state only; resets with the dataset.
+  const [comparePromoted, setComparePromoted] = useState(false)
+
+  // Build a default compare config when the dataset (or its columns) change.
+  // Explicit source fields only — never label-inferred.
+  useEffect(() => {
+    if (selectedSource) {
+      setCompareConfig(
+        buildDefaultComparativeViewConfig({
+          datasetId: selectedSource.datasetId,
+          columns: selectedSource.columns.map((column) => ({
+            id: column.id,
+            logicalType: column.logicalType,
+          })),
+        }),
       )
-    },
-    onError: (error) => {
-      toast(t('data.analysisStudio.couldResolveStaleSource'), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t('data.analysisStudio.databaseRefused'),
-      })
-    },
+    } else {
+      setCompareConfig(null)
+    }
+
+    setComparePromoted(false)
+  }, [selectedSource])
+
+  // Canonical hand-off shared by the CompareView Promote button and the
+  // ASSIST-03 guide accept: the promoted ChartSpec becomes the chart builder
+  // spec, where save/export/freeze already live.
+  function promoteCompareToChart(promoted: ChartSpec) {
+    setSpec(promoted)
+    setSelectedViewId(null)
+    setViewName('')
+    setComparePromoted(true)
+    setMode('chart')
+  }
+
+  // -- Preview --------------------------------------------------------------
+  const chart = useAnalysisStudioChartData({ spec })
+
+  // -- Saved views ----------------------------------------------------------
+  const savedViews = useAnalysisStudioSavedViews({
+    search,
+    workspaceId,
+    userId,
+    views,
+    sources,
+    spec,
+    viewName,
+    selectedDataset,
+    selectedViewId,
+    setSelectedViewId,
+    setViewName,
+    exportSettings,
+    markClean,
+    chartDirty,
+    discardChart,
   })
 
-  // UI port (roadmap-4/ui-app3): the studio renders inside app-3's shell, so
-  // the legacy shell wrapper is replaced by a content column with the chart
-  // settings inspector beside it.
-  const inspector =
-    selectedSource && spec ? (
-      <AnalysisInspector
-        chartRoot={chartRoot}
-        source={selectedSource}
-        spec={spec}
-        mode={mode}
-        onSpecChange={setSpec}
-        views={views}
-        selectedViewId={selectedViewId}
-        viewName={viewName}
-        onViewNameChange={setViewName}
-        onLoad={loadView}
-        onSave={(asNew) => saveMutation.mutate({ asNew })}
-        onDelete={(view) => setDeleteTarget(view)}
-        saving={saveMutation.isPending}
-        exportSettings={exportSettings}
-        onExportSettingsChange={setExportSettings}
-        sources={sources}
-        user={{ id: userId, name: context.user.name }}
-        workspaceId={workspaceId}
-        materialised={analysisMaterialised}
-        selection={chartSelection}
-        citations={citationsQuery.data ?? []}
-        citationsLoading={citationsQuery.isLoading}
-        citationsError={
-          citationsQuery.error ? String(citationsQuery.error) : null
-        }
-        sourceStatus={sourceStatusQuery.data ?? null}
-        experimentId={search.experiment}
-      />
-    ) : undefined
+  const sourceState = useAnalysisStudioSourceStatus({ selectedViewId })
+
+  const router = useRouter()
+
+  // Back to the live dataset: forget the snapshot and unpin the spec's sources.
+  function clearSnapshot() {
+    setSnapshotId(null)
+    setSpec((current) =>
+      current
+        ? {
+            ...current,
+            datasets: current.datasets.map(({ datasetId }) => ({ datasetId })),
+          }
+        : current,
+    )
+  }
 
   return {
     instanceId,
@@ -835,7 +532,7 @@ function useAnalysisStudio() {
     search,
     workspaceId,
     userId,
-    summariesQuery,
+    summariesQuery: reads.summariesQuery,
     datasets,
     views,
     selectedDatasetId,
@@ -847,6 +544,12 @@ function useAnalysisStudio() {
     setSnapshotId,
     activeSnapshotId,
     selectedViewId,
+    viewName,
+    setViewName,
+    loadView,
+    exportSettings,
+    setExportSettings,
+    user: { id: userId, name: context.user.name },
     chartSelection,
     setChartSelection,
     mode,
@@ -858,449 +561,219 @@ function useAnalysisStudio() {
     setConfigOpen,
     chartDirty,
     discardChart,
-    deleteTarget,
-    setDeleteTarget,
+    deleteTarget: savedViews.deleteTarget,
+    setDeleteTarget: savedViews.setDeleteTarget,
     selectedSource,
     sources,
-    analysisMaterialised,
-    analysisFacets,
+    analysisMaterialised: chart.analysisMaterialised,
+    analysisFacets: chart.analysisFacets,
     promoteCompareToChart,
     router,
-    saveMutation,
-    saveChart,
-    deleteMutation,
-    sourceStatusQuery,
-    resolveMutation,
-    inspector,
-    datasetQuery,
+    clearSnapshot,
+    saveMutation: savedViews.saveMutation,
+    saveChart: savedViews.saveChart,
+    deleteMutation: savedViews.deleteMutation,
+    sourceStatusQuery: sourceState.sourceStatusQuery,
+    citationsQuery: sourceState.citationsQuery,
+    resolveMutation: sourceState.resolveMutation,
+    datasetQuery: chart.datasetQuery,
   }
 }
 
 export function AnalysisStudio() {
-  const {
-    instanceId,
-    chartConfigId,
-    chartRoot,
-    search,
-    workspaceId,
-    userId,
-    summariesQuery,
-    datasets,
-    views,
-    selectedDatasetId,
-    setSelectedDatasetId,
-    spec,
-    setSpec,
-    inspectorOpen,
-    setInspectorOpen,
-    setSnapshotId,
-    activeSnapshotId,
-    selectedViewId,
-    chartSelection,
-    setChartSelection,
-    mode,
-    setMode,
-    compareConfig,
-    setCompareConfig,
-    comparePromoted,
-    configOpen,
-    setConfigOpen,
-    chartDirty,
-    discardChart,
-    deleteTarget,
-    setDeleteTarget,
-    selectedSource,
-    sources,
-    analysisMaterialised,
-    analysisFacets,
-    promoteCompareToChart,
-    router,
-    saveMutation,
-    saveChart,
-    deleteMutation,
-    sourceStatusQuery,
-    resolveMutation,
-    inspector,
-    datasetQuery,
-  } = useAnalysisStudio()
+  const studio = useAnalysisStudio()
 
   return (
-    <div ref={chartRoot} className="flex min-h-0 min-w-0 flex-1">
+    <div ref={studio.chartRoot} className="flex min-h-0 min-w-0 flex-1">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
-          <AnalysisStudioHeader
-            datasets={datasets}
-            loading={summariesQuery.isLoading}
-            error={summariesQuery.error}
-            selectedDatasetId={selectedDatasetId}
-            onSelect={setSelectedDatasetId}
-            returnTo={search.returnTo}
+        <AnalysisStudioToolbar
+          datasets={studio.datasets}
+          loading={studio.summariesQuery.isLoading}
+          error={studio.summariesQuery.error}
+          selectedDatasetId={studio.selectedDatasetId}
+          onSelectDataset={studio.setSelectedDatasetId}
+          returnTo={studio.search.returnTo}
+          mode={studio.mode}
+          onModeChange={studio.setMode}
+          hasInspector={Boolean(studio.selectedSource && studio.spec)}
+          inspectorOpen={studio.inspectorOpen}
+          onOpenInspector={() => studio.setInspectorOpen(true)}
+          chartDirty={studio.chartDirty}
+          saving={studio.saveMutation.isPending}
+          onDiscard={studio.discardChart}
+          onSave={() => void studio.saveChart()}
+          selectedSource={studio.selectedSource}
+          spec={studio.spec}
+          configOpen={studio.configOpen}
+          chartConfigId={studio.chartConfigId}
+          onToggleConfig={() => studio.setConfigOpen((open) => !open)}
+        />
+        <AnalysisStudioSnapshotBanner
+          mode={studio.mode}
+          spec={studio.spec}
+          onUseLive={studio.clearSnapshot}
+        />
+        {studio.mode === 'analyse' ? (
+          <AnalysisModeSection
+            sources={studio.sources}
+            workspaceId={studio.workspaceId}
+            userId={studio.userId}
+            selectedDatasetId={studio.selectedDatasetId}
+            onDatasetChange={studio.setSelectedDatasetId}
+            activeSnapshotId={studio.activeSnapshotId}
+            definitionId={studio.search.definition}
+            experimentId={studio.search.experiment}
           />
-          <Tabs
-            mode="state"
-            variant="segment"
-            label={t('data.analysisStudio.studioMode')}
-            value={mode}
-            onValueChange={(next) => {
-              const decoded = studioModeSchema.safeParse(next)
-
-              if (decoded.success) setMode(decoded.data)
+        ) : studio.mode === 'compare' ? (
+          <CompareModeSection
+            selectedSource={studio.selectedSource}
+            datasetQuery={studio.datasetQuery}
+            compareConfig={studio.compareConfig}
+            comparePromoted={studio.comparePromoted}
+            onPromote={studio.promoteCompareToChart}
+            onCompareConfigChange={studio.setCompareConfig}
+            onNavigate={(href) => {
+              studio.router.history.push(href)
             }}
-            items={STUDIO_MODES.map((value) => ({
-              key: value,
-              label: STUDIO_MODE_LABEL[value],
-            }))}
+            sources={studio.sources}
+            spec={studio.spec}
+            datasetsLoading={studio.summariesQuery.isLoading}
+            datasetsError={studio.summariesQuery.error}
           />
-          {inspector ? (
-            <Button
-              data-local-inspector-trigger
-              type="button"
-              size="sm"
-              icon="info"
-              className="xl:hidden"
-              aria-haspopup="dialog"
-              aria-expanded={inspectorOpen}
-              onClick={() => setInspectorOpen(true)}
-            >
-              {t('data.analysisStudio.chartSettings')}
-            </Button>
-          ) : null}
-          {chartDirty ? (
-            <div
-              className="ml-auto flex items-center gap-1.5"
-              role="group"
-              aria-label={t('data.analysisStudio.unsavedChanges')}
-            >
-              <span className="text-xs text-fg-muted">
-                {t('data.analysisStudio.unsavedChanges')}
-              </span>
-              <Button
-                type="button"
-                size="sm"
-                variant="quiet"
-                disabled={saveMutation.isPending}
-                onClick={discardChart}
-              >
-                {t('common.actions.discard')}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="primary"
-                disabled={saveMutation.isPending}
-                onClick={() => void saveChart()}
-              >
-                {saveMutation.isPending ? (
-                  <Spinner size={16} />
-                ) : (
-                  <Icon name="save" />
-                )}
-                {t('common.actions.save')}
-              </Button>
-            </div>
-          ) : null}
-          {mode === 'chart' && selectedSource && spec ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="quiet"
-              aria-expanded={configOpen}
-              aria-controls={configOpen ? chartConfigId : undefined}
-              onClick={() => setConfigOpen((open) => !open)}
-            >
-              {configOpen ? (
-                <Icon
-                  name="panelLeftClose"
-                  className="size-4"
-                  aria-hidden="true"
-                />
-              ) : (
-                <Icon name="panelLeft" className="size-4" aria-hidden="true" />
-              )}
-              {configOpen
-                ? t('data.analysisStudio.hideEncodings')
-                : t('data.analysisStudio.showEncodings')}
-            </Button>
-          ) : null}
-        </div>
-        {mode !== 'analyse' && spec?.datasets[0]?.datasetVersionId ? (
-          <div className="px-3 pt-3">
-            <SnapshotSourceBanner
-              datasetId={spec.datasets[0].datasetId}
-              datasetVersionId={spec.datasets[0].datasetVersionId}
-              onUseLive={() => {
-                setSnapshotId(null)
-                setSpec((current) =>
-                  current
-                    ? {
-                        ...current,
-                        datasets: current.datasets.map(({ datasetId }) => ({
-                          datasetId,
-                        })),
-                      }
-                    : current,
-                )
-              }}
-            />
-          </div>
-        ) : null}
-        {mode === 'analyse' ? (
-          <div className="min-h-0 flex-1 overflow-auto p-3">
-            <AnalysisPanel
-              datasets={sources}
-              workspaceId={workspaceId}
-              userId={userId}
-              initialDatasetId={selectedDatasetId}
-              onDatasetChange={setSelectedDatasetId}
-              initialSnapshotId={activeSnapshotId}
-              initialDefinitionId={search.definition}
-              experimentId={search.experiment}
-            />
-          </div>
-        ) : mode === 'compare' ? (
-          <div className="min-h-0 flex-1 overflow-auto p-3">
-            {/* ASSIST-03: step-aware guidance for dataset → compare → chart
-                propose → notebook embed. The guide reads the same live studio
-                state as the Compare tab it sits beside; its propose accept
-                runs the identical promote hand-off as the manual Promote
-                button below. */}
-            {selectedSource ? (
-              <div className="mb-3">
-                <AnalysisFigureGuide
-                  datasetId={selectedSource.datasetId}
-                  columnCount={selectedSource.columns.length}
-                  rowCount={datasetQuery.data?.rows.length ?? 0}
-                  compareConfig={compareConfig}
-                  columns={
-                    datasetQuery.data?.source.columns ?? selectedSource.columns
-                  }
-                  chartSpecReady={comparePromoted}
-                  onPromoteGuide={promoteCompareToChart}
-                  onNavigateGuide={(href) => {
-                    router.history.push(href)
-                  }}
-                />
-              </div>
-            ) : null}
-            {selectedSource && compareConfig ? (
-              <CompareView
-                source={selectedSource}
-                columns={
-                  datasetQuery.data?.source.columns ?? selectedSource.columns
-                }
-                rows={datasetQuery.data?.rows ?? []}
-                flags={datasetQuery.data?.flags ?? []}
-                loading={datasetQuery.isLoading}
-                error={datasetQuery.error ? String(datasetQuery.error) : null}
-                config={compareConfig}
-                onConfigChange={setCompareConfig}
-                onPromote={promoteCompareToChart}
-              />
-            ) : (
-              <EmptyAnalysisState
-                loading={summariesQuery.isLoading}
-                error={summariesQuery.error}
-              />
-            )}
-            {selectedSource && datasetQuery.data ? (
-              <SourceComparison
-                // A new source A starts a new comparison.
-                key={`${selectedSource.datasetId}:${spec?.datasets[0]?.datasetVersionId ?? ''}`}
-                sourceA={selectedSource}
-                rowsA={datasetQuery.data.rows}
-                snapshotA={spec?.datasets[0]?.datasetVersionId ?? null}
-                sources={sources}
-              />
-            ) : null}
-          </div>
-        ) : selectedSource && spec ? (
-          <div className="flex min-h-0 flex-1 overflow-hidden">
-            {configOpen ? (
-              <aside
-                id={chartConfigId}
-                data-analysis-chart-config
-                className="flex w-56 shrink-0 flex-col overflow-y-auto border-r"
-              >
-                <ChartConfigurator
-                  source={selectedSource}
-                  spec={spec}
-                  onSpecChange={setSpec}
-                  idPrefix={instanceId}
-                  layout="rail"
-                />
-              </aside>
-            ) : null}
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <AnalysisPreview
-                source={selectedSource}
-                spec={spec}
-                sources={sources}
-                selectedViewId={selectedViewId}
-                views={views}
-                datasetQuery={datasetQuery}
-                materialised={analysisMaterialised}
-                facets={
-                  analysisFacets.panels.length > 0 ? analysisFacets : null
-                }
-                selection={chartSelection}
-                onSelectionChange={setChartSelection}
-                sourceStatus={sourceStatusQuery.data ?? null}
-                sourceStatusError={
-                  sourceStatusQuery.error
-                    ? String(sourceStatusQuery.error)
-                    : null
-                }
-                resolving={resolveMutation.isPending}
-                onResolve={(resolution) => resolveMutation.mutate(resolution)}
-              />
-            </div>
-          </div>
         ) : (
-          <div className="min-h-0 flex-1 p-3">
-            <EmptyAnalysisState
-              loading={summariesQuery.isLoading}
-              error={summariesQuery.error}
-            />
-          </div>
+          <ChartModeSection studio={studio} />
         )}
       </div>
-      {inspector ? (
-        <InspectorPanel
-          label={t('data.analysisStudio.chartSettings')}
-          open={inspectorOpen}
-          onOpenChange={setInspectorOpen}
-          className="w-[340px] gap-0 p-0"
-        >
-          <div className="flex flex-col gap-5 overflow-auto p-4">
-            {inspector}
-          </div>
-        </InspectorPanel>
-      ) : null}
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null)
-        }}
-      >
-        <ConfirmDialogContent>
-          <ConfirmDialogHeader>
-            <ConfirmDialogTitle>
-              {t('data.analysisStudio.deleteAnalysisView')}
-            </ConfirmDialogTitle>
-            <ConfirmDialogDescription>
-              {deleteTarget
-                ? t('data.analysisStudio.vRemovedEveryoneWorkspace', {
-                    name: deleteTarget.name,
-                    version: deleteTarget.version,
-                  })
-                : ''}
-            </ConfirmDialogDescription>
-          </ConfirmDialogHeader>
-          <ConfirmDialogFooter>
-            <ConfirmDialogCancel>
-              {t('common.actions.cancel')}
-            </ConfirmDialogCancel>
-            <ConfirmDialogAction
-              variant="danger-fill"
-              disabled={deleteMutation.isPending}
-              onClick={() => {
-                if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
-              }}
-            >
-              {deleteMutation.isPending
-                ? t('data.analysisStudio.deleting')
-                : t('common.actions.delete')}
-            </ConfirmDialogAction>
-          </ConfirmDialogFooter>
-        </ConfirmDialogContent>
-      </ConfirmDialog>
+      <StudioInspector studio={studio} />
+      <DeleteAnalysisViewDialog
+        target={studio.deleteTarget}
+        deleting={studio.deleteMutation.isPending}
+        onDismiss={() => studio.setDeleteTarget(null)}
+        onDelete={(id) => studio.deleteMutation.mutate(id)}
+      />
     </div>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Header + dataset selector
-// ---------------------------------------------------------------------------
+/** What the studio's own hook returns: the state every section reads. */
+type AnalysisStudioState = ReturnType<typeof useAnalysisStudio>
 
-interface AnalysisStudioHeaderProps {
-  datasets: CanonicalDatasetWire[]
-  loading: boolean
-  error: unknown
-  selectedDatasetId: string | null
-  onSelect: (id: string) => void
-  /** The page that opened the studio, when it asked to be returned to. */
-  returnTo?: string
-}
+/**
+ * The Chart builder body: the encodings rail beside the live preview, or the
+ * empty state until a dataset with a spec is chosen.
+ */
+function ChartModeSection({ studio }: { studio: AnalysisStudioState }) {
+  const { selectedSource, spec } = studio
 
-export function AnalysisStudioHeader({
-  datasets,
-  loading,
-  error,
-  selectedDatasetId,
-  onSelect,
-  returnTo,
-}: AnalysisStudioHeaderProps) {
-  const id = useId()
+  if (!selectedSource || !spec) {
+    return (
+      <div className="min-h-0 flex-1 p-3">
+        <EmptyAnalysisState
+          loading={studio.summariesQuery.isLoading}
+          error={studio.summariesQuery.error}
+        />
+      </div>
+    )
+  }
 
   return (
-    <header
-      // No `shrink-0`: the header is a flex item in the studio's toolbar, and
-      // refusing to shrink held it at its max-content width, so at 400 % zoom
-      // the data-source select was pushed past the column and clipped by the
-      // pane's `overflow-hidden` with nothing able to scroll to it. It shrinks
-      // and wraps instead (QA4-zoom-studio).
-      className="flex flex-wrap items-center justify-between gap-3"
-      aria-labelledby={`${id}-title`}
+    <div className="flex min-h-0 flex-1 overflow-hidden">
+      {studio.configOpen ? (
+        <aside
+          id={studio.chartConfigId}
+          data-analysis-chart-config
+          className="flex w-56 shrink-0 flex-col overflow-y-auto border-r"
+        >
+          <ChartConfigurator
+            source={selectedSource}
+            spec={spec}
+            onSpecChange={studio.setSpec}
+            idPrefix={studio.instanceId}
+            layout="rail"
+          />
+        </aside>
+      ) : null}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <AnalysisPreview
+          source={selectedSource}
+          spec={spec}
+          sources={studio.sources}
+          selectedViewId={studio.selectedViewId}
+          views={studio.views}
+          datasetQuery={studio.datasetQuery}
+          materialised={studio.analysisMaterialised}
+          facets={
+            studio.analysisFacets.panels.length > 0
+              ? studio.analysisFacets
+              : null
+          }
+          selection={studio.chartSelection}
+          onSelectionChange={studio.setChartSelection}
+          sourceStatus={studio.sourceStatusQuery.data ?? null}
+          sourceStatusError={
+            studio.sourceStatusQuery.error
+              ? String(studio.sourceStatusQuery.error)
+              : null
+          }
+          resolving={studio.resolveMutation.isPending}
+          onResolve={(resolution) => studio.resolveMutation.mutate(resolution)}
+        />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * The chart-settings inspector beside the studio, and its narrow-screen
+ * dialog: the same `AnalysisInspector` content either way, drawn only while a
+ * source and a chart spec are selected.
+ */
+function StudioInspector({ studio }: { studio: AnalysisStudioState }) {
+  const { selectedSource, spec } = studio
+
+  if (!selectedSource || !spec) return null
+
+  return (
+    <InspectorPanel
+      label={t('data.analysisStudio.chartSettings')}
+      open={studio.inspectorOpen}
+      onOpenChange={studio.setInspectorOpen}
+      className="w-[340px] gap-0 p-0"
     >
-      <div className="flex min-w-0 items-center gap-2">
-        <h1 id={`${id}-title`} className="text-title">
-          {t('data.analysisStudio.analysisStudio')}
-        </h1>
-        {returnTo ? (
-          <Button
-            size="sm"
-            variant="quiet"
-            nativeButton={false}
-            render={<Link to={returnTo} />}
-          >
-            {returnLabel(returnTo)}
-          </Button>
-        ) : null}
+      <div className="flex flex-col gap-5 overflow-auto p-4">
+        <AnalysisInspector
+          chartRoot={studio.chartRoot}
+          source={selectedSource}
+          spec={spec}
+          mode={studio.mode}
+          onSpecChange={studio.setSpec}
+          views={studio.views}
+          selectedViewId={studio.selectedViewId}
+          viewName={studio.viewName}
+          onViewNameChange={studio.setViewName}
+          onLoad={studio.loadView}
+          onSave={(asNew) => studio.saveMutation.mutate({ asNew })}
+          onDelete={(view) => studio.setDeleteTarget(view)}
+          saving={studio.saveMutation.isPending}
+          exportSettings={studio.exportSettings}
+          onExportSettingsChange={studio.setExportSettings}
+          sources={studio.sources}
+          user={studio.user}
+          workspaceId={studio.workspaceId}
+          materialised={studio.analysisMaterialised}
+          selection={studio.chartSelection}
+          citations={studio.citationsQuery.data ?? []}
+          citationsLoading={studio.citationsQuery.isLoading}
+          citationsError={
+            studio.citationsQuery.error
+              ? String(studio.citationsQuery.error)
+              : null
+          }
+          sourceStatus={studio.sourceStatusQuery.data ?? null}
+          experimentId={studio.search.experiment}
+        />
       </div>
-      <div className="flex items-center gap-2">
-        {error ? (
-          <Badge variant="del">
-            {t('data.analysisStudio.couldLoadDatasets')}
-          </Badge>
-        ) : loading ? (
-          <Skeleton className="h-7 w-48" />
-        ) : datasets.length === 0 ? (
-          <Badge variant="kind">{t('data.analysisStudio.noDatasets')}</Badge>
-        ) : (
-          <div className="flex items-center gap-2">
-            <label className="sr-only" htmlFor={`${id}-source`}>
-              {t('data.analysisStudio.dataSource')}
-            </label>
-            <PickerSelect
-              noun="dataset"
-              id={`${id}-source`}
-              aria-label={t('data.analysisStudio.ariaSelectDataSource')}
-              value={selectedDatasetId ?? ''}
-              onChange={(next) => onSelect(next)}
-              size="sm"
-              className="w-64 bg-surface"
-              options={datasets.map((d) =>
-                datasetOption({
-                  id: d.id,
-                  name: d.name,
-                  model: d.dataset_schema?.slug,
-                }),
-              )}
-            />
-          </div>
-        )}
-      </div>
-    </header>
+    </InspectorPanel>
   )
 }
 
@@ -1825,16 +1298,6 @@ interface ExportPanelProps {
  * The studio edits one chart. Saving over an existing analysis keeps the
  * charts after the first that the analysis page added.
  */
-function chartsToSave(
-  views: readonly AnalysisViewWire[],
-  viewId: string | null,
-  spec: ChartSpec,
-): ChartSpec[] {
-  const existing = viewId ? views.find((v) => v.id === viewId) : undefined
-
-  return [spec, ...(existing?.charts.slice(1) ?? [])]
-}
-
 export function ExportPanel({
   chartRoot,
   spec,
@@ -2589,67 +2052,6 @@ export function DataTableAlternative({
 // ---------------------------------------------------------------------------
 // Empty state
 // ---------------------------------------------------------------------------
-
-function missingDatasetChart() {
-  return {
-    state: { kind: 'missing_dataset' as const },
-    columns: [],
-    rows: [],
-    series: [],
-    xLabel: 'x',
-    yLabel: 'y',
-    xUnit: undefined,
-    yUnit: undefined,
-    droppedPoints: 0,
-  }
-}
-
-export function EmptyAnalysisState({
-  loading,
-  error,
-}: {
-  loading: boolean
-  error: unknown
-}) {
-  if (error) {
-    return (
-      <div
-        role="alert"
-        className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-danger-border bg-danger-wash p-8 text-center text-sm text-danger-text"
-      >
-        {t('data.analysisStudio.couldLoadDatasetsCheck')}
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border bg-surface p-10 text-center">
-      {loading ? (
-        <Skeleton className="h-8 w-48" />
-      ) : (
-        <>
-          <Icon
-            name="database"
-            size={32}
-            className="text-fg-muted"
-            aria-hidden="true"
-          />
-          <p className="max-w-md text-sm text-fg-muted">
-            {t('data.analysisStudio.createDatasetFirstThen')}
-          </p>
-          <Button
-            render={<Link to="/datasets" search={{ dataset: '' }} />}
-            nativeButton={false}
-            variant="secondary"
-            size="sm"
-          >
-            {t('data.analysisStudio.openDatasets')}
-          </Button>
-        </>
-      )}
-    </div>
-  )
-}
 
 export { CHART_PALETTE, CHART_SPEC_VERSION }
 

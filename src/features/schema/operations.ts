@@ -1256,6 +1256,22 @@ export const SCHEMA_OPERATIONS = defineOperations([
     scope: 'sheets:read',
     inputs: [INSTANCE_ID],
   },
+  {
+    name: 'sheet_cell_history',
+    label: 'What changed in a sheet',
+    summary: 'Changes to the cells of a sheet',
+    description:
+      'Lists the changes to a sheet’s cells, newest first: who, when, the value before and after, and the reason when one was given. Covers the sheet’s own columns and the dataset columns it shows.',
+    kind: 'read',
+    scope: 'sheets:read',
+    inputs: [
+      INSTANCE_ID,
+      note(
+        input('p_limit', 'int', false),
+        'At most this many changes. Default 200, at most 500.',
+      ),
+    ],
+  },
 
   // -- Notebook templates -------------------------------------------------------
   {

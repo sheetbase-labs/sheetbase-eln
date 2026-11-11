@@ -999,6 +999,21 @@ Scope: `sheets:read`. Returns `json`.
 | --------------- | ---- | -------- | --------------------------------- |
 | `p_instance_id` | uuid | yes      | The sheet (`sheet_instances.id`). |
 
+### `sheet_cell_history`
+
+Changes to the cells of a sheet
+
+Lists the changes to a sheet’s cells, newest first: who, when, the value before and after, and the reason when one was given. Covers the sheet’s own columns and the dataset columns it shows.
+
+Scope: `sheets:read`. Returns `json`.
+
+| Parameter       | Type | Required | Notes                                                |
+| --------------- | ---- | -------- | ---------------------------------------------------- |
+| `p_instance_id` | uuid | yes      | The sheet (`sheet_instances.id`).                    |
+| `p_limit`       | int  | no       | At most this many changes. Default 200, at most 500. |
+
+Each change is `{ at, actorUserId, source, rowKey, fieldId, datasetId, datasetRowId, before, after, beforeKnown, reason }`. `source` is `sheet` for the sheet’s own columns (addressed by `rowKey`) or `dataset` for a dataset column (addressed by `datasetId`, `datasetRowId` and the dataset field). `beforeKnown` is false for the first change after a sheet was made with values in it.
+
 ### `create_notebook_template`
 
 Add a notebook template

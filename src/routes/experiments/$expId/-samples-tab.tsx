@@ -29,6 +29,7 @@ import { useUserNames } from '#/lib/user-names'
 import { useExperimentLinks } from '../$expId'
 import type { JsonValue } from '#/lib/workspace-admin'
 import { t } from '#/copy'
+import { useListView } from '#/lib/list-views'
 
 interface SampleWire {
   id: string
@@ -292,15 +293,6 @@ function SampleInspector({
   )
 }
 
-type SortKey = 'id' | 'created'
-
-const SORT_KEYS = ['id', 'created'] as const
-
-/** The sort a chosen option names; anything else sorts by identifier. */
-function sortKeyOf(optionValue: string): SortKey {
-  return SORT_KEYS.find((key) => key === optionValue) ?? 'id'
-}
-
 /** The "Type" row of the inspector's property list. */
 function typeItem(type: string): [string, string] {
   return [t('projects.expSamples.type'), type]
@@ -334,7 +326,8 @@ export function ExperimentSamples({ expId }: { expId: string }) {
   )
 
   const [status, setStatus] = useState('all')
-  const [sort, setSort] = useState<SortKey>('id')
+  // Sorted by identifier until a column header says otherwise.
+  const view = useListView('experiment-samples')
   const [picked, setPicked] = useState<string | null>(null)
   const [printOpen, setPrintOpen] = useState(false)
   const statuses = [...new Set(all.map((r) => statusOf(r).label))]
@@ -344,12 +337,8 @@ export function ExperimentSamples({ expId }: { expId: string }) {
       (samples.data ?? [])
         .filter((r) => status === 'all' || statusOf(r).label === status)
         .filter((r) => showsForPart(partOfSample.get(r.id), partFilter))
-        .sort((a, b) =>
-          sort === 'created'
-            ? a.created_at.localeCompare(b.created_at)
-            : a.identifier.localeCompare(b.identifier),
-        ),
-    [samples.data, status, sort, partFilter, partOfSample],
+        .sort((a, b) => a.identifier.localeCompare(b.identifier)),
+    [samples.data, status, partFilter, partOfSample],
   )
 
   const selectedId = picked ?? rows.at(0)?.id ?? null
@@ -495,19 +484,6 @@ export function ExperimentSamples({ expId }: { expId: string }) {
               value={partFilter}
               onChange={setPartFilter}
             />
-            <label className="flex items-center gap-1.5">
-              {t('projects.expSamples.sort')}
-              <Select
-                size="sm"
-                value={sort}
-                onChange={(e) => setSort(sortKeyOf(e.target.value))}
-              >
-                <option value="id">{t('projects.expSamples.id')}</option>
-                <option value="created">
-                  {t('projects.expSamples.created')}
-                </option>
-              </Select>
-            </label>
           </div>
           {all.length ? (
             <TableBox>
@@ -518,6 +494,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
                 getRowId={(s) => s.id}
                 rowSelection={rowSelection}
                 onRowSelectionChange={onRowSelectionChange}
+                view={view}
                 isLoading={samples.isLoading}
               />
             </TableBox>

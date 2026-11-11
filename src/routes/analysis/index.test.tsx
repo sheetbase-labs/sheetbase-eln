@@ -144,6 +144,13 @@ vi.mock('#/components/ui/dropdown-menu', () => ({
   DropdownMenuItem: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
+  DropdownMenuGroup: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuLabel: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuSeparator: () => null,
 }))
 
 const DEFAULT_VIEWS = [...mocks.views]

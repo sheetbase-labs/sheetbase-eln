@@ -2263,7 +2263,6 @@ export const projects = {
     print: 'Print labels',
     register: 'Register sample',
     all: 'All',
-    sort: 'Sort',
     count: { one: '{count} sample', other: '{count} samples' },
     volumesNote: ' · Volumes are current, after withdrawals',
     printScope: {

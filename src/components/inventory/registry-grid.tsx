@@ -39,6 +39,7 @@ import {
 } from 'react'
 import { Icon } from '#/components/icons'
 import { ListViewMenu } from './list-view-menu'
+import { useLocalListView } from '#/lib/list-views'
 import type { ListView } from '#/lib/list-views'
 import type { CSSProperties, ReactNode, RefObject } from 'react'
 import { isFunction, useTable } from '@tanstack/react-table'
@@ -214,6 +215,19 @@ export interface RegistryGridProps<T extends RowData> {
  * and a header that is a button. A column with no value to sort (a menu, a row
  * of buttons) does not sort, and its header stays as the screen wrote it.
  */
+/**
+ * A list with no remembered view still sorts, chooses columns and exports; the
+ * choice then lasts the visit. A route that owns the order keeps it.
+ */
+function useGridView(
+  remembered: ListView | undefined,
+  allowed: boolean,
+): ListView | undefined {
+  const visit = useLocalListView()
+
+  return remembered ?? (allowed ? visit : undefined)
+}
+
 function sortingFor<T extends RowData>(
   column: RegistryColumn<T>,
   sortable: boolean,
@@ -264,7 +278,7 @@ export function RegistryGrid<T extends RowData>({
   className,
   sorting: sortingProp,
   onSortingChange: onSortingChangeProp,
-  view,
+  view: viewProp,
   sortable: sortableProp = true,
   exportName,
   rowHeight = 33,
@@ -272,6 +286,8 @@ export function RegistryGrid<T extends RowData>({
   rowLabel,
   isLoading = false,
 }: RegistryGridProps<T>) {
+  const view = useGridView(viewProp, sortingProp === undefined && sortableProp)
+
   const sorting = sortingProp ?? view?.sorting
 
   const onSortingChange: OnChangeFn<SortingState> | undefined =
@@ -357,9 +373,11 @@ export function RegistryGrid<T extends RowData>({
             size: 44,
             minSize: 44,
             maxSize: 44,
+            // On a phone the menu stays at the end without riding along: a
+            // column held in view on every row takes too much of the width.
             meta: {
-              headerClassName: 'w-11 text-right',
-              cellClassName: 'w-11',
+              headerClassName: 'w-11 text-right max-md:static! max-md:px-1',
+              cellClassName: 'w-11 max-md:static! max-md:px-1',
             },
             header: ({ table: instance }) => <RegistryMenu table={instance} />,
             cell: () => null,

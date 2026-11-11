@@ -604,7 +604,12 @@ function DataGridScrollArea({
             data-slot="scroll-area-viewport"
             className="size-full"
           >
-            <ScrollAreaPrimitive.Content data-slot="scroll-area-content">
+            {/* Room under the last row for the sideways scrollbar, which
+                otherwise sits over it. */}
+            <ScrollAreaPrimitive.Content
+              data-slot="scroll-area-content"
+              className="in-data-has-overflow-x:pb-[calc(var(--data-grid-scrollbar-size,0.625rem)+2px)]"
+            >
               {children}
             </ScrollAreaPrimitive.Content>
           </ScrollAreaPrimitive.Viewport>

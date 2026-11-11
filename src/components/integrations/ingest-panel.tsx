@@ -566,12 +566,15 @@ function MappingPreview({
           <p className="mb-1 mt-3 text-body font-medium">
             {t('settings.integrations.ingestPanel.preview')}
           </p>
-          <PreviewGrid
-            label={t('settings.integrations.ingestPanel.mappingPreviewAria')}
-            columns={Object.keys(previewRows[0].values)}
-            rows={previewRows.map((row) => row.values)}
-            rowKeys={previewRows.map((row) => row.rowId)}
-          />
+          <div className="overflow-hidden rounded-md border">
+            <PreviewGrid
+              label={t('settings.integrations.ingestPanel.mappingPreviewAria')}
+              columns={Object.keys(previewRows[0].values)}
+              rows={previewRows.map((row) => row.values)}
+              rowKeys={previewRows.map((row) => row.rowId)}
+              maxHeight={360}
+            />
+          </div>
         </>
       )}
     </div>

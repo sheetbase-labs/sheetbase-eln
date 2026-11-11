@@ -258,11 +258,16 @@ function PreviewTable({ preview }: { preview: PreviewResult }) {
   if (preview.columns.length === 0) return null
 
   return (
-    <PreviewGrid
-      label={t('settings.integrations.enterpriseSourcePanel.sourcePreviewAria')}
-      columns={preview.columns}
-      rows={preview.rows}
-    />
+    <div className="overflow-hidden rounded-md border">
+      <PreviewGrid
+        label={t(
+          'settings.integrations.enterpriseSourcePanel.sourcePreviewAria',
+        )}
+        columns={preview.columns}
+        rows={preview.rows}
+        maxHeight={360}
+      />
+    </div>
   )
 }
 

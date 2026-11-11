@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { SampleLabelCard } from '#/components/samples/sample-label-card'
 import { Button } from '#/components/ui/button'
 import { CheckRow, SettingsBody } from '#/components/settings/settings-page'
@@ -10,15 +12,7 @@ import { Muted } from '#/components/ui/layout'
 import { Notice } from '#/components/ui/alert'
 import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
 import { toast } from '#/components/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
@@ -124,6 +118,51 @@ export function LabelTemplatesPanel({
       ? BARCODE_TYPE_LABELS[type]
       : (pluginCodeTitles.get(type) ?? type.split('.').at(-1) ?? type)
 
+  const columns: RegistryColumn<LabelTemplate>[] = [
+    {
+      id: 'template',
+      header: t('settings.labelTemplatesPanel.template'),
+      accessorFn: (template) => template.name,
+      cell: ({ row }) => (
+        <>
+          <span className="font-medium text-fg">{row.original.name}</span>
+          {row.original.isDefault ? (
+            <span className="ml-2 text-label text-fg-muted">
+              {t('settings.labelTemplatesPanel.default')}
+            </span>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: 'size',
+      header: t('settings.labelTemplatesPanel.size'),
+      accessorFn: (template) => template.widthMm * template.heightMm,
+      cell: ({ row }) => (
+        <span className="num">
+          {row.original.widthMm} × {row.original.heightMm} mm
+        </span>
+      ),
+    },
+    {
+      id: 'code',
+      header: t('settings.labelTemplatesPanel.code'),
+      accessorFn: (template) => barcodeLabel(template.barcodeType),
+    },
+    {
+      id: 'status',
+      header: t('settings.labelTemplatesPanel.status'),
+      accessorFn: (template) => (template.archivedAt ? 'Archived' : 'Use'),
+      cell: ({ row }) => (
+        <Status tone={row.original.archivedAt ? 'draft' : 'ok'}>
+          {row.original.archivedAt
+            ? 'Archived'
+            : t('settings.labelTemplatesPanel.use')}
+        </Status>
+      ),
+    },
+  ]
+
   const current =
     editing && editing !== 'new'
       ? (list.find((tpl) => tpl.id === editing) ?? null)
@@ -149,59 +188,14 @@ export function LabelTemplatesPanel({
           />
         ) : (
           <TableBox>
-            <Table caption={t('settings.labelTemplatesPanel.labelTemplates')}>
-              <TableHeader>
-                <tr>
-                  {[
-                    t('settings.labelTemplatesPanel.template'),
-                    t('settings.labelTemplatesPanel.size'),
-                    t('settings.labelTemplatesPanel.code'),
-                    t('settings.labelTemplatesPanel.status'),
-                  ].map((label) => (
-                    <TableHead key={label}>{label}</TableHead>
-                  ))}
-                </tr>
-              </TableHeader>
-              <TableBody>
-                {list.map((template) => (
-                  <TableRow
-                    key={template.id}
-                    selected={template.id === editing}
-                    className="cursor-pointer"
-                    tabIndex={0}
-                    onClick={() => setEditing(template.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        setEditing(template.id)
-                      }
-                    }}
-                  >
-                    <TableCell>
-                      <span className="font-medium text-fg">
-                        {template.name}
-                      </span>
-                      {template.isDefault ? (
-                        <span className="ml-2 text-label text-fg-muted">
-                          {t('settings.labelTemplatesPanel.default')}
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="num">
-                      {template.widthMm} × {template.heightMm} mm
-                    </TableCell>
-                    <TableCell>{barcodeLabel(template.barcodeType)}</TableCell>
-                    <TableCell>
-                      <Status tone={template.archivedAt ? 'draft' : 'ok'}>
-                        {template.archivedAt
-                          ? 'Archived'
-                          : t('settings.labelTemplatesPanel.use')}
-                      </Status>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label={t('settings.labelTemplatesPanel.labelTemplates')}
+              rows={list}
+              columns={columns}
+              getRowId={(template) => template.id}
+              rowSelection={editing ? { [editing]: true } : {}}
+              onRowClick={(template) => setEditing(template.id)}
+            />
           </TableBox>
         )}
       </SettingsBody>

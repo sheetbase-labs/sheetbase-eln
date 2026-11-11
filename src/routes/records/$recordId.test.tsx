@@ -1469,7 +1469,7 @@ describe('Sheet provenance — route-level navigation (NAV-02)', () => {
         }}
       />,
     )
-    expect(screen.getByRole('link').textContent).toBe(datasetId)
+    expect(screen.getByRole('link').textContent).toBe('Open dataset')
     const last = linkCalls.calls[linkCalls.calls.length - 1]
     expect(last.to).toBe('/datasets')
     // Stable ID only: the explorer resolves the Dataset's lifecycle itself

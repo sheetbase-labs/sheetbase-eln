@@ -135,7 +135,9 @@ describe('BlockPreview table (canonical string-array payload)', () => {
     )
 
     const before = screen.getAllByRole('row')
-    expect(screen.getAllByRole('columnheader')).toHaveLength(2)
+    expect(
+      screen.getAllByRole('columnheader', { name: 'Recovery' }),
+    ).toHaveLength(2)
     expect(screen.getAllByText('5.75')).toHaveLength(2)
     view.rerender(
       <BlockPreview
@@ -184,7 +186,8 @@ describe('BlockPreview table (canonical string-array payload)', () => {
       />,
     )
 
-    const cells = container.querySelectorAll('tbody td')
+    // The grid's last cell holds its columns-and-export menu, not a value.
+    const cells = [...container.querySelectorAll('tbody td')].slice(0, -1)
     expect(cells).toHaveLength(2)
     expect(cells[0].textContent).toBe('')
     expect(cells[1].textContent).toBe('x')

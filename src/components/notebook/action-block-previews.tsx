@@ -9,15 +9,9 @@ import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { cn } from '#/lib/utils'
 import {
   CORRECTIVE_ACTION_STATUS_LABEL,
@@ -138,50 +132,71 @@ export function CorrectiveActionsPreview({
   const summary = correctiveActionsSummary(payload)
   const rows = payload.items
 
+  const columns: RegistryColumn<(typeof rows)[number]>[] = [
+    {
+      id: 'id',
+      header: t('notebook.actionBlockPreviews.id'),
+      accessorFn: (item) => item.id,
+      cell: ({ row }) => <span className="mono">{row.original.id}</span>,
+    },
+    {
+      id: 'action',
+      header: t('notebook.actionBlockPreviews.action'),
+      accessorFn: (item) => item.action,
+      cell: ({ row }) => (
+        <span
+          className="block max-w-[44ch] truncate"
+          title={row.original.action}
+        >
+          {row.original.action}
+        </span>
+      ),
+    },
+    {
+      id: 'owner',
+      header: t('notebook.actionBlockPreviews.owner'),
+      accessorFn: (item) => correctiveActionOwner(item).label,
+      cell: ({ row }) => {
+        const owner = correctiveActionOwner(row.original)
+
+        return (
+          <span className={cn(owner.missing && 'text-warning-text')}>
+            {owner.label}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'due',
+      header: t('notebook.actionBlockPreviews.due'),
+      accessorFn: (item) => item.due ?? '',
+      cell: ({ row }) => row.original.due ?? '—',
+    },
+    {
+      id: 'status',
+      header: t('notebook.actionBlockPreviews.status'),
+      accessorFn: (item) => CORRECTIVE_ACTION_STATUS_LABEL[item.status],
+      cell: ({ row }) => (
+        <Status tone={CORRECTIVE_STATUS_TONE[row.original.status]}>
+          {CORRECTIVE_ACTION_STATUS_LABEL[row.original.status]}
+        </Status>
+      ),
+    },
+  ]
+
   return (
     <div
       data-testid="corrective-actions-block"
       data-open-actions={summary.open}
     >
       <TableBox className="max-md:hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="first:pl-3">
-                {t('notebook.actionBlockPreviews.id')}
-              </TableHead>
-              <TableHead>{t('notebook.actionBlockPreviews.action')}</TableHead>
-              <TableHead>{t('notebook.actionBlockPreviews.owner')}</TableHead>
-              <TableHead>{t('notebook.actionBlockPreviews.due')}</TableHead>
-              <TableHead>{t('notebook.actionBlockPreviews.status')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((item) => {
-              const owner = correctiveActionOwner(item)
-
-              return (
-                <TableRow key={item.id} data-action-id={item.id}>
-                  <TableCell className="mono first:pl-3">{item.id}</TableCell>
-                  <TableCell className="h-auto whitespace-normal py-1.5 leading-[18px]">
-                    {item.action}
-                  </TableCell>
-                  <TableCell
-                    className={cn(owner.missing && 'text-warning-text')}
-                  >
-                    {owner.label}
-                  </TableCell>
-                  <TableCell>{item.due ?? '—'}</TableCell>
-                  <TableCell>
-                    <Status tone={CORRECTIVE_STATUS_TONE[item.status]}>
-                      {CORRECTIVE_ACTION_STATUS_LABEL[item.status]}
-                    </Status>
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('notebook.actionBlockPreviews.tableLabel')}
+          rows={rows}
+          columns={columns}
+          getRowId={(item) => item.id}
+          selectable={false}
+        />
       </TableBox>
       <ul className="-mx-4 m-0 list-none border-y border-border-subtle p-0 md:hidden">
         {rows.map((item) => {

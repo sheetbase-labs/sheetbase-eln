@@ -51,15 +51,9 @@ import { isSequenceFileName } from '#/lib/sequence'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { Button } from '#/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { StepTimerControl } from './step-timer'
 import { PluginFilePreview } from '#/components/plugins/plugin-file-preview'
 import { OfficeFileBlock } from './office-preview/office-file-block'
@@ -932,39 +926,26 @@ function renderTable(payload: NotebookBlock['payload']): React.ReactNode {
 
   const rowEntries = readOnlyEntries(rows, (row) => JSON.stringify(row))
 
+  const gridColumns: RegistryColumn<(typeof rowEntries)[number]>[] =
+    columnEntries.map(({ key: columnKey, value: col }, j) => ({
+      id: columnKey,
+      header: col.label,
+      accessorFn: ({ value: row }) =>
+        formatCellValue(Array.isArray(row) ? row[j] : asObject(row)?.[col.key]),
+    }))
+
   // The shared table box scrolls sideways, so a table wider than a phone
   // screen can be swiped across instead of being cut off at the edge.
   return (
     <div>
       <TableBox data-testid="notebook-table-block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {columnEntries.map(({ key, value: col }) => (
-                <TableHead key={key} scope="col" className="first:pl-3">
-                  {col.label}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rowEntries.map(({ key, value: row }) => (
-              <TableRow key={key}>
-                {columnEntries.map(({ key: columnKey, value: col }, j) => {
-                  const cell = Array.isArray(row)
-                    ? row[j]
-                    : asObject(row)?.[col.key]
-
-                  return (
-                    <TableCell key={columnKey} className="first:pl-3">
-                      {formatCellValue(cell)}
-                    </TableCell>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('notebook.blockPreview.tableLabel')}
+          rows={rowEntries}
+          columns={gridColumns}
+          getRowId={(entry) => entry.key}
+          selectable={false}
+        />
       </TableBox>
       <p className="mt-1.5 text-xs text-fg-muted">
         {rows.length} {rows.length === 1 ? 'row' : 'rows'}

@@ -1,14 +1,8 @@
 import { useState } from 'react'
 
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Tabs } from '#/components/ui/tabs'
 import { t } from '#/copy'
 import type { PreviewSheet } from '#/lib/office-preview/sheets'
@@ -49,6 +43,30 @@ export function SheetView({
   const width = sheet.rows.reduce((n, row) => Math.max(n, row.length), 0)
   const shownColumns = Array.from({ length: width }, (_, i) => i)
 
+  const gridRows = sheet.rows.map((cells, index) => ({ index, cells }))
+
+  const gridColumns: RegistryColumn<(typeof gridRows)[number]>[] = [
+    {
+      id: 'row',
+      header: '#',
+      accessorFn: (row) => row.index + 1,
+      meta: {
+        headerClassName: 'text-right',
+        cellClassName: 'num text-right text-fg-muted',
+      },
+    },
+    ...shownColumns.map((c): RegistryColumn<(typeof gridRows)[number]> => ({
+      id: `col:${c}`,
+      header: columnLetter(c),
+      accessorFn: (row) => row.cells[c] ?? '',
+      cell: ({ row }) => (
+        <span className="block max-w-64 truncate">
+          {row.original.cells[c] ?? ''}
+        </span>
+      ),
+    })),
+  ]
+
   return (
     <div className="space-y-2">
       {sheets.length > 1 ? (
@@ -69,34 +87,13 @@ export function SheetView({
         <TableBox
           className={cn('overflow-y-auto', tall ? 'max-h-[70vh]' : 'max-h-80')}
         >
-          <Table caption={sheet.name}>
-            <TableHeader>
-              <tr>
-                <TableHead className="sticky top-0 w-10 text-right">
-                  <span className="sr-only">#</span>
-                </TableHead>
-                {shownColumns.map((i) => (
-                  <TableHead key={i} className="sticky top-0">
-                    {columnLetter(i)}
-                  </TableHead>
-                ))}
-              </tr>
-            </TableHeader>
-            <TableBody>
-              {sheet.rows.map((row, r) => (
-                <TableRow key={r}>
-                  <TableCell align="right" className="num text-fg-muted">
-                    {r + 1}
-                  </TableCell>
-                  {shownColumns.map((c) => (
-                    <TableCell key={c} className="max-w-64 truncate">
-                      {row[c] ?? ''}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label={sheet.name}
+            rows={gridRows}
+            columns={gridColumns}
+            getRowId={(row) => String(row.index)}
+            selectable={false}
+          />
         </TableBox>
       )}
       {sheet.totalRows > sheet.rows.length ? (

@@ -7,7 +7,7 @@ import {
   benchRangeBreach,
   benchReadOnlyReason,
   outOfRange,
-} from './sheet-bench-entry'
+} from './sheet-bench-fields'
 
 const field: FieldDefinition = {
   fieldId: 'f1',

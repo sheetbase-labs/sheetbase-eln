@@ -13,6 +13,12 @@ import { Input } from '#/components/ui/input'
 import { Kbd } from '#/components/ui/kbd'
 import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 import { cn } from '#/lib/utils'
+import {
+  benchInputText,
+  benchRange,
+  benchRangeBreach,
+  benchReadOnlyReason,
+} from './sheet-bench-fields'
 import type {
   SheetbaseGridCellValue,
   SheetbaseGridColumn,
@@ -22,79 +28,6 @@ export interface SheetBenchChange {
   columnId: string
   previous: SheetbaseGridCellValue
   next: string
-}
-
-/** Why a field can't be typed into here, in a scientist's words. */
-export function benchReadOnlyReason(
-  column: CanonicalSheetGridColumn,
-  canWrite: boolean,
-): string | null {
-  if (column.origin === 'calculation')
-    return t('notebook.sheetBench.calculated')
-
-  if (!canWrite) return t('notebook.sheetBench.viewOnly')
-
-  if (column.presentation.kind === 'record-picker')
-    return t('notebook.sheetBench.linkedRecord')
-
-  if (!column.editable) return t('notebook.sheetBench.fromDataset')
-
-  return null
-}
-
-/** The allowed range a field states, as text, or null when it states none. */
-export function benchRange(column: CanonicalSheetGridColumn): string | null {
-  const validation = column.field?.validation
-  const unit = column.field?.quantity?.storageUnit
-  const min = validation?.min
-  const max = validation?.max
-
-  if (min === undefined && max === undefined) return null
-
-  const suffix = unit ? ` ${unit}` : ''
-
-  if (min !== undefined && max !== undefined)
-    return t('notebook.sheetBench.rangeBetween', {
-      min,
-      max,
-      unit: suffix,
-    })
-
-  return min !== undefined
-    ? t('notebook.sheetBench.rangeAtLeast', { min, unit: suffix })
-    : t('notebook.sheetBench.rangeAtMost', { max: max ?? '', unit: suffix })
-}
-
-/** A typed value outside the field's range, explained; null when it fits. */
-export function benchRangeBreach(
-  column: CanonicalSheetGridColumn,
-  text: string,
-): string | null {
-  const range = benchRange(column)
-
-  if (!range || text.trim() === '') return null
-  const value = Number(text)
-
-  if (!Number.isFinite(value)) return null
-  const { min, max } = column.field?.validation ?? {}
-
-  if (min !== undefined && value < min)
-    return t('notebook.sheetBench.belowRange', { range })
-
-  if (max !== undefined && value > max)
-    return t('notebook.sheetBench.aboveRange', { range })
-
-  return null
-}
-
-/** A stored value outside its field's range: the grid shows it in danger text. */
-export function outOfRange(
-  column: CanonicalSheetGridColumn | undefined,
-  value: SheetbaseGridCellValue | undefined,
-): boolean {
-  if (!column) return false
-
-  return benchRangeBreach(column, inputText(value)) !== null
 }
 
 function cellText(
@@ -108,25 +41,6 @@ function cellText(
   if (shown !== undefined) return shown
 
   if (value instanceof Date) return value.toISOString()
-
-  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- A grid cell value is a closed union; typeof picks its member.
-  return typeof value === 'object' ? JSON.stringify(value) : String(value)
-}
-
-function inputText(value: SheetbaseGridCellValue | undefined): string {
-  if (value === null || value === undefined) return ''
-
-  if (value instanceof Date) return value.toISOString()
-
-  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- A grid cell value is a closed union; typeof picks its member.
-  if (typeof value === 'number') {
-    const size = Math.abs(value)
-
-    // Very large or small magnitudes read as e-notation, which Number() takes back.
-    return size !== 0 && (size >= 1e7 || size < 1e-4)
-      ? value.toExponential().replace('e+', 'e')
-      : String(value)
-  }
 
   // oxlint-disable-next-line anti-slop/no-runtime-typeof -- A grid cell value is a closed union; typeof picks its member.
   return typeof value === 'object' ? JSON.stringify(value) : String(value)
@@ -160,7 +74,7 @@ export function SheetBenchEntry({
   const isNew = rowIndex >= rowCount
 
   const initial = useMemo(
-    () => columns.map((_, index) => inputText(values[index])),
+    () => columns.map((_, index) => benchInputText(values[index])),
     [columns, values],
   )
 

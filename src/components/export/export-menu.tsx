@@ -17,6 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
+import { downloadExport } from './download-export'
 
 export interface ExportOption {
   format: string
@@ -40,26 +41,6 @@ interface ExportMenuProps {
   /** Optional extra entries such as evidence packages. */
   extraItems?: ExportOption[]
   label?: string
-}
-
-/**
- * Start a download from an export endpoint. Navigation triggers it through
- * content-disposition, so the page stays where it is.
- */
-export function downloadExport(
-  path: string,
-  format: string,
-  onDone?: () => void,
-): void {
-  const frame = document.createElement('iframe')
-  frame.style.display = 'none'
-  frame.src = `${path}?format=${encodeURIComponent(format)}`
-  frame.addEventListener('load', () => onDone?.())
-  document.body.appendChild(frame)
-  window.setTimeout(() => {
-    frame.remove()
-    onDone?.()
-  }, 30_000)
 }
 
 export function ExportMenu({

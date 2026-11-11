@@ -452,10 +452,12 @@ function SourceStatistics({ model }: { model: SourceComparisonModel }) {
     <StatGrid
       label={t('data.sourceComparison.ariaSourceSummary')}
       rows={[
-        ...([
-          ['A', nameA, statsA],
-          ['B', nameB, statsB],
-        ] as const).map(([side, name, stats]) => ({
+        ...(
+          [
+            ['A', nameA, statsA],
+            ['B', nameB, statsB],
+          ] as const
+        ).map(([side, name, stats]) => ({
           id: side,
           label: `${side} · ${name}`,
           n: stats ? String(stats.n) : '0',
@@ -483,14 +485,26 @@ function SourceStatistics({ model }: { model: SourceComparisonModel }) {
           text: true,
         },
         { id: 'n', header: 'n', value: (row) => row.n },
-        { id: 'min', header: t('data.sourceComparison.min'), value: (row) => row.min },
-        { id: 'mean', header: t('data.sourceComparison.mean'), value: (row) => row.mean },
+        {
+          id: 'min',
+          header: t('data.sourceComparison.min'),
+          value: (row) => row.min,
+        },
+        {
+          id: 'mean',
+          header: t('data.sourceComparison.mean'),
+          value: (row) => row.mean,
+        },
         {
           id: 'median',
           header: t('data.sourceComparison.median'),
           value: (row) => row.median,
         },
-        { id: 'max', header: t('data.sourceComparison.max'), value: (row) => row.max },
+        {
+          id: 'max',
+          header: t('data.sourceComparison.max'),
+          value: (row) => row.max,
+        },
       ]}
     />
   )

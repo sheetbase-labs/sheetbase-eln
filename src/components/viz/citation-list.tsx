@@ -137,4 +137,3 @@ export function CitationList({
 
   return <CitationGrid citations={citations} />
 }
-

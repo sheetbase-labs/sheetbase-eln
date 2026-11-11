@@ -181,7 +181,10 @@ type ChangeLine = {
 
 /** Every changed cell is a line; an added or removed row is one line of its values. */
 function changeLines(
-  changes: { change: PipelineReproductionWire['changes'][number]; key: string }[],
+  changes: {
+    change: PipelineReproductionWire['changes'][number]
+    key: string
+  }[],
 ): ChangeLine[] {
   return changes.flatMap(({ change, key }): ChangeLine[] =>
     change.kind === 'changed'
@@ -215,7 +218,10 @@ function changeLines(
 function ChangesGrid({
   changes,
 }: {
-  changes: { change: PipelineReproductionWire['changes'][number]; key: string }[]
+  changes: {
+    change: PipelineReproductionWire['changes'][number]
+    key: string
+  }[]
 }) {
   const lines = useMemo(() => changeLines(changes), [changes])
 

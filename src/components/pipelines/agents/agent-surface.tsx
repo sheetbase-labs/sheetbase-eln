@@ -671,7 +671,9 @@ function WorkflowsGrid({
         enableHiding: false,
         cell: ({ row }) => (
           <span
-            className={row.original.id === selectedId ? 'font-medium' : undefined}
+            className={
+              row.original.id === selectedId ? 'font-medium' : undefined
+            }
           >
             {row.original.goal}
           </span>
@@ -801,7 +803,9 @@ function PoliciesGrid({
         accessorFn: (p) =>
           z.coerce
             .string()
-            .parse(p.limits.maxAffectedRows ?? p.limits.max_affected_rows ?? '—'),
+            .parse(
+              p.limits.maxAffectedRows ?? p.limits.max_affected_rows ?? '—',
+            ),
         cell: ({ row }) =>
           z.coerce
             .string()

@@ -2663,8 +2663,7 @@ function ReviewRowsGrid({ review }: { review: ImportReviewResponse }) {
       },
       ...review.columns
         .filter((column) => column.fieldId)
-        .map(
-        (column): RegistryColumn<ReviewRow> => ({
+        .map((column): RegistryColumn<ReviewRow> => ({
           id: `source:${column.source}`,
           header: column.source,
           accessorFn: (row) => row.values[column.source] ?? '',
@@ -2673,8 +2672,7 @@ function ReviewRowsGrid({ review }: { review: ImportReviewResponse }) {
               {row.original.values[column.source] ?? '—'}
             </span>
           ),
-        }),
-      ),
+        })),
       {
         id: 'outcome',
         header: t('data.importFlow.outcome'),

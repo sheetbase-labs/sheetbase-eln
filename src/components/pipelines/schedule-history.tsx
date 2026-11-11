@@ -57,7 +57,9 @@ const ACTIVITY_LABELS: Record<
   start_failed: { label: t('data.scheduleHistory.couldStart'), tone: 'bad' },
 }
 
-type ScheduleRun = NonNullable<ReturnType<typeof useScheduleRuns>['data']>[number]
+type ScheduleRun = NonNullable<
+  ReturnType<typeof useScheduleRuns>['data']
+>[number]
 
 function ScheduleRunsGrid({ runs }: { runs: ScheduleRun[] }) {
   const columns = useMemo<RegistryColumn<ScheduleRun>[]>(

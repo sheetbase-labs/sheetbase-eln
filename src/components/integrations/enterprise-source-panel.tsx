@@ -802,7 +802,7 @@ function PostgresSourcePanel({
         {selectedTableDescriptor && (
           <div className="flex flex-col gap-3">
             <p className="m-0 text-label text-fg-muted">
-              {t('settings.integrations.enterpriseSourcePanel.columns')}
+              {t('settings.integrations.enterpriseSourcePanel.columns')}{' '}
               <span className="mono">
                 {selectedTableDescriptor.columns
                   .map((column) => column.name)

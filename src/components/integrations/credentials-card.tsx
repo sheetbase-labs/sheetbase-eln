@@ -86,7 +86,7 @@ export function ConnectorCredentialsCard({
       <p className="m-0 max-w-3xl text-body text-fg-muted">
         {t('settings.integrations.credentialsCard.sealedServerSide')}
         {missing.length > 0 ? (
-          <span className="text-danger-text">
+          <span className="ml-1 text-danger-text">
             {t('settings.integrations.credentialsCard.missingRequired', {
               missing: missing.join(', '),
             })}

@@ -1071,6 +1071,9 @@ export const data = {
     },
     environment: 'Python {python}',
   },
+  previewTable: {
+    resultPreview: 'Result preview',
+  },
   runDeliveries: {
     queued: 'Queued',
     retrying: 'Retrying',

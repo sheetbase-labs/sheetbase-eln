@@ -3174,6 +3174,32 @@ export const library = {
       applyingIsRecordedInThe:
         'Applying is recorded in the notebook’s history as a template update. Existing text, rows and signatures are never touched by a template update. Signed records can’t be updated; use an amendment.',
     },
+    addSheetColumn: {
+      button: 'Add column',
+      title: 'Add a column to {section}',
+      description:
+        'Adds a column people type into. This publishes a new version of the sheet and points this draft at it. Notebooks already made keep the version they were made from.',
+      name: 'Name',
+      type: 'Type',
+      unit: 'Unit',
+      unitHint: 'The unit values are stored in, such as bar or NTU.',
+      required: 'A value is required',
+      min: 'Lowest value',
+      max: 'Highest value',
+      types: {
+        text: 'Text',
+        integer: 'Whole number',
+        decimal: 'Number',
+        boolean: 'Yes or no',
+        date: 'Date',
+        timestamp: 'Date and time',
+      },
+      add: 'Add column',
+      adding: 'Adding…',
+      added: 'Added {name} to {section}',
+      failed: 'Could not add the column',
+      rangeBackwards: 'The lowest value is above the highest.',
+    },
     useTemplateDialog: {
       thatProjectIsArchivedSo:
         'That project is archived, so it can’t take a new notebook. Pick another project, or restore the project first.',

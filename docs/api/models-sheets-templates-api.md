@@ -147,6 +147,22 @@ The sheets as they were when a notebook revision was submitted for review: the s
 
 Scope: `reviews:read`. Columns: `id`, `workspace_id`, `revision_id`, `block_id`, `instance_id`, `source_definition_version_id`, `instance_revision`, `instance_state`, `dataset_versions`, `created_at`, `composed_grid`.
 
+## Recipe: add a column to a sheet in a draft template
+
+"Add column" on a template's sheet section is these four actions in order, so a
+token, the assistant, MCP or a pipeline can do the same thing the screen does:
+
+1. Read the sheet's pinned version (`sheet_definition_versions`) and its
+   definition (`sheet_definitions.revision`).
+2. `create_sheet_definition_version` with that configuration plus the new
+   column: a `declared` source, a stored field, and its id appended to
+   `presentation.columnOrder`.
+3. `publish_sheet_definition_version` (a template can only point at a
+   published version; needs `schema:publish`).
+4. `retarget_notebook_template_sheet_placement` on the draft template version.
+
+Notebooks already made from the template keep the version they were made from.
+
 ## Actions
 
 ### `create_model_record`

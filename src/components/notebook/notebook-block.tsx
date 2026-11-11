@@ -77,6 +77,9 @@ export interface NotebookBlockProps {
     onSelect?: () => void
     disabled?: boolean
     separatorAfter?: boolean
+    /** The action selects another block (an insert or a copy), so closing the
+     * menu must not hand focus, and with it the selection, back to this one. */
+    movesSelection?: boolean
   }[]
   /** Extra menu nodes (for example an Insert below submenu). */
   menuExtra?: React.ReactNode
@@ -301,8 +304,18 @@ function BlockActionsMenu({
   onOpenChange: (open: boolean) => void
   readOnly: boolean
 }) {
+  // Read when the close animation ends, which can be after the inserted block
+  // has already been selected.
+  const selectionMovedRef = React.useRef(false)
+
   return (
-    <DropdownMenu open={open} onOpenChange={onOpenChange}>
+    <DropdownMenu
+      open={open}
+      onOpenChange={(next) => {
+        if (next) selectionMovedRef.current = false
+        onOpenChange(next)
+      }}
+    >
       <DropdownMenuTrigger
         render={
           <IconButton
@@ -313,12 +326,18 @@ function BlockActionsMenu({
           />
         }
       />
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent
+        align="end"
+        finalFocus={() => !selectionMovedRef.current}
+      >
         {menuExtra}
         {menuItems?.map((item) => (
           <React.Fragment key={item.id}>
             <DropdownMenuItem
-              onClick={item.onSelect}
+              onClick={() => {
+                if (item.movesSelection) selectionMovedRef.current = true
+                item.onSelect?.()
+              }}
               disabled={item.disabled || readOnly}
             >
               {item.label}

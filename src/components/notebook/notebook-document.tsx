@@ -1654,6 +1654,7 @@ function NotebookDocumentBlockRow({
                   label: t('notebook.notebookDocument.insertTextBelowLabel'),
                   onSelect: () => void handleInsert('rich_text', block.id),
                   separatorAfter: true,
+                  movesSelection: true,
                 },
                 ...(canMove
                   ? [
@@ -1676,6 +1677,7 @@ function NotebookDocumentBlockRow({
                   id: 'duplicate',
                   label: t('common.actions.duplicate'),
                   onSelect: () => handleDuplicate(block),
+                  movesSelection: true,
                 },
                 {
                   id: 'delete',

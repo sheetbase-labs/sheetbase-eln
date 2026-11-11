@@ -1340,6 +1340,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
       ),
     ],
     result: 'row:notebook_template_versions',
+    assistant: { tool: 'sheetbase.template.add_sheet_column' },
     pipeline: {},
   },
   {

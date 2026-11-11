@@ -80,6 +80,11 @@ export const copy = {
       applying: 'Publishing…',
       applied: 'Template published',
     },
+    addTemplateSheetColumn: {
+      apply: 'Add column',
+      applying: 'Adding…',
+      applied: 'Column added',
+    },
     renameSheet: {
       apply: 'Rename sheet',
       applying: 'Renaming…',

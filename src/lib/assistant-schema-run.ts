@@ -138,6 +138,19 @@ export async function runSchemaAction(
       })
 
       return
+    case 'schema.template_add_sheet_column': {
+      const { addColumnToTemplateSheet } =
+        await import('./template-sheet-column')
+
+      await addColumnToTemplateSheet(
+        action.target,
+        action.configuration,
+        client,
+      )
+
+      return { openHref: `/templates/${action.templateId}` }
+    }
+
     case 'schema.sheet_rename':
       await client.rpc('rename_sheet_instance', {
         p_instance_id: action.instanceId,

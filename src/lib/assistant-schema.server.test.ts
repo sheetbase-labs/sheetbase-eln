@@ -11,6 +11,7 @@ import {
   SCHEMA_PROPOSE_TOOL_NAMES,
   SCHEMA_READ_TOOL_NAMES,
   SHEET_DEFINITION_RETIRE_TOOL,
+  TEMPLATE_ADD_SHEET_COLUMN_TOOL,
   isSchemaAction,
   keyFromName,
 } from './assistant-schema'
@@ -258,6 +259,149 @@ describe('record type, sheet definition and template assistant tools', () => {
     expect(draft.ok && draft.proposal.action).toEqual({
       kind: 'schema.model_version_publish',
       versionId: 'v2',
+    })
+  })
+
+  it('proposes a column for a template section, and not for a template without a draft', async () => {
+    const column = '00000000-0000-4000-8000-0000000000a1'
+    const placement = '00000000-0000-4000-8000-0000000000b1'
+    const pinned = '00000000-0000-4000-8000-0000000000c1'
+
+    const sheet = {
+      columns: [
+        {
+          id: column,
+          field: {
+            key: 'condition',
+            label: 'Condition',
+            fieldId: column,
+            category: null,
+            nullable: false,
+            quantity: null,
+            lifecycle: 'active',
+            validation: {},
+            cardinality: 'one',
+            computation: { mode: 'stored' },
+            description: null,
+            logicalType: 'reference',
+            defaultValue: null,
+            relationship: {
+              target: { kind: 'model', modelKey: 'material' },
+              cardinality: 'one',
+            },
+          },
+          source: { kind: 'declared' },
+        },
+      ],
+      joins: [],
+      actions: [],
+      bindings: [],
+      parameters: [],
+      rowIdentity: { kind: 'local', columnIds: [column] },
+      calculations: [],
+      presentation: {
+        sorts: [],
+        density: 'standard',
+        filters: [],
+        columnOrder: [column],
+        columnWidths: {},
+        hiddenColumnIds: [],
+        frozenColumnCount: 1,
+      },
+      formatVersion: 1,
+      writeBackRules: [],
+    }
+
+    const template = {
+      id: 't1',
+      key: 'run',
+      name: 'Run',
+      lifecycle: 'active',
+      revision: 1,
+    }
+
+    const tables = (lifecycle: string) => ({
+      notebook_templates: () => [template],
+      notebook_template_versions: (query: string) =>
+        query.includes('configuration')
+          ? [
+              {
+                id: 'v2',
+                revision: 3,
+                configuration: {
+                  formatVersion: 1,
+                  parameters: [],
+                  placements: [
+                    {
+                      id: placement,
+                      kind: 'sheet',
+                      order: 1,
+                      definitionVersionId: pinned,
+                      parameterMappings: [],
+                    },
+                  ],
+                },
+              },
+            ]
+          : [{ id: 'v2', version: 2, lifecycle, revision: 3 }],
+      sheet_definition_versions: () => [
+        { id: pinned, definition_id: 'd1', configuration: sheet },
+      ],
+      sheet_definitions: () => [{ id: 'd1', name: 'Growth', revision: 4 }],
+    })
+
+    const input = {
+      ...base,
+      template: 'Run',
+      section: 'Growth',
+      name: 'Max ΔP',
+      type: 'decimal',
+      unit: 'bar',
+    }
+
+    const built = await buildSchemaProposal(
+      TEMPLATE_ADD_SHEET_COLUMN_TOOL,
+      input,
+      context(tables('draft')),
+    )
+
+    expect(built.ok).toBe(true)
+
+    const action = built.ok ? built.proposal.action : undefined
+
+    expect(action).toMatchObject({
+      kind: 'schema.template_add_sheet_column',
+      templateId: 't1',
+      target: {
+        definitionId: 'd1',
+        definitionRevision: 4,
+        templateVersionId: 'v2',
+        templateRevision: 3,
+        placementId: placement,
+      },
+    })
+    expect(
+      action?.kind === 'schema.template_add_sheet_column' &&
+        action.configuration.columns.map((c) => c.field.label),
+    ).toEqual(['Condition', 'Max ΔP'])
+
+    const none = await buildSchemaProposal(
+      TEMPLATE_ADD_SHEET_COLUMN_TOOL,
+      input,
+      context(tables('published')),
+    )
+
+    expect(!none.ok && none.message).toContain('has no draft')
+
+    const twice = await buildSchemaProposal(
+      TEMPLATE_ADD_SHEET_COLUMN_TOOL,
+      { ...input, name: 'condition' },
+      context(tables('draft')),
+    )
+
+    expect(twice).toEqual({
+      ok: false,
+      message: 'A column with that name is already in the sheet.',
     })
   })
 

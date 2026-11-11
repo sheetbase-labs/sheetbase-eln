@@ -23,6 +23,8 @@ import {
   SHEET_DEFINITION_RESTORE_TOOL,
   SHEET_DEFINITION_RETIRE_TOOL,
   SHEET_RENAME_TOOL,
+  TEMPLATE_ADD_SHEET_COLUMN_TOOL,
+  proposeTemplateSheetColumnSchema,
   TEMPLATES_READ_TOOL,
   TEMPLATE_PUBLISH_TOOL,
   keyFromName,
@@ -53,6 +55,10 @@ import type { LabToolContext } from './assistant-lab-tools.server'
 import type { ProviderToolDef } from './ai-providers/types'
 import type { AssistantProposal, ProposalChange } from './assistant-proposals'
 import type { DataClient } from './data-client'
+import { parseNotebookTemplateConfiguration } from './notebook-template'
+import { parseSheetDefinitionConfiguration } from './sheet-definition'
+import type { SheetDefinitionConfiguration } from './sheet-definition'
+import { addSheetColumn } from './sheet-definition-add-column'
 import type {
   ModelRuleCondition,
   ModelRuleEffect,
@@ -196,6 +202,11 @@ export function schemaProposalDefs(): ProviderToolDef[] {
       TEMPLATE_PUBLISH_TOOL,
       `Propose publishing the draft version of a notebook template. Retiring a template version is signed, so it is for a person in the app. ${NOTE}`,
       proposeTemplatePublishSchema,
+    ),
+    toolDef(
+      TEMPLATE_ADD_SHEET_COLUMN_TOOL,
+      `Propose adding a column to a sheet section of a notebook template's draft. It makes and publishes a new version of the sheet and points the draft at it; notebooks already made keep their version. ${NOTE}`,
+      proposeTemplateSheetColumnSchema,
     ),
     toolDef(
       SHEET_RENAME_TOOL,
@@ -1290,6 +1301,151 @@ export async function buildSchemaProposal(
           versionId: draft.id,
           revision: draft.revision,
           reason: input.reason,
+        },
+      )
+    }
+
+    case TEMPLATE_ADD_SHEET_COLUMN_TOOL: {
+      const parsed = proposeTemplateSheetColumnSchema.safeParse(args)
+
+      if (!parsed.success) return bad(parsed.error)
+      const input = parsed.data
+
+      const t = await findDefinition(
+        client,
+        'notebook_templates',
+        input.template,
+      )
+
+      if (!t.ok) return fail(t.message)
+
+      const draft = draftOf(
+        await versionsOf(
+          client,
+          'notebook_template_versions',
+          'template_id',
+          t.value.id,
+        ),
+      )
+
+      if (!draft)
+        return fail(
+          `${t.value.name} has no draft. Start a draft of it in the app first.`,
+        )
+
+      const versionRows = await client.list<{
+        id: string
+        revision: number
+        configuration: unknown
+      }>(
+        'notebook_template_versions',
+        `?id=eq.${draft.id}&select=id,revision,configuration&limit=1`,
+      )
+
+      const placements = parseNotebookTemplateConfiguration(
+        versionRows[0]?.configuration,
+      ).placements.filter((p) => p.kind === 'sheet')
+
+      const pinned = placements.length
+        ? await client.list<{
+            id: string
+            definition_id: string
+            configuration: unknown
+          }>(
+            'sheet_definition_versions',
+            `?id=in.(${placements.map((p) => p.definitionVersionId).join(',')})&select=id,definition_id,configuration`,
+          )
+        : []
+
+      const definitions = pinned.length
+        ? await client.list<{ id: string; name: string; revision: number }>(
+            'sheet_definitions',
+            `?id=in.(${[...new Set(pinned.map((v) => v.definition_id))].join(',')})&select=id,name,revision`,
+          )
+        : []
+
+      const sections = placements.flatMap((placement) => {
+        const version = pinned.find(
+          (v) => v.id === placement.definitionVersionId,
+        )
+
+        const definition = definitions.find(
+          (d) => d.id === version?.definition_id,
+        )
+
+        return version && definition
+          ? [
+              {
+                placement,
+                version,
+                definition,
+                name: placement.title || definition.name,
+              },
+            ]
+          : []
+      })
+
+      const section = pick(
+        sections,
+        input.section,
+        'sheet section',
+        (row) => row.name,
+        (row) => same(row.name, input.section),
+      )
+
+      if (!section.ok) return fail(section.message)
+
+      let configuration: SheetDefinitionConfiguration
+
+      try {
+        configuration = addSheetColumn(
+          parseSheetDefinitionConfiguration(
+            section.value.version.configuration,
+          ),
+          {
+            label: input.name,
+            type: input.type,
+            unit: input.unit,
+            required: input.required ?? false,
+            min: input.min,
+            max: input.max,
+          },
+        )
+      } catch (error) {
+        return fail(error instanceof Error ? error.message : String(error))
+      }
+
+      const detail = [
+        input.type,
+        input.unit ? `in ${input.unit}` : null,
+        input.required ? 'required' : null,
+      ]
+        .filter(Boolean)
+        .join(', ')
+
+      return card(
+        name,
+        input,
+        `${t.value.name} · ${section.value.name}`,
+        `/templates/${t.value.id}`,
+        [
+          {
+            label: 'New column',
+            before: null,
+            after: `${input.name} (${detail})`,
+          },
+        ],
+        {
+          kind: 'schema.template_add_sheet_column',
+          templateId: t.value.id,
+          target: {
+            definitionId: section.value.definition.id,
+            definitionRevision: section.value.definition.revision,
+            templateVersionId: draft.id,
+            templateRevision: versionRows[0]?.revision ?? draft.revision,
+            placementId: section.value.placement.id,
+          },
+          configuration,
         },
       )
     }

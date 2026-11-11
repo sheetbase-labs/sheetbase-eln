@@ -185,7 +185,8 @@ export function RetentionPanel({
     models.find((m) => m.key === key)?.name ?? key
 
   const projectName = (id: string | null) =>
-    projects.find((p) => p.id === id)?.title ?? ''
+    projects.find((p) => p.id === id)?.title ??
+    t('quality.retention.holds.unknownProject')
 
   const dueColumns: RegistryColumn<(typeof dueRows)[number]>[] = [
     {

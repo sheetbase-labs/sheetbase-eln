@@ -502,14 +502,15 @@ describe('canonical Dataset metadata', () => {
           fieldId: fixture.fields.text,
           code: 'text_validation',
         }),
-        expect.objectContaining({
-          rowIndex: 1,
-          rowId,
-          fieldId: fixture.fields.integer,
-          code: 'numeric_validation',
-        }),
       ]),
     )
+    // A number outside the allowed range is kept and flagged, not refused.
+    expect(
+      result.errors.filter(
+        (error: { fieldId: string }) =>
+          error.fieldId === fixture.fields.integer,
+      ),
+    ).toEqual([])
     expect(
       result.errors.filter(
         (error: { fieldId: string }) =>
@@ -539,6 +540,33 @@ describe('canonical Dataset metadata', () => {
           error.fieldId === fixture.fields.required_no_default,
       ),
     ).toEqual([expect.objectContaining({ code: 'text_validation' })])
+    // A number outside the allowed range is stored, not refused.
+    const flaggedRow = '02000000-0000-4000-8000-000000000160'
+    await owner.query(
+      `select api.commit_dataset_row_batch($1,1,$2::jsonb,'out-of-range')`,
+      [
+        fixture.datasetId,
+        JSON.stringify([
+          {
+            operation: 'create',
+            rowId: flaggedRow,
+            values: {
+              [fixture.fields.integer]: 9,
+              [fixture.fields.required_no_default]: 'OK',
+            },
+          },
+        ]),
+      ],
+    )
+
+    expect(
+      (
+        await owner.query(
+          `select integer_value from api.dataset_row_values where row_id=$1 and field_id=$2`,
+          [flaggedRow, fixture.fields.integer],
+        )
+      ).rows,
+    ).toEqual([{ integer_value: '9' }])
   })
 
   it('reports global row UUID conflicts structurally and commits no companion row', async () => {

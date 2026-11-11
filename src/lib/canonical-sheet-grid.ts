@@ -394,20 +394,17 @@ export function canonicalSheetGridMatrix(input: {
 }
 
 /**
- * What stops a typed value from being written to a sheet column. The sheet's
- * own number columns keep a value outside the allowed range and flag it, so a
- * range miss only stops a write to a dataset column, whose rows keep their
- * own rule.
+ * What stops a typed value from being written to a sheet column. A number
+ * outside the allowed range is kept and flagged, in the sheet's own columns
+ * and in dataset columns alike, so a range miss never stops a write.
  */
 export function sheetWriteError<Input>(
-  column: Pick<CanonicalSheetGridColumn, 'field' | 'origin'>,
+  column: Pick<CanonicalSheetGridColumn, 'field'>,
   value: Input,
 ): string | null {
   const error = validateCanonicalCell(column.field, value)
 
-  return error === 'numeric_validation' && column.origin === 'local'
-    ? null
-    : error
+  return error === 'numeric_validation' ? null : error
 }
 
 export function validateCanonicalCell<Input>(

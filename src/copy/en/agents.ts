@@ -84,6 +84,7 @@ export const agents = {
     viewOnly: 'Only an administrator can change watchers.',
     tableLabel: 'Lab watchers',
     watcher: 'Watcher',
+    setting: 'Setting',
     on: 'On',
     schedule: 'Looks',
     lastRun: 'Last looked',

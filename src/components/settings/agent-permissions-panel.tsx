@@ -6,6 +6,11 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
+import type {
+  RegistryColumn,
+  RegistryRow,
+} from '#/components/inventory/registry-grid'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import {
@@ -21,15 +26,7 @@ import { Muted, Section } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import { toast } from '#/components/ui/sonner'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
 import { Tooltip } from '#/components/ui/tooltip'
 import { t } from '#/copy'
 import {
@@ -53,6 +50,12 @@ import { listApiCredentialsFn } from '#/lib/api-credential-admin'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 const client = notebookDataClient
+
+interface ActionRow {
+  id: string
+  entry: (typeof AGENT_ACTIONS)[number]
+  level: AgentActionLevel
+}
 
 const LEVEL_LABEL: Record<AgentActionLevel, string> = {
   auto: t('agents.permissions.levels.auto'),
@@ -126,6 +129,130 @@ export function AgentPermissionsPanel({
     credentials.data?.find((credential) => credential.id === id)?.name ??
     'Service credential'
 
+  const actionRows: RegistryRow<ActionRow>[] = AGENT_ACTION_AREAS.flatMap(
+    (area) => {
+      const inArea = AGENT_ACTIONS.filter((entry) => entry.area === area)
+
+      if (inArea.length === 0) return []
+
+      return [
+        bandRow(area),
+        ...inArea.map((entry) => ({
+          id: entry.key,
+          entry,
+          level: everyone.get(entry.key) ?? AGENT_ACTION_DEFAULT_LEVEL,
+        })),
+      ]
+    },
+  )
+
+  const actionColumns: RegistryColumn<ActionRow>[] = [
+    {
+      id: 'action',
+      header: t('agents.permissions.action'),
+      enableSorting: false,
+      cell: ({ row }) => {
+        const entry = row.original.entry
+
+        return (
+          <Tooltip
+            content={
+              agentActionAlwaysAsk(entry.key)
+                ? `${entry.description} ${t('agents.permissions.alwaysAsk')}`
+                : entry.description
+            }
+          >
+            <span className="block max-w-[40rem] truncate font-medium text-fg">
+              {entry.label}
+            </span>
+          </Tooltip>
+        )
+      },
+    },
+    {
+      id: 'level',
+      header: t('agents.permissions.level'),
+      size: 160,
+      enableSorting: false,
+      cell: ({ row }) => {
+        const { entry, level } = row.original
+
+        return (
+          <Select
+            size="sm"
+            aria-label={`${entry.label}: ${t('agents.permissions.level')}`}
+            value={level}
+            disabled={!canManage || save.isPending}
+            onChange={(event) => {
+              const selectedLevel = agentActionLevelsFor(entry.key).find(
+                (value) => value === event.target.value,
+              )
+
+              if (!selectedLevel) return
+              save.mutate({ actionKey: entry.key, level: selectedLevel })
+            }}
+          >
+            {agentActionLevelsFor(entry.key).map((value) => (
+              <option key={value} value={value}>
+                {LEVEL_LABEL[value]}
+              </option>
+            ))}
+          </Select>
+        )
+      },
+    },
+  ]
+
+  const exceptionColumns: RegistryColumn<AgentActionPolicyRow>[] = [
+    {
+      id: 'action',
+      header: t('agents.permissions.exceptionAction'),
+      accessorFn: (row) =>
+        agentActionByKey(row.action_key)?.label ?? row.action_key,
+    },
+    {
+      id: 'who',
+      header: t('agents.permissions.exceptionWho'),
+      accessorFn: (row) =>
+        row.subject_kind === 'role'
+          ? t('agents.permissions.exceptionRoleLabel', {
+              role: titleCase(row.role ?? ''),
+            })
+          : t('agents.permissions.exceptionCredentialLabel', {
+              name: credentialName(row.credential_id),
+            }),
+    },
+    {
+      id: 'level',
+      header: t('agents.permissions.exceptionLevel'),
+      accessorFn: (row) => LEVEL_LABEL[row.level],
+    },
+    {
+      id: 'remove',
+      header: '',
+      enableHiding: false,
+      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+      cell: ({ row }) =>
+        canManage ? (
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={save.isPending}
+            onClick={() =>
+              save.mutate({
+                actionKey: row.original.action_key,
+                level: 'default',
+                role: row.original.role,
+                credentialId: row.original.credential_id,
+              })
+            }
+          >
+            {t('agents.permissions.exceptionRemove')}
+          </Button>
+        ) : null,
+    },
+  ]
+
   return (
     <Section title={t('agents.permissions.title')}>
       <Muted>{t('agents.permissions.intro')}</Muted>
@@ -137,83 +264,13 @@ export function AgentPermissionsPanel({
       ) : (
         <>
           <TableBox>
-            <Table caption={t('agents.permissions.tableLabel')}>
-              <TableHeader>
-                <tr>
-                  <TableHead>{t('agents.permissions.action')}</TableHead>
-                  <TableHead className="w-40">
-                    {t('agents.permissions.level')}
-                  </TableHead>
-                </tr>
-              </TableHeader>
-              <TableBody>
-                {AGENT_ACTION_AREAS.map((area) => {
-                  const inArea = AGENT_ACTIONS.filter(
-                    (entry) => entry.area === area,
-                  )
-
-                  if (inArea.length === 0) return null
-
-                  return [
-                    <TableRow key={`area-${area}`}>
-                      <TableCell
-                        colSpan={2}
-                        className="bg-surface-hover text-label font-medium text-fg-muted"
-                      >
-                        {area}
-                      </TableCell>
-                    </TableRow>,
-                    ...inArea.map((entry) => {
-                      const level =
-                        everyone.get(entry.key) ?? AGENT_ACTION_DEFAULT_LEVEL
-
-                      return (
-                        <TableRow key={entry.key}>
-                          <TableCell>
-                            <Tooltip
-                              content={
-                                agentActionAlwaysAsk(entry.key)
-                                  ? `${entry.description} ${t('agents.permissions.alwaysAsk')}`
-                                  : entry.description
-                              }
-                            >
-                              <span className="block max-w-[40rem] truncate font-medium text-fg">
-                                {entry.label}
-                              </span>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              size="sm"
-                              aria-label={`${entry.label}: ${t('agents.permissions.level')}`}
-                              value={level}
-                              disabled={!canManage || save.isPending}
-                              onChange={(event) => {
-                                const selectedLevel = agentActionLevelsFor(
-                                  entry.key,
-                                ).find((value) => value === event.target.value)
-
-                                if (!selectedLevel) return
-                                save.mutate({
-                                  actionKey: entry.key,
-                                  level: selectedLevel,
-                                })
-                              }}
-                            >
-                              {agentActionLevelsFor(entry.key).map((value) => (
-                                <option key={value} value={value}>
-                                  {LEVEL_LABEL[value]}
-                                </option>
-                              ))}
-                            </Select>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    }),
-                  ]
-                })}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label={t('agents.permissions.tableLabel')}
+              rows={actionRows}
+              columns={actionColumns}
+              getRowId={(row) => row.id}
+              selectable={false}
+            />
           </TableBox>
 
           <div className="flex flex-wrap items-end justify-between gap-2">
@@ -233,63 +290,13 @@ export function AgentPermissionsPanel({
             <Muted>{t('agents.permissions.exceptionNone')}</Muted>
           ) : (
             <TableBox>
-              <Table caption={t('agents.permissions.exceptionsTitle')}>
-                <TableHeader>
-                  <tr>
-                    {[
-                      t('agents.permissions.exceptionAction'),
-                      t('agents.permissions.exceptionWho'),
-                      t('agents.permissions.exceptionLevel'),
-                    ].map((label) => (
-                      <TableHead key={label}>{label}</TableHead>
-                    ))}
-                    <TableHead>
-                      <span className="sr-only">
-                        {t('agents.permissions.exceptionRemove')}
-                      </span>
-                    </TableHead>
-                  </tr>
-                </TableHeader>
-                <TableBody>
-                  {exceptions.map((row: AgentActionPolicyRow) => (
-                    <TableRow key={row.id}>
-                      <TableCell>
-                        {agentActionByKey(row.action_key)?.label ??
-                          row.action_key}
-                      </TableCell>
-                      <TableCell>
-                        {row.subject_kind === 'role'
-                          ? t('agents.permissions.exceptionRoleLabel', {
-                              role: titleCase(row.role ?? ''),
-                            })
-                          : t('agents.permissions.exceptionCredentialLabel', {
-                              name: credentialName(row.credential_id),
-                            })}
-                      </TableCell>
-                      <TableCell>{LEVEL_LABEL[row.level]}</TableCell>
-                      <TableCell className="text-right">
-                        {canManage ? (
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            disabled={save.isPending}
-                            onClick={() =>
-                              save.mutate({
-                                actionKey: row.action_key,
-                                level: 'default',
-                                role: row.role,
-                                credentialId: row.credential_id,
-                              })
-                            }
-                          >
-                            {t('agents.permissions.exceptionRemove')}
-                          </Button>
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label={t('agents.permissions.exceptionsTitle')}
+                rows={exceptions}
+                columns={exceptionColumns}
+                getRowId={(row) => row.id}
+                selectable={false}
+              />
             </TableBox>
           )}
 

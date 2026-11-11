@@ -887,6 +887,18 @@
   z-index: 6;
 }
 
+/* The frozen first column ends in a quiet edge, not the selection blue: a
+   held column is not a selection. */
+.spreadsheet .grid-cell.freeze-column-edge {
+  box-shadow:
+    1px 0 0 var(--border),
+    4px 0 6px -4px rgb(0 0 0 / 0.18);
+}
+
+.spreadsheet .grid-cell.freeze-row-edge {
+  box-shadow: 0 1px 0 var(--border);
+}
+
 /* Show changes: a changed cell keeps its old value, struck through, before
    the value it holds now. */
 .sheet-cell-change {

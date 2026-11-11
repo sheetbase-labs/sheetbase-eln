@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Checkbox } from '#/components/ui/checkbox'
@@ -9,15 +9,12 @@ import { Tooltip } from '#/components/ui/tooltip'
 import { SettingsSaveBar } from './settings-page'
 import { PhoneAlerts } from './phone-alerts'
 import { PluginChannels } from './plugin-channels'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
+import type {
+  RegistryColumn,
+  RegistryRow,
+} from '#/components/inventory/registry-grid'
 import {
   defaultPreferences,
   fetchNotificationPreferences,
@@ -158,6 +155,53 @@ export function SettingsNotifications() {
     )
   }
 
+  const gridRows: RegistryRow<NotificationPreference>[] = groups.flatMap(
+    (group) => [bandRow(group.name), ...group.rows],
+  )
+
+  const centered = {
+    headerClassName: 'text-center',
+    cellClassName: 'text-center',
+  }
+
+  const channelColumns = (
+    [
+      ['inApp', 'app', 'appHint'],
+      ['email', 'email', 'emailHint'],
+      ['push', 'phone', 'phoneHint'],
+      ['digest', 'dailyDigest', 'digestHint'],
+    ] as const
+  ).map(([channel, label, hint]): RegistryColumn<NotificationPreference> => ({
+    id: channel,
+    enableSorting: false,
+    size: 120,
+    meta: centered,
+    header: () => (
+      <Tooltip content={t(`settings.notifications.${hint}`)}>
+        <span className="cursor-help underline decoration-dotted underline-offset-2">
+          {t(`settings.notifications.${label}`)}
+        </span>
+      </Tooltip>
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        aria-label={`${NOTIFICATION_EVENT_LABELS[row.original.eventType]} ${channel}`}
+        checked={row.original[channel]}
+        onCheckedChange={() => toggle(row.original.eventType, channel)}
+      />
+    ),
+  }))
+
+  const columns: RegistryColumn<NotificationPreference>[] = [
+    {
+      id: 'event',
+      header: t('settings.notifications.event'),
+      enableSorting: false,
+      cell: ({ row }) => NOTIFICATION_EVENT_LABELS[row.original.eventType],
+    },
+    ...channelColumns,
+  ]
+
   return (
     <div className="flex flex-col gap-6">
       {save.isError ? (
@@ -177,65 +221,13 @@ export function SettingsNotifications() {
       <PluginChannels />
 
       <TableBox>
-        <Table
-          aria-label={t('settings.notifications.notificationChannelsAria')}
-        >
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('settings.notifications.event')}</TableHead>
-              {(
-                [
-                  ['app', 'appHint'],
-                  ['email', 'emailHint'],
-                  ['phone', 'phoneHint'],
-                  ['dailyDigest', 'digestHint'],
-                ] as const
-              ).map(([label, hint]) => (
-                <TableHead key={label} className="text-center">
-                  <Tooltip content={t(`settings.notifications.${hint}`)}>
-                    <span className="cursor-help underline decoration-dotted underline-offset-2">
-                      {t(`settings.notifications.${label}`)}
-                    </span>
-                  </Tooltip>
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {groups.map((group) => (
-              <Fragment key={group.name}>
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="bg-surface-muted text-label font-medium text-fg-muted"
-                  >
-                    {group.name}
-                  </TableCell>
-                </TableRow>
-                {group.rows.map((row) => (
-                  <TableRow key={row.eventType}>
-                    <TableCell>
-                      {NOTIFICATION_EVENT_LABELS[row.eventType]}
-                    </TableCell>
-                    {(['inApp', 'email', 'push', 'digest'] as const).map(
-                      (channel) => (
-                        <TableCell key={channel} className="text-center">
-                          <Checkbox
-                            aria-label={`${NOTIFICATION_EVENT_LABELS[row.eventType]} ${channel}`}
-                            checked={row[channel]}
-                            onCheckedChange={() =>
-                              toggle(row.eventType, channel)
-                            }
-                          />
-                        </TableCell>
-                      ),
-                    )}
-                  </TableRow>
-                ))}
-              </Fragment>
-            ))}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('settings.notifications.notificationChannelsAria')}
+          rows={gridRows}
+          columns={columns}
+          getRowId={(row) => row.eventType}
+          selectable={false}
+        />
       </TableBox>
 
       <NotificationTimingFields

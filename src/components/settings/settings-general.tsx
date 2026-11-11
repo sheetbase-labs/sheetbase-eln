@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -12,15 +12,9 @@ import { Select } from '#/components/ui/select'
 import { LabLogoSettings } from './lab-logo-settings'
 import { WorkingHoursSettings } from './working-hours-settings'
 import { SettingsSampleData } from './settings-sample-data'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { isIanaTimeZone } from '#/lib/pipeline-schedule'
 import {
   DATE_FORMATS,
@@ -371,6 +365,71 @@ function RecordIdPrefixes({
   counters: Awaited<ReturnType<typeof fetchRecordIdCounters>> | undefined
   onChange: (kind: (typeof ID_PREFIX_KINDS)[number], prefix: string) => void
 }) {
+  // The columns stay the same across renders so the prefix boxes keep focus
+  // while typing; what changes (the prefix, the examples) rides on the rows,
+  // and the handler is read through a ref.
+  const onChangeRef = useRef(onChange)
+
+  useEffect(() => {
+    onChangeRef.current = onChange
+  })
+
+  const lines = ID_PREFIX_KINDS.map((kind) => {
+    const prefix = prefixes[kind] ?? ''
+
+    return {
+      id: kind,
+      kind,
+      prefix,
+      example: exampleRecordId(kind, prefix),
+      next: counters ? exampleRecordId(kind, prefix, counters[kind] ?? 1) : '—',
+    }
+  })
+
+  const columns = useMemo<RegistryColumn<(typeof lines)[number]>[]>(
+    () => [
+      {
+        id: 'record',
+        header: t('settings.general.record'),
+        cell: ({ row }) => ID_KIND_LABELS[row.original.kind],
+      },
+      {
+        id: 'prefix',
+        header: t('settings.general.prefix'),
+        cell: ({ row }) => {
+          const kind = row.original.kind
+
+          return (
+            <Input
+              aria-label={t('settings.general.prefixAria', { kind })}
+              value={row.original.prefix}
+              placeholder={DEFAULT_ID_PREFIXES[kind]}
+              className="h-[26px] w-28"
+              onChange={(event) =>
+                onChangeRef.current(kind, event.target.value.toUpperCase())
+              }
+            />
+          )
+        },
+      },
+      {
+        id: 'example',
+        header: t('settings.general.example'),
+        cell: ({ row }) => (
+          <span className="mono text-fg-muted">{row.original.example}</span>
+        ),
+      },
+      {
+        id: 'nextId',
+        header: t('settings.general.nextId'),
+        cell: ({ row }) => (
+          <span className="mono text-fg-muted">{row.original.next}</span>
+        ),
+      },
+    ],
+    [],
+  )
+
   return (
     <div className="flex flex-col gap-2">
       <div>
@@ -382,46 +441,14 @@ function RecordIdPrefixes({
         </p>
       </div>
       <TableBox>
-        <Table aria-label={t('settings.general.recordIds')}>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('settings.general.record')}</TableHead>
-              <TableHead>{t('settings.general.prefix')}</TableHead>
-              <TableHead>{t('settings.general.example')}</TableHead>
-              <TableHead>{t('settings.general.nextId')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {ID_PREFIX_KINDS.map((kind) => {
-              const prefix = prefixes[kind] ?? ''
-
-              return (
-                <TableRow key={kind}>
-                  <TableCell>{ID_KIND_LABELS[kind]}</TableCell>
-                  <TableCell>
-                    <Input
-                      aria-label={t('settings.general.prefixAria', { kind })}
-                      value={prefix}
-                      placeholder={DEFAULT_ID_PREFIXES[kind]}
-                      className="h-[26px] w-28"
-                      onChange={(event) =>
-                        onChange(kind, event.target.value.toUpperCase())
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="mono text-fg-muted">
-                    {exampleRecordId(kind, prefix)}
-                  </TableCell>
-                  <TableCell className="mono text-fg-muted">
-                    {counters
-                      ? exampleRecordId(kind, prefix, counters[kind] ?? 1)
-                      : '—'}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('settings.general.recordIds')}
+          rows={lines}
+          columns={columns}
+          getRowId={(line) => line.id}
+          selectable={false}
+          sortable={false}
+        />
       </TableBox>
     </div>
   )

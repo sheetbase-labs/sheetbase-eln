@@ -26,15 +26,9 @@ import { Notice } from '#/components/ui/alert'
 import { Muted, Section } from '#/components/ui/layout'
 import { Secret } from '#/components/ui/secret'
 import { Status } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { SCOPE_GROUPS } from '#/lib/api-credential-scopes'
 import type { Scope } from '#/lib/api-credential-scopes'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
@@ -409,101 +403,136 @@ function CredentialRows({
   onCreate: () => void
   onShowInactive: () => void
 }) {
+  const columns: RegistryColumn<CredentialRow>[] = [
+    {
+      id: 'name',
+      header: t('settings.credentials.name'),
+      accessorFn: (row) => row.name,
+      cell: ({ row }) => (
+        <span className="flex items-baseline gap-2">
+          <span className="truncate font-medium text-fg">
+            {row.original.name}
+          </span>
+          <span className="mono text-label text-fg-muted">
+            {row.original.displayPrefix}
+          </span>
+        </span>
+      ),
+    },
+    {
+      id: 'scopes',
+      header: t('settings.credentials.scopes'),
+      accessorFn: (row) => row.scopes.length,
+      cell: ({ row }) => {
+        const text = row.original.scopes.join(', ')
+
+        return (
+          <code className="block max-w-[8rem] truncate text-label" title={text}>
+            {text}
+          </code>
+        )
+      },
+    },
+    {
+      id: 'created',
+      header: t('settings.credentials.created'),
+      accessorFn: (row) => row.createdAt,
+      cell: ({ row }) => (
+        <span title={formatDate(row.original.createdAt)}>
+          {formatCredentialDate(row.original.createdAt)}
+        </span>
+      ),
+    },
+    {
+      id: 'lastUsed',
+      header: t('settings.credentials.lastUsed'),
+      accessorFn: (row) => row.lastUsedAt ?? undefined,
+      cell: ({ row }) => (
+        <span
+          title={
+            row.original.lastUsedAt
+              ? formatDate(row.original.lastUsedAt)
+              : undefined
+          }
+        >
+          {formatCredentialDate(row.original.lastUsedAt)}
+        </span>
+      ),
+    },
+    {
+      id: 'expires',
+      header: t('settings.credentials.expires'),
+      accessorFn: (row) => row.expiresAt ?? undefined,
+      cell: ({ row }) => (
+        <span
+          title={
+            row.original.expiresAt
+              ? formatDate(row.original.expiresAt)
+              : undefined
+          }
+        >
+          {formatCredentialDate(row.original.expiresAt)}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: t('settings.credentials.status'),
+      size: 120,
+      accessorFn: (row) => stateFor(row).label,
+      cell: ({ row }) => {
+        const state = stateFor(row.original)
+
+        return <Status tone={state.tone}>{state.label}</Status>
+      },
+    },
+    {
+      id: 'actions',
+      header: '',
+      enableHiding: false,
+      size: 180,
+      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+      cell: ({ row }) => {
+        const state = stateFor(row.original)
+
+        return (
+          <div className="flex flex-nowrap justify-end gap-1">
+            <Button
+              size="sm"
+              className="px-1.5"
+              disabled={state.isRevoked || state.isExpired}
+              onClick={() => onConfirm({ kind: 'rotate', row: row.original })}
+            >
+              {t('settings.credentials.rotate')}
+            </Button>
+            <Button
+              size="sm"
+              className="px-1.5"
+              variant="danger"
+              disabled={state.isRevoked}
+              onClick={() => onConfirm({ kind: 'revoke', row: row.original })}
+            >
+              {t('settings.credentials.revoke')}
+            </Button>
+          </div>
+        )
+      },
+    },
+  ]
+
   return visibleRows.length ? (
     <>
-      <TableBox className="hidden xl:block">
-        <Table
-          aria-label={copy.tableLabel}
-          className="min-w-[720px] table-fixed"
-        >
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[16%]">
-                {t('settings.credentials.name')}
-              </TableHead>
-              <TableHead className="w-[22%]">
-                {t('settings.credentials.scopes')}
-              </TableHead>
-              <TableHead className="w-[12%]">
-                {t('settings.credentials.created')}
-              </TableHead>
-              <TableHead className="w-[12%]">
-                {t('settings.credentials.lastUsed')}
-              </TableHead>
-              <TableHead className="w-[11%]">
-                {t('settings.credentials.expires')}
-              </TableHead>
-              <TableHead className="w-[9%]">
-                {t('settings.credentials.status')}
-              </TableHead>
-              <TableHead className="w-[18%]">
-                {t('settings.credentials.actions')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visibleRows.map((row) => {
-              const state = stateFor(row)
-
-              return (
-                <TableRow key={row.id}>
-                  <TableCell className="whitespace-normal">
-                    <div className="break-words">{row.name}</div>
-                    <div className="mono text-label text-fg-muted">
-                      {row.displayPrefix}
-                    </div>
-                  </TableCell>
-                  <TableCell className="whitespace-normal">
-                    <ScopeSummary scopes={row.scopes} />
-                  </TableCell>
-                  <TableCell title={formatDate(row.createdAt)}>
-                    {formatCredentialDate(row.createdAt)}
-                  </TableCell>
-                  <TableCell
-                    title={
-                      row.lastUsedAt ? formatDate(row.lastUsedAt) : undefined
-                    }
-                  >
-                    {formatCredentialDate(row.lastUsedAt)}
-                  </TableCell>
-                  <TableCell
-                    title={
-                      row.expiresAt ? formatDate(row.expiresAt) : undefined
-                    }
-                  >
-                    {formatCredentialDate(row.expiresAt)}
-                  </TableCell>
-                  <TableCell>
-                    <Status tone={state.tone}>{state.label}</Status>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-nowrap gap-1">
-                      <Button
-                        size="sm"
-                        className="px-1.5"
-                        disabled={state.isRevoked || state.isExpired}
-                        onClick={() => onConfirm({ kind: 'rotate', row })}
-                      >
-                        {t('settings.credentials.rotate')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="px-1.5"
-                        variant="danger"
-                        disabled={state.isRevoked}
-                        onClick={() => onConfirm({ kind: 'revoke', row })}
-                      >
-                        {t('settings.credentials.revoke')}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
+      <TableBox className="max-md:hidden">
+        <RegistryGrid
+          label={copy.tableLabel}
+          rows={visibleRows}
+          columns={columns}
+          getRowId={(row) => row.id}
+          selectable={false}
+          className="max-md:hidden"
+        />
       </TableBox>
-      <div className="grid gap-2 md:grid-cols-2 xl:hidden">
+      <div className="grid gap-2 md:hidden">
         {visibleRows.map((row) => {
           const state = stateFor(row)
 

@@ -1,18 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Notice } from '#/components/ui/alert'
 import { Checkbox } from '#/components/ui/checkbox'
 import { Select } from '#/components/ui/select'
 import { Tooltip } from '#/components/ui/tooltip'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
 import { createDataClient } from '#/lib/data-client'
 import {
   MEMBER_CLASS_ROLES,
@@ -113,6 +107,138 @@ export function RolesAndPermissions({
       queryClient.invalidateQueries({ queryKey: queryKey(workspaceId) }),
   })
 
+  const roleColumns: RegistryColumn<
+    (typeof ROLE_ROWS)[number] & { id: string }
+  >[] = [
+    {
+      id: 'role',
+      header: t('settings.rolesAndPermissions.role'),
+      size: 200,
+      accessorFn: (r) => r.label,
+      cell: ({ row }) => (
+        <span className="font-medium text-fg">{row.original.label}</span>
+      ),
+    },
+    {
+      id: 'what',
+      header: t('settings.rolesAndPermissions.whatThey'),
+      accessorFn: (r) => ROLE_PLAIN_DESCRIPTIONS[r.key],
+      cell: ({ row }) => {
+        const text = ROLE_PLAIN_DESCRIPTIONS[row.original.key]
+
+        return (
+          <span
+            className="block max-w-[44rem] truncate text-fg-muted"
+            title={text}
+          >
+            {text}
+          </span>
+        )
+      },
+    },
+  ]
+
+  type AreaLine = { id: string; area: (typeof SETTINGS_AREAS)[number] }
+
+  const areaColumns: RegistryColumn<AreaLine>[] = [
+    {
+      id: 'section',
+      header: t('settings.rolesAndPermissions.section'),
+      accessorFn: (r) => SETTINGS_AREA_LABELS[r.area],
+    },
+    {
+      id: 'admin',
+      header: t('settings.rolesAndPermissions.workspaceAdmin'),
+      enableSorting: false,
+      cell: () => (
+        <span className="text-fg-muted">{SETTINGS_LEVEL_LABELS.manage}</span>
+      ),
+    },
+    ...COLUMNS.map((c): RegistryColumn<AreaLine> => ({
+      id: c.roles[0],
+      header: c.label,
+      enableSorting: false,
+      cell: ({ row }) => {
+        const area = row.original.area
+
+        return (
+          <Select
+            size="sm"
+            className="w-24"
+            aria-label={`${SETTINGS_AREA_LABELS[area]}, ${c.label}`}
+            value={settingsLevelFor(area, c.roles[0], rows)}
+            disabled={!canEdit || save.isPending}
+            onChange={(e) => {
+              const level = (['none', 'view', 'manage'] as const).find(
+                (option) => option === e.target.value,
+              )
+
+              if (!level) return
+              save.mutate({ area, roles: c.roles, level })
+            }}
+          >
+            {(['none', 'view', 'manage'] as const).map((level) => (
+              <option key={level} value={level}>
+                {SETTINGS_LEVEL_LABELS[level]}
+              </option>
+            ))}
+          </Select>
+        )
+      },
+    })),
+  ]
+
+  type WorkLine = { id: string; permission: WorkPermission }
+
+  const workColumns: RegistryColumn<WorkLine>[] = [
+    {
+      id: 'kind',
+      header: t('settings.rolesAndPermissions.workKind'),
+      accessorFn: (r) => workLabel(r.permission),
+      cell: ({ row }) => (
+        <Tooltip content={workHint(row.original.permission)}>
+          <span className="cursor-default">
+            {workLabel(row.original.permission)}
+          </span>
+        </Tooltip>
+      ),
+    },
+    {
+      id: 'admin',
+      header: t('settings.rolesAndPermissions.workspaceAdmin'),
+      enableSorting: false,
+      cell: () => (
+        <span className="text-fg-muted">
+          {t('settings.rolesAndPermissions.workAlways')}
+        </span>
+      ),
+    },
+    ...COLUMNS.map((c): RegistryColumn<WorkLine> => ({
+      id: c.roles[0],
+      header: c.label,
+      enableSorting: false,
+      cell: ({ row }) => {
+        const permission = row.original.permission
+        const label = workLabel(permission)
+
+        return (
+          <Checkbox
+            aria-label={`${label}, ${c.label}`}
+            checked={workPermissionAllowed(permission, c.roles[0], rows)}
+            disabled={!canEdit || save.isPending}
+            onCheckedChange={(checked) =>
+              save.mutate({
+                area: `work_${permission}`,
+                roles: c.roles,
+                level: checked ? 'manage' : 'none',
+              })
+            }
+          />
+        )
+      },
+    })),
+  ]
+
   return (
     <div className="flex flex-col gap-6 px-4 py-5 md:px-6">
       <section className="flex flex-col gap-2">
@@ -120,28 +246,13 @@ export function RolesAndPermissions({
           {t('settings.rolesAndPermissions.whatEachRole')}
         </h2>
         <TableBox>
-          <Table caption="Roles">
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('settings.rolesAndPermissions.role')}</TableHead>
-                <TableHead>
-                  {t('settings.rolesAndPermissions.whatThey')}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {ROLE_ROWS.map((r) => (
-                <TableRow key={r.key}>
-                  <TableCell className="whitespace-nowrap font-medium">
-                    {r.label}
-                  </TableCell>
-                  <TableCell className="text-fg-muted">
-                    {ROLE_PLAIN_DESCRIPTIONS[r.key]}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label="Roles"
+            rows={ROLE_ROWS.map((r) => ({ id: r.key, ...r }))}
+            columns={roleColumns}
+            getRowId={(r) => r.id}
+            selectable={false}
+          />
         </TableBox>
       </section>
 
@@ -158,62 +269,13 @@ export function RolesAndPermissions({
           <Notice tone="bad">{describeAdminError(save.error)}</Notice>
         ) : null}
         <TableBox>
-          <Table caption={t('settings.rolesAndPermissions.settingsAccessRole')}>
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  {t('settings.rolesAndPermissions.section')}
-                </TableHead>
-                <TableHead>
-                  {t('settings.rolesAndPermissions.workspaceAdmin')}
-                </TableHead>
-                {COLUMNS.map((c) => (
-                  <TableHead key={c.label}>{c.label}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {SETTINGS_AREAS.map((area) => (
-                <TableRow key={area}>
-                  <TableCell className="whitespace-nowrap">
-                    {SETTINGS_AREA_LABELS[area]}
-                  </TableCell>
-                  <TableCell className="text-fg-muted">
-                    {SETTINGS_LEVEL_LABELS.manage}
-                  </TableCell>
-                  {COLUMNS.map((c) => (
-                    <TableCell key={c.label}>
-                      <Select
-                        size="sm"
-                        className="w-28"
-                        aria-label={`${SETTINGS_AREA_LABELS[area]}, ${c.label}`}
-                        value={settingsLevelFor(area, c.roles[0], rows)}
-                        disabled={!canEdit || save.isPending}
-                        onChange={(e) => {
-                          const level = (
-                            ['none', 'view', 'manage'] as const
-                          ).find((option) => option === e.target.value)
-
-                          if (!level) return
-                          save.mutate({
-                            area,
-                            roles: c.roles,
-                            level,
-                          })
-                        }}
-                      >
-                        {(['none', 'view', 'manage'] as const).map((level) => (
-                          <option key={level} value={level}>
-                            {SETTINGS_LEVEL_LABELS[level]}
-                          </option>
-                        ))}
-                      </Select>
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label={t('settings.rolesAndPermissions.settingsAccessRole')}
+            rows={SETTINGS_AREAS.map((area) => ({ id: area, area }))}
+            columns={areaColumns}
+            getRowId={(r) => r.id}
+            selectable={false}
+          />
         </TableBox>
       </section>
       <section className="flex flex-col gap-2">
@@ -226,59 +288,16 @@ export function RolesAndPermissions({
             : t('settings.rolesAndPermissions.onlyWorkspaceAdmin')}
         </p>
         <TableBox>
-          <Table caption={t('settings.rolesAndPermissions.workAccessRole')}>
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  {t('settings.rolesAndPermissions.workKind')}
-                </TableHead>
-                <TableHead>
-                  {t('settings.rolesAndPermissions.workspaceAdmin')}
-                </TableHead>
-                {COLUMNS.map((c) => (
-                  <TableHead key={c.label}>{c.label}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {WORK_PERMISSIONS.map((permission) => {
-                const label = workLabel(permission)
-
-                return (
-                  <TableRow key={permission}>
-                    <TableCell className="whitespace-nowrap">
-                      <Tooltip content={workHint(permission)}>
-                        <span className="cursor-default">{label}</span>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {t('settings.rolesAndPermissions.workAlways')}
-                    </TableCell>
-                    {COLUMNS.map((c) => (
-                      <TableCell key={c.label}>
-                        <Checkbox
-                          aria-label={`${label}, ${c.label}`}
-                          checked={workPermissionAllowed(
-                            permission,
-                            c.roles[0],
-                            rows,
-                          )}
-                          disabled={!canEdit || save.isPending}
-                          onCheckedChange={(checked) =>
-                            save.mutate({
-                              area: `work_${permission}`,
-                              roles: c.roles,
-                              level: checked ? 'manage' : 'none',
-                            })
-                          }
-                        />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label={t('settings.rolesAndPermissions.workAccessRole')}
+            rows={WORK_PERMISSIONS.map((permission) => ({
+              id: permission,
+              permission,
+            }))}
+            columns={workColumns}
+            getRowId={(r) => r.id}
+            selectable={false}
+          />
         </TableBox>
       </section>
     </div>

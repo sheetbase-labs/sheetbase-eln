@@ -1,6 +1,15 @@
 import { Spreadsheet } from '@sheetbase-labs/sheetbase-table'
 import type { SpreadsheetHandle } from '@sheetbase-labs/sheetbase-table'
-import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef } from 'react'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import type { ComponentProps, ReactNode } from 'react'
 
 import { useGridAnnotations } from './grid-client-annotations'
@@ -261,7 +270,27 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
   }, [layout])
 
   const annotations = useGridAnnotations(props.annotations, layout, handleRef)
-  const handleReady = useGridHandle(handleRef, props.onReady)
+  // The engine announces a starting cursor on mount that nobody chose. A
+  // notebook holds several sheets, and each would claim the inspector and
+  // print a selected-cell line, so selections count only once the person has
+  // pointed or typed in this grid, or the host has selected a cell itself.
+  const touchedRef = useRef(false)
+  const [touched, setTouched] = useState(false)
+
+  const markTouched = useCallback(() => {
+    if (touchedRef.current) return
+    touchedRef.current = true
+    setTouched(true)
+  }, [])
+
+  // A layout effect, so the reset lands before a remounted engine announces
+  // its starting cursor from its own passive effect.
+  useLayoutEffect(() => {
+    touchedRef.current = false
+    setTouched(false)
+  }, [mountKey])
+
+  const handleReady = useGridHandle(handleRef, props.onReady, markTouched)
   const customEditors = useGridEditors(props.onOpenRecordPicker, layout)
   const clipboard = useMemo(() => gridClipboard(props), [props])
 
@@ -351,8 +380,16 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
   )
 
   return (
-    <div className="contents" data-grid-columns={gridScope}>
+    <div
+      className="contents"
+      data-grid-columns={gridScope}
+      data-grid-idle={touched ? undefined : ''}
+      onPointerDownCapture={markTouched}
+      onMouseDownCapture={markTouched}
+      onKeyDownCapture={markTouched}
+    >
       <style>{columnLook}</style>
+      {touched ? null : <style>{IDLE_GRID_CSS}</style>}
       <Spreadsheet
         key={mountKey}
         ref={handleRef}
@@ -402,11 +439,12 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         onFiltersChange={(next) =>
           props.onFiltersChange?.(captureGridFilters(next, props))
         }
-        onSelectionChange={(selection) =>
+        onSelectionChange={(selection) => {
+          if (!touchedRef.current) return
           props.onSelectionChange?.(
             gridSelection(selection, layout, handleRef.current, query),
           )
-        }
+        }}
         onColumnWidthsChange={(next) => {
           const previous = widthsRef.current
           widthsRef.current = [...next]
@@ -433,3 +471,20 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
 }
 
 export const SheetbaseTableGridClient = memo(SheetbaseTableGridClientBase)
+
+// Until someone picks a cell, the engine's starting cursor stays invisible: no
+// tinted header, no outline, no shaded cell. The design shows a sheet at rest.
+const IDLE_GRID_CSS = `
+[data-grid-idle] .column-header.selected-header {
+  color: var(--grid-column-header-ink, var(--accent-ink)) !important;
+  background: var(--grid-header-surface, var(--accent-soft)) !important;
+  font-weight: 500 !important;
+}
+[data-grid-idle] .row-header.selected-header {
+  color: var(--grid-row-header-ink, var(--accent)) !important;
+  background: var(--grid-header-surface, var(--accent-soft)) !important;
+  font-weight: 500 !important;
+}
+[data-grid-idle] .grid-cell.in-selection { background-image: none !important; }
+[data-grid-idle] .selection-outline { display: none !important; }
+`

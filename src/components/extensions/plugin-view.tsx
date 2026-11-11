@@ -96,7 +96,7 @@ function ScreenTable({ node }: { node: TableNode }) {
   )
 }
 
-export function initialValues(node: ScreenNode): PluginValues {
+function initialValues(node: ScreenNode): PluginValues {
   const out: PluginValues = {}
 
   const visit = (n: ScreenNode) => {

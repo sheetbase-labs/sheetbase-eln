@@ -45,37 +45,35 @@ export function PreviewGrid({
   maxHeight?: number
 }) {
   const columnKey = columns.join('\u0000')
-  const numericKey = (numericColumns ?? []).join('\u0000').split('\u0000')
+  const numericKey = (numericColumns ?? []).join('\u0000')
 
-  const defs = useMemo<RegistryColumn<PreviewRow>[]>(
-    () =>
-      columns.map((column) => ({
-        id: `col:${column}`,
-        header: column,
-        accessorFn: (row: PreviewRow) => show(row.values[column]),
-        meta: numericKey.includes(column)
-          ? {
-              headerTitle: column,
-              headerClassName: 'text-right',
-              cellClassName: 'text-right',
-            }
-          : { headerTitle: column },
-        cell: ({ row }) => (
-          <span
-            className={
-              numericKey.includes(column)
-                ? 'num truncate'
-                : 'mono truncate text-label'
-            }
-          >
-            {show(row.original.values[column])}
-          </span>
-        ),
-      })),
+  const defs = useMemo<RegistryColumn<PreviewRow>[]>(() => {
+    const numeric = new Set(numericKey ? numericKey.split('\u0000') : [])
+
+    return columns.map((column) => ({
+      id: `col:${column}`,
+      header: column,
+      accessorFn: (row: PreviewRow) => show(row.values[column]),
+      meta: numeric.has(column)
+        ? {
+            headerTitle: column,
+            headerClassName: 'text-right',
+            cellClassName: 'text-right',
+          }
+        : { headerTitle: column },
+      cell: ({ row }) => (
+        <span
+          className={
+            numeric.has(column) ? 'num truncate' : 'mono truncate text-label'
+          }
+        >
+          {show(row.original.values[column])}
+        </span>
+      ),
+    }))
     // The column list is compared by content so a fresh array does not rebuild the cells.
     // react-doctor-disable-next-line react-doctor/exhaustive-deps -- the column list is read through `columnKey`, its content: a fresh array of the same names must not rebuild the cells.
-    [columnKey, numericKey.join('\u0000')],
-  )
+  }, [columnKey, numericKey])
 
   const data = useMemo<PreviewRow[]>(
     () =>

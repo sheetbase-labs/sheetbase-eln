@@ -52,21 +52,33 @@ export function benchRangeBreach(
   column: CanonicalSheetGridColumn,
   text: string,
 ): string | null {
-  const range = benchRange(column)
+  const { min, max } = column.field?.validation ?? {}
 
-  if (!range || text.trim() === '') return null
+  if ((min === undefined && max === undefined) || text.trim() === '')
+    return null
+
   const value = Number(text)
 
   if (!Number.isFinite(value)) return null
-  const { min, max } = column.field?.validation ?? {}
 
-  if (min !== undefined && value < min)
-    return t('notebook.sheetBench.belowRange', { range })
+  const storageUnit = column.field?.quantity?.storageUnit
+  const unit = storageUnit ? ` ${storageUnit}` : ''
+  const below = min !== undefined && value < min
+  const above = max !== undefined && value > max
 
-  if (max !== undefined && value > max)
-    return t('notebook.sheetBench.aboveRange', { range })
+  if (!below && !above) return null
 
-  return null
+  if (min !== undefined && max !== undefined)
+    return t(
+      above
+        ? 'notebook.sheetBench.aboveRange'
+        : 'notebook.sheetBench.belowRange',
+      { min, max, unit },
+    )
+
+  return above
+    ? t('notebook.sheetBench.aboveMax', { max: max ?? '', unit })
+    : t('notebook.sheetBench.belowMin', { min: min ?? '', unit })
 }
 
 /** A stored value outside its field's range: the grid shows it in danger text. */

@@ -186,8 +186,7 @@ describe('BlockPreview table (canonical string-array payload)', () => {
       />,
     )
 
-    // The grid's last cell holds its columns-and-export menu, not a value.
-    const cells = [...container.querySelectorAll('tbody td')].slice(0, -1)
+    const cells = [...container.querySelectorAll('tbody td')]
     expect(cells).toHaveLength(2)
     expect(cells[0].textContent).toBe('')
     expect(cells[1].textContent).toBe('x')

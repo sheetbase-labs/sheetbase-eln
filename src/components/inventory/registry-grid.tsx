@@ -81,6 +81,7 @@ export {
   rightAligned,
   useRowFocus,
   compareCells,
+  gridHeight,
 } from './registry-grid-data'
 
 export type { BandRow, RegistryColumn, RegistryRow } from './registry-grid-data'
@@ -562,7 +563,12 @@ function RegistryTable<T extends RowData>({
   /** Show the columns-and-export menu over the end of the header. */
   menu: boolean
 }) {
-  const style: CSSProperties & { '--grid-row-h'?: string } = {}
+  // Pinned cells paint opaque so rows scroll under them; they take the surface
+  // the table sits on, not the page background, which is darker in dark mode.
+  const style: CSSProperties & {
+    '--grid-row-h'?: string
+    '--data-grid-surface'?: string
+  } = { '--data-grid-surface': 'var(--surface)' }
 
   if (rowHeight !== 33) style['--grid-row-h'] = `${rowHeight}px`
 

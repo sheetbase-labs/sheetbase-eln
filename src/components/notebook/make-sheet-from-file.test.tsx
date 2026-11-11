@@ -46,17 +46,14 @@ it('previews the chosen pinned worksheet and passes its cached values and formul
   fireEvent.click(screen.getByRole('button', { name: 'Make a sheet' }))
   fireEvent.change(screen.getByRole('combobox'), { target: { value: '1' } })
   const table = screen.getByRole('table')
-  // The grid's last column holds its own menu, not a value.
   expect(
     within(table)
       .getAllByRole('columnheader')
-      .slice(0, -1)
       .map((cell) => cell.textContent),
   ).toEqual(['Recovery', 'Accepted', 'Calculated'])
   expect(
     within(table)
       .getAllByRole('cell')
-      .slice(0, -1)
       .map((cell) => cell.textContent),
   ).toEqual(['5.75', 'FALSE', '6.25'])
   expect(screen.getByText(/A2\+0.5/)).toBeTruthy()

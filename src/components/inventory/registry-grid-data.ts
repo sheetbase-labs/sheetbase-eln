@@ -84,3 +84,12 @@ export function compareCells(a: unknown, b: unknown): number {
     sensitivity: 'base',
   })
 }
+
+/**
+ * The height of a grid that shows `count` rows but stops at `max` px and
+ * scrolls inside: a header band, the rows, and room for the scrollbar. A grid
+ * has no height of its own to fill, so a box that only caps it clips its rows.
+ */
+export function gridHeight(count: number, max: number, rowHeight = 33): number {
+  return Math.min(max, 31 + count * rowHeight + 14)
+}

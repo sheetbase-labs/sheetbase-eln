@@ -1,12 +1,11 @@
 import { useState } from 'react'
 
 import { TableBox } from '#/components/ui/table'
-import { RegistryGrid } from '#/components/inventory/registry-grid'
+import { RegistryGrid, gridHeight } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Tabs } from '#/components/ui/tabs'
 import { t } from '#/copy'
 import type { PreviewSheet } from '#/lib/office-preview/sheets'
-import { cn } from '#/lib/utils'
 
 /** A column letter the way a spreadsheet writes it: A, B … Z, AA. */
 function columnLetter(index: number): string {
@@ -49,6 +48,7 @@ export function SheetView({
     {
       id: 'row',
       header: '#',
+      size: 56,
       accessorFn: (row) => row.index + 1,
       meta: {
         headerClassName: 'text-right',
@@ -85,7 +85,8 @@ export function SheetView({
         </p>
       ) : (
         <TableBox
-          className={cn('overflow-y-auto', tall ? 'max-h-[70vh]' : 'max-h-80')}
+          className="shrink-0"
+          style={{ height: gridHeight(gridRows.length, tall ? 640 : 320) }}
         >
           <RegistryGrid
             label={sheet.name}

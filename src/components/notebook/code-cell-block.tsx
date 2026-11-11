@@ -15,7 +15,7 @@ import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { TableBox } from '#/components/ui/table'
-import { RegistryGrid } from '#/components/inventory/registry-grid'
+import { RegistryGrid, gridHeight } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { t } from '#/copy'
 import {
@@ -158,7 +158,10 @@ function CodeCellOutputView({
         </p>
       ) : (
         <>
-          <TableBox className="max-h-[320px] overflow-auto">
+          <TableBox
+            className="shrink-0"
+            style={{ height: gridHeight(entries.length, 320) }}
+          >
             <RegistryGrid
               label={t('automation.codeCell.outputLabel')}
               rows={entries}

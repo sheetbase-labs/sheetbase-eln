@@ -50,11 +50,10 @@ describe('persisted notebook output boundaries', () => {
       />,
     )
 
-    // Every grid row ends in a cell for the table's own menu, which holds no value.
     const cells = within(screen.getByRole('table'))
       .getAllByRole('row')
       .slice(1)
-      .flatMap((row) => within(row).getAllByRole('cell').slice(0, -1))
+      .flatMap((row) => within(row).getAllByRole('cell'))
 
     expect(cells.map((cell) => cell.textContent)).toEqual([
       '5.75',

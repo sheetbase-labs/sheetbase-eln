@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { gridCellDisplays } from './table-hooks'
+import { gridCellDisplays } from './grid-cell-displays'
 
 const pill = { kind: 'badge', tones: { pass: 'success' } } as const
 const bar = { kind: 'bar', max: 100 } as const
@@ -17,6 +17,7 @@ describe('plugin cell displays for dataset grid columns', () => {
       [{ declaration: { appliesTo: { fields: ['result'] }, display: pill } }],
       columns,
     )
+
     expect(found).toEqual({ c1: pill })
   })
 
@@ -29,6 +30,7 @@ describe('plugin cell displays for dataset grid columns', () => {
       ],
       columns,
     )
+
     expect(found).toEqual({ c2: bar })
   })
 
@@ -40,6 +42,7 @@ describe('plugin cell displays for dataset grid columns', () => {
       ],
       columns,
     )
+
     expect(found).toEqual({ c1: pill })
   })
 
@@ -61,6 +64,7 @@ describe('plugin cell displays for dataset grid columns', () => {
       ],
       columns,
     )
+
     expect(found).toEqual({})
   })
 

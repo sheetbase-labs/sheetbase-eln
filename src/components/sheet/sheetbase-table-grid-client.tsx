@@ -1,6 +1,7 @@
 import { Spreadsheet } from '@sheetbase-labs/sheetbase-table'
 import type { SpreadsheetHandle } from '@sheetbase-labs/sheetbase-table'
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import type { ComponentProps } from 'react'
 
 import { useGridAnnotations } from './grid-client-annotations'
 import { gridClipboard } from './grid-client-clipboard'
@@ -15,7 +16,48 @@ import {
 } from './grid-client-presentation'
 import { gridWrites } from './grid-client-writes'
 import { sanitizeSvg } from '#/lib/extensions/screens'
+import type {
+  CellDisplays,
+  CellDisplaySpec,
+} from '#/lib/extensions/cell-display'
 import type { SheetbaseGridProps } from './sheetbase-grid'
+
+/** The engine's own cell-display map, which its props accept. */
+type EngineCellDisplays = NonNullable<
+  ComponentProps<typeof Spreadsheet>['cellDisplays']
+>
+
+type EngineCellDisplay = EngineCellDisplays[string]
+
+/**
+ * The engine wants a tone for every value a display lists; a plugin's decoded
+ * display may list a value without one, which the engine reads as "no tone".
+ * Keeping only the stated tones makes the two contracts equal.
+ */
+function engineCellDisplay(spec: CellDisplaySpec): EngineCellDisplay {
+  if (spec.kind !== 'badge') return spec
+
+  const tones: Extract<EngineCellDisplay, { kind: 'badge' }>['tones'] = {}
+
+  for (const value of Object.keys(spec.tones)) {
+    const tone = spec.tones[value]
+
+    if (tone !== undefined) tones[value] = tone
+  }
+
+  return { ...spec, tones }
+}
+
+function engineCellDisplays(displays: CellDisplays | undefined) {
+  if (!displays) return undefined
+
+  const out: Record<string, EngineCellDisplay> = {}
+
+  for (const [columnId, spec] of Object.entries(displays))
+    out[columnId] = engineCellDisplay(spec)
+
+  return out
+}
 
 function resolvedGridTheme(): 'light' | 'dark' {
   if (typeof document === 'undefined') return 'light'
@@ -51,6 +93,12 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
   const handleReady = useGridHandle(handleRef, props.onReady)
   const customEditors = useGridEditors(props.onOpenRecordPicker, layout)
   const clipboard = useMemo(() => gridClipboard(props), [props])
+
+  const cellDisplays = useMemo(
+    () => engineCellDisplays(props.cellDisplays),
+    [props.cellDisplays],
+  )
+
   const writes = useMemo(() => gridWrites(props, layout), [props, layout])
 
   const query = useMemo(
@@ -105,7 +153,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       contextMenuActions={contextMenuActions}
       columnMenuItems={columnMenuItems}
       customEditors={customEditors}
-      cellDisplays={props.cellDisplays}
+      cellDisplays={cellDisplays}
       sanitizeSvg={sanitizeSvg}
       clipboard={clipboard}
       query={query}

@@ -34,7 +34,10 @@ import type { RecordModelRecord } from '#/components/models/models-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { downloadTextFile } from '#/lib/download'
 import type { ModelFieldDefinition } from '#/lib/model-fields'
-import type { CellDisplaySpec } from '#/lib/extensions/cell-display'
+import type {
+  CellDisplays,
+  CellDisplaySpec,
+} from '#/lib/extensions/cell-display'
 import { runPluginHook } from '#/lib/extensions/run-client'
 import type { PluginHookAnswer } from '#/lib/extensions/run-client'
 import type { ActionResult } from '#/lib/extensions/screens'
@@ -45,6 +48,7 @@ import type {
 } from '#/lib/extensions/hooks'
 import { t } from '#/copy'
 import { CellDisplayView } from './cell-display'
+import { gridCellDisplays } from './grid-cell-displays'
 import { PluginView } from './plugin-view'
 import { pluginRow } from './plugin-row'
 import { usePluginPoints } from './use-plugin-points'
@@ -245,50 +249,16 @@ function ColumnValue({
   return <span>{String(value)}</span>
 }
 
-/**
- * The cell displays plugins offer a dataset grid, by column id. A column is
- * matched on its key and type with the same rules as a model's fields. A point
- * that names particular models or plugin field types does not apply here,
- * because a dataset column belongs to neither.
- */
-export function gridCellDisplays(
-  tableCells: ReadonlyArray<{
-    declaration: {
-      appliesTo: {
-        models?: string[]
-        fields?: string[]
-        fieldTypes?: string[]
-        pluginTypes?: string[]
-      }
-      display?: CellDisplaySpec
-    }
-  }>,
-  columns: ReadonlyArray<{ id: string; key: string; logicalType: string }>,
-): Record<string, CellDisplaySpec> {
-  const out: Record<string, CellDisplaySpec> = {}
-  for (const column of columns) {
-    for (const cell of tableCells) {
-      const target = cell.declaration.appliesTo
-      const display = cell.declaration.display
-      if (!display || target.models || target.pluginTypes) continue
-      if (target.fields && !target.fields.includes(column.key)) continue
-      if (target.fieldTypes && !target.fieldTypes.includes(column.logicalType))
-        continue
-      out[column.id] = display
-      break
-    }
-  }
-  return out
-}
-
 /** The plugin cell displays for a dataset grid's columns, by column id. */
 export function usePluginGridCellDisplays(
   columns: ReadonlyArray<{ id: string; key: string; logicalType: string }>,
-): Record<string, CellDisplaySpec> | undefined {
+): CellDisplays | undefined {
   const points = usePluginPoints()
+
   return React.useMemo(() => {
     if (points.tableCells.length === 0) return undefined
     const found = gridCellDisplays(points.tableCells, columns)
+
     return Object.keys(found).length > 0 ? found : undefined
   }, [points.tableCells, columns])
 }

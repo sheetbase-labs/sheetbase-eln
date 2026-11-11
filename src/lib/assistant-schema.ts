@@ -1,6 +1,9 @@
 import { z } from 'zod'
 
 import type { ModelRuleOperand, UpdateModelRulePatch } from '#/lib/model-rules'
+import { ADDABLE_COLUMN_TYPES } from '#/lib/sheet-definition-add-column'
+import type { SheetDefinitionConfiguration } from '#/lib/sheet-definition'
+import type { TemplateSheetColumnTarget } from '#/lib/template-sheet-column'
 
 /**
  * Record types (models), sheet definitions and templates from the assistant.
@@ -52,6 +55,9 @@ export const SHEET_DEFINITION_RESTORE_TOOL =
 export const TEMPLATE_PUBLISH_TOOL = 'sheetbase.template.publish'
 export const SHEET_RENAME_TOOL = 'sheetbase.sheet.rename'
 
+export const TEMPLATE_ADD_SHEET_COLUMN_TOOL =
+  'sheetbase.template.add_sheet_column'
+
 export const SCHEMA_PROPOSE_TOOL_NAMES = [
   MODEL_CREATE_TOOL,
   MODEL_ADD_SUBTYPE_TOOL,
@@ -71,6 +77,7 @@ export const SCHEMA_PROPOSE_TOOL_NAMES = [
   SHEET_DEFINITION_RESTORE_TOOL,
   TEMPLATE_PUBLISH_TOOL,
   SHEET_RENAME_TOOL,
+  TEMPLATE_ADD_SHEET_COLUMN_TOOL,
 ] as const
 
 export type SchemaProposeToolName = (typeof SCHEMA_PROPOSE_TOOL_NAMES)[number]
@@ -295,6 +302,23 @@ export const proposeSheetRenameSchema = z.strictObject({
   name: z.string().min(1).max(200).describe('The new name.'),
 })
 
+export const proposeTemplateSheetColumnSchema = z.strictObject({
+  title,
+  summary,
+  template: named('The notebook template.'),
+  section: named(
+    'The sheet section of the template draft, by the name it shows.',
+  ),
+  name: z.string().min(1).max(120).describe('The new column’s name.'),
+  type: z
+    .enum(ADDABLE_COLUMN_TYPES)
+    .describe('What the column holds: text, a number, yes/no or a date.'),
+  unit: z.string().max(40).optional().describe('A number’s unit, such as mg.'),
+  required: z.boolean().optional().describe('Whether every row needs a value.'),
+  min: z.number().optional().describe('The lowest value a number may take.'),
+  max: z.number().optional().describe('The highest value a number may take.'),
+})
+
 export type SchemaAction =
   | {
       kind: 'schema.model_create'
@@ -367,6 +391,12 @@ export type SchemaAction =
       versionId: string
       revision: number
       reason: string
+    }
+  | {
+      kind: 'schema.template_add_sheet_column'
+      templateId: string
+      target: TemplateSheetColumnTarget
+      configuration: SheetDefinitionConfiguration
     }
   | {
       kind: 'schema.sheet_rename'

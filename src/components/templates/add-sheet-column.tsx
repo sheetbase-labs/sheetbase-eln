@@ -17,15 +17,8 @@ import {
 import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
-import {
-  retargetNotebookTemplateSheetPlacement,
-  notebookTemplateDataClient,
-} from '#/lib/notebook-template-data'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
-import {
-  createSheetDefinitionVersion,
-  publishSheetDefinitionVersion,
-} from '#/lib/sheet-definition-data'
+import { addColumnToTemplateSheet } from '#/lib/template-sheet-column'
 import type {
   SheetDefinition,
   SheetDefinitionVersion,
@@ -101,26 +94,15 @@ export function AddSheetColumnButton({
         max: high,
       })
 
-      const draft = await createSheetDefinitionVersion(
-        definition.id,
-        definition.revision,
-        next,
-      )
-
-      // A template can only point at a published version of a sheet.
-      const published = await publishSheetDefinitionVersion(
-        draft.id,
-        draft.revision,
-      )
-
-      await retargetNotebookTemplateSheetPlacement(
+      await addColumnToTemplateSheet(
         {
-          versionId: templateVersion.id,
-          expectedRevision: templateVersion.revision,
+          definitionId: definition.id,
+          definitionRevision: definition.revision,
+          templateVersionId: templateVersion.id,
+          templateRevision: templateVersion.revision,
           placementId,
-          targetDefinitionVersionId: published.id,
         },
-        notebookTemplateDataClient,
+        next,
       )
     },
     onSuccess: async () => {

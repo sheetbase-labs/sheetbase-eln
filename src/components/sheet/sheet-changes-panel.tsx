@@ -70,7 +70,9 @@ export function SheetChangeList({
           {t('notebook.sheetChanges.title')}
         </span>
         <span className="text-label text-fg-muted">
-          {t('notebook.sheetChanges.today', { count: todayCount })}
+          {todayCount === 0
+            ? t('notebook.sheetChanges.noneToday')
+            : t('notebook.sheetChanges.today', { count: todayCount })}
         </span>
         <span className="flex-1" />
         <span className="text-xs text-fg-muted max-md:hidden">

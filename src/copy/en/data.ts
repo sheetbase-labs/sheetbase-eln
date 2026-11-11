@@ -639,6 +639,7 @@ export const data = {
     searchRows: 'Search rows',
     onlyFlaggedRows: 'Only flagged rows ({loadedFlaggedCount})',
     liveValueReadOnly: 'Live value · read-only',
+    liveRowsReadOnly: 'Live rows · read-only; values change only by import',
     snapshotReadOnlyValues:
       'Snapshot {label} · read-only; values change only by import',
     correctReImport: 'Correct by re-import',

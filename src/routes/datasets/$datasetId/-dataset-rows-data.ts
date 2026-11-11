@@ -109,7 +109,51 @@ export function useDatasetRowsData(input: {
     enabled: Boolean(version) && !liveValue,
   })
 
-  const payload = liveValue ? valueContext.data : rowsQuery.data?.pages.at(0)
+  // A dataset nobody has snapshotted yet still has rows: read them live
+  // rather than showing an empty grid beside a row count.
+  const liveRows =
+    !liveValue && !search.snapshot && versions.isSuccess && !version
+
+  const datasetSchema = useQuery({
+    queryKey: ['ui-port', 'dataset-schema-version', datasetId],
+    queryFn: async () => {
+      const rows = await notebookDataClient.list<{
+        schema_version_id: string
+      }>('datasets', `?id=eq.${datasetId}&select=schema_version_id`)
+
+      return rows.at(0)?.schema_version_id ?? null
+    },
+    enabled: liveRows,
+  })
+
+  const liveRowsQuery = useInfiniteQuery({
+    queryKey: ['ui-port', 'dataset-live-rows', datasetId],
+    queryFn: async ({ pageParam }): Promise<RowValuePayload> => {
+      const page = await notebookDataClient.rpc<
+        Omit<RowValuePayload, 'datasetVersionId' | 'schemaVersionId'>
+      >('query_dataset_rows', {
+        p_dataset_id: datasetId,
+        p_limit: ROWS_PAGE_SIZE,
+        p_offset: pageParam,
+      })
+
+      return {
+        ...page,
+        datasetVersionId: '',
+        schemaVersionId: datasetSchema.data ?? '',
+      }
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.rows.length < lastPage.totalCount
+        ? lastPage.offset + lastPage.rows.length
+        : undefined,
+    enabled: liveRows && Boolean(datasetSchema.data),
+  })
+
+  const windowQuery = liveRows ? liveRowsQuery : rowsQuery
+
+  const payload = liveValue ? valueContext.data : windowQuery.data?.pages.at(0)
 
   const fieldsQuery = useQuery({
     queryKey: ['ui-port', 'dataset-fields', payload?.schemaVersionId],
@@ -151,7 +195,7 @@ export function useDatasetRowsData(input: {
   const columnField = fields.find((f) => f.field_id === search.col)
   const q = (search.q ?? '').trim().toLowerCase()
 
-  const rows = rowsOf(liveValue, valueContext.data, rowsQuery.data?.pages)
+  const rows = rowsOf(liveValue, valueContext.data, windowQuery.data?.pages)
 
   // The flagged filter reads only the rows loaded so far, so its count must
   // too — otherwise "(12)" sits beside "Showing 9 of 162" as a contradiction.
@@ -177,6 +221,10 @@ export function useDatasetRowsData(input: {
       void queryClient.invalidateQueries({
         queryKey: ['ui-port', 'dataset-rows', versionId],
       })
+    } else {
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'dataset-live-rows', datasetId],
+      })
     }
   }
 
@@ -184,7 +232,8 @@ export function useDatasetRowsData(input: {
     versions,
     version,
     valueContext,
-    rowsQuery,
+    rowsQuery: windowQuery,
+    liveRows,
     payload,
     fields,
     flags,

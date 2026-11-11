@@ -82,6 +82,7 @@ function Rows() {
     version,
     valueContext,
     rowsQuery,
+    liveRows,
     payload,
     fields,
     flags,
@@ -164,7 +165,11 @@ function Rows() {
   // identifier. When neither resolves, the action stays disabled.
   const sourceSample = useRowSourceSample(selected, fields)
 
-  const fallback = fallbackScreen(versions, version !== undefined, liveValue)
+  const fallback = fallbackScreen(
+    versions,
+    version !== undefined || liveRows,
+    liveValue,
+  )
 
   if (fallback)
     return (
@@ -190,6 +195,7 @@ function Rows() {
         hasData: Boolean(valueContext.data),
       })}
       snapshotLabel={version?.label}
+      liveRows={liveRows}
       loadedFlaggedCount={loadedFlaggedCount}
       visible={visible}
       columns={columns}
@@ -236,6 +242,7 @@ function RowsView(props: {
   liveValue: boolean
   liveStatus: string
   snapshotLabel: string | undefined
+  liveRows: boolean
   loadedFlaggedCount: number
   visible: RowGridRow[]
   columns: RegistryColumn<RowGridRow>[]
@@ -269,6 +276,7 @@ function RowsView(props: {
           onFlagged={props.onFlagged}
           loadedFlaggedCount={props.loadedFlaggedCount}
           liveValue={props.liveValue}
+          liveRows={props.liveRows}
           snapshotLabel={props.snapshotLabel}
         />
 
@@ -431,6 +439,7 @@ function RowsToolbar(props: {
   onFlagged: (next: boolean) => void
   loadedFlaggedCount: number
   liveValue: boolean
+  liveRows: boolean
   snapshotLabel: string | undefined
 }) {
   return (
@@ -458,9 +467,11 @@ function RowsToolbar(props: {
       <Muted className="max-lg:hidden">
         {props.liveValue
           ? t('data.datasetRows.liveValueReadOnly')
-          : t('data.datasetRows.snapshotReadOnlyValues', {
-              label: props.snapshotLabel ?? '',
-            })}
+          : props.liveRows
+            ? t('data.datasetRows.liveRowsReadOnly')
+            : t('data.datasetRows.snapshotReadOnlyValues', {
+                label: props.snapshotLabel ?? '',
+              })}
       </Muted>
       <Button
         size="sm"

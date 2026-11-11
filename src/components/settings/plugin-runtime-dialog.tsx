@@ -39,13 +39,15 @@ const formSchema = z.record(z.enum(PLUGIN_LIMIT_KEYS), z.string())
 type Form = z.infer<typeof formSchema>
 
 const formFrom = (overrides: PluginLimitOverrides): Form =>
-  formSchema.parse(Object.fromEntries(
-    PLUGIN_LIMIT_KEYS.map((key) => {
-      const value = overrides[key]
+  formSchema.parse(
+    Object.fromEntries(
+      PLUGIN_LIMIT_KEYS.map((key) => {
+        const value = overrides[key]
 
-      return [key, value == null ? '' : String(value)]
-    }),
-  ))
+        return [key, value == null ? '' : String(value)]
+      }),
+    ),
+  )
 
 const shown = (key: keyof PluginLimits) => {
   const value = DEFAULT_PLUGIN_LIMITS[key]

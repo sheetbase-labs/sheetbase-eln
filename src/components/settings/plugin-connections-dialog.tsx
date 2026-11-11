@@ -135,16 +135,14 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
             <Input
               type={setting.secret ? 'password' : 'text'}
               autoComplete="off"
-              value={
-                values.get(setting.name) ??
-                setting.value ??
-                ''
-              }
+              value={values.get(setting.name) ?? setting.value ?? ''}
               placeholder={
                 setting.secret && setting.isSet ? '••••••••••••' : undefined
               }
               onChange={(event) =>
-                setValues((current) => new Map(current).set(setting.name, event.target.value))
+                setValues((current) =>
+                  new Map(current).set(setting.name, event.target.value),
+                )
               }
             />
           </Field>

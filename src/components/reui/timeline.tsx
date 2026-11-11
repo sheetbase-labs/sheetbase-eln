@@ -18,7 +18,13 @@
  * - The timeline's context value is memoised, so a step change is the only thing
  *   that re-renders its items through a fresh provider value.
  */
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react'
 import { mergeProps } from '@base-ui/react/merge-props'
 import { useRender } from '@base-ui/react/use-render'
 

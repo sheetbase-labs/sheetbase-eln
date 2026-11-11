@@ -26,7 +26,9 @@ beforeEach(() => {
       case '/api/db/rpc/withdraw_review':
         return refused
           ? Response.json(
-              { error: { code: 'conflict', message: 'Review already decided' } },
+              {
+                error: { code: 'conflict', message: 'Review already decided' },
+              },
               { status: 409 },
             )
           : Response.json({})

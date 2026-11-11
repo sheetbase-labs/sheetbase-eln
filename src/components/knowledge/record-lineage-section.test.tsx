@@ -119,7 +119,9 @@ function renderWithGraph(node: ReactElement) {
     makeGraph(),
   )
 
-  return render(<QueryClientProvider client={client}>{node}</QueryClientProvider>)
+  return render(
+    <QueryClientProvider client={client}>{node}</QueryClientProvider>,
+  )
 }
 
 afterEach(() => {

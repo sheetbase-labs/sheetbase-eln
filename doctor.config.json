@@ -7,9 +7,7 @@
     ],
     "overrides": [
       {
-        "files": [
-          "src/db/seed/**"
-        ],
+        "files": ["src/db/seed/**"],
         "rules": [
           "react-doctor/async-await-in-loop",
           "react-doctor/server-sequential-independent-await"

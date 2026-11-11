@@ -199,9 +199,7 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
           sizesSkeleton
         ) : (
           <>
-            <div className="text-fg-muted text-body">
-              {rowsPerPageLabel}
-            </div>
+            <div className="text-fg-muted text-body">{rowsPerPageLabel}</div>
             {/* Sheetbase has no v3 select: the app's own convention for a
                 small control like this is a native select in the input's
                 style, which keeps keyboard and screen-reader behaviour for
@@ -244,9 +242,7 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
                   onClick={() => table.previousPage()}
                   disabled={!table.getCanPreviousPage()}
                 >
-                  <span className="sr-only">
-                    {previousPageLabel}
-                  </span>
+                  <span className="sr-only">{previousPageLabel}</span>
                   <Icon name="chevronLeft" className="size-4" />
                 </Button>
 

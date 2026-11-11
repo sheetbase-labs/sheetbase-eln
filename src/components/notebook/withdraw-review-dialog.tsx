@@ -51,10 +51,7 @@ export function WithdrawReviewDialog({
     setError(null)
 
     try {
-      const revision = await fetchRevisionRow(
-        client,
-        submission.revision_id,
-      )
+      const revision = await fetchRevisionRow(client, submission.revision_id)
 
       if (!revision?.integrity_digest) {
         throw new Error(

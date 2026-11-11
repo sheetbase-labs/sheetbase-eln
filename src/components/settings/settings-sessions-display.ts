@@ -9,7 +9,9 @@ export function describeDevice(userAgent: string | null | undefined): string {
     /(Edg|Chrome|Firefox|Safari)\/[\d.]+/.exec(userAgent)?.[1] ??
     t('settings.sessions.browser')
 
-  const os = /(Macintosh|Windows|Linux|iPhone|iPad|Android)/.exec(userAgent)?.[1]
+  const os = /(Macintosh|Windows|Linux|iPhone|iPad|Android)/.exec(
+    userAgent,
+  )?.[1]
   const osLabel = os === 'Macintosh' ? 'macOS' : os
 
   return osLabel ? `${browser} · ${osLabel}` : browser

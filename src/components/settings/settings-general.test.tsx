@@ -12,28 +12,66 @@ let noSettings = false
 let failGeneral = false
 
 const row = {
-  workspaces: { name: 'Process Development' }, site: 'Cambridge', timezone: 'Europe/London', date_format: 'd MMM yyyy', number_format: 'decimal',
-  publication_approval_required: false, allow_offline_editing: true, require_change_reason: false, lock_on_sign: true, regulated_lab: false,
+  workspaces: { name: 'Process Development' },
+  site: 'Cambridge',
+  timezone: 'Europe/London',
+  date_format: 'd MMM yyyy',
+  number_format: 'decimal',
+  publication_approval_required: false,
+  allow_offline_editing: true,
+  require_change_reason: false,
+  lock_on_sign: true,
+  regulated_lab: false,
   id_prefixes: { experiment: 'EXP' },
 }
 
-const saveRpcs = new Set(['update_workspace_name', 'update_workspace_general', 'update_workspace_id_prefixes', 'update_workspace_publication_policy', 'update_workspace_settings', 'set_regulated_lab'])
+const saveRpcs = new Set([
+  'update_workspace_name',
+  'update_workspace_general',
+  'update_workspace_id_prefixes',
+  'update_workspace_publication_policy',
+  'update_workspace_settings',
+  'set_regulated_lab',
+])
 
 vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
-  const url = new URL(input instanceof Request ? input.url : String(input), 'http://localhost')
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
   const resource = url.pathname.replace('/api/db/', '')
 
-  if (resource === 'workspace_settings' && (!init?.method || init.method === 'GET')) return Response.json(noSettings ? [] : [row])
+  if (
+    resource === 'workspace_settings' &&
+    (!init?.method || init.method === 'GET')
+  )
+    return Response.json(noSettings ? [] : [row])
 
-  if (resource === 'scheduler_settings' && (!init?.method || init.method === 'GET')) return Response.json([])
+  if (
+    resource === 'scheduler_settings' &&
+    (!init?.method || init.method === 'GET')
+  )
+    return Response.json([])
 
-  if (resource === 'rpc/record_id_counters' && init?.method === 'POST') return Response.json([])
+  if (resource === 'rpc/record_id_counters' && init?.method === 'POST')
+    return Response.json([])
   const rpc = resource.replace('rpc/', '')
 
-  if (resource.startsWith('rpc/') && saveRpcs.has(rpc) && init?.method === 'POST') {
-    writes.push({ rpc, body: bodySchema.parse(await new Response(init.body).json()) })
+  if (
+    resource.startsWith('rpc/') &&
+    saveRpcs.has(rpc) &&
+    init?.method === 'POST'
+  ) {
+    writes.push({
+      rpc,
+      body: bodySchema.parse(await new Response(init.body).json()),
+    })
 
-    if (rpc === 'update_workspace_general' && failGeneral) return Response.json({ error: { code: 'denied', message: 'Could not save the time zone.' } }, { status: 403 })
+    if (rpc === 'update_workspace_general' && failGeneral)
+      return Response.json(
+        { error: { code: 'denied', message: 'Could not save the time zone.' } },
+        { status: 403 },
+      )
 
     return Response.json(null)
   }
@@ -112,17 +150,39 @@ describe('SettingsGeneral', () => {
 
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
-      expect(writes).toContainEqual({ rpc: 'update_workspace_general', body: expect.objectContaining({ p_workspace_id: 'ws-1', p_site: 'Cambridge' }) }),
+      expect(writes).toContainEqual({
+        rpc: 'update_workspace_general',
+        body: expect.objectContaining({
+          p_workspace_id: 'ws-1',
+          p_site: 'Cambridge',
+        }),
+      }),
     )
     await waitFor(() =>
-      expect(writes).toContainEqual({ rpc: 'update_workspace_settings', body: { p_workspace_id: 'ws-1', p_require_change_reason: true, p_lock_on_sign: false } }),
+      expect(writes).toContainEqual({
+        rpc: 'update_workspace_settings',
+        body: {
+          p_workspace_id: 'ws-1',
+          p_require_change_reason: true,
+          p_lock_on_sign: false,
+        },
+      }),
     )
-    expect(writes).toContainEqual({ rpc: 'update_workspace_name', body: { p_workspace_id: 'ws-1', p_name: 'Process Development' } })
+    expect(writes).toContainEqual({
+      rpc: 'update_workspace_name',
+      body: { p_workspace_id: 'ws-1', p_name: 'Process Development' },
+    })
     await waitFor(() =>
-      expect(writes).toContainEqual({ rpc: 'update_workspace_publication_policy', body: { p_workspace_id: 'ws-1', p_required: true } }),
+      expect(writes).toContainEqual({
+        rpc: 'update_workspace_publication_policy',
+        body: { p_workspace_id: 'ws-1', p_required: true },
+      }),
     )
     await waitFor(() =>
-      expect(writes).toContainEqual({ rpc: 'update_workspace_settings', body: { p_workspace_id: 'ws-1', p_allow_offline_editing: false } }),
+      expect(writes).toContainEqual({
+        rpc: 'update_workspace_settings',
+        body: { p_workspace_id: 'ws-1', p_allow_offline_editing: false },
+      }),
     )
     expect(await screen.findByText('Settings saved')).toBeTruthy()
   })
@@ -139,7 +199,10 @@ describe('SettingsGeneral', () => {
     await user.click(regulated)
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
-      expect(writes).toContainEqual({ rpc: 'set_regulated_lab', body: { p_workspace_id: 'ws-1', p_regulated: true } }),
+      expect(writes).toContainEqual({
+        rpc: 'set_regulated_lab',
+        body: { p_workspace_id: 'ws-1', p_regulated: true },
+      }),
     )
   })
 
@@ -207,7 +270,10 @@ describe('SettingsGeneral', () => {
     expect(saveButton().disabled).toBe(false)
     await user.click(saveButton())
     await waitFor(() =>
-      expect(writes).toContainEqual({ rpc: 'update_workspace_name', body: { p_workspace_id: 'ws-1', p_name: 'Process Development 2' } }),
+      expect(writes).toContainEqual({
+        rpc: 'update_workspace_name',
+        body: { p_workspace_id: 'ws-1', p_name: 'Process Development 2' },
+      }),
     )
   })
 
@@ -264,7 +330,13 @@ describe('SettingsGeneral', () => {
     expect(save.disabled).toBe(false)
     await user.click(save)
     await waitFor(() =>
-      expect(writes).toContainEqual({ rpc: 'update_workspace_general', body: expect.objectContaining({ p_workspace_id: 'ws-1', p_site: 'Cambridge' }) }),
+      expect(writes).toContainEqual({
+        rpc: 'update_workspace_general',
+        body: expect.objectContaining({
+          p_workspace_id: 'ws-1',
+          p_site: 'Cambridge',
+        }),
+      }),
     )
   })
 })

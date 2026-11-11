@@ -182,7 +182,9 @@ export function JoinDomainsSection({
               value={role}
               disabled={save.isPending || domains.length === 0}
               onChange={(event) => {
-                const selectedRole = JOIN_ROLES.find((option) => option === event.target.value)
+                const selectedRole = JOIN_ROLES.find(
+                  (option) => option === event.target.value,
+                )
 
                 if (selectedRole) save.mutate({ domains, role: selectedRole })
               }}

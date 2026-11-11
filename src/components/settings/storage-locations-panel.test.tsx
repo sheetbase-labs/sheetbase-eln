@@ -89,11 +89,19 @@ const TABLES = {
 function client(empty = false) {
   const tables = new Map(Object.entries(TABLES))
   const bodySchema = z.json()
-  const writes: { method: string; resource: string; query: string; body: z.infer<typeof bodySchema> }[] = []
+  const writes: {
+    method: string
+    resource: string
+    query: string
+    body: z.infer<typeof bodySchema>
+  }[] = []
   const unexpected: string[] = []
 
   const dataClient = createDataClient(async (input, init) => {
-    const url = new URL(input instanceof Request ? input.url : String(input), 'http://localhost')
+    const url = new URL(
+      input instanceof Request ? input.url : String(input),
+      'http://localhost',
+    )
     const resource = url.pathname.replace('/api/db/', '')
     const rows = tables.get(resource)
     const method = init?.method ?? 'GET'
@@ -105,7 +113,12 @@ function client(empty = false) {
 
     if (method === 'GET') return Response.json(empty ? [] : rows)
 
-    writes.push({ method, resource, query: url.search, body: bodySchema.parse(await new Response(init?.body).json()) })
+    writes.push({
+      method,
+      resource,
+      query: url.search,
+      body: bodySchema.parse(await new Response(init?.body).json()),
+    })
 
     return Response.json(method === 'POST' ? [{}] : [])
   })
@@ -173,10 +186,14 @@ describe('StorageLocationsPanel', () => {
     expect(empty.matches(':disabled')).toBe(false)
     await user.click(empty)
     await waitFor(() =>
-      expect(c.writes).toEqual([{
-        method: 'PATCH', resource: 'storage_boxes', query: '?id=eq.b2',
-        body: { archived_at: expect.any(String) },
-      }]),
+      expect(c.writes).toEqual([
+        {
+          method: 'PATCH',
+          resource: 'storage_boxes',
+          query: '?id=eq.b2',
+          body: { archived_at: expect.any(String) },
+        },
+      ]),
     )
     expect(c.unexpected).toEqual([])
   })
@@ -193,14 +210,18 @@ describe('StorageLocationsPanel', () => {
     )
     await user.click(within(dialog).getByRole('button', { name: 'Add unit' }))
     await waitFor(() =>
-      expect(c.writes).toEqual([{
-        method: 'POST', resource: 'storage_units', query: '',
-        body: expect.objectContaining({
-          room_id: 'r1',
-          name: 'Freezer F-9',
-          unit_type: 'freezer',
-        }),
-      }]),
+      expect(c.writes).toEqual([
+        {
+          method: 'POST',
+          resource: 'storage_units',
+          query: '',
+          body: expect.objectContaining({
+            room_id: 'r1',
+            name: 'Freezer F-9',
+            unit_type: 'freezer',
+          }),
+        },
+      ]),
     )
     expect(c.unexpected).toEqual([])
   })

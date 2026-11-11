@@ -74,7 +74,9 @@ export function resolveBlockVersion(
   return { shown, latest, position, count: usable.length, newer }
 }
 
-const filePin = z.object({ fileVersion: z.number().int().positive().optional() })
+const filePin = z.object({
+  fileVersion: z.number().int().positive().optional(),
+})
 
 /** The pinned version a file block's payload carries, if any. */
 export function pinnedVersionOf(payload: NotebookBlock['payload']) {

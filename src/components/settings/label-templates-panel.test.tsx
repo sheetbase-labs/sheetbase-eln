@@ -54,7 +54,9 @@ vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     case '/api/db/label_templates':
       return Response.json([ROW])
     case '/api/db/model_kinds':
-      return Response.json([{ key: 'sample', label: 'Sample', identity_table: 'samples' }])
+      return Response.json([
+        { key: 'sample', label: 'Sample', identity_table: 'samples' },
+      ])
     case '/api/db/extensions':
       return Response.json([])
     case '/api/db/rpc/save_label_template':

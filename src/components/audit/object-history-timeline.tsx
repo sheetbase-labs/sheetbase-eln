@@ -1,8 +1,5 @@
 import { Avatar } from '#/components/ui/avatar'
-import {
-  AUDIT_ENTITY_ICONS,
-  AUDIT_OPERATION_ICONS,
-} from './audit-icons'
+import { AUDIT_ENTITY_ICONS, AUDIT_OPERATION_ICONS } from './audit-icons'
 import { HistoryTimeline } from './history-timeline'
 import type { HistoryEntry } from './history-timeline'
 import { Badge } from '#/components/ui/badge'

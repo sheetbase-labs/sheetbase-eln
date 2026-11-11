@@ -1994,14 +1994,6 @@ export const notebook = {
     moreActionsAriaLabel: 'More actions',
     updated: 'Updated {when}',
   },
-  dataTable: {
-    columns: 'Columns',
-    ariaLabel: 'Select all rows',
-    selectRowAriaLabel: 'Select row',
-    rowsPerPage: 'Rows per page',
-    pagePageindexOfMax: 'Page {pageIndex} of {max}',
-    noResults: 'No results',
-  },
   modelFieldInput: {
     notSet: 'Not set',
     referenceTargetIsNot:

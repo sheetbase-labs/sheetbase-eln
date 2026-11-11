@@ -8,13 +8,14 @@ import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { Button, buttonVariants } from '#/components/ui/button'
 import { IconButton } from '#/components/ui/icon-button'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+  RegistryGrid,
+  bandRow,
+  useRowFocus,
+} from '#/components/inventory/registry-grid'
+import type {
+  RegistryColumn,
+  RegistryRow,
+} from '#/components/inventory/registry-grid'
 import {
   auditEventMatchesCategory,
   auditHistoryCategories,
@@ -155,6 +156,121 @@ export function ExperimentHistoryView({
     ...clockOption(),
   })
 
+  const rows: RegistryRow<AuditEventWire>[] = groupAuditEventsByDay(
+    visible,
+    timeZone,
+  ).flatMap((day) => [bandRow(day.label), ...day.events])
+
+  const focus = useRowFocus(selectedId, setSelectedId)
+
+  const noReason = t('projects.experimentHistory.notCaptured')
+
+  const columns: RegistryColumn<AuditEventWire>[] = [
+    {
+      id: 'time',
+      header: t('projects.experimentHistory.fields.time'),
+      accessorFn: (event) => event.createdAt,
+      cell: ({ row }) => (
+        <time dateTime={row.original.createdAt}>
+          {time.format(new Date(row.original.createdAt))}
+        </time>
+      ),
+    },
+    {
+      id: 'actor',
+      header: t('projects.experimentHistory.fields.actor'),
+      accessorFn: (event) => actor(event),
+      cell: ({ row }) =>
+        row.original.actorUserId && !row.original.actorCredentialId ? (
+          <Person
+            userId={row.original.actorUserId}
+            name={actor(row.original)}
+          />
+        ) : (
+          actor(row.original)
+        ),
+    },
+    {
+      id: 'action',
+      header: t('projects.experimentHistory.fields.action'),
+      accessorFn: (event) => describeAuditEvent(event).action,
+      cell: ({ row }) => {
+        const described = describeAuditEvent(row.original)
+
+        return (
+          <button
+            type="button"
+            className="text-left focus-visible:outline-2 focus-visible:outline-focus"
+            aria-label={t('projects.experimentHistory.inspect', {
+              sequence: row.original.sequence,
+              action: described.action,
+              subject: described.subject,
+            })}
+            onClick={() => setSelectedId(row.original.id)}
+          >
+            {described.action}
+          </button>
+        )
+      },
+    },
+    {
+      id: 'object',
+      header: t('projects.experimentHistory.fields.object'),
+      accessorFn: (event) => describeAuditEvent(event).readableSubject,
+      cell: ({ row }) => describeAuditEvent(row.original).readableSubject,
+    },
+    {
+      id: 'field',
+      header: t('projects.experimentHistory.fields.field'),
+      accessorFn: (event) =>
+        describeAuditEvent(event)
+          .changes.map((change) => change.label)
+          .join(', '),
+      cell: ({ row }) =>
+        describeAuditEvent(row.original)
+          .changes.map((change) => change.label)
+          .join(', ') || '—',
+    },
+    {
+      id: 'change',
+      header: t('projects.experimentHistory.fields.change'),
+      enableSorting: false,
+      cell: ({ row }) => {
+        const described = describeAuditEvent(row.original)
+
+        return described.changes.length
+          ? described.changes.map((change, index) => (
+              <span key={change.label}>
+                {index > 0 ? ', ' : null}
+                <span className="text-fg-muted line-through">
+                  {readableChangeValue(change.from)}
+                </span>{' '}
+                → {readableChangeValue(change.to)}
+              </span>
+            ))
+          : described.event.operation === 'update'
+            ? noReason
+            : '—'
+      },
+    },
+    {
+      id: 'reason',
+      header: t('projects.experimentHistory.fields.reason'),
+      accessorFn: (event) => captured(event, 'reason'),
+      cell: ({ row }) => {
+        const reason = captured(row.original, 'reason')
+
+        return reason === noReason ? (
+          '—'
+        ) : (
+          <span className="block max-w-80 truncate" title={reason}>
+            {reason}
+          </span>
+        )
+      },
+    },
+  ]
+
   const exportQuery = new URLSearchParams({
     category,
     before: String(snapshotBefore),
@@ -230,128 +346,29 @@ export function ExperimentHistoryView({
       {extra}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto lg:flex-row lg:overflow-hidden">
         <div className="min-w-0 shrink-0 overflow-auto lg:flex-1">
-          <Table
-            aria-label={t('projects.experimentHistory.tableLabel', {
+          <RegistryGrid
+            label={t('projects.experimentHistory.tableLabel', {
               identifier,
             })}
-          >
-            <TableHeader>
-              <TableRow>
-                {(
-                  [
-                    'time',
-                    'actor',
-                    'action',
-                    'object',
-                    'field',
-                    'change',
-                    'reason',
-                  ] as const
-                ).map((key) => (
-                  <TableHead key={key}>
-                    {t(`projects.experimentHistory.fields.${key}`)}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {groupAuditEventsByDay(visible, timeZone).map((day) => (
-                <Fragment key={day.label}>
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="bg-surface-muted text-label text-fg-muted"
-                    >
-                      {day.label}
-                    </TableCell>
-                  </TableRow>
-                  {day.events.map((event) => {
-                    const described = describeAuditEvent(event)
-
-                    return (
-                      <TableRow
-                        key={event.id}
-                        selected={event.id === selectedId}
-                      >
-                        <TableCell>
-                          <time dateTime={event.createdAt}>
-                            {time.format(new Date(event.createdAt))}
-                          </time>
-                        </TableCell>
-                        <TableCell>
-                          {event.actorUserId && !event.actorCredentialId ? (
-                            <Person
-                              userId={event.actorUserId}
-                              name={actor(event)}
-                            />
-                          ) : (
-                            actor(event)
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <button
-                            type="button"
-                            className="text-left focus-visible:outline-2 focus-visible:outline-focus"
-                            aria-label={t(
-                              'projects.experimentHistory.inspect',
-                              {
-                                sequence: event.sequence,
-                                action: described.action,
-                                subject: described.subject,
-                              },
-                            )}
-                            onClick={() => setSelectedId(event.id)}
-                          >
-                            {described.action}
-                          </button>
-                        </TableCell>
-                        <TableCell>{described.readableSubject}</TableCell>
-                        <TableCell>
-                          {described.changes
-                            .map((change) => change.label)
-                            .join(', ') || '—'}
-                        </TableCell>
-                        <TableCell>
-                          {described.changes.length
-                            ? described.changes.map((change) => (
-                                <div key={change.label}>
-                                  <span className="text-fg-muted line-through">
-                                    {readableChangeValue(change.from)}
-                                  </span>{' '}
-                                  → {readableChangeValue(change.to)}
-                                </div>
-                              ))
-                            : described.event.operation === 'update'
-                              ? t('projects.experimentHistory.notCaptured')
-                              : '—'}
-                        </TableCell>
-                        <TableCell className="max-w-80 whitespace-normal">
-                          {captured(event, 'reason') ===
-                          t('projects.experimentHistory.notCaptured')
-                            ? '—'
-                            : captured(event, 'reason')}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </Fragment>
-              ))}
-              {!visible.length && (
-                <TableRow>
-                  <TableCell colSpan={7}>
-                    {t('projects.experimentHistory.emptySelection', {
-                      what:
-                        category === 'all'
-                          ? t('projects.experimentHistory.auditEntries')
-                          : t(
-                              `projects.experimentHistory.categories.${category}`,
-                            ),
-                    })}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+            rows={rows}
+            columns={columns}
+            getRowId={(event) => event.id}
+            {...focus}
+            onRowClick={(event) => setSelectedId(event.id)}
+            exportName={t('projects.experimentHistory.tableLabel', {
+              identifier,
+            })}
+          />
+          {!visible.length && (
+            <p className="px-6 py-3 text-fg-muted">
+              {t('projects.experimentHistory.emptySelection', {
+                what:
+                  category === 'all'
+                    ? t('projects.experimentHistory.auditEntries')
+                    : t(`projects.experimentHistory.categories.${category}`),
+              })}
+            </p>
+          )}
         </div>
         {selected && (
           <EntryDetails

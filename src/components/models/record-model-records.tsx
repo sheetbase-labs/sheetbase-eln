@@ -75,7 +75,7 @@ function applyFilters(
   if (filters.length === 0) return records
 
   const shown = (record: RecordModelRecord, columnId: string): string => {
-    if (columnId === 'status') return record.status ?? ''
+    if (columnId === 'status') return record.status
 
     const field = fields.find(
       (entry) => `field:${entry.fieldName}` === columnId,

@@ -247,7 +247,7 @@ export function RolesAndPermissions({
         </h2>
         <TableBox>
           <RegistryGrid
-            label="Roles"
+            label={t('settings.rolesAndPermissions.rolesTable')}
             rows={ROLE_ROWS.map((r) => ({ id: r.key, ...r }))}
             columns={roleColumns}
             getRowId={(r) => r.id}

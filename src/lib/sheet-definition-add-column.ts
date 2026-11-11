@@ -6,6 +6,7 @@
  */
 import { parseSheetDefinitionConfiguration } from './sheet-definition'
 import type { SheetDefinitionConfiguration } from './sheet-definition'
+import type { FieldValidation } from './field-definition'
 
 export const ADDABLE_COLUMN_TYPES = [
   'text',
@@ -80,7 +81,7 @@ export function addSheetColumn(
   const unit = numeric ? column.unit?.trim() : undefined
   const id = newId()
 
-  const validation: { min?: number; max?: number } = {}
+  const validation: FieldValidation = {}
 
   if (numeric && column.min !== undefined) validation.min = column.min
 

@@ -486,6 +486,23 @@ function VersionInspector({
   )
 }
 
+const SOURCE_ICONS = {
+  record: 'link',
+  dataset: 'database',
+  calculated: 'code',
+  local: 'edit',
+} as const
+
+/** Where a sheet column's values come from: a small mark and the source's name. */
+function SourceChip({ row }: { row: SheetColumnRowData }) {
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap text-caption text-fg-muted">
+      <Icon name={SOURCE_ICONS[row.sourceKind]} size={10} />
+      {row.calculated ? <span className="mono">ƒx</span> : row.source}
+    </span>
+  )
+}
+
 type SheetColumnRowData = ReturnType<typeof sheetColumnRows>[number]
 
 /** The columns a sheet section fills in, with a v-badge on any a newer version added. */
@@ -530,12 +547,7 @@ function SheetColumnsTable({
         id: 'source',
         header: t('library.templates.templateSectionsBoard.source'),
         accessorFn: (row) => (row.calculated ? 'ƒx' : row.source),
-        cell: ({ row }) =>
-          row.original.calculated ? (
-            <span className="mono">ƒx</span>
-          ) : (
-            row.original.source
-          ),
+        cell: ({ row }) => <SourceChip row={row.original} />,
         meta: { cellClassName: 'text-label text-fg-muted' },
       },
       {
@@ -562,7 +574,7 @@ function SheetColumnsTable({
         header: t('library.templates.templateSectionsBoard.rule'),
         accessorFn: (row) =>
           row.calculated ? `= ${row.rule}` : (row.rule ?? '—'),
-        meta: { cellClassName: 'min-w-[200px] whitespace-normal' },
+        meta: { cellClassName: 'min-w-[200px]! whitespace-normal!' },
         cell: ({ row }) =>
           row.original.calculated ? (
             <span className="mono text-label">= {row.original.rule}</span>

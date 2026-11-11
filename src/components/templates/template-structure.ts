@@ -12,6 +12,8 @@ export interface SheetColumnRow {
   label: string
   /** "Material lot", "Typed in sheet" or "ƒx". */
   source: string
+  /** Which mark the source chip carries: a model, a dataset, a formula or typed. */
+  sourceKind: 'record' | 'dataset' | 'calculated' | 'local'
   calculated: boolean
   /** "Text", "Number", "Record link". */
   type: string
@@ -97,6 +99,13 @@ export function sheetColumnRows(config: Config): SheetColumnRow[] {
             : column.source.kind === 'bound'
               ? 'Dataset'
               : 'Typed in sheet',
+        sourceKind: calc
+          ? 'calculated'
+          : target?.kind === 'model'
+            ? 'record'
+            : column.source.kind === 'bound'
+              ? 'dataset'
+              : 'local',
         calculated: Boolean(calc),
         type: typeLabel(field.logicalType),
         unit: field.quantity?.storageUnit ?? null,

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -9,15 +9,13 @@ import { Notice } from '#/components/ui/alert'
 import { Field, Input } from '#/components/ui/input'
 import { Inspector, InspectorSection, Muted } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
+import { TableBox } from '#/components/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+  RegistryGrid,
+  rightAligned,
+  useRowFocus,
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { hasCapability } from '#/lib/capability'
 import type { DataClient } from '#/lib/data-client'
 import {
@@ -405,6 +403,134 @@ function VersionsTable({
 }) {
   const { rows, approvals, selected, setSelectedId, usage } = state
   const { changesOf, approvedBy, current, nameOf, previousOf } = comparisons
+  const focus = useRowFocus(selected?.id ?? null, setSelectedId)
+
+  const columns = useMemo<RegistryColumn<RecordModelVersion>[]>(
+    () => [
+      {
+        id: 'version',
+        header: t('library.models.recordModelVersions.version'),
+        accessorFn: (version) => version.version,
+        cell: ({ row }) => (
+          <Button
+            variant="quiet"
+            aria-pressed={selected?.id === row.original.id}
+            onClick={() => setSelectedId(row.original.id)}
+          >
+            v{row.original.version}
+          </Button>
+        ),
+      },
+      {
+        id: 'status',
+        header: t('library.models.recordModelVersions.state'),
+        accessorFn: (version) => version.lifecycle,
+        cell: ({ row }) => {
+          const version = row.original
+
+          if (version.lifecycle === 'published') {
+            return (
+              <Status tone={version.id === current?.id ? 'progress' : 'stored'}>
+                {version.id === current?.id
+                  ? t('library.models.recordModelVersions.current')
+                  : t('library.models.recordModelVersions.replaced')}
+              </Status>
+            )
+          }
+
+          const status = approvalStatus(
+            approvals.data?.byVersion.get(version.id) ?? [],
+            version.revision,
+          )
+
+          return (
+            <Status tone={status.tone === 'none' ? 'stored' : status.tone}>
+              {status.tone === 'none'
+                ? t('library.models.recordModelVersions.draft')
+                : status.label}
+            </Status>
+          )
+        },
+      },
+      {
+        id: 'published',
+        header: t('library.models.recordModelVersions.published'),
+        accessorFn: (version) => version.published_at ?? updatedAt(version),
+        cell: ({ row }) => {
+          const version = row.original
+
+          return version.published_at
+            ? formatDate(version.published_at)
+            : t('library.models.recordModelVersions.rev', {
+                revision: version.revision,
+                version: formatNotebookDateTime(updatedAt(version)).slice(-5),
+              })
+        },
+        meta: { cellClassName: 'text-fg-muted' },
+      },
+      {
+        id: 'by',
+        header: t('library.models.recordModelVersions.by'),
+        accessorFn: (version) => nameOf(version.created_by_user_id) ?? '—',
+      },
+      {
+        id: 'approvedBy',
+        header: t('library.models.recordModelVersions.approvedBy'),
+        accessorFn: (version) => approvedBy(version.id).join(', ') || '—',
+      },
+      {
+        id: 'change',
+        header: t('library.models.recordModelVersions.change'),
+        enableSorting: false,
+        meta: {
+          cellClassName: 'min-w-[240px] max-w-[420px] whitespace-normal',
+        },
+        cell: ({ row }) => {
+          const version = row.original
+
+          return previousOf(version) ? (
+            <FieldChangeList
+              changes={changesOf(version)}
+              label={t('library.models.recordModelVersions.changesInV', {
+                version: version.version,
+              })}
+            />
+          ) : (
+            <span className="text-fg-muted">
+              {t('library.models.recordModelVersions.createdWithFields', {
+                fields: version.definition.fields.length,
+              })}
+            </span>
+          )
+        },
+      },
+      {
+        id: 'records',
+        header: t('library.models.recordModelVersions.records'),
+        accessorFn: (version) =>
+          usage.data?.find((row) => row.version_id === version.id)
+            ?.record_count ?? 0,
+        cell: ({ row }) =>
+          usage.isError
+            ? t('library.models.recordModelVersions.unavailable')
+            : (usage.data?.find((entry) => entry.version_id === row.original.id)
+                ?.record_count ?? '…'),
+        ...rightAligned<RecordModelVersion>(),
+      },
+    ],
+    [
+      selected?.id,
+      setSelectedId,
+      current?.id,
+      approvals.data,
+      nameOf,
+      approvedBy,
+      previousOf,
+      changesOf,
+      usage.data,
+      usage.isError,
+    ],
+  )
 
   return !rows.length ? (
     <p className="p-4 text-label text-fg-muted">
@@ -413,124 +539,15 @@ function VersionsTable({
   ) : (
     <div className="p-4">
       <TableBox>
-        <Table
-          aria-label={t(
-            'library.models.recordModelVersions.recordModelVersions',
-          )}
-        >
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                {t('library.models.recordModelVersions.version')}
-              </TableHead>
-              <TableHead>
-                {t('library.models.recordModelVersions.state')}
-              </TableHead>
-              <TableHead>
-                {t('library.models.recordModelVersions.published')}
-              </TableHead>
-              <TableHead>
-                {t('library.models.recordModelVersions.by')}
-              </TableHead>
-              <TableHead>
-                {t('library.models.recordModelVersions.approvedBy')}
-              </TableHead>
-              <TableHead>
-                {t('library.models.recordModelVersions.change')}
-              </TableHead>
-              <TableHead align="right">
-                {t('library.models.recordModelVersions.records')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((version) => {
-              const requestRows =
-                approvals.data?.byVersion.get(version.id) ?? []
-
-              const status = approvalStatus(requestRows, version.revision)
-              const changes = changesOf(version)
-              const names = approvedBy(version.id)
-
-              return (
-                <TableRow
-                  key={version.id}
-                  selected={selected?.id === version.id}
-                >
-                  <TableCell>
-                    <Button
-                      variant="quiet"
-                      aria-pressed={selected?.id === version.id}
-                      onClick={() => setSelectedId(version.id)}
-                    >
-                      v{version.version}
-                    </Button>
-                  </TableCell>
-                  <TableCell>
-                    {version.lifecycle === 'published' ? (
-                      <Status
-                        tone={
-                          version.id === current?.id ? 'progress' : 'stored'
-                        }
-                      >
-                        {version.id === current?.id
-                          ? t('library.models.recordModelVersions.current')
-                          : t('library.models.recordModelVersions.replaced')}
-                      </Status>
-                    ) : (
-                      <Status
-                        tone={status.tone === 'none' ? 'stored' : status.tone}
-                      >
-                        {status.tone === 'none'
-                          ? t('library.models.recordModelVersions.draft')
-                          : status.label}
-                      </Status>
-                    )}
-                  </TableCell>
-                  <TableCell className="whitespace-normal text-fg-muted">
-                    {version.published_at
-                      ? formatDate(version.published_at)
-                      : t('library.models.recordModelVersions.rev', {
-                          revision: version.revision,
-                          version: formatNotebookDateTime(
-                            updatedAt(version),
-                          ).slice(-5),
-                        })}
-                  </TableCell>
-                  <TableCell>
-                    {nameOf(version.created_by_user_id) ?? '—'}
-                  </TableCell>
-                  <TableCell>{names.join(', ') || '—'}</TableCell>
-                  <TableCell className="min-w-[240px] whitespace-normal">
-                    {previousOf(version) ? (
-                      <FieldChangeList
-                        changes={changes}
-                        label={t(
-                          'library.models.recordModelVersions.changesInV',
-                          { version: version.version },
-                        )}
-                      />
-                    ) : (
-                      <span className="text-fg-muted">
-                        {t(
-                          'library.models.recordModelVersions.createdWithFields',
-                          { fields: version.definition.fields.length },
-                        )}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell align="right">
-                    {usage.isError
-                      ? t('library.models.recordModelVersions.unavailable')
-                      : (usage.data?.find(
-                          (row) => row.version_id === version.id,
-                        )?.record_count ?? '…')}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('library.models.recordModelVersions.recordModelVersions')}
+          rows={rows}
+          columns={columns}
+          getRowId={(version) => version.id}
+          rowSelection={focus.rowSelection}
+          onRowSelectionChange={focus.onRowSelectionChange}
+          rowLabel={(version) => `v${version.version}`}
+        />
       </TableBox>
       <Muted className="mt-3 block">
         {t('library.models.recordModelVersions.publishingAVersionNeverChanges')}

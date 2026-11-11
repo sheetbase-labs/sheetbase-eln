@@ -1206,6 +1206,28 @@ describe('NotebookDocument — movement via menu', () => {
       />
     )
 
+    // Hold the menu's close animation until after the insert has selected the
+    // new block, as a slow machine or a quick server does. Closing must not
+    // hand focus, and with it the selection, back to the block it opened on.
+    let finishClose: () => void = () => {}
+
+    const closing = new Promise<void>((resolve) => {
+      finishClose = resolve
+    })
+
+    const animations = vi
+      .spyOn(Element.prototype, 'getAnimations')
+      .mockImplementation(function (this: Element) {
+        const menuClosing =
+          this.matches('[data-slot="dropdown-menu-content"]') &&
+          this.hasAttribute('data-ending-style')
+
+        // SAFETY: Base UI reads only `finished` from a running animation.
+        return menuClosing
+          ? [Object.assign(new EventTarget(), { finished: closing }) as never]
+          : []
+      })
+
     const { container, rerender } = render(ui(blocks))
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[1],
@@ -1216,6 +1238,13 @@ describe('NotebookDocument — movement via menu', () => {
     expect(onInsertBlock).toHaveBeenCalledWith('rich_text', 'b2')
     await act(async () => finishInsert('new'))
     await waitFor(() => expect(hash).toHaveBeenLastCalledWith('block-new'))
+    await act(async () => {
+      finishClose()
+      await closing
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    })
+    animations.mockRestore()
+    expect(hash).toHaveBeenLastCalledWith('block-new')
     // A canonical refresh can precede the inserted block's appearance. Do not
     // clear its pending selection while waiting for the returned id to arrive.
     rerender(ui(blocks.map((block) => ({ ...block, version: 2 }))))

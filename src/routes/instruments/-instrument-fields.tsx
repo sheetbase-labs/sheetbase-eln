@@ -90,7 +90,9 @@ function UsedByGrid({ rows }: { rows: InstrumentUsedBy[] }) {
         id: 'how',
         header: t('library.instruments.record.usedByHow'),
         accessorFn: (row) => row.how,
-        cell: ({ row }) => <span className="text-fg-muted">{row.original.how}</span>,
+        cell: ({ row }) => (
+          <span className="text-fg-muted">{row.original.how}</span>
+        ),
       },
       {
         id: 'since',
@@ -137,17 +139,15 @@ function HistoryGrid({
       {
         id: 'change',
         header: t('library.instruments.record.change'),
-        accessorFn: (entry) =>
-          entry.changes.map((c) => c.label).join(', '),
+        accessorFn: (entry) => entry.changes.map((c) => c.label).join(', '),
         enableSorting: false,
         cell: ({ row }) =>
           row.original.changes.length ? (
             <span className="flex min-w-0 items-baseline gap-3">
               {row.original.changes.map((c) => (
                 <span key={c.label} className="whitespace-nowrap">
-                  {c.label}{' '}
-                  <del className="text-fg-muted">{c.from ?? '—'}</del> →{' '}
-                  <ins className="no-underline">{c.to ?? '—'}</ins>
+                  {c.label} <del className="text-fg-muted">{c.from ?? '—'}</del>{' '}
+                  → <ins className="no-underline">{c.to ?? '—'}</ins>
                 </span>
               ))}
             </span>

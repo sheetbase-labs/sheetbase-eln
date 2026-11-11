@@ -266,14 +266,16 @@ function ExtensionAnalysisResult({
           <PreviewGrid
             label={kind.declaration.title}
             columns={outcome.columns.map((column) => column.name)}
-            rows={outcome.rows.slice(0, 200).map((row) =>
-              Object.fromEntries(
-                outcome.columns.map((column) => [
-                  column.name,
-                  String(row[column.name] ?? '—'),
-                ]),
-              ),
-            )}
+            rows={outcome.rows
+              .slice(0, 200)
+              .map((row) =>
+                Object.fromEntries(
+                  outcome.columns.map((column) => [
+                    column.name,
+                    String(row[column.name] ?? '—'),
+                  ]),
+                ),
+              )}
             numericColumns={outcome.columns
               .filter((column) => column.type === 'number')
               .map((column) => column.name)}

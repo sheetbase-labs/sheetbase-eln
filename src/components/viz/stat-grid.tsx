@@ -49,33 +49,30 @@ export function StatGrid<T>({
 
   type Keyed = (typeof keyed)[number]
 
-  const defs = columns.map(
-    (column, position): RegistryColumn<Keyed> => ({
-      id: column.id,
-      header: column.header,
-      accessorFn: (entry: Keyed) =>
-        (column.sortBy ?? column.value)(entry.row),
-      enableHiding: position !== 0,
-      meta: column.text
-        ? undefined
-        : { headerClassName: 'text-right', cellClassName: 'text-right' },
-      cell: ({ row }) => {
-        const shown = column.value(row.original.row)
+  const defs = columns.map((column, position): RegistryColumn<Keyed> => ({
+    id: column.id,
+    header: column.header,
+    accessorFn: (entry: Keyed) => (column.sortBy ?? column.value)(entry.row),
+    enableHiding: position !== 0,
+    meta: column.text
+      ? undefined
+      : { headerClassName: 'text-right', cellClassName: 'text-right' },
+    cell: ({ row }) => {
+      const shown = column.value(row.original.row)
 
-        const tone = column.tone?.(row.original.row)
+      const tone = column.tone?.(row.original.row)
 
-        if (tone) return <span className={tone}>{shown}</span>
+      if (tone) return <span className={tone}>{shown}</span>
 
-        return column.strong ? (
-          <span className="font-medium text-fg">{shown}</span>
-        ) : column.text ? (
-          shown
-        ) : (
-          <span className="num">{shown}</span>
-        )
-      },
-    }),
-  )
+      return column.strong ? (
+        <span className="font-medium text-fg">{shown}</span>
+      ) : column.text ? (
+        shown
+      ) : (
+        <span className="num">{shown}</span>
+      )
+    },
+  }))
 
   const wanted = 31 + 33 * keyed.length + 14
 

@@ -276,8 +276,18 @@ export function ComparisonResultTables({
             strong: true,
           },
           { id: 'n', header: 'n', value: (g) => g.stats.n },
-          { id: 'mean', header: 'mean', value: (g) => num(g.stats.mean), sortBy: (g) => g.stats.mean },
-          { id: 'sd', header: 'sd', value: (g) => num(g.stats.sd), sortBy: (g) => g.stats.sd },
+          {
+            id: 'mean',
+            header: 'mean',
+            value: (g) => num(g.stats.mean),
+            sortBy: (g) => g.stats.mean,
+          },
+          {
+            id: 'sd',
+            header: 'sd',
+            value: (g) => num(g.stats.sd),
+            sortBy: (g) => g.stats.sd,
+          },
           {
             id: 'median',
             header: 'median',
@@ -532,7 +542,11 @@ export function SurvivalResultTables({ result }: { result: SurvivalResult }) {
             strong: true,
           },
           { id: 'n', header: 'n', value: (c) => c.n },
-          { id: 'events', header: t('data.analysisPanel.events'), value: (c) => c.events },
+          {
+            id: 'events',
+            header: t('data.analysisPanel.events'),
+            value: (c) => c.events,
+          },
           {
             id: 'censored',
             header: t('data.analysisPanel.censored'),

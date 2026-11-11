@@ -278,9 +278,17 @@ function DescriptiveResultTables({ result }: { result: DescriptiveResult }) {
                 text: true,
                 strong: true,
               },
-              { id: 'ss', header: t('data.analysisPanel.ss'), value: (row) => row.ss },
+              {
+                id: 'ss',
+                header: t('data.analysisPanel.ss'),
+                value: (row) => row.ss,
+              },
               { id: 'df', header: 'df', value: (row) => row.df },
-              { id: 'ms', header: t('data.analysisPanel.ms'), value: (row) => row.ms },
+              {
+                id: 'ms',
+                header: t('data.analysisPanel.ms'),
+                value: (row) => row.ms,
+              },
               { id: 'f', header: 'F', value: (row) => row.f },
               { id: 'p', header: 'p', value: (row) => row.p },
             ]}
@@ -315,7 +323,12 @@ function RegressionResultTables({ result }: { result: RegressionResult }) {
           },
           { id: 'n', header: 'n', value: (row) => row.n },
           { id: 'degree', header: 'degree', value: (row) => row.degree },
-          { id: 'r2', header: 'R²', value: (row) => formatScientific(row.r2), sortBy: (row) => row.r2 },
+          {
+            id: 'r2',
+            header: 'R²',
+            value: (row) => formatScientific(row.r2),
+            sortBy: (row) => row.r2,
+          },
           {
             id: 'rmse',
             header: t('data.analysisPanel.rmse'),
@@ -581,7 +594,9 @@ function CurveFitCard({
             value: (item) => READ_BACK_LABEL[item.status],
             text: true,
             tone: (item) =>
-              item.status === 'in_range' ? 'text-fg-muted' : 'text-warning-text',
+              item.status === 'in_range'
+                ? 'text-fg-muted'
+                : 'text-warning-text',
           },
         ]}
       />

@@ -337,6 +337,14 @@ export interface SheetbaseGridProps {
    */
   cellBefore?: (rowIndex: number, columnId: string) => string | undefined
   /**
+   * Show changes: a changed cell's own save state, drawn as a small mark after
+   * its value. A failed mark retries the change when clicked.
+   */
+  cellMark?: (
+    rowIndex: number,
+    columnId: string,
+  ) => { state: 'saved' | 'saving' | 'failed'; retry?: () => void } | undefined
+  /**
    * Validation gate for every write source. Return `false` to reject the whole
    * change; mutated `change.next` values are applied back to the grid.
    *

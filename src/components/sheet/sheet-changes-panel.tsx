@@ -4,6 +4,7 @@
  * them is not.
  */
 import { t } from '#/copy'
+import { cn } from '#/lib/utils'
 import {
   Table,
   TableBody,
@@ -26,6 +27,68 @@ export interface SheetChangeRow {
   /** False for the first change after a sheet was made with values in it. */
   beforeKnown: boolean
   reason: string | null
+  /** Whether the change is written. Recorded changes always are. */
+  save?: 'saved' | 'saving' | 'failed'
+  /** Try a failed change again. */
+  onRetry?: () => void
+}
+
+/** The change's own save state: a small mark and a word. */
+function SaveState({ row }: { row: SheetChangeRow }) {
+  const save = row.save ?? 'saved'
+
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 whitespace-nowrap',
+        save === 'failed' && 'text-danger-text',
+        save === 'saving' && 'text-fg-muted',
+      )}
+    >
+      <SheetWriteMark state={save} />
+      {save === 'saved'
+        ? t('notebook.sheetToolbar.saved')
+        : save === 'saving'
+          ? t('notebook.sheetToolbar.saving')
+          : t('notebook.sheetToolbar.saveFailed')}
+      {save === 'failed' && row.onRetry ? (
+        <>
+          <span aria-hidden="true">·</span>
+          <button
+            type="button"
+            title={t('notebook.sheetChanges.retryHint')}
+            className="text-primary-text hover:underline"
+            onClick={(event) => {
+              event.stopPropagation()
+              row.onRetry?.()
+            }}
+          >
+            {t('notebook.sheetChanges.retry')}
+          </button>
+        </>
+      ) : null}
+    </span>
+  )
+}
+
+/** The 7px write mark: filled when saved or failed, a ring while saving. */
+export function SheetWriteMark({
+  state,
+}: {
+  state: 'saved' | 'saving' | 'failed'
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      data-write-mark={state}
+      className={cn(
+        'inline-block size-[7px] shrink-0 rounded-full',
+        state === 'saved' && 'bg-success',
+        state === 'failed' && 'bg-danger',
+        state === 'saving' && 'border border-fg-muted',
+      )}
+    />
+  )
 }
 
 /** Before → after, with the old value struck through. */
@@ -89,9 +152,10 @@ export function SheetChangeList({
               <TableHead className="w-full">
                 {t('notebook.sheetChanges.reason')}
               </TableHead>
+              <TableHead>{t('notebook.sheetChanges.save')}</TableHead>
             </tr>
           </TableHeader>
-          <TableBody colSpan={4} empty={t('notebook.sheetChanges.none')}>
+          <TableBody colSpan={5} empty={t('notebook.sheetChanges.none')}>
             {rows.map((row) => (
               <TableRow
                 key={row.id}
@@ -113,6 +177,9 @@ export function SheetChangeList({
                         reason: row.reason,
                       })
                     : '—'}
+                </TableCell>
+                <TableCell>
+                  <SaveState row={row} />
                 </TableCell>
               </TableRow>
             ))}

@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useRouteContext } from '@tanstack/react-router'
 
 import { SheetFiltersButton } from './sheet-filters-popover'
+import { useCellWriteMarks } from './sheet-write-marks'
 import { gridStoredText } from './grid-client-values'
 import { SheetbaseTableGrid } from '#/components/sheet/sheetbase-grid'
 import { usePluginGridCellDisplays } from '#/components/extensions/table-hooks'
@@ -71,11 +72,16 @@ import {
   benchRangeBreach,
   outOfRange,
 } from '#/components/sheet/sheet-bench-fields'
-import { useSheetChanges } from '#/components/sheet/sheet-changes'
+import {
+  cellDisplayText,
+  useSheetChanges,
+} from '#/components/sheet/sheet-changes'
 import {
   SheetCellHistory,
   SheetChangeList,
 } from '#/components/sheet/sheet-changes-panel'
+import type { SheetChangeRow } from '#/components/sheet/sheet-changes-panel'
+import { formatTime } from '#/lib/format-date'
 import type {
   SheetMoreItem,
   SheetSaveState,
@@ -1519,6 +1525,10 @@ function useCanonicalWorkspaceSession({
     [matrix],
   )
 
+  // Save state per change, shown with Show changes.
+  const writeMarks = useCellWriteMarks()
+  const trackWrite = writeMarks.track
+
   // Show changes: off by default, for anyone, in any state.
   const sheetChanges = useSheetChanges({
     instanceId: instance.id,
@@ -1528,6 +1538,40 @@ function useCanonicalWorkspaceSession({
     gridColumns: sheetColumns,
     selected: commentSelection ? selected : null,
   })
+
+  const { showChanges, cellBefore: recordedBefore } = sheetChanges
+  const { writeFor } = writeMarks
+
+  // A change still saving, or that failed, shows its old value struck
+  // through like a recorded one.
+  const cellBefore = useMemo(() => {
+    if (!showChanges) return undefined
+
+    return (rowIndex: number, columnId: string) => {
+      const write = writeFor(matrix.rowKeys[rowIndex], columnId)
+
+      if (write)
+        return write.before === write.after ? undefined : write.before || '—'
+
+      return recordedBefore?.(rowIndex, columnId)
+    }
+  }, [showChanges, recordedBefore, writeFor, matrix])
+
+  // Show changes: every changed cell carries its own save mark. A cell
+  // changed today is saved; one still writing, or that failed, says so.
+  const cellMark = useMemo(() => {
+    if (!showChanges) return undefined
+
+    return (rowIndex: number, columnId: string) => {
+      const write = writeFor(matrix.rowKeys[rowIndex], columnId)
+
+      if (write) return { state: write.state, retry: write.retry }
+
+      return cellBefore?.(rowIndex, columnId) === undefined
+        ? undefined
+        : { state: 'saved' as const }
+    }
+  }, [showChanges, cellBefore, writeFor, matrix])
 
   // GRID-02/GRID-03: every write source — bulk paste/fill/clear and single
   // typed edits alike — is coerced and validated against the typed column
@@ -1565,11 +1609,22 @@ function useCanonicalWorkspaceSession({
         value: SheetbaseGridCellValue
       }> = []
 
+      const tracked: Array<{
+        rowKey: string
+        columnId: string
+        before: string
+        after: string
+      }> = []
+
       const pending: Record<string, Record<string, SheetbaseGridCellValue>> = {}
       const created = new Map<number, string>()
 
       const columnsById = new Map(
         currentMatrix.columns.map((column) => [column.id, column]),
+      )
+
+      const gridColumnsById = new Map(
+        sheetColumns.map((column) => [column.id, column]),
       )
 
       for (const change of changes) {
@@ -1603,6 +1658,15 @@ function useCanonicalWorkspaceSession({
           pending[rowKey] = { ...pending[rowKey], [column.id]: value }
         } else {
           localCells.push({ rowKey, fieldId: column.id, value })
+          tracked.push({
+            rowKey,
+            columnId: column.id,
+            before: cellDisplayText(
+              change.previous,
+              gridColumnsById.get(column.id),
+            ),
+            after: cellDisplayText(change.next, gridColumnsById.get(column.id)),
+          })
         }
       }
 
@@ -1624,9 +1688,11 @@ function useCanonicalWorkspaceSession({
           rowKey,
         }))
 
-        void persistLocalCells(localCells, {
-          rows: newRows.length > 0 ? newRows : undefined,
-        }).catch((error) => {
+        void trackWrite(tracked, () =>
+          persistLocalCells(localCells, {
+            rows: newRows.length > 0 ? newRows : undefined,
+          }),
+        ).catch((error) => {
           setWriteStatus(
             (error instanceof Error ? error.message : null) ??
               t(
@@ -1637,7 +1703,7 @@ function useCanonicalWorkspaceSession({
         })
       }
     },
-    [canWrite, persistLocalCells],
+    [canWrite, persistLocalCells, trackWrite, sheetColumns],
   )
 
   const selectionKeyRef = useRef<string | null>(null)
@@ -2207,6 +2273,9 @@ function useCanonicalWorkspaceSession({
     benchRow,
     setBenchRow,
     ...sheetChanges,
+    cellBefore,
+    writeMarks,
+    cellMark,
   }
 }
 
@@ -3108,7 +3177,39 @@ function CanonicalWorkspaceGridArea() {
     selectedCellHistory,
     changeCellPosition,
     gridHandle,
+    writeMarks,
+    matrix,
   } = useCanonicalWorkspace()
+
+  // Changes still saving, or that failed, lead the list with their state.
+  const rows = useMemo(() => {
+    if (writeMarks.pending.length === 0) return changeRows
+
+    const rowIndex = new Map(matrix.rowKeys.map((key, index) => [key, index]))
+
+    const columnLabel = new Map(
+      matrix.columns.map((column) => [column.id, column.label]),
+    )
+
+    const pending = writeMarks.pending.map<SheetChangeRow>((write) => ({
+      id: `pending-${write.key}`,
+      cellKey: write.key,
+      who: t('notebook.sheetChanges.you'),
+      when: formatTime(write.at),
+      cell: t('notebook.sheetChanges.cellLabel', {
+        row: (rowIndex.get(write.rowKey) ?? 0) + 1,
+        column: columnLabel.get(write.columnId) ?? '',
+      }),
+      before: write.before,
+      after: write.after,
+      beforeKnown: true,
+      reason: null,
+      save: write.state,
+      onRetry: write.retry,
+    }))
+
+    return [...pending, ...changeRows]
+  }, [writeMarks.pending, changeRows, matrix])
 
   // One tree whether or not changes are shown, so switching them on keeps
   // the grid (and its selection) mounted.
@@ -3118,7 +3219,7 @@ function CanonicalWorkspaceGridArea() {
         <CanonicalWorkspaceGrid />
         {showChanges ? (
           <SheetChangeList
-            rows={changeRows}
+            rows={rows}
             todayCount={changesToday}
             selectedCellKey={selectedChangeKey}
             onSelect={(row) => {
@@ -3225,6 +3326,7 @@ function CanonicalWorkspaceGrid() {
     handleRowsRemoved,
     handleRowsInserted,
     cellBefore,
+    cellMark,
   } = useCanonicalWorkspace()
 
   return (
@@ -3314,6 +3416,7 @@ function CanonicalWorkspaceGrid() {
                 : undefined
             }}
             cellBefore={cellBefore}
+            cellMark={cellMark}
             onColumnResize={handleColumnResize}
             onColumnOrderChange={handleColumnOrderChange}
             onSortsChange={handleSortsChange}
@@ -3514,7 +3617,9 @@ function CanonicalWorkspaceStatus() {
           )}
         </p>
       ) : null}
-      {writeStatus ? <p role="status">{writeStatus}</p> : null}
+      {writeStatus && writeStatus !== error ? (
+        <p role="status">{writeStatus}</p>
+      ) : null}
       {writeBackFailure ? (
         <WriteBackExplain failure={writeBackFailure} />
       ) : null}

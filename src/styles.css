@@ -900,27 +900,34 @@
 }
 
 /* Show changes: a changed cell keeps its old value, struck through, before
-   the value it holds now. */
+   the value it holds now. The new value is first in the markup and the row
+   runs right to left, so when the cell is too narrow for both the old value
+   wraps out of sight whole rather than being cut to a stub. */
 .sheet-cell-change {
-  display: inline-flex;
+  display: flex;
+  width: 100%;
+  height: 1.45em;
   min-width: 0;
-  max-width: 100%;
+  flex-flow: row-reverse wrap;
   align-items: baseline;
-  gap: 0.35em;
+  justify-content: flex-end;
+  column-gap: 0.35em;
   overflow: hidden;
   white-space: nowrap;
 }
 
+.sheet-cell-change[data-number] {
+  justify-content: flex-start;
+}
+
 .sheet-cell-change > del {
-  flex-shrink: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   color: var(--color-fg-muted);
 }
 
 .sheet-cell-change > span {
-  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-weight: 500;
 }
 
@@ -946,4 +953,49 @@
   margin-left: 4px;
   font-size: 11px;
   color: var(--color-fg-muted);
+}
+
+/* Show changes: each changed cell carries its own 7px save mark after the
+   value. Filled green once saved, a ring while saving, filled red when the
+   save failed (click it to try again). */
+.sheet-cell-marked {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.sheet-cell-marked-value {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-cell-marked-value[data-number] {
+  text-align: right;
+}
+
+.sheet-write-mark {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  padding: 0;
+  border: 1px solid transparent;
+}
+
+.sheet-write-mark[data-write-mark='saved'] {
+  background: var(--color-success);
+}
+
+.sheet-write-mark[data-write-mark='saving'] {
+  border-color: var(--color-fg-muted);
+}
+
+.sheet-write-mark[data-write-mark='failed'] {
+  background: var(--color-danger);
+  cursor: pointer;
 }

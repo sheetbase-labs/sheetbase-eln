@@ -302,6 +302,29 @@ describe('Sheet header chrome (EXP-04.2)', () => {
     expect(look).not.toContain('[aria-label^="C "] .column-heading::after')
   })
 
+  it('marks a changed cell with its save state and retries a failed one', () => {
+    const retry = vi.fn()
+
+    liveGrid({
+      columns: chromeColumns,
+      rows: chromeRows,
+      cellBefore: (row, columnId) =>
+        row === 0 && columnId === 'turbidity' ? '8.9 NTU' : undefined,
+      cellMark: (row, columnId) =>
+        row === 0 && columnId === 'turbidity'
+          ? { state: 'failed', retry }
+          : row === 0 && columnId === 'train'
+            ? { state: 'saved' }
+            : undefined,
+    })
+
+    expect(document.querySelector('[data-write-mark="saved"]')).toBeTruthy()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save failed. Click to try again.' }),
+    )
+    expect(retry).toHaveBeenCalledOnce()
+  })
+
   it('rebuilds the group row from the displayed column order', () => {
     const { result } = renderHook(() =>
       useGridLayout(

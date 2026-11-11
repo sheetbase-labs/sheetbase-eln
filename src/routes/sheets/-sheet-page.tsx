@@ -71,7 +71,9 @@ export function ComposedSheetRoute() {
           user={{ id: context.user.id, name: context.user.name }}
         />
       </div>
-      <div className="flex min-h-0 min-w-0 flex-1">
+      {/* One bordered card, as in a notebook, as tall as its rows; the grid
+          scrolls only once the page runs out of room. */}
+      <div className="mx-4 mt-3 mb-4 flex min-h-0 min-w-0 flex-initial overflow-hidden rounded-lg border border-border-strong bg-surface [--sheet-grid-max-h:none] max-md:mx-2">
         <CollaborationRoom roomId={collaborationRoomId}>
           <CanonicalSheetWorkspace
             instanceId={sheetId}

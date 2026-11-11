@@ -437,14 +437,14 @@ describe('ProjectsPage', () => {
     expect(setSearch).toHaveBeenCalledWith({ new: true })
   })
 
-  it('opens the create dialog from the ?new=true URL the shell link carries', () => {
+  it('opens the create dialog from the ?new=true URL the shell link carries', async () => {
     const setSearch = vi.fn()
     renderPage([row()], { new: true }, undefined, true, {}, setSearch)
 
     expect(screen.getByRole('dialog')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(setSearch).toHaveBeenCalledWith({ new: undefined })
   })
 

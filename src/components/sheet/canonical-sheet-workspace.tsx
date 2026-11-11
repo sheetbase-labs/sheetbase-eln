@@ -60,6 +60,11 @@ import {
 import { cn } from '#/lib/utils'
 import { SheetBenchEntry } from '#/components/sheet/sheet-bench-entry'
 import { outOfRange } from '#/components/sheet/sheet-bench-fields'
+import { useSheetChanges } from '#/components/sheet/sheet-changes'
+import {
+  SheetCellHistory,
+  SheetChangeList,
+} from '#/components/sheet/sheet-changes-panel'
 import type {
   SheetMoreItem,
   SheetSaveState,
@@ -1486,6 +1491,16 @@ function useCanonicalWorkspaceSession({
     [matrix],
   )
 
+  // Show changes: off by default, for anyone, in any state.
+  const sheetChanges = useSheetChanges({
+    instanceId: instance.id,
+    revision: instance.revision,
+    matrix,
+    boundRows: composedSnapshot?.boundProjection?.rows,
+    gridColumns: sheetColumns,
+    selected: commentSelection ? selected : null,
+  })
+
   // GRID-02/GRID-03: every write source — bulk paste/fill/clear and single
   // typed edits alike — is coerced and validated against the typed column
   // contract before the grid applies anything. An invalid value rejects the
@@ -2160,6 +2175,7 @@ function useCanonicalWorkspaceSession({
     setBenchEntry,
     benchRow,
     setBenchRow,
+    ...sheetChanges,
   }
 }
 
@@ -2232,7 +2248,7 @@ function CanonicalWorkspaceSession(
         <CanonicalWorkspaceBenchEntry />
         <CanonicalWorkspaceRecordToolbar />
         <CanonicalWorkspacePagination />
-        <CanonicalWorkspaceGrid />
+        <CanonicalWorkspaceGridArea />
         <CanonicalWorkspaceStatus />
         <CanonicalWorkspaceComments />
         <CanonicalWorkspaceDialogs />
@@ -2378,8 +2394,15 @@ function SheetToolbarChips() {
 
 /** Columns and Details, shown as buttons above phone width. */
 function SheetViewSwitches() {
-  const { matrix, sheetTool, setSheetTool, details, setDetails } =
-    useCanonicalWorkspace()
+  const {
+    matrix,
+    sheetTool,
+    setSheetTool,
+    details,
+    setDetails,
+    showChanges,
+    setShowChanges,
+  } = useCanonicalWorkspace()
 
   return (
     <>
@@ -2404,6 +2427,16 @@ function SheetViewSwitches() {
         onClick={() => setDetails(!details)}
       >
         {t('notebook.sheetToolbar.details')}
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant={showChanges ? 'secondary' : 'quiet'}
+        aria-pressed={showChanges}
+        title={t('notebook.sheetChanges.toggleHint')}
+        onClick={() => setShowChanges(!showChanges)}
+      >
+        {t('notebook.sheetChanges.toggle')}
       </Button>
     </>
   )
@@ -2431,6 +2464,8 @@ function CanonicalWorkspaceMoreMenu({ phone }: { phone: boolean }) {
     setDetails,
     historyOpen,
     setHistoryOpen,
+    showChanges,
+    setShowChanges,
   } = useCanonicalWorkspace()
 
   const navigate = useNavigate()
@@ -2529,6 +2564,14 @@ function CanonicalWorkspaceMoreMenu({ phone }: { phone: boolean }) {
             : t('notebook.sheetToolbar.details'),
           icon: 'info',
           onSelect: () => setDetails(!details),
+        },
+        {
+          id: 'changes',
+          label: showChanges
+            ? t('notebook.sheetChanges.hide')
+            : t('notebook.sheetChanges.toggle'),
+          icon: 'history',
+          onSelect: () => setShowChanges(!showChanges),
         },
       ]
     : []
@@ -3014,6 +3057,42 @@ function CanonicalWorkspacePageStatus() {
   )
 }
 
+/** The grid, with the change list under it and a cell's history beside it. */
+function CanonicalWorkspaceGridArea() {
+  const {
+    showChanges,
+    changeRows,
+    changesToday,
+    selectedChangeKey,
+    selectedCellHistory,
+    changeCellPosition,
+    gridHandle,
+  } = useCanonicalWorkspace()
+
+  // One tree whether or not changes are shown, so switching them on keeps
+  // the grid (and its selection) mounted.
+  return (
+    <div className="flex min-h-0 flex-1 max-md:flex-col max-md:overflow-y-auto">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col max-md:flex-none">
+        <CanonicalWorkspaceGrid />
+        {showChanges ? (
+          <SheetChangeList
+            rows={changeRows}
+            todayCount={changesToday}
+            selectedCellKey={selectedChangeKey}
+            onSelect={(row) => {
+              const at = changeCellPosition(row.cellKey)
+
+              if (at) gridHandle?.selectCell(at.row, at.col)
+            }}
+          />
+        ) : null}
+      </div>
+      {showChanges ? <SheetCellHistory cell={selectedCellHistory} /> : null}
+    </div>
+  )
+}
+
 function CanonicalWorkspaceGrid() {
   const {
     matrix,
@@ -3045,6 +3124,7 @@ function CanonicalWorkspaceGrid() {
     handleBeforeRowsRemove,
     handleRowsRemoved,
     handleRowsInserted,
+    cellBefore,
   } = useCanonicalWorkspace()
 
   return (
@@ -3058,7 +3138,7 @@ function CanonicalWorkspaceGrid() {
           {t('notebook.canonicalSheetWorkspace.loadingComposedSheet')}
         </p>
       ) : (
-        <div ref={gridContainerRef} className="min-h-0 flex-1">
+        <div ref={gridContainerRef} className="min-h-0 flex-1 max-md:min-h-80">
           <SheetKeyboardShortcuts
             handle={gridHandle}
             containerRef={gridContainerRef}
@@ -3121,6 +3201,7 @@ function CanonicalWorkspaceGrid() {
                 ? 'flagged'
                 : undefined
             }}
+            cellBefore={cellBefore}
             onColumnResize={handleColumnResize}
             onColumnOrderChange={handleColumnOrderChange}
             onSortsChange={handleSortsChange}

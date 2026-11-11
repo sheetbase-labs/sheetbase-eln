@@ -332,6 +332,11 @@ export interface SheetbaseGridProps {
     columnId: string,
   ) => SheetbaseCellState | undefined
   /**
+   * Show changes: the value a cell held before it was changed, drawn struck
+   * through beside the value it holds now. `undefined` leaves the cell as it is.
+   */
+  cellBefore?: (rowIndex: number, columnId: string) => string | undefined
+  /**
    * Validation gate for every write source. Return `false` to reject the whole
    * change; mutated `change.next` values are applied back to the grid.
    *

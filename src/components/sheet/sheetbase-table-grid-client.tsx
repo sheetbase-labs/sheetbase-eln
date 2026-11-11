@@ -97,6 +97,10 @@ function resolvedGridTheme(): 'light' | 'dark' {
   return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
 }
 
+type CellRenderContext = Parameters<
+  NonNullable<ComponentProps<typeof Spreadsheet>['renderCell']>
+>[0]
+
 /**
  * Bound engine composition. The host owns record identity and persistence;
  * local sorting/filtering changes display coordinates, never stored rows.
@@ -138,6 +142,31 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
   )
 
   const writes = useMemo(() => gridWrites(props, layout), [props, layout])
+
+  const { cellBefore } = props
+
+  // Show changes: a changed cell shows its old value struck through. Only
+  // passed while there is something to show, so the engine keeps its fast
+  // path for plain cells the rest of the time.
+  const renderCell = useMemo(
+    () =>
+      cellBefore
+        ? ({ point, display }: CellRenderContext) => {
+            const before = cellBefore(
+              point.row,
+              layout.columns.at(point.column)?.id ?? '',
+            )
+
+            return before === undefined ? undefined : (
+              <span className="sheet-cell-change">
+                <del>{before}</del>
+                <span>{display}</span>
+              </span>
+            )
+          }
+        : undefined,
+    [cellBefore, layout],
+  )
 
   const query = useMemo(
     () => gridQuery({ columns, sorts, filters }),
@@ -192,6 +221,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       columnMenuItems={columnMenuItems}
       customEditors={customEditors}
       cellDisplays={cellDisplays}
+      renderCell={renderCell}
       sanitizeSvg={sanitizeSvg}
       clipboard={clipboard}
       query={query}

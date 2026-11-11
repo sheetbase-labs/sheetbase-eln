@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useRouteContext } from '@tanstack/react-router'
 
@@ -55,6 +56,8 @@ import { Icon } from '#/components/icons'
 import {
   SheetMoreMenu,
   SheetSaveStatus,
+  SheetToolbarRule,
+  SheetToolbarSwitch,
   usePhoneToolbar,
 } from '#/components/sheet/sheet-toolbar-parts'
 import { cn } from '#/lib/utils'
@@ -210,10 +213,16 @@ export function CanonicalSheetWorkspace({
   openPasteOnLoad = false,
   cellState,
   onCellSelectionChange,
+  heading,
+  headingAside,
 }: {
   instanceId: string
   projectId: string | null
   readOnly?: boolean
+  /** The sheet's name, at the start of its toolbar (notebook). */
+  heading?: ReactNode
+  /** Badges and links after the name and its row count. */
+  headingAside?: ReactNode
   commentId?: string
   /** Opens the Paste data dialog once, for a sheet created to hold a paste. */
   openPasteOnLoad?: boolean
@@ -256,6 +265,8 @@ export function CanonicalSheetWorkspace({
       openPasteOnLoad={openPasteOnLoad}
       cellState={cellState}
       onCellSelectionChange={onCellSelectionChange}
+      heading={heading}
+      headingAside={headingAside}
     />
   )
 }
@@ -305,8 +316,14 @@ function useCanonicalWorkspaceSession({
   openPasteOnLoad = false,
   cellState,
   onCellSelectionChange,
+  heading,
+  headingAside,
 }: {
   instance: SheetInstance
+  /** The sheet's name, at the start of its toolbar. */
+  heading?: ReactNode
+  /** Badges and links after the name and its row count. */
+  headingAside?: ReactNode
   projectId: string | null
   readOnly?: boolean
   commentActor?: Pick<CurrentContext, 'user' | 'workspace'> | null
@@ -2055,6 +2072,8 @@ function useCanonicalWorkspaceSession({
   )
 
   return {
+    heading,
+    headingAside,
     instance,
     projectId,
     readOnly,
@@ -2259,8 +2278,16 @@ function CanonicalWorkspaceSession(
 }
 
 function CanonicalWorkspaceToolbar() {
-  const { canWrite, readOnly, localMutate, writeBack, addCalculation } =
-    useCanonicalWorkspace()
+  const {
+    heading,
+    headingAside,
+    matrix,
+    canWrite,
+    readOnly,
+    localMutate,
+    writeBack,
+    addCalculation,
+  } = useCanonicalWorkspace()
 
   const phone = usePhoneToolbar()
 
@@ -2278,10 +2305,26 @@ function CanonicalWorkspaceToolbar() {
     <div
       role="toolbar"
       aria-label={t('notebook.canonicalSheetWorkspace.ariaLabel')}
-      className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-2 py-1"
+      className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-border-subtle px-3.5 py-1.5 max-md:px-2"
     >
-      <SheetSaveStatus state={saveState} detail={failure} />
+      {heading ? (
+        <div className="flex min-w-0 items-center gap-2 max-md:basis-full">
+          <Icon
+            name="table"
+            size={14}
+            aria-hidden="true"
+            className="shrink-0 text-fg-muted"
+          />
+          {heading}
+          <span className="shrink-0 text-label text-fg-muted">
+            {t('notebook.sheetToolbar.rows', { count: matrix.rowKeys.length })}
+          </span>
+          {headingAside}
+        </div>
+      ) : null}
       <span className="flex-1" />
+      <SheetSaveStatus state={saveState} detail={failure} />
+      {canWrite && matrix.columns.length > 0 ? <SheetToolbarRule /> : null}
       <SheetEntryModeSwitch />
       <SheetToolbarChips />
       {phone ? null : <SheetViewSwitches />}
@@ -2392,25 +2435,25 @@ function SheetToolbarChips() {
   )
 }
 
-/** Columns and Details, shown as buttons above phone width. */
+/** Show changes and Columns, shown above phone width. */
 function SheetViewSwitches() {
-  const {
-    matrix,
-    sheetTool,
-    setSheetTool,
-    details,
-    setDetails,
-    showChanges,
-    setShowChanges,
-  } = useCanonicalWorkspace()
+  const { matrix, sheetTool, setSheetTool, showChanges, setShowChanges } =
+    useCanonicalWorkspace()
 
   return (
     <>
+      <SheetToolbarSwitch
+        on={showChanges}
+        label={t('notebook.sheetChanges.toggle')}
+        title={t('notebook.sheetChanges.toggleHint')}
+        onChange={setShowChanges}
+      />
+      <SheetToolbarRule />
       {matrix.columns.length > 0 ? (
         <Button
           type="button"
           size="sm"
-          variant="quiet"
+          variant="secondary"
           title={t('notebook.sheetToolbar.columnsHint')}
           aria-expanded={sheetTool === 'view'}
           onClick={() => setSheetTool(sheetTool === 'view' ? null : 'view')}
@@ -2418,26 +2461,6 @@ function SheetViewSwitches() {
           {t('notebook.sheetToolbar.columns')}
         </Button>
       ) : null}
-      <Button
-        type="button"
-        size="sm"
-        variant={details ? 'secondary' : 'quiet'}
-        aria-pressed={details}
-        title={t('notebook.sheetToolbar.detailsHint')}
-        onClick={() => setDetails(!details)}
-      >
-        {t('notebook.sheetToolbar.details')}
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant={showChanges ? 'secondary' : 'quiet'}
-        aria-pressed={showChanges}
-        title={t('notebook.sheetChanges.toggleHint')}
-        onClick={() => setShowChanges(!showChanges)}
-      >
-        {t('notebook.sheetChanges.toggle')}
-      </Button>
     </>
   )
 }
@@ -2543,7 +2566,18 @@ function CanonicalWorkspaceMoreMenu({ phone }: { phone: boolean }) {
     },
   ]
 
-  // On a phone the view switches ride in More, so the toolbar stays one row.
+  // Details, the steward's view of how the sheet is wired, always sits in
+  // More. On a phone the other view switches ride there too, so the toolbar
+  // stays one row.
+  const detailsItem: SheetMoreItem = {
+    id: 'details',
+    label: details
+      ? t('notebook.sheetToolbar.hideDetails')
+      : t('notebook.sheetToolbar.details'),
+    icon: 'info',
+    onSelect: () => setDetails(!details),
+  }
+
   const viewItems: SheetMoreItem[] = phone
     ? [
         ...(matrix.columns.length > 0
@@ -2557,14 +2591,7 @@ function CanonicalWorkspaceMoreMenu({ phone }: { phone: boolean }) {
               },
             ]
           : []),
-        {
-          id: 'details',
-          label: details
-            ? t('notebook.sheetToolbar.hideDetails')
-            : t('notebook.sheetToolbar.details'),
-          icon: 'info',
-          onSelect: () => setDetails(!details),
-        },
+        detailsItem,
         {
           id: 'changes',
           label: showChanges
@@ -2574,7 +2601,7 @@ function CanonicalWorkspaceMoreMenu({ phone }: { phone: boolean }) {
           onSelect: () => setShowChanges(!showChanges),
         },
       ]
-    : []
+    : [detailsItem]
 
   const downloadItems: SheetMoreItem[] = [
     {
@@ -3138,7 +3165,10 @@ function CanonicalWorkspaceGrid() {
           {t('notebook.canonicalSheetWorkspace.loadingComposedSheet')}
         </p>
       ) : (
-        <div ref={gridContainerRef} className="min-h-0 flex-1 max-md:min-h-80">
+        <div
+          ref={gridContainerRef}
+          className="mx-3.5 my-3 min-h-0 flex-1 overflow-hidden rounded-md border border-border max-md:mx-2 max-md:my-2 max-md:min-h-80"
+        >
           <SheetKeyboardShortcuts
             handle={gridHandle}
             containerRef={gridContainerRef}
@@ -3315,7 +3345,15 @@ function CanonicalWorkspaceStatus() {
     calculations.error?.message
 
   return (
-    <div className="space-y-1 border-t px-3 py-2 text-xs text-fg-muted empty:hidden">
+    <div className="space-y-1 border-t border-border-subtle bg-surface-muted px-3.5 py-2 text-xs text-fg-muted empty:hidden max-md:px-2">
+      {!details && selectedColumn ? (
+        <p className="font-medium text-fg">
+          {t('notebook.sheetChanges.cellLabel', {
+            row: selected.row + 1,
+            column: selectedColumn.label,
+          })}
+        </p>
+      ) : null}
       <CanonicalWorkspacePromotionStatus />
       {staleCalc ? (
         <p role="status" className="flex flex-wrap items-center gap-2">

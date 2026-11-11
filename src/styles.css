@@ -930,3 +930,20 @@
 .spreadsheet[data-theme='dark'] .grid-cell.cell-flagged {
   color: var(--danger-text);
 }
+
+/* Numbers sit right-aligned so their digits line up; a unit follows,
+   smaller and muted. */
+.sheet-cell-number {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-cell-unit {
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--color-fg-muted);
+}

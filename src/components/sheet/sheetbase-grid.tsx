@@ -502,9 +502,8 @@ function SheetbaseGridShell({
   }
 
   return (
-    // The grid sits flush in a panel that draws its own edges. The theme's
-    // grid frame (a rounded top-left border) would draw a second, rounded
-    // edge inside that square one, so it is turned off here.
+    // The grid sits in a box that draws its own rounded edge, so the theme's
+    // grid frame (a second border, rounded only at the top left) is off.
     <section
       className="relative h-full min-h-0 w-full overflow-hidden [&_.sheetbase-scope]:[--grid-frame-radius:0] [&_.sheetbase-scope]:[--grid-frame-width:0px] focus-within:ring-2 focus-within:ring-inset focus-within:ring-ring/50"
       aria-describedby={descriptionId}

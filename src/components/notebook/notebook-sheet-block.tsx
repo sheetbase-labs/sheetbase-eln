@@ -6,6 +6,7 @@ import { Link } from '@tanstack/react-router'
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
 import type { SheetCellSelection } from '#/components/sheet/canonical-sheet-workspace'
 import { useUnsyncedCellState } from '#/components/offline/offline-edits'
+import { Icon } from '#/components/icons'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
@@ -474,38 +475,14 @@ function NotebookInstanceSheetEmbed({
 
   return (
     <div className="flex min-h-[24rem] flex-col gap-2">
-      {/* pr-16 keeps the header clear of the block's right-edge hover toolbar,
-          which would otherwise sit over "Open full sheet". Phones have no
-          hover toolbar, so the link keeps to the title's line there. */}
-      <div className="flex flex-wrap items-center gap-2 pl-1 pr-1 pt-1 md:pr-16">
-        <h3 className="text-sm font-medium text-fg">{instance.data.name}</h3>
-        <span className="text-xs text-fg-muted">{definitionLabel}</span>
-        {sharedCount > 1 ? (
-          <SharedNotebooksBadge others={others} total={sharedCount} />
-        ) : null}
-        {instance.data.lifecycle === 'archived' ? (
-          <Badge variant="kind" className="text-xs">
-            {t('notebook.notebookSheetBlock.archived')}
-          </Badge>
-        ) : null}
-        {/* NAV-02: the Notebook → Sheet link. The full-page Sheet keeps the
-        canonical ?projectId context so it opens with the same write
-        affordances as the embed. */}
-        <Link
-          className="ml-auto text-xs text-fg-muted underline underline-offset-2 hover:text-fg"
-          to="/sheets/$sheetId"
-          params={{ sheetId: instanceId }}
-          search={{ projectId: projectId ?? undefined }}
-        >
-          {t('notebook.notebookSheetBlock.openFullSheet')}
-        </Link>
-      </div>
       {!projectId ? (
         <p className="px-1 text-xs text-fg-muted" role="status">
           {t('notebook.notebookSheetBlock.thisNotebookHasNo')}
         </p>
       ) : null}
-      <div className="min-h-0 flex-1">
+      {/* The sheet as one card: its name and tools on top, the grid in its
+          own box, the selected cell's line at the foot. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-strong bg-surface">
         <CanonicalSheetWorkspace
           instanceId={instanceId}
           projectId={projectId}
@@ -516,6 +493,39 @@ function NotebookInstanceSheetEmbed({
             unsyncedCellState(rowId, columnId)
           }
           onCellSelectionChange={onCellSelectionChange}
+          heading={
+            <h3
+              className="truncate text-body font-semibold text-fg"
+              title={definitionLabel}
+            >
+              {instance.data.name}
+            </h3>
+          }
+          headingAside={
+            <>
+              {sharedCount > 1 ? (
+                <SharedNotebooksBadge others={others} total={sharedCount} />
+              ) : null}
+              {instance.data.lifecycle === 'archived' ? (
+                <Badge variant="kind" className="text-xs">
+                  {t('notebook.notebookSheetBlock.archived')}
+                </Badge>
+              ) : null}
+              {/* NAV-02: the Notebook → Sheet link. The full-page Sheet keeps
+              the canonical ?projectId context so it opens with the same write
+              affordances as the embed. */}
+              <Link
+                className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-fg-muted hover:bg-surface-hover hover:text-fg max-md:ml-auto"
+                to="/sheets/$sheetId"
+                params={{ sheetId: instanceId }}
+                search={{ projectId: projectId ?? undefined }}
+                aria-label={t('notebook.notebookSheetBlock.openFullSheet')}
+                title={t('notebook.notebookSheetBlock.openFullSheet')}
+              >
+                <Icon name="maximize" size={14} aria-hidden="true" />
+              </Link>
+            </>
+          }
         />
       </div>
     </div>

@@ -2247,6 +2247,7 @@ export const notebook = {
     someone: 'Someone',
   },
   sheetToolbar: {
+    rows: { one: '{count} row', other: '{count} rows' },
     saved: 'Saved',
     saving: 'Saving…',
     saveFailed: 'Save failed',

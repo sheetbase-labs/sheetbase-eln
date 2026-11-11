@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { LABWORK_PROPOSE_TOOL_NAMES } from './assistant-labwork'
 import { runLabworkAction } from './assistant-labwork-run'
@@ -10,38 +11,62 @@ import {
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from './agent-tool-catalogue'
 import type { LabToolContext } from './assistant-lab-tools.server'
 import type { DataClient } from './data-client'
+import { dataClientTestDouble } from './data-client-test-support'
+import type { LabworkOutcome } from './assistant-labwork.server'
 
 const WS = '33333333-3333-4333-8333-333333333333'
 const base = { title: 'T', summary: 'S' }
 
+/** Fixture rows per resource, or a function that answers the query with rows. */
 type Rows = Partial<
-  Record<string, Array<Record<string, unknown>> | ((q: string) => unknown[])>
+  Record<string, readonly object[] | ((query: string) => readonly object[])>
 >
+
+/** A duplicate the registry's own search would find, as the RPC answers it. */
+interface RegistryDuplicate {
+  identifier: string
+  title: string
+  match: string
+}
+
+/** A record past its retention time, as the retention RPC answers it. */
+interface RetentionDueRecord {
+  identifier: string
+  title: string
+  kind: string
+}
 
 function context(
   rows: Rows,
-  rpcs: Record<string, unknown> = {},
+  rpcs: {
+    registry_find_duplicates?: RegistryDuplicate[]
+    retention_due?: RetentionDueRecord[]
+  } = {},
 ): LabToolContext {
-  const client = {
-    list: (resource: string, query = '') => {
+  const client = dataClientTestDouble({
+    list: async (resource, query = '') => {
       const source = rows[resource]
 
-      return Promise.resolve(
-        typeof source === 'function' ? source(query) : (source ?? []),
-      )
+      return source instanceof Function ? source(query) : (source ?? [])
     },
-    rpc: (name: string) => Promise.resolve(rpcs[name] ?? []),
-  } as unknown as DataClient
+    rpc: async (name) => {
+      if (name === 'registry_find_duplicates')
+        return rpcs.registry_find_duplicates ?? []
+
+      if (name === 'retention_due') return rpcs.retention_due ?? []
+
+      return []
+    },
+  })
 
   return { client, workspaceId: WS, userId: 'me', timeZone: 'Europe/London' }
 }
 
-const build = (name: string, args: unknown, ctx: LabToolContext) =>
-  buildLabworkProposal(
-    name as (typeof LABWORK_PROPOSE_TOOL_NAMES)[number],
-    { ...base, ...(args as object) },
-    ctx,
-  )
+const build = (
+  name: (typeof LABWORK_PROPOSE_TOOL_NAMES)[number],
+  args: z.core.util.JSONType,
+  ctx: LabToolContext,
+) => buildLabworkProposal(name, Object.assign({ ...base }, args), ctx)
 
 const s1 = {
   id: 's1',
@@ -269,13 +294,15 @@ describe('registry, workflows and rules', () => {
         action: {
           kind: 'registry.add',
           parents: [{ recordId: 'v1', role: 'vector' }],
+          // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- `shape` is the registry model's own custom-field key (circular or linear), named by the record model rather than by this test.
           customFields: { shape: 'circular', sequence_length: '37' },
         },
       },
     })
 
     // The same circle written from another start and strand is the same entry.
-    const rc = [...seq]
+    const rc = seq
+      .split('')
       .reverse()
       .map((c) => ({ A: 'T', C: 'G', G: 'C', T: 'A' })[c] ?? c)
       .join('')
@@ -286,9 +313,16 @@ describe('registry, workflows and rules', () => {
       context(rows),
     )
 
-    const fp = (r: unknown) =>
-      (r as { proposal: { action: { customFields: Record<string, string> } } })
-        .proposal.action.customFields.sequence_fingerprint
+    const fp = (outcome: LabworkOutcome) =>
+      z
+        .object({
+          proposal: z.object({
+            action: z.object({
+              customFields: z.record(z.string(), z.string()),
+            }),
+          }),
+        })
+        .parse(outcome).proposal.action.customFields.sequence_fingerprint
 
     expect(fp(first)).toMatch(/^seq:/)
     expect(fp(again)).toBe(fp(first))
@@ -578,15 +612,15 @@ describe('searches, pins and the logo', () => {
 
 describe('running lab-work actions', () => {
   it('calls the ordinary RPCs, as the person', async () => {
-    const calls: Array<[string, Record<string, unknown>]> = []
+    const calls: Array<[string, Parameters<DataClient['rpc']>[1]]> = []
 
-    const client = {
-      rpc: (name: string, args: Record<string, unknown>) => {
+    const client = dataClientTestDouble({
+      rpc: async (name, args) => {
         calls.push([name, args])
 
-        return Promise.resolve({ id: 'x', pool: { id: 'p' }, sources: [] })
+        return { id: 'x', pool: { id: 'p' }, sources: [] }
       },
-    } as unknown as DataClient
+    })
 
     const started = await runLabworkAction(client, {
       kind: 'stocktake.start',

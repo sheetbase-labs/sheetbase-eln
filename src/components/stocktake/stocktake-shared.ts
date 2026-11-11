@@ -24,6 +24,7 @@ export function statusLabel(status: StocktakeStatus): string {
   return t(`library.stocktake.status.${status}`)
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught throw is untyped by definition; an Error supplies its message and anything else falls back.
 export function messageOf(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }

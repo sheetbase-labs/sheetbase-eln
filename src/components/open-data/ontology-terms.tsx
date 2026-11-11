@@ -23,6 +23,134 @@ import { t } from '#/copy'
 
 const dataClient = createDataClient()
 
+/** One linked term: its page in the ontology, its source and, for an editor,
+ * the control that detaches it. */
+function LinkedTermRow({
+  annotation,
+  canEdit,
+  onRemove,
+}: {
+  annotation: OntologyAnnotation
+  canEdit: boolean
+  onRemove: () => void
+}) {
+  return (
+    <div className="flex items-center gap-2 text-body">
+      <a
+        href={annotation.iri}
+        target="_blank"
+        rel="noreferrer"
+        title={annotation.iri}
+        className="min-w-0 truncate"
+      >
+        {annotation.label}
+      </a>
+      <span className="text-label text-fg-muted uppercase">
+        {annotation.ontology}
+      </span>
+      {canEdit ? (
+        <Button
+          size="sm"
+          variant="quiet"
+          className="ml-auto"
+          aria-label={`${t('openData.picker.remove')}: ${annotation.label}`}
+          onClick={onRemove}
+        >
+          {t('openData.picker.remove')}
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+/** The term search: the box, the debounced lookup and its hits. */
+function OntologyTermSearch({
+  onPick,
+  onCancel,
+}: {
+  onPick: (term: OntologyTermHit) => void
+  onCancel: () => void
+}) {
+  const [text, setText] = useState('')
+  const [hits, setHits] = useState<OntologyTermHit[] | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (text.trim().length < 2) {
+      setHits(null)
+
+      return
+    }
+
+    const controller = new AbortController()
+
+    const timer = setTimeout(() => {
+      setSearching(true)
+      setSearchError(null)
+      searchOntology(text.trim(), controller.signal)
+        .then(setHits)
+        .catch((e) => {
+          if (!controller.signal.aborted)
+            setSearchError(e instanceof Error ? e.message : String(e))
+        })
+        .finally(() => setSearching(false))
+    }, 300)
+
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [text])
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Input
+        autoFocus
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={t('openData.picker.search')}
+        aria-label={t('openData.picker.search')}
+      />
+      {searching ? <Muted>{t('openData.picker.searching')}</Muted> : null}
+      {searchError ? <Muted role="alert">{searchError}</Muted> : null}
+      {hits && !searching && hits.length === 0 ? (
+        <Muted>{t('openData.picker.noMatch')}</Muted>
+      ) : null}
+      {hits && hits.length > 0 ? (
+        <ul className="m-0 flex max-h-56 list-none flex-col overflow-y-auto rounded-md border border-border p-0">
+          {hits.map((hit) => (
+            <li key={hit.iri}>
+              <button
+                type="button"
+                className="flex w-full flex-col items-start gap-0.5 px-2 py-1.5 text-left hover:bg-surface-hover"
+                onClick={() => onPick(hit)}
+              >
+                <span className="line-clamp-2 break-words">
+                  {hit.label}{' '}
+                  <span className="text-label text-fg-muted uppercase">
+                    {hit.ontology}
+                  </span>
+                </span>
+                {hit.description ? (
+                  <span className="line-clamp-2 text-label text-fg-muted">
+                    {hit.description}
+                  </span>
+                ) : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <div>
+        <Button size="sm" variant="quiet" onClick={onCancel}>
+          {t('common.actions.cancel')}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 /**
  * Standard terms attached to a field or a vocabulary term. The search box only
  * appears when the workspace has turned ontology lookup on; existing links are
@@ -52,37 +180,6 @@ export function OntologyTerms({
   })
 
   const [adding, setAdding] = useState(false)
-  const [text, setText] = useState('')
-  const [hits, setHits] = useState<OntologyTermHit[] | null>(null)
-  const [searching, setSearching] = useState(false)
-  const [searchError, setSearchError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (text.trim().length < 2) {
-      setHits(null)
-
-      return
-    }
-
-    const controller = new AbortController()
-
-    const timer = setTimeout(() => {
-      setSearching(true)
-      setSearchError(null)
-      searchOntology(text.trim(), controller.signal)
-        .then(setHits)
-        .catch((e: unknown) => {
-          if (!controller.signal.aborted)
-            setSearchError(e instanceof Error ? e.message : String(e))
-        })
-        .finally(() => setSearching(false))
-    }, 300)
-
-    return () => {
-      clearTimeout(timer)
-      controller.abort()
-    }
-  }, [text])
 
   const invalidate = () =>
     queryClient.invalidateQueries({
@@ -94,7 +191,6 @@ export function OntologyTerms({
       linkOntologyTerm(dataClient, { workspaceId, kind, targetId, term }),
     onSuccess: () => {
       setAdding(false)
-      setText('')
       void invalidate()
     },
     onError: (e) =>
@@ -115,83 +211,20 @@ export function OntologyTerms({
   return (
     <div className="flex flex-col gap-1.5">
       {rows.length === 0 ? <Muted>{t('openData.picker.none')}</Muted> : null}
-      {rows.map((a) => (
-        <div key={a.id} className="flex items-center gap-2 text-body">
-          <a
-            href={a.iri}
-            target="_blank"
-            rel="noreferrer"
-            title={a.iri}
-            className="min-w-0 truncate"
-          >
-            {a.label}
-          </a>
-          <span className="text-label text-fg-muted uppercase">
-            {a.ontology}
-          </span>
-          {canEdit ? (
-            <Button
-              size="sm"
-              variant="quiet"
-              className="ml-auto"
-              aria-label={`${t('openData.picker.remove')}: ${a.label}`}
-              onClick={() => unlink.mutate(a.id)}
-            >
-              {t('openData.picker.remove')}
-            </Button>
-          ) : null}
-        </div>
+      {rows.map((annotation) => (
+        <LinkedTermRow
+          key={annotation.id}
+          annotation={annotation}
+          canEdit={canEdit}
+          onRemove={() => unlink.mutate(annotation.id)}
+        />
       ))}
       {canEdit && lookupOn ? (
         adding ? (
-          <div className="flex flex-col gap-1.5">
-            <Input
-              autoFocus
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={t('openData.picker.search')}
-              aria-label={t('openData.picker.search')}
-            />
-            {searching ? <Muted>{t('openData.picker.searching')}</Muted> : null}
-            {searchError ? <Muted role="alert">{searchError}</Muted> : null}
-            {hits && !searching && hits.length === 0 ? (
-              <Muted>{t('openData.picker.noMatch')}</Muted>
-            ) : null}
-            {hits && hits.length > 0 ? (
-              <ul className="m-0 flex max-h-56 list-none flex-col overflow-y-auto rounded-md border border-border p-0">
-                {hits.map((h) => (
-                  <li key={h.iri}>
-                    <button
-                      type="button"
-                      className="flex w-full flex-col items-start gap-0.5 px-2 py-1.5 text-left hover:bg-surface-hover"
-                      onClick={() => link.mutate(h)}
-                    >
-                      <span className="line-clamp-2 break-words">
-                        {h.label}{' '}
-                        <span className="text-label text-fg-muted uppercase">
-                          {h.ontology}
-                        </span>
-                      </span>
-                      {h.description ? (
-                        <span className="line-clamp-2 text-label text-fg-muted">
-                          {h.description}
-                        </span>
-                      ) : null}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <div>
-              <Button
-                size="sm"
-                variant="quiet"
-                onClick={() => setAdding(false)}
-              >
-                {t('common.actions.cancel')}
-              </Button>
-            </div>
-          </div>
+          <OntologyTermSearch
+            onPick={(term) => link.mutate(term)}
+            onCancel={() => setAdding(false)}
+          />
         ) : (
           <div>
             <Button size="sm" icon="plus" onClick={() => setAdding(true)}>

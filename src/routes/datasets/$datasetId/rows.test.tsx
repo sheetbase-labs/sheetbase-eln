@@ -15,9 +15,14 @@ import userEvent from '@testing-library/user-event'
 import * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { DataClient } from '#/lib/data-client'
+
 import { Route } from './rows'
 
-const RowsRoute = Route.options.component as React.ComponentType
+/** The route options the file-route factory stores; this suite reads `component`. */
+interface FileRouteOptions {
+  component?: React.ComponentType
+}
 
 interface RowsSearch {
   q?: string
@@ -28,14 +33,22 @@ interface RowsSearch {
   live?: boolean
 }
 
+/** The route search the mocked route echoes back to the screen. */
+interface RouteFixtures {
+  search: RowsSearch
+}
+
 const fixtures = vi.hoisted(() => {
-  const state: { search: RowsSearch } = { search: {} }
+  const state: RouteFixtures = { search: {} }
 
   return state
 })
 
 const dataClient = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
-const navigateMock = vi.hoisted(() => vi.fn())
+
+const navigateMock = vi.hoisted(() =>
+  vi.fn<(options: { search: (previous: RowsSearch) => RowsSearch }) => void>(),
+)
 
 const routeContext = vi.hoisted(() => ({
   value: {
@@ -53,8 +66,9 @@ for (const prop of ['offsetHeight', 'clientHeight'] as const) {
   })
 }
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at import time; this suite renders the rows grid on its own with the params, search and context the shell would supply.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
+  createFileRoute: () => (config: FileRouteOptions) => ({
     useParams: () => ({ datasetId: 'ds-1' }),
     useSearch: () => fixtures.search,
     useNavigate: () => navigateMock,
@@ -65,10 +79,12 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Value actions are a panel with their own suite; this suite is the rows grid, and the panel's per-row reads would answer from the same stubs.
 vi.mock('#/components/datasets/value-actions', () => ({
   ValueActions: () => null,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route reads through the module-level notebook client, which has no injection point; the double answers the field, flag and page reads the grid makes.
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal()),
   notebookDataClient: dataClient,
@@ -152,6 +168,15 @@ function page(offset: number) {
   }
 }
 
+/** The rows screen, as the mocked file route stores it. */
+function rowsRoute(): React.ComponentType {
+  const component = Route.options.component
+
+  if (!component) throw new Error('The rows route declares a component.')
+
+  return component
+}
+
 function renderGrid() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -159,7 +184,7 @@ function renderGrid() {
 
   return render(
     <QueryClientProvider client={client}>
-      {React.createElement(RowsRoute)}
+      {React.createElement(rowsRoute())}
     </QueryClientProvider>,
   )
 }
@@ -174,7 +199,7 @@ beforeEach(() => {
     return []
   })
   dataClient.rpc.mockImplementation(
-    async (name: string, args: Record<string, unknown>) => {
+    async (name: string, args: Parameters<DataClient['rpc']>[1]) => {
       if (name === 'dataset_version_list') return [VERSION]
 
       if (name === 'query_dataset_version_rows') {
@@ -318,9 +343,7 @@ describe('dataset rows grid', () => {
     expect(field.value).toBe('QA3')
     await waitFor(() => expect(navigateMock).toHaveBeenCalledTimes(1))
 
-    const navigated = navigateMock.mock.calls[0][0] as {
-      search: (previous: RowsSearch) => RowsSearch
-    }
+    const navigated = navigateMock.mock.calls[0][0]
 
     expect(navigated.search({})).toMatchObject({ q: 'QA3' })
   })
@@ -332,7 +355,7 @@ describe('dataset rows grid', () => {
 
     const tree = (
       <QueryClientProvider client={client}>
-        {React.createElement(RowsRoute)}
+        {React.createElement(rowsRoute())}
       </QueryClientProvider>
     )
 

@@ -24,15 +24,16 @@ const KIND_ICON: Record<RelatedWorkKind, IconName> = {
   project: 'folder',
 }
 
-const RECORD_KIND_ICON: Record<string, IconName> = {
-  experiment: 'flask',
-  sample: 'tube',
-  material: 'box',
-  protocol_template: 'protocol',
-  report: 'download',
-  file: 'download',
-  notebook_template: 'template',
-}
+/** The icon each record kind shows; kinds with none fall back to the generic one. */
+const RECORD_KIND_ICON = new Map<string, IconName>([
+  ['experiment', 'flask'],
+  ['sample', 'tube'],
+  ['material', 'box'],
+  ['protocol_template', 'protocol'],
+  ['report', 'download'],
+  ['file', 'download'],
+  ['notebook_template', 'template'],
+])
 
 /** Pure render of resolved items — the unit under the component test. */
 export function RelatedWorkList({ items }: { items: RelatedWorkItem[] }) {
@@ -48,7 +49,7 @@ export function RelatedWorkList({ items }: { items: RelatedWorkItem[] }) {
           to={item.destination}
           icon={
             item.kind === 'record' && item.recordKind
-              ? (RECORD_KIND_ICON[item.recordKind] ?? KIND_ICON.record)
+              ? (RECORD_KIND_ICON.get(item.recordKind) ?? KIND_ICON.record)
               : KIND_ICON[item.kind]
           }
         />

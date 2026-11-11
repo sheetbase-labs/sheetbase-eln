@@ -267,6 +267,8 @@ export async function runAssistantAction(
       // Bench jobs load only when a card's button is pressed. Every other
       // kind was handled above, feature cards included.
       const { runBenchAction } = await import('./assistant-bench-run')
+
+      // SAFETY: the three booking cases returned above and every other AssistantAction member is claimed by a guard before this point (planning, labwork, extension tools, automation, planner, feature cards, upkeep, studies, instruments, qc, plates), so assistant-bench owns what is left.
       await runBenchAction(client, action as BenchAction)
     }
   }
@@ -308,9 +310,9 @@ function offsetMs(instant: Date, timeZone: string): number {
 
 /** The instant a wall-clock "YYYY-MM-DDTHH:MM" names in `timeZone`. */
 export function instantFromLocal(local: string, timeZone: string): Date {
-  const [date, time] = local.split('T') as [string, string]
-  const [y, m, d] = date.split('-').map(Number) as [number, number, number]
-  const [hh, mm] = time.split(':').map(Number) as [number, number]
+  const [date, time] = local.split('T')
+  const [y, m, d] = date.split('-').map(Number)
+  const [hh, mm] = time.split(':').map(Number)
   const wall = Date.UTC(y, m - 1, d, hh, mm)
   // Two passes settle the offset either side of a clock change.
   const first = wall - offsetMs(new Date(wall), timeZone)

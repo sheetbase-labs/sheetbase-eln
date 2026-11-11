@@ -1,5 +1,6 @@
 import { t } from '#/copy'
 import { useEffect, useMemo, useState } from 'react'
+import { z } from 'zod'
 
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 import { definitionOfModelField } from '#/lib/model-fields'
@@ -83,53 +84,35 @@ export function ModelFieldInput({
     relationshipTarget: field.relationship?.target.kind,
   })
 
-  if (presentation.kind === 'checkbox') {
+  if (presentation.kind === 'checkbox')
     return (
-      <div
-        className={`flex items-center gap-2 text-xs ${showLabel ? '' : 'justify-end'}`}
-      >
-        <Checkbox
-          checked={value === true}
-          onCheckedChange={(checked) => onChange(checked === true)}
-          aria-label={definition.label}
-        />
-        {showLabel ? definition.label : null}
-      </div>
+      <CheckboxField
+        definition={definition}
+        value={value}
+        onChange={onChange}
+        showLabel={showLabel}
+      />
     )
-  }
 
-  if (presentation.kind === 'category-select') {
+  if (presentation.kind === 'category-select')
     return (
-      <label className="text-xs text-fg-muted">
-        {showLabel ? definition.label : null}
-        {showLabel && !definition.nullable ? ' *' : ''}
-        <Select
-          className={`${showLabel ? 'mt-1' : ''} h-8 text-xs`}
-          value={String(value)}
-          onChange={(event) => onChange(event.target.value)}
-          aria-label={definition.label}
-        >
-          {definition.nullable ? (
-            <option value="">{t('notebook.modelFieldInput.notSet')}</option>
-          ) : null}
-          {selectableFieldOptions(field, value).map((option) => (
-            <option key={option.id} value={option.key}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
-      </label>
+      <CategorySelectField
+        definition={definition}
+        field={field}
+        value={value}
+        onChange={onChange}
+        showLabel={showLabel}
+      />
     )
-  }
 
   if (presentation.kind === 'record-picker') {
     const targetModelKey =
       field.relationship?.target.kind === 'model'
         ? field.relationship.target.modelKey
-        : typeof definition.validation.targetModelKey === 'string' &&
-            definition.validation.targetModelKey.trim()
-          ? definition.validation.targetModelKey.trim()
-          : ''
+        : (z
+            .string()
+            .safeParse(definition.validation.targetModelKey)
+            .data?.trim() ?? '')
 
     return (
       <ModelReferencePicker
@@ -148,6 +131,100 @@ export function ModelFieldInput({
     )
   }
 
+  return (
+    <TextField
+      definition={definition}
+      presentation={presentation}
+      value={value}
+      onChange={onChange}
+      showLabel={showLabel}
+      placeholder={placeholder}
+    />
+  )
+}
+
+/** A true/false field: one box with its label beside it. */
+function CheckboxField({
+  definition,
+  value,
+  onChange,
+  showLabel,
+}: {
+  definition: ModelFieldDefinition
+  value: string | boolean
+  onChange: (value: string | boolean) => void
+  showLabel: boolean
+}) {
+  return (
+    <div
+      className={`flex items-center gap-2 text-xs ${showLabel ? '' : 'justify-end'}`}
+    >
+      <Checkbox
+        checked={value === true}
+        onCheckedChange={(checked) => onChange(checked === true)}
+        aria-label={definition.label}
+      />
+      {showLabel ? definition.label : null}
+    </div>
+  )
+}
+
+/** A category field: the field's own options, plus unset when it is nullable. */
+function CategorySelectField({
+  definition,
+  field,
+  value,
+  onChange,
+  showLabel,
+}: {
+  definition: ModelFieldDefinition
+  field: ReturnType<typeof definitionOfModelField>
+  value: string | boolean
+  onChange: (value: string | boolean) => void
+  showLabel: boolean
+}) {
+  return (
+    <label className="text-xs text-fg-muted">
+      {showLabel ? definition.label : null}
+      {showLabel && !definition.nullable ? ' *' : ''}
+      <Select
+        className={`${showLabel ? 'mt-1' : ''} h-8 text-xs`}
+        value={String(value)}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label={definition.label}
+      >
+        {definition.nullable ? (
+          <option value="">{t('notebook.modelFieldInput.notSet')}</option>
+        ) : null}
+        {selectableFieldOptions(field, value).map((option) => (
+          <option key={option.id} value={option.key}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
+    </label>
+  )
+}
+
+/** The standard box: a text, number, date or date-time input with its label. */
+function TextField({
+  definition,
+  presentation,
+  value,
+  onChange,
+  showLabel,
+  placeholder,
+}: {
+  definition: ModelFieldDefinition
+  presentation: {
+    inputType: 'number' | 'date' | 'datetime-local' | 'text' | null
+    step?: '1' | 'any'
+  }
+  value: string | boolean
+  onChange: (value: string | boolean) => void
+  showLabel: boolean
+  placeholder?: string
+}) {
   return (
     <label className="text-xs text-fg-muted">
       {showLabel ? definition.label : null}
@@ -200,7 +277,9 @@ async function defaultResolveSnapshot(
       `?record_kind=eq.${encodeURIComponent(row.kind)}&select=key`,
     )
 
-    if (kinds.at(0)?.key) modelKey = kinds.at(0)?.key as string
+    const key = kinds.at(0)?.key
+
+    if (key) modelKey = key
   } catch {
     // RLS or an unmapped kind: keep the honest fallback below.
   }
@@ -222,6 +301,13 @@ async function defaultResolveSnapshot(
  * stable Record UUID. Resolution states stay honest: present, archived,
  * wrong-model and missing/restricted (RLS-filtered rows read as missing).
  */
+/** What the picker says about the stored reference, before and after it resolves. */
+type ReferencePickerState =
+  | { kind: 'invalid'; message: string }
+  | { kind: 'empty' }
+  | { kind: 'resolving' }
+  | ReturnType<typeof resolveRecordReferenceState>
+
 function ModelReferencePicker({
   label,
   description,
@@ -324,12 +410,12 @@ function ModelReferencePicker({
 
   if (!targetModelKey) {
     return (
-      <label className="text-xs text-fg-muted">
+      <div className="text-xs text-fg-muted">
         {showLabel ? label : null}
         <span className="mt-1 block text-[0.65rem] text-danger-text">
           {t('notebook.modelFieldInput.referenceTargetIsNot')}
         </span>
-      </label>
+      </div>
     )
   }
 
@@ -343,7 +429,7 @@ function ModelReferencePicker({
 
   if (!targetAllowed) {
     return (
-      <label className="text-xs text-fg-muted">
+      <div className="text-xs text-fg-muted">
         {showLabel ? label : null}
         <span className="mt-1 block text-[0.65rem] text-danger-text">
           {t('notebook.modelFieldInput.sourcemodelkeyDoesNotAccept', {
@@ -351,11 +437,11 @@ function ModelReferencePicker({
             targetModelKey,
           })}
         </span>
-      </label>
+      </div>
     )
   }
 
-  const state =
+  const state: ReferencePickerState =
     identityError !== null
       ? { kind: 'invalid' as const, message: identityError }
       : value === ''
@@ -400,6 +486,55 @@ function ModelReferencePicker({
   }
 
   return (
+    <ReferenceRow
+      label={label}
+      description={description}
+      nullable={nullable}
+      value={value}
+      showLabel={showLabel}
+      targetModelKey={targetModelKey}
+      state={state}
+      search={search}
+      pickerOpen={pickerOpen}
+      onPickerOpenChange={setPickerOpen}
+      onClear={() => {
+        onChange('')
+        setPickerOpen(false)
+      }}
+      onSelect={handleSelect}
+    />
+  )
+}
+
+/** The reference as the form shows it: what it reads as, and what can be done with it. */
+function ReferenceRow({
+  label,
+  description,
+  nullable,
+  value,
+  showLabel,
+  targetModelKey,
+  state,
+  search,
+  pickerOpen,
+  onPickerOpenChange,
+  onClear,
+  onSelect,
+}: {
+  label: string
+  description: string | null
+  nullable: boolean
+  value: string
+  showLabel: boolean
+  targetModelKey: string
+  state: ReferencePickerState
+  search: (next: string) => Promise<PickerSearchResult>
+  pickerOpen: boolean
+  onPickerOpenChange: (open: boolean) => void
+  onClear: () => void
+  onSelect: (id: string, option: PickerOption | null) => void
+}) {
+  return (
     <div className="text-xs text-fg-muted">
       {showLabel ? (
         <span className="font-medium">
@@ -408,74 +543,30 @@ function ModelReferencePicker({
         </span>
       ) : null}
       <div className={`${showLabel ? 'mt-1' : ''} space-y-1`}>
-        {state.kind === 'empty' ? (
-          <span className="block text-[0.65rem]">
-            {nullable
-              ? t('notebook.modelFieldInput.noRecordLinked')
-              : t('notebook.modelFieldInput.recordReferenceIsRequired')}
-          </span>
-        ) : null}
-        {state.kind === 'invalid' ? (
-          <span role="alert" className="block text-[0.65rem] text-danger-text">
-            {state.message}
-          </span>
-        ) : null}
-        {state.kind === 'resolving' ? (
-          <span className="block text-[0.65rem]">
-            {t('notebook.modelFieldInput.resolvingRecord')}
-          </span>
-        ) : null}
-        {state.kind === 'present' && state.snapshot ? (
-          <span className="block truncate text-[0.65rem] font-medium text-fg">
-            {formatRecordReferenceLabel(state.snapshot)}
-          </span>
-        ) : null}
-        {state.kind === 'archived' ? (
-          <span className="block text-[0.65rem]">
-            {t('notebook.modelFieldInput.recordreferencelabelArchivedTheLink', {
-              recordReferenceLabel: formatRecordReferenceLabel(state.snapshot),
-            })}
-          </span>
-        ) : null}
-        {state.kind === 'invalid-model' ? (
-          <span role="alert" className="block text-[0.65rem] text-danger-text">
-            {t('notebook.modelFieldInput.wrongModel', {
-              modelKey: state.snapshot.modelKey,
-              targetModelKey,
-            })}
-          </span>
-        ) : null}
-        {state.kind === 'missing' ? (
-          <span role="alert" className="block text-[0.65rem] text-danger-text">
-            {t('notebook.modelFieldInput.missingRecord')}
-          </span>
-        ) : null}
+        <ReferenceStateLine
+          state={state}
+          nullable={nullable}
+          targetModelKey={targetModelKey}
+        />
         <div className="flex flex-wrap gap-1">
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => setPickerOpen(true)}
+            onClick={() => onPickerOpenChange(true)}
           >
             {value === ''
               ? t('notebook.modelFieldInput.selectRecord')
               : t('notebook.modelFieldInput.changeRecord')}
           </Button>
           {value !== '' && nullable ? (
-            <Button
-              size="sm"
-              variant="quiet"
-              onClick={() => {
-                onChange('')
-                setPickerOpen(false)
-              }}
-            >
+            <Button size="sm" variant="quiet" onClick={onClear}>
               {t('common.actions.clear')}
             </Button>
           ) : null}
         </div>
         <EntityPickerDialog
           open={pickerOpen}
-          onOpenChange={setPickerOpen}
+          onOpenChange={onPickerOpenChange}
           title={t('notebook.modelFieldInput.title', {
             label: label.toLowerCase(),
           })}
@@ -483,7 +574,7 @@ function ModelReferencePicker({
           search={search}
           value={value}
           onPick={(id, option) => {
-            if (id) handleSelect(id, option)
+            if (id) onSelect(id, option)
           }}
         />
         <span className="block text-[0.65rem]">
@@ -495,4 +586,67 @@ function ModelReferencePicker({
       </div>
     </div>
   )
+}
+
+/** What the stored reference reads as right now: one line, or nothing to say. */
+function ReferenceStateLine({
+  state,
+  nullable,
+  targetModelKey,
+}: {
+  state: ReferencePickerState
+  nullable: boolean
+  targetModelKey: string
+}) {
+  switch (state.kind) {
+    case 'empty':
+      return (
+        <span className="block text-[0.65rem]">
+          {nullable
+            ? t('notebook.modelFieldInput.noRecordLinked')
+            : t('notebook.modelFieldInput.recordReferenceIsRequired')}
+        </span>
+      )
+    case 'invalid':
+      return (
+        <span role="alert" className="block text-[0.65rem] text-danger-text">
+          {state.message}
+        </span>
+      )
+    case 'resolving':
+      return (
+        <span className="block text-[0.65rem]">
+          {t('notebook.modelFieldInput.resolvingRecord')}
+        </span>
+      )
+    case 'present':
+      return state.snapshot ? (
+        <span className="block truncate text-[0.65rem] font-medium text-fg">
+          {formatRecordReferenceLabel(state.snapshot)}
+        </span>
+      ) : null
+    case 'archived':
+      return (
+        <span className="block text-[0.65rem]">
+          {t('notebook.modelFieldInput.recordreferencelabelArchivedTheLink', {
+            recordReferenceLabel: formatRecordReferenceLabel(state.snapshot),
+          })}
+        </span>
+      )
+    case 'invalid-model':
+      return (
+        <span role="alert" className="block text-[0.65rem] text-danger-text">
+          {t('notebook.modelFieldInput.wrongModel', {
+            modelKey: state.snapshot.modelKey,
+            targetModelKey,
+          })}
+        </span>
+      )
+    case 'missing':
+      return (
+        <span role="alert" className="block text-[0.65rem] text-danger-text">
+          {t('notebook.modelFieldInput.missingRecord')}
+        </span>
+      )
+  }
 }

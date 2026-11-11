@@ -38,6 +38,8 @@ function connection(
           r: materialise(z.string().parse(values?.[0])),
         }
 
+        // SAFETY: the sweep asks for one answer row, and this fixture answers
+        // with the single counts object it just built.
         return { rows: [counts] as Row[] }
       }
 

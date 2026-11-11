@@ -8,9 +8,12 @@
  * `cron` so one stored shape carries every calendar rule. Reading a stored
  * cron back recognises those shapes and falls back to "Custom".
  */
+import { z } from 'zod'
+
 import { eventLabel } from './event-catalogue'
 import { describeCron, parseCron } from './pipeline-cron'
 import {
+  MISSED_RUN_POLICIES,
   PIPELINE_TRIGGER_EVENTS,
   specBindings,
   specTimeZone,
@@ -126,6 +129,20 @@ export function eventOptions(): Array<[string, string]> {
   return PIPELINE_TRIGGER_EVENTS.map((name) => [name, eventLabel(name)])
 }
 
+/**
+ * A parameter value as the form and the labels show it: its own text for the
+ * scalars a trigger passes, and its JSON for anything else the store holds.
+ */
+function parameterText(value: z.core.util.JSONType): string {
+  const text = z.string().safeParse(value).data
+
+  if (text !== undefined) return text
+
+  const scalar = z.union([z.number(), z.boolean(), z.null()]).safeParse(value)
+
+  return scalar.success ? String(scalar.data) : JSON.stringify(value)
+}
+
 function pad(value: number): string {
   return String(value).padStart(2, '0')
 }
@@ -154,13 +171,57 @@ function cronFor(draft: ScheduleDraft): string {
   return draft.cron.trim()
 }
 
+/** A stored trigger spec, as a row or the RPC carries it: unparsed JSON. */
+export type ScheduleSpecWire = Record<string, z.core.util.JSONType>
+
+/** One input's binding, decoded where a stored spec is read. */
+const storedInputBinding = z.union([
+  z.object({ mode: z.literal('pinned'), versionId: z.string() }),
+  z.object({ mode: z.literal('latest'), datasetId: z.string() }),
+  z.object({ mode: z.literal('incremental'), datasetId: z.string() }),
+])
+
+/**
+ * A stored trigger spec, decoded field by field at the read boundary. A field
+ * the store holds in a shape this build does not know reads as absent, which
+ * is what the form did when it checked each one before use.
+ */
+const storedScheduleSpec = z.object({
+  intervalMinutes: z.number().finite().optional().catch(undefined),
+  dailyAt: z.string().optional().catch(undefined),
+  cron: z.string().optional().catch(undefined),
+  timeZone: z.string().optional().catch(undefined),
+  eventType: z.string().optional().catch(undefined),
+  datasetId: z.string().nullish().catch(undefined),
+  instrumentId: z.string().nullish().catch(undefined),
+  inputName: z.string().optional().catch(undefined),
+  missedRunPolicy: z.enum(MISSED_RUN_POLICIES).optional().catch(undefined),
+  parameters: z.record(z.string(), z.json()).optional().catch(undefined),
+  inputs: z.record(z.string(), storedInputBinding).optional().catch(undefined),
+  inputVersions: z.record(z.string(), z.string()).optional().catch(undefined),
+})
+
+/** The spec fields a trigger reads and writes. */
+export type ScheduleSpecValues = z.infer<typeof storedScheduleSpec>
+
+/** Decode a stored spec; a row always carries an object, so this cannot fail. */
+function storedSpec(spec: ScheduleSpecWire): ScheduleSpecValues {
+  return storedScheduleSpec.parse(spec)
+}
+
+/** What the draft would store, ready for the create or update RPC. */
+export interface ScheduleWrite {
+  kind: PipelineScheduleKind
+  spec: ScheduleSpecValues
+}
+
 /** What the draft would store, ready for the create or update RPC. */
 export function draftToSchedule(
   draft: ScheduleDraft,
   declaredInputs: string[],
-  parameterValues: Record<string, unknown>,
-): { kind: PipelineScheduleKind; spec: Record<string, unknown> } {
-  const spec: Record<string, unknown> = {}
+  parameterValues: ScheduleSpecValues['parameters'] = {},
+): ScheduleWrite {
+  const spec: ScheduleSpecValues = {}
   let kind: PipelineScheduleKind
   const zone = draft.timeZone.trim() || 'UTC'
 
@@ -285,17 +346,14 @@ export function draftError(
 
 /** The draft for a stored trigger, for editing it. */
 export function scheduleToDraft(
-  schedule: { kind: PipelineScheduleKind; spec: Record<string, unknown> },
+  schedule: { kind: PipelineScheduleKind; spec: ScheduleSpecWire },
   declaredInputs: string[],
   fallbackZone: string,
 ): ScheduleDraft {
-  const { kind, spec } = schedule
+  const { kind } = schedule
+  const spec = storedSpec(schedule.spec)
 
-  const draft = emptyDraft(
-    typeof spec.timeZone === 'string' && spec.timeZone
-      ? spec.timeZone
-      : fallbackZone,
-  )
+  const draft = emptyDraft(spec.timeZone || fallbackZone)
 
   if (kind === 'interval') {
     draft.repeat = 'interval'
@@ -313,12 +371,11 @@ export function scheduleToDraft(
     }
   } else if (kind === 'daily') {
     draft.repeat = 'daily'
-    draft.time = typeof spec.dailyAt === 'string' ? spec.dailyAt : draft.time
+    draft.time = spec.dailyAt ?? draft.time
     // A daily trigger stored before zones were explicit ran on UTC.
-    draft.timeZone =
-      typeof spec.timeZone === 'string' && spec.timeZone ? spec.timeZone : 'UTC'
+    draft.timeZone = spec.timeZone || 'UTC'
   } else if (kind === 'cron') {
-    const cron = typeof spec.cron === 'string' ? spec.cron : ''
+    const cron = spec.cron ?? ''
     draft.repeat = 'cron'
     draft.cron = cron
     const fields = parseCron(cron)
@@ -346,12 +403,10 @@ export function scheduleToDraft(
     }
   } else {
     draft.repeat = 'event'
-    draft.eventType =
-      typeof spec.eventType === 'string' ? spec.eventType : draft.eventType
-    draft.datasetId = typeof spec.datasetId === 'string' ? spec.datasetId : ''
-    draft.instrumentId =
-      typeof spec.instrumentId === 'string' ? spec.instrumentId : ''
-    draft.inputName = typeof spec.inputName === 'string' ? spec.inputName : ''
+    draft.eventType = spec.eventType ?? draft.eventType
+    draft.datasetId = spec.datasetId ?? ''
+    draft.instrumentId = spec.instrumentId ?? ''
+    draft.inputName = spec.inputName ?? ''
   }
 
   const bound =
@@ -375,10 +430,8 @@ export function scheduleToDraft(
     }
   }
 
-  if (spec.parameters && typeof spec.parameters === 'object') {
-    for (const [name, value] of Object.entries(spec.parameters)) {
-      draft.parameters[name] = String(value)
-    }
+  for (const [name, value] of Object.entries(spec.parameters ?? {})) {
+    draft.parameters[name] = parameterText(value)
   }
 
   draft.missedRunPolicy = spec.missedRunPolicy === 'skip' ? 'skip' : 'run_once'
@@ -389,13 +442,15 @@ export function scheduleToDraft(
 /** A stored trigger in plain words, or `—` when this build cannot read it. */
 export function describeSchedule(
   kind: PipelineScheduleKind,
-  spec: Record<string, unknown>,
+  stored: ScheduleSpecWire,
   datasetNames: Map<string, string>,
 ): string {
+  const spec = storedSpec(stored)
+
   if (kind === 'interval') {
     const minutes = spec.intervalMinutes
 
-    if (typeof minutes !== 'number' || !Number.isFinite(minutes)) return '—'
+    if (minutes === undefined) return '—'
 
     if (minutes >= 1440 && minutes % 1440 === 0) {
       return minutes === 1440 ? 'Every day' : `Every ${minutes / 1440} days`
@@ -411,7 +466,7 @@ export function describeSchedule(
   if (kind === 'daily') {
     const at = spec.dailyAt
 
-    if (typeof at !== 'string' || !at) return '—'
+    if (!at) return '—'
 
     return `Daily at ${at} (${specTimeZone(spec)})`
   }
@@ -419,15 +474,15 @@ export function describeSchedule(
   if (kind === 'cron') {
     const cron = spec.cron
 
-    if (typeof cron !== 'string' || parseCron(cron) === null) return '—'
+    if (!cron || parseCron(cron) === null) return '—'
 
     return `${describeCron(cron)} (${specTimeZone(spec)})`
   }
 
   const eventType = spec.eventType
 
-  if (typeof eventType !== 'string' || !eventType) return '—'
-  const datasetId = typeof spec.datasetId === 'string' ? spec.datasetId : null
+  if (!eventType) return '—'
+  const datasetId = spec.datasetId ?? null
 
   if (!datasetId) return eventLabel(eventType)
 
@@ -439,12 +494,14 @@ export function describeSchedule(
  * says whether it follows the latest data or sits on a fixed version.
  */
 export function describeInputs(
-  spec: Record<string, unknown>,
+  stored: ScheduleSpecWire,
   datasetNames: Map<string, string>,
 ): string[] {
   const phrases: string[] = []
 
-  for (const [name, binding] of Object.entries(specBindings(spec))) {
+  for (const [name, binding] of Object.entries(
+    specBindings(storedSpec(stored)),
+  )) {
     if (binding.mode === 'pinned') {
       phrases.push(`${name}: a fixed Dataset Version`)
       continue
@@ -462,13 +519,13 @@ export function describeInputs(
 }
 
 /** Parameter values a trigger passes, as `name=value` pairs. */
-export function describeParameters(spec: Record<string, unknown>): string {
-  const parameters = spec.parameters
+export function describeParameters(stored: ScheduleSpecWire): string {
+  const parameters = storedSpec(stored).parameters
 
-  if (!parameters || typeof parameters !== 'object') return ''
+  if (!parameters) return ''
 
-  return Object.entries(parameters as Record<string, unknown>)
-    .map(([name, value]) => `${name}=${String(value)}`)
+  return Object.entries(parameters)
+    .map(([name, value]) => `${name}=${parameterText(value)}`)
     .join(', ')
 }
 

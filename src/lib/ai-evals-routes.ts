@@ -2,12 +2,17 @@
  * Start a run of the assistant checks. Session only, and only for someone who
  * manages the AI settings (api.can_run_ai_evals).
  */
+import { z } from 'zod'
+
 import {
   postgrestRpc,
   requestErrorResponse,
   resolveSessionAuth,
 } from './request-auth'
 import type { SessionAuthDeps } from './request-auth'
+
+/** The optional body a manual run carries. */
+const runBodySchema = z.object({ toolsOnly: z.json() })
 
 export async function handleAiEvalRun(
   request: Request,
@@ -38,8 +43,8 @@ export async function handleAiEvalRun(
   let toolsOnly = false
 
   try {
-    const body = (await request.json()) as { toolsOnly?: unknown }
-    toolsOnly = body.toolsOnly === true
+    const body = runBodySchema.safeParse(await request.json()).data
+    toolsOnly = body?.toolsOnly === true
   } catch {
     // No body is fine: run everything that can run.
   }

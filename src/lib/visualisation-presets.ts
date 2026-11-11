@@ -68,6 +68,7 @@ export function emptyChartSpec(datasetId: string): ChartSpec {
       facet: null,
       facetRow: null,
       facetCol: null,
+      // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- `shape` is ChartSpec's persisted marker-encoding key, shared with saved charts and the DB mirror; it is not a local structural alias.
       shape: null,
       group: null,
       label: null,

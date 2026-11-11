@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { skipToken, useQuery } from '@tanstack/react-query'
 
 import {
   useModelFields,
@@ -21,8 +21,7 @@ export function useContractForTarget(
 ) {
   return useQuery({
     queryKey: target ? contractKeys.target(target) : ['data-contracts', 'none'],
-    queryFn: () => fetchContractForTarget(client, target as ContractTarget),
-    enabled: target !== null,
+    queryFn: target ? () => fetchContractForTarget(client, target) : skipToken,
     staleTime: 15_000,
   })
 }
@@ -33,8 +32,7 @@ export function useContractRuns(
 ) {
   return useQuery({
     queryKey: contractKeys.runs(contractId ?? ''),
-    queryFn: () => fetchRuns(client, contractId as string),
-    enabled: Boolean(contractId),
+    queryFn: contractId ? () => fetchRuns(client, contractId) : skipToken,
     staleTime: 10_000,
   })
 }
@@ -46,8 +44,9 @@ export function useDatasetContractStatus(
 ) {
   return useQuery({
     queryKey: contractKeys.datasetStatus(datasetId ?? ''),
-    queryFn: () => fetchDatasetStatus(client, datasetId as string),
-    enabled: Boolean(datasetId),
+    queryFn: datasetId
+      ? () => fetchDatasetStatus(client, datasetId)
+      : skipToken,
     staleTime: 15_000,
   })
 }
@@ -67,17 +66,27 @@ export function useContractFields(
   const latest = versions.data?.[0]
   const schemaFields = useModelFields(latest?.id, client)
 
+  const recordModelKey = target?.kind === 'record_model' ? target.key : null
+
   const recordFields = useQuery({
     queryKey: ['data-contracts', 'record-fields', target],
-    queryFn: async (): Promise<ContractFieldOption[]> => {
-      const rows = await client.list<{ field_name: string; label: string }>(
-        'record_field_definitions',
-        `?kind=eq.${encodeURIComponent((target as { key: string }).key)}&lifecycle=eq.active&select=field_name,label&order=display_order`,
-      )
+    queryFn:
+      recordModelKey === null
+        ? skipToken
+        : async (): Promise<ContractFieldOption[]> => {
+            const rows = await client.list<{
+              field_name: string
+              label: string
+            }>(
+              'record_field_definitions',
+              `?kind=eq.${encodeURIComponent(recordModelKey)}&lifecycle=eq.active&select=field_name,label&order=display_order`,
+            )
 
-      return rows.map((row) => ({ key: row.field_name, label: row.label }))
-    },
-    enabled: target?.kind === 'record_model',
+            return rows.map((row) => ({
+              key: row.field_name,
+              label: row.label,
+            }))
+          },
     staleTime: 30_000,
   })
 

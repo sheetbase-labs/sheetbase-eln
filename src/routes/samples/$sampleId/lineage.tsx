@@ -28,11 +28,9 @@ import {
 import { deriveSampleVolumeSummary, fetchSampleEvents } from '#/lib/samples'
 import type { SampleRecord, SampleVolumeSummary } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
-import {
-  downloadLineageCsv,
-  sampleEventsQueryKey,
-  useSampleRecord,
-} from '../$sampleId'
+import { downloadLineageCsv } from '#/routes/samples/-lineage-csv'
+import { sampleEventsQueryKey } from '#/routes/samples/-sample-keys'
+import { useSampleRecord } from '../$sampleId'
 import { t } from '#/copy'
 
 /**

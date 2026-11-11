@@ -951,7 +951,6 @@ function groupRows(rows: AnalysisRow[], fieldId: string | null) {
   const groups = new Map<string, AnalysisRow[]>()
 
   for (const row of rows) {
-    // eslint-disable-next-line @typescript-eslint/no-base-to-string -- Native scientific labels historically use String, including arrays and objects; JSON would change group identity and ordering.
     const key = fieldId ? String(row[fieldId] ?? '—') : 'all'
 
     if (!groups.has(key)) groups.set(key, [])
@@ -1434,7 +1433,6 @@ function runComparison(
         const num = toNumeric([row[valueCol.id]]).values
 
         if (num.length !== 1) continue
-        // eslint-disable-next-line @typescript-eslint/no-base-to-string -- Paired-subject identity uses native String coercion; JSON encoding would split or merge historically paired scientific labels.
         const id = String(row[pairCol!.id] ?? '')
 
         if (id === '') continue

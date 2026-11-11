@@ -153,28 +153,31 @@ async function readAllBytes(
   return bytes
 }
 
-const XML_ENTITIES: Record<string, string> = {
-  amp: '&',
-  lt: '<',
-  gt: '>',
-  quot: '"',
-  apos: "'",
-}
+const XML_ENTITIES = new Map([
+  ['amp', '&'],
+  ['lt', '<'],
+  ['gt', '>'],
+  ['quot', '"'],
+  ['apos', "'"],
+])
 
 function decodeXmlEntities(value: string): string {
-  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, entity) => {
-    const lower = (entity as string).toLowerCase()
+  return value.replace(
+    /&(#x[0-9a-f]+|#\d+|[a-z]+);/gi,
+    (match: string, entity: string) => {
+      const lower = entity.toLowerCase()
 
-    if (lower.startsWith('#x')) {
-      return safeCodePoint(Number.parseInt(lower.slice(2), 16)) ?? match
-    }
+      if (lower.startsWith('#x')) {
+        return safeCodePoint(Number.parseInt(lower.slice(2), 16)) ?? match
+      }
 
-    if (lower.startsWith('#')) {
-      return safeCodePoint(Number.parseInt(lower.slice(1), 10)) ?? match
-    }
+      if (lower.startsWith('#')) {
+        return safeCodePoint(Number.parseInt(lower.slice(1), 10)) ?? match
+      }
 
-    return XML_ENTITIES[lower] ?? match
-  })
+      return XML_ENTITIES.get(lower) ?? match
+    },
+  )
 }
 
 function safeCodePoint(code: number): string | null {
@@ -200,11 +203,10 @@ function ooxmlText(xml: string, runTag: string): string {
   let out = ''
 
   for (const match of xml.matchAll(tokens)) {
-    const [, run, paragraphEnd] = match as unknown as [
-      string,
-      string | undefined,
-      string | undefined,
-    ]
+    // A capture group that did not take part is `undefined` at runtime, which
+    // the standard `RegExpExecArray` type does not say.
+    const groups: readonly (string | undefined)[] = match
+    const [, run, paragraphEnd] = groups
 
     if (run !== undefined) out += decodeXmlEntities(run)
     else out += paragraphEnd ? '\n' : ' '
@@ -220,10 +222,10 @@ function ooxmlText(xml: string, runTag: string): string {
 function unzipOffice(
   bytes: Uint8Array,
   wanted: (name: string) => boolean,
-): Record<string, Uint8Array> {
+): ReadonlyMap<string, Uint8Array> {
   let total = 0
 
-  return unzipSync(bytes, {
+  const unzipped = unzipSync(bytes, {
     filter: (file) => {
       if (!wanted(file.name)) return false
       total += file.originalSize
@@ -235,6 +237,8 @@ function unzipOffice(
       return true
     },
   })
+
+  return new Map(Object.entries(unzipped))
 }
 
 function slideOrder(name: string): number {
@@ -294,7 +298,8 @@ function xlsxSheetText(xml: string): string {
       /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g,
     )) {
       const type = /\bt="([^"]*)"/.exec(cell[1])?.[1] ?? 'n'
-      const inner = (cell[2] as string | undefined) ?? ''
+      const groups: readonly (string | undefined)[] = cell
+      const inner = groups[2] ?? ''
 
       if (type === 'inlineStr') {
         const text = ooxmlText(inner, 't')
@@ -339,7 +344,7 @@ function odfText(xml: string): string {
 
 function extractOdfText(bytes: Uint8Array): string {
   const entries = unzipOffice(bytes, (name) => name === 'content.xml')
-  const content = entries['content.xml'] as Uint8Array | undefined
+  const content = entries.get('content.xml')
 
   return content ? odfText(new TextDecoder('utf-8').decode(content)) : ''
 }
@@ -364,15 +369,15 @@ export function extractOfficeText(
   if (!parts) return ''
   const entries = unzipOffice(bytes, parts.wanted)
 
-  const names = Object.keys(entries).sort(
-    (a, b) => slideOrder(a) - slideOrder(b) || b.localeCompare(a),
+  const files = [...entries].sort(
+    ([a], [b]) => slideOrder(a) - slideOrder(b) || b.localeCompare(a),
   )
 
   const decoder = new TextDecoder('utf-8')
   const sections: string[] = []
 
-  for (const name of names) {
-    const xml = decoder.decode(entries[name])
+  for (const [name, content] of files) {
+    const xml = decoder.decode(content)
 
     if (name === 'xl/workbook.xml') {
       const sheets = xlsxSheetNames(xml)
@@ -383,7 +388,7 @@ export function extractOfficeText(
 
     // xlsx worksheets hold numbers and inline strings; shared strings carry
     // the rest.
-    const text = /^xl\/worksheets\//.test(name)
+    const text = name.startsWith('xl/worksheets/')
       ? xlsxSheetText(xml)
       : ooxmlText(xml, parts.runTag)
 

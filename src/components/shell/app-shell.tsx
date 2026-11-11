@@ -384,14 +384,7 @@ export function AppShell({
     [data.notifications, readNotifications],
   )
 
-  // The installed app's icon shows how many things are unread, and this device
-  // tells the server who is signed in so phone alerts reach the right person.
-  useEffect(() => {
-    applyAppBadge(unreadIds.size)
-  }, [unreadIds.size])
-  useEffect(() => {
-    void syncPushSubscription()
-  }, [])
+  useInstalledAppSignals(unreadIds.size)
 
   // SHELL-03: one registry for the shell; the `?` dialog is generated from it.
   const globalShortcuts = useMemo(
@@ -443,61 +436,20 @@ export function AppShell({
           />
           {banner}
           <InstallPrompt />
-          <Sheet open={navOpen} onOpenChange={setNavOpen}>
-            <SheetContent
-              side="left"
-              title={
-                <span className="inline-flex items-center gap-2">
-                  <BrandMark size={22} />
-                  {t('settings.shell.appShell.sheetbase')}
-                </span>
-              }
-              className="md:hidden"
-              {...drawerSwipe}
-            >
-              <SideNav
-                pinned={data.pinned}
-                counts={data.counts}
-                primaryItems={primaryItems}
-                groups={groups}
-                folded={folded}
-                onToggleFold={toggleFold}
-                settingsTo={settingsTo}
-                className="min-h-full w-full! border-r-0"
-              />
-            </SheetContent>
-          </Sheet>
-          <div className="flex min-h-0 flex-1">
-            {/* SHELL-01: one sidebar from tablet width up. It is the icon rail
-              where there is no room for the full navigation or when the user
-              has minimised it, and the full sidebar otherwise — same items,
-              same order, same place. On a phone a 48px rail costs an eighth of
-              the screen, so there the same sidebar opens as a drawer from the
-              menu button in the header. */}
-            <NavRail
-              className={
-                collapsed ? 'hidden md:flex' : 'hidden md:flex xl:hidden'
-              }
-              primaryItems={primaryItems}
-              groups={groups}
-              settingsTo={settingsTo}
-            />
-            {collapsed ? null : (
-              <SideNav
-                pinned={data.pinned}
-                counts={data.counts}
-                primaryItems={primaryItems}
-                groups={groups}
-                folded={folded}
-                onToggleFold={toggleFold}
-                settingsTo={settingsTo}
-                className="hidden xl:flex"
-              />
-            )}
-            <main id="main" className="flex min-w-0 flex-1 bg-background">
-              {children}
-            </main>
-          </div>
+          <ShellNavigation
+            data={data}
+            navOpen={navOpen}
+            onNavOpenChange={setNavOpen}
+            drawerSwipe={drawerSwipe}
+            collapsed={collapsed}
+            primaryItems={primaryItems}
+            groups={groups}
+            folded={folded}
+            onToggleFold={toggleFold}
+            settingsTo={settingsTo}
+          >
+            {children}
+          </ShellNavigation>
           <LazySearchPalette
             open={search}
             onOpenChange={setSearch}
@@ -512,6 +464,109 @@ export function AppShell({
         </div>
       </ShortcutProvider>
     </PageAiWorkspaceProvider>
+  )
+}
+
+/**
+ * The installed app's icon shows how many things are unread, and this device
+ * tells the server who is signed in so phone alerts reach the right person.
+ */
+function useInstalledAppSignals(unreadCount: number) {
+  useEffect(() => {
+    applyAppBadge(unreadCount)
+  }, [unreadCount])
+
+  useEffect(() => {
+    void syncPushSubscription()
+  }, [])
+}
+
+/**
+ * The shell's navigation and the page: the phone drawer, the icon rail, the full
+ * sidebar and the main area.
+ */
+function ShellNavigation({
+  data,
+  navOpen,
+  onNavOpenChange,
+  drawerSwipe,
+  collapsed,
+  primaryItems,
+  groups,
+  folded,
+  onToggleFold,
+  settingsTo,
+  children,
+}: {
+  data: ShellData
+  navOpen: boolean
+  onNavOpenChange: (open: boolean) => void
+  drawerSwipe: ReturnType<typeof useSwipeToClose>
+  collapsed: boolean
+  primaryItems: NavItem[]
+  groups: NavGroup[]
+  /** The groups this person folded. */
+  folded: ReadonlySet<string>
+  onToggleFold: (group: string) => void
+  settingsTo: string
+  children: React.ReactNode
+}) {
+  return (
+    <>
+      <Sheet open={navOpen} onOpenChange={onNavOpenChange}>
+        <SheetContent
+          side="left"
+          title={
+            <span className="inline-flex items-center gap-2">
+              <BrandMark size={22} />
+              {t('settings.shell.appShell.sheetbase')}
+            </span>
+          }
+          className="md:hidden"
+          {...drawerSwipe}
+        >
+          <SideNav
+            pinned={data.pinned}
+            counts={data.counts}
+            primaryItems={primaryItems}
+            groups={groups}
+            folded={folded}
+            onToggleFold={onToggleFold}
+            settingsTo={settingsTo}
+            className="min-h-full w-full! border-r-0"
+          />
+        </SheetContent>
+      </Sheet>
+      <div className="flex min-h-0 flex-1">
+        {/* SHELL-01: one sidebar from tablet width up. It is the icon rail
+          where there is no room for the full navigation or when the user
+          has minimised it, and the full sidebar otherwise — same items,
+          same order, same place. On a phone a 48px rail costs an eighth of
+          the screen, so there the same sidebar opens as a drawer from the
+          menu button in the header. */}
+        <NavRail
+          className={collapsed ? 'hidden md:flex' : 'hidden md:flex xl:hidden'}
+          primaryItems={primaryItems}
+          groups={groups}
+          settingsTo={settingsTo}
+        />
+        {collapsed ? null : (
+          <SideNav
+            pinned={data.pinned}
+            counts={data.counts}
+            primaryItems={primaryItems}
+            groups={groups}
+            folded={folded}
+            onToggleFold={onToggleFold}
+            settingsTo={settingsTo}
+            className="hidden xl:flex"
+          />
+        )}
+        <main id="main" className="flex min-w-0 flex-1 bg-background">
+          {children}
+        </main>
+      </div>
+    </>
   )
 }
 

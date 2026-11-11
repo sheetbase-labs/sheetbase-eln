@@ -24,7 +24,8 @@ import type { SampleRecord } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 
-import { sampleEventsQueryKey, useSampleRecord } from '../$sampleId'
+import { sampleEventsQueryKey } from '#/routes/samples/-sample-keys'
+import { useSampleRecord } from '../$sampleId'
 import { t } from '#/copy'
 
 import { ConsumedDetails } from './-sample-consumed-details'

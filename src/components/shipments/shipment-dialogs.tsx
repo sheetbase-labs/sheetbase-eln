@@ -2,7 +2,7 @@
  * Setting up a shipment and handling one: the manifest, sending it on its way,
  * receiving it line by line, or calling it off.
  */
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useRecordModelProjects } from '#/components/models/models-data'
@@ -47,6 +47,7 @@ import {
 import type {
   ManifestLine,
   ShipmentDirection,
+  ShipmentItem,
   ShipmentRow,
 } from '#/lib/shipments'
 
@@ -84,6 +85,19 @@ export function NewShipmentDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[min(760px,calc(100vw-32px))]">
+        <DialogHeader title={t('shipments.form.title')} />
+        {open ? <NewShipmentForm onClose={() => onOpenChange(false)} /> : null}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** The manifest form. It exists only while its dialog is open, so every open
+ * starts from a blank manifest. */
+function NewShipmentForm({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient()
   const projects = useRecordModelProjects().data ?? []
   const [direction, setDirection] = useState<ShipmentDirection>('outbound')
@@ -96,19 +110,6 @@ export function NewShipmentDialog({
   const [lines, setLines] = useState<ManifestLine[]>([])
   const [picking, setPicking] = useState(false)
   const [interacted, setInteracted] = useState(false)
-
-  useEffect(() => {
-    if (!open) return
-    setDirection('outbound')
-    setCounterparty('')
-    setCarrier('')
-    setTracking('')
-    setExpectedOn(undefined)
-    setProjectId('')
-    setNotes('')
-    setLines([])
-    setInteracted(false)
-  }, [open])
 
   const counterpartyError = counterparty.trim()
     ? null
@@ -147,7 +148,7 @@ export function NewShipmentDialog({
           reference: shipmentReference(created.number),
         }),
       )
-      onOpenChange(false)
+      onClose()
     },
     onError: (e) => toast.error(messageOf(e, t('shipments.form.couldNotSave'))),
   })
@@ -167,210 +168,203 @@ export function NewShipmentDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[min(760px,calc(100vw-32px))]">
-          <DialogHeader title={t('shipments.form.title')} />
-          <DialogBody>
-            <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <Field label={t('shipments.form.direction')}>
-                  <Select
-                    value={direction}
-                    onChange={(e) => setDirection(directionOf(e.target.value))}
-                  >
-                    <option value="outbound">
-                      {t('shipments.directions.outbound')}
-                    </option>
-                    <option value="inbound">
-                      {t('shipments.directions.inbound')}
-                    </option>
-                  </Select>
-                </Field>
-                <Field
-                  label={t('shipments.form.counterparty')}
-                  hint={t('shipments.form.counterpartyHint')}
-                  error={interacted ? counterpartyError : null}
-                  required
-                >
-                  <Input
-                    value={counterparty}
-                    maxLength={200}
-                    onChange={(e) => {
-                      setCounterparty(e.target.value)
-                      setInteracted(true)
-                    }}
-                  />
-                </Field>
-                <Field label={t('shipments.form.carrier')}>
-                  <Input
-                    value={carrier}
-                    onChange={(e) => setCarrier(e.target.value)}
-                  />
-                </Field>
-                <Field label={t('shipments.form.tracking')}>
-                  <Input
-                    value={tracking}
-                    onChange={(e) => setTracking(e.target.value)}
-                  />
-                </Field>
-                <div className="flex flex-col gap-1 text-label">
-                  <span className="font-medium text-fg">
-                    {t('shipments.form.expected')}
-                  </span>
-                  <DateField
-                    value={expectedOn}
-                    onChange={setExpectedOn}
-                    label={t('shipments.form.expected')}
-                    placeholder={t('shipments.form.expected')}
-                  />
-                </div>
-                {projects.length > 0 ? (
-                  <Field label={t('shipments.form.project')}>
-                    <Select
-                      value={projectId}
-                      onChange={(e) => setProjectId(e.target.value)}
-                    >
-                      <option value="">{t('shipments.form.noProject')}</option>
-                      {projects.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.title}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                ) : null}
-              </div>
-              <Field label={t('shipments.form.notes')}>
-                <Input
-                  value={notes}
-                  maxLength={2000}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </Field>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="flex-1 text-label font-medium text-fg">
-                    {t('shipments.form.manifest')}
-                  </span>
-                  <Button size="sm" onClick={() => setPicking(true)}>
-                    {t('shipments.form.addRecords')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => setLines((c) => [...c, blankLine()])}
-                  >
-                    {t('shipments.form.addLine')}
-                  </Button>
-                </div>
-                <TableBox>
-                  <Table aria-label={t('shipments.form.manifest')}>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('shipments.form.lineName')}</TableHead>
-                        <TableHead className="w-24">
-                          {t('shipments.form.lineQuantity')}
-                        </TableHead>
-                        <TableHead className="w-24">
-                          {t('shipments.form.lineUnit')}
-                        </TableHead>
-                        <TableHead>{t('shipments.form.lineNote')}</TableHead>
-                        <TableHead className="w-20" />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody
-                      empty={t('shipments.form.emptyManifest')}
-                      colSpan={5}
-                    >
-                      {lines.map((line) => (
-                        <TableRow key={line.key}>
-                          <TableCell>
-                            {line.record_id ? (
-                              <span className="flex items-baseline gap-2">
-                                <span className="mono text-fg-muted">
-                                  {line.identifier}
-                                </span>
-                                <span className="truncate">{line.title}</span>
-                              </span>
-                            ) : (
-                              <Input
-                                aria-label={t('shipments.form.lineName')}
-                                value={line.title}
-                                onChange={(e) =>
-                                  update(line.key, { title: e.target.value })
-                                }
-                              />
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              aria-label={t('shipments.form.lineQuantity')}
-                              inputMode="decimal"
-                              value={line.quantity}
-                              onChange={(e) =>
-                                update(line.key, { quantity: e.target.value })
-                              }
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              aria-label={t('shipments.form.lineUnit')}
-                              value={line.unit}
-                              onChange={(e) =>
-                                update(line.key, { unit: e.target.value })
-                              }
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              aria-label={t('shipments.form.lineNote')}
-                              value={line.note}
-                              onChange={(e) =>
-                                update(line.key, { note: e.target.value })
-                              }
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              variant="quiet"
-                              onClick={() =>
-                                setLines((c) =>
-                                  c.filter((l) => l.key !== line.key),
-                                )
-                              }
-                            >
-                              {t('shipments.form.remove')}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableBox>
-              </div>
-            </div>
-          </DialogBody>
-          <DialogFooter>
-            <DialogClose render={<Button variant="quiet" />}>
-              {t('shipments.form.cancel')}
-            </DialogClose>
-            <Button disabled={save.isPending} onClick={() => submit(false)}>
-              {save.isPending
-                ? t('shipments.form.saving')
-                : t('shipments.form.save')}
-            </Button>
-            <Button
-              variant="primary"
-              disabled={save.isPending || lines.length === 0}
-              onClick={() => submit(true)}
+      <DialogBody>
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <Field label={t('shipments.form.direction')}>
+              <Select
+                value={direction}
+                onChange={(e) => setDirection(directionOf(e.target.value))}
+              >
+                <option value="outbound">
+                  {t('shipments.directions.outbound')}
+                </option>
+                <option value="inbound">
+                  {t('shipments.directions.inbound')}
+                </option>
+              </Select>
+            </Field>
+            <Field
+              label={t('shipments.form.counterparty')}
+              hint={t('shipments.form.counterpartyHint')}
+              error={interacted ? counterpartyError : null}
+              required
             >
-              {direction === 'outbound'
-                ? t('shipments.form.saveAndSend')
-                : t('shipments.form.saveAndExpect')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <Input
+                value={counterparty}
+                maxLength={200}
+                onChange={(e) => {
+                  setCounterparty(e.target.value)
+                  setInteracted(true)
+                }}
+              />
+            </Field>
+            <Field label={t('shipments.form.carrier')}>
+              <Input
+                value={carrier}
+                onChange={(e) => setCarrier(e.target.value)}
+              />
+            </Field>
+            <Field label={t('shipments.form.tracking')}>
+              <Input
+                value={tracking}
+                onChange={(e) => setTracking(e.target.value)}
+              />
+            </Field>
+            <div className="flex flex-col gap-1 text-label">
+              <span className="font-medium text-fg">
+                {t('shipments.form.expected')}
+              </span>
+              <DateField
+                value={expectedOn}
+                onChange={setExpectedOn}
+                label={t('shipments.form.expected')}
+                placeholder={t('shipments.form.expected')}
+              />
+            </div>
+            {projects.length > 0 ? (
+              <Field label={t('shipments.form.project')}>
+                <Select
+                  value={projectId}
+                  onChange={(e) => setProjectId(e.target.value)}
+                >
+                  <option value="">{t('shipments.form.noProject')}</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : null}
+          </div>
+          <Field label={t('shipments.form.notes')}>
+            <Input
+              value={notes}
+              maxLength={2000}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </Field>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="flex-1 text-label font-medium text-fg">
+                {t('shipments.form.manifest')}
+              </span>
+              <Button size="sm" onClick={() => setPicking(true)}>
+                {t('shipments.form.addRecords')}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setLines((c) => [...c, blankLine()])}
+              >
+                {t('shipments.form.addLine')}
+              </Button>
+            </div>
+            <TableBox>
+              <Table aria-label={t('shipments.form.manifest')}>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('shipments.form.lineName')}</TableHead>
+                    <TableHead className="w-24">
+                      {t('shipments.form.lineQuantity')}
+                    </TableHead>
+                    <TableHead className="w-24">
+                      {t('shipments.form.lineUnit')}
+                    </TableHead>
+                    <TableHead>{t('shipments.form.lineNote')}</TableHead>
+                    <TableHead className="w-20" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody
+                  empty={t('shipments.form.emptyManifest')}
+                  colSpan={5}
+                >
+                  {lines.map((line) => (
+                    <TableRow key={line.key}>
+                      <TableCell>
+                        {line.record_id ? (
+                          <span className="flex items-baseline gap-2">
+                            <span className="mono text-fg-muted">
+                              {line.identifier}
+                            </span>
+                            <span className="truncate">{line.title}</span>
+                          </span>
+                        ) : (
+                          <Input
+                            aria-label={t('shipments.form.lineName')}
+                            value={line.title}
+                            onChange={(e) =>
+                              update(line.key, { title: e.target.value })
+                            }
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          aria-label={t('shipments.form.lineQuantity')}
+                          inputMode="decimal"
+                          value={line.quantity}
+                          onChange={(e) =>
+                            update(line.key, { quantity: e.target.value })
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          aria-label={t('shipments.form.lineUnit')}
+                          value={line.unit}
+                          onChange={(e) =>
+                            update(line.key, { unit: e.target.value })
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          aria-label={t('shipments.form.lineNote')}
+                          value={line.note}
+                          onChange={(e) =>
+                            update(line.key, { note: e.target.value })
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="quiet"
+                          onClick={() =>
+                            setLines((c) => c.filter((l) => l.key !== line.key))
+                          }
+                        >
+                          {t('shipments.form.remove')}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableBox>
+          </div>
+        </div>
+      </DialogBody>
+      <DialogFooter>
+        <DialogClose render={<Button variant="quiet" />}>
+          {t('shipments.form.cancel')}
+        </DialogClose>
+        <Button disabled={save.isPending} onClick={() => submit(false)}>
+          {save.isPending
+            ? t('shipments.form.saving')
+            : t('shipments.form.save')}
+        </Button>
+        <Button
+          variant="primary"
+          disabled={save.isPending || lines.length === 0}
+          onClick={() => submit(true)}
+        >
+          {direction === 'outbound'
+            ? t('shipments.form.saveAndSend')
+            : t('shipments.form.saveAndExpect')}
+        </Button>
+      </DialogFooter>
       <RecordPickerDialog
         open={picking}
         onOpenChange={setPicking}
@@ -404,12 +398,379 @@ export function ShipmentDialog({
   canWrite: boolean
   onClose: () => void
 }) {
+  return (
+    <Dialog
+      open={shipment !== null}
+      onOpenChange={(open) => !open && onClose()}
+    >
+      <DialogContent className="w-[min(720px,calc(100vw-32px))]">
+        <DialogHeader
+          title={t('shipments.detail.title', {
+            reference: shipment ? shipmentReference(shipment.number) : '',
+          })}
+        />
+        {shipment ? (
+          <ShipmentDetail
+            key={shipment.id}
+            shipment={shipment}
+            canWrite={canWrite}
+            onClose={onClose}
+          />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** The shipment's facts, from the document's own header. */
+function ShipmentFacts({ shipment }: { shipment: ShipmentRow }) {
+  const facts: Array<[string, string]> = [
+    [t('shipments.detail.with'), shipment.counterparty],
+    [t('shipments.detail.carrier'), shipment.carrier ?? ''],
+    [t('shipments.detail.tracking'), shipment.tracking_reference ?? ''],
+    [
+      t('shipments.detail.shipped'),
+      shipment.shipped_on ? formatDate(shipment.shipped_on) : '',
+    ],
+    [
+      t('shipments.detail.expected'),
+      shipment.expected_on ? formatDate(shipment.expected_on) : '',
+    ],
+    [
+      shipment.direction === 'outbound'
+        ? t('shipments.detail.delivered')
+        : t('shipments.detail.receivedOn'),
+      shipment.received_at
+        ? formatDate(shipment.received_at, { time: true })
+        : '',
+    ],
+    [t('shipments.detail.condition'), shipment.condition_note ?? ''],
+    [t('shipments.detail.notes'), shipment.notes ?? ''],
+    [t('shipments.detail.cancelReason'), shipment.cancel_reason ?? ''],
+  ].filter((row): row is [string, string] => row[1] !== '')
+
+  return (
+    <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body">
+      {facts.map(([label, value]) => (
+        <div key={label} className="contents">
+          <dt className="text-fg-muted">{label}</dt>
+          <dd className="m-0">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+/** One manifest line, as the receipt marks it arrived or missing. */
+function ShipmentItemRow({
+  item,
+  receiving,
+  arrived,
+  note,
+  onArrived,
+  onNote,
+}: {
+  item: ShipmentItem
+  receiving: boolean
+  arrived: boolean
+  note: string
+  onArrived: (arrived: boolean) => void
+  onNote: (note: string) => void
+}) {
+  return (
+    <TableRow>
+      <TableCell>
+        <span className="flex items-baseline gap-2">
+          {item.identifier ? (
+            <span className="mono text-fg-muted">{item.identifier}</span>
+          ) : null}
+          <span className="truncate">{item.title}</span>
+        </span>
+      </TableCell>
+      <TableCell className="text-fg-muted">{item.kind ?? ''}</TableCell>
+      <TableCell>
+        {item.quantity != null
+          ? `${Number(item.quantity)} ${item.unit ?? ''}`.trim()
+          : ''}
+      </TableCell>
+      <TableCell className="text-fg-muted">{item.note ?? ''}</TableCell>
+      <TableCell>
+        {receiving ? (
+          <span className="flex items-center gap-2">
+            <Checkbox
+              aria-label={t('shipments.detail.arrived')}
+              checked={arrived}
+              onCheckedChange={(checked) => onArrived(checked === true)}
+            />
+            <Input
+              aria-label={t('shipments.detail.columns.note')}
+              value={note}
+              onChange={(e) => onNote(e.target.value)}
+            />
+          </span>
+        ) : item.received === null ? (
+          ''
+        ) : item.received ? (
+          <Status tone="ok">{t('shipments.detail.arrived')}</Status>
+        ) : (
+          <Status tone="bad">
+            {item.received_note
+              ? `${t('shipments.detail.missing')}: ${item.received_note}`
+              : t('shipments.detail.missing')}
+          </Status>
+        )}
+      </TableCell>
+    </TableRow>
+  )
+}
+
+/** The manifest table: what the shipment carries and what arrived. */
+function ShipmentManifest({
+  items,
+  loading,
+  receiving,
+  arrived,
+  lineNotes,
+  onArrived,
+  onNote,
+}: {
+  items: ShipmentItem[]
+  loading: boolean
+  receiving: boolean
+  arrived: Record<string, boolean>
+  lineNotes: Record<string, string>
+  onArrived: (itemId: string, arrived: boolean) => void
+  onNote: (itemId: string, note: string) => void
+}) {
+  return (
+    <TableBox>
+      <Table aria-label={t('shipments.detail.manifest')}>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t('shipments.detail.columns.item')}</TableHead>
+            <TableHead>{t('shipments.detail.columns.kind')}</TableHead>
+            <TableHead>{t('shipments.detail.columns.amount')}</TableHead>
+            <TableHead>{t('shipments.detail.columns.note')}</TableHead>
+            <TableHead>{t('shipments.detail.columns.arrived')}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody
+          loading={loading}
+          empty={t('shipments.form.emptyManifest')}
+          colSpan={5}
+        >
+          {items.map((item) => (
+            <ShipmentItemRow
+              key={item.id}
+              item={item}
+              receiving={receiving}
+              arrived={arrived[item.id] ?? true}
+              note={lineNotes[item.id] ?? ''}
+              onArrived={(next) => onArrived(item.id, next)}
+              onNote={(next) => onNote(item.id, next)}
+            />
+          ))}
+        </TableBody>
+      </Table>
+    </TableBox>
+  )
+}
+
+/** The dialog's close action, in the footer. */
+function CloseShipmentAction() {
+  return (
+    <DialogClose render={<Button variant="quiet" />}>
+      {t('shipments.detail.close')}
+    </DialogClose>
+  )
+}
+
+/** Confirming a cancellation, with the reason already typed above. */
+function CancelConfirmActions({
+  pending,
+  onKeep,
+  onConfirm,
+}: {
+  pending: boolean
+  onKeep: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <DialogFooter>
+      <Button variant="quiet" onClick={onKeep}>
+        {t('shipments.detail.keep')}
+      </Button>
+      <Button variant="danger" disabled={pending} onClick={onConfirm}>
+        {t('shipments.detail.confirmCancel')}
+      </Button>
+    </DialogFooter>
+  )
+}
+
+/** Confirming what arrived, with the receipt already marked above. */
+function ReceiveConfirmActions({
+  pending,
+  itemsPending,
+  onCancel,
+  onConfirm,
+}: {
+  pending: boolean
+  itemsPending: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <DialogFooter>
+      <Button variant="quiet" onClick={onCancel}>
+        {t('shipments.form.cancel')}
+      </Button>
+      <Button
+        variant="primary"
+        disabled={pending || itemsPending}
+        onClick={onConfirm}
+      >
+        {t('shipments.detail.confirmReceive')}
+      </Button>
+    </DialogFooter>
+  )
+}
+
+/** A shipment that can still move: cancel it, send it, or mark what arrived. */
+function ShipmentActions({
+  shipment,
+  sendPending,
+  onStartCancel,
+  onStartReceive,
+  onSend,
+}: {
+  shipment: ShipmentRow
+  sendPending: boolean
+  onStartCancel: () => void
+  onStartReceive: () => void
+  onSend: () => void
+}) {
+  const outbound = shipment.direction === 'outbound'
+
+  return (
+    <>
+      <Button variant="quiet" onClick={onStartCancel}>
+        {t('shipments.detail.cancelShipment')}
+      </Button>
+      <span className="flex-1" />
+      <CloseShipmentAction />
+      {shipment.status === 'draft' ? (
+        <Button variant="primary" disabled={sendPending} onClick={onSend}>
+          {outbound
+            ? t('shipments.detail.markInTransit')
+            : t('shipments.detail.markOnItsWay')}
+        </Button>
+      ) : (
+        <Button variant="primary" onClick={onStartReceive}>
+          {outbound
+            ? t('shipments.detail.deliver')
+            : t('shipments.detail.receive')}
+        </Button>
+      )}
+    </>
+  )
+}
+
+/** The dialog's actions: send, receive, cancel, or just close. */
+function ShipmentFooter({
+  shipment,
+  canWrite,
+  cancelling,
+  receiving,
+  cancelPending,
+  receivePending,
+  itemsPending,
+  sendPending,
+  onStartCancel,
+  onStopCancel,
+  onConfirmCancel,
+  onStartReceive,
+  onStopReceive,
+  onConfirmReceive,
+  onSend,
+}: {
+  shipment: ShipmentRow
+  canWrite: boolean
+  cancelling: boolean
+  receiving: boolean
+  cancelPending: boolean
+  receivePending: boolean
+  itemsPending: boolean
+  sendPending: boolean
+  onStartCancel: () => void
+  onStopCancel: () => void
+  onConfirmCancel: () => void
+  onStartReceive: () => void
+  onStopReceive: () => void
+  onConfirmReceive: () => void
+  onSend: () => void
+}) {
+  const canMove =
+    canWrite &&
+    (shipment.status === 'draft' || shipment.status === 'in_transit')
+
+  if (!canMove) {
+    return (
+      <DialogFooter>
+        <CloseShipmentAction />
+      </DialogFooter>
+    )
+  }
+
+  if (cancelling) {
+    return (
+      <CancelConfirmActions
+        pending={cancelPending}
+        onKeep={onStopCancel}
+        onConfirm={onConfirmCancel}
+      />
+    )
+  }
+
+  if (receiving) {
+    return (
+      <ReceiveConfirmActions
+        pending={receivePending}
+        itemsPending={itemsPending}
+        onCancel={onStopReceive}
+        onConfirm={onConfirmReceive}
+      />
+    )
+  }
+
+  return (
+    <DialogFooter>
+      <ShipmentActions
+        shipment={shipment}
+        sendPending={sendPending}
+        onStartCancel={onStartCancel}
+        onStartReceive={onStartReceive}
+        onSend={onSend}
+      />
+    </DialogFooter>
+  )
+}
+
+/** One shipment's manifest and actions. Keyed by its own id, so opening
+ * another shipment starts from its own receipt state. */
+function ShipmentDetail({
+  shipment,
+  canWrite,
+  onClose,
+}: {
+  shipment: ShipmentRow
+  canWrite: boolean
+  onClose: () => void
+}) {
   const queryClient = useQueryClient()
 
   const items = useQuery({
-    queryKey: shipmentKeys.items(shipment?.id ?? ''),
-    queryFn: () => fetchShipmentItems(client, shipment?.id ?? ''),
-    enabled: shipment !== null,
+    queryKey: shipmentKeys.items(shipment.id),
+    queryFn: () => fetchShipmentItems(client, shipment.id),
     staleTime: 5_000,
   })
 
@@ -419,15 +780,6 @@ export function ShipmentDialog({
   const [lineNotes, setLineNotes] = useState<Record<string, string>>({})
   const [condition, setCondition] = useState('')
   const [reason, setReason] = useState('')
-
-  useEffect(() => {
-    setReceiving(false)
-    setCancelling(false)
-    setArrived({})
-    setLineNotes({})
-    setCondition('')
-    setReason('')
-  }, [shipment?.id])
 
   function done() {
     void queryClient.invalidateQueries({ queryKey: shipmentKeys.all })
@@ -442,7 +794,7 @@ export function ShipmentDialog({
   const send = useMutation({
     mutationFn: () =>
       markShipmentInTransit(client, {
-        shipmentId: shipment?.id ?? '',
+        shipmentId: shipment.id,
         shippedOn: '',
         carrier: '',
         trackingReference: '',
@@ -455,7 +807,7 @@ export function ShipmentDialog({
   const receive = useMutation({
     mutationFn: () =>
       receiveShipment(client, {
-        shipmentId: shipment?.id ?? '',
+        shipmentId: shipment.id,
         results: (items.data ?? []).map((item) => ({
           item_id: item.id,
           received: arrived[item.id] ?? true,
@@ -468,246 +820,77 @@ export function ShipmentDialog({
   })
 
   const cancel = useMutation({
-    mutationFn: () => cancelShipment(client, shipment?.id ?? '', reason),
+    mutationFn: () => cancelShipment(client, shipment.id, reason),
     onSuccess: done,
     onError: failed,
   })
 
-  const s = shipment
-
-  const facts: Array<[string, string]> = s
-    ? [
-        [t('shipments.detail.with'), s.counterparty],
-        [t('shipments.detail.carrier'), s.carrier ?? ''],
-        [t('shipments.detail.tracking'), s.tracking_reference ?? ''],
-        [
-          t('shipments.detail.shipped'),
-          s.shipped_on ? formatDate(s.shipped_on) : '',
-        ],
-        [
-          t('shipments.detail.expected'),
-          s.expected_on ? formatDate(s.expected_on) : '',
-        ],
-        [
-          s.direction === 'outbound'
-            ? t('shipments.detail.delivered')
-            : t('shipments.detail.receivedOn'),
-          s.received_at ? formatDate(s.received_at, { time: true }) : '',
-        ],
-        [t('shipments.detail.condition'), s.condition_note ?? ''],
-        [t('shipments.detail.notes'), s.notes ?? ''],
-        [t('shipments.detail.cancelReason'), s.cancel_reason ?? ''],
-      ].filter((row): row is [string, string] => row[1] !== '')
-    : []
-
   return (
-    <Dialog open={s !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="w-[min(720px,calc(100vw-32px))]">
-        <DialogHeader
-          title={t('shipments.detail.title', {
-            reference: s ? shipmentReference(s.number) : '',
-          })}
-        />
-        <DialogBody>
-          {s ? (
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <Status tone={shipmentTone(s.status)}>
-                  {shipmentStatusLabel(s)}
-                </Status>
-                <span className="text-label text-fg-muted">
-                  {t(`shipments.directions.${s.direction}`)}
-                </span>
-              </div>
-              <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-body">
-                {facts.map(([label, value]) => (
-                  <div key={label} className="contents">
-                    <dt className="text-fg-muted">{label}</dt>
-                    <dd className="m-0">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-              <TableBox>
-                <Table aria-label={t('shipments.detail.manifest')}>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>
-                        {t('shipments.detail.columns.item')}
-                      </TableHead>
-                      <TableHead>
-                        {t('shipments.detail.columns.kind')}
-                      </TableHead>
-                      <TableHead>
-                        {t('shipments.detail.columns.amount')}
-                      </TableHead>
-                      <TableHead>
-                        {t('shipments.detail.columns.note')}
-                      </TableHead>
-                      <TableHead>
-                        {t('shipments.detail.columns.arrived')}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody
-                    loading={items.isPending}
-                    empty={t('shipments.form.emptyManifest')}
-                    colSpan={5}
-                  >
-                    {(items.data ?? []).map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <span className="flex items-baseline gap-2">
-                            {item.identifier ? (
-                              <span className="mono text-fg-muted">
-                                {item.identifier}
-                              </span>
-                            ) : null}
-                            <span className="truncate">{item.title}</span>
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-fg-muted">
-                          {item.kind ?? ''}
-                        </TableCell>
-                        <TableCell>
-                          {item.quantity != null
-                            ? `${Number(item.quantity)} ${item.unit ?? ''}`.trim()
-                            : ''}
-                        </TableCell>
-                        <TableCell className="text-fg-muted">
-                          {item.note ?? ''}
-                        </TableCell>
-                        <TableCell>
-                          {receiving ? (
-                            <span className="flex items-center gap-2">
-                              <Checkbox
-                                aria-label={t('shipments.detail.arrived')}
-                                checked={arrived[item.id] ?? true}
-                                onCheckedChange={(checked) =>
-                                  setArrived((c) => ({
-                                    ...c,
-                                    [item.id]: checked === true,
-                                  }))
-                                }
-                              />
-                              <Input
-                                aria-label={t('shipments.detail.columns.note')}
-                                value={lineNotes[item.id] ?? ''}
-                                onChange={(e) =>
-                                  setLineNotes((c) => ({
-                                    ...c,
-                                    [item.id]: e.target.value,
-                                  }))
-                                }
-                              />
-                            </span>
-                          ) : item.received === null ? (
-                            ''
-                          ) : item.received ? (
-                            <Status tone="ok">
-                              {t('shipments.detail.arrived')}
-                            </Status>
-                          ) : (
-                            <Status tone="bad">
-                              {item.received_note
-                                ? `${t('shipments.detail.missing')}: ${item.received_note}`
-                                : t('shipments.detail.missing')}
-                            </Status>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableBox>
-              {receiving ? (
-                <Field
-                  label={t('shipments.detail.conditionLabel')}
-                  hint={t('shipments.detail.conditionHint')}
-                >
-                  <Input
-                    value={condition}
-                    maxLength={2000}
-                    onChange={(e) => setCondition(e.target.value)}
-                  />
-                </Field>
-              ) : null}
-              {cancelling ? (
-                <Field label={t('shipments.detail.cancelWhy')}>
-                  <Input
-                    value={reason}
-                    maxLength={2000}
-                    onChange={(e) => setReason(e.target.value)}
-                  />
-                </Field>
-              ) : null}
-            </div>
+    <>
+      <DialogBody>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Status tone={shipmentTone(shipment.status)}>
+              {shipmentStatusLabel(shipment)}
+            </Status>
+            <span className="text-label text-fg-muted">
+              {t(`shipments.directions.${shipment.direction}`)}
+            </span>
+          </div>
+          <ShipmentFacts shipment={shipment} />
+          <ShipmentManifest
+            items={items.data ?? []}
+            loading={items.isPending}
+            receiving={receiving}
+            arrived={arrived}
+            lineNotes={lineNotes}
+            onArrived={(itemId, next) =>
+              setArrived((current) => ({ ...current, [itemId]: next }))
+            }
+            onNote={(itemId, note) =>
+              setLineNotes((current) => ({ ...current, [itemId]: note }))
+            }
+          />
+          {receiving ? (
+            <Field
+              label={t('shipments.detail.conditionLabel')}
+              hint={t('shipments.detail.conditionHint')}
+            >
+              <Input
+                value={condition}
+                maxLength={2000}
+                onChange={(e) => setCondition(e.target.value)}
+              />
+            </Field>
           ) : null}
-        </DialogBody>
-        <DialogFooter>
-          {s &&
-          canWrite &&
-          (s.status === 'draft' || s.status === 'in_transit') ? (
-            cancelling ? (
-              <>
-                <Button variant="quiet" onClick={() => setCancelling(false)}>
-                  {t('shipments.detail.keep')}
-                </Button>
-                <Button
-                  variant="danger"
-                  disabled={cancel.isPending}
-                  onClick={() => cancel.mutate()}
-                >
-                  {t('shipments.detail.confirmCancel')}
-                </Button>
-              </>
-            ) : receiving ? (
-              <>
-                <Button variant="quiet" onClick={() => setReceiving(false)}>
-                  {t('shipments.form.cancel')}
-                </Button>
-                <Button
-                  variant="primary"
-                  disabled={receive.isPending || items.isPending}
-                  onClick={() => receive.mutate()}
-                >
-                  {t('shipments.detail.confirmReceive')}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="quiet" onClick={() => setCancelling(true)}>
-                  {t('shipments.detail.cancelShipment')}
-                </Button>
-                <span className="flex-1" />
-                <DialogClose render={<Button variant="quiet" />}>
-                  {t('shipments.detail.close')}
-                </DialogClose>
-                {s.status === 'draft' ? (
-                  <Button
-                    variant="primary"
-                    disabled={send.isPending}
-                    onClick={() => send.mutate()}
-                  >
-                    {s.direction === 'outbound'
-                      ? t('shipments.detail.markInTransit')
-                      : t('shipments.detail.markOnItsWay')}
-                  </Button>
-                ) : (
-                  <Button variant="primary" onClick={() => setReceiving(true)}>
-                    {s.direction === 'outbound'
-                      ? t('shipments.detail.deliver')
-                      : t('shipments.detail.receive')}
-                  </Button>
-                )}
-              </>
-            )
-          ) : (
-            <DialogClose render={<Button variant="quiet" />}>
-              {t('shipments.detail.close')}
-            </DialogClose>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          {cancelling ? (
+            <Field label={t('shipments.detail.cancelWhy')}>
+              <Input
+                value={reason}
+                maxLength={2000}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </Field>
+          ) : null}
+        </div>
+      </DialogBody>
+      <ShipmentFooter
+        shipment={shipment}
+        canWrite={canWrite}
+        cancelling={cancelling}
+        receiving={receiving}
+        cancelPending={cancel.isPending}
+        receivePending={receive.isPending}
+        itemsPending={items.isPending}
+        sendPending={send.isPending}
+        onStartCancel={() => setCancelling(true)}
+        onStopCancel={() => setCancelling(false)}
+        onConfirmCancel={() => cancel.mutate()}
+        onStartReceive={() => setReceiving(true)}
+        onStopReceive={() => setReceiving(false)}
+        onConfirmReceive={() => receive.mutate()}
+        onSend={() => send.mutate()}
+      />
+    </>
   )
 }

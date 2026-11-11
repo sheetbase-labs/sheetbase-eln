@@ -8,7 +8,7 @@ import {
   groupWorkItems,
   toWorkItem,
 } from './data'
-import type { DataClient } from '../data-client'
+import { createDataClient } from '../data-client'
 import type { WorkItem, WorkItemWire } from './data'
 
 function wire(overrides: Partial<WorkItemWire> = {}): WorkItemWire {
@@ -30,24 +30,28 @@ const NOW = new Date('2026-09-25T09:40:00+01:00')
 
 describe('toWorkItem', () => {
   it('maps the wire row and derives overdue from the due date', () => {
-    const item = toWorkItem(
+    const mapped = toWorkItem(
       wire({ due_at: '2026-09-20T09:40:00+01:00', state: 'needs_action' }),
       NOW,
     )
 
-    expect(item.kind).toBe('review_requested')
-    expect(item.state).toBe('overdue')
-    expect(item.title).toBe('Depth filter screening')
+    expect(mapped.kind).toBe('review_requested')
+    expect(mapped.state).toBe('overdue')
+    expect(mapped.title).toBe('Depth filter screening')
   })
 
   it('keeps a future due date as needs action', () => {
-    const item = toWorkItem(wire({ due_at: '2026-10-01T09:40:00+01:00' }), NOW)
-    expect(item.state).toBe('needs_action')
+    const mapped = toWorkItem(
+      wire({ due_at: '2026-10-01T09:40:00+01:00' }),
+      NOW,
+    )
+
+    expect(mapped.state).toBe('needs_action')
   })
 
   it('falls back to the identifier when there is no title', () => {
-    const item = toWorkItem(wire({ title: null }), NOW)
-    expect(item.title).toBe('EXP-0142')
+    const mapped = toWorkItem(wire({ title: null }), NOW)
+    expect(mapped.title).toBe('EXP-0142')
   })
 
   it('keeps requested witness work actionable and targets its frozen revision', () => {
@@ -177,13 +181,13 @@ describe('fetchWorkItems', () => {
   it('orders the inbox by due date, so the toolbar copy is true', async () => {
     let query = ''
 
-    const client = {
+    const client = Object.assign(createDataClient(), {
       list: async (_resource: string, q = '') => {
         query = q
 
         return []
       },
-    } as unknown as DataClient
+    })
 
     await fetchWorkItems(client)
     expect(query).toContain('order=due_at.asc')
@@ -205,10 +209,11 @@ describe('groupWorkItems', () => {
 
     expect(groups.today.map((i) => i.recordId)).toEqual(['today'])
     expect(groups.nextSevenDays.map((i) => i.recordId)).toEqual(['week'])
-    expect(groups.later.map((i) => i.recordId).sort()).toEqual([
-      'later',
-      'no-due',
-    ])
+    expect(
+      groups.later
+        .map((i) => i.recordId)
+        .sort((a, b) => String(a).localeCompare(String(b))),
+    ).toEqual(['later', 'no-due'])
     expect(groups.following.map((i) => i.recordId)).toEqual(['follow'])
   })
 

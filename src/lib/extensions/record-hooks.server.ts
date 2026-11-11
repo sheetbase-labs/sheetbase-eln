@@ -21,6 +21,7 @@
  * again with its own writes (they carry a marker the log pass skips).
  */
 import { sql } from 'drizzle-orm'
+import { z } from 'zod'
 
 import { logger } from '#/lib/logger'
 import { runExtensionRecordHook } from './data-runtime.server'
@@ -245,8 +246,10 @@ export function defaultHookStore(): HookStore {
 
         if (done.status >= 400)
           throw new Error(describeFailure(done.body, 'custom fields'))
-        const body = done.body as { metadata_version?: number }
-        version = body.metadata_version ?? version + 1
+
+        const reply = metadataVersionReplySchema.safeParse(done.body)
+
+        version = reply.success ? reply.data.metadata_version : version + 1
       }
 
       if (args.set.properties || args.set.tags) {
@@ -254,15 +257,15 @@ export function defaultHookStore(): HookStore {
           'records',
           `id=eq.${args.recordId}&metadata_version=eq.${version}`,
           {
-            ...(args.set.properties
+            // The proxy drops an absent value, so the body is the same one the
+            // old conditional spread built; only the keys it carries change.
+            properties: args.set.properties
               ? {
-                  properties: {
-                    ...(isObject(row.properties) ? row.properties : {}),
-                    ...args.set.properties,
-                  },
+                  ...(isObject(row.properties) ? row.properties : undefined),
+                  ...args.set.properties,
                 }
-              : {}),
-            ...(args.set.tags ? { tags: args.set.tags } : {}),
+              : undefined,
+            tags: args.set.tags,
             metadata_version: version + 1,
           },
           token,
@@ -275,19 +278,36 @@ export function defaultHookStore(): HookStore {
   }
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+/** A JSON value as the proxy and the event log hand it over. */
+const jsonValueSchema = z.json()
+
+type JsonValue = z.output<typeof jsonValueSchema>
+
+/** A JSON object: a row, an event's payload, a failure body. */
+const jsonObjectSchema = z.record(z.string(), jsonValueSchema)
+
+type JsonObject = z.output<typeof jsonObjectSchema>
+
+function isObject(value: unknown): value is JsonObject {
+  return jsonObjectSchema.safeParse(value).success
 }
 
+/** The version a record write reports back. */
+const metadataVersionReplySchema = z.object({ metadata_version: z.number() })
+
+/** A failed proxy call's refusal: a message, or an error holding one. */
+const failureBodySchema = z.object({
+  message: z.string().optional(),
+  error: z.object({ message: z.string().optional() }).optional(),
+})
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A refused proxy call answers with whatever its body held; the schema above reads a message from it and nothing else.
 function describeFailure(body: unknown, what: string): string {
-  const message =
-    isObject(body) && typeof body.message === 'string'
-      ? body.message
-      : isObject(body) &&
-          isObject(body.error) &&
-          typeof body.error.message === 'string'
-        ? body.error.message
-        : null
+  const refusal = failureBodySchema.safeParse(body)
+
+  const message = refusal.success
+    ? (refusal.data.message ?? refusal.data.error?.message)
+    : undefined
 
   return message ?? `The ${what} could not be changed.`
 }
@@ -383,19 +403,21 @@ export function claimsOf(token: string): TokenClaims | null {
   if (!part) return null
 
   try {
-    const claims = JSON.parse(
-      Buffer.from(
-        part.replace(/-/g, '+').replace(/_/g, '/'),
-        'base64',
-      ).toString('utf8'),
-    ) as Record<string, unknown>
+    const claims = tokenClaimsSchema.safeParse(
+      JSON.parse(
+        Buffer.from(
+          part.replace(/-/g, '+').replace(/_/g, '/'),
+          'base64',
+        ).toString('utf8'),
+      ),
+    )
 
-    const workspaceId = claims.workspace_id
-    const sub = claims.sub
+    if (!claims.success) return null
 
-    if (typeof workspaceId !== 'string' || typeof sub !== 'string') return null
-
-    return { workspaceId, actorUserId: sub }
+    return {
+      workspaceId: claims.data.workspace_id,
+      actorUserId: claims.data.sub,
+    }
   } catch {
     return null
   }
@@ -561,12 +583,14 @@ function withFills(
     return body
 
   if (body !== undefined && body.trimStart().startsWith('[')) {
-    const rows = JSON.parse(body) as unknown[]
+    const rows: unknown[] = JSON.parse(body)
 
     return JSON.stringify(
-      rows.map((row, index) =>
-        parsed[index] ? (JSON.parse(parsed[index]) as unknown) : row,
-      ),
+      rows.map((row, index) => {
+        const filled = parsed[index]
+
+        return filled ? JSON.parse(filled) : row
+      }),
     )
   }
 
@@ -673,13 +697,20 @@ export async function runUploadHooks(
       }
     }
 
+    const file: NonNullable<RecordHookInput['file']> = { ...input.file }
+
+    if (wants) {
+      file.content = content
+      file.encoding = wants
+    }
+
     const hookInput: RecordHookInput = {
       when,
       record: input.record,
       previous: null,
       changed: [],
       changes: {},
-      file: { ...input.file, ...(wants ? { content, encoding: wants } : {}) },
+      file,
     }
 
     if (input.timing === 'before') {
@@ -764,6 +795,25 @@ export interface ChangeEventLike {
   payload: unknown
 }
 
+/** The before/after a record change event logs for each field it records. */
+const recordChangesSchema = z.record(
+  z.string(),
+  z.object({ from: z.unknown(), to: z.unknown() }),
+)
+
+/** A payload field that holds text, or empty when it holds anything else. */
+function textOrEmpty(value: JsonValue | undefined): string {
+  const text = z.string().safeParse(value)
+
+  return text.success ? text.data : ''
+}
+
+/** A verified token's claims: who, and in which workspace. */
+const tokenClaimsSchema = z.object({
+  workspace_id: z.string(),
+  sub: z.string(),
+})
+
 /** What a record event means to a hook: which moments it is, and what changed. */
 export function whensOfEvent(event: ChangeEventLike): {
   whens: RecordHookWhen[]
@@ -773,13 +823,11 @@ export function whensOfEvent(event: ChangeEventLike): {
 } | null {
   if (event.entityType !== 'record') return null
   const payload = isObject(event.payload) ? event.payload : {}
+  const recorded = recordChangesSchema.safeParse(payload.changes)
 
-  const changes = isObject(payload.changes)
-    ? (payload.changes as Record<string, { from: unknown; to: unknown }>)
-    : {}
-
-  const kind = typeof payload.kind === 'string' ? payload.kind : ''
-  const status = typeof payload.status === 'string' ? payload.status : ''
+  const changes = recorded.success ? recorded.data : {}
+  const kind = textOrEmpty(payload.kind)
+  const status = textOrEmpty(payload.status)
 
   if (event.operation === 'create')
     return { whens: ['created'], kind, status, changes }
@@ -986,7 +1034,9 @@ export async function applyHookAnswer(
       list.push({
         entry: item.entry ?? 'main',
         body: item.text ?? '',
-        ...(item.vector ? { vector: item.vector } : {}),
+        // Stored with JSON.stringify, which drops an absent vector as the
+        // conditional spread did; only the key's presence in memory changes.
+        vector: item.vector,
       })
       byIndex.set(item.index, list)
     }

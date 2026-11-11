@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from './data-client'
+import { dataClientTestDouble } from './data-client-test-support'
 import {
   AI_FEATURE_FLAGS,
   defaultAiFeatureFlags,
@@ -9,6 +9,14 @@ import {
   resolveAiFeatureFlags,
   updateAiFeatureFlagsSchema,
 } from './ai-feature-flags'
+
+/**
+ * A client carrying the one member a test exercises. The functions under test
+ * read only the member the stub supplies, never the rest of the client.
+ */
+function stubClient(calls: Parameters<typeof dataClientTestDouble>[0]) {
+  return dataClientTestDouble(calls)
+}
 
 const WORKSPACE_ID = '11111111-1111-4111-8111-111111111111'
 
@@ -72,15 +80,14 @@ describe('AI feature flags', () => {
   })
 
   it('reads and resolves the workspace settings row', async () => {
-    const client = {
-      list: vi.fn(async () => [{ ai_feature_flags: { mcp_read: false } }]),
-    } as unknown as DataClient
+    const list = vi.fn(async () => [{ ai_feature_flags: { mcp_read: false } }])
+    const client = stubClient({ list })
 
     await expect(readAiFeatureFlags(client, WORKSPACE_ID)).resolves.toEqual({
       ...defaultAiFeatureFlags(),
       mcp_read: false,
     })
-    expect(client.list).toHaveBeenCalledWith(
+    expect(list).toHaveBeenCalledWith(
       'workspace_settings',
       `?select=ai_feature_flags&workspace_id=eq.${WORKSPACE_ID}&limit=1`,
     )

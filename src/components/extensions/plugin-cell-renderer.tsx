@@ -13,6 +13,7 @@
  * colours.
  */
 import * as React from 'react'
+import { z } from 'zod'
 
 import { sanitizeSvg } from '#/lib/extensions/screens'
 import { cn } from '#/lib/utils'
@@ -27,33 +28,57 @@ export interface RenderedCell {
   tone?: keyof typeof TONE_CLASSES
 }
 
+/** A cell value as the sheet holds it: the same JSON a block payload carries. */
+type PluginCellValue = z.core.util.JSONType
+
 const IMAGE_RE = /^data:image\/(?:png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/
-const TONES = Object.keys(TONE_CLASSES)
+
+/** One cell of a renderer's answer, decoded from the frame's message. */
+const renderedAnswerSchema = z.looseObject({
+  key: z.number(),
+  svg: z.string().optional().catch(undefined),
+  image: z.string().optional().catch(undefined),
+  text: z.string().optional().catch(undefined),
+  tone: z.string().optional().catch(undefined),
+})
+
+type RenderedAnswer = z.infer<typeof renderedAnswerSchema>
+
+/** A message from a renderer's frame: the frame protocol's own envelope. */
+const frameMessageSchema = z.looseObject({
+  sb: z.literal(1),
+  type: z.string(),
+  id: z.string().optional(),
+  cells: z.array(renderedAnswerSchema).catch([]),
+  error: z.unknown(),
+})
+
+function isTone(key: string): key is keyof typeof TONE_CLASSES {
+  return Object.hasOwn(TONE_CLASSES, key)
+}
 
 /** What a renderer sent back for one cell, kept only if it is one of the shapes Sheetbase draws. */
-function checked(value: unknown): RenderedCell | null {
-  if (typeof value !== 'object' || value === null) return null
-  const v = value as Record<string, unknown>
+function checked(answer: RenderedAnswer): RenderedCell | null {
   const out: RenderedCell = {}
 
-  if (typeof v.svg === 'string') {
-    const clean = sanitizeSvg(v.svg)
+  if (answer.svg !== undefined) {
+    const clean = sanitizeSvg(answer.svg)
 
     if (clean) out.svg = clean
   }
 
-  if (typeof v.image === 'string' && IMAGE_RE.test(v.image)) out.image = v.image
+  if (answer.image !== undefined && IMAGE_RE.test(answer.image))
+    out.image = answer.image
 
-  if (typeof v.text === 'string') out.text = v.text.slice(0, 500)
+  if (answer.text !== undefined) out.text = answer.text.slice(0, 500)
 
-  if (typeof v.tone === 'string' && TONES.includes(v.tone))
-    out.tone = v.tone as RenderedCell['tone']
+  if (answer.tone !== undefined && isTone(answer.tone)) out.tone = answer.tone
 
   return out.svg || out.image || out.text !== undefined ? out : null
 }
 
 interface Waiting {
-  value: unknown
+  value: PluginCellValue
   resolve: (cell: RenderedCell | null) => void
 }
 
@@ -112,33 +137,27 @@ class RendererHost {
 
   private onMessage(event: MessageEvent) {
     if (event.source !== this.frame.contentWindow) return
-    const data: unknown = event.data
+    const parsed = frameMessageSchema.safeParse(event.data)
 
-    if (typeof data !== 'object' || data === null) return
-    const message = data as Record<string, unknown>
+    if (!parsed.success) return
 
-    if (message.sb !== 1) return
+    const message = parsed.data
 
     if (message.type === 'ready') {
       this.ready = true
       this.sendContext()
       this.flush()
-    } else if (message.type === 'rendered' && typeof message.id === 'string') {
+    } else if (message.type === 'rendered' && message.id !== undefined) {
       const waiting = this.inflight.get(message.id)
 
       if (!waiting) return
       this.inflight.delete(message.id)
 
-      const cells = Array.isArray(message.cells)
-        ? (message.cells as Array<Record<string, unknown>>)
-        : []
-
       waiting.forEach((entry, index) => {
-        const answer = message.error
-          ? null
-          : checked(cells.find((c) => c.key === index))
+        const cell = message.cells.find((answer) => answer.key === index)
+        const rendered = !message.error && cell ? checked(cell) : null
 
-        entry.resolve(answer)
+        entry.resolve(rendered)
       })
     }
   }
@@ -162,7 +181,7 @@ class RendererHost {
     )
   }
 
-  render(value: unknown): Promise<RenderedCell | null> {
+  render(value: PluginCellValue): Promise<RenderedCell | null> {
     const key = JSON.stringify(value ?? null)
 
     if (this.cache.has(key)) return Promise.resolve(this.cache.get(key) ?? null)
@@ -210,7 +229,7 @@ export function PluginCell({
 }: {
   extensionKey: string
   itemId: string
-  value: unknown
+  value: PluginCellValue | undefined
   className?: string
 }) {
   const [cell, setCell] = React.useState<RenderedCell | null | undefined>(
@@ -238,6 +257,7 @@ export function PluginCell({
       live = false
     }
     // `key` stands for the value, so an unchanged value is not drawn again.
+    // react-doctor-disable-next-line react-doctor/exhaustive-deps -- The value is read through `key`, which is its JSON form: listing `value` would re-run the effect for a new object with the same contents.
   }, [extensionKey, itemId, key])
 
   if (cell === undefined || cell === null)

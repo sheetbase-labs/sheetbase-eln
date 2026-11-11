@@ -1,10 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import {
-  StatusBadge,
-  statusVocabularies,
-} from '#/components/scientific/status-badge'
-import type { StatusDomain } from '#/components/scientific/status-badge'
+import { StatusBadge } from '#/components/scientific/status-badge'
+import { statusVocabularies } from '#/components/scientific/status-vocabularies'
+import type { StatusDomain } from '#/components/scientific/status-vocabularies'
 
 /** True for the badge domains the shared vocabulary defines. */
 function isStatusDomain(value: string): value is StatusDomain {

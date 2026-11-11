@@ -19,7 +19,7 @@ import { chunkIds } from '#/lib/chunk-ids'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { RecordWire } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
-import { sampleEventsQueryKey } from '../$sampleId'
+import { sampleEventsQueryKey } from '#/routes/samples/-sample-keys'
 import { t } from '#/copy'
 
 /**

@@ -3,10 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 
-import {
-  mapTimelineEvents,
-  RecordHistoryTimeline,
-} from './record-history-timeline'
+import { mapTimelineEvents } from './record-history-events'
+import { RecordHistoryTimeline } from './record-history-timeline'
 import type { TimelineEventWire } from '#/lib/sign-002'
 
 afterEach(() => cleanup())

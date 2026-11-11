@@ -6,9 +6,9 @@
 import { toast } from '#/components/ui/sonner'
 import { t } from '#/copy'
 
-export function undoToast(
+export function undoToast<Undone>(
   message: string,
-  undo: () => Promise<unknown> | unknown,
+  undo: () => Promise<Undone> | Undone,
   /** Runs after a successful undo, e.g. to reload the list. */
   onUndone?: () => void,
 ): void {

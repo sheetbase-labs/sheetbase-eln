@@ -21,7 +21,7 @@ import {
   toReagent,
 } from './reagent-data'
 import type { Reagent } from './reagent-data'
-import type { DataClient } from './data-client'
+import { dataClientTestDouble } from './data-client-test-support'
 import type { RegistryQuery } from './registry'
 
 function makeReagent(
@@ -167,7 +167,7 @@ describe('fetchReagentUsage', () => {
       ])
 
     await expect(
-      fetchReagentUsage({ list } as unknown as DataClient, 'RGT-2025-0001'),
+      fetchReagentUsage(dataClientTestDouble({ list }), 'RGT-2025-0001'),
     ).resolves.toEqual([
       {
         id: 'link-1',
@@ -508,7 +508,7 @@ describe('createReagent and editReagent', () => {
       locked_by_revision_id: null,
     }))
 
-    const created = await createReagent({ rpc } as unknown as DataClient, {
+    const created = await createReagent(dataClientTestDouble({ rpc }), {
       projectId: 'p1',
       title: 'Acetonitrile',
       tags: ['solvent'],
@@ -544,11 +544,11 @@ describe('fetchReplacementLot', () => {
       ])
 
     const link = await fetchReplacementLot(
-      { list } as unknown as DataClient,
+      dataClientTestDouble({ list }),
       'RGT-2026-0002',
     )
 
-    const [table, query] = list.mock.calls[1] as [string, string]
+    const [table, query] = list.mock.calls[1] ?? []
     expect(table).toBe('record_links')
     expect(query).toContain('source_record_id=eq.lot-2')
     // The regression: PostgREST reads a subquery inside `in.()` as a uuid and
@@ -567,7 +567,7 @@ describe('fetchReplacementLot', () => {
 
     expect(
       await fetchReplacementLot(
-        { list } as unknown as DataClient,
+        dataClientTestDouble({ list }),
         'RGT-2026-9999',
       ),
     ).toBeNull()
@@ -589,7 +589,7 @@ describe('fetchReplacementLot', () => {
 
     expect(
       await fetchReplacementLot(
-        { list } as unknown as DataClient,
+        dataClientTestDouble({ list }),
         'RGT-2026-0002',
       ),
     ).toBeNull()

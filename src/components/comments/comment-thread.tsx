@@ -37,6 +37,9 @@ export interface CommentThreadProps {
   mentionCandidates?: readonly MentionCandidate[]
 }
 
+/** No mention candidates offered, shared so the default keeps its identity. */
+const NO_MENTIONS: readonly MentionCandidate[] = []
+
 const TARGET_KIND_LABEL: Record<CommentTargetKind, string> = {
   revision: t('notebook.commentThread.wholeRevision'),
   block: t('notebook.commentThread.block'),
@@ -86,7 +89,7 @@ function describeTarget(
 
   if (kind === 'table_region') {
     const parts = [target.tableId, target.rowId, target.columnId].filter(
-      (value): value is string => typeof value === 'string' && value.length > 0,
+      (value): value is string => value !== undefined && value.length > 0,
     )
 
     return `${TARGET_KIND_LABEL.table_region} ${parts.join(' · ')}`.trim()
@@ -175,7 +178,7 @@ export function CommentThread({
   pendingReplyId,
   targetUnavailable = false,
   names,
-  mentionCandidates = [],
+  mentionCandidates = NO_MENTIONS,
 }: CommentThreadProps) {
   const [replyBody, setReplyBody] = React.useState('')
   const [showReply, setShowReply] = React.useState(false)

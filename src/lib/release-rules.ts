@@ -4,8 +4,11 @@
  * check applies. The release button and the sample page read the same rules the
  * database enforces, so what a person edits here is what is checked.
  */
+import { z } from 'zod'
+
 import { t } from '#/copy'
 import type { DataClient } from '#/lib/data-client'
+import type { JsonObject, JsonValue } from '#/lib/workspace-admin'
 
 export type ReleaseRule =
   | { kind: 'no_result'; result: string; label?: string }
@@ -44,41 +47,56 @@ export interface ReleaseRuleSet {
 
 interface RuleRow {
   sample_type: string
-  rules: unknown
+  rules: JsonValue
   updated_at: string | null
 }
 
-function asRule(raw: unknown): ReleaseRule | null {
-  if (!raw || typeof raw !== 'object') return null
-  const r = raw as Record<string, unknown>
-  const label = typeof r.label === 'string' && r.label ? r.label : undefined
-  const text = (key: string) => (typeof r[key] === 'string' ? r[key] : '')
+/** One stored rule as the table carries it: a JSON object of the editor's fields. */
+const storedRuleSchema = z.record(z.string(), z.json())
 
-  const num = (key: string) => {
-    const n = r[key]
+/** A rule's text field, or nothing when the wire carries a different kind of value. */
+const textField = z.string()
 
-    return typeof n === 'number' || (typeof n === 'string' && n !== '')
-      ? Number(n)
-      : undefined
-  }
+/** A rule's number field: a number, or a numeric string the editor wrote. */
+const numberField = z.union([z.number(), z.string().min(1)])
+
+/** The text a field carries, or the empty string. */
+function text(value: JsonValue): string {
+  return textField.safeParse(value).data ?? ''
+}
+
+/** The number a field carries, or nothing when it is absent or not numeric. */
+function numeric(value: JsonValue): number | undefined {
+  const decoded = numberField.safeParse(value).data
+
+  return decoded === undefined ? undefined : Number(decoded)
+}
+
+function asRule(raw: JsonValue): ReleaseRule | null {
+  const stored = storedRuleSchema.safeParse(raw)
+
+  if (!stored.success) return null
+
+  const r = stored.data
+  const label = textField.safeParse(r.label).data || undefined
 
   switch (r.kind) {
     case 'no_result':
-      return { kind: 'no_result', result: text('result') || 'fail', label }
+      return { kind: 'no_result', result: text(r.result) || 'fail', label }
     case 'min_measurements':
-      return { kind: 'min_measurements', count: num('count') ?? 1, label }
+      return { kind: 'min_measurements', count: numeric(r.count) ?? 1, label }
     case 'measurement_required':
       return {
         kind: 'measurement_required',
-        measurement: text('measurement'),
+        measurement: text(r.measurement),
         label,
       }
     case 'measurement_range':
       return {
         kind: 'measurement_range',
-        measurement: text('measurement'),
-        min: num('min'),
-        max: num('max'),
+        measurement: text(r.measurement),
+        min: numeric(r.min),
+        max: numeric(r.max),
         label,
       }
     default:
@@ -118,8 +136,8 @@ export async function fetchSampleTypes(client: DataClient): Promise<string[]> {
 }
 
 /** The rule as the database stores it: no empty fields. */
-export function ruleToWire(rule: ReleaseRule): Record<string, unknown> {
-  const out: Record<string, unknown> = { kind: rule.kind }
+export function ruleToWire(rule: ReleaseRule): JsonObject {
+  const out: JsonObject = { kind: rule.kind }
 
   if (rule.label?.trim()) out.label = rule.label.trim()
 

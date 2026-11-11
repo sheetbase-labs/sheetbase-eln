@@ -10,6 +10,7 @@ import { t } from '#/copy'
 import { en as enCatalogue } from '#/copy/en'
 import { listByIds } from '#/lib/chunk-ids'
 import type { DataClient } from '#/lib/data-client'
+import { z } from 'zod'
 
 export const GHS_PICTOGRAMS = [
   'GHS01',
@@ -33,16 +34,28 @@ export type SignalWord = (typeof SIGNAL_WORDS)[number]
 export type HazardCode = keyof typeof enCatalogue.safety.statements
 
 export function isGhsPictogram(value: string): value is GhsPictogram {
-  return (GHS_PICTOGRAMS as readonly string[]).includes(value)
+  return GHS_PICTOGRAMS.some((code) => code === value)
 }
 
 export function pictogramName(code: GhsPictogram): string {
   return t(`safety.pictograms.${code}`)
 }
 
+/** The codes the catalogue words; membership is the catalogue's own evidence. */
+const hazardStatementKeys: ReadonlySet<string> = new Set(
+  Object.keys(enCatalogue.safety.statements),
+)
+
+/** Whether the catalogue words this statement code. */
+export function isHazardCode(code: string): code is HazardCode {
+  return hazardStatementKeys.has(code)
+}
+
 /** The wording of a hazard statement, or the bare code when it has no wording. */
 export function hazardStatementText(code: string): string {
-  const key = `safety.statements.${code}` as `safety.statements.${HazardCode}`
+  if (!isHazardCode(code)) return code
+
+  const key = `safety.statements.${code}` as const
 
   try {
     const text = t(key)
@@ -55,7 +68,7 @@ export function hazardStatementText(code: string): string {
 
 /** All statement codes the catalogue words, in code order. */
 export function knownHazardCodes(): HazardCode[] {
-  return Object.keys(enCatalogue.safety.statements) as HazardCode[]
+  return [...hazardStatementKeys].filter(isHazardCode)
 }
 
 export interface MaterialSafety {
@@ -192,6 +205,13 @@ export function setMaterialSds(
   })
 }
 
+/** A materials block's payload: the material each item names, as the editor stored it. */
+const materialsPayloadSchema = z.object({
+  items: z
+    .array(z.object({ materialRecordId: z.string().nullish() }))
+    .nullish(),
+})
+
 /**
  * The materials a protocol (or any notebook document) uses: ids from its
  * materials blocks, then from its material links.
@@ -203,15 +223,15 @@ export function materialIdsFromBlocks(
 
   for (const block of blocks) {
     if (block.type !== 'materials') continue
-    const items = (block.payload as { items?: unknown } | null)?.items
 
-    if (!Array.isArray(items)) continue
+    const payload = materialsPayloadSchema.safeParse(block.payload)
 
-    for (const item of items) {
-      const id = (item as { materialRecordId?: unknown } | null)
-        ?.materialRecordId
+    if (!payload.success) continue
 
-      if (typeof id === 'string' && id !== '') ids.push(id)
+    for (const item of payload.data.items ?? []) {
+      const id = item.materialRecordId
+
+      if (id) ids.push(id)
     }
   }
 

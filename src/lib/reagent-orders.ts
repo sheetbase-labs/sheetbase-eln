@@ -77,10 +77,12 @@ export function orderReference(number: number): string {
   return `RO-${String(number).padStart(4, '0')}`
 }
 
+function isOrderStatus(value: string): value is ReagentOrderStatus {
+  return REAGENT_ORDER_STATUSES.some((status) => status === value)
+}
+
 function asStatus(value: string): ReagentOrderStatus {
-  return (REAGENT_ORDER_STATUSES as readonly string[]).includes(value)
-    ? (value as ReagentOrderStatus)
-    : 'requested'
+  return isOrderStatus(value) ? value : 'requested'
 }
 
 export function toReagentOrder(row: ReagentOrderWire): ReagentOrder {
@@ -138,15 +140,15 @@ export async function fetchReagentOrderPrices(
   )
 }
 
-export function setReagentOrderPrice(
+export async function setReagentOrderPrice(
   client: DataClient,
   input: {
     orderId: string
     totalPrice: number | null
     currency: string | null
   },
-): Promise<unknown> {
-  return client.rpc('set_reagent_order_price', {
+): Promise<void> {
+  await client.rpc('set_reagent_order_price', {
     p_order_id: input.orderId,
     p_total_price: input.totalPrice,
     p_currency: input.currency,

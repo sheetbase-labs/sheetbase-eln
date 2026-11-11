@@ -4,11 +4,9 @@ import { searchResultGroup } from '#/lib/search'
 import type { SearchResult } from '#/lib/search'
 import { typeFieldLabel, typeSearchFields } from './search-fields'
 
-function result(fields: Record<string, unknown>): SearchResult {
-  return {
-    resultType: 'instrument',
-    fields,
-  } as unknown as SearchResult
+function result(fields: SearchResult['fields']): SearchResult {
+  // SAFETY: typeSearchFields reads only `fields`, and searchResultGroup only resultType/kind/matchedField; no other SearchResult member is reached by this suite.
+  return { resultType: 'instrument', fields } as SearchResult
 }
 
 describe('typeFieldLabel', () => {

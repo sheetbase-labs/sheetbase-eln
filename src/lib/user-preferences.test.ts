@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from './data-client'
+import { dataClientTestDouble } from './data-client-test-support'
 import { fetchUserPreferences } from './user-preferences'
 
-function clientReturning(rows: unknown[]) {
+function clientReturning(rows: readonly object[]) {
   const list = vi.fn(async () => rows)
 
-  return { client: { list } as unknown as DataClient, list }
+  return { client: dataClientTestDouble({ list }), list }
 }
 
 describe('fetchUserPreferences', () => {

@@ -13,10 +13,11 @@ export interface WorkspaceAdminContact {
  */
 export const getWorkspaceAdmins = createServerFn({ method: 'GET' }).handler(
   async (): Promise<WorkspaceAdminContact[]> => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-
-    const { getCurrentContext, listAccessContacts } =
-      await import('#/lib/current-user')
+    const [{ getRequestHeaders }, { getCurrentContext, listAccessContacts }] =
+      await Promise.all([
+        import('@tanstack/react-start/server'),
+        import('#/lib/current-user'),
+      ])
 
     const context = await getCurrentContext(getRequestHeaders())
 

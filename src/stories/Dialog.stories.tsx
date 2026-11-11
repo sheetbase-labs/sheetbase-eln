@@ -42,7 +42,7 @@ export const Default: Story = {
   render: () => (
     <Dialog>
       <Trigger />
-      <DialogContent>
+      <DialogContent aria-label="New pipeline">
         <DialogHeader
           title="New pipeline"
           description="Runs on the schedule you set once it is saved."
@@ -71,7 +71,7 @@ export const Open: Story = {
   render: () => (
     <Dialog defaultOpen>
       <Trigger />
-      <DialogContent>
+      <DialogContent aria-label="Duplicate notebook">
         <DialogHeader
           title="Duplicate notebook"
           description="EXP-0142 · AAV9 process"
@@ -97,7 +97,7 @@ export const TitleOnly: Story = {
   render: () => (
     <Dialog defaultOpen>
       <Trigger />
-      <DialogContent>
+      <DialogContent aria-label="Discard draft?">
         <DialogHeader title="Discard draft?" />
         <DialogBody>
           <p className="mb-0 text-body text-fg-muted">

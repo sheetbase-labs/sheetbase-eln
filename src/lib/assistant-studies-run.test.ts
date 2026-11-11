@@ -1,14 +1,20 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { z } from 'zod'
 
 import { runStudiesAction } from './assistant-studies-run'
 import type { DataClient } from './data-client'
 
-function client(answers: Record<string, unknown> = {}) {
+/** What each named RPC answers in a test; the action reads only the fields it needs. */
+type RpcAnswers = Readonly<Record<string, z.core.util.JSONType | undefined>>
+
+function client(answers: RpcAnswers = {}) {
   const rpc = vi.fn(
-    async (name: string, _args?: Record<string, unknown>) =>
+    async (name: string, _args?: Record<string, z.core.util.JSONType>) =>
       answers[name] ?? {},
   )
 
+  // SAFETY: The runner only issues the RPCs the answers cover; no other DataClient method is reached.
+  // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- The double implements `rpc` alone, so neither it nor the interface is assignable to the other.
   return { client: { rpc } as unknown as DataClient, rpc }
 }
 

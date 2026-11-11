@@ -128,7 +128,7 @@ export function encodeCode128(text: string): string {
     throw new Error('Code 128 labels carry printable ASCII only.')
   }
 
-  const values = [...text].map((char) => char.charCodeAt(0) - 32)
+  const values = text.split('').map((char) => char.charCodeAt(0) - 32)
 
   const checksum =
     (START_B + values.reduce((sum, value, i) => sum + value * (i + 1), 0)) % 103

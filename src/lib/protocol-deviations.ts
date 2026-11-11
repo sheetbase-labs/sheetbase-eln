@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import type { DataClient } from './data-client'
+import type { NotebookBlock } from './notebook-data'
 
 /**
  * A deviation from a pinned protocol step. The row itself is written by the
@@ -67,10 +68,15 @@ export async function recordDeviationReason(
   return protocolDeviationSchema.parse(row)
 }
 
+/** The provenance a step copied from a protocol carries in its payload. */
+const pinnedProtocolStepSchema = z.object({
+  sourceProtocolRevisionId: z.string(),
+  sourceStepBlockId: z.string(),
+})
+
 /** A step copied from a protocol keeps the ids that tie it to the frozen text. */
-export function isPinnedProtocolStep(payload: Record<string, unknown>) {
-  return (
-    typeof payload.sourceProtocolRevisionId === 'string' &&
-    typeof payload.sourceStepBlockId === 'string'
-  )
+export function isPinnedProtocolStep(
+  payload: NotebookBlock['payload'],
+): boolean {
+  return pinnedProtocolStepSchema.safeParse(payload).success
 }

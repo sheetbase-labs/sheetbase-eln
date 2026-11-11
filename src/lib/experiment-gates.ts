@@ -15,7 +15,10 @@
  * set to block refuses the writes below it in the database. A date condition
  * only ever warns.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
+import type { NotebookBlock } from './notebook-data'
 
 export type GateMode = 'warn' | 'block'
 
@@ -64,7 +67,7 @@ export type GateCondition =
 
 export type GateConditionKind = GateCondition['kind']
 
-export const GATE_CONDITION_KINDS: readonly GateConditionKind[] = [
+const gateConditionKindSchema = z.enum([
   'table_filled',
   'step_done',
   'part_done',
@@ -74,7 +77,10 @@ export const GATE_CONDITION_KINDS: readonly GateConditionKind[] = [
   'qc_in_control',
   'plugin_check',
   'plugin_flag',
-]
+])
+
+export const GATE_CONDITION_KINDS: readonly GateConditionKind[] =
+  gateConditionKindSchema.options
 
 export const MAX_GATE_CONDITIONS = 12
 
@@ -163,14 +169,20 @@ export function toRecordGate(row: RecordGateWire): RecordGate {
     overriddenByUserId: row.overridden_by_user_id,
     overrideReason: row.override_reason,
     missing: row.missing ?? [],
-    conditions: (row.conditions ?? []).map((condition) => ({
-      kind: condition.kind as GateConditionKind,
-      met: condition.met === true,
-      soft: condition.soft === true,
-      text: condition.text ?? '',
-      ...(condition.blockId ? { blockId: condition.blockId } : {}),
-      ...(condition.partId ? { partId: condition.partId } : {}),
-    })),
+    conditions: (row.conditions ?? []).map((condition) => {
+      const status: GateConditionStatus = {
+        kind: gateConditionKindSchema.parse(condition.kind),
+        met: condition.met === true,
+        soft: condition.soft === true,
+        text: condition.text ?? '',
+      }
+
+      if (condition.blockId) status.blockId = condition.blockId
+
+      if (condition.partId) status.partId = condition.partId
+
+      return status
+    }),
     fromTemplate: row.from_template,
   }
 }
@@ -193,12 +205,12 @@ export interface PartGateInput {
 }
 
 /** Set, change or clear the rule that opens a part, and the order of its steps. */
-export function setPartGate(
+export async function setPartGate(
   client: DataClient,
   partId: string,
   input: PartGateInput,
-): Promise<unknown> {
-  return client.rpc('set_part_gate', {
+): Promise<void> {
+  await client.rpc('set_part_gate', {
     p_part_id: partId,
     p_conditions: input.conditions?.length ? input.conditions : null,
     p_gate_mode: input.mode ?? null,
@@ -216,16 +228,16 @@ export function normaliseGateReason(value: string): string | null {
 }
 
 /** Go on past a gate that warns. Name the gate block or the part. */
-export function overrideGate(
+export async function overrideGate(
   client: DataClient,
   target: { blockId: string } | { partId: string },
   reason: string,
-): Promise<unknown> {
+): Promise<void> {
   const clean = normaliseGateReason(reason)
 
-  if (!clean) return Promise.reject(new Error('Say why you are going on.'))
+  if (!clean) throw new Error('Say why you are going on.')
 
-  return client.rpc('override_gate', {
+  await client.rpc('override_gate', {
     p_gate_block_id: 'blockId' in target ? target.blockId : null,
     p_gate_part_id: 'partId' in target ? target.partId : null,
     p_reason: clean,
@@ -290,7 +302,8 @@ export interface GateBlockLike {
   type: string
   partId?: string | null
   order: number
-  payload: Record<string, unknown>
+  /** The block's own JSONB payload, decoded where a condition reads it. */
+  payload: NotebookBlock['payload']
 }
 
 export interface GatePartLike {
@@ -314,12 +327,10 @@ export interface MirroredCondition {
   text: string
 }
 
-function isBlank(value: unknown): boolean {
-  if (value == null) return true
+function isBlank(value: string | null | undefined): boolean {
+  if (value === null || value === undefined) return true
 
-  if (typeof value === 'string') return value.trim() === ''
-
-  return false
+  return value.trim() === ''
 }
 
 /** "P3", "P3 and P4", "P3, P4 and P5", "P3, P4, P5 and 2 more". */
@@ -345,16 +356,22 @@ const unknown: MirroredCondition = {
   text: '',
 }
 
+/** A table block's payload as a gate reads it: heading text and the cell grid. */
+const gateTableSchema = z.object({
+  title: z.string().optional().catch(undefined),
+  columns: z.array(z.coerce.string()).catch([]),
+  rows: z.array(z.unknown()).catch([]),
+})
+
+const gateRowSchema = z.array(z.coerce.string().nullish())
+
+type GateRow = z.infer<typeof gateRowSchema>
+
 function tableCondition(
   condition: Extract<GateCondition, { kind: 'table_filled' }>,
   ctx: GateContext,
 ): MirroredCondition {
   const block = ctx.blocks.find((b) => b.id === condition.blockId)
-
-  const label =
-    condition.label?.trim() ||
-    (typeof block?.payload.title === 'string' && block.payload.title.trim()) ||
-    'The table'
 
   if (!block || (block.type !== 'table' && block.type !== 'sheet')) {
     return {
@@ -368,16 +385,18 @@ function tableCondition(
   // The cells of a sheet live in its own instance, which the page reads
   // elsewhere: leave it to the database.
   if (block.type === 'sheet') return unknown
+
+  const table = gateTableSchema.parse(block.payload)
+  const label = condition.label?.trim() || table.title?.trim() || 'The table'
   const column = condition.column?.trim() || null
   const min = condition.minRows ?? 0
+  const columns = table.columns
 
-  const columns = Array.isArray(block.payload.columns)
-    ? (block.payload.columns as unknown[]).map((c) => String(c))
-    : []
+  const rows = table.rows.flatMap((row) => {
+    const parsed = gateRowSchema.safeParse(row)
 
-  const rows = (
-    Array.isArray(block.payload.rows) ? block.payload.rows : []
-  ).filter((row): row is unknown[] => Array.isArray(row))
+    return parsed.success ? [parsed.data] : []
+  })
 
   const index = column
     ? columns.findIndex((c) => c.trim().toLowerCase() === column.toLowerCase())
@@ -385,16 +404,12 @@ function tableCondition(
 
   const total = rows.length
   const nonEmpty = rows.filter((row) => row.some((cell) => !isBlank(cell)))
-  const cellOf = (row: unknown[]) => (index >= 0 ? row[index] : undefined)
+  const cellOf = (row: GateRow) => (index >= 0 ? row[index] : undefined)
   const filled = rows.filter((row) => !isBlank(cellOf(row)))
 
-  const missingNames = rows
-    .map((row, i) => ({
-      row,
-      name: isBlank(row[0]) ? `Row ${i + 1}` : String(row[0]).trim(),
-    }))
-    .filter(({ row }) => isBlank(cellOf(row)))
-    .map(({ name }) => name)
+  const missingNames = rows.flatMap((row, i) =>
+    isBlank(cellOf(row)) ? [row[0]?.trim() || `Row ${i + 1}`] : [],
+  )
 
   const done = (met: boolean, text: string): MirroredCondition => ({
     known: true,
@@ -462,10 +477,7 @@ function stepCondition(
       s.order <= block.order,
   ).length
 
-  const text =
-    typeof block.payload.text === 'string'
-      ? block.payload.text.slice(0, 40)
-      : ''
+  const text = z.string().catch('').parse(block.payload.text).slice(0, 40)
 
   return {
     known: true,
@@ -584,7 +596,7 @@ export function liveGate(
     conditions: merged,
     met,
     blocking: !met && blocking && gate.mode === 'block',
-    missing: merged.filter((c) => !c.met).map((c) => c.text),
+    missing: merged.flatMap((c) => (c.met ? [] : [c.text])),
   }
 }
 
@@ -606,6 +618,7 @@ export function blocksBehindGates(
   const held = new Map<string, RecordGate>()
   const ordered = [...blocks].sort((a, b) => a.order - b.order)
   const closed = gates.filter(isGateClosed)
+  const byId = new Map(ordered.map((block) => [block.id, block]))
 
   for (const gate of closed) {
     if (gate.kind === 'part') {
@@ -618,7 +631,7 @@ export function blocksBehindGates(
       continue
     }
 
-    const own = ordered.find((b) => b.id === gate.blockId)
+    const own = gate.blockId === null ? undefined : byId.get(gate.blockId)
 
     if (!own) continue
 
@@ -666,28 +679,26 @@ export function stepWaitsOnStep(
   return waits
 }
 
+/** A stored condition names a kind the page mirrors. */
+const storedCondition = z.looseObject({ kind: gateConditionKindSchema })
+
 /** The conditions of a gate block's payload, or [] when it has none the page understands. */
 export function gateConditionsOf(
-  payload: Record<string, unknown>,
+  payload: GateBlockLike['payload'],
 ): GateCondition[] {
-  return Array.isArray(payload.conditions) &&
-    payload.conditions.every(isCondition)
-    ? payload.conditions
+  const conditions = z.array(z.unknown()).safeParse(payload.conditions)
+
+  return conditions.success && conditions.data.every(isCondition)
+    ? conditions.data
     : []
 }
 
-export function gateModeOf(payload: Record<string, unknown>): GateMode {
+export function gateModeOf(payload: GateBlockLike['payload']): GateMode {
   return payload.mode === 'block' ? 'block' : 'warn'
 }
 
-function isCondition(value: unknown): value is GateCondition {
-  if (typeof value !== 'object' || value === null) return false
-  const kind = (value as { kind?: unknown }).kind
-
-  return (
-    typeof kind === 'string' &&
-    (GATE_CONDITION_KINDS as readonly string[]).includes(kind)
-  )
+function isCondition(value: z.input<z.ZodUnknown>): value is GateCondition {
+  return storedCondition.safeParse(value).success
 }
 
 /**
@@ -703,17 +714,31 @@ const REFUSAL_WORDS: ReadonlyArray<
   [/^This gate comes from the template/, 'SB152'],
 ]
 
-/** Why a write was refused by a gate, when it was. */
-export function gateRefusal(error: unknown): {
+/** The error body the API answers a refused gate write with. */
+const gateRefusalBody = z.looseObject({
+  code: z.string().optional().catch(undefined),
+  message: z.string().optional().catch(undefined),
+})
+
+/** A refusal a gate wrote, named by the code the API keeps. */
+export interface GateRefusal {
   code: 'SB150' | 'SB151' | 'SB152'
   message: string
-} | null {
-  if (typeof error !== 'object' || error === null) return null
-  const { code, message } = error as { code?: unknown; message?: unknown }
-  const text = typeof message === 'string' ? message : ''
+}
 
-  if (code === 'SB150' || code === 'SB151' || code === 'SB152') {
-    return { code, message: text }
+/** Why a write was refused by a gate, when it was. */
+export function gateRefusal(error: z.input<z.ZodUnknown>): GateRefusal | null {
+  const refusal = gateRefusalBody.safeParse(error)
+
+  if (!refusal.success) return null
+  const text = refusal.data.message ?? ''
+
+  if (
+    refusal.data.code === 'SB150' ||
+    refusal.data.code === 'SB151' ||
+    refusal.data.code === 'SB152'
+  ) {
+    return { code: refusal.data.code, message: text }
   }
 
   for (const [pattern, known] of REFUSAL_WORDS) {

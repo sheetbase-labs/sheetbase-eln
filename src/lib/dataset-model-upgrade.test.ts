@@ -7,12 +7,20 @@ import {
   fetchDatasetModelPosition,
 } from './dataset-model-upgrade'
 import type { DatasetModelUpgradePreview } from './dataset-model-upgrade'
+import type { JsonValue } from './workspace-admin'
 
-function client(responses: Record<string, unknown>) {
+/** One canned body, matched by a fragment of the URL the client asks for. */
+type RouteResponse = readonly [fragment: string, body: JsonValue]
+
+function client(responses: readonly RouteResponse[]) {
+  const urls: string[] = []
+
   const fetcher = vi.fn(
     async (url: string | URL | Request, _init?: RequestInit) => {
-      const href = String(url)
-      const hit = Object.entries(responses).find(([key]) => href.includes(key))
+      const href = url instanceof Request ? url.url : String(url)
+
+      urls.push(href)
+      const hit = responses.find(([key]) => href.includes(key))
 
       return new Response(JSON.stringify(hit?.[1] ?? []), {
         status: 200,
@@ -21,16 +29,16 @@ function client(responses: Record<string, unknown>) {
     },
   )
 
-  return { fetcher, data: createDataClient(fetcher) }
+  return { fetcher, urls, data: createDataClient(fetcher) }
 }
 
 describe('fetchDatasetModelPosition', () => {
   it('reads the revision, the current version and the published versions ahead', async () => {
-    const { data, fetcher } = client({
-      '/datasets?': [{ revision: '7', schema_version_id: 'v1' }],
-      'id=eq.v1': [{ id: 'v1', schema_id: 's', version: 1 }],
-      'version=gt.1': [{ id: 'v2', version: 2 }],
-    })
+    const { data, urls } = client([
+      ['/datasets?', [{ revision: '7', schema_version_id: 'v1' }]],
+      ['id=eq.v1', [{ id: 'v1', schema_id: 's', version: 1 }]],
+      ['version=gt.1', [{ id: 'v2', version: 2 }]],
+    ])
 
     const position = await fetchDatasetModelPosition(data, 'd1')
     expect(position).toEqual({
@@ -39,27 +47,25 @@ describe('fetchDatasetModelPosition', () => {
       currentVersion: 1,
       newer: [{ id: 'v2', version: 2 }],
     })
-    expect(String(fetcher.mock.calls.at(-1)?.[0])).toContain(
-      'lifecycle=eq.active',
-    )
+    expect(urls.at(-1)).toContain('lifecycle=eq.active')
   })
 
   it('returns null for a dataset the viewer cannot see', async () => {
-    const { data } = client({})
+    const { data } = client([])
     expect(await fetchDatasetModelPosition(data, 'd1')).toBeNull()
   })
 })
 
 describe('applyDatasetModelUpgrade', () => {
   it('sends the revision the page last read', async () => {
-    const { data, fetcher } = client({ apply_dataset_model_upgrade: {} })
+    const { data, fetcher } = client([['apply_dataset_model_upgrade', {}]])
     await applyDatasetModelUpgrade(data, {
       datasetId: 'd1',
       targetVersionId: 'v2',
       expectedRevision: 7,
     })
-    const init = fetcher.mock.calls.at(-1)?.[1] as RequestInit
-    expect(JSON.parse(String(init.body))).toEqual({
+    const init = fetcher.mock.calls.at(-1)?.[1]
+    expect(await new Response(init?.body).json()).toEqual({
       p_dataset_id: 'd1',
       p_target_version_id: 'v2',
       p_expected_revision: 7,

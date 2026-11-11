@@ -49,6 +49,8 @@ const pending = screenQueryClient()
 
 holdRead(pending, key)
 
+// SAFETY: Storybook parameters are an untyped bag; every story below sets
+// `client` from `screenQueryClient`, which is the only key this decorator reads.
 const meta = {
   title: 'Review/Audit check line',
   component: AuditCheckLine,

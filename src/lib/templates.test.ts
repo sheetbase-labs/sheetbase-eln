@@ -27,6 +27,29 @@ import {
   toTemplateUsageItem,
 } from './templates'
 import type { NotebookBlock, NotebookRecord } from './notebook-data'
+import type { DataClient } from './data-client'
+
+/** A DataClient whose calls go to the given spies, and whose other members refuse. */
+function clientWith(spies: {
+  rpc?: (name: string, args: Parameters<DataClient['rpc']>[1]) => Promise<never>
+  list?: (resource: string, query?: string) => Promise<never>
+}): DataClient {
+  const refuse = () => Promise.reject(new Error('No other client call.'))
+  const { rpc, list } = spies
+
+  return {
+    list: async <T>(resource: string, query?: string): Promise<T[]> =>
+      list ? list(resource, query) : [],
+    count: refuse,
+    rpc: async <T>(
+      name: string,
+      args: Parameters<DataClient['rpc']>[1],
+    ): Promise<T> => (rpc ? rpc(name, args) : refuse()),
+    insert: refuse,
+    patch: refuse,
+    remove: refuse,
+  }
+}
 
 describe('SCI-006 template domain helpers', () => {
   describe('isTemplateKind', () => {
@@ -206,7 +229,7 @@ describe('TPL-001 archiveTemplate / duplicateTemplate RPC wiring', () => {
 
   it('calls archive_record with the record id and metadata version', async () => {
     const rpc = vi.fn().mockResolvedValue(record({ archivedAt: '2026-03-01' }))
-    await archiveTemplate({ rpc } as never, 't-1', 3)
+    await archiveTemplate(clientWith({ rpc }), 't-1', 3)
     expect(rpc).toHaveBeenCalledWith('archive_record', {
       p_record_id: 't-1',
       p_expected_metadata_version: 3,
@@ -216,7 +239,7 @@ describe('TPL-001 archiveTemplate / duplicateTemplate RPC wiring', () => {
   it('refuses to duplicate a legacy notebook template record', () => {
     const rpc = vi.fn()
     expect(() =>
-      duplicateTemplate({ rpc } as never, {
+      duplicateTemplate(clientWith({ rpc }), {
         template: record({
           kind: 'notebook_template',
           identifier: 'NBK-2026-0001',
@@ -232,7 +255,7 @@ describe('TPL-001 archiveTemplate / duplicateTemplate RPC wiring', () => {
 
   it('calls create_record_with_blocks with ordered blocks and draft status', async () => {
     const rpc = vi.fn().mockResolvedValue({ record: record(), blocks: [] })
-    await duplicateTemplate({ rpc } as never, {
+    await duplicateTemplate(clientWith({ rpc }), {
       template: record({
         kind: 'protocol_template',
         identifier: 'PRT-2026-0001',
@@ -269,7 +292,7 @@ describe('TPL-001 fetchTemplateUsage', () => {
       },
     ])
 
-    const items = await fetchTemplateUsage({ list } as never, 't-1')
+    const items = await fetchTemplateUsage(clientWith({ list }), 't-1')
     expect(list).toHaveBeenCalledWith(
       'record_links',
       expect.stringContaining('target_record_id=eq.t-1'),
@@ -339,25 +362,36 @@ describe('TPL-001 archiveDependencyWarning', () => {
   })
 })
 
+/** A Storage backed by a Map, the way a browser hands one to the favourites store. */
+function storageOf(data: Map<string, string>): Storage {
+  return {
+    get length() {
+      return data.size
+    },
+    clear: () => {
+      data.clear()
+    },
+    getItem: (key) => data.get(key) ?? null,
+    key: () => null,
+    removeItem: (key) => {
+      data.delete(key)
+    },
+    setItem: (key, value) => {
+      data.set(key, value)
+    },
+  }
+}
+
 describe('TPL-001 createTemplateFavouritesStore', () => {
   function makeStore(initial: string[] = []) {
     const storage = new Map<string, string>([
       [templateFavouritesStorageKey('ws-1', 'u-1'), JSON.stringify(initial)],
     ])
 
-    const mockStorage = {
-      getItem: (k: string) => storage.get(k) ?? null,
-      setItem: (k: string, v: string) => storage.set(k, v),
-      removeItem: (k: string) => storage.delete(k),
-      clear: () => storage.clear(),
-      key: () => null,
-      length: storage.size,
-    } as unknown as Storage
-
     return createTemplateFavouritesStore({
       workspaceId: 'ws-1',
       userId: 'u-1',
-      storage: mockStorage,
+      storage: storageOf(storage),
     })
   }
 
@@ -388,19 +422,10 @@ describe('TPL-001 createTemplateFavouritesStore', () => {
       [templateFavouritesStorageKey('ws-1', 'u-1'), 'not-json'],
     ])
 
-    const mockStorage = {
-      getItem: (k: string) => storage.get(k) ?? null,
-      setItem: (k: string, v: string) => storage.set(k, v),
-      removeItem: (k: string) => storage.delete(k),
-      clear: () => storage.clear(),
-      key: () => null,
-      length: storage.size,
-    } as unknown as Storage
-
     const store = createTemplateFavouritesStore({
       workspaceId: 'ws-1',
       userId: 'u-1',
-      storage: mockStorage,
+      storage: storageOf(storage),
     })
 
     expect(store.list()).toEqual([])

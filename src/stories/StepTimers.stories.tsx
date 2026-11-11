@@ -76,6 +76,7 @@ const meta = {
     (Story, context) => (
       <QueryClientProvider
         client={
+          // SAFETY: this file's `parameters.client` is the query client a screen's own test suite made; Storybook types every parameter as `any`.
           context.parameters.client as ReturnType<typeof screenQueryClient>
         }
       >

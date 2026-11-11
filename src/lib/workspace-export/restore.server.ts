@@ -186,6 +186,7 @@ async function insertTable(
 
     const list = [...present].map(identifier).join(', ')
     await conn.query(
+      // react-doctor-disable-next-line react-doctor/raw-sql-injection-risk -- `target` and `list` are quoted identifiers built by `identifier()` from the archive's own table and column names; the row data is bound.
       `INSERT INTO ${target} (${list})
        SELECT ${list} FROM jsonb_populate_recordset(NULL::${target}, $1::jsonb)
        ${name === 'internal.user' ? 'ON CONFLICT (id) DO NOTHING' : ''}`,

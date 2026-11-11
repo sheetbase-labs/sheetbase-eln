@@ -75,17 +75,14 @@ export const NOT_EXPOSED_PATTERNS: readonly {
 
 /** The reason an object is not exposed, or undefined when it has none. */
 export function notExposedReason(name: string): string | undefined {
-  const own: Readonly<Record<string, string | undefined>> = NOT_EXPOSED
-  const pending: Readonly<Record<string, string | undefined>> = PENDING_EXPOSURE
-
   return (
-    own[name] ??
-    pending[name] ??
+    NOT_EXPOSED_BY_NAME.get(name) ??
+    PENDING_BY_NAME.get(name) ??
     NOT_EXPOSED_PATTERNS.find((group) => group.pattern.test(name))?.reason
   )
 }
 
-export const NOT_EXPOSED: Readonly<Record<string, string>> = {
+export const NOT_EXPOSED = {
   // Each feature folder's own (`notExposed` in `src/features/<name>/feature.ts`).
   ...featureNotExposed(),
   // Plate formats (migration 0104): existing functions rewritten to accept the
@@ -196,4 +193,9 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   // Labels.
   save_label_template:
     'Saves how a label looks, including the plugin code and layout it uses; a settings screen with its own admin route, and the plugin points are listed in the plugins API.',
-}
+} satisfies Record<string, string>
+
+/** The two exemption lists, for lookups by a name that may be absent. */
+const NOT_EXPOSED_BY_NAME = new Map(Object.entries(NOT_EXPOSED))
+
+const PENDING_BY_NAME = new Map(Object.entries(PENDING_EXPOSURE))

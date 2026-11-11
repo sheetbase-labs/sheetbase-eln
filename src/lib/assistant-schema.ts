@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { UpdateModelRulePatch } from '#/lib/model-rules'
+import type { ModelRuleOperand, UpdateModelRulePatch } from '#/lib/model-rules'
 
 /**
  * Record types (models), sheet definitions and templates from the assistant.
@@ -91,6 +91,11 @@ const prefix = z
   .string()
   .regex(/^[A-Z][A-Z0-9]{0,9}$/, 'Capital letters and digits, such as CL.')
 
+/** A rule operand as the DSL stores it: a JSON scalar, or a list of operands. */
+const operand: z.ZodType<ModelRuleOperand> = z.lazy(() =>
+  z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(operand)]),
+)
+
 const leaf = z.object({
   field: z.string().min(1).max(63),
   op: z
@@ -108,7 +113,7 @@ const leaf = z.object({
       'matches',
     ])
     .optional(),
-  value: z.unknown().optional(),
+  value: operand.optional(),
 })
 
 /** When the rule fires, as one test on one field, or all/any of several. */

@@ -19,15 +19,30 @@ import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Tabs } from './tabs'
-import type { LinkProps } from '@tanstack/react-router'
 import type * as router from '@tanstack/react-router'
 
 afterEach(() => {
   cleanup()
 })
 
-const lastLinks = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }))
+/** The props the strip hands each link, recorded for the assertions below. */
+interface RecordedLinkProps {
+  className?: string
+  'aria-current'?: 'page'
+  ariaCurrent?: 'page'
+  activeOptions?: unknown
+  to?: unknown
+  search?: unknown
+  params?: unknown
+}
 
+const lastLinks = vi.hoisted(() => {
+  const props: RecordedLinkProps[] = []
+
+  return { props }
+})
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The real `Link` reads the router's context and matches the generated route tree, neither of which exists in this unit render; the mock records and exposes exactly the props the strip gives each link, which is what these assertions read.
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
 
@@ -38,11 +53,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       className,
       'aria-current': ariaCurrent,
       ...rest
-    }: {
-      children?: React.ReactNode
-      className?: string
-      'aria-current'?: 'page'
-    } & Record<string, unknown>) => {
+    }: RecordedLinkProps & { children?: React.ReactNode }) => {
       lastLinks.props.push({ ...rest, className, ariaCurrent })
 
       return (
@@ -138,23 +149,26 @@ describe('Tabs — state mode is a tablist', () => {
 })
 
 describe('Tabs — url mode is a nav of links', () => {
-  const items = [
+  const items: Extract<
+    React.ComponentProps<typeof Tabs>,
+    { mode: 'url' }
+  >['items'] = [
     {
       key: 'all',
       label: 'All',
       count: 4,
-      link: { to: '/datasets', search: { tab: undefined } } as LinkProps,
+      link: { to: '/datasets', search: { tab: undefined } },
     },
     {
       key: 'mine',
       label: 'Mine',
       count: 1,
-      link: { to: '/datasets', search: { tab: 'mine' } } as LinkProps,
+      link: { to: '/datasets', search: { tab: 'mine' } },
     },
     {
       key: 'locked',
       label: 'Locked',
-      link: { to: '/datasets', search: { tab: 'locked' } } as LinkProps,
+      link: { to: '/datasets', search: { tab: 'locked' } },
     },
   ]
 
@@ -211,7 +225,7 @@ describe('Tabs — url mode is a nav of links', () => {
             link: {
               to: '/models/$modelId/fields',
               params: { modelId: 'm-1' },
-            } as LinkProps,
+            },
           },
           {
             label: 'Versions',

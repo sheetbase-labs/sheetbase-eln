@@ -22,7 +22,7 @@ import {
 } from './assistant-pipelines.server'
 import { runPipelinesAction } from './assistant-pipelines-run'
 import type { LabToolContext } from './assistant-lab-tools.server'
-import type { DataClient } from './data-client'
+import { dataClientTestDouble } from './data-client-test-support'
 
 const PIPELINE = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -56,36 +56,52 @@ const PLUGIN = {
   status: 'enabled',
 }
 
+/** Fixture rows for one resource, replacing what the context seeds by default. */
+const fixtures = (
+  entries: readonly (readonly [resource: string, rows: readonly object[]])[],
+) => new Map(entries)
+
 function context(
-  overrides: Partial<Record<string, unknown[]>> = {},
+  overrides: ReadonlyMap<string, readonly object[]> = new Map(),
 ): LabToolContext {
-  const rows: Partial<Record<string, unknown[]>> = {
-    pipeline_definitions: [PIPELINE],
-    pipeline_runs: [FAILED_RUN],
-    pipeline_schedules: [
-      { id: 'sch-1', kind: 'daily', spec: { dailyAt: '06:00' }, enabled: true },
+  const rows = new Map<string, readonly object[]>([
+    ['pipeline_definitions', [PIPELINE]],
+    ['pipeline_runs', [FAILED_RUN]],
+    [
+      'pipeline_schedules',
+      [
+        {
+          id: 'sch-1',
+          kind: 'daily',
+          spec: { dailyAt: '06:00' },
+          enabled: true,
+        },
+      ],
     ],
-    extensions: [PLUGIN],
-    datasets: [{ id: 'ds-1', name: 'Plate reads' }],
-    dataset_versions: [{ id: 'dv-9', label: 'v9' }],
-    ...overrides,
+    ['extensions', [PLUGIN]],
+    ['datasets', [{ id: 'ds-1', name: 'Plate reads' }]],
+    ['dataset_versions', [{ id: 'dv-9', label: 'v9' }]],
+  ])
+
+  for (const [resource, fixturesForResource] of overrides) {
+    rows.set(resource, fixturesForResource)
   }
 
-  const client = {
-    list: (resource: string, query = '') => {
+  const client = dataClientTestDouble({
+    list: async (resource, query = '') => {
       if (resource === 'pipeline_definition_versions') {
         if (query.includes('lifecycle=eq.published'))
-          return Promise.resolve(rows.published ?? [PUBLISHED])
+          return rows.get('published') ?? [PUBLISHED]
 
         if (query.includes('lifecycle=eq.draft'))
-          return Promise.resolve(rows.draft ?? [DRAFT])
+          return rows.get('draft') ?? [DRAFT]
 
-        return Promise.resolve([PUBLISHED, DRAFT])
+        return [PUBLISHED, DRAFT]
       }
 
-      return Promise.resolve(rows[resource] ?? [])
+      return rows.get(resource) ?? []
     },
-  } as unknown as DataClient
+  })
 
   return {
     client,
@@ -158,9 +174,11 @@ describe('pipeline and plugin assistant cards', () => {
     const retired = await buildPipelinesProposal(
       PIPELINE_RUN_TOOL,
       { ...base, pipeline: 'Nightly QC' },
-      context({
-        pipeline_definitions: [{ ...PIPELINE, lifecycle: 'retired' }],
-      }),
+      context(
+        fixtures([
+          ['pipeline_definitions', [{ ...PIPELINE, lifecycle: 'retired' }]],
+        ]),
+      ),
     )
 
     expect(retired).toMatchObject({ ok: false })
@@ -168,7 +186,7 @@ describe('pipeline and plugin assistant cards', () => {
     const unpublished = await buildPipelinesProposal(
       PIPELINE_RUN_TOOL,
       { ...base, pipeline: 'Nightly QC' },
-      context({ published: [] }),
+      context(fixtures([['published', []]])),
     )
 
     expect(unpublished).toMatchObject({ ok: false })
@@ -190,7 +208,9 @@ describe('pipeline and plugin assistant cards', () => {
     const cancel = await buildPipelinesProposal(
       PIPELINE_CANCEL_TOOL,
       { ...base, pipeline: 'Nightly QC' },
-      context({ pipeline_runs: [{ ...FAILED_RUN, status: 'running' }] }),
+      context(
+        fixtures([['pipeline_runs', [{ ...FAILED_RUN, status: 'running' }]]]),
+      ),
     )
 
     expect(cancel.ok && cancel.proposal.action).toMatchObject({
@@ -295,12 +315,22 @@ describe('pipeline and plugin assistant cards', () => {
     const several = await buildPipelinesProposal(
       PIPELINE_SCHEDULE_DELETE_TOOL,
       { ...base, pipeline: 'Nightly QC' },
-      context({
-        pipeline_schedules: [
-          { id: 'a', kind: 'daily', spec: { dailyAt: '06:00' }, enabled: true },
-          { id: 'b', kind: 'interval', spec: { intervalMinutes: 60 } },
-        ],
-      }),
+      context(
+        fixtures([
+          [
+            'pipeline_schedules',
+            [
+              {
+                id: 'a',
+                kind: 'daily',
+                spec: { dailyAt: '06:00' },
+                enabled: true,
+              },
+              { id: 'b', kind: 'interval', spec: { intervalMinutes: 60 } },
+            ],
+          ],
+        ]),
+      ),
     )
 
     expect(several).toMatchObject({ ok: false })
@@ -338,7 +368,7 @@ describe('pipeline and plugin assistant cards', () => {
 describe('pressing a pipeline or plugin card', () => {
   it('calls the ordinary operations as the person', async () => {
     const rpc = vi.fn().mockResolvedValue({ id: 'run-2' })
-    const client = { rpc } as unknown as DataClient
+    const client = dataClientTestDouble({ rpc })
     await expect(
       runPipelinesAction(client, {
         kind: 'pipeline.run',

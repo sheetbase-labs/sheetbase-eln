@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import {
   Command,
@@ -28,12 +28,15 @@ import type { PickerItem, PickerKind, PickerResult } from './record-picker-data'
  * honest "Nothing recent" line rather than fabricated rows. Type chips narrow
  * the search; records already linked are shown but can't be picked.
  */
-export const kindIcon: Record<PickerKind, IconName> = {
+const kindIcon: Record<PickerKind, IconName> = {
   Sample: 'tube',
   Material: 'box',
   Dataset: 'database',
   Experiment: 'flask',
 }
+
+/** The default "nothing is linked yet" list, shared so it keeps its identity. */
+const NO_EXCLUDE: string[] = []
 
 const plural: Record<PickerKind, string> = {
   Sample: t('projects.recordPicker.kinds.Sample'),
@@ -60,7 +63,7 @@ export type RecordPickerProps = {
 export function RecordPicker({
   kinds: initialKinds,
   allowed = pickerKinds,
-  exclude = [],
+  exclude = NO_EXCLUDE,
   multiple = false,
   confirmLabel,
   onPick,
@@ -74,7 +77,11 @@ export function RecordPicker({
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
   const [picked, setPicked] = useState<PickerItem[]>([])
-  const filter = kinds.length ? kinds : allowed
+
+  const filter = useMemo(
+    () => (kinds.length ? kinds : allowed),
+    [kinds, allowed],
+  )
 
   useEffect(() => {
     let live = true
@@ -107,7 +114,7 @@ export function RecordPicker({
       live = false
       clearTimeout(timer)
     }
-  }, [q, filter.join(',')])
+  }, [q, filter])
 
   const toggleKind = (k: PickerKind | null) =>
     setKinds(k === null ? [] : kinds.length === 1 && kinds[0] === k ? [] : [k])
@@ -126,23 +133,10 @@ export function RecordPicker({
     )
   }
 
-  const items = res?.items ?? []
+  const excludedIds = useMemo(() => new Set(exclude), [exclude])
 
-  const groups = res?.recent
-    ? [{ key: t('projects.recordPicker.recent'), items }]
-    : allowed
-        .map((k) => ({
-          key: plural[k],
-          items: items.filter((i) => i.kind === k),
-        }))
-        .filter((g) => g.items.length)
-
-  const scope =
-    kinds.length === 1
-      ? plural[kinds[0]].toLowerCase()
-      : allowed.length === pickerKinds.length
-        ? t('projects.recordPicker.records')
-        : allowed.map((k) => plural[k].toLowerCase()).join(', ')
+  const groups = groupPickerItems(res, allowed)
+  const scope = scopeLabel(kinds, allowed)
 
   return (
     <Command
@@ -157,164 +151,292 @@ export function RecordPicker({
         autoFocus={autoFocus}
       />
       {allowed.length > 1 ? (
-        <div
-          role="group"
-          aria-label={t('projects.recordPicker.type')}
-          className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border-subtle px-3.5 py-2 [scrollbar-width:none]"
-        >
-          <Chip
-            variant="toggle"
-            pressed={kinds.length === 0}
-            onClick={() => toggleKind(null)}
-          >
-            {t('projects.recordPicker.all')}
-          </Chip>
-          {allowed.map((k) => (
-            <Chip
-              key={k}
-              variant="toggle"
-              pressed={kinds.length === 1 && kinds[0] === k}
-              onClick={() => toggleKind(k)}
-              icon={kindIcon[k]}
-              count={res && !res.recent ? res.counts[k] : undefined}
-            >
-              {plural[k]}
-            </Chip>
-          ))}
-        </div>
+        <KindChips
+          allowed={allowed}
+          kinds={kinds}
+          res={res}
+          onToggle={toggleKind}
+        />
       ) : null}
       <CommandList
         label={t('projects.recordPicker.list')}
         className="max-h-[360px] max-md:max-h-none"
       >
         <CommandLoading loading={loading} />
-        {!loading
-          ? groups.map((g) => (
-              <CommandGroup key={g.key} heading={g.key}>
-                {g.items.map((i) => {
-                  const linked = exclude.includes(i.id)
-                  const on = picked.some((p) => p.id === i.id)
-
-                  return (
-                    <CommandItem
-                      key={i.id}
-                      value={i.id}
-                      disabled={linked}
-                      onSelect={() => choose(i)}
-                      aria-checked={multiple ? on : undefined}
-                      className="grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-x-2.5 md:grid-cols-[16px_72px_minmax(0,1fr)_auto]"
-                    >
-                      <Icon
-                        name={kindIcon[i.kind]}
-                        size={14}
-                        className="mt-0.5"
-                      />
-                      <span className="mono text-fg-muted max-md:hidden">
-                        {i.identifier}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate">
-                          <span className="mono mr-1.5 text-fg-muted md:hidden">
-                            {i.identifier}
-                          </span>
-                          {i.name}
-                        </span>
-                        <span className="block truncate text-label text-fg-muted">
-                          {i.project}
-                          {i.kind === 'Sample' || i.kind === 'Material'
-                            ? ''
-                            : t('projects.recordPicker.kindSuffix', {
-                                kind: i.kind.toLowerCase(),
-                              })}
-                        </span>
-                      </span>
-                      <span className="flex items-center gap-2 pt-px text-label">
-                        {linked ? (
-                          <span className="text-fg-muted">
-                            {t('projects.recordPicker.linked')}
-                          </span>
-                        ) : (
-                          <Status tone={i.status.tone}>{i.status.label}</Status>
-                        )}
-                        {multiple && !linked ? (
-                          <span
-                            aria-hidden="true"
-                            className={cn(
-                              'inline-flex size-4 items-center justify-center rounded-[4px] border border-border-strong bg-surface',
-                              on &&
-                                'border-primary bg-primary text-on-accent [&_svg]:text-on-accent',
-                            )}
-                          >
-                            {on ? (
-                              <Icon name="check" size={12} strokeWidth={2} />
-                            ) : null}
-                          </span>
-                        ) : null}
-                      </span>
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            ))
-          : null}
-        {failed && !loading ? (
-          <p role="alert" className="px-3.5 py-6 text-center text-fg-muted">
-            <span className="block font-medium text-fg">
-              {t('projects.recordPicker.failed.title')}
-            </span>
-            {t('projects.recordPicker.failed.body')}
-          </p>
-        ) : null}
-        {!failed ? (
-          <CommandEmpty>
-            {q ? (
-              <>
-                <span className="block font-medium text-fg">
-                  {t('projects.recordPicker.noMatch', { scope, query: q })}
-                </span>
-                {t('projects.recordPicker.noMatchHint')}
-              </>
-            ) : (
-              t('projects.recordPicker.nothingRecent')
-            )}
-          </CommandEmpty>
-        ) : null}
+        <PickerGroups
+          loading={loading}
+          groups={groups}
+          excludedIds={excludedIds}
+          picked={picked}
+          multiple={multiple}
+          onChoose={choose}
+        />
+        <PickerNotice failed={failed} loading={loading} q={q} scope={scope} />
       </CommandList>
-      <CommandFooter>
-        {multiple ? (
-          <span className="ml-auto flex items-center gap-2 max-md:w-full">
-            <span className="num max-md:flex-1">
-              {picked.length
-                ? t('projects.recordPicker.selected', { count: picked.length })
-                : t('projects.recordPicker.pickMore')}
-            </span>
-            {onCancel ? (
-              <Button size="sm" onClick={onCancel}>
-                {t('common.actions.cancel')}
-              </Button>
-            ) : null}
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={!picked.length}
-              onClick={() => onPick(picked)}
-            >
-              {confirmLabel
-                ? confirmLabel(picked.length)
-                : picked.length
-                  ? t('projects.recordPicker.linkCount', {
-                      count: picked.length,
-                    })
-                  : t('projects.recordPicker.link')}
-            </Button>
-          </span>
-        ) : res && !res.recent ? (
-          <span className="num ml-auto">
-            {t('projects.recordPicker.found', { count: res.total })}
-          </span>
-        ) : null}
-      </CommandFooter>
+      <PickerFooter
+        multiple={multiple}
+        picked={picked}
+        res={res}
+        confirmLabel={confirmLabel}
+        onCancel={onCancel}
+        onLink={onPick}
+      />
     </Command>
+  )
+}
+
+/** The list's empty line: a failed search, no match, or no history yet. */
+function PickerNotice({
+  failed,
+  loading,
+  q,
+  scope,
+}: {
+  failed: boolean
+  loading: boolean
+  q: string
+  scope: string
+}) {
+  if (failed && !loading)
+    return (
+      <p role="alert" className="px-3.5 py-6 text-center text-fg-muted">
+        <span className="block font-medium text-fg">
+          {t('projects.recordPicker.failed.title')}
+        </span>
+        {t('projects.recordPicker.failed.body')}
+      </p>
+    )
+
+  if (failed) return null
+
+  return (
+    <CommandEmpty>
+      {q ? (
+        <>
+          <span className="block font-medium text-fg">
+            {t('projects.recordPicker.noMatch', { scope, query: q })}
+          </span>
+          {t('projects.recordPicker.noMatchHint')}
+        </>
+      ) : (
+        t('projects.recordPicker.nothingRecent')
+      )}
+    </CommandEmpty>
+  )
+}
+
+/** What the footer offers: link the picked rows, or how many the search found. */
+function PickerFooter({
+  multiple,
+  picked,
+  res,
+  confirmLabel,
+  onCancel,
+  onLink,
+}: {
+  multiple: boolean
+  picked: PickerItem[]
+  res: PickerResult | null
+  confirmLabel: ((n: number) => string) | undefined
+  onCancel: (() => void) | undefined
+  onLink: (items: PickerItem[]) => void
+}) {
+  if (!multiple)
+    return res && !res.recent ? (
+      <CommandFooter>
+        <span className="num ml-auto">
+          {t('projects.recordPicker.found', { count: res.total })}
+        </span>
+      </CommandFooter>
+    ) : null
+
+  const label = confirmLabel
+    ? confirmLabel(picked.length)
+    : picked.length
+      ? t('projects.recordPicker.linkCount', { count: picked.length })
+      : t('projects.recordPicker.link')
+
+  return (
+    <CommandFooter>
+      <span className="ml-auto flex items-center gap-2 max-md:w-full">
+        <span className="num max-md:flex-1">
+          {picked.length
+            ? t('projects.recordPicker.selected', { count: picked.length })
+            : t('projects.recordPicker.pickMore')}
+        </span>
+        {onCancel ? (
+          <Button size="sm" onClick={onCancel}>
+            {t('common.actions.cancel')}
+          </Button>
+        ) : null}
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={!picked.length}
+          onClick={() => onLink(picked)}
+        >
+          {label}
+        </Button>
+      </span>
+    </CommandFooter>
+  )
+}
+
+/** The headings the list shows: recent records, or one group per offered type. */
+function groupPickerItems(
+  res: PickerResult | null,
+  allowed: PickerKind[],
+): Array<{ key: string; items: PickerItem[] }> {
+  const items = res?.items ?? []
+
+  if (res?.recent) return [{ key: t('projects.recordPicker.recent'), items }]
+
+  const groups: Array<{ key: string; items: PickerItem[] }> = []
+
+  for (const k of allowed) {
+    const grouped = items.filter((i) => i.kind === k)
+
+    if (grouped.length > 0) groups.push({ key: plural[k], items: grouped })
+  }
+
+  return groups
+}
+
+/** What the search covers, in the words the placeholder and empty state use. */
+function scopeLabel(kinds: PickerKind[], allowed: PickerKind[]): string {
+  if (kinds.length === 1) return plural[kinds[0]].toLowerCase()
+
+  if (allowed.length === pickerKinds.length)
+    return t('projects.recordPicker.records')
+
+  return allowed.map((k) => plural[k].toLowerCase()).join(', ')
+}
+
+/** The type chips: all types, or one narrows the search. */
+function KindChips({
+  allowed,
+  kinds,
+  res,
+  onToggle,
+}: {
+  allowed: PickerKind[]
+  kinds: PickerKind[]
+  res: PickerResult | null
+  onToggle: (kind: PickerKind | null) => void
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={t('projects.recordPicker.type')}
+      className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border-subtle px-3.5 py-2 [scrollbar-width:none]"
+    >
+      <Chip
+        variant="toggle"
+        pressed={kinds.length === 0}
+        onClick={() => onToggle(null)}
+      >
+        {t('projects.recordPicker.all')}
+      </Chip>
+      {allowed.map((k) => (
+        <Chip
+          key={k}
+          variant="toggle"
+          pressed={kinds.length === 1 && kinds[0] === k}
+          onClick={() => onToggle(k)}
+          icon={kindIcon[k]}
+          count={res && !res.recent ? res.counts[k] : undefined}
+        >
+          {plural[k]}
+        </Chip>
+      ))}
+    </div>
+  )
+}
+
+/** One row per record the search found, grouped by its recent or type heading. */
+function PickerGroups({
+  loading,
+  groups,
+  excludedIds,
+  picked,
+  multiple,
+  onChoose,
+}: {
+  loading: boolean
+  groups: Array<{ key: string; items: PickerItem[] }>
+  excludedIds: Set<string>
+  picked: PickerItem[]
+  multiple: boolean
+  onChoose: (item: PickerItem) => void
+}) {
+  if (loading) return null
+
+  return (
+    <>
+      {groups.map((g) => (
+        <CommandGroup key={g.key} heading={g.key}>
+          {g.items.map((i) => {
+            const linked = excludedIds.has(i.id)
+            const on = picked.some((p) => p.id === i.id)
+
+            return (
+              <CommandItem
+                key={i.id}
+                value={i.id}
+                disabled={linked}
+                onSelect={() => onChoose(i)}
+                aria-checked={multiple ? on : undefined}
+                className="grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-x-2.5 md:grid-cols-[16px_72px_minmax(0,1fr)_auto]"
+              >
+                <Icon name={kindIcon[i.kind]} size={14} className="mt-0.5" />
+                <span className="mono text-fg-muted max-md:hidden">
+                  {i.identifier}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate">
+                    <span className="mono mr-1.5 text-fg-muted md:hidden">
+                      {i.identifier}
+                    </span>
+                    {i.name}
+                  </span>
+                  <span className="block truncate text-label text-fg-muted">
+                    {i.project}
+                    {i.kind === 'Sample' || i.kind === 'Material'
+                      ? ''
+                      : t('projects.recordPicker.kindSuffix', {
+                          kind: i.kind.toLowerCase(),
+                        })}
+                  </span>
+                </span>
+                <span className="flex items-center gap-2 pt-px text-label">
+                  {linked ? (
+                    <span className="text-fg-muted">
+                      {t('projects.recordPicker.linked')}
+                    </span>
+                  ) : (
+                    <Status tone={i.status.tone}>{i.status.label}</Status>
+                  )}
+                  {multiple && !linked ? (
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        'inline-flex size-4 items-center justify-center rounded-[4px] border border-border-strong bg-surface',
+                        on &&
+                          'border-primary bg-primary text-on-accent [&_svg]:text-on-accent',
+                      )}
+                    >
+                      {on ? (
+                        <Icon name="check" size={12} strokeWidth={2} />
+                      ) : null}
+                    </span>
+                  ) : null}
+                </span>
+              </CommandItem>
+            )
+          })}
+        </CommandGroup>
+      ))}
+    </>
   )
 }
 

@@ -6,13 +6,14 @@ import type {
   OfflineBlockPayloadEdit,
   OfflineReplayPort,
 } from '#/lib/offline/replay'
+import { offlineEditSchema } from '#/lib/offline/store'
 
 /**
  * What differs between the version someone else saved and the one made
  * offline, as one flowing text. Words only in the saved version are struck
  * through; words only in the offline version are highlighted.
  */
-const edit: OfflineBlockPayloadEdit = {
+const storedEdit = offlineEditSchema.parse({
   id: 'e1',
   sequence: 1,
   kind: 'block_payload',
@@ -23,8 +24,14 @@ const edit: OfflineBlockPayloadEdit = {
   createdAt: '2026-11-05T10:00:00.000Z',
   payload: richTextPayloadFromText(
     'Filtrate was sampled at 50, 100 and 150 L/m². Re-checked at the bench: turbidity stable.',
-  ) as unknown as OfflineBlockPayloadEdit['payload'],
+  ),
+})
+
+if (storedEdit.kind !== 'block_payload') {
+  throw new Error('The conflict story needs a stored block payload edit.')
 }
+
+const edit: OfflineBlockPayloadEdit = storedEdit
 
 const port = (saved: string | null): OfflineReplayPort => ({
   commit: async () => {},

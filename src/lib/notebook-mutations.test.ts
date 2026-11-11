@@ -5,6 +5,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
+import { dataClientTestDouble } from './data-client-test-support'
 import type { DataClient } from './data-client'
 import {
   deleteBlock,
@@ -16,19 +17,19 @@ import {
 } from './notebook-mutations'
 import type { NotebookBlock } from './notebook-data'
 
+/**
+ * A client whose RPC answers with the fixture the test names. The spy records
+ * the call the helper made, which is what these tests pin.
+ */
 function makeClient(
-  rpcImpl: (name: string, args: Record<string, unknown>) => unknown,
-): DataClient {
-  return {
-    list: vi.fn(async () => []),
-    insert: vi.fn(async () => ({})) as unknown as DataClient['insert'],
-    patch: vi.fn(async () => []),
-    count: vi.fn(async () => 0),
-    remove: vi.fn(async () => []),
-    rpc: vi.fn(async (name, args) =>
+  rpcImpl: (...args: Parameters<DataClient['rpc']>) => object | null,
+) {
+  const rpc = vi.fn(
+    async (name: string, args: Parameters<DataClient['rpc']>[1]) =>
       rpcImpl(name, args),
-    ) as unknown as DataClient['rpc'],
-  }
+  )
+
+  return { client: dataClientTestDouble({ rpc }), rpc }
 }
 
 const blockWire = {
@@ -50,7 +51,7 @@ const blockWire = {
 
 describe('updateBlockPayload', () => {
   it('calls update_block_payload with the snake_case args and maps the result', async () => {
-    const client = makeClient(() => blockWire)
+    const { client, rpc } = makeClient(() => blockWire)
 
     const block = await updateBlockPayload(client, {
       blockId: 'b1',
@@ -58,7 +59,7 @@ describe('updateBlockPayload', () => {
       expectedVersion: 1,
     })
 
-    expect(client.rpc).toHaveBeenCalledWith('update_block_payload', {
+    expect(rpc).toHaveBeenCalledWith('update_block_payload', {
       p_block_id: 'b1',
       p_payload: blockWire.payload,
       p_expected_version: 1,
@@ -79,7 +80,7 @@ describe('updateBlockPayload', () => {
 
 describe('insertBlock', () => {
   it('appends when afterBlockId is omitted and returns the bumped structure_version', async () => {
-    const client = makeClient(() => ({
+    const { client, rpc } = makeClient(() => ({
       block: blockWire,
       structure_version: 5,
     }))
@@ -91,7 +92,7 @@ describe('insertBlock', () => {
       expectedStructureVersion: 4,
     })
 
-    expect(client.rpc).toHaveBeenCalledWith('insert_block', {
+    expect(rpc).toHaveBeenCalledWith('insert_block', {
       p_record_id: 'r1',
       p_type: 'rich_text',
       p_payload: blockWire.payload,
@@ -105,7 +106,7 @@ describe('insertBlock', () => {
   })
 
   it('passes afterBlockId through when supplied', async () => {
-    const client = makeClient(() => ({
+    const { client, rpc } = makeClient(() => ({
       block: blockWire,
       structure_version: 2,
     }))
@@ -126,7 +127,7 @@ describe('insertBlock', () => {
       },
       afterBlockId: 'anchor',
     })
-    expect(client.rpc).toHaveBeenCalledWith(
+    expect(rpc).toHaveBeenCalledWith(
       'insert_block',
       expect.objectContaining({
         p_after_block_id: 'anchor',
@@ -138,7 +139,7 @@ describe('insertBlock', () => {
 
 describe('duplicateBlock', () => {
   it('inserts a copy of the source block after it', async () => {
-    const client = makeClient((_name, args) => ({
+    const { client, rpc } = makeClient((_name, args) => ({
       block: { ...blockWire, id: 'b2', record_id: args.p_record_id },
       structure_version: 3,
     }))
@@ -158,7 +159,7 @@ describe('duplicateBlock', () => {
       expectedStructureVersion: 2,
     })
 
-    expect(client.rpc).toHaveBeenCalledWith('insert_block', {
+    expect(rpc).toHaveBeenCalledWith('insert_block', {
       p_record_id: 'r1',
       p_type: 'checklist',
       p_payload: { items: [{ text: 'a', checked: false }] },
@@ -172,7 +173,7 @@ describe('duplicateBlock', () => {
   })
 
   it('duplicates canonical Sheet blocks via duplicate_sheet_instance_block', async () => {
-    const client = makeClient(() => ({
+    const { client, rpc } = makeClient(() => ({
       block: { ...blockWire, id: 'b2', type: 'sheet' },
       instance: { id: 'i2' },
       structure_version: 4,
@@ -192,7 +193,7 @@ describe('duplicateBlock', () => {
       block: source,
       expectedStructureVersion: 3,
     })
-    expect(client.rpc).toHaveBeenCalledWith('duplicate_sheet_instance_block', {
+    expect(rpc).toHaveBeenCalledWith('duplicate_sheet_instance_block', {
       p_block_id: 'b1',
       p_expected_structure_version: 3,
     })
@@ -201,7 +202,7 @@ describe('duplicateBlock', () => {
 
 describe('insertSheetInstanceBlock', () => {
   it('calls insert_sheet_instance_block and returns the Instance id', async () => {
-    const client = makeClient(() => ({
+    const { client, rpc } = makeClient(() => ({
       block: { ...blockWire, type: 'sheet' },
       instance: { id: 'i1' },
       structure_version: 2,
@@ -212,7 +213,7 @@ describe('insertSheetInstanceBlock', () => {
       expectedStructureVersion: 1,
     })
 
-    expect(client.rpc).toHaveBeenCalledWith('insert_sheet_instance_block', {
+    expect(rpc).toHaveBeenCalledWith('insert_sheet_instance_block', {
       p_record_id: 'r1',
       p_after_block_id: null,
       p_expected_structure_version: 1,
@@ -225,7 +226,7 @@ describe('insertSheetInstanceBlock', () => {
 
 describe('deleteBlock', () => {
   it('returns the bumped structure_version and surviving order list', async () => {
-    const client = makeClient(() => ({
+    const { client, rpc } = makeClient(() => ({
       structure_version: 4,
       order: [{ id: 'b2', order: 2 }],
     }))
@@ -235,7 +236,7 @@ describe('deleteBlock', () => {
       expectedStructureVersion: 3,
     })
 
-    expect(client.rpc).toHaveBeenCalledWith('delete_block', {
+    expect(rpc).toHaveBeenCalledWith('delete_block', {
       p_block_id: 'b1',
       p_expected_structure_version: 3,
     })
@@ -246,7 +247,7 @@ describe('deleteBlock', () => {
 
 describe('moveBlock', () => {
   it('passes snake_case args with null neighbours and maps the result', async () => {
-    const client = makeClient(() => ({
+    const { client, rpc } = makeClient(() => ({
       block: blockWire,
       structure_version: 6,
       rebalanced: false,
@@ -263,7 +264,7 @@ describe('moveBlock', () => {
       expectedStructureVersion: 5,
     })
 
-    expect(client.rpc).toHaveBeenCalledWith('move_block', {
+    expect(rpc).toHaveBeenCalledWith('move_block', {
       p_block_id: 'b1',
       p_after_block_id: null,
       p_before_block_id: null,
@@ -279,7 +280,7 @@ describe('moveBlock', () => {
   })
 
   it('passes both neighbours through when supplied', async () => {
-    const client = makeClient(() => ({
+    const { client, rpc } = makeClient(() => ({
       block: blockWire,
       structure_version: 2,
       rebalanced: false,
@@ -292,7 +293,7 @@ describe('moveBlock', () => {
       beforeBlockId: 'b3',
       expectedStructureVersion: 1,
     })
-    expect(client.rpc).toHaveBeenCalledWith('move_block', {
+    expect(rpc).toHaveBeenCalledWith('move_block', {
       p_block_id: 'b1',
       p_after_block_id: 'b2',
       p_before_block_id: 'b3',
@@ -301,7 +302,7 @@ describe('moveBlock', () => {
   })
 
   it('defaults omitted neighbours and version to null', async () => {
-    const client = makeClient(() => ({
+    const { client, rpc } = makeClient(() => ({
       block: blockWire,
       structure_version: 1,
       rebalanced: true,
@@ -309,7 +310,7 @@ describe('moveBlock', () => {
     }))
 
     await moveBlock(client, { blockId: 'b1' })
-    expect(client.rpc).toHaveBeenCalledWith('move_block', {
+    expect(rpc).toHaveBeenCalledWith('move_block', {
       p_block_id: 'b1',
       p_after_block_id: null,
       p_before_block_id: null,
@@ -318,7 +319,7 @@ describe('moveBlock', () => {
   })
 
   it('preserves rebalanced=true from the RPC', async () => {
-    const client = makeClient(() => ({
+    const { client } = makeClient(() => ({
       block: blockWire,
       structure_version: 9,
       rebalanced: true,

@@ -43,10 +43,14 @@ export type ExperimentOutcome =
 
 type Lookup<T> = { ok: true; value: T } | { ok: false; message: string }
 
+/** The proposal tools, as a set the dispatcher can test raw tool names against. */
+const experimentProposeToolNames = new Set<string>(
+  EXPERIMENT_PROPOSE_TOOL_NAMES,
+)
+
 export const isExperimentProposalTool = (
   name: string,
-): name is ExperimentProposeToolName =>
-  (EXPERIMENT_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+): name is ExperimentProposeToolName => experimentProposeToolNames.has(name)
 
 export function experimentProposalDefs(): ProviderToolDef[] {
   return [
@@ -173,26 +177,27 @@ function card(
   }
 }
 
-const STATUS_WORDS: Record<string, string> = {
-  draft: 'Draft',
-  in_progress: 'In progress',
-  on_hold: 'On hold',
-  completed: 'Completed',
-}
+const STATUS_WORDS = new Map<string, string>([
+  ['draft', 'Draft'],
+  ['in_progress', 'In progress'],
+  ['on_hold', 'On hold'],
+  ['completed', 'Completed'],
+])
 
-const statusWord = (status: string) => STATUS_WORDS[status] ?? status
+const statusWord = (status: string) => STATUS_WORDS.get(status) ?? status
 
-const OUTCOME_WORDS: Record<string, string> = {
-  supported: 'Supported',
-  refuted: 'Refuted',
-  inconclusive: 'Inconclusive',
-}
+const OUTCOME_WORDS = new Map<string, string>([
+  ['supported', 'Supported'],
+  ['refuted', 'Refuted'],
+  ['inconclusive', 'Inconclusive'],
+])
 
 const experimentLink = (id: string) => `/experiments/${id}/summary`
 const label = (row: RecordRow) => `${row.identifier} · ${row.title}`
 
 function parse<T extends z.ZodType>(
   schema: T,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; this is the decoder that runs the tool's own schema before anything else reads them.
   args: unknown,
 ): { ok: true; data: z.infer<T> } | { ok: false; message: string } {
   const parsed = schema.safeParse(args)
@@ -204,6 +209,7 @@ function parse<T extends z.ZodType>(
 
 export async function buildExperimentProposal(
   name: ExperimentProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; every case below decodes them with its own experiment schema before building a proposal.
   args: unknown,
   context: LabToolContext,
 ): Promise<ExperimentOutcome> {
@@ -303,7 +309,7 @@ export async function buildExperimentProposal(
           {
             label: 'Outcome',
             before: null,
-            after: OUTCOME_WORDS[input.data.outcome] ?? input.data.outcome,
+            after: OUTCOME_WORDS.get(input.data.outcome) ?? input.data.outcome,
           },
           ...(input.data.notes
             ? [{ label: 'Notes', before: null, after: input.data.notes }]

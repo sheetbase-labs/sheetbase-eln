@@ -73,6 +73,7 @@ export async function reindexPlugin(
             const record = page[next++]
 
             try {
+              // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Lanes pull the next record from a shared index, so a lane must finish its hook before claiming another; that is what keeps the work at WORKERS records at once.
               const answer = await runExtensionRecordHook(
                 {
                   workspaceId: caller.workspaceId,

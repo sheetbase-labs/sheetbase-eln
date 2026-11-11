@@ -53,7 +53,10 @@ export function nextSendAt(
   if (ALWAYS_DELIVERED.has(eventType)) return now
 
   if (!isWithinQuietHours(now, quiet)) return now
-  const end = minutesOfDay(quiet.end) as number
+  const end = minutesOfDay(quiet.end)
+
+  if (end === null) return now
+
   const result = new Date(now)
   result.setSeconds(0, 0)
   result.setHours(Math.floor(end / 60), end % 60, 0, 0)

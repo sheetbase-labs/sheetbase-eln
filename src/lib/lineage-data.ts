@@ -13,6 +13,8 @@
  * Inaccessible targets of links (deleted, purged, or permission-restricted)
  * are rendered as honest "restricted" nodes rather than silently dropped.
  */
+import { z } from 'zod'
+
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import { recordDestination } from './navigation'
@@ -37,6 +39,12 @@ export const LINEAGE_MINI_DEPTH = 2
 // Wire types (PostgREST snake_case)
 // ---------------------------------------------------------------------------
 
+/** A stored jsonb object, as the wire carries it: unparsed JSON values. */
+const storedJson = z.record(z.string(), z.json())
+
+/** A stored jsonb object's decoded value type. */
+export type StoredJsonObject = z.output<typeof storedJson>
+
 export interface RecordWire {
   id: string
   workspace_id: string
@@ -45,7 +53,7 @@ export interface RecordWire {
   identifier: string
   title: string
   status: string
-  properties: Record<string, unknown>
+  properties: StoredJsonObject
   tags: string[]
   structure_version: number
   metadata_version: number
@@ -64,7 +72,7 @@ export interface RecordLinkWire {
   target_kind: string
   target_identifier: string
   link_type: string
-  link_metadata: Record<string, unknown>
+  link_metadata: StoredJsonObject
   created_at: string
   created_by_user_id: string
 }
@@ -119,7 +127,7 @@ export interface ChangeEventWire {
   actor_user_id: string | null
   actor_credential_id: string | null
   client_id: string | null
-  payload: Record<string, unknown>
+  payload: StoredJsonObject
   created_at: string
 }
 
@@ -202,7 +210,7 @@ export interface LineageEvent {
   operation: string
   actorUserId: string | null
   createdAt: string
-  payload: Record<string, unknown>
+  payload: StoredJsonObject
 }
 
 export interface LineageGraph {
@@ -231,43 +239,43 @@ export const DEFAULT_FILTERS: LineageFilters = {
 // Entity type and label mapping
 // ---------------------------------------------------------------------------
 
-const KIND_TO_ENTITY_TYPE: Record<string, LineageEntityType> = {
-  experiment: 'experiment',
-  dataset: 'dataset',
-  sample: 'sample',
-  material: 'material',
-  protocol_template: 'protocol',
-  report: 'report',
-  file: 'file',
-  notebook_template: 'unknown',
-}
+const KIND_TO_ENTITY_TYPE = new Map<string, LineageEntityType>([
+  ['experiment', 'experiment'],
+  ['dataset', 'dataset'],
+  ['sample', 'sample'],
+  ['material', 'material'],
+  ['protocol_template', 'protocol'],
+  ['report', 'report'],
+  ['file', 'file'],
+  ['notebook_template', 'unknown'],
+])
 
-const LINK_TYPE_TO_ENTITY_TYPE: Record<string, LineageEntityType> = {
-  sample: 'sample',
-  material: 'material',
-  protocol: 'protocol',
-  dataset: 'dataset',
-  analysis: 'dataset',
-  file: 'file',
-  general: 'unknown',
-  template: 'unknown',
-}
+const LINK_TYPE_TO_ENTITY_TYPE = new Map<string, LineageEntityType>([
+  ['sample', 'sample'],
+  ['material', 'material'],
+  ['protocol', 'protocol'],
+  ['dataset', 'dataset'],
+  ['analysis', 'dataset'],
+  ['file', 'file'],
+  ['general', 'unknown'],
+  ['template', 'unknown'],
+])
 
-const RELATIONSHIP_LABELS: Record<string, string> = {
-  sample: 'uses',
-  material: 'uses',
-  protocol: 'defined by',
-  dataset: 'generates',
-  analysis: 'analyzed by',
-  file: 'has file',
-  general: 'related to',
-  template: 'created from',
-  reviewed_by: 'reviewed by',
-  approved_by: 'approved by',
-  rejected_by: 'rejected by',
-  signed_by: 'signed by',
-  derived_from: 'derived from',
-}
+const RELATIONSHIP_LABELS = new Map<string, string>([
+  ['sample', 'uses'],
+  ['material', 'uses'],
+  ['protocol', 'defined by'],
+  ['dataset', 'generates'],
+  ['analysis', 'analyzed by'],
+  ['file', 'has file'],
+  ['general', 'related to'],
+  ['template', 'created from'],
+  ['reviewed_by', 'reviewed by'],
+  ['approved_by', 'approved by'],
+  ['rejected_by', 'rejected by'],
+  ['signed_by', 'signed by'],
+  ['derived_from', 'derived from'],
+])
 
 export const ENTITY_TYPE_LABELS: Record<LineageEntityType, string> = {
   experiment: 'Experiment',
@@ -331,15 +339,15 @@ export const ALL_RELATIONSHIP_TYPES: string[] = [
 ]
 
 export function kindToEntityType(kind: string): LineageEntityType {
-  return KIND_TO_ENTITY_TYPE[kind] ?? 'unknown'
+  return KIND_TO_ENTITY_TYPE.get(kind) ?? 'unknown'
 }
 
 export function linkTypeToEntityType(linkType: string): LineageEntityType {
-  return LINK_TYPE_TO_ENTITY_TYPE[linkType] ?? 'unknown'
+  return LINK_TYPE_TO_ENTITY_TYPE.get(linkType) ?? 'unknown'
 }
 
 export function relationshipLabel(relationshipType: string): string {
-  return RELATIONSHIP_LABELS[relationshipType] ?? relationshipType
+  return RELATIONSHIP_LABELS.get(relationshipType) ?? relationshipType
 }
 
 // ---------------------------------------------------------------------------
@@ -756,10 +764,7 @@ export function buildLineageGraph(
       createdByUserId: record.created_by_user_id,
       archivedAt: record.archived_at,
       deletedAt: record.deleted_at,
-      subtype:
-        typeof record.properties.sampleType === 'string'
-          ? record.properties.sampleType
-          : null,
+      subtype: z.string().safeParse(record.properties.sampleType).data ?? null,
     })
   }
 
@@ -861,9 +866,7 @@ export function buildLineageGraph(
       relationshipType: link.link_type,
       label: relationshipLabel(link.link_type),
       relationLabel:
-        typeof link.link_metadata.relation === 'string'
-          ? link.link_metadata.relation
-          : null,
+        z.string().safeParse(link.link_metadata.relation).data ?? null,
       direction: edgeDirection,
       targetKind: link.target_kind,
       targetIdentifier: link.target_identifier,
@@ -1002,16 +1005,21 @@ export function buildLineageGraph(
   }
 
   const filteredEvents: LineageEvent[] = events
-    .filter((e) => e.record_id !== null && graphNodeRecordIds.has(e.record_id))
-    .map((e) => ({
-      id: e.id,
-      recordId: e.record_id,
-      entityType: e.entity_type,
-      operation: e.operation,
-      actorUserId: e.actor_user_id,
-      createdAt: e.created_at,
-      payload: e.payload,
-    }))
+    .flatMap((e) =>
+      e.record_id !== null && graphNodeRecordIds.has(e.record_id)
+        ? [
+            {
+              id: e.id,
+              recordId: e.record_id,
+              entityType: e.entity_type,
+              operation: e.operation,
+              actorUserId: e.actor_user_id,
+              createdAt: e.created_at,
+              payload: e.payload,
+            },
+          ]
+        : [],
+    )
     .slice(0, LINEAGE_MAX_EVENTS)
 
   return {
@@ -1189,24 +1197,24 @@ export interface TimelineEntry {
   operationLabel: string
   actorUserId: string | null
   createdAt: string
-  payload: Record<string, unknown>
+  payload: StoredJsonObject
 }
 
-const OPERATION_LABELS: Record<string, string> = {
-  create: 'Created',
-  update: 'Updated',
-  move: 'Moved',
-  delete: 'Deleted',
-  archive: 'Archived',
-  restore: 'Restored',
-  link: 'Linked',
-  unlink: 'Unlinked',
-  quarantine: 'Quarantined',
-  resolve: 'Resolved',
-  reopen: 'Reopened',
-  lock: 'Locked',
-  amend: 'Amended',
-}
+const OPERATION_LABELS = new Map<string, string>([
+  ['create', 'Created'],
+  ['update', 'Updated'],
+  ['move', 'Moved'],
+  ['delete', 'Deleted'],
+  ['archive', 'Archived'],
+  ['restore', 'Restored'],
+  ['link', 'Linked'],
+  ['unlink', 'Unlinked'],
+  ['quarantine', 'Quarantined'],
+  ['resolve', 'Resolved'],
+  ['reopen', 'Reopened'],
+  ['lock', 'Locked'],
+  ['amend', 'Amended'],
+])
 
 export function buildTimeline(events: LineageEvent[]): TimelineEntry[] {
   return events
@@ -1216,7 +1224,7 @@ export function buildTimeline(events: LineageEvent[]): TimelineEntry[] {
       id: e.id,
       recordId: e.recordId,
       operation: e.operation,
-      operationLabel: OPERATION_LABELS[e.operation] ?? e.operation,
+      operationLabel: OPERATION_LABELS.get(e.operation) ?? e.operation,
       actorUserId: e.actorUserId,
       createdAt: e.createdAt,
       payload: e.payload,
@@ -1320,18 +1328,19 @@ export function getLineageSummary(
   let upstreamCount = 0
   let downstreamCount = 0
   let externalLinks = 0
+  const nodesById = new Map(graph.nodes.map((node) => [node.id, node]))
 
   for (const edge of graph.edges) {
     if (edge.sourceId === nodeId) {
       downstreamCount++
-      const targetNode = graph.nodes.find((n) => n.id === edge.targetId)
+      const targetNode = nodesById.get(edge.targetId)
 
       if (targetNode && !targetNode.accessible) externalLinks++
     }
 
     if (edge.targetId === nodeId) {
       upstreamCount++
-      const sourceNode = graph.nodes.find((n) => n.id === edge.sourceId)
+      const sourceNode = nodesById.get(edge.sourceId)
 
       if (sourceNode && !sourceNode.accessible) externalLinks++
     }
@@ -1490,8 +1499,7 @@ export async function fetchLineageGraph(
           dataset.id,
           dataset.display_id,
         ]
-          .filter(Boolean)
-          .map((id) => encodeURIComponent(JSON.stringify(id)))
+          .flatMap((id) => (id ? [encodeURIComponent(JSON.stringify(id))] : []))
           .join(',')})&order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}`,
       )
 
@@ -1551,21 +1559,21 @@ export async function fetchLineageGraph(
   // Step 4: fetch reviews, decisions, signatures and events for all records.
   const allRecordIds = records.map((r) => r.id)
 
-  const [reviews, decisions, signatures, events] = await Promise.all([
-    fetchLineageReviews(client, allRecordIds),
-    fetchLineageDecisions(client, allRecordIds),
-    fetchLineageSignatures(client, allRecordIds),
-    fetchLineageEvents(client, allRecordIds),
-  ])
-
   // Dataset links address canonical Datasets by identifier, not api.records.
   // Adapt visible targets for this graph only; never persist companion Records.
-  const datasetTargets = await fetchDatasetLinkTargets(client, [
-    ...seedDatasets.keys(),
-    ...links
-      .filter((link) => link.target_kind === 'dataset')
-      .map((link) => link.target_record_id ?? link.target_identifier),
-  ])
+  const [reviews, decisions, signatures, events, datasetTargets] =
+    await Promise.all([
+      fetchLineageReviews(client, allRecordIds),
+      fetchLineageDecisions(client, allRecordIds),
+      fetchLineageSignatures(client, allRecordIds),
+      fetchLineageEvents(client, allRecordIds),
+      fetchDatasetLinkTargets(client, [
+        ...seedDatasets.keys(),
+        ...links
+          .filter((link) => link.target_kind === 'dataset')
+          .map((link) => link.target_record_id ?? link.target_identifier),
+      ]),
+    ])
 
   const seenDatasets = new Set<string>()
 
@@ -1657,22 +1665,20 @@ export function lineageNodeDestination(node: LineageNode): string | null {
  * null when absent/invalid — only plain ids are accepted, never paths or
  * URLs, so a crafted seed cannot escape the lineage route.
  */
-export function parseLineageSeedParam(search: unknown): string | null {
-  let raw: unknown
+export function parseLineageSeedParam(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The router hands over unparsed search params; this decoder accepts the raw string or object form and yields only a plain id.
+  search: unknown,
+): string | null {
+  const query = z.string().safeParse(search).data
 
-  if (typeof search === 'string') {
-    const params = new URLSearchParams(
-      search.startsWith('?') ? search.slice(1) : search,
-    )
+  const raw =
+    query === undefined
+      ? z.object({ seed: z.unknown() }).safeParse(search).data?.seed
+      : new URLSearchParams(query.startsWith('?') ? query.slice(1) : query).get(
+          'seed',
+        )
 
-    raw = params.get('seed')
-  } else if (search && typeof search === 'object' && 'seed' in search) {
-    const seedValue: unknown = search.seed
-    raw = seedValue
-  }
-
-  if (typeof raw !== 'string') return null
-  const seed = raw.trim()
+  const seed = z.string().safeParse(raw).data?.trim() ?? ''
 
   if (seed.length === 0) return null
 

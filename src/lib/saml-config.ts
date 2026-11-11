@@ -10,6 +10,7 @@
  * `auth.ts`.
  */
 import type { SSOOptions } from '@better-auth/sso'
+import { z } from 'zod'
 
 import { SAML_PROVIDER_ID } from './auth-methods'
 import type { SamlConfig } from './auth-methods'
@@ -30,20 +31,33 @@ export function samlServiceProvider(baseUrl: string, config: SamlConfig) {
   }
 }
 
+/** One attribute from an assertion: a list of values, or one value. */
+export type SamlAttributeValue = string | readonly unknown[] | null | undefined
+
+/** The attribute as the provider sends it: several values or a single one. */
+const samlAttribute = z.union([z.array(z.unknown()), z.string()])
+
+const singleName = z.string()
+
 /** The groups in an assertion's attribute, as a list of names. */
-export function groupsFromAttribute(value: unknown): string[] | null {
+export function groupsFromAttribute(
+  value: SamlAttributeValue,
+): string[] | null {
   if (value === undefined || value === null) return null
 
-  const list: unknown[] = Array.isArray(value)
-    ? value
-    : typeof value === 'string'
-      ? value.split(',')
-      : []
+  const attribute = samlAttribute.safeParse(value)
 
-  return list
-    .filter((entry): entry is string => typeof entry === 'string')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
+  if (!attribute.success) return []
+
+  const entries = Array.isArray(attribute.data)
+    ? attribute.data
+    : attribute.data.split(',')
+
+  return entries.flatMap((entry) => {
+    const name = singleName.safeParse(entry)
+
+    return name.success && name.data.trim() ? [name.data.trim()] : []
+  })
 }
 
 export function samlPluginOptions(
@@ -59,10 +73,11 @@ export function samlPluginOptions(
     id: 'nameID',
     email: config.emailAttribute ?? 'email',
     name: config.nameAttribute ?? 'displayName',
-    ...(config.groupsAttribute
-      ? { extraFields: { groups: config.groupsAttribute } }
-      : {}),
   }
+
+  const groupsMapping = config.groupsAttribute
+    ? { ...mapping, extraFields: { groups: config.groupsAttribute } }
+    : mapping
 
   const idpMetadata = config.idpMetadata
     ? { metadata: config.idpMetadata }
@@ -93,7 +108,7 @@ export function samlPluginOptions(
           spMetadata: { entityID: sp.entityId },
           wantAssertionsSigned: !config.allowUnsignedAssertions,
           identifierFormat: EMAIL_FORMAT,
-          mapping,
+          mapping: groupsMapping,
         },
       },
     ],

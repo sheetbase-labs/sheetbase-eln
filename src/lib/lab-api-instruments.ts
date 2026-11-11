@@ -10,7 +10,7 @@
  */
 import type { LabRpc, LabTable } from './lab-api-surface'
 
-export const INSTRUMENT_TABLES: Readonly<Record<string, LabTable>> = {
+export const INSTRUMENT_TABLES = {
   instruments: {
     summary:
       'An instrument: its name, type, model, serial number, where it is, who owns it, whether it is retired or out of service, and how its data arrives (`intake_method`).',
@@ -422,9 +422,9 @@ export const INSTRUMENT_TABLES: Readonly<Record<string, LabTable>> = {
       ['at', 'ts', 1],
     ],
   },
-}
+} satisfies Record<string, LabTable>
 
-export const INSTRUMENT_PARAM_NOTES: Readonly<Record<string, string>> = {
+export const INSTRUMENT_PARAM_NOTES = {
   p_instrument_id: 'Instrument id.',
   p_retired: '`true` retires the instrument, `false` brings it back.',
   p_instrument_type:
@@ -524,12 +524,12 @@ export const INSTRUMENT_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_stage: 'Stage of the run.',
   p_message: 'Message.',
   p_detail: 'JSON detail.',
-}
+} satisfies Record<string, string>
 
 const write = 'lab:write' as const
 const read = 'lab:read' as const
 
-export const INSTRUMENT_RPCS: Readonly<Record<string, LabRpc>> = {
+export const INSTRUMENT_RPCS = {
   create_instrument: {
     summary: 'Add an instrument',
     description:
@@ -1075,4 +1075,4 @@ export const INSTRUMENT_RPCS: Readonly<Record<string, LabRpc>> = {
     ],
     result: 'row:connector_run_logs',
   },
-}
+} satisfies Record<string, LabRpc>

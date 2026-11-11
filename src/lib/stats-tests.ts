@@ -176,7 +176,7 @@ export function adjustPValues(p: number[], method: PAdjustment): number[] {
 
   if (method === 'bonferroni') return p.map((v) => Math.min(1, v * m))
   const order = p.map((v, i) => ({ v, i })).sort((a, b) => a.v - b.v)
-  const out = new Array<number>(m)
+  const out = Array.from<number>({ length: m })
 
   if (method === 'holm') {
     let running = 0
@@ -398,7 +398,7 @@ function mannWhitneyCounts(n: number, m: number): number[] {
       }
 
       const size = i * j + 1
-      const row = new Array<number>(size).fill(0)
+      const row = Array.from<number>({ length: size }).fill(0)
       const viaI = table[i - 1][j]
       const viaJ = table[i][j - 1]
 
@@ -433,7 +433,7 @@ export function mannWhitneyU(
     ...y.map((v) => ({ v, g: 1 })),
   ].sort((p, q) => p.v - q.v)
 
-  const ranks = new Array<number>(all.length)
+  const ranks = Array.from<number>({ length: all.length })
   let tieTerm = 0
   let hasTies = false
 
@@ -706,9 +706,11 @@ export function postHocComparisons(
 ): PostHocResult | null {
   const alpha = options.alpha ?? 0.05
 
-  const used = groups
-    .map((g) => ({ group: g.group, values: finite(g.values) }))
-    .filter((g) => g.values.length > 0)
+  const used = groups.flatMap((g) => {
+    const values = finite(g.values)
+
+    return values.length > 0 ? [{ group: g.group, values }] : []
+  })
 
   const k = used.length
 
@@ -735,7 +737,7 @@ export function postHocComparisons(
 
     if (ci < 0) return null
     control = controlName
-    const others = used.map((_, i) => i).filter((i) => i !== ci)
+    const others = Array.from(used.keys()).filter((i) => i !== ci)
     const sizes = others.map((i) => stats[i].n)
     const crit = dunnettCritical(1 - alpha, sizes, stats[ci].n, dfWithin)
 
@@ -979,13 +981,16 @@ export function logRankTest(
   if (k < 2) return null
 
   const times = [
-    ...new Set(data.filter((o) => o.event).map((o) => o.time)),
+    ...new Set(data.flatMap((o) => (o.event ? [o.time] : []))),
   ].sort((a, b) => a - b)
 
   if (times.length === 0) return null
-  const observed = new Array<number>(k).fill(0)
-  const expected = new Array<number>(k).fill(0)
-  const cov = Array.from({ length: k }, () => new Array<number>(k).fill(0))
+  const observed = Array.from<number>({ length: k }).fill(0)
+  const expected = Array.from<number>({ length: k }).fill(0)
+
+  const cov = Array.from({ length: k }, () =>
+    Array.from<number>({ length: k }).fill(0),
+  )
 
   for (const time of times) {
     const risk = groups.map(

@@ -28,6 +28,7 @@ import {
   templateDataQueryKeys,
 } from '#/components/templates/templates-data'
 import { rich, t } from '#/copy'
+import { z } from 'zod'
 
 /** A notebook that can take the target version: the registry's use read. */
 type TemplateNotebookRow = NonNullable<
@@ -84,10 +85,16 @@ function eligibleColumns(
  * refused, and is recorded in the notebook's history as a template update.
  * Conflicts that need per-sheet decisions are stated with their allowed
  * outcomes, not guessed. */
+/** The update screen's URL search, decoded once: anything else reads as absent. */
+const templateUpdateSearchSchema = z.object({
+  record: z.string().optional().catch(undefined),
+})
+
+type TemplateUpdateSearch = z.output<typeof templateUpdateSearchSchema>
+
 export const Route = createFileRoute('/templates/$templateId/update')({
-  validateSearch: (search: Record<string, unknown>): { record?: string } => ({
-    record: typeof search.record === 'string' ? search.record : undefined,
-  }),
+  validateSearch: (search): TemplateUpdateSearch =>
+    templateUpdateSearchSchema.parse(search),
   component: TemplateUpdate,
 })
 
@@ -97,7 +104,7 @@ function TemplateUpdate() {
   const queryClient = useQueryClient()
   const template = useTemplate(templateId)
   const versions = useTemplateVersions(templateId)
-  const list = versions.data ?? []
+  const list = useMemo(() => versions.data ?? [], [versions.data])
   const target = publishedTemplateVersion(list)
   const users = useTemplateUsers(list.map((v) => v.id))
   const notebook = useTemplateNotebook(search.record)
@@ -111,13 +118,13 @@ function TemplateUpdate() {
     [users.data, target?.id],
   )
 
+  const pinnedVersionId = notebook.data?.source_notebook_template_version_id
+
   const sourceVersion = useMemo(() => {
-    const pinned = notebook.data?.source_notebook_template_version_id
+    if (!pinnedVersionId) return null
 
-    if (!pinned) return null
-
-    return list.find((v) => v.id === pinned)?.version ?? null
-  }, [notebook.data?.source_notebook_template_version_id, list])
+    return list.find((v) => v.id === pinnedVersionId)?.version ?? null
+  }, [pinnedVersionId, list])
 
   async function apply(decisions: NotebookUpgradeDecision[]) {
     if (!search.record || !target || !notebook.data)

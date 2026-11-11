@@ -10,7 +10,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './compare'
 
+// SAFETY: `compare.tsx` registers its page as the route's component, so the factory below always supplies one.
 const CompareRoute = Route.options.component as React.ComponentType
+
+/** An RPC argument as the route passes it. */
+type RpcArgument = string | number | boolean | null | undefined
 
 const dataClient = vi.hoisted(() => ({
   list: vi.fn(),
@@ -23,8 +27,9 @@ const searchState = vi.hoisted<{
   current: { from: 'v-1', to: 'v-2' },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time; this suite drives the route's own paging with the params and search the shell would supply.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
+  createFileRoute: () => (config: { component?: React.ComponentType }) => ({
     useParams: () => ({ datasetId: 'ds-1' }),
     useSearch: () => searchState.current,
     useRouteContext: () => ({ context: {} }),
@@ -32,11 +37,12 @@ vi.mock('@tanstack/react-router', () => ({
     options: config,
   }),
   Outlet: () => null,
-  redirect: (options: unknown) => options,
+  redirect: (options: { to: string }) => options,
   useNavigate: () => vi.fn(),
   Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Every read on this page goes through the shared client, which opens over the app's transport at import time; the double records the paging calls the assertions read.
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal()),
   notebookDataClient: dataClient,
@@ -83,7 +89,7 @@ function renderRoute() {
 beforeEach(() => {
   searchState.current = { from: 'v-1', to: 'v-2' }
   dataClient.rpc.mockImplementation(
-    (name: string, args: Record<string, unknown>) => {
+    (name: string, args: Readonly<Record<string, RpcArgument>>) => {
       if (name === 'dataset_version_list') return Promise.resolve(versions)
 
       if (name === 'compare_dataset_versions') {

@@ -8,10 +8,7 @@ import { requestShellRefresh } from '#/lib/shell-refresh'
  * same way every time, so retrying it only repeats the wait and the request.
  * Timeouts, rate limits and server or network failures still retry.
  */
-export function shouldRetryQuery(
-  failureCount: number,
-  error: unknown,
-): boolean {
+export function shouldRetryQuery(failureCount: number, error: Error): boolean {
   if (
     error instanceof DataClientError &&
     error.status >= 400 &&

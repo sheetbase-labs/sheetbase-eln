@@ -9,6 +9,15 @@ import {
 } from './assistant-booking'
 import type { DataClient } from './data-client'
 
+/**
+ * A client carrying the one member a test exercises. The functions under test
+ * read only the member the stub supplies, never the rest of the client.
+ */
+function stubClient<T extends Partial<DataClient>>(client: T): DataClient {
+  // SAFETY: every function under test reads only the member this stub supplies; no other DataClient member is reached.
+  return client as DataClient
+}
+
 const LONDON = 'Europe/London'
 
 describe('wall-clock times', () => {
@@ -101,7 +110,7 @@ describe('findFreeGaps', () => {
 describe('runAssistantAction', () => {
   it('books through the ordinary booking call, as tentative', async () => {
     const rpc = vi.fn().mockResolvedValue({})
-    const client = { rpc } as unknown as DataClient
+    const client = stubClient({ rpc })
     await runAssistantAction(client, {
       kind: 'booking.create',
       workspaceId: 'ws',
@@ -126,7 +135,7 @@ describe('runAssistantAction', () => {
 
   it('moves and cancels with the version the card was built against', async () => {
     const rpc = vi.fn().mockResolvedValue({})
-    const client = { rpc } as unknown as DataClient
+    const client = stubClient({ rpc })
     await runAssistantAction(client, {
       kind: 'booking.move',
       bookingId: 'b',

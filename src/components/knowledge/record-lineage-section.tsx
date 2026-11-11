@@ -155,7 +155,7 @@ export function RecordLineageSection({ recordId }: { recordId: string }) {
       ) : lineageQuery.error ? (
         <p className="text-xs text-danger-text">
           {t('settings.knowledgeRecordLineageSection.couldLoadLineage')}
-          {(lineageQuery.error as Error | undefined)?.message ?? ''}
+          {lineageQuery.error.message}
         </p>
       ) : !graph ? (
         <EmptyHint>

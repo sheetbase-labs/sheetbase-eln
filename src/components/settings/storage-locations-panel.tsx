@@ -24,9 +24,9 @@ import { BoxOccupancy } from '#/components/settings/box-occupancy'
 import {
   OutOfRangeNotice,
   StorageReadingsSection,
-  readingKind,
   useOutOfRangeCounts,
 } from '#/components/storage/storage-readings'
+import { readingKind } from '#/components/storage/storage-reading-kind'
 import { SettingsBody } from '#/components/settings/settings-page'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'

@@ -1,24 +1,25 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import type { DataClient } from './data-client'
+import { dataClientTestDouble } from './data-client-test-support'
 import {
   resolveObjectByIdentifier,
   resolvedObjectPath,
 } from './object-resolver'
+import type { DataClient } from './data-client'
 
 /** A client whose tables answer from a map of `table` -> rows matching the query. */
 function client(
-  tables: Partial<Record<string, (query: string) => unknown[] | Error>>,
+  tables: Partial<Record<string, (query: string) => readonly object[] | Error>>,
 ): DataClient {
-  return {
-    list: vi.fn(async (table: string, query: string) => {
-      const answer = tables[table]?.(query) ?? []
+  return dataClientTestDouble({
+    list: async (table, query) => {
+      const answer = tables[table]?.(query ?? '') ?? []
 
       if (answer instanceof Error) throw answer
 
       return answer
-    }),
-  } as unknown as DataClient
+    },
+  })
 }
 
 describe('resolveObjectByIdentifier', () => {
@@ -108,12 +109,12 @@ describe('resolveObjectByIdentifier', () => {
   })
 
   it('reports a failed lookup as an error, not as a miss', async () => {
-    const failing = {
-      list: vi.fn(async (table: string) => {
+    const failing = dataClientTestDouble({
+      list: async (table: string) => {
         if (table === 'records') return []
         throw new Error('down')
-      }),
-    } as unknown as DataClient
+      },
+    })
 
     await expect(resolveObjectByIdentifier(failing, 'DS-1')).rejects.toThrow(
       'down',

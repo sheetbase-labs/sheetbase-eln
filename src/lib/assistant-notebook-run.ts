@@ -78,6 +78,7 @@ export async function runNotebookAction(
     case 'notebook.protocol_set_status':
       await setProtocolVersionStatus(client, {
         protocolVersionId: action.versionId,
+        // SAFETY: the card's status is forwarded verbatim to the database RPC, which owns the transition rule; this narrowing only matches the wrapper's narrower parameter type and erases nothing at runtime.
         status: action.status as 'in_review' | 'effective' | 'retired',
         reason: action.reason ?? '',
       })

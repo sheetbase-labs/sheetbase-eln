@@ -45,6 +45,11 @@ export const labelTemplateSchema = z.strictObject({
 
 export type LabelTemplate = z.infer<typeof labelTemplateSchema>
 
+/** One `api.label_templates` row as PostgREST returns it: JSON until it is parsed. */
+export const labelTemplateRowSchema = z.record(z.string(), z.json())
+
+export type LabelTemplateRow = z.output<typeof labelTemplateRowSchema>
+
 export type BarcodeType = LabelTemplate['barcodeType']
 
 export const BARCODE_TYPE_LABELS: Record<'qr' | 'code128', string> = {
@@ -54,7 +59,7 @@ export const BARCODE_TYPE_LABELS: Record<'qr' | 'code128', string> = {
 
 /** Whether a template's code or layout comes from a plugin. */
 export function isPluginItem(value: string | null | undefined): boolean {
-  return typeof value === 'string' && PLUGIN_ITEM_RE.test(value)
+  return value != null && PLUGIN_ITEM_RE.test(value)
 }
 
 /** What a label prints when no template has been chosen. */
@@ -80,9 +85,7 @@ export const DEFAULT_LABEL_TEMPLATE: Pick<
 }
 
 /** A label_templates row as PostgREST returns it. */
-export function labelTemplateFromRow(
-  row: Record<string, unknown>,
-): LabelTemplate {
+export function labelTemplateFromRow(row: LabelTemplateRow): LabelTemplate {
   return parseLabelTemplate({
     id: row.id,
     workspaceId: row.workspace_id,
@@ -103,7 +106,7 @@ export function labelTemplateFromRow(
   })
 }
 
-export function parseLabelTemplate(value: unknown): LabelTemplate {
+export function parseLabelTemplate(value: LabelTemplateRow): LabelTemplate {
   return labelTemplateSchema.parse(value)
 }
 

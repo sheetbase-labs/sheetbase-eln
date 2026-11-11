@@ -271,9 +271,9 @@ const NO_PLUGIN: PluginLabel = {
  * ones omitted rather than carried as `undefined`, which JSON cannot express.
  */
 function pluginLabelFacts(facts: LabelSource) {
-  const out: { identifier: string; [key: string]: string | null } = {
-    identifier: facts.identifier,
-  }
+  const out: Record<string, string | null> = {}
+
+  out.identifier = facts.identifier
 
   for (const key of [
     'lot',

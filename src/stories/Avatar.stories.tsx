@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Avatar, AvatarStack, initialsFromName } from '#/components/ui/avatar'
+import { Avatar, AvatarStack } from '#/components/ui/avatar'
+import { initialsFromName } from '#/components/ui/initials'
 
 /**
  * The v3 Avatar (DSYS). One component and one initials rule for every surface:

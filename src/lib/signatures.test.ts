@@ -290,7 +290,12 @@ describe('effective project witness candidates', () => {
 // session, or the person would be thrown out of the dialog for a typo.
 // ---------------------------------------------------------------------------
 
-function replyWith(status: number, body: unknown) {
+/** A step-up response body: the server's `{code, message}` or the issued token. */
+type StepUpReply =
+  | { code?: string; message: string }
+  | { token: string; expiresAt: string; authMethod: string }
+
+function replyWith(status: number, body: StepUpReply) {
   const fetchMock = vi
     .fn()
     .mockResolvedValue({ ok: status < 400, status, json: async () => body })
@@ -312,24 +317,25 @@ describe('signature step-up error contract', () => {
   it('marks a 401 with the session_expired code as an ended session', async () => {
     replyWith(401, { code: 'session_expired', message: 'Sign in again.' })
 
-    const error = await requestSignatureStepUp(stepUpInput).catch(
-      (err: unknown) => err,
-    )
+    const error = await requestSignatureStepUp(stepUpInput).catch((err) => err)
 
     expect(isExpiredSigningSession(error)).toBe(true)
-    expect((error as SignatureStepUpError).code).toBe('session_expired')
+    expect(error).toBeInstanceOf(SignatureStepUpError)
+
+    if (!(error instanceof SignatureStepUpError)) return
+    expect(error.code).toBe('session_expired')
   })
 
   it('does not treat a refused password as an ended session', async () => {
     replyWith(401, { message: 'Signing password was not accepted.' })
 
-    const error = await requestSignatureStepUp(stepUpInput).catch(
-      (err: unknown) => err,
-    )
+    const error = await requestSignatureStepUp(stepUpInput).catch((err) => err)
 
     expect(error).toBeInstanceOf(SignatureStepUpError)
     expect(isExpiredSigningSession(error)).toBe(false)
-    expect((error as SignatureStepUpError).status).toBe(401)
+
+    if (!(error instanceof SignatureStepUpError)) return
+    expect(error.status).toBe(401)
   })
 
   it('carries the lockout status and message', async () => {
@@ -337,14 +343,14 @@ describe('signature step-up error contract', () => {
       message: 'Signing is locked for 15 minutes after three failed attempts.',
     })
 
-    const error = await requestSignatureStepUp(stepUpInput).catch(
-      (err: unknown) => err,
-    )
+    const error = await requestSignatureStepUp(stepUpInput).catch((err) => err)
 
     expect(error).toBeInstanceOf(SignatureStepUpError)
-    expect((error as SignatureStepUpError).status).toBe(423)
-    expect((error as Error).message).toContain('Signing is locked')
     expect(isExpiredSigningSession(error)).toBe(false)
+
+    if (!(error instanceof SignatureStepUpError)) return
+    expect(error.status).toBe(423)
+    expect(error.message).toContain('Signing is locked')
   })
 
   it('returns the one-use token on success', async () => {

@@ -21,6 +21,7 @@ for (const prop of ['offsetHeight', 'clientHeight'] as const) {
   })
 }
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The router's Link needs a navigation context a lone tab has none of; every other export stays the library's own.
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof router>()),
   Link: ({ to, children }: { to?: string; children?: React.ReactNode }) => (
@@ -28,6 +29,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Both tabs read through the shared client, which opens over the app's transport at import time; the double answers the rows the assertions describe.
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal()),
   notebookDataClient: dataClient,

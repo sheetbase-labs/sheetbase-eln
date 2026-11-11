@@ -7,8 +7,14 @@
  * step. The looking is rule-based and runs in the database, so it works with
  * AI switched off and gives the same answer twice.
  */
+import type { z } from 'zod'
+
 import type { DataClient } from './data-client'
 import { agentActionByKey } from './agent-action-policy'
+
+/** A JSON object a watcher row carries: a watcher's settings, or the arguments
+ * of the action a finding suggests. */
+export type WatcherJsonObject = Record<string, z.core.util.JSONType>
 
 export const WATCHER_KINDS = [
   'stock_expiring',
@@ -106,7 +112,7 @@ export interface LabWatcherRow {
   enabled: boolean
   project_id: string | null
   schedule: WatcherSchedule
-  params: Record<string, unknown>
+  params: WatcherJsonObject
   owner_user_id: string
   last_run_at: string | null
   last_found: number | null
@@ -121,7 +127,7 @@ export interface SuggestedAction {
   kind: 'lab_action'
   label: string
   action: string
-  arguments: Record<string, unknown>
+  arguments: WatcherJsonObject
 }
 
 export interface LabWatcherFindingRow {
@@ -184,7 +190,7 @@ export async function setLabWatcher(
     enabled: boolean
     schedule: WatcherSchedule
     projectId?: string | null
-    params?: Record<string, unknown>
+    params?: WatcherJsonObject
   },
 ): Promise<LabWatcherRow> {
   return client.rpc<LabWatcherRow>('set_lab_watcher', {

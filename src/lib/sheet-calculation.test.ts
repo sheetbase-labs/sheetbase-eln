@@ -8,6 +8,7 @@ import {
   sheetCalculationDependenciesFromExpression,
   sheetInstanceCalculationSchema,
 } from './sheet-calculation'
+import type { SheetCalculationInput } from './sheet-calculation'
 import { buildFlagIndex } from './dataset-flags'
 import type { DatasetValueFlag } from './dataset-flags'
 
@@ -49,7 +50,7 @@ function field(
 
 const input = (
   id: string,
-  value: unknown,
+  value: SheetCalculationInput['value'],
   inputField = field(id),
   state: 'present' | 'missing' | 'unmatched' = 'present',
 ) => ({

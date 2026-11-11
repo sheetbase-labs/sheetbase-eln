@@ -35,10 +35,7 @@ import type {
 import type { StorageNode, StorageTree } from '#/lib/storage-locations'
 import { t } from '#/copy'
 
-/** Only freezers and the like and rooms keep readings. */
-export function readingKind(node: StorageNode): StoragePlaceKind | null {
-  return node.level === 'unit' ? 'unit' : node.level === 'room' ? 'room' : null
-}
+import { readingKind } from './storage-reading-kind'
 
 /** How many out-of-range measurements sit in each location or below it. */
 export function useOutOfRangeCounts(tree: StorageTree | undefined) {
@@ -78,11 +75,11 @@ export function OutOfRangeNotice({
   const { own } = useOutOfRangeCounts(tree)
   const now = Date.now()
 
-  const places = [...own.entries()]
-    .map(([id, feeds]) => ({ node: tree.byId.get(id), feeds }))
-    .filter((p): p is { node: StorageNode; feeds: FeedRow[] } =>
-      Boolean(p.node),
-    )
+  const places = [...own.entries()].flatMap(([id, feeds]) => {
+    const node = tree.byId.get(id)
+
+    return node ? [{ node, feeds }] : []
+  })
 
   if (places.length === 0) return null
 
@@ -138,12 +135,12 @@ function LogReadingDialog({
     name.trim().length > 0 && number !== null && Number.isFinite(number)
 
   const mutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (reading: number) =>
       logStorageReading({
         kind,
         placeId: node.id,
         feed: name,
-        value: number as number,
+        value: reading,
         unit: unit || existing?.unit || null,
       }),
     onSuccess: () => {
@@ -155,9 +152,9 @@ function LogReadingDialog({
       setValue('')
       toast(t('settings.storageReadings.logged', { name: node.name }))
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       toast(t('settings.storageReadings.couldNotLog'), {
-        description: error instanceof Error ? error.message : undefined,
+        description: error.message,
       })
     },
   })
@@ -209,7 +206,10 @@ function LogReadingDialog({
           <Button
             variant="primary"
             disabled={!ready || mutation.isPending}
-            onClick={() => mutation.mutate()}
+            onClick={() => {
+              if (number === null || !Number.isFinite(number)) return
+              mutation.mutate(number)
+            }}
           >
             {mutation.isPending
               ? t('common.states.saving')

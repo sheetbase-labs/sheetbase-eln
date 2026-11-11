@@ -37,43 +37,56 @@ export interface LakeParquetFile {
 /** Rows written to one Parquet file. Larger tables are split across files. */
 export const LAKE_FILE_ROWS = 250_000
 
-interface ParquetModule {
-  Table: { fromIPCStream: (ipc: Uint8Array) => unknown }
-  WriterPropertiesBuilder: new () => {
-    setCompression: (codec: unknown) => { build: () => unknown }
-  }
-  Compression: Record<'SNAPPY' | 'UNCOMPRESSED', unknown>
-  writeParquet: (table: unknown, properties: unknown) => Uint8Array
-}
+/** One cell of a table: what a JSON row or the database hands over. */
+export type LakeCell = string | number | bigint | boolean | Date | null
 
 type Arrow = typeof arrowTypes
 
-function toBigInt(value: unknown): bigint | null {
-  if (value === null || value === undefined || value === '') return null
+const CELL_KINDS = new Set(['string', 'number', 'bigint', 'boolean'])
 
-  if (typeof value === 'bigint') return value
-  const n = Number(value)
+/** A raw cell as its table holds it; anything that is not a value reads as absent. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A raw row arrives as whatever JSON or the database put there; this is where the lake decodes one cell.
+function lakeCell(value: unknown): LakeCell {
+  if (value === null || value === undefined) return null
 
-  return Number.isFinite(n) ? BigInt(Math.trunc(n)) : null
+  if (value instanceof Date) return value
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- One kind probe tells the primitives a raw row carries from the objects it does not; each branch returns the value unchanged.
+  const kind = typeof value
+
+  // SAFETY: the probe above returned one of the four kinds `CELL_KINDS` holds, so the value is one of those primitives.
+  return CELL_KINDS.has(kind) ? (value as LakeCell) : null
 }
 
-function toNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null
+function toBigInt(value: LakeCell): bigint | null {
+  if (value === null || value === '') return null
+
+  try {
+    // Exact for a bigint, and for whole numbers and digit strings.
+    return BigInt(value instanceof Date ? value.getTime() : value)
+  } catch {
+    const n = Number(value)
+
+    return Number.isFinite(n) ? BigInt(Math.trunc(n)) : null
+  }
+}
+
+function toNumber(value: LakeCell): number | null {
+  if (value === null || value === '') return null
   const n = Number(value)
 
   return Number.isNaN(n) ? null : n
 }
 
-function toDate(value: unknown): Date | null {
-  if (value === null || value === undefined || value === '') return null
+function toDate(value: LakeCell): Date | null {
+  if (value === null || value === '') return null
   const d = value instanceof Date ? value : new Date(String(value))
 
   return Number.isNaN(d.getTime()) ? null : d
 }
 
 /** Microseconds since the epoch, to the precision the text carries. */
-function toMicros(value: unknown): bigint | null {
-  if (value === null || value === undefined || value === '') return null
+function toMicros(value: LakeCell): bigint | null {
+  if (value === null || value === '') return null
   const text = value instanceof Date ? value.toISOString() : String(value)
   const ms = Date.parse(text)
 
@@ -95,7 +108,7 @@ function micros(value: bigint): string {
   return `${base}.${fraction}+00`
 }
 
-function vectorFor(arrow: Arrow, column: LakeColumn, raw: unknown[]) {
+function vectorFor(arrow: Arrow, column: LakeColumn, raw: LakeCell[]) {
   switch (column.type) {
     case 'int64':
       return arrow.vectorFromArray(raw.map(toBigInt), new arrow.Int64())
@@ -103,7 +116,7 @@ function vectorFor(arrow: Arrow, column: LakeColumn, raw: unknown[]) {
       return arrow.vectorFromArray(raw.map(toNumber), new arrow.Float64())
     case 'boolean':
       return arrow.vectorFromArray(
-        raw.map((v) => (v === null || v === undefined ? null : v === true)),
+        raw.map((v) => (v === null ? null : v === true)),
         new arrow.Bool(),
       )
     case 'date':
@@ -137,13 +150,13 @@ function vectorFor(arrow: Arrow, column: LakeColumn, raw: unknown[]) {
 
     default:
       return arrow.vectorFromArray(
-        raw.map((v) => (v === null || v === undefined ? null : String(v))),
+        raw.map((v) => (v === null ? null : String(v))),
         new arrow.Utf8(),
       )
   }
 }
 
-function statsFor(column: LakeColumn, raw: unknown[]): LakeColumnStats {
+function statsFor(column: LakeColumn, raw: LakeCell[]): LakeColumnStats {
   let valueCount = 0
   let min: number | bigint | null = null
   let max: number | bigint | null = null
@@ -160,7 +173,7 @@ function statsFor(column: LakeColumn, raw: unknown[]): LakeColumnStats {
         x = toNumber(v)
         break
       case 'boolean':
-        x = v === null || v === undefined ? null : v === true ? 1 : 0
+        x = v === null ? null : v === true ? 1 : 0
         break
       case 'date': {
         const d = toDate(v)
@@ -172,13 +185,13 @@ function statsFor(column: LakeColumn, raw: unknown[]): LakeColumnStats {
         x = toMicros(v)
         break
       default:
-        x = v === null || v === undefined ? null : 0
+        x = v === null ? null : 0
     }
 
     if (x === null) continue
     valueCount++
 
-    if (typeof x === 'number' && Number.isNaN(x)) {
+    if (Number.isNaN(x)) {
       containsNaN = true
       continue
     }
@@ -197,7 +210,7 @@ function statsFor(column: LakeColumn, raw: unknown[]): LakeColumnStats {
       case 'date':
         return new Date(Number(x) * 86_400_000).toISOString().slice(0, 10)
       case 'timestamptz':
-        return micros(x as bigint)
+        return micros(BigInt(x))
       case 'float64':
         return String(x)
       default:
@@ -214,27 +227,41 @@ function statsFor(column: LakeColumn, raw: unknown[]): LakeColumnStats {
   }
 }
 
+/**
+ * The Arrow table over the typed column vectors. `tableFromArrays` reads an
+ * Arrow vector's data when it is given one, but names only arrays and typed
+ * arrays in its type.
+ */
+function tableFromVectors(
+  arrow: Arrow,
+  vectors: ReadonlyMap<string, arrowTypes.Vector>,
+): arrowTypes.Table {
+  const asArrays = arrow.tableFromArrays
+
+  // SAFETY: each value is an Arrow vector, whose `data` is what `tableFromArrays` builds a column from.
+  return (
+    asArrays as (input: Record<string, arrowTypes.Vector>) => arrowTypes.Table
+  )(Object.fromEntries(vectors))
+}
+
 /** One Parquet file holding `rows` (each row a list aligned with `columns`). */
 export async function writeLakeParquet(
   columns: LakeColumn[],
   rows: unknown[][],
 ): Promise<LakeParquetFile> {
-  const arrow = await import('apache-arrow')
+  const [arrow, parquet] = await Promise.all([
+    import('apache-arrow'),
+    import('parquet-wasm/node'),
+  ])
 
-  const parquet =
-    (await import('parquet-wasm/node')) as unknown as ParquetModule
+  const cells = columns.map((_, i) => rows.map((row) => lakeCell(row[i])))
 
-  const cells = columns.map((_, i) => rows.map((row) => row[i] ?? null))
-  const vectors: Record<string, unknown> = {}
+  const vectors = new Map<string, arrowTypes.Vector>()
   columns.forEach((column, i) => {
-    vectors[column.name] = vectorFor(arrow, column, cells[i])
+    vectors.set(column.name, vectorFor(arrow, column, cells[i]))
   })
 
-  const table = (
-    arrow.tableFromArrays as unknown as (
-      c: Record<string, unknown>,
-    ) => arrowTypes.Table
-  )(vectors)
+  const table = tableFromVectors(arrow, vectors)
 
   const wasmTable = parquet.Table.fromIPCStream(
     arrow.tableToIPC(table, 'stream'),

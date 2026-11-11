@@ -17,7 +17,15 @@ import {
 } from './assistant-experiments.server'
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from './agent-tool-catalogue'
 import type { LabToolContext } from './assistant-lab-tools.server'
-import type { DataClient } from './data-client'
+import { dataClientTestDouble } from './data-client-test-support'
+
+/**
+ * A client carrying the one member a test exercises. The functions under test
+ * read only the member the stub supplies, never the rest of the client.
+ */
+function stubClient(calls: Parameters<typeof dataClientTestDouble>[0]) {
+  return dataClientTestDouble(calls)
+}
 
 const EXP = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -28,14 +36,12 @@ const EXP = {
   created_by_user_id: 'u',
 }
 
-function context(
-  tables: Partial<Record<string, (query: string) => unknown[]>>,
-) {
-  const client = {
-    list: (resource: string, query: string) =>
-      Promise.resolve(tables[resource]?.(query) ?? []),
+function context(tables: Partial<Record<string, (query: string) => object[]>>) {
+  const client = stubClient({
+    list: (resource: string, query?: string) =>
+      Promise.resolve(tables[resource]?.(query ?? '') ?? []),
     rpc: vi.fn(() => Promise.resolve({})),
-  } as unknown as DataClient
+  })
 
   return {
     client,
@@ -141,8 +147,8 @@ describe('experiment, alias and label template assistant cards', () => {
   })
 
   it('runs each card through its own call', async () => {
-    const rpc = vi.fn(() => Promise.resolve({}))
-    const client = { rpc } as unknown as DataClient
+    const rpc = vi.fn((_name: string) => Promise.resolve({}))
+    const client = stubClient({ rpc })
 
     const run = (action: ExperimentAction) =>
       runExperimentAction(client, action)
@@ -158,7 +164,7 @@ describe('experiment, alias and label template assistant cards', () => {
       templateId: 't1',
       archived: true,
     })
-    expect(rpc.mock.calls.map((call) => (call as unknown[])[0])).toEqual([
+    expect(rpc.mock.calls.map((call) => call[0])).toEqual([
       'set_experiment_decision',
       'set_label_template_archived',
     ])

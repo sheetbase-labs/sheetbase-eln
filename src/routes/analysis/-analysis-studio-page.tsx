@@ -192,7 +192,9 @@ const STUDIO_MODE_LABEL: Record<StudioMode, string> = {
   compare: t('data.analysisStudio.compare'),
 }
 
-export function AnalysisStudio() {
+/** The studio's state, reads and writes, in one hook: what the header,
+ * the configuration rail, the preview and the inspector all act on. */
+function useAnalysisStudio() {
   const instanceId = useId()
   const chartConfigId = `${instanceId}-chart-config`
   const chartRoot = useRef<HTMLDivElement | null>(null)
@@ -825,6 +827,102 @@ export function AnalysisStudio() {
         experimentId={search.experiment}
       />
     ) : undefined
+
+  return {
+    instanceId,
+    chartConfigId,
+    chartRoot,
+    search,
+    workspaceId,
+    userId,
+    summariesQuery,
+    datasets,
+    views,
+    selectedDatasetId,
+    setSelectedDatasetId,
+    spec,
+    setSpec,
+    inspectorOpen,
+    setInspectorOpen,
+    setSnapshotId,
+    activeSnapshotId,
+    selectedViewId,
+    chartSelection,
+    setChartSelection,
+    mode,
+    setMode,
+    compareConfig,
+    setCompareConfig,
+    comparePromoted,
+    configOpen,
+    setConfigOpen,
+    chartDirty,
+    discardChart,
+    deleteTarget,
+    setDeleteTarget,
+    selectedSource,
+    sources,
+    analysisMaterialised,
+    analysisFacets,
+    promoteCompareToChart,
+    router,
+    saveMutation,
+    saveChart,
+    deleteMutation,
+    sourceStatusQuery,
+    resolveMutation,
+    inspector,
+    datasetQuery,
+  }
+}
+
+export function AnalysisStudio() {
+  const {
+    instanceId,
+    chartConfigId,
+    chartRoot,
+    search,
+    workspaceId,
+    userId,
+    summariesQuery,
+    datasets,
+    views,
+    selectedDatasetId,
+    setSelectedDatasetId,
+    spec,
+    setSpec,
+    inspectorOpen,
+    setInspectorOpen,
+    setSnapshotId,
+    activeSnapshotId,
+    selectedViewId,
+    chartSelection,
+    setChartSelection,
+    mode,
+    setMode,
+    compareConfig,
+    setCompareConfig,
+    comparePromoted,
+    configOpen,
+    setConfigOpen,
+    chartDirty,
+    discardChart,
+    deleteTarget,
+    setDeleteTarget,
+    selectedSource,
+    sources,
+    analysisMaterialised,
+    analysisFacets,
+    promoteCompareToChart,
+    router,
+    saveMutation,
+    saveChart,
+    deleteMutation,
+    sourceStatusQuery,
+    resolveMutation,
+    inspector,
+    datasetQuery,
+  } = useAnalysisStudio()
 
   return (
     <div ref={chartRoot} className="flex min-h-0 min-w-0 flex-1">

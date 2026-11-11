@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import { RichTextContent } from '#/lib/blocks/rich-text'
 import { isRichTextPayload } from '#/lib/blocks/rich-text-data'
 import type { NotebookBlock } from '#/lib/notebook-data'
@@ -5,6 +7,12 @@ import { Muted } from '../ui/layout'
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { formatDuration, stepDurationSeconds } from '#/lib/step-timers'
+
+/** The fields a procedure-step payload carries that this document renders. */
+const procedureStepSchema = z.object({
+  text: z.string(),
+  stepNumber: z.number(),
+})
 
 /** Render canonical document payloads without flattening scientific notation. */
 export function ProtocolDocument({
@@ -46,10 +54,10 @@ export function ProtocolDocument({
           )
         }
 
-        const { text, stepNumber } = block.payload
+        const step = procedureStepSchema.safeParse(block.payload)
         const durationSeconds = stepDurationSeconds(block.payload)
 
-        if (typeof text !== 'string' || typeof stepNumber !== 'number') {
+        if (!step.success) {
           return (
             <p key={block.id} role="alert">
               {t(
@@ -58,6 +66,8 @@ export function ProtocolDocument({
             </p>
           )
         }
+
+        const { text, stepNumber } = step.data
 
         return (
           <div

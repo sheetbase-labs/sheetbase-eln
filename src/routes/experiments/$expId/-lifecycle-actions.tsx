@@ -95,6 +95,7 @@ type DialogKind =
   | 'dissolve'
   | null
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A refused transition is a caught throw, untyped by definition; an Error supplies its message and anything else falls back.
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : t('projects.lifecycle.failed')
 }
@@ -130,11 +131,10 @@ export function ExperimentLifecycleActions({
   const favourite = useFavouriteState('record', e.id)
   const hosted = useRecordMainActionsHosted()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<DialogKind>(null)
   const [reason, setReason] = useState('')
 
-  const [runTitle, setRunTitle] = useState(
+  const [runTitle, setRunTitle] = useState(() =>
     t('projects.lifecycle.runTitle', { title: e.title }),
   )
 
@@ -154,6 +154,152 @@ export function ExperimentLifecycleActions({
     enabled: dialog === 'move',
   })
 
+  const close = () => {
+    setDialog(null)
+    setReason('')
+  }
+
+  const { start, hold, run, makeSeries, endSeries, move, archive, remove } =
+    useLifecycleMutations({
+      experiment: e,
+      reason,
+      runTitle,
+      joinOnRun,
+      joinSeries,
+      membership,
+      moveTo,
+      close,
+    })
+
+  const archived = Boolean(e.archived_at)
+  const isDraft = e.status === 'draft'
+  const isActive = e.status === 'in_progress'
+  const locked = Boolean(e.locked_at)
+  const { primary, secondary } = nextStep
+
+  // Submit is the main step of a running experiment. The notebook owns the
+  // dialog, so it puts the button here itself while it is open; on the other
+  // tabs this one takes you to the notebook with the dialog open.
+  const submitFromHere =
+    !hosted && !locked && (primary === 'submit' || secondary.includes('submit'))
+
+  if (archived || !canWrite) {
+    return (
+      <>
+        <RecordMainActionsSlot />
+        <RecordActionsMenu actions={offered} />
+      </>
+    )
+  }
+
+  const offeredIn = (group: 'do' | 'share' | 'manage') =>
+    offered.filter((action) => groupOfOffered(action) === group)
+
+  const items = (group: 'do' | 'share' | 'manage') => offeredIn(group)
+  const author = nextStep.authoring
+
+  return (
+    <>
+      <LifecycleHeaderButtons
+        experiment={e}
+        nextStep={nextStep}
+        reviewRevisionId={reviewRevisionId}
+        submitFromHere={submitFromHere}
+        holdPending={hold.isPending}
+        startPending={start.isPending}
+        onStart={() => start.mutate()}
+        onHold={hold.mutate}
+      />
+      {/* Submit and Sign, handed up by the notebook while it is open. */}
+      <RecordMainActionsSlot />
+      <LifecycleMenu
+        experiment={e}
+        nextStep={nextStep}
+        reviewRevisionId={reviewRevisionId}
+        items={items}
+        author={author}
+        isActive={isActive}
+        isDraft={isDraft}
+        locked={locked}
+        favourite={{
+          isFavourite: favourite.isFavourite,
+          pending: favourite.pending,
+          setFavourite: favourite.setFavourite,
+        }}
+        membership={{ inSeries: Boolean(membership.data) }}
+        seriesHead={{ isHead: Boolean(seriesHead.data) }}
+        makeSeries={{
+          pending: makeSeries.isPending,
+          start: () => makeSeries.mutate(),
+        }}
+        onDialog={setDialog}
+        onBookInstrument={() => void navigate(bookInstrumentLink(e.id))}
+        onRequestChanges={() =>
+          void navigate({
+            to: '/review/$revisionId',
+            params: { revisionId: reviewRevisionId ?? '' },
+            search: { decide: 'request_changes' },
+          })
+        }
+      />
+      <LifecycleDialogs
+        experiment={e}
+        dialog={dialog}
+        onClose={close}
+        holdPending={hold.isPending}
+        onHold={() => hold.mutate('on_hold')}
+        reason={reason}
+        onReasonChange={setReason}
+        runPending={run.isPending}
+        onRun={() => run.mutate()}
+        runTitle={runTitle}
+        onRunTitleChange={setRunTitle}
+        joinOnRun={joinOnRun}
+        onJoinOnRunChange={setJoinOnRun}
+        dissolvePending={endSeries.isPending}
+        onDissolve={() => endSeries.mutate()}
+        movePending={move.isPending}
+        onMove={() => move.mutate()}
+        moveTo={moveTo}
+        onMoveToChange={setMoveTo}
+        projectOptions={(projects.data ?? [])
+          .filter((project) => project.id !== e.project_id)
+          .map((project) => projectOption(project))}
+        archivePending={archive.isPending}
+        onArchive={() => archive.mutate()}
+        removePending={remove.isPending}
+        onRemove={() => remove.mutate()}
+      />
+    </>
+  )
+}
+
+/**
+ * The lifecycle's writes. Each one closes its dialog, refreshes the record the
+ * header and the notebook both read, and says what happened.
+ */
+function useLifecycleMutations({
+  experiment: e,
+  reason,
+  runTitle,
+  joinOnRun,
+  joinSeries,
+  membership,
+  moveTo,
+  close,
+}: {
+  experiment: ExperimentRow
+  reason: string
+  runTitle: string
+  joinOnRun: boolean
+  joinSeries: ReturnType<typeof useJoinSeries>
+  membership: ReturnType<typeof useSeriesMembership>
+  moveTo: string
+  close: () => void
+}) {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
   const refresh = async () => {
     await queryClient.invalidateQueries({
       queryKey: experimentQueryKeys.record(e.id),
@@ -166,11 +312,6 @@ export function ExperimentLifecycleActions({
     await queryClient.invalidateQueries({
       queryKey: ['ui-port', 'experiments'],
     })
-  }
-
-  const close = () => {
-    setDialog(null)
-    setReason('')
   }
 
   const start = useMutation({
@@ -214,6 +355,7 @@ export function ExperimentLifecycleActions({
     onError: (error) => toast.error(errorText(error)),
   })
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- The success path navigates to the run it just created, whose notebook reads itself; this header holds no cached notebook or work-item entry to invalidate.
   const run = useMutation({
     mutationFn: () =>
       createNewRun(notebookDataClient, {
@@ -307,42 +449,52 @@ export function ExperimentLifecycleActions({
     onError: (error) => toast.error(errorText(error)),
   })
 
-  const archived = Boolean(e.archived_at)
-  const isDraft = e.status === 'draft'
-  const isActive = e.status === 'in_progress'
-  const locked = Boolean(e.locked_at)
+  return { start, hold, run, makeSeries, endSeries, move, archive, remove }
+}
+
+/** The header's own buttons: decisions for a reviewer, and the one next step. */
+function LifecycleHeaderButtons({
+  experiment,
+  nextStep,
+  reviewRevisionId,
+  submitFromHere,
+  holdPending,
+  startPending,
+  onStart,
+  onHold,
+}: {
+  experiment: ExperimentRow
+  nextStep: NextStep
+  reviewRevisionId?: string
+  submitFromHere: boolean
+  holdPending: boolean
+  startPending: boolean
+  onStart: () => void
+  onHold: (status: 'on_hold' | 'in_progress' | 'completed') => void
+}) {
+  const e = experiment
   const { primary, secondary } = nextStep
 
-  // Submit is the main step of a running experiment. The notebook owns the
-  // dialog, so it puts the button here itself while it is open; on the other
-  // tabs this one takes you to the notebook with the dialog open.
-  const submitFromHere =
-    !hosted && !locked && (primary === 'submit' || secondary.includes('submit'))
-
-  if (archived || !canWrite) {
+  const submitLink = (variant: 'primary' | 'secondary') => {
+    // SAFETY: the notebook route declares no search schema for one-shot
+    // commands; its page reads `reopen` from the raw search with
+    // `reopenTaskFromSearch`, which is the only key this link sets.
     return (
-      <>
-        <RecordMainActionsSlot />
-        <RecordActionsMenu actions={offered} />
-      </>
+      <Button
+        variant={variant}
+        nativeButton={false}
+        render={
+          <Link
+            to="/experiments/$expId/notebook"
+            params={{ expId: e.id }}
+            search={{ reopen: 'submit' } as never}
+          />
+        }
+      >
+        <SubmitLabel status={e.status} />
+      </Button>
     )
   }
-
-  const submitLink = (variant: 'primary' | 'secondary') => (
-    <Button
-      variant={variant}
-      nativeButton={false}
-      render={
-        <Link
-          to="/experiments/$expId/notebook"
-          params={{ expId: e.id }}
-          search={{ reopen: 'submit' } as never}
-        />
-      }
-    >
-      <SubmitLabel status={e.status} />
-    </Button>
-  )
 
   const decideLink = (decide: 'approve' | 'request_changes') => (
     <Button
@@ -353,7 +505,7 @@ export function ExperimentLifecycleActions({
         <Link
           to="/review/$revisionId"
           params={{ revisionId: reviewRevisionId ?? '' }}
-          search={{ decide } as never}
+          search={{ decide }}
         />
       }
     >
@@ -362,12 +514,6 @@ export function ExperimentLifecycleActions({
         : t('projects.lifecycle.requestChanges')}
     </Button>
   )
-
-  const offeredIn = (group: 'do' | 'share' | 'manage') =>
-    offered.filter((action) => groupOfOffered(action) === group)
-
-  const items = (group: 'do' | 'share' | 'manage') => offeredIn(group)
-  const author = nextStep.authoring
 
   return (
     <>
@@ -380,8 +526,8 @@ export function ExperimentLifecycleActions({
       {secondary.includes('reopen') ? (
         <Button
           icon="play"
-          disabled={hold.isPending}
-          onClick={() => hold.mutate('in_progress')}
+          disabled={holdPending}
+          onClick={() => onHold('in_progress')}
         >
           {t('projects.lifecycle.reopen')}
         </Button>
@@ -393,8 +539,8 @@ export function ExperimentLifecycleActions({
         <Button
           variant="primary"
           icon="play"
-          disabled={start.isPending}
-          onClick={() => start.mutate()}
+          disabled={startPending}
+          onClick={onStart}
         >
           {t('projects.lifecycle.start')}
         </Button>
@@ -403,8 +549,8 @@ export function ExperimentLifecycleActions({
         <Button
           variant="primary"
           icon="check"
-          disabled={hold.isPending}
-          onClick={() => hold.mutate('completed')}
+          disabled={holdPending}
+          onClick={() => onHold('completed')}
         >
           {t('projects.lifecycle.finish')}
         </Button>
@@ -413,148 +559,273 @@ export function ExperimentLifecycleActions({
         <Button
           variant="primary"
           icon="play"
-          disabled={hold.isPending}
-          onClick={() => hold.mutate('in_progress')}
+          disabled={holdPending}
+          onClick={() => onHold('in_progress')}
         >
           {t('projects.lifecycle.resume')}
         </Button>
       ) : null}
       {primary === 'submit' && submitFromHere ? submitLink('primary') : null}
-      {/* Submit and Sign, handed up by the notebook while it is open. */}
       <RecordMainActionsSlot />
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              variant="quiet"
-              size="icon"
-              aria-label={t('projects.lifecycle.more')}
-            >
-              <Icon name="more" size={14} />
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="end">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>
-              {t('projects.lifecycle.menu.do')}
-            </DropdownMenuLabel>
-            {nextStep.reviewing && reviewRevisionId ? (
-              <DropdownMenuItem
-                icon="edit"
-                className="md:hidden"
-                onClick={() =>
-                  void navigate({
-                    to: '/review/$revisionId',
-                    params: { revisionId: reviewRevisionId },
-                    search: { decide: 'request_changes' } as never,
-                  })
-                }
-              >
-                {t('projects.lifecycle.requestChanges')}
-              </DropdownMenuItem>
-            ) : null}
-            <RecordActionItems actions={items('do')} />
-            {author && isActive ? (
-              <DropdownMenuItem icon="pause" onClick={() => setDialog('hold')}>
-                {t('projects.lifecycle.putOnHold')}
-              </DropdownMenuItem>
-            ) : null}
-            {author && !locked ? (
-              <DropdownMenuItem
-                icon="calendar"
-                onClick={() => void navigate(bookInstrumentLink(e.id))}
-              >
-                {t('projects.bookInstrument.label')}
-              </DropdownMenuItem>
-            ) : null}
-            {author && e.project_id ? (
-              <DropdownMenuItem icon="copy" onClick={() => setDialog('run')}>
-                {t('projects.lifecycle.newRun')}
-              </DropdownMenuItem>
-            ) : null}
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>
-              {t('projects.lifecycle.menu.share')}
-            </DropdownMenuLabel>
-            {e.project_id && author ? (
-              <DropdownMenuItem icon="share" onClick={() => setDialog('share')}>
-                {t('projects.clientSharing.action')}
-              </DropdownMenuItem>
-            ) : null}
-            <RecordActionItems actions={items('share')} />
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>
-              {t('projects.lifecycle.menu.manage')}
-            </DropdownMenuLabel>
-            <DropdownMenuItem
-              icon="pin"
-              disabled={favourite.pending}
-              onClick={() => favourite.setFavourite(!favourite.isFavourite)}
-            >
-              {favourite.isFavourite
-                ? t('projects.favouriteToggle.remove')
-                : t('projects.favouriteToggle.add')}
-            </DropdownMenuItem>
-            <RecordActionItems actions={items('manage')} />
-            {author && !locked && !membership.data && !seriesHead.data ? (
-              <DropdownMenuItem
-                icon="link"
-                disabled={makeSeries.isPending}
-                onClick={() => makeSeries.mutate()}
-              >
-                {t('projects.series.start.action')}
-              </DropdownMenuItem>
-            ) : null}
-            {author && !locked && seriesHead.data ? (
-              <DropdownMenuItem
-                icon="link"
-                onClick={() => setDialog('dissolve')}
-              >
-                {t('projects.series.dissolve.action')}
-              </DropdownMenuItem>
-            ) : null}
-            {author ? (
-              <>
-                <DropdownMenuItem
-                  icon="template"
-                  onClick={() => setDialog('template')}
-                >
-                  {t('projects.saveAsTemplate.submit')}
-                </DropdownMenuItem>
-                {isDraft ? (
-                  <DropdownMenuItem
-                    icon="move"
-                    onClick={() => setDialog('move')}
-                  >
-                    {t('projects.lifecycle.moveItem')}
-                  </DropdownMenuItem>
-                ) : null}
-                <DropdownMenuItem
-                  icon="archive"
-                  onClick={() => setDialog('archive')}
-                >
-                  {t('projects.lifecycle.archive')}
-                </DropdownMenuItem>
-                {isDraft ? (
-                  <DropdownMenuItem danger onClick={() => setDialog('delete')}>
-                    {t('projects.lifecycle.deleteDraft')}
-                  </DropdownMenuItem>
-                ) : null}
-              </>
-            ) : null}
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
+    </>
+  )
+}
 
+/** The actions menu: what the header's More button offers, by group. */
+function LifecycleMenu({
+  experiment,
+  nextStep,
+  reviewRevisionId: reviewReviewId,
+  items,
+  author,
+  isActive,
+  isDraft,
+  locked,
+  favourite,
+  membership,
+  seriesHead,
+  makeSeries,
+  onDialog,
+  onBookInstrument,
+  onRequestChanges,
+}: {
+  experiment: ExperimentRow
+  nextStep: NextStep
+  reviewRevisionId?: string
+  items: (group: 'do' | 'share' | 'manage') => RecordAction[]
+  author: boolean
+  isActive: boolean
+  isDraft: boolean
+  locked: boolean
+  favourite: {
+    isFavourite: boolean
+    pending: boolean
+    setFavourite: (next: boolean) => void
+  }
+  membership: { inSeries: boolean }
+  seriesHead: { isHead: boolean }
+  makeSeries: { pending: boolean; start: () => void }
+  onDialog: (kind: DialogKind) => void
+  onBookInstrument: () => void
+  onRequestChanges: () => void
+}) {
+  const e = experiment
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="quiet"
+            size="icon"
+            aria-label={t('projects.lifecycle.more')}
+          >
+            <Icon name="more" size={14} />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>
+            {t('projects.lifecycle.menu.do')}
+          </DropdownMenuLabel>
+          {nextStep.reviewing && reviewReviewId ? (
+            <DropdownMenuItem
+              icon="edit"
+              className="md:hidden"
+              onClick={onRequestChanges}
+            >
+              {t('projects.lifecycle.requestChanges')}
+            </DropdownMenuItem>
+          ) : null}
+          <RecordActionItems actions={items('do')} />
+          {author && isActive ? (
+            <DropdownMenuItem icon="pause" onClick={() => onDialog('hold')}>
+              {t('projects.lifecycle.putOnHold')}
+            </DropdownMenuItem>
+          ) : null}
+          {author && !locked ? (
+            <DropdownMenuItem icon="calendar" onClick={onBookInstrument}>
+              {t('projects.bookInstrument.label')}
+            </DropdownMenuItem>
+          ) : null}
+          {author && e.project_id ? (
+            <DropdownMenuItem icon="copy" onClick={() => onDialog('run')}>
+              {t('projects.lifecycle.newRun')}
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>
+            {t('projects.lifecycle.menu.share')}
+          </DropdownMenuLabel>
+          {e.project_id && author ? (
+            <DropdownMenuItem icon="share" onClick={() => onDialog('share')}>
+              {t('projects.clientSharing.action')}
+            </DropdownMenuItem>
+          ) : null}
+          <RecordActionItems actions={items('share')} />
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <LifecycleManageItems
+          items={items}
+          author={author}
+          isDraft={isDraft}
+          locked={locked}
+          membership={membership}
+          seriesHead={seriesHead}
+          makeSeries={makeSeries}
+          favourite={favourite}
+          onDialog={onDialog}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** The menu's Manage group: favourites, the series and the record's own states. */
+function LifecycleManageItems({
+  items,
+  author,
+  isDraft,
+  locked,
+  membership,
+  seriesHead,
+  makeSeries,
+  favourite,
+  onDialog,
+}: {
+  items: (group: 'do' | 'share' | 'manage') => RecordAction[]
+  author: boolean
+  isDraft: boolean
+  locked: boolean
+  membership: { inSeries: boolean }
+  seriesHead: { isHead: boolean }
+  makeSeries: { pending: boolean; start: () => void }
+  favourite: {
+    isFavourite: boolean
+    pending: boolean
+    setFavourite: (next: boolean) => void
+  }
+  onDialog: (kind: DialogKind) => void
+}) {
+  return (
+    <DropdownMenuGroup>
+      <DropdownMenuLabel>
+        {t('projects.lifecycle.menu.manage')}
+      </DropdownMenuLabel>
+      <DropdownMenuItem
+        icon="pin"
+        disabled={favourite.pending}
+        onClick={() => favourite.setFavourite(!favourite.isFavourite)}
+      >
+        {favourite.isFavourite
+          ? t('projects.favouriteToggle.remove')
+          : t('projects.favouriteToggle.add')}
+      </DropdownMenuItem>
+      <RecordActionItems actions={items('manage')} />
+      {author && !locked && !membership.inSeries && !seriesHead.isHead ? (
+        <DropdownMenuItem
+          icon="link"
+          disabled={makeSeries.pending}
+          onClick={makeSeries.start}
+        >
+          {t('projects.series.start.action')}
+        </DropdownMenuItem>
+      ) : null}
+      {author && !locked && seriesHead.isHead ? (
+        <DropdownMenuItem icon="link" onClick={() => onDialog('dissolve')}>
+          {t('projects.series.dissolve.action')}
+        </DropdownMenuItem>
+      ) : null}
+      {author ? (
+        <>
+          <DropdownMenuItem
+            icon="template"
+            onClick={() => onDialog('template')}
+          >
+            {t('projects.saveAsTemplate.submit')}
+          </DropdownMenuItem>
+          {isDraft ? (
+            <DropdownMenuItem icon="move" onClick={() => onDialog('move')}>
+              {t('projects.lifecycle.moveItem')}
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem icon="archive" onClick={() => onDialog('archive')}>
+            {t('projects.lifecycle.archive')}
+          </DropdownMenuItem>
+          {isDraft ? (
+            <DropdownMenuItem danger onClick={() => onDialog('delete')}>
+              {t('projects.lifecycle.deleteDraft')}
+            </DropdownMenuItem>
+          ) : null}
+        </>
+      ) : null}
+    </DropdownMenuGroup>
+  )
+}
+
+/** The dialogs the menu opens: hold, new run, dissolve, move, archive, delete. */
+function LifecycleDialogs({
+  experiment,
+  dialog,
+  onClose,
+  holdPending,
+  onHold,
+  reason,
+  onReasonChange,
+  runPending,
+  onRun,
+  runTitle,
+  onRunTitleChange,
+  joinOnRun,
+  onJoinOnRunChange,
+  dissolvePending,
+  onDissolve,
+  movePending,
+  onMove,
+  moveTo,
+  onMoveToChange,
+  projectOptions,
+  archivePending,
+  onArchive,
+  removePending,
+  onRemove,
+}: {
+  experiment: ExperimentRow
+  dialog: DialogKind
+  onClose: () => void
+  holdPending: boolean
+  onHold: () => void
+  reason: string
+  onReasonChange: (value: string) => void
+  runPending: boolean
+  onRun: () => void
+  runTitle: string
+  onRunTitleChange: (value: string) => void
+  joinOnRun: boolean
+  onJoinOnRunChange: (value: boolean) => void
+  dissolvePending: boolean
+  onDissolve: () => void
+  movePending: boolean
+  onMove: () => void
+  moveTo: string
+  onMoveToChange: (value: string) => void
+  projectOptions: React.ComponentProps<typeof PickerSelect>['options']
+  archivePending: boolean
+  onArchive: () => void
+  removePending: boolean
+  onRemove: () => void
+}) {
+  const e = experiment
+
+  return (
+    <>
       {dialog === 'share' ? (
         <ShareWithClientDialog
           open
-          onOpenChange={(open) => (open ? null : close())}
+          onOpenChange={(open) => (open ? null : onClose())}
           recordId={e.id}
         />
       ) : null}
@@ -562,14 +833,14 @@ export function ExperimentLifecycleActions({
       {dialog === 'template' ? (
         <SaveAsTemplateDialog
           open
-          onOpenChange={(open) => (open ? null : close())}
+          onOpenChange={(open) => (open ? null : onClose())}
           experiment={e}
         />
       ) : null}
 
       <Dialog
         open={dialog === 'hold'}
-        onOpenChange={(open) => (open ? null : close())}
+        onOpenChange={(open) => (open ? null : onClose())}
       >
         <DialogContent>
           <DialogHeader
@@ -580,7 +851,7 @@ export function ExperimentLifecycleActions({
             <Field label={t('projects.lifecycle.holdDialog.reason')} required>
               <Input
                 value={reason}
-                onChange={(event) => setReason(event.target.value)}
+                onChange={(event) => onReasonChange(event.target.value)}
                 placeholder={t('projects.lifecycle.holdDialog.placeholder')}
               />
             </Field>
@@ -591,8 +862,8 @@ export function ExperimentLifecycleActions({
             />
             <Button
               variant="primary"
-              disabled={!reason.trim() || hold.isPending}
-              onClick={() => hold.mutate('on_hold')}
+              disabled={!reason.trim() || holdPending}
+              onClick={onHold}
             >
               {t('projects.lifecycle.putOnHold')}
             </Button>
@@ -602,7 +873,7 @@ export function ExperimentLifecycleActions({
 
       <Dialog
         open={dialog === 'run'}
-        onOpenChange={(open) => (open ? null : close())}
+        onOpenChange={(open) => (open ? null : onClose())}
       >
         <DialogContent>
           <DialogHeader
@@ -613,24 +884,20 @@ export function ExperimentLifecycleActions({
             <Field label={t('projects.lifecycle.runDialog.field')}>
               <Input
                 value={runTitle}
-                onChange={(event) => setRunTitle(event.target.value)}
+                onChange={(event) => onRunTitleChange(event.target.value)}
               />
             </Field>
             <SeriesOffer
               sourceId={e.id}
               checked={joinOnRun}
-              onChange={setJoinOnRun}
+              onChange={onJoinOnRunChange}
             />
           </DialogBody>
           <DialogFooter>
             <DialogClose
               render={<Button>{t('common.actions.cancel')}</Button>}
             />
-            <Button
-              variant="primary"
-              disabled={run.isPending}
-              onClick={() => run.mutate()}
-            >
+            <Button variant="primary" disabled={runPending} onClick={onRun}>
               {t('projects.lifecycle.runDialog.submit')}
             </Button>
           </DialogFooter>
@@ -639,7 +906,7 @@ export function ExperimentLifecycleActions({
 
       <Dialog
         open={dialog === 'dissolve'}
-        onOpenChange={(open) => (open ? null : close())}
+        onOpenChange={(open) => (open ? null : onClose())}
       >
         <DialogContent>
           <DialogHeader
@@ -654,8 +921,8 @@ export function ExperimentLifecycleActions({
             />
             <Button
               variant="primary"
-              disabled={endSeries.isPending}
-              onClick={() => endSeries.mutate()}
+              disabled={dissolvePending}
+              onClick={onDissolve}
             >
               {t('projects.series.dissolve.submit')}
             </Button>
@@ -665,7 +932,7 @@ export function ExperimentLifecycleActions({
 
       <Dialog
         open={dialog === 'move'}
-        onOpenChange={(open) => (open ? null : close())}
+        onOpenChange={(open) => (open ? null : onClose())}
       >
         <DialogContent>
           <DialogHeader
@@ -677,10 +944,8 @@ export function ExperimentLifecycleActions({
               <PickerSelect
                 noun="project"
                 value={moveTo}
-                onChange={(id) => setMoveTo(id)}
-                options={(projects.data ?? [])
-                  .filter((project) => project.id !== e.project_id)
-                  .map((project) => projectOption(project))}
+                onChange={onMoveToChange}
+                options={projectOptions}
               />
             </Field>
           </DialogBody>
@@ -690,8 +955,8 @@ export function ExperimentLifecycleActions({
             />
             <Button
               variant="primary"
-              disabled={!moveTo || move.isPending}
-              onClick={() => move.mutate()}
+              disabled={!moveTo || movePending}
+              onClick={onMove}
             >
               {t('projects.lifecycle.moveDialog.submit')}
             </Button>
@@ -701,7 +966,7 @@ export function ExperimentLifecycleActions({
 
       <Dialog
         open={dialog === 'archive'}
-        onOpenChange={(open) => (open ? null : close())}
+        onOpenChange={(open) => (open ? null : onClose())}
       >
         <DialogContent>
           <DialogHeader
@@ -716,8 +981,8 @@ export function ExperimentLifecycleActions({
             />
             <Button
               variant="primary"
-              disabled={archive.isPending}
-              onClick={() => archive.mutate()}
+              disabled={archivePending}
+              onClick={onArchive}
             >
               {t('projects.lifecycle.archive')}
             </Button>
@@ -727,7 +992,7 @@ export function ExperimentLifecycleActions({
 
       <Dialog
         open={dialog === 'delete'}
-        onOpenChange={(open) => (open ? null : close())}
+        onOpenChange={(open) => (open ? null : onClose())}
       >
         <DialogContent>
           <DialogHeader
@@ -742,8 +1007,8 @@ export function ExperimentLifecycleActions({
             />
             <Button
               variant="danger-fill"
-              disabled={remove.isPending}
-              onClick={() => remove.mutate()}
+              disabled={removePending}
+              onClick={onRemove}
             >
               {t('projects.lifecycle.deleteDraft')}
             </Button>

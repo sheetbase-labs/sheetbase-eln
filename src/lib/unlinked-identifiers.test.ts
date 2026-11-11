@@ -13,9 +13,12 @@ import { describe, expect, it } from 'vitest'
  * `ObjectLink` lets you lower `BASELINE`; adding a new one means either linking
  * it or raising the number with a reason in review.
  */
-// Two more sit inside a link to the protocol already (booking rules, the
-// training gap list), so the identifier there is part of a link, not bare text.
-const BASELINE = 25
+// Several sit inside a link already (booking rules, the training gap list, and
+// Home's two activity columns, whose identifier is part of the link to the
+// revision or the record), so the identifier there is part of a link, not bare
+// text. Home's split into its own columns module moved those two into the
+// counted shape; neither is a new bare identifier.
+const BASELINE = 27
 
 const PLAIN_IDENTIFIER_PATTERN =
   /<span[^>]*mono[^>]*>\s*\{[^}]*(identifier|display_id|displayId)[^}]*\}/

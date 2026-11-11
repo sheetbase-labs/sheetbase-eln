@@ -17,18 +17,25 @@ import type { PaneSplit, PaneTree } from './pane-tree'
 
 const sum = (sizes: number[]) => sizes.reduce((a, b) => a + b, 0)
 
+/** The split a builder returned, refusing (loudly) any other tree. */
+function asSplit(tree: PaneTree | null): PaneSplit {
+  if (tree?.type !== 'split') throw new Error('Expected a split of panes')
+
+  return tree
+}
+
 describe('splitPane', () => {
   it('wraps a lone pane in a split with the new pane after it', () => {
-    const tree = splitPane(leaf('a'), 'a', 'b', 'row')
+    const tree = asSplit(splitPane(leaf('a'), 'a', 'b', 'row'))
     expect(listPaneIds(tree)).toEqual(['a', 'b'])
-    expect((tree as PaneSplit).direction).toBe('row')
-    expect((tree as PaneSplit).sizes).toEqual([0.5, 0.5])
+    expect(tree.direction).toBe('row')
+    expect(tree.sizes).toEqual([0.5, 0.5])
   })
 
   it('shares the target pane, not the whole split, when splitting in the same direction', () => {
     let tree: PaneTree = splitPane(leaf('a'), 'a', 'b', 'row')
     tree = splitPane(tree, 'a', 'c', 'row')
-    const row = tree as PaneSplit
+    const row = asSplit(tree)
     expect(row.children).toHaveLength(3)
     expect(listPaneIds(tree)).toEqual(['a', 'c', 'b'])
     expect(row.sizes).toEqual([0.25, 0.25, 0.5])
@@ -38,8 +45,8 @@ describe('splitPane', () => {
     let tree: PaneTree = splitPane(leaf('a'), 'a', 'b', 'row')
     tree = splitPane(tree, 'b', 'c', 'column', true)
     expect(listPaneIds(tree)).toEqual(['a', 'c', 'b'])
-    const row = tree as PaneSplit
-    expect((row.children[1] as PaneSplit).direction).toBe('column')
+    const row = asSplit(tree)
+    expect(asSplit(row.children[1]).direction).toBe('column')
   })
 })
 
@@ -47,7 +54,7 @@ describe('removePane', () => {
   it('gives the freed space to the remaining panes and keeps sizes summing to one', () => {
     let tree: PaneTree = splitPane(leaf('a'), 'a', 'b', 'row')
     tree = splitPane(tree, 'b', 'c', 'row')
-    const next = removePane(tree, 'b') as PaneSplit
+    const next = asSplit(removePane(tree, 'b'))
     expect(listPaneIds(next)).toEqual(['a', 'c'])
     expect(sum(next.sizes)).toBeCloseTo(1)
   })
@@ -64,7 +71,7 @@ describe('removePane', () => {
       split('column', [leaf('b'), leaf('c')]),
     ])
 
-    const next = removePane(tree, 'c') as PaneSplit
+    const next = asSplit(removePane(tree, 'c'))
     expect(next.children.map((child) => child.type)).toEqual(['pane', 'pane'])
     expect(listPaneIds(next)).toEqual(['a', 'b'])
   })
@@ -72,11 +79,11 @@ describe('removePane', () => {
 
 describe('resizeSplit', () => {
   it('moves one divider and respects the minimum size', () => {
-    const tree = splitPane(leaf('a'), 'a', 'b', 'row') as PaneSplit
-    const moved = resizeSplit(tree, tree.id, 0, 0.2) as PaneSplit
+    const tree = asSplit(splitPane(leaf('a'), 'a', 'b', 'row'))
+    const moved = asSplit(resizeSplit(tree, tree.id, 0, 0.2))
     expect(moved.sizes[0]).toBeCloseTo(0.7)
     expect(sum(moved.sizes)).toBeCloseTo(1)
-    const clamped = resizeSplit(tree, tree.id, 0, -1) as PaneSplit
+    const clamped = asSplit(resizeSplit(tree, tree.id, 0, -1))
     expect(clamped.sizes[0]).toBeCloseTo(0.08)
   })
 })
@@ -96,15 +103,11 @@ describe('presets', () => {
   })
 
   it('puts the primary pane first, wider, beside a stacked context for primary + context', () => {
-    const tree = applyPreset(
-      'primary-context',
-      ['a', 'b', 'c'],
-      'b',
-    ) as PaneSplit
+    const tree = asSplit(applyPreset('primary-context', ['a', 'b', 'c'], 'b'))
 
     expect(tree.sizes).toEqual([0.6, 0.4])
     expect(tree.children[0]).toEqual(leaf('b'))
-    expect((tree.children[1] as PaneSplit).direction).toBe('column')
+    expect(asSplit(tree.children[1]).direction).toBe('column')
   })
 
   it('recognises the preset a tree is exactly', () => {

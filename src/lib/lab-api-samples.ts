@@ -22,7 +22,7 @@ const HIERARCHY_COMMON = [
   ['workspace_id', 'uuid', 1],
 ] as const
 
-export const SAMPLE_LAB_TABLES: Readonly<Record<string, LabTable>> = {
+export const SAMPLE_LAB_TABLES = {
   sample_events: {
     summary:
       'The history of a sample: every receive, use, move, edit, release, quarantine and disposal, with the quantity before and after. Written only by the sample actions, never edited.',
@@ -212,9 +212,9 @@ export const SAMPLE_LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['created_at', 'ts', 1],
     ],
   },
-}
+} satisfies Readonly<Record<string, LabTable>>
 
-export const SAMPLE_LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
+export const SAMPLE_LAB_PARAM_NOTES = {
   p_record_id: 'Record id (for a sample action, the sample).',
   p_location: 'Where the sample is, as free text such as `Freezer 2, shelf 3`.',
   p_to_location: 'Where the sample goes, as free text.',
@@ -253,9 +253,9 @@ export const SAMPLE_LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_properties: 'Properties of the sample, keyed by name.',
   p_planned_key: 'A key that makes asking again return the same request.',
   p_tags: 'Tags.',
-}
+} satisfies Readonly<Record<string, string>>
 
-export const SAMPLE_LAB_RPCS: Readonly<Record<string, LabRpc>> = {
+export const SAMPLE_LAB_RPCS = {
   receive_sample: {
     summary: 'Receive stock of a sample',
     description:
@@ -637,4 +637,4 @@ export const SAMPLE_LAB_RPCS: Readonly<Record<string, LabRpc>> = {
     params: [['p_record_id', 'uuid', 1]],
     result: 'json',
   },
-}
+} satisfies Readonly<Record<string, LabRpc>>

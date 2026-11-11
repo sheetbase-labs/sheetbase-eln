@@ -6,6 +6,16 @@ import {
   sheetInstanceFromWire,
 } from './sheet-instance-data'
 import { validSheetInstanceState } from './sheet-instance.test'
+import type { DataClient } from './data-client'
+
+/**
+ * A client carrying the one member a test exercises. These functions read only
+ * the member the stub supplies, never the rest of the client.
+ */
+function stubClient<T extends Partial<DataClient>>(client: T): DataClient {
+  // SAFETY: every function under test reads only the member this stub supplies (rpc for renames, list for project sheets); no other client member is reached.
+  return client as DataClient
+}
 
 const id = () => crypto.randomUUID()
 
@@ -86,7 +96,7 @@ describe('Sheet Instance rename and project list', () => {
   it('renames through the dedicated RPC with the expected revision', async () => {
     const rpc = vi.fn().mockResolvedValue(wire())
     const { renameSheetInstance } = await import('./sheet-instance-data')
-    await renameSheetInstance('s-1', 4, '  Cell count  ', { rpc } as never)
+    await renameSheetInstance('s-1', 4, '  Cell count  ', stubClient({ rpc }))
     expect(rpc).toHaveBeenCalledWith('rename_sheet_instance', {
       p_instance_id: 's-1',
       p_expected_revision: 4,
@@ -98,10 +108,10 @@ describe('Sheet Instance rename and project list', () => {
     const rpc = vi.fn()
     const { renameSheetInstance } = await import('./sheet-instance-data')
     await expect(
-      renameSheetInstance('s-1', 4, '   ', { rpc } as never),
+      renameSheetInstance('s-1', 4, '   ', stubClient({ rpc })),
     ).rejects.toThrow('1 to 200')
     await expect(
-      renameSheetInstance('s-1', 4, 'x'.repeat(201), { rpc } as never),
+      renameSheetInstance('s-1', 4, 'x'.repeat(201), stubClient({ rpc })),
     ).rejects.toThrow('1 to 200')
     expect(rpc).not.toHaveBeenCalled()
   })
@@ -109,8 +119,8 @@ describe('Sheet Instance rename and project list', () => {
   it('reads one project’s working sheets, or its archived ones', async () => {
     const list = vi.fn().mockResolvedValue([wire()])
     const { fetchProjectSheets } = await import('./sheet-instance-data')
-    await fetchProjectSheets('p-1', {}, { list } as never)
-    await fetchProjectSheets('p-1', { archived: true }, { list } as never)
+    await fetchProjectSheets('p-1', {}, stubClient({ list }))
+    await fetchProjectSheets('p-1', { archived: true }, stubClient({ list }))
     expect(list.mock.calls[0]?.[1]).toContain('project_id=eq.p-1')
     expect(list.mock.calls[0]?.[1]).toContain('lifecycle=eq.active')
     expect(list.mock.calls[1]?.[1]).toContain('lifecycle=eq.archived')

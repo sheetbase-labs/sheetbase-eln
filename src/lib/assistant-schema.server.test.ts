@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
   LINK_RULE_SET_TOOL,
@@ -26,7 +27,7 @@ import {
   ASSISTANT_READ_TOOL_NAMES,
 } from './agent-tool-catalogue'
 import type { LabToolContext } from './assistant-lab-tools.server'
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
 
 const REAGENT = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -65,11 +66,11 @@ const PASSAGE = {
 function context(
   tables: Partial<Record<string, (query: string) => unknown[]>>,
 ) {
-  const client = {
+  const client = Object.assign(createDataClient(), {
     list: (resource: string, query: string) =>
       Promise.resolve(tables[resource]?.(query) ?? []),
-    rpc: vi.fn(() => Promise.resolve({})),
-  } as unknown as DataClient
+    rpc: () => Promise.resolve({}),
+  })
 
   return {
     client,
@@ -304,9 +305,16 @@ describe('record type, sheet definition and template assistant tools', () => {
 
     expect(read.isError).toBe(false)
 
-    const body = JSON.parse(read.text) as {
-      fields: Array<{ label: string; choices?: string[] }>
-    }
+    const body = z
+      .object({
+        fields: z.array(
+          z.object({
+            label: z.string(),
+            choices: z.array(z.string()).optional(),
+          }),
+        ),
+      })
+      .parse(JSON.parse(read.text))
 
     expect(body.fields[0]).toMatchObject({
       label: 'State',
@@ -316,8 +324,8 @@ describe('record type, sheet definition and template assistant tools', () => {
   })
 
   it('runs each card through its own call', async () => {
-    const rpc = vi.fn(() => Promise.resolve({}))
-    const client = { rpc } as unknown as DataClient
+    const rpc = vi.fn((_name: string) => Promise.resolve({}))
+    const client = Object.assign(createDataClient(), { rpc })
     const run = (action: SchemaAction) => runSchemaAction(client, action)
     await run({
       kind: 'schema.model_create',
@@ -334,7 +342,7 @@ describe('record type, sheet definition and template assistant tools', () => {
       revision: 2,
       retire: false,
     })
-    expect(rpc.mock.calls.map((call) => (call as unknown[])[0])).toEqual([
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
       'create_workspace_model',
       'restore_sheet_definition',
     ])

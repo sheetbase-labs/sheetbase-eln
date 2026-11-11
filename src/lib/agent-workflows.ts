@@ -1,3 +1,5 @@
+import type { z } from 'zod'
+
 import {
   AGENT_OPERATION_TOOL_NAMES,
   describeAgentTool,
@@ -126,7 +128,7 @@ export interface AgentWorkflowEvent {
     | 'succeeded'
   actor_user_id: string | null
   actor_credential_id: string | null
-  detail: Record<string, unknown>
+  detail: Record<string, z.core.util.JSONType>
   created_at: string
 }
 
@@ -547,15 +549,14 @@ export function summarizeWorkflowRecovery(
   steps: AgentWorkflowStep[],
 ): AgentWorkflowRecoverySummary {
   return {
-    completed: steps
-      .filter((step) => step.status === 'succeeded')
-      .map((step) => ({
-        stepKey: step.step_key,
-        proposalId: step.proposal_id,
-      })),
-    retryable: steps
-      .filter((step) => canRetryWorkflowStep(workflow, step))
-      .map((step) => step.step_key),
+    completed: steps.flatMap((step) =>
+      step.status === 'succeeded'
+        ? [{ stepKey: step.step_key, proposalId: step.proposal_id }]
+        : [],
+    ),
+    retryable: steps.flatMap((step) =>
+      canRetryWorkflowStep(workflow, step) ? [step.step_key] : [],
+    ),
     terminal:
       workflow.status === 'cancelled' ||
       workflow.status === 'budget_exhausted' ||

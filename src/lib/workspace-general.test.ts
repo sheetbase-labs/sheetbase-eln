@@ -41,7 +41,9 @@ describe('workspace publication policy data boundary', () => {
       expect(fetcher.mock.calls[1]?.[0]).toBe(
         '/api/db/rpc/update_workspace_publication_policy',
       )
-      expect(JSON.parse(String(fetcher.mock.calls[1]?.[1]?.body))).toEqual({
+      expect(
+        await new Response(fetcher.mock.calls[1]?.[1]?.body).json(),
+      ).toEqual({
         p_workspace_id: 'ws-1',
         p_required: required,
       })
@@ -62,7 +64,9 @@ describe('workspace publication policy data boundary', () => {
       expect(fetcher.mock.calls[0]?.[0]).toBe(
         '/api/db/rpc/update_workspace_settings',
       )
-      expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      expect(
+        await new Response(fetcher.mock.calls[0]?.[1]?.body).json(),
+      ).toEqual({
         p_workspace_id: 'ws-1',
         p_allow_offline_editing: allowed,
       })

@@ -3,22 +3,25 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Secret } from './secret'
+import { Toaster, toast } from './sonner'
 
-const sonner = vi.hoisted(() => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
-}))
+const FAILED_COPY = 'Couldn’t copy. Select the value and copy it by hand.'
 
-vi.mock('sonner', () => ({
-  Toaster: () => null,
-  toast: sonner.toast,
-}))
+/** The value beside the app's own toaster, which paints what the copy reports. */
+function renderSecret() {
+  return render(
+    <>
+      <Secret value="sb_live_123" />
+      <Toaster />
+    </>,
+  )
+}
 
 afterEach(() => {
   cleanup()
+  toast.dismiss()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
-  sonner.toast.mockClear()
-  sonner.toast.error.mockClear()
 })
 
 describe('Secret', () => {
@@ -29,13 +32,13 @@ describe('Secret', () => {
       .spyOn(navigator.clipboard, 'writeText')
       .mockResolvedValue(undefined)
 
-    render(<Secret value="sb_live_123" />)
+    renderSecret()
 
     await user.click(screen.getByRole('button', { name: 'Copy' }))
 
     expect(writeText).toHaveBeenCalledWith('sb_live_123')
-    expect(sonner.toast).toHaveBeenCalledWith('Copied')
-    expect(sonner.toast.error).not.toHaveBeenCalled()
+    expect(await screen.findByText('Copied')).toBeTruthy()
+    expect(screen.queryByText(FAILED_COPY)).toBeNull()
   })
 
   it('reports a refused copy instead of confirming one', async () => {
@@ -43,12 +46,12 @@ describe('Secret', () => {
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(
       new DOMException('denied', 'NotAllowedError'),
     )
-    render(<Secret value="sb_live_123" />)
+    renderSecret()
 
     await user.click(screen.getByRole('button', { name: 'Copy' }))
 
-    expect(sonner.toast.error).toHaveBeenCalled()
-    expect(sonner.toast).not.toHaveBeenCalled()
+    expect(await screen.findByText(FAILED_COPY)).toBeTruthy()
+    expect(screen.queryByText('Copied')).toBeNull()
   })
 
   it('reports a missing clipboard instead of confirming a copy', async () => {
@@ -56,11 +59,11 @@ describe('Secret', () => {
     // ignored never ran, and the toast claimed a copy that had not happened.
     const user = userEvent.setup()
     vi.stubGlobal('navigator', { clipboard: undefined })
-    render(<Secret value="sb_live_123" />)
+    renderSecret()
 
     await user.click(screen.getByRole('button', { name: 'Copy' }))
 
-    expect(sonner.toast.error).toHaveBeenCalled()
-    expect(sonner.toast).not.toHaveBeenCalled()
+    expect(await screen.findByText(FAILED_COPY)).toBeTruthy()
+    expect(screen.queryByText('Copied')).toBeNull()
   })
 })

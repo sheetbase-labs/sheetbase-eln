@@ -149,7 +149,12 @@ type SearchAnswer = SearchResultWire[] | DidYouMeanSuggestion[]
 function rpcStub(
   answer: (name: string) => Promise<SearchAnswer>,
 ): DataClientStub {
-  return { rpc: (name) => answer(name) }
+  return {
+    rpc: async <T,>(name: string): Promise<T> =>
+      // SAFETY: these stories answer the search RPCs with the fixtures above;
+      // the caller's result type is the story's own claim about that answer.
+      (await answer(name)) as T,
+  }
 }
 
 const WITH_RESULTS: DataClientStub = rpcStub((name) =>

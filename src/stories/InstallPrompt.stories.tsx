@@ -83,7 +83,7 @@ function PresentAsIPhone({ children }: { children: React.ReactNode }) {
     return () => {
       if (original)
         Object.defineProperty(window.navigator, 'userAgent', original)
-      else delete (window.navigator as { userAgent?: string }).userAgent
+      else Reflect.deleteProperty(window.navigator, 'userAgent')
     }
   }, [])
 

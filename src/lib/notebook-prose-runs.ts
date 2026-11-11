@@ -16,6 +16,8 @@
  * These helpers are pure so the rules can be tested without a DOM.
  */
 
+import type { RichTextDocument, RichTextPayload } from './blocks/rich-text-data'
+import type { NotebookBlock } from './notebook-data'
 import { isRichTextPayload } from './blocks/rich-text-data'
 
 export interface ProseRunPosition {
@@ -33,7 +35,7 @@ export interface ProseRunPosition {
  */
 export function proseRunMembers(
   blocks: readonly { id: string; type: string }[],
-): Partial<Record<string, ProseRunPosition>> {
+) {
   const members: Partial<Record<string, ProseRunPosition>> = {}
   let runStart = 0
 
@@ -73,13 +75,8 @@ export function proseRunMembers(
 }
 
 /** An empty top-level paragraph, in either of the two shapes the contract allows. */
-function isEmptyParagraph(node: unknown): boolean {
-  if (typeof node !== 'object' || node === null) return false
-  const paragraph = node as { type?: unknown; content?: unknown }
-
-  if (paragraph.type !== 'paragraph') return false
-
-  return !Array.isArray(paragraph.content) || paragraph.content.length === 0
+function isEmptyParagraph(node: RichTextDocument['content'][number]): boolean {
+  return node.type === 'paragraph' && !node.content?.length
 }
 
 /** What a Backspace at the start of a row means. */
@@ -99,7 +96,7 @@ export type ProseBackspaceAction = 'join' | 'delete-row' | 'none'
  */
 export function proseBackspaceAction(input: {
   currentIsEmpty: boolean
-  joined: Record<string, unknown> | null
+  joined: RichTextPayload | null
 }): ProseBackspaceAction {
   if (input.joined) return 'join'
 
@@ -124,9 +121,9 @@ export function proseBackspaceAction(input: {
  * spanning both rows, which is a larger change than this helper.
  */
 export function joinProsePayloads(
-  previous: unknown,
-  next: unknown,
-): Record<string, unknown> | null {
+  previous: NotebookBlock['payload'],
+  next: NotebookBlock['payload'],
+): RichTextPayload | null {
   if (!isRichTextPayload(previous) || !isRichTextPayload(next)) return null
   const [first, ...rest] = next.doc.content
   const carried = isEmptyParagraph(first) ? rest : next.doc.content

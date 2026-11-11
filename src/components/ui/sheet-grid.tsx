@@ -112,6 +112,7 @@ export function SheetGrid<TRow>({
         </thead>
         <tbody>
           {rows.map((r, i) => (
+            // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- This grid addresses rows by position: `active` is a row/column index pair, and the roving focus and `data-cell` names are positional too, so the key matches the component's own model.
             <tr key={i}>
               <th
                 scope="row"

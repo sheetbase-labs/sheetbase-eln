@@ -38,7 +38,7 @@ import type {
 } from './assist-explain'
 import { toPhrasing } from './assist-explain'
 import { isRichTextPayload, richTextToPlainText, validateBlock } from './blocks'
-import type { RichTextPayload } from './blocks/rich-text-data'
+import type { RichTextPayload, RichTextTextNode } from './blocks/rich-text-data'
 import {
   CHART_SPEC_VERSION,
   CHART_TYPES_NULL_X,
@@ -168,7 +168,7 @@ function envelopeCitations(
 // (a) Notebook text / summary drafts grounded in record context.
 // ---------------------------------------------------------------------------
 
-function textNode(text: string): { type: 'text'; text: string } {
+function textNode(text: string): RichTextTextNode {
   return { type: 'text', text }
 }
 
@@ -297,6 +297,13 @@ export const MAX_DRAFT_SOURCE_BLOCKS = 20 as const
 /** Max chars kept per block body; longer bodies are cut with an ellipsis marker. */
 export const MAX_DRAFT_CHARS_PER_BLOCK = 500 as const
 
+/** What the notebook blocks visible to the actor summarise to. */
+export interface NotebookBlocksSummary {
+  context: AssistDraftContext
+  keyPoints: string[]
+  groundedFrom: string
+}
+
 /**
  * Summarise the notebook blocks already visible to the actor into draft
  * context + verbatim key points. Pure and local: performs no reads, so it
@@ -312,11 +319,7 @@ export function summariseNotebookBlocks(input: {
   blocks: Array<{ id: string; type: string; payload: unknown }>
   maxBlocks?: number
   maxCharsPerBlock?: number
-}): {
-  context: AssistDraftContext
-  keyPoints: string[]
-  groundedFrom: string
-} {
+}): NotebookBlocksSummary {
   const maxBlocks = input.maxBlocks ?? MAX_DRAFT_SOURCE_BLOCKS
   const maxChars = input.maxCharsPerBlock ?? MAX_DRAFT_CHARS_PER_BLOCK
   const taken = input.blocks.slice(0, maxBlocks)
@@ -391,8 +394,7 @@ function exactTarget(
   return (
     fields.find((field) =>
       [field.label, field.key, field.id]
-        .filter(Boolean)
-        .map((value) => normalise(String(value)))
+        .flatMap((value) => (value ? [normalise(String(value))] : []))
         .includes(wanted),
     ) ?? null
   )
@@ -407,9 +409,9 @@ function closeTarget(
   if (flat.length === 0) return null
 
   for (const field of fields) {
-    const labels = [field.label, field.key, field.id]
-      .filter(Boolean)
-      .map((value) => normalisedAlnum(String(value)))
+    const labels = [field.label, field.key, field.id].flatMap((value) =>
+      value ? [normalisedAlnum(String(value))] : [],
+    )
 
     if (labels.includes(flat)) {
       return {
@@ -431,9 +433,11 @@ function closeTarget(
       .split(/[^a-z0-9]+/g)
       .filter((token) => token.length >= 3)
 
+    const sourceTokenSet = new Set(sourceTokens)
+
     const hit = labelTokens.find(
       (token) =>
-        sourceTokens.includes(token) ||
+        sourceTokenSet.has(token) ||
         sourceTokens.some(
           (candidate) => candidate.includes(token) || token.includes(candidate),
         ),
@@ -586,8 +590,8 @@ export function proposeChartSpec(input: {
   // x, x-requiring types fail closed without a categorical field.
   if (input.preferredType !== undefined) {
     const type = input.preferredType
-    const needsX = (CHART_TYPES_REQUIRING_X as readonly string[]).includes(type)
-    const nullsX = (CHART_TYPES_NULL_X as readonly string[]).includes(type)
+    const needsX = CHART_TYPES_REQUIRING_X.includes(type)
+    const nullsX = CHART_TYPES_NULL_X.includes(type)
 
     if (needsX && !x) return null
     const boundX = nullsX ? null : (x ?? secondNumeric(numerics, y))
@@ -688,7 +692,7 @@ export function proposeChartSpecFromChoice(input: {
   const y = fields.find((field) => field.fieldId === input.yFieldId)
 
   if (!y) return null
-  const nullsX = (CHART_TYPES_NULL_X as readonly string[]).includes(input.type)
+  const nullsX = CHART_TYPES_NULL_X.includes(input.type)
 
   const x = nullsX
     ? null

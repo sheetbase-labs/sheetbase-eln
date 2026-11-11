@@ -381,14 +381,40 @@ export function calculateSheetSnapshot(snapshot: Snapshot): TrustedResult[] {
  * excluded from ƒx evaluation, so a caller can report them instead of dropping
  * them silently.
  */
-export function calculateSheetSnapshotReport(snapshot: Snapshot): {
-  results: TrustedResult[]
-  exclusions: ExclusionSummary
-} {
+export function calculateSheetSnapshotReport(
+  snapshot: Snapshot,
+): SheetSnapshotReport {
   const { results, excluded } = evaluateSheetSnapshot(snapshot)
 
   return { results, exclusions: summariseExcludedValues(excluded) }
 }
+
+/** A bounded calculation pass: its results and what was left out of them. */
+export interface SheetSnapshotReport {
+  results: TrustedResult[]
+  exclusions: ExclusionSummary
+}
+
+/** What the formula writer answers a persisted calculation batch with. */
+export interface SheetCalculationBatch {
+  instanceId: string
+  revision: number
+  rowCount: number
+  calculationCount: number
+  status: string
+}
+
+/** Decode the batch the formula writer answers with, at its boundary. */
+const sheetCalculationBatchSchema = z.object({
+  instanceId: z.string(),
+  revision: z.number(),
+  rowCount: z.number(),
+  calculationCount: z.number(),
+  status: z.string(),
+})
+
+/** The `code` a thrown PostgREST or pool failure carries, if it carries one. */
+const thrownErrorSchema = z.looseObject({ code: z.string().optional() })
 
 export interface SheetCalculationServerDeps {
   getSession: typeof getAppSession
@@ -403,7 +429,7 @@ export interface SheetCalculationServerDeps {
     snapshot: Snapshot,
     retryToken: string,
     results: TrustedResult[],
-  ) => Promise<unknown>
+  ) => Promise<SheetCalculationBatch>
 }
 
 async function loadSnapshot(
@@ -460,6 +486,8 @@ async function loadSnapshot(
     ).rows[0].result
 
     const dataClient: DataClient = {
+      // SAFETY: the one call through this adapter is the composed-sheet read,
+      // whose answer is the JSON that call decodes.
       rpc: async <T>() => raw as T,
       list: async () => [],
       count: async () => 0,
@@ -525,7 +553,7 @@ async function finalize(
   snapshot: Snapshot,
   retryToken: string,
   results: TrustedResult[],
-) {
+): Promise<SheetCalculationBatch> {
   const client = new PooledClient({
     connectionString: env.FORMULA_DATABASE_URL,
   })
@@ -549,7 +577,7 @@ async function finalize(
 
     await client.query('COMMIT')
 
-    return response.rows[0].result
+    return sheetCalculationBatchSchema.parse(response.rows[0].result)
   } catch (error) {
     await client.query('ROLLBACK')
     throw error
@@ -620,16 +648,12 @@ export async function handleSheetCalculation(
 
     // DSET-01.2 — surface the exclusion count alongside the persisted result
     // batch. Data-layer only; no UI is mandated here.
-    return Response.json(
-      finalized !== null && typeof finalized === 'object'
-        ? { ...(finalized as Record<string, unknown>), exclusions }
-        : { result: finalized, exclusions },
-    )
+    return Response.json({ ...finalized, exclusions })
   } catch (error) {
-    const candidate = error as { code?: string }
+    const coded = thrownErrorSchema.safeParse(error)
+    const code = coded.success ? coded.data.code : undefined
 
-    const status =
-      candidate.code === 'SB073' ? 409 : candidate.code === '42501' ? 403 : 500
+    const status = code === 'SB073' ? 409 : code === '42501' ? 403 : 500
 
     return Response.json(
       {

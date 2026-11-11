@@ -14,13 +14,19 @@ import type { StatusDomain } from '#/components/scientific'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 
+/** The props the catalogue's components hand a `Link`. */
+interface AnchorLikeProps {
+  to: string
+  children?: React.ReactNode
+  className?: string
+  search?: unknown
+  params?: unknown
+}
+
 // Stub the router Link as a plain anchor so no route tree is required.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The real `Link` reads a router context and matches the generated route tree, and this catalogue render stands alone with neither; the stub is the anchor a followed link would be.
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-    ...props
-  }: { to: string; children: React.ReactNode } & Record<string, unknown>) => (
+  Link: ({ to, children, ...props }: AnchorLikeProps) => (
     <a href={to} {...props}>
       {children}
     </a>

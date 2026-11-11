@@ -38,6 +38,9 @@ export function ConfirmDialogTrigger({
   children: React.ReactNode
 }) {
   if (asChild) {
+    // SAFETY: `asChild` means the caller passes the element that becomes the
+    // trigger. `children` is typed `ReactNode` only because the label branch
+    // passes text.
     return (
       <DialogPrimitive.Trigger
         {...props}

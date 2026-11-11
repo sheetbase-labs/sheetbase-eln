@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { RecordUnavailable } from '#/components/ui/record-unavailable'
 import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -102,7 +102,11 @@ import type {
   WithdrawDialogInput,
 } from '#/components/samples/withdraw-dialog'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { downloadTextFile } from '#/lib/download'
+import { downloadLineageCsv } from '#/routes/samples/-lineage-csv'
+import {
+  sampleEventsQueryKey,
+  sampleQueryKey,
+} from '#/routes/samples/-sample-keys'
 import { samplePath } from '#/lib/navigation'
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
@@ -115,6 +119,11 @@ import { rich, t } from '#/copy'
  * the truthful hold/quarantine/consumed/disposal banner and the capability-gated
  * release, quarantine and disposal actions the design places on the page. */
 export const Route = createFileRoute('/samples/$sampleId')({
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- TanStack Router hands validateSearch the raw URL values as Record<string, unknown>; the two accepted spellings are compared directly and nothing else is read.
+  validateSearch: (search: Record<string, unknown>): { withdraw?: boolean } =>
+    search.withdraw === true || search.withdraw === 'true'
+      ? { withdraw: true }
+      : {},
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
 
@@ -133,57 +142,14 @@ export const Route = createFileRoute('/samples/$sampleId')({
 
     return { context }
   },
-  validateSearch: (search: Record<string, unknown>): { withdraw?: boolean } =>
-    search.withdraw === true || search.withdraw === 'true'
-      ? { withdraw: true }
-      : {},
   component: SampleLayout,
 })
-
-export const sampleQueryKey = (recordId: string) =>
-  ['ui-port', 'sample', recordId] as const
-
-export const sampleEventsQueryKey = (recordId: string) =>
-  ['ui-port', 'sample-events', recordId] as const
 
 export function useSampleRecord(recordId: string) {
   return useQuery({
     queryKey: sampleQueryKey(recordId),
     queryFn: () => fetchSample(notebookDataClient, recordId),
   })
-}
-
-/**
- * LAB-03 — the export behind "Export lineage" on the sample header and the
- * Lineage tab. There is no server-side export job, so the file is written from
- * the lineage the caller already rendered; it returns false when there is
- * nothing to write, so the caller can say so rather than promise a link. A
- * browser that refuses the download throws, so the caller states that too.
- */
-export function downloadLineageCsv(
-  identifier: string,
-  rows: {
-    identifier: string
-    title: string | null
-    relation: string | null
-    status: string | null
-  }[],
-): boolean {
-  if (rows.length === 0) return false
-
-  const lines = rows.map((row) =>
-    [row.identifier, row.title, row.relation, row.status]
-      .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
-      .join(','),
-  )
-
-  downloadTextFile(
-    `${identifier}-lineage.csv`,
-    ['sample,title,relation,status', ...lines].join('\n'),
-    'text/csv',
-  )
-
-  return true
 }
 
 type SampleDialog =
@@ -202,8 +168,11 @@ type SampleDialog =
   | 'archive'
   | 'restore'
 
-function SampleLayout() {
-  const { sampleId } = Route.useParams()
+/**
+ * The record, its reads and every change the page can make, kept apart from the
+ * parts that render them.
+ */
+function useSamplePage(sampleId: string) {
   const { context } = Route.useRouteContext()
   const canManageStorage = canManageSettings(context.workspace, 'storage')
   const queryClient = useQueryClient()
@@ -212,13 +181,18 @@ function SampleLayout() {
   useRecentViewTracking('record', sample?.id)
   const labelChoice = useLabelTemplateChoice()
   const [dialog, setDialog] = useState<SampleDialog>(null)
-  // The registry's "Withdraw…" opens the record with the dialog already up.
+  const [withdrawOpened, setWithdrawOpened] = useState(false)
+
+  // The registry's "Withdraw…" opens the record with the dialog already up;
+  // the search is read once the record has arrived, so a slow read still opens it.
   const { withdraw: openWithdraw } = Route.useSearch()
-  useEffect(() => {
-    if (openWithdraw && sample && canWithdrawSample(sample.status)) {
-      setDialog('withdraw')
-    }
-  }, [openWithdraw, sample])
+
+  if (openWithdraw && sample && !withdrawOpened) {
+    setWithdrawOpened(true)
+
+    if (canWithdrawSample(sample.status)) setDialog('withdraw')
+  }
+
   // Labels of the release checks the last release attempt failed, shown in the
   // release dialog with a way to the measurements they read.
   const [releaseFailure, setReleaseFailure] = useState<string[] | null>(null)
@@ -283,7 +257,7 @@ function SampleLayout() {
     })
   }
 
-  const onError = (error: unknown) => {
+  const onError = (error: Error) => {
     toast.error(describeSampleError(error))
   }
 
@@ -589,34 +563,47 @@ function SampleLayout() {
     onError,
   })
 
-  if (!sample) {
-    return (
-      <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader
-          trail={[
-            {
-              label: t('library.samples.record.samples'),
-              link: { to: '/samples' },
-            },
-          ]}
-          title={
-            query.isLoading
-              ? t('library.samples.record.loadingSample')
-              : t('library.samples.record.sampleNotFound')
-          }
-        />
-        <RecordUnavailable
-          query={query}
-          what={t('settings.uiKit.recordUnavailable.sample')}
-          back={{
-            to: '/samples',
-            label: t('settings.uiKit.recordUnavailable.backToSamples'),
-          }}
-        />
-      </div>
-    )
+  return {
+    sampleId,
+    context,
+    canManageStorage,
+    queryClient,
+    query,
+    sample,
+    labelChoice,
+    dialog,
+    setDialog,
+    releaseFailure,
+    setReleaseFailure,
+    events,
+    names,
+    derivedSamples,
+    parentCount,
+    reservations,
+    measurements,
+    projectId,
+    project,
+    invalidate,
+    withdraw,
+    aliquot,
+    pool,
+    reserve,
+    move,
+    release,
+    edit,
+    receive,
+    archive,
+    restore,
+    quarantine,
+    dispose,
   }
+}
 
+type SamplePage = ReturnType<typeof useSamplePage>
+
+/** The flags the page derives from the record once it has arrived. */
+function samplePageFlags(page: SamplePage, sample: SampleRecord) {
+  const { context, measurements, events, reservations, derivedSamples } = page
   const status = sampleStatus(sample.status, sample.releasedAt)
   const params = { sampleId: sample.id }
   const role = context.workspace?.role
@@ -674,239 +661,411 @@ function SampleLayout() {
     }
   }
 
-  const bannerAction =
-    state === 'quarantined' ? (
-      <Button
-        size="sm"
-        nativeButton={false}
-        render={<Link to="/samples/$sampleId/measurements" params={params} />}
-      >
-        {t('library.samples.record.viewReleaseBasis')}
-      </Button>
-    ) : state === 'hold_exceeded' || state === 'expired' ? (
-      <span className="flex gap-2">
-        {allowEdit ? (
-          <Button size="sm" onClick={() => setDialog('hold')}>
-            {t('library.samples.record.extendHold')}
-          </Button>
-        ) : null}
-        {showDispose ? (
-          <Button size="sm" onClick={() => setDialog('dispose')}>
-            {t('library.samples.record.recordDisposal')}
-          </Button>
-        ) : null}
-      </span>
-    ) : undefined
+  return {
+    status,
+    params,
+    role,
+    state,
+    terminal,
+    withdrawable,
+    hasReading,
+    awaitingReading,
+    allowRelease,
+    allowQuarantine,
+    allowDispose,
+    allowEdit,
+    archived,
+    showRelease,
+    showDispose,
+    usageCount,
+    exportLineage,
+  }
+}
+
+/** Everything the header can do with the sample it is showing. */
+/** The menu that holds the sample actions the header does not show. */
+/** The actions a live sample shows beside its header. */
+function SampleMainActions({
+  page,
+  sample,
+  flags,
+  onDialog,
+}: {
+  page: SamplePage
+  sample: SampleRecord
+  flags: ReturnType<typeof samplePageFlags>
+  onDialog: (dialog: SampleDialog) => void
+}) {
+  const { invalidate } = page
+  const { withdrawable, awaitingReading, showRelease, state } = flags
 
   return (
-    <div className="flex min-w-0 flex-1">
+    <>
+      {/* The state picks the main action: a sample waiting for a
+        reading is read, anything else is drawn on. Two more
+        stay in view; the rest sit under the menu. */}
+      <Button
+        variant={awaitingReading ? 'primary' : 'secondary'}
+        nativeButton={false}
+        render={
+          <Link
+            to="/readings/new"
+            search={{
+              sample: sample.id,
+              returnTo: samplePath(sample.id),
+            }}
+          />
+        }
+      >
+        {t('library.samples.record.recordReading')}
+      </Button>
+      {withdrawable ? (
+        <Button
+          variant={awaitingReading ? 'secondary' : 'primary'}
+          onClick={() => onDialog('withdraw')}
+        >
+          {t('library.samples.record.withdrawVolume')}
+        </Button>
+      ) : null}
+      {showRelease ? (
+        <Button variant="primary" onClick={() => onDialog('release')}>
+          {state === 'quarantined'
+            ? t('library.samples.record.release')
+            : t('library.samples.record.reQualify')}
+        </Button>
+      ) : null}
+      <PrintLabelButton record={sample} onPrinted={invalidate} />
+      <SampleMoreActions
+        page={page}
+        sample={sample}
+        flags={flags}
+        onDialog={onDialog}
+      />
+    </>
+  )
+}
+
+function SampleMoreActions({
+  page,
+  sample,
+  flags,
+  onDialog,
+}: {
+  page: SamplePage
+  sample: SampleRecord
+  flags: ReturnType<typeof samplePageFlags>
+  onDialog: (dialog: SampleDialog) => void
+}) {
+  const { project } = page
+  const { allowQuarantine, showDispose, withdrawable } = flags
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="secondary"
+            aria-label={t('library.samples.record.moreSampleActions')}
+            icon="more"
+          />
+        }
+      />
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          render={
+            <Link
+              to="/experiments/new"
+              search={{
+                project: project.data?.id,
+                sample: sample.id,
+              }}
+            />
+          }
+        >
+          {t('library.samples.record.newExperiment')}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onDialog('move')}>
+          {t('library.samples.record.move')}
+        </DropdownMenuItem>
+        {withdrawable ? (
+          <DropdownMenuItem onClick={() => onDialog('aliquot')}>
+            {t('library.samples.record.aliquot')}
+          </DropdownMenuItem>
+        ) : null}
+        {withdrawable ? (
+          <DropdownMenuItem onClick={() => onDialog('pool')}>
+            {t('library.samples.record.pool')}
+          </DropdownMenuItem>
+        ) : null}
+        {allowQuarantine && sample.status !== 'quarantined' && !showDispose ? (
+          <DropdownMenuItem danger onClick={() => onDialog('quarantine')}>
+            {t('library.samples.record.quarantine')}
+          </DropdownMenuItem>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** The one action the state banner offers for the sample's state. */
+function SampleBannerAction({
+  page,
+  flags,
+}: {
+  page: SamplePage
+  flags: ReturnType<typeof samplePageFlags>
+}) {
+  const { setDialog } = page
+  const { state, params, allowEdit, showDispose } = flags
+
+  return state === 'quarantined' ? (
+    <Button
+      size="sm"
+      nativeButton={false}
+      render={<Link to="/samples/$sampleId/measurements" params={params} />}
+    >
+      {t('library.samples.record.viewReleaseBasis')}
+    </Button>
+  ) : state === 'hold_exceeded' || state === 'expired' ? (
+    <span className="flex gap-2">
+      {allowEdit ? (
+        <Button size="sm" onClick={() => setDialog('hold')}>
+          {t('library.samples.record.extendHold')}
+        </Button>
+      ) : null}
+      {showDispose ? (
+        <Button size="sm" onClick={() => setDialog('dispose')}>
+          {t('library.samples.record.recordDisposal')}
+        </Button>
+      ) : null}
+    </span>
+  ) : undefined
+}
+
+function SampleHeaderActions({
+  page,
+  sample,
+  flags,
+  onDialog,
+}: {
+  page: SamplePage
+  sample: SampleRecord
+  flags: ReturnType<typeof samplePageFlags>
+  onDialog: (dialog: SampleDialog) => void
+}) {
+  const { terminal, exportLineage, allowEdit, archived } = flags
+
+  return (
+    <span className="flex flex-wrap gap-2 max-md:hidden">
+      <FavouriteToggle kind="record" objectId={sample.id} />
+      <FollowToggle kind="record" objectId={sample.id} />
+      {archived ? (
+        allowEdit ? (
+          <Button variant="primary" onClick={() => onDialog('restore')}>
+            {t('library.samples.record.restoreSample')}
+          </Button>
+        ) : null
+      ) : terminal ? (
+        <Button onClick={exportLineage}>
+          {t('library.samples.record.exportLineage')}
+        </Button>
+      ) : (
+        <SampleMainActions
+          page={page}
+          sample={sample}
+          flags={flags}
+          onDialog={onDialog}
+        />
+      )}
+    </span>
+  )
+}
+
+function SampleLayout() {
+  const { sampleId } = Route.useParams()
+  const page = useSamplePage(sampleId)
+  const { sample, query } = page
+
+  if (!sample) {
+    return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          className="px-4 md:px-8"
           trail={[
             {
               label: t('library.samples.record.samples'),
               link: { to: '/samples' },
             },
-            { label: sample.identifier, mono: true },
           ]}
-          title={sample.title}
-          meta={
-            <>
-              <span className="text-fg">
-                <Status tone={status.tone}>
-                  {status.tone === 'progress' && hasReading
-                    ? t('library.samples.record.reserved')
-                    : status.label}
-                </Status>
-              </span>
-              <span>{sample.sampleType ?? '—'}</span>
-              {project.data ? (
-                <Link
-                  to="/projects/$projectId"
-                  params={{ projectId: project.data.id }}
-                  className="text-link"
-                >
-                  {project.data.title}
-                </Link>
-              ) : null}
-            </>
-          }
-          actions={
-            <span className="flex flex-wrap gap-2 max-md:hidden">
-              <FavouriteToggle kind="record" objectId={sample.id} />
-              <FollowToggle kind="record" objectId={sample.id} />
-              {archived ? (
-                allowEdit ? (
-                  <Button
-                    variant="primary"
-                    onClick={() => setDialog('restore')}
-                  >
-                    {t('library.samples.record.restoreSample')}
-                  </Button>
-                ) : null
-              ) : terminal ? (
-                <Button onClick={exportLineage}>
-                  {t('library.samples.record.exportLineage')}
-                </Button>
-              ) : (
-                <>
-                  {/* The state picks the main action: a sample waiting for a
-                      reading is read, anything else is drawn on. Two more
-                      stay in view; the rest sit under the menu. */}
-                  <Button
-                    variant={awaitingReading ? 'primary' : 'secondary'}
-                    nativeButton={false}
-                    render={
-                      <Link
-                        to="/readings/new"
-                        search={{
-                          sample: sample.id,
-                          returnTo: samplePath(sample.id),
-                        }}
-                      />
-                    }
-                  >
-                    {t('library.samples.record.recordReading')}
-                  </Button>
-                  {withdrawable ? (
-                    <Button
-                      variant={awaitingReading ? 'secondary' : 'primary'}
-                      onClick={() => setDialog('withdraw')}
-                    >
-                      {t('library.samples.record.withdrawVolume')}
-                    </Button>
-                  ) : null}
-                  {showRelease ? (
-                    <Button
-                      variant="primary"
-                      onClick={() => setDialog('release')}
-                    >
-                      {state === 'quarantined'
-                        ? t('library.samples.record.release')
-                        : t('library.samples.record.reQualify')}
-                    </Button>
-                  ) : null}
-                  <PrintLabelButton record={sample} onPrinted={invalidate} />
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <Button
-                          variant="secondary"
-                          aria-label={t(
-                            'library.samples.record.moreSampleActions',
-                          )}
-                          icon="more"
-                        />
-                      }
-                    />
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        render={
-                          <Link
-                            to="/experiments/new"
-                            search={{
-                              project: project.data?.id,
-                              sample: sample.id,
-                            }}
-                          />
-                        }
-                      >
-                        {t('library.samples.record.newExperiment')}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setDialog('move')}>
-                        {t('library.samples.record.move')}
-                      </DropdownMenuItem>
-                      {withdrawable ? (
-                        <DropdownMenuItem onClick={() => setDialog('aliquot')}>
-                          {t('library.samples.record.aliquot')}
-                        </DropdownMenuItem>
-                      ) : null}
-                      {withdrawable ? (
-                        <DropdownMenuItem onClick={() => setDialog('pool')}>
-                          {t('library.samples.record.pool')}
-                        </DropdownMenuItem>
-                      ) : null}
-                      {allowQuarantine &&
-                      sample.status !== 'quarantined' &&
-                      !showDispose ? (
-                        <DropdownMenuItem
-                          danger
-                          onClick={() => setDialog('quarantine')}
-                        >
-                          {t('library.samples.record.quarantine')}
-                        </DropdownMenuItem>
-                      ) : null}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </>
-              )}
-            </span>
-          }
-          tabs={
-            <Tabs
-              mode="url"
-              label={t('library.samples.record.sampleSections')}
-              items={[
-                {
-                  label: t('library.samples.record.details'),
-                  link: {
-                    to: '/samples/$sampleId',
-                    params,
-                    activeOptions: { exact: true },
-                  },
-                },
-                {
-                  label: t('library.samples.record.lineage'),
-                  count:
-                    derivedSamples.data && parentCount.data != null
-                      ? derivedSamples.data.length + parentCount.data
-                      : undefined,
-                  link: { to: '/samples/$sampleId/lineage', params },
-                },
-                {
-                  label: t('library.samples.record.usage'),
-                  count: usageCount,
-                  link: { to: '/samples/$sampleId/usage', params },
-                },
-                {
-                  label: t('library.samples.record.measurements'),
-                  count: measurements.data?.length ?? undefined,
-                  link: { to: '/samples/$sampleId/measurements', params },
-                },
-                {
-                  label: t('library.samples.record.sequences'),
-                  link: { to: '/samples/$sampleId/sequences', params },
-                },
-                {
-                  label: t('library.samples.record.history'),
-                  link: { to: '/samples/$sampleId/history', params },
-                },
-              ]}
-            />
+          title={
+            query.isLoading
+              ? t('library.samples.record.loadingSample')
+              : t('library.samples.record.sampleNotFound')
           }
         />
-
-        <SampleStateBanner
-          sample={sample}
-          events={events.data}
-          userName={(userId) => names.names[userId] ?? null}
-          action={bannerAction}
-        />
-
-        <SampleActionsProvider
-          actions={{
-            openWithdraw: () => setDialog('withdraw'),
-            openReserve: () => setDialog('reserve'),
-            canWithdraw: withdrawable,
+        <RecordUnavailable
+          query={query}
+          what={t('settings.uiKit.recordUnavailable.sample')}
+          back={{
+            to: '/samples',
+            label: t('settings.uiKit.recordUnavailable.backToSamples'),
           }}
-        >
-          <div className="min-h-0 flex-1 overflow-auto">
-            <Outlet />
-          </div>
-        </SampleActionsProvider>
+        />
       </div>
+    )
+  }
 
+  return (
+    <div className="flex min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <SamplePageHeader page={page} sample={sample} />
+      </div>
+      <SampleInspector page={page} sample={sample} />
+      <SampleDialogs page={page} sample={sample} />
+    </div>
+  )
+}
+
+/** The record's header, its state banner and the tabs its screens sit in. */
+function SamplePageHeader({
+  page,
+  sample,
+}: {
+  page: SamplePage
+  sample: SampleRecord
+}) {
+  const {
+    setDialog,
+    events,
+    names,
+    derivedSamples,
+    parentCount,
+    measurements,
+    project,
+  } = page
+
+  const flags = samplePageFlags(page, sample)
+  const { status, params, withdrawable, hasReading, usageCount } = flags
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <PageHeader
+        className="px-4 md:px-8"
+        trail={[
+          {
+            label: t('library.samples.record.samples'),
+            link: { to: '/samples' },
+          },
+          { label: sample.identifier, mono: true },
+        ]}
+        title={sample.title}
+        meta={
+          <>
+            <span className="text-fg">
+              <Status tone={status.tone}>
+                {status.tone === 'progress' && hasReading
+                  ? t('library.samples.record.reserved')
+                  : status.label}
+              </Status>
+            </span>
+            <span>{sample.sampleType ?? '—'}</span>
+            {project.data ? (
+              <Link
+                to="/projects/$projectId"
+                params={{ projectId: project.data.id }}
+                className="text-link"
+              >
+                {project.data.title}
+              </Link>
+            ) : null}
+          </>
+        }
+        actions={
+          <SampleHeaderActions
+            page={page}
+            sample={sample}
+            flags={flags}
+            onDialog={setDialog}
+          />
+        }
+        tabs={
+          <Tabs
+            mode="url"
+            label={t('library.samples.record.sampleSections')}
+            items={[
+              {
+                label: t('library.samples.record.details'),
+                link: {
+                  to: '/samples/$sampleId',
+                  params,
+                  activeOptions: { exact: true },
+                },
+              },
+              {
+                label: t('library.samples.record.lineage'),
+                count:
+                  derivedSamples.data && parentCount.data != null
+                    ? derivedSamples.data.length + parentCount.data
+                    : undefined,
+                link: { to: '/samples/$sampleId/lineage', params },
+              },
+              {
+                label: t('library.samples.record.usage'),
+                count: usageCount,
+                link: { to: '/samples/$sampleId/usage', params },
+              },
+              {
+                label: t('library.samples.record.measurements'),
+                count: measurements.data?.length ?? undefined,
+                link: { to: '/samples/$sampleId/measurements', params },
+              },
+              {
+                label: t('library.samples.record.sequences'),
+                link: { to: '/samples/$sampleId/sequences', params },
+              },
+              {
+                label: t('library.samples.record.history'),
+                link: { to: '/samples/$sampleId/history', params },
+              },
+            ]}
+          />
+        }
+      />
+
+      <SampleStateBanner
+        sample={sample}
+        events={events.data}
+        userName={(userId) => names.names[userId] ?? null}
+        action={<SampleBannerAction page={page} flags={flags} />}
+      />
+
+      <SampleActionsProvider
+        actions={{
+          openWithdraw: () => setDialog('withdraw'),
+          openReserve: () => setDialog('reserve'),
+          canWithdraw: withdrawable,
+        }}
+      >
+        <div className="min-h-0 flex-1 overflow-auto">
+          <Outlet />
+        </div>
+      </SampleActionsProvider>
+    </div>
+  )
+}
+
+/** The panel beside the record: its label, release checks, hold and recent history. */
+function SampleInspector({
+  page,
+  sample,
+}: {
+  page: SamplePage
+  sample: SampleRecord
+}) {
+  const { labelChoice, setDialog, events, names, measurements } = page
+  const { state, terminal, allowEdit, archived } = samplePageFlags(page, sample)
+
+  return (
+    <>
       {!terminal && !archived ? (
         <Inspector
           aria-label={t('library.samples.record.sampleContext')}
@@ -976,111 +1135,147 @@ function SampleLayout() {
           </InspectorSection>
         </Inspector>
       ) : null}
+    </>
+  )
+}
 
-      {dialog === 'withdraw' ? (
-        <WithdrawDialog
-          open
-          onOpenChange={(open) => setDialog(open ? 'withdraw' : null)}
-          sample={sample}
-          busy={withdraw.isPending}
-          onSubmit={(input) => withdraw.mutate(input)}
-        />
-      ) : null}
-      {dialog === 'aliquot' ? (
-        <AliquotDialog
-          open
-          onOpenChange={(open) => {
-            setDialog(open ? 'aliquot' : null)
+/** Every dialog the record's actions open, and the label document it prints. */
+function SampleDialogs({
+  page,
+  sample,
+}: {
+  page: SamplePage
+  sample: SampleRecord
+}) {
+  const {
+    canManageStorage,
+    labelChoice,
+    dialog,
+    setDialog,
+    releaseFailure,
+    setReleaseFailure,
+    withdraw,
+    aliquot,
+    pool,
+    reserve,
+    move,
+    release,
+    edit,
+    receive,
+    archive,
+    restore,
+    quarantine,
+    dispose,
+  } = page
 
-            if (!open) aliquot.reset()
-          }}
-          sample={sample}
-          busy={aliquot.isPending}
-          canManageStorage={canManageStorage}
-          error={
-            aliquot.isError
-              ? describeWithdrawError(aliquot.error, sample.quantityUnit)
-              : null
-          }
-          created={aliquot.data?.derivedSamples ?? null}
-          onSubmit={(input) => aliquot.mutate(input)}
-        />
-      ) : null}
-      {dialog === 'pool' ? (
-        <PoolDialog
-          open
-          onOpenChange={(open) => {
-            setDialog(open ? 'pool' : null)
+  const { params, state } = samplePageFlags(page, sample)
 
-            if (!open) pool.reset()
-          }}
-          sample={sample}
-          busy={pool.isPending}
-          canManageStorage={canManageStorage}
-          error={
-            pool.isError
-              ? describeWithdrawError(pool.error, sample.quantityUnit)
-              : null
-          }
-          created={pool.data ?? null}
-          onSubmit={(input) => pool.mutate(input)}
-        />
-      ) : null}
-      {dialog === 'reserve' ? (
-        <ReserveDialog
-          open
-          onOpenChange={(open) => setDialog(open ? 'reserve' : null)}
-          sample={sample}
-          busy={reserve.isPending}
-          onSubmit={(input) => reserve.mutate(input)}
-        />
-      ) : null}
-      {dialog === 'move' ? (
-        <MoveSampleDialog
-          open
-          onOpenChange={(open) => setDialog(open ? 'move' : null)}
-          sample={sample}
-          busy={move.isPending}
-          onSubmit={(choice) => move.mutate({ choice })}
-          canManageStorage={canManageStorage}
-        />
-      ) : null}
-      {dialog === 'edit' ? (
-        <EditDetailsDialog
-          sample={sample}
-          busy={edit.isPending}
-          onClose={() => setDialog(null)}
-          onSubmit={(value) =>
-            edit.mutate({
-              title: value.title,
-              tags: value.tags,
-              properties: { notes: value.notes },
-              reason: value.reason,
-            })
-          }
-        />
-      ) : null}
-      {dialog === 'hold' ? (
-        <EditHoldDialog
-          sample={sample}
-          busy={edit.isPending}
-          onClose={() => setDialog(null)}
-          onSubmit={({ reason, ...hold }) =>
-            edit.mutate({ properties: hold, reason })
-          }
-        />
-      ) : null}
-      {dialog === 'receive' ? (
-        <ReceiveStockDialog
-          sample={sample}
-          busy={receive.isPending}
-          canManageStorage={canManageStorage}
-          onClose={() => setDialog(null)}
-          onSubmit={(value) => receive.mutate(value)}
-        />
-      ) : null}
+  const dialogs = {
+    withdraw: (
+      <WithdrawDialog
+        open
+        onOpenChange={(open) => setDialog(open ? 'withdraw' : null)}
+        sample={sample}
+        busy={withdraw.isPending}
+        onSubmit={(input) => withdraw.mutate(input)}
+      />
+    ),
+    aliquot: (
+      <AliquotDialog
+        open
+        onOpenChange={(open) => {
+          setDialog(open ? 'aliquot' : null)
+
+          if (!open) aliquot.reset()
+        }}
+        sample={sample}
+        busy={aliquot.isPending}
+        canManageStorage={canManageStorage}
+        error={
+          aliquot.isError
+            ? describeWithdrawError(aliquot.error, sample.quantityUnit)
+            : null
+        }
+        created={aliquot.data?.derivedSamples ?? null}
+        onSubmit={(input) => aliquot.mutate(input)}
+      />
+    ),
+    pool: (
+      <PoolDialog
+        open
+        onOpenChange={(open) => {
+          setDialog(open ? 'pool' : null)
+
+          if (!open) pool.reset()
+        }}
+        sample={sample}
+        busy={pool.isPending}
+        canManageStorage={canManageStorage}
+        error={
+          pool.isError
+            ? describeWithdrawError(pool.error, sample.quantityUnit)
+            : null
+        }
+        created={pool.data ?? null}
+        onSubmit={(input) => pool.mutate(input)}
+      />
+    ),
+    reserve: (
+      <ReserveDialog
+        open
+        onOpenChange={(open) => setDialog(open ? 'reserve' : null)}
+        sample={sample}
+        busy={reserve.isPending}
+        onSubmit={(input) => reserve.mutate(input)}
+      />
+    ),
+    move: (
+      <MoveSampleDialog
+        open
+        onOpenChange={(open) => setDialog(open ? 'move' : null)}
+        sample={sample}
+        busy={move.isPending}
+        onSubmit={(choice) => move.mutate({ choice })}
+        canManageStorage={canManageStorage}
+      />
+    ),
+    edit: (
+      <EditDetailsDialog
+        sample={sample}
+        busy={edit.isPending}
+        onClose={() => setDialog(null)}
+        onSubmit={(value) =>
+          edit.mutate({
+            title: value.title,
+            tags: value.tags,
+            properties: { notes: value.notes },
+            reason: value.reason,
+          })
+        }
+      />
+    ),
+    hold: (
+      <EditHoldDialog
+        sample={sample}
+        busy={edit.isPending}
+        onClose={() => setDialog(null)}
+        onSubmit={({ reason, ...hold }) =>
+          edit.mutate({ properties: hold, reason })
+        }
+      />
+    ),
+    receive: (
+      <ReceiveStockDialog
+        sample={sample}
+        busy={receive.isPending}
+        canManageStorage={canManageStorage}
+        onClose={() => setDialog(null)}
+        onSubmit={(value) => receive.mutate(value)}
+      />
+    ),
+    archive: (
       <ReasonDialog
-        open={dialog === 'archive'}
+        open
         onOpenChange={(o) => setDialog(o ? 'archive' : null)}
         title={t('library.samples.record.archive2', {
           identifier: sample.identifier,
@@ -1090,8 +1285,10 @@ function SampleLayout() {
         busy={archive.isPending}
         onSubmit={(value) => archive.mutate({ notes: value || undefined })}
       />
+    ),
+    restore: (
       <ReasonDialog
-        open={dialog === 'restore'}
+        open
         onOpenChange={(o) => setDialog(o ? 'restore' : null)}
         title={t('library.samples.record.restore', {
           identifier: sample.identifier,
@@ -1101,8 +1298,10 @@ function SampleLayout() {
         busy={restore.isPending}
         onSubmit={(value) => restore.mutate({ notes: value || undefined })}
       />
+    ),
+    release: (
       <ReasonDialog
-        open={dialog === 'release'}
+        open
         onOpenChange={(o) => {
           setDialog(o ? 'release' : null)
 
@@ -1142,8 +1341,10 @@ function SampleLayout() {
         busy={release.isPending}
         onSubmit={(value) => release.mutate({ notes: value || undefined })}
       />
+    ),
+    quarantine: (
       <ReasonDialog
-        open={dialog === 'quarantine'}
+        open
         onOpenChange={(o) => setDialog(o ? 'quarantine' : null)}
         title={t('library.samples.record.quarantine2', {
           identifier: sample.identifier,
@@ -1153,8 +1354,10 @@ function SampleLayout() {
         busy={quarantine.isPending}
         onSubmit={(value) => quarantine.mutate({ reason: value })}
       />
+    ),
+    dispose: (
       <ReasonDialog
-        open={dialog === 'dispose'}
+        open
         onOpenChange={(o) => setDialog(o ? 'dispose' : null)}
         title={t('library.samples.record.recordDisposalOf', {
           identifier: sample.identifier,
@@ -1164,11 +1367,17 @@ function SampleLayout() {
         busy={dispose.isPending}
         onSubmit={(value) => dispose.mutate({ reason: value })}
       />
+    ),
+  } satisfies Record<NonNullable<SampleDialog>, React.ReactElement>
+
+  return (
+    <div>
+      {dialog ? dialogs[dialog] : null}
 
       {/* LAB-05.2 / DEC-10: the label document the header's Print label sends
           to the browser's print dialog. It is mounted with the sample frame so
-          the action works from every tab; on screen it is hidden, and in print
-          only this document reaches the sheet. */}
+      the action works from every tab; on screen it is hidden, and in print
+      only this document reaches the sheet. */}
       <SampleLabelPrint record={sample} template={labelChoice.chosen} />
     </div>
   )

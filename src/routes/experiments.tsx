@@ -174,6 +174,10 @@ function ExperimentsRoute() {
   return isIndex ? <Experiments /> : <Outlet />
 }
 
+/** Columns a new list starts without, so it fits beside the sidebar at
+ * laptop width; the Columns menu brings them back. */
+const EXPERIMENTS_HIDDEN_BY_DEFAULT = ['assignee']
+
 function Experiments() {
   const { context } = Route.useRouteContext()
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
@@ -362,7 +366,11 @@ function Experiments() {
     [baseColumns, addedColumns],
   )
 
-  const view = useListView('experiments')
+  const view = useListView(
+    'experiments',
+    undefined,
+    EXPERIMENTS_HIDDEN_BY_DEFAULT,
+  )
 
   // A grouped list draws its groups as bands in the one table.
   const gridRows: RegistryRow<ExperimentListRow>[] = groups.flatMap(
@@ -759,7 +767,8 @@ function experimentColumns({
           <Link
             to="/experiments/$expId"
             params={{ expId: row.original.uuid }}
-            className="text-fg hover:text-link"
+            title={row.original.title}
+            className="block max-w-[13rem] truncate text-fg hover:text-link 2xl:max-w-[24rem]"
             onClick={(event) => {
               // The row's own click must not navigate a second time.
               event.stopPropagation()
@@ -783,7 +792,8 @@ function experimentColumns({
           <Link
             to="/projects/$projectId"
             params={{ projectId: row.original.projectId }}
-            className="text-fg hover:text-link"
+            title={row.original.project}
+            className="block max-w-[13rem] truncate text-fg hover:text-link 2xl:max-w-[24rem]"
             onClick={(event) => event.stopPropagation()}
           >
             {row.original.project}

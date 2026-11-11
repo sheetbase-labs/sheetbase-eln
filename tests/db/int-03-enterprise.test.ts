@@ -442,8 +442,8 @@ async function createValidatedDatasetFixture(owner: Client) {
     await owner.query(
       `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,nullable,validation,display_order)
        values
-       ($1,gen_random_uuid(),'sample','Sample','text',false,'{}'::jsonb,1),
-       ($1,gen_random_uuid(),'value','Value','decimal',true,'{"min":0}'::jsonb,2)
+       ($1,gen_random_uuid(),'sample','Sample','text',false,'{"pattern":"^A-"}'::jsonb,1),
+       ($1,gen_random_uuid(),'value','Value','decimal',true,'{}'::jsonb,2)
        returning field_id,key,label,logical_type,nullable,display_order`,
       [version.id],
     )
@@ -1353,10 +1353,11 @@ describe('INT-03C PostgreSQL connector', () => {
   })
 
   it('is atomic: a failure in a later chunk leaves the Dataset untouched, and a corrected retry succeeds (PLAT-05)', async () => {
-    // A 1500-row source against a target whose `value` field enforces
-    // `min: 0`. Row 1001 (the first row of chunk 2) has value −5: it passes
+    // A 1500-row source against a target whose `sample` field must start
+    // with `A-`. Row 1001 (the first row of chunk 2) is named `X-…`: it passes
     // mapping/coercion but fails the canonical Dataset validation, so the
-    // atomic import must fail in chunk 2 without committing chunk 1.
+    // atomic import must fail in chunk 2 without committing chunk 1. (A number
+    // outside its range is stored and flagged, so it cannot be the failure.)
     const adminSource = new Client({
       connectionString: sourceDb.adminConnectionString,
     })
@@ -1368,14 +1369,14 @@ describe('INT-03C PostgreSQL connector', () => {
         value text not null
       );
       insert into plat05_atomic_measurements(sample, value)
-      select 'A-' || lpad(i::text, 8, '0'),
-             case when i = 1001 then '-5' else (i * 1.5)::text end
+      select case when i = 1001 then 'X-' else 'A-' end || lpad(i::text, 8, '0'),
+             (i * 1.5)::text
         from generate_series(1, 1500) i;
       grant select on plat05_atomic_measurements to int03_source;
     `)
     await adminSource.end()
 
-    // Custom target schema: `value` decimal with min 0 (DB-side validation).
+    // Custom target schema: `sample` text with a pattern (DB-side validation).
     const { owner, connectorId, secrets } = await setupConnector({
       import_rows: 5000,
     })
@@ -1429,7 +1430,7 @@ describe('INT-03C PostgreSQL connector', () => {
     })
     await fixSource.connect()
     await fixSource.query(
-      `update plat05_atomic_measurements set value = '1501.5' where sample = 'A-00001001'`,
+      `update plat05_atomic_measurements set sample = 'A-00001001' where sample = 'X-00001001'`,
     )
     await fixSource.end()
     const retried = await postgresAdapter.ingest(context, source, request)

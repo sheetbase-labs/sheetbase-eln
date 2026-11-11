@@ -1014,14 +1014,11 @@ describe('sheetWriteError', () => {
     field: { ...editableNumeric.field!, validation: { min: 0, max: 50 } },
   }
 
-  it('lets the sheet’s own columns keep an out-of-range number, flagged', () => {
-    expect(sheetWriteError({ ...ranged, origin: 'local' }, 61.5)).toBeNull()
+  it('keeps an out-of-range number, flagged, in any column', () => {
+    expect(sheetWriteError(ranged, 61.5)).toBeNull()
   })
 
-  it('still refuses a range miss in a dataset column and any wrong type', () => {
-    expect(sheetWriteError(ranged, 61.5)).toBe('numeric_validation')
-    expect(sheetWriteError({ ...ranged, origin: 'local' }, 'x')).toBe(
-      'invalid_value',
-    )
+  it('still refuses a value of the wrong type', () => {
+    expect(sheetWriteError(ranged, 'x')).toBe('invalid_value')
   })
 })

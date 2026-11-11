@@ -16,15 +16,9 @@ import { AuditCheckLine } from '#/components/review/audit-check-line'
 import { Badge } from '#/components/ui/badge'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Muted } from '#/components/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { SIGNATURE_MEANING_LABEL } from '#/lib/signatures'
 import type { SignatureWire } from '#/lib/signatures'
@@ -116,6 +110,57 @@ export function SignaturesTable({
     ),
   ]
 
+  const columns: RegistryColumn<(typeof ordered)[number]>[] = [
+    {
+      id: 'name',
+      header: t('projects.signatures.columns.name'),
+      accessorFn: (signature) => signature.signer_name ?? '',
+      cell: ({ row }) => (
+        <>
+          {row.original.signer_name ?? t('projects.signatures.noName')}
+          {row.original.auth_method === 'demo' ? (
+            <Badge
+              variant="kind"
+              className="ml-2"
+              title={t('projects.signatures.demoSignatureTooltip')}
+            >
+              {t('projects.signatures.demoSignature')}
+            </Badge>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: 'meaning',
+      header: t('projects.signatures.columns.meaning'),
+      accessorFn: (signature) =>
+        SIGNATURE_MEANING_LABEL[signature.signature_meaning],
+    },
+    {
+      id: 'signed',
+      header: t('projects.signatures.columns.signed'),
+      accessorFn: (signature) => signature.signed_at,
+      cell: ({ row }) => (
+        <time dateTime={row.original.signed_at}>
+          {formatNotebookDateTime(row.original.signed_at, { zone: true })}
+        </time>
+      ),
+    },
+    {
+      id: 'id',
+      header: t('projects.signatures.columns.id'),
+      accessorFn: (signature) => signature.id,
+      cell: ({ row }) => (
+        <span
+          className="mono block max-w-[16rem] truncate text-fg-muted"
+          title={row.original.id}
+        >
+          {row.original.id}
+        </span>
+      ),
+    },
+  ]
+
   return (
     <section
       aria-label={t('projects.signatures.title')}
@@ -126,49 +171,13 @@ export function SignaturesTable({
         <AuditCheckLine note={signatureBindingNote(boundVersions)} />
       </div>
       <TableBox>
-        <Table aria-label={t('projects.signatures.title')}>
-          {/* Approved incidental primitive nesting: these signature headings are not a domain abstraction shared with unrelated submission/validation tables. */}
-          {/* react-doctor-disable-next-line react-doctor/duplicate-jsx-subtree */}
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('projects.signatures.columns.name')}</TableHead>
-              <TableHead>{t('projects.signatures.columns.meaning')}</TableHead>
-              <TableHead>{t('projects.signatures.columns.signed')}</TableHead>
-              <TableHead>{t('projects.signatures.columns.id')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {ordered.map((signature) => (
-              <TableRow key={signature.id}>
-                <TableCell>
-                  {signature.signer_name ?? t('projects.signatures.noName')}
-                  {signature.auth_method === 'demo' ? (
-                    <Badge
-                      variant="kind"
-                      className="ml-2"
-                      title={t('projects.signatures.demoSignatureTooltip')}
-                    >
-                      {t('projects.signatures.demoSignature')}
-                    </Badge>
-                  ) : null}
-                </TableCell>
-                <TableCell>
-                  {SIGNATURE_MEANING_LABEL[signature.signature_meaning]}
-                </TableCell>
-                <TableCell>
-                  <time dateTime={signature.signed_at}>
-                    {formatNotebookDateTime(signature.signed_at, {
-                      zone: true,
-                    })}
-                  </time>
-                </TableCell>
-                <TableCell className="mono max-w-[16rem] truncate text-fg-muted">
-                  <span title={signature.id}>{signature.id}</span>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('projects.signatures.title')}
+          rows={ordered}
+          columns={columns}
+          getRowId={(signature) => signature.id}
+          selectable={false}
+        />
       </TableBox>
     </section>
   )

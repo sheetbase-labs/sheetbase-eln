@@ -3,15 +3,9 @@ import { useQuery } from '@tanstack/react-query'
 
 import { EmptyState } from '#/components/ui/empty-state'
 import { Muted } from '#/components/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import { t } from '#/copy'
@@ -69,6 +63,42 @@ function Submissions() {
     ]),
   )
 
+  const columns: RegistryColumn<(typeof rows)[number]>[] = [
+    {
+      id: 'submitted',
+      header: SUBMISSION_COLUMNS[0],
+      accessorFn: (row) => row.submitted_at,
+      cell: ({ row }) => (
+        <Link
+          to="/review/$revisionId"
+          params={{ revisionId: row.original.revision_id }}
+          className="text-link"
+        >
+          {formatNotebookDateTime(row.original.submitted_at, { zone: true })}
+        </Link>
+      ),
+    },
+    {
+      id: 'by',
+      header: SUBMISSION_COLUMNS[1],
+      accessorFn: (row) => userLabel(row.submitted_by_user_id),
+    },
+    {
+      id: 'reviewers',
+      header: SUBMISSION_COLUMNS[2],
+      enableSorting: false,
+      cell: ({ row }) =>
+        row.original.assigned_reviewer_user_ids
+          .map((id) => userLabel(id))
+          .join(', ') || '—',
+    },
+    {
+      id: 'state',
+      header: SUBMISSION_COLUMNS[3],
+      accessorFn: (row) => STATE_LABEL.get(row.state) ?? row.state,
+    },
+  ]
+
   return (
     <div className="min-w-0 flex-1 px-4 py-4 md:px-8">
       {submissions.isError ? (
@@ -85,39 +115,13 @@ function Submissions() {
         />
       ) : (
         <TableBox>
-          <Table aria-label={t('projects.experimentPage.section.submissions')}>
-            <TableHeader>
-              <TableRow>
-                {SUBMISSION_COLUMNS.map((column) => (
-                  <TableHead key={column}>{column}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell>
-                    <Link
-                      to="/review/$revisionId"
-                      params={{ revisionId: row.revision_id }}
-                      className="text-link"
-                    >
-                      {formatNotebookDateTime(row.submitted_at, { zone: true })}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{userLabel(row.submitted_by_user_id)}</TableCell>
-                  <TableCell>
-                    {row.assigned_reviewer_user_ids
-                      .map((id) => userLabel(id))
-                      .join(', ') || '—'}
-                  </TableCell>
-                  <TableCell>
-                    {STATE_LABEL.get(row.state) ?? row.state}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label={t('projects.experimentPage.section.submissions')}
+            rows={rows}
+            columns={columns}
+            getRowId={(row) => row.id}
+            selectable={false}
+          />
         </TableBox>
       )}
     </div>

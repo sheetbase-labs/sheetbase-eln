@@ -14,14 +14,12 @@ import {
   InspectorSection,
   Muted,
 } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { formatDate } from '#/lib/notebook-data'
 import { formatInstant } from '#/lib/display-time-zone'
 import { filterRowsByFlags } from '#/lib/dataset-flags'
@@ -157,39 +155,49 @@ function SummaryPane({
   columnLabel: (id: string | undefined) => string
   unit: (id: string) => string
 }) {
+  const summaryColumns = summary?.columns
+
+  const columns = useMemo<RegistryColumn<SeriesSummaryRow>[]>(
+    () => [
+      {
+        id: 'series',
+        header: columnLabel(seriesId),
+        accessorFn: (row) => row.series,
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.series}</span>
+        ),
+      },
+      {
+        id: 'rows',
+        header: t('projects.resultsWorkspace.rows'),
+        accessorFn: (row) => row.rows,
+        ...rightAligned<SeriesSummaryRow>(),
+      },
+      ...(summaryColumns ?? []).map((c): RegistryColumn<SeriesSummaryRow> => ({
+        id: `range:${c.id}`,
+        header: t('projects.resultsWorkspace.minMax', {
+          column: `${c.label}${unit(c.id)}`,
+        }),
+        accessorFn: (row) => row.ranges[c.id],
+      })),
+    ],
+    [columnLabel, seriesId, summaryColumns, unit],
+  )
+
   return (
     <div className="flex flex-col gap-3">
       <h2 className="m-0 font-heading text-doc font-semibold">{title}</h2>
       {summary ? (
         <>
-          <Table aria-label={t('projects.resultsWorkspace.summary')}>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{columnLabel(seriesId)}</TableHead>
-                <TableHead>{t('projects.resultsWorkspace.rows')}</TableHead>
-                {summary.columns.map((c) => (
-                  <TableHead key={c.id}>
-                    {t('projects.resultsWorkspace.minMax', {
-                      column: `${c.label}${unit(c.id)}`,
-                    })}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {summary.rows.map((row) => (
-                <TableRow key={row.series}>
-                  <TableCell className="font-medium">{row.series}</TableCell>
-                  <TableCell className="num">{row.rows}</TableCell>
-                  {summary.columns.map((c) => (
-                    <TableCell key={c.id} className="num">
-                      {row.ranges[c.id]}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <TableBox>
+            <RegistryGrid
+              label={t('projects.resultsWorkspace.summary')}
+              rows={summary.rows}
+              columns={columns}
+              getRowId={(row) => row.series}
+              selectable={false}
+            />
+          </TableBox>
           {summary.excluded > 0 ? (
             <Muted>
               {t('projects.resultsWorkspace.rowsLeftOut', {

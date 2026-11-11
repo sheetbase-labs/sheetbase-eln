@@ -5,14 +5,8 @@
  */
 import { t } from '#/copy'
 import { cn } from '#/lib/utils'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 
 export interface SheetChangeRow {
   id: string
@@ -123,6 +117,51 @@ export function SheetChangeList({
   selectedCellKey: string | null
   onSelect: (row: SheetChangeRow) => void
 }) {
+  const columns: RegistryColumn<SheetChangeRow>[] = [
+    {
+      id: 'who',
+      header: t('notebook.sheetChanges.who'),
+      accessorFn: (row) => row.who,
+      cell: ({ row }) => (
+        <>
+          {row.original.who}
+          <span className="text-fg-muted"> · {row.original.when}</span>
+        </>
+      ),
+    },
+    {
+      id: 'cell',
+      header: t('notebook.sheetChanges.cell'),
+      accessorFn: (row) => row.cell,
+    },
+    {
+      id: 'beforeAfter',
+      header: t('notebook.sheetChanges.beforeAfter'),
+      enableSorting: false,
+      cell: ({ row }) => <BeforeAfter row={row.original} />,
+    },
+    {
+      id: 'reason',
+      header: t('notebook.sheetChanges.reason'),
+      accessorFn: (row) => row.reason ?? '',
+      cell: ({ row }) => (
+        <span className="block max-w-80 truncate text-fg-muted">
+          {row.original.reason
+            ? t('notebook.sheetChanges.reasonQuoted', {
+                reason: row.original.reason,
+              })
+            : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'save',
+      header: t('notebook.sheetChanges.save'),
+      enableSorting: false,
+      cell: ({ row }) => <SaveState row={row.original} />,
+    },
+  ]
+
   return (
     <section
       aria-label={t('notebook.sheetChanges.listAriaLabel')}
@@ -143,48 +182,19 @@ export function SheetChangeList({
         </span>
       </div>
       <div className="min-h-0 overflow-auto">
-        <Table caption={t('notebook.sheetChanges.listAriaLabel')}>
-          <TableHeader>
-            <tr>
-              <TableHead>{t('notebook.sheetChanges.who')}</TableHead>
-              <TableHead>{t('notebook.sheetChanges.cell')}</TableHead>
-              <TableHead>{t('notebook.sheetChanges.beforeAfter')}</TableHead>
-              <TableHead className="w-full">
-                {t('notebook.sheetChanges.reason')}
-              </TableHead>
-              <TableHead>{t('notebook.sheetChanges.save')}</TableHead>
-            </tr>
-          </TableHeader>
-          <TableBody colSpan={5} empty={t('notebook.sheetChanges.none')}>
-            {rows.map((row) => (
-              <TableRow
-                key={row.id}
-                selected={row.cellKey === selectedCellKey}
-                className="cursor-pointer"
-                onClick={() => onSelect(row)}
-              >
-                <TableCell>
-                  {row.who}
-                  <span className="text-fg-muted"> · {row.when}</span>
-                </TableCell>
-                <TableCell>{row.cell}</TableCell>
-                <TableCell>
-                  <BeforeAfter row={row} />
-                </TableCell>
-                <TableCell className="max-w-0 truncate text-fg-muted">
-                  {row.reason
-                    ? t('notebook.sheetChanges.reasonQuoted', {
-                        reason: row.reason,
-                      })
-                    : '—'}
-                </TableCell>
-                <TableCell>
-                  <SaveState row={row} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('notebook.sheetChanges.listAriaLabel')}
+          rows={[...rows]}
+          columns={columns}
+          getRowId={(row) => row.id}
+          rowSelection={Object.fromEntries(
+            rows
+              .filter((row) => row.cellKey === selectedCellKey)
+              .map((row) => [row.id, true]),
+          )}
+          onRowClick={(row) => onSelect(row)}
+          empty={t('notebook.sheetChanges.none')}
+        />
       </div>
     </section>
   )

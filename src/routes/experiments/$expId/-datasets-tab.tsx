@@ -141,6 +141,56 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
 
   const shown = all.slice(start, start + PREVIEW_ROWS)
 
+  const rowIdOf = (row: (typeof shown)[number]) =>
+    CELL_TEXT.safeParse(row[CHART_ROW_ID_KEY]).data
+
+  const previewColumns: RegistryColumn<(typeof shown)[number]>[] = [
+    {
+      id: 'row',
+      header: t('projects.expDatasets.row'),
+      accessorFn: (row) => rowNumber.get(row) ?? 0,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">{rowNumber.get(row.original)}</span>
+      ),
+    },
+    ...columns.map((column): RegistryColumn<(typeof shown)[number]> => ({
+      id: `field:${column.id}`,
+      header: column.label,
+      accessorFn: (row) => cellText(row[column.id]),
+      cell: ({ row }) => {
+        const isFlagged = flagged.has(`${rowIdOf(row.original)}:${column.id}`)
+
+        return (
+          <span
+            className={isFlagged ? 'font-medium text-danger-text' : undefined}
+          >
+            {cellText(row.original[column.id])}
+          </span>
+        )
+      },
+    })),
+    {
+      id: 'status',
+      header: t('projects.expDatasets.status'),
+      enableSorting: false,
+      size: 140,
+      cell: ({ row }) => {
+        const rowId = rowIdOf(row.original)
+        const hit = flags.find((f) => f.rowId === rowId)
+
+        return hit ? (
+          <Status tone="bad">
+            {hit.kind === 'out_of_range'
+              ? t('projects.expDatasets.outOfRange')
+              : t('projects.expDatasets.flagged')}
+          </Status>
+        ) : (
+          <Status tone="ok">{t('projects.expDatasets.valid')}</Status>
+        )
+      },
+    },
+  ]
+
   return (
     <Section
       title={dataset.id}
@@ -200,77 +250,13 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
       ) : (
         <>
           <TableBox>
-            <table
-              aria-label={t('projects.expDatasets.rowsLabel', {
-                id: dataset.id,
-              })}
-              className="num w-full border-collapse text-body"
-            >
-              <thead>
-                <tr>
-                  <th className="h-8 bg-surface-muted px-3 text-left text-label font-medium text-fg-muted">
-                    {t('projects.expDatasets.row')}
-                  </th>
-                  {columns.map((column) => (
-                    <th
-                      key={column.id}
-                      className="h-8 bg-surface-muted px-3 text-left text-label font-medium text-fg-muted"
-                    >
-                      {column.label}
-                    </th>
-                  ))}
-                  <th className="h-8 bg-surface-muted px-3 text-left text-label font-medium text-fg-muted">
-                    {t('projects.expDatasets.status')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((row) => {
-                  const rowId = CELL_TEXT.safeParse(row[CHART_ROW_ID_KEY]).data
-                  const hit = flags.find((f) => f.rowId === rowId)
-
-                  return (
-                    <tr
-                      key={rowNumber.get(row)}
-                      className="border-t border-border-subtle"
-                    >
-                      <td className="h-8 px-3 text-fg-muted">
-                        {rowNumber.get(row)}
-                      </td>
-                      {columns.map((column) => {
-                        const isFlagged = flagged.has(`${rowId}:${column.id}`)
-
-                        return (
-                          <td
-                            key={column.id}
-                            className={
-                              isFlagged
-                                ? 'h-8 px-3 font-medium text-danger-text'
-                                : 'h-8 px-3'
-                            }
-                          >
-                            {cellText(row[column.id])}
-                          </td>
-                        )
-                      })}
-                      <td className="h-8 px-3">
-                        {hit ? (
-                          <Status tone="bad">
-                            {hit.kind === 'out_of_range'
-                              ? t('projects.expDatasets.outOfRange')
-                              : t('projects.expDatasets.flagged')}
-                          </Status>
-                        ) : (
-                          <Status tone="ok">
-                            {t('projects.expDatasets.valid')}
-                          </Status>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            <RegistryGrid
+              label={t('projects.expDatasets.rowsLabel', { id: dataset.id })}
+              rows={shown}
+              columns={previewColumns}
+              getRowId={(row) => String(rowNumber.get(row))}
+              selectable={false}
+            />
           </TableBox>
           <p className="mb-0 mt-2 text-label text-fg-muted">
             {t('projects.expDatasets.showing', {

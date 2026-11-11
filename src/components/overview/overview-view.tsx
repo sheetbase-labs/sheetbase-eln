@@ -9,7 +9,6 @@
  * fact the design shows is not modelled (protocol step progress, reviewer,
  * planned end), the section names the gap rather than rendering a placeholder.
  */
-import { Fragment } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { z } from 'zod'
 
@@ -23,15 +22,12 @@ import {
 } from '#/components/ui/layout'
 import { Button } from '#/components/ui/button'
 import { Status } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
+import type {
+  RegistryColumn,
+  RegistryRow,
+} from '#/components/inventory/registry-grid'
 import { ObjectLink } from '#/components/ui/object-link'
 import { experimentStatus } from '#/components/experiments/experiments-data'
 import { formatPartDate, partDate } from '#/lib/experiment-parts'
@@ -302,6 +298,108 @@ function PartsSection({
 }) {
   const done = parts.filter((part) => part.status === 'done').length
 
+  const columns: RegistryColumn<PartSummary>[] = [
+    {
+      id: 'number',
+      header: '#',
+      accessorFn: (part) => part.number,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">{row.original.number}</span>
+      ),
+    },
+    {
+      id: 'part',
+      header: t('projects.overview.parts.columns.part'),
+      accessorFn: (part) => part.title,
+      cell: ({ row }) => (
+        <Link
+          to="/experiments/$expId/notebook/$part"
+          params={{ expId: recordId, part: String(row.original.number) }}
+          className="text-link"
+        >
+          {row.original.title}
+        </Link>
+      ),
+    },
+    {
+      id: 'day',
+      header: t('projects.overview.parts.columns.day'),
+      accessorFn: (part) => part.dayOffset,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {t('projects.overview.parts.dayOn', {
+            day: String(row.original.dayOffset),
+            date: formatPartDate(partDate(startedAt, row.original.dayOffset)),
+          })}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: t('projects.overview.parts.columns.status'),
+      accessorFn: (part) => part.status,
+      cell: ({ row }) =>
+        row.original.status === 'done' ? (
+          <Status tone="ok">{t('notebook.parts.stateDone')}</Status>
+        ) : row.original.status === 'now' ? (
+          <Status tone="progress">{t('notebook.parts.stateNow')}</Status>
+        ) : (
+          <Status tone="none">{t('notebook.parts.stateLater')}</Status>
+        ),
+    },
+    {
+      id: 'by',
+      header: t('projects.overview.parts.columns.by'),
+      enableSorting: false,
+      cell: ({ row }) => {
+        const part = row.original
+
+        return part.status === 'done' && part.completedByUserId
+          ? userLabel(part.completedByUserId)
+          : part.assigneeUserId
+            ? userLabel(part.assigneeUserId)
+            : '—'
+      },
+    },
+    {
+      id: 'when',
+      header: t('projects.overview.parts.columns.when'),
+      accessorFn: (part) => part.completedAt ?? '',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.completedAt
+            ? formatNotebookDateTime(row.original.completedAt)
+            : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'steps',
+      header: t('projects.overview.parts.columns.steps'),
+      accessorFn: (part) => part.stepCount,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.stepCount > 0
+            ? t('projects.overview.parts.stepsOf', {
+                done: String(row.original.stepsDone),
+                total: String(row.original.stepCount),
+              })
+            : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'results',
+      header: t('projects.overview.parts.columns.results'),
+      accessorFn: (part) => part.resultCount,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.resultCount > 0 ? row.original.resultCount : '—'}
+        </span>
+      ),
+    },
+  ]
+
   return (
     <Section
       title={t('projects.overview.parts.title')}
@@ -315,84 +413,13 @@ function PartsSection({
       }
     >
       <TableBox className="mt-2">
-        <Table aria-label={t('projects.overview.parts.title')}>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-8">#</TableHead>
-              <TableHead>{t('projects.overview.parts.columns.part')}</TableHead>
-              <TableHead>{t('projects.overview.parts.columns.day')}</TableHead>
-              <TableHead>
-                {t('projects.overview.parts.columns.status')}
-              </TableHead>
-              <TableHead>{t('projects.overview.parts.columns.by')}</TableHead>
-              <TableHead>{t('projects.overview.parts.columns.when')}</TableHead>
-              <TableHead>
-                {t('projects.overview.parts.columns.steps')}
-              </TableHead>
-              <TableHead>
-                {t('projects.overview.parts.columns.results')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {parts.map((part) => (
-              <TableRow key={part.partId}>
-                <TableCell className="text-fg-muted">{part.number}</TableCell>
-                <TableCell>
-                  <Link
-                    to="/experiments/$expId/notebook/$part"
-                    params={{ expId: recordId, part: String(part.number) }}
-                    className="text-link"
-                  >
-                    {part.title}
-                  </Link>
-                </TableCell>
-                <TableCell className="text-fg-muted">
-                  {t('projects.overview.parts.dayOn', {
-                    day: String(part.dayOffset),
-                    date: formatPartDate(partDate(startedAt, part.dayOffset)),
-                  })}
-                </TableCell>
-                <TableCell>
-                  {part.status === 'done' ? (
-                    <Status tone="ok">{t('notebook.parts.stateDone')}</Status>
-                  ) : part.status === 'now' ? (
-                    <Status tone="progress">
-                      {t('notebook.parts.stateNow')}
-                    </Status>
-                  ) : (
-                    <Status tone="none">
-                      {t('notebook.parts.stateLater')}
-                    </Status>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {part.status === 'done' && part.completedByUserId
-                    ? userLabel(part.completedByUserId)
-                    : part.assigneeUserId
-                      ? userLabel(part.assigneeUserId)
-                      : '—'}
-                </TableCell>
-                <TableCell className="text-fg-muted">
-                  {part.completedAt
-                    ? formatNotebookDateTime(part.completedAt)
-                    : '—'}
-                </TableCell>
-                <TableCell className="text-fg-muted">
-                  {part.stepCount > 0
-                    ? t('projects.overview.parts.stepsOf', {
-                        done: String(part.stepsDone),
-                        total: String(part.stepCount),
-                      })
-                    : '—'}
-                </TableCell>
-                <TableCell className="text-fg-muted">
-                  {part.resultCount > 0 ? part.resultCount : '—'}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('projects.overview.parts.title')}
+          rows={[...parts]}
+          columns={columns}
+          getRowId={(part) => part.partId}
+          selectable={false}
+        />
       </TableBox>
     </Section>
   )
@@ -620,6 +647,86 @@ function renderProtocolSection({
   >
   userLabel: ExperimentOverviewProps['userLabel']
 }) {
+  const stepRows: RegistryRow<(typeof protocolSteps)[number]>[] =
+    protocolSteps.flatMap((step, index) =>
+      parts.length > 0 && step.partId !== protocolSteps[index - 1]?.partId
+        ? [bandRow(partHeading(step.partId)), step]
+        : [step],
+    )
+
+  const stepColumns: RegistryColumn<(typeof protocolSteps)[number]>[] = [
+    {
+      id: 'number',
+      header: '#',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {parts.length > 0
+            ? (numberInPart.get(row.original.blockId) ?? '·')
+            : (row.original.stepNumber ?? '·')}
+        </span>
+      ),
+    },
+    {
+      id: 'step',
+      header: t('projects.overview.protocol.columns.step'),
+      accessorFn: (step) => step.text,
+      cell: ({ row }) => (
+        <span className="block max-w-[34ch] truncate" title={row.original.text}>
+          {row.original.text}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: t('projects.overview.protocol.columns.status'),
+      cell: ({ row }) =>
+        row.original.completed ? (
+          <Status tone="ok">{t('projects.overview.protocol.done')}</Status>
+        ) : stepStatus.get(row.original.blockId) === 'in_progress' ? (
+          <Status tone="progress">
+            {t('projects.overview.protocol.inProgress')}
+          </Status>
+        ) : (
+          <Status tone="none">
+            {t('projects.overview.protocol.notStarted')}
+          </Status>
+        ),
+    },
+    {
+      id: 'by',
+      header: t('projects.overview.protocol.columns.by'),
+      cell: ({ row }) =>
+        row.original.completed
+          ? row.original.completedByUserId
+            ? userLabel(row.original.completedByUserId)
+            : t('projects.overview.notRecorded')
+          : '—',
+    },
+    {
+      id: 'when',
+      header: t('projects.overview.protocol.columns.when'),
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.completed && row.original.completedAt
+            ? formatNotebookDateTime(row.original.completedAt)
+            : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'evidence',
+      header: t('projects.overview.protocol.columns.evidence'),
+      cell: ({ row }) => (
+        <span
+          className="block max-w-[26ch] truncate text-fg-muted"
+          title={row.original.note ?? undefined}
+        >
+          {row.original.note || '—'}
+        </span>
+      ),
+    },
+  ]
+
   return (
     <Section
       title={t('projects.overview.protocol.title')}
@@ -651,83 +758,13 @@ function renderProtocolSection({
       )}
       {protocolSteps.length ? (
         <TableBox className="mt-2">
-          <Table aria-label={t('projects.overview.protocol.title')}>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8">#</TableHead>
-                <TableHead>
-                  {t('projects.overview.protocol.columns.step')}
-                </TableHead>
-                <TableHead>
-                  {t('projects.overview.protocol.columns.status')}
-                </TableHead>
-                <TableHead>
-                  {t('projects.overview.protocol.columns.by')}
-                </TableHead>
-                <TableHead>
-                  {t('projects.overview.protocol.columns.when')}
-                </TableHead>
-                <TableHead>
-                  {t('projects.overview.protocol.columns.evidence')}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {protocolSteps.map((step, index) => (
-                <Fragment key={step.blockId}>
-                  {parts.length > 0 &&
-                  step.partId !== protocolSteps[index - 1]?.partId ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="bg-surface-sunken text-label font-semibold text-fg-muted"
-                      >
-                        {partHeading(step.partId)}
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                  <TableRow>
-                    <TableCell className="text-fg-muted">
-                      {parts.length > 0
-                        ? (numberInPart.get(step.blockId) ?? '·')
-                        : (step.stepNumber ?? '·')}
-                    </TableCell>
-                    <TableCell>{step.text}</TableCell>
-                    <TableCell>
-                      {step.completed ? (
-                        <Status tone="ok">
-                          {t('projects.overview.protocol.done')}
-                        </Status>
-                      ) : stepStatus.get(step.blockId) === 'in_progress' ? (
-                        <Status tone="progress">
-                          {t('projects.overview.protocol.inProgress')}
-                        </Status>
-                      ) : (
-                        <Status tone="none">
-                          {t('projects.overview.protocol.notStarted')}
-                        </Status>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {step.completed
-                        ? step.completedByUserId
-                          ? userLabel(step.completedByUserId)
-                          : t('projects.overview.notRecorded')
-                        : '—'}
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {step.completed && step.completedAt
-                        ? formatNotebookDateTime(step.completedAt)
-                        : '—'}
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {step.note || '—'}
-                    </TableCell>
-                  </TableRow>
-                </Fragment>
-              ))}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label={t('projects.overview.protocol.title')}
+            rows={stepRows}
+            columns={stepColumns}
+            getRowId={(step) => step.blockId}
+            selectable={false}
+          />
         </TableBox>
       ) : protocolLinks.length ? (
         <Muted>{t('projects.overview.protocol.noProgress')}</Muted>

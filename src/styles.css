@@ -880,3 +880,9 @@
 .conflict-panel {
   color: var(--foreground);
 }
+
+/* With the first column frozen (phones), the frozen cells sit above the
+   "New run" prompt and hide its start. Lift the prompt over them. */
+.grid-cell.append-row {
+  z-index: 6;
+}

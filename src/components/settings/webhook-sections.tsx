@@ -18,9 +18,18 @@ import type {
   WebhookSubscriptionWire,
 } from '#/lib/webhook-admin'
 import { t } from '#/copy'
-import { endpointName, destinationLabel, lastDeliverySummary } from './webhook-display'
+import {
+  endpointName,
+  destinationLabel,
+  lastDeliverySummary,
+} from './webhook-display'
 
-export { endpointHost, endpointName, destinationLabel, lastDeliverySummary } from './webhook-display'
+export {
+  endpointHost,
+  endpointName,
+  destinationLabel,
+  lastDeliverySummary,
+} from './webhook-display'
 
 interface OutgoingRow {
   sub: WebhookSubscriptionWire

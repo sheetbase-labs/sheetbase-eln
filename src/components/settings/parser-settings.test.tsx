@@ -4,10 +4,20 @@
  * import they were fixing.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider } from '@tanstack/react-router'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
-import type { ParserTestFile, ParserSettingsRow, ParserVersionStatus } from '#/lib/parser-settings'
+import type {
+  ParserTestFile,
+  ParserSettingsRow,
+  ParserVersionStatus,
+} from '#/lib/parser-settings'
 
 interface ParserFixtureState {
   status: ParserVersionStatus
@@ -22,7 +32,10 @@ const state: ParserFixtureState = {
 const unexpected: string[] = []
 
 vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
-  const url = new URL(input instanceof Request ? input.url : String(input), 'http://localhost')
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
 
   if (!init?.method || init.method === 'GET') {
     const resource = url.pathname.replace('/api/db/', '')
@@ -31,14 +44,45 @@ vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
       case 'parsers': {
         if (!url.searchParams.has('workspace_id')) return Response.json([])
 
-        const rows: ParserSettingsRow[] = [{ id: 'p1', key: 'plate-export', name: 'Plate export', format: 'csv', instrument_id: null, instruments: null,
-          parser_versions: [{ id: 'v1', version: 1, status: state.status === 'draft' ? 'draft' : 'approved', signature: {}, mapping: {}, test_result: null, validated_at: null, approved_at: null, approved_by_user_id: null }] }]
+        const rows: ParserSettingsRow[] = [
+          {
+            id: 'p1',
+            key: 'plate-export',
+            name: 'Plate export',
+            format: 'csv',
+            instrument_id: null,
+            instruments: null,
+            parser_versions: [
+              {
+                id: 'v1',
+                version: 1,
+                status: state.status === 'draft' ? 'draft' : 'approved',
+                signature: {},
+                mapping: {},
+                test_result: null,
+                validated_at: null,
+                approved_at: null,
+                approved_by_user_id: null,
+              },
+            ],
+          },
+        ]
 
         return Response.json(rows)
       }
 
       case 'dataset_import_files': {
-        const rows: ParserTestFile[] = [{ id: 'file-1', filename: 'plate-7.csv', checksum: 'abc', parser_failure: { message: 'Unrecognised headers', requestedAt: state.requestedAt } }]
+        const rows: ParserTestFile[] = [
+          {
+            id: 'file-1',
+            filename: 'plate-7.csv',
+            checksum: 'abc',
+            parser_failure: {
+              message: 'Unrecognised headers',
+              requestedAt: state.requestedAt,
+            },
+          },
+        ]
 
         return Response.json(rows)
       }
@@ -70,9 +114,26 @@ afterAll(() => vi.unstubAllGlobals())
 
 function renderSettings(role: string, versionId?: string) {
   const root = createRootRoute()
-  const settings = createRoute({ getParentRoute: () => root, path: '/', component: () => <ParserSettings workspaceId="ws-1" role={role} fileId="file-1" versionId={versionId} /> })
-  const importRoute = createRoute({ getParentRoute: () => root, path: '/import/$fileId' })
-  const router = createRouter({ routeTree: root.addChildren([settings, importRoute]), history: createMemoryHistory({ initialEntries: ['/'] }) })
+  const settings = createRoute({
+    getParentRoute: () => root,
+    path: '/',
+    component: () => (
+      <ParserSettings
+        workspaceId="ws-1"
+        role={role}
+        fileId="file-1"
+        versionId={versionId}
+      />
+    ),
+  })
+  const importRoute = createRoute({
+    getParentRoute: () => root,
+    path: '/import/$fileId',
+  })
+  const router = createRouter({
+    routeTree: root.addChildren([settings, importRoute]),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
 
   return render(
     <QueryClientProvider

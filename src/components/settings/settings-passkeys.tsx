@@ -20,9 +20,15 @@ import { toast } from '#/components/ui/sonner'
 import { authClient } from '#/lib/auth-client'
 import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
-import { passkeysQueryKey, usePasskeysSupported } from './settings-passkeys-data'
+import {
+  passkeysQueryKey,
+  usePasskeysSupported,
+} from './settings-passkeys-data'
 
-export { passkeysQueryKey, usePasskeysSupported } from './settings-passkeys-data'
+export {
+  passkeysQueryKey,
+  usePasskeysSupported,
+} from './settings-passkeys-data'
 
 interface PasskeyRow {
   id: string

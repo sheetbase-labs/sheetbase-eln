@@ -1,11 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "typescript",
-    "import",
-    "unicorn",
-    "oxc"
-  ],
+  "plugins": ["typescript", "import", "unicorn", "oxc"],
   "categories": {
     "correctness": "error"
   },
@@ -80,10 +75,7 @@
         "prefer": "type-imports"
       }
     ],
-    "typescript/method-signature-style": [
-      "error",
-      "property"
-    ],
+    "typescript/method-signature-style": ["error", "property"],
     "typescript/no-duplicate-enum-values": "error",
     "typescript/no-extra-non-null-assertion": "error",
     "typescript/no-for-in-array": "error",
@@ -103,10 +95,7 @@
     "typescript/prefer-as-const": "error",
     "typescript/prefer-for-of": "error",
     "typescript/triple-slash-reference": "error",
-    "import/consistent-type-specifier-style": [
-      "error",
-      "prefer-top-level"
-    ],
+    "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
     "import/first": "error",
     "import/newline-after-import": "error",
     "import/no-commonjs": "error",

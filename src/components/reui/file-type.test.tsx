@@ -1,11 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import {
-  FileType,
-  getFileType,
-  getFileTypeCategory,
-} from './file-type'
+import { FileType, getFileType, getFileTypeCategory } from './file-type'
 
 /**
  * The icon's two contracts: turning a name, URL or media type into a type, and
@@ -100,7 +96,9 @@ describe('FileType', () => {
   it('shows the glyph instead of the band for a family', () => {
     const { container } = render(<FileType type="image" glyph />)
 
-    expect(container.querySelector('[data-slot="file-type-glyph"]')).toBeTruthy()
+    expect(
+      container.querySelector('[data-slot="file-type-glyph"]'),
+    ).toBeTruthy()
     expect(container.querySelector('[data-slot="file-type-label"]')).toBeNull()
   })
 

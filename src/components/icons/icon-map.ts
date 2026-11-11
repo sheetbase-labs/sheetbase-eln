@@ -123,7 +123,6 @@ import {
   HistoryIcon,
 } from '@hugeicons/core-free-icons'
 
-
 /**
  * The app's icon set: Hugeicons (free set), looked up by a short name so call
 /**

@@ -18,7 +18,10 @@ import type { PluginFilePreview } from '#/lib/extensions/plugin-files'
 import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
 
 /** One row of a plugin's preview table, named by the plugin contract that sends it. */
-type PluginPreviewRow = Extract<PluginFilePreview, { kind: 'table' }>['rows'][number]
+type PluginPreviewRow = Extract<
+  PluginFilePreview,
+  { kind: 'table' }
+>['rows'][number]
 
 /**
  * One cell of a plugin's preview table, decoded to the text the table shows.

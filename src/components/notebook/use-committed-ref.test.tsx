@@ -28,7 +28,9 @@ it('keeps callbacks on committed inputs when a later render suspends', async () 
         <button onClick={() => startTransition(() => setValue('unfinished'))}>
           Start unfinished render
         </button>
-        <button onClick={() => setValue('committed update')}>Finish edit</button>
+        <button onClick={() => setValue('committed update')}>
+          Finish edit
+        </button>
         {waiting ? <p>Rendering</p> : null}
         <Suspense fallback={<p>Loading editor</p>}>
           <Editor value={value} />
@@ -39,7 +41,9 @@ it('keeps callbacks on committed inputs when a later render suspends', async () 
 
   const user = userEvent.setup()
   render(<Notebook />)
-  await user.click(screen.getByRole('button', { name: 'Start unfinished render' }))
+  await user.click(
+    screen.getByRole('button', { name: 'Start unfinished render' }),
+  )
   expect(screen.getByText('Rendering')).toBeTruthy()
   await user.click(screen.getByRole('button', { name: 'Save' }))
   expect(save).toHaveBeenLastCalledWith('original')

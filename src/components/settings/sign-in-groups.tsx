@@ -179,7 +179,9 @@ export function SignInGroupsSection({
               <Select
                 value={role}
                 onChange={(event) => {
-                  const selectedRole = GROUP_ROLES.find((option) => option === event.target.value)
+                  const selectedRole = GROUP_ROLES.find(
+                    (option) => option === event.target.value,
+                  )
 
                   if (selectedRole) setRole(selectedRole)
                 }}

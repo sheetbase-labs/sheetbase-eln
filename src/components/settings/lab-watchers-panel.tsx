@@ -295,7 +295,8 @@ function WatcherRow({
   const paramKey = meta.param?.key
   const stored = paramKey ? row?.params[paramKey] : undefined
 
-  const param = z.number().safeParse(stored).data ?? meta.param?.defaultValue ?? null
+  const param =
+    z.number().safeParse(stored).data ?? meta.param?.defaultValue ?? null
 
   return (
     <TableRow>
@@ -351,7 +352,9 @@ function WatcherRow({
           value={schedule}
           disabled={busy}
           onChange={(event) => {
-            const selectedSchedule = WATCHER_SCHEDULES.find((option) => option === event.target.value)
+            const selectedSchedule = WATCHER_SCHEDULES.find(
+              (option) => option === event.target.value,
+            )
 
             if (!selectedSchedule) return
             onSave({

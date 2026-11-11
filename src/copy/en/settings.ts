@@ -2479,6 +2479,7 @@ export const settings = {
     viewer: 'Viewer',
     workspaceAdmin: 'Owner',
     clientViewer: 'Client viewer',
+    rolesTable: 'Roles',
     whatEachRole: 'What each role can do',
     role: 'Role',
     whatThey: 'What they can do',

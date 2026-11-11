@@ -454,9 +454,19 @@ function useTemplateColumns({
         header: t('library.templates.list.id'),
         accessorFn: (item) => item.displayId ?? item.key,
         enableHiding: false,
-        cell: ({ row }) => (
-          <span className="mono">{row.original.displayId ?? '—'}</span>
-        ),
+        cell: ({ row }) =>
+          row.original.displayId ? (
+            <Link
+              to="/templates/$templateId"
+              params={{ templateId: row.original.id }}
+              onClick={(event) => openTemplate(row.original, event)}
+              className="mono"
+            >
+              {row.original.displayId}
+            </Link>
+          ) : (
+            '—'
+          ),
       },
       {
         id: 'template',

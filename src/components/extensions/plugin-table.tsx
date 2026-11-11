@@ -123,7 +123,7 @@ export function PluginTable({ table }: { table: FrameTable }) {
 
             const next = isFunction(updater) ? updater(current) : updater
 
-            const first = next[0]
+            const first = next.at(0)
 
             if (first) setChosen({ key: first.id, descending: first.desc })
           }}

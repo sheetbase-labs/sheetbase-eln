@@ -392,17 +392,20 @@ test('an imported plate analysis remains reconstructable after independent revie
         `[role="gridcell"][aria-rowindex="${row}"][aria-colindex="${column}"]`,
       )
     await expect(cell(1, 2)).toBeVisible()
-    const observedTitres = [
-      Number(await cell(1, 2).innerText()),
-      Number(await cell(2, 2).innerText()),
-    ]
+    // A number cell shows its unit after the value (`1200 cp/mL`).
+    const cellNumber = async (row: number, column: number) =>
+      Number((await cell(row, column).innerText()).split(' ')[0])
+    const valueText = (value: number) =>
+      new RegExp(`^${String(value).replace('.', '\\.')}( .+)?$`)
+    const observedTitres = [await cellNumber(1, 2), await cellNumber(2, 2)]
     expect(observedTitres.every(Number.isFinite)).toBe(true)
     const samples = [await cell(1, 1).innerText(), await cell(2, 1).innerText()]
     const factors = [2, 5]
     const products = observedTitres.map(
       (titre, index) => titre * factors[index],
     )
-    await page.getByRole('button', { name: 'New column…' }).click()
+    await page.getByRole('button', { name: 'More sheet tools' }).click()
+    await page.getByRole('menuitem', { name: 'New column…' }).click()
     await page.getByLabel('New column', { exact: true }).fill('Dilution factor')
     await page
       .getByLabel('New column type', { exact: true })
@@ -430,7 +433,8 @@ test('an imported plate analysis remains reconstructable after independent revie
     await page.keyboard.press('ControlOrMeta+V')
     await pasted
     await expect(cell(3, 3)).toHaveText('1')
-    await page.getByRole('button', { name: 'New calculation…' }).click()
+    await page.getByRole('button', { name: 'More sheet tools' }).click()
+    await page.getByRole('menuitem', { name: 'New calculation…' }).click()
     await page.getByLabel('Calculation formula').fill('=B1*C1')
     await page.getByLabel('Calculation label').fill('Adjusted titre')
     await page.getByLabel('Calculation quantity').selectOption(columns[1].id)
@@ -446,12 +450,12 @@ test('an imported plate analysis remains reconstructable after independent revie
       fullPage: true,
     })
     for (const [index, product] of products.entries())
-      await expect(cell(index + 1, 4)).toHaveText(String(product))
+      await expect(cell(index + 1, 4)).toHaveText(valueText(product))
     await page.reload()
     await waitForHydration(page)
     for (const [index, product] of products.entries()) {
       await expect(cell(index + 1, 3)).toHaveText(String(factors[index]))
-      await expect(cell(index + 1, 4)).toHaveText(String(product))
+      await expect(cell(index + 1, 4)).toHaveText(valueText(product))
     }
     expect(await readDataset()).toEqual(datasetBefore)
     await page.screenshot({

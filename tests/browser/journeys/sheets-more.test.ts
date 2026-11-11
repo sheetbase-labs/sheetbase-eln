@@ -73,7 +73,11 @@ test('DATA-08 a pasted table becomes local columns in a new sheet', async ({
   await waitForHydration(page)
   await page.reload()
   await expect(page).toHaveURL(new RegExp(sheet))
-  await expect(page.getByRole('button', { name: 'Paste data…' })).toBeVisible()
+  await page.getByRole('button', { name: 'More sheet tools' }).click()
+  await expect(
+    page.getByRole('menuitem', { name: 'Paste data…' }),
+  ).toBeVisible()
+  await page.keyboard.press('Escape')
   await expect(page.getByRole('columnheader', { name: /Titre/ })).toBeVisible()
 })
 

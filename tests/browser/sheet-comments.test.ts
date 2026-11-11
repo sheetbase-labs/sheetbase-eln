@@ -192,7 +192,8 @@ for (const theme of ['light', 'dark']) {
     await page.getByRole('gridcell', { name: '4', exact: true }).click()
     if (theme === 'dark') await expect(page.locator('html')).toHaveClass(/dark/)
     else await expect(page.locator('html')).not.toHaveClass(/dark/)
-    await page.getByRole('button', { name: 'Comment on selection' }).click()
+    await page.getByRole('button', { name: 'More sheet tools' }).click()
+    await page.getByRole('menuitem', { name: 'Comment on selection' }).click()
     const cellBody = `SHEET-03 ${theme} recovery-four discussion`
     await addComment(page, cellBody)
     const root = (
@@ -235,7 +236,8 @@ for (const theme of ['light', 'dark']) {
     await page
       .getByRole('gridcell', { name: '91', exact: true })
       .click({ modifiers: ['Shift'] })
-    await page.getByRole('button', { name: 'Comment on selection' }).click()
+    await page.getByRole('button', { name: 'More sheet tools' }).click()
+    await page.getByRole('menuitem', { name: 'Comment on selection' }).click()
     const rangeBody = `SHEET-03 ${theme} asymmetric range discussion`
     await addComment(page, rangeBody)
     expect(
@@ -331,7 +333,8 @@ for (const theme of ['light', 'dark']) {
           .includes('/api/db/rpc/mutate_sheet_instance_local_state') &&
         response.request().method() === 'POST',
     )
-    await page.getByRole('button', { name: 'Add row', exact: true }).click()
+    await page.getByRole('button', { name: 'More sheet tools' }).click()
+    await page.getByRole('menuitem', { name: 'Add row', exact: true }).click()
     expect((await inserted).status()).toBe(200)
     await expect
       .poll(
@@ -388,7 +391,8 @@ for (const theme of ['light', 'dark']) {
       .getByRole('gridcell', { name: 'keep', exact: true })
       .first()
       .click()
-    await page.getByRole('button', { name: 'Comment on selection' }).click()
+    await page.getByRole('button', { name: 'More sheet tools' }).click()
+    await page.getByRole('menuitem', { name: 'Comment on selection' }).click()
     await expect(
       page.getByText(/original spot isn’t available in this view/),
     ).toHaveCount(2)

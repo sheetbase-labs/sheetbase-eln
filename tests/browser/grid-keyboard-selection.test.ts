@@ -129,7 +129,7 @@ test('keyboard navigation, range extension and the grid as one tab stop', async 
 
   // One tab stop: Tab from the control before the grid lands on the grid
   // itself, and the shell shows its focus ring.
-  await page.getByRole('button', { name: 'Working view' }).click()
+  await page.getByRole('button', { name: 'Columns', exact: true }).click()
   await page.getByRole('button', { name: 'Reset view' }).focus()
   await page.keyboard.press('Tab')
   await expect(grid).toBeFocused()
@@ -205,7 +205,7 @@ test('Tab moves right inside the grid and leaves at the horizontal edge', async 
 }) => {
   const grid = await openBoundSheet(page)
 
-  await page.getByRole('button', { name: 'Working view' }).click()
+  await page.getByRole('button', { name: 'Columns', exact: true }).click()
   await page.getByRole('button', { name: 'Reset view' }).focus()
   await page.keyboard.press('Tab')
   await expect(grid).toBeFocused()

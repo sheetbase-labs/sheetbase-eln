@@ -135,3 +135,16 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
     }),
   })
 }
+
+// jsdom has no Web Animations API. Base UI's ScrollArea asks a viewport for its
+// running animations on a timer, which throws after a test has moved on.
+if (
+  typeof Element !== 'undefined' &&
+  typeof Element.prototype.getAnimations !== 'function'
+) {
+  Object.defineProperty(Element.prototype, 'getAnimations', {
+    configurable: true,
+    writable: true,
+    value: (): Animation[] => [],
+  })
+}

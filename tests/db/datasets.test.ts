@@ -567,6 +567,15 @@ describe('canonical Dataset metadata', () => {
         )
       ).rows,
     ).toEqual([{ integer_value: '9' }])
+    // ...and flagged out of range, as a field's own flag rule would.
+    expect(
+      (
+        await owner.query(
+          `select kind, source from api.dataset_value_flags where row_id=$1 and field_id=$2 and cleared_at is null`,
+          [flaggedRow, fixture.fields.integer],
+        )
+      ).rows,
+    ).toEqual([{ kind: 'out_of_range', source: 'system' }])
   })
 
   it('reports global row UUID conflicts structurally and commits no companion row', async () => {

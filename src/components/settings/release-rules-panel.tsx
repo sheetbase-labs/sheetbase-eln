@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import {
@@ -15,15 +17,7 @@ import { Field, Input } from '#/components/ui/input'
 import { Muted } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
 import { SettingsBody } from '#/components/settings/settings-page'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
@@ -126,6 +120,69 @@ export function ReleaseRulesPanel({
 
   const active = selected && types.includes(selected) ? selected : null
 
+  const lines = types.map((type) => {
+    const set = byType.get(type)
+
+    return {
+      id: type,
+      type,
+      own: Boolean(set),
+      rules: set?.rules ?? [...BUILT_IN_RULES],
+    }
+  })
+
+  const columns: RegistryColumn<(typeof lines)[number]>[] = [
+    {
+      id: 'sampleType',
+      header: t('settings.releaseRules.sampleType'),
+      accessorFn: (line) =>
+        line.type === ALL_TYPES
+          ? t('settings.releaseRules.allTypes')
+          : line.type,
+      cell: ({ row }) => (
+        <span className="font-medium text-fg">
+          {row.original.type === ALL_TYPES
+            ? t('settings.releaseRules.allTypes')
+            : row.original.type}
+        </span>
+      ),
+    },
+    {
+      id: 'checks',
+      header: t('settings.releaseRules.checks'),
+      accessorFn: (line) => line.rules.map(describeRule).join('; '),
+      cell: ({ row }) => {
+        const { rules } = row.original
+
+        return (
+          <span
+            className="block max-w-[34rem] truncate"
+            title={rules.map(describeRule).join('; ')}
+          >
+            {rules.length
+              ? rules.map(describeRule).join('; ')
+              : t('settings.releaseRules.noChecks')}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'source',
+      header: t('settings.releaseRules.source'),
+      accessorFn: (line) =>
+        line.own
+          ? t('settings.releaseRules.ownChecks')
+          : t('settings.releaseRules.builtIn'),
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.own
+            ? t('settings.releaseRules.ownChecks')
+            : t('settings.releaseRules.builtIn')}
+        </span>
+      ),
+    },
+  ]
+
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <SettingsBody className="min-w-0 flex-1">
@@ -142,60 +199,14 @@ export function ReleaseRulesPanel({
           <Notice>{t('settings.releaseRules.viewOnly')}</Notice>
         )}
         <TableBox>
-          <Table caption={t('settings.releaseRules.title')}>
-            <TableHeader>
-              <tr>
-                <TableHead>{t('settings.releaseRules.sampleType')}</TableHead>
-                <TableHead>{t('settings.releaseRules.checks')}</TableHead>
-                <TableHead>{t('settings.releaseRules.source')}</TableHead>
-              </tr>
-            </TableHeader>
-            <TableBody>
-              {types.map((type) => {
-                const set = byType.get(type)
-                const rules = set?.rules ?? [...BUILT_IN_RULES]
-
-                return (
-                  <TableRow
-                    key={type}
-                    selected={type === active}
-                    className="cursor-pointer"
-                    tabIndex={0}
-                    onClick={() => setSelected(type)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        setSelected(type)
-                      }
-                    }}
-                  >
-                    <TableCell>
-                      <span className="font-medium text-fg">
-                        {type === ALL_TYPES
-                          ? t('settings.releaseRules.allTypes')
-                          : type}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className="block max-w-[34rem] truncate"
-                        title={rules.map(describeRule).join('; ')}
-                      >
-                        {rules.length
-                          ? rules.map(describeRule).join('; ')
-                          : t('settings.releaseRules.noChecks')}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {set
-                        ? t('settings.releaseRules.ownChecks')
-                        : t('settings.releaseRules.builtIn')}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label={t('settings.releaseRules.title')}
+            rows={lines}
+            columns={columns}
+            getRowId={(line) => line.id}
+            rowSelection={active ? { [active]: true } : {}}
+            onRowClick={(line) => setSelected(line.id)}
+          />
         </TableBox>
       </SettingsBody>
       <aside

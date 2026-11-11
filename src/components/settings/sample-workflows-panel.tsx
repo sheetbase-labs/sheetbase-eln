@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
@@ -9,15 +11,7 @@ import { IconButton } from '#/components/ui/icon-button'
 import { Muted } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
 import { SettingsBody } from '#/components/settings/settings-page'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
@@ -42,6 +36,7 @@ import type {
   WorkflowAction,
   WorkflowDraft,
   WorkflowStageDraft,
+  WorkflowSummary,
 } from '#/lib/sample-workflows'
 import { t } from '#/copy'
 
@@ -126,6 +121,58 @@ function WorkflowList({
     )
   }
 
+  const columns: RegistryColumn<WorkflowSummary>[] = [
+    {
+      id: 'workflow',
+      header: t('settings.sampleWorkflows.workflow'),
+      accessorFn: (workflow) => workflow.name,
+      cell: ({ row }) => (
+        <span className="font-medium text-fg">{row.original.name}</span>
+      ),
+    },
+    {
+      id: 'appliesTo',
+      header: t('settings.sampleWorkflows.appliesTo'),
+      accessorFn: (workflow) =>
+        workflow.sampleType ?? t('settings.sampleWorkflows.anyType'),
+    },
+    {
+      id: 'steps',
+      header: t('settings.sampleWorkflows.steps'),
+      accessorFn: (workflow) => workflow.stageCount,
+      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+    },
+    {
+      id: 'inProgress',
+      header: t('settings.sampleWorkflows.inProgress'),
+      accessorFn: (workflow) => workflow.inProgress,
+      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+    },
+    {
+      id: 'starts',
+      header: t('settings.sampleWorkflows.starts'),
+      accessorFn: (workflow) =>
+        workflow.autoEnrol
+          ? t('settings.sampleWorkflows.startsOnItsOwn')
+          : t('settings.sampleWorkflows.startedByHand'),
+    },
+    {
+      id: 'state',
+      header: t('settings.sampleWorkflows.state'),
+      accessorFn: (workflow) =>
+        workflow.status === 'archived'
+          ? t('settings.sampleWorkflows.archived')
+          : t('settings.sampleWorkflows.active'),
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.status === 'archived'
+            ? t('settings.sampleWorkflows.archived')
+            : t('settings.sampleWorkflows.active')}
+        </span>
+      ),
+    },
+  ]
+
   return (
     <SettingsBody>
       <p className="m-0 max-w-prose text-body text-fg-muted">
@@ -140,59 +187,20 @@ function WorkflowList({
       ) : (
         <Notice>{t('settings.sampleWorkflows.viewOnly')}</Notice>
       )}
-      <TableBox>
-        <Table caption={t('settings.sampleWorkflows.title')}>
-          <TableHeader>
-            <tr>
-              <TableHead>{t('settings.sampleWorkflows.workflow')}</TableHead>
-              <TableHead>{t('settings.sampleWorkflows.appliesTo')}</TableHead>
-              <TableHead>{t('settings.sampleWorkflows.steps')}</TableHead>
-              <TableHead>{t('settings.sampleWorkflows.inProgress')}</TableHead>
-              <TableHead>{t('settings.sampleWorkflows.starts')}</TableHead>
-              <TableHead>{t('settings.sampleWorkflows.state')}</TableHead>
-            </tr>
-          </TableHeader>
-          <TableBody
-            loading={list.isLoading}
-            colSpan={6}
-            empty={t('settings.sampleWorkflows.none')}
-          >
-            {(list.data ?? []).map((workflow) => (
-              <TableRow
-                key={workflow.id}
-                className="cursor-pointer"
-                tabIndex={0}
-                onClick={() => onOpen(workflow.id)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    onOpen(workflow.id)
-                  }
-                }}
-              >
-                <TableCell>
-                  <span className="font-medium text-fg">{workflow.name}</span>
-                </TableCell>
-                <TableCell>
-                  {workflow.sampleType ?? t('settings.sampleWorkflows.anyType')}
-                </TableCell>
-                <TableCell className="num">{workflow.stageCount}</TableCell>
-                <TableCell className="num">{workflow.inProgress}</TableCell>
-                <TableCell>
-                  {workflow.autoEnrol
-                    ? t('settings.sampleWorkflows.startsOnItsOwn')
-                    : t('settings.sampleWorkflows.startedByHand')}
-                </TableCell>
-                <TableCell className="text-fg-muted">
-                  {workflow.status === 'archived'
-                    ? t('settings.sampleWorkflows.archived')
-                    : t('settings.sampleWorkflows.active')}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableBox>
+      {!list.isLoading && (list.data ?? []).length === 0 ? (
+        <Muted>{t('settings.sampleWorkflows.none')}</Muted>
+      ) : (
+        <TableBox>
+          <RegistryGrid
+            label={t('settings.sampleWorkflows.title')}
+            rows={list.data ?? []}
+            columns={columns}
+            getRowId={(workflow) => workflow.id}
+            onRowClick={(workflow) => onOpen(workflow.id)}
+            isLoading={list.isLoading}
+          />
+        </TableBox>
+      )}
     </SettingsBody>
   )
 }
@@ -504,6 +512,92 @@ function WorkflowSteps({
     stages.find((stage) => stage.key === key)?.name ||
     t('settings.sampleWorkflows.unnamedStep')
 
+  const columns: RegistryColumn<WorkflowStageDraft>[] = [
+    {
+      id: 'step',
+      header: t('settings.sampleWorkflows.step'),
+      cell: ({ row }) => (
+        <>
+          <span className="font-medium text-fg">
+            {row.original.name || t('settings.sampleWorkflows.unnamedStep')}
+          </span>
+          {row.original.final ? (
+            <span className="ml-2 text-label text-fg-muted">
+              {t('settings.sampleWorkflows.endsWorkflow')}
+            </span>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: 'movesTo',
+      header: t('settings.sampleWorkflows.movesTo'),
+      cell: ({ row }) =>
+        row.original.final
+          ? '–'
+          : row.original.next.map(nameOf).join(', ') || '–',
+    },
+    {
+      id: 'turnaround',
+      header: t('settings.sampleWorkflows.turnaround'),
+      cell: ({ row }) =>
+        row.original.turnaroundDays
+          ? t('settings.sampleWorkflows.days', {
+              count: Number(row.original.turnaroundDays),
+            })
+          : '–',
+    },
+    {
+      id: 'needs',
+      header: t('settings.sampleWorkflows.needs'),
+      cell: ({ row }) => row.original.requiredFields.join(', ') || '–',
+    },
+    {
+      id: 'automations',
+      header: t('settings.sampleWorkflows.automations'),
+      cell: ({ row }) => {
+        const text = row.original.actions.map(describeAction).join('; ')
+
+        return (
+          <span className="block max-w-[14rem] truncate" title={text}>
+            {text || '–'}
+          </span>
+        )
+      },
+    },
+    ...(canManage
+      ? [
+          {
+            id: 'order',
+            header: '',
+            enableHiding: false,
+            cell: ({ row }) => (
+              <span className="flex gap-0.5">
+                <IconButton
+                  label={t('settings.sampleWorkflows.moveUp')}
+                  icon="chevronUp"
+                  disabled={row.index === 0}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onMove(row.index, -1)
+                  }}
+                />
+                <IconButton
+                  label={t('settings.sampleWorkflows.moveDown')}
+                  icon="chevronDown"
+                  disabled={row.index === stages.length - 1}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onMove(row.index, 1)
+                  }}
+                />
+              </span>
+            ),
+          } satisfies RegistryColumn<WorkflowStageDraft>,
+        ]
+      : []),
+  ]
+
   return (
     <>
       <div className="flex items-center gap-2">
@@ -518,101 +612,15 @@ function WorkflowSteps({
         ) : null}
       </div>
       <TableBox>
-        <Table caption={t('settings.sampleWorkflows.stepsHeading')}>
-          <TableHeader>
-            <tr>
-              {[
-                t('settings.sampleWorkflows.step'),
-                t('settings.sampleWorkflows.movesTo'),
-                t('settings.sampleWorkflows.turnaround'),
-                t('settings.sampleWorkflows.needs'),
-                t('settings.sampleWorkflows.automations'),
-              ].map((label) => (
-                <TableHead key={label}>{label}</TableHead>
-              ))}
-              {canManage ? (
-                <TableHead>
-                  <span className="sr-only">
-                    {t('settings.sampleWorkflows.order')}
-                  </span>
-                </TableHead>
-              ) : null}
-            </tr>
-          </TableHeader>
-          <TableBody>
-            {stages.map((stage, index) => (
-              <TableRow
-                key={stage.key}
-                selected={stage.key === selectedKey}
-                className="cursor-pointer"
-                tabIndex={0}
-                onClick={() => onSelect(stage.key)}
-                onKeyDown={(event) => {
-                  if (event.target !== event.currentTarget) return
-
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    onSelect(stage.key)
-                  }
-                }}
-              >
-                <TableCell>
-                  <span className="font-medium text-fg">
-                    {stage.name || t('settings.sampleWorkflows.unnamedStep')}
-                  </span>
-                  {stage.final ? (
-                    <span className="ml-2 text-label text-fg-muted">
-                      {t('settings.sampleWorkflows.endsWorkflow')}
-                    </span>
-                  ) : null}
-                </TableCell>
-                <TableCell>
-                  {stage.final ? '–' : stage.next.map(nameOf).join(', ') || '–'}
-                </TableCell>
-                <TableCell className="num">
-                  {stage.turnaroundDays
-                    ? t('settings.sampleWorkflows.days', {
-                        count: Number(stage.turnaroundDays),
-                      })
-                    : '–'}
-                </TableCell>
-                <TableCell>{stage.requiredFields.join(', ') || '–'}</TableCell>
-                <TableCell>
-                  <span
-                    className="block max-w-[14rem] truncate"
-                    title={stage.actions.map(describeAction).join('; ')}
-                  >
-                    {stage.actions.map(describeAction).join('; ') || '–'}
-                  </span>
-                </TableCell>
-                {canManage ? (
-                  <TableCell>
-                    <span className="flex gap-0.5">
-                      <IconButton
-                        label={t('settings.sampleWorkflows.moveUp')}
-                        icon="chevronUp"
-                        disabled={index === 0}
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          onMove(index, -1)
-                        }}
-                      />
-                      <IconButton
-                        label={t('settings.sampleWorkflows.moveDown')}
-                        icon="chevronDown"
-                        disabled={index === stages.length - 1}
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          onMove(index, 1)
-                        }}
-                      />
-                    </span>
-                  </TableCell>
-                ) : null}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('settings.sampleWorkflows.stepsHeading')}
+          rows={stages}
+          columns={columns}
+          getRowId={(stage) => stage.key}
+          rowSelection={selectedKey ? { [selectedKey]: true } : {}}
+          onRowClick={(stage) => onSelect(stage.key)}
+          sortable={false}
+        />
       </TableBox>
     </>
   )

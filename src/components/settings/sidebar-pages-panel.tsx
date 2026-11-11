@@ -6,15 +6,9 @@ import { Icon } from '#/components/icons'
 import { Checkbox } from '#/components/ui/checkbox'
 import { Muted } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { SettingsBody } from '#/components/settings/settings-page'
 import { canHideNavPage, navGroups } from '#/components/shell/nav'
 import { ROOT_CONTEXT_QUERY_KEY } from '#/lib/root-context-cache'
@@ -82,64 +76,77 @@ export function SidebarPagesPanel({
     save.mutate(next)
   }
 
+  const pageRows = navGroups.flatMap((group) =>
+    group.items.map((item) => ({
+      id: item.key,
+      item,
+      group: group.label,
+      fixed: !canHideNavPage(item.key),
+    })),
+  )
+
+  const columns: RegistryColumn<(typeof pageRows)[number]>[] = [
+    {
+      id: 'page',
+      header: t('settings.sidebarPages.page'),
+      accessorFn: (line) => line.item.label,
+      cell: ({ row }) => (
+        <span className="inline-flex items-center gap-2">
+          <Icon
+            name={row.original.item.icon}
+            size={16}
+            className="text-fg-muted"
+          />
+          {row.original.item.label}
+        </span>
+      ),
+    },
+    {
+      id: 'group',
+      header: t('settings.sidebarPages.group'),
+      accessorFn: (line) => line.group,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">{row.original.group}</span>
+      ),
+    },
+    {
+      id: 'shown',
+      header: t('settings.sidebarPages.shown'),
+      enableSorting: false,
+      size: 140,
+      cell: ({ row }) => {
+        const { item, fixed } = row.original
+        const shown = fixed || !hiddenPages.has(item.key)
+
+        return fixed ? (
+          <span className="text-label text-fg-muted">
+            {t('settings.sidebarPages.alwaysShown')}
+          </span>
+        ) : (
+          <Checkbox
+            aria-label={t('settings.sidebarPages.showPage', {
+              page: item.label,
+            })}
+            checked={shown}
+            disabled={busy}
+            onCheckedChange={(checked) => toggle(item.key, checked === true)}
+          />
+        )
+      },
+    },
+  ]
+
   return (
     <SettingsBody>
       <TableBox>
-        <Table caption={t('settings.sidebarPages.title')}>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('settings.sidebarPages.page')}</TableHead>
-              <TableHead>{t('settings.sidebarPages.group')}</TableHead>
-              <TableHead className="w-0">
-                {t('settings.sidebarPages.shown')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody loading={query.isPending} colSpan={3}>
-            {navGroups.flatMap((group) =>
-              group.items.map((item) => {
-                const fixed = !canHideNavPage(item.key)
-                const shown = fixed || !hiddenPages.has(item.key)
-
-                return (
-                  <TableRow key={item.key}>
-                    <TableCell>
-                      <span className="inline-flex items-center gap-2">
-                        <Icon
-                          name={item.icon}
-                          size={16}
-                          className="text-fg-muted"
-                        />
-                        {item.label}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {group.label}
-                    </TableCell>
-                    <TableCell>
-                      {fixed ? (
-                        <span className="text-label text-fg-muted">
-                          {t('settings.sidebarPages.alwaysShown')}
-                        </span>
-                      ) : (
-                        <Checkbox
-                          aria-label={t('settings.sidebarPages.showPage', {
-                            page: item.label,
-                          })}
-                          checked={shown}
-                          disabled={busy}
-                          onCheckedChange={(checked) =>
-                            toggle(item.key, checked === true)
-                          }
-                        />
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )
-              }),
-            )}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('settings.sidebarPages.title')}
+          rows={pageRows}
+          columns={columns}
+          getRowId={(line) => line.id}
+          selectable={false}
+          isLoading={query.isPending}
+        />
       </TableBox>
       {canManage ? null : <Muted>{t('settings.sidebarPages.viewOnly')}</Muted>}
     </SettingsBody>

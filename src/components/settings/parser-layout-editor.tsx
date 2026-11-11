@@ -1,19 +1,13 @@
 import { useMemo, useState } from 'react'
 
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Checkbox } from '#/components/ui/checkbox'
 import { FileDrop } from '#/components/ui/file-drop'
 import { Field, Input } from '#/components/ui/input'
 import { Muted } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
 import { Tooltip } from '#/components/ui/tooltip'
 import { Button } from '#/components/ui/button'
 import { readWithLayout } from '#/lib/import/parser-layout'
@@ -26,6 +20,25 @@ export { tidyLayout } from './parser-layout-settings'
 const PREVIEW_ROWS = 6
 
 type Start = 'first' | 'text' | 'number'
+
+interface PreviewRow {
+  id: string
+  cells: Record<string, string>
+}
+
+function previewRows(rows: Record<string, string>[]): PreviewRow[] {
+  return rows
+    .slice(0, PREVIEW_ROWS)
+    .map((cells, index) => ({ id: String(index), cells }))
+}
+
+function previewColumns(headers: string[]): RegistryColumn<PreviewRow>[] {
+  return headers.map((header) => ({
+    id: header,
+    header,
+    accessorFn: (row) => row.cells[header],
+  }))
+}
 
 function Tip({ children, tip }: { children: React.ReactNode; tip: string }) {
   return (
@@ -304,25 +317,14 @@ function ParserSamplePreview({
             </p>
           ) : null}
           <TableBox>
-            <Table aria-label={t('settings.parserLayout.sample')}>
-              <TableHeader>
-                <TableRow>
-                  {preview.read.headers.map((header) => (
-                    <TableHead key={header}>{header}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {preview.read.rows.slice(0, PREVIEW_ROWS).map((row, index) => (
-                  // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- This read-only preview has no row identities or interactive state; duplicate source rows are valid and cells always render from the current sample.
-                  <TableRow key={index}>
-                    {preview.read.headers.map((header) => (
-                      <TableCell key={header}>{row[header]}</TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label={t('settings.parserLayout.sample')}
+              rows={previewRows(preview.read.rows)}
+              columns={previewColumns(preview.read.headers)}
+              getRowId={(row) => row.id}
+              selectable={false}
+              sortable={false}
+            />
           </TableBox>
           <Muted>
             {t('settings.parserLayout.previewRows', {

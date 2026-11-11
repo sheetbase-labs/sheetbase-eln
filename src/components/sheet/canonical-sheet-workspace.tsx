@@ -58,7 +58,10 @@ import {
   usePhoneToolbar,
 } from '#/components/sheet/sheet-toolbar-parts'
 import { cn } from '#/lib/utils'
-import { SheetBenchEntry } from '#/components/sheet/sheet-bench-entry'
+import {
+  SheetBenchEntry,
+  outOfRange,
+} from '#/components/sheet/sheet-bench-entry'
 import type {
   SheetMoreItem,
   SheetSaveState,
@@ -3055,16 +3058,28 @@ function CanonicalWorkspaceGrid() {
             onReady={setGridHandle}
             // EXP-05.2: the host's per-cell state, resolved to the grid's
             // display row index via the canonical row identity.
-            cellState={
-              cellState
-                ? (rowIndex, columnId) =>
-                    cellState({
-                      instanceId: instance.id,
-                      rowId: matrix.rowKeys[rowIndex] ?? '',
-                      columnId,
-                    })
+            // A value outside its field's range is flagged in danger text
+            // unless the host gives the cell a state of its own.
+            cellState={(rowIndex, columnId) => {
+              const hosted = cellState?.({
+                instanceId: instance.id,
+                rowId: matrix.rowKeys[rowIndex] ?? '',
+                columnId,
+              })
+
+              if (hosted) return hosted
+
+              const index = matrix.columns.findIndex(
+                (column) => column.id === columnId,
+              )
+
+              return outOfRange(
+                matrix.columns[index],
+                matrix.data[rowIndex]?.[index],
+              )
+                ? 'flagged'
                 : undefined
-            }
+            }}
             onColumnResize={handleColumnResize}
             onColumnOrderChange={handleColumnOrderChange}
             onSortsChange={handleSortsChange}

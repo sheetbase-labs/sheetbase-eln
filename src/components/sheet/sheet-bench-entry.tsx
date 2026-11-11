@@ -87,6 +87,16 @@ export function benchRangeBreach(
   return null
 }
 
+/** A stored value outside its field's range: the grid shows it in danger text. */
+export function outOfRange(
+  column: CanonicalSheetGridColumn | undefined,
+  value: SheetbaseGridCellValue | undefined,
+): boolean {
+  if (!column) return false
+
+  return benchRangeBreach(column, inputText(value)) !== null
+}
+
 function cellText(
   value: SheetbaseGridCellValue | undefined,
   column: SheetbaseGridColumn | undefined,

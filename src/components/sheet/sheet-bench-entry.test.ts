@@ -6,6 +6,7 @@ import {
   benchRange,
   benchRangeBreach,
   benchReadOnlyReason,
+  outOfRange,
 } from './sheet-bench-entry'
 
 const field: FieldDefinition = {
@@ -62,5 +63,12 @@ describe('bench entry fields', () => {
     ).toMatch(/^Calculated/)
     expect(benchReadOnlyReason(column(), false)).not.toBeNull()
     expect(benchReadOnlyReason(column(), true)).toBeNull()
+  })
+
+  it('flags a stored value outside the range for the grid', () => {
+    expect(outOfRange(column(), 61.5)).toBe(true)
+    expect(outOfRange(column(), 12.8)).toBe(false)
+    expect(outOfRange(column(), null)).toBe(false)
+    expect(outOfRange(undefined, 61.5)).toBe(false)
   })
 })

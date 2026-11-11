@@ -28,7 +28,10 @@ export function PreviewGrid({
   rowKeys,
   numericColumns,
   maxHeight,
+  selectedRow,
 }: {
+  /** The position of the row to shade, e.g. the one a chart point came from. */
+  selectedRow?: number
   label: string
   columns: readonly string[]
   rows: readonly Record<string, PreviewValue>[]
@@ -99,6 +102,11 @@ export function PreviewGrid({
         columns={defs}
         getRowId={(row) => row.__row}
         selectable={false}
+        rowSelection={
+          selectedRow !== undefined && selectedRow >= 0
+            ? { [data[selectedRow]?.__row ?? '']: true }
+            : undefined
+        }
         isLoading={loading}
         className={className}
       />

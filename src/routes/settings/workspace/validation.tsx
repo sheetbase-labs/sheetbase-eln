@@ -297,7 +297,7 @@ function ValidationEvidence({
       ) : null}
 
       {latest ? (
-        <section className="flex flex-col gap-2">
+        <section className="flex min-w-0 flex-col gap-2">
           <h2 className="text-heading">
             {t('settings.validation.resultsTitle')}
           </h2>
@@ -325,7 +325,7 @@ function ValidationEvidence({
       ) : null}
 
       {runs && runs.length > 1 ? (
-        <section className="flex flex-col gap-2">
+        <section className="flex min-w-0 flex-col gap-2">
           <h2 className="text-heading">
             {t('settings.validation.historyTitle')}
           </h2>
@@ -341,7 +341,7 @@ function ValidationEvidence({
         </section>
       ) : null}
 
-      <section className="flex flex-col gap-2">
+      <section className="flex min-w-0 flex-col gap-2">
         <h2 className="text-heading">{t('settings.validation.traceTitle')}</h2>
         <Muted>{t('settings.validation.traceHint')}</Muted>
         <TableBox>

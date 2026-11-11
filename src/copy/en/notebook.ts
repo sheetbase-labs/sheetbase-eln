@@ -2231,7 +2231,11 @@ export const notebook = {
       'Show what changed: the old value struck through in the cell, a list of changes and each cell’s history. Changes are recorded either way.',
     hide: 'Hide changes',
     title: 'Changes',
-    today: { one: '{count} today', other: '{count} today' },
+    today: { one: 'Today · {count} cell', other: 'Today · {count} cells' },
+    changesToday: {
+      one: '{count} change today',
+      other: '{count} changes today',
+    },
     noneToday: 'None today',
     alwaysRecorded: 'Recorded whether or not they’re shown',
     listAriaLabel: 'Changes to this sheet',

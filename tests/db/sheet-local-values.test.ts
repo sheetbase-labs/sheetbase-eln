@@ -386,6 +386,39 @@ describe('controlled Sheet Instance local values', () => {
     expect(reloaded.state.localFields).toHaveLength(1)
   })
 
+  it('stores a number outside the allowed range, and later writes still save', async () => {
+    const sheet = await instance()
+    const turbidity = crypto.randomUUID()
+    await mutate(
+      sheet.id,
+      2,
+      crypto.randomUUID(),
+      [
+        {
+          operation: 'add',
+          field: field(turbidity, 'turbidity', 'decimal', {
+            validation: { min: 0, max: 50 },
+          }),
+        },
+      ],
+      [{ rowKey: ROW, fieldId: turbidity, value: 61.5 }],
+    )
+    await mutate(
+      sheet.id,
+      3,
+      crypto.randomUUID(),
+      [],
+      [{ rowKey: ROW, fieldId: TEXT, value: 'after the flag' }],
+    )
+    const reloaded = (
+      await owner.query(`select state from api.sheet_instances where id=$1`, [
+        sheet.id,
+      ])
+    ).rows[0]
+    expect(reloaded.state.localValues[ROW][turbidity]).toBe(61.5)
+    expect(reloaded.state.localValues[ROW][TEXT]).toBe('after the flag')
+  })
+
   it('binds retries to the exact request/result and records actor, time and every address', async () => {
     const sheet = await instance()
     const token = crypto.randomUUID()

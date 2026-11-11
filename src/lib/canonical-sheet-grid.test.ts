@@ -15,6 +15,7 @@ import {
   resolveCanonicalCellChanges,
   SHEET_DERIVED_GROUP,
   SHEET_LOCAL_GROUP,
+  sheetWriteError,
   validateCanonicalCell,
 } from './canonical-sheet-grid'
 import type {
@@ -1004,5 +1005,23 @@ describe('grid filter ⇄ presentation.filters mapping (GRID-04)', () => {
         displayColumns,
       ),
     ).toEqual([{ columnId: 'col-a', operator: 'equals', value: 1 }])
+  })
+})
+
+describe('sheetWriteError', () => {
+  const ranged = {
+    ...editableNumeric,
+    field: { ...editableNumeric.field!, validation: { min: 0, max: 50 } },
+  }
+
+  it('lets the sheet’s own columns keep an out-of-range number, flagged', () => {
+    expect(sheetWriteError({ ...ranged, origin: 'local' }, 61.5)).toBeNull()
+  })
+
+  it('still refuses a range miss in a dataset column and any wrong type', () => {
+    expect(sheetWriteError(ranged, 61.5)).toBe('numeric_validation')
+    expect(sheetWriteError({ ...ranged, origin: 'local' }, 'x')).toBe(
+      'invalid_value',
+    )
   })
 })

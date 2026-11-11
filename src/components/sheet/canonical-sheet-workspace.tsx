@@ -96,7 +96,7 @@ import {
   applySheetPresentation,
   canonicalSheetGridMatrix,
   parseSheetCellInput,
-  validateCanonicalCell,
+  sheetWriteError,
 } from '#/lib/canonical-sheet-grid'
 import type {
   CanonicalSheetGridColumn,
@@ -1643,7 +1643,7 @@ function useCanonicalWorkspaceSession({
         // GRID-03 safety net: beforeChange already rejected and reverted
         // invalid values for every write source, so this branch only fires if
         // a change reaches the change handler without passing through it.
-        const invalid = validateCanonicalCell(column.field, value)
+        const invalid = sheetWriteError(column, value)
 
         if (invalid) {
           setWriteStatus(

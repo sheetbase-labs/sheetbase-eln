@@ -1,7 +1,7 @@
 import { t } from '#/copy'
 import {
   parseSheetCellInput,
-  validateCanonicalCell,
+  sheetWriteError,
 } from '#/lib/canonical-sheet-grid'
 import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 import type {
@@ -44,7 +44,7 @@ export function prepareCanonicalWorkspaceWrite({
 
     if (!column) continue
     const value = parseSheetCellInput(column.field, change.next)
-    const invalid = validateCanonicalCell(column.field, value)
+    const invalid = sheetWriteError(column, value)
 
     if (invalid) {
       return {

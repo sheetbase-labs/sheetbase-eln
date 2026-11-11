@@ -16,8 +16,11 @@
  * as zero.
  */
 
+import { z } from 'zod'
+
 import { CHART_PALETTE, CHART_SPEC_VERSION } from './chart-spec'
 import type { ChartColumn, ChartSpec } from './chart-spec'
+import type { DatasetCellInput, DatasetRowInput } from './dataset-product'
 import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 
 export const COMPARATIVE_VIEW_TYPES = ['time_series', 'distribution'] as const
@@ -73,7 +76,7 @@ export interface ComparativeGroup {
   stats: ComparativeGroupStats | null
 }
 
-export interface ShapedComparativeView {
+export interface ComparativeViewGroups {
   groups: ComparativeGroup[]
   /** Expected keys with no rows (empty-group handling). */
   emptyGroupKeys: string[]
@@ -82,8 +85,10 @@ export interface ShapedComparativeView {
   droppedNullValues: number
 }
 
+const nonEmptyText = z.string().refine((text) => text.trim().length > 0)
+
 function isNonEmptyString(v: unknown): v is string {
-  return typeof v === 'string' && v.trim().length > 0
+  return nonEmptyText.safeParse(v).success
 }
 
 /**
@@ -91,13 +96,16 @@ function isNonEmptyString(v: unknown): v is string {
  * means the config is promotable. Field IDs are checked for shape here —
  * ChartSpec UUID authority stays with `validateChartSpec` on promote.
  */
-export function validateComparativeViewConfig(config: unknown): string[] {
-  if (typeof config !== 'object' || config === null || Array.isArray(config)) {
-    return ['config must be an object']
-  }
+export function validateComparativeViewConfig(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This validator's whole job is to vet a config that arrives unparsed from storage or a caller; it decodes that value with the record schema below before reading any field.
+  config: unknown,
+): string[] {
+  const parsedConfig = z.record(z.string(), z.unknown()).safeParse(config)
+
+  if (!parsedConfig.success) return ['config must be an object']
 
   const errors: string[] = []
-  const c = config as Record<string, unknown>
+  const c = parsedConfig.data
 
   if (c.configVersion !== COMPARATIVE_VIEW_CONFIG_VERSION) {
     errors.push(
@@ -117,10 +125,7 @@ export function validateComparativeViewConfig(config: unknown): string[] {
     errors.push('config.versionId must be a stable version ID or null')
   }
 
-  if (
-    c.viewType !== 'time_series' &&
-    (c.viewType as string) !== 'distribution'
-  ) {
+  if (c.viewType !== 'time_series' && c.viewType !== 'distribution') {
     errors.push(
       `config.viewType must be one of ${COMPARATIVE_VIEW_TYPES.join(', ')}`,
     )
@@ -145,7 +150,7 @@ export function validateComparativeViewConfig(config: unknown): string[] {
     const seen = new Set<string>()
 
     for (const field of c.groupBy) {
-      if (typeof field === 'string') {
+      if (nonEmptyText.safeParse(field).success) {
         if (seen.has(field)) errors.push(`config.groupBy duplicates ${field}`)
         seen.add(field)
       }
@@ -169,16 +174,22 @@ export function validateComparativeViewConfig(config: unknown): string[] {
  * promoted chart plots (booleans read as 1/0, numeric strings parse, every
  * other non-numeric reads as null and is counted, never binned as zero).
  */
-export function toComparableNumber(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+export function toComparableNumber(value: DatasetCellInput): number | null {
+  const number = z.number().safeParse(value)
 
-  if (typeof value === 'string' && value.trim() !== '') {
-    const n = Number(value)
+  if (number.success) return number.data
+
+  const text = z.string().safeParse(value)
+
+  if (text.success && text.data.trim() !== '') {
+    const n = Number(text.data)
 
     return Number.isFinite(n) ? n : null
   }
 
-  if (typeof value === 'boolean') return value ? 1 : 0
+  const flag = z.boolean().safeParse(value)
+
+  if (flag.success) return flag.data ? 1 : 0
 
   return null
 }
@@ -222,7 +233,7 @@ export interface GroupedRows {
  * missing on every row.
  */
 export function groupRowsByFields(
-  rows: Record<string, unknown>[],
+  rows: DatasetRowInput[],
   fieldIds: string[],
 ): GroupedRows[] {
   const groups = new Map<string, { label: string; rowIndexes: number[] }>()
@@ -230,6 +241,7 @@ export function groupRowsByFields(
     const parts = fieldIds.map((fieldId) => {
       const v = row[fieldId]
 
+      // oxlint-disable-next-line typescript/no-base-to-string -- Group identity has always been a cell's native string form; JSON encoding would split or rename existing groups of array- and object-valued cells.
       return v === null || v === undefined ? null : String(v)
     })
 
@@ -259,11 +271,12 @@ export function groupRowsByFields(
  * condition level); expected keys with no rows surface as empty groups and
  * are listed in `emptyGroupKeys` instead of vanishing silently.
  */
+// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- The name is this module's published comparative-view API (the compare screen and its tests call it) and states its domain role: shaping canonical rows into inspection groups, not a structural description.
 export function shapeComparativeView(
-  rows: Record<string, unknown>[],
+  rows: DatasetRowInput[],
   config: ComparativeViewConfig,
   opts?: { expectedKeys?: Array<{ key: string; label: string }> },
-): ShapedComparativeView {
+): ComparativeViewGroups {
   const grouped = groupRowsByFields(rows, config.groupBy)
   const byKey = new Map(grouped.map((g) => [g.key, g]))
   const expected = opts?.expectedKeys ?? []
@@ -297,6 +310,7 @@ export function shapeComparativeView(
 
       if (config.facetBy) {
         const raw = row[config.facetBy]
+        // oxlint-disable-next-line typescript/no-base-to-string -- A facet identity has always been the cell's native string form; JSON encoding would rename existing facets.
         facetParts.add(raw === null || raw === undefined ? null : String(raw))
       }
 
@@ -393,6 +407,7 @@ export function promoteToChartSpec(
     }
   }
 
+  // SAFETY: validateComparativeViewConfig above rejects a time_series config whose timeField is not a non-blank string, and the distribution branch returned already.
   const xField = config.timeField as string
 
   return {
@@ -556,7 +571,7 @@ export function describeComparativeMatchRule(
 
 /** The pairing key for one row under the chosen rule, or null when absent. */
 function pairingKey(
-  row: Record<string, unknown>,
+  row: DatasetRowInput,
   matchBy: ComparativeMatchMode,
   fieldId: string | null,
   position: number,
@@ -567,12 +582,14 @@ function pairingKey(
     if (!fieldId) return null
     const value = row[fieldId]
 
+    // oxlint-disable-next-line typescript/no-base-to-string -- A field match key has always been the cell's native string form; JSON encoding would stop pairing rows that pair today.
     return value === null || value === undefined ? null : String(value)
   }
 
   const key = row[CHART_ROW_ID_KEY]
+  const parsed = z.string().min(1).safeParse(key)
 
-  return typeof key === 'string' && key.length > 0 ? key : null
+  return parsed.success ? parsed.data : null
 }
 
 /**
@@ -582,7 +599,7 @@ function pairingKey(
  * "no value" rather than zero, exactly as the group statistics do.
  */
 export function pairComparativeSides(
-  rows: Record<string, unknown>[],
+  rows: DatasetRowInput[],
   config: ComparativeViewConfig,
   sides: ComparativeSides,
   matchBy: ComparativeMatchMode = 'row_key',
@@ -626,7 +643,7 @@ type PairEntry = { label: string; value: number | null }
 
 /** One side's rows keyed under the matching rule, ready to pair. */
 function collectPairEntries(
-  rows: Record<string, unknown>[],
+  rows: DatasetRowInput[],
   valueField: string,
   matchBy: ComparativeMatchMode,
   fieldId: string | null,
@@ -698,7 +715,7 @@ function assemblePairing(
 
 /** One source of a cross-source comparison: its rows and the explicit fields. */
 export interface ComparativeSource {
-  rows: Record<string, unknown>[]
+  rows: DatasetRowInput[]
   /** The measure compared. Each side names its own field; none is inferred. */
   valueField: string
   /** The field rows are matched on, for `field` matching. */

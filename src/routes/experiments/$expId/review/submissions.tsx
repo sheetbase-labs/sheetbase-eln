@@ -29,14 +29,22 @@ interface SubmissionRow {
   assigned_reviewer_user_ids: string[]
 }
 
-const STATE_LABEL: Record<string, string> = {
-  submitted: t('projects.revisionPage.status.underReview'),
-  approved: t('projects.revisionPage.status.approved'),
-  rejected: t('projects.revisionPage.status.rejected'),
-  withdrawn: t('projects.revisionPage.status.withdrawn'),
-  returned: t('projects.experimentsData.returned'),
-  changes_requested: t('projects.experimentsData.returned'),
-}
+const STATE_LABEL = new Map<string, string>([
+  ['submitted', t('projects.revisionPage.status.underReview')],
+  ['approved', t('projects.revisionPage.status.approved')],
+  ['rejected', t('projects.revisionPage.status.rejected')],
+  ['withdrawn', t('projects.revisionPage.status.withdrawn')],
+  ['returned', t('projects.experimentsData.returned')],
+  ['changes_requested', t('projects.experimentsData.returned')],
+])
+
+/** The table's columns, in the order the row cells are read. */
+const SUBMISSION_COLUMNS = [
+  t('projects.experimentPage.submissions.submitted'),
+  t('projects.experimentPage.submissions.by'),
+  t('projects.experimentPage.submissions.reviewers'),
+  t('projects.experimentPage.submissions.outcome'),
+]
 
 /** Every time this experiment was sent for review, newest first, and how each
  * one went. Each row opens its review. */
@@ -80,18 +88,9 @@ function Submissions() {
           <Table aria-label={t('projects.experimentPage.section.submissions')}>
             <TableHeader>
               <TableRow>
-                <TableHead>
-                  {t('projects.experimentPage.submissions.submitted')}
-                </TableHead>
-                <TableHead>
-                  {t('projects.experimentPage.submissions.by')}
-                </TableHead>
-                <TableHead>
-                  {t('projects.experimentPage.submissions.reviewers')}
-                </TableHead>
-                <TableHead>
-                  {t('projects.experimentPage.submissions.outcome')}
-                </TableHead>
+                {SUBMISSION_COLUMNS.map((column) => (
+                  <TableHead key={column}>{column}</TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -112,7 +111,9 @@ function Submissions() {
                       .map((id) => userLabel(id))
                       .join(', ') || '—'}
                   </TableCell>
-                  <TableCell>{STATE_LABEL[row.state] ?? row.state}</TableCell>
+                  <TableCell>
+                    {STATE_LABEL.get(row.state) ?? row.state}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

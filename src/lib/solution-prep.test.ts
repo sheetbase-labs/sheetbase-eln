@@ -49,20 +49,35 @@ describe('isUsableIngredient', () => {
   })
 })
 
-function client(list: unknown[] = []) {
-  return {
-    rpc: vi.fn(async () => ({ id: 'new' })),
-    list: vi.fn(async () => list),
-  } as unknown as DataClient & {
-    rpc: ReturnType<typeof vi.fn>
-    list: ReturnType<typeof vi.fn>
+/** A client whose reads answer `rows`, keeping the queries it was asked. */
+function client(rows: unknown[] = []) {
+  const calls: Array<{ resource: string; query: string | undefined }> = []
+  const rpc = vi.fn(async () => ({ id: 'new' }))
+  const refuse = () => Promise.reject(new Error('No other client call.'))
+
+  // SAFETY: the `rpc` spy answers every call with the one row this suite
+  // asserts on, which the caller's `T` describes.
+  const dataClient: DataClient = {
+    list: async <T>(resource: string, query?: string): Promise<T[]> => {
+      calls.push({ resource, query })
+
+      // SAFETY: `rows` are this suite's wire fixtures; the code under test decodes them into its own domain type before anything is asserted.
+      return rows as T[]
+    },
+    count: refuse,
+    rpc: rpc as DataClient['rpc'],
+    insert: refuse,
+    patch: refuse,
+    remove: refuse,
   }
+
+  return { client: dataClient, rpc, calls }
 }
 
 describe('prepareSolution', () => {
   it('sends the ingredients and leaves the expiry to the database by default', async () => {
     const c = client()
-    await prepareSolution(c, {
+    await prepareSolution(c.client, {
       projectId: 'p1',
       title: '10x PBS',
       lot: 'PBS-1',
@@ -87,8 +102,8 @@ describe('prepareSolution', () => {
 describe('searchIngredientLots', () => {
   it('searches by name, ID and lot number, only for lots that can be used', async () => {
     const c = client()
-    await searchIngredientLots(c, 'tris, "x"')
-    const query = c.list.mock.calls[0][1] as string
+    await searchIngredientLots(c.client, 'tris, "x"')
+    const query = c.calls[0].query ?? ''
     expect(query).toContain('status=in.(available,reserved)')
     expect(query).toContain('archived_at=is.null')
     expect(query).toContain('properties->>lot.ilike.')
@@ -116,7 +131,7 @@ describe('fetchPreparedWith', () => {
       },
     ])
 
-    const used = await fetchPreparedWith(c, 'lot-1')
+    const used = await fetchPreparedWith(c.client, 'lot-1')
     expect(used).toEqual([
       {
         id: 'i1',

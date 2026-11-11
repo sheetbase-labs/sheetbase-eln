@@ -1,8 +1,21 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { BlockPreview } from '#/components/notebook/block-preview'
 
-const block = (type: string, payload: unknown) =>
-  ({ id: type, type, payload, payloadSchemaVersion: 1 }) as any
+/** The block the preview takes; fixtures fill in the fields a preview reads. */
+type PreviewBlock = Parameters<typeof BlockPreview>[0]['block']
+
+const block = (
+  type: string,
+  payload: PreviewBlock['payload'],
+): PreviewBlock => ({
+  id: type,
+  recordId: 'record-1',
+  type,
+  payload,
+  payloadSchemaVersion: 1,
+  order: 1,
+  version: 1,
+})
 
 const meta = {
   title: 'Notebook/Block preview',

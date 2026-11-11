@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { useAvatarPhotoUrl } from '#/lib/avatar-photos-context'
 import { cn } from '#/lib/utils'
 
+import { initialsFromName } from './initials'
+
 const tones = {
   accent: 'bg-selection',
   review: 'bg-review-wash',
@@ -21,24 +23,6 @@ const sizes = {
 } as const
 
 export type AvatarSize = keyof typeof sizes
-
-/**
- * The one initials rule in the app: the first letter of the first two words,
- * uppercased — `Gareth Price` → `GP`, `Cher` → `C`. It lives here so every
- * avatar derives initials the same way and one person cannot read as `GA` on
- * one surface and `GP` on the next.
- */
-export function initialsFromName(name: string): string {
-  const initials = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join('')
-
-  return initials || '?'
-}
 
 /** One person in an avatar stack. */
 export interface AvatarPerson {
@@ -140,9 +124,9 @@ export function AvatarStack({
       title={label}
       className={cn('inline-flex items-center -space-x-1.5', className)}
     >
-      {visible.map((person, index) => (
+      {visible.map((person) => (
         <Avatar
-          key={person.id ?? `${person.name}-${index}`}
+          key={person.id ?? person.name}
           name={person.name}
           initials={person.initials}
           userId={person.userId}

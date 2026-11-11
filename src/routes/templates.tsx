@@ -8,6 +8,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { Status } from '#/components/ui/status'
@@ -74,32 +75,26 @@ const tabLabel: Record<TemplateTab, string> = {
 /** The key format the catalogue and the create RPC both accept. */
 const templateKeyPattern = /^[a-z][a-z0-9_]{0,59}$/
 
+/** The board's address bar: which tab, search text and row it names. Anything
+ * else in the address is dropped, and a value of the wrong kind reads as absent. */
+const templateSearchSchema = z.object({
+  q: z.string().optional().catch(undefined),
+  tab: z.enum(tabs).optional().catch(undefined),
+  selected: z.string().optional().catch(undefined),
+  template: z.string().optional().catch(undefined),
+  protocol: z.string().optional().catch(undefined),
+  new: z
+    .union([z.literal(true), z.literal('true')])
+    .transform((value) => value === true)
+    .optional()
+    .catch(undefined),
+})
+
 /** UI port (roadmap-4/ui-app3): the Templates board on the CORE-06 notebook
  * template catalogue. Templates pin immutable published versions; a new version
  * never changes work already made. */
 export const Route = createFileRoute('/templates')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): {
-    q?: string
-    tab?: TemplateTab
-    selected?: string
-    template?: string
-    protocol?: string
-    new?: true
-  } => ({
-    new: search.new === true || search.new === 'true' ? true : undefined,
-    q: typeof search.q === 'string' ? search.q : undefined,
-    selected: typeof search.selected === 'string' ? search.selected : undefined,
-    template: typeof search.template === 'string' ? search.template : undefined,
-    protocol: typeof search.protocol === 'string' ? search.protocol : undefined,
-    tab:
-      search.tab === 'active' ||
-      search.tab === 'retired' ||
-      search.tab === 'all'
-        ? search.tab
-        : undefined,
-  }),
+  validateSearch: (search) => templateSearchSchema.parse(search),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
 
@@ -140,11 +135,13 @@ function TemplatesList() {
   }, [navigate])
 
   const query = useTemplateRows()
-  const rows = query.data ?? []
+  const rows = useMemo(() => query.data ?? [], [query.data])
   const members = useWorkspaceMemberNames()
 
-  const ownerName = (id: string | null) =>
-    id ? (members.data?.get(id) ?? '—') : '—'
+  const ownerName = useCallback(
+    (id: string | null) => (id ? (members.data?.get(id) ?? '—') : '—'),
+    [members.data],
+  )
 
   const tab: TemplateTab = search.tab ?? 'all'
   const [selected, setSelected] = useState<string | null>(null)
@@ -156,11 +153,12 @@ function TemplatesList() {
     (row) => row.name,
   )
 
-  const counts = useMemo(
-    () =>
-      Object.fromEntries(
-        tabs.map((item) => [item, rows.filter((r) => inTab(r, item)).length]),
-      ) as Record<TemplateTab, number>,
+  const counts = useMemo<Record<TemplateTab, number>>(
+    () => ({
+      all: rows.filter((item) => inTab(item, 'all')).length,
+      active: rows.filter((item) => inTab(item, 'active')).length,
+      retired: rows.filter((item) => inTab(item, 'retired')).length,
+    }),
     [rows],
   )
 
@@ -183,7 +181,273 @@ function TemplatesList() {
   const sel =
     visible.find((item) => item.id === (selected ?? wanted)) ?? visible.at(0)
 
-  const columns = useMemo<RegistryColumn<TemplateRow>[]>(
+  const columns = useTemplateColumns({ ownerName, openTemplate })
+
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    sel?.id ?? null,
+    setSelected,
+  )
+
+  return (
+    <div className="flex min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <ListHeader
+          title={t('library.templates.list.templates')}
+          total={query.isPending ? undefined : rows.length}
+          actions={
+            <NewTemplateDialog
+              autoOpen={search.new === true}
+              onAutoOpened={dropNewFlag}
+            />
+          }
+          tabs={
+            <Tabs
+              mode="url"
+              label={t('library.templates.list.templateLists')}
+              value={tab}
+              items={tabs.map((item) => ({
+                key: item,
+                label: tabLabel[item],
+                count: query.isPending ? undefined : counts[item],
+                link: {
+                  to: '/templates',
+                  search: {
+                    tab: item === 'all' ? undefined : item,
+                    q: search.q ?? '',
+                  },
+                },
+              }))}
+            />
+          }
+        />
+        <ListToolbar
+          q={search.q}
+          label={t('library.templates.list.searchTemplates')}
+          placeholder={t('library.templates.list.searchTemplates')}
+          onSearch={(next) =>
+            void navigate({
+              to: '/templates',
+              search: (s) => ({ ...s, q: next || undefined }),
+              replace: true,
+            })
+          }
+        />
+        <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
+          {query.isPending || visible.length > 0 ? (
+            <RegistryGrid
+              className="max-md:hidden"
+              label={t('library.templates.list.templates')}
+              view={view}
+              rows={visible}
+              columns={columns}
+              getRowId={(item) => item.id}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+              onRowClick={openTemplate}
+              isLoading={query.isPending}
+            />
+          ) : null}
+          <MobileList
+            label={t('library.templates.list.templates')}
+            items={visible.map((item) => {
+              const status = templateLifecycle(item.lifecycle)
+
+              return {
+                key: item.id,
+                id: item.displayId ?? item.key,
+                title: item.name,
+                sub: `${item.sectionCount} sections · ${item.inUse} in use · ${ownerName(item.createdByUserId)}`,
+                status: <Status tone={status.tone}>{status.label}</Status>,
+                link: {
+                  to: '/templates/$templateId',
+                  params: { templateId: item.id },
+                },
+              }
+            })}
+          />
+          {!query.isPending && visible.length === 0 ? (
+            <TemplateEmptyState q={q} queryText={search.q} tab={tab} />
+          ) : null}
+        </div>
+        <ListFooter
+          loading={query.isPending}
+          right={sel ? '1 selected' : undefined}
+        >
+          {footerCount({
+            shown: visible.length,
+            total: counts[tab],
+            one: 'template',
+            tab: tabLabel[tab],
+            query: queryText,
+          })}
+        </ListFooter>
+      </div>
+
+      {sel ? <TemplateInspector template={sel} /> : null}
+    </div>
+  )
+}
+
+/** The selected template's facts and versions, beside the board. */
+function TemplateInspector({ template }: { template: TemplateRow }) {
+  return (
+    <Inspector
+      aria-label={t('library.templates.list.templateDetails')}
+      className="w-[320px] gap-0 p-0"
+    >
+      <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
+        <span className="mono text-fg-muted">{template.key}</span>
+        <div className="font-heading text-doc font-semibold">
+          {template.name}
+        </div>
+        <div className="text-label">
+          <Status tone={templateLifecycle(template.lifecycle).tone}>
+            {templateLifecycle(template.lifecycle).label}
+          </Status>
+        </div>
+        {template.description ? (
+          <Muted className="mt-1">{template.description}</Muted>
+        ) : null}
+        <div className="mt-1.5 flex gap-1.5">
+          <Button
+            size="sm"
+            variant="primary"
+            nativeButton={false}
+            render={
+              <Link
+                to="/templates/$templateId"
+                params={{ templateId: template.id }}
+              />
+            }
+          >
+            {t('common.actions.open')}
+          </Button>
+          <UseTemplateDialog
+            size="sm"
+            variant="secondary"
+            templateName={template.name}
+            version={template.published}
+          />
+        </div>
+        {template.published ? null : (
+          <Muted className="mt-1">
+            {t('library.templates.list.noPublishedVersionYetPublish')}
+          </Muted>
+        )}
+      </div>
+      <div className="flex flex-col gap-4 px-4 py-3.5">
+        <InspectorSection title={t('library.templates.list.details')}>
+          <DescriptionList
+            labelWidth={80}
+            items={[
+              [t('library.templates.list.key'), template.key],
+              [
+                t('library.templates.list.published'),
+                template.published ? `v${template.published.version}` : '—',
+              ],
+              [
+                t('library.templates.list.versions'),
+                String(template.versions.length),
+              ],
+              [
+                t('library.templates.list.sections'),
+                String(template.sectionCount),
+              ],
+              [t('library.templates.list.inUse'), String(template.inUse)],
+            ]}
+          />
+        </InspectorSection>
+        <InspectorSection title={t('library.templates.list.versions')}>
+          <div className="flex flex-col text-label">
+            {template.versions.length ? (
+              [...template.versions].reverse().map((v, i, list) => (
+                <div
+                  key={v.id}
+                  className={`grid grid-cols-[40px_1fr_auto] gap-2 py-1.5 ${
+                    i < list.length - 1 ? 'border-b border-border-subtle' : ''
+                  }`}
+                >
+                  <b className="font-medium">v{v.version}</b>
+                  <span>{templateLifecycle(v.lifecycle).label}</span>
+                  <span className="text-fg-muted">
+                    {formatDate(v.publishedAt)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <Muted>{t('library.templates.list.noVersionYet')}</Muted>
+            )}
+          </div>
+        </InspectorSection>
+        <InspectorSection title={t('library.templates.list.reuseIsDeliberate')}>
+          <Muted>
+            {t('library.templates.list.newVersionsNeverChangeNotebooks')}
+          </Muted>
+        </InspectorSection>
+      </div>
+    </Inspector>
+  )
+}
+
+/** What the board says when the tab and the search text match nothing. */
+function TemplateEmptyState({
+  q,
+  queryText,
+  tab,
+}: {
+  q: string
+  queryText: string | undefined
+  tab: TemplateTab
+}) {
+  const searching = q.length > 0
+
+  return (
+    <div role="status" className="flex justify-center px-6">
+      <EmptyState
+        icon={searching ? 'search' : 'template'}
+        className="items-center py-14 text-center"
+        title={
+          q
+            ? t('library.templates.list.noTemplatesMatch', {
+                q: queryText ?? '',
+              })
+            : tab === 'all'
+              ? t('library.templates.list.noTemplatesYet')
+              : t('library.templates.list.noTemplatesIn', {
+                  tab: tabLabel[tab],
+                })
+        }
+        description={
+          q
+            ? t('library.templates.list.searchLooksAtTemplateKeys')
+            : t('library.templates.list.aTemplateHoldsTheSections')
+        }
+        action={
+          q ? (
+            <Button
+              nativeButton={false}
+              render={<Link to="/templates" search={{ tab: tab }} />}
+            >
+              {t('library.templates.list.clearSearch')}
+            </Button>
+          ) : (
+            <NewTemplateDialog />
+          )
+        }
+      />
+    </div>
+  )
+}
+
+/** The board's columns, rebuilt only when a name or the row opener changes. */
+function useTemplateColumns({
+  ownerName,
+  openTemplate,
+}: {
+  ownerName: (id: string | null) => string
+  openTemplate: ReturnType<typeof useOpenRow<TemplateRow>>
+}): RegistryColumn<TemplateRow>[] {
+  return useMemo<RegistryColumn<TemplateRow>[]>(
     () => [
       {
         id: 'identifier',
@@ -277,246 +541,7 @@ function TemplatesList() {
         cell: ({ row }) => ownerName(row.original.createdByUserId),
       },
     ],
-    [members.data, openTemplate],
-  )
-
-  const { rowSelection, onRowSelectionChange } = useRowFocus(
-    sel?.id ?? null,
-    setSelected,
-  )
-
-  return (
-    <div className="flex min-w-0 flex-1">
-      <div className="flex min-w-0 flex-1 flex-col">
-        <ListHeader
-          title={t('library.templates.list.templates')}
-          total={query.isPending ? undefined : rows.length}
-          actions={
-            <NewTemplateDialog
-              autoOpen={search.new === true}
-              onAutoOpened={dropNewFlag}
-            />
-          }
-          tabs={
-            <Tabs
-              mode="url"
-              label={t('library.templates.list.templateLists')}
-              value={tab}
-              items={tabs.map((item) => ({
-                key: item,
-                label: tabLabel[item],
-                count: query.isPending ? undefined : counts[item],
-                link: {
-                  to: '/templates',
-                  search: {
-                    tab: item === 'all' ? undefined : item,
-                    q: search.q ?? '',
-                  },
-                },
-              }))}
-            />
-          }
-        />
-        <ListToolbar
-          q={search.q}
-          label={t('library.templates.list.searchTemplates')}
-          placeholder={t('library.templates.list.searchTemplates')}
-          onSearch={(next) =>
-            void navigate({
-              to: '/templates',
-              search: (s) => ({ ...s, q: next || undefined }),
-              replace: true,
-            })
-          }
-        />
-        <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
-          {query.isPending || visible.length > 0 ? (
-            <RegistryGrid
-              className="max-md:hidden"
-              label={t('library.templates.list.templates')}
-              view={view}
-              rows={visible}
-              columns={columns}
-              getRowId={(item) => item.id}
-              rowSelection={rowSelection}
-              onRowSelectionChange={onRowSelectionChange}
-              onRowClick={openTemplate}
-              isLoading={query.isPending}
-            />
-          ) : null}
-          <MobileList
-            label={t('library.templates.list.templates')}
-            items={visible.map((item) => {
-              const status = templateLifecycle(item.lifecycle)
-
-              return {
-                key: item.id,
-                id: item.displayId ?? item.key,
-                title: item.name,
-                sub: `${item.sectionCount} sections · ${item.inUse} in use · ${ownerName(item.createdByUserId)}`,
-                status: <Status tone={status.tone}>{status.label}</Status>,
-                link: {
-                  to: '/templates/$templateId',
-                  params: { templateId: item.id },
-                },
-              }
-            })}
-          />
-          {!query.isPending && visible.length === 0 ? (
-            <div role="status" className="flex justify-center px-6">
-              <EmptyState
-                icon={q ? 'search' : 'template'}
-                className="items-center py-14 text-center"
-                title={
-                  q
-                    ? t('library.templates.list.noTemplatesMatch', {
-                        q: search.q ?? '',
-                      })
-                    : tab === 'all'
-                      ? t('library.templates.list.noTemplatesYet')
-                      : t('library.templates.list.noTemplatesIn', {
-                          tab: tabLabel[tab],
-                        })
-                }
-                description={
-                  q
-                    ? t('library.templates.list.searchLooksAtTemplateKeys')
-                    : t('library.templates.list.aTemplateHoldsTheSections')
-                }
-                action={
-                  q ? (
-                    <Button
-                      nativeButton={false}
-                      render={
-                        <Link to="/templates" search={{ tab: search.tab }} />
-                      }
-                    >
-                      {t('library.templates.list.clearSearch')}
-                    </Button>
-                  ) : (
-                    <NewTemplateDialog />
-                  )
-                }
-              />
-            </div>
-          ) : null}
-        </div>
-        <ListFooter
-          loading={query.isPending}
-          right={sel ? '1 selected' : undefined}
-        >
-          {footerCount({
-            shown: visible.length,
-            total: counts[tab],
-            one: 'template',
-            tab: tabLabel[tab],
-            query: queryText,
-          })}
-        </ListFooter>
-      </div>
-
-      {sel ? (
-        <Inspector
-          aria-label={t('library.templates.list.templateDetails')}
-          className="w-[320px] gap-0 p-0"
-        >
-          <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
-            <span className="mono text-fg-muted">{sel.key}</span>
-            <div className="font-heading text-doc font-semibold">
-              {sel.name}
-            </div>
-            <div className="text-label">
-              <Status tone={templateLifecycle(sel.lifecycle).tone}>
-                {templateLifecycle(sel.lifecycle).label}
-              </Status>
-            </div>
-            {sel.description ? (
-              <Muted className="mt-1">{sel.description}</Muted>
-            ) : null}
-            <div className="mt-1.5 flex gap-1.5">
-              <Button
-                size="sm"
-                variant="primary"
-                nativeButton={false}
-                render={
-                  <Link
-                    to="/templates/$templateId"
-                    params={{ templateId: sel.id }}
-                  />
-                }
-              >
-                {t('common.actions.open')}
-              </Button>
-              <UseTemplateDialog
-                size="sm"
-                variant="secondary"
-                templateName={sel.name}
-                version={sel.published}
-              />
-            </div>
-            {sel.published ? null : (
-              <Muted className="mt-1">
-                {t('library.templates.list.noPublishedVersionYetPublish')}
-              </Muted>
-            )}
-          </div>
-          <div className="flex flex-col gap-4 px-4 py-3.5">
-            <InspectorSection title={t('library.templates.list.details')}>
-              <DescriptionList
-                labelWidth={80}
-                items={[
-                  [t('library.templates.list.key'), sel.key],
-                  [
-                    t('library.templates.list.published'),
-                    sel.published ? `v${sel.published.version}` : '—',
-                  ],
-                  [
-                    t('library.templates.list.versions'),
-                    String(sel.versions.length),
-                  ],
-                  [
-                    t('library.templates.list.sections'),
-                    String(sel.sectionCount),
-                  ],
-                  [t('library.templates.list.inUse'), String(sel.inUse)],
-                ]}
-              />
-            </InspectorSection>
-            <InspectorSection title={t('library.templates.list.versions')}>
-              <div className="flex flex-col text-label">
-                {sel.versions.length ? (
-                  [...sel.versions].reverse().map((v, i, list) => (
-                    <div
-                      key={v.id}
-                      className={`grid grid-cols-[40px_1fr_auto] gap-2 py-1.5 ${
-                        i < list.length - 1
-                          ? 'border-b border-border-subtle'
-                          : ''
-                      }`}
-                    >
-                      <b className="font-medium">v{v.version}</b>
-                      <span>{templateLifecycle(v.lifecycle).label}</span>
-                      <span className="text-fg-muted">
-                        {formatDate(v.publishedAt)}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <Muted>{t('library.templates.list.noVersionYet')}</Muted>
-                )}
-              </div>
-            </InspectorSection>
-            <InspectorSection
-              title={t('library.templates.list.reuseIsDeliberate')}
-            >
-              <Muted>
-                {t('library.templates.list.newVersionsNeverChangeNotebooks')}
-              </Muted>
-            </InspectorSection>
-          </div>
-        </Inspector>
-      ) : null}
-    </div>
+    [ownerName, openTemplate],
   )
 }
 
@@ -538,6 +563,7 @@ function NewTemplateDialog({
   // asks for the dialog to open once, then drops the flag.
   useEffect(() => {
     if (!autoOpen) return
+    // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change -- `?new=true` is a one-shot command from the shell's New menu, not a mirrored prop: it opens this dialog once on arrival and the flag is then dropped, so there is no second source of truth to derive from.
     setOpen(true)
     onAutoOpened?.()
   }, [autoOpen, onAutoOpened])
@@ -567,7 +593,7 @@ function NewTemplateDialog({
         params: { templateId: template.id },
       })
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       toast.error(
         error instanceof Error
           ? error.message

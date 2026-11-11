@@ -80,8 +80,8 @@ export const SUPPLIER_STARTER = {
   ] satisfies StarterSupplierField[],
 } as const
 
-export function createSupplierModel(client: DataClient): Promise<unknown> {
-  return client.rpc('create_supplier_model', {
+export async function createSupplierModel(client: DataClient): Promise<void> {
+  await client.rpc('create_supplier_model', {
     p_key: SUPPLIER_STARTER.key,
     p_name: SUPPLIER_STARTER.name,
     p_prefix: SUPPLIER_STARTER.prefix,

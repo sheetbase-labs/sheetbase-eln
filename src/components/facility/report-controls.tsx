@@ -3,6 +3,7 @@
  * row of headline figures above the table.
  */
 import { useMemo, useState } from 'react'
+import { z } from 'zod'
 
 import { Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
@@ -13,7 +14,7 @@ import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { dayEnd, dayStart, isoDay, resolvePeriod } from '#/lib/report-period'
 import type { DateRange, ReportPeriod } from '#/lib/report-period'
 
-export const UI_PERIODS = [
+const UI_PERIODS = [
   'this_month',
   'last_month',
   'previous_week',
@@ -21,6 +22,9 @@ export const UI_PERIODS = [
   'last_30_days',
   'custom',
 ] as const satisfies readonly ReportPeriod[]
+
+/** The period a native select can hand back, decoded at the change boundary. */
+const uiPeriodSchema = z.enum(UI_PERIODS)
 
 export interface ReportRangeState {
   period: ReportPeriod
@@ -78,7 +82,9 @@ export function PeriodPicker({ state }: { state: ReportRangeState }) {
           aria-label={t('spend.controls.period')}
           className="w-40"
           value={state.period}
-          onChange={(e) => state.setPeriod(e.target.value as ReportPeriod)}
+          onChange={(e) =>
+            state.setPeriod(uiPeriodSchema.parse(e.target.value))
+          }
         >
           {UI_PERIODS.map((key) => (
             <option key={key} value={key}>

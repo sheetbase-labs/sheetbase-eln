@@ -9,14 +9,24 @@ import {
   promotionNextStep,
 } from './column-promotions-panel'
 
-const mocks = vi.hoisted(() => ({
-  list: vi.fn(),
-  apply: vi.fn(),
-  approve: vi.fn(),
-  navigate: vi.fn(),
-  index: { data: undefined as object | undefined },
-}))
+/** What the approval index answers; the suite sets it per test. */
+interface ApprovalIndexFixture {
+  data?: object
+}
 
+const mocks = vi.hoisted(() => {
+  const index: ApprovalIndexFixture = {}
+
+  return {
+    list: vi.fn(),
+    apply: vi.fn(),
+    approve: vi.fn(),
+    navigate: vi.fn(),
+    index,
+  }
+})
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The panel renders `Link`s and navigates on apply; this suite renders it outside a route tree, so the double keeps those two exports and records the navigation the test asserts.
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children?: React.ReactNode; to?: string }) => (
     <a href={to}>{children}</a>
@@ -24,29 +34,35 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mocks.navigate,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The panel imports its promotion read and apply call directly and takes no transport; this suite answers those two calls with fixed rows and records the apply it asserts.
 vi.mock('#/lib/schema-evolution', () => ({
   listOpenColumnPromotions: (...a: unknown[]) => mocks.list(...a),
   applyColumnPromotion: (...a: unknown[]) => mocks.apply(...a),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Approving is a server call the panel makes through this module; the double keeps every other export real and records the approve the test asserts.
 vi.mock('#/lib/approval-requests', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
+  ...(await importOriginal()),
   approveApprovalRequest: (...a: unknown[]) => mocks.approve(...a),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The approval index is a query hook the panel reads directly; the double answers it with the fixture each test sets, so no request leaves the page.
 vi.mock('#/components/models/model-approval-data', () => ({
   useModelApprovalIndex: () => ({ data: mocks.index.data }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The panel formats its timestamps through this module, which builds a client over `/api/db` at import time; the double supplies the formatter the rendered rows read.
 vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: {},
   formatNotebookDateTime: (iso: string) => iso.slice(0, 10),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- User names are read through a server function that needs a signed-in session; the double names the one person this suite renders.
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: () => 'Ada' }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Toasts are painted by the app shell's Toaster; this suite renders the panel alone, so the toast calls are recorded and never painted.
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))

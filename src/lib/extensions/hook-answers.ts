@@ -20,6 +20,8 @@
  */
 import { z } from 'zod'
 
+import type { NotebookRecord } from '#/lib/notebook-data'
+
 export const FLAG_KEY_RE = /^[a-z][a-z0-9_-]{0,48}$/
 export const INDEX_NAME_RE = /^[a-z][a-z0-9_-]{0,48}$/
 export const INDEX_ENTRY_RE = /^[A-Za-z0-9_.:-]{1,100}$/
@@ -44,8 +46,8 @@ export interface RecordSnapshot {
   title: string
   status: string
   tags: string[]
-  properties: Record<string, unknown>
-  custom_fields: Record<string, unknown>
+  properties: NotebookRecord['properties']
+  custom_fields: NonNullable<NotebookRecord['customFields']>
   project_id: string | null
 }
 

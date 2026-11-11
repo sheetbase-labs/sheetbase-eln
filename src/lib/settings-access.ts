@@ -8,6 +8,8 @@
  * the pages can decide what to show without a round trip.
  */
 
+import { z } from 'zod'
+
 export const SETTINGS_AREAS = [
   'general',
   'ai',
@@ -55,9 +57,18 @@ export const SETTINGS_ACCESS_ROLES = [
 
 export type SettingsAccessRole = (typeof SETTINGS_ACCESS_ROLES)[number]
 
-export type SettingsLevel = 'none' | 'view' | 'manage'
+/** The levels a role can hold in an area, weakest first. */
+export const SETTINGS_LEVELS = ['none', 'view', 'manage'] as const
+
+export type SettingsLevel = (typeof SETTINGS_LEVELS)[number]
 
 export type SettingsAccessMap = Record<SettingsArea, SettingsLevel>
+
+/** One level per area, decoded at the boundary where the map is built. */
+const settingsAccessMapSchema = z.record(
+  z.enum(SETTINGS_AREAS),
+  z.enum(SETTINGS_LEVELS),
+)
 
 /** One stored choice: a role's level for an area. */
 export interface SettingsAccessRow {
@@ -114,9 +125,11 @@ export function resolveSettingsAccess(
   role: string | null | undefined,
   rows: readonly SettingsAccessRow[] = [],
 ): SettingsAccessMap {
-  return Object.fromEntries(
-    SETTINGS_AREAS.map((area) => [area, settingsLevelFor(area, role, rows)]),
-  ) as SettingsAccessMap
+  return settingsAccessMapSchema.parse(
+    Object.fromEntries(
+      SETTINGS_AREAS.map((area) => [area, settingsLevelFor(area, role, rows)]),
+    ),
+  )
 }
 
 /** The levels for a workspace context: the server-resolved map when the
@@ -160,23 +173,38 @@ export const SETTINGS_LEVEL_LABELS: Record<SettingsLevel, string> = {
 }
 
 /** What each role can do, in the words a scientist would use. */
-export const ROLE_PLAIN_DESCRIPTIONS: Record<string, string> = {
-  owner:
-    'Runs the workspace. Always has full access to every setting and can’t be locked out.',
-  admin:
-    'Sets up the workspace, its people and its settings. Can’t sign records they didn’t author or review.',
-  steward:
-    'Looks after the data: models, measurement tables, instruments (registering them and recording calibrations), parsers, and integrations.',
-  scientist:
-    'Creates and edits experiments, samples and datasets in their projects. Signs as author.',
-  analyst:
-    'Works with datasets and analyses in their projects, and records results.',
-  reviewer:
-    'Everything a scientist can do, plus reviews and signs other people’s records.',
-  viewer: 'Reads, copies, exports and comments. Can’t change anything.',
-  client_viewer:
-    'An outside client. Sees only the approved records shared with them.',
-}
+export const ROLE_PLAIN_DESCRIPTIONS: Record<string, string> =
+  Object.fromEntries([
+    [
+      'owner',
+      'Runs the workspace. Always has full access to every setting and can’t be locked out.',
+    ],
+    [
+      'admin',
+      'Sets up the workspace, its people and its settings. Can’t sign records they didn’t author or review.',
+    ],
+    [
+      'steward',
+      'Looks after the data: models, measurement tables, instruments (registering them and recording calibrations), parsers, and integrations.',
+    ],
+    [
+      'scientist',
+      'Creates and edits experiments, samples and datasets in their projects. Signs as author.',
+    ],
+    [
+      'analyst',
+      'Works with datasets and analyses in their projects, and records results.',
+    ],
+    [
+      'reviewer',
+      'Everything a scientist can do, plus reviews and signs other people’s records.',
+    ],
+    ['viewer', 'Reads, copies, exports and comments. Can’t change anything.'],
+    [
+      'client_viewer',
+      'An outside client. Sees only the approved records shared with them.',
+    ],
+  ])
 
 /**
  * The day-to-day work a role can be allowed or not. Everyone who could write

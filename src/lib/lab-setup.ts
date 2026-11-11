@@ -4,8 +4,16 @@
  * work and marks the workspace set up; the starter tables are real, editable
  * tables a scientist can import into straight away.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
+import type { JsonValue } from '#/lib/workspace-admin'
 import { t } from '#/copy'
+
+/** The preferences row's setup skip: workspace id to whether it was skipped. */
+const preferencesSchema = z.object({
+  labSetupSkipped: z.record(z.string(), z.boolean()).optional(),
+})
 
 export const STARTER_TABLE_KEYS = [
   'plate_reader',
@@ -100,21 +108,15 @@ export async function fetchLabSetupSkipped(
   client: DataClient,
   workspaceId: string,
 ): Promise<boolean> {
-  const rows = await client.list<{ preferences: unknown }>(
+  const rows = await client.list<{ preferences: JsonValue }>(
     'user_preferences',
     '?select=preferences&limit=1',
   )
 
-  const preferences = rows[0]?.preferences
+  const skipped = preferencesSchema.safeParse(rows[0]?.preferences).data
+    ?.labSetupSkipped
 
-  if (!preferences || typeof preferences !== 'object') return false
-  const skipped = (preferences as Record<string, unknown>).labSetupSkipped
-
-  return Boolean(
-    skipped &&
-    typeof skipped === 'object' &&
-    (skipped as Record<string, unknown>)[workspaceId] === true,
-  )
+  return skipped?.[workspaceId] === true
 }
 
 /** Record the skip for this person on every device. */

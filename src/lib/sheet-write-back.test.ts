@@ -35,7 +35,8 @@ const mappedSource = (() => {
 })()
 
 function clientWithRpc(rpc: DataClient['rpc']): DataClient {
-  return { rpc } as unknown as DataClient
+  // SAFETY: the functions under test read only `rpc` from the client they are handed, so no other DataClient member is reached through this stub.
+  return { rpc } as DataClient
 }
 
 function datasetWire(matched = true) {
@@ -111,7 +112,7 @@ function recordWire() {
   }
 }
 
-async function snapshot(wire: unknown): Promise<ComposedSheetSnapshot> {
+async function snapshot<T>(wire: T): Promise<ComposedSheetSnapshot> {
   return fetchComposedSheetRows(
     INSTANCE,
     {},
@@ -124,8 +125,8 @@ const SECOND_FIELD = '40000000-0000-4000-8000-000000000010'
 const SECOND_COLUMN = '30000000-0000-4000-8000-000000000030'
 
 function twoColumnConfiguration() {
-  const configuration = validSheetDefinitionConfiguration()
-  configuration.columns.push({
+  const twoColumnSheet = validSheetDefinitionConfiguration()
+  twoColumnSheet.columns.push({
     id: SECOND_COLUMN,
     field: {
       fieldId: SECOND_COLUMN,
@@ -145,17 +146,17 @@ function twoColumnConfiguration() {
     },
     source: {
       kind: 'bound',
-      bindingId: configuration.bindings[0].id,
+      bindingId: twoColumnSheet.bindings[0].id,
       sourceFieldId: SECOND_FIELD,
     },
   })
-  configuration.writeBackRules[0].mappings.push({
+  twoColumnSheet.writeBackRules[0].mappings.push({
     columnId: SECOND_COLUMN,
     targetFieldId: SECOND_FIELD,
   })
-  configuration.presentation.columnOrder.push(SECOND_COLUMN)
+  twoColumnSheet.presentation.columnOrder.push(SECOND_COLUMN)
 
-  return parseSheetDefinitionConfiguration(configuration)
+  return parseSheetDefinitionConfiguration(twoColumnSheet)
 }
 
 function twoColumnDatasetWire(matched = true) {
@@ -213,10 +214,10 @@ const secondColumnSource = (() => {
 })()
 
 function twoWritableBindingConfiguration() {
-  const configuration = validSheetDefinitionConfiguration()
-  configuration.writeBackRules.push({
+  const writableSheet = validSheetDefinitionConfiguration()
+  writableSheet.writeBackRules.push({
     id: '70000000-0000-4000-8000-000000000002',
-    bindingId: configuration.bindings[1].id,
+    bindingId: writableSheet.bindings[1].id,
     mode: 'update',
     mappings: [
       {
@@ -226,7 +227,7 @@ function twoWritableBindingConfiguration() {
     ],
   })
 
-  return parseSheetDefinitionConfiguration(configuration)
+  return parseSheetDefinitionConfiguration(writableSheet)
 }
 
 function twoWritableBindingWire(
@@ -358,9 +359,10 @@ describe('composed Sheet write-back', () => {
     })
 
     const missingRecordAuthority = recordWire()
-    delete (
-      missingRecordAuthority.rows[0].sources[0] as { metadataVersion?: number }
-    ).metadataVersion
+    Reflect.deleteProperty(
+      missingRecordAuthority.rows[0].sources[0],
+      'metadataVersion',
+    )
     await expect(snapshot(missingRecordAuthority)).rejects.toThrow()
   })
 

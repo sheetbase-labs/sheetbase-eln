@@ -3,6 +3,7 @@
 
 import * as React from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { createLiveEventCoordinator } from '#/lib/live-events'
 import type {
@@ -46,12 +47,15 @@ function nativeEventSource(url: string): EventSourceLike {
     onopen: null,
     onerror: null,
     addEventListener(type, listener) {
-      // native EventSource dispatches MessageEvent; adapt the shape.
-      const wrapped = (ev: MessageEvent) => {
-        listener({ type, data: typeof ev.data === 'string' ? ev.data : '' })
-      }
+      // native EventSource dispatches MessageEvent for messages; adapt the shape.
+      es.addEventListener(type, (event) => {
+        const data =
+          event instanceof MessageEvent
+            ? z.string().safeParse(event.data)
+            : null
 
-      es.addEventListener(type, wrapped as EventListener)
+        listener({ type, data: data?.success ? data.data : '' })
+      })
     },
     close: () => es.close(),
   }
@@ -102,12 +106,13 @@ export function useLiveStatus(): LiveStatus {
   const coord = useLiveCoordinator()
 
   const [status, setStatus] = React.useState<LiveStatus>(
-    coord?.getStatus() ?? {
-      status: 'offline',
-      lastAppliedSeq: 0,
-      workspaceId: null,
-      lastResetReason: null,
-    },
+    () =>
+      coord?.getStatus() ?? {
+        status: 'offline',
+        lastAppliedSeq: 0,
+        workspaceId: null,
+        lastResetReason: null,
+      },
   )
 
   React.useEffect(() => {

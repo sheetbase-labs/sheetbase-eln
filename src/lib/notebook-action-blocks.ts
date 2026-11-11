@@ -33,6 +33,8 @@
  * longer current says so and must be re-requested, and a CAPA list raised
  * against a superseded revision says which revision superseded it.
  */
+import { z } from 'zod'
+
 import type { SignatureMeaning, SignatureWire } from './signatures'
 import { notebookOutline } from './notebook-outline'
 import type { NotebookBlock } from './notebook-data'
@@ -42,11 +44,14 @@ import type { NotebookBlock } from './notebook-data'
 // ---------------------------------------------------------------------------
 
 /** The meanings a request may ask for. Mirrors the writable REV-03 set. */
-export const SIGNATURE_REQUEST_MEANINGS: readonly SignatureMeaning[] = [
+const signatureMeaningSchema = z.enum([
   'reviewed',
   'reviewed-and-approved',
   'witnessed',
-]
+])
+
+export const SIGNATURE_REQUEST_MEANINGS: readonly SignatureMeaning[] =
+  signatureMeaningSchema.options
 
 export interface SignatureRequestPayload {
   /** Resolved when the chooser picked a member; null when only a label exists. */
@@ -68,14 +73,19 @@ export const EMPTY_SIGNATURE_REQUEST_PAYLOAD: SignatureRequestPayload = {
 // Corrective actions
 // ---------------------------------------------------------------------------
 
-export const CORRECTIVE_ACTION_STATUSES = [
+const correctiveActionStatusSchema = z.enum([
   'open',
   'in-progress',
   'done',
   'void',
-] as const
+])
 
-export type CorrectiveActionStatus = (typeof CORRECTIVE_ACTION_STATUSES)[number]
+export const CORRECTIVE_ACTION_STATUSES: readonly CorrectiveActionStatus[] =
+  correctiveActionStatusSchema.options
+
+export type CorrectiveActionStatus = z.infer<
+  typeof correctiveActionStatusSchema
+>
 
 export const CORRECTIVE_ACTION_STATUS_LABEL: Record<
   CorrectiveActionStatus,
@@ -118,23 +128,30 @@ export interface ActionBlockFieldError {
   message: string
 }
 
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v)
-}
+/** The fields of a block payload, decoded as JSON values before its shape is known. */
+const payloadFields = z.record(z.string(), z.unknown())
+
+const textValue = z.string()
 
 export function validateSignatureRequest(
-  payload: unknown,
+  payload: z.input<z.ZodUnknown>,
 ): ActionBlockFieldError[] {
-  if (!isObject(payload))
+  const fields = payloadFields.safeParse(payload)
+
+  if (!fields.success)
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
+
+  const decoded = fields.data
   const errors: ActionBlockFieldError[] = []
 
   for (const key of ['requestedUserId', 'requestedUserName'] as const) {
-    const value = payload[key]
+    const value = decoded[key]
 
-    if (value !== null && value !== undefined && typeof value !== 'string') {
+    if (value === null || value === undefined) continue
+
+    if (!textValue.safeParse(value).success) {
       errors.push({
         code: 'invalid_field_value',
         field: key,
@@ -144,8 +161,8 @@ export function validateSignatureRequest(
   }
 
   if (
-    payload.meaning !== undefined &&
-    !SIGNATURE_REQUEST_MEANINGS.includes(payload.meaning as SignatureMeaning)
+    decoded.meaning !== undefined &&
+    !signatureMeaningSchema.safeParse(decoded.meaning).success
   ) {
     errors.push({
       code: 'invalid_field_value',
@@ -154,7 +171,10 @@ export function validateSignatureRequest(
     })
   }
 
-  if (payload.note !== undefined && typeof payload.note !== 'string') {
+  if (
+    decoded.note !== undefined &&
+    !textValue.safeParse(decoded.note).success
+  ) {
     errors.push({
       code: 'invalid_field_value',
       field: 'note',
@@ -166,15 +186,18 @@ export function validateSignatureRequest(
 }
 
 export function validateCorrectiveActions(
-  payload: unknown,
+  payload: z.input<z.ZodUnknown>,
 ): ActionBlockFieldError[] {
-  if (!isObject(payload))
+  const fields = payloadFields.safeParse(payload)
+
+  if (!fields.success)
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
-  const items = payload.items
 
-  if (!Array.isArray(items)) {
+  const items = z.array(z.unknown()).safeParse(fields.data.items)
+
+  if (!items.success) {
     return [
       {
         code: 'missing_required_field',
@@ -185,8 +208,11 @@ export function validateCorrectiveActions(
   }
 
   const errors: ActionBlockFieldError[] = []
-  items.forEach((item, i) => {
-    if (!isObject(item)) {
+
+  items.data.forEach((item, i) => {
+    const entry = payloadFields.safeParse(item)
+
+    if (!entry.success) {
       errors.push({
         code: 'invalid_field_value',
         field: `items[${i}]`,
@@ -196,7 +222,7 @@ export function validateCorrectiveActions(
       return
     }
 
-    if (typeof item.action !== 'string') {
+    if (!textValue.safeParse(entry.data.action).success) {
       errors.push({
         code: 'missing_required_field',
         field: `items[${i}].action`,
@@ -205,9 +231,11 @@ export function validateCorrectiveActions(
     }
 
     for (const key of ['ownerUserId', 'ownerName', 'due'] as const) {
-      const value = item[key]
+      const value = entry.data[key]
 
-      if (value !== null && value !== undefined && typeof value !== 'string') {
+      if (value === null || value === undefined) continue
+
+      if (!textValue.safeParse(value).success) {
         errors.push({
           code: 'invalid_field_value',
           field: `items[${i}].${key}`,
@@ -217,10 +245,8 @@ export function validateCorrectiveActions(
     }
 
     if (
-      item.status !== undefined &&
-      !CORRECTIVE_ACTION_STATUSES.includes(
-        item.status as CorrectiveActionStatus,
-      )
+      entry.data.status !== undefined &&
+      !correctiveActionStatusSchema.safeParse(entry.data.status).success
     ) {
       errors.push({
         code: 'invalid_field_value',
@@ -239,13 +265,13 @@ export function validateCorrectiveActions(
 // ---------------------------------------------------------------------------
 
 export function isSignatureRequestPayload(
-  payload: unknown,
+  payload: z.input<z.ZodUnknown>,
 ): payload is SignatureRequestPayload {
   return validateSignatureRequest(payload).length === 0
 }
 
 export function isCorrectiveActionsPayload(
-  payload: unknown,
+  payload: z.input<z.ZodUnknown>,
 ): payload is CorrectiveActionsPayload {
   return validateCorrectiveActions(payload).length === 0
 }
@@ -349,10 +375,15 @@ export function signatureRequestExplanation(
  * missing-reference state — the design flags an unowned action in warning
  * tone, which is exactly the honest reading of "no owner".
  */
-export function correctiveActionOwner(item: CorrectiveActionItem): {
+/** A corrective action's owner label, or the honest missing-reference state. */
+export interface CorrectiveActionOwner {
   label: string
   missing: boolean
-} {
+}
+
+export function correctiveActionOwner(
+  item: CorrectiveActionItem,
+): CorrectiveActionOwner {
   const name = item.ownerName?.trim()
 
   if (!name) return { label: 'No owner', missing: true }
@@ -420,9 +451,9 @@ export function requiredSectionChecklist(
   }
 
   for (const block of blocks) {
-    const title = block.payload.title
+    const title = textValue.safeParse(block.payload.title)
 
-    if (typeof title === 'string') present.add(title.trim().toLowerCase())
+    if (title.success) present.add(title.data.trim().toLowerCase())
   }
 
   return requiredLabels.map((label) => ({

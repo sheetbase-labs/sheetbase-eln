@@ -1,4 +1,4 @@
-import type { z } from 'zod'
+import { z } from 'zod'
 
 import {
   ABSENCE_CANCEL_TOOL,
@@ -103,10 +103,14 @@ export type UpkeepOutcome =
 const NOTE =
   'The person sees a card and presses a button to do it; nothing changes until they do.'
 
+const UPKEEP_PROPOSE_TOOLS: ReadonlySet<string> = new Set(
+  UPKEEP_PROPOSE_TOOL_NAMES,
+)
+
 export function isUpkeepProposalTool(
   name: string,
 ): name is UpkeepProposeToolName {
-  return (UPKEEP_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+  return UPKEEP_PROPOSE_TOOLS.has(name)
 }
 
 export function upkeepProposalDefs(): ProviderToolDef[] {
@@ -271,7 +275,7 @@ function contractLink(contract: FoundContract): string {
 async function findContract(
   client: DataClient,
   words: string,
-): Promise<FoundContract | string> {
+): Promise<Lookup<FoundContract>> {
   const rows = await client.list<FoundContract>(
     'data_contracts',
     `?name=ilike.${likeValue(words)}&lifecycle=neq.retired&select=id,name,last_status,dataset_schema_id,record_model_key&limit=5`,
@@ -283,12 +287,17 @@ async function findContract(
 
   const matches = exact.length === 1 ? exact : rows
 
-  if (matches.length === 0) return `No data contract matches “${words}”.`
+  if (matches.length === 0)
+    return { ok: false, message: `No data contract matches “${words}”.` }
 
-  if (matches.length > 1)
-    return `Several data contracts match “${words}”: ${matches.map((row) => row.name).join(', ')}. Say which one.`
+  if (matches.length > 1) {
+    return {
+      ok: false,
+      message: `Several data contracts match “${words}”: ${matches.map((row) => row.name).join(', ')}. Say which one.`,
+    }
+  }
 
-  return matches[0]
+  return { ok: true, value: matches[0] }
 }
 
 // ---------------------------------------------------------------------------
@@ -323,13 +332,16 @@ export function pick<T>(
   }
 }
 
+/** A record's stored JSONB properties, as the database returns them. */
+const recordProperties = z.record(z.string(), z.json())
+
 export interface SampleRow {
   id: string
   identifier: string
   title: string
   status: string
   metadata_version: number
-  properties: Record<string, unknown> | null
+  properties: z.infer<typeof recordProperties> | null
 }
 
 export async function findSample(
@@ -359,15 +371,23 @@ export async function findSample(
 export const sampleLabel = (row: SampleRow) =>
   `${row.identifier} · ${row.title}`
 
-export function amountOf(row: SampleRow): {
+/** The quantity a sample holds, as its stored properties state it. */
+export interface SampleAmount {
   quantity: number | null
   unit: string
-} {
-  const props = row.properties ?? {}
+}
+
+const sampleAmountProperties = z.looseObject({
+  quantity: z.number().optional().catch(undefined),
+  quantityUnit: z.string().optional().catch(undefined),
+})
+
+export function amountOf(row: SampleRow): SampleAmount {
+  const props = sampleAmountProperties.parse(row.properties ?? {})
 
   return {
-    quantity: typeof props.quantity === 'number' ? props.quantity : null,
-    unit: typeof props.quantityUnit === 'string' ? props.quantityUnit : '',
+    quantity: props.quantity ?? null,
+    unit: props.quantityUnit ?? '',
   }
 }
 
@@ -382,7 +402,7 @@ const orderReference = (number: number) =>
 
 export function parse<T extends z.ZodType>(
   schema: T,
-  args: unknown,
+  args: z.input<z.ZodUnknown>,
 ): { ok: true; data: z.infer<T> } | { ok: false; message: string } {
   const parsed = schema.safeParse(args)
 
@@ -412,8 +432,12 @@ function card(
   }
 }
 
-const roleLabel = (role: string): string =>
-  (WORKSPACE_ROLE_LABELS as Record<string, string | undefined>)[role] ?? role
+/** The role labels by their stored token, for a role the session may hold. */
+const ROLE_LABELS: ReadonlyMap<string, string> = new Map(
+  Object.entries(WORKSPACE_ROLE_LABELS),
+)
+
+const roleLabel = (role: string): string => ROLE_LABELS.get(role) ?? role
 
 const fail = (message: string): UpkeepOutcome => ({ ok: false, message })
 
@@ -462,7 +486,7 @@ async function findOpenOrder(
 
 export async function buildUpkeepProposal(
   name: UpkeepProposeToolName,
-  args: unknown,
+  args: z.input<z.ZodUnknown>,
   context: LabToolContext,
 ): Promise<UpkeepOutcome> {
   const { client, workspaceId } = context
@@ -539,13 +563,12 @@ export async function buildUpkeepProposal(
         const lower = input.cover.trim().toLowerCase()
         const words = lower.split(/\s+/).filter(Boolean)
 
-        const matches = [...members.entries()]
-          .map(([id, personName]) => ({ id, name: personName }))
-          .filter(
-            (member) =>
-              member.id !== context.userId &&
-              words.every((word) => member.name.toLowerCase().includes(word)),
-          )
+        const matches = [...members.entries()].flatMap(([id, personName]) =>
+          id !== context.userId &&
+          words.every((word) => personName.toLowerCase().includes(word))
+            ? [{ id, name: personName }]
+            : [],
+        )
 
         const found = pick(
           matches,
@@ -599,13 +622,12 @@ export async function buildUpkeepProposal(
         const lower = text.trim().toLowerCase()
         const words = lower.split(/\s+/).filter(Boolean)
 
-        const matches = [...members.entries()]
-          .map(([id, personName]) => ({ id, name: personName }))
-          .filter(
-            (member) =>
-              !(skipSelf && member.id === context.userId) &&
-              words.every((word) => member.name.toLowerCase().includes(word)),
-          )
+        const matches = [...members.entries()].flatMap(([id, personName]) =>
+          !(skipSelf && id === context.userId) &&
+          words.every((word) => personName.toLowerCase().includes(word))
+            ? [{ id, name: personName }]
+            : [],
+        )
 
         return pick(
           matches,
@@ -1096,19 +1118,19 @@ export async function buildUpkeepProposal(
       if (!parsed.ok) return fail(parsed.message)
       const found = await findContract(client, parsed.data.contract)
 
-      if (typeof found === 'string') return fail(found)
+      if (!found.ok) return fail(found.message)
 
       return card(name, parsed.data, {
-        target: found.name,
-        deepLink: contractLink(found),
+        target: found.value.name,
+        deepLink: contractLink(found.value),
         changes: [
           {
             label: 'Standing',
-            before: found.last_status ?? 'Not checked',
+            before: found.value.last_status ?? 'Not checked',
             after: 'Checked now',
           },
         ],
-        action: { kind: 'contract.check', contractId: found.id },
+        action: { kind: 'contract.check', contractId: found.value.id },
       })
     }
 
@@ -1119,7 +1141,7 @@ export async function buildUpkeepProposal(
       const input = parsed.data
       const found = await findContract(client, input.contract)
 
-      if (typeof found === 'string') return fail(found)
+      if (!found.ok) return fail(found.message)
 
       const rule: ContractRuleInput = {
         kind: input.kind,
@@ -1143,8 +1165,8 @@ export async function buildUpkeepProposal(
       if (problem) return fail(problem)
 
       return card(name, input, {
-        target: found.name,
-        deepLink: contractLink(found),
+        target: found.value.name,
+        deepLink: contractLink(found.value),
         changes: [
           {
             label: kindLabel(rule.kind),
@@ -1152,7 +1174,11 @@ export async function buildUpkeepProposal(
             after: `${describeRule({ id: 'new', ...rule })}${rule.field ? ` on ${rule.field}` : ''} (${modeLabel(rule.mode)})`,
           },
         ],
-        action: { kind: 'contract.rule_add', contractId: found.id, rule },
+        action: {
+          kind: 'contract.rule_add',
+          contractId: found.value.id,
+          rule,
+        },
       })
     }
 
@@ -1911,16 +1937,17 @@ export async function buildUpkeepProposal(
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
 
-      const PARENT: Record<string, string | null> = {
-        site: null,
-        room: 'storage_sites',
-        unit: 'storage_rooms',
-        shelf: 'storage_units',
-        rack: 'storage_shelves',
-        box: 'storage_racks',
-      }
+      /** The table each storage level sits under; a site is its own root. */
+      const STORAGE_PARENT = new Map<string, string | null>([
+        ['site', null],
+        ['room', 'storage_sites'],
+        ['unit', 'storage_rooms'],
+        ['shelf', 'storage_units'],
+        ['rack', 'storage_shelves'],
+        ['box', 'storage_racks'],
+      ])
 
-      const parentTable = PARENT[input.level]
+      const parentTable = STORAGE_PARENT.get(input.level)
       let parentId: string | null = null
       let parentName: string | null = null
 

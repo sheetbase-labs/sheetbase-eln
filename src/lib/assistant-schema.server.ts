@@ -53,6 +53,11 @@ import type { LabToolContext } from './assistant-lab-tools.server'
 import type { ProviderToolDef } from './ai-providers/types'
 import type { AssistantProposal, ProposalChange } from './assistant-proposals'
 import type { DataClient } from './data-client'
+import type {
+  ModelRuleCondition,
+  ModelRuleEffect,
+  UpdateModelRulePatch,
+} from './model-rules'
 
 /**
  * Record types, sheet definitions and templates from the assistant (see
@@ -69,13 +74,16 @@ export type SchemaOutcome =
 
 type Lookup<T> = { ok: true; value: T } | { ok: false; message: string }
 
+/** The read tools, as a set the dispatcher can test raw tool names against. */
+const schemaReadToolNames = new Set<string>(SCHEMA_READ_TOOL_NAMES)
+const schemaProposeToolNames = new Set<string>(SCHEMA_PROPOSE_TOOL_NAMES)
+
 export const isSchemaReadTool = (name: string): boolean =>
-  (SCHEMA_READ_TOOL_NAMES as readonly string[]).includes(name)
+  schemaReadToolNames.has(name)
 
 export const isSchemaProposalTool = (
   name: string,
-): name is SchemaProposeToolName =>
-  (SCHEMA_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+): name is SchemaProposeToolName => schemaProposeToolNames.has(name)
 
 export function schemaReadDefs(): ProviderToolDef[] {
   return [
@@ -333,8 +341,8 @@ interface RuleRow {
   model_key: string
   name: string
   field_keys: string[]
-  condition: Record<string, unknown>
-  effect: string
+  condition: ModelRuleCondition
+  effect: ModelRuleEffect
   message: string
 }
 
@@ -422,6 +430,7 @@ type ReadResult = { text: string; isError: boolean }
 
 export async function runSchemaReadTool(
   name: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; every read below parses them with its own read schema before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<ReadResult> {
@@ -441,12 +450,13 @@ export async function runSchemaReadTool(
   }
 }
 
-const ok = (value: unknown): ReadResult => ({
+const ok = <Value>(value: Value): ReadResult => ({
   text: JSON.stringify(value),
   isError: false,
 })
 
 async function readModels(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; modelsReadSchema decodes them immediately below.
   args: unknown,
   client: DataClient,
 ): Promise<ReadResult> {
@@ -516,20 +526,25 @@ async function readModels(
     prefix: m.identifier_prefix,
     kindOf: m.parent_key,
     open: modelLink(m.key),
-    fields: fields.map((f) => ({
-      label: f.label,
-      name: f.field_name,
-      type: f.logical_type,
-      state: f.lifecycle,
-      ...(options.has(f.id)
+    fields: fields.map((f) => {
+      const shown = {
+        label: f.label,
+        name: f.field_name,
+        type: f.logical_type,
+        state: f.lifecycle,
+      }
+
+      const choices = options.get(f.id)
+
+      return choices
         ? {
-            choices: options
-              .get(f.id)!
+            ...shown,
+            choices: choices
               .filter((o) => o.lifecycle === 'active')
               .map((o) => o.label),
           }
-        : {}),
-    })),
+        : shown
+    }),
     rules: rules.map((r) => ({
       name: r.name,
       fields: r.field_keys,
@@ -550,6 +565,7 @@ async function readModels(
 }
 
 async function readDefinitions(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; the sheet or template read schema decodes them immediately below.
   args: unknown,
   client: DataClient,
   what: 'sheet' | 'template',
@@ -620,6 +636,7 @@ async function readDefinitions(
 }
 
 async function readDependencies(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; modelDependenciesSchema decodes them immediately below.
   args: unknown,
   client: DataClient,
 ): Promise<ReadResult> {
@@ -663,17 +680,18 @@ function card(
   }
 }
 
-const describeCondition = (condition: unknown): string =>
+const describeCondition = (condition: ModelRuleCondition): string =>
   JSON.stringify(condition)
 
-const EFFECT_WORDS: Record<string, string> = {
-  warn: 'Warns',
-  block: 'Refuses the save',
-  flag_block_submit: 'Can be saved, not submitted',
-}
+const EFFECT_WORDS = new Map<string, string>([
+  ['warn', 'Warns'],
+  ['block', 'Refuses the save'],
+  ['flag_block_submit', 'Can be saved, not submitted'],
+])
 
 export async function buildSchemaProposal(
   name: SchemaProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; every case below decodes them with its own schema before building a proposal.
   args: unknown,
   context: LabToolContext,
 ): Promise<SchemaOutcome> {
@@ -693,10 +711,10 @@ export async function buildSchemaProposal(
       const input = parsed.data
       let parent: ModelRow | null = null
 
-      const parentName =
-        name === MODEL_ADD_SUBTYPE_TOOL
-          ? (input as z.infer<typeof proposeModelSubtypeSchema>).parent
-          : undefined
+      // The subtype schema is the only one of the two that carries a parent,
+      // and this decode is what proves the parent's value.
+      const subtype = proposeModelSubtypeSchema.safeParse(args)
+      const parentName = subtype.success ? subtype.data.parent : undefined
 
       if (parentName) {
         const found = await findModel(client, parentName)
@@ -823,7 +841,12 @@ export async function buildSchemaProposal(
       const target = `${m.value.name} · ${f.value.label}`
 
       if (name === OPTION_RENAME_TOOL) {
-        const label = (input as z.infer<typeof proposeOptionRenameSchema>).label
+        // The rename schema is the only one of the two that carries a new
+        // label, and this decode is what proves its value.
+        const renamed = proposeOptionRenameSchema.safeParse(args)
+
+        if (!renamed.success) return bad(renamed.error)
+        const { label } = renamed.data
 
         return card(
           name,
@@ -887,7 +910,7 @@ export async function buildSchemaProposal(
           {
             label: 'Then',
             before: null,
-            after: EFFECT_WORDS[input.effect] ?? input.effect,
+            after: EFFECT_WORDS.get(input.effect) ?? input.effect,
           },
           { label: 'Message', before: null, after: input.message },
         ],
@@ -915,7 +938,7 @@ export async function buildSchemaProposal(
       const r = await findRule(client, m.value.key, input.rule)
 
       if (!r.ok) return fail(r.message)
-      const patch: Record<string, unknown> = {}
+      const patch: UpdateModelRulePatch = {}
       const changes: ProposalChange[] = []
 
       if (input.name) {
@@ -936,8 +959,8 @@ export async function buildSchemaProposal(
         patch.effect = input.effect
         changes.push({
           label: 'Then',
-          before: EFFECT_WORDS[r.value.effect] ?? r.value.effect,
-          after: EFFECT_WORDS[input.effect] ?? input.effect,
+          before: EFFECT_WORDS.get(r.value.effect) ?? r.value.effect,
+          after: EFFECT_WORDS.get(input.effect) ?? input.effect,
         })
       }
 
@@ -1098,6 +1121,12 @@ export async function buildSchemaProposal(
       const newest = versions[0]?.version ?? 0
 
       if (name === MODEL_VERSION_START_TOOL) {
+        // The start schema is the only one of the two that carries a reason,
+        // and this decode is what proves its value.
+        const started = proposeModelVersionStartSchema.safeParse(args)
+
+        if (!started.success) return bad(started.error)
+
         if (draft)
           return fail(
             `${m.value.name} already has a draft, version ${draft.version}.`,
@@ -1118,8 +1147,7 @@ export async function buildSchemaProposal(
           {
             kind: 'schema.model_version_start',
             modelId: m.value.id,
-            reason: (input as z.infer<typeof proposeModelVersionStartSchema>)
-              .reason,
+            reason: started.data.reason,
           },
         )
       }

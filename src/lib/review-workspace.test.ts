@@ -7,6 +7,7 @@
  * transition RPC wrappers send to PostgREST.
  */
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
   blockedReasonLabel,
@@ -265,10 +266,13 @@ describe('toCanonicalEnvelope', () => {
   })
 
   it('falls back when canonical_snapshot is not an object with blocks', () => {
-    const rev = revision({
-      canonical_snapshot:
-        'not-an-envelope' as unknown as RevisionWire['canonical_snapshot'],
-    })
+    // A stored envelope the server would never write: the reader must fall
+    // back to the block snapshot instead of trusting it.
+    const malformed = z
+      .custom<RevisionWire['canonical_snapshot']>()
+      .parse('not-an-envelope')
+
+    const rev = revision({ canonical_snapshot: malformed })
 
     const envelope = toCanonicalEnvelope(rev)
     expect(envelope.formatVersion).toBe(0)

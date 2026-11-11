@@ -3,10 +3,20 @@ import { describe, expect, it } from 'vitest'
 import { runLabReadTool } from './assistant-lab-tools.server'
 import type { DataClient } from './data-client'
 
+/** A client whose named reads answer this suite's fixture rows. */
 function context(rows: Record<string, unknown[]>) {
-  const client = {
-    rpc: (name: string) => Promise.resolve(rows[name] ?? []),
-  } as unknown as DataClient
+  const refuse = () =>
+    Promise.reject(new Error('This test answers no other client call.'))
+
+  const client: DataClient = {
+    // SAFETY: `rows` are this suite's wire fixtures; the tool decodes each row into its own record type before it sums or lists anything.
+    rpc: async <T>(name: string): Promise<T> => (rows[name] ?? []) as T,
+    list: refuse,
+    count: refuse,
+    insert: refuse,
+    patch: refuse,
+    remove: refuse,
+  }
 
   return {
     client,

@@ -88,6 +88,7 @@ const meta = {
     (Story, context) => (
       <QueryClientProvider
         client={
+          // SAFETY: this file sets `parameters.client` on every story, and the harness types it as the `screenQueryClient` result it is built from; Storybook passes parameters through unchanged.
           context.parameters.client as ReturnType<typeof screenQueryClient>
         }
       >
@@ -140,7 +141,7 @@ export const EditorReadOnly: Story = {
         order: 1,
         version: 1,
       }}
-      save={async () => ({ ok: true, payload: pinned, version: 2 }) as never}
+      save={async () => ({ ok: true })}
       readOnly
     />
   ),
@@ -160,7 +161,7 @@ export const EditorLoading: Story = {
         order: 1,
         version: 1,
       }}
-      save={async () => ({ ok: true, payload: {}, version: 2 }) as never}
+      save={async () => ({ ok: true })}
     />
   ),
 }

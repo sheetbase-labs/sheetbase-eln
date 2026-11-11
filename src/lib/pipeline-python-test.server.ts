@@ -8,6 +8,7 @@
  * output, the environment it ran in, and on failure the message and the line.
  */
 import { eq } from 'drizzle-orm'
+import { z } from 'zod'
 
 import { pickActiveMembership } from '#/lib/active-membership'
 import { getAppSession } from '#/lib/auth'
@@ -52,30 +53,52 @@ export interface PythonTestRunDeps {
 
 const limiter = createRateLimiter({ maxRequests: 20, windowSeconds: 60 })
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
+/**
+ * A request body as it arrives: a JSON value, before any of its fields are
+ * checked. A key the sender left out reads as `undefined`.
+ */
+export type TestRunBody =
+  | null
+  | boolean
+  | number
+  | string
+  | TestRunBody[]
+  | { [key: string]: TestRunBody | undefined }
 
-const reply = (body: unknown, status = 200) =>
+const jsonObject = z.record(z.string(), z.unknown())
+
+const statementSchema = z.string().max(MAX_STATEMENT_LENGTH)
+
+const requirementsSchema = z.array(z.string()).optional()
+
+/** A JSON object, the only body shape the route reads. */
+const isObject = (
+  value: TestRunBody,
+): value is { [key: string]: TestRunBody | undefined } =>
+  !Array.isArray(value) && jsonObject.safeParse(value).success
+
+const reply = <T>(body: T, status = 200) =>
   Response.json(body, { status, headers: { 'Cache-Control': 'no-store' } })
 
 const refuse = (status: number, message: string) =>
   reply({ error: message }, status)
 
 /** Why a request body cannot be run; null when it can. */
-export function testRunRequestError(body: unknown): string | null {
+export function testRunRequestError(body: TestRunBody): string | null {
   if (!isObject(body)) return 'Send a JSON object.'
 
-  if (
-    typeof body.statement !== 'string' ||
-    !body.statement.trim() ||
-    body.statement.length > MAX_STATEMENT_LENGTH
-  )
+  const statement = statementSchema.safeParse(body.statement ?? null)
+
+  if (!statement.success || !statement.data.trim())
     return 'Code must be between 1 and 20000 characters.'
 
-  if (!isObject(body.inputs)) return 'inputs must map input names to rows.'
+  const inputs = body.inputs ?? null
+
+  if (!isObject(inputs)) return 'inputs must map input names to rows.'
+
   let cells = 0
 
-  for (const [alias, rows] of Object.entries(body.inputs)) {
+  for (const [alias, rows] of Object.entries(inputs)) {
     if (
       !INPUT_NAME_RE.test(alias) &&
       alias !== 'previous' &&
@@ -87,15 +110,16 @@ export function testRunRequestError(body: unknown): string | null {
       return `Input ${alias} must be at most ${TEST_ROW_LIMIT} sample rows.`
 
     for (const row of rows) {
-      if (!isObject(row)) return `Input ${alias} must contain row objects.`
-      cells += Object.keys(row).length
+      if (!isObject(row ?? null))
+        return `Input ${alias} must contain row objects.`
+      cells += Object.keys(row ?? {}).length
     }
   }
 
   if (cells > TEST_CELL_LIMIT)
     return `The sample has ${cells} cells; keep it under ${TEST_CELL_LIMIT}.`
 
-  if (!isObject(body.parameters)) return 'parameters must be an object.'
+  if (!isObject(body.parameters ?? null)) return 'parameters must be an object.'
 
   if (body.requirements !== undefined) {
     const problems = requirementErrors(body.requirements)
@@ -112,7 +136,7 @@ export function testRunRequestError(body: unknown): string | null {
   return null
 }
 
-async function readBody(request: Request): Promise<unknown> {
+async function readBody(request: Request): Promise<TestRunBody> {
   const declared = Number(request.headers.get('content-length'))
 
   if (declared > TEST_BODY_BYTES) throw new RangeError('body_limit')
@@ -120,7 +144,7 @@ async function readBody(request: Request): Promise<unknown> {
 
   if (text.length > TEST_BODY_BYTES) throw new RangeError('body_limit')
 
-  return JSON.parse(text) as unknown
+  return JSON.parse(text)
 }
 
 export async function handlePythonTestRun(
@@ -140,7 +164,7 @@ export async function handlePythonTestRun(
       429,
       `Too many test runs. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
     )
-  let body: unknown
+  let body: TestRunBody
 
   try {
     body = await readBody(request)
@@ -150,28 +174,31 @@ export async function handlePythonTestRun(
       : refuse(400, 'Send a JSON body.')
   }
 
+  if (!isObject(body)) return refuse(400, 'Send a JSON object.')
+
   const problem = testRunRequestError(body)
 
   if (problem) return refuse(400, problem)
 
-  const job = body as {
-    statement: string
-    inputs: Record<string, Array<Record<string, unknown>>>
-    parameters: Record<string, unknown>
-    requirements?: string[]
-    contract?: PythonContract
-  }
+  const statement = statementSchema.parse(body.statement)
+
+  // SAFETY: `contractErrors` has just accepted the contract, and it checks
+  // every field a contract carries.
+  const contract =
+    body.contract === undefined ? undefined : (body.contract as PythonContract)
+
+  const requirements = requirementsSchema.parse(body.requirements)
 
   const clock = deps.now ?? Date.now
   const started = clock()
 
   try {
     const result = await deps.execute({
-      statement: job.statement,
-      inputs: pythonInputsSchema.parse(job.inputs),
-      parameters: pythonInputRowSchema.parse(job.parameters),
-      requirements: job.requirements,
-      contract: job.contract,
+      statement,
+      inputs: pythonInputsSchema.parse(body.inputs),
+      parameters: pythonInputRowSchema.parse(body.parameters),
+      requirements,
+      contract,
     })
 
     const rows = pythonResultRowsSchema.parse(result.rows)
@@ -200,9 +227,10 @@ export async function handlePythonTestRun(
       error: error.message,
       code: error.code,
       logs: error.logs,
-      ...(error.line ? { line: error.line } : {}),
       durationMs: clock() - started,
     }
+
+    if (error.line) failure.line = error.line
 
     return reply(failure)
   }

@@ -98,7 +98,7 @@ export function CapabilityGap({
                 {t('settings.uiKit.capabilityGap.today')}
               </span>
               {instead.map((l, i) => (
-                <span key={i}>
+                <span key={l.link.to}>
                   {i ? <span className="text-fg-muted"> · </span> : null}
                   <Link {...l.link}>{l.label}</Link>
                 </span>
@@ -137,9 +137,9 @@ export function CapabilityGap({
             {t('settings.uiKit.capabilityGap.whatUseToday')}
           </div>
           <ul className="m-0 list-none p-0">
-            {instead.map((l, i) => (
+            {instead.map((l) => (
               <li
-                key={i}
+                key={l.link.to}
                 className="border-b border-border-subtle last:border-b-0"
               >
                 <Link

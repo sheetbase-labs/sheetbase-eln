@@ -50,6 +50,12 @@ let timer: ReturnType<typeof setInterval> | null = null
 let bootTimer: ReturnType<typeof setTimeout> | null = null
 const startedGlobalKey = '__sheetbaseContractSweepStarted'
 
+/** The boot marker this module keeps on the process global, so a dev server that
+ * re-imports it does not start a second sweep. */
+type ContractSweepGlobal = typeof globalThis & {
+  __sheetbaseContractSweepStarted?: boolean
+}
+
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
 
@@ -65,7 +71,7 @@ export function startContractScheduler(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
+  const g: ContractSweepGlobal = globalThis
 
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
@@ -107,7 +113,9 @@ export function stopContractScheduler(): void {
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null
-  delete (globalThis as unknown as Record<string, unknown>)[startedGlobalKey]
+  const g: ContractSweepGlobal = globalThis
+
+  delete g[startedGlobalKey]
 }
 
 async function defaultConnect(): Promise<ContractSweepConnection> {

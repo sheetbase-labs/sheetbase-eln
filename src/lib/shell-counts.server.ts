@@ -65,17 +65,17 @@ export async function getShellCounts(
   const flagCount = num(flags)
   const failedCount = num(failed)
 
-  return {
-    // Unknown (`null`) travels as a value, not as an absent key: the badge
-    // renders no number for either, but only `null` says the read failed.
-    ...(inbox === null
-      ? { inbox: null }
-      : inbox.total > 0
-        ? { inbox: String(inbox.total) }
-        : {}),
-    ...(flagCount > 0
-      ? { datasets: `${flagCount} ${flagCount === 1 ? 'error' : 'errors'}` }
-      : {}),
-    ...(failedCount > 0 ? { pipelines: `${failedCount} failed` } : {}),
-  }
+  const counts: ShellCounts = {}
+
+  // Unknown (`null`) travels as a value, not as an absent key: the badge
+  // renders no number for either, but only `null` says the read failed.
+  if (inbox === null) counts.inbox = null
+  else if (inbox.total > 0) counts.inbox = String(inbox.total)
+
+  if (flagCount > 0)
+    counts.datasets = `${flagCount} ${flagCount === 1 ? 'error' : 'errors'}`
+
+  if (failedCount > 0) counts.pipelines = `${failedCount} failed`
+
+  return counts
 }

@@ -74,7 +74,7 @@ const timeFmt = (timeZone: string) =>
 export function toScheduleBooking(wire: CalendarBookingWire): ScheduleBooking {
   const tz = getDisplayTimeZone() ?? (wire.timezone || 'UTC')
 
-  return {
+  const booking: ScheduleBooking = {
     id: wire.id,
     resourceId: wire.resource_id,
     title: wire.title,
@@ -85,15 +85,17 @@ export function toScheduleBooking(wire: CalendarBookingWire): ScheduleBooking {
     createdByUserId: wire.created_by_user_id,
     notes: wire.notes,
     metadataVersion: wire.metadata_version,
-    ...(wire.linked_experiment_record_id
-      ? {
-          experiment: {
-            id: wire.linked_experiment_record_id,
-            identifier: wire.linked_experiment_identifier,
-            title: wire.linked_experiment_title,
-          },
-        }
-      : {}),
+  }
+
+  if (!wire.linked_experiment_record_id) return booking
+
+  return {
+    ...booking,
+    experiment: {
+      id: wire.linked_experiment_record_id,
+      identifier: wire.linked_experiment_identifier,
+      title: wire.linked_experiment_title,
+    },
   }
 }
 

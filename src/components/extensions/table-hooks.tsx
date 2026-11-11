@@ -8,6 +8,7 @@
  * there before it comes back.
  */
 import * as React from 'react'
+import { z } from 'zod'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 
@@ -29,7 +30,6 @@ import {
 } from '#/components/ui/dropdown-menu'
 import { Icon } from '#/components/icons'
 import type { DataTableFeatures } from '#/components/scientific/data-table'
-import { recordFieldValue } from '#/components/models/models-data'
 import type { RecordModelRecord } from '#/components/models/models-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { downloadTextFile } from '#/lib/download'
@@ -46,33 +46,11 @@ import type {
 import { t } from '#/copy'
 import { CellDisplayView } from './cell-display'
 import { PluginView } from './plugin-view'
+import { pluginRow } from './plugin-row'
 import { usePluginPoints } from './use-plugin-points'
 
 /** The most rows one call carries; the server refuses more. */
 const MAX_ROWS = 5000
-
-type Row = Record<string, unknown>
-
-/** One record as a plugin sees it: its name and status, then its fields by name. */
-export function pluginRow(
-  record: RecordModelRecord,
-  fields: readonly ModelFieldDefinition[],
-  inputs?: readonly string[],
-): Row {
-  const row: Row = {
-    id: record.id,
-    identifier: record.identifier,
-    title: record.title,
-    status: record.status,
-  }
-
-  for (const field of fields) {
-    if (inputs && !inputs.includes(field.fieldName)) continue
-    row[field.fieldName] = recordFieldValue(record, field.fieldName) ?? null
-  }
-
-  return row
-}
 
 interface FieldTypeLink {
   field_name: string
@@ -259,8 +237,10 @@ function ColumnValue({
 
   if (display) return <CellDisplayView spec={display} value={value} />
 
-  if (typeof value === 'boolean')
-    return <span>{value ? t('plugins.hooks.yes') : t('plugins.hooks.no')}</span>
+  const yesNo = z.boolean().safeParse(value).data
+
+  if (yesNo !== undefined)
+    return <span>{yesNo ? t('plugins.hooks.yes') : t('plugins.hooks.no')}</span>
 
   return <span>{String(value)}</span>
 }
@@ -461,13 +441,16 @@ export function usePluginTableHooks({
     })),
   })
 
+  // `run` is the runner's stable callback; the rest of the runner is state and
+  // JSX, which the columns do not read.
+  const run = runner.run
+
   const columns = React.useMemo<
     ColumnDef<DataTableFeatures, RecordModelRecord, unknown>[]
   >(
     () =>
       columnItems.map((item, index) => {
-        const query = columnQueries[index] as
-          (typeof columnQueries)[number] | undefined
+        const query = columnQueries.at(index)
 
         const values = query?.data
         const indexOf = new Map(records.map((r, i) => [r.id, i] as const))
@@ -480,7 +463,7 @@ export function usePluginTableHooks({
             <ColumnHeader
               item={item}
               onAction={(actionId, title) =>
-                void runner.run(title, {
+                void run(title, {
                   kind: 'column-action',
                   extensionKey: item.extensionKey,
                   itemId: item.id,
@@ -516,12 +499,7 @@ export function usePluginTableHooks({
           },
         }
       }),
-    [
-      columnItems,
-      columnQueries.map((q) => q.dataUpdatedAt + q.status).join(),
-      records,
-      fields,
-    ],
+    [columnItems, columnQueries, records, fields, run],
   )
 
   return { cellDisplay, cellRenderer, columns, actions, runner }

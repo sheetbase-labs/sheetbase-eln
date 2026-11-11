@@ -444,12 +444,12 @@ export interface PickUpItem {
 }
 
 /** Experiment statuses that mean the person's own work is not finished. */
-const UNFINISHED_RECORD_STATUS: Record<string, true> = {
-  draft: true,
-  planned: true,
-  in_progress: true,
-  paused: true,
-}
+const UNFINISHED_RECORD_STATUS = new Set([
+  'draft',
+  'planned',
+  'in_progress',
+  'paused',
+])
 
 /**
  * Work the person could pick up, from their own recents: records they touched
@@ -467,7 +467,7 @@ export function pickUpItems(
   for (const recent of recents) {
     if (recent.kind !== 'record') continue
 
-    if (!recent.status || !(recent.status in UNFINISHED_RECORD_STATUS)) continue
+    if (!recent.status || !UNFINISHED_RECORD_STATUS.has(recent.status)) continue
     const label = statusLabel(recent)
     items.push({
       key: `pick-up:${recent.kind}:${recent.id}`,

@@ -6,6 +6,7 @@ import {
   readNumber,
   readString,
 } from './http'
+import type { ProviderJson, ProviderRecord } from './http'
 import {
   AiProviderError,
   PROVIDER_SYSTEM_PROMPT,
@@ -89,7 +90,7 @@ export function anthropicMessagesUrl(baseUrl: string): string {
     : `${trimmed}/v1/messages`
 }
 
-function readAnthropicText(root: Record<string, unknown> | null): string {
+function readAnthropicText(root: ProviderRecord | null): string {
   const content = root?.content
 
   if (!Array.isArray(content)) return ''
@@ -98,9 +99,7 @@ function readAnthropicText(root: Record<string, unknown> | null): string {
     .map((part) => {
       const record = asRecord(part)
 
-      return record?.type === 'text' && typeof record.text === 'string'
-        ? record.text
-        : null
+      return record?.type === 'text' ? readString(record, 'text') : null
     })
     .filter((part): part is string => part !== null)
     .join('\n')
@@ -109,7 +108,7 @@ function readAnthropicText(root: Record<string, unknown> | null): string {
 export function parseAnthropicResponse(
   profile: ProviderProfile,
   prompt: string,
-  json: unknown,
+  json: ProviderJson,
 ): ProviderResponse {
   const root = asRecord(json)
   const text = readAnthropicText(root)

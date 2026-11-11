@@ -18,7 +18,8 @@ import type {
 import { allWellCodes } from '#/lib/plate-assay'
 import { FORMAT_DIMENSIONS, ROLE_STYLES, parseWellCode } from '#/lib/plate-map'
 import type { AssignmentRole, PlateFormat } from '#/lib/plate-map'
-import type { PlateRunRow } from '#/lib/plate-runs'
+import { worklistReference } from '#/lib/plate-runs'
+import type { PlateRunRow, PlateWorklistRow } from '#/lib/plate-runs'
 
 export type MapView = 'normalised' | 'raw' | 'hits' | 'roles'
 
@@ -58,6 +59,24 @@ export function fmt(value: number | null | undefined, digits = 3): string {
 
 export function runText(run: PlateRunRow): string {
   return `plr-${String(run.number).padStart(4, '0')} ${run.name}`.toLowerCase()
+}
+
+/** Whether a run's reference or name holds the typed search text. */
+export function runMatches(run: PlateRunRow, needle: string): boolean {
+  return needle === '' || runText(run).indexOf(needle) !== -1
+}
+
+/** Whether a worklist's reference or name holds the typed search text. */
+export function worklistMatches(
+  worklist: PlateWorklistRow,
+  needle: string,
+): boolean {
+  return (
+    needle === '' ||
+    `${worklistReference(worklist.number)} ${worklist.name}`
+      .toLowerCase()
+      .indexOf(needle) !== -1
+  )
 }
 
 const CONTROL_FADED: Record<AssignmentRole, string> = {

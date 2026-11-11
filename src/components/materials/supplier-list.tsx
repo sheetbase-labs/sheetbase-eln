@@ -53,27 +53,20 @@ export function useSuppliers() {
   }
 }
 
-function useRefreshSuppliers() {
-  const queryClient = useQueryClient()
-
-  return () => {
-    void queryClient.invalidateQueries({ queryKey: supplierKeys.all })
-    void queryClient.invalidateQueries({
-      queryKey: ['ui-port', 'record-models'],
-    })
-  }
-}
-
 /** Offered where a supplier is chosen and the lab has no supplier list yet. */
 export function SetUpSuppliers({ canSetUp }: { canSetUp: boolean }) {
-  const refresh = useRefreshSuppliers()
+  const queryClient = useQueryClient()
 
   const create = useMutation({
     mutationFn: () => createSupplierModel(client),
     onSuccess: () => {
-      refresh()
+      void queryClient.invalidateQueries({ queryKey: supplierKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'record-models'],
+      })
       toast.success(t('spend.suppliers.setUpDone'))
     },
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A refused set-up call is a caught throw, untyped by definition; an Error supplies its message.
     onError: (e: unknown) =>
       toast.error(
         e instanceof Error && e.message
@@ -113,7 +106,7 @@ export function SupplierListDialog({
   onOpenChange: (open: boolean) => void
   modelKey: string
 }) {
-  const refresh = useRefreshSuppliers()
+  const queryClient = useQueryClient()
 
   const keys = useQuery({
     queryKey: supplierKeys.models,
@@ -126,10 +119,14 @@ export function SupplierListDialog({
   const save = useMutation({
     mutationFn: () => setModelSupplierList(client, modelKey, checked),
     onSuccess: () => {
-      refresh()
+      void queryClient.invalidateQueries({ queryKey: supplierKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'record-models'],
+      })
       toast.success(t('spend.suppliers.listDialog.saved'))
       onOpenChange(false)
     },
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A refused save is a caught throw, untyped by definition; an Error supplies its message.
     onError: (e: unknown) =>
       toast.error(
         e instanceof Error && e.message

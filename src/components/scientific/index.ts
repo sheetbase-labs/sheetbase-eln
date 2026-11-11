@@ -4,6 +4,8 @@
  */
 export * from './status-badge'
 
+export * from './status-vocabularies'
+
 export * from './data-table'
 
 export * from './diff'

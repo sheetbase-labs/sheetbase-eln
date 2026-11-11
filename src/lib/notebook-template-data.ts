@@ -123,7 +123,10 @@ export interface NotebookTemplateInstantiationResult {
 
 export const notebookTemplateDataClient = createDataClient()
 
-export function notebookTemplateFromWire(wire: unknown): NotebookTemplate {
+export function notebookTemplateFromWire(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the wire decode boundary: a PostgREST row arrives untyped and notebookTemplateWireSchema below is the parse that gives it its contract.
+  wire: unknown,
+): NotebookTemplate {
   const parsed = notebookTemplateWireSchema.parse(wire)
 
   return {
@@ -142,6 +145,7 @@ export function notebookTemplateFromWire(wire: unknown): NotebookTemplate {
 }
 
 export function notebookTemplateVersionFromWire(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the wire decode boundary: a PostgREST row arrives untyped and notebookTemplateVersionWireSchema below is the parse that gives it its contract.
   wire: unknown,
 ): NotebookTemplateVersion {
   const parsed = notebookTemplateVersionWireSchema.parse(wire)

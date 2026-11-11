@@ -1,48 +1,45 @@
 import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { ERROR_CATEGORIES } from '#/lib/errors'
 import { buildExternalApiOpenApi } from '#/lib/public-api-openapi'
 import { TOKEN_ERROR_CODES } from '#/lib/public-api-rpc-contracts'
 
-type LanguageSupport = 'automatic' | 'generic' | 'resource'
+const languageSupport = z.enum(['automatic', 'generic', 'resource'])
 
-interface SupportDecision {
-  python: LanguageSupport
-  typescript: LanguageSupport
+const supportDecision = {
+  python: languageSupport,
+  typescript: languageSupport,
 }
 
-interface SupportMatrix {
-  contract: {
-    apiVersion: string
-    basePath: string
-    source: string
-    tokenErrorCodes: string[]
-    errorCategories: string[]
-  }
-  token: Array<
-    SupportDecision & {
-      method: string
-      path: string
-    }
-  >
-  tables: Array<
-    SupportDecision & {
-      resource: string
-      methods: string[]
-    }
-  >
-  rpcs: Array<
-    SupportDecision & {
-      name: string
-      resource: string
-    }
-  >
-}
+/** `sdks/support-matrix.json`, decoded at the file boundary. */
+const supportMatrix = z.object({
+  contract: z.object({
+    apiVersion: z.string(),
+    basePath: z.string(),
+    source: z.string(),
+    tokenErrorCodes: z.array(z.string()),
+    errorCategories: z.array(z.string()),
+  }),
+  token: z.array(
+    z.object({ ...supportDecision, method: z.string(), path: z.string() }),
+  ),
+  tables: z.array(
+    z.object({
+      ...supportDecision,
+      resource: z.string(),
+      methods: z.array(z.string()),
+    }),
+  ),
+  rpcs: z.array(
+    z.object({ ...supportDecision, name: z.string(), resource: z.string() }),
+  ),
+})
 
 const matrixPath = 'sdks/support-matrix.json'
-const matrix = JSON.parse(readFileSync(matrixPath, 'utf8')) as SupportMatrix
+const matrix = supportMatrix.parse(JSON.parse(readFileSync(matrixPath, 'utf8')))
 const spec = buildExternalApiOpenApi()
 const httpMethods = new Set(['get', 'head', 'post', 'patch', 'put', 'delete'])
 
@@ -92,12 +89,22 @@ function rpcWrapperBlock(file: string, name: string): string {
   return source.slice(start, end)
 }
 
+/** The request body of one generated RPC operation. */
+const jsonRequestBody = z.object({
+  requestBody: z.object({
+    content: z.record(
+      z.string(),
+      z.object({
+        schema: z.object({ required: z.array(z.string()).optional() }),
+      }),
+    ),
+  }),
+})
+
 function rpcRequiredParameters(name: string): string[] {
-  const operation = spec.paths[`/api/db/rpc/${name}`].post as {
-    requestBody: {
-      content: { 'application/json': { schema: { required?: string[] } } }
-    }
-  }
+  const operation = jsonRequestBody.parse(
+    spec.paths[`/api/db/rpc/${name}`].post,
+  )
 
   return operation.requestBody.content['application/json'].schema.required ?? []
 }
@@ -144,9 +151,7 @@ const typescriptResources = [
   'webhooks',
 ].map((name) => `sdks/typescript/src/resources/${name}.ts`)
 
-const resourceFiles: Partial<
-  Record<string, { python: string; typescript: string }>
-> = {
+const resourceFiles = {
   agentOperations: {
     python: 'sdks/python/src/sheetbase/resources/agent_operations.py',
     typescript: 'sdks/typescript/src/resources/agent-operations.ts',
@@ -191,6 +196,15 @@ const resourceFiles: Partial<
     python: 'sdks/python/src/sheetbase/resources/webhooks.py',
     typescript: 'sdks/typescript/src/resources/webhooks.ts',
   },
+} satisfies Partial<Record<string, { python: string; typescript: string }>>
+
+/** The SDK files that wrap a matrix resource, when it has a hand-written one. */
+function resourceFilesFor(resource: string) {
+  for (const [name, files] of Object.entries(resourceFiles)) {
+    if (name === resource) return files
+  }
+
+  return undefined
 }
 
 // The Python SDK's typed layer is generated from the contract
@@ -281,9 +295,9 @@ describe('SDK-01 public-contract support matrix', () => {
   })
 
   it('keeps each published package version in step with its SDK source', () => {
-    const npmPackage = JSON.parse(
-      readFileSync('sdks/typescript/package.json', 'utf8'),
-    ) as { version: string }
+    const npmPackage = z
+      .object({ version: z.string() })
+      .parse(JSON.parse(readFileSync('sdks/typescript/package.json', 'utf8')))
 
     const pyproject = readFileSync('sdks/python/pyproject.toml', 'utf8')
     const pythonVersion = pyproject.match(/^version\s*=\s*"([^"]+)"$/m)?.[1]
@@ -328,7 +342,7 @@ describe('SDK-01 public-contract support matrix', () => {
     expect(rpcPathsIn(typescriptResources)).toEqual(names)
 
     for (const { name, resource } of wrapped) {
-      const files = resourceFiles[resource]
+      const files = resourceFilesFor(resource)
       expect(files, `${name} has a known resource`).toBeDefined()
 
       if (!files) throw new Error(`Unknown SDK resource: ${resource}`)
@@ -380,10 +394,12 @@ describe('SDK-01 public-contract support matrix', () => {
     // /api/db/record_links is the existing public domain contract and both
     // SDKs reach it through their generic table readers. Pin the frozen
     // surface so silently dropping link reads fails here.
-    const pathItem = spec.paths['/api/db/record_links'] as {
-      get?: { operationId?: string }
-      head?: { operationId?: string }
-    }
+    const pathItem = z
+      .object({
+        get: z.object({ operationId: z.string().optional() }).optional(),
+        head: z.object({ operationId: z.string().optional() }).optional(),
+      })
+      .parse(spec.paths['/api/db/record_links'])
 
     expect(pathItem.get?.operationId).toBe('get_record_links')
     expect(pathItem.head?.operationId).toBe('head_record_links')

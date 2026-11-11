@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import { Button } from '#/components/ui/button'
 import {
   DropdownMenu,
@@ -19,6 +21,18 @@ import { cn } from '#/lib/utils'
  */
 export type FilterMenuOption = string | { value: string; label: string }
 
+/** The object form of an option: a bare string is its own value and label. */
+const labelledOptionSchema = z.object({
+  value: z.string(),
+  label: z.string(),
+})
+
+function isLabelledOption(
+  option: FilterMenuOption,
+): option is { value: string; label: string } {
+  return labelledOptionSchema.safeParse(option).success
+}
+
 export function FilterMenu({
   label,
   value,
@@ -38,7 +52,7 @@ export function FilterMenu({
   className?: string
 }) {
   const options = rawOptions.map((o) =>
-    typeof o === 'string' ? { value: o, label: o } : o,
+    isLabelledOption(o) ? o : { value: o, label: o },
   )
 
   const current = options.find((o) => o.value === value)

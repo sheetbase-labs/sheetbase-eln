@@ -395,7 +395,10 @@ const LINK_ERROR_FIELDS = z.looseObject({
  * `message` non-enumerable, so object parsing cannot see it; the instance is
  * read directly and its code and status come from the transport's own fields.
  */
-function linkErrorFields(error: unknown) {
+function linkErrorFields(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught transport throw is untyped by definition; this is the decoder that lifts its code, status and message out.
+  error: unknown,
+) {
   if (error instanceof Error) {
     // SAFETY: the transport throws its own error class, which carries an
     // optional SQLSTATE `code` and HTTP `status` beside `message`.

@@ -44,6 +44,10 @@ const answerSchema = z.object({
 
 const KINDS = new Set<string>(['text', 'number', 'date', 'yes_no', 'choice'])
 
+function isColumnKind(value: string | null | undefined): value is AiColumnKind {
+  return value !== null && value !== undefined && KINDS.has(value)
+}
+
 function isNumeric(field: ImportTargetField): boolean {
   return field.logicalType === 'integer' || field.logicalType === 'decimal'
 }
@@ -82,15 +86,27 @@ export function buildMappingInstruction(
   ].join('\n')
 }
 
+/**
+ * The first JSON value in a model reply: parsed, but still unvalidated, so
+ * `answerSchema` is what decides its shape.
+ */
+export type ModelReplyJson =
+  | null
+  | boolean
+  | number
+  | string
+  | ModelReplyJson[]
+  | { [key: string]: ModelReplyJson }
+
 /** Pull the first JSON object out of a model reply, fences or chatter and all. */
-export function extractJsonObject(text: string): unknown {
+export function extractJsonObject(text: string): ModelReplyJson {
   const start = text.indexOf('{')
   const end = text.lastIndexOf('}')
 
   if (start < 0 || end <= start) return null
 
   try {
-    return JSON.parse(text.slice(start, end + 1)) as unknown
+    return JSON.parse(text.slice(start, end + 1))
   } catch {
     return null
   }
@@ -130,10 +146,7 @@ export function parseMappingAnswer(
       header: column.header,
       fieldId: field.id,
       sourceUnit: unit && isNumeric(field) ? unit.slice(0, 40) : null,
-      kind:
-        column.kind && KINDS.has(column.kind)
-          ? (column.kind as AiColumnKind)
-          : null,
+      kind: isColumnKind(column.kind) ? column.kind : null,
       reason: (column.reason ?? '').trim().slice(0, 200),
     })
   }

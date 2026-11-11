@@ -21,7 +21,7 @@ import { Badge } from '#/components/ui/badge'
  * A small measurement sheet — a notebook run's columns, as the v3 grid shows
  * them. Values are literals so the demo needs no adapter.
  */
-const DEMO_ROWS: Record<string, string> = {
+const DEMO_ROWS = {
   A1: 'Run',
   B1: 'Measured · DS-0311',
   C1: 'Derived',
@@ -48,7 +48,7 @@ const DEMO_ROWS: Record<string, string> = {
   D6: 'Draft',
 }
 
-/** The package grid takes an A1-address map; the literal above stays a Record. */
+/** The package grid takes an A1-address map; the literal above stays the source. */
 const DEMO_CELLS: ReadonlyMap<string, string> = new Map(
   Object.entries(DEMO_ROWS),
 )

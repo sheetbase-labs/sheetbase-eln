@@ -96,6 +96,9 @@ function addDetailLabel(detail: string) {
   return t(`plugins.admin.access.${key}`)
 }
 
+/** The installs table's columns, in the order it shows them. */
+const INSTALL_COLUMNS = ['plugin', 'status', 'adds', 'actions'] as const
+
 function Plugins() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
@@ -232,18 +235,11 @@ function Plugins() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead scope="col">
-                    {t('plugins.admin.columns.plugin')}
-                  </TableHead>
-                  <TableHead scope="col">
-                    {t('plugins.admin.columns.status')}
-                  </TableHead>
-                  <TableHead scope="col">
-                    {t('plugins.admin.columns.adds')}
-                  </TableHead>
-                  <TableHead scope="col">
-                    {t('plugins.admin.columns.actions')}
-                  </TableHead>
+                  {INSTALL_COLUMNS.map((column) => (
+                    <TableHead key={column} scope="col">
+                      {t(`plugins.admin.columns.${column}`)}
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>

@@ -22,8 +22,12 @@ import {
 import type { KeyObject } from 'node:crypto'
 
 import type { QueryResultRow } from 'pg'
+import { z } from 'zod'
 
 import { env } from '#/env.server'
+
+/** A JSON value a manifest records: exactly what JSON can carry. */
+export type ManifestJson = z.core.util.JSONType
 
 export const MANIFEST_SCHEMA = 'sheetbase.pipeline-run-manifest/1'
 export const SIGNATURE_ALGORITHM = 'ed25519'
@@ -65,7 +69,7 @@ export interface RunManifest {
     versionNumber: number
     configurationDigest: string
   }
-  parameters: Record<string, unknown>
+  parameters: Record<string, ManifestJson>
   inputs: ManifestInput[]
   steps: ManifestStep[]
   decisions: Array<{
@@ -111,20 +115,25 @@ interface ManifestConnection {
 // Canonical form and digests.
 // ---------------------------------------------------------------------------
 
+/** An object's own entries as a new object, keys in the order the canonical form wants. */
+function withSortedKeys<T extends object>(value: T) {
+  return Object.fromEntries(
+    Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+  )
+}
+
 /** JSON with object keys sorted at every depth: one byte string per value. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A canonical serialiser is handed any value JSON.stringify accepts: rows, parameters and the manifest itself.
 export function canonicalJson(value: unknown): string {
-  return JSON.stringify(value, (_key, v: unknown) => {
+  return JSON.stringify(value, (_key, v) => {
     if (
       v &&
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Which values get key-ordered decides every digest this module writes: arrays stay arrays, Dates keep their JSON text, and only object values are re-keyed.
       typeof v === 'object' &&
       !Array.isArray(v) &&
       !(v instanceof Date)
     ) {
-      return Object.fromEntries(
-        Object.entries(v as Record<string, unknown>).sort(([a], [b]) =>
-          a < b ? -1 : a > b ? 1 : 0,
-        ),
-      )
+      return withSortedKeys(v)
     }
 
     return v
@@ -140,7 +149,7 @@ export function sha256Hex(value: string | Buffer): string {
  * hashed, the hashes are sorted and hashed again. A transform without ORDER BY
  * may return rows in any order, which must not change the evidence.
  */
-export function digestRows(rows: Array<Record<string, unknown>>): string {
+export function digestRows<T extends object>(rows: readonly T[]): string {
   const hashes = rows.map((row) => sha256Hex(canonicalJson(row))).sort()
 
   return sha256Hex(hashes.join('\n'))
@@ -257,9 +266,10 @@ export interface ManifestRunContext {
   schedule_id: string | null
   actor_user_id: string | null
   input_digest: string | null
-  parameters: Record<string, unknown>
+  parameters: Record<string, ManifestJson>
   input_versions: Record<string, string>
   version_number: number
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The published definition version owns this JSONB; the manifest records its digest and nothing else reads the keys here.
   configuration: Record<string, unknown>
   definition_name: string
   definition_version_id: string
@@ -276,10 +286,17 @@ export interface ManifestBuildInput {
     datasetVersionId: string | null
     label: string | null
   }
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- A transform's rows carry whatever columns its statement selected, including bytes and Dates that JSON has no type for; `canonicalJson` serialises them.
   rows: Array<Record<string, unknown>>
   actions: Array<{ name: string; operation: string }>
   finishedAt: string | null
 }
+
+/** A prompt's stored answer: each field decoded on its own, an unusable one reading as absent. */
+const promptAnswerSchema = z.object({
+  decision: z.string().nullish().catch(null),
+  values: z.json().nullish().catch(null),
+})
 
 function quote(name: string): string {
   return `"${name.replaceAll('"', '""')}"`
@@ -337,7 +354,7 @@ export async function buildRunManifest(
 
   const { rows: decisionRows } = await conn.query<{
     step_id: string
-    answer: Record<string, unknown> | null
+    answer: z.input<typeof promptAnswerSchema> | null
     answered_by_user_id: string | null
     answered_at: Date | null
   }>(
@@ -376,16 +393,20 @@ export async function buildRunManifest(
       language: step.language,
       statementDigest: sha256Hex(step.statement),
     })),
-    decisions: decisionRows.map((row) => ({
-      step: row.step_id,
-      decision:
-        typeof row.answer?.decision === 'string' ? row.answer.decision : null,
-      answeredBy: row.answered_by_user_id,
-      answeredAt: row.answered_at ? row.answered_at.toISOString() : null,
-      valuesDigest: row.answer?.values
-        ? sha256Hex(canonicalJson(row.answer.values))
-        : null,
-    })),
+    decisions: decisionRows.map((row) => {
+      const answer = promptAnswerSchema.safeParse(row.answer)
+      const decoded = answer.success ? answer.data : null
+
+      return {
+        step: row.step_id,
+        decision: decoded?.decision ?? null,
+        answeredBy: row.answered_by_user_id,
+        answeredAt: row.answered_at ? row.answered_at.toISOString() : null,
+        valuesDigest: decoded?.values
+          ? sha256Hex(canonicalJson(decoded.values))
+          : null,
+      }
+    }),
     outputs: {
       mode: input.output.mode,
       datasetId: input.output.datasetId,

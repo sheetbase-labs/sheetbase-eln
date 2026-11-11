@@ -218,6 +218,7 @@ async function commitRecordImport(
   for (const [index, row] of mapped.rows.entries()) {
     if (ruled) {
       try {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Entries are created in row order and the first refusal stops the import with the rows already committed; overlapping the writes would reorder commits and add entries after a failure.
         await createRegistryEntry(client, {
           projectId: target.projectId,
           kind: target.recordKind,

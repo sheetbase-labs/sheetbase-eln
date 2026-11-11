@@ -241,6 +241,7 @@ export class ChainedObjectStorage implements ObjectStorage {
     await this.primary.delete(storageKey)
 
     for (const fallback of this.fallbacks) {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The primary's copy goes first and each fallback after it, so a read between the two never finds the deleted object still served.
       await fallback.delete(storageKey).catch(() => undefined)
     }
   }

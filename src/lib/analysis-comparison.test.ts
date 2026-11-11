@@ -234,7 +234,11 @@ describe('comparison', () => {
       alpha: 2,
     })
 
-    expect(bad.map((e) => e.field).sort()).toEqual(['alpha', 'postHoc', 'test'])
+    expect(
+      bad
+        .map((e) => e.field ?? '')
+        .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+    ).toEqual(['alpha', 'postHoc', 'test'])
   })
 })
 

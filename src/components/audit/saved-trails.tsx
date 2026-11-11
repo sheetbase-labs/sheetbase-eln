@@ -46,6 +46,7 @@ export function SavedTrails({ recordId }: { recordId: string }) {
             </span>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-label text-fg-muted">
               {row.steps.map((step, index) => (
+                // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a trail is a recorded path: the same href can appear twice, so its position in the trail is its identity.
                 <span key={`${step.href}-${index}`}>
                   {index > 0 ? '→ ' : ''}
                   <a className="text-link underline" href={step.href}>

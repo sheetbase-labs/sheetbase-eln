@@ -14,6 +14,7 @@ import {
   screenQueryClient,
   screenRoutes,
 } from './screen-stories'
+import type { DataClientStub } from './screen-stories'
 
 /**
  * The search palette and the shortcuts dialog are closed on almost every page
@@ -22,6 +23,13 @@ import {
  * click and stays mounted after. The palette's search is answered by an empty
  * stub, so it shows its own empty state.
  */
+// SAFETY: this story opens the palette and answers no search; the empty
+// answers are the story's claim about every call the palette makes.
+const EMPTY_STUB: DataClientStub = {
+  rpc: async <T,>() => ({}) as T,
+  list: async <T,>() => [] as T[],
+}
+
 const meta = {
   title: 'Shell/Lazy overlays',
   parameters: {
@@ -57,7 +65,7 @@ export const SearchPalette: Story = {
 
     return (
       <QueryClientProvider client={client}>
-        <StubDataClient stub={{ rpc: async () => [], list: async () => [] }}>
+        <StubDataClient stub={EMPTY_STUB}>
           <div className="p-6">
             <Button onClick={() => setOpen(true)}>Open search</Button>
           </div>

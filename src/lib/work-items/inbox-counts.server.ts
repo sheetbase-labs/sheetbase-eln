@@ -47,6 +47,7 @@ export async function getInboxCounts(
 ): Promise<InboxCounts | null> {
   const client: InboxCountPool =
     pool ?? (await import('#/db/client.server')).db.$client
+
   const connection = await client.connect()
 
   try {

@@ -5,6 +5,7 @@ import { defaultHookStore } from './record-hooks.server'
 
 const execute = vi.hoisted(() => vi.fn())
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The hook store imports the database client inside each call, so `db.execute` is the only seam a unit test has; the query it is handed is what this suite asserts.
 vi.mock('#/db/client.server', () => ({ db: { execute } }))
 
 describe('the hook store', () => {
@@ -22,7 +23,7 @@ describe('the hook store', () => {
       approvals: 1,
       independent: true,
       actorUserId: 'user-1',
-    } as never)
+    })
     const query = new PgDialect().sqlToQuery(execute.mock.calls[0][0])
     // A JS array spread into a query becomes `($1, $2, $3)`, which Postgres
     // will not cast to text[]; the roles travel as one JSON value instead.

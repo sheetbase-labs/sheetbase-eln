@@ -1,15 +1,19 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { ObjectStorage } from './file-storage'
 import { WopiLocks, signWopiToken } from './office-editor'
 
 const select = vi.fn()
 const store = vi.fn()
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- `wopi-routes` imports this read directly and takes no transport parameter for it; the double answers the two tables this suite needs, and the assertions are on the WOPI statuses and headers that read produces.
 vi.mock('#/lib/request-auth', () => ({ postgrestSelect: select }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The save path is imported directly by `wopi-routes`; this suite proves what the WOPI PUT returns and what it asks the shared version path to store, so the double records that one call.
 vi.mock('#/lib/file-routes', () => ({ storeFileVersion: store }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route falls back to the process-wide storage client, which needs real object storage; every call here passes its own storage double, so this module only has to load.
 vi.mock('#/lib/file-storage', () => ({ getObjectStorage: vi.fn() }))
 
 const {
@@ -43,12 +47,14 @@ const base = {
   canWrite: true,
 }
 
-const storage = {
-  head: vi.fn(async () => ({})),
-  getStream: vi.fn(async () => ({
+const storage: ObjectStorage = {
+  putStream: async () => ({ byteSize: 5n, checksum: 'c' }),
+  head: async () => ({ byteSize: 5 }),
+  getStream: async () => ({
     stream: new Response('hello').body!,
     byteSize: 5,
-  })),
+  }),
+  delete: async () => undefined,
 }
 
 function deps(locks = new WopiLocks()) {
@@ -56,7 +62,7 @@ function deps(locks = new WopiLocks()) {
     secret: SECRET,
     appOrigin: 'https://app.example',
     locks,
-    storage: storage as never,
+    storage,
     mintToken: async () => 'pg-token',
   }
 }

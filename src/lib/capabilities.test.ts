@@ -38,8 +38,11 @@ describe('capabilities', () => {
   })
 
   it('tracks every registered key in the roadmap map', () => {
-    expect(Object.keys(capabilityRoadmap).sort()).toEqual(
-      [...capabilityKeys].sort(),
+    const ordered = (keys: string[]) =>
+      keys.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+
+    expect(ordered(Object.keys(capabilityRoadmap))).toEqual(
+      ordered([...capabilityKeys]),
     )
 
     for (const key of capabilityKeys) {

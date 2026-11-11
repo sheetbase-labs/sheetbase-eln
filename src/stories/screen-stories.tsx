@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { QueryClient } from '@tanstack/react-query'
 import { createRootRoute, createRoute } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
@@ -189,6 +190,7 @@ export function infinitePage<T>(page: T, pageParams: unknown[] = [undefined]) {
 
 /** A read a `stubDataClient` answers with: fixtures, or one of the modes. */
 export type ClientRead =
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- A story fixture is written as the screen's own wire contract (WorkspaceRecordModel, ApprovalRequest, ...), which this harness cannot name; the screen decodes it exactly as it decodes a real response.
   UnseededRead | readonly unknown[] | Record<string, unknown>
 
 /**
@@ -204,7 +206,7 @@ export type ClientRead =
 export function stubDataClient(
   reads: Record<string, ClientRead> = {},
 ): DataClient {
-  const answer = (name: string): Promise<unknown> => {
+  const answer = (name: string) => {
     // An index signature hides the absent key: the story's fixtures are the
     // only reads it answers, and an unlisted one refuses rather than answering
     // an empty list the screen would render as "nothing here".
@@ -227,9 +229,15 @@ export function stubDataClient(
     Promise.reject(new Error('A story never reaches the server.'))
 
   return {
-    list: <T,>(resource: string) => answer(resource) as Promise<T[]>,
+    list: <T,>(resource: string) => {
+      // SAFETY: a story writes each fixture as the row type its screen reads, and only names the read here.
+      return answer(resource) as Promise<T[]>
+    },
     count: refuse,
-    rpc: <T,>(name: string) => answer(name) as Promise<T>,
+    rpc: <T,>(name: string) => {
+      // SAFETY: a story writes each fixture as the value its screen reads, and only names the read here.
+      return answer(name) as Promise<T>
+    },
     insert: refuse,
     patch: refuse,
     remove: refuse,
@@ -238,8 +246,8 @@ export function stubDataClient(
 
 /** The two client methods a story can replace for an imperative read. */
 export type DataClientStub = {
-  rpc?: (name: string, args: Record<string, unknown>) => Promise<unknown>
-  list?: (resource: string, query?: string) => Promise<unknown[]>
+  rpc?: DataClient['rpc']
+  list?: DataClient['list']
 }
 
 /**
@@ -263,7 +271,7 @@ export function StubDataClient({
   const applied = useRef<DataClientStub | null>(null)
 
   const install = () => {
-    const client = notebookDataClient as unknown as DataClientStub
+    const client = notebookDataClient
     saved.current ??= {}
 
     if (stub.rpc) {
@@ -286,7 +294,7 @@ export function StubDataClient({
     if (applied.current !== stub) install()
 
     return () => {
-      const client = notebookDataClient as unknown as DataClientStub
+      const client = notebookDataClient
 
       if (saved.current?.rpc) client.rpc = saved.current.rpc
 
@@ -316,11 +324,15 @@ const failedResponse = (message: string) =>
   )
 
 function requestPath(input: RequestInfo | URL): string {
-  if (typeof input === 'string') return input
+  const text = z.string().safeParse(input)
 
-  if (input instanceof URL) return input.pathname
+  if (text.success) return text.data
 
-  return input.url
+  const url = z.instanceof(URL).safeParse(input)
+
+  if (url.success) return url.data.pathname
+
+  return z.instanceof(Request).parse(input).url
 }
 
 /** Replaces `window.fetch`; returns the restore. */

@@ -11,10 +11,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './results'
 
-const ResultsRoute = Route.options.component as React.ComponentType
+/** The route options the file-route factory stores; this suite reads `component`. */
+interface FileRouteOptions {
+  component?: React.ComponentType
+}
 
 const dataClient = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
-const sonner = vi.hoisted(() => ({ toast: vi.fn() }))
 
 // jsdom reports no layout, so the grid's virtualiser would render no rows: give
 // every element the viewport a browser would report for the list area.
@@ -25,8 +27,9 @@ for (const prop of ['offsetHeight', 'clientHeight'] as const) {
   })
 }
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at import time; this suite renders the Results tab on its own with the route params the shell would supply.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
+  createFileRoute: () => (config: FileRouteOptions) => ({
     useParams: () => ({ expId: 'exp-1' }),
     options: config,
   }),
@@ -36,14 +39,10 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route reads through the module-level notebook client, which has no injection point; the double answers every read the tab makes so the display-id filter it sends can be asserted.
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal()),
   notebookDataClient: dataClient,
-}))
-
-vi.mock('#/components/ui/sonner', () => ({
-  toast: Object.assign(sonner.toast, { error: vi.fn() }),
-  Toaster: () => null,
 }))
 
 /** The experiment links out to two datasets, one analysis and a protocol. */
@@ -100,6 +99,10 @@ const DATASET_ROWS = [
 ]
 
 function renderResults() {
+  const ResultsRoute = Route.options.component
+
+  if (!ResultsRoute) throw new Error('The results route declares a component.')
+
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })

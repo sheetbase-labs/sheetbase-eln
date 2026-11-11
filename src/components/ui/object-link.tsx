@@ -59,6 +59,7 @@ export function ObjectLink({
           workspace,
           to,
           event,
+          // oxlint-disable-next-line anti-slop/no-runtime-typeof -- A `ReactNode` label is text or elements, and only text can title the pane this opens.
           typeof label === 'string' ? label : undefined,
         )
       }}

@@ -27,7 +27,6 @@ import {
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { fetchCanonicalDataset } from '#/lib/chart-data'
-import { objectPath } from '#/lib/navigation'
 
 /**
  * Run a saved analysis on other data. The copy keeps the chart, filters and
@@ -52,7 +51,8 @@ export function DuplicateAnalysisDialog({
   client?: typeof analysisStudioDataClient
 }) {
   const navigate = useNavigate()
-  const sourceId = specSourceDatasetId(view.charts[0])
+  const chart = view.charts[0]
+  const sourceId = specSourceDatasetId(chart)
   const [targetId, setTargetId] = useState('')
   const [name, setName] = useState('')
 
@@ -79,12 +79,12 @@ export function DuplicateAnalysisDialog({
   const rebound = useMemo(
     () =>
       source.data && target.data
-        ? rebindSpec(view.charts[0], source.data.columns, {
+        ? rebindSpec(chart, source.data.columns, {
             datasetId: target.data.datasetId,
             columns: target.data.columns,
           })
         : null,
-    [view.charts[0], source.data, target.data],
+    [chart, source.data, target.data],
   )
 
   const save = useMutation({
@@ -107,9 +107,10 @@ export function DuplicateAnalysisDialog({
     onSuccess: (created) => {
       onOpenChange(false)
       toast(t('data.duplicateAnalysisDialog.analysisCopiedOntoNew'))
-      const to = objectPath('analysis', created.id)
-
-      if (to) void navigate({ to } as never)
+      void navigate({
+        to: '/analysis/$analysisId',
+        params: { analysisId: created.id },
+      })
     },
   })
 

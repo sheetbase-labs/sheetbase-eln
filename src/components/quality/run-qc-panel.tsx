@@ -3,8 +3,9 @@
  * Levey-Jennings chart, limits, Westgard rules and the runs that broke one.
  * Shown on an instrument and on the Plates page.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { UseQueryResult } from '@tanstack/react-query'
 
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -76,10 +77,13 @@ function short(value: number | null): string {
   return value === null ? '—' : String(Number(value.toPrecision(4)))
 }
 
-function seriesStatus(series: QcSeriesRow): {
+/** How one series reads in the list: its tone and its words. */
+interface SeriesStatus {
   tone: 'ok' | 'bad' | 'warn' | 'none'
   label: string
-} {
+}
+
+function seriesStatus(series: QcSeriesRow): SeriesStatus {
   if (!series.enabled)
     return { tone: 'none', label: t('quality.runQc.status.off') }
 
@@ -93,6 +97,57 @@ function seriesStatus(series: QcSeriesRow): {
 
 function seriesName(series: QcSeriesRow): string {
   return series.name
+}
+
+/**
+ * The series table's columns: what is tracked, its limits, and whether it is
+ * in control.
+ */
+function useQcSeriesColumns(): RegistryColumn<QcSeriesRow>[] {
+  return useMemo<RegistryColumn<QcSeriesRow>[]>(
+    () => [
+      {
+        id: 'name',
+        header: t('quality.runQc.columns.series'),
+        cell: ({ row }) => (
+          <span className="truncate font-medium text-fg">
+            {seriesName(row.original)}
+          </span>
+        ),
+      },
+      {
+        id: 'limits',
+        header: t('quality.runQc.columns.limits'),
+        size: 160,
+        cell: ({ row }) => (
+          <span className="num text-fg-muted">
+            {seriesLimits(row.original)}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        header: t('quality.runQc.columns.status'),
+        size: 150,
+        cell: ({ row }) => {
+          const status = seriesStatus(row.original)
+
+          return <Status tone={status.tone}>{status.label}</Status>
+        },
+      },
+    ],
+    [],
+  )
+}
+
+/** A series' limits as one line, or a dash when none are set. */
+function seriesLimits(row: QcSeriesRow): string {
+  if (row.mean === null || row.sd === null) return '—'
+
+  return t('quality.runQc.limitsValue', {
+    mean: short(row.mean),
+    sd: short(row.sd),
+  })
 }
 
 export function RunQcPanel({
@@ -114,62 +169,20 @@ export function RunQcPanel({
   })
 
   const series = useMemo(() => list.data ?? [], [list.data])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [pickedId, setPickedId] = useState<string | null>(null)
   const [dialog, setDialog] = useState<'value' | 'assay' | null>(null)
 
-  useEffect(() => {
-    if (series.length === 0) {
-      setSelectedId(null)
+  // The detail shows the row a person picked, or the series that needs
+  // attention: the first out of control, else the first tracked one.
+  const selected =
+    series.find((s) => s.id === pickedId) ??
+    series.find((s) => s.state === 'out_of_control') ??
+    series.at(0) ??
+    null
 
-      return
-    }
+  const selectedId = selected?.id ?? null
 
-    if (!selectedId || !series.some((s) => s.id === selectedId))
-      setSelectedId(
-        (series.find((s) => s.state === 'out_of_control') ?? series[0]).id,
-      )
-  }, [series, selectedId])
-  const selected = series.find((s) => s.id === selectedId) ?? null
-
-  const columns = useMemo<RegistryColumn<QcSeriesRow>[]>(
-    () => [
-      {
-        id: 'name',
-        header: t('quality.runQc.columns.series'),
-        cell: ({ row }) => (
-          <span className="truncate font-medium text-fg">
-            {seriesName(row.original)}
-          </span>
-        ),
-      },
-      {
-        id: 'limits',
-        header: t('quality.runQc.columns.limits'),
-        size: 160,
-        cell: ({ row }) => (
-          <span className="num text-fg-muted">
-            {row.original.mean !== null && row.original.sd !== null
-              ? t('quality.runQc.limitsValue', {
-                  mean: short(row.original.mean),
-                  sd: short(row.original.sd),
-                })
-              : '—'}
-          </span>
-        ),
-      },
-      {
-        id: 'status',
-        header: t('quality.runQc.columns.status'),
-        size: 150,
-        cell: ({ row }) => {
-          const status = seriesStatus(row.original)
-
-          return <Status tone={status.tone}>{status.label}</Status>
-        },
-      },
-    ],
-    [],
-  )
+  const columns = useQcSeriesColumns()
 
   const refresh = () =>
     void queryClient.invalidateQueries({ queryKey: qcKeys.all })
@@ -180,77 +193,169 @@ export function RunQcPanel({
       title={t('quality.runQc.title')}
       count={series.length > 0 ? series.length : undefined}
       action={
-        canWrite ? (
-          <>
-            <Button size="sm" onClick={() => setDialog('assay')}>
-              {t('quality.runQc.trackAssay')}
-            </Button>
-            <Button size="sm" onClick={() => setDialog('value')}>
-              {t('quality.runQc.trackValue')}
-            </Button>
-          </>
-        ) : undefined
+        <QcPanelActions
+          canWrite={canWrite}
+          onTrackAssay={() => setDialog('assay')}
+          onTrackValue={() => setDialog('value')}
+        />
       }
     >
-      {list.isError ? (
-        <Notice tone="bad" title={t('quality.runQc.loadError')}>
-          {qcMessage(list.error)}
-        </Notice>
-      ) : list.isPending || series.length > 0 ? (
-        <>
-          <TableBox>
-            <RegistryGrid
-              label={t('quality.runQc.tableLabel')}
-              rows={series}
-              columns={columns}
-              getRowId={(s) => s.id}
-              rowSelection={selectedId ? { [selectedId]: true } : {}}
-              onRowClick={(s) => setSelectedId(s.id)}
-              isLoading={list.isPending}
-            />
-          </TableBox>
-          {selected ? (
-            <SeriesDetail
-              key={selected.id}
-              series={selected}
-              canWrite={canWrite}
-              onChanged={refresh}
-            />
-          ) : null}
-        </>
-      ) : (
-        <EmptyState
-          className="items-start py-6"
-          icon="chart"
-          title={t('quality.runQc.empty')}
-          description={t('quality.runQc.emptyBody')}
+      <QcSeriesBody
+        list={list}
+        series={series}
+        columns={columns}
+        selected={selected}
+        selectedId={selectedId}
+        canWrite={canWrite}
+        onPick={setPickedId}
+        onChanged={refresh}
+      />
+      <QcPanelDialogs
+        dialog={dialog}
+        scope={scope}
+        workspaceId={workspaceId}
+        onClose={() => setDialog(null)}
+        onCreated={(created) => {
+          setPickedId(created.id)
+          refresh()
+        }}
+        onChanged={refresh}
+      />
+    </Section>
+  )
+}
+
+/** The two ways a person can start tracking a value. */
+function QcPanelActions({
+  canWrite,
+  onTrackAssay,
+  onTrackValue,
+}: {
+  canWrite: boolean
+  onTrackAssay: () => void
+  onTrackValue: () => void
+}) {
+  if (!canWrite) return undefined
+
+  return (
+    <>
+      <Button size="sm" onClick={onTrackAssay}>
+        {t('quality.runQc.trackAssay')}
+      </Button>
+      <Button size="sm" onClick={onTrackValue}>
+        {t('quality.runQc.trackValue')}
+      </Button>
+    </>
+  )
+}
+
+/** The series table and the detail of the series being read. */
+function QcSeriesBody({
+  list,
+  series,
+  columns,
+  selected,
+  selectedId,
+  canWrite,
+  onPick,
+  onChanged,
+}: {
+  list: UseQueryResult<QcSeriesRow[]>
+  series: QcSeriesRow[]
+  columns: RegistryColumn<QcSeriesRow>[]
+  selected: QcSeriesRow | null
+  selectedId: string | null
+  canWrite: boolean
+  onPick: (id: string) => void
+  onChanged: () => void
+}) {
+  if (list.isError) {
+    return (
+      <Notice tone="bad" title={t('quality.runQc.loadError')}>
+        {qcMessage(list.error)}
+      </Notice>
+    )
+  }
+
+  if (!list.isPending && series.length === 0) {
+    return (
+      <EmptyState
+        className="items-start py-6"
+        icon="chart"
+        title={t('quality.runQc.empty')}
+        description={t('quality.runQc.emptyBody')}
+      />
+    )
+  }
+
+  return (
+    <>
+      <TableBox>
+        <RegistryGrid
+          label={t('quality.runQc.tableLabel')}
+          rows={series}
+          columns={columns}
+          getRowId={(s) => s.id}
+          rowSelection={selectedId ? { [selectedId]: true } : {}}
+          onRowClick={(s) => onPick(s.id)}
+          isLoading={list.isPending}
         />
-      )}
+      </TableBox>
+      {selected ? (
+        <SeriesDetail
+          key={selected.id}
+          series={selected}
+          canWrite={canWrite}
+          onChanged={onChanged}
+        />
+      ) : null}
       {!canWrite && !list.isPending ? (
         <p className="m-0 text-label text-fg-muted">
           {t('quality.runQc.readOnly')}
         </p>
       ) : null}
-      {dialog === 'value' ? (
-        <TrackValueDialog
-          workspaceId={workspaceId}
-          instrumentId={scope.instrumentId ?? null}
-          onClose={() => setDialog(null)}
-          onDone={(created) => {
-            setSelectedId(created.id)
-            refresh()
-          }}
-        />
-      ) : null}
-      {dialog === 'assay' ? (
-        <TrackAssayDialog
-          instrumentId={scope.instrumentId ?? null}
-          onClose={() => setDialog(null)}
-          onDone={refresh}
-        />
-      ) : null}
-    </Section>
+    </>
   )
+}
+
+/** The dialogs that record a value, track an assay or add a series. */
+function QcPanelDialogs({
+  dialog,
+  scope,
+  workspaceId,
+  onClose,
+  onCreated,
+  onChanged,
+}: {
+  dialog: 'value' | 'assay' | null
+  scope: QcScope
+  workspaceId: string
+  onClose: () => void
+  onCreated: (created: QcSeriesRow) => void
+  onChanged: () => void
+}) {
+  if (dialog === 'value') {
+    return (
+      <TrackValueDialog
+        workspaceId={workspaceId}
+        instrumentId={scope.instrumentId ?? null}
+        onClose={onClose}
+        onDone={onCreated}
+      />
+    )
+  }
+
+  if (dialog === 'assay') {
+    return (
+      <TrackAssayDialog
+        instrumentId={scope.instrumentId ?? null}
+        onClose={onClose}
+        onDone={onChanged}
+      />
+    )
+  }
+
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -291,6 +396,52 @@ function SeriesDetail({
   const breaks = rows.filter((p) => p.violations.length > 0).reverse()
   const open = openBreaches(rows)
 
+  const refresh = () =>
+    void queryClient.invalidateQueries({ queryKey: qcKeys.all })
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-border-subtle p-3">
+      <SeriesHeader
+        series={series}
+        canWrite={canWrite}
+        pausing={toggle.isPending}
+        onPause={() => toggle.mutate()}
+        onDialog={setDialog}
+      />
+      <SeriesChart series={series} rows={rows} loading={points.isPending} />
+      <SeriesBreaks
+        open={open.length}
+        breaks={breaks}
+        canWrite={canWrite}
+        onAcknowledge={setAcknowledging}
+      />
+      <SeriesDialogs
+        series={series}
+        pointCount={rows.length}
+        dialog={dialog}
+        acknowledging={acknowledging}
+        onClose={() => setDialog(null)}
+        onAcknowledgeClose={() => setAcknowledging(null)}
+        onChanged={refresh}
+      />
+    </div>
+  )
+}
+
+/** Which series this is, its state, and the actions a writer can take. */
+function SeriesHeader({
+  series,
+  canWrite,
+  pausing,
+  onPause,
+  onDialog,
+}: {
+  series: QcSeriesRow
+  canWrite: boolean
+  pausing: boolean
+  onPause: () => void
+  onDialog: (dialog: 'limits' | 'rules' | 'value' | 'stop') => void
+}) {
   const source =
     series.source_kind === 'plate_metric'
       ? t('quality.runQc.detail.sourcePlateNoName')
@@ -303,7 +454,193 @@ function SeriesDetail({
         ? t('quality.runQc.detail.limitsFrom', { count: series.baseline_n })
         : t('quality.runQc.detail.limitsEntered')
 
-  const breakColumns = useMemo<RegistryColumn<QcPointRow>[]>(
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <h3 className="m-0 text-body font-medium text-fg">{series.name}</h3>
+      <Status tone={seriesStatus(series).tone}>
+        {seriesStatus(series).label}
+      </Status>
+      <span className="text-label text-fg-muted">
+        {source} · {limits}
+        {series.unit ? ` · ${series.unit}` : ''}
+      </span>
+      {canWrite ? (
+        <div className="ml-auto flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => onDialog('limits')}>
+            {t('quality.runQc.detail.setLimits')}
+          </Button>
+          {series.source_kind === 'manual' ? (
+            <Button size="sm" onClick={() => onDialog('value')}>
+              {t('quality.runQc.detail.addValue')}
+            </Button>
+          ) : null}
+          <Button size="sm" onClick={() => onDialog('rules')}>
+            {t('quality.runQc.detail.rules')}
+          </Button>
+          <Button size="sm" disabled={pausing} onClick={onPause}>
+            {series.enabled
+              ? t('quality.runQc.detail.pause')
+              : t('quality.runQc.detail.resume')}
+          </Button>
+          <Button size="sm" onClick={() => onDialog('stop')}>
+            {t('quality.runQc.detail.stop')}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/** The chart, or the reasons it has nothing to draw. */
+function SeriesChart({
+  series,
+  rows,
+  loading,
+}: {
+  series: QcSeriesRow
+  rows: QcPointRow[]
+  loading: boolean
+}) {
+  return (
+    <>
+      {rows.length === 0 && !loading ? (
+        <p className="m-0 text-body text-fg-muted">
+          {t('quality.runQc.chart.noPoints')}
+        </p>
+      ) : (
+        <LeveyJenningsChart series={series} points={rows} />
+      )}
+      {series.mean === null && rows.length > 0 ? (
+        <p className="m-0 text-label text-fg-muted">
+          {t('quality.runQc.chart.noLimits')}
+        </p>
+      ) : null}
+      {rows.length >= QC_POINT_LIMIT ? (
+        <p className="m-0 text-label text-fg-muted">
+          {t('quality.runQc.chart.older', { count: QC_POINT_LIMIT })}
+        </p>
+      ) : null}
+    </>
+  )
+}
+
+/** The runs that broke a Westgard rule, with the note each carries. */
+function SeriesBreaks({
+  open,
+  breaks,
+  canWrite,
+  onAcknowledge,
+}: {
+  open: number
+  breaks: QcPointRow[]
+  canWrite: boolean
+  onAcknowledge: (point: QcPointRow) => void
+}) {
+  const columns = useSeriesBreakColumns(canWrite, onAcknowledge)
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <h4 className="m-0 text-label font-medium text-fg">
+        {t('quality.runQc.breaks.title')}
+        {open > 0 ? (
+          <span className="num ml-2 text-fg-muted">{open}</span>
+        ) : null}
+      </h4>
+      {breaks.length === 0 ? (
+        <p className="m-0 text-label text-fg-muted">
+          {t('quality.runQc.breaks.empty')}
+        </p>
+      ) : (
+        <TableBox>
+          <RegistryGrid
+            label={t('quality.runQc.breaks.tableLabel')}
+            rows={breaks}
+            columns={columns}
+            getRowId={(p) => p.id}
+            selectable={false}
+          />
+        </TableBox>
+      )}
+    </div>
+  )
+}
+
+/** The series' own dialogs, one at a time. */
+function SeriesDialogs({
+  series,
+  pointCount,
+  dialog,
+  acknowledging,
+  onClose,
+  onAcknowledgeClose,
+  onChanged,
+}: {
+  series: QcSeriesRow
+  pointCount: number
+  dialog: 'limits' | 'rules' | 'value' | 'stop' | null
+  acknowledging: QcPointRow | null
+  onClose: () => void
+  onAcknowledgeClose: () => void
+  onChanged: () => void
+}) {
+  return (
+    <>
+      {dialog === 'limits' ? (
+        <LimitsDialog
+          series={series}
+          pointCount={pointCount}
+          onClose={() => onClose()}
+          onDone={() => {
+            onChanged()
+          }}
+        />
+      ) : null}
+      {dialog === 'rules' ? (
+        <RulesDialog
+          series={series}
+          onClose={() => onClose()}
+          onDone={() => {
+            onChanged()
+          }}
+        />
+      ) : null}
+      {dialog === 'value' ? (
+        <ValueDialog
+          series={series}
+          onClose={() => onClose()}
+          onDone={() => {
+            onChanged()
+          }}
+        />
+      ) : null}
+      {dialog === 'stop' ? (
+        <StopDialog
+          series={series}
+          onClose={() => onClose()}
+          onDone={() => {
+            onChanged()
+          }}
+        />
+      ) : null}
+      {acknowledging ? (
+        <AcknowledgeDialog
+          point={acknowledging}
+          onClose={() => onAcknowledgeClose()}
+          onDone={() => {
+            onChanged()
+          }}
+        />
+      ) : null}
+    </>
+  )
+}
+
+/** The breaks table's columns, including the acknowledge action a writer gets. */
+function useSeriesBreakColumns(
+  canWrite: boolean,
+  onAcknowledge: (point: QcPointRow) => void,
+): RegistryColumn<QcPointRow>[] {
+  return useMemo<RegistryColumn<QcPointRow>[]>(
     () => [
       {
         id: 'when',
@@ -376,142 +713,14 @@ function SeriesDetail({
             )
 
           return canWrite ? (
-            <Button size="sm" onClick={() => setAcknowledging(point)}>
+            <Button size="sm" onClick={() => onAcknowledge(point)}>
               {t('quality.runQc.breaks.acknowledge')}
             </Button>
           ) : null
         },
       },
     ],
-    [canWrite],
-  )
-
-  return (
-    <div className="flex flex-col gap-3 rounded-md border border-border-subtle p-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <h3 className="m-0 text-body font-medium text-fg">{series.name}</h3>
-        <Status tone={seriesStatus(series).tone}>
-          {seriesStatus(series).label}
-        </Status>
-        <span className="text-label text-fg-muted">
-          {source} · {limits}
-          {series.unit ? ` · ${series.unit}` : ''}
-        </span>
-        {canWrite ? (
-          <div className="ml-auto flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => setDialog('limits')}>
-              {t('quality.runQc.detail.setLimits')}
-            </Button>
-            {series.source_kind === 'manual' ? (
-              <Button size="sm" onClick={() => setDialog('value')}>
-                {t('quality.runQc.detail.addValue')}
-              </Button>
-            ) : null}
-            <Button size="sm" onClick={() => setDialog('rules')}>
-              {t('quality.runQc.detail.rules')}
-            </Button>
-            <Button
-              size="sm"
-              disabled={toggle.isPending}
-              onClick={() => toggle.mutate()}
-            >
-              {series.enabled
-                ? t('quality.runQc.detail.pause')
-                : t('quality.runQc.detail.resume')}
-            </Button>
-            <Button size="sm" onClick={() => setDialog('stop')}>
-              {t('quality.runQc.detail.stop')}
-            </Button>
-          </div>
-        ) : null}
-      </div>
-      {rows.length === 0 && !points.isPending ? (
-        <p className="m-0 text-body text-fg-muted">
-          {t('quality.runQc.chart.noPoints')}
-        </p>
-      ) : (
-        <LeveyJenningsChart series={series} points={rows} />
-      )}
-      {series.mean === null && rows.length > 0 ? (
-        <p className="m-0 text-label text-fg-muted">
-          {t('quality.runQc.chart.noLimits')}
-        </p>
-      ) : null}
-      {rows.length >= QC_POINT_LIMIT ? (
-        <p className="m-0 text-label text-fg-muted">
-          {t('quality.runQc.chart.older', { count: QC_POINT_LIMIT })}
-        </p>
-      ) : null}
-      <div className="flex flex-col gap-1.5">
-        <h4 className="m-0 text-label font-medium text-fg">
-          {t('quality.runQc.breaks.title')}
-          {open.length > 0 ? (
-            <span className="num ml-2 text-fg-muted">{open.length}</span>
-          ) : null}
-        </h4>
-        {breaks.length === 0 ? (
-          <p className="m-0 text-label text-fg-muted">
-            {t('quality.runQc.breaks.empty')}
-          </p>
-        ) : (
-          <TableBox>
-            <RegistryGrid
-              label={t('quality.runQc.breaks.tableLabel')}
-              rows={breaks}
-              columns={breakColumns}
-              getRowId={(p) => p.id}
-              selectable={false}
-            />
-          </TableBox>
-        )}
-      </div>
-      {dialog === 'limits' ? (
-        <LimitsDialog
-          series={series}
-          pointCount={rows.length}
-          onClose={() => setDialog(null)}
-          onDone={() => {
-            void queryClient.invalidateQueries({ queryKey: qcKeys.all })
-          }}
-        />
-      ) : null}
-      {dialog === 'rules' ? (
-        <RulesDialog
-          series={series}
-          onClose={() => setDialog(null)}
-          onDone={() => {
-            void queryClient.invalidateQueries({ queryKey: qcKeys.all })
-          }}
-        />
-      ) : null}
-      {dialog === 'value' ? (
-        <ValueDialog
-          series={series}
-          onClose={() => setDialog(null)}
-          onDone={() => {
-            void queryClient.invalidateQueries({ queryKey: qcKeys.all })
-          }}
-        />
-      ) : null}
-      {dialog === 'stop' ? (
-        <StopDialog
-          series={series}
-          onClose={() => setDialog(null)}
-          onDone={() => {
-            void queryClient.invalidateQueries({ queryKey: qcKeys.all })
-          }}
-        />
-      ) : null}
-      {acknowledging ? (
-        <AcknowledgeDialog
-          point={acknowledging}
-          onClose={() => setAcknowledging(null)}
-          onDone={() => {
-            void queryClient.invalidateQueries({ queryKey: qcKeys.all })
-          }}
-        />
-      ) : null}
-    </div>
+    [canWrite, onAcknowledge],
   )
 }
 
@@ -723,6 +932,90 @@ function TrackAssayDialog({
   )
 }
 
+/** The words a limits form shows beside each field it is missing. */
+interface LimitsProblems {
+  meanError: string | null
+  sdError: string | null
+  countError: string | null
+}
+
+/** What a limits form is missing, in the words the fields show. */
+function limitsProblems(
+  meanValue: number | null,
+  sdValue: number | null,
+  countValue: number | null,
+): LimitsProblems {
+  const meanError =
+    meanValue === null ? t('quality.runQc.limitsDialog.meanRequired') : null
+
+  const sdError =
+    sdValue === null || sdValue <= 0
+      ? t('quality.runQc.limitsDialog.sdRequired')
+      : null
+
+  const countError =
+    countValue === null || countValue < 5 || countValue > 1000
+      ? t('quality.runQc.limitsDialog.countRequired')
+      : null
+
+  return { meanError, sdError, countError }
+}
+
+/** The fields the chosen mode asks for: entered limits, or the first count. */
+function LimitsFields({
+  mode,
+  values,
+  errors,
+  onChange,
+}: {
+  mode: 'enter' | 'first'
+  values: { mean: string; sd: string; count: string }
+  errors: { mean: string | null; sd: string | null; count: string | null }
+  onChange: {
+    setMean: (value: string) => void
+    setSd: (value: string) => void
+    setCount: (value: string) => void
+  }
+}) {
+  if (mode === 'first') {
+    return (
+      <Field
+        label={t('quality.runQc.limitsDialog.firstCount')}
+        error={errors.count}
+      >
+        <Input
+          inputMode="numeric"
+          value={values.count}
+          onChange={(event) => onChange.setCount(event.target.value)}
+        />
+      </Field>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <Field label={t('quality.runQc.limitsDialog.mean')} error={errors.mean}>
+        <Input
+          inputMode="decimal"
+          value={values.mean}
+          onChange={(event) => onChange.setMean(event.target.value)}
+        />
+      </Field>
+      <Field
+        label={t('quality.runQc.limitsDialog.sd')}
+        hint={t('quality.runQc.limitsDialog.sdHint')}
+        error={errors.sd}
+      >
+        <Input
+          inputMode="decimal"
+          value={values.sd}
+          onChange={(event) => onChange.setSd(event.target.value)}
+        />
+      </Field>
+    </div>
+  )
+}
+
 function LimitsDialog({
   series,
   pointCount,
@@ -753,18 +1046,11 @@ function LimitsDialog({
   const sdValue = number(sd)
   const countValue = number(count)
 
-  const meanError =
-    meanValue === null ? t('quality.runQc.limitsDialog.meanRequired') : null
-
-  const sdError =
-    sdValue === null || sdValue <= 0
-      ? t('quality.runQc.limitsDialog.sdRequired')
-      : null
-
-  const countError =
-    countValue === null || countValue < 5 || countValue > 1000
-      ? t('quality.runQc.limitsDialog.countRequired')
-      : null
+  const { meanError, sdError, countError } = limitsProblems(
+    meanValue,
+    sdValue,
+    countValue,
+  )
 
   const save = useMutation({
     mutationFn: () =>
@@ -808,42 +1094,16 @@ function LimitsDialog({
               {t('quality.runQc.limitsDialog.firstBody')}
             </Choice>
           </RadioGroup>
-          {mode === 'enter' ? (
-            <div className="grid grid-cols-2 gap-3">
-              <Field
-                label={t('quality.runQc.limitsDialog.mean')}
-                error={touched ? meanError : null}
-              >
-                <Input
-                  inputMode="decimal"
-                  value={mean}
-                  onChange={(event) => setMean(event.target.value)}
-                />
-              </Field>
-              <Field
-                label={t('quality.runQc.limitsDialog.sd')}
-                hint={t('quality.runQc.limitsDialog.sdHint')}
-                error={touched ? sdError : null}
-              >
-                <Input
-                  inputMode="decimal"
-                  value={sd}
-                  onChange={(event) => setSd(event.target.value)}
-                />
-              </Field>
-            </div>
-          ) : (
-            <Field
-              label={t('quality.runQc.limitsDialog.firstCount')}
-              error={touched ? countError : null}
-            >
-              <Input
-                inputMode="numeric"
-                value={count}
-                onChange={(event) => setCount(event.target.value)}
-              />
-            </Field>
-          )}
+          <LimitsFields
+            mode={mode}
+            values={{ mean, sd, count }}
+            errors={{
+              mean: touched ? meanError : null,
+              sd: touched ? sdError : null,
+              count: touched ? countError : null,
+            }}
+            onChange={{ setMean, setSd, setCount }}
+          />
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button variant="secondary" />}>

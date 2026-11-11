@@ -4,6 +4,10 @@
  * the conversion itself runs in the isolated Python runtime
  * (`connectors/converter.server.ts`).
  */
+import { z } from 'zod'
+
+/** A section of a converted document: JSON as the converter wrote it. */
+type AsmJsonObject = Record<string, z.core.util.JSONType>
 
 /** A converter the Python runtime offers, as read from its own list. */
 export interface ConverterVendor {
@@ -21,7 +25,7 @@ export interface ConverterVendor {
 
 /** What a conversion keeps beside the vendor-neutral document. */
 export interface AsmCapture {
-  document: Record<string, unknown>
+  document: AsmJsonObject
   technique: string
   manifest: string
   vendor: string
@@ -30,7 +34,7 @@ export interface AsmCapture {
   /** The immutable image that ran the converter. */
   imageDigest: string
   measurements: number
-  device: Record<string, unknown>
+  device: AsmJsonObject
 }
 
 /** One stored document, as the instrument page lists it. */
@@ -44,7 +48,7 @@ export interface InstrumentRunDocument {
   converterVersion: string | null
   imageDigest: string | null
   measurements: number
-  device: Record<string, unknown>
+  device: AsmJsonObject
   createdAt: string
 }
 
@@ -52,11 +56,13 @@ export interface InstrumentRunDocument {
 export const ASM_DOCUMENT_BYTE_LIMIT = 16 * 1024 * 1024
 
 /** Who made the instrument that wrote the file, from the document's device section. */
-export function deviceLabel(device: Record<string, unknown>): string {
+export function deviceLabel(device: AsmJsonObject): string {
   const text = (key: string) => {
-    const value = device[key]
+    const value = z.string().safeParse(device[key])
 
-    return typeof value === 'string' && value && value !== 'N/A' ? value : ''
+    return value.success && value.data !== '' && value.data !== 'N/A'
+      ? value.data
+      : ''
   }
 
   const parts = [
@@ -75,22 +81,24 @@ export function asmFileName(fileName: string): string {
 }
 
 /** The signature a converter parser carries: which converter, nothing else. */
-export function converterSignature(vendor: string): Record<string, unknown> {
+export type ConverterSignature = {
+  converter: { kind: 'allotropy'; vendor: string }
+}
+
+export function converterSignature(vendor: string): ConverterSignature {
   return { converter: { kind: 'allotropy', vendor } }
 }
 
+/** The vendor a parser signature names, when it names a well-formed one. */
+const converterVendorSchema = z.object({
+  vendor: z.string().regex(/^[A-Z0-9_]{2,80}$/),
+})
+
 /** The converter a parser version uses, when it is one. */
 export function converterTarget(
-  signature: Record<string, unknown>,
+  signature: AsmJsonObject,
 ): { vendor: string } | null {
-  const converter = signature['converter']
+  const converter = converterVendorSchema.safeParse(signature['converter'])
 
-  if (converter && typeof converter === 'object' && 'vendor' in converter) {
-    const vendor = (converter as { vendor?: unknown }).vendor
-
-    if (typeof vendor === 'string' && /^[A-Z0-9_]{2,80}$/.test(vendor))
-      return { vendor }
-  }
-
-  return null
+  return converter.success ? { vendor: converter.data.vendor } : null
 }

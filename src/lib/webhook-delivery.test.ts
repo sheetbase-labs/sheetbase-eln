@@ -7,10 +7,12 @@ import { computeBackoff, attemptDelivery } from './webhook-delivery'
 // This suite exercises pure delivery helpers, but the module imports the
 // server env for its live engine defaults. Mock the boundary so the file
 // collects without process env (CI unit jobs carry no DATABASE_URL).
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The module under test imports the server environment at load time for its engine defaults; CI unit jobs carry no DATABASE_URL, so this boundary supplies the one variable that import reads.
 vi.mock('#/env.server', () => ({
   env: { DATABASE_URL: 'postgresql://localhost:5432/test' },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The real client sends over the network through the server-only HTTP seam; this double forwards every argument to the global `fetch` the tests stub, so the assertions see the request the engine built.
 vi.mock('./webhook-http.server', () => ({
   safeWebhookFetch: (...args: Parameters<typeof fetch>) => fetch(...args),
 }))
@@ -153,18 +155,23 @@ describe('attemptDelivery', () => {
   it('times out on a slow endpoint', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn((_url: unknown, init?: { signal?: AbortSignal }) => {
-        // Executor form: tsconfig lib predates Promise.withResolvers (ES2024).
-        const hanging = new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener('abort', () =>
-            reject(
-              new DOMException('The operation was aborted.', 'AbortError'),
-            ),
-          )
-        })
+      vi.fn(
+        (
+          _url: Parameters<typeof fetch>[0],
+          init?: { signal?: AbortSignal },
+        ) => {
+          // Executor form: tsconfig lib predates Promise.withResolvers (ES2024).
+          const hanging = new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () =>
+              reject(
+                new DOMException('The operation was aborted.', 'AbortError'),
+              ),
+            )
+          })
 
-        return hanging
-      }),
+          return hanging
+        },
+      ),
     )
 
     try {

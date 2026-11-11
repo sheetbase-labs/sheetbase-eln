@@ -106,14 +106,12 @@ export const homeRecentColumns: RegistryColumn<RecentItem>[] = [
     id: 'name',
     header: t('projects.home.columns.name'),
     cell: ({ row }) => (
-      <>
+      <Link to={row.original.destination} className="text-fg hover:text-link">
         {row.original.identifier ? (
           <span className="mono text-fg-muted">{row.original.identifier}</span>
         ) : null}{' '}
-        <Link to={row.original.destination} className="text-fg hover:text-link">
-          {row.original.label}
-        </Link>
-      </>
+        {row.original.label}
+      </Link>
     ),
   },
   {

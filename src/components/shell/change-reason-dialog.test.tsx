@@ -18,7 +18,7 @@ describe('ChangeReasonDialog', () => {
     const answer = askForChangeReason()
 
     const save = await screen.findByRole('button', { name: 'Save change' })
-    expect((save as HTMLButtonElement).disabled).toBe(true)
+    expect(save.matches(':disabled')).toBe(true)
     await user.type(
       screen.getByLabelText('Reason for the change'),
       'Corrected against the bench sheet',

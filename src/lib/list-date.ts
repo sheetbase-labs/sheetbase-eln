@@ -34,9 +34,9 @@ export function formatListDate(
     formatInstant(iso, { year: 'numeric' }) ===
     formatInstant(now.toISOString(), { year: 'numeric' })
 
-  return formatInstant(iso, {
-    day: 'numeric',
-    month: 'short',
-    ...(sameYear ? {} : { year: 'numeric' }),
-  }).replace('Sept', 'Sep')
+  const parts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' }
+
+  if (!sameYear) parts.year = 'numeric'
+
+  return formatInstant(iso, parts).replace('Sept', 'Sep')
 }

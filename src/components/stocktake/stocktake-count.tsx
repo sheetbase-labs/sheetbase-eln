@@ -138,7 +138,13 @@ export function StocktakeCount({
   )
 }
 
-type Tab = 'toFind' | 'counted' | 'all'
+const TABS = ['toFind', 'counted', 'all'] as const
+
+type Tab = (typeof TABS)[number]
+
+function isTab(value: string): value is Tab {
+  return TABS.some((tab) => tab === value)
+}
 
 function OpenCount({
   stocktake,
@@ -261,7 +267,7 @@ function OpenCount({
       setLast(describeScan(item, stocktake.scopePath))
       refresh()
     },
-    onError: (e: unknown) => {
+    onError: (e) => {
       setLast({
         tone: 'bad',
         text: messageOf(e, t('library.stocktake.count.couldNotCount')),
@@ -275,7 +281,7 @@ function OpenCount({
       setFinishing(false)
       refresh()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('library.stocktake.count.couldNotFinish'))),
   })
 
@@ -285,7 +291,7 @@ function OpenCount({
       setCallingOff(false)
       refresh()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('library.stocktake.count.couldNotCallOff'))),
   })
 
@@ -370,110 +376,258 @@ function OpenCount({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-auto">
       <div className="mx-auto flex w-full max-w-[560px] flex-col gap-3 px-4 py-4 md:px-6">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex min-w-[200px] flex-1 flex-col gap-1">
-            <span className="text-label font-medium text-fg-muted">
-              {t('library.stocktake.count.standingAt')}
-            </span>
-            {stocktake.scopeLevel === 'box' ? (
-              <span className="text-body font-medium">{box?.name}</span>
-            ) : (
-              <Select
-                aria-label={t('library.stocktake.count.standingAtBox')}
-                value={standingAt ?? ''}
-                onChange={(e) => setPickedBox(e.target.value || null)}
-              >
-                <option value="">
-                  {t('library.stocktake.count.chooseBox')}
-                </option>
-                {boxes.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {relativePath(stocktake.scopePath, b.path)}
-                  </option>
-                ))}
-              </Select>
-            )}
-          </div>
-          <div className="flex flex-col gap-1 text-right max-md:text-left">
-            <span className="num text-body font-medium">
-              {expectedTotal > 0
-                ? t('library.stocktake.count.progress', {
-                    counted: expectedSeen,
-                    total: expectedTotal,
-                  })
-                : t('library.stocktake.count.progressNone')}
-            </span>
-            {extra > 0 ? (
-              <span className="text-label text-fg-muted">
-                {t('library.stocktake.count.progressExtra', { count: extra })}
-              </span>
-            ) : null}
-          </div>
-        </div>
-        {expectedTotal > 0 ? (
-          <div
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={expectedTotal}
-            aria-valuenow={expectedSeen}
-            aria-label={t('library.stocktake.count.progress', {
-              counted: expectedSeen,
-              total: expectedTotal,
-            })}
-            className="h-1.5 overflow-hidden rounded-full bg-surface-hover"
-          >
-            <div
-              className="h-full rounded-full bg-success transition-[width]"
-              style={{ width: `${(expectedSeen / expectedTotal) * 100}%` }}
-            />
-          </div>
-        ) : null}
-
+        <StandingAtHeader
+          stocktake={stocktake}
+          boxes={boxes}
+          box={box}
+          standingAt={standingAt}
+          onPickBox={setPickedBox}
+          expectedTotal={expectedTotal}
+          expectedSeen={expectedSeen}
+          extra={extra}
+        />
         {canWrite ? (
-          <CameraScanner
-            value={code}
-            onValueChange={setCode}
+          <ScanPanel
+            code={code}
+            onCodeChange={setCode}
             busy={scan.isPending}
             onScan={(raw) => scan.mutate(raw)}
-          >
-            {last ? (
-              <Notice
-                tone={last.tone === 'ok' ? 'info' : last.tone}
-                icon={last.tone === 'ok' ? 'check' : undefined}
-                title={t('library.stocktake.count.scanSource')}
-              >
-                {last.text}
-              </Notice>
-            ) : (
-              <p className="m-0 text-label text-fg-muted">
-                {box
-                  ? t('library.stocktake.count.scanHelp')
-                  : t('library.stocktake.count.scanBoxFirst')}
-              </p>
-            )}
-          </CameraScanner>
-        ) : null}
-
-        {canWrite ? (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="primary" onClick={() => setFinishing(true)}>
-              {t('library.stocktake.count.finish')}
-            </Button>
-            <Button variant="quiet" onClick={() => setCallingOff(true)}>
-              {t('library.stocktake.count.callOff')}
-            </Button>
-          </div>
+            last={last}
+            box={box}
+            onFinish={() => setFinishing(true)}
+            onCallOff={() => setCallingOff(true)}
+          />
         ) : null}
       </div>
 
+      <CountTable
+        tab={tab}
+        onTabChange={setTab}
+        loading={loading}
+        items={items}
+        shown={shown}
+        columns={columns}
+        left={left}
+        counted={summary.total - left}
+        total={summary.total}
+      />
+
+      <ConfirmCount
+        open={finishing}
+        onOpenChange={setFinishing}
+        title={t('library.stocktake.count.finishTitle')}
+        body={
+          left > 0
+            ? t('library.stocktake.count.finishBody', { count: left })
+            : t('library.stocktake.count.finishAllFound')
+        }
+        confirmLabel={t('library.stocktake.count.finishConfirm')}
+        pendingLabel={t('library.stocktake.count.finishing')}
+        pending={finish.isPending}
+        onConfirm={() => finish.mutate()}
+      />
+
+      <ConfirmCount
+        open={callingOff}
+        onOpenChange={setCallingOff}
+        title={t('library.stocktake.count.callOffTitle')}
+        body={t('library.stocktake.count.callOffBody')}
+        confirmLabel={t('library.stocktake.count.callOffConfirm')}
+        pendingLabel={t('library.stocktake.count.callOffConfirm')}
+        pending={callOff.isPending}
+        onConfirm={() => callOff.mutate()}
+      />
+    </div>
+  )
+}
+
+/** Where the count stands, how far it has got, and the box being counted. */
+function StandingAtHeader({
+  stocktake,
+  boxes,
+  box,
+  standingAt,
+  onPickBox,
+  expectedTotal,
+  expectedSeen,
+  extra,
+}: {
+  stocktake: Stocktake
+  boxes: CountBox[]
+  box: CountBox | null
+  standingAt: string | null
+  onPickBox: (id: string | null) => void
+  expectedTotal: number
+  expectedSeen: number
+  extra: number
+}) {
+  return (
+    <>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex min-w-[200px] flex-1 flex-col gap-1">
+          <span className="text-label font-medium text-fg-muted">
+            {t('library.stocktake.count.standingAt')}
+          </span>
+          {stocktake.scopeLevel === 'box' ? (
+            <span className="text-body font-medium">{box?.name}</span>
+          ) : (
+            <Select
+              aria-label={t('library.stocktake.count.standingAtBox')}
+              value={standingAt ?? ''}
+              onChange={(e) => onPickBox(e.target.value || null)}
+            >
+              <option value="">{t('library.stocktake.count.chooseBox')}</option>
+              {boxes.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {relativePath(stocktake.scopePath, b.path)}
+                </option>
+              ))}
+            </Select>
+          )}
+        </div>
+        <div className="flex flex-col gap-1 text-right max-md:text-left">
+          <span className="num text-body font-medium">
+            {expectedTotal > 0
+              ? t('library.stocktake.count.progress', {
+                  counted: expectedSeen,
+                  total: expectedTotal,
+                })
+              : t('library.stocktake.count.progressNone')}
+          </span>
+          {extra > 0 ? (
+            <span className="text-label text-fg-muted">
+              {t('library.stocktake.count.progressExtra', { count: extra })}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      {expectedTotal > 0 ? (
+        <div
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={expectedTotal}
+          aria-valuenow={expectedSeen}
+          aria-label={t('library.stocktake.count.progress', {
+            counted: expectedSeen,
+            total: expectedTotal,
+          })}
+          className="h-1.5 overflow-hidden rounded-full bg-surface-hover"
+        >
+          <div
+            className="h-full rounded-full bg-success transition-[width]"
+            style={{ width: `${(expectedSeen / expectedTotal) * 100}%` }}
+          />
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+/** The scanner, what the last scan said, and the two ways to close the count. */
+function ScanPanel({
+  code,
+  onCodeChange,
+  busy,
+  onScan,
+  last,
+  box,
+  onFinish,
+  onCallOff,
+}: {
+  code: string
+  onCodeChange: (code: string) => void
+  busy: boolean
+  onScan: (raw: string) => void
+  last: { tone: 'ok' | 'warn' | 'bad' | 'info'; text: string } | null
+  box: CountBox | null
+  onFinish: () => void
+  onCallOff: () => void
+}) {
+  return (
+    <>
+      <CameraScanner
+        value={code}
+        onValueChange={onCodeChange}
+        busy={busy}
+        onScan={onScan}
+      >
+        {last ? (
+          <Notice
+            tone={last.tone === 'ok' ? 'info' : last.tone}
+            icon={last.tone === 'ok' ? 'check' : undefined}
+            title={t('library.stocktake.count.scanSource')}
+          >
+            {last.text}
+          </Notice>
+        ) : (
+          <p className="m-0 text-label text-fg-muted">
+            {box
+              ? t('library.stocktake.count.scanHelp')
+              : t('library.stocktake.count.scanBoxFirst')}
+          </p>
+        )}
+      </CameraScanner>
+
+      <div className="flex flex-wrap gap-2">
+        <Button variant="primary" onClick={onFinish}>
+          {t('library.stocktake.count.finish')}
+        </Button>
+        <Button variant="quiet" onClick={onCallOff}>
+          {t('library.stocktake.count.callOff')}
+        </Button>
+      </div>
+    </>
+  )
+}
+
+/** The tab strip and the rows of the tab it shows. */
+function CountTable({
+  tab,
+  onTabChange,
+  loading,
+  items,
+  shown,
+  columns,
+  left,
+  counted,
+  total,
+}: {
+  tab: Tab
+  onTabChange: (tab: Tab) => void
+  loading: boolean
+  items: StocktakeItem[]
+  shown: StocktakeItem[]
+  columns: RegistryColumn<StocktakeItem>[]
+  left: number
+  counted: number
+  total: number
+}) {
+  const emptyTitle =
+    tab === 'toFind' && items.length > 0
+      ? t('library.stocktake.count.emptyToFindTitle')
+      : tab === 'counted'
+        ? t('library.stocktake.count.emptyCountedTitle')
+        : t('library.stocktake.count.emptyAllTitle')
+
+  const emptyBody =
+    tab === 'toFind' && items.length > 0
+      ? t('library.stocktake.count.emptyToFindBody')
+      : tab === 'counted'
+        ? t('library.stocktake.count.emptyCountedBody')
+        : t('library.stocktake.count.emptyAllBody')
+
+  return (
+    <>
       <div className="flex items-center gap-2 border-y border-border px-6 py-2 max-md:px-4">
         <Tabs
           mode="state"
           variant="segment"
           label={t('library.stocktake.count.tabLabel')}
           value={tab}
-          onValueChange={(value) => setTab(value as Tab)}
-          items={(['toFind', 'counted', 'all'] as const).map((key) => ({
+          onValueChange={(value) => {
+            if (isTab(value)) onTabChange(value)
+          }}
+          items={TABS.map((key) => ({
             key,
             label: t(`library.stocktake.count.tabs.${key}`),
             count: loading
@@ -481,8 +635,8 @@ function OpenCount({
               : key === 'toFind'
                 ? left
                 : key === 'counted'
-                  ? summary.total - left
-                  : summary.total,
+                  ? counted
+                  : total,
           }))}
         />
       </div>
@@ -501,88 +655,63 @@ function OpenCount({
             <EmptyState
               className="items-center py-14 text-center"
               icon={tab === 'toFind' && items.length > 0 ? 'check' : 'scan'}
-              title={
-                tab === 'toFind' && items.length > 0
-                  ? t('library.stocktake.count.emptyToFindTitle')
-                  : tab === 'counted'
-                    ? t('library.stocktake.count.emptyCountedTitle')
-                    : t('library.stocktake.count.emptyAllTitle')
-              }
-              description={
-                tab === 'toFind' && items.length > 0
-                  ? t('library.stocktake.count.emptyToFindBody')
-                  : tab === 'counted'
-                    ? t('library.stocktake.count.emptyCountedBody')
-                    : t('library.stocktake.count.emptyAllBody')
-              }
+              title={emptyTitle}
+              description={emptyBody}
             />
           </div>
         )}
       </div>
+    </>
+  )
+}
 
-      <ConfirmDialog open={finishing} onOpenChange={setFinishing}>
-        <ConfirmDialogContent>
-          <ConfirmDialogHeader>
-            <ConfirmDialogTitle>
-              {t('library.stocktake.count.finishTitle')}
-            </ConfirmDialogTitle>
-            <ConfirmDialogDescription>
-              {left > 0
-                ? t('library.stocktake.count.finishBody', { count: left })
-                : t('library.stocktake.count.finishAllFound')}
-            </ConfirmDialogDescription>
-          </ConfirmDialogHeader>
-          <ConfirmDialogFooter>
-            <ConfirmDialogCancel>
-              {t('library.stocktake.count.keepCounting')}
-            </ConfirmDialogCancel>
-            <ConfirmDialogAction
-              disabled={finish.isPending}
-              onClick={() => finish.mutate()}
-            >
-              {finish.isPending
-                ? t('library.stocktake.count.finishing')
-                : t('library.stocktake.count.finishConfirm')}
-            </ConfirmDialogAction>
-          </ConfirmDialogFooter>
-        </ConfirmDialogContent>
-      </ConfirmDialog>
-
-      <ConfirmDialog open={callingOff} onOpenChange={setCallingOff}>
-        <ConfirmDialogContent>
-          <ConfirmDialogHeader>
-            <ConfirmDialogTitle>
-              {t('library.stocktake.count.callOffTitle')}
-            </ConfirmDialogTitle>
-            <ConfirmDialogDescription>
-              {t('library.stocktake.count.callOffBody')}
-            </ConfirmDialogDescription>
-          </ConfirmDialogHeader>
-          <ConfirmDialogFooter>
-            <ConfirmDialogCancel>
-              {t('library.stocktake.count.keepCounting')}
-            </ConfirmDialogCancel>
-            <ConfirmDialogAction
-              disabled={callOff.isPending}
-              onClick={() => callOff.mutate()}
-            >
-              {t('library.stocktake.count.callOffConfirm')}
-            </ConfirmDialogAction>
-          </ConfirmDialogFooter>
-        </ConfirmDialogContent>
-      </ConfirmDialog>
-    </div>
+/** One confirmation a count asks for: finishing it, or calling it off. */
+function ConfirmCount({
+  open,
+  onOpenChange,
+  title,
+  body,
+  confirmLabel,
+  pendingLabel,
+  pending,
+  onConfirm,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  body: string
+  confirmLabel: string
+  pendingLabel: string
+  pending: boolean
+  onConfirm: () => void
+}) {
+  return (
+    <ConfirmDialog open={open} onOpenChange={onOpenChange}>
+      <ConfirmDialogContent>
+        <ConfirmDialogHeader>
+          <ConfirmDialogTitle>{title}</ConfirmDialogTitle>
+          <ConfirmDialogDescription>{body}</ConfirmDialogDescription>
+        </ConfirmDialogHeader>
+        <ConfirmDialogFooter>
+          <ConfirmDialogCancel>
+            {t('library.stocktake.count.keepCounting')}
+          </ConfirmDialogCancel>
+          <ConfirmDialogAction disabled={pending} onClick={onConfirm}>
+            {pending ? pendingLabel : confirmLabel}
+          </ConfirmDialogAction>
+        </ConfirmDialogFooter>
+      </ConfirmDialogContent>
+    </ConfirmDialog>
   )
 }
 
 /** The sentence a scan earns, in the words of what it found. */
-function describeScan(
-  item: StocktakeItem,
-  scopePath: string,
-): {
+interface ScanSentence {
   tone: 'ok' | 'warn'
   text: string
-} {
+}
+
+function describeScan(item: StocktakeItem, scopePath: string): ScanSentence {
   const identifier = item.identifier
 
   switch (item.state) {

@@ -12,26 +12,75 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './$analysisId'
 import type * as router from '@tanstack/react-router'
-import type { AnalysisViewSourceStatus } from '#/lib/analysis-studio-data'
+import type {
+  AnalysisViewSourceStatus,
+  SaveAnalysisViewInput,
+} from '#/lib/analysis-studio-data'
+import type { DataClient } from '#/lib/data-client'
 
-const mocks = vi.hoisted(() => ({
-  datasets: [] as Record<string, unknown>[],
-  columns: [] as Record<string, unknown>[],
-  list: vi.fn(async (): Promise<unknown[]> => []),
-  sourceStatus: vi.fn(async (): Promise<unknown> => null),
-  update: vi.fn(async (): Promise<unknown> => ({ version: 4 })),
-}))
+/** A dataset summary the page climbs from to its experiment and project. */
+interface DatasetSummary {
+  id: string
+  uuid: string
+  projectId: string
+  experimentId: string
+}
 
+/** A source column the chart materialiser reports for a resolved dataset. */
+interface SourceColumn {
+  id: string
+  label: string
+  logicalType: string
+}
+
+/** A saved analysis as the list read hands it over; these fixtures carry the fields the page reads. */
+interface SavedAnalysis {
+  id: string
+  workspace_id: string
+  owner_user_id: string
+  name: string
+  display_id: string
+  version: number
+  charts: object[]
+  source_revisions: object[]
+  export_settings: null
+  created_at: string
+  updated_at: string
+}
+
+const mocks = vi.hoisted(() => {
+  const datasets: DatasetSummary[] = []
+  const columns: SourceColumn[] = []
+
+  return {
+    datasets,
+    columns,
+    list: vi.fn(async (): Promise<SavedAnalysis[]> => []),
+    sourceStatus: vi.fn(
+      async (): Promise<AnalysisViewSourceStatus | null> => null,
+    ),
+    update: vi.fn(
+      async (
+        _client: DataClient,
+        _id: string,
+        _input: SaveAnalysisViewInput,
+      ): Promise<{ version: number }> => ({ version: 4 }),
+    ),
+  }
+})
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The favourite toggle reads the signed-in person's favourites through its own query; this suite is about the read-only view.
 vi.mock('#/components/favourites/favourite-toggle', () => ({
   FavouriteToggle: () => null,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time; this suite renders the route's own component with the params and context the shell would supply.
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
 
   return {
     ...actual,
-    createFileRoute: () => (options: unknown) => ({
+    createFileRoute: () => (options: { component?: React.ComponentType }) => ({
       options,
       useParams: () => ({ analysisId: 'view-1' }),
       useRouteContext: () => ({
@@ -45,7 +94,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       search,
       children,
     }: {
-      to?: unknown
+      to?: string
       search?: Record<string, string | undefined>
       children?: React.ReactNode
     }) => {
@@ -56,24 +105,26 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       }
 
       const query = params.toString()
-      const target = typeof to === 'string' ? to : '#'
 
-      return <a href={`${target}${query ? `?${query}` : ''}`}>{children}</a>
+      return <a href={`${to ?? '#'}${query ? `?${query}` : ''}`}>{children}</a>
     },
-    redirect: (options: unknown) => options,
+    redirect: (options: { to: string }) => options,
   }
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Dataset summaries are a separate read; the double answers the one dataset the climb test needs.
 vi.mock('#/components/datasets/datasets-data', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   useDatasetSummaries: () => ({ data: mocks.datasets, isLoading: false }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The project read goes through the shared client, which opens over the app's transport at import time; the double answers the project the header names.
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   fetchProject: async () => ({ id: 'prj-1', title: 'Clarification programme' }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The saved analyses, their source status and the save call are the data under test; the doubles answer them and every other export stays the module's own.
 vi.mock('#/lib/analysis-studio-data', () => ({
   analysisStudioDataClient: { list: mocks.list, rpc: vi.fn() },
   analysisStudioQueryKeys: {
@@ -86,6 +137,7 @@ vi.mock('#/lib/analysis-studio-data', () => ({
   validateAnalysisSpec: () => ({ ok: true }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Resolving a chart needs a database; the doubles answer the empty document the screen renders without data.
 vi.mock('#/lib/chart-data', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   resolveChartDataset: async () => ({
@@ -113,6 +165,7 @@ vi.mock('#/lib/chart-data', async (importOriginal) => ({
   }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The renderer measures and draws a canvas jsdom has no layout for; the page's own chart numbering is what this suite asserts.
 vi.mock('#/components/viz/chart-renderer', () => ({
   ChartRenderer: () => <div data-testid="chart" />,
 }))
@@ -162,6 +215,7 @@ function sourceStatus(
 }
 
 function renderView() {
+  // SAFETY: `$analysisId.tsx` registers its page as the route's component, so the factory above always supplies one.
   const AnalysisView = Route.options.component as React.ComponentType
 
   return render(
@@ -341,9 +395,7 @@ describe('An analysis with several charts', () => {
     fireEvent.click(save)
     await vi.waitFor(() => expect(mocks.update).toHaveBeenCalled())
 
-    const input = (mocks.update.mock.calls[0] as unknown as unknown[])[2] as {
-      charts: unknown[]
-    }
+    const input = mocks.update.mock.calls[0][2]
 
     expect(input.charts).toHaveLength(1)
   })

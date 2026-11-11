@@ -9,6 +9,8 @@
  * TypeScript (`runAnalysis`) so rerunning a definition against the same
  * rows is deterministic and traceable to its inputs.
  */
+import { z } from 'zod'
+
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import type { SourceRevision } from './analysis-studio-data'
@@ -174,8 +176,8 @@ export interface FreezeAnalysisBlockArgs {
 export async function freezeAnalysisBlock(
   client: DataClient,
   args: FreezeAnalysisBlockArgs,
-): Promise<unknown> {
-  return client.rpc('freeze_analysis_block', {
+): Promise<void> {
+  await client.rpc('freeze_analysis_block', {
     p_block_id: args.blockId,
     p_expected_version: args.expectedVersion,
   })
@@ -184,8 +186,8 @@ export async function freezeAnalysisBlock(
 export async function unfreezeAnalysisBlock(
   client: DataClient,
   args: FreezeAnalysisBlockArgs,
-): Promise<unknown> {
-  return client.rpc('unfreeze_analysis_block', {
+): Promise<void> {
+  await client.rpc('unfreeze_analysis_block', {
     p_block_id: args.blockId,
     p_expected_version: args.expectedVersion,
   })
@@ -208,6 +210,11 @@ export function definitionNameFrom(base: string, attempt = 1): string {
 
   return `${head.replace(/[^\p{L}\p{N}]+$/u, '') || 'Analysis'}${suffix}`
 }
+
+/**
+ * The `code` a thrown PostgREST failure carries, if it carries one.
+ */
+const thrownErrorSchema = z.looseObject({ code: z.string().optional() })
 
 /**
  * Put a saved chart view into an analysis block's definition: the statistic's
@@ -237,9 +244,9 @@ export async function composeAnalysisDefinition(
       )
     } catch (error) {
       lastError = error
-      const code = (error as { code?: string }).code
+      const coded = thrownErrorSchema.safeParse(error)
 
-      if (code !== '23505') throw error
+      if (!coded.success || coded.data.code !== '23505') throw error
     }
   }
 

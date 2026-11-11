@@ -154,15 +154,15 @@ interface LocalParts {
   asUtcMs: number
 }
 
-const WEEKDAYS: Record<string, number> = {
-  Mon: 1,
-  Tue: 2,
-  Wed: 3,
-  Thu: 4,
-  Fri: 5,
-  Sat: 6,
-  Sun: 7,
-}
+const WEEKDAYS = new Map<string, number>([
+  ['Mon', 1],
+  ['Tue', 2],
+  ['Wed', 3],
+  ['Thu', 4],
+  ['Fri', 5],
+  ['Sat', 6],
+  ['Sun', 7],
+])
 
 function localParts(epochMinutes: number, timezone: string): LocalParts {
   const parts: Record<string, string> = {}
@@ -184,7 +184,7 @@ function localParts(epochMinutes: number, timezone: string): LocalParts {
 
   return {
     date: `${parts.year}-${parts.month}-${parts.day}`,
-    isoWeekday: WEEKDAYS[parts.weekday] ?? 1,
+    isoWeekday: WEEKDAYS.get(parts.weekday) ?? 1,
     minuteOfDay: Number(parts.hour) * 60 + Number(parts.minute),
     asUtcMs,
   }
@@ -281,6 +281,7 @@ function freeSlot(
 export function planSchedule(input: PlanInput): PlanResult {
   const { hours } = input
   const dayLength = hours.endMinute - hours.startMinute
+  const workingDays = new Set(hours.days)
   const placed = new Map<string, Busy[]>()
 
   const busyFor = (resourceId: string): Busy[] => [
@@ -310,7 +311,7 @@ export function planSchedule(input: PlanInput): PlanResult {
       tries < MAX_DAYS_SEARCHED && !found;
       tries++, day = addDays(day, 1)
     ) {
-      if (!hours.days.includes(isoWeekdayOf(day))) continue
+      if (!workingDays.has(isoWeekdayOf(day))) continue
 
       if (isAway(input.absences, part.assigneeUserId, day)) continue
       const dayStart = localToEpoch(day, hours.startMinute, hours.timezone)

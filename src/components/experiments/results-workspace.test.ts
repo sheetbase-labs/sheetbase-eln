@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { summariseBySeries } from './results-workspace'
+import { summariseBySeries } from './results-summary'
 
 describe('summariseBySeries', () => {
   const rows = [

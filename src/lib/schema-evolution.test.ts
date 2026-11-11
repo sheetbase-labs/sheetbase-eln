@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   applyDatasetSchemaEvolution,
@@ -11,20 +12,21 @@ import {
   promoteCalculation,
   requestColumnPromotion,
 } from './schema-evolution'
-import { DataClientError } from './data-client'
-import type { DataClient } from './data-client'
+import { DataClientError, createDataClient } from './data-client'
+
+const rpcArgs = z.record(z.string(), z.json())
 
 describe('governed evolution client', () => {
   it('calls preview and apply RPCs with snake_case arguments', async () => {
     const calls: Array<{ name: string; args: unknown }> = []
 
-    const client = {
-      rpc: async (name: string, args: Record<string, unknown>) => {
+    const client = Object.assign(createDataClient(), {
+      rpc: async (name: string, args: z.output<typeof rpcArgs>) => {
         calls.push({ name, args })
 
         return { ok: true, classification: 'compatible' }
       },
-    } as DataClient
+    })
 
     await previewDatasetSchemaEvolution(client, {
       schemaVersionId: 'ver-1',
@@ -85,8 +87,8 @@ describe('governed evolution client', () => {
     const rpcCalls: Array<{ name: string; args: unknown }> = []
     const listCalls: Array<{ resource: string; query?: string }> = []
 
-    const client = {
-      rpc: async (name: string, args: Record<string, unknown>) => {
+    const client = Object.assign(createDataClient(), {
+      rpc: async (name: string, args: z.output<typeof rpcArgs>) => {
         rpcCalls.push({ name, args })
 
         return { ok: true, state: 'pending' }
@@ -96,7 +98,7 @@ describe('governed evolution client', () => {
 
         return []
       },
-    } as unknown as DataClient
+    })
 
     await requestColumnPromotion(client, {
       instanceId: 'inst-1',

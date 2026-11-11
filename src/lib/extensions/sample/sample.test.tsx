@@ -64,6 +64,8 @@ describe('sample extension manifest', () => {
 
   it('installs and enables through the public client surface', async () => {
     const rpc = vi.fn(async () => ({ id: 'ext-1' }))
+    // SAFETY: `installSampleExtension` only issues the two RPCs asserted below; the double supplies `rpc` alone.
+    // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- The spy fixes its own answer, so neither it nor `DataClient` is assignable to the other.
     await installSampleExtension({ rpc } as unknown as DataClient, 'ws-1')
     expect(rpc).toHaveBeenCalledWith(
       'install_extension',

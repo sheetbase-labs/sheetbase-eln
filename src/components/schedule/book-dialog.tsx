@@ -107,6 +107,16 @@ export function BookDialog({
     (sample) => !unticked.has(sample.id),
   )
 
+  const toggleSample = (sampleId: string, checked: boolean) =>
+    setUnticked((current) => {
+      const next = new Set(current)
+
+      if (checked) next.delete(sampleId)
+      else next.add(sampleId)
+
+      return next
+    })
+
   const [date, setDate] = useState(defaultDate)
   const [start, setStart] = useState(DEFAULT_START)
   const [end, setEnd] = useState(DEFAULT_END)
@@ -286,30 +296,11 @@ export function BookDialog({
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
         <DialogHeader title={t('projects.bookDialog.title')} />
         <DialogBody>
-          <Field label={t('projects.bookDialog.instrument')} required>
-            <PickerSelect
-              noun="instrument"
-              value={resourceId}
-              onChange={(id) => setResourceId(id)}
-              options={instruments.map((i) => ({
-                id: i.id,
-                identifier: i.displayId ?? undefined,
-                label: i.name,
-                disabled: i.outOfService,
-                disabledReason: i.outOfService
-                  ? t('library.instruments.outOfService.status')
-                  : undefined,
-              }))}
-            />
-            <TrainingNotice instrumentId={resourceId} />
-            {instruments.length === 0 ? (
-              // A picker with nothing in it is a dead end; say what is missing
-              // rather than leaving "Choose…" as the only option.
-              <p className="m-0 text-label text-fg-muted">
-                {t('projects.bookDialog.noInstruments')}
-              </p>
-            ) : null}
-          </Field>
+          <InstrumentField
+            instruments={instruments}
+            resourceId={resourceId}
+            onChange={setResourceId}
+          />
           <Field label={t('projects.bookDialog.what')} required>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </Field>
@@ -328,60 +319,19 @@ export function BookDialog({
               </span>
             </div>
           ) : null}
-          {sampleOptions.length ? (
-            <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
-              <legend className="mb-1 p-0 text-label font-medium text-fg">
-                {t('projects.bookDialog.samples')}
-              </legend>
-              {sampleOptions.map((sample) => (
-                <label
-                  key={sample.id}
-                  className="flex items-center gap-2 text-body"
-                >
-                  <Checkbox
-                    checked={!unticked.has(sample.id)}
-                    onCheckedChange={(checked) =>
-                      setUnticked((current) => {
-                        const next = new Set(current)
-
-                        if (checked) next.delete(sample.id)
-                        else next.add(sample.id)
-
-                        return next
-                      })
-                    }
-                  />
-                  <span className="mono text-fg-muted">
-                    {sample.identifier}
-                  </span>
-                  <span className="min-w-0 truncate">{sample.title}</span>
-                </label>
-              ))}
-            </fieldset>
-          ) : null}
-          <Field label={t('projects.bookDialog.date')} required>
-            <Input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t('projects.bookDialog.from')} required>
-              <Input
-                type="time"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-              />
-            </Field>
-            <Field label={t('projects.bookDialog.to')} required>
-              <Input
-                type="time"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-              />
-            </Field>
-          </div>
+          <SampleChoices
+            sampleOptions={sampleOptions}
+            unticked={unticked}
+            onToggle={toggleSample}
+          />
+          <TimingFields
+            date={date}
+            start={start}
+            end={end}
+            onDate={setDate}
+            onStart={setStart}
+            onEnd={setEnd}
+          />
           {experiment ? null : (
             <RepeatFields value={repeat} onChange={setRepeat} firstDay={date} />
           )}
@@ -414,6 +364,123 @@ export function BookDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * The instrument the booking is for, its training gaps and, when the workspace
+ * has no instruments at all, what is missing rather than an empty picker.
+ */
+function InstrumentField({
+  instruments,
+  resourceId,
+  onChange,
+}: {
+  instruments: ScheduleInstrument[]
+  resourceId: string
+  onChange: (id: string) => void
+}) {
+  return (
+    <Field label={t('projects.bookDialog.instrument')} required>
+      <PickerSelect
+        noun="instrument"
+        value={resourceId}
+        onChange={onChange}
+        options={instruments.map((i) => ({
+          id: i.id,
+          identifier: i.displayId ?? undefined,
+          label: i.name,
+          disabled: i.outOfService,
+          disabledReason: i.outOfService
+            ? t('library.instruments.outOfService.status')
+            : undefined,
+        }))}
+      />
+      <TrainingNotice instrumentId={resourceId} />
+      {instruments.length === 0 ? (
+        // A picker with nothing in it is a dead end; say what is missing
+        // rather than leaving "Choose…" as the only option.
+        <p className="m-0 text-label text-fg-muted">
+          {t('projects.bookDialog.noInstruments')}
+        </p>
+      ) : null}
+    </Field>
+  )
+}
+
+/** The experiment's samples, all ticked to start: the booking is for each of them. */
+function SampleChoices({
+  sampleOptions,
+  unticked,
+  onToggle,
+}: {
+  sampleOptions: BookableSample[]
+  unticked: ReadonlySet<string>
+  onToggle: (sampleId: string, checked: boolean) => void
+}) {
+  if (sampleOptions.length === 0) return null
+
+  return (
+    <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
+      <legend className="mb-1 p-0 text-label font-medium text-fg">
+        {t('projects.bookDialog.samples')}
+      </legend>
+      {sampleOptions.map((sample) => (
+        <label key={sample.id} className="flex items-center gap-2 text-body">
+          <Checkbox
+            checked={!unticked.has(sample.id)}
+            onCheckedChange={(checked) => onToggle(sample.id, checked)}
+          />
+          <span className="mono text-fg-muted">{sample.identifier}</span>
+          <span className="min-w-0 truncate">{sample.title}</span>
+        </label>
+      ))}
+    </fieldset>
+  )
+}
+
+/** The date and the two wall-clock times the booking covers. */
+function TimingFields({
+  date,
+  start,
+  end,
+  onDate,
+  onStart,
+  onEnd,
+}: {
+  date: string
+  start: string
+  end: string
+  onDate: (date: string) => void
+  onStart: (start: string) => void
+  onEnd: (end: string) => void
+}) {
+  return (
+    <>
+      <Field label={t('projects.bookDialog.date')} required>
+        <Input
+          type="date"
+          value={date}
+          onChange={(e) => onDate(e.target.value)}
+        />
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label={t('projects.bookDialog.from')} required>
+          <Input
+            type="time"
+            value={start}
+            onChange={(e) => onStart(e.target.value)}
+          />
+        </Field>
+        <Field label={t('projects.bookDialog.to')} required>
+          <Input
+            type="time"
+            value={end}
+            onChange={(e) => onEnd(e.target.value)}
+          />
+        </Field>
+      </div>
+    </>
   )
 }
 

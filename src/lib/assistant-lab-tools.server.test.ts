@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { instantFromLocal } from './assistant-booking'
 import {
@@ -8,6 +9,7 @@ import {
 } from './assistant-lab-tools.server'
 import type { LabToolContext } from './assistant-lab-tools.server'
 import type { DataClient } from './data-client'
+import { dataClientTestDouble } from './data-client-test-support'
 
 const WS = '33333333-3333-4333-8333-333333333333'
 const ME = 'user-me'
@@ -40,7 +42,48 @@ const instruments = [
 
 const at = (local: string) => instantFromLocal(local, TZ).toISOString()
 
-function booking(overrides: Record<string, unknown>) {
+/** A `calendar_bookings` row as the tool reads it. */
+interface BookingRow {
+  id: string
+  workspace_id: string
+  resource_id: string
+  title: string
+  status: string
+  starts_at: string
+  ends_at: string
+  timezone: string
+  created_by_user_id: string
+  metadata_version: number
+  cancelled_at: string | null
+  linked_experiment_identifier: string | null
+  linked_experiment_title: string | null
+}
+
+/** A booking rule row: the two limits these tests set. */
+interface BookingRuleRow {
+  max_booking_minutes: number
+  max_advance_days: number
+}
+
+/** A training gap row, keyed by the procedure it names. */
+interface TrainingGapRow {
+  identifier: string
+  title: string
+}
+
+/** The few record fields the lab list tool reads. */
+interface LabRecordRow {
+  identifier: string
+  title: string
+  status: string
+}
+
+/** A model set up as a request form. */
+interface RequestFormRow {
+  model_key: string
+}
+
+function booking(overrides: Partial<BookingRow>): BookingRow {
   return {
     id: 'b1',
     workspace_id: WS,
@@ -60,31 +103,29 @@ function booking(overrides: Record<string, unknown>) {
 }
 
 function fakeClient(data: {
-  bookings?: Array<Record<string, unknown>>
-  rules?: Array<Record<string, unknown>>
-  training?: Array<Record<string, unknown>>
-  records?: Array<Record<string, unknown>>
-  requestForms?: Array<Record<string, unknown>>
+  bookings?: BookingRow[]
+  rules?: BookingRuleRow[]
+  training?: TrainingGapRow[]
+  records?: LabRecordRow[]
+  requestForms?: RequestFormRow[]
 }) {
   const calls: string[] = []
 
-  const client = {
-    list: (resource: string, query = '') => {
+  const client = dataClientTestDouble({
+    list: async (resource: string, query = '') => {
       calls.push(`${resource}${query}`)
 
       switch (resource) {
         case 'instruments':
-          return Promise.resolve(
-            query.startsWith('?id=eq.')
-              ? instruments.filter((row) => query.includes(row.id))
-              : instruments,
-          )
+          return query.startsWith('?id=eq.')
+            ? instruments.filter((row) => query.includes(row.id))
+            : instruments
         case 'calendar_bookings': {
           const rows = data.bookings ?? []
           const id = /id=eq\.([\w-]+)/.exec(query)?.[1]
 
           if (query.startsWith('?id=eq.')) {
-            return Promise.resolve(rows.filter((row) => row.id === id))
+            return rows.filter((row) => row.id === id)
           }
 
           const start = decodeURIComponent(
@@ -95,11 +136,8 @@ function fakeClient(data: {
             /starts_at=lt\.([^&]+)/.exec(query)?.[1] ?? '',
           )
 
-          return Promise.resolve(
-            rows.filter(
-              (row) =>
-                String(row.starts_at) < end && String(row.ends_at) > start,
-            ),
+          return rows.filter(
+            (row) => row.starts_at < end && row.ends_at > start,
           )
         }
 
@@ -110,21 +148,18 @@ function fakeClient(data: {
         case 'request_forms':
           return Promise.resolve(data.requestForms ?? [])
         default:
-          return Promise.resolve([])
+          return []
       }
     },
-    rpc: (name: string) => {
-      if (name === 'my_instrument_training_gaps') {
-        return Promise.resolve(data.training ?? [])
-      }
+    rpc: async (name: string) => {
+      if (name === 'my_instrument_training_gaps') return data.training ?? []
 
-      if (name === 'workspace_members_list') {
-        return Promise.resolve([{ user_id: 'user-other', name: 'Priya Shah' }])
-      }
+      if (name === 'workspace_members_list')
+        return [{ user_id: 'user-other', name: 'Priya Shah' }]
 
-      return Promise.resolve([])
+      return null
     },
-  } as unknown as DataClient
+  })
 
   return { client, calls }
 }
@@ -174,9 +209,17 @@ describe('schedule reads', () => {
 
     expect(result.isError).toBe(false)
 
-    const parsed = JSON.parse(result.text) as {
-      bookings: Array<Record<string, string>>
-    }
+    const parsed = z
+      .object({
+        bookings: z.array(
+          z.object({
+            instrument: z.string(),
+            when: z.string(),
+            bookedBy: z.string(),
+          }),
+        ),
+      })
+      .parse(JSON.parse(result.text))
 
     expect(parsed.bookings[0]).toMatchObject({
       instrument: 'QuantStudio 5 qPCR (INS-0001)',
@@ -198,11 +241,13 @@ describe('schedule reads', () => {
       context(client),
     )
 
-    const parsed = JSON.parse(result.text) as {
-      free: Array<{ when: string }>
-      cannotBookBecause: string[]
-      rules: Record<string, string>
-    }
+    const parsed = z
+      .object({
+        free: z.array(z.object({ when: z.string() })),
+        cannotBookBecause: z.array(z.string()),
+        rules: z.object({ longestBooking: z.string() }),
+      })
+      .parse(JSON.parse(result.text))
 
     expect(parsed.free.map((gap) => gap.when)).toEqual([
       'Fri 6 Nov, 08:00–09:00',

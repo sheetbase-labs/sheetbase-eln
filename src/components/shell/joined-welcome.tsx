@@ -26,12 +26,12 @@ function wasDismissed(workspaceId: string, userId: string): boolean {
   }
 }
 
-const ROLE_WORDS: Record<string, () => string> = {
-  scientist: () => t('settings.joinDomains.roleScientist').toLowerCase(),
-  analyst: () => t('settings.joinDomains.roleAnalyst').toLowerCase(),
-  reviewer: () => t('settings.joinDomains.roleReviewer').toLowerCase(),
-  viewer: () => t('settings.joinDomains.roleViewer').toLowerCase(),
-}
+const ROLE_WORDS = new Map<string, () => string>([
+  ['scientist', () => t('settings.joinDomains.roleScientist').toLowerCase()],
+  ['analyst', () => t('settings.joinDomains.roleAnalyst').toLowerCase()],
+  ['reviewer', () => t('settings.joinDomains.roleReviewer').toLowerCase()],
+  ['viewer', () => t('settings.joinDomains.roleViewer').toLowerCase()],
+])
 
 /**
  * Tells a colleague who got in through their email domain what happened and
@@ -71,7 +71,7 @@ export function JoinedWelcome({
       tone="info"
       title={t('projects.home.joinedWelcome.title', {
         workspace: workspaceName,
-        role: (ROLE_WORDS[role] ?? (() => role))(),
+        role: ROLE_WORDS.get(role)?.() ?? role,
       })}
       action={
         <Button

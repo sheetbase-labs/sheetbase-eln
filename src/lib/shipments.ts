@@ -6,6 +6,8 @@
  * Reads go straight to the tables under row-level security; every change goes
  * through an RPC so the steps and who may take them stay in the database.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 
 export const shipmentKeys = {
@@ -26,10 +28,10 @@ export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number]
 
 export type ShipmentDirection = 'outbound' | 'inbound'
 
+const shipmentStatusSchema = z.enum(SHIPMENT_STATUSES)
+
 export function asShipmentStatus(value: string): ShipmentStatus {
-  return (SHIPMENT_STATUSES as readonly string[]).includes(value)
-    ? (value as ShipmentStatus)
-    : 'draft'
+  return shipmentStatusSchema.safeParse(value).data ?? 'draft'
 }
 
 /** A shipment still on its way to being finished. */
@@ -119,15 +121,19 @@ export interface ManifestLine {
 }
 
 export function manifestPayload(lines: readonly ManifestLine[]) {
-  return lines
-    .filter((l) => l.record_id || l.title.trim() !== '')
-    .map((l) => ({
-      record_id: l.record_id,
-      title: l.title.trim() === '' ? null : l.title.trim(),
-      quantity: l.quantity.trim() === '' ? null : Number(l.quantity),
-      unit: l.unit.trim() === '' ? null : l.unit.trim(),
-      note: l.note.trim() === '' ? null : l.note.trim(),
-    }))
+  return lines.flatMap((l) =>
+    l.record_id || l.title.trim() !== ''
+      ? [
+          {
+            record_id: l.record_id,
+            title: l.title.trim() === '' ? null : l.title.trim(),
+            quantity: l.quantity.trim() === '' ? null : Number(l.quantity),
+            unit: l.unit.trim() === '' ? null : l.unit.trim(),
+            note: l.note.trim() === '' ? null : l.note.trim(),
+          },
+        ]
+      : [],
+  )
 }
 
 export async function createShipment(
@@ -200,7 +206,11 @@ export async function cancelShipment(
   })
 }
 
-export function messageOf(error: unknown, fallback: string): string {
+export function messageOf(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A failed shipment write is a caught throw, untyped by definition; an Error supplies its message and anything else falls back.
+  error: unknown,
+  fallback: string,
+): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
 

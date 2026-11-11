@@ -143,7 +143,10 @@ describe('DuplicateAnalysisDialog', () => {
     expect(spec.fields.x?.fieldId).toBe('g1')
     expect(spec.datasets).toEqual([{ datasetId: 'ds-b' }])
     await waitFor(() =>
-      expect(mocks.navigate).toHaveBeenCalledWith({ to: '/analysis/view-2' }),
+      expect(mocks.navigate).toHaveBeenCalledWith({
+        to: '/analysis/$analysisId',
+        params: { analysisId: 'view-2' },
+      }),
     )
   })
 

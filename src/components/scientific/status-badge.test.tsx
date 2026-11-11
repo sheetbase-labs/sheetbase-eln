@@ -1,14 +1,18 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { StatusBadge } from './status-badge'
 import {
-  StatusBadge,
   experimentStatusVocabulary,
   reviewStatusVocabulary,
   sampleStatusVocabulary,
   statusVocabularies,
-} from './status-badge'
-import type { StatusVocabulary } from './status-badge'
+} from './status-vocabularies'
+import type { StatusVocabulary } from './status-vocabularies'
+
+/** A status key looked up the way a caller with a string reads it. */
+const statusDefinition = (vocabulary: StatusVocabulary, status: string) =>
+  vocabulary[status]
 
 afterEach(() => cleanup())
 
@@ -71,7 +75,9 @@ describe('StatusBadge', () => {
     expect(experimentStatusVocabulary['approved'].label).toBe('Approved')
     expect(reviewStatusVocabulary['approved'].label).toBe('Approved')
     // Sample has statuses experiment does not.
-    expect(experimentStatusVocabulary['frozen']).toBeUndefined()
+    expect(
+      statusDefinition(experimentStatusVocabulary, 'frozen'),
+    ).toBeUndefined()
     expect(sampleStatusVocabulary['frozen']).toBeDefined()
     // LAB-02: disposed is a terminal sample state and renders, not raw text.
     expect(sampleStatusVocabulary['disposed'].label).toBe('Disposed')

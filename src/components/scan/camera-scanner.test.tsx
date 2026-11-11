@@ -24,11 +24,13 @@ function Harness({
 
 /** jsdom has no MediaStream; the stub supplies the only member the scanner
  * touches, track stopping. */
-function fakeStream(): MediaStream {
-  return { getTracks: () => [{ stop: vi.fn() }] } as unknown as MediaStream
+function fakeStream() {
+  return { getTracks: () => [{ stop: vi.fn() }] }
 }
 
-function setMediaDevices(getUserMedia: () => Promise<MediaStream>) {
+function setMediaDevices(
+  getUserMedia: () => Promise<ReturnType<typeof fakeStream>>,
+) {
   Object.defineProperty(navigator, 'mediaDevices', {
     configurable: true,
     value: { getUserMedia: vi.fn(getUserMedia) },
@@ -126,11 +128,15 @@ function setVideoFrame(frame: Frame | null): void {
 
   // jsdom ships no canvas; the stub carries only what the decoder reads.
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
-    (() => context) as never,
+    // SAFETY: `getContext` is typed for every canvas context kind, and the scanner only ever asks for '2d' — the stub returned for each kind.
+    () => context as never,
   )
 }
 
-const originalPlay = HTMLMediaElement.prototype.play
+const originalPlay = Object.getOwnPropertyDescriptor(
+  HTMLMediaElement.prototype,
+  'play',
+)
 
 const originalVideoSize = {
   width: Object.getOwnPropertyDescriptor(
@@ -149,7 +155,10 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
-  HTMLMediaElement.prototype.play = originalPlay
+
+  if (originalPlay) {
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', originalPlay)
+  }
 
   if (originalVideoSize.width) {
     Object.defineProperty(

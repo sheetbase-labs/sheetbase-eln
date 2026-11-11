@@ -7,6 +7,7 @@
  */
 import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
 import {
@@ -24,23 +25,24 @@ import { addTextSection, reportKeys } from '#/lib/reports'
 import { t } from '#/copy'
 import { PluginFrame } from './plugin-frame'
 import { operationAccess, usePluginPoints } from './use-plugin-points'
+import type { PluginFrameLinkOptions } from './use-plugin-frame-link'
 
 interface Section {
   title: string
   text: string
 }
 
-function asSection(value: unknown): Section | null {
-  if (typeof value !== 'object' || value === null) return null
-  const v = value as Record<string, unknown>
+/** What a plugin hands back for a section, bounded as the stored section is. */
+const sectionSchema = z
+  .object({ title: z.string(), text: z.string().catch('') })
+  .transform((value) => ({
+    title: value.title.trim().slice(0, 300),
+    text: value.text,
+  }))
+  .refine((value) => value.title.length > 0)
 
-  if (typeof v.title !== 'string' || !v.title.trim()) return null
-
-  return {
-    title: v.title.trim().slice(0, 300),
-    text: typeof v.text === 'string' ? v.text : '',
-  }
-}
+/** The frame's own message handler: the plugin's payload arrives as it sent it. */
+type EmitHandler = NonNullable<PluginFrameLinkOptions['onEmit']>
 
 export function AddPluginSectionDialog({
   open,
@@ -82,8 +84,10 @@ export function AddPluginSectionDialog({
     onError: () => toast.error(t('projects.reports.addText.failed')),
   })
 
-  const onEmit = React.useCallback((name: string, payload: unknown) => {
-    if (name === 'section') setResult(asSection(payload))
+  const onEmit: EmitHandler = React.useCallback((name, payload) => {
+    if (name !== 'section') return
+    const parsed = sectionSchema.safeParse(payload)
+    setResult(parsed.success ? parsed.data : null)
   }, [])
 
   if (!item) return null

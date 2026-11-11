@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 export const FIELD_LOGICAL_TYPES = [
   'text',
   'integer',
@@ -30,12 +32,41 @@ export interface FieldQuantityDefinition {
   preferredDisplayUnit?: string
 }
 
+/**
+ * A value a Model or Dataset field's opaque `unit` and `validation` columns
+ * hold, as PostgreSQL JSONB stores it.
+ */
+export type PersistedFieldJson =
+  | string
+  | number
+  | boolean
+  | null
+  | PersistedFieldJson[]
+  | { [key: string]: PersistedFieldJson }
+
+const persistedFieldJsonSchema: z.ZodType<PersistedFieldJson> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(persistedFieldJsonSchema),
+    z.record(z.string(), persistedFieldJsonSchema),
+  ]),
+)
+
+const persistedFieldJsonObjectSchema = z.record(
+  z.string(),
+  persistedFieldJsonSchema,
+)
+
 export interface FieldValidation {
   min?: number
   max?: number
   minLength?: number
   maxLength?: number
   pattern?: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- Extensions hold the per-field JSONB rule metadata owned by the field's scientific type; each reader decodes the keys it knows (readings-data parses systemFlags.out_of_range).
   extensions?: Record<string, unknown>
 }
 
@@ -102,9 +133,9 @@ export interface ExistingModelFieldLike {
   logicalType: FieldLogicalType
   nullable: boolean
   defaultValue: unknown
-  unit: Record<string, unknown> | null
+  unit: unknown
   quantity?: FieldQuantityDefinition | null
-  validation: Record<string, unknown>
+  validation: unknown
   cardinality?: FieldCardinality
   categorySource?: PersistedModelFieldCategorySource | null
   relationship?: FieldRelationship | null
@@ -122,9 +153,9 @@ export interface ExistingDatasetSchemaFieldLike {
   logicalType: FieldLogicalType
   nullable: boolean
   defaultValue: unknown
-  unit: Record<string, unknown> | null
+  unit: unknown
   quantity?: FieldQuantityDefinition | null
-  validation: Record<string, unknown>
+  validation: unknown
   cardinality?: FieldCardinality
   categorySource?: FieldCategorySource | null
   relationship?: FieldRelationship | null
@@ -141,6 +172,29 @@ function nonBlank(value: string): boolean {
   return value.trim().length > 0
 }
 
+/** `value` as a stored JSON string, or null when it holds another JSON type. */
+function persistedString(value: PersistedFieldJson | undefined): string | null {
+  const parsed = z.string().safeParse(value)
+
+  return parsed.success ? parsed.data : null
+}
+
+/** `value` as a stored JSON number, or null when it holds another JSON type. */
+function persistedNumber(value: PersistedFieldJson | undefined): number | null {
+  const parsed = z.number().safeParse(value)
+
+  return parsed.success ? parsed.data : null
+}
+
+/** `value` as stored JSON strings, or null when any entry is another type. */
+function persistedStrings(
+  value: PersistedFieldJson | undefined,
+): string[] | null {
+  const parsed = z.array(z.string()).safeParse(value)
+
+  return parsed.success ? parsed.data : null
+}
+
 /**
  * Compatibility projection for the current opaque Model `unit` JSON.
  * CORE-01.3 may improve production storage, but existing values are not
@@ -148,25 +202,26 @@ function nonBlank(value: string): boolean {
  * intentionally weak legacy projection until explicitly configured.
  */
 export function fieldQuantityFromPersistedUnit(
-  value: Record<string, unknown> | null,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This adapter is the decode boundary for the unit column's opaque JSONB: it parses that JSON with persistedFieldJsonObjectSchema and every read below is a decoded value.
+  value: unknown,
 ): FieldQuantityDefinition | null {
-  if (!value) return null
+  const parsed = persistedFieldJsonObjectSchema.safeParse(value)
 
-  const symbol = typeof value.symbol === 'string' ? value.symbol : null
+  if (!parsed.success) return null
+
+  const unit = parsed.data
+  const symbol = persistedString(unit.symbol)
 
   const storageUnit =
-    typeof value.storageUnit === 'string'
-      ? value.storageUnit
-      : typeof value.canonicalUnit === 'string'
-        ? value.canonicalUnit
-        : symbol
+    persistedString(unit.storageUnit) ??
+    persistedString(unit.canonicalUnit) ??
+    symbol
 
   if (!storageUnit) return null
 
-  const dimension =
-    typeof value.dimension === 'string' ? value.dimension : 'legacy-unspecified'
+  const dimension = persistedString(unit.dimension) ?? 'legacy-unspecified'
 
-  const kind = typeof value.kind === 'string' ? value.kind : dimension
+  const kind = persistedString(unit.kind) ?? dimension
 
   const quantity: FieldQuantityDefinition = {
     kind,
@@ -174,42 +229,48 @@ export function fieldQuantityFromPersistedUnit(
     storageUnit,
   }
 
-  if (
-    Array.isArray(value.allowedInputUnits) &&
-    value.allowedInputUnits.every((item) => typeof item === 'string')
-  ) {
-    quantity.allowedInputUnits = value.allowedInputUnits
-  } else if (
-    Array.isArray(value.allowedUnits) &&
-    value.allowedUnits.every((item) => typeof item === 'string')
-  ) {
-    quantity.allowedInputUnits = value.allowedUnits
+  const allowedInputUnits =
+    persistedStrings(unit.allowedInputUnits) ??
+    persistedStrings(unit.allowedUnits)
+
+  if (allowedInputUnits !== null) {
+    quantity.allowedInputUnits = allowedInputUnits
   }
 
-  if (typeof value.preferredDisplayUnit === 'string') {
-    quantity.preferredDisplayUnit = value.preferredDisplayUnit
+  const preferredDisplayUnit = persistedString(unit.preferredDisplayUnit)
+
+  if (preferredDisplayUnit !== null) {
+    quantity.preferredDisplayUnit = preferredDisplayUnit
   }
 
   return quantity
 }
 
-function asValidation(value: Record<string, unknown>): FieldValidation {
+function asValidation(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This adapter is the decode boundary for the validation column's opaque JSONB: it parses that JSON with persistedFieldJsonObjectSchema and every read below is a decoded value.
+  value: unknown,
+): FieldValidation {
+  const parsed = persistedFieldJsonObjectSchema.safeParse(value)
   const validation: FieldValidation = {}
-  const extensions: Record<string, unknown> = {}
 
-  for (const [key, item] of Object.entries(value)) {
-    if ((key === 'min' || key === 'max') && typeof item === 'number') {
-      validation[key] = item
-    } else if (
-      (key === 'minLength' || key === 'maxLength') &&
-      typeof item === 'number'
+  if (!parsed.success) return validation
+
+  const extensions: Record<string, PersistedFieldJson> = {}
+
+  for (const [key, item] of Object.entries(parsed.data)) {
+    const number = persistedNumber(item)
+    const text = persistedString(item)
+
+    if (
+      (key === 'min' ||
+        key === 'max' ||
+        key === 'minLength' ||
+        key === 'maxLength') &&
+      number !== null
     ) {
-      validation[key] = item
-    } else if (
-      (key === 'pattern' || key === 'regex') &&
-      typeof item === 'string'
-    ) {
-      validation.pattern = item
+      validation[key] = number
+    } else if ((key === 'pattern' || key === 'regex') && text !== null) {
+      validation.pattern = text
     } else if (key !== 'targetModelKey') {
       extensions[key] = item
     }
@@ -224,7 +285,14 @@ function asValidation(value: Record<string, unknown>): FieldValidation {
 export function fieldDefinitionFromModelField(
   field: ExistingModelFieldLike,
 ): FieldDefinition {
-  const targetModelKey = field.validation.targetModelKey
+  const persistedValidation = persistedFieldJsonObjectSchema.safeParse(
+    field.validation,
+  )
+
+  const targetModelKey = persistedValidation.success
+    ? persistedString(persistedValidation.data.targetModelKey)
+    : null
+
   const cardinality = field.cardinality ?? 'one'
 
   return {
@@ -247,8 +315,7 @@ export function fieldDefinitionFromModelField(
     relationship:
       field.logicalType === 'reference' && field.relationship !== undefined
         ? field.relationship
-        : field.logicalType === 'reference' &&
-            typeof targetModelKey === 'string'
+        : field.logicalType === 'reference' && targetModelKey !== null
           ? {
               target: { kind: 'model', modelKey: targetModelKey },
               cardinality,

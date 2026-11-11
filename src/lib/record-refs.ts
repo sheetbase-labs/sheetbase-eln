@@ -24,17 +24,20 @@ const RECORDS: RefSource = {
   kind: null,
 }
 
-const SOURCES: Partial<Record<string, RefSource>> = {
-  EXP: RECORDS,
-  SMP: RECORDS,
-  MAT: RECORDS,
-  PRT: RECORDS,
-  DS: { table: 'datasets', column: 'display_id', kind: 'dataset' },
-  INS: { table: 'instruments', column: 'display_id', kind: 'instrument' },
-  PRJ: { table: 'projects', column: 'display_id', kind: 'project' },
-  PL: { table: 'pipeline_definitions', column: 'display_id', kind: 'pipeline' },
-  AN: { table: 'analysis_views', column: 'display_id', kind: 'analysis' },
-}
+const SOURCES = new Map<string, RefSource>([
+  ['EXP', RECORDS],
+  ['SMP', RECORDS],
+  ['MAT', RECORDS],
+  ['PRT', RECORDS],
+  ['DS', { table: 'datasets', column: 'display_id', kind: 'dataset' }],
+  ['INS', { table: 'instruments', column: 'display_id', kind: 'instrument' }],
+  ['PRJ', { table: 'projects', column: 'display_id', kind: 'project' }],
+  [
+    'PL',
+    { table: 'pipeline_definitions', column: 'display_id', kind: 'pipeline' },
+  ],
+  ['AN', { table: 'analysis_views', column: 'display_id', kind: 'analysis' }],
+])
 
 /** One piece of a sentence: plain text, or an identifier that might be a link. */
 export type RefPart = { text: string; ref: boolean }
@@ -59,7 +62,7 @@ export function splitRefs(text: string): RefPart[] {
 
 /** The object kind of a known identifier, or null when no record has it. */
 async function lookUp(ref: string): Promise<string | null> {
-  const source = SOURCES[ref.slice(0, ref.indexOf('-'))]
+  const source = SOURCES.get(ref.slice(0, ref.indexOf('-')))
 
   if (!source) return null
   const select = source.kind ? source.column : `${source.column},kind`

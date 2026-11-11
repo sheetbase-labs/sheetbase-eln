@@ -54,15 +54,36 @@ const data = vi.hoisted(() => ({
   list: vi.fn(),
 }))
 
+/** The route options the mocked factory records, so the suite renders the screen. */
+interface RouteOptions {
+  component?: React.ComponentType
+}
+
+/** A redirect as this route states it; the mock hands it straight back. */
+interface RedirectOptions {
+  to: string
+}
+
+/** The props the screen hands a `Link`. */
+interface LinkLikeProps {
+  to?: string
+  params?: Record<string, string>
+  children: React.ReactNode
+  className?: string
+  activeProps?: unknown
+  activeOptions?: unknown
+}
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory binds to the generated route tree at import time, and this suite renders the sample screen on its own with the params, search and workspace context the shell would supply.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
+  createFileRoute: () => (config: RouteOptions) => ({
     useParams: () => ({ sampleId: 's-1' }),
     useSearch: () => ({}),
     useRouteContext: () => ({ context: routeContext.value }),
     options: config,
   }),
   Outlet: () => null,
-  redirect: (options: unknown) => options,
+  redirect: (options: RedirectOptions) => options,
   Link: ({
     to,
     params,
@@ -70,12 +91,8 @@ vi.mock('@tanstack/react-router', () => ({
     activeProps: _activeProps,
     activeOptions: _activeOptions,
     ...props
-  }: {
-    to?: string
-    params?: Record<string, string>
-    children: React.ReactNode
-  } & Record<string, unknown>) => {
-    let href = typeof to === 'string' ? to : '#'
+  }: LinkLikeProps) => {
+    let href = to ?? '#'
 
     if (params) {
       for (const [key, value] of Object.entries(params))
@@ -90,10 +107,12 @@ vi.mock('@tanstack/react-router', () => ({
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The screen's own reads run through the module-level notebook client, which builds its transport at import; this suite answers it with the one `list` spy the assertions drive.
 vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: { list: data.list },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The screen's reads and writes are module-level functions over the shared client with no injection point; the real module is spread so every unchanged function stays real, and only the ones a test scripts are replaced.
 vi.mock('#/lib/samples', async () => ({
   ...samples,
   releaseFailedChecks: (
@@ -175,16 +194,20 @@ vi.mock('#/lib/samples', async () => ({
       recordId,
     ],
   },
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A failed sample action is a caught throw, untyped by definition; Error supplies its message and anything else falls back.
   describeSampleError: (error: unknown) =>
     error instanceof Error ? error.message : 'Could not complete it.',
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Recent-view tracking posts to the server from an effect; a jsdom render has no server runtime and the screen does not read what it records.
 vi.mock('#/lib/recents', () => ({ useRecentViewTracking: () => undefined }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The favourite toggle reads and writes the signed-in person's favourites through the shared client; the sample screen is this suite's subject, and the toggle is covered by its own suite.
 vi.mock('#/components/favourites/favourite-toggle', () => ({
   FavouriteToggle: () => null,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- User names come from a server function, which needs the request runtime a jsdom render has none of; these names are the ones the screen prints.
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({
     names: { 'u-9': 'Gareth P.' },
@@ -192,11 +215,14 @@ vi.mock('#/lib/user-names', () => ({
   }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Toasts are painted by the app shell's Toaster, which this render does not mount; the toast calls are recorded so the assertions can check what the screen reported.
 vi.mock('#/components/ui/sonner', () => ({
   toast: sonner.toast,
   Toaster: () => null,
 }))
 
+// SAFETY: the route declares `component` in its options, so this is the screen
+// a router renders for the path.
 const SampleRoute = Route.options.component as React.ComponentType
 
 function sample(overrides: Partial<SampleRecord> = {}): SampleRecord {
@@ -670,8 +696,8 @@ describe('sample lineage export', () => {
   it('writes a CSV of the lineage it shows instead of promising a link', async () => {
     const createObjectURL = vi.fn<(blob: Blob) => string>(() => 'blob:lineage')
     const revokeObjectURL = vi.fn()
-    const originalCreate = URL.createObjectURL
-    const originalRevoke = URL.revokeObjectURL
+    const originalCreate = URL.createObjectURL.bind(URL)
+    const originalRevoke = URL.revokeObjectURL.bind(URL)
     URL.createObjectURL = createObjectURL
     URL.revokeObjectURL = revokeObjectURL
     samples.fetchSample.mockResolvedValue(sample({ status: 'disposed' }))

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { createDataClient } from './data-client'
 import {
@@ -9,6 +10,18 @@ import {
   setWorkspaceGroupMember,
 } from './workspace-access'
 
+/** What the client sent: the transport's path string and its JSON body. */
+function captured(requests: { path: string; body: unknown }[]) {
+  return async (path: RequestInfo | URL, init?: RequestInit) => {
+    requests.push({
+      path: z.string().parse(path),
+      body: JSON.parse(z.string().parse(init?.body)),
+    })
+
+    return Response.json(null)
+  }
+}
+
 const projectId = '00000000-0000-4000-8000-000000009203'
 const groupId = '00000000-0000-4000-8000-000000009204'
 const requestId = '00000000-0000-4000-8000-000000009207'
@@ -17,14 +30,7 @@ describe('workspace access boundary', () => {
   it('sends independent rule flags and exactly one principal to the canonical RPC', async () => {
     const requests: { path: string; body: unknown }[] = []
 
-    const client = createDataClient(async (path, init) => {
-      requests.push({
-        path: String(path),
-        body: JSON.parse(String(init?.body)),
-      })
-
-      return Response.json(null)
-    })
+    const client = createDataClient(captured(requests))
 
     await setProjectAccessRule(client, {
       projectId,
@@ -91,13 +97,13 @@ describe('workspace access boundary', () => {
   it('asks the canonical RPC for edit access and grants nothing', async () => {
     const requests: { path: string; body: unknown }[] = []
 
+    // The RPC returns the created request; it starts pending, never granted.
     const client = createDataClient(async (path, init) => {
       requests.push({
-        path: String(path),
-        body: JSON.parse(String(init?.body)),
+        path: z.string().parse(path),
+        body: JSON.parse(z.string().parse(init?.body)),
       })
 
-      // The RPC returns the created request; it starts pending, never granted.
       return Response.json({
         id: requestId,
         project_id: projectId,
@@ -142,7 +148,7 @@ describe('workspace access boundary', () => {
     let seen = ''
 
     const client = createDataClient(async (path) => {
-      seen = String(path)
+      seen = z.string().parse(path)
 
       return Response.json([
         {

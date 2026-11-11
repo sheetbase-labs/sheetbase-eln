@@ -10,7 +10,18 @@
  * jsdom cannot evaluate the media queries, so the phone rendering path is
  * proved the way `app-shell.test.tsx` proves the phone shell: the phone-only
  * elements carry `md:hidden` and the desktop-only ones `max-md:hidden`.
+ *
+ * The page reads through the real data modules: the transport below answers
+ * the four reads it makes and refuses the two export endpoints.
  */
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
   fireEvent,
@@ -19,130 +30,159 @@ import {
   waitFor,
   within,
 } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { EvidencePage } from './-evidence-page'
+import { Toaster } from '#/components/ui/sonner'
 
-const mocks = vi.hoisted(() => {
-  const revision = {
-    id: 'rev-0001',
-    record_id: 'rec-0001',
-    structure_version: 2,
-    metadata_version: 1,
-    metadata_snapshot: {
-      title: 'Harvest timing study',
-      identifier: 'EXP-0133',
-    },
-    block_snapshot: [
-      {
-        id: 'blk-1',
-        type: 'text',
-        payload: { text: 'Harvest timing: 48, 72 and 96 h' },
-        payload_schema_version: 1,
-        order: 1,
-        version: 1,
-      },
-      {
-        id: 'blk-2',
-        type: 'measurement',
-        payload: { text: 'H96 genome titre 7.3 × 10¹⁰' },
-        payload_schema_version: 1,
-        order: 2,
-        version: 1,
-      },
-    ],
-    integrity_algorithm: 'sha256',
-    integrity_digest: 'c'.repeat(64),
-    reason: 'Initial submission',
-    superseded_by_revision_id: null,
-    created_at: '2026-09-19T06:00:00.000Z',
-    created_by_user_id: 'user-1',
-    frozenSheetEvidence: [],
-  }
-
-  const record = {
-    id: 'rec-0001',
-    projectId: null,
-    kind: 'experiment',
-    identifier: 'EXP-0133',
+/** The frozen revision, as `api.revisions` returns it. */
+const revision = {
+  id: 'rev-0001',
+  record_id: 'rec-0001',
+  structure_version: 2,
+  metadata_version: 1,
+  metadata_snapshot: {
     title: 'Harvest timing study',
-    status: 'signed',
-    tags: [],
-    structureVersion: 2,
-    metadataVersion: 1,
-    createdAt: '2026-09-01T06:00:00.000Z',
-    updatedAt: '2026-09-19T06:00:00.000Z',
-    archivedAt: null,
-    deletedAt: null,
-    createdByUserId: 'user-1',
-    updatedByUserId: null,
-    properties: {},
-    lockedAt: '2026-09-19T06:00:00.000Z',
-    lockedByRevisionId: 'rev-0001',
-  }
+    identifier: 'EXP-0133',
+  },
+  block_snapshot: [
+    {
+      id: 'blk-1',
+      type: 'text',
+      payload: { text: 'Harvest timing: 48, 72 and 96 h' },
+      payload_schema_version: 1,
+      order: 1,
+      version: 1,
+    },
+    {
+      id: 'blk-2',
+      type: 'measurement',
+      payload: { text: 'H96 genome titre 7.3 × 10¹⁰' },
+      payload_schema_version: 1,
+      order: 2,
+      version: 1,
+    },
+  ],
+  integrity_algorithm: 'sha256',
+  integrity_digest: 'c'.repeat(64),
+  reason: 'Initial submission',
+  superseded_by_revision_id: null,
+  created_at: '2026-09-19T06:00:00.000Z',
+  created_by_user_id: 'user-1',
+}
 
-  return {
-    revision,
-    record,
-    fetchRevisionRow: vi.fn(),
-    fetchRecord: vi.fn(),
-    createAmendment: vi.fn(),
-    toast: vi.fn(),
+/** The record row, as `api.records` returns it. */
+const recordRow = {
+  id: 'rec-0001',
+  workspace_id: 'ws-0001',
+  project_id: null,
+  folder_id: null,
+  kind: 'experiment',
+  identifier: 'EXP-0133',
+  title: 'Harvest timing study',
+  status: 'signed',
+  tags: [],
+  structure_version: 2,
+  metadata_version: 1,
+  created_at: '2026-09-01T06:00:00.000Z',
+  updated_at: '2026-09-19T06:00:00.000Z',
+  archived_at: null,
+  deleted_at: null,
+  created_by_user_id: 'user-1',
+  updated_by_user_id: null,
+  properties: {},
+  locked_at: '2026-09-19T06:00:00.000Z',
+  locked_by_revision_id: 'rev-0001',
+}
+
+/** What this run's reads answer for the record; a test may replace it. */
+let answeredRecord: Omit<
+  typeof recordRow,
+  'locked_at' | 'locked_by_revision_id'
+> & {
+  locked_at: string | null
+  locked_by_revision_id: string | null
+} = recordRow
+
+/** What `revision_drift` answers: nothing has moved since this revision froze. */
+const drift = {
+  revisionId: 'rev-0001',
+  recordId: 'rec-0001',
+  signedAt: '2026-09-19T06:00:00.000Z',
+  record: {
+    recordId: 'rec-0001',
+    identifier: 'EXP-0133',
+    signedTitle: 'Harvest timing study',
+    currentTitle: 'Harvest timing study',
+    renamed: false,
+  },
+  datasets: [],
+  instruments: [],
+  commentsAfterSigning: 0,
+  drifted: false,
+}
+
+const read = (input: RequestInfo | URL): string =>
+  new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  ).pathname
+
+const fetchSeam = vi.fn((input: RequestInfo | URL) => {
+  switch (read(input)) {
+    case '/api/db/revisions':
+      return Response.json([revision])
+    case '/api/db/revision_sheet_evidence':
+      return Response.json([])
+    case '/api/db/records':
+      return Response.json([answeredRecord])
+    case '/api/db/signatures':
+      return Response.json([])
+    case '/api/db/rpc/revision_drift':
+      return Response.json(drift)
+    case '/api/export/revision/rev-0001/package':
+    case '/api/export/revision/rev-0001/pdf':
+      return Response.json(null, { status: 404 })
+    default:
+      return Response.json([])
   }
 })
 
-vi.mock('@tanstack/react-router', () => ({
-  getRouteApi: () => ({
-    useParams: () => ({ revisionId: 'rev-0001' }),
-    useRouteContext: () => ({}),
-  }),
-  redirect: (options: unknown) => options,
-  useNavigate: () => vi.fn(),
-  Link: ({
-    to,
-    params,
-    children,
-    ...props
-  }: {
-    to: string
-    params?: Record<string, string>
-    children: React.ReactNode
-  } & Record<string, unknown>) => {
-    let href = to
+// The data clients build their transport at import, so the seam goes in first.
+vi.stubGlobal('fetch', fetchSeam)
 
-    for (const [key, value] of Object.entries(params ?? {}))
-      href = href.replace(`$${key}`, encodeURIComponent(String(value)))
+const { EvidencePage } = await import('./-evidence-page')
+const { dropSharedReads } = await import('#/lib/data-client')
 
-    return (
-      <a href={href} {...props}>
-        {children}
-      </a>
-    )
-  },
-}))
+/** The page reads its revision id through the route it is registered under. */
+const rootRoute = createRootRoute()
 
-// The route reads these three data modules; no UI component it imports does, so
-// each is stubbed whole rather than spread over the real module.
-vi.mock('#/lib/review-workspace', () => ({
-  reviewWorkspaceDataClient: {},
-  fetchRevisionRow: mocks.fetchRevisionRow,
-}))
+const blankRoute = (path: string) =>
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path,
+    component: () => null,
+  })
 
-vi.mock('#/lib/notebook-data', () => ({
-  notebookDataClient: {},
-  fetchRecord: mocks.fetchRecord,
-}))
+const router = createRouter({
+  routeTree: rootRoute.addChildren([
+    blankRoute('/inbox'),
+    blankRoute('/records/$recordId/notebook'),
+    createRoute({
+      getParentRoute: () => rootRoute,
+      path: '/evidence/$revisionId',
+      component: EvidencePage,
+    }),
+  ]),
+  history: createMemoryHistory({ initialEntries: ['/evidence/rev-0001'] }),
+})
 
-vi.mock('#/lib/sign-002', () => ({
-  sign002DataClient: {},
-  createAmendment: mocks.createAmendment,
-}))
+/** The element a query found, or a failed test when it found none. */
+function element(node: Element | null): HTMLElement {
+  if (!(node instanceof HTMLElement))
+    throw new Error('expected an HTML element')
 
-vi.mock('#/components/ui/sonner', () => ({
-  toast: mocks.toast,
-  Toaster: () => null,
-}))
+  return node
+}
 
 function renderPage() {
   const client = new QueryClient({
@@ -151,19 +191,20 @@ function renderPage() {
 
   return render(
     <QueryClientProvider client={client}>
-      <EvidencePage />
+      <RouterProvider router={router} />
+      <Toaster />
     </QueryClientProvider>,
   )
 }
 
 beforeEach(() => {
-  mocks.fetchRevisionRow.mockResolvedValue(mocks.revision)
-  mocks.fetchRecord.mockResolvedValue(mocks.record)
+  answeredRecord = recordRow
 })
 
 afterEach(() => {
   cleanup()
-  vi.clearAllMocks()
+  dropSharedReads()
+  fetchSeam.mockClear()
 })
 
 describe('evidence page — phone rendering (MOB-02.4)', () => {
@@ -201,7 +242,7 @@ describe('evidence page — phone rendering (MOB-02.4)', () => {
 
     const phoneHash = await screen.findByText('Hash verified when signed')
     expect(phoneHash.closest('div')?.className).toContain('md:hidden')
-    within(phoneHash.closest('div') as HTMLElement).getByText(
+    within(element(phoneHash.closest('div'))).getByText(
       `sha256 · ${'c'.repeat(64)}`,
     )
 
@@ -213,7 +254,7 @@ describe('evidence page — phone rendering (MOB-02.4)', () => {
 
     expect(inspector).not.toBeNull()
 
-    const inspectorHash = within(inspector as HTMLElement).getByText(
+    const inspectorHash = within(element(inspector)).getByText(
       'Verified when signed',
     )
 
@@ -241,12 +282,12 @@ describe('evidence page — phone rendering (MOB-02.4)', () => {
 
 describe('evidence page — submitted but not signed', () => {
   it('does not call an unsigned revision signed', async () => {
-    mocks.fetchRecord.mockResolvedValue({
-      ...mocks.record,
+    answeredRecord = {
+      ...recordRow,
       status: 'in_review',
-      lockedAt: null,
-      lockedByRevisionId: null,
-    })
+      locked_at: null,
+      locked_by_revision_id: null,
+    }
     renderPage()
     await screen.findByRole('table', { name: 'Frozen revision content' })
 
@@ -271,54 +312,38 @@ describe('evidence page — submitted but not signed', () => {
 
 describe('evidence page — package export (DATA-02)', () => {
   it('reports a refused package instead of replacing the page with the error body', async () => {
-    const fetchMock = vi.fn(async () => new Response('nope', { status: 404 }))
-    vi.stubGlobal('fetch', fetchMock)
+    renderPage()
+    await screen.findByRole('table', { name: 'Frozen revision content' })
 
-    try {
-      renderPage()
-      await screen.findByRole('table', { name: 'Frozen revision content' })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Export evidence package' }),
+    )
 
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Export evidence package' }),
-      )
-
-      await waitFor(() =>
-        expect(mocks.toast).toHaveBeenCalledWith(
-          'Couldn’t export the evidence',
-          { description: 'This revision has nothing to export.' },
-        ),
-      )
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/export/revision/rev-0001/package',
-      )
-      // The evidence is still on screen; the failure did not navigate away.
-      expect(
-        screen.getByRole('table', { name: 'Frozen revision content' }),
-      ).toBeTruthy()
-    } finally {
-      vi.unstubAllGlobals()
-    }
+    expect(await screen.findByText('Couldn’t export the evidence')).toBeTruthy()
+    expect(
+      screen.getByText('This revision has nothing to export.'),
+    ).toBeTruthy()
+    expect(fetchSeam).toHaveBeenCalledWith(
+      '/api/export/revision/rev-0001/package',
+    )
+    // The evidence is still on screen; the failure did not navigate away.
+    expect(
+      screen.getByRole('table', { name: 'Frozen revision content' }),
+    ).toBeTruthy()
   })
 })
 
 describe('evidence page — PDF export', () => {
   it('fetches the internal PDF and reports a refusal beside the button', async () => {
-    const fetchMock = vi.fn(async () => new Response('nope', { status: 404 }))
-    vi.stubGlobal('fetch', fetchMock)
-
-    try {
-      renderPage()
-      await screen.findByRole('table', { name: 'Frozen revision content' })
-      fireEvent.click(screen.getByRole('button', { name: 'Export PDF' }))
-      await waitFor(() =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          '/api/export/revision/rev-0001/pdf',
-        ),
-      )
-      await waitFor(() => expect(mocks.toast).toHaveBeenCalled())
-    } finally {
-      vi.unstubAllGlobals()
-    }
+    renderPage()
+    await screen.findByRole('table', { name: 'Frozen revision content' })
+    fireEvent.click(screen.getByRole('button', { name: 'Export PDF' }))
+    await waitFor(() =>
+      expect(fetchSeam).toHaveBeenCalledWith(
+        '/api/export/revision/rev-0001/pdf',
+      ),
+    )
+    expect(await screen.findByText('Couldn’t export the evidence')).toBeTruthy()
   })
 })
 

@@ -38,12 +38,30 @@ interface RouteContextStub {
   workspace: { id: string; name: string; role: string }
 }
 
-const h = vi.hoisted(() => ({
-  collaborationEnabled: true,
-  tab: 'diff',
-  others: [] as Array<{ connectionId?: number; info?: { name?: string } }>,
-  routeContext: null as unknown as RouteContextStub,
-}))
+/** One peer the room reports: the hosted connection's identity, as presence reads it. */
+interface RoomPeer {
+  connectionId?: number
+  info?: { name?: string }
+}
+
+/** The state the hoisted mocks read, one field per seam. */
+interface HoistedState {
+  collaborationEnabled: boolean
+  tab: string
+  others: RoomPeer[]
+  routeContext: RouteContextStub | null
+}
+
+const h = vi.hoisted(() => {
+  const state: HoistedState = {
+    collaborationEnabled: true,
+    tab: 'diff',
+    others: [],
+    routeContext: null,
+  }
+
+  return state
+})
 
 const WS_ID = '11111111-1111-4111-8111-111111111111'
 const RECORD_ID = '22222222-2222-4222-8222-222222222222'
@@ -55,20 +73,16 @@ const USER_ID = '44444444-4444-4444-8444-444444444444'
 // Router seams.
 // ---------------------------------------------------------------------------
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The review route builds its route object from the generated route tree at import time; this suite renders that component on its own with the context, params and search the shell would supply.
 vi.mock('@tanstack/react-router', () => ({
   getRouteApi: () => ({
     useRouteContext: () => ({ context: h.routeContext }),
   }),
-  redirect: (options: unknown) => options,
+  redirect: <TOptions,>(options: TOptions) => options,
   useNavigate: () => vi.fn(),
   useParams: () => ({ revisionId: REVISION_ID }),
   useSearch: () => ({ tab: h.tab }),
-  Link: ({
-    children,
-    ...props
-  }: { children: ReactNode } & Record<string, unknown>) => (
-    <a {...props}>{children}</a>
-  ),
+  Link: ({ children }: { children?: ReactNode }) => <a>{children}</a>,
 }))
 
 // ---------------------------------------------------------------------------
@@ -109,6 +123,7 @@ h.routeContext = {
   workspace: { id: WS_ID, name: 'Lab', role: 'scientist' },
 }
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route builds its data client at import time; this suite never reaches the transport, and the refusal error class is the app's own archived shape.
 vi.mock('#/lib/data-client', () => ({
   createDataClient: () => ({}),
   DataClientError: class DataClientError extends Error {
@@ -120,6 +135,7 @@ vi.mock('#/lib/data-client', () => ({
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route's review reads run through module-level functions over the shared client with no injection point; this suite fixes the records and projects the header renders.
 vi.mock('#/lib/reviews', () => ({
   fetchProjectsForReviews: vi.fn(async () => ({})),
   fetchRecordsForReviews: vi.fn(async () => [recordRow]),
@@ -131,6 +147,7 @@ vi.mock('#/lib/reviews', () => ({
   workflowStepsFor: vi.fn(() => []),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Review decisions write through module-level functions; this suite renders the workspace and never decides, so the writes are recorded instead of sent.
 vi.mock('#/lib/review-workspace', () => ({
   approveReview: vi.fn(),
   blockedReasonLabel: (reason: string) => reason,
@@ -172,6 +189,7 @@ vi.mock('#/lib/review-workspace', () => ({
   withdrawReview: vi.fn(),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The checks panel's reads run through module-level functions with no injection point; this suite answers them with no results so the header is the subject.
 vi.mock('#/lib/review-checks', () => ({
   fetchReviewCheckResults: vi.fn(async () => []),
   reviewCheckQueryKeys: {
@@ -181,6 +199,7 @@ vi.mock('#/lib/review-checks', () => ({
   runDefaultRevisionChecks: vi.fn(async () => ({})),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Signatures are read through module-level functions over the shared client; this suite answers them with none, keeping the real vocabulary and keys.
 vi.mock('#/lib/signatures', async (importOriginal) => ({
   ...(await importOriginal()),
   ASSURANCE_LEVEL_STATEMENT: { standard: 'Standard assurance statement.' },
@@ -209,6 +228,7 @@ vi.mock('#/lib/signatures', async (importOriginal) => ({
   signRevision: vi.fn(),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Certification reads run through module-level functions with no injection point; this suite answers them with no certification so the header renders.
 vi.mock('#/lib/signature-certification', async (importOriginal) => ({
   ...(await importOriginal()),
   fetchWorkspaceCertifications: vi.fn(async () => []),
@@ -219,11 +239,13 @@ vi.mock('#/lib/signature-certification', async (importOriginal) => ({
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Workspace members come from a module-level read over the shared client; this suite answers it with the one reviewer it asserts.
 vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
   ...(await importOriginal()),
   fetchWorkspaceMembers: vi.fn(async () => []),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The amendment timeline is read through module-level functions; this suite answers it with none, keeping the real query keys.
 vi.mock('#/lib/sign-002', () => ({
   createAmendment: vi.fn(),
   fetchRecordTimeline: vi.fn(async () => []),
@@ -233,6 +255,7 @@ vi.mock('#/lib/sign-002', () => ({
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route imports `formatDate` from the notebook module, which pulls in the whole notebook data layer; this suite only needs the date formatter.
 vi.mock('#/lib/notebook-data', () => ({
   formatDate: (value: string | null) =>
     value ? String(value).slice(0, 10) : '',
@@ -244,6 +267,7 @@ vi.mock('#/lib/notebook-data', () => ({
 // readiness context and presence rendering behave exactly as in production.
 // ---------------------------------------------------------------------------
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Liveblocks is a hosted service with no server here; the stub keeps the room's own readiness and presence components real, as the comment above records.
 vi.mock('#/lib/collaboration/provider', () => ({
   CollabProvider: class {
     destroy() {}
@@ -251,21 +275,25 @@ vi.mock('#/lib/collaboration/provider', () => ({
   collabUrl: () => 'ws://localhost/api/collaboration/ws',
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The room's peers come from the Liveblocks connection this environment has none of; the suite supplies them so presence rendering stays real.
 vi.mock('#/lib/collaboration/room-hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof roomHooks>()),
   useOthers: () => h.others,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The enablement switch is read from a workspace setting over the shared client; the suite flips it per test.
 vi.mock('#/lib/collaboration/collaboration-enabled', () => ({
   useCollaborationEnabled: () => h.collaborationEnabled,
 }))
 
 // Heavy non-collaboration panels are not under test here.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The audit panels are heavy surfaces with their own suites; the review header, checks and discussion are this suite's subject.
 vi.mock('#/components/audit', () => ({
   ApprovalStepper: () => <div />,
   RecordHistoryTimeline: () => <div />,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The comment panel reads and writes through the shared client; this suite stubs it with the reply control its discussion assertion drives.
 vi.mock('#/components/comments', () => ({
   CommentPanel: () => {
     const [replying, setReplying] = useState(false)
@@ -278,10 +306,12 @@ vi.mock('#/components/comments', () => ({
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The frozen-sheet evidence panel renders the notebook's sheet blocks and has its own suite; the review header is this suite's subject.
 vi.mock('#/components/notebook/notebook-sheet-block', () => ({
   FrozenSheetEvidencePanel: () => <div />,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The diff, document and check panels are heavy surfaces with their own suites; this suite asserts the workspace around them.
 vi.mock('#/components/review', () => ({
   ReviewCheckResults: () => <div />,
   RevisionDiffReview: () => <div />,

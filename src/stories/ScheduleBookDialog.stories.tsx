@@ -34,7 +34,9 @@ const INSTRUMENTS: ScheduleInstrument[] = [
 ]
 
 const ZONE: DataClientStub = {
-  list: async () => [{ timezone: 'Europe/London' }],
+  // SAFETY: the dialog reads the workspace's time zone from this one list
+  // answer; the story's row is what it hands back.
+  list: async <T,>() => [{ timezone: 'Europe/London' }] as T[],
 }
 
 const ZONE_UNAVAILABLE: DataClientStub = {

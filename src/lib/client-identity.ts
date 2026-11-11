@@ -61,15 +61,12 @@ export function getClientId(
 
 /** Generate a fresh client id. Uses `crypto.randomUUID` when available. */
 function newClientId(): string {
-  if (
-    typeof crypto !== 'undefined' &&
-    typeof crypto.randomUUID === 'function'
-  ) {
+  try {
     return crypto.randomUUID()
+  } catch {
+    // Fallback for very old browsers; sufficient for tab-scoped identity.
+    return `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
   }
-
-  // Fallback for very old browsers; sufficient for tab-scoped identity.
-  return `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
 /** Safely access `sessionStorage`; returns null when blocked or undefined. */

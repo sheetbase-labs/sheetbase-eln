@@ -11,7 +11,7 @@ import {
 } from '#/lib/samples'
 import type { DerivedSample, SampleRecord } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { sampleEventsQueryKey } from '../$sampleId'
+import { sampleEventsQueryKey } from '#/routes/samples/-sample-keys'
 import { t } from '#/copy'
 
 import { formatVolume, usePurposeRecords } from './-sample-details-data'

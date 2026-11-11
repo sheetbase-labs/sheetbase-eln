@@ -78,307 +78,338 @@ export const Route = createFileRoute('/foundations')({
 })
 
 function FoundationsPage() {
-  const { theme, setTheme } = useTheme()
-
   return (
     <div className="min-h-svh bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-6 py-10">
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-6">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Foundations
-              </p>
-              <Badge variant="kind">Development only</Badge>
-            </div>
-            <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight">
-              Visual rules and semantic tokens
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              The reconciled Sheetbase token set. Instrument Sans for headings,
-              Inter for body, controls and data. A single decisive blue,
-              restrained semantic colours, fine borders, low elevation. Compare
-              with DESIGN.md and the concept system.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div
-              role="group"
-              aria-label="Theme"
-              className="flex items-center rounded-md border bg-card p-0.5"
-            >
-              <ToggleButton
-                active={theme === 'light'}
-                onClick={() => setTheme('light')}
-                label="Light"
-              >
-                <Icon name="sun" className="size-3.5" /> Light
-              </ToggleButton>
-              <ToggleButton
-                active={theme === 'dark'}
-                onClick={() => setTheme('dark')}
-                label="Dark"
-              >
-                <Icon name="moon" className="size-3.5" /> Dark
-              </ToggleButton>
-            </div>
-          </div>
-        </header>
-
-        <Section
-          id="colour"
-          title="Colour"
-          description="Product code uses semantic variables (primary, border, muted) — never literal palette values."
-        >
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {COLOUR_TOKENS.map((t) => (
-              <TokenSwatch key={t.name} {...t} />
-            ))}
-          </div>
-          <div className="mt-5 flex flex-wrap gap-2">
-            <span className="rounded-full bg-success-wash px-2.5 py-0.5 text-xs font-medium text-success-text">
-              In progress
-            </span>
-            <span className="rounded-full bg-review-wash px-2.5 py-0.5 text-xs font-medium text-review">
-              Needs review
-            </span>
-            <span className="rounded-full bg-danger-wash px-2.5 py-0.5 text-xs font-medium text-danger-text">
-              Failed
-            </span>
-            <span className="rounded-full bg-warning-wash px-2.5 py-0.5 text-xs font-medium text-warning-text">
-              Expired
-            </span>
-            <span className="rounded-full border px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-              Archived
-            </span>
-          </div>
-        </Section>
-
-        <Section
-          id="typography"
-          title="Typography"
-          description="Instrument Sans for headings; Inter for body, controls and data. No marketing-scale type."
-        >
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Preview title="Interface hierarchy">
-              <div className="space-y-5">
-                <TypeRow label="Page title · 24/32 semibold">
-                  <p className="font-display text-2xl font-semibold tracking-tight">
-                    Virus Stability at 4 °C
-                  </p>
-                </TypeRow>
-                <TypeRow label="Section title · 18/26 semibold">
-                  <p className="font-display text-lg font-semibold">
-                    Experimental design
-                  </p>
-                </TypeRow>
-                <TypeRow label="Component title · 14/20 semibold">
-                  <p className="text-sm font-semibold">Linked samples</p>
-                </TypeRow>
-                <TypeRow label="Body · 14/22 regular">
-                  <p className="max-w-lg text-sm leading-[1.55]">
-                    Evaluate the stability of concentrated lentiviral vector
-                    when stored at 4 °C over 28 days.
-                  </p>
-                </TypeRow>
-              </div>
-            </Preview>
-            <Preview title="Data typography">
-              <div className="space-y-4">
-                <TypeRow label="Tabular data">
-                  <span className="font-mono text-sm tabular-nums">
-                    3.20E+08 TU/mL
-                  </span>
-                </TypeRow>
-                <TypeRow label="Scientific nums">
-                  <span className="scientific-nums text-sm">
-                    1.42 × 10⁻⁶ mol/L
-                  </span>
-                </TypeRow>
-                <TypeRow label="Identifier">
-                  <span className="font-mono text-xs">EXP-2025-0014</span>
-                </TypeRow>
-                <TypeRow label="Caption">
-                  <span className="text-xs text-muted-foreground">
-                    Updated 2 hours ago by Gareth Price
-                  </span>
-                </TypeRow>
-              </div>
-            </Preview>
-          </div>
-        </Section>
-
-        <Section id="spacing" title="Spacing, radius and elevation">
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Preview title="8-point spacing">
-              <div className="flex items-end gap-3">
-                {[4, 8, 12, 16, 24, 32, 48, 64].map((v) => (
-                  <div key={v} className="flex flex-col items-center gap-2">
-                    <div
-                      className="rounded-sm bg-primary/20"
-                      style={{ width: v, height: v }}
-                    />
-                    <span className="text-xs text-muted-foreground">{v}</span>
-                  </div>
-                ))}
-              </div>
-            </Preview>
-            <Preview title="Radius">
-              <div className="flex items-end gap-4">
-                {[4, 6, 8, 12, 16].map((v) => (
-                  <div key={v} className="flex flex-col items-center gap-2">
-                    <div
-                      className="size-14 border bg-muted/50"
-                      style={{ borderRadius: v }}
-                    />
-                    <span className="text-xs text-muted-foreground">{v}px</span>
-                  </div>
-                ))}
-              </div>
-            </Preview>
-            <Preview title="Elevation">
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: 'border', cls: 'border' },
-                  { label: 'shadow-xs', cls: 'shadow-xs' },
-                  { label: 'shadow-md', cls: 'shadow-md' },
-                ].map((v) => (
-                  <div
-                    key={v.label}
-                    className={cn(
-                      'flex h-20 items-end rounded-lg border bg-card p-2',
-                      v.cls,
-                    )}
-                  >
-                    <span className="text-xs text-muted-foreground">
-                      {v.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Preview>
-          </div>
-        </Section>
-
-        <Section
-          id="focus"
-          title="Focus rings"
-          description="Visible focus is required for every interactive control (DESIGN.md). Signal Blue ring, 2px outline, offset."
-        >
-          <div className="flex flex-wrap gap-3">
-            <Button variant="secondary">Outline button</Button>
-            <Button
-              variant="primary"
-              nativeButton={false}
-              render={<a href="#focus" role="link" />}
-            >
-              Primary link
-            </Button>
-            <input
-              aria-label="Sample input"
-              className="h-9 rounded-md border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              placeholder="Focus me"
-            />
-          </div>
-        </Section>
-
-        <Section
-          id="icons"
-          title="Iconography"
-          description="The UI system v3 icon set: 16px grid, 1.4px stroke, round caps and joins, currentColor."
-        >
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-9">
-            {ICON_NAMES.map((name) => (
-              <div
-                key={name}
-                className="flex aspect-square flex-col items-center justify-center gap-2 rounded-lg border bg-card"
-              >
-                <Icon name={name} size={20} />
-                <span className="text-xs text-muted-foreground">{name}</span>
-              </div>
-            ))}
-          </div>
-        </Section>
-
-        <Section
-          id="primitives"
-          title="Core primitives"
-          description="The shadcn primitives the next tickets build on. Consistent sizes, visible focus, disabled state, destructive confirmation, keyboard-operable overlays, and programmatic label/description/error wiring."
-        >
-          <PrimitivesGrid />
-        </Section>
-
-        <Section
-          id="record"
-          title="Record header & inspector"
-          description="The compact record header and contextual inspector (UI-004). Every header field is optional; the inspector has skeleton, no-selection, unavailable and permission-denied states."
-        >
-          <RecordPreview />
-        </Section>
-
-        <Section
-          id="notebook"
-          title="Notebook & visualisation frames"
-          description="NotebookBlock, ChartFrame and PlateMap (UI-006) — presentational frames with selected/editing/invalid/locked/loading states, live/snapshot charts, provenance, legend and keyboard-operable plate wells."
-        >
-          <NotebookVizPreview />
-        </Section>
-
-        <Section
-          id="audit"
-          title="Audit trail & approval workflow"
-          description="AuditTrail and ApprovalStepper (UI-007) - presentational, display-only components. Typed events and immutable review state; pending, active, completed, rejected, returned and unavailable steps; long histories stay scrollable; screen readers get complete sentences rather than connector graphics."
-        >
-          <AuditApprovalPreview />
-        </Section>
-
-        <Section
-          id="scientific"
-          title="Scientific status & relationships"
-          description="StatusBadge and RecordLink (UI-005). Per-domain vocabularies (experiment, review, sample, dataset) communicate by text, icon and colour; RecordLink is a real link when reachable and an honest non-interactive row for missing, deleted and permission-restricted targets."
-        >
-          <ScientificPreview />
-        </Section>
-
-        <Section
-          id="shell"
-          title="Application shell"
-          description="AppShell (UI-003). Fixed/collapsible desktop navigation, mobile Sheet navigation, top breadcrumbs/search/action bar, optional inspector, command palette, theme/sign-out. The shell that wraps /projects today is the adopted v3 AppShell; the frame below is the retired legacy chrome kept as a static reference, not a live render."
-        >
-          <AppShellPreview />
-        </Section>
-
-        <Section
-          id="states"
-          title="Component states matrix"
-          description="The states a scientist can meet across the product (UI-008): default, loading, empty, error, disabled, locked and permission-restricted, on representative components. Toggle dark and compact above to see dense/dark variants of the same states."
-        >
-          <StatesMatrixPreview />
-        </Section>
-
-        <Section
-          id="contrast"
-          title="Contrast checks (WCAG 2.2 AA)"
-          description="The common token combinations a scientist reads: body on background, muted on background, primary on primary-foreground, destructive on its foreground."
-        >
-          <ContrastGrid />
-        </Section>
-
-        <Section
-          id="review"
-          title="How to review against mockups and concepts"
-          description="This catalogue is the canonical visual review gate. Every composition here is a production component with typed, review-only data - no business data, no Storybook required."
-        >
-          <ReviewGuide />
-        </Section>
-
-        <footer className="mt-12 border-t pt-6 text-xs text-muted-foreground">
-          Compare with <code>docs/knowledge/DESIGN.md</code> and{' '}
-          <code>docs/knowledge/design/ui-system-v2.md</code>. Toggle theme in
-          the header; preferences persist to localStorage.
-        </footer>
+        <CatalogueHeader />
+        <TokenSections />
+        <ComponentSections />
+        <ClosingSections />
       </div>
     </div>
+  )
+}
+
+/** The catalogue title and the theme switch every section below follows. */
+function CatalogueHeader() {
+  const { theme, setTheme } = useTheme()
+
+  return (
+    <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-6">
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Foundations
+          </p>
+          <Badge variant="kind">Development only</Badge>
+        </div>
+        <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight">
+          Visual rules and semantic tokens
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+          The reconciled Sheetbase token set. Instrument Sans for headings,
+          Inter for body, controls and data. A single decisive blue, restrained
+          semantic colours, fine borders, low elevation. Compare with DESIGN.md
+          and the concept system.
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <div
+          role="group"
+          aria-label="Theme"
+          className="flex items-center rounded-md border bg-card p-0.5"
+        >
+          <ToggleButton
+            active={theme === 'light'}
+            onClick={() => setTheme('light')}
+            label="Light"
+          >
+            <Icon name="sun" className="size-3.5" /> Light
+          </ToggleButton>
+          <ToggleButton
+            active={theme === 'dark'}
+            onClick={() => setTheme('dark')}
+            label="Dark"
+          >
+            <Icon name="moon" className="size-3.5" /> Dark
+          </ToggleButton>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+/** Colour, type, spacing, focus and icons: the tokens a screen is built from. */
+function TokenSections() {
+  return (
+    <>
+      <Section
+        id="colour"
+        title="Colour"
+        description="Product code uses semantic variables (primary, border, muted) — never literal palette values."
+      >
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {COLOUR_TOKENS.map((t) => (
+            <TokenSwatch key={t.name} {...t} />
+          ))}
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <span className="rounded-full bg-success-wash px-2.5 py-0.5 text-xs font-medium text-success-text">
+            In progress
+          </span>
+          <span className="rounded-full bg-review-wash px-2.5 py-0.5 text-xs font-medium text-review">
+            Needs review
+          </span>
+          <span className="rounded-full bg-danger-wash px-2.5 py-0.5 text-xs font-medium text-danger-text">
+            Failed
+          </span>
+          <span className="rounded-full bg-warning-wash px-2.5 py-0.5 text-xs font-medium text-warning-text">
+            Expired
+          </span>
+          <span className="rounded-full border px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+            Archived
+          </span>
+        </div>
+      </Section>
+
+      <Section
+        id="typography"
+        title="Typography"
+        description="Instrument Sans for headings; Inter for body, controls and data. No marketing-scale type."
+      >
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Preview title="Interface hierarchy">
+            <div className="space-y-5">
+              <TypeRow label="Page title · 24/32 semibold">
+                <p className="font-display text-2xl font-semibold tracking-tight">
+                  Virus Stability at 4 °C
+                </p>
+              </TypeRow>
+              <TypeRow label="Section title · 18/26 semibold">
+                <p className="font-display text-lg font-semibold">
+                  Experimental design
+                </p>
+              </TypeRow>
+              <TypeRow label="Component title · 14/20 semibold">
+                <p className="text-sm font-semibold">Linked samples</p>
+              </TypeRow>
+              <TypeRow label="Body · 14/22 regular">
+                <p className="max-w-lg text-sm leading-[1.55]">
+                  Evaluate the stability of concentrated lentiviral vector when
+                  stored at 4 °C over 28 days.
+                </p>
+              </TypeRow>
+            </div>
+          </Preview>
+          <Preview title="Data typography">
+            <div className="space-y-4">
+              <TypeRow label="Tabular data">
+                <span className="font-mono text-sm tabular-nums">
+                  3.20E+08 TU/mL
+                </span>
+              </TypeRow>
+              <TypeRow label="Scientific nums">
+                <span className="scientific-nums text-sm">
+                  1.42 × 10⁻⁶ mol/L
+                </span>
+              </TypeRow>
+              <TypeRow label="Identifier">
+                <span className="font-mono text-xs">EXP-2025-0014</span>
+              </TypeRow>
+              <TypeRow label="Caption">
+                <span className="text-xs text-muted-foreground">
+                  Updated 2 hours ago by Gareth Price
+                </span>
+              </TypeRow>
+            </div>
+          </Preview>
+        </div>
+      </Section>
+
+      <Section id="spacing" title="Spacing, radius and elevation">
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Preview title="8-point spacing">
+            <div className="flex items-end gap-3">
+              {[4, 8, 12, 16, 24, 32, 48, 64].map((v) => (
+                <div key={v} className="flex flex-col items-center gap-2">
+                  <div
+                    className="rounded-sm bg-primary/20"
+                    style={{ width: v, height: v }}
+                  />
+                  <span className="text-xs text-muted-foreground">{v}</span>
+                </div>
+              ))}
+            </div>
+          </Preview>
+          <Preview title="Radius">
+            <div className="flex items-end gap-4">
+              {[4, 6, 8, 12, 16].map((v) => (
+                <div key={v} className="flex flex-col items-center gap-2">
+                  <div
+                    className="size-14 border bg-muted/50"
+                    style={{ borderRadius: v }}
+                  />
+                  <span className="text-xs text-muted-foreground">{v}px</span>
+                </div>
+              ))}
+            </div>
+          </Preview>
+          <Preview title="Elevation">
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'border', cls: 'border' },
+                { label: 'shadow-xs', cls: 'shadow-xs' },
+                { label: 'shadow-md', cls: 'shadow-md' },
+              ].map((v) => (
+                <div
+                  key={v.label}
+                  className={cn(
+                    'flex h-20 items-end rounded-lg border bg-card p-2',
+                    v.cls,
+                  )}
+                >
+                  <span className="text-xs text-muted-foreground">
+                    {v.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Preview>
+        </div>
+      </Section>
+
+      <Section
+        id="focus"
+        title="Focus rings"
+        description="Visible focus is required for every interactive control (DESIGN.md). Signal Blue ring, 2px outline, offset."
+      >
+        <div className="flex flex-wrap gap-3">
+          <Button variant="secondary">Outline button</Button>
+          <Button
+            variant="primary"
+            nativeButton={false}
+            render={<a href="#focus" aria-label="Primary link" />}
+          >
+            Primary link
+          </Button>
+          <input
+            aria-label="Sample input"
+            className="h-9 rounded-md border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            placeholder="Focus me"
+          />
+        </div>
+      </Section>
+
+      <Section
+        id="icons"
+        title="Iconography"
+        description="The UI system v3 icon set: 16px grid, 1.4px stroke, round caps and joins, currentColor."
+      >
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-9">
+          {ICON_NAMES.map((name) => (
+            <div
+              key={name}
+              className="flex aspect-square flex-col items-center justify-center gap-2 rounded-lg border bg-card"
+            >
+              <Icon name={name} size={20} />
+              <span className="text-xs text-muted-foreground">{name}</span>
+            </div>
+          ))}
+        </div>
+      </Section>
+    </>
+  )
+}
+
+/** The production components the catalogue reviews, one section each. */
+function ComponentSections() {
+  return (
+    <>
+      <Section
+        id="primitives"
+        title="Core primitives"
+        description="The shadcn primitives the next tickets build on. Consistent sizes, visible focus, disabled state, destructive confirmation, keyboard-operable overlays, and programmatic label/description/error wiring."
+      >
+        <PrimitivesGrid />
+      </Section>
+
+      <Section
+        id="record"
+        title="Record header & inspector"
+        description="The compact record header and contextual inspector (UI-004). Every header field is optional; the inspector has skeleton, no-selection, unavailable and permission-denied states."
+      >
+        <RecordPreview />
+      </Section>
+
+      <Section
+        id="notebook"
+        title="Notebook & visualisation frames"
+        description="NotebookBlock, ChartFrame and PlateMap (UI-006) — presentational frames with selected/editing/invalid/locked/loading states, live/snapshot charts, provenance, legend and keyboard-operable plate wells."
+      >
+        <NotebookVizPreview />
+      </Section>
+
+      <Section
+        id="audit"
+        title="Audit trail & approval workflow"
+        description="AuditTrail and ApprovalStepper (UI-007) - presentational, display-only components. Typed events and immutable review state; pending, active, completed, rejected, returned and unavailable steps; long histories stay scrollable; screen readers get complete sentences rather than connector graphics."
+      >
+        <AuditApprovalPreview />
+      </Section>
+
+      <Section
+        id="scientific"
+        title="Scientific status & relationships"
+        description="StatusBadge and RecordLink (UI-005). Per-domain vocabularies (experiment, review, sample, dataset) communicate by text, icon and colour; RecordLink is a real link when reachable and an honest non-interactive row for missing, deleted and permission-restricted targets."
+      >
+        <ScientificPreview />
+      </Section>
+
+      <Section
+        id="shell"
+        title="Application shell"
+        description="AppShell (UI-003). Fixed/collapsible desktop navigation, mobile Sheet navigation, top breadcrumbs/search/action bar, optional inspector, command palette, theme/sign-out. The shell that wraps /projects today is the adopted v3 AppShell; the frame below is the retired legacy chrome kept as a static reference, not a live render."
+      >
+        <AppShellPreview />
+      </Section>
+
+      <Section
+        id="states"
+        title="Component states matrix"
+        description="The states a scientist can meet across the product (UI-008): default, loading, empty, error, disabled, locked and permission-restricted, on representative components. Toggle dark and compact above to see dense/dark variants of the same states."
+      >
+        <StatesMatrixPreview />
+      </Section>
+    </>
+  )
+}
+
+/** The contrast checks, the review guide and the footer. */
+function ClosingSections() {
+  return (
+    <>
+      <Section
+        id="contrast"
+        title="Contrast checks (WCAG 2.2 AA)"
+        description="The common token combinations a scientist reads: body on background, muted on background, primary on primary-foreground, destructive on its foreground."
+      >
+        <ContrastGrid />
+      </Section>
+
+      <Section
+        id="review"
+        title="How to review against mockups and concepts"
+        description="This catalogue is the canonical visual review gate. Every composition here is a production component with typed, review-only data - no business data, no Storybook required."
+      >
+        <ReviewGuide />
+      </Section>
+
+      <footer className="mt-12 border-t pt-6 text-xs text-muted-foreground">
+        Compare with <code>docs/knowledge/DESIGN.md</code> and{' '}
+        <code>docs/knowledge/design/ui-system-v2.md</code>. Toggle theme in the
+        header; preferences persist to localStorage.
+      </footer>
+    </>
   )
 }
 
@@ -941,11 +972,11 @@ const PREVIEW_TABS = [
   { key: 'files', label: 'Files' },
 ] as const
 
-const PREVIEW_TAB_BODIES: Record<string, string> = {
-  properties: 'Property list placeholder.',
-  activity: 'Audit trail placeholder.',
-  files: 'Attachments placeholder.',
-}
+const PREVIEW_TAB_BODIES = new Map([
+  ['properties', 'Property list placeholder.'],
+  ['activity', 'Audit trail placeholder.'],
+  ['files', 'Attachments placeholder.'],
+])
 
 function TabsPreview() {
   const [tab, setTab] = useState<string>('properties')
@@ -960,7 +991,7 @@ function TabsPreview() {
         onValueChange={setTab}
       />
       <p className="mt-3 text-sm text-muted-foreground">
-        {PREVIEW_TAB_BODIES[tab]}
+        {PREVIEW_TAB_BODIES.get(tab)}
       </p>
     </div>
   )

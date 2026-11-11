@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
 import { isWithdrawn, withdrawItemFromStock } from './stock-withdraw'
 
-const lotWire = (props: Record<string, unknown>) => ({
+/** A material's stored properties, as the record wire carries them. */
+const lotProperties = z.record(z.string(), z.json())
+
+const lotWire = (props: z.output<typeof lotProperties>) => ({
   id: 'lot-1',
   identifier: 'RGT-1',
   kind: 'material',
@@ -30,7 +34,7 @@ function client(opts: { lot?: unknown; sample?: unknown }) {
     return opts.lot ? [opts.lot] : []
   })
 
-  return { rpc, list, c: { rpc, list } as unknown as DataClient }
+  return { rpc, list, c: Object.assign(createDataClient(), { rpc, list }) }
 }
 
 const item = (over = {}) => ({

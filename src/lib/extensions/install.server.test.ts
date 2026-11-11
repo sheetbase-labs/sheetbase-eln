@@ -1,37 +1,39 @@
+// @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from '../data-client'
+import { createDataClient } from '../data-client'
 import type { SessionAuthDeps } from '../request-auth'
 import { handlePluginInstall } from './install.server'
 import type { PluginInstallDeps } from './install.server'
 
-vi.mock('#/db/client.server', () => ({ db: {} }))
+/**
+ * The install handler's real dependencies (the database client, the session
+ * auth, the runner settings) read the server environment when they load. The
+ * test gives them a disposable one instead of replacing the modules, so the
+ * handler under test is the real one.
+ */
+vi.hoisted(() => {
+  const secret = 'x'.repeat(32)
 
-vi.mock('#/env.server', () => ({ env: {} }))
-
-vi.mock('#/lib/auth', () => ({ getAppSession: vi.fn() }))
-
-vi.mock('../connectors/enterprise/execution.server', () => ({
-  createServerDataClient: vi.fn(),
-}))
-
-vi.mock('./runtime-settings.server', () => ({
-  databaseStore: vi.fn(),
-  ensureEnvironment: vi.fn(),
-  runnerEnvironments: vi.fn(),
-}))
+  process.env.DATABASE_URL ??=
+    'postgresql://sheetbase:sheetbase@localhost:5432/sheetbase'
+  process.env.FORMULA_DATABASE_URL ??=
+    'postgresql://sheetbase:sheetbase@localhost:5432/sheetbase'
+  process.env.BETTER_AUTH_SECRET ??= secret
+  process.env.PGRST_JWT_SECRET ??= secret
+})
 
 function deps(
   verifyBearer: SessionAuthDeps['verifyBearer'],
-  capability: () => Promise<unknown>,
+  capability: () => Promise<void>,
 ) {
   const rpc = vi.fn((name: string) =>
     name === 'require_capability' ? capability() : Promise.resolve(null),
   )
 
-  const makeClient = vi.fn(
-    (_token: string) => ({ rpc }) as unknown as DataClient,
-  )
+  const makeClient = vi.fn((_token: string) => {
+    return Object.assign(createDataClient(), { rpc })
+  })
 
   const value: PluginInstallDeps = {
     auth: {
@@ -62,7 +64,7 @@ describe('POST /api/plugins/install with an API token', () => {
       credentialId: 'cred-1',
     }))
 
-    const { value, makeClient, rpc } = deps(verify, async () => null)
+    const { value, makeClient, rpc } = deps(verify, async () => {})
     const response = await handlePluginInstall(post('sbk_token'), value)
     expect(verify).toHaveBeenCalledWith('sbk_token', 'admin:write')
     expect(makeClient).toHaveBeenCalledWith('sbk_token')
@@ -80,7 +82,7 @@ describe('POST /api/plugins/install with an API token', () => {
   it('refuses a token without admin:write', async () => {
     const { value, makeClient } = deps(
       async () => null,
-      async () => null,
+      async () => {},
     )
 
     const response = await handlePluginInstall(post('sbk_token'), value)
@@ -105,7 +107,7 @@ describe('POST /api/plugins/install with an API token', () => {
   })
 
   it('still needs a session when there is no token', async () => {
-    const { value } = deps(undefined, async () => null)
+    const { value } = deps(undefined, async () => {})
     const response = await handlePluginInstall(post(), value)
     expect(response.status).toBe(401)
   })

@@ -3,20 +3,36 @@ import type { PipelineConfig } from './pipelines/config'
 import { resolvePipelineActionValue } from './pipeline-actions.server'
 import { openSecret } from './connector-secrets.server'
 import { deriveWebhookSecretKey, signPayload } from './webhook-signing'
+import type {
+  PipelineRunNotification,
+  PipelineRunNotificationResult,
+} from './notification-channels'
 import { channelBody, emailMessage } from './notification-channels'
+import type { PythonInputRow } from './pipeline-python.server'
+
+/**
+ * The JSON context the run hands its destination: the executor's own values, as
+ * `pythonInputRowSchema` decodes them when an action reference is resolved.
+ */
+export interface PipelineNotificationContext {
+  parameters: PythonInputRow
+  previous: PythonInputRow[]
+  output: PythonInputRow
+  actions: PythonInputRow
+}
+
+/** A completed run's facts, plus the deliveries queuing them recorded. */
+interface PipelineNotificationRunResult extends PipelineRunNotificationResult {
+  notificationDeliveryIds?: string[]
+}
 
 /** Enqueue signed POSTs in the output transaction; the existing delivery engine owns retries. */
 export async function queuePipelineNotifications(
   conn: ExecConnection,
   run: { id: string; workspace_id: string; definition_version_id: string },
   config: PipelineConfig,
-  result: Record<string, unknown>,
-  context: {
-    parameters: Record<string, unknown>
-    previous: Array<Record<string, unknown>>
-    output: Record<string, unknown>
-    actions: Record<string, unknown>
-  },
+  result: PipelineNotificationRunResult,
+  context: PipelineNotificationContext,
 ): Promise<void> {
   if (!config.notifications?.length) return
   await conn.query('SET ROLE NONE')
@@ -58,22 +74,23 @@ export async function queuePipelineNotifications(
         'A webhook destination is unavailable. Choose an active destination and retry.',
       )
 
-    const payload = {
+    const payload: PipelineRunNotification = {
       schemaVersion: '1',
       eventType: 'pipeline.run.completed',
       eventId: event.id,
       workspaceId: run.workspace_id,
       runId: run.id,
       definitionVersionId: run.definition_version_id,
-      ...(target.payload
-        ? { data: resolvePipelineActionValue(target.payload, context) }
-        : {}),
       result: {
         rowCount: result.rowCount,
         outputDatasetId: result.outputDatasetId,
         outputDatasetVersionId: result.outputDatasetVersionId,
         outputLabel: result.outputLabel,
       },
+    }
+
+    if (target.payload) {
+      payload.data = resolvePipelineActionValue(target.payload, context)
     }
 
     // PIPE-05.1: the destination's type decides the body — a Teams incoming webhook

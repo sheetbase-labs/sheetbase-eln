@@ -74,7 +74,7 @@ export type DatasetRowValues = Record<string, DatasetCellValue>
  * into text (a Date, bytes, a bigint, or an object with a text form). Dataset
  * tests exercise exactly those coercions, so the input contract names them.
  */
-export type DatasetCellInput = DatasetCellValue | { toString(): string }
+export type DatasetCellInput = DatasetCellValue | { toString: () => string }
 
 /** A dataset row as a caller holds it, before any coercion to stored JSON. */
 export type DatasetRowInput = Record<string, DatasetCellInput>

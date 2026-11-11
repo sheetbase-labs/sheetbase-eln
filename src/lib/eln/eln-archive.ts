@@ -13,6 +13,8 @@
  */
 import { createHash } from 'node:crypto'
 
+import { z } from 'zod'
+
 import { ZipWriter } from '../export/zip'
 
 export const ELN_CONTEXT = [
@@ -94,7 +96,18 @@ export interface ElnArchiveInput {
   doi?: string | null
 }
 
-type Json = Record<string, unknown>
+/** A value an RO-Crate entity holds before serialisation; `undefined` marks a
+ * property the package leaves out. */
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+type Json = Record<string, JsonValue>
 
 /** File-system safe, ASCII, no leading dots; never empty. */
 export function safeName(name: string, fallback: string): string {
@@ -119,24 +132,49 @@ function sha256(data: Uint8Array): string {
   return createHash('sha256').update(data).digest('hex')
 }
 
+/** The document fields this reader knows: a payload's own `doc` and one node's
+ * kind, text and children. */
+const documentNodeSchema = z.object({
+  doc: z.json().optional(),
+  type: z.json().optional(),
+  text: z.json().optional(),
+  content: z.json().optional(),
+})
+
+const documentTextSchema = z.string()
+const documentChildrenSchema = z.array(z.json())
+
 /** Concatenate every string leaf named `text` in a document tree. */
-export function plainTextOf(payload: unknown): string {
+export function plainTextOf(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A block payload is opaque JSONB owned by its block type; this reader decodes it with z.json() and documentNodeSchema before reading the three keys it knows.
+  payload: unknown,
+): string {
   const lines: string[] = []
 
-  const walk = (node: unknown): string => {
-    if (!node || typeof node !== 'object') return ''
-    const n = node as Json
+  const walk = (node: z.infer<ReturnType<typeof z.json>>): string => {
+    const parsed = documentNodeSchema.safeParse(node)
 
-    if (n.type === 'text' && typeof n.text === 'string') return n.text
-    const children = Array.isArray(n.content) ? (n.content as unknown[]) : []
-    const joined = children.map(walk)
+    if (!parsed.success) return ''
+
+    const n = parsed.data
+    const text = documentTextSchema.safeParse(n.text)
+
+    if (n.type === 'text' && text.success) return text.data
+
+    const children = documentChildrenSchema.safeParse(n.content)
+    const joined = children.success ? children.data.map(walk) : []
 
     return n.type === 'paragraph' || n.type === 'heading'
       ? joined.join('')
       : joined.join('\n')
   }
 
-  const root = (payload as Json | null)?.doc ?? payload
+  const decoded = z.json().safeParse(payload)
+
+  if (!decoded.success) return ''
+
+  const node = documentNodeSchema.safeParse(decoded.data)
+  const root = node.success ? (node.data.doc ?? decoded.data) : decoded.data
   const text = walk(root).trim()
 
   if (text) lines.push(text)
@@ -358,7 +396,7 @@ export async function buildElnArchive(
     rootParts.push({ '@id': dirId })
   }
 
-  const rootEntity: Json = {
+  const rootEntity = {
     '@id': './',
     '@type': 'Dataset',
     name: input.name,
@@ -368,8 +406,21 @@ export async function buildElnArchive(
     author: input.authors?.length
       ? input.authors.map((_, i) => ({ '@id': `#author-${i + 1}` }))
       : undefined,
-    identifier: input.doi ? `https://doi.org/${input.doi}` : undefined,
+    identifier: input.project
+      ? input.project.key
+      : input.doi
+        ? `https://doi.org/${input.doi}`
+        : undefined,
     hasPart: rootParts,
+    additionalProperty: input.project
+      ? [
+          {
+            '@type': 'PropertyValue',
+            name: 'projectStatus',
+            value: input.project.status,
+          },
+        ]
+      : undefined,
   }
 
   const publishing: Json[] = []
@@ -391,17 +442,6 @@ export async function buildElnArchive(
     })
   }
 
-  if (input.project) {
-    rootEntity.identifier = input.project.key
-    rootEntity.additionalProperty = [
-      {
-        '@type': 'PropertyValue',
-        name: 'projectStatus',
-        value: input.project.status,
-      },
-    ]
-  }
-
   const crate = {
     '@context': ELN_CONTEXT,
     '@graph': [
@@ -421,7 +461,7 @@ export async function buildElnArchive(
       },
       rootEntity,
       ...publishing,
-      ...[...persons.values()],
+      ...persons.values(),
       ...graph,
     ],
   }

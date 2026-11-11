@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 import type {
   BlockWire,
@@ -64,25 +66,26 @@ export function materialAlerts(
   const alerts: MaterialAlert[] = []
 
   if (record.archivedAt) alerts.push({ kind: 'archived', label: 'Archived' })
-  const expiry = record.properties.expiry
+  const expiry = z.string().safeParse(record.properties.expiry).data
 
   const expiredByDate =
-    typeof expiry === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(expiry)
-      ? expiry < today.toISOString().slice(0, 10)
-      : false
+    expiry !== undefined &&
+    /^\d{4}-\d{2}-\d{2}$/.test(expiry) &&
+    expiry < today.toISOString().slice(0, 10)
 
   if (record.status === 'expired' || expiredByDate) {
     alerts.push({ kind: 'expired', label: 'Expired' })
   }
 
-  const quantity = record.properties.quantity
-  const threshold = record.properties.low_stock_threshold
+  const quantity = z.number().safeParse(record.properties.quantity).data
+
+  const threshold = z
+    .number()
+    .safeParse(record.properties.low_stock_threshold).data
 
   if (
     record.status === 'low_stock' ||
-    (typeof quantity === 'number' &&
-      typeof threshold === 'number' &&
-      quantity <= threshold)
+    (quantity !== undefined && threshold !== undefined && quantity <= threshold)
   ) {
     alerts.push({ kind: 'low_stock', label: 'Low stock' })
   }

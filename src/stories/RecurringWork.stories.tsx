@@ -7,6 +7,7 @@ import { RepeatingDialog } from '#/components/recurring/repeating-dialog'
 import { recurringQueryKeys } from '#/components/recurring/recurring-data'
 import type { RepeatRow } from '#/components/recurring/recurring-data'
 import { BookDialog } from '#/components/schedule/book-dialog'
+import type { DataClientStub } from './screen-stories'
 import type { ScheduleInstrument } from '#/components/schedule/schedule-data'
 import { toRepeatSchedule } from '#/lib/recurring'
 import type { RepeatScheduleWire } from '#/lib/recurring'
@@ -37,7 +38,11 @@ const INSTRUMENTS: ScheduleInstrument[] = [
   },
 ]
 
-const ZONE = { list: async () => [{ timezone: 'Europe/London' }] }
+const ZONE: DataClientStub = {
+  // SAFETY: the dialog reads the workspace's time zone from this one list
+  // answer; the story's row is what it hands back.
+  list: async <T,>() => [{ timezone: 'Europe/London' }] as T[],
+}
 
 const wire = (over: Partial<RepeatScheduleWire>): RepeatScheduleWire => ({
   id: 'sched-1',

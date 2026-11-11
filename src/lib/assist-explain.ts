@@ -28,6 +28,7 @@ import type {
   PropertyValidationError,
   RecordFieldDefinition,
 } from './scientific-records'
+import { z } from 'zod'
 
 /**
  * Rendered beside every explanation. Assistance is distinguishable from
@@ -76,6 +77,7 @@ const BLOCK_WHY: Record<BlockValidationError, string> = {
     'The block type is not in the known block vocabulary, so no payload shape can be checked against it.',
   unsupported_payload_schema_version:
     'The payload was written against a schema version this client does not validate, so its shape cannot be trusted.',
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- `invalid_payload_shape` is the blocks validation kernel's own error code (`BlockValidationError`), not a structural description chosen here.
   invalid_payload_shape:
     'The payload is not the shape this block type requires (wrong JSON structure).',
   missing_required_field:
@@ -89,6 +91,7 @@ const BLOCK_HOW_TO: Record<BlockValidationError, string> = {
     'Change the block to a supported type, or re-create it with the block picker.',
   unsupported_payload_schema_version:
     'Re-create the block with the current editor so the payload is rewritten at the supported schema version.',
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- `invalid_payload_shape` is the blocks validation kernel's own error code (`BlockValidationError`), not a structural description chosen here.
   invalid_payload_shape:
     'Reset the block content with the type editor — editing raw JSON will not satisfy the shape check.',
   missing_required_field:
@@ -105,7 +108,7 @@ export function explainBlockValidation(input: {
 
   const why: AssistClaim[] = input.errors.map((error) => ({
     text:
-      `${(BLOCK_WHY as Record<string, string | undefined>)[error.code] ?? error.message}` +
+      `${BLOCK_WHY[error.code]}` +
       (error.field ? ` Field: '${error.field}'.` : ''),
     citation: {
       label: `Block rule ${error.code}`,
@@ -116,11 +119,7 @@ export function explainBlockValidation(input: {
     },
   }))
 
-  const howTo = input.errors.map(
-    (error) =>
-      (BLOCK_HOW_TO as Record<string, string | undefined>)[error.code] ??
-      'Correct the flagged content and save again.',
-  )
+  const howTo = input.errors.map((error) => BLOCK_HOW_TO[error.code])
 
   return {
     title: `Why this ${input.blockType} block cannot save`,
@@ -137,17 +136,18 @@ export function explainBlockValidation(input: {
 // Record property validation (record field rules).
 // ---------------------------------------------------------------------------
 
+/** The `enum` rule a field definition may declare: the values it permits. */
+const fieldEnumRule = z.object({ enum: z.array(z.unknown()) })
+
 function describeFieldRule(def: RecordFieldDefinition): string {
   const parts = [
     `type ${def.logicalType}`,
     def.nullable ? 'optional' : 'required',
   ]
 
-  if (Array.isArray((def.validation as { enum?: unknown }).enum)) {
-    parts.push(
-      `allowed: ${(def.validation as { enum: unknown[] }).enum.join(', ')}`,
-    )
-  }
+  const rule = fieldEnumRule.safeParse(def.validation)
+
+  if (rule.success) parts.push(`allowed: ${rule.data.enum.join(', ')}`)
 
   return parts.join(' · ')
 }

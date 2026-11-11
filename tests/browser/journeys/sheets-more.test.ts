@@ -133,7 +133,7 @@ test('DATA-11 a sheet with local columns only is told how to keep its data', asy
   page,
 }) => {
   await sheetFromPaste(page)
-  await page.getByRole('button', { name: 'Sources, extract, upgrade' }).click()
+  await page.getByRole('button', { name: 'Link data and reuse this sheet' }).click()
   await page.getByLabel('Dataset name').fill(uniqueName('Kept readings'))
   await page.getByRole('button', { name: 'Preview' }).click()
   // The refusal names the way that works, not a server code.
@@ -146,7 +146,7 @@ test('DATA-12 a sheet with no reference column is told why it cannot become a de
   page,
 }) => {
   await sheetFromPaste(page)
-  await page.getByRole('button', { name: 'Sources, extract, upgrade' }).click()
+  await page.getByRole('button', { name: 'Link data and reuse this sheet' }).click()
   await page
     .getByLabel('Definition key')
     .fill(`journey_${Date.now().toString(36)}`)

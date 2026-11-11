@@ -11,14 +11,9 @@ import {
   InspectorSection,
   Muted,
 } from '#/components/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { cn } from '#/lib/utils'
 import { formatDate } from '#/lib/notebook-data'
 import { formatInstant } from '#/lib/display-time-zone'
@@ -491,6 +486,107 @@ function VersionInspector({
   )
 }
 
+type SheetColumnRowData = ReturnType<typeof sheetColumnRows>[number]
+
+/** The columns a sheet section fills in, with a v-badge on any a newer version added. */
+function SheetColumnsTable({
+  name,
+  rows,
+  previousColumnIds,
+  versionNumber,
+  showVersionBadge,
+}: {
+  name: string
+  rows: SheetColumnRowData[]
+  previousColumnIds: Set<string>
+  versionNumber: number
+  showVersionBadge: boolean
+}) {
+  const columns = useMemo<RegistryColumn<SheetColumnRowData>[]>(
+    () => [
+      {
+        id: 'column',
+        header: t('library.templates.templateSectionsBoard.column'),
+        accessorFn: (row) => row.label,
+        cell: ({ row }) => {
+          const isNew =
+            showVersionBadge &&
+            previousColumnIds.size > 0 &&
+            !previousColumnIds.has(row.original.id)
+
+          return (
+            <>
+              {row.original.label}
+              {isNew ? (
+                <span className="ml-1.5 rounded-[3px] bg-success-wash px-1 text-caption text-success-text">
+                  v{versionNumber}
+                </span>
+              ) : null}
+            </>
+          )
+        },
+      },
+      {
+        id: 'source',
+        header: t('library.templates.templateSectionsBoard.source'),
+        accessorFn: (row) => (row.calculated ? 'ƒx' : row.source),
+        cell: ({ row }) =>
+          row.original.calculated ? (
+            <span className="mono">ƒx</span>
+          ) : (
+            row.original.source
+          ),
+        meta: { cellClassName: 'text-label text-fg-muted' },
+      },
+      {
+        id: 'type',
+        header: t('library.templates.templateSectionsBoard.type'),
+        accessorFn: (row) => row.type,
+      },
+      {
+        id: 'unit',
+        header: t('library.templates.templateSectionsBoard.unit'),
+        accessorFn: (row) => row.unit ?? '—',
+      },
+      {
+        id: 'required',
+        header: t('common.states.required'),
+        accessorFn: (row) => (row.required ? 1 : 0),
+        cell: ({ row }) =>
+          row.original.required
+            ? t('library.templates.templateSectionsBoard.yes')
+            : '—',
+      },
+      {
+        id: 'rule',
+        header: t('library.templates.templateSectionsBoard.rule'),
+        accessorFn: (row) =>
+          row.calculated ? `= ${row.rule}` : (row.rule ?? '—'),
+        meta: { cellClassName: 'min-w-[200px] whitespace-normal' },
+        cell: ({ row }) =>
+          row.original.calculated ? (
+            <span className="mono text-label">= {row.original.rule}</span>
+          ) : (
+            (row.original.rule ?? '—')
+          ),
+      },
+    ],
+    [previousColumnIds, showVersionBadge, versionNumber],
+  )
+
+  return (
+    <TableBox>
+      <RegistryGrid
+        label={`${name} columns`}
+        rows={rows}
+        columns={columns}
+        getRowId={(row) => row.id}
+        selectable={false}
+      />
+    </TableBox>
+  )
+}
+
 function SectionDetail({
   entry,
   sheets,
@@ -527,68 +623,13 @@ function SectionDetail({
             )}
           </span>
         </div>
-        <Table aria-label={`${entry.name} columns`}>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                {t('library.templates.templateSectionsBoard.column')}
-              </TableHead>
-              <TableHead>
-                {t('library.templates.templateSectionsBoard.source')}
-              </TableHead>
-              <TableHead>
-                {t('library.templates.templateSectionsBoard.type')}
-              </TableHead>
-              <TableHead>
-                {t('library.templates.templateSectionsBoard.unit')}
-              </TableHead>
-              <TableHead>{t('common.states.required')}</TableHead>
-              <TableHead>
-                {t('library.templates.templateSectionsBoard.rule')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => {
-              const isNew =
-                showVersionBadge &&
-                previousColumnIds.size > 0 &&
-                !previousColumnIds.has(row.id)
-
-              return (
-                <TableRow key={row.id}>
-                  <TableCell>
-                    {row.label}
-                    {isNew ? (
-                      <span className="ml-1.5 rounded-[3px] bg-success-wash px-1 text-caption text-success-text">
-                        v{versionNumber}
-                      </span>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="text-label text-fg-muted">
-                    {row.calculated ? (
-                      <span className="mono">ƒx</span>
-                    ) : (
-                      row.source
-                    )}
-                  </TableCell>
-                  <TableCell>{row.type}</TableCell>
-                  <TableCell>{row.unit ?? '—'}</TableCell>
-                  <TableCell>
-                    {row.required
-                      ? t('library.templates.templateSectionsBoard.yes')
-                      : '—'}
-                  </TableCell>
-                  <TableCell
-                    className={row.calculated ? 'mono text-label' : undefined}
-                  >
-                    {row.calculated ? `= ${row.rule}` : (row.rule ?? '—')}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
+        <SheetColumnsTable
+          name={entry.name}
+          rows={rows}
+          previousColumnIds={previousColumnIds}
+          versionNumber={versionNumber}
+          showVersionBadge={showVersionBadge}
+        />
         {definition?.description ? (
           <div className="flex flex-col gap-1.5">
             <h3 className="m-0 font-heading text-doc font-semibold">

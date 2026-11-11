@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
@@ -224,7 +225,9 @@ describe('NotebookSheetBlock', () => {
       expect(screen.getByRole('status').textContent).toContain(
         'Frozen sheet evidence is unavailable',
       )
-      expect(screen.queryByRole('button', { name: /^Paste data/ })).toBeNull()
+      expect(
+        screen.queryByRole('button', { name: 'More sheet tools' }),
+      ).toBeNull()
       expect(transport).not.toHaveBeenCalled()
     },
   )
@@ -238,7 +241,9 @@ describe('NotebookSheetBlock', () => {
       />,
     )
     expect(screen.getByText('independent value')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: /^Paste data/ })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'More sheet tools' }),
+    ).toBeNull()
     expect(transport).not.toHaveBeenCalled()
   })
 
@@ -318,8 +323,15 @@ describe('NotebookSheetBlock', () => {
           .getByRole('link', { name: 'Open full sheet' })
           .getAttribute('href'),
       ).toBe(`/sheets/${frozen.instanceId}?projectId=p1`)
+      await userEvent
+        .setup()
+        .click(screen.getByRole('button', { name: 'More sheet tools' }))
       expect(
-        Boolean(screen.queryByRole('button', { name: /^Paste data/ })),
+        Boolean(
+          await screen
+            .findByRole('menuitem', { name: /^Paste data/ })
+            .catch(() => null),
+        ),
       ).toBe(!readOnly)
       client.clear()
     },

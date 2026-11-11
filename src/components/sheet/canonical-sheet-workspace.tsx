@@ -58,10 +58,8 @@ import {
   usePhoneToolbar,
 } from '#/components/sheet/sheet-toolbar-parts'
 import { cn } from '#/lib/utils'
-import {
-  SheetBenchEntry,
-  outOfRange,
-} from '#/components/sheet/sheet-bench-entry'
+import { SheetBenchEntry } from '#/components/sheet/sheet-bench-entry'
+import { outOfRange } from '#/components/sheet/sheet-bench-fields'
 import type {
   SheetMoreItem,
   SheetSaveState,
@@ -92,7 +90,7 @@ import {
   saveSheetView,
 } from '#/lib/sheet-presentation-view'
 import { workItemsQueryKeys } from '#/lib/work-items/data'
-import { downloadExport } from '#/components/export/export-menu'
+import { downloadExport } from '#/components/export/download-export'
 import { ObjectHistoryDialog } from '#/components/audit'
 import type {
   BoundColumnProvenance,
@@ -2245,21 +2243,182 @@ function CanonicalWorkspaceSession(
 }
 
 function CanonicalWorkspaceToolbar() {
-  const {
+  const { canWrite, readOnly, localMutate, writeBack, addCalculation } =
+    useCanonicalWorkspace()
+
+  const phone = usePhoneToolbar()
+
+  const saveState = sheetSaveState({
     canWrite,
     readOnly,
+    pending:
+      localMutate.isPending || writeBack.isPending || addCalculation.isPending,
+    failed: localMutate.isError || writeBack.isError,
+  })
+
+  const failure = localMutate.error?.message ?? writeBack.error?.message
+
+  return (
+    <div
+      role="toolbar"
+      aria-label={t('notebook.canonicalSheetWorkspace.ariaLabel')}
+      className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-2 py-1"
+    >
+      <SheetSaveStatus state={saveState} detail={failure} />
+      <span className="flex-1" />
+      <SheetEntryModeSwitch />
+      <SheetToolbarChips />
+      {phone ? null : <SheetViewSwitches />}
+      <CanonicalWorkspaceMoreMenu phone={phone} />
+    </div>
+  )
+}
+
+/** Document or Bench entry: how a run is typed. */
+function SheetEntryModeSwitch() {
+  const { canWrite, matrix, benchEntry, setBenchEntry } =
+    useCanonicalWorkspace()
+
+  if (!canWrite || matrix.columns.length === 0) return null
+
+  return (
+    <>
+      <div
+        role="group"
+        aria-label={t('notebook.sheetBench.entryModeAriaLabel')}
+        className="inline-flex rounded-md border border-border p-0.5"
+      >
+        <Button
+          type="button"
+          size="sm"
+          variant={benchEntry ? 'quiet' : 'secondary'}
+          aria-pressed={!benchEntry}
+          className={cn(
+            'h-5 border-0 max-md:h-7',
+            !benchEntry && 'bg-selected font-medium',
+          )}
+          onClick={() => setBenchEntry(false)}
+        >
+          {t('notebook.sheetBench.document')}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={benchEntry ? 'secondary' : 'quiet'}
+          aria-pressed={benchEntry}
+          className={cn(
+            'h-5 border-0 max-md:h-7',
+            benchEntry && 'bg-selected font-medium',
+          )}
+          onClick={() => setBenchEntry(true)}
+        >
+          {t('notebook.sheetBench.benchEntry')}
+        </Button>
+      </div>
+    </>
+  )
+}
+
+/** What is on right now: write back, active filters, hidden columns. */
+function SheetToolbarChips() {
+  const {
+    composed,
+    canWrite,
+    writeBack,
+    pendingValues,
+    presentation,
+    persistPresentation,
+  } = useCanonicalWorkspace()
+
+  return (
+    <>
+      {composed && canWrite ? (
+        <Button
+          type="button"
+          size="sm"
+          disabled={
+            writeBack.isPending || Object.keys(pendingValues).length === 0
+          }
+          onClick={() => writeBack.mutate()}
+        >
+          {t('notebook.canonicalSheetWorkspace.writeBack')}
+        </Button>
+      ) : null}
+      {presentation.filters.length > 0 ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          icon="filter"
+          aria-label={t('notebook.sheetToolbar.clearFilters')}
+          title={t('notebook.sheetToolbar.clearFilters')}
+          onClick={() => void persistPresentation({ filters: [] })}
+        >
+          {t('notebook.sheetToolbar.filters', {
+            count: presentation.filters.length,
+          })}
+          <Icon name="x" size={12} />
+        </Button>
+      ) : null}
+      {presentation.hiddenColumnIds.length > 0 ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={() => void persistPresentation({ hiddenColumnIds: [] })}
+        >
+          {t('notebook.canonicalSheetWorkspace.showHiddenColumns', {
+            count: presentation.hiddenColumnIds.length,
+          })}
+        </Button>
+      ) : null}
+    </>
+  )
+}
+
+/** Columns and Details, shown as buttons above phone width. */
+function SheetViewSwitches() {
+  const { matrix, sheetTool, setSheetTool, details, setDetails } =
+    useCanonicalWorkspace()
+
+  return (
+    <>
+      {matrix.columns.length > 0 ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="quiet"
+          title={t('notebook.sheetToolbar.columnsHint')}
+          aria-expanded={sheetTool === 'view'}
+          onClick={() => setSheetTool(sheetTool === 'view' ? null : 'view')}
+        >
+          {t('notebook.sheetToolbar.columns')}
+        </Button>
+      ) : null}
+      <Button
+        type="button"
+        size="sm"
+        variant={details ? 'secondary' : 'quiet'}
+        aria-pressed={details}
+        title={t('notebook.sheetToolbar.detailsHint')}
+        onClick={() => setDetails(!details)}
+      >
+        {t('notebook.sheetToolbar.details')}
+      </Button>
+    </>
+  )
+}
+
+/** The tools a sheet needs now and then, and the dialogs they open. */
+function CanonicalWorkspaceMoreMenu({ phone }: { phone: boolean }) {
+  const {
+    canWrite,
     localMutate,
     addRow,
     sheetTool,
     setSheetTool,
     setPasteOpen,
     matrix,
-    presentation,
-    persistPresentation,
-    composed,
-    writeBack,
-    addCalculation,
-    pendingValues,
     setCalculatorOpen,
     calculatorOpen,
     commentActor,
@@ -2272,23 +2431,9 @@ function CanonicalWorkspaceToolbar() {
     setDetails,
     historyOpen,
     setHistoryOpen,
-    benchEntry,
-    setBenchEntry,
   } = useCanonicalWorkspace()
 
-  const phone = usePhoneToolbar()
-
   const navigate = useNavigate()
-
-  const saveState = sheetSaveState({
-    canWrite,
-    readOnly,
-    pending:
-      localMutate.isPending || writeBack.isPending || addCalculation.isPending,
-    failed: localMutate.isError || writeBack.isError,
-  })
-
-  const failure = localMutate.error?.message ?? writeBack.error?.message
 
   const exportPath = `/api/export/sheet-instance/${instance.id}`
 
@@ -2410,111 +2555,7 @@ function CanonicalWorkspaceToolbar() {
   ]
 
   return (
-    <div
-      role="toolbar"
-      aria-label={t('notebook.canonicalSheetWorkspace.ariaLabel')}
-      className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-2 py-1"
-    >
-      <SheetSaveStatus state={saveState} detail={failure} />
-      <span className="flex-1" />
-      {canWrite && matrix.columns.length > 0 ? (
-        <div
-          role="group"
-          aria-label={t('notebook.sheetBench.entryModeAriaLabel')}
-          className="inline-flex rounded-md border border-border p-0.5"
-        >
-          <Button
-            type="button"
-            size="sm"
-            variant={benchEntry ? 'quiet' : 'secondary'}
-            aria-pressed={!benchEntry}
-            className={cn(
-              'h-5 border-0 max-md:h-7',
-              !benchEntry && 'bg-selected font-medium',
-            )}
-            onClick={() => setBenchEntry(false)}
-          >
-            {t('notebook.sheetBench.document')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={benchEntry ? 'secondary' : 'quiet'}
-            aria-pressed={benchEntry}
-            className={cn(
-              'h-5 border-0 max-md:h-7',
-              benchEntry && 'bg-selected font-medium',
-            )}
-            onClick={() => setBenchEntry(true)}
-          >
-            {t('notebook.sheetBench.benchEntry')}
-          </Button>
-        </div>
-      ) : null}
-      {composed && canWrite ? (
-        <Button
-          type="button"
-          size="sm"
-          disabled={
-            writeBack.isPending || Object.keys(pendingValues).length === 0
-          }
-          onClick={() => writeBack.mutate()}
-        >
-          {t('notebook.canonicalSheetWorkspace.writeBack')}
-        </Button>
-      ) : null}
-      {presentation.filters.length > 0 ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          icon="filter"
-          aria-label={t('notebook.sheetToolbar.clearFilters')}
-          title={t('notebook.sheetToolbar.clearFilters')}
-          onClick={() => void persistPresentation({ filters: [] })}
-        >
-          {t('notebook.sheetToolbar.filters', {
-            count: presentation.filters.length,
-          })}
-          <Icon name="x" size={12} />
-        </Button>
-      ) : null}
-      {presentation.hiddenColumnIds.length > 0 ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={() => void persistPresentation({ hiddenColumnIds: [] })}
-        >
-          {t('notebook.canonicalSheetWorkspace.showHiddenColumns', {
-            count: presentation.hiddenColumnIds.length,
-          })}
-        </Button>
-      ) : null}
-      {matrix.columns.length > 0 && !phone ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="quiet"
-          title={t('notebook.sheetToolbar.columnsHint')}
-          aria-expanded={sheetTool === 'view'}
-          onClick={() => setSheetTool(sheetTool === 'view' ? null : 'view')}
-        >
-          {t('notebook.sheetToolbar.columns')}
-        </Button>
-      ) : null}
-      {phone ? null : (
-        <Button
-          type="button"
-          size="sm"
-          variant={details ? 'secondary' : 'quiet'}
-          aria-pressed={details}
-          title={t('notebook.sheetToolbar.detailsHint')}
-          onClick={() => setDetails(!details)}
-        >
-          {t('notebook.sheetToolbar.details')}
-        </Button>
-      )}
+    <>
       <SheetMoreMenu
         groups={[
           { id: 'view', items: viewItems },
@@ -2545,7 +2586,7 @@ function CanonicalWorkspaceToolbar() {
         open={historyOpen}
         onOpenChange={setHistoryOpen}
       />
-    </div>
+    </>
   )
 }
 

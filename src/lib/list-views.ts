@@ -156,7 +156,7 @@ export function useListView(
       clearTimeout(timer.current)
       timer.current = setTimeout(flush, LIST_VIEW_SAVE_MS)
     },
-    [queryClient, queryKey, flush],
+    [queryClient, queryKey, flush, initial],
   )
 
   const setSorting = useCallback(

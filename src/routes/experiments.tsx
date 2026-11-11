@@ -178,6 +178,9 @@ function ExperimentsRoute() {
  * laptop width; the Columns menu brings them back. */
 const EXPERIMENTS_HIDDEN_BY_DEFAULT = ['assignee']
 
+const useExperimentsView = () =>
+  useListView('experiments', undefined, EXPERIMENTS_HIDDEN_BY_DEFAULT)
+
 function Experiments() {
   const { context } = Route.useRouteContext()
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
@@ -366,11 +369,7 @@ function Experiments() {
     [baseColumns, addedColumns],
   )
 
-  const view = useListView(
-    'experiments',
-    undefined,
-    EXPERIMENTS_HIDDEN_BY_DEFAULT,
-  )
+  const view = useExperimentsView()
 
   // A grouped list draws its groups as bands in the one table.
   const gridRows: RegistryRow<ExperimentListRow>[] = groups.flatMap(

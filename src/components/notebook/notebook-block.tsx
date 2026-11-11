@@ -90,6 +90,11 @@ export interface NotebookBlockProps {
    * they are how the row is reordered, duplicated and commented.
    */
   continuous?: boolean
+  /**
+   * Put the row's tools in the left gutter under the grip, for a block that
+   * has its own toolbar along its top edge (a sheet card).
+   */
+  toolbarInGutter?: boolean
 }
 
 /**
@@ -132,6 +137,7 @@ export function NotebookBlock({
   className,
   ariaLabel,
   continuous = false,
+  toolbarInGutter = false,
 }: NotebookBlockProps) {
   const locked = state === 'locked'
   const readOnly = state === 'read-only' || locked
@@ -182,9 +188,19 @@ export function NotebookBlock({
       <div
         data-slot="block-toolbar"
         data-print-hide
-        className="pointer-events-none absolute right-1 top-1 z-10 flex items-center gap-1"
+        className={cn(
+          'pointer-events-none absolute z-10 flex items-center gap-1',
+          toolbarInGutter
+            ? '-left-6 top-8 w-5 justify-center'
+            : 'top-1 right-1',
+        )}
       >
-        <div className="pointer-events-auto flex items-center gap-1">
+        <div
+          className={cn(
+            'pointer-events-auto flex items-center gap-1',
+            toolbarInGutter && 'flex-col',
+          )}
+        >
           {actions}
           {locked ? (
             <Icon

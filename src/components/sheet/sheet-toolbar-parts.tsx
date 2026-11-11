@@ -73,10 +73,10 @@ export function SheetSaveStatus({
     <span
       role="status"
       aria-live="polite"
-      title={state === 'failed' ? detail : undefined}
+      title={state === 'failed' ? detail : label}
       data-save-state={state}
       className={cn(
-        'inline-flex h-7 items-center gap-1.5 px-1 text-label',
+        'inline-flex h-7 shrink-0 items-center gap-1.5 px-1 text-label whitespace-nowrap',
         state === 'failed' ? 'text-danger-text' : 'text-fg-muted',
       )}
     >
@@ -97,7 +97,8 @@ export function SheetSaveStatus({
           className="size-1.5 animate-pulse rounded-full bg-fg-muted"
         />
       )}
-      {label}
+      {/* A narrow toolbar keeps the mark; the words stay for screen readers. */}
+      <span className="@max-[60rem]:sr-only">{label}</span>
     </span>
   )
 }

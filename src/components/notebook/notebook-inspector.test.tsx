@@ -2,6 +2,7 @@ import {
   cleanup,
   render as renderDOM,
   screen,
+  waitFor,
   within,
 } from '@testing-library/react'
 import {
@@ -98,7 +99,9 @@ describe('NotebookInspector tabs', () => {
 
     await user.click(screen.getByRole('tab', { name: 'History' }))
     expect(screen.getByText('Record history')).toBeTruthy()
-    expect(screen.queryByText('Block and row threads')).toBeNull()
+    await waitFor(() =>
+      expect(screen.queryByText('Block and row threads')).toBeNull(),
+    )
   })
 
   it('makes every tab reachable by keyboard', async () => {

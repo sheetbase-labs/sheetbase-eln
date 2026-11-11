@@ -214,7 +214,7 @@ function ConnectorPanels({
           <p className="m-0 text-body">
             <span className="text-fg-muted">
               {t('settings.integrationsConnectorid.settings')}
-            </span>
+            </span>{' '}
             {t('settings.integrationsConnectorid.configNonSecret')}
           </p>
           <p className="m-0 border-t border-border pt-2 text-label text-fg-muted">

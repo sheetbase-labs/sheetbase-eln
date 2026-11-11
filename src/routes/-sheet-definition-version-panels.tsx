@@ -8,20 +8,69 @@ import type { UseQueryResult } from '@tanstack/react-query'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import { Section } from '#/components/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import type {
   SheetDefinition,
   SheetDefinitionVersion,
 } from '#/lib/sheet-definition-data'
 import { t } from '#/copy'
+
+type Parameter = SheetDefinitionVersion['configuration']['parameters'][number]
+
+type Column = SheetDefinitionVersion['configuration']['columns'][number]
+
+const PARAMETER_COLUMNS: RegistryColumn<Parameter>[] = [
+  {
+    id: 'input',
+    header: t('notebook.sheetDefinitionPage.input'),
+    accessorFn: (parameter) => parameter.label,
+    cell: ({ row }) => (
+      <span className="font-medium">{row.original.label}</span>
+    ),
+  },
+  {
+    id: 'type',
+    header: t('notebook.sheetDefinitionPage.type'),
+    accessorFn: (parameter) => parameter.type.kind,
+  },
+  {
+    id: 'requirement',
+    header: t('notebook.sheetDefinitionPage.requirement'),
+    accessorFn: (parameter) => (parameter.required ? 1 : 0),
+    cell: ({ row }) =>
+      row.original.required
+        ? t('common.states.required')
+        : t('common.states.optional'),
+  },
+]
+
+const COLUMN_COLUMNS: RegistryColumn<Column>[] = [
+  {
+    id: 'column',
+    header: t('notebook.sheetDefinitionPage.column'),
+    accessorFn: (column) => column.field.label,
+    cell: ({ row }) => (
+      <span className="font-medium">{row.original.field.label}</span>
+    ),
+  },
+  {
+    id: 'type',
+    header: t('notebook.sheetDefinitionPage.type'),
+    accessorFn: (column) => column.field.logicalType,
+  },
+  {
+    id: 'storageUnit',
+    header: t('notebook.sheetDefinitionPage.storageUnit'),
+    accessorFn: (column) => column.field.quantity?.storageUnit ?? '—',
+  },
+  {
+    id: 'source',
+    header: t('notebook.sheetDefinitionPage.source'),
+    accessorFn: (column) => column.source.kind,
+  },
+]
 
 export function SheetDefinitionVersionPanels({
   version,
@@ -47,36 +96,13 @@ export function SheetDefinitionVersionPanels({
       >
         {version.configuration.parameters.length ? (
           <TableBox>
-            <Table caption={t('notebook.sheetDefinitionPage.caption')}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead scope="col">
-                    {t('notebook.sheetDefinitionPage.input')}
-                  </TableHead>
-                  <TableHead scope="col">
-                    {t('notebook.sheetDefinitionPage.type')}
-                  </TableHead>
-                  <TableHead scope="col">
-                    {t('notebook.sheetDefinitionPage.requirement')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {version.configuration.parameters.map((parameter) => (
-                  <TableRow key={parameter.id}>
-                    <TableCell className="whitespace-normal break-words font-medium">
-                      {parameter.label}
-                    </TableCell>
-                    <TableCell>{parameter.type.kind}</TableCell>
-                    <TableCell>
-                      {parameter.required
-                        ? t('common.states.required')
-                        : t('common.states.optional')}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label={t('notebook.sheetDefinitionPage.caption')}
+              rows={version.configuration.parameters}
+              columns={PARAMETER_COLUMNS}
+              getRowId={(parameter) => parameter.id}
+              selectable={false}
+            />
           </TableBox>
         ) : (
           <p className="m-0 text-body text-fg-muted">
@@ -89,39 +115,19 @@ export function SheetDefinitionVersionPanels({
         count={version.configuration.columns.length}
       >
         <TableBox>
-          <Table caption={t('notebook.sheetDefinitionPage.caption2')}>
-            <TableHeader>
-              <TableRow>
-                <TableHead scope="col">
-                  {t('notebook.sheetDefinitionPage.column')}
-                </TableHead>
-                <TableHead scope="col">
-                  {t('notebook.sheetDefinitionPage.type')}
-                </TableHead>
-                <TableHead scope="col">
-                  {t('notebook.sheetDefinitionPage.storageUnit')}
-                </TableHead>
-                <TableHead scope="col">
-                  {t('notebook.sheetDefinitionPage.source')}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody
-              empty={t('notebook.sheetDefinitionPage.noColumns')}
-              colSpan={4}
-            >
-              {version.configuration.columns.map(({ id, field, source }) => (
-                <TableRow key={id}>
-                  <TableCell className="whitespace-normal break-words font-medium">
-                    {field.label}
-                  </TableCell>
-                  <TableCell>{field.logicalType}</TableCell>
-                  <TableCell>{field.quantity?.storageUnit ?? '—'}</TableCell>
-                  <TableCell>{source.kind}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {version.configuration.columns.length ? (
+            <RegistryGrid
+              label={t('notebook.sheetDefinitionPage.caption2')}
+              rows={version.configuration.columns}
+              columns={COLUMN_COLUMNS}
+              getRowId={(column) => column.id}
+              selectable={false}
+            />
+          ) : (
+            <p className="m-0 p-3 text-body text-fg-muted">
+              {t('notebook.sheetDefinitionPage.noColumns')}
+            </p>
+          )}
         </TableBox>
       </Section>
       <Section

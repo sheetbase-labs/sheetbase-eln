@@ -194,11 +194,8 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
           },
           {
             key: 'actions',
-            label: (
-              <span className="sr-only">
-                {t('projects.projectSheets.columns.actions')}
-              </span>
-            ),
+            label: t('projects.projectSheets.columns.actions'),
+            hideLabel: true,
             align: 'right',
             cell: ({ sheet }) =>
               showArchived ? (

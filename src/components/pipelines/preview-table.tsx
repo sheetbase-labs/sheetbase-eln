@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import { useMemo } from 'react'
 import { Muted } from '#/components/ui/layout'
 import { z } from 'zod'
@@ -71,7 +72,7 @@ export function PreviewTable({
     <>
       <TableBox>
         <RegistryGrid
-          label="Result preview"
+          label={t('data.previewTable.resultPreview')}
           rows={rows}
           columns={columns}
           getRowId={(row) => row.key}

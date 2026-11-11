@@ -474,7 +474,7 @@ function NotebookInstanceSheetEmbed({
   const sharedCount = embeddings.data?.count ?? 0
 
   return (
-    <div className="flex min-h-[24rem] flex-col gap-2">
+    <div className="flex flex-col gap-2">
       {!projectId ? (
         <p className="px-1 text-xs text-fg-muted" role="status">
           {t('notebook.notebookSheetBlock.thisNotebookHasNo')}

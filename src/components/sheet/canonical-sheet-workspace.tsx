@@ -62,7 +62,11 @@ import {
 } from '#/components/sheet/sheet-toolbar-parts'
 import { cn } from '#/lib/utils'
 import { SheetBenchEntry } from '#/components/sheet/sheet-bench-entry'
-import { outOfRange } from '#/components/sheet/sheet-bench-fields'
+import {
+  benchInputText,
+  benchRangeBreach,
+  outOfRange,
+} from '#/components/sheet/sheet-bench-fields'
 import { useSheetChanges } from '#/components/sheet/sheet-changes'
 import {
   SheetCellHistory,
@@ -83,7 +87,10 @@ import {
   parseSheetCellInput,
   validateCanonicalCell,
 } from '#/lib/canonical-sheet-grid'
-import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
+import type {
+  CanonicalSheetGridColumn,
+  CanonicalSheetGridMatrix,
+} from '#/lib/canonical-sheet-grid'
 import type { ComposedSheetSnapshot } from '#/lib/sheet-composition-data'
 import {
   fetchSheetInstance,
@@ -2026,7 +2033,7 @@ function useCanonicalWorkspaceSession({
   const commentAnnotations = useMemo(() => {
     const notes = new Map<
       string,
-      { rowId: string; columnId: string; text: string }
+      { rowId: string; columnId: string; text: string; count: number }
     >()
 
     for (const comment of comments.data ?? []) {
@@ -2054,6 +2061,7 @@ function useCanonicalWorkspaceSession({
           rowId,
           columnId,
           text: previous ? `${previous.text}\n${text}` : text,
+          count: (previous?.count ?? 0) + 1,
         })
       }
     }
@@ -2261,7 +2269,7 @@ function CanonicalWorkspaceSession(
 
   return (
     <CanonicalWorkspaceContext.Provider value={session}>
-      <div className="flex h-full min-h-[24rem] w-full min-w-0 flex-1 flex-col">
+      <div className="flex h-full w-full min-w-0 flex-1 flex-col">
         <CanonicalWorkspaceToolbar />
         <CanonicalWorkspaceAuthoring />
         <CanonicalWorkspaceBenchEntry />
@@ -3099,7 +3107,7 @@ function CanonicalWorkspaceGridArea() {
   // One tree whether or not changes are shown, so switching them on keeps
   // the grid (and its selection) mounted.
   return (
-    <div className="flex min-h-0 flex-1 max-md:flex-col max-md:overflow-y-auto">
+    <div className="flex min-h-0 flex-initial max-md:flex-col max-md:overflow-y-auto">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col max-md:flex-none">
         <CanonicalWorkspaceGrid />
         {showChanges ? (
@@ -3118,6 +3126,21 @@ function CanonicalWorkspaceGridArea() {
       {showChanges ? <SheetCellHistory cell={selectedCellHistory} /> : null}
     </div>
   )
+}
+
+/** Grid geometry, in pixels, from the engine's own rows and headers. */
+const GRID_ROW_PX = 28
+
+const GRID_HEADER_PX = 31
+
+/** The box's two border lines. */
+const GRID_BOX_EXTRA_PX = 2
+
+/** How tall the grid's box is to show every row without empty space. */
+function gridBoxHeight(rowCount: number, grouped: boolean): number {
+  const headers = grouped ? 2 : 1
+
+  return headers * GRID_HEADER_PX + rowCount * GRID_ROW_PX + GRID_BOX_EXTRA_PX
 }
 
 function CanonicalWorkspaceGrid() {
@@ -3167,7 +3190,15 @@ function CanonicalWorkspaceGrid() {
       ) : (
         <div
           ref={gridContainerRef}
-          className="mx-3.5 my-3 min-h-0 flex-1 overflow-hidden rounded-md border border-border max-md:mx-2 max-md:my-2 max-md:min-h-80"
+          className="mx-3.5 my-3 max-h-[var(--sheet-grid-max-h,70vh)] min-h-40 shrink overflow-hidden rounded-md border border-border max-md:mx-2 max-md:my-2"
+          // The box is as tall as its rows, as on the design board, and
+          // scrolls inside once it reaches the space it has.
+          style={{
+            height: gridBoxHeight(
+              sheetRows.length + (canWrite ? 1 : 0),
+              sheetColumns.some((column) => column.group !== undefined),
+            ),
+          }}
         >
           <SheetKeyboardShortcuts
             handle={gridHandle}
@@ -3321,6 +3352,74 @@ function CanonicalWorkspacePromotionStatus() {
   )
 }
 
+/** What is wrong with the selected value, in plain words, if anything. */
+function selectedBreach(
+  matrix: CanonicalSheetGridMatrix,
+  selected: { row: number; col: number },
+): string | null {
+  const column = matrix.columns.at(selected.col)
+
+  if (!column) return null
+
+  return benchRangeBreach(
+    column,
+    benchInputText(matrix.data[selected.row]?.[selected.col]),
+  )
+}
+
+/** The foot of the sheet: which cell, what is wrong with it, its comments. */
+function SelectedCellLine({
+  label,
+  breach,
+  comments,
+}: {
+  label: string
+  breach: string | null
+  comments: number
+}) {
+  return (
+    <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span className="font-medium text-fg">{label}</span>
+      {breach ? (
+        <span className="inline-flex items-center gap-1 text-danger-text">
+          <Icon name="warn" size={12} aria-hidden="true" />
+          {breach}
+        </span>
+      ) : null}
+      {comments > 0 ? (
+        <span className="ml-auto">
+          {t('notebook.sheetToolbar.comments', { count: comments })}
+        </span>
+      ) : null}
+    </p>
+  )
+}
+
+/** The foot band's line for the selected cell, while Details is closed. */
+function SelectedCellFoot() {
+  const { selectedColumn, selected, matrix, commentAnnotations } =
+    useCanonicalWorkspace()
+
+  if (!selectedColumn) return null
+
+  const note = commentAnnotations.find(
+    (entry) =>
+      entry.rowId === matrix.rowKeys[selected.row] &&
+      entry.columnId === matrix.columns[selected.col]?.id,
+  )
+
+  return (
+    <SelectedCellLine
+      label={t('notebook.sheetChanges.cellLabel', {
+        row: selected.row + 1,
+        column: selectedColumn.label,
+      })}
+      breach={selectedBreach(matrix, selected)}
+      comments={note?.count ?? 0}
+    />
+  )
+}
+
 function CanonicalWorkspaceStatus() {
   const {
     staleCalc,
@@ -3346,14 +3445,7 @@ function CanonicalWorkspaceStatus() {
 
   return (
     <div className="space-y-1 border-t border-border-subtle bg-surface-muted px-3.5 py-2 text-xs text-fg-muted empty:hidden max-md:px-2">
-      {!details && selectedColumn ? (
-        <p className="font-medium text-fg">
-          {t('notebook.sheetChanges.cellLabel', {
-            row: selected.row + 1,
-            column: selectedColumn.label,
-          })}
-        </p>
-      ) : null}
+      {details ? null : <SelectedCellFoot />}
       <CanonicalWorkspacePromotionStatus />
       {staleCalc ? (
         <p role="status" className="flex flex-wrap items-center gap-2">

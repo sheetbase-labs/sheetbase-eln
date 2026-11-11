@@ -5,7 +5,7 @@
  */
 import { useMemo } from 'react'
 
-import { RegistryGrid } from './registry-grid'
+import { RegistryGrid, gridHeight } from './registry-grid'
 import type { RegistryColumn } from './registry-grid'
 
 export type PreviewValue = string | number | boolean | null | undefined
@@ -88,13 +88,12 @@ export function PreviewGrid({
 
   if (columns.length === 0) return null
 
-  // 31px header band + 33px rows + the scrollbar's room.
-  const wanted = 31 + 33 * data.length + 14
-
   return (
     <div
       className={maxHeight ? 'overflow-hidden' : undefined}
-      style={maxHeight ? { height: Math.min(maxHeight, wanted) } : undefined}
+      style={
+        maxHeight ? { height: gridHeight(data.length, maxHeight) } : undefined
+      }
     >
       <RegistryGrid
         label={label}

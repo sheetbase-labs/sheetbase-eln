@@ -872,3 +872,11 @@
   user-select: none;
   color: color-mix(in oklab, var(--color-fg-muted) 50%, transparent);
 }
+
+/* The grid's column menu and conflict panel take their text colour from
+   `--panel-2`, which is a surface colour, so their labels read near-white on
+   white. Give them the body text colour until the package fixes it. */
+.column-menu,
+.conflict-panel {
+  color: var(--foreground);
+}

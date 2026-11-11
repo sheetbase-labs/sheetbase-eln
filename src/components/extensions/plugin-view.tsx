@@ -52,7 +52,7 @@ const PROGRESS_TONE = {
 // react-doctor-disable-next-line react-doctor/only-export-components -- initialValues is the screen’s starting state, used by the form harness beside this renderer; it belongs with the drawing it feeds.
 type TableNode = Extract<ScreenNode, { type: 'table' }>
 
-type TableNodeRow = TableNode['rows'][number]
+type TableNodeRow = TableNode['rows'][number] & { __row: string }
 
 /** A plugin's table, drawn on the app's own grid so it sorts and exports. */
 function ScreenTable({ node }: { node: TableNode }) {
@@ -88,7 +88,7 @@ function ScreenTable({ node }: { node: TableNode }) {
       <RegistryGrid
         label={node.columns.map((column) => column.label).join(', ')}
         rows={rows}
-        columns={columns as RegistryColumn<(typeof rows)[number]>[]}
+        columns={columns}
         getRowId={(row) => row.__row}
         selectable={false}
       />

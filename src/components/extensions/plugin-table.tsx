@@ -5,6 +5,7 @@
  */
 import * as React from 'react'
 import { useRouter } from '@tanstack/react-router'
+import { isFunction } from '@tanstack/react-table'
 
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -116,10 +117,11 @@ export function PluginTable({ table }: { table: FrameTable }) {
           rowHeight={pictures ? 72 : 33}
           sorting={sort ? [{ id: sort.key, desc: sort.descending }] : []}
           onSortingChange={(updater) => {
-            const next =
-              typeof updater === 'function'
-                ? updater(sort ? [{ id: sort.key, desc: sort.descending }] : [])
-                : updater
+            const current = sort
+              ? [{ id: sort.key, desc: sort.descending }]
+              : []
+
+            const next = isFunction(updater) ? updater(current) : updater
 
             const first = next[0]
 

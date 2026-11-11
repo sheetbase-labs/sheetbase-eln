@@ -55,7 +55,7 @@ import { t } from '#/copy'
 /**
  * MDL-04.1: records list for a workspace-defined record model (ADR-0051).
  * Columns are the model's active fields in display order; the table is the
- * shared TanStack `DataTable`, and CSV export reuses the canonical delimited
+ * shared grid, and CSV export reuses the canonical delimited
  * serializers. No second table or field engine.
  */
 export function RecordModelRecords({ modelKey }: { modelKey: string }) {

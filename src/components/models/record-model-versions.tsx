@@ -422,8 +422,74 @@ function VersionsTable({
         ),
       },
       {
+        id: 'published',
+        header: t('library.models.recordModelVersions.published'),
+        accessorFn: (version) => version.published_at ?? updatedAt(version),
+        cell: ({ row }) => {
+          const version = row.original
+
+          return version.published_at
+            ? formatDate(version.published_at)
+            : t('library.models.recordModelVersions.rev', {
+                revision: version.revision,
+                version: formatNotebookDateTime(updatedAt(version)).slice(-5),
+              })
+        },
+        meta: { cellClassName: 'text-fg-muted' },
+      },
+      {
+        id: 'by',
+        header: t('library.models.recordModelVersions.by'),
+        accessorFn: (version) => nameOf(version.created_by_user_id) ?? '—',
+      },
+      {
+        id: 'change',
+        header: t('library.models.recordModelVersions.change'),
+        enableSorting: false,
+        meta: {
+          cellClassName: 'min-w-[220px] max-w-[300px] whitespace-normal',
+        },
+        cell: ({ row }) => {
+          const version = row.original
+
+          return previousOf(version) ? (
+            <FieldChangeList
+              changes={changesOf(version)}
+              label={t('library.models.recordModelVersions.changesInV', {
+                version: version.version,
+              })}
+            />
+          ) : (
+            <span className="text-fg-muted">
+              {t('library.models.recordModelVersions.createdWithFields', {
+                fields: version.definition.fields.length,
+              })}
+            </span>
+          )
+        },
+      },
+      {
+        id: 'approvedBy',
+        header: t('library.models.recordModelVersions.approvedBy'),
+        accessorFn: (version) => approvedBy(version.id).join(', ') || '—',
+      },
+      {
+        id: 'records',
+        header: t('library.models.recordModelVersions.records'),
+        accessorFn: (version) =>
+          usage.data?.find((row) => row.version_id === version.id)
+            ?.record_count ?? 0,
+        cell: ({ row }) =>
+          usage.isError
+            ? t('library.models.recordModelVersions.unavailable')
+            : (usage.data?.find((entry) => entry.version_id === row.original.id)
+                ?.record_count ?? '…'),
+        ...rightAligned<RecordModelVersion>(),
+      },
+      {
         id: 'status',
         header: t('library.models.recordModelVersions.state'),
+        meta: { cellClassName: 'min-w-[110px]' },
         accessorFn: (version) => version.lifecycle,
         cell: ({ row }) => {
           const version = row.original
@@ -451,71 +517,6 @@ function VersionsTable({
             </Status>
           )
         },
-      },
-      {
-        id: 'published',
-        header: t('library.models.recordModelVersions.published'),
-        accessorFn: (version) => version.published_at ?? updatedAt(version),
-        cell: ({ row }) => {
-          const version = row.original
-
-          return version.published_at
-            ? formatDate(version.published_at)
-            : t('library.models.recordModelVersions.rev', {
-                revision: version.revision,
-                version: formatNotebookDateTime(updatedAt(version)).slice(-5),
-              })
-        },
-        meta: { cellClassName: 'text-fg-muted' },
-      },
-      {
-        id: 'by',
-        header: t('library.models.recordModelVersions.by'),
-        accessorFn: (version) => nameOf(version.created_by_user_id) ?? '—',
-      },
-      {
-        id: 'approvedBy',
-        header: t('library.models.recordModelVersions.approvedBy'),
-        accessorFn: (version) => approvedBy(version.id).join(', ') || '—',
-      },
-      {
-        id: 'change',
-        header: t('library.models.recordModelVersions.change'),
-        enableSorting: false,
-        meta: {
-          cellClassName: 'min-w-[240px] max-w-[420px] whitespace-normal',
-        },
-        cell: ({ row }) => {
-          const version = row.original
-
-          return previousOf(version) ? (
-            <FieldChangeList
-              changes={changesOf(version)}
-              label={t('library.models.recordModelVersions.changesInV', {
-                version: version.version,
-              })}
-            />
-          ) : (
-            <span className="text-fg-muted">
-              {t('library.models.recordModelVersions.createdWithFields', {
-                fields: version.definition.fields.length,
-              })}
-            </span>
-          )
-        },
-      },
-      {
-        id: 'records',
-        header: t('library.models.recordModelVersions.records'),
-        accessorFn: (version) =>
-          usage.data?.find((row) => row.version_id === version.id)
-            ?.record_count ?? 0,
-        cell: ({ row }) =>
-          usage.isError
-            ? t('library.models.recordModelVersions.unavailable')
-            : (usage.data?.find((entry) => entry.version_id === row.original.id)
-                ?.record_count ?? '…'),
-        ...rightAligned<RecordModelVersion>(),
       },
     ],
     [

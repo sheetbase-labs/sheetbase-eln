@@ -178,34 +178,37 @@ function useRecordList(modelKey: string) {
         ),
         meta: { cellClassName: 'min-w-[180px]' },
       },
-      {
-        id: 'status',
-        header: t('library.models.recordModelRecords.status'),
-        accessorFn: (record) => record.status,
-        cell: ({ row }) => {
-          const mapped = pickerStatus(row.original.status)
-
-          return <Status tone={mapped.tone}>{mapped.label}</Status>
-        },
-      },
     ]
 
-    if (judged) {
-      base.push({
-        id: 'result',
-        header: t('quality.limits.column'),
-        accessorFn: (record) => verdictByRecord.get(record.id) ?? '',
-        cell: ({ row }) => {
-          const verdict = verdictByRecord.get(row.original.id)
+    const statusColumn: RegistryColumn<RecordModelRecord> = {
+      id: 'status',
+      header: t('library.models.recordModelRecords.status'),
+      accessorFn: (record) => record.status,
+      cell: ({ row }) => {
+        const mapped = pickerStatus(row.original.status)
 
-          return verdict ? (
-            <SpecVerdictBadge verdict={verdict} short />
-          ) : (
-            <span className="text-fg-faint">—</span>
-          )
-        },
-      })
+        return <Status tone={mapped.tone}>{mapped.label}</Status>
+      },
     }
+
+    const judgedColumns: RegistryColumn<RecordModelRecord>[] = judged
+      ? [
+          {
+            id: 'result',
+            header: t('quality.limits.column'),
+            accessorFn: (record) => verdictByRecord.get(record.id) ?? '',
+            cell: ({ row }) => {
+              const verdict = verdictByRecord.get(row.original.id)
+
+              return verdict ? (
+                <SpecVerdictBadge verdict={verdict} short />
+              ) : (
+                <span className="text-fg-faint">—</span>
+              )
+            },
+          },
+        ]
+      : []
 
     return [
       ...base,
@@ -246,6 +249,8 @@ function useRecordList(modelKey: string) {
         },
         meta: { cellClassName: 'max-w-[240px]' },
       })),
+      statusColumn,
+      ...judgedColumns,
       ...plugin.columns,
     ]
   }, [fields, modelKey, judged, verdictByRecord, plugin])

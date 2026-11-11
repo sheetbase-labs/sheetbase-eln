@@ -338,20 +338,19 @@ describe('ProjectsPage', () => {
     expect(idCells).toEqual(['PRJ-0100', 'PRJ-0217', 'PRJ-0320'])
   })
 
-  it('spans a group band across exactly the table columns', () => {
+  it('draws a group band above its projects, with the group and how many it holds', () => {
     renderPage([row(), row({ id: 'PRJ-0100', name: 'Second project' })], {
       group: 'stage',
     })
     const table = screen.getByRole('table', { name: 'Projects' })
-    const columnCount = within(table).getAllByRole('columnheader').length
 
-    const band = screen.getByText((_, element) => {
-      return (
-        element?.tagName === 'TD' && element.textContent === 'Tech transfer 2'
-      )
-    })
+    // The band reads as the group's name followed by its count.
+    const band = within(table).getByText(
+      (_, element) =>
+        element?.tagName === 'SPAN' && element.textContent === 'Tech transfer2',
+    )
 
-    expect(Number(band.getAttribute('colspan'))).toBe(columnCount)
+    expect(band).toBeTruthy()
   })
 
   it('does not assert a project count while the read is unresolved', () => {

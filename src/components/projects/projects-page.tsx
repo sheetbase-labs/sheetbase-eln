@@ -176,7 +176,6 @@ export function ProjectsPage({
   }, [search.new, canCreate, setSearch])
 
   const selection = useProjectSelection({ meId, rows })
-  const colSpan = (selection.canBulkArchive ? 4 : 3) + columns.length
 
   // A disabled control has to say why (QA2-projects-1): the header button was
   // disabled with no stated reason.
@@ -234,7 +233,6 @@ export function ProjectsPage({
               columns={columns}
               canBulkArchive={selection.canBulkArchive}
               checked={selection.checked}
-              colSpan={colSpan}
               search={search}
               tab={tab}
               archived={archived}

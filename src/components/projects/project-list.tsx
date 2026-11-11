@@ -6,18 +6,12 @@ import { rich, t } from '#/copy'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Notice } from '#/components/ui/alert'
 import { Section } from '#/components/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { DataClientError } from '#/lib/data-client'
 import { cn } from '#/lib/utils'
-import { MobileList, stickyFirstCell, stickyFirstHead } from './mobile-list'
+import { MobileList } from './mobile-list'
 import type { MobileRow } from './mobile-list'
 import type { IconName } from '#/components/icons'
 
@@ -27,7 +21,7 @@ import type { IconName } from '#/components/icons'
  * renders — it never filters. */
 export type ProjectListCol<T> = {
   key: string
-  label: React.ReactNode
+  label: string
   align?: 'right'
   cell: (row: T) => React.ReactNode
   className?: string
@@ -59,6 +53,16 @@ export function ProjectList<T extends { key: string }>({
   }
   footer?: React.ReactNode
 }) {
+  const columns: RegistryColumn<T>[] = cols.map((c) => ({
+    id: c.key,
+    header: c.label,
+    cell: ({ row }) => c.cell(row.original),
+    meta: {
+      headerClassName: c.align === 'right' ? 'text-right' : undefined,
+      cellClassName: cn(c.align === 'right' && 'text-right', c.className),
+    },
+  }))
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-auto px-4 py-[22px] md:px-8">
       <Section title={title} count={count} action={action}>
@@ -70,36 +74,13 @@ export function ProjectList<T extends { key: string }>({
               rows={mobile}
             />
             <TableBox className="max-md:hidden">
-              <Table aria-label={title}>
-                <TableHeader>
-                  <TableRow>
-                    {cols.map((c) => (
-                      <TableHead
-                        key={c.key}
-                        align={c.align}
-                        className={stickyFirstHead}
-                      >
-                        {c.label}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((r) => (
-                    <TableRow key={r.key}>
-                      {cols.map((c) => (
-                        <TableCell
-                          key={c.key}
-                          align={c.align}
-                          className={cn(stickyFirstCell, c.className)}
-                        >
-                          {c.cell(r)}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label={title}
+                rows={rows}
+                columns={columns}
+                getRowId={(r) => r.key}
+                selectable={false}
+              />
             </TableBox>
           </>
         ) : (

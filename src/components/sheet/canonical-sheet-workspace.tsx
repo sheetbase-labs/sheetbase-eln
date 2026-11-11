@@ -1433,6 +1433,7 @@ function useCanonicalWorkspaceSession({
       ),
     [matrix],
   )
+
   const cellDisplays = usePluginGridCellDisplays(columnKeys)
 
   const sheetRows = useMemo(
@@ -2087,6 +2088,7 @@ function useCanonicalWorkspaceSession({
     create,
     sheetColumns,
     sheetRows,
+    cellDisplays,
     handleBeforeRowsRemove,
     handleRowsRemoved,
     handleRowsInserted,
@@ -2688,6 +2690,7 @@ function CanonicalWorkspaceGrid() {
     activeInput,
     sheetRows,
     sheetColumns,
+    cellDisplays,
     commentAnnotations,
     instanceRef,
     presentation,

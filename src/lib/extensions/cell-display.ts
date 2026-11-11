@@ -53,6 +53,9 @@ export type CellDisplaySpec =
   | { kind: 'sparkline'; tone?: CellDisplayTone }
   | { kind: 'svg' }
 
+/** The displays a grid draws its cells with, by column id. */
+export type CellDisplays = Readonly<Record<string, CellDisplaySpec>>
+
 export const CELL_DISPLAY_KINDS = [
   'text',
   'number',

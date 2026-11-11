@@ -486,10 +486,11 @@ export const designSteps: Array<SeedStep> = [
           display_order: field.displayOrder,
           lifecycle: 'active',
           default_value: null,
-          unit:
-            DESIGN_CELL_BANK_FIELD_META[field.fieldName]?.unit ??
-            field.unit ??
-            null,
+          // The unit is stored as `{ unit }`, the shape a field's unit is read in.
+          unit: designFieldUnit(
+            DESIGN_CELL_BANK_FIELD_META[field.fieldName]?.unit,
+            field.unit,
+          ),
           validation: field.validation ?? {},
           section: DESIGN_CELL_BANK_FIELD_META[field.fieldName]?.section,
           source: DESIGN_CELL_BANK_FIELD_META[field.fieldName]?.source,
@@ -2701,6 +2702,15 @@ const DESIGN_CELL_BANK_FIELDS: ReadonlyArray<{
  * rule. These ride on the version snapshot (the definition keeps unknown
  * metadata), not on the live field definition.
  */
+function designFieldUnit<T>(
+  named: string | undefined,
+  fallback: T | null | undefined,
+): { unit: string; symbol: string } | T | null {
+  if (named) return { unit: named, symbol: named }
+
+  return fallback ?? null
+}
+
 const DESIGN_CELL_BANK_FIELD_META: Partial<
   Record<
     string,

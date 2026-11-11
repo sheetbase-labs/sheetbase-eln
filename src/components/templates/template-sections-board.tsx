@@ -12,6 +12,7 @@ import {
   Muted,
 } from '#/components/ui/layout'
 import { TableBox } from '#/components/ui/table'
+import { AddSheetColumnButton } from './add-sheet-column'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { cn } from '#/lib/utils'
@@ -246,6 +247,7 @@ export function TemplateSectionsBoard({
             previousColumnIds={previousColumnIds}
             versionNumber={version.version}
             showVersionBadge={Boolean(previous)}
+            draftVersion={isDraft ? version : null}
           />
         ) : (
           <Muted>
@@ -605,12 +607,15 @@ function SectionDetail({
   previousColumnIds,
   versionNumber,
   showVersionBadge,
+  draftVersion,
 }: {
   entry: SectionEntry
   sheets: ReturnType<typeof useSheetDefinitions>
   previousColumnIds: Set<string>
   versionNumber: number
   showVersionBadge: boolean
+  /** The template version being shown when it is a draft, which a column can be added to. */
+  draftVersion: NotebookTemplateVersion | null
 }) {
   const { placement } = entry
 
@@ -642,6 +647,17 @@ function SectionDetail({
           versionNumber={versionNumber}
           showVersionBadge={showVersionBadge}
         />
+        {draftVersion && sheet && definition ? (
+          <div>
+            <AddSheetColumnButton
+              templateVersion={draftVersion}
+              placementId={placement.id}
+              sectionName={entry.name}
+              sheet={sheet}
+              definition={definition}
+            />
+          </div>
+        ) : null}
         {definition?.description ? (
           <div className="flex flex-col gap-1.5">
             <h3 className="m-0 font-heading text-doc font-semibold">

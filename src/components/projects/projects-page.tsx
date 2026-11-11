@@ -38,6 +38,7 @@ import { ProjectsHeader } from './projects-header'
 import { ProjectPeek } from './project-peek'
 import { ProjectsTable } from './projects-table'
 import { ProjectsToolbar } from './projects-toolbar'
+import { ImportProjectsDialog } from './import-projects-dialog'
 import { NewProjectDialog } from './new-project-dialog'
 import { useProjectCreateIntent } from './use-project-create-intent'
 import { useProjectSelection } from './use-project-selection'
@@ -180,6 +181,7 @@ export function ProjectsPage({
 
   // The side panel follows the clicked row; before any click it shows the first
   // row, and its close button hides it until another row is clicked.
+  const [importing, setImporting] = useState(false)
   const [peek, setPeek] = useState<string | null | false>(null)
 
   const peeked =
@@ -206,6 +208,7 @@ export function ProjectsPage({
           canCreate={canCreate}
           createDisabledReason={createDisabledReason}
           onNew={intent.request}
+          onImport={() => setImporting(true)}
           onTab={(next) => setSearch({ tab: next })}
           tab={tab}
           counts={counts}
@@ -325,6 +328,13 @@ export function ProjectsPage({
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
       </ConfirmDialog>
+
+      <ImportProjectsDialog
+        open={importing}
+        onOpenChange={setImporting}
+        clientOptions={clientOptions}
+        memberOptions={memberOptions}
+      />
 
       <NewProjectDialog
         open={intent.open}

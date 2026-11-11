@@ -32,6 +32,7 @@ export function ProjectsHeader({
   canCreate,
   createDisabledReason,
   onNew,
+  onImport,
   onTab,
   tab,
   counts,
@@ -44,6 +45,7 @@ export function ProjectsHeader({
   canCreate: boolean
   createDisabledReason: string | null
   onNew: () => void
+  onImport: () => void
   onTab: (tab: ProjectsTab) => void
   tab: ProjectsTab
   counts: Map<ProjectsTab, number>
@@ -69,6 +71,14 @@ export function ProjectsHeader({
           <span className="num text-body text-fg-muted">{count}</span>
         )}
         <span className="flex-1" />
+        <Button
+          className="max-md:hidden"
+          disabled={!canCreate || loading}
+          title={createDisabledReason ?? undefined}
+          onClick={onImport}
+        >
+          {t('projects.projectImport.button')}
+        </Button>
         <Button
           variant="primary"
           disabled={!canCreate || loading}

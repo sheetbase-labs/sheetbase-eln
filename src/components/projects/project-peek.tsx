@@ -74,7 +74,12 @@ export function ProjectPeek({
     >
       <div className="flex flex-col gap-1 border-b border-border-subtle px-4 py-3">
         <div className="flex items-center">
-          <span className="mono text-label text-fg-muted">{project.id}</span>
+          <ObjectLink
+            kind="project"
+            id={project.uuid}
+            identifier={project.id}
+            className="text-label"
+          />
           <Button
             className="ml-auto"
             variant="quiet"

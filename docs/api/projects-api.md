@@ -134,6 +134,10 @@ Scope: `lab:write`.
 | `p_source_project_id` * | uuid | The project whose plan is copied. |
 | `p_start_date` *        | date | When the copied plan starts.      |
 
+### Importing projects in bulk
+
+The Import button on the Projects list reads a CSV (Name, and optionally Client, Modality, Stage, Lead, Started as `2026-11-11`, Agreement) and makes each line with `create_project`, one call per line, as the New project form does. There is no separate bulk endpoint, so a token, the MCP `sheetbase.lab.act` tool, the assistant and a pipeline do the same by calling `create_project` once per project. Each line sends `project.created`, and a line that cannot be made fails alone without stopping the rest.
+
 ### `move_record_to_project`
 
 Move a record to another project. Moves the record and everything in it. `p_expected_metadata_version` is the record’s `metadata_version`. Needs to edit both projects. Returns the record. Sends `record.moved`.

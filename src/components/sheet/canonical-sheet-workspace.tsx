@@ -3304,6 +3304,9 @@ function CanonicalWorkspaceStatus() {
     selectedColumn,
     provenance,
     details,
+    selected,
+    canWrite,
+    instance,
   } = useCanonicalWorkspace()
 
   const error =
@@ -3349,6 +3352,11 @@ function CanonicalWorkspaceStatus() {
           columnLabel={selectedColumn.label}
           columnOrigin={selectedColumn.origin}
           provenance={provenance}
+          rowNumber={selected.row + 1}
+          canWrite={canWrite}
+          editable={selectedColumn.editable}
+          nextRevision={instance.revision + 1}
+          sourceLabel={selectedColumn.sourceLabel}
         />
       ) : null}
     </div>
@@ -3708,62 +3716,114 @@ function CanonicalWorkspaceRecords() {
  * explorer, Record provenance to the owning Record — always via stable UUID
  * destinations from the canonical routes, never label-derived paths.
  */
+/** Where an edit to the selected cell goes, for the Details view. */
+function editWhere(input: {
+  columnOrigin: 'bound' | 'local' | 'calculation'
+  provenance: SheetProvenance
+  canWrite: boolean
+  editable: boolean
+  nextRevision?: number
+  sourceLabel?: string
+}): string {
+  if (input.columnOrigin === 'calculation')
+    return t('notebook.sheetEditLine.calculation')
+
+  if (!input.canWrite) return t('notebook.sheetEditLine.viewOnly')
+
+  if (input.columnOrigin === 'local')
+    return input.nextRevision === undefined
+      ? t('notebook.sheetEditLine.localNext')
+      : t('notebook.sheetEditLine.local', { revision: input.nextRevision })
+
+  if (input.provenance?.kind !== 'present')
+    return t('notebook.sheetEditLine.unmatched')
+
+  if (input.provenance.provenance.sourceKind === 'record')
+    return input.editable
+      ? t('notebook.sheetEditLine.record')
+      : t('notebook.sheetEditLine.recordReadOnly')
+
+  const dataset = input.sourceLabel ?? t('notebook.sheetEditLine.theDataset')
+
+  return input.editable
+    ? t('notebook.sheetEditLine.dataset', { dataset })
+    : t('notebook.sheetEditLine.datasetReadOnly', { dataset })
+}
+
+type SheetProvenance =
+  | { kind: 'present'; provenance: BoundColumnProvenance }
+  | { kind: 'unmatched'; provenance: unknown }
+  | null
+
+/**
+ * The Details view's edit line: the selected cell, and where an edit to it is
+ * written before anyone types. Bound cells link to their dataset or record.
+ */
 export function SheetProvenanceLine({
   columnLabel,
   columnOrigin,
   provenance,
+  rowNumber,
+  canWrite = true,
+  editable = true,
+  nextRevision,
+  sourceLabel,
 }: {
   columnLabel: string
   columnOrigin: 'bound' | 'local' | 'calculation'
-  provenance:
-    | { kind: 'present'; provenance: BoundColumnProvenance }
-    | { kind: 'unmatched'; provenance: unknown }
-    | null
+  provenance: SheetProvenance
+  /** 1-based row, as the grid numbers it. */
+  rowNumber?: number
+  canWrite?: boolean
+  editable?: boolean
+  /** The sheet revision an edit to a local column makes. */
+  nextRevision?: number
+  /** The dataset's name and revision, as the column's header band shows it. */
+  sourceLabel?: string
 }) {
+  const source = provenance?.kind === 'present' ? provenance.provenance : null
+
   return (
-    <p role="status">
-      {columnLabel}
-      {columnOrigin === 'bound'
-        ? t('notebook.canonicalSheetWorkspace.governed')
-        : ` · ${columnOrigin}`}
-      {provenance && 'kind' in provenance
-        ? provenance.kind === 'present'
-          ? t('notebook.canonicalSheetWorkspace.sourcekindProvenance', {
-              sourceKind: provenance.provenance.sourceKind,
-            })
-          : t('notebook.canonicalSheetWorkspace.unmatchedSource')
-        : ''}
-      {provenance &&
-      provenance.kind === 'present' &&
-      provenance.provenance.sourceKind === 'dataset' ? (
-        <>
-          {t('notebook.canonicalSheetWorkspace.dataset')}
-          <Link
-            className="underline underline-offset-2 hover:text-fg"
-            to="/datasets"
-            // NAV-02 review fix: the link carries only the stable Dataset
-            // ID. The explorer resolves the Dataset's lifecycle itself and
-            // flips to the archived view — the link must not claim the
-            // active-only filter for a Dataset it knows nothing about.
-            search={{ dataset: provenance.provenance.sourceDatasetId }}
-          >
-            {provenance.provenance.sourceDatasetId}
-          </Link>
-        </>
+    <p role="status" className="flex flex-wrap items-baseline gap-x-2">
+      <span className="font-medium text-fg">
+        {rowNumber === undefined
+          ? columnLabel
+          : t('notebook.sheetEditLine.cell', {
+              row: rowNumber,
+              column: columnLabel,
+            })}
+      </span>
+      <span>
+        {editWhere({
+          columnOrigin,
+          provenance,
+          canWrite,
+          editable,
+          nextRevision,
+          sourceLabel,
+        })}
+      </span>
+      {source?.sourceKind === 'dataset' ? (
+        <Link
+          className="underline underline-offset-2 hover:text-fg"
+          to="/datasets"
+          // NAV-02 review fix: the link carries only the stable Dataset
+          // ID. The explorer resolves the Dataset's lifecycle itself and
+          // flips to the archived view — the link must not claim the
+          // active-only filter for a Dataset it knows nothing about.
+          search={{ dataset: source.sourceDatasetId }}
+        >
+          {t('notebook.sheetEditLine.openDataset')}
+        </Link>
       ) : null}
-      {provenance &&
-      provenance.kind === 'present' &&
-      provenance.provenance.sourceKind === 'record' ? (
-        <>
-          {t('notebook.canonicalSheetWorkspace.record')}
-          <Link
-            className="underline underline-offset-2 hover:text-fg"
-            to="/records/$recordId"
-            params={{ recordId: provenance.provenance.sourceRecordId }}
-          >
-            {provenance.provenance.sourceRecordId}
-          </Link>
-        </>
+      {source?.sourceKind === 'record' ? (
+        <Link
+          className="underline underline-offset-2 hover:text-fg"
+          to="/records/$recordId"
+          params={{ recordId: source.sourceRecordId }}
+        >
+          {t('notebook.sheetEditLine.openRecord')}
+        </Link>
       ) : null}
     </p>
   )

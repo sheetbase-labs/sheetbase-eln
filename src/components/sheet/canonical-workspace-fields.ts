@@ -1,3 +1,4 @@
+import { t } from '#/copy'
 import type { FieldDefinition } from '#/lib/field-definition'
 import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
@@ -51,7 +52,7 @@ export function canonicalWorkspaceGridColumn(
     label: details ? canonicalSheetColumnHeader(column) : column.label,
     source: column.origin === 'calculation' ? 'calculated' : column.origin,
     readOnly: !canWrite || !column.editable,
-    group: details ? column.group : undefined,
+    group: details ? ownerBand(column) : undefined,
     sourceLabel: details ? column.sourceLabel : undefined,
     showSource: details || column.origin === 'calculation',
   }
@@ -94,6 +95,19 @@ export function canonicalWorkspaceGridColumn(
   }
 
   return { ...base, type: 'text' }
+}
+
+/** The Details view's header band: who owns the columns and what an edit makes. */
+function ownerBand(column: CanonicalSheetGridColumn): string {
+  if (column.origin === 'calculation')
+    return t('notebook.sheetEditLine.bandDerived', { group: column.group })
+
+  if (column.origin === 'local')
+    return t('notebook.sheetEditLine.bandLocal', { group: column.group })
+
+  return t('notebook.sheetEditLine.bandBound', {
+    group: column.sourceLabel ?? column.group,
+  })
 }
 
 /** A number with its unit after it; an empty or non-numeric cell is left to the grid. */

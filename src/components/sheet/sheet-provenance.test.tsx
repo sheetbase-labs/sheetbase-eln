@@ -52,7 +52,7 @@ describe('Sheet provenance navigation (NAV-02)', () => {
     expect(Object.fromEntries(href.searchParams)).toEqual({
       dataset: '770e8400-e29b-41d4-a716-446655440020',
     })
-    expect(link.textContent).toContain('770e8400-e29b-41d4-a716-446655440020')
+    expect(link.textContent).toBe('Open dataset')
   })
 
   it('renders Record provenance as a canonical Record link', async () => {
@@ -83,7 +83,9 @@ describe('Sheet provenance navigation (NAV-02)', () => {
         provenance={null}
       />,
     )
-    expect(screen.getByRole('status').textContent).toBe('Notes · local')
+    expect(screen.getByRole('status').textContent).toBe(
+      'NotesEditing makes a new sheet revision',
+    )
     expect(screen.queryByRole('link')).toBeNull()
   })
 })

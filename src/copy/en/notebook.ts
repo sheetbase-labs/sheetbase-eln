@@ -2202,6 +2202,24 @@ export const notebook = {
     keyNextRow: 'next run',
     keyDiscard: 'discard',
   },
+  sheetEditLine: {
+    cell: 'Row {row} · {column}',
+    local: 'Editing makes sheet revision {revision}',
+    localNext: 'Editing makes a new sheet revision',
+    calculation: 'Calculated, not editable · change its inputs instead',
+    viewOnly: 'View only',
+    unmatched: 'No source row matches · nothing to edit here',
+    dataset: 'Editing commits to {dataset} as a new dataset revision',
+    datasetReadOnly: 'From {dataset} · read-only here',
+    theDataset: 'the dataset',
+    record: 'Editing changes the linked record',
+    recordReadOnly: 'From the linked record · read-only here',
+    openDataset: 'Open dataset',
+    openRecord: 'Open record',
+    bandLocal: '{group} · edits make a sheet revision',
+    bandDerived: '{group} · calculated, not editable',
+    bandBound: '{group} · edits go back to the source',
+  },
   sheetChanges: {
     toggle: 'Show changes',
     toggleHint:
@@ -2337,11 +2355,6 @@ export const notebook = {
     closeComments: 'Close comments',
     name: 'Name',
     createAndLink: 'Create and link',
-    governed: ' · governed',
-    sourcekindProvenance: ' · {sourceKind} source',
-    unmatchedSource: ' · unmatched source',
-    dataset: ' · dataset ',
-    record: ' · record ',
     theComposedRowIs:
       'The composed row is no longer available. Reload the sheet before editing.',
     theWorkingViewCould:

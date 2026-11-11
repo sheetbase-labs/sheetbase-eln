@@ -25,31 +25,51 @@ export function ComposedSheetRecordToolbar({
 }) {
   const link = actions.find((action) => action.kind === 'link-record')
   const create = actions.find((action) => action.kind === 'create-record')
+  // Record buttons appear only when the sheet's setup turns them on. A sheet
+  // that only shows a dataset keeps the plain header the design draws.
+  const recordActions = Boolean(link?.enabled || create?.enabled)
+
+  if (!recordActions && errors.length === 0)
+    return (
+      // Who is here already shows in the page header; only other people's
+      // selections earn a line, and only while there are some.
+      <div className="flex items-center justify-end gap-2 border-b px-3 py-2 empty:hidden">
+        <RemoteSelectionChips />
+      </div>
+    )
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
-      <Button
-        type="button"
-        size="sm"
-        disabled={!link?.enabled}
-        onClick={onLink}
-      >
-        {link?.label ?? t('notebook.composedSheetRecordToolbar.linkRecord')}
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        disabled={!create?.enabled}
-        onClick={onCreate}
-      >
-        {create?.label ?? t('notebook.composedSheetRecordToolbar.createRecord')}
-      </Button>
-      <Button type="button" size="sm" variant="secondary" onClick={onValidate}>
-        {t('notebook.composedSheetRecordToolbar.validate')}
-      </Button>
-      <Button type="button" size="sm" variant="secondary" onClick={onCommit}>
-        {t('notebook.composedSheetRecordToolbar.commit')}
-      </Button>
+      {link?.enabled ? (
+        <Button type="button" size="sm" onClick={onLink}>
+          {link.label}
+        </Button>
+      ) : null}
+      {create?.enabled ? (
+        <Button type="button" size="sm" onClick={onCreate}>
+          {create.label}
+        </Button>
+      ) : null}
+      {recordActions ? (
+        <>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={onValidate}
+          >
+            {t('notebook.composedSheetRecordToolbar.validate')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={onCommit}
+          >
+            {t('notebook.composedSheetRecordToolbar.commit')}
+          </Button>
+        </>
+      ) : null}
       {errors.length > 0 ? (
         <Button type="button" size="sm" variant="quiet" onClick={onNextError}>
           {t('notebook.composedSheetRecordToolbar.nextErrorCount', {

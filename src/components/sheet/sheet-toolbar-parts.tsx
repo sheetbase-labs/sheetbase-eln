@@ -98,7 +98,7 @@ export function SheetSaveStatus({
         />
       )}
       {/* A narrow toolbar keeps the mark; the words stay for screen readers. */}
-      <span className="@max-[60rem]:sr-only">{label}</span>
+      <span className="@max-[56rem]:sr-only">{label}</span>
     </span>
   )
 }

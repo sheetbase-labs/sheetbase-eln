@@ -235,7 +235,7 @@ export function SheetFiltersButton({
         {compact ? null : (
           <>
             {/* A narrow toolbar keeps the icon and the count. */}
-            <span className="@max-[75rem]:sr-only">{label}</span>
+            <span className="@max-[60rem]:sr-only">{label}</span>
             {shown.length > 0 ? (
               <span aria-hidden="true" className="@min-[75rem]:hidden">
                 {shown.length}

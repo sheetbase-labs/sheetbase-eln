@@ -2473,13 +2473,13 @@ function SheetToolbarChips() {
 
   return (
     <>
-      {composed && canWrite ? (
+      {/* Only while edits wait to go back to the dataset: an idle sheet
+          shows nothing here, as the design draws it. */}
+      {composed && canWrite && Object.keys(pendingValues).length > 0 ? (
         <Button
           type="button"
           size="sm"
-          disabled={
-            writeBack.isPending || Object.keys(pendingValues).length === 0
-          }
+          disabled={writeBack.isPending}
           onClick={() => writeBack.mutate()}
         >
           {t('notebook.canonicalSheetWorkspace.writeBack')}
@@ -3123,6 +3123,15 @@ function CanonicalWorkspacePageStatus() {
   const { composition, composedSnapshot, matrix, setPageCount } =
     useCanonicalWorkspace()
 
+  // The header already counts the rows. This line speaks only while rows are
+  // loading, when more are left to fetch, or when the server has a notice.
+  if (
+    !composition.isLoading &&
+    !composedSnapshot?.hasMore &&
+    !composition.data?.notice
+  )
+    return null
+
   return (
     <>
       <div
@@ -3595,10 +3604,16 @@ function SelectedCellLine({
 
 /** The foot band's line for the selected cell, while Details is closed. */
 function SelectedCellFoot() {
-  const { selectedColumn, selected, matrix, commentAnnotations } =
-    useCanonicalWorkspace()
+  const {
+    selectedColumn,
+    selected,
+    matrix,
+    commentAnnotations,
+    commentSelection,
+  } = useCanonicalWorkspace()
 
-  if (!selectedColumn) return null
+  // Nothing is named until a cell is picked: an untouched sheet has no line.
+  if (!selectedColumn || !commentSelection) return null
 
   const note = commentAnnotations.find(
     (entry) =>

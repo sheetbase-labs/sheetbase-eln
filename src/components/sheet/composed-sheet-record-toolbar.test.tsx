@@ -8,8 +8,7 @@ import { ComposedSheetRecordToolbar } from './composed-sheet-record-toolbar'
 afterEach(cleanup)
 
 describe('composed Sheet Record toolbar', () => {
-  it('disables create when the Definition is link-only and focuses the next error', async () => {
-    const onCreate = vi.fn()
+  it('offers only the record actions the setup turns on and focuses the next error', async () => {
     const onNextError = vi.fn()
 
     const actions = resolveSheetRecordActions({
@@ -35,17 +34,13 @@ describe('composed Sheet Record toolbar', () => {
           },
         ]}
         onLink={vi.fn()}
-        onCreate={onCreate}
+        onCreate={vi.fn()}
         onValidate={vi.fn()}
         onCommit={vi.fn()}
         onNextError={onNextError}
       />,
     )
-    expect(
-      screen
-        .getByRole('button', { name: 'Create Record' })
-        .hasAttribute('disabled'),
-    ).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Create record' })).toBeNull()
     expect(
       screen
         .getByRole('button', { name: 'Link Sample' })
@@ -53,7 +48,22 @@ describe('composed Sheet Record toolbar', () => {
     ).toBe(false)
     await userEvent.click(screen.getByRole('button', { name: /Next error/ }))
     expect(onNextError).toHaveBeenCalled()
-    await userEvent.click(screen.getByRole('button', { name: 'Create Record' }))
-    expect(onCreate).not.toHaveBeenCalled()
+  })
+
+  it('draws no bar for a sheet that only shows a dataset', () => {
+    const { container } = render(
+      <ComposedSheetRecordToolbar
+        actions={resolveSheetRecordActions({ actions: [] })}
+        errors={[]}
+        onLink={vi.fn()}
+        onCreate={vi.fn()}
+        onValidate={vi.fn()}
+        onCommit={vi.fn()}
+        onNextError={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryAllByRole('button')).toHaveLength(0)
+    expect(container.textContent).toBe('')
   })
 })

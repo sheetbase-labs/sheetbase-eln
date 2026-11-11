@@ -56,14 +56,7 @@ import { Notice } from '#/components/ui/alert'
 import { Field, Input } from '#/components/ui/input'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Select } from '#/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { PreviewGrid } from '#/components/inventory/preview-grid'
 import { Inspector } from '#/components/record/inspector'
 import { InspectorSection, InspectorSectionStack } from '#/components/record'
 import { FigureControls } from '#/components/viz/figure-controls'
@@ -1991,59 +1984,36 @@ export function DataTableAlternative({
           </Button>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto">
-        <Table
-          aria-label={t('data.analysisStudio.ariaChartDataTable')}
-          data-density="compact"
-        >
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              {columns.map((column) => (
-                <TableHead key={column.key}>{column.label}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="text-center text-xs text-fg-muted"
-                >
-                  {t('data.analysisStudio.noRows')}
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((row, i) => {
-                const selectedRowId = selection
-                  ? materialised.series.find(
-                      (item) => item.identifier === selection.seriesIdentifier,
-                    )?.points[selection.index]?.rowId
-                  : undefined
-
-                const isSelected =
-                  selectedRowId && row[CHART_ROW_ID_KEY] === selectedRowId
-
-                return (
-                  // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- The data table shows a fixed 50-row window in source order; a row has no identifier of its own.
-                  <TableRow
-                    key={i}
-                    className={isSelected ? 'bg-surface-muted' : undefined}
-                  >
-                    {columns.map((column) => (
-                      <TableCell
-                        key={column.key}
-                        className="scientific-nums whitespace-nowrap font-mono tabular-nums"
-                      >
-                        {tableCell(row[column.key])}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                )
-              })
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {rows.length === 0 ? (
+          <p role="status" className="p-3 text-center text-xs text-fg-muted">
+            {t('data.analysisStudio.noRows')}
+          </p>
+        ) : (
+          <PreviewGrid
+            label={t('data.analysisStudio.ariaChartDataTable')}
+            columns={columns.map((column) => column.label)}
+            rows={rows.map((row) =>
+              Object.fromEntries(
+                columns.map((column) => [
+                  column.label,
+                  tableCell(row[column.key]),
+                ]),
+              ),
             )}
-          </TableBody>
-        </Table>
+            selectedRow={rows.findIndex((row) => {
+              const selectedRowId = selection
+                ? materialised.series.find(
+                    (item) => item.identifier === selection.seriesIdentifier,
+                  )?.points[selection.index]?.rowId
+                : undefined
+
+              return Boolean(
+                selectedRowId && row[CHART_ROW_ID_KEY] === selectedRowId,
+              )
+            })}
+          />
+        )}
       </div>
     </div>
   )

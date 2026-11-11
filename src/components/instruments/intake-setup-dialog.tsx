@@ -26,15 +26,8 @@ import { Field } from '#/components/ui/input'
 import { RadioGroup } from '#/components/ui/radio-group'
 import { Select } from '#/components/ui/select'
 import { Stepper } from '#/components/ui/stepper'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { PreviewGrid } from '#/components/inventory/preview-grid'
 import { Tooltip } from '#/components/ui/tooltip'
 import { createDataClient } from '#/lib/data-client'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
@@ -94,15 +87,6 @@ function SamplePreviewView({ preview }: { preview: SamplePreview }) {
   }
 
   const headers = preview.headers.slice(0, 6)
-  const occurrences = new Map<string, number>()
-
-  const rows = preview.rows.map((row) => {
-    const content = JSON.stringify(row)
-    const occurrence = occurrences.get(content) ?? 0
-    occurrences.set(content, occurrence + 1)
-
-    return { row, key: `${content}:${occurrence}` }
-  })
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -113,26 +97,15 @@ function SamplePreviewView({ preview }: { preview: SamplePreview }) {
         })}
       </p>
       <TableBox>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {headers.map((header) => (
-                <TableHead key={header}>{header}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map(({ row, key }) => (
-              <TableRow key={key}>
-                {headers.map((header) => (
-                  <TableCell key={header} className="mono">
-                    {row[header] ?? ''}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <PreviewGrid
+          label={t('library.instruments.intakeSetup.sample.readAs', {
+            name: preview.readBy,
+            count: preview.rowCount,
+          })}
+          columns={headers}
+          rows={preview.rows}
+          maxHeight={260}
+        />
       </TableBox>
       {preview.rowCount > preview.rows.length ? (
         <p className="m-0 text-label text-fg-muted">

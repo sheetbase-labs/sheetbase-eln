@@ -1,8 +1,11 @@
+import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 
 import { DescriptionList, Muted, Section } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
 import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Tooltip } from '#/components/ui/tooltip'
 import { AddedFields } from '#/components/models/added-fields'
 import {
@@ -63,6 +66,118 @@ export function FieldsSection({
   )
 }
 
+function UsedByGrid({ rows }: { rows: InstrumentUsedBy[] }) {
+  const columns = useMemo<RegistryColumn<InstrumentUsedBy>[]>(
+    () => [
+      {
+        id: 'name',
+        header: t('library.instruments.record.usedByName'),
+        accessorFn: (row) => row.label,
+        enableHiding: false,
+        cell: ({ row }) =>
+          row.original.link ? (
+            <Link
+              to={row.original.link.to}
+              params={{ datasetId: row.original.link.id }}
+            >
+              {row.original.label}
+            </Link>
+          ) : (
+            row.original.label
+          ),
+      },
+      {
+        id: 'how',
+        header: t('library.instruments.record.usedByHow'),
+        accessorFn: (row) => row.how,
+        cell: ({ row }) => <span className="text-fg-muted">{row.original.how}</span>,
+      },
+      {
+        id: 'since',
+        header: t('library.instruments.record.usedBySince'),
+        accessorFn: (row) => row.since,
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => (
+          <span className="text-fg-muted">
+            {formatInstrumentDay(row.original.since)}
+          </span>
+        ),
+      },
+    ],
+    [],
+  )
+
+  return (
+    <RegistryGrid
+      label={t('library.instruments.record.usedBy')}
+      rows={rows}
+      columns={columns}
+      getRowId={(row) => row.key}
+      selectable={false}
+    />
+  )
+}
+
+function HistoryGrid({
+  entries,
+  userLabel,
+}: {
+  entries: InstrumentChange[]
+  userLabel: (userId: string) => string
+}) {
+  const columns = useMemo<RegistryColumn<InstrumentChange>[]>(
+    () => [
+      {
+        id: 'when',
+        header: t('library.instruments.record.when'),
+        accessorFn: (entry) => entry.at,
+        enableHiding: false,
+        cell: ({ row }) => formatInstrumentDay(row.original.at),
+      },
+      {
+        id: 'change',
+        header: t('library.instruments.record.change'),
+        accessorFn: (entry) =>
+          entry.changes.map((c) => c.label).join(', '),
+        enableSorting: false,
+        cell: ({ row }) =>
+          row.original.changes.length ? (
+            <span className="flex min-w-0 items-baseline gap-3">
+              {row.original.changes.map((c) => (
+                <span key={c.label} className="whitespace-nowrap">
+                  {c.label}{' '}
+                  <del className="text-fg-muted">{c.from ?? '—'}</del> →{' '}
+                  <ins className="no-underline">{c.to ?? '—'}</ins>
+                </span>
+              ))}
+            </span>
+          ) : (
+            t('library.instruments.record.registered')
+          ),
+      },
+      {
+        id: 'by',
+        header: t('library.instruments.record.by'),
+        accessorFn: (entry) =>
+          entry.actorUserId ? userLabel(entry.actorUserId) : '',
+        cell: ({ row }) =>
+          row.original.actorUserId ? userLabel(row.original.actorUserId) : '—',
+      },
+    ],
+    [userLabel],
+  )
+
+  return (
+    <RegistryGrid
+      label={t('library.instruments.record.changeHistory')}
+      rows={entries}
+      columns={columns}
+      getRowId={(entry) => entry.id}
+      selectable={false}
+    />
+  )
+}
+
 /** The datasets imported from this instrument. */
 export function UsedBySection({ rows }: { rows: InstrumentUsedBy[] }) {
   return (
@@ -73,43 +188,7 @@ export function UsedBySection({ rows }: { rows: InstrumentUsedBy[] }) {
     >
       {rows.length ? (
         <TableBox>
-          <table className="w-full text-label">
-            <thead>
-              <tr className="text-left text-fg-muted">
-                <th className="px-2 py-1 font-medium">
-                  {t('library.instruments.record.usedByName')}
-                </th>
-                <th className="px-2 py-1 font-medium">
-                  {t('library.instruments.record.usedByHow')}
-                </th>
-                <th className="px-2 py-1 text-right font-medium">
-                  {t('library.instruments.record.usedBySince')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.key} className="border-t border-border">
-                  <td className="px-2 py-1">
-                    {row.link ? (
-                      <Link
-                        to={row.link.to}
-                        params={{ datasetId: row.link.id }}
-                      >
-                        {row.label}
-                      </Link>
-                    ) : (
-                      row.label
-                    )}
-                  </td>
-                  <td className="px-2 py-1 text-fg-muted">{row.how}</td>
-                  <td className="px-2 py-1 text-right whitespace-nowrap text-fg-muted">
-                    {formatInstrumentDay(row.since)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <UsedByGrid rows={rows} />
         </TableBox>
       ) : (
         <Muted>
@@ -142,44 +221,7 @@ export function HistorySection({
       }
     >
       <TableBox>
-        <table className="w-full text-label">
-          <thead>
-            <tr className="text-left text-fg-muted">
-              <th className="px-2 py-1 font-medium">
-                {t('library.instruments.record.when')}
-              </th>
-              <th className="px-2 py-1 font-medium">
-                {t('library.instruments.record.change')}
-              </th>
-              <th className="px-2 py-1 font-medium">
-                {t('library.instruments.record.by')}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((entry) => (
-              <tr key={entry.id} className="border-t border-border">
-                <td className="px-2 py-1 whitespace-nowrap">
-                  {formatInstrumentDay(entry.at)}
-                </td>
-                <td className="px-2 py-1">
-                  {entry.changes.length
-                    ? entry.changes.map((c) => (
-                        <div key={c.label}>
-                          {c.label}{' '}
-                          <del className="text-fg-muted">{c.from ?? '—'}</del> →{' '}
-                          <ins className="no-underline">{c.to ?? '—'}</ins>
-                        </div>
-                      ))
-                    : t('library.instruments.record.registered')}
-                </td>
-                <td className="px-2 py-1">
-                  {entry.actorUserId ? userLabel(entry.actorUserId) : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <HistoryGrid entries={entries} userLabel={userLabel} />
       </TableBox>
     </Section>
   )

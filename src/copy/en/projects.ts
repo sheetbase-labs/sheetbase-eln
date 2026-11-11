@@ -397,6 +397,42 @@ export const projects = {
       add: 'Add folder',
     },
   },
+  projectImport: {
+    button: 'Import',
+    title: 'Import projects',
+    intro:
+      'Add several projects at once from a CSV file. The first line names the columns: Name is required, and Client, Modality, Stage, Lead, Started (as 2026-11-11) and Agreement are optional.',
+    file: 'CSV file',
+    fileLabel: 'Choose a CSV file of projects',
+    missingName: 'The first line needs a Name column.',
+    ready: { one: '{count} project ready', other: '{count} projects ready' },
+    skipped: {
+      one: '{count} line can’t be imported',
+      other: '{count} lines can’t be imported',
+    },
+    columns: {
+      line: 'Line',
+      name: 'Name',
+      client: 'Client',
+      stage: 'Stage',
+      check: 'Check',
+    },
+    ok: 'Ready',
+    importing: 'Importing…',
+    action: { one: 'Import {count} project', other: 'Import {count} projects' },
+    done: {
+      one: '{count} project imported',
+      other: '{count} projects imported',
+    },
+    failed: '“{title}” couldn’t be imported: {reason}',
+    close: 'Close',
+    problems: {
+      noName: 'No name',
+      client: 'No client matches “{client}”',
+      lead: 'Nobody matches the lead “{lead}”',
+      date: 'Started “{started}” isn’t a date like 2026-11-11',
+    },
+  },
   projectOverview: {
     overdue: 'Overdue',
     planned: 'Planned',

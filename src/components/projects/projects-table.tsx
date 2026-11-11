@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
+import { ObjectLink } from '#/components/ui/object-link'
 import { Status } from '#/components/ui/status'
 import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
 import type {
@@ -83,7 +84,11 @@ export function ProjectsTable({
       id: 'id',
       header: t('projects.projectsPage.columns.id'),
       cell: ({ row }) => (
-        <span className="mono text-fg-muted">{row.original.id}</span>
+        <ObjectLink
+          kind="project"
+          id={row.original.uuid}
+          identifier={row.original.id}
+        />
       ),
       meta: {
         headerClassName: 'max-xl:hidden',

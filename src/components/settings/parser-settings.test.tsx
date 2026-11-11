@@ -114,6 +114,7 @@ afterAll(() => vi.unstubAllGlobals())
 
 function renderSettings(role: string, versionId?: string) {
   const root = createRootRoute()
+
   const settings = createRoute({
     getParentRoute: () => root,
     path: '/',
@@ -126,10 +127,12 @@ function renderSettings(role: string, versionId?: string) {
       />
     ),
   })
+
   const importRoute = createRoute({
     getParentRoute: () => root,
     path: '/import/$fileId',
   })
+
   const router = createRouter({
     routeTree: root.addChildren([settings, importRoute]),
     history: createMemoryHistory({ initialEntries: ['/'] }),

@@ -395,8 +395,8 @@ export async function dropLakeTable(
     if (!last) throw new Error('the lake catalogue has no first snapshot')
     const snapshot = Number(last.snapshot_id) + 1
     const tableId = Number(found.table_id)
+    // react-doctor-disable-next-line react-doctor/raw-sql-injection-risk -- `s` is the schema name `ident()` validated above; a schema identifier cannot be a bind parameter, and the values are bound.
     await conn.query(
-      // react-doctor-disable-next-line react-doctor/raw-sql-injection-risk -- `s` is the schema name `ident()` validated above; a schema identifier cannot be a bind parameter, and the values are bound.
       `UPDATE ${s}.ducklake_table SET end_snapshot = $1 WHERE table_id = $2`,
       [snapshot, tableId],
     )

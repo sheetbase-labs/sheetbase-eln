@@ -4,6 +4,8 @@
  * toolbar to a save state and a couple of controls; everything else is one
  * click further away.
  */
+import { useSyncExternalStore } from 'react'
+
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
@@ -18,6 +20,34 @@ import {
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 import { cn } from '#/lib/utils'
+
+const PHONE_TOOLBAR_QUERY = '(max-width: 640px)'
+
+/** The phone query, or null where the page has no media queries (tests). */
+function phoneQuery(): MediaQueryList | null {
+  return 'matchMedia' in globalThis
+    ? globalThis.matchMedia(PHONE_TOOLBAR_QUERY)
+    : null
+}
+
+function subscribePhone(onChange: () => void): () => void {
+  const query = phoneQuery()
+
+  if (!query) return () => {}
+
+  query.addEventListener('change', onChange)
+
+  return () => query.removeEventListener('change', onChange)
+}
+
+/** True at phone width, where the toolbar folds its view switches into More. */
+export function usePhoneToolbar(): boolean {
+  return useSyncExternalStore(
+    subscribePhone,
+    () => phoneQuery()?.matches ?? false,
+    () => false,
+  )
+}
 
 export type SheetSaveState = 'saved' | 'saving' | 'failed' | 'read-only'
 

@@ -1622,6 +1622,9 @@ function NotebookDocumentBlockRow({
         frame={{
           label: blockLabel(block),
           continuous: !!proseRun,
+          // A sheet is a card with its own toolbar along its top edge, so
+          // the row's tools sit in the left gutter under the grip.
+          toolbarInGutter: block.type === 'sheet',
           title:
             // Display only: editable payload fields belong to the
             // block's single autosave/conflict state machine below.

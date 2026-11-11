@@ -209,7 +209,9 @@ export function useSheetChanges({
 
       const now = cellDisplayText(matrix.data[rowIndex]?.[columnIndex], column)
 
-      return was === now ? undefined : was || '—'
+      // A first entry has nothing to strike through: the design marks only
+      // values that replaced another one.
+      return was === '' || was === now ? undefined : was
     },
     [before, matrix, position, gridColumns],
   )

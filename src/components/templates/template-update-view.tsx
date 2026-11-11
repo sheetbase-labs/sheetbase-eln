@@ -5,15 +5,9 @@ import { Notice } from '#/components/ui/alert'
 import { Choice } from '#/components/ui/choice'
 import { RadioGroup } from '#/components/ui/radio-group'
 import { Muted, Section } from '#/components/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Select } from '#/components/ui/select'
 import { buildNotebookTemplateUpgradeDecisions } from '#/lib/notebook-template-upgrade'
 import type {
@@ -385,12 +379,33 @@ function UpgradeStatus({
   )
 }
 
+type AutomaticRow = {
+  change: NotebookUpgradePreview['automatic'][number]
+  key: string
+}
+
+const AUTOMATIC_COLUMNS: RegistryColumn<AutomaticRow>[] = [
+  {
+    id: 'change',
+    header: t('library.templates.templateUpdateView.change'),
+    accessorFn: ({ change }) =>
+      AUTOMATIC_LABELS.get(change.kind) ?? change.kind.replace(/-/g, ' '),
+  },
+  {
+    id: 'placement',
+    header: t('library.templates.templateUpdateView.placement'),
+    accessorFn: ({ change }) =>
+      change.placementId ? change.placementId.slice(0, 8) : '—',
+    meta: { cellClassName: 'mono text-fg-muted' },
+  },
+]
+
 function AutomaticChanges({
   targetVersion,
   rows,
 }: {
   targetVersion: number
-  rows: { change: NotebookUpgradePreview['automatic'][number]; key: string }[]
+  rows: AutomaticRow[]
 }) {
   return (
     <Section
@@ -401,35 +416,13 @@ function AutomaticChanges({
     >
       {rows.length ? (
         <TableBox>
-          <Table
-            aria-label={t(
-              'library.templates.templateUpdateView.automaticChanges',
-            )}
-          >
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  {t('library.templates.templateUpdateView.change')}
-                </TableHead>
-                <TableHead>
-                  {t('library.templates.templateUpdateView.placement')}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map(({ change, key }) => (
-                <TableRow key={key}>
-                  <TableCell>
-                    {AUTOMATIC_LABELS.get(change.kind) ??
-                      change.kind.replace(/-/g, ' ')}
-                  </TableCell>
-                  <TableCell className="mono text-fg-muted">
-                    {change.placementId ? change.placementId.slice(0, 8) : '—'}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label={t('library.templates.templateUpdateView.automaticChanges')}
+            rows={rows}
+            columns={AUTOMATIC_COLUMNS}
+            getRowId={(row) => row.key}
+            selectable={false}
+          />
         </TableBox>
       ) : (
         <Muted>

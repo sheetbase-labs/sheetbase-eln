@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import type { ColumnDef } from '@tanstack/react-table'
 
 import { Button } from '#/components/ui/button'
 import { IconButton } from '#/components/ui/icon-button'
@@ -9,8 +8,11 @@ import { EmptyState } from '#/components/ui/empty-state'
 import { Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
-import { DataTable } from '#/components/scientific/data-table'
-import type { DataTableFeatures } from '#/components/scientific/data-table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { useBulkSelection } from '#/components/inventory/bulk-selection'
+import { useListView } from '#/lib/list-views'
 import { pickerStatus } from '#/components/record-picker/record-picker-data'
 import { displayModelFieldValue } from '#/lib/model-fields'
 import { downloadTextFile } from '#/lib/download'
@@ -134,7 +136,15 @@ function useRecordList(modelKey: string) {
     verdictByRecord,
   ])
 
-  const [selected, setSelected] = useState<RecordModelRecord[]>([])
+  // The ticked records feed the plugin actions; the list keeps what a person
+  // chose to hide and how they sorted it.
+  const bulk = useBulkSelection()
+  const view = useListView(`model-records:${modelKey}`)
+
+  const selected = useMemo(
+    () => visible.filter((record) => bulk.has(record.id)),
+    [visible, bulk],
+  )
 
   const plugin = usePluginTableHooks({
     modelKey,
@@ -143,10 +153,8 @@ function useRecordList(modelKey: string) {
     ready: !fieldsQuery.isLoading && !recordsQuery.isLoading,
   })
 
-  const columns = useMemo<
-    ColumnDef<DataTableFeatures, RecordModelRecord, unknown>[]
-  >(() => {
-    const base: ColumnDef<DataTableFeatures, RecordModelRecord, unknown>[] = [
+  const columns = useMemo<RegistryColumn<RecordModelRecord>[]>(() => {
+    const base: RegistryColumn<RecordModelRecord>[] = [
       {
         id: 'identifier',
         header: t('library.models.recordModelRecords.id'),
@@ -154,7 +162,6 @@ function useRecordList(modelKey: string) {
         cell: ({ row }) => (
           <span className="mono">{row.original.identifier}</span>
         ),
-        meta: { className: 'whitespace-nowrap' },
       },
       {
         id: 'title',
@@ -169,7 +176,7 @@ function useRecordList(modelKey: string) {
             {row.original.title}
           </Link>
         ),
-        meta: { className: 'min-w-[180px]' },
+        meta: { cellClassName: 'min-w-[180px]' },
       },
       {
         id: 'status',
@@ -202,45 +209,43 @@ function useRecordList(modelKey: string) {
 
     return [
       ...base,
-      ...fields.map<ColumnDef<DataTableFeatures, RecordModelRecord, unknown>>(
-        (field) => ({
-          id: `field:${field.fieldName}`,
-          header: field.label,
-          accessorFn: (record) =>
-            displayModelFieldValue(
-              field,
-              recordFieldValue(record, field.fieldName),
-            ),
-          cell: ({ row }) => {
-            const renderer = plugin.cellRenderer(field)
+      ...fields.map<RegistryColumn<RecordModelRecord>>((field) => ({
+        id: `field:${field.fieldName}`,
+        header: field.label,
+        accessorFn: (record) =>
+          displayModelFieldValue(
+            field,
+            recordFieldValue(record, field.fieldName),
+          ),
+        cell: ({ row }) => {
+          const renderer = plugin.cellRenderer(field)
 
-            if (renderer)
-              return (
-                <PluginCell
-                  extensionKey={renderer.extensionKey}
-                  itemId={renderer.itemId}
-                  value={recordFieldValue(row.original, field.fieldName)}
-                />
-              )
-            const display = plugin.cellDisplay(field)
-
-            return display ? (
-              <CellDisplayView
-                spec={display}
+          if (renderer)
+            return (
+              <PluginCell
+                extensionKey={renderer.extensionKey}
+                itemId={renderer.itemId}
                 value={recordFieldValue(row.original, field.fieldName)}
               />
-            ) : (
-              <span className="block max-w-[240px] truncate">
-                {displayModelFieldValue(
-                  field,
-                  recordFieldValue(row.original, field.fieldName),
-                )}
-              </span>
             )
-          },
-          meta: { className: 'max-w-[240px]' },
-        }),
-      ),
+          const display = plugin.cellDisplay(field)
+
+          return display ? (
+            <CellDisplayView
+              spec={display}
+              value={recordFieldValue(row.original, field.fieldName)}
+            />
+          ) : (
+            <span className="block max-w-[240px] truncate">
+              {displayModelFieldValue(
+                field,
+                recordFieldValue(row.original, field.fieldName),
+              )}
+            </span>
+          )
+        },
+        meta: { cellClassName: 'max-w-[240px]' },
+      })),
       ...plugin.columns,
     ]
   }, [fields, modelKey, judged, verdictByRecord, plugin])
@@ -284,7 +289,8 @@ function useRecordList(modelKey: string) {
     judged,
     visible,
     selected,
-    setSelected,
+    bulk,
+    view,
     plugin,
     columns,
     exportCsv,
@@ -424,7 +430,8 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
     results,
     visible,
     selected,
-    setSelected,
+    bulk,
+    view,
     plugin,
     columns,
     loading,
@@ -469,26 +476,36 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         runner={plugin.runner}
       />
       {plugin.runner.dialog}
-      <DataTable
-        label={t('library.models.shared.nameRecords', {
-          name:
-            model.data?.name ?? t('library.models.recordModelRecords.model'),
-        })}
-        columns={columns}
-        data={visible}
-        getRowId={(record) => record.id}
-        enableColumnVisibility
-        enableRowSelection={plugin.actions.length > 0}
-        onSelectionChange={setSelected}
-        toolbar={<RecordListToolbar modelKey={modelKey} list={list} />}
-        emptyMessage={
-          loading
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <RecordListToolbar modelKey={modelKey} list={list} />
+      </div>
+      {visible.length === 0 ? (
+        <p className="m-0 text-label text-fg-muted" role="status">
+          {loading
             ? t('library.models.recordModelRecords.loadingRecords')
             : q || status || fieldValue || results
               ? t('library.models.recordModelRecords.noRecordsMatchTheCurrent')
-              : t('library.models.recordModelRecords.noRecordsYet')
-        }
-      />
+              : t('library.models.recordModelRecords.noRecordsYet')}
+        </p>
+      ) : (
+        <TableBox>
+          <RegistryGrid
+            label={t('library.models.shared.nameRecords', {
+              name:
+                model.data?.name ??
+                t('library.models.recordModelRecords.model'),
+            })}
+            rows={visible}
+            columns={columns}
+            getRowId={(record) => record.id}
+            rowLabel={(record) => record.identifier}
+            selectable={false}
+            bulk={plugin.actions.length > 0 ? bulk : undefined}
+            view={view}
+            exportName={`${model.data?.key ?? modelKey}-records`}
+          />
+        </TableBox>
+      )}
     </div>
   )
 }

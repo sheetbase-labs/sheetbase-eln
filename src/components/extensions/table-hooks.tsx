@@ -10,7 +10,6 @@
 import * as React from 'react'
 import { z } from 'zod'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import type { ColumnDef } from '@tanstack/react-table'
 
 import { Button } from '#/components/ui/button'
 import { Spinner } from '#/components/ui/spinner'
@@ -29,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 import { Icon } from '#/components/icons'
-import type { DataTableFeatures } from '#/components/scientific/data-table'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import type { RecordModelRecord } from '#/components/models/models-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { downloadTextFile } from '#/lib/download'
@@ -415,9 +414,7 @@ export function usePluginTableHooks({
   // JSX, which the columns do not read.
   const run = runner.run
 
-  const columns = React.useMemo<
-    ColumnDef<DataTableFeatures, RecordModelRecord, unknown>[]
-  >(
+  const columns = React.useMemo<RegistryColumn<RecordModelRecord>[]>(
     () =>
       columnItems.map((item, index) => {
         const query = columnQueries.at(index)

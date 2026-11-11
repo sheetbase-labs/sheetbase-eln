@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -32,6 +32,7 @@ import {
   useExperimentRecord,
 } from '../$expId'
 import { t } from '#/copy'
+import { useListView } from '#/lib/list-views'
 
 interface FileRecordWire {
   id: string
@@ -377,10 +378,6 @@ function FileInspector({
   )
 }
 
-const sortKeySchema = z.enum(['uploaded', 'name'])
-
-type SortKey = z.infer<typeof sortKeySchema>
-
 const errorMessageSchema = z.object({ message: z.string().min(1) })
 
 /** A failed action's own message, when it carries one. */
@@ -403,23 +400,19 @@ export function ExperimentFiles({ expId }: { expId: string }) {
   )
 
   const [kind, setKind] = useState('all')
-  const [sort, setSort] = useState<SortKey>('uploaded')
-
-  const bySort = useCallback(
-    (a: ExperimentFile, b: ExperimentFile) =>
-      sort === 'name'
-        ? a.name.localeCompare(b.name)
-        : b.uploadedAt.localeCompare(a.uploadedAt),
-    [sort],
-  )
+  // Newest upload first until a column header says otherwise.
+  const view = useListView('experiment-files')
 
   const [picked, setPicked] = useState<string | null>(null)
   const kinds = [...new Set(all.map(kindOf))]
 
   const rows = useMemo(
-    () => all.filter((f) => kind === 'all' || kindOf(f) === kind).sort(bySort),
-    // react-doctor-disable-next-line react-doctor/exhaustive-deps -- `kindOf` is a module-level function, so its identity never changes; `all`, `kind` and the memoised comparator are the only reactive inputs.
-    [all, kind, bySort],
+    () =>
+      all
+        .filter((f) => kind === 'all' || kindOf(f) === kind)
+        .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt)),
+    // react-doctor-disable-next-line react-doctor/exhaustive-deps -- `kindOf` is a module-level function, so its identity never changes; `all` and `kind` are the only reactive inputs.
+    [all, kind],
   )
 
   const selectedId = picked ?? rows.at(0)?.id ?? null
@@ -539,23 +532,6 @@ export function ExperimentFiles({ expId }: { expId: string }) {
                 ))}
               </Select>
             </label>
-            <label className="flex items-center gap-1.5">
-              {t('projects.expSamples.sort')}
-              <Select
-                size="sm"
-                value={sort}
-                onChange={(e) => {
-                  const next = sortKeySchema.safeParse(e.target.value)
-
-                  if (next.success) setSort(next.data)
-                }}
-              >
-                <option value="uploaded">
-                  {t('projects.expFiles.uploaded')}
-                </option>
-                <option value="name">{t('projects.expFiles.name')}</option>
-              </Select>
-            </label>
           </div>
           {all.length ? (
             <TableBox>
@@ -566,6 +542,7 @@ export function ExperimentFiles({ expId }: { expId: string }) {
                 getRowId={(f) => f.id}
                 rowSelection={rowSelection}
                 onRowSelectionChange={onRowSelectionChange}
+                view={view}
                 isLoading={files.isLoading}
               />
             </TableBox>

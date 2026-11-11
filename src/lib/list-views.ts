@@ -3,7 +3,7 @@
  * columns they hid. Remembered per person (`api.list_views`), so the choice
  * follows them to another device and never changes what anyone else sees.
  */
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { functionalUpdate } from '@tanstack/react-table'
 import type { SortingState, Updater } from '@tanstack/react-table'
@@ -184,5 +184,36 @@ export function useListView(
       reset,
     }),
     [choice, query.isPending, setSorting, setHidden, reset],
+  )
+}
+
+/**
+ * A list's sorting and hidden columns for this visit only: what a table that
+ * has no remembered view of its own gets, so every list sorts, chooses its
+ * columns and exports the same way. `useListView` remembers the choice.
+ */
+export function useLocalListView(): ListView {
+  const [choice, setChoice] = useState<ListViewChoice>(EMPTY)
+
+  const setSorting = useCallback(
+    (updater: Updater<SortingState>) =>
+      setChoice((c) => ({
+        ...c,
+        sorting: functionalUpdate(updater, c.sorting),
+      })),
+    [],
+  )
+
+  const setHidden = useCallback(
+    (updater: Updater<string[]>) =>
+      setChoice((c) => ({ ...c, hidden: functionalUpdate(updater, c.hidden) })),
+    [],
+  )
+
+  const reset = useCallback(() => setChoice(EMPTY), [])
+
+  return useMemo(
+    () => ({ ...choice, ready: true, setSorting, setHidden, reset }),
+    [choice, setSorting, setHidden, reset],
   )
 }

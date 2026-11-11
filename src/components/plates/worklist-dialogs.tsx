@@ -27,15 +27,12 @@ import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
+import { TableBox } from '#/components/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { t } from '#/copy'
 import { downloadTextFile } from '#/lib/download'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -557,46 +554,55 @@ function WorklistTransfersTable({
   rows: ReconciledTransfer[]
   showStatus: boolean
 }) {
+  const columns: RegistryColumn<ReconciledTransfer>[] = [
+    {
+      id: 'sourceWell',
+      header: t('plates.worklists.transferColumns.sourceWell'),
+      accessorFn: (row) => row.sourceWell,
+      cell: ({ row }) => (
+        <span className="mono">{row.original.sourceWell}</span>
+      ),
+    },
+    {
+      id: 'destWell',
+      header: t('plates.worklists.transferColumns.destWell'),
+      accessorFn: (row) => row.destWell,
+      cell: ({ row }) => <span className="mono">{row.original.destWell}</span>,
+    },
+    {
+      id: 'volume',
+      header: t('plates.worklists.transferColumns.volume'),
+      accessorFn: (row) => row.volumeUl,
+      cell: ({ row }) => row.original.volumeUl,
+      ...rightAligned<ReconciledTransfer>(),
+    },
+    {
+      id: 'sample',
+      header: t('plates.worklists.transferColumns.sample'),
+      accessorFn: (row) => row.label,
+    },
+    ...(showStatus
+      ? [
+          {
+            id: 'status',
+            header: t('plates.worklists.transferColumns.status'),
+            accessorFn: (row) => row.status,
+            cell: ({ row }) =>
+              t(`plates.worklists.transferStatus.${row.original.status}`),
+          } satisfies RegistryColumn<ReconciledTransfer>,
+        ]
+      : []),
+  ]
+
   return (
     <TableBox className="max-h-[320px] overflow-auto">
-      <Table aria-label={t('plates.worklists.transfers')}>
-        <TableHeader>
-          <TableRow>
-            <TableHead>
-              {t('plates.worklists.transferColumns.sourceWell')}
-            </TableHead>
-            <TableHead>
-              {t('plates.worklists.transferColumns.destWell')}
-            </TableHead>
-            <TableHead>
-              {t('plates.worklists.transferColumns.volume')}
-            </TableHead>
-            <TableHead>
-              {t('plates.worklists.transferColumns.sample')}
-            </TableHead>
-            {showStatus ? (
-              <TableHead>
-                {t('plates.worklists.transferColumns.status')}
-              </TableHead>
-            ) : null}
-          </TableRow>
-        </TableHeader>
-        <TableBody colSpan={5}>
-          {rows.slice(0, 500).map((row) => (
-            <TableRow key={`${row.sourceWell}-${row.destWell}`}>
-              <TableCell className="mono">{row.sourceWell}</TableCell>
-              <TableCell className="mono">{row.destWell}</TableCell>
-              <TableCell className="num">{row.volumeUl}</TableCell>
-              <TableCell className="truncate">{row.label}</TableCell>
-              {showStatus ? (
-                <TableCell>
-                  {t(`plates.worklists.transferStatus.${row.status}`)}
-                </TableCell>
-              ) : null}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <RegistryGrid
+        label={t('plates.worklists.transfers')}
+        rows={rows.slice(0, 500)}
+        columns={columns}
+        getRowId={(row) => `${row.sourceWell}-${row.destWell}`}
+        selectable={false}
+      />
     </TableBox>
   )
 }

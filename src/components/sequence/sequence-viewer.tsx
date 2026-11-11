@@ -5,15 +5,12 @@ import { copyText } from '#/components/ui/copy-button'
 import { Select } from '#/components/ui/select'
 import { Spinner } from '#/components/ui/spinner'
 import { Tabs } from '#/components/ui/tabs'
+import { TableBox } from '#/components/ui/table'
 import {
-  Table,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableBody,
-} from '#/components/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { downloadTextFile } from '#/lib/download'
 import { t } from '#/copy'
 import { cn } from '#/lib/utils'
@@ -327,55 +324,86 @@ function FeatureTable({
     )
   const sorted = [...seq.features].sort((a, b) => a.start - b.start)
 
+  const columns: RegistryColumn<(typeof sorted)[number]>[] = [
+    {
+      id: 'name',
+      header: t('sequences.viewer.columns.name'),
+      accessorFn: (f) => f.label,
+      cell: ({ row }) => {
+        const f = row.original
+
+        return (
+          <button
+            type="button"
+            className="flex items-center gap-2 text-left text-fg hover:underline focus-visible:outline-2 focus-visible:outline-focus"
+            aria-pressed={f.id === selectedId}
+            onClick={(event) => {
+              event.stopPropagation()
+              onSelect(f.id === selectedId ? null : f.id)
+            }}
+          >
+            <span
+              aria-hidden
+              className="size-2.5 shrink-0 rounded-sm"
+              style={{ background: featureColour(f.type) }}
+            />
+            <span className="max-w-64 truncate">{f.label}</span>
+          </button>
+        )
+      },
+    },
+    {
+      id: 'type',
+      header: t('sequences.viewer.columns.type'),
+      accessorFn: (f) => f.type,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">{row.original.type}</span>
+      ),
+    },
+    {
+      id: 'position',
+      header: t('sequences.viewer.columns.position'),
+      accessorFn: (f) => f.start,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">{positionLabel(row.original)}</span>
+      ),
+    },
+    {
+      id: 'length',
+      header: t('sequences.viewer.columns.length'),
+      accessorFn: (f) => featureLength(f, seq.length),
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {formatBases(featureLength(row.original, seq.length))}
+        </span>
+      ),
+      ...rightAligned<(typeof sorted)[number]>(),
+    },
+    {
+      id: 'strand',
+      header: t('sequences.viewer.columns.strand'),
+      accessorFn: (f) => f.strand,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.strand === 1
+            ? t('sequences.viewer.strandForward')
+            : t('sequences.viewer.strandReverse')}
+        </span>
+      ),
+    },
+  ]
+
   return (
     // react-doctor-disable-next-line react-doctor/duplicate-jsx-subtree -- The sequence-tools plugin ships its own standalone copy of this table; the app cannot share a component across the package boundary.
     <TableBox>
-      <Table caption={t('sequences.viewer.features')}>
-        <TableHeader>
-          <tr>
-            <TableHead>{t('sequences.viewer.columns.name')}</TableHead>
-            <TableHead>{t('sequences.viewer.columns.type')}</TableHead>
-            <TableHead>{t('sequences.viewer.columns.position')}</TableHead>
-            <TableHead align="right">
-              {t('sequences.viewer.columns.length')}
-            </TableHead>
-            <TableHead>{t('sequences.viewer.columns.strand')}</TableHead>
-          </tr>
-        </TableHeader>
-        <TableBody>
-          {sorted.map((f) => (
-            <TableRow key={f.id} selected={f.id === selectedId}>
-              <TableCell>
-                <button
-                  type="button"
-                  className="flex items-center gap-2 text-left text-fg hover:underline focus-visible:outline-2 focus-visible:outline-focus"
-                  aria-pressed={f.id === selectedId}
-                  onClick={() => onSelect(f.id === selectedId ? null : f.id)}
-                >
-                  <span
-                    aria-hidden
-                    className="size-2.5 shrink-0 rounded-sm"
-                    style={{ background: featureColour(f.type) }}
-                  />
-                  <span className="max-w-64 truncate">{f.label}</span>
-                </button>
-              </TableCell>
-              <TableCell className="text-fg-muted">{f.type}</TableCell>
-              <TableCell className="num text-fg-muted">
-                {positionLabel(f)}
-              </TableCell>
-              <TableCell align="right" className="num text-fg-muted">
-                {formatBases(featureLength(f, seq.length))}
-              </TableCell>
-              <TableCell className="text-fg-muted">
-                {f.strand === 1
-                  ? t('sequences.viewer.strandForward')
-                  : t('sequences.viewer.strandReverse')}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <RegistryGrid
+        label={t('sequences.viewer.features')}
+        rows={sorted}
+        columns={columns}
+        getRowId={(f) => String(f.id)}
+        rowSelection={selectedId === null ? {} : { [selectedId]: true }}
+        onRowClick={(f) => onSelect(f.id === selectedId ? null : f.id)}
+      />
     </TableBox>
   )
 }

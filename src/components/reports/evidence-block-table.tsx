@@ -1,12 +1,6 @@
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import type { EvidenceBlock } from '#/lib/reports'
 import { t } from '#/copy'
 
@@ -28,44 +22,36 @@ export function EvidenceBlockTable({
   chosenId: string
   onChoose: (blockId: string) => void
 }) {
+  const columns: RegistryColumn<EvidenceBlock>[] = [
+    {
+      id: 'type',
+      header: t('projects.reports.evidence.blockType'),
+      accessorFn: (b) => blockLabel(b.type),
+    },
+    {
+      id: 'text',
+      header: t('projects.reports.evidence.blockText'),
+      accessorFn: (b) => b.text,
+      cell: ({ row }) => (
+        <span className="block max-w-[320px] truncate text-fg-muted">
+          {row.original.text || t('projects.reports.evidence.noText')}
+        </span>
+      ),
+    },
+  ]
+
   return (
     <TableBox className="max-h-64 overflow-y-auto">
-      <Table caption={t('projects.reports.evidence.blocks')}>
-        <TableHeader>
-          <tr>
-            <TableHead className="w-8" />
-            <TableHead>{t('projects.reports.evidence.blockType')}</TableHead>
-            <TableHead>{t('projects.reports.evidence.blockText')}</TableHead>
-          </tr>
-        </TableHeader>
-        <TableBody
-          loading={loading}
-          empty={
-            blocks.length === 0
-              ? t('projects.reports.evidence.noBlocks')
-              : undefined
-          }
-          colSpan={3}
-        >
-          {blocks.map((b) => (
-            <TableRow key={b.id} selected={b.id === chosenId}>
-              <TableCell className="first:pl-6">
-                <input
-                  type="radio"
-                  name="evidence-block"
-                  aria-label={blockLabel(b.type)}
-                  checked={b.id === chosenId}
-                  onChange={() => onChoose(b.id)}
-                />
-              </TableCell>
-              <TableCell>{blockLabel(b.type)}</TableCell>
-              <TableCell className="max-w-[320px] truncate text-fg-muted">
-                {b.text || t('projects.reports.evidence.noText')}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <RegistryGrid
+        label={t('projects.reports.evidence.blocks')}
+        rows={[...blocks]}
+        columns={columns}
+        getRowId={(b) => b.id}
+        rowSelection={chosenId ? { [chosenId]: true } : {}}
+        onRowClick={(b) => onChoose(b.id)}
+        isLoading={loading}
+        empty={t('projects.reports.evidence.noBlocks')}
+      />
     </TableBox>
   )
 }

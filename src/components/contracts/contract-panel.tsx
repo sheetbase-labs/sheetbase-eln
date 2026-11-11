@@ -17,15 +17,12 @@ import { Field, Input } from '#/components/ui/input'
 import { Section } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
+import { TableBox } from '#/components/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { useWorkspaceMemberNames } from '#/components/pipelines/pipelines-data'
 import {
   contractKeys,
@@ -374,6 +371,74 @@ function ContractRulesSection({
   onRemove: (ruleId: string) => void
   removing: boolean
 }) {
+  const columns: RegistryColumn<ContractRule>[] = [
+    {
+      id: 'rule',
+      header: t('contracts.rules.columns.rule'),
+      accessorFn: (rule) => kindLabel(rule.kind),
+    },
+    {
+      id: 'field',
+      header: t('contracts.rules.columns.field'),
+      accessorFn: (rule) => (rule.field ? fieldLabel(rule.field) : ''),
+    },
+    {
+      id: 'asks',
+      header: t('contracts.rules.columns.asks'),
+      accessorFn: (rule) => describeRule(rule),
+    },
+    {
+      id: 'mode',
+      header: t('contracts.rules.columns.mode'),
+      accessorFn: (rule) => modeLabel(rule.mode),
+    },
+    {
+      id: 'found',
+      header: t('contracts.rules.columns.found'),
+      enableSorting: false,
+      cell: ({ row }) => {
+        const rule = row.original
+        const results = findings.get(rule.id)
+        const failed = results?.find((r) => r.status === 'fail')
+
+        return !results
+          ? t('contracts.rules.notChecked')
+          : failed
+            ? describeFinding(failed, rule, fieldLabel(rule.field))
+            : t('contracts.rules.passed')
+      },
+    },
+    ...(canEdit
+      ? [
+          {
+            id: 'actions',
+            header: '',
+            enableHiding: false,
+            enableSorting: false,
+            cell: ({ row }) => (
+              <span className="flex justify-end gap-1">
+                <Button
+                  size="sm"
+                  variant="quiet"
+                  onClick={() => onEdit(row.original)}
+                >
+                  {t('contracts.rules.edit')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="quiet"
+                  disabled={removing}
+                  onClick={() => onRemove(row.original.id)}
+                >
+                  {t('contracts.rules.remove')}
+                </Button>
+              </span>
+            ),
+          } satisfies RegistryColumn<ContractRule>,
+        ]
+      : []),
+  ]
+
   return (
     <Section
       title={t('contracts.rules.title')}
@@ -385,68 +450,14 @@ function ContractRulesSection({
       }
     >
       <TableBox>
-        <Table aria-label={t('contracts.rules.title')}>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="first:pl-3">
-                {t('contracts.rules.columns.rule')}
-              </TableHead>
-              <TableHead>{t('contracts.rules.columns.field')}</TableHead>
-              <TableHead>{t('contracts.rules.columns.asks')}</TableHead>
-              <TableHead>{t('contracts.rules.columns.mode')}</TableHead>
-              <TableHead>{t('contracts.rules.columns.found')}</TableHead>
-              {canEdit ? <TableHead /> : null}
-            </TableRow>
-          </TableHeader>
-          <TableBody
-            empty={t('contracts.rules.empty')}
-            colSpan={canEdit ? 6 : 5}
-          >
-            {contract.rules.map((rule) => {
-              const results = findings.get(rule.id)
-              const failed = results?.find((r) => r.status === 'fail')
-
-              return (
-                <TableRow key={rule.id}>
-                  <TableCell className="first:pl-3">
-                    {kindLabel(rule.kind)}
-                  </TableCell>
-                  <TableCell>
-                    {rule.field ? fieldLabel(rule.field) : ''}
-                  </TableCell>
-                  <TableCell>{describeRule(rule)}</TableCell>
-                  <TableCell>{modeLabel(rule.mode)}</TableCell>
-                  <TableCell>
-                    {!results
-                      ? t('contracts.rules.notChecked')
-                      : failed
-                        ? describeFinding(failed, rule, fieldLabel(rule.field))
-                        : t('contracts.rules.passed')}
-                  </TableCell>
-                  {canEdit ? (
-                    <TableCell align="right">
-                      <Button
-                        size="sm"
-                        variant="quiet"
-                        onClick={() => onEdit(rule)}
-                      >
-                        {t('contracts.rules.edit')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="quiet"
-                        disabled={removing}
-                        onClick={() => onRemove(rule.id)}
-                      >
-                        {t('contracts.rules.remove')}
-                      </Button>
-                    </TableCell>
-                  ) : null}
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('contracts.rules.title')}
+          rows={contract.rules}
+          columns={columns}
+          getRowId={(rule) => rule.id}
+          selectable={false}
+          empty={t('contracts.rules.empty')}
+        />
       </TableBox>
     </Section>
   )
@@ -462,64 +473,77 @@ function ContractHistorySection({
   datasetNames: Record<string, string>
   loading: boolean
 }) {
+  const columns: RegistryColumn<ContractRun>[] = [
+    {
+      id: 'when',
+      header: t('contracts.history.columns.when'),
+      accessorFn: (run) => run.createdAt,
+      cell: ({ row }) => formatNotebookDateTime(row.original.createdAt),
+    },
+    {
+      id: 'data',
+      header: t('contracts.history.columns.data'),
+      enableSorting: false,
+      cell: ({ row }) => {
+        const run = row.original
+
+        return run.datasetId ? (
+          <Link
+            to="/datasets/$datasetId"
+            params={{ datasetId: run.datasetId }}
+            className="text-link"
+          >
+            {datasetNames[run.datasetId] ?? run.datasetId}
+          </Link>
+        ) : run.scope === 'batch' ? (
+          t('contracts.history.batch')
+        ) : (
+          t('contracts.history.wholeModel')
+        )
+      },
+    },
+    {
+      id: 'result',
+      header: t('contracts.history.columns.result'),
+      accessorFn: (run) => run.status,
+      cell: ({ row }) => (
+        <>
+          <ContractStatusBadge status={row.original.status} />
+          {row.original.blocked ? ` · ${t('contracts.history.blocked')}` : ''}
+        </>
+      ),
+    },
+    {
+      id: 'trigger',
+      header: t('contracts.history.columns.trigger'),
+      accessorFn: (run) => t(`contracts.history.trigger.${run.trigger}`),
+    },
+    {
+      id: 'rows',
+      header: t('contracts.history.columns.rows'),
+      accessorFn: (run) => run.rowsChecked,
+      ...rightAligned<ContractRun>(),
+    },
+    {
+      id: 'problems',
+      header: t('contracts.history.columns.problems'),
+      accessorFn: (run) => run.failedRules,
+      ...rightAligned<ContractRun>(),
+    },
+  ]
+
   return (
     <Section title={t('contracts.history.title')} count={runs.length}>
       <TableBox>
-        <Table aria-label={t('contracts.history.title')}>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="first:pl-3">
-                {t('contracts.history.columns.when')}
-              </TableHead>
-              <TableHead>{t('contracts.history.columns.data')}</TableHead>
-              <TableHead>{t('contracts.history.columns.result')}</TableHead>
-              <TableHead>{t('contracts.history.columns.trigger')}</TableHead>
-              <TableHead align="right">
-                {t('contracts.history.columns.rows')}
-              </TableHead>
-              <TableHead align="right">
-                {t('contracts.history.columns.problems')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody
-            loading={loading}
-            empty={t('contracts.history.empty')}
-            colSpan={6}
-          >
-            {runs.map((run) => (
-              <TableRow key={run.id}>
-                <TableCell className="first:pl-3">
-                  {formatNotebookDateTime(run.createdAt)}
-                </TableCell>
-                <TableCell>
-                  {run.datasetId ? (
-                    <Link
-                      to="/datasets/$datasetId"
-                      params={{ datasetId: run.datasetId }}
-                      className="text-link"
-                    >
-                      {datasetNames[run.datasetId] ?? run.datasetId}
-                    </Link>
-                  ) : run.scope === 'batch' ? (
-                    t('contracts.history.batch')
-                  ) : (
-                    t('contracts.history.wholeModel')
-                  )}
-                </TableCell>
-                <TableCell>
-                  <ContractStatusBadge status={run.status} />
-                  {run.blocked ? ` · ${t('contracts.history.blocked')}` : ''}
-                </TableCell>
-                <TableCell>
-                  {t(`contracts.history.trigger.${run.trigger}`)}
-                </TableCell>
-                <TableCell align="right">{run.rowsChecked}</TableCell>
-                <TableCell align="right">{run.failedRules}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('contracts.history.title')}
+          rows={runs}
+          columns={columns}
+          getRowId={(run) => run.id}
+          selectable={false}
+          isLoading={loading}
+          empty={t('contracts.history.empty')}
+        />
       </TableBox>
     </Section>
   )

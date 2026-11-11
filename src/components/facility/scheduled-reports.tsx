@@ -35,15 +35,9 @@ import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { fetchWorkspaceMemberIdentities } from '#/components/projects/project-data'
 import type { WorkspaceMemberIdentity } from '#/components/projects/project-data'
 import { t } from '#/copy'
@@ -82,7 +76,6 @@ const MEMBERS_KEY = ['scheduled-reports', 'members'] as const
 const PROJECTS_KEY = ['scheduled-reports', 'projects'] as const
 
 const WEEKDAYS = ['1', '2', '3', '4', '5', '6', '0'] as const
-const TABLE_COLUMNS = ['name', 'sends', 'recipients', 'nextSend'] as const
 const MONTH_DAYS = Array.from({ length: 28 }, (_, i) => i + 1)
 
 // ---------------------------------------------------------------------------
@@ -632,6 +625,99 @@ export function ScheduledReportsPanel({
 
   const rows = reports.data ?? []
 
+  const columns: RegistryColumn<ScheduledReport>[] = [
+    {
+      id: 'name',
+      header: t('spend.schedule.columns.name'),
+      accessorFn: (report) => report.name,
+      cell: ({ row }) => (
+        <span className="flex flex-col">
+          <span className="font-medium text-fg">{row.original.name}</span>
+          <span className="text-label text-fg-muted">
+            {t(`spend.schedule.kinds.${row.original.kind}`)}
+          </span>
+        </span>
+      ),
+    },
+    {
+      id: 'sends',
+      header: t('spend.schedule.columns.sends'),
+      enableSorting: false,
+      cell: ({ row }) => describeSchedule(row.original),
+    },
+    {
+      id: 'recipients',
+      header: t('spend.schedule.columns.recipients'),
+      accessorFn: (report) => report.recipientUserIds.length,
+      cell: ({ row }) =>
+        t('spend.schedule.recipientCount', {
+          count: row.original.recipientUserIds.length,
+        }),
+    },
+    {
+      id: 'nextSend',
+      header: t('spend.schedule.columns.nextSend'),
+      accessorFn: (report) => (report.active ? report.nextRunAt : ''),
+      cell: ({ row }) => (
+        <span className="flex flex-col">
+          {row.original.active ? (
+            formatDate(row.original.nextRunAt, { time: true })
+          ) : (
+            <Status tone="none">{t('spend.schedule.paused')}</Status>
+          )}
+          <span className="text-label text-fg-muted">
+            {resultLabel(row.original)}
+          </span>
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: t('spend.schedule.columns.actions'),
+      enableHiding: false,
+      cell: ({ row }) => {
+        const report = row.original
+
+        return manageableKinds.has(report.kind) ? (
+          <span className="flex justify-end gap-1.5 whitespace-nowrap">
+            <Button
+              size="sm"
+              disabled={act.isPending}
+              onClick={() => act.mutate({ report, what: 'now' })}
+            >
+              {t('spend.schedule.actions.sendNow')}
+            </Button>
+            <Button size="sm" onClick={() => setEditing(report)}>
+              {t('spend.schedule.actions.edit')}
+            </Button>
+            <Button
+              size="sm"
+              variant="quiet"
+              disabled={act.isPending}
+              onClick={() =>
+                act.mutate({
+                  report,
+                  what: report.active ? 'pause' : 'resume',
+                })
+              }
+            >
+              {report.active
+                ? t('spend.schedule.actions.pause')
+                : t('spend.schedule.actions.resume')}
+            </Button>
+            <Button
+              size="sm"
+              variant="quiet"
+              onClick={() => setDeleting(report)}
+            >
+              {t('spend.schedule.actions.delete')}
+            </Button>
+          </span>
+        ) : null
+      },
+    },
+  ]
+
   return (
     <SettingsBody>
       {!emailConfigured ? (
@@ -662,100 +748,15 @@ export function ScheduledReportsPanel({
         />
       ) : (
         <TableBox>
-          <Table caption={t('spend.schedule.tableLabel')}>
-            <TableHeader>
-              <tr>
-                {TABLE_COLUMNS.map((column) => (
-                  <TableHead key={column}>
-                    {t(`spend.schedule.columns.${column}`)}
-                  </TableHead>
-                ))}
-                <TableHead>
-                  <span className="sr-only">
-                    {t('spend.schedule.columns.actions')}
-                  </span>
-                </TableHead>
-              </tr>
-            </TableHeader>
-            <TableBody>
-              {rows.map((report) => {
-                const manage = manageableKinds.has(report.kind)
-
-                return (
-                  <TableRow key={report.id}>
-                    <TableCell>
-                      <span className="flex flex-col">
-                        <span className="font-medium text-fg">
-                          {report.name}
-                        </span>
-                        <span className="text-label text-fg-muted">
-                          {t(`spend.schedule.kinds.${report.kind}`)}
-                        </span>
-                      </span>
-                    </TableCell>
-                    <TableCell>{describeSchedule(report)}</TableCell>
-                    <TableCell>
-                      {t('spend.schedule.recipientCount', {
-                        count: report.recipientUserIds.length,
-                      })}
-                    </TableCell>
-                    <TableCell>
-                      <span className="flex flex-col">
-                        {report.active ? (
-                          formatDate(report.nextRunAt, { time: true })
-                        ) : (
-                          <Status tone="none">
-                            {t('spend.schedule.paused')}
-                          </Status>
-                        )}
-                        <span className="text-label text-fg-muted">
-                          {resultLabel(report)}
-                        </span>
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {manage ? (
-                        <span className="flex justify-end gap-1.5 whitespace-nowrap">
-                          <Button
-                            size="sm"
-                            disabled={act.isPending}
-                            onClick={() => act.mutate({ report, what: 'now' })}
-                          >
-                            {t('spend.schedule.actions.sendNow')}
-                          </Button>
-                          <Button size="sm" onClick={() => setEditing(report)}>
-                            {t('spend.schedule.actions.edit')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="quiet"
-                            disabled={act.isPending}
-                            onClick={() =>
-                              act.mutate({
-                                report,
-                                what: report.active ? 'pause' : 'resume',
-                              })
-                            }
-                          >
-                            {report.active
-                              ? t('spend.schedule.actions.pause')
-                              : t('spend.schedule.actions.resume')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="quiet"
-                            onClick={() => setDeleting(report)}
-                          >
-                            {t('spend.schedule.actions.delete')}
-                          </Button>
-                        </span>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label={t('spend.schedule.tableLabel')}
+            rows={rows}
+            columns={columns}
+            getRowId={(report) => report.id}
+            selectable={false}
+            rowHeight={48}
+            isLoading={reports.isPending}
+          />
         </TableBox>
       )}
       {creating || editing ? (

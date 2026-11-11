@@ -20,15 +20,9 @@ import {
 } from '#/components/ui/dropdown-menu'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { toast } from '#/components/ui/sonner'
 import { formatDate } from '#/lib/format-date'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -98,6 +92,131 @@ export function RepeatingDialog({
     }
   }
 
+  const forName = (row: RepeatRow) =>
+    names?.get(
+      row.schedule.resourceId ?? row.schedule.notebookTemplateId ?? '',
+    ) ?? null
+
+  const columns: RegistryColumn<RepeatRow>[] = [
+    {
+      id: 'name',
+      header: t('projects.recurring.dialog.columns.name'),
+      accessorFn: (row) => row.schedule.title,
+      cell: ({ row }) => (
+        <span className="flex flex-col">
+          <span className="font-medium text-fg">
+            {row.original.schedule.title}
+          </span>
+          {forName(row.original) ? (
+            <span className="text-label text-fg-muted">
+              {forName(row.original)}
+            </span>
+          ) : null}
+        </span>
+      ),
+    },
+    {
+      id: 'repeats',
+      header: t('projects.recurring.dialog.columns.repeats'),
+      enableSorting: false,
+      cell: ({ row }) => {
+        const { schedule } = row.original
+
+        const clock =
+          schedule.startTime && schedule.endTime
+            ? `${schedule.startTime}–${schedule.endTime}`
+            : null
+
+        return (
+          <span className="flex flex-col">
+            <span>{describeRepeat(schedule, formatDate)}</span>
+            {clock ? (
+              <span className="text-label text-fg-muted">{clock}</span>
+            ) : null}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'made',
+      header: t('projects.recurring.dialog.columns.made'),
+      accessorFn: (row) => row.made,
+      cell: ({ row }) => (
+        <span className="flex flex-col">
+          <span>
+            {t('projects.recurring.dialog.made', { count: row.original.made })}
+          </span>
+          {row.original.notMade.length > 0 ? (
+            <span
+              className="block max-w-72 truncate text-label text-warning-text"
+              title={notMadeLine(row.original)}
+            >
+              {notMadeLine(row.original)}
+            </span>
+          ) : row.original.next && row.original.schedule.status !== 'ended' ? (
+            <span className="text-label text-fg-muted">
+              {t('projects.recurring.dialog.next', {
+                date: formatDate(row.original.next),
+              })}
+            </span>
+          ) : null}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: t('projects.recurring.dialog.columns.status'),
+      accessorFn: (row) => row.schedule.status,
+      cell: ({ row }) => (
+        <Status tone={TONE[row.original.schedule.status]}>
+          {t(
+            `projects.recurring.dialog.status.${row.original.schedule.status}`,
+          )}
+        </Status>
+      ),
+    },
+    {
+      id: 'actions',
+      header: t('common.actions.more'),
+      enableHiding: false,
+      cell: ({ row }) => (
+        <RepeatActions
+          row={row.original}
+          onPause={(paused) =>
+            act(async () => {
+              await setRepeatPaused(
+                notebookDataClient,
+                row.original.schedule.id,
+                paused,
+              )
+
+              return t(
+                paused
+                  ? 'projects.recurring.dialog.paused'
+                  : 'projects.recurring.dialog.resumed',
+              )
+            })
+          }
+          onStop={(cancelUpcoming) =>
+            act(async () => {
+              const { cancelled } = await endRepeat(
+                notebookDataClient,
+                row.original.schedule.id,
+                cancelUpcoming,
+              )
+
+              return cancelUpcoming
+                ? t('projects.recurring.dialog.stoppedCancelled', {
+                    count: cancelled,
+                  })
+                : t('projects.recurring.dialog.stopped')
+            })
+          }
+        />
+      ),
+    },
+  ]
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button size="sm" onClick={() => setOpen(true)}>
@@ -115,87 +234,25 @@ export function RepeatingDialog({
             </p>
           ) : null}
           <TableBox>
-            <Table
-              caption={t('projects.recurring.dialog.title', { kind: noun })}
-            >
-              <TableHeader>
-                <tr>
-                  <TableHead>
-                    {t('projects.recurring.dialog.columns.name')}
-                  </TableHead>
-                  <TableHead>
-                    {t('projects.recurring.dialog.columns.repeats')}
-                  </TableHead>
-                  <TableHead>
-                    {t('projects.recurring.dialog.columns.made')}
-                  </TableHead>
-                  <TableHead>
-                    {t('projects.recurring.dialog.columns.status')}
-                  </TableHead>
-                  <TableHead>
-                    <span className="sr-only">{t('common.actions.more')}</span>
-                  </TableHead>
-                </tr>
-              </TableHeader>
-              <TableBody
-                colSpan={5}
-                loading={rows.isPending && open}
-                empty={
-                  <span>
-                    {t('projects.recurring.dialog.empty')}.{' '}
-                    {t(
-                      kind === 'booking'
-                        ? 'projects.recurring.dialog.emptyBookings'
-                        : 'projects.recurring.dialog.emptyExperiments',
-                    )}
-                  </span>
-                }
-              >
-                {(rows.data ?? []).map((row) => (
-                  <RepeatTableRow
-                    key={row.schedule.id}
-                    row={row}
-                    forName={
-                      names?.get(
-                        row.schedule.resourceId ??
-                          row.schedule.notebookTemplateId ??
-                          '',
-                      ) ?? null
-                    }
-                    onPause={(paused) =>
-                      act(async () => {
-                        await setRepeatPaused(
-                          notebookDataClient,
-                          row.schedule.id,
-                          paused,
-                        )
-
-                        return t(
-                          paused
-                            ? 'projects.recurring.dialog.paused'
-                            : 'projects.recurring.dialog.resumed',
-                        )
-                      })
-                    }
-                    onStop={(cancelUpcoming) =>
-                      act(async () => {
-                        const { cancelled } = await endRepeat(
-                          notebookDataClient,
-                          row.schedule.id,
-                          cancelUpcoming,
-                        )
-
-                        return cancelUpcoming
-                          ? t('projects.recurring.dialog.stoppedCancelled', {
-                              count: cancelled,
-                            })
-                          : t('projects.recurring.dialog.stopped')
-                      })
-                    }
-                  />
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label={t('projects.recurring.dialog.title', { kind: noun })}
+              rows={rows.data ?? []}
+              columns={columns}
+              getRowId={(row) => row.schedule.id}
+              selectable={false}
+              rowHeight={48}
+              isLoading={rows.isPending && open}
+              empty={
+                <span>
+                  {t('projects.recurring.dialog.empty')}.{' '}
+                  {t(
+                    kind === 'booking'
+                      ? 'projects.recurring.dialog.emptyBookings'
+                      : 'projects.recurring.dialog.emptyExperiments',
+                  )}
+                </span>
+              }
+            />
           </TableBox>
         </DialogBody>
         <DialogFooter>
@@ -209,122 +266,74 @@ export function RepeatingDialog({
   )
 }
 
-function RepeatTableRow({
+/** The not-made line a repeat carries, in the one line the table has for it. */
+function notMadeLine(row: RepeatRow): string {
+  const hidden = row.notMade.length - SHOWN_NOT_MADE
+
+  const shown = row.notMade
+    .slice(0, SHOWN_NOT_MADE)
+    .map((o) =>
+      t('projects.recurring.dialog.notMadeOn', {
+        date: formatDate(o.on, { year: false }),
+        reason: describeNotMade(o.message),
+      }),
+    )
+    .join('; ')
+
+  return `${t('projects.recurring.dialog.notMade')}: ${shown}${
+    hidden > 0
+      ? `; ${t('projects.recurring.dialog.moreNotMade', { count: hidden })}`
+      : ''
+  }`
+}
+
+function RepeatActions({
   row,
-  forName,
   onPause,
   onStop,
 }: {
   row: RepeatRow
-  forName: string | null
   onPause: (paused: boolean) => void
   onStop: (cancelUpcoming: boolean) => void
 }) {
   const { schedule } = row
-  const live = schedule.status !== 'ended'
 
-  const clock =
-    schedule.startTime && schedule.endTime
-      ? `${schedule.startTime}–${schedule.endTime}`
-      : null
-
-  const hidden = row.notMade.length - SHOWN_NOT_MADE
+  if (schedule.status === 'ended') return null
 
   return (
-    <>
-      <TableRow>
-        <TableCell className="whitespace-normal">
-          <div className="font-medium text-fg">{schedule.title}</div>
-          {forName ? (
-            <div className="text-label text-fg-muted">{forName}</div>
-          ) : null}
-        </TableCell>
-        <TableCell className="whitespace-normal">
-          <div>{describeRepeat(schedule, formatDate)}</div>
-          {clock ? (
-            <div className="text-label text-fg-muted">{clock}</div>
-          ) : null}
-        </TableCell>
-        <TableCell>
-          <div>{t('projects.recurring.dialog.made', { count: row.made })}</div>
-          {row.next && live ? (
-            <div className="text-label text-fg-muted">
-              {t('projects.recurring.dialog.next', {
-                date: formatDate(row.next),
+    <span className="flex justify-end">
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              size="sm"
+              variant="quiet"
+              aria-label={t('projects.recurring.dialog.actionsFor', {
+                name: schedule.title,
               })}
-            </div>
-          ) : null}
-        </TableCell>
-        <TableCell>
-          <Status tone={TONE[schedule.status]}>
-            {t(`projects.recurring.dialog.status.${schedule.status}`)}
-          </Status>
-        </TableCell>
-        <TableCell align="right">
-          {live ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    size="sm"
-                    variant="quiet"
-                    aria-label={t('projects.recurring.dialog.actionsFor', {
-                      name: schedule.title,
-                    })}
-                  />
-                }
-              >
-                <Icon name="more" size={14} />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => onPause(schedule.status === 'active')}
-                >
-                  {schedule.status === 'active'
-                    ? t('projects.recurring.dialog.pause')
-                    : t('projects.recurring.dialog.resume')}
-                </DropdownMenuItem>
-                <DropdownMenuItem danger onClick={() => onStop(false)}>
-                  {t('projects.recurring.dialog.stop')}
-                </DropdownMenuItem>
-                {schedule.kind === 'booking' ? (
-                  <DropdownMenuItem danger onClick={() => onStop(true)}>
-                    {t('projects.recurring.dialog.stopAndCancel')}
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-        </TableCell>
-      </TableRow>
-      {row.notMade.length > 0 ? (
-        <tr>
-          <td
-            colSpan={5}
-            className="border-b border-border-subtle bg-warning-wash px-2.5 py-1.5 text-label text-fg first:pl-6 max-md:first:pl-3"
+            />
+          }
+        >
+          <Icon name="more" size={14} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            onClick={() => onPause(schedule.status === 'active')}
           >
-            <span className="font-medium">
-              {t('projects.recurring.dialog.notMade')}
-            </span>
-            {': '}
-            {row.notMade.slice(0, SHOWN_NOT_MADE).map((o, i) => (
-              <span key={o.on}>
-                {i > 0 ? '; ' : ''}
-                {t('projects.recurring.dialog.notMadeOn', {
-                  date: formatDate(o.on, { year: false }),
-                  reason: describeNotMade(o.message),
-                })}
-              </span>
-            ))}
-            {hidden > 0 ? (
-              <>
-                {'; '}
-                {t('projects.recurring.dialog.moreNotMade', { count: hidden })}
-              </>
-            ) : null}
-          </td>
-        </tr>
-      ) : null}
-    </>
+            {schedule.status === 'active'
+              ? t('projects.recurring.dialog.pause')
+              : t('projects.recurring.dialog.resume')}
+          </DropdownMenuItem>
+          <DropdownMenuItem danger onClick={() => onStop(false)}>
+            {t('projects.recurring.dialog.stop')}
+          </DropdownMenuItem>
+          {schedule.kind === 'booking' ? (
+            <DropdownMenuItem danger onClick={() => onStop(true)}>
+              {t('projects.recurring.dialog.stopAndCancel')}
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </span>
   )
 }

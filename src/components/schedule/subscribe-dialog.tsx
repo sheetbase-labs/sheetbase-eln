@@ -19,15 +19,9 @@ import {
 import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { t } from '#/copy'
 import {
   calendarFeedKeys,
@@ -112,6 +106,53 @@ export function SubscribeDialog({
 
     return feed.label ? `${feed.label} · ${what}` : what
   }
+
+  const columns: RegistryColumn<NonNullable<typeof feeds.data>[number]>[] = [
+    {
+      id: 'name',
+      header: t('calendarFeed.columns.name'),
+      accessorFn: (feed) => describe(feed),
+    },
+    {
+      id: 'made',
+      header: t('calendarFeed.columns.made'),
+      accessorFn: (feed) => feed.created_at,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {formatDate(row.original.created_at)}
+        </span>
+      ),
+    },
+    {
+      id: 'lastUsed',
+      header: t('calendarFeed.columns.lastUsed'),
+      accessorFn: (feed) => feed.last_used_at ?? '',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.last_used_at
+            ? formatDate(row.original.last_used_at, { time: true })
+            : t('calendarFeed.neverUsed')}
+        </span>
+      ),
+    },
+    {
+      id: 'revoke',
+      header: '',
+      enableHiding: false,
+      cell: ({ row }) => (
+        <span className="flex justify-end">
+          <Button
+            size="sm"
+            variant="quiet"
+            disabled={revoke.isPending}
+            onClick={() => revoke.mutate(row.original.id)}
+          >
+            {t('calendarFeed.revoke')}
+          </Button>
+        </span>
+      ),
+    },
+  ]
 
   return (
     <Dialog
@@ -233,47 +274,15 @@ export function SubscribeDialog({
                 {t('calendarFeed.yours')}
               </span>
               <TableBox>
-                <Table aria-label={t('calendarFeed.yours')}>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('calendarFeed.columns.name')}</TableHead>
-                      <TableHead>{t('calendarFeed.columns.made')}</TableHead>
-                      <TableHead>
-                        {t('calendarFeed.columns.lastUsed')}
-                      </TableHead>
-                      <TableHead className="w-24" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody
-                    loading={feeds.isPending}
-                    empty={t('calendarFeed.noneYet')}
-                    colSpan={4}
-                  >
-                    {(feeds.data ?? []).map((feed) => (
-                      <TableRow key={feed.id}>
-                        <TableCell>{describe(feed)}</TableCell>
-                        <TableCell className="text-fg-muted">
-                          {formatDate(feed.created_at)}
-                        </TableCell>
-                        <TableCell className="text-fg-muted">
-                          {feed.last_used_at
-                            ? formatDate(feed.last_used_at, { time: true })
-                            : t('calendarFeed.neverUsed')}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            variant="quiet"
-                            disabled={revoke.isPending}
-                            onClick={() => revoke.mutate(feed.id)}
-                          >
-                            {t('calendarFeed.revoke')}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <RegistryGrid
+                  label={t('calendarFeed.yours')}
+                  rows={feeds.data ?? []}
+                  columns={columns}
+                  getRowId={(feed) => feed.id}
+                  selectable={false}
+                  isLoading={feeds.isPending}
+                  empty={t('calendarFeed.noneYet')}
+                />
               </TableBox>
             </div>
           </div>

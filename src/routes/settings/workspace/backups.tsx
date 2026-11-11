@@ -12,14 +12,9 @@ import { Select } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { WorkspaceAdminRefusal } from './-admin-refusal'
 import {
   CheckRow,
@@ -339,69 +334,89 @@ function BackupsTable({
   backups: BackupRecord[]
   canManage: boolean
 }) {
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{t('settings.backups.when')}</TableHead>
-          <TableHead>{t('settings.backups.kind')}</TableHead>
-          <TableHead>{t('settings.backups.result')}</TableHead>
-          <TableHead align="right">{t('settings.backups.size')}</TableHead>
-          <TableHead>{t('settings.backups.contents')}</TableHead>
-          <TableHead>
-            <span className="sr-only">{t('settings.backups.download')}</span>
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {backups.map((b) => {
-          const when = formatDate(b.startedAt, { time: true })
+  const columns: RegistryColumn<BackupRecord>[] = [
+    {
+      id: 'when',
+      header: t('settings.backups.when'),
+      accessorFn: (b) => b.startedAt,
+      cell: ({ row }) => formatDate(row.original.startedAt, { time: true }),
+    },
+    {
+      id: 'kind',
+      header: t('settings.backups.kind'),
+      accessorFn: (b) =>
+        t(
+          b.trigger === 'scheduled'
+            ? 'settings.backups.scheduled'
+            : 'settings.backups.manual',
+        ),
+    },
+    {
+      id: 'result',
+      header: t('settings.backups.result'),
+      accessorFn: (b) => b.status,
+      cell: ({ row }) => <ResultStatus backup={row.original} />,
+    },
+    {
+      id: 'size',
+      header: t('settings.backups.size'),
+      accessorFn: (b) => b.byteSize ?? undefined,
+      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+      cell: ({ row }) =>
+        row.original.byteSize === null
+          ? '—'
+          : formatFileSize(row.original.byteSize),
+    },
+    {
+      id: 'contents',
+      header: t('settings.backups.contents'),
+      accessorFn: (b) => b.rowCount ?? undefined,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.status === 'succeeded'
+            ? t('settings.backups.contentsLine', {
+                rows: (row.original.rowCount ?? 0).toLocaleString('en-GB'),
+                files: row.original.fileCount ?? 0,
+              })
+            : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'download',
+      header: '',
+      enableHiding: false,
+      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+      cell: ({ row }) => {
+        const b = row.original
 
-          return (
-            <TableRow key={b.id}>
-              <TableCell className="num">{when}</TableCell>
-              <TableCell>
-                {t(
-                  b.trigger === 'scheduled'
-                    ? 'settings.backups.scheduled'
-                    : 'settings.backups.manual',
-                )}
-              </TableCell>
-              <TableCell>
-                <ResultStatus backup={b} />
-              </TableCell>
-              <TableCell align="right" className="num">
-                {b.byteSize === null ? '—' : formatFileSize(b.byteSize)}
-              </TableCell>
-              <TableCell className="num text-fg-muted">
-                {b.status === 'succeeded'
-                  ? t('settings.backups.contentsLine', {
-                      rows: (b.rowCount ?? 0).toLocaleString('en-GB'),
-                      files: b.fileCount ?? 0,
-                    })
-                  : '—'}
-              </TableCell>
-              <TableCell align="right">
-                {b.status === 'succeeded' && canManage ? (
-                  <IconButton
-                    icon="download"
-                    label={t('settings.backups.downloadAria', { when })}
-                    nativeButton={false}
-                    render={
-                      // react-doctor-disable-next-line react-doctor/anchor-has-content -- IconButton forwards its required label as aria-label through Button to this anchor.
-                      <a
-                        href={`/api/export/workspace-backup/${b.id}`}
-                        download
-                      />
-                    }
-                  />
-                ) : null}
-              </TableCell>
-            </TableRow>
-          )
-        })}
-      </TableBody>
-    </Table>
+        return b.status === 'succeeded' && canManage ? (
+          <IconButton
+            icon="download"
+            label={t('settings.backups.downloadAria', {
+              when: formatDate(b.startedAt, { time: true }),
+            })}
+            nativeButton={false}
+            render={
+              // react-doctor-disable-next-line react-doctor/anchor-has-content -- IconButton forwards its required label as aria-label through Button to this anchor.
+              <a href={`/api/export/workspace-backup/${b.id}`} download />
+            }
+          />
+        ) : null
+      },
+    },
+  ]
+
+  return (
+    <TableBox>
+      <RegistryGrid
+        label={t('settings.backups.recentTitle')}
+        rows={backups}
+        columns={columns}
+        getRowId={(b) => b.id}
+        selectable={false}
+      />
+    </TableBox>
   )
 }
 

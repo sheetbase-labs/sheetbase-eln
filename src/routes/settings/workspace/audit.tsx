@@ -12,14 +12,8 @@ import { Input } from '#/components/ui/input'
 import { DateField } from '#/components/ui/date-field'
 import { Select } from '#/components/ui/select'
 import { Muted } from '#/components/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { SettingsHeader } from '#/components/settings/settings-page'
 import {
   AuditIntegrityLine,
@@ -160,8 +154,12 @@ function Audit() {
     void activity.fetchNextPage()
   }
 
+  // The grid scrolls inside this pane, and scroll events do not bubble, so the
+  // pane listens in the capture phase and reads the element that scrolled.
   const onScroll = (event: React.UIEvent<HTMLDivElement>) => {
-    const el = event.currentTarget
+    const el = event.target instanceof HTMLElement ? event.target : null
+
+    if (!el) return
 
     if (
       el.scrollHeight - el.scrollTop - el.clientHeight >
@@ -202,40 +200,11 @@ function Audit() {
     activity.hasNextPage,
   )
 
-  const bodyRows: React.ReactNode[] = rows.map((r) => (
-    <AuditEventRow
-      key={r.id}
-      event={r}
-      search={urlSearch}
-      recordLabel={recordLabel}
-      projectLabel={projectLabel}
-    />
-  ))
-
-  // The end of the body states the tail of the read: a page arriving, a page
-  // that failed, or that the history is exhausted. It sits inside the body so
-  // the scroll trigger and the keyboard path share one control — the keyboard
-  // path is the control `LoadMore` renders, which this tail used to lack.
-  if (rows.length > 0) {
-    bodyRows.push(
-      <TableRow key="__more">
-        <TableCell colSpan={8} className="text-fg-muted">
-          <LoadMore
-            label={t('settings.audit.olderAuditEntries')}
-            hasMore={activity.hasNextPage}
-            loading={activity.isFetchingNextPage}
-            error={
-              activity.isFetchNextPageError
-                ? t('settings.audit.olderEntriesCould')
-                : undefined
-            }
-            onLoadMore={() => void activity.fetchNextPage()}
-            endLabel={t('settings.audit.endLogEvery')}
-          />
-        </TableCell>
-      </TableRow>,
-    )
-  }
+  const columns = auditColumns({
+    search: urlSearch,
+    recordLabel,
+    projectLabel,
+  })
 
   return (
     <>
@@ -285,41 +254,45 @@ function Audit() {
         countLabel={countLabel}
       />
       <div
-        className="min-h-0 flex-1 overflow-auto max-md:pb-20"
-        onScroll={onScroll}
+        className="flex min-h-0 flex-1 flex-col max-md:pb-20"
+        onScrollCapture={onScroll}
         data-testid="audit-scroll"
       >
-        <Table
-          aria-label={t('settings.audit.auditLog')}
-          className="max-xl:min-w-[1000px]"
-        >
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('settings.audit.when')}</TableHead>
-              <TableHead>{t('settings.audit.actor')}</TableHead>
-              <TableHead>{t('settings.audit.operationAria')}</TableHead>
-              <TableHead>{t('settings.audit.entity')}</TableHead>
-              <TableHead>{t('settings.audit.change')}</TableHead>
-              <TableHead>{t('settings.audit.reason')}</TableHead>
-              <TableHead>{t('settings.audit.record')}</TableHead>
-              <TableHead>{t('settings.audit.project')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          {/* The body states its own loading and empty case, so the table never
-              renders as a header-only shell while the log is being read. A
-              failed read keeps the notice below instead of claiming no match. */}
-          <TableBody
-            loading={activity.isLoading}
-            colSpan={8}
-            empty={
-              activity.isError
-                ? undefined
-                : t('settings.audit.auditEntriesMatch')
-            }
-          >
-            {bodyRows}
-          </TableBody>
-        </Table>
+        {/* The grid states its own loading case, so it never renders as a
+            header-only shell while the log is being read. A failed read keeps
+            the notice below instead of claiming no match. */}
+        {rows.length === 0 && !activity.isLoading && !activity.isError ? (
+          <div className="px-4 py-4 md:px-6">
+            <Muted>{t('settings.audit.auditEntriesMatch')}</Muted>
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1">
+            <RegistryGrid
+              label={t('settings.audit.auditLog')}
+              rows={rows}
+              columns={columns}
+              getRowId={(event) => event.id}
+              selectable={false}
+              isLoading={activity.isLoading}
+            />
+          </div>
+        )}
+        {rows.length > 0 ? (
+          <div className="border-t border-border-subtle px-4 py-2 text-fg-muted md:px-6">
+            <LoadMore
+              label={t('settings.audit.olderAuditEntries')}
+              hasMore={activity.hasNextPage}
+              loading={activity.isFetchingNextPage}
+              error={
+                activity.isFetchNextPageError
+                  ? t('settings.audit.olderEntriesCould')
+                  : undefined
+              }
+              onLoadMore={() => void activity.fetchNextPage()}
+              endLabel={t('settings.audit.endLogEvery')}
+            />
+          </div>
+        ) : null}
         {activity.isError && rows.length === 0 ? (
           <div className="px-4 py-4 md:px-6">
             <Notice
@@ -592,55 +565,114 @@ function useAuditNames(rows: AuditEventWire[], record: string | undefined) {
   }
 }
 
-function AuditEventRow({
-  event: r,
+/** The log's columns: when, who, what, and where it happened. */
+function auditColumns({
   search,
   recordLabel,
   projectLabel,
 }: {
-  event: AuditEventWire
   search: AuditSearch
   recordLabel: (id: string) => string
   projectLabel: (id: string) => string
-}) {
-  return (
-    <TableRow>
-      <TableCell
-        className="whitespace-nowrap text-fg-muted"
-        title={r.createdAt}
-      >
-        {formatDate(r.createdAt, { time: true })}
-      </TableCell>
-      <TableCell>
-        {r.actorUserId && !r.actorCredentialId ? (
+}): RegistryColumn<AuditEventWire>[] {
+  return [
+    {
+      id: 'when',
+      header: t('settings.audit.when'),
+      accessorFn: (r) => r.createdAt,
+      cell: ({ row }) => (
+        <span className="text-fg-muted" title={row.original.createdAt}>
+          {formatDate(row.original.createdAt, { time: true })}
+        </span>
+      ),
+    },
+    {
+      id: 'actor',
+      header: t('settings.audit.actor'),
+      accessorFn: (r) => actorLabel(r),
+      cell: ({ row }) => {
+        const r = row.original
+
+        return r.actorUserId && !r.actorCredentialId ? (
           <Person userId={r.actorUserId} name={actorLabel(r)} />
         ) : (
           actorLabel(r)
-        )}
-      </TableCell>
-      <TableCell>{operationLabel(r.operation)}</TableCell>
-      <TableCell>{entityLabel(r.entityType)}</TableCell>
-      <TableCell className="max-w-[240px] whitespace-normal text-fg-muted">
-        {describeChange(r.payload)}
-      </TableCell>
-      <TableCell className="max-w-[160px] whitespace-normal text-fg-muted">
-        {reasonOf(r.payload)}
-      </TableCell>
-      <TableCell className="mono text-[11px]">
-        {r.recordId ? (
+        )
+      },
+    },
+    {
+      id: 'operation',
+      header: t('settings.audit.operationAria'),
+      accessorFn: (r) => operationLabel(r.operation),
+    },
+    {
+      id: 'entity',
+      header: t('settings.audit.entity'),
+      accessorFn: (r) => entityLabel(r.entityType),
+    },
+    {
+      id: 'change',
+      header: t('settings.audit.change'),
+      enableSorting: false,
+      cell: ({ row }) => {
+        const text = describeChange(row.original.payload)
+
+        return (
+          <span
+            className="block max-w-[24rem] truncate text-fg-muted"
+            title={text}
+          >
+            {text}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'reason',
+      header: t('settings.audit.reason'),
+      enableSorting: false,
+      cell: ({ row }) => {
+        const text = reasonOf(row.original.payload)
+
+        return (
+          <span
+            className="block max-w-[16rem] truncate text-fg-muted"
+            title={text}
+          >
+            {text}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'record',
+      header: t('settings.audit.record'),
+      accessorFn: (r) => (r.recordId ? recordLabel(r.recordId) : undefined),
+      cell: ({ row }) => {
+        const r = row.original
+
+        return r.recordId ? (
           <Link
             to="/settings/workspace/audit"
             search={{ ...search, record: r.recordId }}
             title={t('settings.audit.showOnlyRecord')}
+            className="mono text-[11px]"
           >
             {recordLabel(r.recordId)}
           </Link>
         ) : (
           '—'
-        )}
-      </TableCell>
-      <TableCell className="text-fg-muted">
-        {r.projectId ? (
+        )
+      },
+    },
+    {
+      id: 'project',
+      header: t('settings.audit.project'),
+      accessorFn: (r) => (r.projectId ? projectLabel(r.projectId) : undefined),
+      cell: ({ row }) => {
+        const r = row.original
+
+        return r.projectId ? (
           <Link
             to="/projects/$projectId"
             params={{ projectId: r.projectId }}
@@ -649,11 +681,11 @@ function AuditEventRow({
             {projectLabel(r.projectId)}
           </Link>
         ) : (
-          '—'
-        )}
-      </TableCell>
-    </TableRow>
-  )
+          <span className="text-fg-muted">—</span>
+        )
+      },
+    },
+  ]
 }
 
 /** The actor as the read model names them, with the same fallbacks the history

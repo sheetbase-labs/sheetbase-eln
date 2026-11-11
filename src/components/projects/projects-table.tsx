@@ -1,6 +1,5 @@
 import { Link } from '@tanstack/react-router'
 
-import { Button } from '#/components/ui/button'
 import { Status } from '#/components/ui/status'
 import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
 import type {
@@ -38,6 +37,8 @@ export function ProjectsTable({
   archived,
   archivedMatches,
   openProject,
+  peekId,
+  onPeek,
   onToggleAll,
   onToggleRow,
   onIncludeArchived,
@@ -53,6 +54,9 @@ export function ProjectsTable({
   archived: ArchivedMode
   archivedMatches: number
   openProject: (project: ProjectRow, event?: React.MouseEvent) => void
+  /** The project whose details the side panel shows. */
+  peekId: string | null
+  onPeek: (project: ProjectRow) => void
   onToggleAll: (on: boolean) => void
   onToggleRow: (id: string, on: boolean) => void
   onIncludeArchived: () => void
@@ -135,22 +139,9 @@ export function ProjectsTable({
       id: 'status',
       header: t('projects.projectsPage.columns.status'),
       cell: ({ row }) => (
-        <span className="flex items-center justify-end gap-2">
-          <Status tone={row.original.status.tone}>
-            {row.original.status.label}
-          </Status>
-          <Button
-            variant="quiet"
-            icon="chevronRight"
-            aria-label={t('projects.projectsPage.open', {
-              name: row.original.name,
-            })}
-            onClick={(event) => {
-              event.stopPropagation()
-              openProject(row.original)
-            }}
-          />
-        </span>
+        <Status tone={row.original.status.tone}>
+          {row.original.status.label}
+        </Status>
       ),
     },
   ]
@@ -186,8 +177,8 @@ export function ProjectsTable({
           getRowId={(p) => p.id}
           bulk={canBulkArchive ? bulk : undefined}
           rowLabel={(p) => p.id}
-          selectable={false}
-          onRowClick={(p) => openProject(p)}
+          rowSelection={peekId ? { [peekId]: true } : {}}
+          onRowClick={onPeek}
         />
       ) : null}
       {!rows.length ? (

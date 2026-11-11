@@ -49,6 +49,26 @@ export function ProjectsToolbar({
   return (
     <div className="flex items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
       <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="quiet"
+              className="max-md:hidden"
+              aria-label={t('projects.projectsPage.view.label')}
+            />
+          }
+        >
+          {t('projects.projectsPage.view.table')}
+          <Icon name="chevronDown" size={12} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-[180px]">
+          <DropdownMenuItem icon="check">
+            {t('projects.projectsPage.view.table')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="quiet" />}>
           <span className="max-lg:hidden">
             {t('projects.projectsPage.sortBy', { sort: sortLabel(sort) })}

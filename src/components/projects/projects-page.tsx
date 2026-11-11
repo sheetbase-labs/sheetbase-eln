@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import {
   isBrowserClick,
@@ -35,6 +35,7 @@ import {
 import { ProjectsFilterChips } from './projects-filter-chips'
 import { ProjectsFooter } from './projects-footer'
 import { ProjectsHeader } from './projects-header'
+import { ProjectPeek } from './project-peek'
 import { ProjectsTable } from './projects-table'
 import { ProjectsToolbar } from './projects-toolbar'
 import { NewProjectDialog } from './new-project-dialog'
@@ -177,6 +178,15 @@ export function ProjectsPage({
 
   const selection = useProjectSelection({ meId, rows })
 
+  // The side panel follows the clicked row; before any click it shows the first
+  // row, and its close button hides it until another row is clicked.
+  const [peek, setPeek] = useState<string | null | false>(null)
+
+  const peeked =
+    peek === false
+      ? null
+      : (rows.find((p) => p.id === peek) ?? rows.at(0) ?? null)
+
   // A disabled control has to say why (QA2-projects-1): the header button was
   // disabled with no stated reason.
   const createDisabledReason = !canCreate
@@ -238,6 +248,8 @@ export function ProjectsPage({
               archived={archived}
               archivedMatches={archivedMatches}
               openProject={openProject}
+              peekId={peeked?.id ?? null}
+              onPeek={(project) => setPeek(project.id)}
               onToggleAll={selection.toggleAll}
               onToggleRow={selection.toggleRow}
               onIncludeArchived={() => setSearch({ archived: 'include' })}
@@ -272,6 +284,10 @@ export function ProjectsPage({
           />
         )}
       </div>
+
+      {peeked && !loading && !error ? (
+        <ProjectPeek project={peeked} onClose={() => setPeek(false)} />
+      ) : null}
 
       <ConfirmDialog
         open={selection.confirmArchive}

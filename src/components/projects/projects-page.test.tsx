@@ -135,36 +135,45 @@ function renderPage(
 }
 
 describe('ProjectsPage', () => {
-  // The row used to only select a project for the quick-view panel, so clicking
-  // a project did nothing on the desktop table (the mobile list and the panel's
-  // own "Open project" both go to the project page). The row and the name now
-  // open the project.
-  it('opens the project when its row is clicked, and makes the name a link', () => {
-    const opened: string[] = []
-    renderPage([row()], {}, undefined, true, {
-      onOpenProject: (p) => opened.push(p.id),
+  // A row shows the project in the side panel (the design's quick view); the
+  // name and the panel's "Open project" open the project page.
+  it('shows the clicked project in the side panel, and makes the name a link', () => {
+    const second = row({
+      id: 'PRJ-0214',
+      uuid: 'second',
+      name: 'LVV stability',
     })
+    renderPage([row(), second])
 
     const name = screen.getByRole('link', { name: 'AAV9 process transfer' })
     expect(name.getAttribute('href')).toBe('/projects/$projectId')
 
-    fireEvent.click(name.closest('tr')!)
-    expect(opened).toEqual(['PRJ-0217'])
+    // The first row is shown before any click.
+    const panel = screen.getByLabelText('Project details')
+    expect(within(panel).getByText('AAV9 process transfer')).toBeTruthy()
+    expect(within(panel).getByText('Open project')).toBeTruthy()
+
+    fireEvent.click(
+      screen
+        .getAllByText('LVV stability')
+        .find((el) => el.closest('tr'))!
+        .closest('tr')!,
+    )
+    expect(
+      within(screen.getByLabelText('Project details')).getByText(
+        'LVV stability',
+      ),
+    ).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close details' }))
+    expect(screen.queryByLabelText('Project details')).toBeNull()
   })
 
-  it('opens rows and name links in the pane, beside on Alt-click, and leaves modified links native', () => {
+  it('opens name links in the pane, beside on Alt-click, and leaves modified links native', () => {
     const open = vi.fn()
-    navigate.mockClear()
     renderPage([row()], {}, undefined, true, { openInWorkspace: open })
     const name = screen.getByRole('link', { name: 'AAV9 process transfer' })
     const href = '/projects/00000000-0000-4000-8000-000000000320'
-    // A row or its Open button navigates this pane; the name link does so itself.
-    fireEvent.click(name.closest('tr')!)
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Open AAV9 process transfer' }),
-    )
-    expect(navigate).toHaveBeenCalledTimes(2)
-    expect(navigate).toHaveBeenLastCalledWith({ href })
     expect(fireEvent.click(name)).toBe(true)
     expect(open).not.toHaveBeenCalled()
     expect(fireEvent.click(name, { altKey: true })).toBe(false)
@@ -178,7 +187,6 @@ describe('ProjectsPage', () => {
     }
 
     expect(open).toHaveBeenCalledTimes(1)
-    expect(screen.queryByLabelText('Project details')).toBeNull()
   })
 
   it('renders the design columns and tab counts', () => {
@@ -200,7 +208,7 @@ describe('ProjectsPage', () => {
     expect(screen.getAllByText('In progress').length).toBeGreaterThan(0)
   })
 
-  it('lists every project on the All tab, so All means all', () => {
+  it('hides archived projects on the All tab behind the stated filter', () => {
     renderPage([
       row(),
       row({
@@ -210,17 +218,14 @@ describe('ProjectsPage', () => {
       }),
       row({ id: 'PRJ-0170', name: 'Old project', archived: true }),
     ])
-    // The archived project is a row on the default view, not hidden behind a
-    // filter the person never set.
+    expect(screen.queryByText('Old project')).toBeNull()
     expect(
-      screen.getByRole('button', { name: 'Open Old project' }),
-    ).toBeTruthy()
-    expect(
-      screen.queryByRole('button', {
+      screen.getByRole('button', {
         name: 'Remove filter: status isn’t Archived',
       }),
-    ).toBeNull()
-    expect(screen.getByText(/^3 projects$/)).toBeTruthy()
+    ).toBeTruthy()
+    expect(screen.getByText(/^2 projects$/)).toBeTruthy()
+    expect(screen.getByText(/1 archived hidden by filter/)).toBeTruthy()
   })
 
   it('hides archived projects only while the stated filter is on', () => {
@@ -275,14 +280,8 @@ describe('ProjectsPage', () => {
       [row(), row({ id: 'PRJ-0170', name: 'Old project', archived: true })],
       { tab: 'archived' },
     )
-    expect(
-      screen.getByRole('button', { name: 'Open Old project' }),
-    ).toBeTruthy()
-    expect(
-      screen.queryByRole('button', {
-        name: 'Open AAV9 process transfer',
-      }),
-    ).toBeNull()
+    expect(screen.getAllByText('Old project').length).toBeGreaterThan(0)
+    expect(screen.queryByText('AAV9 process transfer')).toBeNull()
     expect(
       screen.queryByRole('button', {
         name: 'Remove filter: status isn’t Archived',

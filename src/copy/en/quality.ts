@@ -166,6 +166,7 @@ export const quality = {
       release: 'Release',
       none: 'No holds.',
       coversProject: 'Everything in {project}',
+      unknownProject: 'a project you cannot open',
       coversModel: 'Every {model} record',
       coversModelInProject: '{model} records in {project}',
       coversPicked: 'Records picked one by one',

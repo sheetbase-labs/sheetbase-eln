@@ -23,11 +23,12 @@ export interface ListView extends ListViewChoice {
   ready: boolean
   setSorting: (updater: Updater<SortingState>) => void
   setHidden: (updater: Updater<string[]>) => void
-  /** Back to the list's own order with every column shown. */
+  /** Back to the list's own order and its starting columns. */
   reset: () => void
 }
 
 const EMPTY: ListViewChoice = { sorting: [], hidden: [] }
+const NONE: readonly string[] = []
 
 /** How long a burst of header clicks waits before it is written. */
 export const LIST_VIEW_SAVE_MS = 600
@@ -82,9 +83,20 @@ export function toListViewChoice(
 export function useListView(
   key: string,
   client: DataClient = notebookDataClient,
+  /** Columns the list starts without until the person chooses otherwise. */
+  defaultHidden: readonly string[] = NONE,
 ): ListView {
   const queryClient = useQueryClient()
   const queryKey = useMemo(() => listViewQueryKey(key), [key])
+  const defaultsKey = defaultHidden.join('\u0000')
+
+  const initial = useMemo<ListViewChoice>(
+    () =>
+      defaultsKey === ''
+        ? EMPTY
+        : { sorting: [], hidden: defaultsKey.split('\u0000') },
+    [defaultsKey],
+  )
 
   const query = useQuery({
     queryKey,
@@ -94,7 +106,7 @@ export function useListView(
         `?list_key=eq.${encodeURIComponent(key)}&select=sorting,hidden_columns&limit=1`,
       )
 
-      return toListViewChoice(rows[0])
+      return rows[0] ? toListViewChoice(rows[0]) : initial
     },
     staleTime: Infinity,
     // A list still works without its remembered view, so a failed read is not retried loudly.
@@ -134,7 +146,7 @@ export function useListView(
   const update = useCallback(
     (change: (current: ListViewChoice) => ListViewChoice) => {
       const current =
-        queryClient.getQueryData<ListViewChoice>(queryKey) ?? EMPTY
+        queryClient.getQueryData<ListViewChoice>(queryKey) ?? initial
 
       const next = change(current)
       // A read still in flight must not answer over a choice made meanwhile.
@@ -159,9 +171,9 @@ export function useListView(
     [update],
   )
 
-  const reset = useCallback(() => update(() => EMPTY), [update])
+  const reset = useCallback(() => update(() => initial), [update, initial])
 
-  const choice = query.data ?? EMPTY
+  const choice = query.data ?? initial
 
   return useMemo(
     () => ({

@@ -145,6 +145,18 @@ const savedChoice = z.object({
 })
 
 describe('remembered list views over the real HTTP client', () => {
+  it('starts a list with no remembered view on its default hidden columns', async () => {
+    const { client, wrapper } = listViewHarness(async () => Response.json([]))
+
+    const { result } = renderHook(
+      () => useListView('experiments', client, ['assignee']),
+      { wrapper },
+    )
+
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    expect(result.current.hidden).toEqual(['assignee'])
+  })
+
   it('loads and roundtrips sorting/hidden changes as one debounced write', async () => {
     const writes: z.infer<typeof savedChoice>[] = []
     const requests: string[] = []

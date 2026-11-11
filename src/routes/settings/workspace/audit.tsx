@@ -72,41 +72,10 @@ const SEARCH_SETTLE_MS = 250
 /** How close to the bottom the grid must be before it asks for the next page. */
 const LOAD_MORE_THRESHOLD_PX = 240
 
-function Audit() {
-  const { context } = Route.useRouteContext()
-  const urlSearch = Route.useSearch()
-  const workspaceId = context.workspace?.id ?? ''
+type AuditFilter = Parameters<typeof fetchAuditEvents>[1]
 
-  const [filters, setFilters] = useState({
-    operation: '',
-    actorUserId: '',
-    projectId: '',
-  })
-
-  const [retentionOpen, setRetentionOpen] = useState(false)
-  const [timestampsOpen, setTimestampsOpen] = useState(false)
-  const canManage = canManageSettings(context.workspace, 'audit')
-  const { regulated } = useRegulatedLab(workspaceId)
-  const [exporting, setExporting] = useState(false)
-
-  // The box holds the typed term and the grid reads the settled one.
-  const {
-    value: q,
-    setValue: setQ,
-    settled: search,
-  } = useSettledValue('', SEARCH_SETTLE_MS)
-
-  const filter = useMemo(
-    () => ({
-      operation: filters.operation || undefined,
-      actorUserId: filters.actorUserId || undefined,
-      projectId: filters.projectId || undefined,
-      search: search.trim() || undefined,
-      ...auditFilterFromSearch(urlSearch),
-    }),
-    [filters, search, urlSearch],
-  )
-
+/** The log read a cursor page at a time, and the rows loaded so far. */
+function useAuditEvents(filter: AuditFilter, workspaceId: string) {
   const activity = useInfiniteQuery({
     queryKey: auditHistoryQueryKeys.events(filter),
     enabled: Boolean(workspaceId),
@@ -127,24 +96,13 @@ function Audit() {
     [activity.data],
   )
 
-  const { recordLabel, projectLabel } = useAuditNames(rows, urlSearch.record)
+  return { activity, rows }
+}
 
-  // The filter lists the operation vocabulary the log can hold — the same set
-  // the database's change_events CHECK constrains and the history renders via
-  // ACTION_LABELS — unioned with anything an event carries that the catalogue
-  // does not name yet. Building it from the loaded page alone would leave an
-  // operation that has not happened recently unfilterable.
-  const operations = useMemo(
-    () =>
-      [
-        ...new Set([
-          ...Object.keys(ACTION_LABELS),
-          ...rows.map((r) => r.operation),
-        ]),
-      ].sort(),
-    [rows],
-  )
-
+/** Asks for the next page when the pane scrolls near its end. */
+function useLoadOlderOnScroll(
+  activity: ReturnType<typeof useAuditEvents>['activity'],
+) {
   const loadOlder = () => {
     // A failed next page keeps the retry with the message below instead of
     // retrying on every scroll tick.
@@ -156,7 +114,7 @@ function Audit() {
 
   // The grid scrolls inside this pane, and scroll events do not bubble, so the
   // pane listens in the capture phase and reads the element that scrolled.
-  const onScroll = (event: React.UIEvent<HTMLDivElement>) => {
+  return (event: React.UIEvent<HTMLDivElement>) => {
     const el = event.target instanceof HTMLElement ? event.target : null
 
     if (!el) return
@@ -168,6 +126,11 @@ function Audit() {
       return
     loadOlder()
   }
+}
+
+/** The whole selection as a CSV, with a toast for how it went. */
+function useAuditExport(filter: AuditFilter) {
+  const [exporting, setExporting] = useState(false)
 
   const exportCsv = async () => {
     setExporting(true)
@@ -194,6 +157,189 @@ function Audit() {
     }
   }
 
+  return { exporting, exportCsv }
+}
+
+type AuditActivity = ReturnType<typeof useAuditEvents>['activity']
+
+/** The buttons along the top of the audit log. */
+function AuditActions({
+  workspaceId,
+  canManage,
+  regulated,
+  exporting,
+  canExport,
+  onRetention,
+  onTimestamps,
+  onRefresh,
+  onExport,
+}: {
+  workspaceId: string
+  canManage: boolean
+  regulated: boolean
+  exporting: boolean
+  canExport: boolean
+  onRetention: () => void
+  onTimestamps: () => void
+  onRefresh: () => void
+  onExport: () => void
+}) {
+  return (
+    <>
+      <Button onClick={onRetention}>
+        {t('settings.audit.retentionPolicy')}
+      </Button>
+      <Button onClick={onTimestamps}>{t('settings.timestamps.button')}</Button>
+      {regulated ? (
+        <Button render={<Link to="/settings/workspace/validation" />}>
+          {t('settings.validation.button')}
+        </Button>
+      ) : null}
+      {canManage ? <CheckNowButton workspaceId={workspaceId} /> : null}
+      <Button onClick={onRefresh}>{t('common.actions.refresh')}</Button>
+      <Button
+        variant="primary"
+        disabled={exporting || !canExport}
+        onClick={onExport}
+      >
+        {exporting
+          ? t('settings.audit.exporting')
+          : t('settings.audit.exportCsvMatches')}
+      </Button>
+    </>
+  )
+}
+
+/** The log's grid, its load-more tail and the notice for a failed read. */
+function AuditLogPane({
+  activity,
+  rows,
+  columns,
+  onScroll,
+}: {
+  activity: AuditActivity
+  rows: AuditEventWire[]
+  columns: RegistryColumn<AuditEventWire>[]
+  onScroll: (event: React.UIEvent<HTMLDivElement>) => void
+}) {
+  return (
+    <div
+      className="flex min-h-0 flex-1 flex-col max-md:pb-20"
+      onScrollCapture={onScroll}
+      data-testid="audit-scroll"
+    >
+      {/* The grid states its own loading case, so it never renders as a
+            header-only shell while the log is being read. A failed read keeps
+            the notice below instead of claiming no match. */}
+      {rows.length === 0 && !activity.isLoading && !activity.isError ? (
+        <div className="px-4 py-4 md:px-6">
+          <Muted>{t('settings.audit.auditEntriesMatch')}</Muted>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1">
+          <RegistryGrid
+            label={t('settings.audit.auditLog')}
+            rows={rows}
+            columns={columns}
+            getRowId={(event) => event.id}
+            selectable={false}
+            isLoading={activity.isLoading}
+          />
+        </div>
+      )}
+      {rows.length > 0 ? (
+        <div className="border-t border-border-subtle px-4 py-2 text-fg-muted md:px-6">
+          <LoadMore
+            label={t('settings.audit.olderAuditEntries')}
+            hasMore={activity.hasNextPage}
+            loading={activity.isFetchingNextPage}
+            error={
+              activity.isFetchNextPageError
+                ? t('settings.audit.olderEntriesCould')
+                : undefined
+            }
+            onLoadMore={() => void activity.fetchNextPage()}
+            endLabel={t('settings.audit.endLogEvery')}
+          />
+        </div>
+      ) : null}
+      {activity.isError && rows.length === 0 ? (
+        <div className="px-4 py-4 md:px-6">
+          <Notice
+            tone="bad"
+            title={t('settings.audit.auditLogCould')}
+            action={
+              <Button size="sm" onClick={() => void activity.refetch()}>
+                {t('common.actions.tryAgain')}
+              </Button>
+            }
+          >
+            {t('settings.audit.logCouldLoaded')}
+          </Notice>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function Audit() {
+  const { context } = Route.useRouteContext()
+  const urlSearch = Route.useSearch()
+  const workspaceId = context.workspace?.id ?? ''
+
+  const [filters, setFilters] = useState({
+    operation: '',
+    actorUserId: '',
+    projectId: '',
+  })
+
+  const [retentionOpen, setRetentionOpen] = useState(false)
+  const [timestampsOpen, setTimestampsOpen] = useState(false)
+  const canManage = canManageSettings(context.workspace, 'audit')
+  const { regulated } = useRegulatedLab(workspaceId)
+
+  // The box holds the typed term and the grid reads the settled one.
+  const {
+    value: q,
+    setValue: setQ,
+    settled: search,
+  } = useSettledValue('', SEARCH_SETTLE_MS)
+
+  const filter = useMemo(
+    () => ({
+      operation: filters.operation || undefined,
+      actorUserId: filters.actorUserId || undefined,
+      projectId: filters.projectId || undefined,
+      search: search.trim() || undefined,
+      ...auditFilterFromSearch(urlSearch),
+    }),
+    [filters, search, urlSearch],
+  )
+
+  const { activity, rows } = useAuditEvents(filter, workspaceId)
+
+  const { recordLabel, projectLabel } = useAuditNames(rows, urlSearch.record)
+
+  // The filter lists the operation vocabulary the log can hold — the same set
+  // the database's change_events CHECK constrains and the history renders via
+  // ACTION_LABELS — unioned with anything an event carries that the catalogue
+  // does not name yet. Building it from the loaded page alone would leave an
+  // operation that has not happened recently unfilterable.
+  const operations = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...Object.keys(ACTION_LABELS),
+          ...rows.map((r) => r.operation),
+        ]),
+      ].sort(),
+    [rows],
+  )
+
+  const onScroll = useLoadOlderOnScroll(activity)
+
+  const { exporting, exportCsv } = useAuditExport(filter)
+
   const countLabel = auditCountLabel(
     activity.isLoading,
     rows.length,
@@ -212,32 +358,17 @@ function Audit() {
         title={t('settings.audit.auditLog')}
         border={false}
         actions={
-          <>
-            <Button onClick={() => setRetentionOpen(true)}>
-              {t('settings.audit.retentionPolicy')}
-            </Button>
-            <Button onClick={() => setTimestampsOpen(true)}>
-              {t('settings.timestamps.button')}
-            </Button>
-            {regulated ? (
-              <Button render={<Link to="/settings/workspace/validation" />}>
-                {t('settings.validation.button')}
-              </Button>
-            ) : null}
-            {canManage ? <CheckNowButton workspaceId={workspaceId} /> : null}
-            <Button onClick={() => void activity.refetch()}>
-              {t('common.actions.refresh')}
-            </Button>
-            <Button
-              variant="primary"
-              disabled={exporting || rows.length === 0}
-              onClick={() => void exportCsv()}
-            >
-              {exporting
-                ? t('settings.audit.exporting')
-                : t('settings.audit.exportCsvMatches')}
-            </Button>
-          </>
+          <AuditActions
+            workspaceId={workspaceId}
+            canManage={canManage}
+            regulated={regulated}
+            exporting={exporting}
+            canExport={rows.length > 0}
+            onRetention={() => setRetentionOpen(true)}
+            onTimestamps={() => setTimestampsOpen(true)}
+            onRefresh={() => void activity.refetch()}
+            onExport={() => void exportCsv()}
+          />
         }
       >
         {context.workspace?.name ?? 'Workspace'}
@@ -253,62 +384,12 @@ function Audit() {
         recordLabel={recordLabel}
         countLabel={countLabel}
       />
-      <div
-        className="flex min-h-0 flex-1 flex-col max-md:pb-20"
-        onScrollCapture={onScroll}
-        data-testid="audit-scroll"
-      >
-        {/* The grid states its own loading case, so it never renders as a
-            header-only shell while the log is being read. A failed read keeps
-            the notice below instead of claiming no match. */}
-        {rows.length === 0 && !activity.isLoading && !activity.isError ? (
-          <div className="px-4 py-4 md:px-6">
-            <Muted>{t('settings.audit.auditEntriesMatch')}</Muted>
-          </div>
-        ) : (
-          <div className="min-h-0 flex-1">
-            <RegistryGrid
-              label={t('settings.audit.auditLog')}
-              rows={rows}
-              columns={columns}
-              getRowId={(event) => event.id}
-              selectable={false}
-              isLoading={activity.isLoading}
-            />
-          </div>
-        )}
-        {rows.length > 0 ? (
-          <div className="border-t border-border-subtle px-4 py-2 text-fg-muted md:px-6">
-            <LoadMore
-              label={t('settings.audit.olderAuditEntries')}
-              hasMore={activity.hasNextPage}
-              loading={activity.isFetchingNextPage}
-              error={
-                activity.isFetchNextPageError
-                  ? t('settings.audit.olderEntriesCould')
-                  : undefined
-              }
-              onLoadMore={() => void activity.fetchNextPage()}
-              endLabel={t('settings.audit.endLogEvery')}
-            />
-          </div>
-        ) : null}
-        {activity.isError && rows.length === 0 ? (
-          <div className="px-4 py-4 md:px-6">
-            <Notice
-              tone="bad"
-              title={t('settings.audit.auditLogCould')}
-              action={
-                <Button size="sm" onClick={() => void activity.refetch()}>
-                  {t('common.actions.tryAgain')}
-                </Button>
-              }
-            >
-              {t('settings.audit.logCouldLoaded')}
-            </Notice>
-          </div>
-        ) : null}
-      </div>
+      <AuditLogPane
+        activity={activity}
+        rows={rows}
+        columns={columns}
+        onScroll={onScroll}
+      />
       {timestampsOpen ? (
         <TimestampsDialog
           workspaceId={workspaceId}

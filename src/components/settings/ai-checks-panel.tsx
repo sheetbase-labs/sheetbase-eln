@@ -5,6 +5,7 @@
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { UseQueryResult } from '@tanstack/react-query'
 import { z } from 'zod'
 
 import { RegistryGrid } from '#/components/inventory/registry-grid'
@@ -79,47 +80,12 @@ async function startRun(toolsOnly: boolean): Promise<AiEvalRunRow> {
   return runSchema.parse(await response.json())
 }
 
-export function AiChecksPanel({
-  workspaceId,
-  canManage,
-  aiOn,
-}: {
-  workspaceId: string
-  canManage: boolean
-  aiOn: boolean
-}) {
-  const queryClient = useQueryClient()
-
-  const runs = useQuery({
-    queryKey: aiEvalKeys.runs,
-    queryFn: () =>
-      client.list<AiEvalRunRow>(
-        'ai_eval_runs',
-        '?select=*&order=finished_at.desc&limit=20',
-      ),
-    enabled: Boolean(workspaceId),
-  })
-
-  const [open, setOpen] = useState<string | null>(null)
-
-  const run = useMutation({
-    mutationFn: startRun,
-    onSuccess: (row) => {
-      void queryClient.invalidateQueries({ queryKey: aiEvalKeys.runs })
-      setOpen(row.id)
-      toast(
-        t('agents.checks.started', { passed: row.passed, total: row.total }),
-      )
-    },
-    onError: (error) =>
-      toast.error(
-        error instanceof Error ? error.message : t('agents.checks.couldNotRun'),
-      ),
-  })
-
-  const openRun = (runs.data ?? []).find((row) => row.id === open)
-
-  const runColumns: RegistryColumn<AiEvalRunRow>[] = [
+/** The history table's columns: when, how, the result, and the detail toggle. */
+function runColumnsFor(
+  open: string | null,
+  setOpen: (id: string | null) => void,
+): RegistryColumn<AiEvalRunRow>[] {
+  return [
     {
       id: 'when',
       header: t('agents.checks.when'),
@@ -184,55 +150,120 @@ export function AiChecksPanel({
       },
     },
   ]
+}
+
+/** Run the tools alone, or the tools and the connected model. */
+function RunButtons({
+  aiOn,
+  pending,
+  onRun,
+}: {
+  aiOn: boolean
+  pending: boolean
+  onRun: (toolsOnly: boolean) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {aiOn ? (
+        <Button disabled={pending} onClick={() => onRun(true)}>
+          {t('agents.checks.runTools')}
+        </Button>
+      ) : null}
+      <Button variant="primary" disabled={pending} onClick={() => onRun(false)}>
+        {pending ? t('agents.checks.running') : t('agents.checks.run')}
+      </Button>
+    </div>
+  )
+}
+
+/** Earlier runs, with the chosen run's results below. */
+function RunHistory({
+  runs,
+  open,
+  onToggle,
+}: {
+  runs: UseQueryResult<AiEvalRunRow[]>
+  open: string | null
+  onToggle: (id: string | null) => void
+}) {
+  const list = runs.data ?? []
+  const openRun = list.find((row) => row.id === open)
+
+  if (runs.error)
+    return <Notice tone="bad">{t('agents.checks.loadError')}</Notice>
+
+  if (runs.isLoading) return <Skeleton className="h-24 w-full" />
+
+  if (list.length === 0) return <Muted>{t('agents.checks.none')}</Muted>
+
+  return (
+    <>
+      <TableBox>
+        <RegistryGrid
+          label={t('agents.checks.historyLabel')}
+          rows={list}
+          columns={runColumnsFor(open, onToggle)}
+          getRowId={(row) => row.id}
+          selectable={false}
+        />
+      </TableBox>
+      {openRun ? (
+        <RunResults runId={openRun.id} message={openRun.message} />
+      ) : null}
+    </>
+  )
+}
+
+export function AiChecksPanel({
+  workspaceId,
+  canManage,
+  aiOn,
+}: {
+  workspaceId: string
+  canManage: boolean
+  aiOn: boolean
+}) {
+  const queryClient = useQueryClient()
+
+  const runs = useQuery({
+    queryKey: aiEvalKeys.runs,
+    queryFn: () =>
+      client.list<AiEvalRunRow>(
+        'ai_eval_runs',
+        '?select=*&order=finished_at.desc&limit=20',
+      ),
+    enabled: Boolean(workspaceId),
+  })
+
+  const [open, setOpen] = useState<string | null>(null)
+
+  const run = useMutation({
+    mutationFn: startRun,
+    onSuccess: (row) => {
+      void queryClient.invalidateQueries({ queryKey: aiEvalKeys.runs })
+      setOpen(row.id)
+      toast(
+        t('agents.checks.started', { passed: row.passed, total: row.total }),
+      )
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error ? error.message : t('agents.checks.couldNotRun'),
+      ),
+  })
 
   return (
     <Section
       title={t('agents.checks.title')}
       action={
         canManage ? (
-          <div className="flex flex-wrap gap-2">
-            {aiOn ? (
-              <Button disabled={run.isPending} onClick={() => run.mutate(true)}>
-                {t('agents.checks.runTools')}
-              </Button>
-            ) : null}
-            <Button
-              variant="primary"
-              disabled={run.isPending}
-              onClick={() => run.mutate(false)}
-            >
-              {run.isPending
-                ? t('agents.checks.running')
-                : t('agents.checks.run')}
-            </Button>
-          </div>
+          <RunButtons aiOn={aiOn} pending={run.isPending} onRun={run.mutate} />
         ) : null
       }
     >
       <Muted>{t('agents.checks.intro')}</Muted>
       {!canManage ? <Notice>{t('agents.checks.viewOnly')}</Notice> : null}
-      {runs.error ? (
-        <Notice tone="bad">{t('agents.checks.loadError')}</Notice>
-      ) : runs.isLoading ? (
-        <Skeleton className="h-24 w-full" />
-      ) : (runs.data ?? []).length === 0 ? (
-        <Muted>{t('agents.checks.none')}</Muted>
-      ) : (
-        <>
-          <TableBox>
-            <RegistryGrid
-              label={t('agents.checks.historyLabel')}
-              rows={runs.data ?? []}
-              columns={runColumns}
-              getRowId={(row) => row.id}
-              selectable={false}
-            />
-          </TableBox>
-          {openRun ? (
-            <RunResults runId={openRun.id} message={openRun.message} />
-          ) : null}
-        </>
-      )}
+      <RunHistory runs={runs} open={open} onToggle={setOpen} />
     </Section>
   )
 }

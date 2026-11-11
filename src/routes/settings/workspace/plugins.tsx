@@ -100,38 +100,19 @@ function addDetailLabel(detail: string) {
 
 /** The installs table's columns, in the order it shows them. */
 
-function Plugins() {
-  const { context } = Route.useRouteContext()
-  const workspaceId = context.workspace?.id ?? ''
-
-  // Owners and administrators only; the database checks the same on every change.
-  const canManage =
-    context.workspace?.role === 'owner' || context.workspace?.role === 'admin'
-
+/** Turning a plugin or one of its parts on and off, and removing it. */
+function usePluginActions({
+  workspaceId,
+  onRemoved,
+}: {
+  workspaceId: string
+  onRemoved: () => void
+}) {
   const queryClient = useQueryClient()
-  const [installOpen, setInstallOpen] = useState(false)
-  const [removing, setRemoving] = useState<ExtensionWire | null>(null)
-  const [settingsFor, setSettingsFor] = useState<ExtensionWire | null>(null)
 
-  const [connectionsFor, setConnectionsFor] = useState<ExtensionWire | null>(
-    null,
-  )
-
-  const installs = useQuery({
-    queryKey: [...extensionQueryKeys.extensions, 'admin', workspaceId],
-    queryFn: () => listExtensions(client),
-    enabled: Boolean(workspaceId) && canManage,
-  })
-
-  const { runtime, connectionsOf, runtimeOf } = usePluginConfiguration({
-    workspaceId,
-    canManage,
-  })
-
-  const refresh = () => {
+  const refresh = async (): Promise<void> => {
     void queryClient.invalidateQueries({ queryKey: pluginRuntimeQueryKey })
-
-    return queryClient.invalidateQueries({
+    await queryClient.invalidateQueries({
       queryKey: extensionQueryKeys.extensions,
     })
   }
@@ -184,10 +165,91 @@ function Plugins() {
       removeExtension(client, { workspaceId, extensionId: install.id }),
     onSuccess: (_row, install) => {
       toast(t('plugins.admin.removed', { name: install.name }))
-      setRemoving(null)
+      onRemoved()
       void refresh()
     },
     onError: () => toast.error(t('plugins.admin.couldNotChange')),
+  })
+
+  return { toggle, togglePoint, remove, refresh }
+}
+
+/** Asks before a plugin is taken out of the lab. */
+function RemovePluginDialog({
+  removing,
+  pending,
+  onClose,
+  onConfirm,
+}: {
+  removing: ExtensionWire | null
+  pending: boolean
+  onClose: () => void
+  onConfirm: (install: ExtensionWire) => void
+}) {
+  return (
+    <ConfirmDialog
+      open={removing !== null}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+    >
+      <ConfirmDialogContent>
+        <ConfirmDialogHeader>
+          <ConfirmDialogTitle>
+            {t('plugins.admin.removeTitle', {
+              name: removing?.name ?? '',
+            })}
+          </ConfirmDialogTitle>
+          <ConfirmDialogDescription>
+            {t('plugins.admin.removeBody')}
+          </ConfirmDialogDescription>
+        </ConfirmDialogHeader>
+        <ConfirmDialogFooter>
+          <ConfirmDialogCancel disabled={pending}>
+            {t('common.actions.cancel')}
+          </ConfirmDialogCancel>
+          <ConfirmDialogAction
+            disabled={pending}
+            onClick={() => removing && onConfirm(removing)}
+          >
+            {t('plugins.admin.removeConfirm')}
+          </ConfirmDialogAction>
+        </ConfirmDialogFooter>
+      </ConfirmDialogContent>
+    </ConfirmDialog>
+  )
+}
+
+function Plugins() {
+  const { context } = Route.useRouteContext()
+  const workspaceId = context.workspace?.id ?? ''
+
+  // Owners and administrators only; the database checks the same on every change.
+  const canManage =
+    context.workspace?.role === 'owner' || context.workspace?.role === 'admin'
+
+  const [installOpen, setInstallOpen] = useState(false)
+  const [removing, setRemoving] = useState<ExtensionWire | null>(null)
+  const [settingsFor, setSettingsFor] = useState<ExtensionWire | null>(null)
+
+  const [connectionsFor, setConnectionsFor] = useState<ExtensionWire | null>(
+    null,
+  )
+
+  const installs = useQuery({
+    queryKey: [...extensionQueryKeys.extensions, 'admin', workspaceId],
+    queryFn: () => listExtensions(client),
+    enabled: Boolean(workspaceId) && canManage,
+  })
+
+  const { runtime, connectionsOf, runtimeOf } = usePluginConfiguration({
+    workspaceId,
+    canManage,
+  })
+
+  const { toggle, togglePoint, remove, refresh } = usePluginActions({
+    workspaceId,
+    onRemoved: () => setRemoving(null),
   })
 
   if (!canManage) {
@@ -282,36 +344,12 @@ function Plugins() {
         }}
       />
 
-      <ConfirmDialog
-        open={removing !== null}
-        onOpenChange={(next) => {
-          if (!next) setRemoving(null)
-        }}
-      >
-        <ConfirmDialogContent>
-          <ConfirmDialogHeader>
-            <ConfirmDialogTitle>
-              {t('plugins.admin.removeTitle', {
-                name: removing?.name ?? '',
-              })}
-            </ConfirmDialogTitle>
-            <ConfirmDialogDescription>
-              {t('plugins.admin.removeBody')}
-            </ConfirmDialogDescription>
-          </ConfirmDialogHeader>
-          <ConfirmDialogFooter>
-            <ConfirmDialogCancel disabled={remove.isPending}>
-              {t('common.actions.cancel')}
-            </ConfirmDialogCancel>
-            <ConfirmDialogAction
-              disabled={remove.isPending}
-              onClick={() => removing && remove.mutate(removing)}
-            >
-              {t('plugins.admin.removeConfirm')}
-            </ConfirmDialogAction>
-          </ConfirmDialogFooter>
-        </ConfirmDialogContent>
-      </ConfirmDialog>
+      <RemovePluginDialog
+        removing={removing}
+        pending={remove.isPending}
+        onClose={() => setRemoving(null)}
+        onConfirm={(install) => remove.mutate(install)}
+      />
     </>
   )
 }

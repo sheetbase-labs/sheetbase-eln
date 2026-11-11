@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { z } from 'zod'
 
 import { t } from '#/copy'
@@ -10,15 +10,9 @@ import { Muted } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { TableBox } from '#/components/ui/table'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { reproducePipelineRun } from '#/lib/pipelines/data'
 import type {
@@ -176,15 +170,178 @@ function ReproductionVerdict({
   )
 }
 
-function ReproductionTableHeader({ headings }: { headings: string[] }) {
+type ChangeLine = {
+  key: string
+  kind: 'changed' | 'added' | 'removed'
+  row: string
+  column: string
+  recorded: string
+  now: string
+}
+
+/** Every changed cell is a line; an added or removed row is one line of its values. */
+function changeLines(
+  changes: { change: PipelineReproductionWire['changes'][number]; key: string }[],
+): ChangeLine[] {
+  return changes.flatMap(({ change, key }): ChangeLine[] =>
+    change.kind === 'changed'
+      ? change.cells.map((cell) => ({
+          key: `${key}-${cell.column}`,
+          kind: 'changed',
+          row: rowLabel(
+            change.row,
+            change.cells.map((c) => c.column),
+          ),
+          column: cell.column,
+          recorded: formatCell(cell.before),
+          now: formatCell(cell.after),
+        }))
+      : [
+          {
+            key,
+            kind: change.kind,
+            row: Object.entries(change.row)
+              .slice(0, 6)
+              .map(([k, v]) => `${k}: ${formatCell(v)}`)
+              .join(' · '),
+            column: '',
+            recorded: '',
+            now: '',
+          },
+        ],
+  )
+}
+
+function ChangesGrid({
+  changes,
+}: {
+  changes: { change: PipelineReproductionWire['changes'][number]; key: string }[]
+}) {
+  const lines = useMemo(() => changeLines(changes), [changes])
+
+  const columns = useMemo<RegistryColumn<ChangeLine>[]>(
+    () => [
+      {
+        id: 'kind',
+        header: t('data.reproduce.kind'),
+        accessorFn: (line) => line.kind,
+        enableHiding: false,
+        cell: ({ row }) =>
+          row.original.kind === 'changed' ? (
+            <Status tone="warn">{t('data.reproduce.kindChanged')}</Status>
+          ) : (
+            <Status tone={row.original.kind === 'added' ? 'ok' : 'bad'}>
+              {row.original.kind === 'added'
+                ? t('data.reproduce.kindAdded')
+                : t('data.reproduce.kindRemoved')}
+            </Status>
+          ),
+      },
+      {
+        id: 'row',
+        header: t('data.reproduce.row'),
+        accessorFn: (line) => line.row,
+        cell: ({ row }) => row.original.row,
+      },
+      {
+        id: 'column',
+        header: t('data.reproduce.column'),
+        accessorFn: (line) => line.column,
+        cell: ({ row }) => row.original.column,
+      },
+      {
+        id: 'recorded',
+        header: t('data.reproduce.recorded'),
+        accessorFn: (line) => line.recorded,
+        cell: ({ row }) => <span className="num">{row.original.recorded}</span>,
+      },
+      {
+        id: 'now',
+        header: t('data.reproduce.now'),
+        accessorFn: (line) => line.now,
+        cell: ({ row }) => <span className="num">{row.original.now}</span>,
+      },
+    ],
+    [],
+  )
+
   return (
-    <TableHeader>
-      <TableRow>
-        {headings.map((heading) => (
-          <TableHead key={heading}>{heading}</TableHead>
-        ))}
-      </TableRow>
-    </TableHeader>
+    <TableBox>
+      <RegistryGrid
+        label={t('data.reproduce.changesTitle')}
+        rows={lines}
+        columns={columns}
+        getRowId={(line) => line.key}
+        selectable={false}
+      />
+    </TableBox>
+  )
+}
+
+function HistoryGrid({
+  entries,
+  nameOf,
+}: {
+  entries: PipelineReproductionWire[]
+  nameOf: (userId: string) => string
+}) {
+  const columns = useMemo<RegistryColumn<PipelineReproductionWire>[]>(
+    () => [
+      {
+        id: 'when',
+        header: t('data.reproduce.when'),
+        accessorFn: (entry) => entry.created_at,
+        enableHiding: false,
+        cell: ({ row }) =>
+          formatNotebookDateTime(row.original.created_at, { zone: true }),
+      },
+      {
+        id: 'result',
+        header: t('data.reproduce.result'),
+        accessorFn: (entry) => entry.status,
+        cell: ({ row }) => <ReproductionBadge status={row.original.status} />,
+      },
+      {
+        id: 'rowsChecked',
+        header: t('data.reproduce.rowsChecked'),
+        accessorFn: (entry) => summaryOf(entry).reproducedRows ?? 0,
+        cell: ({ row }) => (
+          <span className="num">
+            {summaryOf(row.original).reproducedRows ?? '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'comparedBy',
+        header: t('data.reproduce.comparedBy'),
+        accessorFn: (entry) => (entry.compared ? COMPARED[entry.compared] : ''),
+        cell: ({ row }) =>
+          row.original.compared ? COMPARED[row.original.compared] : '—',
+      },
+      {
+        id: 'checkedBy',
+        header: t('data.reproduce.checkedBy'),
+        accessorFn: (entry) =>
+          entry.requested_by_user_id ? nameOf(entry.requested_by_user_id) : '',
+        cell: ({ row }) =>
+          row.original.requested_by_user_id
+            ? nameOf(row.original.requested_by_user_id)
+            : '—',
+      },
+    ],
+    [nameOf],
+  )
+
+  return (
+    <TableBox>
+      <RegistryGrid
+        label={t('data.reproduce.historyTitle')}
+        rows={entries}
+        columns={columns}
+        getRowId={(entry) => entry.id}
+        selectable={false}
+      />
+    </TableBox>
   )
 }
 
@@ -209,63 +366,7 @@ function ReproductionChanges({
       <h3 className="m-0 font-sans text-label font-semibold">
         {t('data.reproduce.changesTitle')}
       </h3>
-      <TableBox>
-        <Table aria-label={t('data.reproduce.changesTitle')}>
-          <ReproductionTableHeader
-            headings={[
-              t('data.reproduce.kind'),
-              t('data.reproduce.row'),
-              t('data.reproduce.column'),
-              t('data.reproduce.recorded'),
-              t('data.reproduce.now'),
-            ]}
-          />
-          <TableBody>
-            {changes.flatMap(({ change, key }) =>
-              change.kind === 'changed'
-                ? change.cells.map((cell) => (
-                    <TableRow key={`${key}-${cell.column}`}>
-                      <TableCell>
-                        <Status tone="warn">
-                          {t('data.reproduce.kindChanged')}
-                        </Status>
-                      </TableCell>
-                      <TableCell>
-                        {rowLabel(
-                          change.row,
-                          change.cells.map((c) => c.column),
-                        )}
-                      </TableCell>
-                      <TableCell>{cell.column}</TableCell>
-                      <TableCell className="num">
-                        {formatCell(cell.before)}
-                      </TableCell>
-                      <TableCell className="num">
-                        {formatCell(cell.after)}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                : [
-                    <TableRow key={key}>
-                      <TableCell>
-                        <Status tone={change.kind === 'added' ? 'ok' : 'bad'}>
-                          {change.kind === 'added'
-                            ? t('data.reproduce.kindAdded')
-                            : t('data.reproduce.kindRemoved')}
-                        </Status>
-                      </TableCell>
-                      <TableCell colSpan={4}>
-                        {Object.entries(change.row)
-                          .slice(0, 6)
-                          .map(([k, v]) => `${k}: ${formatCell(v)}`)
-                          .join(' · ')}
-                      </TableCell>
-                    </TableRow>,
-                  ],
-            )}
-          </TableBody>
-        </Table>
-      </TableBox>
+      <ChangesGrid changes={changes} />
       {summary.truncated ? (
         <Muted>{t('data.reproduce.moreChanges')}</Muted>
       ) : null}
@@ -354,42 +455,7 @@ export function RunReproductions({
           <h3 className="m-0 font-sans text-label font-semibold">
             {t('data.reproduce.historyTitle')}
           </h3>
-          <TableBox>
-            <Table aria-label={t('data.reproduce.historyTitle')}>
-              <ReproductionTableHeader
-                headings={[
-                  t('data.reproduce.when'),
-                  t('data.reproduce.result'),
-                  t('data.reproduce.rowsChecked'),
-                  t('data.reproduce.comparedBy'),
-                  t('data.reproduce.checkedBy'),
-                ]}
-              />
-              <TableBody>
-                {earlier.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>
-                      {formatNotebookDateTime(entry.created_at, { zone: true })}
-                    </TableCell>
-                    <TableCell>
-                      <ReproductionBadge status={entry.status} />
-                    </TableCell>
-                    <TableCell className="num">
-                      {summaryOf(entry).reproducedRows ?? '—'}
-                    </TableCell>
-                    <TableCell>
-                      {entry.compared ? COMPARED[entry.compared] : '—'}
-                    </TableCell>
-                    <TableCell>
-                      {entry.requested_by_user_id
-                        ? nameOf(entry.requested_by_user_id)
-                        : '—'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableBox>
+          <HistoryGrid entries={earlier} nameOf={nameOf} />
         </section>
       ) : null}
     </section>

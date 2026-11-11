@@ -4,14 +4,7 @@ import { z } from 'zod'
 
 import { Banner } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { PreviewGrid } from '#/components/inventory/preview-grid'
 import { t } from '#/copy'
 import { fileExtension, previewWithPlugin } from '#/lib/extensions/plugin-files'
 import type { PluginFilePreview } from '#/lib/extensions/plugin-files'
@@ -126,33 +119,20 @@ export function PluginFilePreview({
         </pre>
       ) : null}
       {open && data?.kind === 'table' ? (
-        <div className="max-h-80 overflow-auto rounded-md border">
-          <Table>
-            <caption className="sr-only">{fileName}</caption>
-            <TableHeader>
-              <TableRow>
-                {data.columns.map((column) => (
-                  <TableHead key={column} scope="col">
-                    {column}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.rows.map((row, index) => (
-                <TableRow
-                  // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a plugin's preview rows carry no identity, so the declared row order is the only stable key.
-                  key={index}
-                >
-                  {data.columns.map((column) => (
-                    <TableCell key={column}>
-                      {previewCellTextOf(row, column)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <div className="overflow-hidden rounded-md border">
+          <PreviewGrid
+            label={fileName}
+            columns={data.columns}
+            rows={data.rows.map((row) =>
+              Object.fromEntries(
+                data.columns.map((column) => [
+                  column,
+                  previewCellTextOf(row, column),
+                ]),
+              ),
+            )}
+            maxHeight={320}
+          />
         </div>
       ) : null}
       <p className="text-xs text-fg-muted">

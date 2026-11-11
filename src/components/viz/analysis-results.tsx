@@ -1,14 +1,8 @@
 import { t } from '#/copy'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { StatGrid } from '#/components/viz/stat-grid'
+import type { StatColumn } from '#/components/viz/stat-grid'
 import { toast } from '#/components/ui/sonner'
 import { ExplainThis } from '#/components/assist/explain-this'
 import { analysisFacts } from '#/lib/ai-explain-data'
@@ -209,112 +203,88 @@ function DescriptiveResultTables({ result }: { result: DescriptiveResult }) {
 
   return (
     <div className="space-y-3">
-      <div className="overflow-auto rounded-md border">
-        <Table>
-          <caption className="sr-only">
-            {t('data.analysisPanel.descriptiveStatisticsPerGroup')}
-          </caption>
-          <TableHeader>
-            <TableRow>
-              <TableHead scope="col">
-                {t('data.analysisPanel.group2')}
-              </TableHead>
-              {stats.map(([label]) => (
-                <TableHead key={label} scope="col">
-                  {label}
-                </TableHead>
-              ))}
-              {anova ? (
-                <TableHead scope="col">
-                  {t('data.analysisPanel.n95CiMean')}
-                </TableHead>
-              ) : null}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {result.rows.map((row) => {
-              const interval = intervalByGroup.get(row.group)
+      <StatGrid
+        label={t('data.analysisPanel.descriptiveStatisticsPerGroup')}
+        rows={result.rows}
+        getRowId={(row) => row.group}
+        columns={[
+          {
+            id: 'group',
+            header: t('data.analysisPanel.group2'),
+            value: (row) => row.group,
+            text: true,
+            strong: true,
+          },
+          ...stats.map(
+            ([label, get]): StatColumn<(typeof result.rows)[number]> => ({
+              id: label,
+              header: label,
+              value: get,
+              sortBy: (row) => Number(get(row)),
+            }),
+          ),
+          ...(anova
+            ? [
+                {
+                  id: 'ci',
+                  header: t('data.analysisPanel.n95CiMean'),
+                  value: (row: (typeof result.rows)[number]) => {
+                    const interval = intervalByGroup.get(row.group)
 
-              return (
-                <TableRow key={row.group}>
-                  <TableCell className="font-medium">{row.group}</TableCell>
-                  {stats.map(([label, get]) => (
-                    <TableCell key={label} className="font-mono tabular-nums">
-                      {get(row)}
-                    </TableCell>
-                  ))}
-                  {anova ? (
-                    <TableCell className="font-mono tabular-nums">
-                      {interval
-                        ? `${formatScientific(interval.lo)} – ${formatScientific(interval.hi)}`
-                        : '—'}
-                    </TableCell>
-                  ) : null}
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      </div>
+                    return interval
+                      ? `${formatScientific(interval.lo)} – ${formatScientific(interval.hi)}`
+                      : '—'
+                  },
+                  sortBy: (row: (typeof result.rows)[number]) =>
+                    intervalByGroup.get(row.group)?.lo ?? 0,
+                },
+              ]
+            : []),
+        ]}
+      />
       {anova ? (
         <div className="overflow-auto rounded-md border">
-          <Table>
-            <caption className="sr-only">
-              {t('data.analysisPanel.oneWayAnovaGroup', {
-                value: formatScientific(anova.etaSquared),
-              })}
-            </caption>
-            <TableHeader>
-              <TableRow>
-                <TableHead scope="col">
-                  {t('data.analysisPanel.source')}
-                </TableHead>
-                <TableHead scope="col">{t('data.analysisPanel.ss')}</TableHead>
-                <TableHead scope="col">df</TableHead>
-                <TableHead scope="col">{t('data.analysisPanel.ms')}</TableHead>
-                <TableHead scope="col">F</TableHead>
-                <TableHead scope="col">p</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell className="font-medium">
-                  {t('data.analysisPanel.betweenGroups')}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatScientific(anova.ssBetween)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {anova.dfBetween}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatScientific(anova.msBetween)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatScientific(anova.f)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatP(anova.p)}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">
-                  {t('data.analysisPanel.withinGroups')}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatScientific(anova.ssWithin)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {anova.dfWithin}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatScientific(anova.msWithin)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">—</TableCell>
-                <TableCell className="font-mono tabular-nums">—</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+          <StatGrid
+            bare
+            label={t('data.analysisPanel.oneWayAnovaGroup', {
+              value: formatScientific(anova.etaSquared),
+            })}
+            rows={[
+              {
+                id: 'between',
+                source: t('data.analysisPanel.betweenGroups'),
+                ss: formatScientific(anova.ssBetween),
+                df: String(anova.dfBetween),
+                ms: formatScientific(anova.msBetween),
+                f: formatScientific(anova.f),
+                p: formatP(anova.p),
+              },
+              {
+                id: 'within',
+                source: t('data.analysisPanel.withinGroups'),
+                ss: formatScientific(anova.ssWithin),
+                df: String(anova.dfWithin),
+                ms: formatScientific(anova.msWithin),
+                f: '—',
+                p: '—',
+              },
+            ]}
+            getRowId={(row) => row.id}
+            columns={[
+              {
+                id: 'source',
+                header: t('data.analysisPanel.source'),
+                value: (row) => row.source,
+                text: true,
+                strong: true,
+              },
+              { id: 'ss', header: t('data.analysisPanel.ss'), value: (row) => row.ss },
+              { id: 'df', header: 'df', value: (row) => row.df },
+              { id: 'ms', header: t('data.analysisPanel.ms'), value: (row) => row.ms },
+              { id: 'f', header: 'F', value: (row) => row.f },
+              { id: 'p', header: 'p', value: (row) => row.p },
+            ]}
+          />
           <p className="border-t px-2 py-1 text-xs text-fg-muted">
             {t('data.analysisPanel.observationsAcrossGroups', {
               value: formatScientific(anova.etaSquared),
@@ -331,49 +301,35 @@ function DescriptiveResultTables({ result }: { result: DescriptiveResult }) {
 function RegressionResultTables({ result }: { result: RegressionResult }) {
   return (
     <div className="space-y-3">
-      <div className="overflow-auto rounded-md border">
-        <Table>
-          <caption className="sr-only">
-            {t('data.analysisPanel.regressionFitsPerGroup')}
-          </caption>
-          <TableHeader>
-            <TableRow>
-              <TableHead scope="col">
-                {t('data.analysisPanel.group2')}
-              </TableHead>
-              <TableHead scope="col">n</TableHead>
-              <TableHead scope="col">degree</TableHead>
-              <TableHead scope="col">R²</TableHead>
-              <TableHead scope="col">{t('data.analysisPanel.rmse')}</TableHead>
-              <TableHead scope="col">
-                {t('data.analysisPanel.equation')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {result.rows.map((row) => (
-              <TableRow key={row.group}>
-                <TableCell className="font-medium">{row.group}</TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {row.n}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {row.degree}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatScientific(row.r2)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatScientific(row.rmse)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {row.equation}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <StatGrid
+        label={t('data.analysisPanel.regressionFitsPerGroup')}
+        rows={result.rows}
+        getRowId={(row) => row.group}
+        columns={[
+          {
+            id: 'group',
+            header: t('data.analysisPanel.group2'),
+            value: (row) => row.group,
+            text: true,
+            strong: true,
+          },
+          { id: 'n', header: 'n', value: (row) => row.n },
+          { id: 'degree', header: 'degree', value: (row) => row.degree },
+          { id: 'r2', header: 'R²', value: (row) => formatScientific(row.r2), sortBy: (row) => row.r2 },
+          {
+            id: 'rmse',
+            header: t('data.analysisPanel.rmse'),
+            value: (row) => formatScientific(row.rmse),
+            sortBy: (row) => row.rmse,
+          },
+          {
+            id: 'equation',
+            header: t('data.analysisPanel.equation'),
+            value: (row) => row.equation,
+            text: true,
+          },
+        ]}
+      />
       {result.rows.map((row) => (
         <div key={row.group} className="space-y-1 rounded-md border p-2">
           <p className="text-xs font-medium text-fg-muted">
@@ -401,55 +357,54 @@ function RegressionResultTables({ result }: { result: RegressionResult }) {
               .filter(Boolean)
               .join(' · ')}
           </p>
-          <div className="overflow-auto">
-            <Table>
-              <caption className="sr-only">
-                {t('data.analysisPanel.modelTermsFittedSpace')}
-              </caption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead scope="col">
-                    {t('data.analysisPanel.term')}
-                  </TableHead>
-                  <TableHead scope="col">
-                    {t('data.analysisPanel.estimate')}
-                  </TableHead>
-                  <TableHead scope="col">
-                    {t('data.analysisPanel.se')}
-                  </TableHead>
-                  <TableHead scope="col">
-                    {t('data.analysisPanel.n95Ci')}
-                  </TableHead>
-                  <TableHead scope="col">t</TableHead>
-                  <TableHead scope="col">p</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {row.terms.map((term) => (
-                  <TableRow key={term.term}>
-                    <TableCell className="font-medium">{term.term}</TableCell>
-                    <TableCell className="font-mono tabular-nums">
-                      {formatScientific(term.estimate)}
-                    </TableCell>
-                    <TableCell className="font-mono tabular-nums">
-                      {formatScientific(term.se)}
-                    </TableCell>
-                    <TableCell className="font-mono tabular-nums">
-                      {term.ci95
-                        ? `${formatScientific(term.ci95.lo)} – ${formatScientific(term.ci95.hi)}`
-                        : '—'}
-                    </TableCell>
-                    <TableCell className="font-mono tabular-nums">
-                      {formatScientific(term.t)}
-                    </TableCell>
-                    <TableCell className="font-mono tabular-nums">
-                      {formatP(term.p)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <StatGrid
+            bare
+            label={t('data.analysisPanel.modelTermsFittedSpace')}
+            rows={row.terms}
+            getRowId={(term) => term.term}
+            columns={[
+              {
+                id: 'term',
+                header: t('data.analysisPanel.term'),
+                value: (term) => term.term,
+                text: true,
+                strong: true,
+              },
+              {
+                id: 'estimate',
+                header: t('data.analysisPanel.estimate'),
+                value: (term) => formatScientific(term.estimate),
+                sortBy: (term) => term.estimate,
+              },
+              {
+                id: 'se',
+                header: t('data.analysisPanel.se'),
+                value: (term) => formatScientific(term.se),
+                sortBy: (term) => term.se,
+              },
+              {
+                id: 'ci',
+                header: t('data.analysisPanel.n95Ci'),
+                value: (term) =>
+                  term.ci95
+                    ? `${formatScientific(term.ci95.lo)} – ${formatScientific(term.ci95.hi)}`
+                    : '—',
+                sortBy: (term) => term.ci95?.lo ?? 0,
+              },
+              {
+                id: 't',
+                header: 't',
+                value: (term) => formatScientific(term.t),
+                sortBy: (term) => term.t,
+              },
+              {
+                id: 'p',
+                header: 'p',
+                value: (term) => formatP(term.p),
+                sortBy: (term) => term.p,
+              },
+            ]}
+          />
         </div>
       ))}
     </div>
@@ -536,117 +491,100 @@ function CurveFitCard({
           <dd className="font-mono tabular-nums">{unknowns}</dd>
         </div>
       </dl>
-      <div className="overflow-auto">
-        <Table>
-          <caption className="sr-only">
-            {t('data.analysisPanel.curveParameters')}
-          </caption>
-          <TableHeader>
-            <TableRow>
-              {[
-                t('data.analysisPanel.term'),
-                t('data.analysisPanel.estimate'),
-                t('data.analysisPanel.se'),
-                t('data.analysisPanel.n95Ci'),
-              ].map((label) => (
-                <TableHead key={label} scope="col">
-                  {label}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {row.parameters.map((parameter) => (
-              <TableRow key={parameter.name}>
-                <TableCell className="font-medium">
-                  {CURVE_PARAMETER_LABEL[parameter.name]}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatDose(parameter.estimate)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatDose(parameter.se)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {parameter.ci95
-                    ? `${formatDose(parameter.ci95.lo)} – ${formatDose(parameter.ci95.hi)}`
-                    : '—'}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      <div className="max-h-80 overflow-auto rounded-md border">
-        <Table>
-          <caption className="sr-only">
-            {t('data.analysisPanel.curveReadBack')}
-          </caption>
-          <TableHeader>
-            <TableRow>
-              <TableHead scope="col">
-                {t('data.analysisPanel.curveRow')}
-              </TableHead>
-              <TableHead scope="col">
-                {t('data.analysisPanel.curveKind')}
-              </TableHead>
-              <TableHead scope="col">
-                {t('data.analysisPanel.curvePrepared')}
-              </TableHead>
-              <TableHead scope="col">
-                {t('data.analysisPanel.curveResponseShort')}
-              </TableHead>
-              <TableHead scope="col">
-                {t('data.analysisPanel.curveReadBackDose')}
-              </TableHead>
-              <TableHead scope="col">
-                {t('data.analysisPanel.curveRecovery')}
-              </TableHead>
-              <TableHead scope="col">
-                {t('data.analysisPanel.curveWhere')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {row.readBack.map((item, index) => (
-              // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- Immutable kernel-ordered text rows permit identical and null-labelled replicates and have no row-local state.
-              <TableRow key={index}>
-                <TableCell className="font-medium">
-                  {item.label ?? '—'}
-                </TableCell>
-                <TableCell>
-                  {item.role === 'standard'
-                    ? t('data.analysisPanel.curveStandard')
-                    : t('data.analysisPanel.curveUnknown')}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatDose(item.dose)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatDose(item.response)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {formatDose(item.concentration)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {item.recovery === null
-                    ? '—'
-                    : `${item.recovery.toFixed(0)}%`}
-                </TableCell>
-                <TableCell
-                  className={
-                    item.status === 'in_range'
-                      ? 'text-fg-muted'
-                      : 'text-warning-text'
-                  }
-                >
-                  {READ_BACK_LABEL[item.status]}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <StatGrid
+        bare
+        label={t('data.analysisPanel.curveParameters')}
+        rows={row.parameters}
+        getRowId={(parameter) => parameter.name}
+        columns={[
+          {
+            id: 'term',
+            header: t('data.analysisPanel.term'),
+            value: (parameter) => CURVE_PARAMETER_LABEL[parameter.name],
+            text: true,
+            strong: true,
+          },
+          {
+            id: 'estimate',
+            header: t('data.analysisPanel.estimate'),
+            value: (parameter) => formatDose(parameter.estimate),
+            sortBy: (parameter) => parameter.estimate,
+          },
+          {
+            id: 'se',
+            header: t('data.analysisPanel.se'),
+            value: (parameter) => formatDose(parameter.se),
+            sortBy: (parameter) => parameter.se,
+          },
+          {
+            id: 'ci',
+            header: t('data.analysisPanel.n95Ci'),
+            value: (parameter) =>
+              parameter.ci95
+                ? `${formatDose(parameter.ci95.lo)} – ${formatDose(parameter.ci95.hi)}`
+                : '—',
+            sortBy: (parameter) => parameter.ci95?.lo ?? 0,
+          },
+        ]}
+      />
+      <StatGrid
+        label={t('data.analysisPanel.curveReadBack')}
+        maxHeight={320}
+        rows={row.readBack}
+        // Kernel-ordered rows can repeat a label, so the position is the identity.
+        getRowId={(_, index) => String(index)}
+        columns={[
+          {
+            id: 'row',
+            header: t('data.analysisPanel.curveRow'),
+            value: (item) => item.label ?? '—',
+            text: true,
+            strong: true,
+          },
+          {
+            id: 'kind',
+            header: t('data.analysisPanel.curveKind'),
+            value: (item) =>
+              item.role === 'standard'
+                ? t('data.analysisPanel.curveStandard')
+                : t('data.analysisPanel.curveUnknown'),
+            text: true,
+          },
+          {
+            id: 'prepared',
+            header: t('data.analysisPanel.curvePrepared'),
+            value: (item) => formatDose(item.dose),
+            sortBy: (item) => item.dose,
+          },
+          {
+            id: 'response',
+            header: t('data.analysisPanel.curveResponseShort'),
+            value: (item) => formatDose(item.response),
+            sortBy: (item) => item.response,
+          },
+          {
+            id: 'dose',
+            header: t('data.analysisPanel.curveReadBackDose'),
+            value: (item) => formatDose(item.concentration),
+            sortBy: (item) => item.concentration ?? 0,
+          },
+          {
+            id: 'recovery',
+            header: t('data.analysisPanel.curveRecovery'),
+            value: (item) =>
+              item.recovery === null ? '—' : `${item.recovery.toFixed(0)}%`,
+            sortBy: (item) => item.recovery ?? 0,
+          },
+          {
+            id: 'where',
+            header: t('data.analysisPanel.curveWhere'),
+            value: (item) => READ_BACK_LABEL[item.status],
+            text: true,
+            tone: (item) =>
+              item.status === 'in_range' ? 'text-fg-muted' : 'text-warning-text',
+          },
+        ]}
+      />
     </div>
   )
 }

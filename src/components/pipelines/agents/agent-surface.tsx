@@ -1,6 +1,6 @@
 import { t } from '#/copy'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { z } from 'zod'
 
@@ -27,15 +27,9 @@ import {
   Muted,
   Section,
 } from '#/components/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Textarea } from '#/components/inventory/list'
 import { Select } from '#/components/ui/select'
 import type {
@@ -153,49 +147,11 @@ export function AgentWorkflowsPanel({
   return (
     <div className="flex min-w-0 flex-1 overflow-hidden">
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-        <Table aria-label={t('data.agentSurface.ariaAgentWorkflows')}>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('data.agentSurface.goal')}</TableHead>
-              <TableHead>{t('data.agentSurface.status')}</TableHead>
-              <TableHead align="right">{t('data.agentSurface.step')}</TableHead>
-              <TableHead align="right">
-                {t('data.agentSurface.operations')}
-              </TableHead>
-              <TableHead>{t('data.agentSurface.created')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {workflows.map((w) => (
-              <TableRow
-                key={w.id}
-                selected={w.id === selected.id}
-                className="cursor-pointer"
-                onClick={() => onSelect(w.id)}
-              >
-                <TableCell
-                  className={w.id === selected.id ? 'font-medium' : undefined}
-                >
-                  {w.goal}
-                </TableCell>
-                <TableCell>
-                  <Status tone={workflowTone(w.status)}>
-                    {statusLabel(w.status)}
-                  </Status>
-                </TableCell>
-                <TableCell align="right">
-                  {w.current_step + 1} / {w.plan.steps.length}
-                </TableCell>
-                <TableCell align="right">
-                  {w.used_operations} / {w.max_operations}
-                </TableCell>
-                <TableCell className="text-fg-muted">
-                  {formatNotebookDateTime(w.created_at, { zone: true })}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <WorkflowsGrid
+          workflows={workflows}
+          selectedId={selected.id}
+          onSelect={onSelect}
+        />
       </div>
 
       <Inspector label={t('data.agentSurface.workflow')} className="w-[360px]">
@@ -529,29 +485,12 @@ export function AgentPoliciesPanel({
         )}
         {policies.length ? (
           <TableBox>
-            <Table aria-label={t('data.agentSurface.executionPolicies')}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('data.agentSurface.policy')}</TableHead>
-                  <TableHead>{t('data.agentSurface.credential')}</TableHead>
-                  <TableHead>{t('data.agentSurface.target')}</TableHead>
-                  <TableHead>{t('data.agentSurface.limit')}</TableHead>
-                  <TableHead>{t('data.agentSurface.enabled')}</TableHead>
-                  <TableHead aria-label={t('data.agentSurface.actions')} />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {policies.map((p) => (
-                  <PolicyRow
-                    key={p.id}
-                    policy={p}
-                    credentials={credentials}
-                    canManage={canManage}
-                    onDisable={setPendingDisable}
-                  />
-                ))}
-              </TableBody>
-            </Table>
+            <PoliciesGrid
+              policies={policies}
+              credentials={credentials}
+              canManage={canManage}
+              onDisable={setPendingDisable}
+            />
           </TableBox>
         ) : (
           <EmptyState
@@ -714,58 +653,207 @@ function policyDetailsValid({
   )
 }
 
-function PolicyRow({
-  policy: p,
+function WorkflowsGrid({
+  workflows,
+  selectedId,
+  onSelect,
+}: {
+  workflows: AgentWorkflow[]
+  selectedId: string
+  onSelect: (id: string) => void
+}) {
+  const columns = useMemo<RegistryColumn<AgentWorkflow>[]>(
+    () => [
+      {
+        id: 'goal',
+        header: t('data.agentSurface.goal'),
+        accessorFn: (w) => w.goal,
+        enableHiding: false,
+        cell: ({ row }) => (
+          <span
+            className={row.original.id === selectedId ? 'font-medium' : undefined}
+          >
+            {row.original.goal}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        header: t('data.agentSurface.status'),
+        accessorFn: (w) => statusLabel(w.status),
+        cell: ({ row }) => (
+          <Status tone={workflowTone(row.original.status)}>
+            {statusLabel(row.original.status)}
+          </Status>
+        ),
+      },
+      {
+        id: 'step',
+        header: t('data.agentSurface.step'),
+        accessorFn: (w) => w.current_step,
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => (
+          <span className="num">
+            {row.original.current_step + 1} / {row.original.plan.steps.length}
+          </span>
+        ),
+      },
+      {
+        id: 'operations',
+        header: t('data.agentSurface.operations'),
+        accessorFn: (w) => w.used_operations,
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => (
+          <span className="num">
+            {row.original.used_operations} / {row.original.max_operations}
+          </span>
+        ),
+      },
+      {
+        id: 'created',
+        header: t('data.agentSurface.created'),
+        accessorFn: (w) => w.created_at,
+        cell: ({ row }) => (
+          <span className="text-fg-muted">
+            {formatNotebookDateTime(row.original.created_at, { zone: true })}
+          </span>
+        ),
+      },
+    ],
+    [selectedId],
+  )
+
+  return (
+    <RegistryGrid
+      label={t('data.agentSurface.ariaAgentWorkflows')}
+      rows={workflows}
+      columns={columns}
+      getRowId={(w) => w.id}
+      rowSelection={{ [selectedId]: true }}
+      onRowClick={(w) => onSelect(w.id)}
+    />
+  )
+}
+
+function PoliciesGrid({
+  policies,
   credentials,
   canManage,
   onDisable,
 }: Pick<
   React.ComponentProps<typeof AgentPoliciesPanel>,
-  'credentials' | 'canManage' | 'onDisable'
-> & { policy: AgentOperationPolicy }) {
+  'policies' | 'credentials' | 'canManage' | 'onDisable'
+>) {
+  const columns = useMemo<RegistryColumn<AgentOperationPolicy>[]>(
+    () => [
+      {
+        id: 'policy',
+        header: t('data.agentSurface.policy'),
+        accessorFn: (p) => p.name,
+        enableHiding: false,
+        cell: ({ row }) => {
+          const p = row.original
+
+          return (
+            <span className="block leading-[17px]">
+              <span className="block font-medium">{p.name}</span>
+              {p.reason ? (
+                <span className="block text-label text-fg-muted">
+                  {p.reason}
+                </span>
+              ) : null}
+              {p.signed_at ? (
+                <span className="block text-label text-fg-muted">
+                  {t('data.agentSurface.signed', {
+                    value: formatNotebookDateTime(p.signed_at, { zone: true }),
+                  })}
+                  {p.signed_meaning ? ` · ${p.signed_meaning}` : ''}
+                </span>
+              ) : null}
+            </span>
+          )
+        },
+      },
+      {
+        id: 'credential',
+        header: t('data.agentSurface.credential'),
+        accessorFn: (p) =>
+          credentials.find((c) => c.id === p.credential_id)?.name ??
+          p.credential_id,
+        cell: ({ row }) =>
+          credentials.find((c) => c.id === row.original.credential_id)?.name ??
+          row.original.credential_id,
+      },
+      {
+        id: 'target',
+        header: t('data.agentSurface.target'),
+        accessorFn: (p) => p.target_type,
+        cell: ({ row }) => (
+          <>
+            {row.original.target_type}
+            {row.original.target_id ? ` · ${row.original.target_id}` : ''}
+          </>
+        ),
+      },
+      {
+        id: 'limit',
+        header: t('data.agentSurface.limit'),
+        accessorFn: (p) =>
+          z.coerce
+            .string()
+            .parse(p.limits.maxAffectedRows ?? p.limits.max_affected_rows ?? '—'),
+        cell: ({ row }) =>
+          z.coerce
+            .string()
+            .parse(
+              row.original.limits.maxAffectedRows ??
+                row.original.limits.max_affected_rows ??
+                '—',
+            ),
+      },
+      {
+        id: 'enabled',
+        header: t('data.agentSurface.enabled'),
+        accessorFn: (p) => (p.enabled ? 1 : 0),
+        cell: ({ row }) => (
+          <Status tone={row.original.enabled ? 'ok' : 'stored'}>
+            {row.original.enabled
+              ? t('data.agentSurface.enabled')
+              : t('data.agentSurface.disabled')}
+          </Status>
+        ),
+      },
+      {
+        id: 'actions',
+        header: () => (
+          <span className="sr-only">{t('data.agentSurface.actions')}</span>
+        ),
+        enableSorting: false,
+        enableHiding: false,
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) =>
+          canManage && row.original.enabled ? (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => onDisable(row.original)}
+            >
+              {t('data.agentSurface.disable')}
+            </Button>
+          ) : null,
+      },
+    ],
+    [credentials, canManage, onDisable],
+  )
+
   return (
-    <TableRow>
-      <TableCell className="py-1.5 leading-[17px]">
-        <span className="block font-medium">{p.name}</span>
-        {p.reason ? (
-          <span className="block text-label text-fg-muted">{p.reason}</span>
-        ) : null}
-        {p.signed_at ? (
-          <span className="block text-label text-fg-muted">
-            {t('data.agentSurface.signed', {
-              value: formatNotebookDateTime(p.signed_at, { zone: true }),
-            })}
-            {p.signed_meaning ? ` · ${p.signed_meaning}` : ''}
-          </span>
-        ) : null}
-      </TableCell>
-      <TableCell>
-        {credentials.find((c) => c.id === p.credential_id)?.name ??
-          p.credential_id}
-      </TableCell>
-      <TableCell>
-        {p.target_type}
-        {p.target_id ? ` · ${p.target_id}` : ''}
-      </TableCell>
-      <TableCell>
-        {z.coerce
-          .string()
-          .parse(p.limits.maxAffectedRows ?? p.limits.max_affected_rows ?? '—')}
-      </TableCell>
-      <TableCell>
-        <Status tone={p.enabled ? 'ok' : 'stored'}>
-          {p.enabled
-            ? t('data.agentSurface.enabled')
-            : t('data.agentSurface.disabled')}
-        </Status>
-      </TableCell>
-      <TableCell align="right">
-        {canManage && p.enabled ? (
-          <Button variant="danger" size="sm" onClick={() => onDisable(p)}>
-            {t('data.agentSurface.disable')}
-          </Button>
-        ) : null}
-      </TableCell>
-    </TableRow>
+    <RegistryGrid
+      label={t('data.agentSurface.executionPolicies')}
+      rows={policies}
+      columns={columns}
+      getRowId={(p) => p.id}
+      selectable={false}
+      rowHeight={56}
+    />
   )
 }

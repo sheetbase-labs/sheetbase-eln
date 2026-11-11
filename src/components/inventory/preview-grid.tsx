@@ -10,7 +10,10 @@ import type { RegistryColumn } from './registry-grid'
 
 export type PreviewValue = string | number | boolean | null | undefined
 
-type PreviewRow = { readonly __row: string; readonly values: Record<string, PreviewValue> }
+type PreviewRow = {
+  readonly __row: string
+  readonly values: Record<string, PreviewValue>
+}
 
 function show(value: PreviewValue): string {
   return value === null || value === undefined ? '' : String(value)
@@ -23,6 +26,8 @@ export function PreviewGrid({
   loading = false,
   className,
   rowKeys,
+  numericColumns,
+  maxHeight,
 }: {
   label: string
   columns: readonly string[]
@@ -31,8 +36,13 @@ export function PreviewGrid({
   className?: string
   /** Stable row keys when the rows have identity; otherwise their order is the key. */
   rowKeys?: readonly string[]
+  /** Columns of numbers: right-aligned, in tabular figures. */
+  numericColumns?: readonly string[]
+  /** The tallest the preview grows, in px; a short one is only as tall as its rows. */
+  maxHeight?: number
 }) {
   const columnKey = columns.join('\u0000')
+  const numericKey = (numericColumns ?? []).join('\u0000').split('\u0000')
 
   const defs = useMemo<RegistryColumn<PreviewRow>[]>(
     () =>
@@ -40,16 +50,28 @@ export function PreviewGrid({
         id: `col:${column}`,
         header: column,
         accessorFn: (row: PreviewRow) => show(row.values[column]),
-        meta: { headerTitle: column },
+        meta: numericKey.includes(column)
+          ? {
+              headerTitle: column,
+              headerClassName: 'text-right',
+              cellClassName: 'text-right',
+            }
+          : { headerTitle: column },
         cell: ({ row }) => (
-          <span className="mono truncate text-label">
+          <span
+            className={
+              numericKey.includes(column)
+                ? 'num truncate'
+                : 'mono truncate text-label'
+            }
+          >
             {show(row.original.values[column])}
           </span>
         ),
       })),
     // The column list is compared by content so a fresh array does not rebuild the cells.
     // react-doctor-disable-next-line react-doctor/exhaustive-deps -- the column list is read through `columnKey`, its content: a fresh array of the same names must not rebuild the cells.
-    [columnKey],
+    [columnKey, numericKey.join('\u0000')],
   )
 
   const data = useMemo<PreviewRow[]>(
@@ -63,15 +85,23 @@ export function PreviewGrid({
 
   if (columns.length === 0) return null
 
+  // 31px header band + 33px rows + the scrollbar's room.
+  const wanted = 31 + 33 * data.length + 14
+
   return (
-    <RegistryGrid
-      label={label}
-      rows={data}
-      columns={defs}
-      getRowId={(row) => row.__row}
-      selectable={false}
-      isLoading={loading}
-      className={className}
-    />
+    <div
+      className={maxHeight ? 'overflow-hidden' : undefined}
+      style={maxHeight ? { height: Math.min(maxHeight, wanted) } : undefined}
+    >
+      <RegistryGrid
+        label={label}
+        rows={data}
+        columns={defs}
+        getRowId={(row) => row.__row}
+        selectable={false}
+        isLoading={loading}
+        className={className}
+      />
+    </div>
   )
 }

@@ -15,14 +15,7 @@ import { useQuery } from '@tanstack/react-query'
 import { t } from '#/copy'
 import { Notice } from '#/components/ui/alert'
 import { Select } from '#/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { StatGrid } from '#/components/viz/stat-grid'
 import { resolveDatasetRef, sciDataClient } from '#/lib/chart-data'
 import type { CanonicalDatasetSource, ResolvedDataset } from '#/lib/chart-data'
 import {
@@ -456,60 +449,50 @@ function SourceStatistics({ model }: { model: SourceComparisonModel }) {
   const { statsA, statsB, nameA, nameB } = model
 
   return (
-    <Table
-      aria-label={t('data.sourceComparison.ariaSourceSummary')}
-      data-density="compact"
-    >
-      <TableHeader>
-        <TableRow className="hover:bg-transparent">
-          <TableHead>{t('data.sourceComparison.source')}</TableHead>
-          <TableHead>n</TableHead>
-          <TableHead>{t('data.sourceComparison.min')}</TableHead>
-          <TableHead>{t('data.sourceComparison.mean')}</TableHead>
-          <TableHead>{t('data.sourceComparison.median')}</TableHead>
-          <TableHead>{t('data.sourceComparison.max')}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {(
-          [
-            ['A', nameA, statsA],
-            ['B', nameB, statsB],
-          ] as const
-        ).map(([side, name, stats]) => (
-          <TableRow key={side}>
-            <TableCell>
-              {side} · {name}
-            </TableCell>
-            <TableCell className="font-mono tabular-nums">
-              {stats?.n ?? 0}
-            </TableCell>
-            <TableCell className="font-mono tabular-nums">
-              {format(stats?.min)}
-            </TableCell>
-            <TableCell className="font-mono tabular-nums">
-              {format(stats?.mean)}
-            </TableCell>
-            <TableCell className="font-mono tabular-nums">
-              {format(stats?.median)}
-            </TableCell>
-            <TableCell className="font-mono tabular-nums">
-              {format(stats?.max)}
-            </TableCell>
-          </TableRow>
-        ))}
-        <TableRow>
-          <TableCell>{t('data.sourceComparison.differenceMeansB')}</TableCell>
-          <TableCell />
-          <TableCell />
-          <TableCell className="font-mono tabular-nums">
-            {statsA && statsB ? format(statsB.mean - statsA.mean) : '—'}
-          </TableCell>
-          <TableCell />
-          <TableCell />
-        </TableRow>
-      </TableBody>
-    </Table>
+    <StatGrid
+      label={t('data.sourceComparison.ariaSourceSummary')}
+      rows={[
+        ...([
+          ['A', nameA, statsA],
+          ['B', nameB, statsB],
+        ] as const).map(([side, name, stats]) => ({
+          id: side,
+          label: `${side} · ${name}`,
+          n: stats ? String(stats.n) : '0',
+          min: format(stats?.min),
+          mean: format(stats?.mean),
+          median: format(stats?.median),
+          max: format(stats?.max),
+        })),
+        {
+          id: 'difference',
+          label: t('data.sourceComparison.differenceMeansB'),
+          n: '',
+          min: '',
+          mean: statsA && statsB ? format(statsB.mean - statsA.mean) : '—',
+          median: '',
+          max: '',
+        },
+      ]}
+      getRowId={(row) => row.id}
+      columns={[
+        {
+          id: 'source',
+          header: t('data.sourceComparison.source'),
+          value: (row) => row.label,
+          text: true,
+        },
+        { id: 'n', header: 'n', value: (row) => row.n },
+        { id: 'min', header: t('data.sourceComparison.min'), value: (row) => row.min },
+        { id: 'mean', header: t('data.sourceComparison.mean'), value: (row) => row.mean },
+        {
+          id: 'median',
+          header: t('data.sourceComparison.median'),
+          value: (row) => row.median,
+        },
+        { id: 'max', header: t('data.sourceComparison.max'), value: (row) => row.max },
+      ]}
+    />
   )
 }
 
@@ -529,43 +512,49 @@ function SourcePairs({
           changedCount: pairing.changedCount,
         })}
       </p>
-      <Table
-        aria-label={t('data.sourceComparison.ariaPairedRows')}
-        data-density="compact"
-      >
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead>{t('data.sourceComparison.key')}</TableHead>
-            <TableHead>{t('data.sourceComparison.sideA')}</TableHead>
-            <TableHead>{t('data.sourceComparison.sideB')}</TableHead>
-            <TableHead>{t('data.sourceComparison.differenceHeader')}</TableHead>
-            <TableHead>{t('data.sourceComparison.present')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {pairing.rows.slice(0, MAX_PAIR_ROWS).map((row) => (
-            <TableRow key={row.key}>
-              <TableCell>{row.label}</TableCell>
-              <TableCell className="font-mono tabular-nums">
-                {format(row.aValue)}
-              </TableCell>
-              <TableCell className="font-mono tabular-nums">
-                {format(row.bValue)}
-              </TableCell>
-              <TableCell className="font-mono tabular-nums">
-                {format(row.delta)}
-              </TableCell>
-              <TableCell>
-                {row.presence === 'both'
-                  ? 'both'
-                  : row.presence === 'a-only'
-                    ? t('data.sourceComparison.aOnly')
-                    : t('data.sourceComparison.bOnly')}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <StatGrid
+        label={t('data.sourceComparison.ariaPairedRows')}
+        rows={pairing.rows.slice(0, MAX_PAIR_ROWS)}
+        getRowId={(row) => row.key}
+        maxHeight={420}
+        columns={[
+          {
+            id: 'key',
+            header: t('data.sourceComparison.key'),
+            value: (row) => row.label,
+            text: true,
+          },
+          {
+            id: 'a',
+            header: t('data.sourceComparison.sideA'),
+            value: (row) => format(row.aValue),
+            sortBy: (row) => row.aValue,
+          },
+          {
+            id: 'b',
+            header: t('data.sourceComparison.sideB'),
+            value: (row) => format(row.bValue),
+            sortBy: (row) => row.bValue,
+          },
+          {
+            id: 'difference',
+            header: t('data.sourceComparison.differenceHeader'),
+            value: (row) => format(row.delta),
+            sortBy: (row) => row.delta,
+          },
+          {
+            id: 'present',
+            header: t('data.sourceComparison.present'),
+            value: (row) =>
+              row.presence === 'both'
+                ? 'both'
+                : row.presence === 'a-only'
+                  ? t('data.sourceComparison.aOnly')
+                  : t('data.sourceComparison.bOnly'),
+            text: true,
+          },
+        ]}
+      />
       {pairing.rows.length > MAX_PAIR_ROWS ? (
         <p className="text-xs text-fg-muted">
           {t('data.sourceComparison.showingFirstPairs', {

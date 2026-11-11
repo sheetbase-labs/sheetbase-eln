@@ -1,6 +1,6 @@
 import { rich, t } from '#/copy'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
@@ -8,15 +8,9 @@ import { Checkbox } from '#/components/ui/checkbox'
 import { Field, Input } from '#/components/ui/input'
 import { Notice } from '#/components/ui/alert'
 import { Select } from '#/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { TableBox } from '#/components/ui/table'
 import type { PipelineRunPromptAnswer } from '#/lib/pipelines/data'
 import { PARAMETER_TYPES } from '#/lib/pipelines/config'
 import type { PipelineConfirmField } from '#/lib/pipelines/config'
@@ -199,39 +193,50 @@ export interface RunPromptPanelProps {
   error?: string | null
 }
 
+type ProposalRow = {
+  key: string
+  row: PromptFormSchema['proposalRows'][number]
+}
+
 function ProposalTable({ schema }: { schema: PromptFormSchema }) {
   if (!schema.proposalColumns.length) return null
 
-  const occurrences = new Map<string, number>()
+  return <ProposalGrid schema={schema} />
+}
 
-  const rows = schema.proposalRows.map((row) => {
-    const content = JSON.stringify(row)
-    const occurrence = occurrences.get(content) ?? 0
-    occurrences.set(content, occurrence + 1)
+function ProposalGrid({ schema }: { schema: PromptFormSchema }) {
+  const rows = useMemo<ProposalRow[]>(() => {
+    const occurrences = new Map<string, number>()
 
-    return { row, key: `${content}:${occurrence}` }
-  })
+    return schema.proposalRows.map((row) => {
+      const content = JSON.stringify(row)
+      const occurrence = occurrences.get(content) ?? 0
+      occurrences.set(content, occurrence + 1)
+
+      return { row, key: `${content}:${occurrence}` }
+    })
+  }, [schema.proposalRows])
+
+  const columns = useMemo<RegistryColumn<ProposalRow>[]>(
+    () =>
+      schema.proposalColumns.map((column) => ({
+        id: column,
+        header: column.replaceAll('_', ' '),
+        accessorFn: (entry: ProposalRow) => displayValue(entry.row[column]),
+        cell: ({ row }) => displayValue(row.original.row[column]),
+      })),
+    [schema.proposalColumns],
+  )
 
   return (
     <TableBox>
-      <Table aria-label={t('data.runPrompt.ariaWhatStepProposes')}>
-        <TableHeader>
-          <TableRow>
-            {schema.proposalColumns.map((column) => (
-              <TableHead key={column}>{column.replaceAll('_', ' ')}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map(({ row, key }) => (
-            <TableRow key={key}>
-              {schema.proposalColumns.map((column) => (
-                <TableCell key={column}>{displayValue(row[column])}</TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <RegistryGrid
+        label={t('data.runPrompt.ariaWhatStepProposes')}
+        rows={rows}
+        columns={columns}
+        getRowId={(entry) => entry.key}
+        selectable={false}
+      />
     </TableBox>
   )
 }

@@ -13,19 +13,14 @@
  * A cited analysis cannot change the sources it cited; this panel is how a
  * reader sees why.
  */
+import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 
 import { t } from '#/copy'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import type { AnalysisViewCitation } from '#/lib/analysis-studio-data'
 import { formatDate } from '#/lib/format-date'
 
@@ -54,6 +49,60 @@ function citationState(citation: AnalysisViewCitation) {
     tone: Tone
     label: string
   }
+}
+
+function CitationGrid({ citations }: { citations: AnalysisViewCitation[] }) {
+  const columns = useMemo<RegistryColumn<AnalysisViewCitation>[]>(
+    () => [
+      {
+        id: 'citing',
+        header: t('data.citationList.citingRecord'),
+        accessorFn: (citation) => `${citation.identifier} ${citation.title}`,
+        enableHiding: false,
+        cell: ({ row }) => (
+          <Link
+            to="/records/$recordId"
+            params={{ recordId: row.original.sourceRecordId }}
+            className="text-link"
+          >
+            <span className="mono">{row.original.identifier}</span>{' '}
+            {row.original.title}
+          </Link>
+        ),
+      },
+      {
+        id: 'state',
+        header: t('data.citationList.state'),
+        accessorFn: (citation) => citationState(citation).label,
+        cell: ({ row }) => {
+          const state = citationState(row.original)
+
+          return <Status tone={state.tone}>{state.label}</Status>
+        },
+      },
+      {
+        id: 'cited',
+        header: t('data.citationList.cited'),
+        accessorFn: (citation) => citation.linkedAt,
+        cell: ({ row }) => (
+          <span className="text-fg-muted">
+            {formatDate(row.original.linkedAt)}
+          </span>
+        ),
+      },
+    ],
+    [],
+  )
+
+  return (
+    <RegistryGrid
+      label={t('data.citationList.ariaRecordsCitingAnalysis')}
+      rows={citations}
+      columns={columns}
+      getRowId={(citation) => citation.linkId}
+      selectable={false}
+    />
+  )
 }
 
 export function CitationList({
@@ -86,44 +135,6 @@ export function CitationList({
     )
   }
 
-  return (
-    <Table
-      aria-label={t('data.citationList.ariaRecordsCitingAnalysis')}
-      data-density="compact"
-    >
-      <TableHeader>
-        <TableRow className="hover:bg-transparent">
-          <TableHead>{t('data.citationList.citingRecord')}</TableHead>
-          <TableHead>{t('data.citationList.state')}</TableHead>
-          <TableHead>{t('data.citationList.cited')}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {citations.map((citation) => {
-          const state = citationState(citation)
-
-          return (
-            <TableRow key={citation.linkId} data-citation-id={citation.linkId}>
-              <TableCell>
-                <Link
-                  to="/records/$recordId"
-                  params={{ recordId: citation.sourceRecordId }}
-                  className="text-link"
-                >
-                  <span className="mono">{citation.identifier}</span>{' '}
-                  {citation.title}
-                </Link>
-              </TableCell>
-              <TableCell>
-                <Status tone={state.tone}>{state.label}</Status>
-              </TableCell>
-              <TableCell className="text-fg-muted">
-                {formatDate(citation.linkedAt)}
-              </TableCell>
-            </TableRow>
-          )
-        })}
-      </TableBody>
-    </Table>
-  )
+  return <CitationGrid citations={citations} />
 }
+

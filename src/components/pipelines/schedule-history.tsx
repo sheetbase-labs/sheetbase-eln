@@ -1,18 +1,13 @@
+import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 
 import { t } from '#/copy'
 import { Notice } from '#/components/ui/alert'
 import { Muted } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { TableBox } from '#/components/ui/table'
 import {
   Dialog,
   DialogBody,
@@ -62,6 +57,66 @@ const ACTIVITY_LABELS: Record<
   start_failed: { label: t('data.scheduleHistory.couldStart'), tone: 'bad' },
 }
 
+type ScheduleRun = NonNullable<ReturnType<typeof useScheduleRuns>['data']>[number]
+
+function ScheduleRunsGrid({ runs }: { runs: ScheduleRun[] }) {
+  const columns = useMemo<RegistryColumn<ScheduleRun>[]>(
+    () => [
+      {
+        id: 'started',
+        header: t('data.scheduleHistory.started'),
+        accessorFn: (run) => run.started_at,
+        enableHiding: false,
+        cell: ({ row }) => (
+          <Link
+            to="/pipelines/runs/$runId"
+            params={{ runId: row.original.id }}
+            className="text-accent hover:underline"
+          >
+            {formatNotebookDateTime(row.original.started_at, { zone: true })}
+          </Link>
+        ),
+      },
+      {
+        id: 'outcome',
+        header: t('data.scheduleHistory.outcome'),
+        accessorFn: (run) => runStatus(run.status).label,
+        cell: ({ row }) => {
+          const status = runStatus(row.original.status)
+
+          return <Status tone={status.tone}>{status.label}</Status>
+        },
+      },
+      {
+        id: 'took',
+        header: t('data.scheduleHistory.took'),
+        accessorFn: (run) => runDuration(run),
+        cell: ({ row }) => runDuration(row.original),
+      },
+      {
+        id: 'attempt',
+        header: t('data.scheduleHistory.attempt'),
+        accessorFn: (run) => run.attempt,
+        cell: ({ row }) =>
+          row.original.attempt > 1
+            ? t('data.scheduleHistory.retry', { attempt: row.original.attempt })
+            : t('data.scheduleHistory.first'),
+      },
+    ],
+    [],
+  )
+
+  return (
+    <RegistryGrid
+      label={t('data.scheduleHistory.ariaRunsTriggerStarted')}
+      rows={runs}
+      columns={columns}
+      getRowId={(run) => run.id}
+      selectable={false}
+    />
+  )
+}
+
 /**
  * One trigger's history: the runs it started and, beside them, the times it
  * chose not to run and why — so "nothing happened at 09:00" has an answer on
@@ -105,54 +160,7 @@ export function ScheduleHistoryDialog({
               <Muted>{t('data.scheduleHistory.triggerHasStartedRun')}</Muted>
             ) : (
               <TableBox>
-                <Table
-                  caption={t('data.scheduleHistory.ariaRunsTriggerStarted')}
-                >
-                  <TableHeader>
-                    <TableRow>
-                      {[
-                        t('data.scheduleHistory.started'),
-                        t('data.scheduleHistory.outcome'),
-                        t('data.scheduleHistory.took'),
-                        t('data.scheduleHistory.attempt'),
-                      ].map((heading) => (
-                        <TableHead key={heading}>{heading}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {runRows.map((run) => {
-                      const status = runStatus(run.status)
-
-                      return (
-                        <TableRow key={run.id}>
-                          <TableCell>
-                            <Link
-                              to="/pipelines/runs/$runId"
-                              params={{ runId: run.id }}
-                              className="text-accent hover:underline"
-                            >
-                              {formatNotebookDateTime(run.started_at, {
-                                zone: true,
-                              })}
-                            </Link>
-                          </TableCell>
-                          <TableCell>
-                            <Status tone={status.tone}>{status.label}</Status>
-                          </TableCell>
-                          <TableCell>{runDuration(run)}</TableCell>
-                          <TableCell>
-                            {run.attempt > 1
-                              ? t('data.scheduleHistory.retry', {
-                                  attempt: run.attempt,
-                                })
-                              : t('data.scheduleHistory.first')}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
+                <ScheduleRunsGrid runs={runRows} />
               </TableBox>
             )}
           </section>

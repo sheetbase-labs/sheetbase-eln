@@ -13,14 +13,8 @@ import * as React from 'react'
 
 import { t } from '#/copy'
 import { Button } from '#/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { StatGrid } from '#/components/viz/stat-grid'
+import type { StatColumn } from '#/components/viz/stat-grid'
 import { Select } from '#/components/ui/select'
 import type { CanonicalDatasetSource, ResolvedDataset } from '#/lib/chart-data'
 import { chartUsedFieldIds } from '#/lib/chart-data'
@@ -702,64 +696,69 @@ function CompareGroupSummary({ model }: { model: CompareModel }) {
 
   return (
     <>
-      <Table
-        aria-label={t('data.compareView.ariaCompareGroupSummary')}
-        data-density="compact"
-      >
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead>{t('data.compareView.group')}</TableHead>
-            <TableHead>n</TableHead>
-            <TableHead>{t('data.compareView.nulls')}</TableHead>
-            <TableHead>{t('data.compareView.min')}</TableHead>
-            <TableHead>{t('data.compareView.mean')}</TableHead>
-            <TableHead>{t('data.compareView.median')}</TableHead>
-            <TableHead>{t('data.compareView.max')}</TableHead>
-            {config.facetBy ? (
-              <TableHead>{t('data.compareView.facet')}</TableHead>
-            ) : null}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {grouped.groups.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={config.facetBy ? 8 : 7}
-                className="text-center text-xs text-fg-muted"
-              >
-                {t('data.compareView.groupsSelectLeastOne')}
-              </TableCell>
-            </TableRow>
-          ) : (
-            grouped.groups.map((group) => (
-              <TableRow key={group.key}>
-                <TableCell>{group.label}</TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {group.stats?.n ?? 0}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {group.nullCount}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {group.stats ? formatScientific(group.stats.min) : '—'}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {group.stats ? formatScientific(group.stats.mean) : '—'}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {group.stats ? formatScientific(group.stats.median) : '—'}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {group.stats ? formatScientific(group.stats.max) : '—'}
-                </TableCell>
-                {config.facetBy ? (
-                  <TableCell>{group.facet ?? 'mixed'}</TableCell>
-                ) : null}
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+      {grouped.groups.length === 0 ? (
+        <p role="status" className="text-center text-xs text-fg-muted">
+          {t('data.compareView.groupsSelectLeastOne')}
+        </p>
+      ) : (
+        <StatGrid
+          label={t('data.compareView.ariaCompareGroupSummary')}
+          rows={grouped.groups}
+          getRowId={(group) => group.key}
+          columns={[
+            {
+              id: 'group',
+              header: t('data.compareView.group'),
+              value: (group) => group.label,
+              text: true,
+            },
+            { id: 'n', header: 'n', value: (group) => group.stats?.n ?? 0 },
+            {
+              id: 'nulls',
+              header: t('data.compareView.nulls'),
+              value: (group) => group.nullCount,
+            },
+            {
+              id: 'min',
+              header: t('data.compareView.min'),
+              value: (group) =>
+                group.stats ? formatScientific(group.stats.min) : '—',
+              sortBy: (group) => group.stats?.min ?? null,
+            },
+            {
+              id: 'mean',
+              header: t('data.compareView.mean'),
+              value: (group) =>
+                group.stats ? formatScientific(group.stats.mean) : '—',
+              sortBy: (group) => group.stats?.mean ?? null,
+            },
+            {
+              id: 'median',
+              header: t('data.compareView.median'),
+              value: (group) =>
+                group.stats ? formatScientific(group.stats.median) : '—',
+              sortBy: (group) => group.stats?.median ?? null,
+            },
+            {
+              id: 'max',
+              header: t('data.compareView.max'),
+              value: (group) =>
+                group.stats ? formatScientific(group.stats.max) : '—',
+              sortBy: (group) => group.stats?.max ?? null,
+            },
+            ...(config.facetBy
+              ? ([
+                  {
+                    id: 'facet',
+                    header: t('data.compareView.facet'),
+                    value: (group) => group.facet ?? 'mixed',
+                    text: true,
+                  },
+                ] satisfies StatColumn<(typeof grouped.groups)[number]>[])
+              : []),
+          ]}
+        />
+      )}
       <p className="text-xs text-fg-muted">
         {t('data.compareView.rowsGroupsNullValues', {
           totalRows: grouped.totalRows,
@@ -777,70 +776,69 @@ function ComparePairSummary({ model }: { model: CompareModel }) {
 
   return (
     <>
-      <Table
-        aria-label={t('data.compareView.ariaBComparison')}
-        data-density="compact"
-      >
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead>{t('data.compareView.key')}</TableHead>
-            <TableHead>
-              {t('data.compareView.sideHeader', {
+      {pairing.rows.length === 0 ? (
+        <p role="status" className="text-center text-xs text-fg-muted">
+          {grouped.groups.length < 2
+            ? t('data.compareView.leastTwoGroupsNeeded')
+            : t('data.compareView.selectSideSideB')}
+        </p>
+      ) : (
+        <StatGrid
+          label={t('data.compareView.ariaBComparison')}
+          rows={pairing.rows}
+          getRowId={(row) => row.key}
+          columns={[
+            {
+              id: 'key',
+              header: t('data.compareView.key'),
+              value: (row) => row.label,
+              text: true,
+            },
+            {
+              id: 'a',
+              header: t('data.compareView.sideHeader', {
                 side: 'A',
                 label: sideALabel,
-              })}
-            </TableHead>
-            <TableHead>
-              {t('data.compareView.sideHeader', {
+              }),
+              value: (row) =>
+                row.aValue === null ? '—' : formatScientific(row.aValue),
+              sortBy: (row) => row.aValue,
+            },
+            {
+              id: 'b',
+              header: t('data.compareView.sideHeader', {
                 side: 'B',
                 label: sideBLabel,
-              })}
-            </TableHead>
-            <TableHead>{t('data.compareView.differenceHeader')}</TableHead>
-            <TableHead>{t('data.compareView.present')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {pairing.rows.length === 0 ? (
-            <TableRow>
-              <TableCell
-                colSpan={5}
-                className="text-center text-xs text-fg-muted"
-              >
-                {grouped.groups.length < 2
-                  ? t('data.compareView.leastTwoGroupsNeeded')
-                  : t('data.compareView.selectSideSideB')}
-              </TableCell>
-            </TableRow>
-          ) : (
-            pairing.rows.map((row) => (
-              <TableRow key={row.key}>
-                <TableCell className="mono">{row.label}</TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {row.aValue === null ? '—' : formatScientific(row.aValue)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {row.bValue === null ? '—' : formatScientific(row.bValue)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {row.delta === null
-                    ? '—'
-                    : row.delta > 0
-                      ? `+${formatScientific(row.delta)}`
-                      : formatScientific(row.delta)}
-                </TableCell>
-                <TableCell className="text-xs text-fg-muted">
-                  {row.presence === 'both'
-                    ? 'both'
-                    : row.presence === 'a-only'
-                      ? t('data.compareView.aOnly', { sideALabel })
-                      : t('data.compareView.bOnly', { sideBLabel })}
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+              }),
+              value: (row) =>
+                row.bValue === null ? '—' : formatScientific(row.bValue),
+              sortBy: (row) => row.bValue,
+            },
+            {
+              id: 'difference',
+              header: t('data.compareView.differenceHeader'),
+              value: (row) =>
+                row.delta === null
+                  ? '—'
+                  : row.delta > 0
+                    ? `+${formatScientific(row.delta)}`
+                    : formatScientific(row.delta),
+              sortBy: (row) => row.delta,
+            },
+            {
+              id: 'present',
+              header: t('data.compareView.present'),
+              value: (row) =>
+                row.presence === 'both'
+                  ? 'both'
+                  : row.presence === 'a-only'
+                    ? t('data.compareView.aOnly', { sideALabel })
+                    : t('data.compareView.bOnly', { sideBLabel }),
+              text: true,
+            },
+          ]}
+        />
+      )}
       <p className="text-xs text-fg-muted" data-compare-pairing-summary>
         {t('data.compareView.rowsMatchedChanged', {
           matchedCount: pairing.matchedCount,

@@ -1,6 +1,6 @@
 import { Spreadsheet } from '@sheetbase-labs/sheetbase-table'
 import type { SpreadsheetHandle } from '@sheetbase-labs/sheetbase-table'
-import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef } from 'react'
 import type { ComponentProps, ReactNode } from 'react'
 
 import { useGridAnnotations } from './grid-client-annotations'
@@ -20,7 +20,7 @@ import type {
   CellDisplays,
   CellDisplaySpec,
 } from '#/lib/extensions/cell-display'
-import type { SheetbaseGridProps } from './sheetbase-grid'
+import type { SheetbaseGridColumn, SheetbaseGridProps } from './sheetbase-grid'
 
 /** The engine's own cell-display map, which its props accept. */
 type EngineCellDisplays = NonNullable<
@@ -121,6 +121,48 @@ function numberCell(display: string): ReactNode {
   )
 }
 
+/** The spreadsheet's column letter for a position: 0 → A, 26 → AA. */
+function columnLetter(index: number): string {
+  let letters = ''
+
+  for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26))
+    letters = String.fromCodePoint(65 + ((n - 1) % 26)) + letters
+
+  return letters
+}
+
+/**
+ * Per-column looks the engine has no hook for: number headers sit right,
+ * over their digits, and calculated columns carry the derived tint. Cells
+ * are found by their column index, headers by their column letter.
+ */
+function columnLookCss(
+  scope: string,
+  columns: readonly SheetbaseGridColumn[],
+): string {
+  const root = `[data-grid-columns="${scope}"]`
+
+  return columns
+    .flatMap((column, index) => {
+      const rules: string[] = []
+      const header = `${root} [role="columnheader"][aria-label^="${columnLetter(index)} "]`
+      const cells = `${root} [role="gridcell"][aria-colindex="${index + 1}"]`
+
+      if (column.type === 'number')
+        rules.push(
+          `${header} .column-heading{margin-left:auto;text-align:right}`,
+        )
+
+      if (column.source === 'calculated')
+        rules.push(
+          `${cells}:not(.selected):not(.cell-flagged){background:var(--surface-derived);color:var(--color-fg-muted)}`,
+        )
+
+      return rules
+    })
+    .join('\n')
+}
+
 /**
  * Bound engine composition. The host owns record identity and persistence;
  * local sorting/filtering changes display coordinates, never stored rows.
@@ -210,82 +252,92 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
     handleRef.current?.replaceData(buildCellMap(current.rows, current.columns))
   }, [rows, mountKey])
 
+  const gridScope = useId().replaceAll(':', '')
+
+  const columnLook = useMemo(
+    () => columnLookCss(gridScope, layout.columns),
+    [gridScope, layout],
+  )
+
   return (
-    <Spreadsheet
-      key={mountKey}
-      ref={handleRef}
-      initialData={initialData}
-      {...annotations}
-      {...writes}
-      rowCount={props.rows.length + (props.spareRows ?? 0)}
-      columnCount={props.columns.length}
-      columnGroups={columnGroups}
-      appendRow={props.appendRow}
-      fieldIds={fieldIds}
-      datasetHeader={datasetHeader}
-      readOnly={props.readOnly ?? false}
-      rowHeaders={props.rowHeaders}
-      height={props.height}
-      stretch={props.stretch}
-      frozenColumns={narrow.frozenColumns}
-      initialColumnWidths={narrow.widths}
-      theme={resolvedGridTheme()}
-      cellState={
-        props.cellState
-          ? (row, column) =>
-              props.cellState?.(row, layout.columns.at(column)?.id ?? '')
-          : undefined
-      }
-      contextMenuActions={contextMenuActions}
-      columnMenuItems={columnMenuItems}
-      customEditors={customEditors}
-      cellDisplays={cellDisplays}
-      renderCell={renderCell}
-      sanitizeSvg={sanitizeSvg}
-      clipboard={clipboard}
-      query={query}
-      onReady={(handle) => {
-        widthsRef.current = handle.snapshot().columnWidths
-        handleReady(handle)
-      }}
-      sortMode="local"
-      onSortChange={(next) =>
-        props.onSortsChange?.(
-          next.map((sort) => ({
-            columnId: sort.fieldId,
-            direction: sort.direction,
-          })),
-        )
-      }
-      onFiltersChange={(next) =>
-        props.onFiltersChange?.(captureGridFilters(next, props))
-      }
-      onSelectionChange={(selection) =>
-        props.onSelectionChange?.(
-          gridSelection(selection, layout, handleRef.current, query),
-        )
-      }
-      onColumnWidthsChange={(next) => {
-        const previous = widthsRef.current
-        widthsRef.current = [...next]
+    <div className="contents" data-grid-columns={gridScope}>
+      <style>{columnLook}</style>
+      <Spreadsheet
+        key={mountKey}
+        ref={handleRef}
+        initialData={initialData}
+        {...annotations}
+        {...writes}
+        rowCount={props.rows.length + (props.spareRows ?? 0)}
+        columnCount={props.columns.length}
+        columnGroups={columnGroups}
+        appendRow={props.appendRow}
+        fieldIds={fieldIds}
+        datasetHeader={datasetHeader}
+        readOnly={props.readOnly ?? false}
+        rowHeaders={props.rowHeaders}
+        height={props.height}
+        stretch={props.stretch}
+        frozenColumns={narrow.frozenColumns}
+        initialColumnWidths={narrow.widths}
+        theme={resolvedGridTheme()}
+        cellState={
+          props.cellState
+            ? (row, column) =>
+                props.cellState?.(row, layout.columns.at(column)?.id ?? '')
+            : undefined
+        }
+        contextMenuActions={contextMenuActions}
+        columnMenuItems={columnMenuItems}
+        customEditors={customEditors}
+        cellDisplays={cellDisplays}
+        renderCell={renderCell}
+        sanitizeSvg={sanitizeSvg}
+        clipboard={clipboard}
+        query={query}
+        onReady={(handle) => {
+          widthsRef.current = handle.snapshot().columnWidths
+          handleReady(handle)
+        }}
+        sortMode="local"
+        onSortChange={(next) =>
+          props.onSortsChange?.(
+            next.map((sort) => ({
+              columnId: sort.fieldId,
+              direction: sort.direction,
+            })),
+          )
+        }
+        onFiltersChange={(next) =>
+          props.onFiltersChange?.(captureGridFilters(next, props))
+        }
+        onSelectionChange={(selection) =>
+          props.onSelectionChange?.(
+            gridSelection(selection, layout, handleRef.current, query),
+          )
+        }
+        onColumnWidthsChange={(next) => {
+          const previous = widthsRef.current
+          widthsRef.current = [...next]
 
-        if (!previous) return
-        next.forEach((width, index) => {
-          const definition = layout.columns.at(index)
+          if (!previous) return
+          next.forEach((width, index) => {
+            const definition = layout.columns.at(index)
 
-          if (definition && previous[index] !== width)
-            props.onColumnResize?.(definition.id, width)
-        })
-      }}
-      onColumnMove={(from, to) => {
-        const order = layout.columns.map((column) => column.id)
-        const moved = order.splice(from, 1).at(0)
+            if (definition && previous[index] !== width)
+              props.onColumnResize?.(definition.id, width)
+          })
+        }}
+        onColumnMove={(from, to) => {
+          const order = layout.columns.map((column) => column.id)
+          const moved = order.splice(from, 1).at(0)
 
-        if (moved === undefined) return
-        order.splice(to, 0, moved)
-        props.onColumnOrderChange?.(order)
-      }}
-    />
+          if (moved === undefined) return
+          order.splice(to, 0, moved)
+          props.onColumnOrderChange?.(order)
+        }}
+      />
+    </div>
   )
 }
 

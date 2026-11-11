@@ -93,6 +93,43 @@ export function columnGroupsOf(columns: readonly SheetbaseGridColumn[]) {
   return groups.length > 0 ? groups : undefined
 }
 
+/** Roughly how wide one character of grid text is, in pixels. */
+const CHAR_PX = 7.4
+
+/** Cell padding plus room for a header's sort or source mark. */
+const CELL_CHROME_PX = 34
+const MIN_FIT_PX = 72
+const MAX_FIT_PX = 280
+
+/** Enough rows to judge a column's width without reading a huge sheet. */
+const FIT_SAMPLE_ROWS = 200
+
+/**
+ * A width that fits a column's header and the values it shows, within
+ * bounds, so a short number column is not as wide as a notes column.
+ */
+export function fitColumnWidth(
+  column: SheetbaseGridColumn,
+  rows: readonly SheetbaseGridRow[],
+  index: number,
+): number {
+  let longest = column.label.length
+
+  for (const row of rows.slice(0, FIT_SAMPLE_ROWS)) {
+    const value = row.cells[index]
+
+    if (value === null || value === '') continue
+    const shown = column.displayText?.(value) ?? gridStoredText(value)
+
+    if (shown.length > longest) longest = shown.length
+  }
+
+  return Math.min(
+    MAX_FIT_PX,
+    Math.max(MIN_FIT_PX, Math.ceil(longest * CHAR_PX + CELL_CHROME_PX)),
+  )
+}
+
 export function buildDisplayMap(
   rows: readonly SheetbaseGridRow[],
   columns: readonly SheetbaseGridColumn[],
@@ -188,12 +225,18 @@ export function useGridLayout(props: SheetbaseGridProps) {
         initialColumnWidths?.[columnIndex.get(column.id) ?? -1] ??
         column.width
 
-      // Absent entries keep the engine's own per-column default widths.
-      if (width !== undefined) resolved[index] = width
+      // A column nobody has sized fits its header and values.
+      resolved[index] = width ?? fitColumnWidth(column, orderedRows, index)
     })
 
     return resolved.length ? resolved : undefined
-  }, [orderedColumns, columnWidth, initialColumnWidths, columnIndex])
+  }, [
+    orderedColumns,
+    orderedRows,
+    columnWidth,
+    initialColumnWidths,
+    columnIndex,
+  ])
 
   const initialData = useMemo(
     () => buildDisplayMap(orderedRows, orderedColumns),

@@ -7,11 +7,14 @@ import type { SheetbaseGridHandle, SheetbaseGridProps } from './sheetbase-grid'
 export function useGridHandle(
   handleRef: RefObject<SpreadsheetHandle | null>,
   onReady: SheetbaseGridProps['onReady'],
+  onSelect?: () => void,
 ) {
   const readyRef = useRef(onReady)
+  const selectRef = useRef(onSelect)
   useLayoutEffect(() => {
     readyRef.current = onReady
-  }, [onReady])
+    selectRef.current = onSelect
+  }, [onReady, onSelect])
 
   const neutralHandle = useMemo<SheetbaseGridHandle>(
     () => ({
@@ -19,10 +22,15 @@ export function useGridHandle(
       commitEdit: () => handleRef.current?.commitEdit(),
       cancelEdit: () => handleRef.current?.cancelEdit(),
       focus: () => handleRef.current?.focus(),
-      selectCell: (row, column, options) =>
-        handleRef.current?.selectCell(row, column, options),
-      selectCellAddress: (address, options) =>
-        handleRef.current?.selectCellAddress(address, options) ?? false,
+      selectCell: (row, column, options) => {
+        selectRef.current?.()
+        handleRef.current?.selectCell(row, column, options)
+      },
+      selectCellAddress: (address, options) => {
+        selectRef.current?.()
+
+        return handleRef.current?.selectCellAddress(address, options) ?? false
+      },
       scrollCellIntoView: (row, column) =>
         handleRef.current?.scrollCellIntoView(row, column),
       snapshot: () => {

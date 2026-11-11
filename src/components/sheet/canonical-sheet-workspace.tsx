@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useRouteContext } from '@tanstack/react-router'
 
 import { SheetFiltersButton } from './sheet-filters-popover'
+import { SheetCompositionPanel } from './sheet-composition-panel'
 import { useCellWriteMarks } from './sheet-write-marks'
 import { gridStoredText } from './grid-client-values'
 import { SheetbaseTableGrid } from '#/components/sheet/sheetbase-grid'
@@ -2386,10 +2387,10 @@ function CanonicalWorkspaceToolbar() {
     <div
       role="toolbar"
       aria-label={t('notebook.canonicalSheetWorkspace.ariaLabel')}
-      className="flex min-h-11 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-border-subtle px-3.5 py-1.5 max-md:px-2"
+      className="@container flex min-h-11 shrink-0 flex-wrap items-center md:flex-nowrap gap-x-2 gap-y-1 border-b border-border-subtle px-3.5 py-1.5 max-md:px-2"
     >
       {heading ? (
-        <div className="flex min-w-0 items-center gap-2 max-md:basis-full">
+        <div className="flex min-w-0 shrink items-center gap-2 max-md:basis-full">
           <Icon
             name="table"
             size={14}
@@ -3179,7 +3180,41 @@ function CanonicalWorkspaceGridArea() {
     gridHandle,
     writeMarks,
     matrix,
+    details,
+    instance,
+    canWrite,
+    selectedColumn,
+    setPromoteField,
   } = useCanonicalWorkspace()
+
+  const { provenance, resolvedRowIdentity } = instance.state
+
+  const rowsMatchedOn =
+    resolvedRowIdentity && resolvedRowIdentity.kind !== 'local'
+      ? resolvedRowIdentity.columnIds.flatMap(
+          (id) =>
+            matrix.columns.find((column) => column.id === id)?.label ?? [],
+        )
+      : []
+
+  const from =
+    provenance.createdFrom === 'definition_version'
+      ? t('notebook.sheetComposition.fromDefinition')
+      : provenance.createdFrom === 'duplicate'
+        ? t('notebook.sheetComposition.fromDuplicate')
+        : t('notebook.sheetComposition.fromAdHoc')
+
+  // The selected column when it is one of the sheet's own, else the first
+  // of them that can go to a dataset.
+  const addToDataset = (columns: readonly CanonicalSheetGridColumn[]) => {
+    const preferred = columns.find((column) => column.id === selectedColumn?.id)
+
+    const field = [preferred, ...columns]
+      .map((column) => promotableLocalField(instance, column))
+      .find((candidate) => candidate !== null)
+
+    if (field) setPromoteField(field)
+  }
 
   // Changes still saving, or that failed, lead the list with their state.
   const rows = useMemo(() => {
@@ -3230,7 +3265,16 @@ function CanonicalWorkspaceGridArea() {
           />
         ) : null}
       </div>
-      {showChanges ? <SheetCellHistory cell={selectedCellHistory} /> : null}
+      {showChanges ? (
+        <SheetCellHistory cell={selectedCellHistory} />
+      ) : details ? (
+        <SheetCompositionPanel
+          columns={matrix.columns}
+          rowsMatchedOn={rowsMatchedOn}
+          from={from}
+          onAddToDataset={canWrite ? addToDataset : undefined}
+        />
+      ) : null}
     </div>
   )
 }

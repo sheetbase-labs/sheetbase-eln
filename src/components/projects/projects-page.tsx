@@ -1,13 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
-import {
-  isBrowserClick,
-  openBesideOnAlt,
-  useWorkspaceNavigation,
-} from '#/components/workspace/workspace-navigation'
-import { projectPath } from '#/lib/navigation'
-import { useHasProjectAccess } from './project-access'
+
 import { toast } from '#/components/ui/sonner'
+import { useHasProjectAccess } from './project-access'
 import { t } from '#/copy'
 
 import {
@@ -21,14 +15,12 @@ import {
   ProjectsLoadFailure,
   ProjectsLoading,
 } from './projects-page-states'
-import { ProjectsFilterChips } from './projects-filter-chips'
-import { ProjectsFooter } from './projects-footer'
+import { ProjectsListBody } from './projects-list-body'
 import { ProjectsHeader } from './projects-header'
 import { ArchiveConfirmDialog } from './archive-confirm-dialog'
 import { ProjectPeek } from './project-peek'
 import { useProjectPeek } from './use-project-peek'
-import { ProjectsTable } from './projects-table'
-import { ProjectsToolbar } from './projects-toolbar'
+import { useOpenProject } from './use-project-open'
 import { ImportProjectsDialog } from './import-projects-dialog'
 import { NewProjectDialog } from './new-project-dialog'
 import { useProjectCreateIntent } from './use-project-create-intent'
@@ -106,39 +98,11 @@ export function ProjectsPage({
   /** Workspace admins can add the client a project is for as they create it. */
   canCreateClient?: boolean
 }) {
-  const workspace = useWorkspaceNavigation()
-  const navigate = useNavigate()
-
-  const openProject = (project: ProjectRow, event?: React.MouseEvent) => {
-    event?.stopPropagation()
-
-    if (event && isBrowserClick(event)) return
-    const href = projectPath(project.uuid)
-
-    if (openBesideOnAlt(workspace, href, event, project.name)) return
-
-    if (!event) {
-      if (onOpenProject) onOpenProject(project)
-      else void navigate({ href })
-    }
-  }
-
+  const openProject = useOpenProject(onOpenProject)
   const hasProjectAccess = useHasProjectAccess()
   const view = projectsView(projects, search, me, meId)
 
-  const {
-    tab,
-    archived,
-    sort,
-    group,
-    hidden,
-    counts,
-    rows,
-    archivedMatches,
-    filterCount,
-    columns,
-    grouped,
-  } = view
+  const { tab, counts, rows } = view
 
   const intent = useProjectCreateIntent({
     canCreate,
@@ -149,7 +113,7 @@ export function ProjectsPage({
 
   // A create intent the role cannot honour says so, rather than leaving the link
   // or bookmark that carried it apparently dead. The guard resets once the
-  // intent is gone, so a later link is answered too — and a param that outlives
+  // intent is gone, so a later link is answered too, and a param that outlives
   // its navigation is answered once, not on every render.
   const refusedNewProject = useRef(false)
 
@@ -205,62 +169,15 @@ export function ProjectsPage({
           <ProjectsLoading />
         ) : projects.length ? (
           <>
-            <ProjectsToolbar
-              sort={sort}
-              group={group}
-              hidden={hidden}
-              filterCount={filterCount}
-              archived={archived}
-              search={search}
+            <ProjectsListBody
+              view={view}
               projects={projects}
-              setSearch={setSearch}
-            />
-
-            {filterCount ? (
-              <ProjectsFilterChips
-                archived={archived}
-                search={search}
-                setSearch={setSearch}
-              />
-            ) : null}
-
-            <ProjectsTable
-              rows={rows}
-              grouped={grouped}
-              columns={columns}
-              canBulkArchive={selection.canBulkArchive}
-              checked={selection.checked}
               search={search}
-              tab={tab}
-              archived={archived}
-              archivedMatches={archivedMatches}
+              setSearch={setSearch}
+              selection={selection}
               openProject={openProject}
               peekId={peeked?.id ?? null}
               onPeek={(project) => setPeek(project.id)}
-              onToggleAll={selection.toggleAll}
-              onToggleRow={selection.toggleRow}
-              onIncludeArchived={() => setSearch({ archived: 'include' })}
-              onClearFilters={() =>
-                setSearch({
-                  q: undefined,
-                  stage: undefined,
-                  client: undefined,
-                  modality: undefined,
-                })
-              }
-            />
-
-            <ProjectsFooter
-              count={rows.length}
-              archivedHidden={archivedMatches}
-              bulkError={selection.bulkError}
-              selected={selection.checked.size}
-              archivable={selection.archivable}
-              restorable={selection.restorable}
-              pending={selection.bulk.isPending}
-              onArchive={() => selection.setConfirmArchive(true)}
-              onRestore={() => selection.bulk.mutate('restore')}
-              onClear={selection.clear}
             />
           </>
         ) : (

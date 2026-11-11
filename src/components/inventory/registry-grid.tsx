@@ -195,6 +195,8 @@ export interface RegistryGridProps<T extends RowData> {
   /** What the list is called in an export's file name; defaults to `label`. */
   exportName?: string
   isLoading?: boolean
+  /** What the table says when it holds no rows; defaults to the grid's own line. */
+  empty?: ReactNode
   /** Row height in px for a table whose rows hold a picture; default 33. */
   rowHeight?: number
   /** The extra classes a screen's row needs (e.g. a muted cell). */
@@ -282,6 +284,7 @@ export function RegistryGrid<T extends RowData>({
   bulk,
   rowLabel,
   isLoading = false,
+  empty,
 }: RegistryGridProps<T>) {
   const view = useGridView(viewProp, sortingProp === undefined && sortableProp)
 
@@ -526,6 +529,7 @@ export function RegistryGrid<T extends RowData>({
         className={className}
         recordCount={rows.length}
         isLoading={isLoading}
+        empty={empty}
         label={label}
         onRowClick={events.onRowClick}
         menu={hasView}
@@ -541,6 +545,7 @@ function RegistryTable<T extends RowData>({
   className,
   recordCount,
   isLoading,
+  empty,
   label,
   onRowClick,
   menu,
@@ -551,6 +556,7 @@ function RegistryTable<T extends RowData>({
   className?: string
   recordCount: number
   isLoading: boolean
+  empty?: ReactNode
   label: string
   onRowClick: (row: T) => void
   /** Show the columns-and-export menu over the end of the header. */
@@ -585,6 +591,7 @@ function RegistryTable<T extends RowData>({
         table={table}
         recordCount={recordCount}
         isLoading={isLoading}
+        emptyMessage={empty}
         i18n={{ labels: { tableLabel: label } }}
         onRowClick={onRowClick}
         // The rows scroll inside the grid, so a sticky header would hold the

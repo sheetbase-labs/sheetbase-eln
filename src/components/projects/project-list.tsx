@@ -22,6 +22,8 @@ import type { IconName } from '#/components/icons'
 export type ProjectListCol<T> = {
   key: string
   label: string
+  /** A column of buttons has a name for assistive tech but shows no heading. */
+  hideLabel?: boolean
   align?: 'right'
   cell: (row: T) => React.ReactNode
   className?: string
@@ -55,7 +57,10 @@ export function ProjectList<T extends { key: string }>({
 }) {
   const columns: RegistryColumn<T>[] = cols.map((c) => ({
     id: c.key,
-    header: c.label,
+    header: c.hideLabel
+      ? () => <span className="sr-only">{c.label}</span>
+      : c.label,
+    enableHiding: !c.hideLabel,
     cell: ({ row }) => c.cell(row.original),
     meta: {
       headerClassName: c.align === 'right' ? 'text-right' : undefined,

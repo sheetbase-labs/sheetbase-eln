@@ -148,9 +148,11 @@ describe('ReturnedReviewBanner', () => {
 
   it('opens the review on its comments', async () => {
     renderBanner()
+
     const link = await screen.findByRole('button', {
       name: 'Read the comments',
     })
+
     expect(link.getAttribute('href')).toBe('/review/rev-1?tab=comments')
   })
 })

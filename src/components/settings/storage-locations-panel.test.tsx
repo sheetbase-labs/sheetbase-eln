@@ -89,12 +89,14 @@ const TABLES = {
 function client(empty = false) {
   const tables = new Map(Object.entries(TABLES))
   const bodySchema = z.json()
+
   const writes: {
     method: string
     resource: string
     query: string
     body: z.infer<typeof bodySchema>
   }[] = []
+
   const unexpected: string[] = []
 
   const dataClient = createDataClient(async (input, init) => {
@@ -102,6 +104,7 @@ function client(empty = false) {
       input instanceof Request ? input.url : String(input),
       'http://localhost',
     )
+
     const resource = url.pathname.replace('/api/db/', '')
     const rows = tables.get(resource)
     const method = init?.method ?? 'GET'

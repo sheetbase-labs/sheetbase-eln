@@ -39,6 +39,7 @@ vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     input instanceof Request ? input.url : String(input),
     'http://localhost',
   )
+
   const resource = url.pathname.replace('/api/db/', '')
 
   if (

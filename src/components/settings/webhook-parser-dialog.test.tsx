@@ -27,6 +27,7 @@ const createSchema = z.strictObject({
 
 const writes: z.infer<typeof createSchema>[] = []
 const unexpected: string[] = []
+
 let result: CreatedWebhookParser = {
   parserId: 'p1',
   parserVersionId: 'v1',
@@ -89,9 +90,11 @@ describe('WebhookParserDialog', () => {
 
   it('waits for a name and a web address', async () => {
     renderDialog()
+
     const add = screen.getByRole<HTMLButtonElement>('button', {
       name: 'Add parser',
     })
+
     expect(add.disabled).toBe(true)
     await userEvent.type(screen.getByLabelText(/^Name/), 'Acme qPCR service')
     await userEvent.type(screen.getByLabelText(/^Address/), 'ftp://nope')

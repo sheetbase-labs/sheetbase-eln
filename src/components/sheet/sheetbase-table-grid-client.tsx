@@ -15,6 +15,7 @@ import {
   gridSelection,
 } from './grid-client-presentation'
 import { gridWrites } from './grid-client-writes'
+import { t } from '#/copy'
 import { sanitizeSvg } from '#/lib/extensions/screens'
 import type {
   CellDisplays,
@@ -111,13 +112,71 @@ const TRAILING_UNIT = /^(.*\d.*?)\s+([^\s\d×.+\-⁰¹²³⁴⁵⁶⁷⁸⁹][^\
 function numberCell(display: string): ReactNode {
   if (display === '') return undefined
 
+  return <span className="sheet-cell-number">{numberParts(display)}</span>
+}
+
+/** The digits, then the unit smaller and muted. */
+function numberParts(display: string): ReactNode {
   const match = TRAILING_UNIT.exec(display)
 
+  if (!match) return display
+
   return (
-    <span className="sheet-cell-number">
-      {match ? match[1] : display}
-      {match ? <span className="sheet-cell-unit">{match[2]}</span> : null}
-    </span>
+    <>
+      {match[1]}
+      <span className="sheet-cell-unit">{match[2]}</span>
+    </>
+  )
+}
+
+/** "8.9 NTU" before "12.8 NTU" reads "8.9": the unit is said once. */
+function withoutSharedUnit(before: string, after: string): string {
+  const was = TRAILING_UNIT.exec(before)
+  const now = TRAILING_UNIT.exec(after)
+
+  return was && now && was[2] === now[2] ? was[1] : before
+}
+
+/** A changed cell's save mark; a failed one retries when clicked. */
+function WriteMark({
+  mark,
+}: {
+  mark: { state: 'saved' | 'saving' | 'failed'; retry?: () => void }
+}) {
+  const label = {
+    saved: t('notebook.sheetChanges.markSaved'),
+    saving: t('notebook.sheetChanges.markSaving'),
+    failed: t('notebook.sheetChanges.markFailed'),
+  }[mark.state]
+
+  if (mark.state === 'failed' && mark.retry) {
+    const { retry } = mark
+
+    return (
+      <button
+        type="button"
+        className="sheet-write-mark"
+        data-write-mark="failed"
+        aria-label={label}
+        title={label}
+        onPointerDown={(event) => event.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation()
+          retry()
+        }}
+      />
+    )
+  }
+
+  return (
+    <span
+      className="sheet-write-mark"
+      data-write-mark={mark.state}
+      role="img"
+      aria-label={label}
+      title={label}
+    />
   )
 }
 
@@ -213,28 +272,52 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
 
   const writes = useMemo(() => gridWrites(props, layout), [props, layout])
 
-  const { cellBefore } = props
+  const { cellBefore, cellMark } = props
 
-  // Show changes: a changed cell shows its old value struck through. Only
-  // passed while there is something to show, so the engine keeps its fast
-  // path for plain cells the rest of the time.
+  // Show changes: a changed cell shows its old value struck through and its
+  // own save mark. Plain cells keep the engine's fast path.
   const renderCell = useMemo(
     () =>
       ({ point, display }: CellRenderContext) => {
         const column = layout.columns.at(point.column)
-        const before = cellBefore?.(point.row, column?.id ?? '')
+        const columnId = column?.id ?? ''
+        const before = cellBefore?.(point.row, columnId)
+        const mark = cellMark?.(point.row, columnId)
 
-        if (before !== undefined)
-          return (
-            <span className="sheet-cell-change">
-              <del>{before}</del>
-              <span>{display}</span>
+        const value =
+          before === undefined ? (
+            column?.type === 'number' ? (
+              numberCell(display)
+            ) : undefined
+          ) : (
+            // The new value comes first so a narrow cell drops the old one
+            // whole instead of cutting it (the change list keeps it).
+            <span
+              className="sheet-cell-change"
+              data-number={column?.type === 'number' || undefined}
+            >
+              <span>
+                {column?.type === 'number' ? numberParts(display) : display}
+              </span>
+              <del>{withoutSharedUnit(before, display)}</del>
             </span>
           )
 
-        return column?.type === 'number' ? numberCell(display) : undefined
+        if (!mark) return value
+
+        return (
+          <span className="sheet-cell-marked">
+            <span
+              className="sheet-cell-marked-value"
+              data-number={column?.type === 'number' || undefined}
+            >
+              {value ?? display}
+            </span>
+            <WriteMark mark={mark} />
+          </span>
+        )
       },
-    [cellBefore, layout],
+    [cellBefore, cellMark, layout],
   )
 
   const query = useMemo(

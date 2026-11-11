@@ -2245,6 +2245,13 @@ export const notebook = {
     noCellChanges: 'No changes to this cell.',
     selectCell: 'Select a cell to see every value it has held.',
     someone: 'Someone',
+    you: 'You',
+    save: 'Save',
+    retry: 'Retry',
+    retryHint: 'Try saving this change again',
+    markSaved: 'Saved',
+    markSaving: 'Saving',
+    markFailed: 'Save failed. Click to try again.',
   },
   sheetToolbar: {
     rows: { one: '{count} row', other: '{count} rows' },

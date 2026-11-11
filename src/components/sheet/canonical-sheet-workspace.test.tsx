@@ -516,9 +516,11 @@ describe('CanonicalSheetEditor — GRID-05 incremental paging', () => {
     ])
 
     await user.click(loadMore)
+    // Once every row is in, the page line stands down: the header counts them.
     await waitFor(() =>
-      expect(screen.getByText('Showing all 2 rows.')).toBeTruthy(),
+      expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull(),
     )
+    expect(screen.queryByText(/Showing all/)).toBeNull()
 
     // Two pages cost exactly two window fetches: the second page fetched
     // ONLY offset 200 instead of refetching pages 1..2.

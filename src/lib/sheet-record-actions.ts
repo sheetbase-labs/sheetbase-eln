@@ -20,9 +20,9 @@ const KIND_ORDER: SheetRecordActionKind[] = [
 ]
 
 const KIND_LABEL: Record<SheetRecordActionKind, string> = {
-  'link-record': 'Link Record',
-  'create-record': 'Create Record',
-  'open-record': 'Open Record',
+  'link-record': 'Link record',
+  'create-record': 'Create record',
+  'open-record': 'Open record',
 }
 
 /**

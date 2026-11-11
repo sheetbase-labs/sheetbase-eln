@@ -16,15 +16,9 @@ import {
 } from '#/components/ui/dialog'
 import { Field } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   buildSheetState,
   OfficeSheetError,
@@ -270,6 +264,14 @@ function MadeSheetPreview({ made }: { made: MadeSheet }) {
     PREVIEW_ROWS,
   )
 
+  const gridColumns: RegistryColumn<(typeof previewRows)[number]>[] =
+    columns.map((field) => ({
+      id: field.fieldId,
+      header: field.label,
+      accessorFn: ([, row]) =>
+        formatCell(previewCell.parse(row[field.fieldId])),
+    }))
+
   return (
     <>
       <p className="text-label text-fg-muted">
@@ -279,26 +281,13 @@ function MadeSheetPreview({ made }: { made: MadeSheet }) {
         })}
       </p>
       <TableBox>
-        <Table aria-label={t('notebook.makeSheet.preview')}>
-          <TableHeader>
-            <TableRow>
-              {columns.map((field) => (
-                <TableHead key={field.fieldId}>{field.label}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {previewRows.map(([rowId, row]) => (
-              <TableRow key={rowId}>
-                {columns.map((field) => (
-                  <TableCell key={field.fieldId}>
-                    {formatCell(previewCell.parse(row[field.fieldId]))}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('notebook.makeSheet.preview')}
+          rows={previewRows}
+          columns={gridColumns}
+          getRowId={([rowId]) => rowId}
+          selectable={false}
+        />
       </TableBox>
       {made.formulaColumns.length > 0 ? (
         <Notice>

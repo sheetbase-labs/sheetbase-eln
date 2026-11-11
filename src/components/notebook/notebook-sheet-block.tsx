@@ -14,15 +14,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '#/components/ui/popover'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { sheetInstanceEmbedErrorMessage } from './sheet-embed-error'
 import { frozenSheetGridFromEvidence } from '#/lib/frozen-sheet-grid'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
@@ -185,6 +179,46 @@ export function FrozenSheetEvidencePanel({
 
   const bindingCount = evidence.datasetBindings.length
 
+  const frozenRows = grid.rows.map((cells, index) => ({ index, cells }))
+
+  const frozenColumns: RegistryColumn<(typeof frozenRows)[number]>[] =
+    grid.columns.map((column, cellIndex) => ({
+      id: column.id,
+      header: column.label,
+      accessorFn: (row) => row.cells[cellIndex] ?? '',
+      cell: ({ row: { original } }) => {
+        const cell = original.cells[cellIndex]
+        const rowIndex = original.index
+
+        return onCommentTarget && grid.rowKeys ? (
+          <button
+            type="button"
+            className="w-full rounded px-1 py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-selection aria-pressed:ring-1 aria-pressed:ring-primary"
+            aria-label={t(
+              'notebook.notebookSheetBlock.selectLabelRowRowindexAriaLabel',
+              {
+                label: column.label,
+                rowIndex: rowIndex + 1,
+              },
+            )}
+            aria-pressed={selectedCells.has(`${rowIndex}:${cellIndex}`)}
+            onClick={(event) => {
+              const position = { row: rowIndex, column: cellIndex }
+
+              setSelection((current) => ({
+                start: event.shiftKey && current ? current.start : position,
+                end: position,
+              }))
+            }}
+          >
+            {cell || '—'}
+          </button>
+        ) : (
+          cell || '—'
+        )
+      },
+    }))
+
   return (
     <div
       className="space-y-3 p-3"
@@ -226,72 +260,14 @@ export function FrozenSheetEvidencePanel({
         </p>
       ) : (
         <TableBox className="rounded-md border">
-          <Table
-            aria-label={t('notebook.notebookSheetBlock.frozenSheetAriaLabel')}
-          >
-            <TableHeader>
-              <TableRow>
-                {grid.columns.map((column) => (
-                  <TableHead key={column.id}>{column.label}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {grid.rows.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={grid.columns.length}
-                    className="text-fg-muted"
-                  >
-                    {t('notebook.notebookSheetBlock.noLocalRowsWere')}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                grid.rows.map((row, rowIndex) => (
-                  <TableRow key={rowIndex}>
-                    {row.map((cell, cellIndex) => (
-                      <TableCell key={grid.columns[cellIndex]?.id ?? cellIndex}>
-                        {onCommentTarget && grid.rowKeys ? (
-                          <button
-                            type="button"
-                            className="w-full rounded px-1 py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-selection aria-pressed:ring-1 aria-pressed:ring-primary"
-                            aria-label={t(
-                              'notebook.notebookSheetBlock.selectLabelRowRowindexAriaLabel',
-                              {
-                                label: grid.columns[cellIndex]?.label,
-                                rowIndex: rowIndex + 1,
-                              },
-                            )}
-                            aria-pressed={selectedCells.has(
-                              `${rowIndex}:${cellIndex}`,
-                            )}
-                            onClick={(event) => {
-                              const position = {
-                                row: rowIndex,
-                                column: cellIndex,
-                              }
-
-                              setSelection((current) => ({
-                                start:
-                                  event.shiftKey && current
-                                    ? current.start
-                                    : position,
-                                end: position,
-                              }))
-                            }}
-                          >
-                            {cell || '—'}
-                          </button>
-                        ) : (
-                          cell || '—'
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label={t('notebook.notebookSheetBlock.frozenSheetAriaLabel')}
+            rows={frozenRows}
+            columns={frozenColumns}
+            getRowId={(row) => String(row.index)}
+            selectable={false}
+            empty={t('notebook.notebookSheetBlock.noLocalRowsWere')}
+          />
         </TableBox>
       )}
     </div>

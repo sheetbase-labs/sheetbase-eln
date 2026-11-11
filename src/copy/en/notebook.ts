@@ -925,6 +925,7 @@ export const notebook = {
     editingHere: 'Editing here: {names}',
   },
   actionBlockPreviews: {
+    tableLabel: 'Corrective actions',
     noSignerChosen: 'No signer chosen',
     meaning: 'meaning “{meaning}”',
     noCorrectiveActionsYet:
@@ -1221,6 +1222,7 @@ export const notebook = {
     archivedViewOnly: 'Archived · view only',
   },
   blockPreview: {
+    tableLabel: 'Table',
     conclusion: 'Conclusion',
     noConclusionWritten: 'No conclusion written',
     basedOn: 'Based on',

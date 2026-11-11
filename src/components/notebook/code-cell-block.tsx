@@ -14,15 +14,9 @@ import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { t } from '#/copy'
 import {
   CODE_CELL_LANGUAGES,
@@ -124,6 +118,14 @@ function CodeCellOutputView({
   stale: boolean
 }) {
   const shown = codeCellOutputSchema.parse(output).rows.slice(0, PREVIEW_ROWS)
+  const entries = readOnlyEntries(shown, (row) => JSON.stringify(row))
+
+  const gridColumns: RegistryColumn<(typeof entries)[number]>[] =
+    output.columns.map((column) => ({
+      id: column,
+      header: column,
+      accessorFn: ({ value: row }) => cellText(row[column]),
+    }))
 
   return (
     <div
@@ -157,28 +159,13 @@ function CodeCellOutputView({
       ) : (
         <>
           <TableBox className="max-h-[320px] overflow-auto">
-            <Table aria-label={t('automation.codeCell.outputLabel')}>
-              <TableHeader>
-                <TableRow>
-                  {output.columns.map((column) => (
-                    <TableHead key={column}>{column}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody colSpan={Math.max(output.columns.length, 1)}>
-                {readOnlyEntries(shown, (row) => JSON.stringify(row)).map(
-                  ({ key, value: row }) => (
-                    <TableRow key={key}>
-                      {output.columns.map((column) => (
-                        <TableCell key={column} className="truncate">
-                          {cellText(row[column])}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ),
-                )}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label={t('automation.codeCell.outputLabel')}
+              rows={entries}
+              columns={gridColumns}
+              getRowId={(entry) => entry.key}
+              selectable={false}
+            />
           </TableBox>
           {output.rowCount > shown.length ? (
             <p className="m-0 text-label text-fg-muted">

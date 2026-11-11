@@ -49,7 +49,13 @@ describe('persisted notebook output boundaries', () => {
         payload={{ source: output.source, language: 'sql', output }}
       />,
     )
-    const cells = within(screen.getByRole('table')).getAllByRole('cell')
+
+    // Every grid row ends in a cell for the table's own menu, which holds no value.
+    const cells = within(screen.getByRole('table'))
+      .getAllByRole('row')
+      .slice(1)
+      .flatMap((row) => within(row).getAllByRole('cell').slice(0, -1))
+
     expect(cells.map((cell) => cell.textContent)).toEqual([
       '5.75',
       'false',

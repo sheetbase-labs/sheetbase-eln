@@ -5,7 +5,7 @@
  */
 import { useMemo } from 'react'
 
-import { RegistryGrid } from '#/components/inventory/registry-grid'
+import { RegistryGrid, gridHeight } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 
 export interface StatColumn<T> {
@@ -74,14 +74,12 @@ export function StatGrid<T>({
     },
   }))
 
-  const wanted = 31 + 33 * keyed.length + 14
-
   return (
     <div
       className={bare ? 'overflow-hidden' : 'overflow-hidden rounded-md border'}
-      style={
-        maxHeight ? { height: Math.min(maxHeight, wanted) } : { height: wanted }
-      }
+      style={{
+        height: gridHeight(keyed.length, maxHeight ?? Number.POSITIVE_INFINITY),
+      }}
     >
       <RegistryGrid
         label={label}

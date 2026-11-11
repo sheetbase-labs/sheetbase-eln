@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
-import { IconButton } from '#/components/ui/icon-button'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
@@ -13,8 +12,14 @@ import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { useBulkSelection } from '#/components/inventory/bulk-selection'
 import { useListView } from '#/lib/list-views'
+import { SheetFiltersButton } from '#/components/sheet/sheet-filters-popover'
+import type {
+  SheetbaseGridColumn,
+  SheetbaseGridFilter,
+} from '#/components/sheet/sheetbase-grid'
 import { pickerStatus } from '#/components/record-picker/record-picker-data'
 import { displayModelFieldValue } from '#/lib/model-fields'
+import type { ModelFieldDefinition } from '#/lib/model-fields'
 import { downloadTextFile } from '#/lib/download'
 import { toast } from '#/components/ui/sonner'
 import { Icon } from '#/components/icons'
@@ -61,6 +66,41 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
   return <RecordModelRecordList modelKey={modelKey} />
 }
 
+/** The popover's filters, applied to what the search left: every one must hold. */
+function applyFilters(
+  records: RecordModelRecord[],
+  fields: ModelFieldDefinition[],
+  filters: readonly SheetbaseGridFilter[],
+): RecordModelRecord[] {
+  if (filters.length === 0) return records
+
+  const shown = (record: RecordModelRecord, columnId: string): string => {
+    if (columnId === 'status') return record.status ?? ''
+
+    const field = fields.find(
+      (entry) => `field:${entry.fieldName}` === columnId,
+    )
+
+    return field
+      ? displayModelFieldValue(field, recordFieldValue(record, field.fieldName))
+      : ''
+  }
+
+  return records.filter((record) =>
+    filters.every((filter) => {
+      const value = shown(record, filter.columnId)
+
+      if (filter.operator === 'is-empty') return value === ''
+
+      if (filter.operator === 'is-not-empty') return value !== ''
+
+      const same = value === String(filter.value ?? '')
+
+      return filter.operator === 'equals' ? same : !same
+    }),
+  )
+}
+
 function useRecordList(modelKey: string) {
   const model = useWorkspaceRecordModel(modelKey)
   const fieldsQuery = useRecordModelFields(modelKey)
@@ -70,9 +110,7 @@ function useRecordList(modelKey: string) {
   const records = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data])
 
   const [q, setQ] = useState('')
-  const [status, setStatus] = useState('')
-  const [fieldName, setFieldName] = useState('')
-  const [fieldValue, setFieldValue] = useState('')
+  const [filters, setFilters] = useState<SheetbaseGridFilter[]>([])
   const [results, setResults] = useState<'' | 'out'>('')
 
   // Result limits: a column and a filter, only for a model that has limits.
@@ -109,13 +147,31 @@ function useRecordList(modelKey: string) {
 
   const statuses = useMemo(() => recordStatusOptions(records), [records])
 
+  const filterColumns = useMemo<SheetbaseGridColumn[]>(
+    () => [
+      {
+        id: 'status',
+        label: t('library.models.recordModelRecords.status'),
+        source: 'local',
+        type: 'select',
+        options: statuses,
+      },
+      ...fields.map<SheetbaseGridColumn>((field) => ({
+        id: `field:${field.fieldName}`,
+        label: field.label,
+        source: 'local',
+        type: 'text',
+      })),
+    ],
+    [statuses, fields],
+  )
+
   const visible = useMemo(() => {
-    const matching = filterRecordModelRecords(records, fields, {
-      q,
-      status,
-      fieldName,
-      fieldValue,
-    })
+    const matching = applyFilters(
+      filterRecordModelRecords(records, fields, { q }),
+      fields,
+      filters,
+    )
 
     return judged && results === 'out'
       ? matching.filter((record) => {
@@ -124,17 +180,7 @@ function useRecordList(modelKey: string) {
           return verdict === 'fail' || verdict === 'alert'
         })
       : matching
-  }, [
-    records,
-    fields,
-    q,
-    status,
-    fieldName,
-    fieldValue,
-    judged,
-    results,
-    verdictByRecord,
-  ])
+  }, [records, fields, q, filters, judged, results, verdictByRecord])
 
   // The ticked records feed the plugin actions; the list keeps what a person
   // chose to hide and how they sorted it.
@@ -182,6 +228,7 @@ function useRecordList(modelKey: string) {
 
     const statusColumn: RegistryColumn<RecordModelRecord> = {
       id: 'status',
+      meta: { cellClassName: 'min-w-[120px]!' },
       header: t('library.models.recordModelRecords.status'),
       accessorFn: (record) => record.status,
       cell: ({ row }) => {
@@ -282,12 +329,9 @@ function useRecordList(modelKey: string) {
     fields,
     q,
     setQ,
-    status,
-    setStatus,
-    fieldName,
-    setFieldName,
-    fieldValue,
-    setFieldValue,
+    filters,
+    setFilters,
+    filterColumns,
     results,
     setResults,
     statuses,
@@ -312,18 +356,13 @@ function RecordListToolbar({
 }) {
   const {
     model,
-    fields,
     q,
     setQ,
-    status,
-    setStatus,
-    fieldName,
-    setFieldName,
-    fieldValue,
-    setFieldValue,
+    filters,
+    setFilters,
+    filterColumns,
     results,
     setResults,
-    statuses,
     judged,
     visible,
     exportCsv,
@@ -345,22 +384,6 @@ function RecordListToolbar({
           className="h-8 text-body"
         />
       </label>
-      <Select
-        aria-label={t('library.models.recordModelRecords.filterByStatus')}
-        size="sm"
-        className="h-8"
-        value={status}
-        onChange={(event) => setStatus(event.target.value)}
-      >
-        <option value="">
-          {t('library.models.recordModelRecords.allStatuses')}
-        </option>
-        {statuses.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </Select>
       {judged ? (
         <Select
           aria-label={t('quality.limits.filter')}
@@ -375,37 +398,20 @@ function RecordListToolbar({
           <option value="out">{t('quality.limits.filterOut')}</option>
         </Select>
       ) : null}
-      <Select
-        aria-label={t('library.models.recordModelRecords.filterByField')}
-        size="sm"
-        className="h-8"
-        value={fieldName}
-        onChange={(event) => setFieldName(event.target.value)}
-      >
-        <option value="">
-          {t('library.models.recordModelRecords.anyField')}
-        </option>
-        {fields.map((field) => (
-          <option key={field.fieldName} value={field.fieldName}>
-            {field.label}
-          </option>
-        ))}
-      </Select>
-      <Input
-        value={fieldValue}
-        disabled={!fieldName}
-        onChange={(event) => setFieldValue(event.target.value)}
-        placeholder={t('library.models.recordModelRecords.fieldContains')}
-        aria-label={t('library.models.recordModelRecords.fieldValue')}
-        className="h-8 w-[160px] text-body disabled:text-fg-faint"
+      <SheetFiltersButton
+        columns={filterColumns}
+        filters={filters}
+        onChange={setFilters}
       />
-      <IconButton
+      <Button
+        size="sm"
         variant="secondary"
         icon="download"
-        label={t('library.models.recordModelRecords.exportCsv')}
         disabled={!visible.length}
         onClick={exportCsv}
-      />
+      >
+        {t('library.models.recordModelRecords.exportCsv')}
+      </Button>
       <Button
         variant="primary"
         size="sm"
@@ -430,8 +436,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
     model,
     fields,
     q,
-    status,
-    fieldValue,
+    filters,
     results,
     visible,
     selected,
@@ -488,7 +493,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         <p className="m-0 text-label text-fg-muted" role="status">
           {loading
             ? t('library.models.recordModelRecords.loadingRecords')
-            : q || status || fieldValue || results
+            : q || filters.length > 0 || results
               ? t('library.models.recordModelRecords.noRecordsMatchTheCurrent')
               : t('library.models.recordModelRecords.noRecordsYet')}
         </p>

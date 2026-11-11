@@ -10,6 +10,7 @@ import {
   createRouter,
   RouterContextProvider,
 } from '@tanstack/react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -28,9 +29,17 @@ function render(ui: ReactNode) {
     history: createMemoryHistory({ initialEntries: ['/'] }),
   })
 
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, enabled: false } },
+  })
+
   return renderDOM(ui, {
     wrapper: ({ children }) => (
-      <RouterContextProvider router={router}>{children}</RouterContextProvider>
+      <QueryClientProvider client={queryClient}>
+        <RouterContextProvider router={router}>
+          {children}
+        </RouterContextProvider>
+      </QueryClientProvider>
     ),
   })
 }
@@ -262,7 +271,10 @@ describe('canonicalCellFacts', () => {
 
     expect(facts.value).toEqual({ display: '61.5', unit: 'NTU' })
     expect(facts.validation?.state).toBe('error')
-    expect(facts.validation?.headline).toBe('Above the allowed range')
+    expect(facts.validation?.headline).toBe(
+      'Above the allowed range 0–50 NTU · flagged',
+    )
+    expect(facts.validation?.detail).toBeNull()
     expect(facts.provenance?.dataset).toEqual({
       label: 'ds-0311',
       datasetId: 'ds-0311',

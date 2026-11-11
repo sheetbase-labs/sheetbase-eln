@@ -49,7 +49,7 @@ export function benchRange(column: CanonicalSheetGridColumn): string | null {
 
 /** A typed value outside the field's range, explained; null when it fits. */
 export function benchRangeBreach(
-  column: CanonicalSheetGridColumn,
+  column: Pick<CanonicalSheetGridColumn, 'field'>,
   text: string,
 ): string | null {
   const { min, max } = column.field?.validation ?? {}

@@ -3,6 +3,7 @@ import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 import { formatMagnitude } from '#/lib/format-numbers'
 import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
+import { benchRangeBreach } from '#/components/sheet/sheet-bench-fields'
 import type { FieldDefinition } from '#/lib/field-definition'
 import type { BoundValueState } from '#/lib/sheet-bound-columns'
 import type {
@@ -109,23 +110,11 @@ function evaluateValidation(
     return { state: 'unknown', rule }
   }
 
-  if (min !== undefined && numeric < min) {
-    return {
-      state: 'error',
-      headline: t('notebook.notebookInspector.belowTheAllowedRange'),
-      detail: `${rule}.`,
-      rule,
-    }
-  }
+  // Out of range: the same plain sentence the sheet's foot band shows. The
+  // value is stored and flagged, so the rule is not repeated underneath.
+  const breach = benchRangeBreach({ field }, String(numeric))
 
-  if (max !== undefined && numeric > max) {
-    return {
-      state: 'error',
-      headline: t('notebook.notebookInspector.aboveTheAllowedRange'),
-      detail: `${rule}.`,
-      rule,
-    }
-  }
+  if (breach) return { state: 'error', headline: breach, detail: null }
 
   return {
     state: 'valid',
@@ -201,11 +190,15 @@ export function canonicalCellFacts(input: {
           unit: fieldUnit(field),
           validation: rule,
           required: field ? !field.nullable : null,
-          source:
-            column.origin === 'bound'
-              ? t('notebook.notebookInspector.linked')
-              : column.origin,
+          source: t(SOURCE_LABEL[column.origin]),
         }
       : null,
   }
 }
+
+/** Where a column's values live, in a scientist's words. */
+const SOURCE_LABEL = {
+  bound: 'notebook.notebookInspector.linked',
+  local: 'notebook.notebookInspector.thisSheet',
+  calculation: 'notebook.notebookInspector.calculated',
+} as const

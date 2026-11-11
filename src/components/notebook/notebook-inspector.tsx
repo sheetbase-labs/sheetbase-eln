@@ -1,6 +1,6 @@
 import { t } from '#/copy'
 import * as React from 'react'
-import { Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 
 import {
@@ -9,6 +9,9 @@ import {
   InspectorSectionStack,
 } from '#/components/record'
 import { Notice } from '#/components/ui/alert'
+import { ObjectLink } from '#/components/ui/object-link'
+import { fetchDatasetLinkTargets } from '#/lib/dataset-link-targets'
+import { notebookDataClient } from '#/lib/notebook-data'
 import { OverflowTabs } from '#/components/ui/overflow-tabs'
 import { TabsRoot, TabsPanel } from '#/components/ui/tabs'
 import { cn } from '#/lib/utils'
@@ -123,22 +126,20 @@ function ProvenanceSection({
           label={t('notebook.notebookInspector.label')}
           value={
             dataset ? (
-              <>
-                {dataset.datasetId ? (
-                  <Link
-                    to="/datasets"
-                    search={{ dataset: dataset.datasetId }}
-                    className="underline underline-offset-2 hover:text-fg"
-                  >
-                    {dataset.label}
-                  </Link>
-                ) : (
-                  dataset.label
-                )}
-                {dataset.rowLabel
-                  ? ` ${t('notebook.notebookInspector.rowLabel', { label: dataset.rowLabel })}`
-                  : null}
-              </>
+              dataset.datasetId ? (
+                <DatasetSource
+                  datasetId={dataset.datasetId}
+                  label={dataset.label}
+                  rowLabel={dataset.rowLabel ?? null}
+                />
+              ) : (
+                <>
+                  {dataset.label}
+                  {dataset.rowLabel
+                    ? ` ${t('notebook.notebookInspector.rowLabel', { label: dataset.rowLabel })}`
+                    : null}
+                </>
+              )
             ) : undefined
           }
         />
@@ -401,3 +402,43 @@ export function NotebookInspector({
     </div>
   )
 }
+
+/** The dataset a bound cell comes from, named the way people know it: its
+ * DS- number as a link and its name. An internal row key is never shown. */
+function DatasetSource({
+  datasetId,
+  label,
+  rowLabel,
+}: {
+  datasetId: string
+  label: string
+  rowLabel: string | null
+}) {
+  const target = useQuery({
+    queryKey: ['dataset-link-target', datasetId],
+    queryFn: async () =>
+      (await fetchDatasetLinkTargets(notebookDataClient, [datasetId])).get(
+        datasetId,
+      ) ?? null,
+  })
+
+  const dataset = target.data
+  const internal = (text: string) => UUID.test(text)
+  const identifier = dataset?.display_id ?? (internal(label) ? null : label)
+
+  return (
+    <span className="inline-flex flex-wrap items-baseline justify-end gap-x-1.5">
+      <ObjectLink kind="dataset" id={datasetId} identifier={identifier}>
+        {identifier ? undefined : t('notebook.notebookInspector.datasetSource')}
+      </ObjectLink>
+      {dataset ? <span className="text-fg-muted">{dataset.name}</span> : null}
+      {rowLabel && !internal(rowLabel) ? (
+        <span>
+          {t('notebook.notebookInspector.rowLabel', { label: rowLabel })}
+        </span>
+      ) : null}
+    </span>
+  )
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

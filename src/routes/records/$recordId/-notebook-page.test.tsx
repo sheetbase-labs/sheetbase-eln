@@ -389,8 +389,9 @@ describe('NotebookInspector — selected Sheet cell (EXP-04.4)', () => {
     ).toBeTruthy()
     expect(screen.getByText('45')).toBeTruthy()
     expect(screen.getAllByText('mg/L').length).toBeGreaterThan(0)
-    expect(screen.getByText('Above the allowed range')).toBeTruthy()
-    expect(screen.getByText('Allowed 1–30.')).toBeTruthy()
+    expect(
+      screen.getAllByText('Above the allowed range 1–30 mg/L · flagged').length,
+    ).toBeGreaterThan(0)
     // The record's own Properties are untouched — this is an addition.
     expect(screen.getByText('EXP-2025-0001')).toBeTruthy()
 

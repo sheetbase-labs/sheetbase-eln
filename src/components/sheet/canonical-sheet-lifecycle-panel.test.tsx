@@ -217,7 +217,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
 
     const user = userEvent.setup()
     await user.click(
-      screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
+      screen.getByRole('button', { name: 'Link data and reuse this sheet' }),
     )
     await user.click(screen.getByRole('button', { name: 'Extract draft' }))
     await screen.findByRole('link', { name: 'Review sheet definition' })
@@ -241,7 +241,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
     const { calls } = await renderPanel()
     const user = userEvent.setup()
     await user.click(
-      screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
+      screen.getByRole('button', { name: 'Link data and reuse this sheet' }),
     )
     await user.type(screen.getByLabelText('Definition key'), 'assay_results')
     await user.click(screen.getByRole('button', { name: 'Extract draft' }))
@@ -291,7 +291,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
     const { calls } = await renderPanel()
     const user = userEvent.setup()
     await user.click(
-      screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
+      screen.getByRole('button', { name: 'Link data and reuse this sheet' }),
     )
     await user.click(screen.getByRole('button', { name: 'Save' }))
     const dialog = await screen.findByRole('alertdialog')
@@ -307,7 +307,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
     queryClient.setQueryData(['dataset-explorer-summaries', 'other-view'], [])
     const user = userEvent.setup()
     await user.click(
-      screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
+      screen.getByRole('button', { name: 'Link data and reuse this sheet' }),
     )
     await user.click(screen.getByRole('button', { name: 'Save' }))
     const dialog = await screen.findByRole('alertdialog')
@@ -330,7 +330,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
     const { calls } = await renderPanel()
     const user = userEvent.setup()
     await user.click(
-      screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
+      screen.getByRole('button', { name: 'Link data and reuse this sheet' }),
     )
     await user.click(
       screen.getByRole('button', { name: 'Extract and publish' }),
@@ -347,7 +347,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
     queryClient.setQueryData(['sheet-definition-versions', 'definition-1'], [])
     const user = userEvent.setup()
     await user.click(
-      screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
+      screen.getByRole('button', { name: 'Link data and reuse this sheet' }),
     )
     await user.click(
       screen.getByRole('button', { name: 'Extract and publish' }),

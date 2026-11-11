@@ -3,6 +3,7 @@
  * action is set to Ask) is approved here or from the Inbox; approving runs the
  * action as the person pressing the button, so their own access applies.
  */
+import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Notice } from '#/components/ui/alert'
@@ -12,15 +13,9 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { toast } from '#/components/ui/sonner'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { TableBox } from '#/components/ui/table'
 import { Tooltip } from '#/components/ui/tooltip'
 import { t } from '#/copy'
 import {
@@ -56,6 +51,133 @@ const LABEL: Record<AgentActionRequestStatus, string> = {
   succeeded: t('agentRequests.statusSucceeded'),
   failed: t('agentRequests.statusFailed'),
   refused: t('agentRequests.statusRefused'),
+}
+
+function RequestsGrid({
+  rows,
+  nameOf,
+  busy,
+  runningId,
+  onApprove,
+  onReject,
+}: {
+  rows: AgentActionRequestRow[]
+  nameOf: (userId: string | null) => string
+  busy: boolean
+  runningId: string | null
+  onApprove: (row: AgentActionRequestRow) => void
+  onReject: (row: AgentActionRequestRow) => void
+}) {
+  const columns = useMemo<RegistryColumn<AgentActionRequestRow>[]>(
+    () => [
+      {
+        id: 'what',
+        header: t('agentRequests.what'),
+        accessorFn: (row) =>
+          row.summary || describeAgentAction(row.action_key, row.arguments),
+        enableHiding: false,
+        cell: ({ row }) => {
+          const text = describeAgentAction(
+            row.original.action_key,
+            row.original.arguments,
+          )
+
+          return (
+            <Tooltip content={text}>
+              <span className="block max-w-[40rem] truncate">
+                <span className="font-medium text-fg">
+                  {row.original.summary || text}
+                </span>
+              </span>
+            </Tooltip>
+          )
+        },
+      },
+      {
+        id: 'by',
+        header: t('agentRequests.by'),
+        accessorFn: (row) =>
+          row.requested_by_user_id
+            ? nameOf(row.requested_by_user_id)
+            : t('agentRequests.withCredential'),
+        cell: ({ row }) => (
+          <span className="text-fg-muted">
+            {row.original.requested_by_user_id
+              ? nameOf(row.original.requested_by_user_id)
+              : t('agentRequests.withCredential')}
+          </span>
+        ),
+      },
+      {
+        id: 'when',
+        header: t('agentRequests.when'),
+        accessorFn: (row) => row.created_at,
+        cell: ({ row }) => (
+          <span className="text-fg-muted">
+            {formatDate(row.original.created_at, { time: true })}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        header: t('agentRequests.status'),
+        accessorFn: (row) => LABEL[row.status],
+        cell: ({ row }) => (
+          <Tooltip
+            content={row.original.error ?? row.original.decision_reason ?? ''}
+          >
+            <span>
+              <Status tone={TONE[row.original.status]}>
+                {LABEL[row.original.status]}
+              </Status>
+            </span>
+          </Tooltip>
+        ),
+      },
+      {
+        id: 'actions',
+        header: () => (
+          <span className="sr-only">{t('agentRequests.approve')}</span>
+        ),
+        enableSorting: false,
+        enableHiding: false,
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) =>
+          row.original.status === 'pending' ? (
+            <div className="flex justify-end gap-1.5">
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={busy}
+                onClick={() => onApprove(row.original)}
+              >
+                {runningId === row.original.id
+                  ? t('agentRequests.running')
+                  : t('agentRequests.approve')}
+              </Button>
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => onReject(row.original)}
+              >
+                {t('agentRequests.reject')}
+              </Button>
+            </div>
+          ) : null,
+      },
+    ],
+    [nameOf, busy, runningId, onApprove, onReject],
+  )
+
+  return (
+    <RegistryGrid
+      label={t('agentRequests.tableLabel')}
+      rows={rows}
+      columns={columns}
+      getRowId={(row) => row.id}
+      selectable={false}
+    />
+  )
 }
 
 export function ActionRequestsBoard({
@@ -126,83 +248,14 @@ export function ActionRequestsBoard({
         <Muted>{t('agentRequests.empty')}</Muted>
       ) : (
         <TableBox>
-          <Table caption={t('agentRequests.tableLabel')}>
-            <TableHeader>
-              <tr>
-                {[
-                  t('agentRequests.what'),
-                  t('agentRequests.by'),
-                  t('agentRequests.when'),
-                  t('agentRequests.status'),
-                ].map((label) => (
-                  <TableHead key={label}>{label}</TableHead>
-                ))}
-                <TableHead>
-                  <span className="sr-only">{t('agentRequests.approve')}</span>
-                </TableHead>
-              </tr>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => {
-                const text = describeAgentAction(row.action_key, row.arguments)
-
-                return (
-                  <TableRow key={row.id}>
-                    <TableCell>
-                      <Tooltip content={text}>
-                        <span className="block max-w-[40rem] truncate">
-                          <span className="font-medium text-fg">
-                            {row.summary || text}
-                          </span>
-                        </span>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {row.requested_by_user_id
-                        ? nameOf(row.requested_by_user_id)
-                        : t('agentRequests.withCredential')}
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {formatDate(row.created_at, { time: true })}
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip content={row.error ?? row.decision_reason ?? ''}>
-                        <span>
-                          <Status tone={TONE[row.status]}>
-                            {LABEL[row.status]}
-                          </Status>
-                        </span>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {row.status === 'pending' ? (
-                        <div className="flex justify-end gap-1.5">
-                          <Button
-                            size="sm"
-                            variant="primary"
-                            disabled={busy}
-                            onClick={() => approve.mutate(row)}
-                          >
-                            {approve.isPending &&
-                            approve.variables.id === row.id
-                              ? t('agentRequests.running')
-                              : t('agentRequests.approve')}
-                          </Button>
-                          <Button
-                            size="sm"
-                            disabled={busy}
-                            onClick={() => reject.mutate(row)}
-                          >
-                            {t('agentRequests.reject')}
-                          </Button>
-                        </div>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          <RequestsGrid
+            rows={rows}
+            nameOf={nameOf}
+            busy={busy}
+            runningId={approve.isPending ? approve.variables.id : null}
+            onApprove={(row) => approve.mutate(row)}
+            onReject={(row) => reject.mutate(row)}
+          />
         </TableBox>
       )}
     </div>

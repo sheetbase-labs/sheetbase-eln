@@ -28,8 +28,11 @@ import {
   TableCell,
   TableHead,
   TableHeader,
+  TableBox,
   TableRow,
 } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Select } from '#/components/ui/select'
 import { usePageAi } from '#/lib/use-page-ai'
 import {
@@ -2642,6 +2645,63 @@ function AiSuggestionHint({
   )
 }
 
+type ReviewRow = ImportReviewResponse['rows'][number]
+
+/** The rows an import would add, flagged ones first, on the app's own grid. */
+function ReviewRowsGrid({ review }: { review: ImportReviewResponse }) {
+  const columns = useMemo<RegistryColumn<ReviewRow>[]>(
+    () => [
+      {
+        id: 'row',
+        header: t('data.importFlow.row'),
+        accessorFn: (row) => row.index,
+        enableHiding: false,
+        size: 72,
+        cell: ({ row }) => (
+          <span className="num text-fg-muted">{row.original.index}</span>
+        ),
+      },
+      ...review.columns
+        .filter((column) => column.fieldId)
+        .map(
+        (column): RegistryColumn<ReviewRow> => ({
+          id: `source:${column.source}`,
+          header: column.source,
+          accessorFn: (row) => row.values[column.source] ?? '',
+          cell: ({ row }) => (
+            <span className="mono">
+              {row.original.values[column.source] ?? '—'}
+            </span>
+          ),
+        }),
+      ),
+      {
+        id: 'outcome',
+        header: t('data.importFlow.outcome'),
+        accessorFn: (row) => outcomeLabel(row),
+        cell: ({ row }) => (
+          <Status tone={outcomeTone(row.original.outcome)}>
+            {outcomeLabel(row.original)}
+          </Status>
+        ),
+      },
+    ],
+    [review.columns],
+  )
+
+  return (
+    <TableBox>
+      <RegistryGrid
+        label={t('data.importFlow.rowsImport')}
+        rows={review.rows}
+        columns={columns}
+        getRowId={(row) => String(row.index)}
+        selectable={false}
+      />
+    </TableBox>
+  )
+}
+
 function ReviewTable({
   review,
   loading,
@@ -2707,43 +2767,7 @@ function ReviewTable({
           </span>
         </div>
       ) : null}
-      <div className="overflow-auto rounded-md border">
-        <Table aria-label={t('data.importFlow.rowsImport')}>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('data.importFlow.row')}</TableHead>
-              {review.columns
-                .filter((column) => column.fieldId)
-                .map((column) => (
-                  <TableHead key={column.source}>{column.source}</TableHead>
-                ))}
-              <TableHead>{t('data.importFlow.outcome')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {review.rows.map((row) => (
-              <TableRow key={row.index}>
-                <TableCell className="text-fg-muted">{row.index}</TableCell>
-                {review.columns
-                  .filter((column) => column.fieldId)
-                  .map((column) => (
-                    <TableCell
-                      key={column.source}
-                      className="font-mono text-xs"
-                    >
-                      {row.values[column.source] ?? '—'}
-                    </TableCell>
-                  ))}
-                <TableCell>
-                  <Status tone={outcomeTone(row.outcome)}>
-                    {outcomeLabel(row)}
-                  </Status>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <ReviewRowsGrid review={review} />
     </>
   )
 

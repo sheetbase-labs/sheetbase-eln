@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -24,15 +24,9 @@ import { Field, Input } from '#/components/ui/input'
 import { Muted, Section } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { TableBox } from '#/components/ui/table'
 import { CheckRow } from '#/components/settings/settings-page'
 import { toast } from '#/components/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
@@ -185,59 +179,96 @@ function RepositoriesTable({
   onEdit: (row: PublicationTarget) => void
   onRemove: (row: PublicationTarget) => void
 }) {
+  const columns = useMemo<RegistryColumn<PublicationTarget>[]>(
+    () => [
+      {
+        id: 'name',
+        header: t('openData.repos.columns.name'),
+        accessorFn: (row) => row.name,
+        enableHiding: false,
+        cell: ({ row }) => row.original.name,
+      },
+      {
+        id: 'kind',
+        header: t('openData.repos.columns.kind'),
+        accessorFn: (row) => t(`openData.repos.kinds.${row.kind}`),
+        cell: ({ row }) => t(`openData.repos.kinds.${row.original.kind}`),
+      },
+      {
+        id: 'address',
+        header: t('openData.repos.columns.address'),
+        accessorFn: (row) => row.base_url,
+        cell: ({ row }) => (
+          <span
+            className="block max-w-64 truncate"
+            title={row.original.base_url}
+          >
+            {row.original.base_url}
+          </span>
+        ),
+      },
+      {
+        id: 'licence',
+        header: t('openData.repos.columns.licence'),
+        accessorFn: (row) => licenseById(row.license).name,
+        cell: ({ row }) => licenseById(row.original.license).name,
+      },
+      {
+        id: 'token',
+        header: t('openData.repos.columns.token'),
+        accessorFn: (row) => (row.token_set ? 1 : 0),
+        cell: ({ row }) => (
+          <Status tone={row.original.token_set ? 'ok' : 'warn'}>
+            {row.original.token_set
+              ? t('openData.repos.tokenSet')
+              : t('openData.repos.tokenMissing')}
+          </Status>
+        ),
+      },
+      {
+        id: 'actions',
+        header: () => (
+          <span className="sr-only">{t('common.actions.edit')}</span>
+        ),
+        enableSorting: false,
+        enableHiding: false,
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) =>
+          canManage ? (
+            <span className="flex justify-end gap-2">
+              <Button size="sm" onClick={() => onEdit(row.original)}>
+                {t('common.actions.edit')}
+              </Button>
+              <Button
+                size="sm"
+                variant="quiet"
+                onClick={() => onRemove(row.original)}
+              >
+                {t('openData.repos.remove')}
+              </Button>
+            </span>
+          ) : null,
+      },
+    ],
+    [canManage, onEdit, onRemove],
+  )
+
   return (
     <TableBox>
-      <Table caption={t('openData.repos.title')}>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t('openData.repos.columns.name')}</TableHead>
-            <TableHead>{t('openData.repos.columns.kind')}</TableHead>
-            <TableHead>{t('openData.repos.columns.address')}</TableHead>
-            <TableHead>{t('openData.repos.columns.licence')}</TableHead>
-            <TableHead>{t('openData.repos.columns.token')}</TableHead>
-            <TableHead />
-          </TableRow>
-        </TableHeader>
-        <TableBody
-          loading={isPending}
-          empty={t('openData.repos.none')}
-          colSpan={6}
-        >
-          {rows.map((row) => (
-            <TableRow key={row.id}>
-              <TableCell>{row.name}</TableCell>
-              <TableCell>{t(`openData.repos.kinds.${row.kind}`)}</TableCell>
-              <TableCell title={row.base_url}>
-                <span className="block max-w-64 truncate">{row.base_url}</span>
-              </TableCell>
-              <TableCell>{licenseById(row.license).name}</TableCell>
-              <TableCell>
-                <Status tone={row.token_set ? 'ok' : 'warn'}>
-                  {row.token_set
-                    ? t('openData.repos.tokenSet')
-                    : t('openData.repos.tokenMissing')}
-                </Status>
-              </TableCell>
-              <TableCell className="text-right">
-                {canManage ? (
-                  <span className="flex justify-end gap-2">
-                    <Button size="sm" onClick={() => onEdit(row)}>
-                      {t('common.actions.edit')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="quiet"
-                      onClick={() => onRemove(row)}
-                    >
-                      {t('openData.repos.remove')}
-                    </Button>
-                  </span>
-                ) : null}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      {!isPending && rows.length === 0 ? (
+        <p role="status" className="px-3 py-6 text-center text-fg-muted">
+          {t('openData.repos.none')}
+        </p>
+      ) : (
+        <RegistryGrid
+          label={t('openData.repos.title')}
+          rows={rows}
+          columns={columns}
+          getRowId={(row) => row.id}
+          selectable={false}
+          isLoading={isPending}
+        />
+      )}
     </TableBox>
   )
 }

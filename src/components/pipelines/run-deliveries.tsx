@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 import { t } from '#/copy'
 import { eventLabel } from '#/lib/pipeline-schedule-form'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
@@ -5,15 +7,9 @@ import { Notice } from '#/components/ui/alert'
 import { Muted } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { TableBox } from '#/components/ui/table'
 import type { PipelineRunStatus } from '#/lib/pipelines/types'
 import type {
   PipelineRunDeliveryStatus,
@@ -119,6 +115,57 @@ export interface RunDeliveriesPanelProps {
   isLoading?: boolean
 }
 
+function DeliveriesGrid({
+  deliveries,
+}: {
+  deliveries: PipelineRunDeliveryWire[]
+}) {
+  const columns = useMemo<RegistryColumn<PipelineRunDeliveryWire>[]>(
+    () => [
+      {
+        id: 'destination',
+        header: t('data.runDeliveries.destination'),
+        accessorFn: (delivery) => deliveryChannel(delivery),
+        enableHiding: false,
+        cell: ({ row }) => (
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate">{deliveryChannel(row.original)}</span>
+            <Muted>{eventLabel(row.original.event_type)}</Muted>
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        header: t('data.runDeliveries.status'),
+        accessorFn: (delivery) => DELIVERY_STATUS[delivery.status].label,
+        cell: ({ row }) => {
+          const state = DELIVERY_STATUS[row.original.status]
+
+          return <Status tone={state.tone}>{state.label}</Status>
+        },
+      },
+      {
+        id: 'outcome',
+        header: t('data.runDeliveries.outcome'),
+        accessorFn: (delivery) => deliveryOutcome(delivery),
+        cell: ({ row }) => deliveryOutcome(row.original),
+      },
+    ],
+    [],
+  )
+
+  return (
+    <RegistryGrid
+      label={t('data.runDeliveries.ariaRunNotificationDeliveries')}
+      rows={deliveries}
+      columns={columns}
+      getRowId={(delivery) => delivery.id}
+      selectable={false}
+      rowHeight={48}
+    />
+  )
+}
+
 export function RunDeliveriesPanel({
   deliveries,
   runStatus,
@@ -145,35 +192,7 @@ export function RunDeliveriesPanel({
       ) : (
         <>
           <TableBox>
-            <Table
-              aria-label={t('data.runDeliveries.ariaRunNotificationDeliveries')}
-            >
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('data.runDeliveries.destination')}</TableHead>
-                  <TableHead>{t('data.runDeliveries.status')}</TableHead>
-                  <TableHead>{t('data.runDeliveries.outcome')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {deliveries.map((delivery) => {
-                  const state = DELIVERY_STATUS[delivery.status]
-
-                  return (
-                    <TableRow key={delivery.id}>
-                      <TableCell>
-                        {deliveryChannel(delivery)}
-                        <Muted>{eventLabel(delivery.event_type)}</Muted>
-                      </TableCell>
-                      <TableCell>
-                        <Status tone={state.tone}>{state.label}</Status>
-                      </TableCell>
-                      <TableCell>{deliveryOutcome(delivery)}</TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+            <DeliveriesGrid deliveries={deliveries} />
           </TableBox>
           {missing > 0 ? (
             <Muted className="mt-1.5">

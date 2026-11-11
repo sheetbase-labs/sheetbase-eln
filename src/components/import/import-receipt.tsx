@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 
 import { t } from '#/copy'
@@ -6,21 +6,61 @@ import { Banner } from '#/components/ui/alert'
 import { FileDrop } from '#/components/ui/file-drop'
 import { PageHeader, Section } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { TableBox } from '#/components/ui/table'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { uploadImportFile } from '#/lib/import/data'
 import type { DatasetImportRecord } from '#/lib/import/types'
 import { safeReturnTo } from '#/lib/create-context-search'
 
 import { carriedOverSettings, receiptPresentation } from './import-receipt-data'
+
+type MappingSource = ReturnType<typeof receiptPresentation>['sources'][number]
+
+function MappingTable({ sources }: { sources: MappingSource[] }) {
+  const columns = useMemo<RegistryColumn<MappingSource>[]>(
+    () => [
+      {
+        id: 'fileColumn',
+        header: t('data.importReceipt.fileColumn'),
+        accessorFn: (entry) => entry.source,
+        enableHiding: false,
+        cell: ({ row }) => row.original.source,
+      },
+      {
+        id: 'datasetField',
+        header: t('data.importReceipt.datasetField'),
+        accessorFn: (entry) => entry.fieldId,
+        cell: ({ row }) => row.original.fieldId,
+      },
+      {
+        id: 'sourceUnit',
+        header: t('data.importReceipt.sourceUnit'),
+        accessorFn: (entry) => entry.sourceUnit ?? '',
+        cell: ({ row }) =>
+          row.original.sourceUnit ?? t('data.importReceipt.notDeclared'),
+      },
+      {
+        id: 'storageUnit',
+        header: t('data.importReceipt.storageUnit'),
+        accessorFn: (entry) => entry.unit ?? '',
+        cell: ({ row }) => row.original.unit ?? '—',
+      },
+    ],
+    [],
+  )
+
+  return (
+    <RegistryGrid
+      label={t('data.importReceipt.mappingUsed')}
+      rows={sources}
+      columns={columns}
+      getRowId={(entry) => entry.source}
+      selectable={false}
+    />
+  )
+}
 
 /**
  * A committed import is a receipt, not a draft: what was imported, with which
@@ -160,35 +200,7 @@ export function ImportReceipt({
             count={sources.length}
           >
             <TableBox>
-              <Table aria-label={t('data.importReceipt.mappingUsed')}>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="first:pl-3">
-                      {t('data.importReceipt.fileColumn')}
-                    </TableHead>
-                    <TableHead>
-                      {t('data.importReceipt.datasetField')}
-                    </TableHead>
-                    <TableHead>{t('data.importReceipt.sourceUnit')}</TableHead>
-                    <TableHead>{t('data.importReceipt.storageUnit')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sources.map((entry) => (
-                    <TableRow key={entry.source}>
-                      <TableCell className="first:pl-3">
-                        {entry.source}
-                      </TableCell>
-                      <TableCell>{entry.fieldId}</TableCell>
-                      <TableCell>
-                        {entry.sourceUnit ??
-                          t('data.importReceipt.notDeclared')}
-                      </TableCell>
-                      <TableCell>{entry.unit ?? '—'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <MappingTable sources={sources} />
             </TableBox>
           </Section>
         ) : null}

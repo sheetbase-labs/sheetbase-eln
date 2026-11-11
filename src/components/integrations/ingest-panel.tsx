@@ -23,14 +23,7 @@ import { Field, Input } from '#/components/ui/input'
 import { FileDrop } from '#/components/ui/file-drop'
 import { Notice } from '#/components/ui/alert'
 import { Section } from '#/components/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { PreviewGrid } from '#/components/inventory/preview-grid'
 import { Select } from '#/components/ui/select'
 import {
   DatasetLandingLink,
@@ -573,34 +566,12 @@ function MappingPreview({
           <p className="mb-1 mt-3 text-body font-medium">
             {t('settings.integrations.ingestPanel.preview')}
           </p>
-          <Table
-            aria-label={t(
-              'settings.integrations.ingestPanel.mappingPreviewAria',
-            )}
-          >
-            <TableHeader>
-              <TableRow>
-                {Object.keys(previewRows[0].values).map((key) => (
-                  <TableHead key={key} className="mono text-label">
-                    {key}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {previewRows.map((row) => (
-                <TableRow key={row.rowId}>
-                  {Object.keys(previewRows[0].values).map((key) => (
-                    <TableCell key={key} className="mono text-label">
-                      {row.values[key] === null || row.values[key] === undefined
-                        ? ''
-                        : String(row.values[key])}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <PreviewGrid
+            label={t('settings.integrations.ingestPanel.mappingPreviewAria')}
+            columns={Object.keys(previewRows[0].values)}
+            rows={previewRows.map((row) => row.values)}
+            rowKeys={previewRows.map((row) => row.rowId)}
+          />
         </>
       )}
     </div>

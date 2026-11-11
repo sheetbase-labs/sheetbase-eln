@@ -11,6 +11,7 @@
  * States are explicit: loading, denied (a non-member read), error, and the
  * honest empty state for a dataset that has never been imported into.
  */
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
@@ -19,15 +20,9 @@ import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Section } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { classifyDatasetTabAccess } from '#/components/datasets/dataset-detail-tabs'
 import { fetchDatasetImports, importQueryKeys } from '#/lib/import/data'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -36,6 +31,88 @@ import {
   INSTRUMENT_FLAG_LABELS,
   toDatasetImportRow,
 } from './dataset-import-row'
+import type { DatasetImportRow } from './dataset-import-row'
+
+function ImportsTable({ rows }: { rows: DatasetImportRow[] }) {
+  const columns = useMemo<RegistryColumn<DatasetImportRow>[]>(
+    () => [
+      {
+        id: 'when',
+        header: t('data.datasetImportsTab.when'),
+        accessorFn: (row) => row.when,
+        enableHiding: false,
+        cell: ({ row }) => row.original.when,
+      },
+      {
+        id: 'file',
+        header: t('data.datasetImportsTab.file'),
+        accessorFn: (row) => row.file,
+        cell: ({ row }) =>
+          row.original.importFileId ? (
+            <Link
+              to="/import/$importId"
+              params={{ importId: row.original.importFileId }}
+              search={row.original.resumeSearch}
+              className="text-link"
+            >
+              {row.original.file}
+            </Link>
+          ) : (
+            row.original.file
+          ),
+      },
+      {
+        id: 'rows',
+        header: t('data.datasetImportsTab.rows'),
+        accessorFn: (row) => row.rows,
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => <span className="num">{row.original.rows}</span>,
+      },
+      {
+        id: 'parser',
+        header: t('data.datasetImportsTab.parser'),
+        accessorFn: (row) => row.parser,
+        cell: ({ row }) => row.original.parser,
+      },
+      {
+        id: 'result',
+        header: t('data.datasetImportsTab.result'),
+        accessorFn: (row) => row.result.label,
+        cell: ({ row }) => (
+          <span className="inline-flex flex-wrap items-center gap-1">
+            <Status tone={row.original.result.tone}>
+              {row.original.result.label}
+            </Status>
+            {row.original.instrumentFlags.length ? (
+              <span
+                title={row.original.instrumentFlags
+                  .map((flag) => INSTRUMENT_FLAG_LABELS[flag])
+                  .join(' ')}
+              >
+                <Status tone="warn">
+                  {t('data.datasetImportsTab.flagged')}
+                </Status>
+              </span>
+            ) : null}
+          </span>
+        ),
+      },
+    ],
+    [],
+  )
+
+  return (
+    <TableBox>
+      <RegistryGrid
+        label={t('data.datasetImportsTab.imports')}
+        rows={rows}
+        columns={columns}
+        getRowId={(row) => row.id}
+        selectable={false}
+      />
+    </TableBox>
+  )
+}
 
 export function DatasetImportsTab({
   datasetId,
@@ -94,66 +171,7 @@ export function DatasetImportsTab({
     <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-auto px-4 py-5 md:px-6">
       <Section title={t('data.datasetImportsTab.imports')} count={rows.length}>
         {rows.length ? (
-          <TableBox>
-            <Table aria-label={t('data.datasetImportsTab.imports')}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="first:pl-3">
-                    {t('data.datasetImportsTab.when')}
-                  </TableHead>
-                  <TableHead>{t('data.datasetImportsTab.file')}</TableHead>
-                  <TableHead align="right">
-                    {t('data.datasetImportsTab.rows')}
-                  </TableHead>
-                  <TableHead>{t('data.datasetImportsTab.parser')}</TableHead>
-                  <TableHead>{t('data.datasetImportsTab.result')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell className="first:pl-3">{row.when}</TableCell>
-                    <TableCell>
-                      {row.importFileId ? (
-                        <Link
-                          to="/import/$importId"
-                          params={{ importId: row.importFileId }}
-                          search={row.resumeSearch}
-                          className="text-link"
-                        >
-                          {row.file}
-                        </Link>
-                      ) : (
-                        row.file
-                      )}
-                    </TableCell>
-                    <TableCell align="right" className="num">
-                      {row.rows}
-                    </TableCell>
-                    <TableCell>{row.parser}</TableCell>
-                    <TableCell>
-                      <span className="inline-flex flex-wrap items-center gap-1">
-                        <Status tone={row.result.tone}>
-                          {row.result.label}
-                        </Status>
-                        {row.instrumentFlags.length ? (
-                          <span
-                            title={row.instrumentFlags
-                              .map((flag) => INSTRUMENT_FLAG_LABELS[flag])
-                              .join(' ')}
-                          >
-                            <Status tone="warn">
-                              {t('data.datasetImportsTab.flagged')}
-                            </Status>
-                          </span>
-                        ) : null}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableBox>
+          <ImportsTable rows={rows} />
         ) : (
           <EmptyState
             icon="upload"

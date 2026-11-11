@@ -1,9 +1,16 @@
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu'
+import { IconButton } from '#/components/ui/icon-button'
 import { Checkbox } from '#/components/ui/checkbox'
 import {
   ConfirmDialog,
@@ -35,14 +42,9 @@ import {
 import { Skeleton } from '#/components/ui/skeleton'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   SettingsBody,
   SettingsHeader,
@@ -97,7 +99,6 @@ function addDetailLabel(detail: string) {
 }
 
 /** The installs table's columns, in the order it shows them. */
-const INSTALL_COLUMNS = ['plugin', 'status', 'adds', 'actions'] as const
 
 function Plugins() {
   const { context } = Route.useRouteContext()
@@ -206,6 +207,17 @@ function Plugins() {
 
   const rows = installs.data ?? []
 
+  const columns = pluginColumns({
+    runtimeOf,
+    connectionsOf,
+    busy: toggle.isPending || togglePoint.isPending,
+    onConnections: setConnectionsFor,
+    onSettings: setSettingsFor,
+    onToggle: (install, on) => toggle.mutate({ install, on }),
+    onPoint: (install, point, on) => togglePoint.mutate({ install, point, on }),
+    onRemove: setRemoving,
+  })
+
   return (
     <>
       <SettingsHeader
@@ -231,37 +243,15 @@ function Plugins() {
             description={t('plugins.admin.emptyBody')}
           />
         ) : (
-          <div className="overflow-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {INSTALL_COLUMNS.map((column) => (
-                    <TableHead key={column} scope="col">
-                      {t(`plugins.admin.columns.${column}`)}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((install) => (
-                  <PluginRow
-                    key={install.id}
-                    install={install}
-                    runtime={runtimeOf(install)}
-                    connections={connectionsOf(install)}
-                    onConnections={() => setConnectionsFor(install)}
-                    onSettings={() => setSettingsFor(install)}
-                    busy={toggle.isPending || togglePoint.isPending}
-                    onToggle={(on) => toggle.mutate({ install, on })}
-                    onPoint={(point, on) =>
-                      togglePoint.mutate({ install, point, on })
-                    }
-                    onRemove={() => setRemoving(install)}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <TableBox>
+            <RegistryGrid
+              label={t('plugins.admin.title')}
+              rows={rows}
+              columns={columns}
+              getRowId={(install) => install.id}
+              selectable={false}
+            />
+          </TableBox>
         )}
       </SettingsBody>
 
@@ -326,155 +316,179 @@ function Plugins() {
   )
 }
 
-function PluginRow({
-  install,
-  runtime,
-  connections,
+/** The installed plugins' columns: what it is, whether it runs, what it adds, and what to do. */
+function pluginColumns({
+  runtimeOf,
+  connectionsOf,
+  busy,
   onConnections,
   onSettings,
-  busy,
   onToggle,
   onPoint,
   onRemove,
 }: {
-  install: ExtensionWire
-  runtime: PluginRuntimeInfo | undefined
-  connections: ConnectionWire[]
-  onConnections: () => void
-  onSettings: () => void
+  runtimeOf: (install: ExtensionWire) => PluginRuntimeInfo | undefined
+  connectionsOf: (install: ExtensionWire) => ConnectionWire[]
   busy: boolean
-  onToggle: (on: boolean) => void
-  onPoint: (point: ExtensionRunnerPoint, on: boolean) => void
-  onRemove: () => void
-}) {
-  const adds = useMemo(() => describeRunnerAdds(install.manifest), [install])
-  const disabledPoints = new Set(install.disabled_points)
-  const on = install.status === 'enabled'
-  const { description, author } = install.manifest
+  onConnections: (install: ExtensionWire) => void
+  onSettings: (install: ExtensionWire) => void
+  onToggle: (install: ExtensionWire, on: boolean) => void
+  onPoint: (
+    install: ExtensionWire,
+    point: ExtensionRunnerPoint,
+    on: boolean,
+  ) => void
+  onRemove: (install: ExtensionWire) => void
+}): RegistryColumn<ExtensionWire>[] {
+  return [
+    {
+      id: 'plugin',
+      header: t('plugins.admin.columns.plugin'),
+      accessorFn: (install) => install.name,
+      cell: ({ row }) => {
+        const install = row.original
+        const { description, author } = install.manifest
 
-  return (
-    <TableRow>
-      <TableCell className="max-w-[320px] py-3 align-top">
-        <div className="font-medium text-fg">{install.name}</div>
-        <div className="text-caption text-fg-muted">
-          {install.version}
-          {author ? ` · ${t('plugins.admin.by', { author })}` : ''}
-        </div>
-        {description ? (
-          <div
-            className="mt-1 max-w-[320px] truncate text-caption text-fg-muted"
-            title={description}
+        return (
+          <span
+            className="flex max-w-[28rem] items-baseline gap-2"
+            title={description || undefined}
           >
-            {description}
-          </div>
-        ) : null}
-      </TableCell>
-      <TableCell className="py-3 align-top">
-        <Status tone={on ? 'ok' : 'draft'}>
-          {t(`plugins.admin.status.${install.status}`)}
-        </Status>
-        {runtime && runtime.requirements.length > 0 ? (
-          <div className="mt-1 text-caption text-fg-muted">
-            <Status tone={environmentTone[runtime.environment.state]}>
-              {t('plugins.admin.runtime.packages')}:{' '}
-              {t(
-                `plugins.admin.runtime.state.${runtime.environment.state}`,
-              ).toLowerCase()}
+            <span className="truncate font-medium text-fg">{install.name}</span>
+            <span className="text-caption text-fg-muted">
+              {install.version}
+              {author ? ` · ${t('plugins.admin.by', { author })}` : ''}
+            </span>
+          </span>
+        )
+      },
+    },
+    {
+      id: 'status',
+      header: t('plugins.admin.columns.status'),
+      accessorFn: (install) => install.status,
+      cell: ({ row }) => {
+        const install = row.original
+        const runtime = runtimeOf(install)
+
+        return (
+          <span className="flex items-center gap-2">
+            <Status tone={install.status === 'enabled' ? 'ok' : 'draft'}>
+              {t(`plugins.admin.status.${install.status}`)}
             </Status>
-          </div>
-        ) : null}
-        {connections.some(connectionNeedsSetup) ? (
-          <div className="mt-1">
-            <Status tone="warn">
-              {t('plugins.admin.connections.needsSetup')}
-            </Status>
-          </div>
-        ) : null}
-        <div className="mt-2 flex flex-wrap gap-1">
-          <Button type="button" size="sm" variant="quiet" onClick={onSettings}>
-            {t('plugins.admin.runtime.button')}
-          </Button>
-          {connections.length > 0 ? (
+            {runtime && runtime.requirements.length > 0 ? (
+              <Status tone={environmentTone[runtime.environment.state]}>
+                {t('plugins.admin.runtime.packages')}:{' '}
+                {t(
+                  `plugins.admin.runtime.state.${runtime.environment.state}`,
+                ).toLowerCase()}
+              </Status>
+            ) : null}
+            {connectionsOf(install).some(connectionNeedsSetup) ? (
+              <Status tone="warn">
+                {t('plugins.admin.connections.needsSetup')}
+              </Status>
+            ) : null}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'adds',
+      header: t('plugins.admin.columns.adds'),
+      enableSorting: false,
+      cell: ({ row }) => {
+        const install = row.original
+        const adds = describeRunnerAdds(install.manifest)
+        const disabledPoints = new Set(install.disabled_points)
+
+        if (adds.length === 0) return <span className="text-fg-muted">—</span>
+
+        return (
+          <span className="flex items-center gap-4">
+            {adds.map((group) => {
+              const label = t(`plugins.admin.points.${group.point}`)
+
+              const items = group.items
+                .map((item) => `${item.title} · ${addDetailLabel(item.detail)}`)
+                .join('\n')
+
+              return (
+                <label
+                  key={group.point}
+                  className="flex items-center gap-2 text-body text-fg"
+                  title={`${t(`plugins.admin.pointHint.${group.point}`)}\n${items}`}
+                >
+                  <Checkbox
+                    checked={!disabledPoints.has(group.point)}
+                    disabled={busy}
+                    aria-label={t('plugins.admin.pointSwitch', {
+                      point: label,
+                      name: install.name,
+                    })}
+                    onCheckedChange={(next) =>
+                      onPoint(install, group.point, next === true)
+                    }
+                  />
+                  <span className="font-medium">{label}</span>
+                </label>
+              )
+            })}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'actions',
+      header: t('plugins.admin.columns.actions'),
+      enableHiding: false,
+      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+      cell: ({ row }) => {
+        const install = row.original
+        const on = install.status === 'enabled'
+
+        return (
+          <span className="flex items-center justify-end gap-1 whitespace-nowrap">
             <Button
               type="button"
               size="sm"
-              variant="quiet"
-              onClick={onConnections}
+              variant="secondary"
+              disabled={busy}
+              onClick={() => onToggle(install, !on)}
             >
-              {t('plugins.admin.connections.button')}
+              {on ? t('plugins.admin.turnOff') : t('plugins.admin.turnOn')}
             </Button>
-          ) : null}
-        </div>
-      </TableCell>
-      <TableCell className="py-3 align-top">
-        <div className="flex flex-col gap-2">
-          {adds.length === 0 ? (
-            <span className="text-fg-muted">—</span>
-          ) : (
-            adds.map((group) => {
-              const pointOn = !disabledPoints.has(group.point)
-              const label = t(`plugins.admin.points.${group.point}`)
-
-              return (
-                <div key={group.point} className="flex flex-col gap-0.5">
-                  <label
-                    className="flex items-center gap-2 text-body text-fg"
-                    title={t(`plugins.admin.pointHint.${group.point}`)}
-                  >
-                    <Checkbox
-                      checked={pointOn}
-                      disabled={busy}
-                      aria-label={t('plugins.admin.pointSwitch', {
-                        point: label,
-                        name: install.name,
-                      })}
-                      onCheckedChange={(next) =>
-                        onPoint(group.point, next === true)
-                      }
-                    />
-                    <span className="font-medium">{label}</span>
-                  </label>
-                  <ul className="pl-6 text-caption text-fg-muted">
-                    {group.items.map((item) => (
-                      <li key={item.id}>
-                        {item.title}
-                        <span className="text-fg-faint">
-                          {' '}
-                          · {addDetailLabel(item.detail)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )
-            })
-          )}
-        </div>
-      </TableCell>
-      <TableCell className="py-3 align-top">
-        <div className="flex items-center gap-2 whitespace-nowrap">
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={busy}
-            onClick={() => onToggle(!on)}
-          >
-            {on ? t('plugins.admin.turnOff') : t('plugins.admin.turnOn')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={busy}
-            onClick={onRemove}
-          >
-            {t('plugins.admin.remove')}
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
-  )
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <IconButton
+                    icon="more"
+                    label={t('plugins.admin.columns.actions')}
+                  />
+                }
+              />
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onSettings(install)}>
+                  {t('plugins.admin.runtime.button')}
+                </DropdownMenuItem>
+                {connectionsOf(install).length > 0 ? (
+                  <DropdownMenuItem onClick={() => onConnections(install)}>
+                    {t('plugins.admin.connections.button')}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem
+                  disabled={busy}
+                  onClick={() => onRemove(install)}
+                >
+                  {t('plugins.admin.remove')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </span>
+        )
+      },
+    },
+  ]
 }
 
 type InstallStep =

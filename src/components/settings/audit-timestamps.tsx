@@ -8,14 +8,9 @@ import { Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
 import { Muted } from '#/components/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   Dialog,
   DialogBody,
@@ -273,6 +268,57 @@ function TimestampHistory({
   const count = (status: TimestampStatus) =>
     rows.filter((row) => row.status === status).length
 
+  const columns: RegistryColumn<(typeof rows)[number]>[] = [
+    {
+      id: 'signature',
+      header: t('settings.timestamps.signature'),
+      accessorFn: (row) => row.created_at,
+      cell: ({ row }) => formatDate(row.original.created_at, { time: true }),
+    },
+    {
+      id: 'status',
+      header: t('settings.timestamps.status'),
+      accessorFn: (row) => statusLabel(row.status),
+      cell: ({ row }) => (
+        <span title={row.original.last_error ?? undefined}>
+          <Status tone={STATUS_TONE[row.original.status]}>
+            {statusLabel(row.original.status)}
+          </Status>
+        </span>
+      ),
+    },
+    {
+      id: 'service',
+      header: t('settings.timestamps.service'),
+      accessorFn: (row) => row.authority_name ?? '—',
+    },
+    {
+      id: 'time',
+      header: t('settings.timestamps.time'),
+      accessorFn: (row) => row.gen_time ?? undefined,
+      cell: ({ row }) =>
+        row.original.gen_time
+          ? formatDate(row.original.gen_time, { time: true })
+          : '—',
+    },
+    {
+      id: 'retry',
+      header: '',
+      enableHiding: false,
+      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+      cell: ({ row }) =>
+        canManage && row.original.status === 'failed' ? (
+          <Button
+            size="sm"
+            disabled={retrying}
+            onClick={() => onRetry(row.original.signature_id)}
+          >
+            {t('settings.timestamps.tryAgain')}
+          </Button>
+        ) : null,
+    },
+  ]
+
   return (
     <>
       <div className="flex flex-wrap gap-4 text-label">
@@ -289,54 +335,15 @@ function TimestampHistory({
       {rows.length === 0 && loaded ? (
         <Muted>{t('settings.timestamps.none')}</Muted>
       ) : (
-        <Table caption={t('settings.timestamps.title')}>
-          <TableHeader>
-            <TableRow>
-              {[
-                t('settings.timestamps.signature'),
-                t('settings.timestamps.status'),
-                t('settings.timestamps.service'),
-                t('settings.timestamps.time'),
-              ].map((label) => (
-                <TableHead key={label}>{label}</TableHead>
-              ))}
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell>
-                  {formatDate(row.created_at, { time: true })}
-                </TableCell>
-                <TableCell>
-                  <span title={row.last_error ?? undefined}>
-                    <Status tone={STATUS_TONE[row.status]}>
-                      {statusLabel(row.status)}
-                    </Status>
-                  </span>
-                </TableCell>
-                <TableCell>{row.authority_name ?? '—'}</TableCell>
-                <TableCell>
-                  {row.gen_time
-                    ? formatDate(row.gen_time, { time: true })
-                    : '—'}
-                </TableCell>
-                <TableCell>
-                  {canManage && row.status === 'failed' ? (
-                    <Button
-                      size="sm"
-                      disabled={retrying}
-                      onClick={() => onRetry(row.signature_id)}
-                    >
-                      {t('settings.timestamps.tryAgain')}
-                    </Button>
-                  ) : null}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <TableBox>
+          <RegistryGrid
+            label={t('settings.timestamps.title')}
+            rows={rows}
+            columns={columns}
+            getRowId={(row) => row.id}
+            selectable={false}
+          />
+        </TableBox>
       )}
     </>
   )

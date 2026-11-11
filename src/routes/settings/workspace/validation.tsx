@@ -8,14 +8,9 @@ import { Notice } from '#/components/ui/alert'
 import { Muted } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
   SettingsBody,
   SettingsHeader,
@@ -51,6 +46,10 @@ const TONE: Record<CheckStatus, 'ok' | 'warn' | 'bad'> = {
   skipped: 'warn',
   failed: 'bad',
 }
+
+type Run = Awaited<ReturnType<typeof fetchValidationRuns>>[number]
+
+type Result = Run['results'][number]
 
 function statusLabel(status: CheckStatus): string {
   return t(`settings.validation.${status}`)
@@ -175,6 +174,116 @@ function ValidationEvidence({
   const latest = runs?.[0]
   const resultById = new Map((latest?.results ?? []).map((r) => [r.id, r]))
 
+  const resultColumns: RegistryColumn<Result>[] = [
+    {
+      id: 'check',
+      header: t('settings.validation.check'),
+      accessorFn: (r) => r.title,
+      cell: ({ row }) => (
+        <span title={`${row.original.method}\n${row.original.expected}`}>
+          {row.original.title}
+        </span>
+      ),
+    },
+    {
+      id: 'kind',
+      header: t('settings.validation.kind'),
+      accessorFn: (r) =>
+        r.kind === 'iq'
+          ? t('settings.validation.iq')
+          : t('settings.validation.oq'),
+    },
+    {
+      id: 'result',
+      header: t('settings.validation.result'),
+      accessorFn: (r) => statusLabel(r.status),
+      cell: ({ row }) => (
+        <Status tone={TONE[row.original.status]}>
+          {statusLabel(row.original.status)}
+        </Status>
+      ),
+    },
+    {
+      id: 'found',
+      header: t('settings.validation.found'),
+      accessorFn: (r) => r.detail,
+      cell: ({ row }) => (
+        <span
+          title={row.original.detail}
+          className="block max-w-[44ch] truncate"
+        >
+          {row.original.detail}
+        </span>
+      ),
+    },
+  ]
+
+  const historyColumns: RegistryColumn<Run>[] = [
+    {
+      id: 'when',
+      header: t('settings.validation.when'),
+      accessorFn: (r) => r.finished_at,
+      cell: ({ row }) => formatDate(row.original.finished_at, { time: true }),
+    },
+    {
+      id: 'result',
+      header: t('settings.validation.result'),
+      accessorFn: (r) => r.passed,
+      cell: ({ row }) => (
+        <Status tone={row.original.status === 'passed' ? 'ok' : 'bad'}>
+          {t('settings.validation.summary', {
+            passed: row.original.passed,
+            failed: row.original.failed,
+            skipped: row.original.skipped,
+          })}
+        </Status>
+      ),
+    },
+    {
+      id: 'version',
+      header: t('settings.validation.version'),
+      accessorFn: (r) => r.app_version,
+    },
+  ]
+
+  const traceColumns: RegistryColumn<(typeof REQUIREMENTS)[number]>[] = [
+    {
+      id: 'requirement',
+      header: t('settings.validation.requirement'),
+      accessorFn: (req) => req.id,
+      cell: ({ row }) => (
+        <span title={row.original.statement}>{row.original.id}</span>
+      ),
+    },
+    {
+      id: 'area',
+      header: t('settings.validation.area'),
+      accessorFn: (req) => req.area,
+    },
+    {
+      id: 'tests',
+      header: t('settings.validation.tests'),
+      accessorFn: (req) => testCount(req.id),
+    },
+    {
+      id: 'checks',
+      header: t('settings.validation.checks'),
+      enableSorting: false,
+      cell: ({ row }) =>
+        row.original.checks.length === 0
+          ? '—'
+          : row.original.checks.map((id) => {
+              const r = resultById.get(id)
+
+              return (
+                <span key={id} className="mr-2 inline-block">
+                  {r ? <Status tone={TONE[r.status]}>{r.title}</Status> : id}
+                </span>
+              )
+            }),
+    },
+  ]
+
   return (
     <SettingsBody>
       <Muted>{t('settings.validation.description')}</Muted>
@@ -201,43 +310,15 @@ function ValidationEvidence({
               skipped: latest.skipped,
             })}
           </Muted>
-          <Table caption={t('settings.validation.resultsTitle')}>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('settings.validation.check')}</TableHead>
-                <TableHead>{t('settings.validation.kind')}</TableHead>
-                <TableHead>{t('settings.validation.result')}</TableHead>
-                <TableHead>{t('settings.validation.found')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {latest.results.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    <span title={`${r.method}\n${r.expected}`}>{r.title}</span>
-                  </TableCell>
-                  <TableCell>
-                    {r.kind === 'iq'
-                      ? t('settings.validation.iq')
-                      : t('settings.validation.oq')}
-                  </TableCell>
-                  <TableCell>
-                    <Status tone={TONE[r.status]}>
-                      {statusLabel(r.status)}
-                    </Status>
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      title={r.detail}
-                      className="block max-w-[44ch] truncate"
-                    >
-                      {r.detail}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <TableBox>
+            <RegistryGrid
+              label={t('settings.validation.resultsTitle')}
+              rows={latest.results}
+              columns={resultColumns}
+              getRowId={(r) => r.id}
+              selectable={false}
+            />
+          </TableBox>
         </section>
       ) : runsLoaded ? (
         <Muted>{t('settings.validation.neverRun')}</Muted>
@@ -248,78 +329,30 @@ function ValidationEvidence({
           <h2 className="text-heading">
             {t('settings.validation.historyTitle')}
           </h2>
-          <Table caption={t('settings.validation.historyTitle')}>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('settings.validation.when')}</TableHead>
-                <TableHead>{t('settings.validation.result')}</TableHead>
-                <TableHead>{t('settings.validation.version')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {runs.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>
-                    {formatDate(r.finished_at, { time: true })}
-                  </TableCell>
-                  <TableCell>
-                    <Status tone={r.status === 'passed' ? 'ok' : 'bad'}>
-                      {t('settings.validation.summary', {
-                        passed: r.passed,
-                        failed: r.failed,
-                        skipped: r.skipped,
-                      })}
-                    </Status>
-                  </TableCell>
-                  <TableCell>{r.app_version}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <TableBox>
+            <RegistryGrid
+              label={t('settings.validation.historyTitle')}
+              rows={runs}
+              columns={historyColumns}
+              getRowId={(r) => r.id}
+              selectable={false}
+            />
+          </TableBox>
         </section>
       ) : null}
 
       <section className="flex flex-col gap-2">
         <h2 className="text-heading">{t('settings.validation.traceTitle')}</h2>
         <Muted>{t('settings.validation.traceHint')}</Muted>
-        <Table caption={t('settings.validation.traceTitle')}>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('settings.validation.requirement')}</TableHead>
-              <TableHead>{t('settings.validation.area')}</TableHead>
-              <TableHead>{t('settings.validation.tests')}</TableHead>
-              <TableHead>{t('settings.validation.checks')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {REQUIREMENTS.map((req) => (
-              <TableRow key={req.id}>
-                <TableCell>
-                  <span title={req.statement}>{req.id}</span>
-                </TableCell>
-                <TableCell>{req.area}</TableCell>
-                <TableCell>{testCount(req.id)}</TableCell>
-                <TableCell>
-                  {req.checks.length === 0
-                    ? '—'
-                    : req.checks.map((id) => {
-                        const r = resultById.get(id)
-
-                        return (
-                          <span key={id} className="mr-2 inline-block">
-                            {r ? (
-                              <Status tone={TONE[r.status]}>{r.title}</Status>
-                            ) : (
-                              id
-                            )}
-                          </span>
-                        )
-                      })}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <TableBox>
+          <RegistryGrid
+            label={t('settings.validation.traceTitle')}
+            rows={REQUIREMENTS.map((req) => req)}
+            columns={traceColumns}
+            getRowId={(req) => req.id}
+            selectable={false}
+          />
+        </TableBox>
       </section>
     </SettingsBody>
   )

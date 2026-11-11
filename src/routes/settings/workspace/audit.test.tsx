@@ -294,12 +294,9 @@ describe('audit log grid', () => {
     reads.mockReturnValue(new Promise<AuditEventsPageWire>(() => {}))
     renderAudit()
 
-    const table = await screen.findByRole('table', { name: 'Audit log' })
-    // While the log is being read the body carries a state row, so the table is
-    // never a header-only shell and never claims there is nothing to show.
-    expect(
-      table.querySelectorAll('tbody [data-slot="table-state-row"]').length,
-    ).toBe(1)
+    // While the log is being read the grid shows a status row, so it is never
+    // a header-only shell and never claims there is nothing to show.
+    await screen.findByRole('table', { name: 'Audit log' })
     expect(screen.getByText('Loading…')).toBeTruthy()
     expect(screen.queryByText(/No audit entries match/)).toBeNull()
   })

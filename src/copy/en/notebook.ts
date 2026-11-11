@@ -2106,8 +2106,8 @@ export const notebook = {
     body3:
       'A definition draft is extracted from this sheet and published straight away, so new sheets can start from it. It isn’t reviewed against a draft first.',
     writeADatasetFromTitle: 'Save this sheet as a dataset?',
-    hideSourcesAndReuse: 'Hide sources and reuse',
-    sourcesExtractUpgrade: 'Sources, extract, upgrade',
+    hideSourcesAndReuse: 'Hide data links and reuse',
+    sourcesExtractUpgrade: 'Link data and reuse this sheet',
     upgradeAvailableVVersion: 'Upgrade available · v{version}',
     bindADatasetTo: 'Bind a dataset to this sheet',
     bindingShowsADataset:

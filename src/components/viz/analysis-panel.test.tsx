@@ -996,7 +996,12 @@ describe('AnalysisResultTable', () => {
     expect(within(table).getAllByText('duplicate')).toHaveLength(2)
     expect(within(table).getAllByRole('row')).toHaveLength(11)
     expect(within(table).queryAllByRole('textbox')).toHaveLength(0)
-    expect(within(table).queryAllByRole('button')).toHaveLength(0)
+    // Only the column headings are buttons (they sort); no row holds a control.
+    expect(
+      within(table)
+        .queryAllByRole('button')
+        .filter((button) => !button.closest('th')),
+    ).toHaveLength(0)
     rerender(<AnalysisResultTable result={second.result} />)
     expect(within(table).queryAllByText('duplicate')).toHaveLength(0)
     expect(within(table).getByText('replacement')).toBeTruthy()

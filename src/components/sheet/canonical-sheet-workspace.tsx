@@ -2364,6 +2364,8 @@ function CanonicalWorkspaceToolbar() {
     heading,
     headingAside,
     matrix,
+    showChanges,
+    changeCountToday,
     canWrite,
     readOnly,
     localMutate,
@@ -2399,7 +2401,13 @@ function CanonicalWorkspaceToolbar() {
           />
           {heading}
           <span className="shrink-0 text-label text-fg-muted">
-            {t('notebook.sheetToolbar.rows', { count: matrix.rowKeys.length })}
+            {showChanges
+              ? t('notebook.sheetChanges.changesToday', {
+                  count: changeCountToday,
+                })
+              : t('notebook.sheetToolbar.rows', {
+                  count: matrix.rowKeys.length,
+                })}
           </span>
           {headingAside}
         </div>

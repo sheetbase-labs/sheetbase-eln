@@ -182,14 +182,16 @@ export function useSheetChanges({
     })
   }, [placed, position, gridColumns, matrix, nameById])
 
-  const todayCount = useMemo(() => {
+  // The board counts both: changes in the header, the cells they touched in
+  // the list ("3 changes today", "Today · 3 cells").
+  const today = useMemo(() => {
     const now = new Date()
+    const changes = placed.filter((change) => changedToday(change, now))
 
-    return new Set(
-      placed
-        .filter((change) => changedToday(change, now))
-        .map((change) => cellAddressKey(change.cell)),
-    ).size
+    return {
+      changes: changes.length,
+      cells: new Set(changes.map((change) => cellAddressKey(change.cell))).size,
+    }
   }, [placed])
 
   const before = useMemo(() => valuesBeforeToday(placed, new Date()), [placed])
@@ -263,7 +265,8 @@ export function useSheetChanges({
     showChanges,
     setShowChanges,
     changeRows: rows,
-    changesToday: todayCount,
+    changesToday: today.cells,
+    changeCountToday: today.changes,
     cellBefore: showChanges && before.size > 0 ? cellBefore : undefined,
     selectedChangeKey: selectedKey,
     selectedCellHistory: selectedCell,

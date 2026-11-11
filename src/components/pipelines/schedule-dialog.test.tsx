@@ -123,7 +123,7 @@ describe('schedule time zones', () => {
 })
 
 describe('ScheduleDialog', () => {
-  it('starts with latest inputs and defaults, then discards edits and validation on reopen', () => {
+  it('starts with latest inputs and defaults, then discards edits and validation on reopen', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>()
     vi.stubGlobal('fetch', fetch)
     const view = show()
@@ -151,7 +151,7 @@ describe('ScheduleDialog', () => {
     expect(fetch).not.toHaveBeenCalled()
 
     view.rerender({ open: false })
-    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     view.rerender({ open: true })
     expect(
       screen.getByRole<HTMLSelectElement>('combobox', { name: /^Runs/ }).value,

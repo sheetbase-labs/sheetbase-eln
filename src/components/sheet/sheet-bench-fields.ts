@@ -79,7 +79,9 @@ export function outOfRange(
   return benchRangeBreach(column, benchInputText(value)) !== null
 }
 
-export function benchInputText(value: SheetbaseGridCellValue | undefined): string {
+export function benchInputText(
+  value: SheetbaseGridCellValue | undefined,
+): string {
   if (value === null || value === undefined) return ''
 
   if (value instanceof Date) return value.toISOString()

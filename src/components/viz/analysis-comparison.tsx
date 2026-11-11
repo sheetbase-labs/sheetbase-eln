@@ -4,14 +4,8 @@
  */
 import { Select } from '#/components/ui/select'
 import { Input } from '#/components/ui/input'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { StatGrid } from '#/components/viz/stat-grid'
+import type { StatColumn } from '#/components/viz/stat-grid'
 import { t } from '#/copy'
 import {
   COMPARISON_POST_HOCS,
@@ -269,43 +263,29 @@ export function ComparisonResultTables({
 
   return (
     <div className="space-y-3">
-      <div className="overflow-auto rounded-md border">
-        <Table>
-          <caption className="sr-only">
-            {t('data.analysisPanel.comparisonGroupsCaption')}
-          </caption>
-          <TableHeader>
-            <TableRow>
-              <TableHead scope="col">
-                {t('data.analysisPanel.group2')}
-              </TableHead>
-              <TableHead scope="col">n</TableHead>
-              <TableHead scope="col">mean</TableHead>
-              <TableHead scope="col">sd</TableHead>
-              <TableHead scope="col">median</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {result.groups.map((g) => (
-              <TableRow key={g.group}>
-                <TableCell className="font-medium">{g.group}</TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {g.stats.n}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {num(g.stats.mean)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {num(g.stats.sd)}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {num(g.stats.median)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <StatGrid
+        label={t('data.analysisPanel.comparisonGroupsCaption')}
+        rows={result.groups}
+        getRowId={(g) => g.group}
+        columns={[
+          {
+            id: 'group',
+            header: t('data.analysisPanel.group2'),
+            value: (g) => g.group,
+            text: true,
+            strong: true,
+          },
+          { id: 'n', header: 'n', value: (g) => g.stats.n },
+          { id: 'mean', header: 'mean', value: (g) => num(g.stats.mean), sortBy: (g) => g.stats.mean },
+          { id: 'sd', header: 'sd', value: (g) => num(g.stats.sd), sortBy: (g) => g.stats.sd },
+          {
+            id: 'median',
+            header: 'median',
+            value: (g) => num(g.stats.median),
+            sortBy: (g) => g.stats.median,
+          },
+        ]}
+      />
       {result.omnibus ? (
         <p className="text-label text-fg-muted">
           {t('data.analysisPanel.omnibus', {
@@ -324,96 +304,85 @@ export function ComparisonResultTables({
         </p>
       ) : null}
       {result.pairs.length > 0 ? (
-        <div className="overflow-auto rounded-md border">
-          <Table>
-            <caption className="sr-only">
-              {t('data.analysisPanel.comparisonPairsCaption')}
-            </caption>
-            <TableHeader>
-              <TableRow>
-                <TableHead scope="col">
-                  {t('data.analysisPanel.comparison')}
-                </TableHead>
-                {showDiff ? (
-                  <>
-                    <TableHead scope="col">
-                      {t('data.analysisPanel.difference')}
-                    </TableHead>
-                    <TableHead scope="col">
-                      {t('data.analysisPanel.n95Ci')}
-                    </TableHead>
-                  </>
-                ) : null}
-                <TableHead scope="col">
-                  {t('data.analysisPanel.statistic')}
-                </TableHead>
-                <TableHead scope="col">
-                  {result.pairs[0].adjusted
-                    ? t('data.analysisPanel.pAdjusted')
-                    : 'p'}
-                </TableHead>
-                {effectLabel ? (
-                  <TableHead scope="col">
-                    {t(`data.analysisPanel.effects.${effectLabel}`)}
-                  </TableHead>
-                ) : null}
-                <TableHead scope="col">
-                  {t('data.analysisPanel.significantAt', {
-                    alpha: result.alpha,
-                  })}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {result.pairs.map((pair) => (
-                <TableRow key={`${pair.group1}|${pair.group2}`}>
-                  <TableCell className="font-medium">
-                    {pair.group1} – {pair.group2}
-                  </TableCell>
-                  {showDiff ? (
-                    <>
-                      <TableCell className="font-mono tabular-nums">
-                        {num(pair.difference)}
-                      </TableCell>
-                      <TableCell className="font-mono tabular-nums">
-                        {pair.ci95
-                          ? `${num(pair.ci95.lo)} – ${num(pair.ci95.hi)}`
-                          : '—'}
-                      </TableCell>
-                    </>
-                  ) : null}
-                  <TableCell className="font-mono tabular-nums">
-                    {pair.statisticLabel} = {num(pair.statistic)}
-                    {pair.df !== null
-                      ? ` (${formatScientific(pair.df)} df)`
-                      : ''}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {pText(pair)}
-                  </TableCell>
-                  {effectLabel ? (
-                    <TableCell className="font-mono tabular-nums">
-                      {num(pair.effectSize)}
-                    </TableCell>
-                  ) : null}
-                  <TableCell
-                    className={
-                      pair.significant ? 'font-medium text-fg' : 'text-fg-muted'
-                    }
-                  >
-                    {pair.significant
-                      ? t('data.analysisPanel.yes')
-                      : t('data.analysisPanel.no')}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <StatGrid
+          label={t('data.analysisPanel.comparisonPairsCaption')}
+          rows={result.pairs}
+          getRowId={(pair) => `${pair.group1}|${pair.group2}`}
+          columns={[
+            {
+              id: 'comparison',
+              header: t('data.analysisPanel.comparison'),
+              value: (pair) => `${pair.group1} – ${pair.group2}`,
+              text: true,
+              strong: true,
+            },
+            ...(showDiff
+              ? ([
+                  {
+                    id: 'difference',
+                    header: t('data.analysisPanel.difference'),
+                    value: (pair) => num(pair.difference),
+                    sortBy: (pair) => pair.difference,
+                  },
+                  {
+                    id: 'ci',
+                    header: t('data.analysisPanel.n95Ci'),
+                    value: (pair) =>
+                      pair.ci95
+                        ? `${num(pair.ci95.lo)} – ${num(pair.ci95.hi)}`
+                        : '—',
+                    sortBy: (pair) => pair.ci95?.lo ?? null,
+                  },
+                ] satisfies StatColumn<Pair>[])
+              : []),
+            {
+              id: 'statistic',
+              header: t('data.analysisPanel.statistic'),
+              value: (pair) =>
+                `${pair.statisticLabel} = ${num(pair.statistic)}${
+                  pair.df !== null ? ` (${formatScientific(pair.df)} df)` : ''
+                }`,
+              sortBy: (pair) => pair.statistic,
+            },
+            {
+              id: 'p',
+              header: result.pairs[0].adjusted
+                ? t('data.analysisPanel.pAdjusted')
+                : 'p',
+              value: (pair) => pText(pair),
+              sortBy: (pair) => pair.p,
+            },
+            ...(effectLabel
+              ? ([
+                  {
+                    id: 'effect',
+                    header: t(`data.analysisPanel.effects.${effectLabel}`),
+                    value: (pair) => num(pair.effectSize),
+                    sortBy: (pair) => pair.effectSize,
+                  },
+                ] satisfies StatColumn<Pair>[])
+              : []),
+            {
+              id: 'significant',
+              header: t('data.analysisPanel.significantAt', {
+                alpha: result.alpha,
+              }),
+              value: (pair) =>
+                pair.significant
+                  ? t('data.analysisPanel.yes')
+                  : t('data.analysisPanel.no'),
+              text: true,
+              tone: (pair) =>
+                pair.significant ? 'font-medium text-fg' : 'text-fg-muted',
+            },
+          ]}
+        />
       ) : null}
     </div>
   )
 }
+
+type Pair = ComparisonResult['pairs'][number]
 
 const SURVIVAL_COLOURS = [
   'var(--primary)',
@@ -550,49 +519,36 @@ export function SurvivalResultTables({ result }: { result: SurvivalResult }) {
   return (
     <div className="space-y-3">
       <SurvivalPlot result={result} />
-      <div className="overflow-auto rounded-md border">
-        <Table>
-          <caption className="sr-only">
-            {t('data.analysisPanel.survivalCaption')}
-          </caption>
-          <TableHeader>
-            <TableRow>
-              <TableHead scope="col">
-                {t('data.analysisPanel.group2')}
-              </TableHead>
-              <TableHead scope="col">n</TableHead>
-              <TableHead scope="col">
-                {t('data.analysisPanel.events')}
-              </TableHead>
-              <TableHead scope="col">
-                {t('data.analysisPanel.censored')}
-              </TableHead>
-              <TableHead scope="col">
-                {t('data.analysisPanel.medianSurvival')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {result.curves.map((c) => (
-              <TableRow key={c.group}>
-                <TableCell className="font-medium">{c.group}</TableCell>
-                <TableCell className="font-mono tabular-nums">{c.n}</TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {c.events}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {c.censored}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {c.medianSurvival === null
-                    ? t('data.analysisPanel.notReached')
-                    : num(c.medianSurvival)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <StatGrid
+        label={t('data.analysisPanel.survivalCaption')}
+        rows={result.curves}
+        getRowId={(c) => c.group}
+        columns={[
+          {
+            id: 'group',
+            header: t('data.analysisPanel.group2'),
+            value: (c) => c.group,
+            text: true,
+            strong: true,
+          },
+          { id: 'n', header: 'n', value: (c) => c.n },
+          { id: 'events', header: t('data.analysisPanel.events'), value: (c) => c.events },
+          {
+            id: 'censored',
+            header: t('data.analysisPanel.censored'),
+            value: (c) => c.censored,
+          },
+          {
+            id: 'median',
+            header: t('data.analysisPanel.medianSurvival'),
+            value: (c) =>
+              c.medianSurvival === null
+                ? t('data.analysisPanel.notReached')
+                : num(c.medianSurvival),
+            sortBy: (c) => c.medianSurvival,
+          },
+        ]}
+      />
       {result.logRank ? (
         <p className="text-label text-fg-muted">
           {t('data.analysisPanel.logRank', {

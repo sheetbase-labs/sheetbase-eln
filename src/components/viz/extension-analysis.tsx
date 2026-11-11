@@ -4,14 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { Button } from '#/components/ui/button'
 import { Icon } from '#/components/icons'
 import { Select } from '#/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { PreviewGrid } from '#/components/inventory/preview-grid'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { t } from '#/copy'
 import { sciDataClient } from '#/lib/chart-data'
@@ -269,40 +262,23 @@ function ExtensionAnalysisResult({
       {outcome.rows.length === 0 ? (
         <p className="text-xs text-fg-muted">{t('plugins.analysis.noRows')}</p>
       ) : (
-        <div className="max-h-80 overflow-auto rounded-md border">
-          <Table>
-            <caption className="sr-only">{kind.declaration.title}</caption>
-            <TableHeader>
-              <TableRow>
-                {outcome.columns.map((column) => (
-                  <TableHead key={column.name} scope="col">
-                    {column.name}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {outcome.rows.slice(0, 200).map((row, index) => {
-                return (
-                  // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- Runner results are immutable positional output, duplicates are allowed, and cells contain text only with no editable, selected or local row state. Result-replacement tests retain duplicate rows.
-                  <TableRow key={index}>
-                    {outcome.columns.map((column) => (
-                      <TableCell
-                        key={column.name}
-                        className={
-                          column.type === 'number'
-                            ? 'font-mono tabular-nums'
-                            : undefined
-                        }
-                      >
-                        {String(row[column.name] ?? '—')}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+        <div className="overflow-hidden rounded-md border">
+          <PreviewGrid
+            label={kind.declaration.title}
+            columns={outcome.columns.map((column) => column.name)}
+            rows={outcome.rows.slice(0, 200).map((row) =>
+              Object.fromEntries(
+                outcome.columns.map((column) => [
+                  column.name,
+                  String(row[column.name] ?? '—'),
+                ]),
+              ),
+            )}
+            numericColumns={outcome.columns
+              .filter((column) => column.type === 'number')
+              .map((column) => column.name)}
+            maxHeight={320}
+          />
         </div>
       )}
     </div>

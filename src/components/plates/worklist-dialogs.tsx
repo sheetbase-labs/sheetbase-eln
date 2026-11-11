@@ -30,6 +30,7 @@ import { toast } from '#/components/ui/sonner'
 import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
+  gridHeight,
   rightAligned,
 } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -595,7 +596,10 @@ function WorklistTransfersTable({
   ]
 
   return (
-    <TableBox className="max-h-[320px] overflow-auto">
+    <TableBox
+      className="shrink-0"
+      style={{ height: gridHeight(rows.slice(0, 500).length, 320) }}
+    >
       <RegistryGrid
         label={t('plates.worklists.transfers')}
         rows={rows.slice(0, 500)}

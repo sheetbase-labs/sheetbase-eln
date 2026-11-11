@@ -1,5 +1,5 @@
 import { TableBox } from '#/components/ui/table'
-import { RegistryGrid } from '#/components/inventory/registry-grid'
+import { RegistryGrid, gridHeight } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import type { EvidenceBlock } from '#/lib/reports'
 import { t } from '#/copy'
@@ -41,7 +41,10 @@ export function EvidenceBlockTable({
   ]
 
   return (
-    <TableBox className="max-h-64 overflow-y-auto">
+    <TableBox
+      className="shrink-0"
+      style={{ height: gridHeight(blocks.length, 256) }}
+    >
       <RegistryGrid
         label={t('projects.reports.evidence.blocks')}
         rows={[...blocks]}

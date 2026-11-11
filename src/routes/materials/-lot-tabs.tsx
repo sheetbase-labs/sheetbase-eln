@@ -188,7 +188,7 @@ export function LotDetailsTab({
           <h2 className="mb-1.5 font-sans text-label font-semibold">
             {t('library.materials.solution.madeFrom')}
           </h2>
-          <TableBox className="max-w-3xl">
+          <TableBox className="max-w-3xl shrink-0">
             <RegistryGrid
               label={t('library.materials.solution.madeFrom')}
               rows={[...madeFrom]}
@@ -308,7 +308,7 @@ export function LotUsedTab({
           <h2 className="mb-1.5 font-sans text-label font-semibold">
             {t('library.materials.solution.preparedWith')}
           </h2>
-          <TableBox className="max-w-3xl">
+          <TableBox className="max-w-3xl shrink-0">
             <RegistryGrid
               label={t('library.materials.solution.preparedWith')}
               rows={[...preparedWith]}

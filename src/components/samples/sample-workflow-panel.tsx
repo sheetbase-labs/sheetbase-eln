@@ -5,15 +5,9 @@ import { Muted } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import type { DataClient } from '#/lib/data-client'
 import { formatDate } from '#/lib/format-date'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -227,46 +221,49 @@ export function SampleWorkflowPanel({
 }
 
 function WorkflowHistory({ events }: { events: WorkflowEvent[] }) {
+  const columns: RegistryColumn<WorkflowEvent>[] = [
+    {
+      id: 'step',
+      header: t('settings.sampleWorkflows.onSample.stepCol'),
+      accessorFn: (event) => event.to ?? '',
+      cell: ({ row }) => {
+        const event = row.original
+
+        const failed = event.automation.filter((a) => a.outcome === 'failed')
+
+        return (
+          <span className="flex flex-col">
+            <span title={event.notes ?? undefined}>
+              {event.to ?? t('settings.sampleWorkflows.onSample.leftWorkflow')}
+            </span>
+            {failed.map((a, i) => (
+              <span key={i} className="text-label text-danger-text">
+                {a.message}
+              </span>
+            ))}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'when',
+      header: t('settings.sampleWorkflows.onSample.whenCol'),
+      accessorFn: (event) => event.at,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">{formatDate(row.original.at)}</span>
+      ),
+    },
+  ]
+
   return (
     <TableBox>
-      <Table caption={t('settings.sampleWorkflows.onSample.history')}>
-        <TableHeader>
-          <tr>
-            <TableHead>
-              {t('settings.sampleWorkflows.onSample.stepCol')}
-            </TableHead>
-            <TableHead>
-              {t('settings.sampleWorkflows.onSample.whenCol')}
-            </TableHead>
-          </tr>
-        </TableHeader>
-        <TableBody>
-          {events.map((event) => {
-            const failed = event.automation.filter(
-              (a) => a.outcome === 'failed',
-            )
-
-            return (
-              <TableRow key={event.id}>
-                <TableCell>
-                  <span className="block" title={event.notes ?? undefined}>
-                    {event.to ??
-                      t('settings.sampleWorkflows.onSample.leftWorkflow')}
-                  </span>
-                  {failed.map((a, i) => (
-                    <span key={i} className="block text-label text-danger-text">
-                      {a.message}
-                    </span>
-                  ))}
-                </TableCell>
-                <TableCell className="num whitespace-nowrap text-fg-muted">
-                  {formatDate(event.at)}
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
+      <RegistryGrid
+        label={t('settings.sampleWorkflows.onSample.history')}
+        rows={events}
+        columns={columns}
+        getRowId={(event) => event.id}
+        selectable={false}
+      />
     </TableBox>
   )
 }

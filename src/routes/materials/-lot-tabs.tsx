@@ -7,15 +7,12 @@ import { Link } from '@tanstack/react-router'
 
 import { stockOfTotal } from '../-materials-page'
 import { DescriptionList } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { MaterialSafetySection } from '#/components/materials/material-safety'
 import { MOVEMENT_LABELS } from '#/lib/reagent-data'
 import type {
@@ -33,6 +30,94 @@ import {
   dayLabel,
   movementChange,
 } from './-lot-page-model'
+
+const madeFromColumns: RegistryColumn<MadeFromIngredient>[] = [
+  {
+    id: 'material',
+    header: t('library.materials.solution.materialColumn'),
+    accessorFn: (item) => item.title,
+    cell: ({ row }) => (
+      <>
+        {row.original.recordId ? (
+          <Link
+            to="/materials/$lotId"
+            params={{ lotId: row.original.recordId }}
+            className="hover:underline"
+          >
+            {row.original.title}
+          </Link>
+        ) : (
+          row.original.title
+        )}
+        <span className="mono ml-2 text-fg-muted">
+          {row.original.identifier}
+        </span>
+      </>
+    ),
+  },
+  {
+    id: 'lot',
+    header: t('library.materials.solution.lotColumn'),
+    accessorFn: (item) => item.lot ?? '',
+    cell: ({ row }) => row.original.lot ?? '—',
+  },
+  {
+    id: 'amount',
+    header: t('library.materials.solution.amountColumn'),
+    accessorFn: (item) => item.quantity,
+    cell: ({ row }) => (
+      <span className="mono">
+        {amount(row.original.quantity, row.original.unit)}
+      </span>
+    ),
+    ...rightAligned<MadeFromIngredient>(),
+  },
+  {
+    id: 'expiry',
+    header: t('library.materials.solution.expiryColumn'),
+    accessorFn: (item) => item.expiry ?? '',
+    cell: ({ row }) => dayLabel(row.original.expiry),
+  },
+]
+
+const preparedWithColumns: RegistryColumn<PreparedWithLot>[] = [
+  {
+    id: 'solution',
+    header: t('library.materials.solution.solutionColumn'),
+    accessorFn: (item) => item.title,
+    cell: ({ row }) => (
+      <>
+        <Link
+          to="/materials/$lotId"
+          params={{ lotId: row.original.productId }}
+          className="hover:underline"
+        >
+          {row.original.title}
+        </Link>
+        <span className="mono ml-2 text-fg-muted">
+          {row.original.identifier}
+        </span>
+      </>
+    ),
+  },
+  {
+    id: 'amount',
+    header: t('library.materials.solution.amountColumn'),
+    accessorFn: (item) => item.quantity,
+    cell: ({ row }) => (
+      <span className="mono">
+        {amount(row.original.quantity, row.original.unit)}
+      </span>
+    ),
+    ...rightAligned<PreparedWithLot>(),
+  },
+  {
+    id: 'when',
+    header: t('library.materials.solution.whenColumn'),
+    accessorFn: (item) => item.createdAt,
+    cell: ({ row }) => dayLabel(row.original.createdAt),
+  },
+]
 
 /** The lot's certificate file as a link, or the code it was recorded under. */
 export function LotCertificateLabel({
@@ -104,51 +189,13 @@ export function LotDetailsTab({
             {t('library.materials.solution.madeFrom')}
           </h2>
           <TableBox className="max-w-3xl">
-            <Table aria-label={t('library.materials.solution.madeFrom')}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    {t('library.materials.solution.materialColumn')}
-                  </TableHead>
-                  <TableHead>
-                    {t('library.materials.solution.lotColumn')}
-                  </TableHead>
-                  <TableHead align="right">
-                    {t('library.materials.solution.amountColumn')}
-                  </TableHead>
-                  <TableHead>
-                    {t('library.materials.solution.expiryColumn')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {madeFrom.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      {item.recordId ? (
-                        <Link
-                          to="/materials/$lotId"
-                          params={{ lotId: item.recordId }}
-                          className="hover:underline"
-                        >
-                          {item.title}
-                        </Link>
-                      ) : (
-                        item.title
-                      )}
-                      <span className="mono ml-2 text-fg-muted">
-                        {item.identifier}
-                      </span>
-                    </TableCell>
-                    <TableCell>{item.lot ?? '—'}</TableCell>
-                    <TableCell align="right" className="mono">
-                      {amount(item.quantity, item.unit)}
-                    </TableCell>
-                    <TableCell>{dayLabel(item.expiry)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label={t('library.materials.solution.madeFrom')}
+              rows={[...madeFrom]}
+              columns={madeFromColumns}
+              getRowId={(item) => item.id}
+              selectable={false}
+            />
           </TableBox>
         </section>
       ) : null}
@@ -262,43 +309,13 @@ export function LotUsedTab({
             {t('library.materials.solution.preparedWith')}
           </h2>
           <TableBox className="max-w-3xl">
-            <Table aria-label={t('library.materials.solution.preparedWith')}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    {t('library.materials.solution.solutionColumn')}
-                  </TableHead>
-                  <TableHead align="right">
-                    {t('library.materials.solution.amountColumn')}
-                  </TableHead>
-                  <TableHead>
-                    {t('library.materials.solution.whenColumn')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {preparedWith.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <Link
-                        to="/materials/$lotId"
-                        params={{ lotId: item.productId }}
-                        className="hover:underline"
-                      >
-                        {item.title}
-                      </Link>
-                      <span className="mono ml-2 text-fg-muted">
-                        {item.identifier}
-                      </span>
-                    </TableCell>
-                    <TableCell align="right" className="mono">
-                      {amount(item.quantity, item.unit)}
-                    </TableCell>
-                    <TableCell>{dayLabel(item.createdAt)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label={t('library.materials.solution.preparedWith')}
+              rows={[...preparedWith]}
+              columns={preparedWithColumns}
+              getRowId={(item) => item.id}
+              selectable={false}
+            />
           </TableBox>
         </section>
       ) : null}

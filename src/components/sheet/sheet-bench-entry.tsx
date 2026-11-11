@@ -46,6 +46,32 @@ function cellText(
   return typeof value === 'object' ? JSON.stringify(value) : String(value)
 }
 
+/** The run on the strip, as the board names it: its number, then its first
+ * column's value ("9 · C-150"), with where it sits among the runs. */
+function BenchRunTitle({
+  number,
+  count,
+  name,
+}: {
+  number: number
+  count: number
+  name: string
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-sm border border-border-subtle bg-surface px-1.5 text-label font-medium tabular-nums text-fg-muted">
+        {number}
+      </span>
+      {name ? (
+        <span className="truncate text-body font-medium">{name}</span>
+      ) : null}
+      <span className="shrink-0 text-label text-fg-muted">
+        {t('notebook.sheetBench.rowOf', { row: number, count })}
+      </span>
+    </span>
+  )
+}
+
 export function SheetBenchEntry({
   columns,
   gridColumns,
@@ -145,14 +171,17 @@ export function SheetBenchEntry({
       onKeyDown={onKeyDown}
     >
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <span className="text-body font-medium">
-          {isNew
-            ? t('notebook.sheetBench.newRun')
-            : t('notebook.sheetBench.rowOf', {
-                row: rowIndex + 1,
-                count: rowCount,
-              })}
-        </span>
+        {isNew ? (
+          <span className="text-body font-medium">
+            {t('notebook.sheetBench.newRun')}
+          </span>
+        ) : (
+          <BenchRunTitle
+            number={rowIndex + 1}
+            count={rowCount}
+            name={cellText(values[0], gridColumns[0])}
+          />
+        )}
         <Button
           type="button"
           size="sm"

@@ -76,9 +76,10 @@ export function benchRangeBreach(
       { min, max, unit },
     )
 
-  return above
-    ? t('notebook.sheetBench.aboveMax', { max: max ?? '', unit })
-    : t('notebook.sheetBench.belowMin', { min: min ?? '', unit })
+  if (max !== undefined && above)
+    return t('notebook.sheetBench.aboveMax', { max, unit })
+
+  return t('notebook.sheetBench.belowMin', { min: String(min), unit })
 }
 
 /** A stored value outside its field's range: the grid shows it in danger text. */

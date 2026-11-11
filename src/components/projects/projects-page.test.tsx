@@ -444,6 +444,7 @@ describe('ProjectsPage', () => {
     expect(screen.getByRole('dialog')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    // The dialog leaves once its closing animation has run.
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(setSearch).toHaveBeenCalledWith({ new: undefined })
   })

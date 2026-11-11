@@ -274,20 +274,15 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
   // notebook holds several sheets, and each would claim the inspector and
   // print a selected-cell line, so selections count only once the person has
   // pointed or typed in this grid, or the host has selected a cell itself.
-  const touchedRef = useRef(false)
-  const [touched, setTouched] = useState(false)
+  // Keyed by the engine's mount: a remounted engine starts at rest again.
+  const touchedKeyRef = useRef<typeof mountKey | null>(null)
+  const [touchedKey, setTouchedKey] = useState<typeof mountKey | null>(null)
+  const touched = touchedKey === mountKey
 
   const markTouched = useCallback(() => {
-    if (touchedRef.current) return
-    touchedRef.current = true
-    setTouched(true)
-  }, [])
-
-  // A layout effect, so the reset lands before a remounted engine announces
-  // its starting cursor from its own passive effect.
-  useLayoutEffect(() => {
-    touchedRef.current = false
-    setTouched(false)
+    if (touchedKeyRef.current === mountKey) return
+    touchedKeyRef.current = mountKey
+    setTouchedKey(mountKey)
   }, [mountKey])
 
   const handleReady = useGridHandle(handleRef, props.onReady, markTouched)
@@ -440,7 +435,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
           props.onFiltersChange?.(captureGridFilters(next, props))
         }
         onSelectionChange={(selection) => {
-          if (!touchedRef.current) return
+          if (touchedKeyRef.current !== mountKey) return
           props.onSelectionChange?.(
             gridSelection(selection, layout, handleRef.current, query),
           )

@@ -2172,6 +2172,26 @@ export const notebook = {
     materialiseBody:
       'A dataset is saved from the rows this sheet holds now, as “{name}”. Later edits to the sheet don’t change that dataset.',
   },
+  sheetToolbar: {
+    saved: 'Saved',
+    saving: 'Saving…',
+    saveFailed: 'Save failed',
+    readOnly: 'Read-only',
+    more: 'More',
+    moreTools: 'More sheet tools',
+    columns: 'Columns',
+    columnsHint:
+      'Sorting, filters and column sizes only change your view. The data stays as it is.',
+    filters: 'Filters {count}',
+    clearFilters: 'Clear filters',
+    details: 'Details',
+    detailsHint: 'Show where each column comes from and where an edit is saved',
+    addGroup: 'Add',
+    toolsGroup: 'Tools',
+    downloadGroup: 'Download',
+    history: 'History',
+    export: 'Export as {format}',
+  },
   canonicalSheetWorkspace: {
     objectLabel: 'Sheet',
     loadingSheet: 'Loading sheet…',

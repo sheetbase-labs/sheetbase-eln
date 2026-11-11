@@ -31,6 +31,8 @@ export function ObjectHistoryDialog({
   objectLabel,
   triggerLabel = t('projects.objectHistoryDialog.trigger'),
   inline,
+  open: openProp,
+  onOpenChange,
 }: {
   objectId: string
   /** Human noun used in copy, e.g. "Sheet". */
@@ -41,8 +43,17 @@ export function ObjectHistoryDialog({
    * than as a button: `text` is what shows, `label` is its accessible name.
    */
   inline?: { text: string; label: string }
+  /**
+   * Opened from elsewhere (a menu item), the dialog draws no trigger of its
+   * own and the caller holds whether it is open.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [ownOpen, setOwnOpen] = useState(false)
+  const controlled = openProp !== undefined
+  const open = controlled ? openProp : ownOpen
+  const setOpen = controlled ? (onOpenChange ?? (() => {})) : setOwnOpen
 
   const historyQuery = useInfiniteQuery({
     queryKey: ['audit-events', 'object', objectId],
@@ -68,7 +79,7 @@ export function ObjectHistoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      {inline ? (
+      {controlled ? null : inline ? (
         <DialogTrigger
           // A span, not a button: a button lays out as an inline block, so a
           // long subject would drop to its own line instead of wrapping in

@@ -53,6 +53,13 @@ export interface SheetbaseGridColumn {
    * back to the badge's kind-only form (`ƒx` for calculated columns).
    */
   sourceLabel?: string
+  /**
+   * Draw the header's source badge. The everyday view leaves it off for the
+   * sheet's own and dataset columns: scientists see only the calculation and
+   * linked-record marks, and the Details view shows where every column comes
+   * from.
+   */
+  showSource?: boolean
   type: SheetbaseGridColumnType
   /** The column cannot be edited (derived, retired or read-only Sheet). */
   readOnly?: boolean

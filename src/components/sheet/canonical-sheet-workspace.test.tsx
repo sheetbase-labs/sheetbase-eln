@@ -17,7 +17,15 @@ import {
 import { QueryClient } from '@tanstack/react-query'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from 'vitest'
 
 import { validSheetDefinitionConfiguration } from '../../../tests/fixtures/sheet-definition'
 import { createDataClient } from '#/lib/data-client'
@@ -222,11 +230,19 @@ describe('Sheet comment inspector', () => {
         }}
       />,
     )
-    const button = screen.getByRole('button', { name: 'Comment on selection' })
-    expect(button.hasAttribute('disabled')).toBe(true)
+    await user.click(screen.getByRole('button', { name: 'More sheet tools' }))
+    expect(
+      (
+        await screen.findByRole('menuitem', { name: 'Comment on selection' })
+      ).getAttribute('aria-disabled'),
+    ).toBe('true')
+    await user.keyboard('{Escape}')
     selectGridCell(1, 0)
     selectGridCell(0, 0, true)
-    await user.click(button)
+    await user.click(screen.getByRole('button', { name: 'More sheet tools' }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Comment on selection' }),
+    )
     expect(
       screen.getByRole('complementary', { name: 'Sheet comments inspector' }),
     ).toBeTruthy()
@@ -278,11 +294,14 @@ describe('Sheet comment inspector', () => {
       />,
     )
     selectGridCell(0, 0)
+    await userEvent.click(
+      screen.getByRole('button', { name: 'More sheet tools' }),
+    )
     expect(
-      screen
-        .getByRole('button', { name: 'Comment on selection' })
-        .hasAttribute('disabled'),
-    ).toBe(true)
+      (
+        await screen.findByRole('menuitem', { name: 'Comment on selection' })
+      ).getAttribute('aria-disabled'),
+    ).toBe('true')
     expect(
       screen.queryByRole('textbox', { name: 'New comment body' }),
     ).toBeNull()
@@ -658,6 +677,9 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
   it('names each column source in the header group and marks calculated columns ƒx', async () => {
     const instance = await composedInstanceWithCalculation()
     rpcMock.mockResolvedValue(twoDatasetWire())
+    // Owner bands belong to the Details view.
+    localStorage.setItem('sheetbase.sheet.details', 'on')
+    onTestFinished(() => localStorage.removeItem('sheetbase.sheet.details'))
     await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}

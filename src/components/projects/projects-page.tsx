@@ -7,17 +7,6 @@ import {
 } from '#/components/workspace/workspace-navigation'
 import { projectPath } from '#/lib/navigation'
 import { useHasProjectAccess } from './project-access'
-import {
-  ConfirmDialog,
-  ConfirmDialogAction,
-  ConfirmDialogCancel,
-  ConfirmDialogContent,
-  ConfirmDialogDescription,
-  ConfirmDialogFooter,
-  ConfirmDialogHeader,
-  ConfirmDialogTitle,
-} from '#/components/ui/confirm-dialog'
-import { DialogBody } from '#/components/ui/dialog'
 import { toast } from '#/components/ui/sonner'
 import { t } from '#/copy'
 
@@ -35,7 +24,9 @@ import {
 import { ProjectsFilterChips } from './projects-filter-chips'
 import { ProjectsFooter } from './projects-footer'
 import { ProjectsHeader } from './projects-header'
+import { ArchiveConfirmDialog } from './archive-confirm-dialog'
 import { ProjectPeek } from './project-peek'
+import { useProjectPeek } from './use-project-peek'
 import { ProjectsTable } from './projects-table'
 import { ProjectsToolbar } from './projects-toolbar'
 import { ImportProjectsDialog } from './import-projects-dialog'
@@ -179,15 +170,8 @@ export function ProjectsPage({
 
   const selection = useProjectSelection({ meId, rows })
 
-  // The side panel follows the clicked row; before any click it shows the first
-  // row, and its close button hides it until another row is clicked.
+  const { peeked, setPeek } = useProjectPeek(rows)
   const [importing, setImporting] = useState(false)
-  const [peek, setPeek] = useState<string | null | false>(null)
-
-  const peeked =
-    peek === false
-      ? null
-      : (rows.find((p) => p.id === peek) ?? rows.at(0) ?? null)
 
   // A disabled control has to say why (QA2-projects-1): the header button was
   // disabled with no stated reason.
@@ -292,42 +276,7 @@ export function ProjectsPage({
         <ProjectPeek project={peeked} onClose={() => setPeek(false)} />
       ) : null}
 
-      <ConfirmDialog
-        open={selection.confirmArchive}
-        onOpenChange={selection.setConfirmArchive}
-      >
-        <ConfirmDialogContent className="w-[min(480px,calc(100vw-32px))]">
-          <ConfirmDialogHeader>
-            <ConfirmDialogTitle>
-              {t('projects.projectsPage.confirmArchive.title', {
-                count: selection.archivable.length,
-              })}
-            </ConfirmDialogTitle>
-            <ConfirmDialogDescription>
-              {t('projects.projectsPage.confirmArchive.description', {
-                ids: selection.archivable.map((p) => p.id).join(', '),
-              })}
-            </ConfirmDialogDescription>
-          </ConfirmDialogHeader>
-          <DialogBody>
-            <p className="m-0 text-body leading-5">
-              {t('projects.projectsPage.confirmArchive.body')}
-            </p>
-          </DialogBody>
-          <ConfirmDialogFooter>
-            <ConfirmDialogCancel disabled={selection.bulk.isPending} />
-            <ConfirmDialogAction
-              variant="danger-fill"
-              disabled={selection.bulk.isPending}
-              onClick={() => selection.bulk.mutate('archive')}
-            >
-              {t('projects.projectsPage.confirmArchive.action', {
-                count: selection.archivable.length,
-              })}
-            </ConfirmDialogAction>
-          </ConfirmDialogFooter>
-        </ConfirmDialogContent>
-      </ConfirmDialog>
+      <ArchiveConfirmDialog selection={selection} />
 
       <ImportProjectsDialog
         open={importing}

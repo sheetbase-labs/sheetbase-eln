@@ -57,6 +57,7 @@ export function ImportProjectsDialog({
         if (!row.input) continue
 
         try {
+          // react-doctor-disable-next-line react-doctor/async-await-in-loop -- One at a time on purpose: lines are made in file order, so project numbers follow the file and a failure stops nothing else.
           await createProject(row.input)
           made += 1
         } catch (cause) {

@@ -551,7 +551,6 @@ server, so every notebook comes back in the "not updated" list.
 | `src/components/experiments/series-bar.tsx`      | Reads the experiment's series from the database and draws nothing without one; the series tab and notebook journeys cover it.                                           |
 | `src/components/experiments/series-offer.tsx`    | A checkbox that appears only when the experiment is in a series; it needs the series query, and the Repeat and New run dialogs that hold it are covered by their tests. |
 | `src/components/experiments/experiments-data.ts` | Query keys, list filters, row mapping and hooks for the experiments list. Nothing renders; the screens that use it have stories.                                        |
-| `src/components/projects/project-lists.ts`       | Page-size constants, filters, fetchers and hooks behind the project lists (which have stories in `ProjectLists.stories.tsx`). Nothing renders.                          |
 
 ## Plates and group comparisons
 
@@ -669,4 +668,5 @@ the screen: `Inspector.stories.tsx`, `RecordHeader`'s stories,
 | `src/components/projects/projects-table.tsx`               | The phone list and table; `ProjectsPage.stories.tsx` renders both, grouped and ungrouped, with and without bulk selection.                                         |
 | `src/components/projects/projects-footer.tsx`              | The count, hidden-archive note and selection actions; `ProjectsPage.stories.tsx` renders it with and without a selection.                                          |
 | `src/components/projects/new-project-dialog.tsx`           | A portalled dialog; `ProjectsPage.stories.tsx` mounts it open, and the create flows are asserted by `projects-page.test.tsx`.                                      |
+| `src/components/projects/archive-confirm-dialog.tsx`       | A portalled confirm dialog opened by the footer's Archive button; the archive flow is asserted by `projects-page.test.tsx`.                                        |
 | `src/components/plates/-plates-body.tsx`                   | The tab bodies under the Plates page's header; `PlatesPage` renders every one of them, and the runs and worklists tables are asserted by the plates browser suite. |

@@ -11,7 +11,7 @@ import {
   useState,
 } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useRouteContext } from '@tanstack/react-router'
+import { Link, useNavigate, useRouteContext } from '@tanstack/react-router'
 
 import { SheetbaseTableGrid } from '#/components/sheet/sheetbase-grid'
 import { usePluginGridCellDisplays } from '#/components/extensions/table-hooks'
@@ -51,6 +51,15 @@ import { CanonicalSheetLifecyclePanel } from '#/components/sheet/canonical-sheet
 import { CellConflictPanel } from '#/components/sheet/cell-conflict-panel'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { Button } from '#/components/ui/button'
+import { Icon } from '#/components/icons'
+import {
+  SheetMoreMenu,
+  SheetSaveStatus,
+} from '#/components/sheet/sheet-toolbar-parts'
+import type {
+  SheetMoreItem,
+  SheetSaveState,
+} from '#/components/sheet/sheet-toolbar-parts'
 import { Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { explainSheetWriteBack } from '#/lib/assist-explain'
@@ -77,7 +86,7 @@ import {
   saveSheetView,
 } from '#/lib/sheet-presentation-view'
 import { workItemsQueryKeys } from '#/lib/work-items/data'
-import { ExportMenu } from '#/components/export/export-menu'
+import { downloadExport } from '#/components/export/export-menu'
 import { ObjectHistoryDialog } from '#/components/audit'
 import type {
   BoundColumnProvenance,
@@ -345,6 +354,16 @@ function useCanonicalWorkspaceSession({
   const [sheetTool, setSheetTool] = useState<
     'column' | 'calculation' | 'view' | null
   >(null)
+
+  // The Details view shows how the sheet is wired: owner bands, source
+  // badges, where an edit is saved, and the sheet's sources and upgrades. The
+  // everyday view keeps all of that out of the way. Remembered per device.
+  const [details, setDetailsState] = useState(readSheetDetailsPreference)
+  const setDetails = useCallback((next: boolean) => {
+    setDetailsState(next)
+    writeSheetDetailsPreference(next)
+  }, [])
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const [formula, setFormula] = useState('')
   const [formulaLabel, setFormulaLabel] = useState('Calculated')
@@ -1413,9 +1432,10 @@ function useCanonicalWorkspaceSession({
           column,
           canWrite,
           () => recordLabelsRef.current,
+          details,
         ),
       ),
-    [matrix, canWrite],
+    [matrix, canWrite, details],
   )
 
   const columnKeys = useMemo(
@@ -2109,7 +2129,47 @@ function useCanonicalWorkspaceSession({
     commentAnnotations,
     availableRowKeys,
     availableColumnIds,
+    details,
+    setDetails,
+    historyOpen,
+    setHistoryOpen,
   }
+}
+
+const SHEET_DETAILS_KEY = 'sheetbase.sheet.details'
+
+/** Whether this device last left sheets in the Details view. */
+function readSheetDetailsPreference(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(SHEET_DETAILS_KEY) === 'on'
+  } catch {
+    return false
+  }
+}
+
+function writeSheetDetailsPreference(on: boolean): void {
+  try {
+    if (on) globalThis.localStorage?.setItem(SHEET_DETAILS_KEY, 'on')
+    else globalThis.localStorage?.removeItem(SHEET_DETAILS_KEY)
+  } catch {
+    // Storage can be off (private windows); the choice then lasts the visit.
+  }
+}
+
+/** The table's one save line, from the writes this sheet has in flight. */
+function sheetSaveState(input: {
+  canWrite: boolean
+  readOnly: boolean
+  pending: boolean
+  failed: boolean
+}): SheetSaveState | null {
+  if (input.readOnly) return 'read-only'
+
+  if (!input.canWrite) return null
+
+  if (input.pending) return 'saving'
+
+  return input.failed ? 'failed' : 'saved'
 }
 
 const CanonicalWorkspaceContext = createContext<ReturnType<
@@ -2156,6 +2216,7 @@ function CanonicalWorkspaceSession(
 function CanonicalWorkspaceToolbar() {
   const {
     canWrite,
+    readOnly,
     localMutate,
     addRow,
     sheetTool,
@@ -2166,6 +2227,7 @@ function CanonicalWorkspaceToolbar() {
     persistPresentation,
     composed,
     writeBack,
+    addCalculation,
     pendingValues,
     setCalculatorOpen,
     calculatorOpen,
@@ -2175,150 +2237,216 @@ function CanonicalWorkspaceToolbar() {
     openSelectionComment,
     visualiseDatasetId,
     instance,
+    details,
+    setDetails,
+    historyOpen,
+    setHistoryOpen,
   } = useCanonicalWorkspace()
 
+  const navigate = useNavigate()
+
+  const saveState = sheetSaveState({
+    canWrite,
+    readOnly,
+    pending:
+      localMutate.isPending || writeBack.isPending || addCalculation.isPending,
+    failed: localMutate.isError || writeBack.isError,
+  })
+
+  const failure = localMutate.error?.message ?? writeBack.error?.message
+
+  const exportPath = `/api/export/sheet-instance/${instance.id}`
+
+  const addItems: SheetMoreItem[] = canWrite
+    ? [
+        {
+          id: 'add-row',
+          label: t('notebook.canonicalSheetWorkspace.addRow'),
+          icon: 'plus',
+          disabled: localMutate.isPending,
+          onSelect: () => void addRow(),
+        },
+        {
+          id: 'new-column',
+          label: t('notebook.canonicalSheetWorkspace.newColumn'),
+          icon: 'table',
+          onSelect: () => setSheetTool('column'),
+        },
+        {
+          id: 'new-calculation',
+          label: t('notebook.canonicalSheetWorkspace.newCalculation'),
+          icon: 'sigma',
+          onSelect: () => setSheetTool('calculation'),
+        },
+        {
+          id: 'paste',
+          label: t('notebook.canonicalSheetWorkspace.pasteData'),
+          icon: 'clipboardList',
+          disabled: localMutate.isPending,
+          onSelect: () => setPasteOpen(true),
+        },
+      ]
+    : []
+
+  const toolItems: SheetMoreItem[] = [
+    {
+      id: 'calculator',
+      label: t('calculators.open'),
+      icon: 'calculator',
+      onSelect: () => setCalculatorOpen(true),
+    },
+    ...(commentActor
+      ? [
+          {
+            id: 'comment',
+            label: t('notebook.canonicalSheetWorkspace.commentOnSelection'),
+            icon: 'comment' as const,
+            disabled: !canComment || !commentSelection?.rowId,
+            onSelect: () => openSelectionComment(),
+          },
+        ]
+      : []),
+    ...(visualiseDatasetId
+      ? [
+          {
+            id: 'visualise',
+            label: t('notebook.canonicalSheetWorkspace.visualise'),
+            icon: 'chart' as const,
+            onSelect: () =>
+              void navigate({
+                to: '/analysis/new',
+                search: { dataset: visualiseDatasetId },
+              }),
+          },
+        ]
+      : []),
+    {
+      id: 'history',
+      label: t('notebook.sheetToolbar.history'),
+      icon: 'history',
+      onSelect: () => setHistoryOpen(true),
+    },
+  ]
+
+  const downloadItems: SheetMoreItem[] = [
+    {
+      id: 'export-xlsx',
+      label: t('notebook.canonicalSheetWorkspace.xlsxLocalGridLabel'),
+      icon: 'download',
+      onSelect: () => downloadExport(exportPath, 'xlsx'),
+    },
+    {
+      id: 'export-csv',
+      label: t('notebook.canonicalSheetWorkspace.csvLocalGridLabel'),
+      icon: 'download',
+      onSelect: () => downloadExport(exportPath, 'csv'),
+    },
+    {
+      id: 'export-json',
+      label: t('notebook.canonicalSheetWorkspace.jsonFullStateLabel'),
+      icon: 'download',
+      onSelect: () => downloadExport(exportPath, 'json'),
+    },
+  ]
+
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-2 py-1">
-      {canWrite ? (
-        <div
-          role="group"
-          aria-label={t('notebook.canonicalSheetWorkspace.ariaLabel')}
-          className="flex flex-wrap items-center gap-2"
-        >
-          <Button
-            type="button"
-            size="sm"
-            disabled={localMutate.isPending}
-            onClick={() => void addRow()}
-          >
-            {t('notebook.canonicalSheetWorkspace.addRow')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            aria-expanded={sheetTool === 'column'}
-            onClick={() =>
-              setSheetTool(sheetTool === 'column' ? null : 'column')
-            }
-          >
-            {t('notebook.canonicalSheetWorkspace.newColumn')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            aria-expanded={sheetTool === 'calculation'}
-            onClick={() =>
-              setSheetTool(sheetTool === 'calculation' ? null : 'calculation')
-            }
-          >
-            {t('notebook.canonicalSheetWorkspace.newCalculation')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={localMutate.isPending}
-            onClick={() => setPasteOpen(true)}
-          >
-            {t('notebook.canonicalSheetWorkspace.pasteData')}
-          </Button>
-          {matrix.columns.length > 0 ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="quiet"
-              aria-expanded={sheetTool === 'view'}
-              onClick={() => setSheetTool(sheetTool === 'view' ? null : 'view')}
-            >
-              {t('notebook.canonicalSheetWorkspace.workingView')}
-            </Button>
-          ) : null}
-          {presentation.hiddenColumnIds.length > 0 ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => void persistPresentation({ hiddenColumnIds: [] })}
-            >
-              {t('notebook.canonicalSheetWorkspace.showHiddenColumns', {
-                count: presentation.hiddenColumnIds.length,
-              })}
-            </Button>
-          ) : null}
-          {composed ? (
-            <Button
-              type="button"
-              size="sm"
-              disabled={
-                writeBack.isPending || Object.keys(pendingValues).length === 0
-              }
-              onClick={() => writeBack.mutate()}
-            >
-              {t('notebook.canonicalSheetWorkspace.writeBack')}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+    <div
+      role="toolbar"
+      aria-label={t('notebook.canonicalSheetWorkspace.ariaLabel')}
+      className="flex shrink-0 flex-wrap items-center gap-1.5 border-b px-2 py-1"
+    >
+      <SheetSaveStatus state={saveState} detail={failure} />
       <span className="flex-1" />
-      <Button
-        type="button"
-        size="sm"
-        variant="secondary"
-        icon="calculator"
-        onClick={() => setCalculatorOpen(true)}
-      >
-        {t('calculators.open')}
-      </Button>
-      <BenchCalculatorDialog
-        open={calculatorOpen}
-        onOpenChange={setCalculatorOpen}
-      />
-      {commentActor ? (
+      {composed && canWrite ? (
+        <Button
+          type="button"
+          size="sm"
+          disabled={
+            writeBack.isPending || Object.keys(pendingValues).length === 0
+          }
+          onClick={() => writeBack.mutate()}
+        >
+          {t('notebook.canonicalSheetWorkspace.writeBack')}
+        </Button>
+      ) : null}
+      {presentation.filters.length > 0 ? (
         <Button
           type="button"
           size="sm"
           variant="secondary"
-          data-sheet-comment-selection
-          disabled={!canComment || !commentSelection?.rowId}
-          onClick={() => openSelectionComment()}
+          icon="filter"
+          aria-label={t('notebook.sheetToolbar.clearFilters')}
+          title={t('notebook.sheetToolbar.clearFilters')}
+          onClick={() => void persistPresentation({ filters: [] })}
         >
-          {t('notebook.canonicalSheetWorkspace.commentOnSelection')}
+          {t('notebook.sheetToolbar.filters', {
+            count: presentation.filters.length,
+          })}
+          <Icon name="x" size={12} />
         </Button>
       ) : null}
-      {visualiseDatasetId ? (
+      {presentation.hiddenColumnIds.length > 0 ? (
         <Button
-          render={
-            <Link to="/analysis/new" search={{ dataset: visualiseDatasetId }} />
-          }
-          nativeButton={false}
+          type="button"
           size="sm"
           variant="secondary"
+          onClick={() => void persistPresentation({ hiddenColumnIds: [] })}
         >
-          {t('notebook.canonicalSheetWorkspace.visualise')}
+          {t('notebook.canonicalSheetWorkspace.showHiddenColumns', {
+            count: presentation.hiddenColumnIds.length,
+          })}
         </Button>
       ) : null}
+      {matrix.columns.length > 0 ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="quiet"
+          title={t('notebook.sheetToolbar.columnsHint')}
+          aria-expanded={sheetTool === 'view'}
+          onClick={() => setSheetTool(sheetTool === 'view' ? null : 'view')}
+        >
+          {t('notebook.sheetToolbar.columns')}
+        </Button>
+      ) : null}
+      <Button
+        type="button"
+        size="sm"
+        variant={details ? 'secondary' : 'quiet'}
+        aria-pressed={details}
+        title={t('notebook.sheetToolbar.detailsHint')}
+        onClick={() => setDetails(!details)}
+      >
+        {t('notebook.sheetToolbar.details')}
+      </Button>
+      <SheetMoreMenu
+        groups={[
+          {
+            id: 'add',
+            label: t('notebook.sheetToolbar.addGroup'),
+            items: addItems,
+          },
+          {
+            id: 'tools',
+            label: t('notebook.sheetToolbar.toolsGroup'),
+            items: toolItems,
+          },
+          {
+            id: 'download',
+            label: t('notebook.sheetToolbar.downloadGroup'),
+            items: downloadItems,
+          },
+        ]}
+      />
+      <BenchCalculatorDialog
+        open={calculatorOpen}
+        onOpenChange={setCalculatorOpen}
+      />
       <ObjectHistoryDialog
         objectId={instance.id}
         objectLabel={t('notebook.canonicalSheetWorkspace.objectLabel')}
-      />
-      <ExportMenu
-        path={`/api/export/sheet-instance/${instance.id}`}
-        formats={[
-          {
-            format: 'json',
-            label: t('notebook.canonicalSheetWorkspace.jsonFullStateLabel'),
-          },
-          {
-            format: 'csv',
-            label: t('notebook.canonicalSheetWorkspace.csvLocalGridLabel'),
-          },
-          {
-            format: 'xlsx',
-            label: t('notebook.canonicalSheetWorkspace.xlsxLocalGridLabel'),
-          },
-        ]}
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
       />
     </div>
   )
@@ -2876,6 +3004,7 @@ function CanonicalWorkspaceStatus() {
     errorCursor,
     selectedColumn,
     provenance,
+    details,
   } = useCanonicalWorkspace()
 
   const error =
@@ -2884,11 +3013,8 @@ function CanonicalWorkspaceStatus() {
     calculations.error?.message
 
   return (
-    <div className="space-y-1 border-t px-3 py-2 text-xs text-fg-muted">
+    <div className="space-y-1 border-t px-3 py-2 text-xs text-fg-muted empty:hidden">
       <CanonicalWorkspacePromotionStatus />
-      <p>
-        {t('notebook.canonicalSheetWorkspace.sortingFiltersFreezingHidden')}
-      </p>
       {staleCalc ? (
         <p role="status" className="flex flex-wrap items-center gap-2">
           {t('notebook.canonicalSheetWorkspace.calculationStale')}
@@ -2919,7 +3045,7 @@ function CanonicalWorkspaceStatus() {
           {errorCursor.rowKey}: {errorCursor.message}
         </p>
       ) : null}
-      {selectedColumn ? (
+      {details && selectedColumn ? (
         <SheetProvenanceLine
           columnLabel={selectedColumn.label}
           columnOrigin={selectedColumn.origin}
@@ -3059,6 +3185,7 @@ function CanonicalWorkspaceDialogs() {
     promoteField,
     setPromoteField,
     canWrite,
+    details,
   } = useCanonicalWorkspace()
 
   return (
@@ -3164,7 +3291,7 @@ function CanonicalWorkspaceDialogs() {
           }}
         />
       ) : null}
-      {canWrite ? (
+      {canWrite && details ? (
         <CanonicalSheetLifecyclePanel
           instance={instance}
           onInstance={(next) =>

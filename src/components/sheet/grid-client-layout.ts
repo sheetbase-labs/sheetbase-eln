@@ -71,7 +71,7 @@ export function datasetFields(
     column: index,
     writable: !column.readOnly && !readOnly && column.source !== 'calculated',
     computed: column.source === 'calculated',
-    source: sourceOf(column),
+    source: column.showSource === false ? undefined : sourceOf(column),
     sourceLabel: column.sourceLabel,
     dataType: dataTypeOf(column),
     options: column.options,

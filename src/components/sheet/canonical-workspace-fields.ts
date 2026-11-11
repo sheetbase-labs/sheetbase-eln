@@ -36,22 +36,35 @@ export function canonicalWorkspaceGridColumn(
     string,
     { identifier: string; title: string } | undefined
   >,
+  /**
+   * The Details view: header bands name each column's owner and every header
+   * carries its source badge. The everyday view leaves both off, and a
+   * quantity's unit follows each value instead of sitting in the header.
+   */
+  details = true,
 ): SheetbaseGridColumn {
   const kind = column.presentation.kind
+  const unit = column.field?.quantity?.storageUnit
 
   const base: Omit<SheetbaseGridColumn, 'type'> = {
     id: column.id,
-    label: canonicalSheetColumnHeader(column),
+    label: details ? canonicalSheetColumnHeader(column) : column.label,
     source: column.origin === 'calculation' ? 'calculated' : column.origin,
     readOnly: !canWrite || !column.editable,
-    group: column.group,
-    sourceLabel: column.sourceLabel,
+    group: details ? column.group : undefined,
+    sourceLabel: details ? column.sourceLabel : undefined,
+    showSource: details || column.origin === 'calculation',
   }
 
   if (kind === 'checkbox') return { ...base, type: 'checkbox' }
 
   if (kind === 'number')
-    return { ...base, type: 'number', displayText: formatMagnitude }
+    return {
+      ...base,
+      type: 'number',
+      displayText:
+        details || !unit ? formatMagnitude : (value) => withUnit(value, unit),
+    }
 
   if (kind === 'date') return { ...base, type: 'date' }
 
@@ -81,6 +94,23 @@ export function canonicalWorkspaceGridColumn(
   }
 
   return { ...base, type: 'text' }
+}
+
+/** A number with its unit after it; an empty or non-numeric cell is left to the grid. */
+function withUnit(
+  value: SheetbaseGridCellValue,
+  unit: string,
+): string | undefined {
+  if (typeof value !== 'number' && typeof value !== 'string') return undefined
+
+  if (value === '') return undefined
+
+  const numeric = typeof value === 'number' ? value : Number(value)
+
+  if (!Number.isFinite(numeric)) return undefined
+  const text = formatMagnitude(numeric) ?? String(numeric)
+
+  return `${text} ${unit}`
 }
 
 /** A reference picker is scoped to the field's own relationship target. */

@@ -886,3 +886,35 @@
 .grid-cell.append-row {
   z-index: 6;
 }
+
+/* Show changes: a changed cell keeps its old value, struck through, before
+   the value it holds now. */
+.sheet-cell-change {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: baseline;
+  gap: 0.35em;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sheet-cell-change > del {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-fg-muted);
+}
+
+.sheet-cell-change > span {
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+/* The grid's dark theme sets every cell's text colour after the flag rule, so
+   a value outside its range lost its danger colour in dark mode. Restate it
+   at the dark rule's weight until the package orders them. */
+.spreadsheet[data-theme='dark'] .grid-cell.cell-flagged {
+  color: var(--danger-text);
+}

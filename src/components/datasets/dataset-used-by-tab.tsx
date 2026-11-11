@@ -12,21 +12,16 @@
  * States are explicit: loading, denied, error, and an honest empty state when
  * nothing references the dataset yet.
  */
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { t } from '#/copy'
 import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Section } from '#/components/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { classifyDatasetTabAccess } from '#/components/datasets/dataset-detail-tabs'
 import { datasetPath, recordPath, sheetPath } from '#/lib/navigation'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -51,6 +46,58 @@ function dependencyHref(kind: string, id: string): string | null {
   if (kind === 'record') return recordPath(id)
 
   return null
+}
+
+type Dependent = ReturnType<typeof datasetUsers>[number]
+
+function UsedByTable({ users }: { users: Dependent[] }) {
+  const columns = useMemo<RegistryColumn<Dependent>[]>(
+    () => [
+      {
+        id: 'record',
+        header: t('data.datasetUsedByTab.record'),
+        accessorFn: (row) => row.id,
+        enableHiding: false,
+        cell: ({ row }) => {
+          const href = dependencyHref(row.original.kind, row.original.id)
+
+          return href ? (
+            <a href={href} className="mono text-link">
+              {row.original.id.slice(0, 8)}
+            </a>
+          ) : (
+            <span className="mono">{row.original.id.slice(0, 8)}</span>
+          )
+        },
+      },
+      {
+        id: 'title',
+        header: t('data.datasetUsedByTab.title'),
+        accessorFn: (row) => row.label || row.kind.replaceAll('_', ' '),
+        cell: ({ row }) =>
+          row.original.label || row.original.kind.replaceAll('_', ' '),
+      },
+      {
+        id: 'how',
+        header: t('data.datasetUsedByTab.how'),
+        accessorFn: (row) => relationLabel(row.relation),
+        cell: ({ row }) => relationLabel(row.original.relation),
+      },
+    ],
+    [],
+  )
+
+  return (
+    <TableBox>
+      <RegistryGrid
+        label={t('data.datasetUsedByTab.usedBy')}
+        rows={users}
+        columns={columns}
+        getRowId={(row) => `${row.kind}:${row.id}`}
+        selectable={false}
+      />
+    </TableBox>
+  )
 }
 
 export function DatasetUsedByTab({
@@ -110,47 +157,7 @@ export function DatasetUsedByTab({
     <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-auto px-4 py-5 md:px-6">
       <Section title={t('data.datasetUsedByTab.usedBy')} count={users.length}>
         {users.length ? (
-          <TableBox>
-            <Table aria-label={t('data.datasetUsedByTab.usedBy')}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="first:pl-3">
-                    {t('data.datasetUsedByTab.record')}
-                  </TableHead>
-                  <TableHead>{t('data.datasetUsedByTab.title')}</TableHead>
-                  <TableHead>{t('data.datasetUsedByTab.how')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((dependency) => {
-                  const href = dependencyHref(dependency.kind, dependency.id)
-
-                  return (
-                    <TableRow key={`${dependency.kind}:${dependency.id}`}>
-                      <TableCell className="first:pl-3">
-                        {href ? (
-                          <a href={href} className="mono text-link">
-                            {dependency.id.slice(0, 8)}
-                          </a>
-                        ) : (
-                          <span className="mono">
-                            {dependency.id.slice(0, 8)}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {dependency.label ||
-                          dependency.kind.replaceAll('_', ' ')}
-                      </TableCell>
-                      <TableCell>
-                        {relationLabel(dependency.relation)}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </TableBox>
+          <UsedByTable users={users} />
         ) : (
           <EmptyState
             icon="link"

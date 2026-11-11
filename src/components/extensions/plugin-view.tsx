@@ -14,15 +14,9 @@ import { Checkbox } from '#/components/ui/checkbox'
 import { Field, Input } from '#/components/ui/input'
 import { Progress } from '#/components/ui/progress'
 import { Select } from '#/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { TableBox } from '#/components/ui/table'
 import { sanitizeSvg } from '#/lib/extensions/screens'
 import type { ScreenNode } from '#/lib/extensions/screens'
 import { cn } from '#/lib/utils'
@@ -56,6 +50,52 @@ const PROGRESS_TONE = {
 
 /** Starting values of every input in a view, so a button sends what is on screen. */
 // react-doctor-disable-next-line react-doctor/only-export-components -- initialValues is the screen’s starting state, used by the form harness beside this renderer; it belongs with the drawing it feeds.
+type TableNode = Extract<ScreenNode, { type: 'table' }>
+
+type TableNodeRow = TableNode['rows'][number]
+
+/** A plugin's table, drawn on the app's own grid so it sorts and exports. */
+function ScreenTable({ node }: { node: TableNode }) {
+  const columns = React.useMemo<RegistryColumn<TableNodeRow>[]>(
+    () =>
+      node.columns.map((column) => ({
+        id: column.key,
+        header: column.label,
+        accessorFn: (row: TableNodeRow) => row[column.key] ?? '',
+        meta:
+          column.align === 'end'
+            ? { headerClassName: 'text-right', cellClassName: 'text-right' }
+            : undefined,
+        cell: ({ row }) => (
+          <span className={column.align === 'end' ? 'num' : undefined}>
+            {row.original[column.key] === null
+              ? ''
+              : String(row.original[column.key])}
+          </span>
+        ),
+      })),
+    [node.columns],
+  )
+
+  // A plugin's table rows carry no identity, so the declared order is the key.
+  const rows = React.useMemo(
+    () => node.rows.map((row, index) => ({ ...row, __row: String(index) })),
+    [node.rows],
+  )
+
+  return (
+    <TableBox>
+      <RegistryGrid
+        label={node.columns.map((column) => column.label).join(', ')}
+        rows={rows}
+        columns={columns as RegistryColumn<(typeof rows)[number]>[]}
+        getRowId={(row) => row.__row}
+        selectable={false}
+      />
+    </TableBox>
+  )
+}
+
 export function initialValues(node: ScreenNode): PluginValues {
   const out: PluginValues = {}
 
@@ -223,41 +263,7 @@ function Node({ node, ...ctx }: { node: ScreenNode } & NodeContext) {
         />
       )
     case 'table':
-      return (
-        <TableBox>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {node.columns.map((column) => (
-                  <TableHead
-                    key={column.key}
-                    className={column.align === 'end' ? 'text-right' : ''}
-                  >
-                    {column.label}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {node.rows.map((row, i) => (
-                // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a plugin’s table rows carry no identity, so the declared row order is the only stable key.
-                <TableRow key={i}>
-                  {node.columns.map((column) => (
-                    <TableCell
-                      key={column.key}
-                      className={
-                        column.align === 'end' ? 'text-right tabular-nums' : ''
-                      }
-                    >
-                      {row[column.key] === null ? '' : String(row[column.key])}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableBox>
-      )
+      return <ScreenTable node={node} />
     case 'svg': {
       const clean = sanitizeSvg(node.svg)
 

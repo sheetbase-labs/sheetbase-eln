@@ -1,14 +1,9 @@
+import { useMemo } from 'react'
 import { Muted } from '#/components/ui/layout'
 import { z } from 'zod'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { TableBox } from '#/components/ui/table'
 import type { PreviewCell, ResultPreview } from '#/lib/pipelines/result-preview'
 
 const plural = (n: number, one: string, many: string) =>
@@ -25,6 +20,8 @@ function cellText(value: PreviewCell | undefined): string {
   return value === null || value === undefined ? '—' : String(value)
 }
 
+type PreviewRow = { key: string; values: ResultPreview['rows'][number] }
+
 /**
  * The first rows a transform produced, as a table, with a line saying how many
  * there were. Shared by a finished run's result and by "Try draft".
@@ -37,56 +34,49 @@ export function PreviewTable({
   /** True when the full result is stored elsewhere, so a long one is not lost. */
   keptAll?: boolean
 }) {
-  const occurrences = new Map<string, number>()
+  const rows = useMemo(() => {
+    const occurrences = new Map<string, number>()
 
-  const rows = preview.rows.map((row) => {
-    const content = JSON.stringify(row)
-    const occurrence = occurrences.get(content) ?? 0
-    occurrences.set(content, occurrence + 1)
-    const columnOccurrences = new Map<string, number>()
+    return preview.rows.map((row) => {
+      const content = JSON.stringify(row)
+      const occurrence = occurrences.get(content) ?? 0
+      occurrences.set(content, occurrence + 1)
 
-    return {
-      key: `${content}:${occurrence}`,
-      cells: row.map((value, position) => {
-        const column = preview.columns[position] ?? ''
-        const columnOccurrence = columnOccurrences.get(column) ?? 0
-        columnOccurrences.set(column, columnOccurrence + 1)
+      return { key: `${content}:${occurrence}`, values: row }
+    })
+  }, [preview.rows])
 
-        return {
-          key: `${column}:${columnOccurrence}`,
-          text: cellText(value),
-          numeric: numericPreviewCellSchema.safeParse(value).success,
-        }
-      }),
-    }
-  })
+  const columns = useMemo<RegistryColumn<PreviewRow>[]>(
+    () =>
+      preview.columns.map((column, position) => ({
+        id: `${position}:${column}`,
+        header: column,
+        accessorFn: (row: PreviewRow) => row.values[position] ?? null,
+        meta: { headerTitle: column },
+        cell: ({ row }) => {
+          const value = row.original.values[position]
+          const numeric = numericPreviewCellSchema.safeParse(value).success
+
+          return (
+            <span className={numeric ? 'num block text-right' : undefined}>
+              {cellText(value)}
+            </span>
+          )
+        },
+      })),
+    [preview.columns],
+  )
 
   return (
     <>
       <TableBox>
-        <Table caption="Result preview">
-          <TableHeader>
-            <TableRow>
-              {preview.columns.map((column) => (
-                <TableHead key={column}>{column}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.key}>
-                {row.cells.map((cell) => (
-                  <TableCell
-                    key={cell.key}
-                    align={cell.numeric ? 'right' : undefined}
-                  >
-                    {cell.text}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label="Result preview"
+          rows={rows}
+          columns={columns}
+          getRowId={(row) => row.key}
+          selectable={false}
+        />
       </TableBox>
       <Muted>
         {preview.truncated

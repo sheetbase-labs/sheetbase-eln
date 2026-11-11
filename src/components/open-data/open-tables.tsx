@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Notice } from '#/components/ui/alert'
@@ -28,15 +28,9 @@ import { Secret } from '#/components/ui/secret'
 import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
 import { Tabs } from '#/components/ui/tabs'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { TableBox } from '#/components/ui/table'
 import { CheckRow } from '#/components/settings/settings-page'
 import { toast } from '#/components/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
@@ -248,58 +242,93 @@ function LakeTableGrid({
   dataAccess: boolean
   isPending: boolean
 }) {
+  const columns = useMemo<RegistryColumn<LakeTable>[]>(
+    () => [
+      {
+        id: 'table',
+        header: t('openData.tables.columns.table'),
+        accessorFn: (row) => (dataAccess ? row.table_name : row.source_label),
+        enableHiding: false,
+        cell: ({ row }) =>
+          dataAccess ? (
+            <code>{row.original.table_name}</code>
+          ) : (
+            row.original.source_label
+          ),
+      },
+      {
+        id: 'from',
+        header: t('openData.tables.columns.from'),
+        accessorFn: (row) => row.source_label,
+        cell: ({ row }) => (
+          <span title={row.original.source_label}>
+            {row.original.source_kind === 'dataset'
+              ? t('openData.tables.kindDataset')
+              : t('openData.tables.kindModel')}
+            {' · '}
+            {row.original.source_label}
+          </span>
+        ),
+      },
+      {
+        id: 'rows',
+        header: t('openData.tables.columns.rows'),
+        accessorFn: (row) => row.row_count,
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => (
+          <span className="num">{row.original.row_count.toLocaleString()}</span>
+        ),
+      },
+      {
+        id: 'size',
+        header: t('openData.tables.columns.size'),
+        accessorFn: (row) => row.byte_size,
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => (
+          <span className="num">{formatBytes(row.original.byte_size)}</span>
+        ),
+      },
+      {
+        id: 'updated',
+        header: t('openData.tables.columns.updated'),
+        accessorFn: (row) => row.last_snapshot_at ?? '',
+        cell: ({ row }) =>
+          row.original.last_snapshot_at
+            ? formatDate(row.original.last_snapshot_at)
+            : '—',
+      },
+      {
+        id: 'status',
+        header: t('openData.tables.columns.status'),
+        accessorFn: (row) => row.status,
+        cell: ({ row }) => (
+          <span title={row.original.last_error ?? undefined}>
+            <Status tone={TABLE_TONE[row.original.status]}>
+              {tableStatus(row.original.status)}
+            </Status>
+          </span>
+        ),
+      },
+    ],
+    [dataAccess],
+  )
+
   return (
     <TableBox>
-      <Table caption={t('openData.tables.title')}>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t('openData.tables.columns.table')}</TableHead>
-            <TableHead>{t('openData.tables.columns.from')}</TableHead>
-            <TableHead className="text-right">
-              {t('openData.tables.columns.rows')}
-            </TableHead>
-            <TableHead className="text-right">
-              {t('openData.tables.columns.size')}
-            </TableHead>
-            <TableHead>{t('openData.tables.columns.updated')}</TableHead>
-            <TableHead>{t('openData.tables.columns.status')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody
-          loading={isPending}
-          empty={t('openData.tables.empty')}
-          colSpan={6}
-        >
-          {rows.map((row) => (
-            <TableRow key={row.id}>
-              <TableCell>
-                {dataAccess ? <code>{row.table_name}</code> : row.source_label}
-              </TableCell>
-              <TableCell title={row.source_label}>
-                {row.source_kind === 'dataset'
-                  ? t('openData.tables.kindDataset')
-                  : t('openData.tables.kindModel')}
-                {' · '}
-                {row.source_label}
-              </TableCell>
-              <TableCell className="text-right">
-                {row.row_count.toLocaleString()}
-              </TableCell>
-              <TableCell className="text-right">
-                {formatBytes(row.byte_size)}
-              </TableCell>
-              <TableCell>
-                {row.last_snapshot_at ? formatDate(row.last_snapshot_at) : '—'}
-              </TableCell>
-              <TableCell title={row.last_error ?? undefined}>
-                <Status tone={TABLE_TONE[row.status]}>
-                  {tableStatus(row.status)}
-                </Status>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      {!isPending && rows.length === 0 ? (
+        <p role="status" className="px-3 py-6 text-center text-fg-muted">
+          {t('openData.tables.empty')}
+        </p>
+      ) : (
+        <RegistryGrid
+          label={t('openData.tables.title')}
+          rows={[...rows]}
+          columns={columns}
+          getRowId={(row) => row.id}
+          selectable={false}
+          isLoading={isPending}
+        />
+      )}
     </TableBox>
   )
 }
@@ -312,51 +341,79 @@ function LakeLoginTable({
   rows: readonly LakeLogin[]
   onRevoke: (login: LakeLogin) => void
 }) {
+  const columns = useMemo<RegistryColumn<LakeLogin>[]>(
+    () => [
+      {
+        id: 'name',
+        header: t('openData.logins.name'),
+        accessorFn: (row) => row.name,
+        enableHiding: false,
+        cell: ({ row }) => (
+          <span title={row.original.username}>
+            {row.original.name}{' '}
+            <Status tone={row.original.status === 'active' ? 'ok' : 'warn'}>
+              {LOGIN_LABEL[row.original.status]}
+            </Status>
+          </span>
+        ),
+      },
+      {
+        id: 'created',
+        header: t('openData.logins.created'),
+        accessorFn: (row) => row.created_at,
+        cell: ({ row }) => formatDate(row.original.created_at),
+      },
+      {
+        id: 'expires',
+        header: t('openData.logins.expires'),
+        accessorFn: (row) => row.expires_at ?? '',
+        cell: ({ row }) =>
+          row.original.expires_at
+            ? formatDate(row.original.expires_at)
+            : t('openData.logins.never'),
+      },
+      {
+        id: 'lastUsed',
+        header: t('openData.logins.lastUsed'),
+        accessorFn: (row) => row.last_used_at ?? '',
+        cell: ({ row }) =>
+          row.original.last_used_at
+            ? formatDate(row.original.last_used_at)
+            : '—',
+      },
+      {
+        id: 'revoke',
+        header: () => (
+          <span className="sr-only">{t('openData.logins.revoke')}</span>
+        ),
+        enableSorting: false,
+        enableHiding: false,
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => (
+          <Button
+            size="sm"
+            variant="quiet"
+            onClick={() => onRevoke(row.original)}
+          >
+            {t('openData.logins.revoke')}
+          </Button>
+        ),
+      },
+    ],
+    [onRevoke],
+  )
+
   if (rows.length === 0) return null
 
   return (
     <TableBox>
-      <Table caption={t('openData.logins.title')}>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t('openData.logins.name')}</TableHead>
-            <TableHead>{t('openData.logins.created')}</TableHead>
-            <TableHead>{t('openData.logins.expires')}</TableHead>
-            <TableHead>{t('openData.logins.lastUsed')}</TableHead>
-            <TableHead />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((login) => (
-            <TableRow key={login.id}>
-              <TableCell title={login.username}>
-                {login.name}{' '}
-                <Status tone={login.status === 'active' ? 'ok' : 'warn'}>
-                  {LOGIN_LABEL[login.status]}
-                </Status>
-              </TableCell>
-              <TableCell>{formatDate(login.created_at)}</TableCell>
-              <TableCell>
-                {login.expires_at
-                  ? formatDate(login.expires_at)
-                  : t('openData.logins.never')}
-              </TableCell>
-              <TableCell>
-                {login.last_used_at ? formatDate(login.last_used_at) : '—'}
-              </TableCell>
-              <TableCell className="text-right">
-                <Button
-                  size="sm"
-                  variant="quiet"
-                  onClick={() => onRevoke(login)}
-                >
-                  {t('openData.logins.revoke')}
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <RegistryGrid
+        label={t('openData.logins.title')}
+        rows={[...rows]}
+        columns={columns}
+        getRowId={(row) => row.id}
+        selectable={false}
+      />
     </TableBox>
   )
 }

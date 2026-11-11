@@ -9,7 +9,7 @@
  * governed run model as instrument ingestion (run history shows attempts,
  * stage logs and provenance).
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatDate } from '#/lib/format-date'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -19,14 +19,10 @@ import { Field, Input } from '#/components/ui/input'
 import { Notice } from '#/components/ui/alert'
 import { Section } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { PreviewGrid } from '#/components/inventory/preview-grid'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { TableBox } from '#/components/ui/table'
 import { Select } from '#/components/ui/select'
 import {
   DatasetLandingLink,
@@ -262,33 +258,87 @@ function PreviewTable({ preview }: { preview: PreviewResult }) {
   if (preview.columns.length === 0) return null
 
   return (
-    <Table
-      aria-label={t(
-        'settings.integrations.enterpriseSourcePanel.sourcePreviewAria',
-      )}
-    >
-      <TableHeader>
-        <TableRow>
-          {preview.columns.map((column) => (
-            <TableHead key={column} className="mono text-label">
-              {column}
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {preview.rows.map((row, index) => (
-          // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- A preview page carries no row identity: the source table's keys are not part of it, and rows render in the order the source returned.
-          <TableRow key={index}>
-            {preview.columns.map((column) => (
-              <TableCell key={column} className="mono text-label">
-                {row[column] ?? ''}
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <PreviewGrid
+      label={t('settings.integrations.enterpriseSourcePanel.sourcePreviewAria')}
+      columns={preview.columns}
+      rows={preview.rows}
+    />
+  )
+}
+
+type StorageObject = S3DiscoveryPage['objects'][number]
+
+function ObjectsGrid({
+  objects,
+  selectedKey,
+  onSelect,
+}: {
+  objects: StorageObject[]
+  selectedKey: string
+  onSelect: (key: string) => void
+}) {
+  const choose = useRef(onSelect)
+
+  useEffect(() => {
+    choose.current = onSelect
+  })
+
+  const columns = useMemo<RegistryColumn<StorageObject>[]>(
+    () => [
+      {
+        id: 'key',
+        header: t('settings.integrations.enterpriseSourcePanel.key'),
+        accessorFn: (object) => object.key,
+        enableHiding: false,
+        cell: ({ row }) => <span className="mono">{row.original.key}</span>,
+      },
+      {
+        id: 'size',
+        header: t('settings.integrations.enterpriseSourcePanel.size'),
+        accessorFn: (object) => object.byteSize,
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => <span className="num">{row.original.byteSize}</span>,
+      },
+      {
+        id: 'modified',
+        header: t('settings.integrations.enterpriseSourcePanel.modified'),
+        accessorFn: (object) => object.lastModified ?? '',
+        cell: ({ row }) =>
+          row.original.lastModified
+            ? formatDate(row.original.lastModified, { time: true })
+            : '—',
+      },
+      {
+        id: 'select',
+        header: () => (
+          <span className="sr-only">
+            {t('settings.integrations.enterpriseSourcePanel.actionsAria')}
+          </span>
+        ),
+        enableSorting: false,
+        enableHiding: false,
+        cell: ({ row }) => (
+          <Button
+            size="sm"
+            variant={selectedKey === row.original.key ? 'primary' : 'quiet'}
+            onClick={() => choose.current(row.original.key)}
+          >
+            {t('common.actions.select')}
+          </Button>
+        ),
+      },
+    ],
+    [selectedKey],
+  )
+
+  return (
+    <RegistryGrid
+      label={t('settings.integrations.enterpriseSourcePanel.objectStorageAria')}
+      rows={objects}
+      columns={columns}
+      getRowId={(object) => object.key}
+      selectable={false}
+    />
   )
 }
 
@@ -526,60 +576,17 @@ function S3SourcePanel({
         </div>
 
         {objects.length > 0 && (
-          <Table
-            aria-label={t(
-              'settings.integrations.enterpriseSourcePanel.objectStorageAria',
-            )}
-          >
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  {t('settings.integrations.enterpriseSourcePanel.key')}
-                </TableHead>
-                <TableHead>
-                  {t('settings.integrations.enterpriseSourcePanel.size')}
-                </TableHead>
-                <TableHead>
-                  {t('settings.integrations.enterpriseSourcePanel.modified')}
-                </TableHead>
-                <TableHead
-                  aria-label={t(
-                    'settings.integrations.enterpriseSourcePanel.actionsAria',
-                  )}
-                />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {objects.map((object) => (
-                <TableRow key={object.key}>
-                  <TableCell className="mono text-label">
-                    {object.key}
-                  </TableCell>
-                  <TableCell className="text-label">
-                    {object.byteSize}
-                  </TableCell>
-                  <TableCell className="text-label">
-                    {object.lastModified
-                      ? formatDate(object.lastModified, { time: true })
-                      : '—'}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="sm"
-                      variant={selectedKey === object.key ? 'primary' : 'quiet'}
-                      onClick={() => {
-                        setSelectedKey(object.key)
-                        setObjects((current) => current)
-                        previewMutation.mutate()
-                      }}
-                    >
-                      {t('common.actions.select')}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <TableBox>
+            <ObjectsGrid
+              objects={objects}
+              selectedKey={selectedKey}
+              onSelect={(key) => {
+                setSelectedKey(key)
+                setObjects((current) => current)
+                previewMutation.mutate()
+              }}
+            />
+          </TableBox>
         )}
 
         {selectedKey && (

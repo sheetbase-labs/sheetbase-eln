@@ -7,6 +7,9 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { SettingsBody } from '#/components/settings/settings-page'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
@@ -18,15 +21,7 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { toast } from '#/components/ui/sonner'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
 import { Tooltip } from '#/components/ui/tooltip'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
@@ -168,8 +163,21 @@ export function LabWatchersPanel({ workspaceId }: { workspaceId: string }) {
     (row) => showSetAside || row.status === 'open',
   )
 
+  const watcherColumns = watcherColumnsFor({
+    busy: save.isPending,
+    looking: look.isPending,
+    onSave: (meta, next) => save.mutate({ meta, ...next }),
+    onLook: (id) => look.mutate(id),
+  })
+
+  const findingColumns = findingColumnsFor({
+    busy: change.isPending,
+    onChange: (finding, action, days) =>
+      change.mutate({ finding, action, days }),
+  })
+
   return (
-    <div className="flex flex-col gap-6">
+    <SettingsBody>
       <Section title={t('agents.watchers.reviews')}>
         {watchers.error ? (
           <Notice tone="bad">{t('agents.watchers.loadError')}</Notice>
@@ -177,43 +185,18 @@ export function LabWatchersPanel({ workspaceId }: { workspaceId: string }) {
           <Skeleton className="h-40 w-full" />
         ) : (
           <TableBox>
-            <Table caption={t('agents.watchers.tableLabel')}>
-              <TableHeader>
-                <tr>
-                  <TableHead className="w-12">
-                    {t('agents.watchers.on')}
-                  </TableHead>
-                  <TableHead>{t('agents.watchers.watcher')}</TableHead>
-                  <TableHead className="w-40">
-                    {t('agents.watchers.schedule')}
-                  </TableHead>
-                  <TableHead className="w-44">
-                    {t('agents.watchers.lastRun')}
-                  </TableHead>
-                  <TableHead className="w-24">
-                    {t('agents.watchers.found')}
-                  </TableHead>
-                  <TableHead>
-                    <span className="sr-only">
-                      {t('agents.watchers.runNow')}
-                    </span>
-                  </TableHead>
-                </tr>
-              </TableHeader>
-              <TableBody>
-                {WATCHERS.map((meta) => (
-                  <WatcherRow
-                    key={meta.kind}
-                    meta={meta}
-                    row={byKind.get(meta.kind) ?? null}
-                    busy={save.isPending}
-                    looking={look.isPending}
-                    onSave={(next) => save.mutate({ meta, ...next })}
-                    onLook={(id) => look.mutate(id)}
-                  />
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label={t('agents.watchers.tableLabel')}
+              rows={WATCHERS.map((meta) => ({
+                id: meta.kind,
+                meta,
+                row: byKind.get(meta.kind) ?? null,
+              }))}
+              columns={watcherColumns}
+              getRowId={(line) => line.id}
+              selectable={false}
+              sortable={false}
+            />
           </TableBox>
         )}
       </Section>
@@ -236,91 +219,104 @@ export function LabWatchersPanel({ workspaceId }: { workspaceId: string }) {
           <Muted>{t('agents.watchers.noFindings')}</Muted>
         ) : (
           <TableBox>
-            <Table caption={t('agents.watchers.findingsLabel')}>
-              <TableHeader>
-                <tr>
-                  <TableHead>{t('agents.watchers.finding')}</TableHead>
-                  <TableHead>{t('agents.watchers.what')}</TableHead>
-                  <TableHead className="w-36">
-                    {t('agents.checks.result')}
-                  </TableHead>
-                  <TableHead>
-                    <span className="sr-only">
-                      {t('agents.watchers.suggestion')}
-                    </span>
-                  </TableHead>
-                </tr>
-              </TableHeader>
-              <TableBody>
-                {shown.map((finding) => (
-                  <FindingRow
-                    key={finding.id}
-                    finding={finding}
-                    busy={change.isPending}
-                    onChange={(action, days) =>
-                      change.mutate({ finding, action, days })
-                    }
-                  />
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label={t('agents.watchers.findingsLabel')}
+              rows={shown}
+              columns={findingColumns}
+              getRowId={(finding) => finding.id}
+              selectable={false}
+            />
           </TableBox>
         )}
       </Section>
-    </div>
+    </SettingsBody>
   )
 }
 
-function WatcherRow({
-  meta,
-  row,
+interface WatcherLine {
+  id: string
+  meta: WatcherMeta
+  row: LabWatcherRow | null
+}
+
+type WatcherNext = {
+  enabled: boolean
+  schedule: WatcherSchedule
+  param: number | null
+}
+
+function watcherState(line: WatcherLine) {
+  const { meta, row } = line
+  const paramKey = meta.param?.key
+  const stored = paramKey ? row?.params[paramKey] : undefined
+
+  return {
+    enabled: row?.enabled ?? false,
+    schedule: row?.schedule ?? 'daily',
+    param:
+      z.number().safeParse(stored).data ?? meta.param?.defaultValue ?? null,
+  }
+}
+
+/** The watchers table's columns: on/off, what it looks for, how often, and its last look. */
+function watcherColumnsFor({
   busy,
   looking,
   onSave,
   onLook,
 }: {
-  meta: WatcherMeta
-  row: LabWatcherRow | null
   busy: boolean
   looking: boolean
-  onSave: (next: {
-    enabled: boolean
-    schedule: WatcherSchedule
-    param: number | null
-  }) => void
+  onSave: (meta: WatcherMeta, next: WatcherNext) => void
   onLook: (id: string) => void
-}) {
-  const enabled = row?.enabled ?? false
-  const schedule = row?.schedule ?? 'daily'
-  const paramKey = meta.param?.key
-  const stored = paramKey ? row?.params[paramKey] : undefined
+}): RegistryColumn<WatcherLine>[] {
+  return [
+    {
+      id: 'on',
+      header: t('agents.watchers.on'),
+      size: 64,
+      cell: ({ row }) => {
+        const { meta } = row.original
+        const { enabled, schedule, param } = watcherState(row.original)
 
-  const param =
-    z.number().safeParse(stored).data ?? meta.param?.defaultValue ?? null
+        return (
+          <Checkbox
+            aria-label={meta.label}
+            checked={enabled}
+            disabled={busy}
+            onCheckedChange={(value) =>
+              onSave(meta, { enabled: Boolean(value), schedule, param })
+            }
+          />
+        )
+      },
+    },
+    {
+      id: 'watcher',
+      header: t('agents.watchers.watcher'),
+      cell: ({ row }) => {
+        const { meta } = row.original
 
-  return (
-    <TableRow>
-      <TableCell>
-        <Checkbox
-          aria-label={meta.label}
-          checked={enabled}
-          disabled={busy}
-          onCheckedChange={(value) =>
-            onSave({ enabled: Boolean(value), schedule, param })
-          }
-        />
-      </TableCell>
-      <TableCell>
-        <Tooltip content={meta.description}>
-          <span className="block max-w-[34rem]">
-            <span className="block font-medium text-fg">{meta.label}</span>
-            <span className="block truncate text-label text-fg-muted">
-              {meta.description}
+        return (
+          <Tooltip content={meta.description}>
+            <span className="block max-w-[34rem] truncate font-medium text-fg">
+              {meta.label}
             </span>
-          </span>
-        </Tooltip>
-        {meta.param && enabled ? (
-          <label className="mt-1 flex items-center gap-2 text-label text-fg-muted">
+          </Tooltip>
+        )
+      },
+    },
+    {
+      id: 'setting',
+      header: t('agents.watchers.setting'),
+      cell: ({ row }) => {
+        const { meta } = row.original
+        const { enabled, schedule, param } = watcherState(row.original)
+
+        if (!meta.param || !enabled) return null
+
+        return (
+          <label className="flex items-center gap-2 text-label text-fg-muted">
             {meta.param.label}
             <Input
               type="number"
@@ -337,78 +333,111 @@ function WatcherRow({
                   next <= (meta.param?.max ?? 365) &&
                   next !== param
                 ) {
-                  onSave({ enabled, schedule, param: next })
+                  onSave(meta, { enabled, schedule, param: next })
                 }
               }}
             />
             {meta.param.unit}
           </label>
-        ) : null}
-      </TableCell>
-      <TableCell>
-        <Select
-          size="sm"
-          aria-label={`${meta.label}: ${t('agents.watchers.schedule')}`}
-          value={schedule}
-          disabled={busy}
-          onChange={(event) => {
-            const selectedSchedule = WATCHER_SCHEDULES.find(
-              (option) => option === event.target.value,
-            )
+        )
+      },
+    },
+    {
+      id: 'schedule',
+      header: t('agents.watchers.schedule'),
+      size: 160,
+      cell: ({ row }) => {
+        const { meta } = row.original
+        const { enabled, schedule, param } = watcherState(row.original)
 
-            if (!selectedSchedule) return
-            onSave({
-              enabled,
-              schedule: selectedSchedule,
-              param,
-            })
-          }}
-        >
-          {WATCHER_SCHEDULES.map((value) => (
-            <option key={value} value={value}>
-              {WATCHER_SCHEDULE_LABEL[value]}
-            </option>
-          ))}
-        </Select>
-      </TableCell>
-      <TableCell className="text-fg-muted">
-        {row?.last_run_at
-          ? formatDate(row.last_run_at, { time: true })
-          : t('agents.watchers.never')}
-      </TableCell>
-      <TableCell>{row?.last_found ?? ''}</TableCell>
-      <TableCell className="text-right">
-        {row && enabled ? (
-          <Button size="sm" disabled={looking} onClick={() => onLook(row.id)}>
+        return (
+          <Select
+            size="sm"
+            aria-label={`${meta.label}: ${t('agents.watchers.schedule')}`}
+            value={schedule}
+            disabled={busy}
+            onChange={(event) => {
+              const selectedSchedule = WATCHER_SCHEDULES.find(
+                (option) => option === event.target.value,
+              )
+
+              if (!selectedSchedule) return
+              onSave(meta, { enabled, schedule: selectedSchedule, param })
+            }}
+          >
+            {WATCHER_SCHEDULES.map((value) => (
+              <option key={value} value={value}>
+                {WATCHER_SCHEDULE_LABEL[value]}
+              </option>
+            ))}
+          </Select>
+        )
+      },
+    },
+    {
+      id: 'lastRun',
+      header: t('agents.watchers.lastRun'),
+      size: 180,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.row?.last_run_at
+            ? formatDate(row.original.row.last_run_at, { time: true })
+            : t('agents.watchers.never')}
+        </span>
+      ),
+    },
+    {
+      id: 'found',
+      header: t('agents.watchers.found'),
+      size: 96,
+      cell: ({ row }) => row.original.row?.last_found ?? '',
+    },
+    {
+      id: 'runNow',
+      header: '',
+      enableHiding: false,
+      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+      cell: ({ row }) => {
+        const watcher = row.original.row
+
+        return watcher && watcher.enabled ? (
+          <Button
+            size="sm"
+            disabled={looking}
+            onClick={() => onLook(watcher.id)}
+          >
             {looking
               ? t('agents.watchers.looking')
               : t('agents.watchers.runNow')}
           </Button>
-        ) : null}
-      </TableCell>
-    </TableRow>
-  )
+        ) : null
+      },
+    },
+  ]
 }
 
-function FindingRow({
-  finding,
+type FindingAction = 'dismiss' | 'snooze' | 'reopen' | 'act'
+
+function findingColumnsFor({
   busy,
   onChange,
 }: {
-  finding: LabWatcherFindingRow
   busy: boolean
   onChange: (
-    action: 'dismiss' | 'snooze' | 'reopen' | 'act',
+    finding: LabWatcherFindingRow,
+    action: FindingAction,
     days?: number,
   ) => void
-}) {
-  const setAside =
-    finding.status === 'snoozed' || finding.status === 'dismissed'
+}): RegistryColumn<LabWatcherFindingRow>[] {
+  return [
+    {
+      id: 'finding',
+      header: t('agents.watchers.finding'),
+      accessorFn: (finding) => finding.title,
+      cell: ({ row }) => {
+        const finding = row.original
 
-  return (
-    <TableRow>
-      <TableCell>
-        {finding.object_id ? (
+        return finding.object_id ? (
           <ObjectLink
             kind={finding.object_kind}
             id={finding.object_id}
@@ -418,76 +447,105 @@ function FindingRow({
           </ObjectLink>
         ) : (
           <span className="font-medium text-fg">{finding.title}</span>
-        )}
-      </TableCell>
-      <TableCell className="text-fg-muted">
-        <Tooltip content={finding.summary}>
-          <span className="block max-w-[30rem] truncate">
-            {finding.summary}
+        )
+      },
+    },
+    {
+      id: 'what',
+      header: t('agents.watchers.what'),
+      accessorFn: (finding) => finding.summary,
+      cell: ({ row }) => (
+        <Tooltip content={row.original.summary}>
+          <span className="block max-w-[30rem] truncate text-fg-muted">
+            {row.original.summary}
           </span>
         </Tooltip>
-      </TableCell>
-      <TableCell>
-        <Status tone={STATUS_TONE[finding.status]}>
-          {finding.status === 'snoozed' && finding.snoozed_until
-            ? t('agents.watchers.snoozedUntil', {
-                date: formatDate(finding.snoozed_until),
-              })
-            : STATUS_LABEL[finding.status]}
-        </Status>
-      </TableCell>
-      <TableCell className="text-right">
-        <div className="flex flex-wrap justify-end gap-1.5">
-          {finding.status === 'open' && finding.suggested_action ? (
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={busy}
-              onClick={() => onChange('act')}
-            >
-              {finding.suggested_action.label}
-            </Button>
-          ) : null}
-          {finding.status === 'open' ? (
-            <>
-              <Select
+      ),
+    },
+    {
+      id: 'status',
+      header: t('agents.checks.result'),
+      size: 190,
+      accessorFn: (finding) => finding.status,
+      cell: ({ row }) => {
+        const finding = row.original
+
+        return (
+          <Status tone={STATUS_TONE[finding.status]}>
+            {finding.status === 'snoozed' && finding.snoozed_until
+              ? t('agents.watchers.snoozedUntil', {
+                  date: formatDate(finding.snoozed_until),
+                })
+              : STATUS_LABEL[finding.status]}
+          </Status>
+        )
+      },
+    },
+    {
+      id: 'suggestion',
+      header: '',
+      enableHiding: false,
+      size: 360,
+      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+      cell: ({ row }) => {
+        const finding = row.original
+
+        const setAside =
+          finding.status === 'snoozed' || finding.status === 'dismissed'
+
+        return (
+          <div className="flex justify-end gap-1.5">
+            {finding.status === 'open' && finding.suggested_action ? (
+              <Button
                 size="sm"
-                className="w-28"
-                aria-label={`${t('agents.watchers.snooze')}: ${finding.title}`}
-                value=""
+                variant="primary"
                 disabled={busy}
-                onChange={(event) => {
-                  if (event.target.value)
-                    onChange('snooze', Number(event.target.value))
-                }}
+                onClick={() => onChange(finding, 'act')}
               >
-                <option value="">{t('agents.watchers.snooze')}</option>
-                {SNOOZE_CHOICES.map((choice) => (
-                  <option key={choice.days} value={choice.days}>
-                    {choice.label}
-                  </option>
-                ))}
-              </Select>
+                {finding.suggested_action.label}
+              </Button>
+            ) : null}
+            {finding.status === 'open' ? (
+              <>
+                <Select
+                  size="sm"
+                  className="w-28"
+                  aria-label={`${t('agents.watchers.snooze')}: ${finding.title}`}
+                  value=""
+                  disabled={busy}
+                  onChange={(event) => {
+                    if (event.target.value)
+                      onChange(finding, 'snooze', Number(event.target.value))
+                  }}
+                >
+                  <option value="">{t('agents.watchers.snooze')}</option>
+                  {SNOOZE_CHOICES.map((choice) => (
+                    <option key={choice.days} value={choice.days}>
+                      {choice.label}
+                    </option>
+                  ))}
+                </Select>
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => onChange(finding, 'dismiss')}
+                >
+                  {t('agents.watchers.dismiss')}
+                </Button>
+              </>
+            ) : null}
+            {setAside ? (
               <Button
                 size="sm"
                 disabled={busy}
-                onClick={() => onChange('dismiss')}
+                onClick={() => onChange(finding, 'reopen')}
               >
-                {t('agents.watchers.dismiss')}
+                {t('agents.watchers.reopen')}
               </Button>
-            </>
-          ) : null}
-          {setAside ? (
-            <Button
-              size="sm"
-              disabled={busy}
-              onClick={() => onChange('reopen')}
-            >
-              {t('agents.watchers.reopen')}
-            </Button>
-          ) : null}
-        </div>
-      </TableCell>
-    </TableRow>
-  )
+            ) : null}
+          </div>
+        )
+      },
+    },
+  ]
 }

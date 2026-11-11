@@ -7,6 +7,8 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 
+import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import { Muted, Section } from '#/components/ui/layout'
@@ -14,15 +16,7 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { toast } from '#/components/ui/sonner'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
+import { TableBox } from '#/components/ui/table'
 import { t } from '#/copy'
 import { aiEvalKeys, EVAL_AREA_LABEL } from '#/lib/ai-eval-tasks'
 import type {
@@ -123,6 +117,74 @@ export function AiChecksPanel({
       ),
   })
 
+  const openRun = (runs.data ?? []).find((row) => row.id === open)
+
+  const runColumns: RegistryColumn<AiEvalRunRow>[] = [
+    {
+      id: 'when',
+      header: t('agents.checks.when'),
+      accessorFn: (row) => row.finished_at,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {formatDate(row.original.finished_at, { time: true })}
+        </span>
+      ),
+    },
+    {
+      id: 'mode',
+      header: t('agents.checks.mode'),
+      accessorFn: (row) => row.mode,
+      cell: ({ row }) => (
+        <>
+          {row.original.mode === 'model'
+            ? t('agents.checks.modeModel')
+            : t('agents.checks.modeTools')}
+          <span className="text-fg-muted">
+            {' · '}
+            {row.original.trigger === 'profile_change'
+              ? t('agents.checks.afterChange')
+              : t('agents.checks.manual')}
+          </span>
+        </>
+      ),
+    },
+    {
+      id: 'result',
+      header: t('agents.checks.result'),
+      accessorFn: (row) => row.passed,
+      cell: ({ row }) => (
+        <Status tone={TONE[row.original.status]}>
+          {t('agents.checks.passedCount', {
+            passed: row.original.passed,
+            total: row.original.total,
+          })}
+          {row.original.skipped > 0
+            ? ` · ${t('agents.checks.skippedCount', { count: row.original.skipped })}`
+            : ''}
+        </Status>
+      ),
+    },
+    {
+      id: 'detail',
+      header: '',
+      enableHiding: false,
+      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+      cell: ({ row }) => {
+        const expanded = open === row.original.id
+
+        return (
+          <Button
+            size="sm"
+            aria-expanded={expanded}
+            onClick={() => setOpen(expanded ? null : row.original.id)}
+          >
+            {expanded ? t('agents.checks.hide') : t('agents.checks.detail')}
+          </Button>
+        )
+      },
+    },
+  ]
+
   return (
     <Section
       title={t('agents.checks.title')}
@@ -156,73 +218,20 @@ export function AiChecksPanel({
       ) : (runs.data ?? []).length === 0 ? (
         <Muted>{t('agents.checks.none')}</Muted>
       ) : (
-        <TableBox>
-          <Table caption={t('agents.checks.historyLabel')}>
-            <TableHeader>
-              <tr>
-                <TableHead>{t('agents.checks.when')}</TableHead>
-                <TableHead>{t('agents.checks.mode')}</TableHead>
-                <TableHead>{t('agents.checks.result')}</TableHead>
-                <TableHead>
-                  <span className="sr-only">{t('agents.checks.detail')}</span>
-                </TableHead>
-              </tr>
-            </TableHeader>
-            <TableBody>
-              {(runs.data ?? []).flatMap((row) => {
-                const expanded = open === row.id
-
-                return [
-                  <TableRow key={row.id}>
-                    <TableCell className="text-fg-muted">
-                      {formatDate(row.finished_at, { time: true })}
-                    </TableCell>
-                    <TableCell>
-                      {row.mode === 'model'
-                        ? t('agents.checks.modeModel')
-                        : t('agents.checks.modeTools')}
-                      <span className="text-fg-muted">
-                        {' · '}
-                        {row.trigger === 'profile_change'
-                          ? t('agents.checks.afterChange')
-                          : t('agents.checks.manual')}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={TONE[row.status]}>
-                        {t('agents.checks.passedCount', {
-                          passed: row.passed,
-                          total: row.total,
-                        })}
-                        {row.skipped > 0
-                          ? ` · ${t('agents.checks.skippedCount', { count: row.skipped })}`
-                          : ''}
-                      </Status>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        aria-expanded={expanded}
-                        onClick={() => setOpen(expanded ? null : row.id)}
-                      >
-                        {expanded
-                          ? t('agents.checks.hide')
-                          : t('agents.checks.detail')}
-                      </Button>
-                    </TableCell>
-                  </TableRow>,
-                  expanded ? (
-                    <TableRow key={`${row.id}-results`}>
-                      <TableCell colSpan={4}>
-                        <RunResults runId={row.id} message={row.message} />
-                      </TableCell>
-                    </TableRow>
-                  ) : null,
-                ]
-              })}
-            </TableBody>
-          </Table>
-        </TableBox>
+        <>
+          <TableBox>
+            <RegistryGrid
+              label={t('agents.checks.historyLabel')}
+              rows={runs.data ?? []}
+              columns={runColumns}
+              getRowId={(row) => row.id}
+              selectable={false}
+            />
+          </TableBox>
+          {openRun ? (
+            <RunResults runId={openRun.id} message={openRun.message} />
+          ) : null}
+        </>
       )}
     </Section>
   )
@@ -246,52 +255,64 @@ function RunResults({
 
   if (results.isLoading) return <Skeleton className="h-16 w-full" />
 
+  const resultColumns: RegistryColumn<AiEvalResultRow>[] = [
+    {
+      id: 'task',
+      header: t('agents.checks.task'),
+      accessorFn: (row) => row.title,
+      cell: ({ row }) => (
+        <>
+          <span className="font-medium text-fg">{row.original.title}</span>
+          <span className="text-fg-muted">
+            {' · '}
+            {EVAL_AREA_LABEL[row.original.area]}
+          </span>
+        </>
+      ),
+    },
+    {
+      id: 'result',
+      header: t('agents.checks.result'),
+      accessorFn: (row) => STATUS_LABEL[row.status],
+      cell: ({ row }) => (
+        <Status tone={TONE[row.original.status]}>
+          {STATUS_LABEL[row.original.status]}
+        </Status>
+      ),
+    },
+    {
+      id: 'expected',
+      header: t('agents.checks.expected'),
+      accessorFn: (row) => row.expected ?? '',
+      cell: ({ row }) => (
+        <span className="block max-w-[24rem] truncate text-fg-muted">
+          {row.original.expected ?? ''}
+        </span>
+      ),
+    },
+    {
+      id: 'actual',
+      header: t('agents.checks.actual'),
+      accessorFn: (row) => row.actual ?? row.detail ?? '',
+      cell: ({ row }) => (
+        <span className="block max-w-[24rem] truncate text-fg-muted">
+          {row.original.actual ?? row.original.detail ?? ''}
+        </span>
+      ),
+    },
+  ]
+
   return (
     <div className="flex flex-col gap-2">
       {message ? <Muted>{message}</Muted> : null}
       <TableBox>
-        <Table caption={t('agents.checks.resultsLabel')}>
-          <TableHeader>
-            <tr>
-              {[
-                t('agents.checks.task'),
-                t('agents.checks.result'),
-                t('agents.checks.expected'),
-                t('agents.checks.actual'),
-              ].map((label) => (
-                <TableHead key={label}>{label}</TableHead>
-              ))}
-            </tr>
-          </TableHeader>
-          <TableBody>
-            {(results.data ?? []).map((row) => (
-              <TableRow key={row.id}>
-                <TableCell>
-                  <span className="font-medium text-fg">{row.title}</span>
-                  <span className="text-fg-muted">
-                    {' · '}
-                    {EVAL_AREA_LABEL[row.area]}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <Status tone={TONE[row.status]}>
-                    {STATUS_LABEL[row.status]}
-                  </Status>
-                </TableCell>
-                <TableCell className="text-fg-muted">
-                  <span className="block max-w-[24rem] truncate">
-                    {row.expected ?? ''}
-                  </span>
-                </TableCell>
-                <TableCell className="text-fg-muted">
-                  <span className="block max-w-[24rem] truncate">
-                    {row.actual ?? row.detail ?? ''}
-                  </span>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label={t('agents.checks.resultsLabel')}
+          rows={results.data ?? []}
+          columns={resultColumns}
+          getRowId={(row) => row.id}
+          selectable={false}
+        />
       </TableBox>
     </div>
   )

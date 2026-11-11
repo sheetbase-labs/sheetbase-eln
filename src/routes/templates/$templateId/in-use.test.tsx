@@ -251,12 +251,12 @@ describe('Template in-use', () => {
       within(rows[1])
         .getAllByRole('cell')
         .map((c) => c.textContent),
-    ).toEqual(['v2current', '1', '0', '0', '1', ''])
+    ).toEqual(['v2current', '1', '0', '0', '1'])
     expect(
       within(rows[2])
         .getAllByRole('cell')
         .map((c) => c.textContent),
-    ).toEqual(['v1', '0', '1', '0', '1', ''])
+    ).toEqual(['v1', '0', '1', '0', '1'])
     expect(await screen.findByText('EXP-1')).toBeTruthy()
     expect(screen.getByText('EXP-2')).toBeTruthy()
     // Project names resolve for the rows, not the raw ids.
@@ -338,7 +338,7 @@ describe('Template in-use', () => {
       within(rows[1])
         .getAllByRole('cell')
         .map((cell) => cell.textContent),
-    ).toEqual(['v2current', '200', '1', '0', '201', ''])
+    ).toEqual(['v2current', '200', '1', '0', '201'])
     expect(
       screen.getByText('201 records in total · 0 signed · 1 in review.'),
     ).toBeTruthy()

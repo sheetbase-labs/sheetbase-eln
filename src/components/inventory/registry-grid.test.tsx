@@ -125,8 +125,6 @@ describe('RegistryGrid pinned edges', () => {
       ['ID', 'start'],
       ['Name', null],
       ['Status', 'end'],
-      // Every list carries the columns-and-export menu at its end.
-      ['', 'end'],
     ])
   })
 
@@ -141,7 +139,6 @@ describe('RegistryGrid pinned edges', () => {
       ['ID', 'start'],
       ['Status', null],
       ['Updated', null],
-      ['', 'end'],
     ])
   })
 })

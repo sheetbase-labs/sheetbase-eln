@@ -85,9 +85,6 @@ export {
 
 export type { BandRow, RegistryColumn, RegistryRow } from './registry-grid-data'
 
-/** The id of the column that holds the table's own menu (columns, export). */
-const VIEW_COLUMN = '__view'
-
 // Rendered labels follow the current render without replacing cell component types.
 const RegistryRenderContext = createContext<{
   name: string
@@ -361,29 +358,9 @@ export function RegistryGrid<T extends RowData>({
     // SAFETY: The decorated cell below intercepts every band before invoking a record column's renderer.
     const body = columns as RegistryColumn<RegistryRow<T>>[]
 
-    // The menu sits at the end of the header, where it stays put as the
-    // table scrolls sideways.
-    const tools: RegistryColumn<RegistryRow<T>>[] = hasView
-      ? [
-          {
-            id: VIEW_COLUMN,
-            enableSorting: false,
-            enableHiding: false,
-            enableResizing: false,
-            size: 44,
-            minSize: 44,
-            maxSize: 44,
-            // On a phone the menu stays at the end without riding along: a
-            // column held in view on every row takes too much of the width.
-            meta: {
-              headerClassName: 'w-11 text-right max-md:static! max-md:px-1',
-              cellClassName: 'w-11 max-md:static! max-md:px-1',
-            },
-            header: ({ table: instance }) => <RegistryMenu table={instance} />,
-            cell: () => null,
-          },
-        ]
-      : []
+    // The columns-and-export menu is not a column: it floats over the end
+    // of the header (see RegistryTable), as the design draws no gear column.
+    const tools: RegistryColumn<RegistryRow<T>>[] = []
 
     if (!bulk) return [...body, ...tools]
 
@@ -411,7 +388,7 @@ export function RegistryGrid<T extends RowData>({
     return [tick, ...body, ...tools]
     // `ticked.length` and `allTicked` change the header; the row cells read
     // `bulk.has`, which changes with `bulk`.
-  }, [columns, bulk, allTicked, ticked.length, hasView])
+  }, [columns, bulk, allTicked, ticked.length])
 
   /**
    * A band renders as the muted strip the grouped screens draw: every cell
@@ -487,16 +464,12 @@ export function RegistryGrid<T extends RowData>({
     const all = allColumns.map((column) => column.id)
     // With tick boxes the ID column is the second one; both hold the edge.
     const first = bulk ? all.slice(0, 2) : all.slice(0, 1)
-    // The menu column is always the last; Status holds the edge before it.
-    const ids = all.filter((id) => id !== VIEW_COLUMN)
-    const last = ids.at(-1)
+    // Status holds the end edge.
+    const last = all.at(-1)
 
     return {
       start: first.filter((id): id is string => Boolean(id)),
-      end: [
-        ...(last === 'status' && ids.length > 2 ? [last] : []),
-        ...(all.includes(VIEW_COLUMN) ? [VIEW_COLUMN] : []),
-      ],
+      end: last === 'status' && all.length > 2 ? [last] : [],
     }
   }, [allColumns, bulk])
 
@@ -555,6 +528,7 @@ export function RegistryGrid<T extends RowData>({
         isLoading={isLoading}
         label={label}
         onRowClick={events.onRowClick}
+        menu={hasView}
       />
     </RegistryRenderContext>
   )
@@ -569,6 +543,7 @@ function RegistryTable<T extends RowData>({
   isLoading,
   label,
   onRowClick,
+  menu,
 }: {
   table: DataGridTableInstance<T>
   gridRef: RefObject<HTMLDivElement | null>
@@ -578,6 +553,8 @@ function RegistryTable<T extends RowData>({
   isLoading: boolean
   label: string
   onRowClick: (row: T) => void
+  /** Show the columns-and-export menu over the end of the header. */
+  menu: boolean
 }) {
   const style: CSSProperties & { '--grid-row-h'?: string } = {}
 
@@ -591,10 +568,18 @@ function RegistryTable<T extends RowData>({
       ref={gridRef}
       style={style}
       className={cn(
-        'flex h-full min-h-0 flex-col [&>*]:min-h-0 [&>*]:flex-1',
+        // The design draws rows only: no upright lines at pinned edges.
+        'group/registry relative flex h-full min-h-0 flex-col [&_[data-pinned]]:shadow-none! [&>*]:min-h-0 [&>*]:flex-1',
         className,
       )}
     >
+      {menu ? (
+        // Over the end of the header, shown while the pointer is on the
+        // table or the menu has focus; always shown where there is no hover.
+        <div className="absolute top-0 right-1 z-20 flex h-[31px] items-center bg-surface-muted pl-1 opacity-0 transition-opacity group-hover/registry:opacity-100 focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100 [@media(hover:none)]:opacity-100">
+          <RegistryMenu table={table} />
+        </div>
+      ) : null}
       <DataGrid
         className="min-h-0 flex-1"
         table={table}
@@ -622,7 +607,7 @@ function RegistryTable<T extends RowData>({
           // classes have to reach it: `text-label` (12px, medium) in
           // `text-fg-muted`, as the v3 table head renders.
           header:
-            '[&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6 [&_th]:text-label [&_th]:text-fg-muted',
+            '[&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6 [@media(hover:none)]:[&_th:last-child]:pr-11 [&_th]:text-label [&_th]:text-fg-muted',
           body: '[&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6',
         }}
       >

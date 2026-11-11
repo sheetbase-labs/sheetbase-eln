@@ -1,7 +1,7 @@
 import { Spreadsheet } from '@sheetbase-labs/sheetbase-table'
 import type { SpreadsheetHandle } from '@sheetbase-labs/sheetbase-table'
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
-import type { ComponentProps } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 
 import { useGridAnnotations } from './grid-client-annotations'
 import { gridClipboard } from './grid-client-clipboard'
@@ -101,6 +101,26 @@ type CellRenderContext = Parameters<
   NonNullable<ComponentProps<typeof Spreadsheet>['renderCell']>
 >[0]
 
+/** A unit after a number ("9.8 NTU"); an exponent ("× 10¹¹") is not one. */
+const TRAILING_UNIT = /^(.*\d.*?)\s+([^\s\d×.+\-⁰¹²³⁴⁵⁶⁷⁸⁹][^\s]*)$/u
+
+/**
+ * A number reads right-aligned, its unit smaller and muted after it, so the
+ * digits line up down the column.
+ */
+function numberCell(display: string): ReactNode {
+  if (display === '') return undefined
+
+  const match = TRAILING_UNIT.exec(display)
+
+  return (
+    <span className="sheet-cell-number">
+      {match ? match[1] : display}
+      {match ? <span className="sheet-cell-unit">{match[2]}</span> : null}
+    </span>
+  )
+}
+
 /**
  * Bound engine composition. The host owns record identity and persistence;
  * local sorting/filtering changes display coordinates, never stored rows.
@@ -150,21 +170,20 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
   // path for plain cells the rest of the time.
   const renderCell = useMemo(
     () =>
-      cellBefore
-        ? ({ point, display }: CellRenderContext) => {
-            const before = cellBefore(
-              point.row,
-              layout.columns.at(point.column)?.id ?? '',
-            )
+      ({ point, display }: CellRenderContext) => {
+        const column = layout.columns.at(point.column)
+        const before = cellBefore?.(point.row, column?.id ?? '')
 
-            return before === undefined ? undefined : (
-              <span className="sheet-cell-change">
-                <del>{before}</del>
-                <span>{display}</span>
-              </span>
-            )
-          }
-        : undefined,
+        if (before !== undefined)
+          return (
+            <span className="sheet-cell-change">
+              <del>{before}</del>
+              <span>{display}</span>
+            </span>
+          )
+
+        return column?.type === 'number' ? numberCell(display) : undefined
+      },
     [cellBefore, layout],
   )
 

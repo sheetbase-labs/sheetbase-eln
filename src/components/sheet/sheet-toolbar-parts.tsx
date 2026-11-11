@@ -81,7 +81,12 @@ export function SheetSaveStatus({
       )}
     >
       {state === 'saved' ? (
-        <Icon name="check" size={13} aria-hidden="true" />
+        <Icon
+          name="check"
+          size={13}
+          aria-hidden="true"
+          className="text-success"
+        />
       ) : state === 'failed' ? (
         <Icon name="warn" size={13} aria-hidden="true" />
       ) : state === 'read-only' ? (
@@ -94,6 +99,56 @@ export function SheetSaveStatus({
       )}
       {label}
     </span>
+  )
+}
+
+/** A thin upright rule between toolbar groups. */
+export function SheetToolbarRule() {
+  return (
+    <span aria-hidden="true" className="h-[18px] w-px shrink-0 bg-border" />
+  )
+}
+
+/** An on/off switch with its label, for a view that is off by default. */
+export function SheetToolbarSwitch({
+  on,
+  label,
+  title,
+  onChange,
+}: {
+  on: boolean
+  label: string
+  title?: string
+  onChange: (next: boolean) => void
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      title={title}
+      onClick={() => onChange(!on)}
+      className={cn(
+        'inline-flex h-7 shrink-0 items-center gap-[7px] rounded-md px-1 text-label font-medium whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+        on ? 'text-fg' : 'text-fg-muted hover:text-fg',
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'relative h-3.5 w-[26px] shrink-0 rounded-full transition-colors',
+          on ? 'bg-accent-strong' : 'bg-border-strong',
+        )}
+      >
+        <span
+          className={cn(
+            'absolute top-0.5 size-2.5 rounded-full bg-surface transition-[left]',
+            on ? 'left-[14px]' : 'left-0.5',
+          )}
+        />
+      </span>
+      {label}
+    </button>
   )
 }
 
@@ -129,12 +184,11 @@ export function SheetMoreMenu({
             variant="secondary"
             icon="more"
             aria-label={t('notebook.sheetToolbar.moreTools')}
+            title={t('notebook.sheetToolbar.moreTools')}
           />
         }
       >
-        <span className="max-sm:sr-only">
-          {t('notebook.sheetToolbar.more')}
-        </span>
+        <span className="sr-only">{t('notebook.sheetToolbar.more')}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-52">
         {shown.map((group, index) => (

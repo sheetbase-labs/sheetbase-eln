@@ -143,6 +143,7 @@ describe('ProjectsPage', () => {
       uuid: 'second',
       name: 'LVV stability',
     })
+
     renderPage([row(), second])
 
     const name = screen.getByRole('link', { name: 'AAV9 process transfer' })

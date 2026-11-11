@@ -59,6 +59,38 @@ function engineCellDisplays(displays: CellDisplays | undefined) {
   return out
 }
 
+/** Phone-width grids: the width below which columns narrow and one pins. */
+const NARROW_GRID_QUERY = '(max-width: 640px)'
+
+/** A phone column fits three across beside the row numbers. */
+const NARROW_COLUMN_WIDTH = 116
+
+function isNarrowGrid(): boolean {
+  if (typeof window === 'undefined' || !('matchMedia' in window)) return false
+
+  return window.matchMedia(NARROW_GRID_QUERY).matches
+}
+
+/**
+ * On a phone, columns the sheet has not sized fit three across, and the first
+ * column stays in view while the rest scroll under it.
+ */
+function narrowGridLayout(
+  widths: readonly number[] | undefined,
+  columnCount: number,
+  frozenColumns: number | undefined,
+) {
+  if (!isNarrowGrid()) return { widths, frozenColumns }
+
+  return {
+    widths: Array.from(
+      { length: columnCount },
+      (_, index) => widths?.[index] ?? NARROW_COLUMN_WIDTH,
+    ),
+    frozenColumns: frozenColumns || (columnCount > 1 ? 1 : 0),
+  }
+}
+
 function resolvedGridTheme(): 'light' | 'dark' {
   if (typeof document === 'undefined') return 'light'
 
@@ -83,6 +115,12 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
     columnGroups,
     mountKey,
   } = useGridLayout(props)
+
+  // Read once per mount, like the engine's own initial widths.
+  const narrow = useMemo(
+    () => narrowGridLayout(widths, props.columns.length, props.frozenColumns),
+    [widths, props.columns.length, props.frozenColumns],
+  )
 
   const layoutRef = useRef(layout)
   useLayoutEffect(() => {
@@ -141,8 +179,8 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       rowHeaders={props.rowHeaders}
       height={props.height}
       stretch={props.stretch}
-      frozenColumns={props.frozenColumns}
-      initialColumnWidths={widths}
+      frozenColumns={narrow.frozenColumns}
+      initialColumnWidths={narrow.widths}
       theme={resolvedGridTheme()}
       cellState={
         props.cellState

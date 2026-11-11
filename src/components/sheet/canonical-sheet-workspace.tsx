@@ -55,7 +55,10 @@ import { Icon } from '#/components/icons'
 import {
   SheetMoreMenu,
   SheetSaveStatus,
+  usePhoneToolbar,
 } from '#/components/sheet/sheet-toolbar-parts'
+import { cn } from '#/lib/utils'
+import { SheetBenchEntry } from '#/components/sheet/sheet-bench-entry'
 import type {
   SheetMoreItem,
   SheetSaveState,
@@ -358,12 +361,29 @@ function useCanonicalWorkspaceSession({
   // The Details view shows how the sheet is wired: owner bands, source
   // badges, where an edit is saved, and the sheet's sources and upgrades. The
   // everyday view keeps all of that out of the way. Remembered per device.
-  const [details, setDetailsState] = useState(readSheetDetailsPreference)
+  const [details, setDetailsState] = useState(() =>
+    readSheetPreference(SHEET_DETAILS_KEY),
+  )
+
   const setDetails = useCallback((next: boolean) => {
     setDetailsState(next)
-    writeSheetDetailsPreference(next)
+    writeSheetPreference(SHEET_DETAILS_KEY, next)
   }, [])
+
   const [historyOpen, setHistoryOpen] = useState(false)
+
+  // Bench entry: one run at a time, as large fields above the grid.
+  // Remembered per device, like Details.
+  const [benchEntry, setBenchEntryState] = useState(() =>
+    readSheetPreference(SHEET_BENCH_KEY),
+  )
+
+  const setBenchEntry = useCallback((next: boolean) => {
+    setBenchEntryState(next)
+    writeSheetPreference(SHEET_BENCH_KEY, next)
+  }, [])
+
+  const [benchRow, setBenchRow] = useState<number | null>(null)
 
   const [formula, setFormula] = useState('')
   const [formulaLabel, setFormulaLabel] = useState('Calculated')
@@ -1595,6 +1615,8 @@ function useCanonicalWorkspaceSession({
 
       if (!selection) return
       setActiveInput(selection.input ?? '')
+      // Bench entry follows the run picked in the grid.
+      setBenchRow(null)
 
       const columnIndex = matrixRef.current.columns.findIndex(
         (column) => column.id === selection.columnId,
@@ -2133,24 +2155,29 @@ function useCanonicalWorkspaceSession({
     setDetails,
     historyOpen,
     setHistoryOpen,
+    benchEntry,
+    setBenchEntry,
+    benchRow,
+    setBenchRow,
   }
 }
 
 const SHEET_DETAILS_KEY = 'sheetbase.sheet.details'
+const SHEET_BENCH_KEY = 'sheetbase.sheet.bench'
 
-/** Whether this device last left sheets in the Details view. */
-function readSheetDetailsPreference(): boolean {
+/** Whether this device last left sheets with this view switched on. */
+function readSheetPreference(key: string): boolean {
   try {
-    return globalThis.localStorage?.getItem(SHEET_DETAILS_KEY) === 'on'
+    return globalThis.localStorage.getItem(key) === 'on'
   } catch {
     return false
   }
 }
 
-function writeSheetDetailsPreference(on: boolean): void {
+function writeSheetPreference(key: string, on: boolean): void {
   try {
-    if (on) globalThis.localStorage?.setItem(SHEET_DETAILS_KEY, 'on')
-    else globalThis.localStorage?.removeItem(SHEET_DETAILS_KEY)
+    if (on) globalThis.localStorage.setItem(key, 'on')
+    else globalThis.localStorage.removeItem(key)
   } catch {
     // Storage can be off (private windows); the choice then lasts the visit.
   }
@@ -2201,6 +2228,7 @@ function CanonicalWorkspaceSession(
       <div className="flex h-full min-h-[24rem] min-w-0 flex-col">
         <CanonicalWorkspaceToolbar />
         <CanonicalWorkspaceAuthoring />
+        <CanonicalWorkspaceBenchEntry />
         <CanonicalWorkspaceRecordToolbar />
         <CanonicalWorkspacePagination />
         <CanonicalWorkspaceGrid />
@@ -2241,7 +2269,11 @@ function CanonicalWorkspaceToolbar() {
     setDetails,
     historyOpen,
     setHistoryOpen,
+    benchEntry,
+    setBenchEntry,
   } = useCanonicalWorkspace()
+
+  const phone = usePhoneToolbar()
 
   const navigate = useNavigate()
 
@@ -2328,6 +2360,31 @@ function CanonicalWorkspaceToolbar() {
     },
   ]
 
+  // On a phone the view switches ride in More, so the toolbar stays one row.
+  const viewItems: SheetMoreItem[] = phone
+    ? [
+        ...(matrix.columns.length > 0
+          ? [
+              {
+                id: 'columns',
+                label: t('notebook.sheetToolbar.columns'),
+                icon: 'table' as const,
+                onSelect: () =>
+                  setSheetTool(sheetTool === 'view' ? null : 'view'),
+              },
+            ]
+          : []),
+        {
+          id: 'details',
+          label: details
+            ? t('notebook.sheetToolbar.hideDetails')
+            : t('notebook.sheetToolbar.details'),
+          icon: 'info',
+          onSelect: () => setDetails(!details),
+        },
+      ]
+    : []
+
   const downloadItems: SheetMoreItem[] = [
     {
       id: 'export-xlsx',
@@ -2357,6 +2414,40 @@ function CanonicalWorkspaceToolbar() {
     >
       <SheetSaveStatus state={saveState} detail={failure} />
       <span className="flex-1" />
+      {canWrite && matrix.columns.length > 0 ? (
+        <div
+          role="group"
+          aria-label={t('notebook.sheetBench.entryModeAriaLabel')}
+          className="inline-flex rounded-md border border-border p-0.5"
+        >
+          <Button
+            type="button"
+            size="sm"
+            variant={benchEntry ? 'quiet' : 'secondary'}
+            aria-pressed={!benchEntry}
+            className={cn(
+              'h-5 border-0 max-md:h-7',
+              !benchEntry && 'bg-selected font-medium',
+            )}
+            onClick={() => setBenchEntry(false)}
+          >
+            {t('notebook.sheetBench.document')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={benchEntry ? 'secondary' : 'quiet'}
+            aria-pressed={benchEntry}
+            className={cn(
+              'h-5 border-0 max-md:h-7',
+              benchEntry && 'bg-selected font-medium',
+            )}
+            onClick={() => setBenchEntry(true)}
+          >
+            {t('notebook.sheetBench.benchEntry')}
+          </Button>
+        </div>
+      ) : null}
       {composed && canWrite ? (
         <Button
           type="button"
@@ -2397,7 +2488,7 @@ function CanonicalWorkspaceToolbar() {
           })}
         </Button>
       ) : null}
-      {matrix.columns.length > 0 ? (
+      {matrix.columns.length > 0 && !phone ? (
         <Button
           type="button"
           size="sm"
@@ -2409,18 +2500,21 @@ function CanonicalWorkspaceToolbar() {
           {t('notebook.sheetToolbar.columns')}
         </Button>
       ) : null}
-      <Button
-        type="button"
-        size="sm"
-        variant={details ? 'secondary' : 'quiet'}
-        aria-pressed={details}
-        title={t('notebook.sheetToolbar.detailsHint')}
-        onClick={() => setDetails(!details)}
-      >
-        {t('notebook.sheetToolbar.details')}
-      </Button>
+      {phone ? null : (
+        <Button
+          type="button"
+          size="sm"
+          variant={details ? 'secondary' : 'quiet'}
+          aria-pressed={details}
+          title={t('notebook.sheetToolbar.detailsHint')}
+          onClick={() => setDetails(!details)}
+        >
+          {t('notebook.sheetToolbar.details')}
+        </Button>
+      )}
       <SheetMoreMenu
         groups={[
+          { id: 'view', items: viewItems },
           {
             id: 'add',
             label: t('notebook.sheetToolbar.addGroup'),
@@ -2449,6 +2543,74 @@ function CanonicalWorkspaceToolbar() {
         onOpenChange={setHistoryOpen}
       />
     </div>
+  )
+}
+
+function CanonicalWorkspaceBenchEntry() {
+  const {
+    canWrite,
+    benchEntry,
+    benchRow,
+    setBenchRow,
+    matrix,
+    sheetColumns,
+    commentSelection,
+    gridHandle,
+    localMutate,
+    handleBeforeCellsChange,
+    handleCellsChange,
+  } = useCanonicalWorkspace()
+
+  if (!benchEntry || !canWrite || matrix.columns.length === 0) return null
+
+  const rowCount = matrix.rowKeys.length
+
+  const selectedIndex = commentSelection?.rowId
+    ? matrix.rowKeys.indexOf(commentSelection.rowId)
+    : -1
+  // The run on the strip: the one chosen here, else the grid's selected run,
+  // else the last run.
+
+  const rowIndex = Math.min(
+    benchRow ??
+      (selectedIndex >= 0 ? selectedIndex : Math.max(rowCount - 1, 0)),
+    rowCount,
+  )
+
+  return (
+    <SheetBenchEntry
+      columns={matrix.columns}
+      gridColumns={sheetColumns}
+      rowIndex={rowIndex}
+      rowCount={rowCount}
+      values={matrix.data[rowIndex] ?? []}
+      canWrite={canWrite}
+      saving={localMutate.isPending}
+      onMove={(next) => {
+        setBenchRow(next)
+
+        if (next < rowCount) gridHandle?.scrollCellIntoView(next, 0)
+      }}
+      onSave={(changes) => {
+        const rowId = matrix.rowKeys[rowIndex]
+
+        const gridChanges: SheetbaseGridCellChange[] = changes.map(
+          (change) => ({
+            rowIndex,
+            rowId,
+            columnId: change.columnId,
+            previous: change.previous,
+            next: change.next,
+          }),
+        )
+
+        if (handleBeforeCellsChange(gridChanges, 'edit') === false) return
+        handleCellsChange(gridChanges, 'edit')
+        // A new run saved: the strip offers the next new run.
+
+        if (rowIndex >= rowCount) setBenchRow(rowCount + 1)
+      }}
+    />
   )
 }
 

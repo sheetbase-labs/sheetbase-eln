@@ -101,10 +101,12 @@ function withUnit(
   value: SheetbaseGridCellValue,
   unit: string,
 ): string | undefined {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- A grid cell value is a closed union; typeof picks its member.
   if (typeof value !== 'number' && typeof value !== 'string') return undefined
 
   if (value === '') return undefined
 
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- A grid cell value is a closed union; typeof picks its member.
   const numeric = typeof value === 'number' ? value : Number(value)
 
   if (!Number.isFinite(numeric)) return undefined

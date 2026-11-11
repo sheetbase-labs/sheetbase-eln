@@ -46,10 +46,25 @@ export function useGridHandle(
     [handleRef],
   )
 
-  useEffect(() => () => readyRef.current?.(null), [])
+  // The engine announces its handle once. Development's double mount runs
+  // this cleanup in between, which would leave the host with no handle, so a
+  // remount with a live engine that was told "none" announces it again.
+  const announcedRef = useRef(false)
+  useEffect(() => {
+    if (handleRef.current && !announcedRef.current) {
+      announcedRef.current = true
+      readyRef.current?.(neutralHandle)
+    }
+
+    return () => {
+      announcedRef.current = false
+      readyRef.current?.(null)
+    }
+  }, [handleRef, neutralHandle])
 
   return useMemo(
     () => (handle: SpreadsheetHandle | null) => {
+      announcedRef.current = handle !== null
       readyRef.current?.(handle ? neutralHandle : null)
     },
     [neutralHandle],

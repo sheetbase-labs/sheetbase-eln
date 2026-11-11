@@ -124,24 +124,7 @@ function ProvenanceSection({
       <dl className="space-y-1.5">
         <FactRow
           label={t('notebook.notebookInspector.label')}
-          value={
-            dataset ? (
-              dataset.datasetId ? (
-                <DatasetSource
-                  datasetId={dataset.datasetId}
-                  label={dataset.label}
-                  rowLabel={dataset.rowLabel ?? null}
-                />
-              ) : (
-                <>
-                  {dataset.label}
-                  {dataset.rowLabel
-                    ? ` ${t('notebook.notebookInspector.rowLabel', { label: dataset.rowLabel })}`
-                    : null}
-                </>
-              )
-            ) : undefined
-          }
+          value={dataset ? <SourceFact dataset={dataset} /> : undefined}
         />
         <FactRow
           label={t('notebook.notebookInspector.instrumentLabel')}
@@ -400,6 +383,31 @@ export function NotebookInspector({
         </TabsPanel>
       </TabsRoot>
     </div>
+  )
+}
+
+/** Where a cell's value comes from: a dataset as a link, else its label. */
+function SourceFact({
+  dataset,
+}: {
+  dataset: NonNullable<NotebookInspectorProvenance['dataset']>
+}) {
+  if (dataset.datasetId)
+    return (
+      <DatasetSource
+        datasetId={dataset.datasetId}
+        label={dataset.label}
+        rowLabel={dataset.rowLabel ?? null}
+      />
+    )
+
+  return (
+    <>
+      {dataset.label}
+      {dataset.rowLabel
+        ? ` ${t('notebook.notebookInspector.rowLabel', { label: dataset.rowLabel })}`
+        : null}
+    </>
   )
 }
 

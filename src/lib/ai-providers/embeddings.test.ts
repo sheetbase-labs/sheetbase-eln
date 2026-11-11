@@ -37,8 +37,10 @@ describe('fitVector', () => {
     const far = Array.from({ length: 3072 }, (_, i) => Math.cos(i * 1.91 + 1))
     const [a, b, c] = [base, near, far].map((v) => fitVector(v, 'p'))
     expect(a).toHaveLength(EMBEDDING_DIMENSIONS)
+
     const dot = (x: number[], y: number[]) =>
       x.reduce((sum, v, i) => sum + v * y[i], 0)
+
     expect(dot(a, a)).toBeCloseTo(1)
     expect(dot(a, b)).toBeGreaterThan(0.9)
     expect(dot(a, b)).toBeGreaterThan(dot(a, c))

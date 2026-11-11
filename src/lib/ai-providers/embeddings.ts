@@ -33,21 +33,24 @@ export interface EmbeddingResult {
  * short.
  */
 function projectVector(vector: readonly number[]) {
-  const out = new Array<number>(EMBEDDING_DIMENSIONS).fill(0)
+  const out = Array.from<number>({ length: EMBEDDING_DIMENSIONS }).fill(0)
   let state = 0x9e3779b9
+
   const next = () => {
     state = (state + 0x6d2b79f5) | 0
     let t = Math.imul(state ^ (state >>> 15), 1 | state)
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+
     return (t ^ (t >>> 14)) >>> 0
   }
-  for (let i = 0; i < vector.length; i += 1) {
+
+  for (const value of vector) {
     for (let k = 0; k < 3; k += 1) {
       const bits = next()
-      out[bits % EMBEDDING_DIMENSIONS] +=
-        (bits & 0x80000000 ? -1 : 1) * vector[i]
+      out[bits % EMBEDDING_DIMENSIONS] += (bits & 0x80000000 ? -1 : 1) * value
     }
   }
+
   return out
 }
 
@@ -66,7 +69,9 @@ export function fitVector(vector: readonly number[], providerId: string) {
       { providerId },
     )
   }
+
   let norm = 0
+
   for (const value of vector) {
     if (!Number.isFinite(value)) {
       throw new AiProviderError(
@@ -75,18 +80,25 @@ export function fitVector(vector: readonly number[], providerId: string) {
         { providerId },
       )
     }
+
     norm += value * value
   }
+
   let fitted: number[]
+
   if (vector.length > EMBEDDING_DIMENSIONS) {
     fitted = projectVector(vector)
     norm = 0
+
     for (const value of fitted) norm += value * value
   } else {
-    fitted = new Array<number>(EMBEDDING_DIMENSIONS).fill(0)
+    fitted = Array.from<number>({ length: EMBEDDING_DIMENSIONS }).fill(0)
+
     for (let i = 0; i < vector.length; i += 1) fitted[i] = vector[i]
   }
+
   const scale = norm > 0 ? 1 / Math.sqrt(norm) : 1
+
   return fitted.map((value) => value * scale)
 }
 
@@ -155,6 +167,7 @@ export function parseEmbeddingResponse(
       }
     })
     .sort((a, b) => a.index - b.index)
+
   const vectors = ordered.map((entry) => {
     const vector = vectorSchema.safeParse(entry.embedding)
 
@@ -198,9 +211,12 @@ export async function embedTexts(
       { providerId: profile.id },
     )
   }
+
   if (texts.length === 0) return { vectors: [], tokens: 0, model: '' }
   const headers: Record<string, string> = {}
+
   if (apiKey) headers.authorization = `Bearer ${apiKey}`
+
   const json = await postProviderJson(
     profile.id,
     {
@@ -210,5 +226,6 @@ export async function embedTexts(
     },
     deps,
   )
+
   return parseEmbeddingResponse(profile, texts, json)
 }

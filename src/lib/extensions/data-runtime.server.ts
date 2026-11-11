@@ -57,19 +57,25 @@ type Row = Record<string, JsonValue>
 
 export const IMPORT_MAX_CONTENT_BYTES =
   pluginLimit('SHEETBASE_PLUGIN_IMPORT_MAX_MB', 6) * 1024 * 1024
+
 export const PREVIEW_MAX_ROWS = 200
 export const PREVIEW_MAX_TEXT = 20_000
+
 export const SEARCH_MAX_DOCUMENTS = pluginLimit(
   'SHEETBASE_PLUGIN_SEARCH_MAX_DOCUMENTS',
   5_000,
 )
+
 export const SEARCH_MAX_HITS = 100
+
 export const CONNECTOR_MAX_REQUESTS = pluginLimit(
   'SHEETBASE_PLUGIN_CONNECTOR_MAX_REQUESTS',
   20,
 )
+
 export const CONNECTOR_MAX_RESPONSE_BYTES =
   pluginLimit('SHEETBASE_PLUGIN_CONNECTOR_MAX_RESPONSE_MB', 5) * 1024 * 1024
+
 export const CONNECTOR_TIMEOUT_MS = 30_000
 
 interface Caller {

@@ -7,9 +7,12 @@
 export function pluginLimit(name: string, fallback: number): number {
   const raw =
     typeof process === 'undefined' ? undefined : process.env[name]?.trim()
+
   if (raw === undefined || raw === '') return fallback
+
   if (raw === '0' || raw.toLowerCase() === 'off')
     return Number.POSITIVE_INFINITY
   const value = Number(raw)
+
   return Number.isFinite(value) && value > 0 ? value : fallback
 }

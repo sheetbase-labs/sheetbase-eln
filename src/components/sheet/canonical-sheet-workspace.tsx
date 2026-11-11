@@ -14,6 +14,8 @@ import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useRouteContext } from '@tanstack/react-router'
 
+import { SheetFiltersButton } from './sheet-filters-popover'
+import { gridStoredText } from './grid-client-values'
 import { SheetbaseTableGrid } from '#/components/sheet/sheetbase-grid'
 import { usePluginGridCellDisplays } from '#/components/extensions/table-hooks'
 import { SheetKeyboardShortcuts } from '#/components/shortcuts/sheet-keyboard-shortcuts'
@@ -22,10 +24,12 @@ import type {
   SheetbaseCellState,
   SheetbaseGridCellChange,
   SheetbaseGridCellValue,
+  SheetbaseGridColumn,
   SheetbaseGridFilter,
   SheetbaseGridHandle,
   SheetbaseGridMenuEntry,
   SheetbaseGridRecordEditor,
+  SheetbaseGridRow,
   SheetbaseGridSelection,
   SheetbaseGridSort,
   SheetbaseGridWriteSource,
@@ -2335,7 +2339,7 @@ function CanonicalWorkspaceToolbar() {
       {canWrite && matrix.columns.length > 0 ? <SheetToolbarRule /> : null}
       <SheetEntryModeSwitch />
       <SheetToolbarChips />
-      {phone ? null : <SheetViewSwitches />}
+      {phone ? <SheetFilters compact /> : <SheetViewSwitches />}
       <CanonicalWorkspaceMoreMenu phone={phone} />
     </div>
   )
@@ -2411,22 +2415,6 @@ function SheetToolbarChips() {
           {t('notebook.canonicalSheetWorkspace.writeBack')}
         </Button>
       ) : null}
-      {presentation.filters.length > 0 ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          icon="filter"
-          aria-label={t('notebook.sheetToolbar.clearFilters')}
-          title={t('notebook.sheetToolbar.clearFilters')}
-          onClick={() => void persistPresentation({ filters: [] })}
-        >
-          {t('notebook.sheetToolbar.filters', {
-            count: presentation.filters.length,
-          })}
-          <Icon name="x" size={12} />
-        </Button>
-      ) : null}
       {presentation.hiddenColumnIds.length > 0 ? (
         <Button
           type="button"
@@ -2444,6 +2432,23 @@ function SheetToolbarChips() {
 }
 
 /** Show changes and Columns, shown above phone width. */
+/** Filters, on every width: the same filters the column menus set. */
+function SheetFilters({ compact = false }: { compact?: boolean }) {
+  const { sheetColumns, presentation, handleFiltersChange } =
+    useCanonicalWorkspace()
+
+  if (sheetColumns.length === 0) return null
+
+  return (
+    <SheetFiltersButton
+      compact={compact}
+      columns={sheetColumns}
+      filters={presentation.filters}
+      onChange={handleFiltersChange}
+    />
+  )
+}
+
 function SheetViewSwitches() {
   const { matrix, sheetTool, setSheetTool, showChanges, setShowChanges } =
     useCanonicalWorkspace()
@@ -2457,6 +2462,7 @@ function SheetViewSwitches() {
         onChange={setShowChanges}
       />
       <SheetToolbarRule />
+      <SheetFilters />
       {matrix.columns.length > 0 ? (
         <Button
           type="button"
@@ -3143,6 +3149,50 @@ function gridBoxHeight(rowCount: number, grouped: boolean): number {
   return headers * GRID_HEADER_PX + rowCount * GRID_ROW_PX + GRID_BOX_EXTRA_PX
 }
 
+function filterMatches(text: string, filter: SheetbaseGridFilter): boolean {
+  const same =
+    text.trim().toLowerCase() ===
+    String(filter.value ?? '')
+      .trim()
+      .toLowerCase()
+
+  switch (filter.operator) {
+    case 'equals':
+      return same
+    case 'not-equals':
+      return !same
+    case 'is-empty':
+      return text.trim() === ''
+    case 'is-not-empty':
+      return text.trim() !== ''
+  }
+}
+
+/**
+ * About how many rows the grid shows under the sheet's filters, so the box
+ * shrinks with them. The grid does the real filtering; a near miss only
+ * leaves the box a row too tall or scrolling.
+ */
+function shownRowCount(
+  rows: readonly SheetbaseGridRow[],
+  columns: readonly SheetbaseGridColumn[],
+  filters: readonly SheetbaseGridFilter[],
+): number {
+  const active = filters.flatMap((filter) => {
+    const index = columns.findIndex((column) => column.id === filter.columnId)
+
+    return index === -1 ? [] : [{ filter, index }]
+  })
+
+  if (active.length === 0) return rows.length
+
+  return rows.filter((row) =>
+    active.every(({ filter, index }) =>
+      filterMatches(gridStoredText(row.cells[index]), filter),
+    ),
+  ).length
+}
+
 function CanonicalWorkspaceGrid() {
   const {
     matrix,
@@ -3195,7 +3245,8 @@ function CanonicalWorkspaceGrid() {
           // scrolls inside once it reaches the space it has.
           style={{
             height: gridBoxHeight(
-              sheetRows.length + (canWrite ? 1 : 0),
+              shownRowCount(sheetRows, sheetColumns, presentation.filters) +
+                (canWrite ? 1 : 0),
               sheetColumns.some((column) => column.group !== undefined),
             ),
           }}

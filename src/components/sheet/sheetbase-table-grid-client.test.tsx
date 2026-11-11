@@ -284,6 +284,24 @@ describe('Sheet header chrome (EXP-04.2)', () => {
     expect(cell(0, 2).classList.contains('read-only')).toBe(false)
   })
 
+  it('keeps the ƒx mark on a calculated column when source badges are off', () => {
+    liveGrid({
+      columns: chromeColumns.map((column) => ({
+        ...column,
+        showSource: false,
+      })),
+      rows: chromeRows,
+    })
+
+    const look = [...document.querySelectorAll('style')]
+      .map((style) => style.textContent)
+      .join('\n')
+
+    expect(look).toContain('[aria-label^="D "] .column-heading::after')
+    expect(look).toContain('content:"ƒx"')
+    expect(look).not.toContain('[aria-label^="C "] .column-heading::after')
+  })
+
   it('rebuilds the group row from the displayed column order', () => {
     const { result } = renderHook(() =>
       useGridLayout(

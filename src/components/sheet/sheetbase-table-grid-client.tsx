@@ -133,8 +133,9 @@ function columnLetter(index: number): string {
 
 /**
  * Per-column looks the engine has no hook for: number headers sit right,
- * over their digits, and calculated columns carry the derived tint. Cells
- * are found by their column index, headers by their column letter.
+ * over their digits, and calculated columns carry the derived tint and an
+ * ƒx mark. Cells are found by their column index, headers by their column
+ * letter.
  */
 function columnLookCss(
   scope: string,
@@ -151,6 +152,13 @@ function columnLookCss(
       if (column.type === 'number')
         rules.push(
           `${header} .column-heading{margin-left:auto;text-align:right}`,
+        )
+
+      // The board's ƒx mark: a calculated column says so in its header. With
+      // source badges on, the engine's own ƒx badge already does.
+      if (column.source === 'calculated' && column.showSource === false)
+        rules.push(
+          `${header} .column-heading::after{content:"ƒx";margin-left:6px;font-size:11px;font-style:italic;font-weight:400;color:var(--color-fg-muted)}`,
         )
 
       if (column.source === 'calculated')

@@ -2261,7 +2261,7 @@ function CanonicalWorkspaceSession(
 
   return (
     <CanonicalWorkspaceContext.Provider value={session}>
-      <div className="flex h-full min-h-[24rem] min-w-0 flex-col">
+      <div className="flex h-full min-h-[24rem] w-full min-w-0 flex-1 flex-col">
         <CanonicalWorkspaceToolbar />
         <CanonicalWorkspaceAuthoring />
         <CanonicalWorkspaceBenchEntry />

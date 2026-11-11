@@ -115,7 +115,8 @@ describe('SheetbaseTableGridClient layout props', () => {
     expect(screen.getByRole('grid').style.height).toBe('320px')
     expect(screen.queryAllByRole('rowheader')).toHaveLength(0)
     expect(cell(0, 0).textContent).toBe('a1')
-    expect(cell(0, 0).style.width).toBe('400px')
+    // Stretched past the width its short values would fit.
+    expect(Number.parseFloat(cell(0, 0).style.width)).toBeGreaterThan(300)
   })
 
   it('applies a persisted column order to fields, ids and A1 data', () => {

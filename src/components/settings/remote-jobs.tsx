@@ -45,13 +45,15 @@ import type {
   RemoteConnectionOption,
 } from '#/lib/pipelines/remote/client'
 import { formatQueues, parseQueues } from '#/lib/pipelines/remote/queues'
-import { REMOTE_CONNECTION_RE } from '#/lib/pipelines/remote/settings'
+import {
+  DEFAULT_REMOTE_SECRET,
+  REMOTE_CONNECTION_RE,
+  REMOTE_SECRET_RE,
+} from '#/lib/pipelines/remote/settings'
+import { sealedSecretName } from '#/lib/pipelines/remote/secret'
 import { t } from '#/copy'
 
 const dataClient = createDataClient()
-
-/** The secret a connection's scheduler token is sealed under. */
-const TOKEN_SECRET = 'submit_key'
 
 interface Draft {
   id: string | null
@@ -61,6 +63,10 @@ interface Draft {
   user: string
   queues: string
   callbackUrl: string
+  /** The name pipelines give the secret, such as HPC_SUBMIT_KEY. */
+  secretName: string
+  /** The secrets already sealed on the connection, by name. */
+  secrets: string[]
   token: string
 }
 
@@ -79,6 +85,8 @@ const emptyDraft = (): Draft => ({
   user: '',
   queues: '',
   callbackUrl: '',
+  secretName: DEFAULT_REMOTE_SECRET,
+  secrets: [],
   token: '',
 })
 
@@ -90,6 +98,8 @@ const draftOf = (c: RemoteConnectionOption): Draft => ({
   user: c.user,
   queues: formatQueues(c.queues),
   callbackUrl: c.callbackUrl,
+  secretName: c.secrets.at(0) ?? DEFAULT_REMOTE_SECRET,
+  secrets: c.secrets,
   token: '',
 })
 
@@ -275,6 +285,7 @@ function ConnectionDialog({
     draft.baseUrl.trim().length > 0 &&
     draft.user.trim().length > 0 &&
     queues !== null &&
+    REMOTE_SECRET_RE.test(draft.secretName) &&
     (editing || draft.token.trim().length > 0)
 
   const save = useMutation({
@@ -285,6 +296,9 @@ function ConnectionDialog({
         baseUrl: draft.baseUrl.trim(),
         user: draft.user.trim(),
         queues: queues ?? [],
+        secrets: draft.token.trim()
+          ? [...new Set([...draft.secrets, draft.secretName])]
+          : draft.secrets,
       }
 
       if (draft.callbackUrl.trim())
@@ -311,7 +325,7 @@ function ConnectionDialog({
           data: {
             workspaceId,
             connectorId: connector.id,
-            secretName: TOKEN_SECRET,
+            secretName: sealedSecretName(draft.secretName),
             value: draft.token.trim(),
           },
         })
@@ -391,6 +405,16 @@ function ConnectionDialog({
             <Input
               value={draft.callbackUrl}
               onChange={(e) => set({ callbackUrl: e.target.value })}
+            />
+          </Field>
+          <Field
+            label={t('features.pipelineRemote.settings.secretName')}
+            hint={t('features.pipelineRemote.settings.secretNameHint')}
+          >
+            <Input
+              className="mono"
+              value={draft.secretName}
+              onChange={(e) => set({ secretName: e.target.value })}
             />
           </Field>
           <Field

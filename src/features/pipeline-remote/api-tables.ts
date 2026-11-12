@@ -15,6 +15,7 @@ export const PIPELINE_REMOTE_LAB_TABLES = {
       ['step_name', 'text', 1],
       ['connection_key', 'text', 1],
       ['queue', 'text', 1],
+      ['secret_name', 'text', 0],
       ['external_job_id', 'text', 0],
       ['state', 'text', 1],
       ['reason', 'text', 0],

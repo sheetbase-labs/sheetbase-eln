@@ -135,6 +135,11 @@ describe('the two step kinds', () => {
     await saveVersion([
       { name: 'fit', kind: 'remote_job', remoteJob: job() },
       {
+        name: 'fit_named',
+        kind: 'remote_job',
+        remoteJob: job({ secret: 'HPC_SUBMIT_KEY' }),
+      },
+      {
         name: 'recent',
         kind: 'lakehouse',
         statement: 'select 1',
@@ -149,6 +154,7 @@ describe('the two step kinds', () => {
     ['a bad connection', { connection: '' }, /connection/],
     ['a fractional limit', { limitMinutes: 1.5 }, /minutes/],
     ['a limit past a week', { limitMinutes: 10081 }, /minutes/],
+    ['a secret with spaces', { secret: 'my key' }, /secret/],
   ])('refuses a remote job with %s', async (_name, over, message) => {
     await expect(
       saveVersion([{ name: 'fit', kind: 'remote_job', remoteJob: job(over) }]),
@@ -278,8 +284,14 @@ function fakeScheduler() {
 
 let clock = new Date('2026-11-12T10:00:00Z')
 
+const secretsAsked: string[] = []
+
 const depsFor = (client: SchedulerClient): RemoteJobDeps => ({
-  loadConnection: async () => ({ kind: 'ready', connection: CONNECTION }),
+  loadConnection: async (_conn, _workspace, _key, secret) => {
+    secretsAsked.push(secret)
+
+    return { kind: 'ready', connection: CONNECTION }
+  },
   client: () => client,
   publicUrl: () => 'https://eln.example.org',
   now: () => clock,
@@ -328,6 +340,16 @@ describe('a remote job step', () => {
 
     expect(first.kind).toBe('waiting')
     expect(submitted).toHaveLength(1)
+    // The step names no secret, so the default is the one asked for and kept with the job.
+    expect(secretsAsked.at(-1)).toBe('HPC_SUBMIT_KEY')
+    expect(
+      (
+        await migrator.query(
+          `select secret_name from api.pipeline_remote_jobs where run_id = $1`,
+          [RUN],
+        )
+      ).rows[0].secret_name,
+    ).toBe('HPC_SUBMIT_KEY')
     expect(submitted[0].queue).toBe('hpc-short')
     expect(submitted[0].limitMinutes).toBe(20)
     const env = submitted[0].environment

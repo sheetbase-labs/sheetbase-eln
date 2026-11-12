@@ -58,6 +58,7 @@ const client = screenQueryClient({
           baseUrl: 'https://slurm.example.org',
           user: 'sheetbase',
           callbackUrl: 'https://eln.example.org',
+          secrets: ['HPC_SUBMIT_KEY'],
           queues: [
             { name: 'hpc-short', maxMinutes: 120 },
             { name: 'gpu.a100', maxMinutes: 1440 },

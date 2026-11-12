@@ -6999,10 +6999,17 @@ async function seedDesignPipelines(
 
           // A draft-only pipeline is registered but never published.
           if (!('draftOnly' in p)) {
-            await client.query(
-              'select api.publish_pipeline_definition_version($1,$2)',
-              [workspaceId, versionId],
+            // Publishing needs an admin's approval: the owner asks, and as the
+            // workspace's only owner approves their own request.
+            const request = await client.query(
+              'select id from api.request_pipeline_publish($1,$2,$3)',
+              [workspaceId, versionId, 'Seeded demo pipeline'],
             )
+
+            await client.query('select api.approve_approval_request($1,$2)', [
+              request.rows[0].id,
+              'Seeded demo pipeline',
+            ])
           }
         }
 

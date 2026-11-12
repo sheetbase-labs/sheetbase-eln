@@ -1,3 +1,4 @@
+import { requestPipelinePublish } from '#/lib/approval-requests'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
@@ -17,7 +18,6 @@ import {
   listPipelineRuns,
   listPipelineSchedules,
   listRunCompatiblePipelines,
-  publishPipelineDefinitionVersion,
   retirePipelineDefinitionVersion,
   startPipelineRun,
   tryPipelineDraft,
@@ -73,9 +73,10 @@ describe('pipeline data client', () => {
       expectedRevision: 1,
       configuration: { configVersion: 2 },
     })
-    await publishPipelineDefinitionVersion(client, {
+    await requestPipelinePublish(client, {
       workspaceId: 'ws-1',
       versionId: 'ver-1',
+      reason: 'Ready',
     })
     await retirePipelineDefinitionVersion(client, {
       workspaceId: 'ws-1',
@@ -86,7 +87,7 @@ describe('pipeline data client', () => {
       'update_pipeline_definition',
       'create_pipeline_definition_version',
       'update_pipeline_definition_version_draft',
-      'publish_pipeline_definition_version',
+      'request_pipeline_publish',
       'retire_pipeline_definition_version',
     ])
   })

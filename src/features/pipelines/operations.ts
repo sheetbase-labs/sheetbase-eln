@@ -7,8 +7,8 @@
  * the event catalogue.
  *
  * Everything here acts as the person (or the personal token) that calls it,
- * so the database's own checks apply: stewards and up make and publish
- * pipelines, anyone who can write runs them, and owners and admins manage
+ * so the database's own checks apply: stewards and up make pipelines and ask
+ * for them to be published (an admin approves, see `pipeline-approvals`), anyone who can write runs them, and owners and admins manage
  * plugins. Answering a run that waits for a person stays with that person in
  * the app.
  */
@@ -111,18 +111,6 @@ export const PIPELINES_EXTENSIONS_OPERATIONS = defineOperations([
     ],
     result: 'row:pipeline_definitions',
     assistant: { tool: 'sheetbase.pipeline.retire' },
-  },
-  {
-    name: 'publish_pipeline_definition_version',
-    label: 'Publish a pipeline version',
-    summary: 'Publish a pipeline version',
-    description:
-      'Publishes a checked draft version, so runs and schedules use it from now on; the version before it stays as it was for the runs that used it. A published version cannot be changed. Stewards, admins and owners. Returns the version. Sends `pipeline.version.published`.',
-    kind: 'write',
-    scope: 'pipelines:write',
-    inputs: [workspace(), versionId()],
-    result: 'row:pipeline_definition_versions',
-    assistant: { tool: 'sheetbase.pipeline.publish' },
   },
   {
     name: 'retire_pipeline_definition_version',

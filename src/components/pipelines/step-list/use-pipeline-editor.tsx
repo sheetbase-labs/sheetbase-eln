@@ -19,7 +19,6 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import {
   listPipelineRunLogs,
   listPipelineRunPrompts,
-  publishPipelineDefinitionVersion,
   tryPipelineDraft,
 } from '#/lib/pipelines/data'
 import {
@@ -216,39 +215,22 @@ export function usePipelineEditorModel(
       ),
   })
 
-  // Publish saves what is on screen first, then publishes the draft.
-  const publish = useMutation({
-    mutationFn: async () => {
-      if (!built) throw new Error(t('data.pipelineSteps.draftPublish'))
-      let versionId = draft?.id
+  // Asking to publish saves what is on screen first, then asks about that draft.
+  const ensureDraft = async () => {
+    if (!built) throw new Error(t('data.pipelineSteps.draftPublish'))
+    let versionId = draft?.id
 
-      if (dirty || !draft) {
-        const saved = await writeDraft(built)
+    if (dirty || !draft) {
+      const saved = await writeDraft(built)
 
-        // SAFETY: the step kind names the shape of its form, checked by parseNoCodeForm.
-        versionId = (saved as { id?: string } | null)?.id ?? versionId
-      }
+      // SAFETY: the step kind names the shape of its form, checked by parseNoCodeForm.
+      versionId = (saved as { id?: string } | null)?.id ?? versionId
+    }
 
-      if (!versionId) throw new Error(t('data.pipelineSteps.draftPublish'))
+    if (!versionId) throw new Error(t('data.pipelineSteps.draftPublish'))
 
-      return publishPipelineDefinitionVersion(notebookDataClient, {
-        workspaceId,
-        versionId,
-      })
-    },
-    onSuccess: () => {
-      toast(t('data.pipelinePage.draftPublished'), {
-        description: t('data.pipelinePage.newRunsUseRuns'),
-      })
-      void invalidate()
-    },
-    onError: (error) =>
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t('data.pipelineSteps.couldnTPublish'),
-      ),
-  })
+    return versionId
+  }
 
   // Try the draft: run what is on screen, unsaved, and show the result.
   const [trialDialog, setTrialDialog] = useState(false)
@@ -477,7 +459,7 @@ export function usePipelineEditorModel(
     usesPython,
     pythonUnavailable,
     saveDraft,
-    publish,
+    ensureDraft,
     tryDraft,
     startTrial,
     submitTrial,

@@ -6,25 +6,18 @@ import {
   useMatchRoute,
   useNavigate,
 } from '@tanstack/react-router'
-import { useState } from 'react'
+
+import { useMemo } from 'react'
 
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { PageHeader } from '#/components/ui/layout'
 import { Tabs } from '#/components/ui/tabs'
+import { PublishButton } from '#/components/pipelines/activity/publish-button'
+import { usePublishApproval } from '#/components/pipelines/activity/use-publish-approval'
 import { Status } from '#/components/ui/status'
 import { Button } from '#/components/ui/button'
-import {
-  ConfirmDialog,
-  ConfirmDialogAction,
-  ConfirmDialogCancel,
-  ConfirmDialogContent,
-  ConfirmDialogDescription,
-  ConfirmDialogFooter,
-  ConfirmDialogHeader,
-  ConfirmDialogTitle,
-} from '#/components/ui/confirm-dialog'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { RunDialog } from '#/components/pipelines/run-dialog'
 import { StepInspector } from '#/components/pipelines/step-list/inspector'
@@ -88,9 +81,26 @@ function usePipelineLayout() {
 
   const run = useRunLauncher(workspaceId, onRunStarted)
 
+  const versionList = useMemo(
+    () => editor.versions.data ?? [],
+    [editor.versions.data],
+  )
+
+  const approval = usePublishApproval(
+    versionList,
+    {
+      workspaceId,
+      role: context.workspace?.role,
+      userId: context.user.id,
+    },
+    editor.ensureDraft,
+  )
+
   return {
     pipelineId,
     editor,
+    approval,
+    versionList,
     members: members.data ?? {},
     onRun,
     onSteps,
@@ -101,10 +111,8 @@ function usePipelineLayout() {
 // react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the layout owns the header, tabs, trial and publish dialogs that share one editor model.
 function PipelineLayout() {
   const model = usePipelineLayout()
-  const { editor, members, onRun, onSteps, run } = model
+  const { editor, approval, versionList, members, onRun, onSteps, run } = model
   const { definition, current, draft } = editor
-  const [publishing, setPublishing] = useState(false)
-
   const d = definition.data
 
   if (onRun) return <Outlet />
@@ -192,9 +200,13 @@ function PipelineLayout() {
                     ? t('data.pipelineSteps.trying')
                     : t('data.pipelineHeader.tryDraft')}
                 </Button>
-                <Button
-                  variant="primary"
-                  disabled={!canPublish || editor.publish.isPending}
+                <PublishButton
+                  pipelineId={d.id}
+                  version={nextVersion}
+                  draftId={draft?.id}
+                  versions={versionList}
+                  approval={approval}
+                  disabled={!canPublish}
                   title={
                     editor.errors.length
                       ? t('data.pipelinePage.finishDraftStepsTab', {
@@ -202,10 +214,7 @@ function PipelineLayout() {
                         })
                       : undefined
                   }
-                  onClick={() => setPublishing(true)}
-                >
-                  {t('data.pipelineHeader.publish', { version: nextVersion })}
-                </Button>
+                />
                 <PipelineMenu
                   canRun={current?.lifecycle === 'published' && !run.pending}
                   onRun={() =>
@@ -232,7 +241,7 @@ function PipelineLayout() {
                   },
                   {
                     label: t('data.pipelineHeader.activity'),
-                    link: { to: '/pipelines/$pipelineId/triggers', params },
+                    link: { to: '/pipelines/$pipelineId/activity', params },
                   },
                 ]}
               />
@@ -253,38 +262,6 @@ function PipelineLayout() {
               onSubmit={editor.submitTrial}
             />
           ) : null}
-          <ConfirmDialog open={publishing} onOpenChange={setPublishing}>
-            <ConfirmDialogContent>
-              <ConfirmDialogHeader>
-                <ConfirmDialogTitle>
-                  {t('data.pipelineHeader.publishTitle', {
-                    version: nextVersion,
-                  })}
-                </ConfirmDialogTitle>
-                <ConfirmDialogDescription>
-                  {current?.lifecycle === 'published'
-                    ? t('data.pipelineHeader.publishBodyReplace', {
-                        version: current.version,
-                        next: nextVersion,
-                      })
-                    : t('data.pipelineHeader.publishBodyFirst')}{' '}
-                  {editor.dirty
-                    ? t('data.pipelineHeader.publishSavesFirst')
-                    : ''}
-                </ConfirmDialogDescription>
-              </ConfirmDialogHeader>
-              <ConfirmDialogFooter>
-                <ConfirmDialogCancel>
-                  {t('common.actions.cancel')}
-                </ConfirmDialogCancel>
-                <ConfirmDialogAction onClick={() => editor.publish.mutate()}>
-                  {t('data.pipelineHeader.publishConfirm', {
-                    version: nextVersion,
-                  })}
-                </ConfirmDialogAction>
-              </ConfirmDialogFooter>
-            </ConfirmDialogContent>
-          </ConfirmDialog>
         </div>
         {onSteps ? <StepInspector /> : null}
       </div>

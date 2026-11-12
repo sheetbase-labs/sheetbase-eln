@@ -1774,7 +1774,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
         minItems: 1,
         maxItems: 50,
         description:
-          'The ordered steps. Data steps (filter, join, calculate, check_ranges, flag, sql, python, plugin) read the one before as `previous`; an ask step pauses for a person; action and notify steps run after the output is written. Each kind keeps its settings under its own key: `statement` (and `contract` for python), `form` with `statement` for the no-code kinds, `plugin`, `ask`, `action` or `notify`.',
+          'The ordered steps. Data steps (filter, join, calculate, check_ranges, flag, sql, python, plugin, lakehouse, remote_job) read the one before as `previous`; an ask step pauses for a person; action and notify steps run after the output is written. Each kind keeps its settings under its own key: `statement` (and `contract` for python), `form` with `statement` for the no-code kinds, `plugin`, `lake` with `statement` (lakehouse), `remoteJob` (remote_job), `ask`, `action` or `notify`.',
         items: {
           type: 'object',
           required: ['name', 'kind'],
@@ -1791,6 +1791,8 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
                 'sql',
                 'python',
                 'plugin',
+                'lakehouse',
+                'remote_job',
                 'ask',
                 'action',
                 'notify',
@@ -1811,6 +1813,33 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
               properties: {
                 operation: TEXT,
                 arguments: jsonMap('Plugin tables and settings, by name.'),
+              },
+            },
+            lake: {
+              type: 'object',
+              description:
+                'Lakehouse only: the open tables the `statement` reads, each by its name. A steward has to switch lakehouse SQL on.',
+              required: ['tables'],
+              properties: {
+                tables: {
+                  type: 'array',
+                  minItems: 1,
+                  maxItems: 10,
+                  items: { ...TEXT, pattern: '^[a-z][a-z0-9_]{0,62}$' },
+                },
+              },
+            },
+            remoteJob: {
+              type: 'object',
+              description:
+                'Remote job only: a script run on an HPC queue. The run waits for it, up to `limitMinutes`. `secret` names one of the connection secrets (default `HPC_SUBMIT_KEY`); the value is never in a pipeline.',
+              required: ['connection', 'queue', 'script', 'limitMinutes'],
+              properties: {
+                connection: TEXT,
+                queue: TEXT,
+                secret: { ...TEXT, pattern: '^[A-Za-z][A-Za-z0-9_]{0,48}$' },
+                script: { ...TEXT, minLength: 1, maxLength: 20_000 },
+                limitMinutes: { type: 'integer', minimum: 1, maximum: 10_080 },
               },
             },
             ask: {

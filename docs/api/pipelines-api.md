@@ -6,6 +6,8 @@ Publishing needs an admin’s approval: `request_pipeline_publish` asks for it, 
 
 A run that pauses for a person (`pipeline.run.waiting`) is answered by that person in the app: the pause is the pipeline asking them to confirm, so a token or an agent cannot answer for them. The prompt is readable on `pipeline_run_prompts`.
 
+Two step kinds reach outside the run: `remote_job` (a script on an HPC queue; the run waits, up to its time limit) and `lakehouse` (read-only SQL over the open tables). Both are written in the pipeline version's `steps` like any other kind, by a token or an agent. Their connections, secrets and switch, and the jobs a run sent, are in [`pipeline-remote-api.md`](pipeline-remote-api.md).
+
 ## Tables
 
 | Table                        | Scope            | What it holds                                                                                                                                                                                                                                                                                          |

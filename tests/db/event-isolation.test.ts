@@ -35,6 +35,7 @@ import {
   TEST_DATABASE,
   testDatabaseName,
 } from './helpers'
+import { publishPipelineVersion } from './support/publish-pipeline'
 
 const WS_A = '0e030000-0000-4000-8000-000000000a01'
 const WS_B = '0e030000-0000-4000-8000-000000000b02'
@@ -66,7 +67,6 @@ async function actor(userId: string, workspaceId: string): Promise<Client> {
 const RPC_ARG_TYPES: Record<string, string[]> = {
   create_pipeline_definition: ['uuid', 'text', 'text', 'text'],
   create_pipeline_definition_version: ['uuid', 'uuid', 'jsonb'],
-  publish_pipeline_definition_version: ['uuid', 'uuid'],
   create_pipeline_schedule: ['uuid', 'uuid', 'text', 'jsonb', 'boolean'],
   create_dataset_schema_definition: ['uuid', 'text', 'text', 'text', 'jsonb'],
   publish_dataset_schema_version: ['uuid'],
@@ -234,10 +234,7 @@ async function setupWorkspace(
       p_configuration: pipelineConfig(schemaVersionId),
     },
   )
-  await rpc(owner, 'publish_pipeline_definition_version', {
-    p_workspace_id: ws,
-    p_version_id: pipeVersion.id,
-  })
+  await publishPipelineVersion(owner, ws, pipeVersion.id)
 
   const schedule = await rpc<{ id: string }>(
     owner,

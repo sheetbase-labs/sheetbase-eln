@@ -33,6 +33,7 @@ import {
   setActorJwt,
   testDatabaseName,
 } from './helpers'
+import { publishPipelineVersion } from './support/publish-pipeline'
 
 const WS = '0e020000-0000-4000-8000-000000000201'
 const OWNER = 'pipeline-confirm-owner'
@@ -67,7 +68,6 @@ async function actor(userId: string, workspaceId: string): Promise<Client> {
 const RPC_ARG_TYPES: Record<string, string[]> = {
   create_pipeline_definition: ['uuid', 'text', 'text', 'text'],
   create_pipeline_definition_version: ['uuid', 'uuid', 'jsonb'],
-  publish_pipeline_definition_version: ['uuid', 'uuid'],
   start_pipeline_run: [
     'uuid',
     'uuid',
@@ -263,10 +263,7 @@ async function publishVersion(
       p_configuration: config,
     },
   )
-  await rpc(owner, 'publish_pipeline_definition_version', {
-    p_workspace_id: WS,
-    p_version_id: version.id,
-  })
+  await publishPipelineVersion(owner, WS, version.id)
   return version.id
 }
 

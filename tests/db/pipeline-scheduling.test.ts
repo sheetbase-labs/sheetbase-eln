@@ -19,6 +19,7 @@ import {
   setActorJwt,
   testDatabaseName,
 } from './helpers'
+import { publishPipelineVersion } from './support/publish-pipeline'
 
 const WS = '0e010000-0000-4000-8000-000000000501'
 const OWNER = 'scheduling-owner-a'
@@ -294,10 +295,7 @@ beforeAll(async () => {
       }),
     ],
   )
-  await owner.query(
-    `select api.publish_pipeline_definition_version($1::uuid, $2::uuid)`,
-    [WS, version.rows[0].id],
-  )
+  await publishPipelineVersion(owner, WS, version.rows[0].id)
 })
 
 afterAll(async () => {
@@ -782,10 +780,7 @@ describe('a run event never starts its own pipeline again', () => {
       `select * from api.create_pipeline_definition_version($1::uuid, $2::uuid, $3::jsonb)`,
       [WS, otherId, JSON.stringify(source[0].configuration)],
     )
-    await owner.query(
-      `select api.publish_pipeline_definition_version($1::uuid, $2::uuid)`,
-      [WS, draft.rows[0].id],
-    )
+    await publishPipelineVersion(owner, WS, draft.rows[0].id)
 
     await settleRuns()
     const onA = await onRunSucceeded(definitionId)

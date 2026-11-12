@@ -72,6 +72,7 @@ import {
   setActorJwt,
   testDatabaseName,
 } from './helpers'
+import { publishPipelineVersion } from './support/publish-pipeline'
 
 // Manifests are signed with a key the deployment supplies; the executor reads it
 // from the environment, so it must exist before the modules above load.
@@ -124,7 +125,6 @@ const RPC_ARG_TYPES = {
   update_pipeline_definition: ['uuid', 'uuid', 'text', 'text', 'text'],
   create_pipeline_definition_version: ['uuid', 'uuid', 'jsonb'],
   update_pipeline_definition_version_draft: ['uuid', 'uuid', 'bigint', 'jsonb'],
-  publish_pipeline_definition_version: ['uuid', 'uuid'],
   retire_pipeline_definition_version: ['uuid', 'uuid'],
   run_pipeline: ['text', 'jsonb', 'jsonb'],
   run_pipeline_version: ['uuid', 'jsonb', 'jsonb'],
@@ -178,7 +178,6 @@ const rpcResultSchemas = {
   update_pipeline_definition: z.void(),
   create_pipeline_definition_version: idResultSchema,
   update_pipeline_definition_version_draft: z.void(),
-  publish_pipeline_definition_version: z.void(),
   retire_pipeline_definition_version: z.void(),
   run_pipeline: runResultSchema,
   run_pipeline_version: runResultSchema,
@@ -551,10 +550,7 @@ beforeAll(async () => {
   })
 
   pipelineVersionId = version.id
-  await rpc(owner, 'publish_pipeline_definition_version', {
-    p_workspace_id: WS,
-    p_version_id: version.id,
-  })
+  await publishPipelineVersion(owner, WS, version.id)
 })
 
 afterAll(async () => {
@@ -923,10 +919,7 @@ describe('Pipeline execution (AUTO-02)', () => {
       ),
     })
 
-    await rpc(owner, 'publish_pipeline_definition_version', {
-      p_workspace_id: WS,
-      p_version_id: version.id,
-    })
+    await publishPipelineVersion(owner, WS, version.id)
 
     const runWith = async (factor: number) => {
       const run = await rpc(owner, 'start_pipeline_run', {
@@ -1119,10 +1112,7 @@ describe('Pipeline execution (AUTO-02)', () => {
       p_configuration: pipelineConfig('SELECT * FROM api.datasets'),
     })
 
-    await rpc(owner, 'publish_pipeline_definition_version', {
-      p_workspace_id: WS,
-      p_version_id: version.id,
-    })
+    await publishPipelineVersion(owner, WS, version.id)
 
     const run = await rpc(owner, 'start_pipeline_run', {
       p_workspace_id: WS,
@@ -1164,10 +1154,7 @@ describe('Pipeline execution (AUTO-02)', () => {
       ),
     })
 
-    await rpc(owner, 'publish_pipeline_definition_version', {
-      p_workspace_id: WS,
-      p_version_id: version.id,
-    })
+    await publishPipelineVersion(owner, WS, version.id)
 
     const run = await rpc(owner, 'start_pipeline_run', {
       p_workspace_id: WS,
@@ -1207,10 +1194,7 @@ describe('Pipeline execution (AUTO-02)', () => {
       ),
     })
 
-    await rpc(owner, 'publish_pipeline_definition_version', {
-      p_workspace_id: WS,
-      p_version_id: version.id,
-    })
+    await publishPipelineVersion(owner, WS, version.id)
 
     const run = await rpc(owner, 'start_pipeline_run', {
       p_workspace_id: WS,
@@ -1263,10 +1247,7 @@ describe('Pipeline execution (AUTO-02)', () => {
       p_configuration: pipelineConfig('SELECT bogus FROM measurements'),
     })
 
-    await rpc(owner, 'publish_pipeline_definition_version', {
-      p_workspace_id: WS,
-      p_version_id: version.id,
-    })
+    await publishPipelineVersion(owner, WS, version.id)
 
     const first = await rpc(owner, 'start_pipeline_run', {
       p_workspace_id: WS,
@@ -1500,10 +1481,7 @@ describe('Pipeline execution (AUTO-02)', () => {
       ),
     })
 
-    await rpc(owner, 'publish_pipeline_definition_version', {
-      p_workspace_id: WS,
-      p_version_id: bulkVersion.id,
-    })
+    await publishPipelineVersion(owner, WS, bulkVersion.id)
 
     const run = await rpc(owner, 'start_pipeline_run', {
       p_workspace_id: WS,
@@ -2292,10 +2270,7 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
       ),
     })
 
-    await rpc(owner, 'publish_pipeline_definition_version', {
-      p_workspace_id: WS,
-      p_version_id: v1.id,
-    })
+    await publishPipelineVersion(owner, WS, v1.id)
 
     const schedule = await rpc(owner, 'create_pipeline_schedule', {
       p_workspace_id: WS,
@@ -2342,10 +2317,7 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
       ),
     })
 
-    await rpc(owner, 'publish_pipeline_definition_version', {
-      p_workspace_id: WS,
-      p_version_id: v2.id,
-    })
+    await publishPipelineVersion(owner, WS, v2.id)
 
     // A genuinely NEW occurrence becomes due after V2 is published; it must
     // resolve the latest published version (V2), not the pinned V1.
@@ -2408,10 +2380,7 @@ describe('Pipeline workflow extensions', () => {
       p_configuration: config,
     })
 
-    await rpc(owner, 'publish_pipeline_definition_version', {
-      p_workspace_id: WS,
-      p_version_id: version.id,
-    })
+    await publishPipelineVersion(owner, WS, version.id)
 
     return rpc(owner, 'start_pipeline_run', {
       p_workspace_id: WS,

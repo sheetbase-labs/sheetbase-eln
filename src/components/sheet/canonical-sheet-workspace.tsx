@@ -58,6 +58,7 @@ import { CanonicalSheetLifecyclePanel } from '#/components/sheet/canonical-sheet
 import { CellConflictPanel } from '#/components/sheet/cell-conflict-panel'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { Button } from '#/components/ui/button'
+import { BoardButton } from '#/features/pipelines/board/board'
 import { Icon } from '#/components/icons'
 import {
   SheetMoreMenu,
@@ -2389,7 +2390,7 @@ function CanonicalWorkspaceToolbar() {
     <div
       role="toolbar"
       aria-label={t('notebook.canonicalSheetWorkspace.ariaLabel')}
-      className="@container flex min-h-11 shrink-0 flex-wrap items-center md:flex-nowrap gap-x-2 gap-y-1 border-b border-border-subtle px-3.5 py-1.5 max-md:px-2"
+      className="pb-scope tx-bh @container flex-wrap gap-y-1 py-1.5 md:flex-nowrap max-md:px-2"
     >
       {heading ? (
         <div className="flex min-w-0 shrink items-center gap-2 max-md:basis-full">
@@ -2433,36 +2434,26 @@ function SheetEntryModeSwitch() {
   return (
     <>
       <div
+        className="seg"
         role="group"
         aria-label={t('notebook.sheetBench.entryModeAriaLabel')}
-        className="inline-flex rounded-md border border-border p-0.5"
       >
-        <Button
+        <button
           type="button"
-          size="sm"
-          variant={benchEntry ? 'quiet' : 'secondary'}
+          className={cn(!benchEntry && 'on', 'max-md:h-7')}
           aria-pressed={!benchEntry}
-          className={cn(
-            'h-5 border-0 max-md:h-7',
-            !benchEntry && 'bg-selected font-medium',
-          )}
           onClick={() => setBenchEntry(false)}
         >
           {t('notebook.sheetBench.document')}
-        </Button>
-        <Button
+        </button>
+        <button
           type="button"
-          size="sm"
-          variant={benchEntry ? 'secondary' : 'quiet'}
+          className={cn(benchEntry && 'on', 'max-md:h-7')}
           aria-pressed={benchEntry}
-          className={cn(
-            'h-5 border-0 max-md:h-7',
-            benchEntry && 'bg-selected font-medium',
-          )}
           onClick={() => setBenchEntry(true)}
         >
           {t('notebook.sheetBench.benchEntry')}
-        </Button>
+        </button>
       </div>
     </>
   )
@@ -2542,16 +2533,14 @@ function SheetViewSwitches() {
       <SheetToolbarRule />
       <SheetFilters />
       {matrix.columns.length > 0 ? (
-        <Button
-          type="button"
+        <BoardButton
           size="sm"
-          variant="secondary"
           title={t('notebook.sheetToolbar.columnsHint')}
           aria-expanded={sheetTool === 'view'}
           onClick={() => setSheetTool(sheetTool === 'view' ? null : 'view')}
         >
           {t('notebook.sheetToolbar.columns')}
-        </Button>
+        </BoardButton>
       ) : null}
     </>
   )

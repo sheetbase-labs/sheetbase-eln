@@ -7,6 +7,7 @@ import { useRef, useState } from 'react'
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
+import { BoardButton } from '#/features/pipelines/board/board'
 import { Input } from '#/components/ui/input'
 import {
   Popover,
@@ -217,10 +218,8 @@ export function SheetFiltersButton({
     <Popover onOpenChange={open}>
       <PopoverTrigger
         render={
-          <Button
-            type="button"
+          <BoardButton
             size="sm"
-            variant="secondary"
             icon="filter"
             aria-label={compact ? label : undefined}
             title={compact ? label : undefined}

@@ -1,0 +1,85 @@
+/*
+ * The "Tables and sheets · System" board's sheet frame, copied from `TablesSystem.dc.html`
+ * (the `.tx-*` and `.tbs-*` rules) so the toolbar, the save line, the show-changes switch and
+ * the foot line draw what the board draws. Source of truth: /mnt/project-files/tables-board/project/.
+ * Buttons and the Document / Bench entry switch come from the shared board set
+ * (`#/features/pipelines/board/board.css`, `.pb-scope .btn`, `.pb-scope .seg`), so a toolbar wears
+ * `pb-scope tx-bh`. Change a value here only when the board changes.
+ */
+.tx-bh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  flex-shrink: 0;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.tx-bh b {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tx-bh svg {
+  flex-shrink: 0;
+}
+.tx-sv {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.tx-sv.is-bad {
+  color: var(--danger-text);
+}
+.tx-sw {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: 500 12px var(--font-sans);
+  color: var(--text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tx-sw i {
+  position: relative;
+  width: 26px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  background: var(--border-strong);
+}
+.tx-sw i::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+.tx-sw.on {
+  color: var(--text);
+}
+.tx-sw.on i {
+  background: var(--accent-strong);
+}
+.tx-sw.on i::after {
+  left: 14px;
+  background: var(--on-accent);
+}
+.tx-vr {
+  width: 1px;
+  height: 18px;
+  flex-shrink: 0;
+  background: var(--border);
+}

@@ -9,7 +9,8 @@ import { useSyncExternalStore } from 'react'
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
-import { Button } from '#/components/ui/button'
+import { BoardButton } from '#/features/pipelines/board/board'
+import './sheet-board.css'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,10 +76,7 @@ export function SheetSaveStatus({
       aria-live="polite"
       title={state === 'failed' ? detail : label}
       data-save-state={state}
-      className={cn(
-        'inline-flex h-7 shrink-0 items-center gap-1.5 px-1 text-label whitespace-nowrap',
-        state === 'failed' ? 'text-danger-text' : 'text-fg-muted',
-      )}
+      className={cn('tx-sv', state === 'failed' && 'is-bad')}
     >
       {state === 'saved' ? (
         <Icon
@@ -106,7 +104,7 @@ export function SheetSaveStatus({
 /** A thin upright rule between toolbar groups. */
 export function SheetToolbarRule() {
   return (
-    <span aria-hidden="true" className="h-[18px] w-px shrink-0 bg-border" />
+    <span aria-hidden="true" className="tx-vr" />
   )
 }
 
@@ -129,25 +127,9 @@ export function SheetToolbarSwitch({
       aria-checked={on}
       title={title}
       onClick={() => onChange(!on)}
-      className={cn(
-        'inline-flex h-7 shrink-0 items-center gap-[7px] rounded-md px-1 text-label font-medium whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-        on ? 'text-fg' : 'text-fg-muted hover:text-fg',
-      )}
+      className={cn('tx-sw', on && 'on')}
     >
-      <span
-        aria-hidden="true"
-        className={cn(
-          'relative h-3.5 w-[26px] shrink-0 rounded-full transition-colors',
-          on ? 'bg-accent-strong' : 'bg-border-strong',
-        )}
-      >
-        <span
-          className={cn(
-            'absolute top-0.5 size-2.5 rounded-full bg-surface transition-[left]',
-            on ? 'left-[14px]' : 'left-0.5',
-          )}
-        />
-      </span>
+      <i aria-hidden="true" />
       {label}
     </button>
   )
@@ -179,10 +161,9 @@ export function SheetMoreMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button
-            type="button"
+          <BoardButton
             size="sm"
-            variant="secondary"
+            iconOnly
             icon="more"
             aria-label={t('notebook.sheetToolbar.moreTools')}
             title={t('notebook.sheetToolbar.moreTools')}

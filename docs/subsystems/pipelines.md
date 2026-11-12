@@ -35,21 +35,48 @@ under [ADR-0046](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/docs/
 | Run output               | `api.pipeline_run_outputs`         | Normalized provenance: which Dataset Version a run produced      |
 | Schedule / event trigger | `api.pipeline_schedules`           | interval / daily / cron / catalogue events                       |
 
-## Configuration format (v1)
+## Configuration format (v2)
+
+A version is one ordered list of typed steps. Data steps make rows; an ask step
+pauses for a person; action and notify steps act on the result.
 
 ```jsonc
 {
-  "configVersion": 1,
+  "configVersion": 2,
+  "mode": "standard", // "simple", "standard" or "advanced"
   "description": "Scale measurement values",
   "parameters": [
     { "name": "factor", "type": "decimal", "required": true },
     { "name": "note", "type": "text", "required": false, "default": "scaled" },
   ],
   "inputs": [{ "name": "measurements", "required": true }],
-  "transform": {
-    "language": "sql",
-    "statement": "SELECT batch, value, value * {{factor}} AS scaled FROM measurements",
-  },
+  "steps": [
+    {
+      "name": "analysis",
+      "kind": "sql",
+      "statement": "SELECT batch, value, value * {{factor}} AS scaled FROM measurements",
+    },
+    {
+      "name": "flag_high",
+      "kind": "sql",
+      "statement": "SELECT * FROM previous WHERE scaled > 100",
+      "onlyIfRows": true, // skipped when the step before gave no rows
+      "note": "Only the high readings go on.",
+    },
+    {
+      "name": "check_high",
+      "kind": "ask",
+      "ask": {
+        "fields": [{ "key": "ok", "label": "OK?", "type": "boolean" }],
+        "askedUserIds": ["<user id>"],
+      },
+    },
+    {
+      "name": "tell_team",
+      "kind": "notify",
+      "notify": { "subscriptionId": "<uuid>" },
+    },
+  ],
   "output": {
     "mode": "create", // or "append" / "none"
     "schemaVersionId": "<uuid>", // required for create
@@ -60,6 +87,32 @@ under [ADR-0046](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/docs/
   },
 }
 ```
+
+Step kinds (`internal.pipeline_step_kinds` lists them, with what each runs as):
+
+| Kind     | Settings key            | What it does                                                                                         |
+| -------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `sql`    | `statement`             | One `SELECT`; reads the step before as `previous`                                                    |
+| `python` | `statement`, `contract` | `transform(inputs, parameters)`; reads the step before as `inputs["previous"]`                       |
+| `plugin` | `plugin`                | A `pipeline-steps` item of an installed plugin                                                       |
+| `ask`    | `ask`                   | Pauses the run and shows the rows so far to the people asked; they pass on unchanged when it goes on |
+| `action` | `action`                | An ELN action (`operation`, `arguments`, `mode`, `forEach`), run after the output is written         |
+| `notify` | `notify`                | A webhook or channel notification (`subscriptionId`, `payload`), run after the output is written     |
+
+Each step has a lowercase `name` (unique in the version), an optional `note`
+(up to 500 characters) and only its own kind's settings key. `onlyIfRows` is
+for data steps. A version holds at most 50 steps. Action and notify steps run
+in list order once the output is written, and `previous` in their references is
+the rows of the last data step before them. The output takes the rows of the
+last data step that ran. `mode` is a label for the editor the version is made
+in; it does not change how the version runs.
+
+Version 1 configurations (one `transform`, up to nine `steps`, and separate
+`actions` and `notifications` lists) were converted by the
+`pipeline_steps_v2` migration: the transform became the `analysis` step, a step
+that paused became a data step named `<name>_shown` followed by an ask step
+with the original name, and actions and notifications became steps at the end.
+The database refuses any other format.
 
 Rules:
 
@@ -89,23 +142,20 @@ Rules:
 
 ## Python, action and webhook configuration
 
-`transform.language` is `sql`, `python` or `none`. An optional `steps` array
-contains up to nine further `{ name, language, statement }` SQL/Python steps.
-Each step receives the preceding result as `previous`: a table in SQL, or
+A data step receives the preceding result as `previous`: a table in SQL, or
 `inputs["previous"]` in Python. Original input aliases remain available.
-Names must be lowercase identifiers; `previous` is reserved for the preceding
-result. Zero Dataset inputs are valid.
+`previous` is reserved for the preceding result. Zero Dataset inputs are valid.
 
-A step can also be run by a plugin: `{ name, language: "plugin", statement: "",
+A step can also be run by a plugin: `{ name, kind: "plugin",
 plugin: { operation, arguments } }`, where `operation` is a `pipeline-steps` item
 of an installed plugin (`plugin.<key>.<id>`). It sits anywhere in the chain. Each
 table the plugin declares is bound with `{ "$ref": "previous" }` (the step before),
 `{ "$ref": "inputs.<name>" }` (a declared input) or `{ "$ref": "steps.<name>" }`
-(any earlier step; the main transform is `steps.analysis`); a setting is a plain
+(any earlier step by name); a setting is a plain
 value or `{ "$ref": "parameters.<name>" }`. A table left out is `previous`. The
 table the plugin gives back is the next step's `previous`. It runs in the same
 isolated runner as every plugin call, as the person who started the run, and
-cannot carry a data contract. It can pause for a person (`confirm`) like any step: the person is shown the plugin's table, and once they confirm it the steps after it read it as `previous` (Skip leaves it unused). If the plugin is
+cannot carry a data contract. An ask step after it shows the person the plugin's table, and once they confirm it the steps after it read it as `previous`. If the plugin is
 removed, switched off, or the name is not a table-making step, the run stops at
 that step with a plain message and writes nothing.
 
@@ -137,16 +187,20 @@ printed output, the environment and, on failure, the message and line. A real
 run records the same `logs`, `environment` and `line` in its log entry, shown in
 the run view.
 
-`output.mode: "none"` skips Dataset creation and snapshotting. The `actions`
-array contains up to twenty `{ name, operation, arguments }` ELN actions. The
+`output.mode: "none"` skips Dataset creation and snapshotting. Up to twenty
+`action` steps each hold one `{ operation, arguments }` ELN action, named by the
+step. The
 catalogue in `src/lib/pipelines/actions.ts` supplies labels, argument contracts
 and fixed canonical RPC names. For example:
 
 ```json
 {
   "name": "project",
-  "operation": "create_project",
-  "arguments": { "p_title": { "$ref": "parameters.study_name" } }
+  "kind": "action",
+  "action": {
+    "operation": "create_project",
+    "arguments": { "p_title": { "$ref": "parameters.study_name" } }
+  }
 }
 ```
 
@@ -159,7 +213,7 @@ project creation, model records, record properties/lifecycle/links, sample
 custody, reagent movement and Dataset commit/snapshot/lifecycle. Review
 confirmation, signatures and attestation are not autonomous actions.
 
-`notifications` contains up to ten `{ subscriptionId, payload? }` entries. The
+Up to ten `notify` steps each hold one `{ subscriptionId, payload? }`. The
 existing active webhook subscription owns its destination and signing secret.
 The optional JSON payload supports the same references and is delivered as
 `data`; omitting it sends only run/output metadata. Payloads are limited to
@@ -273,10 +327,14 @@ becomes a `resume` job, after the route has checked the decision.
 - **Staleness.** A run whose job is queued (for under an hour) or leased is not
   stale however old it is, so the 900s reconciliation no longer fails a run
   that is merely waiting its turn.
-- **One run per workspace at a time.** Two concurrent output phases in one
-  workspace deadlock on the workspace row, so each run's transaction takes a
-  workspace advisory lock first. A worker that finds the workspace busy defers
-  the job without spending an attempt. Different workspaces run in parallel.
+- **One run per pipeline at a time.** Each run's transaction takes an advisory
+  lock on its pipeline, so a second run of the same pipeline waits; runs of
+  other pipelines go ahead. Run logs are held in memory until the output phase,
+  which takes a workspace advisory lock (waiting up to 20 s) before it writes,
+  because two output phases in one workspace would deadlock on the workspace
+  row when display ids are given out. A worker that finds the pipeline or the
+  workspace busy rolls the transaction back and defers the job without spending
+  an attempt.
 - **Following a run.** `GET /api/pipelines/execute?runId=` returns the run and
   its queue state (`queued`, `claimed`, `done`, `dead`); `api.get_pipeline_run_job`
   does the same over PostgREST. Queued runs keep the run status `running`.

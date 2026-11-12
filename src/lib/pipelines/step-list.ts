@@ -158,6 +158,12 @@ export function newStep(
       }
     case 'remote_job':
       return { name, kind: 'remote_job', remoteJob: emptyRemoteJob() }
+    case 'web_call':
+      return {
+        name,
+        kind: 'web_call',
+        webCall: { connection: '', method: 'GET', path: '/' },
+      }
     case 'ask':
       return {
         name,

@@ -64,6 +64,11 @@ export const KIND_META: Record<PipelineStepKind, KindMeta> = {
     label: t('features.pipelineRemote.kinds.remoteJob'),
     hint: t('features.pipelineRemote.kinds.remoteJobHint'),
   },
+  web_call: {
+    icon: 'link',
+    label: t('features.pipelineConnections.kind.label'),
+    hint: t('features.pipelineConnections.kind.hint'),
+  },
   ask: {
     icon: 'user',
     label: t('data.stepList.kindAsk'),
@@ -93,7 +98,7 @@ export const ADD_GROUPS: Array<{
   { label: t('data.stepList.groupCode'), kinds: ['sql', 'python', 'plugin'] },
   {
     label: t('features.pipelineRemote.kinds.groupConnect'),
-    kinds: ['lakehouse', 'remote_job'],
+    kinds: ['lakehouse', 'remote_job', 'web_call'],
   },
   { label: t('data.stepList.groupPeople'), kinds: ['ask'] },
   { label: t('data.stepList.groupEln'), kinds: ['action'] },
@@ -172,6 +177,14 @@ export function stepSummary(
             limit: formatLimit(step.remoteJob.limitMinutes),
           })
         : t('features.pipelineRemote.summary.chooseConnection')
+    case 'web_call':
+      return step.webCall.connection
+        ? t('features.pipelineConnections.step.summary', {
+            method: step.webCall.method,
+            path: step.webCall.path,
+            connection: step.webCall.connection,
+          })
+        : t('features.pipelineConnections.editor.chooseConnection')
     case 'ask': {
       const person = context.members[step.ask.askedUserIds[0] ?? '']
 

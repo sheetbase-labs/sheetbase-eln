@@ -560,6 +560,14 @@ PL-0021 [file] [--version N]` writes the draft, or a version, out. Python has
 `pipelines.push_version_file` and `pull_version_file` (sync and async), TypeScript
 `pushVersionFile` and `pullVersionFile`. Only an Advanced pipeline accepts a push.
 
+A push also records itself on the draft with `record_pipeline_version_push`: who
+pushed (the person the token belongs to), when, and the commit. `--commit` names
+it; without the flag the command line uses `HEAD` of the file's git repository, if
+it is in one. The editor shows it beside the command as "Last push: …". Recording
+changes nothing else (not the configuration, not the revision) and never publishes.
+The columns are `pushed_at`, `pushed_by_user_id` and `push_commit` on
+`pipeline_definition_versions`.
+
 ### Starts in the file
 
 A `starts:` block holds the pipeline's start rules, the same ones **Starts and

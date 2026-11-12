@@ -344,6 +344,11 @@ describe("version files", () => {
   };
   const reads: MockRoute[] = [
     {
+      method: "POST",
+      path: "/api/db/rpc/record_pipeline_version_push",
+      handler: () => ({ status: 200, json: { id: "v-draft" } }),
+    },
+    {
       method: 'GET',
       path: '/api/db/pipeline_parameter_sets',
       handler: () => ({ status: 200, json: [] }),
@@ -399,10 +404,18 @@ describe("version files", () => {
         handler: () => ({ status: 200, json: { id: "v-draft" } }),
       },
     ]);
-    const result = await client.pipelines.pushVersionFile("PL-0021", "text");
+    const result = await client.pipelines.pushVersionFile("PL-0021", "text", {
+      commit: "3f2a1c9",
+    });
     expect(result.created).toBe(false);
     const sent = fetch.calls.find((c) => c.url.includes("update_pipeline"));
     expect(JSON.parse(sent!.body!).p_expected_revision).toBe(3);
+    const pushed = fetch.calls.find((c) => c.url.includes("record_pipeline"));
+    expect(JSON.parse(pushed!.body!)).toEqual({
+      p_workspace_id: expect.any(String),
+      p_version_id: "v-draft",
+      p_commit: "3f2a1c9",
+    });
   });
 
   it("sets the start rules the file names", async () => {

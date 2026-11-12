@@ -1251,6 +1251,18 @@ class AsyncPipelines:
             },
         )
 
+    async def record_version_push(
+        self, *, workspace_id: str, version_id: str, commit: Optional[str] = None
+    ) -> Any:
+        """Say that the version file was just pushed into this draft: who, when, and the commit.
+
+        Changes nothing else and never publishes. ``push_version_file`` calls it.
+        """
+        body: dict[str, Any] = {"p_workspace_id": workspace_id, "p_version_id": version_id}
+        if commit:
+            body["p_commit"] = commit
+        return await self._t.post("/api/db/rpc/record_pipeline_version_push", json_body=body)
+
     async def sync_step(
         self,
         *,
@@ -1379,12 +1391,15 @@ class AsyncPipelines:
             start_rules=definition.get("start_rules"),
         )
 
-    async def push_version_file(self, id_or_key: str, text: str) -> tuple[Any, bool]:
+    async def push_version_file(
+        self, id_or_key: str, text: str, *, commit: Optional[str] = None
+    ) -> tuple[Any, bool]:
         """Save a version file as a draft of an Advanced pipeline; returns ``(version, created)``.
 
         Updates the open draft, or starts one. A file with a mistake raises
         ``VersionFileError`` and saves nothing. Nothing is published: runs keep using the
-        published version until a person publishes the draft.
+        published version until a person publishes the draft. The push is recorded on the
+        draft (who, when, and ``commit`` if given) with ``record_version_push``.
         """
         definition = await self.get(id_or_key)
         if definition is None:
@@ -1422,6 +1437,9 @@ class AsyncPipelines:
                 configuration=result["configuration"],
             )
             created = True
+        row = version[0] if isinstance(version, list) and version else version
+        if isinstance(row, dict) and row.get("id"):
+            await self.record_version_push(workspace_id=workspace_id, version_id=row["id"], commit=commit)
         rules = result.get("startRules")
         if rules and rules != definition.get("start_rules"):
             await self.set_start_rules(workspace_id, definition["id"], rules)

@@ -12,12 +12,29 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
 from sheetbase._pipeline_source import notebook_to_python, parse_requirements
 from sheetbase.client import SheetbaseClient
+
+
+def _git_head(file: Path) -> Optional[str]:
+    """The commit the file's repository is at, or None outside one (or without git)."""
+    try:
+        done = subprocess.run(
+            ["git", "-C", str(file.resolve().parent), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    commit = done.stdout.strip()
+    return commit if done.returncode == 0 and commit else None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -28,6 +45,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     version_push.add_argument("pipeline", help="pipeline display id (PL-0021), key or UUID")
     version_push.add_argument("file", type=Path)
+    version_push.add_argument(
+        "--commit",
+        help="the commit the file came from, recorded as the last push; default: HEAD of the file's git repository",
+    )
     version_pull = commands.add_parser(
         "pull", help="write a pipeline's draft or latest version out as a version file"
     )
@@ -117,7 +138,9 @@ def _run_version_file_command(args: argparse.Namespace, base_url: str, credentia
                     sys.stdout.write(text)
                 return 0
             version, created = client.pipelines.push_version_file(
-                args.pipeline, args.file.read_text(encoding="utf-8")
+                args.pipeline,
+                args.file.read_text(encoding="utf-8"),
+                commit=args.commit or _git_head(args.file),
             )
     except VersionFileError as error:
         for problem in error.problems:

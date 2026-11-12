@@ -263,10 +263,26 @@ class TestVersionFile:
         route = mock_transport.post("/api/db/rpc/update_pipeline_definition_version_draft").respond(
             200, json={"id": "v-draft"}
         )
+        pushed = mock_transport.post("/api/db/rpc/record_pipeline_version_push").respond(200, json={"id": "v-draft"})
         with client() as c:
-            _, created = c.pipelines.push_version_file("PL-0021", "text")
+            _, created = c.pipelines.push_version_file("PL-0021", "text", commit="3f2a1c9")
         assert created is False
         assert json.loads(route.calls.last.request.content)["p_expected_revision"] == 3
+        recorded = json.loads(pushed.calls.last.request.content)
+        assert recorded["p_version_id"] == "v-draft" and recorded["p_commit"] == "3f2a1c9"
+
+    def test_push_records_without_a_commit(self, mock_transport):
+        sets_table(mock_transport)
+        mock_transport.get("/api/db/pipeline_definitions").respond(200, json=[DEFINITION])
+        mock_transport.get("/api/db/pipeline_definition_versions").respond(200, json=[advanced_version("draft")])
+        mock_transport.post("/api/pipelines/version-file").respond(
+            200, json={"ok": True, "configuration": ADVANCED, "problems": [], "lineCount": 3}
+        )
+        mock_transport.post("/api/db/rpc/update_pipeline_definition_version_draft").respond(200, json=[{"id": "v-draft"}])
+        pushed = mock_transport.post("/api/db/rpc/record_pipeline_version_push").respond(200, json={"id": "v-draft"})
+        with client() as c:
+            c.pipelines.push_version_file("PL-0021", "text")
+        assert "p_commit" not in json.loads(pushed.calls.last.request.content)
 
     def test_push_sets_the_start_rules_the_file_names(self, mock_transport):
         sets_table(mock_transport)
@@ -277,6 +293,7 @@ class TestVersionFile:
             200, json={"ok": True, "configuration": ADVANCED, "startRules": rules, "problems": [], "lineCount": 3}
         )
         mock_transport.post("/api/db/rpc/update_pipeline_definition_version_draft").respond(200, json={"id": "v-draft"})
+        mock_transport.post("/api/db/rpc/record_pipeline_version_push").respond(200, json={"id": "v-draft"})
         route = mock_transport.post("/api/db/rpc/set_pipeline_start_rules").respond(200, json={})
         with client() as c:
             c.pipelines.push_version_file("PL-0021", "text")
@@ -328,6 +345,8 @@ async def test_async_push_version_file(mock_transport):
         200, json={"ok": True, "configuration": ADVANCED, "problems": [], "lineCount": 3}
     )
     mock_transport.post("/api/db/rpc/create_pipeline_definition_version").respond(200, json={"id": "new"})
+    pushed = mock_transport.post("/api/db/rpc/record_pipeline_version_push").respond(200, json={"id": "new"})
     async with AsyncSheetbaseClient(BASE_URL, CREDENTIAL, ["pipelines:read", "pipelines:write"]) as c:
-        _, created = await c.pipelines.push_version_file("PL-0021", "text")
+        _, created = await c.pipelines.push_version_file("PL-0021", "text", commit="abc1234")
     assert created is True
+    assert json.loads(pushed.calls.last.request.content)["p_commit"] == "abc1234"

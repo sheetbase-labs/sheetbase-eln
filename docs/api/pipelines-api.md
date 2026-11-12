@@ -28,7 +28,19 @@ Reads or writes an Advanced pipeline's version file (YAML) without saving anythi
 - `{ "text": "...", "pipeline": ["PL-0021", "assay"], "pythonRuntime": "..." }` returns `{ "ok", "configuration", "startRules", "problems", "lineCount" }`; `startRules` is the file's `starts:` block as start rules, or `null` when it has none. Each problem has a 1-based `line`, `column`, `length` and a `message`. `pipeline` lists the names the file's `pipeline:` line may be.
 - `{ "configuration": {...}, "pipeline": "PL-0021", "version": 2, "title": "Assay", "startRules": {...} }` returns `{ "text" }`; send the pipeline's `start_rules` to have them written as `starts:`.
 
-To save a file, send the returned `configuration` through `create_pipeline_definition_version` or `update_pipeline_definition_version_draft`, or use `sheetbase push` and the SDK methods `push_version_file` (Python) and `pushVersionFile` (TypeScript), which do both steps and also set the start rules with `set_pipeline_start_rules` when the file has a `starts:` block. See [the version file](../subsystems/pipelines.md#the-version-file-advanced-mode).
+To save a file, send the returned `configuration` through `create_pipeline_definition_version` or `update_pipeline_definition_version_draft`, or use `sheetbase push` and the SDK methods `push_version_file` (Python) and `pushVersionFile` (TypeScript), which do both steps, record the push with `record_pipeline_version_push`, and also set the start rules with `set_pipeline_start_rules` when the file has a `starts:` block. See [the version file](../subsystems/pipelines.md#the-version-file-advanced-mode).
+
+## `record_pipeline_version_push`
+
+Says that the version file was just pushed into a draft: who pushed it (the person the token belongs to), when, and the commit it came from if given. The editor shows it as "Last push", and `pushed_at`, `pushed_by_user_id` and `push_commit` are columns of `pipeline_definition_versions`. It changes nothing else: not the configuration, not the revision, and it never publishes. Only a draft can be pushed to. `sheetbase push` and the SDK methods `push_version_file` (Python) and `pushVersionFile` (TypeScript) call it after saving the draft, with the commit from `--commit` or the file's git repository.
+
+Scope: `pipelines:write`. Returns a `pipeline_definition_versions` row.
+
+| Argument         | Type | Notes                                                                   |
+| ---------------- | ---- | ----------------------------------------------------------------------- |
+| `p_workspace_id` | uuid | Your workspace id.                                                      |
+| `p_version_id` * | uuid | The draft version, from `pipeline_definition_versions`.                 |
+| `p_commit`       | text | The commit the file came from, such as a git hash. Up to 80 characters. |
 
 ## `save_pipeline_parameter_set`
 

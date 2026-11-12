@@ -86,16 +86,6 @@ export async function createPipelineDefinitionVersion(
   })
 }
 
-export async function publishPipelineDefinitionVersion(
-  client: DataClient,
-  input: { workspaceId: string; versionId: string },
-): Promise<PipelineDefinitionVersionWire> {
-  return client.rpc('publish_pipeline_definition_version', {
-    p_workspace_id: input.workspaceId,
-    p_version_id: input.versionId,
-  })
-}
-
 export async function updatePipelineDefinitionVersionDraft(
   client: DataClient,
   input: {

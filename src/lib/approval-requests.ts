@@ -15,6 +15,12 @@ export type ApprovalRequestState =
 /** Dataset Schema Version is the first governed object kind (MDL-03.2). */
 export const DATASET_SCHEMA_VERSION_KIND = 'dataset_schema_version'
 
+/**
+ * A draft pipeline version: publishing it needs an admin's approval, and the
+ * approval publishes it.
+ */
+export const PIPELINE_DEFINITION_VERSION_KIND = 'pipeline_definition_version'
+
 export interface ApprovalRequest {
   id: string
   workspace_id: string
@@ -110,4 +116,20 @@ export function listApprovalRequests(
       'submitted_at,decided_by_user_id,decided_at,created_at,updated_at' +
       '&order=created_at.desc',
   )
+}
+
+/**
+ * Asks an admin or owner to approve publishing a checked draft pipeline
+ * version. The draft is locked while the request is open; approving it
+ * publishes that exact revision.
+ */
+export function requestPipelinePublish(
+  client: DataClient,
+  input: { workspaceId: string; versionId: string; reason: string },
+): Promise<ApprovalRequest> {
+  return client.rpc('request_pipeline_publish', {
+    p_workspace_id: input.workspaceId,
+    p_version_id: input.versionId,
+    p_reason: input.reason,
+  })
 }

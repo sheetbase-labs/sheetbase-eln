@@ -17,9 +17,9 @@ export const copy = {
       applied: 'Run cancelled',
     },
     publishPipeline: {
-      apply: 'Publish',
-      applying: 'Publishing…',
-      applied: 'Published',
+      apply: 'Ask for approval',
+      applying: 'Asking…',
+      applied: 'Waiting for an admin',
     },
     retirePipeline: { apply: 'Save', applying: 'Saving…', applied: 'Saved' },
     addPipelineSchedule: {

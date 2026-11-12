@@ -5,7 +5,7 @@ import type { PipelineStartsAction } from './cards'
 
 /** Runs the card in the person's own session, so their access applies. */
 export async function runPipelineStartsAction(
-  client: DataClient,
+  client: Pick<DataClient, 'rpc'>,
   action: PipelineStartsAction,
 ): Promise<FeatureActionResult | undefined> {
   await client.rpc('set_pipeline_start_rules', {

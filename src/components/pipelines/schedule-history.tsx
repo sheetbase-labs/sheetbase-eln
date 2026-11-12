@@ -32,8 +32,17 @@ import type {
 /** Each way a trigger can decline to run, in words, and how serious it is. */
 const ACTIVITY_LABELS: Record<
   PipelineScheduleActivityKind,
-  { label: string; tone: 'stored' | 'warn' | 'bad' }
+  { label: string; tone: 'ok' | 'stored' | 'warn' | 'bad' }
 > = {
+  started: { label: t('data.scheduleHistory.started'), tone: 'ok' },
+  batched: {
+    label: t('features.pipelineStarts.outcome.batched'),
+    tone: 'stored',
+  },
+  skipped_condition: {
+    label: t('features.pipelineStarts.outcome.skippedCondition'),
+    tone: 'warn',
+  },
   skipped_missed: {
     label: t('data.scheduleHistory.missedSkipped'),
     tone: 'warn',

@@ -56,6 +56,7 @@ import type {
   ScheduleSpecCommon,
 } from './pipeline-schedule'
 import { batchIsReady, judgeStart } from './pipelines/start-rules'
+import type { StartVerdict } from './pipelines/start-rules'
 import { loadStartRules, runGoing } from './pipelines/start-rules.server'
 
 const SCHEDULE_COLUMNS = `id, workspace_id, definition_id, kind, spec, enabled,
@@ -323,6 +324,7 @@ async function handleDueTick(
   // SAFETY: `nextRunAt` and `validateScheduleSpec` decode the stored spec before any field of it is read; a timed row carries exactly the timed spec keys.
   const spec = locked.spec as TimedSpec
   const occurrenceId = scheduledOccurrenceId(locked.id, locked.next_run_at)
+
   const { rules, set: rulesSet } = await loadStartRules(
     conn,
     locked.definition_id,
@@ -837,11 +839,7 @@ async function sweepEventSchedule(
             skip.kind,
             occurrenceId,
             skip.message,
-            {
-              ...(going ? { blockingRunId: going.id } : {}),
-              ...(!verdict.pass ? { condition: verdict.condition } : {}),
-              newRows: heard.newRows,
-            },
+            skipDetail(going, verdict, heard.newRows ?? 0),
             { label: heard.label },
           )
           await settleBatched(conn, joined, skip.kind, skip.message)
@@ -1696,4 +1694,17 @@ function nextDue(
     // SAFETY: `nextRunAt` validates the stored spec with `validateScheduleSpec` and returns null for an invalid one; this is the only way an unvalidated row enters the timing helper.
     nextRunAt(schedule.kind, schedule.spec as never, now)?.toISOString() ?? null
   )
+}
+
+/** What a skipped event start records: the run in the way or the rule that said no. */
+function skipDetail(
+  going: { id: string } | null,
+  verdict: StartVerdict,
+  newRows: number,
+) {
+  return Object.fromEntries([
+    ['newRows', newRows],
+    ...(going ? [['blockingRunId', going.id]] : []),
+    ...(verdict.pass ? [] : [['condition', verdict.condition]]),
+  ])
 }

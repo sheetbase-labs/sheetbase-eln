@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { dateTimeFormat } from '#/lib/intl-cache'
 
 export const WINDOW_DAYS = ['daily', 'weekdays', 'weekends'] as const
+
 export type WindowDays = (typeof WINDOW_DAYS)[number]
 
 export const CONDITION_MATCHES = ['all', 'any'] as const
@@ -35,6 +36,7 @@ export const startRulesSchema = z.object({
 })
 
 export type StartRules = z.infer<typeof startRulesSchema>
+
 export type StartWindow = z.infer<typeof startWindowSchema>
 
 /** No extra rules: every start starts a run. */
@@ -57,10 +59,12 @@ export type StartVerdict =
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
 /** Weekday (0 = Sunday) and minutes since midnight at `at` in `timeZone`. */
-export function localClock(
-  at: Date,
-  timeZone: string,
-): { weekday: number; minutes: number } {
+export interface LocalClock {
+  weekday: number
+  minutes: number
+}
+
+export function localClock(at: Date, timeZone: string): LocalClock {
   const parts = dateTimeFormat('en-GB', {
     timeZone,
     weekday: 'short',
@@ -72,9 +76,8 @@ export function localClock(
   const get = (type: string) =>
     parts.find((part) => part.type === type)?.value ?? ''
 
-  const weekday = DAY_NAMES.indexOf(
-    get('weekday') as (typeof DAY_NAMES)[number],
-  )
+  const name = get('weekday')
+  const weekday = DAY_NAMES.findIndex((day) => day === name)
 
   return {
     weekday: weekday < 0 ? 0 : weekday,

@@ -4,7 +4,6 @@ import type { core } from 'zod'
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from '#/lib/agent-tool-catalogue'
 import type { LabToolContext } from '#/lib/assistant-lab-tools.server'
 import { createDataClient } from '#/lib/data-client'
-import type { DataClient } from '#/lib/data-client'
 
 import {
   PIPELINE_START_RULES_TOOL,
@@ -130,7 +129,7 @@ describe('the start-rules card', () => {
 
   it('saves the rules through the ordinary call when the button is pressed', async () => {
     const rpc = vi.fn().mockResolvedValue([])
-    const client = { rpc } as unknown as DataClient
+    const client = { rpc }
 
     const done = await runPipelineStartsAction(client, {
       kind: 'pipeline.start_rules',

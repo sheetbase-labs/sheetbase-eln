@@ -56,7 +56,11 @@ const DAYS = {
 } as const
 
 /** The rules as lines a person reads; the same lines show before and after. */
-function lines(rules: StartRules): Record<string, string> {
+interface RuleLines {
+  [label: string]: string
+}
+
+function lines(rules: StartRules): RuleLines {
   return {
     Hours: rules.window
       ? `${DAYS[rules.window.days]} ${rules.window.from}–${rules.window.to} (${rules.window.timeZone})`

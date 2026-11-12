@@ -104,6 +104,10 @@ const activity: PipelineScheduleActivityWire[] = [
   {
     id: 'a-1',
     schedule_id: 'sch-1',
+    definition_id: 'def-1',
+    source: 'schedule',
+    label: null,
+    run_id: null,
     kind: 'skipped_unchanged',
     occurrence_id: null,
     message: 'No new dataset version since the last run.',
@@ -113,6 +117,10 @@ const activity: PipelineScheduleActivityWire[] = [
   {
     id: 'a-2',
     schedule_id: 'sch-1',
+    definition_id: 'def-1',
+    source: 'schedule',
+    label: null,
+    run_id: null,
     kind: 'start_failed',
     occurrence_id: null,
     message: 'The run could not start.',

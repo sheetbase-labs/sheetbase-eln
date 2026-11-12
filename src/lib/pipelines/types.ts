@@ -243,6 +243,9 @@ export type PipelineTrialWire =
     }
 
 export type PipelineScheduleActivityKind =
+  | 'started'
+  | 'batched'
+  | 'skipped_condition'
   | 'skipped_missed'
   | 'skipped_unchanged'
   | 'skipped_overlap'
@@ -253,7 +256,14 @@ export type PipelineScheduleActivityKind =
 /** What a trigger did instead of starting a run. */
 export interface PipelineScheduleActivityWire {
   id: string
-  schedule_id: string
+  /** Empty for a webhook call, which has no schedule. */
+  schedule_id: string | null
+  definition_id: string
+  source: 'event' | 'schedule' | 'webhook' | null
+  /** What it heard, for the log: `DS-0311 S-15`. */
+  label: string | null
+  /** The run it began. */
+  run_id: string | null
   kind: PipelineScheduleActivityKind
   occurrence_id: string | null
   message: string

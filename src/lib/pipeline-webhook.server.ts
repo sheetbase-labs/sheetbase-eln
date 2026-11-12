@@ -385,6 +385,7 @@ export async function handlePipelineWebhook(
 
       const { rules, set } = await loadStartRules(conn, definitionId)
       const going = set ? await runGoing(conn, definitionId) : null
+
       const verdict = set
         ? judgeStart(rules, { at: new Date(), source: 'webhook' })
         : null

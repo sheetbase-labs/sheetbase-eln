@@ -107,6 +107,10 @@ describe('ScheduleHistoryDialog', () => {
       {
         id: 'a1',
         schedule_id: schedule.id,
+        definition_id: 'def-1',
+        source: 'schedule',
+        label: null,
+        run_id: null,
         occurrence_id: null,
         kind: 'skipped_unchanged',
         message:
@@ -117,6 +121,10 @@ describe('ScheduleHistoryDialog', () => {
       {
         id: 'a2',
         schedule_id: schedule.id,
+        definition_id: 'def-1',
+        source: 'schedule',
+        label: null,
+        run_id: null,
         occurrence_id: null,
         kind: 'skipped_missed',
         message:

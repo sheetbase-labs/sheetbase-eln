@@ -35,6 +35,32 @@ under [ADR-0046](https://github.com/sheetbase-labs/sheetbase-eln/blob/main/docs/
 | Run output               | `api.pipeline_run_outputs`         | Normalized provenance: which Dataset Version a run produced      |
 | Schedule / event trigger | `api.pipeline_schedules`           | interval / daily / cron / catalogue events                       |
 
+## Publishing needs an approval
+
+Only a published version runs. A person who can manage pipelines asks for a
+draft to be published with `api.request_pipeline_publish(workspace, version,
+reason)`, which is an `api.approval_requests` row of kind
+`pipeline_definition_version` that names admins and owners as approvers. The
+draft is then locked (`update_pipeline_definition_version_draft` answers
+`SB085`) until the request is decided:
+
+- **Approve** (`approve_approval_request`, an admin or owner, in the app)
+  publishes the exact revision that was asked for, through
+  `internal.publish_pipeline_definition_version`, in the same transaction. The
+  version is published for the person who asked; the approver is on the request.
+- **Return** (`return_approval_request`) unlocks the draft with the approver's
+  reason; **withdraw** (`withdraw_approval_request`, the asker) does the same.
+- A second person decides. Where the asker is the only admin or owner, the
+  request does not require independence, so a one-person lab can still publish.
+
+There is no direct publish. Approving is never offered to tokens, MCP, the
+assistant or pipeline steps (it is attestation), so nothing publishes itself.
+The **Activity** tab (`/pipelines/$pipelineId/activity`) shows the open request
+with the text diff of the draft against the published version
+(`src/lib/pipelines/version-diff.ts`), the approve and return actions, and the
+history of drafts, requests, decisions and publishing
+(`src/components/pipelines/activity/`).
+
 ## Configuration format (v2)
 
 A version is one ordered list of typed steps. Data steps make rows; an ask step

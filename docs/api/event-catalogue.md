@@ -115,6 +115,8 @@ them (`when` in the catalogue).
 | `instrument.run.created`                                                                                                                       | `instrument_run` + `create`                                                                                                                                                            |
 | `instrument.run.completed` / `instrument.run.failed`                                                                                           | `instrument_run` + `update`, by `status`                                                                                                                                               |
 
+Approval events are generic: `data.object_kind` says what was approved. A request to publish a pipeline version has `object_kind` `pipeline_definition_version` and `object_id` the version; once it is approved the version is published and `pipeline.version.published` follows.
+
 ### Lab features: stock, shipping, requests, holds, workflows (`stable`, webhook and SSE)
 
 Added with migration 0099. Every event below is delivered to webhooks and the

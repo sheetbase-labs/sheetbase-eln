@@ -1,6 +1,8 @@
 # Pipelines, schedules and plugins API
 
-Make, publish, run and schedule pipelines, and switch plugins on and off, as the person a personal token belongs to. Pipelines need `pipelines:read` and `pipelines:write`; plugins need `admin:read` and `admin:write` and an owner or admin. Every action is also on `sheetbase.lab.act` over MCP, where it follows the agent permissions (Ask by default), and in the Python and TypeScript SDKs. Saving a pipeline version is `create_pipeline_definition_version` and starting a run by key is `run_pipeline` (see [lab-api.md](lab-api.md)). Installing a plugin takes its file: `POST /api/plugins/install` with an `admin:write` token (see [`plugins-api.md`](plugins-api.md)).
+Make, ask to publish, run and schedule pipelines, and switch plugins on and off, as the person a personal token belongs to. Pipelines need `pipelines:read` and `pipelines:write`; plugins need `admin:read` and `admin:write` and an owner or admin. Every action is also on `sheetbase.lab.act` over MCP, where it follows the agent permissions (Ask by default), and in the Python and TypeScript SDKs. Saving a pipeline version is `create_pipeline_definition_version` and starting a run by key is `run_pipeline` (see [lab-api.md](lab-api.md)). Installing a plugin takes its file: `POST /api/plugins/install` with an `admin:write` token (see [`plugins-api.md`](plugins-api.md)).
+
+Publishing needs an admin’s approval: `request_pipeline_publish` asks for it, and an owner or admin approves in the app (the approval publishes the version). A token, MCP or a pipeline cannot approve, so nothing publishes itself. The request and who decided it are on `approval_requests` and `approval_request_decisions` (see [lab-api.md](lab-api.md)).
 
 A run that pauses for a person (`pipeline.run.waiting`) is answered by that person in the app: the pause is the pipeline asking them to confirm, so a token or an agent cannot answer for them. The prompt is readable on `pipeline_run_prompts`.
 
@@ -43,16 +45,19 @@ Scope: `pipelines:write`. Returns `row:pipeline_definitions`.
 | `p_description`     | text | What it does, in a sentence.               |
 | `p_lifecycle`       | text | `active` or `retired`.                     |
 
-## `publish_pipeline_definition_version`
+## `request_pipeline_publish`
 
-Publishes a checked draft version, so runs and schedules use it from now on; the version before it stays as it was for the runs that used it. A published version cannot be changed. Stewards, admins and owners. Returns the version. Sends `pipeline.version.published`.
+Asks an admin or owner to approve publishing a checked draft version, with `p_reason` saying what changed. The draft is locked while the request waits; once an admin approves, that exact version is published and runs and schedules use it, and the version before it stays as it was for the runs that used it. Where the person asking is the only admin or owner, they may approve it themselves. Returns the request; read its state on `approval_requests` (`object_kind` is `pipeline_definition_version`). Sends `approval.requested`, then `approval.approved` or `approval.returned`, and `pipeline.version.published` once it is published. Approving or returning is a person’s decision in the app and is not offered here.
 
-Scope: `pipelines:write`. Returns `row:pipeline_definition_versions`.
+Scope: `pipelines:write`. Returns `row:approval_requests`.
 
-| Argument           | Type | Notes                                             |
-| ------------------ | ---- | ------------------------------------------------- |
-| `p_workspace_id` * | uuid | Your workspace id.                                |
-| `p_version_id` *   | uuid | The version, from `pipeline_definition_versions`. |
+| Argument           | Type | Notes                                                   |
+| ------------------ | ---- | ------------------------------------------------------- |
+| `p_workspace_id` * | uuid | Your workspace id.                                      |
+| `p_version_id` *   | uuid | The draft version, from `pipeline_definition_versions`. |
+| `p_reason` *       | text | What changed and why, up to 500 characters.             |
+
+A request that has not been decided can be taken back with `withdraw_approval_request` by the person who asked. Making the draft change again after a return is `update_pipeline_definition_version_draft`; it is refused (`SB085`) while a request waits.
 
 ## `retire_pipeline_definition_version`
 

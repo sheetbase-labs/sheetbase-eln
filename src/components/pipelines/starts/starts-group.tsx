@@ -94,7 +94,7 @@ export function StartsGroup({
       <Group
         head={
           <>
-            {t('features.pipelineStarts.composer.startWhen')}
+            <span>{t('features.pipelineStarts.composer.startWhen')}</span>
             <BoardSelect
               aria-label={t('features.pipelineStarts.composer.startWhen')}
               value="any"
@@ -104,7 +104,7 @@ export function StartsGroup({
                 {t('features.pipelineStarts.composer.any')}
               </option>
             </BoardSelect>
-            {t('features.pipelineStarts.composer.ofTheseHappen')}
+            <span>{t('features.pipelineStarts.composer.ofTheseHappen')}</span>
           </>
         }
       >

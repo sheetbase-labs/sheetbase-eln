@@ -60,7 +60,7 @@ export function NextStarts({
                     key={`${start.scheduleId}-${start.at.toISOString()}`}
                   >
                     <TableCell>{dayAndTime(start.at, timeZone)}</TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-normal">
                       {schedule
                         ? scheduleSpecLabel(
                             schedule.kind,

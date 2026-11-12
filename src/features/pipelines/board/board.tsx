@@ -77,6 +77,7 @@ export function BoardRow({
   icon,
   kind,
   summary,
+  summaryTitle,
   detail,
   rows,
   rowsWarn,
@@ -89,6 +90,8 @@ export function BoardRow({
   icon: IconName
   kind: string
   summary: ReactNode
+  /** The whole summary, shown on hover when the row cuts it short. */
+  summaryTitle?: string
   /** A quiet note after the summary, such as "only if step 5 flags rows". */
   detail?: string
   rows?: string
@@ -105,7 +108,7 @@ export function BoardRow({
         <Icon name={icon} size={14} />
       </span>
       <span className="k">{kind}</span>
-      <span className="s">
+      <span className="s" title={summaryTitle}>
         {onSelect ? (
           <button
             type="button"

@@ -62,7 +62,9 @@ export function HeardEvents({
     <section>
       <div className="h3row">
         <h3>
-          {t('features.pipelineStarts.heard.title', { count: shown.length })}
+          {shown.length === 0
+            ? t('features.pipelineStarts.heard.titleNone')
+            : t('features.pipelineStarts.heard.title', { count: shown.length })}
         </h3>
         <span style={{ flexGrow: 1 }} />
         <Link
@@ -93,7 +95,7 @@ export function HeardEvents({
                 return (
                   <TableRow key={row.id}>
                     <TableCell>{when(row.occurred_at)}</TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-normal">
                       {row.label ?? sourceLabel(row.source)}
                       {joined > 0 ? (
                         <span className="muted">

@@ -128,6 +128,7 @@ export const copy = {
   heard: {
     allActivity: 'All activity',
     title: 'Last {count} events it heard',
+    titleNone: 'Events it heard',
     none: 'It hasn’t heard anything in the last 7 days.',
     when: 'When',
     what: 'What it heard',

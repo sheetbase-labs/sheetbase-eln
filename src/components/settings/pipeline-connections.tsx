@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -191,23 +191,20 @@ export function PipelineConnections({
   )
 }
 
-function ConnectionDialog({
+function useConnectionActions({
   workspaceId,
   connection,
+  form,
   onClose,
+  onError,
 }: {
   workspaceId: string
   connection: Connection | null
+  form: { name: string; key: string; address: string; description: string }
   onClose: () => void
+  onError: (message: string) => void
 }) {
   const queryClient = useQueryClient()
-  const [name, setName] = useState(connection?.name ?? '')
-  const [key, setKey] = useState(connection?.key ?? '')
-  const [keyEdited, setKeyEdited] = useState(false)
-  const [address, setAddress] = useState(connection?.base_url ?? '')
-  const [description, setDescription] = useState(connection?.description ?? '')
-  const [error, setError] = useState<string | null>(null)
-  const [removing, setRemoving] = useState(false)
   const refresh = () => queryClient.invalidateQueries({ queryKey: KEY })
 
   const save = useMutation({
@@ -216,24 +213,24 @@ function ConnectionDialog({
         await client.rpc('update_pipeline_connection', {
           p_workspace_id: workspaceId,
           p_connection_id: connection.id,
-          p_name: name,
-          p_base_url: address,
-          p_description: description,
+          p_name: form.name,
+          p_base_url: form.address,
+          p_description: form.description,
         })
       else
         await client.rpc('create_pipeline_connection', {
           p_workspace_id: workspaceId,
-          p_key: key,
-          p_name: name,
-          p_base_url: address,
-          p_description: description || null,
+          p_key: form.key,
+          p_name: form.name,
+          p_base_url: form.address,
+          p_description: form.description || null,
         })
     },
     onSuccess: async () => {
       await refresh()
       onClose()
     },
-    onError: (cause) => setError(message(cause)),
+    onError: (cause) => onError(message(cause)),
   })
 
   const toggle = useMutation({
@@ -244,7 +241,7 @@ function ConnectionDialog({
         p_status: connection?.status === 'active' ? 'off' : 'active',
       }),
     onSuccess: refresh,
-    onError: (cause) => setError(message(cause)),
+    onError: (cause) => onError(message(cause)),
   })
 
   const remove = useMutation({
@@ -257,7 +254,36 @@ function ConnectionDialog({
       await refresh()
       onClose()
     },
-    onError: (cause) => setError(message(cause)),
+    onError: (cause) => onError(message(cause)),
+  })
+
+  return { refresh, save, toggle, remove }
+}
+
+function ConnectionDialog({
+  workspaceId,
+  connection,
+  onClose,
+}: {
+  workspaceId: string
+  connection: Connection | null
+  onClose: () => void
+}) {
+  const [name, setName] = useState(connection?.name ?? '')
+  const [key, setKey] = useState(connection?.key ?? '')
+  // The key follows the name until a person types their own.
+  const keyEdited = useRef(false)
+  const [address, setAddress] = useState(connection?.base_url ?? '')
+  const [description, setDescription] = useState(connection?.description ?? '')
+  const [error, setError] = useState<string | null>(null)
+  const [removing, setRemoving] = useState(false)
+
+  const { refresh, save, toggle, remove } = useConnectionActions({
+    workspaceId,
+    connection,
+    form: { name, key, address, description },
+    onClose,
+    onError: setError,
   })
 
   const valid =
@@ -289,7 +315,8 @@ function ConnectionDialog({
               onChange={(event) => {
                 setName(event.target.value)
 
-                if (!connection && !keyEdited) setKey(slug(event.target.value))
+                if (!connection && !keyEdited.current)
+                  setKey(slug(event.target.value))
               }}
             />
           </Field>
@@ -303,7 +330,7 @@ function ConnectionDialog({
                 value={key}
                 placeholder="lims"
                 onChange={(event) => {
-                  setKeyEdited(true)
+                  keyEdited.current = true
                   setKey(event.target.value.toLowerCase().replaceAll(' ', '-'))
                 }}
               />
@@ -340,69 +367,110 @@ function ConnectionDialog({
           )}
           {error ? <Notice tone="bad">{error}</Notice> : null}
         </DialogBody>
-        <DialogFooter>
-          {connection ? (
-            <>
-              <Button
-                variant="danger"
-                onClick={() => setRemoving(true)}
-                disabled={remove.isPending}
-              >
-                {t('features.pipelineConnections.settings.remove')}
-              </Button>
-              <Button
-                onClick={() => toggle.mutate()}
-                disabled={toggle.isPending}
-              >
-                {connection.status === 'active'
-                  ? t('features.pipelineConnections.settings.switchOff')
-                  : t('features.pipelineConnections.settings.switchOn')}
-              </Button>
-            </>
-          ) : null}
-          <DialogClose render={<Button />}>
-            {t('common.actions.cancel')}
-          </DialogClose>
-          <Button
-            variant="primary"
-            disabled={!valid || save.isPending}
-            onClick={() => save.mutate()}
-          >
-            {connection
-              ? t('features.pipelineConnections.settings.save')
-              : t('features.pipelineConnections.settings.addAction')}
-          </Button>
-        </DialogFooter>
-        <ConfirmDialog open={removing} onOpenChange={setRemoving}>
-          <ConfirmDialogContent>
-            <ConfirmDialogHeader>
-              <ConfirmDialogTitle>
-                {t('features.pipelineConnections.settings.removeTitle', {
-                  name: connection?.name ?? '',
-                })}
-              </ConfirmDialogTitle>
-              <ConfirmDialogDescription>
-                {t('features.pipelineConnections.settings.removeBody')}
-              </ConfirmDialogDescription>
-            </ConfirmDialogHeader>
-            <ConfirmDialogFooter>
-              <ConfirmDialogCancel>
-                {t('common.actions.cancel')}
-              </ConfirmDialogCancel>
-              <ConfirmDialogAction
-                variant="danger-fill"
-                onClick={() => {
-                  setRemoving(false)
-                  remove.mutate()
-                }}
-              >
-                {t('features.pipelineConnections.settings.remove')}
-              </ConfirmDialogAction>
-            </ConfirmDialogFooter>
-          </ConfirmDialogContent>
-        </ConfirmDialog>
+        <ConnectionFooter
+          connection={connection}
+          valid={valid}
+          saving={save.isPending}
+          switching={toggle.isPending}
+          removing={remove.isPending}
+          onSave={() => save.mutate()}
+          onToggle={() => toggle.mutate()}
+          onRemove={() => setRemoving(true)}
+        />
+        <RemoveConfirm
+          open={removing}
+          name={connection?.name ?? ''}
+          onOpenChange={setRemoving}
+          onConfirm={() => remove.mutate()}
+        />
       </DialogContent>
     </Dialog>
+  )
+}
+
+function ConnectionFooter({
+  connection,
+  valid,
+  saving,
+  switching,
+  removing,
+  onSave,
+  onToggle,
+  onRemove,
+}: {
+  connection: Connection | null
+  valid: boolean
+  saving: boolean
+  switching: boolean
+  removing: boolean
+  onSave: () => void
+  onToggle: () => void
+  onRemove: () => void
+}) {
+  return (
+    <DialogFooter>
+      {connection ? (
+        <>
+          <Button variant="danger" onClick={onRemove} disabled={removing}>
+            {t('features.pipelineConnections.settings.remove')}
+          </Button>
+          <Button onClick={onToggle} disabled={switching}>
+            {connection.status === 'active'
+              ? t('features.pipelineConnections.settings.switchOff')
+              : t('features.pipelineConnections.settings.switchOn')}
+          </Button>
+        </>
+      ) : null}
+      <DialogClose render={<Button />}>
+        {t('common.actions.cancel')}
+      </DialogClose>
+      <Button variant="primary" disabled={!valid || saving} onClick={onSave}>
+        {connection
+          ? t('features.pipelineConnections.settings.save')
+          : t('features.pipelineConnections.settings.addAction')}
+      </Button>
+    </DialogFooter>
+  )
+}
+
+function RemoveConfirm({
+  open,
+  name,
+  onOpenChange,
+  onConfirm,
+}: {
+  open: boolean
+  name: string
+  onOpenChange: (open: boolean) => void
+  onConfirm: () => void
+}) {
+  return (
+    <ConfirmDialog open={open} onOpenChange={onOpenChange}>
+      <ConfirmDialogContent>
+        <ConfirmDialogHeader>
+          <ConfirmDialogTitle>
+            {t('features.pipelineConnections.settings.removeTitle', { name })}
+          </ConfirmDialogTitle>
+          <ConfirmDialogDescription>
+            {t('features.pipelineConnections.settings.removeBody')}
+          </ConfirmDialogDescription>
+        </ConfirmDialogHeader>
+        <ConfirmDialogFooter>
+          <ConfirmDialogCancel>
+            {t('common.actions.cancel')}
+          </ConfirmDialogCancel>
+          <ConfirmDialogAction
+            variant="danger-fill"
+            onClick={() => {
+              onOpenChange(false)
+              onConfirm()
+            }}
+          >
+            {t('features.pipelineConnections.settings.remove')}
+          </ConfirmDialogAction>
+        </ConfirmDialogFooter>
+      </ConfirmDialogContent>
+    </ConfirmDialog>
   )
 }
 

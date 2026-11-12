@@ -68,6 +68,7 @@ function BodyField({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <textarea
         id={id}
+        aria-label={t('features.pipelineConnections.editor.body')}
         className="input mono"
         rows={4}
         style={{ height: 'auto', padding: '6px 8px', resize: 'vertical' }}

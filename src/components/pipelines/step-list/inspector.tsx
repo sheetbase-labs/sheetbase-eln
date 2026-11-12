@@ -65,6 +65,7 @@ export function StepInspector() {
   )
 }
 
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the panel answers what a step reads, writes and does from one set of facts; splitting it would pass the same facts through several files.
 function SelectedStep({ step, index }: { step: PipelineStep; index: number }) {
   const editor = usePipelineEditor()
   const { config, setConfig } = editor

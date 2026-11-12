@@ -19,6 +19,7 @@ const referenceSchema = z.object({ $ref: z.string() })
  * One box of a plugin step: a table (picked from where it can come from), a
  * yes/no, or a value typed here or taken from a pipeline setting.
  */
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- one argument box covers every input type (table, yes/no, number, text, setting, row column); splitting it would spread one value contract across files.
 export function ArgumentField({
   input,
   isTable,

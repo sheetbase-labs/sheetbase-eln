@@ -69,6 +69,7 @@ const EMPTY_CONFIG: PipelineConfig = {
 export type Selection = 'starts' | 'inputs' | 'output' | `step:${string}`
 
 /** The step-list editor's state: the draft being edited, its checks, and what it can do. */
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the model owns the draft, its checks, save, publish, try and the run facts together; they share one working copy.
 export function usePipelineEditorModel(
   pipelineId: string,
   workspaceId: string,
@@ -337,11 +338,11 @@ export function usePipelineEditorModel(
   })
 
   const facts = useMemo(() => {
-    const byName: Record<string, StepFacts> = {}
+    const byName: Partial<Record<string, StepFacts>> = {}
 
     const read = (
       detail: z.output<typeof pipelineJsonObjectSchema>,
-      into: Record<string, StepFacts>,
+      into: Partial<Record<string, StepFacts>>,
     ) => {
       const fact = stepFactsSchema.safeParse(detail)
 
@@ -357,7 +358,7 @@ export function usePipelineEditorModel(
         if (entry.stage === 'step') read(entry.detail, byName)
     }
 
-    const trial: Record<string, StepFacts> = {}
+    const trial: Partial<Record<string, StepFacts>> = {}
 
     if (trialResult?.report.ok)
       for (const entry of trialResult.report.logs)
@@ -379,7 +380,7 @@ export function usePipelineEditorModel(
   )
 
   const runStates = useMemo(() => {
-    const states: Record<string, RunStepState> = {}
+    const states: Partial<Record<string, RunStepState>> = {}
 
     const runConfig = latestRunVersion
       ? readStoredConfig(latestRunVersion.configuration)

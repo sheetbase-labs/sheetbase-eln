@@ -17,6 +17,7 @@ interface StateStatus {
 }
 
 /** The last run's word for a step, in the Run column. */
+// react-doctor-disable-next-line react-doctor/only-export-components -- runStateStatus words a run state for the list row beside it; both read the same states.
 export function runStateStatus(
   state:
     | 'done'

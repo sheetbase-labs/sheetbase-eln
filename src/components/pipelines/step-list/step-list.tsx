@@ -43,6 +43,8 @@ import { usePipelineEditor } from './use-pipeline-editor'
 const blockClass = 'border-b border-border-subtle last:border-b-0'
 
 /** The Starts, the Inputs, every step in order, and the Output, as the board draws them. */
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the list draws the Starts, the Inputs, every step and the Output against one selection and one draft.
+// react-doctor-disable-next-line react-doctor/no-giant-component -- the list owns drag and drop, selection and every row kind; its rows are already split out.
 export function StepList() {
   const editor = usePipelineEditor()
   const fileInput = useRef<HTMLInputElement>(null)
@@ -54,7 +56,8 @@ export function StepList() {
 
   if (!config) return null
 
-  const draftVersion = editor.draft?.version
+  const draftVersion =
+    editor.draft?.version ?? (editor.current ? editor.current.version + 1 : 1)
 
   const startsText = schedules.data?.length
     ? schedules.data
@@ -253,20 +256,17 @@ export function StepList() {
           const id = `step:${step.name}` as const
           const open = selected === id
           const problems = editor.problemsOf(index)
+
+          // A form step already says why its SQL can't be written.
+          const listProblems = isNoCodeKind(step.kind)
+            ? problems.filter((p) => !p.field.endsWith('.form'))
+            : problems
+
           const facts = stepFacts(step.name)
           const runState = editor.runStates[step.name]
 
           const state: RunStepState | 'new' | undefined =
             editor.latestRun && !runState ? 'new' : runState
-
-          const status =
-            step.kind === 'action' ||
-            step.kind === 'notify' ||
-            step.kind === 'ask'
-              ? undefined
-              : undefined
-
-          void status
 
           const shown = runStateStatus(
             state,
@@ -373,9 +373,9 @@ export function StepList() {
                       }))
                     }
                   />
-                  {problems.length ? (
+                  {listProblems.length ? (
                     <ul className="m-0 flex list-none flex-col gap-0.5 px-3 pb-3 pl-10 text-label text-danger-text">
-                      {problems.map((p) => (
+                      {listProblems.map((p) => (
                         <li key={`${p.field}:${p.message}`}>{p.message}</li>
                       ))}
                     </ul>

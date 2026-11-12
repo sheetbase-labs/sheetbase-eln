@@ -73,9 +73,7 @@ export function parseNoCodeForm(
 ): NoCodeForm | null {
   const parsed = schemas[kind].safeParse(value)
 
-  // The schemas are checked per kind above; the union is the shape the kind names.
-  // SAFETY: the step kind names the shape of its form, checked by parseNoCodeForm.
-  return parsed.success ? (parsed.data as NoCodeForm) : null
+  return parsed.success ? parsed.data : null
 }
 
 /**

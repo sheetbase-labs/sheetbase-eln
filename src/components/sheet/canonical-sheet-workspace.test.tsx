@@ -704,38 +704,41 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
     // snapshot revision the composition read.
     expect(byId.get(columnA.id)).toMatchObject({
       source: 'bound',
-      group: 'Results · rev 9 · edits go back to the source',
+      group: 'Results · rev 9',
+      groupDescription: 'edits go back to the source',
       sourceLabel: 'Results · rev 9',
     })
     expect(byId.get(columnB.id)).toMatchObject({
       source: 'bound',
-      group: 'Comparison · rev 8 · edits go back to the source',
+      group: 'Comparison · rev 8',
       sourceLabel: 'Comparison · rev 8',
     })
     // Local and derived columns name their own source kind.
     expect(byId.get(localField)).toMatchObject({
       source: 'local',
-      group: 'This experiment · edits make a sheet revision',
+      group: 'This experiment',
+      groupDescription: 'edits make a sheet revision',
     })
 
     const derived = columns.find((column) => column.source === 'calculated')
 
     expect(derived).toMatchObject({
       label: 'Step yield',
-      group: 'Derived · calculated, not editable',
+      group: 'Derived',
+      groupDescription: 'calculated, not editable',
     })
     expect(derived?.sourceLabel).toBeUndefined()
 
     // The group header renders, and only the derived column carries the ƒx
     // calculation mark.
     expect(
-      screen.getByText('Results · rev 9 · edits go back to the source'),
+      screen.getAllByText('edits go back to the source').length > 0,
     ).toBeTruthy()
     expect(screen.getAllByText(/ƒx/).length).toBeGreaterThan(0)
     expect(columns.filter((column) => column.source === 'bound')).toEqual(
       expect.not.arrayContaining([
         expect.objectContaining({
-          group: 'Derived · calculated, not editable',
+          group: 'Derived',
         }),
       ]),
     )

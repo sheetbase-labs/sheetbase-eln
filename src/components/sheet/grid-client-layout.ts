@@ -81,13 +81,19 @@ export function datasetFields(
 }
 
 export function columnGroupsOf(columns: readonly SheetbaseGridColumn[]) {
-  const groups: { label: string; columns: number[] }[] = []
+  const groups: { label: string; description?: string; columns: number[] }[] =
+    []
   columns.forEach((column, index) => {
     if (!column.group) return
     const current = groups.at(-1)
 
     if (current?.label === column.group) current.columns.push(index)
-    else groups.push({ label: column.group, columns: [index] })
+    else
+      groups.push({
+        label: column.group,
+        description: column.groupDescription,
+        columns: [index],
+      })
   })
 
   return groups.length > 0 ? groups : undefined

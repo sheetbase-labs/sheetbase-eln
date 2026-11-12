@@ -2213,9 +2213,9 @@ export const notebook = {
     recordReadOnly: 'From the linked record · read-only here',
     openDataset: 'Open dataset',
     openRecord: 'Open record',
-    bandLocal: '{group} · edits make a sheet revision',
-    bandDerived: '{group} · calculated, not editable',
-    bandBound: '{group} · edits go back to the source',
+    bandLocal: 'edits make a sheet revision',
+    bandDerived: 'calculated, not editable',
+    bandBound: 'edits go back to the source',
   },
   sheetChanges: {
     toggle: 'Show changes',

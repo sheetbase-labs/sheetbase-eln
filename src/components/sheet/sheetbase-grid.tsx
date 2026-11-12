@@ -47,6 +47,8 @@ export interface SheetbaseGridColumn {
    * take no group header.
    */
   group?: string
+  /** The band's muted second line, under the group's name (what an edit there makes). */
+  groupDescription?: string
   /**
    * EXP-04.2 — human label for the header's `Source` badge, naming the
    * dataset and snapshot (for example `DS-0311 · rev 9`). Absent labels fall

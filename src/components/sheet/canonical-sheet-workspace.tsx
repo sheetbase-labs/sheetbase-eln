@@ -3320,11 +3320,20 @@ const GRID_HEADER_PX = 31
 /** The box's two border lines. */
 const GRID_BOX_EXTRA_PX = 2
 
-/** How tall the grid's box is to show every row without empty space. */
-function gridBoxHeight(rowCount: number, grouped: boolean): number {
-  const headers = grouped ? 2 : 1
+/** The owner bands' height: none, one line, or two when they carry a description. */
+function gridBandHeight(
+  columns: readonly { group?: string; groupDescription?: string }[],
+): number {
+  if (!columns.some((column) => column.group !== undefined)) return 0
 
-  return headers * GRID_HEADER_PX + rowCount * GRID_ROW_PX + GRID_BOX_EXTRA_PX
+  return columns.some((column) => column.groupDescription) ? 40 : 20
+}
+
+/** How tall the grid's box is to show every row without empty space. */
+function gridBoxHeight(rowCount: number, bandHeight: number): number {
+  return (
+    bandHeight + GRID_HEADER_PX + rowCount * GRID_ROW_PX + GRID_BOX_EXTRA_PX
+  )
 }
 
 function filterMatches(text: string, filter: SheetbaseGridFilter): boolean {
@@ -3426,7 +3435,7 @@ function CanonicalWorkspaceGrid() {
             height: gridBoxHeight(
               shownRowCount(sheetRows, sheetColumns, presentation.filters) +
                 (canWrite ? 1 : 0),
-              sheetColumns.some((column) => column.group !== undefined),
+              gridBandHeight(sheetColumns),
             ),
           }}
         >

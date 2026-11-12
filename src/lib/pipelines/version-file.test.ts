@@ -519,3 +519,51 @@ describe('starts', () => {
     expect(result.problems[0].message).toContain('min_new_rows')
   })
 })
+
+describe('web call steps', () => {
+  const withCall = (): PipelineConfig => {
+    const config = everything()
+
+    config.steps = [
+      ...config.steps.slice(0, 1),
+      {
+        name: 'fetch',
+        kind: 'web_call',
+        webCall: {
+          connection: 'registry',
+          method: 'POST',
+          path: '/v1/search',
+          secret: 'REGISTRY_KEY',
+          body: { query: 'abc' },
+          itemsPath: 'data.items',
+        },
+      },
+    ]
+    config.output = { mode: 'none', datasetLabel: '' }
+
+    return config
+  }
+
+  it('writes it in the file and reads the same version back', () => {
+    const text = versionFileText(withCall(), { pipeline: 'PL-0001' })
+    const result = check(text, { pipeline: ['PL-0001'] })
+
+    expect(text).toContain('web_call:')
+    expect(text).toContain('items: data.items')
+    expect(result.problems).toEqual([])
+    expect(result.config?.steps.slice(1)).toEqual(withCall().steps.slice(1))
+  })
+
+  it('marks a bad path on its own line', () => {
+    const text = versionFileText(withCall(), { pipeline: 'PL-0001' }).replace(
+      'path: /v1/search',
+      'path: v1/search',
+    )
+
+    const line = text.split('\n').findIndex((l) => l.includes('path:')) + 1
+    const result = check(text, { pipeline: ['PL-0001'] })
+
+    expect(result.config).toBeNull()
+    expect(result.problems[0]).toMatchObject({ line })
+  })
+})

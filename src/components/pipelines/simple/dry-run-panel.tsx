@@ -173,6 +173,7 @@ function MatchTable({
         </thead>
         <tbody>
           {preview.rows.map((row, index) => (
+            // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a preview row has no id of its own; the rows are a fixed sample, never reordered.
             <tr key={index} className="border-t border-border-subtle">
               {row.map((cell, cellIndex) => (
                 <td
@@ -330,6 +331,7 @@ function trimmed(
  * the conditions and what each line would then do. It reads a temporary copy,
  * flags, saves and sends nothing, and never counts as a run.
  */
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the panel owns the run, its result and every line it draws from the one result.
 export function DryRunPanel({
   workspaceId,
   recipe,
@@ -348,10 +350,15 @@ export function DryRunPanel({
   destinations: (id: string) => string
   datasetName: (id: string) => string
 }) {
-  const snapshot = useLatestSnapshot(recipe.when.datasetId)
+  const snapshot = useLatestSnapshot(
+    recipe.when.datasetId,
+    recipe.when.instrumentId,
+  )
+
   const [result, setResult] = useState<DryRunResult | null>(null)
   const recipeKey = JSON.stringify(recipe)
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- a dry run reads a temporary copy and writes nothing, so no cached read changes.
   const run = useMutation({
     mutationFn: async (): Promise<DryRunResult> => {
       const latest = snapshot.data
@@ -546,6 +553,7 @@ function WouldHappen({
           datasetName,
         ).map((item, index) => (
           <li
+            // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a line of what would happen has no id; the list is rebuilt whole from the recipe.
             key={index}
             className="grid min-h-8 grid-cols-[22px_1fr_auto] items-center gap-2 border-b border-border-subtle text-[12px] last:border-b-0"
           >

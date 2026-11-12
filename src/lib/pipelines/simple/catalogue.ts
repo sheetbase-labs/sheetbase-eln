@@ -32,12 +32,22 @@ const ELN_ACTIONS: Array<{
   label: string
   icon: IconName
   mode: 'execute' | 'propose'
+  /** Arguments the choice settles, such as the kind of block. */
+  fixed?: Record<string, string>
 }> = [
   {
     operation: 'insert_block',
-    label: t('features.pipelineSimple.catalogue.eln.insertBlock'),
+    label: t('features.pipelineSimple.catalogue.eln.insertChart'),
     icon: 'chart',
     mode: 'propose',
+    fixed: { p_type: 'chart' },
+  },
+  {
+    operation: 'insert_block',
+    label: t('features.pipelineSimple.catalogue.eln.insertTable'),
+    icon: 'table',
+    mode: 'propose',
+    fixed: { p_type: 'table' },
   },
   {
     operation: 'edit_sample',
@@ -147,7 +157,7 @@ export function catalogueItems(): CatalogueItem[] {
       continue
 
     items.push({
-      id: `eln:${eln.operation}`,
+      id: `eln:${eln.operation}:${eln.fixed?.p_type ?? ''}`,
       group: 'eln',
       label: eln.label,
       icon: eln.icon,
@@ -156,7 +166,12 @@ export function catalogueItems(): CatalogueItem[] {
         kind: 'eln_action',
         operation: eln.operation,
         mode: eln.mode,
-        arguments: {},
+        arguments: Object.fromEntries(
+          Object.entries(eln.fixed ?? {}).map(([name, value]) => [
+            name,
+            { value },
+          ]),
+        ),
       }),
     })
   }

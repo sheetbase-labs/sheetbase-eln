@@ -27,10 +27,17 @@ import type {
 } from '#/lib/pipelines/simple/recipe'
 import { ActionMenu } from './action-menu'
 import { TokenAdd, TokenInput, TokenSelect } from './token'
-import { useDatasetColumns, useNotificationChannels } from './use-simple-data'
+import {
+  useDatasetColumns,
+  useInstruments,
+  useNotificationChannels,
+} from './use-simple-data'
 import type { DatasetColumn } from './use-simple-data'
 
 const r = words('recipe')
+
+/** The instrument choice that means "from anywhere". */
+const ANY = 'any'
 
 /** The word at the left of a line: When, if, then, and. */
 function Keyword({ children }: { children?: React.ReactNode }) {
@@ -485,6 +492,7 @@ function ElnActionLine({
  * nothing is typed as code. Where Simple runs out, the catalogue says what
  * needs Standard and offers to convert.
  */
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the recipe sentence draws When, if and then from one recipe.
 export function RecipeEditor({
   recipe,
   onChange,
@@ -504,6 +512,7 @@ export function RecipeEditor({
   const members = useWorkspaceMemberNames()
   const datasets = targets.data?.datasets ?? []
   const dataset = datasets.find((d) => d.id === recipe.when.datasetId)
+  const instruments = useInstruments()
   const columns = useDatasetColumns(dataset?.schemaVersionId ?? '')
   const columnList = columns.data ?? []
 
@@ -564,11 +573,36 @@ export function RecipeEditor({
             onChange={(datasetId) =>
               onChange({
                 ...recipe,
-                when: { datasetId },
+                when: { datasetId, instrumentId: recipe.when.instrumentId },
                 conditions: recipe.conditions.map((c) => ({
                   ...c,
                   column: '',
                 })),
+              })
+            }
+          />
+          <span className="font-sans text-body text-fg-muted">
+            {r('fromInstrument')}
+          </span>
+          <TokenSelect
+            label={r('anyInstrument')}
+            icon="scan"
+            value={recipe.when.instrumentId ?? ANY}
+            placeholder={r('anyInstrument')}
+            options={[
+              { value: ANY, label: r('anyInstrument') },
+              ...(instruments.data ?? []).map((i) => ({
+                value: i.id,
+                label: i.display_id ? `${i.name} ${i.display_id}` : i.name,
+              })),
+            ]}
+            onChange={(instrumentId) =>
+              onChange({
+                ...recipe,
+                when: {
+                  datasetId: recipe.when.datasetId,
+                  instrumentId: instrumentId === ANY ? undefined : instrumentId,
+                },
               })
             }
           />
@@ -594,6 +628,7 @@ export function RecipeEditor({
         ) : (
           recipe.conditions.map((condition, index) => (
             <Row
+              // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a condition has no id; its place in the sentence is its identity.
               key={index}
               keyword={index === 0 ? r('if') : undefined}
               onRemove={() =>
@@ -646,6 +681,7 @@ export function RecipeEditor({
         <div className="h-1" aria-hidden />
         {recipe.actions.map((action, index) => (
           <Row
+            // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- an action has no id; its place in the sentence is its identity.
             key={index}
             keyword={index === 0 ? r('thenDo') : r('and')}
             onRemove={() =>

@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Link } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -14,7 +13,6 @@ import {
   useWorkspaceMemberNames,
 } from '#/components/pipelines/pipelines-data'
 import { ConvertDialog } from '#/components/pipelines/convert-dialog'
-import { DuplicateDialog } from '#/components/pipelines/history/duplicate-dialog'
 import { t } from '#/copy'
 import { words } from '#/lib/pipelines/simple/words'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -35,6 +33,7 @@ const e = words('editor')
  * draft on the latest snapshot on the right. The recipe is saved on the draft
  * version with the steps it compiles to, so nothing but steps ever runs.
  */
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the editor owns the recipe, its checks, save and the dialogs that share them.
 export function SimpleEditor({
   pipelineId,
   workspaceId,
@@ -59,7 +58,6 @@ export function SimpleEditor({
   const targets = usePipelineOutputTargets()
   const queryClient = useQueryClient()
   const [convertOpen, setConvertOpen] = useState(false)
-  const [duplicateOpen, setDuplicateOpen] = useState(false)
   const d = definition.data
 
   const problems = useMemo(
@@ -114,25 +112,6 @@ export function SimpleEditor({
       }),
   })
 
-  const publish = useMutation({
-    mutationFn: () => {
-      if (!draft) throw new Error(e('savedFirst'))
-
-      return notebookDataClient.rpc('publish_pipeline_definition_version', {
-        p_workspace_id: workspaceId,
-        p_version_id: draft.id,
-      })
-    },
-    onSuccess: async () => {
-      await invalidate()
-      toast(e('published'))
-    },
-    onError: (error) =>
-      toast.error(e('couldNotPublish'), {
-        description: error instanceof Error ? error.message : undefined,
-      }),
-  })
-
   if (!recipe || !d) return null
 
   const displayId = d.display_id ?? d.key
@@ -166,43 +145,21 @@ export function SimpleEditor({
             {e('template', { template: starting.fromTemplate })}
           </Notice>
         ) : null}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3 text-label text-fg-muted">
+          <h2 className="m-0 font-heading text-[15px] font-semibold text-fg">
+            {t('data.stepList.heading')}
+          </h2>
+          <span className="min-w-0 flex-1 text-right">
+            {dirty ? e('unsaved') : ''}
+          </span>
           <Button
-            variant={draft && !dirty ? 'secondary' : 'primary'}
+            variant="secondary"
+            size="sm"
             disabled={!complete || !dirty || save.isPending}
             title={complete ? undefined : e('finish')}
             onClick={() => save.mutate()}
           >
             {save.isPending ? e('saving') : e('save')}
-          </Button>
-          {draft ? (
-            <Button
-              variant="primary"
-              disabled={dirty || publish.isPending || !complete}
-              title={dirty ? e('savedFirst') : undefined}
-              onClick={() => publish.mutate()}
-            >
-              {publish.isPending
-                ? e('publishing')
-                : e('publish', { version: draft.version })}
-            </Button>
-          ) : null}
-          {dirty ? (
-            <span className="text-label text-fg-muted">{e('unsaved')}</span>
-          ) : null}
-          <span className="grow" />
-          <Link
-            to="/pipelines/$pipelineId/history"
-            params={{ pipelineId }}
-            className="text-label"
-          >
-            {e('history')}
-          </Link>
-          <Button
-            disabled={!source || !stored}
-            onClick={() => setConvertOpen(true)}
-          >
-            {e('convert')}
           </Button>
         </div>
         {!complete && problems.length ? (
@@ -254,21 +211,8 @@ export function SimpleEditor({
             name={d.name}
             draftVersion={draft ? draft.version : source.version + 1}
             publishedVersion={published?.version ?? null}
-            onDuplicate={() => {
-              setConvertOpen(false)
-              setDuplicateOpen(true)
-            }}
+            onDuplicate={() => setConvertOpen(false)}
             onConverted={() => setEdited(null)}
-          />
-          <DuplicateDialog
-            open={duplicateOpen}
-            onOpenChange={setDuplicateOpen}
-            workspaceId={workspaceId}
-            versionId={source.id}
-            version={source.version}
-            mode={t('features.pipelineSimple.mode.simple')}
-            displayId={displayId}
-            name={d.name}
           />
         </>
       ) : null}

@@ -15,25 +15,18 @@ import {
   ConfirmDialogTitle,
 } from '#/components/ui/confirm-dialog'
 import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogHeader,
-} from '#/components/ui/dialog'
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
-import { Status } from '#/components/ui/status'
+import { ConvertDialog } from '#/components/pipelines/convert-dialog'
+import { DuplicateDialog } from '#/components/pipelines/history/duplicate-dialog'
+import { versionMode } from '#/lib/pipelines/version-mode'
 import { toast } from '#/components/ui/sonner'
-import {
-  pipelineDataQueryKeys,
-  versionStatus,
-} from '#/components/pipelines/pipelines-data'
-import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
+import { pipelineDataQueryKeys } from '#/components/pipelines/pipelines-data'
+import { notebookDataClient } from '#/lib/notebook-data'
 import { updatePipelineDefinition } from '#/lib/pipelines/data'
 import { configForWire, readStoredConfig } from '#/lib/pipelines/step-list'
 import { usePipelineEditor } from './use-pipeline-editor'
@@ -61,7 +54,8 @@ export function PipelineMenu({
   canRun: boolean
 }) {
   const editor = usePipelineEditor()
-  const [history, setHistory] = useState(false)
+  const [duplicating, setDuplicating] = useState(false)
+  const [converting, setConverting] = useState(false)
   const [retiring, setRetiring] = useState(false)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -105,9 +99,33 @@ export function PipelineMenu({
             {t('data.pipelineMenu.runNow')}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem icon="history" onClick={() => setHistory(true)}>
+          <DropdownMenuItem
+            icon="history"
+            onClick={() =>
+              void navigate({
+                to: '/pipelines/$pipelineId/triggers',
+                params: { pipelineId: editor.pipelineId },
+                hash: 'history',
+              })
+            }
+          >
             {t('data.pipelineMenu.history')}
           </DropdownMenuItem>
+          <DropdownMenuItem
+            icon="copy"
+            disabled={!shown}
+            onClick={() => setDuplicating(true)}
+          >
+            {t('features.pipelineSimple.history.duplicateMenu')}
+          </DropdownMenuItem>
+          {shown && versionMode(shown) === 'simple' ? (
+            <DropdownMenuItem
+              icon="arrowRightLeft"
+              onClick={() => setConverting(true)}
+            >
+              {t('features.pipelineSimple.convert.menu')}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem
             icon="download"
             disabled={!shown}
@@ -131,38 +149,39 @@ export function PipelineMenu({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={history} onOpenChange={setHistory}>
-        <DialogContent>
-          <DialogHeader
-            title={t('data.pipelineMenu.historyTitle')}
-            description={t('data.pipelineMenu.historyBody')}
+      {shown ? (
+        <>
+          <DuplicateDialog
+            open={duplicating}
+            onOpenChange={setDuplicating}
+            workspaceId={editor.workspaceId}
+            versionId={shown.id}
+            version={shown.version}
+            mode={t(`features.pipelineSimple.mode.${versionMode(shown)}`)}
+            displayId={editor.definition.data?.display_id ?? ''}
+            name={name}
           />
-          <DialogBody>
-            <ol className="m-0 flex list-none flex-col p-0">
-              {editor.list.map((version) => {
-                const status = versionStatus(version.lifecycle)
-
-                return (
-                  <li
-                    key={version.id}
-                    className="grid grid-cols-[48px_110px_minmax(0,1fr)] items-center gap-2 border-b border-border-subtle py-2 text-body last:border-b-0"
-                  >
-                    <span className="num font-medium">v{version.version}</span>
-                    <Status tone={status.tone}>{status.label}</Status>
-                    <span className="text-label text-fg-muted">
-                      {version.published_at
-                        ? formatNotebookDateTime(version.published_at, {
-                            zone: true,
-                          })
-                        : '—'}
-                    </span>
-                  </li>
-                )
-              })}
-            </ol>
-          </DialogBody>
-        </DialogContent>
-      </Dialog>
+          {versionMode(shown) === 'simple' ? (
+            <ConvertDialog
+              open={converting}
+              onOpenChange={setConverting}
+              workspaceId={editor.workspaceId}
+              pipelineId={editor.pipelineId}
+              displayId={editor.definition.data?.display_id ?? ''}
+              name={name}
+              draftVersion={
+                editor.draft ? editor.draft.version : shown.version + 1
+              }
+              publishedVersion={editor.current?.version ?? null}
+              onConverted={() => undefined}
+              onDuplicate={() => {
+                setConverting(false)
+                setDuplicating(true)
+              }}
+            />
+          ) : null}
+        </>
+      ) : null}
 
       <ConfirmDialog open={retiring} onOpenChange={setRetiring}>
         <ConfirmDialogContent>

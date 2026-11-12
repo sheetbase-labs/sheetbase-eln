@@ -21,6 +21,7 @@ const h = words('how')
  * run-going rule live with Starts and runs; this says them in words and, for
  * the snapshot the recipe reads, can add the start that listens for it.
  */
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the starts, the run rule and the away choice are one card over one recipe.
 export function HowItRuns({
   pipelineId,
   workspaceId,
@@ -47,22 +48,28 @@ export function HowItRuns({
     (s) =>
       s.kind === 'event' &&
       s.spec.eventType === 'dataset.versioned' &&
-      s.spec.datasetId === recipe.when.datasetId,
+      s.spec.datasetId === recipe.when.datasetId &&
+      (s.spec.instrumentId ?? undefined) === recipe.when.instrumentId,
   )
 
   const addStart = useMutation({
-    mutationFn: () =>
-      createPipelineSchedule(notebookDataClient, {
+    mutationFn: () => {
+      const spec = {
+        eventType: 'dataset.versioned',
+        datasetId: recipe.when.datasetId,
+        inputName: RECIPE_SOURCE_INPUT,
+        missedRunPolicy: 'run_once',
+      }
+
+      return createPipelineSchedule(notebookDataClient, {
         workspaceId,
         definitionId: pipelineId,
         kind: 'event',
-        spec: {
-          eventType: 'dataset.versioned',
-          datasetId: recipe.when.datasetId,
-          inputName: RECIPE_SOURCE_INPUT,
-          missedRunPolicy: 'run_once',
-        },
-      }),
+        spec: recipe.when.instrumentId
+          ? { ...spec, instrumentId: recipe.when.instrumentId }
+          : spec,
+      })
+    },
     onSuccess: () => {
       toast(h('startAdded'))
       void queryClient.invalidateQueries({

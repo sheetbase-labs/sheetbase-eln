@@ -60,6 +60,7 @@ export function ReadOnlyVersion({
         </TableHeader>
         <TableBody>
           {steps.map((step, index) => (
+            // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a stored step list may repeat a name; the place keeps the key unique.
             <TableRow key={`${step.name}-${index}`}>
               <TableCell className="font-medium">{step.name}</TableCell>
               <TableCell className="text-fg-muted">{step.kind}</TableCell>

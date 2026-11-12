@@ -43,18 +43,79 @@ export interface LatestSnapshot {
   createdAt: string
 }
 
-/** The newest snapshot (dataset version) of a dataset, the one a dry run reads. */
-export function useLatestSnapshot(datasetId: string) {
+/** The instruments a snapshot can come from. */
+export function useInstruments() {
   return useQuery({
-    queryKey: ['ui-port', 'pipelines', 'simple-snapshot', datasetId],
+    queryKey: ['ui-port', 'pipelines', 'simple-instruments'] as const,
+    queryFn: () =>
+      notebookDataClient.list<{
+        id: string
+        name: string
+        display_id: string | null
+      }>(
+        'instruments',
+        '?select=id,name,display_id&retired_at=is.null&order=name.asc',
+      ),
+    staleTime: 60_000,
+  })
+}
+
+/**
+ * The newest snapshot (dataset version) of a dataset, the one a dry run reads;
+ * with an instrument, the newest one an import from that instrument made.
+ */
+export function useLatestSnapshot(datasetId: string, instrumentId?: string) {
+  return useQuery({
+    queryKey: [
+      'ui-port',
+      'pipelines',
+      'simple-snapshot',
+      datasetId,
+      instrumentId ?? '',
+    ],
     queryFn: async (): Promise<LatestSnapshot | null> => {
+      const id = encodeURIComponent(datasetId)
+
+      if (instrumentId) {
+        const imports = await notebookDataClient.list<{
+          snapshot_version_id: string | null
+          created_at: string
+        }>(
+          'dataset_imports',
+          `?select=snapshot_version_id,created_at&dataset_id=eq.${id}&instrument_id=eq.${encodeURIComponent(instrumentId)}&snapshot_version_id=not.is.null&order=created_at.desc&limit=1`,
+        )
+
+        const found = imports.at(0)
+
+        if (!found?.snapshot_version_id) return null
+
+        const versions = await notebookDataClient.list<{
+          id: string
+          label: string
+          created_at: string
+        }>(
+          'dataset_versions',
+          `?select=id,label,created_at&id=eq.${encodeURIComponent(found.snapshot_version_id)}`,
+        )
+
+        const version = versions.at(0)
+
+        return version
+          ? {
+              id: version.id,
+              label: version.label,
+              createdAt: version.created_at,
+            }
+          : null
+      }
+
       const rows = await notebookDataClient.list<{
         id: string
         label: string
         created_at: string
       }>(
         'dataset_versions',
-        `?select=id,label,created_at&dataset_id=eq.${encodeURIComponent(datasetId)}&order=created_at.desc&limit=1`,
+        `?select=id,label,created_at&dataset_id=eq.${id}&order=created_at.desc&limit=1`,
       )
 
       const row = rows.at(0)

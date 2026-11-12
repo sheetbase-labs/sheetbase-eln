@@ -124,6 +124,8 @@ export const recipeSchema = z.object({
   when: z.object({
     /** The dataset whose new snapshot starts the run. */
     datasetId: z.string(),
+    /** Only snapshots that came from this instrument; empty: from anywhere. */
+    instrumentId: z.string().optional(),
   }),
   /** Joined by `join`. Empty: every row goes on. */
   conditions: z.array(conditionSchema).max(MAX_RECIPE_CONDITIONS),

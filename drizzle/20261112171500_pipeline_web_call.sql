@@ -99,6 +99,13 @@ INSERT INTO internal.webhook_event_names (name) VALUES
 ON CONFLICT DO NOTHING;
 --> statement-breakpoint
 
+-- The events a pipeline may be started by, so the trigger picker's list and the
+-- database agree (tests/db/pipeline-trigger-events.test.ts).
+INSERT INTO internal.pipeline_trigger_events (name) VALUES
+  ('pipeline_connection.created'), ('pipeline_connection.updated'), ('pipeline_connection.deleted')
+ON CONFLICT DO NOTHING;
+--> statement-breakpoint
+
 CREATE TABLE api.pipeline_connections (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     workspace_id uuid NOT NULL,

@@ -74,6 +74,7 @@ import {
   useLinkedRegistrySelection,
   useRegistryEvents,
   useRegistryRowKeys,
+  useRegistryTickKeys,
 } from './registry-grid-effects'
 
 export {
@@ -350,53 +351,7 @@ export function RegistryGrid<T extends RowData>({
   // ticked. A row is ticked from the keyboard (Space on the focused row) or with
   // a Ctrl, Cmd or Shift click; after that the boxes are there to add or clear.
   const showTicks = Boolean(bulk) && ticked.length > 0
-  const toggleBulk = bulk?.toggle
-  useEffect(() => {
-    const root = gridRef.current
-
-    if (!root || !toggleBulk) return
-
-    const idOf = (target: EventTarget | null): string | null => {
-      const tr =
-        target instanceof Element
-          ? target.closest<HTMLTableRowElement>('tbody tr[data-index]')
-          : null
-
-      const row = tr ? rows.at(Number(tr.dataset.index)) : undefined
-
-      return row && !isBand(row) ? getRowId(row) : null
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== ' ' || !(event.target instanceof HTMLTableRowElement))
-        return
-
-      const id = idOf(event.target)
-
-      if (id === null) return
-      event.preventDefault()
-      toggleBulk(id)
-    }
-
-    const onClick = (event: MouseEvent) => {
-      if (!(event.metaKey || event.ctrlKey || event.shiftKey)) return
-
-      const id = idOf(event.target)
-
-      if (id === null) return
-      event.preventDefault()
-      event.stopPropagation()
-      toggleBulk(id)
-    }
-
-    root.addEventListener('keydown', onKeyDown)
-    root.addEventListener('click', onClick, true)
-
-    return () => {
-      root.removeEventListener('keydown', onKeyDown)
-      root.removeEventListener('click', onClick, true)
-    }
-  }, [gridRef, toggleBulk, rows, getRowId])
+  useRegistryTickKeys(gridRef, bulk?.toggle, rows, getRowId)
   const hasView = Boolean(view)
 
   const rowById = useMemo(

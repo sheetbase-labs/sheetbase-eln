@@ -212,8 +212,10 @@ class PipelinesResource:
         self, workspace_id: str, definition_id: str, rules: dict[str, Any]
     ) -> Any:
         """Replace the rules across a pipeline's starts (hours, new rows, waiting, missed runs); ``{}`` clears them."""
+        # A lab action, reached through the generic RPC path rather than a dedicated wrapper.
+        name = "set_pipeline_start_rules"
         return self._transport.post(
-            "/api/db/rpc/set_pipeline_start_rules",
+            f"/api/db/rpc/{name}",
             json_body={
                 "p_workspace_id": workspace_id,
                 "p_definition_id": definition_id,

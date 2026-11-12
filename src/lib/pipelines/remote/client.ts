@@ -190,7 +190,7 @@ export function fetchRunRemoteJobs(
 
 /** The job a waiting run is paused on: the newest one still going. */
 export function openRemoteJob(jobs: RunRemoteJob[]): RunRemoteJob | undefined {
-  return jobs.findLast(
-    (job) => job.state === 'submitted' || job.state === 'running',
-  )
+  return jobs
+    .filter((job) => job.state === 'submitted' || job.state === 'running')
+    .at(-1)
 }

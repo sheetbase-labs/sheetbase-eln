@@ -12,27 +12,6 @@
 
 -- 1. The kind. `runs` says how the runner executes it; the validator reads the
 -- registry, so a kind is a row plus the check of its own settings.
-DO $$
-DECLARE
-  v_name text;
-  v_def text;
-BEGIN
-  SELECT conname, pg_get_constraintdef(oid) INTO v_name, v_def
-    FROM pg_constraint
-   WHERE conrelid = 'internal.pipeline_step_kinds'::regclass
-     AND contype = 'c'
-     AND pg_get_constraintdef(oid) LIKE '%runs%';
-  IF v_def IS NULL OR position('::text]' IN v_def) = 0 THEN
-    RAISE EXCEPTION 'unexpected shape for the pipeline_step_kinds runs check';
-  END IF;
-  IF position('''web_call''' IN v_def) = 0 THEN
-    EXECUTE format('ALTER TABLE internal.pipeline_step_kinds DROP CONSTRAINT %I', v_name);
-    EXECUTE 'ALTER TABLE internal.pipeline_step_kinds ADD CONSTRAINT ' || quote_ident(v_name) || ' '
-      || replace(v_def, '::text]', '::text, ''web_call''::text]');
-  END IF;
-END $$;
---> statement-breakpoint
-
 INSERT INTO internal.pipeline_step_kinds (kind, runs) VALUES ('web_call', 'web_call')
 ON CONFLICT (kind) DO NOTHING;
 --> statement-breakpoint

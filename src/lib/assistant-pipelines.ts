@@ -24,6 +24,7 @@ export const PIPELINE_PUBLISH_TOOL = 'sheetbase.pipeline.publish'
 export const PIPELINE_RETIRE_TOOL = 'sheetbase.pipeline.retire'
 export const PIPELINE_CONVERT_TOOL = 'sheetbase.pipeline.convert'
 export const PIPELINE_DUPLICATE_TOOL = 'sheetbase.pipeline.duplicate'
+export const INBOX_ITEM_TOOL = 'sheetbase.inbox.leave_item'
 export const PIPELINE_SCHEDULE_ADD_TOOL = 'sheetbase.pipeline.schedule_add'
 
 export const PIPELINE_SCHEDULE_SWITCH_TOOL =
@@ -43,6 +44,7 @@ export const PIPELINES_PROPOSE_TOOL_NAMES = [
   PIPELINE_RETIRE_TOOL,
   PIPELINE_CONVERT_TOOL,
   PIPELINE_DUPLICATE_TOOL,
+  INBOX_ITEM_TOOL,
   PIPELINE_SCHEDULE_ADD_TOOL,
   PIPELINE_SCHEDULE_SWITCH_TOOL,
   PIPELINE_SCHEDULE_DELETE_TOOL,
@@ -145,6 +147,20 @@ export const proposePipelineDuplicateSchema = z.strictObject({
     .min(1)
     .max(120)
     .describe('The new pipeline’s name. Its key is made from it.'),
+})
+
+export const proposeInboxItemSchema = z.strictObject({
+  title,
+  summary,
+  person: z.string().min(1).max(200).describe('Who gets it, by name.'),
+  item: z.string().min(1).max(200).describe('What they should do.'),
+  details: z.string().max(2000).optional().describe('More about it.'),
+  dataset: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('The dataset it is about, by name, if it is about one.'),
 })
 
 export const proposePipelineScheduleAddSchema = z.strictObject({
@@ -251,6 +267,14 @@ export type PipelinesAction =
       name: string
     }
   | {
+      kind: 'inbox.leave_item'
+      workspaceId: string
+      userId: string
+      item: string
+      details: string | null
+      datasetId: string | null
+    }
+  | {
       kind: 'pipeline.schedule_add'
       workspaceId: string
       definitionId: string
@@ -288,6 +312,7 @@ const KINDS: readonly string[] = [
   'pipeline.retire',
   'pipeline.convert',
   'pipeline.duplicate',
+  'inbox.leave_item',
   'pipeline.schedule_add',
   'pipeline.schedule_switch',
   'pipeline.schedule_delete',

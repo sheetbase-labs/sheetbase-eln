@@ -27,6 +27,7 @@ export const assistant = defineAssistant<
     'pipeline.retire': words('retirePipeline'),
     'pipeline.convert': 'features.pipelineSimple.cards.convertPipeline',
     'pipeline.duplicate': 'features.pipelineSimple.cards.duplicatePipeline',
+    'inbox.leave_item': 'features.pipelineSimple.cards.leaveInboxItem',
     'pipeline.schedule_add': words('addPipelineSchedule'),
     'pipeline.schedule_switch': words('switchPipelineSchedule'),
     'pipeline.schedule_delete': words('deletePipelineSchedule'),

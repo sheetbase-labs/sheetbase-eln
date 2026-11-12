@@ -327,6 +327,14 @@ export const NOTIFICATION_EVENTS = [
     defaultPush: false,
   },
   {
+    key: 'pipeline_item',
+    label: 'A pipeline left you something to do',
+    group: GROUP_OTHER,
+    source: 'inbox',
+    defaultEmail: false,
+    defaultPush: false,
+  },
+  {
     key: 'plugin_note',
     label: 'A plugin left you a note',
     group: GROUP_OTHER,

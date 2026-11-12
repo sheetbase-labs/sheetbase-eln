@@ -140,6 +140,39 @@ describe('recipe problems', () => {
   })
 })
 
+describe('leaving an Inbox item', () => {
+  const inbox: PipelineRecipe = {
+    ...recipe,
+    actions: [
+      {
+        kind: 'inbox',
+        mode: 'task',
+        userId: PERSON,
+        text: 'Check the readings',
+      },
+    ],
+  }
+
+  it('compiles to the create_inbox_item action and a contract the database accepts', () => {
+    const { steps } = compileRecipe(inbox)
+    const step = steps.find((s) => s.kind === 'action')
+
+    expect(step).toMatchObject({
+      action: { operation: 'create_inbox_item' },
+    })
+    expect(validatePipelineConfig(simpleConfig(inbox))).toEqual([])
+  })
+
+  it('wants someone to leave it with and, for a task, what to do', () => {
+    expect(recipeProblems(inbox)).toEqual([])
+
+    const blank = { ...inbox, actions: [{ ...inbox.actions[0], userId: '' }] }
+
+    // SAFETY: the spread keeps the inbox action's shape; only userId is blank.
+    expect(recipeProblems(blank as PipelineRecipe).length).toBeGreaterThan(0)
+  })
+})
+
 describe('templates', () => {
   it('never start out finished', () => {
     for (const template of PIPELINE_TEMPLATES)

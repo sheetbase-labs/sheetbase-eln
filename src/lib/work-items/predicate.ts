@@ -82,7 +82,8 @@ export function workItemType(kind: string): WorkItemType {
     kind === 'shipment_incoming' ||
     kind === 'watcher_finding' ||
     kind === 'qc_violation' ||
-    kind === 'plugin_note'
+    kind === 'plugin_note' ||
+    kind === 'pipeline_item'
   )
     return 'lab'
 

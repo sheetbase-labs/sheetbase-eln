@@ -81,6 +81,16 @@ export async function runPipelinesAction(
       return { openHref: `/pipelines/${created.id}` }
     }
 
+    case 'inbox.leave_item':
+      await client.rpc('create_inbox_item', {
+        p_workspace_id: action.workspaceId,
+        p_user_id: action.userId,
+        p_title: action.item,
+        p_body: action.details,
+        p_dataset_id: action.datasetId,
+      })
+
+      return { openHref: '/inbox' }
     case 'pipeline.schedule_add':
       await client.rpc('create_pipeline_schedule', {
         p_workspace_id: action.workspaceId,

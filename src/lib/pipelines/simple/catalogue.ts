@@ -106,6 +106,20 @@ export function catalogueItems(): CatalogueItem[] {
       }),
     },
     {
+      id: 'review',
+      group: 'flag',
+      label: c('review'),
+      icon: 'edit',
+      make: () => ({ kind: 'inbox', mode: 'review', userId: '', text: '' }),
+    },
+    {
+      id: 'task',
+      group: 'ask',
+      label: c('task'),
+      icon: 'inbox',
+      make: () => ({ kind: 'inbox', mode: 'task', userId: '', text: '' }),
+    },
+    {
       id: 'teams',
       group: 'notify',
       label: c('teams'),

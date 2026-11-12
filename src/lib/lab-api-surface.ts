@@ -646,6 +646,22 @@ export const LAB_TABLES: LabTableIndex = {
       ['updated_at', 'ts', 1],
     ],
   },
+  pipeline_inbox_items: {
+    summary:
+      'Inbox items a pipeline left for someone: a task to do or a snapshot to review. Each person sees the ones for them and the ones they made.',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['user_id', 'text', 1],
+      ['created_by_user_id', 'text', 0],
+      ['title', 'text', 1],
+      ['body', 'text', 0],
+      ['dataset_id', 'uuid', 0],
+      ['dataset_version_id', 'uuid', 0],
+      ['due_at', 'ts', 0],
+      ['created_at', 'ts', 1],
+    ],
+  },
   plugin_notes: {
     summary:
       'Notes a plugin left in someone\u2019s Inbox in answer to an event. Each person sees their own.',

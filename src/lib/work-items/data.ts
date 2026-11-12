@@ -42,6 +42,7 @@ export type WorkItemKind =
   | 'watcher_finding'
   | 'qc_violation'
   | 'plugin_note'
+  | 'pipeline_item'
   | 'invitation_accepted'
   | 'verification_requested'
   | 'verification_granted'
@@ -122,6 +123,7 @@ const KINDS = [
   'watcher_finding',
   'qc_violation',
   'plugin_note',
+  'pipeline_item',
   'invitation_accepted',
   'verification_requested',
   'verification_granted',
@@ -391,6 +393,7 @@ export function countByKind(
     watcher_finding: 0,
     qc_violation: 0,
     plugin_note: 0,
+    pipeline_item: 0,
     invitation_accepted: 0,
     verification_requested: 0,
     verification_granted: 0,

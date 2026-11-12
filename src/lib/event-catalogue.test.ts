@@ -18,6 +18,7 @@ import {
 } from './webhook-events'
 import type { ChangeEventInput, ChangeEventPayload } from './webhook-events'
 import { DATASET_EVENT_FIXTURES } from '../features/datasets/events.fixture'
+import { PIPELINE_SIMPLE_EVENT_FIXTURES } from '../features/pipeline-simple/events.fixture'
 
 /** A payload that satisfies the entry's `when` test, plus the default key. */
 function producerPayload(
@@ -1199,7 +1200,11 @@ const LAB_EVENTS: ReadonlyArray<{
 ]
 
 describe('lab feature events', () => {
-  it.each([...LAB_EVENTS, ...DATASET_EVENT_FIXTURES])(
+  it.each([
+    ...LAB_EVENTS,
+    ...DATASET_EVENT_FIXTURES,
+    ...PIPELINE_SIMPLE_EVENT_FIXTURES,
+  ])(
     '$name is delivered from $entityType/$operation',
     ({ name, entityType, operation, payload }) => {
       expect(mapEventType(entityType, operation, payload)).toBe(name)
@@ -1210,7 +1215,11 @@ describe('lab feature events', () => {
   )
 
   it('lists every lab-01 catalogue entry here, so none is added unpinned', () => {
-    const pinned = [...LAB_EVENTS, ...DATASET_EVENT_FIXTURES]
+    const pinned = [
+      ...LAB_EVENTS,
+      ...DATASET_EVENT_FIXTURES,
+      ...PIPELINE_SIMPLE_EVENT_FIXTURES,
+    ]
       .map((event) => event.name)
       .sort()
 

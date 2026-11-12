@@ -307,6 +307,35 @@ function ActionLine({
       return (
         <ElnActionLine action={action} columns={columns} onChange={onChange} />
       )
+    case 'inbox':
+      return (
+        <>
+          <TokenSelect
+            label={r('pickPerson')}
+            icon="user"
+            lead={action.mode === 'review' ? r('inboxReview') : r('inboxTask')}
+            trail={action.mode === 'review' ? r('inboxReviewTrail') : undefined}
+            mark={(chosen) => (
+              <Avatar name={chosen.label} size="xs" tone="review" />
+            )}
+            value={action.userId}
+            placeholder={r('pickPerson')}
+            options={Object.entries(people).map(([id, name]) => ({
+              value: id,
+              label: name,
+            }))}
+            onChange={(userId) => onChange({ ...action, userId })}
+          />
+          {action.mode === 'task' ? (
+            <TokenInput
+              label={r('inboxText')}
+              placeholder={r('inboxText')}
+              value={action.text}
+              onChange={(text) => onChange({ ...action, text })}
+            />
+          ) : null}
+        </>
+      )
     case 'append':
       return (
         <>
@@ -394,7 +423,10 @@ function ElnActionLine({
       {(definition?.arguments ?? [])
         .filter((a) => !a.server)
         .map((argument) => {
-          const mapped = action.arguments[argument.name]
+          const mapped = Object.entries(action.arguments).find(
+            ([name]) => name === argument.name,
+          )?.[1]
+
           const fromColumn = mapped && 'column' in mapped
 
           return (

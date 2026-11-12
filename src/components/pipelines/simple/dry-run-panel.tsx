@@ -92,6 +92,19 @@ function wouldList(
           }),
           policy: d('waits'),
         }
+      case 'inbox':
+        return {
+          icon: 'inbox',
+          person: people[action.userId],
+          text:
+            action.mode === 'review'
+              ? d('inboxReview', { person: people[action.userId] ?? '—' })
+              : d('inboxTask', {
+                  text: action.text,
+                  person: people[action.userId] ?? '—',
+                }),
+          policy: t('features.pipelineSimple.catalogue.auto'),
+        }
       case 'notify':
         return {
           icon: 'comment',

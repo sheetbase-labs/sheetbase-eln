@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import {
   PIPELINES_PROPOSE_TOOL_NAMES,
+  INBOX_ITEM_TOOL,
   PIPELINE_CANCEL_TOOL,
   PIPELINE_CONVERT_TOOL,
   PIPELINE_DUPLICATE_TOOL,
@@ -14,6 +15,7 @@ import {
   PIPELINE_SCHEDULE_SWITCH_TOOL,
   PLUGIN_REMOVE_TOOL,
   PLUGIN_SWITCH_TOOL,
+  proposeInboxItemSchema,
   proposePipelineCancelSchema,
   proposePipelineConvertSchema,
   proposePipelineDuplicateSchema,
@@ -97,6 +99,11 @@ export function pipelinesProposalDefs(): ProviderToolDef[] {
       PIPELINE_DUPLICATE_TOOL,
       `Propose making a new pipeline from a copy of an existing one’s newest version, in the same mode. Give the new name. ${NOTE}`,
       proposePipelineDuplicateSchema,
+    ),
+    toolDef(
+      INBOX_ITEM_TOOL,
+      `Propose leaving an item in someone’s Inbox: a task to do, or a dataset to look at. ${NOTE}`,
+      proposeInboxItemSchema,
     ),
     toolDef(
       PIPELINE_SCHEDULE_ADD_TOOL,
@@ -639,6 +646,77 @@ export async function buildPipelinesProposal(
           versionId: newest.id,
           key,
           name: input.name,
+        },
+      )
+    }
+
+    case INBOX_ITEM_TOOL: {
+      const parsed = proposeInboxItemSchema.safeParse(args)
+
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+
+      const members = await context.client.rpc<
+        { user_id: string; name: string }[]
+      >('workspace_members_list', {})
+
+      const lower = input.person.trim().toLowerCase()
+
+      const who = members.filter(
+        (member) =>
+          member.name.toLowerCase() === lower ||
+          lower
+            .split(/\s+/)
+            .every((word) => member.name.toLowerCase().includes(word)),
+      )
+
+      if (who.length !== 1)
+        return fail(
+          who.length === 0
+            ? `No one in the workspace is called ${input.person}.`
+            : `${who.length} people match ${input.person}. Ask the person which one.`,
+        )
+
+      let datasetId: string | null = null
+      let datasetName: string | null = null
+
+      if (input.dataset) {
+        const rows = await context.client.list<{ id: string; name: string }>(
+          'datasets',
+          `?name=ilike.${likeValue(input.dataset)}&select=id,name&order=name.asc&limit=6`,
+        )
+
+        const found = pick(
+          rows,
+          input.dataset,
+          'dataset',
+          (row) => row.name,
+          (row) => row.name.toLowerCase() === input.dataset?.toLowerCase(),
+        )
+
+        if (!found.ok) return fail(found.message)
+        datasetId = found.value.id
+        datasetName = found.value.name
+      }
+
+      return card(
+        name,
+        input,
+        `${who[0].name} · Inbox`,
+        '/inbox',
+        [
+          { label: 'Inbox item', before: null, after: input.item },
+          ...(datasetName
+            ? [{ label: 'About', before: null, after: datasetName }]
+            : []),
+        ],
+        {
+          kind: 'inbox.leave_item',
+          workspaceId: context.workspaceId,
+          userId: who[0].user_id,
+          item: input.item,
+          details: input.details ?? null,
+          datasetId,
         },
       )
     }

@@ -53,6 +53,15 @@ a copy of that version, in the mode it was written in. Runs, starts and history
 stay with the original. Needs `pipelines:write`. Sends `pipeline.created` and
 `pipeline.version.created`.
 
-Both operations are also on MCP (`sheetbase.lab.act`), in the assistant
+## `create_inbox_item`
+
+`POST /api/rpc/create_inbox_item` with `p_workspace_id`, `p_user_id` and
+`p_title`, and optionally `p_body`, `p_dataset_id`, `p_dataset_version_id` and
+`p_due_at`. Leaves an item in that person's Inbox until they open it. The
+Simple catalogue's "Assign a task in Inbox" and "Mark the snapshot for review"
+call it. Read them back from `pipeline_inbox_items`. Needs `pipelines:write`.
+Sends `pipeline.inbox_item.created`.
+
+These operations are also on MCP (`sheetbase.lab.act`), in the assistant
 (`sheetbase.pipeline.convert`, `sheetbase.pipeline.duplicate`) and as pipeline
 actions.

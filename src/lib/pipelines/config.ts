@@ -54,6 +54,10 @@ export const MAX_PARAMETERS = 50
 export const MAX_INPUTS = 10
 export const MAX_STATEMENT_LENGTH = 20_000
 export const MAX_STEPS = 50
+
+/** Outputs a version may write besides its first. */
+export const MAX_MORE_OUTPUTS = 9
+
 export const MAX_STEP_NOTE_LENGTH = 500
 
 /** Every kind of step a version may hold, in the order the Add step menu lists them. */
@@ -180,6 +184,38 @@ export interface PipelineOutput {
   datasetLabel: string
   /** Optional explicit result-column → schema-field-slug mapping. */
   fieldMapping?: Record<string, string> | null
+  /**
+   * The data step whose rows this output writes. Omitted: the rows of the last
+   * data step (what a Standard pipeline's one output has always written).
+   */
+  from?: string
+}
+
+/** Every output a version writes: the first, then the file-only ones. */
+export function outputsOf(config: {
+  output: PipelineOutput
+  moreOutputs?: PipelineOutput[]
+}): PipelineOutput[] {
+  return [config.output, ...(config.moreOutputs ?? [])]
+}
+
+/** What an output writes to, to tell two outputs of one version apart; `none` has no target. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Takes a stored output of any version and decodes it with the raw schema first.
+export function outputTarget(raw: unknown): string | null {
+  const parsed = rawOutputSchema.safeParse(raw)
+
+  if (!parsed.success) return null
+  const { mode, datasetId, datasetName, schemaVersionId } = parsed.data
+
+  const id = z.string().safeParse(datasetId)
+  const name = z.string().safeParse(datasetName)
+
+  if (mode === 'append' && id.success) return `append:${id.data}`
+
+  if (mode === 'create' && name.success)
+    return `create:${z.string().safeParse(schemaVersionId).data ?? ''}:${name.data}`
+
+  return null
 }
 
 /**
@@ -394,7 +430,24 @@ export interface PipelineConfig {
   /** One ordered list. Data steps each read the one before as `previous`. */
   steps: PipelineStep[]
   output: PipelineOutput
+  /** File-only: further outputs, each from a named step. Standard shows them read-only. */
+  moreOutputs?: PipelineOutput[]
+  /**
+   * File-only: parameter sets this version includes. Their parameters are
+   * copied into `parameters` when the version is saved, so a set changing later
+   * never changes a version that used it.
+   */
+  include?: PipelineInclude[]
 }
+
+/** A parameter set a version includes, and the parameters it brought in. */
+export interface PipelineInclude {
+  set: string
+  parameters: string[]
+}
+
+/** The parameter sets' key shape: lower-case letters, digits, `-` and `_`. */
+export const PARAMETER_SET_KEY = /^[a-z][a-z0-9_-]{0,63}$/
 
 export type ConfigError = {
   code:
@@ -421,6 +474,8 @@ const rawConfigSchema = z
     pythonRuntime: z.unknown(),
     pythonRequirements: z.unknown(),
     output: z.unknown(),
+    moreOutputs: z.unknown(),
+    include: z.unknown(),
   })
   .partial()
 
@@ -502,6 +557,7 @@ const rawOutputSchema = z
     datasetName: z.unknown(),
     datasetLabel: z.unknown(),
     fieldMapping: z.unknown(),
+    from: z.unknown(),
   })
   .partial()
 
@@ -630,6 +686,208 @@ function validatePluginStep(
         t('data.pipelineConfig.pluginStepReference'),
       )
   }
+}
+
+/** One output: where its rows go, and which step's rows they are. */
+function outputErrors(
+  errors: ConfigError[],
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A stored output is checked field by field here, as the rest of this validator does.
+  raw: unknown,
+  field: string,
+  dataSteps: Set<string>,
+  options: { named: boolean },
+): void {
+  const parsedOutput = rawOutputSchema.safeParse(raw)
+
+  if (!parsedOutput.success) {
+    push(
+      errors,
+      'invalid_shape',
+      field,
+      t('data.pipelineConfig.outputMustObject'),
+    )
+  } else {
+    const output = parsedOutput.data
+
+    if (
+      output.mode !== 'create' &&
+      output.mode !== 'append' &&
+      output.mode !== 'none'
+    ) {
+      push(
+        errors,
+        'invalid_value',
+        `${field}.mode`,
+        t('data.pipelineConfig.outputModeMustCreate'),
+      )
+    }
+
+    if (output.mode === 'create') {
+      if (!isUuid(output.schemaVersionId)) {
+        push(
+          errors,
+          'invalid_value',
+          `${field}.schemaVersionId`,
+          t('data.pipelineConfig.createOutputRequiresValid'),
+        )
+      }
+
+      if (!shortLabelSchema.safeParse(output.datasetName).success) {
+        push(
+          errors,
+          'invalid_value',
+          `${field}.datasetName`,
+          t('data.pipelineConfig.createOutputRequiresDataset'),
+        )
+      }
+    }
+
+    if (output.mode === 'append') {
+      if (!isUuid(output.datasetId)) {
+        push(
+          errors,
+          'invalid_value',
+          `${field}.datasetId`,
+          t('data.pipelineConfig.appendOutputRequiresValid'),
+        )
+      }
+    }
+
+    if (
+      output.mode !== 'none' &&
+      !shortLabelSchema.safeParse(output.datasetLabel).success
+    ) {
+      push(
+        errors,
+        'invalid_value',
+        `${field}.datasetLabel`,
+        t('data.pipelineConfig.outputRequiresDatasetVersion'),
+      )
+    }
+
+    if (
+      output.fieldMapping !== undefined &&
+      output.fieldMapping !== null &&
+      !rawValuesSchema.safeParse(output.fieldMapping).success
+    ) {
+      push(
+        errors,
+        'invalid_shape',
+        `${field}.fieldMapping`,
+        'fieldMapping must be an object or null',
+      )
+    }
+  }
+
+  const fromValue = z.looseObject({ from: z.unknown() }).safeParse(raw)
+    .data?.from
+
+  const fromName = z.string().safeParse(fromValue)
+
+  if (
+    fromValue !== undefined &&
+    !(fromName.success && dataSteps.has(fromName.data))
+  )
+    push(
+      errors,
+      'invalid_value',
+      `${field}.from`,
+      t('data.pipelineConfig.outputFromMustBeStep'),
+    )
+
+  if (options.named && fromValue === undefined)
+    push(
+      errors,
+      'missing_required',
+      `${field}.from`,
+      t('data.pipelineConfig.outputFromRequired'),
+    )
+}
+
+/** The `include` list: each entry a set key and parameters that are among the version's own. */
+function includeErrors(
+  errors: ConfigError[],
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A stored include list is checked entry by entry here.
+  include: unknown,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A stored parameter list is read only for its names.
+  parameters: unknown,
+): void {
+  if (include === undefined) return
+
+  if (!Array.isArray(include)) {
+    push(
+      errors,
+      'invalid_shape',
+      'include',
+      t('data.pipelineConfig.includeMustBeList'),
+    )
+
+    return
+  }
+
+  const own = new Set<string>()
+
+  if (Array.isArray(parameters))
+    for (const entry of parameters) {
+      const named = z.looseObject({ name: z.string() }).safeParse(entry)
+
+      if (named.success) own.add(named.data.name)
+    }
+
+  const seen = new Set<string>()
+
+  for (const [i, entry] of include.entries()) {
+    const parsed = z
+      .looseObject({ set: z.string(), parameters: z.array(z.string()) })
+      .safeParse(entry)
+
+    if (!parsed.success || !PARAMETER_SET_KEY.test(parsed.data.set)) {
+      push(
+        errors,
+        'invalid_shape',
+        `include[${i}]`,
+        t('data.pipelineConfig.includeEntry'),
+      )
+      continue
+    }
+
+    if (seen.has(parsed.data.set))
+      push(
+        errors,
+        'duplicate_name',
+        `include[${i}]`,
+        t('data.pipelineConfig.includeTwice'),
+      )
+
+    seen.add(parsed.data.set)
+
+    if (parsed.data.parameters.some((name) => !own.has(name)))
+      push(
+        errors,
+        'invalid_value',
+        `include[${i}].parameters`,
+        t('data.pipelineConfig.includeParameterMissing'),
+      )
+  }
+}
+
+/** The data steps a stored version names: what an output may take its rows from. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Reads the names of a stored version's steps without trusting its shape.
+function dataStepNames(steps: unknown): Set<string> {
+  const names = new Set<string>()
+
+  if (!Array.isArray(steps)) return names
+
+  for (const step of steps) {
+    const parsed = z
+      .looseObject({ name: z.string(), kind: z.string() })
+      .safeParse(step)
+
+    if (parsed.success && DATA_STEP_KINDS.some((k) => k === parsed.data.kind))
+      names.add(parsed.data.name)
+  }
+
+  return names
 }
 
 /** Validate a raw configuration value. Returns every violation found. */
@@ -917,86 +1175,58 @@ export function validatePipelineConfig(configuration: unknown): ConfigError[] {
       push(errors, 'invalid_value', 'pythonRequirements', message)
   }
 
+  includeErrors(errors, v.include, v.parameters)
+
   // output
-  const parsedOutput = rawOutputSchema.safeParse(v.output)
+  const dataSteps = dataStepNames(v.steps)
+  outputErrors(errors, v.output, 'output', dataSteps, { named: false })
 
-  if (!parsedOutput.success) {
-    push(
-      errors,
-      'invalid_shape',
-      'output',
-      t('data.pipelineConfig.outputMustObject'),
-    )
-  } else {
-    const output = parsedOutput.data
-
-    if (
-      output.mode !== 'create' &&
-      output.mode !== 'append' &&
-      output.mode !== 'none'
-    ) {
-      push(
-        errors,
-        'invalid_value',
-        'output.mode',
-        t('data.pipelineConfig.outputModeMustCreate'),
-      )
-    }
-
-    if (output.mode === 'create') {
-      if (!isUuid(output.schemaVersionId)) {
-        push(
-          errors,
-          'invalid_value',
-          'output.schemaVersionId',
-          t('data.pipelineConfig.createOutputRequiresValid'),
-        )
-      }
-
-      if (!shortLabelSchema.safeParse(output.datasetName).success) {
-        push(
-          errors,
-          'invalid_value',
-          'output.datasetName',
-          t('data.pipelineConfig.createOutputRequiresDataset'),
-        )
-      }
-    }
-
-    if (output.mode === 'append') {
-      if (!isUuid(output.datasetId)) {
-        push(
-          errors,
-          'invalid_value',
-          'output.datasetId',
-          t('data.pipelineConfig.appendOutputRequiresValid'),
-        )
-      }
-    }
-
-    if (
-      output.mode !== 'none' &&
-      !shortLabelSchema.safeParse(output.datasetLabel).success
-    ) {
-      push(
-        errors,
-        'invalid_value',
-        'output.datasetLabel',
-        t('data.pipelineConfig.outputRequiresDatasetVersion'),
-      )
-    }
-
-    if (
-      output.fieldMapping !== undefined &&
-      output.fieldMapping !== null &&
-      !rawValuesSchema.safeParse(output.fieldMapping).success
-    ) {
+  // The more outputs a file can ask for: each one names the step its rows come from.
+  if (v.moreOutputs !== undefined) {
+    if (!Array.isArray(v.moreOutputs)) {
       push(
         errors,
         'invalid_shape',
-        'output.fieldMapping',
-        'fieldMapping must be an object or null',
+        'moreOutputs',
+        t('data.pipelineConfig.moreOutputsMustBeList'),
       )
+    } else {
+      if (v.moreOutputs.length > MAX_MORE_OUTPUTS)
+        push(
+          errors,
+          'too_many',
+          'moreOutputs',
+          t('data.pipelineConfig.tooManyOutputs', { count: MAX_MORE_OUTPUTS }),
+        )
+
+      const targets = new Set<string>()
+
+      for (const [i, more] of v.moreOutputs.entries()) {
+        outputErrors(errors, more, `moreOutputs[${i}]`, dataSteps, {
+          named: true,
+        })
+        const target = outputTarget(more)
+
+        if (target !== null && targets.has(target))
+          push(
+            errors,
+            'duplicate_name',
+            `moreOutputs[${i}]`,
+            t('data.pipelineConfig.outputTargetTwice'),
+          )
+
+        if (target !== null) targets.add(target)
+      }
+
+      const primary = outputTarget(v.output)
+
+      if (primary !== null && targets.has(primary))
+        push(
+          errors,
+          'duplicate_name',
+          'output',
+          t('data.pipelineConfig.outputTargetTwice'),
+        )
     }
   }
 

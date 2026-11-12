@@ -99,6 +99,15 @@ export interface RunManifest {
     rowCount: number
     contentDigest: string
   }
+  /** Outputs a version wrote besides the first (file-only); absent when it wrote none. */
+  furtherOutputs?: Array<{
+    datasetId: string
+    datasetVersionId: string
+    label: string
+    from: string | null
+    rowCount: number
+    contentDigest: string
+  }>
   actions: Array<{ name: string; operation: string }>
   /** The answers web call steps were given; a Reproduce reads these recordings. Left out when there were none. */
   responses?: ManifestResponse[]
@@ -302,6 +311,15 @@ export interface ManifestBuildInput {
   }
   // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- A transform's rows carry whatever columns its statement selected, including bytes and Dates that JSON has no type for; `canonicalJson` serialises them.
   rows: Array<Record<string, unknown>>
+  /** Each further output with the rows it wrote. */
+  furtherOutputs?: Array<{
+    datasetId: string
+    datasetVersionId: string
+    label: string
+    from: string | null
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- same as `rows`: whatever columns the step selected.
+    rows: Array<Record<string, unknown>>
+  }>
   actions: Array<{ name: string; operation: string }>
   responses?: ManifestResponse[]
   finishedAt: string | null
@@ -435,6 +453,15 @@ export async function buildRunManifest(
   }
 
   if (input.responses?.length) manifest.responses = input.responses
+  if (input.furtherOutputs?.length)
+    manifest.furtherOutputs = input.furtherOutputs.map((more) => ({
+      datasetId: more.datasetId,
+      datasetVersionId: more.datasetVersionId,
+      label: more.label,
+      from: more.from,
+      rowCount: more.rows.length,
+      contentDigest: digestRows(more.rows),
+    }))
 
   return manifest
 }

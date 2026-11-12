@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { PipelineConfig } from './config'
+import type { PipelineConfig, PipelineParameter } from './config'
 import type { FilterForm } from './no-code/forms'
 import { noCodeStatement } from './no-code/generate'
 import {
@@ -257,5 +257,128 @@ describe('the version file', () => {
     expect(tidy).toContain('# hi')
     expect(tidy).toContain('# why')
     expect(tidy).toContain('  - id: a')
+  })
+})
+
+describe('several outputs', () => {
+  const two = (): PipelineConfig => {
+    const base = everything()
+
+    return {
+      ...base,
+      output: { mode: 'none', datasetLabel: '' },
+      moreOutputs: [
+        {
+          mode: 'append',
+          datasetId: '44444444-4444-4444-8444-444444444444',
+          datasetLabel: 'Fits',
+          from: base.steps[0].name,
+        },
+      ],
+    }
+  }
+
+  it('writes more than one output as a list and reads it back', () => {
+    const config = two()
+
+    const text = versionFileText(config, {
+      pipeline: 'PL-0001',
+      title: 'T',
+    })
+
+    expect(text).toContain('outputs:')
+    expect(text).not.toMatch(/^output:/m)
+    const back = check(text)
+
+    expect(back.problems).toEqual([])
+    expect(back.config?.moreOutputs).toEqual(config.moreOutputs)
+    expect(back.config?.output).toEqual(config.output)
+  })
+
+  it('says where a further output names a step that is not there', () => {
+    const config = two()
+    config.moreOutputs![0].from = 'nope'
+
+    const text = versionFileText(config, { pipeline: 'PL-0001' })
+    const result = check(text)
+    const line = text.split('\n').findIndex((l) => l.includes('from: nope')) + 1
+
+    expect(result.config).toBeNull()
+    expect(result.problems[0]).toMatchObject({ line })
+  })
+
+  it('refuses output and outputs together', () => {
+    const text = versionFileText(two(), { pipeline: 'PL-0001' }).replace(
+      'outputs:',
+      'output: {mode: none}\noutputs:',
+    )
+
+    expect(check(text).problems.length).toBeGreaterThan(0)
+  })
+})
+
+describe('includes', () => {
+  const sets = {
+    'aav9-limits': [
+      { name: 'ntu_limit', type: 'decimal', required: false, default: 5 },
+      { name: 'yield_range', type: 'text', required: false, default: '40-100' },
+    ],
+  } satisfies Record<string, PipelineParameter[]>
+
+  const target = { sets }
+
+  const withInclude = (): string => {
+    const config = everything()
+
+    const text = versionFileText(
+      {
+        ...config,
+        parameters: [...sets['aav9-limits'], ...config.parameters],
+        include: [
+          { set: 'aav9-limits', parameters: ['ntu_limit', 'yield_range'] },
+        ],
+      },
+      { pipeline: 'PL-0001' },
+    )
+
+    return text
+  }
+
+  it('writes an include by name and leaves its parameters out of `parameters`', () => {
+    const text = withInclude()
+
+    expect(text).toContain('include:')
+    expect(text).toContain('aav9-limits')
+    expect(text).not.toContain('ntu_limit')
+  })
+
+  it('reads it back, copying the set into the version', () => {
+    const result = checkVersionFile(withInclude(), {
+      pipeline: ['PL-0001'],
+      pythonRuntime: RUNTIME,
+      ...target,
+    })
+
+    expect(result.problems).toEqual([])
+    expect(result.config?.include).toEqual([
+      { set: 'aav9-limits', parameters: ['ntu_limit', 'yield_range'] },
+    ])
+    expect(result.config?.parameters.map((p) => p.name)).toContain('ntu_limit')
+  })
+
+  it('names the set it cannot find, with a guess', () => {
+    const text = withInclude().replace('aav9-limits', 'aav9-limit')
+
+    const result = checkVersionFile(text, {
+      pipeline: ['PL-0001'],
+      pythonRuntime: RUNTIME,
+      ...target,
+    })
+
+    expect(result.config).toBeNull()
+    expect(result.problems[0].message).toContain('aav9-limit')
+    expect(
+      result.problems[0].fix?.text ?? result.problems[0].message,
+    ).toContain('aav9-limits')
   })
 })

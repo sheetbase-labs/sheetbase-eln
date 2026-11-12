@@ -41,6 +41,10 @@ import { configFromView, configView } from '#/lib/pipelines/config-view'
 import type { PipelineConfigView } from '#/lib/pipelines/config-view'
 import { runNumbers, runSteps } from '#/lib/pipelines/run-steps'
 import type { RunStepState } from '#/lib/pipelines/run-steps'
+import {
+  setsByKey,
+  usePipelineParameterSets,
+} from '#/components/pipelines/parameter-sets/parameter-sets-data'
 import { unmetRequirements } from '#/lib/pipelines/python'
 import { configForWire, readStoredConfig } from '#/lib/pipelines/step-list'
 import { checkVersionFile, versionFileText } from '#/lib/pipelines/version-file'
@@ -174,6 +178,7 @@ export function usePipelineEditorModel(
   } | null>(null)
 
   const fileText = fileState?.key === sourceKey ? fileState.text : savedFile
+  const parameterSets = usePipelineParameterSets()
 
   const setFileText = (text: string) => setFileState({ key: sourceKey, text })
 
@@ -187,10 +192,11 @@ export function usePipelineEditorModel(
         ? checkVersionFile(fileText, {
             pipeline: pipelineNames,
             pythonRuntime: pin,
+            sets: parameterSets.data ? setsByKey(parameterSets.data) : {},
           })
         : null,
     // react-doctor-disable-next-line react-doctor/exhaustive-deps -- the pin and names are the definition's own and change only with it.
-    [advanced, fileText, definition.data, pin],
+    [advanced, fileText, definition.data, pin, parameterSets.data],
   )
 
   const fileConfig = fileCheck?.config ?? stored

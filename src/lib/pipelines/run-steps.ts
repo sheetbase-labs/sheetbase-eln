@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { PipelineConfig } from './config'
+import type { PipelineConfig, PipelineStepKind } from './config'
 import type {
   PipelineRunLogWire,
   PipelineRunPromptWire,
@@ -16,7 +16,7 @@ export interface RunStep {
   name: string
   /** The step's identifier read as words: "check_units" becomes "Check units". */
   label: string
-  kind: 'SQL' | 'Python' | 'Plugin'
+  kind: string
   state: RunStepState
   /** "SQL", "Python · stopped here", "Waiting for a person", "Not started". */
   note: string
@@ -36,37 +36,23 @@ function humanise(name: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
-/** The steps a version declares, in run order: the transform, then each step. */
+const KIND_LABEL: Record<PipelineStepKind, string> = {
+  sql: 'SQL',
+  python: 'Python',
+  plugin: t('data.runSteps.kindPlugin'),
+  ask: t('data.runSteps.kindAsk'),
+  action: t('data.runSteps.kindAction'),
+  notify: t('data.runSteps.kindNotify'),
+}
+
+/** The steps a version declares, in run order. */
 function declared(
   config: Partial<PipelineConfig>,
-): Array<{ name: string; kind: RunStep['kind'] }> {
-  const transform = config.transform
-
-  const first =
-    transform && transform.language !== 'none'
-      ? [
-          {
-            name: 'Transform',
-            kind:
-              transform.language === 'python'
-                ? ('Python' as const)
-                : ('SQL' as const),
-          },
-        ]
-      : []
-
-  return [
-    ...first,
-    ...(config.steps ?? []).map((step) => ({
-      name: step.name,
-      kind:
-        step.language === 'plugin'
-          ? ('Plugin' as const)
-          : step.language === 'python'
-            ? ('Python' as const)
-            : ('SQL' as const),
-    })),
-  ]
+): Array<{ name: string; kind: string }> {
+  return (config.steps ?? []).map((step) => ({
+    name: step.name,
+    kind: KIND_LABEL[step.kind],
+  }))
 }
 
 /**

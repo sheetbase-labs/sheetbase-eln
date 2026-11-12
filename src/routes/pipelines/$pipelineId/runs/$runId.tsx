@@ -36,7 +36,6 @@ import { RunStepsRail } from '#/components/pipelines/run-steps-rail'
 import { RunResult } from '#/components/pipelines/run-result'
 import { RunReproductions } from '#/components/pipelines/run-reproduction'
 import { RunAiFix } from '#/components/pipelines/run-ai-fix'
-import { TRANSFORM_TARGET } from '#/lib/pipelines/ai-fix'
 import { hasCapability } from '#/lib/capability'
 import { explainRunError } from '#/lib/pipelines/run-errors'
 import {
@@ -702,13 +701,7 @@ function RunFailure({
           logLines={(logs.data ?? [])
             .filter((entry) => entry.level === 'error')
             .map((entry) => entry.message)}
-          failedStep={
-            failedStep
-              ? failedStep.name === 'Transform'
-                ? TRANSFORM_TARGET
-                : failedStep.name
-              : null
-          }
+          failedStep={failedStep?.name ?? null}
           runConfig={version?.configuration ?? {}}
           draft={draftVersion(versions.data ?? [])}
         />

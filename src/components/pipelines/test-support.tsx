@@ -39,7 +39,7 @@ export function pipelineVersion(
     workspace_id: 'ws-1',
     version: 2,
     lifecycle: 'draft',
-    configuration_format_version: 1,
+    configuration_format_version: 2,
     configuration,
     revision: 1,
     created_at: '2026-10-01T00:00:00Z',

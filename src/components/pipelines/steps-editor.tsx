@@ -16,13 +16,13 @@ import { parsePluginName } from '#/lib/extensions/points'
 import type { OperationInput } from '#/lib/operations/descriptor'
 import type { PythonRuntimeInfo } from '#/components/pipelines/pipelines-data'
 import { useEditorRows } from './use-editor-rows'
-import { CONFIRM_NO_ANSWER_OUTCOMES } from '#/lib/pipelines/config'
+import { CONFIRM_NO_ANSWER_OUTCOMES, MAX_STEPS } from '#/lib/pipelines/config'
 import type {
   ConfirmNoAnswerOutcome,
   PipelineInput,
   PipelineParameter,
-  PipelineStep,
 } from '#/lib/pipelines/config'
+import type { PipelineViewStep as PipelineStep } from '#/lib/pipelines/config-view'
 import {
   addStep,
   defaultConfirm,
@@ -256,6 +256,20 @@ export function StepsEditor({
                 />
                 {t('data.stepsEditor.pausePersonConfirm')}
               </label>
+              <label className="flex items-center gap-2 text-body">
+                <Checkbox
+                  aria-label={t('data.stepsEditor.ariaStepOnlyIfRows', { n })}
+                  checked={Boolean(step.onlyIfRows)}
+                  onCheckedChange={(on) =>
+                    change(
+                      updateStep(steps, index, {
+                        onlyIfRows: on ? true : undefined,
+                      }),
+                    )
+                  }
+                />
+                {t('data.stepsEditor.onlyIfRows')}
+              </label>
               {confirm ? (
                 <div className="flex flex-col gap-2 border-l-2 border-border pl-3">
                   <label className="flex flex-col gap-0.5 text-label text-fg-muted">
@@ -336,7 +350,7 @@ export function StepsEditor({
           <Button
             size="sm"
             icon="plus"
-            disabled={steps.length >= 9}
+            disabled={steps.length >= MAX_STEPS - 1}
             onClick={() => change(addStep(steps))}
           >
             {t('data.stepsEditor.addStep')}

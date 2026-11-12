@@ -16,17 +16,20 @@ const writes: Array<{
 }> = []
 
 const runConfig: PipelineConfig = {
-  configVersion: 1,
+  configVersion: 2,
+  mode: 'standard',
   parameters: [],
   inputs: [{ name: 'readings', required: true }],
-  transform: { language: 'sql', statement: 'select * from readingz' },
+  steps: [
+    { name: 'analysis', kind: 'sql', statement: 'select * from readingz' },
+  ],
   output: { mode: 'none', datasetLabel: 'x' },
 }
 
 const reply = JSON.stringify({
   explanation: 'The table name has a typo.',
   fix: {
-    target: 'transform',
+    target: 'analysis',
     language: 'sql',
     statement: 'select * from readings',
   },
@@ -68,7 +71,7 @@ function view(draft?: PipelineDefinitionVersionWire, pageAi = ai()) {
       errorCode="transform_failed"
       errorMessage="relation does not exist"
       logLines={['relation "readingz" does not exist']}
-      failedStep="transform"
+      failedStep="analysis"
       runConfig={runConfig}
       draft={draft}
       pageAi={pageAi}
@@ -104,7 +107,9 @@ describe('RunAiFix', () => {
       name: 'create_pipeline_definition_version',
       args: {
         p_definition_id: 'p-1',
-        p_configuration: { transform: { statement: 'select * from readings' } },
+        p_configuration: {
+          steps: [{ name: 'analysis', statement: 'select * from readings' }],
+        },
       },
     })
     expect(await screen.findByText(/nothing is published/i)).toBeTruthy()
@@ -114,7 +119,7 @@ describe('RunAiFix', () => {
     view({
       ...pipelineVersion({
         ...pipelineJsonObjectSchema.parse(runConfig),
-        transform: { language: 'sql', statement: '' },
+        steps: [{ name: 'analysis', kind: 'sql', statement: '' }],
       }),
       id: 'd-1',
       revision: 3,
@@ -130,7 +135,9 @@ describe('RunAiFix', () => {
       args: {
         p_version_id: 'd-1',
         p_expected_revision: 3,
-        p_configuration: { transform: { statement: 'select * from readings' } },
+        p_configuration: {
+          steps: [{ name: 'analysis', statement: 'select * from readings' }],
+        },
       },
     })
   })
@@ -149,10 +156,11 @@ describe('RunAiFix', () => {
   it('refuses an invalid draft before sending a configuration write', async () => {
     view(
       pipelineVersion({
-        configVersion: 1,
+        configVersion: 2,
+        mode: 'standard',
         inputs: [],
         parameters: [],
-        transform: { language: 'sql', statement: 'select 1' },
+        steps: [{ name: 'analysis', kind: 'sql', statement: 'select 1' }],
         output: { mode: 'invalid' },
       }),
     )

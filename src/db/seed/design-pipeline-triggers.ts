@@ -5,12 +5,16 @@
  * Idempotent: it does nothing once the draft and trigger exist.
  */
 import { sql } from 'drizzle-orm'
+import { z } from 'zod'
 import type { core } from 'zod'
 
 import { withDesignClaims } from './claims'
 import type { SeedStep } from './run'
 
 type Db = Parameters<SeedStep['run']>[0]
+
+/** An ELN action or notify step; this board replaces those of the published version. */
+const effectStep = z.looseObject({ kind: z.enum(['action', 'notify']) })
 
 const PROCESS = '00000000-0000-4000-8000-000000000300'
 const GARETH = '00000000-0000-4000-8000-000000000310'
@@ -49,25 +53,37 @@ export async function seedDesignPipelineTriggers(db: Db): Promise<void> {
   const published = all.find((v) => v.lifecycle === 'published')
 
   if (published && !all.some((v) => v.lifecycle === 'draft')) {
+    const stored = published.configuration
+
+    const kept = Array.isArray(stored.steps)
+      ? stored.steps.filter((step) => !effectStep.safeParse(step).success)
+      : []
+
     const configuration = {
-      ...published.configuration,
+      ...stored,
       output: {
         mode: 'none',
         datasetLabel: 'pipeline output',
       },
-      actions: [
+      steps: [
+        ...kept,
         {
           name: 'propose_figure',
-          operation: 'insert_block',
-          mode: 'propose',
-          arguments: {
-            p_record_id: EXP_0142,
-            p_type: 'figure',
-            p_payload: {},
+          kind: 'action',
+          action: {
+            operation: 'insert_block',
+            mode: 'propose',
+            arguments: {
+              p_record_id: EXP_0142,
+              p_type: 'figure',
+              p_payload: {},
+            },
           },
         },
+        ...(subscriptionId
+          ? [{ name: 'tell_teams', kind: 'notify', notify: { subscriptionId } }]
+          : []),
       ],
-      notifications: subscriptionId ? [{ subscriptionId }] : [],
     }
 
     await withDesignClaims(db, GARETH, PROCESS, async (client) => {

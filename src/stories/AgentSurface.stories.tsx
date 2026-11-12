@@ -130,7 +130,7 @@ function proposal(
       workspaceId: 'ws-1',
       definitionId: 'def-1',
       expectedDefinitionRevision: 6,
-      configuration: { configVersion: 1, steps: [] },
+      configuration: { configVersion: 2, mode: 'standard', steps: [] },
     }),
     preview,
     impact,

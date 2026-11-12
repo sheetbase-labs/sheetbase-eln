@@ -96,11 +96,50 @@ describe('persisted pipeline editor configuration', () => {
       output: { mode: 'none', datasetName: undefined },
     })
 
-    expect(wire).toEqual({ ...configuration, output: { mode: 'none' } })
+    expect(wire).toEqual({
+      ...configuration,
+      configVersion: 2,
+      mode: 'standard',
+      inputs: [],
+      steps: [],
+      output: { mode: 'none' },
+    })
     expect(pipelineJsonObjectSchema.parse(wire)).toEqual(wire)
     expect(Object.getOwnPropertyDescriptor(wire, '__proto__')?.value).toEqual({
       extension: true,
     })
+  })
+
+  it('reads a stored step list in the editor shape and writes it back', () => {
+    const stored = {
+      configVersion: 2,
+      mode: 'standard',
+      extension: { kept: true },
+      parameters: [],
+      inputs: [],
+      steps: [
+        { name: 'analysis', kind: 'sql', statement: 'select 1' },
+        {
+          name: 'flag',
+          kind: 'sql',
+          statement: 'select * from previous',
+          onlyIfRows: true,
+        },
+        {
+          name: 'tell',
+          kind: 'notify',
+          notify: { subscriptionId: '11111111-1111-4111-8111-111111111111' },
+        },
+      ],
+      output: { mode: 'none' },
+    }
+
+    const decoded = editorConfiguration.parse(stored)
+
+    expect(decoded.transform).toMatchObject({ statement: 'select 1' })
+    expect(decoded.steps).toMatchObject([{ name: 'flag', onlyIfRows: true }])
+    expect(decoded.notifications).toMatchObject([{ name: 'tell' }])
+    expect(configurationForWire(decoded)).toEqual(stored)
   })
 
   it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(

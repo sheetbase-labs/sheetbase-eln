@@ -9,6 +9,8 @@
 import { and, eq, sql } from 'drizzle-orm'
 
 import * as schema from '../schema'
+import { PIPELINE_CONFIG_VERSION } from '#/lib/pipelines/config'
+import { configFromView } from '#/lib/pipelines/config-view'
 import { DESIGN_CLOCK, DESIGN_USER_IDS } from './design'
 import type { SeedStep } from './run'
 
@@ -95,36 +97,41 @@ async function writeRuns(db: Db) {
   if (full) {
     await db.execute(
       sql`update api.pipeline_definition_versions
-             set configuration = ${JSON.stringify({
-               configVersion: 1,
-               inputs: [{ name: 'traces', required: false }],
-               transform: {
-                 language: 'sql',
-                 statement: 'SELECT * FROM traces',
-               },
-               steps: [
-                 {
-                   name: 'select_cells',
+             set configuration = ${JSON.stringify(
+               configFromView({
+                 configVersion: PIPELINE_CONFIG_VERSION,
+                 mode: 'standard',
+                 parameters: [],
+                 inputs: [{ name: 'traces', required: false }],
+                 transform: {
                    language: 'sql',
-                   statement: 'SELECT * FROM previous',
+                   statement: 'SELECT * FROM traces',
                  },
-                 {
-                   name: 'deconvolve_auc_traces',
-                   language: 'python',
-                   statement: 'result = previous',
-                 },
-                 {
-                   name: 'save_full_empty_ratio',
-                   language: 'sql',
-                   statement: 'SELECT * FROM previous',
-                 },
-                 {
-                   name: 'email_owner',
-                   language: 'sql',
-                   statement: 'SELECT * FROM previous',
-                 },
-               ],
-             })}::jsonb
+                 steps: [
+                   {
+                     name: 'select_cells',
+                     language: 'sql',
+                     statement: 'SELECT * FROM previous',
+                   },
+                   {
+                     name: 'deconvolve_auc_traces',
+                     language: 'python',
+                     statement: 'result = previous',
+                   },
+                   {
+                     name: 'save_full_empty_ratio',
+                     language: 'sql',
+                     statement: 'SELECT * FROM previous',
+                   },
+                   {
+                     name: 'email_owner',
+                     language: 'sql',
+                     statement: 'SELECT * FROM previous',
+                   },
+                 ],
+                 output: { mode: 'none', datasetLabel: '' },
+               }),
+             )}::jsonb
            where id = ${full}`,
     )
     await history(

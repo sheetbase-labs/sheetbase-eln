@@ -214,14 +214,15 @@ function pipelineClient(
 }
 
 const baseConfig = {
-  configVersion: 1,
+  configVersion: 2,
+  mode: 'standard',
   parameters: [],
   inputs: [{ name: 'raw', required: true }],
-  transform: { language: 'sql', statement: 'select * from raw' },
   steps: [
+    { name: 'analysis', kind: 'sql', statement: 'select * from raw' },
     {
       name: 'drop_blanks',
-      language: 'sql',
+      kind: 'sql',
       statement: 'select * from previous',
     },
   ],
@@ -254,9 +255,13 @@ describe('pipeline proposals', () => {
     expect(proposal?.followUp).toMatchObject({
       kind: 'pipeline_definition.create_version',
       configuration: {
+        configVersion: 2,
+        mode: 'standard',
         inputs: [{ name: 'raw', required: true }],
-        transform: { language: 'sql' },
-        steps: [{ name: 'rank', language: 'sql' }],
+        steps: [
+          { name: 'analysis', kind: 'sql' },
+          { name: 'rank', kind: 'sql' },
+        ],
       },
     })
     expect(proposal?.changes.map((change) => change.label)).toEqual([
@@ -312,7 +317,12 @@ describe('pipeline proposals', () => {
       kind: 'pipeline_definition.update_draft',
       versionId: DRAFT,
       expectedRevision: 3,
-      configuration: { steps: [{ name: 'drop_blanks' }] },
+      configuration: {
+        steps: [
+          { name: 'analysis', statement: 'select * from raw where signal > 0' },
+          { name: 'drop_blanks' },
+        ],
+      },
     })
     expect(built.ok && built.proposal.changes).toEqual([
       {
@@ -393,11 +403,11 @@ describe('pipeline proposals', () => {
     expect(built.ok && built.proposal.operation).toMatchObject({
       configuration: {
         steps: [
-          { name: 'drop_blanks', language: 'sql' },
+          { name: 'analysis', kind: 'sql' },
+          { name: 'drop_blanks', kind: 'sql' },
           {
             name: 'join_plates',
-            language: 'plugin',
-            statement: '',
+            kind: 'plugin',
             plugin: {
               operation: 'plugin.plate-tools.join',
               arguments: {
@@ -521,9 +531,10 @@ describe('pipeline proposals', () => {
       ...baseConfig,
       pythonRuntime: `python:3.12@sha256:${'a'.repeat(64)}`,
       steps: [
+        baseConfig.steps[0],
         {
           name: 'fit',
-          language: 'python',
+          kind: 'python',
           statement: 'def transform(inputs, parameters):\n  return inputs',
         },
       ],
@@ -544,7 +555,9 @@ describe('pipeline proposals', () => {
     )
 
     expect(built.ok && built.proposal.operation).toMatchObject({
-      configuration: { steps: [{ name: 'fit', language: 'python' }] },
+      configuration: {
+        steps: [{ name: 'analysis' }, { name: 'fit', kind: 'python' }],
+      },
     })
   })
 

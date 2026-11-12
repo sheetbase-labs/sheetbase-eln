@@ -16,11 +16,8 @@ import {
 import { SqlEditor } from '#/components/pipelines/sql-editor'
 import { StepsEditor } from '#/components/pipelines/steps-editor'
 import { TrialPanel } from '#/components/pipelines/trial-panel'
-import type {
-  PipelineInput,
-  PipelineParameter,
-  PipelineStep,
-} from '#/lib/pipelines/config'
+import type { PipelineInput, PipelineParameter } from '#/lib/pipelines/config'
+import type { PipelineViewStep as PipelineStep } from '#/lib/pipelines/config-view'
 import type { PythonColumn, PythonContract } from '#/lib/pipelines/python'
 import type { ResultPreview } from '#/lib/pipelines/result-preview'
 import { screenQueryClient } from './screen-stories'

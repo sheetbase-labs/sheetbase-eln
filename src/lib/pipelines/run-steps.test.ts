@@ -4,11 +4,11 @@ import { runNumbers, runSteps } from './run-steps'
 import type { PipelineRunLogWire } from './types'
 
 const config = {
-  transform: { language: 'sql' as const, statement: 'select 1' },
   steps: [
-    { name: 'check_units', language: 'sql' as const, statement: 's' },
-    { name: 'deconvolve', language: 'python' as const, statement: 'p' },
-    { name: 'save', language: 'sql' as const, statement: 's' },
+    { name: 'analysis', kind: 'sql' as const, statement: 'select 1' },
+    { name: 'check_units', kind: 'sql' as const, statement: 's' },
+    { name: 'deconvolve', kind: 'python' as const, statement: 'p' },
+    { name: 'save', kind: 'sql' as const, statement: 's' },
   ],
 }
 
@@ -74,17 +74,26 @@ describe('runNumbers', () => {
   })
 })
 
-describe('runSteps with a plugin step', () => {
-  it('names a plugin step as one', () => {
+describe('runSteps with steps of every kind', () => {
+  it('names each step by its kind', () => {
     const steps = runSteps(
       {
-        transform: { language: 'sql' as const, statement: 'select 1' },
         steps: [
+          { name: 'analysis', kind: 'sql' as const, statement: 'select 1' },
           {
             name: 'join_plates',
-            language: 'plugin' as const,
-            statement: '',
+            kind: 'plugin' as const,
             plugin: { operation: 'plugin.a.b', arguments: {} },
+          },
+          {
+            name: 'check_join',
+            kind: 'ask' as const,
+            ask: { fields: [], askedUserIds: [] },
+          },
+          {
+            name: 'tell',
+            kind: 'notify' as const,
+            notify: { subscriptionId: 's' },
           },
         ],
       },
@@ -92,7 +101,12 @@ describe('runSteps with a plugin step', () => {
       [],
     )
 
-    expect(steps.map((s) => s.kind)).toEqual(['SQL', 'Plugin'])
+    expect(steps.map((s) => s.kind)).toEqual([
+      'SQL',
+      'Plugin',
+      'Ask a person',
+      'Notify',
+    ])
     expect(steps[1].note).toBe('Plugin')
   })
 })

@@ -11,6 +11,9 @@ import type { Client } from 'pg'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import * as schema from '../schema'
+import { PIPELINE_CONFIG_VERSION } from '#/lib/pipelines/config'
+import { configFromView } from '#/lib/pipelines/config-view'
+import type { PipelineViewStep } from '#/lib/pipelines/config-view'
 import type { SeedStep } from './run'
 import { seedDesignExperimentEvidence } from './design-evidence'
 import { seedDesignClockSweep } from './design-clock-sweep'
@@ -6949,12 +6952,35 @@ async function seedDesignPipelines(
         )?.id
 
         if (!versionId) {
-          const configuration = {
-            configVersion: 1,
+          const configuration = configFromView({
+            configVersion: PIPELINE_CONFIG_VERSION,
+            mode: 'standard',
             description: p.description,
+            parameters: [],
             inputs: [{ name: 'measurements', required: false }],
             transform: { language: 'sql', statement: p.statement },
-            steps: 'steps' in p ? p.steps : undefined,
+            steps:
+              'steps' in p
+                ? p.steps.map((step) => {
+                    const view: PipelineViewStep = {
+                      name: step.name,
+                      language: step.language,
+                      statement: step.statement,
+                    }
+
+                    if ('confirm' in step)
+                      view.confirm = {
+                        ...step.confirm,
+                        fields: step.confirm.fields.map((field) => ({
+                          ...field,
+                        })),
+                        askedUserIds: [...step.confirm.askedUserIds],
+                        skipSteps: [...step.confirm.skipSteps],
+                      }
+
+                    return view
+                  })
+                : undefined,
             output: {
               mode: 'create',
               schemaVersionId,
@@ -6962,7 +6988,7 @@ async function seedDesignPipelines(
               datasetLabel: 'pipeline output',
               fieldMapping: null,
             },
-          }
+          })
 
           const created = await client.query(
             'select * from api.create_pipeline_definition_version($1,$2,$3::jsonb)',

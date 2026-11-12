@@ -11,7 +11,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ParametersEditor } from './parameters-editor'
 import { StepsEditor } from './steps-editor'
-import type { PipelineParameter, PipelineStep } from '#/lib/pipelines/config'
+import type { PipelineParameter } from '#/lib/pipelines/config'
+import type { PipelineViewStep as PipelineStep } from '#/lib/pipelines/config-view'
 import { extensionQueryKeys } from '#/lib/extensions/client'
 
 function render(node: ReactElement) {

@@ -24,11 +24,15 @@ import {
   validatePipelineConfig,
 } from './pipelines/config'
 import type {
-  PipelineConfig,
+  PipelineConfig as StoredVersionConfig,
   PipelineInput,
   PipelineParameter,
-  PipelineStep,
 } from './pipelines/config'
+import { configFromView, configView } from './pipelines/config-view'
+import type {
+  PipelineConfigView as PipelineConfig,
+  PipelineViewStep as PipelineStep,
+} from './pipelines/config-view'
 import { pipelineJsonValueSchema } from './pipelines/types'
 
 /**
@@ -83,8 +87,8 @@ type PipelineArgs = Partial<
  * A configuration read back from storage. Older drafts can lack the empty
  * lists the current contract asks for, so they stay optional here.
  */
-type StoredPipelineConfig = Omit<PipelineConfig, 'parameters' | 'inputs'> &
-  Partial<Pick<PipelineConfig, 'parameters' | 'inputs'>>
+type StoredPipelineConfig = Omit<StoredVersionConfig, 'parameters' | 'inputs'> &
+  Partial<Pick<StoredVersionConfig, 'parameters' | 'inputs'>>
 
 /**
  * A stored version's configuration as the draft editor reads it.
@@ -98,16 +102,17 @@ function storedPipelineConfig(configuration: unknown): PipelineConfig {
   // SAFETY: pipeline_definition_versions.configuration is written only from a configuration validatePipelineConfig accepted.
   const stored = configuration as StoredPipelineConfig
 
-  return {
+  return configView({
     ...stored,
     parameters: stored.parameters ?? [],
     inputs: stored.inputs ?? [],
-  }
+  })
 }
 
 function blankPipelineConfig(): PipelineConfig {
   return {
     configVersion: PIPELINE_CONFIG_VERSION,
+    mode: 'standard',
     parameters: [],
     inputs: [],
     transform: { language: 'sql', statement: '' },
@@ -272,7 +277,7 @@ function pipelineChanges(
 }
 
 function configProblem(config: PipelineConfig): string | null {
-  const errors = validatePipelineConfig(config).filter(
+  const errors = validatePipelineConfig(configFromView(config)).filter(
     // A draft may be incomplete about where its result goes; a person sets that.
     (error) => !error.field.startsWith('output'),
   )
@@ -576,7 +581,7 @@ export async function buildAssistantProposal(
           followUp: {
             kind: 'pipeline_definition.create_version',
             workspaceId,
-            configuration,
+            configuration: configFromView(configuration),
           },
         },
       }
@@ -633,14 +638,14 @@ export async function buildAssistantProposal(
                 workspaceId,
                 versionId: draft.id,
                 expectedRevision: Number(draft.revision),
-                configuration,
+                configuration: configFromView(configuration),
               }
             : {
                 kind: 'pipeline_definition.create_version',
                 workspaceId,
                 definitionId: definition.id,
                 expectedDefinitionRevision: Number(definition.revision),
-                configuration,
+                configuration: configFromView(configuration),
               },
         },
       }

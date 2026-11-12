@@ -15,9 +15,9 @@ import type { PythonContract, SkeletonOptions } from './python'
 import type {
   ParameterType,
   PipelineParameter,
-  PipelineStep,
   PipelineStepConfirm,
 } from './config'
+import type { PipelineViewStep as PipelineStep } from './config-view'
 
 function uniqueName(base: string, taken: string[]): string {
   let n = taken.length + 1

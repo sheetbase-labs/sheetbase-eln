@@ -1715,10 +1715,18 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
   },
   AgentPipelineConfiguration: {
     type: 'object',
-    required: ['configVersion', 'parameters', 'inputs', 'transform', 'output'],
+    required: [
+      'configVersion',
+      'mode',
+      'parameters',
+      'inputs',
+      'steps',
+      'output',
+    ],
     additionalProperties: false,
     properties: {
-      configVersion: { type: 'integer', const: 1 },
+      configVersion: { type: 'integer', const: 2 },
+      mode: { type: 'string', enum: ['simple', 'standard', 'advanced'] },
       description: { ...TEXT, nullable: true, maxLength: 2000 },
       parameters: {
         type: 'array',
@@ -1761,13 +1769,65 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
           },
         },
       },
-      transform: {
-        type: 'object',
-        required: ['language', 'statement'],
-        additionalProperties: false,
-        properties: {
-          language: { type: 'string', const: 'sql' },
-          statement: { ...TEXT, minLength: 1, maxLength: 20_000 },
+      steps: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 50,
+        description:
+          'The ordered steps. Data steps (sql, python, plugin) read the one before as `previous`; an ask step pauses for a person; action and notify steps run after the output is written. Each kind keeps its settings under its own key: `statement` (and `contract` for python), `plugin`, `ask`, `action` or `notify`.',
+        items: {
+          type: 'object',
+          required: ['name', 'kind'],
+          properties: {
+            name: { ...TEXT, pattern: '^[a-z][a-z0-9_]{0,47}$' },
+            kind: {
+              type: 'string',
+              enum: ['sql', 'python', 'plugin', 'ask', 'action', 'notify'],
+            },
+            statement: { ...TEXT, minLength: 1, maxLength: 20_000 },
+            note: { ...TEXT, maxLength: 500 },
+            onlyIfRows: BOOL,
+            contract: jsonMap(
+              'Python only: the columns the step reads and returns.',
+            ),
+            plugin: {
+              type: 'object',
+              required: ['operation', 'arguments'],
+              properties: {
+                operation: TEXT,
+                arguments: jsonMap('Plugin tables and settings, by name.'),
+              },
+            },
+            ask: {
+              type: 'object',
+              required: ['fields', 'askedUserIds'],
+              properties: {
+                fields: { type: 'array', items: JSON_VALUE },
+                askedUserIds: { type: 'array', items: TEXT },
+                skipSteps: { type: 'array', items: TEXT },
+                noAnswer: { type: 'string', enum: ['reask', 'apply', 'fail'] },
+                expiresHours: INT,
+              },
+            },
+            action: {
+              type: 'object',
+              required: ['operation', 'arguments'],
+              properties: {
+                operation: TEXT,
+                arguments: jsonMap('Action arguments, by name.'),
+                mode: { type: 'string', enum: ['execute', 'propose'] },
+                forEach: jsonMap('Run once for each row: `{ "$ref": ... }`.'),
+              },
+            },
+            notify: {
+              type: 'object',
+              required: ['subscriptionId'],
+              properties: {
+                subscriptionId: UUID,
+                payload: jsonMap('Extra data sent with the notification.'),
+              },
+            },
+          },
         },
       },
       output: {

@@ -12,7 +12,6 @@ import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   FIX_INSTRUCTION,
-  TRANSFORM_TARGET,
   applyStepFix,
   buildFixText,
   parseFailureReply,
@@ -124,7 +123,7 @@ export function RunAiFix({
   errorMessage: string | null
   /** The run's error-level log lines, oldest first. */
   logLines: string[]
-  /** The step the run stopped on ('Transform' or a step name), when known. */
+  /** The name of the step the run stopped on, when known. */
   failedStep: string | null
   /** The configuration of the version the run used. */
   runConfig: Partial<PipelineConfig>
@@ -277,10 +276,7 @@ function FixHeading({ fix }: Pick<FailureExplanation, 'fix'>) {
         <h3 className="m-0 font-sans text-label font-semibold">
           {fix
             ? t('data.pipelineRunAiFix.suggestionIn', {
-                step:
-                  fix.target === TRANSFORM_TARGET
-                    ? t('data.pipelineRunAiFix.transform')
-                    : fix.target,
+                step: fix.target,
               })
             : t('data.pipelineRunAiFix.heading')}
         </h3>

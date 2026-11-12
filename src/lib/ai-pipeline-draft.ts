@@ -1,13 +1,14 @@
 import { z } from 'zod'
 
 import { extractJsonObject } from './ai-import-mapping'
-import { PARAMETER_TYPES, validatePipelineConfig } from './pipelines/config'
+import { PARAMETER_TYPES } from './pipelines/config'
 import type {
   ParameterType,
   PipelineInput,
   PipelineParameter,
-  PipelineStep,
 } from './pipelines/config'
+import { viewConfigErrors } from './pipelines/config-view'
+import type { PipelineViewStep as PipelineStep } from './pipelines/config-view'
 import { isStarterStatement } from './pipelines/python'
 
 /**
@@ -381,9 +382,10 @@ export function parsePipelineDraftAnswer(
   }
 
   // The same contract the server applies: a draft it would refuse is not offered.
-  const errors = validatePipelineConfig({
-    configVersion: 1,
-    description: config.description,
+  const errors = viewConfigErrors({
+    configVersion: 2,
+    mode: 'standard',
+    description: config.description ?? undefined,
     parameters: config.parameters,
     inputs: config.inputs,
     transform: config.transform,

@@ -519,8 +519,10 @@ describe('Steps editor guided building', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
     expect(rpc.mock.calls[0][1].p_configuration).toMatchObject({
-      transform: { statement: 'select 5' },
-      steps: [{ name: 'step_1', statement: 'select 11' }],
+      steps: [
+        { name: 'analysis', kind: 'sql', statement: 'select 5' },
+        { name: 'step_1', kind: 'sql', statement: 'select 11' },
+      ],
     })
   })
 })

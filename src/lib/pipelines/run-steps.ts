@@ -37,6 +37,11 @@ function humanise(name: string): string {
 }
 
 const KIND_LABEL: Record<PipelineStepKind, string> = {
+  filter: t('data.noCode.kindFilter'),
+  join: t('data.noCode.kindJoin'),
+  calculate: t('data.noCode.kindCalculate'),
+  check_ranges: t('data.noCode.kindCheckRanges'),
+  flag: t('data.noCode.kindFlag'),
   sql: 'SQL',
   python: 'Python',
   plugin: t('data.runSteps.kindPlugin'),

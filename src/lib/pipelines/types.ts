@@ -219,6 +219,8 @@ export interface PipelineTrialLogEntry {
   level: 'info' | 'warning' | 'error'
   stage: string
   message: string
+  /** For a step's line: its name, the rows it gave and their column names. */
+  detail?: { name?: string; rowCount?: number; columns?: string[] }
 }
 
 /** The answer to "Try draft": a preview of the result, or why there is none. */
@@ -296,6 +298,13 @@ const trialLogSchema = z.object({
   level: z.enum(['info', 'warning', 'error']),
   stage: z.string(),
   message: z.string(),
+  detail: z
+    .object({
+      name: z.string().optional(),
+      rowCount: z.number().optional(),
+      columns: z.array(z.string()).optional(),
+    })
+    .optional(),
 }) satisfies z.ZodType<PipelineTrialLogEntry>
 
 export const pipelineTrialSchema = z.discriminatedUnion('ok', [

@@ -5,6 +5,9 @@ import { contractErrors, requirementErrors } from './python'
 import type { PythonContract } from './python'
 import { t } from '#/copy'
 import { parsePluginName } from '#/lib/extensions/points'
+import { NO_CODE_KINDS, isNoCodeKind } from './no-code/forms'
+import type { NoCodeForms, NoCodeKind } from './no-code/forms'
+import { noCodeStepProblem } from './no-code/schema'
 
 /**
  * AUTO-01 — Pipeline configuration contract (format version 2).
@@ -51,6 +54,7 @@ export const MAX_STEP_NOTE_LENGTH = 500
 
 /** Every kind of step a version may hold, in the order the Add step menu lists them. */
 export const PIPELINE_STEP_KINDS = [
+  ...NO_CODE_KINDS,
   'sql',
   'python',
   'plugin',
@@ -59,12 +63,29 @@ export const PIPELINE_STEP_KINDS = [
   'notify',
 ] as const
 
+/**
+ * What the runner executes a kind as. A no-code kind stores the SQL it writes
+ * and runs as `sql`; every other kind runs as itself. Mirrors the `runs`
+ * column of `internal.pipeline_step_kinds`.
+ */
+export function stepRuns(
+  kind: (typeof PIPELINE_STEP_KINDS)[number],
+): 'sql' | 'python' | 'plugin' | 'ask' | 'action' | 'notify' {
+  return isNoCodeKind(kind) ? 'sql' : kind
+}
+
 /** The kinds that give rows: each reads the one before as `previous`. */
-export const DATA_STEP_KINDS = ['sql', 'python', 'plugin'] as const
+export const DATA_STEP_KINDS = [
+  ...NO_CODE_KINDS,
+  'sql',
+  'python',
+  'plugin',
+] as const
 
 /** The settings keys a step may carry, and which belong to which kind. */
 const STEP_SETTING_KEYS = [
   'statement',
+  'form',
   'contract',
   'plugin',
   'ask',
@@ -76,6 +97,11 @@ const STEP_KIND_KEYS: Record<
   (typeof PIPELINE_STEP_KINDS)[number],
   ReadonlyArray<(typeof STEP_SETTING_KEYS)[number]>
 > = {
+  filter: ['statement', 'form'],
+  join: ['statement', 'form'],
+  calculate: ['statement', 'form'],
+  check_ranges: ['statement', 'form'],
+  flag: ['statement', 'form'],
   sql: ['statement'],
   python: ['statement', 'contract'],
   plugin: ['plugin'],
@@ -232,6 +258,18 @@ export interface PipelineCodeStep extends PipelineDataStepBase {
   contract?: PythonContract
 }
 
+/**
+ * A no-code step: the settings a person picked (`form`) and the SQL they
+ * write (`statement`), which is what runs. Edit as SQL… makes it a SQL step.
+ */
+export type PipelineNoCodeStep = {
+  [K in NoCodeKind]: PipelineDataStepBase & {
+    kind: K
+    statement: string
+    form: NoCodeForms[K]
+  }
+}[NoCodeKind]
+
 export interface PipelinePluginDataStep extends PipelineDataStepBase {
   kind: 'plugin'
   plugin: PipelinePluginStep
@@ -263,7 +301,8 @@ export interface PipelineNotifyStep extends PipelineStepBase {
   notify: PipelineStepNotify
 }
 
-export type PipelineDataStep = PipelineCodeStep | PipelinePluginDataStep
+export type PipelineDataStep =
+  PipelineCodeStep | PipelineNoCodeStep | PipelinePluginDataStep
 
 export type PipelineStep =
   PipelineDataStep | PipelineAskStep | PipelineActionStep | PipelineNotifyStep
@@ -349,6 +388,7 @@ const rawStepSchema = z
     note: z.unknown(),
     onlyIfRows: z.unknown(),
     statement: z.unknown(),
+    form: z.unknown(),
     contract: z.unknown(),
     plugin: z.unknown(),
     ask: z.unknown(),
@@ -1034,6 +1074,30 @@ function validateSteps(
         )
 
     switch (kind.data) {
+      case 'filter':
+      case 'join':
+      case 'calculate':
+      case 'check_ranges':
+      case 'flag': {
+        const form = z.json().safeParse(step.form)
+        const statement = z.json().safeParse(step.statement)
+
+        const problem = noCodeStepProblem(
+          kind.data,
+          form.success ? form.data : null,
+          statement.success ? statement.data : null,
+        )
+
+        if (problem)
+          push(
+            errors,
+            'invalid_value',
+            `${field}.${problem.field}`,
+            problem.message,
+          )
+        break
+      }
+
       case 'sql':
       case 'python':
         if (!statementSchema.safeParse(step.statement).success)
@@ -1328,9 +1392,8 @@ export function findPipelineConfirmStep(
 
 /** The data steps of a version, in order. */
 export function pipelineDataSteps(config: PipelineConfig): PipelineDataStep[] {
-  return config.steps.filter(
-    (step): step is PipelineDataStep =>
-      step.kind === 'sql' || step.kind === 'python' || step.kind === 'plugin',
+  return config.steps.filter((step): step is PipelineDataStep =>
+    DATA_STEP_KINDS.some((kind) => kind === step.kind),
   )
 }
 

@@ -80,6 +80,7 @@ import {
   findPipelineConfirmStep,
   pipelineActionSteps,
   pipelineDataSteps,
+  stepRuns,
   confirmExpiryHours,
   confirmNoAnswerOutcome,
   validateConfirmAnswer,
@@ -2593,7 +2594,7 @@ function manifestSteps(
 ): Array<{ name: string; language: string; statement: string }> {
   return pipelineDataSteps(config).map((step) => ({
     name: step.name,
-    language: step.kind,
+    language: stepRuns(step.kind),
     statement:
       step.kind === 'plugin' ? JSON.stringify(step.plugin) : step.statement,
   }))
@@ -2895,8 +2896,10 @@ async function executeSteps(
       {
         step: index + 1,
         name: step.name,
-        language: step.kind,
+        language: stepRuns(step.kind),
+        kind: step.kind,
         rowCount: previous.length,
+        columns: Object.keys(previous.at(0) ?? {}).slice(0, 100),
       },
     )
   }
@@ -3796,6 +3799,12 @@ async function failRunIfRunning(
   ])
 }
 
+const trialStepDetailSchema = z.object({
+  name: z.string().optional(),
+  rowCount: z.number().optional(),
+  columns: z.array(z.string()).optional(),
+})
+
 async function log(
   conn: ExecConnection,
   run: RunRow,
@@ -3805,7 +3814,19 @@ async function log(
   detail: SqlResultRow = {},
 ): Promise<void> {
   if (run.trial) {
-    run.trial.push({ level, stage, message: truncate(message, 2000) })
+    const entry: TrialLogEntry = {
+      level,
+      stage,
+      message: truncate(message, 2000),
+    }
+
+    if (stage === 'step') {
+      const facts = trialStepDetailSchema.safeParse(detail)
+
+      entry.detail = facts.success ? facts.data : {}
+    }
+
+    run.trial.push(entry)
 
     return
   }

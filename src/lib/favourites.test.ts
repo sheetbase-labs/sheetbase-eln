@@ -393,7 +393,7 @@ describe('resolveFavouriteItems', () => {
     ).toEqual([
       ['Analysis', '/analysis/a'],
       ['Notebook', '/experiments/r'],
-      ['Pipeline', '/pipelines/p'],
+      ['Pipeline', '/pipelines/p/steps'],
       ['Instrument', '/instruments/i'],
     ])
   })

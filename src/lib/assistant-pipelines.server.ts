@@ -281,7 +281,8 @@ export function describeSchedule(schedule: {
   return schedule.enabled === false ? `${when} (off)` : when
 }
 
-const pipelineLink = (definitionId: string) => `/pipelines/${definitionId}`
+const pipelineLink = (definitionId: string) =>
+  `/pipelines/${definitionId}/steps`
 
 function card(
   name: PipelinesProposeToolName,

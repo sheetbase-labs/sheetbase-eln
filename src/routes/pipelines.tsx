@@ -391,7 +391,7 @@ function mobilePipelineItems(visible: PipelineListRow[]): MobileItem[] {
         <Status tone="draft">{t('data.pipelinesList.neverRun')}</Status>
       ),
       link: {
-        to: '/pipelines/$pipelineId',
+        to: '/pipelines/$pipelineId/steps',
         params: { pipelineId: p.id },
       },
     }
@@ -622,7 +622,7 @@ function PipelinesList() {
 
   const openPipeline = useOpenRow<PipelineListRow>(
     navigate,
-    (row) => `/pipelines/${encodeURIComponent(row.id)}`,
+    (row) => `/pipelines/${encodeURIComponent(row.id)}/steps`,
     (row) => row.name,
   )
 
@@ -839,7 +839,7 @@ function NewPipeline({
         description: t('data.pipelinesList.configureFirstDraftSteps'),
       })
       void navigate({
-        to: '/pipelines/$pipelineId',
+        to: '/pipelines/$pipelineId/steps',
         params: { pipelineId: definition.id },
       })
     },

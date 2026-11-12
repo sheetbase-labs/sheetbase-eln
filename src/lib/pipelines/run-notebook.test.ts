@@ -47,7 +47,7 @@ describe('runCitation', () => {
     expect(text[2]).toBe('Kept: “Summary” in DS-0002 · Summary.')
     const hrefs = paragraphs.flat().flatMap((s) => (s.href ? [s.href] : []))
     expect(hrefs).toEqual([
-      '/pipelines/def-1',
+      '/pipelines/def-1/steps',
       '/pipelines/def-1/runs/12345678-aaaa',
       '/datasets/ds-1/snapshots',
       '/datasets/ds-2/snapshots',
@@ -94,7 +94,7 @@ describe('runCitation', () => {
       throw new Error('Expected a citation paragraph')
 
     expect(first.content?.[1].marks).toEqual([
-      { type: 'link', attrs: { href: '/pipelines/def-1' } },
+      { type: 'link', attrs: { href: '/pipelines/def-1/steps' } },
     ])
   })
 })

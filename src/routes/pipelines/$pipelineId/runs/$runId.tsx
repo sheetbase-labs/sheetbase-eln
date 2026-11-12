@@ -321,7 +321,7 @@ function RunHeader({ record }: { record: LoadedRunRecord }) {
             definition.data?.name ??
             t('data.pipelineRun.pipeline'),
           mono: Boolean(definition.data?.display_id),
-          link: { to: '/pipelines/$pipelineId', params: { pipelineId } },
+          link: { to: '/pipelines/$pipelineId/steps', params: { pipelineId } },
         },
         {
           label: t('data.pipelineRun.runs'),

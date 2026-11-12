@@ -134,7 +134,7 @@ export function objectPath(kind: string, ref: string): string | null {
     case 'sheet':
       return sheetPath(ref)
     case 'pipeline':
-      return `/pipelines/${key}`
+      return `/pipelines/${key}/steps`
     case 'pipeline_run':
       return `/pipelines/runs/${key}`
     case 'analysis':

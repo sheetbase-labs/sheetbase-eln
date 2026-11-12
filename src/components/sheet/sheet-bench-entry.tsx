@@ -8,9 +8,9 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 
 import { t } from '#/copy'
-import { Button } from '#/components/ui/button'
-import { Input } from '#/components/ui/input'
-import { Kbd } from '#/components/ui/kbd'
+import { Icon } from '#/components/icons'
+import { BoardButton } from '#/features/pipelines/board/board'
+import './sheet-board.css'
 import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 import { cn } from '#/lib/utils'
 import {
@@ -46,7 +46,7 @@ function cellText(
   return typeof value === 'object' ? JSON.stringify(value) : String(value)
 }
 
-/** The run on the strip, as the board names it: its number, then its first
+/** The run on the strip, as the board names it: its number in a chip, then its first
  * column's value ("9 · C-150"), with where it sits among the runs. */
 function BenchRunTitle({
   number,
@@ -58,12 +58,10 @@ function BenchRunTitle({
   name: string
 }) {
   return (
-    <span className="flex min-w-0 items-center gap-2">
-      <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-sm border border-border-subtle bg-surface px-1.5 text-label font-medium tabular-nums text-fg-muted">
-        {number}
-      </span>
+    <span className="flex min-w-0 items-center gap-2.5">
+      <span className="tx-esr">{number}</span>
       {name ? (
-        <span className="truncate text-body font-medium">{name}</span>
+        <b className="truncate text-[14px] font-semibold text-fg">{name}</b>
       ) : null}
       <span className="shrink-0 text-label text-fg-muted">
         {t('notebook.sheetBench.rowOf', { row: number, count })}
@@ -167,14 +165,14 @@ export function SheetBenchEntry({
   return (
     <section
       aria-label={t('notebook.sheetBench.ariaLabel')}
-      className="shrink-0 border-b bg-surface-muted/40 px-3 py-3"
+      className="pb-scope tx-es shrink-0"
       onKeyDown={onKeyDown}
     >
-      <div className="mb-2 flex flex-wrap items-center gap-2">
+      <div className="tx-est flex-wrap">
         {isNew ? (
-          <span className="text-body font-medium">
+          <b className="text-[14px] font-semibold text-fg">
             {t('notebook.sheetBench.newRun')}
-          </span>
+          </b>
         ) : (
           <BenchRunTitle
             number={rowIndex + 1}
@@ -182,19 +180,19 @@ export function SheetBenchEntry({
             name={cellText(values[0], gridColumns[0])}
           />
         )}
-        <Button
-          type="button"
+        <BoardButton
           size="sm"
           variant="quiet"
+          iconOnly
           icon="chevronUp"
           aria-label={t('notebook.sheetBench.previous')}
           disabled={rowIndex === 0}
           onClick={() => move(-1)}
         />
-        <Button
-          type="button"
+        <BoardButton
           size="sm"
           variant="quiet"
+          iconOnly
           icon="chevronDown"
           aria-label={t('notebook.sheetBench.next')}
           disabled={isNew}
@@ -202,29 +200,29 @@ export function SheetBenchEntry({
         />
         <span className="flex-1" />
         {dirty ? (
-          <span className="text-label text-fg-muted" role="status">
+          <span className="tx-sv" role="status">
+            <i className="tx-dot" aria-hidden="true" />
             {t('notebook.sheetBench.unsaved', { count: changes.length })}
           </span>
         ) : null}
-        <Button
-          type="button"
+        <BoardButton
           size="sm"
           variant="quiet"
           disabled={!dirty}
           onClick={discard}
         >
           {t('notebook.sheetBench.discard')}
-        </Button>
-        <Button
-          type="button"
+        </BoardButton>
+        <BoardButton
           size="sm"
+          variant="primary"
           disabled={!dirty || saving}
           onClick={save}
         >
           {t('notebook.sheetBench.saveRow')}
-        </Button>
+        </BoardButton>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-x-3 gap-y-2">
+      <div className="tx-esf">
         {columns.map((column, index) => {
           const id = `${baseId}-${column.id}`
           const reason = benchReadOnlyReason(column, canWrite)
@@ -242,19 +240,13 @@ export function SheetBenchEntry({
           if (takesFocus) firstEditable = false
 
           return (
-            <div key={column.id} className="min-w-0 space-y-1">
-              <label
-                htmlFor={id}
-                className="flex items-baseline justify-between gap-2 text-label text-fg-muted"
-              >
-                <span className="truncate">{column.label}</span>
-                {range ? (
-                  <span className="shrink-0 text-xs">{range}</span>
-                ) : null}
+            <div key={column.id} className="tx-ef">
+              <label htmlFor={id} className="tx-efl truncate">
+                {column.label}
               </label>
               {reason === null ? (
-                <div className="relative">
-                  <Input
+                <div className="tx-efi">
+                  <input
                     id={id}
                     ref={takesFocus ? firstInput : undefined}
                     value={draft[index] ?? ''}
@@ -265,58 +257,50 @@ export function SheetBenchEntry({
                     }
                     aria-invalid={breach ? true : undefined}
                     aria-describedby={breach ? `${id}-breach` : undefined}
-                    className={cn(
-                      'h-10 text-[15px]',
-                      unit && 'pr-14',
-                      breach && 'border-danger text-danger-text',
-                    )}
+                    className={cn('tx-ei', breach && 'bad')}
                     onChange={(event) => {
                       const next = [...draft]
                       next[index] = event.target.value
                       setDraft(next)
                     }}
                   />
-                  {unit ? (
-                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-label text-fg-muted">
-                      {unit}
-                    </span>
-                  ) : null}
+                  {unit ? <span className="tx-eu">{unit}</span> : null}
+                  {range ? <span className="tx-rule">{range}</span> : null}
                 </div>
               ) : (
-                <div
-                  id={id}
-                  className="flex h-10 items-center truncate rounded-md border border-border-subtle bg-surface-muted px-3 text-[15px] text-fg-muted"
-                  title={reason}
-                >
-                  {shown || '—'}
+                <div className="tx-efi">
+                  <div id={id} className="tx-ei ro" title={reason}>
+                    {shown || '—'}
+                  </div>
                 </div>
               )}
               {breach ? (
-                <p id={`${id}-breach`} className="text-xs text-danger-text">
-                  {breach}
+                <p id={`${id}-breach`} className="tx-efm">
+                  <Icon name="warn" size={12} aria-hidden="true" />
+                  <span>{breach}</span>
                 </p>
               ) : reason ? (
-                <p className="text-xs text-fg-muted">{reason}</p>
+                <span className="tx-ew">{reason}</span>
               ) : null}
             </div>
           )
         })}
       </div>
-      <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-muted max-md:hidden">
+      <p className="tx-keys max-md:hidden">
         <span>
-          <Kbd>{t('notebook.sheetBench.keyTab')}</Kbd>{' '}
+          <kbd className="mx-kbd">{t('notebook.sheetBench.keyTab')}</kbd>
           {t('notebook.sheetBench.keyNextField')}
         </span>
         <span>
-          <Kbd>{t('notebook.sheetBench.keyEnter')}</Kbd>{' '}
+          <kbd className="mx-kbd">{t('notebook.sheetBench.keyEnter')}</kbd>
           {t('notebook.sheetBench.keySave')}
         </span>
         <span>
-          <Kbd>{t('notebook.sheetBench.keyCtrlDown')}</Kbd>{' '}
+          <kbd className="mx-kbd">{t('notebook.sheetBench.keyCtrlDown')}</kbd>
           {t('notebook.sheetBench.keyNextRow')}
         </span>
         <span>
-          <Kbd>{t('notebook.sheetBench.keyEsc')}</Kbd>{' '}
+          <kbd className="mx-kbd">{t('notebook.sheetBench.keyEsc')}</kbd>
           {t('notebook.sheetBench.keyDiscard')}
         </span>
       </p>

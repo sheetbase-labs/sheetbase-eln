@@ -1,8 +1,14 @@
-import { Fragment } from 'react'
 import { Link } from '@tanstack/react-router'
 
 import { t } from '#/copy'
 import { BoardStatus } from '#/features/pipelines/board/board'
+import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableRow,
+} from '#/components/ui/table'
 import { dateTimeFormat } from '#/lib/intl-cache'
 import type { PipelineScheduleActivityWire } from '#/lib/pipelines/types'
 
@@ -64,18 +70,22 @@ export function HeardEvents({
           {t('features.pipelineStarts.heard.none')}
         </div>
       ) : (
-        <div className="ns">
-          {shown.map((row) => {
-            const outcome = OUTCOMES[row.kind]
-            const joined = Number(row.detail.joined ?? 0)
-            const number = row.run_id ? numbers?.get(row.run_id) : undefined
+        <TableBox>
+          <Table
+            caption={t('features.pipelineStarts.heard.title', {
+              count: shown.length,
+            })}
+          >
+            <TableBody>
+              {shown.map((row) => {
+                const outcome = OUTCOMES[row.kind]
+                const joined = Number(row.detail.joined ?? 0)
+                const number = row.run_id ? numbers?.get(row.run_id) : undefined
 
-            return (
-              <Fragment key={row.id}>
-                <span className="w">{when(row.occurred_at)}</span>
-                <span className="e">
-                  <span className="top">
-                    <span>
+                return (
+                  <TableRow key={row.id}>
+                    <TableCell>{when(row.occurred_at)}</TableCell>
+                    <TableCell>
                       {row.label ?? sourceLabel(row.source)}
                       {joined > 0 ? (
                         <span className="muted">
@@ -85,8 +95,11 @@ export function HeardEvents({
                           })}
                         </span>
                       ) : null}
-                    </span>
-                    <span className="res">
+                      <div className="muted" style={{ fontSize: 11 }}>
+                        {row.message || outcome.why()}
+                      </div>
+                    </TableCell>
+                    <TableCell align="right">
                       <BoardStatus tone={outcome.tone}>
                         {outcome.label()}
                         {row.run_id && number ? (
@@ -101,14 +114,13 @@ export function HeardEvents({
                           </>
                         ) : null}
                       </BoardStatus>
-                    </span>
-                  </span>
-                  <span className="why">{row.message || outcome.why()}</span>
-                </span>
-              </Fragment>
-            )
-          })}
-        </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </TableBox>
       )}
     </section>
   )

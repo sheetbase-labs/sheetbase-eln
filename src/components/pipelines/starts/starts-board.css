@@ -123,47 +123,6 @@
 .pb-scope .rb b {
   font-weight: 600;
 }
-.pb-scope .ns {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  column-gap: 10px;
-  align-items: start;
-  font-size: 12px;
-}
-.pb-scope .ns > * {
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border-subtle);
-  min-width: 0;
-}
-.pb-scope .ns .w {
-  padding-top: 6px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-.pb-scope .ns .e {
-  display: block;
-}
-.pb-scope .ns .top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: space-between;
-  white-space: nowrap;
-}
-.pb-scope .ns .top > span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.pb-scope .ns .why {
-  color: var(--text-muted);
-  font-size: 11px;
-  display: block;
-  white-space: nowrap;
-}
-.pb-scope .ns .res {
-  white-space: nowrap;
-  flex-shrink: 0;
-}
 .pb-scope .sec-h {
   display: flex;
   align-items: center;

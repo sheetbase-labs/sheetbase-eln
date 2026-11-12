@@ -285,7 +285,7 @@ findings of each check are on the `data_contract_runs` resource; see
 | Event                        | Produced from                                                   | Payload (the row)                                                                                |
 | ---------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `pipeline.created`           | `pipeline_definition` + `create`                                | `id`, `key`, `name`, `description`, `lifecycle`                                                  |
-| `pipeline.updated`           | `pipeline_definition` + `update`                                | the same; `lifecycle` is `active` or `retired`                                                   |
+| `pipeline.updated`           | `pipeline_definition` + `update`                                | the same; `lifecycle` is `active` or `retired`; `start_rules` holds the rules                   |
 | `pipeline.deleted`           | `pipeline_definition` + `delete`                                | the same                                                                                         |
 | `pipeline.version.created`   | `pipeline_definition_version` + `create`                        | `id`, `definition_id`, `version`, `lifecycle`, `configuration`                                   |
 | `pipeline.version.published` | `pipeline_definition_version` + `update`, `lifecycle=published` | the same                                                                                         |

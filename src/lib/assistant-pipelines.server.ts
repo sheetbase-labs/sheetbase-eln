@@ -153,7 +153,7 @@ interface PluginRow {
   status: string
 }
 
-async function findPipeline(
+export async function findPipeline(
   context: LabToolContext,
   text: string,
 ): Promise<Lookup<PipelineRow>> {

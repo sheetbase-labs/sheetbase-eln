@@ -1143,7 +1143,8 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
   {
     name: 'pipeline.updated',
     family: 'pipeline',
-    summary: 'A pipeline was renamed, described or retired.',
+    summary:
+      'A pipeline was renamed, described or retired, or its start rules changed.',
     producer: {
       entityType: 'pipeline_definition',
       operation: 'update',

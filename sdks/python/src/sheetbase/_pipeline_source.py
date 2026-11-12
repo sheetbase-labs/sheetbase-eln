@@ -56,20 +56,26 @@ def apply_step_source(
     requirements: Optional[Sequence[str]] = None,
     python_runtime: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Return ``configuration`` with one Python step's code (and optionally its requirements and runtime pin) replaced."""
+    """Return ``configuration`` with one Python step's code (and optionally its requirements and runtime pin) replaced.
+
+    ``step`` names the step; without it the first SQL or Python step is replaced,
+    or an ``analysis`` step is added when the pipeline has none.
+    """
     check_source(code)
     new = copy.deepcopy(configuration)
-    if step is None:
-        new["transform"] = {**(new.get("transform") or {}), "language": "python", "statement": code}
+    steps = new.get("steps") or []
+    for index, entry in enumerate(steps):
+        named = entry.get("name") == step if step is not None else entry.get("kind") in ("sql", "python")
+        if named:
+            if entry.get("kind") not in ("sql", "python"):
+                raise ValueError(f'The step "{entry.get("name")}" holds no code.')
+            steps[index] = {**entry, "kind": "python", "statement": code}
+            break
     else:
-        steps = new.get("steps") or []
-        for index, entry in enumerate(steps):
-            if entry.get("name") == step:
-                steps[index] = {**entry, "language": "python", "statement": code}
-                break
-        else:
+        if step is not None:
             raise ValueError(f'The pipeline has no step named "{step}".')
-        new["steps"] = steps
+        steps.insert(0, {"name": "analysis", "kind": "python", "statement": code})
+    new["steps"] = steps
     if requirements is not None:
         new["pythonRequirements"] = list(requirements)
     if python_runtime:

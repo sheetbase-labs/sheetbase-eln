@@ -71,25 +71,26 @@ export function applyStepSource(
 ): Row {
   checkStepSource(source.code);
   const next: Row = structuredClone(configuration);
-  if (source.step === undefined) {
-    next.transform = {
-      ...(next.transform ?? {}),
-      language: "python",
-      statement: source.code,
-    };
-  } else {
-    const steps: Row[] = Array.isArray(next.steps) ? next.steps : [];
-    const index = steps.findIndex((entry) => entry.name === source.step);
-    if (index < 0) {
+  // Without a step name, the first SQL or Python step takes the code; a
+  // pipeline with none gets an `analysis` step.
+  const steps: Row[] = Array.isArray(next.steps) ? next.steps : [];
+  const index = steps.findIndex((entry) =>
+    source.step === undefined
+      ? entry.kind === "sql" || entry.kind === "python"
+      : entry.name === source.step,
+  );
+  if (index < 0) {
+    if (source.step !== undefined) {
       throw new Error(`The pipeline has no step named "${source.step}".`);
     }
-    steps[index] = {
-      ...steps[index],
-      language: "python",
-      statement: source.code,
-    };
-    next.steps = steps;
+    steps.unshift({ name: "analysis", kind: "python", statement: source.code });
+  } else {
+    if (steps[index].kind !== "sql" && steps[index].kind !== "python") {
+      throw new Error(`The step "${steps[index].name}" holds no code.`);
+    }
+    steps[index] = { ...steps[index], kind: "python", statement: source.code };
   }
+  next.steps = steps;
   if (source.requirements !== undefined) {
     next.pythonRequirements = source.requirements;
   }

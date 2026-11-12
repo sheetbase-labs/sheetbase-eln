@@ -44,7 +44,7 @@ function CopyLine({ text, label }: { text: string; label: string }) {
  * file's code runs in, the outside things it names, and how to push it from git.
  */
 // react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- four sections of the version file's own facts read from one editor.
-export function VersionFileSidebar() {
+function SidebarSections() {
   const editor = usePipelineEditor()
   const { fileCheck, runtime, definition, config } = editor
   const destinations = useNotificationDestinations()
@@ -80,11 +80,7 @@ export function VersionFileSidebar() {
   })
 
   return (
-    <Inspector
-      label={t('features.pipelineVersionFile.sidebar.aria')}
-      width={300}
-      className="pb-scope gap-5"
-    >
+    <>
       <section>
         <h3>{t('features.pipelineVersionFile.sidebar.outline')}</h3>
         <nav
@@ -223,6 +219,33 @@ export function VersionFileSidebar() {
         <Icon name="lock" size={12} />
         <span>{t('features.pipelineVersionFile.sidebar.neverSteps')}</span>
       </section>
+    </>
+  )
+}
+
+/** Beside the file on a wide screen. */
+export function VersionFileSidebar() {
+  return (
+    <Inspector
+      label={t('features.pipelineVersionFile.sidebar.aria')}
+      width={300}
+      open={false}
+      className="pb-scope gap-5"
+    >
+      <SidebarSections />
     </Inspector>
+  )
+}
+
+/** Under the file below a wide screen, so nothing sits behind a button. */
+export function VersionFileStacked() {
+  return (
+    <div
+      aria-label={t('features.pipelineVersionFile.sidebar.aria')}
+      role="region"
+      className="pb-scope flex flex-col gap-5 border-t border-border px-4 py-4 xl:hidden"
+    >
+      <SidebarSections />
+    </div>
   )
 }

@@ -21,6 +21,11 @@
   height: 18px;
   background: var(--border);
 }
+@media (max-width: 640px) {
+  .ye-bar .sep {
+    display: none;
+  }
+}
 .ye-bad {
   display: inline-flex;
   align-items: center;
@@ -43,6 +48,16 @@
   background: var(--background);
   padding: 12px 24px 16px;
   gap: 10px;
+}
+.ye-wrap,
+.ye-ed {
+  flex-shrink: 0;
+}
+@media (min-width: 1280px) {
+  .ye-wrap,
+  .ye-ed {
+    flex-shrink: 1;
+  }
 }
 .ye-ed {
   flex-grow: 1;

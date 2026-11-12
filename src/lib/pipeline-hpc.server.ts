@@ -943,6 +943,7 @@ export async function cancelRemoteJobsOfRun(
   )
 
   for (const job of jobs) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- One job at a time: each cancel is a call to the cluster, and a refusal on one must not race the rest.
     const connection = await withTransaction((conn) =>
       deps.loadConnection(conn, job.workspace_id, job.connection_key),
     )

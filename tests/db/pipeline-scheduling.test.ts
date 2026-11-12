@@ -1039,6 +1039,8 @@ describe('start rules', () => {
         [WS, definitionId],
       ),
     ).rejects.toThrow(/p_days/)
+  })
+})
 
 describe('a recipe that starts on a failed run', () => {
   it('is told who owns the pipeline that failed', async () => {

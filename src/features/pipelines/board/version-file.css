@@ -139,10 +139,42 @@
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
 }
-.ye-inl {
-  font: 11px var(--font-sans);
+/* PipelinesSystem.dc.html .pls-emsg: the message under an error's line. */
+.ye-msg {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: 0 10px 0 40px;
+  white-space: normal;
+}
+.ye-msg .pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-grow: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: var(--surface-muted);
+  font: 400 12px/17px var(--font-sans);
   color: var(--danger-text);
-  padding-left: 12px;
+}
+.ye-msg .pill b {
+  font-weight: 600;
+}
+.ye-msg .pill button {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--primary);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ye-msg .pill button:hover {
+  text-decoration: underline;
 }
 /* The text a person types: the same box as the lines, drawn over them with its own text see-through. */
 .ye-in {

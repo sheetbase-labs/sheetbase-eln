@@ -6,7 +6,6 @@
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
-import { Button } from '#/components/ui/button'
 import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 
 interface CompositionPart {
@@ -75,55 +74,97 @@ export function SheetCompositionPanel({
   return (
     <aside
       aria-label={t('notebook.sheetComposition.ariaLabel')}
-      className="w-72 shrink-0 overflow-y-auto border-l px-4 py-3 max-md:w-full max-md:flex-none max-md:overflow-visible max-md:border-t max-md:border-l-0"
+      className="tx-side max-md:w-full max-md:flex-none max-md:border-t max-md:border-l-0"
     >
-      <h4 className="mb-2 text-label font-semibold text-fg">
-        {t('notebook.sheetComposition.title')}
-      </h4>
-      <ul className="divide-y divide-border-subtle">
-        {parts.map((part) => (
-          <li key={part.key} className="flex gap-2.5 py-2.5 text-label">
-            <Icon
-              name={ORIGIN_ICON[part.origin]}
-              size={13}
-              aria-hidden="true"
-              className="mt-0.5 shrink-0 text-fg-muted"
-            />
-            <div className="min-w-0 flex-1">
-              <div className="font-medium text-fg">{part.title}</div>
-              <div className="text-fg-muted">
+      <div>
+        <h4>{t('notebook.sheetComposition.title')}</h4>
+        <ul className="tx-made">
+          {parts.map((part) => (
+            <li key={part.key} className={part.origin === 'local' ? 'loc' : ''}>
+              {part.origin === 'calculation' ? (
+                <span className="fxm">ƒx</span>
+              ) : (
+                <Icon name={ORIGIN_ICON[part.origin]} size={12} />
+              )}
+              <span>
+                <b>{part.title}</b>
                 {[part.detail, part.columns.map((c) => c.label).join(', ')]
                   .filter(Boolean)
                   .join(' · ')}
-              </div>
-              {part.origin === 'local' && onAddToDataset ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  icon="database"
-                  className="mt-2"
-                  onClick={() => onAddToDataset(part.columns)}
-                >
-                  {t('notebook.sheetComposition.addToDataset')}
-                </Button>
-              ) : null}
-            </div>
-          </li>
-        ))}
-      </ul>
-      <dl className="mt-3 grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1.5 text-label">
-        <dt className="text-fg-muted">{t('notebook.sheetComposition.rows')}</dt>
-        <dd className="text-fg">
+                {part.origin === 'local' && onAddToDataset ? (
+                  <button
+                    type="button"
+                    className="tx-add"
+                    onClick={() => onAddToDataset(part.columns)}
+                  >
+                    <Icon name="database" size={11} />
+                    {t('notebook.sheetComposition.addToDataset')}
+                  </button>
+                ) : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <dl className="tx-dl">
+        <dt>{t('notebook.sheetComposition.rows')}</dt>
+        <dd>
           {rowsMatchedOn.length > 0
             ? t('notebook.sheetComposition.matchedOn', {
                 columns: rowsMatchedOn.join(', '),
               })
             : t('notebook.sheetComposition.ownRows')}
         </dd>
-        <dt className="text-fg-muted">{t('notebook.sheetComposition.from')}</dt>
-        <dd className="text-fg">{from}</dd>
+        <dt>{t('notebook.sheetComposition.from')}</dt>
+        <dd>{from}</dd>
       </dl>
     </aside>
+  )
+}
+
+/**
+ * Details: how the sheet's dataset columns follow the dataset (live or pinned
+ * to a snapshot) and whether editing asks for a reason.
+ */
+export function SheetBindingCards({
+  pinned,
+  live,
+  reasonRequired,
+}: {
+  pinned: boolean
+  live: boolean
+  reasonRequired: boolean
+}) {
+  return (
+    <div className="tx-cards">
+      {live || pinned ? (
+        <div className="tx-snap">
+          <div className="h">
+            <Icon name={pinned ? 'lock' : 'database'} size={12} />
+            <b>
+              {pinned
+                ? t('notebook.sheetComposition.pinnedTitle')
+                : t('notebook.sheetComposition.liveTitle')}
+            </b>
+          </div>
+          <span>
+            {pinned
+              ? t('notebook.sheetComposition.pinnedText')
+              : t('notebook.sheetComposition.liveText')}
+          </span>
+        </div>
+      ) : null}
+      <div className="tx-snap">
+        <div className="h">
+          <Icon name="edit" size={12} />
+          <b>{t('notebook.sheetComposition.reasonTitle')}</b>
+        </div>
+        <span>
+          {reasonRequired
+            ? t('notebook.sheetComposition.reasonAsked')
+            : t('notebook.sheetComposition.reasonNotAsked')}
+        </span>
+      </div>
+    </div>
   )
 }

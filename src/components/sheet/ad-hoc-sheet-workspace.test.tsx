@@ -221,7 +221,7 @@ describe('CanonicalSheetEditor typed editing and validation UX (GRID-03)', () =>
     )
 
     expect(columns.map((column) => column.label)).toEqual([
-      'Count (cells)',
+      'Count',
       'Observed',
       'Recorded',
       'Status',

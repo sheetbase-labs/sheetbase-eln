@@ -731,7 +731,7 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
     expect(
       screen.getByText('Results · rev 9 · edits go back to the source'),
     ).toBeTruthy()
-    expect(screen.getByText(/ƒx/)).toBeTruthy()
+    expect(screen.getAllByText(/ƒx/).length).toBeGreaterThan(0)
     expect(columns.filter((column) => column.source === 'bound')).toEqual(
       expect.not.arrayContaining([
         expect.objectContaining({

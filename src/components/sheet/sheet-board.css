@@ -230,3 +230,170 @@
   flex-shrink: 0;
   background: var(--warning-text);
 }
+
+/* Board "One sheet, four kinds of column": the source badge sits on the name's
+   line (.tbs-hd), and the owner band is a 20px muted 11px strip. */
+.spreadsheet .column-heading {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+.spreadsheet .column-group-header {
+  font-size: 11px;
+  background: var(--surface);
+}
+.spreadsheet .column-heading .column-name {
+  flex: none;
+  overflow: visible;
+}
+.spreadsheet .column-heading .src {
+  min-width: 0;
+  flex: 0 1 auto;
+  text-overflow: ellipsis;
+}
+
+/* Board "Steward view": edit line, composition side panel, binding cards. */
+.tx-el,
+.tx-side,
+.tx-cards {
+  --text: var(--foreground);
+  --text-muted: var(--muted-foreground);
+}
+.tx-el {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-muted);
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.tx-el .w {
+  font-weight: 600;
+}
+.tx-el svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.tx-side {
+  width: 268px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 14px 16px;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+.tx-side h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.tx-made {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.tx-made li {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  column-gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--text-muted);
+}
+.tx-made li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.tx-made li > svg,
+.tx-made li > .fxm {
+  margin-top: 2px;
+  color: var(--text-muted);
+}
+.tx-made li.loc > svg {
+  color: var(--primary);
+}
+.tx-made b {
+  display: block;
+  font-weight: 600;
+  color: var(--text);
+}
+.tx-made .fxm {
+  font: 500 11px var(--font-mono);
+  color: var(--text-muted);
+}
+.tx-add {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tx-add:hover {
+  background: var(--surface-hover);
+}
+.tx-dl {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  column-gap: 10px;
+  row-gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 17px;
+}
+.tx-dl dt {
+  color: var(--text-muted);
+}
+.tx-dl dd {
+  margin: 0;
+  color: var(--text);
+}
+.tx-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.tx-snap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-muted);
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--text-muted);
+}
+.tx-snap .h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+.tx-snap .h b {
+  font-weight: 600;
+}

@@ -11,7 +11,7 @@ CREATE FUNCTION internal.pipeline_mode_rank(p_mode text) RETURNS integer
     LANGUAGE sql IMMUTABLE
     SET search_path TO ''
     AS $$
-  SELECT CASE p_mode WHEN 'simple' THEN 1 WHEN 'standard' THEN 2 WHEN 'advanced' THEN 3 ELSE 0 END
+  SELECT CASE coalesce(p_mode, 'standard') WHEN 'simple' THEN 1 WHEN 'standard' THEN 2 WHEN 'advanced' THEN 3 ELSE 0 END
 $$;
 --> statement-breakpoint
 ALTER FUNCTION internal.pipeline_mode_rank(text) OWNER TO migrator;

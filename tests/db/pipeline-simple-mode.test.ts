@@ -100,9 +100,9 @@ describe('mode rules', () => {
     const definition = await pipeline('rules_b')
 
     await version(definition, config('standard'))
-    await owner.query(
-      'select api.publish_pipeline_definition_version($1::uuid, id) from api.pipeline_definition_versions where definition_id = $2',
-      [WS, definition],
+    await migrator.query(
+      'select internal.publish_pipeline_definition_version(id, revision, $2) from api.pipeline_definition_versions where definition_id = $1',
+      [definition, OWNER],
     )
 
     await expect(
@@ -141,9 +141,9 @@ describe('convert_pipeline_to_standard', () => {
       config('simple', { recipe: RECIPE }),
     )
 
-    await owner.query(
-      'select api.publish_pipeline_definition_version($1::uuid, $2::uuid)',
-      [WS, created.rows[0].id],
+    await migrator.query(
+      'select internal.publish_pipeline_definition_version(id, revision, $2) from api.pipeline_definition_versions where id = $1',
+      [created.rows[0].id, OWNER],
     )
 
     await owner.query(

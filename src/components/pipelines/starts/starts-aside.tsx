@@ -1,9 +1,10 @@
+import { Fragment } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { Avatar } from '#/components/ui/avatar'
-import { Inspector, Muted } from '#/components/ui/layout'
+import { BoardSegmented } from '#/features/pipelines/board/board'
 import { toast } from '#/components/ui/sonner'
 import {
   AGENT_ACTIONS,
@@ -16,7 +17,8 @@ import {
 import type { AgentActionLevel } from '#/lib/agent-action-policy'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { PIPELINE_ACTIONS } from '#/lib/pipelines/actions'
-import { cn } from '#/lib/utils'
+
+import './starts-board.css'
 
 const ALWAYS_NEVER = [
   'sign',
@@ -36,47 +38,6 @@ const POLICY_ACTIONS = PIPELINE_ACTIONS.flatMap((action) => {
 
   return entry ? [{ key: entry.key, label: action.label }] : []
 })
-
-/** One setting as three joined buttons, the way the board draws it. */
-function Segmented({
-  label,
-  value,
-  options,
-  disabled,
-  onChange,
-}: {
-  label: string
-  value: AgentActionLevel
-  options: readonly AgentActionLevel[]
-  disabled: boolean
-  onChange: (level: AgentActionLevel) => void
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      className="inline-flex shrink-0 rounded-md border border-border bg-surface-muted p-0.5"
-    >
-      {options.map((level) => (
-        <button
-          key={level}
-          type="button"
-          role="radio"
-          aria-checked={value === level}
-          disabled={disabled}
-          onClick={() => onChange(level)}
-          className={cn(
-            'h-5 cursor-pointer rounded-[4px] px-1.5 text-caption text-fg-muted focus-visible:outline-2 focus-visible:outline-focus',
-            value === level &&
-              'bg-surface font-medium text-fg shadow-[0_0_0_1px_var(--border)]',
-          )}
-        >
-          {t(`features.pipelineStarts.aside.levels.${level}`)}
-        </button>
-      ))}
-    </div>
-  )
-}
 
 /** The right-hand column of the tab: who the pipeline runs as, how far an
  * agent may go with its ELN actions, and what nothing may ever do. */
@@ -109,76 +70,82 @@ export function StartsAside({
   const rows = policies.data ?? []
 
   return (
-    <Inspector
-      label={t('features.pipelineStarts.aside.label')}
-      className="gap-5"
+    <aside
+      className="pb-insp"
+      aria-label={t('features.pipelineStarts.aside.label')}
     >
-      <section className="flex flex-col gap-2">
-        <h2 className="text-label font-semibold">
-          {t('features.pipelineStarts.aside.runsAs')}
-        </h2>
-        <div className="flex items-start gap-2">
+      <section>
+        <h3>{t('features.pipelineStarts.aside.runsAs')}</h3>
+        <div className="who">
           <Avatar initials="PL" size="sm" />
-          <div className="min-w-0 text-caption">
-            <div className="text-body font-medium">
+          <div>
+            <div style={{ fontWeight: 600 }}>
               {t('features.pipelineStarts.aside.identity', { id: displayId })}
             </div>
-            <div className="text-fg-muted">
+            <div className="muted">
               {owner
                 ? `${t('features.pipelineStarts.aside.identityBody')} · ${owner}`
                 : t('features.pipelineStarts.aside.identityBody')}
             </div>
           </div>
         </div>
-        <Muted>{t('features.pipelineStarts.aside.runsAsBody')}</Muted>
+        <div className="note">
+          {t('features.pipelineStarts.aside.runsAsBody')}
+        </div>
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-label font-semibold">
-          {t('features.pipelineStarts.aside.policies')}
-        </h2>
+      <section>
+        <h3>{t('features.pipelineStarts.aside.policies')}</h3>
         {POLICY_ACTIONS.length === 0 ? (
-          <Muted>{t('features.pipelineStarts.aside.noPolicies')}</Muted>
+          <div className="muted" style={{ fontSize: 12 }}>
+            {t('features.pipelineStarts.aside.noPolicies')}
+          </div>
         ) : (
-          <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+          <div className="pol">
             {POLICY_ACTIONS.map((action) => (
-              <li
-                key={action.key}
-                className="flex items-center justify-between gap-2 text-caption"
-              >
-                <span className="min-w-0">{action.label}</span>
-                <Segmented
+              <Fragment key={action.key}>
+                <span>{action.label}</span>
+                <BoardSegmented
                   label={t('features.pipelineStarts.aside.levelFor', {
                     action: action.label,
                   })}
                   value={resolveAgentActionLevel(rows, action.key)}
-                  options={agentActionLevelsFor(action.key)}
-                  disabled={save.isPending}
-                  onChange={(level) =>
-                    save.mutate({ actionKey: action.key, level })
-                  }
+                  options={agentActionLevelsFor(action.key).map((level) => ({
+                    value: level,
+                    label: t(`features.pipelineStarts.aside.levels.${level}`),
+                  }))}
+                  onChange={(value) => {
+                    const level = agentActionLevelsFor(action.key).find(
+                      (candidate) => candidate === value,
+                    )
+
+                    if (level && !save.isPending)
+                      save.mutate({ actionKey: action.key, level })
+                  }}
                 />
-              </li>
+              </Fragment>
             ))}
-          </ul>
+          </div>
         )}
-        <Muted>{t('features.pipelineStarts.aside.policiesHint')}</Muted>
+        <div className="note">
+          {t('features.pipelineStarts.aside.policiesHint')}
+        </div>
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-label font-semibold">
-          {t('features.pipelineStarts.aside.alwaysNever')}
-        </h2>
-        <ul className="m-0 grid list-none grid-cols-2 gap-x-3 gap-y-1 p-0 text-caption">
+      <section>
+        <h3>{t('features.pipelineStarts.aside.alwaysNever')}</h3>
+        <div className="nv">
           {ALWAYS_NEVER.map((key) => (
-            <li key={key} className="flex items-center gap-1.5">
-              <Icon name="lock" size={12} className="text-fg-muted" />
+            <span key={key}>
+              <Icon name="lock" size={12} />
               {t(`features.pipelineStarts.aside.never.${key}`)}
-            </li>
+            </span>
           ))}
-        </ul>
-        <Muted>{t('features.pipelineStarts.aside.neverBody')}</Muted>
+        </div>
+        <div className="note">
+          {t('features.pipelineStarts.aside.neverBody')}
+        </div>
       </section>
-    </Inspector>
+    </aside>
   )
 }

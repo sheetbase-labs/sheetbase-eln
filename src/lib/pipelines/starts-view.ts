@@ -315,3 +315,21 @@ export function buildTimeline(input: {
 
   return out
 }
+
+/** "Thu 12 · 07:00" in the person's zone. */
+export function dayAndTime(at: Date, timeZone: string): string {
+  const day = dateTimeFormat('en-GB', {
+    timeZone,
+    weekday: 'short',
+    day: 'numeric',
+  }).format(at)
+
+  const time = dateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(at)
+
+  return `${day} · ${time}`
+}

@@ -3,8 +3,7 @@ import { z } from 'zod'
 
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
-import { Button, buttonVariants } from '#/components/ui/button'
-import { Status } from '#/components/ui/status'
+import { BoardButton, BoardStatus } from '#/features/pipelines/board/board'
 import { toast } from '#/components/ui/sonner'
 import {
   runStatus,
@@ -18,6 +17,7 @@ import type {
   PipelineRunWire,
 } from '#/lib/pipelines/types'
 
+import './starts-board.css'
 import { useRemindRun, useRunManifest } from './starts-data'
 import type { RunManifestInfo } from './starts-data'
 
@@ -36,11 +36,7 @@ function becauseOf(run: PipelineRunWire, heard: string | null): string {
 const formTitle = z.object({ title: z.string() })
 
 function Facts({ children }: { children: React.ReactNode }) {
-  return (
-    <dl className="m-0 grid grid-cols-[82px_minmax(0,1fr)] gap-x-2 gap-y-[5px] text-caption">
-      {children}
-    </dl>
-  )
+  return <dl className="mf num">{children}</dl>
 }
 
 const Fact = ({
@@ -51,8 +47,8 @@ const Fact = ({
   children: React.ReactNode
 }) => (
   <>
-    <dt className="text-fg-muted">{label}</dt>
-    <dd className="m-0 min-w-0">{children}</dd>
+    <dt>{label}</dt>
+    <dd>{children}</dd>
   </>
 )
 
@@ -113,11 +109,11 @@ function ManifestPanel({
   pinned: number
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <h3 className="flex items-center gap-1.5 text-body font-semibold">
+    <div>
+      <h3 className="mh">
         {manifest ? (
           <>
-            <Icon name="check" size={14} />
+            <Icon name="check" size={12} />
             {manifest.signed
               ? t('features.pipelineStarts.selected.manifestSigned')
               : t('features.pipelineStarts.selected.manifestKept')}
@@ -134,10 +130,12 @@ function ManifestPanel({
             })}
           </Fact>
           <Fact label={t('features.pipelineStarts.selected.version')}>
-            <span className="num">
-              {version} · {manifest.digest.slice(0, 4)}…
-              {manifest.digest.slice(-3)}
-            </span>
+            <>
+              {version} ·{' '}
+              <span className="mono" style={{ fontSize: 11 }}>
+                {manifest.digest.slice(0, 4)}…{manifest.digest.slice(-3)}
+              </span>
+            </>
           </Fact>
           <Fact label={t('features.pipelineStarts.selected.chain')}>
             {t('features.pipelineStarts.selected.chained', {
@@ -146,7 +144,7 @@ function ManifestPanel({
           </Fact>
         </Facts>
       ) : (
-        <span className="text-caption text-fg-muted">
+        <span className="muted" style={{ fontSize: 12 }}>
           {t('features.pipelineStarts.selected.manifestNoneHint')}
         </span>
       )}
@@ -166,7 +164,8 @@ function RemindButton({
   const remind = useRemindRun(workspaceId)
 
   return (
-    <Button
+    <BoardButton
+      size="sm"
       icon="bell"
       disabled={remind.isPending}
       onClick={() =>
@@ -185,7 +184,7 @@ function RemindButton({
       {asked.length === 1
         ? t('features.pipelineStarts.selected.remind', { person: asked[0] })
         : t('features.pipelineStarts.selected.remindThem')}
-    </Button>
+    </BoardButton>
   )
 }
 
@@ -194,16 +193,17 @@ function ReproduceButton({ runId }: { runId: string }) {
 
   return (
     <>
-      <Button
+      <BoardButton
+        size="sm"
         icon="play"
         disabled={reproduce.isPending}
         onClick={() => reproduce.mutate()}
       >
         {t('features.pipelineStarts.selected.reproduce')}
-      </Button>
-      <span className="max-w-[190px] text-[11px] text-fg-muted max-lg:max-w-none">
+      </BoardButton>
+      <div className="muted" style={{ fontSize: 11, lineHeight: '16px' }}>
         {t('features.pipelineStarts.selected.reproduceHint')}
-      </span>
+      </div>
     </>
   )
 }
@@ -244,46 +244,45 @@ export function SelectedRun({
   })
 
   return (
-    <section
-      aria-label={heading}
-      className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-x-6 gap-y-3 rounded-lg border border-border px-3.5 py-3 max-lg:grid-cols-1"
-    >
-      <div className="flex min-w-0 flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-x-2">
-          <h3 className="text-section">{heading}</h3>
-          <Status tone={status.tone}>
-            {waiting && asked.length > 0
-              ? t('features.pipelineStarts.selected.waitingFor', {
-                  people: asked.join(', '),
-                })
-              : status.label}
-          </Status>
+    <section className="rp" aria-label={heading}>
+      <div className="rp-grid">
+        <div>
+          <div className="rp-head">
+            <h2 className="sh">{heading}</h2>
+            <BoardStatus tone={status.tone}>
+              {waiting && asked.length > 0
+                ? t('features.pipelineStarts.selected.waitingFor', {
+                    people: asked.join(', '),
+                  })
+                : status.label}
+            </BoardStatus>
+          </div>
+          <RunFacts run={run} version={version} heard={heard} prompt={prompt} />
         </div>
-        <RunFacts run={run} version={version} heard={heard} prompt={prompt} />
-      </div>
 
-      <ManifestPanel
-        manifest={manifest.data}
-        version={version}
-        pinned={Object.keys(run.input_versions).length}
-      />
+        <ManifestPanel
+          manifest={manifest.data}
+          version={version}
+          pinned={Object.keys(run.input_versions).length}
+        />
 
-      <div className="flex min-w-0 flex-col items-start gap-1.5 max-lg:flex-row max-lg:flex-wrap">
-        <Link
-          to="/pipelines/$pipelineId/runs/$runId"
-          params={{ pipelineId, runId: run.id }}
-          className={buttonVariants()}
-        >
-          {t('features.pipelineStarts.selected.open')}
-        </Link>
-        {waiting ? (
-          <RemindButton
-            runId={run.id}
-            workspaceId={workspaceId}
-            asked={asked}
-          />
-        ) : null}
-        {manifest.data ? <ReproduceButton runId={run.id} /> : null}
+        <div className="rp-actions">
+          <Link
+            to="/pipelines/$pipelineId/runs/$runId"
+            params={{ pipelineId, runId: run.id }}
+            className="btn btn-s"
+          >
+            {t('features.pipelineStarts.selected.open')}
+          </Link>
+          {waiting ? (
+            <RemindButton
+              runId={run.id}
+              workspaceId={workspaceId}
+              asked={asked}
+            />
+          ) : null}
+          {manifest.data ? <ReproduceButton runId={run.id} /> : null}
+        </div>
       </div>
     </section>
   )

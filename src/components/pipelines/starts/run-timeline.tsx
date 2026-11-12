@@ -1,8 +1,6 @@
-import { useMemo } from 'react'
+import { Fragment, useMemo } from 'react'
 
 import { t } from '#/copy'
-import { Muted } from '#/components/ui/layout'
-import { Dot } from '#/components/ui/status'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { localClock } from '#/lib/pipelines/start-rules'
 import type { StartWindow } from '#/lib/pipelines/start-rules'
@@ -10,14 +8,6 @@ import { buildTimeline } from '#/lib/pipelines/starts-view'
 import type { DotKind, TimelineItem } from '#/lib/pipelines/starts-view'
 import type { PipelineRunWire } from '#/lib/pipelines/types'
 import { cn } from '#/lib/utils'
-
-const DOT_CLASS: Record<DotKind, string> = {
-  ok: 'bg-success',
-  wait: 'bg-warning',
-  bad: 'bg-danger',
-  live: 'bg-link',
-  skip: 'size-2.5 border-[1.5px] border-neutral-dot bg-surface',
-}
 
 const LEGEND = ['ok', 'wait', 'bad', 'skip'] as const
 
@@ -106,7 +96,7 @@ export function RunTimeline({
       <div
         role="group"
         aria-label={t('features.pipelineStarts.runs.title')}
-        className="grid grid-cols-[64px_minmax(0,1fr)] text-caption"
+        className="tl"
       >
         {days.map((day) => {
           const weekend = day.weekday === 'Sat' || day.weekday === 'Sun'
@@ -117,20 +107,15 @@ export function RunTimeline({
               (window.days === 'weekdays' ? !weekend : weekend))
 
           return (
-            <div key={day.key} className="contents">
-              <div
-                className={cn(
-                  'flex h-[30px] items-center border-b border-border-subtle text-fg-muted',
-                  day.today && 'font-semibold text-fg',
-                )}
-              >
+            <Fragment key={day.key}>
+              <div className={cn('dl0', day.today && 'today')}>
                 {day.weekday} {day.day}
               </div>
-              <div className="relative h-[30px] border-b border-border-subtle">
+              <div className="tr">
                 {shaded ? (
                   <span
                     aria-hidden="true"
-                    className="absolute inset-y-0 bg-surface-muted"
+                    className="win"
                     style={{
                       left: pct(from),
                       width: `${((to - from) / 1440) * 100}%`,
@@ -140,7 +125,7 @@ export function RunTimeline({
                 {day.today ? (
                   <span
                     aria-hidden="true"
-                    className="absolute -inset-y-0.5 border-l border-dashed border-fg-muted"
+                    className="now"
                     style={{ left: pct(nowMinutes) }}
                   />
                 ) : null}
@@ -152,10 +137,7 @@ export function RunTimeline({
                       <span
                         key={item.id}
                         aria-hidden="true"
-                        className={cn(
-                          'absolute top-1/2 -ml-[5px] -mt-[5px] size-2.5 rounded-full',
-                          DOT_CLASS.skip,
-                        )}
+                        className="rd skip"
                         style={{ left }}
                       />
                     )
@@ -164,16 +146,13 @@ export function RunTimeline({
                   const selected = picked === item.runId
 
                   return (
-                    <span key={item.id}>
+                    <Fragment key={item.id}>
                       {item.label ? (
                         <span
                           aria-hidden="true"
-                          className={cn(
-                            'pointer-events-none absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[11px] text-fg-muted',
-                            selected && 'font-semibold text-fg',
-                          )}
+                          className={cn('rl', selected && 'on')}
                           style={{
-                            right: `calc(${(1 - item.fraction) * 100}% + 10px)`,
+                            right: `calc(${(1 - item.fraction) * 100}% + 11px)`,
                           }}
                         >
                           {item.label}
@@ -191,39 +170,32 @@ export function RunTimeline({
                           }),
                         })}
                         onClick={() => onPick(item.runId ?? '')}
-                        className={cn(
-                          'absolute top-1/2 -ml-1.5 -mt-1.5 size-3 cursor-pointer rounded-full border-0 p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
-                          DOT_CLASS[item.kind],
-                          selected &&
-                            'shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--link)]',
-                        )}
+                        className={cn('rd', item.kind, selected && 'sel')}
                         style={{ left }}
                       />
-                    </span>
+                    </Fragment>
                   )
                 })}
               </div>
-            </div>
+            </Fragment>
           )
         })}
-        <div />
+        <span />
         <div
           aria-label={t('features.pipelineStarts.runs.axisLabel')}
-          className="relative h-5 text-[11px] text-fg-faint"
+          className="ax"
         >
           {ticks.map((minutes) => (
-            <span
-              key={minutes}
-              className="num absolute top-1 -translate-x-1/2"
-              style={{ left: pct(minutes) }}
-            >
+            <span key={minutes} style={{ left: pct(minutes) }}>
               {String(Math.floor(minutes / 60)).padStart(2, '0')}
             </span>
           ))}
         </div>
       </div>
       {runs.length === 0 ? (
-        <Muted>{t('features.pipelineStarts.runs.none')}</Muted>
+        <div className="muted" style={{ fontSize: 12 }}>
+          {t('features.pipelineStarts.runs.none')}
+        </div>
       ) : null}
     </div>
   )
@@ -231,31 +203,19 @@ export function RunTimeline({
 
 export function TimelineLegend({ hasWindow }: { hasWindow: boolean }) {
   return (
-    <ul className="m-0 flex list-none flex-wrap items-center gap-x-3 gap-y-1 p-0 text-caption text-fg-muted">
+    <div className="lg">
       {LEGEND.map((kind) => (
-        <li key={kind} className="flex items-center gap-1.5">
-          {kind === 'skip' ? (
-            <span
-              aria-hidden="true"
-              className="inline-block size-[9px] rounded-full border-[1.5px] border-neutral-dot"
-            />
-          ) : (
-            <Dot
-              tone={kind === 'ok' ? 'ok' : kind === 'wait' ? 'warn' : 'bad'}
-            />
-          )}
+        <span key={kind}>
+          <i className={cn('lgi', kind)} />
           {t(`features.pipelineStarts.runs.legend.${kind}`)}
-        </li>
+        </span>
       ))}
       {hasWindow ? (
-        <li className="flex items-center gap-1.5">
-          <span
-            aria-hidden="true"
-            className="inline-block size-[9px] rounded-[2px] border border-border bg-surface-muted"
-          />
+        <span>
+          <i className="lgi window" />
           {t('features.pipelineStarts.runs.legend.window')}
-        </li>
+        </span>
       ) : null}
-    </ul>
+    </div>
   )
 }

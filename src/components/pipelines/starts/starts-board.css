@@ -1,0 +1,560 @@
+/*
+ * The Starts and runs board's own CSS, copied from `PipeFinalRuns.dc.html` (its <style> block) and
+ * scoped under `.pb-scope` so it sits beside the shared board CSS in `src/features/pipelines/board`.
+ * Source of truth: /mnt/project-files/pipelines-system/board-html/. Change a value only when the board changes.
+ */
+.pb-scope .sh {
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+.pb-scope .notice {
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-size: 12px;
+}
+.pb-scope .notice.info {
+  background: var(--surface-muted);
+}
+.pb-scope .notice.bad {
+  background: var(--danger-wash);
+}
+.pb-scope .linklike {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent-strong);
+  cursor: pointer;
+  text-align: left;
+}
+.pb-scope .linklike:hover {
+  color: var(--accent-strong-hover);
+  text-decoration: underline;
+}
+.pb-scope .cmp {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.pb-scope .cg {
+  padding: 10px 12px 8px;
+}
+.pb-scope .cg + .cg {
+  border-top: 1px solid var(--border-subtle);
+}
+.pb-scope .cgh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.pb-scope .cgh .select {
+  height: 24px;
+  font-size: 12px;
+  font-weight: 600;
+  width: auto;
+  gap: 6px;
+  padding: 0 6px;
+}
+.pb-scope .cgh .muted {
+  font-weight: 400;
+  font-size: 12px;
+}
+.pb-scope .op {
+  font: 600 10px var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  background: var(--surface-muted);
+}
+.pb-scope .cr {
+  display: grid;
+  grid-template-columns: 16px 88px minmax(0, 1fr) 24px;
+  gap: 8px;
+  align-items: center;
+  min-height: 34px;
+  font-size: 12px;
+}
+.pb-scope .cr > svg {
+  color: var(--text-muted);
+}
+.pb-scope .cr .ty {
+  font-weight: 500;
+}
+.pb-scope .cr .fl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.pb-scope .cr .fl .select,
+.pb-scope .cr .fl .input {
+  height: 26px;
+  font-size: 12px;
+  padding: 0 7px;
+  width: auto;
+  gap: 6px;
+}
+.pb-scope .cr .fl .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pb-scope .cr .btn.ib {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.pb-scope .addl {
+  padding: 2px 0 2px 24px;
+}
+.pb-scope .rb {
+  font-size: 13px;
+  line-height: 21px;
+}
+.pb-scope .rb b {
+  font-weight: 600;
+}
+.pb-scope .ns {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: start;
+  font-size: 12px;
+}
+.pb-scope .ns > * {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+.pb-scope .ns .w {
+  padding-top: 6px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.pb-scope .ns .e {
+  display: block;
+}
+.pb-scope .ns .top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  white-space: nowrap;
+}
+.pb-scope .ns .top > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pb-scope .ns .why {
+  color: var(--text-muted);
+  font-size: 11px;
+  display: block;
+  white-space: nowrap;
+}
+.pb-scope .ns .res {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pb-scope .sec-h {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.pb-scope .tl {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  font-size: 12px;
+}
+.pb-scope .tl .dl0 {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pb-scope .tl .dl0.today {
+  color: var(--text);
+  font-weight: 600;
+}
+.pb-scope .tl .tr {
+  position: relative;
+  height: 30px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pb-scope .tl .win {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 29.167%;
+  width: 50%;
+  background: var(--surface-muted);
+}
+.pb-scope .tl .ax {
+  position: relative;
+  height: 20px;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+.pb-scope .tl .ax span {
+  position: absolute;
+  top: 4px;
+  transform: translateX(-50%);
+  font-variant-numeric: tabular-nums;
+}
+.pb-scope .rd {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.pb-scope .rd.ok {
+  background: var(--success);
+}
+.pb-scope .rd.wait {
+  background: var(--warning);
+}
+.pb-scope .rd.bad {
+  background: var(--color-danger);
+}
+.pb-scope .rd.skip {
+  background: var(--surface);
+  border: 1.5px solid var(--neutral-dot);
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+}
+.pb-scope .rd.sel {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--accent);
+}
+.pb-scope .rd:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.pb-scope .rl {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.pb-scope .rl.on {
+  color: var(--text);
+  font-weight: 600;
+}
+.pb-scope .now {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  border-left: 1px dashed var(--text-muted);
+}
+.pb-scope .lg {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.pb-scope .lg i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+.pb-scope .rp {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.pb-scope .mf {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  row-gap: 5px;
+  column-gap: 8px;
+  font-size: 12px;
+  margin: 0;
+}
+.pb-scope .mf dt {
+  color: var(--text-muted);
+}
+.pb-scope .mf dd {
+  margin: 0;
+}
+.pb-scope .pol {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  row-gap: 6px;
+  column-gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+.pb-scope .pol .seg button {
+  height: 20px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+.pb-scope .nv {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  font-size: 12px;
+}
+.pb-scope .nv span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pb-scope .nv svg {
+  color: var(--text-muted);
+}
+.pb-scope .perm {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+.pb-scope .perm span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pb-scope .perm svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+/* A start line has more than one button, so its last column grows to fit them. */
+.pb-scope .cr:has(.cr-actions) {
+  grid-template-columns: 16px 88px minmax(0, 1fr) auto;
+}
+.pb-scope .cr-actions {
+  display: flex;
+  align-items: center;
+}
+.pb-scope .cr .fl > .muted {
+  white-space: nowrap;
+}
+@media (max-width: 767px) {
+  .pb-scope .cr,
+  .pb-scope .cr:has(.cr-actions) {
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+  }
+  .pb-scope .cr .fl {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    white-space: normal;
+    padding-left: 24px;
+  }
+}
+.pb-scope .addl.bad {
+  color: var(--danger-text);
+  font-size: 11px;
+}
+.pb-scope .cgh svg {
+  flex-shrink: 0;
+}
+@media (max-width: 767px) {
+  .pb-scope .cr > .ty {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .pb-scope .cr > :last-child {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+.pb-scope .h3row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.pb-scope .h3row h3 {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0;
+}
+/* The legend marks are the board's inline styles, named once here. */
+.pb-scope .lg .lgi.ok {
+  background: var(--success);
+}
+.pb-scope .lg .lgi.wait {
+  background: var(--warning);
+}
+.pb-scope .lg .lgi.bad {
+  background: var(--color-danger);
+}
+.pb-scope .lg .lgi.skip {
+  border: 1.5px solid var(--neutral-dot);
+  width: 7px;
+  height: 7px;
+}
+.pb-scope .lg .lgi.window {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+/* A run that is going now has no colour on the board; it takes the accent. */
+.pb-scope .rd.live {
+  background: var(--accent-strong);
+}
+.pb-scope .who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  line-height: 16px;
+}
+.pb-scope .note {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 16px;
+  margin-top: 8px;
+}
+/* The selected run's three columns, as the board lays them out inline. */
+.pb-scope .rp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) 210px;
+  gap: 20px;
+  align-items: start;
+}
+.pb-scope .rp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.pb-scope .rp .mh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  height: 24px;
+  margin: 0 0 8px;
+}
+.pb-scope .rp-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.pb-scope .rp-actions .btn {
+  text-decoration: none;
+}
+@media (max-width: 1023px) {
+  .pb-scope .rp-grid {
+    grid-template-columns: 1fr;
+  }
+  .pb-scope .rp-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+/* The page body, laid out as the board's inline styles do. */
+.pb-scope .starts-main {
+  flex-grow: 1;
+  min-width: 0;
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: auto;
+  background: var(--surface);
+}
+.pb-scope .starts-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+  align-items: start;
+}
+.pb-scope .starts-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.pb-scope .h3plain {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+.pb-scope .starts-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+@media (max-width: 1023px) {
+  .pb-scope .starts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 767px) {
+  .pb-scope .starts-main {
+    padding: 16px;
+  }
+}
+@media (max-width: 1023px) {
+  .pb-scope.starts-root {
+    flex-direction: column;
+    overflow: auto;
+  }
+  .pb-scope.starts-root .starts-main {
+    overflow: visible;
+  }
+  .pb-scope.starts-root .pb-insp {
+    width: auto;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    overflow: visible;
+  }
+}
+/* Something global sets `.muted` to 10px; the board's muted text keeps its parent's size. */
+.pb-scope .starts-main .muted,
+.pb-scope .pb-insp .muted {
+  font-size: inherit;
+}
+/* A native select needs room for its arrow; the board's are drawn text. */
+.pb-scope .cgh select.select,
+.pb-scope .cr .fl select.select {
+  padding-right: 22px;
+}
+/* Our fields are real, so a line may need a second row where the board's fit on one. */
+.pb-scope .cr .fl {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+.pb-scope .cr .fl > span:first-child:not(.muted) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+@media (max-width: 767px) {
+  .pb-scope .sec-h,
+  .pb-scope .lg {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+}

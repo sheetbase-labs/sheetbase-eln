@@ -1,7 +1,7 @@
 import { t } from '#/copy'
 import type { PipelineScheduleActivityKind } from '#/lib/pipelines/types'
 
-export type Tone = 'ok' | 'stored' | 'warn' | 'bad'
+export type Tone = 'ok' | 'draft' | 'warn' | 'bad'
 
 /** What a start did with each thing it heard: its word, why, and how serious. */
 export const OUTCOMES: Record<
@@ -21,17 +21,17 @@ export const OUTCOMES: Record<
   skipped_unchanged: {
     label: () => t('features.pipelineStarts.outcome.skippedUnchanged'),
     why: () => t('features.pipelineStarts.why.skippedUnchanged'),
-    tone: 'stored',
+    tone: 'draft',
   },
   skipped_overlap: {
     label: () => t('features.pipelineStarts.outcome.skippedOverlap'),
     why: () => t('features.pipelineStarts.why.skippedOverlap'),
-    tone: 'stored',
+    tone: 'draft',
   },
   skipped_condition: {
     label: () => t('features.pipelineStarts.outcome.skippedCondition'),
     why: () => t('features.pipelineStarts.why.skippedCondition'),
-    tone: 'stored',
+    tone: 'draft',
   },
   skipped_missed: {
     label: () => t('features.pipelineStarts.outcome.skippedMissed'),

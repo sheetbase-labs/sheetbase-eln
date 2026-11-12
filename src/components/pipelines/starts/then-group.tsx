@@ -1,6 +1,5 @@
 import { t } from '#/copy'
-import { Input } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
+import { BoardInput, BoardSelect } from '#/features/pipelines/board/board'
 import type { StartRules } from '#/lib/pipelines/start-rules'
 
 import type { RuleProblems } from './composer-model'
@@ -25,32 +24,27 @@ export function ThenGroup({
       head={
         <>
           <OpTag>{t('features.pipelineStarts.composer.thenTag')}</OpTag>
-          <span>{t('features.pipelineStarts.composer.thenStart')}</span>
+          {t('features.pipelineStarts.composer.thenStart')}
         </>
       }
     >
       <Row icon="clock" type={t('features.pipelineStarts.composer.wait')}>
-        <Input
+        <BoardInput
+          style={{ width: 64 }}
           inputMode="numeric"
-          className="h-[26px] w-[72px] text-caption"
           aria-label={t('features.pipelineStarts.composer.wait')}
           aria-invalid={Boolean(problems.wait)}
           value={waitText}
           onChange={(event) => setWaitText(event.target.value)}
         />
-        <span>{t('features.pipelineStarts.composer.waitUnit')}</span>
-        <span className="text-fg-muted">
-          {problems.wait ? (
-            <span className="text-danger-text">{problems.wait}</span>
-          ) : (
-            t('features.pipelineStarts.composer.waitAfter')
-          )}
+        <span className="muted">
+          {t('features.pipelineStarts.composer.waitUnit')}{' '}
+          {t('features.pipelineStarts.composer.waitAfter')}
         </span>
       </Row>
+      {problems.wait ? <div className="addl bad">{problems.wait}</div> : null}
       <Row icon="pause" type={t('features.pipelineStarts.composer.runGoing')}>
-        <Select
-          size="sm"
-          className="w-auto"
+        <BoardSelect
           aria-label={t('features.pipelineStarts.composer.runGoing')}
           value="skip"
           disabled
@@ -58,15 +52,13 @@ export function ThenGroup({
           <option value="skip">
             {t('features.pipelineStarts.composer.skip')}
           </option>
-        </Select>
-        <span className="text-fg-muted">
+        </BoardSelect>
+        <span className="muted">
           {t('features.pipelineStarts.composer.runGoingHint')}
         </span>
       </Row>
-      <Row icon="repeat" type={t('features.pipelineStarts.composer.missed')}>
-        <Select
-          size="sm"
-          className="w-auto"
+      <Row icon="info" type={t('features.pipelineStarts.composer.missed')}>
+        <BoardSelect
           aria-label={t('features.pipelineStarts.composer.missed')}
           value={draft.missedRuns}
           onChange={(event) =>
@@ -82,8 +74,8 @@ export function ThenGroup({
           <option value="skip">
             {t('features.pipelineStarts.composer.missedSkip')}
           </option>
-        </Select>
-        <span className="text-fg-muted">
+        </BoardSelect>
+        <span className="muted">
           {t('features.pipelineStarts.composer.missedHint')}
         </span>
       </Row>

@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -471,11 +472,17 @@ describe('ProjectsPage', () => {
       'me',
     )
 
-    const boxes = await screen.findAllByRole('checkbox', {
-      name: /^Select PRJ-/,
-    })
+    // No tick boxes show until a row is ticked; Ctrl-click ticks the first,
+    // once the signed-in person's role has loaded.
+    await waitFor(() => expect(dataClient.list).toHaveBeenCalled())
+    await act(async () => {})
+    await waitFor(() =>
+      expect(document.querySelector('tbody tr[data-index]')).not.toBeNull(),
+    )
+    const firstRow = document.querySelector('tbody tr[data-index]')
 
-    fireEvent.click(boxes[0])
+    if (!firstRow) throw new Error('no row')
+    fireEvent.click(firstRow, { ctrlKey: true })
 
     fireEvent.click(screen.getByRole('button', { name: 'Archive 1' }))
     // Destructive, so the RPC waits for the confirmation.

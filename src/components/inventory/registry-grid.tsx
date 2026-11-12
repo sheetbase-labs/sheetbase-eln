@@ -346,6 +346,57 @@ export function RegistryGrid<T extends RowData>({
   const bulkIds = new Set(bulk?.ids)
   const ticked = recordIds.filter((id) => bulkIds.has(id))
   const allTicked = recordIds.length > 0 && ticked.length === recordIds.length
+  // The board draws no tick boxes on a list, so they appear only once a row is
+  // ticked. A row is ticked from the keyboard (Space on the focused row) or with
+  // a Ctrl, Cmd or Shift click; after that the boxes are there to add or clear.
+  const showTicks = Boolean(bulk) && ticked.length > 0
+  const toggleBulk = bulk?.toggle
+  useEffect(() => {
+    const root = gridRef.current
+
+    if (!root || !toggleBulk) return
+
+    const idOf = (target: EventTarget | null): string | null => {
+      const tr =
+        target instanceof Element
+          ? target.closest<HTMLTableRowElement>('tbody tr[data-index]')
+          : null
+
+      const row = tr ? rows.at(Number(tr.dataset.index)) : undefined
+
+      return row && !isBand(row) ? getRowId(row) : null
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== ' ' || !(event.target instanceof HTMLTableRowElement))
+        return
+
+      const id = idOf(event.target)
+
+      if (id === null) return
+      event.preventDefault()
+      toggleBulk(id)
+    }
+
+    const onClick = (event: MouseEvent) => {
+      if (!(event.metaKey || event.ctrlKey || event.shiftKey)) return
+
+      const id = idOf(event.target)
+
+      if (id === null) return
+      event.preventDefault()
+      event.stopPropagation()
+      toggleBulk(id)
+    }
+
+    root.addEventListener('keydown', onKeyDown)
+    root.addEventListener('click', onClick, true)
+
+    return () => {
+      root.removeEventListener('keydown', onKeyDown)
+      root.removeEventListener('click', onClick, true)
+    }
+  }, [gridRef, toggleBulk, rows, getRowId])
   const hasView = Boolean(view)
 
   const rowById = useMemo(
@@ -366,7 +417,7 @@ export function RegistryGrid<T extends RowData>({
     // of the header (see RegistryTable), as the design draws no gear column.
     const tools: RegistryColumn<RegistryRow<T>>[] = []
 
-    if (!bulk) return [...body, ...tools]
+    if (!bulk || !showTicks) return [...body, ...tools]
 
     const tick: RegistryColumn<RegistryRow<T>> = {
       id: '__bulk',
@@ -392,7 +443,7 @@ export function RegistryGrid<T extends RowData>({
     return [tick, ...body, ...tools]
     // `ticked.length` and `allTicked` change the header; the row cells read
     // `bulk.has`, which changes with `bulk`.
-  }, [columns, bulk, allTicked, ticked.length])
+  }, [columns, bulk, showTicks, allTicked, ticked.length])
 
   /**
    * A band renders as the muted strip the grouped screens draw: every cell
@@ -401,7 +452,7 @@ export function RegistryGrid<T extends RowData>({
    * table cannot otherwise express without a spanning cell.
    */
   // The tick column carries no label, so a band's label sits in the next one.
-  const labelIndex = bulk ? 1 : 0
+  const labelIndex = showTicks ? 1 : 0
 
   const decorated = useMemo<RegistryColumn<RegistryRow<T>>[]>(
     () =>
@@ -467,7 +518,7 @@ export function RegistryGrid<T extends RowData>({
   const columnPinning = useMemo(() => {
     const all = allColumns.map((column) => column.id)
     // With tick boxes the ID column is the second one; both hold the edge.
-    const first = bulk ? all.slice(0, 2) : all.slice(0, 1)
+    const first = showTicks ? all.slice(0, 2) : all.slice(0, 1)
     // Status holds the end edge.
     const last = all.at(-1)
 
@@ -475,7 +526,7 @@ export function RegistryGrid<T extends RowData>({
       start: first.filter((id): id is string => Boolean(id)),
       end: last === 'status' && all.length > 2 ? [last] : [],
     }
-  }, [allColumns, bulk])
+  }, [allColumns, showTicks])
 
   const state: Partial<TableState<DataGridFeatures>> = {
     rowSelection,
@@ -621,7 +672,7 @@ function RegistryTable<T extends RowData>({
           // `text-fg-muted`, as the v3 table head renders.
           header:
             '[&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6 [@media(hover:none)]:[&_th:last-child]:pr-11 [&_th]:text-label [&_th]:text-fg-muted [&_th]:border-border',
-          body: '[&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6',
+          body: '[&_td_a.mono]:text-fg [&_td_a.mono]:no-underline [&_td_a.mono:hover]:underline [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6',
         }}
       >
         <DataGridScrollArea orientation="both" className="h-full">

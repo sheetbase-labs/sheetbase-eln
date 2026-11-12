@@ -42,6 +42,15 @@ const columns: RegistryColumn<Row>[] = [
 
 afterEach(cleanup)
 
+/** A list shows no tick boxes until a row is ticked; Space on the focused row ticks it. */
+async function startTicking(cell: HTMLElement) {
+  const tr = cell.closest('tr')
+
+  if (!tr) throw new Error('cell is not in a row')
+  tr.focus()
+  await userEvent.keyboard(' ')
+}
+
 function renderGrid(options: {
   followed?: string
   selection?: Record<string, true>
@@ -179,11 +188,11 @@ describe('RegistryGrid tick boxes', () => {
   it('ticks one row, then every row from the header', async () => {
     const seen: (readonly string[])[] = []
 
-    const { getByLabelText } = render(
+    const { getByLabelText, getByText } = render(
       <BulkHarness onTicked={(ids) => seen.push(ids)} />,
     )
 
-    await userEvent.click(getByLabelText('Select a'))
+    await startTicking(getByText('Alpha'))
     expect(seen.at(-1)).toEqual(['a'])
     await userEvent.click(getByLabelText('Select all rows'))
     expect(new Set(seen.at(-1))).toEqual(new Set(['a', 'b']))
@@ -194,7 +203,7 @@ describe('RegistryGrid tick boxes', () => {
   it('does not open the row when a box is ticked', async () => {
     const onRowClick = vi.fn()
 
-    const { getByLabelText } = render(
+    const { getByLabelText, getByText } = render(
       <PaneContext.Provider
         value={{
           paneId: 'p',
@@ -209,6 +218,7 @@ describe('RegistryGrid tick boxes', () => {
       </PaneContext.Provider>,
     )
 
+    await startTicking(getByText('Alpha'))
     await userEvent.click(getByLabelText('Select b'))
     expect(onRowClick).not.toHaveBeenCalled()
   })
@@ -341,8 +351,8 @@ describe('RegistryGrid committed state', () => {
   })
 
   it('does not prune while loading, then prunes only disappeared records', async () => {
-    const { getByLabelText, rerender } = render(<LifecycleGrid />)
-    await userEvent.click(getByLabelText('Select Alpha'))
+    const { getByLabelText, getByText, rerender } = render(<LifecycleGrid />)
+    await startTicking(getByText('Alpha'))
     await userEvent.click(getByLabelText('Select Beta'))
     expect(getByLabelText('Ticked IDs').textContent).toBe('a,b')
     rerender(<LifecycleGrid rows={[]} isLoading />)
@@ -353,10 +363,12 @@ describe('RegistryGrid committed state', () => {
     expect(getByLabelText('Ticked IDs').textContent).toBe('b')
   })
 
-  it('updates labels without remounting a focused checkbox', () => {
-    const { getByLabelText, rerender } = render(
+  it('updates labels without remounting a focused checkbox', async () => {
+    const { getByLabelText, getByText, rerender } = render(
       <LifecycleGrid labelPrefix="Old " />,
     )
+
+    await startTicking(getByText('Beta'))
 
     const checkbox = getByLabelText('Select Old Alpha')
     checkbox.focus()
@@ -380,6 +392,7 @@ describe('RegistryGrid committed state', () => {
       />,
     )
 
+    await startTicking(getByText('Beta'))
     await act(async () => {
       startTransition(() =>
         rerender(
@@ -403,7 +416,9 @@ describe('RegistryGrid committed state', () => {
     expect(committedClick).toHaveBeenCalledExactlyOnceWith(rows[0])
     expect(abandonedClick).not.toHaveBeenCalled()
     await userEvent.click(getByLabelText('Select all rows'))
-    expect(getByLabelText('Ticked IDs').textContent).toBe('a,b')
+    expect(getByLabelText('Ticked IDs').textContent?.split(',').sort()).toEqual(
+      ['a', 'b'],
+    )
     rerender(
       <LifecycleGrid
         onRowClick={committedClick}

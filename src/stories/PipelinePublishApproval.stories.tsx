@@ -126,7 +126,8 @@ export const ButtonReady: Story = {
   render: () => (
     <PublishButton
       pipelineId="pl-1"
-      draft={draft}
+      version={draft.version}
+      draftId={draft.id}
       versions={[published, draft]}
       approval={approval({
         pending: null,
@@ -142,7 +143,8 @@ export const ButtonWaiting: Story = {
   render: () => (
     <PublishButton
       pipelineId="pl-1"
-      draft={draft}
+      version={draft.version}
+      draftId={draft.id}
       versions={[published, draft]}
       approval={approval({
         pending: request,
@@ -158,7 +160,8 @@ export const ButtonReview: Story = {
   render: () => (
     <PublishButton
       pipelineId="pl-1"
-      draft={draft}
+      version={draft.version}
+      draftId={draft.id}
       versions={[published, draft]}
       approval={approval({
         pending: request,

@@ -416,9 +416,10 @@ describe('RegistryGrid committed state', () => {
     expect(committedClick).toHaveBeenCalledExactlyOnceWith(rows[0])
     expect(abandonedClick).not.toHaveBeenCalled()
     await userEvent.click(getByLabelText('Select all rows'))
-    expect(getByLabelText('Ticked IDs').textContent?.split(',').sort()).toEqual(
-      ['a', 'b'],
-    )
+    expect(getByLabelText('Ticked IDs').textContent.split(',').sort()).toEqual([
+      'a',
+      'b',
+    ])
     rerender(
       <LifecycleGrid
         onRowClick={committedClick}

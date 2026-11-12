@@ -104,6 +104,15 @@ export const proposePipelinePublishSchema = z.strictObject({
   title,
   summary,
   pipeline,
+  reason: z
+    .string()
+    .trim()
+    .min(1)
+    .max(500)
+    .optional()
+    .describe(
+      'Why this version should be published; the approver reads it. Defaults to the card title.',
+    ),
 })
 
 export const proposePipelineRetireSchema = z.strictObject({
@@ -203,6 +212,7 @@ export type PipelinesAction =
       workspaceId: string
       definitionId: string
       versionId: string
+      reason: string
     }
   | {
       kind: 'pipeline.retire'

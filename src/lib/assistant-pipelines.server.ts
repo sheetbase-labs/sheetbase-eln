@@ -503,9 +503,9 @@ export async function buildPipelinesProposal(
         `${pipelineLink(pipeline.id)}/steps`,
         [
           {
-            label: 'Published version',
-            before: current ? `v${current.version}` : null,
-            after: `v${draft.version}`,
+            label: 'Approval to publish',
+            before: current ? `v${current.version} published` : null,
+            after: `v${draft.version} waits for an admin`,
           },
         ],
         {
@@ -513,6 +513,7 @@ export async function buildPipelinesProposal(
           workspaceId: context.workspaceId,
           definitionId: pipeline.id,
           versionId: draft.id,
+          reason: input.reason ?? input.title,
         },
       )
     }

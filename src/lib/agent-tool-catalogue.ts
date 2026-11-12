@@ -1630,9 +1630,9 @@ export const UNAVAILABLE_AGENT_OPERATIONS: readonly UnavailableOperation[] = [
       'Schema publication is a steward lifecycle act outside the agent draft vocabulary; adding it needs an explicit policy decision.',
   },
   {
-    name: 'publish_pipeline_definition_version',
+    name: 'approve_approval_request',
     reason:
-      'Pipeline publication is a human lifecycle act outside the agent draft vocabulary.',
+      'Approving, and so publishing a pipeline version, is a person’s decision in the app; requesting it is `request_pipeline_publish`.',
   },
   {
     name: 'delete_record',

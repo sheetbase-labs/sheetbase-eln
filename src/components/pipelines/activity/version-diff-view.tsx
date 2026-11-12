@@ -4,7 +4,6 @@ import { t } from '#/copy'
 import { BoardSegmented } from '#/features/pipelines/board/board'
 import { diffVersions, withContext } from '#/lib/pipelines/version-diff'
 import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
-import './activity.css'
 
 type View = 'file' | 'diff'
 

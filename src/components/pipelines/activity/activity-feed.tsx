@@ -3,7 +3,6 @@ import { BoardStatus } from '#/features/pipelines/board/board'
 import type { Tone } from '#/components/ui/status'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import type { ActivityEvent, ActivityKind } from './activity-events'
-import './activity.css'
 
 const WHAT: Record<ActivityKind, { label: () => string; tone: Tone }> = {
   created: {

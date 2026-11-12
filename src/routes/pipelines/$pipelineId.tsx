@@ -127,7 +127,12 @@ function PipelineLayout() {
 
   // What publishing would make: the saved draft, or the version after the published one.
   const nextVersion = draft?.version ?? (current ? current.version + 1 : 1)
-  const canPublish = editor.canSave && (editor.dirty || Boolean(draft))
+  const { simple } = editor
+
+  const canPublish = simple
+    ? simple.complete && (simple.dirty || Boolean(draft))
+    : editor.canSave && (editor.dirty || Boolean(draft))
+
   const owner = d.created_by_user_id ? members[d.created_by_user_id] : undefined
 
   // A pipeline started from a template is Simple until it has a version of its own.

@@ -185,6 +185,7 @@ function sqlLine(line: string): ReactNode[] {
     return part.split(SQL_WORDS).flatMap((piece, j) => {
       if (j % 2 === 1)
         return [
+          // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- the pieces of one line come from splitting it once, so their position is their identity.
           <span key={`k${i}.${j}`} className="kw">
             {piece}
           </span>,
@@ -192,6 +193,7 @@ function sqlLine(line: string): ReactNode[] {
 
       return piece.split(/\b(previous)\b/).map((bit, k) =>
         k % 2 === 1 ? (
+          // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- the pieces of one line come from splitting it once, so their position is their identity.
           <span key={`r${i}.${j}.${k}`} className="ref">
             {bit}
           </span>
@@ -215,6 +217,7 @@ export function BoardCode({
     <pre className="code" aria-label={label}>
       {lines.map((line, i) => (
         // SAFETY: the lines are a fixed, ordered snapshot of one statement and never reorder.
+        // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- the lines are one statement split once and never reorder, so their position is their identity.
         <span key={`${i}:${line}`} className="l">
           {sqlLine(line)}
         </span>

@@ -51,6 +51,7 @@ export function canonicalWorkspaceGridColumn(
     source: column.origin === 'calculation' ? 'calculated' : column.origin,
     readOnly: !canWrite || !column.editable,
     group: details ? ownerBand(column) : undefined,
+    groupDescription: details ? ownerBandNote(column) : undefined,
     sourceLabel: details ? column.sourceLabel : undefined,
     showSource: details || column.origin === 'calculation',
   }
@@ -94,17 +95,21 @@ export function canonicalWorkspaceGridColumn(
   return { ...base, type: 'text' }
 }
 
-/** The Details view's header band: who owns the columns and what an edit makes. */
+/** The Details view's header band: who owns the columns. */
 function ownerBand(column: CanonicalSheetGridColumn): string {
+  if (column.origin === 'bound') return column.sourceLabel ?? column.group
+
+  return column.group
+}
+
+/** The band's second line: what an edit to these columns makes. */
+function ownerBandNote(column: CanonicalSheetGridColumn): string {
   if (column.origin === 'calculation')
-    return t('notebook.sheetEditLine.bandDerived', { group: column.group })
+    return t('notebook.sheetEditLine.bandDerived')
 
-  if (column.origin === 'local')
-    return t('notebook.sheetEditLine.bandLocal', { group: column.group })
-
-  return t('notebook.sheetEditLine.bandBound', {
-    group: column.sourceLabel ?? column.group,
-  })
+  return column.origin === 'local'
+    ? t('notebook.sheetEditLine.bandLocal')
+    : t('notebook.sheetEditLine.bandBound')
 }
 
 /** A number with its unit after it; an empty or non-numeric cell is left to the grid. */

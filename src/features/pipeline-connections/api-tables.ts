@@ -3,13 +3,13 @@ import type { LabTable } from '#/lib/lab-api-surface'
 /**
  * Pipeline connections on the external API. The secret values are sealed in
  * `internal.pipeline_connection_secrets` and are on no surface; `secret_names`
- * lists the names only. Read with `admin:read`.
+ * lists the names only. Read with `pipelines:read`, so a token that authors pipelines can list and reference them.
  */
 export const PIPELINE_CONNECTION_LAB_TABLES = {
   pipeline_connections: {
     summary:
       'The https addresses pipeline web call steps may call. `key` is what a step names; `status` is `active` or `off`; `secret_names` lists the names of the secrets stored for it (never their values).',
-    scope: 'admin:read',
+    scope: 'pipelines:read',
     columns: [
       ['id', 'uuid', 1],
       ['workspace_id', 'uuid', 1],

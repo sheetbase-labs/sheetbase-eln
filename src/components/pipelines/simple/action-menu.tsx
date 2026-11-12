@@ -40,6 +40,7 @@ export function ActionMenu({
   const groupLabel = (group: string) => words('catalogue.groups')(group)
 
   return (
+    // react-doctor-disable-next-line react-doctor/prefer-html-dialog -- this is the body of a popover the recipe opens beside its chip, not a modal.
     <div role="dialog" aria-label={t('features.pipelineSimple.catalogue.aria')}>
       <div className="flex items-center gap-2 border-b border-border px-2.5 py-2">
         <Icon name="search" size={14} className="text-fg-muted" />

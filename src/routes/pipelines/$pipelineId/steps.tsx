@@ -1,8 +1,4 @@
-import {
-  createFileRoute,
-  redirect,
-  useSearch,
-} from '@tanstack/react-router'
+import { createFileRoute, redirect, useSearch } from '@tanstack/react-router'
 
 import { t } from '#/copy'
 import { Button } from '#/components/ui/button'

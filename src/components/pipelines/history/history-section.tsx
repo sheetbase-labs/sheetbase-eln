@@ -1,11 +1,8 @@
 import { useState } from 'react'
-import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { DuplicateDialog } from '#/components/pipelines/history/duplicate-dialog'
-import {
-  HistoryTable,
-  versionMode,
-} from '#/components/pipelines/history/history-table'
+import { HistoryTable } from '#/components/pipelines/history/history-table'
+import { versionMode } from '#/lib/pipelines/version-mode'
 import { ReadOnlyVersion } from '#/components/pipelines/history/read-only-version'
 import {
   usePipelineDefinition,
@@ -16,25 +13,19 @@ import { Button } from '#/components/ui/button'
 import { Muted, Section } from '#/components/ui/layout'
 import { t } from '#/copy'
 import { words } from '#/lib/pipelines/simple/words'
-import { signInRedirect } from '#/lib/sign-in-redirect'
 import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
 
-/** Every version of a pipeline in the mode it was written in; open one read-only or duplicate it. */
-export const Route = createFileRoute('/pipelines/$pipelineId/history')({
-  beforeLoad: async ({ context: rootContext, location }) => {
-    const context = rootContext.auth
-
-    if (!context) throw redirect(signInRedirect(location))
-
-    return { context }
-  },
-  component: PipelineHistory,
-})
-
-function PipelineHistory() {
-  const { pipelineId } = Route.useParams()
-  const { context } = Route.useRouteContext()
-  const workspaceId = context.workspace?.id ?? ''
+/**
+ * Every version of a pipeline in the mode it was written in, as a section of
+ * the Activity tab: open one read-only or duplicate it as a new pipeline.
+ */
+export function HistorySection({
+  pipelineId,
+  workspaceId,
+}: {
+  pipelineId: string
+  workspaceId: string
+}) {
   const definition = usePipelineDefinition(pipelineId)
   const versions = usePipelineVersions(pipelineId)
   const members = useWorkspaceMemberNames()
@@ -47,7 +38,7 @@ function PipelineHistory() {
   const d = definition.data
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto px-6 py-5 max-md:px-4">
+    <div id="history" className="flex min-w-0 flex-col gap-4">
       <Section title={t('features.pipelineSimple.history.title')}>
         <Muted>{t('features.pipelineSimple.history.description')}</Muted>
         <HistoryTable

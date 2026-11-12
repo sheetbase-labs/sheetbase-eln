@@ -32,6 +32,8 @@ export const copy = {
     and: 'and',
     snapshotOf: 'a new snapshot of',
     pickDataset: 'a dataset',
+    anyInstrument: 'any instrument',
+    fromInstrument: 'from',
     pickColumn: 'a column',
     pickPerson: 'someone',
     pickChannel: 'a destination',
@@ -133,9 +135,10 @@ export const copy = {
       create: 'Create a dataset',
     },
     eln: {
-      insertBlock: 'Propose a notebook block',
+      insertChart: 'Propose a chart block',
+      insertTable: 'Propose a results table',
       editSample: 'Set a sample field',
-      linkRecord: 'Link to a record',
+      linkRecord: 'Link to an experiment',
     },
     pauses: 'pauses',
     propose: 'propose',
@@ -226,6 +229,7 @@ export const copy = {
     template: 'Started from {template}. Choose the dataset, column and people.',
   },
   convert: {
+    menu: 'Convert to Standard…',
     title: 'Convert to Standard?',
     changes: 'What changes',
     changesText:
@@ -259,6 +263,7 @@ export const copy = {
     made: 'Made',
     open: 'Open',
     duplicate: 'Duplicate…',
+    duplicateMenu: 'Duplicate as a new pipeline…',
     convertedBy: 'Converted',
     createdBy: 'Made',
     publishedAt: 'Published {date}',

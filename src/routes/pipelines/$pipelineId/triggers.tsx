@@ -57,6 +57,7 @@ import {
   WebhookCard,
 } from '#/components/pipelines/triggers-outputs'
 import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
+import { HistorySection } from '#/components/pipelines/history/history-section'
 import { ScheduleDialog } from '#/components/pipelines/schedule-dialog'
 import { ScheduleHistoryDialog } from '#/components/pipelines/schedule-history'
 
@@ -598,6 +599,7 @@ function PipelineTriggers() {
       <WebhookSection definitionId={pipelineId} />
       <OutputsSection pipelineId={pipelineId} version={shownVersion} />
       <RunBoundaries />
+      <HistorySection pipelineId={pipelineId} workspaceId={workspaceId} />
       <ScheduleDialog
         open={adding}
         onOpenChange={setAdding}

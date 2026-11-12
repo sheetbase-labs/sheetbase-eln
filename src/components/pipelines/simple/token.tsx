@@ -2,7 +2,7 @@ import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
-const TOKEN =
+const CHIP =
   'inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-border bg-surface-muted pl-2 pr-1.5 font-sans text-body font-medium text-fg hover:bg-surface-hover'
 
 /**
@@ -43,7 +43,7 @@ export function TokenSelect({
   return (
     <span
       className={cn(
-        TOKEN,
+        CHIP,
         'relative',
         !chosen && 'border-dashed text-fg-muted',
         className,
@@ -97,7 +97,7 @@ export function TokenInput({
   className?: string
 }) {
   return (
-    <label className={cn(TOKEN, 'cursor-text', className)}>
+    <label className={cn(CHIP, 'cursor-text', className)}>
       <input
         aria-label={label}
         type={type}

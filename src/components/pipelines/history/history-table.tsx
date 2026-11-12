@@ -9,22 +9,12 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/ui/table'
+import { versionMode } from '#/lib/pipelines/version-mode'
 import { words } from '#/lib/pipelines/simple/words'
 import { formatDate } from '#/lib/format-date'
-import { PIPELINE_MODES } from '#/lib/pipelines/config'
-import type { PipelineMode } from '#/lib/pipelines/config'
 import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
 
 const hs = words('history')
-
-/** The mode a stored version was written in; versions from before modes were Standard. */
-export function versionMode(
-  version: PipelineDefinitionVersionWire,
-): PipelineMode {
-  const mode: unknown = version.configuration.mode
-
-  return PIPELINE_MODES.find((m) => m === mode) ?? 'standard'
-}
 
 const LIFECYCLE = {
   draft: { tone: 'draft', label: 'draft' },

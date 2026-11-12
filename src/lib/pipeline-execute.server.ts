@@ -2151,7 +2151,7 @@ export async function expirePipelinePrompts(
               sandbox,
               answered,
               deps.plugins,
-        { ...externalSteps(deps), web },
+              { ...externalSteps(deps), web },
             ),
           )
 
@@ -2720,7 +2720,7 @@ function manifestSteps(
           ? JSON.stringify(step.remoteJob)
           : step.kind === 'web_call'
             ? JSON.stringify(step.webCall)
-          : step.statement,
+            : step.statement,
   }))
 }
 

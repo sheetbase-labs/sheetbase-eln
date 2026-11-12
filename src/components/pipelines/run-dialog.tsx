@@ -18,10 +18,24 @@ import {
   declaredRunInputs,
   schemasOf,
   useDatasetVersionChoices,
+  useWorkspaceMemberNames,
 } from '#/components/pipelines/pipelines-data'
 import { parameterText, parameterValue, parameterError } from './run-parameters'
 import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
 import type { DataClient } from '#/lib/data-client'
+
+/** The words that ask for what a Simple recipe takes from the event that starts it. */
+function parameterLabel(name: string): React.ReactNode {
+  if (name === 'event_person') return t('data.runDialog.eventPerson')
+
+  if (name === 'event_subject') return t('data.runDialog.eventSubject')
+
+  return (
+    <>
+      {t('data.runDialog.parameter')} <span className="mono">{name}</span>
+    </>
+  )
+}
 
 export interface RunDetails {
   inputVersions: Record<string, string>
@@ -55,6 +69,7 @@ export function RunDialog({
 }) {
   const { inputs, parameters } = declaredRunInputs(version)
   const choices = useDatasetVersionChoices(inputs.length > 0, client)
+  const members = useWorkspaceMemberNames(client)
 
   const [pinned, setPinned] = useState<Record<string, string>>(
     initial?.inputVersions ?? {},
@@ -202,17 +217,30 @@ export function RunDialog({
             return (
               <Field
                 key={parameter.name}
-                label={
-                  <>
-                    {t('data.runDialog.parameter')}{' '}
-                    <span className="mono">{parameter.name}</span>
-                  </>
-                }
+                label={parameterLabel(parameter.name)}
                 required={parameter.required}
                 hint={parameter.description}
                 error={error}
               >
-                {parameter.type === 'boolean' ? (
+                {parameter.name === 'event_person' ? (
+                  <Select
+                    aria-label={t('data.runDialog.eventPerson')}
+                    value={raw}
+                    onChange={(e) =>
+                      setValues((cur) => ({
+                        ...cur,
+                        [parameter.name]: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">{t('data.runDialog.choosePerson')}</option>
+                    {Object.entries(members.data ?? {}).map(([id, name]) => (
+                      <option key={id} value={id}>
+                        {name}
+                      </option>
+                    ))}
+                  </Select>
+                ) : parameter.type === 'boolean' ? (
                   <Select
                     aria-label={t('data.runDialog.ariaParameter', {
                       name: parameter.name,

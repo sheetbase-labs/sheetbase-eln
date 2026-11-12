@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -20,6 +20,7 @@ import { simpleConfig, recipeOf } from '#/lib/pipelines/simple/compile'
 import { recipeProblems } from '#/lib/pipelines/simple/recipe'
 import type { PipelineRecipe } from '#/lib/pipelines/simple/recipe'
 import { validatePipelineConfig } from '#/lib/pipelines/config'
+import { usePipelineEditor } from '../step-list/use-pipeline-editor'
 import { DryRunPanel } from './dry-run-panel'
 import { HowItRuns } from './how-it-runs'
 import { RecipeEditor } from './recipe-editor'
@@ -79,31 +80,40 @@ export function SimpleEditor({
   )
 
   const complete = problems.length === 0 && compiledProblems.length === 0
-  const dirty = edited !== null || (!draft && Boolean(starting))
+  const dirty = edited !== null || (!source && Boolean(starting))
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
 
-  const save = useMutation({
-    mutationFn: () => {
-      if (!built) throw new Error(e('finish'))
+  const persist = async (): Promise<string | undefined> => {
+    if (!built) throw new Error(e('finish'))
 
-      return draft
-        ? notebookDataClient.rpc('update_pipeline_definition_version_draft', {
+    const saved = draft
+      ? await notebookDataClient.rpc(
+          'update_pipeline_definition_version_draft',
+          {
             p_workspace_id: workspaceId,
             p_version_id: draft.id,
             p_expected_revision: draft.revision,
             p_configuration: built,
-          })
-        : notebookDataClient.rpc('create_pipeline_definition_version', {
-            p_workspace_id: workspaceId,
-            p_definition_id: pipelineId,
-            p_configuration: built,
-          })
-    },
+          },
+        )
+      : await notebookDataClient.rpc('create_pipeline_definition_version', {
+          p_workspace_id: workspaceId,
+          p_definition_id: pipelineId,
+          p_configuration: built,
+        })
+
+    setEdited(null)
+
+    // SAFETY: the version rpcs return the version row, whose id is all that is read.
+    return (saved as { id?: string } | null)?.id ?? draft?.id
+  }
+
+  const save = useMutation({
+    mutationFn: persist,
     onSuccess: async () => {
       await invalidate()
-      setEdited(null)
       toast(e('saved'))
     },
     onError: (error) =>
@@ -111,6 +121,21 @@ export function SimpleEditor({
         description: error instanceof Error ? error.message : undefined,
       }),
   })
+
+  // Tell the header what is unsaved, so its Publish saves the recipe first. The
+  // header calls the latest save through a ref, so only the flags re-announce.
+  const { setSimple } = usePipelineEditor()
+  const persistRef = useRef(persist)
+
+  useEffect(() => {
+    persistRef.current = persist
+  })
+
+  useEffect(() => {
+    setSimple({ dirty, complete, save: () => persistRef.current() })
+
+    return () => setSimple(null)
+  }, [dirty, complete, setSimple])
 
   if (!recipe || !d) return null
 
@@ -140,7 +165,7 @@ export function SimpleEditor({
   return (
     <div className="flex min-w-0 flex-1 overflow-auto max-lg:flex-col">
       <div className="flex min-w-0 flex-1 flex-col gap-4 bg-bg px-6 py-5 max-md:px-4">
-        {starting?.fromTemplate && !draft ? (
+        {starting?.fromTemplate && !source ? (
           <Notice tone="info" icon="info">
             {e('template', { template: starting.fromTemplate })}
           </Notice>

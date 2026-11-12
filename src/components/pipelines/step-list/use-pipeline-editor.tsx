@@ -67,6 +67,16 @@ const EMPTY_CONFIG: PipelineConfig = {
 
 export type Selection = 'starts' | 'inputs' | 'output' | `step:${string}`
 
+/** What a Simple pipeline's editor tells the header about its recipe. */
+export interface SimpleDraft {
+  /** The recipe has edits that are not saved. */
+  dirty: boolean
+  /** The recipe is finished and compiles to a configuration the contract accepts. */
+  complete: boolean
+  /** Saves the recipe on the draft and returns the draft version's id. */
+  save: () => Promise<string | undefined>
+}
+
 /** The step-list editor's state: the draft being edited, its checks, and what it can do. */
 // react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the model owns the draft, its checks, save, publish, try and the run facts together; they share one working copy.
 export function usePipelineEditorModel(
@@ -215,8 +225,23 @@ export function usePipelineEditorModel(
       ),
   })
 
+  // A Simple pipeline keeps its recipe in its own editor; that editor tells the
+  // header what is unsaved and how to save it, so Publish can save first too.
+  const [simple, setSimple] = useState<SimpleDraft | null>(null)
+
   // Asking to publish saves what is on screen first, then asks about that draft.
   const ensureDraft = async () => {
+    if (simple) {
+      if (!simple.complete)
+        throw new Error(t('data.pipelineSteps.draftPublish'))
+
+      const savedId = simple.dirty || !draft ? await simple.save() : draft.id
+
+      if (!savedId) throw new Error(t('data.pipelineSteps.draftPublish'))
+
+      return savedId
+    }
+
     if (!built) throw new Error(t('data.pipelineSteps.draftPublish'))
     let versionId = draft?.id
 
@@ -460,6 +485,8 @@ export function usePipelineEditorModel(
     pythonUnavailable,
     saveDraft,
     ensureDraft,
+    simple,
+    setSimple,
     tryDraft,
     startTrial,
     submitTrial,

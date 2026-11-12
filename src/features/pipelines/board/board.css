@@ -10,6 +10,7 @@
   --text: var(--foreground);
   --text-muted: var(--muted-foreground);
   --text-faint: var(--faint-foreground);
+  --danger: var(--destructive);
   --accent-strong: var(--primary);
   --accent-strong-hover: var(--primary-hover);
 }

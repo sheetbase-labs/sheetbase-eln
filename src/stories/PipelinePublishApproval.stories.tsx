@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
+import { BoardScope } from '#/features/pipelines/board/board'
 import { ActivityFeed } from '#/components/pipelines/activity/activity-feed'
 import type { ActivityEvent } from '#/components/pipelines/activity/activity-events'
 import { PublishButton } from '#/components/pipelines/activity/publish-button'
@@ -30,9 +31,9 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div className="w-[820px] max-w-full">
+      <BoardScope className="w-[820px] max-w-full">
         <Story />
-      </div>
+      </BoardScope>
     ),
   ],
 } satisfies Meta

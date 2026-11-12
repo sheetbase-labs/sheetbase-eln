@@ -28,6 +28,12 @@ import {
   withGaps,
   withoutGaps,
 } from '#/lib/pipelines/version-file-gaps'
+import {
+  newHistory,
+  record,
+  shiftLines,
+  move,
+} from '#/lib/pipelines/version-file-edit'
 import { hintsAt } from '#/lib/pipelines/version-file-hints'
 import type { FileHints } from '#/lib/pipelines/version-file-hints'
 import {
@@ -129,6 +135,9 @@ export function VersionFileEditor() {
   )
 
   const caret = useRef({ start: 0, end: 0 })
+  const [history] = useState(newHistory)
+  const typing = useRef(false)
+  const touched = useRef(false)
   const lastKey = useRef('')
 
   // Where a line sits in the frame, with the messages above it counted.
@@ -149,6 +158,56 @@ export function VersionFileEditor() {
     if (el.selectionStart !== start || el.selectionEnd !== end)
       el.setSelectionRange(start, end)
   }, [shownText, fileText, gapLines])
+
+  // The file's own undo history. The browser's cannot be trusted here: the
+  // room made for a message changes the textarea's text behind its back.
+  useEffect(() => {
+    const own = history
+
+    if (own.stack.at(own.at)?.text === fileText) return
+    const edit = { text: fileText, ...caret.current }
+
+    // Until the person has done anything, a load is where history starts.
+    if (!touched.current) {
+      own.stack = [edit]
+      own.at = 0
+
+      return
+    }
+
+    record(own, edit, Date.now(), typing.current)
+    typing.current = false
+  }, [fileText, history])
+
+  const travel = (direction: -1 | 1) => {
+    const to = move(history, direction)
+
+    if (!to) return
+    caret.current = { start: to.start, end: to.end }
+    touched.current = true
+    setFileText(to.text)
+  }
+
+  // The browser's own undo and redo (the Edit menu) go the same way.
+  useEffect(() => {
+    const el = area.current
+
+    if (!el) return
+
+    const onBefore = (event: InputEvent) => {
+      if (
+        event.inputType !== 'historyUndo' &&
+        event.inputType !== 'historyRedo'
+      )
+        return
+      event.preventDefault()
+      travel(event.inputType === 'historyUndo' ? -1 : 1)
+    }
+
+    el.addEventListener('beforeinput', onBefore)
+
+    return () => el.removeEventListener('beforeinput', onBefore)
+  })
 
   // Keep the caret in view as the text scrolls inside the frame.
   const reveal = (line: number) => {
@@ -239,10 +298,53 @@ export function VersionFileEditor() {
     setHint(null)
   }
 
+  // Tab and Shift+Tab move every line the selection touches.
+  const shift = (outdent: boolean) => {
+    const el = area.current
+
+    if (!el) return
+    const start = fileOffset(el.value, el.selectionStart)
+    const end = fileOffset(el.value, el.selectionEnd)
+    const out = shiftLines(fileText, start, end, outdent)
+
+    if (!out) return
+    caret.current = { start: out.start, end: out.end }
+    touched.current = true
+    setFileText(out.text)
+  }
+
+  // What is copied or cut is the file's text, never the room under a message.
+  const copyOut = (
+    event: React.ClipboardEvent<HTMLTextAreaElement>,
+    cut: boolean,
+  ) => {
+    const el = event.currentTarget
+
+    if (!gapLines.length || el.selectionStart === el.selectionEnd) return
+    event.clipboardData.setData(
+      'text/plain',
+      withoutGaps(el.value.slice(el.selectionStart, el.selectionEnd)),
+    )
+    event.preventDefault()
+
+    if (cut) document.execCommand('delete')
+  }
+
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const el = event.currentTarget
 
     lastKey.current = event.key
+
+    if ((event.metaKey || event.ctrlKey) && !event.altKey) {
+      const key = event.key.toLowerCase()
+
+      if (key === 'z' || (key === 'y' && !event.metaKey)) {
+        event.preventDefault()
+        travel(key === 'y' || event.shiftKey ? 1 : -1)
+
+        return
+      }
+    }
 
     if (hint) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -288,7 +390,9 @@ export function VersionFileEditor() {
     if (event.key === 'Tab' && !event.shiftKey) {
       if (leaveOnTab.current) return
       event.preventDefault()
-      typeText(el, '  ')
+
+      if (el.selectionStart === el.selectionEnd) typeText(el, '  ')
+      else shift(false)
 
       return
     }
@@ -296,12 +400,7 @@ export function VersionFileEditor() {
     if (event.key === 'Tab' && event.shiftKey) {
       if (leaveOnTab.current) return
       event.preventDefault()
-      const start = el.value.lastIndexOf('\n', el.selectionStart - 1) + 1
-      const spaces = /^ {1,2}/.exec(el.value.slice(start))?.[0].length ?? 0
-
-      if (!spaces) return
-      el.setSelectionRange(start, start + spaces)
-      document.execCommand('delete')
+      shift(true)
 
       return
     }
@@ -539,6 +638,16 @@ export function VersionFileEditor() {
               wrap="off"
               onChange={(e) => {
                 const el = e.target
+
+                const kind =
+                  e.nativeEvent instanceof InputEvent
+                    ? e.nativeEvent.inputType
+                    : ''
+
+                typing.current =
+                  kind === 'insertText' || kind === 'deleteContentBackward'
+
+                touched.current = true
                 const text = withoutGaps(el.value)
                 const at = fileOffset(el.value, el.selectionStart)
                 const line = lineAt(text, at)
@@ -551,6 +660,8 @@ export function VersionFileEditor() {
                 setHint(found ? { ...found, line, col, pick: 0 } : null)
               }}
               onBlur={() => setHint(null)}
+              onCopy={(e) => copyOut(e, false)}
+              onCut={(e) => copyOut(e, true)}
               onKeyDown={onKeyDown}
               onKeyUp={sync}
               onClick={sync}

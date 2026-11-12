@@ -275,4 +275,31 @@ describe('Inbox items from a pipeline', () => {
     expect(item.rows[0].title).toBe('1 material expires within 30 days')
     expect(item.rows[0].body).toContain('RGT-EXP-1 Buffer (lot L7)')
   })
+
+  it('lists every lot, however many there are', async () => {
+    const soon = new Date(Date.now() + 3 * 86_400_000)
+      .toISOString()
+      .slice(0, 10)
+
+    await migrator.query(
+      `insert into api.records(workspace_id, kind, identifier, title, status, created_by_user_id, properties)
+       select $1, 'material', 'RGT-MANY-' || n, 'Reagent', 'available', $2, $3::jsonb
+         from generate_series(1, 75) n`,
+      [WS, OWNER, JSON.stringify({ lot: 'M', expiry: soon })],
+    )
+
+    const found = await owner.query<{ result: { count: number } }>(
+      `select api.list_expiring_materials($1::uuid, $2, 30) as result`,
+      [WS, OWNER],
+    )
+
+    expect(found.rows[0].result.count).toBe(76)
+
+    const item = await migrator.query<{ body: string }>(
+      `select body from api.pipeline_inbox_items where workspace_id = $1 and title like '76 %'`,
+      [WS],
+    )
+
+    expect(item.rows[0].body.split('\n')).toHaveLength(76)
+  })
 })

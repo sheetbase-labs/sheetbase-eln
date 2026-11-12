@@ -21,7 +21,7 @@ CREATE TABLE api.pipeline_inbox_items (
     CONSTRAINT pipeline_inbox_items_dataset_fk FOREIGN KEY (dataset_id) REFERENCES api.datasets(id) ON DELETE CASCADE,
     CONSTRAINT pipeline_inbox_items_version_fk FOREIGN KEY (dataset_version_id) REFERENCES api.dataset_versions(id) ON DELETE CASCADE,
     CONSTRAINT chk_pipeline_inbox_items_title CHECK (char_length(btrim(title)) BETWEEN 1 AND 200),
-    CONSTRAINT chk_pipeline_inbox_items_body CHECK (body IS NULL OR char_length(body) <= 2000)
+    CONSTRAINT chk_pipeline_inbox_items_body CHECK (body IS NULL OR char_length(body) <= 1000000)
 );
 --> statement-breakpoint
 ALTER TABLE api.pipeline_inbox_items OWNER TO migrator;

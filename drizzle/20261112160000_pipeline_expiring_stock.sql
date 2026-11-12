@@ -35,16 +35,9 @@ BEGIN
   )
   SELECT count(*),
          string_agg(identifier || ' ' || title || ' (lot ' || coalesce(lot, 'none') || ') expires ' || expiry::text,
-                    E'\n') FILTER (WHERE true)
+                    E'\n')
     INTO v_count, v_lines
-    FROM (SELECT * FROM expiring LIMIT 50) shown;
-
-  SELECT count(*) INTO v_count FROM api.records r
-   WHERE r.workspace_id = p_workspace_id
-     AND r.kind = 'material' AND r.deleted_at IS NULL AND r.archived_at IS NULL
-     AND coalesce(r.status, '') NOT IN ('quarantined', 'expired', 'consumed', 'depleted')
-     AND (r.properties->>'expiry') ~ '^\d{4}-\d{2}-\d{2}$'
-     AND (r.properties->>'expiry')::date <= current_date + p_days;
+    FROM expiring;
 
   IF v_count = 0 THEN
     RETURN jsonb_build_object('count', 0, 'created', false);

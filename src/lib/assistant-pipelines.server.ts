@@ -16,6 +16,8 @@ import {
   PLUGIN_REMOVE_TOOL,
   PLUGIN_SWITCH_TOOL,
   proposeInboxItemSchema,
+  proposeExpiringStockSchema,
+  EXPIRING_STOCK_TOOL,
   proposePipelineCancelSchema,
   proposePipelineConvertSchema,
   proposePipelineDuplicateSchema,
@@ -104,6 +106,11 @@ export function pipelinesProposalDefs(): ProviderToolDef[] {
       INBOX_ITEM_TOOL,
       `Propose leaving an item in someone’s Inbox: a task to do, or a dataset to look at. ${NOTE}`,
       proposeInboxItemSchema,
+    ),
+    toolDef(
+      EXPIRING_STOCK_TOOL,
+      `Propose leaving one Inbox item for a person that lists the materials expiring within a number of days (30 when not given), soonest first. ${NOTE}`,
+      proposeExpiringStockSchema,
     ),
     toolDef(
       PIPELINE_SCHEDULE_ADD_TOOL,
@@ -717,6 +724,56 @@ export async function buildPipelinesProposal(
           item: input.item,
           details: input.details ?? null,
           datasetId,
+        },
+      )
+    }
+
+    case EXPIRING_STOCK_TOOL: {
+      const parsed = proposeExpiringStockSchema.safeParse(args)
+
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+
+      const members = await context.client.rpc<
+        { user_id: string; name: string }[]
+      >('workspace_members_list', {})
+
+      const lower = input.person.trim().toLowerCase()
+
+      const who = members.filter(
+        (member) =>
+          member.name.toLowerCase() === lower ||
+          lower
+            .split(/\s+/)
+            .every((word) => member.name.toLowerCase().includes(word)),
+      )
+
+      if (who.length !== 1)
+        return fail(
+          who.length === 0
+            ? `No one in the workspace is called ${input.person}.`
+            : `${who.length} people match ${input.person}. Ask the person which one.`,
+        )
+
+      const days = input.days ?? 30
+
+      return card(
+        name,
+        input,
+        `${who[0].name} · Inbox`,
+        '/inbox',
+        [
+          {
+            label: 'Inbox item',
+            before: null,
+            after: `Materials expiring within ${days} days`,
+          },
+        ],
+        {
+          kind: 'inbox.list_expiring',
+          workspaceId: context.workspaceId,
+          userId: who[0].user_id,
+          days,
         },
       )
     }

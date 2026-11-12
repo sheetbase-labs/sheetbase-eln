@@ -1110,6 +1110,9 @@ export const data = {
     },
   },
   runDialog: {
+    eventPerson: 'Who the event is about',
+    eventSubject: 'What happened',
+    choosePerson: 'Choose a person',
     tryWith: 'Try {pipelineName} with…',
     runWith: 'Run {pipelineName} with…',
     runsDraftNowDataset:

@@ -25,6 +25,7 @@ export const PIPELINE_RETIRE_TOOL = 'sheetbase.pipeline.retire'
 export const PIPELINE_CONVERT_TOOL = 'sheetbase.pipeline.convert'
 export const PIPELINE_DUPLICATE_TOOL = 'sheetbase.pipeline.duplicate'
 export const INBOX_ITEM_TOOL = 'sheetbase.inbox.leave_item'
+export const EXPIRING_STOCK_TOOL = 'sheetbase.inbox.list_expiring_stock'
 export const PIPELINE_SCHEDULE_ADD_TOOL = 'sheetbase.pipeline.schedule_add'
 
 export const PIPELINE_SCHEDULE_SWITCH_TOOL =
@@ -45,6 +46,7 @@ export const PIPELINES_PROPOSE_TOOL_NAMES = [
   PIPELINE_CONVERT_TOOL,
   PIPELINE_DUPLICATE_TOOL,
   INBOX_ITEM_TOOL,
+  EXPIRING_STOCK_TOOL,
   PIPELINE_SCHEDULE_ADD_TOOL,
   PIPELINE_SCHEDULE_SWITCH_TOOL,
   PIPELINE_SCHEDULE_DELETE_TOOL,
@@ -163,6 +165,19 @@ export const proposeInboxItemSchema = z.strictObject({
     .describe('The dataset it is about, by name, if it is about one.'),
 })
 
+export const proposeExpiringStockSchema = z.strictObject({
+  title,
+  summary,
+  person: z.string().min(1).max(200).describe('Who gets the list, by name.'),
+  days: z
+    .number()
+    .int()
+    .min(1)
+    .max(365)
+    .optional()
+    .describe('How many days ahead to look. Defaults to 30.'),
+})
+
 export const proposePipelineScheduleAddSchema = z.strictObject({
   title,
   summary,
@@ -275,6 +290,12 @@ export type PipelinesAction =
       datasetId: string | null
     }
   | {
+      kind: 'inbox.list_expiring'
+      workspaceId: string
+      userId: string
+      days: number
+    }
+  | {
       kind: 'pipeline.schedule_add'
       workspaceId: string
       definitionId: string
@@ -313,6 +334,7 @@ const KINDS: readonly string[] = [
   'pipeline.convert',
   'pipeline.duplicate',
   'inbox.leave_item',
+  'inbox.list_expiring',
   'pipeline.schedule_add',
   'pipeline.schedule_switch',
   'pipeline.schedule_delete',

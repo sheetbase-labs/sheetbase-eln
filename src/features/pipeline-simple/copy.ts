@@ -355,6 +355,11 @@ export const copy = {
       applying: 'Leaving…',
       applied: 'Left in their Inbox',
     },
+    listExpiringStock: {
+      apply: 'Leave the list in Inbox',
+      applying: 'Leaving…',
+      applied: 'Left in their Inbox',
+    },
     duplicatePipeline: {
       apply: 'Duplicate',
       applying: 'Duplicating…',

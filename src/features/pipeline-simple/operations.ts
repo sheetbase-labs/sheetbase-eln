@@ -72,7 +72,7 @@ export const PIPELINE_SIMPLE_OPERATIONS = defineOperations([
     label: 'List the stock that expires soon',
     summary: 'List the stock that expires soon',
     description:
-      'Looks at the materials that expire within `p_days` days (not quarantined, expired, consumed or depleted) and leaves one Inbox item for a person with a line for each lot, soonest first. Leaves nothing when nothing expires. Stewards and anyone who can edit in the workspace. Returns `{ count, created, inboxItemId }`. Sends `pipeline.inbox_item.created` when it leaves an item.',
+      'Looks at the materials that expire within `p_days` days (not quarantined, expired, consumed or depleted) and leaves one Inbox item for a person with a line for each lot, soonest first, with no limit on how many. Leaves nothing when nothing expires. Stewards and anyone who can edit in the workspace. Returns `{ count, created, inboxItemId }`. Sends `pipeline.inbox_item.created` when it leaves an item.',
     kind: 'write',
     scope: 'pipelines:write',
     inputs: [
@@ -86,6 +86,7 @@ export const PIPELINE_SIMPLE_OPERATIONS = defineOperations([
       ),
     ],
     result: 'json',
+    assistant: { tool: 'sheetbase.inbox.list_expiring_stock' },
     pipeline: {},
     docsPage: 'pipelines-simple-api.md',
   },

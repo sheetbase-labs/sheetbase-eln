@@ -90,7 +90,7 @@ export function diffVersions(
  * file shows what changed. Unchanged runs in between collapse to one gap.
  */
 export type ShownLine =
-  (DiffLine & { n: number }) | { kind: 'gap'; hidden: number }
+  (DiffLine & { n: number }) | { kind: 'gap'; hidden: number; n: number }
 
 export function withContext(diff: VersionDiff, context = 2): ShownLine[] {
   const keep = Array.from({ length: diff.lines.length }, () => false)
@@ -111,13 +111,15 @@ export function withContext(diff: VersionDiff, context = 2): ShownLine[] {
 
   diff.lines.forEach((line, index) => {
     if (keep[index]) {
-      if (hidden) out.push({ kind: 'gap', hidden })
+      if (hidden) out.push({ kind: 'gap', hidden, n: index - hidden + 1 })
       hidden = 0
       out.push({ ...line, n: index + 1 })
     } else hidden++
   })
 
-  if (hidden) out.push({ kind: 'gap', hidden })
+  if (hidden) {
+    out.push({ kind: 'gap', hidden, n: diff.lines.length - hidden + 1 })
+  }
 
   return out
 }

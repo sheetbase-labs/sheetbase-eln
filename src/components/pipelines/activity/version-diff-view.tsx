@@ -50,10 +50,10 @@ export function VersionDiffView({
         </span>
       </header>
       <pre className="m-0 max-h-[28rem] overflow-auto py-1 font-mono text-[12px] leading-[18px]">
-        {shown.map((line, index) =>
+        {shown.map((line) =>
           line.kind === 'gap' ? (
             <div
-              key={index}
+              key={`gap-${line.n}`}
               className="px-3 text-fg-faint"
               aria-label={t('features.pipelineApprovals.activity.diffGap', {
                 count: line.hidden,
@@ -66,7 +66,7 @@ export function VersionDiffView({
             </div>
           ) : (
             <div
-              key={index}
+              key={`${line.kind}-${line.n}`}
               className={cn(
                 'whitespace-pre px-3',
                 line.kind === 'added' && 'bg-success-wash',

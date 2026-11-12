@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
@@ -6,9 +13,21 @@ import { toast } from '#/components/ui/sonner'
 import { BoardButton } from '#/features/pipelines/board/board'
 import '#/features/pipelines/board/version-file.css'
 import { formatTime } from '#/lib/format-date'
-import { formatVersionFile, lineOffset } from '#/lib/pipelines/version-file'
+import {
+  applyFix,
+  formatVersionFile,
+  lineOffset,
+} from '#/lib/pipelines/version-file'
 import type { FileProblem } from '#/lib/pipelines/version-file'
 import { readFileFacts } from '#/lib/pipelines/version-file-facts'
+import {
+  fileOffset,
+  GAP,
+  GAP_LINES,
+  shownOffset,
+  withGaps,
+  withoutGaps,
+} from '#/lib/pipelines/version-file-gaps'
 import { hintsAt } from '#/lib/pipelines/version-file-hints'
 import type { FileHints } from '#/lib/pipelines/version-file-hints'
 import {
@@ -21,9 +40,9 @@ import { VersionFileStacked } from './version-file-sidebar'
 
 const LINE_HEIGHT = 19
 
-/** The caret's 1-based line in a textarea. */
-function caretLine(area: HTMLTextAreaElement): number {
-  return area.value.slice(0, area.selectionStart).split('\n').length
+/** The 1-based line a caret offset in the file is on. */
+function lineAt(text: string, offset: number): number {
+  return text.slice(0, offset).split('\n').length
 }
 
 /** Type text at the caret so the browser's undo still knows about it. */
@@ -90,12 +109,45 @@ export function VersionFileEditor() {
     // react-doctor-disable-next-line react-doctor/exhaustive-deps -- byLine depends only on the problems list.
   }, [problems])
 
+  // Each line with a mistake has room under it for the message.
+  const gapLines = useMemo(
+    () => [...byLine.keys()].filter((n) => n <= shown).sort((a, b) => a - b),
+    [byLine, shown],
+  )
+
+  const shownText = useMemo(
+    () => withGaps(fileText, gapLines),
+    [fileText, gapLines],
+  )
+
+  const caret = useRef({ start: 0, end: 0 })
+  const lastKey = useRef('')
+
+  // Where a line sits in the frame, with the messages above it counted.
+  const topOf = (line: number) =>
+    ((hiddenTo ? line - hiddenTo : line - 1) +
+      gapLines.filter((g) => g < line).length * GAP_LINES) *
+    LINE_HEIGHT
+
+  // Adding or removing a message's room changes what the textarea shows;
+  // put the caret back where it was in the file.
+  useLayoutEffect(() => {
+    const el = area.current
+
+    if (!el || document.activeElement !== el) return
+    const start = shownOffset(fileText, gapLines, caret.current.start)
+    const end = shownOffset(fileText, gapLines, caret.current.end)
+
+    if (el.selectionStart !== start || el.selectionEnd !== end)
+      el.setSelectionRange(start, end)
+  }, [shownText, fileText, gapLines])
+
   // Keep the caret in view as the text scrolls inside the frame.
   const reveal = (line: number) => {
     const box = frame.current
 
     if (!box) return
-    const top = (hiddenTo ? line - hiddenTo : line - 1) * LINE_HEIGHT
+    const top = topOf(line)
     const bottom = top + LINE_HEIGHT + 8
 
     if (top < box.scrollTop) box.scrollTop = top
@@ -107,7 +159,12 @@ export function VersionFileEditor() {
     const el = area.current
 
     if (!el) return
-    const at = lineOffset(el.value, line) + column - 1
+
+    const at = shownOffset(
+      fileText,
+      gapLines,
+      lineOffset(fileText, line) + column - 1,
+    )
 
     if (line <= facts.headerLines) setFolded(false)
     el.focus()
@@ -129,11 +186,37 @@ export function VersionFileEditor() {
     const el = area.current
 
     if (!el) return
-    const line = caretLine(el)
+    const into = fileOffset(el.value, el.selectionStart)
+    const lineStart = el.value.lastIndexOf('\n', el.selectionStart - 1) + 1
+    const lineEnd = el.value.indexOf('\n', el.selectionStart)
+
+    const inRoom =
+      el.value.slice(lineStart, lineEnd < 0 ? undefined : lineEnd) === GAP
+
+    // The room under a message is not part of the file: move past it.
+    if (inRoom) {
+      const to = lastKey.current === 'ArrowUp' ? into : into + 1
+      const at = shownOffset(fileText, gapLines, to)
+
+      el.setSelectionRange(at, at)
+    }
+
+    const offset = fileOffset(el.value, el.selectionStart)
+
+    caret.current = {
+      start: offset,
+      end: fileOffset(el.value, el.selectionEnd),
+    }
+    const line = lineAt(fileText, offset)
 
     if (line <= facts.headerLines) setFolded(false)
     setCursor(line)
     reveal(line)
+  }
+
+  const fix = (problem: FileProblem) => {
+    if (!problem.fix) return
+    setFileText(applyFix(fileText, problem.fix))
   }
 
   const accept = (key: string) => {
@@ -150,6 +233,8 @@ export function VersionFileEditor() {
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const el = event.currentTarget
+
+    lastKey.current = event.key
 
     if (hint) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -366,51 +451,74 @@ export function VersionFileEditor() {
                 : spans
 
               return (
-                <div
+                <Fragment
                   // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a line is identified by its number.
                   key={n}
-                  className={`ye-l${here ? ' bad' : n === cursor ? ' cur' : ''}`}
                 >
-                  <span className="ye-n">{n}</span>
-                  <span
-                    className={`ye-m${here ? ' bad' : ''}`}
-                    aria-label={
-                      here
-                        ? t(
-                            'features.pipelineVersionFile.editor.problemOnLine',
-                            { line: n },
-                          )
-                        : undefined
-                    }
+                  <div
+                    className={`ye-l${here ? ' bad' : n === cursor ? ' cur' : ''}`}
                   >
-                    {here ? <Icon name="warn" size={11} /> : null}
-                  </span>
-                  <span className="ye-c">
-                    {parts.length === 0 ? ' ' : null}
-                    {parts.map((span, i) => (
-                      <span
-                        key={i}
-                        className={
-                          [
-                            span.kind === 'plain' ? '' : span.kind,
-                            'bad' in span && span.bad ? 'ye-err' : '',
-                          ]
-                            .filter(Boolean)
-                            .join(' ') || undefined
-                        }
-                      >
-                        {span.text}
+                    <span className="ye-n">{n}</span>
+                    <span
+                      className={`ye-m${here ? ' bad' : ''}`}
+                      aria-label={
+                        here
+                          ? t(
+                              'features.pipelineVersionFile.editor.problemOnLine',
+                              { line: n },
+                            )
+                          : undefined
+                      }
+                    ></span>
+                    <span className="ye-c">
+                      {parts.length === 0 ? ' ' : null}
+                      {parts.map((span, i) => (
+                        <span
+                          key={i}
+                          className={
+                            [
+                              span.kind === 'plain' ? '' : span.kind,
+                              'bad' in span && span.bad ? 'ye-err' : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' ') || undefined
+                          }
+                        >
+                          {span.text}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                  {here ? (
+                    <div
+                      className="ye-msg"
+                      style={{ height: GAP_LINES * LINE_HEIGHT }}
+                    >
+                      <span className="pill" role="alert">
+                        <Icon name="warn" size={12} />
+                        <span>
+                          <b>
+                            {t('features.pipelineVersionFile.editor.lineN', {
+                              line: n,
+                            })}
+                          </b>{' '}
+                          · {here[0].message}
+                        </span>
+                        {here[0].fix ? (
+                          <button type="button" onClick={() => fix(here[0])}>
+                            {here[0].fix.label}
+                          </button>
+                        ) : null}
                       </span>
-                    ))}
-                  </span>
-                  <span className="ye-inl">{here ? here[0].message : ''}</span>
-                </div>
+                    </div>
+                  ) : null}
+                </Fragment>
               )
             })}
             <textarea
               ref={area}
               className="ye-in"
-              value={fileText}
+              value={shownText}
               aria-label={t('features.pipelineVersionFile.editor.ariaFile', {
                 id: pipeline,
                 version: draftLabel,
@@ -423,10 +531,13 @@ export function VersionFileEditor() {
               wrap="off"
               onChange={(e) => {
                 const el = e.target
-                const text = el.value
-                const line = text.slice(0, el.selectionStart).split('\n').length
-                const col = el.selectionStart - lineOffset(text, line) + 1
+                const text = withoutGaps(el.value)
+                const at = fileOffset(el.value, el.selectionStart)
+                const line = lineAt(text, at)
+                const col = at - lineOffset(text, line) + 1
                 const found = hintsAt(text, line, col)
+
+                caret.current = { start: at, end: at }
 
                 setFileText(text)
                 setHint(found ? { ...found, line, col, pick: 0 } : null)
@@ -449,8 +560,11 @@ export function VersionFileEditor() {
                   position: 'absolute',
                   left: `calc(66px + ${hint.col - 1 - hint.prefix.length}ch)`,
                   top:
-                    ((hiddenTo ? hint.line - hiddenTo : hint.line - 1) + 1) *
-                    LINE_HEIGHT,
+                    topOf(hint.line) +
+                    LINE_HEIGHT +
+                    (gapLines.includes(hint.line)
+                      ? GAP_LINES * LINE_HEIGHT
+                      : 0),
                 }}
               >
                 <div

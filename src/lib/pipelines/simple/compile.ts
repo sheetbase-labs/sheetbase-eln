@@ -266,6 +266,37 @@ export function matchOnlyConfig(recipe: PipelineRecipe): PipelineConfig {
   }
 }
 
+/**
+ * Up to 50 points of the first numeric condition's column, for the dry run's
+ * strip: every row the condition keeps, and an even sample of the rest, with
+ * each row's place in the snapshot. Null when there is no such condition.
+ */
+export function stripConfig(recipe: PipelineRecipe): PipelineConfig | null {
+  const index = recipe.conditions.findIndex(
+    (condition) =>
+      condition.operator !== 'is_empty' &&
+      condition.operator !== 'contains' &&
+      z.number().safeParse(condition.value).success,
+  )
+
+  if (index < 0) return null
+
+  const condition = recipe.conditions[index]
+  const where = conditionSql(condition, `condition_${index + 1}`)
+  const match = matchOnlyConfig(recipe)
+
+  return {
+    ...match,
+    steps: [
+      {
+        name: 'strip',
+        kind: 'sql',
+        statement: `SELECT ${condition.column} AS v, (${where}) AS hit, rn, n FROM (SELECT *, row_number() OVER () AS rn, count(*) OVER () AS n FROM ${RECIPE_SOURCE_INPUT}) s WHERE (${where}) OR rn % GREATEST(1, CEIL(n / 40.0)::int) = 0 ORDER BY rn LIMIT 50`,
+      },
+    ],
+  }
+}
+
 /** Every row of the snapshot, for the dry run's total. */
 export function allRowsConfig(): PipelineConfig {
   return {

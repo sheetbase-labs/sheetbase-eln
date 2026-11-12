@@ -1,8 +1,9 @@
-import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
-import { Checkbox } from '#/components/ui/checkbox'
+import { Notice } from '#/components/ui/alert'
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import {
   Dialog,
   DialogBody,
@@ -16,6 +17,21 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { convertPipelineToStandard } from '#/lib/pipelines/simple/data'
 
 const c = words('convert')
+
+function Line({
+  icon,
+  children,
+}: {
+  icon: IconName
+  children: React.ReactNode
+}) {
+  return (
+    <li className="grid grid-cols-[18px_1fr] items-start gap-2">
+      <Icon name={icon} size={13} className="mt-[3px] text-fg-muted" />
+      <span>{children}</span>
+    </li>
+  )
+}
 
 /**
  * Convert Simple to Standard: the one-way step. It says what changes, what
@@ -46,7 +62,6 @@ export function ConvertDialog({
   onDuplicate: () => void
   onConverted: () => void
 }) {
-  const [understood, setUnderstood] = useState(false)
   const queryClient = useQueryClient()
 
   const convert = useMutation({
@@ -70,66 +85,57 @@ export function ConvertDialog({
   })
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        onOpenChange(next)
-
-        if (!next) setUnderstood(false)
-      }}
-    >
-      <DialogContent>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader title={c('title')} description={`${displayId} ${name}`} />
-        <DialogBody className="flex flex-col gap-4 text-label">
+        <DialogBody className="flex flex-col gap-4">
           <section>
-            <h3 className="m-0 mb-1 font-sans text-label font-semibold">
+            <h3 className="m-0 mb-1.5 font-sans text-[12px] font-semibold">
               {c('changes')}
             </h3>
-            <p className="m-0">{c('changesText')}</p>
-            <p className="m-0 mt-1 text-fg-muted">{c('sentence')}</p>
+            <ul className="m-0 flex list-none flex-col gap-2 p-0 text-[13px] leading-[19px]">
+              <Line icon="pipeline">{c('changesText')}</Line>
+              <Line icon="edit">{c('sentence')}</Line>
+              <Line icon="lock">
+                <b className="font-semibold">{c('oneWay')}</b> {c('oneWayText')}
+              </Line>
+            </ul>
           </section>
           <section>
-            <h3 className="m-0 mb-1 font-sans text-label font-semibold">
-              {c('oneWay')}
-            </h3>
-            <p className="m-0">{c('oneWayText')}</p>
-          </section>
-          <section>
-            <h3 className="m-0 mb-1 font-sans text-label font-semibold">
+            <h3 className="m-0 mb-1.5 font-sans text-[12px] font-semibold">
               {c('versions')}
             </h3>
-            <p className="m-0">
-              {c('draftCreates', { version: draftVersion })}
-            </p>
-            <p className="m-0 text-fg-muted">
-              {publishedVersion === null
-                ? c('keepsRunningNone')
-                : c('keepsRunning', {
-                    published: publishedVersion,
-                    version: draftVersion,
-                  })}
-            </p>
-            <p className="m-0 text-fg-muted">{c('readable')}</p>
+            <ul className="m-0 flex list-none flex-col gap-2 p-0 text-[13px] leading-[19px]">
+              <Line icon="plus">
+                {c('draftCreates', { version: draftVersion })}
+              </Line>
+              <Line icon="play">
+                {publishedVersion === null
+                  ? c('keepsRunningNone')
+                  : c('keepsRunning', {
+                      published: publishedVersion,
+                      version: draftVersion,
+                    })}
+              </Line>
+              <Line icon="clock">{c('readable')}</Line>
+            </ul>
           </section>
-          <section className="flex flex-wrap items-center gap-2 rounded-md bg-surface-muted px-3 py-2">
-            <span className="grow text-fg-muted">{c('copyFirst')}</span>
-            <Button size="sm" onClick={onDuplicate}>
+          <Notice tone="info" icon={false}>
+            {c('copyFirst')}{' '}
+            <button
+              type="button"
+              className="cursor-pointer border-0 bg-transparent p-0 text-link"
+              onClick={onDuplicate}
+            >
               {c('duplicate', { id: displayId })}
-            </Button>
-          </section>
-          <label className="flex items-center gap-2">
-            <Checkbox
-              checked={understood}
-              onCheckedChange={(checked) => setUnderstood(checked === true)}
-            />
-            {c('understand')}
-          </label>
+            </button>
+          </Notice>
         </DialogBody>
         <DialogFooter>
           <Button onClick={() => onOpenChange(false)}>{c('cancel')}</Button>
           <Button
             variant="primary"
-            disabled={!understood || convert.isPending}
+            disabled={convert.isPending}
             onClick={() => convert.mutate()}
           >
             {convert.isPending ? c('working') : c('action')}

@@ -9,6 +9,7 @@ import {
   matchOnlyConfig,
   recipeOf,
   simpleConfig,
+  stripConfig,
 } from './compile'
 import { emptyRecipe, recipeProblems } from './recipe'
 import type { PipelineRecipe } from './recipe'
@@ -152,5 +153,20 @@ describe('templates', () => {
     for (const template of PIPELINE_TEMPLATES)
       expect(templateById(template.id)).toBe(template)
     expect(templateById('nope')).toBeUndefined()
+  })
+})
+
+describe('the dry run strip', () => {
+  it('samples the first numeric condition and keeps every row it matches', () => {
+    const strip = stripConfig(recipe)
+
+    expect(strip?.steps).toHaveLength(1)
+    expect(
+      strip?.steps[0].kind === 'sql' && strip.steps[0].statement,
+    ).toContain('LIMIT 50')
+  })
+
+  it('is left out when no condition has a number', () => {
+    expect(stripConfig({ ...recipe, conditions: [] })).toBeNull()
   })
 })

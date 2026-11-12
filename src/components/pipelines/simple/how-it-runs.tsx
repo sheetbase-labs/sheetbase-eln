@@ -12,6 +12,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { createPipelineSchedule } from '#/lib/pipelines/data'
 import { RECIPE_SOURCE_INPUT } from '#/lib/pipelines/simple/recipe'
 import type { PipelineRecipe } from '#/lib/pipelines/simple/recipe'
+import { TokenInput, TokenSelect } from './token'
 
 const h = words('how')
 
@@ -26,6 +27,8 @@ export function HowItRuns({
   recipe,
   datasetLabel,
   pipelineLink,
+  onChange,
+  readOnly = false,
 }: {
   pipelineId: string
   workspaceId: string
@@ -33,6 +36,8 @@ export function HowItRuns({
   datasetLabel: string
   /** Where Starts and runs lives; Triggers until that tab lands. */
   pipelineLink: string
+  onChange?: (recipe: PipelineRecipe) => void
+  readOnly?: boolean
 }) {
   const schedules = useSchedules(pipelineId)
   const queryClient = useQueryClient()
@@ -109,10 +114,63 @@ export function HowItRuns({
         {ask && ask.kind === 'ask' ? (
           <>
             <dt className="text-fg-muted">{h('away')}</dt>
-            <dd className="m-0">
-              {ask.noAnswer === 'reask'
-                ? h('awayReask', { hours: ask.hours })
-                : h('awayFail', { hours: ask.hours })}
+            <dd className="m-0 flex flex-wrap items-center gap-1.5">
+              {readOnly || !onChange ? (
+                ask.noAnswer === 'reask' ? (
+                  h('awayReask', { hours: ask.hours })
+                ) : (
+                  h('awayFail', { hours: ask.hours })
+                )
+              ) : (
+                <>
+                  <TokenSelect
+                    label={h('awayChoice')}
+                    value={ask.noAnswer}
+                    placeholder=""
+                    options={[
+                      { value: 'reask', label: h('awayReaskShort') },
+                      { value: 'fail', label: h('awayFailShort') },
+                    ]}
+                    onChange={(noAnswer) =>
+                      onChange({
+                        ...recipe,
+                        actions: recipe.actions.map((a) =>
+                          a.kind === 'ask'
+                            ? // SAFETY: the select offers only these two choices.
+                              { ...a, noAnswer: noAnswer as 'reask' | 'fail' }
+                            : a,
+                        ),
+                      })
+                    }
+                  />
+                  <span>{h('awayAfter')}</span>
+                  <TokenInput
+                    label={h('awayHours')}
+                    type="number"
+                    value={String(ask.hours)}
+                    suffix="h"
+                    onChange={(value) =>
+                      onChange({
+                        ...recipe,
+                        actions: recipe.actions.map((a) =>
+                          a.kind === 'ask'
+                            ? {
+                                ...a,
+                                hours: Math.min(
+                                  168,
+                                  Math.max(1, Math.round(Number(value) || 1)),
+                                ),
+                              }
+                            : a,
+                        ),
+                      })
+                    }
+                  />
+                  <span>
+                    {ask.noAnswer === 'reask' ? h('awayThenStop') : ''}
+                  </span>
+                </>
+              )}
             </dd>
           </>
         ) : null}

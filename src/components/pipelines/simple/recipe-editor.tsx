@@ -1,4 +1,5 @@
 import { Icon } from '#/components/icons'
+import { Avatar } from '#/components/ui/avatar'
 import { IconButton } from '#/components/ui/icon-button'
 import {
   Popover,
@@ -195,7 +196,7 @@ function ActionLine({
     case 'check_range':
       return (
         <>
-          <span className="font-sans text-body">{r('checkRange')}</span>
+          <span>{r('checkRange')}</span>
           <TokenSelect
             label={r('pickColumn')}
             value={action.column}
@@ -203,7 +204,7 @@ function ActionLine({
             options={columnOptions}
             onChange={(column) => onChange({ ...action, column })}
           />
-          <span className="font-sans text-body">{r('rangeBetween')}</span>
+          <span>{r('rangeBetween')}</span>
           <TokenInput
             label={r('rangeMin')}
             type="number"
@@ -213,7 +214,7 @@ function ActionLine({
               onChange({ ...action, min: v === '' ? undefined : Number(v) })
             }
           />
-          <span className="font-sans text-body">{r('joinAnd')}</span>
+          <span>{r('joinAnd')}</span>
           <TokenInput
             label={r('rangeMax')}
             type="number"
@@ -228,10 +229,14 @@ function ActionLine({
     case 'ask':
       return (
         <>
-          <span className="font-sans text-body">{r('ask')}</span>
           <TokenSelect
             label={r('pickPerson')}
             icon="user"
+            lead={r('ask')}
+            trail={action.mode === 'confirm' ? r('toConfirm') : r('toChoose')}
+            mark={(chosen) => (
+              <Avatar name={chosen.label} size="xs" tone="review" />
+            )}
             value={action.userId}
             placeholder={r('pickPerson')}
             options={Object.entries(people).map(([id, name]) => ({
@@ -240,9 +245,6 @@ function ActionLine({
             }))}
             onChange={(userId) => onChange({ ...action, userId })}
           />
-          <span className="font-sans text-body">
-            {action.mode === 'confirm' ? r('toConfirm') : r('toChoose')}
-          </span>
           {action.mode === 'choose' ? (
             <TokenInput
               label={r('options')}
@@ -260,36 +262,8 @@ function ActionLine({
             />
           ) : null}
           <span className="ml-1 font-sans text-caption text-fg-muted">
-            {r('waitsUpTo')}
+            {r('waitsNote', { hours: action.hours })}
           </span>
-          <TokenInput
-            label={r('hours')}
-            type="number"
-            value={String(action.hours)}
-            suffix="h"
-            onChange={(v) =>
-              onChange({
-                ...action,
-                hours: Math.min(168, Math.max(1, Math.round(Number(v) || 1))),
-              })
-            }
-          />
-          <span className="font-sans text-caption text-fg-muted">
-            {r('thenIfAway')}
-          </span>
-          <TokenSelect
-            label={r('noAnswer')}
-            value={action.noAnswer}
-            placeholder=""
-            options={[
-              { value: 'reask', label: r('reask') },
-              { value: 'fail', label: r('fail') },
-            ]}
-            onChange={(noAnswer) =>
-              // SAFETY: the select offers only these two choices.
-              onChange({ ...action, noAnswer: noAnswer as 'reask' | 'fail' })
-            }
-          />
         </>
       )
     case 'notify': {
@@ -340,7 +314,7 @@ function ActionLine({
             <Icon name="download" size={14} className="text-fg-muted" />
             {r('append')}
           </span>
-          <span className="font-sans text-body">{r('to')}</span>
+          <span>{r('to')}</span>
           <TokenSelect
             label={r('pickDataset')}
             icon="database"
@@ -361,13 +335,13 @@ function ActionLine({
             <Icon name="plus" size={14} className="text-fg-muted" />
             {r('create')}
           </span>
-          <span className="font-sans text-body">{r('named')}</span>
+          <span>{r('named')}</span>
           <TokenInput
             label={r('named')}
             value={action.datasetName}
             onChange={(datasetName) => onChange({ ...action, datasetName })}
           />
-          <span className="font-sans text-body">{r('from2')}</span>
+          <span>{r('from2')}</span>
           <TokenSelect
             label={r('pickSchema')}
             value={action.schemaVersionId}

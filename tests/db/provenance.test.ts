@@ -17,6 +17,7 @@ import {
   setActorJwt,
   testDatabaseName,
 } from './helpers'
+import { publishPipelineVersion } from './support/publish-pipeline'
 
 // Manifests are signed with a key the deployment supplies.
 vi.hoisted(() => {
@@ -133,10 +134,7 @@ async function finishedRun(key: string, statement: string): Promise<string> {
     `select * from api.create_pipeline_definition_version($1::uuid,$2::uuid,$3::jsonb)`,
     [WS, definition.id, JSON.stringify(config(statement))],
   )
-  await owner.query(
-    `select * from api.publish_pipeline_definition_version($1::uuid,$2::uuid)`,
-    [WS, version.id],
-  )
+  await publishPipelineVersion(owner, WS, version.id)
   const run = await rpcRow<{ id: string }>(
     owner,
     `select * from api.start_pipeline_run($1::uuid,$2::uuid,$3::text,$4::jsonb,$5::jsonb,$6::uuid,$7::text,$8::uuid)`,

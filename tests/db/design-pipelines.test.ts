@@ -10,6 +10,7 @@ import {
 } from '#/db/seed/design'
 import { applyMigrations } from '../../scripts/lib/migrations.mjs'
 import { migratorUrl, resetTestDatabase, roleUrl, setActorJwt } from './helpers'
+import { publishPipelineVersion } from './support/publish-pipeline'
 
 const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
 const actorId = DESIGN_USER_IDS.gareth
@@ -133,10 +134,7 @@ describe('design pipeline latest-run state', () => {
             }),
           ],
         )
-        await actor.query(
-          'select api.publish_pipeline_definition_version($1,$2)',
-          [workspaceId, version.rows[0].id],
-        )
+        await publishPipelineVersion(actor, workspaceId, version.rows[0].id)
         const started = await actor.query(
           "select * from api.start_pipeline_run($1,$2,'manual','{}',$3::jsonb)",
           [

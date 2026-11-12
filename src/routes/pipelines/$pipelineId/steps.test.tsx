@@ -133,7 +133,9 @@ function renderSteps() {
 
 function addStep(label: string) {
   fireEvent.click(screen.getByRole('button', { name: 'Add step' }))
-  fireEvent.click(screen.getByRole('menuitem', { name: new RegExp(label) }))
+  fireEvent.click(
+    screen.getByRole('menuitem', { name: new RegExp(`^${label}`) }),
+  )
 }
 
 describe('Standard editor', () => {

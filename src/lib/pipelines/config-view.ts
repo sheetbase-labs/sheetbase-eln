@@ -2,6 +2,7 @@ import { validatePipelineActions } from './actions'
 import {
   PIPELINE_CONFIG_VERSION,
   pipelineActionSteps,
+  stepRuns,
   validatePipelineConfig,
 } from './config'
 import type {
@@ -110,7 +111,13 @@ function viewStep(
 ): PipelineViewStep {
   const view: PipelineViewStep = {
     name: ask ? ask.name : step.name,
-    language: step.kind,
+    // A no-code step is shown to this older view as the SQL it writes.
+    language:
+      stepRuns(step.kind) === 'plugin'
+        ? 'plugin'
+        : stepRuns(step.kind) === 'python'
+          ? 'python'
+          : 'sql',
     statement: step.kind === 'plugin' ? '' : step.statement,
   }
 

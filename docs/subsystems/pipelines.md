@@ -90,14 +90,27 @@ pauses for a person; action and notify steps act on the result.
 
 Step kinds (`internal.pipeline_step_kinds` lists them, with what each runs as):
 
-| Kind     | Settings key            | What it does                                                                                         |
-| -------- | ----------------------- | ---------------------------------------------------------------------------------------------------- |
-| `sql`    | `statement`             | One `SELECT`; reads the step before as `previous`                                                    |
-| `python` | `statement`, `contract` | `transform(inputs, parameters)`; reads the step before as `inputs["previous"]`                       |
-| `plugin` | `plugin`                | A `pipeline-steps` item of an installed plugin                                                       |
-| `ask`    | `ask`                   | Pauses the run and shows the rows so far to the people asked; they pass on unchanged when it goes on |
-| `action` | `action`                | An ELN action (`operation`, `arguments`, `mode`, `forEach`), run after the output is written         |
-| `notify` | `notify`                | A webhook or channel notification (`subscriptionId`, `payload`), run after the output is written     |
+| Kind                                                  | Settings key            | What it does                                                                                                                                             |
+| ----------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `filter`, `join`, `calculate`, `check_ranges`, `flag` | `form`, `statement`     | A no-code step: the settings a person picked (`form`) and the one `SELECT` they write (`statement`). The statement is what runs; each kind runs as `sql` |
+| `sql`                                                 | `statement`             | One `SELECT`; reads the step before as `previous`                                                                                                        |
+| `python`                                              | `statement`, `contract` | `transform(inputs, parameters)`; reads the step before as `inputs["previous"]`                                                                           |
+| `plugin`                                              | `plugin`                | A `pipeline-steps` item of an installed plugin                                                                                                           |
+| `ask`                                                 | `ask`                   | Pauses the run and shows the rows so far to the people asked; they pass on unchanged when it goes on                                                     |
+| `action`                                              | `action`                | An ELN action (`operation`, `arguments`, `mode`, `forEach`), run after the output is written                                                             |
+| `notify`                                              | `notify`                | A webhook or channel notification (`subscriptionId`, `payload`), run after the output is written                                                         |
+
+No-code forms, by kind. `filter`: `{ match: "all"|"any", conditions: [{ column, op, value?, text? }] }`
+keeps the rows that meet them. `join`: `{ with, type: "inner"|"left", keys: [{ left, right }], bring: [column] }`
+joins `previous` with a declared input and brings in the named columns.
+`calculate`: `{ column, terms: [{ op?, column?, number? }], places: number|null, unit? }` adds one
+column from a left-to-right formula (a division by zero gives an empty value).
+`check_ranges`: `{ ranges: [{ column, min?, max? }], keep: "all"|"outside" }` adds `out_of_range`
+(the columns outside their range, or empty) and passes on every row or only those outside. `flag`:
+`{ column, match, conditions }` adds a yes/no column. The editor shows the `statement` read-only
+beside the form; Edit as SQL… turns the step into a `sql` step with the same statement, one way. The
+shared validator refuses a step whose `statement` is not the SQL its `form` writes; the database
+checks only the statement, which is what runs.
 
 Each step has a lowercase `name` (unique in the version), an optional `note`
 (up to 500 characters) and only its own kind's settings key. `onlyIfRows` is

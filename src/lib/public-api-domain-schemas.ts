@@ -1774,7 +1774,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
         minItems: 1,
         maxItems: 50,
         description:
-          'The ordered steps. Data steps (sql, python, plugin) read the one before as `previous`; an ask step pauses for a person; action and notify steps run after the output is written. Each kind keeps its settings under its own key: `statement` (and `contract` for python), `plugin`, `ask`, `action` or `notify`.',
+          'The ordered steps. Data steps (filter, join, calculate, check_ranges, flag, sql, python, plugin) read the one before as `previous`; an ask step pauses for a person; action and notify steps run after the output is written. Each kind keeps its settings under its own key: `statement` (and `contract` for python), `form` with `statement` for the no-code kinds, `plugin`, `ask`, `action` or `notify`.',
         items: {
           type: 'object',
           required: ['name', 'kind'],
@@ -1782,9 +1782,24 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
             name: { ...TEXT, pattern: '^[a-z][a-z0-9_]{0,47}$' },
             kind: {
               type: 'string',
-              enum: ['sql', 'python', 'plugin', 'ask', 'action', 'notify'],
+              enum: [
+                'filter',
+                'join',
+                'calculate',
+                'check_ranges',
+                'flag',
+                'sql',
+                'python',
+                'plugin',
+                'ask',
+                'action',
+                'notify',
+              ],
             },
             statement: { ...TEXT, minLength: 1, maxLength: 20_000 },
+            form: jsonMap(
+              'No-code kinds only: the settings the editor shows. The `statement` is the SQL those settings write, and is what runs.',
+            ),
             note: { ...TEXT, maxLength: 500 },
             onlyIfRows: BOOL,
             contract: jsonMap(

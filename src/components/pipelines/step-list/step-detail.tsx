@@ -1,9 +1,11 @@
 import { useState } from 'react'
 
 import { t } from '#/copy'
-import { Button } from '#/components/ui/button'
-import { CodeBlock } from '#/components/ui/code-block'
-import { Field, Input } from '#/components/ui/input'
+import {
+  BoardCode,
+  BoardInput,
+  BoardSegmented,
+} from '#/features/pipelines/board/board'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -25,6 +27,7 @@ import type {
 import { isNoCodeKind } from '#/lib/pipelines/no-code/forms'
 import type { NoCodeKind } from '#/lib/pipelines/no-code/forms'
 import { noCodeStatement } from '#/lib/pipelines/no-code/generate'
+import { sqlLines } from '#/lib/pipelines/no-code/format'
 import {
   previousDataStep,
   withContract,
@@ -71,10 +74,7 @@ export function StepDetail({
   )
 
   return (
-    <div
-      className="flex flex-col gap-3 px-3 pb-3 pl-10"
-      data-testid="step-detail"
-    >
+    <div className="pb-calc" data-testid="step-detail">
       <StepIdentity
         step={step}
         others={config.steps}
@@ -173,24 +173,35 @@ function StepIdentity({
   const taken = others.some((s, i) => i !== index && s.name === step.name)
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[200px_minmax(0,1fr)]">
-      <Field
-        label={t('data.stepList.stepName')}
-        error={taken ? t('data.pipelineConfig.stepNamesMustUnique') : undefined}
-      >
-        <Input
-          className="mono text-xs"
-          aria-label={t('data.stepList.stepNameAria', { n: index + 1 })}
-          value={step.name}
-          onChange={(e) => onChange({ ...step, name: e.target.value })}
-        />
-      </Field>
-      <Field
-        label={t('data.stepList.stepNote')}
-        hint={t('data.stepList.stepNoteHint')}
-      >
-        <Input
+    <>
+      <div className="frow">
+        <label htmlFor={`step-name-${index}`}>
+          {t('data.stepList.stepName')}
+        </label>
+        <div>
+          <BoardInput
+            id={`step-name-${index}`}
+            mono
+            aria-label={t('data.stepList.stepNameAria', { n: index + 1 })}
+            aria-invalid={taken || undefined}
+            value={step.name}
+            onChange={(e) => onChange({ ...step, name: e.target.value })}
+          />
+          {taken ? (
+            <div className="text-danger-text">
+              {t('data.pipelineConfig.stepNamesMustUnique')}
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div className="frow">
+        <label htmlFor={`step-note-${index}`}>
+          {t('data.stepList.stepNote')}
+        </label>
+        <BoardInput
+          id={`step-note-${index}`}
           aria-label={t('data.stepList.stepNoteAria', { n: index + 1 })}
+          placeholder={t('data.stepList.stepNoteHint')}
           value={step.note ?? ''}
           onChange={(e) => {
             const { note: _note, ...rest } = step
@@ -198,8 +209,8 @@ function StepIdentity({
             onChange(e.target.value ? { ...rest, note: e.target.value } : rest)
           }}
         />
-      </Field>
-    </div>
+      </div>
+    </>
   )
 }
 
@@ -227,32 +238,20 @@ function NoCodeBody({
   const made = noCodeStatement(kind, step.form)
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <div
-          className="inline-flex overflow-hidden rounded-md border border-border"
-          role="group"
-          aria-label={t('data.stepList.editStepAs', { n: index + 1 })}
-        >
-          <Button
-            variant="secondary"
-            size="sm"
-            aria-pressed="true"
-            className="rounded-none border-0 bg-selection-subtle"
-          >
-            {t('data.stepList.form')}
-          </Button>
-          <Button
-            variant="quiet"
-            size="sm"
-            aria-haspopup="dialog"
-            className="rounded-none border-0 border-l border-border"
-            onClick={() => setAsking(true)}
-          >
-            {t('data.stepList.editAsSql')}
-          </Button>
-        </div>
-        <span className="min-w-0 flex-1 text-label text-fg-muted">
+    <>
+      <div className="flex items-center gap-2">
+        <BoardSegmented
+          label={t('data.stepList.editStepAs', { n: index + 1 })}
+          options={[
+            { value: 'form', label: t('data.stepList.form') },
+            { value: 'sql', label: t('data.stepList.editAsSql') },
+          ]}
+          value="form"
+          onChange={(value) => {
+            if (value === 'sql') setAsking(true)
+          }}
+        />
+        <span className="muted min-w-0 flex-1 text-xs">
           {t('data.stepList.formWritesSql')}
         </span>
       </div>
@@ -264,17 +263,13 @@ function NoCodeBody({
         inputColumns={inputColumns}
         onChange={(form) => onChange(withForm(step, form))}
       />
-      <div className="flex items-baseline gap-2 text-label">
+      <div className="pb-gen">
         <span className="font-medium">{t('data.stepList.generatedSql')}</span>
-        <span className="text-fg-muted">
-          {t('data.stepList.readOnlyWhileForm')}
-        </span>
+        <span className="muted">{t('data.stepList.readOnlyWhileForm')}</span>
       </div>
-      <CodeBlock
-        language="sql"
+      <BoardCode
         label={t('data.stepList.generatedSqlAria', { n: index + 1 })}
-        code={made.ok ? made.statement : step.statement}
-        maxHeight="md"
+        lines={sqlLines(made.ok ? made.statement : step.statement)}
       />
       {made.ok ? null : (
         <p className="m-0 text-label text-warn-text" role="status">
@@ -306,6 +301,6 @@ function NoCodeBody({
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
       </ConfirmDialog>
-    </div>
+    </>
   )
 }

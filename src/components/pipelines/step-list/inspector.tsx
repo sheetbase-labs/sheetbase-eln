@@ -1,16 +1,19 @@
 import { useState } from 'react'
 
 import { t } from '#/copy'
-import { Button } from '#/components/ui/button'
-import { Checkbox } from '#/components/ui/checkbox'
+import {
+  BoardButton,
+  BoardInput,
+  BoardIo,
+} from '#/features/pipelines/board/board'
 import {
   Dialog,
   DialogBody,
   DialogContent,
   DialogHeader,
 } from '#/components/ui/dialog'
-import { Field, Input } from '#/components/ui/input'
-import { Inspector, InspectorSection } from '#/components/ui/layout'
+import { Inspector } from '#/components/ui/layout'
+import { Icon } from '#/components/icons'
 import { TrialPanel } from '#/components/pipelines/trial-panel'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { isNoCodeKind } from '#/lib/pipelines/no-code/forms'
@@ -38,6 +41,21 @@ const MODE_LABEL: Record<PipelineStep['kind'], string> = {
   notify: t('data.stepList.modeNotify'),
 }
 
+function InspectorSection({
+  title,
+  children,
+}: {
+  title?: string
+  children: React.ReactNode
+}) {
+  return (
+    <section>
+      {title ? <h3>{title}</h3> : null}
+      {children}
+    </section>
+  )
+}
+
 /** Settings for the selected step: what it reads and writes, what happens if it fails, what the last try showed. */
 export function StepInspector() {
   const editor = usePipelineEditor()
@@ -56,7 +74,7 @@ export function StepInspector() {
     <Inspector
       label={t('data.stepList.inspectorLabel')}
       width={300}
-      className="gap-5"
+      className="pb-scope gap-5"
     >
       {step ? <SelectedStep step={step} index={index} /> : null}
       <TryResult />
@@ -102,38 +120,36 @@ function SelectedStep({ step, index }: { step: PipelineStep; index: number }) {
     <>
       <InspectorSection>
         <div className="mb-2.5 flex items-center gap-2">
-          <span className="mono rounded-sm border border-border bg-surface-muted px-1.5 text-caption font-medium text-fg-muted">
-            {kindLabel(step)}
-          </span>
-          <h2 className="m-0 min-w-0 flex-1 truncate font-sans text-label font-semibold">
+          <span className="kind">{kindLabel(step)}</span>
+          <h3 className="m-0 min-w-0 flex-1 truncate text-[13px]">
             {t('data.stepList.inspectorTitle', {
               n: index + 1,
               name: step.name,
             })}
-          </h2>
+          </h3>
         </div>
-        <dl className="m-0 grid grid-cols-[76px_1fr] gap-x-2 gap-y-2 text-label">
-          <dt className="text-fg-muted">{t('data.stepList.settingMode')}</dt>
-          <dd className="m-0">{MODE_LABEL[step.kind]}</dd>
-          <dt className="text-fg-muted">{t('data.stepList.settingIfFails')}</dt>
-          <dd className="m-0">{t('data.stepList.ifFailsStop')}</dd>
+        <dl className="dl">
+          <dt>{t('data.stepList.settingMode')}</dt>
+          <dd>{MODE_LABEL[step.kind]}</dd>
+          <dt>{t('data.stepList.settingIfFails')}</dt>
+          <dd>{t('data.stepList.ifFailsStop')}</dd>
           {data ? (
             <>
-              <dt className="text-fg-muted">
-                {t('data.stepList.settingTimeLimit')}
-              </dt>
-              <dd className="m-0 num">
+              <dt>{t('data.stepList.settingTimeLimit')}</dt>
+              <dd className="num">
                 {t('data.stepList.seconds', { count: MAX_EXECUTION_SECONDS })}
               </dd>
             </>
           ) : null}
         </dl>
         {data ? (
-          <label className="mt-3 flex items-start gap-2 text-label">
-            <Checkbox
-              className="mt-0.5"
+          <label className="check mt-3">
+            <input
+              type="checkbox"
               checked={Boolean(step.onlyIfRows)}
-              onCheckedChange={(on) =>
+              onChange={(e) => {
+                const on = e.target.checked
+
                 setConfig((c) => ({
                   ...c,
                   steps: c.steps.map((s, i) => {
@@ -145,13 +161,13 @@ function SelectedStep({ step, index }: { step: PipelineStep; index: number }) {
                     return rest
                   }),
                 }))
-              }
+              }}
             />
             <span>
               {t('data.stepList.onlyIfRows')}
-              <span className="mt-0.5 block text-fg-muted">
+              <div className="muted mt-0.5">
                 {t('data.stepList.onlyIfRowsHint')}
-              </span>
+              </div>
             </span>
           </label>
         ) : null}
@@ -159,107 +175,81 @@ function SelectedStep({ step, index }: { step: PipelineStep; index: number }) {
 
       {data ? (
         <InspectorSection title={t('data.stepList.readsAndWrites')}>
-          <div className="flex flex-col overflow-hidden rounded-md border border-border text-label">
-            <IoRow
-              label={t('data.stepList.ioReads')}
-              value={
-                before
-                  ? t('data.stepList.ioPrevious', { name: before.name })
-                  : t('data.stepList.ioInputs')
-              }
-              count={
-                rowsIn === undefined
-                  ? undefined
-                  : t('data.stepList.rowCount', { count: rowsIn })
-              }
-            />
-            {used.length ? (
-              <IoRow
-                label={t('data.stepList.ioUses')}
-                mono={used.join(', ')}
-                count={
-                  columnsBefore
-                    ? t('data.stepList.ioOf', {
-                        used: used.length,
-                        all: columnsBefore.length,
-                      })
-                    : undefined
-                }
-              />
-            ) : null}
-            <IoRow
-              label={t('data.stepList.ioWrites')}
-              mark
-              value={
-                written.length
+          <BoardIo
+            rows={[
+              {
+                label: t('data.stepList.ioReads'),
+                value: before ? (
+                  <>
+                    <span className="ref mono text-[11px]">previous</span>{' '}
+                    {t('data.stepList.ioPrevious', { name: before.name })}
+                  </>
+                ) : (
+                  t('data.stepList.ioInputs')
+                ),
+                count:
+                  rowsIn === undefined
+                    ? undefined
+                    : t('data.stepList.rowCount', { count: rowsIn }),
+              },
+              ...(used.length
+                ? [
+                    {
+                      label: t('data.stepList.ioUses'),
+                      value: (
+                        <span className="mono text-[11px]">
+                          {used.join(', ')}
+                        </span>
+                      ),
+                      count: columnsBefore
+                        ? t('data.stepList.ioOf', {
+                            used: used.length,
+                            all: columnsBefore.length,
+                          })
+                        : undefined,
+                    },
+                  ]
+                : []),
+              {
+                label: t('data.stepList.ioWrites'),
+                mine: true,
+                value: written.length
                   ? t('data.stepList.ioNewColumns', {
                       names: written.join(', '),
                     })
-                  : t('data.stepList.ioRowsOnly')
-              }
-              count={
-                rowsOut === undefined
-                  ? undefined
-                  : t('data.stepList.rowCount', { count: rowsOut })
-              }
-            />
-            <IoRow
-              label={t('data.stepList.ioNext')}
-              value={
-                next
+                  : t('data.stepList.ioRowsOnly'),
+                count:
+                  rowsOut === undefined
+                    ? undefined
+                    : t('data.stepList.rowCount', { count: rowsOut }),
+              },
+              {
+                label: t('data.stepList.ioNext'),
+                value: next
                   ? t('data.stepList.ioNextStep', {
                       name: next.name,
                       kind: KIND_META[next.kind].label,
                     })
-                  : t('data.stepList.ioOutput')
-              }
-            />
-          </div>
+                  : t('data.stepList.ioOutput'),
+              },
+            ]}
+          />
         </InspectorSection>
       ) : null}
 
       <InspectorSection title={t('data.stepList.temporaryOrKept')}>
         <div className="mb-2 flex items-center gap-2 text-label">
-          <span className="inline-flex items-center gap-1 rounded-sm border border-border bg-surface-muted px-1.5 text-caption text-fg-muted">
+          <span className="tmp">
+            <Icon name="clock" size={11} />
             {t('data.stepList.temporary')}
           </span>
-          <span className="text-fg-muted">
-            {t('data.stepList.deletedWhenRunEnds')}
-          </span>
+          <span className="muted">{t('data.stepList.deletedWhenRunEnds')}</span>
         </div>
         <p className="m-0 text-label text-fg-muted">
           {t('data.stepList.onlyOutputKept')}
         </p>
       </InspectorSection>
     </>
-  )
-}
-
-function IoRow({
-  label,
-  value,
-  mono,
-  count,
-  mark,
-}: {
-  label: string
-  value?: string
-  mono?: string
-  count?: string
-  mark?: boolean
-}) {
-  return (
-    <div
-      className={`grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2 border-b border-border-subtle px-2.5 py-1.5 last:border-b-0 ${mark ? 'bg-selection-subtle' : ''}`}
-    >
-      <span className="text-fg-muted">{label}</span>
-      {mono ? (
-        <span className="mono truncate text-caption">{mono}</span>
-      ) : (
-        <span className="truncate">{value}</span>
-      )}
-      <span className="num whitespace-nowrap text-fg-muted">{count}</span>
-    </div>
   )
 }
 
@@ -303,10 +293,10 @@ function TryResult() {
         </p>
       ) : null}
       <div className="mt-2 flex gap-1.5">
-        <Button size="sm" onClick={() => setOpen(true)}>
+        <BoardButton size="sm" onClick={() => setOpen(true)}>
           {t('data.stepList.showRows')}
-        </Button>
-        <Button
+        </BoardButton>
+        <BoardButton
           size="sm"
           icon="play"
           disabled={editor.tryDraft.isPending || !editor.canSave}
@@ -319,7 +309,7 @@ function TryResult() {
           {stale
             ? t('data.trialPanel.tryNewDraft')
             : t('common.actions.tryAgain')}
-        </Button>
+        </BoardButton>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
@@ -367,24 +357,25 @@ function DraftSection() {
           ? t('data.stepList.runsKeepUsing', { version: current.version })
           : t('data.stepList.publishToRun')}
       </p>
-      <div className="mt-3">
-        <Field
-          label={t('data.pipelineSteps.description')}
-          hint={t('data.pipelineSteps.whatPipeline')}
-        >
-          <Input
-            value={config.description ?? ''}
-            onChange={(e) =>
-              editor.setConfig((c) => {
-                const { description: _d, ...rest } = c
+      <div className="mt-3 text-xs">
+        <label htmlFor="pipeline-description" className="muted">
+          {t('data.pipelineSteps.description')}
+        </label>
+        <BoardInput
+          id="pipeline-description"
+          className="mt-1"
+          placeholder={t('data.pipelineSteps.whatPipeline')}
+          value={config.description ?? ''}
+          onChange={(e) =>
+            editor.setConfig((c) => {
+              const { description: _d, ...rest } = c
 
-                return e.target.value
-                  ? { ...rest, description: e.target.value }
-                  : rest
-              })
-            }
-          />
-        </Field>
+              return e.target.value
+                ? { ...rest, description: e.target.value }
+                : rest
+            })
+          }
+        />
       </div>
       {aboutPipeline.length ? (
         <ul className="m-0 mt-3 flex list-none flex-col gap-0.5 p-0 text-label text-danger-text">

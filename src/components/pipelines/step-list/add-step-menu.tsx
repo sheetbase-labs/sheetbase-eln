@@ -1,5 +1,5 @@
 import { t } from '#/copy'
-import { Button } from '#/components/ui/button'
+import { BoardButton } from '#/features/pipelines/board/board'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +24,7 @@ export function AddStepMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button
+          <BoardButton
             size="sm"
             icon="plus"
             disabled={count >= MAX_STEPS}

@@ -3,7 +3,6 @@ import { z } from 'zod'
 
 import { t } from '#/copy'
 import { useRef, useState } from 'react'
-import { Status } from '#/components/ui/status'
 import { InputsEditor } from '#/components/pipelines/inputs-editor'
 import { OutputEditor } from '#/components/pipelines/output-editor'
 import type {
@@ -36,11 +35,16 @@ import type { RunStepState } from '#/lib/pipelines/run-steps'
 import { AddStepMenu } from './add-step-menu'
 import { KIND_META, kindLabel, stepSummary } from './kinds'
 import { StepDetail } from './step-detail'
+import {
+  BoardAdd,
+  BoardBlock,
+  BoardHead,
+  BoardList,
+  BoardStatus,
+} from '#/features/pipelines/board/board'
 import { StepMenu, StepRow, runStateStatus } from './step-row'
 import { destinationName, useNotificationDestinations } from './step-bodies'
 import { usePipelineEditor } from './use-pipeline-editor'
-
-const blockClass = 'border-b border-border-subtle last:border-b-0'
 
 /** The Starts, the Inputs, every step in order, and the Output, as the board draws them. */
 // react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the list draws the Starts, the Inputs, every step and the Output against one selection and one draft.
@@ -147,26 +151,24 @@ export function StepList() {
     readResultPreview(editor.latestRun?.result)?.columns ?? []
 
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <div className="min-w-0 overflow-hidden rounded-lg border border-border bg-surface">
-        <div className="grid h-7 grid-cols-[22px_92px_minmax(0,1fr)_72px_76px_24px] items-center gap-x-2 border-b border-border bg-surface-muted pl-2.5 pr-2 text-caption font-medium text-fg-muted max-md:hidden">
-          <span />
-          <span>{t('data.stepList.headKind')}</span>
-          <span>{t('data.stepList.headStep')}</span>
-          <span className="text-right">
-            {editor.trialResult
+    <div className="pb-col">
+      <BoardList>
+        <BoardHead
+          kind={t('data.stepList.headKind')}
+          step={t('data.stepList.headStep')}
+          rows={
+            editor.trialResult
               ? t('data.stepList.headTry')
-              : t('data.stepList.headLastTry')}
-          </span>
-          <span>
-            {editor.latestRunNumber
+              : t('data.stepList.headLastTry')
+          }
+          state={
+            editor.latestRunNumber
               ? t('data.stepList.headRun', { n: editor.latestRunNumber })
-              : t('data.stepList.headRunNone')}
-          </span>
-          <span />
-        </div>
+              : t('data.stepList.headRunNone')
+          }
+        />
 
-        <div className={`${blockClass} bg-surface-muted`}>
+        <BoardBlock ends>
           <StepRow
             icon="clock"
             kind={t('data.stepList.kindStarts')}
@@ -176,15 +178,15 @@ export function StepList() {
               <Link
                 to="/pipelines/$pipelineId/triggers"
                 params={{ pipelineId: editor.pipelineId }}
-                className="text-label"
+                className="text-label text-link"
               >
                 {t('common.actions.edit')}
               </Link>
             }
           />
-        </div>
+        </BoardBlock>
 
-        <div className={blockClass}>
+        <BoardBlock selected={selected === 'inputs'}>
           <StepRow
             icon="database"
             kind={t('data.stepList.kindInputs')}
@@ -197,7 +199,6 @@ export function StepList() {
               .map((i) => editor.facts.trial[i.name]?.rows)
               .filter((n) => n !== undefined)
               .join(' · ')}
-            selected={selected === 'inputs'}
             expanded={selected === 'inputs'}
             label={t('data.stepList.inputsAria')}
             onSelect={() => select('inputs')}
@@ -250,7 +251,7 @@ export function StepList() {
               ) : null}
             </div>
           ) : null}
-        </div>
+        </BoardBlock>
 
         {config.steps.map((step, index) => {
           const id = `step:${step.name}` as const
@@ -280,11 +281,7 @@ export function StepList() {
           )
 
           return (
-            <div
-              key={step.name}
-              className={`${blockClass} ${open ? 'bg-selection-subtle shadow-[inset_0_0_0_1px_var(--primary)]' : ''}`}
-              aria-current={open ? 'step' : undefined}
-            >
+            <BoardBlock key={step.name} selected={open}>
               <StepRow
                 icon={KIND_META[step.kind].icon}
                 kind={kindLabel(step)}
@@ -305,8 +302,9 @@ export function StepList() {
                       })
                 }
                 rowsWarn={warn}
-                status={<Status tone={shown.tone}>{shown.label}</Status>}
-                selected={open}
+                status={
+                  <BoardStatus tone={shown.tone}>{shown.label}</BoardStatus>
+                }
                 expanded={open}
                 problem={problems.at(0)?.message}
                 label={t('data.stepList.stepAria', {
@@ -382,12 +380,12 @@ export function StepList() {
                   ) : null}
                 </>
               ) : null}
-            </div>
+            </BoardBlock>
           )
         })}
 
-        <div
-          className={`flex flex-wrap items-center gap-2 border-b border-border-subtle px-2.5 py-1.5 pl-10 max-md:pl-2.5 ${dropping ? 'bg-selection-subtle' : ''}`}
+        <BoardAdd
+          className={dropping ? 'bg-selection-subtle' : undefined}
           onDragOver={(event) => {
             event.preventDefault()
             setDropping(true)
@@ -431,9 +429,9 @@ export function StepList() {
               {dropError}
             </span>
           ) : null}
-        </div>
+        </BoardAdd>
 
-        <div className={`${blockClass} bg-surface-muted`}>
+        <BoardBlock ends selected={selected === 'output'}>
           <StepRow
             icon="download"
             kind={t('data.stepList.kindOutput')}
@@ -446,9 +444,10 @@ export function StepList() {
                 : undefined
             }
             status={
-              <Status tone="none">{t('data.stepList.stateNotYet')}</Status>
+              <BoardStatus tone="none">
+                {t('data.stepList.stateNotYet')}
+              </BoardStatus>
             }
-            selected={selected === 'output'}
             expanded={selected === 'output'}
             label={t('data.stepList.outputAria')}
             onSelect={() => select('output')}
@@ -470,9 +469,9 @@ export function StepList() {
               />
             </div>
           ) : null}
-        </div>
-      </div>
-      <p className="m-0 px-0.5 text-label leading-[18px] text-fg-muted">
+        </BoardBlock>
+      </BoardList>
+      <p className="pb-foot m-0">
         {t('data.stepList.listFoot', { max: MAX_STEPS })}
       </p>
     </div>

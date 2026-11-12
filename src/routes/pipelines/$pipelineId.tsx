@@ -174,7 +174,6 @@ function PipelineLayout() {
                     {t(`data.pipelineHeader.mode.${mode}`)}
                   </b>
                 </span>
-                <span className="max-lg:hidden">{d.description}</span>
               </>
             }
             actions={

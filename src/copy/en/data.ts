@@ -1655,6 +1655,7 @@ export const data = {
   },
   stepList: {
     startsJoin: ', ',
+    heading: 'Steps',
     triedAt: 'Draft tried {when} · nothing kept',
     saveDraft: 'Save draft',
     startsDefault: 'Started by hand',
@@ -1850,7 +1851,8 @@ export const data = {
     passOn: 'Pass on',
     passAll: 'All rows, with out_of_range filled in',
     passOutside: 'Only rows outside a range',
-    addHint: 'Add a step to get started.',
+    addHint:
+      'No code, code, connect, people, ELN or notify · or drop a .py, .sql or notebook file',
   },
   noCode: {
     needCondition: 'Add at least one condition.',

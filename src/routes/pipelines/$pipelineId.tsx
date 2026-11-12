@@ -27,6 +27,7 @@ import {
 } from '#/components/ui/confirm-dialog'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { RunDialog } from '#/components/pipelines/run-dialog'
+import { StepInspector } from '#/components/pipelines/step-list/inspector'
 import { PipelineMenu } from '#/components/pipelines/step-list/pipeline-menu'
 import {
   PipelineEditorProvider,
@@ -97,9 +98,10 @@ function usePipelineLayout() {
   }
 }
 
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the layout owns the header, tabs, trial and publish dialogs that share one editor model.
 function PipelineLayout() {
   const model = usePipelineLayout()
-  const { editor, members, onRun, run } = model
+  const { editor, members, onRun, onSteps, run } = model
   const { definition, current, draft } = editor
   const [publishing, setPublishing] = useState(false)
 
@@ -121,164 +123,171 @@ function PipelineLayout() {
 
   return (
     <PipelineEditorProvider value={editor}>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader
-          trail={[
-            {
-              label: t('data.pipelinePage.pipelines'),
-              link: { to: '/pipelines' },
-            },
-            { label: d.display_id ?? d.key, mono: true },
-          ]}
-          title={d.name}
-          meta={
-            <>
-              {draft ? (
-                <Status tone="draft">
-                  {t('data.pipelinePage.draftV')}
-                  {draft.version}
-                </Status>
-              ) : current ? (
-                <Status tone={versionStatus(current.lifecycle).tone}>
-                  {versionStatus(current.lifecycle).label} v{current.version}
-                </Status>
-              ) : (
-                <Status tone="draft">
-                  {t('data.pipelinePage.versionYet')}
-                </Status>
-              )}
-              {current?.lifecycle === 'published' && current.published_at ? (
-                <span>
-                  {t('data.pipelineHeader.publishedOn', {
-                    version: current.version,
-                    when: formatNotebookDateTime(current.published_at, {
-                      zone: true,
-                    }),
-                  })}
-                </span>
-              ) : (
-                <span>{t('data.pipelinePage.publishVersionEnableRuns')}</span>
-              )}
-              {owner ? (
-                <span>{t('data.pipelineHeader.owner', { name: owner })}</span>
-              ) : null}
-              <span
-                className="inline-flex items-center gap-1 text-fg-muted"
-                title={t('data.pipelineHeader.modeTitle')}
-              >
-                <Icon name="pipeline" size={12} />
-                <b className="font-medium text-fg">
-                  {t(`data.pipelineHeader.mode.${mode}`)}
-                </b>
-              </span>
-              <span className="max-lg:hidden">{d.description}</span>
-            </>
-          }
-          actions={
-            <>
-              <FavouriteToggle kind="pipeline" objectId={d.id} />
-              <Button
-                icon="play"
-                disabled={
-                  editor.tryDraft.isPending || !editor.canSave || !editor.shown
-                }
-                onClick={editor.startTrial}
-              >
-                {editor.tryDraft.isPending
-                  ? t('data.pipelineSteps.trying')
-                  : t('data.pipelineHeader.tryDraft')}
-              </Button>
-              <Button
-                variant="primary"
-                disabled={!canPublish || editor.publish.isPending}
-                title={
-                  editor.errors.length
-                    ? t('data.pipelinePage.finishDraftStepsTab', {
-                        message: editor.errors[0].message,
-                      })
-                    : undefined
-                }
-                onClick={() => setPublishing(true)}
-              >
-                {t('data.pipelineHeader.publish', { version: nextVersion })}
-              </Button>
-              <PipelineMenu
-                canRun={current?.lifecycle === 'published' && !run.pending}
-                onRun={() =>
-                  current &&
-                  run.launch({ pipelineName: d.name, version: current })
-                }
-              />
-            </>
-          }
-          tabs={
-            <Tabs
-              mode="url"
-              label={t('data.pipelinePage.pipelineSections')}
-              items={[
-                {
-                  label: t('data.pipelinePage.steps'),
-                  count: editor.config?.steps.length,
-                  link: { to: '/pipelines/$pipelineId/steps', params },
-                },
-                {
-                  label: t('data.pipelineHeader.startsAndRuns'),
-                  count: editor.runs.data?.length,
-                  link: { to: '/pipelines/$pipelineId/runs', params },
-                },
-                {
-                  label: t('data.pipelineHeader.activity'),
-                  link: { to: '/pipelines/$pipelineId/triggers', params },
-                },
-              ]}
-            />
-          }
-        />
-        <div className="flex min-h-0 flex-1">
-          <Outlet />
-        </div>
-        {run.dialog}
-        {editor.trialDialog ? (
-          <RunDialog
-            trial
-            pipelineName={d.name}
-            version={editor.draftAsVersion}
-            initial={editor.trialDetails ?? undefined}
-            busy={editor.tryDraft.isPending}
-            onClose={() => editor.setTrialDialog(false)}
-            onSubmit={editor.submitTrial}
-          />
-        ) : null}
-        <ConfirmDialog open={publishing} onOpenChange={setPublishing}>
-          <ConfirmDialogContent>
-            <ConfirmDialogHeader>
-              <ConfirmDialogTitle>
-                {t('data.pipelineHeader.publishTitle', {
-                  version: nextVersion,
-                })}
-              </ConfirmDialogTitle>
-              <ConfirmDialogDescription>
-                {current?.lifecycle === 'published'
-                  ? t('data.pipelineHeader.publishBodyReplace', {
+      <div className="flex min-h-0 min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <PageHeader
+            trail={[
+              {
+                label: t('data.pipelinePage.pipelines'),
+                link: { to: '/pipelines' },
+              },
+              { label: d.display_id ?? d.key, mono: true },
+            ]}
+            title={d.name}
+            meta={
+              <>
+                {draft ? (
+                  <Status tone="draft">
+                    {t('data.pipelinePage.draftV')}
+                    {draft.version}
+                  </Status>
+                ) : current ? (
+                  <Status tone={versionStatus(current.lifecycle).tone}>
+                    {versionStatus(current.lifecycle).label} v{current.version}
+                  </Status>
+                ) : (
+                  <Status tone="draft">
+                    {t('data.pipelinePage.versionYet')}
+                  </Status>
+                )}
+                {current?.lifecycle === 'published' && current.published_at ? (
+                  <span>
+                    {t('data.pipelineHeader.publishedOn', {
                       version: current.version,
-                      next: nextVersion,
-                    })
-                  : t('data.pipelineHeader.publishBodyFirst')}{' '}
-                {editor.dirty ? t('data.pipelineHeader.publishSavesFirst') : ''}
-              </ConfirmDialogDescription>
-            </ConfirmDialogHeader>
-            <ConfirmDialogFooter>
-              <ConfirmDialogCancel>
-                {t('common.actions.cancel')}
-              </ConfirmDialogCancel>
-              <ConfirmDialogAction onClick={() => editor.publish.mutate()}>
-                {t('data.pipelineHeader.publishConfirm', {
-                  version: nextVersion,
-                })}
-              </ConfirmDialogAction>
-            </ConfirmDialogFooter>
-          </ConfirmDialogContent>
-        </ConfirmDialog>
+                      when: formatNotebookDateTime(current.published_at, {
+                        zone: true,
+                      }),
+                    })}
+                  </span>
+                ) : (
+                  <span>{t('data.pipelinePage.publishVersionEnableRuns')}</span>
+                )}
+                {owner ? (
+                  <span>{t('data.pipelineHeader.owner', { name: owner })}</span>
+                ) : null}
+                <span
+                  className="inline-flex items-center gap-1 text-fg-muted"
+                  title={t('data.pipelineHeader.modeTitle')}
+                >
+                  <Icon name="pipeline" size={12} />
+                  <b className="font-medium text-fg">
+                    {t(`data.pipelineHeader.mode.${mode}`)}
+                  </b>
+                </span>
+                <span className="max-lg:hidden">{d.description}</span>
+              </>
+            }
+            actions={
+              <>
+                <FavouriteToggle kind="pipeline" objectId={d.id} />
+                <Button
+                  icon="play"
+                  disabled={
+                    editor.tryDraft.isPending ||
+                    !editor.canSave ||
+                    !editor.shown
+                  }
+                  onClick={editor.startTrial}
+                >
+                  {editor.tryDraft.isPending
+                    ? t('data.pipelineSteps.trying')
+                    : t('data.pipelineHeader.tryDraft')}
+                </Button>
+                <Button
+                  variant="primary"
+                  disabled={!canPublish || editor.publish.isPending}
+                  title={
+                    editor.errors.length
+                      ? t('data.pipelinePage.finishDraftStepsTab', {
+                          message: editor.errors[0].message,
+                        })
+                      : undefined
+                  }
+                  onClick={() => setPublishing(true)}
+                >
+                  {t('data.pipelineHeader.publish', { version: nextVersion })}
+                </Button>
+                <PipelineMenu
+                  canRun={current?.lifecycle === 'published' && !run.pending}
+                  onRun={() =>
+                    current &&
+                    run.launch({ pipelineName: d.name, version: current })
+                  }
+                />
+              </>
+            }
+            tabs={
+              <Tabs
+                mode="url"
+                label={t('data.pipelinePage.pipelineSections')}
+                items={[
+                  {
+                    label: t('data.pipelinePage.steps'),
+                    count: editor.config?.steps.length,
+                    link: { to: '/pipelines/$pipelineId/steps', params },
+                  },
+                  {
+                    label: t('data.pipelineHeader.startsAndRuns'),
+                    count: editor.runs.data?.length,
+                    link: { to: '/pipelines/$pipelineId/runs', params },
+                  },
+                  {
+                    label: t('data.pipelineHeader.activity'),
+                    link: { to: '/pipelines/$pipelineId/triggers', params },
+                  },
+                ]}
+              />
+            }
+          />
+          <div className="flex min-h-0 flex-1">
+            <Outlet />
+          </div>
+          {run.dialog}
+          {editor.trialDialog ? (
+            <RunDialog
+              trial
+              pipelineName={d.name}
+              version={editor.draftAsVersion}
+              initial={editor.trialDetails ?? undefined}
+              busy={editor.tryDraft.isPending}
+              onClose={() => editor.setTrialDialog(false)}
+              onSubmit={editor.submitTrial}
+            />
+          ) : null}
+          <ConfirmDialog open={publishing} onOpenChange={setPublishing}>
+            <ConfirmDialogContent>
+              <ConfirmDialogHeader>
+                <ConfirmDialogTitle>
+                  {t('data.pipelineHeader.publishTitle', {
+                    version: nextVersion,
+                  })}
+                </ConfirmDialogTitle>
+                <ConfirmDialogDescription>
+                  {current?.lifecycle === 'published'
+                    ? t('data.pipelineHeader.publishBodyReplace', {
+                        version: current.version,
+                        next: nextVersion,
+                      })
+                    : t('data.pipelineHeader.publishBodyFirst')}{' '}
+                  {editor.dirty
+                    ? t('data.pipelineHeader.publishSavesFirst')
+                    : ''}
+                </ConfirmDialogDescription>
+              </ConfirmDialogHeader>
+              <ConfirmDialogFooter>
+                <ConfirmDialogCancel>
+                  {t('common.actions.cancel')}
+                </ConfirmDialogCancel>
+                <ConfirmDialogAction onClick={() => editor.publish.mutate()}>
+                  {t('data.pipelineHeader.publishConfirm', {
+                    version: nextVersion,
+                  })}
+                </ConfirmDialogAction>
+              </ConfirmDialogFooter>
+            </ConfirmDialogContent>
+          </ConfirmDialog>
+        </div>
+        {onSteps ? <StepInspector /> : null}
       </div>
     </PipelineEditorProvider>
   )

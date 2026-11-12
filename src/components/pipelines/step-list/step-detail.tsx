@@ -55,7 +55,7 @@ export function StepDetail({
   workspaceId: string
   members: Record<string, string>
   runtime: PythonRuntimeInfo | undefined
-  facts: Record<string, StepFacts>
+  facts: Partial<Record<string, StepFacts>>
   onChange: (step: PipelineStep) => void
   onConvertToSql: () => void
 }) {

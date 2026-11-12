@@ -17,6 +17,7 @@ const filter = {
 
 /** A fixture as the JSON a stored step holds. */
 function json(value: NoCodeForm): z.core.util.JSONType {
+  // react-doctor-disable-next-line react-doctor/no-json-parse-stringify-clone -- the fixture must be plain JSON, as a stored step is.
   return z.json().parse(JSON.parse(JSON.stringify(value)))
 }
 

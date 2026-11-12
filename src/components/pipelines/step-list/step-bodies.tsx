@@ -52,6 +52,7 @@ export function useNotificationDestinations() {
   })
 }
 
+// react-doctor-disable-next-line react-doctor/only-export-components -- destinationName labels a destination in the kinds' summaries and in the notify body; it belongs with the destinations it names.
 export const destinationName = (d: Destination) =>
   d.description?.trim() || d.key
 
@@ -159,6 +160,7 @@ export function NotifyStepBody({
 }) {
   const destinations = useNotificationDestinations()
   const list = destinations.data ?? []
+  const usedElsewhere = new Set(taken)
 
   return (
     <div className="flex flex-col gap-2">
@@ -177,7 +179,7 @@ export function NotifyStepBody({
           {list
             .filter(
               (d) =>
-                d.id === step.notify.subscriptionId || !taken.includes(d.id),
+                d.id === step.notify.subscriptionId || !usedElsewhere.has(d.id),
             )
             .map((d) => (
               <option key={d.id} value={d.id}>
@@ -240,7 +242,6 @@ export function ActionStepBody({
   const definitions = useMemo(
     () => pipelineActions(workspaceId),
     // Extensions installed or removed change what is on offer.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [workspaceId, points.descriptors],
   )
 

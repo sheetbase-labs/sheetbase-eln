@@ -29,7 +29,10 @@ function ident(name: string): string | null {
 /** A typed value as SQL: a number when it is one, otherwise quoted text. */
 /** Whether text holds a control character. */
 function hasControl(text: string): boolean {
-  return [...text].some((char) => char.charCodeAt(0) < 32)
+  for (let index = 0; index < text.length; index++)
+    if (text.charCodeAt(index) < 32) return true
+
+  return false
 }
 
 /** Text that could end a statement, open a comment or a quote, or carry a control character. */

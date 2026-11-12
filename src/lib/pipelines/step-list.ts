@@ -63,6 +63,7 @@ export function readStoredConfig(raw: JsonValue): PipelineConfig | null {
 
 /** A version as the JSON the database stores: unset values dropped. */
 export function configForWire(config: PipelineConfig) {
+  // react-doctor-disable-next-line react-doctor/no-json-parse-stringify-clone -- a saved version must be plain JSON; the round trip drops unset values on purpose.
   return pipelineJsonObjectSchema.parse(JSON.parse(JSON.stringify(config)))
 }
 
@@ -240,7 +241,7 @@ export function removeStep(
     if (step.kind !== 'ask' || !step.ask.skipSteps?.includes(name))
       return [step]
     const { skipSteps, ...ask } = step.ask
-    const kept = skipSteps?.filter((n) => n !== name) ?? []
+    const kept = skipSteps.filter((n) => n !== name)
 
     return [{ ...step, ask: kept.length ? { ...ask, skipSteps: kept } : ask }]
   })

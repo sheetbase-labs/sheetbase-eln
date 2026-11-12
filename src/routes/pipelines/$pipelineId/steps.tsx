@@ -4,7 +4,6 @@ import { t } from '#/copy'
 import { Button } from '#/components/ui/button'
 import { Notice } from '#/components/ui/alert'
 import { AiPipelineBox } from '#/components/pipelines/ai-pipeline-box'
-import { StepInspector } from '#/components/pipelines/step-list/inspector'
 import { StepList } from '#/components/pipelines/step-list/step-list'
 import { usePipelineEditor } from '#/components/pipelines/step-list/use-pipeline-editor'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
@@ -32,9 +31,12 @@ function PipelineSteps() {
   const view = editor.aiContext
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 px-4 py-4 sm:px-6">
+    <div className="flex min-w-0 flex-1 flex-col gap-3 px-4 py-4 sm:px-6">
       <div className="flex flex-wrap items-center gap-3 text-label text-fg-muted">
-        <span className="min-w-0 flex-1">
+        <h2 className="m-0 font-heading text-[15px] font-semibold text-fg">
+          {t('data.stepList.heading')}
+        </h2>
+        <span className="min-w-0 flex-1 text-right">
           {editor.trialAt
             ? t('data.stepList.triedAt', {
                 when: formatNotebookDateTime(editor.trialAt.toISOString(), {
@@ -73,12 +75,7 @@ function PipelineSteps() {
         onApply={editor.applyAiDraft}
       />
 
-      <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="min-w-0 flex-1">
-          <StepList />
-        </div>
-        <StepInspector />
-      </div>
+      <StepList />
     </div>
   )
 }

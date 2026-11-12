@@ -103,9 +103,7 @@ export function SheetSaveStatus({
 
 /** A thin upright rule between toolbar groups. */
 export function SheetToolbarRule() {
-  return (
-    <span aria-hidden="true" className="tx-vr" />
-  )
+  return <span aria-hidden="true" className="tx-vr" />
 }
 
 /** An on/off switch with its label, for a view that is off by default. */

@@ -1066,6 +1066,7 @@ describe('Pipeline execution (AUTO-02)', () => {
 
     // Reproduce compares every output, not only the first.
     const again = await makeExecDeps(OWNER)
+
     const reproduced = await reproducePipelineRun(
       OWNER,
       { runId: run.id },

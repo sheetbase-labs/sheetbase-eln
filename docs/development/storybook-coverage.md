@@ -578,6 +578,8 @@ server, so every notebook comes back in the "not updated" list.
 | `src/components/pipelines/step-list/pipeline-menu.tsx`       | The ⋯ menu reads versions and starts runs through the data client; covered by the pipeline page tests.                                |
 | `src/components/pipelines/step-list/step-bodies.tsx`         | Ask, notify, ELN action and plugin bodies read members, destinations and plugin points through the data client.                       |
 | `src/components/pipelines/step-list/step-detail.tsx`         | Composes the step bodies and pickers from the editor context; covered by the Steps route tests.                                       |
+| `src/components/pipelines/starts/outcomes.ts`                | Words and tones for what a start did with each thing it heard; no rendered surface.                                                   |
+| `src/components/pipelines/starts/starts-page.tsx`            | The loaded Starts and runs screen; it only lays out the parts that have stories and reads the pipeline through the data client.       |
 | `src/components/pipelines/step-list/step-list.tsx`           | The list reads the draft, schedules and runs from the editor context; covered by the Steps route tests.                               |
 | `src/components/pipelines/step-list/use-pipeline-editor.tsx` | Hook and provider that hold the draft and read versions and runs; no rendered surface.                                                |
 

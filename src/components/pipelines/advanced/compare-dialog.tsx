@@ -15,7 +15,7 @@ import {
   diffLines,
   withContext,
 } from '#/lib/pipelines/version-file-diff'
-import '#/features/pipelines/board/version-file.css'
+import { BoardScope } from '#/features/pipelines/board/board'
 
 /** The version number is the file's own line; leaving it out keeps it from showing as a change. */
 const withoutVersion = (text: string) =>
@@ -54,45 +54,52 @@ export function CompareDialog({ onClose }: { onClose: () => void }) {
           title={t('features.pipelineVersionFile.compare.title', {
             version: current?.version ?? 0,
           })}
-          description={
-            rows
-              ? t('features.pipelineVersionFile.compare.summary', {
-                  added: rows.added,
-                  removed: rows.removed,
-                })
-              : undefined
-          }
         />
         <DialogBody>
           {rows && rows.added + rows.removed > 0 ? (
-            <div
-              className="ye-diff pb-scope"
-              // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- a diff is a div grid of lines, not tabular data a table element would fit.
-              role="table"
-              aria-label={t('features.pipelineVersionFile.compare.aria')}
-            >
-              {rows.rows.map((row, index) =>
-                row.kind === 'gap' ? (
-                  // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- diff rows have no identity of their own; the list is rebuilt whole and never reordered.
-                  <div className="d gap" role="row" key={`g${index}`}>
-                    {t('features.pipelineVersionFile.compare.unchanged', {
-                      count: row.hidden,
+            <BoardScope>
+              <section
+                className="pls-vfw"
+                aria-label={t('features.pipelineVersionFile.compare.aria')}
+              >
+                <div className="pls-atb" style={{ height: 40 }}>
+                  <span>
+                    {t('features.pipelineVersionFile.compare.summary', {
+                      added: rows.added,
+                      removed: rows.removed,
                     })}
-                  </div>
-                ) : (
-                  <div
-                    className={`d ${row.kind === 'same' ? '' : row.kind}`}
-                    role="row"
-                    key={`${row.before}:${row.after}:${index}`}
-                  >
-                    <span aria-hidden="true">
-                      {row.kind === 'add' ? '+' : row.kind === 'del' ? '−' : ''}
-                    </span>
-                    <span>{row.text || ' '}</span>
-                  </div>
-                ),
-              )}
-            </div>
+                  </span>
+                </div>
+                <pre className="pls-yl pls-diff">
+                  {rows.rows.map((row, index) =>
+                    row.kind === 'gap' ? (
+                      // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- diff rows have no identity of their own; the list is rebuilt whole and never reordered.
+                      <span className="l gap" key={`g${index}`}>
+                        {t('features.pipelineVersionFile.compare.unchanged', {
+                          count: row.hidden,
+                        })}
+                      </span>
+                    ) : (
+                      <span
+                        className={`l ${row.kind === 'same' ? '' : row.kind}`}
+                        // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- diff rows have no identity of their own; the list is rebuilt whole and never reordered.
+                        key={`${row.before}:${row.after}:${index}`}
+                        style={{
+                          counterSet: `ln ${(row.after ?? row.before ?? 1) - 1}`,
+                        }}
+                      >
+                        {row.kind === 'add'
+                          ? '+ '
+                          : row.kind === 'del'
+                            ? '- '
+                            : '  '}
+                        {row.text}
+                      </span>
+                    ),
+                  )}
+                </pre>
+              </section>
+            </BoardScope>
           ) : (
             <p className="m-0 text-body text-fg-muted">
               {t('features.pipelineVersionFile.compare.same', {

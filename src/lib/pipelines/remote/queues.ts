@@ -12,16 +12,17 @@ export function parseQueues(text: string): RemoteQueueOption[] | null {
   const queues: RemoteQueueOption[] = []
 
   for (const part of parts) {
-    const [name, minutes, ...extra] = part.split(':').map((s) => s.trim())
+    const pieces = part.split(':').map((s) => s.trim())
+    const name = pieces[0]
 
-    if (extra.length > 0 || !REMOTE_QUEUE_RE.test(name)) return null
+    if (pieces.length > 2 || !REMOTE_QUEUE_RE.test(name)) return null
 
-    if (minutes === undefined) {
+    if (pieces.length === 1) {
       queues.push({ name })
       continue
     }
 
-    const limit = Number(minutes)
+    const limit = Number(pieces[1])
 
     if (!Number.isInteger(limit) || limit < 1) return null
     queues.push({ name, maxMinutes: limit })

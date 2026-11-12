@@ -75,6 +75,8 @@ const RPC_ARG_TYPES: Record<string, string[]> = {
     'text',
     'text',
     'text',
+    'text',
+    'jsonb',
   ],
   update_pipeline_connection: [
     'uuid',
@@ -85,6 +87,7 @@ const RPC_ARG_TYPES: Record<string, string[]> = {
     'text',
     'text',
     'text',
+    'jsonb',
   ],
   delete_pipeline_connection: ['uuid', 'uuid'],
 }
@@ -719,6 +722,57 @@ describe('connections', () => {
     ).rejects.toThrow()
   })
 
+  it('keeps a cluster connection with its settings, and refuses bad ones', async () => {
+    const owner = await ownerActor()
+    const hpc = await rpc<{ kind: string; settings: { user: string } }>(
+      owner,
+      'create_pipeline_connection',
+      {
+        p_workspace_id: WS,
+        p_key: 'campus-hpc',
+        p_name: 'Campus HPC',
+        p_base_url: 'http://slurm.example.com:6820',
+        p_description: null,
+        p_auth_header: null,
+        p_auth_scheme: null,
+        p_kind: 'hpc',
+        p_settings: {
+          scheduler: 'slurm',
+          user: 'sheetbase',
+          queues: [{ name: 'hpc-short', maxMinutes: 60 }],
+        },
+      },
+    )
+    expect(hpc.kind).toBe('hpc')
+    expect(hpc.settings.user).toBe('sheetbase')
+    await expect(
+      rpc(owner, 'create_pipeline_connection', {
+        p_workspace_id: WS,
+        p_key: 'bad-hpc',
+        p_name: 'Bad',
+        p_base_url: 'http://slurm.example.com:6820',
+        p_description: null,
+        p_auth_header: null,
+        p_auth_scheme: null,
+        p_kind: 'hpc',
+        p_settings: { scheduler: 'slurm', user: 'x', queues: [] },
+      }),
+    ).rejects.toThrow()
+    await expect(
+      rpc(owner, 'create_pipeline_connection', {
+        p_workspace_id: WS,
+        p_key: 'web-with-settings',
+        p_name: 'Web',
+        p_base_url: 'https://lims.example.com',
+        p_description: null,
+        p_auth_header: null,
+        p_auth_scheme: null,
+        p_kind: 'web',
+        p_settings: { user: 'x' },
+      }),
+    ).rejects.toThrow()
+  })
+
   it('says so in the change events a webhook can follow', async () => {
     const { rows } = await migrator.query<{ operation: string }>(
       `select operation from api.change_events
@@ -740,7 +794,7 @@ describe('connections', () => {
         p_workspace_id: WS,
         p_connection_id: id,
       }),
-    ).rejects.toThrow(/published pipeline calls this connection/)
+    ).rejects.toThrow(/published pipeline uses this connection/)
     const off = await rpc<{ status: string }>(
       owner,
       'update_pipeline_connection',

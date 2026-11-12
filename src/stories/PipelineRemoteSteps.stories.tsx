@@ -6,10 +6,8 @@ import {
   LakehouseStepBody,
   RemoteJobStepBody,
 } from '#/components/pipelines/step-list/remote-bodies'
-import {
-  LakehouseSqlSection,
-  RemoteJobConnections,
-} from '#/components/settings/remote-jobs'
+import { LakehouseSqlSection } from '#/components/settings/lakehouse-sql'
+import { PipelineConnections } from '#/components/settings/pipeline-connections'
 import { remoteKeys } from '#/lib/pipelines/remote/client'
 import type { RunRemoteJob } from '#/lib/pipelines/remote/client'
 import { screenQueryClient, screenRoutes } from './screen-stories'
@@ -63,6 +61,37 @@ const client = screenQueryClient({
             { name: 'hpc-short', maxMinutes: 120 },
             { name: 'gpu.a100', maxMinutes: 1440 },
           ],
+        },
+      ],
+    },
+    {
+      key: ['pipeline-connections'],
+      value: [
+        {
+          id: 'c-1',
+          key: 'campus-hpc',
+          name: 'Campus HPC',
+          description: null,
+          base_url: 'https://slurm.example.org',
+          status: 'active',
+          secret_names: ['HPC_SUBMIT_KEY'],
+          kind: 'hpc',
+          settings: {
+            scheduler: 'slurm',
+            user: 'sheetbase',
+            queues: [{ name: 'hpc-short', maxMinutes: 120 }],
+          },
+        },
+        {
+          id: 'c-2',
+          key: 'lims',
+          name: 'LIMS',
+          description: null,
+          base_url: 'https://lims.example.com/api',
+          status: 'active',
+          secret_names: ['LIMS_READ_TOKEN'],
+          kind: 'web',
+          settings: {},
         },
       ],
     },
@@ -162,7 +191,7 @@ export const FailedPanel: Story = {
 
 export const ConnectionSettings: Story = {
   decorators: [withClient],
-  render: () => <RemoteJobConnections workspaceId="ws-1" canManage />,
+  render: () => <PipelineConnections workspaceId="ws-1" canManage />,
 }
 
 export const LakehouseSwitch: Story = {

@@ -37,7 +37,7 @@ export const PIPELINE_CONNECTION_OPERATIONS = defineOperations([
     label: 'Add a pipeline connection',
     summary: 'Add a pipeline connection',
     description:
-      'Approves an https address that pipeline web call steps may call, under a short key such as `lims`. The address has no password, query or fragment. Owners, admins and stewards. The secrets a call signs with are set in the app, by name, and are never readable. Returns the connection. Sends `pipeline_connection.created`.',
+      'Approves a place pipeline steps may reach, under a short key such as `lims`: an https address for web calls (`p_kind` `web`, the default) or an HPC cluster for remote jobs (`hpc`, with its scheduler user and queues in `p_settings`). The address has no password, query or fragment. Owners, admins and stewards. The secrets a call or job signs with, such as `HPC_SUBMIT_KEY`, are set in the app, by name, and are never readable. Returns the connection. Sends `pipeline_connection.created`.',
     kind: 'write',
     scope: 'admin:write',
     inputs: [
@@ -66,6 +66,13 @@ export const PIPELINE_CONNECTION_OPERATIONS = defineOperations([
         'The word before the secret, such as `Bearer`. Empty sends the secret alone.',
         false,
       ),
+      note('p_kind', 'text', '`web` (default) or `hpc`.', false),
+      note(
+        'p_settings',
+        'json',
+        'hpc only: `{ "scheduler": "slurm", "user": "sheetbase", "queues": [{ "name": "hpc-short", "maxMinutes": 60 }], "callbackUrl": "https://…" }`. `callbackUrl` is optional.',
+        false,
+      ),
     ],
     result: 'row:pipeline_connections',
     assistant: card('sheetbase.pipeline_connection.add'),
@@ -75,7 +82,7 @@ export const PIPELINE_CONNECTION_OPERATIONS = defineOperations([
     label: 'Change a pipeline connection',
     summary: 'Change a pipeline connection',
     description:
-      'Renames a connection, moves it to another address, or switches it off (`p_status` `off`) or on (`active`). Leave out what stays. A switched-off connection stops every web call that uses it. Owners, admins and stewards. Returns the connection. Sends `pipeline_connection.updated`.',
+      'Renames a connection, moves it to another address, changes a cluster’s settings, or switches it off (`p_status` `off`) or on (`active`). Leave out what stays. A switched-off connection stops every web call that uses it. Owners, admins and stewards. Returns the connection. Sends `pipeline_connection.updated`.',
     kind: 'write',
     scope: 'admin:write',
     inputs: [
@@ -91,6 +98,12 @@ export const PIPELINE_CONNECTION_OPERATIONS = defineOperations([
       note('p_status', 'text', '`active` or `off`.', false),
       note('p_auth_header', 'text', 'The header a secret is sent in.', false),
       note('p_auth_scheme', 'text', 'The word before the secret.', false),
+      note(
+        'p_settings',
+        'json',
+        'hpc only: the whole settings object, as for `create_pipeline_connection`. Replaces the stored settings.',
+        false,
+      ),
     ],
     result: 'row:pipeline_connections',
     assistant: card('sheetbase.pipeline_connection.change'),

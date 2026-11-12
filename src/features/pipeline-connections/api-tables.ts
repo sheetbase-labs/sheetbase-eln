@@ -8,7 +8,7 @@ import type { LabTable } from '#/lib/lab-api-surface'
 export const PIPELINE_CONNECTION_LAB_TABLES = {
   pipeline_connections: {
     summary:
-      'The https addresses pipeline web call steps may call. `key` is what a step names; `status` is `active` or `off`; `secret_names` lists the names of the secrets stored for it (never their values).',
+      'The places pipeline steps may reach: `kind` `web` is an https address a web call calls, `hpc` is a cluster a remote job runs on (its scheduler `user`, `queues` and `callbackUrl` are in `settings`). `key` is what a step names; `status` is `active` or `off`; `secret_names` lists the names of the secrets stored for it (never their values).',
     scope: 'pipelines:read',
     columns: [
       ['id', 'uuid', 1],
@@ -20,6 +20,8 @@ export const PIPELINE_CONNECTION_LAB_TABLES = {
       ['auth_header', 'text', 1],
       ['auth_scheme', 'text', 1],
       ['status', 'text', 1],
+      ['kind', 'text', 1],
+      ['settings', 'json', 1],
       ['secret_names', 'text[]', 1],
       ['created_at', 'ts', 1],
       ['updated_at', 'ts', 1],

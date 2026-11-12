@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -22,6 +23,7 @@ import {
 } from '#/components/ui/dialog'
 import { Notice } from '#/components/ui/alert'
 import { Field, Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
 import { Muted } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
 import { Icon } from '#/components/icons'
@@ -33,10 +35,13 @@ import {
   deletePipelineConnectionSecretFn,
   setPipelineConnectionSecretFn,
 } from '#/lib/pipeline-connection-secret-admin'
+import { WEB_CONNECTION_KEY_RE } from '#/lib/pipelines/web-call'
+import { formatQueues, parseQueues } from '#/lib/pipelines/remote/queues'
 import {
-  WEB_CONNECTION_KEY_RE,
-  WEB_SECRET_NAME_RE,
-} from '#/lib/pipelines/web-call'
+  REMOTE_CONNECTION_RE,
+  REMOTE_SECRET_RE,
+} from '#/lib/pipelines/remote/settings'
+import type { HpcSettings } from '#/lib/pipelines/remote/client'
 import { t } from '#/copy'
 
 const client = createDataClient()
@@ -49,7 +54,26 @@ interface Connection {
   base_url: string
   status: string
   secret_names: string[]
+  /** `web`: an https address a web call reaches. `hpc`: a cluster a remote job runs on. */
+  kind: 'web' | 'hpc'
+  settings: unknown
 }
+
+const hpcSettings = z.object({
+  user: z.string().catch(''),
+  queues: z
+    .array(
+      z.object({
+        name: z.string(),
+        maxMinutes: z.number().int().positive().optional(),
+      }),
+    )
+    .catch([]),
+  callbackUrl: z.string().catch(''),
+})
+
+const WEB_ADDRESS = /^https:\/\/[^\s/@?#]+(\/[^\s?#]*)?$/
+const HPC_ADDRESS = /^https?:\/\/[^\s/@?#]+(\/[^\s?#]*)?$/
 
 const KEY = ['pipeline-connections'] as const
 
@@ -82,7 +106,7 @@ export function PipelineConnections({
     queryFn: () =>
       client.list<Connection>(
         'pipeline_connections',
-        '?select=id,key,name,description,base_url,status,secret_names&order=name.asc',
+        '?select=id,key,name,description,base_url,status,secret_names,kind,settings&order=name.asc',
       ),
     enabled: Boolean(workspaceId),
   })
@@ -110,6 +134,14 @@ export function PipelineConnections({
       id: 'key',
       header: t('features.pipelineConnections.settings.key'),
       cell: ({ row }) => <span className="mono">{row.original.key}</span>,
+    },
+    {
+      id: 'kind',
+      header: t('features.pipelineConnections.settings.type'),
+      cell: ({ row }) =>
+        row.original.kind === 'hpc'
+          ? t('features.pipelineConnections.settings.typeHpc')
+          : t('features.pipelineConnections.settings.typeWeb'),
     },
     {
       id: 'address',
@@ -200,7 +232,15 @@ function useConnectionActions({
 }: {
   workspaceId: string
   connection: Connection | null
-  form: { name: string; key: string; address: string; description: string }
+  form: {
+    name: string
+    key: string
+    address: string
+    description: string
+    kind: 'web' | 'hpc'
+    /** Cluster connections only. */
+    settings: HpcSettings | null
+  }
   onClose: () => void
   onError: (message: string) => void
 }) {
@@ -216,6 +256,7 @@ function useConnectionActions({
           p_name: form.name,
           p_base_url: form.address,
           p_description: form.description,
+          p_settings: form.settings ?? undefined,
         })
       else
         await client.rpc('create_pipeline_connection', {
@@ -224,6 +265,8 @@ function useConnectionActions({
           p_name: form.name,
           p_base_url: form.address,
           p_description: form.description || null,
+          p_kind: form.kind,
+          p_settings: form.settings ?? undefined,
         })
     },
     onSuccess: async () => {
@@ -275,21 +318,51 @@ function ConnectionDialog({
   const keyEdited = useRef(false)
   const [address, setAddress] = useState(connection?.base_url ?? '')
   const [description, setDescription] = useState(connection?.description ?? '')
+  const [kind, setKind] = useState<'web' | 'hpc'>(connection?.kind ?? 'web')
+  const current = hpcSettings.safeParse(connection?.settings ?? {})
+  const [user, setUser] = useState(current.success ? current.data.user : '')
+
+  const [queueText, setQueueText] = useState(
+    current.success ? formatQueues(current.data.queues) : '',
+  )
+
+  const [callbackUrl, setCallbackUrl] = useState(
+    current.success ? current.data.callbackUrl : '',
+  )
+
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState(false)
+
+  const queues = parseQueues(queueText)
+
+  const settings: HpcSettings | null =
+    kind === 'hpc' && queues
+      ? {
+          scheduler: 'slurm',
+          user: user.trim(),
+          queues,
+          callbackUrl: callbackUrl.trim() || undefined,
+        }
+      : null
 
   const { refresh, save, toggle, remove } = useConnectionActions({
     workspaceId,
     connection,
-    form: { name, key, address, description },
+    form: { name, key, address, description, kind, settings },
     onClose,
     onError: setError,
   })
 
+  const addressOk = (kind === 'hpc' ? HPC_ADDRESS : WEB_ADDRESS).test(address)
+
   const valid =
     name.trim() !== '' &&
-    /^https:\/\/[^\s/@?#]+(\/[^\s?#]*)?$/.test(address) &&
-    (connection !== null || WEB_CONNECTION_KEY_RE.test(key))
+    addressOk &&
+    (connection !== null ||
+      (kind === 'hpc' ? REMOTE_CONNECTION_RE : WEB_CONNECTION_KEY_RE).test(
+        key,
+      )) &&
+    (kind === 'web' || (settings !== null && settings.user !== ''))
 
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
@@ -321,6 +394,23 @@ function ConnectionDialog({
             />
           </Field>
           {connection ? null : (
+            <Field label={t('features.pipelineConnections.settings.type')}>
+              <Select
+                value={kind}
+                onChange={(event) =>
+                  setKind(event.target.value === 'hpc' ? 'hpc' : 'web')
+                }
+              >
+                <option value="web">
+                  {t('features.pipelineConnections.settings.typeWeb')}
+                </option>
+                <option value="hpc">
+                  {t('features.pipelineConnections.settings.typeHpc')}
+                </option>
+              </Select>
+            </Field>
+          )}
+          {connection ? null : (
             <Field
               label={t('features.pipelineConnections.settings.key')}
               hint={t('features.pipelineConnections.settings.keyHint')}
@@ -338,15 +428,66 @@ function ConnectionDialog({
           )}
           <Field
             label={t('features.pipelineConnections.settings.address')}
-            hint={t('features.pipelineConnections.settings.addressHint')}
+            hint={
+              kind === 'hpc'
+                ? t('features.pipelineConnections.settings.addressHintHpc')
+                : t('features.pipelineConnections.settings.addressHint')
+            }
             required
           >
             <Input
               value={address}
-              placeholder="https://lims.example.com/api"
+              placeholder={
+                kind === 'hpc'
+                  ? 'https://slurm.example.org'
+                  : 'https://lims.example.com/api'
+              }
               onChange={(event) => setAddress(event.target.value)}
             />
           </Field>
+          {kind === 'hpc' ? (
+            <>
+              <Field
+                label={t('features.pipelineConnections.settings.user')}
+                required
+              >
+                <Input
+                  value={user}
+                  onChange={(event) => setUser(event.target.value)}
+                />
+              </Field>
+              <Field
+                label={t('features.pipelineConnections.settings.queues')}
+                hint={t('features.pipelineConnections.settings.queuesHint')}
+                required
+                error={
+                  queues === null
+                    ? t('features.pipelineConnections.settings.queuesInvalid')
+                    : undefined
+                }
+              >
+                <Input
+                  className="mono"
+                  value={queueText}
+                  placeholder={t(
+                    'features.pipelineConnections.settings.queuesPlaceholder',
+                  )}
+                  onChange={(event) => setQueueText(event.target.value)}
+                />
+              </Field>
+              <Field
+                label={t('features.pipelineConnections.settings.callbackUrl')}
+                hint={t(
+                  'features.pipelineConnections.settings.callbackUrlHint',
+                )}
+              >
+                <Input
+                  value={callbackUrl}
+                  onChange={(event) => setCallbackUrl(event.target.value)}
+                />
+              </Field>
+            </>
+          ) : null}
           <Field label={t('features.pipelineConnections.settings.description')}>
             <Input
               value={description}
@@ -524,7 +665,11 @@ function SecretsEditor({
       <h3 className="m-0 text-label font-semibold">
         {t('features.pipelineConnections.settings.secrets')}
       </h3>
-      <Muted>{t('features.pipelineConnections.settings.secretsHint')}</Muted>
+      <Muted>
+        {connection.kind === 'hpc'
+          ? t('features.pipelineConnections.settings.secretsHintHpc')
+          : t('features.pipelineConnections.settings.secretsHint')}
+      </Muted>
       <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
         {connection.secret_names.map((name) => (
           <div
@@ -564,9 +709,11 @@ function SecretsEditor({
         <Field label={t('features.pipelineConnections.settings.secretName')}>
           <Input
             value={secretName}
-            placeholder={t(
-              'features.pipelineConnections.settings.secretPlaceholder',
-            )}
+            placeholder={
+              connection.kind === 'hpc'
+                ? 'HPC_SUBMIT_KEY'
+                : t('features.pipelineConnections.settings.secretPlaceholder')
+            }
             onChange={(event) => setSecretName(event.target.value)}
           />
         </Field>
@@ -581,9 +728,7 @@ function SecretsEditor({
         </Field>
         <Button
           disabled={
-            !WEB_SECRET_NAME_RE.test(secretName) ||
-            !value.trim() ||
-            set.isPending
+            !REMOTE_SECRET_RE.test(secretName) || !value.trim() || set.isPending
           }
           onClick={() => set.mutate()}
         >

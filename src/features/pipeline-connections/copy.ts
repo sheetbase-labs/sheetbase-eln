@@ -36,7 +36,7 @@ export const copy = {
   },
   settings: {
     title: 'Pipeline connections',
-    hint: 'The https addresses pipeline web call steps may reach. A step names a connection and a secret; it never holds the secret’s value.',
+    hint: 'The places pipeline steps may reach: web addresses for web calls and clusters for remote jobs. A step names a connection and a secret; it never holds the secret’s value.',
     add: 'Add connection',
     addTitle: 'Add a pipeline connection',
     addAction: 'Add connection',
@@ -49,6 +49,23 @@ export const copy = {
     keyHint: 'What steps call it: lowercase letters, digits and hyphens.',
     address: 'Address',
     addressHint: 'An https address, with no password, query or fragment.',
+    addressHintHpc:
+      'The address of the cluster’s Slurm REST service (slurmrestd), reachable from Sheetbase.',
+    type: 'Type',
+    typeWeb: 'Web call',
+    typeHpc: 'HPC cluster',
+    user: 'Cluster user',
+    queues: 'Queues',
+    queuesPlaceholder: 'hpc-short:60, gpu.a100:2880',
+    queuesHint:
+      'Separate with commas. Add the longest job a queue takes, in minutes, after a colon: hpc-short:60, gpu.a100:2880',
+    queuesInvalid:
+      'Queue names are lowercase letters, digits, dots, underscores and hyphens, each with an optional limit in minutes.',
+    callbackUrl: 'Address jobs call back on',
+    callbackUrlHint:
+      'Leave empty to use this app’s own address. Set it when the cluster reaches Sheetbase another way.',
+    secretsHintHpc:
+      'The scheduler token is a secret too, usually HPC_SUBMIT_KEY. It is sealed when you save it; nobody can read it back, and only the run that sends a job uses it.',
     description: 'What it is for',
     secrets: 'Secrets',
     secretsHint:

@@ -5,12 +5,12 @@ one stops. For the API see [../api/pipeline-remote-api.md](../api/pipeline-remot
 
 ## Remote jobs on an HPC queue
 
-1. A steward adds a connection under **Settings, Integrations, Remote job
-   connections**: a name, the scheduler address (slurmrestd), the cluster user,
+1. A steward adds a connection under **Settings, Integrations, Pipeline
+   connections** with type _HPC cluster_: a name, the scheduler address (slurmrestd), the cluster user,
    the queues (`hpc-short:60, gpu.a100:2880`, with the longest job each takes in
    minutes) and the scheduler token. The token is sealed on save and is never
    shown again.
-2. The address must pass the same host policy as other connectors (no private
+2. The address must pass the same host policy as other outside addresses (no private
    or loopback addresses unless the install allows them).
 3. Jobs reach Sheetbase at the app's own address. If the cluster reaches it
    another way, set **Address jobs call back on**.

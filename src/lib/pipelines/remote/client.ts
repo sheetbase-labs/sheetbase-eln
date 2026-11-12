@@ -26,15 +26,12 @@ export interface RemoteConnectionOption {
   queues: RemoteQueueOption[]
 }
 
-/** What a remote job connection keeps in its connector's settings. */
-export type HpcConnectorConfig = {
-  adapter: 'hpc'
+/** What a cluster connection keeps in its `settings`: never a secret. */
+export type HpcSettings = {
   scheduler: 'slurm'
-  baseUrl: string
   user: string
   queues: Array<{ name: string; maxMinutes?: number }>
-  callbackUrl?: string
-  secrets?: string[]
+  callbackUrl?: string | undefined
 }
 
 export interface LakehouseSettings {
@@ -50,20 +47,19 @@ export interface LakeTableOption {
   rows: number
 }
 
-const connectorRow = z.object({
+const connectionRow = z.object({
   id: z.string(),
   key: z.string(),
   name: z.string(),
   status: z.string(),
-  config: z.unknown(),
+  base_url: z.string(),
+  secret_names: z.array(z.string()).catch([]),
+  settings: z.unknown(),
 })
 
-const hpcConfig = z.object({
-  adapter: z.literal('hpc'),
-  baseUrl: z.string().catch(''),
+const hpcSettings = z.object({
   user: z.string().catch(''),
   callbackUrl: z.string().catch(''),
-  secrets: z.array(z.string()).catch([]),
   queues: z
     .array(
       z.object({
@@ -80,24 +76,23 @@ export const remoteKeys = {
   tables: ['pipelines', 'lake-tables'] as const,
 }
 
-/** The remote job connections of the workspace: connectors that adapt to a cluster. */
+/** The remote job connections of the workspace: the cluster ones among its pipeline connections. */
 export async function fetchRemoteConnections(
   client: DataClient,
 ): Promise<RemoteConnectionOption[]> {
   const rows = await client.list<unknown>(
-    'connectors',
-    '?select=id,key,name,status,config&connector_type=eq.custom&status=neq.archived&order=name.asc',
+    'pipeline_connections',
+    '?select=id,key,name,status,base_url,secret_names,settings&kind=eq.hpc&order=name.asc',
   )
 
   return rows.flatMap((row) => {
-    const parsed = connectorRow.safeParse(row)
+    const parsed = connectionRow.safeParse(row)
 
     if (!parsed.success || !REMOTE_CONNECTION_RE.test(parsed.data.key))
       return []
-    const config = hpcConfig.safeParse(parsed.data.config)
+    const settings = hpcSettings.safeParse(parsed.data.settings)
 
-    // Other custom connectors share the table; only a cluster's settings say adapter hpc.
-    if (!config.success) return []
+    if (!settings.success) return []
 
     return [
       {
@@ -105,11 +100,11 @@ export async function fetchRemoteConnections(
         key: parsed.data.key,
         name: parsed.data.name,
         status: parsed.data.status,
-        baseUrl: config.data.baseUrl,
-        user: config.data.user,
-        callbackUrl: config.data.callbackUrl,
-        secrets: config.data.secrets,
-        queues: config.data.queues,
+        baseUrl: parsed.data.base_url,
+        user: settings.data.user,
+        callbackUrl: settings.data.callbackUrl,
+        secrets: parsed.data.secret_names,
+        queues: settings.data.queues,
       },
     ]
   })

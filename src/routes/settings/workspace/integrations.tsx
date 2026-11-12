@@ -26,7 +26,6 @@ import {
 import { PipelineConnections } from '#/components/settings/pipeline-connections'
 import { LineageSection } from '#/components/settings/lineage-section'
 import { CreateWebhookDialog } from '#/components/settings/create-webhook-dialog'
-import { RemoteJobConnections } from '#/components/settings/remote-jobs'
 import { RegisterConnectorDialog } from '#/components/integrations/register-connector-dialog'
 import { createDataClient } from '#/lib/data-client'
 import { sentenceCase } from '#/lib/sentence-case'
@@ -139,14 +138,6 @@ function IntegrationsList() {
         />
       </div>
       {canManage ? <OfficeEditorSection /> : null}
-      {canOpenSettings(context.workspace, 'integrations') ? (
-        <SettingsBody className="border-t border-border-subtle">
-          <RemoteJobConnections
-            workspaceId={workspaceId}
-            canManage={canManage}
-          />
-        </SettingsBody>
-      ) : null}
       {canOpenSettings(context.workspace, 'integrations') ? (
         <PipelineConnections workspaceId={workspaceId} canManage={canManage} />
       ) : null}

@@ -9665,6 +9665,12 @@ export const pipelineConnections = api.table(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
+    /** `web` (an https address a web call reaches) or `hpc` (a cluster scheduler). */
+    kind: text('kind').notNull().default('web'),
+    /** `hpc` only: scheduler, user, queues, callbackUrl, apiVersion. */
+    settings: jsonb('settings')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     ...timestamps,
     createdByUserId: text('created_by_user_id'),
     updatedByUserId: text('updated_by_user_id'),

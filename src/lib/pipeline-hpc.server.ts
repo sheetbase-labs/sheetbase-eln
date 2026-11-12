@@ -109,9 +109,7 @@ export interface HpcConnection {
 }
 
 const connectionConfigSchema = z.object({
-  adapter: z.literal('hpc'),
   scheduler: z.enum(HPC_SCHEDULERS).default('slurm'),
-  baseUrl: z.string().min(1),
   apiVersion: z
     .string()
     .regex(/^v[0-9]+\.[0-9]+\.[0-9]+$/)
@@ -129,7 +127,6 @@ const connectionConfigSchema = z.object({
   callbackUrl: z.string().min(1).optional(),
 })
 
-/** Read a connector's settings as a connection; a message when they are not one. */
 /** A connection a step may use, or the plain words for why it may not. */
 export type ConnectionLookup =
   | { kind: 'ready'; connection: HpcConnection }
@@ -140,13 +137,15 @@ const refused = (message: string): ConnectionLookup => ({
   message,
 })
 
+/** Read a cluster connection's address and settings; a message when they are not usable. */
 export function parseHpcConfig(
   key: string,
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A connector's settings are JSON of any shape until this parses them.
-  config: unknown,
+  baseUrl: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A connection's settings are JSON of any shape until this parses them.
+  settings: unknown,
   token: string,
 ): ConnectionLookup {
-  const parsed = connectionConfigSchema.safeParse(config)
+  const parsed = connectionConfigSchema.safeParse(settings)
 
   if (!parsed.success)
     return refused(
@@ -154,7 +153,7 @@ export function parseHpcConfig(
     )
 
   try {
-    validateConnectorEndpointUrl(parsed.data.baseUrl)
+    validateConnectorEndpointUrl(baseUrl)
 
     if (parsed.data.callbackUrl)
       validateConnectorEndpointUrl(parsed.data.callbackUrl)
@@ -164,7 +163,7 @@ export function parseHpcConfig(
     )
   }
 
-  return { kind: 'ready', connection: { key, ...parsed.data, token } }
+  return { kind: 'ready', connection: { key, baseUrl, ...parsed.data, token } }
 }
 
 // ---------------------------------------------------------------------------

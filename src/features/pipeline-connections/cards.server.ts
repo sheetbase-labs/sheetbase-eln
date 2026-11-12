@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import type { ProviderToolDef } from '#/lib/ai-providers/types'
 import { likeValue, toolDef } from '#/lib/assistant-lab-tools.server'
 import type { LabToolContext } from '#/lib/assistant-lab-tools.server'
@@ -19,6 +21,7 @@ import {
   proposeConnectionRemoveSchema,
 } from './cards'
 import type {
+  ClusterSettings,
   PipelineConnectionAction,
   PipelineConnectionProposeToolName,
 } from './cards'
@@ -73,7 +76,22 @@ interface ConnectionRow {
   name: string
   base_url: string
   status: string
+  kind: 'web' | 'hpc'
+  settings: unknown
 }
+
+const storedSettings = z.object({
+  user: z.string().catch(''),
+  queues: z
+    .array(
+      z.object({
+        name: z.string(),
+        maxMinutes: z.number().int().positive().optional(),
+      }),
+    )
+    .catch([]),
+  callbackUrl: z.string().optional(),
+})
 
 async function findConnection(
   client: DataClient,
@@ -83,7 +101,7 @@ async function findConnection(
 
   const rows = await client.list<ConnectionRow>(
     'pipeline_connections',
-    `?or=(name.ilike.${like},key.ilike.${like})&select=id,key,name,base_url,status&order=name.asc&limit=6`,
+    `?or=(name.ilike.${like},key.ilike.${like})&select=id,key,name,base_url,status,kind,settings&order=name.asc&limit=6`,
   )
 
   const lower = text.trim().toLowerCase()
@@ -135,18 +153,54 @@ export async function buildPipelineConnectionProposal(
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
 
-      if (!/^https:\/\/[^\s/@?#]+(\/[^\s?#]*)?$/.test(input.baseUrl)) {
+      const hpc = input.kind === 'hpc'
+
+      const addressOk = hpc
+        ? /^https?:\/\/[^\s/@?#]+(\/[^\s?#]*)?$/.test(input.baseUrl)
+        : /^https:\/\/[^\s/@?#]+(\/[^\s?#]*)?$/.test(input.baseUrl)
+
+      if (!addressOk) {
         return fail(
           'A connection address is an https address with no password, query or fragment.',
         )
       }
+
+      if (hpc && (!input.user || !input.queues))
+        return fail(
+          'A cluster connection needs the user and the queues it offers.',
+        )
+
+      const settings: ClusterSettings | null =
+        hpc && input.user && input.queues
+          ? {
+              scheduler: 'slurm',
+              user: input.user,
+              queues: input.queues,
+              callbackUrl: input.callbackUrl,
+            }
+          : null
 
       return card(name, input, {
         target: input.name,
         changes: [
           { label: 'Name', before: null, after: input.name },
           { label: 'Key', before: null, after: input.key },
+          {
+            label: 'Type',
+            before: null,
+            after: hpc ? 'HPC cluster' : 'Web call',
+          },
           { label: 'Address', before: null, after: input.baseUrl },
+          ...(settings
+            ? [
+                { label: 'User', before: null, after: settings.user },
+                {
+                  label: 'Queues',
+                  before: null,
+                  after: settings.queues.map((q) => q.name).join(', '),
+                },
+              ]
+            : []),
         ],
         action: {
           kind: 'pipeline_connection.add',
@@ -155,6 +209,8 @@ export async function buildPipelineConnectionProposal(
           name: input.name.trim(),
           baseUrl: input.baseUrl,
           description: input.description?.trim() || null,
+          connectionKind: hpc ? 'hpc' : 'web',
+          settings,
         },
       })
     }
@@ -180,6 +236,41 @@ export async function buildPipelineConnectionProposal(
           after: input.baseUrl,
         })
 
+      const stored = storedSettings.safeParse(row.settings)
+
+      const settings: ClusterSettings | null =
+        row.kind === 'hpc' &&
+        stored.success &&
+        (input.user || input.queues || input.callbackUrl)
+          ? {
+              scheduler: 'slurm',
+              user: input.user ?? stored.data.user,
+              queues: input.queues ?? stored.data.queues,
+              callbackUrl: input.callbackUrl ?? stored.data.callbackUrl,
+            }
+          : null
+
+      if (settings && input.user && input.user !== stored.data?.user)
+        changes.push({
+          label: 'User',
+          before: stored.data?.user ?? null,
+          after: input.user,
+        })
+
+      if (settings && input.queues)
+        changes.push({
+          label: 'Queues',
+          before: stored.data?.queues.map((q) => q.name).join(', ') ?? null,
+          after: input.queues.map((q) => q.name).join(', '),
+        })
+
+      if (settings && input.callbackUrl)
+        changes.push({
+          label: 'Callback address',
+          before: stored.data?.callbackUrl ?? null,
+          after: input.callbackUrl,
+        })
+
       if (input.status && input.status !== row.status)
         changes.push({
           label: 'Status',
@@ -200,6 +291,7 @@ export async function buildPipelineConnectionProposal(
           name: input.name?.trim() || null,
           baseUrl: input.baseUrl ?? null,
           status: input.status ?? null,
+          settings,
         },
       })
     }

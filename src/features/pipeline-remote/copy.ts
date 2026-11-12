@@ -98,45 +98,6 @@ export const copy = {
     },
   },
   settings: {
-    connectionsTitle: 'Remote job connections',
-    columnName: 'Connection',
-    columnKey: 'Key',
-    columnStatus: 'Status',
-    columnQueues: 'Queues',
-    connectionsHint:
-      'Clusters your pipelines can send jobs to. Each has a scheduler address, the queues it offers and a token kept sealed.',
-    addConnection: 'Add a connection',
-    key: 'Key',
-    keyHint:
-      'Lowercase letters, digits and dashes. Pipelines refer to it by this.',
-    name: 'Name',
-    scheduler: 'Scheduler',
-    schedulerSlurm: 'Slurm REST',
-    baseUrl: 'Scheduler address',
-    baseUrlHint: 'The address of slurmrestd, reachable from Sheetbase.',
-    user: 'Cluster user',
-    queues: 'Queues',
-    queuesHint:
-      'Separate with commas. Add the longest job a queue takes, in minutes, after a colon: hpc-short:60, gpu.a100:2880',
-    callbackUrl: 'Address jobs call back on',
-    callbackUrlHint:
-      'Leave empty to use this app’s own address. Set it when the cluster reaches Sheetbase another way.',
-    secretName: 'Secret name',
-    secretNameHint:
-      'What steps call it, such as HPC_SUBMIT_KEY. The value below stays sealed.',
-    token: 'Secret value (scheduler token)',
-    tokenHint: 'Sealed when saved and never shown again.',
-    tokenSet: 'Token set',
-    tokenKeep: 'Leave empty to keep the current token.',
-    save: 'Save connection',
-    saving: 'Saving…',
-    saved: 'Connection saved',
-    remove: 'Remove',
-    removeTitle: 'Remove {name}?',
-    removeBody:
-      'Pipelines that use this connection stop being able to send jobs. Jobs already running finish.',
-    removed: 'Connection removed',
-    empty: 'No remote job connections yet.',
     lakeTitle: 'SQL against the lakehouse',
     lakeHint:
       'Lets pipeline steps run read-only SQL over your open tables. A data steward switches it on; it also needs open tables to be on.',

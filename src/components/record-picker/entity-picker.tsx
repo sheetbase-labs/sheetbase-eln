@@ -23,6 +23,7 @@ import {
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
 import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 /** "a" or "an" for the noun a picker names ("an instrument"). */
@@ -50,6 +51,8 @@ export interface PickerOption {
   label: string
   /** Mono identifier shown before the label (EXP-0145, SMP-2249). */
   identifier?: string
+  /** A mark before the label, for a list of kinds rather than records. */
+  icon?: IconName
   /** Second line: the project, the lead, the location. */
   detail?: string
   status?: { tone: Tone; label: string }
@@ -578,8 +581,16 @@ function EntityPicker({
         onSelect={() => choose(o)}
         data-option-id={o.id}
         aria-checked={multiple ? chosen : undefined}
-        className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2.5"
+        className={cn(
+          'grid items-start gap-x-2.5',
+          o.icon
+            ? 'grid-cols-[16px_minmax(0,1fr)_auto]'
+            : 'grid-cols-[minmax(0,1fr)_auto]',
+        )}
       >
+        {o.icon ? (
+          <Icon name={o.icon} size={14} className="mt-0.5 text-fg-muted" />
+        ) : null}
         <span className="min-w-0">
           <span className="flex min-w-0 items-baseline gap-2">
             {o.identifier ? (
@@ -797,6 +808,32 @@ const sizes = {
   sm: 'h-[26px] max-md:h-8 text-label',
 } as const
 
+/** What the trigger shows before the chosen label: its mark and its ID. */
+function ChosenMark({
+  option: selectedOption,
+  size,
+}: {
+  option: PickerOption
+  size: keyof typeof sizes
+}) {
+  return (
+    <>
+      {selectedOption.icon ? (
+        <Icon
+          name={selectedOption.icon}
+          size={size === 'sm' ? 12 : 14}
+          className="shrink-0 text-fg-muted"
+        />
+      ) : null}
+      {selectedOption.identifier ? (
+        <span className="mono shrink-0 text-fg-muted">
+          {selectedOption.identifier}
+        </span>
+      ) : null}
+    </>
+  )
+}
+
 export type PickerSelectProps = Omit<
   EntityPickerDialogProps,
   'open' | 'onOpenChange' | 'title' | 'onPick' | 'value'
@@ -873,11 +910,7 @@ export function PickerSelect({
           className,
         )}
       >
-        {current?.identifier ? (
-          <span className="mono shrink-0 text-fg-muted">
-            {current.identifier}
-          </span>
-        ) : null}
+        {current ? <ChosenMark option={current} size={size} /> : null}
         <span className={cn('min-w-0 truncate', empty && 'text-fg-muted')}>
           {text}
         </span>

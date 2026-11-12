@@ -1856,7 +1856,7 @@ export async function buildLabworkProposal(
             : input.target === 'project'
               ? `/projects/${found.value.id}`
               : input.target === 'pipeline'
-                ? `/pipelines/${found.value.id}`
+                ? `/pipelines/${found.value.id}/steps`
                 : '/instruments',
         changes: [
           {

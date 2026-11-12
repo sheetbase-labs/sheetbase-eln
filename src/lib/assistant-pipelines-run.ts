@@ -46,7 +46,7 @@ export async function runPipelinesAction(
         p_version_id: action.versionId,
       })
 
-      return { openHref: `/pipelines/${action.definitionId}` }
+      return { openHref: `/pipelines/${action.definitionId}/steps` }
     case 'pipeline.retire':
       await client.rpc('update_pipeline_definition', {
         p_workspace_id: action.workspaceId,
@@ -56,7 +56,7 @@ export async function runPipelinesAction(
         p_lifecycle: action.lifecycle,
       })
 
-      return { openHref: `/pipelines/${action.definitionId}` }
+      return { openHref: `/pipelines/${action.definitionId}/steps` }
     case 'pipeline.schedule_add':
       await client.rpc('create_pipeline_schedule', {
         p_workspace_id: action.workspaceId,

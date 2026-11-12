@@ -65,7 +65,7 @@ export function runCitation(
   const paragraphs: CitationParagraph[] = [
     [
       plain('Pipeline '),
-      link(pipeline.name, `/pipelines/${pipeline.id}`),
+      link(pipeline.name, `/pipelines/${pipeline.id}/steps`),
       plain(`${version}, run of `),
       link(started, `/pipelines/${pipeline.id}/runs/${run.id}`),
       plain(`: ${run.status}.`),

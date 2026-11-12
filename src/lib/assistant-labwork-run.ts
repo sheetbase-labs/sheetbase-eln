@@ -56,7 +56,7 @@ const PIN_HREF = {
   record: (id: string) => `/records/${id}`,
   project: (id: string) => `/projects/${id}`,
   instrument: () => '/instruments',
-  pipeline: (id: string) => `/pipelines/${id}`,
+  pipeline: (id: string) => `/pipelines/${id}/steps`,
 } as const
 
 export async function runLabworkAction(

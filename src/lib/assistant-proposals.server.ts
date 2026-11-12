@@ -630,7 +630,7 @@ export async function buildAssistantProposal(
           title,
           summary,
           target: `${definition.display_id ?? definition.key} · ${definition.name}${draft ? ' · Draft' : ' · New draft'}`,
-          deepLink: `/pipelines/${definition.id}`,
+          deepLink: `/pipelines/${definition.id}/steps`,
           changes,
           operation: draft
             ? {

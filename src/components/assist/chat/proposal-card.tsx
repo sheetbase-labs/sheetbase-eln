@@ -351,7 +351,7 @@ async function applyProposal(
 
     if (!made.success || !made.data.id)
       throw new Error(t('common.errors.generic'))
-    const opened = `/pipelines/${made.data.id}`
+    const opened = `/pipelines/${made.data.id}/steps`
 
     const second = await runOperation(
       client,

@@ -160,6 +160,7 @@ function ConditionLine({
   )
 }
 
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- one line per action kind reads best as one switch over the kinds.
 function ActionLine({
   action,
   columns,

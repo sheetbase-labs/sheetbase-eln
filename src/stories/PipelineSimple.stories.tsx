@@ -104,9 +104,9 @@ const wire = (
 })
 
 // SAFETY: a compiled recipe is plain JSON; the round trip only drops the contract's class types.
-const stored: PipelineDefinitionVersionWire['configuration'] = JSON.parse(
-  JSON.stringify(simpleConfig(recipe)),
-)
+const stored: PipelineDefinitionVersionWire['configuration'] =
+  // react-doctor-disable-next-line react-doctor/no-json-parse-stringify-clone -- this narrows the contract's class types to plain JSON, which a structured clone would keep.
+  JSON.parse(JSON.stringify(simpleConfig(recipe)))
 
 const versions = [
   wire('v-3', 3, 'draft', stored),

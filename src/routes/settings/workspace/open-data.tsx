@@ -9,6 +9,7 @@ import {
   SettingsBody,
   SettingsHeader,
 } from '#/components/settings/settings-page'
+import { LakehouseSqlSection } from '#/components/settings/remote-jobs'
 import { useDataAccess } from '#/lib/data-access'
 import { canManageSettings } from '#/lib/settings-access'
 import { t } from '#/copy'
@@ -31,6 +32,11 @@ function OpenData() {
       </SettingsHeader>
       <SettingsBody>
         <OpenTablesSection
+          workspaceId={workspaceId}
+          canManage={canManage}
+          dataAccess={dataAccess}
+        />
+        <LakehouseSqlSection
           workspaceId={workspaceId}
           canManage={canManage}
           dataAccess={dataAccess}

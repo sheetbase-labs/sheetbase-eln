@@ -23,6 +23,7 @@ import {
 } from '#/lib/pipelines/no-code/summary'
 import type { PipelineStep } from '#/lib/pipelines/config'
 import { isDataStep, previousDataStep } from '#/lib/pipelines/step-list'
+import { formatLimit } from '#/lib/pipelines/remote/settings'
 import { MAX_EXECUTION_SECONDS } from '#/lib/pipelines/statement'
 import { KIND_META, kindLabel } from './kinds'
 import { usePipelineEditor } from './use-pipeline-editor'
@@ -36,6 +37,8 @@ const MODE_LABEL: Record<PipelineStep['kind'], string> = {
   sql: t('data.stepList.modeSql'),
   python: t('data.stepList.modePython'),
   plugin: t('data.stepList.modePlugin'),
+  remote_job: t('features.pipelineRemote.kinds.remoteJobNote'),
+  lakehouse: t('features.pipelineRemote.kinds.lakehouseNote'),
   ask: t('data.stepList.modeAsk'),
   action: t('data.stepList.modeAction'),
   notify: t('data.stepList.modeNotify'),
@@ -137,7 +140,11 @@ function SelectedStep({ step, index }: { step: PipelineStep; index: number }) {
             <>
               <dt>{t('data.stepList.settingTimeLimit')}</dt>
               <dd className="num">
-                {t('data.stepList.seconds', { count: MAX_EXECUTION_SECONDS })}
+                {step.kind === 'remote_job'
+                  ? formatLimit(step.remoteJob.limitMinutes)
+                  : t('data.stepList.seconds', {
+                      count: MAX_EXECUTION_SECONDS,
+                    })}
               </dd>
             </>
           ) : null}

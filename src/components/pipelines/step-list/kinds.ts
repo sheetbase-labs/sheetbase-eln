@@ -4,6 +4,7 @@ import { PIPELINE_ACTIONS } from '#/lib/pipelines/actions'
 import type { PipelineStep, PipelineStepKind } from '#/lib/pipelines/config'
 import { noCodeSummary } from '#/lib/pipelines/no-code/summary'
 import { isNoCodeKind } from '#/lib/pipelines/no-code/forms'
+import { formatLimit } from '#/lib/pipelines/remote/settings'
 import { parsePluginName } from '#/lib/extensions/points'
 
 interface KindMeta {
@@ -53,6 +54,16 @@ export const KIND_META: Record<PipelineStepKind, KindMeta> = {
     label: t('data.stepList.kindPlugin'),
     hint: t('data.stepList.hintPlugin'),
   },
+  lakehouse: {
+    icon: 'database',
+    label: t('features.pipelineRemote.kinds.lakehouse'),
+    hint: t('features.pipelineRemote.kinds.lakehouseHint'),
+  },
+  remote_job: {
+    icon: 'cpu',
+    label: t('features.pipelineRemote.kinds.remoteJob'),
+    hint: t('features.pipelineRemote.kinds.remoteJobHint'),
+  },
   ask: {
     icon: 'user',
     label: t('data.stepList.kindAsk'),
@@ -80,6 +91,10 @@ export const ADD_GROUPS: Array<{
     kinds: ['filter', 'join', 'calculate', 'check_ranges', 'flag'],
   },
   { label: t('data.stepList.groupCode'), kinds: ['sql', 'python', 'plugin'] },
+  {
+    label: t('features.pipelineRemote.kinds.groupConnect'),
+    kinds: ['lakehouse', 'remote_job'],
+  },
   { label: t('data.stepList.groupPeople'), kinds: ['ask'] },
   { label: t('data.stepList.groupEln'), kinds: ['action'] },
   { label: t('data.stepList.groupNotify'), kinds: ['notify'] },
@@ -143,6 +158,20 @@ export function stepSummary(
       return step.plugin.operation
         ? pluginLabel(step.plugin.operation)
         : t('data.stepList.choosePlugin')
+    case 'lakehouse':
+      return step.lake.tables.length
+        ? t('features.pipelineRemote.summary.lake', {
+            tables: step.lake.tables.join(', '),
+          })
+        : t('features.pipelineRemote.summary.chooseTables')
+    case 'remote_job':
+      return step.remoteJob.connection
+        ? t('features.pipelineRemote.summary.remote', {
+            queue: step.remoteJob.queue || '—',
+            connection: step.remoteJob.connection,
+            limit: formatLimit(step.remoteJob.limitMinutes),
+          })
+        : t('features.pipelineRemote.summary.chooseConnection')
     case 'ask': {
       const person = context.members[step.ask.askedUserIds[0] ?? '']
 

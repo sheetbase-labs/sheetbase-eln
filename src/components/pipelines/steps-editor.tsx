@@ -77,7 +77,6 @@ export function StepsEditor({
   }
 }) {
   const { rows, change } = useEditorRows(steps, onChange)
-  const memberIds = Object.keys(members)
   const points = useExtensionPoints()
 
   // Only a plugin step that turns tables into a table can run between steps.
@@ -95,7 +94,6 @@ export function StepsEditor({
       <ol className="m-0 flex list-none flex-col gap-3 p-0">
         {rows.map(({ id: rowId, value: step }, index) => {
           const n = index + 1
-          const confirm = step.confirm
 
           return (
             <li
@@ -238,109 +236,19 @@ export function StepsEditor({
                   }
                 />
               )}
-              <label className="flex items-center gap-2 text-body">
-                <Checkbox
-                  aria-label={t('data.stepsEditor.ariaStepWaitsPerson', {
-                    n,
-                  })}
-                  checked={Boolean(confirm)}
-                  onCheckedChange={(on) =>
-                    change(
-                      setStepConfirm(
-                        steps,
-                        index,
-                        on ? defaultConfirm(memberIds.slice(0, 1)) : undefined,
-                      ),
-                    )
-                  }
-                />
-                {t('data.stepsEditor.pausePersonConfirm')}
-              </label>
-              <label className="flex items-center gap-2 text-body">
-                <Checkbox
-                  aria-label={t('data.stepsEditor.ariaStepOnlyIfRows', { n })}
-                  checked={Boolean(step.onlyIfRows)}
-                  onCheckedChange={(on) =>
-                    change(
-                      updateStep(steps, index, {
-                        onlyIfRows: on ? true : undefined,
-                      }),
-                    )
-                  }
-                />
-                {t('data.stepsEditor.onlyIfRows')}
-              </label>
-              {confirm ? (
-                <div className="flex flex-col gap-2 border-l-2 border-border pl-3">
-                  <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-                    {t('data.stepsEditor.asked')}
-                    <PickerSelect
-                      noun="person"
-                      aria-label={t('data.stepsEditor.ariaStepAskedPerson', {
-                        n,
-                      })}
-                      value={confirm.askedUserIds[0] ?? ''}
-                      onChange={(id) =>
-                        change(
-                          setConfirmPatch(steps, index, {
-                            askedUserIds: id ? [id] : [],
-                          }),
-                        )
-                      }
-                      options={memberIds.map((id) =>
-                        personOption(id, members[id]),
-                      )}
-                    />
-                  </label>
-                  <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-                    {t('data.stepsEditor.ifNobodyAnswers')}
-                    <Select
-                      aria-label={t('data.stepsEditor.ariaStepAnswer', { n })}
-                      value={confirm.noAnswer ?? 'reask'}
-                      onChange={(e) =>
-                        change(
-                          setConfirmPatch(steps, index, {
-                            noAnswer: z
-                              .enum(CONFIRM_NO_ANSWER_OUTCOMES)
-                              .parse(e.target.value),
-                          }),
-                        )
-                      }
-                    >
-                      {CONFIRM_NO_ANSWER_OUTCOMES.map((outcome) => (
-                        <option key={outcome} value={outcome}>
-                          {OUTCOME_LABELS[outcome]}
-                        </option>
-                      ))}
-                    </Select>
-                  </label>
-                  <label className="flex flex-col gap-0.5 text-label text-fg-muted">
-                    {t('data.stepsEditor.skippingLeavesOut')}
-                    <Select
-                      aria-label={t('data.stepsEditor.ariaStepSkips', { n })}
-                      multiple
-                      value={confirm.skipSteps ?? []}
-                      onChange={(e) =>
-                        change(
-                          setConfirmPatch(steps, index, {
-                            skipSteps: [...e.target.selectedOptions].map(
-                              (o) => o.value,
-                            ),
-                          }),
-                        )
-                      }
-                    >
-                      {rows
-                        .filter((_, position) => position !== index)
-                        .map(({ id: otherId, value: other }) => (
-                          <option key={otherId} value={other.name}>
-                            {other.name}
-                          </option>
-                        ))}
-                    </Select>
-                  </label>
-                </div>
-              ) : null}
+              <StepRunSettings
+                steps={steps}
+                step={step}
+                index={index}
+                others={rows
+                  .filter((_, position) => position !== index)
+                  .map(({ id: otherId, value: other }) => ({
+                    id: otherId,
+                    name: other.name,
+                  }))}
+                members={members}
+                change={change}
+              />
             </li>
           )
         })}
@@ -358,6 +266,135 @@ export function StepsEditor({
         </div>
       ) : null}
     </div>
+  )
+}
+
+/**
+ * When a step runs: whether it pauses for a person to confirm, whether it is
+ * skipped when the step before gave no rows, and what a confirm asks.
+ */
+function StepRunSettings({
+  steps,
+  step,
+  index,
+  others,
+  members,
+  change,
+}: {
+  steps: PipelineStep[]
+  step: PipelineStep
+  index: number
+  /** The other steps a confirm can leave out. */
+  others: Array<{ id: number; name: string }>
+  members: Record<string, string>
+  change: (steps: PipelineStep[]) => void
+}) {
+  const n = index + 1
+  const confirm = step.confirm
+  const memberIds = Object.keys(members)
+
+  return (
+    <>
+      <label className="flex items-center gap-2 text-body">
+        <Checkbox
+          aria-label={t('data.stepsEditor.ariaStepWaitsPerson', {
+            n,
+          })}
+          checked={Boolean(confirm)}
+          onCheckedChange={(on) =>
+            change(
+              setStepConfirm(
+                steps,
+                index,
+                on ? defaultConfirm(memberIds.slice(0, 1)) : undefined,
+              ),
+            )
+          }
+        />
+        {t('data.stepsEditor.pausePersonConfirm')}
+      </label>
+      <label className="flex items-center gap-2 text-body">
+        <Checkbox
+          aria-label={t('data.stepsEditor.ariaStepOnlyIfRows', { n })}
+          checked={Boolean(step.onlyIfRows)}
+          onCheckedChange={(on) =>
+            change(
+              updateStep(steps, index, {
+                onlyIfRows: on ? true : undefined,
+              }),
+            )
+          }
+        />
+        {t('data.stepsEditor.onlyIfRows')}
+      </label>
+      {confirm ? (
+        <div className="flex flex-col gap-2 border-l-2 border-border pl-3">
+          <label className="flex flex-col gap-0.5 text-label text-fg-muted">
+            {t('data.stepsEditor.asked')}
+            <PickerSelect
+              noun="person"
+              aria-label={t('data.stepsEditor.ariaStepAskedPerson', {
+                n,
+              })}
+              value={confirm.askedUserIds[0] ?? ''}
+              onChange={(id) =>
+                change(
+                  setConfirmPatch(steps, index, {
+                    askedUserIds: id ? [id] : [],
+                  }),
+                )
+              }
+              options={memberIds.map((id) => personOption(id, members[id]))}
+            />
+          </label>
+          <label className="flex flex-col gap-0.5 text-label text-fg-muted">
+            {t('data.stepsEditor.ifNobodyAnswers')}
+            <Select
+              aria-label={t('data.stepsEditor.ariaStepAnswer', { n })}
+              value={confirm.noAnswer ?? 'reask'}
+              onChange={(e) =>
+                change(
+                  setConfirmPatch(steps, index, {
+                    noAnswer: z
+                      .enum(CONFIRM_NO_ANSWER_OUTCOMES)
+                      .parse(e.target.value),
+                  }),
+                )
+              }
+            >
+              {CONFIRM_NO_ANSWER_OUTCOMES.map((outcome) => (
+                <option key={outcome} value={outcome}>
+                  {OUTCOME_LABELS[outcome]}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="flex flex-col gap-0.5 text-label text-fg-muted">
+            {t('data.stepsEditor.skippingLeavesOut')}
+            <Select
+              aria-label={t('data.stepsEditor.ariaStepSkips', { n })}
+              multiple
+              value={confirm.skipSteps ?? []}
+              onChange={(e) =>
+                change(
+                  setConfirmPatch(steps, index, {
+                    skipSteps: [...e.target.selectedOptions].map(
+                      (o) => o.value,
+                    ),
+                  }),
+                )
+              }
+            >
+              {others.map((other) => (
+                <option key={other.id} value={other.name}>
+                  {other.name}
+                </option>
+              ))}
+            </Select>
+          </label>
+        </div>
+      ) : null}
+    </>
   )
 }
 

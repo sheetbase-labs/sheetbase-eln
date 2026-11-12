@@ -95,7 +95,9 @@ type JsonObject = z.output<typeof pipelineJsonObjectSchema>
 
 /** A typed value as plain JSON, keeping own `__proto__` keys and dropping unset ones. */
 function asJson(value: PipelineConfig | PipelineConfigView): JsonObject {
-  return pipelineJsonObjectSchema.parse(JSON.parse(JSON.stringify(value)))
+  return pipelineJsonObjectSchema.parse(
+    editorJsonValue(editorJsonObject.parse(value)),
+  )
 }
 
 /**

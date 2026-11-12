@@ -9984,7 +9984,7 @@ export const pipelineDefinitionVersions = api.table(
     lifecycle: text('lifecycle').notNull().default('draft'),
     configurationFormatVersion: integer('configuration_format_version')
       .notNull()
-      .default(1),
+      .default(2),
     configuration: jsonb('configuration').notNull(),
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
@@ -10027,7 +10027,7 @@ export const pipelineDefinitionVersions = api.table(
     ),
     check(
       'chk_pipeline_definition_versions_format',
-      sql`${table.configurationFormatVersion} = 1`,
+      sql`${table.configurationFormatVersion} = 2`,
     ),
     check(
       'chk_pipeline_definition_versions_revision',

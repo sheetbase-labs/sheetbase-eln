@@ -12,22 +12,27 @@ import type {
   ParameterType,
   PipelineConfig,
   PipelinePluginStep,
+  PipelineStep,
   PipelineStepConfirm,
 } from './config'
 
+const SQL = 'SELECT value * {{factor}} AS scaled FROM measurements'
+
+function sqlStep(name: string, statement: string): PipelineStep {
+  return { name, kind: 'sql', statement }
+}
+
 function validConfig(): PipelineConfig {
   return {
-    configVersion: 1,
+    configVersion: 2,
+    mode: 'standard',
     description: 'normalize measurements',
     parameters: [
       { name: 'factor', type: 'decimal', required: true },
       { name: 'note', type: 'text', required: false, default: 'x' },
     ],
     inputs: [{ name: 'measurements', required: true }],
-    transform: {
-      language: 'sql',
-      statement: 'SELECT value * {{factor}} AS scaled FROM measurements',
-    },
+    steps: [sqlStep('analysis', SQL)],
     output: {
       mode: 'create',
       schemaVersionId: '11111111-1111-4111-8111-111111111111',
@@ -39,7 +44,7 @@ function validConfig(): PipelineConfig {
 }
 
 describe('validatePipelineConfig', () => {
-  it('accepts a well-formed v1 configuration', () => {
+  it('accepts a well-formed configuration', () => {
     expect(validatePipelineConfig(validConfig())).toEqual([])
   })
 
@@ -51,7 +56,7 @@ describe('validatePipelineConfig', () => {
   it('rejects an unsupported configVersion', () => {
     const errors = validatePipelineConfig({
       ...validConfig(),
-      configVersion: 2,
+      configVersion: 1,
     })
 
     expect(errors.some((e) => e.code === 'unsupported_config_version')).toBe(
@@ -90,21 +95,51 @@ describe('validatePipelineConfig', () => {
     expect(errors.some((e) => e.code === 'invalid_value')).toBe(true)
   })
 
-  it('rejects an unsupported transform language', () => {
+  it('rejects an unknown step kind and a missing mode', () => {
     const config = {
       ...validConfig(),
-      transform: { language: 'javascript', statement: 'SELECT 1' },
+      mode: 'expert',
+      steps: [{ name: 'analysis', kind: 'javascript', statement: 'SELECT 1' }],
     }
 
     const errors = validatePipelineConfig(config)
     expect(errors.some((e) => e.code === 'unsupported_language')).toBe(true)
+    expect(errors.some((e) => e.field === 'mode')).toBe(true)
   })
 
   it('rejects an empty statement', () => {
     const config = validConfig()
-    config.transform.statement = '   '
+    config.steps = [sqlStep('analysis', '   ')]
     const errors = validatePipelineConfig(config)
-    expect(errors.some((e) => e.field === 'transform.statement')).toBe(true)
+    expect(errors.some((e) => e.field === 'steps[0].statement')).toBe(true)
+  })
+
+  it('rejects a list that is not one, and a step with settings of another kind', () => {
+    expect(
+      validatePipelineConfig({ ...validConfig(), steps: undefined }).map(
+        (e) => e.field,
+      ),
+    ).toEqual(['steps'])
+
+    const errors = validatePipelineConfig({
+      ...validConfig(),
+      steps: [
+        { name: 'analysis', kind: 'sql', statement: 'SELECT 1', ask: {} },
+        {
+          name: 'tell',
+          kind: 'notify',
+          notify: { subscriptionId: '11111111-1111-4111-8111-111111111111' },
+          onlyIfRows: true,
+          note: 'x'.repeat(501),
+        },
+      ],
+    })
+
+    expect(errors.map((e) => e.field)).toEqual([
+      'steps[0].ask',
+      'steps[1].note',
+      'steps[1].onlyIfRows',
+    ])
   })
 
   it('rejects create output without a schema version or dataset name', () => {
@@ -162,9 +197,7 @@ describe('validatePipelineConfig', () => {
       validatePipelineConfig({
         ...validConfig(),
         description: undefined,
-        steps: undefined,
         pythonRequirements: undefined,
-        notifications: undefined,
         parameters: [
           {
             name: 'factor',
@@ -291,49 +324,68 @@ describe('validatePipelineRunRequest', () => {
 
 describe('Python and workflow configuration', () => {
   const runtime = 'sheetbase/python@sha256:' + 'a'.repeat(64)
-  it('accepts pinned Python, a following SQL step and webhook output', () => {
+  it('accepts pinned Python, a following SQL step and a notify step', () => {
     const config = validConfig()
-    config.transform = {
-      language: 'python',
-      statement:
-        'def transform(inputs, parameters): return inputs["measurements"]',
-    }
     config.pythonRuntime = runtime
     config.steps = [
       {
-        name: 'scale',
-        language: 'sql',
-        statement: 'SELECT value FROM previous',
+        name: 'analysis',
+        kind: 'python',
+        statement:
+          'def transform(inputs, parameters): return inputs["measurements"]',
       },
-    ]
-    config.notifications = [
-      { subscriptionId: '11111111-1111-4111-8111-111111111111' },
+      sqlStep('scale', 'SELECT value FROM previous'),
+      {
+        name: 'tell_team',
+        kind: 'notify',
+        notify: { subscriptionId: '11111111-1111-4111-8111-111111111111' },
+      },
     ]
     expect(validatePipelineConfig(config)).toEqual([])
   })
   it('rejects Python without an immutable runtime pin', () => {
     const config = validConfig()
-    config.transform.language = 'python'
+    config.steps = [{ name: 'analysis', kind: 'python', statement: 'x = 1' }]
     expect(
       validatePipelineConfig(config).some(
         (error) => error.field === 'pythonRuntime',
       ),
     ).toBe(true)
   })
-  it('accepts actions without datasets or analysis', () => {
+  it('accepts a version with no steps, datasets or analysis', () => {
     const config = validConfig()
     config.inputs = []
-    config.transform = { language: 'none', statement: '' }
+    config.steps = []
     config.output = { mode: 'none', datasetLabel: '' }
     expect(validatePipelineConfig(config)).toEqual([])
+  })
+  it('accepts skip-when-empty on data steps and notes on any step', () => {
+    const config = validConfig()
+    config.steps = [
+      sqlStep('analysis', SQL),
+      {
+        name: 'flag',
+        kind: 'sql',
+        statement: 'SELECT * FROM previous WHERE scaled > 1',
+        onlyIfRows: true,
+        note: 'Only when something was scaled.',
+      },
+    ]
+    expect(validatePipelineConfig(config)).toEqual([])
+  })
+  it('rejects too many steps', () => {
+    const config = validConfig()
+    config.steps = Array.from({ length: 51 }, (_, index) =>
+      sqlStep(`s${index}`, 'SELECT 1'),
+    )
+    expect(validatePipelineConfig(config).map((e) => e.field)).toEqual([
+      'steps',
+    ])
   })
   it('rejects duplicate steps and the reserved previous input name', () => {
     const config = validConfig()
     config.inputs[0].name = 'previous'
-    config.steps = [
-      { name: 'a', language: 'sql', statement: 'SELECT 1' },
-      { name: 'a', language: 'sql', statement: 'SELECT 2' },
-    ]
+    config.steps = [sqlStep('a', 'SELECT 1'), sqlStep('a', 'SELECT 2')]
     const errors = validatePipelineConfig(config)
     expect(errors.some((error) => error.field === 'inputs[0].name')).toBe(true)
     expect(errors.some((error) => error.code === 'duplicate_name')).toBe(true)
@@ -341,45 +393,46 @@ describe('Python and workflow configuration', () => {
 })
 
 describe('Plugin steps in the chain', () => {
-  const pluginStep = (args: PipelinePluginStep['arguments']) => ({
+  const pluginStep = (args: PipelinePluginStep['arguments']): PipelineStep => ({
     name: 'join_plates',
-    language: 'plugin' as const,
-    statement: '',
+    kind: 'plugin',
     plugin: { operation: 'plugin.plate-tools.join', arguments: args },
   })
 
   it('accepts a plugin step that reads the result so far, an input and a setting', () => {
     const config = validConfig()
-    config.steps = [
+    config.steps.push(
       pluginStep({
         left: { $ref: 'previous' },
         right: { $ref: 'inputs.measurements' },
         key: { $ref: 'parameters.note' },
         suffix: '_b',
       }),
-    ]
+    )
     expect(validatePipelineConfig(config)).toEqual([])
   })
   it('accepts a plugin step between two ordinary steps and reading an earlier one', () => {
     const config = validConfig()
-    config.steps = [
-      { name: 'first', language: 'sql', statement: 'SELECT 1 AS a' },
+    config.steps.push(
+      sqlStep('first', 'SELECT 1 AS a'),
       pluginStep({ left: { $ref: 'steps.first' } }),
-      { name: 'last', language: 'sql', statement: 'SELECT * FROM previous' },
-    ]
+      sqlStep('last', 'SELECT * FROM previous'),
+    )
     expect(validatePipelineConfig(config)).toEqual([])
   })
   it('needs the plugin step it runs', () => {
-    const config = validConfig()
-    config.steps = [
-      { name: 'p', language: 'plugin', statement: '' },
-      {
-        name: 'q',
-        language: 'plugin',
-        statement: '',
-        plugin: { operation: 'sql.whatever', arguments: {} },
-      },
-    ]
+    const config = {
+      ...validConfig(),
+      steps: [
+        { name: 'p', kind: 'plugin' },
+        {
+          name: 'q',
+          kind: 'plugin',
+          plugin: { operation: 'sql.whatever', arguments: {} },
+        },
+      ],
+    }
+
     const errors = validatePipelineConfig(config)
     expect(errors.map((e) => e.field)).toEqual([
       'steps[0].plugin',
@@ -389,18 +442,24 @@ describe('Plugin steps in the chain', () => {
   it('lets a plugin step pause for a person, and checks the pause like any other', () => {
     const config = validConfig()
     config.steps = [
+      pluginStep({ left: { $ref: 'previous' } }),
       {
-        ...pluginStep({ left: { $ref: 'previous' } }),
-        confirm: {
+        name: 'check_join',
+        kind: 'ask',
+        ask: {
           fields: [{ key: 'ok', label: 'OK', type: 'text', required: true }],
           askedUserIds: ['u-1'],
         },
       },
     ]
     expect(validatePipelineConfig(config)).toEqual([])
-    config.steps[0].confirm = { fields: [], askedUserIds: [] }
+    config.steps[1] = {
+      name: 'check_join',
+      kind: 'ask',
+      ask: { fields: [], askedUserIds: [] },
+    }
     expect(validatePipelineConfig(config).map((e) => e.field)).toContain(
-      'steps[0].confirm.fields',
+      'steps[1].ask.fields',
     )
   })
   it('refuses a reference it cannot read and a contract', () => {
@@ -431,15 +490,18 @@ describe('Plugin steps in the chain', () => {
     )
   })
   it('does not let SQL or Python carry a plugin', () => {
-    const config = validConfig()
-    config.steps = [
-      {
-        name: 'p',
-        language: 'sql',
-        statement: 'SELECT 1',
-        plugin: { operation: 'plugin.a.b', arguments: {} },
-      },
-    ]
+    const config = {
+      ...validConfig(),
+      steps: [
+        {
+          name: 'p',
+          kind: 'sql',
+          statement: 'SELECT 1',
+          plugin: { operation: 'plugin.a.b', arguments: {} },
+        },
+      ],
+    }
+
     expect(validatePipelineConfig(config).map((e) => e.field)).toEqual([
       'steps[0].plugin',
     ])
@@ -461,87 +523,86 @@ describe('Plugin steps in the chain', () => {
   })
 })
 
-describe('Confirm steps (PIPE-02)', () => {
-  function confirmConfig(): PipelineConfig {
-    const config = validConfig()
-    config.steps = [
-      {
-        name: 'confirm_units',
-        language: 'sql',
-        statement: 'SELECT batch, count(*) FROM measurements GROUP BY batch',
-        confirm: {
-          fields: [
-            { key: 'unit', label: 'Unit', type: 'text', required: true },
-          ],
-          askedUserIds: ['chemist-a'],
-          skipSteps: ['set_units'],
-          noAnswer: 'apply',
-          expiresHours: 48,
-        },
-      },
-      {
-        name: 'set_units',
-        language: 'sql',
-        statement: 'SELECT batch FROM measurements',
-      },
-    ]
-
-    return config
+describe('Ask steps', () => {
+  const ask: PipelineStepConfirm = {
+    fields: [{ key: 'unit', label: 'Unit', type: 'text', required: true }],
+    askedUserIds: ['chemist-a'],
+    skipSteps: ['set_units'],
+    noAnswer: 'apply',
+    expiresHours: 48,
   }
 
-  it('accepts a confirm step with a form, asked people and skip dependents', () => {
-    expect(validatePipelineConfig(confirmConfig())).toEqual([])
+  /** Ask settings as a version may hold them, valid or not. */
+  type AskSettings = Omit<PipelineStepConfirm, 'noAnswer'> & {
+    noAnswer?: string
+  }
+
+  function askConfig(confirm: AskSettings = ask) {
+    return {
+      ...validConfig(),
+      steps: [
+        sqlStep(
+          'units_shown',
+          'SELECT batch, count(*) FROM measurements GROUP BY batch',
+        ),
+        { name: 'confirm_units', kind: 'ask', ask: confirm },
+        sqlStep('set_units', 'SELECT batch FROM measurements'),
+      ],
+    }
+  }
+
+  it('accepts an ask step with a form, asked people and skip dependents', () => {
+    expect(validatePipelineConfig(askConfig())).toEqual([])
   })
 
-  it('rejects a confirm step without a form or asked people', () => {
-    const config = confirmConfig()
-    config.steps![0].confirm = { fields: [], askedUserIds: [] }
-    const errors = validatePipelineConfig(config)
-    expect(errors.some((e) => e.field === 'steps[0].confirm.fields')).toBe(true)
-    expect(
-      errors.some((e) => e.field === 'steps[0].confirm.askedUserIds'),
-    ).toBe(true)
+  it('rejects an ask step without a form or asked people', () => {
+    const errors = validatePipelineConfig(
+      askConfig({ fields: [], askedUserIds: [] }),
+    )
+
+    expect(errors.some((e) => e.field === 'steps[1].ask.fields')).toBe(true)
+    expect(errors.some((e) => e.field === 'steps[1].ask.askedUserIds')).toBe(
+      true,
+    )
   })
 
   it('rejects an unknown no-answer outcome and an out-of-range expiry', () => {
-    const valid = confirmConfig()
+    const errors = validatePipelineConfig(
+      askConfig({ ...ask, noAnswer: 'ignore', expiresHours: 0 }),
+    )
 
-    const config = {
-      ...valid,
-      steps: valid.steps?.map((step) =>
-        step.confirm
-          ? {
-              ...step,
-              confirm: { ...step.confirm, noAnswer: 'ignore', expiresHours: 0 },
-            }
-          : step,
-      ),
+    expect(errors.some((e) => e.field === 'steps[1].ask.noAnswer')).toBe(true)
+    expect(errors.some((e) => e.field === 'steps[1].ask.expiresHours')).toBe(
+      true,
+    )
+  })
+
+  it('rejects skipSteps that do not name another step', () => {
+    for (const skip of ['nope', 'confirm_units']) {
+      const errors = validatePipelineConfig(
+        askConfig({ ...ask, skipSteps: [skip] }),
+      )
+
+      expect(errors.some((e) => e.field === 'steps[1].ask.skipSteps')).toBe(
+        true,
+      )
+    }
+  })
+
+  it('finds the ask step and applies the DEC-08 defaults', () => {
+    const config: PipelineConfig = {
+      ...validConfig(),
+      steps: [
+        sqlStep('units_shown', 'SELECT 1'),
+        { name: 'confirm_units', kind: 'ask', ask },
+        sqlStep('set_units', 'SELECT 1'),
+      ],
     }
 
-    const errors = validatePipelineConfig(config)
-    expect(errors.some((e) => e.field === 'steps[0].confirm.noAnswer')).toBe(
-      true,
-    )
-    expect(
-      errors.some((e) => e.field === 'steps[0].confirm.expiresHours'),
-    ).toBe(true)
-  })
-
-  it('rejects skipSteps that do not name a declared step', () => {
-    const config = confirmConfig()
-    config.steps![0].confirm!.skipSteps = ['nope']
-    const errors = validatePipelineConfig(config)
-    expect(errors.some((e) => e.field === 'steps[0].confirm.skipSteps')).toBe(
-      true,
-    )
-  })
-
-  it('finds the confirm step and applies the DEC-08 defaults', () => {
-    const config = confirmConfig()
     expect(findPipelineConfirmStep(config, 'set_units')).toBeNull()
     const step = findPipelineConfirmStep(config, 'confirm_units')
     expect(step?.name).toBe('confirm_units')
-    const confirm = step!.confirm!
+    const confirm = step!.ask
     expect(confirmNoAnswerOutcome(confirm)).toBe('apply')
     expect(confirmExpiryHours(confirm)).toBe(48)
     expect(
@@ -585,6 +646,27 @@ describe('Confirm steps (PIPE-02)', () => {
   })
 })
 
+describe('Action steps', () => {
+  it('checks action steps as the action list, by step name', () => {
+    const config = {
+      ...validConfig(),
+      steps: [
+        sqlStep('analysis', SQL),
+        {
+          name: 'post_note',
+          kind: 'action',
+          action: { operation: 'not-an-operation', arguments: {} },
+        },
+        { name: 'empty', kind: 'action' },
+      ],
+    }
+
+    const fields = validatePipelineConfig(config).map((e) => e.field)
+    expect(fields).toContain('steps[2].action')
+    expect(fields).toContain('steps')
+  })
+})
+
 describe('Python requirements and contracts', () => {
   const RUNTIME = `registry.example/py@sha256:${'c'.repeat(64)}`
 
@@ -592,24 +674,30 @@ describe('Python requirements and contracts', () => {
     return {
       ...validConfig(),
       pythonRuntime: RUNTIME,
-      transform: {
-        language: 'python',
-        statement: 'def transform(i, p): return []',
-      },
+      steps: [
+        {
+          name: 'analysis',
+          kind: 'python',
+          statement: 'def transform(i, p): return []',
+        },
+      ],
       ...extra,
     }
   }
 
-  it('accepts pinned requirements and a contract on a Python transform', () => {
+  it('accepts pinned requirements and a contract on a Python step', () => {
     expect(
       validatePipelineConfig(
         pythonConfig({
           pythonRequirements: ['scipy==1.15.3'],
-          transform: {
-            language: 'python',
-            statement: 'def transform(i, p): return []',
-            contract: { output: { columns: [{ name: 'a', type: 'text' }] } },
-          },
+          steps: [
+            {
+              name: 'analysis',
+              kind: 'python',
+              statement: 'def transform(i, p): return []',
+              contract: { output: { columns: [{ name: 'a', type: 'text' }] } },
+            },
+          ],
         }),
       ),
     ).toEqual([])
@@ -633,29 +721,18 @@ describe('Python requirements and contracts', () => {
   })
 
   it('refuses a contract on a SQL step, and a malformed one on a Python step', () => {
-    const sql = validatePipelineConfig({
-      ...validConfig(),
-      transform: {
-        language: 'sql',
-        statement: 'select 1',
-        contract: { output: { columns: [] } },
-      },
-    })
-
-    expect(sql).toMatchObject([{ field: 'transform.contract' }])
-
     const steps = validatePipelineConfig({
       ...pythonConfig(),
       steps: [
         {
           name: 'tidy',
-          language: 'python',
+          kind: 'python',
           statement: 'def transform(i, p): return []',
           contract: { output: { columns: [{ name: 'a', type: 'float' }] } },
         },
         {
           name: 'plain',
-          language: 'sql',
+          kind: 'sql',
           statement: 'select 1',
           contract: {},
         },

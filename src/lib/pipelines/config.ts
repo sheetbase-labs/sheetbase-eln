@@ -7,7 +7,14 @@ import { t } from '#/copy'
 import { parsePluginName } from '#/lib/extensions/points'
 
 /**
- * AUTO-01 — Pipeline configuration contract (format version 1).
+ * AUTO-01 — Pipeline configuration contract (format version 2).
+ *
+ * A version is one ordered list of typed steps: data steps (SQL, Python, a
+ * plugin) that each read the one before as `previous`, pauses that ask a
+ * person, ELN actions and notifications. It is written in one mode (Simple,
+ * Standard or Advanced). Format 1 kept one transform, further steps, actions
+ * and notifications in four places; migration 20261112110000 rewrote every
+ * stored version into this shape.
  *
  * A Pipeline configuration is a versioned JSONB object that names every
  * parameter, input and output explicitly — the same way analysis definitions
@@ -19,7 +26,7 @@ import { parsePluginName } from '#/lib/extensions/points'
  * by the authoring UI and the server executor.
  */
 
-export const PIPELINE_CONFIG_VERSION = 1 as const
+export const PIPELINE_CONFIG_VERSION = 2 as const
 
 export const PARAMETER_TYPES = [
   'text',
@@ -39,6 +46,43 @@ export const DATE_RE = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/
 export const MAX_PARAMETERS = 50
 export const MAX_INPUTS = 10
 export const MAX_STATEMENT_LENGTH = 20_000
+export const MAX_STEPS = 50
+export const MAX_STEP_NOTE_LENGTH = 500
+
+/** Every kind of step a version may hold, in the order the Add step menu lists them. */
+export const PIPELINE_STEP_KINDS = [
+  'sql',
+  'python',
+  'plugin',
+  'ask',
+  'action',
+  'notify',
+] as const
+
+/** The kinds that give rows: each reads the one before as `previous`. */
+export const DATA_STEP_KINDS = ['sql', 'python', 'plugin'] as const
+
+/** The settings keys a step may carry, and which belong to which kind. */
+const STEP_SETTING_KEYS = [
+  'statement',
+  'contract',
+  'plugin',
+  'ask',
+  'action',
+  'notify',
+] as const
+
+const STEP_KIND_KEYS: Record<
+  (typeof PIPELINE_STEP_KINDS)[number],
+  ReadonlyArray<(typeof STEP_SETTING_KEYS)[number]>
+> = {
+  sql: ['statement'],
+  python: ['statement', 'contract'],
+  plugin: ['plugin'],
+  ask: ['ask'],
+  action: ['action'],
+  notify: ['notify'],
+}
 
 const parameterValueSchemas = {
   text: z.string(),
@@ -87,9 +131,8 @@ export interface PipelineOutput {
 }
 
 /**
- * PIPE-02 / DEC-08 / ADR-0052 — a `confirm` step pauses the run for a named
- * person. Autonomy stays the default: only a step that carries `confirm`
- * pauses. The pipeline author configures the typed decision form, who is
+ * PIPE-02 / DEC-08 / ADR-0052 — an `ask` step pauses the run for a named
+ * person. Autonomy stays the default: only an `ask` step pauses. The pipeline author configures the typed decision form, who is
  * asked, which steps depend on the decision, and what happens when nobody
  * answers before the prompt expires.
  */
@@ -118,7 +161,7 @@ export interface PipelineConfirmField {
   options?: string[]
 }
 
-/** Opt-in human confirmation attached to a step. */
+/** The settings of an `ask` step: what the person answers, and who. */
 export interface PipelineStepConfirm {
   /** Typed decision form; at least one field. */
   fields: PipelineConfirmField[]
@@ -141,27 +184,104 @@ export interface PipelineStepConfirm {
  * come from (`previous`, `inputs.<name>`, `steps.<step>`); every other box is
  * a typed value or `parameters.<name>`.
  */
+/**
+ * A step a plugin runs: it takes named tables and gives a table back, and the
+ * next step reads that table as `previous`. Table boxes name where the rows
+ * come from (`previous`, `inputs.<name>`, `steps.<step>`); every other box is
+ * a typed value or `parameters.<name>`.
+ */
 export interface PipelinePluginStep {
   /** `plugin.<extension>.<step id>`, a `pipeline-steps` item of an installed plugin. */
   operation: string
   arguments: Record<string, z.core.util.JSONType>
 }
 
-export interface PipelineStep {
+/** A governed ELN change a step makes, or proposes, under the action's policy. */
+export interface PipelineStepAction {
+  operation: string
+  arguments: Record<string, z.core.util.JSONType>
+  mode?: 'execute' | 'propose'
+  /** Bulk import: run the action once for each row of this list. */
+  forEach?: { $ref: string }
+}
+
+/** A notification channel (webhook, Teams or email) the run posts to. */
+export interface PipelineStepNotify {
+  subscriptionId: string
+  payload?: Record<string, z.core.util.JSONType>
+}
+
+/** What every step carries, whatever its kind. */
+interface PipelineStepBase {
+  /** Lowercase identifier, unique in the version; later steps read it as `steps.<name>`. */
   name: string
-  language: 'sql' | 'python' | 'plugin'
-  /** The code of a SQL or Python step. A plugin step has none (empty). */
+  /** A short note for the people reading the pipeline. Never run. */
+  note?: string
+}
+
+/** Settings shared by the steps that give rows (data steps). */
+interface PipelineDataStepBase extends PipelineStepBase {
+  /** Skip this step, passing the rows on unchanged, when the step before it gave none. */
+  onlyIfRows?: boolean
+}
+
+export interface PipelineCodeStep extends PipelineDataStepBase {
+  kind: 'sql' | 'python'
   statement: string
-  /** Plugin steps only: which plugin step runs, and what it is given. */
-  plugin?: PipelinePluginStep
   /** Python only: the columns this step reads and the DataFrame it returns. */
   contract?: PythonContract
-  /** Opt-in: run this step's proposal, then pause for a person. */
-  confirm?: PipelineStepConfirm
 }
+
+export interface PipelinePluginDataStep extends PipelineDataStepBase {
+  kind: 'plugin'
+  plugin: PipelinePluginStep
+}
+
+/**
+ * Pause and ask a person about the rows the step before it gave. Confirm
+ * carries on with those rows; Skip leaves out the steps it names; Stop ends
+ * the run. The answer's values reach later steps as `confirm_answer` (SQL)
+ * and `inputs["answer"]` (Python).
+ */
+export interface PipelineAskStep extends PipelineStepBase {
+  kind: 'ask'
+  ask: PipelineStepConfirm
+}
+
+/**
+ * An ELN action. Actions run after the output is written, in the order of the
+ * list; `previous` is the result of the data step before the action.
+ */
+export interface PipelineActionStep extends PipelineStepBase {
+  kind: 'action'
+  action: PipelineStepAction
+}
+
+/** Post to a notification channel after the output is written. */
+export interface PipelineNotifyStep extends PipelineStepBase {
+  kind: 'notify'
+  notify: PipelineStepNotify
+}
+
+export type PipelineDataStep = PipelineCodeStep | PipelinePluginDataStep
+
+export type PipelineStep =
+  PipelineDataStep | PipelineAskStep | PipelineActionStep | PipelineNotifyStep
+
+export type PipelineStepKind = PipelineStep['kind']
+
+/**
+ * How a pipeline is written. One mode per pipeline: Simple is a recipe, Standard
+ * typed steps, Advanced the version file. A pipeline only ever moves to a more
+ * expressive mode, as a new draft.
+ */
+export const PIPELINE_MODES = ['simple', 'standard', 'advanced'] as const
+
+export type PipelineMode = (typeof PIPELINE_MODES)[number]
 
 export interface PipelineConfig {
   configVersion: typeof PIPELINE_CONFIG_VERSION
+  mode: PipelineMode
   description?: string
   pythonRuntime?: string
   /**
@@ -170,30 +290,11 @@ export interface PipelineConfig {
    * not provide exactly these versions.
    */
   pythonRequirements?: string[]
-  actions?: Array<{
-    name: string
-    operation: string
-    arguments: Record<string, z.core.util.JSONType>
-    mode?: 'execute' | 'propose'
-    /** Bulk import: run the action once for each row of this list. */
-    forEach?: { $ref: string }
-  }>
   parameters: PipelineParameter[]
   inputs: PipelineInput[]
-  transform: {
-    language: 'sql' | 'python' | 'none'
-    statement: string
-    /** Python only; see PipelineStep.contract. */
-    contract?: PythonContract
-  }
+  /** One ordered list. Data steps each read the one before as `previous`. */
+  steps: PipelineStep[]
   output: PipelineOutput
-  /** Ordered analysis steps; each receives the preceding result as previous. */
-  steps?: PipelineStep[]
-  /** Signed HTTP POST destinations, delivered durably after successful output. */
-  notifications?: Array<{
-    subscriptionId: string
-    payload?: Record<string, z.core.util.JSONType>
-  }>
 }
 
 export type ConfigError = {
@@ -216,12 +317,10 @@ const rawConfigSchema = z
     description: z.unknown(),
     parameters: z.unknown(),
     inputs: z.unknown(),
-    transform: z.unknown(),
+    mode: z.unknown(),
     steps: z.unknown(),
-    notifications: z.unknown(),
     pythonRuntime: z.unknown(),
     pythonRequirements: z.unknown(),
-    actions: z.unknown(),
     output: z.unknown(),
   })
   .partial()
@@ -243,19 +342,18 @@ const rawInputSchema = z
   })
   .partial()
 
-const rawTransformSchema = z
+const rawStepSchema = z
   .looseObject({
-    language: z.unknown(),
+    name: z.unknown(),
+    kind: z.unknown(),
+    note: z.unknown(),
+    onlyIfRows: z.unknown(),
     statement: z.unknown(),
     contract: z.unknown(),
-  })
-  .partial()
-
-const rawStepSchema = rawTransformSchema
-  .extend({
-    name: z.unknown(),
     plugin: z.unknown(),
-    confirm: z.unknown(),
+    ask: z.unknown(),
+    action: z.unknown(),
+    notify: z.unknown(),
   })
   .partial()
 
@@ -362,9 +460,8 @@ const PLUGIN_STEP_REF_PART = /^[A-Za-z0-9_-]+$/
 function validatePluginStep(
   errors: ConfigError[],
   step: z.infer<typeof rawStepSchema>,
-  index: number,
+  field: string,
 ): void {
-  const field = `steps[${index}].plugin`
   const decoded = rawPluginSchema.safeParse(step.plugin)
 
   const operation = decoded.success
@@ -385,19 +482,6 @@ function validatePluginStep(
 
     return
   }
-
-  // A plugin step may pause for a person like any other: the pause comes once
-  // the plugin's table is ready, and that table is what the person is shown.
-  if (step.confirm !== undefined)
-    validateConfirmStep(errors, rawConfirmSchema.safeParse(step.confirm), index)
-
-  if (step.contract !== undefined)
-    push(
-      errors,
-      'invalid_value',
-      `steps[${index}].contract`,
-      t('data.pipelineConfig.dataContractAppliesPython'),
-    )
 
   const argumentsObject = rawValuesSchema.safeParse(decoded.data.arguments)
 
@@ -692,238 +776,15 @@ export function validatePipelineConfig(configuration: unknown): ConfigError[] {
     })
   }
 
-  // transform
-  const parsedTransform = rawTransformSchema.safeParse(v.transform)
-
-  if (!parsedTransform.success) {
-    push(
-      errors,
-      'invalid_shape',
-      'transform',
-      t('data.pipelineConfig.transformMustObject'),
-    )
-  } else {
-    const transform = parsedTransform.data
-
-    if (
-      transform.language !== 'sql' &&
-      transform.language !== 'python' &&
-      transform.language !== 'none'
-    ) {
-      push(
-        errors,
-        'unsupported_language',
-        'transform.language',
-        'transform language must be SQL or Python',
-      )
-    }
-
-    if (
-      transform.language !== 'none' &&
-      !statementSchema.safeParse(transform.statement).success
-    ) {
-      push(
-        errors,
-        'invalid_shape',
-        'transform.statement',
-        'transform statement must be between 1 and 20000 characters',
-      )
-    }
-
-    if (transform.contract !== undefined) {
-      if (transform.language !== 'python')
-        push(
-          errors,
-          'invalid_value',
-          'transform.contract',
-          t('data.pipelineConfig.dataContractAppliesPython'),
-        )
-      else
-        for (const message of contractErrors(transform.contract))
-          push(errors, 'invalid_value', 'transform.contract', message)
-    }
+  // mode
+  if (!z.enum(PIPELINE_MODES).safeParse(v.mode).success) {
+    push(errors, 'invalid_value', 'mode', t('data.pipelineConfig.chooseMode'))
   }
 
-  if (v.steps !== undefined) {
-    if (!Array.isArray(v.steps) || v.steps.length > 9) {
-      push(
-        errors,
-        'invalid_shape',
-        'steps',
-        t('data.pipelineConfig.mostNineAdditionalSteps'),
-      )
-    } else {
-      const names = new Set<string>()
+  // steps: one ordered list of every kind
+  const steps = validateSteps(errors, v)
 
-      for (const [index, value] of v.steps.entries()) {
-        const parsedStep = rawStepSchema.safeParse(value)
-
-        const name = parsedStep.success
-          ? inputNameSchema.safeParse(parsedStep.data.name)
-          : null
-
-        if (!parsedStep.success || !name?.success) {
-          push(
-            errors,
-            'invalid_value',
-            `steps[${index}]`,
-            t('data.pipelineConfig.eachStepNeedsLowercase'),
-          )
-          continue
-        }
-
-        const step = parsedStep.data
-
-        if (names.has(name.data))
-          push(
-            errors,
-            'duplicate_name',
-            `steps[${index}].name`,
-            t('data.pipelineConfig.stepNamesMustUnique'),
-          )
-        names.add(name.data)
-
-        if (
-          step.language !== 'sql' &&
-          step.language !== 'python' &&
-          step.language !== 'plugin'
-        )
-          push(
-            errors,
-            'unsupported_language',
-            `steps[${index}].language`,
-            t('data.pipelineConfig.chooseSqlPython'),
-          )
-
-        if (step.language === 'plugin') {
-          validatePluginStep(errors, step, index)
-          continue
-        }
-
-        if (step.plugin !== undefined)
-          push(
-            errors,
-            'invalid_value',
-            `steps[${index}].plugin`,
-            t('data.pipelineConfig.pluginOnlyPluginStep'),
-          )
-
-        if (!statementSchema.safeParse(step.statement).success)
-          push(
-            errors,
-            'invalid_value',
-            `steps[${index}].statement`,
-            t('data.pipelineConfig.stepCodeMustContain'),
-          )
-
-        if (step.contract !== undefined) {
-          if (step.language !== 'python')
-            push(
-              errors,
-              'invalid_value',
-              `steps[${index}].contract`,
-              t('data.pipelineConfig.dataContractAppliesPython'),
-            )
-          else
-            for (const message of contractErrors(step.contract))
-              push(errors, 'invalid_value', `steps[${index}].contract`, message)
-        }
-
-        if (step.confirm !== undefined)
-          validateConfirmStep(
-            errors,
-            rawConfirmSchema.safeParse(step.confirm),
-            index,
-          )
-      }
-
-      // skipSteps must reference a declared step other than the confirm step.
-      for (const [index, value] of v.steps.entries()) {
-        const parsedStep = rawStepSchema.safeParse(value)
-
-        if (!parsedStep.success) continue
-        const step = parsedStep.data
-        const confirm = rawConfirmSchema.safeParse(step.confirm)
-
-        if (!confirm.success) continue
-        const skips = confirm.data.skipSteps
-
-        if (!Array.isArray(skips)) continue
-
-        for (const skip of skips) {
-          const parsedName = z.string().safeParse(skip)
-
-          if (!parsedName.success) continue
-          const name = parsedName.data
-
-          if (!names.has(name) || name === step.name)
-            push(
-              errors,
-              'invalid_value',
-              `steps[${index}].confirm.skipSteps`,
-              `skipSteps must name another step in this version: ${name}`,
-            )
-        }
-      }
-    }
-  }
-
-  if (v.notifications !== undefined) {
-    if (!Array.isArray(v.notifications) || v.notifications.length > 10) {
-      push(
-        errors,
-        'invalid_shape',
-        'notifications',
-        t('data.pipelineConfig.chooseMostTenWebhook'),
-      )
-    } else {
-      const ids = new Set<string>()
-
-      for (const value of v.notifications) {
-        const notification = rawNotificationSchema.safeParse(value)
-
-        if (!notification.success || !isUuid(notification.data.subscriptionId))
-          push(
-            errors,
-            'invalid_value',
-            'notifications',
-            t('data.pipelineConfig.chooseWebhookDestination'),
-          )
-        else if (ids.has(notification.data.subscriptionId))
-          push(
-            errors,
-            'duplicate_name',
-            'notifications',
-            t('data.pipelineConfig.webhookDestinationsMustUnique'),
-          )
-        else {
-          const item = notification.data
-
-          ids.add(notification.data.subscriptionId)
-
-          if (
-            item.payload !== undefined &&
-            !rawValuesSchema.safeParse(item.payload).success
-          )
-            push(
-              errors,
-              'invalid_shape',
-              'notifications',
-              t('data.pipelineConfig.webhookPayloadMustJson'),
-            )
-        }
-      }
-    }
-  }
-
-  const usesPython =
-    (parsedTransform.success && parsedTransform.data.language === 'python') ||
-    (Array.isArray(v.steps) &&
-      v.steps.some((step) => {
-        const parsed = rawStepSchema.safeParse(step)
-
-        return parsed.success && parsed.data.language === 'python'
-      }))
+  const usesPython = steps.some((step) => step.kind === 'python')
 
   if (
     usesPython &&
@@ -951,11 +812,6 @@ export function validatePipelineConfig(configuration: unknown): ConfigError[] {
 
     for (const message of requirementErrors(v.pythonRequirements))
       push(errors, 'invalid_value', 'pythonRequirements', message)
-  }
-
-  if (v.actions !== undefined) {
-    for (const message of validatePipelineActions(v.actions))
-      push(errors, 'invalid_value', 'actions', message)
   }
 
   // output
@@ -1044,13 +900,248 @@ export function validatePipelineConfig(configuration: unknown): ConfigError[] {
   return errors
 }
 
+/** A step as stored, before it is known to be valid: its kind and name. */
+interface DecodedStep {
+  index: number
+  kind: string
+  name: string
+  raw: z.infer<typeof rawStepSchema>
+}
+
+/**
+ * Validate the ordered step list. Returns the steps whose kind and name could
+ * be read, so the checks that span steps (Python runtime, Skip targets) can use
+ * them.
+ */
+function validateSteps(
+  errors: ConfigError[],
+  config: z.infer<typeof rawConfigSchema>,
+): DecodedStep[] {
+  const value = config.steps
+
+  if (!Array.isArray(value)) {
+    push(
+      errors,
+      'invalid_shape',
+      'steps',
+      t('data.pipelineConfig.stepsMustArray'),
+    )
+
+    return []
+  }
+
+  if (value.length > MAX_STEPS) {
+    push(
+      errors,
+      'too_many',
+      'steps',
+      t('data.pipelineConfig.tooManySteps', { MAX_STEPS }),
+    )
+
+    return []
+  }
+
+  const decoded: DecodedStep[] = []
+  const names = new Set<string>()
+  const actions: unknown[] = []
+  const notifyTargets = new Set<string>()
+
+  for (const [index, entry] of value.entries()) {
+    const field = `steps[${index}]`
+    const parsed = rawStepSchema.safeParse(entry)
+
+    const name = parsed.success
+      ? inputNameSchema.safeParse(parsed.data.name)
+      : null
+
+    if (!parsed.success || !name?.success) {
+      push(
+        errors,
+        'invalid_value',
+        field,
+        t('data.pipelineConfig.eachStepNeedsLowercase'),
+      )
+      continue
+    }
+
+    const step = parsed.data
+
+    if (names.has(name.data))
+      push(
+        errors,
+        'duplicate_name',
+        `${field}.name`,
+        t('data.pipelineConfig.stepNamesMustUnique'),
+      )
+    names.add(name.data)
+
+    const kind = z.enum(PIPELINE_STEP_KINDS).safeParse(step.kind)
+
+    if (!kind.success) {
+      push(
+        errors,
+        'unsupported_language',
+        `${field}.kind`,
+        t('data.pipelineConfig.chooseStepKind'),
+      )
+      continue
+    }
+
+    decoded.push({ index, kind: kind.data, name: name.data, raw: step })
+
+    if (
+      step.note !== undefined &&
+      !z.string().max(MAX_STEP_NOTE_LENGTH).safeParse(step.note).success
+    )
+      push(
+        errors,
+        'invalid_value',
+        `${field}.note`,
+        t('data.pipelineConfig.stepNoteTooLong', { MAX_STEP_NOTE_LENGTH }),
+      )
+
+    const isData = DATA_STEP_KINDS.some((dataKind) => dataKind === kind.data)
+
+    if (step.onlyIfRows !== undefined) {
+      if (!isData)
+        push(
+          errors,
+          'invalid_value',
+          `${field}.onlyIfRows`,
+          t('data.pipelineConfig.onlyIfRowsDataSteps'),
+        )
+      else if (!z.boolean().safeParse(step.onlyIfRows).success)
+        push(
+          errors,
+          'invalid_value',
+          `${field}.onlyIfRows`,
+          t('data.pipelineConfig.requiredMustBoolean'),
+        )
+    }
+
+    // Each kind keeps its settings under its own key, and only its own.
+    for (const key of STEP_SETTING_KEYS)
+      if (step[key] !== undefined && !STEP_KIND_KEYS[kind.data].includes(key))
+        push(
+          errors,
+          'invalid_value',
+          `${field}.${key}`,
+          key === 'contract'
+            ? t('data.pipelineConfig.dataContractAppliesPython')
+            : t('data.pipelineConfig.settingNotForKind', { key }),
+        )
+
+    switch (kind.data) {
+      case 'sql':
+      case 'python':
+        if (!statementSchema.safeParse(step.statement).success)
+          push(
+            errors,
+            'invalid_value',
+            `${field}.statement`,
+            t('data.pipelineConfig.stepCodeMustContain'),
+          )
+
+        // A contract on a SQL step was refused above, as a setting not its own.
+        if (kind.data === 'python' && step.contract !== undefined)
+          for (const message of contractErrors(step.contract))
+            push(errors, 'invalid_value', `${field}.contract`, message)
+        break
+      case 'plugin':
+        validatePluginStep(errors, step, `${field}.plugin`)
+        break
+      case 'ask':
+        validateConfirmStep(
+          errors,
+          rawConfirmSchema.safeParse(step.ask),
+          `${field}.ask`,
+        )
+        break
+      case 'action': {
+        const action = rawValuesSchema.safeParse(step.action)
+
+        if (!action.success)
+          push(
+            errors,
+            'invalid_shape',
+            `${field}.action`,
+            t('data.pipelineConfig.actionStepNeedsAction'),
+          )
+        else actions.push({ ...action.data, name: name.data })
+        break
+      }
+
+      case 'notify': {
+        const notify = rawNotificationSchema.safeParse(step.notify)
+
+        if (!notify.success || !isUuid(notify.data.subscriptionId))
+          push(
+            errors,
+            'invalid_value',
+            `${field}.notify`,
+            t('data.pipelineConfig.chooseWebhookDestination'),
+          )
+        else if (notifyTargets.has(notify.data.subscriptionId))
+          push(
+            errors,
+            'duplicate_name',
+            `${field}.notify`,
+            t('data.pipelineConfig.webhookDestinationsMustUnique'),
+          )
+        else {
+          notifyTargets.add(notify.data.subscriptionId)
+
+          if (
+            notify.data.payload !== undefined &&
+            !rawValuesSchema.safeParse(notify.data.payload).success
+          )
+            push(
+              errors,
+              'invalid_shape',
+              `${field}.notify.payload`,
+              t('data.pipelineConfig.webhookPayloadMustJson'),
+            )
+        }
+
+        break
+      }
+    }
+  }
+
+  // Skip names another step of this version, never the ask itself.
+  for (const step of decoded) {
+    if (step.kind !== 'ask') continue
+    const ask = rawConfirmSchema.safeParse(step.raw.ask)
+
+    if (!ask.success || !Array.isArray(ask.data.skipSteps)) continue
+
+    for (const skip of ask.data.skipSteps) {
+      const skipName = z.string().safeParse(skip)
+
+      if (!skipName.success) continue
+
+      if (!names.has(skipName.data) || skipName.data === step.name)
+        push(
+          errors,
+          'invalid_value',
+          `steps[${step.index}].ask.skipSteps`,
+          `skipSteps must name another step in this version: ${skipName.data}`,
+        )
+    }
+  }
+
+  if (actions.length > 0)
+    for (const message of validatePipelineActions(actions))
+      push(errors, 'invalid_value', 'steps', message)
+
+  return decoded
+}
+
 function validateConfirmStep(
   errors: ConfigError[],
   decoded: z.ZodSafeParseResult<z.infer<typeof rawConfirmSchema>>,
-  index: number,
+  field: string,
 ): void {
-  const field = `steps[${index}].confirm`
-
   if (!decoded.success) {
     push(
       errors,
@@ -1223,14 +1314,40 @@ export function configErrorsToMessage(errors: ConfigError[]): string | null {
 // PIPE-02 confirm-step helpers (shared by the executor and the authoring UI).
 // ---------------------------------------------------------------------------
 
-/** The confirm step named `stepName`, or null when it is not a confirm step. */
+/** The ask step named `stepName`, or null when it is not an ask step. */
 export function findPipelineConfirmStep(
   config: PipelineConfig,
   stepName: string,
-): PipelineStep | null {
-  const step = (config.steps ?? []).find((entry) => entry.name === stepName)
+): PipelineAskStep | null {
+  const step = config.steps.find((entry) => entry.name === stepName)
 
-  return step && step.confirm ? step : null
+  return step?.kind === 'ask' ? step : null
+}
+
+/** The data steps of a version, in order. */
+export function pipelineDataSteps(config: PipelineConfig): PipelineDataStep[] {
+  return config.steps.filter(
+    (step): step is PipelineDataStep =>
+      step.kind === 'sql' || step.kind === 'python' || step.kind === 'plugin',
+  )
+}
+
+/** The ELN actions of a version, in order, named as their steps. */
+export function pipelineActionSteps(
+  config: PipelineConfig,
+): Array<PipelineStepAction & { name: string }> {
+  return config.steps.flatMap((step) =>
+    step.kind === 'action' ? [{ name: step.name, ...step.action }] : [],
+  )
+}
+
+/** The notifications of a version, in order. */
+export function pipelineNotifySteps(
+  config: PipelineConfig,
+): Array<PipelineStepNotify & { name: string }> {
+  return config.steps.flatMap((step) =>
+    step.kind === 'notify' ? [{ name: step.name, ...step.notify }] : [],
+  )
 }
 
 /** Author's no-answer outcome; DEC-08 defaults to stop and re-ask. */

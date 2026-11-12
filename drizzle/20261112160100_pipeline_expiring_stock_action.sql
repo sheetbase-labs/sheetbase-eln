@@ -1,0 +1,5 @@
+-- The pipeline action that lists expiring stock. Mirrors src/features/pipeline-simple/operations.ts.
+
+INSERT INTO internal.pipeline_actions (operation, definition) VALUES
+  ('list_expiring_materials', '{"operation":"list_expiring_materials","rpc":"list_expiring_materials","label":"List the stock that expires soon","description":"Looks at the materials that expire within `p_days` days (not quarantined, expired, consumed or depleted) and leaves one Inbox item for a person with a line for each lot, soonest first. Leaves nothing when nothing expires. Stewards and anyone who can edit in the workspace. Returns `{ count, created, inboxItemId }`. Sends `pipeline.inbox_item.created` when it leaves an item.","arguments":[{"name":"p_workspace_id","type":"uuid","required":true,"nullable":false,"server":"workspace"},{"name":"p_user_id","type":"text","required":true,"nullable":false},{"name":"p_days","type":"integer","required":false,"nullable":false}]}'::jsonb)
+ON CONFLICT (operation) DO UPDATE SET definition = EXCLUDED.definition;

@@ -65,3 +65,9 @@ Sends `pipeline.inbox_item.created`.
 These operations are also on MCP (`sheetbase.lab.act`), in the assistant
 (`sheetbase.pipeline.convert`, `sheetbase.pipeline.duplicate`) and as pipeline
 actions.
+
+## `list_expiring_materials`
+
+Looks at the materials that expire within `p_days` days (1 to 365, default 30; not quarantined, expired, consumed or depleted) and leaves one Inbox item for `p_user_id` with a line for each lot, soonest first. Leaves nothing when nothing expires. Stewards and anyone who can edit in the workspace. Returns `{ count, created, inboxItemId }`. Sends `pipeline.inbox_item.created` when it leaves an item.
+
+A Simple pipeline uses it as "tell _person_ about stock expiring within _N_ days", started on a weekly schedule.

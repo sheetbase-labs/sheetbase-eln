@@ -22,6 +22,8 @@ export const PIPELINE_RETRY_TOOL = 'sheetbase.pipeline.retry'
 export const PIPELINE_CANCEL_TOOL = 'sheetbase.pipeline.cancel'
 export const PIPELINE_PUBLISH_TOOL = 'sheetbase.pipeline.publish'
 export const PIPELINE_RETIRE_TOOL = 'sheetbase.pipeline.retire'
+export const PIPELINE_CONVERT_TOOL = 'sheetbase.pipeline.convert'
+export const PIPELINE_DUPLICATE_TOOL = 'sheetbase.pipeline.duplicate'
 export const PIPELINE_SCHEDULE_ADD_TOOL = 'sheetbase.pipeline.schedule_add'
 
 export const PIPELINE_SCHEDULE_SWITCH_TOOL =
@@ -39,6 +41,8 @@ export const PIPELINES_PROPOSE_TOOL_NAMES = [
   PIPELINE_CANCEL_TOOL,
   PIPELINE_PUBLISH_TOOL,
   PIPELINE_RETIRE_TOOL,
+  PIPELINE_CONVERT_TOOL,
+  PIPELINE_DUPLICATE_TOOL,
   PIPELINE_SCHEDULE_ADD_TOOL,
   PIPELINE_SCHEDULE_SWITCH_TOOL,
   PIPELINE_SCHEDULE_DELETE_TOOL,
@@ -124,6 +128,23 @@ export const proposePipelineRetireSchema = z.strictObject({
     .describe(
       '`true` retires it so it can no longer run; `false` brings a retired pipeline back.',
     ),
+})
+
+export const proposePipelineConvertSchema = z.strictObject({
+  title,
+  summary,
+  pipeline,
+})
+
+export const proposePipelineDuplicateSchema = z.strictObject({
+  title,
+  summary,
+  pipeline,
+  name: z
+    .string()
+    .min(1)
+    .max(120)
+    .describe('The new pipeline’s name. Its key is made from it.'),
 })
 
 export const proposePipelineScheduleAddSchema = z.strictObject({
@@ -220,6 +241,15 @@ export type PipelinesAction =
       definitionId: string
       lifecycle: 'active' | 'retired'
     }
+  | { kind: 'pipeline.convert'; workspaceId: string; definitionId: string }
+  | {
+      kind: 'pipeline.duplicate'
+      workspaceId: string
+      definitionId: string
+      versionId: string
+      key: string
+      name: string
+    }
   | {
       kind: 'pipeline.schedule_add'
       workspaceId: string
@@ -256,6 +286,8 @@ const KINDS: readonly string[] = [
   'pipeline.cancel',
   'pipeline.publish',
   'pipeline.retire',
+  'pipeline.convert',
+  'pipeline.duplicate',
   'pipeline.schedule_add',
   'pipeline.schedule_switch',
   'pipeline.schedule_delete',

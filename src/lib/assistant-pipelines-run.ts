@@ -60,6 +60,27 @@ export async function runPipelinesAction(
       })
 
       return { openHref: `/pipelines/${action.definitionId}/steps` }
+    case 'pipeline.convert':
+      await client.rpc('convert_pipeline_to_standard', {
+        p_workspace_id: action.workspaceId,
+        p_definition_id: action.definitionId,
+      })
+
+      return { openHref: `/pipelines/${action.definitionId}/steps` }
+    case 'pipeline.duplicate': {
+      const created = await client.rpc<{ id: string }>(
+        'duplicate_pipeline_definition',
+        {
+          p_workspace_id: action.workspaceId,
+          p_version_id: action.versionId,
+          p_key: action.key,
+          p_name: action.name,
+        },
+      )
+
+      return { openHref: `/pipelines/${created.id}` }
+    }
+
     case 'pipeline.schedule_add':
       await client.rpc('create_pipeline_schedule', {
         p_workspace_id: action.workspaceId,

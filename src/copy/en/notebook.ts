@@ -2288,6 +2288,17 @@ export const notebook = {
     fromDefinition: 'A sheet definition',
     fromDuplicate: 'A copy of another sheet',
     fromAdHoc: 'Ad hoc, no definition',
+    liveTitle: 'Live, not pinned',
+    liveText:
+      'These columns follow new revisions of the dataset. A snapshot is a frozen copy that notebooks cite, so signed numbers never change. Pinned to one, the columns would show it and be read-only.',
+    pinnedTitle: 'Pinned to a snapshot',
+    pinnedText:
+      'These columns show one snapshot of the dataset, its rows and values exactly as they were when it was made, and are read-only.',
+    reasonTitle: 'Reason for change',
+    reasonAsked:
+      'This workspace asks for a reason when you change the sheet’s own columns.',
+    reasonNotAsked:
+      'This workspace doesn’t ask for a reason when you change a column.',
   },
   sheetFilters: {
     button: 'Filters',

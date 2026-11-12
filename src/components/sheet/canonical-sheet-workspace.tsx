@@ -13,9 +13,16 @@ import {
 import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useRouteContext } from '@tanstack/react-router'
+import {
+  fetchWorkspaceGeneral,
+  workspaceGeneralQueryKey,
+} from '#/lib/workspace-general'
 
 import { SheetFiltersButton } from './sheet-filters-popover'
-import { SheetCompositionPanel } from './sheet-composition-panel'
+import {
+  SheetBindingCards,
+  SheetCompositionPanel,
+} from './sheet-composition-panel'
 import { useCellWriteMarks } from './sheet-write-marks'
 import { gridStoredText } from './grid-client-values'
 import { SheetbaseTableGrid } from '#/components/sheet/sheetbase-grid'
@@ -3195,6 +3202,19 @@ function CanonicalWorkspaceGridArea() {
 
   const { provenance, resolvedRowIdentity } = instance.state
 
+  const datasetBindings = instance.state.bindings.flatMap((binding) =>
+    binding.kind === 'dataset' ? [binding] : [],
+  )
+
+  // Asked for until the workspace says otherwise, as the amend dialog does.
+  const general = useQuery({
+    queryKey: workspaceGeneralQueryKey,
+    queryFn: () => fetchWorkspaceGeneral(),
+    enabled: details,
+  })
+
+  const reasonRequired = general.data?.requireChangeReason ?? true
+
   const rowsMatchedOn =
     resolvedRowIdentity && resolvedRowIdentity.kind !== 'local'
       ? resolvedRowIdentity.columnIds.flatMap(
@@ -3258,6 +3278,13 @@ function CanonicalWorkspaceGridArea() {
     <div className="flex min-h-0 flex-initial max-md:flex-col max-md:overflow-y-auto">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col max-md:flex-none">
         <CanonicalWorkspaceGrid />
+        {details && !showChanges ? (
+          <SheetBindingCards
+            live={datasetBindings.some((b) => b.policy.mode === 'live')}
+            pinned={datasetBindings.some((b) => b.policy.mode === 'version')}
+            reasonRequired={reasonRequired}
+          />
+        ) : null}
         {showChanges ? (
           <SheetChangeList
             rows={rows}
@@ -4126,8 +4153,9 @@ export function SheetProvenanceLine({
   const source = provenance?.kind === 'present' ? provenance.provenance : null
 
   return (
-    <p role="status" className="flex flex-wrap items-baseline gap-x-2">
-      <span className="font-medium text-fg">
+    <p role="status" className="tx-el">
+      <Icon name="edit" size={12} />
+      <span className="w">
         {rowNumber === undefined
           ? columnLabel
           : t('notebook.sheetEditLine.cell', {

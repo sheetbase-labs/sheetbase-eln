@@ -8,10 +8,7 @@ import type {
   SheetbaseGridCellValue,
   SheetbaseGridColumn,
 } from './sheetbase-grid'
-import {
-  canonicalSheetColumnHeader,
-  categoryCellDisplayText,
-} from '#/lib/canonical-sheet-grid'
+import { categoryCellDisplayText } from '#/lib/canonical-sheet-grid'
 import { selectableFieldOptions } from '#/lib/field-presentation'
 import { formatMagnitude } from '#/lib/format-numbers'
 import type { SheetPromoteLocalField } from './sheet-promote'
@@ -39,8 +36,9 @@ export function canonicalWorkspaceGridColumn(
   >,
   /**
    * The Details view: header bands name each column's owner and every header
-   * carries its source badge. The everyday view leaves both off, and a
-   * quantity's unit follows each value instead of sitting in the header.
+   * carries its source badge. The everyday view leaves both off. A
+   * quantity's unit follows each value in both views; headers carry the
+   * name only.
    */
   details = true,
 ): SheetbaseGridColumn {
@@ -49,7 +47,7 @@ export function canonicalWorkspaceGridColumn(
 
   const base: Omit<SheetbaseGridColumn, 'type'> = {
     id: column.id,
-    label: details ? canonicalSheetColumnHeader(column) : column.label,
+    label: column.label,
     source: column.origin === 'calculation' ? 'calculated' : column.origin,
     readOnly: !canWrite || !column.editable,
     group: details ? ownerBand(column) : undefined,
@@ -63,8 +61,7 @@ export function canonicalWorkspaceGridColumn(
     return {
       ...base,
       type: 'number',
-      displayText:
-        details || !unit ? formatMagnitude : (value) => withUnit(value, unit),
+      displayText: unit ? (value) => withUnit(value, unit) : formatMagnitude,
     }
 
   if (kind === 'date') return { ...base, type: 'date' }

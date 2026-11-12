@@ -3,7 +3,7 @@ import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 const CHIP =
-  'inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-border bg-surface-muted pl-2 pr-1.5 font-sans text-body font-medium text-fg hover:bg-surface-hover'
+  'inline-flex h-7 max-w-full items-center whitespace-nowrap gap-1.5 rounded-md border border-border bg-surface-muted pl-2 pr-1.5 font-sans text-body font-medium text-fg hover:bg-surface-hover'
 
 /**
  * One boxed choice in the recipe sentence. It is a native select dressed as the

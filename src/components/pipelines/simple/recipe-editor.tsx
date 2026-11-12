@@ -1,3 +1,4 @@
+import { cn } from '#/lib/utils'
 import { Icon } from '#/components/icons'
 import { Avatar } from '#/components/ui/avatar'
 import { IconButton } from '#/components/ui/icon-button'
@@ -62,7 +63,12 @@ function Row({
   return (
     <div className="group relative grid grid-cols-[40px_minmax(0,1fr)] items-start gap-x-2">
       <Keyword>{keyword}</Keyword>
-      <div className="flex min-h-8 flex-wrap items-center gap-x-1.5 gap-y-1">
+      <div
+        className={cn(
+          'flex min-h-8 flex-wrap items-center gap-x-1.5 gap-y-1',
+          onRemove && 'max-md:pr-8',
+        )}
+      >
         {children}
         {onRemove ? (
           <IconButton

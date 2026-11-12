@@ -39,6 +39,7 @@ const MODE_LABEL: Record<PipelineStep['kind'], string> = {
   plugin: t('data.stepList.modePlugin'),
   remote_job: t('features.pipelineRemote.kinds.remoteJobNote'),
   lakehouse: t('features.pipelineRemote.kinds.lakehouseNote'),
+  web_call: t('features.pipelineConnections.kind.label'),
   ask: t('data.stepList.modeAsk'),
   action: t('data.stepList.modeAction'),
   notify: t('data.stepList.modeNotify'),

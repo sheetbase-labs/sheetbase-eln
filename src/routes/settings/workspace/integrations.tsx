@@ -23,6 +23,7 @@ import {
   IncomingWebhooks,
   OutgoingWebhooks,
 } from '#/components/settings/webhook-sections'
+import { PipelineConnections } from '#/components/settings/pipeline-connections'
 import { LineageSection } from '#/components/settings/lineage-section'
 import { CreateWebhookDialog } from '#/components/settings/create-webhook-dialog'
 import { RemoteJobConnections } from '#/components/settings/remote-jobs'
@@ -145,6 +146,9 @@ function IntegrationsList() {
             canManage={canManage}
           />
         </SettingsBody>
+      ) : null}
+      {canOpenSettings(context.workspace, 'integrations') ? (
+        <PipelineConnections workspaceId={workspaceId} canManage={canManage} />
       ) : null}
       {canOpenSettings(context.workspace, 'integrations') ? (
         <WorkspaceWebhooks

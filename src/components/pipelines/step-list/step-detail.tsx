@@ -41,6 +41,7 @@ import {
   NotifyStepBody,
   PluginStepBody,
 } from './step-bodies'
+import { WebCallStepBody } from '#/components/pipelines/step-kinds/web-call/web-call-body'
 import type { StepFacts } from './use-pipeline-editor'
 
 /** What the selected step is, written out for editing below its row. */
@@ -142,6 +143,12 @@ export function StepDetail({
           index={index}
           workspaceId={workspaceId}
           onChange={onChange}
+        />
+      ) : null}
+      {step.kind === 'web_call' ? (
+        <WebCallStepBody
+          call={step.webCall}
+          onChange={(webCall) => onChange({ ...step, webCall })}
         />
       ) : null}
       {step.kind === 'ask' ? (

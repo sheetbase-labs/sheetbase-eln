@@ -112,7 +112,7 @@ export interface VersionFileTarget {
   sets?: Record<string, PipelineParameter[]>
 }
 
-const TOP_KEYS = [
+export const TOP_KEYS = [
   'pipeline',
   'version',
   'mode',
@@ -129,7 +129,7 @@ const TOP_KEYS = [
 ] as const
 
 /** The pipeline's start rules; they belong to the pipeline, so a version does not store them. */
-const START_KEYS: Names = {
+export const START_KEYS: Names = {
   conditions_match: 'conditionsMatch',
   window: 'window',
   min_new_rows: 'minNewRows',
@@ -144,7 +144,7 @@ const WINDOW_KEYS: Names = {
   time_zone: 'timeZone',
 }
 
-type Names = Record<string, string>
+export type Names = Record<string, string>
 
 /** File key to stored key, in the order the file writes them. */
 const PARAMETER_KEYS: Names = {
@@ -160,7 +160,7 @@ const INPUT_KEYS: Names = {
   schema: 'schemaId',
 }
 
-const OUTPUT_KEYS: Names = {
+export const OUTPUT_KEYS: Names = {
   mode: 'mode',
   schema_version_id: 'schemaVersionId',
   dataset_id: 'datasetId',
@@ -215,10 +215,10 @@ const WEB_KEYS: Names = {
 const LAKE_KEYS: Names = { tables: 'tables', sql: 'statement' }
 
 /** The keys of a step that are not its kind. */
-const STEP_KEYS = ['id', 'note', 'only_if_rows', 'contract'] as const
+export const STEP_KEYS = ['id', 'note', 'only_if_rows', 'contract'] as const
 
 /** The settings object of a step kind, with its key names. */
-const KIND_OBJECTS: Partial<Record<PipelineStepKind, Names>> = {
+export const KIND_OBJECTS: Partial<Record<PipelineStepKind, Names>> = {
   plugin: PLUGIN_KEYS,
   remote_job: REMOTE_KEYS,
   lakehouse: LAKE_KEYS,

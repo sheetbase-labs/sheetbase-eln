@@ -6,18 +6,17 @@ import { toast } from '#/components/ui/sonner'
 import { BoardButton } from '#/features/pipelines/board/board'
 import '#/features/pipelines/board/version-file.css'
 import { formatTime } from '#/lib/format-date'
-import {
-  applyFix,
-  formatVersionFile,
-  lineOffset,
-} from '#/lib/pipelines/version-file'
+import { formatVersionFile, lineOffset } from '#/lib/pipelines/version-file'
 import type { FileProblem } from '#/lib/pipelines/version-file'
+import { readFileFacts } from '#/lib/pipelines/version-file-facts'
+import { hintsAt } from '#/lib/pipelines/version-file-hints'
+import type { FileHints } from '#/lib/pipelines/version-file-hints'
 import {
   highlightFile,
   markRange,
 } from '#/lib/pipelines/version-file-highlight'
 import { usePipelineEditor } from '#/components/pipelines/step-list/use-pipeline-editor'
-import { CompareDialog } from './compare-dialog'
+import { FileDiff } from './file-diff'
 import { VersionFileStacked } from './version-file-sidebar'
 
 const LINE_HEIGHT = 19
@@ -51,7 +50,13 @@ export function VersionFileEditor() {
   const area = useRef<HTMLTextAreaElement>(null)
   const frame = useRef<HTMLDivElement>(null)
   const [cursor, setCursor] = useState(1)
-  const [comparing, setComparing] = useState(false)
+  const [view, setView] = useState<'edit' | 'diff'>('edit')
+  const [folded, setFolded] = useState(true)
+
+  const [hint, setHint] = useState<
+    (FileHints & { line: number; col: number; pick: number }) | null
+  >(null)
+
   const [validatedAt, setValidatedAt] = useState<Date | null>(null)
   const leaveOnTab = useRef(false)
   const problems = fileCheck?.problems ?? []
@@ -63,6 +68,17 @@ export function VersionFileEditor() {
     lines.length > 1 && fileText.endsWith('\n')
       ? lines.length - 1
       : lines.length
+
+  const facts = useMemo(() => readFileFacts(fileText), [fileText])
+
+  // The header (everything before `steps:`) folds to one line until the caret
+  // or a problem is in it.
+  const hiddenTo =
+    folded &&
+    facts.headerLines >= 3 &&
+    !problems.some((p) => p.line <= facts.headerLines)
+      ? facts.headerLines
+      : 0
 
   const byLine = useMemo(() => {
     const map = new Map<number, FileProblem[]>()
@@ -79,7 +95,7 @@ export function VersionFileEditor() {
     const box = frame.current
 
     if (!box) return
-    const top = (line - 1) * LINE_HEIGHT
+    const top = (hiddenTo ? line - hiddenTo : line - 1) * LINE_HEIGHT
     const bottom = top + LINE_HEIGHT + 8
 
     if (top < box.scrollTop) box.scrollTop = top
@@ -93,6 +109,7 @@ export function VersionFileEditor() {
     if (!el) return
     const at = lineOffset(el.value, line) + column - 1
 
+    if (line <= facts.headerLines) setFolded(false)
     el.focus()
     el.setSelectionRange(at, at)
     setCursor(line)
@@ -114,12 +131,50 @@ export function VersionFileEditor() {
     if (!el) return
     const line = caretLine(el)
 
+    if (line <= facts.headerLines) setFolded(false)
     setCursor(line)
     reveal(line)
   }
 
+  const accept = (key: string) => {
+    const el = area.current
+
+    if (!el || !hint) return
+    el.setSelectionRange(
+      el.selectionStart - hint.prefix.length,
+      el.selectionStart,
+    )
+    typeText(el, `${key}: `)
+    setHint(null)
+  }
+
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const el = event.currentTarget
+
+    if (hint) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault()
+        const step = event.key === 'ArrowDown' ? 1 : hint.keys.length - 1
+
+        setHint({ ...hint, pick: (hint.pick + step) % hint.keys.length })
+
+        return
+      }
+
+      if (event.key === 'Tab' || event.key === 'Enter') {
+        event.preventDefault()
+        accept(hint.keys[hint.pick])
+
+        return
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setHint(null)
+
+        return
+      }
+    }
 
     if ((event.metaKey || event.ctrlKey) && event.key === 's') {
       event.preventDefault()
@@ -198,11 +253,6 @@ export function VersionFileEditor() {
     setFileText(tidy)
   }
 
-  const fix = (problem: FileProblem) => {
-    if (!problem.fix) return
-    setFileText(applyFix(fileText, problem.fix))
-  }
-
   const savedAt = (draft ?? current)?.updated_at
   const fileName = `${definition.data?.key ?? 'pipeline'}.yaml`
 
@@ -212,47 +262,48 @@ export function VersionFileEditor() {
       ? `v${current.version}`
       : ''
 
+  const published = current?.lifecycle === 'published' ? current : undefined
+
   return (
     <>
       <div className="ye-bar">
+        <span
+          className="pls-seg"
+          role="group"
+          aria-label={t('features.pipelineVersionFile.editor.view')}
+        >
+          <button
+            type="button"
+            aria-pressed={view === 'edit'}
+            onClick={() => setView('edit')}
+          >
+            {t('features.pipelineVersionFile.editor.edit')}
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === 'diff'}
+            disabled={!published}
+            onClick={() => setView('diff')}
+          >
+            {published
+              ? t('features.pipelineVersionFile.editor.diffWith', {
+                  version: published.version,
+                })
+              : t('features.pipelineVersionFile.editor.diff')}
+          </button>
+        </span>
         <BoardButton size="sm" icon="check" onClick={validate}>
           {t('features.pipelineVersionFile.editor.validate')}
-        </BoardButton>
-        <BoardButton
-          size="sm"
-          aria-haspopup="dialog"
-          disabled={current?.lifecycle !== 'published'}
-          onClick={() => setComparing(true)}
-        >
-          {current
-            ? t('features.pipelineVersionFile.editor.compareWith', {
-                version: current.version,
-              })
-            : t('features.pipelineVersionFile.editor.compare')}
         </BoardButton>
         <BoardButton variant="quiet" size="sm" onClick={format}>
           {t('features.pipelineVersionFile.editor.format')}
         </BoardButton>
-        <span className="sep" aria-hidden="true" />
-        {problems.length ? (
-          <span className="ye-bad">
-            <Icon name="warn" size={12} />
-            {t('features.pipelineVersionFile.editor.problems', {
-              count: problems.length,
-            })}
-          </span>
-        ) : (
-          <span className="ye-ok">
-            <Icon name="check" size={12} />
-            {t('features.pipelineVersionFile.editor.noProblems')}
-          </span>
-        )}
         <span className="muted">
           {savedAt
-            ? `· ${t('features.pipelineVersionFile.editor.savedAt', {
+            ? t('features.pipelineVersionFile.editor.savedAt', {
                 when: formatTime(savedAt),
-              })}`
-            : `· ${t('features.pipelineVersionFile.editor.notSaved')}`}
+              })
+            : t('features.pipelineVersionFile.editor.notSaved')}
           {validatedAt
             ? ` · ${t('features.pipelineVersionFile.editor.validatedAt', {
                 when: formatTime(validatedAt),
@@ -278,13 +329,31 @@ export function VersionFileEditor() {
       </div>
 
       <div className="ye-wrap">
+        {view === 'diff' && published ? <FileDiff /> : null}
         <div
           className="ye-ed"
           ref={frame}
+          hidden={view === 'diff' && !!published}
           style={{ maxHeight: 'max(240px, calc(100dvh - 360px))' }}
         >
           <div className="ye-stack">
-            {lines.slice(0, shown).map((spans, index) => {
+            {hiddenTo ? (
+              <button
+                type="button"
+                className="pls-fold"
+                aria-label={t('features.pipelineVersionFile.editor.foldAria', {
+                  to: hiddenTo,
+                })}
+                onClick={() => setFolded(false)}
+              >
+                {t('features.pipelineVersionFile.editor.fold', {
+                  to: hiddenTo,
+                  keys: facts.headerKeys.join(', '),
+                })}
+              </button>
+            ) : null}
+            {lines.slice(hiddenTo, shown).map((spans, offset) => {
+              const index = offset + hiddenTo
               const n = index + 1
               const here = byLine.get(n)
 
@@ -352,62 +421,77 @@ export function VersionFileEditor() {
               autoCorrect="off"
               autoComplete="off"
               wrap="off"
-              onChange={(e) => setFileText(e.target.value)}
+              onChange={(e) => {
+                const el = e.target
+                const text = el.value
+                const line = text.slice(0, el.selectionStart).split('\n').length
+                const col = el.selectionStart - lineOffset(text, line) + 1
+                const found = hintsAt(text, line, col)
+
+                setFileText(text)
+                setHint(found ? { ...found, line, col, pick: 0 } : null)
+              }}
+              onBlur={() => setHint(null)}
               onKeyDown={onKeyDown}
               onKeyUp={sync}
               onClick={sync}
               onSelect={sync}
+              style={
+                hiddenTo
+                  ? { top: LINE_HEIGHT - hiddenTo * LINE_HEIGHT }
+                  : undefined
+              }
             />
+            {hint ? (
+              <div
+                className="ye-hint-anchor"
+                style={{
+                  position: 'absolute',
+                  left: `calc(66px + ${hint.col - 1 - hint.prefix.length}ch)`,
+                  top:
+                    ((hiddenTo ? hint.line - hiddenTo : hint.line - 1) + 1) *
+                    LINE_HEIGHT,
+                }}
+              >
+                <div
+                  className="ye-hint"
+                  role="listbox"
+                  aria-label={t('features.pipelineVersionFile.hints.aria')}
+                >
+                  {hint.keys.slice(0, 6).map((key, i) => (
+                    <button
+                      key={key}
+                      type="button"
+                      role="option"
+                      aria-selected={i === hint.pick}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        accept(key)
+                      }}
+                    >
+                      <span className="k">{key}</span>
+                      <small>
+                        {t(
+                          `features.pipelineVersionFile.hints.keys.${key}`,
+                          {},
+                        )}
+                      </small>
+                    </button>
+                  ))}
+                  <div className="f">
+                    {t('features.pipelineVersionFile.hints.footer')}
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
         <span id="ye-tab-hint" className="sr-only">
           {t('features.pipelineVersionFile.editor.tabHint')}
         </span>
-
-        {problems.length ? (
-          <section className="ye-prob" aria-labelledby="ye-ph">
-            <div className="ye-prob-h" id="ye-ph">
-              {t('features.pipelineVersionFile.editor.problemsHeading')}{' '}
-              <span className="muted">
-                {problems.length} ·{' '}
-                {t('features.pipelineVersionFile.editor.publishBlocked')}
-              </span>
-            </div>
-            {problems.map((problem) => (
-              <div
-                className="ye-prob-r"
-                key={`${problem.line}:${problem.column}`}
-              >
-                <Icon name="warn" size={13} />
-                <button
-                  type="button"
-                  className="ln"
-                  onClick={() => jump(problem.line, problem.column)}
-                >
-                  {t('features.pipelineVersionFile.editor.lineCol', {
-                    line: problem.line,
-                    col: problem.column,
-                  })}
-                </button>
-                <span>{problem.message}</span>
-                {problem.fix ? (
-                  <BoardButton size="sm" onClick={() => fix(problem)}>
-                    {problem.fix.label}
-                  </BoardButton>
-                ) : (
-                  <span />
-                )}
-              </div>
-            ))}
-          </section>
-        ) : null}
       </div>
 
       <VersionFileStacked />
-
-      {comparing && current?.lifecycle === 'published' ? (
-        <CompareDialog onClose={() => setComparing(false)} />
-      ) : null}
     </>
   )
 }

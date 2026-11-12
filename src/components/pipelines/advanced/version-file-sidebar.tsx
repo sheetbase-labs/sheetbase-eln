@@ -1,17 +1,15 @@
-import { Link } from '@tanstack/react-router'
+import { useMemo } from 'react'
 
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { Inspector } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
-import { BoardButton, BoardStatus } from '#/features/pipelines/board/board'
+import { BoardButton } from '#/features/pipelines/board/board'
 import '#/features/pipelines/board/version-file.css'
-import {
-  destinationName,
-  useNotificationDestinations,
-} from '#/components/pipelines/step-list/step-bodies'
 import { usePipelineEditor } from '#/components/pipelines/step-list/use-pipeline-editor'
-import { MAX_EXECUTION_SECONDS } from '#/lib/pipelines/statement'
+import { applyFix } from '#/lib/pipelines/version-file'
+import type { FileBlock } from '#/lib/pipelines/version-file-facts'
+import { readFileFacts } from '#/lib/pipelines/version-file-facts'
 
 async function copy(text: string) {
   try {
@@ -22,203 +20,193 @@ async function copy(text: string) {
   }
 }
 
-/** A line of mono text with a Copy button, the board's `.secret`. */
-function CopyLine({ text, label }: { text: string; label: string }) {
+const span = (block: FileBlock) =>
+  block.from === block.to
+    ? t('features.pipelineVersionFile.sidebar.line', { line: block.from })
+    : t('features.pipelineVersionFile.sidebar.lines', {
+        from: block.from,
+        to: block.to,
+      })
+
+/** The board's `.pls-cn` row: an icon, what it is, and where it is. */
+function Row({
+  icon,
+  children,
+  where,
+}: {
+  icon: 'download' | 'edit' | 'copy' | 'warn'
+  children: React.ReactNode
+  where?: React.ReactNode
+}) {
   return (
-    <div className="secret">
-      <code>{text}</code>
-      <BoardButton
-        variant="quiet"
-        size="sm"
-        iconOnly
-        icon="copy"
-        aria-label={label}
-        onClick={() => void copy(text)}
-      />
-    </div>
+    <li>
+      <Icon name={icon} size={12} />
+      <span>{children}</span>
+      <span className="p">{where}</span>
+    </li>
   )
 }
 
 /**
- * Beside the version file: the outline to jump by, the Python environment the
- * file's code runs in, the outside things it names, and how to push it from git.
+ * Beside the version file, as the board draws it: the problems in one list,
+ * what only the file holds, where starts and secrets are written, and how to
+ * push the file from git or the command line.
  */
-// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- four sections of the version file's own facts read from one editor.
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- five sections of the version file's own facts read from one editor.
 function SidebarSections() {
   const editor = usePipelineEditor()
-  const { fileCheck, runtime, definition, config } = editor
-  const destinations = useNotificationDestinations()
-  const outline = fileCheck?.outline ?? []
+  const { fileCheck, definition, fileText, setFileText } = editor
   const problems = fileCheck?.problems ?? []
+  const facts = useMemo(() => readFileFacts(fileText), [fileText])
   const pipeline = definition.data?.display_id ?? definition.data?.key ?? ''
+  const file = `${definition.data?.key ?? 'pipeline'}.yaml`
+  const command = `sheetbase push ${pipeline} ${file}`
 
-  const pin = runtime.data?.available
-    ? runtime.data.runtime
-    : config?.pythonRuntime
-
-  const packages = Object.entries(runtime.data?.packages ?? {})
-
-  const names = new Map(
-    (destinations.data ?? []).map((d) => [d.id, destinationName(d)]),
-  )
-
-  const notified = (config?.steps ?? []).flatMap((step) => {
-    if (step.kind !== 'notify') return []
-
-    const at = outline.find(
-      (item) => item.depth === 1 && item.label === step.name,
-    )
-
-    return [
-      {
-        id: step.notify.subscriptionId,
-        name:
-          names.get(step.notify.subscriptionId) ?? step.notify.subscriptionId,
-        line: at?.line,
-      },
-    ]
-  })
+  const only = [
+    facts.outputs && facts.outputs.count > 1 ? (
+      <Row key="o" icon="download" where={span(facts.outputs)}>
+        {t('features.pipelineVersionFile.sidebar.outputs', {
+          count: facts.outputs.count,
+        })}
+      </Row>
+    ) : null,
+    facts.parameters ? (
+      <Row key="p" icon="edit" where={span(facts.parameters)}>
+        {t('features.pipelineVersionFile.sidebar.parameters', {
+          count: facts.parameters.count,
+        })}
+      </Row>
+    ) : null,
+    facts.include ? (
+      <Row key="i" icon="copy" where={span(facts.include)}>
+        {t('features.pipelineVersionFile.sidebar.include', {
+          names: facts.include.names.join(', '),
+        })}
+      </Row>
+    ) : null,
+  ].filter(Boolean)
 
   return (
     <>
-      <section>
-        <h3>{t('features.pipelineVersionFile.sidebar.outline')}</h3>
-        <nav
-          className="ol"
-          aria-label={t('features.pipelineVersionFile.sidebar.jump')}
-        >
-          {outline.map((item) => {
-            const bad = problems.some(
-              (p) => p.line >= item.line && p.line <= item.endLine,
-            )
+      <div>
+        <div className="pls-hrow">
+          <b className="pls-h3">
+            {t('features.pipelineVersionFile.sidebar.problems')}
+          </b>
+          <span className="pls-st">
+            <i className={`pls-dot ${problems.length ? 'bad' : 'ok'}`} />
+            {problems.length
+              ? t('features.pipelineVersionFile.sidebar.errors', {
+                  count: problems.length,
+                })
+              : t('features.pipelineVersionFile.sidebar.noProblems')}
+          </span>
+        </div>
+        {problems.length ? (
+          <>
+            <ul className="pls-cn pls-first">
+              {problems.map((problem) => (
+                <li key={`${problem.line}:${problem.column}`}>
+                  <Icon name="warn" size={12} />
+                  <button
+                    type="button"
+                    className="pls-jump"
+                    onClick={() =>
+                      editor.fileJump.current?.(problem.line, problem.column)
+                    }
+                  >
+                    {t('features.pipelineVersionFile.sidebar.problemRow', {
+                      line: problem.line,
+                      message: problem.message,
+                    })}
+                  </button>
+                  {problem.fix ? (
+                    <button
+                      type="button"
+                      className="pls-fix"
+                      onClick={() =>
+                        problem.fix &&
+                        setFileText(applyFix(fileText, problem.fix))
+                      }
+                    >
+                      {problem.fix.label}
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p className="sd pls-first">
+              {t('features.pipelineVersionFile.sidebar.problemsNote')}
+            </p>
+          </>
+        ) : null}
+      </div>
 
-            return (
-              <button
-                key={`${item.line}:${item.label}`}
-                type="button"
-                className={item.depth ? `sub${bad ? ' bad' : ''}` : undefined}
-                onClick={() => editor.fileJump.current?.(item.line)}
-              >
-                <span>
-                  {item.label}
-                  {item.kind ? <span className="k">{item.kind}</span> : null}
-                  {!item.depth && item.count !== undefined
-                    ? ` · ${item.count}`
-                    : ''}
-                </span>
-                <span className="n">{item.line}</span>
-              </button>
-            )
-          })}
-        </nav>
-        <div
-          className="muted"
-          style={{ fontSize: 11, lineHeight: '16px', marginTop: 6 }}
-        >
-          {t('features.pipelineVersionFile.sidebar.startsNote')}
-        </div>
-        <div
-          className="muted"
-          style={{ fontSize: 11, lineHeight: '16px', marginTop: 4 }}
-        >
-          <Link to="/pipelines/parameter-sets">
-            {t('features.pipelineParameterSets.page.title')}
-          </Link>
-        </div>
-      </section>
+      <div>
+        <h4 className="pls-h4">
+          {t('features.pipelineVersionFile.sidebar.onlyInFile')}
+        </h4>
+        {only.length ? (
+          <ul className="pls-cn">{only}</ul>
+        ) : (
+          <p className="sd m-0">
+            {t('features.pipelineVersionFile.sidebar.onlyNone')}
+          </p>
+        )}
+      </div>
 
-      <section>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            marginBottom: 6,
-          }}
-        >
-          <h3 style={{ margin: 0, flexGrow: 1 }}>
-            {t('features.pipelineVersionFile.sidebar.environment')}
-          </h3>
-          {pin ? (
-            <BoardStatus tone="ok">
-              {t('features.pipelineVersionFile.sidebar.pinned')}
-            </BoardStatus>
-          ) : null}
-        </div>
-        {pin ? (
-          <CopyLine
-            text={pin}
-            label={t('features.pipelineVersionFile.sidebar.copyDigest')}
+      <div>
+        <h4 className="pls-h4">
+          {t('features.pipelineVersionFile.sidebar.starts')}
+        </h4>
+        <p className="sd m-0">
+          {facts.starts
+            ? t('features.pipelineVersionFile.sidebar.startsHere', {
+                lines: span(facts.starts),
+              })
+            : t('features.pipelineVersionFile.sidebar.startsNone')}
+        </p>
+      </div>
+
+      <div>
+        <h4 className="pls-h4">
+          {t('features.pipelineVersionFile.sidebar.secrets')}
+        </h4>
+        <p className="sd m-0">
+          {facts.secrets.length
+            ? t('features.pipelineVersionFile.sidebar.secretsNames', {
+                name: facts.secrets[0],
+              })
+            : t('features.pipelineVersionFile.sidebar.secretsNone')}
+        </p>
+      </div>
+
+      <div>
+        <h4 className="pls-h4">
+          {t('features.pipelineVersionFile.sidebar.push')}
+        </h4>
+        <div className="pls-code">
+          <span>{command}</span>
+          <BoardButton
+            variant="quiet"
+            size="sm"
+            iconOnly
+            icon="copy"
+            aria-label={t('features.pipelineVersionFile.sidebar.copyCommand')}
+            onClick={() => void copy(command)}
           />
-        ) : (
-          <div className="muted" style={{ fontSize: 12, lineHeight: '17px' }}>
-            {runtime.data?.message ??
-              t('features.pipelineVersionFile.sidebar.noRuntime')}
-          </div>
-        )}
-        <div
-          className="muted"
-          style={{ fontSize: 12, lineHeight: '17px', marginTop: 6 }}
-        >
-          {packages.length
-            ? `${packages.map(([name, version]) => `${name} ${version}`).join(' · ')}. `
-            : ''}
-          {t('features.pipelineVersionFile.sidebar.limits', {
-            seconds: MAX_EXECUTION_SECONDS,
-          })}
         </div>
-      </section>
-
-      <section>
-        <h3>{t('features.pipelineVersionFile.sidebar.connections')}</h3>
-        {notified.length ? (
-          notified.map((n) => (
-            <div className="env-row" key={`${n.id}:${n.line}`}>
-              <Icon name="comment" size={13} />
-              <span>{n.name}</span>
-              <span className="w">
-                {n.line
-                  ? t('features.pipelineVersionFile.sidebar.lineN', {
-                      line: n.line,
-                    })
-                  : ''}
-              </span>
-            </div>
-          ))
-        ) : (
-          <div className="muted" style={{ fontSize: 12, lineHeight: '17px' }}>
-            {t('features.pipelineVersionFile.sidebar.noConnections')}
-          </div>
-        )}
-        <div
-          className="muted"
-          style={{ fontSize: 12, marginTop: 6, lineHeight: '17px' }}
-        >
-          {t('features.pipelineVersionFile.sidebar.secretsNote')}
-        </div>
-      </section>
-
-      <section>
-        <h3>{t('features.pipelineVersionFile.sidebar.push')}</h3>
-        <CopyLine
-          text={`sheetbase push ${pipeline} ${definition.data?.key ?? 'pipeline'}.yaml`}
-          label={t('features.pipelineVersionFile.sidebar.copyCommand')}
-        />
-        <div
-          className="muted"
-          style={{ fontSize: 12, marginTop: 6, lineHeight: '17px' }}
-        >
+        <p className="sd pls-first">
           {t('features.pipelineVersionFile.sidebar.pushNote')}
-        </div>
-      </section>
+        </p>
+      </div>
 
-      <section
-        className="muted"
-        style={{ fontSize: 12, lineHeight: '17px', display: 'flex', gap: 6 }}
-      >
+      <p className="sd pls-never">
         <Icon name="lock" size={12} />
         <span>{t('features.pipelineVersionFile.sidebar.neverSteps')}</span>
-      </section>
+      </p>
     </>
   )
 }
@@ -228,9 +216,9 @@ export function VersionFileSidebar() {
   return (
     <Inspector
       label={t('features.pipelineVersionFile.sidebar.aria')}
-      width={300}
+      width={290}
       open={false}
-      className="pb-scope gap-5"
+      className="pb-scope pls-side"
     >
       <SidebarSections />
     </Inspector>
@@ -243,7 +231,7 @@ export function VersionFileStacked() {
     <div
       aria-label={t('features.pipelineVersionFile.sidebar.aria')}
       role="region"
-      className="pb-scope flex flex-col gap-5 border-t border-border px-4 py-4 xl:hidden"
+      className="pb-scope pls-side pls-stacked"
     >
       <SidebarSections />
     </div>

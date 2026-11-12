@@ -1402,6 +1402,8 @@ export const data = {
     ariaStepCode: 'Step {n} code',
     pausePersonConfirm: 'Pause for a person to confirm',
     ariaStepWaitsPerson: 'Step {n} waits for a person',
+    ariaStepOnlyIfRows: 'Step {n} runs only when the step before gives rows',
+    onlyIfRows: 'Skip this step when the step before gives no rows',
     asked: 'Asked',
     ariaStepAskedPerson: 'Step {n} asked person',
     ifNobodyAnswers: 'If nobody answers',
@@ -1511,7 +1513,6 @@ export const data = {
     asking: 'Reading the run…',
     suggestion: 'Suggested fix',
     suggestionIn: 'Suggested fix · {step}',
-    transform: 'Transform',
     noCodeFix:
       'This doesn’t look like something a change to the steps would fix, so there is no suggested edit.',
     before: 'Now',
@@ -1693,6 +1694,8 @@ export const data = {
     description: 'Description',
     whatPipeline: 'What this pipeline is for',
     versionCannotSavedYet: 'This version can’t be saved yet',
+    versionNotShownHere:
+      'This version’s steps are in an order this page can’t show yet, so it can’t be changed here.',
     saveDraft: 'Save draft',
     saveDraft2: 'Save as draft',
     createDraftV1: 'Create draft v1',
@@ -3202,7 +3205,17 @@ export const data = {
     inputNameMustLowercase: 'input name must be a lowercase identifier',
     transformMustObject: 'transform must be an object',
     dataContractAppliesPython: 'A data contract applies to Python steps only.',
-    mostNineAdditionalSteps: 'At most nine additional steps are allowed.',
+    chooseMode:
+      'Choose how the pipeline is written: Simple, Standard or Advanced.',
+    stepsMustArray: 'steps must be a list',
+    tooManySteps: 'A version holds at most {MAX_STEPS} steps.',
+    chooseStepKind: 'Choose what the step does.',
+    stepNoteTooLong:
+      'A step note is at most {MAX_STEP_NOTE_LENGTH} characters.',
+    onlyIfRowsDataSteps:
+      'Only a step that gives rows can be skipped when the step before it gave none.',
+    settingNotForKind: 'This kind of step has no {key} setting.',
+    actionStepNeedsAction: 'An action step needs the action it does.',
     eachStepNeedsLowercase: 'Each step needs a lowercase identifier',
     stepNamesMustUnique: 'Step names must be unique',
     chooseSqlPython: 'Choose SQL, Python or a plugin step',
@@ -3256,6 +3269,10 @@ export const data = {
     waitingPerson: 'Waiting for a person',
     running: 'Running',
     notStarted: 'Not started',
+    kindPlugin: 'Plugin',
+    kindAsk: 'Ask a person',
+    kindAction: 'ELN action',
+    kindNotify: 'Notify',
   },
   pipelineSample: {
     quotedCsvValueNever: 'A quoted CSV value is never closed.',

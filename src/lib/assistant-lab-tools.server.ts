@@ -214,6 +214,8 @@ export const LAB_AREAS = {
     'Pipeline runs, newest first: running, waiting for a person, succeeded, failed or cancelled, with the error when one failed (openOnly: only runs still running or waiting)',
   pipeline_schedules:
     'When pipelines run by themselves: every so many minutes, daily, on a cron or on an event, and whether each is switched on (openOnly: only those switched on)',
+  pipeline_parameter_sets:
+    'Reusable parameter sets: key, name and the parameters each holds, which pipelines include by key',
   plugins:
     'Plugins installed in the workspace: name, version, whether each is switched on and which parts are switched off (openOnly: only those switched on)',
   measurement_tables:
@@ -1338,6 +1340,13 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'created_at.desc',
     search: [],
     page: '/pipelines',
+  },
+  pipeline_parameter_sets: {
+    table: 'pipeline_parameter_sets',
+    select: 'id,key,name,description,parameters,updated_at',
+    order: 'key.asc',
+    search: ['name', 'key'],
+    page: '/pipelines/parameter-sets',
   },
   plugins: {
     table: 'extensions',

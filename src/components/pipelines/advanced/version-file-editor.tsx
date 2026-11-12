@@ -8,6 +8,7 @@ import {
 } from 'react'
 
 import { t } from '#/copy'
+import type { CopyKey } from '#/copy'
 import { Icon } from '#/components/icons'
 import { toast } from '#/components/ui/sonner'
 import { BoardButton } from '#/features/pipelines/board/board'
@@ -37,6 +38,12 @@ import {
 import { usePipelineEditor } from '#/components/pipelines/step-list/use-pipeline-editor'
 import { FileDiff } from './file-diff'
 import { VersionFileStacked } from './version-file-sidebar'
+
+/** The one-line note for a suggested key. */
+function hintNote(key: string) {
+  // SAFETY: every key `hintsAt` offers has a note under hints.keys in the copy.
+  return t(`features.pipelineVersionFile.hints.keys.${key}` as CopyKey, {})
+}
 
 const LINE_HEIGHT = 19
 
@@ -584,12 +591,7 @@ export function VersionFileEditor() {
                       }}
                     >
                       <span className="k">{key}</span>
-                      <small>
-                        {t(
-                          `features.pipelineVersionFile.hints.keys.${key}`,
-                          {},
-                        )}
-                      </small>
+                      <small>{hintNote(key)}</small>
                     </button>
                   ))}
                   <div className="f">

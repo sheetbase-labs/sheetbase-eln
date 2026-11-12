@@ -453,6 +453,7 @@ export async function buildRunManifest(
   }
 
   if (input.responses?.length) manifest.responses = input.responses
+
   if (input.furtherOutputs?.length)
     manifest.furtherOutputs = input.furtherOutputs.map((more) => ({
       datasetId: more.datasetId,

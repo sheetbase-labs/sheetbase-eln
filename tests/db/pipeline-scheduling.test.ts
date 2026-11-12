@@ -5,7 +5,7 @@
  */
 import type { Client } from 'pg'
 import { Client as PgClient } from 'pg'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import { nextCronAfter } from '#/lib/pipeline-cron'
 import { sweepPipelines } from '#/lib/pipeline-scheduler.server'
@@ -137,6 +137,7 @@ async function runsOf(scheduleId: string) {
   return rows
 }
 
+/** Why a start did not run. Starts that did run are read with `startsOf`. */
 async function activityOf(scheduleId: string) {
   const { rows } = await migrator.query<{
     kind: string
@@ -144,7 +145,7 @@ async function activityOf(scheduleId: string) {
     detail: { count?: number }
   }>(
     `select kind, message, detail from api.pipeline_schedule_activity
-      where schedule_id = $1 order by occurred_at`,
+      where schedule_id = $1 and kind <> 'started' order by occurred_at`,
     [scheduleId],
   )
   return rows
@@ -812,5 +813,196 @@ describe('a run event never starts its own pipeline again', () => {
     expect(await sweepSweeps()).toBe(0)
     expect(await runsOf(onA)).toHaveLength(0)
     expect(await runsOf(onB)).toHaveLength(1)
+  })
+})
+
+describe('start rules', () => {
+  const setRules = (rules: Record<string, unknown>) =>
+    owner.query(
+      `select * from api.set_pipeline_start_rules($1::uuid, $2::uuid, $3::jsonb)`,
+      [WS, definitionId, JSON.stringify(rules)],
+    )
+
+  async function startsOf(scheduleId: string) {
+    const { rows } = await migrator.query<{
+      message: string
+      run_id: string | null
+      label: string | null
+      detail: { joined?: number; newRows?: number | null }
+    }>(
+      `select message, run_id, label, detail from api.pipeline_schedule_activity
+        where schedule_id = $1 and kind = 'started' order by occurred_at`,
+      [scheduleId],
+    )
+    return rows
+  }
+
+  afterEach(async () => {
+    await migrator.query(
+      `update api.pipeline_definitions set start_rules = '{}' where id = $1`,
+      [definitionId],
+    )
+    await settleRuns()
+  })
+
+  // A Wednesday at 10:00 UTC, far enough ahead that every schedule is due.
+  const WEDNESDAY = new Date('2030-01-02T10:00:00Z')
+
+  it('stores the rules in full and refuses what cannot work', async () => {
+    const { rows } = await setRules({
+      window: {
+        days: 'weekdays',
+        from: '07:00',
+        to: '19:00',
+        timeZone: 'Europe/London',
+      },
+      minNewRows: 8,
+      waitMinutes: 2,
+    })
+    expect(rows[0].start_rules).toEqual({
+      conditionsMatch: 'all',
+      window: {
+        days: 'weekdays',
+        from: '07:00',
+        to: '19:00',
+        timeZone: 'Europe/London',
+      },
+      minNewRows: 8,
+      waitMinutes: 2,
+      whileRunning: 'skip',
+      missedRuns: 'run_once',
+    })
+
+    await expect(
+      setRules({
+        window: { days: 'daily', from: '19:00', to: '07:00', timeZone: 'UTC' },
+      }),
+    ).rejects.toThrow(/open before it closes/)
+    await expect(
+      setRules({
+        window: {
+          days: 'daily',
+          from: '07:00',
+          to: '19:00',
+          timeZone: 'Nowhere/Land',
+        },
+      }),
+    ).rejects.toThrow(/unknown time zone/)
+    await expect(setRules({ minNewRows: 0 })).rejects.toThrow(/minNewRows/)
+    await expect(setRules({ waitMinutes: 2000 })).rejects.toThrow(/waitMinutes/)
+    await expect(setRules({ whileRunning: 'queue' })).rejects.toThrow(
+      /whileRunning/,
+    )
+
+    const cleared = await setRules({})
+    expect(cleared.rows[0].start_rules).toEqual({})
+  })
+
+  it('skips a timed start outside the window and starts one inside it', async () => {
+    const schedule = await createSchedule('interval', {
+      intervalMinutes: 60,
+      inputs: { readings: { mode: 'latest', datasetId } },
+    })
+    await isolate(schedule.id)
+    await setRules({
+      window: { days: 'weekends', from: '07:00', to: '19:00', timeZone: 'UTC' },
+    })
+    await makeDue(schedule.id, 1)
+    expect(await sweepPipelines(sweepDeps(), WEDNESDAY)).toBe(0)
+    const skipped = await activityOf(schedule.id)
+    expect(skipped.map((a) => a.kind)).toEqual(['skipped_condition'])
+    expect(skipped[0].message).toMatch(/Outside the hours/)
+
+    await setRules({
+      window: { days: 'weekdays', from: '07:00', to: '19:00', timeZone: 'UTC' },
+    })
+    await makeDue(schedule.id, 1)
+    expect(await sweepPipelines(sweepDeps(), WEDNESDAY)).toBe(1)
+    const starts = await startsOf(schedule.id)
+    expect(starts).toHaveLength(1)
+    expect(starts[0].run_id).toBe((await runsOf(schedule.id))[0].id)
+  })
+
+  it('judges a snapshot by the rows it added', async () => {
+    const schedule = await createSchedule('event', {
+      eventType: 'dataset.versioned',
+      inputName: 'readings',
+      datasetId,
+    })
+    await isolate(schedule.id)
+    await setRules({ minNewRows: 2 })
+    await addVersion('rules-few')
+    expect(await sweepSweeps()).toBe(0)
+    const skipped = await activityOf(schedule.id)
+    expect(skipped.map((a) => a.kind)).toEqual(['skipped_condition'])
+    expect(skipped[0].message).toMatch(/Fewer than 2 new rows/)
+
+    await setRules({ minNewRows: 1 })
+    const enough = await addVersion('rules-enough')
+    expect(await sweepSweeps()).toBe(1)
+    expect((await runsOf(schedule.id))[0].input_versions).toMatchObject({
+      readings: enough,
+    })
+    const starts = await startsOf(schedule.id)
+    expect(starts[0].detail.newRows).toBe(1)
+    expect(starts[0].label).toMatch(/rules-enough/)
+  })
+
+  it('waits to batch imports, then runs once for all of them', async () => {
+    const schedule = await createSchedule('event', {
+      eventType: 'dataset.versioned',
+      inputName: 'readings',
+      datasetId,
+    })
+    await isolate(schedule.id)
+    await setRules({ waitMinutes: 10 })
+    await addVersion('batch-1')
+    const last = await addVersion('batch-2')
+
+    expect(await sweepPipelines(sweepDeps())).toBe(0)
+    // A second sweep while waiting notes nothing twice.
+    expect(await sweepPipelines(sweepDeps())).toBe(0)
+    const waiting = await migrator.query(
+      `select kind from api.pipeline_schedule_activity where schedule_id = $1`,
+      [schedule.id],
+    )
+    expect(waiting.rows.map((r) => r.kind)).toEqual(['batched', 'batched'])
+    expect(await runsOf(schedule.id)).toHaveLength(0)
+
+    const later = new Date(Date.now() + 11 * 60_000)
+    expect(await sweepPipelines(sweepDeps(), later)).toBe(1)
+    const runs = await runsOf(schedule.id)
+    expect(runs).toHaveLength(1)
+    expect(runs[0].input_versions).toMatchObject({ readings: last })
+    const starts = await startsOf(schedule.id)
+    expect(starts).toHaveLength(1)
+    expect(starts[0].detail.joined).toBe(1)
+    expect(starts[0].detail.newRows).toBe(2)
+    // Nothing is left to run on the next sweep.
+    await settleRuns()
+    expect(await sweepPipelines(sweepDeps(), later)).toBe(0)
+  })
+
+  it('holds a start back while any run of the pipeline is going', async () => {
+    const running = await createSchedule('interval', {
+      intervalMinutes: 60,
+      inputs: { readings: { mode: 'latest', datasetId } },
+    })
+    await isolate(running.id)
+    await makeDue(running.id, 1)
+    expect(await sweepSweeps()).toBe(1)
+
+    const watcher = await createSchedule('event', {
+      eventType: 'dataset.versioned',
+      inputName: 'readings',
+      datasetId,
+    })
+    await isolate(watcher.id)
+    await setRules({ waitMinutes: 0, minNewRows: 1 })
+    await addVersion('while-running')
+    expect(await sweepSweeps()).toBe(0)
+    const skipped = await activityOf(watcher.id)
+    expect(skipped.map((a) => a.kind)).toEqual(['skipped_overlap'])
+    expect(await runsOf(watcher.id)).toHaveLength(0)
   })
 })

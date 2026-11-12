@@ -55,6 +55,8 @@ import type {
   IntervalSpec,
   ScheduleSpecCommon,
 } from './pipeline-schedule'
+import { batchIsReady, judgeStart } from './pipelines/start-rules'
+import { loadStartRules, runGoing } from './pipelines/start-rules.server'
 
 const SCHEDULE_COLUMNS = `id, workspace_id, definition_id, kind, spec, enabled,
   last_run_at, next_run_at, last_evaluated_at, last_evaluated_sequence,
@@ -127,6 +129,7 @@ interface ChangeEventRow {
   id: string
   entity_uuid: string
   sequence: string
+  created_at: string
 }
 
 interface RunRow {
@@ -178,7 +181,7 @@ export async function sweepPipelines(
 
     for (const schedule of rows) {
       if (schedule.kind === 'event') {
-        const outcome = await sweepEventSchedule(deps, schedule)
+        const outcome = await sweepEventSchedule(deps, schedule, now)
         started += outcome.fired
         recovered += outcome.recovered
       } else {
@@ -320,6 +323,10 @@ async function handleDueTick(
   // SAFETY: `nextRunAt` and `validateScheduleSpec` decode the stored spec before any field of it is read; a timed row carries exactly the timed spec keys.
   const spec = locked.spec as TimedSpec
   const occurrenceId = scheduledOccurrenceId(locked.id, locked.next_run_at)
+  const { rules, set: rulesSet } = await loadStartRules(
+    conn,
+    locked.definition_id,
+  )
 
   const advance = () =>
     conn.query(
@@ -373,7 +380,7 @@ async function handleDueTick(
 
   if (
     !prior &&
-    spec.missedRunPolicy === 'skip' &&
+    (rulesSet ? rules.missedRuns : spec.missedRunPolicy) === 'skip' &&
     lateMs > MISSED_RUN_GRACE_MINUTES * 60_000
   ) {
     const missed = countMissedTicks(locked, now)
@@ -392,14 +399,44 @@ async function handleDueTick(
     return null
   }
 
-  // Never stack a new occurrence on one that is still working.
-  if (!prior && (await hasFreshRunningRun(conn, locked.id, retriedRunIds))) {
+  // Never stack a new occurrence on one that is still working. With start
+  // rules the whole pipeline counts: a run a webhook or a snapshot began, or
+  // one waiting for a person, holds this start back too.
+  const going = rulesSet
+    ? prior
+      ? null
+      : await runGoing(conn, locked.definition_id, retriedRunIds)
+    : null
+
+  if (
+    !prior &&
+    (going || (await hasFreshRunningRun(conn, locked.id, retriedRunIds)))
+  ) {
     await recordActivity(
       conn,
       locked,
       'skipped_overlap',
       occurrenceId,
       'The previous run was still going, so this one was skipped.',
+      going ? { blockingRunId: going.id } : {},
+    )
+    await advance()
+
+    return null
+  }
+
+  const verdict = prior
+    ? { pass: true as const }
+    : judgeStart(rules, { at: now, source: 'schedule' })
+
+  if (!verdict.pass) {
+    await recordActivity(
+      conn,
+      locked,
+      'skipped_condition',
+      occurrenceId,
+      `${verdict.reason}, so this start was skipped.`,
+      { condition: verdict.condition },
     )
     await advance()
 
@@ -453,6 +490,16 @@ async function handleDueTick(
               input_watermarks = input_watermarks || $3::jsonb
         WHERE id = $1`,
       [locked.id, nextDue(locked, now), JSON.stringify(watermarks)],
+    )
+
+    await recordActivity(
+      conn,
+      locked,
+      'started',
+      occurrenceId,
+      prior ? 'Started again after a failed attempt.' : 'Started on schedule.',
+      {},
+      { runId },
     )
 
     return runId
@@ -536,6 +583,7 @@ async function sweepStaleRecovery(
 async function sweepEventSchedule(
   deps: PipelineSchedulerDeps,
   schedule: ScheduleRow,
+  now: Date,
 ): Promise<{ fired: number; recovered: number }> {
   const conn = await deps.connect()
   const startedRunIds: string[] = []
@@ -617,7 +665,7 @@ async function sweepEventSchedule(
       triggerEvent === 'dataset.versioned' ? (spec.instrumentId ?? null) : null
 
     const events = await conn.query<ChangeEventRow>(
-      `SELECT id, entity_uuid, sequence
+      `SELECT id, entity_uuid, sequence, created_at
          FROM api.change_events
         WHERE workspace_id = $1
           AND entity_type = $2
@@ -679,6 +727,11 @@ async function sweepEventSchedule(
         ? (spec.inputName ?? (await firstInputName(locked.definition_id, conn)))
         : spec.inputName
 
+    const { rules, set: rulesSet } = await loadStartRules(
+      conn,
+      locked.definition_id,
+    )
+
     await conn.commit()
 
     for (const runId of startedRunIds) {
@@ -690,7 +743,28 @@ async function sweepEventSchedule(
 
     fired += startedRunIds.length
 
-    for (const event of events.rows) {
+    // Batching: wait until the newest event has been quiet for the pipeline's
+    // wait, then run once for everything that arrived. Until then each event is
+    // noted as batched and left unconsumed.
+    let pending = events.rows
+    let joined: ChangeEventRow[] = []
+
+    if (rulesSet && rules.waitMinutes > 0 && pending.length > 0) {
+      const last = pending[pending.length - 1]
+
+      if (!batchIsReady(rules, new Date(last.created_at), now)) {
+        await conn.begin()
+        await noteBatched(conn, locked, pending, triggerEvent)
+        await conn.commit()
+
+        return { fired, recovered }
+      }
+
+      joined = pending.slice(0, -1)
+      pending = [last]
+    }
+
+    for (const event of pending) {
       // Each event is consumed exactly once: the cursor advances only with a
       // durable disposition (started run, or explicitly abandoned failure).
       await conn.begin()
@@ -726,6 +800,56 @@ async function sweepEventSchedule(
         locked.workspace_id,
         occurrenceId,
       )
+
+      const heard = await describeEvent(
+        conn,
+        locked,
+        event,
+        joined,
+        triggerEvent,
+      )
+
+      if (rulesSet && !prior) {
+        const going = await runGoing(conn, locked.definition_id)
+
+        const verdict = judgeStart(rules, {
+          at: now,
+          source: 'event',
+          newRows: heard.newRows,
+        })
+
+        const skip = going
+          ? {
+              kind: 'skipped_overlap' as const,
+              message: 'A run was still going, so this start was skipped.',
+            }
+          : verdict.pass
+            ? null
+            : {
+                kind: 'skipped_condition' as const,
+                message: `${verdict.reason}, so this start was skipped.`,
+              }
+
+        if (skip) {
+          await recordActivity(
+            conn,
+            locked,
+            skip.kind,
+            occurrenceId,
+            skip.message,
+            {
+              ...(going ? { blockingRunId: going.id } : {}),
+              ...(!verdict.pass ? { condition: verdict.condition } : {}),
+              newRows: heard.newRows,
+            },
+            { label: heard.label },
+          )
+          await settleBatched(conn, joined, skip.kind, skip.message)
+          await advanceEventCursor(conn, locked.id, event.sequence)
+          await conn.commit()
+          continue
+        }
+      }
 
       // Other inputs follow their bindings (pinned, or the Dataset's latest
       // version now); the triggering entity binds to the event's input. A
@@ -765,6 +889,27 @@ async function sweepEventSchedule(
       if (runId) {
         await advanceEventCursor(conn, locked.id, event.sequence)
         await clearTriggerFailure(conn, locked.workspace_id, occurrenceId)
+
+        if (rulesSet) {
+          await recordActivity(
+            conn,
+            locked,
+            'started',
+            occurrenceId,
+            joined.length > 0
+              ? `Waited ${rules.waitMinutes} min and took ${joined.length} earlier ${joined.length === 1 ? 'snapshot' : 'snapshots'} with it.`
+              : 'All conditions were true.',
+            { newRows: heard.newRows, joined: joined.length },
+            { label: heard.label, runId },
+          )
+          await settleBatched(
+            conn,
+            joined,
+            'batched',
+            'Joined the next run while waiting.',
+          )
+        }
+
         await conn.commit()
         metrics.schedulerEventsProcessed.inc()
         const creator = locked.created_by_user_id ?? 'system'
@@ -1115,7 +1260,100 @@ async function startScheduledRun(
   }
 }
 
+/** What an event was, for the activity log: its label and the rows it added. */
+async function describeEvent(
+  conn: SchedulerConnection,
+  schedule: ScheduleRow,
+  event: ChangeEventRow,
+  joined: ChangeEventRow[],
+  triggerEvent: string,
+): Promise<{ label: string; newRows: number | null }> {
+  if (triggerEvent !== 'dataset.versioned') {
+    return { label: triggerEvent, newRows: null }
+  }
+
+  const { rows } = await conn.query<{
+    label: string
+    dataset: string | null
+    new_rows: number
+    joined_rows: number
+  }>(
+    `SELECT v.label, d.display_id AS dataset,
+            internal.dataset_version_new_rows(v.id) AS new_rows,
+            COALESCE((
+              SELECT sum(internal.dataset_version_new_rows(j.entity_uuid))
+                FROM api.change_events j
+               WHERE j.id = ANY($3::uuid[])), 0)::integer AS joined_rows
+       FROM api.dataset_versions v
+       JOIN api.datasets d ON d.id = v.dataset_id
+      WHERE v.id = $1 AND v.workspace_id = $2`,
+    [event.entity_uuid, schedule.workspace_id, joined.map((e) => e.id)],
+  )
+
+  const row = rows.at(0)
+
+  if (!row) return { label: triggerEvent, newRows: null }
+
+  const label = `${row.dataset ?? 'Dataset'} ${row.label}`
+  const total = row.new_rows + row.joined_rows
+
+  return { label, newRows: total }
+}
+
+/** Note each waiting event once as batched; the cursor stays where it is. */
+async function noteBatched(
+  conn: SchedulerConnection,
+  schedule: ScheduleRow,
+  events: ChangeEventRow[],
+  triggerEvent: string,
+): Promise<void> {
+  for (const event of events) {
+    const occurrenceId = eventOccurrenceId(event.id)
+
+    const { rows } = await conn.query<{ found: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM api.pipeline_schedule_activity
+          WHERE schedule_id = $1 AND occurrence_id = $2) AS found`,
+      [schedule.id, occurrenceId],
+    )
+
+    if (rows.at(0)?.found) continue
+
+    const heard = await describeEvent(conn, schedule, event, [], triggerEvent)
+
+    await recordActivity(
+      conn,
+      schedule,
+      'batched',
+      occurrenceId,
+      'Waiting for more, so it joins the next run.',
+      { newRows: heard.newRows },
+      { label: heard.label },
+    )
+  }
+}
+
+/** Events that waited for a batch end the way the batch did. */
+async function settleBatched(
+  conn: SchedulerConnection,
+  events: ChangeEventRow[],
+  kind: ActivityKind,
+  message: string,
+): Promise<void> {
+  if (events.length === 0) return
+
+  await conn.query(
+    `UPDATE api.pipeline_schedule_activity
+        SET kind = $2, message = $3, occurred_at = now()
+      WHERE occurrence_id = ANY($1::text[]) AND kind = 'batched'`,
+    [events.map((e) => eventOccurrenceId(e.id)), kind, message],
+  )
+}
+
 type ActivityKind =
+  | 'started'
+  | 'batched'
+  | 'skipped_condition'
   | 'skipped_missed'
   | 'skipped_unchanged'
   | 'skipped_overlap'
@@ -1143,6 +1381,7 @@ async function recordActivity(
   occurrenceId: string | null,
   message: string,
   detail: SchedulerJsonObject = {},
+  extra: ActivityExtra = {},
 ): Promise<void> {
   if (COLLAPSING_ACTIVITY.includes(kind)) {
     const { rows } = await conn.query<{
@@ -1185,17 +1424,28 @@ async function recordActivity(
 
   await conn.query(
     `INSERT INTO api.pipeline_schedule_activity(
-       workspace_id, schedule_id, kind, occurrence_id, message, detail
-     ) VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
+       workspace_id, schedule_id, definition_id, kind, occurrence_id, message,
+       detail, source, label, run_id
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10)`,
     [
       schedule.workspace_id,
       schedule.id,
+      schedule.definition_id,
       kind,
       occurrenceId,
       message,
       JSON.stringify({ ...detail, count: 1 }),
+      schedule.kind === 'event' ? 'event' : 'schedule',
+      extra.label ?? null,
+      extra.runId ?? null,
     ],
   )
+}
+
+/** What a start row says besides its kind: what was heard, and the run it began. */
+interface ActivityExtra {
+  label?: string
+  runId?: string
 }
 
 /** How many occurrences fell between the due time and now (capped). */

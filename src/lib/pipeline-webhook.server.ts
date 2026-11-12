@@ -8,6 +8,8 @@ import { getAppSession } from '#/lib/auth'
 import { createRateLimiter } from './rate-limit'
 import { enqueuePipelineRun, wakePipelineWorker } from './pipeline-queue.server'
 import type { ExecConnection } from './pipeline-execute.server'
+import { judgeStart } from './pipelines/start-rules'
+import { loadStartRules, runGoing } from './pipelines/start-rules.server'
 
 export interface PipelineWebhookDeps {
   getSession: (headers: Headers) => Promise<{ user: { id: string } } | null>
@@ -52,6 +54,41 @@ const defaults: PipelineWebhookDeps = {
 const deliveryLimit = createRateLimiter({ maxRequests: 120, windowSeconds: 60 })
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const hash = (value: string) => createHash('sha256').update(value).digest('hex')
+
+type WebhookActivityKind =
+  'started' | 'skipped_condition' | 'skipped_overlap' | 'skipped_no_version'
+
+/** One line in the pipeline's start log: what this call did. */
+async function noteWebhook(
+  conn: ExecConnection,
+  input: {
+    workspaceId: string
+    definitionId: string
+    kind: WebhookActivityKind
+    occurrence: string
+    message: string
+    label: string
+    runId?: string
+    detail?: Record<string, string>
+  },
+) {
+  await conn.query(
+    `INSERT INTO api.pipeline_schedule_activity(
+       workspace_id, schedule_id, definition_id, kind, occurrence_id, message,
+       detail, source, label, run_id
+     ) VALUES ($1, NULL, $2, $3, $4, $5, $6::jsonb, 'webhook', $7, $8)`,
+    [
+      input.workspaceId,
+      input.definitionId,
+      input.kind,
+      input.occurrence,
+      input.message,
+      JSON.stringify({ count: 1, ...input.detail }),
+      input.label,
+      input.runId ?? null,
+    ],
+  )
+}
 
 const reply = (value: z.core.util.JSONType, status = 200) => {
   if (status >= 500) annotateRequest({ error: value })
@@ -204,6 +241,7 @@ export async function handlePipelineWebhook(
   let runId: string | undefined
   let actor: string | undefined
   let previousStatus: string | undefined
+  let skipped: string | undefined
 
   try {
     await conn.begin()
@@ -308,6 +346,23 @@ export async function handlePipelineWebhook(
       runId = existing.id
       previousStatus = existing.status
     } else {
+      const label = `Webhook · ${key!.slice(0, 40)}`
+
+      const note = (
+        kind: WebhookActivityKind,
+        message: string,
+        extra: { runId?: string; detail?: Record<string, string> } = {},
+      ) =>
+        noteWebhook(conn, {
+          workspaceId: definition.workspace_id,
+          definitionId,
+          kind,
+          occurrence,
+          message,
+          label,
+          ...extra,
+        })
+
       const version = (
         await conn.query<{ id: string }>(
           "SELECT id FROM api.pipeline_definition_versions WHERE definition_id=$1 AND workspace_id=$2 AND lifecycle='published' ORDER BY version DESC LIMIT 1",
@@ -316,7 +371,11 @@ export async function handlePipelineWebhook(
       ).rows.at(0)
 
       if (!version) {
-        await conn.rollback()
+        await note(
+          'skipped_no_version',
+          'The pipeline has no published version, so nothing was run.',
+        )
+        await conn.commit()
 
         return error(
           409,
@@ -324,18 +383,39 @@ export async function handlePipelineWebhook(
         )
       }
 
-      runId = (
-        await conn.query<{ id: string }>(
-          "SELECT (api.start_pipeline_run($1,$2,'event',$3::jsonb,$4::jsonb,NULL,$5,NULL)).id AS id",
-          [
-            definition.workspace_id,
-            version.id,
-            JSON.stringify(payload.parameters ?? {}),
-            JSON.stringify(payload.inputVersions ?? {}),
-            occurrence,
-          ],
-        )
-      ).rows.at(0)?.id
+      const { rules, set } = await loadStartRules(conn, definitionId)
+      const going = set ? await runGoing(conn, definitionId) : null
+      const verdict = set
+        ? judgeStart(rules, { at: new Date(), source: 'webhook' })
+        : null
+
+      if (going) {
+        skipped = 'A run was still going, so this call was skipped.'
+        await note('skipped_overlap', skipped, {
+          detail: { blockingRunId: going.id },
+        })
+      } else if (verdict && !verdict.pass) {
+        skipped = `${verdict.reason}, so this call was skipped.`
+        await note('skipped_condition', skipped, {
+          detail: { condition: verdict.condition },
+        })
+      }
+
+      if (!skipped)
+        runId = (
+          await conn.query<{ id: string }>(
+            "SELECT (api.start_pipeline_run($1,$2,'event',$3::jsonb,$4::jsonb,NULL,$5,NULL)).id AS id",
+            [
+              definition.workspace_id,
+              version.id,
+              JSON.stringify(payload.parameters ?? {}),
+              JSON.stringify(payload.inputVersions ?? {}),
+              occurrence,
+            ],
+          )
+        ).rows.at(0)?.id
+
+      if (runId) await note('started', 'Started by the webhook.', { runId })
     }
 
     await conn.commit()
@@ -349,6 +429,8 @@ export async function handlePipelineWebhook(
   } finally {
     await conn.end()
   }
+
+  if (skipped) return reply({ status: 'skipped', reason: skipped })
 
   if (!runId || !actor)
     return error(500, 'The pipeline run could not be created.')

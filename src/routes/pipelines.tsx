@@ -599,6 +599,15 @@ function PipelinesHeader({
               variant="quiet"
               size="sm"
               nativeButton={false}
+              icon="table"
+              render={<Link to="/pipelines/parameter-sets" />}
+            >
+              {t('features.pipelineParameterSets.page.title')}
+            </Button>
+            <Button
+              variant="quiet"
+              size="sm"
+              nativeButton={false}
               icon="pipeline"
               render={<Link to="/pipelines/agents" />}
             >

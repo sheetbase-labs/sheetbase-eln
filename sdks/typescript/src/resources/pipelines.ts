@@ -315,13 +315,24 @@ export class PipelinesResource {
 
   // -- The version file (Advanced mode) --------------------------------------
 
+  /** The workspace's reusable parameter sets (`include:` in a version file names them by key). */
+  async parameterSets(): Promise<Row[]> {
+    return this.transport.get("/api/db/pipeline_parameter_sets", {
+      params: { order: "key.asc" },
+    });
+  }
+
   /**
    * Check a version file on the server. Saves nothing. Answers
    * `{ ok, configuration, problems, lineCount }`, each problem with its line and column.
    */
   async readVersionFile(
     text: string,
-    options?: { pipeline?: string[]; pythonRuntime?: string },
+    options?: {
+      pipeline?: string[];
+      pythonRuntime?: string;
+      sets?: Record<string, Row[]>;
+    },
   ): Promise<{
     ok: boolean
     configuration: Row | null
@@ -331,6 +342,8 @@ export class PipelinesResource {
     const jsonBody: Record<string, unknown> = { text }
     if (options?.pipeline?.length) jsonBody.pipeline = options.pipeline
     if (options?.pythonRuntime) jsonBody.pythonRuntime = options.pythonRuntime
+    if (options?.sets && Object.keys(options.sets).length)
+      jsonBody.sets = options.sets
     return this.transport.post('/api/pipelines/version-file', { jsonBody })
   }
 
@@ -394,6 +407,9 @@ export class PipelinesResource {
     const result = await this.readVersionFile(text, {
       pipeline: [definition.display_id, definition.key].filter(Boolean),
       pythonRuntime: base.configuration.pythonRuntime,
+      sets: Object.fromEntries(
+        (await this.parameterSets()).map((row) => [row.key, row.parameters]),
+      ),
     })
     if (!result.ok || !result.configuration) {
       throw new VersionFileError(result.problems)

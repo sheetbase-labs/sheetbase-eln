@@ -344,6 +344,11 @@ describe("version files", () => {
   };
   const reads: MockRoute[] = [
     {
+      method: 'GET',
+      path: '/api/db/pipeline_parameter_sets',
+      handler: () => ({ status: 200, json: [] }),
+    },
+    {
       method: "GET",
       path: "/api/db/pipeline_definitions",
       handler: () => ({ status: 200, json: [definition] }),

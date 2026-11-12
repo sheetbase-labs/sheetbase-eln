@@ -208,12 +208,20 @@ class PipelinesResource:
 
     # -- The version file (Advanced mode) -----------------------------------
 
+    def parameter_sets(self) -> list[dict[str, Any]]:
+        """The workspace's reusable parameter sets (`include:` in a version file names them by key)."""
+        return self._transport.get("/api/db/pipeline_parameter_sets", params={"order": "key.asc"})
+
+    def _sets_by_key(self) -> dict[str, Any]:
+        return {row["key"]: row["parameters"] for row in self.parameter_sets()}
+
     def read_version_file(
         self,
         text: str,
         *,
         pipeline: Optional[Sequence[str]] = None,
         python_runtime: Optional[str] = None,
+        sets: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Check a version file on the server: ``{"ok", "configuration", "problems", "lineCount"}``.
 
@@ -226,6 +234,8 @@ class PipelinesResource:
             body["pipeline"] = list(pipeline)
         if python_runtime:
             body["pythonRuntime"] = python_runtime
+        if sets:
+            body["sets"] = sets
         return self._transport.post("/api/pipelines/version-file", json_body=body)
 
     def write_version_file(
@@ -286,6 +296,7 @@ class PipelinesResource:
             text,
             pipeline=[n for n in (definition.get("display_id"), definition["key"]) if n],
             python_runtime=base["configuration"].get("pythonRuntime"),
+            sets=self._sets_by_key(),
         )
         if not result["ok"]:
             raise VersionFileError(result["problems"])

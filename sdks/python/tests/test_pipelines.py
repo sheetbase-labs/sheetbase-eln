@@ -232,6 +232,10 @@ DEFINITION = {"id": DEF, "workspace_id": WS, "key": "assay", "display_id": "PL-0
 ADVANCED = {**CONFIG, "mode": "advanced"}
 
 
+def sets_table(mock_transport):
+    mock_transport.get("/api/db/pipeline_parameter_sets").respond(200, json=[])
+
+
 def advanced_version(lifecycle):
     return {**version(lifecycle), "configuration": ADVANCED}
 
@@ -250,6 +254,7 @@ class TestVersionFile:
         assert sent["pipeline"] == "PL-0021" and sent["version"] == 2
 
     def test_push_saves_a_draft(self, mock_transport):
+        sets_table(mock_transport)
         mock_transport.get("/api/db/pipeline_definitions").respond(200, json=[DEFINITION])
         mock_transport.get("/api/db/pipeline_definition_versions").respond(200, json=[advanced_version("draft")])
         mock_transport.post("/api/pipelines/version-file").respond(
@@ -264,6 +269,7 @@ class TestVersionFile:
         assert json.loads(route.calls.last.request.content)["p_expected_revision"] == 3
 
     def test_push_raises_the_problems_and_saves_nothing(self, mock_transport):
+        sets_table(mock_transport)
         mock_transport.get("/api/db/pipeline_definitions").respond(200, json=[DEFINITION])
         mock_transport.get("/api/db/pipeline_definition_versions").respond(200, json=[advanced_version("published")])
         mock_transport.post("/api/pipelines/version-file").respond(
@@ -284,6 +290,7 @@ class TestVersionFile:
     def test_cli_prints_problems_as_file_line_column(self, mock_transport, tmp_path, monkeypatch, capsys):
         monkeypatch.setenv("SHEETBASE_URL", BASE_URL)
         monkeypatch.setenv("SHEETBASE_CREDENTIAL", CREDENTIAL)
+        sets_table(mock_transport)
         mock_transport.get("/api/db/pipeline_definitions").respond(200, json=[DEFINITION])
         mock_transport.get("/api/db/pipeline_definition_versions").respond(200, json=[advanced_version("published")])
         mock_transport.post("/api/pipelines/version-file").respond(
@@ -299,6 +306,7 @@ class TestVersionFile:
 
 @pytest.mark.asyncio
 async def test_async_push_version_file(mock_transport):
+    sets_table(mock_transport)
     mock_transport.get("/api/db/pipeline_definitions").respond(200, json=[DEFINITION])
     mock_transport.get("/api/db/pipeline_definition_versions").respond(200, json=[advanced_version("published")])
     mock_transport.post("/api/pipelines/version-file").respond(

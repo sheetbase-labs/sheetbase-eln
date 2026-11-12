@@ -560,6 +560,28 @@ PL-0021 [file] [--version N]` writes the draft, or a version, out. Python has
 `pipelines.push_version_file` and `pull_version_file` (sync and async), TypeScript
 `pushVersionFile` and `pullVersionFile`. Only an Advanced pipeline accepts a push.
 
+### Several outputs, includes and parameter sets
+
+A file writes one `output:` or a list under `outputs:` (not both). The first
+output is the version's `output`; the rest are stored as `moreOutputs`, at most
+nine. Each further output may name the step its rows come from with `from:`; a
+version with a step list shows them read-only and says to edit them in the file.
+All outputs write in the run's one transaction, each as its own Dataset Version
+(the commit key carries the output's slot), and a failure in any of them fails
+the run. The manifest lists the further ones under `furtherOutputs`. Two outputs
+cannot write to the same place. Reproduce and the actions' `output` context cover
+the first output only.
+
+`include:` names reusable parameter sets and the parameters taken from each. A
+set is a workspace record (`pipeline_parameter_sets`, key, name, parameters),
+kept at `/pipelines/parameter-sets` and through `save_pipeline_parameter_set` and
+`delete_pipeline_parameter_set` (stewards, admins, owners). The file shows the
+included parameters once, under `include`; saving copies them into the version,
+so changing a set never changes a version already saved. The reader takes the
+sets in a `sets` map (key to parameters) on `POST /api/pipelines/version-file`,
+and the SDKs' push sends the workspace's sets for you. A set change emits
+`pipeline.parameter_set.created`, `.updated` or `.deleted`.
+
 ## Product integration
 
 - **Authoring** (`/pipelines/$id/steps`): inputs take a description and can show

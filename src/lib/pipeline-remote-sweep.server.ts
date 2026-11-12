@@ -108,6 +108,7 @@ export async function wakeRemoteJobRuns(
   let resumed = 0
 
   for (const runId of report.ready) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Runs are woken one after another so the worker is nudged once, after the last.
     const woke = await transaction(connect, (conn) =>
       resumeWaitingRun(conn, runId),
     ).catch(() => false)

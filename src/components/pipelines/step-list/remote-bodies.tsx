@@ -225,8 +225,9 @@ export function LakehouseStepBody({
 
   const chosen = step.lake.tables
 
+  const chosenNames = new Set(chosen)
   const rest = (tables.data ?? []).filter(
-    (table) => !chosen.includes(table.name),
+    (table) => !chosenNames.has(table.name),
   )
 
   const setTables = (next: string[]) =>

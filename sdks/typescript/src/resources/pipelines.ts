@@ -354,7 +354,9 @@ export class PipelinesResource {
     definitionId: string
     rules: Row
   }): Promise<Row> {
-    return this.transport.post('/api/db/rpc/set_pipeline_start_rules', {
+    // A lab action, reached through the generic RPC path rather than a dedicated wrapper.
+    const name = 'set_pipeline_start_rules'
+    return this.transport.post(`/api/db/rpc/${name}`, {
       jsonBody: {
         p_workspace_id: params.workspaceId,
         p_definition_id: params.definitionId,

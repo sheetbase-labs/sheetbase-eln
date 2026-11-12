@@ -18,6 +18,7 @@ import {
 } from '#/lib/pipelines/version-file-highlight'
 import { usePipelineEditor } from '#/components/pipelines/step-list/use-pipeline-editor'
 import { CompareDialog } from './compare-dialog'
+import { VersionFileStacked } from './version-file-sidebar'
 
 const LINE_HEIGHT = 19
 
@@ -401,6 +402,8 @@ export function VersionFileEditor() {
           </section>
         ) : null}
       </div>
+
+      <VersionFileStacked />
 
       {comparing && current?.lifecycle === 'published' ? (
         <CompareDialog onClose={() => setComparing(false)} />

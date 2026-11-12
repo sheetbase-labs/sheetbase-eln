@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -36,6 +43,8 @@ import { runNumbers, runSteps } from '#/lib/pipelines/run-steps'
 import type { RunStepState } from '#/lib/pipelines/run-steps'
 import { unmetRequirements } from '#/lib/pipelines/python'
 import { configForWire, readStoredConfig } from '#/lib/pipelines/step-list'
+import { checkVersionFile, versionFileText } from '#/lib/pipelines/version-file'
+import type { VersionFileResult } from '#/lib/pipelines/version-file'
 import type {
   PipelineDefinitionVersionWire,
   PipelineTrialWire,
@@ -63,6 +72,27 @@ const EMPTY_CONFIG: PipelineConfig = {
   inputs: [],
   steps: [],
   output: { mode: 'none', datasetLabel: '' },
+}
+
+/** The remark after the version number in the file: which version it is a draft of. */
+function fileVersionNote(
+  source: { lifecycle: string; version: number } | undefined,
+  current: { version: number } | undefined,
+): string | undefined {
+  if (!source) return undefined
+
+  return source.lifecycle === 'draft' && current
+    ? t('features.pipelineVersionFile.editor.draftNote', {
+        version: current.version,
+      })
+    : undefined
+}
+
+/** The runner's Python pin is supplied when a version is saved; it is not an edit. */
+function withoutPin(config: PipelineConfig): PipelineConfig {
+  const { pythonRuntime: _pin, ...rest } = config
+
+  return rest
 }
 
 export type Selection = 'starts' | 'inputs' | 'output' | `step:${string}`
@@ -111,11 +141,70 @@ export function usePipelineEditorModel(
     if (stored) setWorking({ key: sourceKey, config: stored })
   }, [sourceKey, stored])
 
-  const config = working?.key === sourceKey ? working.config : stored
+  // Advanced mode edits the version file: its text is the working copy, and the
+  // version it says (when it says one) is what the rest of the editor sees.
+  const advanced = stored?.mode === 'advanced'
+
+  const pipelineNames = [
+    definition.data?.display_id ?? '',
+    definition.data?.key ?? '',
+  ].filter(Boolean)
+
+  const savedFile = useMemo(
+    () =>
+      stored && advanced
+        ? versionFileText(stored, {
+            title: definition.data?.name,
+            pipeline: pipelineNames[0] ?? '',
+            version: source?.version,
+            versionNote: fileVersionNote(
+              source,
+              current?.lifecycle === 'published' ? current : undefined,
+            ),
+          })
+        : '',
+    // The names are the definition's own; they only change with it.
+    // react-doctor-disable-next-line react-doctor/exhaustive-deps -- the names are the definition's own and change only with it.
+    [stored, advanced, definition.data, source, current],
+  )
+
+  const [fileState, setFileState] = useState<{
+    key: string
+    text: string
+  } | null>(null)
+
+  const fileText = fileState?.key === sourceKey ? fileState.text : savedFile
+
+  const setFileText = (text: string) => setFileState({ key: sourceKey, text })
+
+  const pin = runtime.data?.available
+    ? runtime.data.runtime
+    : stored?.pythonRuntime
+
+  const fileCheck = useMemo<VersionFileResult | null>(
+    () =>
+      advanced
+        ? checkVersionFile(fileText, {
+            pipeline: pipelineNames,
+            pythonRuntime: pin,
+          })
+        : null,
+    // react-doctor-disable-next-line react-doctor/exhaustive-deps -- the pin and names are the definition's own and change only with it.
+    [advanced, fileText, definition.data, pin],
+  )
+
+  const fileConfig = fileCheck?.config ?? stored
+
+  const config = advanced
+    ? fileConfig
+    : working?.key === sourceKey
+      ? working.config
+      : stored
+
   const shown = stored !== null
 
   const setConfig = (update: (config: PipelineConfig) => PipelineConfig) => {
-    if (!config) return
+    if (!config || advanced) return
     setWorking({ key: sourceKey, config: update(config) })
   }
 
@@ -126,8 +215,8 @@ export function usePipelineEditorModel(
       Boolean(
         config &&
         stored &&
-        JSON.stringify(configForWire(config)) !==
-          JSON.stringify(configForWire(stored)),
+        JSON.stringify(configForWire(withoutPin(config))) !==
+          JSON.stringify(configForWire(withoutPin(stored))),
       ),
     [config, stored],
   )
@@ -165,7 +254,16 @@ export function usePipelineEditorModel(
     if (!built) return []
 
     return [
-      ...validatePipelineConfig(built),
+      ...(fileCheck
+        ? fileCheck.problems.map((problem) => ({
+            code: 'invalid_value' as const,
+            field: `line ${problem.line}`,
+            message: t('features.pipelineVersionFile.editor.problemAt', {
+              line: problem.line,
+              message: problem.message,
+            }),
+          }))
+        : validatePipelineConfig(built)),
       ...(usesPython && runtime.data?.packages
         ? unmetRequirements(
             built.pythonRequirements ?? [],
@@ -177,7 +275,7 @@ export function usePipelineEditorModel(
           }))
         : []),
     ]
-  }, [built, usesPython, runtime.data?.packages])
+  }, [built, fileCheck, usesPython, runtime.data?.packages])
 
   const problemsOf = (index: number) =>
     errors.filter(
@@ -228,6 +326,31 @@ export function usePipelineEditorModel(
   // A Simple pipeline keeps its recipe in its own editor; that editor tells the
   // header what is unsaved and how to save it, so Publish can save first too.
   const [simple, setSimple] = useState<SimpleDraft | null>(null)
+
+  // Convert to Advanced: what is on screen becomes a new draft written as the
+  // version file. A pipeline only ever moves to a more expressive mode.
+  const convertToAdvanced = useMutation({
+    mutationFn: async () => {
+      if (!built || advanced)
+        throw new Error(t('data.pipelineSteps.couldnTSave'))
+      await writeDraft({ ...built, mode: 'advanced' })
+    },
+    onSuccess: () => {
+      toast(t('features.pipelineVersionFile.convert.done'))
+      void invalidate()
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('data.pipelineSteps.couldnTSave'),
+      ),
+  })
+
+  // The version file's editor registers how to move the caret, for the outline to call.
+  const fileJump = useRef<((line: number, column?: number) => void) | null>(
+    null,
+  )
 
   // Asking to publish saves what is on screen first, then asks about that draft.
   const ensureDraft = async () => {
@@ -473,6 +596,13 @@ export function usePipelineEditorModel(
     runtime,
     config,
     built,
+    advanced,
+    fileText,
+    setFileText,
+    savedFile,
+    fileCheck,
+    fileJump,
+    convertToAdvanced,
     shown,
     setConfig,
     dirty,

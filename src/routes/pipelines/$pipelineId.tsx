@@ -21,6 +21,7 @@ import { Status } from '#/components/ui/status'
 import { Button } from '#/components/ui/button'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { RunDialog } from '#/components/pipelines/run-dialog'
+import { VersionFileSidebar } from '#/components/pipelines/advanced/version-file-sidebar'
 import { StepInspector } from '#/components/pipelines/step-list/inspector'
 import { PipelineMenu } from '#/components/pipelines/step-list/pipeline-menu'
 import {
@@ -189,7 +190,10 @@ function PipelineLayout() {
                   className="inline-flex items-center gap-1 text-fg-muted"
                   title={t('data.pipelineHeader.modeTitle')}
                 >
-                  <Icon name="pipeline" size={12} />
+                  <Icon
+                    name={mode === 'advanced' ? 'code' : 'pipeline'}
+                    size={12}
+                  />
                   <b className="font-medium text-fg">
                     {t(`data.pipelineHeader.mode.${mode}`)}
                   </b>
@@ -275,7 +279,13 @@ function PipelineLayout() {
             />
           ) : null}
         </div>
-        {onSteps && mode !== 'simple' ? <StepInspector /> : null}
+        {onSteps && mode !== 'simple' ? (
+          editor.advanced ? (
+            <VersionFileSidebar />
+          ) : (
+            <StepInspector />
+          )
+        ) : null}
       </div>
     </PipelineEditorProvider>
   )

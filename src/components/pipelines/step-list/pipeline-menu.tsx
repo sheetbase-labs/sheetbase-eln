@@ -28,7 +28,9 @@ import { toast } from '#/components/ui/sonner'
 import { pipelineDataQueryKeys } from '#/components/pipelines/pipelines-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { updatePipelineDefinition } from '#/lib/pipelines/data'
-import { configForWire, readStoredConfig } from '#/lib/pipelines/step-list'
+import { readStoredConfig } from '#/lib/pipelines/step-list'
+import { versionFileText } from '#/lib/pipelines/version-file'
+import { ConvertToAdvancedDialog } from '#/components/pipelines/advanced/convert-to-advanced'
 import { usePipelineEditor } from './use-pipeline-editor'
 
 /** Save text as a file in the browser. */
@@ -55,8 +57,9 @@ export function PipelineMenu({
 }) {
   const editor = usePipelineEditor()
   const [duplicating, setDuplicating] = useState(false)
-  const [converting, setConverting] = useState(false)
   const [retiring, setRetiring] = useState(false)
+  const [converting, setConverting] = useState(false)
+  const [convertingFile, setConvertingFile] = useState(false)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const name = editor.definition.data?.name ?? ''
@@ -133,15 +136,29 @@ export function PipelineMenu({
               if (!shown) return
               const config = readStoredConfig(shown.configuration)
 
+              if (!config) return
+
               download(
-                `${editor.definition.data?.key ?? 'pipeline'}-v${shown.version}.json`,
-                `${JSON.stringify(config ? configForWire(config) : shown.configuration, null, 2)}\n`,
-                'application/json',
+                `${editor.definition.data?.key ?? 'pipeline'}-v${shown.version}.yaml`,
+                versionFileText(config, {
+                  title: editor.definition.data?.name,
+                  pipeline:
+                    editor.definition.data?.display_id ??
+                    editor.definition.data?.key ??
+                    '',
+                  version: shown.version,
+                }),
+                'text/yaml',
               )
             }}
           >
             {t('data.pipelineMenu.downloadFile')}
           </DropdownMenuItem>
+          {editor.advanced ? null : (
+            <DropdownMenuItem icon="code" onClick={() => setConvertingFile(true)}>
+              {t('features.pipelineVersionFile.convert.menu')}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem icon="archive" onClick={() => setRetiring(true)}>
             {t('data.pipelineMenu.retire')}
@@ -181,6 +198,10 @@ export function PipelineMenu({
             />
           ) : null}
         </>
+      ) : null}
+
+      {convertingFile ? (
+        <ConvertToAdvancedDialog onClose={() => setConvertingFile(false)} />
       ) : null}
 
       <ConfirmDialog open={retiring} onOpenChange={setRetiring}>

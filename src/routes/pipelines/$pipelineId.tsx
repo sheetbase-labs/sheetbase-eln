@@ -5,6 +5,7 @@ import {
   redirect,
   useMatchRoute,
   useNavigate,
+  useSearch,
 } from '@tanstack/react-router'
 
 import { useMemo } from 'react'
@@ -111,6 +112,7 @@ function usePipelineLayout() {
 // react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the layout owns the header, tabs, trial and publish dialogs that share one editor model.
 function PipelineLayout() {
   const model = usePipelineLayout()
+  const startingTemplate = useSearch({ strict: false }).template
   const { editor, approval, versionList, members, onRun, onSteps, run } = model
   const { definition, current, draft } = editor
   const d = definition.data
@@ -127,7 +129,12 @@ function PipelineLayout() {
   const nextVersion = draft?.version ?? (current ? current.version + 1 : 1)
   const canPublish = editor.canSave && (editor.dirty || Boolean(draft))
   const owner = d.created_by_user_id ? members[d.created_by_user_id] : undefined
-  const mode = editor.config?.mode ?? 'standard'
+
+  // A pipeline started from a template is Simple until it has a version of its own.
+  const mode =
+    !current && !draft && startingTemplate
+      ? 'simple'
+      : (editor.config?.mode ?? 'standard')
 
   return (
     <PipelineEditorProvider value={editor}>

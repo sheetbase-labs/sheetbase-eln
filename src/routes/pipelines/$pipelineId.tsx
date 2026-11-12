@@ -6,32 +6,42 @@ import {
   useMatchRoute,
   useNavigate,
 } from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { t } from '#/copy'
+import { Icon } from '#/components/icons'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { PageHeader } from '#/components/ui/layout'
 import { Tabs } from '#/components/ui/tabs'
 import { Status } from '#/components/ui/status'
 import { Button } from '#/components/ui/button'
-import { toast } from '#/components/ui/sonner'
-import { publishPipelineDefinitionVersion } from '#/lib/pipelines/data'
-import { notebookDataClient } from '#/lib/notebook-data'
 import {
-  currentVersion,
-  draftVersion,
-  useDefinitionRuns,
-  usePipelineDefinition,
-  usePipelineVersions,
-  versionStatus,
-} from '#/components/pipelines/pipelines-data'
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/ui/confirm-dialog'
+import { formatNotebookDateTime } from '#/lib/notebook-data'
+import { RunDialog } from '#/components/pipelines/run-dialog'
+import { PipelineMenu } from '#/components/pipelines/step-list/pipeline-menu'
+import {
+  PipelineEditorProvider,
+  usePipelineEditorModel,
+} from '#/components/pipelines/step-list/use-pipeline-editor'
 import { NotFoundNotice } from '#/components/ui/not-found-notice'
 import { ProjectListFailure } from '#/components/projects/project-list'
 import { useRunLauncher } from '#/components/pipelines/use-run-launcher'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
-import { validatePipelineConfig } from '#/lib/pipelines/config'
 import type { PipelineRunWire } from '#/lib/pipelines/types'
+import {
+  useWorkspaceMemberNames,
+  versionStatus,
+} from '#/components/pipelines/pipelines-data'
 
 /** UI port (roadmap-4/ui-app3): the pipeline detail frame. */
 export const Route = createFileRoute('/pipelines/$pipelineId')({
@@ -64,20 +74,8 @@ function usePipelineLayout() {
   )
 
   const onSteps = Boolean(matchRoute({ to: '/pipelines/$pipelineId/steps' }))
-  const queryClient = useQueryClient()
-  const definition = usePipelineDefinition(pipelineId)
-  const versions = usePipelineVersions(pipelineId)
-  const list = versions.data ?? []
-  const runs = useDefinitionRuns(list)
-  const current = currentVersion(list)
-  const draft = draftVersion(list)
-
-  // A draft that the contract would refuse cannot be published; say why.
-  const draftProblems = draft ? validatePipelineConfig(draft.configuration) : []
-
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
-
+  const editor = usePipelineEditorModel(pipelineId, workspaceId)
+  const members = useWorkspaceMemberNames()
   const navigate = useNavigate()
 
   const onRunStarted = (started: PipelineRunWire) => {
@@ -89,58 +87,21 @@ function usePipelineLayout() {
 
   const run = useRunLauncher(workspaceId, onRunStarted)
 
-  const publish = useMutation({
-    mutationFn: () => {
-      if (!draft) throw new Error(t('data.pipelinePage.thereDraftPublish'))
-
-      return publishPipelineDefinitionVersion(notebookDataClient, {
-        workspaceId,
-        versionId: draft.id,
-      })
-    },
-    onSuccess: () => {
-      void invalidate()
-      toast(t('data.pipelinePage.draftPublished'), {
-        description: t('data.pipelinePage.newRunsUseRuns'),
-      })
-    },
-    onError: (error) =>
-      toast(t('data.pipelinePage.couldPublish'), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t('data.pipelinePage.databaseRefused'),
-      }),
-  })
-
   return {
     pipelineId,
-    definition,
-    current,
-    draft,
-    runs,
+    editor,
+    members: members.data ?? {},
     onRun,
     onSteps,
-    publish,
     run,
-    draftProblems,
   }
 }
 
 function PipelineLayout() {
   const model = usePipelineLayout()
-
-  const {
-    definition,
-    current,
-    draft,
-    runs,
-    onRun,
-    onSteps,
-    publish,
-    run,
-    draftProblems,
-  } = model
+  const { editor, members, onRun, run } = model
+  const { definition, current, draft } = editor
+  const [publishing, setPublishing] = useState(false)
 
   const d = definition.data
 
@@ -152,122 +113,180 @@ function PipelineLayout() {
 
   const params = { pipelineId: d.id }
 
+  // What publishing would make: the saved draft, or the version after the published one.
+  const nextVersion = draft?.version ?? (current ? current.version + 1 : 1)
+  const canPublish = editor.canSave && (editor.dirty || Boolean(draft))
+  const owner = d.created_by_user_id ? members[d.created_by_user_id] : undefined
+  const mode = editor.config?.mode ?? 'standard'
+
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <PageHeader
-        trail={[
-          {
-            label: t('data.pipelinePage.pipelines'),
-            link: { to: '/pipelines' },
-          },
-          { label: d.display_id ?? d.key, mono: true },
-        ]}
-        title={d.name}
-        meta={
-          <>
-            {draft ? (
-              <Status tone="draft">
-                {t('data.pipelinePage.draftV')}
-                {draft.version}
-              </Status>
-            ) : current ? (
-              <Status tone={versionStatus(current.lifecycle).tone}>
-                {versionStatus(current.lifecycle).label} v{current.version}
-              </Status>
-            ) : (
-              <Status tone="draft">{t('data.pipelinePage.versionYet')}</Status>
-            )}
-            <span>
-              {current?.lifecycle === 'published'
-                ? t('data.pipelinePage.runsUsePublishedV', {
+    <PipelineEditorProvider value={editor}>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <PageHeader
+          trail={[
+            {
+              label: t('data.pipelinePage.pipelines'),
+              link: { to: '/pipelines' },
+            },
+            { label: d.display_id ?? d.key, mono: true },
+          ]}
+          title={d.name}
+          meta={
+            <>
+              {draft ? (
+                <Status tone="draft">
+                  {t('data.pipelinePage.draftV')}
+                  {draft.version}
+                </Status>
+              ) : current ? (
+                <Status tone={versionStatus(current.lifecycle).tone}>
+                  {versionStatus(current.lifecycle).label} v{current.version}
+                </Status>
+              ) : (
+                <Status tone="draft">
+                  {t('data.pipelinePage.versionYet')}
+                </Status>
+              )}
+              {current?.lifecycle === 'published' && current.published_at ? (
+                <span>
+                  {t('data.pipelineHeader.publishedOn', {
                     version: current.version,
-                  })
-                : t('data.pipelinePage.publishVersionEnableRuns')}
-            </span>
-            <span className="max-lg:hidden">{d.description}</span>
-          </>
-        }
-        actions={
-          <>
-            <FavouriteToggle kind="pipeline" objectId={d.id} />
-            <Button
-              icon="play"
-              disabled={
-                !current || current.lifecycle !== 'published' || run.pending
-              }
-              title={
-                current?.lifecycle === 'published'
-                  ? t('data.pipelinePage.runPublishedV', {
-                      version: current.version,
-                    })
-                  : t('data.pipelinePage.publishVersionEnableRuns')
-              }
-              onClick={() =>
-                current &&
-                run.launch({ pipelineName: d.name, version: current })
-              }
-            >
-              {t('data.pipelinePage.runNow')}
-            </Button>
-            {draft && !onSteps ? (
+                    when: formatNotebookDateTime(current.published_at, {
+                      zone: true,
+                    }),
+                  })}
+                </span>
+              ) : (
+                <span>{t('data.pipelinePage.publishVersionEnableRuns')}</span>
+              )}
+              {owner ? (
+                <span>{t('data.pipelineHeader.owner', { name: owner })}</span>
+              ) : null}
+              <span
+                className="inline-flex items-center gap-1 text-fg-muted"
+                title={t('data.pipelineHeader.modeTitle')}
+              >
+                <Icon name="pipeline" size={12} />
+                <b className="font-medium text-fg">
+                  {t(`data.pipelineHeader.mode.${mode}`)}
+                </b>
+              </span>
+              <span className="max-lg:hidden">{d.description}</span>
+            </>
+          }
+          actions={
+            <>
+              <FavouriteToggle kind="pipeline" objectId={d.id} />
+              <Button
+                icon="play"
+                disabled={
+                  editor.tryDraft.isPending || !editor.canSave || !editor.shown
+                }
+                onClick={editor.startTrial}
+              >
+                {editor.tryDraft.isPending
+                  ? t('data.pipelineSteps.trying')
+                  : t('data.pipelineHeader.tryDraft')}
+              </Button>
               <Button
                 variant="primary"
-                disabled={publish.isPending || draftProblems.length > 0}
+                disabled={!canPublish || editor.publish.isPending}
                 title={
-                  draftProblems.length
+                  editor.errors.length
                     ? t('data.pipelinePage.finishDraftStepsTab', {
-                        message: draftProblems[0].message,
+                        message: editor.errors[0].message,
                       })
                     : undefined
                 }
-                onClick={() => publish.mutate()}
+                onClick={() => setPublishing(true)}
               >
-                {t('data.pipelinePage.publishSavedDraft')}
+                {t('data.pipelineHeader.publish', { version: nextVersion })}
               </Button>
-            ) : null}
-          </>
-        }
-        tabs={
-          <Tabs
-            mode="url"
-            label={t('data.pipelinePage.pipelineSections')}
-            items={[
-              {
-                label: t('data.pipelinePage.overview'),
-                link: {
-                  to: '/pipelines/$pipelineId',
-                  params,
-                  activeOptions: { exact: true },
+              <PipelineMenu
+                canRun={current?.lifecycle === 'published' && !run.pending}
+                onRun={() =>
+                  current &&
+                  run.launch({ pipelineName: d.name, version: current })
+                }
+              />
+            </>
+          }
+          tabs={
+            <Tabs
+              mode="url"
+              label={t('data.pipelinePage.pipelineSections')}
+              items={[
+                {
+                  label: t('data.pipelinePage.steps'),
+                  count: editor.config?.steps.length,
+                  link: { to: '/pipelines/$pipelineId/steps', params },
                 },
-              },
-              {
-                label: t('data.pipelinePage.steps'),
-                link: { to: '/pipelines/$pipelineId/steps', params },
-              },
-              {
-                label: t('data.pipelinePage.runs'),
-                count: runs.data?.length,
-                link: { to: '/pipelines/$pipelineId/runs', params },
-              },
-              {
-                label: t('data.pipelinePage.triggersOutputs'),
-                link: { to: '/pipelines/$pipelineId/triggers', params },
-              },
-            ]}
+                {
+                  label: t('data.pipelineHeader.startsAndRuns'),
+                  count: editor.runs.data?.length,
+                  link: { to: '/pipelines/$pipelineId/runs', params },
+                },
+                {
+                  label: t('data.pipelineHeader.activity'),
+                  link: { to: '/pipelines/$pipelineId/triggers', params },
+                },
+              ]}
+            />
+          }
+        />
+        <div className="flex min-h-0 flex-1">
+          <Outlet />
+        </div>
+        {run.dialog}
+        {editor.trialDialog ? (
+          <RunDialog
+            trial
+            pipelineName={d.name}
+            version={editor.draftAsVersion}
+            initial={editor.trialDetails ?? undefined}
+            busy={editor.tryDraft.isPending}
+            onClose={() => editor.setTrialDialog(false)}
+            onSubmit={editor.submitTrial}
           />
-        }
-      />
-      <div className="flex min-h-0 flex-1">
-        <Outlet />
+        ) : null}
+        <ConfirmDialog open={publishing} onOpenChange={setPublishing}>
+          <ConfirmDialogContent>
+            <ConfirmDialogHeader>
+              <ConfirmDialogTitle>
+                {t('data.pipelineHeader.publishTitle', {
+                  version: nextVersion,
+                })}
+              </ConfirmDialogTitle>
+              <ConfirmDialogDescription>
+                {current?.lifecycle === 'published'
+                  ? t('data.pipelineHeader.publishBodyReplace', {
+                      version: current.version,
+                      next: nextVersion,
+                    })
+                  : t('data.pipelineHeader.publishBodyFirst')}{' '}
+                {editor.dirty ? t('data.pipelineHeader.publishSavesFirst') : ''}
+              </ConfirmDialogDescription>
+            </ConfirmDialogHeader>
+            <ConfirmDialogFooter>
+              <ConfirmDialogCancel>
+                {t('common.actions.cancel')}
+              </ConfirmDialogCancel>
+              <ConfirmDialogAction onClick={() => editor.publish.mutate()}>
+                {t('data.pipelineHeader.publishConfirm', {
+                  version: nextVersion,
+                })}
+              </ConfirmDialogAction>
+            </ConfirmDialogFooter>
+          </ConfirmDialogContent>
+        </ConfirmDialog>
       </div>
-      {run.dialog}
-    </div>
+    </PipelineEditorProvider>
   )
 }
 
 function PipelineUnavailable({
   definition,
-}: Pick<ReturnType<typeof usePipelineLayout>, 'definition'>) {
+}: Pick<ReturnType<typeof usePipelineLayout>['editor'], 'definition'>) {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader

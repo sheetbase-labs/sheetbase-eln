@@ -1,7 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { PluginStepsEditor } from '#/components/pipelines/plugin-steps-editor'
 import { PublishDialog } from '#/components/plugins/publish-dialog'
 import { PluginChannels } from '#/components/settings/plugin-channels'
 import { PluginConnectionsDialog } from '#/components/settings/plugin-connections-dialog'
@@ -15,7 +14,7 @@ import { withApiReads } from './screen-stories'
 /**
  * The places a plugin sends data out: a connection an administrator sets up,
  * a notification channel a person turns on, a dataset sent to another system,
- * and a plugin step in a pipeline. None of them presses a button that sends.
+ * and the plugin operations. None of them presses a button that sends.
  */
 const connections: ConnectionWire[] = [
   {
@@ -158,11 +157,5 @@ export const SendDataset: Story = {
         },
       }}
     />
-  ),
-}
-
-export const PipelinePluginSteps: Story = {
-  render: () => (
-    <PluginStepsEditor actions={[]} parameters={[]} onChange={() => {}} />
   ),
 }

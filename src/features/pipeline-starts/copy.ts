@@ -256,7 +256,7 @@ export const copy = {
       does: '{action}',
       proposes: 'Proposes: {action}',
       posts: {
-        one: 'Posts to one notification channel',
+        one: 'Posts to {count} notification channel',
         other: 'Posts to {count} notification channels',
       },
     },

@@ -11,6 +11,8 @@ import type {
   PipelineConfig,
   PipelineDataStep,
   PipelineInput,
+  PipelineLakehouseStep,
+  PipelineRemoteJobStep,
   PipelineMode,
   PipelineOutput,
   PipelineParameter,
@@ -78,7 +80,13 @@ export function shownStepName(askName: string): string {
   return `${askName.slice(0, 42)}_shown`
 }
 
-function isData(step: PipelineStep | undefined): step is PipelineDataStep {
+/** The data steps the editor's older shape can show: not a job on a cluster or SQL over the lakehouse. */
+type ViewDataStep = Exclude<
+  PipelineDataStep,
+  PipelineLakehouseStep | PipelineRemoteJobStep
+>
+
+function isData(step: PipelineStep | undefined): step is ViewDataStep {
   return (
     step?.kind === 'sql' || step?.kind === 'python' || step?.kind === 'plugin'
   )
@@ -92,6 +100,8 @@ export function viewSupported(config: PipelineConfig): boolean {
   let effects = false
 
   for (const [index, step] of config.steps.entries()) {
+    if (step.kind === 'lakehouse' || step.kind === 'remote_job') return false
+
     if (step.kind === 'action' || step.kind === 'notify') {
       effects = true
       continue
@@ -106,7 +116,7 @@ export function viewSupported(config: PipelineConfig): boolean {
 }
 
 function viewStep(
-  step: PipelineDataStep,
+  step: ViewDataStep,
   ask?: Extract<PipelineStep, { kind: 'ask' }>,
 ): PipelineViewStep {
   const view: PipelineViewStep = {
@@ -177,7 +187,13 @@ export function configView(config: PipelineConfig): PipelineConfigView {
       continue
     }
 
-    if (step.kind === 'ask') continue
+    // The editor cannot show these two; `viewSupported` keeps it from saving.
+    if (
+      step.kind === 'ask' ||
+      step.kind === 'lakehouse' ||
+      step.kind === 'remote_job'
+    )
+      continue
     const next = config.steps.at(index + 1)
     const ask = next?.kind === 'ask' ? next : undefined
 

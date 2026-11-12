@@ -26,6 +26,7 @@ import type { NoCodeForm, NoCodeKind } from './no-code/forms'
 import { noCodeStatement } from './no-code/generate'
 import { DEFAULT_SQL_STATEMENT, pythonSkeleton } from './python'
 import type { PythonContract } from './python'
+import { emptyLake, emptyRemoteJob } from './remote/settings'
 import { pipelineJsonObjectSchema } from './types'
 
 type JsonValue = z.core.util.JSONType
@@ -77,6 +78,9 @@ export function freeStepName(base: string, steps: PipelineStep[]): string {
 
   return `${stem}_${n}`
 }
+
+/** The SQL a new lakehouse step starts with: the tables it reads are tables of this SQL, by their names. */
+export const DEFAULT_LAKEHOUSE_STATEMENT = 'SELECT * FROM <table> LIMIT 100'
 
 export function isDataStep(step: PipelineStep): step is PipelineDataStep {
   return DATA_STEP_KINDS.some((kind) => kind === step.kind)
@@ -145,6 +149,15 @@ export function newStep(
       }
     case 'plugin':
       return { name, kind: 'plugin', plugin: { operation: '', arguments: {} } }
+    case 'lakehouse':
+      return {
+        name,
+        kind: 'lakehouse',
+        statement: DEFAULT_LAKEHOUSE_STATEMENT,
+        lake: emptyLake(),
+      }
+    case 'remote_job':
+      return { name, kind: 'remote_job', remoteJob: emptyRemoteJob() }
     case 'ask':
       return {
         name,

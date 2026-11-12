@@ -8,6 +8,8 @@ import { parsePluginName } from '#/lib/extensions/points'
 import { NO_CODE_KINDS, isNoCodeKind } from './no-code/forms'
 import type { NoCodeForms, NoCodeKind } from './no-code/forms'
 import { noCodeStepProblem } from './no-code/schema'
+import { lakeProblem, remoteJobProblem } from './remote/settings'
+import type { PipelineLake, PipelineRemoteJob } from './remote/settings'
 
 /**
  * AUTO-01 — Pipeline configuration contract (format version 2).
@@ -58,6 +60,8 @@ export const PIPELINE_STEP_KINDS = [
   'sql',
   'python',
   'plugin',
+  'lakehouse',
+  'remote_job',
   'ask',
   'action',
   'notify',
@@ -70,8 +74,10 @@ export const PIPELINE_STEP_KINDS = [
  */
 export function stepRuns(
   kind: (typeof PIPELINE_STEP_KINDS)[number],
-): 'sql' | 'python' | 'plugin' | 'ask' | 'action' | 'notify' {
-  return isNoCodeKind(kind) ? 'sql' : kind
+): 'sql' | 'python' | 'plugin' | 'remote_job' | 'ask' | 'action' | 'notify' {
+  if (isNoCodeKind(kind) || kind === 'lakehouse') return 'sql'
+
+  return kind
 }
 
 /** The kinds that give rows: each reads the one before as `previous`. */
@@ -80,6 +86,8 @@ export const DATA_STEP_KINDS = [
   'sql',
   'python',
   'plugin',
+  'lakehouse',
+  'remote_job',
 ] as const
 
 /** The settings keys a step may carry, and which belong to which kind. */
@@ -88,6 +96,8 @@ const STEP_SETTING_KEYS = [
   'form',
   'contract',
   'plugin',
+  'lake',
+  'remoteJob',
   'ask',
   'action',
   'notify',
@@ -105,6 +115,8 @@ const STEP_KIND_KEYS: Record<
   sql: ['statement'],
   python: ['statement', 'contract'],
   plugin: ['plugin'],
+  lakehouse: ['statement', 'lake'],
+  remote_job: ['remoteJob'],
   ask: ['ask'],
   action: ['action'],
   notify: ['notify'],
@@ -276,6 +288,27 @@ export interface PipelinePluginDataStep extends PipelineDataStepBase {
 }
 
 /**
+ * SQL against the lakehouse: the open tables it names are read as they stand
+ * (the current snapshot of each) and are tables of the step's SQL. Off until a
+ * data steward switches it on in Settings.
+ */
+export interface PipelineLakehouseStep extends PipelineDataStepBase {
+  kind: 'lakehouse'
+  statement: string
+  lake: PipelineLake
+}
+
+/**
+ * A job on an HPC queue. The run waits, like it does for a person, until the
+ * job gives its table back or its time limit passes; the step before it is its
+ * `previous`, which the job reads from Sheetbase.
+ */
+export interface PipelineRemoteJobStep extends PipelineDataStepBase {
+  kind: 'remote_job'
+  remoteJob: PipelineRemoteJob
+}
+
+/**
  * Pause and ask a person about the rows the step before it gave. Confirm
  * carries on with those rows; Skip leaves out the steps it names; Stop ends
  * the run. The answer's values reach later steps as `confirm_answer` (SQL)
@@ -302,7 +335,11 @@ export interface PipelineNotifyStep extends PipelineStepBase {
 }
 
 export type PipelineDataStep =
-  PipelineCodeStep | PipelineNoCodeStep | PipelinePluginDataStep
+  | PipelineCodeStep
+  | PipelineNoCodeStep
+  | PipelinePluginDataStep
+  | PipelineLakehouseStep
+  | PipelineRemoteJobStep
 
 export type PipelineStep =
   PipelineDataStep | PipelineAskStep | PipelineActionStep | PipelineNotifyStep
@@ -391,6 +428,8 @@ const rawStepSchema = z
     form: z.unknown(),
     contract: z.unknown(),
     plugin: z.unknown(),
+    lake: z.unknown(),
+    remoteJob: z.unknown(),
     ask: z.unknown(),
     action: z.unknown(),
     notify: z.unknown(),
@@ -1116,6 +1155,40 @@ function validateSteps(
       case 'plugin':
         validatePluginStep(errors, step, `${field}.plugin`)
         break
+      case 'lakehouse': {
+        if (!statementSchema.safeParse(step.statement).success)
+          push(
+            errors,
+            'invalid_value',
+            `${field}.statement`,
+            t('data.pipelineConfig.stepCodeMustContain'),
+          )
+
+        const problem = lakeProblem(step.lake)
+
+        if (problem)
+          push(
+            errors,
+            problem === 'invalid' ? 'invalid_shape' : 'invalid_value',
+            `${field}.lake`,
+            t(`features.pipelineRemote.problems.lake.${problem}`),
+          )
+        break
+      }
+
+      case 'remote_job': {
+        const problem = remoteJobProblem(step.remoteJob)
+
+        if (problem)
+          push(
+            errors,
+            problem === 'invalid' ? 'invalid_shape' : 'invalid_value',
+            `${field}.remoteJob`,
+            t(`features.pipelineRemote.problems.job.${problem}`),
+          )
+        break
+      }
+
       case 'ask':
         validateConfirmStep(
           errors,

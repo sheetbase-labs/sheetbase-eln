@@ -45,6 +45,8 @@ const KIND_LABEL: Record<PipelineStepKind, string> = {
   sql: 'SQL',
   python: 'Python',
   plugin: t('data.runSteps.kindPlugin'),
+  lakehouse: t('features.pipelineRemote.kinds.lakehouse'),
+  remote_job: t('features.pipelineRemote.kinds.remoteJob'),
   ask: t('data.runSteps.kindAsk'),
   action: t('data.runSteps.kindAction'),
   notify: t('data.runSteps.kindNotify'),
@@ -70,6 +72,8 @@ export function runSteps(
   run: { status: PipelineRunStatus },
   logs: PipelineRunLogWire[],
   prompt?: Pick<PipelineRunPromptWire, 'step_id'>,
+  /** The job on a cluster a waiting run is paused on, when it waits on one. */
+  job?: { step_name: string },
 ): RunStep[] {
   const steps = declared(config)
 
@@ -80,7 +84,10 @@ export function runSteps(
   let state: RunStepState = 'done'
 
   if (run.status === 'waiting') {
-    reached = Math.max(prompt ? named(prompt.step_id) : -1, 0)
+    reached = Math.max(
+      prompt ? named(prompt.step_id) : job ? named(job.step_name) : -1,
+      0,
+    )
     state = 'waiting'
   } else if (run.status === 'failed' || run.status === 'cancelled') {
     const error = [...logs].reverse().find((entry) => entry.level === 'error')
@@ -103,7 +110,10 @@ export function runSteps(
     const stepState: RunStepState =
       position < reached ? 'done' : position === reached ? state : 'not_started'
 
-    const tail = NOTE[stepState]
+    const tail =
+      stepState === 'waiting' && job
+        ? t('features.pipelineRemote.kinds.waitingJob')
+        : NOTE[stepState]
 
     return {
       index: position + 1,

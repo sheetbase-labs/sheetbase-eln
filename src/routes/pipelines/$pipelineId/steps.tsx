@@ -1,4 +1,8 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  redirect,
+  useSearch,
+} from '@tanstack/react-router'
 
 import { t } from '#/copy'
 import { Button } from '#/components/ui/button'
@@ -8,6 +12,13 @@ import { StepList } from '#/components/pipelines/step-list/step-list'
 import { usePipelineEditor } from '#/components/pipelines/step-list/use-pipeline-editor'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import {
+  draftVersion,
+  usePipelineVersions,
+} from '#/components/pipelines/pipelines-data'
+import { SimpleEditor } from '#/components/pipelines/simple/simple-editor'
+import { recipeOf } from '#/lib/pipelines/simple/compile'
+import { templateById } from '#/lib/pipelines/templates'
 
 /** The Standard editor: every step in order, with the selected step's settings beside it. */
 export const Route = createFileRoute('/pipelines/$pipelineId/steps')({
@@ -23,7 +34,39 @@ export const Route = createFileRoute('/pipelines/$pipelineId/steps')({
   component: PipelineSteps,
 })
 
+/** A Simple pipeline is edited as a recipe; every other mode in the step list below. */
 function PipelineSteps() {
+  const { pipelineId } = Route.useParams()
+  const { context } = Route.useRouteContext()
+  const versions = usePipelineVersions(pipelineId)
+  const list = versions.data ?? []
+
+  const source =
+    draftVersion(list) ??
+    list.find((v) => v.lifecycle === 'published') ??
+    list.at(0)
+
+  // SAFETY: `template` is the only search key this page reads; any other value is ignored.
+  const search = useSearch({ strict: false }) as { template?: string }
+  const template = search.template ? templateById(search.template) : undefined
+
+  if (recipeOf(source?.configuration) || (!source && template))
+    return (
+      <SimpleEditor
+        pipelineId={pipelineId}
+        workspaceId={context.workspace?.id ?? ''}
+        starting={
+          template
+            ? { recipe: template.recipe, fromTemplate: template.title }
+            : undefined
+        }
+      />
+    )
+
+  return <StandardSteps />
+}
+
+function StandardSteps() {
   const editor = usePipelineEditor()
 
   if (!editor.config || !editor.aiContext) return null

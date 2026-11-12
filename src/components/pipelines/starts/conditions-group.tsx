@@ -36,7 +36,7 @@ export function ConditionsGroup({
       head={
         <>
           <OpTag>{t('features.pipelineStarts.composer.andTag')}</OpTag>
-          {t('features.pipelineStarts.composer.onlyIf')}
+          <span>{t('features.pipelineStarts.composer.onlyIf')}</span>
           {bothConditions ? (
             <BoardSelect
               aria-label={t('features.pipelineStarts.composer.onlyIf')}
@@ -56,9 +56,9 @@ export function ConditionsGroup({
               </option>
             </BoardSelect>
           ) : (
-            t('features.pipelineStarts.composer.all')
+            <span>{t('features.pipelineStarts.composer.all')}</span>
           )}
-          {t('features.pipelineStarts.composer.ofTheseTrue')}
+          <span>{t('features.pipelineStarts.composer.ofTheseTrue')}</span>
         </>
       }
     >
@@ -165,7 +165,6 @@ export function ConditionsGroup({
               : t('features.pipelineStarts.composer.addHours')}
           </LinkButton>
         ) : null}
-        {window === null && draft.minNewRows === null ? ' ' : null}
         {draft.minNewRows === null ? (
           <LinkButton
             onClick={() => setDraft({ ...draft, minNewRows: rowsValue ?? 1 })}

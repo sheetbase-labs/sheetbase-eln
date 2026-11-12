@@ -82,6 +82,7 @@ export function StepRow({
       icon={icon}
       kind={kind}
       summary={summary}
+      summaryTitle={summary}
       detail={detail}
       rows={rows}
       rowsWarn={rowsWarn}

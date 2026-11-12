@@ -115,6 +115,9 @@
 }
 .pb-scope .addl {
   padding: 2px 0 2px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
 }
 .pb-scope .rb {
   font-size: 13px;

@@ -155,7 +155,10 @@ export function PipelineMenu({
             {t('data.pipelineMenu.downloadFile')}
           </DropdownMenuItem>
           {editor.advanced ? null : (
-            <DropdownMenuItem icon="code" onClick={() => setConvertingFile(true)}>
+            <DropdownMenuItem
+              icon="code"
+              onClick={() => setConvertingFile(true)}
+            >
               {t('features.pipelineVersionFile.convert.menu')}
             </DropdownMenuItem>
           )}

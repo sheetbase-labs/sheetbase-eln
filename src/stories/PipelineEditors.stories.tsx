@@ -14,10 +14,8 @@ import {
   PythonTestRun,
 } from '#/components/pipelines/python-editor'
 import { SqlEditor } from '#/components/pipelines/sql-editor'
-import { StepsEditor } from '#/components/pipelines/steps-editor'
 import { TrialPanel } from '#/components/pipelines/trial-panel'
 import type { PipelineInput, PipelineParameter } from '#/lib/pipelines/config'
-import type { PipelineViewStep as PipelineStep } from '#/lib/pipelines/config-view'
 import type { PythonColumn, PythonContract } from '#/lib/pipelines/python'
 import type { ResultPreview } from '#/lib/pipelines/result-preview'
 import { screenQueryClient } from './screen-stories'
@@ -351,52 +349,6 @@ export const PythonTest: Story = {
       parameters={pythonParameters}
       onUseOutputColumns={() => {}}
     />
-  ),
-}
-
-const members = { 'u-1': 'Priya Raman', 'u-2': 'Tom Okafor' }
-
-/** Steps after the transform: one SQL, one that pauses for a person. */
-export const Steps: Story = {
-  decorators: [withClient],
-  render: function Render() {
-    const [steps, setSteps] = useState<PipelineStep[]>([
-      {
-        name: 'drop-blanks',
-        language: 'sql',
-        statement: 'select * from previous where od600 is not null',
-      },
-      {
-        name: 'confirm-outliers',
-        language: 'sql',
-        statement: 'select * from previous',
-        confirm: {
-          fields: [{ key: 'ok', label: 'Keep outliers?', type: 'boolean' }],
-          askedUserIds: ['u-1'],
-          noAnswer: 'reask',
-        },
-      },
-    ])
-
-    return (
-      <StepsEditor
-        steps={steps}
-        members={members}
-        onChange={setSteps}
-        python={{
-          inputs: pythonInputs,
-          parameters: pythonParameters,
-          transformRuns: true,
-        }}
-      />
-    )
-  },
-}
-
-export const StepsEmpty: Story = {
-  decorators: [withClient],
-  render: () => (
-    <StepsEditor steps={[]} members={members} onChange={() => {}} />
   ),
 }
 

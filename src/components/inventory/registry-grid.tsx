@@ -662,7 +662,7 @@ function RegistryTable<T extends RowData>({
         tableClassNames={{
           // The registry table never wraps: a row is one line, and the scroll
           // area carries the overflow (the v3 table's own rule).
-          base: 'num w-full whitespace-nowrap',
+          base: 'num registry-table w-full whitespace-nowrap',
           // The v3 table's own geometry, so the swap is invisible: a 31px
           // muted header band, 33px rows, 10px cell padding with the first
           // cell inset to 24px.
@@ -672,7 +672,7 @@ function RegistryTable<T extends RowData>({
           // `text-fg-muted`, as the v3 table head renders.
           header:
             '[&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6 [@media(hover:none)]:[&_th:last-child]:pr-11 [&_th]:text-label [&_th]:text-fg-muted [&_th]:border-border',
-          body: '[&_td_a.mono]:text-fg [&_td_a.mono]:no-underline [&_td_a.mono:hover]:underline [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6',
+          body: '[&_td_a.mono]:text-fg [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6',
         }}
       >
         <DataGridScrollArea orientation="both" className="h-full">

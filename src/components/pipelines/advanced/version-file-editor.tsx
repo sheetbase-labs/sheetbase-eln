@@ -8,7 +8,6 @@ import {
 } from 'react'
 
 import { t } from '#/copy'
-import type { CopyKey } from '#/copy'
 import { Icon } from '#/components/icons'
 import { toast } from '#/components/ui/sonner'
 import { BoardButton } from '#/features/pipelines/board/board'
@@ -41,8 +40,10 @@ import { VersionFileStacked } from './version-file-sidebar'
 
 /** The one-line note for a suggested key. */
 function hintNote(key: string) {
-  // SAFETY: every key `hintsAt` offers has a note under hints.keys in the copy.
-  return t(`features.pipelineVersionFile.hints.keys.${key}` as CopyKey, {})
+  // SAFETY: every key `hintsAt` offers has a plain note under hints.keys in the copy; the one literal stands for them all.
+  return t(
+    `features.pipelineVersionFile.hints.keys.${key}` as 'features.pipelineVersionFile.hints.keys.pipeline',
+  )
 }
 
 const LINE_HEIGHT = 19

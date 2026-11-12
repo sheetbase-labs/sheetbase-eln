@@ -197,7 +197,8 @@
   tab-size: 2;
 }
 .ye-in::selection {
-  background: var(--selection);
+  /* The text layer sits under this one, so the selection is a tint it shows through. */
+  background: color-mix(in oklab, var(--primary) 28%, transparent);
   color: transparent;
 }
 .ye-prob {

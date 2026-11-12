@@ -237,7 +237,7 @@ function PipelineLayout() {
                   {
                     label: t('data.pipelineHeader.startsAndRuns'),
                     count: editor.runs.data?.length,
-                    link: { to: '/pipelines/$pipelineId/runs', params },
+                    link: { to: '/pipelines/$pipelineId/starts', params },
                   },
                   {
                     label: t('data.pipelineHeader.activity'),

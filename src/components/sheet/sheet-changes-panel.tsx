@@ -5,6 +5,7 @@
  */
 import { t } from '#/copy'
 import { cn } from '#/lib/utils'
+import './sheet-board.css'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 
@@ -96,8 +97,8 @@ function BeforeAfter({ row }: { row: SheetChangeRow }) {
 
   return (
     <span>
-      <del className="text-fg-muted">{row.before}</del>
-      <span aria-hidden="true" className="px-1 text-fg-muted">
+      <del>{row.before}</del>
+      <span aria-hidden="true" className="ar">
         →
       </span>
       <span className="sr-only">{t('notebook.sheetChanges.to')}</span>
@@ -165,23 +166,21 @@ export function SheetChangeList({
   return (
     <section
       aria-label={t('notebook.sheetChanges.listAriaLabel')}
-      className="flex max-h-56 shrink-0 flex-col border-t"
+      className="flex max-h-56 shrink-0 flex-col"
     >
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2">
-        <span className="text-body font-medium">
-          {t('notebook.sheetChanges.title')}
-        </span>
-        <span className="text-label text-fg-muted">
+      <div className="tx-lh">
+        <b>{t('notebook.sheetChanges.title')}</b>
+        <span>
           {todayCount === 0
             ? t('notebook.sheetChanges.noneToday')
             : t('notebook.sheetChanges.today', { count: todayCount })}
         </span>
         <span className="flex-1" />
-        <span className="text-xs text-fg-muted max-md:hidden">
+        <span className="max-md:hidden">
           {t('notebook.sheetChanges.alwaysRecorded')}
         </span>
       </div>
-      <div className="min-h-0 overflow-auto">
+      <div className="tx-lt min-h-0 overflow-auto">
         <RegistryGrid
           label={t('notebook.sheetChanges.listAriaLabel')}
           rows={[...rows]}
@@ -208,33 +207,29 @@ export function SheetCellHistory({
   return (
     <aside
       aria-label={t('notebook.sheetChanges.historyAriaLabel')}
-      className="w-72 shrink-0 space-y-3 overflow-y-auto border-l px-3 py-3 max-md:w-full max-md:flex-none max-md:overflow-visible max-md:border-t max-md:border-l-0"
+      className="tx-side max-md:w-full max-md:flex-none max-md:border-t max-md:border-l-0"
     >
       {cell ? (
         <>
           <div>
-            <div className="text-label text-fg-muted">{cell.title}</div>
-            <div className="text-lg font-medium">{cell.value || '—'}</div>
+            <div className="tx-sk">{cell.title}</div>
+            <div className="tx-big">{cell.value || '—'}</div>
           </div>
-          <div className="space-y-2">
-            <h4 className="text-label font-medium text-fg-muted">
-              {t('notebook.sheetChanges.historyTitle')}
-            </h4>
+          <div>
+            <h4>{t('notebook.sheetChanges.historyTitle')}</h4>
             {cell.rows.length === 0 ? (
-              <p className="text-label text-fg-muted">
+              <p className="tx-sk">
                 {t('notebook.sheetChanges.noCellChanges')}
               </p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="tx-trail">
                 {cell.rows.map((row) => (
-                  <li key={row.id} className="flex gap-3 text-label">
-                    <span className="w-12 shrink-0 text-fg-muted">
-                      {row.when}
-                    </span>
-                    <span className="min-w-0">
+                  <li key={row.id}>
+                    <span className="t">{row.when}</span>
+                    <span>
                       {row.who} · <BeforeAfter row={row} />
                       {row.reason ? (
-                        <span className="block text-fg-muted">
+                        <span className="q">
                           {t('notebook.sheetChanges.reasonQuoted', {
                             reason: row.reason,
                           })}
@@ -248,9 +243,7 @@ export function SheetCellHistory({
           </div>
         </>
       ) : (
-        <p className="text-label text-fg-muted">
-          {t('notebook.sheetChanges.selectCell')}
-        </p>
+        <p className="tx-sk">{t('notebook.sheetChanges.selectCell')}</p>
       )}
     </aside>
   )

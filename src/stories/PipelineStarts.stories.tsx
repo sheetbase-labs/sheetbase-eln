@@ -21,6 +21,7 @@ import {
   TimelineLegend,
 } from '#/components/pipelines/starts/run-timeline'
 import { SelectedRun } from '#/components/pipelines/starts/selected-run'
+import { PublishingNote } from '#/components/pipelines/starts/publishing-note'
 import { StartsAside } from '#/components/pipelines/starts/starts-aside'
 import { StartsComposer } from '#/components/pipelines/starts/starts-composer'
 import { TestStartsDialog } from '#/components/pipelines/starts/test-starts-dialog'
@@ -433,12 +434,22 @@ export const RightColumn: Story = {
   render: () => (
     <StartsAside
       workspaceId="ws-1"
+      pipelineId="pl-1"
+      publishWaiting={false}
       displayId="PL-0007"
       owner="Gareth P."
       scope={[
         { icon: 'database', text: 'Reads ELISA capsid titre and turbidity' },
       ]}
     />
+  ),
+}
+
+export const PublishingWaiting: Story = {
+  render: () => (
+    <div style={{ width: 300 }}>
+      <PublishingNote pipelineId="pl-1" waiting />
+    </div>
   ),
 }
 

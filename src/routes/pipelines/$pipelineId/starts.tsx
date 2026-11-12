@@ -1,9 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useMemo } from 'react'
 
 import { t } from '#/copy'
 import { ProjectListFailure } from '#/components/projects/project-list'
 import { Muted } from '#/components/ui/layout'
-import { useSchedules } from '#/components/pipelines/pipelines-data'
+import { usePublishApproval } from '#/components/pipelines/activity/use-publish-approval'
+import {
+  usePipelineVersions,
+  useSchedules,
+} from '#/components/pipelines/pipelines-data'
 import { StartsPage } from '#/components/pipelines/starts/starts-page'
 import { useStartRules } from '#/components/pipelines/starts/starts-data'
 
@@ -19,6 +24,14 @@ function PipelineStarts() {
   const workspaceId = context.workspace?.id ?? ''
   const schedules = useSchedules(pipelineId)
   const rules = useStartRules(pipelineId)
+  const versions = usePipelineVersions(pipelineId)
+  const list = useMemo(() => versions.data ?? [], [versions.data])
+
+  const approval = usePublishApproval(list, {
+    workspaceId,
+    role: context.workspace?.role,
+    userId: context.user.id,
+  })
 
   const failed = schedules.isError ? schedules : rules.isError ? rules : null
 
@@ -50,6 +63,7 @@ function PipelineStarts() {
       workspaceId={workspaceId}
       schedules={schedules.data}
       rules={rules.data}
+      publishWaiting={Boolean(approval.pending)}
     />
   )
 }

@@ -64,6 +64,14 @@ export function HeardEvents({
         <h3>
           {t('features.pipelineStarts.heard.title', { count: shown.length })}
         </h3>
+        <span style={{ flexGrow: 1 }} />
+        <Link
+          to="/pipelines/$pipelineId/activity"
+          params={{ pipelineId }}
+          style={{ fontSize: 12 }}
+        >
+          {t('features.pipelineStarts.heard.allActivity')}
+        </Link>
       </div>
       {shown.length === 0 ? (
         <div className="muted" style={{ fontSize: 12 }}>

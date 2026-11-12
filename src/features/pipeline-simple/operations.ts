@@ -1,0 +1,70 @@
+/**
+ * Convert a Simple pipeline to Standard and duplicate a version as a new
+ * pipeline. Declared once, so the public API, the SDKs, MCP
+ * (`sheetbase.lab.act`), the assistant and pipeline actions all come from
+ * these entries. Both send the events the tables already send: a conversion
+ * is `pipeline.version.created` or `pipeline.version.updated` for the draft,
+ * a duplicate is `pipeline.created` then `pipeline.version.created`.
+ */
+import { defineOperations, input } from '#/lib/operations/descriptor'
+import type { OperationInput } from '#/lib/operations/descriptor'
+
+const workspace = (): OperationInput => ({
+  ...input('p_workspace_id', 'uuid'),
+  server: 'workspace',
+  description: 'Your workspace id.',
+})
+
+const described = (
+  name: string,
+  type: OperationInput['type'],
+  description: string,
+  required = true,
+): OperationInput => ({ ...input(name, type, required), description })
+
+export const PIPELINE_SIMPLE_OPERATIONS = defineOperations([
+  {
+    name: 'convert_pipeline_to_standard',
+    label: 'Convert a Simple pipeline to Standard',
+    summary: 'Convert a Simple pipeline to Standard',
+    description:
+      'Turns a Simple pipeline (a recipe) into a Standard one (typed steps) and cannot be undone: the recipe goes and the steps it compiled to stay. The draft becomes Standard in place; with no draft the newest version is copied into a new Standard draft. The published version keeps running until the draft is published. Stewards, admins and owners. Returns the Standard draft version. Sends `pipeline.version.updated` or `pipeline.version.created`.',
+    kind: 'write',
+    scope: 'pipelines:write',
+    inputs: [
+      workspace(),
+      described(
+        'p_definition_id',
+        'uuid',
+        'The pipeline, from `pipeline_definitions`.',
+      ),
+    ],
+    result: 'row:pipeline_definition_versions',
+    assistant: { tool: 'sheetbase.pipeline.convert' },
+    pipeline: {},
+    docsPage: 'pipelines-simple-api.md',
+  },
+  {
+    name: 'duplicate_pipeline_definition',
+    label: 'Duplicate a pipeline version as a new pipeline',
+    summary: 'Duplicate a pipeline version as a new pipeline',
+    description:
+      'Makes a new pipeline from one version of another, in the mode that version was written in, starting as its first draft. Runs, starts and history stay with the original. `p_key` is letters, digits and `_`, unique in the workspace. Stewards, admins and owners. Returns the new pipeline. Sends `pipeline.created` and `pipeline.version.created`.',
+    kind: 'write',
+    scope: 'pipelines:write',
+    inputs: [
+      workspace(),
+      described(
+        'p_version_id',
+        'uuid',
+        'The version to copy, from `pipeline_definition_versions`.',
+      ),
+      described('p_key', 'text', 'The new pipeline’s key.'),
+      described('p_name', 'text', 'The new pipeline’s name.'),
+    ],
+    result: 'row:pipeline_definitions',
+    assistant: { tool: 'sheetbase.pipeline.duplicate' },
+    pipeline: {},
+    docsPage: 'pipelines-simple-api.md',
+  },
+])

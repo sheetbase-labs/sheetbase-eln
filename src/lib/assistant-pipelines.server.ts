@@ -3,6 +3,8 @@ import { z } from 'zod'
 import {
   PIPELINES_PROPOSE_TOOL_NAMES,
   PIPELINE_CANCEL_TOOL,
+  PIPELINE_CONVERT_TOOL,
+  PIPELINE_DUPLICATE_TOOL,
   PIPELINE_PUBLISH_TOOL,
   PIPELINE_RETIRE_TOOL,
   PIPELINE_RETRY_TOOL,
@@ -13,6 +15,8 @@ import {
   PLUGIN_REMOVE_TOOL,
   PLUGIN_SWITCH_TOOL,
   proposePipelineCancelSchema,
+  proposePipelineConvertSchema,
+  proposePipelineDuplicateSchema,
   proposePipelinePublishSchema,
   proposePipelineRetireSchema,
   proposePipelineRetrySchema,
@@ -83,6 +87,16 @@ export function pipelinesProposalDefs(): ProviderToolDef[] {
       PIPELINE_RETIRE_TOOL,
       `Propose retiring a pipeline so it can no longer run, or bringing a retired one back. ${NOTE}`,
       proposePipelineRetireSchema,
+    ),
+    toolDef(
+      PIPELINE_CONVERT_TOOL,
+      `Propose converting a Simple pipeline to Standard, so its steps can be edited one by one. It cannot be undone. Only stewards, admins and owners can. ${NOTE}`,
+      proposePipelineConvertSchema,
+    ),
+    toolDef(
+      PIPELINE_DUPLICATE_TOOL,
+      `Propose making a new pipeline from a copy of an existing one’s newest version, in the same mode. Give the new name. ${NOTE}`,
+      proposePipelineDuplicateSchema,
     ),
     toolDef(
       PIPELINE_SCHEDULE_ADD_TOOL,
@@ -184,6 +198,17 @@ async function versions(
   return context.client.list<VersionRow>(
     'pipeline_definition_versions',
     `?definition_id=eq.${encodeURIComponent(definitionId)}&lifecycle=eq.${lifecycle}&select=id,version,lifecycle,configuration&order=version.desc&limit=1`,
+  )
+}
+
+/** The pipeline's newest version, whatever its state. */
+async function newestVersion(
+  context: LabToolContext,
+  definitionId: string,
+): Promise<(VersionRow & { configuration: { mode?: string } | null })[]> {
+  return context.client.list(
+    'pipeline_definition_versions',
+    `?definition_id=eq.${encodeURIComponent(definitionId)}&select=id,version,lifecycle,configuration&order=version.desc&limit=1`,
   )
 }
 
@@ -543,6 +568,77 @@ export async function buildPipelinesProposal(
           workspaceId: context.workspaceId,
           definitionId: pipeline.id,
           lifecycle,
+        },
+      )
+    }
+
+    case PIPELINE_CONVERT_TOOL: {
+      const parsed = proposePipelineConvertSchema.safeParse(args)
+
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+      const found = await findPipeline(context, input.pipeline)
+
+      if (!found.ok) return fail(found.message)
+      const pipeline = found.value
+      const newest = (await newestVersion(context, pipeline.id)).at(0)
+
+      if (!newest || newest.configuration?.mode !== 'simple')
+        return fail(`${pipeline.name} is not a Simple pipeline.`)
+
+      return card(
+        name,
+        input,
+        `${pipeline.name} · Pipelines`,
+        `${pipelineLink(pipeline.id)}/steps`,
+        [{ label: 'Mode', before: 'Simple', after: 'Standard' }],
+        {
+          kind: 'pipeline.convert',
+          workspaceId: context.workspaceId,
+          definitionId: pipeline.id,
+        },
+      )
+    }
+
+    case PIPELINE_DUPLICATE_TOOL: {
+      const parsed = proposePipelineDuplicateSchema.safeParse(args)
+
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+      const found = await findPipeline(context, input.pipeline)
+
+      if (!found.ok) return fail(found.message)
+      const pipeline = found.value
+      const newest = (await newestVersion(context, pipeline.id)).at(0)
+
+      if (!newest) return fail(`${pipeline.name} has no version to copy.`)
+
+      const key = input.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .replace(/^[^a-z]+/, '')
+        .slice(0, 60)
+
+      if (!key)
+        return fail('The new name needs at least one letter to make a key.')
+
+      return card(
+        name,
+        input,
+        `${pipeline.name} · Pipelines`,
+        pipelineLink(pipeline.id),
+        [
+          { label: 'New pipeline', before: null, after: input.name },
+          { label: 'Copied from', before: null, after: `v${newest.version}` },
+        ],
+        {
+          kind: 'pipeline.duplicate',
+          workspaceId: context.workspaceId,
+          definitionId: pipeline.id,
+          versionId: newest.id,
+          key,
+          name: input.name,
         },
       )
     }

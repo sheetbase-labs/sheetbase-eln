@@ -4,7 +4,7 @@ export const copy = {
     remoteJob: 'Remote job',
     remoteJobHint: 'Script on an HPC queue',
     lakehouse: 'Lakehouse SQL',
-    lakehouseHint: 'SQL over open tables',
+    lakehouseHint: 'Query open tables',
     groupConnect: 'Connect',
     remoteJobNote: 'HPC',
     lakehouseNote: 'Lakehouse',

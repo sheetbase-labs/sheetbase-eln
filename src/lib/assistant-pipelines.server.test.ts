@@ -219,7 +219,7 @@ describe('pipeline and plugin assistant cards', () => {
     })
   })
 
-  it('publishes the draft and retires or brings back a pipeline', async () => {
+  it('asks for approval to publish the draft, and retires or brings back a pipeline', async () => {
     const publish = await buildPipelinesProposal(
       PIPELINE_PUBLISH_TOOL,
       { ...base, pipeline: 'nightly_qc' },
@@ -227,8 +227,18 @@ describe('pipeline and plugin assistant cards', () => {
     )
 
     expect(publish.ok && publish.proposal.changes).toEqual([
-      { label: 'Published version', before: 'v3', after: 'v4' },
+      {
+        label: 'Approval to publish',
+        before: 'v3 published',
+        after: 'v4 waits for an admin',
+      },
     ])
+
+    // The card asks; an admin decides in the app, so it carries a reason.
+    expect(publish.ok && publish.proposal.action).toMatchObject({
+      kind: 'pipeline.publish',
+      reason: expect.any(String),
+    })
 
     const retire = await buildPipelinesProposal(
       PIPELINE_RETIRE_TOOL,

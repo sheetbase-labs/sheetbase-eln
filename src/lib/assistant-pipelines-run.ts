@@ -41,9 +41,12 @@ export async function runPipelinesAction(
         openHref: `/pipelines/${action.definitionId}/runs/${action.runId}`,
       }
     case 'pipeline.publish':
-      await client.rpc('publish_pipeline_definition_version', {
+      // Publishing needs an admin's approval: this asks for it. Deciding
+      // stays with a person in the app.
+      await client.rpc('request_pipeline_publish', {
         p_workspace_id: action.workspaceId,
         p_version_id: action.versionId,
+        p_reason: action.reason,
       })
 
       return { openHref: `/pipelines/${action.definitionId}/steps` }

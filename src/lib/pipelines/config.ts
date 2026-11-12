@@ -1020,8 +1020,10 @@ function validateSteps(
     }
 
     // Each kind keeps its settings under its own key, and only its own.
+    const allowed = new Set(STEP_KIND_KEYS[kind.data])
+
     for (const key of STEP_SETTING_KEYS)
-      if (step[key] !== undefined && !STEP_KIND_KEYS[kind.data].includes(key))
+      if (step[key] !== undefined && !allowed.has(key))
         push(
           errors,
           'invalid_value',

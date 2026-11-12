@@ -1,0 +1,581 @@
+/*
+ * The Pipelines board's own CSS, copied from `PipeFinalStandard.dc.html` (the `.pb-*` rules)
+ * and `ds/sheetbase/components/bundle.css` (`.seg`, `.code`, `.kind`, `.dl`, `.tmp`, `.check`),
+ * so the editor draws the same shapes as the board. Source of truth:
+ * /mnt/project-files/pipelines-system/board-html/. Change a value here only when the board changes.
+ * The board's tokens map onto the app's: --text* -> --foreground / --muted-foreground / --faint-foreground,
+ * --accent -> --primary (the app's --accent is a hover wash).
+ */
+.pb-scope {
+  --text: var(--foreground);
+  --text-muted: var(--muted-foreground);
+  --text-faint: var(--faint-foreground);
+  --accent-strong: var(--primary);
+  --accent-strong-hover: var(--primary-hover);
+}
+
+/* bundle.css: .btn, .input, .select, .status and the .dot tones */
+.pb-scope .btn {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  font: 500 13px var(--font-sans);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.pb-scope .btn:hover {
+  background: var(--surface-hover);
+  text-decoration: none;
+  color: var(--text);
+}
+.pb-scope .btn-p {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: var(--on-accent);
+}
+.pb-scope .btn-p:hover {
+  background: var(--accent-strong-hover);
+  color: var(--on-accent);
+}
+.pb-scope .btn-q {
+  border-color: transparent;
+  background: transparent;
+}
+.pb-scope .btn-danger {
+  color: var(--danger-text);
+}
+.pb-scope .btn-s {
+  height: 24px;
+  font-size: 12px;
+  padding: 0 8px;
+}
+.pb-scope .btn[disabled],
+.pb-scope .btn[aria-disabled='true'] {
+  background: var(--surface-disabled);
+  border-color: var(--border);
+  color: var(--text-faint);
+  cursor: default;
+}
+.pb-scope .btn.ib {
+  width: 28px;
+  padding: 0;
+  justify-content: center;
+  border-color: transparent;
+  background: transparent;
+}
+.pb-scope .btn.ib:hover {
+  background: var(--surface-hover);
+}
+.pb-scope .btn[aria-expanded='true'],
+.pb-scope .btn.pressed {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+.pb-scope .btn-p[aria-expanded='true'] {
+  background: var(--accent-strong-hover);
+}
+.pb-scope .btn:focus-visible,
+.pb-scope input:focus-visible,
+.pb-scope select:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.pb-scope .input,
+.pb-scope .select {
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0 8px;
+  font: 13px var(--font-sans);
+  color: var(--text);
+  background: var(--surface);
+  width: 100%;
+}
+.pb-scope .input[aria-invalid='true'] {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+.pb-scope select.select {
+  cursor: pointer;
+}
+.pb-scope .status {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.pb-scope .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+.pb-scope .st-progress {
+  background: var(--primary);
+}
+.pb-scope .st-review {
+  background: var(--review);
+}
+.pb-scope .st-ok {
+  background: var(--success);
+}
+.pb-scope .st-warn {
+  background: var(--warning);
+}
+.pb-scope .st-bad {
+  background: var(--danger);
+}
+.pb-scope .st-draft {
+  background: var(--neutral-dot);
+}
+.pb-scope .st-stored {
+  background: var(--text-muted);
+}
+.pb-scope .st-none {
+  background: transparent;
+  border: 1px solid var(--neutral-dot);
+}
+.pb-scope .st-analysis {
+  background: var(--analysis);
+}
+
+.pb-scope .muted {
+  color: var(--text-muted);
+}
+.pb-scope .mono {
+  font-family: var(--font-mono);
+}
+.pb-scope .num {
+  font-variant-numeric: tabular-nums;
+}
+
+.pb-scope.pb-col,
+.pb-scope .pb-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex-grow: 1;
+}
+.pb-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+}
+.pb-bar .muted {
+  font-size: 12px;
+}
+.pb-list {
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.pb-head,
+.pb-row {
+  display: grid;
+  grid-template-columns: 22px 92px 1fr 72px 76px 24px;
+  column-gap: 8px;
+  align-items: center;
+  padding: 0 8px 0 10px;
+}
+.pb-head {
+  height: 28px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border);
+}
+.pb-head .r,
+.pb-row .r {
+  text-align: right;
+}
+.pb-row {
+  min-height: 36px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pb-blk:last-child .pb-row,
+.pb-blk:last-child {
+  border-bottom: 0;
+}
+.pb-blk {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pb-blk > .pb-row {
+  border-bottom: 0;
+}
+.pb-row .ic {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: var(--surface);
+}
+.pb-row .k {
+  font: 500 11px var(--font-mono);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pb-row .s {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.pb-row .s > button {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pb-row .s > button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.pb-row .s .when {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-left: 6px;
+}
+.pb-row .rows {
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+.pb-row .rows.warn {
+  color: var(--warning-text);
+  font-weight: 600;
+}
+.pb-row .st {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.pb-row .more {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.pb-row .more:hover {
+  background: var(--surface-hover);
+}
+.pb-ends {
+  background: var(--surface-muted);
+}
+.pb-ends .pb-row .ic {
+  background: var(--surface);
+}
+.pb-sel {
+  background: var(--selection-subtle);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.pb-calc {
+  padding: 2px 12px 12px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pb-calc .frow {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  align-items: center;
+  column-gap: 10px;
+  font-size: 12px;
+}
+.pb-calc .input,
+.pb-calc .select {
+  height: 28px;
+  font-size: 12px;
+}
+.pb-calc .frow > label {
+  color: var(--text-muted);
+}
+.pb-expr {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  min-height: 30px;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.pb-expr .col {
+  font: 500 12px var(--font-mono);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.pb-expr input.col {
+  height: 24px;
+  min-width: 72px;
+  width: 120px;
+}
+.pb-expr .op {
+  font: 500 13px var(--font-sans);
+  color: var(--text-muted);
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+}
+.pb-expr select.op {
+  cursor: pointer;
+  appearance: none;
+}
+.pb-expr .lit {
+  font: 12px var(--font-mono);
+}
+.pb-expr .add {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+.pb-expr .add:hover {
+  color: var(--text);
+}
+.pb-gen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.pb-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 40px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pb-add .btn {
+  gap: 6px;
+}
+.pb-foot {
+  font-size: 12px;
+  line-height: 18px;
+  padding: 0 2px;
+  color: var(--text-muted);
+}
+
+.pb-menu .menu-label {
+  padding-top: 7px;
+}
+.pb-menu-foot {
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--text-muted);
+  padding: 6px 8px 4px;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 4px;
+}
+
+/* bundle.css: .seg */
+.pb-scope .seg {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+.pb-scope .seg button {
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 12px var(--font-sans);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.pb-scope .seg button.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+/* bundle.css: .code, with the board's .pb-calc overrides */
+.pb-scope .code {
+  counter-reset: ln;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 17px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px 0;
+  overflow: auto;
+  white-space: pre;
+  color: var(--text);
+}
+.pb-scope .code .l {
+  display: block;
+  padding: 0 12px 0 36px;
+  position: relative;
+}
+.pb-scope .code .l::before {
+  counter-increment: ln;
+  content: counter(ln);
+  position: absolute;
+  left: 0;
+  width: 24px;
+  text-align: right;
+  color: var(--text-faint);
+}
+.pb-scope .code .kw {
+  color: var(--primary);
+  font-weight: 500;
+}
+.pb-scope .code .str {
+  color: var(--success-text);
+}
+.pb-scope .code .ref {
+  background: var(--selection);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+/* the inspector */
+.pb-insp {
+  width: 300px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: auto;
+}
+.pb-insp h3 {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+.pb-scope .kind {
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0.02em;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  background: var(--surface);
+}
+.pb-scope .dl {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  row-gap: 8px;
+  column-gap: 8px;
+  font-size: 12px;
+  margin: 0;
+}
+.pb-scope .dl dt {
+  color: var(--text-muted);
+}
+.pb-scope .dl dd {
+  margin: 0;
+}
+.pb-scope .tmp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0 5px;
+}
+.pb-scope .check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 12px;
+}
+.pb-scope .check input {
+  margin: 1px 0 0;
+  accent-color: var(--primary);
+}
+.pb-io {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.pb-io > div {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pb-io > div:last-child {
+  border-bottom: 0;
+}
+.pb-io .lab {
+  color: var(--text-muted);
+}
+.pb-io .me {
+  background: var(--selection-subtle);
+}
+.pb-io .cnt {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .pb-head,
+  .pb-row {
+    grid-template-columns: 22px 72px 1fr auto 24px;
+  }
+  .pb-head > :nth-child(4),
+  .pb-row > .rows {
+    display: none;
+  }
+  .pb-calc,
+  .pb-add {
+    padding-left: 10px;
+  }
+}

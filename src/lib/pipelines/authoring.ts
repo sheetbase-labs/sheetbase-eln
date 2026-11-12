@@ -127,7 +127,7 @@ export function setStepLanguage(
 
     // A plugin step has no code or data contract; a pause for a person carries
     // over, and the plugin it runs starts empty.
-    if (language === 'plugin') {
+    if (language === 'plugin' || language === 'web_call') {
       const { contract: _contract, ...rest } = step
 
       return { ...rest, language, statement: '' }

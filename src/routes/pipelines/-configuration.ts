@@ -164,13 +164,14 @@ const editorFields = configurationObject({
     .array(
       configurationObject({
         name: z.string(),
-        language: z.enum(['sql', 'python', 'plugin']),
+        language: z.enum(['sql', 'python', 'plugin', 'web_call']),
         statement: z.string(),
         contract: contract.optional(),
         plugin: configurationObject({
           operation: z.string(),
           arguments: pipelineJsonObjectSchema,
         }).optional(),
+        webCall: pipelineJsonObjectSchema.optional(),
         dataName: z.string().optional(),
         note: z.string().optional(),
         onlyIfRows: z.boolean().optional(),

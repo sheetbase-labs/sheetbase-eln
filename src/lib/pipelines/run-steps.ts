@@ -47,6 +47,7 @@ const KIND_LABEL: Record<PipelineStepKind, string> = {
   plugin: t('data.runSteps.kindPlugin'),
   lakehouse: t('features.pipelineRemote.kinds.lakehouse'),
   remote_job: t('features.pipelineRemote.kinds.remoteJob'),
+  web_call: t('features.pipelineConnections.kind.label'),
   ask: t('data.runSteps.kindAsk'),
   action: t('data.runSteps.kindAction'),
   notify: t('data.runSteps.kindNotify'),

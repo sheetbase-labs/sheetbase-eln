@@ -10,6 +10,8 @@ import type { NoCodeForms, NoCodeKind } from './no-code/forms'
 import { noCodeStepProblem } from './no-code/schema'
 import { lakeProblem, remoteJobProblem } from './remote/settings'
 import type { PipelineLake, PipelineRemoteJob } from './remote/settings'
+import { webCallProblem } from './web-call'
+import type { PipelineWebCall } from './web-call'
 
 /**
  * AUTO-01 — Pipeline configuration contract (format version 2).
@@ -62,6 +64,7 @@ export const PIPELINE_STEP_KINDS = [
   'plugin',
   'lakehouse',
   'remote_job',
+  'web_call',
   'ask',
   'action',
   'notify',
@@ -74,7 +77,7 @@ export const PIPELINE_STEP_KINDS = [
  */
 export function stepRuns(
   kind: (typeof PIPELINE_STEP_KINDS)[number],
-): 'sql' | 'python' | 'plugin' | 'remote_job' | 'ask' | 'action' | 'notify' {
+): 'sql' | 'python' | 'plugin' | 'remote_job' | 'web_call' | 'ask' | 'action' | 'notify' {
   if (isNoCodeKind(kind) || kind === 'lakehouse') return 'sql'
 
   return kind
@@ -88,6 +91,7 @@ export const DATA_STEP_KINDS = [
   'plugin',
   'lakehouse',
   'remote_job',
+  'web_call',
 ] as const
 
 /** The settings keys a step may carry, and which belong to which kind. */
@@ -98,6 +102,7 @@ const STEP_SETTING_KEYS = [
   'plugin',
   'lake',
   'remoteJob',
+  'webCall',
   'ask',
   'action',
   'notify',
@@ -117,6 +122,7 @@ const STEP_KIND_KEYS: Record<
   plugin: ['plugin'],
   lakehouse: ['statement', 'lake'],
   remote_job: ['remoteJob'],
+  web_call: ['webCall'],
   ask: ['ask'],
   action: ['action'],
   notify: ['notify'],
@@ -234,6 +240,8 @@ export interface PipelinePluginStep {
   arguments: Record<string, z.core.util.JSONType>
 }
 
+export type { PipelineWebCall } from './web-call'
+
 /** A governed ELN change a step makes, or proposes, under the action's policy. */
 export interface PipelineStepAction {
   operation: string
@@ -285,6 +293,12 @@ export type PipelineNoCodeStep = {
 export interface PipelinePluginDataStep extends PipelineDataStepBase {
   kind: 'plugin'
   plugin: PipelinePluginStep
+}
+
+/** Ask another system for data over a connection an administrator approved. */
+export interface PipelineWebCallStep extends PipelineDataStepBase {
+  kind: 'web_call'
+  webCall: PipelineWebCall
 }
 
 /**
@@ -340,6 +354,7 @@ export type PipelineDataStep =
   | PipelinePluginDataStep
   | PipelineLakehouseStep
   | PipelineRemoteJobStep
+  | PipelineWebCallStep
 
 export type PipelineStep =
   PipelineDataStep | PipelineAskStep | PipelineActionStep | PipelineNotifyStep
@@ -430,6 +445,11 @@ const rawStepSchema = z
     plugin: z.unknown(),
     lake: z.unknown(),
     remoteJob: z.unknown(),
+          )
+        break
+      }
+
+    webCall: z.unknown(),
     ask: z.unknown(),
     action: z.unknown(),
     notify: z.unknown(),
@@ -1020,6 +1040,16 @@ function validateSteps(
     return []
   }
 
+  const parameterNames = (
+    Array.isArray(config.parameters) ? config.parameters : []
+  ).flatMap((entry) => {
+    const parameter = rawParameterSchema.safeParse(entry)
+
+    const name = z.string().safeParse(parameter.success && parameter.data.name)
+
+    return name.success ? [name.data] : []
+  })
+
   const decoded: DecodedStep[] = []
   const names = new Set<string>()
   const actions: unknown[] = []
@@ -1185,6 +1215,21 @@ function validateSteps(
             problem === 'invalid' ? 'invalid_shape' : 'invalid_value',
             `${field}.remoteJob`,
             t(`features.pipelineRemote.problems.job.${problem}`),
+          )
+        break
+      }
+
+      case 'web_call': {
+        const problem = webCallProblem(step.webCall, parameterNames)
+
+        if (problem)
+          push(
+            errors,
+            'invalid_value',
+            problem.field
+              ? `${field}.webCall.${problem.field}`
+              : `${field}.webCall`,
+            problem.message,
           )
         break
       }

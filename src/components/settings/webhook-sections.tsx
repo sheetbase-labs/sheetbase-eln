@@ -142,7 +142,7 @@ const incomingColumns: RegistryColumn<IncomingWebhookWire>[] = [
     header: t('settings.webhookSections.incomingWebhook'),
     cell: ({ row }) => (
       <Link
-        to="/pipelines/$pipelineId/triggers"
+        to="/pipelines/$pipelineId/starts"
         params={{ pipelineId: row.original.pipelineId }}
       >
         {row.original.name}

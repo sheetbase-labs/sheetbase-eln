@@ -38,7 +38,7 @@ const meta = {
       router: {
         route: screenRoutes('/settings/workspace/integrations', [
           '/settings/workspace/integrations/webhooks/$subscriptionId',
-          '/pipelines/$pipelineId/triggers',
+          '/pipelines/$pipelineId/starts',
         ]),
         path: '/settings/workspace/integrations',
       },

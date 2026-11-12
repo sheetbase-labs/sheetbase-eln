@@ -1,6 +1,16 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
+import { HeardEvents } from '#/components/pipelines/starts/heard-events'
+import { NextStarts } from '#/components/pipelines/starts/next-starts'
+import {
+  RunTimeline,
+  TimelineLegend,
+} from '#/components/pipelines/starts/run-timeline'
+import { SelectedRun } from '#/components/pipelines/starts/selected-run'
+import { StartsAside } from '#/components/pipelines/starts/starts-aside'
+import { StartsComposer } from '#/components/pipelines/starts/starts-composer'
+import { TestStartsDialog } from '#/components/pipelines/starts/test-starts-dialog'
 import { ScheduleDialog } from '#/components/pipelines/schedule-dialog'
 import { ScheduleHistoryDialog } from '#/components/pipelines/schedule-history'
 import {
@@ -9,6 +19,7 @@ import {
   RunNotifications,
   WebhookCard,
 } from '#/components/pipelines/triggers-outputs'
+import { parseStartRules } from '#/lib/pipelines/start-rules'
 import type {
   PipelineRunWire,
   PipelineScheduleActivityWire,
@@ -17,25 +28,29 @@ import type {
 import { screenQueryClient, screenRoutes } from './screen-stories'
 
 /**
- * Pipeline triggers and outputs (`src/components/pipelines/`).
+ * The Starts and runs tab (`src/components/pipelines/starts/`): the starts
+ * composer, what it reads as, the next starts, what the starts heard, the week
+ * of runs with a run picked, the right-hand column and the 7-day test.
  *
- * The add/edit trigger dialog and one trigger's history, plus the cards that
+ * Below those, the add/edit start dialog and one trigger's history, plus the cards that
  * say how a version starts and what it does when it ends: the incoming webhook,
  * what a run keeps, the ELN actions it takes and who hears about it. Reads are
  * seeded by query key; the webhook card's endpoint is a `fetch`, so its state
  * is seeded too and no story turns it on or off.
  */
 const meta = {
-  title: 'Pipelines/Triggers and outputs',
+  title: 'Pipelines/Starts and runs',
   parameters: {
     layout: 'centered',
     tanstack: {
       router: {
-        route: screenRoutes('/pipelines/$pipelineId/triggers', [
+        route: screenRoutes('/pipelines/$pipelineId/starts', [
           '/pipelines/$pipelineId/steps',
+          '/pipelines/$pipelineId/runs/$runId',
           '/pipelines/runs/$runId',
+          '/pipelines/agents',
         ]),
-        path: '/pipelines/$pipelineId/triggers',
+        path: '/pipelines/$pipelineId/starts',
         params: { pipelineId: 'pl-1' },
       },
     },
@@ -129,8 +144,53 @@ const activity: PipelineScheduleActivityWire[] = [
   },
 ]
 
+const rules = parseStartRules({
+  window: { days: 'weekdays', from: '07:00', to: '19:00', timeZone: 'UTC' },
+  minNewRows: 8,
+  waitMinutes: 2,
+})
+
+const heard: PipelineScheduleActivityWire[] = [
+  {
+    ...activity[0],
+    id: 'h-1',
+    source: 'event',
+    label: 'DS-0311 S-15',
+    run_id: 'run-4',
+    kind: 'started',
+    message: '',
+    detail: { joined: 1 },
+  },
+  { ...activity[1], id: 'h-2', source: 'webhook', label: null },
+]
+
+const startNow = new Date('2026-10-14T09:00:00.000Z')
+
 const client = screenQueryClient({
   data: [
+    {
+      key: ['ui-port', 'pipelines', 'trigger-datasets'],
+      value: new Map([['ds-1', 'Plate reads']]),
+    },
+    {
+      key: ['ui-port', 'pipelines', 'webhook-trigger', 'pl-1'],
+      value: { enabled: true, url: 'https://eln.example.com/hook' },
+    },
+    {
+      key: ['ui-port', 'pipelines', 'run-prompts', 'run-3'],
+      value: [],
+    },
+    { key: ['ui-port', 'pipelines', 'member-names'], value: {} },
+    {
+      key: ['ui-port', 'pipelines', 'run-manifest', 'run-4'],
+      value: { sequence: 3, digest: 'a'.repeat(64), signed: true },
+    },
+    {
+      key: ['ui-port', 'pipelines', 'run-manifest', 'run-3'],
+      value: null,
+    },
+    { key: ['agent-actions', 'policies'], value: [] },
+    { key: ['ui-port', 'pipelines', 'start-events', 'pl-1'], value: [] },
     {
       key: ['ui-port', 'pipelines', 'trigger-dataset-options'],
       value: [{ id: 'ds-1', label: 'DS-0012 · Plate reads' }],
@@ -274,6 +334,95 @@ export const Notifications: Story = {
   render: () => (
     <RunNotifications
       config={{ notifications: [{ subscriptionId: 'sub-1' }] }}
+    />
+  ),
+}
+
+export const Composer: Story = {
+  decorators: [withClient],
+  render: () => (
+    <StartsComposer
+      pipelineId="pl-1"
+      workspaceId="ws-1"
+      schedules={[schedule]}
+      rules={rules}
+      declared={{ inputs: [], parameters: [] }}
+      onDraft={() => {}}
+    />
+  ),
+}
+
+export const NextAndHeard: Story = {
+  decorators: [withClient],
+  render: () => (
+    <div className="flex flex-col gap-4">
+      <NextStarts
+        schedules={[schedule]}
+        rules={rules}
+        now={startNow}
+        timeZone="Europe/London"
+        datasetNames={new Map()}
+      />
+      <HeardEvents
+        rows={heard}
+        pipelineId="pl-1"
+        numbers={new Map([['run-4', 4]])}
+        now={startNow}
+        timeZone="Europe/London"
+      />
+    </div>
+  ),
+}
+
+export const WeekOfRuns: Story = {
+  decorators: [withClient],
+  render: () => (
+    <div className="flex flex-col gap-3">
+      <TimelineLegend hasWindow />
+      <RunTimeline
+        runs={[runRow(3, 'failed'), runRow(4, 'succeeded')]}
+        skips={[{ id: 'k-1', at: '2026-10-13T08:00:00.000Z' }]}
+        numbers={
+          new Map([
+            ['run-3', 3],
+            ['run-4', 4],
+          ])
+        }
+        now={startNow}
+        timeZone="UTC"
+        window={rules.window}
+        picked="run-3"
+        onPick={() => {}}
+      />
+      <SelectedRun
+        run={runRow(4, 'succeeded')}
+        number={4}
+        version="v1"
+        heard="DS-0311 S-15"
+        pipelineId="pl-1"
+        workspaceId="ws-1"
+      />
+    </div>
+  ),
+}
+
+export const RightColumn: Story = {
+  decorators: [withClient],
+  render: () => (
+    <StartsAside workspaceId="ws-1" displayId="PL-0007" owner="Gareth P." />
+  ),
+}
+
+export const TestTheRules: Story = {
+  decorators: [withClient],
+  render: () => (
+    <TestStartsDialog
+      rules={rules}
+      schedules={[schedule]}
+      workspaceId="ws-1"
+      pipelineId="pl-1"
+      now={startNow}
+      onClose={() => {}}
     />
   ),
 }

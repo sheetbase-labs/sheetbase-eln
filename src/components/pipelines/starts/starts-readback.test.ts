@@ -8,7 +8,7 @@ describe('readbackLines', () => {
   it('says an unruled pipeline starts on every start', () => {
     const lines = readbackLines(['schedule'], parseStartRules({}))
 
-    expect(lines[0]).toBe('It starts when a schedule is due.')
+    expect(lines[0]).toBe('Starts when <b>a schedule</b> is due.')
     expect(lines).toContain('Every start becomes a run.')
   })
 
@@ -23,12 +23,14 @@ describe('readbackLines', () => {
     const lines = readbackLines(['snapshot', 'snapshot', 'webhook'], rules)
 
     expect(lines[0]).toBe(
-      'It starts when a new snapshot arrives or a webhook call arrives.',
+      'Starts when <b>a new snapshot</b> arrives or <b>a webhook call</b> arrives.',
     )
-    expect(lines[1]).toContain('a weekday between 07:00 and 19:00 (UTC)')
-    expect(lines[1]).toContain('and a new snapshot added at least 8 rows')
-    expect(lines.join(' ')).toContain('waits 5 min')
-    expect(lines.join(' ')).toContain('skipped.')
+    expect(lines[1]).toContain('on <b>weekdays 07:00–19:00</b> (UTC time)')
+    expect(lines[1]).toContain(
+      'and if the snapshot has <b>8 or more new rows</b>',
+    )
+    expect(lines.join(' ')).toContain('Waits <b>5 min</b>')
+    expect(lines.join(' ')).toContain('<b>skipped</b>')
   })
 
   it('joins conditions with or when any is enough', () => {

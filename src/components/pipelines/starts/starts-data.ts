@@ -3,7 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 
+import {
+  webhookKey,
+  webhookRequest,
+} from '#/components/pipelines/webhook-state'
 import { listDefinitionActivity } from '#/lib/pipelines/data'
+import { pipelineDataQueryKeys } from '#/components/pipelines/pipelines-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { parseStartRules } from '#/lib/pipelines/start-rules'
 import type { StartRules } from '#/lib/pipelines/start-rules'
@@ -124,7 +129,7 @@ export function useRunManifest(runId: string | null) {
         `?select=sequence,manifest_digest,signature&run_id=eq.${encodeURIComponent(runId ?? '')}`,
       )
 
-      const row = rows[0]
+      const row = rows.at(0)
 
       return row
         ? {
@@ -139,6 +144,8 @@ export function useRunManifest(runId: string | null) {
 
 /** Nudge the people a waiting run asked; answers how many were reminded. */
 export function useRemindRun(workspaceId: string) {
+  const queryClient = useQueryClient()
+
   return useMutation({
     mutationFn: async (runId: string): Promise<number> =>
       z.number().parse(
@@ -147,6 +154,10 @@ export function useRemindRun(workspaceId: string) {
           p_run_id: runId,
         }),
       ),
+    onSuccess: (_count, runId) =>
+      queryClient.invalidateQueries({
+        queryKey: pipelineDataQueryKeys.runPrompts(runId),
+      }),
   })
 }
 
@@ -166,4 +177,16 @@ export function useDatasetNameMap() {
   })
 
   return query.data ?? new Map<string, string>()
+}
+
+/** Is the pipeline's webhook on? Unknown until the endpoint answers. */
+export function useWebhookOn(definitionId: string): boolean {
+  const state = useQuery({
+    queryKey: webhookKey(definitionId),
+    queryFn: () => webhookRequest(definitionId, 'GET'),
+    staleTime: 30_000,
+    retry: false,
+  })
+
+  return state.data?.enabled ?? false
 }

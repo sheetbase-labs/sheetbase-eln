@@ -1,28 +1,31 @@
 import { Link } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { t } from '#/copy'
-import { Button } from '#/components/ui/button'
-import { Muted } from '#/components/ui/layout'
+import { Icon } from '#/components/icons'
+import { Button, buttonVariants } from '#/components/ui/button'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
 import {
-  runDuration,
   runStatus,
   useRunPrompts,
   useWorkspaceMemberNames,
 } from '#/components/pipelines/pipelines-data'
 import { useReproduceRun } from '#/components/pipelines/run-reproduction'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
-import type { PipelineRunWire } from '#/lib/pipelines/types'
-import { z } from 'zod'
+import type {
+  PipelineRunPromptWire,
+  PipelineRunWire,
+} from '#/lib/pipelines/types'
 
 import { useRemindRun, useRunManifest } from './starts-data'
+import type { RunManifestInfo } from './starts-data'
 
-function becauseOf(run: PipelineRunWire): string {
+function becauseOf(run: PipelineRunWire, heard: string | null): string {
   if (run.retry_of_run_id) return t('features.pipelineStarts.selected.byRetry')
 
   if (run.trigger_kind === 'event')
-    return t('features.pipelineStarts.selected.byEvent')
+    return heard ?? t('features.pipelineStarts.selected.byEvent')
 
   if (run.trigger_kind === 'scheduled')
     return t('features.pipelineStarts.selected.byScheduled')
@@ -32,18 +35,176 @@ function becauseOf(run: PipelineRunWire): string {
 
 const formTitle = z.object({ title: z.string() })
 
-function Row({
+function Facts({ children }: { children: React.ReactNode }) {
+  return (
+    <dl className="m-0 grid grid-cols-[82px_minmax(0,1fr)] gap-x-2 gap-y-[5px] text-caption">
+      {children}
+    </dl>
+  )
+}
+
+const Fact = ({
   label,
   children,
 }: {
   label: string
   children: React.ReactNode
+}) => (
+  <>
+    <dt className="text-fg-muted">{label}</dt>
+    <dd className="m-0 min-w-0">{children}</dd>
+  </>
+)
+
+function RunFacts({
+  run,
+  version,
+  heard,
+  prompt,
+}: {
+  run: PipelineRunWire
+  version: string
+  heard: string | null
+  prompt: PipelineRunPromptWire | undefined
+}) {
+  const waiting = run.status === 'waiting'
+  const title = prompt ? formTitle.safeParse(prompt.form_schema) : null
+
+  return (
+    <Facts>
+      <Fact label={t('features.pipelineStarts.selected.started')}>
+        <span className="num">
+          {formatNotebookDateTime(run.started_at, { zone: true })} · {version}
+        </span>
+      </Fact>
+      <Fact label={t('features.pipelineStarts.selected.because')}>
+        {becauseOf(run, heard)}
+      </Fact>
+      {waiting ? (
+        <>
+          <Fact label={t('features.pipelineStarts.selected.waitingAt')}>
+            {title?.success
+              ? title.data.title
+              : t('features.pipelineStarts.selected.stepUnknown')}
+          </Fact>
+          <Fact label={t('features.pipelineStarts.selected.expires')}>
+            {prompt?.expires_at ? (
+              <span className="num">
+                {formatNotebookDateTime(prompt.expires_at, { zone: true })},{' '}
+                {t('features.pipelineStarts.selected.afterwards')}
+              </span>
+            ) : (
+              t('features.pipelineStarts.selected.noExpiry')
+            )}
+          </Fact>
+        </>
+      ) : null}
+    </Facts>
+  )
+}
+
+function ManifestPanel({
+  manifest,
+  version,
+  pinned,
+}: {
+  manifest: RunManifestInfo | null | undefined
+  version: string
+  pinned: number
 }) {
   return (
-    <div className="grid grid-cols-[96px_1fr] gap-2 py-1.5 text-body">
-      <dt className="text-fg-muted">{label}</dt>
-      <dd className="m-0 min-w-0">{children}</dd>
+    <div className="flex min-w-0 flex-col gap-2">
+      <h3 className="flex items-center gap-1.5 text-body font-semibold">
+        {manifest ? (
+          <>
+            <Icon name="check" size={14} />
+            {manifest.signed
+              ? t('features.pipelineStarts.selected.manifestSigned')
+              : t('features.pipelineStarts.selected.manifestKept')}
+          </>
+        ) : (
+          t('features.pipelineStarts.selected.manifestNone')
+        )}
+      </h3>
+      {manifest ? (
+        <Facts>
+          <Fact label={t('features.pipelineStarts.selected.inputs')}>
+            {t('features.pipelineStarts.selected.inputsPinned', {
+              count: pinned,
+            })}
+          </Fact>
+          <Fact label={t('features.pipelineStarts.selected.version')}>
+            <span className="num">
+              {version} · {manifest.digest.slice(0, 4)}…
+              {manifest.digest.slice(-3)}
+            </span>
+          </Fact>
+          <Fact label={t('features.pipelineStarts.selected.chain')}>
+            {t('features.pipelineStarts.selected.chained', {
+              number: manifest.sequence,
+            })}
+          </Fact>
+        </Facts>
+      ) : (
+        <span className="text-caption text-fg-muted">
+          {t('features.pipelineStarts.selected.manifestNoneHint')}
+        </span>
+      )}
     </div>
+  )
+}
+
+function RemindButton({
+  runId,
+  workspaceId,
+  asked,
+}: {
+  runId: string
+  workspaceId: string
+  asked: string[]
+}) {
+  const remind = useRemindRun(workspaceId)
+
+  return (
+    <Button
+      icon="bell"
+      disabled={remind.isPending}
+      onClick={() =>
+        remind.mutate(runId, {
+          onSuccess: (count) =>
+            toast(
+              count > 0
+                ? t('features.pipelineStarts.selected.reminded', { count })
+                : t('features.pipelineStarts.selected.nobodyToRemind'),
+            ),
+          onError: () =>
+            toast(t('features.pipelineStarts.selected.remindFailed')),
+        })
+      }
+    >
+      {asked.length === 1
+        ? t('features.pipelineStarts.selected.remind', { person: asked[0] })
+        : t('features.pipelineStarts.selected.remindThem')}
+    </Button>
+  )
+}
+
+function ReproduceButton({ runId }: { runId: string }) {
+  const reproduce = useReproduceRun(runId)
+
+  return (
+    <>
+      <Button
+        icon="play"
+        disabled={reproduce.isPending}
+        onClick={() => reproduce.mutate()}
+      >
+        {t('features.pipelineStarts.selected.reproduce')}
+      </Button>
+      <span className="max-w-[190px] text-[11px] text-fg-muted max-lg:max-w-none">
+        {t('features.pipelineStarts.selected.reproduceHint')}
+      </span>
+    </>
   )
 }
 
@@ -53,11 +214,17 @@ function Row({
 export function SelectedRun({
   run,
   number,
+  version,
+  heard,
   pipelineId,
   workspaceId,
 }: {
   run: PipelineRunWire
   number: number | undefined
+  /** `v4`, the version the run used. */
+  version: string
+  /** What the start heard that began it, when it was a snapshot. */
+  heard: string | null
   pipelineId: string
   workspaceId: string
 }) {
@@ -65,118 +232,58 @@ export function SelectedRun({
   const prompts = useRunPrompts(run.id)
   const members = useWorkspaceMemberNames()
   const manifest = useRunManifest(run.id)
-  const remind = useRemindRun(workspaceId)
-  const reproduce = useReproduceRun(run.id)
   const waiting = run.status === 'waiting'
   const prompt = (prompts.data ?? []).find((p) => p.answered_at === null)
-  const title = prompt ? formTitle.safeParse(prompt.form_schema) : null
 
   const asked = prompt
     ? prompt.asked_user_ids.map((id) => members.data?.[id] ?? id)
     : []
 
+  const heading = t('features.pipelineStarts.selected.title', {
+    number: number ?? 0,
+  })
+
   return (
     <section
-      aria-label={t('features.pipelineStarts.selected.title', {
-        number: number ?? 0,
-      })}
-      className="rounded-md border border-line bg-surface px-3 py-2.5"
+      aria-label={heading}
+      className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-x-6 gap-y-3 rounded-lg border border-border px-3.5 py-3 max-lg:grid-cols-1"
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <h3 className="text-label font-medium text-fg">
-          {t('features.pipelineStarts.selected.title', { number: number ?? 0 })}
-        </h3>
-        <Status tone={status.tone}>{status.label}</Status>
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-x-2">
+          <h3 className="text-section">{heading}</h3>
+          <Status tone={status.tone}>
+            {waiting && asked.length > 0
+              ? t('features.pipelineStarts.selected.waitingFor', {
+                  people: asked.join(', '),
+                })
+              : status.label}
+          </Status>
+        </div>
+        <RunFacts run={run} version={version} heard={heard} prompt={prompt} />
+      </div>
+
+      <ManifestPanel
+        manifest={manifest.data}
+        version={version}
+        pinned={Object.keys(run.input_versions).length}
+      />
+
+      <div className="flex min-w-0 flex-col items-start gap-1.5 max-lg:flex-row max-lg:flex-wrap">
         <Link
           to="/pipelines/$pipelineId/runs/$runId"
           params={{ pipelineId, runId: run.id }}
-          className="ml-auto text-caption text-accent hover:underline"
+          className={buttonVariants()}
         >
           {t('features.pipelineStarts.selected.open')}
         </Link>
-      </div>
-      <dl className="m-0 mt-1 divide-y divide-line">
-        <Row label={t('features.pipelineStarts.selected.because')}>
-          {becauseOf(run)}
-        </Row>
-        <Row label={t('features.pipelineStarts.selected.started')}>
-          <span className="num">
-            {formatNotebookDateTime(run.started_at, { zone: true })}
-          </span>
-          {run.finished_at ? (
-            <span className="ml-2 text-fg-muted">
-              {t('features.pipelineStarts.selected.took')} {runDuration(run)}
-            </span>
-          ) : null}
-        </Row>
         {waiting ? (
-          <>
-            <Row label={t('features.pipelineStarts.selected.waitingAt')}>
-              {title?.success
-                ? title.data.title
-                : t('features.pipelineStarts.selected.stepUnknown')}
-              {asked.length > 0 ? (
-                <span className="block text-caption text-fg-muted">
-                  {asked.join(', ')}
-                </span>
-              ) : null}
-            </Row>
-            <Row label={t('features.pipelineStarts.selected.expires')}>
-              {prompt?.expires_at ? (
-                <span className="num">
-                  {formatNotebookDateTime(prompt.expires_at, { zone: true })}
-                </span>
-              ) : (
-                <span className="text-fg-muted">
-                  {t('features.pipelineStarts.selected.noExpiry')}
-                </span>
-              )}
-            </Row>
-          </>
+          <RemindButton
+            runId={run.id}
+            workspaceId={workspaceId}
+            asked={asked}
+          />
         ) : null}
-        <Row label={t('features.pipelineStarts.selected.manifest')}>
-          {manifest.data ? (
-            <span className="num break-all text-caption">
-              {manifest.data.digest.slice(0, 16)}…
-            </span>
-          ) : (
-            <Muted>{t('features.pipelineStarts.selected.manifestNone')}</Muted>
-          )}
-        </Row>
-      </dl>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        {waiting ? (
-          <Button
-            size="sm"
-            disabled={remind.isPending}
-            onClick={() =>
-              remind.mutate(run.id, {
-                onSuccess: (count) =>
-                  toast(
-                    count > 0
-                      ? t('features.pipelineStarts.selected.reminded', {
-                          count,
-                        })
-                      : t('features.pipelineStarts.selected.nobodyToRemind'),
-                  ),
-                onError: () =>
-                  toast(t('features.pipelineStarts.selected.remindFailed')),
-              })
-            }
-          >
-            {t('features.pipelineStarts.selected.remind')}
-          </Button>
-        ) : null}
-        {manifest.data ? (
-          <Button
-            size="sm"
-            disabled={reproduce.isPending}
-            title={t('features.pipelineStarts.selected.reproduceHint')}
-            onClick={() => reproduce.mutate()}
-          >
-            {t('features.pipelineStarts.selected.reproduce')}
-          </Button>
-        ) : null}
+        {manifest.data ? <ReproduceButton runId={run.id} /> : null}
       </div>
     </section>
   )

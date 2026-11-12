@@ -252,3 +252,63 @@ describe('PIPE-02.1 waiting runs', () => {
     )
   })
 })
+
+describe('reminding the people a waiting run asked', () => {
+  const ASKER = 'pipe021-asker'
+  const REMIND_RUN = '00000000-0000-4000-8000-000000050040'
+
+  it('notifies each person asked, once an hour, never the one who presses it', async () => {
+    await migrator.query(
+      `insert into internal."user"(id,name,email,"emailVerified") values($1,$1,$2,true)`,
+      [ASKER, `${ASKER}@test.invalid`],
+    )
+    await migrator.query(
+      `insert into api.workspace_memberships(workspace_id,user_id,role) values($1,$2,'scientist')`,
+      [WS, ASKER],
+    )
+    await migrator.query(
+      `insert into api.pipeline_runs(id,workspace_id,definition_version_id,trigger_kind,status,parameters,input_versions,actor_user_id)
+       values($1,$2,$3,'manual','running','{}'::jsonb,'{}'::jsonb,$4)`,
+      [REMIND_RUN, WS, VERSION, ASKER],
+    )
+
+    const asker = await actor(ASKER, WS)
+
+    // Not waiting yet: there is nobody to remind.
+    await expectDenied(
+      asker.query(`select api.remind_pipeline_run($1, $2)`, [WS, REMIND_RUN]),
+      'SB042',
+    )
+
+    await migrator.query(
+      `update api.pipeline_runs set status='waiting' where id=$1`,
+      [REMIND_RUN],
+    )
+    await migrator.query(
+      `insert into api.pipeline_run_prompts(run_id,workspace_id,step_id,asked_user_ids)
+       values($1,$2,'confirm-remind','{"${MEMBER}","${ASKER}"}'::text[])`,
+      [REMIND_RUN, WS],
+    )
+
+    const first = await asker.query<{ n: number }>(
+      `select api.remind_pipeline_run($1, $2) as n`,
+      [WS, REMIND_RUN],
+    )
+    // The member is reminded; the asker, who is also asked, is not.
+    expect(first.rows[0]!.n).toBe(1)
+
+    const second = await asker.query<{ n: number }>(
+      `select api.remind_pipeline_run($1, $2) as n`,
+      [WS, REMIND_RUN],
+    )
+    expect(second.rows[0]!.n).toBe(0)
+
+    const sent = await migrator.query<{ user_id: string; link: string }>(
+      `select user_id, link from internal.notifications where dedupe_tag = $1`,
+      [`remind:${REMIND_RUN}`],
+    )
+    expect(sent.rows).toEqual([
+      { user_id: MEMBER, link: `/pipelines/runs/${REMIND_RUN}` },
+    ])
+  })
+})

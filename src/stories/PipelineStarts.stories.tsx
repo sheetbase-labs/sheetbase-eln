@@ -1,6 +1,8 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
+import { BoardScope } from '#/features/pipelines/board/board'
+import { useRuleForm } from '#/components/pipelines/starts/composer-model'
 import { HeardEvents } from '#/components/pipelines/starts/heard-events'
 import { NextStarts } from '#/components/pipelines/starts/next-starts'
 import {
@@ -41,7 +43,7 @@ import { screenQueryClient, screenRoutes } from './screen-stories'
 const meta = {
   title: 'Pipelines/Starts and runs',
   parameters: {
-    layout: 'centered',
+    layout: 'padded',
     tanstack: {
       router: {
         route: screenRoutes('/pipelines/$pipelineId/starts', [
@@ -234,7 +236,9 @@ const client = screenQueryClient({
 
 const withClient = (Story: () => React.ReactNode) => (
   <QueryClientProvider client={client}>
-    <Story />
+    <BoardScope>
+      <Story />
+    </BoardScope>
   </QueryClientProvider>
 )
 
@@ -338,18 +342,25 @@ export const Notifications: Story = {
   ),
 }
 
+function ComposerStory() {
+  const form = useRuleForm(rules)
+
+  return (
+    <>
+      <StartsComposer
+        pipelineId="pl-1"
+        workspaceId="ws-1"
+        schedules={[schedule]}
+        declared={{ inputs: [], parameters: [] }}
+        form={form}
+      />
+    </>
+  )
+}
+
 export const Composer: Story = {
   decorators: [withClient],
-  render: () => (
-    <StartsComposer
-      pipelineId="pl-1"
-      workspaceId="ws-1"
-      schedules={[schedule]}
-      rules={rules}
-      declared={{ inputs: [], parameters: [] }}
-      onDraft={() => {}}
-    />
-  ),
+  render: () => <ComposerStory />,
 }
 
 export const NextAndHeard: Story = {

@@ -12,8 +12,7 @@ import {
   ConfirmDialogHeader,
   ConfirmDialogTitle,
 } from '#/components/ui/confirm-dialog'
-import { IconButton } from '#/components/ui/icon-button'
-import { Muted } from '#/components/ui/layout'
+import { BoardSelect } from '#/features/pipelines/board/board'
 import { toast } from '#/components/ui/sonner'
 import { WebhookCard } from '#/components/pipelines/triggers-outputs'
 import {
@@ -21,11 +20,7 @@ import {
   webhookRequest,
 } from '#/components/pipelines/webhook-state'
 import { pipelineDataQueryKeys } from '#/components/pipelines/pipelines-data'
-import {
-  scheduleParametersLabel,
-  scheduleSpecLabel,
-} from '#/routes/pipelines/-schedule-labels'
-import { describeInputs } from '#/lib/pipeline-schedule-form'
+import { scheduleSpecLabel } from '#/routes/pipelines/-schedule-labels'
 import {
   deletePipelineSchedule,
   updatePipelineSchedule,
@@ -35,7 +30,7 @@ import { startKind } from '#/lib/pipelines/starts-view'
 import type { PipelineScheduleWire } from '#/lib/pipelines/types'
 
 import { KIND_ICON } from './composer-model'
-import { Group, LinkButton, Row } from './composer-parts'
+import { Group, LinkButton, Row, RowButton } from './composer-parts'
 import { useDatasetNameMap } from './starts-data'
 
 /** The ways this pipeline starts: stored starts and the webhook. */
@@ -99,9 +94,17 @@ export function StartsGroup({
       <Group
         head={
           <>
-            <span>{t('features.pipelineStarts.composer.startWhen')}</span>
-            <span>{t('features.pipelineStarts.composer.any')}</span>
-            <span>{t('features.pipelineStarts.composer.ofTheseHappen')}</span>
+            {t('features.pipelineStarts.composer.startWhen')}
+            <BoardSelect
+              aria-label={t('features.pipelineStarts.composer.startWhen')}
+              value="any"
+              disabled
+            >
+              <option value="any">
+                {t('features.pipelineStarts.composer.any')}
+              </option>
+            </BoardSelect>
+            {t('features.pipelineStarts.composer.ofTheseHappen')}
           </>
         }
       >
@@ -114,18 +117,18 @@ export function StartsGroup({
               icon={KIND_ICON[kind]}
               type={t(`features.pipelineStarts.composer.${kind}`)}
               action={
-                <span className="flex items-center">
-                  <IconButton
+                <span className="cr-actions">
+                  <RowButton
                     label={t('features.pipelineStarts.composer.history')}
                     icon="history"
                     onClick={() => onHistory(schedule)}
                   />
-                  <IconButton
+                  <RowButton
                     label={t('features.pipelineStarts.composer.edit')}
                     icon="edit"
                     onClick={() => onEdit(schedule)}
                   />
-                  <IconButton
+                  <RowButton
                     label={
                       schedule.enabled
                         ? t('features.pipelineStarts.composer.pause')
@@ -140,7 +143,7 @@ export function StartsGroup({
                       })
                     }
                   />
-                  <IconButton
+                  <RowButton
                     label={t('features.pipelineStarts.composer.remove')}
                     icon="x"
                     onClick={() => setRemoving(schedule)}
@@ -148,25 +151,13 @@ export function StartsGroup({
                 </span>
               }
             >
-              <span className={schedule.enabled ? undefined : 'text-fg-muted'}>
+              <span className={schedule.enabled ? undefined : 'muted'}>
                 {scheduleSpecLabel(schedule.kind, schedule.spec, datasetNames)}
               </span>
               {schedule.enabled ? null : (
-                <span className="text-fg-muted">
+                <span className="muted">
                   · {t('features.pipelineStarts.composer.paused')}
                 </span>
-              )}
-              {[
-                ...describeInputs(schedule.spec, datasetNames),
-                scheduleParametersLabel(schedule.spec),
-              ].flatMap((line) =>
-                line
-                  ? [
-                      <span key={line} className="basis-full text-fg-muted">
-                        {line}
-                      </span>,
-                    ]
-                  : [],
               )}
             </Row>
           )
@@ -175,7 +166,7 @@ export function StartsGroup({
           icon={KIND_ICON.webhook}
           type={t('features.pipelineStarts.composer.webhook')}
           action={
-            <IconButton
+            <RowButton
               label={t('features.pipelineStarts.composer.edit')}
               icon="edit"
               aria-expanded={webhookOpen}
@@ -183,26 +174,26 @@ export function StartsGroup({
             />
           }
         >
-          <span className={webhook.data?.enabled ? undefined : 'text-fg-muted'}>
+          <span className={webhook.data?.enabled ? undefined : 'muted'}>
             {webhook.data?.enabled
               ? t('features.pipelineStarts.composer.webhookOn')
               : t('features.pipelineStarts.composer.webhookOff')}
           </span>
-          <span className="text-fg-muted">
+          <span className="muted">
             · {t('features.pipelineStarts.composer.webhookHint')}
           </span>
         </Row>
         {webhookOpen ? (
-          <div className="py-1.5 pl-6">
+          <div className="addl">
             <WebhookCard definitionId={pipelineId} />
           </div>
         ) : null}
         {schedules.length === 0 && !webhook.data?.enabled ? (
-          <Muted className="pl-6">
+          <div className="addl muted" style={{ fontSize: 11 }}>
             {t('features.pipelineStarts.composer.noStarts')}
-          </Muted>
+          </div>
         ) : null}
-        <div className="py-0.5 pl-6">
+        <div className="addl">
           <LinkButton onClick={() => onAdd()}>
             {t('features.pipelineStarts.composer.addStart')}
           </LinkButton>

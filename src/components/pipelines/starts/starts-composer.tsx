@@ -1,17 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { t } from '#/copy'
-import { Button } from '#/components/ui/button'
-import { Muted } from '#/components/ui/layout'
+import { BoardButton } from '#/features/pipelines/board/board'
 import { toast } from '#/components/ui/sonner'
 import { ScheduleDialog } from '#/components/pipelines/schedule-dialog'
 import { ScheduleHistoryDialog } from '#/components/pipelines/schedule-history'
 import type { declaredRunInputs } from '#/components/pipelines/pipelines-data'
 import { scheduleSpecLabel } from '#/routes/pipelines/-schedule-labels'
-import type { StartRules } from '#/lib/pipelines/start-rules'
 import type { PipelineScheduleWire } from '#/lib/pipelines/types'
 
-import { numberOrNull, ruleProblems } from './composer-model'
+import type { RuleForm } from './composer-model'
 import { ConditionsGroup } from './conditions-group'
 import { StartsGroup } from './starts-group'
 import { useDatasetNameMap, useSetStartRules } from './starts-data'
@@ -23,48 +21,35 @@ export function StartsComposer({
   pipelineId,
   workspaceId,
   schedules,
-  rules,
   declared,
-  onDraft,
+  form,
 }: {
   pipelineId: string
   workspaceId: string
   schedules: PipelineScheduleWire[]
-  rules: StartRules
   declared: ReturnType<typeof declaredRunInputs>
-  /** The form's current, valid rules and whether they differ from the saved. */
-  onDraft: (draft: StartRules, dirty: boolean, problem: boolean) => void
+  form: RuleForm
 }) {
   const save = useSetStartRules(workspaceId, pipelineId)
-  const [draft, setDraft] = useState<StartRules>(rules)
-  const [rowsText, setRowsText] = useState(String(rules.minNewRows ?? 1))
-  const [waitText, setWaitText] = useState(String(rules.waitMinutes))
   const [editing, setEditing] = useState<PipelineScheduleWire | null>(null)
   const [adding, setAdding] = useState(false)
   const [history, setHistory] = useState<PipelineScheduleWire | null>(null)
   const datasetNames = useDatasetNameMap()
 
-  const rowsValue = numberOrNull(rowsText)
-  const waitValue = numberOrNull(waitText)
-
-  const effective: StartRules = {
-    ...draft,
-    minNewRows:
-      draft.minNewRows === null ? null : (rowsValue ?? draft.minNewRows),
-    waitMinutes: waitValue ?? draft.waitMinutes,
-  }
-
-  const problems = ruleProblems(effective, rowsText, waitText)
-  const hasProblem = Object.values(problems).some(Boolean)
-  const dirty = JSON.stringify(effective) !== JSON.stringify(rules)
-
-  // Hand the form's state up so the readback and the Test button judge the
-  // rules as they stand on screen, not as last saved.
-  const reported = JSON.stringify([effective, dirty, hasProblem])
-
-  useEffect(() => {
-    onDraft(effective, dirty, hasProblem)
-  }, [reported])
+  const {
+    draft,
+    setDraft,
+    rowsText,
+    setRowsText,
+    waitText,
+    setWaitText,
+    rowsValue,
+    effective,
+    problems,
+    hasProblem,
+    dirty,
+    reset,
+  } = form
 
   const onSave = () =>
     save.mutate(effective, {
@@ -75,16 +60,10 @@ export function StartsComposer({
         }),
     })
 
-  const reset = () => {
-    setDraft(rules)
-    setRowsText(String(rules.minNewRows ?? 1))
-    setWaitText(String(rules.waitMinutes))
-  }
-
   return (
     <>
       <div className="flex flex-col gap-3">
-        <div className="rounded-lg border border-border bg-surface">
+        <div className="cmp">
           <StartsGroup
             pipelineId={pipelineId}
             workspaceId={workspaceId}
@@ -111,7 +90,7 @@ export function StartsComposer({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button
+          <BoardButton
             variant="primary"
             disabled={!dirty || hasProblem || save.isPending}
             onClick={onSave}
@@ -119,12 +98,14 @@ export function StartsComposer({
             {save.isPending
               ? t('features.pipelineStarts.composer.saving')
               : t('features.pipelineStarts.composer.save')}
-          </Button>
-          <Button disabled={!dirty || save.isPending} onClick={reset}>
+          </BoardButton>
+          <BoardButton disabled={!dirty || save.isPending} onClick={reset}>
             {t('features.pipelineStarts.composer.reset')}
-          </Button>
+          </BoardButton>
           {dirty ? (
-            <Muted>{t('features.pipelineStarts.composer.unsaved')}</Muted>
+            <span className="muted" style={{ fontSize: 12 }}>
+              {t('features.pipelineStarts.composer.unsaved')}
+            </span>
           ) : null}
         </div>
       </div>

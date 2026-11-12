@@ -123,7 +123,7 @@ export function TestStartsDialog({
 
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <DialogContent className="w-[min(720px,calc(100vw-32px))]">
+      <DialogContent className="w-[min(960px,calc(100vw-32px))]">
         <DialogHeader
           title={t('features.pipelineStarts.test.title')}
           description={t('features.pipelineStarts.test.description')}

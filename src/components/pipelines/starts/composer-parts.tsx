@@ -1,6 +1,10 @@
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
+import { BoardButton } from '#/features/pipelines/board/board'
 
+import './starts-board.css'
+
+/** One line of the composer: icon, what it is, its fields, and a remove or more. */
 export function Row({
   icon,
   type,
@@ -13,17 +17,37 @@ export function Row({
   action?: React.ReactNode
 }) {
   return (
-    <div className="grid min-h-[34px] grid-cols-[16px_88px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 text-caption max-md:grid-cols-[16px_minmax(0,1fr)_auto]">
-      <Icon name={icon} size={14} className="text-fg-muted" />
-      <span className="font-medium max-md:col-span-1">{type}</span>
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5 max-md:order-last max-md:col-span-3 max-md:pl-6">
-        {children}
-      </div>
-      <div className="flex items-center justify-end">{action}</div>
+    <div className="cr">
+      <Icon name={icon} size={14} />
+      <span className="ty">{type}</span>
+      <div className="fl">{children}</div>
+      {action ?? <span />}
     </div>
   )
 }
 
+/** The board's 24px quiet icon button at the end of a line. */
+export function RowButton({
+  label,
+  icon,
+  ...rest
+}: Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
+  label: string
+  icon: IconName
+}) {
+  return (
+    <BoardButton
+      variant="quiet"
+      iconOnly
+      icon={icon}
+      aria-label={label}
+      title={label}
+      {...rest}
+    />
+  )
+}
+
+/** One of the three blocks of the composer card; `head` is its sentence. */
 export function Group({
   children,
   head,
@@ -32,19 +56,15 @@ export function Group({
   head: React.ReactNode
 }) {
   return (
-    <div className="border-t border-border-subtle px-3 pb-2 pt-2.5 first:border-t-0">
-      <div className="mb-1.5 flex flex-wrap items-center gap-1.5 text-body font-semibold">
-        {head}
-      </div>
+    <div className="cg">
+      <div className="cgh">{head}</div>
       {children}
     </div>
   )
 }
 
 export const OpTag = ({ children }: { children: React.ReactNode }) => (
-  <span className="rounded-[4px] border border-border bg-surface-muted px-[5px] py-px font-mono text-[10px] font-semibold tracking-[0.04em] text-fg-muted">
-    {children}
-  </span>
+  <span className="op">{children}</span>
 )
 
 export const LinkButton = ({
@@ -57,7 +77,8 @@ export const LinkButton = ({
   <button
     type="button"
     onClick={onClick}
-    className="cursor-pointer bg-transparent p-0 text-caption text-link hover:underline focus-visible:outline-2 focus-visible:outline-focus"
+    className="linklike"
+    style={{ fontSize: 12 }}
   >
     {children}
   </button>

@@ -29,6 +29,11 @@ import { NotFoundNotice } from '#/components/ui/not-found-notice'
 import { ProjectListFailure } from '#/components/projects/project-list'
 import { useRunLauncher } from '#/components/pipelines/use-run-launcher'
 import { RunPromptPanel } from '#/components/pipelines/run-prompt'
+import {
+  RemoteJobPanel,
+  useRunRemoteJobs,
+} from '#/components/pipelines/remote-job-panel'
+import { openRemoteJob } from '#/lib/pipelines/remote/client'
 import { AddRunToNotebook } from '#/components/pipelines/add-run-to-notebook'
 import { RunDeliveriesPanel } from '#/components/pipelines/run-deliveries'
 import { RunLog } from '#/components/pipelines/run-log'
@@ -99,6 +104,7 @@ function useRunRecord() {
   // Re-render when the person's time zone is applied or changed.
   useDisplayTimeZone()
   const prompts = useRunPrompts(runId)
+  const remoteJobs = useRunRemoteJobs(runId)
   const members = useWorkspaceMemberNames()
   const versions = usePipelineVersions(pipelineId)
   const definition = usePipelineDefinition(pipelineId)
@@ -215,6 +221,7 @@ function useRunRecord() {
     datasetNames,
     runInputs,
     prompts,
+    remoteJobs,
     versions,
     definition,
     numbers,
@@ -301,10 +308,25 @@ function RunPage() {
   )
 }
 
+/** The job a waiting run is paused on, when it waits on one and not on a person. */
+function waitingJob(record: LoadedRunRecord) {
+  const jobs = record.remoteJobs.data ?? []
+
+  return record.prompt ? undefined : (openRemoteJob(jobs) ?? jobs.at(-1))
+}
+
 function RunHeader({ record }: { record: LoadedRunRecord }) {
   const { r, definition, pipelineId, version, numbers } = record
 
-  const status = runStatus(r.status)
+  const waitsOnJob = Boolean(waitingJob(record))
+
+  const status =
+    r.status === 'waiting' && waitsOnJob
+      ? {
+          tone: runStatus(r.status).tone,
+          label: t('features.pipelineRemote.kinds.waitingJob'),
+        }
+      : runStatus(r.status)
   const number = numbers.data?.get(r.id)
   const runLabel = number ? `#${number}` : r.id.slice(0, 8)
 
@@ -479,7 +501,12 @@ function RunActions({ record }: { record: LoadedRunRecord }) {
       />
     )
 
-  if (r.status === 'running')
+  // A run waiting for a cluster job can be cancelled too; one waiting for a
+  // person is moved on by answering its prompt.
+  if (
+    r.status === 'running' ||
+    (r.status === 'waiting' && openRemoteJob(record.remoteJobs.data ?? []))
+  )
     return (
       <ConfirmDialog>
         <ConfirmDialogTrigger>
@@ -513,7 +540,8 @@ function RunActions({ record }: { record: LoadedRunRecord }) {
 }
 
 function RunBanners({ record }: { record: LoadedRunRecord }) {
-  const { r, currentPublished, canRerunOnCurrent, prompt } = record
+  const { r, currentPublished, canRerunOnCurrent, prompt, remoteJobs } = record
+  const job = waitingJob(record)
   const guidance = explainRunError(r.error_code)
 
   return (
@@ -543,10 +571,18 @@ function RunBanners({ record }: { record: LoadedRunRecord }) {
         <Banner
           tone="warn"
           icon="pause"
-          title={t('data.pipelineRun.runWaiting')}
+          title={
+            job
+              ? t('features.pipelineRemote.kinds.waitingJob')
+              : t('data.pipelineRun.runWaiting')
+          }
         >
-          {z.string().safeParse(prompt?.form_schema.description).data ??
-            t('data.pipelineRun.pausedConfirmStepChange')}
+          {job
+            ? t('features.pipelineRemote.runPanel.waitingNote', {
+                step: job.step_name,
+              })
+            : (z.string().safeParse(prompt?.form_schema.description).data ??
+              t('data.pipelineRun.pausedConfirmStepChange'))}
         </Banner>
       ) : null}
     </>
@@ -573,6 +609,7 @@ function RunBody({ record }: { record: LoadedRunRecord }) {
     r,
     logs.data ?? [],
     prompt,
+    waitingJob(record),
   )
 
   return (
@@ -629,7 +666,12 @@ function RunBody({ record }: { record: LoadedRunRecord }) {
 }
 
 function RunDecision({ record }: { record: LoadedRunRecord }) {
-  const { prompt, r, nameOf, answer, prompts } = record
+  const { prompt, r, nameOf, answer, prompts, remoteJobs } = record
+  const jobs = remoteJobs.data ?? []
+
+  // A run that waits on a cluster job has no prompt: the job is what it waits on.
+  if (!prompt && r.status === 'waiting' && jobs.length > 0)
+    return <RemoteJobPanel jobs={jobs} />
 
   return prompt ? (
     <RunPromptPanel

@@ -34,6 +34,7 @@ import {
   withForm,
 } from '#/lib/pipelines/step-list'
 import { NoCodeFormFields } from './no-code-form'
+import { LakehouseStepBody, RemoteJobStepBody } from './remote-bodies'
 import {
   ActionStepBody,
   AskStepBody,
@@ -125,6 +126,22 @@ export function StepDetail({
           inputs={inputs}
           parameters={parameters}
           onChange={(plugin) => onChange({ ...step, plugin })}
+        />
+      ) : null}
+      {step.kind === 'lakehouse' ? (
+        <LakehouseStepBody
+          step={step}
+          index={index}
+          workspaceId={workspaceId}
+          onChange={onChange}
+        />
+      ) : null}
+      {step.kind === 'remote_job' ? (
+        <RemoteJobStepBody
+          step={step}
+          index={index}
+          workspaceId={workspaceId}
+          onChange={onChange}
         />
       ) : null}
       {step.kind === 'ask' ? (

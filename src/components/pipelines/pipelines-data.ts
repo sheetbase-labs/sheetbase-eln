@@ -135,6 +135,8 @@ export interface PipelineListRow extends PipelineDefinitionWire {
   draft: PipelineDefinitionVersionWire | undefined
   runCount: number
   lastRun: PipelineRunWire | undefined
+  /** The newest few runs, for the list's side panel. */
+  recentRuns: PipelineRunWire[]
 }
 
 export function buildPipelineRows(
@@ -176,6 +178,7 @@ export function buildPipelineRows(
       draft: draftVersion(list),
       runCount: allRuns.length,
       lastRun: allRuns.at(0),
+      recentRuns: allRuns.slice(0, 4),
     }
   })
 }

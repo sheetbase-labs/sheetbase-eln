@@ -75,7 +75,7 @@ function StandardSteps() {
         <h2 className="m-0 font-heading text-[15px] font-semibold text-fg">
           {t('data.stepList.heading')}
         </h2>
-        <span className="min-w-0 flex-1 text-right">
+        <span className="min-w-0 flex-1 text-right max-sm:order-last max-sm:basis-full max-sm:text-left">
           {editor.trialAt
             ? t('data.stepList.triedAt', {
                 when: formatNotebookDateTime(editor.trialAt.toISOString(), {

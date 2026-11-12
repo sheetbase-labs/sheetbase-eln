@@ -223,7 +223,11 @@ function ProposalGrid({ schema }: { schema: PromptFormSchema }) {
         id: column,
         header: column.replaceAll('_', ' '),
         accessorFn: (entry: ProposalRow) => displayValue(entry.row[column]),
-        cell: ({ row }) => displayValue(row.original.row[column]),
+        cell: ({ row }) => (
+          <span className="block min-w-[110px] whitespace-normal">
+            {displayValue(row.original.row[column])}
+          </span>
+        ),
       })),
     [schema.proposalColumns],
   )

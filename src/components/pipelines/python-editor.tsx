@@ -229,7 +229,7 @@ export function PythonPackagesEditor({
           setLastSent(next)
           onChange(next)
         }}
-        className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
+        className="mono w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
       />
       <Muted className="text-label">
         {t('data.pythonEditor.onePerLinePinned')}
@@ -342,7 +342,7 @@ export function PythonStepEditor({
         rows={10}
         spellCheck={false}
         onChange={(event) => onStatementChange(event.target.value)}
-        className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
+        className="mono w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
       />
       <div className="flex flex-wrap items-center gap-2">
         {isStarterStatement(statement) ? (
@@ -657,7 +657,7 @@ export function PythonTestRun({
                 [alias]: event.target.value,
               }))
             }
-            className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
+            className="mono w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
           />
         </label>
       ))}

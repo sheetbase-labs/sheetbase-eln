@@ -39,6 +39,7 @@ import {
 } from './pipeline-limits'
 import type { PythonInputValue } from './pipeline-python.server'
 import type { PipelineRemoteJobStep } from './pipelines/config'
+import { DEFAULT_REMOTE_SECRET } from './pipelines/remote/settings'
 
 /** The part of a database connection this module needs. */
 export interface HpcQueryable {
@@ -85,9 +86,6 @@ export type RemoteRow = Record<string, Cell | undefined>
 // ---------------------------------------------------------------------------
 // The connection a steward set up (Settings > Integrations).
 // ---------------------------------------------------------------------------
-
-/** The secret a connection holds: the token the scheduler's REST service takes. */
-export const HPC_SECRET_NAME = 'submit_key'
 
 export const HPC_SCHEDULERS = ['slurm'] as const
 
@@ -316,6 +314,8 @@ export interface RemoteJobDeps {
     conn: HpcQueryable,
     workspaceId: string,
     key: string,
+    /** The secret the step names, or the default when it names none. */
+    secret: string,
   ) => Promise<ConnectionLookup>
   client: (connection: HpcConnection) => SchedulerClient
   /** The address jobs call back on when the connection has none. */
@@ -340,6 +340,7 @@ export interface RemoteJobRow {
   step_name: string
   connection_key: string
   queue: string
+  secret_name: string | null
   external_job_id: string | null
   state: RemoteJobState
   reason: RemoteJobReason | null
@@ -449,6 +450,7 @@ export async function runRemoteJobStep(args: {
     conn,
     run.workspace_id,
     settings.connection,
+    settings.secret ?? DEFAULT_REMOTE_SECRET,
   )
 
   if (lookup.kind === 'refused')
@@ -523,8 +525,8 @@ export async function runRemoteJobStep(args: {
 
   const { rows } = await conn.query<RemoteJobRow>(
     `INSERT INTO api.pipeline_remote_jobs
-       (id, workspace_id, run_id, step_name, connection_key, queue, external_job_id, limit_minutes, deadline_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       (id, workspace_id, run_id, step_name, connection_key, queue, secret_name, external_job_id, limit_minutes, deadline_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING *`,
     [
       id,
@@ -533,6 +535,7 @@ export async function runRemoteJobStep(args: {
       step.name,
       connection.key,
       queue.name,
+      settings.secret ?? DEFAULT_REMOTE_SECRET,
       externalId,
       settings.limitMinutes,
       deadline.toISOString(),
@@ -820,7 +823,12 @@ export async function sweepRemoteJobs(
 
       if (connection === undefined) {
         connection = await withTransaction((conn) =>
-          deps.loadConnection(conn, job.workspace_id, job.connection_key),
+          deps.loadConnection(
+            conn,
+            job.workspace_id,
+            job.connection_key,
+            job.secret_name ?? DEFAULT_REMOTE_SECRET,
+          ),
         )
         connections.set(cacheKey, connection)
       }
@@ -945,7 +953,12 @@ export async function cancelRemoteJobsOfRun(
   for (const job of jobs) {
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- One job at a time: each cancel is a call to the cluster, and a refusal on one must not race the rest.
     const connection = await withTransaction((conn) =>
-      deps.loadConnection(conn, job.workspace_id, job.connection_key),
+      deps.loadConnection(
+        conn,
+        job.workspace_id,
+        job.connection_key,
+        job.secret_name ?? DEFAULT_REMOTE_SECRET,
+      ),
     )
 
     if (connection.kind === 'ready' && job.external_job_id)

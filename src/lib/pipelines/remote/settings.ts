@@ -16,6 +16,15 @@ export const REMOTE_QUEUE_RE = /^[a-z0-9][a-z0-9_.-]{0,62}$/
 /** A connection is named by the key its steward gave it. */
 export const REMOTE_CONNECTION_RE = /^[a-z][a-z0-9-]{0,48}$/
 
+/**
+ * A secret is named, never written: the step says `HPC_SUBMIT_KEY` and the
+ * value stays sealed beside the connection. The same rule as a web call's.
+ */
+export const REMOTE_SECRET_RE = /^[A-Za-z][A-Za-z0-9_]{0,48}$/
+
+/** The secret a job is sent with when the step names none. */
+export const DEFAULT_REMOTE_SECRET = 'HPC_SUBMIT_KEY'
+
 export const MIN_REMOTE_LIMIT_MINUTES = 1
 
 /** A week: longer than that is a project, not a pipeline step. */
@@ -33,6 +42,8 @@ export interface PipelineRemoteJob {
   connection: string
   /** A queue that connection offers. */
   queue: string
+  /** The name of one of the connection's secrets, sent with the job. */
+  secret?: string
   /** The script the job runs on the cluster (bash). */
   script: string
   /** The job is stopped, and the run fails, after this long. */
@@ -56,6 +67,7 @@ export const emptyLake = (): PipelineLake => ({ tables: [] })
 const remoteJobSchema = z.strictObject({
   connection: z.string(),
   queue: z.string(),
+  secret: z.string().optional(),
   script: z.string(),
   limitMinutes: z.number(),
 })
@@ -82,7 +94,7 @@ export function readLake(value: unknown): PipelineLake | null {
 export function remoteJobProblem(
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A stored version is JSON of any shape until this parses it.
   value: unknown,
-): 'invalid' | 'connection' | 'queue' | 'script' | 'limit' | null {
+): 'invalid' | 'connection' | 'queue' | 'secret' | 'script' | 'limit' | null {
   const job = readRemoteJob(value)
 
   if (!job) return 'invalid'
@@ -90,6 +102,9 @@ export function remoteJobProblem(
   if (!REMOTE_CONNECTION_RE.test(job.connection)) return 'connection'
 
   if (!REMOTE_QUEUE_RE.test(job.queue)) return 'queue'
+
+  if (job.secret !== undefined && !REMOTE_SECRET_RE.test(job.secret))
+    return 'secret'
 
   if (
     job.script.trim().length === 0 ||

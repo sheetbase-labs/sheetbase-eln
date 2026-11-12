@@ -21,6 +21,8 @@ export interface RemoteConnectionOption {
   baseUrl: string
   user: string
   callbackUrl: string
+  /** The names of the secrets sealed on the connection; never their values. */
+  secrets: string[]
   queues: RemoteQueueOption[]
 }
 
@@ -32,6 +34,7 @@ export type HpcConnectorConfig = {
   user: string
   queues: Array<{ name: string; maxMinutes?: number }>
   callbackUrl?: string
+  secrets?: string[]
 }
 
 export interface LakehouseSettings {
@@ -60,6 +63,7 @@ const hpcConfig = z.object({
   baseUrl: z.string().catch(''),
   user: z.string().catch(''),
   callbackUrl: z.string().catch(''),
+  secrets: z.array(z.string()).catch([]),
   queues: z
     .array(
       z.object({
@@ -104,6 +108,7 @@ export async function fetchRemoteConnections(
         baseUrl: config.data.baseUrl,
         user: config.data.user,
         callbackUrl: config.data.callbackUrl,
+        secrets: config.data.secrets,
         queues: config.data.queues,
       },
     ]

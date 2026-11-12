@@ -18,6 +18,10 @@ export const copy = {
     noConnectionsLink: 'Set one up in Integrations',
     queue: 'Queue',
     queuePlaceholder: 'Choose a queue',
+    secret: 'Secret',
+    secretDefault: '{name} (default)',
+    secretHint:
+      'The connection secret the job is sent with. Its value stays sealed; steps only name it.',
     limit: 'Time limit',
     limitUnit: 'minutes',
     limitHint: 'The job is stopped, and the run fails, after this long.',
@@ -86,6 +90,8 @@ export const copy = {
         'A remote job step needs a connection, a queue, a script and a time limit.',
       connection: 'A remote job step needs the connection it runs on.',
       queue: 'A remote job step needs the queue it runs on.',
+      secret:
+        'A remote job secret is named with letters, digits and underscores, such as HPC_SUBMIT_KEY.',
       script: 'A remote job script is 1 to 20000 characters.',
       limit:
         'A remote job time limit is a whole number of minutes, from 1 to 10080.',
@@ -115,7 +121,10 @@ export const copy = {
     callbackUrl: 'Address jobs call back on',
     callbackUrlHint:
       'Leave empty to use this app’s own address. Set it when the cluster reaches Sheetbase another way.',
-    token: 'Scheduler token',
+    secretName: 'Secret name',
+    secretNameHint:
+      'What steps call it, such as HPC_SUBMIT_KEY. The value below stays sealed.',
+    token: 'Secret value (scheduler token)',
     tokenHint: 'Sealed when saved and never shown again.',
     tokenSet: 'Token set',
     tokenKeep: 'Leave empty to keep the current token.',

@@ -16,6 +16,7 @@ import {
   remoteKeys,
 } from '#/lib/pipelines/remote/client'
 import {
+  DEFAULT_REMOTE_SECRET,
   MAX_LAKE_TABLES,
   MAX_REMOTE_LIMIT_MINUTES,
   MAX_REMOTE_SCRIPT_LENGTH,
@@ -76,6 +77,16 @@ export function RemoteJobStepBody({
   const patch = (next: Partial<typeof job>) =>
     onChange({ ...step, remoteJob: { ...job, ...next } })
 
+  // A step that names no secret uses the default, so choosing it leaves the field out.
+  const chooseSecret = (secret: string) => {
+    const { secret: _secret, ...rest } = job
+
+    onChange({
+      ...step,
+      remoteJob: secret ? { ...rest, secret } : rest,
+    })
+  }
+
   const options = connections.data ?? []
   const connection = options.find((c) => c.key === job.connection)
   const queue = connection?.queues.find((q) => q.name === job.queue)
@@ -101,7 +112,14 @@ export function RemoteJobStepBody({
             id={`remote-connection-${index}`}
             className="w-[260px]"
             value={job.connection}
-            onChange={(e) => patch({ connection: e.target.value, queue: '' })}
+            onChange={(e) => {
+              const { secret: _secret, ...rest } = job
+
+              onChange({
+                ...step,
+                remoteJob: { ...rest, connection: e.target.value, queue: '' },
+              })
+            }}
           >
             <option value="">
               {t('features.pipelineRemote.remoteForm.connectionPlaceholder')}
@@ -145,6 +163,35 @@ export function RemoteJobStepBody({
           ))}
           {job.queue && !queue ? (
             <option value={job.queue}>{job.queue}</option>
+          ) : null}
+        </BoardSelect>
+      </Row>
+      <Row
+        label={t('features.pipelineRemote.remoteForm.secret')}
+        htmlFor={`remote-secret-${index}`}
+        hint={t('features.pipelineRemote.remoteForm.secretHint')}
+      >
+        <BoardSelect
+          id={`remote-secret-${index}`}
+          className="w-[260px]"
+          value={job.secret ?? ''}
+          disabled={!connection}
+          onChange={(e) => chooseSecret(e.target.value)}
+        >
+          <option value="">
+            {t('features.pipelineRemote.remoteForm.secretDefault', {
+              name: DEFAULT_REMOTE_SECRET,
+            })}
+          </option>
+          {(connection?.secrets ?? [])
+            .filter((name) => name !== DEFAULT_REMOTE_SECRET)
+            .map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          {job.secret && !connection?.secrets.includes(job.secret) ? (
+            <option value={job.secret}>{job.secret}</option>
           ) : null}
         </BoardSelect>
       </Row>
@@ -224,8 +271,8 @@ export function LakehouseStepBody({
   })
 
   const chosen = step.lake.tables
-
   const chosenNames = new Set(chosen)
+
   const rest = (tables.data ?? []).filter(
     (table) => !chosenNames.has(table.name),
   )

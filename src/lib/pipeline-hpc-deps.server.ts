@@ -7,11 +7,8 @@
 import { PooledClient } from '#/db/pool.server'
 import { env } from '#/env.server'
 import { loadConnectorSecrets } from './connectors/enterprise/secrets.server'
-import {
-  HPC_SECRET_NAME,
-  parseHpcConfig,
-  slurmClient,
-} from './pipeline-hpc.server'
+import { sealedSecretName } from './pipelines/remote/secret'
+import { parseHpcConfig, slurmClient } from './pipeline-hpc.server'
 import type {
   HpcQueryable,
   JobCallbackDeps,
@@ -19,7 +16,7 @@ import type {
 } from './pipeline-hpc.server'
 
 export const realRemoteJobDeps: RemoteJobDeps = {
-  loadConnection: async (conn, workspaceId, key) => {
+  loadConnection: async (conn, workspaceId, key, secret) => {
     const { rows } = await conn.query<{
       id: string
       status: string
@@ -48,14 +45,18 @@ export const realRemoteJobDeps: RemoteJobDeps = {
       const secrets = await loadConnectorSecrets({
         workspaceId,
         connectorId: connector.id,
-        required: [HPC_SECRET_NAME],
+        required: [sealedSecretName(secret)],
       })
 
-      return parseHpcConfig(key, connector.config, secrets[HPC_SECRET_NAME])
+      return parseHpcConfig(
+        key,
+        connector.config,
+        secrets[sealedSecretName(secret)],
+      )
     } catch {
       return {
         kind: 'refused',
-        message: `The connection ${key} has no key set. A steward sets it in Settings.`,
+        message: `The connection ${key} has no secret called ${secret}. A steward sets it in Settings.`,
       }
     }
   },

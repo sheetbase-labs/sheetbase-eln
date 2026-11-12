@@ -80,9 +80,24 @@ with `adapter: "hpc"` in its settings:
 ```
 
 Slurm (slurmrestd) is the scheduler it talks to today. The scheduler token is a
-sealed connector secret named `submit_key`. It is set in the app, under
-Settings, Integrations, and is never returned or readable with a token. A queue
-with `maxMinutes` refuses a step that asks for longer.
+sealed secret of the connection, set in the app under Settings, Integrations,
+and never returned or readable with a token. The connection lists the _names_ of
+its secrets (`secrets`), never their values. A step names the one it uses:
+
+```yaml
+remote_job:
+  {
+    connection: campus-hpc,
+    queue: hpc-short,
+    secret: HPC_SUBMIT_KEY,
+    limitMinutes: 20,
+  }
+```
+
+`secret` is optional and defaults to `HPC_SUBMIT_KEY`, the same way a web call
+step names its secret. A job keeps the name it was sent with (`secret_name` on
+`pipeline_remote_jobs`) so a cancel or a sweep later uses the same secret. A
+queue with `maxMinutes` refuses a step that asks for longer.
 
 ## How a job reaches Sheetbase
 

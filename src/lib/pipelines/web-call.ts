@@ -93,6 +93,9 @@ function kindOf(value: Json | undefined): 'text' | 'list' | 'object' | 'other' {
   return value !== null && kind === 'object' ? 'object' : 'other'
 }
 
+const isText = (value: Json | undefined): value is string =>
+  kindOf(value) === 'text'
+
 const isObject = (value: Json | undefined): value is JsonObject =>
   value !== undefined && value !== null && kindOf(value) === 'object'
 
@@ -102,7 +105,7 @@ export function placeholderNames(text: string): string[] {
 }
 
 const bodyText = (body: PipelineWebCall['body']): string =>
-  JSON.stringify(body) ?? ''
+  body === undefined ? '' : JSON.stringify(body)
 
 /**
  * What is wrong with a web call, in words for the person editing it, or null.
@@ -158,7 +161,7 @@ type Parameters = Record<string, z.core.util.JSONType | undefined>
 function parameterText(value: Json | undefined): string {
   if (value === undefined || value === null) return ''
 
-  return kindOf(value) === 'text' ? String(value) : JSON.stringify(value)
+  return isText(value) ? value : JSON.stringify(value)
 }
 
 /**
@@ -184,8 +187,8 @@ export function resolveWebCallBody(
   const fill = (value: Json): Json => {
     if (Array.isArray(value)) return value.map(fill)
 
-    if (kindOf(value) === 'text')
-      return String(value).replace(PLACEHOLDER_RE, (_whole, name: string) =>
+    if (isText(value))
+      return value.replace(PLACEHOLDER_RE, (_whole, name: string) =>
         parameterText(parameters[name]),
       )
 
@@ -236,8 +239,6 @@ export function rowsFromAnswer(
 
     if (found === undefined) return null
   }
-
-  if (found === undefined) return null
 
   return Array.isArray(found) ? found.map(asRow) : [asRow(found)]
 }

@@ -23,7 +23,10 @@ const CONNECTION = {
 
 const SECRET = 'tok-very-secret-123'
 
-function json(body: unknown, init: ResponseInit = {}): Response {
+function json(
+  body: { items?: object[]; other?: object[] },
+  init: ResponseInit = {},
+): Response {
   return new Response(JSON.stringify(body), {
     status: 200,
     headers: { 'content-type': 'application/json' },
@@ -39,10 +42,13 @@ function deps(
     fetchImpl(new URL(url), init ?? {}),
   )
 
+  // SAFETY: the fields are every WebCallDeps member, and fetch is the mock.
   return {
     loadConnection: async () => CONNECTION,
     loadSecret: async (_ws, _id, name) =>
       name === 'LIMS_READ_TOKEN' ? SECRET : null,
+    // SAFETY: the mock takes the same arguments as fetch and answers with a Response.
+    // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- A vi.fn mock is not typed as fetch; the tests also read its calls.
     fetch: fetchMock as unknown as typeof fetch,
     sleep: async () => undefined,
     resolveHost: async () => ['93.184.216.34'],
@@ -119,6 +125,7 @@ describe('runWebCallStep', () => {
 
   it('recovers when a retry succeeds and records how many tries it took', async () => {
     let n = 0
+
     const d = deps(() =>
       ++n < 3 ? new Response('busy', { status: 429 }) : json({ items: [] }),
     )

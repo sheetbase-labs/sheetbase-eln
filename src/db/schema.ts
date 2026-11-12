@@ -9698,10 +9698,7 @@ export const pipelineConnectionSecrets = internal.table(
     foreignKey({
       name: 'fk_pipeline_connection_secrets_connection',
       columns: [table.workspaceId, table.connectionId],
-      foreignColumns: [
-        pipelineConnections.workspaceId,
-        pipelineConnections.id,
-      ],
+      foreignColumns: [pipelineConnections.workspaceId, pipelineConnections.id],
     }).onDelete('cascade'),
   ],
 )

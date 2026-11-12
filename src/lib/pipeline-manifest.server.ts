@@ -380,7 +380,7 @@ export async function buildRunManifest(
     [run.id],
   )
 
-  return {
+  const manifest: RunManifest = {
     schema: MANIFEST_SCHEMA,
     run: {
       id: run.id,
@@ -431,9 +431,12 @@ export async function buildRunManifest(
       contentDigest: digestRows(input.rows),
     },
     actions: input.actions,
-    ...(input.responses?.length ? { responses: input.responses } : {}),
     executor: { artifactVersion, sandboxRole: 'pipeline_sandbox' },
   }
+
+  if (input.responses?.length) manifest.responses = input.responses
+
+  return manifest
 }
 
 /**

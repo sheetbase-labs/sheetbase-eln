@@ -92,7 +92,7 @@ export async function setConnectionSecret(
   const sealed = Buffer.from(sealSecret(value.trim(), secretKey()), 'utf8')
 
   return db.transaction(async (tx) => {
-    const [owned] = await tx
+    const owned = await tx
       .select({ id: pipelineConnections.id })
       .from(pipelineConnections)
       .where(
@@ -101,10 +101,11 @@ export async function setConnectionSecret(
           eq(pipelineConnections.workspaceId, workspaceId),
         ),
       )
+      .then((rows) => rows.at(0))
 
     if (!owned) throw new Error('Connection not found in this workspace.')
 
-    const [existing] = await tx
+    const existing = await tx
       .select({ id: pipelineConnectionSecrets.id })
       .from(pipelineConnectionSecrets)
       .where(
@@ -113,6 +114,7 @@ export async function setConnectionSecret(
           eq(pipelineConnectionSecrets.secretName, secretName),
         ),
       )
+      .then((rows) => rows.at(0))
 
     if (existing)
       await tx

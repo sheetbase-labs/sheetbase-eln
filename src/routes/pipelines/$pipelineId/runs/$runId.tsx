@@ -583,12 +583,21 @@ function RunBanners({ record }: { record: LoadedRunRecord }) {
             ? t('features.pipelineRemote.runPanel.waitingNote', {
                 step: job.step_name,
               })
-            : (z.string().safeParse(prompt?.form_schema.description).data ??
-              t('data.pipelineRun.pausedConfirmStepChange'))}
+            : (withoutLead(
+                z.string().safeParse(prompt?.form_schema.description).data,
+                t('data.pipelineRun.runWaiting'),
+              ) ?? t('data.pipelineRun.pausedConfirmStepChange'))}
         </Banner>
       ) : null}
     </>
   )
+}
+
+/** A prompt's own text often opens with the banner's headline; say it once. */
+function withoutLead(text: string | undefined, lead: string) {
+  if (!text?.startsWith(lead)) return text
+
+  return text.slice(lead.length).replace(/^[.\s]+/, '') || undefined
 }
 
 function RunBody({ record }: { record: LoadedRunRecord }) {

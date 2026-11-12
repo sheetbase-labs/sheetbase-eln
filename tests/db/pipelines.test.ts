@@ -1025,10 +1025,7 @@ describe('Pipeline execution (AUTO-02)', () => {
       p_configuration: configuration,
     })
 
-    await rpc(owner, 'publish_pipeline_definition_version', {
-      p_workspace_id: WS,
-      p_version_id: version.id,
-    })
+    await publishPipelineVersion(owner, WS, version.id)
 
     const run = await rpc(owner, 'start_pipeline_run', {
       p_workspace_id: WS,

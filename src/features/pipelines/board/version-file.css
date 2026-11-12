@@ -271,36 +271,3 @@
   overflow-wrap: anywhere;
   color: var(--text);
 }
-/* Compare with a version: the two files line by line, from the board's diff colours. */
-.ye-diff {
-  font: 12px/19px var(--font-mono);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  max-height: 60vh;
-  overflow: auto;
-  padding: 4px 0;
-}
-.ye-diff .d {
-  display: grid;
-  grid-template-columns: 18px 1fr;
-  padding: 0 12px 0 0;
-  white-space: pre;
-}
-.ye-diff .d > span:first-child {
-  text-align: center;
-  color: var(--text-muted);
-}
-.ye-diff .d.add {
-  background: var(--success-wash);
-}
-.ye-diff .d.del {
-  background: var(--danger-wash);
-}
-.ye-diff .d.gap {
-  color: var(--text-faint);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  background: var(--surface-muted);
-  padding-left: 18px;
-}

@@ -220,7 +220,7 @@ export function VersionFileEditor() {
         <BoardButton
           size="sm"
           aria-haspopup="dialog"
-          disabled={!current}
+          disabled={current?.lifecycle !== 'published'}
           onClick={() => setComparing(true)}
         >
           {current
@@ -402,7 +402,7 @@ export function VersionFileEditor() {
         ) : null}
       </div>
 
-      {comparing && current ? (
+      {comparing && current?.lifecycle === 'published' ? (
         <CompareDialog onClose={() => setComparing(false)} />
       ) : null}
     </>

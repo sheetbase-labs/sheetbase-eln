@@ -66,8 +66,13 @@ function lakeValue(
       return isoOf(value, 10)
     case 'timestamptz':
       return isoOf(value, undefined)
-    default:
-      return String(value)
+    default: {
+      const text = z
+        .union([z.string(), z.number(), z.bigint()])
+        .safeParse(value)
+
+      return text.success ? String(text.data) : null
+    }
   }
 }
 

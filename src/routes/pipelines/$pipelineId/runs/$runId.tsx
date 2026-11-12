@@ -327,6 +327,7 @@ function RunHeader({ record }: { record: LoadedRunRecord }) {
           label: t('features.pipelineRemote.kinds.waitingJob'),
         }
       : runStatus(r.status)
+
   const number = numbers.data?.get(r.id)
   const runLabel = number ? `#${number}` : r.id.slice(0, 8)
 
@@ -505,7 +506,8 @@ function RunActions({ record }: { record: LoadedRunRecord }) {
   // person is moved on by answering its prompt.
   if (
     r.status === 'running' ||
-    (r.status === 'waiting' && openRemoteJob(record.remoteJobs.data ?? []))
+    // Anything else that reaches here is waiting.
+    openRemoteJob(record.remoteJobs.data ?? [])
   )
     return (
       <ConfirmDialog>
@@ -540,7 +542,7 @@ function RunActions({ record }: { record: LoadedRunRecord }) {
 }
 
 function RunBanners({ record }: { record: LoadedRunRecord }) {
-  const { r, currentPublished, canRerunOnCurrent, prompt, remoteJobs } = record
+  const { r, currentPublished, canRerunOnCurrent, prompt } = record
   const job = waitingJob(record)
   const guidance = explainRunError(r.error_code)
 

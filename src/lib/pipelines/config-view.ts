@@ -23,6 +23,7 @@ import type {
   PipelineStepNotify,
 } from './config'
 import type { PythonContract } from './python'
+import type { PipelineWebCall } from './web-call'
 
 /**
  * The shape today's step editor works in: a first analysis step, further
@@ -59,10 +60,11 @@ export interface PipelineConfigView {
 export interface PipelineViewStep {
   /** The step's name; for a step that pauses, the name of its ask step. */
   name: string
-  language: 'sql' | 'python' | 'plugin'
-  /** The code of a SQL or Python step. A plugin step has none (empty). */
+  language: 'sql' | 'python' | 'plugin' | 'web_call'
+  /** The code of a SQL or Python step. A plugin or web call step has none (empty). */
   statement: string
   plugin?: PipelinePluginStep
+  webCall?: PipelineWebCall
   contract?: PythonContract
   /** Pause after this step and ask a person about its rows. */
   confirm?: PipelineStepConfirm
@@ -88,7 +90,10 @@ type ViewDataStep = Exclude<
 
 function isData(step: PipelineStep | undefined): step is ViewDataStep {
   return (
-    step?.kind === 'sql' || step?.kind === 'python' || step?.kind === 'plugin'
+    step?.kind === 'sql' ||
+    step?.kind === 'python' ||
+    step?.kind === 'plugin' ||
+    step?.kind === 'web_call'
   )
 }
 
@@ -125,13 +130,18 @@ function viewStep(
     language:
       stepRuns(step.kind) === 'plugin'
         ? 'plugin'
-        : stepRuns(step.kind) === 'python'
-          ? 'python'
-          : 'sql',
-    statement: step.kind === 'plugin' ? '' : step.statement,
+        : stepRuns(step.kind) === 'web_call'
+          ? 'web_call'
+          : stepRuns(step.kind) === 'python'
+            ? 'python'
+            : 'sql',
+    statement:
+      step.kind === 'plugin' || step.kind === 'web_call' ? '' : step.statement,
   }
 
   if (step.kind === 'plugin') view.plugin = step.plugin
+
+  if (step.kind === 'web_call') view.webCall = step.webCall
 
   if (step.kind === 'python' && step.contract) view.contract = step.contract
 
@@ -336,13 +346,23 @@ function storedFromView(view: PipelineConfigView): StoredView {
             kind: 'plugin',
             plugin: step.plugin ?? { operation: '', arguments: {} },
           }
-        : step.language === 'python'
+        : step.language === 'web_call'
           ? {
               name: dataName,
-              kind: 'python',
-              statement: step.statement,
+              kind: 'web_call',
+              webCall: step.webCall ?? {
+                connection: '',
+                method: 'GET',
+                path: '/',
+              },
             }
-          : { name: dataName, kind: 'sql', statement: step.statement }
+          : step.language === 'python'
+            ? {
+                name: dataName,
+                kind: 'python',
+                statement: step.statement,
+              }
+            : { name: dataName, kind: 'sql', statement: step.statement }
 
     if (data.kind === 'python' && step.contract) data.contract = step.contract
 

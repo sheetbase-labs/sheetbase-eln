@@ -48,6 +48,21 @@ import type {
 import { queuePipelineNotifications } from './pipeline-notifications.server'
 import { executePipelineActions } from './pipeline-actions.server'
 import { PluginStepError, runPluginStep } from './pipeline-plugin-step.server'
+import {
+  WebCallError,
+  defaultWebCallDeps,
+  latestResponseFinder,
+  loadRunResponses,
+  newWebCallSession,
+  persistRunResponses,
+  runManifestResponses,
+  runWebCallStep,
+} from './pipeline-web-call.server'
+import type {
+  RecordedResponse,
+  WebCallDeps,
+  WebCallSession,
+} from './pipeline-web-call.server'
 import type { ExtensionRuntimeDeps } from './extensions/runtime.server'
 import {
   digestInput,
@@ -192,6 +207,8 @@ export interface PipelineExecuteDeps {
   remote?: RemoteJobDeps
   /** Where the open tables' files are read from; a test hands in its own. Absent means the file store. */
   lakeStorage?: Pick<ObjectStorage, 'getStream'>
+  /** How web call steps reach connections, secrets and the network; a test hands in its own. */
+  webCalls?: WebCallDeps
 }
 
 /** What the two steps that reach outside the database are given. */
@@ -200,6 +217,8 @@ interface ExternalStepDeps {
   lakeStorage?: Pick<ObjectStorage, 'getStream'>
   /** Reproduce: a remote job's recorded answer is read, never asked for again. */
   recorded?: boolean
+  /** The web answers this run reads and collects. */
+  web?: WebCallSession
 }
 
 function externalSteps(deps: PipelineExecuteDeps): ExternalStepDeps {
@@ -409,6 +428,7 @@ export async function runPipelineExecution(
 
     // Run the transform as the low-privilege role against the temp schema.
     const transformStarted = Date.now()
+    const web = newWebCallSession('live', [], { deps: deps.webCalls })
 
     const transform = await withSandbox(conn, deps, (sandbox) =>
       executeSteps(
@@ -419,7 +439,7 @@ export async function runPipelineExecution(
         sandbox,
         answeredPrompts,
         deps.plugins,
-        externalSteps(deps),
+        { ...externalSteps(deps), web },
       ),
     )
 
@@ -638,6 +658,12 @@ export async function tryPipelineDraft(
       inputs: materialized.map((m) => ({ name: m.name, rows: m.rowCount })),
     })
 
+    // A trial asks for a GET; a POST reads what the pipeline last recorded.
+    const web = newWebCallSession('trial', [], {
+      deps: deps.webCalls,
+      latestFor: latestResponseFinder(conn),
+    })
+
     const outcome = await withSandbox(conn, deps, (sandbox) =>
       executeSteps(
         conn,
@@ -647,7 +673,7 @@ export async function tryPipelineDraft(
         sandbox,
         undefined,
         deps.plugins,
-        externalSteps(deps),
+        { ...externalSteps(deps), web },
       ),
     )
 
@@ -893,6 +919,13 @@ async function reproduceInScratch(
     })
   }
 
+  // A reproduction asks nobody: what the run was told is read from its recording.
+  const web = newWebCallSession(
+    'replay',
+    await loadRunResponses(conn, source.id),
+    { deps: deps.webCalls },
+  )
+
   const transform = await withSandbox(conn, deps, (sandbox) =>
     executeSteps(
       conn,
@@ -902,7 +935,7 @@ async function reproduceInScratch(
       sandbox,
       answered,
       deps.plugins,
-      { ...externalSteps(deps), recorded: true },
+      { ...externalSteps(deps), recorded: true, web },
     ),
   )
 
@@ -1226,6 +1259,7 @@ async function finishExecution(
     durationMs: number
     usage?: PythonTransformUsage
     effectPrevious?: Record<string, SqlResultRow[]>
+    webResponses?: RecordedResponse[]
   },
   timing: {
     startedAt: number
@@ -1352,6 +1386,8 @@ async function finishExecution(
   // `authenticated`, which can neither read the materialized temp tables to
   // digest them nor insert evidence.
   await conn.query('SET LOCAL ROLE NONE')
+  await persistRunResponses(conn, run, transform.webResponses ?? [])
+  const webResponses = await runManifestResponses(conn, run.id)
   await recordRunManifest(conn, {
     run: {
       ...run,
@@ -1372,6 +1408,7 @@ async function finishExecution(
       name: action.name,
       operation: action.operation,
     })),
+    responses: webResponses,
     finishedAt: finished?.finished_at
       ? new Date(finished.finished_at).toISOString()
       : null,
@@ -1455,6 +1492,9 @@ async function pauseRun(
     previousRows: outcome.previous.length,
     proposal,
   }
+
+  // What a web call was told stays with the run: resuming reads it, not asks again.
+  await persistRunResponses(conn, run, outcome.webResponses ?? [])
 
   const updated = await conn.query<{ id: string }>(
     `UPDATE api.pipeline_runs SET status = 'waiting', result = $2::jsonb
@@ -1786,6 +1826,13 @@ export async function resumePipelineRun(
       [prompt.step_id, pipelineJsonObjectSchema.parse(decodedAnswer.data)],
     ])
 
+    // Asking again from the top: what a web call was told before the pause is read, not fetched.
+    const web = newWebCallSession(
+      'live',
+      await loadRunResponses(conn, run.id),
+      { deps: deps.webCalls },
+    )
+
     const transform = await withSandbox(conn, deps, (sandbox) =>
       executeSteps(
         conn,
@@ -1795,7 +1842,7 @@ export async function resumePipelineRun(
         sandbox,
         answered,
         deps.plugins,
-        externalSteps(deps),
+        { ...externalSteps(deps), web },
       ),
     )
 
@@ -2089,6 +2136,12 @@ export async function expirePipelinePrompts(
             [prompt.step_id, { decision: 'confirm', values: {} }],
           ])
 
+          const web = newWebCallSession(
+            'live',
+            await loadRunResponses(conn, run.id),
+            { deps: deps.webCalls },
+          )
+
           const transform = await withSandbox(conn, deps, (sandbox) =>
             executeSteps(
               conn,
@@ -2098,7 +2151,7 @@ export async function expirePipelinePrompts(
               sandbox,
               answered,
               deps.plugins,
-              externalSteps(deps),
+        { ...externalSteps(deps), web },
             ),
           )
 
@@ -2602,6 +2655,8 @@ type TransformOutcome =
        * the data step before it. They run once the output is written.
        */
       effectPrevious?: Record<string, SqlResultRow[]>
+      /** What web call steps fetched this time and the run does not hold yet. */
+      webResponses?: RecordedResponse[]
     }
   | {
       kind: 'waiting'
@@ -2613,6 +2668,7 @@ type TransformOutcome =
       /** What the person is shown: the rows of the step before the ask. */
       proposal: SqlResultRow[]
       durationMs: number
+      webResponses?: RecordedResponse[]
     }
   | { kind: 'cancelled' }
   | {
@@ -2662,6 +2718,8 @@ function manifestSteps(
         ? JSON.stringify(step.plugin)
         : step.kind === 'remote_job'
           ? JSON.stringify(step.remoteJob)
+          : step.kind === 'web_call'
+            ? JSON.stringify(step.webCall)
           : step.statement,
   }))
 }
@@ -2705,6 +2763,7 @@ async function executeSteps(
   external: ExternalStepDeps = {},
 ): Promise<TransformOutcome> {
   const started = Date.now()
+  const web = external.web ?? newWebCallSession('live', [])
   let previous: SqlResultRow[] | undefined
   // Steps skipped by a Skip decision: the ask step's declared dependents.
   const skipped = new Set<string>()
@@ -2885,6 +2944,54 @@ async function executeSteps(
       }
     }
 
+    if (step.kind === 'web_call') {
+      try {
+        const result = await runWebCallStep({
+          workspaceId: run.workspace_id,
+          stepName: step.name,
+          call: step.webCall,
+          parameters: run.parameters,
+          session: web,
+          deps: web.deps ?? defaultWebCallDeps(),
+        })
+
+        await log(
+          conn,
+          run,
+          'info',
+          'web_call',
+          `Web call step ${index + 1} completed.`,
+          {
+            step: step.name,
+            method: result.response.method,
+            // Where it went, never what it asked: the query and the secret stay out of the log.
+            url:
+              new URL(result.response.url).origin +
+              new URL(result.response.url).pathname,
+            status: result.response.status,
+            attempts: result.response.attempts,
+          },
+        )
+
+        return {
+          kind: 'rows',
+          rows: pythonInputRowsSchema.parse(result.rows),
+          durationMs: Date.now() - started,
+        }
+      } catch (error) {
+        return {
+          kind: 'error',
+          code: 'transform_failed',
+          message: `Web call step ${step.name}: ${
+            error instanceof WebCallError || error instanceof Error
+              ? error.message
+              : String(error)
+          }`,
+          detail: { step: step.name },
+        }
+      }
+    }
+
     if (step.kind === 'python') {
       const inputs: Record<string, SqlResultRow[]> = {}
 
@@ -3049,6 +3156,7 @@ async function executeSteps(
           previous: shown,
           proposal: shown,
           durationMs: Date.now() - started,
+          webResponses: web.collected,
         }
       }
 
@@ -3133,6 +3241,7 @@ async function executeSteps(
     rows: previous ?? [],
     durationMs: Date.now() - started,
     effectPrevious,
+    webResponses: web.collected,
   }
 
   if (usages.length > 0)

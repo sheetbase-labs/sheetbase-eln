@@ -49,6 +49,18 @@ export interface ManifestStep {
   statementDigest: string
 }
 
+/** What the manifest keeps of a web call's answer: digests, never the body. */
+export interface ManifestResponse {
+  step: string
+  method: string
+  /** The address without its query: where the call went, not what it asked. */
+  url: string
+  status: number
+  requestDigest: string
+  bodyDigest: string
+  fetchedAt: string
+}
+
 export interface RunManifest {
   schema: typeof MANIFEST_SCHEMA
   run: {
@@ -88,6 +100,8 @@ export interface RunManifest {
     contentDigest: string
   }
   actions: Array<{ name: string; operation: string }>
+  /** The answers web call steps were given; a Reproduce reads these recordings. Left out when there were none. */
+  responses?: ManifestResponse[]
   executor: { artifactVersion: string; sandboxRole: 'pipeline_sandbox' }
 }
 
@@ -289,6 +303,7 @@ export interface ManifestBuildInput {
   // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- A transform's rows carry whatever columns its statement selected, including bytes and Dates that JSON has no type for; `canonicalJson` serialises them.
   rows: Array<Record<string, unknown>>
   actions: Array<{ name: string; operation: string }>
+  responses?: ManifestResponse[]
   finishedAt: string | null
 }
 
@@ -416,6 +431,7 @@ export async function buildRunManifest(
       contentDigest: digestRows(input.rows),
     },
     actions: input.actions,
+    ...(input.responses?.length ? { responses: input.responses } : {}),
     executor: { artifactVersion, sandboxRole: 'pipeline_sandbox' },
   }
 }

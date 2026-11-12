@@ -9642,6 +9642,70 @@ export const parserWebhookSecrets = internal.table('parser_webhook_secrets', {
   }),
 })
 
+/**
+ * A place a pipeline web call may reach: an approved https address. Secrets are
+ * sealed in `internal.pipeline_connection_secrets`; `secretNames` lists their
+ * names only.
+ */
+export const pipelineConnections = api.table(
+  'pipeline_connections',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    baseUrl: text('base_url').notNull(),
+    authHeader: text('auth_header').notNull().default('Authorization'),
+    authScheme: text('auth_scheme').notNull().default('Bearer'),
+    status: text('status').notNull().default('active'),
+    secretNames: text('secret_names')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id'),
+    updatedByUserId: text('updated_by_user_id'),
+  },
+  (table) => [
+    unique('uq_pipeline_connections_key').on(table.workspaceId, table.key),
+    unique('uq_pipeline_connections_workspace_id').on(
+      table.workspaceId,
+      table.id,
+    ),
+    index('idx_pipeline_connections_workspace').on(table.workspaceId),
+  ],
+)
+
+export const pipelineConnectionSecrets = internal.table(
+  'pipeline_connection_secrets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull(),
+    connectionId: uuid('connection_id').notNull(),
+    secretName: text('secret_name').notNull(),
+    ciphertext: bytea('ciphertext').notNull(),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id'),
+  },
+  (table) => [
+    unique('uq_pipeline_connection_secrets_name').on(
+      table.connectionId,
+      table.secretName,
+    ),
+    foreignKey({
+      name: 'fk_pipeline_connection_secrets_connection',
+      columns: [table.workspaceId, table.connectionId],
+      foreignColumns: [
+        pipelineConnections.workspaceId,
+        pipelineConnections.id,
+      ],
+    }).onDelete('cascade'),
+  ],
+)
+
 export const connectorsRelations = relations(connectors, ({ one, many }) => ({
   workspace: one(workspaces, {
     fields: [connectors.workspaceId],

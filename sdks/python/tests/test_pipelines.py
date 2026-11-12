@@ -20,10 +20,13 @@ WS = "11111111-1111-4111-8111-111111111111"
 DEF = "22222222-2222-4222-8222-222222222222"
 CODE = "def transform(inputs, parameters):\n    return inputs['a']\n"
 CONFIG = {
-    "configVersion": 1,
+    "configVersion": 2,
+    "mode": "standard",
     "pythonRuntime": "sha256:abc",
-    "transform": {"language": "none", "statement": ""},
-    "steps": [{"name": "clean", "language": "sql", "statement": "select 1"}],
+    "steps": [
+        {"name": "clean", "kind": "sql", "statement": "select 1"},
+        {"name": "tell", "kind": "notify", "notify": {"subscriptionId": "s"}},
+    ],
 }
 
 
@@ -106,13 +109,15 @@ class TestTrigger:
 
 
 class TestStepSource:
-    def test_replaces_transform_or_named_step(self):
+    def test_replaces_first_or_named_step(self):
         main_ = apply_step_source(CONFIG, CODE, requirements=["pandas==2.2.2"])
-        assert main_["transform"] == {"language": "python", "statement": CODE}
+        assert main_["steps"][0] == {"name": "clean", "kind": "python", "statement": CODE}
         assert main_["pythonRequirements"] == ["pandas==2.2.2"]
-        assert CONFIG["transform"]["language"] == "none"
+        assert CONFIG["steps"][0]["kind"] == "sql"
         step = apply_step_source(CONFIG, CODE, step="clean")
-        assert step["steps"][0] == {"name": "clean", "language": "python", "statement": CODE}
+        assert step["steps"][0] == {"name": "clean", "kind": "python", "statement": CODE}
+        bare = apply_step_source({**CONFIG, "steps": []}, CODE)
+        assert bare["steps"] == [{"name": "analysis", "kind": "python", "statement": CODE}]
 
     def test_refuses_what_cannot_run(self):
         with pytest.raises(ValueError, match="empty"):
@@ -121,6 +126,8 @@ class TestStepSource:
             apply_step_source(CONFIG, "x = 1")
         with pytest.raises(ValueError, match="no step named"):
             apply_step_source(CONFIG, CODE, step="nope")
+        with pytest.raises(ValueError, match="holds no code"):
+            apply_step_source(CONFIG, CODE, step="tell")
 
     def test_needs_a_runtime_pin_when_none_exists(self):
         bare = {**CONFIG, "pythonRuntime": None}
@@ -165,7 +172,7 @@ class TestSyncStep:
         assert created is False
         assert sent["p_version_id"] == "v-draft"
         assert sent["p_expected_revision"] == 3
-        assert sent["p_configuration"]["transform"]["statement"] == CODE
+        assert sent["p_configuration"]["steps"][0]["statement"] == CODE
 
     def test_starts_a_draft_when_none_is_open(self, mock_transport):
         mock_transport.get("/api/db/pipeline_definition_versions").respond(
@@ -207,7 +214,7 @@ class TestCli:
         notebook.write_text(json.dumps({"cells": [{"cell_type": "code", "source": CODE}]}))
         assert main(["push-step", str(notebook), "--workspace", WS, "--pipeline", DEF]) == 0
         sent = json.loads(route.calls.last.request.content)
-        assert sent["p_configuration"]["transform"]["statement"].startswith("def transform")
+        assert sent["p_configuration"]["steps"][0]["statement"].startswith("def transform")
 
     def test_reports_problems_without_a_traceback(self, tmp_path, monkeypatch, capsys):
         monkeypatch.setenv("SHEETBASE_URL", BASE_URL)

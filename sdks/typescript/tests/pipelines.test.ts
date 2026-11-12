@@ -28,10 +28,13 @@ function makeClient(routes: MockRoute[] = []) {
 }
 
 const config = {
-  configVersion: 1,
+  configVersion: 2,
+  mode: "standard",
   pythonRuntime: "sha256:abc",
-  transform: { language: "none", statement: "" },
-  steps: [{ name: "clean", language: "sql", statement: "select 1" }],
+  steps: [
+    { name: "clean", kind: "sql", statement: "select 1" },
+    { name: "tell", kind: "notify", notify: { subscriptionId: "s" } },
+  ],
 };
 
 describe("PipelinesResource reads", () => {
@@ -187,21 +190,30 @@ describe("PipelinesResource.trigger", () => {
 });
 
 describe("step source", () => {
-  it("replaces the main transform or a named step, keeping the rest", () => {
+  it("replaces the first or a named step, keeping the rest", () => {
     const main = applyStepSource(config, {
       code: CODE,
       requirements: ["pandas==2.2.2"],
     });
-    expect(main.transform).toEqual({ language: "python", statement: CODE });
+    expect(main.steps[0]).toEqual({
+      name: "clean",
+      kind: "python",
+      statement: CODE,
+    });
     expect(main.pythonRequirements).toEqual(["pandas==2.2.2"]);
-    expect(config.transform.language).toBe("none");
+    expect(config.steps[0].kind).toBe("sql");
 
     const step = applyStepSource(config, { code: CODE, step: "clean" });
     expect(step.steps[0]).toEqual({
       name: "clean",
-      language: "python",
+      kind: "python",
       statement: CODE,
     });
+
+    const bare = applyStepSource({ ...config, steps: [] }, { code: CODE });
+    expect(bare.steps).toEqual([
+      { name: "analysis", kind: "python", statement: CODE },
+    ]);
   });
 
   it("refuses sources that cannot run and unknown steps", () => {
@@ -211,6 +223,9 @@ describe("step source", () => {
     );
     expect(() => applyStepSource(config, { code: CODE, step: "nope" })).toThrow(
       /no step named/,
+    );
+    expect(() => applyStepSource(config, { code: CODE, step: "tell" })).toThrow(
+      /holds no code/,
     );
   });
 
@@ -282,7 +297,7 @@ describe("PipelinesResource.syncStep", () => {
     );
     expect(sent.p_version_id).toBe("v-draft");
     expect(sent.p_expected_revision).toBe(3);
-    expect(sent.p_configuration.transform.statement).toBe(CODE);
+    expect(sent.p_configuration.steps[0].statement).toBe(CODE);
   });
 
   it("starts a draft from the latest version when none is open", async () => {

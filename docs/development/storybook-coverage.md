@@ -566,22 +566,24 @@ server, so every notebook comes back in the "not updated" list.
 
 ## Agent permissions, checks and lab watchers
 
-| Module                                                       | Why no story                                                                                                                          |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/settings/agent-permissions-panel.tsx`        | Settings panel that reads and saves agent permissions through the data client; its table and selects are the shared components.       |
-| `src/components/settings/ai-checks-panel.tsx`                | Settings panel that starts a run on the server and reads earlier runs through the data client.                                        |
-| `src/components/settings/lab-watchers-panel.tsx`             | Settings panel that reads watchers and findings and saves through the data client.                                                    |
-| `src/components/pipelines/agents/action-requests-board.tsx`  | Board that reads the actions agents asked for and approves or rejects them through the data client, so it has no state to show alone. |
-| `src/components/pipelines/plugin-steps-editor.tsx`           | Argument box of a plugin step or ELN action; its choices come from the connected plugins, so it is shown by the Steps route tests.    |
-| `src/components/pipelines/step-list/inspector.tsx`           | Settings panel that reads the draft, the last try and the last run from the editor context; covered by the Steps route tests.         |
-| `src/components/pipelines/step-list/kinds.ts`                | Labels, icons and summaries of step kinds; no rendered surface.                                                                       |
-| `src/components/pipelines/step-list/pipeline-menu.tsx`       | The ⋯ menu reads versions and starts runs through the data client; covered by the pipeline page tests.                                |
-| `src/components/pipelines/step-list/step-bodies.tsx`         | Ask, notify, ELN action and plugin bodies read members, destinations and plugin points through the data client.                       |
-| `src/components/pipelines/step-list/step-detail.tsx`         | Composes the step bodies and pickers from the editor context; covered by the Steps route tests.                                       |
-| `src/components/pipelines/starts/outcomes.ts`                | Words and tones for what a start did with each thing it heard; no rendered surface.                                                   |
-| `src/components/pipelines/starts/starts-page.tsx`            | The loaded Starts and runs screen; it only lays out the parts that have stories and reads the pipeline through the data client.       |
-| `src/components/pipelines/step-list/step-list.tsx`           | The list reads the draft, schedules and runs from the editor context; covered by the Steps route tests.                               |
-| `src/components/pipelines/step-list/use-pipeline-editor.tsx` | Hook and provider that hold the draft and read versions and runs; no rendered surface.                                                |
+| Module                                                           | Why no story                                                                                                                                                         |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/settings/agent-permissions-panel.tsx`            | Settings panel that reads and saves agent permissions through the data client; its table and selects are the shared components.                                      |
+| `src/components/settings/ai-checks-panel.tsx`                    | Settings panel that starts a run on the server and reads earlier runs through the data client.                                                                       |
+| `src/components/settings/lab-watchers-panel.tsx`                 | Settings panel that reads watchers and findings and saves through the data client.                                                                                   |
+| `src/components/pipelines/agents/action-requests-board.tsx`      | Board that reads the actions agents asked for and approves or rejects them through the data client, so it has no state to show alone.                                |
+| `src/components/pipelines/plugin-steps-editor.tsx`               | Argument box of a plugin step or ELN action; its choices come from the connected plugins, so it is shown by the Steps route tests.                                   |
+| `src/components/pipelines/step-kinds/web-call/web-call-body.tsx` | Open form of a web call step; its connection list is read through the data client, so it is shown by the Steps route tests and the running editor.                   |
+| `src/components/settings/pipeline-connections.tsx`               | Settings section that reads and writes pipeline connections and their sealed secrets through the data client and server functions, so it has no state to show alone. |
+| `src/components/pipelines/step-list/inspector.tsx`               | Settings panel that reads the draft, the last try and the last run from the editor context; covered by the Steps route tests.                                        |
+| `src/components/pipelines/step-list/kinds.ts`                    | Labels, icons and summaries of step kinds; no rendered surface.                                                                                                      |
+| `src/components/pipelines/step-list/pipeline-menu.tsx`           | The ⋯ menu reads versions and starts runs through the data client; covered by the pipeline page tests.                                                               |
+| `src/components/pipelines/step-list/step-bodies.tsx`             | Ask, notify, ELN action and plugin bodies read members, destinations and plugin points through the data client.                                                      |
+| `src/components/pipelines/step-list/step-detail.tsx`             | Composes the step bodies and pickers from the editor context; covered by the Steps route tests.                                                                      |
+| `src/components/pipelines/starts/outcomes.ts`                    | Words and tones for what a start did with each thing it heard; no rendered surface.                                                                                  |
+| `src/components/pipelines/starts/starts-page.tsx`                | The loaded Starts and runs screen; it only lays out the parts that have stories and reads the pipeline through the data client.                                      |
+| `src/components/pipelines/step-list/step-list.tsx`               | The list reads the draft, schedules and runs from the editor context; covered by the Steps route tests.                                                              |
+| `src/components/pipelines/step-list/use-pipeline-editor.tsx`     | Hook and provider that hold the draft and read versions and runs; no rendered surface.                                                                               |
 
 ## Run quality control and instrument data
 

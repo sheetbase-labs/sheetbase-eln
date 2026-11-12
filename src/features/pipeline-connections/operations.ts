@@ -69,16 +69,6 @@ export const PIPELINE_CONNECTION_OPERATIONS = defineOperations([
     ],
     result: 'row:pipeline_connections',
     assistant: card('sheetbase.pipeline_connection.add'),
-    events: [
-      {
-        name: 'pipeline_connection.created',
-        family: 'administration',
-        introducedIn: 'pipelines-web-call',
-        summary: 'An administrator approved an address for pipeline web calls.',
-        producer: { entityType: 'pipeline_connection', operation: 'create' },
-        notes: 'Payload carries `connectionId`, `key`, `name` and `baseUrl`.',
-      },
-    ],
   },
   {
     name: 'update_pipeline_connection',
@@ -104,18 +94,6 @@ export const PIPELINE_CONNECTION_OPERATIONS = defineOperations([
     ],
     result: 'row:pipeline_connections',
     assistant: card('sheetbase.pipeline_connection.change'),
-    events: [
-      {
-        name: 'pipeline_connection.updated',
-        family: 'administration',
-        introducedIn: 'pipelines-web-call',
-        summary:
-          'A pipeline connection was renamed, moved to another address, or switched on or off.',
-        producer: { entityType: 'pipeline_connection', operation: 'update' },
-        notes:
-          'Payload carries `connectionId`, `key`, `name`, `baseUrl` and `status`.',
-      },
-    ],
   },
   {
     name: 'delete_pipeline_connection',
@@ -135,15 +113,5 @@ export const PIPELINE_CONNECTION_OPERATIONS = defineOperations([
     ],
     result: 'void',
     assistant: card('sheetbase.pipeline_connection.remove'),
-    events: [
-      {
-        name: 'pipeline_connection.deleted',
-        family: 'administration',
-        introducedIn: 'pipelines-web-call',
-        summary: 'A pipeline connection and its secrets were removed.',
-        producer: { entityType: 'pipeline_connection', operation: 'delete' },
-        notes: 'Payload carries `connectionId`, `key` and `name`.',
-      },
-    ],
   },
 ])

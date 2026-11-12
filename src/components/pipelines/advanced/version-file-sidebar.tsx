@@ -1,3 +1,5 @@
+import { Link } from '@tanstack/react-router'
+
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { Inspector } from '#/components/ui/layout'
@@ -118,6 +120,14 @@ export function VersionFileSidebar() {
           style={{ fontSize: 11, lineHeight: '16px', marginTop: 6 }}
         >
           {t('features.pipelineVersionFile.sidebar.startsNote')}
+        </div>
+        <div
+          className="muted"
+          style={{ fontSize: 11, lineHeight: '16px', marginTop: 4 }}
+        >
+          <Link to="/pipelines/parameter-sets">
+            {t('features.pipelineParameterSets.page.title')}
+          </Link>
         </div>
       </section>
 

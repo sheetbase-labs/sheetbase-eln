@@ -1295,12 +1295,20 @@ class AsyncPipelines:
 
     # -- The version file (Advanced mode) -----------------------------------
 
+    async def parameter_sets(self) -> list[dict[str, Any]]:
+        """The workspace's reusable parameter sets (`include:` in a version file names them by key)."""
+        return await self._t.get("/api/db/pipeline_parameter_sets", params={"order": "key.asc"})
+
+    async def _sets_by_key(self) -> dict[str, Any]:
+        return {row["key"]: row["parameters"] for row in await self.parameter_sets()}
+
     async def read_version_file(
         self,
         text: str,
         *,
         pipeline: Optional[Sequence[str]] = None,
         python_runtime: Optional[str] = None,
+        sets: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         """Check a version file on the server: ``{"ok", "configuration", "problems", "lineCount"}``.
 
@@ -1313,6 +1321,8 @@ class AsyncPipelines:
             body["pipeline"] = list(pipeline)
         if python_runtime:
             body["pythonRuntime"] = python_runtime
+        if sets:
+            body["sets"] = sets
         return await self._t.post("/api/pipelines/version-file", json_body=body)
 
     async def write_version_file(
@@ -1373,6 +1383,7 @@ class AsyncPipelines:
             text,
             pipeline=[n for n in (definition.get("display_id"), definition["key"]) if n],
             python_runtime=base["configuration"].get("pythonRuntime"),
+            sets=await self._sets_by_key(),
         )
         if not result["ok"]:
             raise VersionFileError(result["problems"])

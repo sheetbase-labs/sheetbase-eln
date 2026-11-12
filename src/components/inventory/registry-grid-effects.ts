@@ -1,3 +1,4 @@
+import type { RefObject } from 'react'
 import {
   useCallback,
   useEffect,
@@ -171,4 +172,62 @@ export function useRegistryRowKeys<T extends RowData>(
   }, [selectable, rows])
 
   return gridRef
+}
+
+/**
+ * Ticks a row without a tick box: Space on the focused row, or a Ctrl, Cmd or Shift click.
+ * The boxes themselves appear once a row is ticked (see `RegistryGrid`).
+ */
+export function useRegistryTickKeys<T extends RowData>(
+  gridRef: RefObject<HTMLDivElement | null>,
+  toggleBulk: ((id: string) => void) | undefined,
+  rows: RegistryRow<T>[],
+  getRowId: (row: T) => string,
+) {
+  useEffect(() => {
+    const root = gridRef.current
+
+    if (!root || !toggleBulk) return
+
+    const idOf = (target: EventTarget | null): string | null => {
+      const tr =
+        target instanceof Element
+          ? target.closest<HTMLTableRowElement>('tbody tr[data-index]')
+          : null
+
+      const row = tr ? rows.at(Number(tr.dataset.index)) : undefined
+
+      return row && !isBand(row) ? getRowId(row) : null
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== ' ' || !(event.target instanceof HTMLTableRowElement))
+        return
+
+      const id = idOf(event.target)
+
+      if (id === null) return
+      event.preventDefault()
+      toggleBulk(id)
+    }
+
+    const onClick = (event: MouseEvent) => {
+      if (!(event.metaKey || event.ctrlKey || event.shiftKey)) return
+
+      const id = idOf(event.target)
+
+      if (id === null) return
+      event.preventDefault()
+      event.stopPropagation()
+      toggleBulk(id)
+    }
+
+    root.addEventListener('keydown', onKeyDown)
+    root.addEventListener('click', onClick, true)
+
+    return () => {
+      root.removeEventListener('keydown', onKeyDown)
+      root.removeEventListener('click', onClick, true)
+    }
+  }, [gridRef, toggleBulk, rows, getRowId])
 }

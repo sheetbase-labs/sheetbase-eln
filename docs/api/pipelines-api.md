@@ -18,6 +18,7 @@ Two step kinds reach outside the run: `remote_job` (a script on an HPC queue; th
 | `pipeline_run_prompts`       | `pipelines:read` | A step where a run paused for a person to confirm. `asked_user_ids` are the people who may answer; `answer` holds their decision (`confirm`, `skip` or `stop`) once they have. Answering is done by that person in the app.                                                                                                                                       |
 | `pipeline_run_manifests`     | `pipelines:read` | The record of exactly what a run used and made (version, inputs, code, environment, outputs), chained by digest and signed when the workspace has a signing key. Check one with `GET /api/pipelines/manifest`.                                                                                                                                                    |
 | `pipeline_artefact_releases` | `pipelines:read` | Whether a finished run kept its working files (`kept`) or they were deleted, and when.                                                                                                                                                                                                                                                                            |
+| `pipeline_parameter_sets`    | `pipelines:read` | Reusable named lists of pipeline parameters. `key` is what a version file lists under `include:`; `parameters` is the list (`name`, `type`, `required`, `default`, `description`). A version that includes a set carries its own copy, so changing a set never changes a saved version.                |
 | `extensions`                 | `admin:read`     | The plugins installed in the workspace. `key` is its name here, `status` is `installed`, `enabled` or `disabled`, `manifest` is what it declares (its parts, permissions and the hosts it may reach) and `disabled_points` the parts an administrator switched off. The code itself is never readable.                                                            |
 
 ## `POST /api/pipelines/version-file`
@@ -28,6 +29,31 @@ Reads or writes an Advanced pipeline's version file (YAML) without saving anythi
 - `{ "configuration": {...}, "pipeline": "PL-0021", "version": 2, "title": "Assay" }` returns `{ "text" }`.
 
 To save a file, send the returned `configuration` through `create_pipeline_definition_version` or `update_pipeline_definition_version_draft`, or use `sheetbase push` and the SDK methods `push_version_file` (Python) and `pushVersionFile` (TypeScript), which do both steps. See [the version file](../subsystems/pipelines.md#the-version-file-advanced-mode).
+
+## `save_pipeline_parameter_set`
+
+Makes a reusable parameter set, or replaces the one with the same key. Pipelines include it by key (`include:` in a version file); versions already saved keep the copy they took. Stewards, admins and owners. Sends `pipeline.parameter_set.created` or `pipeline.parameter_set.updated`.
+
+Scope: `pipelines:write`. Returns a `pipeline_parameter_sets` row.
+
+| Argument           | Type | Notes                                                                        |
+| ------------------ | ---- | ---------------------------------------------------------------------------- |
+| `p_workspace_id` * | uuid | Your workspace id.                                                           |
+| `p_key` *          | text | Lower-case letters, digits, `-` and `_`, starting with a letter.             |
+| `p_name` *         | text | Name.                                                                        |
+| `p_parameters` *   | json | The parameters, as a list of `{name, type, required, default, description}`. |
+| `p_description`    | text | What it is for.                                                              |
+
+## `delete_pipeline_parameter_set`
+
+Deletes a parameter set. Versions that included it keep their copy of its parameters. Stewards, admins and owners. Sends `pipeline.parameter_set.deleted`.
+
+Scope: `pipelines:write`. Returns `void`.
+
+| Argument           | Type | Notes                                    |
+| ------------------ | ---- | ---------------------------------------- |
+| `p_workspace_id` * | uuid | Your workspace id.                       |
+| `p_set_id` *       | uuid | The set, from `pipeline_parameter_sets`. |
 
 ## `create_pipeline_definition`
 

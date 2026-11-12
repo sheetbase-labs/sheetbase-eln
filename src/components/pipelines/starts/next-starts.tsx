@@ -1,7 +1,12 @@
-import { Fragment } from 'react'
-
 import { t } from '#/copy'
 import { BoardStatus } from '#/features/pipelines/board/board'
+import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableRow,
+} from '#/components/ui/table'
 import {
   dayAndTime,
   nextStarts,
@@ -42,16 +47,20 @@ export function NextStarts({
           {t('features.pipelineStarts.next.none')}
         </div>
       ) : (
-        <div className="ns">
-          {next.map((start) => {
-            const schedule = schedules.find((s) => s.id === start.scheduleId)
+        <TableBox>
+          <Table caption={t('features.pipelineStarts.next.title')}>
+            <TableBody>
+              {next.map((start) => {
+                const schedule = schedules.find(
+                  (s) => s.id === start.scheduleId,
+                )
 
-            return (
-              <Fragment key={`${start.scheduleId}-${start.at.toISOString()}`}>
-                <span className="w">{dayAndTime(start.at, timeZone)}</span>
-                <span className="e">
-                  <span className="top">
-                    <span>
+                return (
+                  <TableRow
+                    key={`${start.scheduleId}-${start.at.toISOString()}`}
+                  >
+                    <TableCell>{dayAndTime(start.at, timeZone)}</TableCell>
+                    <TableCell>
                       {schedule
                         ? scheduleSpecLabel(
                             schedule.kind,
@@ -59,8 +68,16 @@ export function NextStarts({
                             datasetNames,
                           )
                         : t('features.pipelineStarts.composer.schedule')}
-                    </span>
-                    <span className="res">
+                      <div className="muted" style={{ fontSize: 11 }}>
+                        {start.state === 'outside'
+                          ? t('features.pipelineStarts.next.outsideWhy')
+                          : start.onlyIfChanged ||
+                              (schedule && readsOnlyChanged(schedule))
+                            ? t('features.pipelineStarts.next.onlyIfChanged')
+                            : t('features.pipelineStarts.next.anyTime')}
+                      </div>
+                    </TableCell>
+                    <TableCell align="right">
                       <BoardStatus
                         tone={start.state === 'planned' ? 'none' : 'draft'}
                       >
@@ -68,21 +85,13 @@ export function NextStarts({
                           ? t('features.pipelineStarts.next.planned')
                           : t('features.pipelineStarts.next.outside')}
                       </BoardStatus>
-                    </span>
-                  </span>
-                  <span className="why">
-                    {start.state === 'outside'
-                      ? t('features.pipelineStarts.next.outsideWhy')
-                      : start.onlyIfChanged ||
-                          (schedule && readsOnlyChanged(schedule))
-                        ? t('features.pipelineStarts.next.onlyIfChanged')
-                        : t('features.pipelineStarts.next.anyTime')}
-                  </span>
-                </span>
-              </Fragment>
-            )
-          })}
-        </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </TableBox>
       )}
       {hasSnapshot ? (
         <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>

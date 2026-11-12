@@ -569,8 +569,10 @@ version with a step list shows them read-only and says to edit them in the file.
 All outputs write in the run's one transaction, each as its own Dataset Version
 (the commit key carries the output's slot), and a failure in any of them fails
 the run. The manifest lists the further ones under `furtherOutputs`. Two outputs
-cannot write to the same place. Reproduce and the actions' `output` context cover
-the first output only.
+cannot write to the same place. Reproduce compares every output (the first row by row, the
+further ones by digest, under `furtherOutputs` in the verdict), and actions and
+notifications get `output` (the first) and `outputs` (all, first first) to
+reference.
 
 `include:` names reusable parameter sets and the parameters taken from each. A
 set is a workspace record (`pipeline_parameter_sets`, key, name, parameters),

@@ -35,6 +35,7 @@ import {
   failStuckPipelineRun,
   releaseSettledRunArtefacts,
   resumePipelineRun,
+  reproducePipelineRun,
   runPipelineExecution,
   tryPipelineDraft,
 } from '#/lib/pipeline-execute.server'
@@ -1062,6 +1063,20 @@ describe('Pipeline execution (AUTO-02)', () => {
     )
 
     expect(manifest.rows[0].further).toHaveLength(1)
+
+    // Reproduce compares every output, not only the first.
+    const again = await makeExecDeps(OWNER)
+    const reproduced = await reproducePipelineRun(
+      OWNER,
+      { runId: run.id },
+      again.deps,
+    )
+
+    await again.close()
+    expect(reproduced.reproduction?.status).toBe('matches')
+    expect(reproduced.reproduction?.summary).toMatchObject({
+      furtherOutputs: [{ matches: true }],
+    })
   })
 
   it('keeps reusable parameter sets and checks what a version includes', async () => {

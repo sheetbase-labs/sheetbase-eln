@@ -139,6 +139,13 @@ export interface PipelineReproductionSummary {
   truncated: boolean
   /** Set when only part of the result could be compared. */
   note?: string
+  /** Each further output of the version, compared by digest. */
+  furtherOutputs?: Array<{
+    from: string | null
+    originalDigest: string | null
+    reproducedDigest: string
+    matches: boolean
+  }>
 }
 
 export interface PipelineReproductionWire {

@@ -534,7 +534,7 @@ export function defaultWebCallDeps(): WebCallDeps {
         import('drizzle-orm'),
       ])
 
-      const [row] = await db
+      const row = await db
         .select()
         .from(pipelineConnections)
         .where(
@@ -543,6 +543,7 @@ export function defaultWebCallDeps(): WebCallDeps {
             eq(pipelineConnections.key, key),
           ),
         )
+        .then((rows) => rows.at(0))
 
       return row
         ? {
@@ -569,7 +570,7 @@ export function defaultWebCallDeps(): WebCallDeps {
         import('./connector-secrets.server'),
       ])
 
-      const [row] = await db
+      const row = await db
         .select({ ciphertext: pipelineConnectionSecrets.ciphertext })
         .from(pipelineConnectionSecrets)
         .where(
@@ -579,6 +580,7 @@ export function defaultWebCallDeps(): WebCallDeps {
             eq(pipelineConnectionSecrets.secretName, name),
           ),
         )
+        .then((rows) => rows.at(0))
 
       return row
         ? openSecret(Buffer.from(row.ciphertext).toString('utf8'), secretKey())
@@ -662,7 +664,7 @@ async function asOwner<T>(
     'SELECT current_user AS role, session_user AS session',
   )
 
-  const was = rows[0]
+  const was = rows.at(0)
 
   await conn.query('SET LOCAL ROLE NONE')
 

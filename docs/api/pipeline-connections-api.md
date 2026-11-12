@@ -43,7 +43,7 @@ one**. The names are readable on `pipeline_connections.secret_names`.
 
 ## Reading connections
 
-`pipeline_connections` is on the token API with `admin:read`. It lists `key`,
+`pipeline_connections` is on the token API with `pipelines:read`, so tokens and agents that write pipelines can list and reference connections. It lists `key`,
 `name`, `base_url`, `status` (`active` or `off`), the auth header and scheme,
 and the secret names.
 

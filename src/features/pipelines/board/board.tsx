@@ -131,8 +131,16 @@ export function BoardRow({
 }
 
 /** The bar under the steps that holds "Add step" and its hint. */
-export function BoardAdd({ children }: { children: ReactNode }) {
-  return <div className="pb-add">{children}</div>
+export function BoardAdd({
+  className,
+  children,
+  ...rest
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={cn('pb-add', className)} {...rest}>
+      {children}
+    </div>
+  )
 }
 
 /** The Reads / Uses / Writes / Next box of the inspector. `mine` tints the row this step owns. */
@@ -159,14 +167,56 @@ export function BoardIo({
   )
 }
 
-/** Code with the board's line-number gutter. Each string is one line. */
-export function BoardCode({ lines }: { lines: string[] }) {
+const SQL_WORDS =
+  /\b(SELECT|FROM|WHERE|AS|ROUND|CASE|WHEN|THEN|ELSE|END|JOIN|LEFT|INNER|ON|AND|OR|NOT|IN|IS|NULL|CAST|NULLIF|COALESCE|true|false)\b/
+
+/** One SQL line with the board's colours: keywords, `previous`, quoted text. */
+function sqlLine(line: string): ReactNode[] {
+  return line.split(/('[^']*'|"[^"]*")/).flatMap((part, i) => {
+    if (part.startsWith("'"))
+      return [
+        <span key={`s${i}`} className="str">
+          {part}
+        </span>,
+      ]
+
+    if (part.startsWith('"')) return [part]
+
+    return part.split(SQL_WORDS).flatMap((piece, j) => {
+      if (j % 2 === 1)
+        return [
+          <span key={`k${i}.${j}`} className="kw">
+            {piece}
+          </span>,
+        ]
+
+      return piece.split(/\b(previous)\b/).map((bit, k) =>
+        k % 2 === 1 ? (
+          <span key={`r${i}.${j}.${k}`} className="ref">
+            {bit}
+          </span>
+        ) : (
+          bit
+        ),
+      )
+    })
+  })
+}
+
+/** SQL with the board's line-number gutter and colours. Each string is one line. */
+export function BoardCode({
+  lines,
+  label,
+}: {
+  lines: string[]
+  label?: string
+}) {
   return (
-    <pre className="code">
+    <pre className="code" aria-label={label}>
       {lines.map((line, i) => (
         // SAFETY: the lines are a fixed, ordered snapshot of one statement and never reorder.
         <span key={`${i}:${line}`} className="l">
-          {line}
+          {sqlLine(line)}
         </span>
       ))}
     </pre>

@@ -19,6 +19,8 @@ export interface PipelineNotificationContext {
   parameters: PythonInputRow
   previous: PythonInputRow[]
   output: PythonInputRow
+  /** Every output of the run, the first one first. */
+  outputs?: PythonInputRow[]
   actions: PythonInputRow
   /** Per notification step: the result of the data step before it. */
   previousFor?: Record<string, PythonInputRow[]>
@@ -99,6 +101,7 @@ export async function queuePipelineNotifications(
         parameters: context.parameters,
         previous: context.previousFor?.[target.name] ?? context.previous,
         output: context.output,
+        outputs: context.outputs,
         actions: context.actions,
       })
     }

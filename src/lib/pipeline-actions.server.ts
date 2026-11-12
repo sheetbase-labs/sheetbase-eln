@@ -23,6 +23,8 @@ const actionContextSchema = z.object({
   parameters: pipelineJsonObjectSchema,
   previous: z.array(pythonInputValueSchema),
   output: pipelineJsonObjectSchema,
+  /** Every output of the run, the first one first; `output` is the first. */
+  outputs: z.array(pipelineJsonObjectSchema).optional(),
   /** Per action: the result of the data step before it, when it is not `previous`. */
   previousFor: z.record(z.string(), z.array(pythonInputValueSchema)).optional(),
 })
@@ -116,9 +118,14 @@ function resolveValue(
     const parts = reference.data.split('.')
 
     if (
-      !['parameters', 'previous', 'actions', 'output', 'row'].includes(
-        parts[0] ?? '',
-      ) ||
+      ![
+        'parameters',
+        'previous',
+        'actions',
+        'output',
+        'outputs',
+        'row',
+      ].includes(parts[0] ?? '') ||
       parts.some((part) => !/^[A-Za-z0-9_-]+$/.test(part) || blocked.has(part))
     )
       throw new Error('Invalid action reference.')

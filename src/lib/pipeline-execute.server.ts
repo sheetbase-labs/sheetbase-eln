@@ -962,9 +962,40 @@ async function reproduceInScratch(
     }
   }
 
-  const reproducedRows = transform.rows
+  const reproducedRows = rowsForOutput(config.output, transform)
   const reproducedDigest = digestRows(reproducedRows)
   const originalDigest = manifest?.outputs.contentDigest ?? null
+
+  // Further outputs are compared by digest against what the manifest recorded.
+  const furtherChecks = (config.moreOutputs ?? [])
+    .filter((more) => more.mode !== 'none')
+    .map((more, index) => {
+      const recorded = manifest?.furtherOutputs?.[index]
+      const moreDigest = digestRows(rowsForOutput(more, transform))
+
+      return {
+        from: more.from ?? null,
+        originalDigest: recorded?.contentDigest ?? null,
+        reproducedDigest: moreDigest,
+        matches: recorded?.contentDigest === moreDigest,
+      }
+    })
+
+  const withFurther = (outcome: ReproductionOutcome): ReproductionOutcome => {
+    if (furtherChecks.length === 0) return outcome
+    const allMatch = furtherChecks.every((check) => check.matches)
+
+    return {
+      ...outcome,
+      status:
+        outcome.status === 'matches' && !allMatch ? 'differs' : outcome.status,
+      summary: {
+        ...outcome.summary,
+        identical: Boolean(outcome.summary.identical) && allMatch,
+        furtherOutputs: furtherChecks,
+      },
+    }
+  }
 
   const base: Partial<PipelineReproductionSummary> = {
     inputs,
@@ -975,7 +1006,7 @@ async function reproduceInScratch(
   }
 
   if (originalDigest !== null && originalDigest === reproducedDigest) {
-    return {
+    return withFurther({
       status: 'matches',
       compared: 'digest',
       summary: {
@@ -995,7 +1026,7 @@ async function reproduceInScratch(
       changes: [],
       errorCode: null,
       errorMessage: null,
-    }
+    })
   }
 
   // Not byte for byte: find what the run recorded and compare row by row.
@@ -1008,7 +1039,7 @@ async function reproduceInScratch(
   )
 
   if (!baseline) {
-    return {
+    return withFurther({
       status: originalDigest === null ? 'failed' : 'differs',
       compared: originalDigest === null ? null : 'digest',
       summary: {
@@ -1025,7 +1056,7 @@ async function reproduceInScratch(
         originalDigest === null
           ? 'This run recorded no result to compare with.'
           : null,
-    }
+    })
   }
 
   const diff = diffResultRows(baseline.original, baseline.reproduced, tolerance)
@@ -1040,14 +1071,14 @@ async function reproduceInScratch(
 
   if (baseline.note) summary.note = baseline.note
 
-  return {
+  return withFurther({
     status: diffMatches(diff) ? 'matches' : 'differs',
     compared: baseline.compared,
     summary,
     changes: examples,
     errorCode: null,
     errorMessage: null,
-  }
+  })
 }
 
 /**
@@ -1359,6 +1390,20 @@ async function finishExecution(
 
   const actions = pipelineActionSteps(config)
 
+  // `output` is the first output; `outputs` lists every one, first first.
+  const allOutputs = [
+    {
+      datasetId: output.datasetId,
+      datasetVersionId: output.datasetVersionId,
+      label: output.label,
+    },
+    ...furtherOutputs.map((more) => ({
+      datasetId: more.datasetId,
+      datasetVersionId: more.datasetVersionId,
+      label: more.label,
+    })),
+  ]
+
   const actionResults = await executePipelineActions(
     conn,
     { workspaceId: run.workspace_id, runId: run.id },
@@ -1372,6 +1417,7 @@ async function finishExecution(
         datasetVersionId: output.datasetVersionId,
         label: output.label,
       },
+      outputs: allOutputs,
     },
   )
 
@@ -1427,6 +1473,7 @@ async function finishExecution(
       datasetVersionId: output.datasetVersionId,
       label: output.label,
     },
+    outputs: allOutputs,
   })
   const finished = await completeRun(conn, run, completion)
   // The evidence is written in the transaction that completes the run: a run

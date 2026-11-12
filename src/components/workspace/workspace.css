@@ -625,6 +625,16 @@
   text-decoration-style: solid;
   text-decoration-color: currentColor;
 }
+/* A list sets a record's ID as plain mono text, as the board does; the link and its peek stay,
+   and hovering draws the underline. */
+.workspace .registry-table a[data-record-link].mono,
+.workspace-page .registry-table a[data-record-link].mono {
+  text-decoration: none;
+}
+.workspace .registry-table a[data-record-link].mono:hover,
+.workspace-page .registry-table a[data-record-link].mono:hover {
+  text-decoration: underline;
+}
 .mx-pill {
   position: fixed;
   z-index: 60;

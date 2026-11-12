@@ -21,10 +21,10 @@ export interface WebhookTriggerState {
   token?: string
 }
 
-const webhookKey = (definitionId: string) =>
+export const webhookKey = (definitionId: string) =>
   ['ui-port', 'pipelines', 'webhook-trigger', definitionId] as const
 
-async function webhookRequest(
+export async function webhookRequest(
   definitionId: string,
   method: 'GET' | 'PUT',
   action?: 'rotate' | 'disable',

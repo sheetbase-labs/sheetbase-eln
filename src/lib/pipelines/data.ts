@@ -29,6 +29,7 @@ import type {
   PipelineTrialWire,
 } from './types'
 import { t } from '#/copy'
+import { now as appNow } from '#/lib/clock'
 import { runNumbers } from './run-steps'
 
 // ---------------------------------------------------------------------------
@@ -689,7 +690,22 @@ export async function listScheduleActivity(
 ): Promise<PipelineScheduleActivityWire[]> {
   return client.list<PipelineScheduleActivityWire>(
     'pipeline_schedule_activity',
-    `?select=id,schedule_id,kind,occurrence_id,message,detail,occurred_at&schedule_id=eq.${encodeURIComponent(scheduleId)}&order=occurred_at.desc&limit=${limit}`,
+    `?select=id,schedule_id,definition_id,source,label,run_id,kind,occurrence_id,message,detail,occurred_at&schedule_id=eq.${encodeURIComponent(scheduleId)}&kind=neq.started&order=occurred_at.desc&limit=${limit}`,
+  )
+}
+
+/** Everything the pipeline's starts did over the last `days`, newest first. */
+export async function listDefinitionActivity(
+  client: DataClient,
+  definitionId: string,
+  days = 7,
+  limit = 200,
+): Promise<PipelineScheduleActivityWire[]> {
+  const since = new Date(appNow().getTime() - days * 86_400_000).toISOString()
+
+  return client.list<PipelineScheduleActivityWire>(
+    'pipeline_schedule_activity',
+    `?select=id,schedule_id,definition_id,source,label,run_id,kind,occurrence_id,message,detail,occurred_at&definition_id=eq.${encodeURIComponent(definitionId)}&occurred_at=gte.${encodeURIComponent(since)}&order=occurred_at.desc&limit=${limit}`,
   )
 }
 

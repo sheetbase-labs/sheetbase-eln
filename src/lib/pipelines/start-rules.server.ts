@@ -4,6 +4,7 @@
  * this reads what it needs from the database.
  */
 import type { QueryResultRow } from 'pg'
+import { z } from 'zod'
 
 import { parseStartRules } from './start-rules'
 import type { StartRules } from './start-rules'
@@ -35,7 +36,8 @@ export async function loadStartRules(
   const raw = rows.at(0)?.start_rules
 
   const set =
-    typeof raw === 'object' && raw !== null && Object.keys(raw).length > 0
+    Object.keys(z.record(z.string(), z.unknown()).catch({}).parse(raw)).length >
+    0
 
   return { rules: parseStartRules(raw), set }
 }

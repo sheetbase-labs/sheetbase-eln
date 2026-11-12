@@ -77,7 +77,15 @@ export const PIPELINE_STEP_KINDS = [
  */
 export function stepRuns(
   kind: (typeof PIPELINE_STEP_KINDS)[number],
-): 'sql' | 'python' | 'plugin' | 'remote_job' | 'web_call' | 'ask' | 'action' | 'notify' {
+):
+  | 'sql'
+  | 'python'
+  | 'plugin'
+  | 'remote_job'
+  | 'web_call'
+  | 'ask'
+  | 'action'
+  | 'notify' {
   if (isNoCodeKind(kind) || kind === 'lakehouse') return 'sql'
 
   return kind
@@ -445,10 +453,6 @@ const rawStepSchema = z
     plugin: z.unknown(),
     lake: z.unknown(),
     remoteJob: z.unknown(),
-          )
-        break
-      }
-
     webCall: z.unknown(),
     ask: z.unknown(),
     action: z.unknown(),

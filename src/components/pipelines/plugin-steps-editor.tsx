@@ -10,7 +10,8 @@ import { t } from '#/copy'
 import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
 import { parsePluginName } from '#/lib/extensions/points'
 import type { OperationInput } from '#/lib/operations/descriptor'
-import type { PipelineConfig, PipelineParameter } from '#/lib/pipelines/config'
+import type { PipelineParameter } from '#/lib/pipelines/config'
+import type { PipelineConfigView as PipelineConfig } from '#/lib/pipelines/config-view'
 import type { TableSource } from './plugin-step-sources'
 
 export type PipelineActionConfig = NonNullable<

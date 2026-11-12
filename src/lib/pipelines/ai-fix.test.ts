@@ -1,26 +1,40 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  TRANSFORM_TARGET,
-  applyStepFix,
-  buildFixText,
-  parseFailureReply,
-} from './ai-fix'
+import { applyStepFix, buildFixText, parseFailureReply } from './ai-fix'
 import type { PipelineConfig } from './config'
 
 const config: PipelineConfig = {
-  configVersion: 1,
+  configVersion: 2,
+  mode: 'standard',
   parameters: [],
   inputs: [{ name: 'readings', required: true }],
-  transform: { language: 'sql', statement: 'select * from readingz' },
   output: { mode: 'none', datasetLabel: 'x' },
   steps: [
+    { name: 'analysis', kind: 'sql', statement: 'select * from readingz' },
     {
       name: 'summary',
-      language: 'sql',
+      kind: 'sql',
       statement: 'select 1 as n from previous',
     },
   ],
+}
+
+/** The statement of the step at an index, for a SQL or Python step. */
+function statementAt(source: PipelineConfig, index: number) {
+  const step = source.steps.at(index)
+
+  return step?.kind === 'sql' || step?.kind === 'python'
+    ? step.statement
+    : undefined
+}
+
+function withStatement(index: number, statement: string): PipelineConfig {
+  return {
+    ...config,
+    steps: config.steps.map((step, at) =>
+      at === index && step.kind === 'sql' ? { ...step, statement } : step,
+    ),
+  }
 }
 
 describe('buildFixText', () => {
@@ -29,7 +43,7 @@ describe('buildFixText', () => {
       errorCode: 'transform_failed',
       errorMessage: 'relation "readingz" does not exist',
       logLines: ['a', 'b'],
-      failedStep: TRANSFORM_TARGET,
+      failedStep: 'analysis',
       config,
     })
 
@@ -42,11 +56,11 @@ describe('buildFixText', () => {
 })
 
 describe('parseFailureReply', () => {
-  it('reads a fix for the transform, with or without code fences', () => {
+  it('reads a fix for a step, with or without code fences', () => {
     const body = JSON.stringify({
       explanation: 'Typo in the table name.',
       fix: {
-        target: 'transform',
+        target: 'analysis',
         language: 'sql',
         statement: 'select * from readings',
       },
@@ -54,7 +68,7 @@ describe('parseFailureReply', () => {
 
     for (const text of [body, '```json\n' + body + '\n```']) {
       const parsed = parseFailureReply(text, config)
-      expect(parsed?.fix?.target).toBe('transform')
+      expect(parsed?.fix?.target).toBe('analysis')
       expect(parsed?.fix?.statement).toBe('select * from readings')
     }
   })
@@ -77,11 +91,11 @@ describe('parseFailureReply', () => {
       wrap({ target: 'nope', language: 'sql', statement: 'select 1' })?.fix,
     ).toBeNull()
     expect(
-      wrap({ target: 'transform', language: 'python', statement: 'x' })?.fix,
+      wrap({ target: 'analysis', language: 'python', statement: 'x' })?.fix,
     ).toBeNull()
     expect(
       wrap({
-        target: 'transform',
+        target: 'analysis',
         language: 'sql',
         statement: 'select * from readingz',
       })?.fix,
@@ -95,13 +109,13 @@ describe('parseFailureReply', () => {
 })
 
 describe('applyStepFix', () => {
-  it.each(['transform', 'summary'])(
+  it.each([
+    ['analysis', 0],
+    ['summary', 1],
+  ] as const)(
     'repairs an invalid %s statement before validating the draft',
-    (target) => {
-      const base = structuredClone(config)
-
-      if (target === 'transform') base.transform.statement = ''
-      else if (base.steps?.[0]) base.steps[0].statement = ''
+    (target, index) => {
+      const base = withStatement(index, '')
 
       const result = applyStepFix(base, {
         explanation: 'x',
@@ -114,16 +128,8 @@ describe('applyStepFix', () => {
 
       if (!result.ok) throw new Error(result.reason)
 
-      expect(
-        target === 'transform'
-          ? result.config.transform.statement
-          : result.config.steps?.[0]?.statement,
-      ).toBe('select 2 as n')
-      expect(
-        target === 'transform'
-          ? base.transform.statement
-          : base.steps?.[0]?.statement,
-      ).toBe('')
+      expect(statementAt(result.config, index)).toBe('select 2 as n')
+      expect(statementAt(base, index)).toBe('')
       expect(
         applyStepFix(
           { ...base, output: { mode: 'invalid' } },
@@ -142,13 +148,13 @@ describe('applyStepFix', () => {
     null,
     [],
     {},
-    { ...config, transform: null },
+    { ...config, steps: null },
     { ...config, steps: [null] },
   ])('rejects malformed draft shapes without asserting their type', (base) => {
     expect(
       applyStepFix(base, {
         explanation: 'x',
-        target: 'transform',
+        target: 'analysis',
         language: 'sql',
         statement: 'select 2',
       }).ok,
@@ -166,23 +172,32 @@ describe('applyStepFix', () => {
     expect(result.ok).toBe(true)
 
     if (result.ok) {
-      expect(result.config.steps?.[0]?.statement).toBe(
-        'select 2 as n from previous',
-      )
-      expect(result.config.transform.statement).toBe('select * from readingz')
+      expect(statementAt(result.config, 1)).toBe('select 2 as n from previous')
+      expect(statementAt(result.config, 0)).toBe('select * from readingz')
     }
 
-    expect(config.steps?.[0]?.statement).toBe('select 1 as n from previous')
+    expect(statementAt(config, 1)).toBe('select 1 as n from previous')
   })
 
-  it('refuses a target the draft does not have', () => {
-    const result = applyStepFix(config, {
-      explanation: 'x',
-      target: 'gone',
-      language: 'sql',
-      statement: 'select 1',
-    })
-
-    expect(result.ok).toBe(false)
+  it('refuses a target the draft does not have, or one with no code', () => {
+    for (const target of ['gone', 'tell'])
+      expect(
+        applyStepFix(
+          {
+            ...config,
+            steps: [
+              ...config.steps,
+              {
+                name: 'tell',
+                kind: 'notify',
+                notify: {
+                  subscriptionId: '11111111-1111-4111-8111-111111111111',
+                },
+              },
+            ],
+          },
+          { explanation: 'x', target, language: 'sql', statement: 'select 1' },
+        ).ok,
+      ).toBe(false)
   })
 })

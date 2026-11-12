@@ -65,13 +65,13 @@ describe('pipeline data client', () => {
     await createPipelineDefinitionVersion(client, {
       workspaceId: 'ws-1',
       definitionId: 'def-1',
-      configuration: { configVersion: 1 },
+      configuration: { configVersion: 2 },
     })
     await updatePipelineDefinitionVersionDraft(client, {
       workspaceId: 'ws-1',
       versionId: 'ver-1',
       expectedRevision: 1,
-      configuration: { configVersion: 1 },
+      configuration: { configVersion: 2 },
     })
     await publishPipelineDefinitionVersion(client, {
       workspaceId: 'ws-1',
@@ -172,7 +172,7 @@ describe('pipeline data client', () => {
         version: 1,
         lifecycle: 'published',
         configuration: {
-          configVersion: 1,
+          configVersion: 2,
           inputs: [{ name: 'measurements', required: true }],
           parameters: [{ name: 'factor', type: 'decimal', required: true }],
         },
@@ -183,7 +183,7 @@ describe('pipeline data client', () => {
         version: 2,
         lifecycle: 'published',
         configuration: {
-          configVersion: 1,
+          configVersion: 2,
           inputs: [
             { name: 'a', required: true },
             { name: 'b', required: true },

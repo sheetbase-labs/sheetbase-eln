@@ -2,7 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { configurationForWire, editorConfiguration } from '../-configuration'
+import {
+  configurationErrors,
+  configurationForWire,
+  editorConfiguration,
+  editorShowsVersion,
+} from '../-configuration'
 import type { PipelineConfiguration } from '../-configuration'
 import { rich, t } from '#/copy'
 import { Button } from '#/components/ui/button'
@@ -39,13 +44,10 @@ import {
   usePipelineVersions,
   useWorkspaceMemberNames,
 } from '#/components/pipelines/pipelines-data'
-import { validatePipelineConfig } from '#/lib/pipelines/config'
+import { MAX_STEPS, PIPELINE_CONFIG_VERSION } from '#/lib/pipelines/config'
 import { readResultPreview } from '#/lib/pipelines/result-preview'
-import type {
-  PipelineInput,
-  PipelineParameter,
-  PipelineStep,
-} from '#/lib/pipelines/config'
+import type { PipelineInput, PipelineParameter } from '#/lib/pipelines/config'
+import type { PipelineViewStep as PipelineStep } from '#/lib/pipelines/config-view'
 import { addStep, statementForLanguage } from '#/lib/pipelines/authoring'
 import { unmetRequirements } from '#/lib/pipelines/python'
 import type { PythonContract } from '#/lib/pipelines/python'
@@ -77,6 +79,9 @@ export const Route = createFileRoute('/pipelines/$pipelineId/steps')({
   component: PipelineSteps,
 })
 
+/** Further steps the editor adds; the analysis step is the one more. */
+const MAX_EDITOR_STEPS = MAX_STEPS - 1
+
 /** The configuration keys this page edits; other errors are the server's to report. */
 const EDITED_CONFIG_FIELDS = [
   'description',
@@ -100,7 +105,7 @@ function draftDialogVersion(
     definition_id: pipelineId,
     workspace_id: workspaceId,
     lifecycle: 'draft',
-    configuration_format_version: 1,
+    configuration_format_version: PIPELINE_CONFIG_VERSION,
     revision: draft?.revision ?? 0,
     created_at: draft?.created_at ?? '',
     updated_at: draft?.updated_at ?? '',
@@ -210,6 +215,11 @@ function useStepsEditor() {
     [source?.configuration],
   )
 
+  const shown = useMemo(
+    () => editorShowsVersion(source?.configuration ?? {}),
+    [source?.configuration],
+  )
+
   useEffect(() => {
     setDescription(sourceConfig.description ?? '')
     setStatement(sourceConfig.transform?.statement ?? '')
@@ -263,13 +273,14 @@ function useStepsEditor() {
       pythonRuntime,
       pythonRequirements:
         usesPython && requirements.length ? requirements : undefined,
-      configVersion: sourceConfig.configVersion ?? 1,
+      configVersion: PIPELINE_CONFIG_VERSION,
       description: description.trim() || null,
       parameters,
       ...(extraSteps.length ? { steps: extraSteps } : { steps: undefined }),
       ...(actions.length ? { actions } : { actions: undefined }),
       inputs,
       transform: {
+        ...sourceConfig.transform,
         language,
         statement: statement.trim(),
         contract: language === 'python' ? transformContract : undefined,
@@ -313,7 +324,7 @@ function useStepsEditor() {
   // authoritative for the rest.
   const configErrors = useMemo(
     () => [
-      ...validatePipelineConfig(builtConfig).filter((error) =>
+      ...configurationErrors(builtConfig).filter((error) =>
         EDITED_CONFIG_FIELDS.some(
           (field) =>
             error.field === field ||
@@ -332,8 +343,17 @@ function useStepsEditor() {
             }),
           )
         : []),
+      ...(shown
+        ? []
+        : [
+            {
+              code: 'invalid_shape' as const,
+              field: 'steps',
+              message: t('data.pipelineSteps.versionNotShownHere'),
+            },
+          ]),
     ],
-    [builtConfig, usesPython, requirements, runtime.data?.packages],
+    [builtConfig, usesPython, requirements, runtime.data?.packages, shown],
   )
 
   const canSave =
@@ -455,7 +475,7 @@ function useStepsEditor() {
       },
     }
 
-    const problem = validatePipelineConfig(next).at(0)
+    const problem = configurationErrors(next).at(0)
 
     if (problem) throw new Error(problem.message)
     await writeDraft(next)
@@ -777,7 +797,7 @@ function StepsNavigation({ editor }: { editor: StepsEditorModel }) {
           variant="quiet"
           icon="plus"
           className="justify-start"
-          disabled={extraSteps.length >= 9}
+          disabled={extraSteps.length >= MAX_EDITOR_STEPS}
           onClick={addFurtherStep}
         >
           {t('data.pipelineSteps.addStep')}
@@ -895,7 +915,7 @@ function StepsWorkArea({ editor }: { editor: StepsEditorModel }) {
           size="sm"
           icon="plus"
           aria-label={t('data.pipelineSteps.ariaAddPipelineStep')}
-          disabled={extraSteps.length >= 9}
+          disabled={extraSteps.length >= MAX_EDITOR_STEPS}
           onClick={addFurtherStep}
         >
           {t('data.pipelineSteps.addStep')}

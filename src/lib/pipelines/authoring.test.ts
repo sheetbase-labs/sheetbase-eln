@@ -18,7 +18,7 @@ import {
   updateParameter,
   updateStep,
 } from './authoring'
-import { validatePipelineConfig } from './config'
+import { viewConfigErrors } from './config-view'
 
 describe('parameters', () => {
   it('adds uniquely named text parameters', () => {
@@ -62,8 +62,9 @@ describe('steps', () => {
   it('adds uniquely named steps that the validator accepts', () => {
     expect(two.map((s) => s.name)).toEqual(['step_1', 'step_2'])
 
-    const errors = validatePipelineConfig({
-      configVersion: 1,
+    const errors = viewConfigErrors({
+      configVersion: 2,
+      mode: 'standard',
       parameters: [],
       inputs: [],
       transform: { language: 'sql', statement: 'select 1' },
@@ -83,8 +84,9 @@ describe('steps', () => {
     const asked = setStepConfirm(two, 0, defaultConfirm(['u-1']))
     expect(asked[0].confirm?.askedUserIds).toEqual(['u-1'])
 
-    const errors = validatePipelineConfig({
-      configVersion: 1,
+    const errors = viewConfigErrors({
+      configVersion: 2,
+      mode: 'standard',
       parameters: [],
       inputs: [],
       transform: { language: 'sql', statement: 'select 1' },

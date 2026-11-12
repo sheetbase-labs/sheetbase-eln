@@ -13,9 +13,6 @@ import type { PipelineConfig } from './config'
  * the pipeline is never published by this path.
  */
 
-/** The transform is addressed as this target; any other target is a step name. */
-export const TRANSFORM_TARGET = 'transform'
-
 export interface RunFailureFacts {
   errorCode: string | null
   errorMessage: string | null
@@ -28,7 +25,7 @@ export interface RunFailureFacts {
 
 export interface StepFix {
   explanation: string
-  /** 'transform' or the name of a declared step. */
+  /** The name of a SQL or Python step of the version. */
   target: string
   language: 'sql' | 'python'
   statement: string
@@ -54,25 +51,20 @@ const failureReply = z.object({
     .catch(null),
 })
 
+function codeSteps(config: Partial<PipelineConfig>) {
+  return (config.steps ?? []).flatMap((step) =>
+    step.kind === 'sql' || step.kind === 'python'
+      ? [{ name: step.name, language: step.kind, statement: step.statement }]
+      : [],
+  )
+}
+
 function stepStatements(config: Partial<PipelineConfig>): string[] {
-  const out: string[] = []
-  const transform = config.transform
-
-  if (transform && transform.language !== 'none' && transform.statement) {
-    out.push(
-      `Step "${TRANSFORM_TARGET}" (${transform.language}):\n${transform.statement.slice(0, MAX_STATEMENT_CHARS)}`,
-    )
-  }
-
-  for (const step of config.steps ?? []) {
-    // A plugin step has no code to fix.
-    if (step.language === 'plugin') continue
-    out.push(
+  // Only SQL and Python steps hold code to fix.
+  return codeSteps(config).map(
+    (step) =>
       `Step "${step.name}" (${step.language}):\n${step.statement.slice(0, MAX_STATEMENT_CHARS)}`,
-    )
-  }
-
-  return out
+  )
 }
 
 /** The statement currently held by a target, or null when it does not exist. */
@@ -80,19 +72,9 @@ export function statementOf(
   config: Partial<PipelineConfig>,
   target: string,
 ): { language: 'sql' | 'python'; statement: string } | null {
-  if (target === TRANSFORM_TARGET) {
-    const transform = config.transform
+  const step = codeSteps(config).find((candidate) => candidate.name === target)
 
-    if (!transform || transform.language === 'none') return null
-
-    return { language: transform.language, statement: transform.statement }
-  }
-
-  const step = config.steps?.find((candidate) => candidate.name === target)
-
-  return step && step.language !== 'plugin'
-    ? { language: step.language, statement: step.statement }
-    : null
+  return step ? { language: step.language, statement: step.statement } : null
 }
 
 export const FIX_INSTRUCTION = [
@@ -215,42 +197,26 @@ export function applyStepFix(
   draft.parameters ??= []
   draft.inputs ??= []
 
-  if (fix.target === TRANSFORM_TARGET) {
-    const transform = draftObject.safeParse(draft.transform)
+  const steps = z.array(draftObject).safeParse(draft.steps ?? [])
 
-    if (!transform.success)
-      return {
-        ok: false,
-        reason:
-          validatePipelineConfig(draft)[0]?.message ?? 'Not a valid pipeline.',
-      }
-
-    if (transform.data.language === 'none') {
-      return { ok: false, reason: 'The draft has no transform to correct.' }
+  if (!steps.success)
+    return {
+      ok: false,
+      reason:
+        validatePipelineConfig(draft)[0]?.message ?? 'Not a valid pipeline.',
     }
 
-    transform.data.statement = fix.statement
-  } else {
-    const steps = z.array(draftObject).safeParse(draft.steps ?? [])
+  const step = steps.data.find((candidate) => candidate.name === fix.target)
 
-    if (!steps.success)
-      return {
-        ok: false,
-        reason:
-          validatePipelineConfig(draft)[0]?.message ?? 'Not a valid pipeline.',
-      }
-
-    const step = steps.data.find((candidate) => candidate.name === fix.target)
-
-    if (!step) {
-      return {
-        ok: false,
-        reason: `The draft has no step called ${fix.target}.`,
-      }
+  if (!step || (step.kind !== 'sql' && step.kind !== 'python')) {
+    return {
+      ok: false,
+      reason: `The draft has no step called ${fix.target}.`,
     }
-
-    step.statement = fix.statement
   }
+
+  step.statement = fix.statement
+  draft.steps = steps.data
 
   const result = fixedConfiguration.safeParse(draft)
 

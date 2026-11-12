@@ -130,15 +130,7 @@ function OutputsSection({
           datasetLabel: edited.output.datasetLabel ?? '',
         }
       : undefined,
-    notifications: z
-      .array(
-        z.object({
-          subscriptionId: z.string(),
-          payload: pipelineJsonObjectSchema.optional(),
-        }),
-      )
-      .optional()
-      .parse(version.configuration.notifications),
+    notifications: edited.notifications,
   }
 
   return (

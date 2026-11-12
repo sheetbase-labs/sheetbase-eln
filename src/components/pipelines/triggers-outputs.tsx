@@ -11,7 +11,7 @@ import { toast } from '#/components/ui/sonner'
 import { Status } from '#/components/ui/status'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { PIPELINE_ACTIONS } from '#/lib/pipelines/actions'
-import type { PipelineConfig } from '#/lib/pipelines/config'
+import type { PipelineConfigView as PipelineConfig } from '#/lib/pipelines/config-view'
 
 /** The webhook that starts a run, as the management endpoint reports it. The
  * token is only ever returned when it is created or rotated. */

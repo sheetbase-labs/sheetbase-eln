@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 
 import type { PipelineConfig, PipelineParameter } from './config'
 import type { FilterForm } from './no-code/forms'
+import { DEFAULT_START_RULES } from './start-rules'
+import type { StartRules } from './start-rules'
 import { noCodeStatement } from './no-code/generate'
 import {
   applyFix,
@@ -198,7 +200,7 @@ describe('the version file', () => {
     expect(problems[0].line).toBeGreaterThanOrEqual(3)
   })
 
-  it('refuses a file for another pipeline, another mode, and keys it has no place for yet', () => {
+  it('refuses a file for another pipeline, another mode, and keys it has no place for', () => {
     const base = versionFileText(everything(), META)
 
     expect(
@@ -207,8 +209,8 @@ describe('the version file', () => {
     expect(
       check(base.replace('mode: advanced', 'mode: simple')).problems[0].message,
     ).toContain('cannot change')
-    expect(check(`${base}starts:\n  any: []\n`).problems[0].message).toContain(
-      'cannot be written in the file yet',
+    expect(check(`${base}stats:\n  any: []\n`).problems[0].message).toContain(
+      'stats',
     )
   })
 
@@ -448,5 +450,72 @@ describe('remote job and lakehouse steps', () => {
 
     expect(result.config).toBeNull()
     expect(result.problems[0]).toMatchObject({ line })
+  })
+})
+
+describe('starts', () => {
+  const rules = {
+    conditionsMatch: 'any',
+    window: {
+      days: 'weekdays',
+      from: '07:00',
+      to: '19:00',
+      timeZone: 'Europe/London',
+    },
+    minNewRows: 50,
+    waitMinutes: 10,
+    whileRunning: 'skip',
+    missedRuns: 'skip',
+  } as const satisfies StartRules
+
+  it('writes only the rules that are not the defaults, and reads them back', () => {
+    const text = versionFileText(everything(), {
+      pipeline: 'PL-0001',
+      startRules: rules,
+    })
+
+    const result = check(text, { pipeline: ['PL-0001'] })
+
+    expect(text).toContain('starts:')
+    expect(text).toContain('min_new_rows: 50')
+    expect(result.problems).toEqual([])
+    expect(result.startRules).toEqual(rules)
+  })
+
+  it('writes no block when the rules are the defaults, and reads none', () => {
+    const text = versionFileText(everything(), {
+      pipeline: 'PL-0001',
+      startRules: DEFAULT_START_RULES,
+    })
+
+    expect(text).not.toContain('starts:')
+    expect(check(text, { pipeline: ['PL-0001'] }).startRules).toBeUndefined()
+  })
+
+  it('marks a rule that is not valid on its own line', () => {
+    const text = versionFileText(everything(), {
+      pipeline: 'PL-0001',
+      startRules: rules,
+    }).replace('wait_minutes: 10', 'wait_minutes: 5000')
+
+    const line =
+      text.split('\n').findIndex((l) => l.includes('wait_minutes')) + 1
+
+    const result = check(text, { pipeline: ['PL-0001'] })
+
+    expect(result.config).toBeNull()
+    expect(result.problems[0]).toMatchObject({ line })
+  })
+
+  it('names a rule it does not know, with a guess', () => {
+    const text = versionFileText(everything(), {
+      pipeline: 'PL-0001',
+      startRules: rules,
+    }).replace('min_new_rows', 'min_new_row')
+
+    const result = check(text, { pipeline: ['PL-0001'] })
+
+    expect(result.config).toBeNull()
+    expect(result.problems[0].message).toContain('min_new_rows')
   })
 })

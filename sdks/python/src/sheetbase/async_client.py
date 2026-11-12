@@ -1295,6 +1295,19 @@ class AsyncPipelines:
 
     # -- The version file (Advanced mode) -----------------------------------
 
+    async def set_start_rules(
+        self, workspace_id: str, definition_id: str, rules: dict[str, Any]
+    ) -> Any:
+        """Replace the rules across a pipeline's starts (hours, new rows, waiting, missed runs); ``{}`` clears them."""
+        return await self._t.post(
+            "/api/db/rpc/set_pipeline_start_rules",
+            json_body={
+                "p_workspace_id": workspace_id,
+                "p_definition_id": definition_id,
+                "p_rules": rules,
+            },
+        )
+
     async def parameter_sets(self) -> list[dict[str, Any]]:
         """The workspace's reusable parameter sets (`include:` in a version file names them by key)."""
         return await self._t.get("/api/db/pipeline_parameter_sets", params={"order": "key.asc"})
@@ -1332,6 +1345,7 @@ class AsyncPipelines:
         pipeline: str,
         version: Optional[int] = None,
         title: Optional[str] = None,
+        start_rules: Optional[dict[str, Any]] = None,
     ) -> str:
         """A stored version written out as its version file (YAML text)."""
         body: dict[str, Any] = {"configuration": configuration, "pipeline": pipeline}
@@ -1339,6 +1353,8 @@ class AsyncPipelines:
             body["version"] = version
         if title:
             body["title"] = title
+        if start_rules:
+            body["startRules"] = start_rules
         return (await self._t.post("/api/pipelines/version-file", json_body=body))["text"]
 
     async def pull_version_file(self, id_or_key: str, *, version: Optional[int] = None) -> str:
@@ -1358,6 +1374,7 @@ class AsyncPipelines:
             pipeline=definition.get("display_id") or definition["key"],
             version=row["version"],
             title=definition.get("name"),
+            start_rules=definition.get("start_rules"),
         )
 
     async def push_version_file(self, id_or_key: str, text: str) -> tuple[Any, bool]:
@@ -1395,13 +1412,18 @@ class AsyncPipelines:
                 expected_revision=draft["revision"],
                 configuration=result["configuration"],
             )
-            return version, False
-        version = await self.create_draft(
-            workspace_id=workspace_id,
-            definition_id=definition["id"],
-            configuration=result["configuration"],
-        )
-        return version, True
+            created = False
+        else:
+            version = await self.create_draft(
+                workspace_id=workspace_id,
+                definition_id=definition["id"],
+                configuration=result["configuration"],
+            )
+            created = True
+        rules = result.get("startRules")
+        if rules and rules != definition.get("start_rules"):
+            await self.set_start_rules(workspace_id, definition["id"], rules)
+        return version, created
 
 
 class AsyncFacility:

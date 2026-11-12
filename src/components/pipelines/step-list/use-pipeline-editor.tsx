@@ -46,6 +46,11 @@ import {
   usePipelineParameterSets,
 } from '#/components/pipelines/parameter-sets/parameter-sets-data'
 import { unmetRequirements } from '#/lib/pipelines/python'
+import { DEFAULT_START_RULES } from '#/lib/pipelines/start-rules'
+import {
+  useSetStartRules,
+  useStartRules,
+} from '#/components/pipelines/starts/starts-data'
 import { configForWire, readStoredConfig } from '#/lib/pipelines/step-list'
 import { checkVersionFile, versionFileText } from '#/lib/pipelines/version-file'
 import type { VersionFileResult } from '#/lib/pipelines/version-file'
@@ -121,6 +126,8 @@ export function usePipelineEditorModel(
   const versions = usePipelineVersions(pipelineId)
   const list = versions.data ?? []
   const definition = usePipelineDefinition(pipelineId)
+  const startRules = useStartRules(pipelineId)
+  const setStartRules = useSetStartRules(workspaceId, pipelineId)
   const draft = draftVersion(list)
   const current = currentVersion(list)
   const source = draft ?? current
@@ -161,6 +168,7 @@ export function usePipelineEditorModel(
             title: definition.data?.name,
             pipeline: pipelineNames[0] ?? '',
             version: source?.version,
+            startRules: startRules.data,
             versionNote: fileVersionNote(
               source,
               current?.lifecycle === 'published' ? current : undefined,
@@ -169,7 +177,7 @@ export function usePipelineEditorModel(
         : '',
     // The names are the definition's own; they only change with it.
     // react-doctor-disable-next-line react-doctor/exhaustive-deps -- the names are the definition's own and change only with it.
-    [stored, advanced, definition.data, source, current],
+    [stored, advanced, definition.data, source, current, startRules.data],
   )
 
   const [fileState, setFileState] = useState<{
@@ -201,6 +209,14 @@ export function usePipelineEditorModel(
 
   const fileConfig = fileCheck?.config ?? stored
 
+  // The file's `starts:` block sets the pipeline's start rules, which a version does not hold.
+  const rulesToSave =
+    fileCheck?.startRules &&
+    JSON.stringify(fileCheck.startRules) !==
+      JSON.stringify(startRules.data ?? DEFAULT_START_RULES)
+      ? fileCheck.startRules
+      : null
+
   const config = advanced
     ? fileConfig
     : working?.key === sourceKey
@@ -219,12 +235,13 @@ export function usePipelineEditorModel(
   const dirty = useMemo(
     () =>
       Boolean(
-        config &&
-        stored &&
-        JSON.stringify(configForWire(withoutPin(config))) !==
-          JSON.stringify(configForWire(withoutPin(stored))),
+        rulesToSave ||
+        (config &&
+          stored &&
+          JSON.stringify(configForWire(withoutPin(config))) !==
+            JSON.stringify(configForWire(withoutPin(stored)))),
       ),
-    [config, stored],
+    [config, stored, rulesToSave],
   )
 
   // The runner pins the immutable Python image a saved version was written
@@ -294,19 +311,27 @@ export function usePipelineEditorModel(
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
 
-  const writeDraft = (next: PipelineConfig) =>
-    draft
-      ? notebookDataClient.rpc('update_pipeline_definition_version_draft', {
-          p_workspace_id: workspaceId,
-          p_version_id: draft.id,
-          p_expected_revision: draft.revision,
-          p_configuration: configForWire(next),
-        })
-      : notebookDataClient.rpc('create_pipeline_definition_version', {
+  const writeDraft = async (next: PipelineConfig) => {
+    const saved = draft
+      ? await notebookDataClient.rpc(
+          'update_pipeline_definition_version_draft',
+          {
+            p_workspace_id: workspaceId,
+            p_version_id: draft.id,
+            p_expected_revision: draft.revision,
+            p_configuration: configForWire(next),
+          },
+        )
+      : await notebookDataClient.rpc('create_pipeline_definition_version', {
           p_workspace_id: workspaceId,
           p_definition_id: pipelineId,
           p_configuration: configForWire(next),
         })
+
+    if (rulesToSave) await setStartRules.mutateAsync(rulesToSave)
+
+    return saved
+  }
 
   const saveDraft = useMutation({
     mutationFn: async () => {

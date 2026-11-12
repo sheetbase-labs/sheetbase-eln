@@ -324,7 +324,7 @@ export class PipelinesResource {
 
   /**
    * Check a version file on the server. Saves nothing. Answers
-   * `{ ok, configuration, problems, lineCount }`, each problem with its line and column.
+   * `{ ok, configuration, startRules, problems, lineCount }`, each problem with its line and column.
    */
   async readVersionFile(
     text: string,
@@ -336,6 +336,7 @@ export class PipelinesResource {
   ): Promise<{
     ok: boolean
     configuration: Row | null
+    startRules: Row | null
     problems: VersionFileProblem[]
     lineCount: number
   }> {
@@ -347,10 +348,30 @@ export class PipelinesResource {
     return this.transport.post('/api/pipelines/version-file', { jsonBody })
   }
 
+  /** Replace the rules across a pipeline's starts (hours, new rows, waiting, missed runs); `{}` clears them. */
+  async setStartRules(params: {
+    workspaceId: string
+    definitionId: string
+    rules: Row
+  }): Promise<Row> {
+    return this.transport.post('/api/db/rpc/set_pipeline_start_rules', {
+      jsonBody: {
+        p_workspace_id: params.workspaceId,
+        p_definition_id: params.definitionId,
+        p_rules: params.rules,
+      },
+    })
+  }
+
   /** A stored version written out as its version file (YAML text). */
   async writeVersionFile(
     configuration: Row,
-    options: { pipeline: string; version?: number; title?: string },
+    options: {
+      pipeline: string
+      version?: number
+      title?: string
+      startRules?: Row
+    },
   ): Promise<string> {
     const jsonBody: Record<string, unknown> = {
       configuration,
@@ -358,6 +379,7 @@ export class PipelinesResource {
     }
     if (options.version !== undefined) jsonBody.version = options.version
     if (options.title) jsonBody.title = options.title
+    if (options.startRules) jsonBody.startRules = options.startRules
     const result = await this.transport.post('/api/pipelines/version-file', {
       jsonBody,
     })
@@ -381,6 +403,7 @@ export class PipelinesResource {
       pipeline: definition.display_id ?? definition.key,
       version: row.version,
       title: definition.name,
+      startRules: definition.start_rules ?? undefined,
     })
   }
 
@@ -414,20 +437,29 @@ export class PipelinesResource {
     if (!result.ok || !result.configuration) {
       throw new VersionFileError(result.problems)
     }
-    if (draft) {
-      const version = await this.saveDraft({
+    const version = draft
+      ? await this.saveDraft({
+          workspaceId: definition.workspace_id,
+          versionId: draft.id,
+          expectedRevision: draft.revision,
+          configuration: result.configuration,
+        })
+      : await this.createDraft({
+          workspaceId: definition.workspace_id,
+          definitionId: definition.id,
+          configuration: result.configuration,
+        })
+    if (
+      result.startRules &&
+      JSON.stringify(result.startRules) !==
+        JSON.stringify(definition.start_rules)
+    ) {
+      await this.setStartRules({
         workspaceId: definition.workspace_id,
-        versionId: draft.id,
-        expectedRevision: draft.revision,
-        configuration: result.configuration,
+        definitionId: definition.id,
+        rules: result.startRules,
       })
-      return { version, created: false }
     }
-    const version = await this.createDraft({
-      workspaceId: definition.workspace_id,
-      definitionId: definition.id,
-      configuration: result.configuration,
-    })
-    return { version, created: true }
+    return { version, created: !draft }
   }
 }

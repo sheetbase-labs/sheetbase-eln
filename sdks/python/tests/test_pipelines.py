@@ -268,6 +268,21 @@ class TestVersionFile:
         assert created is False
         assert json.loads(route.calls.last.request.content)["p_expected_revision"] == 3
 
+    def test_push_sets_the_start_rules_the_file_names(self, mock_transport):
+        sets_table(mock_transport)
+        mock_transport.get("/api/db/pipeline_definitions").respond(200, json=[DEFINITION])
+        mock_transport.get("/api/db/pipeline_definition_versions").respond(200, json=[advanced_version("draft")])
+        rules = {"conditionsMatch": "all", "minNewRows": 50, "waitMinutes": 10}
+        mock_transport.post("/api/pipelines/version-file").respond(
+            200, json={"ok": True, "configuration": ADVANCED, "startRules": rules, "problems": [], "lineCount": 3}
+        )
+        mock_transport.post("/api/db/rpc/update_pipeline_definition_version_draft").respond(200, json={"id": "v-draft"})
+        route = mock_transport.post("/api/db/rpc/set_pipeline_start_rules").respond(200, json={})
+        with client() as c:
+            c.pipelines.push_version_file("PL-0021", "text")
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["p_rules"] == rules and sent["p_definition_id"] == DEF
+
     def test_push_raises_the_problems_and_saves_nothing(self, mock_transport):
         sets_table(mock_transport)
         mock_transport.get("/api/db/pipeline_definitions").respond(200, json=[DEFINITION])

@@ -20,6 +20,7 @@ import {
 import type { PipelineExecuteDeps } from '#/lib/pipeline-execute.server'
 import type { WebCallDeps } from '#/lib/pipeline-web-call.server'
 import { prepareTestDatabase, setActorJwt, testDatabaseName } from './helpers'
+import { publishPipelineVersion } from './support/publish-pipeline'
 
 const WS = '0e020000-0000-4000-8000-000000000302'
 const OWNER = 'pipeline-web-call-owner'
@@ -225,10 +226,8 @@ async function publishVersion(
       p_configuration: config,
     },
   )
-  await rpc(owner, 'publish_pipeline_definition_version', {
-    p_workspace_id: WS,
-    p_version_id: version.id,
-  })
+  await publishPipelineVersion(owner, WS, version.id)
+
   return version.id
 }
 

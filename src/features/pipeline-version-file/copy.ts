@@ -14,6 +14,13 @@ export const copy = {
     didYouMean: '{message}. Did you mean `{guess}`?',
     changeTo: 'Change to {to}',
     notYet: '{what} cannot be written in the file yet',
+    includeList: '`include:` is a list of parameter set names',
+    noSetCalled: 'No parameter set is called `{name}`',
+    setParameterTaken: 'The parameter `{name}` is already in {where}',
+    outputTwice:
+      'Use `output:` for one output or `outputs:` for several, not both',
+    outputsMustBeList:
+      '`outputs:` is a list with at least one output, each starting with `- mode:`',
     needsPipeline: 'The file starts with `pipeline: {name}`',
     otherPipeline: 'This file is for {found}, not {name}',
     modeAdvanced: 'This pipeline is Advanced. The mode cannot change',

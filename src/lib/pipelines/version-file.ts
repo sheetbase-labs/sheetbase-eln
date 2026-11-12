@@ -26,7 +26,11 @@ import { z } from 'zod'
 
 import { t } from '#/copy'
 import { PIPELINE_STEP_KINDS, validatePipelineConfig } from './config'
-import type { PipelineConfig, PipelineStepKind } from './config'
+import type {
+  PipelineConfig,
+  PipelineParameter,
+  PipelineStepKind,
+} from './config'
 import { isNoCodeKind } from './no-code/forms'
 import { noCodeStatement } from './no-code/generate'
 import { parseNoCodeForm } from './no-code/schema'
@@ -94,12 +98,15 @@ export interface VersionFileTarget {
    * carry the pin; whoever saves the version supplies the runner's.
    */
   pythonRuntime?: string
+  /** The workspace's parameter sets by key, for the file's `include:`. */
+  sets?: Record<string, PipelineParameter[]>
 }
 
 const TOP_KEYS = [
   'pipeline',
   'version',
   'mode',
+  'include',
   'description',
   'python_runtime',
   'python_requirements',
@@ -107,13 +114,12 @@ const TOP_KEYS = [
   'inputs',
   'steps',
   'output',
+  'outputs',
 ] as const
 
 /** Keys a later build gives a meaning; named so the message can say so. */
 const LATER_KEYS: Record<string, string> = {
-  include: 'Includes',
   starts: 'Starts',
-  outputs: 'Several outputs',
 }
 
 type Names = Record<string, string>
@@ -139,6 +145,7 @@ const OUTPUT_KEYS: Names = {
   dataset_name: 'datasetName',
   dataset_label: 'datasetLabel',
   field_mapping: 'fieldMapping',
+  from: 'from',
 }
 
 const ASK_KEYS: Names = {
@@ -347,6 +354,123 @@ function readKeys(
   return out
 }
 
+/**
+ * `include:` lists parameter sets by key. Their parameters join the version's
+ * own (copied, so the version stands alone), and each entry remembers which
+ * ones it brought in.
+ */
+function readIncludes(
+  value: Record<string, unknown>,
+  config: Record<string, unknown>,
+  report: Report,
+  sets: Record<string, PipelineParameter[]>,
+): void {
+  if (!('include' in value)) return
+
+  if (!Array.isArray(value.include)) {
+    report(['include'], t('features.pipelineVersionFile.problems.includeList'))
+
+    return
+  }
+
+  const own = z
+    .array(z.looseObject({ name: z.string() }))
+    .safeParse(config.parameters)
+
+  const taken = new Map<string, string>()
+
+  for (const entry of own.success ? own.data : []) taken.set(entry.name, '')
+
+  const include: Array<{ set: string; parameters: string[] }> = []
+  const brought: unknown[] = []
+
+  value.include.forEach((entry, index) => {
+    const key = typeof entry === 'string' ? entry : ''
+    const found = Object.hasOwn(sets, key) ? sets[key] : undefined
+
+    if (!found) {
+      report(
+        ['include', index],
+        t('features.pipelineVersionFile.problems.noSetCalled', {
+          name: String(entry),
+        }),
+        { suggest: Object.keys(sets), word: String(entry) },
+      )
+
+      return
+    }
+
+    for (const parameter of found) {
+      const before = taken.get(parameter.name)
+
+      if (before !== undefined)
+        report(
+          ['include', index],
+          t('features.pipelineVersionFile.problems.setParameterTaken', {
+            name: parameter.name,
+            where: before || 'the file',
+          }),
+        )
+
+      taken.set(parameter.name, key)
+    }
+
+    include.push({ set: key, parameters: found.map((p) => p.name) })
+    brought.push(...found)
+  })
+
+  config.include = include
+  config.parameters = [
+    ...brought,
+    ...(Array.isArray(config.parameters) ? config.parameters : []),
+  ]
+}
+
+/** `output:` is the one output; `outputs:` is a list of them, the first being the one a Standard pipeline shows. */
+function readOutputs(
+  value: Record<string, unknown>,
+  config: Record<string, unknown>,
+  report: Report,
+): void {
+  if ('output' in value && 'outputs' in value) {
+    report(
+      ['outputs'],
+      t('features.pipelineVersionFile.problems.outputTwice'),
+      { key: true },
+    )
+
+    return
+  }
+
+  if ('output' in value) {
+    config.output =
+      readKeys(value.output, OUTPUT_KEYS, ['output'], report, 'output') ??
+      undefined
+
+    return
+  }
+
+  if (!('outputs' in value)) return
+
+  if (!Array.isArray(value.outputs) || value.outputs.length === 0) {
+    report(
+      ['outputs'],
+      t('features.pipelineVersionFile.problems.outputsMustBeList'),
+    )
+
+    return
+  }
+
+  const read = value.outputs.map((entry, index) =>
+    readKeys(entry, OUTPUT_KEYS, ['outputs', index], report, 'output'),
+  )
+
+  config.output = read[0] ?? undefined
+
+  if (read.length > 1)
+    config.moreOutputs = read.slice(1).filter((entry) => entry !== null)
+}
+
 function readStep(
   raw: unknown,
   index: number,
@@ -540,7 +664,11 @@ function fieldSegments(field: string): Path {
 }
 
 /** Where in the file a field of the stored version is written. */
-function pathOfField(field: string, config: PipelineConfig): Path {
+function pathOfField(
+  field: string,
+  config: PipelineConfig,
+  outputsList = false,
+): Path {
   const [head, ...rest] = fieldSegments(field)
   const second = rest.at(0)
 
@@ -606,9 +734,17 @@ function pathOfField(field: string, config: PipelineConfig): Path {
       return [...base, step.kind]
     }
 
+    case 'moreOutputs':
+      return [
+        'outputs',
+        ...(typeof second === 'number' ? [second + 1] : []),
+        ...[renamed(OUTPUT_KEYS, rest.at(1)), ...rest.slice(2)].filter(
+          (s) => s !== undefined,
+        ),
+      ]
     case 'output':
       return [
-        'output',
+        ...(outputsList ? ['outputs', 0] : ['output']),
         ...[renamed(OUTPUT_KEYS, second), ...rest.slice(1)].filter(
           (s) => s !== undefined,
         ),
@@ -806,12 +942,11 @@ export function checkVersionFile(
         ? (readNamed(value.inputs, INPUT_KEYS, ['inputs'], report, 'input') ??
           [])
         : [],
-    output:
-      'output' in value
-        ? (readKeys(value.output, OUTPUT_KEYS, ['output'], report, 'output') ??
-          undefined)
-        : { mode: 'none', datasetLabel: '' },
+    output: { mode: 'none', datasetLabel: '' },
   }
+
+  readOutputs(value, config, report)
+  readIncludes(value, config, report, target.sets ?? {})
 
   if (!Array.isArray(value.steps)) {
     if ('steps' in value)
@@ -846,7 +981,7 @@ export function checkVersionFile(
     return finish(problems, null, outline, lineCount)
 
   for (const error of validatePipelineConfig(built.data)) {
-    let path = pathOfField(error.field, built.data)
+    let path = pathOfField(error.field, built.data, 'outputs' in value)
 
     // The pin is not in the file: the first Python step is what needs it.
     if (error.field === 'pythonRuntime' && value.python_runtime === undefined) {
@@ -889,10 +1024,12 @@ function finish(
 // -- Outline -----------------------------------------------------------------
 
 const SECTIONS: Record<string, string> = {
+  include: 'Includes',
   parameters: 'Parameters',
   inputs: 'Inputs',
   steps: 'Steps',
   output: 'Output',
+  outputs: 'Outputs',
 }
 
 function outlineOf(
@@ -1035,19 +1172,29 @@ export function versionFileText(
     pipeline: meta.pipeline,
     version: meta.version ?? undefined,
     mode: config.mode,
+    include: config.include?.length
+      ? config.include.map((i) => i.set)
+      : undefined,
     description: config.description || undefined,
     python_requirements: config.pythonRequirements?.length
       ? config.pythonRequirements
       : undefined,
   }
 
-  if (config.parameters.length)
-    body.parameters = writeNamed(config.parameters, PARAMETER_KEYS)
+  const included = new Set((config.include ?? []).flatMap((i) => i.parameters))
+  const own = config.parameters.filter((p) => !included.has(p.name))
+
+  if (own.length) body.parameters = writeNamed(own, PARAMETER_KEYS)
 
   if (config.inputs.length) body.inputs = writeNamed(config.inputs, INPUT_KEYS)
 
   body.steps = config.steps.map(writeStep)
-  body.output = writeKeys(config.output, OUTPUT_KEYS)
+
+  if (config.moreOutputs?.length)
+    body.outputs = [config.output, ...config.moreOutputs].map((output) =>
+      writeKeys(output, OUTPUT_KEYS),
+    )
+  else body.output = writeKeys(config.output, OUTPUT_KEYS)
 
   const doc = new Document(body)
 

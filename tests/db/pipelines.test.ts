@@ -122,6 +122,8 @@ async function actor(userId: string, workspaceId: string): Promise<Client> {
 // the caller omits trailing defaults.
 const RPC_ARG_TYPES = {
   create_pipeline_definition: ['uuid', 'text', 'text', 'text'],
+  save_pipeline_parameter_set: ['uuid', 'text', 'text', 'jsonb', 'text'],
+  delete_pipeline_parameter_set: ['uuid', 'uuid'],
   update_pipeline_definition: ['uuid', 'uuid', 'text', 'text', 'text'],
   create_pipeline_definition_version: ['uuid', 'uuid', 'jsonb'],
   update_pipeline_definition_version_draft: ['uuid', 'uuid', 'bigint', 'jsonb'],
@@ -187,6 +189,8 @@ const rpcResultSchemas = {
   fail_pipeline_run: z.void(),
   append_pipeline_run_log: z.void(),
   cancel_pipeline_run: runResultSchema,
+  save_pipeline_parameter_set: z.object({ id: z.string(), key: z.string() }),
+  delete_pipeline_parameter_set: z.void(),
   create_pipeline_schedule: scheduleResultSchema,
   update_pipeline_schedule: scheduleResultSchema,
   create_dataset_schema_definition: z.object({
@@ -968,6 +972,207 @@ describe('Pipeline execution (AUTO-02)', () => {
     )
 
     expect(datasets.rows[0].count).toBe(1)
+  })
+
+  it('writes a further output from the step it names, in the same run', async () => {
+    const owner = await actor(OWNER, WS)
+
+    const definition = await rpc(owner, 'create_pipeline_definition', {
+      p_workspace_id: WS,
+      p_key: 'two_outputs',
+      p_name: 'Two outputs',
+    })
+
+    const base = pipelineConfig(
+      'SELECT batch, value, value * {{factor}} AS scaled FROM measurements',
+    )
+
+    const configuration = {
+      ...base,
+      steps: [
+        {
+          name: 'first',
+          kind: 'sql',
+          statement:
+            'SELECT batch, value, value * {{factor}} AS scaled FROM measurements',
+        },
+        {
+          name: 'second',
+          kind: 'sql',
+          statement: 'SELECT batch, value, 0 AS scaled FROM previous',
+        },
+      ],
+      output: {
+        ...base.output,
+        datasetName: 'Two outputs first',
+        from: 'first',
+      },
+      moreOutputs: [
+        {
+          mode: 'create',
+          schemaVersionId,
+          datasetName: 'Two outputs second',
+          datasetLabel: 'second output',
+          from: 'second',
+        },
+      ],
+    }
+
+    const version = await rpc(owner, 'create_pipeline_definition_version', {
+      p_workspace_id: WS,
+      p_definition_id: definition.id,
+      p_configuration: configuration,
+    })
+
+    await rpc(owner, 'publish_pipeline_definition_version', {
+      p_workspace_id: WS,
+      p_version_id: version.id,
+    })
+
+    const run = await rpc(owner, 'start_pipeline_run', {
+      p_workspace_id: WS,
+      p_definition_version_id: version.id,
+      p_trigger_kind: 'manual',
+      p_parameters: { factor: 2 },
+      p_input_versions: { measurements: inputDatasetVersionId },
+    })
+
+    const { deps, close } = await makeExecDeps(OWNER)
+    const report = await runPipelineExecution(OWNER, run.id, deps)
+    await close()
+    expect(report.errorMessage ?? '').toBe('')
+    expect(report.run?.status).toBe('succeeded')
+
+    const outputs = await migrator.query(
+      `select d.name, (select count(*)::int from api.dataset_rows where dataset_id = d.id) as rows
+         from api.pipeline_run_outputs o join api.datasets d on d.id = o.dataset_id
+        where o.run_id = $1 order by d.name`,
+      [run.id],
+    )
+
+    expect(outputs.rows.map((row) => row.name)).toEqual([
+      'Two outputs first',
+      'Two outputs second',
+    ])
+    expect(outputs.rows.every((row) => row.rows > 0)).toBe(true)
+
+    const manifest = await migrator.query(
+      `select manifest->'furtherOutputs' as further from api.pipeline_run_manifests where run_id = $1`,
+      [run.id],
+    )
+
+    expect(manifest.rows[0].further).toHaveLength(1)
+  })
+
+  it('keeps reusable parameter sets and checks what a version includes', async () => {
+    const owner = await actor(OWNER, WS)
+
+    const set = z.object({ id: z.string(), key: z.string() }).parse(
+      await rpc(owner, 'save_pipeline_parameter_set', {
+        p_workspace_id: WS,
+        p_key: 'aav9-limits',
+        p_name: 'AAV9 limits',
+        p_parameters: [
+          { name: 'ntu_limit', type: 'decimal', required: false, default: 5 },
+        ],
+        p_description: null,
+      }),
+    )
+
+    // The same key replaces the set.
+    await rpc(owner, 'save_pipeline_parameter_set', {
+      p_workspace_id: WS,
+      p_key: 'aav9-limits',
+      p_name: 'AAV9 limits v2',
+      p_parameters: [
+        { name: 'ntu_limit', type: 'decimal', required: false, default: 6 },
+      ],
+      p_description: null,
+    })
+
+    const stored = await migrator.query(
+      `select name, parameters from api.pipeline_parameter_sets where id = $1`,
+      [set.id],
+    )
+
+    expect(stored.rows[0].name).toBe('AAV9 limits v2')
+
+    await expect(
+      rpc(owner, 'save_pipeline_parameter_set', {
+        p_workspace_id: WS,
+        p_key: 'bad set',
+        p_name: 'x',
+        p_parameters: [],
+        p_description: null,
+      }),
+    ).rejects.toThrow(/set key/)
+
+    const definition = await rpc(owner, 'create_pipeline_definition', {
+      p_workspace_id: WS,
+      p_key: 'includes_a_set',
+      p_name: 'Includes a set',
+    })
+
+    const base = pipelineConfig('SELECT 1 AS x')
+
+    // An include must name parameters the version carries.
+    await expect(
+      rpc(owner, 'create_pipeline_definition_version', {
+        p_workspace_id: WS,
+        p_definition_id: definition.id,
+        p_configuration: {
+          ...base,
+          include: [{ set: 'aav9-limits', parameters: ['ntu_limit'] }],
+        },
+      }),
+    ).rejects.toThrow(/include|parameter/i)
+
+    await rpc(owner, 'create_pipeline_definition_version', {
+      p_workspace_id: WS,
+      p_definition_id: definition.id,
+      p_configuration: {
+        ...base,
+        parameters: [
+          // SAFETY: `base` is the configuration this test stored a few lines up; its parameters are a list of objects.
+          // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- a stored parameter is read back as plain JSON here.
+          ...(base.parameters as Array<Record<string, unknown>>),
+          { name: 'ntu_limit', type: 'decimal', required: false, default: 6 },
+        ],
+        include: [{ set: 'aav9-limits', parameters: ['ntu_limit'] }],
+      },
+    })
+
+    await rpc(owner, 'delete_pipeline_parameter_set', {
+      p_workspace_id: WS,
+      p_set_id: set.id,
+    })
+
+    const gone = await migrator.query(
+      `select count(*)::int as n from api.pipeline_parameter_sets where id = $1`,
+      [set.id],
+    )
+
+    expect(gone.rows[0].n).toBe(0)
+  })
+
+  it('refuses a further output that names no step', async () => {
+    const owner = await actor(OWNER, WS)
+
+    const definition = await rpc(owner, 'create_pipeline_definition', {
+      p_workspace_id: WS,
+      p_key: 'bad_more_outputs',
+      p_name: 'Bad more outputs',
+    })
+
+    const base = pipelineConfig('SELECT 1 AS x')
+
+    await expect(
+      rpc(owner, 'create_pipeline_definition_version', {
+        p_workspace_id: WS,
+        p_definition_id: definition.id,
+        p_configuration: { ...base, moreOutputs: [{ mode: 'none' }] },
+      }),
+    ).rejects.toThrow(/moreOutputs\[0\]\.from|which step/)
   })
 
   it('replays a prior success idempotently for the same canonical inputs', async () => {

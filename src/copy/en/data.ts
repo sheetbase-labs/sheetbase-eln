@@ -1700,6 +1700,10 @@ export const data = {
     editAsSqlBody:
       'The step becomes a SQL step with the code the form wrote. You can’t turn it back into a form.',
     editAsSqlConfirm: 'Edit as SQL',
+    moreOutputsInFile:
+      'This version writes further outputs ({count}), set in its version file. Edit them there.',
+    includesInFile:
+      'Includes the parameter sets {sets}, set in its version file. Their parameters are copied into this version.',
     listFoot:
       'Each step reads the one before it as previous. Step results are temporary and deleted when the run ends; the run record, logs and row counts stay. Up to {max} steps.',
     chooseFile: 'Choose a file',
@@ -3512,6 +3516,18 @@ export const data = {
     packageRequirementsApplyOnly:
       'Package requirements apply only when a step uses Python.',
     outputMustObject: 'output must be an object',
+    outputFromMustBeStep: 'from must name a data step of this pipeline',
+    outputFromRequired:
+      'a further output must say which step its rows come from',
+    moreOutputsMustBeList: 'moreOutputs must be a list',
+    tooManyOutputs: 'at most {count} further outputs are allowed',
+    outputTargetTwice: 'two outputs write to the same place',
+    includeMustBeList: 'include must be a list',
+    includeEntry:
+      'an include names a parameter set and the parameters it brought in',
+    includeTwice: 'a parameter set is included twice',
+    includeParameterMissing:
+      "an included parameter must be one of the version's parameters",
     outputModeMustCreate: 'output mode must be create, append or none',
     createOutputRequiresValid: 'A create output needs a valid dataset version.',
     createOutputRequiresDataset: 'create output requires a dataset name',

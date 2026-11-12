@@ -88,6 +88,7 @@ import type {
   PipelineAskStep,
   PipelineConfig,
   PipelineDataStep,
+  PipelineOutput,
   PipelineRemoteJobStep,
 } from './pipelines/config'
 import { loadLakeTables } from './pipeline-lakehouse.server'
@@ -1260,6 +1261,7 @@ async function finishExecution(
     usage?: PythonTransformUsage
     effectPrevious?: Record<string, SqlResultRow[]>
     webResponses?: RecordedResponse[]
+    stepResults?: Record<string, SqlResultRow[]>
   },
   timing: {
     startedAt: number
@@ -1275,17 +1277,57 @@ async function finishExecution(
   if (!(await isRunRunning(conn, run.id)))
     throw new PipelineStepError('run_cancelled', 'Run was cancelled.')
 
+  const noOutput = {
+    ok: true as const,
+    datasetId: null,
+    datasetVersionId: null,
+    label: null,
+    commitMs: 0,
+    snapshotMs: 0,
+  }
+
   const output =
     config.output.mode === 'none'
-      ? {
-          ok: true as const,
-          datasetId: null,
-          datasetVersionId: null,
-          label: null,
-          commitMs: 0,
-          snapshotMs: 0,
-        }
-      : await writeOutput(conn, run, config, transform.rows)
+      ? noOutput
+      : await writeOutput(
+          conn,
+          run,
+          config.output,
+          rowsForOutput(config.output, transform),
+        )
+
+  // Further outputs (file-only) are written in the same transaction, each
+  // from the rows of the step it names. Any one refused rolls back them all.
+  const furtherOutputs: FurtherOutput[] = []
+
+  if (output.ok)
+    for (const [index, more] of (config.moreOutputs ?? []).entries()) {
+      if (more.mode === 'none') continue
+      const rows = rowsForOutput(more, transform)
+
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- outputs are written one after another inside one transaction; each re-reads the Dataset revision it extends.
+      const written = await writeOutput(conn, run, more, rows, index + 1)
+
+      if (!written.ok) {
+        await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
+        await failRun(conn, run, written.code, written.message)
+
+        return { ok: false, code: written.code, message: written.message }
+      }
+
+      furtherOutputs.push({
+        index: index + 1,
+        from: more.from ?? null,
+        rows: rows.length,
+        ...written,
+      })
+      await log(conn, run, 'info', 'output', `Output ${index + 2} recorded.`, {
+        datasetId: written.datasetId,
+        datasetVersionId: written.datasetVersionId,
+        from: more.from ?? null,
+        rows: rows.length,
+      })
+    }
 
   const outputMs = Date.now() - outputStarted
   observeStage('output_commit', outputMs)
@@ -1350,6 +1392,13 @@ async function finishExecution(
     outputDatasetId: output.datasetId,
     outputDatasetVersionId: output.datasetVersionId,
     outputLabel: output.label,
+    furtherOutputs: furtherOutputs.map((more) => ({
+      datasetId: more.datasetId,
+      datasetVersionId: more.datasetVersionId,
+      label: more.label,
+      from: more.from,
+      rows: more.rows,
+    })),
     durationMs: transform.durationMs,
     stageDurationsMs: {
       materializeInputs: materializeMs,
@@ -1403,7 +1452,14 @@ async function finishExecution(
       datasetVersionId: output.datasetVersionId,
       label: output.label,
     },
-    rows: transform.rows,
+    furtherOutputs: furtherOutputs.map((more) => ({
+      datasetId: more.datasetId,
+      datasetVersionId: more.datasetVersionId,
+      label: more.label,
+      from: more.from,
+      rows: rowsForOutput(config.moreOutputs?.[more.index - 1], transform),
+    })),
+    rows: rowsForOutput(config.output, transform),
     actions: actions.map((action) => ({
       name: action.name,
       operation: action.operation,
@@ -2657,6 +2713,8 @@ type TransformOutcome =
       effectPrevious?: Record<string, SqlResultRow[]>
       /** What web call steps fetched this time and the run does not hold yet. */
       webResponses?: RecordedResponse[]
+      /** What each data step gave back: an output may take its rows from any of them. */
+      stepResults?: Record<string, SqlResultRow[]>
     }
   | {
       kind: 'waiting'
@@ -3242,6 +3300,7 @@ async function executeSteps(
     durationMs: Date.now() - started,
     effectPrevious,
     webResponses: web.collected,
+    stepResults,
   }
 
   if (usages.length > 0)
@@ -3494,6 +3553,31 @@ async function isRunRunning(
 // Output materialization through canonical operations.
 // ---------------------------------------------------------------------------
 
+type FurtherOutput = {
+  index: number
+  from: string | null
+  rows: number
+  datasetId: string
+  datasetVersionId: string
+  label: string
+}
+
+/**
+ * The rows an output writes: those of the step it names, or the result of the
+ * last data step when it names none.
+ */
+function rowsForOutput(
+  output: PipelineOutput | undefined,
+  transform: {
+    rows: SqlResultRow[]
+    stepResults?: Record<string, SqlResultRow[]>
+  },
+): SqlResultRow[] {
+  if (!output?.from) return transform.rows
+
+  return transform.stepResults?.[output.from] ?? []
+}
+
 type OutputOutcome =
   | {
       ok: true
@@ -3508,11 +3592,11 @@ type OutputOutcome =
 async function writeOutput(
   conn: ExecConnection,
   run: RunRow,
-  config: PipelineConfig,
+  output: PipelineOutput,
   resultRows: SqlResultRow[],
+  /** 0 for the first output; a further output's commits carry its slot so no two share a key. */
+  slot = 0,
 ): Promise<OutputOutcome> {
-  const output = config.output
-
   // Re-check cancellation before any output work.
   if (!(await isRunRunning(conn, run.id))) {
     return {
@@ -3597,7 +3681,7 @@ async function writeOutput(
     }
   }
 
-  const mapped = mapOutputRows(config, fields, resultRows)
+  const mapped = mapOutputRows(output, fields, resultRows)
 
   if (mapped.kind === 'error') {
     return { ok: false, code: mapped.code, message: mapped.message }
@@ -3646,7 +3730,7 @@ async function writeOutput(
           datasetId,
           expectedRevision,
           JSON.stringify(chunk),
-          `pipeline:${run.id}:${Math.floor(offset / BATCH_SIZE)}`,
+          `pipeline:${run.id}${slot ? `:o${slot}` : ''}:${Math.floor(offset / BATCH_SIZE)}`,
         ],
       )
 
@@ -3828,7 +3912,7 @@ async function loadDatasetSnapshotState(
 // ---------------------------------------------------------------------------
 
 function mapOutputRows(
-  config: PipelineConfig,
+  output: PipelineOutput,
   fields: SchemaFieldRow[],
   resultRows: SqlResultRow[],
 ):
@@ -3841,7 +3925,7 @@ function mapOutputRows(
       }>
     }
   | { kind: 'error'; code: PipelineErrorCode; message: string } {
-  const mapping = config.output.fieldMapping ?? {}
+  const mapping = output.fieldMapping ?? {}
   const slugToField = new Map(fields.map((f) => [f.key, f]))
 
   const batches: Array<{

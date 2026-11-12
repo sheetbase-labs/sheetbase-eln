@@ -471,6 +471,20 @@ export function StepList() {
           ) : null}
         </BoardBlock>
       </BoardList>
+      {config.moreOutputs?.length ? (
+        <p className="m-0 px-3 pb-2 text-label text-fg-muted">
+          {t('data.stepList.moreOutputsInFile', {
+            count: config.moreOutputs.length,
+          })}
+        </p>
+      ) : null}
+      {config.include?.length ? (
+        <p className="m-0 px-3 pb-2 text-label text-fg-muted">
+          {t('data.stepList.includesInFile', {
+            sets: config.include.map((entry) => entry.set).join(', '),
+          })}
+        </p>
+      ) : null}
       <p className="pb-foot m-0">
         {t('data.stepList.listFoot', { max: MAX_STEPS })}
       </p>

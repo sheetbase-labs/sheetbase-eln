@@ -5,7 +5,7 @@
  * and column for each mistake.
  *
  * POST /api/pipelines/version-file
- *   { text, pipeline?, pythonRuntime? }                     -> { ok, configuration, problems, lineCount }
+ *   { text, pipeline?, pythonRuntime?, sets? }                     -> { ok, configuration, problems, lineCount }
  *   { configuration, pipeline, version?, title? }           -> { text }
  *
  * Nothing is saved. The caller saves the configuration as a draft through
@@ -25,6 +25,7 @@ import {
 } from '#/lib/external-token'
 import { createRateLimiter } from '#/lib/rate-limit'
 import { readStoredConfig } from '#/lib/pipelines/step-list'
+import type { PipelineParameter } from '#/lib/pipelines/config'
 import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
 import { checkVersionFile, versionFileText } from '#/lib/pipelines/version-file'
 
@@ -62,6 +63,8 @@ const readBody = z.object({
   text: z.string(),
   pipeline: z.union([z.string(), z.array(z.string())]).optional(),
   pythonRuntime: z.string().optional(),
+  /** The workspace's parameter sets by key, for `include:`. Read them from `pipeline_parameter_sets`. */
+  sets: z.record(z.string(), z.array(pipelineJsonObjectSchema)).optional(),
 })
 
 const writeBody = z.object({
@@ -117,10 +120,18 @@ export async function handleVersionFile(
   const reading = readBody.safeParse(raw)
 
   if (reading.success) {
-    const { text, pipeline, pythonRuntime } = reading.data
+    const { text, pipeline, pythonRuntime, sets } = reading.data
     // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the request allows one name or a list; this is the one place that tells them apart.
     const names = typeof pipeline === 'string' ? [pipeline] : pipeline
-    const result = checkVersionFile(text, { pipeline: names, pythonRuntime })
+
+    const result = checkVersionFile(text, {
+      pipeline: names,
+      pythonRuntime,
+      // A malformed set parameter fails when the version is judged.
+      sets: z
+        .record(z.string(), z.custom<PipelineParameter[]>())
+        .parse(sets ?? {}),
+    })
 
     return Response.json({
       ok: result.config !== null,

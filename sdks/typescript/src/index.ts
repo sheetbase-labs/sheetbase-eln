@@ -71,6 +71,7 @@ export {
   PluginsResource,
   applyStepSource,
   notebookToPython,
+  VersionFileError,
 } from './resources/index.js'
 export {
   EVENT_ALIASES,
@@ -84,6 +85,7 @@ export type {
   PipelineRunStatus,
   PipelineStepSource,
   PipelineTriggerResult,
+  VersionFileProblem,
 } from './resources/index.js'
 export type {
   AgentOperation,

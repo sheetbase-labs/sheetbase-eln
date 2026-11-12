@@ -13,6 +13,7 @@ from sheetbase import (
 )
 from sheetbase.cli import main
 from sheetbase.errors import PermissionDeniedError
+from sheetbase.resources.pipelines import VersionFileError
 
 from tests.conftest import BASE_URL, CREDENTIAL
 
@@ -225,3 +226,85 @@ class TestCli:
         assert "transform" in capsys.readouterr().err
         monkeypatch.delenv("SHEETBASE_URL")
         assert main(["push-step", str(bad), "--workspace", WS, "--pipeline", DEF]) == 2
+
+
+DEFINITION = {"id": DEF, "workspace_id": WS, "key": "assay", "display_id": "PL-0021", "name": "Assay"}
+ADVANCED = {**CONFIG, "mode": "advanced"}
+
+
+def advanced_version(lifecycle):
+    return {**version(lifecycle), "configuration": ADVANCED}
+
+
+class TestVersionFile:
+    def test_pull_writes_the_draft_out(self, mock_transport):
+        lookup = mock_transport.get("/api/db/pipeline_definitions").respond(200, json=[DEFINITION])
+        mock_transport.get("/api/db/pipeline_definition_versions").respond(
+            200, json=[advanced_version("draft"), advanced_version("published")]
+        )
+        route = mock_transport.post("/api/pipelines/version-file").respond(200, json={"text": "pipeline: PL-0021\n"})
+        with client() as c:
+            assert c.pipelines.pull_version_file("pl-0021") == "pipeline: PL-0021\n"
+        assert "display_id=eq.PL-0021" in str(lookup.calls.last.request.url)
+        sent = json.loads(route.calls.last.request.content)
+        assert sent["pipeline"] == "PL-0021" and sent["version"] == 2
+
+    def test_push_saves_a_draft(self, mock_transport):
+        mock_transport.get("/api/db/pipeline_definitions").respond(200, json=[DEFINITION])
+        mock_transport.get("/api/db/pipeline_definition_versions").respond(200, json=[advanced_version("draft")])
+        mock_transport.post("/api/pipelines/version-file").respond(
+            200, json={"ok": True, "configuration": ADVANCED, "problems": [], "lineCount": 3}
+        )
+        route = mock_transport.post("/api/db/rpc/update_pipeline_definition_version_draft").respond(
+            200, json={"id": "v-draft"}
+        )
+        with client() as c:
+            _, created = c.pipelines.push_version_file("PL-0021", "text")
+        assert created is False
+        assert json.loads(route.calls.last.request.content)["p_expected_revision"] == 3
+
+    def test_push_raises_the_problems_and_saves_nothing(self, mock_transport):
+        mock_transport.get("/api/db/pipeline_definitions").respond(200, json=[DEFINITION])
+        mock_transport.get("/api/db/pipeline_definition_versions").respond(200, json=[advanced_version("published")])
+        mock_transport.post("/api/pipelines/version-file").respond(
+            200,
+            json={"ok": False, "configuration": None, "lineCount": 3,
+                  "problems": [{"line": 4, "column": 3, "length": 1, "message": "Unknown key."}]},
+        )
+        with client() as c, pytest.raises(VersionFileError) as raised:
+            c.pipelines.push_version_file("assay", "text")
+        assert raised.value.problems[0]["line"] == 4
+
+    def test_push_refuses_a_standard_pipeline(self, mock_transport):
+        mock_transport.get("/api/db/pipeline_definitions").respond(200, json=[DEFINITION])
+        mock_transport.get("/api/db/pipeline_definition_versions").respond(200, json=[version("published")])
+        with client() as c, pytest.raises(ValueError, match="not Advanced"):
+            c.pipelines.push_version_file("assay", "text")
+
+    def test_cli_prints_problems_as_file_line_column(self, mock_transport, tmp_path, monkeypatch, capsys):
+        monkeypatch.setenv("SHEETBASE_URL", BASE_URL)
+        monkeypatch.setenv("SHEETBASE_CREDENTIAL", CREDENTIAL)
+        mock_transport.get("/api/db/pipeline_definitions").respond(200, json=[DEFINITION])
+        mock_transport.get("/api/db/pipeline_definition_versions").respond(200, json=[advanced_version("published")])
+        mock_transport.post("/api/pipelines/version-file").respond(
+            200,
+            json={"ok": False, "configuration": None, "lineCount": 1,
+                  "problems": [{"line": 2, "column": 5, "length": 1, "message": "Unknown key."}]},
+        )
+        file = tmp_path / "a.yaml"
+        file.write_text("x: 1\n")
+        assert main(["push", "PL-0021", str(file)]) == 1
+        assert f"{file}:2:5: Unknown key." in capsys.readouterr().err
+
+
+@pytest.mark.asyncio
+async def test_async_push_version_file(mock_transport):
+    mock_transport.get("/api/db/pipeline_definitions").respond(200, json=[DEFINITION])
+    mock_transport.get("/api/db/pipeline_definition_versions").respond(200, json=[advanced_version("published")])
+    mock_transport.post("/api/pipelines/version-file").respond(
+        200, json={"ok": True, "configuration": ADVANCED, "problems": [], "lineCount": 3}
+    )
+    mock_transport.post("/api/db/rpc/create_pipeline_definition_version").respond(200, json={"id": "new"})
+    async with AsyncSheetbaseClient(BASE_URL, CREDENTIAL, ["pipelines:read", "pipelines:write"]) as c:
+        _, created = await c.pipelines.push_version_file("PL-0021", "text")
+    assert created is True

@@ -36,6 +36,7 @@ from sheetbase._version import API_VERSION, __version__
 from sheetbase._pipeline_source import apply_step_source, check_source
 from sheetbase._query_result import DatasetRowPage, DatasetVersionRowPage, SearchPage
 from sheetbase.errors import NotFoundError, StaleVersionError
+from sheetbase.resources.pipelines import VersionFileError
 from sheetbase.resources.datasets import DatasetRowBatch, _rows_to_dataframe
 from sheetbase.types import (
     CommitResult,
@@ -988,6 +989,7 @@ class AsyncWebhooks:
 
 _SETTLED_STATES = ("succeeded", "failed", "cancelled")
 _UUID_RE = re.compile(r"^[0-9a-f-]{36}$", re.IGNORECASE)
+_DISPLAY_ID_RE = re.compile(r"^PL-\d+$", re.IGNORECASE)
 
 
 class AsyncPlugins:
@@ -1128,7 +1130,9 @@ class AsyncPipelines:
         )
 
     async def get(self, id_or_key: str) -> Optional[dict[str, Any]]:
-        column = "id" if _UUID_RE.match(id_or_key) else "key"
+        column = "id" if _UUID_RE.match(id_or_key) else "display_id" if _DISPLAY_ID_RE.match(id_or_key) else "key"
+        if column == "display_id":
+            id_or_key = id_or_key.upper()
         rows = await self._t.get(
             "/api/db/pipeline_definitions", params={column: f"eq.{id_or_key}", "limit": 1}
         )
@@ -1289,6 +1293,104 @@ class AsyncPipelines:
         )
         return version, True
 
+    # -- The version file (Advanced mode) -----------------------------------
+
+    async def read_version_file(
+        self,
+        text: str,
+        *,
+        pipeline: Optional[Sequence[str]] = None,
+        python_runtime: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Check a version file on the server: ``{"ok", "configuration", "problems", "lineCount"}``.
+
+        Saves nothing. It judges the file by the rules the editor uses and answers each
+        mistake with its line and column. ``pipeline`` names (display id, key) the file's
+        ``pipeline:`` line must be one of.
+        """
+        body: dict[str, Any] = {"text": text}
+        if pipeline:
+            body["pipeline"] = list(pipeline)
+        if python_runtime:
+            body["pythonRuntime"] = python_runtime
+        return await self._t.post("/api/pipelines/version-file", json_body=body)
+
+    async def write_version_file(
+        self,
+        configuration: dict[str, Any],
+        *,
+        pipeline: str,
+        version: Optional[int] = None,
+        title: Optional[str] = None,
+    ) -> str:
+        """A stored version written out as its version file (YAML text)."""
+        body: dict[str, Any] = {"configuration": configuration, "pipeline": pipeline}
+        if version is not None:
+            body["version"] = version
+        if title:
+            body["title"] = title
+        return (await self._t.post("/api/pipelines/version-file", json_body=body))["text"]
+
+    async def pull_version_file(self, id_or_key: str, *, version: Optional[int] = None) -> str:
+        """The open draft (or latest version, or ``version``) of a pipeline as its version file."""
+        definition = await self.get(id_or_key)
+        if definition is None:
+            raise LookupError(f"No pipeline is called {id_or_key}.")
+        versions = await self.versions(definition["id"])
+        if version is not None:
+            row = next((v for v in versions if v["version"] == version), None)
+        else:
+            row = next((v for v in versions if v["lifecycle"] == "draft"), versions[0] if versions else None)
+        if row is None:
+            raise LookupError("The pipeline has no version to write out.")
+        return await self.write_version_file(
+            row["configuration"],
+            pipeline=definition.get("display_id") or definition["key"],
+            version=row["version"],
+            title=definition.get("name"),
+        )
+
+    async def push_version_file(self, id_or_key: str, text: str) -> tuple[Any, bool]:
+        """Save a version file as a draft of an Advanced pipeline; returns ``(version, created)``.
+
+        Updates the open draft, or starts one. A file with a mistake raises
+        ``VersionFileError`` and saves nothing. Nothing is published: runs keep using the
+        published version until a person publishes the draft.
+        """
+        definition = await self.get(id_or_key)
+        if definition is None:
+            raise LookupError(f"No pipeline is called {id_or_key}.")
+        versions = await self.versions(definition["id"])
+        draft = next((v for v in versions if v["lifecycle"] == "draft"), None)
+        base = draft or (versions[0] if versions else None)
+        if base is None:
+            raise LookupError("The pipeline has no version to start from.")
+        if base["configuration"].get("mode") != "advanced":
+            raise ValueError(
+                "This pipeline is not Advanced. Convert it in the app first (the ⋯ menu), then push."
+            )
+        result = await self.read_version_file(
+            text,
+            pipeline=[n for n in (definition.get("display_id"), definition["key"]) if n],
+            python_runtime=base["configuration"].get("pythonRuntime"),
+        )
+        if not result["ok"]:
+            raise VersionFileError(result["problems"])
+        workspace_id = definition["workspace_id"]
+        if draft:
+            version = await self.save_draft(
+                workspace_id=workspace_id,
+                version_id=draft["id"],
+                expected_revision=draft["revision"],
+                configuration=result["configuration"],
+            )
+            return version, False
+        version = await self.create_draft(
+            workspace_id=workspace_id,
+            definition_id=definition["id"],
+            configuration=result["configuration"],
+        )
+        return version, True
 
 
 class AsyncFacility:

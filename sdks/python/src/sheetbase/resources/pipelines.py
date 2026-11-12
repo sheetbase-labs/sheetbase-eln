@@ -9,13 +9,27 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from sheetbase._http import HttpTransport
 from sheetbase._pipeline_source import apply_step_source, check_source
 
 SETTLED = ("succeeded", "failed", "cancelled")
 _UUID = re.compile(r"^[0-9a-f-]{36}$", re.IGNORECASE)
+_DISPLAY_ID = re.compile(r"^PL-\d+$", re.IGNORECASE)
+
+
+class VersionFileError(ValueError):
+    """A version file the server could not read as a version.
+
+    ``problems`` lists every mistake as ``{"line", "column", "length", "message"}``
+    (1-based), the same ones the editor marks.
+    """
+
+    def __init__(self, problems: list[dict[str, Any]]) -> None:
+        first = problems[0] if problems else {"line": 1, "column": 1, "message": "The file is not valid."}
+        super().__init__(f"line {first['line']}, column {first['column']}: {first['message']}")
+        self.problems = problems
 
 
 class PipelinesResource:
@@ -28,7 +42,10 @@ class PipelinesResource:
         )
 
     def get(self, id_or_key: str) -> Optional[dict[str, Any]]:
-        column = "id" if _UUID.match(id_or_key) else "key"
+        """A pipeline by its id, its display id (``PL-0021``) or its key."""
+        column = "id" if _UUID.match(id_or_key) else "display_id" if _DISPLAY_ID.match(id_or_key) else "key"
+        if column == "display_id":
+            id_or_key = id_or_key.upper()
         rows = self._transport.get(
             "/api/db/pipeline_definitions", params={column: f"eq.{id_or_key}", "limit": 1}
         )
@@ -186,5 +203,104 @@ class PipelinesResource:
             return version, False
         version = self.create_draft(
             workspace_id=workspace_id, definition_id=definition_id, configuration=configuration
+        )
+        return version, True
+
+    # -- The version file (Advanced mode) -----------------------------------
+
+    def read_version_file(
+        self,
+        text: str,
+        *,
+        pipeline: Optional[Sequence[str]] = None,
+        python_runtime: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Check a version file on the server: ``{"ok", "configuration", "problems", "lineCount"}``.
+
+        Saves nothing. It judges the file by the rules the editor uses and answers each
+        mistake with its line and column. ``pipeline`` names (display id, key) the file's
+        ``pipeline:`` line must be one of.
+        """
+        body: dict[str, Any] = {"text": text}
+        if pipeline:
+            body["pipeline"] = list(pipeline)
+        if python_runtime:
+            body["pythonRuntime"] = python_runtime
+        return self._transport.post("/api/pipelines/version-file", json_body=body)
+
+    def write_version_file(
+        self,
+        configuration: dict[str, Any],
+        *,
+        pipeline: str,
+        version: Optional[int] = None,
+        title: Optional[str] = None,
+    ) -> str:
+        """A stored version written out as its version file (YAML text)."""
+        body: dict[str, Any] = {"configuration": configuration, "pipeline": pipeline}
+        if version is not None:
+            body["version"] = version
+        if title:
+            body["title"] = title
+        return self._transport.post("/api/pipelines/version-file", json_body=body)["text"]
+
+    def pull_version_file(self, id_or_key: str, *, version: Optional[int] = None) -> str:
+        """The open draft (or latest version, or ``version``) of a pipeline as its version file."""
+        definition = self.get(id_or_key)
+        if definition is None:
+            raise LookupError(f"No pipeline is called {id_or_key}.")
+        versions = self.versions(definition["id"])
+        if version is not None:
+            row = next((v for v in versions if v["version"] == version), None)
+        else:
+            row = next((v for v in versions if v["lifecycle"] == "draft"), versions[0] if versions else None)
+        if row is None:
+            raise LookupError("The pipeline has no version to write out.")
+        return self.write_version_file(
+            row["configuration"],
+            pipeline=definition.get("display_id") or definition["key"],
+            version=row["version"],
+            title=definition.get("name"),
+        )
+
+    def push_version_file(self, id_or_key: str, text: str) -> tuple[Any, bool]:
+        """Save a version file as a draft of an Advanced pipeline; returns ``(version, created)``.
+
+        Updates the open draft, or starts one. A file with a mistake raises
+        ``VersionFileError`` and saves nothing. Nothing is published: runs keep using the
+        published version until a person publishes the draft.
+        """
+        definition = self.get(id_or_key)
+        if definition is None:
+            raise LookupError(f"No pipeline is called {id_or_key}.")
+        versions = self.versions(definition["id"])
+        draft = next((v for v in versions if v["lifecycle"] == "draft"), None)
+        base = draft or (versions[0] if versions else None)
+        if base is None:
+            raise LookupError("The pipeline has no version to start from.")
+        if base["configuration"].get("mode") != "advanced":
+            raise ValueError(
+                "This pipeline is not Advanced. Convert it in the app first (the ⋯ menu), then push."
+            )
+        result = self.read_version_file(
+            text,
+            pipeline=[n for n in (definition.get("display_id"), definition["key"]) if n],
+            python_runtime=base["configuration"].get("pythonRuntime"),
+        )
+        if not result["ok"]:
+            raise VersionFileError(result["problems"])
+        workspace_id = definition["workspace_id"]
+        if draft:
+            version = self.save_draft(
+                workspace_id=workspace_id,
+                version_id=draft["id"],
+                expected_revision=draft["revision"],
+                configuration=result["configuration"],
+            )
+            return version, False
+        version = self.create_draft(
+            workspace_id=workspace_id,
+            definition_id=definition["id"],
+            configuration=result["configuration"],
         )
         return version, True

@@ -20,6 +20,15 @@ Two step kinds reach outside the run: `remote_job` (a script on an HPC queue; th
 | `pipeline_artefact_releases` | `pipelines:read` | Whether a finished run kept its working files (`kept`) or they were deleted, and when.                                                                                                                                                                                                                                                                            |
 | `extensions`                 | `admin:read`     | The plugins installed in the workspace. `key` is its name here, `status` is `installed`, `enabled` or `disabled`, `manifest` is what it declares (its parts, permissions and the hosts it may reach) and `disabled_points` the parts an administrator switched off. The code itself is never readable.                                                            |
 
+## `POST /api/pipelines/version-file`
+
+Reads or writes an Advanced pipeline's version file (YAML) without saving anything. Scope: `pipelines:read`, or a signed-in session. The body is at most 1 MB.
+
+- `{ "text": "...", "pipeline": ["PL-0021", "assay"], "pythonRuntime": "..." }` returns `{ "ok", "configuration", "problems", "lineCount" }`. Each problem has a 1-based `line`, `column`, `length` and a `message`. `pipeline` lists the names the file's `pipeline:` line may be.
+- `{ "configuration": {...}, "pipeline": "PL-0021", "version": 2, "title": "Assay" }` returns `{ "text" }`.
+
+To save a file, send the returned `configuration` through `create_pipeline_definition_version` or `update_pipeline_definition_version_draft`, or use `sheetbase push` and the SDK methods `push_version_file` (Python) and `pushVersionFile` (TypeScript), which do both steps. See [the version file](../subsystems/pipelines.md#the-version-file-advanced-mode).
+
 ## `create_pipeline_definition`
 
 Creates an empty pipeline with a key (letters, digits and `_`, unique in the workspace) and a name. Save its first version with `create_pipeline_definition_version` and publish it to run it. Stewards, admins and owners. Returns the pipeline. Sends `pipeline.created`.

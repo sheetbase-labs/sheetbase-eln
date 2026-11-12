@@ -4,12 +4,7 @@
  * week timeline. Pure and browser safe; the tab supplies the rows.
  */
 import { nextRunAt, specBindings } from '#/lib/pipeline-schedule'
-import type {
-  CronSpec,
-  DailySpec,
-  IntervalSpec,
-  ScheduleSpecCommon,
-} from '#/lib/pipeline-schedule'
+import type { CronSpec, DailySpec, IntervalSpec } from '#/lib/pipeline-schedule'
 import { dateTimeFormat } from '#/lib/intl-cache'
 import type { PipelineScheduleWire } from '#/lib/pipelines/types'
 
@@ -70,8 +65,7 @@ export function occurrences(
 export function readsOnlyChanged(
   schedule: Pick<PipelineScheduleWire, 'spec'>,
 ): boolean {
-  // SAFETY: the stored spec was checked by the database; bindings read only its own keys.
-  const bindings = specBindings(schedule.spec as ScheduleSpecCommon)
+  const bindings = specBindings(schedule.spec)
 
   return Object.values(bindings).some((b) => b.mode === 'incremental')
 }
@@ -220,7 +214,7 @@ export function previewStarts(input: {
     }
 
     for (const event of events) {
-      const previous = group[group.length - 1]
+      const previous = group.at(-1)
 
       if (previous && event.at.getTime() - previous.at.getTime() >= waitMs)
         flush()
@@ -252,6 +246,8 @@ export interface TimelineItem {
   kind: DotKind
   /** The run it stands for; skipped starts have none. */
   runId: string | null
+  /** A short mark shown beside it, such as `#149`. */
+  label?: string
 }
 
 export interface TimelineDay {
@@ -308,13 +304,13 @@ export function buildTimeline(input: {
     })
   }
 
+  const byKey = new Map(out.map((day) => [day.key, day]))
+
   for (const item of [...input.items].sort(
     (a, b) => a.at.getTime() - b.at.getTime(),
   )) {
     const { key, minutes } = dayParts(item.at, input.timeZone)
-    out
-      .find((d) => d.key === key)
-      ?.items.push({ ...item, fraction: minutes / 1440 })
+    byKey.get(key)?.items.push({ ...item, fraction: minutes / 1440 })
   }
 
   return out

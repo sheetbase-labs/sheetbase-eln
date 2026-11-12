@@ -82,8 +82,10 @@ test('AUTO-07 a pipeline with a parameter runs on a schedule that supplies it', 
   await page.getByLabel('Parameter 1 required').click()
   await publishDraft(page)
 
-  await open(page, `/pipelines/${id}/triggers`)
-  await page.getByRole('button', { name: 'New trigger' }).first().click()
+  await open(page, `/pipelines/${id}/starts`)
+  await page
+    .getByRole('button', { name: 'Add an event, webhook or schedule' })
+    .click()
   const dialog = page.getByRole('dialog')
   // A trigger that leaves a required parameter out is refused before it is saved.
   await dialog.getByRole('button', { name: 'Add trigger' }).click()
@@ -91,9 +93,8 @@ test('AUTO-07 a pipeline with a parameter runs on a schedule that supplies it', 
   await dialog.getByLabel('Parameter plate_size').fill('384')
   await dialog.getByRole('button', { name: 'Add trigger' }).click()
   await expect(page.getByText('Trigger added').first()).toBeVisible()
-  await expect(
-    page.getByRole('row', { name: /Daily at 09:00.*With plate_size=384/ }),
-  ).toBeVisible()
+  await expect(page.getByText(/Daily at 09:00/).first()).toBeVisible()
+  await expect(page.getByText(/plate_size=384/).first()).toBeVisible()
 })
 
 test('AUTO-08 a run waiting for a person is answered from the Inbox', async ({

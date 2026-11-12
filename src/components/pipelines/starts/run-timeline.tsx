@@ -1,23 +1,25 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 import { t } from '#/copy'
-import { Muted, Section } from '#/components/ui/layout'
+import { Muted } from '#/components/ui/layout'
 import { Dot } from '#/components/ui/status'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
+import { localClock } from '#/lib/pipelines/start-rules'
+import type { StartWindow } from '#/lib/pipelines/start-rules'
 import { buildTimeline } from '#/lib/pipelines/starts-view'
 import type { DotKind, TimelineItem } from '#/lib/pipelines/starts-view'
 import type { PipelineRunWire } from '#/lib/pipelines/types'
 import { cn } from '#/lib/utils'
 
-import { SelectedRun } from './selected-run'
+const DOT_CLASS: Record<DotKind, string> = {
+  ok: 'bg-success',
+  wait: 'bg-warning',
+  bad: 'bg-danger',
+  live: 'bg-link',
+  skip: 'size-2.5 border-[1.5px] border-neutral-dot bg-surface',
+}
 
-const DOT_TONE = {
-  ok: 'ok',
-  wait: 'warn',
-  bad: 'bad',
-  skip: 'stored',
-  live: 'progress',
-} as const
+const LEGEND = ['ok', 'wait', 'bad', 'skip'] as const
 
 function dotOf(status: PipelineRunWire['status']): DotKind {
   if (status === 'succeeded') return 'ok'
@@ -29,46 +31,58 @@ function dotOf(status: PipelineRunWire['status']): DotKind {
   return 'bad'
 }
 
-/** The last 7 days of runs, one column a day, each dot where in the day it
- * started; a start that did not run is a small grey dot. Pick a dot to read
- * the run beneath. */
+const toMinutes = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number)
+
+  return h * 60 + m
+}
+
+const pct = (minutes: number) => `${(minutes / 1440) * 100}%`
+
+/** The last 7 days of runs, one row a day, each dot where in the day it
+ * started. The hours a start may begin are shaded; a start that did not run
+ * is a ring. Pick a dot to read the run beneath. */
 export function RunTimeline({
   runs,
-  activity,
+  skips,
   numbers,
   now,
   timeZone,
-  pipelineId,
-  workspaceId,
+  window,
+  picked,
+  onPick,
 }: {
   runs: PipelineRunWire[]
-  activity: { id: string; at: string; kind: string }[]
+  skips: { id: string; at: string }[]
   numbers: Map<string, number> | undefined
   now: Date
   timeZone: string
-  pipelineId: string
-  workspaceId: string
+  window: StartWindow | null
+  picked: string | null
+  onPick: (runId: string) => void
 }) {
-  const [picked, setPicked] = useState<string | null>(null)
-
   const items = useMemo<TimelineItem[]>(
     () => [
-      ...runs.map((run) => ({
-        id: run.id,
-        at: new Date(run.started_at),
-        kind: dotOf(run.status),
-        runId: run.id,
+      ...runs.map((run) => {
+        const kind = dotOf(run.status)
+        const number = numbers?.get(run.id)
+
+        return {
+          id: run.id,
+          at: new Date(run.started_at),
+          kind,
+          runId: run.id,
+          label: number && kind !== 'ok' ? `#${number}` : undefined,
+        }
+      }),
+      ...skips.map((skip) => ({
+        id: skip.id,
+        at: new Date(skip.at),
+        kind: 'skip' as const,
+        runId: null,
       })),
-      ...activity
-        .filter((a) => a.kind.startsWith('skipped_'))
-        .map((a) => ({
-          id: a.id,
-          at: new Date(a.at),
-          kind: 'skip' as const,
-          runId: null,
-        })),
     ],
-    [runs, activity],
+    [runs, skips, numbers],
   )
 
   const days = useMemo(
@@ -76,98 +90,172 @@ export function RunTimeline({
     [items, now, timeZone],
   )
 
-  const selected = runs.find((run) => run.id === picked) ?? null
-  const week = runs.length
+  const nowMinutes = (() => {
+    const clock = localClock(now, timeZone)
+
+    return clock.minutes
+  })()
+
+  const from = window ? toMinutes(window.from) : 0
+  const to = window ? toMinutes(window.to) : 0
+
+  const ticks = window ? [0, from, 720, to, 1440] : [0, 360, 720, 1080, 1440]
 
   return (
-    <Section
-      title={t('features.pipelineStarts.runs.title')}
-      count={t('features.pipelineStarts.runs.counts', { count: week })}
-    >
+    <div>
       <div
         role="group"
         aria-label={t('features.pipelineStarts.runs.title')}
-        className="grid grid-cols-7 gap-1.5"
+        className="grid grid-cols-[64px_minmax(0,1fr)] text-caption"
       >
-        {days.map((day) => (
-          <div
-            key={day.key}
-            className={cn(
-              'flex min-w-0 flex-col items-center gap-1 rounded-md border border-line bg-surface px-1 pb-1.5 pt-1',
-              day.today && 'border-link',
-            )}
-          >
-            <span className="text-caption text-fg-muted">
-              {day.weekday} <span className="num">{day.day}</span>
-            </span>
-            <div
-              className="relative h-28 w-full"
-              aria-label={t('features.pipelineStarts.runs.day', {
-                date: day.key,
-              })}
-            >
-              <span
-                aria-hidden="true"
-                className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-line"
-              />
-              {day.items.map((item) =>
-                item.runId ? (
-                  <button
-                    key={item.id}
-                    type="button"
-                    aria-pressed={picked === item.runId}
-                    aria-label={t('features.pipelineStarts.runs.dotLabel', {
-                      status: t(
-                        `features.pipelineStarts.runs.legend.${item.kind}`,
-                      ),
-                      time: formatNotebookDateTime(item.at.toISOString(), {
-                        zone: true,
-                      }),
-                    })}
-                    onClick={() => setPicked(item.runId)}
-                    style={{ top: `${item.fraction * 100}%` }}
-                    className={cn(
-                      'absolute left-1/2 flex size-5 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-transparent bg-surface hover:border-border-strong focus-visible:outline-2 focus-visible:outline-focus',
-                      picked === item.runId && 'border-link',
-                    )}
-                  >
-                    <Dot tone={DOT_TONE[item.kind]} className="size-2.5" />
-                  </button>
-                ) : (
+        {days.map((day) => {
+          const weekend = day.weekday === 'Sat' || day.weekday === 'Sun'
+
+          const shaded =
+            window !== null &&
+            (window.days === 'daily' ||
+              (window.days === 'weekdays' ? !weekend : weekend))
+
+          return (
+            <div key={day.key} className="contents">
+              <div
+                className={cn(
+                  'flex h-[30px] items-center border-b border-border-subtle text-fg-muted',
+                  day.today && 'font-semibold text-fg',
+                )}
+              >
+                {day.weekday} {day.day}
+              </div>
+              <div className="relative h-[30px] border-b border-border-subtle">
+                {shaded ? (
                   <span
-                    key={item.id}
-                    style={{ top: `${item.fraction * 100}%` }}
-                    className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2"
-                  >
-                    <Dot tone="stored" className="size-1.5 opacity-60" />
-                  </span>
-                ),
-              )}
+                    aria-hidden="true"
+                    className="absolute inset-y-0 bg-surface-muted"
+                    style={{
+                      left: pct(from),
+                      width: `${((to - from) / 1440) * 100}%`,
+                    }}
+                  />
+                ) : null}
+                {day.today ? (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -inset-y-0.5 border-l border-dashed border-fg-muted"
+                    style={{ left: pct(nowMinutes) }}
+                  />
+                ) : null}
+                {day.items.map((item) => {
+                  const left = `${item.fraction * 100}%`
+
+                  if (!item.runId) {
+                    return (
+                      <span
+                        key={item.id}
+                        aria-hidden="true"
+                        className={cn(
+                          'absolute top-1/2 -ml-[5px] -mt-[5px] size-2.5 rounded-full',
+                          DOT_CLASS.skip,
+                        )}
+                        style={{ left }}
+                      />
+                    )
+                  }
+
+                  const selected = picked === item.runId
+
+                  return (
+                    <span key={item.id}>
+                      {item.label ? (
+                        <span
+                          aria-hidden="true"
+                          className={cn(
+                            'pointer-events-none absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[11px] text-fg-muted',
+                            selected && 'font-semibold text-fg',
+                          )}
+                          style={{
+                            right: `calc(${(1 - item.fraction) * 100}% + 10px)`,
+                          }}
+                        >
+                          {item.label}
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        aria-pressed={selected}
+                        aria-label={t('features.pipelineStarts.runs.dotLabel', {
+                          status: t(
+                            `features.pipelineStarts.runs.legend.${item.kind}`,
+                          ),
+                          time: formatNotebookDateTime(item.at.toISOString(), {
+                            zone: true,
+                          }),
+                        })}
+                        onClick={() => onPick(item.runId ?? '')}
+                        className={cn(
+                          'absolute top-1/2 -ml-1.5 -mt-1.5 size-3 cursor-pointer rounded-full border-0 p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+                          DOT_CLASS[item.kind],
+                          selected &&
+                            'shadow-[0_0_0_2px_var(--surface),0_0_0_4px_var(--link)]',
+                        )}
+                        style={{ left }}
+                      />
+                    </span>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
+        <div />
+        <div
+          aria-label={t('features.pipelineStarts.runs.axisLabel')}
+          className="relative h-5 text-[11px] text-fg-faint"
+        >
+          {ticks.map((minutes) => (
+            <span
+              key={minutes}
+              className="num absolute top-1 -translate-x-1/2"
+              style={{ left: pct(minutes) }}
+            >
+              {String(Math.floor(minutes / 60)).padStart(2, '0')}
+            </span>
+          ))}
+        </div>
       </div>
-      <ul className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-caption text-fg-muted">
-        {(['ok', 'wait', 'bad', 'live', 'skip'] as const).map((kind) => (
-          <li key={kind} className="flex items-center gap-1.5">
-            <Dot tone={DOT_TONE[kind]} />
-            {t(`features.pipelineStarts.runs.legend.${kind}`)}
-          </li>
-        ))}
-      </ul>
-      {week === 0 ? (
+      {runs.length === 0 ? (
         <Muted>{t('features.pipelineStarts.runs.none')}</Muted>
       ) : null}
-      {selected ? (
-        <SelectedRun
-          run={selected}
-          number={numbers?.get(selected.id)}
-          pipelineId={pipelineId}
-          workspaceId={workspaceId}
-        />
-      ) : week > 0 ? (
-        <Muted>{t('features.pipelineStarts.runs.pick')}</Muted>
+    </div>
+  )
+}
+
+export function TimelineLegend({ hasWindow }: { hasWindow: boolean }) {
+  return (
+    <ul className="m-0 flex list-none flex-wrap items-center gap-x-3 gap-y-1 p-0 text-caption text-fg-muted">
+      {LEGEND.map((kind) => (
+        <li key={kind} className="flex items-center gap-1.5">
+          {kind === 'skip' ? (
+            <span
+              aria-hidden="true"
+              className="inline-block size-[9px] rounded-full border-[1.5px] border-neutral-dot"
+            />
+          ) : (
+            <Dot
+              tone={kind === 'ok' ? 'ok' : kind === 'wait' ? 'warn' : 'bad'}
+            />
+          )}
+          {t(`features.pipelineStarts.runs.legend.${kind}`)}
+        </li>
+      ))}
+      {hasWindow ? (
+        <li className="flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className="inline-block size-[9px] rounded-[2px] border border-border bg-surface-muted"
+          />
+          {t('features.pipelineStarts.runs.legend.window')}
+        </li>
       ) : null}
-    </Section>
+    </ul>
   )
 }

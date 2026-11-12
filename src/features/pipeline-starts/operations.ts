@@ -67,4 +67,22 @@ export const PIPELINE_STARTS_OPERATIONS = defineOperations([
     result:
       'rows:schedule_id=uuid,event_id=uuid,occurred_at=ts,dataset_id=uuid,dataset_display_id=text,version_label=text,new_rows=int',
   },
+  {
+    name: 'remind_pipeline_run',
+    label: 'Remind the people a waiting run asked',
+    summary: 'Remind the people a waiting run is waiting on',
+    description:
+      'Sends a reminder to each person a waiting run asked, with a link to the run. It skips you and anyone reminded in the last hour. Only a run that is waiting for a person can be reminded. Returns how many people were reminded.',
+    kind: 'write',
+    scope: 'pipelines:write',
+    inputs: [
+      {
+        ...input('p_workspace_id', 'uuid'),
+        server: 'workspace',
+        description: 'Your workspace id.',
+      },
+      described('p_run_id', 'uuid', 'The waiting run, from `pipeline_runs`.'),
+    ],
+    result: 'int',
+  },
 ])

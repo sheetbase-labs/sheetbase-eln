@@ -56,3 +56,11 @@ Scope: `pipelines:read`. Returns `rows:schedule_id,event_id,occurred_at,dataset_
 | `p_workspace_id` *  | uuid | Your workspace id.                         |
 | `p_definition_id` * | uuid | The pipeline, from `pipeline_definitions`. |
 | `p_days`            | int  | How far back to look; 7 if left out.       |
+
+## Reminding the people a run waits on
+
+`remind_pipeline_run` (RPC, scope `pipelines:write`) sends a reminder to each
+person a waiting run asked. Send `p_workspace_id` and `p_run_id`. It skips you
+and anyone reminded in the last hour, answers how many people it reminded, and
+refuses a run that is not waiting for a person. Each reminder is a notification
+in the person's inbox that links to the run.

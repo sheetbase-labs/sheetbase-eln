@@ -274,7 +274,7 @@ function RunPage() {
                   nativeButton={false}
                   render={
                     <Link
-                      to="/pipelines/$pipelineId/runs"
+                      to="/pipelines/$pipelineId/starts"
                       params={{ pipelineId }}
                     />
                   }
@@ -326,7 +326,7 @@ function RunHeader({ record }: { record: LoadedRunRecord }) {
         {
           label: t('data.pipelineRun.runs'),
           link: {
-            to: '/pipelines/$pipelineId/runs',
+            to: '/pipelines/$pipelineId/starts',
             params: { pipelineId },
           },
         },

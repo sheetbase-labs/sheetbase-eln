@@ -87,6 +87,13 @@ export async function buildStartRulesProposal(
 
   if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
   const input = parsed.data
+
+  if (input.hours && input.hours.from >= input.hours.to)
+    return { ok: false, message: 'The hours must open before they close.' }
+
+  if (!isIanaTimeZone(context.timeZone))
+    return { ok: false, message: 'The time zone could not be read.' }
+
   const found = await findPipeline(context, input.pipeline)
 
   if (!found.ok) return { ok: false, message: found.message }
@@ -98,12 +105,6 @@ export async function buildStartRulesProposal(
   )
 
   const before = parseStartRules(stored.at(0)?.start_rules)
-
-  if (input.hours && input.hours.from >= input.hours.to)
-    return { ok: false, message: 'The hours must open before they close.' }
-
-  if (!isIanaTimeZone(context.timeZone))
-    return { ok: false, message: 'The time zone could not be read.' }
 
   const after: StartRules = {
     ...before,

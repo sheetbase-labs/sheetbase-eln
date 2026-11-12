@@ -1005,4 +1005,38 @@ describe('start rules', () => {
     expect(skipped.map((a) => a.kind)).toEqual(['skipped_overlap'])
     expect(await runsOf(watcher.id)).toHaveLength(0)
   })
+
+  it('lists the snapshots a snapshot start heard, with the rows each added', async () => {
+    const schedule = await createSchedule('event', {
+      eventType: 'dataset.versioned',
+      datasetId,
+    })
+    await isolate(schedule.id)
+    const heard = await addVersion('heard-1')
+
+    const { rows } = await owner.query<{
+      schedule_id: string
+      version_label: string
+      new_rows: number
+      dataset_id: string
+    }>(`select * from api.pipeline_start_events($1::uuid, $2::uuid, 7)`, [
+      WS,
+      definitionId,
+    ])
+
+    const mine = rows.filter((row) => row.schedule_id === schedule.id)
+    expect(mine.map((row) => row.version_label)).toContain('heard-1')
+    expect(mine.find((row) => row.version_label === 'heard-1')).toMatchObject({
+      new_rows: 1,
+      dataset_id: datasetId,
+    })
+    expect(heard).toBeTruthy()
+
+    await expect(
+      owner.query(
+        `select * from api.pipeline_start_events($1::uuid, $2::uuid, 0)`,
+        [WS, definitionId],
+      ),
+    ).rejects.toThrow(/p_days/)
+  })
 })

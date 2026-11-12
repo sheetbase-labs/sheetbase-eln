@@ -43,4 +43,28 @@ export const PIPELINE_STARTS_OPERATIONS = defineOperations([
     result: 'row:pipeline_definitions',
     assistant: { tool: 'sheetbase.pipeline.start_rules_set' },
   },
+  {
+    name: 'pipeline_start_events',
+    label: 'Snapshots a pipeline’s snapshot starts heard',
+    summary: 'Snapshots a pipeline’s snapshot starts heard',
+    description:
+      'Lists the snapshots made in the last `p_days` days (1 to 90, default 7) that each of the pipeline’s snapshot starts would have heard, with the rows each added. It is what “Test against the last 7 days” uses to say what the start rules would have done. Read only.',
+    kind: 'read',
+    scope: 'pipelines:read',
+    inputs: [
+      {
+        ...input('p_workspace_id', 'uuid'),
+        server: 'workspace',
+        description: 'Your workspace id.',
+      },
+      described(
+        'p_definition_id',
+        'uuid',
+        'The pipeline, from `pipeline_definitions`.',
+      ),
+      described('p_days', 'int', 'How far back to look; 7 if left out.', false),
+    ],
+    result:
+      'rows:schedule_id=uuid,event_id=uuid,occurred_at=ts,dataset_id=uuid,dataset_display_id=text,version_label=text,new_rows=int',
+  },
 ])

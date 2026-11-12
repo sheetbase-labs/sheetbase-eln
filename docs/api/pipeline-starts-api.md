@@ -44,3 +44,15 @@ Scope: `pipelines:write`. Returns `row:pipeline_definitions`.
 | `p_workspace_id` *  | uuid | Your workspace id.                         |
 | `p_definition_id` * | uuid | The pipeline, from `pipeline_definitions`. |
 | `p_rules` *         | json | The rules, as above; `{}` clears them.     |
+
+## `pipeline_start_events`
+
+Lists the snapshots made in the last `p_days` days (1 to 90, 7 if left out) that each of the pipeline's snapshot starts would have heard, with the rows each added (`new_rows`: rows the dataset's previous snapshot did not hold). It is what "Test against the last 7 days" on the Starts and runs tab uses to say what the rules would have done. Read only.
+
+Scope: `pipelines:read`. Returns `rows:schedule_id,event_id,occurred_at,dataset_id,dataset_display_id,version_label,new_rows`.
+
+| Argument            | Type | Notes                                      |
+| ------------------- | ---- | ------------------------------------------ |
+| `p_workspace_id` *  | uuid | Your workspace id.                         |
+| `p_definition_id` * | uuid | The pipeline, from `pipeline_definitions`. |
+| `p_days`            | int  | How far back to look; 7 if left out.       |

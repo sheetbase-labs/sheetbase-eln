@@ -130,6 +130,13 @@ export function catalogueItems(): CatalogueItem[] {
       make: () => ({ kind: 'inbox', mode: 'task', userId: '', text: '' }),
     },
     {
+      id: 'expiring',
+      group: 'notify',
+      label: c('expiring'),
+      icon: 'tube',
+      make: () => ({ kind: 'expiring', userId: '', days: 30 }),
+    },
+    {
       id: 'teams',
       group: 'notify',
       label: c('teams'),

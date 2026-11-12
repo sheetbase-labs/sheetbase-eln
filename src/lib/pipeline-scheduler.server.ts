@@ -876,7 +876,15 @@ async function sweepEventSchedule(
             locked,
             eventVersionId,
             inputVersions,
-            spec.parameters,
+            {
+              ...spec.parameters,
+              ...(await eventParameters(
+                conn,
+                triggerEvent,
+                event.entity_uuid,
+                eventVersionId,
+              )),
+            },
             'event',
             occurrenceId,
             prior?.status === 'failed' ? prior.id : null,
@@ -955,6 +963,59 @@ async function sweepEventSchedule(
 // ---------------------------------------------------------------------------
 // Helpers.
 // ---------------------------------------------------------------------------
+
+/**
+ * What a run started by an event is told about it, for a version that asks
+ * (a Simple recipe that starts on a failed run or a decided review declares
+ * `event_person` and `event_subject`): the person the event is about, and a
+ * few words on what happened. A failed run is about its pipeline's owner; a
+ * decided review is about whoever submitted it.
+ */
+async function eventParameters(
+  conn: SchedulerConnection,
+  triggerEvent: string,
+  entityId: string,
+  versionId: string,
+): Promise<SchedulerJsonObject> {
+  const { rows: asked } = await conn.query<{ asked: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM api.pipeline_definition_versions v,
+              jsonb_array_elements(coalesce(v.configuration->'parameters', '[]'::jsonb)) p
+        WHERE v.id = $1 AND p->>'name' = 'event_person') AS asked`,
+    [versionId],
+  )
+
+  if (!asked.at(0)?.asked) return {}
+
+  const query =
+    triggerEvent === 'pipeline.run.failed'
+      ? `SELECT d.created_by_user_id AS person,
+                (coalesce(d.display_id || ' ', '') || d.name || ' failed') AS subject
+           FROM api.pipeline_runs r
+           JOIN api.pipeline_definition_versions v ON v.id = r.definition_version_id
+           JOIN api.pipeline_definitions d ON d.id = v.definition_id
+          WHERE r.id = $1`
+      : triggerEvent === 'review.decided'
+        ? `SELECT s.submitted_by_user_id AS person,
+                  ('Review decided: ' || d.decision) AS subject
+             FROM api.review_decisions d
+             JOIN api.review_submissions s ON s.id = d.submission_id
+            WHERE d.id = $1`
+        : null
+
+  if (!query) return {}
+
+  const { rows } = await conn.query<{ person: string | null; subject: string }>(
+    query,
+    [entityId],
+  )
+
+  const found = rows.at(0)
+
+  return found?.person
+    ? { event_person: found.person, event_subject: found.subject }
+    : {}
+}
 
 function scheduledOccurrenceId(
   scheduleId: string,

@@ -10,6 +10,14 @@ import { Muted } from '#/components/ui/layout'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { t } from '#/copy'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/ui/table'
 import { words } from '#/lib/pipelines/simple/words'
 import { formatTime } from '#/lib/format-date'
 import { tryPipelineDraft } from '#/lib/pipelines/data'
@@ -19,7 +27,10 @@ import {
   matchOnlyConfig,
   stripConfig,
 } from '#/lib/pipelines/simple/compile'
-import { RECIPE_SOURCE_INPUT } from '#/lib/pipelines/simple/recipe'
+import {
+  EVENT_PERSON,
+  RECIPE_SOURCE_INPUT,
+} from '#/lib/pipelines/simple/recipe'
 import type {
   PipelineRecipe,
   RecipeAction,
@@ -105,6 +116,16 @@ function wouldList(
                 }),
           policy: t('features.pipelineSimple.catalogue.auto'),
         }
+      case 'expiring':
+        return {
+          icon: 'tube',
+          person: people[action.userId],
+          text: d('expiring', {
+            person: people[action.userId] ?? '—',
+            days: action.days,
+          }),
+          policy: t('features.pipelineSimple.catalogue.auto'),
+        }
       case 'notify':
         return {
           icon: 'comment',
@@ -155,31 +176,27 @@ function MatchTable({
 }) {
   return (
     <div className="mt-2 overflow-hidden rounded-md border border-border">
-      <table className="w-full border-collapse text-[12px] tabular-nums">
-        <thead>
-          <tr className="bg-surface-muted text-left text-fg-muted">
+      <Table>
+        <TableHeader>
+          <TableRow>
             {preview.columns.map((column) => (
-              <th
+              <TableHead
                 key={column}
-                className={cn(
-                  'h-7 px-2 font-medium',
-                  column === hitColumn && 'text-right',
-                )}
+                className={cn(column === hitColumn && 'text-right')}
               >
                 {column}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {preview.rows.map((row, index) => (
             // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a preview row has no id of its own; the rows are a fixed sample, never reordered.
-            <tr key={index} className="border-t border-border-subtle">
+            <TableRow key={index}>
               {row.map((cell, cellIndex) => (
-                <td
+                <TableCell
                   key={cellIndex}
                   className={cn(
-                    'h-7 px-2',
                     preview.columns[cellIndex] === hitColumn &&
                       'text-right font-semibold text-warning-text',
                   )}
@@ -188,12 +205,12 @@ function MatchTable({
                   {preview.columns[cellIndex] === hitColumn && unit
                     ? ` ${unit}`
                     : ''}
-                </td>
+                </TableCell>
               ))}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {preview.truncated ? (
         <p className="m-0 border-t border-border-subtle px-2 py-1 text-[11px] text-fg-muted">
           {d('firstRows', {
@@ -425,6 +442,16 @@ export function DryRunPanel({
     onSuccess: setResult,
   })
 
+  if (recipe.when.event)
+    return (
+      <EventPreview
+        recipe={recipe}
+        people={people}
+        destinations={destinations}
+        datasetName={datasetName}
+      />
+    )
+
   const stale = result !== null && result.recipeKey !== recipeKey
   const threshold = thresholdOf(recipe)
   const conditionColumn = recipe.conditions.at(0)?.column ?? ''
@@ -577,8 +604,46 @@ function WouldHappen({
         ))}
       </ul>
       <Notice tone="info" icon={false} className="mt-2.5">
-        {d('nothing', { snapshot: result.snapshotLabel })}
+        {result.snapshotLabel
+          ? d('nothing', { snapshot: result.snapshotLabel })
+          : d('eventNothing')}
       </Notice>
+    </section>
+  )
+}
+
+/** A recipe that starts on an event has no snapshot to try; it says what it would do when the event comes. */
+function EventPreview({
+  recipe,
+  people,
+  destinations,
+  datasetName,
+}: {
+  recipe: PipelineRecipe
+  people: Record<string, string>
+  destinations: (id: string) => string
+  datasetName: (id: string) => string
+}) {
+  const { event } = recipe.when
+
+  const named =
+    event && event !== 'weekly'
+      ? { ...people, [EVENT_PERSON]: words('recipe.eventPerson')(event) }
+      : people
+
+  return (
+    <section aria-labelledby="simple-event" className="flex flex-col gap-2">
+      <h2 id="simple-event" className="m-0 font-sans text-[14px] font-semibold">
+        {d('eventTitle')}
+      </h2>
+      <Muted>{d('eventNote')}</Muted>
+      <WouldHappen
+        result={{ matched: 1, total: 1, snapshotLabel: '' }}
+        recipe={recipe}
+        people={named}
+        destinations={destinations}
+        datasetName={datasetName}
+      />
     </section>
   )
 }

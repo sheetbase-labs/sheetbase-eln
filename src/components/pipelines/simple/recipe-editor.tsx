@@ -15,9 +15,11 @@ import {
 import { PIPELINE_ACTIONS } from '#/lib/pipelines/actions'
 import {
   CONDITION_OPERATORS,
+  EVENT_PERSON,
   MAX_RECIPE_ACTIONS,
   MAX_RECIPE_CONDITIONS,
   NUMERIC_OPERATORS,
+  START_EVENTS,
 } from '#/lib/pipelines/simple/recipe'
 import type {
   ConditionOperator,
@@ -344,6 +346,47 @@ function ActionLine({
           ) : null}
         </>
       )
+    case 'expiring':
+      return (
+        <>
+          <span className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface-muted px-2 font-sans text-body font-medium">
+            <Icon name="tube" size={14} className="text-fg-muted" />
+            {r('expiring')}
+          </span>
+          <TokenSelect
+            label={r('pickPerson')}
+            icon="user"
+            mark={(chosen) => (
+              <Avatar name={chosen.label} size="xs" tone="review" />
+            )}
+            value={action.userId}
+            placeholder={r('pickPerson')}
+            options={Object.entries(people).map(([id, name]) => ({
+              value: id,
+              label: name,
+            }))}
+            onChange={(userId) => onChange({ ...action, userId })}
+          />
+          <span className="font-sans text-body text-fg">
+            {r('expiringWithin')}
+          </span>
+          <TokenInput
+            label={r('expiringDays')}
+            type="number"
+            value={String(action.days)}
+            suffix={r('dayUnit')}
+            onChange={(value) =>
+              onChange({
+                ...action,
+                days: Math.min(
+                  365,
+                  Math.max(1, Math.round(Number(value) || 1)),
+                ),
+              })
+            }
+          />
+        </>
+      )
     case 'append':
       return (
         <>
@@ -517,6 +560,15 @@ export function RecipeEditor({
   const columns = useDatasetColumns(dataset?.schemaVersionId ?? '')
   const columnList = columns.data ?? []
 
+  // With no snapshot, an Inbox task can go to whoever the event is about.
+  const people =
+    recipe.when.event && recipe.when.event !== 'weekly'
+      ? {
+          ...members.data,
+          [EVENT_PERSON]: r(`eventPerson.${recipe.when.event}`),
+        }
+      : (members.data ?? {})
+
   const keep = recipe.actions.find(
     (a) => a.kind === 'append' || a.kind === 'create',
   )
@@ -561,125 +613,90 @@ export function RecipeEditor({
         aria-label={r('aria')}
         className="m-0 flex flex-col gap-1.5 border-0 p-4 pt-3.5 font-heading text-[16px] leading-[26px] text-fg"
       >
-        <Row keyword={r('when')}>
-          <TokenSelect
-            label={r('snapshotOf')}
-            icon="database"
-            value={recipe.when.datasetId}
-            placeholder={r('pickDataset')}
-            options={datasets.map((d) => ({
-              value: d.id,
-              label: `${r('snapshotOf')} ${d.displayId ?? d.name}`,
-            }))}
-            onChange={(datasetId) =>
-              onChange({
-                ...recipe,
-                when: { datasetId, instrumentId: recipe.when.instrumentId },
-                conditions: recipe.conditions.map((c) => ({
-                  ...c,
-                  column: '',
-                })),
-              })
-            }
-          />
-          <span className="font-sans text-body text-fg-muted">
-            {r('fromInstrument')}
-          </span>
-          <TokenSelect
-            label={r('anyInstrument')}
-            icon="scan"
-            value={recipe.when.instrumentId ?? ANY}
-            placeholder={r('anyInstrument')}
-            options={[
-              { value: ANY, label: r('anyInstrument') },
-              ...(instruments.data ?? []).map((i) => ({
-                value: i.id,
-                label: i.display_id ? `${i.name} ${i.display_id}` : i.name,
-              })),
-            ]}
-            onChange={(instrumentId) =>
-              onChange({
-                ...recipe,
-                when: {
-                  datasetId: recipe.when.datasetId,
-                  instrumentId: instrumentId === ANY ? undefined : instrumentId,
-                },
-              })
-            }
-          />
-        </Row>
+        <WhenRow
+          recipe={recipe}
+          onChange={onChange}
+          datasets={datasets}
+          instruments={instruments.data ?? []}
+        />
         <div className="h-1" aria-hidden />
-        {recipe.conditions.length === 0 ? (
-          <Row keyword={r('if')}>
-            <span className="font-sans text-body text-fg-muted">
-              {r('allRows')}
-            </span>
-            <TokenAdd
-              aria-label={r('addConditionAria')}
-              onClick={() =>
-                onChange({
-                  ...recipe,
-                  conditions: [{ column: '', operator: 'above', value: 0 }],
-                })
-              }
-            >
-              {r('addCondition')}
-            </TokenAdd>
-          </Row>
-        ) : (
-          recipe.conditions.map((condition, index) => (
-            <Row
-              // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a condition has no id; its place in the sentence is its identity.
-              key={index}
-              keyword={index === 0 ? r('if') : undefined}
-              onRemove={() =>
-                onChange({
-                  ...recipe,
-                  conditions: recipe.conditions.filter((_, i) => i !== index),
-                })
-              }
-            >
-              {index > 0 ? (
-                <TokenSelect
-                  label={r('joinAnd')}
-                  value={recipe.join}
-                  placeholder=""
-                  options={[
-                    { value: 'and', label: joinWord('and') },
-                    { value: 'or', label: joinWord('or') },
-                  ]}
-                  onChange={(join) =>
-                    // SAFETY: the select offers only these two choices.
-                    onChange({ ...recipe, join: join as 'and' | 'or' })
-                  }
-                />
-              ) : null}
-              <ConditionLine
-                condition={condition}
-                columns={columnList}
-                onChange={(next) => setCondition(index, next)}
-              />
-              {index === recipe.conditions.length - 1 &&
-              recipe.conditions.length < MAX_RECIPE_CONDITIONS ? (
+        {recipe.when.event ? null : (
+          <>
+            {recipe.conditions.length === 0 ? (
+              <Row keyword={r('if')}>
+                <span className="font-sans text-body text-fg-muted">
+                  {r('allRows')}
+                </span>
                 <TokenAdd
                   aria-label={r('addConditionAria')}
                   onClick={() =>
                     onChange({
                       ...recipe,
-                      conditions: [
-                        ...recipe.conditions,
-                        { column: '', operator: 'above', value: 0 },
-                      ],
+                      conditions: [{ column: '', operator: 'above', value: 0 }],
                     })
                   }
                 >
                   {r('addCondition')}
                 </TokenAdd>
-              ) : null}
-            </Row>
-          ))
+              </Row>
+            ) : (
+              recipe.conditions.map((condition, index) => (
+                <Row
+                  // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a condition has no id; its place in the sentence is its identity.
+                  key={index}
+                  keyword={index === 0 ? r('if') : undefined}
+                  onRemove={() =>
+                    onChange({
+                      ...recipe,
+                      conditions: recipe.conditions.filter(
+                        (_, i) => i !== index,
+                      ),
+                    })
+                  }
+                >
+                  {index > 0 ? (
+                    <TokenSelect
+                      label={r('joinAnd')}
+                      value={recipe.join}
+                      placeholder=""
+                      options={[
+                        { value: 'and', label: joinWord('and') },
+                        { value: 'or', label: joinWord('or') },
+                      ]}
+                      onChange={(join) =>
+                        // SAFETY: the select offers only these two choices.
+                        onChange({ ...recipe, join: join as 'and' | 'or' })
+                      }
+                    />
+                  ) : null}
+                  <ConditionLine
+                    condition={condition}
+                    columns={columnList}
+                    onChange={(next) => setCondition(index, next)}
+                  />
+                  {index === recipe.conditions.length - 1 &&
+                  recipe.conditions.length < MAX_RECIPE_CONDITIONS ? (
+                    <TokenAdd
+                      aria-label={r('addConditionAria')}
+                      onClick={() =>
+                        onChange({
+                          ...recipe,
+                          conditions: [
+                            ...recipe.conditions,
+                            { column: '', operator: 'above', value: 0 },
+                          ],
+                        })
+                      }
+                    >
+                      {r('addCondition')}
+                    </TokenAdd>
+                  ) : null}
+                </Row>
+              ))
+            )}
+            <div className="h-1" aria-hidden />
+          </>
         )}
-        <div className="h-1" aria-hidden />
         {recipe.actions.map((action, index) => (
           <Row
             // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- an action has no id; its place in the sentence is its identity.
@@ -695,7 +712,7 @@ export function RecipeEditor({
             <ActionLine
               action={action}
               columns={columnList}
-              people={members.data ?? {}}
+              people={people}
               onChange={(next) => setAction(index, next)}
             />
           </Row>
@@ -717,6 +734,7 @@ export function RecipeEditor({
               >
                 <ActionMenu
                   hasKeep={Boolean(keep)}
+                  withoutSnapshot={Boolean(recipe.when.event)}
                   context={{
                     column: recipe.conditions.at(0)?.column ?? '',
                     fieldIds: Object.fromEntries(
@@ -766,5 +784,129 @@ export function RecipeEditor({
         <span>{t('features.pipelineSimple.recipe.foot.noCode')}</span>
       </div>
     </section>
+  )
+}
+
+/** The weekdays a weekly recipe can start on, Sunday first as the schedule counts them. */
+const WEEKDAYS = ['0', '1', '2', '3', '4', '5', '6'] as const
+
+/**
+ * What starts the recipe: a new snapshot of a dataset (from any instrument or
+ * one), or something else the lab does: a run fails, a review is decided, a
+ * weekday comes round. One chip carries the choice so the sentence reads as the
+ * board draws it.
+ */
+function WhenRow({
+  recipe,
+  onChange,
+  datasets,
+  instruments,
+}: {
+  recipe: PipelineRecipe
+  onChange: (next: PipelineRecipe) => void
+  datasets: Array<{ id: string; name: string; displayId?: string | null }>
+  instruments: Array<{ id: string; name: string; display_id: string | null }>
+}) {
+  const { event } = recipe.when
+  const EVENT = 'event:'
+
+  const starts = [
+    ...datasets.map((d) => ({
+      value: d.id,
+      label: `${r('snapshotOf')} ${d.displayId ?? d.name}`,
+    })),
+    ...START_EVENTS.map((name) => ({
+      value: EVENT + name,
+      label: r(`start.${name}`),
+    })),
+  ]
+
+  const choose = (value: string) => {
+    if (value.startsWith(EVENT)) {
+      const next = START_EVENTS.find((name) => EVENT + name === value)
+
+      onChange({
+        ...recipe,
+        when: {
+          datasetId: '',
+          event: next,
+          weekday: next === 'weekly' ? 1 : undefined,
+        },
+        conditions: [],
+      })
+
+      return
+    }
+
+    onChange({
+      ...recipe,
+      when: { datasetId: value, instrumentId: recipe.when.instrumentId },
+      conditions: recipe.conditions.map((c) => ({ ...c, column: '' })),
+    })
+  }
+
+  return (
+    <Row keyword={r('when')}>
+      <TokenSelect
+        label={r('snapshotOf')}
+        icon={event ? 'clock' : 'database'}
+        value={event ? EVENT + event : recipe.when.datasetId}
+        placeholder={r('pickDataset')}
+        options={starts}
+        onChange={choose}
+      />
+      {event === 'weekly' ? (
+        <>
+          <span className="font-sans text-body text-fg-muted">{r('on')}</span>
+          <TokenSelect
+            label={r('weekday')}
+            value={String(recipe.when.weekday ?? 1)}
+            placeholder={r('weekday')}
+            options={WEEKDAYS.map((day) => ({
+              value: day,
+              label: r(`days.${day}`),
+            }))}
+            onChange={(day) =>
+              onChange({
+                ...recipe,
+                when: { ...recipe.when, weekday: Number(day) },
+              })
+            }
+          />
+          <span className="font-sans text-body text-fg-muted">
+            {r('weeklyAt')}
+          </span>
+        </>
+      ) : null}
+      {event ? null : (
+        <>
+          <span className="font-sans text-body text-fg-muted">
+            {r('fromInstrument')}
+          </span>
+          <TokenSelect
+            label={r('anyInstrument')}
+            icon="scan"
+            value={recipe.when.instrumentId ?? ANY}
+            placeholder={r('anyInstrument')}
+            options={[
+              { value: ANY, label: r('anyInstrument') },
+              ...instruments.map((i) => ({
+                value: i.id,
+                label: i.display_id ? `${i.name} ${i.display_id}` : i.name,
+              })),
+            ]}
+            onChange={(instrumentId) =>
+              onChange({
+                ...recipe,
+                when: {
+                  datasetId: recipe.when.datasetId,
+                  instrumentId: instrumentId === ANY ? undefined : instrumentId,
+                },
+              })
+            }
+          />
+        </>
+      )}
+    </Row>
   )
 }

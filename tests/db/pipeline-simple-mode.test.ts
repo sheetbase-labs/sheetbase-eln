@@ -215,3 +215,64 @@ describe('duplicate_pipeline_definition', () => {
     ).rejects.toThrow()
   })
 })
+
+describe('Inbox items from a pipeline', () => {
+  it('leaves an item for someone in the workspace and refuses a stranger', async () => {
+    const { rows } = await owner.query<{ id: string; title: string }>(
+      `select id, title from api.create_inbox_item($1::uuid, $2, 'Check the readings')`,
+      [WS, OWNER],
+    )
+
+    expect(rows[0].title).toBe('Check the readings')
+
+    await expect(
+      owner.query(
+        `select api.create_inbox_item($1::uuid, 'nobody-here', 'Hello')`,
+        [WS],
+      ),
+    ).rejects.toThrow()
+
+    await expect(
+      owner.query(`select api.create_inbox_item($1::uuid, $2, '   ')`, [
+        WS,
+        OWNER,
+      ]),
+    ).rejects.toThrow()
+  })
+
+  it('lists the stock that expires soon in one item, and nothing when none does', async () => {
+    const none = await owner.query<{ result: { count: number } }>(
+      `select api.list_expiring_materials($1::uuid, $2, 30) as result`,
+      [WS, OWNER],
+    )
+
+    expect(none.rows[0].result.count).toBe(0)
+
+    const soon = new Date(Date.now() + 5 * 86_400_000)
+      .toISOString()
+      .slice(0, 10)
+
+    await migrator.query(
+      `insert into api.records(workspace_id, kind, identifier, title, status, created_by_user_id, properties)
+       values ($1, 'material', 'RGT-EXP-1', 'Buffer', 'available', $2, $3::jsonb)`,
+      [WS, OWNER, JSON.stringify({ lot: 'L7', expiry: soon })],
+    )
+
+    const found = await owner.query<{
+      result: { count: number; created: boolean }
+    }>(`select api.list_expiring_materials($1::uuid, $2, 30) as result`, [
+      WS,
+      OWNER,
+    ])
+
+    expect(found.rows[0].result).toMatchObject({ count: 1, created: true })
+
+    const item = await migrator.query<{ title: string; body: string }>(
+      `select title, body from api.pipeline_inbox_items where workspace_id = $1 and title like '%expire%'`,
+      [WS],
+    )
+
+    expect(item.rows[0].title).toBe('1 material expires within 30 days')
+    expect(item.rows[0].body).toContain('RGT-EXP-1 Buffer (lot L7)')
+  })
+})

@@ -10,7 +10,7 @@ import type {
   PipelineStep,
 } from '../config'
 import { PIPELINE_CONFIG_VERSION } from '../config'
-import { RECIPE_SOURCE_INPUT, recipeSchema } from './recipe'
+import { EVENT_PERSON, RECIPE_SOURCE_INPUT, recipeSchema } from './recipe'
 import type { PipelineRecipe, RecipeAction, RecipeCondition } from './recipe'
 
 /** Where the recipe lives on a stored version, beside the steps it compiled to. */
@@ -104,9 +104,11 @@ export function compileRecipe(
 ): Pick<PipelineConfig, 'inputs' | 'parameters' | 'steps' | 'output'> {
   const parameters: PipelineParameter[] = []
 
-  const inputs: PipelineInput[] = [
-    { name: RECIPE_SOURCE_INPUT, required: true },
-  ]
+  const started = Boolean(recipe.when.event)
+
+  const inputs: PipelineInput[] = started
+    ? []
+    : [{ name: RECIPE_SOURCE_INPUT, required: true }]
 
   const steps: PipelineStep[] = []
 
@@ -118,13 +120,27 @@ export function compileRecipe(
     return conditionSql(condition, `condition_${index + 1}`)
   })
 
-  steps.push({
-    name: 'match',
-    kind: 'sql',
-    statement: where.length
-      ? `SELECT * FROM ${RECIPE_SOURCE_INPUT} WHERE ${where.join(recipe.join === 'or' ? ' OR ' : ' AND ')}`
-      : `SELECT * FROM ${RECIPE_SOURCE_INPUT}`,
-  })
+  if (started) {
+    // No snapshot: the run starts from what the event says. The scheduler fills
+    // these two parameters in for a failed run or a decided review.
+    for (const name of ['event_person', 'event_subject'])
+      parameters.push({ name, type: 'text', required: false, default: '' })
+
+    steps.push({
+      name: 'match',
+      kind: 'sql',
+      statement:
+        "SELECT {{event_person}}::text AS person, {{event_subject}}::text AS subject WHERE {{event_person}}::text <> ''",
+    })
+  } else {
+    steps.push({
+      name: 'match',
+      kind: 'sql',
+      statement: where.length
+        ? `SELECT * FROM ${RECIPE_SOURCE_INPUT} WHERE ${where.join(recipe.join === 'or' ? ' OR ' : ' AND ')}`
+        : `SELECT * FROM ${RECIPE_SOURCE_INPUT}`,
+    })
+  }
 
   let output: PipelineOutput = { mode: 'none', datasetLabel: 'pipeline output' }
 
@@ -218,18 +234,45 @@ export function compileRecipe(
       case 'eln_action':
         steps.push(actionStep(action, `action_${n}`))
         break
-      case 'inbox':
+      case 'inbox': {
+        const aboutEvent = action.userId === EVENT_PERSON
+
+        const base = {
+          p_user_id: aboutEvent ? { $ref: 'row.person' } : action.userId,
+          p_title: action.text.trim() || 'Review the new snapshot',
+        }
+
+        const args = recipe.when.datasetId
+          ? { ...base, p_dataset_id: recipe.when.datasetId }
+          : base
+
         steps.push({
           name: `inbox_${n}`,
           kind: 'action',
+          action: aboutEvent
+            ? {
+                operation: 'create_inbox_item',
+                mode: 'execute',
+                arguments: args,
+                forEach: { $ref: 'previous' },
+              }
+            : {
+                operation: 'create_inbox_item',
+                mode: 'execute',
+                arguments: args,
+              },
+        })
+        break
+      }
+
+      case 'expiring':
+        steps.push({
+          name: `expiring_${n}`,
+          kind: 'action',
           action: {
-            operation: 'create_inbox_item',
+            operation: 'list_expiring_materials',
             mode: 'execute',
-            arguments: {
-              p_user_id: action.userId,
-              p_title: action.text.trim() || 'Review the new snapshot',
-              p_dataset_id: recipe.when.datasetId,
-            },
+            arguments: { p_user_id: action.userId, p_days: action.days },
           },
         })
         break

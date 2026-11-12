@@ -173,13 +173,89 @@ describe('leaving an Inbox item', () => {
   })
 })
 
+describe('recipes that start without a snapshot', () => {
+  const failed: PipelineRecipe = {
+    when: { datasetId: '', event: 'run_failed' },
+    join: 'and',
+    conditions: [],
+    actions: [
+      { kind: 'inbox', mode: 'task', userId: '@event', text: 'A run failed' },
+    ],
+  }
+
+  it('reads nothing, takes the event’s person as a parameter and tells them once', () => {
+    const { inputs, parameters, steps } = compileRecipe(failed)
+
+    expect(inputs).toEqual([])
+    expect(parameters.map((p) => p.name)).toEqual([
+      'event_person',
+      'event_subject',
+    ])
+    expect(steps[0].kind).toBe('sql')
+    expect(steps[1]).toMatchObject({
+      action: {
+        operation: 'create_inbox_item',
+        forEach: { $ref: 'previous' },
+        arguments: { p_user_id: { $ref: 'row.person' } },
+      },
+    })
+    expect(validatePipelineConfig(simpleConfig(failed))).toEqual([])
+    expect(recipeProblems(failed)).toEqual([])
+  })
+
+  it('lists expiring stock for a person', () => {
+    const weekly: PipelineRecipe = {
+      when: { datasetId: '', event: 'weekly', weekday: 1 },
+      join: 'and',
+      conditions: [],
+      actions: [{ kind: 'expiring', userId: PERSON, days: 30 }],
+    }
+
+    const step = compileRecipe(weekly).steps.at(-1)
+
+    expect(step).toMatchObject({
+      action: {
+        operation: 'list_expiring_materials',
+        arguments: { p_user_id: PERSON, p_days: 30 },
+      },
+    })
+    expect(validatePipelineConfig(simpleConfig(weekly))).toEqual([])
+  })
+
+  it('refuses actions that need rows to work on', () => {
+    const bad: PipelineRecipe = {
+      ...failed,
+      actions: [{ kind: 'flag_rows', column: 'a', fieldId: FIELD }],
+    }
+
+    expect(recipeProblems(bad).length).toBeGreaterThan(0)
+  })
+})
+
 describe('templates', () => {
-  it('never start out finished', () => {
-    for (const template of PIPELINE_TEMPLATES)
+  // These two name no dataset, column or person of the lab's: they go to whoever the event is about.
+  const ABOUT_THE_EVENT = ['review-decided', 'run-failed']
+
+  it('start unfinished while a choice is the lab’s to make', () => {
+    for (const template of PIPELINE_TEMPLATES.filter(
+      (t) => !ABOUT_THE_EVENT.includes(t.id),
+    ))
       expect(
         recipeProblems(template.recipe).length,
         template.id,
       ).toBeGreaterThan(0)
+  })
+
+  it('compile to a contract the database accepts', () => {
+    for (const template of PIPELINE_TEMPLATES.filter((t) =>
+      ABOUT_THE_EVENT.includes(t.id),
+    )) {
+      expect(recipeProblems(template.recipe), template.id).toEqual([])
+      expect(
+        validatePipelineConfig(simpleConfig(template.recipe)),
+        template.id,
+      ).toEqual([])
+    }
   })
 
   it('are found by id', () => {

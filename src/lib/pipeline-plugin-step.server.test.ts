@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { PluginStepError, runPluginStep } from './pipeline-plugin-step.server'
 import type { PluginStepScope } from './pipeline-plugin-step.server'
-import type { PipelinePluginStep, PipelineStep } from './pipelines/config'
+import type {
+  PipelinePluginDataStep as PipelineStep,
+  PipelinePluginStep,
+} from './pipelines/config'
 
 const invoke = vi.fn()
 const open = vi.fn()
@@ -20,8 +23,7 @@ vi.mock('./extensions/runtime.server', () => ({
 
 const step = (args: PipelinePluginStep['arguments']): PipelineStep => ({
   name: 'join',
-  language: 'plugin',
-  statement: '',
+  kind: 'plugin',
   plugin: { operation: 'plugin.plate-tools.join', arguments: args },
 })
 
@@ -108,7 +110,14 @@ describe('runPluginStep', () => {
 
   it('needs a plugin to run', async () => {
     await expect(
-      run({ name: 'x', language: 'plugin', statement: '' }, scope()),
+      run(
+        {
+          name: 'x',
+          kind: 'plugin',
+          plugin: { operation: 'not a plugin', arguments: {} },
+        },
+        scope(),
+      ),
     ).rejects.toThrow('does not name a plugin step')
   })
 })

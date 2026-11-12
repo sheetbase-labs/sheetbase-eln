@@ -23,6 +23,8 @@ const actionContextSchema = z.object({
   parameters: pipelineJsonObjectSchema,
   previous: z.array(pythonInputValueSchema),
   output: pipelineJsonObjectSchema,
+  /** Per action: the result of the data step before it, when it is not `previous`. */
+  previousFor: z.record(z.string(), z.array(pythonInputValueSchema)).optional(),
 })
 
 export type PipelineActionContext = z.infer<typeof actionContextSchema>
@@ -476,8 +478,13 @@ export async function executePipelineActions(
       return result
     }
 
+    const { previousFor, ...shared } = decodedContext
+
     for (const action of actions) {
-      const scope = { ...decodedContext, actions: results }
+      const own = previousFor?.[action.name]
+      const scope = { ...shared, actions: results }
+
+      if (own) scope.previous = own
 
       if (!action.forEach) {
         results[action.name] = await runOnce(action, scope, '')

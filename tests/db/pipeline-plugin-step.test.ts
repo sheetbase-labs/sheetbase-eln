@@ -260,15 +260,19 @@ function config(
   steps: Array<Record<string, unknown>>,
 ): Record<string, unknown> {
   return {
-    configVersion: 1,
+    configVersion: 2,
+    mode: 'standard',
     description: 'subtract the blank, then tidy',
     parameters: [{ name: 'factor', type: 'decimal', required: true }],
     inputs: [{ name: 'measurements', required: true }],
-    transform: {
-      language: 'sql',
-      statement: 'SELECT batch AS label, value FROM measurements',
-    },
-    steps,
+    steps: [
+      {
+        name: 'analysis',
+        kind: 'sql',
+        statement: 'SELECT batch AS label, value FROM measurements',
+      },
+      ...steps,
+    ],
     output: {
       mode: 'create',
       schemaVersionId,
@@ -281,8 +285,7 @@ function config(
 
 const subtractBlank = (over: Record<string, unknown> = {}) => ({
   name: 'subtract_blank',
-  language: 'plugin',
-  statement: '',
+  kind: 'plugin',
   plugin: {
     operation: 'plugin.bench-extras.subtract-blank',
     arguments: {
@@ -297,7 +300,7 @@ const subtractBlank = (over: Record<string, unknown> = {}) => ({
 
 const tidy = {
   name: 'tidy',
-  language: 'sql',
+  kind: 'sql',
   statement:
     "SELECT label AS batch, corrected AS value, corrected * {{factor}} AS scaled FROM previous WHERE label <> 'blank' ORDER BY label",
 }
@@ -447,9 +450,11 @@ describe.skipIf(!pythonAvailable)('a plugin step between two steps', () => {
   it('pauses after the plugin’s table is ready, shows it, and resumes on confirm', async () => {
     installed = true
     const { report, runId } = await run([
+      subtractBlank(),
       {
-        ...subtractBlank(),
-        confirm: {
+        name: 'check_blank',
+        kind: 'ask',
+        ask: {
           fields: [
             { key: 'unit', label: 'Unit', type: 'text', required: true },
           ],

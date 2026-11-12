@@ -143,22 +143,22 @@ function confirmConfig(
   noAnswer: 'reask' | 'apply' | 'fail',
 ): Record<string, unknown> {
   return {
-    configVersion: 1,
+    configVersion: 2,
+    mode: 'standard',
     description: 'confirm units before scaling',
     parameters: [{ name: 'factor', type: 'decimal', required: true }],
     inputs: [{ name: 'measurements', required: true }],
-    transform: {
-      language: 'sql',
-      statement:
-        'SELECT batch, value, value * {{factor}} AS scaled FROM measurements',
-    },
     steps: [
       {
-        name: 'confirm_units',
-        language: 'sql',
+        name: 'analysis',
+        kind: 'sql',
         statement:
-          'SELECT batch, count(*) AS rows, min(value) AS values_seen FROM measurements GROUP BY batch ORDER BY batch',
-        confirm: {
+          'SELECT batch, value, value * {{factor}} AS scaled FROM measurements',
+      },
+      {
+        name: 'confirm_units',
+        kind: 'ask',
+        ask: {
           fields: [
             { key: 'unit', label: 'Unit', type: 'text', required: true },
           ],
@@ -170,7 +170,7 @@ function confirmConfig(
       },
       {
         name: 'set_units',
-        language: 'sql',
+        kind: 'sql',
         statement:
           "SELECT batch, value, value * {{factor}} + CASE WHEN (SELECT answer->>'unit' FROM confirm_answer) IS NULL THEN 0 ELSE 1 END AS scaled FROM measurements",
       },
@@ -430,8 +430,8 @@ describe('PIPE-02.2 confirm steps', () => {
     expect(prompts.rows[0].asked_user_ids).toEqual([OWNER])
     expect(prompts.rows[0].answer).toBeNull()
     expect(prompts.rows[0].expires_at).not.toBeNull()
-    // The proposal (work so far) is committed for the person to decide on.
-    expect(prompts.rows[0].form_schema.proposal.rows).toHaveLength(2)
+    // The rows so far are committed for the person to decide on.
+    expect(prompts.rows[0].form_schema.proposal.rows).toHaveLength(3)
   })
 
   it('resumes from the step with the pinned inputs, not changed live data', async () => {

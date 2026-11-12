@@ -272,14 +272,18 @@ beforeAll(async () => {
       WS,
       definitionId,
       JSON.stringify({
-        configVersion: 1,
+        configVersion: 2,
+        mode: 'standard',
         description: 'sum the readings',
         parameters: [],
         inputs: [{ name: 'readings', required: true }],
-        transform: {
-          language: 'sql',
-          statement: 'SELECT batch, value FROM readings',
-        },
+        steps: [
+          {
+            name: 'analysis',
+            kind: 'sql',
+            statement: 'SELECT batch, value FROM readings',
+          },
+        ],
         output: {
           mode: 'create',
           schemaVersionId,

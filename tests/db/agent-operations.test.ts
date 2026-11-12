@@ -371,14 +371,14 @@ describe('AUTO-04 agent-authored operations', () => {
         definitionId: definition.rows[0].id,
         expectedDefinitionRevision: Number(definition.rows[0].revision),
         configuration: {
-          configVersion: 1,
+          configVersion: 2,
+          mode: 'standard',
           description: 'A deterministic pass-through draft.',
           parameters: [],
           inputs: [{ name: 'input', required: true }],
-          transform: {
-            language: 'sql',
-            statement: 'SELECT * FROM input',
-          },
+          steps: [
+            { name: 'analysis', kind: 'sql', statement: 'SELECT * FROM input' },
+          ],
           output: {
             mode: 'create',
             schemaVersionId: '90000000-0000-4000-8000-000000000001',
@@ -416,15 +416,15 @@ describe('AUTO-04 agent-authored operations', () => {
         definitionId: definition.rows[0].id,
         expectedDefinitionRevision: Number(definition.rows[0].revision),
         configuration: {
-          configVersion: 1,
+          configVersion: 2,
+          mode: 'standard',
           description:
             'This version must not be created from a stale revision.',
           parameters: [],
           inputs: [{ name: 'input', required: true }],
-          transform: {
-            language: 'sql',
-            statement: 'SELECT * FROM input',
-          },
+          steps: [
+            { name: 'analysis', kind: 'sql', statement: 'SELECT * FROM input' },
+          ],
           output: {
             mode: 'create',
             schemaVersionId: '90000000-0000-4000-8000-000000000001',

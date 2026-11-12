@@ -23,6 +23,7 @@ export const copy = {
     colName: 'Name',
     colParameters: 'Parameters',
     colUpdated: 'Updated',
+    colActions: 'Actions',
     none: 'No parameters yet',
     empty: 'No parameter sets yet.',
     loading: 'Loading parameter sets',

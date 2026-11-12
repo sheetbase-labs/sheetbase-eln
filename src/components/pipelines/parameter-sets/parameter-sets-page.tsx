@@ -123,7 +123,9 @@ export function ParameterSetsPage({
                 <TableHead>{words('colKey')}</TableHead>
                 <TableHead>{words('colParameters')}</TableHead>
                 <TableHead>{words('colUpdated')}</TableHead>
-                <TableHead />
+                <TableHead>
+                  <span className="sr-only">{words('colActions')}</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody

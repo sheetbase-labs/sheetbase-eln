@@ -25,6 +25,7 @@ import { scheduleSpecLabel } from '#/routes/pipelines/-schedule-labels'
 import { useRuleForm, startWays } from './composer-model'
 import { HeardEvents } from './heard-events'
 import { NextStarts } from './next-starts'
+import { runScope } from './run-scope'
 import { RichLine } from './rich-line'
 import { RunTimeline, TimelineLegend } from './run-timeline'
 import { SelectedRun } from './selected-run'
@@ -141,6 +142,8 @@ export function StartsPage({
       })
     : t('features.pipelineStarts.tab.subtitleDraftOnly')
 
+  const scope = runScope(published?.configuration, schedules, datasetNames)
+
   const owner = definition.data?.created_by_user_id
     ? (members.data?.[definition.data.created_by_user_id] ?? null)
     : null
@@ -250,6 +253,7 @@ export function StartsPage({
         workspaceId={workspaceId}
         displayId={definition.data?.display_id ?? ''}
         owner={owner}
+        scope={scope}
       />
       {testing ? (
         <TestStartsDialog

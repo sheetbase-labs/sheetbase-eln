@@ -249,6 +249,17 @@ export const copy = {
     identity: '{id} service identity',
     identityBody: 'Never a person’s login',
     runsAsBody: 'Every change is recorded under this name and the run number.',
+    scope: {
+      reads: 'Reads {names}',
+      createsDataset: 'Creates the Dataset {name}',
+      appends: 'Appends to {name}',
+      does: '{action}',
+      proposes: 'Proposes: {action}',
+      posts: {
+        one: 'Posts to one notification channel',
+        other: 'Posts to {count} notification channels',
+      },
+    },
     policies: 'ELN action policies',
     policiesHint:
       'Ask puts a proposal in the Inbox of the people you choose. Set for everyone, a role or one credential on the Agents page.',

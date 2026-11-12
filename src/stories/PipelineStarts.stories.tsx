@@ -3,6 +3,17 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { BoardScope } from '#/features/pipelines/board/board'
 import { useRuleForm } from '#/components/pipelines/starts/composer-model'
+import {
+  Group,
+  LinkButton,
+  OpTag,
+  Row,
+  RowButton,
+} from '#/components/pipelines/starts/composer-parts'
+import { ConditionsGroup } from '#/components/pipelines/starts/conditions-group'
+import { RichLine } from '#/components/pipelines/starts/rich-line'
+import { StartsGroup } from '#/components/pipelines/starts/starts-group'
+import { ThenGroup } from '#/components/pipelines/starts/then-group'
 import { HeardEvents } from '#/components/pipelines/starts/heard-events'
 import { NextStarts } from '#/components/pipelines/starts/next-starts'
 import {
@@ -420,7 +431,14 @@ export const WeekOfRuns: Story = {
 export const RightColumn: Story = {
   decorators: [withClient],
   render: () => (
-    <StartsAside workspaceId="ws-1" displayId="PL-0007" owner="Gareth P." />
+    <StartsAside
+      workspaceId="ws-1"
+      displayId="PL-0007"
+      owner="Gareth P."
+      scope={[
+        { icon: 'database', text: 'Reads ELISA capsid titre and turbidity' },
+      ]}
+    />
   ),
 }
 
@@ -436,4 +454,56 @@ export const TestTheRules: Story = {
       onClose={() => {}}
     />
   ),
+}
+
+function GroupsStory() {
+  const form = useRuleForm(rules)
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="cmp">
+        <StartsGroup
+          pipelineId="pl-1"
+          workspaceId="ws-1"
+          schedules={[schedule]}
+          onAdd={() => {}}
+          onEdit={() => {}}
+          onHistory={() => {}}
+        />
+        <ConditionsGroup
+          draft={form.draft}
+          setDraft={form.setDraft}
+          problems={form.problems}
+          rowsText={form.rowsText}
+          setRowsText={form.setRowsText}
+          rowsValue={form.rowsValue}
+        />
+        <ThenGroup
+          draft={form.draft}
+          setDraft={form.setDraft}
+          problems={form.problems}
+          waitText={form.waitText}
+          setWaitText={form.setWaitText}
+        />
+      </div>
+      <div className="cmp">
+        <Group head={<OpTag>THEN</OpTag>}>
+          <Row
+            icon="clock"
+            type="Wait"
+            action={<RowButton label="Remove" icon="x" />}
+          >
+            <RichLine text="Starts when <b>a schedule</b> is due." />
+          </Row>
+          <LinkButton onClick={() => {}}>Add</LinkButton>
+        </Group>
+      </div>
+    </div>
+  )
+}
+
+/** The three blocks of the composer on their own, and the parts they are made of. */
+export const ComposerGroups: Story = {
+  decorators: [withClient],
+  render: () => <GroupsStory />,
 }

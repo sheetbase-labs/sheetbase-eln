@@ -18,6 +18,7 @@ import type { AgentActionLevel } from '#/lib/agent-action-policy'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { PIPELINE_ACTIONS } from '#/lib/pipelines/actions'
 
+import type { ScopeLine } from './run-scope'
 import './starts-board.css'
 
 const ALWAYS_NEVER = [
@@ -45,10 +46,13 @@ export function StartsAside({
   workspaceId,
   displayId,
   owner,
+  scope,
 }: {
   workspaceId: string
   displayId: string
   owner: string | null
+  /** What the identity reads and writes, from the starts and the saved steps. */
+  scope: ScopeLine[]
 }) {
   const queryClient = useQueryClient()
 
@@ -89,6 +93,16 @@ export function StartsAside({
             </div>
           </div>
         </div>
+        {scope.length > 0 ? (
+          <div className="perm">
+            {scope.map((line) => (
+              <span key={line.text}>
+                <Icon name={line.icon} size={12} />
+                {line.text}
+              </span>
+            ))}
+          </div>
+        ) : null}
         <div className="note">
           {t('features.pipelineStarts.aside.runsAsBody')}
         </div>

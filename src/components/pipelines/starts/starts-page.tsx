@@ -86,11 +86,13 @@ export function StartsPage({
   workspaceId,
   schedules,
   rules,
+  publishWaiting,
 }: {
   pipelineId: string
   workspaceId: string
   schedules: PipelineScheduleWire[]
   rules: StartRules
+  publishWaiting: boolean
 }) {
   const timeZone = useDisplayTimeZone()
   const definition = usePipelineDefinition(pipelineId)
@@ -251,9 +253,11 @@ export function StartsPage({
       </div>
       <StartsAside
         workspaceId={workspaceId}
+        pipelineId={pipelineId}
         displayId={definition.data?.display_id ?? ''}
         owner={owner}
         scope={scope}
+        publishWaiting={publishWaiting}
       />
       {testing ? (
         <TestStartsDialog

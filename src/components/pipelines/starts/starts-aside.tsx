@@ -18,6 +18,7 @@ import type { AgentActionLevel } from '#/lib/agent-action-policy'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { PIPELINE_ACTIONS } from '#/lib/pipelines/actions'
 
+import { PublishingNote } from './publishing-note'
 import type { ScopeLine } from './run-scope'
 import './starts-board.css'
 
@@ -44,15 +45,20 @@ const POLICY_ACTIONS = PIPELINE_ACTIONS.flatMap((action) => {
  * agent may go with its ELN actions, and what nothing may ever do. */
 export function StartsAside({
   workspaceId,
+  pipelineId,
   displayId,
   owner,
   scope,
+  publishWaiting,
 }: {
   workspaceId: string
+  pipelineId: string
   displayId: string
   owner: string | null
   /** What the identity reads and writes, from the starts and the saved steps. */
   scope: ScopeLine[]
+  /** A publish request is waiting for an admin. */
+  publishWaiting: boolean
 }) {
   const queryClient = useQueryClient()
 
@@ -160,6 +166,8 @@ export function StartsAside({
           {t('features.pipelineStarts.aside.neverBody')}
         </div>
       </section>
+
+      <PublishingNote pipelineId={pipelineId} waiting={publishWaiting} />
     </aside>
   )
 }

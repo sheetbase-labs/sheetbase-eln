@@ -126,6 +126,7 @@ export const copy = {
     snapshotsHint: 'Snapshots start a run when they arrive.',
   },
   heard: {
+    allActivity: 'All activity',
     title: 'Last {count} events it heard',
     none: 'It hasn’t heard anything in the last 7 days.',
     when: 'When',
@@ -245,6 +246,12 @@ export const copy = {
     afterwards: 'then it stops',
   },
   aside: {
+    publishing: 'Publishing',
+    publishingBody:
+      'Start rules save straight away. A new version asks an admin to approve it before runs use it.',
+    publishingWaiting:
+      'A new version is waiting for an admin to approve it. Until then runs use the published version.',
+    openActivity: 'Open Activity',
     runsAs: 'Runs as',
     identity: '{id} service identity',
     identityBody: 'Never a person’s login',

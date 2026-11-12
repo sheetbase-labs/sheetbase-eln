@@ -52,6 +52,7 @@ import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { ProjectListFailure } from '#/components/projects/project-list'
 import { Tabs } from '#/components/ui/tabs'
 import { toast } from '#/components/ui/sonner'
+import { TemplateDialog } from '#/components/pipelines/simple/template-dialog'
 import {
   createPipelineDefinition,
   updatePipelineDefinition,
@@ -489,11 +490,14 @@ function PipelinesHeader({
         actions={
           <>
             {canManage ? (
-              <NewPipeline
-                workspaceId={workspaceId}
-                autoOpen={autoOpen}
-                onAutoOpened={onAutoOpened}
-              />
+              <>
+                <NewPipeline
+                  workspaceId={workspaceId}
+                  autoOpen={autoOpen}
+                  onAutoOpened={onAutoOpened}
+                />
+                <TemplateDialog workspaceId={workspaceId} />
+              </>
             ) : (
               <ReadOnlyNote>
                 {t('common.readOnly.cannotAddSteward', {

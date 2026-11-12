@@ -68,6 +68,28 @@ export const PIPELINE_SIMPLE_OPERATIONS = defineOperations([
     docsPage: 'pipelines-simple-api.md',
   },
   {
+    name: 'list_expiring_materials',
+    label: 'List the stock that expires soon',
+    summary: 'List the stock that expires soon',
+    description:
+      'Looks at the materials that expire within `p_days` days (not quarantined, expired, consumed or depleted) and leaves one Inbox item for a person with a line for each lot, soonest first. Leaves nothing when nothing expires. Stewards and anyone who can edit in the workspace. Returns `{ count, created, inboxItemId }`. Sends `pipeline.inbox_item.created` when it leaves an item.',
+    kind: 'write',
+    scope: 'pipelines:write',
+    inputs: [
+      workspace(),
+      described('p_user_id', 'text', 'The person, from `workspace_members`.'),
+      described(
+        'p_days',
+        'int',
+        'How many days ahead to look, 1 to 365.',
+        false,
+      ),
+    ],
+    result: 'json',
+    pipeline: {},
+    docsPage: 'pipelines-simple-api.md',
+  },
+  {
     name: 'create_inbox_item',
     label: 'Leave an Inbox item for someone',
     summary: 'Leave an Inbox item for someone',

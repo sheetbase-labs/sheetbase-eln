@@ -17,3 +17,10 @@ BEGIN
   EXECUTE 'ALTER TABLE api.change_events DROP CONSTRAINT chk_change_events_entity_type';
   EXECUTE 'ALTER TABLE api.change_events ADD CONSTRAINT chk_change_events_entity_type ' || v_def;
 END $$;
+--> statement-breakpoint
+
+-- A pipeline can start when an Inbox item is left: the database's list of
+-- trigger events learns the new one.
+INSERT INTO internal.pipeline_trigger_events (name) VALUES
+  ('pipeline.inbox_item.created')
+ON CONFLICT DO NOTHING;

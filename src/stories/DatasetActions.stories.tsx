@@ -470,6 +470,7 @@ const pipeline: PipelineListRow = {
   draft: undefined,
   runCount: 4,
   lastRun: undefined,
+  recentRuns: [],
 }
 
 const pipelineClient = (rows: PipelineListRow[]) =>

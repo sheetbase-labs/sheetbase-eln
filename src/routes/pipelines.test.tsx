@@ -145,6 +145,7 @@ function row(status: 'failed' | 'waiting' | 'succeeded'): PipelineListRow {
       actor_credential_id: null,
       created_at: '2026-10-10T09:00:00Z',
     },
+    recentRuns: [],
   }
 }
 

@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 
 import { t } from '#/copy'
+import { cn } from '#/lib/utils'
 import { hasCapability } from '#/lib/capability'
 import { Status } from '#/components/ui/status'
 import { EmptyState } from '#/components/ui/empty-state'
@@ -27,12 +28,7 @@ import {
   DialogHeader,
   DialogTrigger,
 } from '#/components/ui/dialog'
-import {
-  DescriptionList,
-  Inspector,
-  InspectorSection,
-  Muted,
-} from '#/components/ui/layout'
+import { Inspector, InspectorSection, Muted } from '#/components/ui/layout'
 import {
   ListFooter,
   ListHeader,
@@ -43,11 +39,7 @@ import {
   sortByName,
 } from '#/components/inventory/list'
 import type { MobileItem } from '#/components/inventory/list'
-import {
-  RegistryGrid,
-  rightAligned,
-  useRowFocus,
-} from '#/components/inventory/registry-grid'
+import { RegistryGrid, useRowFocus } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { ProjectListFailure } from '#/components/projects/project-list'
 import { Tabs } from '#/components/ui/tabs'
@@ -57,15 +49,23 @@ import {
   updatePipelineDefinition,
 } from '#/lib/pipelines/data'
 import { suggestPipelineKey } from '#/lib/pipelines/authoring'
-import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
+import { notebookDataClient } from '#/lib/notebook-data'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   pipelineDataQueryKeys,
-  definitionStatus,
+  runDuration,
   runStatus,
   usePipelineRows,
-  versionStatus,
+  useSchedules,
+  useWorkspaceMemberNames,
 } from '#/components/pipelines/pipelines-data'
+import { runScope } from '#/components/pipelines/starts/run-scope'
+import { useDatasetNameMap } from '#/components/pipelines/starts/starts-data'
+import { scheduleSpecLabel } from '#/routes/pipelines/-schedule-labels'
+import { readStoredConfig } from '#/lib/pipelines/step-list'
+import { Icon } from '#/components/icons'
+import type { PipelineScheduleKind } from '#/lib/pipeline-schedule'
+import type { PipelineScheduleWire } from '#/lib/pipelines/types'
 import type { PipelineListRow } from '#/components/pipelines/pipelines-data'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { useRunLauncher } from '#/components/pipelines/use-run-launcher'
@@ -171,8 +171,43 @@ function inTab(
   return Boolean(p.draft)
 }
 
+/** What the list needs beyond a pipeline's own row: its starts, owners and dataset names. */
+interface ListContext {
+  starts: Map<
+    string,
+    { kind: PipelineScheduleKind; spec: PipelineScheduleWire['spec'] }[]
+  >
+  owners: Record<string, string>
+  datasetNames: Map<string, string>
+}
+
+/** "10:12" for today, "21 Sep" before. */
+function shortWhen(iso: string): string {
+  const at = new Date(iso)
+  const now = new Date()
+
+  return at.toDateString() === now.toDateString()
+    ? at.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    : at.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+/** What a run of this pipeline leaves behind: nothing, an addition or a new dataset. */
+function keepsText(p: PipelineListRow): string {
+  const config = p.current ? readStoredConfig(p.current.configuration) : null
+  const output = config?.output
+
+  if (!output) return '—'
+
+  if (output.mode === 'none') return t('data.pipelinesList.keepsNothing')
+
+  return output.mode === 'append'
+    ? t('data.pipelinesList.keepsAppend')
+    : t('data.pipelinesList.keepsNew')
+}
+
 function pipelineColumns(
   openPipeline: ReturnType<typeof useOpenRow<PipelineListRow>>,
+  list: ListContext,
 ): RegistryColumn<PipelineListRow>[] {
   return [
     {
@@ -197,7 +232,10 @@ function pipelineColumns(
           to="/pipelines/$pipelineId"
           params={{ pipelineId: row.original.id }}
           onClick={(event) => openPipeline(row.original, event)}
-          className={row.getIsSelected() ? 'font-medium' : undefined}
+          className={cn(
+            'block min-w-[150px] whitespace-normal',
+            row.getIsSelected() && 'font-medium',
+          )}
         >
           {row.original.name}
         </Link>
@@ -208,7 +246,11 @@ function pipelineColumns(
       header: t('data.pipelinesList.version'),
       cell: ({ row }) => (
         <>
-          {row.original.current ? `v${row.original.current.version}` : '—'}
+          {row.original.current?.lifecycle === 'draft'
+            ? t('data.pipelinesList.draftWord')
+            : row.original.current
+              ? `v${row.original.current.version}`
+              : '—'}
           {row.original.draft &&
           row.original.current?.lifecycle === 'published' ? (
             <span className="text-fg-muted">
@@ -222,10 +264,37 @@ function pipelineColumns(
       ),
     },
     {
-      id: 'runs',
-      header: t('data.pipelinesList.runs'),
-      accessorFn: (p) => p.runCount,
-      meta: rightAligned<PipelineListRow>().meta,
+      id: 'startsOn',
+      header: t('data.pipelinesList.startsOn'),
+      enableSorting: false,
+      cell: ({ row }) => {
+        const own = list.starts.get(row.original.id) ?? []
+
+        const labels = own.map((s) =>
+          scheduleSpecLabel(s.kind, s.spec, list.datasetNames),
+        )
+
+        return (
+          <span className="inline-flex items-center gap-1.5">
+            <Icon
+              name={
+                own.length === 0
+                  ? 'play'
+                  : own[0]?.kind === 'event'
+                    ? 'database'
+                    : 'clock'
+              }
+              size={12}
+              className="shrink-0 text-fg-muted"
+            />
+            <span className="max-w-[110px] truncate" title={labels.join(' · ')}>
+              {labels.length
+                ? labels.join(' · ')
+                : t('data.pipelinesList.manual')}
+            </span>
+          </span>
+        )
+      },
     },
     {
       id: 'lastRun',
@@ -234,24 +303,30 @@ function pipelineColumns(
         const last = row.original.lastRun
         const lastStatus = last ? runStatus(last.status) : null
 
-        return lastStatus ? (
-          <Status tone={lastStatus.tone}>{lastStatus.label}</Status>
+        return lastStatus && last ? (
+          <>
+            <Status tone={lastStatus.tone}>{lastStatus.label}</Status>
+            <span className="text-fg-muted">
+              {' · '}
+              {shortWhen(last.started_at)}
+            </span>
+          </>
         ) : (
           <Status tone="draft">{t('data.pipelinesList.neverRun')}</Status>
         )
       },
     },
     {
-      id: 'status',
-      header: t('data.pipelinesList.status'),
-      cell: ({ row }) => {
-        const status = definitionStatus(
-          row.original.lifecycle,
-          row.original.versions,
-        )
-
-        return <Status tone={status.tone}>{status.label}</Status>
-      },
+      id: 'keeps',
+      header: t('data.pipelinesList.keeps'),
+      enableSorting: false,
+      cell: ({ row }) => keepsText(row.original),
+    },
+    {
+      id: 'owner',
+      header: t('data.pipelinesList.owner'),
+      accessorFn: (p) =>
+        p.created_by_user_id ? (list.owners[p.created_by_user_id] ?? '') : '',
     },
   ]
 }
@@ -335,44 +410,59 @@ function PipelineInspector({
         ) : null}
       </div>
       <div className="flex flex-col gap-4 px-4 py-3.5">
-        <InspectorSection title={t('data.pipelinesList.details')}>
-          <DescriptionList
-            labelWidth={80}
-            items={[
-              [t('data.pipelinesList.key'), sel.key],
-              [
-                t('data.pipelinesList.current'),
-                sel.current
-                  ? `v${sel.current.version} · ${versionStatus(sel.current.lifecycle).label}`
-                  : '—',
-              ],
-              [t('data.pipelinesList.versions'), String(sel.versions.length)],
-              [t('data.pipelinesList.runs'), String(sel.runCount)],
-            ]}
-          />
-        </InspectorSection>
         <InspectorSection title={t('data.pipelinesList.recentRuns')}>
-          {sel.lastRun ? (
-            <Link
-              to="/pipelines/$pipelineId/runs/$runId"
-              params={{ pipelineId: sel.id, runId: sel.lastRun.id }}
-              className="text-label"
-            >
-              <Status tone={runStatus(sel.lastRun.status).tone}>
-                {runStatus(sel.lastRun.status).label}
-              </Status>{' '}
-              <span className="num text-fg-muted">
-                {formatNotebookDateTime(sel.lastRun.started_at, {
-                  zone: true,
-                })}
-              </span>
-            </Link>
+          {sel.recentRuns.length ? (
+            <div className="flex flex-col text-label">
+              {sel.recentRuns.map((r) => (
+                <Link
+                  key={r.id}
+                  to="/pipelines/$pipelineId/runs/$runId"
+                  params={{ pipelineId: sel.id, runId: r.id }}
+                  className="grid grid-cols-[1fr_auto] border-b border-border-subtle py-1.5 text-fg no-underline"
+                >
+                  <span>
+                    <Status tone={runStatus(r.status).tone}>
+                      {runStatus(r.status).label}
+                      {' · '}
+                      {t(`data.pipelinesList.runWhen.${r.trigger_kind}`)}
+                    </Status>
+                  </span>
+                  <span className="num text-fg-muted">
+                    {shortWhen(r.started_at)} · {runDuration(r)}
+                  </span>
+                </Link>
+              ))}
+            </div>
           ) : (
             <Muted>{t('data.pipelinesList.neverRun2')}</Muted>
           )}
         </InspectorSection>
+        <AllowedTo sel={sel} />
       </div>
     </Inspector>
+  )
+}
+
+/** What this pipeline's own identity may touch, read from its saved steps and starts. */
+function AllowedTo({ sel }: { sel: PipelineListRow }) {
+  const schedules = useSchedules(sel.id)
+  const datasetNames = useDatasetNameMap()
+
+  const lines = runScope(
+    sel.current?.configuration,
+    schedules.data ?? [],
+    datasetNames,
+  )
+
+  return (
+    <InspectorSection title={t('data.pipelinesList.allowedTo')}>
+      <div className="flex flex-col text-label leading-[19px]">
+        {lines.map((line) => (
+          <span key={`${line.icon}:${line.text}`}>{line.text}</span>
+        ))}
+      </div>
+      <Muted className="mt-1.5">{t('data.pipelinesList.neverSigns')}</Muted>
+    </InspectorSection>
   )
 }
 
@@ -571,9 +661,14 @@ function PipelinesList() {
   const schedules = useQuery({
     queryKey: ['ui-port', 'pipelines', 'scheduled-list'],
     queryFn: () =>
-      notebookDataClient.list<{ definition_id: string; enabled: boolean }>(
+      notebookDataClient.list<{
+        definition_id: string
+        enabled: boolean
+        kind: PipelineScheduleKind
+        spec: PipelineScheduleWire['spec']
+      }>(
         'pipeline_schedules',
-        '?enabled=eq.true&select=definition_id,enabled',
+        '?enabled=eq.true&select=definition_id,enabled,kind,spec',
       ),
   })
 
@@ -626,7 +721,30 @@ function PipelinesList() {
     (row) => row.name,
   )
 
-  const columns = useMemo(() => pipelineColumns(openPipeline), [openPipeline])
+  const owners = useWorkspaceMemberNames()
+  const datasetNames = useDatasetNameMap()
+
+  const starts = useMemo(() => {
+    const byPipeline: ListContext['starts'] = new Map()
+
+    for (const s of schedules.data ?? []) {
+      const own = byPipeline.get(s.definition_id) ?? []
+      own.push({ kind: s.kind, spec: s.spec })
+      byPipeline.set(s.definition_id, own)
+    }
+
+    return byPipeline
+  }, [schedules.data])
+
+  const columns = useMemo(
+    () =>
+      pipelineColumns(openPipeline, {
+        starts,
+        owners: owners.data ?? {},
+        datasetNames,
+      }),
+    [openPipeline, starts, owners.data, datasetNames],
+  )
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     sel?.id ?? null,

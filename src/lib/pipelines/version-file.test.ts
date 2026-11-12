@@ -382,3 +382,71 @@ describe('includes', () => {
     ).toContain('aav9-limits')
   })
 })
+
+describe('remote job and lakehouse steps', () => {
+  const withSteps = (): PipelineConfig => {
+    const config = everything()
+
+    config.steps = [
+      ...config.steps.slice(0, 1),
+      {
+        name: 'lake',
+        kind: 'lakehouse',
+        statement: 'SELECT * FROM assays',
+        lake: { tables: ['assays', 'plates'] },
+      },
+      {
+        name: 'fold',
+        kind: 'remote_job',
+        remoteJob: {
+          connection: 'hpc-main',
+          queue: 'hpc-short',
+          secret: 'HPC_SUBMIT_KEY',
+          script: 'python fold.py',
+          limitMinutes: 120,
+        },
+      },
+    ]
+    config.output = { mode: 'none', datasetLabel: '' }
+
+    return config
+  }
+
+  it('writes them in the file and reads the same version back', () => {
+    const text = versionFileText(withSteps(), { pipeline: 'PL-0001' })
+    const result = check(text, { pipeline: ['PL-0001'] })
+
+    expect(text).toContain('remote_job:')
+    expect(text).toContain('limit_minutes: 120')
+    expect(text).toContain('lakehouse:')
+    expect(result.problems).toEqual([])
+    expect(result.config?.steps.slice(1)).toEqual(withSteps().steps.slice(1))
+  })
+
+  it('marks a bad queue on its own line', () => {
+    const config = withSteps()
+    const job = config.steps[2]
+
+    if (job.kind === 'remote_job') job.remoteJob.queue = 'Bad Queue'
+
+    const text = versionFileText(config, { pipeline: 'PL-0001' })
+    const line = text.split('\n').findIndex((l) => l.includes('queue:')) + 1
+    const result = check(text, { pipeline: ['PL-0001'] })
+
+    expect(result.config).toBeNull()
+    expect(result.problems[0]).toMatchObject({ line })
+  })
+
+  it('marks lakehouse tables that are not named', () => {
+    const text = versionFileText(withSteps(), { pipeline: 'PL-0001' }).replace(
+      /tables:[\s\S]*?\n\s+sql:/,
+      'tables: []\n      sql:',
+    )
+
+    const result = check(text, { pipeline: ['PL-0001'] })
+    const line = text.split('\n').findIndex((l) => l.includes('tables:')) + 1
+
+    expect(result.config).toBeNull()
+    expect(result.problems[0]).toMatchObject({ line })
+  })
+})

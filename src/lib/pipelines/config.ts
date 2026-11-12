@@ -1447,7 +1447,9 @@ function validateSteps(
           push(
             errors,
             problem === 'invalid' ? 'invalid_shape' : 'invalid_value',
-            `${field}.remoteJob`,
+            problem === 'invalid'
+              ? `${field}.remoteJob`
+              : `${field}.remoteJob.${problem === 'limit' ? 'limitMinutes' : problem}`,
             t(`features.pipelineRemote.problems.job.${problem}`),
           )
         break

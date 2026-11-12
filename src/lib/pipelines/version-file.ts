@@ -170,12 +170,26 @@ const NOTIFY_KEYS: Names = {
 
 const PLUGIN_KEYS: Names = { operation: 'operation', arguments: 'arguments' }
 
+/** A remote job: the connection and queue it goes to, the secret it is sent with, its script and its time limit. */
+const REMOTE_KEYS: Names = {
+  connection: 'connection',
+  queue: 'queue',
+  secret: 'secret',
+  script: 'script',
+  limit_minutes: 'limitMinutes',
+}
+
+/** Lakehouse SQL: the open tables it reads, then its statement. */
+const LAKE_KEYS: Names = { tables: 'tables', sql: 'statement' }
+
 /** The keys of a step that are not its kind. */
 const STEP_KEYS = ['id', 'note', 'only_if_rows', 'contract'] as const
 
 /** The settings object of a step kind, with its key names. */
 const KIND_OBJECTS: Partial<Record<PipelineStepKind, Names>> = {
   plugin: PLUGIN_KEYS,
+  remote_job: REMOTE_KEYS,
+  lakehouse: LAKE_KEYS,
   ask: ASK_KEYS,
   action: ACTION_KEYS,
   notify: NOTIFY_KEYS,
@@ -190,6 +204,8 @@ const KIND_WORDS: Record<PipelineStepKind, string> = {
   sql: 'SQL',
   python: 'Python',
   plugin: 'plugin',
+  lakehouse: 'lakehouse',
+  remote_job: 'remote job',
   ask: 'ask a person',
   action: 'ELN action',
   notify: 'notify',
@@ -590,7 +606,12 @@ function readStep(
       ? readKeys(settings, names, at, report, KIND_WORDS[kind])
       : null
 
-    if (read) {
+    if (read && kind === 'remote_job') {
+      step.remoteJob = read
+    } else if (read && kind === 'lakehouse') {
+      step.statement = read.statement
+      step.lake = { tables: read.tables }
+    } else if (read) {
       step[kind] = read
 
       if (kind === 'ask' && Array.isArray(read.skipSteps)) {
@@ -713,6 +734,21 @@ function pathOfField(
       if (key === 'note') return [...base, 'note']
 
       if (key === 'onlyIfRows') return [...base, 'only_if_rows']
+
+      if (step.kind === 'lakehouse') {
+        if (key === 'statement') return [...base, 'lakehouse', 'sql']
+
+        if (key === 'lake') return [...base, 'lakehouse', 'tables']
+      }
+
+      if (step.kind === 'remote_job' && key === 'remoteJob')
+        return [
+          ...base,
+          'remote_job',
+          ...[renamed(REMOTE_KEYS, deeper[0]), ...deeper.slice(1)].filter(
+            (s) => s !== undefined,
+          ),
+        ]
 
       if (key === 'kind' || key === 'statement') return [...base, step.kind]
 
@@ -1146,6 +1182,15 @@ function writeStep(
       break
     case 'plugin':
       entry.plugin = writeKeys(step.plugin, PLUGIN_KEYS)
+      break
+    case 'remote_job':
+      entry.remote_job = writeKeys(step.remoteJob, REMOTE_KEYS)
+      break
+    case 'lakehouse':
+      entry.lakehouse = writeKeys(
+        { tables: step.lake.tables, statement: step.statement },
+        LAKE_KEYS,
+      )
       break
     case 'ask':
       entry.ask = writeKeys(step.ask, ASK_KEYS)

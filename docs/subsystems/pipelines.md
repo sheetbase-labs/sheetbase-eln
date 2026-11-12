@@ -560,6 +560,14 @@ PL-0021 [file] [--version N]` writes the draft, or a version, out. Python has
 `pipelines.push_version_file` and `pull_version_file` (sync and async), TypeScript
 `pushVersionFile` and `pullVersionFile`. Only an Advanced pipeline accepts a push.
 
+### Remote job and lakehouse steps in the file
+
+A `remote_job` step writes `connection`, `queue`, optional `secret` (the name of
+one of the connection's secrets, never its value), `script` and `limit_minutes`.
+A `lakehouse` step writes `tables` (the open tables it reads) and `sql`. Each
+mistake is marked on its own key, with the same rules the editor and the
+database apply.
+
 ### Several outputs, includes and parameter sets
 
 A file writes one `output:` or a list under `outputs:` (not both). The first

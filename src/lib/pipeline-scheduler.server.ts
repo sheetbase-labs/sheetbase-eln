@@ -41,6 +41,7 @@ import {
   releaseSettledRunArtefacts,
 } from './pipeline-execute.server'
 import { enqueuePipelineRun, wakePipelineWorker } from './pipeline-queue.server'
+import { wakeRemoteJobRuns } from './pipeline-remote-sweep.server'
 import {
   MISSED_RUN_GRACE_MINUTES,
   nextRunAt,
@@ -1399,6 +1400,11 @@ export function startPipelineScheduler(): void {
       }
 
       await expirePipelinePrompts(sweepDeps)
+      // A run waiting for a remote job wakes once its job is done or out of time.
+      await wakeRemoteJobRuns(
+        defaultConnect,
+        (await import('./pipeline-hpc-deps.server')).realRemoteJobDeps,
+      )
       // PIPE-04.2: a settled run's artefacts are temporary unless it kept them.
       await releaseSettledRunArtefacts(sweepDeps)
     } catch (error) {

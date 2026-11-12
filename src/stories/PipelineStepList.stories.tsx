@@ -60,7 +60,6 @@ export const Rows: Story = {
         summary="Calculate step_yield_pct"
         problem="Every term needs a column or a number, and an operator."
         label="Step 3"
-        selected
         expanded
       />
     </div>

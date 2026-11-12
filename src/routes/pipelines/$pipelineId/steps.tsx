@@ -31,7 +31,7 @@ function PipelineSteps() {
   const view = editor.aiContext
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-3 px-4 py-4 sm:px-6">
+    <div className="pb-scope flex min-w-0 flex-1 flex-col gap-2 px-4 py-4 sm:px-6">
       <div className="flex flex-wrap items-center gap-3 text-label text-fg-muted">
         <h2 className="m-0 font-heading text-[15px] font-semibold text-fg">
           {t('data.stepList.heading')}

@@ -1,9 +1,11 @@
-import { useId } from 'react'
+import { Fragment, useId } from 'react'
 
 import { t } from '#/copy'
-import { Button } from '#/components/ui/button'
-import { Input } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
+import {
+  BoardButton,
+  BoardInput,
+  BoardSelect,
+} from '#/features/pipelines/board/board'
 import {
   CONDITION_OPERATORS,
   FORMULA_OPERATORS,
@@ -48,7 +50,7 @@ export function NoCodeFormFields({
   const listId = useId()
 
   return (
-    <div className="flex flex-col gap-2">
+    <>
       <datalist id={listId}>
         {columns.map((column) => (
           <option key={column} value={column} />
@@ -97,7 +99,7 @@ export function NoCodeFormFields({
           listId={listId}
         />
       ) : null}
-    </div>
+    </>
   )
 }
 
@@ -111,10 +113,8 @@ function Row({
   children: React.ReactNode
 }) {
   return (
-    <div className="grid grid-cols-[88px_minmax(0,1fr)] items-center gap-x-2.5 text-label">
-      <label className="text-fg-muted" htmlFor={htmlFor}>
-        {label}
-      </label>
+    <div className="frow">
+      <label htmlFor={htmlFor}>{label}</label>
       {children}
     </div>
   )
@@ -143,8 +143,7 @@ function ConditionRows({
     <Row label={lead}>
       <div className="flex flex-col gap-1.5">
         {form.conditions.length > 1 ? (
-          <Select
-            size="sm"
+          <BoardSelect
             className="w-[220px]"
             aria-label={t('data.stepList.matchAria')}
             value={form.match}
@@ -157,7 +156,7 @@ function ConditionRows({
           >
             <option value="all">{t('data.stepList.matchAll')}</option>
             <option value="any">{t('data.stepList.matchAny')}</option>
-          </Select>
+          </BoardSelect>
         ) : null}
         {form.conditions.map((condition, index) => (
           <div
@@ -166,15 +165,15 @@ function ConditionRows({
             key={index}
             className="flex flex-wrap items-center gap-1.5"
           >
-            <Input
+            <BoardInput
               list={listId}
-              className="mono h-7 w-[140px] text-xs"
+              mono
+              className="w-[140px]"
               aria-label={t('data.stepList.conditionColumn', { n: index + 1 })}
               value={condition.column}
               onChange={(e) => set(index, { column: e.target.value })}
             />
-            <Select
-              size="sm"
+            <BoardSelect
               className="w-[130px]"
               aria-label={t('data.stepList.conditionOperator', {
                 n: index + 1,
@@ -191,16 +190,16 @@ function ConditionRows({
                   {operatorLabel(op)}
                 </option>
               ))}
-            </Select>
+            </BoardSelect>
             {VALUELESS_OPERATORS.includes(condition.op) ? null : (
-              <Input
-                className="h-7 w-[120px] text-xs"
+              <BoardInput
+                className="w-[120px]"
                 aria-label={t('data.stepList.conditionValue', { n: index + 1 })}
                 value={condition.value ?? ''}
                 onChange={(e) => set(index, { value: e.target.value })}
               />
             )}
-            <Button
+            <BoardButton
               size="sm"
               variant="quiet"
               aria-label={t('data.stepList.removeCondition', { n: index + 1 })}
@@ -213,11 +212,11 @@ function ConditionRows({
               }
             >
               {t('common.actions.remove')}
-            </Button>
+            </BoardButton>
           </div>
         ))}
         <div>
-          <Button
+          <BoardButton
             size="sm"
             variant="quiet"
             icon="plus"
@@ -233,7 +232,7 @@ function ConditionRows({
             }
           >
             {t('data.stepList.addCondition')}
-          </Button>
+          </BoardButton>
         </div>
       </div>
     </Row>
@@ -254,9 +253,9 @@ function FlagFields({
   return (
     <>
       <Row label={t('data.stepList.newColumn')} htmlFor={id}>
-        <Input
+        <BoardInput
           id={id}
-          className="mono h-7 text-xs"
+          mono
           value={form.column}
           onChange={(e) => onChange({ ...form, column: e.target.value })}
         />
@@ -297,9 +296,8 @@ function JoinFields({
       </datalist>
       <Row label={t('data.stepList.joinWith')} htmlFor={withId}>
         <div className="flex flex-wrap items-center gap-2">
-          <Select
+          <BoardSelect
             id={withId}
-            size="sm"
             className="w-[200px]"
             value={form.with}
             onChange={(e) => onChange({ ...form, with: e.target.value })}
@@ -310,9 +308,8 @@ function JoinFields({
                 {input.name}
               </option>
             ))}
-          </Select>
-          <Select
-            size="sm"
+          </BoardSelect>
+          <BoardSelect
             className="w-[160px]"
             aria-label={t('data.stepList.joinKind')}
             value={form.type}
@@ -325,7 +322,7 @@ function JoinFields({
           >
             <option value="left">{t('data.stepList.joinLeft')}</option>
             <option value="inner">{t('data.stepList.joinInner')}</option>
-          </Select>
+          </BoardSelect>
         </div>
       </Row>
       <Row label={t('data.stepList.whereMatches')}>
@@ -336,9 +333,10 @@ function JoinFields({
               key={index}
               className="flex flex-wrap items-center gap-1.5"
             >
-              <Input
+              <BoardInput
                 list={listId}
-                className="mono h-7 w-[140px] text-xs"
+                mono
+                className="w-[140px]"
                 aria-label={t('data.stepList.joinLeftColumn', { n: index + 1 })}
                 value={key.left}
                 onChange={(e) =>
@@ -351,9 +349,10 @@ function JoinFields({
                 }
               />
               <span className="text-fg-muted">=</span>
-              <Input
+              <BoardInput
                 list={rightList}
-                className="mono h-7 w-[140px] text-xs"
+                mono
+                className="w-[140px]"
                 aria-label={t('data.stepList.joinRightColumn', {
                   n: index + 1,
                 })}
@@ -367,7 +366,7 @@ function JoinFields({
                   })
                 }
               />
-              <Button
+              <BoardButton
                 size="sm"
                 variant="quiet"
                 disabled={form.keys.length === 1}
@@ -380,11 +379,11 @@ function JoinFields({
                 }
               >
                 {t('common.actions.remove')}
-              </Button>
+              </BoardButton>
             </div>
           ))}
           <div>
-            <Button
+            <BoardButton
               size="sm"
               variant="quiet"
               icon="plus"
@@ -397,13 +396,13 @@ function JoinFields({
               }
             >
               {t('data.stepList.addJoinKey')}
-            </Button>
+            </BoardButton>
           </div>
         </div>
       </Row>
       <Row label={t('data.stepList.bringIn')}>
-        <Input
-          className="mono h-7 text-xs"
+        <BoardInput
+          mono
           aria-label={t('data.stepList.bringInAria')}
           placeholder={t('data.stepList.bringInPlaceholder')}
           value={form.bring.join(', ')}
@@ -442,9 +441,9 @@ function CalculateFields({
   return (
     <>
       <Row label={t('data.stepList.newColumn')} htmlFor={nameId}>
-        <Input
+        <BoardInput
           id={nameId}
-          className="mono h-7 text-xs"
+          mono
           value={form.column}
           onChange={(e) => onChange({ ...form, column: e.target.value })}
         />
@@ -453,18 +452,16 @@ function CalculateFields({
         <div
           role="group"
           aria-label={t('data.stepList.formula')}
-          className="flex min-h-[30px] flex-wrap items-center gap-1 rounded-md border border-border bg-surface px-1 py-0.5"
+          className="pb-expr"
         >
           {form.terms.map((term, index) => (
-            <span
+            <Fragment
               // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- Formula terms are edited in place, so their position is their identity.
               key={index}
-              className="inline-flex items-center gap-1"
             >
               {index > 0 ? (
-                <Select
-                  size="sm"
-                  className="w-[52px]"
+                <select
+                  className="op"
                   aria-label={t('data.stepList.termOperator', { n: index + 1 })}
                   value={term.op ?? '+'}
                   onChange={(e) => {
@@ -480,11 +477,11 @@ function CalculateFields({
                       {formulaSymbolFor(op)}
                     </option>
                   ))}
-                </Select>
+                </select>
               ) : null}
-              <Input
+              <input
                 list={listId}
-                className="mono h-6 w-[130px] text-xs"
+                className="col"
                 aria-label={t('data.stepList.termValue', { n: index + 1 })}
                 placeholder={t('data.stepList.termPlaceholder')}
                 value={term.column ?? (term.number ?? '').toString()}
@@ -498,30 +495,32 @@ function CalculateFields({
                   else setTerm(index, { ...base, column: e.target.value })
                 }}
               />
-              <Button
-                size="sm"
-                variant="quiet"
-                disabled={form.terms.length === 1}
-                aria-label={t('data.stepList.removeTerm', { n: index + 1 })}
-                onClick={() =>
-                  onChange({
-                    ...form,
-                    terms: form.terms
-                      .filter((_, i) => i !== index)
-                      .map((tm, i) =>
-                        i === 0 ? { column: tm.column, number: tm.number } : tm,
-                      ),
-                  })
-                }
-              >
-                ×
-              </Button>
-            </span>
+              {form.terms.length > 1 ? (
+                <button
+                  type="button"
+                  className="op rm"
+                  aria-label={t('data.stepList.removeTerm', { n: index + 1 })}
+                  onClick={() =>
+                    onChange({
+                      ...form,
+                      terms: form.terms
+                        .filter((_, i) => i !== index)
+                        .map((tm, i) =>
+                          i === 0
+                            ? { column: tm.column, number: tm.number }
+                            : tm,
+                        ),
+                    })
+                  }
+                >
+                  ×
+                </button>
+              ) : null}
+            </Fragment>
           ))}
-          <Button
-            size="sm"
-            variant="quiet"
-            className="ml-auto"
+          <button
+            type="button"
+            className="add"
             disabled={form.terms.length >= MAX_TERMS}
             onClick={() =>
               onChange({
@@ -531,13 +530,12 @@ function CalculateFields({
             }
           >
             {t('data.stepList.addTerm')}
-          </Button>
+          </button>
         </div>
       </Row>
       <Row label={t('data.stepList.roundAndUnit')}>
         <div className="flex flex-wrap gap-2">
-          <Select
-            size="sm"
+          <BoardSelect
             className="w-[150px]"
             aria-label={t('data.stepList.roundTo')}
             value={form.places === null ? '' : String(form.places)}
@@ -554,9 +552,9 @@ function CalculateFields({
                 {t('data.stepList.decimalPlaces', { count: places })}
               </option>
             ))}
-          </Select>
-          <Input
-            className="h-7 w-[90px] text-xs"
+          </BoardSelect>
+          <BoardInput
+            className="w-[90px]"
             aria-label={t('data.stepList.unit')}
             placeholder={t('data.stepList.unit')}
             value={form.unit ?? ''}
@@ -604,16 +602,17 @@ function RangeFields({
               key={index}
               className="flex flex-wrap items-center gap-1.5"
             >
-              <Input
+              <BoardInput
                 list={listId}
-                className="mono h-7 w-[140px] text-xs"
+                mono
+                className="w-[140px]"
                 aria-label={t('data.stepList.rangeColumn', { n: index + 1 })}
                 value={range.column}
                 onChange={(e) =>
                   setRange(index, { ...range, column: e.target.value })
                 }
               />
-              <Input
+              <BoardInput
                 className="h-7 w-[84px] text-xs"
                 inputMode="decimal"
                 aria-label={t('data.stepList.rangeMin', { n: index + 1 })}
@@ -627,7 +626,7 @@ function RangeFields({
                 }}
               />
               <span className="text-fg-muted">–</span>
-              <Input
+              <BoardInput
                 className="h-7 w-[84px] text-xs"
                 inputMode="decimal"
                 aria-label={t('data.stepList.rangeMax', { n: index + 1 })}
@@ -640,7 +639,7 @@ function RangeFields({
                   setRange(index, max === undefined ? rest : { ...rest, max })
                 }}
               />
-              <Button
+              <BoardButton
                 size="sm"
                 variant="quiet"
                 disabled={form.ranges.length === 1}
@@ -653,11 +652,11 @@ function RangeFields({
                 }
               >
                 {t('common.actions.remove')}
-              </Button>
+              </BoardButton>
             </div>
           ))}
           <div>
-            <Button
+            <BoardButton
               size="sm"
               variant="quiet"
               icon="plus"
@@ -667,13 +666,12 @@ function RangeFields({
               }
             >
               {t('data.stepList.addRange')}
-            </Button>
+            </BoardButton>
           </div>
         </div>
       </Row>
       <Row label={t('data.stepList.passOn')}>
-        <Select
-          size="sm"
+        <BoardSelect
           className="w-[260px]"
           aria-label={t('data.stepList.passOn')}
           value={form.keep}
@@ -686,7 +684,7 @@ function RangeFields({
         >
           <option value="all">{t('data.stepList.passAll')}</option>
           <option value="outside">{t('data.stepList.passOutside')}</option>
-        </Select>
+        </BoardSelect>
       </Row>
     </>
   )

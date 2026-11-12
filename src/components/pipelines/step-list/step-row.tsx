@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 import type { Tone } from '#/components/ui/status'
-import { cn } from '#/lib/utils'
+import { BoardRow } from '#/features/pipelines/board/board'
 
 interface StateStatus {
   tone: Tone
@@ -57,7 +57,6 @@ export function StepRow({
   rows,
   rowsWarn,
   status,
-  selected,
   expanded,
   problem,
   label,
@@ -72,7 +71,6 @@ export function StepRow({
   rows?: string
   rowsWarn?: boolean
   status?: React.ReactNode
-  selected?: boolean
   expanded?: boolean
   problem?: string
   label: string
@@ -80,54 +78,27 @@ export function StepRow({
   menu?: React.ReactNode
 }) {
   return (
-    <div
-      className={cn(
-        'grid min-h-9 grid-cols-[22px_92px_minmax(0,1fr)_72px_76px_24px] items-center gap-x-2 pl-2.5 pr-2 text-body max-md:grid-cols-[22px_72px_minmax(0,1fr)_auto_24px]',
-      )}
-    >
-      <span className="inline-flex size-[22px] items-center justify-center rounded-md border border-border bg-surface text-fg-muted">
-        <Icon name={icon} size={14} />
-      </span>
-      <span className="mono truncate text-caption font-medium text-fg-muted">
-        {kind}
-      </span>
-      {onSelect ? (
-        <button
-          type="button"
-          aria-expanded={expanded}
-          aria-label={label}
-          onClick={onSelect}
-          className="min-w-0 cursor-pointer truncate border-0 bg-transparent p-0 text-left text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-        >
-          <span className={selected ? 'font-medium' : undefined}>
-            {summary}
-          </span>
-          {detail ? (
-            <span className="ml-1.5 text-label text-fg-muted">{detail}</span>
-          ) : null}
-        </button>
-      ) : (
-        <span className="min-w-0 truncate">{summary}</span>
-      )}
-      <span
-        className={cn(
-          'num text-right text-label whitespace-nowrap max-md:hidden',
-          rowsWarn && 'font-semibold text-warn-text',
-        )}
-      >
-        {rows}
-      </span>
-      <span className="text-label whitespace-nowrap max-md:text-caption">
-        {problem ? (
+    <BoardRow
+      icon={icon}
+      kind={kind}
+      summary={summary}
+      detail={detail}
+      rows={rows}
+      rowsWarn={rowsWarn}
+      status={
+        problem ? (
           <span className="text-danger-text" title={problem}>
             {t('data.stepList.needsAttention')}
           </span>
         ) : (
           status
-        )}
-      </span>
-      {menu ?? <span />}
-    </div>
+        )
+      }
+      expanded={expanded}
+      label={onSelect ? label : undefined}
+      onSelect={onSelect}
+      menu={menu}
+    />
   )
 }
 
@@ -155,7 +126,7 @@ export function StepMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={label}
-        className="inline-flex size-6 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-fg-muted hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-focus"
+        className="more focus-visible:outline-2 focus-visible:outline-focus"
       >
         <Icon name="more" size={14} />
       </DropdownMenuTrigger>

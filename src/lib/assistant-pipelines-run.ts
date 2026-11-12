@@ -91,6 +91,14 @@ export async function runPipelinesAction(
       })
 
       return { openHref: '/inbox' }
+    case 'inbox.list_expiring':
+      await client.rpc('list_expiring_materials', {
+        p_workspace_id: action.workspaceId,
+        p_user_id: action.userId,
+        p_days: action.days,
+      })
+
+      return { openHref: '/inbox' }
     case 'pipeline.schedule_add':
       await client.rpc('create_pipeline_schedule', {
         p_workspace_id: action.workspaceId,

@@ -10,11 +10,25 @@ import {
 import { words } from '#/lib/pipelines/simple/words'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { createPipelineSchedule } from '#/lib/pipelines/data'
-import { RECIPE_SOURCE_INPUT } from '#/lib/pipelines/simple/recipe'
+import { startPlan, startsRecipe } from '#/lib/pipelines/simple/start'
 import type { PipelineRecipe } from '#/lib/pipelines/simple/recipe'
 import { TokenInput, TokenSelect } from './token'
 
 const h = words('how')
+
+/** The When line in words, as a pipeline that already starts that way says it. */
+function startsText(recipe: PipelineRecipe, datasetLabel: string): string {
+  const { event, weekday } = recipe.when
+
+  if (event === 'weekly')
+    return h('startsWeekly', {
+      day: words('recipe.days')(String(weekday ?? 1)),
+    })
+
+  if (event) return h('startsEvent', { event: words('recipe.start')(event) })
+
+  return h('startsSnapshot', { dataset: datasetLabel })
+}
 
 /**
  * How the pipeline starts and what a run does about the rest: batching and the
@@ -44,30 +58,20 @@ export function HowItRuns({
   const queryClient = useQueryClient()
   const ask = recipe.actions.find((a) => a.kind === 'ask')
 
-  const listening = (schedules.data ?? []).some(
-    (s) =>
-      s.kind === 'event' &&
-      s.spec.eventType === 'dataset.versioned' &&
-      s.spec.datasetId === recipe.when.datasetId &&
-      (s.spec.instrumentId ?? undefined) === recipe.when.instrumentId,
-  )
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const plan = startPlan(recipe, timeZone)
+
+  const listening = (schedules.data ?? []).some((s) => startsRecipe(s, recipe))
 
   const addStart = useMutation({
     mutationFn: () => {
-      const spec = {
-        eventType: 'dataset.versioned',
-        datasetId: recipe.when.datasetId,
-        inputName: RECIPE_SOURCE_INPUT,
-        missedRunPolicy: 'run_once',
-      }
+      if (!plan) throw new Error(h('startNone'))
 
       return createPipelineSchedule(notebookDataClient, {
         workspaceId,
         definitionId: pipelineId,
-        kind: 'event',
-        spec: recipe.when.instrumentId
-          ? { ...spec, instrumentId: recipe.when.instrumentId }
-          : spec,
+        kind: plan.kind,
+        spec: plan.spec,
       })
     },
     onSuccess: () => {
@@ -100,11 +104,11 @@ export function HowItRuns({
         <dt className="text-fg-muted">{h('starts')}</dt>
         <dd className="m-0">
           {listening ? (
-            h('startsSnapshot', { dataset: datasetLabel })
+            startsText(recipe, datasetLabel)
           ) : (
             <span className="flex flex-wrap items-center gap-2">
               {h('startsNone')}
-              {recipe.when.datasetId ? (
+              {plan ? (
                 <Button
                   size="sm"
                   disabled={addStart.isPending}

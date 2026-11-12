@@ -24,22 +24,32 @@ const COLUMNS = [
 export function ActionMenu({
   context,
   hasKeep,
+  withoutSnapshot = false,
   onPick,
   onConvert,
 }: {
   context: CatalogueContext
   /** A recipe keeps its results once, so the keep lines go when one is there. */
   hasKeep: boolean
+  /** A recipe that starts on an event has no rows: it can tell people, not work on rows. */
+  withoutSnapshot?: boolean
   onPick: (action: RecipeAction) => void
   onConvert: () => void
 }) {
   const [query, setQuery] = useState('')
 
-  const items = catalogueItems().filter(
-    (item) =>
+  const items = catalogueItems().filter((item) => {
+    const made = item.make(context)
+
+    return (
       item.label.toLowerCase().includes(query.trim().toLowerCase()) &&
-      !(hasKeep && KEEP_KINDS.includes(item.make(context).kind)),
-  )
+      !(hasKeep && KEEP_KINDS.includes(made.kind)) &&
+      (!withoutSnapshot ||
+        made.kind === 'notify' ||
+        made.kind === 'expiring' ||
+        (made.kind === 'inbox' && made.mode === 'task'))
+    )
+  })
 
   const groupLabel = (group: string) => words('catalogue.groups')(group)
 

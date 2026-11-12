@@ -92,6 +92,12 @@ export const actionSchema = z.discriminatedUnion('kind', [
     subscriptionId: z.string(),
   }),
   z.object({
+    kind: z.literal('expiring'),
+    /** Who is told about the stock that is running out of date. */
+    userId: z.string(),
+    days: z.number().int().min(1).max(365),
+  }),
+  z.object({
     kind: z.literal('inbox'),
     /** A task to do, or the snapshot to look at. */
     mode: z.enum(['task', 'review']),
@@ -120,12 +126,40 @@ export type RecipeAction = z.infer<typeof actionSchema>
 
 export type RecipeActionKind = RecipeAction['kind']
 
+/** What else can start a recipe besides a new snapshot. */
+export const START_EVENTS = ['run_failed', 'review_decided', 'weekly'] as const
+
+export type StartEvent = (typeof START_EVENTS)[number]
+
+/** The event name each start listens for; `weekly` is a schedule, not an event. */
+export const START_EVENT_TYPES: Record<
+  Exclude<StartEvent, 'weekly'>,
+  string
+> = {
+  run_failed: 'pipeline.run.failed',
+  review_decided: 'review.decided',
+}
+
+/** The person an event is about: a failed run's owner, a review's author. */
+export const EVENT_PERSON = '@event'
+
+/** The kinds of action that make sense when there is no snapshot to read. */
+export const EVENT_ACTION_KINDS: readonly string[] = [
+  'notify',
+  'inbox',
+  'expiring',
+]
+
 export const recipeSchema = z.object({
   when: z.object({
     /** The dataset whose new snapshot starts the run. */
     datasetId: z.string(),
     /** Only snapshots that came from this instrument; empty: from anywhere. */
     instrumentId: z.string().optional(),
+    /** Starts on something other than a snapshot: a failed run, a decided review, a weekday. */
+    event: z.enum(START_EVENTS).optional(),
+    /** For `weekly`: 0 is Sunday. */
+    weekday: z.number().int().min(0).max(6).optional(),
   }),
   /** Joined by `join`. Empty: every row goes on. */
   conditions: z.array(conditionSchema).max(MAX_RECIPE_CONDITIONS),
@@ -173,7 +207,21 @@ export function recipeProblems(value: PipelineRecipe): RecipeProblem[] {
       message: w('pick', { what }),
     })
 
-  if (!UUID.test(recipe.when.datasetId)) pick('recipe.when', w('dataset'))
+  if (!recipe.when.event && !UUID.test(recipe.when.datasetId))
+    pick('recipe.when', w('dataset'))
+
+  if (recipe.when.event) {
+    recipe.actions.forEach((action, index) => {
+      if (
+        !EVENT_ACTION_KINDS.includes(action.kind) ||
+        (action.kind === 'inbox' && action.mode === 'review')
+      )
+        problems.push({
+          field: `recipe.actions[${index}]`,
+          message: w('eventActions'),
+        })
+    })
+  }
 
   recipe.conditions.forEach((condition, index) => {
     const field = `recipe.conditions[${index}]`
@@ -229,7 +277,14 @@ export function recipeProblems(value: PipelineRecipe): RecipeProblem[] {
     )
       pick(field, w('newDataset'))
 
-    if (action.kind === 'inbox' && !UUID.test(action.userId))
+    if (
+      action.kind === 'inbox' &&
+      !UUID.test(action.userId) &&
+      !(recipe.when.event && action.userId === EVENT_PERSON)
+    )
+      pick(field, w('person'))
+
+    if (action.kind === 'expiring' && !UUID.test(action.userId))
       pick(field, w('person'))
 
     if (

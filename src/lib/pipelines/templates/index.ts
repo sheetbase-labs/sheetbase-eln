@@ -1,5 +1,5 @@
 import type { PipelineRecipe } from '../simple/recipe'
-import { emptyRecipe } from '../simple/recipe'
+import { EVENT_PERSON, emptyRecipe } from '../simple/recipe'
 
 /**
  * Starting points for a new Simple pipeline. A template is a recipe with the
@@ -53,6 +53,57 @@ export const PIPELINE_TEMPLATES: readonly PipelineTemplate[] = [
     recipe: {
       ...emptyRecipe(),
       actions: [{ kind: 'notify', channel: 'teams', subscriptionId: '' }],
+    },
+  },
+  {
+    id: 'review-decided',
+    title: 'When a review is decided, notify the author',
+    summary: 'Leaves an Inbox task for whoever submitted the review.',
+    pipelineName: 'Tell the author about a review',
+    recipe: {
+      when: { datasetId: '', event: 'review_decided' },
+      join: 'and',
+      conditions: [],
+      actions: [
+        {
+          kind: 'inbox',
+          mode: 'task',
+          userId: EVENT_PERSON,
+          text: 'A review you submitted has been decided',
+        },
+      ],
+    },
+  },
+  {
+    id: 'run-failed',
+    title: 'When a run fails, tell the owner',
+    summary: 'Leaves an Inbox task for the owner of the pipeline that failed.',
+    pipelineName: 'Tell the owner when a run fails',
+    recipe: {
+      when: { datasetId: '', event: 'run_failed' },
+      join: 'and',
+      conditions: [],
+      actions: [
+        {
+          kind: 'inbox',
+          mode: 'task',
+          userId: EVENT_PERSON,
+          text: 'A pipeline run failed. Open its runs to see why.',
+        },
+      ],
+    },
+  },
+  {
+    id: 'expiring-stock',
+    title: 'Every Monday, list expiring stock',
+    summary:
+      'Leaves one Inbox item with the materials that expire within a month.',
+    pipelineName: 'Weekly expiring stock',
+    recipe: {
+      when: { datasetId: '', event: 'weekly', weekday: 1 },
+      join: 'and',
+      conditions: [],
+      actions: [{ kind: 'expiring', userId: '', days: 30 }],
     },
   },
 ]

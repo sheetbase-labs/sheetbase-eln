@@ -8,6 +8,7 @@ import { Client as PgClient } from 'pg'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import { nextCronAfter } from '#/lib/pipeline-cron'
+import { simpleConfig } from '#/lib/pipelines/simple/compile'
 import { sweepPipelines } from '#/lib/pipeline-scheduler.server'
 import type {
   PipelineSchedulerDeps,
@@ -1038,5 +1039,73 @@ describe('start rules', () => {
         [WS, definitionId],
       ),
     ).rejects.toThrow(/p_days/)
+
+describe('a recipe that starts on a failed run', () => {
+  it('is told who owns the pipeline that failed', async () => {
+    const def = await owner.query<{ id: string }>(
+      `select * from api.create_pipeline_definition($1::uuid, 'tell_owner', 'Tell the owner', null)`,
+      [WS],
+    )
+    const config = simpleConfig({
+      when: { datasetId: '', event: 'run_failed' },
+      join: 'and',
+      conditions: [],
+      actions: [
+        {
+          kind: 'inbox',
+          mode: 'task',
+          userId: '@event',
+          text: 'A run failed',
+        },
+      ],
+    })
+    const version = await owner.query<{ id: string }>(
+      `select * from api.create_pipeline_definition_version($1::uuid, $2::uuid, $3::jsonb)`,
+      [WS, def.rows[0].id, JSON.stringify(config)],
+    )
+    await owner.query(
+      `select api.publish_pipeline_definition_version($1::uuid, $2::uuid)`,
+      [WS, version.rows[0].id],
+    )
+    const schedule = await owner.query<{ id: string }>(
+      `select * from api.create_pipeline_schedule($1::uuid, $2::uuid, 'event', $3::jsonb, true)`,
+      [
+        WS,
+        def.rows[0].id,
+        JSON.stringify({ eventType: 'pipeline.run.failed' }),
+      ],
+    )
+    await isolate(schedule.rows[0].id)
+
+    // A different pipeline's run: a pipeline is never started by its own failure.
+    const weekly = await migrator.query<{ id: string }>(
+      `select id::text from api.pipeline_definition_versions
+        where definition_id = $1 and lifecycle = 'published'`,
+      [definitionId],
+    )
+    const started = await owner.query<{ id: string }>(
+      `select (api.start_pipeline_run($1::uuid, $2::uuid, 'manual', '{}'::jsonb, $3::jsonb, null, null, null)).id::text as id`,
+      [WS, weekly.rows[0].id, JSON.stringify({ readings: versionIds[0] })],
+    )
+    // The change event needs someone to say who made it.
+    await migrator.query(`select set_config('request.jwt.claims', $1, false)`, [
+      JSON.stringify({ role: 'authenticated', sub: OWNER, workspace_id: WS }),
+    ])
+    await migrator.query(
+      `update api.pipeline_runs set status = 'failed', finished_at = now(), error_code = 'x', error_message = 'boom' where id = $1`,
+      [started.rows[0].id],
+    )
+    await migrator.query(`select set_config('request.jwt.claims', '', false)`)
+    expect(await sweepSweeps()).toBe(1)
+
+    const { rows } = await migrator.query<{
+      parameters: Record<string, string>
+    }>(`select parameters from api.pipeline_runs where schedule_id = $1`, [
+      schedule.rows[0].id,
+    ])
+    await settleRuns()
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows[0].parameters.event_person).toBe(OWNER)
+    expect(rows[0].parameters.event_subject).toContain('Weekly summary')
   })
 })

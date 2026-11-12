@@ -7,6 +7,7 @@ import { Checkbox } from '#/components/ui/checkbox'
 import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
+import type { PickerOption } from '#/components/record-picker/entity-picker'
 import { personOption } from '#/components/record-picker/entity-options'
 import { ArgumentField } from '#/components/pipelines/plugin-steps-editor'
 import { pluginStepSources } from '#/components/pipelines/plugin-step-sources'
@@ -24,7 +25,8 @@ import type {
   PipelineStep,
   PipelineStepAction,
 } from '#/lib/pipelines/config'
-import { actionLabel, pluginLabel } from './kinds'
+import { ACTION_AREA_FACET, actionOptions } from './action-options'
+import { pluginLabel } from './kinds'
 
 const OUTCOME_LABELS: Record<ConfirmNoAnswerOutcome, string> = {
   reask: t('data.stepsEditor.askAgain'),
@@ -245,6 +247,8 @@ export function ActionStepBody({
     [workspaceId, points.descriptors],
   )
 
+  const options = useMemo(() => actionOptions(definitions), [definitions])
+
   const { action } = step
   const definition = definitions.find((d) => d.operation === action.operation)
   const canPropose = Boolean(definition?.proposalKind)
@@ -256,29 +260,31 @@ export function ActionStepBody({
   return (
     <div className="flex flex-col gap-3">
       <Field label={t('data.stepList.actionWhich')}>
-        <Select
+        <PickerSelect
+          noun={t('data.stepList.actionNoun')}
           aria-label={t('data.stepList.actionWhich')}
+          title={t('data.stepList.chooseAction')}
+          placeholder={t('data.stepList.chooseAction')}
+          options={options}
+          facets={[
+            { key: ACTION_AREA_FACET, label: t('data.stepList.actionArea') },
+          ]}
           value={action.operation}
-          onChange={(e) => {
-            const next = definitions.find((d) => d.operation === e.target.value)
+          selected={
+            action.operation && !definition
+              ? { id: action.operation, label: action.operation }
+              : undefined
+          }
+          onChange={(operation) => {
+            const next = definitions.find((d) => d.operation === operation)
 
             set({
-              operation: e.target.value,
+              operation,
               arguments: {},
               mode: next?.proposalKind ? 'propose' : 'execute',
             })
           }}
-        >
-          <option value="">{t('data.stepList.chooseAction')}</option>
-          {action.operation && !definition ? (
-            <option value={action.operation}>{action.operation}</option>
-          ) : null}
-          {definitions.map((d) => (
-            <option key={d.operation} value={d.operation}>
-              {actionLabel(d.operation) || d.label}
-            </option>
-          ))}
-        </Select>
+        />
       </Field>
       {action.operation && !definition ? (
         <Banner tone="warn" title={t('data.pluginSteps.missing')}>
@@ -380,6 +386,14 @@ export function PluginStepBody({
     (d) => points.callables.get(d.name)?.point === 'pipeline-steps',
   )
 
+  const pluginOptions = pluginSteps.map((entry): PickerOption => ({
+    id: entry.name,
+    label: entry.label,
+    detail: entry.description,
+    icon: 'puzzle',
+    keywords: [entry.name],
+  }))
+
   const operation = plugin.operation
   const descriptor = points.descriptors.find((d) => d.name === operation)
   const args = plugin.arguments
@@ -402,12 +416,19 @@ export function PluginStepBody({
   return (
     <div className="flex flex-col gap-3">
       <Field label={t('data.stepsEditor.pluginStepWhich')}>
-        <Select
+        <PickerSelect
+          noun={t('data.pluginSteps.noun')}
           aria-label={t('data.stepsEditor.pluginStepWhich')}
+          title={t('data.pluginSteps.chooseTitle')}
+          placeholder={t('data.pluginSteps.choose')}
+          options={pluginOptions}
           value={operation}
-          onChange={(event) => {
-            const next = event.target.value
-
+          selected={
+            operation && !known
+              ? { id: operation, label: pluginLabel(operation), icon: 'puzzle' }
+              : undefined
+          }
+          onChange={(next) => {
             // A table the plugin reads starts as the result so far, or the
             // first input when nothing has run yet.
             onChange({
@@ -420,17 +441,7 @@ export function PluginStepBody({
               ),
             })
           }}
-        >
-          <option value="">{t('data.pluginSteps.choose')}</option>
-          {operation && !known ? (
-            <option value={operation}>{pluginLabel(operation)}</option>
-          ) : null}
-          {pluginSteps.map((entry) => (
-            <option key={entry.name} value={entry.name}>
-              {entry.label}
-            </option>
-          ))}
-        </Select>
+        />
       </Field>
       {pluginSteps.length === 0 ? (
         <p className="m-0 text-label text-fg-muted">

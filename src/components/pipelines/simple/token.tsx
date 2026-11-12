@@ -17,6 +17,9 @@ export function TokenSelect({
   options,
   onChange,
   icon,
+  lead,
+  trail,
+  mark,
   className,
 }: {
   /** Names the control for people who cannot see the sentence. */
@@ -27,6 +30,12 @@ export function TokenSelect({
   options: Array<{ value: string; label: string }>
   onChange: (value: string) => void
   icon?: IconName
+  /** Words inside the chip before the choice, such as `ask`. */
+  lead?: string
+  /** Words inside the chip after the choice, such as `to confirm`. */
+  trail?: string
+  /** The choice's own mark, such as a person's avatar. */
+  mark?: (chosen: { value: string; label: string }) => React.ReactNode
   className?: string
 }) {
   const chosen = options.find((option) => option.value === value)
@@ -40,8 +49,13 @@ export function TokenSelect({
         className,
       )}
     >
-      {icon ? <Icon name={icon} size={14} className="text-fg-muted" /> : null}
+      {lead ? <span>{lead}</span> : null}
+      {icon && !chosen ? (
+        <Icon name={icon} size={14} className="text-fg-muted" />
+      ) : null}
+      {chosen && mark ? mark(chosen) : null}
       <span className="truncate">{chosen?.label ?? placeholder}</span>
+      {trail && chosen ? <span>{trail}</span> : null}
       <Icon name="chevronDown" size={12} className="text-fg-muted" />
       <select
         aria-label={label}

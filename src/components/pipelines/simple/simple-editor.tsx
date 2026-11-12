@@ -159,8 +159,8 @@ export function SimpleEditor({
     : null
 
   return (
-    <div className="flex min-w-0 flex-1 gap-5 overflow-auto bg-bg px-6 py-5 max-lg:flex-col max-md:px-4">
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
+    <div className="flex min-w-0 flex-1 overflow-auto max-lg:flex-col">
+      <div className="flex min-w-0 flex-1 flex-col gap-4 bg-bg px-6 py-5 max-md:px-4">
         {starting?.fromTemplate && !draft ? (
           <Notice tone="info" icon="info">
             {e('template', { template: starting.fromTemplate })}
@@ -221,11 +221,12 @@ export function SimpleEditor({
           recipe={recipe}
           datasetLabel={datasetLabel}
           pipelineLink={`/pipelines/${pipelineId}/triggers`}
+          onChange={setEdited}
         />
       </div>
       <aside
         aria-label={e('history')}
-        className="flex w-[312px] shrink-0 flex-col gap-5 max-lg:w-full"
+        className="flex w-[300px] shrink-0 flex-col gap-5 border-l border-border bg-surface p-4 max-lg:w-full max-lg:border-l-0 max-lg:border-t"
       >
         <DryRunPanel
           workspaceId={workspaceId}

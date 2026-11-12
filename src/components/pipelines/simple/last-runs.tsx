@@ -27,9 +27,9 @@ export function LastRuns({
 
   return (
     <section aria-labelledby="simple-runs" className="flex flex-col gap-2">
-      <h2 id="simple-runs" className="m-0 font-sans text-body font-semibold">
+      <h3 id="simple-runs" className="m-0 font-sans text-[12px] font-semibold">
         {l('title')}
-      </h2>
+      </h3>
       {latest.length === 0 ? <Muted>{l('none')}</Muted> : null}
       <div className="flex flex-col gap-1.5 text-caption">
         {latest.map((run) => (

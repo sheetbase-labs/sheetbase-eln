@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { Icon } from '#/components/icons'
+import { Kbd } from '#/components/ui/kbd'
 import { t } from '#/copy'
 import { words } from '#/lib/pipelines/simple/words'
 import { catalogueItems } from '#/lib/pipelines/simple/catalogue'
@@ -51,6 +52,7 @@ export function ActionMenu({
           aria-label={t('features.pipelineSimple.catalogue.search')}
           className="grow border-0 bg-transparent text-label text-fg outline-none placeholder:text-fg-muted"
         />
+        <Kbd>{t('features.pipelineSimple.catalogue.escape')}</Kbd>
       </div>
       <div className="grid grid-cols-2 gap-x-1 p-1 max-md:grid-cols-1">
         {items.length === 0 ? (

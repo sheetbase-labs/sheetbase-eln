@@ -1,6 +1,11 @@
 /** Words for Simple pipelines, History, Convert and Duplicate, read as `t('features.pipelineSimple.…')`. */
 export const copy = {
-  mode: { simple: 'Simple', standard: 'Standard', advanced: 'Advanced' },
+  mode: {
+    title: 'How this pipeline is edited',
+    simple: 'Simple',
+    standard: 'Standard',
+    advanced: 'Advanced',
+  },
   problems: {
     refused: 'The recipe is not complete.',
     pick: 'Choose {what} to finish the recipe.',
@@ -60,6 +65,7 @@ export const copy = {
     toConfirm: 'to confirm',
     toChoose: 'to choose',
     from: 'from',
+    waitsNote: 'the run waits up to {hours} h for the answer',
     waitsUpTo: 'the run waits up to',
     thenIfAway: 'for the answer; if nobody answers,',
     hours: 'Hours to wait',
@@ -94,6 +100,7 @@ export const copy = {
   catalogue: {
     aria: 'Add an action',
     search: 'Find an action',
+    escape: 'Esc',
     none: 'No action matches.',
     never: 'Signing, submitting, approving and deleting are never offered.',
     needsStandard: 'Needs Standard',
@@ -141,6 +148,12 @@ export const copy = {
     runGoingText:
       'Skips the start. A run waiting for a person counts as going.',
     away: 'If nobody answers',
+    awayChoice: 'If nobody answers',
+    awayHours: 'Hours to wait',
+    awayReaskShort: 'Asks once more',
+    awayFailShort: 'Stops the run',
+    awayAfter: 'after',
+    awayThenStop: ', then stops the run',
     awayReask: 'Asks once more after {hours} h, then stops the run',
     awayFail: 'Stops the run after {hours} h',
     every: 'Every run',
@@ -174,6 +187,11 @@ export const copy = {
     check: 'Keep the rows outside {column}’s range',
     failed: 'The draft could not run: {message}',
     stale: 'The recipe changed since this try.',
+    stripLabel:
+      '{column} for the {count} rows of the snapshot; the rows that match are marked',
+    firstRows: 'The first {shown} of {total} rows.',
+    rowFirst: 'row 1',
+    rowLast: 'row {count}',
   },
   runs: {
     title: 'Last runs',

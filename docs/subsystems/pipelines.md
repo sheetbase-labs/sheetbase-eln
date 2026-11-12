@@ -560,6 +560,16 @@ PL-0021 [file] [--version N]` writes the draft, or a version, out. Python has
 `pipelines.push_version_file` and `pull_version_file` (sync and async), TypeScript
 `pushVersionFile` and `pullVersionFile`. Only an Advanced pipeline accepts a push.
 
+### Starts in the file
+
+A `starts:` block holds the pipeline's start rules, the same ones **Starts and
+runs** sets: `conditions_match` (`all` or `any`), `window` (`days`, `from`, `to`,
+`time_zone`), `min_new_rows`, `wait_minutes` and `missed_runs`. Rules left at
+their defaults are not written. They belong to the pipeline, not to a version, so
+saving the file replaces them as a whole through `set_pipeline_start_rules`; a
+file with no `starts:` block leaves the pipeline's rules alone. Schedules and the
+webhook stay on Starts and runs.
+
 ### Remote job and lakehouse steps in the file
 
 A `remote_job` step writes `connection`, `queue`, optional `secret` (the name of

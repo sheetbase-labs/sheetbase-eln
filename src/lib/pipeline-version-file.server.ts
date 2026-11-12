@@ -5,8 +5,8 @@
  * and column for each mistake.
  *
  * POST /api/pipelines/version-file
- *   { text, pipeline?, pythonRuntime?, sets? }                     -> { ok, configuration, problems, lineCount }
- *   { configuration, pipeline, version?, title? }           -> { text }
+ *   { text, pipeline?, pythonRuntime?, sets? }                     -> { ok, configuration, startRules, problems, lineCount }
+ *   { configuration, pipeline, version?, title?, startRules? } -> { text }
  *
  * Nothing is saved. The caller saves the configuration as a draft through
  * `create_pipeline_definition_version` or
@@ -27,6 +27,7 @@ import { createRateLimiter } from '#/lib/rate-limit'
 import { readStoredConfig } from '#/lib/pipelines/step-list'
 import type { PipelineParameter } from '#/lib/pipelines/config'
 import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
+import { startRulesSchema } from '#/lib/pipelines/start-rules'
 import { checkVersionFile, versionFileText } from '#/lib/pipelines/version-file'
 
 export interface VersionFileDeps {
@@ -72,6 +73,8 @@ const writeBody = z.object({
   pipeline: z.string().min(1),
   version: z.number().int().nullable().optional(),
   title: z.string().optional(),
+  /** The pipeline's start rules (`pipeline_definitions.start_rules`), written as `starts:`. */
+  startRules: startRulesSchema.optional(),
 })
 
 function fail(status: number, code: string, message: string): Response {
@@ -136,6 +139,7 @@ export async function handleVersionFile(
     return Response.json({
       ok: result.config !== null,
       configuration: result.config,
+      startRules: result.startRules ?? null,
       problems: result.problems.map(({ fix: _fix, ...problem }) => problem),
       lineCount: result.lineCount,
     })
@@ -158,6 +162,7 @@ export async function handleVersionFile(
         pipeline: writing.data.pipeline,
         version: writing.data.version ?? null,
         title: writing.data.title,
+        startRules: writing.data.startRules,
       }),
     })
   }

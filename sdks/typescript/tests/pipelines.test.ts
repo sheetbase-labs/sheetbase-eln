@@ -405,6 +405,40 @@ describe("version files", () => {
     expect(JSON.parse(sent!.body!).p_expected_revision).toBe(3);
   });
 
+  it("sets the start rules the file names", async () => {
+    const rules = { conditionsMatch: "all", minNewRows: 50, waitMinutes: 10 };
+    const { client, fetch } = makeClient([
+      ...reads,
+      {
+        method: "POST",
+        path: "/api/pipelines/version-file",
+        handler: () => ({
+          status: 200,
+          json: {
+            ok: true,
+            configuration: advanced,
+            startRules: rules,
+            problems: [],
+            lineCount: 3,
+          },
+        }),
+      },
+      {
+        method: "POST",
+        path: "/api/db/rpc/update_pipeline_definition_version_draft",
+        handler: () => ({ status: 200, json: { id: "v-draft" } }),
+      },
+      {
+        method: "POST",
+        path: "/api/db/rpc/set_pipeline_start_rules",
+        handler: () => ({ status: 200, json: {} }),
+      },
+    ]);
+    await client.pipelines.pushVersionFile("PL-0021", "text");
+    const sent = fetch.calls.find((c) => c.url.includes("set_pipeline_start"));
+    expect(JSON.parse(sent!.body!).p_rules).toEqual(rules);
+  });
+
   it("throws the problems and saves nothing", async () => {
     const { client, fetch } = makeClient([
       ...reads,

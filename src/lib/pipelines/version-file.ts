@@ -32,6 +32,8 @@ import type {
   PipelineStepKind,
 } from './config'
 import { isNoCodeKind } from './no-code/forms'
+import { DEFAULT_START_RULES, startRulesSchema } from './start-rules'
+import type { StartRules } from './start-rules'
 import { noCodeStatement } from './no-code/generate'
 import { parseNoCodeForm } from './no-code/schema'
 
@@ -73,6 +75,12 @@ export interface OutlineItem {
 export interface VersionFileResult {
   /** The version the file says; null while the file cannot be read as one. */
   config: PipelineConfig | null
+  /**
+   * The start rules the file's `starts:` block says; undefined when the file
+   * has none (the pipeline's rules stay as they are). They belong to the
+   * pipeline, not the version, so saving the file sets them separately.
+   */
+  startRules?: StartRules
   problems: FileProblem[]
   outline: OutlineItem[]
   lineCount: number
@@ -87,6 +95,8 @@ export interface VersionFileMeta {
   version?: number | null
   /** A short remark after the version number. */
   versionNote?: string
+  /** The pipeline's start rules, written as `starts:` when they are not the defaults. */
+  startRules?: StartRules
 }
 
 /** What a file may be checked against. */
@@ -107,6 +117,7 @@ const TOP_KEYS = [
   'version',
   'mode',
   'include',
+  'starts',
   'description',
   'python_runtime',
   'python_requirements',
@@ -117,9 +128,20 @@ const TOP_KEYS = [
   'outputs',
 ] as const
 
-/** Keys a later build gives a meaning; named so the message can say so. */
-const LATER_KEYS: Record<string, string> = {
-  starts: 'Starts',
+/** The pipeline's start rules; they belong to the pipeline, so a version does not store them. */
+const START_KEYS: Names = {
+  conditions_match: 'conditionsMatch',
+  window: 'window',
+  min_new_rows: 'minNewRows',
+  wait_minutes: 'waitMinutes',
+  missed_runs: 'missedRuns',
+}
+
+const WINDOW_KEYS: Names = {
+  days: 'days',
+  from: 'from',
+  to: 'to',
+  time_zone: 'timeZone',
 }
 
 type Names = Record<string, string>
@@ -643,6 +665,54 @@ function readStep(
   return step
 }
 
+/** `starts:` as the pipeline's start rules; mistakes are marked on the key that holds them. */
+function readStarts(
+  value: Record<string, unknown>,
+  report: Report,
+): StartRules | undefined {
+  if (!('starts' in value)) return undefined
+
+  const at: Path = ['starts']
+  const read = readKeys(value.starts, START_KEYS, at, report, 'starts')
+
+  if (!read) return undefined
+
+  if (isObject(read.window)) {
+    const window = readKeys(
+      read.window,
+      WINDOW_KEYS,
+      [...at, 'window'],
+      report,
+      'window',
+    )
+
+    if (window) read.window = window
+  }
+
+  const parsed = startRulesSchema.safeParse(read)
+
+  if (parsed.success) return parsed.data
+
+  const fileNames: Record<string, string> = {
+    ...invert(WINDOW_KEYS),
+    ...invert(START_KEYS),
+  }
+
+  const fileKey = (stored: PropertyKey) =>
+    typeof stored === 'string' ? (fileNames[stored] ?? stored) : String(stored)
+
+  for (const issue of parsed.error.issues)
+    report(
+      [...at, ...issue.path.map(fileKey)],
+      t('features.pipelineVersionFile.problems.startRule', {
+        message: issue.message.toLowerCase(),
+      }),
+      { key: false },
+    )
+
+  return undefined
+}
+
 /** The map of named things as the list the stored version keeps. */
 function readNamed(
   value: unknown,
@@ -891,27 +961,18 @@ export function checkVersionFile(
   for (const key of Object.keys(value)) {
     if (TOP_KEYS.some((known) => known === key)) continue
 
-    if (key in LATER_KEYS)
-      report(
-        [key],
-        t('features.pipelineVersionFile.problems.notYet', {
-          what: LATER_KEYS[key],
-        }),
-        { key: true },
-      )
-    else
-      report(
-        [key],
-        t('features.pipelineVersionFile.problems.unknownKey', {
-          key,
-          what: 'file',
-        }),
-        {
-          key: true,
-          suggest: TOP_KEYS,
-          word: key,
-        },
-      )
+    report(
+      [key],
+      t('features.pipelineVersionFile.problems.unknownKey', {
+        key,
+        what: 'file',
+      }),
+      {
+        key: true,
+        suggest: TOP_KEYS,
+        word: key,
+      },
+    )
   }
 
   const names = target.pipeline?.filter(Boolean) ?? []
@@ -981,6 +1042,8 @@ export function checkVersionFile(
     output: { mode: 'none', datasetLabel: '' },
   }
 
+  const startRules = readStarts(value, report)
+
   readOutputs(value, config, report)
   readIncludes(value, config, report, target.sets ?? {})
 
@@ -1033,12 +1096,16 @@ export function checkVersionFile(
     )
   }
 
-  return finish(
+  const result = finish(
     problems,
     problems.length ? null : built.data,
     outline,
     lineCount,
   )
+
+  if (result.config && startRules) result.startRules = startRules
+
+  return result
 }
 
 function finish(
@@ -1061,6 +1128,7 @@ function finish(
 
 const SECTIONS: Record<string, string> = {
   include: 'Includes',
+  starts: 'Starts',
   parameters: 'Parameters',
   inputs: 'Inputs',
   steps: 'Steps',
@@ -1156,6 +1224,26 @@ function writeKeys(value: unknown, names: Names): unknown {
   return out
 }
 
+/** The rules that differ from the defaults, in the file's words; null when there are none. */
+function writeStarts(rules: StartRules): Record<string, unknown> | null {
+  const out: Record<string, unknown> = {}
+
+  if (rules.conditionsMatch !== DEFAULT_START_RULES.conditionsMatch)
+    out.conditions_match = rules.conditionsMatch
+
+  if (rules.window) out.window = writeKeys(rules.window, WINDOW_KEYS)
+
+  if (rules.minNewRows !== null) out.min_new_rows = rules.minNewRows
+
+  if (rules.waitMinutes !== DEFAULT_START_RULES.waitMinutes)
+    out.wait_minutes = rules.waitMinutes
+
+  if (rules.missedRuns !== DEFAULT_START_RULES.missedRuns)
+    out.missed_runs = rules.missedRuns
+
+  return Object.keys(out).length ? out : null
+}
+
 function writeNamed(list: ReadonlyArray<{ name: string }>, names: Names) {
   return Object.fromEntries(
     list.map(({ name, ...rest }) => [name, writeKeys(rest, names)]),
@@ -1232,6 +1320,10 @@ export function versionFileText(
   if (own.length) body.parameters = writeNamed(own, PARAMETER_KEYS)
 
   if (config.inputs.length) body.inputs = writeNamed(config.inputs, INPUT_KEYS)
+
+  const starts = meta.startRules ? writeStarts(meta.startRules) : null
+
+  if (starts) body.starts = starts
 
   body.steps = config.steps.map(writeStep)
 

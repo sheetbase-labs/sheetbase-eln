@@ -1379,6 +1379,12 @@
       "typescript": "generic"
     },
     {
+      "name": "record_pipeline_version_push",
+      "resource": "pipelines",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
       "name": "record_qc_point",
       "resource": "lab",
       "python": "generic",

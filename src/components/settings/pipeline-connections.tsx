@@ -303,6 +303,149 @@ function useConnectionActions({
   return { refresh, save, toggle, remove }
 }
 
+function useClusterForm(connection: Connection | null, kind: 'web' | 'hpc') {
+  const current = hpcSettings.safeParse(connection?.settings ?? {})
+  const [user, setUser] = useState(current.success ? current.data.user : '')
+
+  const [queueText, setQueueText] = useState(
+    current.success ? formatQueues(current.data.queues) : '',
+  )
+
+  const [callbackUrl, setCallbackUrl] = useState(
+    current.success ? current.data.callbackUrl : '',
+  )
+
+  const queues = parseQueues(queueText)
+
+  const settings: HpcSettings | null =
+    kind === 'hpc' && queues
+      ? {
+          scheduler: 'slurm',
+          user: user.trim(),
+          queues,
+          callbackUrl: callbackUrl.trim() || undefined,
+        }
+      : null
+
+  return {
+    user,
+    setUser,
+    queueText,
+    setQueueText,
+    callbackUrl,
+    setCallbackUrl,
+    queues,
+    settings,
+  }
+}
+
+function ClusterFields({
+  cluster,
+}: {
+  cluster: ReturnType<typeof useClusterForm>
+}) {
+  const {
+    user,
+    setUser,
+    queueText,
+    setQueueText,
+    callbackUrl,
+    setCallbackUrl,
+    queues,
+  } = cluster
+
+  return (
+    <>
+      <Field label={t('features.pipelineConnections.settings.user')} required>
+        <Input value={user} onChange={(event) => setUser(event.target.value)} />
+      </Field>
+      <Field
+        label={t('features.pipelineConnections.settings.queues')}
+        hint={t('features.pipelineConnections.settings.queuesHint')}
+        required
+        error={
+          queues === null
+            ? t('features.pipelineConnections.settings.queuesInvalid')
+            : undefined
+        }
+      >
+        <Input
+          className="mono"
+          value={queueText}
+          placeholder={t(
+            'features.pipelineConnections.settings.queuesPlaceholder',
+          )}
+          onChange={(event) => setQueueText(event.target.value)}
+        />
+      </Field>
+      <Field
+        label={t('features.pipelineConnections.settings.callbackUrl')}
+        hint={t('features.pipelineConnections.settings.callbackUrlHint')}
+      >
+        <Input
+          value={callbackUrl}
+          onChange={(event) => setCallbackUrl(event.target.value)}
+        />
+      </Field>
+    </>
+  )
+}
+
+function connectionValid(form: {
+  name: string
+  address: string
+  key: string
+  kind: 'web' | 'hpc'
+  settings: HpcSettings | null
+  existing: boolean
+}): boolean {
+  const hpc = form.kind === 'hpc'
+
+  if (form.name.trim() === '') return false
+
+  if (!(hpc ? HPC_ADDRESS : WEB_ADDRESS).test(form.address)) return false
+
+  if (
+    !form.existing &&
+    !(hpc ? REMOTE_CONNECTION_RE : WEB_CONNECTION_KEY_RE).test(form.key)
+  )
+    return false
+
+  return !hpc || (form.settings !== null && form.settings.user !== '')
+}
+
+function AddressField({
+  kind,
+  value,
+  onChange,
+}: {
+  kind: 'web' | 'hpc'
+  value: string
+  onChange: (value: string) => void
+}) {
+  const hpc = kind === 'hpc'
+
+  return (
+    <Field
+      label={t('features.pipelineConnections.settings.address')}
+      hint={t(
+        hpc
+          ? 'features.pipelineConnections.settings.addressHintHpc'
+          : 'features.pipelineConnections.settings.addressHint',
+      )}
+      required
+    >
+      <Input
+        value={value}
+        placeholder={
+          hpc ? 'https://slurm.example.org' : 'https://lims.example.com/api'
+        }
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </Field>
+  )
+}
+
 function ConnectionDialog({
   workspaceId,
   connection,
@@ -319,31 +462,11 @@ function ConnectionDialog({
   const [address, setAddress] = useState(connection?.base_url ?? '')
   const [description, setDescription] = useState(connection?.description ?? '')
   const [kind, setKind] = useState<'web' | 'hpc'>(connection?.kind ?? 'web')
-  const current = hpcSettings.safeParse(connection?.settings ?? {})
-  const [user, setUser] = useState(current.success ? current.data.user : '')
-
-  const [queueText, setQueueText] = useState(
-    current.success ? formatQueues(current.data.queues) : '',
-  )
-
-  const [callbackUrl, setCallbackUrl] = useState(
-    current.success ? current.data.callbackUrl : '',
-  )
-
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState(false)
 
-  const queues = parseQueues(queueText)
-
-  const settings: HpcSettings | null =
-    kind === 'hpc' && queues
-      ? {
-          scheduler: 'slurm',
-          user: user.trim(),
-          queues,
-          callbackUrl: callbackUrl.trim() || undefined,
-        }
-      : null
+  const cluster = useClusterForm(connection, kind)
+  const { settings } = cluster
 
   const { refresh, save, toggle, remove } = useConnectionActions({
     workspaceId,
@@ -353,16 +476,14 @@ function ConnectionDialog({
     onError: setError,
   })
 
-  const addressOk = (kind === 'hpc' ? HPC_ADDRESS : WEB_ADDRESS).test(address)
-
-  const valid =
-    name.trim() !== '' &&
-    addressOk &&
-    (connection !== null ||
-      (kind === 'hpc' ? REMOTE_CONNECTION_RE : WEB_CONNECTION_KEY_RE).test(
-        key,
-      )) &&
-    (kind === 'web' || (settings !== null && settings.user !== ''))
+  const valid = connectionValid({
+    name,
+    address,
+    key,
+    kind,
+    settings,
+    existing: connection !== null,
+  })
 
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
@@ -426,68 +547,8 @@ function ConnectionDialog({
               />
             </Field>
           )}
-          <Field
-            label={t('features.pipelineConnections.settings.address')}
-            hint={
-              kind === 'hpc'
-                ? t('features.pipelineConnections.settings.addressHintHpc')
-                : t('features.pipelineConnections.settings.addressHint')
-            }
-            required
-          >
-            <Input
-              value={address}
-              placeholder={
-                kind === 'hpc'
-                  ? 'https://slurm.example.org'
-                  : 'https://lims.example.com/api'
-              }
-              onChange={(event) => setAddress(event.target.value)}
-            />
-          </Field>
-          {kind === 'hpc' ? (
-            <>
-              <Field
-                label={t('features.pipelineConnections.settings.user')}
-                required
-              >
-                <Input
-                  value={user}
-                  onChange={(event) => setUser(event.target.value)}
-                />
-              </Field>
-              <Field
-                label={t('features.pipelineConnections.settings.queues')}
-                hint={t('features.pipelineConnections.settings.queuesHint')}
-                required
-                error={
-                  queues === null
-                    ? t('features.pipelineConnections.settings.queuesInvalid')
-                    : undefined
-                }
-              >
-                <Input
-                  className="mono"
-                  value={queueText}
-                  placeholder={t(
-                    'features.pipelineConnections.settings.queuesPlaceholder',
-                  )}
-                  onChange={(event) => setQueueText(event.target.value)}
-                />
-              </Field>
-              <Field
-                label={t('features.pipelineConnections.settings.callbackUrl')}
-                hint={t(
-                  'features.pipelineConnections.settings.callbackUrlHint',
-                )}
-              >
-                <Input
-                  value={callbackUrl}
-                  onChange={(event) => setCallbackUrl(event.target.value)}
-                />
-              </Field>
-            </>
-          ) : null}
+          <AddressField kind={kind} value={address} onChange={setAddress} />
+          {kind === 'hpc' ? <ClusterFields cluster={cluster} /> : null}
           <Field label={t('features.pipelineConnections.settings.description')}>
             <Input
               value={description}

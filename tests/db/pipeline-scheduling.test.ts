@@ -1063,9 +1063,9 @@ describe('a recipe that starts on a failed run', () => {
       `select * from api.create_pipeline_definition_version($1::uuid, $2::uuid, $3::jsonb)`,
       [WS, def.rows[0].id, JSON.stringify(config)],
     )
-    await owner.query(
-      `select api.publish_pipeline_definition_version($1::uuid, $2::uuid)`,
-      [WS, version.rows[0].id],
+    await migrator.query(
+      `select internal.publish_pipeline_definition_version(id, revision, $2) from api.pipeline_definition_versions where id = $1`,
+      [version.rows[0].id, OWNER],
     )
     const schedule = await owner.query<{ id: string }>(
       `select * from api.create_pipeline_schedule($1::uuid, $2::uuid, 'event', $3::jsonb, true)`,

@@ -4,6 +4,7 @@ import { t } from '#/copy'
 import { Button } from '#/components/ui/button'
 import { Notice } from '#/components/ui/alert'
 import { AiPipelineBox } from '#/components/pipelines/ai-pipeline-box'
+import { VersionFileEditor } from '#/components/pipelines/advanced/version-file-editor'
 import { StepList } from '#/components/pipelines/step-list/step-list'
 import { usePipelineEditor } from '#/components/pipelines/step-list/use-pipeline-editor'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
@@ -66,6 +67,19 @@ function StandardSteps() {
   const editor = usePipelineEditor()
 
   if (!editor.config || !editor.aiContext) return null
+
+  // Advanced: the version file is the editor.
+  if (editor.advanced)
+    return (
+      <div className="pb-scope flex min-w-0 flex-1 flex-col">
+        {editor.pythonUnavailable ? (
+          <Notice tone="bad" title={t('data.pipelineSteps.pythonAvailable')}>
+            {editor.pythonUnavailable}
+          </Notice>
+        ) : null}
+        <VersionFileEditor />
+      </div>
+    )
 
   const view = editor.aiContext
 

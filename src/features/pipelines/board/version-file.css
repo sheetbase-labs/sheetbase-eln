@@ -1,0 +1,306 @@
+/*
+ * The version file editor's CSS, copied from `PipeFinalAdvanced.dc.html` (the `.ye-*`, `.ol` and
+ * `.env-row` rules) and `bundle.css` (`.secret`), with the board's tokens mapped onto the app's
+ * the way `board.css` does: --accent -> --primary, --bg -> --background. Source of truth:
+ * /mnt/project-files/pipelines-system/board-html/PipeFinalAdvanced.dc.html. Change a value here
+ * only when the board changes. The `.ye-ed` scroll and the textarea over its lines are the
+ * app's own (the board draws the text; the app lets a person type it).
+ */
+.ye-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 24px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  background: var(--surface);
+  flex-wrap: wrap;
+}
+.ye-bar .sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+}
+.ye-bad {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--danger-text);
+  font-weight: 500;
+}
+.ye-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--success-text);
+  font-weight: 500;
+}
+.ye-wrap {
+  flex-grow: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  padding: 12px 24px 16px;
+  gap: 10px;
+}
+.ye-ed {
+  flex-grow: 1;
+  min-height: 240px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: auto;
+  padding: 8px 0;
+  font: 12px/19px var(--font-mono);
+  font-variant-ligatures: none;
+  color: var(--text);
+}
+.ye-ed:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+.ye-stack {
+  position: relative;
+  min-width: max-content;
+  padding-bottom: 19px;
+}
+.ye-l {
+  display: grid;
+  grid-template-columns: 40px 18px 1fr auto;
+  align-items: center;
+  height: 19px;
+  padding-right: 12px;
+  white-space: pre;
+}
+.ye-l.cur {
+  background: var(--surface-muted);
+}
+.ye-l.bad {
+  background: var(--danger-wash);
+}
+.ye-n {
+  color: var(--text-faint);
+  text-align: right;
+  padding-right: 2px;
+  user-select: none;
+}
+.ye-l.bad .ye-n {
+  color: var(--danger-text);
+}
+.ye-m {
+  display: inline-flex;
+  justify-content: center;
+  color: var(--danger-text);
+}
+.ye-c {
+  overflow: hidden;
+  padding-left: 8px;
+}
+.ye-c .key {
+  color: var(--text-muted);
+}
+.ye-c .str {
+  color: var(--success-text);
+}
+.ye-c .cm {
+  color: var(--text-faint);
+  font-style: italic;
+}
+.ye-c .ref {
+  background: var(--selection);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.ye-c .sid {
+  font-weight: 600;
+}
+.ye-c .kw {
+  color: var(--primary);
+  font-weight: 500;
+}
+.ye-err {
+  text-decoration: underline wavy var(--destructive);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.ye-inl {
+  font: 11px var(--font-sans);
+  color: var(--danger-text);
+  padding-left: 12px;
+}
+/* The text a person types: the same box as the lines, drawn over them with its own text see-through. */
+.ye-in {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 66px;
+  right: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text);
+  font: inherit;
+  white-space: pre;
+  tab-size: 2;
+}
+.ye-in::selection {
+  background: var(--selection);
+  color: transparent;
+}
+.ye-prob {
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  max-height: 168px;
+  overflow: auto;
+}
+.ye-prob-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: 600;
+}
+.ye-prob-h .muted {
+  font-weight: 400;
+}
+.ye-prob-r {
+  display: grid;
+  grid-template-columns: 16px 92px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 12px;
+}
+.ye-prob-r > svg {
+  color: var(--danger-text);
+}
+.ye-prob-r .ln {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.ye-prob-r .ln:hover {
+  color: var(--primary);
+}
+.ol {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+}
+.ol button {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 3px 0;
+  color: var(--text);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.ol button:hover {
+  color: var(--primary);
+}
+.ol button .n {
+  color: var(--text-faint);
+  font: 11px var(--font-mono);
+}
+.ol button.sub {
+  padding-left: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.ol button.sub.bad {
+  color: var(--danger-text);
+}
+.ol button.sub .k {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  margin-left: 6px;
+}
+.env-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.env-row:last-child {
+  border-bottom: 0;
+}
+.env-row svg {
+  color: var(--text-muted);
+}
+.env-row .w {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.pb-scope .secret {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+.pb-scope .secret code {
+  flex-grow: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+/* Compare with a version: the two files line by line, from the board's diff colours. */
+.ye-diff {
+  font: 12px/19px var(--font-mono);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  max-height: 60vh;
+  overflow: auto;
+  padding: 4px 0;
+}
+.ye-diff .d {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  padding: 0 12px 0 0;
+  white-space: pre;
+}
+.ye-diff .d > span:first-child {
+  text-align: center;
+  color: var(--text-muted);
+}
+.ye-diff .d.add {
+  background: var(--success-wash);
+}
+.ye-diff .d.del {
+  background: var(--danger-wash);
+}
+.ye-diff .d.gap {
+  color: var(--text-faint);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  background: var(--surface-muted);
+  padding-left: 18px;
+}

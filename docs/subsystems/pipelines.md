@@ -526,6 +526,40 @@ or run by the SDK.
 commented out) into the main transform or a named step of the open draft, or
 start a draft from the latest version. See `sdks/examples/python/push_step.py`.
 
+## The version file (Advanced mode)
+
+An Advanced pipeline is edited as one YAML file, the version file, instead of a
+list of steps. It is the same version, in a different shape: the file is read
+into the v2 configuration above and written back out of it, so nothing is stored
+twice and a Standard pipeline's version can be written out as a file at any time.
+**Convert to Advanced** in the ⋯ menu does that once for a pipeline (one way: a
+file is not turned back into a step list), and saves the result as the draft.
+
+The file has a header (`pipeline:` the display id or key, `version:`, optional
+comments), then `parameters`, `inputs`, `steps` and `output`, using the same
+names as the editor's fields in snake case (`skip_steps`, `only_if_rows`).
+Comments are for people and are not stored: the next save writes the file out
+without them. A no-code step keeps its `form` and its SQL is regenerated from it.
+The Python runtime pin is the workspace's and is not written into the file.
+
+The editor checks the file as it is typed, with the shared validator that judges
+every version, and marks each mistake on its line and column. An unknown key or
+step name gets a "did you mean" fix. **Compare with vN** shows a line diff of the
+published version and the working file. The file never signs, approves or
+publishes: Publish stays a button for a person.
+
+`POST /api/pipelines/version-file` does the same reading and writing for tools:
+`{text, pipeline?}` answers `{ok, configuration, problems, lineCount}`, and
+`{configuration, pipeline}` answers `{text}`. It needs a session or a
+`pipelines:read` token and saves nothing; saving is the existing draft calls.
+
+From a repository or a terminal, `sheetbase push PL-0021 pipeline.yaml` saves the
+file as the open draft (or starts one), and prints each mistake as
+`file:line:column: message` with exit code 1 and nothing saved. `sheetbase pull
+PL-0021 [file] [--version N]` writes the draft, or a version, out. Python has
+`pipelines.push_version_file` and `pull_version_file` (sync and async), TypeScript
+`pushVersionFile` and `pullVersionFile`. Only an Advanced pipeline accepts a push.
+
 ## Product integration
 
 - **Authoring** (`/pipelines/$id/steps`): inputs take a description and can show

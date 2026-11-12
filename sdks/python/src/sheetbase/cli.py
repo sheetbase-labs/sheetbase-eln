@@ -1,4 +1,7 @@
-"""Command line: ``sheetbase push-step analysis.py --workspace ... --pipeline ...``.
+"""Command line: ``sheetbase push PL-0021 pipeline.yaml`` and ``sheetbase push-step analysis.py ...``.
+
+``push`` saves a version file (YAML) as a draft of an Advanced pipeline; ``pull``
+writes one out. Mistakes print as ``file:line:column: message`` and nothing is saved.
 
 Puts a local ``.py`` script or ``.ipynb`` notebook into a pipeline step as a draft.
 It needs a personal token with ``pipelines:read`` and ``pipelines:write`` in
@@ -20,6 +23,17 @@ from sheetbase.client import SheetbaseClient
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sheetbase")
     commands = parser.add_subparsers(dest="command", required=True)
+    version_push = commands.add_parser(
+        "push", help="save a version file (YAML) as a draft of an Advanced pipeline"
+    )
+    version_push.add_argument("pipeline", help="pipeline display id (PL-0021), key or UUID")
+    version_push.add_argument("file", type=Path)
+    version_pull = commands.add_parser(
+        "pull", help="write a pipeline's draft or latest version out as a version file"
+    )
+    version_pull.add_argument("pipeline", help="pipeline display id (PL-0021), key or UUID")
+    version_pull.add_argument("file", type=Path, nargs="?", help="where to write it; omit to print")
+    version_pull.add_argument("--version", type=int, help="a version number; omit for the draft")
     push = commands.add_parser(
         "push-step", help="save a local .py or .ipynb file as a pipeline step draft"
     )
@@ -88,6 +102,36 @@ def _run_parser_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_version_file_command(args: argparse.Namespace, base_url: str, credential: str) -> int:
+    from sheetbase.resources.pipelines import VersionFileError
+
+    try:
+        scopes = ["pipelines:read", "pipelines:write"] if args.command == "push" else ["pipelines:read"]
+        with SheetbaseClient(base_url, credential, scopes) as client:
+            if args.command == "pull":
+                text = client.pipelines.pull_version_file(args.pipeline, version=args.version)
+                if args.file:
+                    args.file.write_text(text, encoding="utf-8")
+                    print(f"Wrote {args.file}.")
+                else:
+                    sys.stdout.write(text)
+                return 0
+            version, created = client.pipelines.push_version_file(
+                args.pipeline, args.file.read_text(encoding="utf-8")
+            )
+    except VersionFileError as error:
+        for problem in error.problems:
+            print(f"{args.file}:{problem['line']}:{problem['column']}: {problem['message']}", file=sys.stderr)
+        return 1
+    except (OSError, ValueError, LookupError) as error:
+        print(f"Could not {args.command} {args.pipeline}: {error}", file=sys.stderr)
+        return 1
+    row = version[0] if isinstance(version, list) and version else version
+    number = row.get("version") if isinstance(row, dict) else None
+    print(f"{'Created' if created else 'Updated'} draft version {number} of the pipeline.")
+    return 0
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "parser":
@@ -97,6 +141,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if not base_url or not credential:
         print("Set SHEETBASE_URL and SHEETBASE_CREDENTIAL.", file=sys.stderr)
         return 2
+    if args.command in ("push", "pull"):
+        return _run_version_file_command(args, base_url, credential)
     try:
         text = args.file.read_text(encoding="utf-8")
         code = notebook_to_python(text) if args.file.suffix == ".ipynb" else text

@@ -33,6 +33,27 @@ export interface PipelineStepSource {
   pythonRuntime?: string;
 }
 
+export interface VersionFileProblem {
+  /** 1-based. */
+  line: number
+  column: number
+  length: number
+  message: string
+}
+
+/** A version file the server could not read; `problems` are the ones the editor marks. */
+export class VersionFileError extends Error {
+  constructor(public readonly problems: VersionFileProblem[]) {
+    const first = problems[0]
+    super(
+      first
+        ? `line ${first.line}, column ${first.column}: ${first.message}`
+        : 'The file is not valid.',
+    )
+    this.name = 'VersionFileError'
+  }
+}
+
 /** `.ipynb` JSON to Python: code cells in order, magics and shell lines commented out. */
 export function notebookToPython(notebook: unknown): string {
   const cells = (notebook as { cells?: unknown })?.cells;
@@ -116,16 +137,21 @@ export class PipelinesResource {
     });
   }
 
-  /** A pipeline by `id`, or by `key` when a workspace has more than one. */
+  /** A pipeline by `id`, display id (`PL-0021`), or `key` when a workspace has more than one. */
   async get(idOrKey: string): Promise<Row | null> {
-    const column = /^[0-9a-f-]{36}$/i.test(idOrKey) ? "id" : "key";
+    const column = /^[0-9a-f-]{36}$/i.test(idOrKey)
+      ? 'id'
+      : /^PL-\d+$/i.test(idOrKey)
+        ? 'display_id'
+        : 'key'
+    const value = column === 'display_id' ? idOrKey.toUpperCase() : idOrKey
     const rows: Row[] = await this.transport.get(
-      "/api/db/pipeline_definitions",
+      '/api/db/pipeline_definitions',
       {
-        params: { [column]: `eq.${idOrKey}`, limit: 1 },
+        params: { [column]: `eq.${value}`, limit: 1 },
       },
-    );
-    return rows[0] ?? null;
+    )
+    return rows[0] ?? null
   }
 
   async versions(definitionId: string): Promise<Row[]> {
@@ -285,5 +311,107 @@ export class PipelinesResource {
       configuration,
     });
     return { version, created: true };
+  }
+
+  // -- The version file (Advanced mode) --------------------------------------
+
+  /**
+   * Check a version file on the server. Saves nothing. Answers
+   * `{ ok, configuration, problems, lineCount }`, each problem with its line and column.
+   */
+  async readVersionFile(
+    text: string,
+    options?: { pipeline?: string[]; pythonRuntime?: string },
+  ): Promise<{
+    ok: boolean
+    configuration: Row | null
+    problems: VersionFileProblem[]
+    lineCount: number
+  }> {
+    const jsonBody: Record<string, unknown> = { text }
+    if (options?.pipeline?.length) jsonBody.pipeline = options.pipeline
+    if (options?.pythonRuntime) jsonBody.pythonRuntime = options.pythonRuntime
+    return this.transport.post('/api/pipelines/version-file', { jsonBody })
+  }
+
+  /** A stored version written out as its version file (YAML text). */
+  async writeVersionFile(
+    configuration: Row,
+    options: { pipeline: string; version?: number; title?: string },
+  ): Promise<string> {
+    const jsonBody: Record<string, unknown> = {
+      configuration,
+      pipeline: options.pipeline,
+    }
+    if (options.version !== undefined) jsonBody.version = options.version
+    if (options.title) jsonBody.title = options.title
+    const result = await this.transport.post('/api/pipelines/version-file', {
+      jsonBody,
+    })
+    return result.text
+  }
+
+  /** The open draft (or latest version, or `version`) of a pipeline as its version file. */
+  async pullVersionFile(
+    idOrKey: string,
+    options?: { version?: number },
+  ): Promise<string> {
+    const definition = await this.get(idOrKey)
+    if (!definition) throw new Error(`No pipeline is called ${idOrKey}.`)
+    const versions = await this.versions(definition.id)
+    const row =
+      options?.version !== undefined
+        ? versions.find((entry) => entry.version === options.version)
+        : (versions.find((entry) => entry.lifecycle === 'draft') ?? versions[0])
+    if (!row) throw new Error('The pipeline has no version to write out.')
+    return this.writeVersionFile(row.configuration, {
+      pipeline: definition.display_id ?? definition.key,
+      version: row.version,
+      title: definition.name,
+    })
+  }
+
+  /**
+   * Save a version file as a draft of an Advanced pipeline. Updates the open draft,
+   * or starts one. A file with a mistake throws `VersionFileError` and saves
+   * nothing. Nothing is published.
+   */
+  async pushVersionFile(
+    idOrKey: string,
+    text: string,
+  ): Promise<{ version: Row; created: boolean }> {
+    const definition = await this.get(idOrKey)
+    if (!definition) throw new Error(`No pipeline is called ${idOrKey}.`)
+    const versions = await this.versions(definition.id)
+    const draft = versions.find((entry) => entry.lifecycle === 'draft')
+    const base = draft ?? versions[0]
+    if (!base) throw new Error('The pipeline has no version to start from.')
+    if (base.configuration?.mode !== 'advanced') {
+      throw new Error(
+        'This pipeline is not Advanced. Convert it in the app first (the ⋯ menu), then push.',
+      )
+    }
+    const result = await this.readVersionFile(text, {
+      pipeline: [definition.display_id, definition.key].filter(Boolean),
+      pythonRuntime: base.configuration.pythonRuntime,
+    })
+    if (!result.ok || !result.configuration) {
+      throw new VersionFileError(result.problems)
+    }
+    if (draft) {
+      const version = await this.saveDraft({
+        workspaceId: definition.workspace_id,
+        versionId: draft.id,
+        expectedRevision: draft.revision,
+        configuration: result.configuration,
+      })
+      return { version, created: false }
+    }
+    const version = await this.createDraft({
+      workspaceId: definition.workspace_id,
+      definitionId: definition.id,
+      configuration: result.configuration,
+    })
+    return { version, created: true }
   }
 }

@@ -4,6 +4,7 @@ import {
   applyStepSource,
   notebookToPython,
   PermissionDeniedError,
+  VersionFileError,
 } from "../src/index.js";
 import {
   BASE_URL,
@@ -322,5 +323,107 @@ describe("PipelinesResource.syncStep", () => {
     expect(
       fetch.calls.some((call) => call.url.includes("update_pipeline")),
     ).toBe(false);
+  });
+});
+
+describe("version files", () => {
+  const definition = {
+    id: DEF,
+    workspace_id: WS,
+    key: "assay",
+    display_id: "PL-0021",
+    name: "Assay",
+  };
+  const advanced = { ...config, mode: "advanced" };
+  const draft = {
+    id: "v-draft",
+    lifecycle: "draft",
+    version: 2,
+    revision: 3,
+    configuration: advanced,
+  };
+  const reads: MockRoute[] = [
+    {
+      method: "GET",
+      path: "/api/db/pipeline_definitions",
+      handler: () => ({ status: 200, json: [definition] }),
+    },
+    {
+      method: "GET",
+      path: "/api/db/pipeline_definition_versions",
+      handler: () => ({ status: 200, json: [draft] }),
+    },
+  ];
+
+  it("looks a pipeline up by display id and pulls its draft as YAML", async () => {
+    const { client, fetch } = makeClient([
+      ...reads,
+      {
+        method: "POST",
+        path: "/api/pipelines/version-file",
+        handler: () => ({ status: 200, json: { text: "pipeline: PL-0021\n" } }),
+      },
+    ]);
+    expect(await client.pipelines.pullVersionFile("pl-0021")).toBe(
+      "pipeline: PL-0021\n",
+    );
+    expect(
+      fetch.calls.some((c) => c.url.includes("display_id=eq.PL-0021")),
+    ).toBe(true);
+  });
+
+  it("pushes a file as the open draft", async () => {
+    const { client, fetch } = makeClient([
+      ...reads,
+      {
+        method: "POST",
+        path: "/api/pipelines/version-file",
+        handler: () => ({
+          status: 200,
+          json: {
+            ok: true,
+            configuration: advanced,
+            problems: [],
+            lineCount: 3,
+          },
+        }),
+      },
+      {
+        method: "POST",
+        path: "/api/db/rpc/update_pipeline_definition_version_draft",
+        handler: () => ({ status: 200, json: { id: "v-draft" } }),
+      },
+    ]);
+    const result = await client.pipelines.pushVersionFile("PL-0021", "text");
+    expect(result.created).toBe(false);
+    const sent = fetch.calls.find((c) => c.url.includes("update_pipeline"));
+    expect(JSON.parse(sent!.body!).p_expected_revision).toBe(3);
+  });
+
+  it("throws the problems and saves nothing", async () => {
+    const { client, fetch } = makeClient([
+      ...reads,
+      {
+        method: "POST",
+        path: "/api/pipelines/version-file",
+        handler: () => ({
+          status: 200,
+          json: {
+            ok: false,
+            configuration: null,
+            lineCount: 3,
+            problems: [
+              { line: 4, column: 3, length: 1, message: "Unknown key." },
+            ],
+          },
+        }),
+      },
+    ]);
+    const error = await client.pipelines
+      .pushVersionFile("assay", "text")
+      .catch((e) => e);
+    expect(error).toBeInstanceOf(VersionFileError);
+    expect(error.problems[0].line).toBe(4);
+    expect(fetch.calls.some((c) => c.url.includes("/rpc/"))).toBe(false);
   });
 });

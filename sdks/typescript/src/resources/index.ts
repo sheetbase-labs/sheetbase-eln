@@ -21,11 +21,13 @@ export {
   PipelinesResource,
   applyStepSource,
   notebookToPython,
+  VersionFileError,
 } from './pipelines.js'
 export type {
   PipelineRunStatus,
   PipelineStepSource,
   PipelineTriggerResult,
+  VersionFileProblem,
 } from './pipelines.js'
 export {
   EVENT_ALIASES,

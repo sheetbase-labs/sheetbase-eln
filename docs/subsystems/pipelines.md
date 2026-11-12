@@ -570,11 +570,13 @@ saving the file replaces them as a whole through `set_pipeline_start_rules`; a
 file with no `starts:` block leaves the pipeline's rules alone. Schedules and the
 webhook stay on Starts and runs.
 
-### Remote job and lakehouse steps in the file
+### Web call, remote job and lakehouse steps in the file
 
 A `remote_job` step writes `connection`, `queue`, optional `secret` (the name of
 one of the connection's secrets, never its value), `script` and `limit_minutes`.
-A `lakehouse` step writes `tables` (the open tables it reads) and `sql`. Each
+A `web_call` step writes `connection`, `method` (`GET` or `POST`), `path`,
+optional `secret`, `body` (POST only) and `items` (where the rows are in the
+answer). A `lakehouse` step writes `tables` (the open tables it reads) and `sql`. Each
 mistake is marked on its own key, with the same rules the editor and the
 database apply.
 

@@ -202,6 +202,16 @@ const REMOTE_KEYS: Names = {
 }
 
 /** Lakehouse SQL: the open tables it reads, then its statement. */
+/** A web call: the connection, method and path it asks, the secret it is sent with, a body, and where the rows are in the answer. */
+const WEB_KEYS: Names = {
+  connection: 'connection',
+  method: 'method',
+  path: 'path',
+  secret: 'secret',
+  body: 'body',
+  items: 'itemsPath',
+}
+
 const LAKE_KEYS: Names = { tables: 'tables', sql: 'statement' }
 
 /** The keys of a step that are not its kind. */
@@ -212,6 +222,7 @@ const KIND_OBJECTS: Partial<Record<PipelineStepKind, Names>> = {
   plugin: PLUGIN_KEYS,
   remote_job: REMOTE_KEYS,
   lakehouse: LAKE_KEYS,
+  web_call: WEB_KEYS,
   ask: ASK_KEYS,
   action: ACTION_KEYS,
   notify: NOTIFY_KEYS,
@@ -228,6 +239,7 @@ const KIND_WORDS: Record<PipelineStepKind, string> = {
   plugin: 'plugin',
   lakehouse: 'lakehouse',
   remote_job: 'remote job',
+  web_call: 'web call',
   ask: 'ask a person',
   action: 'ELN action',
   notify: 'notify',
@@ -630,6 +642,8 @@ function readStep(
 
     if (read && kind === 'remote_job') {
       step.remoteJob = read
+    } else if (read && kind === 'web_call') {
+      step.webCall = read
     } else if (read && kind === 'lakehouse') {
       step.statement = read.statement
       step.lake = { tables: read.tables }
@@ -810,6 +824,15 @@ function pathOfField(
 
         if (key === 'lake') return [...base, 'lakehouse', 'tables']
       }
+
+      if (step.kind === 'web_call' && key === 'webCall')
+        return [
+          ...base,
+          'web_call',
+          ...[renamed(WEB_KEYS, deeper[0]), ...deeper.slice(1)].filter(
+            (s) => s !== undefined,
+          ),
+        ]
 
       if (step.kind === 'remote_job' && key === 'remoteJob')
         return [
@@ -1273,6 +1296,9 @@ function writeStep(
       break
     case 'remote_job':
       entry.remote_job = writeKeys(step.remoteJob, REMOTE_KEYS)
+      break
+    case 'web_call':
+      entry.web_call = writeKeys(step.webCall, WEB_KEYS)
       break
     case 'lakehouse':
       entry.lakehouse = writeKeys(

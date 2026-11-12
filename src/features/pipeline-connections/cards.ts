@@ -26,6 +26,16 @@ export type PipelineConnectionProposeToolName =
 const title = z.string().min(1).max(120)
 const summary = z.string().min(1).max(400)
 
+const clusterQueues = z
+  .array(
+    z.strictObject({
+      name: z.string().regex(/^[a-z0-9][a-z0-9_.-]{0,62}$/),
+      maxMinutes: z.number().int().positive().optional(),
+    }),
+  )
+  .min(1)
+  .max(50)
+
 export const proposeConnectionAddSchema = z.strictObject({
   title,
   summary,
@@ -41,8 +51,28 @@ export const proposeConnectionAddSchema = z.strictObject({
   baseUrl: z
     .string()
     .max(2048)
-    .describe('The https address, such as https://lims.example.com/api.'),
+    .describe(
+      'The https address, such as https://lims.example.com/api. A cluster’s Slurm REST address when kind is hpc.',
+    ),
   description: z.string().max(2000).optional(),
+  kind: z
+    .enum(['web', 'hpc'])
+    .optional()
+    .describe(
+      'web (default) for an address a web call reaches; hpc for a cluster a remote job runs on.',
+    ),
+  user: z
+    .string()
+    .min(1)
+    .max(64)
+    .optional()
+    .describe('hpc: the cluster user jobs run as.'),
+  queues: clusterQueues.optional().describe('hpc: the queues it offers.'),
+  callbackUrl: z
+    .string()
+    .max(2048)
+    .optional()
+    .describe('hpc: the address jobs call back on, when not this app’s own.'),
 })
 
 export const proposeConnectionChangeSchema = z.strictObject({
@@ -55,6 +85,9 @@ export const proposeConnectionChangeSchema = z.strictObject({
     .describe('The connection, by name or key.'),
   name: z.string().min(1).max(200).optional(),
   baseUrl: z.string().max(2048).optional(),
+  user: z.string().min(1).max(64).optional().describe('hpc only.'),
+  queues: clusterQueues.optional().describe('hpc only: replaces the queues.'),
+  callbackUrl: z.string().max(2048).optional().describe('hpc only.'),
   status: z
     .enum(['active', 'off'])
     .optional()
@@ -73,6 +106,14 @@ export const proposeConnectionRemoveSchema = z.strictObject({
     .describe('The connection, by name or key.'),
 })
 
+/** What a cluster connection keeps beside its address. */
+export interface ClusterSettings {
+  scheduler: 'slurm'
+  user: string
+  queues: Array<{ name: string; maxMinutes?: number }>
+  callbackUrl?: string | undefined
+}
+
 export type PipelineConnectionAction =
   | {
       kind: 'pipeline_connection.add'
@@ -81,6 +122,8 @@ export type PipelineConnectionAction =
       name: string
       baseUrl: string
       description: string | null
+      connectionKind: 'web' | 'hpc'
+      settings: ClusterSettings | null
     }
   | {
       kind: 'pipeline_connection.change'
@@ -89,6 +132,7 @@ export type PipelineConnectionAction =
       name: string | null
       baseUrl: string | null
       status: 'active' | 'off' | null
+      settings: ClusterSettings | null
     }
   | {
       kind: 'pipeline_connection.remove'

@@ -18,6 +18,8 @@ export async function runPipelineConnectionAction(
         p_name: action.name,
         p_base_url: action.baseUrl,
         p_description: action.description,
+        p_kind: action.connectionKind,
+        p_settings: action.settings ?? undefined,
       })
 
       return { openHref: PAGE }
@@ -28,6 +30,7 @@ export async function runPipelineConnectionAction(
         p_name: action.name,
         p_base_url: action.baseUrl,
         p_status: action.status,
+        p_settings: action.settings ?? undefined,
       })
 
       return { openHref: PAGE }

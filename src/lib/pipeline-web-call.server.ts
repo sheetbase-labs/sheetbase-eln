@@ -541,6 +541,7 @@ export function defaultWebCallDeps(): WebCallDeps {
           and(
             eq(pipelineConnections.workspaceId, workspaceId),
             eq(pipelineConnections.key, key),
+            eq(pipelineConnections.kind, 'web'),
           ),
         )
         .then((rows) => rows.at(0))

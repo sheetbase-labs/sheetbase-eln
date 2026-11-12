@@ -64,15 +64,14 @@ with data access.
 
 ## Remote job connections
 
-A connection is a connector (`register_connector`, `connector_type` `custom`)
-with `adapter: "hpc"` in its settings:
+A cluster is a pipeline connection of `kind` `hpc`, in the same table as the
+addresses web calls reach (`create_pipeline_connection` with `p_kind` `hpc`; see
+[pipeline-connections-api.md](pipeline-connections-api.md)). Its address may be
+http or https, and its cluster details go in `p_settings`:
 
 ```json
 {
-  "adapter": "hpc",
   "scheduler": "slurm",
-  "baseUrl": "https://slurm.example.org:6820",
-  "apiVersion": "v0.0.40",
   "user": "sheetbase",
   "queues": [{ "name": "hpc-short", "maxMinutes": 60 }, { "name": "bigmem" }],
   "callbackUrl": "https://eln.example.org"
@@ -82,7 +81,7 @@ with `adapter: "hpc"` in its settings:
 Slurm (slurmrestd) is the scheduler it talks to today. The scheduler token is a
 sealed secret of the connection, set in the app under Settings, Integrations,
 and never returned or readable with a token. The connection lists the _names_ of
-its secrets (`secrets`), never their values. A step names the one it uses:
+its secrets (`secret_names`), never their values. A step names the one it uses:
 
 ```yaml
 remote_job:

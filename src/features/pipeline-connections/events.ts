@@ -20,7 +20,8 @@ export const PIPELINE_CONNECTION_EVENTS: readonly EventCatalogueEntry[] =
       name: 'pipeline_connection.created',
       summary: 'An administrator approved an address for pipeline web calls.',
       producer: { entityType: 'pipeline_connection', operation: 'create' },
-      notes: 'Payload carries `connectionId`, `key`, `name` and `baseUrl`.',
+      notes:
+        'Payload carries `connectionId`, `key`, `name`, `kind` and `baseUrl`.',
     }),
     event({
       name: 'pipeline_connection.updated',
@@ -28,7 +29,7 @@ export const PIPELINE_CONNECTION_EVENTS: readonly EventCatalogueEntry[] =
         'A pipeline connection was renamed, moved to another address, or switched on or off.',
       producer: { entityType: 'pipeline_connection', operation: 'update' },
       notes:
-        'Payload carries `connectionId`, `key`, `name`, `baseUrl` and `status`.',
+        'Payload carries `connectionId`, `key`, `name`, `kind`, `baseUrl` and `status`.',
     }),
     event({
       name: 'pipeline_connection.deleted',

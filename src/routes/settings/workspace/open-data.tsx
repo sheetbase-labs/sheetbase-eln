@@ -9,7 +9,7 @@ import {
   SettingsBody,
   SettingsHeader,
 } from '#/components/settings/settings-page'
-import { LakehouseSqlSection } from '#/components/settings/remote-jobs'
+import { LakehouseSqlSection } from '#/components/settings/lakehouse-sql'
 import { useDataAccess } from '#/lib/data-access'
 import { canManageSettings } from '#/lib/settings-access'
 import { t } from '#/copy'

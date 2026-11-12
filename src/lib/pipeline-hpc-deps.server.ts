@@ -1,13 +1,12 @@
 /**
  * The real connections behind the remote job module (src/lib/pipeline-hpc.server.ts):
- * the connector a step names, its sealed token, the app's own address, and a
+ * the connection a step names, its sealed secret, the app's own address, and a
  * transaction on the database. Kept apart so the module itself runs in tests
  * without the database client or the secret key.
  */
 import { PooledClient } from '#/db/pool.server'
 import { env } from '#/env.server'
-import { loadConnectorSecrets } from './connectors/enterprise/secrets.server'
-import { sealedSecretName } from './pipelines/remote/secret'
+import { openSecret, secretKey } from './connector-secrets.server'
 import { parseHpcConfig, slurmClient } from './pipeline-hpc.server'
 import type {
   HpcQueryable,
@@ -20,45 +19,48 @@ export const realRemoteJobDeps: RemoteJobDeps = {
     const { rows } = await conn.query<{
       id: string
       status: string
-      config: unknown
+      base_url: string
+      settings: unknown
     }>(
-      `SELECT id, status, config FROM api.connectors
-        WHERE workspace_id = $1 AND key = $2 AND connector_type = 'custom'`,
+      `SELECT id, status, base_url, settings FROM api.pipeline_connections
+        WHERE workspace_id = $1 AND key = $2 AND kind = 'hpc'`,
       [workspaceId, key],
     )
 
-    const connector = rows.at(0)
+    const connection = rows.at(0)
 
-    if (!connector)
+    if (!connection)
       return {
         kind: 'refused',
         message: `There is no remote job connection called ${key}.`,
       }
 
-    if (connector.status !== 'active')
+    if (connection.status !== 'active')
       return {
         kind: 'refused',
         message: `The connection ${key} is switched off.`,
       }
 
-    try {
-      const secrets = await loadConnectorSecrets({
-        workspaceId,
-        connectorId: connector.id,
-        required: [sealedSecretName(secret)],
-      })
+    const sealed = await conn.query<{ ciphertext: Buffer }>(
+      `SELECT ciphertext FROM internal.pipeline_connection_secrets
+        WHERE workspace_id = $1 AND connection_id = $2 AND secret_name = $3`,
+      [workspaceId, connection.id, secret],
+    )
 
-      return parseHpcConfig(
-        key,
-        connector.config,
-        secrets[sealedSecretName(secret)],
-      )
-    } catch {
+    const ciphertext = sealed.rows.at(0)?.ciphertext
+
+    if (!ciphertext)
       return {
         kind: 'refused',
         message: `The connection ${key} has no secret called ${secret}. A steward sets it in Settings.`,
       }
-    }
+
+    return parseHpcConfig(
+      key,
+      connection.base_url,
+      connection.settings,
+      openSecret(Buffer.from(ciphertext).toString('utf8'), secretKey()),
+    )
   },
   client: (connection) => slurmClient(connection),
   publicUrl: () => env.BETTER_AUTH_URL,

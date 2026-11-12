@@ -56,9 +56,13 @@ change where pipelines may send data.
 
 ### `create_pipeline_connection`
 
-Approves an https address under a short key such as `lims`. Inputs: `p_key`,
+Approves an address under a short key such as `lims`. Inputs: `p_key`,
 `p_name`, `p_base_url`, optional `p_description`, `p_auth_header` (default
-`Authorization`) and `p_auth_scheme` (default `Bearer`). Returns the connection.
+`Authorization`), `p_auth_scheme` (default `Bearer`), `p_kind` (`web`, the
+default, an https address; or `hpc`, a Slurm cluster whose address may be http)
+and `p_settings` (hpc only: `scheduler`, `user`, `queues`, optional
+`callbackUrl`). A cluster signs with the secret `HPC_SUBMIT_KEY`, set in the
+app. Returns the connection.
 Sends `pipeline_connection.created`.
 
 ### `update_pipeline_connection`
@@ -70,7 +74,7 @@ call that uses it. Returns the connection. Sends `pipeline_connection.updated`.
 ### `delete_pipeline_connection`
 
 Removes a connection and its sealed secrets. Refused while a published pipeline
-version still calls it. Sends `pipeline_connection.deleted`.
+version still uses it in a web call or remote job step. Sends `pipeline_connection.deleted`.
 
 ## Runs
 

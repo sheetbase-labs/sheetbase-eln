@@ -42,7 +42,7 @@ export async function runPipelineConnectionsReadTool(
   const input = parsed.data
 
   const params = [
-    'select=id,key,name,description,base_url,status,secret_names,updated_at',
+    'select=id,key,name,description,base_url,status,kind,settings,secret_names,updated_at',
     'order=name.asc',
     `limit=${input.limit ?? 20}`,
   ]

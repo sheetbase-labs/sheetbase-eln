@@ -218,6 +218,21 @@ export function compileRecipe(
       case 'eln_action':
         steps.push(actionStep(action, `action_${n}`))
         break
+      case 'inbox':
+        steps.push({
+          name: `inbox_${n}`,
+          kind: 'action',
+          action: {
+            operation: 'create_inbox_item',
+            mode: 'execute',
+            arguments: {
+              p_user_id: action.userId,
+              p_title: action.text.trim() || 'Review the new snapshot',
+              p_dataset_id: recipe.when.datasetId,
+            },
+          },
+        })
+        break
       case 'append':
         output = {
           mode: 'append',

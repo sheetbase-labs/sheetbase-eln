@@ -111,7 +111,7 @@ export function HowItRuns({
         </dd>
         <dt className="text-fg-muted">{h('runGoing')}</dt>
         <dd className="m-0">{h('runGoingText')}</dd>
-        {ask && ask.kind === 'ask' ? (
+        {ask ? (
           <>
             <dt className="text-fg-muted">{h('away')}</dt>
             <dd className="m-0 flex flex-wrap items-center gap-1.5">

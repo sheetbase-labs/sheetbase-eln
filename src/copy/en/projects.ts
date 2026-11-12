@@ -2124,6 +2124,7 @@ export const projects = {
       watcher_finding: 'Watcher finding',
       qc_violation: 'Quality control',
       plugin_note: 'Plugin note',
+      pipeline_item: 'From a pipeline',
       invitation_accepted: 'Joined',
       verification_requested: 'Verify identity',
       verification_granted: 'Verified',

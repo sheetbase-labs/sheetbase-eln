@@ -67,4 +67,45 @@ export const PIPELINE_SIMPLE_OPERATIONS = defineOperations([
     pipeline: {},
     docsPage: 'pipelines-simple-api.md',
   },
+  {
+    name: 'create_inbox_item',
+    label: 'Leave an Inbox item for someone',
+    summary: 'Leave an Inbox item for someone',
+    description:
+      'Puts an item in a person’s Inbox: a task to do or a snapshot to look at. Give the dataset or snapshot it is about, if it is about one, and a due time if there is one. It shows until they open it. Stewards and anyone who can edit in the workspace. Returns the item. Sends `pipeline.inbox_item.created`.',
+    kind: 'write',
+    scope: 'pipelines:write',
+    inputs: [
+      workspace(),
+      described('p_user_id', 'text', 'The person, from `workspace_members`.'),
+      described(
+        'p_title',
+        'text',
+        'What they should do, up to 200 characters.',
+      ),
+      described('p_body', 'text', 'More about it.', false),
+      described('p_dataset_id', 'uuid', 'The dataset it is about.', false),
+      described(
+        'p_dataset_version_id',
+        'uuid',
+        'The snapshot it is about.',
+        false,
+      ),
+      described('p_due_at', 'ts', 'When it is due.', false),
+    ],
+    result: 'row:pipeline_inbox_items',
+    assistant: { tool: 'sheetbase.inbox.leave_item' },
+    pipeline: {},
+    docsPage: 'pipelines-simple-api.md',
+    events: [
+      {
+        name: 'pipeline.inbox_item.created',
+        family: 'record',
+        summary: 'A pipeline or a person left an Inbox item for someone.',
+        producer: { entityType: 'pipeline_inbox_item', operation: 'create' },
+        notes:
+          'Payload: id, userId, title, datasetId, datasetVersionId and dueAt.',
+      },
+    ],
+  },
 ])

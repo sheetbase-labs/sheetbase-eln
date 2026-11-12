@@ -113,6 +113,8 @@ export function itemLink(item: WorkItem): WorkItemLink {
             params: { instrumentId: item.sourceId },
           }
         : { to: '/plates' }
+    case 'pipeline_item':
+      return { to: '/inbox' }
     case 'plugin_note':
       return item.recordId
         ? { to: '/records/$recordId', params: { recordId: item.recordId } }

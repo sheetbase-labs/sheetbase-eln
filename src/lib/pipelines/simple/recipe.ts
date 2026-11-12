@@ -92,6 +92,14 @@ export const actionSchema = z.discriminatedUnion('kind', [
     subscriptionId: z.string(),
   }),
   z.object({
+    kind: z.literal('inbox'),
+    /** A task to do, or the snapshot to look at. */
+    mode: z.enum(['task', 'review']),
+    userId: z.string(),
+    /** What they should do; the review line has its own words when empty. */
+    text: z.string().max(200),
+  }),
+  z.object({
     kind: z.literal('eln_action'),
     operation: z.string().max(120),
     mode: z.enum(['execute', 'propose']),
@@ -218,6 +226,16 @@ export function recipeProblems(value: PipelineRecipe): RecipeProblem[] {
       (!UUID.test(action.schemaVersionId) || !action.datasetName.trim())
     )
       pick(field, w('newDataset'))
+
+    if (action.kind === 'inbox' && !UUID.test(action.userId))
+      pick(field, w('person'))
+
+    if (
+      action.kind === 'inbox' &&
+      action.mode === 'task' &&
+      !action.text.trim()
+    )
+      pick(field, w('taskText'))
 
     if (action.kind === 'eln_action' && !action.operation)
       pick(field, w('action'))

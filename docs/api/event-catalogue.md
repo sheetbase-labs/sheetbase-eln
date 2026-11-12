@@ -282,24 +282,25 @@ findings of each check are on the `data_contract_runs` resource; see
 
 ### Pipeline (`stable`, webhooks and pipeline triggers)
 
-| Event                        | Produced from                                                   | Payload (the row)                                                                                |
-| ---------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `pipeline.created`           | `pipeline_definition` + `create`                                | `id`, `key`, `name`, `description`, `lifecycle`                                                  |
-| `pipeline.updated`           | `pipeline_definition` + `update`                                | the same; `lifecycle` is `active` or `retired`; `start_rules` holds the rules                    |
-| `pipeline.deleted`           | `pipeline_definition` + `delete`                                | the same                                                                                         |
-| `pipeline.version.created`   | `pipeline_definition_version` + `create`                        | `id`, `definition_id`, `version`, `lifecycle`, `configuration`                                   |
-| `pipeline.version.published` | `pipeline_definition_version` + `update`, `lifecycle=published` | the same                                                                                         |
-| `pipeline.version.retired`   | `pipeline_definition_version` + `update`, `lifecycle=retired`   | the same                                                                                         |
-| `pipeline.version.updated`   | `pipeline_definition_version` + `update` (a draft changed)      | the same                                                                                         |
-| `pipeline.run.created`       | `pipeline_run` + `create`                                       | `id`, `definition_version_id`, `trigger_kind`, `retry_of_run_id`, `parameters`, `input_versions` |
-| `pipeline.run.succeeded`     | `pipeline_run` + `update`, `status=succeeded`                   | the run, with `result` (`rowCount`, output dataset and version)                                  |
-| `pipeline.run.failed`        | `pipeline_run` + `update`, `status=failed`                      | the run, with `error_code` and `error_message`                                                   |
-| `pipeline.run.cancelled`     | `pipeline_run` + `update`, `status=cancelled`                   | the run                                                                                          |
-| `pipeline.run.waiting`       | `pipeline_run` + `update`, `status=waiting`                     | the run; the prompt is on `pipeline_run_prompts` and a person answers it in the app              |
-| `pipeline.run.updated`       | `pipeline_run` + `update` (it resumed)                          | the run                                                                                          |
-| `pipeline.schedule.created`  | `pipeline_schedule` + `create`                                  | `id`, `definition_id`, `kind`, `spec`, `enabled`                                                 |
-| `pipeline.schedule.updated`  | `pipeline_schedule` + `update`                                  | the same; bookkeeping (next and last run times) sends nothing                                    |
-| `pipeline.schedule.deleted`  | `pipeline_schedule` + `delete`                                  | the same                                                                                         |
+| Event                         | Produced from                                                   | Payload (the row)                                                                                |
+| ----------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `pipeline.created`            | `pipeline_definition` + `create`                                | `id`, `key`, `name`, `description`, `lifecycle`                                                  |
+| `pipeline.inbox_item.created` | `pipeline_inbox_item` + `create`                                | `id`, `userId`, `title`, `datasetId`, `datasetVersionId`, `dueAt`                                |
+| `pipeline.updated`            | `pipeline_definition` + `update`                                | the same; `lifecycle` is `active` or `retired`; `start_rules` holds the rules                    |
+| `pipeline.deleted`            | `pipeline_definition` + `delete`                                | the same                                                                                         |
+| `pipeline.version.created`    | `pipeline_definition_version` + `create`                        | `id`, `definition_id`, `version`, `lifecycle`, `configuration`                                   |
+| `pipeline.version.published`  | `pipeline_definition_version` + `update`, `lifecycle=published` | the same                                                                                         |
+| `pipeline.version.retired`    | `pipeline_definition_version` + `update`, `lifecycle=retired`   | the same                                                                                         |
+| `pipeline.version.updated`    | `pipeline_definition_version` + `update` (a draft changed)      | the same                                                                                         |
+| `pipeline.run.created`        | `pipeline_run` + `create`                                       | `id`, `definition_version_id`, `trigger_kind`, `retry_of_run_id`, `parameters`, `input_versions` |
+| `pipeline.run.succeeded`      | `pipeline_run` + `update`, `status=succeeded`                   | the run, with `result` (`rowCount`, output dataset and version)                                  |
+| `pipeline.run.failed`         | `pipeline_run` + `update`, `status=failed`                      | the run, with `error_code` and `error_message`                                                   |
+| `pipeline.run.cancelled`      | `pipeline_run` + `update`, `status=cancelled`                   | the run                                                                                          |
+| `pipeline.run.waiting`        | `pipeline_run` + `update`, `status=waiting`                     | the run; the prompt is on `pipeline_run_prompts` and a person answers it in the app              |
+| `pipeline.run.updated`        | `pipeline_run` + `update` (it resumed)                          | the run                                                                                          |
+| `pipeline.schedule.created`   | `pipeline_schedule` + `create`                                  | `id`, `definition_id`, `kind`, `spec`, `enabled`                                                 |
+| `pipeline.schedule.updated`   | `pipeline_schedule` + `update`                                  | the same; bookkeeping (next and last run times) sends nothing                                    |
+| `pipeline.schedule.deleted`   | `pipeline_schedule` + `delete`                                  | the same                                                                                         |
 
 `pipeline.run.completed` is sent by the pipeline engine itself when a run
 finishes, to subscriptions that ask for it.

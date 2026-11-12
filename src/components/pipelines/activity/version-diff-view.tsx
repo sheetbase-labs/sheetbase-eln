@@ -1,14 +1,34 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 import { t } from '#/copy'
-import { cn } from '#/lib/utils'
+import { BoardSegmented } from '#/features/pipelines/board/board'
 import { diffVersions, withContext } from '#/lib/pipelines/version-diff'
 import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
+import './activity.css'
+
+type View = 'file' | 'diff'
+
+const MARK = { added: '+', removed: '-', same: ' ' } as const
+
+/** `name:` of a line stays quiet, as on the board's version file. */
+function Text({ text }: { text: string }) {
+  const found = /^(\s*(?:- )?)([\w.-]+:)(.*)$/.exec(text)
+
+  if (!found) return <>{text}</>
+
+  return (
+    <>
+      {found[1]}
+      <span className="k">{found[2]}</span>
+      {found[3]}
+    </>
+  )
+}
 
 /**
- * The text diff an approver reads: the draft written out as text against the
- * published version (or against nothing for a first version). Added lines are
- * marked with + and removed with −, so colour is never the only cue.
+ * The text diff an approver reads, as the board draws it (`.pls-vfw`): counts
+ * and the Edit | Diff switch above, then the lines with their numbers. Added
+ * and removed lines carry + and - as well as colour. Render inside `BoardScope`.
  */
 export function VersionDiffView({
   draft,
@@ -17,12 +37,17 @@ export function VersionDiffView({
   draft: PipelineDefinitionVersionWire
   published: PipelineDefinitionVersionWire | undefined
 }) {
+  const [view, setView] = useState<View>('diff')
+
   const diff = useMemo(
     () => diffVersions(published?.configuration ?? null, draft.configuration),
     [draft.configuration, published?.configuration],
   )
 
-  const shown = useMemo(() => withContext(diff, 3), [diff])
+  const shown = useMemo(
+    () => withContext(diff, view === 'diff' ? 3 : diff.lines.length),
+    [diff, view],
+  )
 
   const against = published
     ? t('features.pipelineApprovals.activity.diffAgainstVersion', {
@@ -32,10 +57,10 @@ export function VersionDiffView({
 
   return (
     <section
+      className="pls-vfw"
       aria-label={t('features.pipelineApprovals.activity.diffLabel')}
-      className="overflow-hidden rounded-lg border border-border bg-surface"
     >
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-2 text-label">
+      <div className="pls-atb" style={{ height: 40 }}>
         <span>
           {diff.added + diff.removed === 0
             ? t('features.pipelineApprovals.activity.diffNone')
@@ -45,49 +70,47 @@ export function VersionDiffView({
                 removed: diff.removed,
               })}
         </span>
-        <span className="ml-auto rounded-md border border-border bg-surface-muted px-2 py-0.5 text-fg-muted">
-          {t('features.pipelineApprovals.activity.diffTitle', { against })}
-        </span>
-      </header>
-      <pre className="m-0 max-h-[28rem] overflow-auto py-1 font-mono text-[12px] leading-[18px]">
+        <span className="mx-sp" />
+        <BoardSegmented
+          label={t('features.pipelineApprovals.activity.diffView')}
+          value={view}
+          onChange={(next) => setView(next === 'file' ? 'file' : 'diff')}
+          options={[
+            {
+              value: 'file',
+              label: t('features.pipelineApprovals.activity.diffWholeFile'),
+            },
+            {
+              value: 'diff',
+              label: t('features.pipelineApprovals.activity.diffTitle', {
+                against,
+              }),
+            },
+          ]}
+        />
+      </div>
+      <pre className="pls-yl pls-diff">
         {shown.map((line) =>
           line.kind === 'gap' ? (
-            <div
-              key={`gap-${line.n}`}
-              className="px-3 text-fg-faint"
-              aria-label={t('features.pipelineApprovals.activity.diffGap', {
-                count: line.hidden,
-              })}
-            >
-              ⋯{' '}
+            <span key={`gap-${line.n}`} className="l gap">
               {t('features.pipelineApprovals.activity.diffGap', {
                 count: line.hidden,
               })}
-            </div>
+            </span>
           ) : (
-            <div
+            <span
               key={`${line.kind}-${line.n}`}
-              className={cn(
-                'whitespace-pre px-3',
-                line.kind === 'added' && 'bg-success-wash',
-                line.kind === 'removed' && 'bg-danger-wash text-fg-muted',
-              )}
-            >
-              <span
-                aria-hidden="true"
-                className="mr-3 inline-block w-5 select-none text-right text-fg-faint"
-              >
-                {line.n}
-              </span>
-              <span aria-hidden="true" className="select-none text-fg-faint">
-                {line.kind === 'added'
-                  ? '+ '
+              className={
+                line.kind === 'added'
+                  ? 'l add'
                   : line.kind === 'removed'
-                    ? '− '
-                    : '  '}
-              </span>
-              {line.text}
-            </div>
+                    ? 'l del'
+                    : 'l'
+              }
+              style={{ counterSet: `ln ${line.n - 1}` }}
+            >
+              {MARK[line.kind]} <Text text={line.text} />
+            </span>
           ),
         )}
       </pre>

@@ -58,6 +58,8 @@ export const copy = {
     diffCounts: '{changed} lines changed · {added} added · {removed} removed',
     diffNone: 'No lines changed.',
     diffGap: '{count} unchanged lines',
+    diffView: 'Show',
+    diffWholeFile: 'Version file',
     diffLabel: 'Text diff of the version',
     table: 'Activity',
     when: 'When',

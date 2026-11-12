@@ -104,8 +104,7 @@ function PendingRequest({
     <section className="flex flex-col gap-3">
       <Notice
         tone="info"
-        icon="lock"
-        className="bg-review-wash"
+        icon={false}
         title={t('features.pipelineApprovals.activity.pendingTitle', {
           version: version.version,
         })}
@@ -185,7 +184,7 @@ function EndedNotice({
   return (
     <Notice
       tone={returned ? 'bad' : 'info'}
-      icon={returned ? 'warn' : 'info'}
+      icon={false}
       title={t(
         returned
           ? 'features.pipelineApprovals.activity.returnedTitle'

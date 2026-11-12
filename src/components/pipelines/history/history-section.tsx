@@ -38,7 +38,7 @@ export function HistorySection({
   const d = definition.data
 
   return (
-    <div id="history" className="flex min-w-0 flex-col gap-4">
+    <div id="history" className="mt-6 flex min-w-0 flex-col gap-4">
       <Section title={t('features.pipelineSimple.history.title')}>
         <Muted>{t('features.pipelineSimple.history.description')}</Muted>
         <HistoryTable

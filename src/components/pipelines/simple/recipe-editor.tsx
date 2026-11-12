@@ -569,7 +569,7 @@ export function RecipeEditor({
             placeholder={r('pickDataset')}
             options={datasets.map((d) => ({
               value: d.id,
-              label: `${r('snapshotOf')} ${datasetLabel(d)}`,
+              label: `${r('snapshotOf')} ${d.displayId ?? d.name}`,
             }))}
             onChange={(datasetId) =>
               onChange({

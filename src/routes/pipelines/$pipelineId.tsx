@@ -263,7 +263,7 @@ function PipelineLayout() {
             />
           ) : null}
         </div>
-        {onSteps ? <StepInspector /> : null}
+        {onSteps && mode !== 'simple' ? <StepInspector /> : null}
       </div>
     </PipelineEditorProvider>
   )

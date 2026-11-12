@@ -9,7 +9,11 @@ import type { CatalogueContext } from '#/lib/pipelines/simple/catalogue'
 import { KEEP_KINDS } from '#/lib/pipelines/simple/recipe'
 import type { RecipeAction } from '#/lib/pipelines/simple/recipe'
 
-const GROUP_ORDER = ['flag', 'ask', 'notify', 'eln', 'keep'] as const
+/** The board lists these in two columns: asking and flagging on the left, what it can change on the right. */
+const COLUMNS = [
+  ['flag', 'ask', 'notify'],
+  ['eln', 'keep'],
+] as const
 
 /**
  * The "and…" menu: everything Simple can do, in groups. Run code is listed so
@@ -61,61 +65,78 @@ export function ActionMenu({
             {t('features.pipelineSimple.catalogue.none')}
           </p>
         ) : null}
-        {GROUP_ORDER.map((group) => {
-          const inGroup = items.filter((item) => item.group === group)
+        {COLUMNS.map((groups, column) => (
+          <div key={groups.join()} className="flex flex-col">
+            {groups.map((group) => {
+              const inGroup = items.filter((item) => item.group === group)
 
-          if (inGroup.length === 0) return null
+              if (inGroup.length === 0) return null
 
-          return (
-            <div key={group} className="flex flex-col">
-              <div className="px-2 pb-0.5 pt-2 text-caption font-medium text-fg-muted">
-                {groupLabel(group)}
-              </div>
-              {inGroup.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="flex h-7 items-center gap-2 rounded-md px-2 text-left text-label text-fg hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none"
-                  onClick={() => onPick(item.make(context))}
-                >
-                  <Icon name={item.icon} size={14} className="text-fg-muted" />
-                  <span className="grow">{item.label}</span>
-                  {item.hint ? (
-                    <span className="text-caption text-fg-muted">
-                      {item.hint}
-                    </span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-          )
-        })}
-        <div className="flex flex-col">
-          <div className="px-2 pb-0.5 pt-2 text-caption font-medium text-fg-muted">
-            {groupLabel('code')}
+              return (
+                <div key={group} className="flex flex-col">
+                  <div className="px-2 pb-0.5 pt-2 text-caption font-medium text-fg-muted">
+                    {groupLabel(group)}
+                  </div>
+                  {inGroup.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="flex h-7 items-center gap-2 rounded-md px-2 text-left text-label text-fg hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none"
+                      onClick={() => onPick(item.make(context))}
+                    >
+                      <Icon
+                        name={item.icon}
+                        size={14}
+                        className="text-fg-muted"
+                      />
+                      <span className="grow">{item.label}</span>
+                      {item.hint ? (
+                        <span className="text-caption text-fg-muted">
+                          {item.hint}
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              )
+            })}
+            {column === 1 ? <CodeRows onConvert={onConvert} /> : null}
           </div>
-          <div className="flex items-start gap-2 px-2 pb-1.5 text-caption text-fg-muted">
-            <Icon name="lock" size={13} className="mt-0.5 shrink-0" />
-            <span>
-              <b className="font-medium text-fg">
-                {t('features.pipelineSimple.catalogue.codeTitle')}
-              </b>
-              <br />
-              {t('features.pipelineSimple.catalogue.needsStandard')} ·{' '}
-              <button
-                type="button"
-                className="cursor-pointer border-0 bg-transparent p-0 text-caption text-link underline"
-                onClick={onConvert}
-              >
-                {t('features.pipelineSimple.catalogue.convert')}
-              </button>
-            </span>
-          </div>
-        </div>
+        ))}
       </div>
       <div className="flex items-center gap-1.5 rounded-b-lg border-t border-border bg-surface-muted px-3 py-2 text-caption text-fg-muted">
         <Icon name="lock" size={12} />
         {t('features.pipelineSimple.catalogue.never')}
+      </div>
+    </div>
+  )
+}
+
+/** Where Simple stops: running code needs Standard, with the way there beside it. */
+function CodeRows({ onConvert }: { onConvert: () => void }) {
+  const groupLabel = words('catalogue.groups')
+
+  return (
+    <div className="flex flex-col">
+      <div className="px-2 pb-0.5 pt-2 text-caption font-medium text-fg-muted">
+        {groupLabel('code')}
+      </div>
+      <div className="flex items-start gap-2 px-2 pb-1.5 text-caption text-fg-muted">
+        <Icon name="lock" size={13} className="mt-0.5 shrink-0" />
+        <span>
+          <b className="font-medium text-fg">
+            {t('features.pipelineSimple.catalogue.codeTitle')}
+          </b>
+          <br />
+          {t('features.pipelineSimple.catalogue.needsStandard')} ·{' '}
+          <button
+            type="button"
+            className="cursor-pointer border-0 bg-transparent p-0 text-caption text-link underline"
+            onClick={onConvert}
+          >
+            {t('features.pipelineSimple.catalogue.convert')}
+          </button>
+        </span>
       </div>
     </div>
   )

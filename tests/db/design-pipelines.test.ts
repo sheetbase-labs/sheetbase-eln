@@ -119,12 +119,16 @@ describe('design pipeline latest-run state', () => {
             workspaceId,
             definition.rows[0].id,
             JSON.stringify({
-              configVersion: 1,
+              configVersion: 2,
+              mode: 'standard',
               inputs: [{ name: 'measurements', required: false }],
-              transform: {
-                language: 'sql',
-                statement: 'SELECT well, value FROM measurements',
-              },
+              steps: [
+                {
+                  name: 'analysis',
+                  kind: 'sql',
+                  statement: 'SELECT well, value FROM measurements',
+                },
+              ],
               output: { mode: 'none' },
             }),
           ],

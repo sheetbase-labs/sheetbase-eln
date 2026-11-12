@@ -21,10 +21,11 @@ let definitionA = ''
 let versionA = ''
 
 const CONFIG = {
-  configVersion: 1,
+  configVersion: 2,
+  mode: 'standard',
   parameters: [],
   inputs: [],
-  transform: { language: 'none', statement: '' },
+  steps: [],
   output: { mode: 'none', datasetLabel: 'out' },
 }
 

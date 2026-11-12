@@ -126,15 +126,19 @@ async function makeSweepDeps(conn: PgClient): Promise<PipelineSchedulerDeps> {
 
 function pipelineConfig(schemaVersionId: string): Record<string, unknown> {
   return {
-    configVersion: 1,
+    configVersion: 2,
+    mode: 'standard',
     description: 'scale measurement values',
     parameters: [{ name: 'factor', type: 'decimal', required: true }],
     inputs: [{ name: 'measurements', required: true }],
-    transform: {
-      language: 'sql',
-      statement:
-        'SELECT batch, value, value * {{factor}} AS scaled FROM measurements',
-    },
+    steps: [
+      {
+        name: 'analysis',
+        kind: 'sql',
+        statement:
+          'SELECT batch, value, value * {{factor}} AS scaled FROM measurements',
+      },
+    ],
     output: {
       mode: 'create',
       schemaVersionId,

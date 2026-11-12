@@ -1,5 +1,6 @@
 import type { ExecConnection } from './pipeline-execute.server'
 import type { PipelineConfig } from './pipelines/config'
+import { pipelineNotifySteps } from './pipelines/config'
 import { resolvePipelineActionValue } from './pipeline-actions.server'
 import { openSecret } from './connector-secrets.server'
 import { deriveWebhookSecretKey, signPayload } from './webhook-signing'
@@ -19,6 +20,8 @@ export interface PipelineNotificationContext {
   previous: PythonInputRow[]
   output: PythonInputRow
   actions: PythonInputRow
+  /** Per notification step: the result of the data step before it. */
+  previousFor?: Record<string, PythonInputRow[]>
 }
 
 /** A completed run's facts, plus the deliveries queuing them recorded. */
@@ -34,7 +37,9 @@ export async function queuePipelineNotifications(
   result: PipelineNotificationRunResult,
   context: PipelineNotificationContext,
 ): Promise<void> {
-  if (!config.notifications?.length) return
+  const targets = pipelineNotifySteps(config)
+
+  if (!targets.length) return
   await conn.query('SET ROLE NONE')
 
   const { rows: events } = await conn.query<{ id: string; created_at: string }>(
@@ -50,7 +55,7 @@ export async function queuePipelineNotifications(
     throw new Error('The run event could not be found; no webhook was queued.')
   const deliveryIds: string[] = []
 
-  for (const target of config.notifications) {
+  for (const target of targets) {
     const { rows } = await conn.query<{
       ciphertext: Buffer | null
       channel_type: string
@@ -90,7 +95,12 @@ export async function queuePipelineNotifications(
     }
 
     if (target.payload) {
-      payload.data = resolvePipelineActionValue(target.payload, context)
+      payload.data = resolvePipelineActionValue(target.payload, {
+        parameters: context.parameters,
+        previous: context.previousFor?.[target.name] ?? context.previous,
+        output: context.output,
+        actions: context.actions,
+      })
     }
 
     // PIPE-05.1: the destination's type decides the body — a Teams incoming webhook

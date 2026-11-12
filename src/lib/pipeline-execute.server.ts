@@ -69,11 +69,17 @@ import {
 
 import { metrics, sizeBucketFor } from '#/lib/metrics'
 import type { PipelineStage } from '#/lib/metrics'
-import type { PipelineConfig, PipelineStep } from './pipelines/config'
+import type {
+  PipelineAskStep,
+  PipelineConfig,
+  PipelineDataStep,
+} from './pipelines/config'
 import {
   validatePipelineConfig,
   validatePipelineRunRequest,
   findPipelineConfirmStep,
+  pipelineActionSteps,
+  pipelineDataSteps,
   confirmExpiryHours,
   confirmNoAnswerOutcome,
   validateConfirmAnswer,
@@ -218,6 +224,13 @@ interface RunRow {
   version_number: number
   configuration: unknown
   definition_name: string
+  /** The pipeline the run belongs to: one of its runs executes at a time. */
+  definition_id?: string
+  /**
+   * Log lines held back until the run may write to the workspace (see
+   * `holdWorkspaceWrites`). Unset once they are written.
+   */
+  pendingLogs?: PendingLog[]
   /**
    * Set for a trial of a draft: nothing is recorded against the run, because
    * there is none. Log lines are collected here instead of written.
@@ -226,6 +239,13 @@ interface RunRow {
 }
 
 type TrialLogEntry = PipelineTrialLogEntry
+
+interface PendingLog {
+  level: 'info' | 'warning' | 'error'
+  stage: string
+  message: string
+  detail: SqlResultRow
+}
 
 interface SchemaFieldRow {
   field_id: string
@@ -315,19 +335,20 @@ export async function runPipelineExecution(
       }
     }
 
-    if (!(await tryWorkspaceExecutionLock(conn, run.workspace_id))) {
+    if (!(await tryPipelineExecutionLock(conn, run))) {
       await conn.rollback()
 
       return {
         ok: false,
         errorCode: 'workspace_busy',
-        errorMessage: 'Another pipeline in this workspace is running.',
+        errorMessage: 'Another run of this pipeline is executing.',
       }
     }
 
     await conn.query('SAVEPOINT sb_pipeline_work')
     workStarted = true
     enforceDeadline = true
+    run.pendingLogs = []
 
     const config = parseConfig(run.configuration)
     const requestErrors = validateRunRequest(config, run)
@@ -465,6 +486,18 @@ export async function runPipelineExecution(
     return { ok: true, run: finished.run }
   } catch (error) {
     enforceDeadline = false
+
+    // Another pipeline held the workspace's writes for too long: drop this
+    // attempt whole, run still running, and let the queue try again.
+    if (isWorkspaceBusy(error)) {
+      await conn.rollback()
+
+      return {
+        ok: false,
+        errorCode: 'workspace_busy',
+        errorMessage: 'Another pipeline in this workspace is writing.',
+      }
+    }
 
     let code: PipelineErrorCode =
       error instanceof PipelineStepError ? error.code : 'pipeline_internal'
@@ -1163,6 +1196,7 @@ async function finishExecution(
     rows: SqlResultRow[]
     durationMs: number
     usage?: PythonTransformUsage
+    effectPrevious?: Record<string, SqlResultRow[]>
   },
   timing: {
     startedAt: number
@@ -1171,6 +1205,8 @@ async function finishExecution(
   },
 ): Promise<FinishOutcome> {
   const { startedAt, materializeMs, observeStage } = timing
+
+  await holdWorkspaceWrites(conn, run)
   const outputStarted = Date.now()
 
   if (!(await isRunRunning(conn, run.id)))
@@ -1216,13 +1252,16 @@ async function finishExecution(
 
   await setRunActorClaims(conn, run)
 
+  const actions = pipelineActionSteps(config)
+
   const actionResults = await executePipelineActions(
     conn,
     { workspaceId: run.workspace_id, runId: run.id },
-    config.actions ?? [],
+    actions,
     {
       parameters: run.parameters,
       previous: transform.rows,
+      previousFor: transform.effectPrevious,
       output: {
         datasetId: output.datasetId,
         datasetVersionId: output.datasetVersionId,
@@ -1231,7 +1270,7 @@ async function finishExecution(
     },
   )
 
-  for (const action of config.actions ?? []) {
+  for (const action of actions) {
     await log(conn, run, 'info', 'action', `${action.name} completed.`, {
       name: action.name,
       operation: action.operation,
@@ -1269,6 +1308,7 @@ async function finishExecution(
   await queuePipelineNotifications(conn, run, config, completion, {
     parameters: run.parameters,
     previous: transform.rows,
+    previousFor: transform.effectPrevious,
     actions: actionResults,
     output: {
       datasetId: output.datasetId,
@@ -1291,11 +1331,7 @@ async function finishExecution(
     },
     inputNames: config.inputs.map((input) => input.name),
     // A plugin step has no code: its digest covers which step runs and what it is given.
-    steps: listSteps(config).map((step) =>
-      step.language === 'plugin'
-        ? { ...step, statement: JSON.stringify(step.plugin ?? null) }
-        : step,
-    ),
+    steps: manifestSteps(config),
     output: {
       mode: config.output.mode,
       datasetId: output.datasetId,
@@ -1303,7 +1339,7 @@ async function finishExecution(
       label: output.label,
     },
     rows: transform.rows,
-    actions: (config.actions ?? []).map((action) => ({
+    actions: actions.map((action) => ({
       name: action.name,
       operation: action.operation,
     })),
@@ -1337,13 +1373,8 @@ async function pauseRun(
   run: RunRow,
   outcome: Extract<TransformOutcome, { kind: 'waiting' }>,
 ): Promise<void> {
-  const confirm = outcome.step.confirm
-
-  if (!confirm)
-    throw new PipelineStepError(
-      'pipeline_internal',
-      'A waiting outcome needs a confirm step.',
-    )
+  await flushLogs(conn, run)
+  const confirm = outcome.step.ask
   const hours = confirmExpiryHours(confirm)
   const proposal = boundProposal(outcome.proposal)
   await log(
@@ -1500,12 +1531,12 @@ async function checkResumable(
   const config = parseConfig(run.configuration)
   const step = findPipelineConfirmStep(config, prompt.step_id)
 
-  if (!step?.confirm)
+  if (!step)
     return refuse(
       'invalid_configuration',
-      'The waiting step is not a confirm step in this version.',
+      'The waiting step is not an ask step in this version.',
     )
-  const answerError = validateConfirmAnswer(step.confirm, answer)
+  const answerError = validateConfirmAnswer(step.ask, answer)
 
   if (answerError) return refuse('invalid_answer', answerError)
 
@@ -1601,13 +1632,13 @@ export async function resumePipelineRun(
       }
     }
 
-    if (!(await tryWorkspaceExecutionLock(conn, run.workspace_id))) {
+    if (!(await tryPipelineExecutionLock(conn, run))) {
       await conn.rollback()
 
       return {
         ok: false,
         errorCode: 'workspace_busy',
-        errorMessage: 'Another pipeline in this workspace is running.',
+        errorMessage: 'Another run of this pipeline is executing.',
       }
     }
 
@@ -1779,6 +1810,16 @@ export async function resumePipelineRun(
 
     return { ok: true, run: finished.run }
   } catch (error) {
+    if (isWorkspaceBusy(error)) {
+      await conn.rollback()
+
+      return {
+        ok: false,
+        errorCode: 'workspace_busy',
+        errorMessage: 'Another pipeline in this workspace is writing.',
+      }
+    }
+
     let code: PipelineErrorCode =
       error instanceof PipelineStepError ? error.code : 'pipeline_internal'
 
@@ -1949,16 +1990,18 @@ export async function expirePipelinePrompts(
         const config = parseConfig(run.configuration)
         const step = findPipelineConfirmStep(config, prompt.step_id)
 
-        const outcome = step?.confirm
-          ? confirmNoAnswerOutcome(step.confirm)
-          : 'fail'
+        const outcome = step ? confirmNoAnswerOutcome(step.ask) : 'fail'
 
-        if (outcome === 'apply' && step?.confirm) {
-          if (!(await tryWorkspaceExecutionLock(conn, run.workspace_id))) {
-            // Another pipeline is writing here; the next sweep applies it.
+        if (outcome === 'apply' && step) {
+          if (!(await tryPipelineExecutionLock(conn, run))) {
+            // Another run of this pipeline is executing; the next sweep applies it.
             await conn.rollback()
             continue
           }
+
+          // Hold the log lines back until the output phase takes the
+          // workspace's write lock (see holdWorkspaceWrites).
+          run.pendingLogs = []
 
           await conn.query(
             `UPDATE api.pipeline_runs SET status = 'running', result = '{}'::jsonb
@@ -2105,23 +2148,78 @@ export async function expirePipelinePrompts(
 // ---------------------------------------------------------------------------
 
 /**
- * One pipeline writes to a workspace at a time. Every run's transaction takes a
- * shared lock on the workspace row early (foreign keys on its logs) and the
- * output phase then asks for it exclusively (display-id assignment), so two runs
- * in one workspace deadlock. A transaction-scoped advisory lock taken before any
- * of that turns the clash into a wait the queue can defer, never a failed run.
- * Runs in different workspaces still execute side by side.
+ * One run of a pipeline executes at a time; runs of different pipelines in a
+ * workspace execute side by side. A run that finds its pipeline busy is
+ * deferred by the queue, never failed.
  */
-async function tryWorkspaceExecutionLock(
+async function tryPipelineExecutionLock(
   conn: ExecConnection,
-  workspaceId: string,
+  run: RunRow,
 ): Promise<boolean> {
   const { rows } = await conn.query<{ acquired: boolean }>(
     'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
-    [`pipeline-workspace:${workspaceId}`],
+    [`pipeline-definition:${run.definition_id ?? run.definition_version_id}`],
   )
 
   return rows[0]?.acquired !== false
+}
+
+/** How long a run waits for another pipeline to finish writing to the workspace. */
+const WORKSPACE_WRITE_WAIT = '20s'
+
+class WorkspaceBusyError extends Error {}
+
+/** A lock that could not be had in time, or a deadlock the database broke. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught error is unknown; its code is decoded here.
+function isWorkspaceBusy(error: unknown): boolean {
+  if (error instanceof WorkspaceBusyError) return true
+  const code = z.object({ code: z.string() }).safeParse(error)
+
+  return (
+    code.success && (code.data.code === '55P03' || code.data.code === '40P01')
+  )
+}
+
+/**
+ * Writing the output takes the workspace row exclusively (display ids), and
+ * every log line holds a shared lock on it. So writes are taken in turn: a run
+ * keeps its log lines in memory while its steps work, takes the workspace's
+ * write lock before it writes anything there, then writes its log lines and
+ * its output. A run waiting for the lock holds no lock on the workspace row,
+ * so the two can never wait on each other.
+ */
+async function holdWorkspaceWrites(
+  conn: ExecConnection,
+  run: RunRow,
+): Promise<void> {
+  if (run.trial) return
+
+  try {
+    await conn.query(`SELECT set_config('lock_timeout', $1, true)`, [
+      WORKSPACE_WRITE_WAIT,
+    ])
+    await conn.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+      `pipeline-workspace:${run.workspace_id}`,
+    ])
+    await conn.query(`SELECT set_config('lock_timeout', '0', true)`)
+  } catch (error) {
+    if (isWorkspaceBusy(error))
+      throw new WorkspaceBusyError('The workspace is busy.')
+    throw error
+  }
+
+  await flushLogs(conn, run)
+}
+
+/** Write the log lines a run held back, in order. */
+async function flushLogs(conn: ExecConnection, run: RunRow): Promise<void> {
+  const pending = run.pendingLogs
+
+  run.pendingLogs = undefined
+
+  for (const entry of pending ?? [])
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Log sequence numbers follow write order on the run's single connection.
+    await log(conn, run, entry.level, entry.stage, entry.message, entry.detail)
 }
 
 async function loadRun(
@@ -2133,7 +2231,8 @@ async function loadRun(
             r.status, r.attempt, r.retry_of_run_id, r.trigger_occurrence_id,
             r.schedule_id, r.input_digest,
             r.parameters, r.input_versions, r.result, r.actor_user_id, r.actor_credential_id,
-            v.version AS version_number, v.configuration, d.name AS definition_name
+            v.version AS version_number, v.configuration, d.name AS definition_name,
+            v.definition_id
        FROM api.pipeline_runs r
        JOIN api.pipeline_definition_versions v ON v.id = r.definition_version_id
        JOIN api.pipeline_definitions d ON d.id = v.definition_id
@@ -2437,13 +2536,18 @@ type TransformOutcome =
       durationMs: number
       /** PIPE-04.3: per-run peak payload usage measured across Python steps. */
       usage?: PythonTransformUsage
+      /**
+       * What each action and notification reads as `previous`: the result of
+       * the data step before it. They run once the output is written.
+       */
+      effectPrevious?: Record<string, SqlResultRow[]>
     }
   | {
       kind: 'waiting'
-      step: PipelineStep
-      /** The last executed step's result: what the dependent steps read. */
+      step: PipelineAskStep
+      /** The last executed step's result: what the steps after the ask read. */
       previous: SqlResultRow[]
-      /** The confirm step's own result: the proposal shown to the person. */
+      /** What the person is shown: the rows of the step before the ask. */
       proposal: SqlResultRow[]
       durationMs: number
     }
@@ -2480,24 +2584,19 @@ async function withSandbox<T>(
   }
 }
 
-/** The ordered steps a run executes: the analysis step first, then any chained steps. */
-function listSteps(config: PipelineConfig): PipelineStep[] {
-  const steps: PipelineStep[] = []
-
-  if (config.transform.language !== 'none') {
-    const analysis: PipelineStep = {
-      name: 'analysis',
-      language: config.transform.language,
-      statement: config.transform.statement,
-    }
-
-    if (config.transform.contract) analysis.contract = config.transform.contract
-    steps.push(analysis)
-  }
-
-  steps.push(...(config.steps ?? []))
-
-  return steps
+/**
+ * The data steps a run executes, as the manifest records them: a plugin step
+ * has no code, so its digest covers which step runs and what it is given.
+ */
+function manifestSteps(
+  config: PipelineConfig,
+): Array<{ name: string; language: string; statement: string }> {
+  return pipelineDataSteps(config).map((step) => ({
+    name: step.name,
+    language: step.kind,
+    statement:
+      step.kind === 'plugin' ? JSON.stringify(step.plugin) : step.statement,
+  }))
 }
 
 /** Run ordered analysis steps without exposing the orchestration connection to Python. */
@@ -2512,7 +2611,7 @@ async function executeSteps(
 ): Promise<TransformOutcome> {
   const started = Date.now()
   let previous: SqlResultRow[] | undefined
-  // Steps skipped by a Skip decision: the confirm step's declared dependents.
+  // Steps skipped by a Skip decision: the ask step's declared dependents.
   const skipped = new Set<string>()
   // The most recent recorded decision, exposed to the steps after it.
   let answerValues: PipelineJsonObject | null = null
@@ -2527,9 +2626,10 @@ async function executeSteps(
     usages.push(usage)
   }
 
-  const steps = listSteps(config)
   // What each step gave back, so a plugin step can read any earlier one by name.
   const stepResults: Record<string, SqlResultRow[]> = {}
+  // What each action and notification will read as `previous`.
+  const effectPrevious: Record<string, SqlResultRow[]> = {}
 
   const inputRows = async (name: string) => {
     if (!config.inputs.some((input) => input.name === name)) return undefined
@@ -2543,9 +2643,9 @@ async function executeSteps(
 
   const runStep = async (
     index: number,
-    step: (typeof steps)[number],
+    step: PipelineDataStep,
   ): Promise<TransformOutcome> => {
-    if (step.language === 'plugin') {
+    if (step.kind === 'plugin') {
       try {
         const actor =
           run.actor_user_id ??
@@ -2579,7 +2679,7 @@ async function executeSteps(
           'info',
           'plugin',
           `Plugin step ${index + 1} completed.`,
-          { step: step.name, operation: step.plugin?.operation },
+          { step: step.name, operation: step.plugin.operation },
         )
 
         return {
@@ -2599,7 +2699,7 @@ async function executeSteps(
       }
     }
 
-    if (step.language === 'python') {
+    if (step.kind === 'python') {
       const inputs: Record<string, SqlResultRow[]> = {}
 
       for (const input of config.inputs) {
@@ -2688,18 +2788,10 @@ async function executeSteps(
     if (answerValues && !sandbox.has('confirm_answer'))
       await sandbox.copyTable(conn, 'confirm_answer')
 
-    return executeTransform(
-      run,
-      {
-        ...config,
-        transform: { language: 'sql', statement: step.statement },
-      },
-      sandbox,
-      conn,
-    )
+    return executeTransform(run, config, step.statement, sandbox, conn)
   }
 
-  for (const [index, step] of steps.entries()) {
+  for (const [index, step] of config.steps.entries()) {
     if (skipped.has(step.name)) {
       await log(
         conn,
@@ -2708,6 +2800,69 @@ async function executeSteps(
         'skip',
         `${index + 1}. ${step.name} skipped by the decision.`,
         { step: index + 1, name: step.name },
+      )
+      continue
+    }
+
+    // Actions and notifications run once the output is written; note what
+    // they will read.
+    if (step.kind === 'action' || step.kind === 'notify') {
+      effectPrevious[step.name] = previous ?? []
+      continue
+    }
+
+    // PIPE-02: an ask step shows a person the rows so far and waits. Confirm
+    // carries on with those rows; Skip leaves out the steps it names.
+    if (step.kind === 'ask') {
+      const shown = previous ?? []
+      const recordedDecision = answered?.get(step.name)
+
+      if (!recordedDecision) {
+        return {
+          kind: 'waiting',
+          step,
+          previous: shown,
+          proposal: shown,
+          durationMs: Date.now() - started,
+        }
+      }
+
+      const decision = confirmAnswerSchema.parse(recordedDecision)
+
+      if (decision.decision === 'skip')
+        for (const name of step.ask.skipSteps ?? []) skipped.add(name)
+
+      stepResults[step.name] = shown
+      answerValues =
+        pipelineJsonObjectSchema.optional().parse(decision.values) ?? {}
+      await provisionConfirmAnswer(conn, answerValues)
+      await log(
+        conn,
+        run,
+        'info',
+        'confirm',
+        `${index + 1}. ${step.name} answered: ${decision.decision}.`,
+        {
+          step: index + 1,
+          name: step.name,
+          decision: decision.decision,
+          skipped: [...skipped],
+        },
+      )
+      continue
+    }
+
+    // The skip rule: nothing came out of the step before, so this one has
+    // nothing to work on. The empty result carries on.
+    if (step.onlyIfRows && previous !== undefined && previous.length === 0) {
+      stepResults[step.name] = previous
+      await log(
+        conn,
+        run,
+        'info',
+        'skip',
+        `${index + 1}. ${step.name} skipped: the step before it gave no rows.`,
+        { step: index + 1, name: step.name, reason: 'no_rows' },
       )
       continue
     }
@@ -2729,53 +2884,6 @@ async function executeSteps(
       }
     }
 
-    // PIPE-02: a confirm step proposes values and then waits for a person.
-    // Its own result is the proposal; the dependent steps keep reading the
-    // preceding result, so an unanswered run changes nothing.
-    if (step.confirm) {
-      const recordedDecision = answered?.get(step.name)
-
-      if (!recordedDecision) {
-        return {
-          kind: 'waiting',
-          step,
-          previous: previous ?? [],
-          proposal: outcome.rows,
-          durationMs: Date.now() - started,
-        }
-      }
-
-      const decision = confirmAnswerSchema.parse(recordedDecision)
-
-      if (decision.decision === 'skip')
-        for (const name of step.confirm.skipSteps ?? []) skipped.add(name)
-
-      // A plugin step's table is the work itself, not a proposal beside it: once
-      // the person confirms it, the steps after it read it as `previous`.
-      if (step.language === 'plugin' && decision.decision === 'confirm') {
-        previous = outcome.rows
-        stepResults[step.name] = outcome.rows
-      }
-
-      answerValues =
-        pipelineJsonObjectSchema.optional().parse(decision.values) ?? {}
-      await provisionConfirmAnswer(conn, answerValues)
-      await log(
-        conn,
-        run,
-        'info',
-        'confirm',
-        `${index + 1}. ${step.name} answered: ${decision.decision}.`,
-        {
-          step: index + 1,
-          name: step.name,
-          decision: decision.decision,
-          skipped: [...skipped],
-        },
-      )
-      continue
-    }
-
     previous = outcome.rows
     stepResults[step.name] = outcome.rows
     await log(
@@ -2787,7 +2895,7 @@ async function executeSteps(
       {
         step: index + 1,
         name: step.name,
-        language: step.language,
+        language: step.kind,
         rowCount: previous.length,
       },
     )
@@ -2797,6 +2905,7 @@ async function executeSteps(
     kind: 'rows',
     rows: previous ?? [],
     durationMs: Date.now() - started,
+    effectPrevious,
   }
 
   if (usages.length > 0)
@@ -2901,10 +3010,10 @@ async function materializePrevious(
 async function executeTransform(
   run: RunRow,
   config: PipelineConfig,
+  statement: string,
   sandbox: SandboxSession,
   conn: ExecConnection,
 ): Promise<TransformOutcome> {
-  const statement = config.transform.statement
   const check = checkTransformStatement(statement)
 
   if (!check.ok) {
@@ -3697,6 +3806,12 @@ async function log(
 ): Promise<void> {
   if (run.trial) {
     run.trial.push({ level, stage, message: truncate(message, 2000) })
+
+    return
+  }
+
+  if (run.pendingLogs) {
+    run.pendingLogs.push({ level, stage, message, detail })
 
     return
   }

@@ -104,11 +104,12 @@ async function rpcRow<T>(
 
 function config(statement: string): Record<string, unknown> {
   return {
-    configVersion: 1,
+    configVersion: 2,
+    mode: 'standard',
     description: 'provenance test',
     parameters: [{ name: 'factor', type: 'decimal', required: true }],
     inputs: [{ name: 'measurements', required: true }],
-    transform: { language: 'sql', statement },
+    steps: [{ name: 'analysis', kind: 'sql', statement: statement }],
     output: {
       mode: 'create',
       schemaVersionId,

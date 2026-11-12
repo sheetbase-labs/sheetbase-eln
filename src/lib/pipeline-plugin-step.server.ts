@@ -7,7 +7,7 @@ import {
   openCallable,
 } from './extensions/runtime.server'
 import type { ExtensionRuntimeDeps } from './extensions/runtime.server'
-import type { PipelineStep } from './pipelines/config'
+import type { PipelinePluginDataStep as PipelineStep } from './pipelines/config'
 import { pipelineJsonObjectSchema } from './pipelines/types'
 import type { PythonInputRow } from './pipeline-python.server'
 
@@ -92,10 +92,9 @@ export async function runPluginStep(
   scope: PluginStepScope,
 ): Promise<{ rows: Rows }> {
   const plugin = args.step.plugin
-  const name = plugin ? parsePluginName(plugin.operation) : null
+  const name = parsePluginName(plugin.operation)
 
-  if (!plugin || !name)
-    throw new PluginStepError('This step does not name a plugin step.')
+  if (!name) throw new PluginStepError('This step does not name a plugin step.')
 
   try {
     const deps = args.deps ?? defaultDeps()

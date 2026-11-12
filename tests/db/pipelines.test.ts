@@ -483,14 +483,15 @@ function pipelineConfig(
   statement: string,
 ): z.input<typeof pipelineJsonObjectSchema> {
   return {
-    configVersion: 1,
+    configVersion: 2,
+    mode: 'standard',
     description: 'scale measurement values',
     parameters: [
       { name: 'factor', type: 'decimal', required: true },
       { name: 'note', type: 'text', required: false, default: 'scaled' },
     ],
     inputs: [{ name: 'measurements', required: true }],
-    transform: { language: 'sql', statement },
+    steps: [{ name: 'analysis', kind: 'sql', statement: statement }],
     output: {
       mode: 'create',
       schemaVersionId,
@@ -588,9 +589,10 @@ describe('Pipeline Definition lifecycle', () => {
         p_workspace_id: WS,
         p_definition_id: pipelineDefinitionId,
         p_configuration: {
-          configVersion: 1,
+          configVersion: 2,
+          mode: 'standard',
           inputs: [{ name: 'measurements', required: true }],
-          transform: { language: 'javascript', statement: 'x' },
+          steps: [{ name: 'analysis', kind: 'javascript', statement: 'x' }],
           output: {
             mode: 'create',
             schemaVersionId,
@@ -2424,18 +2426,21 @@ describe('Pipeline workflow extensions', () => {
     const runtime = 'sheetbase/python@sha256:' + 'a'.repeat(64)
 
     const run = await workflow({
-      configVersion: 1,
+      configVersion: 2,
+      mode: 'standard',
       parameters: [],
       inputs: [],
       pythonRuntime: runtime,
-      transform: {
-        language: 'python',
-        statement: 'def transform(inputs, parameters): return [{"value": 3}]',
-      },
       steps: [
         {
+          name: 'analysis',
+          kind: 'python',
+          statement: 'def transform(inputs, parameters): return [{"value": 3}]',
+        },
+
+        {
           name: 'double_value',
-          language: 'sql',
+          kind: 'sql',
           statement: 'SELECT value * 2 AS scaled FROM previous',
         },
       ],
@@ -2481,19 +2486,22 @@ describe('Pipeline workflow extensions', () => {
     const runtime = `local-worker-contract@sha256:${createHash('sha256').update(readFileSync('docker/pipeline-python/worker.py')).digest('hex')}`
 
     const config = {
-      configVersion: 1,
+      configVersion: 2,
+      mode: 'standard',
       parameters: [],
       inputs: [],
       pythonRuntime: runtime,
-      transform: {
-        language: 'python',
-        statement:
-          'import pandas as pd\ndef transform(inputs, parameters):\n    print("real Python executed")\n    return pd.DataFrame({"batch": ["A", "B"], "value": [7, 19]})',
-      },
       steps: [
         {
+          name: 'analysis',
+          kind: 'python',
+          statement:
+            'import pandas as pd\ndef transform(inputs, parameters):\n    print("real Python executed")\n    return pd.DataFrame({"batch": ["A", "B"], "value": [7, 19]})',
+        },
+
+        {
           name: 'scale',
-          language: 'sql',
+          kind: 'sql',
           statement:
             'select batch, value, value * 3 as scaled from previous order by value',
         },
@@ -2647,22 +2655,28 @@ describe('Pipeline workflow extensions', () => {
 
   it('rolls back a new dataset if a later webhook target is unavailable', async () => {
     const run = await workflow({
-      configVersion: 1,
+      configVersion: 2,
+      mode: 'standard',
       parameters: [],
       inputs: [],
-      transform: {
-        language: 'sql',
-        statement: "SELECT 'x'::text AS batch, 2 AS value, 4 AS scaled",
-      },
+      steps: [
+        {
+          name: 'analysis',
+          kind: 'sql',
+          statement: "SELECT 'x'::text AS batch, 2 AS value, 4 AS scaled",
+        },
+        {
+          name: 'tell_hook',
+          kind: 'notify',
+          notify: { subscriptionId: '00000000-0000-4000-8000-000000000099' },
+        },
+      ],
       output: {
         mode: 'create',
         schemaVersionId,
         datasetName: 'Must roll back',
         datasetLabel: 'result',
       },
-      notifications: [
-        { subscriptionId: '00000000-0000-4000-8000-000000000099' },
-      ],
     })
 
     const { deps, close } = await makeExecDeps(OWNER)
@@ -2687,27 +2701,33 @@ describe('Pipeline workflow extensions', () => {
 
   it('creates a project and experiment through named ELN actions without any dataset', async () => {
     const run = await workflow({
-      configVersion: 1,
+      configVersion: 2,
+      mode: 'standard',
       parameters: [],
       inputs: [],
-      transform: { language: 'none', statement: '' },
-      output: { mode: 'none' },
-      actions: [
+      steps: [
         {
           name: 'project',
-          operation: 'create_project',
-          arguments: { p_title: 'Action-created project' },
+          kind: 'action',
+          action: {
+            operation: 'create_project',
+            arguments: { p_title: 'Action-created project' },
+          },
         },
         {
           name: 'experiment',
-          operation: 'create_model_record',
-          arguments: {
-            p_project_id: { $ref: 'actions.project.id' },
-            p_kind: 'experiment',
-            p_title: 'Action-created experiment',
+          kind: 'action',
+          action: {
+            operation: 'create_model_record',
+            arguments: {
+              p_project_id: { $ref: 'actions.project.id' },
+              p_kind: 'experiment',
+              p_title: 'Action-created experiment',
+            },
           },
         },
       ],
+      output: { mode: 'none' },
     })
 
     const { deps, close } = await makeExecDeps(OWNER)
@@ -2750,24 +2770,27 @@ describe('Pipeline workflow extensions', () => {
     ).rows[0]
 
     const run = await workflow({
-      configVersion: 1,
+      configVersion: 2,
+      mode: 'standard',
       parameters: [],
       inputs: [],
-      transform: { language: 'none', statement: '' },
-      output: { mode: 'none' },
-      actions: [
+      steps: [
         {
           name: 'summary',
-          operation: 'insert_block',
-          mode: 'propose',
-          arguments: {
-            p_record_id: record.id,
-            p_type: 'rich_text',
-            p_payload: { doc: { type: 'doc', content: [] } },
-            p_expected_structure_version: record.structure_version,
+          kind: 'action',
+          action: {
+            operation: 'insert_block',
+            mode: 'propose',
+            arguments: {
+              p_record_id: record.id,
+              p_type: 'rich_text',
+              p_payload: { doc: { type: 'doc', content: [] } },
+              p_expected_structure_version: record.structure_version,
+            },
           },
         },
       ],
+      output: { mode: 'none' },
     })
 
     const { deps, close } = await makeExecDeps(OWNER)
@@ -2803,12 +2826,12 @@ describe('Pipeline workflow extensions', () => {
 
   it('releases a settled run artifacts once, keeping them only if the run proposed something', async () => {
     const run = await workflow({
-      configVersion: 1,
+      configVersion: 2,
+      mode: 'standard',
       parameters: [],
       inputs: [],
-      transform: { language: 'none', statement: '' },
+      steps: [],
       output: { mode: 'none' },
-      actions: [],
     })
 
     const { deps, close } = await makeExecDeps(OWNER)
@@ -2848,12 +2871,12 @@ describe('Pipeline workflow extensions', () => {
 
   it('marks a run released once the runner has released its files', async () => {
     const run = await workflow({
-      configVersion: 1,
+      configVersion: 2,
+      mode: 'standard',
       parameters: [],
       inputs: [],
-      transform: { language: 'none', statement: '' },
+      steps: [],
       output: { mode: 'none' },
-      actions: [],
     })
 
     const { deps, close } = await makeExecDeps(OWNER)
@@ -2888,10 +2911,11 @@ describe('Pipeline workflow extensions', () => {
 
   it("does not let a viewer fail another user's running pipeline", async () => {
     const run = await workflow({
-      configVersion: 1,
+      configVersion: 2,
+      mode: 'standard',
       parameters: [],
       inputs: [],
-      transform: { language: 'none', statement: '' },
+      steps: [],
       output: { mode: 'none' },
     })
 
@@ -2912,14 +2936,18 @@ describe('Pipeline workflow extensions', () => {
     const runtime = 'sheetbase/python@sha256:' + 'a'.repeat(64)
 
     const run = await workflow({
-      configVersion: 1,
+      configVersion: 2,
+      mode: 'standard',
       parameters: [],
       inputs: [],
       pythonRuntime: runtime,
-      transform: {
-        language: 'python',
-        statement: 'def transform(inputs, parameters): return []',
-      },
+      steps: [
+        {
+          name: 'analysis',
+          kind: 'python',
+          statement: 'def transform(inputs, parameters): return []',
+        },
+      ],
       output: { mode: 'none' },
     })
 

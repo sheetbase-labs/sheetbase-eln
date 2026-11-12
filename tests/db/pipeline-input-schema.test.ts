@@ -24,10 +24,11 @@ const SCHEMA_ID = '00000000-0000-4000-8000-0000000000b1'
 
 function config(input: Record<string, unknown>) {
   return {
-    configVersion: 1,
+    configVersion: 2,
+    mode: 'standard',
     parameters: [],
     inputs: [input],
-    transform: { language: 'sql', statement: 'select 1 as x' },
+    steps: [{ name: 'analysis', kind: 'sql', statement: 'select 1 as x' }],
     output: { mode: 'none' },
   }
 }

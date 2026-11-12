@@ -10074,6 +10074,12 @@ export const pipelineDefinitionVersions = api.table(
     retiredByUserId: text('retired_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    /** The last push of the version file into this draft: when, who, and the commit it came from. */
+    pushedAt: timestamp('pushed_at', { withTimezone: true, mode: 'date' }),
+    pushedByUserId: text('pushed_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    pushCommit: text('push_commit'),
   },
   (table) => [
     unique('uq_pipeline_definition_versions_definition_version').on(

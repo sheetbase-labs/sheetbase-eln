@@ -84,6 +84,10 @@ export interface PipelineDefinitionVersionWire {
   published_by_user_id: string | null
   retired_at: string | null
   retired_by_user_id: string | null
+  /** The last push of the version file into this draft: when, who, and the commit. */
+  pushed_at?: string | null
+  pushed_by_user_id?: string | null
+  push_commit?: string | null
 }
 
 export interface PipelineRunWire {

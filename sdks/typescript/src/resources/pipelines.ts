@@ -281,6 +281,25 @@ export class PipelinesResource {
   }
 
   /**
+   * Say that the version file was just pushed into this draft: who, when, and
+   * the commit it came from. Changes nothing else and never publishes.
+   * `pushVersionFile` calls it.
+   */
+  async recordVersionPush(params: {
+    workspaceId: string;
+    versionId: string;
+    commit?: string;
+  }): Promise<Row> {
+    return this.transport.post("/api/db/rpc/record_pipeline_version_push", {
+      jsonBody: {
+        p_workspace_id: params.workspaceId,
+        p_version_id: params.versionId,
+        ...(params.commit ? { p_commit: params.commit } : {}),
+      },
+    });
+  }
+
+  /**
    * Put local Python (a script's text, or a notebook via `notebookToPython`) into
    * a pipeline step as a draft. It updates the open draft if there is one,
    * otherwise starts a new draft from the latest version. Nothing is published.
@@ -412,11 +431,13 @@ export class PipelinesResource {
   /**
    * Save a version file as a draft of an Advanced pipeline. Updates the open draft,
    * or starts one. A file with a mistake throws `VersionFileError` and saves
-   * nothing. Nothing is published.
+   * nothing. Nothing is published. The push is recorded on the draft (who, when,
+   * and `options.commit` if given) with `recordVersionPush`.
    */
   async pushVersionFile(
     idOrKey: string,
     text: string,
+    options: { commit?: string } = {},
   ): Promise<{ version: Row; created: boolean }> {
     const definition = await this.get(idOrKey)
     if (!definition) throw new Error(`No pipeline is called ${idOrKey}.`)
@@ -451,6 +472,13 @@ export class PipelinesResource {
           definitionId: definition.id,
           configuration: result.configuration,
         })
+    if (version?.id) {
+      await this.recordVersionPush({
+        workspaceId: definition.workspace_id,
+        versionId: version.id,
+        commit: options.commit,
+      })
+    }
     if (
       result.startRules &&
       JSON.stringify(result.startRules) !==

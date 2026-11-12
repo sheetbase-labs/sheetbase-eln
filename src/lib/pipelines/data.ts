@@ -398,7 +398,7 @@ const DEFINITION_FIELDS =
   'id,workspace_id,key,display_id,name,description,lifecycle,revision,created_at,updated_at,created_by_user_id,updated_by_user_id'
 
 const VERSION_FIELDS =
-  'id,definition_id,workspace_id,version,lifecycle,configuration_format_version,configuration,revision,created_at,updated_at,created_by_user_id,published_at,published_by_user_id,retired_at,retired_by_user_id'
+  'id,definition_id,workspace_id,version,lifecycle,configuration_format_version,configuration,revision,created_at,updated_at,created_by_user_id,published_at,published_by_user_id,retired_at,retired_by_user_id,pushed_at,pushed_by_user_id,push_commit'
 
 const RUN_FIELDS =
   'id,workspace_id,definition_version_id,trigger_kind,status,attempt,retry_of_run_id,trigger_occurrence_id,schedule_id,input_digest,parameters,input_versions,result,error_code,error_message,started_at,finished_at,actor_user_id,actor_credential_id,created_at'

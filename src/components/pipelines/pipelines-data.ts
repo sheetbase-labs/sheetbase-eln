@@ -222,7 +222,7 @@ export function usePipelineRows(client: DataClient = notebookDataClient) {
       const [versions, runs] = await Promise.all([
         client.list<PipelineDefinitionVersionWire>(
           'pipeline_definition_versions',
-          '?select=id,definition_id,workspace_id,version,lifecycle,configuration_format_version,configuration,revision,created_at,updated_at,created_by_user_id,published_at,published_by_user_id,retired_at,retired_by_user_id&order=version.desc',
+          '?select=id,definition_id,workspace_id,version,lifecycle,configuration_format_version,configuration,revision,created_at,updated_at,created_by_user_id,published_at,published_by_user_id,retired_at,retired_by_user_id,pushed_at,pushed_by_user_id,push_commit&order=version.desc',
         ),
         client.list<PipelineRunWire>(
           'pipeline_runs',

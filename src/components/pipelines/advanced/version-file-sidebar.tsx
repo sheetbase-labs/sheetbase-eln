@@ -6,7 +6,9 @@ import { Inspector } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
 import { BoardButton } from '#/features/pipelines/board/board'
 import '#/features/pipelines/board/version-file.css'
+import { useWorkspaceMemberNames } from '#/components/pipelines/pipelines-data'
 import { usePipelineEditor } from '#/components/pipelines/step-list/use-pipeline-editor'
+import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { applyFix } from '#/lib/pipelines/version-file'
 import type { FileBlock } from '#/lib/pipelines/version-file-facts'
 import { readFileFacts } from '#/lib/pipelines/version-file-facts'
@@ -55,12 +57,33 @@ function Row({
 // react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- five sections of the version file's own facts read from one editor.
 function SidebarSections() {
   const editor = usePipelineEditor()
-  const { fileCheck, definition, fileText, setFileText } = editor
+  const { fileCheck, definition, fileText, setFileText, draft } = editor
+  const members = useWorkspaceMemberNames()
   const problems = fileCheck?.problems ?? []
   const facts = useMemo(() => readFileFacts(fileText), [fileText])
   const pipeline = definition.data?.display_id ?? definition.data?.key ?? ''
   const file = `${definition.data?.key ?? 'pipeline'}.yaml`
   const command = `sheetbase push ${pipeline} ${file}`
+
+  // The draft's last push, as the board says it.
+  const lastPush = draft?.pushed_at
+    ? t(
+        draft.push_commit
+          ? draft.pushed_by_user_id && members.data?.[draft.pushed_by_user_id]
+            ? 'features.pipelineVersionFile.sidebar.lastPushCommit'
+            : 'features.pipelineVersionFile.sidebar.lastPushNobodyCommit'
+          : draft.pushed_by_user_id && members.data?.[draft.pushed_by_user_id]
+            ? 'features.pipelineVersionFile.sidebar.lastPush'
+            : 'features.pipelineVersionFile.sidebar.lastPushNobody',
+        {
+          who: draft.pushed_by_user_id
+            ? (members.data?.[draft.pushed_by_user_id] ?? '')
+            : '',
+          when: formatNotebookDateTime(draft.pushed_at, { zone: true }),
+          commit: draft.push_commit?.slice(0, 7) ?? '',
+        },
+      )
+    : null
 
   const only = [
     facts.outputs && facts.outputs.count > 1 ? (
@@ -199,6 +222,7 @@ function SidebarSections() {
           />
         </div>
         <p className="sd pls-first">
+          {lastPush ? `${lastPush} ` : ''}
           {t('features.pipelineVersionFile.sidebar.pushNote')}
         </p>
       </div>

@@ -155,8 +155,11 @@ export const copy = {
     copyCommand: 'Copy command',
     copied: 'Copied',
     copyFailed: 'Could not copy',
-    pushNote:
-      'A push saves the file as a new draft once it validates. It never publishes; runs keep using the published version.',
+    pushNote: 'A push replaces the draft; it never publishes.',
+    lastPush: 'Last push: {who}, {when}.',
+    lastPushCommit: 'Last push: {who}, {when}, commit {commit}.',
+    lastPushNobody: 'Last push: {when}.',
+    lastPushNobodyCommit: 'Last push: {when}, commit {commit}.',
     neverSteps:
       'Signing, approving and releasing are not available to steps. An ELN step can propose a change for a person to decide.',
   },

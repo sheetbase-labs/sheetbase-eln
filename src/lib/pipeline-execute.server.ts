@@ -73,7 +73,12 @@ import type {
   PipelineAskStep,
   PipelineConfig,
   PipelineDataStep,
+  PipelineRemoteJobStep,
 } from './pipelines/config'
+import { loadLakeTables } from './pipeline-lakehouse.server'
+import { remoteRowsOf, runRemoteJobStep } from './pipeline-hpc.server'
+import type { RemoteJobDeps, RemoteJobRow } from './pipeline-hpc.server'
+import type { ObjectStorage } from './file-storage/types'
 import {
   validatePipelineConfig,
   validatePipelineRunRequest,
@@ -183,6 +188,22 @@ export interface PipelineExecuteDeps {
   sandbox?: ConnectSandbox
   /** How plugin steps are run; a test hands in its own. Absent means the workspace's installed plugins. */
   plugins?: ExtensionRuntimeDeps
+  /** How remote job steps reach their scheduler; a test hands in its own. Absent means the workspace's connections. */
+  remote?: RemoteJobDeps
+  /** Where the open tables' files are read from; a test hands in its own. Absent means the file store. */
+  lakeStorage?: Pick<ObjectStorage, 'getStream'>
+}
+
+/** What the two steps that reach outside the database are given. */
+interface ExternalStepDeps {
+  remote?: RemoteJobDeps
+  lakeStorage?: Pick<ObjectStorage, 'getStream'>
+  /** Reproduce: a remote job's recorded answer is read, never asked for again. */
+  recorded?: boolean
+}
+
+function externalSteps(deps: PipelineExecuteDeps): ExternalStepDeps {
+  return { remote: deps.remote, lakeStorage: deps.lakeStorage }
 }
 
 /** Scientific values before output-field coercion or JSON serialization. */
@@ -382,6 +403,10 @@ export async function runPipelineExecution(
       },
     )
 
+    // A run that waited for a remote job starts again from its first step: the
+    // decisions people already gave at ask steps are replayed, not asked again.
+    const answeredPrompts = await loadAnsweredPrompts(conn, run.id)
+
     // Run the transform as the low-privilege role against the temp schema.
     const transformStarted = Date.now()
 
@@ -392,8 +417,9 @@ export async function runPipelineExecution(
         config,
         deps.executePython ?? executePythonTransform,
         sandbox,
-        undefined,
+        answeredPrompts,
         deps.plugins,
+        externalSteps(deps),
       ),
     )
 
@@ -621,6 +647,7 @@ export async function tryPipelineDraft(
         sandbox,
         undefined,
         deps.plugins,
+        externalSteps(deps),
       ),
     )
 
@@ -875,6 +902,7 @@ async function reproduceInScratch(
       sandbox,
       answered,
       deps.plugins,
+      { ...externalSteps(deps), recorded: true },
     ),
   )
 
@@ -1375,6 +1403,36 @@ async function pauseRun(
   outcome: Extract<TransformOutcome, { kind: 'waiting' }>,
 ): Promise<void> {
   await flushLogs(conn, run)
+
+  if (outcome.step.kind === 'remote_job') {
+    // The run waits for a job on a cluster, not for a person: no prompt, and
+    // the sweep wakes it once the job has an answer, fails or runs out of time.
+    const job = outcome.job
+
+    const pending = {
+      step: outcome.step.name,
+      since: new Date().toISOString(),
+      previousRows: outcome.previous.length,
+      kind: 'remote_job',
+      queue: job?.queue ?? outcome.step.remoteJob.queue,
+      deadlineAt: job?.deadline_at ?? null,
+    }
+
+    const updated = await conn.query<{ id: string }>(
+      `UPDATE api.pipeline_runs SET status = 'waiting', result = $2::jsonb
+        WHERE id = $1 AND status = 'running' RETURNING id`,
+      [run.id, JSON.stringify({ pending })],
+    )
+
+    if (updated.rows.length === 0)
+      throw new PipelineStepError(
+        'run_cancelled',
+        'Run was cancelled before it could wait.',
+      )
+
+    return
+  }
+
   const confirm = outcome.step.ask
   const hours = confirmExpiryHours(confirm)
   const proposal = boundProposal(outcome.proposal)
@@ -1737,6 +1795,7 @@ export async function resumePipelineRun(
         sandbox,
         answered,
         deps.plugins,
+        externalSteps(deps),
       ),
     )
 
@@ -2039,6 +2098,7 @@ export async function expirePipelinePrompts(
               sandbox,
               answered,
               deps.plugins,
+              externalSteps(deps),
             ),
           )
 
@@ -2545,7 +2605,9 @@ type TransformOutcome =
     }
   | {
       kind: 'waiting'
-      step: PipelineAskStep
+      step: PipelineAskStep | PipelineRemoteJobStep
+      /** A remote job step waits for its job, not a person. */
+      job?: RemoteJobRow
       /** The last executed step's result: what the steps after the ask read. */
       previous: SqlResultRow[]
       /** What the person is shown: the rows of the step before the ask. */
@@ -2596,8 +2658,39 @@ function manifestSteps(
     name: step.name,
     language: stepRuns(step.kind),
     statement:
-      step.kind === 'plugin' ? JSON.stringify(step.plugin) : step.statement,
+      step.kind === 'plugin'
+        ? JSON.stringify(step.plugin)
+        : step.kind === 'remote_job'
+          ? JSON.stringify(step.remoteJob)
+          : step.statement,
   }))
+}
+
+/** The decisions people gave a run at its ask steps, by step name. */
+async function loadAnsweredPrompts(
+  conn: ExecConnection,
+  runId: string,
+): Promise<Map<string, PipelineJsonObject> | undefined> {
+  const { rows } = await conn.query<{
+    step_id: string
+    answer: PipelineJsonObject
+  }>(
+    `SELECT step_id, answer FROM api.pipeline_run_prompts
+      WHERE run_id = $1 AND answer IS NOT NULL`,
+    [runId],
+  )
+
+  return rows.length > 0
+    ? new Map(rows.map((row) => [row.step_id, row.answer]))
+    : undefined
+}
+
+async function defaultRemoteJobDeps(): Promise<RemoteJobDeps> {
+  return (await import('./pipeline-hpc-deps.server')).realRemoteJobDeps
+}
+
+async function defaultLakeStorage(): Promise<Pick<ObjectStorage, 'getStream'>> {
+  return (await import('./file-storage')).getObjectStorage()
 }
 
 /** Run ordered analysis steps without exposing the orchestration connection to Python. */
@@ -2609,6 +2702,7 @@ async function executeSteps(
   sandbox: SandboxSession,
   answered?: Map<string, PipelineJsonObject>,
   plugins?: ExtensionRuntimeDeps,
+  external: ExternalStepDeps = {},
 ): Promise<TransformOutcome> {
   const started = Date.now()
   let previous: SqlResultRow[] | undefined
@@ -2700,6 +2794,97 @@ async function executeSteps(
       }
     }
 
+    if (step.kind === 'remote_job') {
+      // A trial of a draft sends nothing to a cluster: it hands the rows on.
+      if (run.trial && run.definition_version_id === '') {
+        await log(
+          conn,
+          run,
+          'info',
+          'remote_job',
+          `Remote job step ${index + 1} is not sent in a trial; its rows pass through.`,
+          { step: step.name, queue: step.remoteJob.queue },
+        )
+
+        return {
+          kind: 'rows',
+          rows: previous ?? [],
+          durationMs: Date.now() - started,
+        }
+      }
+
+      const remote = external.remote ?? (await defaultRemoteJobDeps())
+
+      try {
+        const outcome = await runRemoteJobStep({
+          conn,
+          run,
+          step,
+          previous: remoteRowsOf(previous ?? []),
+          deps: remote,
+          recordedOnly: external.recorded === true,
+        })
+
+        if (outcome.kind === 'error')
+          return {
+            kind: 'error',
+            code: 'transform_failed',
+            message: outcome.message,
+            detail: { step: step.name },
+          }
+
+        if (outcome.kind === 'waiting') {
+          await log(
+            conn,
+            run,
+            'info',
+            'remote_job',
+            `Remote job step ${index + 1} is on ${outcome.job.queue}; the run waits for it.`,
+            {
+              step: step.name,
+              queue: outcome.job.queue,
+              connection: outcome.job.connection_key,
+              jobId: outcome.job.external_job_id,
+              limitMinutes: outcome.job.limit_minutes,
+            },
+          )
+
+          return {
+            kind: 'waiting',
+            step,
+            job: outcome.job,
+            previous: previous ?? [],
+            proposal: previous ?? [],
+            durationMs: Date.now() - started,
+          }
+        }
+
+        await log(
+          conn,
+          run,
+          'info',
+          'remote_job',
+          `Remote job step ${index + 1} gave ${outcome.rows.length} rows back.`,
+          { step: step.name, rows: outcome.rows.length },
+        )
+
+        return {
+          kind: 'rows',
+          rows: pythonInputRowsSchema.parse(outcome.rows),
+          durationMs: Date.now() - started,
+        }
+      } catch (error) {
+        return {
+          kind: 'error',
+          code: 'transform_failed',
+          message: `Remote job step ${step.name}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          detail: { step: step.name },
+        }
+      }
+    }
+
     if (step.kind === 'python') {
       const inputs: Record<string, SqlResultRow[]> = {}
 
@@ -2778,6 +2963,45 @@ async function executeSteps(
     }
 
     if (previous) await materializePrevious(conn, previous)
+
+    // SQL against the lakehouse: the open tables the step names become tables
+    // of its own SQL, as they stand in their current snapshot.
+    if (step.kind === 'lakehouse') {
+      const loaded = await loadLakeTables({
+        conn,
+        workspaceId: run.workspace_id,
+        tables: step.lake.tables,
+        storage: external.lakeStorage ?? (await defaultLakeStorage()),
+      })
+
+      if (loaded.kind === 'error')
+        return {
+          kind: 'error',
+          code: 'input_not_found',
+          message: `Lakehouse step ${step.name}: ${loaded.message}`,
+          detail: { step: step.name },
+        }
+
+      for (const table of loaded.tables)
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- copyTable shares a lazily opened sandbox session and mutates its temp tables; concurrent calls can race session creation and DDL.
+        await sandbox.copyTable(conn, table.name)
+
+      await log(
+        conn,
+        run,
+        'info',
+        'lakehouse',
+        `Lakehouse step ${index + 1} read ${loaded.tables.length} open tables.`,
+        {
+          step: step.name,
+          tables: loaded.tables.map(({ name, snapshotId, rows }) => ({
+            name,
+            snapshotId,
+            rows,
+          })),
+        },
+      )
+    }
 
     // Hand the sandbox exactly the tables this step may read.
     for (const input of config.inputs)

@@ -44,7 +44,7 @@ export function readFileFacts(text: string): FileFacts {
 
     if (at < 0) return undefined
     const top = tops[at]
-    const next = tops[at + 1]
+    const next = tops.at(at + 1)
     let to = (next ? next.line : lines.length + 1) - 1
 
     // Trailing blank and comment lines belong to nothing.
@@ -82,13 +82,15 @@ export function readFileFacts(text: string): FileFacts {
       ]
     : []
 
-  const secrets: string[] = []
+  const seen = new Set<string>()
 
   for (const line of lines) {
     const name = /^\s*(?:-\s*)?secret:\s*([A-Za-z0-9_]+)/.exec(line)?.[1]
 
-    if (name && !secrets.includes(name)) secrets.push(name)
+    if (name) seen.add(name)
   }
+
+  const secrets = [...seen]
 
   const steps = tops.find((top) => top.key === 'steps')
 

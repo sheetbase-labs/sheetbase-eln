@@ -11,7 +11,7 @@ import { CodeBlock } from '#/components/ui/code-block'
 import { Muted } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import type { PythonRuntimeInfo } from '#/components/pipelines/pipelines-data'
-import { pythonTokens } from '#/lib/pipelines/code-tokens'
+import { pythonTokens, requirementTokens } from '#/lib/pipelines/code-tokens'
 import { parseDefault } from '#/lib/pipelines/authoring'
 import type { PipelineInput, PipelineParameter } from '#/lib/pipelines/config'
 import {
@@ -219,19 +219,19 @@ export function PythonPackagesEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      <textarea
-        aria-label={t('data.pythonEditor.ariaPythonPackageRequirements')}
+      <CodeEditor
+        ariaLabel={t('data.pythonEditor.ariaPythonPackageRequirements')}
         value={text}
-        rows={3}
-        spellCheck={false}
+        minHeight="75px"
+        lineNumbers={false}
+        highlight={requirementTokens}
         placeholder={t('data.pythonEditor.placeholderScipy1153')}
-        onChange={(event) => {
-          setText(event.target.value)
-          const next = parseRequirementsText(event.target.value)
-          setLastSent(next)
-          onChange(next)
+        onChange={(next) => {
+          setText(next)
+          const parsed = parseRequirementsText(next)
+          setLastSent(parsed)
+          onChange(parsed)
         }}
-        className="mono w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
       />
       <Muted className="text-label">
         {t('data.pythonEditor.onePerLinePinned')}

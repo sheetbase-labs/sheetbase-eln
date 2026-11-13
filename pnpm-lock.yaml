@@ -68,17 +68,17 @@ importers:
         specifier: ^1.1.10
         version: 1.1.10(react@19.2.7)
       '@sheetbase-labs/sheetbase-advanced-search':
-        specifier: 0.12.0
-        version: 0.12.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: 0.12.1
+        version: 0.12.1(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@sheetbase-labs/sheetbase-explorer':
-        specifier: 0.12.0
-        version: 0.12.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))(react@19.2.7)(solid-js@1.9.17)
+        specifier: 0.12.1
+        version: 0.12.1(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))(react@19.2.7)(solid-js@1.9.17)
       '@sheetbase-labs/sheetbase-shared':
-        specifier: 0.12.0
-        version: 0.12.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: 0.12.1
+        version: 0.12.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@sheetbase-labs/sheetbase-table':
-        specifier: 0.12.0
-        version: 0.12.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: 0.12.1
+        version: 0.12.1(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@t3-oss/env-core':
         specifier: ^0.13.11
         version: 0.13.11(typescript@6.0.3)(zod@4.6.7)
@@ -3309,26 +3309,26 @@ packages:
     resolution: {integrity: sha512-8mpfsoPeRhesY3pOrzNZBL8uG6N5GVX1EHLBYbd4gzKs+c7vaEIqpTNK5VrffU33qQN4cwpP2v3u4aPPBU32sw==}
     engines: {node: '>=16'}
 
-  '@sheetbase-labs/sheetbase-advanced-search@0.12.0':
-    resolution: {integrity: sha512-LSN3K58sjRxuTYGGuBL0OCDiUEeqxg9roqX6gWvJ3I4eFvnWhx2sPmX62JILLSPbP3oqWnGJc/NNDQj/PfMrKg==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-advanced-search/0.12.0/dceabfaefe1e75f7972320b8336ef21d5e966311}
+  '@sheetbase-labs/sheetbase-advanced-search@0.12.1':
+    resolution: {integrity: sha512-uQ1JjbXWFHQZ2NMlYKg+BCnA6iaiRq/2Iww6gHXRvFiJyCiN9551O6b4GTO8Az6/EpumikIhRBJFZcLfadEEeA==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-advanced-search/0.12.1/ffacc2ab7a88e5c9469e16d6ed97294289a1e9e6}
     peerDependencies:
       react: '>=18'
       react-dom: '>=18'
 
-  '@sheetbase-labs/sheetbase-explorer@0.12.0':
-    resolution: {integrity: sha512-PBEz1Nmw56nbIVZTuxHpYsjdaiD3rsHPYexco1/JMFkCwBG8qc6JAqo3jQo6jq8NTA1JDTwPfwidNpWUkReuug==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-explorer/0.12.0/433f03be3c132ea3b1a7a7ac9e6c900a54d4d5c7}
+  '@sheetbase-labs/sheetbase-explorer@0.12.1':
+    resolution: {integrity: sha512-awzWCVMa6NMeAhw2/1B96HQAW9ndhEmf3utnDhIej9D52GYr2HuozzGLCuBtMx9lbBFjR+NTotsZqpBGioMrkw==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-explorer/0.12.1/ef388f9a03a88c1bd13236f52c251bd1a127bfa4}
     peerDependencies:
       react: '>=18'
       react-dom: '>=18'
 
-  '@sheetbase-labs/sheetbase-shared@0.12.0':
-    resolution: {integrity: sha512-/I1S7DoBVNCKZzmbg8MZyFEUWgM98wwgr0I9H5iRkaJiigAs2FVuf2S4bpY8IU+4bso8wRfJOm870tSb121+TQ==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-shared/0.12.0/918fa7f04f37e264216f2a6d389c70d4696a9299}
+  '@sheetbase-labs/sheetbase-shared@0.12.1':
+    resolution: {integrity: sha512-gbWpgmhwU5ii4s2sy0dUhPoigJWPGpdRXIUGraSBzKOhZxBgESuCf32eR+8B9eEPqxr7DvE1Aa+mOyr+Ho+bnA==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-shared/0.12.1/b336dfab1b3a2d6e38bb8aa98af1541557792c10}
     peerDependencies:
       react: '>=18'
       react-dom: '>=18'
 
-  '@sheetbase-labs/sheetbase-table@0.12.0':
-    resolution: {integrity: sha512-OE3EVzt78E8dUlrT05jd38EgpV8hFLEiPQ2/aFKN0I+2GVytb/OCINKxD/9DaJ4JNubnp1FD3fOIar3ewW9DOQ==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-table/0.12.0/8794c3b438db3b42355000246d2d7f1f3e1842df}
+  '@sheetbase-labs/sheetbase-table@0.12.1':
+    resolution: {integrity: sha512-D9qAv+0rmB3QjINcwBbwrZ8bqhnP5TldqyOvZzL98IaQhc5iickSYY4GtYlRvobua/mpO5Eb4+AQT79e99id5g==, tarball: https://npm.pkg.github.com/download/@sheetbase-labs/sheetbase-table/0.12.1/d2f02da1534a1a55a0e62e73895aa82ce71b8366}
     peerDependencies:
       '@tanstack/react-virtual': ^3.14.10
       react: '>=18'
@@ -10543,19 +10543,19 @@ snapshots:
 
   '@shaderfrog/glsl-parser@7.0.1': {}
 
-  '@sheetbase-labs/sheetbase-advanced-search@0.12.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@sheetbase-labs/sheetbase-advanced-search@0.12.1(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
-      '@sheetbase-labs/sheetbase-shared': 0.12.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@sheetbase-labs/sheetbase-table': 0.12.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@sheetbase-labs/sheetbase-shared': 0.12.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@sheetbase-labs/sheetbase-table': 0.12.1(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
     transitivePeerDependencies:
       - '@tanstack/react-virtual'
 
-  '@sheetbase-labs/sheetbase-explorer@0.12.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))(react@19.2.7)(solid-js@1.9.17)':
+  '@sheetbase-labs/sheetbase-explorer@0.12.1(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))(react@19.2.7)(solid-js@1.9.17)':
     dependencies:
-      '@sheetbase-labs/sheetbase-shared': 0.12.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@sheetbase-labs/sheetbase-table': 0.12.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@sheetbase-labs/sheetbase-shared': 0.12.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@sheetbase-labs/sheetbase-table': 0.12.1(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/charts': 0.18.0(react-dom@19.2.7(react@19.2.7))(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))(react@19.2.7)(solid-js@1.9.17)
       alasql: 4.22.0(react-native@0.86.3(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.7))
       d3-scale: 4.0.3
@@ -10579,14 +10579,14 @@ snapshots:
       - svelte
       - vue
 
-  '@sheetbase-labs/sheetbase-shared@0.12.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@sheetbase-labs/sheetbase-shared@0.12.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
 
-  '@sheetbase-labs/sheetbase-table@0.12.0(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@sheetbase-labs/sheetbase-table@0.12.1(@tanstack/react-virtual@3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
-      '@sheetbase-labs/sheetbase-shared': 0.12.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@sheetbase-labs/sheetbase-shared': 0.12.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/react-virtual': 3.14.13(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       rbush: 4.0.1
       react: 19.2.7

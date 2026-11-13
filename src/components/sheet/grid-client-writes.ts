@@ -95,6 +95,7 @@ export function gridWrites(
     )
       return
     const changes: SheetbaseGridCellChange[] = []
+    const backward = mutation.direction === 'backward'
 
     for (const cell of mutation.cells) {
       const { row, column } = parseAddress(cell.address)
@@ -105,8 +106,10 @@ export function gridWrites(
         rowIndex: row,
         rowId: layout.rows[row]?.id,
         columnId: definition.id,
-        previous: cell.before ?? null,
-        next: cell.after ?? null,
+        // An undo reports the mutation it reversed: the cell goes from
+        // `after` back to `before`, and that is what must be saved.
+        previous: (backward ? cell.after : cell.before) ?? null,
+        next: (backward ? cell.before : cell.after) ?? null,
       })
     }
 

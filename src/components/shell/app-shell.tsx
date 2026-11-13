@@ -929,6 +929,17 @@ function NewMenu({
 
   const search = createMenuSearch(pathname)
 
+  // A link item that renders a router Link does not close this menu in a
+  // real browser, so it stayed open over the dialog or page it opened. The
+  // menu closes whenever the address changes.
+  const href = useRouterState({ select: (state) => state.location.href })
+  const previousHref = useRef(href)
+  useEffect(() => {
+    if (previousHref.current === href) return
+    previousHref.current = href
+    onOpenChange(false)
+  }, [href, onOpenChange])
+
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger

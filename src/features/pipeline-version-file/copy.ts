@@ -127,6 +127,7 @@ export const copy = {
   sidebar: {
     aria: 'Problems and source',
     problems: 'Problems',
+    about: 'About this file',
     errors: { one: '{count} error', other: '{count} errors' },
     noProblems: 'No problems',
     problemRow: 'Line {line} · {message}',

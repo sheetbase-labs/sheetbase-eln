@@ -8,6 +8,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 
+import { CodeEditor } from '#/components/code-editor/code-editor'
 import { SqlEditor } from '#/components/pipelines/sql-editor'
 import { Notice } from '#/components/ui/alert'
 import { Badge } from '#/components/ui/badge'
@@ -31,6 +32,7 @@ import type {
   CodeCellOutput,
   CodeCellPayload,
 } from '#/lib/code-cells/code-cell'
+import { pythonTokens } from '#/lib/pipelines/code-tokens'
 import { notebookDataClient, formatRelativeTime } from '#/lib/notebook-data'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import type { AutosaveStatus, SaveResult } from './use-autosave'
@@ -627,20 +629,20 @@ function CodeCellSource({
             value={source}
             rows={8}
             readOnly={readOnly}
-            onChange={(event) => onSourceChange(event.target.value)}
+            onChange={onSourceChange}
             onBlur={onBlur}
           />
         ) : (
-          <textarea
-            aria-label={t('automation.codeCell.codeAria')}
+          <CodeEditor
+            ariaLabel={t('automation.codeCell.codeAria')}
             value={source}
-            rows={10}
+            minHeight="208px"
             readOnly={readOnly}
-            spellCheck={false}
+            lineNumbers={false}
+            highlight={pythonTokens}
             placeholder={starterSource('python')}
-            onChange={(event) => onSourceChange(event.target.value)}
+            onChange={onSourceChange}
             onBlur={onBlur}
-            className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
           />
         )}
       </Field>

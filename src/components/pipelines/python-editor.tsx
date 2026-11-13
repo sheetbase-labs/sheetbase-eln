@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { z } from 'zod'
 
 import { rich, t } from '#/copy'
+import { CodeEditor } from '#/components/code-editor/code-editor'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
 import { Input } from '#/components/ui/input'
@@ -10,6 +11,7 @@ import { CodeBlock } from '#/components/ui/code-block'
 import { Muted } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import type { PythonRuntimeInfo } from '#/components/pipelines/pipelines-data'
+import { pythonTokens } from '#/lib/pipelines/code-tokens'
 import { parseDefault } from '#/lib/pipelines/authoring'
 import type { PipelineInput, PipelineParameter } from '#/lib/pipelines/config'
 import {
@@ -336,13 +338,13 @@ export function PythonStepEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      <textarea
-        aria-label={`${label} code`}
+      <CodeEditor
+        ariaLabel={`${label} code`}
         value={statement}
-        rows={10}
-        spellCheck={false}
-        onChange={(event) => onStatementChange(event.target.value)}
-        className="mono w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
+        minHeight="208px"
+        lineNumbers={false}
+        highlight={pythonTokens}
+        onChange={onStatementChange}
       />
       <div className="flex flex-wrap items-center gap-2">
         {isStarterStatement(statement) ? (

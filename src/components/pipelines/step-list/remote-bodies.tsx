@@ -231,7 +231,7 @@ export function RemoteJobStepBody({
           value={job.script}
           rows={8}
           maxLength={MAX_REMOTE_SCRIPT_LENGTH}
-          onChange={(e) => patch({ script: e.target.value })}
+          onChange={(script) => patch({ script })}
         />
       </Row>
       <div className="pb-gen">
@@ -350,7 +350,7 @@ export function LakehouseStepBody({
           })}
           value={step.statement}
           rows={8}
-          onChange={(e) => onChange({ ...step, statement: e.target.value })}
+          onChange={(statement) => onChange({ ...step, statement })}
         />
       </Row>
     </>

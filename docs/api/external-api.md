@@ -105,8 +105,9 @@ can add one. Their events are webhook events (see
 
 ### Still fail-closed
 
-`schema:write`, `schema:publish` and `files:*` remain mintable but do not open
-direct authoring or file RPCs. `schema:write` does let
+`files:*` are personal-token scopes: they open the file byte routes, not RPCs
+(see [Uploading and downloading files](lab-api.md#uploading-and-downloading-files)),
+and a workspace service credential cannot hold them. `schema:write` does let
 `propose_agent_operation` auto-execute a safe draft (see
 [`agent-operations.md`](../subsystems/agent-operations.md)). `sheets:write` does not author
 Sheet Definitions. Dataset **data** scopes stay distinct from `schema:*`.

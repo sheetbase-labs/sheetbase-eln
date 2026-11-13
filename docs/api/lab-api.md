@@ -2913,6 +2913,11 @@ curl -H "Authorization: Bearer $TOKEN" -o gel.png \
   "$SHEETBASE/api/files/<fileRecordId>/download"
 ```
 
+The Python SDK wraps these as `client.files.upload(project_id, path_or_bytes)`,
+`upload_version`, `download` and `get` (sync and async), and the TypeScript SDK as
+`client.files.upload(projectId, bytes, { name })`, `uploadVersion`, `download` and
+`get`. Each checks the file with its SHA-256 before sending.
+
 Read file details from `file_objects`, versions with `file_version_chain` and
 words inside files with `search_file_contents`. Over MCP, `sheetbase.file.upload`
 and `sheetbase.file.read` carry small files as text or base64. Uploads send

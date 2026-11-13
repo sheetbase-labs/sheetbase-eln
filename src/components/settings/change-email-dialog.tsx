@@ -106,8 +106,11 @@ export function ChangeEmailDialog({
                   placeholder={current}
                   onChange={(e) => setValue(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && value.trim() && !request.isPending)
-                      request.mutate()
+                    if (e.key !== 'Enter') return
+                    // Handled here, so the dialog's own Enter does not repeat it.
+                    e.preventDefault()
+
+                    if (value.trim() && !request.isPending) request.mutate()
                   }}
                 />
               </label>

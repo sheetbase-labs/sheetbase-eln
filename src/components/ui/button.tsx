@@ -52,6 +52,7 @@ export function Button({
       // Lets a layout tell an icon-only button from a text one (a phone
       // header stretches text actions but keeps icons square).
       data-size={size ?? 'md'}
+      data-variant={variant ?? 'secondary'}
       className={cn(buttonVariants({ variant, size }), className)}
       {...props}
     >

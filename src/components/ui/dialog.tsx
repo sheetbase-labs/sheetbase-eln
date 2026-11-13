@@ -7,9 +7,59 @@ export const Dialog = DialogPrimitive.Root
 export const DialogTrigger = DialogPrimitive.Trigger
 export const DialogClose = DialogPrimitive.Close
 
+/** Text-like inputs where Enter means "done", not a new line or a choice. */
+const ENTER_SUBMITS = new Set([
+  'text',
+  'email',
+  'number',
+  'password',
+  'search',
+  'tel',
+  'url',
+  'date',
+])
+
+/**
+ * Enter in a one-line field presses the dialog's one primary button, as it
+ * does in a form. Most dialogs here are not `<form>`s, so without this Enter
+ * did nothing. Fields inside a real form, pickers that use Enter to choose,
+ * and dialogs with no single enabled primary button are left alone.
+ */
+function submitOnEnter(event: React.KeyboardEvent<HTMLElement>) {
+  if (event.key !== 'Enter' || event.defaultPrevented) return
+
+  if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return
+
+  if (event.nativeEvent.isComposing) return
+
+  const field = event.target
+
+  if (!(field instanceof HTMLInputElement)) return
+
+  if (!ENTER_SUBMITS.has(field.type) || field.form) return
+
+  if (field.getAttribute('role') === 'combobox') return
+
+  if (field.hasAttribute('aria-autocomplete')) return
+
+  // Only a field in the dialog itself: a menu or list opened from it is
+  // rendered elsewhere in the page but still bubbles here.
+  if (!event.currentTarget.contains(field)) return
+
+  const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>(
+    'button[data-variant="primary"]',
+  )
+
+  if (buttons.length !== 1 || buttons[0].disabled) return
+
+  event.preventDefault()
+  buttons[0].click()
+}
+
 export function DialogContent({
   className,
   children,
+  onKeyDown,
   ...props
 }: DialogPrimitive.Popup.Props) {
   return (
@@ -22,6 +72,10 @@ export function DialogContent({
           'fixed left-1/2 top-[12vh] z-50 flex max-h-[80vh] w-[min(640px,calc(100vw-32px))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-dialog outline-none transition-[opacity,scale] duration-150 data-ending-style:scale-[.98] data-ending-style:opacity-0 data-starting-style:scale-[.98] data-starting-style:opacity-0 max-md:inset-x-0 max-md:bottom-(--kb-lift) max-md:top-auto max-md:max-h-(--sheet-max-h) max-md:w-full! max-md:translate-x-0 max-md:rounded-b-none max-md:pb-[var(--kb-safe-bottom,env(safe-area-inset-bottom))]',
           className,
         )}
+        onKeyDown={(event) => {
+          onKeyDown?.(event)
+          submitOnEnter(event)
+        }}
         {...props}
       >
         {children}

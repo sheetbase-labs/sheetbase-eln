@@ -1,0 +1,33 @@
+name: Bump components (one-off)
+on:
+  push:
+    branches: [tmp/bump-components]
+permissions:
+  contents: write
+  packages: read
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Bump
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          NPM_CONFIG_USERCONFIG="$(mktemp "$RUNNER_TEMP/npmrc.XXXXXX")"
+          export NPM_CONFIG_USERCONFIG
+          printf '//npm.pkg.github.com/:_authToken=%s\n' "$NODE_AUTH_TOKEN" > "$NPM_CONFIG_USERCONFIG"
+          pnpm up --ignore-scripts @sheetbase-labs/sheetbase-advanced-search@0.12.0 @sheetbase-labs/sheetbase-explorer@0.12.0 @sheetbase-labs/sheetbase-shared@0.12.0 @sheetbase-labs/sheetbase-table@0.12.0
+          git rm -q .github/workflows/tmp-bump-components.yml
+          git config user.name iamgp
+          git config user.email 170375+iamgp@users.noreply.github.com
+          git add package.json pnpm-lock.yaml
+          git commit -m "chore(deps): bump the component packages to 0.12.0"
+          git push origin HEAD:tmp/bump-components

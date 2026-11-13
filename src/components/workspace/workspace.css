@@ -303,7 +303,9 @@
 /* Dividers: 1px line, 9px hit area, grab handle on hover */
 .mx-div {
   position: absolute;
-  z-index: 4;
+  /* Above a table's pinned cells (z-30), which otherwise paint over the
+     divider line wherever a row crosses it. Below popups (z-50). */
+  z-index: 40;
   background: transparent;
   padding: 0;
   border: 0;

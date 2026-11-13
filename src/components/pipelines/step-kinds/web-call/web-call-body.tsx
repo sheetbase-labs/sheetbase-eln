@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 
 import { t } from '#/copy'
+import { JsonEditor } from '#/components/code-editor/json-editor'
 import {
   BoardInput,
   BoardSegmented,
@@ -53,62 +54,41 @@ function Row({
 
 /** The JSON object a POST sends, written as text until it parses. */
 function BodyField({
-  id,
   body,
   onChange,
 }: {
-  id: string
   body: PipelineWebCall['body']
   onChange: (body: PipelineWebCall['body']) => void
 }) {
   const [text, setText] = useState(body ? JSON.stringify(body, null, 2) : '')
-  const [broken, setBroken] = useState(false)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <textarea
-        id={id}
-        aria-label={t('features.pipelineConnections.editor.body')}
-        className="input mono"
-        rows={4}
-        style={{ height: 'auto', padding: '6px 8px', resize: 'vertical' }}
-        value={text}
-        aria-invalid={broken || undefined}
-        onChange={(event) => {
-          const next = event.target.value
-          setText(next)
+    <JsonEditor
+      ariaLabel={t('features.pipelineConnections.editor.body')}
+      value={text}
+      accepts="object"
+      rows={5}
+      onChange={(next) => {
+        setText(next)
 
-          if (next.trim() === '') {
-            setBroken(false)
-            onChange(undefined)
+        if (next.trim() === '') {
+          onChange(undefined)
 
-            return
-          }
+          return
+        }
 
-          try {
-            const parsed = z
-              .record(z.string(), z.json())
-              .safeParse(JSON.parse(next))
+        try {
+          const parsed = z
+            .record(z.string(), z.json())
+            .safeParse(JSON.parse(next))
 
-            if (parsed.success) {
-              setBroken(false)
-              onChange(parsed.data)
-
-              return
-            }
-          } catch {
-            // Fall through: the text is not valid yet.
-          }
-
-          setBroken(true)
-        }}
-      />
-      {broken ? (
-        <span className="muted" style={{ fontSize: 12 }} role="alert">
-          {t('features.pipelineConnections.editor.bodyBroken')}
-        </span>
-      ) : null}
-    </div>
+          // Until it parses the saved body stays as it was.
+          if (parsed.success) onChange(parsed.data)
+        } catch {
+          // Not valid yet; the editor marks where.
+        }
+      }}
+    />
   )
 }
 
@@ -214,7 +194,6 @@ export function WebCallStepBody({
           htmlFor={`${id}-b`}
         >
           <BodyField
-            id={`${id}-b`}
             body={call.body}
             onChange={(body) => {
               const { body: _old, ...rest } = call

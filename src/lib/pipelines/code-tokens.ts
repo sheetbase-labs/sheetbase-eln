@@ -59,3 +59,29 @@ export function pythonTokens(text: string): CodeTokenRange[] {
 
   return tokens
 }
+
+/** A packages list: `#` notes dimmed, the name plain, the pinned version marked. */
+export function requirementTokens(text: string): CodeTokenRange[] {
+  const tokens: CodeTokenRange[] = []
+  let at = 0
+
+  for (const line of text.split('\n')) {
+    const note = line.indexOf('#')
+    const code = note === -1 ? line : line.slice(0, note)
+    const pin = /(?:==|>=|<=|~=|!=|<|>)\s*[\w.*+!-]+/.exec(code)
+
+    if (pin)
+      tokens.push({
+        from: at + pin.index,
+        to: at + pin.index + pin[0].length,
+        kind: 'num',
+      })
+
+    if (note !== -1)
+      tokens.push({ from: at + note, to: at + line.length, kind: 'cm' })
+
+    at += line.length + 1
+  }
+
+  return tokens
+}

@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
+import { EditorView } from '@codemirror/view'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useState } from 'react'
 import { z } from 'zod'
@@ -401,11 +402,21 @@ describe('PythonStepEditor test run', () => {
 })
 
 describe('PythonPackagesEditor', () => {
-  it('turns lines into pinned requirements, ignoring comments', () => {
+  it('turns lines into pinned requirements, ignoring comments', async () => {
     const onChange = vi.fn()
     render(<PythonPackagesEditor requirements={[]} onChange={onChange} />)
-    fireEvent.change(screen.getByLabelText('Python package requirements'), {
-      target: { value: 'scipy==1.15.3  # stats\n\nnumpy==2.2.6' },
+    const box = await screen.findByLabelText('Python package requirements')
+    const frame = box.closest('.cm-editor')
+
+    if (!(frame instanceof HTMLElement)) throw new Error('No editor frame')
+    const view = EditorView.findFromDOM(frame)
+
+    view?.dispatch({
+      changes: {
+        from: 0,
+        to: view.state.doc.length,
+        insert: 'scipy==1.15.3  # stats\n\nnumpy==2.2.6',
+      },
     })
     expect(onChange).toHaveBeenLastCalledWith(['scipy==1.15.3', 'numpy==2.2.6'])
   })

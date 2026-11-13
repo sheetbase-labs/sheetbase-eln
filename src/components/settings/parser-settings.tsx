@@ -47,6 +47,7 @@ import type { ParserLayout } from '#/lib/import/parser-layout'
 import { WebhookParserDialog } from './webhook-parser-dialog'
 import { parserKindOf } from '#/lib/connectors/builtin-parsers'
 import { rich, t } from '#/copy'
+import { JsonEditor } from '#/components/code-editor/json-editor'
 
 const client = createDataClient()
 const definitionSchema = z.record(z.string(), z.json())
@@ -832,17 +833,19 @@ function ParserDraftEditor({
             </Field>
             <span className="hidden md:block" />
             <Field label={t('settings.parserSettings.otherFileChecks')}>
-              <textarea
-                className="min-h-[110px] rounded-md border border-border bg-surface p-2 mono text-label"
+              <JsonEditor
+                ariaLabel={t('settings.parserSettings.otherFileChecks')}
                 value={draft.signature}
-                onChange={(e) => onChange({ signature: e.target.value })}
+                accepts="object"
+                onChange={(signature) => onChange({ signature })}
               />
             </Field>
             <Field label={t('settings.parserSettings.columnMappingJson')}>
-              <textarea
-                className="min-h-[110px] rounded-md border border-border bg-surface p-2 mono text-label"
+              <JsonEditor
+                ariaLabel={t('settings.parserSettings.columnMappingJson')}
                 value={draft.mapping}
-                onChange={(e) => onChange({ mapping: e.target.value })}
+                accepts="object"
+                onChange={(mapping) => onChange({ mapping })}
               />
             </Field>
           </CollapsiblePanel>

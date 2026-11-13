@@ -250,11 +250,7 @@ export const Sql: Story = {
     )
 
     return (
-      <SqlEditor
-        aria-label="Transform"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-      />
+      <SqlEditor aria-label="Transform" value={value} onChange={setValue} />
     )
   },
 }

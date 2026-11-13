@@ -49,7 +49,6 @@ export const copy = {
     validatedAt: 'last validated {when}',
     fileLines: '{name} · {count} lines',
     ariaFile: 'Version file for {id}, {version}',
-    problemOnLine: 'Problem on line {line}',
     lineN: 'Line {line}',
     problemAt: 'Line {line}: {message}',
     draftNote: 'draft; v{version} is published',

@@ -166,7 +166,9 @@ describe('Standard editor', () => {
       await screen.findByText(/You can’t turn it back into a form/),
     ).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Edit as SQL' }))
-    await waitFor(() => expect(document.querySelector('textarea')).toBeTruthy())
+    await waitFor(() =>
+      expect(document.querySelector('.cm-content')).toBeTruthy(),
+    )
   })
 
   it('removes a step from its menu', async () => {

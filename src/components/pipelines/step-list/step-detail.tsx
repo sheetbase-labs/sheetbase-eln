@@ -100,7 +100,7 @@ export function StepDetail({
           aria-label={t('data.stepList.sqlCode', { n: index + 1 })}
           value={step.statement}
           rows={8}
-          onChange={(e) => onChange({ ...step, statement: e.target.value })}
+          onChange={(statement) => onChange({ ...step, statement })}
         />
       ) : null}
       {step.kind === 'python' ? (

@@ -3,8 +3,8 @@
  * `.env-row` rules) and `bundle.css` (`.secret`), with the board's tokens mapped onto the app's
  * the way `board.css` does: --accent -> --primary, --bg -> --background. Source of truth:
  * /mnt/project-files/pipelines-system/board-html/PipeFinalAdvanced.dc.html. Change a value here
- * only when the board changes. The `.ye-ed` scroll and the textarea over its lines are the
- * app's own (the board draws the text; the app lets a person type it).
+ * only when the board changes. The editor itself is CodeMirror, dressed in the board's frame by
+ * `components/code-editor/code-editor-theme.ts`; only its place in the page is here.
  */
 .ye-bar {
   display: flex;
@@ -53,153 +53,14 @@
 .ye-ed {
   flex-shrink: 0;
 }
+.ye-ed {
+  flex-grow: 1;
+}
 @media (min-width: 1280px) {
   .ye-wrap,
   .ye-ed {
     flex-shrink: 1;
   }
-}
-.ye-ed {
-  flex-grow: 1;
-  min-height: 240px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: auto;
-  padding: 8px 0;
-  font: 12px/19px var(--font-mono);
-  font-variant-ligatures: none;
-  color: var(--text);
-}
-.ye-ed:focus-within {
-  outline: 2px solid var(--focus);
-  outline-offset: -1px;
-}
-.ye-stack {
-  position: relative;
-  min-width: max-content;
-  padding-bottom: 19px;
-}
-.ye-l {
-  display: grid;
-  grid-template-columns: 40px 18px 1fr auto;
-  align-items: center;
-  height: 19px;
-  padding-right: 12px;
-  white-space: pre;
-}
-.ye-l.cur {
-  background: var(--surface-muted);
-}
-.ye-l.bad {
-  background: var(--danger-wash);
-}
-.ye-n {
-  color: var(--text-faint);
-  text-align: right;
-  padding-right: 2px;
-  user-select: none;
-}
-.ye-l.bad .ye-n {
-  color: var(--danger-text);
-}
-.ye-m {
-  display: inline-flex;
-  justify-content: center;
-  color: var(--danger-text);
-}
-.ye-c {
-  overflow: hidden;
-  padding-left: 8px;
-}
-.ye-c .key {
-  color: var(--text-muted);
-}
-.ye-c .str {
-  color: var(--success-text);
-}
-.ye-c .cm {
-  color: var(--text-faint);
-  font-style: italic;
-}
-.ye-c .ref {
-  background: var(--selection);
-  border-radius: 3px;
-  padding: 0 2px;
-}
-.ye-c .sid {
-  font-weight: 600;
-}
-.ye-c .kw {
-  color: var(--primary);
-  font-weight: 500;
-}
-.ye-err {
-  text-decoration: underline wavy var(--destructive);
-  text-underline-offset: 3px;
-  text-decoration-thickness: 1px;
-}
-/* PipelinesSystem.dc.html .pls-emsg: the message under an error's line. */
-.ye-msg {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  padding: 0 10px 0 40px;
-  white-space: normal;
-}
-.ye-msg .pill {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-grow: 1;
-  min-width: 0;
-  padding: 4px 8px;
-  border-radius: 5px;
-  background: var(--surface-muted);
-  font: 400 12px/17px var(--font-sans);
-  color: var(--danger-text);
-}
-.ye-msg .pill b {
-  font-weight: 600;
-}
-.ye-msg .pill button {
-  margin-left: auto;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: var(--primary);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.ye-msg .pill button:hover {
-  text-decoration: underline;
-}
-/* The text a person types: the same box as the lines, drawn over them with its own text see-through. */
-.ye-in {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 66px;
-  right: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  outline: 0;
-  resize: none;
-  overflow: hidden;
-  background: transparent;
-  color: transparent;
-  caret-color: var(--text);
-  font: inherit;
-  white-space: pre;
-  tab-size: 2;
-}
-.ye-in::selection {
-  /* The text layer sits under this one, so the selection is a tint it shows through. */
-  background: color-mix(in oklab, var(--primary) 28%, transparent);
-  color: transparent;
 }
 .ye-prob {
   flex-shrink: 0;
@@ -429,75 +290,4 @@
 .pls-seg button:disabled {
   opacity: 0.5;
   cursor: default;
-}
-.pls-fold {
-  display: block;
-  width: calc(100% - 50px);
-  margin: 0 10px 4px 40px;
-  padding: 2px 8px;
-  border: 1px dashed var(--border);
-  border-radius: 4px;
-  background: none;
-  font-size: 11px;
-  line-height: 15px;
-  text-align: left;
-  color: var(--text-muted);
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pls-fold:hover {
-  color: var(--text);
-}
-
-.ye-hint {
-  position: absolute;
-  z-index: 6;
-  width: 330px;
-  max-width: calc(100vw - 48px);
-  padding: 4px;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--popover);
-  color: var(--popover-foreground);
-  box-shadow: var(--shadow-overlay);
-  font: 12px var(--font-sans);
-}
-.ye-hint button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 28px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.ye-hint button[aria-selected='true'] {
-  background: var(--selection);
-}
-.ye-hint .k {
-  font-family: var(--font-mono);
-}
-.ye-hint small {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 11px;
-  color: var(--text-muted);
-}
-.ye-hint .f {
-  margin-top: 2px;
-  padding: 6px 8px 3px;
-  border-top: 1px solid var(--border-subtle);
-  font-size: 11px;
-  color: var(--text-muted);
 }

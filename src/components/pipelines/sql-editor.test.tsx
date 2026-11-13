@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { sqlTokens } from '#/lib/pipelines/code-tokens'
 import { SqlEditor } from './sql-editor'
 
 afterEach(cleanup)
@@ -10,35 +11,33 @@ function Harness({ initial }: { initial: string }) {
   const [value, setValue] = useState(initial)
 
   return (
-    <SqlEditor
-      aria-label="Transform code"
-      value={value}
-      onChange={(event) => setValue(event.target.value)}
-    />
+    <SqlEditor aria-label="Transform code" value={value} onChange={setValue} />
   )
 }
 
 describe('SqlEditor', () => {
-  it('stays an ordinary labelled textarea holding the statement', () => {
+  it('is a labelled text box holding the statement', async () => {
     render(<Harness initial="select 1" />)
-    const field = screen.getByLabelText<HTMLTextAreaElement>('Transform code')
-    expect(field.tagName).toBe('TEXTAREA')
-    expect(field.value).toBe('select 1')
-    fireEvent.change(field, { target: { value: 'select 2' } })
-    expect(field.value).toBe('select 2')
+    const field = await screen.findByLabelText('Transform code')
+
+    expect(field.getAttribute('role')).toBe('textbox')
+    expect(field.textContent).toBe('select 1')
   })
+})
 
-  it('draws a coloured copy behind it that the screen reader skips and that follows edits', () => {
-    const { container } = render(<Harness initial="select a from t" />)
-    const behind = container.querySelector('[data-slot="sql-highlight"]')!
-    expect(behind.getAttribute('aria-hidden')).toBe('true')
-    expect(behind.textContent).toBe('select a from t')
-    expect(behind.querySelectorAll('.text-primary-text')).toHaveLength(2)
+describe('sqlTokens', () => {
+  it('points keywords, strings, numbers, comments and parameters at their place', () => {
+    const text = "select a, 'x', 2 from t -- why\nwhere b = {{p}}"
+    const found = sqlTokens(text).map((t) => [text.slice(t.from, t.to), t.kind])
 
-    fireEvent.change(screen.getByLabelText('Transform code'), {
-      target: { value: "select 'x' from t\n" },
-    })
-    expect(behind.textContent).toContain("select 'x' from t")
-    expect(behind.querySelector('.text-success-text')?.textContent).toBe("'x'")
+    expect(found).toEqual([
+      ['select', 'kw'],
+      ["'x'", 'str'],
+      ['2', 'num'],
+      ['from', 'kw'],
+      ['-- why', 'cm'],
+      ['where', 'kw'],
+      ['{{p}}', 'ref'],
+    ])
   })
 })

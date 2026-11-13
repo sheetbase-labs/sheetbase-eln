@@ -1,0 +1,24 @@
+name: Relock (one-off)
+on:
+  push:
+    branches: [tmp/relock-0-12-2]
+permissions:
+  contents: write
+  packages: read
+jobs:
+  relock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Relock
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+          pnpm install --lockfile-only --ignore-scripts
+          git diff --stat -- pnpm-lock.yaml
+          git diff -- pnpm-lock.yaml | grep '^[+-]' | cut -c1-400

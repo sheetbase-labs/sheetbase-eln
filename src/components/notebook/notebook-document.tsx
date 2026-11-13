@@ -82,6 +82,7 @@ import {
   useShortcutScope,
 } from '#/components/shortcuts/shortcut-provider'
 import { notebookShortcuts } from '#/lib/shortcut-scopes'
+import { holdTypeAhead } from '#/components/notebook/type-ahead-hold'
 
 export type { AutosaveStatus, SaveResult } from './block-editor'
 
@@ -274,6 +275,7 @@ function useNotebookDocument({
   onToggleSection,
 }: NotebookDocumentProps) {
   const documentRef = React.useRef<HTMLDivElement>(null)
+  const enterAtEndPendingRef = React.useRef(false)
   const emptyStartRef = React.useRef<HTMLButtonElement>(null)
   const selectionHashRef = React.useRef<string | null>(null)
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
@@ -1029,8 +1031,17 @@ function useNotebookDocument({
 
   /** Enter at end of a text block → create a new empty text block below. */
   async function handleEnterAtEnd(block: NotebookBlockData) {
+    // A second Enter while the first is still being answered must not make a
+    // second block.
+    if (enterAtEndPendingRef.current) return
+    enterAtEndPendingRef.current = true
+
+    const root = documentRef.current
+    const hold = root ? holdTypeAhead(root) : null
+    let newId: string | undefined
+
     try {
-      const newId = await onInsertBlock('rich_text', block.id)
+      newId = await onInsertBlock('rich_text', block.id)
 
       if (newId) selectAndFocus(newId)
       setUndo(null)
@@ -1041,6 +1052,18 @@ function useNotebookDocument({
           : t('notebook.notebookDocument.couldNotCreateA')
 
       setErrorById((prev) => ({ ...prev, [block.id]: message }))
+    } finally {
+      enterAtEndPendingRef.current = false
+
+      // What was typed while the block was being made goes into it.
+      void hold?.release(
+        newId
+          ? () =>
+              documentRef.current?.querySelector<HTMLElement>(
+                `[id="block-${newId}"]`,
+              ) ?? null
+          : null,
+      )
     }
   }
 

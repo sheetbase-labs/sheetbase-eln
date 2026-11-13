@@ -148,3 +148,15 @@ if (
     value: (): Animation[] => [],
   })
 }
+
+// jsdom does not lay text out; CodeMirror asks for text rectangles when it measures.
+if (typeof Range !== 'undefined') {
+  const empty = () => ({
+    length: 0,
+    item: () => null,
+    [Symbol.iterator]: function* () {},
+  })
+
+  Range.prototype.getClientRects ||= empty as never
+  Range.prototype.getBoundingClientRect ||= (() => new DOMRect()) as never
+}

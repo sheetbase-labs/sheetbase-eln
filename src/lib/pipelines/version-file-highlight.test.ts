@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { highlightFile, markRange } from './version-file-highlight'
+import { fileTokens, highlightFile } from './version-file-highlight'
 
 describe('highlightFile', () => {
   it('joins back to the text, line by line', () => {
@@ -47,18 +47,17 @@ describe('highlightFile', () => {
   })
 })
 
-describe('markRange', () => {
-  it('marks only the characters asked for, across spans', () => {
-    const marked = markRange(
-      [
-        { kind: 'key', text: 'reads' },
-        { kind: 'plain', text: ': [yeild]' },
-      ],
-      8,
-      13,
-    )
+describe('fileTokens', () => {
+  it('points each coloured word at its place in the whole text', () => {
+    const text = 'pipeline: PL-1\nsteps:\n  - id: a # why'
+    const tokens = fileTokens(text)
 
-    expect(marked.map((s) => s.text).join('')).toBe('reads: [yeild]')
-    expect(marked.filter((s) => s.bad).map((s) => s.text)).toEqual(['yeild'])
+    expect(tokens.map((t) => [text.slice(t.from, t.to), t.kind])).toEqual([
+      ['pipeline', 'key'],
+      ['steps', 'key'],
+      ['id', 'key'],
+      ['a', 'sid'],
+      [' # why', 'cm'],
+    ])
   })
 })

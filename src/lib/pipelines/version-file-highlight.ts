@@ -57,7 +57,7 @@ function sqlSpans(text: string): Span[] {
 const PYTHON_WORDS =
   /^(def|return|import|from|as|if|else|elif|for|in|while|with|not|and|or|None|True|False|lambda|try|except|raise|class|yield)$/
 
-function pythonSpans(text: string): Span[] {
+export function pythonSpans(text: string): Span[] {
   const spans: Span[] = []
   const part = /(#.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|([A-Za-z_]\w*)/g
   let last = 0
@@ -159,34 +159,23 @@ export function highlightFile(text: string): Span[][] {
   return out
 }
 
-/** Cut a line's spans at the characters of a mistake, marking the cut `bad`. */
-export function markRange(
-  spans: Span[],
-  from: number,
-  to: number,
-): Array<Span & { bad?: boolean }> {
-  const out: Array<Span & { bad?: boolean }> = []
+/** The coloured stretches of the file as offsets into its text, for the editor. */
+export function fileTokens(
+  text: string,
+): Array<{ from: number; to: number; kind: SpanKind }> {
+  const tokens: Array<{ from: number; to: number; kind: SpanKind }> = []
   let at = 0
 
-  for (const span of spans) {
-    const start = at
-    const end = at + span.text.length
-
-    at = end
-
-    if (end <= from || start >= to) {
-      out.push(span)
-      continue
+  for (const spans of highlightFile(text)) {
+    for (const span of spans) {
+      if (span.kind !== 'plain')
+        tokens.push({ from: at, to: at + span.text.length, kind: span.kind })
+      at += span.text.length
     }
 
-    const a = Math.max(from, start) - start
-    const b = Math.min(to, end) - start
-
-    if (a > 0) out.push({ ...span, text: span.text.slice(0, a) })
-    out.push({ ...span, text: span.text.slice(a, b), bad: true })
-
-    if (b < span.text.length) out.push({ ...span, text: span.text.slice(b) })
+    // The line break the file's lines were split on.
+    at += 1
   }
 
-  return out
+  return tokens
 }

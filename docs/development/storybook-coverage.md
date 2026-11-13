@@ -604,6 +604,7 @@ server, so every notebook comes back in the "not updated" list.
 | `src/components/pipelines/advanced/convert-to-advanced.tsx`       | Confirmation that converts a Standard pipeline and saves the draft through the editor context.                                                     |
 | `src/components/pipelines/advanced/version-file-editor.tsx`       | The version file editor reads and writes the file through the editor context and checks it as it is typed.                                         |
 | `src/components/pipelines/advanced/version-file-sidebar.tsx`      | The outline and the sets link read the file check from the editor context.                                                                         |
+| `src/components/code-editor/code-editor-view.tsx`                 | The editor `code-editor.tsx` loads on demand; its stories are on `CodeEditor`.                                                                     |
 | `src/components/pipelines/parameter-sets/parameter-sets-page.tsx` | Page that reads and saves parameter sets through the data client; its table and dialog are the shared Table and Dialog, which have stories.        |
 
 ## Run quality control and instrument data

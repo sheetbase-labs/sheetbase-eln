@@ -1,45 +1,16 @@
-import {
-  Fragment,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { t } from '#/copy'
-import { Icon } from '#/components/icons'
+import { CodeEditor } from '#/components/code-editor/code-editor'
+import type { CodeEditorHandle } from '#/components/code-editor/code-editor'
 import { toast } from '#/components/ui/sonner'
 import { BoardButton } from '#/features/pipelines/board/board'
 import '#/features/pipelines/board/version-file.css'
 import { formatTime } from '#/lib/format-date'
-import {
-  applyFix,
-  formatVersionFile,
-  lineOffset,
-} from '#/lib/pipelines/version-file'
-import type { FileProblem } from '#/lib/pipelines/version-file'
+import { applyFix, formatVersionFile } from '#/lib/pipelines/version-file'
 import { readFileFacts } from '#/lib/pipelines/version-file-facts'
-import {
-  fileOffset,
-  GAP,
-  GAP_LINES,
-  shownOffset,
-  withGaps,
-  withoutGaps,
-} from '#/lib/pipelines/version-file-gaps'
-import {
-  newHistory,
-  record,
-  shiftLines,
-  move,
-} from '#/lib/pipelines/version-file-edit'
 import { hintsAt } from '#/lib/pipelines/version-file-hints'
-import type { FileHints } from '#/lib/pipelines/version-file-hints'
-import {
-  highlightFile,
-  markRange,
-} from '#/lib/pipelines/version-file-highlight'
+import { fileTokens } from '#/lib/pipelines/version-file-highlight'
 import { usePipelineEditor } from '#/components/pipelines/step-list/use-pipeline-editor'
 import { FileDiff } from './file-diff'
 import { VersionFileStacked } from './version-file-sidebar'
@@ -52,376 +23,71 @@ function hintNote(key: string) {
   )
 }
 
-const LINE_HEIGHT = 19
-
-/** The 1-based line a caret offset in the file is on. */
-function lineAt(text: string, offset: number): number {
-  return text.slice(0, offset).split('\n').length
-}
-
-/** Type text at the caret so the browser's undo still knows about it. */
-function typeText(area: HTMLTextAreaElement, text: string) {
-  area.focus()
-
-  if (!document.execCommand('insertText', false, text))
-    area.setRangeText(text, area.selectionStart, area.selectionEnd, 'end')
-}
-
 /**
  * The version file as the editor: the text on the board's line-numbered
- * frame, a textarea over it for typing, mistakes marked on their lines and
- * listed below with a fix where there is one. The text is the working copy;
- * the version it says is what Try, Save and Publish use.
+ * frame, mistakes marked on their lines with the message and fix under them.
+ * The text is the working copy; the version it says is what Try, Save and
+ * Publish use.
  */
-// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function, react-doctor/no-giant-component -- the frame, its lines, the toolbar and the problems list share the caret, the text and the check.
+// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the toolbar, the editor and the file's problems share the working text.
 export function VersionFileEditor() {
   const editor = usePipelineEditor()
 
   const { fileText, setFileText, fileCheck, definition, current, draft } =
     editor
 
-  const area = useRef<HTMLTextAreaElement>(null)
-  const frame = useRef<HTMLDivElement>(null)
-  const [cursor, setCursor] = useState(1)
+  const area = useRef<CodeEditorHandle>(null)
   const [view, setView] = useState<'edit' | 'diff'>('edit')
-  const [folded, setFolded] = useState(true)
-
-  const [hint, setHint] = useState<
-    (FileHints & { line: number; col: number; pick: number }) | null
-  >(null)
-
   const [validatedAt, setValidatedAt] = useState<Date | null>(null)
-  const leaveOnTab = useRef(false)
-  const problems = fileCheck?.problems ?? []
   const pipeline = definition.data?.display_id ?? definition.data?.key ?? ''
-
-  const lines = useMemo(() => highlightFile(fileText), [fileText])
-
-  const shown =
-    lines.length > 1 && fileText.endsWith('\n')
-      ? lines.length - 1
-      : lines.length
-
   const facts = useMemo(() => readFileFacts(fileText), [fileText])
 
-  // The header (everything before `steps:`) folds to one line until the caret
-  // or a problem is in it.
-  const hiddenTo =
-    folded &&
-    facts.headerLines >= 3 &&
-    !problems.some((p) => p.line <= facts.headerLines)
-      ? facts.headerLines
-      : 0
-
-  const byLine = useMemo(() => {
-    const map = new Map<number, FileProblem[]>()
-
-    for (const problem of problems)
-      map.set(problem.line, [...(map.get(problem.line) ?? []), problem])
-
-    return map
-    // react-doctor-disable-next-line react-doctor/exhaustive-deps -- byLine depends only on the problems list.
-  }, [problems])
-
-  // Each line with a mistake has room under it for the message.
-  const gapLines = useMemo(
-    () => [...byLine.keys()].filter((n) => n <= shown).sort((a, b) => a - b),
-    [byLine, shown],
+  const problems = useMemo(
+    () =>
+      (fileCheck?.problems ?? []).map((problem) => ({
+        line: problem.line,
+        column: problem.column,
+        length: problem.length,
+        title: t('features.pipelineVersionFile.editor.lineN', {
+          line: problem.line,
+        }),
+        message: problem.message,
+        fix: problem.fix
+          ? {
+              label: problem.fix.label,
+              run: () => {
+                if (problem.fix) setFileText(applyFix(fileText, problem.fix))
+              },
+            }
+          : undefined,
+      })),
+    [fileCheck, fileText, setFileText],
   )
 
-  const shownText = useMemo(
-    () => withGaps(fileText, gapLines),
-    [fileText, gapLines],
-  )
-
-  const caret = useRef({ start: 0, end: 0 })
-  const [history] = useState(newHistory)
-  const typing = useRef(false)
-  const touched = useRef(false)
-  const lastKey = useRef('')
-
-  // Where a line sits in the frame, with the messages above it counted.
-  const topOf = (line: number) =>
-    ((hiddenTo ? line - hiddenTo : line - 1) +
-      gapLines.filter((g) => g < line).length * GAP_LINES) *
-    LINE_HEIGHT
-
-  // Adding or removing a message's room changes what the textarea shows;
-  // put the caret back where it was in the file.
-  useLayoutEffect(() => {
-    const el = area.current
-
-    if (!el || document.activeElement !== el) return
-    const start = shownOffset(fileText, gapLines, caret.current.start)
-    const end = shownOffset(fileText, gapLines, caret.current.end)
-
-    if (el.selectionStart !== start || el.selectionEnd !== end)
-      el.setSelectionRange(start, end)
-  }, [shownText, fileText, gapLines])
-
-  // The file's own undo history. The browser's cannot be trusted here: the
-  // room made for a message changes the textarea's text behind its back.
-  useEffect(() => {
-    const own = history
-
-    if (own.stack.at(own.at)?.text === fileText) return
-    const edit = { text: fileText, ...caret.current }
-
-    // Until the person has done anything, a load is where history starts.
-    if (!touched.current) {
-      own.stack = [edit]
-      own.at = 0
-
-      return
-    }
-
-    record(own, edit, Date.now(), typing.current)
-    typing.current = false
-  }, [fileText, history])
-
-  const travel = (direction: -1 | 1) => {
-    const to = move(history, direction)
-
-    if (!to) return
-    caret.current = { start: to.start, end: to.end }
-    touched.current = true
-    setFileText(to.text)
-  }
-
-  // The browser's own undo and redo (the Edit menu) go the same way.
-  useEffect(() => {
-    const el = area.current
-
-    if (!el) return
-
-    const onBefore = (event: InputEvent) => {
-      if (
-        event.inputType !== 'historyUndo' &&
-        event.inputType !== 'historyRedo'
-      )
-        return
-      event.preventDefault()
-      travel(event.inputType === 'historyUndo' ? -1 : 1)
-    }
-
-    el.addEventListener('beforeinput', onBefore)
-
-    return () => el.removeEventListener('beforeinput', onBefore)
-  })
-
-  // Keep the caret in view as the text scrolls inside the frame.
-  const reveal = (line: number) => {
-    const box = frame.current
-
-    if (!box) return
-    const top = topOf(line)
-    const bottom = top + LINE_HEIGHT + 8
-
-    if (top < box.scrollTop) box.scrollTop = top
-    else if (bottom > box.scrollTop + box.clientHeight - 8)
-      box.scrollTop = bottom - box.clientHeight + 16
-  }
-
-  const jump = (line: number, column = 1) => {
-    const el = area.current
-
-    if (!el) return
-
-    const at = shownOffset(
-      fileText,
-      gapLines,
-      lineOffset(fileText, line) + column - 1,
-    )
-
-    if (line <= facts.headerLines) setFolded(false)
-    el.focus()
-    el.setSelectionRange(at, at)
-    setCursor(line)
-    reveal(line)
-  }
+  // The header (everything before `steps:`) folds to one row until the caret
+  // or a mistake is in it.
+  const fold =
+    facts.headerLines >= 3 && !problems.some((p) => p.line <= facts.headerLines)
+      ? {
+          lines: facts.headerLines,
+          label: t('features.pipelineVersionFile.editor.fold', {
+            to: facts.headerLines,
+            keys: facts.headerKeys.join(', '),
+          }),
+          ariaLabel: t('features.pipelineVersionFile.editor.foldAria', {
+            to: facts.headerLines,
+          }),
+        }
+      : undefined
 
   // The outline asks for a line through the editor model.
   useEffect(() => {
-    editor.fileJump.current = jump
+    editor.fileJump.current = (line, column) => area.current?.jump(line, column)
 
     return () => {
       editor.fileJump.current = null
     }
   })
-
-  const sync = () => {
-    const el = area.current
-
-    if (!el) return
-    const into = fileOffset(el.value, el.selectionStart)
-    const lineStart = el.value.lastIndexOf('\n', el.selectionStart - 1) + 1
-    const lineEnd = el.value.indexOf('\n', el.selectionStart)
-
-    const inRoom =
-      el.value.slice(lineStart, lineEnd < 0 ? undefined : lineEnd) === GAP
-
-    // The room under a message is not part of the file: move past it.
-    if (inRoom) {
-      const to = lastKey.current === 'ArrowUp' ? into : into + 1
-      const at = shownOffset(fileText, gapLines, to)
-
-      el.setSelectionRange(at, at)
-    }
-
-    const offset = fileOffset(el.value, el.selectionStart)
-
-    caret.current = {
-      start: offset,
-      end: fileOffset(el.value, el.selectionEnd),
-    }
-    const line = lineAt(fileText, offset)
-
-    if (line <= facts.headerLines) setFolded(false)
-    setCursor(line)
-    reveal(line)
-  }
-
-  const fix = (problem: FileProblem) => {
-    if (!problem.fix) return
-    setFileText(applyFix(fileText, problem.fix))
-  }
-
-  const accept = (key: string) => {
-    const el = area.current
-
-    if (!el || !hint) return
-    el.setSelectionRange(
-      el.selectionStart - hint.prefix.length,
-      el.selectionStart,
-    )
-    typeText(el, `${key}: `)
-    setHint(null)
-  }
-
-  // Tab and Shift+Tab move every line the selection touches.
-  const shift = (outdent: boolean) => {
-    const el = area.current
-
-    if (!el) return
-    const start = fileOffset(el.value, el.selectionStart)
-    const end = fileOffset(el.value, el.selectionEnd)
-    const out = shiftLines(fileText, start, end, outdent)
-
-    if (!out) return
-    caret.current = { start: out.start, end: out.end }
-    touched.current = true
-    setFileText(out.text)
-  }
-
-  // What is copied or cut is the file's text, never the room under a message.
-  const copyOut = (
-    event: React.ClipboardEvent<HTMLTextAreaElement>,
-    cut: boolean,
-  ) => {
-    const el = event.currentTarget
-
-    if (!gapLines.length || el.selectionStart === el.selectionEnd) return
-    event.clipboardData.setData(
-      'text/plain',
-      withoutGaps(el.value.slice(el.selectionStart, el.selectionEnd)),
-    )
-    event.preventDefault()
-
-    if (cut) document.execCommand('delete')
-  }
-
-  const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const el = event.currentTarget
-
-    lastKey.current = event.key
-
-    if ((event.metaKey || event.ctrlKey) && !event.altKey) {
-      const key = event.key.toLowerCase()
-
-      if (key === 'z' || (key === 'y' && !event.metaKey)) {
-        event.preventDefault()
-        travel(key === 'y' || event.shiftKey ? 1 : -1)
-
-        return
-      }
-    }
-
-    if (hint) {
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault()
-        const step = event.key === 'ArrowDown' ? 1 : hint.keys.length - 1
-
-        setHint({ ...hint, pick: (hint.pick + step) % hint.keys.length })
-
-        return
-      }
-
-      if (event.key === 'Tab' || event.key === 'Enter') {
-        event.preventDefault()
-        accept(hint.keys[hint.pick])
-
-        return
-      }
-
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        setHint(null)
-
-        return
-      }
-    }
-
-    if ((event.metaKey || event.ctrlKey) && event.key === 's') {
-      event.preventDefault()
-
-      if (editor.dirty && editor.canSave) editor.saveDraft.mutate()
-
-      return
-    }
-
-    if (event.key === 'Escape') {
-      leaveOnTab.current = true
-
-      return
-    }
-
-    if (event.key !== 'Tab') leaveOnTab.current = false
-
-    if (event.key === 'Tab' && !event.shiftKey) {
-      if (leaveOnTab.current) return
-      event.preventDefault()
-
-      if (el.selectionStart === el.selectionEnd) typeText(el, '  ')
-      else shift(false)
-
-      return
-    }
-
-    if (event.key === 'Tab' && event.shiftKey) {
-      if (leaveOnTab.current) return
-      event.preventDefault()
-      shift(true)
-
-      return
-    }
-
-    if (
-      event.key === 'Enter' &&
-      !event.shiftKey &&
-      !event.metaKey &&
-      !event.ctrlKey
-    ) {
-      const start = el.value.lastIndexOf('\n', el.selectionStart - 1) + 1
-      const before = el.value.slice(start, el.selectionStart)
-      const indent = /^ */.exec(before)?.[0] ?? ''
-
-      const opens =
-        /(:|\|[-+]?)\s*$/.test(before) && !before.trimStart().startsWith('#')
-
-      event.preventDefault()
-      typeText(el, `\n${indent}${opens ? '  ' : ''}`)
-    }
-  }
 
   const validate = () => {
     setValidatedAt(new Date())
@@ -434,7 +100,7 @@ export function VersionFileEditor() {
           count: problems.length,
         }),
       )
-      jump(problems[0].line, problems[0].column)
+      area.current?.jump(problems[0].line, problems[0].column)
     }
   }
 
@@ -515,204 +181,47 @@ export function VersionFileEditor() {
         <span className="muted mono" style={{ fontSize: 11 }}>
           {t('features.pipelineVersionFile.editor.fileLines', {
             name: fileName,
-            count: fileCheck?.lineCount ?? shown,
+            count: fileCheck?.lineCount ?? fileText.split('\n').length,
           })}
         </span>
       </div>
 
       <div className="ye-wrap">
         {view === 'diff' && published ? <FileDiff /> : null}
-        <div
-          className="ye-ed"
-          ref={frame}
-          hidden={view === 'diff' && !!published}
-          style={{ maxHeight: 'max(240px, calc(100dvh - 360px))' }}
-        >
-          <div className="ye-stack">
-            {hiddenTo ? (
-              <button
-                type="button"
-                className="pls-fold"
-                aria-label={t('features.pipelineVersionFile.editor.foldAria', {
-                  to: hiddenTo,
-                })}
-                onClick={() => setFolded(false)}
-              >
-                {t('features.pipelineVersionFile.editor.fold', {
-                  to: hiddenTo,
-                  keys: facts.headerKeys.join(', '),
-                })}
-              </button>
-            ) : null}
-            {lines.slice(hiddenTo, shown).map((spans, offset) => {
-              const index = offset + hiddenTo
-              const n = index + 1
-              const here = byLine.get(n)
-
-              const parts = here
-                ? here.reduce<ReturnType<typeof markRange>>(
-                    (acc, p) =>
-                      markRange(acc, p.column - 1, p.column - 1 + p.length),
-                    spans,
-                  )
-                : spans
-
-              return (
-                <Fragment
-                  // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a line is identified by its number.
-                  key={n}
-                >
-                  <div
-                    className={`ye-l${here ? ' bad' : n === cursor ? ' cur' : ''}`}
-                  >
-                    <span className="ye-n">{n}</span>
-                    <span
-                      className={`ye-m${here ? ' bad' : ''}`}
-                      aria-label={
-                        here
-                          ? t(
-                              'features.pipelineVersionFile.editor.problemOnLine',
-                              { line: n },
-                            )
-                          : undefined
-                      }
-                    ></span>
-                    <span className="ye-c">
-                      {parts.length === 0 ? ' ' : null}
-                      {parts.map((span, i) => (
-                        <span
-                          key={i}
-                          className={
-                            [
-                              span.kind === 'plain' ? '' : span.kind,
-                              'bad' in span && span.bad ? 'ye-err' : '',
-                            ]
-                              .filter(Boolean)
-                              .join(' ') || undefined
-                          }
-                        >
-                          {span.text}
-                        </span>
-                      ))}
-                    </span>
-                  </div>
-                  {here ? (
-                    <div
-                      className="ye-msg"
-                      style={{ height: GAP_LINES * LINE_HEIGHT }}
-                    >
-                      <span className="pill" role="alert">
-                        <Icon name="warn" size={12} />
-                        <span>
-                          <b>
-                            {t('features.pipelineVersionFile.editor.lineN', {
-                              line: n,
-                            })}
-                          </b>{' '}
-                          · {here[0].message}
-                        </span>
-                        {here[0].fix ? (
-                          <button type="button" onClick={() => fix(here[0])}>
-                            {here[0].fix.label}
-                          </button>
-                        ) : null}
-                      </span>
-                    </div>
-                  ) : null}
-                </Fragment>
-              )
+        <div hidden={view === 'diff' && !!published}>
+          <CodeEditor
+            ref={area}
+            value={fileText}
+            onChange={setFileText}
+            ariaLabel={t('features.pipelineVersionFile.editor.ariaFile', {
+              id: pipeline,
+              version: draftLabel,
             })}
-            <textarea
-              ref={area}
-              className="ye-in"
-              value={shownText}
-              aria-label={t('features.pipelineVersionFile.editor.ariaFile', {
-                id: pipeline,
-                version: draftLabel,
-              })}
-              aria-describedby="ye-tab-hint"
-              spellCheck={false}
-              autoCapitalize="off"
-              autoCorrect="off"
-              autoComplete="off"
-              wrap="off"
-              onChange={(e) => {
-                const el = e.target
+            className="ye-ed"
+            highlight={fileTokens}
+            problems={problems}
+            fold={fold}
+            indentAfter={/(:|\|[-+]?)\s*$/}
+            onSave={() => {
+              if (editor.dirty && editor.canSave) editor.saveDraft.mutate()
+            }}
+            suggest={(text, line, column) => {
+              const found = hintsAt(text, line, column)
 
-                const kind =
-                  e.nativeEvent instanceof InputEvent
-                    ? e.nativeEvent.inputType
-                    : ''
-
-                typing.current =
-                  kind === 'insertText' || kind === 'deleteContentBackward'
-
-                touched.current = true
-                const text = withoutGaps(el.value)
-                const at = fileOffset(el.value, el.selectionStart)
-                const line = lineAt(text, at)
-                const col = at - lineOffset(text, line) + 1
-                const found = hintsAt(text, line, col)
-
-                caret.current = { start: at, end: at }
-
-                setFileText(text)
-                setHint(found ? { ...found, line, col, pick: 0 } : null)
-              }}
-              onBlur={() => setHint(null)}
-              onCopy={(e) => copyOut(e, false)}
-              onCut={(e) => copyOut(e, true)}
-              onKeyDown={onKeyDown}
-              onKeyUp={sync}
-              onClick={sync}
-              onSelect={sync}
-              style={
-                hiddenTo
-                  ? { top: LINE_HEIGHT - hiddenTo * LINE_HEIGHT }
-                  : undefined
-              }
-            />
-            {hint ? (
-              <div
-                className="ye-hint-anchor"
-                style={{
-                  position: 'absolute',
-                  left: `calc(66px + ${hint.col - 1 - hint.prefix.length}ch)`,
-                  top:
-                    topOf(hint.line) +
-                    LINE_HEIGHT +
-                    (gapLines.includes(hint.line)
-                      ? GAP_LINES * LINE_HEIGHT
-                      : 0),
-                }}
-              >
-                <div
-                  className="ye-hint"
-                  role="listbox"
-                  aria-label={t('features.pipelineVersionFile.hints.aria')}
-                >
-                  {hint.keys.slice(0, 6).map((key, i) => (
-                    <button
-                      key={key}
-                      type="button"
-                      role="option"
-                      aria-selected={i === hint.pick}
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        accept(key)
-                      }}
-                    >
-                      <span className="k">{key}</span>
-                      <small>{hintNote(key)}</small>
-                    </button>
-                  ))}
-                  <div className="f">
-                    {t('features.pipelineVersionFile.hints.footer')}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
+              return found
+                ? {
+                    prefixLength: found.prefix.length,
+                    options: found.keys.slice(0, 6).map((key) => ({
+                      label: key,
+                      insert: `${key}: `,
+                      note: hintNote(key),
+                    })),
+                  }
+                : null
+            }}
+            suggestFooter={t('features.pipelineVersionFile.hints.footer')}
+            maxHeight="max(240px, calc(100dvh - 360px))"
+          />
         </div>
         <span id="ye-tab-hint" className="sr-only">
           {t('features.pipelineVersionFile.editor.tabHint')}

@@ -4,10 +4,9 @@
  * tool name, the pipeline action and the webhook events (see
  * `docs/development/adding-an-operation.md`).
  *
- * Signing, approving and deciding stay with a person in the app, so there is
- * nothing here for them: a reader acknowledging a protocol, a reviewer
- * confirming a review, approving or returning an approval request, and deleting
- * a file are not operations.
+ * Signing and attesting stay with a person in the app, so there is nothing
+ * here for them: a reader acknowledging a protocol and deleting a file are not
+ * operations. Deciding an approval request or a review is in `approvals`.
  */
 import { defineOperations, input } from '#/lib/operations/descriptor'
 

@@ -24,13 +24,14 @@ describe('API-02 canonical scopes', () => {
     expect(grouped).toContain('agent_operations:write')
   })
 
-  it('does not treat reviews:write as an effective credential capability', () => {
+  it('offers reviews:write to personal tokens for approvals, not signing', () => {
     const attestation = SCOPE_GROUPS.find((group) =>
       group.scopes.includes('reviews:write'),
     )
 
-    expect(attestation?.effective).toBe(false)
-    expect(attestation?.description).toMatch(/stay with people/)
+    expect(attestation?.effective).toBe(true)
+    expect(attestation?.personalOnly).toBe(true)
+    expect(attestation?.description).toMatch(/Signing, submitting and amending/)
 
     const preview = SCOPE_GROUPS.find((group) =>
       group.scopes.includes('reviews:read'),

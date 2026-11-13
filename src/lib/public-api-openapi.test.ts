@@ -258,13 +258,23 @@ describe('API-03 external OpenAPI', () => {
     )
   })
 
-  it('does not present reviews:write as a usable credential operation', () => {
-    const operations = Object.values(spec.paths).flatMap((path) =>
-      Object.values(path).map((value) => operationContract.parse(value)),
-    )
+  it('opens reviews:write only to approving and deciding, never submit, sign or amend', () => {
+    const approvals = [
+      'approve_approval_request',
+      'return_approval_request',
+      'approve_review',
+      'reject_review',
+      'request_changes_on_review',
+    ]
 
-    for (const op of operations) {
-      expect(op['x-sheetbase-scopes'] ?? []).not.toContain('reviews:write')
+    for (const [path, methods] of Object.entries(spec.paths)) {
+      for (const value of Object.values(methods)) {
+        const scopes =
+          operationContract.parse(value)['x-sheetbase-scopes'] ?? []
+
+        if (!scopes.includes('reviews:write')) continue
+        expect(approvals.map((name) => `/api/db/rpc/${name}`)).toContain(path)
+      }
     }
 
     const preview = operation('/api/db/rpc/preview_submission_digest', 'post')

@@ -37,7 +37,7 @@ export const NOT_EXPOSED_PATTERNS: readonly {
   },
   {
     pattern:
-      /^(sign_revision|certify_signature|practice_signature|request_signature_identity_verification|request_signature_witness|signature_witness_candidates|verify_signature_identity|self_verify_signature_identity|withdraw_signature_certification|workspace_signature_certifications|update_signature_statement|signatures|signature_witness_requests|user_signature_certifications|approve_review|reject_review|request_changes_on_review|withdraw_review|review_decisions|approve_approval_request|return_approval_request|return_revision_with_comments|approve_parser_version|acknowledge_protocol_version|release_sample|decide_agent_operation|execute_agent_operation|sign_agent_operation|execute_hard_delete)$/,
+      /^(sign_revision|certify_signature|practice_signature|request_signature_identity_verification|request_signature_witness|signature_witness_candidates|verify_signature_identity|self_verify_signature_identity|withdraw_signature_certification|workspace_signature_certifications|update_signature_statement|signatures|signature_witness_requests|user_signature_certifications|withdraw_review|review_decisions|return_revision_with_comments|approve_parser_version|acknowledge_protocol_version|release_sample|decide_agent_operation|execute_agent_operation|sign_agent_operation|execute_hard_delete)$/,
     reason:
       'A person attests, approves, releases or decides in the app (signing with a fresh password check, reviewing, approving, releasing a sample, confirming a hard delete). Others can read the results and ask for them, but not do them.',
   },

@@ -101,7 +101,8 @@ export const SCOPE_GROUPS: ReadonlyArray<{
   {
     title: t('settings.apiScopes.reviewsAttestation'),
     description: t('settings.apiScopes.mintableNowSubmitDescription'),
-    effective: false,
+    effective: true,
+    personalOnly: true,
     scopes: ['reviews:write'],
   },
   {

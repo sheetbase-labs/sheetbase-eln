@@ -175,6 +175,7 @@ export function useNewExperimentForm(search: NewExperimentSearch) {
   })
 
   const attemptCreate = () => {
+    if (create.isPending || create.isSuccess) return
     setTouched(true)
 
     const allowed = submissionAllowed({

@@ -113,6 +113,9 @@ function makeResponse(
     async text() {
       return body;
     },
+    async arrayBuffer() {
+      return new TextEncoder().encode(body).buffer as ArrayBuffer;
+    },
   };
 }
 

@@ -18,7 +18,7 @@ export interface FetchLike {
 export interface FetchInit {
   method?: string;
   headers?: Record<string, string>;
-  body?: string;
+  body?: string | Uint8Array<ArrayBuffer>;
   signal?: AbortSignal;
 }
 
@@ -28,6 +28,7 @@ export interface FetchResponse {
   headers?: { get: (name: string) => string | null };
   json: () => Promise<unknown>;
   text: () => Promise<string>;
+  arrayBuffer?: () => Promise<ArrayBuffer>;
 }
 
 export interface TableHead {
@@ -41,6 +42,10 @@ export interface RequestOptions {
   params?: Record<string, string | number | undefined>;
   jsonBody?: Record<string, unknown>;
   headers?: Record<string, string>;
+  /** Raw bytes to send as the body (a file). */
+  body?: Uint8Array<ArrayBuffer>;
+  /** Return the response bytes instead of parsing JSON (a download). */
+  raw?: boolean;
 }
 
 export class HttpTransport {
@@ -165,12 +170,15 @@ export class HttpTransport {
     const resp = await this.fetchFn(url, {
       method,
       headers,
-      body: options?.jsonBody ? JSON.stringify(options.jsonBody) : undefined,
+      body: options?.body ?? (options?.jsonBody ? JSON.stringify(options.jsonBody) : undefined),
       signal,
     });
 
     if (method === "HEAD" && resp.status < 400) {
       return tableHead(resp);
+    }
+    if (options?.raw && resp.status < 400 && resp.arrayBuffer) {
+      return new Uint8Array(await resp.arrayBuffer());
     }
     return handleResponse(resp);
   }

@@ -20,6 +20,13 @@ export const common = {
       experiments: 'experiments',
     },
   },
+  codeEditor: {
+    lineN: 'Line {line}',
+    notJson:
+      'Something is missing or out of place here. Check the commas, quotes and brackets.',
+    notAnObject:
+      'This needs to be named values inside curly brackets, not a list or a single value.',
+  },
   actions: {
     add: 'Add',
     apply: 'Apply',

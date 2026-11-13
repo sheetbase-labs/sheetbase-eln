@@ -262,6 +262,18 @@ Operation, plan, provenance and budget objects retain their canonical contract
 shape. The server remains authoritative for policy, validation, transitions,
 budgets and scientific rules.
 
+### Files
+
+Needs a personal token with `files:write` (upload) or `files:read` (download).
+
+```ts
+const stored = await client.files.upload(projectId, bytes, { name: 'gel.png' })
+await client.files.uploadVersion(stored.fileRecordId, newBytes, {
+  name: 'gel.png',
+})
+const copy = await client.files.download(stored.fileRecordId) // Uint8Array
+```
+
 ### Webhooks
 
 ```ts

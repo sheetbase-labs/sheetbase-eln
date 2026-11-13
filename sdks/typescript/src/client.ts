@@ -34,6 +34,7 @@ import {
   SearchResource,
   CataloguesResource,
   WebhooksResource,
+  FilesResource,
   PeopleResource,
   PipelinesResource,
   PluginsResource,
@@ -64,6 +65,8 @@ export class SheetbaseClient {
   readonly plugins: PluginsResource
   readonly people: PeopleResource
   readonly facility: FacilityResource
+  /** `client.files.upload(projectId, bytes, { name })` / `.download(id)`: needs a personal token with `files:write` / `files:read`. */
+  readonly files: FilesResource
 
   constructor(options: SheetbaseClientOptions) {
     this.transport = new HttpTransport(
@@ -88,6 +91,7 @@ export class SheetbaseClient {
     this.pipelines = new PipelinesResource(this.transport)
     this.plugins = new PluginsResource(this.transport)
     this.people = new PeopleResource(this.transport)
+    this.files = new FilesResource(this.transport)
   }
 
   // ── raw access ──────────────────────────────────────────────────────

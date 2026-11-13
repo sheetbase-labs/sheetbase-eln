@@ -18,7 +18,7 @@ export function jsonTokens(text: string): CodeTokenRange[] {
     const word = match[0]
 
     if (word.startsWith('"')) {
-      const isKey = match[1] !== undefined
+      const isKey = Boolean(match[1])
 
       const to = isKey
         ? from + word.length - match[1].length

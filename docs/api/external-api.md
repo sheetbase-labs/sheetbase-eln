@@ -65,7 +65,7 @@ exchange and rotation.
 | `models:read` / `models:write`                     | `search_sheet_records`, custom-field writes, Sheet→Record write-back                                                                                      |
 | `templates:read` / `templates:write`               | Template catalogue reads and instantiation                                                                                                                |
 | `reviews:read`                                     | Preview a submission digest. Does not run revision checks                                                                                                 |
-| `reviews:write`                                    | Mintable. Does not submit, sign or amend                                                                                                                  |
+| `reviews:write`                                    | Personal tokens: approve or return an approval request, decide a review ([`approvals-api.md`](approvals-api.md)). Does not submit, sign or amend          |
 | `schema:read`                                      | Catalogue GET only                                                                                                                                        |
 | `webhooks:read` / `webhooks:write`                 | Subscriptions and delivery history (stable event names in [`event-catalogue.md`](event-catalogue.md))                                                     |
 | `pipelines:read` / `pipelines:write`               | Read pipelines, versions, runs, logs and outputs; save draft versions (personal tokens only). Does not publish, run or schedule                           |
@@ -146,7 +146,8 @@ model mappings. Project-domain RPCs still require `projects:write`.
 
 Direct INSERT/UPDATE/DELETE on `revisions` is not granted. Submit, sign,
 amend and revision checks stay human-session-only; a credential with
-`reviews:write` cannot call them.
+`reviews:write` cannot call them. It can decide approvals and reviews as its
+owner (see [`approvals-api.md`](approvals-api.md)).
 
 Agent operations: `propose_agent_operation` (and AUTO-05 workflow RPCs) are
 on the allowlist under `agent_operations:write`. Policy create/disable,

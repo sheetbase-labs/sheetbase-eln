@@ -43,7 +43,7 @@ export function qualityLabel(run: Pick<PlateRunRow, 'status' | 'qc_status'>) {
   return t(`plates.quality.${run.qc_status}`)
 }
 
-/** A number for a table: a few significant figures, never a long tail. */
+/** A number for a table: a few significant figures after the whole digits, never a long tail. */
 export function fmt(value: number | null | undefined, digits = 3): string {
   if (value === null || value === undefined || !Number.isFinite(value))
     return ''
@@ -54,7 +54,10 @@ export function fmt(value: number | null | undefined, digits = 3): string {
   if (abs >= 1e5 || abs < 1e-3)
     return value.toExponential(Math.max(digits - 1, 1))
 
-  return Number(value.toPrecision(digits)).toString()
+  // Whole digits are never rounded away: 1043 reads 1043, not 1040.
+  const whole = Math.floor(abs).toString().length
+
+  return Number(value.toPrecision(Math.max(digits, whole))).toString()
 }
 
 export function runText(run: PlateRunRow): string {

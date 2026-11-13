@@ -106,20 +106,28 @@ class HttpTransport:
         params: Optional[dict[str, Any]] = None,
         json_body: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
+        content: Optional[bytes] = None,
+        raw: bool = False,
     ) -> Any:
+        """``content`` sends raw bytes; ``raw`` returns the response bytes."""
+        kwargs: dict[str, Any] = dict(
+            params=params, json_body=json_body, headers=headers, content=content, raw=raw
+        )
         try:
-            return self._do_request(method, path, params=params, json_body=json_body, headers=headers)
+            return self._do_request(method, path, **kwargs)
         except DataPathError as err:
             if err.category == "unauthenticated":
                 self._token = None
                 self._token_expires = 0.0
-                return self._do_request(method, path, params=params, json_body=json_body, headers=headers)
+                return self._do_request(method, path, **kwargs)
             raise
 
     def _do_request(
         self, method: str, path: str, *, params: Optional[dict[str, Any]] = None,
         json_body: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
+        content: Optional[bytes] = None,
+        raw: bool = False,
     ) -> Any:
         token = self._ensure_token()
         hdrs = {
@@ -133,11 +141,14 @@ class HttpTransport:
             f"{self.base_url}{path}",
             params=params,
             json=json_body,
+            content=content,
             headers=hdrs,
             timeout=self.timeout,
         )
         if method == "HEAD" and resp.status_code < 400:
             return _table_head(resp)
+        if raw and resp.status_code < 400:
+            return resp.content
         return self._handle_response(resp)
 
     def send_with_bearer(
@@ -354,24 +365,27 @@ class AsyncHttpTransport:
         params: Optional[dict[str, Any]] = None,
         json_body: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
+        content: Optional[bytes] = None,
+        raw: bool = False,
     ) -> Any:
+        kwargs: dict[str, Any] = dict(
+            params=params, json_body=json_body, headers=headers, content=content, raw=raw
+        )
         try:
-            return await self._do_request(
-                method, path, params=params, json_body=json_body, headers=headers
-            )
+            return await self._do_request(method, path, **kwargs)
         except DataPathError as err:
             if err.category == "unauthenticated":
                 self._token = None
                 self._token_expires = 0.0
-                return await self._do_request(
-                    method, path, params=params, json_body=json_body, headers=headers
-                )
+                return await self._do_request(method, path, **kwargs)
             raise
 
     async def _do_request(
         self, method: str, path: str, *, params: Optional[dict[str, Any]] = None,
         json_body: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
+        content: Optional[bytes] = None,
+        raw: bool = False,
     ) -> Any:
         token = await self._ensure_token()
         hdrs = {
@@ -385,11 +399,14 @@ class AsyncHttpTransport:
             f"{self.base_url}{path}",
             params=params,
             json=json_body,
+            content=content,
             headers=hdrs,
             timeout=self.timeout,
         )
         if method == "HEAD" and resp.status_code < 400:
             return _table_head(resp)
+        if raw and resp.status_code < 400:
+            return resp.content
         return HttpTransport._handle_response(resp)
 
     async def send_with_bearer(

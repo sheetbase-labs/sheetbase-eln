@@ -229,6 +229,7 @@ yourself, and `EVENT_NAMES` lists every event type.
 | `client.catalogues`       | Schema/sheet-definition/template reads and notebook-template instantiate/upgrade RPCs                                                                                                                                                                                           |
 | `client.agent_operations` | Agent proposal and workflow create/advance/usage/cancel RPCs plus audit-table reads                                                                                                                                                                                             |
 | `client.webhooks`         | Subscription create/update/delete/secret rotation, delivery pagination/replay and table reads                                                                                                                                                                                   |
+| `client.files`            | `upload` (bytes or a path), `upload_version`, `download`, `get`; needs a personal token with `files:write` / `files:read` |
 | `client.pipelines`        | List pipelines, versions, runs, run logs and outputs; trigger through the pipeline webhook; wait_for_run; create_draft, save_draft, sync_step                                                                                                                                   |
 
 Agent operation, workflow, provenance and budget dictionaries remain in the

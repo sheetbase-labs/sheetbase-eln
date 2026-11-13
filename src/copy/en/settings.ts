@@ -2245,9 +2245,9 @@ export const settings = {
     reviewsPreview: 'Reviews (preview)',
     previewNotebookSubmissionDescription:
       'Preview a notebook submission. Can’t submit, sign, amend or run revision checks.',
-    reviewsAttestation: 'Reviews (attestation)',
+    reviewsAttestation: 'Approvals and reviews',
     mintableNowSubmitDescription:
-      'Available. Submitting, signing, amending and revision checks stay with people.',
+      'Approve or return an approval request and decide a review, as you. Personal tokens only, and not in a regulated lab. Signing, submitting and amending stay in the app.',
     files: 'Files',
     mintableNowFileDescription:
       'Upload and download files. Personal tokens only: files go in and out as the person.',

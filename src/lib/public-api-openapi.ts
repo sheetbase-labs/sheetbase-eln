@@ -585,7 +585,7 @@ function description(): string {
     'Errors: `POST /api/token` returns `{ error: { code, message } }`. `/api/db/*` returns `{ error: { category, message, request_id? } }`. Do not expect `code` on the data path.',
     '',
     'Human-session-only (not callable with an API key): `submit_record_revision`, `run_revision_checks`, `sign_revision`, `create_amendment` and other review-transition writers.',
-    '`reviews:write` is mintable but does not open submit, sign, or amend.',
+    '`reviews:write` (personal tokens only) lets a token approve or return an approval request and approve, reject or ask for changes on a review, as its owner; in a regulated lab these stay in the app. It does not open submit, sign, or amend.',
     '`reviews:read` opens `preview_submission_digest` only.',
     '',
     'Schema-authoring RPCs, file RPCs, and scientific-table REST are not part of this API.',

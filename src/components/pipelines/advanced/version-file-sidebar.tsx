@@ -167,70 +167,76 @@ function SidebarSections() {
         ) : null}
       </div>
 
-      <div>
-        <h4 className="pls-h4">
-          {t('features.pipelineVersionFile.sidebar.onlyInFile')}
-        </h4>
-        {only.length ? (
-          <ul className="pls-cn">{only}</ul>
-        ) : (
-          <p className="sd m-0">
-            {t('features.pipelineVersionFile.sidebar.onlyNone')}
-          </p>
-        )}
-      </div>
-
-      <div>
-        <h4 className="pls-h4">
-          {t('features.pipelineVersionFile.sidebar.starts')}
-        </h4>
-        <p className="sd m-0">
-          {facts.starts
-            ? t('features.pipelineVersionFile.sidebar.startsHere', {
-                lines: span(facts.starts),
-              })
-            : t('features.pipelineVersionFile.sidebar.startsNone')}
+      <div className="pls-about">
+        <p className="pls-kick">
+          {t('features.pipelineVersionFile.sidebar.about')}
         </p>
-      </div>
 
-      <div>
-        <h4 className="pls-h4">
-          {t('features.pipelineVersionFile.sidebar.secrets')}
-        </h4>
-        <p className="sd m-0">
-          {facts.secrets.length
-            ? t('features.pipelineVersionFile.sidebar.secretsNames', {
-                name: facts.secrets[0],
-              })
-            : t('features.pipelineVersionFile.sidebar.secretsNone')}
-        </p>
-      </div>
-
-      <div>
-        <h4 className="pls-h4">
-          {t('features.pipelineVersionFile.sidebar.push')}
-        </h4>
-        <div className="pls-code">
-          <span>{command}</span>
-          <BoardButton
-            variant="quiet"
-            size="sm"
-            iconOnly
-            icon="copy"
-            aria-label={t('features.pipelineVersionFile.sidebar.copyCommand')}
-            onClick={() => void copy(command)}
-          />
+        <div>
+          <h4 className="pls-h4">
+            {t('features.pipelineVersionFile.sidebar.onlyInFile')}
+          </h4>
+          {only.length ? (
+            <ul className="pls-cn">{only}</ul>
+          ) : (
+            <p className="sd m-0">
+              {t('features.pipelineVersionFile.sidebar.onlyNone')}
+            </p>
+          )}
         </div>
-        <p className="sd pls-first">
-          {lastPush ? `${lastPush} ` : ''}
-          {t('features.pipelineVersionFile.sidebar.pushNote')}
+
+        <div>
+          <h4 className="pls-h4">
+            {t('features.pipelineVersionFile.sidebar.starts')}
+          </h4>
+          <p className="sd m-0">
+            {facts.starts
+              ? t('features.pipelineVersionFile.sidebar.startsHere', {
+                  lines: span(facts.starts),
+                })
+              : t('features.pipelineVersionFile.sidebar.startsNone')}
+          </p>
+        </div>
+
+        <div>
+          <h4 className="pls-h4">
+            {t('features.pipelineVersionFile.sidebar.secrets')}
+          </h4>
+          <p className="sd m-0">
+            {facts.secrets.length
+              ? t('features.pipelineVersionFile.sidebar.secretsNames', {
+                  name: facts.secrets[0],
+                })
+              : t('features.pipelineVersionFile.sidebar.secretsNone')}
+          </p>
+        </div>
+
+        <div>
+          <h4 className="pls-h4">
+            {t('features.pipelineVersionFile.sidebar.push')}
+          </h4>
+          <div className="pls-code">
+            <span>{command}</span>
+            <BoardButton
+              variant="quiet"
+              size="sm"
+              iconOnly
+              icon="copy"
+              aria-label={t('features.pipelineVersionFile.sidebar.copyCommand')}
+              onClick={() => void copy(command)}
+            />
+          </div>
+          <p className="sd pls-first">
+            {lastPush ? `${lastPush} ` : ''}
+            {t('features.pipelineVersionFile.sidebar.pushNote')}
+          </p>
+        </div>
+
+        <p className="sd pls-never">
+          <Icon name="lock" size={12} />
+          <span>{t('features.pipelineVersionFile.sidebar.neverSteps')}</span>
         </p>
       </div>
-
-      <p className="sd pls-never">
-        <Icon name="lock" size={12} />
-        <span>{t('features.pipelineVersionFile.sidebar.neverSteps')}</span>
-      </p>
     </>
   )
 }

@@ -377,9 +377,9 @@ function SamplesEmpty({
               ? t('library.samples.list.noSamplesMatch', { q: searchQuery })
               : tab === 'archived'
                 ? t('library.samples.list.noArchivedSamples')
-                : t('library.samples.list.noSamplesIn', {
-                    toLowerCase: tabName.toLowerCase(),
-                  })
+                : tab === 'instock'
+                  ? t('library.samples.list.noSamplesInStock')
+                  : t('library.samples.list.nothingIn', { tab: tabName })
         }
         description={
           hasProjectAccess === false
@@ -391,19 +391,23 @@ function SamplesEmpty({
                 : t('library.samples.list.registerASampleOrImport')
         }
         action={
-          <Button
-            nativeButton={false}
-            render={
-              <Link
-                to="/samples"
-                search={{ tab: tab === 'instock' ? undefined : tab }}
-              />
-            }
-          >
-            {query
-              ? t('library.samples.list.clearSearch')
-              : t('library.samples.list.backToInStock')}
-          </Button>
+          // On the in-stock tab with nothing searched, there is nowhere to go
+          // back to.
+          query || tab !== 'instock' ? (
+            <Button
+              nativeButton={false}
+              render={
+                <Link
+                  to="/samples"
+                  search={{ tab: tab === 'instock' ? undefined : tab }}
+                />
+              }
+            >
+              {query
+                ? t('library.samples.list.clearSearch')
+                : t('library.samples.list.backToInStock')}
+            </Button>
+          ) : undefined
         }
       />
     </div>

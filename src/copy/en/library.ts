@@ -2806,7 +2806,8 @@ export const library = {
       searchByIdNameLocation: 'Search by ID, name, location',
       created: 'Created',
       noSamplesMatch: 'No samples match “{q}”',
-      noSamplesIn: 'No samples in {toLowerCase}',
+      noSamplesInStock: 'No samples in stock',
+      nothingIn: 'Nothing in {tab}',
       noArchivedSamples: 'No archived samples',
       archivedStayHere:
         'A sample you archive is kept here, and can be restored.',

@@ -48,6 +48,7 @@ from sheetbase.resources import (
     PeopleResource,
     PluginsResource,
     FacilityResource,
+    FilesResource,
     PipelinesResource,
     ProjectsResource,
     RecordsResource,
@@ -100,6 +101,8 @@ class SheetbaseClient:
         self.people = PeopleResource(self._transport)
         #: ``client.plugins.call(key, operation, input)``: operations installed plugins declare.
         self.plugins = PluginsResource(self._transport)
+        #: ``client.files.upload(project_id, path)`` / ``.download(id)``: needs a personal token with ``files:write`` / ``files:read``.
+        self.files = FilesResource(self._transport)
 
         #: Every public table, typed from the OpenAPI contract:
         #: ``client.tables.projects.list(where={"status": "active"})``.

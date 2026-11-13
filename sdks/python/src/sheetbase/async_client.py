@@ -36,6 +36,7 @@ from sheetbase._version import API_VERSION, __version__
 from sheetbase._pipeline_source import apply_step_source, check_source
 from sheetbase._query_result import DatasetRowPage, DatasetVersionRowPage, SearchPage
 from sheetbase.errors import NotFoundError, StaleVersionError
+from sheetbase.resources.files import AsyncFilesResource
 from sheetbase.resources.pipelines import VersionFileError
 from sheetbase.resources.datasets import DatasetRowBatch, _rows_to_dataframe
 from sheetbase.types import (
@@ -83,6 +84,7 @@ class AsyncSheetbaseClient:
         self.pipelines = AsyncPipelines(self._transport)
         self.people = AsyncPeople(self._transport)
         self.plugins = AsyncPlugins(self._transport)
+        self.files = AsyncFilesResource(self._transport)
 
         #: Every public table, typed from the OpenAPI contract.
         self.tables = AsyncTables(self._transport)

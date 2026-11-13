@@ -179,6 +179,9 @@ export function FormActionsSection({ form }: { form: Form }) {
           variant="primary"
           disabled={
             form.create.isPending ||
+            // The notebook is still opening: a second press would file a
+            // second draft.
+            form.create.isSuccess ||
             form.accessPending ||
             !form.project.effectiveProjectId
           }

@@ -351,6 +351,31 @@ function sampleColumns({
   ]
 }
 
+/** The empty list's headline: access first, then search, then the tab. */
+function emptyTitle({
+  query,
+  searchQuery,
+  tab,
+  tabName,
+  hasProjectAccess,
+}: {
+  query: string
+  searchQuery: string
+  tab: SampleTab
+  tabName: string
+  hasProjectAccess: boolean | undefined
+}): string {
+  if (hasProjectAccess === false) return noProjectAccessTitle('samples')
+
+  if (query) return t('library.samples.list.noSamplesMatch', { q: searchQuery })
+
+  if (tab === 'archived') return t('library.samples.list.noArchivedSamples')
+
+  if (tab === 'instock') return t('library.samples.list.noSamplesInStock')
+
+  return t('library.samples.list.nothingIn', { tab: tabName })
+}
+
 /** The list's empty state: why nothing is listed, and the way back to In stock. */
 function SamplesEmpty({
   query,
@@ -370,17 +395,13 @@ function SamplesEmpty({
       <EmptyState
         className="items-center py-14 text-center"
         icon={query ? 'search' : 'tube'}
-        title={
-          hasProjectAccess === false
-            ? noProjectAccessTitle('samples')
-            : query
-              ? t('library.samples.list.noSamplesMatch', { q: searchQuery })
-              : tab === 'archived'
-                ? t('library.samples.list.noArchivedSamples')
-                : tab === 'instock'
-                  ? t('library.samples.list.noSamplesInStock')
-                  : t('library.samples.list.nothingIn', { tab: tabName })
-        }
+        title={emptyTitle({
+          query,
+          searchQuery,
+          tab,
+          tabName,
+          hasProjectAccess,
+        })}
         description={
           hasProjectAccess === false
             ? NO_PROJECT_ACCESS_BODY

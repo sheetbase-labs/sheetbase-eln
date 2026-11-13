@@ -2859,6 +2859,11 @@ function CanonicalWorkspaceAuthoring() {
             <Input
               value={columnLabel}
               onChange={(event) => setColumnLabel(event.target.value)}
+              onKeyDown={(event) =>
+                pressEnter(event, () => {
+                  if (!localMutate.isPending) void addColumn()
+                })
+              }
               placeholder={t('notebook.canonicalSheetWorkspace.placeholder')}
               className="h-8 w-40"
             />
@@ -2908,6 +2913,12 @@ function CanonicalWorkspaceAuthoring() {
             <Input
               value={formula}
               onChange={(event) => setFormula(event.target.value)}
+              onKeyDown={(event) =>
+                pressEnter(event, () => {
+                  if (!addCalculation.isPending && !localMutate.isPending)
+                    addCalculation.mutate()
+                })
+              }
               placeholder="=A1*2"
               className="h-8 w-32"
               aria-label={t(
@@ -2918,6 +2929,12 @@ function CanonicalWorkspaceAuthoring() {
           <Input
             value={formulaLabel}
             onChange={(event) => setFormulaLabel(event.target.value)}
+            onKeyDown={(event) =>
+              pressEnter(event, () => {
+                if (!addCalculation.isPending && !localMutate.isPending)
+                  addCalculation.mutate()
+              })
+            }
             placeholder={t('notebook.canonicalSheetWorkspace.labelPlaceholder')}
             className="h-8 w-28"
             aria-label={t(
@@ -3380,6 +3397,13 @@ function shownRowCount(
   ).length
 }
 
+/** Enter in a one-line field runs its row's action, as in a form. */
+function pressEnter(event: React.KeyboardEvent, run: () => void) {
+  if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+  event.preventDefault()
+  run()
+}
+
 function CanonicalWorkspaceGrid() {
   const {
     matrix,
@@ -3387,6 +3411,7 @@ function CanonicalWorkspaceGrid() {
     gridContainerRef,
     gridHandle,
     canWrite,
+    setSheetTool,
     activeInput,
     sheetRows,
     sheetColumns,
@@ -3418,9 +3443,17 @@ function CanonicalWorkspaceGrid() {
   return (
     <>
       {matrix.columns.length === 0 ? (
-        <p className="p-3 text-sm text-fg-muted" role="status">
-          {t('notebook.canonicalSheetWorkspace.thisSheetHasNo')}
-        </p>
+        <div
+          className="flex flex-wrap items-center gap-3 p-3 text-sm text-fg-muted"
+          role="status"
+        >
+          <p>{t('notebook.canonicalSheetWorkspace.thisSheetHasNo')}</p>
+          {canWrite ? (
+            <Button size="sm" onClick={() => setSheetTool('column')}>
+              {t('notebook.canonicalSheetWorkspace.newColumn')}
+            </Button>
+          ) : null}
+        </div>
       ) : composition.isLoading ? (
         <p className="p-3 text-sm text-fg-muted" role="status">
           {t('notebook.canonicalSheetWorkspace.loadingComposedSheet')}

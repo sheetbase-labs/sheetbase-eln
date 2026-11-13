@@ -108,7 +108,7 @@ const LIST: Record<TabVariant, string> = {
   strip:
     'flex gap-5 max-md:gap-x-4 max-md:gap-y-0 max-md:flex-wrap overflow-x-auto whitespace-nowrap [scrollbar-width:none] max-md:overflow-visible',
   segment:
-    'flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-md border border-border bg-surface-muted p-0.5 [scrollbar-width:none]',
+    'flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-md border border-border bg-surface-muted p-0.5 [scrollbar-width:none] max-md:flex-wrap max-md:overflow-visible',
   chip: 'flex items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none] max-md:flex-wrap max-md:overflow-visible',
 }
 

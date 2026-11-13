@@ -197,6 +197,14 @@ export interface RegistryGridProps<T extends RowData> {
   /** What the list is called in an export's file name; defaults to `label`. */
   exportName?: string
   isLoading?: boolean
+  /**
+   * Hold every column at its declared `size` (150px when none), so the layout
+   * never depends on which rows are on screen. A long list renders only the
+   * rows in view, and under the automatic layout its columns grow and shrink
+   * as scrolling brings different rows in, moving the sideways scroll under
+   * the pointer. Cells that do not fit are cut with an ellipsis.
+   */
+  stableWidths?: boolean
   /** What the table says when it holds no rows; defaults to the grid's own line. */
   empty?: ReactNode
   /** Row height in px for a table whose rows hold a picture; default 33. */
@@ -286,6 +294,7 @@ export function RegistryGrid<T extends RowData>({
   bulk,
   rowLabel,
   isLoading = false,
+  stableWidths = false,
   empty,
 }: RegistryGridProps<T>) {
   const view = useGridView(viewProp, sortingProp === undefined && sortableProp)
@@ -536,6 +545,7 @@ export function RegistryGrid<T extends RowData>({
         className={className}
         recordCount={rows.length}
         isLoading={isLoading}
+        stableWidths={stableWidths}
         empty={empty}
         label={label}
         onRowClick={events.onRowClick}
@@ -552,6 +562,7 @@ function RegistryTable<T extends RowData>({
   className,
   recordCount,
   isLoading,
+  stableWidths,
   empty,
   label,
   onRowClick,
@@ -563,6 +574,7 @@ function RegistryTable<T extends RowData>({
   className?: string
   recordCount: number
   isLoading: boolean
+  stableWidths: boolean
   empty?: ReactNode
   label: string
   onRowClick: (row: T) => void
@@ -610,7 +622,7 @@ function RegistryTable<T extends RowData>({
         // band at the top of the list area while scrolling — a behaviour the
         // tables it replaces never had. The header scrolls with the rows.
         tableLayout={{
-          width: 'auto',
+          width: stableWidths ? 'fixed' : 'auto',
           headerSticky: false,
           columnsPinnable: true,
         }}
@@ -627,7 +639,11 @@ function RegistryTable<T extends RowData>({
           // `text-fg-muted`, as the v3 table head renders.
           header:
             '[&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6 [@media(hover:none)]:[&_th:last-child]:pr-11 [&_th]:text-label [&_th]:text-fg-muted [&_th]:border-border',
-          body: '[&_td_a.mono]:text-fg [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6',
+          body:
+            '[&_td_a.mono]:text-fg [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6' +
+            (stableWidths
+              ? ' [&_td]:overflow-hidden [&_td]:text-ellipsis'
+              : ''),
         }}
       >
         <DataGridScrollArea orientation="both" className="h-full">

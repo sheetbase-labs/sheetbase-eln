@@ -106,6 +106,8 @@ export interface CodeEditorProps {
   /** A line that starts a block: the next line is indented further. */
   indentAfter?: RegExp
   lineNumbers?: boolean
+  /** Long lines wrap instead of scrolling sideways. */
+  wrap?: boolean
   onSave?: () => void
   onBlur?: () => void
   /** The longest text it takes; typing or pasting past it is refused. */
@@ -324,6 +326,7 @@ export function CodeEditorView({
   fold,
   indentAfter,
   lineNumbers: numbered = true,
+  wrap,
   onSave,
   onBlur,
   maxLength,
@@ -367,6 +370,7 @@ export function CodeEditorView({
     readOnly,
     placeholder,
     numbered,
+    wrap,
     maxLength,
   })
 
@@ -457,6 +461,7 @@ export function CodeEditorView({
               })
             : [],
           start.numbered ? problemGutter : [],
+          start.wrap ? EditorView.lineWrapping : [],
           history(),
           drawSelection(),
           highlightActiveLine(),
@@ -466,6 +471,11 @@ export function CodeEditorView({
           EditorState.tabSize.of(2),
           EditorState.readOnly.of(!!start.readOnly),
           EditorView.editable.of(!start.readOnly),
+          // A read-only box still takes the keyboard (select all, find) and
+          // opens no phone keyboard.
+          start.readOnly
+            ? EditorView.contentAttributes.of({ tabindex: '0' })
+            : [],
           search({ top: true }),
           codeFolding({
             placeholderDOM: (_view, onclick) => {

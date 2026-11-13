@@ -365,7 +365,11 @@ function Experiments() {
   )
 
   const columns = useMemo(
-    () => withAddedColumns(baseColumns, addedColumns),
+    () =>
+      withAddedColumns(baseColumns, addedColumns).map((column) => ({
+        ...column,
+        size: COLUMN_WIDTHS.get(column.id ?? '') ?? 130,
+      })),
     [baseColumns, addedColumns],
   )
 
@@ -452,6 +456,7 @@ function Experiments() {
           bulk={bulk}
           rowLabel={(e) => e.id}
           selectable={false}
+          stableWidths
           onRowClick={(e) => openExperiment(e)}
           isLoading={records.isPending}
         />
@@ -726,6 +731,20 @@ function ExperimentsFooter({
   )
 }
 
+/** Fixed column widths in px, so scrolling a long list never reflows them. */
+const COLUMN_WIDTHS = new Map<string, number>([
+  ['identifier', 100],
+  ['title', 260],
+  ['project', 220],
+  ['owner', 100],
+  ['assignee', 100],
+  ['protocol', 110],
+  ['status', 120],
+  ['issues', 110],
+  ['created', 90],
+  ['updated', 90],
+])
+
 /** The list's own columns, before any the workspace added to experiments. */
 function experimentColumns({
   issueCount,
@@ -948,7 +967,6 @@ function ExperimentsHeader({
         <Tabs
           mode="url"
           value={tab}
-          className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0"
           label={t('projects.experimentsList.views')}
           items={tabs.map((name) => ({
             key: name,

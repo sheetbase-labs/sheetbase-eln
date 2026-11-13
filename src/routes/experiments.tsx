@@ -365,11 +365,7 @@ function Experiments() {
   )
 
   const columns = useMemo(
-    () =>
-      withAddedColumns(baseColumns, addedColumns).map((column) => ({
-        ...column,
-        size: COLUMN_WIDTHS.get(column.id ?? '') ?? 130,
-      })),
+    () => withColumnWidths(withAddedColumns(baseColumns, addedColumns)),
     [baseColumns, addedColumns],
   )
 
@@ -448,15 +444,12 @@ function Experiments() {
           className="max-md:hidden"
           label={t('projects.experimentsList.title')}
           view={view}
-          // The Sort and Group menus above order this list.
-          sortable={false}
+          {...GRID_BEHAVIOUR}
           rows={gridRows}
           columns={columns}
           getRowId={(e) => e.uuid}
           bulk={bulk}
           rowLabel={(e) => e.id}
-          selectable={false}
-          stableWidths
           onRowClick={(e) => openExperiment(e)}
           isLoading={records.isPending}
         />
@@ -731,6 +724,13 @@ function ExperimentsFooter({
   )
 }
 
+/** The Sort and Group menus above order this list, its rows are links, and its columns keep their width. */
+const GRID_BEHAVIOUR = {
+  sortable: false,
+  selectable: false,
+  stableWidths: true,
+} as const
+
 /** Fixed column widths in px, so scrolling a long list never reflows them. */
 const COLUMN_WIDTHS = new Map<string, number>([
   ['identifier', 100],
@@ -744,6 +744,16 @@ const COLUMN_WIDTHS = new Map<string, number>([
   ['created', 90],
   ['updated', 90],
 ])
+
+/** Every column at its fixed width, so the layout never depends on the rows shown. */
+function withColumnWidths(
+  columns: RegistryColumn<ExperimentListRow>[],
+): RegistryColumn<ExperimentListRow>[] {
+  return columns.map((column) => ({
+    ...column,
+    size: COLUMN_WIDTHS.get(column.id ?? '') ?? 130,
+  }))
+}
 
 /** The list's own columns, before any the workspace added to experiments. */
 function experimentColumns({

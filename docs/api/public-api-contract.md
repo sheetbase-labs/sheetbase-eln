@@ -376,7 +376,7 @@ Retires `scientific:*` as the future model (PC-00 decision). Scopes are
 | `templates:read`  | Read notebook templates and versions                                                                                                        |
 | `templates:write` | Author/publish/instantiate/upgrade notebook templates                                                                                       |
 | `reviews:read`    | Preview a submission digest on the credential path. Does **not** run revision checks.                                                       |
-| `reviews:write`   | Mintable. Does **not** submit, sign or amend; those stay human-session-only.                                                                |
+| `reviews:write`   | Personal tokens decide approval requests and reviews as their owner. Does **not** submit, sign or amend; those stay human-session-only.     |
 | `files:read`      | Download file objects                                                                                                                       |
 | `files:write`     | Upload and finalize files                                                                                                                   |
 

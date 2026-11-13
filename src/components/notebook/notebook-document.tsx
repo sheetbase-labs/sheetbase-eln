@@ -976,6 +976,10 @@ function useNotebookDocument({
         `[id="block-${blockId}"]`,
       )
 
+      // A block that already put the cursor in one of its fields (a new
+      // checklist, say) keeps it; focusing the frame would take it away.
+      if (el?.contains(document.activeElement)) return
+
       el?.focus()
     })
   }

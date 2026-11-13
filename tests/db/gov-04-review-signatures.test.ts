@@ -474,6 +474,78 @@ describe('GOV-04 frozen evidence and signature attachment', () => {
     })
   })
 
+  it('records a personal token decision under the token, and refuses it in a regulated lab', async () => {
+    const TOKEN_ID = '00000000-0000-4000-8000-00000000c0f1'
+    await migrator!.query(
+      `INSERT INTO internal.api_credentials(id,workspace_id,display_prefix,secret_hash,name,scopes,created_by_user_id,kind)
+       VALUES ($1,$2,'sbg4tok','x','Reviewer token',ARRAY['reviews:write'],$3,'personal')`,
+      [TOKEN_ID, WS, REVIEWER],
+    )
+    const author = await authenticated(AUTHOR, WS)
+    const sourceDigest = (
+      await author.query(`SELECT api.preview_submission_digest($1) AS result`, [
+        RECORD,
+      ])
+    ).rows[0].result.sourceDigest as string
+    const submitted = (
+      await author.query(
+        `SELECT api.submit_record_revision($1,$2,'default-scientific-review',1,$3,true,$4) AS result`,
+        [RECORD, sourceDigest, `{${REVIEWER}}`, 'g4-submit-token'],
+      )
+    ).rows[0].result as {
+      revision: { id: string; integrityDigest: string }
+      submission: { id: string }
+    }
+    const token = await asRole('authenticator')
+    clients.push(token)
+    await token.query('SET ROLE authenticated')
+    await token.query(`SELECT set_config('request.jwt.claims', $1, false)`, [
+      JSON.stringify({
+        sub: REVIEWER,
+        workspace_id: WS,
+        role: 'authenticated',
+        credential_id: TOKEN_ID,
+      }),
+    ])
+    await migrator!.query(
+      `INSERT INTO api.workspace_settings(workspace_id,created_by_user_id,regulated_lab)
+       VALUES ($1,$2,true) ON CONFLICT(workspace_id) DO UPDATE SET regulated_lab=true`,
+      [WS, REVIEWER],
+    )
+    await expect(
+      token.query(
+        `SELECT api.request_changes_on_review($1,$2,'submitted',$3)`,
+        [
+          submitted.submission.id,
+          'Please add units',
+          submitted.revision.integrityDigest,
+        ],
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
+    await migrator!.query(
+      'UPDATE api.workspace_settings SET regulated_lab=false WHERE workspace_id=$1',
+      [WS],
+    )
+    await token.query(
+      `SELECT api.request_changes_on_review($1,$2,'submitted',$3)`,
+      [
+        submitted.submission.id,
+        'Please add units',
+        submitted.revision.integrityDigest,
+      ],
+    )
+    const { rows } = await migrator!.query(
+      `SELECT decision, actor_user_id, actor_session_id FROM api.review_decisions
+        WHERE submission_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [submitted.submission.id],
+    )
+    expect(rows[0]).toMatchObject({
+      decision: 'request_changes',
+      actor_user_id: REVIEWER,
+      actor_session_id: `token:${TOKEN_ID}`,
+    })
+  })
+
   it('denies api credentials every attestation surface', async () => {
     const apiClient = await asApiClient(WS)
     const NO_REVISION = "'00000000-0000-4000-8000-0000000000b1'::uuid"

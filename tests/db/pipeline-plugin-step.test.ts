@@ -491,4 +491,47 @@ describe.skipIf(!pythonAvailable)('a plugin step between two steps', () => {
       40, 80,
     ])
   })
+
+  it('fails a resumed run with the plugin’s own words, not a log error', async () => {
+    installed = true
+    const { report, runId } = await run([
+      subtractBlank(),
+      {
+        name: 'check_blank',
+        kind: 'ask',
+        ask: {
+          fields: [
+            { key: 'unit', label: 'Unit', type: 'text', required: true },
+          ],
+          askedUserIds: [OWNER],
+          noAnswer: 'reask',
+          expiresHours: 24,
+        },
+      },
+      tidy,
+    ])
+    expect(report.run?.status).toBe('waiting')
+    // The plugin goes away while the run waits, so the resumed run fails.
+    installed = false
+    const { deps, close } = await makeExecDeps(OWNER)
+    const resumed = await resumePipelineRun(
+      OWNER,
+      runId,
+      { decision: 'confirm', values: { unit: 'AU' } },
+      deps,
+    )
+    await close()
+    installed = true
+    expect(resumed.ok).toBe(false)
+    expect(resumed.errorMessage).toContain('no longer installed')
+    expect(resumed.errorMessage).not.toContain('can only be appended')
+    const stored = await migrator.query<{
+      status: string
+      error_message: string
+    }>(`select status, error_message from api.pipeline_runs where id = $1`, [
+      runId,
+    ])
+    expect(stored.rows[0].status).toBe('failed')
+    expect(stored.rows[0].error_message).toContain('no longer installed')
+  })
 })

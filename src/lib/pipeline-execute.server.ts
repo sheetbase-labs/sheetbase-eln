@@ -1684,6 +1684,23 @@ async function endWaitingRun(
   )
 }
 
+/**
+ * Rolling back to the resume savepoint also undoes the flip from waiting to
+ * running, and a run's log only takes entries while it is running. Flip it
+ * again so the failure that ended the resumption is recorded under its own
+ * message, not behind "logs can only be appended to a running run".
+ */
+async function reopenWaitingRun(
+  conn: ExecConnection,
+  runId: string,
+): Promise<void> {
+  await conn.query(
+    `UPDATE api.pipeline_runs SET status = 'running'
+      WHERE id = $1 AND status = 'waiting'`,
+    [runId],
+  )
+}
+
 type ResumeCheck =
   | { ok: false; report: PipelineExecuteReport }
   | {
@@ -1969,6 +1986,7 @@ export async function resumePipelineRun(
 
     if (transform.kind === 'error') {
       await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
+      await reopenWaitingRun(conn, run.id)
       await failRun(
         conn,
         run,
@@ -2043,6 +2061,7 @@ export async function resumePipelineRun(
 
     try {
       await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
+      await reopenWaitingRun(conn, runId)
       const latest = await loadRun(conn, runId)
 
       if (latest?.status === 'cancelled') {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { z } from 'zod'
 
+import { CodeEditor } from '#/components/code-editor/code-editor'
 import { Banner } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import { PreviewGrid } from '#/components/inventory/preview-grid'
@@ -114,9 +115,15 @@ export function PluginFilePreview({
         </Banner>
       ) : null}
       {open && data?.kind === 'text' ? (
-        <pre className="max-h-80 overflow-auto rounded-md border bg-surface-subtle p-3 text-xs">
-          {data.text}
-        </pre>
+        <CodeEditor
+          readOnly
+          wrap
+          lineNumbers={false}
+          ariaLabel={t('plugins.preview.textAria', { name: fileName })}
+          value={data.text}
+          minHeight="72px"
+          maxHeight="320px"
+        />
       ) : null}
       {open && data?.kind === 'table' ? (
         <div className="overflow-hidden rounded-md border">

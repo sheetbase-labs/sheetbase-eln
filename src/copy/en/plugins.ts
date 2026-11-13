@@ -428,6 +428,7 @@ export const plugins = {
     open: 'Show as {name}',
     hide: 'Hide {name}',
     reading: 'Reading the file…',
+    textAria: 'What the plugin read from {name}',
     failed: 'The file could not be shown: {reason}',
     from: 'Read by the {plugin} plugin.',
   },

@@ -31,7 +31,9 @@ function textOf(node: ReactNode): string {
     .map((child) =>
       isValidElement<ElementProps>(child)
         ? textOf(child.props.children)
-        : String(child),
+        : // SAFETY: Children.toArray drops booleans and nulls, so a non-element
+          // child that reaches an <option> is its text, a string or a number.
+          `${child as string | number}`,
     )
     .join('')
 }

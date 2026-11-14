@@ -122,7 +122,7 @@ function useServiceStateMutation(
       )
     },
     onError: (error) => {
-      toast(t('library.instruments.outOfService.couldNotChange'), {
+      toast.error(t('library.instruments.outOfService.couldNotChange'), {
         description: error instanceof Error ? error.message : undefined,
       })
     },
@@ -320,7 +320,7 @@ function LogVisitDialog({
       toast(t('library.instruments.serviceLog.logged'))
     },
     onError: (error) => {
-      toast(t('library.instruments.serviceLog.couldNotLog'), {
+      toast.error(t('library.instruments.serviceLog.couldNotLog'), {
         description: error instanceof Error ? error.message : undefined,
       })
     },

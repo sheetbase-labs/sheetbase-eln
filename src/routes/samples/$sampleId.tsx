@@ -652,7 +652,7 @@ function samplePageFlags(page: SamplePage, sample: SampleRecord) {
 
       if (!wrote) toast(t('library.samples.record.nothingToExportThisSample'))
     } catch (error) {
-      toast(t('library.samples.record.couldNotExportLineage'), {
+      toast.error(t('library.samples.record.couldNotExportLineage'), {
         description:
           error instanceof Error
             ? error.message

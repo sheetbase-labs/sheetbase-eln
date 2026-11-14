@@ -230,7 +230,7 @@ function Usage() {
                   ),
                 })
               } catch (error) {
-                toast(t('settings.usage.couldExportUsageToast'), {
+                toast.error(t('settings.usage.couldExportUsageToast'), {
                   description:
                     error instanceof Error
                       ? error.message

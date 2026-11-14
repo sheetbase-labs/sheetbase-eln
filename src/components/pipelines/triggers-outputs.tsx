@@ -36,7 +36,7 @@ export function WebhookCard({ definitionId }: { definitionId: string }) {
       setIssued(action === 'rotate' ? (next.token ?? null) : null)
     },
     onError: (error) =>
-      toast(t('data.triggersOutputs.couldChangeWebhook'), {
+      toast.error(t('data.triggersOutputs.couldChangeWebhook'), {
         description:
           error instanceof Error
             ? error.message
@@ -131,7 +131,9 @@ function WebhookCredentials({
               void Promise.resolve()
                 .then(() => navigator.clipboard.writeText(url))
                 .then(() => toast(t('data.triggersOutputs.urlCopied')))
-                .catch(() => toast(t('data.triggersOutputs.couldCopyUrl')))
+                .catch(() =>
+                  toast.error(t('data.triggersOutputs.couldCopyUrl')),
+                )
             }}
           >
             {t('common.actions.copy')}

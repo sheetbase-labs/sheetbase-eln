@@ -236,7 +236,7 @@ function NewSheet() {
       await land(instance.id)
     },
     onError: (error) =>
-      toast(t('notebook.sheetsNew.couldNotCreateThe'), {
+      toast.error(t('notebook.sheetsNew.couldNotCreateThe'), {
         description:
           error instanceof Error
             ? error.message

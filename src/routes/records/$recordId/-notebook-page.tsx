@@ -1357,7 +1357,7 @@ export function RecordTitleInput({
       // A refused rename leaves the title unchanged, so the draft has to be
       // put back by hand or the typed title looks applied.
       setTitleDraft(title)
-      toast(t('notebook.notebookPage.couldNotRenameThe'), {
+      toast.error(t('notebook.notebookPage.couldNotRenameThe'), {
         description:
           error instanceof Error
             ? error.message

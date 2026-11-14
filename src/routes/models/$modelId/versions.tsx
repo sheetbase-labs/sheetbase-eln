@@ -156,7 +156,7 @@ function useDatasetVersionHistory() {
       })
     },
     onError: (error) => {
-      toast(t('library.models.versions.couldNotPublish'), {
+      toast.error(t('library.models.versions.couldNotPublish'), {
         description:
           error instanceof Error
             ? error.message

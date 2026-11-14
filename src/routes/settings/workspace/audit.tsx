@@ -146,7 +146,7 @@ function useAuditExport(filter: AuditFilter) {
     } catch (error) {
       // A hand-off the browser refuses, or a read that failed mid-walk, is
       // otherwise silent.
-      toast(t('settings.audit.couldExportAuditToast'), {
+      toast.error(t('settings.audit.couldExportAuditToast'), {
         description:
           error instanceof Error
             ? error.message

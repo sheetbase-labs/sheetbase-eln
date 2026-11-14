@@ -153,7 +153,7 @@ function LogReadingDialog({
       toast(t('settings.storageReadings.logged', { name: node.name }))
     },
     onError: (error) => {
-      toast(t('settings.storageReadings.couldNotLog'), {
+      toast.error(t('settings.storageReadings.couldNotLog'), {
         description: error.message,
       })
     },

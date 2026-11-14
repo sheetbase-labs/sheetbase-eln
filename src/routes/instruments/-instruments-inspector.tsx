@@ -107,7 +107,7 @@ function useInstrumentInspector(instrument: InstrumentRow) {
       )
     },
     onError: () =>
-      toast(t('library.instruments.list.couldNotChangeTheInstrument')),
+      toast.error(t('library.instruments.list.couldNotChangeTheInstrument')),
   })
 
   const changeMethod = useMutation({
@@ -121,7 +121,8 @@ function useInstrumentInspector(instrument: InstrumentRow) {
         description: t('library.instruments.list.dataAlreadyImportedIsNot'),
       })
     },
-    onError: () => toast(t('library.instruments.list.couldNotChangeHowData')),
+    onError: () =>
+      toast.error(t('library.instruments.list.couldNotChangeHowData')),
   })
 
   return {

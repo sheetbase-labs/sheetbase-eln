@@ -449,7 +449,7 @@ export function EvidencePage() {
     },
     // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A refused amendment is a caught throw, so it reaches this callback untyped; Error supplies its message.
     onError: (error: unknown) => {
-      toast(t('notebook.evidencePage.couldNotAmend'), {
+      toast.error(t('notebook.evidencePage.couldNotAmend'), {
         description:
           error instanceof Error
             ? error.message
@@ -547,7 +547,7 @@ export function EvidencePage() {
 
       downloadTextFile(filename, blob)
     } catch (error) {
-      toast(t('notebook.evidencePage.couldNotExportThe'), {
+      toast.error(t('notebook.evidencePage.couldNotExportThe'), {
         description:
           error instanceof Error
             ? error.message

@@ -312,12 +312,15 @@ function useRecordList(modelKey: string) {
         'text/csv;charset=utf-8',
       )
     } catch (error) {
-      toast(t('library.models.recordModelRecords.couldNotExportRecords'), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t('library.models.recordModelRecords.theDownloadFailed'),
-      })
+      toast.error(
+        t('library.models.recordModelRecords.couldNotExportRecords'),
+        {
+          description:
+            error instanceof Error
+              ? error.message
+              : t('library.models.recordModelRecords.theDownloadFailed'),
+        },
+      )
     }
   }
 

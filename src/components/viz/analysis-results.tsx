@@ -92,7 +92,7 @@ async function copyMethodsText(result: AnalysisResult): Promise<void> {
       description: t('data.analysisPanel.pasteIntoNotebookS'),
     })
   } catch {
-    toast(t('common.errors.couldNotCopy'), {
+    toast.error(t('common.errors.couldNotCopy'), {
       description: t('data.analysisPanel.clipboardRejectedWrite'),
     })
   }

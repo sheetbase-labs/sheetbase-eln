@@ -330,7 +330,7 @@ export function LimitsDialog({
       toast(t('library.instruments.live.limitsSaved'))
     },
     onError: (error) => {
-      toast(t('library.instruments.live.couldNotSaveLimits'), {
+      toast.error(t('library.instruments.live.couldNotSaveLimits'), {
         description: error instanceof Error ? error.message : undefined,
       })
     },
@@ -449,7 +449,7 @@ export function LiveSetupDialog({
       toast(t('library.instruments.live.downloaded', { file: fileName }))
     },
     onError: (error) => {
-      toast(t('library.instruments.live.couldNotDownload'), {
+      toast.error(t('library.instruments.live.couldNotDownload'), {
         description: error instanceof Error ? error.message : undefined,
       })
     },
@@ -730,7 +730,7 @@ export function ReadingsSection({
       toast(t('library.instruments.live.removed', { name: target.name }))
     },
     onError: (error) => {
-      toast(t('library.instruments.live.couldNotRemove'), {
+      toast.error(t('library.instruments.live.couldNotRemove'), {
         description: error instanceof Error ? error.message : undefined,
       })
     },

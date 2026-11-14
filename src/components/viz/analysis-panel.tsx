@@ -389,7 +389,7 @@ function CiteDefinitionDialog({
       })
     },
     onError: (error) =>
-      toast(t('data.analysisPanel.couldCite'), {
+      toast.error(t('data.analysisPanel.couldCite'), {
         description:
           error instanceof Error
             ? error.message

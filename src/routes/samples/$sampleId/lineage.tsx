@@ -100,12 +100,15 @@ function SampleLineage() {
                 if (!wrote)
                   toast(t('library.samples.lineage.nothingToExportNoLineage'))
               } catch (error) {
-                toast(t('library.samples.lineage.couldNotExportLineage'), {
-                  description:
-                    error instanceof Error
-                      ? error.message
-                      : t('library.samples.lineage.theDownloadFailed'),
-                })
+                toast.error(
+                  t('library.samples.lineage.couldNotExportLineage'),
+                  {
+                    description:
+                      error instanceof Error
+                        ? error.message
+                        : t('library.samples.lineage.theDownloadFailed'),
+                  },
+                )
               }
             }}
           >

@@ -255,7 +255,7 @@ function useTriggerEditor() {
       )
     },
     onError: (error) =>
-      toast(t('data.pipelineTriggers.couldChangeTrigger'), {
+      toast.error(t('data.pipelineTriggers.couldChangeTrigger'), {
         description:
           error instanceof Error
             ? error.message
@@ -271,7 +271,7 @@ function useTriggerEditor() {
       toast(t('data.pipelineTriggers.triggerDeleted'))
     },
     onError: (error) =>
-      toast(t('data.pipelineTriggers.couldDeleteTrigger'), {
+      toast.error(t('data.pipelineTriggers.couldDeleteTrigger'), {
         description:
           error instanceof Error
             ? error.message

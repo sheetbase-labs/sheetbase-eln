@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
@@ -432,9 +433,10 @@ function MoveDialog({
     >
       {how === 'project' ? (
         <Field label={t('library.bulk.moveDialog.project.label')}>
-          <Select
+          <SearchableSelect
+            noun="project"
             value={destination}
-            onChange={(event) => setDestination(event.target.value)}
+            onValueChange={(value) => setDestination(value)}
           >
             <option value="" disabled>
               {t('library.bulk.moveDialog.project.choose')}
@@ -448,7 +450,7 @@ function MoveDialog({
                     : project.title}
                 </option>
               ))}
-          </Select>
+          </SearchableSelect>
         </Field>
       ) : (
         <Field label={t('library.bulk.moveDialog.location.label')}>
@@ -509,9 +511,10 @@ function AssignDialog({
       onConfirm={() => assign.mutate([person === NOBODY ? null : person])}
     >
       <Field label={t('library.bulk.assignDialog.person')}>
-        <Select
+        <SearchableSelect
+          noun="member"
           value={person}
-          onChange={(event) => setPerson(event.target.value)}
+          onValueChange={(value) => setPerson(value)}
         >
           <option value="" disabled>
             {t('library.bulk.assignDialog.choose')}
@@ -530,7 +533,7 @@ function AssignDialog({
                 {name}
               </option>
             ))}
-        </Select>
+        </SearchableSelect>
       </Field>
     </ActionDialog>
   )

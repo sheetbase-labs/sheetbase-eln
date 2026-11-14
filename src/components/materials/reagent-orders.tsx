@@ -2,6 +2,7 @@
  * Reagent ordering screens: the Orders list on the Materials page and the
  * dialogs that move an order along (request, mark ordered, receive, cancel).
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useMemo, useState } from 'react'
 import { Link, useRouteContext } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -438,9 +439,10 @@ function MarkOrderedDialog({
             </p>
             {hasList ? (
               <Field label={t('spend.suppliers.field')}>
-                <Select
+                <SearchableSelect
+                  noun="supplier"
                   value={choice}
-                  onChange={(e) => setSupplierChoice(e.target.value)}
+                  onValueChange={(value) => setSupplierChoice(value)}
                   disabled={mark.isPending}
                 >
                   <option value="">{t('spend.suppliers.none')}</option>
@@ -452,7 +454,7 @@ function MarkOrderedDialog({
                   <option value={OTHER_SUPPLIER}>
                     {t('spend.suppliers.anotherSupplier')}
                   </option>
-                </Select>
+                </SearchableSelect>
               </Field>
             ) : null}
             {choice === OTHER_SUPPLIER ? (

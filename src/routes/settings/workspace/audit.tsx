@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { Person } from '#/components/ui/person'
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
@@ -10,7 +11,6 @@ import { Notice } from '#/components/ui/alert'
 import { toast } from '#/components/ui/sonner'
 import { Input } from '#/components/ui/input'
 import { DateField } from '#/components/ui/date-field'
-import { Select } from '#/components/ui/select'
 import { Muted } from '#/components/ui/layout'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -484,11 +484,12 @@ function AuditFilters({
       role="toolbar"
       className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 md:px-6"
     >
-      <Select
+      <SearchableSelect
+        noun="operation"
         aria-label={t('settings.audit.operationAria')}
         size="sm"
         value={filters.operation}
-        onChange={(e) => onChange({ ...filters, operation: e.target.value })}
+        onValueChange={(value) => onChange({ ...filters, operation: value })}
       >
         <option value="">{t('settings.audit.operations')}</option>
         {operations.map((o) => (
@@ -496,12 +497,13 @@ function AuditFilters({
             {operationLabel(o)}
           </option>
         ))}
-      </Select>
-      <Select
+      </SearchableSelect>
+      <SearchableSelect
+        noun="member"
         aria-label={t('settings.audit.actor')}
         size="sm"
         value={filters.actorUserId}
-        onChange={(e) => onChange({ ...filters, actorUserId: e.target.value })}
+        onValueChange={(value) => onChange({ ...filters, actorUserId: value })}
       >
         <option value="">{t('settings.audit.anyone')}</option>
         {(members.data ?? []).map((m) => (
@@ -509,12 +511,13 @@ function AuditFilters({
             {memberNames.userLabel(m.userId)}
           </option>
         ))}
-      </Select>
-      <Select
+      </SearchableSelect>
+      <SearchableSelect
+        noun="project"
         aria-label={t('settings.audit.project')}
         size="sm"
         value={filters.projectId}
-        onChange={(e) => onChange({ ...filters, projectId: e.target.value })}
+        onValueChange={(value) => onChange({ ...filters, projectId: value })}
       >
         <option value="">{t('settings.audit.projects3')}</option>
         {(projectList.data ?? []).map((p) => (
@@ -522,7 +525,7 @@ function AuditFilters({
             {p.title}
           </option>
         ))}
-      </Select>
+      </SearchableSelect>
       <label className="block w-[240px]">
         <span className="sr-only">{t('settings.audit.searchAuditLog')}</span>
         <Input

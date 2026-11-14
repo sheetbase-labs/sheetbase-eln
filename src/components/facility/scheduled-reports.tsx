@@ -3,6 +3,7 @@
  * The form is also opened from a report's own page ("Email this report") with
  * the report already chosen.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -325,9 +326,10 @@ function ScheduleReportFields({
       </Field>
       {hasProject ? (
         <Field label={t('spend.schedule.form.project')}>
-          <Select
+          <SearchableSelect
+            noun="project"
             value={draft.projectId}
-            onChange={(e) => patch({ projectId: e.target.value })}
+            onValueChange={(value) => patch({ projectId: value })}
             disabled={pending}
           >
             <option value="">{t('spend.schedule.form.allProjects')}</option>
@@ -336,7 +338,7 @@ function ScheduleReportFields({
                 {p.title}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </Field>
       ) : null}
       <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">

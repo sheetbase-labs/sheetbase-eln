@@ -269,7 +269,7 @@ function ProjectSettingsForm({ project }: { project: ProjectSummary }) {
               </Field>
               <Field label={t('projects.projectSettings.lead')}>
                 <PickerSelect
-                  noun="person"
+                  noun="member"
                   value={lead}
                   onChange={(id) => setField('lead', id)}
                   clearLabel="Not assigned"
@@ -280,7 +280,7 @@ function ProjectSettingsForm({ project }: { project: ProjectSummary }) {
               </Field>
               <Field label={t('projects.projectSettings.reviewer')}>
                 <PickerSelect
-                  noun="person"
+                  noun="member"
                   value={reviewer}
                   onChange={(id) => setField('reviewer', id)}
                   clearLabel="Not assigned"

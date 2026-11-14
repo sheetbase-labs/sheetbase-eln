@@ -3,6 +3,7 @@
  * records now due for archiving, and the legal holds that freeze records.
  * Everything here is a lab choice, switched on under General.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -21,7 +22,6 @@ import {
 } from '#/components/ui/dialog'
 import { Field, Input } from '#/components/ui/input'
 import { Muted } from '#/components/ui/layout'
-import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
 import { TableBox } from '#/components/ui/table'
@@ -701,9 +701,10 @@ function PlaceHoldDialog({
               label={t('quality.retention.holds.projectLabel')}
               hint={t('quality.retention.holds.coverageHint')}
             >
-              <Select
+              <SearchableSelect
+                noun="project"
                 value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
+                onValueChange={(value) => setProjectId(value)}
               >
                 <option value="">
                   {t('quality.retention.holds.anyProject')}
@@ -713,7 +714,7 @@ function PlaceHoldDialog({
                     {p.title}
                   </option>
                 ))}
-              </Select>
+              </SearchableSelect>
             </Field>
             <Field
               label={t('quality.retention.holds.modelLabel')}
@@ -723,7 +724,11 @@ function PlaceHoldDialog({
                   : undefined
               }
             >
-              <Select value={kind} onChange={(e) => setKind(e.target.value)}>
+              <SearchableSelect
+                noun="record type"
+                value={kind}
+                onValueChange={(value) => setKind(value)}
+              >
                 <option value="">
                   {t('quality.retention.holds.anyModel')}
                 </option>
@@ -732,7 +737,7 @@ function PlaceHoldDialog({
                     {m.name}
                   </option>
                 ))}
-              </Select>
+              </SearchableSelect>
             </Field>
           </div>
         </DialogBody>

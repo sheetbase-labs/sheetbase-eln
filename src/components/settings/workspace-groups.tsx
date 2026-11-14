@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -11,7 +12,6 @@ import {
   DialogHeader,
 } from '#/components/ui/dialog'
 import { Field, Input } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
 import { Muted } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
@@ -112,11 +112,12 @@ export function WorkspaceGroups({
             {t('settings.workspaceGroups.createGroup')}
           </Button>
           <Field label={t('settings.workspaceGroups.group')}>
-            <Select
+            <SearchableSelect
+              noun="group"
               aria-label={t('settings.workspaceGroups.groupManageAria')}
               value={groupId}
-              onChange={(e) => {
-                setGroupId(e.target.value)
+              onValueChange={(value) => {
+                setGroupId(value)
                 setConfirmDelete(false)
               }}
             >
@@ -128,7 +129,7 @@ export function WorkspaceGroups({
                   {g.name}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
           </Field>
           {group ? (
             <>

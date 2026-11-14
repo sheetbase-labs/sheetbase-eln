@@ -75,7 +75,7 @@ function Demo() {
       </Field>
       <Field label="Reviewer">
         <PickerSelect
-          noun="person"
+          noun="member"
           value={reviewer}
           onChange={setReviewer}
           clearLabel="No reviewer yet"

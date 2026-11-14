@@ -1,9 +1,11 @@
 import type { ComponentProps } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { OutputEditor } from './output-editor'
+import { choose } from '../../../tests/unit/picker'
 
 const clients = new Set<QueryClient>()
 
@@ -92,7 +94,8 @@ describe('OutputEditor', () => {
     expect(props.onChange).toHaveBeenLastCalledWith({ fieldMapping: null })
   })
 
-  it('keeps create errors and clears mappings when the schema changes', () => {
+  it('keeps create errors and clears mappings when the schema changes', async () => {
+    const user = userEvent.setup()
     const { props } = show({ fieldErrors: { datasetName: 'Choose a name' } })
 
     expect(screen.getByText('Choose a name')).toBeTruthy()
@@ -102,27 +105,24 @@ describe('OutputEditor', () => {
     expect(props.onChange).toHaveBeenLastCalledWith({
       datasetName: 'New results',
     })
-    fireEvent.change(screen.getByLabelText('Dataset schema version'), {
-      target: { value: '' },
-    })
+    await choose(user, 'Dataset schema version', 'Choose a schema version')
     expect(props.onChange).toHaveBeenLastCalledWith({
       schemaVersionId: '',
       fieldMapping: null,
     })
   })
 
-  it('shows append fields from the selected dataset and clears mappings when it changes', () => {
+  it('shows append fields from the selected dataset and clears mappings when it changes', async () => {
+    const user = userEvent.setup()
     const { props, rerender } = show()
 
     rerender({ value: { ...props.value, mode: 'append' } })
     expect(screen.queryByLabelText('Dataset name')).toBeNull()
-    expect(
-      screen.getByRole('option', { name: 'DS-0001 · Readings' }),
-    ).toBeTruthy()
+    expect(screen.getByLabelText('Dataset').textContent).toContain(
+      'DS-0001 · Readings',
+    )
     expect(screen.getByLabelText('Result column for mean')).toBeTruthy()
-    fireEvent.change(screen.getByLabelText('Dataset'), {
-      target: { value: '' },
-    })
+    await choose(user, /^Dataset$/, 'Choose a dataset')
     expect(props.onChange).toHaveBeenLastCalledWith({
       datasetId: '',
       fieldMapping: null,

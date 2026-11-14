@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useMemo } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { z } from 'zod'
@@ -384,11 +385,12 @@ function InUseFilters({
       </label>
       <label className="flex items-center gap-1.5 text-label text-fg-muted">
         {t('library.templates.inUse.project')}
-        <Select
+        <SearchableSelect
+          noun="project"
           aria-label={t('library.templates.inUse.filterByProject')}
           size="sm"
           value={projectFilter ?? ''}
-          onChange={(e) => onProject(e.target.value || undefined)}
+          onValueChange={(value) => onProject(value || undefined)}
         >
           <option value="">{t('library.templates.inUse.allProjects')}</option>
           {projectIds.map((id) => (
@@ -396,7 +398,7 @@ function InUseFilters({
               {projects?.get(id) ?? id}
             </option>
           ))}
-        </Select>
+        </SearchableSelect>
       </label>
       {filtersActive ? (
         <Button size="sm" onClick={onClear}>

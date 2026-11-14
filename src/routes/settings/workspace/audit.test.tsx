@@ -19,6 +19,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import {
   afterAll,
@@ -29,6 +30,7 @@ import {
   it,
   vi,
 } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import { z } from 'zod'
 
 import type { AuditEventWire, AuditEventsPageWire } from '#/lib/audit-history'
@@ -228,9 +230,15 @@ describe('audit log grid', () => {
     renderAudit()
     await screen.findByText('1 Oct 2026, 09:00')
 
-    fireEvent.change(screen.getByLabelText('Operation'), {
-      target: { value: 'quarantine' },
-    })
+    const user = userEvent.setup()
+
+    // The column header is also a button named Operation: take the filter's.
+    await user.click(
+      within(screen.getByRole('toolbar')).getByRole('button', {
+        name: 'Operation',
+      }),
+    )
+    await user.click(await screen.findByRole('option', { name: /quarantine/i }))
 
     await waitFor(() =>
       expect(filterOf(1)).toMatchObject({ p_operation: 'quarantine' }),

@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useState } from 'react'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -188,9 +189,10 @@ export function RepeatExperimentDialog({
         <DialogHeader title={t('projects.recurring.experiment.title')} />
         <DialogBody>
           <Field label={t('projects.recurring.experiment.template')} required>
-            <Select
+            <SearchableSelect
+              noun="template"
               value={templateId}
-              onChange={(e) => setTemplateId(e.target.value)}
+              onValueChange={(value) => setTemplateId(value)}
             >
               <option value="">
                 {t('projects.recurring.experiment.chooseTemplate')}
@@ -200,7 +202,7 @@ export function RepeatExperimentDialog({
                   {template.name}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
             {templates.isSuccess && templates.data.length === 0 ? (
               <p className="m-0 text-label text-fg-muted">
                 {t('projects.recurring.experiment.noTemplates')}
@@ -208,9 +210,10 @@ export function RepeatExperimentDialog({
             ) : null}
           </Field>
           <Field label={t('projects.recurring.experiment.project')} required>
-            <Select
+            <SearchableSelect
+              noun="project"
               value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
+              onValueChange={(value) => setProjectId(value)}
             >
               <option value="">
                 {t('projects.recurring.experiment.chooseProject')}
@@ -220,7 +223,7 @@ export function RepeatExperimentDialog({
                   {project.title}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
           </Field>
           <Field
             label={t('projects.recurring.experiment.name')}

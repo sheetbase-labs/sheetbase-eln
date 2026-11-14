@@ -81,7 +81,7 @@ export function AskStepBody({
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <Field label={t('data.stepsEditor.asked')}>
         <PickerSelect
-          noun="person"
+          noun="member"
           aria-label={t('data.stepList.askedPerson')}
           value={ask.askedUserIds[0] ?? ''}
           onChange={(id) => patch({ askedUserIds: id ? [id] : [] })}

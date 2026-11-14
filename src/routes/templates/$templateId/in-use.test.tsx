@@ -365,10 +365,11 @@ describe('Template in-use', () => {
     ])
     await renderRoute(`?project=${PRJ2}`)
 
-    expect(await screen.findByLabelText('Filter by project')).toHaveProperty(
-      'value',
-      PRJ2,
-    )
+    expect(
+      (await screen.findByLabelText('Filter by project')).getAttribute(
+        'data-value',
+      ),
+    ).toBe(PRJ2)
     expect(await screen.findByText('EXP-2')).toBeTruthy()
     expect(screen.queryByText('EXP-1')).toBeNull()
     expect(screen.getByText('1 of 2')).toBeTruthy()

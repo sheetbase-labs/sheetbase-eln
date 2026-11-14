@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { t } from '#/copy'
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
@@ -288,11 +289,12 @@ function Access() {
       <div className="flex gap-3 border-y border-border-subtle px-4 py-2 md:px-6">
         <label className="text-label">
           {t('settings.access.project')}
-          <Select
+          <SearchableSelect
+            noun="project"
             aria-label={t('settings.access.filterProjectAria')}
             className="inline-block text-label"
             value={projectFilter}
-            onChange={(e) => setProjectFilter(e.target.value)}
+            onValueChange={(value) => setProjectFilter(value)}
           >
             <option value="">any</option>
             {(projects.data ?? []).map((p) => (
@@ -300,15 +302,16 @@ function Access() {
                 {p.title}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </label>
         <label className="text-label">
           {t('settings.access.group')}
-          <Select
+          <SearchableSelect
+            noun="group"
             aria-label={t('settings.access.filterGroupAria')}
             className="inline-block text-label"
             value={groupFilter}
-            onChange={(e) => setGroupFilter(e.target.value)}
+            onValueChange={(value) => setGroupFilter(value)}
           >
             <option value="">any</option>
             {(groups.data ?? []).map((g) => (
@@ -316,7 +319,7 @@ function Access() {
                 {g.name}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </label>
       </div>
       <AccessProjects

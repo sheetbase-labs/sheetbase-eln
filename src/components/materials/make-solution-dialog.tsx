@@ -2,13 +2,13 @@
  * Make a solution from lots: a buffer, medium or any other prep that uses up
  * ingredient lots and becomes a lot of its own (migration 0064).
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
 import { IconButton } from '#/components/ui/icon-button'
 import { Field, Input } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
 import {
   Dialog,
@@ -247,9 +247,10 @@ function SolutionForm({
         required
         error={errors.project}
       >
-        <Select
+        <SearchableSelect
+          noun="project"
           value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
+          onValueChange={(value) => setProjectId(value)}
           disabled={busy}
         >
           <option value="">{t('library.materials.solution.choose')}</option>
@@ -258,7 +259,7 @@ function SolutionForm({
               {name}
             </option>
           ))}
-        </Select>
+        </SearchableSelect>
       </Field>
       <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
         <Field

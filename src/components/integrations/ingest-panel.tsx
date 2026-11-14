@@ -13,6 +13,7 @@
  *
  * Run provenance always carries a real fileRecordId and checksum for this flow.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -24,7 +25,6 @@ import { FileDrop } from '#/components/ui/file-drop'
 import { Notice } from '#/components/ui/alert'
 import { Section } from '#/components/ui/layout'
 import { PreviewGrid } from '#/components/inventory/preview-grid'
-import { Select } from '#/components/ui/select'
 import {
   DatasetLandingLink,
   invalidateDatasetLanding,
@@ -220,9 +220,10 @@ function IngestDestinationFields({
   return (
     <div className="grid grid-cols-2 gap-3">
       <Field label={t('settings.integrations.ingestPanel.existingDataset')}>
-        <Select
+        <SearchableSelect
+          noun="dataset"
           value={datasetId}
-          onChange={(event) => onDatasetId(event.target.value)}
+          onValueChange={(value) => onDatasetId(value)}
         >
           <option value="">
             {t('settings.integrations.ingestPanel.createNewDataset')}
@@ -232,7 +233,7 @@ function IngestDestinationFields({
               {dataset.name}
             </option>
           ))}
-        </Select>
+        </SearchableSelect>
       </Field>
       {!datasetId && (
         <Field label={t('settings.integrations.ingestPanel.newDatasetName')}>
@@ -398,9 +399,10 @@ export function IngestPanel({
           label={t('settings.integrations.ingestPanel.keepOriginalFile')}
           hint={t('settings.integrations.ingestPanel.originalFileKeptHint2')}
         >
-          <Select
+          <SearchableSelect
+            noun="project"
             value={projectId}
-            onChange={(event) => setProjectId(event.target.value)}
+            onValueChange={(value) => setProjectId(value)}
           >
             <option value="">
               {t('settings.integrations.ingestPanel.selectProject')}
@@ -410,16 +412,17 @@ export function IngestPanel({
                 {project.title}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </Field>
 
         <Field
           label={t('settings.integrations.ingestPanel.targetSchemaVersion')}
         >
-          <Select
+          <SearchableSelect
+            noun="schema"
             value={schemaVersionId}
-            onChange={(event) => {
-              setSchemaVersionId(event.target.value)
+            onValueChange={(value) => {
+              setSchemaVersionId(value)
               setDatasetId('')
             }}
           >
@@ -434,7 +437,7 @@ export function IngestPanel({
                 {option.name} v{option.version}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </Field>
 
         {targetFields.length > 0 && file && parser && (

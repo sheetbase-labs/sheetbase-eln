@@ -6,12 +6,14 @@ import {
   within,
 } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { InputsEditor } from './inputs-editor'
 import type { DatasetVersionChoice, SchemaFieldInfo } from './pipelines-data'
 import type { PipelineInput } from '#/lib/pipelines/config'
+import { choose } from '../../../tests/unit/picker'
 
 afterEach(cleanup)
 
@@ -56,24 +58,25 @@ function renderInputs(onInsert: (text: string) => void) {
 }
 
 describe('InputsEditor row identity', () => {
-  it('keeps focus and the selected example through renames and sibling removal', () => {
+  it('keeps focus and the selected example through renames and sibling removal', async () => {
+    const user = userEvent.setup()
     const onInsert = vi.fn<(text: string) => void>()
     renderInputs(onInsert)
     const name = screen.getByLabelText<HTMLInputElement>('Input 3 name')
 
-    const example = screen.getByLabelText<HTMLSelectElement>(
-      'Input 3 example dataset',
-    )
+    const example = screen.getByLabelText('Input 3 example dataset')
 
-    fireEvent.change(example, { target: { value: 'version-a' } })
+    await choose(user, 'Input 3 example dataset', 'Readings v1')
     expect(
-      screen.getByLabelText<HTMLSelectElement>('Input 3 expected schema').value,
+      screen
+        .getByLabelText('Input 3 expected schema')
+        .getAttribute('data-value'),
     ).toBe('schema-a')
     name.focus()
     fireEvent.change(name, { target: { value: 'readings' } })
     expect(screen.getByLabelText('Input 3 name')).toBe(name)
     expect(document.activeElement).toBe(name)
-    expect(example.value).toBe('version-a')
+    expect(example.getAttribute('data-value')).toBe('version-a')
     fireEvent.change(screen.getByLabelText('Input 2 name'), {
       target: { value: 'other' },
     })
@@ -85,7 +88,7 @@ describe('InputsEditor row identity', () => {
     expect(name.selectionStart).toBe(2)
     expect(name.selectionEnd).toBe(5)
     expect(screen.getByLabelText('Input 2 example dataset')).toBe(example)
-    expect(example.value).toBe('version-a')
+    expect(example.getAttribute('data-value')).toBe('version-a')
     expect(
       screen.getByLabelText<HTMLSelectElement>('Input 1 example dataset').value,
     ).toBe('')
@@ -99,12 +102,13 @@ describe('InputsEditor row identity', () => {
     expect(onInsert).toHaveBeenCalledWith('readings.dose')
   })
 
-  it('does not transfer a removed row example to an inserted sibling', () => {
+  it('does not transfer a removed row example to an inserted sibling', async () => {
+    const user = userEvent.setup()
+
     renderInputs(vi.fn())
     const survivor = screen.getByLabelText('Input 2 name')
-    fireEvent.change(screen.getByLabelText('Input 1 example dataset'), {
-      target: { value: 'version-a' },
-    })
+
+    await choose(user, 'Input 1 example dataset', 'Readings v1')
     fireEvent.click(screen.getByRole('button', { name: 'Remove input 1' }))
     fireEvent.click(screen.getByRole('button', { name: 'Add input' }))
 
@@ -112,10 +116,10 @@ describe('InputsEditor row identity', () => {
 
     for (const position of [1, 2, 3]) {
       expect(
-        screen.getByLabelText<HTMLSelectElement>(
-          `Input ${position} example dataset`,
-        ).value,
-      ).toBe('')
+        screen
+          .getByLabelText(`Input ${position} example dataset`)
+          .getAttribute('data-value'),
+      ).toBeNull()
     }
 
     expect(

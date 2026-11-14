@@ -528,7 +528,7 @@ function AddPeople({
             error={error ?? undefined}
           >
             <PickerSelect
-              noun="person"
+              noun="member"
               value={person}
               onChange={(id) => {
                 setPerson(id)

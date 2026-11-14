@@ -392,9 +392,11 @@ describe('instrument qualification', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Grant qualification' }),
     )
-    fireEvent.change(screen.getByLabelText(/^Person/), {
-      target: { value: 'u-2' },
-    })
+    await user.click(screen.getByRole('button', { name: /^Person/ }))
+    // The only member is the last row, after "Choose a workspace member".
+    const rows = await screen.findAllByRole('option')
+
+    await user.click(rows[rows.length - 1])
     fireEvent.change(screen.getByLabelText(/^Valid until/), {
       target: { value: '2027-01-31' },
     })

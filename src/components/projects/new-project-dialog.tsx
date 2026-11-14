@@ -182,7 +182,7 @@ export function NewProjectDialog({
               </Field>
               <Field label={t('projects.projectsPage.columns.lead')}>
                 <PickerSelect
-                  noun="person"
+                  noun="member"
                   value={lead}
                   onChange={(id) => setLead(id)}
                   clearLabel="Not assigned"
@@ -197,7 +197,7 @@ export function NewProjectDialog({
               hint={t('projects.projectsPage.form.defaultReviewerHint')}
             >
               <PickerSelect
-                noun="person"
+                noun="member"
                 value={reviewer}
                 onChange={(id) => setReviewer(id)}
                 clearLabel="Not assigned"

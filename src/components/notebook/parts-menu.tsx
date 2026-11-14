@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
@@ -448,9 +449,10 @@ export function PartFormDialog({
               />
             </Field>
             <Field label={t('notebook.parts.assigneeLabel')}>
-              <Select
+              <SearchableSelect
+                noun="member"
                 value={assignee}
-                onChange={(event) => setAssignee(event.target.value)}
+                onValueChange={(value) => setAssignee(value)}
               >
                 <option value="">{t('notebook.parts.assigneeNobody')}</option>
                 {people.map((member) => (
@@ -458,7 +460,7 @@ export function PartFormDialog({
                     {userLabel(member.userId)}
                   </option>
                 ))}
-              </Select>
+              </SearchableSelect>
             </Field>
           </DialogBody>
           <DialogFooter>

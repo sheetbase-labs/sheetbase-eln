@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -14,7 +15,6 @@ import {
   DialogHeader,
 } from '#/components/ui/dialog'
 import { Field, Input } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
 import { TableBox } from '#/components/ui/table'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -279,9 +279,10 @@ export function PartSignDialog({
                 label={t('notebook.partSignoff.countersignLabel')}
                 hint={t('notebook.partSignoff.countersignHint')}
               >
-                <Select
+                <SearchableSelect
+                  noun="member"
                   value={countersigner}
-                  onChange={(event) => setCountersigner(event.target.value)}
+                  onValueChange={(value) => setCountersigner(value)}
                 >
                   <option value="">
                     {t('notebook.partSignoff.countersignNobody')}
@@ -291,7 +292,7 @@ export function PartSignDialog({
                       {userLabel(member.userId)}
                     </option>
                   ))}
-                </Select>
+                </SearchableSelect>
               </Field>
             ) : null}
             {sign.isError ? (
@@ -378,9 +379,10 @@ export function AskToSignDialog({
         >
           <DialogBody>
             <Field label={t('notebook.partSignoff.askWho')} required>
-              <Select
+              <SearchableSelect
+                noun="member"
                 value={person}
-                onChange={(event) => setPerson(event.target.value)}
+                onValueChange={(value) => setPerson(value)}
               >
                 <option value="">{t('notebook.partSignoff.askChoose')}</option>
                 {people.map((member) => (
@@ -388,7 +390,7 @@ export function AskToSignDialog({
                     {userLabel(member.userId)}
                   </option>
                 ))}
-              </Select>
+              </SearchableSelect>
             </Field>
             <Field label={t('notebook.partSignoff.askNote')}>
               <Input

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
+import { useEffect, useMemo, useState } from 'react'
 import { getRouteApi } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -80,9 +81,10 @@ function useProjectFolders(projectId: string) {
   const [current, setCurrent] = useState<string>(UNFILED)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [moving, setMoving] = useState(false)
-  const moveDestinationRef = useRef<HTMLSelectElement>(null)
+  const [moveTo, setMoveTo] = useState<string | null>(null)
 
   useEffect(() => setSelected(new Set()), [current])
+  useEffect(() => setMoveTo(null), [moving])
 
   const currentFolder = folders.find((f) => f.id === current) ?? null
 
@@ -309,7 +311,8 @@ function useProjectFolders(projectId: string) {
     selected,
     moving,
     setMoving,
-    moveDestinationRef,
+    moveTo,
+    setMoveTo,
     move,
     renaming,
     setRenaming,
@@ -391,11 +394,12 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-auto px-4 py-[18px] md:px-6">
-        <Select
+        <SearchableSelect
+          noun="folder"
           aria-label={t('projects.projectFolders.folder')}
           className="lg:hidden"
           value={current}
-          onChange={(e) => setCurrent(e.target.value)}
+          onValueChange={(value) => setCurrent(value)}
         >
           <option value={UNFILED}>
             {t('projects.projectFolders.unfiledCount', {
@@ -407,7 +411,7 @@ export function ProjectFolders({ projectId }: { projectId: string }) {
               {f.name} ({count(f.id)})
             </option>
           ))}
-        </Select>
+        </SearchableSelect>
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-section">
             {currentFolder?.name ?? t('projects.projectFolders.unfiled')}
@@ -514,7 +518,8 @@ function FolderDialogs({
     selected,
     moving,
     setMoving,
-    moveDestinationRef,
+    moveTo,
+    setMoveTo,
     move,
     renaming,
     setRenaming,
@@ -591,10 +596,11 @@ function FolderDialogs({
           />
           <DialogBody>
             <Field label={t('projects.projectFolders.move.to')}>
-              <Select
-                ref={moveDestinationRef}
+              <SearchableSelect
+                noun="folder"
                 aria-label={t('projects.projectFolders.move.destination')}
-                defaultValue={current}
+                value={moveTo ?? current}
+                onValueChange={setMoveTo}
               >
                 <option value={UNFILED}>
                   {t('projects.projectFolders.unfiled')}
@@ -604,7 +610,7 @@ function FolderDialogs({
                     {f.name}
                   </option>
                 ))}
-              </Select>
+              </SearchableSelect>
             </Field>
             <Notice icon="info">
               {t('projects.projectFolders.move.notice')}
@@ -618,7 +624,7 @@ function FolderDialogs({
               variant="primary"
               disabled={move.isPending}
               onClick={() => {
-                const value = moveDestinationRef.current?.value
+                const value = moveTo ?? current
 
                 if (!value) return
                 move.mutate(value === UNFILED ? null : value)

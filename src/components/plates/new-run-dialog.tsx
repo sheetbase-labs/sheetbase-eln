@@ -2,6 +2,7 @@
  * Adding a plate run: paste or choose the plate reader export, say which wells
  * are controls and samples, and optionally analyse straight away.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -239,9 +240,10 @@ function NewRunBody({
                 label={t('plates.form.design')}
                 hint={t('plates.form.designHint')}
               >
-                <Select
+                <SearchableSelect
+                  noun="design"
                   value={designId}
-                  onChange={(e) => setDesignId(e.target.value)}
+                  onValueChange={(value) => setDesignId(value)}
                 >
                   <option value="">{t('plates.form.noDesign')}</option>
                   {designs.map((d) => (
@@ -249,14 +251,15 @@ function NewRunBody({
                       {d.name}
                     </option>
                   ))}
-                </Select>
+                </SearchableSelect>
               </Field>
             ) : null}
             {projects.length > 0 ? (
               <Field label={t('plates.form.project')}>
-                <Select
+                <SearchableSelect
+                  noun="project"
                   value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
+                  onValueChange={(value) => setProjectId(value)}
                 >
                   <option value="">{t('plates.form.noProject')}</option>
                   {projects.map((p) => (
@@ -264,7 +267,7 @@ function NewRunBody({
                       {p.title}
                     </option>
                   ))}
-                </Select>
+                </SearchableSelect>
               </Field>
             ) : null}
           </div>

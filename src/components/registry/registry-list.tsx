@@ -3,6 +3,7 @@
  * with its number, a search, and a way in to register a new one. There are no
  * fixed registry types; a tab appears for each model that is a registry.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -692,16 +693,17 @@ function ChooseRegistry({
         <DialogHeader title={t('registry.registerChoose')} />
         <DialogBody>
           <Field label={t('registry.registerChooseLabel')}>
-            <Select
+            <SearchableSelect
+              noun="registry"
               value={selected}
-              onChange={(e) => setChoice(e.target.value)}
+              onValueChange={(value) => setChoice(value)}
             >
               {registries.map((m) => (
                 <option key={m.key} value={m.key}>
                   {m.name}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
           </Field>
         </DialogBody>
         <DialogFooter>

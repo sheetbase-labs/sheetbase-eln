@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { useState } from 'react'
 
@@ -223,13 +224,14 @@ export function RunDialog({
                 error={error}
               >
                 {parameter.name === 'event_person' ? (
-                  <Select
+                  <SearchableSelect
+                    noun="member"
                     aria-label={t('data.runDialog.eventPerson')}
                     value={raw}
-                    onChange={(e) =>
+                    onValueChange={(value) =>
                       setValues((cur) => ({
                         ...cur,
-                        [parameter.name]: e.target.value,
+                        [parameter.name]: value,
                       }))
                     }
                   >
@@ -239,7 +241,7 @@ export function RunDialog({
                         {name}
                       </option>
                     ))}
-                  </Select>
+                  </SearchableSelect>
                 ) : parameter.type === 'boolean' ? (
                   <Select
                     aria-label={t('data.runDialog.ariaParameter', {

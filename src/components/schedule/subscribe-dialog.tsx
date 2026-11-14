@@ -2,6 +2,7 @@
  * Subscribe to the Schedule in a calendar app. Makes a private link (the secret
  * is shown once), lists the person's links and lets them revoke any.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -194,16 +195,17 @@ export function SubscribeDialog({
               </Field>
               {scope === 'instrument' ? (
                 <Field label={t('calendarFeed.instrument')}>
-                  <Select
+                  <SearchableSelect
+                    noun="instrument"
                     value={chosenInstrument}
-                    onChange={(e) => setResourceId(e.target.value)}
+                    onValueChange={(value) => setResourceId(value)}
                   >
                     {instruments.map((i) => (
                       <option key={i.id} value={i.id}>
                         {i.name}
                       </option>
                     ))}
-                  </Select>
+                  </SearchableSelect>
                 </Field>
               ) : null}
               <Field

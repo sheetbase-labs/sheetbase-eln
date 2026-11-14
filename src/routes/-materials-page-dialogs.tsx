@@ -2,6 +2,7 @@
  * The materials registry's write surfaces: the forms that collect a lot, a
  * receipt and a replacement, and the dialogs that host them.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useState } from 'react'
 
 import {
@@ -11,7 +12,6 @@ import {
 import { onlyIsoDate } from '#/lib/assist-fill'
 import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -163,9 +163,10 @@ export function RegisterLotForm({
         required
         error={errors.project}
       >
-        <Select
+        <SearchableSelect
+          noun="project"
           value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
+          onValueChange={(value) => setProjectId(value)}
           disabled={busy}
         >
           <option value="">{t('library.materials.page.choose')}</option>
@@ -174,7 +175,7 @@ export function RegisterLotForm({
               {name}
             </option>
           ))}
-        </Select>
+        </SearchableSelect>
       </Field>
       <Field
         label={t('library.materials.page.material')}

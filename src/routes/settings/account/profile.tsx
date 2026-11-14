@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
@@ -137,7 +138,10 @@ function Profile() {
             name={name}
             initials={initials.trim().toUpperCase() || initialsOf(name)}
           />
-          <div className="grid w-full grid-cols-1 gap-x-5 gap-y-3.5 md:w-auto md:grid-cols-[250px_minmax(250px,22rem)]">
+          <div
+            className="grid w-full grid-cols-1 gap-x-5 gap-y-3.5 md:w-auto md:grid-cols-[250px_minmax(250px,22rem)]"
+            onKeyDown={saveOnEnter}
+          >
             <Field
               label={t('settings.profile.fullName')}
               hint={t('settings.profile.printedSignedRecordsHint')}
@@ -269,6 +273,24 @@ function Profile() {
   )
 }
 
+/** Enter in a one-line field saves the profile, as the Save changes button does. */
+function saveOnEnter(event: KeyboardEvent<HTMLDivElement>) {
+  const target = event.target
+
+  if (event.key !== 'Enter' || event.defaultPrevented) return
+
+  if (!(target instanceof HTMLInputElement) || target.type === 'file') return
+
+  const save = document.querySelector<HTMLButtonElement>(
+    'button[data-profile-save]:not([disabled])',
+  )
+
+  if (!save) return
+
+  event.preventDefault()
+  save.click()
+}
+
 function SaveProfile({
   name,
   timeZone,
@@ -293,6 +315,7 @@ function SaveProfile({
   return (
     <Button
       variant="primary"
+      data-profile-save
       disabled={busy || disabled}
       onClick={async () => {
         setBusy(true)

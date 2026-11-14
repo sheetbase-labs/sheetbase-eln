@@ -604,7 +604,13 @@ type SamplePage = ReturnType<typeof useSamplePage>
 /** The flags the page derives from the record once it has arrived. */
 function samplePageFlags(page: SamplePage, sample: SampleRecord) {
   const { context, measurements, events, reservations, derivedSamples } = page
-  const status = sampleStatus(sample.status, sample.releasedAt)
+
+  const status = sampleStatus(
+    sample.status,
+    sample.releasedAt,
+    sample.storageLocation,
+  )
+
   const params = { sampleId: sample.id }
   const role = context.workspace?.role
   const state = sampleStateKind(sample)

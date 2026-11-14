@@ -44,16 +44,21 @@ Object.setPrototypeOf(STATUS, null)
 /**
  * How the registry words a sample's state. A sample that is in stock reads
  * "Stored", or "Released" once it carries a release record; one waiting for a
- * reading reads "Awaiting measurement". The stored status stays the lifecycle
- * the database enforces.
+ * reading reads "Awaiting measurement". A sample in stock with no storage
+ * location says "Not placed" rather than claiming it is stored somewhere. The
+ * stored status stays the lifecycle the database enforces.
  */
 export function sampleStatus(
   status: string,
   releasedAt?: string | null,
+  storageLocation?: string | null,
 ): SampleListRow['status'] {
   if (status === 'available') {
-    return releasedAt
-      ? { tone: 'ok', label: 'Released' }
+    if (releasedAt) return { tone: 'ok', label: 'Released' }
+
+    // Callers that do not know the location leave it undefined and keep "Stored".
+    return storageLocation === null || storageLocation === ''
+      ? { tone: 'none', label: 'Not placed' }
       : { tone: 'stored', label: 'Stored' }
   }
 
@@ -112,7 +117,11 @@ export function toSampleListRow(
       : '—',
     quantity,
     location: record.storageLocation ?? '—',
-    status: sampleStatus(record.status, record.releasedAt),
+    status: sampleStatus(
+      record.status,
+      record.releasedAt,
+      record.storageLocation,
+    ),
     tabs,
     ownerId: record.createdByUserId,
   }

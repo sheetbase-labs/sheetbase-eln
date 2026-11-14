@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import type { ReactNode } from 'react'
 
 import { t } from '#/copy'
@@ -100,18 +101,14 @@ export function ChartConfigurator({
           >
             {t('data.chartConfigurator.facetOptional')}
           </label>
-          <Select
+          <SearchableSelect
+            noun="column"
             id={`${idPrefix}-facet`}
             aria-label={t('data.chartConfigurator.ariaFacetColumn')}
             value={spec.fields.facet?.fieldId ?? ''}
-            onChange={(event) =>
+            onValueChange={(value) =>
               onSpecChange(
-                changeAuthoringField(
-                  spec,
-                  source.columns,
-                  'facet',
-                  event.target.value,
-                ),
+                changeAuthoringField(spec, source.columns, 'facet', value),
               )
             }
             className="h-8 bg-surface"
@@ -124,7 +121,7 @@ export function ChartConfigurator({
                 </option>
               ),
             )}
-          </Select>
+          </SearchableSelect>
         </div>
       </div>
       <div className="pt-2.5">
@@ -297,11 +294,12 @@ function AuthoringBindings({
           >
             {field.label}
           </label>
-          <Select
+          <SearchableSelect
+            noun="column"
             id={`${idPrefix}-${field.key}`}
             aria-label={field.ariaLabel}
             value={field.value}
-            onChange={(event) => setField(field.key, event.target.value)}
+            onValueChange={(value) => setField(field.key, value)}
             className="h-8 bg-surface"
           >
             {field.empty ? <option value="">{field.empty}</option> : null}
@@ -310,7 +308,7 @@ function AuthoringBindings({
                 {column.label}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </div>
       ))}
     </div>
@@ -442,11 +440,12 @@ function AuthoringStatistics({
           >
             {t('data.chartConfigurator.errorBars')}
           </label>
-          <Select
+          <SearchableSelect
+            noun="column"
             id={`${idPrefix}-error-column`}
             aria-label={t('data.chartConfigurator.ariaErrorBarColumn')}
             value={spec.overlays.errorBars?.fieldId ?? ''}
-            onChange={(event) => setErrorBarColumn(event.target.value)}
+            onValueChange={(value) => setErrorBarColumn(value)}
             className="h-8 bg-surface"
           >
             <option value="">{t('common.states.none')}</option>
@@ -455,7 +454,7 @@ function AuthoringStatistics({
                 {column.label}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </div>
       ) : null}
     </div>
@@ -806,13 +805,14 @@ function AuthoringTypeParams({
               >
                 {t('data.chartConfigurator.valueField2')}
               </label>
-              <Select
+              <SearchableSelect
+                noun="column"
                 id={`${idPrefix}-heatmap-value-field`}
                 aria-label={t('data.chartConfigurator.ariaHeatmapValueField')}
                 value={spec.typeParams.heatmap?.valueField?.fieldId ?? ''}
-                onChange={(event) => {
+                onValueChange={(value) => {
                   const column = source.columns.find(
-                    (candidate) => candidate.id === event.target.value,
+                    (candidate) => candidate.id === value,
                   )
 
                   updateHeatmapParams({
@@ -829,7 +829,7 @@ function AuthoringTypeParams({
                     {column.label}
                   </option>
                 ))}
-              </Select>
+              </SearchableSelect>
             </div>
           ) : null}
           <div className="min-w-24">

@@ -7,6 +7,7 @@
  * Side A is the source the studio is already on. Side B is chosen here and read
  * the same way as any studio source, so a snapshot is the fixed rows it holds.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { datasetOption } from '#/components/record-picker/entity-options'
 import * as React from 'react'
@@ -284,33 +285,35 @@ function SourceControls({ model }: { model: SourceComparisonModel }) {
           <label className="text-label text-fg-muted" htmlFor="source-a-value">
             {t('data.sourceComparison.aMeasure')}
           </label>
-          <Select
+          <SearchableSelect
+            noun="column"
             id="source-a-value"
             value={valueFieldA}
-            onChange={(event) => setValueA(event.target.value)}
+            onValueChange={(value) => setValueA(value)}
           >
             {columnsA.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </div>
         <div className="space-y-1">
           <label className="text-label text-fg-muted" htmlFor="source-b-value">
             {t('data.sourceComparison.bMeasure')}
           </label>
-          <Select
+          <SearchableSelect
+            noun="column"
             id="source-b-value"
             value={valueFieldB}
-            onChange={(event) => setValueB(event.target.value)}
+            onValueChange={(value) => setValueB(value)}
           >
             {columnsB.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </div>
         <SourceMatching model={model} />
       </div>
@@ -368,17 +371,18 @@ function SourceMatching({ model }: { model: SourceComparisonModel }) {
             >
               {t('data.sourceComparison.matchField')}
             </label>
-            <Select
+            <SearchableSelect
+              noun="column"
               id="source-a-match"
               value={matchFieldA}
-              onChange={(event) => setMatchA(event.target.value)}
+              onValueChange={(value) => setMatchA(value)}
             >
               {sourceA.columns.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
           </div>
           <div className="space-y-1">
             <label
@@ -387,17 +391,18 @@ function SourceMatching({ model }: { model: SourceComparisonModel }) {
             >
               {t('data.sourceComparison.bMatchField')}
             </label>
-            <Select
+            <SearchableSelect
+              noun="column"
               id="source-b-match"
               value={matchFieldB}
-              onChange={(event) => setMatchB(event.target.value)}
+              onValueChange={(value) => setMatchB(value)}
             >
               {(sourceB?.columns ?? []).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.label}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
           </div>
         </>
       ) : null}

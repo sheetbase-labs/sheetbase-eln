@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { Select } from '#/components/ui/select'
 import { t } from '#/copy'
 import { COLUMN_TRANSFORMS, MAX_DEGREE } from '#/lib/analysis-definition'
@@ -39,15 +40,14 @@ function BindingControl({
       <label className="text-label text-fg-muted" htmlFor={id}>
         {label}
       </label>
-      <Select
+      <SearchableSelect
+        noun="column"
         id={id}
         aria-label={ariaLabel}
         size="sm"
         value={binding?.fieldId ?? ''}
-        onChange={(event) => {
-          const column = columns.find(
-            (candidate) => candidate.id === event.target.value,
-          )
+        onValueChange={(value) => {
+          const column = columns.find((candidate) => candidate.id === value)
 
           onChange(
             column ? { fieldId: column.id } : emptyLabel ? null : undefined,
@@ -61,7 +61,7 @@ function BindingControl({
             {column.label}
           </option>
         ))}
-      </Select>
+      </SearchableSelect>
     </div>
   )
 }

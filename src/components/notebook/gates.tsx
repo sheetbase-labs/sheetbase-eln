@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
@@ -928,16 +929,17 @@ function PluginCheckPicker({
       {active?.declaration.inputs.map((input) => (
         <label key={input.name} className="flex items-center gap-1.5">
           <span className="text-label text-fg-muted">{input.label}</span>
-          <Select
+          <SearchableSelect
+            noun="column"
             aria-label={input.label}
             value={condition.columns[input.name] ?? ''}
             className="w-auto min-w-32"
-            onChange={(event) =>
+            onValueChange={(value) =>
               onChange({
                 ...condition,
                 columns: {
                   ...condition.columns,
-                  [input.name]: event.target.value,
+                  [input.name]: value,
                 },
               })
             }
@@ -948,7 +950,7 @@ function PluginCheckPicker({
                 {column}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </label>
       ))}
     </>
@@ -1051,16 +1053,17 @@ function TableFilledCondition({
           </option>
         ))}
       </Select>
-      <Select
+      <SearchableSelect
+        noun="column"
         aria-label={t('notebook.gates.dialog.rowsLabel')}
         value={condition.column ?? ROWS_OPTION}
         className="w-auto min-w-40"
-        onChange={(event) => {
+        onValueChange={(value) => {
           const { column: _column, minRows: _min, ...rest } = condition
           onChange(
-            event.target.value === ROWS_OPTION
+            value === ROWS_OPTION
               ? { ...rest, minRows: 1 }
-              : { ...rest, column: event.target.value },
+              : { ...rest, column: value },
           )
         }}
       >
@@ -1072,7 +1075,7 @@ function TableFilledCondition({
         <option value={ROWS_OPTION}>
           {t('notebook.gates.dialog.atLeastRows')}
         </option>
-      </Select>
+      </SearchableSelect>
       {condition.column === undefined ? (
         <Input
           aria-label={t('notebook.gates.dialog.rowsLabel')}

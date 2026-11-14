@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { t } from '#/copy'
 import { usePaneReadOnly } from '#/components/workspace/workspace-navigation'
 import {
@@ -2941,13 +2942,14 @@ function CanonicalWorkspaceAuthoring() {
               'notebook.canonicalSheetWorkspace.calculationLabelAriaLabel',
             )}
           />
-          <Select
+          <SearchableSelect
+            noun="column"
             aria-label={t(
               'notebook.canonicalSheetWorkspace.calculationQuantityAriaLabel',
             )}
             className="h-8 w-56"
             value={formulaQuantityColumn}
-            onChange={(event) => setFormulaQuantityColumn(event.target.value)}
+            onValueChange={(value) => setFormulaQuantityColumn(value)}
           >
             <option value="">
               {t('notebook.canonicalSheetWorkspace.unitlessResult')}
@@ -2965,7 +2967,7 @@ function CanonicalWorkspaceAuthoring() {
                   )}
                 </option>
               ))}
-          </Select>
+          </SearchableSelect>
           <Button
             type="button"
             size="sm"

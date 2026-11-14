@@ -70,6 +70,13 @@ describe('sampleStatus', () => {
     })
   })
 
+  it('says Not placed for a sample in stock with no storage location', () => {
+    expect(sampleStatus('available', null, null).label).toBe('Not placed')
+    expect(sampleStatus('available', null, '-80 freezer').label).toBe('Stored')
+    expect(sampleStatus('available', null).label).toBe('Stored')
+    expect(sampleStatus('available', '2026-11-01', null).label).toBe('Released')
+  })
+
   it('still capitalises an unknown state instead of hiding it', () => {
     expect(sampleStatus('under_triage').label).toBe('Under Triage')
   })

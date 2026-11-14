@@ -133,7 +133,7 @@ describe('CompareView', () => {
     await userEvent.click(facet)
 
     const options = (await screen.findAllByRole('option')).map(
-      (o) => o.textContent ?? '',
+      (o) => o.textContent,
     )
 
     expect(options.some((name) => name.includes('Buffer'))).toBe(false)

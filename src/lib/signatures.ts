@@ -293,6 +293,12 @@ export function availableSignatureMeanings(input: {
   checksPassed: boolean
   eligibility: SignatureEligibility | undefined
   signatures: SignatureWire[]
+  /**
+   * Whether the author may sign their own record: true when the lab is not
+   * regulated, so a one-person lab can finish a review. Regulated labs keep
+   * the nonauthor rule.
+   */
+  authorMaySign?: boolean
 }): PostSubmissionSignatureMeaning[] {
   const { submission, currentUserId, integrityDigest, eligibility } = input
 
@@ -303,7 +309,8 @@ export function availableSignatureMeanings(input: {
     !eligibility?.writer ||
     !integrityDigest ||
     input.supersededByRevisionId !== null ||
-    currentUserId === submission.submitted_by_user_id ||
+    (currentUserId === submission.submitted_by_user_id &&
+      !input.authorMaySign) ||
     !['submitted', 'approved'].includes(submission.state)
   )
     return []

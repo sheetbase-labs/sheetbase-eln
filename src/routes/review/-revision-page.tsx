@@ -190,6 +190,7 @@ import { returnToHere } from '#/lib/return-to'
 import { reviewNextStep } from '#/lib/review-next-step'
 import { ReviewNextStepPanel } from '#/components/review/review-next-step'
 
+import { useRegulatedLab } from '#/lib/regulated-lab'
 import { workspaceSearchSchema } from './-workspace-search'
 import type { WorkspaceSearch } from './-workspace-search'
 
@@ -2782,8 +2783,11 @@ export function useSigningMeanings({
 
   const { policy } = useSignaturePolicy(submission?.workspace_id)
 
+  const regulatedLab = useRegulatedLab(submission?.workspace_id)
+
   const meanings = availableSignatureMeanings({
     policy,
+    authorMaySign: regulatedLab.loaded && !regulatedLab.regulated,
     submission,
     currentUserId,
     integrityDigest,
@@ -2795,6 +2799,7 @@ export function useSigningMeanings({
   })
 
   return {
+    authorMaySign: regulatedLab.loaded && !regulatedLab.regulated,
     eligibility,
     certifications,
     certificationCurrent,
@@ -2840,6 +2845,7 @@ export function SignaturePanel({
   const { revisionId } = useParams({ from: '/review/$revisionId' })
 
   const {
+    authorMaySign,
     eligibility,
     certifications,
     certificationCurrent,
@@ -3123,7 +3129,8 @@ export function SignaturePanel({
             <p className="text-xs text-muted-foreground">
               {t('projects.revisionPage.signing.alreadySigned')}
             </p>
-          ) : submission.submitted_by_user_id === currentUserId ? (
+          ) : submission.submitted_by_user_id === currentUserId &&
+            !authorMaySign ? (
             <p className="text-xs text-muted-foreground">
               {t('projects.revisionPage.signing.isAuthor')}
             </p>

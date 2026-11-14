@@ -627,7 +627,12 @@ test('independent certification, practice, password focus and exact-digest signi
       message: 'signer has already recorded this meaning',
     },
   })
-  // 4. A reviewer signing their own submission.
+  // 4. A reviewer signing their own submission, in a regulated lab.
+  await admin.query(
+    'update api.workspace_settings set regulated_lab = true where workspace_id = $1',
+    [workspace],
+  )
+
   const selfReview = await post(page, '/api/db/rpc/sign_revision', {
     p_submission_id: selfReviewSubmission.id,
     p_signature_meaning: 'reviewed',
@@ -640,6 +645,22 @@ test('independent certification, practice, password focus and exact-digest signi
       category: 'permission_denied',
       message: 'only an assigned nonauthor reviewer may sign',
     },
+  })
+  // Outside a regulated lab the same author passes the nonauthor rule and is
+  // only held up by the missing fresh password token.
+  await admin.query(
+    'update api.workspace_settings set regulated_lab = false where workspace_id = $1',
+    [workspace],
+  )
+
+  const selfReviewUnregulated = await post(page, '/api/db/rpc/sign_revision', {
+    p_submission_id: selfReviewSubmission.id,
+    p_signature_meaning: 'reviewed',
+    p_confirmation_phrase: signerName,
+    p_expected_revision_digest: selfReviewSubmission.digest,
+  })
+  expect(selfReviewUnregulated.body).toMatchObject({
+    error: { message: 'fresh password token required' },
   })
   // No refusal may have written a signature row.
   expect(

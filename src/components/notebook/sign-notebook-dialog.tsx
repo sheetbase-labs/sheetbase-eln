@@ -1,3 +1,4 @@
+import { useRegulatedLab } from '#/lib/regulated-lab'
 import { t } from '#/copy'
 import { returnToHere } from '#/lib/return-to'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -117,6 +118,8 @@ export function useHasSignatureToGive({
       enabled: Boolean(revisionId && currentUserId),
     })
 
+  const regulatedLab = useRegulatedLab(submission?.workspace_id)
+
   if (
     !submission ||
     !currentUserId ||
@@ -133,6 +136,7 @@ export function useHasSignatureToGive({
       submission,
       integrityDigest: revisionQuery.data.integrity_digest ?? null,
       supersededByRevisionId: revisionQuery.data.superseded_by_revision_id,
+      authorMaySign: regulatedLab.loaded && !regulatedLab.regulated,
       eligibility: eligibility.data,
       certificationCurrent: true,
       checksPassed: true,
@@ -214,8 +218,11 @@ export function SignNotebookDialog({
       }),
   })
 
+  const regulatedLab = useRegulatedLab(submission?.workspace_id)
+
   const meanings = availableSignatureMeanings({
     policy,
+    authorMaySign: regulatedLab.loaded && !regulatedLab.regulated,
     currentUserId,
     submission,
     integrityDigest,

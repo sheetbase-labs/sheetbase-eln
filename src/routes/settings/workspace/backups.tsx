@@ -1,3 +1,4 @@
+import { useLeaveGuard } from '#/components/settings/use-leave-guard'
 import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -172,6 +173,26 @@ function BackupsBody({
       onChanged()
     },
     onError: () => toast.error(t('settings.backups.couldNotSaveToast')),
+  })
+
+  useLeaveGuard({
+    dirty: dirty && canManage,
+    label: t('settings.backups.title'),
+    canSave: keepValid,
+    save: async () => {
+      try {
+        await save.mutateAsync()
+
+        return true
+      } catch {
+        return false
+      }
+    },
+    discard: () => {
+      setEnabled(saved.enabled)
+      setFrequency(saved.frequency)
+      setKeep(String(saved.keepCount))
+    },
   })
 
   const runNow = useMutation({

@@ -1,3 +1,4 @@
+import { useLeaveGuard } from '#/components/settings/use-leave-guard'
 import { t } from '#/copy'
 import { useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
@@ -316,6 +317,26 @@ function ReviewSection({
   })
 
   const known = options.data ?? []
+
+  useLeaveGuard({
+    dirty: dirty && canManage,
+    label: t('settings.signatures.reviewWorkflow'),
+    canSave: countValid,
+    save: async () => {
+      try {
+        await save.mutateAsync()
+
+        return true
+      } catch {
+        return false
+      }
+    },
+    discard: () => {
+      setEnabled(current.enabled)
+      setWorkflow(current.workflow)
+      setMinReviewers(String(current.minReviewers))
+    },
+  })
 
   return (
     <Section

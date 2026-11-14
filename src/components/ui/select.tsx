@@ -11,6 +11,10 @@ import { cn } from '#/lib/utils'
  * with the registry's listbox is recorded in
  * `docs/knowledge/design/component-comparison-record.md`.
  *
+ * A list that can grow (projects, people, instruments, event types) is not for
+ * this: use `SearchableSelect` (`#/components/record-picker/searchable-select`),
+ * which keeps the same `<option>` children and opens the shared picker.
+ *
  * Wrap in `<Field>` (a `<label>`) or a `<label>` so it gets its name. `md` is
  * the form/field size and `sm` the compact toolbar size; both grow on narrow
  * screens the way `Button` does, so a touch target never collapses to 26px.

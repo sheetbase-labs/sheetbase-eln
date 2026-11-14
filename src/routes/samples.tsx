@@ -83,6 +83,7 @@ import { linkExperimentToSample } from '#/lib/notebook-create'
 import { hasCapability } from '#/lib/capability'
 import { createSample, fetchSample } from '#/lib/samples'
 import { moveSampleToPosition } from '#/lib/storage-positions'
+import { soleProjectId } from '#/lib/sole-project'
 import type { PlaceChoice } from '#/lib/storage-positions'
 import { canManageSettings } from '#/lib/settings-access'
 import {
@@ -1198,7 +1199,11 @@ function RegisterSampleDialog({
 }) {
   const addedFields = useAddedFieldDraft('sample')
   const [tried, setTried] = useState(false)
-  const [projectId, setProjectId] = useState(initialProjectId ?? '')
+  const [chosenProjectId, setProjectId] = useState(initialProjectId ?? '')
+
+  const projectId =
+    chosenProjectId || soleProjectId(projects.map((p) => p.id)) || ''
+
   // The project can arrive after the dialog opens (an experiment's project is
   // read from the experiment); never overwrite a choice the person made. The
   // adjustment is made while rendering, so the dialog never paints the old

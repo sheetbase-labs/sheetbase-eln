@@ -21,6 +21,7 @@ import { toast } from '#/components/ui/sonner'
 import { Icon } from '#/components/icons'
 import { createAdHocSheetInstance } from '#/lib/sheet-instance-data'
 import type { SheetInstanceState } from '#/lib/sheet-instance'
+import { soleProjectId } from '#/lib/sole-project'
 import { fetchProjectSummaries } from '#/components/projects/project-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { insertSheetInstanceBlock } from '#/lib/notebook-mutations'
@@ -190,7 +191,13 @@ function NewSheet() {
   const impliedProject = impliedProjectOf(search, experiment.data, dataset.data)
 
   const [chosenProject, setChosenProject] = useState<string | null>(null)
-  const projectId = chosenProject ?? impliedProject
+
+  const projectId =
+    chosenProject ||
+    impliedProject ||
+    soleProjectId((projects.data ?? []).map((p) => p.id)) ||
+    ''
+
   const [name, setName] = useState('Untitled sheet')
   // Set by the Paste a table start: the new sheet opens its Paste data dialog.
   const [pasteFirst, setPasteFirst] = useState(false)

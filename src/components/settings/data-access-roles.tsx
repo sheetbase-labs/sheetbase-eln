@@ -56,7 +56,7 @@ export function DataAccessRoles({
       })
     },
     onError: (error: Error) =>
-      toast(t('settings.dataAccessRoles.couldSaveDataToast'), {
+      toast.error(t('settings.dataAccessRoles.couldSaveDataToast'), {
         description: error.message,
       }),
   })

@@ -1423,7 +1423,7 @@ export function ExportPanel({
       setCaption('')
       setTarget(null)
     } catch (error) {
-      toast(t('data.analysisStudio.couldCite'), {
+      toast.error(t('data.analysisStudio.couldCite'), {
         description:
           error instanceof Error
             ? error.message
@@ -1533,7 +1533,7 @@ export function ExportPanel({
 
       downloadTextFile(`${filename}.${ext}`, content, mime)
     } catch (error) {
-      toast(t('data.analysisStudio.couldExport'), {
+      toast.error(t('data.analysisStudio.couldExport'), {
         description:
           error instanceof Error
             ? error.message

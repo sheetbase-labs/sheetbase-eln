@@ -82,7 +82,7 @@ export function WorkspaceGroups({
       )
     },
     onError: (error: Error) =>
-      toast(t('settings.workspaceGroups.couldChangeGroupToast'), {
+      toast.error(t('settings.workspaceGroups.couldChangeGroupToast'), {
         description: error.message,
       }),
   })

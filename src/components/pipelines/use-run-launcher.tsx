@@ -92,7 +92,7 @@ export function useRunLauncher(
       onStarted?.(started)
     },
     onError: (error) => {
-      toast(t('data.useRunLauncher.couldStartRun'), {
+      toast.error(t('data.useRunLauncher.couldStartRun'), {
         description:
           error instanceof Error
             ? error.message

@@ -87,7 +87,7 @@ export function CiteSnapshotDialog({
       })
       onClose()
     } catch (error) {
-      toast(t('data.citeSnapshotDialog.couldCite'), {
+      toast.error(t('data.citeSnapshotDialog.couldCite'), {
         description:
           error instanceof Error
             ? error.message

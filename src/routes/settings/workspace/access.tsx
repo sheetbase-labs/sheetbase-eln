@@ -139,7 +139,7 @@ function useProjectAccessRules() {
       toast(t('settings.access.accessRuleSavedToast'))
     },
     onError: (error: Error) =>
-      toast(t('settings.access.couldSaveAccessToast'), {
+      toast.error(t('settings.access.couldSaveAccessToast'), {
         description: error.message,
       }),
   })
@@ -152,7 +152,7 @@ function useProjectAccessRules() {
       toast(t('settings.access.accessRuleRemovedToast'))
     },
     onError: (error: Error) =>
-      toast(t('settings.access.couldRemoveAccessToast'), {
+      toast.error(t('settings.access.couldRemoveAccessToast'), {
         description: error.message,
       }),
   })
@@ -165,7 +165,7 @@ function useProjectAccessRules() {
       toast(t('settings.access.accessRequestDecidedToast'))
     },
     onError: (error: Error) =>
-      toast(t('settings.access.couldDecideAccessToast'), {
+      toast.error(t('settings.access.couldDecideAccessToast'), {
         description: error.message,
       }),
   })
@@ -612,7 +612,7 @@ function QaDefault({
       )
     },
     onError: (error: Error) =>
-      toast(t('settings.access.couldSaveQaToast'), {
+      toast.error(t('settings.access.couldSaveQaToast'), {
         description: error.message,
       }),
   })

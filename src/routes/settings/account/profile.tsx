@@ -346,7 +346,7 @@ function SaveProfile({
           await router.invalidate()
           toast(t('settings.profile.changesSavedToast'))
         } catch (failure) {
-          toast(t('settings.profile.couldSaveProfileToast'), {
+          toast.error(t('settings.profile.couldSaveProfileToast'), {
             description:
               failure instanceof Error
                 ? failure.message

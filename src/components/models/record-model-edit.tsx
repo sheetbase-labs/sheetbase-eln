@@ -254,7 +254,7 @@ export function RecordModelEdit({
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['ui-port', 'record-models'] }),
     onError: (cause) =>
-      toast(t('library.models.recordModelEdit.couldNotStartADraft'), {
+      toast.error(t('library.models.recordModelEdit.couldNotStartADraft'), {
         description: cause instanceof Error ? cause.message : undefined,
       }),
   })
@@ -520,7 +520,7 @@ function useDraftEditor({
       if (cause instanceof DataClientError && cause.code === 'SB001')
         dispatch({ type: 'conflict' })
       else
-        toast(t('library.models.recordModelEdit.couldNotSaveTheDraft'), {
+        toast.error(t('library.models.recordModelEdit.couldNotSaveTheDraft'), {
           description: cause instanceof Error ? cause.message : undefined,
         })
     },
@@ -555,7 +555,7 @@ function useDraftEditor({
       })
     },
     onError: (cause) =>
-      toast(t('library.models.recordModelEdit.couldNotDiscardTheDraft'), {
+      toast.error(t('library.models.recordModelEdit.couldNotDiscardTheDraft'), {
         description: cause instanceof Error ? cause.message : undefined,
       }),
   })

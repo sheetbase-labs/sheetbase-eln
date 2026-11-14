@@ -97,7 +97,7 @@ export function ProfilePhoto({
                 await refresh()
                 toast(t('settings.profile.photo.removedToast'))
               } catch (failure) {
-                toast(t('settings.profile.photo.couldRemoveToast'), {
+                toast.error(t('settings.profile.photo.couldRemoveToast'), {
                   description:
                     failure instanceof Error
                       ? failure.message
@@ -340,7 +340,7 @@ function PhotoCropDialog({
                 await uploadMyPhoto(await renderCrop(image, zoom, offset))
                 await onSaved()
               } catch (failure) {
-                toast(t('settings.profile.photo.couldSaveToast'), {
+                toast.error(t('settings.profile.photo.couldSaveToast'), {
                   description:
                     failure instanceof Error
                       ? failure.message

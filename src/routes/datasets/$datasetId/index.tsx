@@ -216,7 +216,7 @@ function LinkToExperiment({ dataset }: { dataset: DatasetListRow }) {
       toast(t('data.datasetOverview.datasetLinkedExperiment'))
     },
     onError: (error) =>
-      toast(t('data.datasetOverview.couldLinkDataset'), {
+      toast.error(t('data.datasetOverview.couldLinkDataset'), {
         description:
           error instanceof Error
             ? error.message

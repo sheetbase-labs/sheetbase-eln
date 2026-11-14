@@ -225,7 +225,7 @@ function AnalysisActions({
           void Promise.resolve()
             .then(() => navigator.clipboard.writeText(window.location.href))
             .then(() => toast(t('data.analysisPage.linkCopied')))
-            .catch(() => toast(t('data.analysisPage.couldCopyLink')))
+            .catch(() => toast.error(t('data.analysisPage.couldCopyLink')))
         }}
       >
         {t('common.actions.share')}

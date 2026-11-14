@@ -282,7 +282,7 @@ function useSignatureCertification() {
       })
     },
     onError: (error) =>
-      toast(t('settings.mySignature.couldCertifyToast'), {
+      toast.error(t('settings.mySignature.couldCertifyToast'), {
         description:
           error instanceof Error
             ? error.message
@@ -343,7 +343,7 @@ function useSignatureCertification() {
       })
     },
     onError: (error) =>
-      toast(t('settings.mySignature.couldWithdrawToast'), {
+      toast.error(t('settings.mySignature.couldWithdrawToast'), {
         description:
           error instanceof Error
             ? error.message

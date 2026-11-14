@@ -204,7 +204,7 @@ function PolicySection({
       toast(t('settings.signatures.signaturePolicySavedToast'))
     },
     onError: (error) =>
-      toast(t('settings.signatures.couldSavePolicyToast'), {
+      toast.error(t('settings.signatures.couldSavePolicyToast'), {
         description:
           error instanceof Error
             ? error.message
@@ -307,7 +307,7 @@ function ReviewSection({
       toast(t('settings.signatures.reviewSavedToast'))
     },
     onError: (error) =>
-      toast(t('settings.signatures.couldSaveReviewToast'), {
+      toast.error(t('settings.signatures.couldSaveReviewToast'), {
         description:
           error instanceof Error
             ? error.message
@@ -430,7 +430,7 @@ function StatementSection({
       toast(t('settings.signatures.certificationStatementSavedToast'))
     },
     onError: (error) =>
-      toast(t('settings.signatures.couldSaveStatementToast'), {
+      toast.error(t('settings.signatures.couldSaveStatementToast'), {
         description:
           error instanceof Error
             ? error.message

@@ -961,7 +961,7 @@ function useMemberManagement({
       )
     },
     onError: (error) =>
-      toast(t('settings.members.couldChangeMemberToast'), {
+      toast.error(t('settings.members.couldChangeMemberToast'), {
         description:
           error instanceof Error
             ? error.message
@@ -1013,7 +1013,7 @@ function useMemberManagement({
       })
     },
     onError: (error) =>
-      toast(t('settings.members.couldInviteToast'), {
+      toast.error(t('settings.members.couldInviteToast'), {
         description: describeAdminError(error),
       }),
   })
@@ -1039,7 +1039,7 @@ function useMemberManagement({
       })
     },
     onError: (error) =>
-      toast(t('settings.members.couldMakeNewToast'), {
+      toast.error(t('settings.members.couldMakeNewToast'), {
         description: describeAdminError(error),
       }),
   })
@@ -1053,7 +1053,7 @@ function useMemberManagement({
       toast(t('settings.members.invitationRevokedToast'))
     },
     onError: (error) =>
-      toast(t('settings.members.couldRevokeToast'), {
+      toast.error(t('settings.members.couldRevokeToast'), {
         description:
           error instanceof Error
             ? error.message

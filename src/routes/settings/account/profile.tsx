@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { KeyboardEvent } from 'react'
+import { usePendingEdit } from '#/lib/pending-edits'
+import { usePaneContext } from '#/components/workspace/workspace-navigation'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
@@ -103,6 +105,40 @@ function Profile() {
   const error = name.trim() ? undefined : 'Enter your full name.'
   const zone = timeZone.trim()
 
+  const saveProfile = useSaveProfile({
+    name,
+    timeZone,
+    initials,
+    jobTitle,
+    profile: profile.data,
+  })
+
+  const dirty =
+    name.trim() !== user.name.trim() ||
+    (zone !== '' && zone !== savedTimeZone) ||
+    (profile.data !== undefined &&
+      (initials.trim() !== profile.data.initials ||
+        jobTitle.trim() !== profile.data.jobTitle))
+
+  const blocked =
+    Boolean(error) ||
+    Boolean(zone && !isUsableTimeZone(zone)) ||
+    initials.trim().length > 4
+
+  const paneId = usePaneContext().paneId
+  usePendingEdit({
+    dirty,
+    label: t('settings.profile.profile'),
+    paneId,
+    save: async () => !blocked && (await saveProfile.save()),
+    discard: () => {
+      setName(user.name)
+      setTimeZone(savedTimeZone)
+      setInitials(profile.data?.initials ?? '')
+      setJobTitle(profile.data?.jobTitle ?? '')
+    },
+  })
+
   const initialsError =
     initials.trim().length > 4 ? 'Use up to four letters.' : undefined
 
@@ -118,11 +154,8 @@ function Profile() {
         title={t('settings.profile.profile')}
         actions={
           <SaveProfile
-            name={name}
-            timeZone={timeZone}
-            initials={initials}
-            jobTitle={jobTitle}
-            profile={profile.data}
+            busy={saveProfile.busy}
+            onSave={() => void saveProfile.save()}
             disabled={
               Boolean(error) || Boolean(timeZoneError) || Boolean(initialsError)
             }
@@ -291,20 +324,18 @@ function saveOnEnter(event: KeyboardEvent<HTMLDivElement>) {
   save.click()
 }
 
-function SaveProfile({
+function useSaveProfile({
   name,
   timeZone,
   initials,
   jobTitle,
   profile,
-  disabled,
 }: {
   name: string
   timeZone: string
   initials: string
   jobTitle: string
   profile: Awaited<ReturnType<typeof fetchMyProfile>> | undefined
-  disabled: boolean
 }) {
   const { context } = Route.useRouteContext()
   const router = useRouter()
@@ -312,50 +343,69 @@ function SaveProfile({
   const [busy, setBusy] = useState(false)
   const zone = timeZone.trim()
 
+  /** Saves the form; true when everything was stored. */
+  async function save(): Promise<boolean> {
+    setBusy(true)
+
+    try {
+      await updateProfileNameFn({ data: { name: name.trim() } })
+
+      if (zone && zone !== context.timeZone) {
+        await setUserTimeZone(appearanceClient, zone)
+        setDisplayTimeZone(zone)
+      }
+
+      if (
+        profile &&
+        (initials.trim() !== profile.initials ||
+          jobTitle.trim() !== profile.jobTitle)
+      ) {
+        await setUserProfileFields(appearanceClient, {
+          initials: initials.trim().toUpperCase(),
+          jobTitle: jobTitle.trim(),
+        })
+        await queryClient.invalidateQueries({ queryKey: myProfileQueryKey })
+      }
+
+      // The shell and this form both read the name from the resolved
+      // route context, so re-resolve it rather than report a save the
+      // rest of the app has not seen.
+      await router.invalidate()
+      toast(t('settings.profile.changesSavedToast'))
+
+      return true
+    } catch (failure) {
+      toast.error(t('settings.profile.couldSaveProfileToast'), {
+        description:
+          failure instanceof Error
+            ? failure.message
+            : t('settings.profile.tryAgain'),
+      })
+
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return { busy, save }
+}
+
+function SaveProfile({
+  busy,
+  onSave,
+  disabled,
+}: {
+  busy: boolean
+  onSave: () => void
+  disabled: boolean
+}) {
   return (
     <Button
       variant="primary"
       data-profile-save
       disabled={busy || disabled}
-      onClick={async () => {
-        setBusy(true)
-
-        try {
-          await updateProfileNameFn({ data: { name: name.trim() } })
-
-          if (zone && zone !== context.timeZone) {
-            await setUserTimeZone(appearanceClient, zone)
-            setDisplayTimeZone(zone)
-          }
-
-          if (
-            profile &&
-            (initials.trim() !== profile.initials ||
-              jobTitle.trim() !== profile.jobTitle)
-          ) {
-            await setUserProfileFields(appearanceClient, {
-              initials: initials.trim().toUpperCase(),
-              jobTitle: jobTitle.trim(),
-            })
-            await queryClient.invalidateQueries({ queryKey: myProfileQueryKey })
-          }
-
-          // The shell and this form both read the name from the resolved
-          // route context, so re-resolve it rather than report a save the
-          // rest of the app has not seen.
-          await router.invalidate()
-          toast(t('settings.profile.changesSavedToast'))
-        } catch (failure) {
-          toast.error(t('settings.profile.couldSaveProfileToast'), {
-            description:
-              failure instanceof Error
-                ? failure.message
-                : t('settings.profile.tryAgain'),
-          })
-        } finally {
-          setBusy(false)
-        }
-      }}
+      onClick={onSave}
     >
       {t('common.actions.saveChanges')}
     </Button>

@@ -10,7 +10,7 @@
  */
 import { z } from 'zod'
 
-import { eventLabel } from './event-catalogue'
+import { eventGroup, eventLabel } from './event-catalogue'
 import { describeCron, parseCron } from './pipeline-cron'
 import {
   MISSED_RUN_POLICIES,
@@ -124,9 +124,21 @@ export function triggerLabel(kind: string): string {
   }
 }
 
-/** Every event a trigger can listen for, as `[name, label]`. */
-export function eventOptions(): Array<[string, string]> {
-  return PIPELINE_TRIGGER_EVENTS.map((name) => [name, eventLabel(name)])
+/** Every event a trigger can listen for, under its area heading. */
+export function eventOptions(): Array<{
+  id: string
+  label: string
+  group: string
+  facets: { area: string }
+  keywords: string[]
+}> {
+  return PIPELINE_TRIGGER_EVENTS.map((name) => ({
+    id: name,
+    label: eventLabel(name),
+    group: eventGroup(name),
+    facets: { area: eventGroup(name) },
+    keywords: [name.replace(/[._]+/g, ' ')],
+  }))
 }
 
 /**

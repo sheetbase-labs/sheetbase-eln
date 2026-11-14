@@ -9,6 +9,7 @@ import {
   relativeTime,
   scheduleToDraft,
   eventLabel,
+  eventOptions,
   triggerLabel,
 } from './pipeline-schedule-form'
 import { validateScheduleSpec } from './pipeline-schedule'
@@ -332,5 +333,23 @@ describe('plain names for events and triggers', () => {
     expect(triggerLabel('manual')).toBe('By hand')
     expect(triggerLabel('scheduled')).toBe('On a schedule')
     expect(triggerLabel('event')).toBe('When something happened')
+  })
+})
+
+describe('eventOptions', () => {
+  it('lists every trigger event under an area heading, so a picker can group and filter them', () => {
+    const options = eventOptions()
+
+    expect(options.length).toBeGreaterThan(50)
+
+    for (const option of options) {
+      expect(option.group).not.toBe('')
+      expect(option.facets.area).toBe(option.group)
+    }
+
+    expect(options.find((o) => o.id === 'sample.received')).toMatchObject({
+      label: 'A sample is received',
+      group: 'Samples',
+    })
   })
 })

@@ -8,6 +8,7 @@ import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
 import { Notice } from '#/components/ui/alert'
 import { Select } from '#/components/ui/select'
+import { PickerSelect } from '#/components/record-picker/entity-picker'
 import {
   Dialog,
   DialogBody,
@@ -562,16 +563,12 @@ function ScheduleEvent({
       {draft.repeat === 'event' ? (
         <>
           <Field label={t('data.scheduleDialog.when')} required>
-            <Select
+            <PickerSelect
+              noun="event"
               value={draft.eventType}
-              onChange={(e) => patch({ eventType: e.target.value })}
-            >
-              {eventOptions().map(([name, label]) => (
-                <option key={name} value={name}>
-                  {label}
-                </option>
-              ))}
-            </Select>
+              onChange={(id) => patch({ eventType: id })}
+              options={eventOptions()}
+            />
           </Field>
           {draft.eventType === 'dataset.versioned' ? (
             <>
@@ -579,37 +576,28 @@ function ScheduleEvent({
                 label={t('data.scheduleDialog.onlyDataset')}
                 hint={t('data.scheduleDialog.leaveEmptyReactAny')}
               >
-                <Select
+                <PickerSelect
+                  noun="dataset"
                   value={draft.datasetId}
-                  onChange={(e) => patch({ datasetId: e.target.value })}
-                >
-                  <option value="">
-                    {t('data.scheduleDialog.anyDataset')}
-                  </option>
-                  {datasets.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.label}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={(id) => patch({ datasetId: id })}
+                  clearLabel={t('data.scheduleDialog.anyDataset')}
+                  options={datasets.map((d) => ({ id: d.id, label: d.label }))}
+                />
               </Field>
               <Field
                 label={t('data.scheduleDialog.onlyImportsFromInstrument')}
                 hint={t('data.scheduleDialog.leaveEmptyReactAny2')}
               >
-                <Select
+                <PickerSelect
+                  noun="instrument"
                   value={draft.instrumentId}
-                  onChange={(e) => patch({ instrumentId: e.target.value })}
-                >
-                  <option value="">
-                    {t('data.scheduleDialog.anyInstrument')}
-                  </option>
-                  {instruments.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={(id) => patch({ instrumentId: id })}
+                  clearLabel={t('data.scheduleDialog.anyInstrument')}
+                  options={instruments.map((x) => ({
+                    id: x.id,
+                    label: x.name,
+                  }))}
+                />
               </Field>
               {inputNames.length > 1 ? (
                 <Field

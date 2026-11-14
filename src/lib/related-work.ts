@@ -387,20 +387,31 @@ export async function fetchRelatedWork(
   if (!id) return []
 
   try {
-    switch (kind) {
-      case 'record':
-        return await fetchRelatedForRecord(client, id)
-      case 'dataset':
-        return await fetchRelatedForDataset(client, id)
-      case 'sheet':
-        return await fetchRelatedForSheet(client, id)
-      case 'template':
-        return await fetchRelatedForTemplate(client, id)
-      case 'project':
-        return await fetchRelatedForProject(client, id)
-    }
+    const items = await fetchRelatedFor(kind, id, client)
+
+    // An object is never related work for itself, however it was reached.
+    return items.filter((item) => !(item.kind === kind && item.id === id))
   } catch {
     return []
+  }
+}
+
+function fetchRelatedFor(
+  kind: RelatedWorkKind,
+  id: string,
+  client: DataClient,
+): Promise<RelatedWorkItem[]> {
+  switch (kind) {
+    case 'record':
+      return fetchRelatedForRecord(client, id)
+    case 'dataset':
+      return fetchRelatedForDataset(client, id)
+    case 'sheet':
+      return fetchRelatedForSheet(client, id)
+    case 'template':
+      return fetchRelatedForTemplate(client, id)
+    case 'project':
+      return fetchRelatedForProject(client, id)
   }
 }
 

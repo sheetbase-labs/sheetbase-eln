@@ -361,6 +361,9 @@ describe('fetchRelatedWork for records', () => {
     expect(byId.has('rec-hidden')).toBe(false)
     expect(byId.has('rec-old')).toBe(false)
 
+    // The object itself is never listed as its own related work.
+    expect(byId.has('rec-1')).toBe(false)
+
     // Direct links outrank provenance, which outranks the cohort.
     const order = items.map((i) => i.id)
     expect(order.indexOf('rec-2')).toBeLessThan(order.indexOf('ds-1'))

@@ -20,7 +20,7 @@ test('ANA-03 a chart is exported as an image at a chosen size and theme', async 
 }) => {
   await open(page, `/analysis/new?mode=chart&dataset=${ELISA_DATASET}`)
   await waitForHydration(page)
-  await page.getByLabel('Y axis field').selectOption({ label: 'Capsid titre' })
+  await pickRecord(page, page.getByLabel('Y axis field'), 'Capsid titre')
   await openTab(page, 'Export')
   await page.getByLabel('Export width').fill('1200')
   await page.getByLabel('Export height').fill('800')

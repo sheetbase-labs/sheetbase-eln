@@ -78,7 +78,7 @@ async function saveChartView(page: Page): Promise<string> {
   const name = uniqueName('Titre view')
   await open(page, `/analysis/new?mode=chart&dataset=${ELISA_DATASET}`)
   await waitForHydration(page)
-  await page.getByLabel('Y axis field').selectOption({ label: 'Capsid titre' })
+  await pickRecord(page, page.getByLabel('Y axis field'), 'Capsid titre')
   await page.getByRole('tab', { name: /^Views/ }).click()
   await page.getByLabel('Analysis view name').fill(name)
   await page.getByRole('button', { name: 'Save analysis view' }).click()

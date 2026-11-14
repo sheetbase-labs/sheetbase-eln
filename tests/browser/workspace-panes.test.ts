@@ -1,6 +1,7 @@
 import { expect, test } from 'playwright/test'
 import {
   open,
+  pickRecord,
   signIn,
   uniqueName,
   waitForHydration,
@@ -188,12 +189,12 @@ test('unsaved chart edits ask Save, Discard or Cancel before a pane closes', asy
   await menu(page, panes.nth(0), /^Split right/)
   await expect(panes).toHaveCount(2)
   const field = panes.nth(1).getByLabel('Y axis field', { exact: true })
-  const original = await field.inputValue()
-  await field.selectOption({ label: 'Turbidity' })
-  expect(await field.inputValue()).not.toBe(original)
+  const original = await field.getAttribute('data-value')
+  await pickRecord(page, field, 'Turbidity')
+  expect(await field.getAttribute('data-value')).not.toBe(original)
   await expect(
     panes.nth(0).getByLabel('Y axis field', { exact: true }),
-  ).toHaveValue(original)
+  ).toHaveAttribute('data-value', original ?? '')
   await panes
     .nth(1)
     .getByRole('button', { name: 'Close Analysis Studio pane' })
@@ -224,10 +225,11 @@ test('unsaved chart edits ask Save, Discard or Cancel before a pane closes', asy
   // Discard from the close prompt throws the edit away and closes the pane.
   await menu(page, panes.nth(0), /^Split right/)
   await expect(panes).toHaveCount(2)
-  await panes
-    .nth(1)
-    .getByLabel('Y axis field', { exact: true })
-    .selectOption({ label: 'Turbidity' })
+  await pickRecord(
+    page,
+    panes.nth(1).getByLabel('Y axis field', { exact: true }),
+    'Turbidity',
+  )
   await panes
     .nth(1)
     .getByRole('button', { name: 'Close Analysis Studio pane' })

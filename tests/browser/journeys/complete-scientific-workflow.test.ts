@@ -437,7 +437,9 @@ test('an imported plate analysis remains reconstructable after independent revie
     await page.getByRole('menuitem', { name: 'New calculation…' }).click()
     await page.getByLabel('Calculation formula').fill('=B1*C1')
     await page.getByLabel('Calculation label').fill('Adjusted titre')
-    await page.getByLabel('Calculation quantity').selectOption(columns[1].id)
+    await pickRecord(page, page.getByLabel('Calculation quantity'), {
+      id: columns[1].id,
+    })
     await page
       .getByRole('button', { name: 'Add calculation', exact: true })
       .click()
@@ -511,10 +513,12 @@ test('an imported plate analysis remains reconstructable after independent revie
       .click()
     await expect(studioPanes).toHaveCount(1)
     await page.getByRole('button', { name: 'Descriptive / ANOVA' }).click()
-    await page
-      .getByLabel('Measured value column')
-      .selectOption({ label: 'Capsid titre' })
-    await page.getByLabel('Group by column').selectOption('')
+    await pickRecord(
+      page,
+      page.getByLabel('Measured value column'),
+      'Capsid titre',
+    )
+    await pickRecord(page, page.getByLabel('Group by column'), '(one group)')
     const statistics = page.getByRole('table', {
       name: 'Descriptive statistics per group',
     })

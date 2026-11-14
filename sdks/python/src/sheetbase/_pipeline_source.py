@@ -82,6 +82,7 @@ def apply_step_source(
         new["pythonRuntime"] = python_runtime
     elif not new.get("pythonRuntime"):
         raise ValueError(
-            "This pipeline has no Python runtime pinned yet; pass python_runtime (see GET /api/pipelines/runtime)."
+            "This pipeline has no Python runtime pinned yet; pass python_runtime, or --runtime on the command line "
+            "(the runtimes your instance offers are at GET /api/pipelines/runtime)."
         )
     return new

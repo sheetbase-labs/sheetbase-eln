@@ -227,6 +227,19 @@ class TestCli:
         monkeypatch.delenv("SHEETBASE_URL")
         assert main(["push-step", str(bad), "--workspace", WS, "--pipeline", DEF]) == 2
 
+    def test_a_refused_sign_in_or_dead_server_prints_one_line(self, mock_transport, monkeypatch, capsys):
+        monkeypatch.setenv("SHEETBASE_URL", BASE_URL)
+        monkeypatch.setenv("SHEETBASE_CREDENTIAL", CREDENTIAL)
+        mock_transport.post("/api/token").respond(
+            401, json={"error": {"code": "invalid_credential", "message": "Invalid credential."}}
+        )
+        assert main(["pull", "PL-0021"]) == 1
+        err = capsys.readouterr().err
+        assert "Invalid credential." in err and "Traceback" not in err
+        mock_transport.post("/api/token").mock(side_effect=httpx.ConnectError("Connection refused"))
+        assert main(["pull", "PL-0021"]) == 1
+        assert "Could not reach" in capsys.readouterr().err
+
 
 DEFINITION = {"id": DEF, "workspace_id": WS, "key": "assay", "display_id": "PL-0021", "name": "Assay"}
 ADVANCED = {**CONFIG, "mode": "advanced"}

@@ -11,6 +11,7 @@ published: a person reviews and publishes the draft in the app.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -164,7 +165,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     try:
         return _dispatch(args)
     except SheetbaseError as error:
-        print(f"Sheetbase refused the request: {error}", file=sys.stderr)
+        print(f"Sheetbase refused the request: {_plain_refusal(error)}", file=sys.stderr)
         return 1
     except httpx.HTTPError as error:
         print(
@@ -172,6 +173,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             file=sys.stderr,
         )
         return 1
+
+
+def _plain_refusal(error: SheetbaseError) -> str:
+    """The server's reason, with a list of configuration problems laid out as ``field: message``."""
+    text = str(error)
+    marker = text.find("[", text.find("]") + 1)  # the list after the leading ``[category]``
+    if marker == -1:
+        return text
+    try:
+        problems = json.loads(text[marker : text.rfind("]") + 1])
+    except ValueError:
+        return text
+    if not isinstance(problems, list) or not all(isinstance(p, dict) and "message" in p for p in problems):
+        return text
+    lines = [f"  {p.get('field') or 'configuration'}: {p['message']}" for p in problems]
+    return f"{text[:marker].rstrip(': ')}\n" + "\n".join(lines)
 
 
 def _dispatch(args: argparse.Namespace) -> int:

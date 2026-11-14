@@ -85,6 +85,16 @@ describe('signature meaning eligibility', () => {
     ).toEqual([])
   })
 
+  it('lets an assigned author sign their own record only when the lab is not regulated', () => {
+    const own = {
+      currentUserId: 'author',
+      submission: { ...submission, assigned_reviewer_user_ids: ['author'] },
+    }
+
+    expect(meanings({ ...own, authorMaySign: true })).toEqual(['reviewed'])
+    expect(meanings({ ...own, authorMaySign: false })).toEqual([])
+  })
+
   it('does not offer a meaning the workspace has switched off', () => {
     const policy = readSignaturePolicy({
       meanings: { Reviewed: false, Approved: true },

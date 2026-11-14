@@ -9,6 +9,7 @@
  * delivers that spec to the caller (the Analysis Studio loads it into the
  * chart builder, where save/export/freeze already live).
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import * as React from 'react'
 
 import { t } from '#/copy'
@@ -406,13 +407,14 @@ function CompareFields({ model }: { model: CompareModel }) {
             >
               {t('data.compareView.timeField')}
             </label>
-            <Select
+            <SearchableSelect
+              noun="column"
               id="compare-time-field"
               value={config.timeField ?? ''}
-              onChange={(event) =>
+              onValueChange={(value) =>
                 onConfigChange({
                   ...config,
-                  timeField: event.target.value || null,
+                  timeField: value || null,
                 })
               }
             >
@@ -422,7 +424,7 @@ function CompareFields({ model }: { model: CompareModel }) {
                   {column.label}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
           </div>
         ) : null}
         <div className="space-y-1">
@@ -432,11 +434,12 @@ function CompareFields({ model }: { model: CompareModel }) {
           >
             {t('data.compareView.valueField')}
           </label>
-          <Select
+          <SearchableSelect
+            noun="column"
             id="compare-value-field"
             value={config.valueField}
-            onChange={(event) =>
-              onConfigChange({ ...config, valueField: event.target.value })
+            onValueChange={(value) =>
+              onConfigChange({ ...config, valueField: value })
             }
           >
             {valueColumns.map((column) => (
@@ -444,7 +447,7 @@ function CompareFields({ model }: { model: CompareModel }) {
                 {column.label}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </div>
         <div className="space-y-1">
           <label
@@ -453,13 +456,14 @@ function CompareFields({ model }: { model: CompareModel }) {
           >
             {t('data.compareView.facetField')}
           </label>
-          <Select
+          <SearchableSelect
+            noun="column"
             id="compare-facet-field"
             value={config.facetBy ?? ''}
-            onChange={(event) =>
+            onValueChange={(value) =>
               onConfigChange({
                 ...config,
-                facetBy: event.target.value || null,
+                facetBy: value || null,
               })
             }
           >
@@ -471,7 +475,7 @@ function CompareFields({ model }: { model: CompareModel }) {
                   {column.label}
                 </option>
               ))}
-          </Select>
+          </SearchableSelect>
         </div>
       </div>
       <fieldset>
@@ -607,10 +611,11 @@ function CompareSides({ model }: { model: CompareModel }) {
           >
             {t('data.compareView.matchField')}
           </label>
-          <Select
+          <SearchableSelect
+            noun="column"
             id="compare-match-field"
             value={matchFieldId ?? ''}
-            onChange={(event) => setMatchFieldId(event.target.value || null)}
+            onValueChange={(value) => setMatchFieldId(value || null)}
           >
             <option value="">{t('data.compareView.selectField')}</option>
             {columns.map((column) => (
@@ -618,7 +623,7 @@ function CompareSides({ model }: { model: CompareModel }) {
                 {column.label}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </div>
       ) : null}
       <div className="mt-2 flex flex-wrap items-center gap-2">

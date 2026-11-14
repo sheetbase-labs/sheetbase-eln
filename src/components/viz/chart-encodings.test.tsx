@@ -147,13 +147,16 @@ function renderConfigurator(initial = baseSpec()) {
   }
 }
 
+/** Open a column picker and choose the column with this label. */
+async function pickField(field: HTMLElement, label: string) {
+  await userEvent.click(field)
+  await userEvent.click(await screen.findByRole('option', { name: label }))
+}
+
 describe('chart encoding authoring paths', () => {
   it('produces the same spec by dropping a field and by choosing it', async () => {
     const byKeyboard = renderConfigurator()
-    await userEvent.selectOptions(
-      byKeyboard.view.getByLabelText('X-axis field'),
-      PH_ID,
-    )
+    await pickField(byKeyboard.view.getByLabelText('X-axis field'), 'pH')
     const keyboardSpec = byKeyboard.emitted.at(-1)
     cleanup()
 
@@ -173,7 +176,9 @@ describe('chart encoding authoring paths', () => {
     expect(alert.textContent).toMatch(/measured number/i)
     expect(alert.textContent).toContain('Buffer')
     expect(emitted).toHaveLength(0)
-    expect(view.getByLabelText('Y-axis field')).toHaveProperty('value', PH_ID)
+    expect(view.getByLabelText('Y-axis field').getAttribute('data-value')).toBe(
+      PH_ID,
+    )
   })
 
   it('keeps the spec unchanged when the role has no such encoding', () => {
@@ -191,14 +196,11 @@ describe('chart encoding authoring paths', () => {
   it('reaches every role through the keyboard-only controls', async () => {
     const { emitted, view } = renderConfigurator()
 
-    await userEvent.selectOptions(view.getByLabelText('X-axis field'), TIME_ID)
-    await userEvent.selectOptions(view.getByLabelText('Y-axis field'), PH_ID)
-    await userEvent.selectOptions(
-      view.getByLabelText('Colour field'),
-      BUFFER_ID,
-    )
-    await userEvent.selectOptions(view.getByLabelText('Size field'), TIME_ID)
-    await userEvent.selectOptions(view.getByLabelText('Facet field'), BUFFER_ID)
+    await pickField(view.getByLabelText('X-axis field'), 'Time (h)')
+    await pickField(view.getByLabelText('Y-axis field'), 'pH')
+    await pickField(view.getByLabelText('Colour field'), 'Buffer')
+    await pickField(view.getByLabelText('Size field'), 'Time (h)')
+    await pickField(view.getByLabelText('Facet field'), 'Buffer')
 
     const spec = emitted.at(-1)
     expect(spec?.fields.x?.fieldId).toBe(TIME_ID)

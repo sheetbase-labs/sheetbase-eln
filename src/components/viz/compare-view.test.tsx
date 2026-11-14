@@ -4,6 +4,7 @@
  * explicit fields and the promote-to-ChartSpec hand-off.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import {
   cleanup,
@@ -103,6 +104,12 @@ function renderCompare(
   return { onPromote }
 }
 
+/** Open a column picker and choose the column with this label. */
+async function pickColumn(field: HTMLElement, label: string) {
+  await userEvent.click(field)
+  await userEvent.click(await screen.findByRole('option', { name: label }))
+}
+
 describe('CompareView', () => {
   it('shows grouped series with statistics and honest null counts', () => {
     renderCompare(baseConfig())
@@ -118,18 +125,20 @@ describe('CompareView', () => {
     ).toBeDefined()
   })
 
-  it('binds faceting controls to explicit fields only', () => {
+  it('binds faceting controls to explicit fields only', async () => {
     renderCompare(baseConfig())
     const facet = screen.getByLabelText('Facet field')
 
     // The active groupBy field is never offered as a facet.
-    const options = [...facet.querySelectorAll('option')].map(
-      (o) => o.textContent,
+    await userEvent.click(facet)
+
+    const options = (await screen.findAllByRole('option')).map(
+      (o) => o.textContent ?? '',
     )
 
-    expect(options).not.toContain('Buffer')
-    expect(options).toContain('Time (h)')
-    fireEvent.change(facet, { target: { value: TIME } })
+    expect(options.some((name) => name.includes('Buffer'))).toBe(false)
+    expect(options.some((name) => name.includes('Time (h)'))).toBe(true)
+    await userEvent.click(screen.getByRole('option', { name: 'Time (h)' }))
     // Mixed facets report honestly instead of picking one.
     expect(screen.getAllByText('mixed').length).toBeGreaterThan(0)
   })
@@ -312,16 +321,14 @@ describe('CompareView A/B controls', () => {
     expect(pairCells('r9')[4]).toContain('A only')
   })
 
-  it('re-pairs and re-states the rule when "match rows by" changes', () => {
+  it('re-pairs and re-states the rule when "match rows by" changes', async () => {
     renderAbCompare()
 
     // Field matching re-keys the rows on the chosen field value.
     fireEvent.change(screen.getByLabelText('Match rows by'), {
       target: { value: 'field' },
     })
-    fireEvent.change(screen.getByLabelText('Match field'), {
-      target: { value: 'c-sample' },
-    })
+    await pickColumn(screen.getByLabelText('Match field'), 'Sample ID')
     expect(
       screen.getByText(/matched by the value of Sample ID/, {
         selector: '[data-compare-match-rule]',
@@ -366,17 +373,19 @@ describe('CompareView A/B controls', () => {
     ).toBeTruthy()
   })
 
-  it('keeps a cleared field empty instead of silently choosing a fallback', () => {
+  it('keeps a cleared field empty instead of silently choosing a fallback', async () => {
     renderAbCompare()
     fireEvent.change(screen.getByLabelText('Match rows by'), {
       target: { value: 'field' },
     })
-    fireEvent.change(screen.getByLabelText('Match field'), {
-      target: { value: '' },
-    })
-    expect(screen.getByLabelText('Match field')).toHaveProperty('value', '')
+    await pickColumn(screen.getByLabelText('Match field'), 'Select a field')
+    expect(
+      screen.getByLabelText('Match field').getAttribute('data-value'),
+    ).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Swap A/B' }))
-    expect(screen.getByLabelText('Match field')).toHaveProperty('value', '')
+    expect(
+      screen.getByLabelText('Match field').getAttribute('data-value'),
+    ).toBeNull()
   })
 })
 
@@ -449,9 +458,7 @@ describe('CompareView flag exclusion and selection', () => {
     const summary = screen.getByText(/^Selected /)
     expect(summary.textContent).toContain('x 0')
     expect(summary.textContent).toContain('y 7')
-    fireEvent.change(screen.getByLabelText('Facet field'), {
-      target: { value: TIME },
-    })
+    await pickColumn(screen.getByLabelText('Facet field'), 'Time (h)')
     expect(screen.queryByText(/^Selected /)).toBeNull()
   })
 })

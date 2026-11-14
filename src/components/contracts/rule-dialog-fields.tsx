@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { t } from '#/copy'
 import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
@@ -62,9 +63,10 @@ export function RuleConditionFields({
       </Field>
       {field ? (
         <Field label={t('contracts.form.field')}>
-          <Select
+          <SearchableSelect
+            noun="field"
             value={draft.field}
-            onChange={(e) => onChange({ field: e.target.value })}
+            onValueChange={(value) => onChange({ field: value })}
           >
             <option value="">{t('contracts.form.pickField')}</option>
             {fields.map((option) => (
@@ -72,7 +74,7 @@ export function RuleConditionFields({
                 {option.label}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </Field>
       ) : null}
       {draft.kind === 'range' || draft.kind === 'row_count' ? (

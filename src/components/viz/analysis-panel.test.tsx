@@ -510,7 +510,9 @@ describe('AnalysisPanel', () => {
       )
       expect(screen.getByText(/Reading (a )?snapshot/)).toBeTruthy()
       expect(
-        screen.getByLabelText<HTMLSelectElement>('Measured value column').value,
+        screen
+          .getByLabelText('Measured value column')
+          .getAttribute('data-value'),
       ).toBe(FIELD_TIME)
       expect(screen.getByRole('button', { name: /^Save$/ })).toBeTruthy()
       expect(writes).toEqual([])
@@ -562,10 +564,10 @@ describe('AnalysisPanel', () => {
       screen.getByRole('button', { name: /Descriptive \/ ANOVA/i }),
     )
     expect(
-      screen.getByRole('option', { name: 'Original recovery' }),
-    ).toBeTruthy()
+      screen.getByLabelText('Measured value column').textContent,
+    ).toContain('Original recovery')
     expect(
-      screen.getByLabelText<HTMLSelectElement>('Measured value column').value,
+      screen.getByLabelText('Measured value column').getAttribute('data-value'),
     ).toBe(FIELD_RECOVERY)
     fireEvent.change(screen.getByLabelText('Analysis name'), {
       target: { value: 'Original recovery' },
@@ -591,12 +593,10 @@ describe('AnalysisPanel', () => {
 
   it('clears an optional grouping binding without changing the analysis kind', async () => {
     await runDescriptive()
-    fireEvent.change(screen.getByLabelText('Group by column'), {
-      target: { value: '' },
-    })
+    await choose(userEvent.setup(), 'Group by column', '(one group)')
     expect(
-      screen.getByLabelText<HTMLSelectElement>('Group by column').value,
-    ).toBe('')
+      screen.getByLabelText('Group by column').getAttribute('data-value'),
+    ).toBeNull()
     expect(screen.getByText('Descriptive statistics')).toBeTruthy()
     expect(screen.queryByText('One-way ANOVA')).toBeNull()
     expect(screen.getByText('median')).toBeTruthy()

@@ -295,10 +295,8 @@ describe('ChartConfigurator', () => {
         }}
       />,
     )
-    await userEvent.selectOptions(
-      screen.getByLabelText('Error bar column'),
-      'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04',
-    )
+    await userEvent.click(screen.getByLabelText('Error bar column'))
+    await userEvent.click(await screen.findByRole('option', { name: 'pH SD' }))
     expect(changed.spec?.overlays.errorBars).not.toBeNull()
     expect(changed.spec?.overlays.errorBars?.fieldId).toBe(
       'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04',
@@ -325,10 +323,8 @@ describe('ChartConfigurator', () => {
       />,
     )
 
-    await userEvent.selectOptions(
-      screen.getByLabelText('Y axis field'),
-      'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04',
-    )
+    await userEvent.click(screen.getByLabelText('Y axis field'))
+    await userEvent.click(await screen.findByRole('option', { name: 'pH SD' }))
 
     expect(changed.spec?.transformations[0]?.params.yField).toBe(
       'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa04',

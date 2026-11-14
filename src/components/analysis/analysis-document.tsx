@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useMemo, useState } from 'react'
 import { z } from 'zod'
 
@@ -5,7 +6,6 @@ import { t } from '#/copy'
 import { Button } from '#/components/ui/button'
 import { Field } from '#/components/ui/input'
 import { InspectorSection, Muted } from '#/components/ui/layout'
-import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
 import { Tabs } from '#/components/ui/tabs'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
@@ -256,17 +256,18 @@ export function ChartSettings({
           </p>
         </Field>
         <Field label={t('data.analysisDocument.yAxis')}>
-          <Select
+          <SearchableSelect
+            noun="column"
             value={spec.fields.y.fieldId}
             disabled={!editable}
-            onChange={(e) => onYChange(e.target.value)}
+            onValueChange={(value) => onYChange(value)}
           >
             {numericColumns(columns).map((c) => (
               <option key={c.id} value={c.id}>
                 {axisTitle(c)}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </Field>
         <Field label={t('data.analysisDocument.referenceLine')}>
           {references.length === 0 ? (

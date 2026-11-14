@@ -10,6 +10,7 @@
  * Drag state and outcomes are announced through a live region so the surface
  * is usable without a pointer.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useState } from 'react'
 import type { DragEvent } from 'react'
 
@@ -17,7 +18,6 @@ import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { IconButton } from '#/components/ui/icon-button'
-import { Select } from '#/components/ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -296,13 +296,12 @@ export function ChartEncodingEditor({
                 >
                   {ROLE_LABEL[role]}
                 </label>
-                <Select
+                <SearchableSelect
+                  noun="column"
                   id={`${idPrefix}-${role}`}
                   aria-label={`${ROLE_LABEL[role]} field`}
                   value={value}
-                  onChange={(event) =>
-                    onAssign(role, event.target.value || null)
-                  }
+                  onValueChange={(next) => onAssign(role, next || null)}
                   className="bg-surface"
                 >
                   {role !== 'y' ? (
@@ -313,7 +312,7 @@ export function ChartEncodingEditor({
                       {column.label}
                     </option>
                   ))}
-                </Select>
+                </SearchableSelect>
               </div>
             )
           })}

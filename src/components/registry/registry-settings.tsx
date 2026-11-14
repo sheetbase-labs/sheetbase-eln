@@ -3,6 +3,7 @@
  * entries. Choose which fields make two entries the same thing, and which one
  * holds a sequence, if any.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -286,9 +287,10 @@ export function RegistrySettingsDialog({
                     label={t('registry.settings.sequenceField')}
                     hint={t('registry.settings.sequenceFieldHint')}
                   >
-                    <Select
+                    <SearchableSelect
+                      noun="field"
                       value={sequenceField}
-                      onChange={(e) => setSequenceField(e.target.value)}
+                      onValueChange={(value) => setSequenceField(value)}
                     >
                       <option value="">
                         {t('registry.settings.sequenceNone')}
@@ -298,7 +300,7 @@ export function RegistrySettingsDialog({
                           {field.label}
                         </option>
                       ))}
-                    </Select>
+                    </SearchableSelect>
                   </Field>
                 ) : null}
                 <SamenessRuleField

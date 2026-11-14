@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { annotateRequest } from '#/lib/request-log'
-import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
 import { db } from '#/db/client.server'
@@ -28,10 +27,7 @@ const exchangeSchema = z.object({
   scopes: z.array(z.string()).min(1),
 })
 
-const exchange = createServerFn({ method: 'POST' }).handler(async () => {
-  const { getRequest } = await import('@tanstack/react-start/server')
-  const request = getRequest()
-
+async function exchange(request: Request): Promise<Response> {
   let body: unknown
 
   try {
@@ -123,12 +119,12 @@ const exchange = createServerFn({ method: 'POST' }).handler(async () => {
       { status: 500 },
     )
   }
-})
+}
 
 export const Route = createFileRoute('/api/token/')({
   server: {
     handlers: {
-      POST: () => exchange(),
+      POST: ({ request }) => exchange(request),
     },
   },
 })

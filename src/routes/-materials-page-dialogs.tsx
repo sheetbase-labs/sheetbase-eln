@@ -39,6 +39,7 @@ import {
 } from '#/components/models/added-fields'
 import type { MaterialListRow } from '#/components/materials/materials-data'
 import { t } from '#/copy'
+import { soleProjectId } from '#/lib/sole-project'
 
 import { todayISO } from './-materials-page-model'
 import type { RegisterLotInput } from './-materials-page-data'
@@ -53,7 +54,8 @@ export function RegisterLotForm({
   projects: Map<string, string>
   onSubmit: (input: RegisterLotInput) => void
 }): React.ReactElement {
-  const [projectId, setProjectId] = useState('')
+  const [chosenProjectId, setProjectId] = useState('')
+  const projectId = chosenProjectId || soleProjectId([...projects.keys()]) || ''
   const [title, setTitle] = useState('')
   const [supplier, setSupplier] = useState('')
   const [catalogNo, setCatalogNo] = useState('')

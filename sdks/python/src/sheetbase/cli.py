@@ -17,8 +17,11 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
+import httpx
+
 from sheetbase._pipeline_source import notebook_to_python, parse_requirements
 from sheetbase.client import SheetbaseClient
+from sheetbase.errors import SheetbaseError
 
 
 def _git_head(file: Path) -> Optional[str]:
@@ -156,7 +159,22 @@ def _run_version_file_command(args: argparse.Namespace, base_url: str, credentia
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    """Run a command; a refusal from the server or a connection problem prints one line, not a traceback."""
     args = build_parser().parse_args(argv)
+    try:
+        return _dispatch(args)
+    except SheetbaseError as error:
+        print(f"Sheetbase refused the request: {error}", file=sys.stderr)
+        return 1
+    except httpx.HTTPError as error:
+        print(
+            f"Could not reach {os.environ.get('SHEETBASE_URL', 'the Sheetbase instance')}: {error}",
+            file=sys.stderr,
+        )
+        return 1
+
+
+def _dispatch(args: argparse.Namespace) -> int:
     if args.command == "parser":
         return _run_parser_command(args)
     base_url = os.environ.get("SHEETBASE_URL")

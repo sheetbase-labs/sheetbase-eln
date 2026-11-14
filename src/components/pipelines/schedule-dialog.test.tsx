@@ -8,9 +8,11 @@ import {
   waitFor,
 } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import { z } from 'zod'
 
 import { ScheduleDialog } from './schedule-dialog'
+import { choose } from '../../../tests/unit/picker'
 import { defaultTimeZone, knownTimeZones } from './schedule-form'
 import { setDisplayTimeZone } from '#/lib/display-time-zone'
 import { createDataClient } from '#/lib/data-client'
@@ -320,6 +322,7 @@ describe('ScheduleDialog', () => {
   })
 
   it('binds an event to one input and saves filters while keeping other inputs explicit', async () => {
+    const user = userEvent.setup()
     const transport = vi.fn<typeof fetch>(async () => Response.json(schedule))
     vi.stubGlobal('fetch', transport)
     const onOpenChange = vi.fn()
@@ -341,13 +344,8 @@ describe('ScheduleDialog', () => {
     fireEvent.change(screen.getByLabelText('Dataset for readings'), {
       target: { value: 'ds-1' },
     })
-    fireEvent.change(screen.getByLabelText(/^Only this dataset/), {
-      target: { value: 'ds-1' },
-    })
-    fireEvent.change(
-      screen.getByLabelText(/^Only imports from this instrument/),
-      { target: { value: 'instrument-1' } },
-    )
+    await choose(user, /^Only this dataset/, 'DS-0001 · Readings')
+    await choose(user, /^Only imports from this instrument/, 'Plate reader')
     fireEvent.change(
       screen.getByLabelText('Events that arrive while the trigger is paused'),
       { target: { value: 'skip' } },

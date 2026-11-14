@@ -4111,6 +4111,13 @@ const FAMILY_GROUPS: Readonly<Record<EventFamily, string>> = Object.freeze({
   administration: 'Projects',
 })
 
+/** The heading an event is listed under in a picker ("Samples"). */
+export function eventGroup(name: string): string {
+  const entry = eventByName(name)
+
+  return entry ? FAMILY_GROUPS[entry.family] : ''
+}
+
 export interface WebhookEventOption {
   /** Canonical name, stored on the subscription. */
   readonly name: string

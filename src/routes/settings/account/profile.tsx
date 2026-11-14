@@ -73,6 +73,58 @@ function knownTimeZones(): string[] {
   return zones.includes('UTC') ? zones : ['UTC', ...zones]
 }
 
+interface ProfileValues {
+  name: string
+  timeZone: string
+  initials: string
+  jobTitle: string
+}
+
+/** Asks Save, Discard or Cancel when the profile is left with unsaved edits. */
+function useProfileGuard({
+  values,
+  saved,
+  save,
+  discard,
+}: {
+  values: ProfileValues
+  saved: {
+    name: string
+    timeZone: string
+    initials: string | undefined
+    jobTitle: string | undefined
+  }
+  save: () => Promise<boolean>
+  discard: () => void
+}) {
+  const zone = values.timeZone.trim()
+
+  const profileChanged =
+    saved.initials !== undefined &&
+    (values.initials.trim() !== saved.initials ||
+      values.jobTitle.trim() !== saved.jobTitle)
+
+  const dirty =
+    values.name.trim() !== saved.name.trim() ||
+    (zone !== '' && zone !== saved.timeZone) ||
+    profileChanged
+
+  const blocked =
+    !values.name.trim() ||
+    Boolean(zone && !isUsableTimeZone(zone)) ||
+    values.initials.trim().length > 4
+
+  const paneId = usePaneContext().paneId
+
+  usePendingEdit({
+    dirty,
+    label: t('settings.profile.profile'),
+    paneId,
+    save: async () => !blocked && (await save()),
+    discard,
+  })
+}
+
 function Profile() {
   const { context } = Route.useRouteContext()
   const user = context.user
@@ -113,24 +165,15 @@ function Profile() {
     profile: profile.data,
   })
 
-  const dirty =
-    name.trim() !== user.name.trim() ||
-    (zone !== '' && zone !== savedTimeZone) ||
-    (profile.data !== undefined &&
-      (initials.trim() !== profile.data.initials ||
-        jobTitle.trim() !== profile.data.jobTitle))
-
-  const blocked =
-    Boolean(error) ||
-    Boolean(zone && !isUsableTimeZone(zone)) ||
-    initials.trim().length > 4
-
-  const paneId = usePaneContext().paneId
-  usePendingEdit({
-    dirty,
-    label: t('settings.profile.profile'),
-    paneId,
-    save: async () => !blocked && (await saveProfile.save()),
+  useProfileGuard({
+    values: { name, timeZone, initials, jobTitle },
+    saved: {
+      name: user.name,
+      timeZone: savedTimeZone,
+      initials: profile.data?.initials,
+      jobTitle: profile.data?.jobTitle,
+    },
+    save: saveProfile.save,
     discard: () => {
       setName(user.name)
       setTimeZone(savedTimeZone)

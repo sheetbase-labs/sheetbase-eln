@@ -9,6 +9,7 @@ import {
   createExperiment,
   createProject,
   open,
+  pickRecord,
   signIn,
   uniqueName,
   waitForHydration,
@@ -52,7 +53,7 @@ test('ANA-04 a saved analysis view is listed on the Analysis page', async ({
   const name = uniqueName('Titre view')
   await open(page, `/analysis/new?mode=chart&dataset=${ELISA_DATASET}`)
   await waitForHydration(page)
-  await page.getByLabel('Y axis field').selectOption({ label: 'Capsid titre' })
+  await pickRecord(page, page.getByLabel('Y axis field'), 'Capsid titre')
   await page
     .getByRole('button', { name: 'Chart settings', exact: true })
     .click()
@@ -75,7 +76,7 @@ test('ANA-05 a chart is cited into an experiment notebook and shows there', asyn
     `/analysis/new?mode=chart&dataset=${ELISA_DATASET}&experiment=${id}`,
   )
   await waitForHydration(page)
-  await page.getByLabel('Y axis field').selectOption({ label: 'Capsid titre' })
+  await pickRecord(page, page.getByLabel('Y axis field'), 'Capsid titre')
   await page
     .getByRole('button', { name: 'Chart settings', exact: true })
     .click()

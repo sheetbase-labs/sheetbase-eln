@@ -1,3 +1,4 @@
+import { useLeaveGuard } from '#/components/settings/use-leave-guard'
 import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { formatDate } from '#/lib/format-date'
@@ -187,6 +188,26 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
   const { valid } = budgetValidity(form)
 
   const canManage = view?.canManage ?? false
+
+  useLeaveGuard({
+    dirty: dirty && canManage,
+    label: t('settings.ai.ai'),
+    canSave: valid,
+    save: async () => {
+      if (!form) return false
+
+      try {
+        await save.mutateAsync(form)
+
+        return true
+      } catch {
+        return false
+      }
+    },
+    discard: () => {
+      if (settings) setForm(toForm(settings))
+    },
+  })
 
   return (
     <>

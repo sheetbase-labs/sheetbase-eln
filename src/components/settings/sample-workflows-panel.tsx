@@ -1,3 +1,4 @@
+import { useLeaveGuard } from '#/components/settings/use-leave-guard'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -314,6 +315,22 @@ function EditorBody({
       onClose()
     },
     onError: (error) => toast.error(errorMessage(error)),
+  })
+
+  useLeaveGuard({
+    dirty: dirty && canManage,
+    label: t('settings.sampleWorkflows.title'),
+    canSave: problem === null,
+    save: async () => {
+      try {
+        await save.mutateAsync()
+
+        return true
+      } catch {
+        return false
+      }
+    },
+    discard: () => setDraft(initial),
   })
 
   const patch = (changes: Partial<WorkflowDraft>) =>

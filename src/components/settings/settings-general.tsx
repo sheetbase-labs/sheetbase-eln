@@ -1,3 +1,4 @@
+import { useLeaveGuard } from '#/components/settings/use-leave-guard'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -205,6 +206,24 @@ export function SettingsGeneral({
   })
 
   const controlsDisabled = query.isLoading || query.isError || save.isPending
+
+  useLeaveGuard({
+    dirty,
+    label: t('settings.general.general'),
+    canSave: timezoneError === null && nameError === null,
+    save: async () => {
+      try {
+        await save.mutateAsync()
+
+        return true
+      } catch {
+        return false
+      }
+    },
+    discard: () => {
+      if (saved) setForm(saved)
+    },
+  })
 
   return (
     <>

@@ -1,3 +1,4 @@
+import { useLeaveGuard } from '#/components/settings/use-leave-guard'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -292,6 +293,28 @@ function RuleEditor({
       onChanged()
     },
     onError: (error) => toast.error(errorMessage(error)),
+  })
+
+  useLeaveGuard({
+    dirty: dirty && canManage,
+    label: t('settings.releaseRules.editTitle', { type: sampleType }),
+    canSave: problem === null,
+    save: async () => {
+      try {
+        await save.mutateAsync()
+
+        return true
+      } catch {
+        return false
+      }
+    },
+    discard: () =>
+      setDrafts(
+        (saved ?? BUILT_IN_RULES).map((rule) => ({
+          id: crypto.randomUUID(),
+          rule,
+        })),
+      ),
   })
 
   const update = (index: number, replacement: ReleaseRule) =>

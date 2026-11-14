@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import { usePendingEdit } from '#/lib/pending-edits'
-import { usePaneContext } from '#/components/workspace/workspace-navigation'
+import { useLeaveGuard } from '#/components/settings/use-leave-guard'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
@@ -114,13 +113,11 @@ function useProfileGuard({
     Boolean(zone && !isUsableTimeZone(zone)) ||
     values.initials.trim().length > 4
 
-  const paneId = usePaneContext().paneId
-
-  usePendingEdit({
+  useLeaveGuard({
     dirty,
     label: t('settings.profile.profile'),
-    paneId,
-    save: async () => !blocked && (await save()),
+    canSave: !blocked,
+    save,
     discard,
   })
 }

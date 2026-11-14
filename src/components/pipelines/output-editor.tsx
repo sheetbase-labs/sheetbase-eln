@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { t } from '#/copy'
 import { z } from 'zod'
 import { Notice } from '#/components/ui/alert'
@@ -108,11 +109,12 @@ export function OutputEditor({
           error={fieldErrors.datasetId}
           hint={t('data.outputEditor.eachRunAddsDataset')}
         >
-          <Select
+          <SearchableSelect
+            noun="dataset"
             aria-label={t('data.outputEditor.dataset')}
             value={value.datasetId}
-            onChange={(e) =>
-              onChange({ datasetId: e.target.value, fieldMapping: null })
+            onValueChange={(next) =>
+              onChange({ datasetId: next, fieldMapping: null })
             }
           >
             <option value="">{t('data.outputEditor.chooseDataset')}</option>
@@ -121,7 +123,7 @@ export function OutputEditor({
                 {d.displayId ? `${d.displayId} · ${d.name}` : d.name}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
         </Field>
       ) : null}
 
@@ -192,11 +194,12 @@ function CreateOutputFields({
         error={fieldErrors.schemaVersionId}
         hint={t('data.outputEditor.columnsDatasetHasResult')}
       >
-        <Select
+        <SearchableSelect
+          noun="schema"
           aria-label={t('data.outputEditor.datasetSchemaVersion')}
           value={value.schemaVersionId}
-          onChange={(e) =>
-            onChange({ schemaVersionId: e.target.value, fieldMapping: null })
+          onValueChange={(next) =>
+            onChange({ schemaVersionId: next, fieldMapping: null })
           }
         >
           <option value="">{t('data.outputEditor.chooseSchemaVersion')}</option>
@@ -205,7 +208,7 @@ function CreateOutputFields({
               {v.label}
             </option>
           ))}
-        </Select>
+        </SearchableSelect>
       </Field>
       {!targets.isLoading &&
       !targets.isError &&

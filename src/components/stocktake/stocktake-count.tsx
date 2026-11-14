@@ -1,6 +1,7 @@
 /**
  * One stocktake: the walk while it is open, the summary once it is finished.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -23,7 +24,6 @@ import {
   ConfirmDialogTitle,
 } from '#/components/ui/confirm-dialog'
 import { EmptyState } from '#/components/ui/empty-state'
-import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
 import { Status } from '#/components/ui/status'
 import { Tabs } from '#/components/ui/tabs'
@@ -471,10 +471,11 @@ function StandingAtHeader({
           {stocktake.scopeLevel === 'box' ? (
             <span className="text-body font-medium">{box?.name}</span>
           ) : (
-            <Select
+            <SearchableSelect
+              noun="box"
               aria-label={t('library.stocktake.count.standingAtBox')}
               value={standingAt ?? ''}
-              onChange={(e) => onPickBox(e.target.value || null)}
+              onValueChange={(value) => onPickBox(value || null)}
             >
               <option value="">{t('library.stocktake.count.chooseBox')}</option>
               {boxes.map((b) => (
@@ -482,7 +483,7 @@ function StandingAtHeader({
                   {relativePath(stocktake.scopePath, b.path)}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
           )}
         </div>
         <div className="flex flex-col gap-1 text-right max-md:text-left">

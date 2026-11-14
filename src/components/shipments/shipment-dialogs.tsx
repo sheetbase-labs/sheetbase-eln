@@ -2,6 +2,7 @@
  * Setting up a shipment and handling one: the manifest, sending it on its way,
  * receiving it line by line, or calling it off.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -224,9 +225,10 @@ function NewShipmentForm({ onClose }: { onClose: () => void }) {
             </div>
             {projects.length > 0 ? (
               <Field label={t('shipments.form.project')}>
-                <Select
+                <SearchableSelect
+                  noun="project"
                   value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
+                  onValueChange={(value) => setProjectId(value)}
                 >
                   <option value="">{t('shipments.form.noProject')}</option>
                   {projects.map((p) => (
@@ -234,7 +236,7 @@ function NewShipmentForm({ onClose }: { onClose: () => void }) {
                       {p.title}
                     </option>
                   ))}
-                </Select>
+                </SearchableSelect>
               </Field>
             ) : null}
           </div>

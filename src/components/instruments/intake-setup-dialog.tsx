@@ -3,6 +3,7 @@
  * where the data goes, and the agent that sends them. Writes the instrument's
  * one intake connector so no key or ID is ever typed.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -480,9 +481,10 @@ export function IntakeSetupDialog({
                 required
                 error={errors.projectId}
               >
-                <Select
+                <SearchableSelect
+                  noun="project"
                   value={values.projectId}
-                  onChange={(event) => set('projectId', event.target.value)}
+                  onValueChange={(value) => set('projectId', value)}
                 >
                   <option value="">
                     {t(
@@ -494,7 +496,7 @@ export function IntakeSetupDialog({
                       {project.title}
                     </option>
                   ))}
-                </Select>
+                </SearchableSelect>
               </Field>
               <Field
                 label={t(
@@ -506,10 +508,11 @@ export function IntakeSetupDialog({
                 required
                 error={errors.schemaVersionId}
               >
-                <Select
+                <SearchableSelect
+                  noun="schema"
                   value={values.schemaVersionId}
-                  onChange={(event) => {
-                    set('schemaVersionId', event.target.value)
+                  onValueChange={(value) => {
+                    set('schemaVersionId', value)
                     set('datasetId', '')
                   }}
                 >
@@ -526,7 +529,7 @@ export function IntakeSetupDialog({
                       {option.name} v{option.version}
                     </option>
                   ))}
-                </Select>
+                </SearchableSelect>
               </Field>
               <Field
                 label={t('library.instruments.intakeSetup.destination.addTo')}
@@ -535,10 +538,11 @@ export function IntakeSetupDialog({
                 )}
                 className="sm:col-span-2"
               >
-                <Select
+                <SearchableSelect
+                  noun="dataset"
                   value={values.datasetId}
                   disabled={!values.schemaVersionId}
-                  onChange={(event) => set('datasetId', event.target.value)}
+                  onValueChange={(value) => set('datasetId', value)}
                 >
                   <option value="">
                     {t('library.instruments.intakeSetup.destination.eachFile')}
@@ -548,7 +552,7 @@ export function IntakeSetupDialog({
                       {dataset.name}
                     </option>
                   ))}
-                </Select>
+                </SearchableSelect>
               </Field>
               <IntakeDestinationFeedback
                 needsPublishedSchema={

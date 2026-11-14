@@ -1,8 +1,8 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
 import { Muted } from '#/components/ui/layout'
 import { Notice } from '#/components/ui/alert'
-import { Select } from '#/components/ui/select'
 import { FileDrop } from '#/components/ui/file-drop'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { projectOption } from '#/components/record-picker/entity-options'
@@ -236,9 +236,10 @@ export function GrantQualificationDialog({
         <DialogBody>
           <div className="flex flex-col gap-3">
             <Field label={t('library.instruments.record.person')} required>
-              <Select
+              <SearchableSelect
+                noun="member"
                 value={grantUser}
-                onChange={(e) => onUser(e.target.value)}
+                onValueChange={(value) => onUser(value)}
               >
                 <option value="">
                   {t('library.instruments.record.chooseAWorkspaceMember')}
@@ -248,7 +249,7 @@ export function GrantQualificationDialog({
                     {userLabel(member.user_id)}
                   </option>
                 ))}
-              </Select>
+              </SearchableSelect>
             </Field>
             {membersError ? (
               <Notice

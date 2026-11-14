@@ -178,25 +178,27 @@ it('moves to the second instance’s destination without reading the first dialo
   expect(dialogs).toHaveLength(2)
   const firstDialog = within(dialogs[0])
   const secondDialog = within(dialogs[1])
-  fireEvent.change(
-    firstDialog.getByRole('combobox', {
-      name: 'Destination folder',
-      hidden: true,
-    }),
-    { target: { value: 'f1' } },
-  )
-  fireEvent.change(
-    secondDialog.getByRole('combobox', {
-      name: 'Destination folder',
-      hidden: true,
-    }),
-    { target: { value: 'f2' } },
-  )
+  const user = userEvent.setup()
+
+  async function pickDestination(
+    dialog: ReturnType<typeof within>,
+    option: string,
+  ) {
+    await user.click(
+      dialog.getByRole('button', { name: 'Destination folder', hidden: true }),
+    )
+
+    await user.click(
+      await screen.findByRole('option', { name: option, hidden: true }),
+    )
+  }
+
+  await pickDestination(firstDialog, 'First destination')
+  await pickDestination(secondDialog, 'Second destination')
   expect(
-    secondDialog.getByRole<HTMLSelectElement>('combobox', {
-      name: 'Destination folder',
-      hidden: true,
-    }).value,
+    secondDialog
+      .getByRole('button', { name: 'Destination folder', hidden: true })
+      .getAttribute('data-value'),
   ).toBe('f2')
   expect(
     secondDialog.getByRole<HTMLButtonElement>('button', {
@@ -213,7 +215,7 @@ it('moves to the second instance’s destination without reading the first dialo
     ]),
   )
   expect(
-    firstDialog.getByRole('combobox', {
+    firstDialog.getByRole('button', {
       name: 'Destination folder',
       hidden: true,
     }),

@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -6,7 +7,6 @@ import { Button } from '#/components/ui/button'
 import { Notice } from '#/components/ui/alert'
 import { Field, Input } from '#/components/ui/input'
 import { Muted, Section } from '#/components/ui/layout'
-import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
 import { TableBox } from '#/components/ui/table'
@@ -220,9 +220,10 @@ function Away() {
               />
             </Field>
             <Field label={t('people.away.covering')}>
-              <Select
+              <SearchableSelect
+                noun="member"
                 value={delegate}
-                onChange={(e) => setDelegate(e.target.value)}
+                onValueChange={(value) => setDelegate(value)}
               >
                 <option value="">{t('people.away.noOne')}</option>
                 {candidates.map((c) => (
@@ -230,7 +231,7 @@ function Away() {
                     {c.label}
                   </option>
                 ))}
-              </Select>
+              </SearchableSelect>
             </Field>
             <Field
               label={t('people.away.note')}

@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -5,7 +6,6 @@ import { Button } from '#/components/ui/button'
 import { Notice } from '#/components/ui/alert'
 import { Field } from '#/components/ui/input'
 import { Muted } from '#/components/ui/layout'
-import { Select } from '#/components/ui/select'
 import {
   Dialog,
   DialogBody,
@@ -108,9 +108,10 @@ export function HandoverDialog({
           ) : (
             <>
               <Field label={t('people.handover.recipient')}>
-                <Select
+                <SearchableSelect
+                  noun="member"
                   value={recipient}
-                  onChange={(event) => setRecipient(event.target.value)}
+                  onValueChange={(value) => setRecipient(value)}
                 >
                   <option value="">
                     {t('people.handover.recipientPlaceholder')}
@@ -120,7 +121,7 @@ export function HandoverDialog({
                       {candidate.label}
                     </option>
                   ))}
-                </Select>
+                </SearchableSelect>
               </Field>
               <HandoverPreview
                 items={preview.data ?? []}

@@ -12,6 +12,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { choose } from '../../tests/unit/picker'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -409,12 +410,7 @@ describe('registering a first lot', () => {
     ).toBe(true)
     await user.click(screen.getAllByRole('button', { name: 'Register lot' })[0])
     const dialog = await screen.findByRole('dialog')
-    await waitFor(() =>
-      expect(
-        within(dialog).getByRole('option', { name: 'Project A' }),
-      ).toBeTruthy(),
-    )
-    await user.selectOptions(within(dialog).getByLabelText(/Project/), 'p-1')
+    await choose(user, /^Project/, 'Project A')
     await user.type(within(dialog).getByLabelText(/Material/), 'Sodium acetate')
     await user.type(within(dialog).getByLabelText(/Quantity/), '250')
     await user.type(within(dialog).getByLabelText(/Unit/), 'g')

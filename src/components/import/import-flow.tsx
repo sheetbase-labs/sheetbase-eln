@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import type { PickerOption } from '#/components/record-picker/entity-picker'
 import {
@@ -1030,10 +1031,11 @@ function UploadContextFields({
         </label>
         <label className="grid gap-1 text-label text-fg-muted">
           {t('data.importFlow.instrument')}
-          <Select
+          <SearchableSelect
+            noun="instrument"
             aria-label={t('data.importFlow.instrument')}
             value={instrumentId}
-            onChange={(event) => setInstrumentId(event.target.value)}
+            onValueChange={(value) => setInstrumentId(value)}
           >
             <option value="">{t('data.importFlow.noInstrument')}</option>
             {(instruments.data ?? []).map((item) => (
@@ -1041,7 +1043,7 @@ function UploadContextFields({
                 {item.displayId ?? item.name} · {item.name}
               </option>
             ))}
-          </Select>
+          </SearchableSelect>
           {instrumentId ? (
             <Status tone={calibration.tone}>{calibration.label}</Status>
           ) : null}

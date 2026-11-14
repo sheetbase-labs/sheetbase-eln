@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useLeaveGuard } from '#/components/settings/use-leave-guard'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -960,10 +961,11 @@ function WorkflowAutomations({
           ) : null}
           {action.kind === 'start_experiment' ? (
             <Field label={t('settings.sampleWorkflows.fromTemplate')}>
-              <Select
+              <SearchableSelect
+                noun="template"
                 value={action.templateId}
-                onChange={(event) =>
-                  setAction(id, { ...action, templateId: event.target.value })
+                onValueChange={(value) =>
+                  setAction(id, { ...action, templateId: value })
                 }
               >
                 <option value="">
@@ -974,7 +976,7 @@ function WorkflowAutomations({
                     {template.name}
                   </option>
                 ))}
-              </Select>
+              </SearchableSelect>
             </Field>
           ) : null}
           {validateAction(action) ? (

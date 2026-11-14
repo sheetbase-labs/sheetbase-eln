@@ -5,6 +5,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { choose } from '../../../tests/unit/picker'
 import {
   afterAll,
   afterEach,
@@ -261,13 +262,8 @@ describe('IntakeSetupDialog', () => {
     ).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Next' }))
 
-    await screen.findByRole('option', { name: 'Assay development' })
-    await screen.findByRole('option', { name: 'qPCR results v2' })
-    await user.selectOptions(
-      await screen.findByLabelText(/Keep original files in project/),
-      PROJECT,
-    )
-    await user.selectOptions(screen.getByLabelText(/Dataset structure/), SCHEMA)
+    await choose(user, /Keep original files in project/, 'Assay development')
+    await choose(user, /Dataset structure/, 'qPCR results v2')
     await user.click(screen.getByRole('button', { name: 'Save and continue' }))
 
     await waitFor(() =>

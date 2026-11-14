@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -150,12 +151,13 @@ function OwnerValue({
   if (!canEdit) return ownerName ?? t('contracts.panel.noOwner')
 
   return (
-    <Select
+    <SearchableSelect
+      noun="member"
       size="sm"
       aria-label={t('contracts.panel.owner')}
       value={contract.ownerUserId ?? ''}
-      onChange={(e) => {
-        if (e.target.value) update({ ownerUserId: e.target.value })
+      onValueChange={(value) => {
+        if (value) update({ ownerUserId: value })
       }}
     >
       {contract.ownerUserId ? null : (
@@ -166,7 +168,7 @@ function OwnerValue({
           {name}
         </option>
       ))}
-    </Select>
+    </SearchableSelect>
   )
 }
 

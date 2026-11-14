@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -168,9 +169,10 @@ export function CreateWebhookDialog({
                   label={t('settings.createWebhookDialog.person')}
                   hint={t('settings.createWebhookDialog.personHint')}
                 >
-                  <Select
+                  <SearchableSelect
+                    noun="destination"
                     value={recipientUserId}
-                    onChange={(e) => setRecipientUserId(e.target.value)}
+                    onValueChange={(value) => setRecipientUserId(value)}
                   >
                     <option value="">
                       {t('settings.createWebhookDialog.choosePerson')}
@@ -180,7 +182,7 @@ export function CreateWebhookDialog({
                         {person.name || person.email}
                       </option>
                     ))}
-                  </Select>
+                  </SearchableSelect>
                 </Field>
               ) : (
                 <WebhookAddress

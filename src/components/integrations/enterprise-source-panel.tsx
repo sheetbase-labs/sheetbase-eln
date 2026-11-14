@@ -9,6 +9,7 @@
  * governed run model as instrument ingestion (run history shows attempts,
  * stage logs and provenance).
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatDate } from '#/lib/format-date'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -135,11 +136,12 @@ function TargetControls({
           'settings.integrations.enterpriseSourcePanel.targetSchemaVersion',
         )}
       >
-        <Select
+        <SearchableSelect
+          noun="schema"
           value={state.schemaVersionId}
-          onChange={(event) =>
+          onValueChange={(value) =>
             onChange({
-              schemaVersionId: event.target.value,
+              schemaVersionId: value,
               datasetId: '',
               newDatasetName: state.newDatasetName,
             })
@@ -155,7 +157,7 @@ function TargetControls({
               {option.name} v{option.version}
             </option>
           ))}
-        </Select>
+        </SearchableSelect>
       </Field>
       {state.schemaVersionId && (
         <div className="grid grid-cols-2 gap-3">
@@ -164,10 +166,11 @@ function TargetControls({
               'settings.integrations.enterpriseSourcePanel.existingDataset',
             )}
           >
-            <Select
+            <SearchableSelect
+              noun="dataset"
               value={state.datasetId}
-              onChange={(event) =>
-                onChange({ ...state, datasetId: event.target.value })
+              onValueChange={(value) =>
+                onChange({ ...state, datasetId: value })
               }
             >
               <option value="">
@@ -180,7 +183,7 @@ function TargetControls({
                   {dataset.name}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
           </Field>
           {!state.datasetId && (
             <Field
@@ -614,9 +617,10 @@ function S3SourcePanel({
                 'settings.integrations.enterpriseSourcePanel.retainRawObject',
               )}
             >
-              <Select
+              <SearchableSelect
+                noun="project"
                 value={projectId}
-                onChange={(event) => setProjectId(event.target.value)}
+                onValueChange={(value) => setProjectId(value)}
               >
                 <option value="">
                   {t(
@@ -628,7 +632,7 @@ function S3SourcePanel({
                     {project.title}
                   </option>
                 ))}
-              </Select>
+              </SearchableSelect>
             </Field>
             <TargetControls state={target} onChange={setTarget} />
             <ImportButton

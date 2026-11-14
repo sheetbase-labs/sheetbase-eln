@@ -93,7 +93,7 @@ export function DetailsFieldSection({ form }: { form: Form }) {
         }
       >
         <PickerSelect
-          noun="person"
+          noun="member"
           value={form.effectiveReviewerId}
           onChange={(id) => form.setReviewerId(id)}
           clearLabel="No reviewer yet"

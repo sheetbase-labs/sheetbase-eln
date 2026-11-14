@@ -2,6 +2,7 @@
  * Ask for something. The questions come from the model's own fields, the same
  * way the "new record" form is made, so there is no per-form code.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -23,7 +24,6 @@ import {
   DialogHeader,
 } from '#/components/ui/dialog'
 import { Field, Input } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
 import { t } from '#/copy'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -142,16 +142,17 @@ function RequestFormPanel({
         >
           {forms.length > 1 ? (
             <Field label={t('requests.form.which')}>
-              <Select
+              <SearchableSelect
+                noun="form"
                 value={modelKey}
-                onChange={(e) => setModelKey(e.target.value)}
+                onValueChange={(value) => setModelKey(value)}
               >
                 {forms.map((f) => (
                   <option key={f.model_key} value={f.model_key}>
                     {f.name}
                   </option>
                 ))}
-              </Select>
+              </SearchableSelect>
             </Field>
           ) : null}
           {form?.intro ? (
@@ -203,9 +204,10 @@ function RequestFormPanel({
           )}
           {projects.length > 0 ? (
             <Field label={t('requests.form.project')}>
-              <Select
+              <SearchableSelect
+                noun="project"
                 value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
+                onValueChange={(value) => setProjectId(value)}
               >
                 <option value="">{t('requests.form.noProject')}</option>
                 {projects.map((p) => (
@@ -213,7 +215,7 @@ function RequestFormPanel({
                     {p.title}
                   </option>
                 ))}
-              </Select>
+              </SearchableSelect>
             </Field>
           ) : null}
           <Field label={t('requests.form.note')}>

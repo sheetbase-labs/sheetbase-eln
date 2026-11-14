@@ -3,6 +3,7 @@
  * sent by the watched-folder agent are kept and committed. Bound to
  * `updateConnector({ config })`; the endpoint reads `config.pickup`.
  */
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -13,7 +14,6 @@ import { Checkbox } from '#/components/ui/checkbox'
 import { Field, Input } from '#/components/ui/input'
 import { Notice } from '#/components/ui/alert'
 import { Section } from '#/components/ui/layout'
-import { Select } from '#/components/ui/select'
 import { createDataClient } from '#/lib/data-client'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
 import {
@@ -140,9 +140,10 @@ export function PickupCard({
             required
             error={errors.projectId}
           >
-            <Select
+            <SearchableSelect
+              noun="project"
               value={values.projectId}
-              onChange={(event) => set('projectId', event.target.value)}
+              onValueChange={(value) => set('projectId', value)}
             >
               <option value="">
                 {t('settings.integrations.pickupCard.selectProject')}
@@ -152,17 +153,18 @@ export function PickupCard({
                   {project.title}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
           </Field>
           <Field
             label={t('settings.integrations.pickupCard.targetSchemaVersion')}
             required
             error={errors.schemaVersionId}
           >
-            <Select
+            <SearchableSelect
+              noun="schema"
               value={values.schemaVersionId}
-              onChange={(event) => {
-                set('schemaVersionId', event.target.value)
+              onValueChange={(value) => {
+                set('schemaVersionId', value)
                 set('datasetId', '')
               }}
             >
@@ -177,15 +179,16 @@ export function PickupCard({
                   {option.name} v{option.version}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
           </Field>
           <Field
             label={t('settings.integrations.pickupCard.commit')}
             hint={t('settings.integrations.pickupCard.appendEveryFileHint')}
           >
-            <Select
+            <SearchableSelect
+              noun="dataset"
               value={values.datasetId}
-              onChange={(event) => set('datasetId', event.target.value)}
+              onValueChange={(value) => set('datasetId', value)}
             >
               <option value="">
                 {t('settings.integrations.pickupCard.newDatasetPer')}
@@ -195,7 +198,7 @@ export function PickupCard({
                   {dataset.name}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
           </Field>
           {values.datasetId ? null : (
             <Field
@@ -218,9 +221,10 @@ export function PickupCard({
             label={t('settings.integrations.pickupCard.recordInstrument')}
             hint={t('settings.integrations.pickupCard.addsCompletedRunHint')}
           >
-            <Select
+            <SearchableSelect
+              noun="instrument"
               value={values.instrumentId}
-              onChange={(event) => set('instrumentId', event.target.value)}
+              onValueChange={(value) => set('instrumentId', value)}
             >
               <option value="">
                 {t('settings.integrations.pickupCard.none')}
@@ -230,7 +234,7 @@ export function PickupCard({
                   {instrument.name}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
           </Field>
           <label className="flex items-center gap-2 text-label sm:col-span-2">
             <Checkbox

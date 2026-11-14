@@ -1,10 +1,10 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useState } from 'react'
 
 import { t } from '#/copy'
 import { Button } from '#/components/ui/button'
 import { IconButton } from '#/components/ui/icon-button'
 import { Input } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
 import { INPUT_NAME_RE, MAX_INPUTS } from '#/lib/pipelines/config'
 import type { PipelineInput } from '#/lib/pipelines/config'
 import { useEditorRows } from './use-editor-rows'
@@ -128,17 +128,18 @@ function InputRow({
       />
       <label className="flex flex-col gap-0.5 text-label text-fg-muted">
         {t('data.inputsEditor.seeColumnsExampleDataset')}
-        <Select
+        <SearchableSelect
+          noun="dataset"
           size="sm"
           aria-label={t('data.inputsEditor.ariaInputExampleDataset', { n })}
           value={example}
-          onChange={(event) => {
-            setExample(event.target.value)
+          onValueChange={(value) => {
+            setExample(value)
 
             // The example's schema is what this input will usually be given, so
             // the Run dialog narrows its list to it unless the author chose one.
             const schemaId = (choices.data ?? []).find(
-              (choice) => choice.id === event.target.value,
+              (choice) => choice.id === value,
             )?.schemaId
 
             if (schemaId && !input.schemaId) onPatch({ schemaId })
@@ -152,17 +153,16 @@ function InputRow({
               {choice.label}
             </option>
           ))}
-        </Select>
+        </SearchableSelect>
       </label>
       <label className="flex flex-col gap-0.5 text-label text-fg-muted">
         {t('data.inputsEditor.expectedDatasetSchema')}
-        <Select
+        <SearchableSelect
+          noun="schema"
           size="sm"
           aria-label={t('data.inputsEditor.ariaInputExpectedSchema', { n })}
           value={input.schemaId ?? ''}
-          onChange={(event) =>
-            onPatch({ schemaId: event.target.value || undefined })
-          }
+          onValueChange={(value) => onPatch({ schemaId: value || undefined })}
         >
           <option value="">{t('data.inputsEditor.anySchema')}</option>
           {schemasOf(choices.data ?? []).map((schema) => (
@@ -170,7 +170,7 @@ function InputRow({
               {schema.name}
             </option>
           ))}
-        </Select>
+        </SearchableSelect>
         <span>{t('data.inputsEditor.runDialogListsDataset')}</span>
       </label>
       <ExampleColumns

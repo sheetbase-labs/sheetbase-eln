@@ -3170,7 +3170,7 @@ export function SignaturePanel({
             {t('projects.revisionPage.signing.requestWitnessLabel')}
           </label>
           <PickerSelect
-            noun="person"
+            noun="member"
             id="signature-witness"
             value={witnessUserId}
             disabled={

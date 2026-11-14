@@ -1,3 +1,4 @@
+import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -13,7 +14,6 @@ import {
 import { EmptyState } from '#/components/ui/empty-state'
 import { Field, Input } from '#/components/ui/input'
 import { Muted, Section } from '#/components/ui/layout'
-import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
 import { TableBox } from '#/components/ui/table'
@@ -300,7 +300,11 @@ function AssignDialog({
             label={t('library.protocols.trainingRoster.personField')}
             required
           >
-            <Select value={userId} onChange={(e) => setUserId(e.target.value)}>
+            <SearchableSelect
+              noun="member"
+              value={userId}
+              onValueChange={(value) => setUserId(value)}
+            >
               <option value="">
                 {t('library.protocols.trainingRoster.personPlaceholder')}
               </option>
@@ -309,7 +313,7 @@ function AssignDialog({
                   {m.name}
                 </option>
               ))}
-            </Select>
+            </SearchableSelect>
           </Field>
           <Field
             label={t('library.protocols.trainingRoster.dueField')}

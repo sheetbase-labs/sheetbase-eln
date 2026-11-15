@@ -61,13 +61,13 @@ test('warns only when backups sit in the same database', async ({ page }) => {
 
   const transport = await serverFixtures(page, [fixture])
   await openSettings(page, 'backups')
-  await expect(page.getByText(/they would be lost together/)).toBeVisible()
+  await expect(page.getByText(/would be lost with it/)).toBeVisible()
   fixture.result = overview()
   await page.reload()
   await expect(
     page.getByText('Scheduled backups', { exact: true }),
   ).toBeVisible()
-  await expect(page.getByText(/they would be lost together/)).toHaveCount(0)
+  await expect(page.getByText(/would be lost with it/)).toHaveCount(0)
   transport.assertExpected()
 })
 

@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 import { Icon } from '#/components/icons'
+import { ListToolbar } from '#/components/inventory/list'
 import { t } from '#/copy'
 
 import { projectColumnKeys, sortLabel, sorts } from './projects-page-model'
@@ -18,13 +19,12 @@ import type {
   ProjectsSort,
 } from './projects-page-model'
 import { ProjectsFilterMenu } from './projects-filter-menu'
-import { ProjectsSearchField } from './projects-search-field'
 import type { ProjectRow } from './types'
 
 /**
  * The list's controls: sort, filter, group, the search box, which columns are
- * shown, and the overflow menu. The search box keeps its own draft
- * (`projects-search-field.tsx`); everything else writes straight to the URL's
+ * shown, and the overflow menu, laid out by the shared `ListToolbar` so the
+ * search box matches every other list. Everything writes straight to the URL's
  * search state.
  */
 export function ProjectsToolbar({
@@ -47,7 +47,76 @@ export function ProjectsToolbar({
   setSearch: (patch: Partial<ProjectsSearch>) => void
 }) {
   return (
-    <div className="flex items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
+    <ListToolbar
+      q={search.q}
+      label={t('projects.projectsPage.search')}
+      placeholder={t('projects.projectsPage.search')}
+      onSearch={(q) => setSearch({ q: q.trim() || undefined })}
+      right={
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button variant="quiet" className="max-lg:hidden" />}
+            >
+              {t('projects.projectsPage.fields')}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[200px]">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>
+                  {t('projects.projectsPage.showColumns')}
+                </DropdownMenuLabel>
+                {projectColumnKeys.map((k) => (
+                  <DropdownMenuItem
+                    key={k}
+                    closeOnClick={false}
+                    icon={hidden.has(k) ? undefined : 'check'}
+                    className={hidden.has(k) ? 'pl-[30px]' : ''}
+                    onClick={() => {
+                      const next = new Set(hidden)
+
+                      if (next.has(k)) next.delete(k)
+                      else next.add(k)
+                      setSearch({
+                        fields: [...next].sort().join(',') || undefined,
+                      })
+                    }}
+                  >
+                    {t(`projects.projectsPage.columns.${k}`)}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  size="icon"
+                  className="max-md:hidden"
+                  aria-label={t('projects.projectsPage.moreOptions')}
+                />
+              }
+            >
+              <Icon name="more" size={14} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[220px]">
+              <DropdownMenuItem
+                icon="copy"
+                onClick={() =>
+                  void copyText(window.location.href, {
+                    copiedMessage: t('projects.projectsPage.linkCopied'),
+                    failedMessage: t('projects.projectsPage.linkCopyFailed'),
+                  })
+                }
+              >
+                {t('projects.projectsPage.copyLink')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      }
+    >
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -123,71 +192,6 @@ export function ProjectsToolbar({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <ProjectsSearchField
-        appliedQ={search.q}
-        onSearch={(q) => setSearch({ q })}
-      />
-      <span className="flex-1 max-lg:hidden" />
-
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={<Button variant="quiet" className="max-lg:hidden" />}
-        >
-          {t('projects.projectsPage.fields')}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-[200px]">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>
-              {t('projects.projectsPage.showColumns')}
-            </DropdownMenuLabel>
-            {projectColumnKeys.map((k) => (
-              <DropdownMenuItem
-                key={k}
-                closeOnClick={false}
-                icon={hidden.has(k) ? undefined : 'check'}
-                className={hidden.has(k) ? 'pl-[30px]' : ''}
-                onClick={() => {
-                  const next = new Set(hidden)
-
-                  if (next.has(k)) next.delete(k)
-                  else next.add(k)
-                  setSearch({ fields: [...next].sort().join(',') || undefined })
-                }}
-              >
-                {t(`projects.projectsPage.columns.${k}`)}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              size="icon"
-              className="max-md:hidden"
-              aria-label={t('projects.projectsPage.moreOptions')}
-            />
-          }
-        >
-          <Icon name="more" size={14} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-[220px]">
-          <DropdownMenuItem
-            icon="copy"
-            onClick={() =>
-              void copyText(window.location.href, {
-                copiedMessage: t('projects.projectsPage.linkCopied'),
-                failedMessage: t('projects.projectsPage.linkCopyFailed'),
-              })
-            }
-          >
-            {t('projects.projectsPage.copyLink')}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    </ListToolbar>
   )
 }

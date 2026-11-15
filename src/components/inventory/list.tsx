@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
+import { Icon } from '#/components/icons'
 import { Input } from '#/components/ui/input'
 import { Skeleton } from '#/components/ui/skeleton'
 import { SEARCH_SETTLE_MS, useSettledValue } from '#/lib/settled-value'
@@ -268,18 +269,32 @@ export function ListToolbar({
   )
 
   return (
-    <div className="flex items-center gap-1 border-b border-border px-4 py-2 md:px-6">
-      {lead}
-      <label className={cn('block w-full md:w-[260px]', lead && 'md:ml-3')}>
-        <span className="sr-only">{label}</span>
-        <Input
-          type="search"
-          placeholder={placeholder}
-          value={query}
-          className="h-[26px] text-label max-md:h-10 max-md:text-body"
-          onChange={(e) => search(e.target.value)}
-        />
-      </label>
+    <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
+      {lead ? <div className={PHONE_SCROLL_ROW}>{lead}</div> : null}
+      <form
+        role="search"
+        className={cn(
+          'relative min-w-0 flex-1 max-md:order-first max-md:basis-full md:w-[280px] md:flex-none',
+          lead && 'md:ml-3',
+        )}
+        onSubmit={(e) => e.preventDefault()}
+      >
+        <label>
+          <span className="sr-only">{label}</span>
+          <Icon
+            name="search"
+            size={14}
+            className="pointer-events-none absolute left-[9px] top-[8px] text-fg-muted max-md:top-[13px]"
+          />
+          <Input
+            type="search"
+            placeholder={placeholder}
+            value={query}
+            className="h-7 pl-7 max-md:h-10 max-md:text-body"
+            onChange={(e) => search(e.target.value)}
+          />
+        </label>
+      </form>
       <span className="flex-1 max-md:hidden" />
       {fields?.length && onToggleField ? (
         <FieldsButton

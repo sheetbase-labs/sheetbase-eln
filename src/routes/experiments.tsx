@@ -24,8 +24,6 @@ import {
   useHasProjectAccess,
 } from '#/components/projects/project-access'
 import { Status } from '#/components/ui/status'
-import { Input } from '#/components/ui/input'
-import { Icon } from '#/components/icons'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,7 +42,7 @@ import { FilterMenu } from '#/components/ui/filter-menu'
 import { Tabs } from '#/components/ui/tabs'
 import {
   ListHeader,
-  PHONE_SCROLL_ROW,
+  ListToolbar,
   ReadOnlyNote,
 } from '#/components/inventory/list'
 import { Chip } from '#/components/ui/chip'
@@ -254,7 +252,6 @@ function Experiments() {
   const tab: Tab = search.tab ?? 'all'
   const [limit, setLimit] = useState(EXPERIMENT_LIST_PAGE_SIZE)
   const [sort, setSort] = useState<'updated' | 'id'>('updated')
-  const [draftQ, setDraftQ] = useState(search.q ?? '')
   const projects = useProjectNameMap()
   const members = useWorkspaceMemberNames()
   const q = (search.q ?? '').trim()
@@ -428,8 +425,6 @@ function Experiments() {
         onSort={setSort}
         search={search}
         onSearch={setSearch}
-        draftQuery={draftQ}
-        onDraftQuery={setDraftQ}
         projectName={projectFilterName}
       />
 
@@ -518,132 +513,102 @@ function ExperimentsToolbar({
   onSort,
   search,
   onSearch,
-  draftQuery,
-  onDraftQuery,
   projectName,
 }: {
   sort: 'updated' | 'id'
   onSort: (sort: 'updated' | 'id') => void
   search: ExperimentsSearch
   onSearch: (patch: Partial<ExperimentsSearch>) => void
-  draftQuery: string
-  onDraftQuery: (value: string) => void
   projectName: string | undefined
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
-      <div className={PHONE_SCROLL_ROW}>
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="quiet" />}>
-            {t('projects.experimentsList.sort', {
-              by:
-                sort === 'id'
-                  ? t('projects.experimentsList.sortId')
-                  : t('projects.experimentsList.sortUpdated'),
-            })}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[180px]">
-            {(['updated', 'id'] as const).map((k) => (
+    <ListToolbar
+      q={search.q}
+      label={t('projects.experimentsList.search')}
+      placeholder={t('projects.experimentsList.search')}
+      onSearch={(q) => onSearch({ q: q.trim() || undefined })}
+    >
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button variant="quiet" />}>
+          {t('projects.experimentsList.sort', {
+            by:
+              sort === 'id'
+                ? t('projects.experimentsList.sortId')
+                : t('projects.experimentsList.sortUpdated'),
+          })}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-[180px]">
+          {(['updated', 'id'] as const).map((k) => (
+            <DropdownMenuItem
+              key={k}
+              icon={sort === k ? 'check' : undefined}
+              className={sort === k ? '' : 'pl-[30px]'}
+              onClick={() => onSort(k)}
+            >
+              {k === 'id'
+                ? t('projects.experimentsList.sortId')
+                : t('projects.experimentsList.sortUpdated')}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {projectName ? (
+        <Button
+          variant="quiet"
+          icon="x"
+          aria-label={t('projects.experimentsList.clearProject')}
+          onClick={() => onSearch({ project: undefined })}
+        >
+          {t('projects.experimentsList.projectFilter', { name: projectName })}
+        </Button>
+      ) : null}
+      <DropdownMenu>
+        <DropdownMenuTrigger render={<Button variant="quiet" />}>
+          {t('projects.experimentsList.group', {
+            by:
+              search.group === 'project'
+                ? t('projects.experimentsList.columns.project')
+                : search.group === 'owner'
+                  ? t('projects.experimentsList.columns.owner')
+                  : t('projects.experimentsList.none'),
+          })}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-[180px]">
+          {(
+            [
+              ['none', t('projects.experimentsList.none')],
+              ['project', t('projects.experimentsList.columns.project')],
+              ['owner', t('projects.experimentsList.columns.owner')],
+            ] as const
+          ).map(([value, label]) => {
+            const active =
+              value === 'none' ? !search.group : search.group === value
+
+            return (
               <DropdownMenuItem
-                key={k}
-                icon={sort === k ? 'check' : undefined}
-                className={sort === k ? '' : 'pl-[30px]'}
-                onClick={() => onSort(k)}
+                key={value}
+                icon={active ? 'check' : undefined}
+                className={active ? '' : 'pl-[30px]'}
+                onClick={() =>
+                  onSearch({ group: value === 'none' ? undefined : value })
+                }
               >
-                {k === 'id'
-                  ? t('projects.experimentsList.sortId')
-                  : t('projects.experimentsList.sortUpdated')}
+                {label}
               </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {projectName ? (
-          <Button
-            variant="quiet"
-            icon="x"
-            aria-label={t('projects.experimentsList.clearProject')}
-            onClick={() => onSearch({ project: undefined })}
-          >
-            {t('projects.experimentsList.projectFilter', { name: projectName })}
-          </Button>
-        ) : null}
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="quiet" />}>
-            {t('projects.experimentsList.group', {
-              by:
-                search.group === 'project'
-                  ? t('projects.experimentsList.columns.project')
-                  : search.group === 'owner'
-                    ? t('projects.experimentsList.columns.owner')
-                    : t('projects.experimentsList.none'),
-            })}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[180px]">
-            {(
-              [
-                ['none', t('projects.experimentsList.none')],
-                ['project', t('projects.experimentsList.columns.project')],
-                ['owner', t('projects.experimentsList.columns.owner')],
-              ] as const
-            ).map(([value, label]) => {
-              const active =
-                value === 'none' ? !search.group : search.group === value
-
-              return (
-                <DropdownMenuItem
-                  key={value}
-                  icon={active ? 'check' : undefined}
-                  className={active ? '' : 'pl-[30px]'}
-                  onClick={() =>
-                    onSearch({ group: value === 'none' ? undefined : value })
-                  }
-                >
-                  {label}
-                </DropdownMenuItem>
-              )
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <FilterMenu
-          label={t('projects.experimentsList.columns.updated')}
-          value={search.older ? 'any' : '30d'}
-          options={[
-            { value: '30d', label: t('projects.experimentsList.last30') },
-            { value: 'any', label: t('projects.experimentsList.anyTime') },
-          ]}
-          onChange={(v) => onSearch({ older: v === 'any' ? true : undefined })}
-        />
-      </div>
-      <form
-        role="search"
-        className="relative order-first min-w-0 flex-1 max-lg:basis-full lg:order-none lg:ml-3 lg:w-[280px] lg:flex-none"
-        onSubmit={(e) => {
-          e.preventDefault()
-          onSearch({ q: draftQuery.trim() || undefined })
-        }}
-      >
-        <label htmlFor="exp-search" className="sr-only">
-          {t('projects.experimentsList.search')}
-        </label>
-        <Icon
-          name="search"
-          size={14}
-          className="pointer-events-none absolute left-[9px] top-[8px] text-fg-muted"
-        />
-        <Input
-          id="exp-search"
-          type="search"
-          placeholder={t('projects.experimentsList.search')}
-          value={draftQuery}
-          className="h-7 pl-7 max-lg:h-9"
-          onChange={(e) => {
-            onDraftQuery(e.target.value)
-
-            if (!e.target.value) onSearch({ q: undefined })
-          }}
-        />
-      </form>
-    </div>
+            )
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <FilterMenu
+        label={t('projects.experimentsList.columns.updated')}
+        value={search.older ? 'any' : '30d'}
+        options={[
+          { value: '30d', label: t('projects.experimentsList.last30') },
+          { value: 'any', label: t('projects.experimentsList.anyTime') },
+        ]}
+        onChange={(v) => onSearch({ older: v === 'any' ? true : undefined })}
+      />
+    </ListToolbar>
   )
 }
 

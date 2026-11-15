@@ -131,9 +131,6 @@ export function PlanCard({
     void router.invalidate()
   }
 
-  const running = phase === 'running'
-  const finished = phase === 'done' || phase === 'dismissed'
-
   return (
     <section
       data-testid="assistant-plan"
@@ -168,71 +165,14 @@ export function PlanCard({
         ))}
       </ol>
       <PlanNotice phase={phase} steps={steps} pausedAt={pausedAt} />
-      {finished ? (
-        <span className="inline-flex items-center gap-1 text-label text-fg-muted">
-          <Icon name={phase === 'done' ? 'check' : 'x'} size={12} />
-          {phase === 'done'
-            ? t('features.plans.plan.allDone')
-            : t('notebook.assistantPanel.proposal.dismissed')}
-        </span>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          {phase === 'paused' && pausedAt !== null ? (
-            <>
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => void run(pausedAt, { runAll: false })}
-              >
-                {t('features.plans.plan.approveStep')}
-              </Button>
-              {action.runAllAllowed ? (
-                <Button
-                  size="sm"
-                  onClick={() => void run(pausedAt, { runAll: true })}
-                >
-                  {t('features.plans.plan.runAll')}
-                </Button>
-              ) : null}
-              <Button size="sm" variant="quiet" onClick={() => stop(pausedAt)}>
-                {t('features.plans.plan.stop')}
-              </Button>
-            </>
-          ) : phase === 'idle' ? (
-            <>
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={running}
-                onClick={() => void run(0, { runAll: false })}
-              >
-                {t('features.plans.cards.runPlan.apply')}
-              </Button>
-              {action.runAllAllowed ? (
-                <Button
-                  size="sm"
-                  title={t('features.plans.plan.runAllHint')}
-                  onClick={() => void run(0, { runAll: true })}
-                >
-                  {t('features.plans.plan.runAll')}
-                </Button>
-              ) : null}
-              <Button
-                size="sm"
-                variant="quiet"
-                onClick={() => save('dismissed', null)}
-              >
-                {t('notebook.assistantPanel.proposal.dismiss')}
-              </Button>
-            </>
-          ) : running ? (
-            <span className="inline-flex items-center gap-1.5 text-label text-fg-muted">
-              <Spinner size={12} />
-              {t('features.plans.cards.runPlan.applying')}
-            </span>
-          ) : null}
-        </div>
-      )}
+      <PlanActions
+        phase={phase}
+        pausedAt={pausedAt}
+        runAllAllowed={action.runAllAllowed}
+        onRun={(from, runAll) => void run(from, { runAll })}
+        onStop={stop}
+        onDismiss={() => save('dismissed', null)}
+      />
     </section>
   )
 }
@@ -324,4 +264,84 @@ function PlanNotice({
   }
 
   return null
+}
+
+function PlanActions({
+  phase,
+  pausedAt,
+  runAllAllowed,
+  onRun,
+  onStop,
+  onDismiss,
+}: {
+  phase: Phase
+  pausedAt: number | null
+  runAllAllowed: boolean
+  onRun: (from: number, runAll: boolean) => void
+  onStop: (from: number | null) => void
+  onDismiss: () => void
+}) {
+  if (phase === 'done' || phase === 'dismissed') {
+    return (
+      <span className="inline-flex items-center gap-1 text-label text-fg-muted">
+        <Icon name={phase === 'done' ? 'check' : 'x'} size={12} />
+        {phase === 'done'
+          ? t('features.plans.plan.allDone')
+          : t('notebook.assistantPanel.proposal.dismissed')}
+      </span>
+    )
+  }
+
+  if (phase === 'running') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-label text-fg-muted">
+        <Spinner size={12} />
+        {t('features.plans.cards.runPlan.applying')}
+      </span>
+    )
+  }
+
+  if (phase === 'paused' && pausedAt !== null) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={() => onRun(pausedAt, false)}
+        >
+          {t('features.plans.plan.approveStep')}
+        </Button>
+        {runAllAllowed ? (
+          <Button size="sm" onClick={() => onRun(pausedAt, true)}>
+            {t('features.plans.plan.runAll')}
+          </Button>
+        ) : null}
+        <Button size="sm" variant="quiet" onClick={() => onStop(pausedAt)}>
+          {t('features.plans.plan.stop')}
+        </Button>
+      </div>
+    )
+  }
+
+  if (phase !== 'idle') return null
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button size="sm" variant="primary" onClick={() => onRun(0, false)}>
+        {t('features.plans.cards.runPlan.apply')}
+      </Button>
+      {runAllAllowed ? (
+        <Button
+          size="sm"
+          title={t('features.plans.plan.runAllHint')}
+          onClick={() => onRun(0, true)}
+        >
+          {t('features.plans.plan.runAll')}
+        </Button>
+      ) : null}
+      <Button size="sm" variant="quiet" onClick={onDismiss}>
+        {t('notebook.assistantPanel.proposal.dismiss')}
+      </Button>
+    </div>
+  )
 }

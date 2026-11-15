@@ -86,13 +86,10 @@ export async function buildPlanProposal(
   const input = parsed.data
   const allowed = planStepTools()
 
-  const pause = await level(
-    context.client,
-    context.workspaceId,
-    PLAN_PAUSE_DESTRUCTIVE,
-  )
-
-  const runAll = await level(context.client, context.workspaceId, PLAN_RUN_ALL)
+  const [pause, runAll] = await Promise.all([
+    level(context.client, context.workspaceId, PLAN_PAUSE_DESTRUCTIVE),
+    level(context.client, context.workspaceId, PLAN_RUN_ALL),
+  ])
 
   for (const [index, step] of input.steps.entries()) {
     if (isPersonalStep(step.tool)) {

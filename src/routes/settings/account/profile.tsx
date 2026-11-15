@@ -199,10 +199,7 @@ function Profile() {
             busy={saveProfile.busy}
             onSave={() => void saveProfile.save()}
             disabled={
-              !changed ||
-              Boolean(error) ||
-              Boolean(timeZoneError) ||
-              Boolean(initialsError)
+              !changed || [error, timeZoneError, initialsError].some(Boolean)
             }
           />
         }

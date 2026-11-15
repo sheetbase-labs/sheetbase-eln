@@ -215,14 +215,12 @@ export const settings = {
     project: 'Project',
     logCouldLoaded: 'The log couldn’t be loaded. Refresh to try again.',
     auditLogCould: 'The audit log couldn’t be read.',
-    newestFirstScrolling: 'Export includes every entry matching the search.',
     exportedEntries: {
       one: '{count} entry — every entry matching the current search.',
       other: '{count} entries — every entry matching the current search.',
     },
     browserBlockedDownload: 'The browser blocked the download.',
     olderEntriesCould: 'Older entries couldn’t be loaded.',
-    endLogEvery: 'End of the log — every matching entry is loaded.',
     exporting: 'Exporting…',
     exportCsvMatches: 'Export CSV of all matches',
     integrityVerified: 'Integrity verified {time}',
@@ -1062,7 +1060,7 @@ export const settings = {
     whichSignatureMeanings: ' · your own signature is under ',
     mySignature: 'My signature',
     everyoneWhoSign: 'Everyone who can sign has certified their signature.',
-    signatureMeaningUse2: '{m} is a signature meaning in use',
+    signatureMeaningUse2: '{m}',
     someoneWhoSaw:
       'Someone who saw the work done signs other people’s records when asked.',
     passwordReEntry2:

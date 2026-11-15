@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useMemo } from 'react'
 
 import { t } from '#/copy'
+import { Section } from '#/components/ui/layout'
 import { EmptyState } from '#/components/ui/empty-state'
 import { ProjectListFailure } from '#/components/projects/project-list'
 import { BoardScope } from '#/features/pipelines/board/board'
@@ -72,11 +73,19 @@ function PipelineActivity() {
         approval={approval}
         actorLabel={actorLabel}
       />
-      {events.length === 0 && !versions.isLoading ? (
-        <EmptyState title={t('features.pipelineApprovals.activity.empty')} />
-      ) : (
-        <ActivityFeed events={events} actorLabel={actorLabel} />
-      )}
+      <Section
+        title={t('features.pipelineApprovals.activity.title')}
+        count={events.length || undefined}
+      >
+        {events.length === 0 && !versions.isLoading ? (
+          <EmptyState
+            title={t('features.pipelineApprovals.activity.empty')}
+            className="py-4"
+          />
+        ) : (
+          <ActivityFeed events={events} actorLabel={actorLabel} />
+        )}
+      </Section>
     </BoardScope>
   )
 }

@@ -194,7 +194,7 @@ export function SettingsCredentials({
       title={copy.title}
       action={
         tokens.length ? (
-          <Button variant="primary" icon="plus" onClick={openCreate}>
+          <Button icon="plus" onClick={openCreate}>
             {copy.create.open}
           </Button>
         ) : undefined

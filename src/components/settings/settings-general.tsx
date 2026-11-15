@@ -259,7 +259,7 @@ export function SettingsGeneral({
             </Notice>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field
               label={t('settings.general.name')}
               required
@@ -345,22 +345,24 @@ export function SettingsGeneral({
             </Field>
           </div>
 
-          <RecordIdPrefixes
-            prefixes={form.idPrefixes}
-            counters={counters.data}
-            onChange={(kind, prefix) =>
-              setForm((current) => ({
-                ...current,
-                idPrefixes: { ...current.idPrefixes, [kind]: prefix },
-              }))
-            }
-          />
+          <div className="mt-4 flex flex-col gap-6 border-t border-border-subtle pt-6">
+            <RecordIdPrefixes
+              prefixes={form.idPrefixes}
+              counters={counters.data}
+              onChange={(kind, prefix) =>
+                setForm((current) => ({
+                  ...current,
+                  idPrefixes: { ...current.idPrefixes, [kind]: prefix },
+                }))
+              }
+            />
 
-          <WorkspacePolicies
-            form={form}
-            setForm={setForm}
-            disabled={controlsDisabled}
-          />
+            <WorkspacePolicies
+              form={form}
+              setForm={setForm}
+              disabled={controlsDisabled}
+            />
+          </div>
         </Section>
         <LabLogoSettings />
         <WorkingHoursSettings workspaceId={workspaceId} />

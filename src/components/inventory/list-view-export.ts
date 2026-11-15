@@ -6,9 +6,12 @@ import type { ExportTable, ExportValue } from '#/lib/export/table-file'
 /** Shown value-bearing columns, excluding registry controls. */
 function exportable<T extends RowData>(
   table: Table<DataGridFeatures, T>,
+  fitDropped: ReadonlySet<string>,
 ): Column<DataGridFeatures, T>[] {
+  // A column hidden only to fit the pane is still one the person chose to see.
   return table
-    .getVisibleLeafColumns()
+    .getAllLeafColumns()
+    .filter((column) => column.getIsVisible() || fitDropped.has(column.id))
     .filter(
       (column) =>
         column.id !== '__bulk' &&
@@ -21,8 +24,9 @@ function exportable<T extends RowData>(
 /** Visible records in their displayed order, without group bands. */
 export function exportTable<T extends RowData>(
   table: Table<DataGridFeatures, T>,
+  fitDropped: ReadonlySet<string> = new Set(),
 ): ExportTable {
-  const columns = exportable(table)
+  const columns = exportable(table, fitDropped)
 
   const rows = table
     .getRowModel()

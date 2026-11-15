@@ -92,6 +92,7 @@ export type { BandRow, RegistryColumn, RegistryRow } from './registry-grid-data'
 const RegistryRenderContext = createContext<{
   name: string
   view?: ListView
+  fitDropped?: ReadonlySet<string>
   labelForId: (id: string) => string
 }>({ name: '', labelForId: (id) => id })
 
@@ -100,9 +101,16 @@ function RegistryMenu<T extends RowData>({
 }: {
   table: Table<DataGridFeatures, T>
 }) {
-  const { name, view } = useContext(RegistryRenderContext)
+  const { name, view, fitDropped } = useContext(RegistryRenderContext)
 
-  return <ListViewMenu table={table} name={name} view={view} />
+  return (
+    <ListViewMenu
+      table={table}
+      name={name}
+      view={view}
+      fitDropped={fitDropped}
+    />
+  )
 }
 
 function RegistryTick({ bulk, rowId }: { bulk: BulkSelection; rowId: string }) {
@@ -581,13 +589,14 @@ export function RegistryGrid<T extends RowData>({
     () => ({
       name: exportName ?? label,
       view,
+      fitDropped: dropped,
       labelForId: (id: string) => {
         const row = rowById.get(id)
 
         return rowLabel && row ? rowLabel(row) : id
       },
     }),
-    [exportName, label, view, rowById, rowLabel],
+    [exportName, label, view, dropped, rowById, rowLabel],
   )
 
   return (

@@ -23,6 +23,7 @@ export function reportActionFailure(failure: ActionFailure): void {
   if (reported.has(failure.id)) return
 
   reported.add(failure.id)
+
   for (const listener of listeners) listener(failure)
 }
 

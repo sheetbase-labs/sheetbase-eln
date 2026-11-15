@@ -33,6 +33,8 @@ export const assistant = defineAssistant<SchemaAction, SchemaProposeToolName>()(
       'schema.sheet_definition_publish': words('publishSheetDefinition'),
       'schema.sheet_definition_lifecycle': words('setSheetDefinitionState'),
       'schema.template_publish': words('publishTemplate'),
+      'schema.template_create': words('addTemplate'),
+      'schema.template_update': words('changeTemplate'),
       'schema.template_add_sheet_column': words('addTemplateSheetColumn'),
       'schema.sheet_rename': words('renameSheet'),
     },

@@ -27,6 +27,10 @@ import {
   proposeTemplateSheetColumnSchema,
   TEMPLATES_READ_TOOL,
   TEMPLATE_PUBLISH_TOOL,
+  TEMPLATE_CREATE_TOOL,
+  TEMPLATE_UPDATE_TOOL,
+  proposeTemplateCreateSchema,
+  proposeTemplateUpdateSchema,
   keyFromName,
   modelDependenciesSchema,
   modelsReadSchema,
@@ -56,6 +60,10 @@ import type { ProviderToolDef } from './ai-providers/types'
 import type { AssistantProposal, ProposalChange } from './assistant-proposals'
 import type { DataClient } from './data-client'
 import { parseNotebookTemplateConfiguration } from './notebook-template'
+import {
+  buildTemplateConfiguration,
+  describeTemplateDraft,
+} from './assistant-template-draft'
 import { parseSheetDefinitionConfiguration } from './sheet-definition'
 import type { SheetDefinitionConfiguration } from './sheet-definition'
 import { addSheetColumn } from './sheet-definition-add-column'
@@ -202,6 +210,16 @@ export function schemaProposalDefs(): ProviderToolDef[] {
       TEMPLATE_PUBLISH_TOOL,
       `Propose publishing the draft version of a notebook template. Retiring a template version is signed, so it is for a person in the app. ${NOTE}`,
       proposeTemplatePublishSchema,
+    ),
+    toolDef(
+      TEMPLATE_CREATE_TOOL,
+      `Propose a new notebook template, drafted in full: its parts, steps, notes, checklists, callouts and a plate map, all in one card. Draft the whole thing yourself from what you know and what you looked up; do not ask for details first. ${NOTE}`,
+      proposeTemplateCreateSchema,
+    ),
+    toolDef(
+      TEMPLATE_UPDATE_TOOL,
+      `Propose replacing the content of a notebook template's draft (or starting a new draft when its latest version is published) with the full content given. Read the template first so nothing it holds is lost. ${NOTE}`,
+      proposeTemplateUpdateSchema,
     ),
     toolDef(
       TEMPLATE_ADD_SHEET_COLUMN_TOOL,
@@ -1301,6 +1319,101 @@ export async function buildSchemaProposal(
           versionId: draft.id,
           revision: draft.revision,
           reason: input.reason,
+        },
+      )
+    }
+
+    case TEMPLATE_CREATE_TOOL: {
+      const parsed = proposeTemplateCreateSchema.safeParse(args)
+
+      if (!parsed.success) return bad(parsed.error)
+      const input = parsed.data
+      const key = input.key ?? keyFromName(input.name)
+
+      const taken = await client.list<{ key: string }>(
+        'notebook_templates',
+        `?key=eq.${encodeURIComponent(key)}&select=key&limit=1`,
+      )
+
+      if (taken.length > 0)
+        return fail(
+          `There is already a notebook template with the key ${key}. Use another name or key.`,
+        )
+
+      const configuration = buildTemplateConfiguration(input)
+
+      const changes: ProposalChange[] = [
+        { label: 'Name', before: null, after: input.name },
+        ...(input.description
+          ? [{ label: 'Description', before: null, after: input.description }]
+          : []),
+        {
+          label: 'Holds',
+          before: null,
+          after: describeTemplateDraft(input).join(', '),
+        },
+      ]
+
+      return card(
+        name,
+        input,
+        `${input.name} · Notebook template`,
+        null,
+        changes,
+        {
+          kind: 'schema.template_create',
+          workspaceId: context.workspaceId,
+          key,
+          name: input.name,
+          description: input.description ?? null,
+          configuration,
+        },
+      )
+    }
+
+    case TEMPLATE_UPDATE_TOOL: {
+      const parsed = proposeTemplateUpdateSchema.safeParse(args)
+
+      if (!parsed.success) return bad(parsed.error)
+      const input = parsed.data
+
+      const t = await findDefinition(
+        client,
+        'notebook_templates',
+        input.template,
+      )
+
+      if (!t.ok) return fail(t.message)
+
+      const draft = draftOf(
+        await versionsOf(
+          client,
+          'notebook_template_versions',
+          'template_id',
+          t.value.id,
+        ),
+      )
+
+      return card(
+        name,
+        input,
+        `${t.value.name} · ${draft ? `Version ${draft.version} (draft)` : 'A new draft version'}`,
+        `/templates/${t.value.id}`,
+        [
+          {
+            label: 'Content',
+            before: draft ? 'the draft as it is' : 'the published version',
+            after: describeTemplateDraft(input).join(', '),
+          },
+        ],
+        {
+          kind: 'schema.template_update',
+          templateId: t.value.id,
+          templateRevision: t.value.revision,
+          draft: draft
+            ? { versionId: draft.id, revision: draft.revision }
+            : null,
+          configuration: buildTemplateConfiguration(input),
         },
       )
     }

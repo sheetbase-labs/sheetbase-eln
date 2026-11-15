@@ -1289,6 +1289,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
       input('p_description', 'text', true, true),
       TEMPLATE_CONFIGURATION,
     ],
+    assistant: { tool: 'sheetbase.template.create' },
     pipeline: {},
   },
   {
@@ -1320,6 +1321,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
     scope: SCHEMA_WRITE,
     inputs: [TEMPLATE_VERSION_ID, EXPECTED_REVISION, TEMPLATE_CONFIGURATION],
     result: 'row:notebook_template_versions',
+    assistant: { tool: 'sheetbase.template.update' },
     pipeline: {},
   },
   {

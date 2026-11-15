@@ -138,6 +138,39 @@ export async function runSchemaAction(
       })
 
       return
+    case 'schema.template_create': {
+      const made = await client.rpc<{ template: { id: string } }>(
+        'create_notebook_template',
+        {
+          p_workspace_id: action.workspaceId,
+          p_key: action.key,
+          p_name: action.name,
+          p_description: action.description,
+          p_configuration: action.configuration,
+        },
+      )
+
+      return { openHref: `/templates/${made.template.id}` }
+    }
+
+    case 'schema.template_update': {
+      if (action.draft) {
+        await client.rpc('update_notebook_template_version', {
+          p_version_id: action.draft.versionId,
+          p_expected_revision: action.draft.revision,
+          p_configuration: action.configuration,
+        })
+      } else {
+        await client.rpc('create_notebook_template_version', {
+          p_template_id: action.templateId,
+          p_expected_template_revision: action.templateRevision,
+          p_configuration: action.configuration,
+        })
+      }
+
+      return { openHref: `/templates/${action.templateId}` }
+    }
+
     case 'schema.template_add_sheet_column': {
       const { addColumnToTemplateSheet } =
         await import('./template-sheet-column')

@@ -773,6 +773,26 @@ export const notebook = {
         running: 'Checking what is waiting on you…',
         done: 'Checked what is waiting on you',
       },
+      protocols: {
+        running: 'Searching protocols for {what}…',
+        done: 'Searched protocols for {what}',
+      },
+      stock: {
+        running: 'Checking stock for {what}…',
+        done: 'Checked stock for {what}',
+      },
+      templates: {
+        running: 'Looking for templates for {what}…',
+        done: 'Looked for templates for {what}',
+      },
+      protocolsIo: {
+        running: 'Searching protocols.io for {what}…',
+        done: 'Searched protocols.io for {what}',
+      },
+      protocolsIoRead: {
+        running: 'Reading a protocol on protocols.io…',
+        done: 'Read a protocol on protocols.io',
+      },
       planning: {
         running: 'Checking the details…',
         done: 'Checked the details',

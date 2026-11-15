@@ -12,6 +12,8 @@ import {
   SCHEMA_READ_TOOL_NAMES,
   SHEET_DEFINITION_RETIRE_TOOL,
   TEMPLATE_ADD_SHEET_COLUMN_TOOL,
+  TEMPLATE_CREATE_TOOL,
+  TEMPLATE_UPDATE_TOOL,
   isSchemaAction,
   keyFromName,
 } from './assistant-schema'
@@ -402,6 +404,98 @@ describe('record type, sheet definition and template assistant tools', () => {
     expect(twice).toEqual({
       ok: false,
       message: 'A column with that name is already in the sheet.',
+    })
+  })
+
+  it('drafts a whole notebook template in one card, and refuses a taken key', async () => {
+    const input = {
+      ...base,
+      name: 'p24 ELISA',
+      description: 'HIV-1 p24 antigen sandwich ELISA.',
+      parts: [{ title: 'Coat plate' }, { title: 'Assay', dayOffset: 1 }],
+      blocks: [
+        { type: 'step', text: 'Coat the plate.', part: 'Coat plate' },
+        { type: 'plate_map', part: 'Assay' },
+        { type: 'note', text: 'Read at 450 nm. Fit a 4PL curve.' },
+      ],
+    }
+
+    const built = await buildSchemaProposal(
+      TEMPLATE_CREATE_TOOL,
+      input,
+      context({ notebook_templates: () => [] }),
+    )
+
+    expect(built.ok).toBe(true)
+
+    if (!built.ok) return
+    const { action } = built.proposal
+
+    expect(action).toMatchObject({
+      kind: 'schema.template_create',
+      workspaceId: 'ws',
+      key: 'p24_elisa',
+      name: 'p24 ELISA',
+    })
+    expect(
+      action?.kind === 'schema.template_create' &&
+        action.configuration.placements.length,
+    ).toBe(3)
+    expect(built.proposal.changes.at(-1)?.after).toBe(
+      '2 parts, 1 step, 1 plate map, 1 note',
+    )
+
+    const taken = await buildSchemaProposal(
+      TEMPLATE_CREATE_TOOL,
+      input,
+      context({ notebook_templates: () => [{ key: 'p24_elisa' }] }),
+    )
+
+    expect(!taken.ok && taken.message).toContain('already a notebook template')
+  })
+
+  it('replaces a template draft, or starts a draft from a published version', async () => {
+    const template = {
+      id: 't1',
+      key: 'run',
+      name: 'Run',
+      lifecycle: 'active',
+      revision: 3,
+    }
+
+    const input = {
+      ...base,
+      template: 'Run',
+      blocks: [{ type: 'step', text: 'Do it.' }],
+    }
+
+    const tables = (lifecycle: string) => ({
+      notebook_templates: () => [template],
+      notebook_template_versions: () => [
+        { id: 'v2', version: 2, lifecycle, revision: 5 },
+      ],
+    })
+
+    const withDraft = await buildSchemaProposal(
+      TEMPLATE_UPDATE_TOOL,
+      input,
+      context(tables('draft')),
+    )
+
+    const fresh = await buildSchemaProposal(
+      TEMPLATE_UPDATE_TOOL,
+      input,
+      context(tables('published')),
+    )
+
+    expect(withDraft.ok && withDraft.proposal.action).toMatchObject({
+      kind: 'schema.template_update',
+      draft: { versionId: 'v2', revision: 5 },
+    })
+    expect(fresh.ok && fresh.proposal.action).toMatchObject({
+      kind: 'schema.template_update',
+      draft: null,
+      templateRevision: 3,
     })
   })
 

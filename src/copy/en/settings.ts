@@ -43,8 +43,6 @@ export const settings = {
     explicitProjectRuleDescription:
       'An explicit project rule is required. Workspace roles don’t grant project access.',
     defaultsNewProjects: 'Defaults for new projects',
-    newProjectsPrivate:
-      'New projects are private to the lead until rules are added.',
     accessRequests: 'Access requests',
     accessRequestsUnavailable: 'Access requests are unavailable.',
     couldSaveQaToast: 'Couldn’t save the default view group',
@@ -114,7 +112,6 @@ export const settings = {
     reloadPageProblem:
       'Reload the page. If it keeps happening, ask your admin.',
     aiSettingsCould: 'AI settings couldn’t be loaded',
-    providerConfigurationInvalid: 'Provider configuration is invalid',
     onlyWorkspaceOwner: 'Only a workspace owner can change AI settings.',
     readOnly: 'Read-only',
     assistant: 'Assistant',
@@ -142,8 +139,6 @@ export const settings = {
       'Flags can only narrow what a token’s scopes and roles already allow. They never grant access, and agents can’t change them.',
     lastChanged: 'Last changed',
     fixInAssistantSettings: 'Fix in assistant settings',
-    assistantStatus: 'Assistant status',
-    assistantUnavailable: 'Assistant unavailable',
     saveToApplyPolicy: ' Save your changes to apply the new policy.',
     createScopedToken:
       'Create a scoped token under <link>API and SDK</link>. The domain skills live in <skills>.agents/skills/sheetbase-domain</skills> and <mcp>.agents/skills/sheetbase-mcp</mcp>.',
@@ -1089,8 +1084,6 @@ export const settings = {
     couldNotLoad: 'Backups couldn’t be loaded',
     checkConnection: 'Check the connection and try again.',
     exportTitle: 'Download everything',
-    exportBody:
-      'One ZIP file with every record, dataset, audit entry and uploaded file. Passwords and sign-in secrets are never included.',
     exportButton: 'Download export',
     scheduleTitle: 'Scheduled backups',
     automatic: 'Back up automatically',

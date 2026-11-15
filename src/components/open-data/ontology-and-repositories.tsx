@@ -21,7 +21,7 @@ import {
   DialogHeader,
 } from '#/components/ui/dialog'
 import { Field, Input } from '#/components/ui/input'
-import { Muted, Section } from '#/components/ui/layout'
+import { Section } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
@@ -90,7 +90,6 @@ export function OntologySection({
 
   return (
     <Section title={t('openData.ontology.title')}>
-      <Muted>{t('openData.ontology.explain')}</Muted>
       <CheckRow
         title={t('openData.ontology.enable')}
         body={t('openData.ontology.enableHint')}
@@ -354,7 +353,6 @@ export function RepositoriesSection({
         ) : null
       }
     >
-      <Muted>{t('openData.repos.explain')}</Muted>
       <RepositoriesTable
         rows={rows}
         canManage={canManage}

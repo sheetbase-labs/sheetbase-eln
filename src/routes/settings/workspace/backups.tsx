@@ -219,7 +219,6 @@ function BackupsBody({
       </SettingsHeader>
       <SettingsBody>
         <Section title={t('settings.backups.exportTitle')}>
-          <Muted>{t('settings.backups.exportBody')}</Muted>
           <div>
             <Button
               variant="primary"

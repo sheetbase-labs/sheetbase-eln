@@ -7,8 +7,6 @@ export const openData = {
   },
   tables: {
     title: 'Open tables',
-    explain:
-      'Your data written as open table files on your own storage, so analysts can read it in DuckDB, Polars or Spark without going through Sheetbase. Tables follow what the person who turned this on can see.',
     enable: 'Write open tables',
     enableHint: 'Updates a few minutes after data changes.',
     refresh: 'Refresh now',
@@ -37,8 +35,6 @@ export const openData = {
   },
   logins: {
     title: 'Table logins',
-    explain:
-      'A login reads the open tables and nothing else. It stops working when its owner loses data access.',
     none: 'No logins yet.',
     create: 'New login',
     name: 'Name',
@@ -67,8 +63,6 @@ export const openData = {
   },
   ontology: {
     title: 'Ontology lookup',
-    explain:
-      'Label fields and vocabulary terms with standard terms such as OBI, ChEBI or Uberon. Searching sends what you type to the EBI Ontology Lookup Service.',
     enable: 'Allow ontology search',
     enableHint: 'Nothing is sent until you turn it on.',
     ontologies: 'Ontologies to search',
@@ -90,8 +84,6 @@ export const openData = {
   },
   repos: {
     title: 'Publishing repositories',
-    explain:
-      'Where finished experiments and dataset versions can be published with a DOI. Publishing sends a package to the repository you choose.',
     add: 'Add repository',
     none: 'No repositories yet.',
     columns: {

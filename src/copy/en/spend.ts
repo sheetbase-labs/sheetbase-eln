@@ -255,7 +255,7 @@ export const spend = {
     },
     empty: {
       title: 'No reports are scheduled',
-      body: 'Pick a report, choose who gets it and when, and it arrives by email without anyone having to ask.',
+      body: 'Pick a report, who gets it and when.',
     },
     confirmDelete: {
       title: 'Delete this scheduled report?',

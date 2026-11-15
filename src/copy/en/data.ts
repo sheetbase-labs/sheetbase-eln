@@ -595,7 +595,7 @@ export const data = {
     summary: 'Summary',
     issues: 'Issues',
     unresolvedValueFlagsFlags:
-      'No unresolved value flags. Flags raised by an import or marked in the Rows grid appear here.',
+      'No unresolved value flags.',
     archived: 'Archived',
     datasetArchivedStaysReadable:
       'This dataset is archived. It stays readable and citable, but it can’t be snapshotted and can’t be imported into.',

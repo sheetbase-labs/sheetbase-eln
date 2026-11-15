@@ -18,7 +18,7 @@ export const plates = {
   empty: {
     runs: 'No plate runs yet',
     runsBody:
-      'Paste a plate reader export with its layout to see how the plate performed, which samples are hits and how potent they are.',
+      'Paste a plate reader export with its layout to see how the plate performed.',
     filtered: 'No plate run matches.',
     potency: 'No analysed plates to compare',
     potencyBody:

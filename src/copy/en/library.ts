@@ -143,7 +143,7 @@ export const library = {
         other: '{count} days ahead at most',
       },
       empty:
-        'Anyone who is qualified can book this instrument, for as long and as far ahead as they like.',
+        'Anyone qualified can book this instrument.',
       saved: 'Booking rules saved',
       couldNotSave: 'The booking rules couldn’t be saved.',
       notTrained: 'You need training before booking this instrument:',
@@ -153,7 +153,7 @@ export const library = {
       title: 'Repairs and service',
       logVisit: 'Log a visit',
       empty:
-        'No repairs or service visits logged yet. Add one whenever the instrument is repaired, serviced or checked.',
+        'No repairs or service visits logged yet.',
       tableLabel: 'Repairs and service visits',
       date: 'Date',
       kind: 'Kind',
@@ -184,7 +184,7 @@ export const library = {
       setUp: 'Set up live readings',
       changeSetUp: 'Download the agent again',
       empty:
-        'Nothing has come in yet. Set up live readings to follow a balance, probe or logger as it runs, and the values appear here the moment they are measured.',
+        'Nothing has come in yet. Set up live readings to follow a balance, probe or logger as it runs.',
       tableLabel: 'Live readings by measurement',
       measurement: 'Measurement',
       latest: 'Latest',
@@ -2378,7 +2378,7 @@ export const library = {
       structure: 'Structure',
       versioning: 'Versioning',
       openTheProtocolToSee:
-        'Open the protocol to see its versions, approvals and what changed between them.',
+        'Open the protocol to see its versions.',
     },
     detail: {
       loadingProtocol: 'Loading protocol…',
@@ -3262,7 +3262,7 @@ export const library = {
       noVersionYet: 'No version yet',
       reuseIsDeliberate: 'Reuse is deliberate',
       newVersionsNeverChangeNotebooks:
-        'New versions never change notebooks already made from an old one; each owner chooses whether to take a new version.',
+        'Notebooks made from an older version keep it until their owner takes the new one.',
       addItsSectionsAndParameters:
         'Add its sections and parameters, then save a version.',
       couldNotCreateTheTemplate: 'Couldn’t create the template.',

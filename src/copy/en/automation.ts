@@ -198,7 +198,7 @@ export const automation = {
     },
     timeline: {
       title: 'Schedule',
-      explain: 'Bookings over the next week, with proposed slots outlined.',
+      explain: 'Bookings over the next week.',
       empty: 'Nothing booked in the next week.',
       booked: 'Booked',
       proposed: 'Proposed',

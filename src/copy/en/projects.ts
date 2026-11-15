@@ -479,7 +479,7 @@ export const projects = {
       },
       create: 'Create an experiment',
     },
-    note: 'Milestones are the project’s study deliverables with a target date. Add and schedule them on the Milestones tab. Folders are on the Files tab, and members are in Settings.',
+    note: 'Add milestones on the Milestones tab.',
     inspector: 'Project details',
     detailsTitle: 'Details',
     review: {

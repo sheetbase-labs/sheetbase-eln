@@ -2,7 +2,7 @@
 export const registry = {
   title: 'Registry',
   subtitle:
-    'Everything your lab registers once and quotes by number: constructs, cell lines, antibodies, papers and anything else you turn on',
+    'Constructs, cell lines, antibodies and anything else your lab registers once',
   navLabel: 'Registry',
   paneLabel: 'Registry',
   register: 'Register',
@@ -35,7 +35,7 @@ export const registry = {
   },
   empty: {
     title: 'No registries yet',
-    body: 'A registry is a model whose records get one number that never changes, a check for repeats and a family tree. Start with the common ones or turn it on for any model from its page.',
+    body: 'Registered records get one permanent number, a check for repeats and a family tree. Start with a common one.',
     noEntries: 'Nothing registered yet',
     noEntriesBody:
       'Register the first one and it gets a number everyone can quote.',

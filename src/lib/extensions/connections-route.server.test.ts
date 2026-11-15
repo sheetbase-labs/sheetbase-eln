@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
  * GET/POST /api/plugins/connections for an operation's settings: listed under
- * the `operations` point, set under scope `operations:<id>`, secrets never read back.
+ * the `operations` point, set under the one scope `operations`, secrets never read back.
  */
 import { describe, expect, it, vi } from 'vitest'
 
@@ -35,6 +35,18 @@ const files = {
           description: 'Searches.',
           access: 'read',
           inputs: [{ name: 'query', type: 'text', required: true }],
+          outputs: [{ name: 'found', type: 'text', required: true }],
+          settings: [
+            { name: 'token', label: 'Token', secret: true, required: true },
+          ],
+          run: 'ops:search',
+        },
+        {
+          id: 'read',
+          title: 'Read',
+          description: 'Reads.',
+          access: 'read',
+          inputs: [{ name: 'id', type: 'text', required: true }],
           outputs: [{ name: 'found', type: 'text', required: true }],
           settings: [
             { name: 'token', label: 'Token', secret: true, required: true },
@@ -102,10 +114,10 @@ function deps(
 }
 
 describe('plugin connections for operations', () => {
-  it('lists an operation that asks for settings, with no secret value', async () => {
+  it('lists one card for all operations that ask for the same setting, with no secret value', async () => {
     const { route } = deps([
       {
-        scope: 'operations:search',
+        scope: 'operations',
         name: 'token',
         value: 'sealed',
         secret: true,
@@ -118,10 +130,11 @@ describe('plugin connections for operations', () => {
     )
 
     const body: { connections: unknown[] } = await res.json()
+    // Two operations declare token; the admin sees it once.
     expect(body.connections).toHaveLength(1)
     expect(body.connections[0]).toMatchObject({
       point: 'operations',
-      itemId: 'search',
+      itemId: 'operations',
       hosts: [],
       settings: [{ name: 'token', secret: true, isSet: true, value: null }],
     })
@@ -137,7 +150,7 @@ describe('plugin connections for operations', () => {
         body: JSON.stringify({
           extensionId: EXT,
           point: 'operations',
-          itemId: 'search',
+          itemId: 'operations',
           values: { token: 'sekret-token' },
         }),
       }),
@@ -148,7 +161,7 @@ describe('plugin connections for operations', () => {
     expect(save).toHaveBeenCalledWith(
       'w1',
       EXT,
-      'operations:search',
+      'operations',
       [{ name: 'token', value: 'sekret-token', secret: true }],
       'u1',
     )
@@ -164,7 +177,7 @@ describe('plugin connections for operations', () => {
         body: JSON.stringify({
           extensionId: EXT,
           point: 'operations',
-          itemId: 'search',
+          itemId: 'operations',
           values: { other: 'x' },
         }),
       }),

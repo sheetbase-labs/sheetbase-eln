@@ -109,17 +109,48 @@ describe('manifest', () => {
   })
 })
 
+describe('settings shared across operations', () => {
+  const second = (settings: SettingsInput): OperationInput => ({
+    id: 'read',
+    title: 'Read',
+    description: 'Reads.',
+    access: 'read',
+    inputs: [{ name: 'id', type: 'text', required: true }],
+    outputs: [{ name: 'found', type: 'text', required: true }],
+    run: 'ops:search',
+    settings,
+  })
+
+  it('accepts two operations that declare the same setting alike', () => {
+    const manifest = manifestOf(SETTINGS)
+    manifest.provides.operations.push(second([SETTINGS[0]]))
+    expect(() => build(manifest)).not.toThrow()
+  })
+
+  it('refuses two that disagree on label, secret or required', () => {
+    for (const other of [
+      { ...SETTINGS[0], label: 'Other label' },
+      { ...SETTINGS[0], secret: false },
+      { ...SETTINGS[0], required: false },
+    ]) {
+      const manifest = manifestOf(SETTINGS)
+      manifest.provides.operations.push(second([other]))
+      expect(() => build(manifest)).toThrow()
+    }
+  })
+})
+
 describe('describeSettings', () => {
   it('says a secret is set without giving its value', () => {
     const out = describeSettings({ settings: SETTINGS }, [
       {
-        scope: 'operations:search',
+        scope: 'operations',
         name: 'token',
         value: 'sealed',
         secret: true,
       },
       {
-        scope: 'operations:search',
+        scope: 'operations',
         name: 'region',
         value: 'eu',
         secret: false,
@@ -196,7 +227,7 @@ describe('invokeExtension', () => {
 
     const out = await invokeExtension(args, deps)
     expect(out.output).toEqual({ found: 'ok' })
-    expect(loadSettings).toHaveBeenCalledWith('w1', 'e1', 'operations:search')
+    expect(loadSettings).toHaveBeenCalledWith('w1', 'e1', 'operations')
     expect(calls[0]).toMatchObject({
       input: {
         query: 'picogreen',
@@ -254,5 +285,58 @@ describe('invokeExtension', () => {
     await invokeExtension(args, deps)
     expect(loadSettings).not.toHaveBeenCalled()
     expect(JSON.stringify(calls[0])).not.toContain('_settings')
+  })
+
+  it('serves the one stored value to every operation that declares it', async () => {
+    const manifest = manifestOf(SETTINGS)
+
+    manifest.provides.operations.push({
+      id: 'read',
+      title: 'Read',
+      description: 'Reads.',
+      access: 'read',
+      inputs: [{ name: 'id', type: 'text', required: true }],
+      outputs: [{ name: 'found', type: 'text', required: true }],
+      run: 'ops:search',
+      settings: [SETTINGS[0]],
+    })
+
+    const both = buildPluginPackage({
+      'plugin.json': JSON.stringify(manifest),
+      'python/ops.py': files['python/ops.py'],
+    })
+
+    const calls: unknown[] = []
+
+    const { deps, loadSettings } = setup(
+      { token: 'one-value', region: 'eu' },
+      async (call) => {
+        calls.push(call.parameters)
+
+        // SAFETY: the function under test reads only `rows` from the runner's answer.
+        return { rows: [{ found: 'ok' }] } as never
+      },
+    )
+
+    deps.loadInstall = async () => ({
+      id: 'e1',
+      key: 'lookup',
+      name: 'Lookup',
+      status: 'enabled',
+      manifest: structuredClone(both.manifest),
+      disabledPoints: [],
+    })
+    await invokeExtension(args, deps)
+    await invokeExtension(
+      { ...args, itemId: 'read', input: { id: 'p1' } },
+      deps,
+    )
+    expect(loadSettings).toHaveBeenNthCalledWith(1, 'w1', 'e1', 'operations')
+    expect(loadSettings).toHaveBeenNthCalledWith(2, 'w1', 'e1', 'operations')
+    // The second operation declares only token, so it gets only token.
+    expect(calls[1]).toMatchObject({
+      input: { id: 'p1', _settings: { token: 'one-value' } },
+    })
+    expect(JSON.stringify(calls[1])).not.toContain('region')
   })
 })

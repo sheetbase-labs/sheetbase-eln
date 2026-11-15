@@ -25,6 +25,7 @@ import {
   settingsScope,
 } from './plugin-settings.server'
 import type { SettingsPoint, SettingsStore } from './plugin-settings.server'
+import type { ExtensionOperationSetting } from './points'
 import { auditSettingsChange } from './runtime-settings-route.server'
 
 const bodySchema = z.strictObject({
@@ -99,8 +100,10 @@ export async function handlePluginConnections(
     const disabled = new Set(install.disabled_points)
 
     for (const point of SETTINGS_POINTS) {
+      if (point === 'operations') continue
+
       for (const declaration of manifest.contributions[point] ?? []) {
-        const settings = declaration.settings ?? []
+        const settings = declaration.settings
 
         if (settings.length === 0) continue
         out.push({
@@ -110,8 +113,7 @@ export async function handlePluginConnections(
           point,
           itemId: declaration.id,
           title: declaration.title,
-          // An operation calls out through the plugin's own approved network.
-          hosts: 'hosts' in declaration ? declaration.hosts : [],
+          hosts: declaration.hosts,
           off: disabled.has(point),
           settings: describeSettings(
             { settings },
@@ -121,6 +123,32 @@ export async function handlePluginConnections(
           ),
         })
       }
+    }
+
+    // One card for all of a plugin's operations: a setting is kept once by name.
+    const shared = new Map<string, ExtensionOperationSetting>()
+
+    for (const operation of manifest.contributions.operations ?? []) {
+      for (const setting of operation.settings ?? [])
+        if (!shared.has(setting.name)) shared.set(setting.name, setting)
+    }
+
+    if (shared.size > 0) {
+      out.push({
+        extensionId: install.id,
+        extensionKey: install.key,
+        extensionName: install.name,
+        point: 'operations',
+        itemId: 'operations',
+        title: install.name,
+        // Operations reach the network through the plugin's own approved hosts.
+        hosts: [],
+        off: disabled.has('operations'),
+        settings: describeSettings(
+          { settings: [...shared.values()] },
+          stored.filter((row) => row.scope === settingsScope('operations', '')),
+        ),
+      })
     }
 
     return out

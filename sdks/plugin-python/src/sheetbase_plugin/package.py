@@ -466,6 +466,15 @@ def _operations(value, files, errors):
             lambda s: isinstance(s.get("secret"), bool), 8,
         ):
             return
+    shared = {}
+    for entry in value:
+        for setting in entry.get("settings") or []:
+            first = shared.setdefault(setting["name"], setting)
+            if any(first.get(k) != setting.get(k) for k in ("label", "secret", "required")):
+                errors.append(
+                    f"operations share the setting {setting['name']}, so every operation that declares it needs the same label, secret and required"
+                )
+                return
 
 
 def _analysis_kinds(value, files, errors):

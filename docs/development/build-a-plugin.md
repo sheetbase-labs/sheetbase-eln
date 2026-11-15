@@ -174,7 +174,10 @@ in your own Python: `pip install` what you declare (below) before you try it.
 
 An operation that needs an address or a token declares `settings` beside its
 inputs. An administrator sets them once under **Settings → Plugins →
-Connections**; a secret is sealed and never shown again. The function receives
+Connections**; a secret is sealed and never shown again. Settings are shared by
+name across the plugin's operations: declare `token` on each operation that needs
+it, identically (same label, secret and required), and the administrator enters it
+once. The function receives
 them as `input["_settings"]`:
 
 ```json

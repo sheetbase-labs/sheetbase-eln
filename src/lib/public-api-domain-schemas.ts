@@ -2372,11 +2372,11 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
             enum: ['sheetbase-assist-1', 'sheetbase-summarise-1'],
           },
           cloudEgressEnabled: { type: 'boolean' },
-          maxTokensPerCall: { type: 'integer', minimum: 1, maximum: 100000 },
+          maxTokensPerCall: { type: 'integer', minimum: 1, maximum: 5000000 },
           maxCostMicrousdPerCall: {
             type: 'integer',
             minimum: 0,
-            maximum: 10000000,
+            maximum: 500000000,
           },
         },
       },

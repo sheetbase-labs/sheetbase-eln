@@ -49,7 +49,7 @@ export function PluginBlockView({
     const known = body.plugin ? points.installed.get(body.plugin) : undefined
 
     return (
-      <p className="m-0 rounded-md border border-dashed border-border px-3 py-2 text-label text-fg-muted">
+      <p className="m-0 rounded-md border border-dashed border-border px-3 py-2 text-caption text-fg-muted">
         {t('plugins.screen.pluginBlockGone', {
           plugin: known?.name ?? body.plugin ?? '',
         })}

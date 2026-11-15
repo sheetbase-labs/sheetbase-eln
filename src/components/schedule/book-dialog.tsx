@@ -337,7 +337,7 @@ export function BookDialog({
           )}
           {/* The wall clock the person types is read in one zone; name it so
               10:00 cannot be misread as their own clock. */}
-          <p role="note" className="m-0 text-label text-fg-muted">
+          <p role="note" className="m-0 text-caption text-fg-muted">
             {timeZone
               ? t('projects.bookDialog.zoneNamed', { zone: timeZone })
               : t('projects.bookDialog.zone')}
@@ -400,7 +400,7 @@ function InstrumentField({
       {instruments.length === 0 ? (
         // A picker with nothing in it is a dead end; say what is missing
         // rather than leaving "Choose…" as the only option.
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('projects.bookDialog.noInstruments')}
         </p>
       ) : null}

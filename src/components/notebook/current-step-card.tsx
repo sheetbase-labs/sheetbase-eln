@@ -214,13 +214,13 @@ function RunningPart({
   return (
     <>
       <div className="flex flex-col gap-1">
-        <p className="m-0 text-label font-semibold uppercase tracking-[0.06em] text-fg-muted">
+        <p className="m-0 text-caption font-semibold uppercase tracking-[0.06em] text-fg-muted">
           {t('notebook.parts.nowPartEyebrow', { part: String(part.number) })}
         </p>
         <h2 className="m-0 font-heading text-doc font-semibold leading-snug text-fg">
           {part.title}
         </h2>
-        <p className="m-0 text-body text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {later ?? t('notebook.parts.noSteps')}
         </p>
       </div>
@@ -297,7 +297,7 @@ function RunningStep({
   return (
     <>
       <div className="flex flex-col gap-1">
-        <p className="m-0 text-label font-semibold uppercase tracking-[0.06em] text-fg-muted">
+        <p className="m-0 text-caption font-semibold uppercase tracking-[0.06em] text-fg-muted">
           {step.partNumber != null &&
           step.partStepIndex != null &&
           step.partStepCount != null
@@ -314,7 +314,7 @@ function RunningStep({
         <h2 className="m-0 font-heading text-doc font-semibold leading-snug text-fg">
           {step.text}
         </h2>
-        <p className="m-0 text-body text-fg-muted">{evidence}</p>
+        <p className="m-0 text-caption text-fg-muted">{evidence}</p>
       </div>
       <div className="flex flex-wrap items-center gap-2 max-md:[&>button]:flex-1">
         {canEdit ? (
@@ -391,7 +391,7 @@ function AllDone({
             {t('notebook.currentStep.allDone', { total: String(total) })}
           </p>
           {submit ? (
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {returned
                 ? t('notebook.currentStep.allDoneReturned')
                 : t('notebook.currentStep.allDoneHint')}
@@ -528,7 +528,7 @@ function AddResultDialog({
                 />
               </Field>
             </div>
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('notebook.currentStep.addResultHint')}
             </p>
           </DialogBody>

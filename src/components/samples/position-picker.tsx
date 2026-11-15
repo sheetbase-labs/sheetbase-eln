@@ -168,7 +168,7 @@ export function PositionPicker({
               className="max-h-72 min-h-24 overflow-auto rounded-md border border-border md:max-h-[27rem]"
             >
               {shown.length === 0 ? (
-                <p className="m-0 p-3 text-label text-fg-muted">
+                <p className="m-0 p-3 text-caption text-fg-muted">
                   {t('library.samples.positionPicker.noBoxMatches')}
                 </p>
               ) : (
@@ -259,7 +259,7 @@ export function PositionPicker({
       )}
 
       {value?.kind === 'position' && !typing ? (
-        <p role="status" className="m-0 text-label text-fg-muted">
+        <p role="status" className="m-0 text-caption text-fg-muted">
           {rich('library.samples.positionPicker.willGoTo', {
             place: <strong className="text-fg">{describePlace(value)}</strong>,
           })}

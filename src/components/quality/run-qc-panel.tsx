@@ -310,7 +310,7 @@ function QcSeriesBody({
         />
       ) : null}
       {!canWrite && !list.isPending ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('quality.runQc.readOnly')}
         </p>
       ) : null}
@@ -504,19 +504,19 @@ function SeriesChart({
   return (
     <>
       {rows.length === 0 && !loading ? (
-        <p className="m-0 text-body text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('quality.runQc.chart.noPoints')}
         </p>
       ) : (
         <LeveyJenningsChart series={series} points={rows} />
       )}
       {series.mean === null && rows.length > 0 ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('quality.runQc.chart.noLimits')}
         </p>
       ) : null}
       {rows.length >= QC_POINT_LIMIT ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('quality.runQc.chart.older', { count: QC_POINT_LIMIT })}
         </p>
       ) : null}
@@ -547,7 +547,7 @@ function SeriesBreaks({
         ) : null}
       </h4>
       {breaks.length === 0 ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('quality.runQc.breaks.empty')}
         </p>
       ) : (
@@ -803,7 +803,7 @@ function TrackValueDialog({
               onChange={(event) => setUnit(event.target.value)}
             />
           </Field>
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('quality.runQc.trackDialog.limitsHint')}
           </p>
           <div className="grid grid-cols-2 gap-3">
@@ -893,7 +893,7 @@ function TrackAssayDialog({
         />
         <DialogBody>
           {designs.isSuccess && options.length === 0 ? (
-            <p className="m-0 text-body text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('quality.runQc.assayDialog.none')}
             </p>
           ) : (

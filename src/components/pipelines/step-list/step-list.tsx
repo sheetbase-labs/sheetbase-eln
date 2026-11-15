@@ -217,7 +217,7 @@ export function StepList() {
                   })}
                 </summary>
                 <div className="mt-3 flex flex-col gap-3">
-                  <p className="m-0 text-label text-fg-muted">
+                  <p className="m-0 text-caption text-fg-muted">
                     {t('data.pipelineSteps.optionalValuesSuppliedWhen')}
                   </p>
                   <ParametersEditor
@@ -454,7 +454,7 @@ export function StepList() {
           />
           {selected === 'output' ? (
             <div className="px-3 pb-3 pl-10">
-              <p className="mb-2 mt-0 text-label text-fg-muted">
+              <p className="mb-2 mt-0 text-caption text-fg-muted">
                 {t('data.pipelineSteps.chooseWhetherRealRun')}
               </p>
               <OutputEditor
@@ -472,14 +472,14 @@ export function StepList() {
         </BoardBlock>
       </BoardList>
       {config.moreOutputs?.length ? (
-        <p className="m-0 px-3 pb-2 text-label text-fg-muted">
+        <p className="m-0 px-3 pb-2 text-caption text-fg-muted">
           {t('data.stepList.moreOutputsInFile', {
             count: config.moreOutputs.length,
           })}
         </p>
       ) : null}
       {config.include?.length ? (
-        <p className="m-0 px-3 pb-2 text-label text-fg-muted">
+        <p className="m-0 px-3 pb-2 text-caption text-fg-muted">
           {t('data.stepList.includesInFile', {
             sets: config.include.map((entry) => entry.set).join(', '),
           })}

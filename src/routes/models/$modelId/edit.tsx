@@ -1296,7 +1296,7 @@ function FieldEditor({
   return (
     <>
       <InspectorSection title={t('library.models.edit.fieldEditor')}>
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {field.key || t('library.models.edit.newField')}
           {keyLocked
             ? t('library.models.edit.publishedInV', {

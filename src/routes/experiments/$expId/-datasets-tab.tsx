@@ -238,7 +238,7 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
       }
     >
       {resolved.isLoading ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('projects.expDatasets.reading')}
         </p>
       ) : shown.length === 0 ? (
@@ -258,7 +258,7 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
               selectable={false}
             />
           </TableBox>
-          <p className="mb-0 mt-2 text-label text-fg-muted">
+          <p className="mb-0 mt-2 text-caption text-fg-muted">
             {t('projects.expDatasets.showing', {
               shown: shown.length,
               total: resolved.data?.totalCount ?? dataset.rows,

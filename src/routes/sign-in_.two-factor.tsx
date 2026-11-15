@@ -74,7 +74,7 @@ export function TwoFactorSurface({
               {t('settings.signIn.twoFactor.enterCode')}
             </h1>
           </div>
-          <p className="m-0 text-body leading-6 text-fg-muted">
+          <p className="m-0 text-caption leading-6 text-fg-muted">
             {backup
               ? t('settings.signIn.twoFactor.enterOneBackup')
               : t('settings.signIn.twoFactor.enter6Digit')}

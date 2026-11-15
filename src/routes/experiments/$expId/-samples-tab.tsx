@@ -278,13 +278,13 @@ function SampleInspector({
       </InspectorSection>
       <InspectorSection title={t('projects.expSamples.usedIn')}>
         {usedIn.data?.length ? (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('projects.expSamples.linkedFrom', {
               count: usedIn.data.length,
             })}
           </p>
         ) : (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('projects.expSamples.notUsed')}
           </p>
         )}
@@ -505,7 +505,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
               description={t('projects.expLinks.none.sample.body')}
             />
           )}
-          <p className="mb-0 mt-2 text-label text-fg-muted">
+          <p className="mb-0 mt-2 text-caption text-fg-muted">
             {t('projects.expSamples.count', { count: rows.length })}
             {t('projects.expSamples.volumesNote')}
           </p>

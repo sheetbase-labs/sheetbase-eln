@@ -173,7 +173,7 @@ function WebhookParserReceipt({ created }: { created: CreatedWebhookParser }) {
         </p>
       )}
       <p className="m-0 text-body">{t('settings.webhookParserDialog.next')}</p>
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('settings.webhookParserDialog.snippetIntro')}
       </p>
       <CodeBlock

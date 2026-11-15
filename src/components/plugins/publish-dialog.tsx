@@ -117,7 +117,7 @@ export function PublishDialog({
           })}
         />
         <DialogBody>
-          <p className="m-0 text-body text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {declaration.description}
           </p>
           {declaration.parameters.length > 0 ? (

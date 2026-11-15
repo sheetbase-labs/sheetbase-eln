@@ -27,7 +27,7 @@ export function ReleaseChecksSummary({
 }) {
   if (status.checks.length === 0) {
     return (
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('library.samples.releaseChecksPanel.noReleaseChecksApplyTo')}
       </p>
     )
@@ -74,7 +74,7 @@ export function ReleaseChecksSummary({
         ))}
       </ul>
       {unchecked ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {rich(
             'library.samples.releaseChecksPanel.noMeasurementsAreRecordedSo',
             {
@@ -91,11 +91,11 @@ export function ReleaseChecksSummary({
           )}
         </p>
       ) : status.passed ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('library.samples.releaseChecksPanel.thisSampleCanBeReleased')}
         </p>
       ) : (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {rich(
             'library.samples.releaseChecksPanel.releaseStaysBlockedUntilThe',
             {
@@ -144,7 +144,7 @@ export function ReleaseChecksPanel({
 
   if (query.isPending)
     return (
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('library.samples.releaseChecksPanel.checking')}
       </p>
     )

@@ -71,7 +71,7 @@ export function ActionMenu({
       </div>
       <div className="grid grid-cols-2 gap-x-1 p-1 max-md:grid-cols-1">
         {items.length === 0 ? (
-          <p className="col-span-2 m-0 p-3 text-label text-fg-muted">
+          <p className="col-span-2 m-0 p-3 text-caption text-fg-muted">
             {t('features.pipelineSimple.catalogue.none')}
           </p>
         ) : null}

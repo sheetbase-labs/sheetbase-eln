@@ -256,7 +256,7 @@ export function BulkRegisterDialog({
                 <RegistrationIssues issues={issues} />
                 <RepeatedSampleNames names={duplicates} />
                 {rows.length ? (
-                  <p role="status" className="m-0 text-label text-fg-muted">
+                  <p role="status" className="m-0 text-caption text-fg-muted">
                     {t(
                       'library.samples.bulkRegisterDialog.samplesReadyToRegister',
                       { count: rows.length },

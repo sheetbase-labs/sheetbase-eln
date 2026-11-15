@@ -563,14 +563,14 @@ function LocationSummary({
     <>
       <div>
         <h2 className="m-0 text-section">{node.name}</h2>
-        <p className="m-0 mt-0.5 text-label text-fg-muted">
+        <p className="m-0 mt-0.5 text-caption text-fg-muted">
           {meta.label}
           {node.level === 'box' && describeBoxGrid(node)
             ? ` · ${describeBoxGrid(node)} grid`
             : ''}
           {describeTemperature(node) ? ` · ${describeTemperature(node)}` : ''}
         </p>
-        <p className="m-0 mt-1 text-label text-fg-muted">
+        <p className="m-0 mt-1 text-caption text-fg-muted">
           {formatNodePath(tree, node)}
         </p>
       </div>

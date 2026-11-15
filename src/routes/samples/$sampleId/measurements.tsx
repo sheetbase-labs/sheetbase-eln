@@ -112,7 +112,7 @@ function MeasurementsTab() {
           {t('library.samples.measurements.recordReading')}
         </Button>
       </div>
-      <p className="m-0 -mt-4 text-label text-fg-muted">
+      <p className="m-0 -mt-4 text-caption text-fg-muted">
         {t('library.samples.measurements.valuesComeFromDatasetsAnd')}
       </p>
 

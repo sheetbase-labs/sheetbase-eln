@@ -50,7 +50,7 @@ function refusalBody(reason: string): string {
 function Outcome({ result }: { result: EmailChangeConfirmResult | null }) {
   if (result === null) {
     return (
-      <p className="m-0 text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('account.email.confirming')}
       </p>
     )
@@ -62,7 +62,7 @@ function Outcome({ result }: { result: EmailChangeConfirmResult | null }) {
 
   return (
     <>
-      <p className="m-0 text-body leading-6 text-fg-muted">
+      <p className="m-0 text-caption leading-6 text-fg-muted">
         {t('account.email.confirmedBody', { email: result.email })}
       </p>
       <Button

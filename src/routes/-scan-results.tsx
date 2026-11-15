@@ -142,7 +142,7 @@ export function ScanRecentList({
 }) {
   if (recent.length === 0) {
     return (
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('library.scan.page.scansYouResolveThisSession')}
       </p>
     )

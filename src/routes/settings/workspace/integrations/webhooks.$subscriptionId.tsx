@@ -425,7 +425,7 @@ function WebhookDeliveriesRoute() {
               )}
             >
               <p className="m-0 text-body">{whatToCheck(h, latestFailure)}</p>
-              <p className="m-0 text-label text-fg-muted">
+              <p className="m-0 text-caption text-fg-muted">
                 {t(
                   'settings.integrationsWebhooks.Subscriptionid.signingSheetbaseAffected',
                 )}

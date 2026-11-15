@@ -320,9 +320,7 @@ function ModelsCreateActions({
 }) {
   if (!canCreate)
     return (
-      <p className="m-0 max-w-[320px] text-label text-fg-muted">
-        {CREATE_DENIED_REASON}
-      </p>
+      <p className="m-0 text-caption text-fg-muted">{CREATE_DENIED_REASON}</p>
     )
 
   return (

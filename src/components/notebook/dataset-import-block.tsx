@@ -336,7 +336,7 @@ export function DatasetImportBlockPreview({
     <div className="grid min-w-0 gap-3 p-4">
       <div>
         <h3 className="text-body font-semibold">{filename}</h3>
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {t('notebook.datasetImportBlock.countImportedObservationsPinned', {
             count: receipt.imported_row_ids.length,
           })}

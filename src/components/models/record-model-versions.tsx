@@ -534,7 +534,7 @@ function VersionsTable({
   )
 
   return !rows.length ? (
-    <p className="p-4 text-label text-fg-muted">
+    <p className="p-4 text-caption text-fg-muted">
       {t('library.models.recordModelVersions.noVersionsYetStartA')}
     </p>
   ) : (
@@ -733,7 +733,7 @@ function VersionAuthorship({
   const { approvedBy, nameOf } = comparisons
 
   return (
-    <p className="mt-1 text-label text-fg-muted">
+    <p className="mt-1 text-caption text-fg-muted">
       {selected.lifecycle === 'published'
         ? approvedBy(selected.id).length
           ? t('library.models.recordModelVersions.publishedApprovedBy', {

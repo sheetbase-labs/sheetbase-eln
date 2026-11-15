@@ -71,7 +71,7 @@ export function SignaturesTable({
     return (
       <section aria-label={t('projects.signatures.title')} className="py-4">
         {title}
-        <p role="alert" className="m-0 text-label text-fg-muted">
+        <p role="alert" className="m-0 text-caption text-fg-muted">
           {t('projects.signatures.loadFailed')}
         </p>
       </section>

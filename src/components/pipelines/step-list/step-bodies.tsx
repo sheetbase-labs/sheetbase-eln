@@ -192,11 +192,11 @@ export function NotifyStepBody({
         </Select>
       </Field>
       {destinations.isSuccess && list.length === 0 ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.stepList.noDestinations')}
         </p>
       ) : null}
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('data.stepList.notifyWhen')}
       </p>
     </div>
@@ -296,7 +296,9 @@ export function ActionStepBody({
         </Banner>
       ) : null}
       {definition ? (
-        <p className="m-0 text-label text-fg-muted">{definition.description}</p>
+        <p className="m-0 text-caption text-fg-muted">
+          {definition.description}
+        </p>
       ) : null}
       {definition ? (
         <>
@@ -444,7 +446,7 @@ export function PluginStepBody({
         />
       </Field>
       {pluginSteps.length === 0 ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.pluginSteps.noPlugins')}
         </p>
       ) : null}
@@ -456,7 +458,9 @@ export function PluginStepBody({
         </Banner>
       ) : null}
       {descriptor ? (
-        <p className="m-0 text-label text-fg-muted">{descriptor.description}</p>
+        <p className="m-0 text-caption text-fg-muted">
+          {descriptor.description}
+        </p>
       ) : null}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {(descriptor?.inputs ?? []).map((input) => (

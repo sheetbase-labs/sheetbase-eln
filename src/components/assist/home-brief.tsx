@@ -177,7 +177,7 @@ export function HomeBrief({
                     </p>
                   ),
                 )}
-                <p className="m-0 mt-1 flex items-center gap-1 text-label text-fg-muted">
+                <p className="m-0 mt-1 flex items-center gap-1 text-caption text-fg-muted">
                   <Icon name="spark" size={12} aria-hidden />
                   {t('projects.homeBrief.label')}
                 </p>

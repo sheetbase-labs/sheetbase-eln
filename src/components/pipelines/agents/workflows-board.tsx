@@ -233,7 +233,9 @@ export function AgentWorkflowsBoard({
           <h2 className="m-0 break-words font-heading text-doc font-semibold">
             {selected.name}
           </h2>
-          <p className="m-0 text-body text-fg-muted">{selected.description}</p>
+          <p className="m-0 text-caption text-fg-muted">
+            {selected.description}
+          </p>
           {error ? <Muted className="text-danger-text">{error}</Muted> : null}
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -272,7 +274,7 @@ export function AgentWorkflowsBoard({
               <p className="m-0 text-body">{selected.proposes}</p>
             </>
           ) : null}
-          <p className="m-0 mt-1 text-label text-fg-muted">
+          <p className="m-0 mt-1 text-caption text-fg-muted">
             {t('data.workflowsBoard.neverSignsApprovesDeletes')}
           </p>
         </section>

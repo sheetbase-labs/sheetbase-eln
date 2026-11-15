@@ -240,7 +240,7 @@ export function RetentionPanel({
           <h2 className="m-0 text-body font-semibold">
             {t('quality.retention.rules.title')}
           </h2>
-          <p className="m-0 max-w-prose text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('quality.retention.rules.intro')}
           </p>
         </div>
@@ -294,7 +294,7 @@ export function RetentionPanel({
             <h2 className="m-0 text-body font-semibold">
               {t('quality.retention.holds.title')}
             </h2>
-            <p className="m-0 max-w-prose text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('quality.retention.holds.intro')}
             </p>
           </div>
@@ -790,7 +790,7 @@ function ReleaseHoldDialog({
         />
         <DialogBody>
           <div className="flex flex-col gap-4">
-            <p className="m-0 text-body text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('quality.retention.holds.releaseBody')}
             </p>
             <Field label={t('quality.retention.holds.releaseNote')}>

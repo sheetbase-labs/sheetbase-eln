@@ -100,7 +100,7 @@ export function LotInspector({
             : t('library.materials.lot.noReplacementLot')
         }
       >
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {replacement
             ? `${replacement.targetIdentifier}${replacement.reason ? ` · ${replacement.reason}` : ''}`
             : t('library.materials.lot.noLotHasBeenRegistered')}
@@ -117,7 +117,7 @@ export function LotInspector({
             ))}
           </ul>
         ) : (
-          <p className="text-label text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {t('library.materials.lot.noMovementsYet')}
           </p>
         )}

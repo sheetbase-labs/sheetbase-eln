@@ -216,7 +216,7 @@ function ChangeGutter({
 /** Scalar before/after read as an insertion or a deletion in the prose. */
 function InlineMark({ change }: { change: RevisionChange }) {
   return (
-    <p className="mt-1.5 max-w-[680px] text-sm leading-6 text-fg-muted">
+    <p className="mt-1.5 text-sm leading-6 text-fg-muted">
       <span className="mr-1.5 text-xs uppercase tracking-wide">
         {t('projects.documentReview.text')}
       </span>

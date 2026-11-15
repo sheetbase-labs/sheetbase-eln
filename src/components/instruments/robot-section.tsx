@@ -230,7 +230,7 @@ export function RobotSection({
           ) : null}
         </div>
       ) : (
-        <p className="m-0 text-body text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('automation.robot.notSetUp')}
         </p>
       )}
@@ -468,7 +468,7 @@ function RobotJobsTable({
         {t('automation.robot.jobs.title')}
       </h3>
       {!loading && jobs.length === 0 ? (
-        <p className="m-0 text-body text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('automation.robot.jobs.empty')}
         </p>
       ) : (
@@ -566,7 +566,7 @@ function RobotSetupDialog({
         />
         <DialogBody>
           <div className="flex flex-col gap-4">
-            <p className="m-0 text-body text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('automation.robot.explain')}
             </p>
             <Field label={t('automation.robot.driver')}>
@@ -709,7 +709,7 @@ function RobotAgentDialog({
         />
         <DialogBody>
           <div className="flex flex-col gap-4">
-            <p className="m-0 text-body text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('automation.robot.agentExplain')}
             </p>
             <Field label={t('automation.robot.system')}>
@@ -858,7 +858,7 @@ export function SendToRobotDialog({
         <DialogHeader title={t('automation.robot.send.title', { reference })} />
         <DialogBody>
           {!robots.isPending && options.length === 0 ? (
-            <p className="m-0 text-body text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('automation.robot.send.noRobots')}
             </p>
           ) : (
@@ -929,7 +929,7 @@ export function WorklistJobLine({ worklistId }: { worklistId: string }) {
       .name ?? ''
 
   return (
-    <p className="m-0 flex items-center gap-2 text-label text-fg-muted">
+    <p className="m-0 flex items-center gap-2 text-caption text-fg-muted">
       <span className="mono">{jobReference(job.number)}</span>
       {t('automation.robot.send.onRobot', {
         robot: name,

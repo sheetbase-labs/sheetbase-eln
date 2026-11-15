@@ -39,7 +39,7 @@ export function ContextHelp() {
       />
       <PopoverContent className="w-[min(340px,calc(100vw-32px))] p-3">
         <PopoverTitle className="m-0 text-section">{topic.title}</PopoverTitle>
-        <p className="mb-2 mt-1 text-label text-fg-muted">{topic.text}</p>
+        <p className="mb-2 mt-1 text-caption text-fg-muted">{topic.text}</p>
         <div className="flex flex-col gap-1 text-label">
           {topic.more ? (
             <Link {...topic.more.link}>{topic.more.label}</Link>

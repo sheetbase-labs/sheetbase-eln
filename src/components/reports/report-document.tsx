@@ -27,7 +27,7 @@ export function ReportDocument({ report }: { report: ReportDetail }) {
           {report.title}
         </h2>
         {report.subtitle ? (
-          <p className="text-body text-fg-muted">{report.subtitle}</p>
+          <p className="text-caption text-fg-muted">{report.subtitle}</p>
         ) : null}
       </header>
       {report.sections.map((section) => {

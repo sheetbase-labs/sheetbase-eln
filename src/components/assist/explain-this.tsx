@@ -105,7 +105,7 @@ export function ExplainThis({
                     {paragraph}
                   </p>
                 ))}
-              <p className="m-0 text-label text-fg-muted">
+              <p className="m-0 text-caption text-fg-muted">
                 {t('notebook.explainThis.note')}
               </p>
             </>

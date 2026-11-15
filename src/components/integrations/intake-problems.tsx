@@ -372,7 +372,7 @@ function ProblemsSummary({
   return (
     <>
       {count ? (
-        <p className="m-0 text-body text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.intake.problems.intro')}
         </p>
       ) : null}

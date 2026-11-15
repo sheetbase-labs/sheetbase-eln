@@ -131,7 +131,7 @@ export function DatasetImportsTab({
   if (query.isLoading) {
     return (
       <div className="px-4 py-6 md:px-6" aria-busy="true">
-        <p className="text-body text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {t('data.datasetImportsTab.loadingImports')}
         </p>
       </div>

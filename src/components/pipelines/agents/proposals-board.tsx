@@ -167,7 +167,7 @@ function RenderedBlock({ rendered }: { rendered: RenderedChange }) {
               </table>
             ) : null}
             {section.caption ? (
-              <p className="m-0 mt-2 text-label text-fg-muted">
+              <p className="m-0 mt-2 text-caption text-fg-muted">
                 {section.caption}
               </p>
             ) : null}
@@ -175,7 +175,7 @@ function RenderedBlock({ rendered }: { rendered: RenderedChange }) {
         ),
       )}
       {rendered.footer ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {linkifyIdentifiers(rendered.footer)}
         </p>
       ) : null}
@@ -504,7 +504,7 @@ function ProposalDetails({
           ]}
         />
         {selected.status === 'pending' && subject.identifier ? (
-          <p className="m-0 mt-2 text-label text-fg-muted">
+          <p className="m-0 mt-2 text-caption text-fg-muted">
             {t('data.proposalsBoard.checkedAgainWhenApprove', {
               identifier: subject.identifier,
               since: revision ?? t('data.proposalsBoard.itWasProposed'),
@@ -550,7 +550,7 @@ function ProposalDetails({
               ],
             ]}
           />
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {selected.policy_reason}
           </p>
           <div>

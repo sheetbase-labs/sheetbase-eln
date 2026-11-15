@@ -133,7 +133,7 @@ function TwoFactorControls({ data }: { data: TwoFactorStatus }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="m-0 text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {data.emailLinkEnabled
           ? t('settings.twoFactor.asksCodeAuthenticator')
           : ''}

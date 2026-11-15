@@ -174,7 +174,7 @@ export function RunAiFix({
 
       {phase.name === 'idle' || phase.name === 'asking' ? (
         <>
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('data.pipelineRunAiFix.intro')}
           </p>
           <div>
@@ -319,7 +319,7 @@ function FixAnswer({
           />
         </div>
       ) : (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.pipelineRunAiFix.noCodeFix')}
         </p>
       )}

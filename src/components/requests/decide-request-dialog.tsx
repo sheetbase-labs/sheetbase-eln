@@ -90,7 +90,7 @@ function RequestDecision({
             <div className="flex flex-col gap-3">
               <div>
                 <p className="m-0 font-medium">{request.title}</p>
-                <p className="m-0 text-label text-fg-muted">
+                <p className="m-0 text-caption text-fg-muted">
                   {t('requests.decide.askedBy', {
                     name: askerName,
                     date: formatDate(request.created_at),

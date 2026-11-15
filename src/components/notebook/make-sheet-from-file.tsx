@@ -207,7 +207,7 @@ function WorkbookPreview({
 }) {
   if (workbook.isLoading)
     return (
-      <p className="text-label text-fg-muted">
+      <p className="text-caption text-fg-muted">
         {t('notebook.makeSheet.loading')}
       </p>
     )
@@ -274,7 +274,7 @@ function MadeSheetPreview({ made }: { made: MadeSheet }) {
 
   return (
     <>
-      <p className="text-label text-fg-muted">
+      <p className="text-caption text-fg-muted">
         {t('notebook.makeSheet.summary', {
           rows: made.rowCount,
           columns: made.columnCount,

@@ -1070,7 +1070,7 @@ function AnalysisInspector({
               <InspectorSection
                 title={t('data.analysisStudio.whatCitationMeans')}
               >
-                <p className="text-label text-fg-muted">
+                <p className="text-caption text-fg-muted">
                   {sourceStatus && sourceStatus.citedByCount > 0
                     ? t('data.analysisStudio.recordAnalysisLockedCited', {
                         count: sourceStatus.citedByCount,

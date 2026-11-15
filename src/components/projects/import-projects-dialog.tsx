@@ -130,7 +130,7 @@ export function ImportProjectsDialog({
         <DialogHeader title={t('projects.projectImport.title')} />
         <DialogBody>
           <div className="flex flex-col gap-4">
-            <p className="m-0 text-body text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('projects.projectImport.intro')}
             </p>
             <FileDrop

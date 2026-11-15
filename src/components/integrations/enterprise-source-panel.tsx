@@ -548,7 +548,7 @@ function S3SourcePanel({
         'settings.integrations.enterpriseSourcePanel.sourceObjectStorage',
       )}
     >
-      <p className="m-0 max-w-3xl text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('settings.integrations.enterpriseSourcePanel.browseFilesConfigured')}
       </p>
 
@@ -599,7 +599,7 @@ function S3SourcePanel({
 
         {selectedKey && (
           <div className="flex flex-col gap-3">
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('settings.integrations.enterpriseSourcePanel.selected')}
               <span className="mono">{selectedKey}</span>
             </p>
@@ -727,7 +727,7 @@ function PostgresSourcePanel({
         'settings.integrations.enterpriseSourcePanel.sourceExternalDatabase',
       )}
     >
-      <p className="m-0 max-w-3xl text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('settings.integrations.enterpriseSourcePanel.browseTablesViews')}
       </p>
 
@@ -805,7 +805,7 @@ function PostgresSourcePanel({
 
         {selectedTableDescriptor && (
           <div className="flex flex-col gap-3">
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('settings.integrations.enterpriseSourcePanel.columns')}{' '}
               <span className="mono">
                 {selectedTableDescriptor.columns
@@ -833,7 +833,7 @@ function PostgresSourcePanel({
                 />
                 <PreviewTable preview={previewMutation.data} />
                 {previewMutation.data.truncated && (
-                  <p className="m-0 text-label text-fg-muted">
+                  <p className="m-0 text-caption text-fg-muted">
                     {t(
                       'settings.integrations.enterpriseSourcePanel.previewTruncatedConnector',
                     )}

@@ -233,10 +233,10 @@ function ReadinessRow({
           {item.title}
         </span>
         {item.detail ? (
-          <p className="m-0 text-label text-fg-muted">{item.detail}</p>
+          <p className="m-0 text-caption text-fg-muted">{item.detail}</p>
         ) : null}
         {item.unresolvedReason ? (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('projects.overview.noLocation', {
               reason: item.unresolvedReason,
             })}
@@ -947,7 +947,7 @@ function renderKeyResultsSection({
                 {conclusion.text}
               </p>
               {conclusion.basis ? (
-                <p className="m-0 text-label text-fg-muted">
+                <p className="m-0 text-caption text-fg-muted">
                   {t('projects.overview.results.basedOn', {
                     basis: conclusion.basis,
                   })}

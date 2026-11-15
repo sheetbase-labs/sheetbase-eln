@@ -111,7 +111,7 @@ function HelpCentre() {
           <h1 className="text-title max-md:text-[18px] max-md:leading-6">
             {t('settings.help.index.help')}
           </h1>
-          <p className="m-0 mt-0.5 text-body text-fg-muted">
+          <p className="m-0 mt-0.5 text-caption text-fg-muted">
             {t('settings.help.index.guidesSheetbaseRelease', { version })}
           </p>
           <form
@@ -271,7 +271,7 @@ function HelpCentre() {
                   </li>
                 ))}
               </ol>
-              <p className="m-0 text-body leading-5 text-fg-muted">
+              <p className="m-0 text-caption text-fg-muted">
                 {t('settings.help.index.everyExperimentDataset')}
               </p>
               <ul className="m-0 grid list-none grid-cols-1 gap-x-6 p-0 md:grid-cols-2">
@@ -315,7 +315,7 @@ function HelpCentre() {
                 </div>
               ))}
             </div>
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {rich('settings.help.index.shortcutsHint', {
                 key: <Kbd>?</Kbd>,
               })}
@@ -432,7 +432,7 @@ function SupportSection() {
     >
       <div
         role="note"
-        className="flex max-w-[640px] gap-2.5 rounded-md border border-dashed border-border-strong px-3 py-2.5 text-label leading-[18px]"
+        className="flex gap-2.5 rounded-md border border-dashed border-border-strong px-3 py-2.5 text-label leading-[18px]"
       >
         <Icon
           name="clock"

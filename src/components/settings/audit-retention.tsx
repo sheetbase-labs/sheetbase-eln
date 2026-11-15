@@ -183,7 +183,7 @@ export function RetentionDialog({
               onChange={(e) => setYears(e.target.value)}
             />
           </label>
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('settings.auditRetention.signedRecordsNever')}
           </p>
           {save.isError ? (

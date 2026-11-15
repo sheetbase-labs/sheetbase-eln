@@ -156,7 +156,7 @@ function RequestFormPanel({
             </Field>
           ) : null}
           {form?.intro ? (
-            <p className="m-0 text-body text-fg-muted">{form.intro}</p>
+            <p className="m-0 text-caption text-fg-muted">{form.intro}</p>
           ) : null}
           <Field
             label={t('requests.form.summary')}
@@ -174,7 +174,7 @@ function RequestFormPanel({
             />
           </Field>
           {fieldsQuery.isPending ? null : fields.length === 0 ? (
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('requests.form.noFields')}
             </p>
           ) : (

@@ -188,7 +188,9 @@ export function SimpleEditor({
           </Button>
         </div>
         {!complete && problems.length ? (
-          <p className="m-0 text-label text-fg-muted">{problems[0].message}</p>
+          <p className="m-0 text-caption text-fg-muted">
+            {problems[0].message}
+          </p>
         ) : null}
         <RecipeEditor
           recipe={recipe}

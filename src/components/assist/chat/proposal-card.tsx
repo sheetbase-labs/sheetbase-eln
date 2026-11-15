@@ -467,7 +467,7 @@ export function ProposalCard({
           </span>
         </div>
       </header>
-      <p className="m-0 text-body text-fg-muted">{proposal.summary}</p>
+      <p className="m-0 text-caption text-fg-muted">{proposal.summary}</p>
       <ProposalChanges changes={proposal.changes} />
       <ProposalStatus state={state} note={note} />
       <ProposalActions
@@ -522,7 +522,7 @@ function ProposalStatus({
 
   if (state.phase === 'applied' && note) {
     return (
-      <p className="m-0 break-all text-label text-fg-muted">
+      <p className="m-0 break-all text-caption text-fg-muted">
         {t('notebook.assistantPanel.proposal.linkNote')}{' '}
         <span className="select-all font-medium text-fg">{note}</span>
       </p>
@@ -531,7 +531,7 @@ function ProposalStatus({
 
   if (state.phase === 'signature') {
     return (
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('notebook.assistantPanel.proposal.needsSignature')}{' '}
         <Link
           to="/pipelines/agents"

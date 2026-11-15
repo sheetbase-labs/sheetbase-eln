@@ -55,13 +55,13 @@ export function ProjectsEmptyState({
           ? noProjectAccessTitle('projects')
           : t('projects.projectsPage.empty.title')}
       </h2>
-      <p className="m-0 max-w-[460px] leading-[19px] text-fg-muted">
+      <p className="m-0 leading-[19px] text-fg-muted">
         {noAccess
           ? NO_PROJECT_ACCESS_BODY
           : t('projects.projectsPage.empty.body')}
       </p>
       {!noAccess && !canCreate ? (
-        <p className="m-0 max-w-[460px] leading-[19px] text-fg-muted">
+        <p className="m-0 leading-[19px] text-fg-muted">
           {createDisabledBodyText()}
         </p>
       ) : null}
@@ -101,7 +101,7 @@ export function ProjectsNoResults({
               tab: tabLabel(tab).toLowerCase(),
             })}
       </div>
-      <div className="max-w-[460px] leading-[19px] text-fg-muted">
+      <div className="leading-[19px] text-fg-muted">
         {q ? (
           <>
             {archived === 'exclude'

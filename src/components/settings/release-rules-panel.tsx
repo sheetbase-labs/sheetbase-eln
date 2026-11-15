@@ -187,7 +187,7 @@ export function ReleaseRulesPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <SettingsBody className="min-w-0 flex-1">
-        <p className="m-0 max-w-prose text-body text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('settings.releaseRules.intro')}
         </p>
         {canManage ? (
@@ -333,7 +333,7 @@ function RuleEditor({
             : t('settings.releaseRules.editTitle', { type: sampleType })}
         </h2>
         {sampleType === ALL_TYPES ? null : (
-          <p className="m-0 mt-0.5 text-label text-fg-muted">
+          <p className="m-0 mt-0.5 text-caption text-fg-muted">
             {t('settings.releaseRules.typeHint')}
           </p>
         )}

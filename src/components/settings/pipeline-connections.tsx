@@ -761,7 +761,7 @@ function SecretsEditor({
           </div>
         ))}
         {connection.secret_names.length === 0 ? (
-          <p className="m-0 px-3 py-2 text-label text-fg-muted">
+          <p className="m-0 px-3 py-2 text-caption text-fg-muted">
             {t('features.pipelineConnections.settings.noSecrets')}
           </p>
         ) : null}

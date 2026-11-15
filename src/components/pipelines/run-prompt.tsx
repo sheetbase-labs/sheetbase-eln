@@ -340,7 +340,7 @@ function AnsweredPrompt({
         ) : null}
       </p>
       {answer.reason ? (
-        <p className="m-0 text-body text-fg-muted">{answer.reason}</p>
+        <p className="m-0 text-caption text-fg-muted">{answer.reason}</p>
       ) : null}
       <p className="m-0 text-caption text-fg-muted">
         {prompt.answered_by_user_id
@@ -403,9 +403,7 @@ export function RunPromptPanel({
     >
       <h2 className="font-sans text-label font-semibold">{title}</h2>
       {schema.description ? (
-        <p className="m-0 max-w-[720px] text-body text-fg-muted">
-          {schema.description}
-        </p>
+        <p className="m-0 text-caption text-fg-muted">{schema.description}</p>
       ) : null}
 
       <ProposalTable schema={schema} />

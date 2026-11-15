@@ -435,7 +435,7 @@ function CompleteWorklistFields({
 }) {
   return (
     <>
-      <p className="text-label text-fg-muted">
+      <p className="text-caption text-fg-muted">
         {t('plates.worklists.complete.intro')}
       </p>
       <FileDrop
@@ -456,7 +456,7 @@ function CompleteWorklistFields({
           ))}
         </Select>
       </Field>
-      <p role="status" className="text-label text-fg-muted">
+      <p role="status" className="text-caption text-fg-muted">
         {logText === null
           ? t('plates.worklists.complete.noLog')
           : t('plates.worklists.complete.summary', counts)}
@@ -512,7 +512,7 @@ function WorklistSummary({
 
   return (
     <>
-      <p className="text-label text-fg-muted">
+      <p className="text-caption text-fg-muted">
         {t(`plates.worklist.formats.${worklist.format}`)} ·{' '}
         {worklist.source_plate} → {worklist.dest_plate}
         {' · '}

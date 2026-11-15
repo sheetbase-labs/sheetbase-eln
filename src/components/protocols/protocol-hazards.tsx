@@ -83,7 +83,9 @@ export function ProtocolHazards({
   return (
     <Section title={t('safety.protocol.title')} count={rows.length}>
       {rows.length === 0 ? (
-        <p className="text-label text-fg-muted">{t('safety.protocol.none')}</p>
+        <p className="text-caption text-fg-muted">
+          {t('safety.protocol.none')}
+        </p>
       ) : (
         <div className="flex flex-col gap-3" data-slot="protocol-hazards">
           <div className="flex items-center gap-3">

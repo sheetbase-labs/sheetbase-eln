@@ -134,7 +134,7 @@ function CodeCellOutputView({
       className="flex flex-col gap-2"
       aria-label={t('automation.codeCell.outputLabel')}
     >
-      <p className="m-0 flex flex-wrap items-center gap-2 text-label text-fg-muted">
+      <p className="m-0 flex flex-wrap items-center gap-2 text-caption text-fg-muted">
         <span className="mono">{output.reference}</span>
         {t('automation.codeCell.ranAt', {
           when: formatRelativeTime(output.ranAt),
@@ -155,7 +155,7 @@ function CodeCellOutputView({
           })}
         </Notice>
       ) : shown.length === 0 ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('automation.codeCell.noRows')}
         </p>
       ) : (
@@ -173,7 +173,7 @@ function CodeCellOutputView({
             />
           </TableBox>
           {output.rowCount > shown.length ? (
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('automation.codeCell.firstRows', {
                 shown: shown.length,
                 count: output.rowCount,
@@ -250,7 +250,7 @@ export function CodeCellBlockPreview({
 
   if (!cell.source && !output) {
     return (
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('automation.codeCell.emptyPreview')}
       </p>
     )
@@ -273,7 +273,7 @@ export function CodeCellBlockPreview({
       {output ? (
         <CodeCellOutputView output={output} stale={outputIsStale(cell)} />
       ) : (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('automation.codeCell.notRun')}
         </p>
       )}
@@ -684,7 +684,7 @@ function CodeCellResults({
       {output ? (
         <CodeCellOutputView output={output} stale={stale} />
       ) : (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('automation.codeCell.notRun')}
         </p>
       )}

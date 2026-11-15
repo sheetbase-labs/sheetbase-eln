@@ -473,7 +473,7 @@ function PlatePanel({
           </Select>
         </div>
         {!analysed && view !== 'raw' && view !== 'roles' ? (
-          <p className="text-label text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {t('plates.run.notAnalysed')}
           </p>
         ) : null}
@@ -496,7 +496,7 @@ function PlatePanel({
         {analysed ? (
           <QcCard run={run} />
         ) : (
-          <p className="text-label text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {t('plates.run.notAnalysed')}
           </p>
         )}
@@ -706,7 +706,7 @@ function ArchiveDialog({
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
         <DialogHeader title={t('plates.run.archiveTitle', { reference })} />
         <DialogBody>
-          <p className="text-body text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {t('plates.run.archiveBody')}
           </p>
         </DialogBody>
@@ -806,7 +806,9 @@ function QcCard({ run }: { run: PlateRunRow }) {
           ))}
         </ul>
       ) : (
-        <p className="text-label text-fg-muted">{t('plates.qc.noControls')}</p>
+        <p className="text-caption text-fg-muted">
+          {t('plates.qc.noControls')}
+        </p>
       )}
       <div className="flex flex-col gap-0.5 text-label">
         <span className="font-medium">{t('plates.qc.edgeTitle')}</span>

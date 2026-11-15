@@ -168,7 +168,7 @@ function TypedCodeForm({
             : t('library.scan.cameraScanner.find')}
         </Button>
       </div>
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('library.scan.cameraScanner.identifiersSmpExpInsOr')}
       </p>
     </form>
@@ -375,7 +375,7 @@ export function CameraScanner({
         <p
           role="status"
           data-scan-coverage="limited"
-          className="m-0 text-label text-fg-muted"
+          className="m-0 text-caption text-fg-muted"
         >
           {t('library.scan.cameraScanner.fromTheCameraThisBrowser', {
             readable: formatList(
@@ -396,7 +396,7 @@ export function CameraScanner({
       />
 
       {lastScan ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {rich('library.scan.cameraScanner.lastScan', {
             lastScan,
             span: (text) => <span className="mono">{text}</span>,

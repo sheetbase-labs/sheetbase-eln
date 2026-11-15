@@ -279,7 +279,7 @@ function Overview() {
   if (!record) {
     return (
       <div className="px-4 py-5 md:px-8">
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {blocks.isLoading ? 'Loading experiment…' : 'Experiment not found.'}
         </p>
       </div>

@@ -79,7 +79,7 @@ export function ProtocolDocument({
             <div className="min-w-0">
               <p className="m-0 whitespace-pre-wrap text-body">{text}</p>
               {durationSeconds !== null ? (
-                <p className="m-0 mt-1 inline-flex items-center gap-1.5 text-label text-fg-muted">
+                <p className="m-0 mt-1 inline-flex items-center gap-1.5 text-caption text-fg-muted">
                   <Icon name="clock" size={12} />
                   {t('notebook.stepTimers.runsFor', {
                     length: formatDuration(durationSeconds),

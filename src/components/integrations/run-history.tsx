@@ -265,7 +265,7 @@ function ExpandedRunRow({
         <div className="mb-2">
           <p className="m-0 text-label">{runSummary(run.result)}</p>
           {detail?.datasetId !== undefined && (
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('settings.integrations.runHistory.dataset')}
               <span className="mono">{detail.datasetId}</span>
               {detail.datasetRevision
@@ -301,7 +301,7 @@ function ExpandedRunRow({
         </p>
       )}
       {(logsQuery.data ?? []).map((log) => (
-        <p key={log.id} className="m-0 mono text-label text-fg-muted">
+        <p key={log.id} className="m-0 mono text-caption text-fg-muted">
           [{formatTime(log.at)}] {log.level} {log.stage}: {log.message}
         </p>
       ))}

@@ -711,7 +711,7 @@ function InstallDialog({
             </div>
           ) : null}
           {step.kind === 'reading' ? (
-            <p className="text-body text-fg-muted">
+            <p className="text-caption text-fg-muted">
               {t('plugins.admin.install.reading', { file: step.file })}
             </p>
           ) : null}
@@ -818,7 +818,7 @@ function PluginContributions({ adds }: Pick<PluginCheckResult, 'adds'>) {
         {t('plugins.admin.install.adds')}
       </h3>
       {adds.length === 0 ? (
-        <p className="text-body text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {t('plugins.admin.install.addsNothing')}
         </p>
       ) : (
@@ -860,7 +860,7 @@ function PluginPackageSummary({ plugin }: { plugin: PluginCheckResult }) {
               : ''}
           </span>
         </div>
-        <p className="mt-1 text-body text-fg-muted">{plugin.description}</p>
+        <p className="mt-1 text-caption text-fg-muted">{plugin.description}</p>
       </div>
       {plugin.existing ? (
         <Notice

@@ -547,7 +547,7 @@ function AiAccessFlags({
       <div className="flex flex-col gap-4">
         {(['standard', 'privileged'] as const).map((risk) => (
           <div key={risk} className="flex flex-col gap-3">
-            <p className="m-0 text-label font-medium text-fg-muted">
+            <p className="m-0 text-caption font-medium text-fg-muted">
               {risk === 'standard'
                 ? t('settings.ai.standardAccess')
                 : t('settings.ai.privilegedAccess')}

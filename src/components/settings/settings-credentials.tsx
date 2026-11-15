@@ -201,7 +201,7 @@ export function SettingsCredentials({
       }
       className={className}
     >
-      <p className="m-0 max-w-3xl text-body text-fg-muted">{copy.intro}</p>
+      <p className="m-0 text-caption text-fg-muted">{copy.intro}</p>
       {inactiveCount > 0 ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Muted>
@@ -544,7 +544,7 @@ function CredentialRows({
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="m-0 break-words font-medium">{row.name}</p>
-                  <p className="m-0 mono text-label text-fg-muted">
+                  <p className="m-0 mono text-caption text-fg-muted">
                     {row.displayPrefix}
                   </p>
                 </div>
@@ -759,7 +759,7 @@ function CredentialCreateForm({
                             : t('settings.credentials.select')}
                         </Button>
                       </div>
-                      <p className="m-0 text-label leading-[18px] text-fg-muted">
+                      <p className="m-0 text-caption leading-[18px] text-fg-muted">
                         {group.description}
                       </p>
                       <div className="flex flex-wrap gap-x-4 gap-y-1.5">

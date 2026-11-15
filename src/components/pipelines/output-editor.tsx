@@ -241,16 +241,16 @@ function OutputMapping({
         {t('data.outputEditor.columnsResultMustProduce')}
       </legend>
       {fields.isLoading ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.outputEditor.loadingColumns')}
         </p>
       ) : fieldList.length === 0 ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.outputEditor.schemaHasActiveFields')}
         </p>
       ) : (
         <>
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('data.outputEditor.nameEachResultColumn')}
           </p>
           <datalist id="pipeline-result-columns">
@@ -345,14 +345,14 @@ function OutputFitFeedback({
           .join(' ')}
       </Notice>
     ) : (
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('data.outputEditor.columnsLastRunFit', {
           columns: resultColumns.join(', '),
         })}
       </p>
     )
   ) : (
-    <p className="m-0 text-label text-fg-muted">
+    <p className="m-0 text-caption text-fg-muted">
       {t('data.outputEditor.runPipelineOnceResult')}
     </p>
   )

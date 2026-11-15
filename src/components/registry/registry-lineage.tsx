@@ -221,7 +221,7 @@ export function RegistryLineage({
               getRowId={(node) => node.entry.id}
             />
           ) : (
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('registry.entry.noAncestors')}
             </p>
           )}
@@ -238,7 +238,7 @@ export function RegistryLineage({
               getRowId={(node) => node.entry.id}
             />
           ) : (
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('registry.entry.noDescendants')}
             </p>
           )}
@@ -296,7 +296,7 @@ function AddParentDialog({
         />
         <DialogBody>
           {candidates.length === 0 ? (
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('registry.entry.pickParentNone')}
             </p>
           ) : (

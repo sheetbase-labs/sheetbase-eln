@@ -189,7 +189,7 @@ export function NotebookOutlinePanel({
         >
           {requested.length === 0 ? (
             <p
-              className="m-0 text-label text-fg-muted"
+              className="m-0 text-caption text-fg-muted"
               data-testid="requested-signatures-empty"
             >
               {t('notebook.notebookOutlinePanel.noSignatureRequestsAdd')}

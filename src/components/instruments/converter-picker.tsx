@@ -78,11 +78,11 @@ export function ConverterPicker({
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border p-3">
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('quality.instrumentData.picker.body')}
       </p>
       {converters.isPending ? (
-        <p role="status" className="m-0 text-label text-fg-muted">
+        <p role="status" className="m-0 text-caption text-fg-muted">
           {t('quality.instrumentData.picker.loading')}
         </p>
       ) : converters.isError ? (

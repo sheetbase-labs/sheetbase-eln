@@ -211,7 +211,7 @@ export function LotDetailsTab({
             <LotCertificateLabel certificate={certificate} fallback={null} />
           </span>
         ) : (
-          <p className="text-label text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {certificateNote ??
               t('library.materials.lot.noCertificateIsAttachedTo')}
           </p>
@@ -282,7 +282,7 @@ export function LotLedgerTab({
           </tbody>
         </table>
       ) : (
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {isLoading
             ? t('library.materials.lot.loadingLedger')
             : t('library.materials.lot.noMovementsYet')}
@@ -340,7 +340,7 @@ export function LotUsedTab({
             ))}
           </ul>
         ) : (
-          <p className="text-label text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {usageLoading
               ? t('common.states.loading')
               : t('library.materials.lot.noExperimentHasUsedThis')}

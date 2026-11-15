@@ -129,7 +129,7 @@ export function CapabilityGap({
       </div>
       <div className="flex flex-col gap-1">
         <h2 className="text-section">{title}</h2>
-        <p className="m-0 text-body leading-5 text-fg-muted">{will}</p>
+        <p className="m-0 text-caption text-fg-muted">{will}</p>
       </div>
       {instead?.length ? (
         <div className="overflow-hidden rounded-md border border-border">

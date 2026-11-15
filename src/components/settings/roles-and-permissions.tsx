@@ -260,7 +260,7 @@ export function RolesAndPermissions({
         <h2 className="text-section">
           {t('settings.rolesAndPermissions.whoOpenEach')}
         </h2>
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {canEdit
             ? t('settings.rolesAndPermissions.chooseWhatEach')
             : t('settings.rolesAndPermissions.onlyWorkspaceAdmin')}
@@ -282,7 +282,7 @@ export function RolesAndPermissions({
         <h2 className="text-section">
           {t('settings.rolesAndPermissions.whatPeopleCanDo')}
         </h2>
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {canEdit
             ? t('settings.rolesAndPermissions.workHelp')
             : t('settings.rolesAndPermissions.onlyWorkspaceAdmin')}

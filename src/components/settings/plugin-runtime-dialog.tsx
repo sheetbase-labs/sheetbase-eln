@@ -196,7 +196,7 @@ function RuntimeForm({
             ) : null}
           </div>
           {info.requirements.length === 0 ? (
-            <p className="text-body text-fg-muted">
+            <p className="text-caption text-fg-muted">
               {t('plugins.admin.runtime.packagesNone')}
             </p>
           ) : (
@@ -258,7 +258,7 @@ function RuntimeForm({
             {t('plugins.admin.runtime.network')}
           </h3>
           {info.network.length === 0 ? (
-            <p className="text-body text-fg-muted">
+            <p className="text-caption text-fg-muted">
               {t('plugins.admin.runtime.networkNone')}
             </p>
           ) : (

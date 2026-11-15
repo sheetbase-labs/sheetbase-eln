@@ -139,7 +139,7 @@ export function DuplicateAnalysisDialog({
               />
             </Field>
             {target.isLoading || source.isLoading ? (
-              <p className="m-0 text-label text-fg-muted">
+              <p className="m-0 text-caption text-fg-muted">
                 {t('data.duplicateAnalysisDialog.matchingColumns')}
               </p>
             ) : null}

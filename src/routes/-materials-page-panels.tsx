@@ -577,7 +577,7 @@ export function MaterialInspectorFacts({
             ? t('library.materials.page.replacementLot')
             : t('library.materials.page.noReplacementLot')}
         </h2>
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {replacementLink
             ? `${replacementLink.targetIdentifier}${replacementLink.reason ? ` · ${replacementLink.reason}` : ''}`
             : t('library.materials.page.noLotHasBeenRegistered')}

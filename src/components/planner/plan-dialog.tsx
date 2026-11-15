@@ -192,7 +192,7 @@ export function PlanDialog({
               ))}
             </Select>
           </Field>
-          <p className="text-label text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {t('planner.dialog.advisory')}
           </p>
           {error ? <Notice tone="bad">{error}</Notice> : null}

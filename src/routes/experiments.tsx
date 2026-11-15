@@ -653,7 +653,7 @@ function ExperimentsEmpty({
             ? t('projects.experimentsList.noMatch', { query: searchQuery })
             : tabEmptyTitle[tab]}
       </div>
-      <div className="max-w-[460px] leading-[19px] text-fg-muted">
+      <div className="leading-[19px] text-fg-muted">
         {noAccess
           ? NO_PROJECT_ACCESS_BODY
           : hiddenOld

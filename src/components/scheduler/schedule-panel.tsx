@@ -256,7 +256,7 @@ export function SchedulePanel({
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="m-0 text-body text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('automation.schedule.explain')}
         </p>
         <TableBox>
@@ -781,7 +781,7 @@ function SlipDialog({
         />
         <DialogBody>
           <div className="flex flex-col gap-4">
-            <p className="m-0 text-body text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('automation.schedule.slip.body')}
             </p>
             <Field

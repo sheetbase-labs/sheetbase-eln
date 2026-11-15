@@ -313,7 +313,7 @@ function TimelineHeader({
           </button>
         ))}
       </div>
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('projects.milestoneTimeline.summary', {
           finished,
           total: milestones.length,

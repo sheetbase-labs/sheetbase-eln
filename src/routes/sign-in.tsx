@@ -292,7 +292,7 @@ export function SignInSurface({
 
             {devAuthFree ? (
               <div className="flex flex-col gap-2">
-                <p className="m-0 text-body leading-6 text-fg-muted">
+                <p className="m-0 text-caption leading-6 text-fg-muted">
                   {t('settings.signIn.disposableDevelopmentPreview')}
                 </p>
                 {/* Open access still needs a way onward: a visitor who lands
@@ -307,7 +307,7 @@ export function SignInSurface({
                 >
                   {t('settings.signIn.continueSheetbase')}
                 </a>
-                <p className="m-0 text-center text-label text-fg-muted">
+                <p className="m-0 text-center text-caption text-fg-muted">
                   {t('settings.signIn.releasedDeploymentsRequire')}
                 </p>
               </div>
@@ -320,17 +320,17 @@ export function SignInSurface({
                   actions={actions}
                 />
                 {emailLinkEnabled ? <EmailLinkForm actions={actions} /> : null}
-                <p className="m-0 border-t border-border-subtle pt-3 text-label text-fg-muted">
+                <p className="m-0 border-t border-border-subtle pt-3 text-caption text-fg-muted">
                   {t('settings.signIn.invitedWorkspaceSign')}
                 </p>
               </>
             ) : (
-              <p className="text-body leading-6 text-fg-muted">
+              <p className="text-caption leading-6 text-fg-muted">
                 {t('settings.signIn.signMethodConfigured')}
               </p>
             )}
           </section>
-          <p className="m-0 text-label leading-[18px] text-fg-muted">
+          <p className="m-0 text-caption leading-[18px] text-fg-muted">
             {t('settings.signIn.signingOutEnds')}
           </p>
         </div>
@@ -430,7 +430,7 @@ function ProviderButtons({
         </Button>
       ))}
       {providers.length > 0 ? (
-        <p className="m-0 text-center text-label text-fg-muted">
+        <p className="m-0 text-center text-caption text-fg-muted">
           {t('settings.signIn.useCompanyAccount')}
         </p>
       ) : null}

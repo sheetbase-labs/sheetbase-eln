@@ -191,7 +191,7 @@ function ComingUpSection({ comingUp }: { comingUp: ComingUpGroup[] }) {
           ))}
         </ol>
       ) : (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('projects.homeQuiet.comingUp.empty')}
         </p>
       )}
@@ -320,7 +320,7 @@ function ProjectsSection({
           ))}
         </ul>
       ) : (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('projects.homeQuiet.projects.empty')}
         </p>
       )}
@@ -560,7 +560,7 @@ function TodayInspector({
                 })}
             </ul>
           ) : (
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('projects.homeQuiet.team.empty')}
             </p>
           )}

@@ -78,7 +78,7 @@ export function LabLogoSettings({ canEdit = true }: { canEdit?: boolean }) {
 
   return (
     <Section title={t('account.logo.title')}>
-      <p className="m-0 max-w-2xl text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('account.logo.description')}
       </p>
       {error ? <Notice tone="bad">{error}</Notice> : null}

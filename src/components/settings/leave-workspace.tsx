@@ -56,7 +56,7 @@ export function LeaveWorkspace({
 
   return (
     <Section title={t('account.leave.title')}>
-      <p className="m-0 max-w-2xl text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('account.leave.description', { workspace: workspaceName })}
       </p>
       {blocked ? (

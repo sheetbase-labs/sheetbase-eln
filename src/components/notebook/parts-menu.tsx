@@ -689,7 +689,7 @@ export function SplitIntoPartsAction({
 
   return (
     <div className="flex flex-col gap-2" data-testid="split-into-parts">
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('notebook.parts.splitHint')}
       </p>
       <div className="flex flex-wrap gap-2">

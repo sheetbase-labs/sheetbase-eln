@@ -69,7 +69,7 @@ function Shortcuts() {
               }))}
             />
           </div>
-          <p className="m-0 text-body text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {rich('settings.help.shortcuts.pressForAll', {
               key: <Kbd>?</Kbd>,
             })}

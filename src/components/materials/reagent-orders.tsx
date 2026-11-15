@@ -203,7 +203,7 @@ export function RequestReorderDialog({
               request.mutate()
             }}
           >
-            <p className="text-label text-fg-muted">
+            <p className="text-caption text-fg-muted">
               {t('library.materials.orders.requestReorderHelp')}
             </p>
             <Field
@@ -434,7 +434,7 @@ function MarkOrderedDialog({
               mark.mutate()
             }}
           >
-            <p className="text-label text-fg-muted">
+            <p className="text-caption text-fg-muted">
               {t('library.materials.orders.markOrderedHelp')}
             </p>
             {hasList ? (
@@ -729,7 +729,7 @@ function ReceiveOrderDialog({
               receive.mutate()
             }}
           >
-            <p className="text-label text-fg-muted">
+            <p className="text-caption text-fg-muted">
               {t('library.materials.orders.receiveHelp')}
             </p>
             <Field

@@ -539,7 +539,7 @@ export function SignOffPartCard({
   return (
     <>
       <div className="flex flex-col gap-1" data-testid="sign-off-card">
-        <p className="m-0 text-label font-semibold uppercase tracking-[0.06em] text-fg-muted">
+        <p className="m-0 text-caption font-semibold uppercase tracking-[0.06em] text-fg-muted">
           {t('notebook.partSignoff.eyebrow', { number: String(part.number) })}
         </p>
         <h2 className="m-0 font-heading text-doc font-semibold leading-snug text-fg">
@@ -552,7 +552,7 @@ export function SignOffPartCard({
                 number: String(part.number),
               })}
         </h2>
-        <p className="m-0 text-body text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {reopened
             ? t('notebook.partSignoff.cardReopened', {
                 reason: status.lastAmendmentReason!,
@@ -667,7 +667,7 @@ export function SignedPartBanner({
               when,
             })}
           </p>
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('notebook.partSignoff.bannerBody')}
             {status.countersignedBy.length > 0
               ? ` ${t('notebook.partSignoff.countersignedBy', {

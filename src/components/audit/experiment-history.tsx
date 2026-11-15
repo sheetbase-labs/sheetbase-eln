@@ -527,7 +527,7 @@ function EntryDetails({
           </p>
         )}
       </section>
-      <p className="text-label text-fg-muted">
+      <p className="text-caption text-fg-muted">
         {t('projects.experimentHistory.systemWritten')}
       </p>
     </aside>

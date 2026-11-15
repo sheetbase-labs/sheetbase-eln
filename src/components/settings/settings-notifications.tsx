@@ -291,7 +291,7 @@ function NotificationTimingFields({
             onChange={(event) => onQuietEndChange(event.target.value || null)}
           />
         </div>
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('settings.notifications.reviewsDueToday', { zone })}
         </p>
       </div>
@@ -315,7 +315,7 @@ function NotificationTimingFields({
             {t('settings.notifications.everyDay', { zone })}
           </span>
         </div>
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('settings.notifications.digestGoesOut')}
         </p>
       </div>

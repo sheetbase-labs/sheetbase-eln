@@ -242,7 +242,7 @@ function MolarityPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
           onChange={(v, u) => setConc({ v, u })}
         />
       ) : null}
-      <p className="text-label text-fg-muted">
+      <p className="text-caption text-fg-muted">
         {t('calculators.molarity.hint')}
       </p>
       <Status result={result} />
@@ -254,7 +254,7 @@ function Status({ result }: { result: CalcResult }) {
   if (result.ok) return null
 
   return (
-    <p className="text-label text-fg-muted" role="status">
+    <p className="text-caption text-fg-muted" role="status">
       {result.reason === 'invalid'
         ? t('calculators.invalid')
         : t('calculators.needMore')}
@@ -373,7 +373,7 @@ function DilutionPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
       )}
       {field('v2', t('calculators.fields.finalVolume'), 'volume', v2, setV2)}
       {field('v1', t('calculators.fields.stockVolume'), 'volume', v1, setV1)}
-      <p className="text-label text-fg-muted">
+      <p className="text-caption text-fg-muted">
         {t('calculators.dilution.hint')}
       </p>
       {recipe && !recipe.feasible ? (
@@ -561,7 +561,7 @@ function ConvertPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
         </label>
       ) : null}
       {needsWeight ? (
-        <p className="text-label text-fg-muted" role="status">
+        <p className="text-caption text-fg-muted" role="status">
           {t('calculators.convert.needsWeight')}
         </p>
       ) : (
@@ -663,12 +663,12 @@ export function BenchCalculatorDialog({
               role="status"
               aria-label={t('calculators.result')}
             >
-              <p className="text-label text-fg-muted">{answer.label}</p>
+              <p className="text-caption text-fg-muted">{answer.label}</p>
               <p className="text-2xl font-semibold tabular-nums text-fg">
                 {formatQuantity(answer.value)} {answer.unitLabel}
               </p>
               {answer.note ? (
-                <p className="mt-1 text-label text-fg-muted">{answer.note}</p>
+                <p className="mt-1 text-caption text-fg-muted">{answer.note}</p>
               ) : null}
             </div>
           ) : null}

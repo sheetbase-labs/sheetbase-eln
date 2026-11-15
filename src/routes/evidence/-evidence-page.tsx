@@ -270,7 +270,7 @@ function FrozenRevisionContent({
       {blocks.length === 0 ? (
         <Muted>{t('notebook.evidencePage.thisRevisionHasNo')}</Muted>
       ) : null}
-      <p className="m-0 text-label text-fg-muted md:hidden">
+      <p className="m-0 text-caption text-fg-muted md:hidden">
         {t('notebook.evidencePage.creatingAnAmendmentNeeds')}
       </p>
     </div>

@@ -360,7 +360,7 @@ export function HomeBookingsSection({
         ) : bookings.length ? (
           <TodayBookingsList bookings={bookings} timeZone={timeZone} />
         ) : (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('projects.home.noBookings')}
           </p>
         )}
@@ -535,7 +535,7 @@ export function HomeBusySections({
           <HomeRecentsSection recents={recents} />
           {/* Nothing to review is one line, not a section: the work
                     the person can pick up comes first. */}
-          <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-label text-fg-muted">
+          <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-fg-muted">
             <Icon name="check" size={14} className="text-success-text" />
             <span>{t('projects.home.noReviews')}</span>
             <Link to="/inbox" className="text-label">
@@ -783,7 +783,7 @@ export function HomeInspectorToday({
             ))}
           </ul>
         ) : (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('projects.home.noBookings')}
           </p>
         )}
@@ -852,7 +852,7 @@ export function HomeInspectorToday({
             ))}
           </ul>
         ) : (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('projects.home.nothingNeedsAttention')}
           </p>
         )}
@@ -878,7 +878,7 @@ export function HomeInspectorToday({
               ))}
           </ul>
         ) : (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('projects.home.activity.none')}
           </p>
         )}
@@ -921,7 +921,7 @@ export function HomeInspectorFirstRun({
             ))}
           </ul>
         ) : (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {role === 'owner' || role === 'admin'
               ? rich('projects.home.noProjectsYet', {
                   link: (text) => (
@@ -947,7 +947,7 @@ export function HomeInspectorFirstRun({
             ))}
           </ul>
         ) : (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('projects.home.peopleEmpty')}
           </p>
         )}

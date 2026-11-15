@@ -104,7 +104,7 @@ export function DataAccessPanel({ handle }: { handle: DataAccessHandle }) {
         })}
         maxHeight="lg"
       />
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('settings.dataAccessDataAccessPanel.getTokenRead')}
         <Link to="/settings/account/api" className="text-link hover:underline">
           {t('settings.dataAccessDataAccessPanel.settingsApi')}

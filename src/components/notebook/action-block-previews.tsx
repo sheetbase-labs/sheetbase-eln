@@ -78,7 +78,7 @@ export function SignatureRequestPreview({
     <div
       data-testid="signature-request-block"
       data-state={state}
-      className="flex max-w-[680px] flex-wrap items-center gap-3 rounded-md border border-border bg-surface-muted px-3 py-2.5 text-body"
+      className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface-muted px-3 py-2.5 text-body"
     >
       <Icon name="lock" size={14} className="text-fg-muted" aria-hidden />
       <span className="min-w-0 flex-1 max-md:basis-[calc(100%-30px)]">
@@ -121,7 +121,7 @@ export function CorrectiveActionsPreview({
   if (payload.items.length === 0) {
     return (
       <p
-        className="m-0 max-w-[680px] rounded-md border border-dashed border-border-strong px-3 py-3 text-body text-fg-muted"
+        className="m-0 rounded-md border border-dashed border-border-strong px-3 py-3 text-caption text-fg-muted"
         data-testid="corrective-actions-empty"
       >
         {t('notebook.actionBlockPreviews.noCorrectiveActionsYet')}
@@ -232,7 +232,7 @@ export function CorrectiveActionsPreview({
           )
         })}
       </ul>
-      <p className="m-0 mt-1.5 flex flex-wrap gap-x-3 text-label text-fg-muted">
+      <p className="m-0 mt-1.5 flex flex-wrap gap-x-3 text-caption text-fg-muted">
         <span>{summary.open} open</span>
         <span>
           {t('notebook.actionBlockPreviews.inprogressInProgress', {

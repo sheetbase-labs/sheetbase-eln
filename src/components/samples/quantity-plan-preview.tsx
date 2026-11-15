@@ -23,7 +23,7 @@ export function AliquotPlanPreview({
   const total = `${formatQuantityAmount(plan.total)}${suffix}`
 
   return (
-    <p role="status" className="m-0 text-label text-fg-muted">
+    <p role="status" className="m-0 text-caption text-fg-muted">
       {plan.remaining != null
         ? t('library.samples.aliquotDialog.totalAndStaysIn', {
             total,
@@ -47,7 +47,7 @@ export function PoolPlanPreview({ plan }: { plan: PoolPlan }) {
   const suffix = plan.unit ? ` ${plan.unit}` : ''
 
   return (
-    <p role="status" className="m-0 text-label text-fg-muted">
+    <p role="status" className="m-0 text-caption text-fg-muted">
       {t('library.samples.poolDialog.total', {
         total: `${formatQuantityAmount(plan.total)}${suffix}`,
       })}

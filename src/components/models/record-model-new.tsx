@@ -614,11 +614,11 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
         })}
       >
         {loading ? (
-          <p className="text-label text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {t('library.models.recordModelNew.loadingFields')}
           </p>
         ) : fields.length === 0 ? (
-          <p className="text-label text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {t('library.models.recordModelNew.thisModelHasNoActive')}
           </p>
         ) : (

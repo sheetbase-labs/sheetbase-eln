@@ -204,7 +204,7 @@ export function RepeatExperimentDialog({
               ))}
             </SearchableSelect>
             {templates.isSuccess && templates.data.length === 0 ? (
-              <p className="m-0 text-label text-fg-muted">
+              <p className="m-0 text-caption text-fg-muted">
                 {t('projects.recurring.experiment.noTemplates')}
               </p>
             ) : null}

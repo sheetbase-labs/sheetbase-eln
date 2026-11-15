@@ -102,7 +102,7 @@ function Submissions() {
   return (
     <div className="min-w-0 flex-1 px-4 py-4 md:px-8">
       {submissions.isError ? (
-        <p role="alert" className="m-0 text-label text-fg-muted">
+        <p role="alert" className="m-0 text-caption text-fg-muted">
           {t('projects.experimentPage.submissions.loadFailed')}
         </p>
       ) : submissions.isPending ? (

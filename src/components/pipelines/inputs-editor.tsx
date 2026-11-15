@@ -42,7 +42,7 @@ export function InputsEditor({
   return (
     <div className="flex flex-col gap-2">
       {inputs.length === 0 ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.inputsEditor.inputsDeclaredPipelineInputs')}
         </p>
       ) : null}

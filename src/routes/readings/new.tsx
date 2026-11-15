@@ -1044,7 +1044,7 @@ function MeasurementValueFields({
       </div>
 
       {reported != null ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.newReading.reportedConcentration')}{' '}
           <span className="num text-fg">
             {reported}
@@ -1129,13 +1129,13 @@ function ReadingFormFooter({
       </div>
 
       {blockedReason ? (
-        <p className="m-0 text-label text-fg-muted" role="status">
+        <p className="m-0 text-caption text-fg-muted" role="status">
           {blockedReason}
         </p>
       ) : null}
 
       {noSamples ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {rich('data.newReading.registerSampleFirst', {
             link: (text) => (
               <Link to="/samples" className="underline">

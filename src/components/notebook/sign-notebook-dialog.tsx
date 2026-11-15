@@ -349,7 +349,7 @@ function SignatureBlockedReason({
 }) {
   if (certificationPending)
     return (
-      <p className="m-0 text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('notebook.signNotebookDialog.checkingYourSignatureCertification')}
       </p>
     )
@@ -400,7 +400,7 @@ function SignatureBlockedReason({
 
   if (certificationCurrent)
     return (
-      <p className="m-0 text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('notebook.signNotebookDialog.noEligibleSignatureMeaning')}
       </p>
     )

@@ -169,7 +169,7 @@ export function SampleInspector({ sample }: { sample: SampleRecord }) {
           <h2 className="mb-1.5 font-sans text-label font-semibold">
             {t('library.samples.sampleInspector.derivedSamples')}
           </h2>
-          <p className="text-label text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {lineage.isLoading
               ? t('library.samples.sampleInspector.readingLineage')
               : derived.length === 0

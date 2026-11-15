@@ -107,7 +107,7 @@ export function SheetPasteData({
             </Notice>
           ) : null}
           {table ? (
-            <p role="status" className="m-0 text-label text-fg-muted">
+            <p role="status" className="m-0 text-caption text-fg-muted">
               {t('notebook.sheetPasteData.summary', {
                 rows: t('common.counts.rows', { count: table.rows.length }),
                 columns: t('notebook.sheetPasteData.columns', {

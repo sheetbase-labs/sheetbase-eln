@@ -774,14 +774,14 @@ function UploadFileStep({
             onFile={pick}
           />
           {pluginImporterExtensions.length > 0 ? (
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('plugins.import.readable', {
                 formats: pluginImporterExtensions.join(', '),
               })}
             </p>
           ) : null}
           {pluginParsers.length > 0 ? (
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('plugins.import.instrumentFiles', {
                 instruments: [
                   ...new Set(
@@ -798,7 +798,7 @@ function UploadFileStep({
             <PluginPullPanel connectors={pluginConnectors} onFile={pick} />
           ) : null}
           {held && !targetReady ? (
-            <p role="status" className="m-0 text-body text-fg-muted">
+            <p role="status" className="m-0 text-caption text-fg-muted">
               {t('data.importFlow.nowChooseWhereGoes', { name: held.name })}
             </p>
           ) : null}
@@ -852,12 +852,12 @@ function UploadTargetFields({
 
   return (
     <>
-      <div className="grid max-w-[640px] gap-1.5 text-label text-fg-muted">
+      <div className="grid gap-1.5 text-label text-fg-muted">
         <span className="font-medium text-fg">
           {t('data.importFlow.whereGoes')}
         </span>
         {datasets.isLoading ? (
-          <p role="status" className="m-0 text-body text-fg-muted">
+          <p role="status" className="m-0 text-caption text-fg-muted">
             {t('data.importFlow.readingDatasets')}
           </p>
         ) : null}
@@ -1051,7 +1051,7 @@ function UploadContextFields({
       </div>
 
       {onUploaded ? (
-        <p className="m-0 max-w-[640px] text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {effectiveMode === 'new'
             ? t('data.importFlow.fileKeptNewDataset')
             : t('data.importFlow.fileKept')}
@@ -1063,7 +1063,7 @@ function UploadContextFields({
             <li>{t('data.importFlow.checkHowFileColumns')}</li>
             <li>{t('data.importFlow.seeEveryRowAdded')}</li>
           </ol>
-          <p className="m-0 mt-2 max-w-[640px] text-body text-fg-muted">
+          <p className="m-0 mt-2 text-caption text-fg-muted">
             {t('data.importFlow.eachStoredFileGets')}
           </p>
         </Section>
@@ -1942,7 +1942,7 @@ function ImportSourceStatus({ model, actions, search }: ImportStepProps) {
   return (
     <>
       {file.isLoading ? (
-        <p role="status" className="m-0 text-body text-fg-muted">
+        <p role="status" className="m-0 text-caption text-fg-muted">
           {t('data.importFlow.readingStoredFile')}
         </p>
       ) : null}
@@ -2045,7 +2045,7 @@ function ImportParserRecovery({ model, actions, search }: ImportStepProps) {
       ) : null}
 
       {file.data && parsed && datasetPending && !showMapping ? (
-        <p role="status" className="m-0 text-body text-fg-muted">
+        <p role="status" className="m-0 text-caption text-fg-muted">
           {t('data.importFlow.readingTargetDataset')}
         </p>
       ) : null}
@@ -2331,7 +2331,7 @@ function ParserChoice({
       </div>
       <Banner tone="bad" title={t('data.importFlow.fileDoesnTMatch')}>
         {message}
-        <p className="m-0 mt-1 text-label text-fg-muted">
+        <p className="m-0 mt-1 text-caption text-fg-muted">
           {t('data.importFlow.nothingImportedFileKept')}
         </p>
       </Banner>
@@ -2442,7 +2442,7 @@ function MapTable({
 
   return (
     <div className="grid gap-4">
-      <p className="m-0 text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {parser
           ? t('data.importFlow.columnsMappedDefault', {
               mappedCount,
@@ -2454,7 +2454,7 @@ function MapTable({
               length: headers.length,
             })}
       </p>
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('data.importFlow.declareUnitsAlreadyUsed')}
       </p>
       {ai.live ? (
@@ -2512,7 +2512,7 @@ function MapTable({
         </div>
       ) : null}
       {pending.length > 0 ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.importFlow.aiSuggestionsHint')}
         </p>
       ) : null}
@@ -2719,7 +2719,7 @@ function ReviewTable({
 }) {
   if (loading && !review) {
     return (
-      <p role="status" className="m-0 text-body text-fg-muted">
+      <p role="status" className="m-0 text-caption text-fg-muted">
         {t('data.importFlow.checkingEveryRow')}
       </p>
     )
@@ -2794,12 +2794,12 @@ function ReviewTable({
         </dl>
       </Section>
       <Section title={t('data.importFlow.flaggedRows')}>
-        <p className="m-0 text-body text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.importFlow.flaggedRowsImportTheir')}
         </p>
       </Section>
       <Section title={t('data.importFlow.record')}>
-        <p className="m-0 text-body text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {target
             ? t('data.importFlow.recordedIn', { target })
             : t('data.importFlow.recordedInDataset')}
@@ -2816,7 +2816,7 @@ function ReviewTable({
     <div className="grid gap-4">
       {rows}
       {aside}
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('data.importFlow.showingRowsFlagsFirst', {
           length: review.rows.length,
           total: review.summary.total,

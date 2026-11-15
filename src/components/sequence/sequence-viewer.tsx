@@ -49,7 +49,7 @@ export function SequenceFileViewer({
 
   if (query.isPending)
     return (
-      <p className="flex items-center gap-2 text-label text-fg-muted">
+      <p className="flex items-center gap-2 text-caption text-fg-muted">
         <Spinner size={14} />
         {t('sequences.viewer.loading')}
       </p>
@@ -222,7 +222,7 @@ function SequencePane({
         </div>
       </div>
       {seq.description || seq.organism ? (
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {[seq.description, seq.organism].filter(Boolean).join(' · ')}
         </p>
       ) : null}
@@ -318,7 +318,7 @@ function FeatureTable({
 }) {
   if (seq.features.length === 0)
     return (
-      <p className="text-label text-fg-muted">
+      <p className="text-caption text-fg-muted">
         {t('sequences.viewer.noFeatures')}
       </p>
     )
@@ -575,7 +575,7 @@ function Bases({
           ))}
         </div>
       ) : (
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {t('sequences.viewer.zoomToRead', { count: READABLE_BASES })}
         </p>
       )}

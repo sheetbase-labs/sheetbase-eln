@@ -46,7 +46,7 @@ export function MeaningSection({
           />
         </div>
       ) : (
-        <p className="m-0 px-4 text-label text-fg-muted md:px-6">
+        <p className="m-0 px-4 text-caption text-fg-muted md:px-6">
           {used === false ? message : t('projects.searchMeaning.nothingYet')}
         </p>
       )}
@@ -88,7 +88,7 @@ export function PluginsSection({
           <PluginHitsTable hits={hits} label={t('plugins.search.heading')} />
         </div>
       ) : (
-        <p className="m-0 px-4 text-label text-fg-muted md:px-6">
+        <p className="m-0 px-4 text-caption text-fg-muted md:px-6">
           {t('plugins.search.nothing')}
         </p>
       )}

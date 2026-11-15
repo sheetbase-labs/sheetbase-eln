@@ -51,7 +51,7 @@ function ProjectSettings() {
   if (!project) {
     return (
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
-        <p className="text-body text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {query.isLoading
             ? t('projects.projectSettings.loading')
             : t('projects.projectSettings.notFound')}

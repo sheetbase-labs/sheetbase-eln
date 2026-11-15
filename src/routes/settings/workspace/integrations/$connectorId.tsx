@@ -217,7 +217,7 @@ function ConnectorPanels({
             </span>{' '}
             {t('settings.integrationsConnectorid.configNonSecret')}
           </p>
-          <p className="m-0 border-t border-border pt-2 text-label text-fg-muted">
+          <p className="m-0 border-t border-border pt-2 text-caption text-fg-muted">
             {t('settings.integrationsConnectorid.registeredUpdated', {
               created: formatNotebookDateTime(connector.created_at, {
                 zone: true,

@@ -122,7 +122,7 @@ export function PlanReview({
       <Section title={t('planner.view.summary')}>
         <p className="m-0 text-body">{plan.summary}</p>
         {plan.rationale ? (
-          <p className="m-0 text-label text-fg-muted">{plan.rationale}</p>
+          <p className="m-0 text-caption text-fg-muted">{plan.rationale}</p>
         ) : null}
       </Section>
       <Section title={t('planner.view.experiment')}>
@@ -153,7 +153,7 @@ export function PlanReview({
       </Section>
       <Section title={t('planner.view.parts')} count={plan.parts.length}>
         {plan.parts.length === 0 ? (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('planner.view.noParts')}
           </p>
         ) : (
@@ -195,7 +195,7 @@ export function PlanReview({
       </Section>
       <Section title={t('planner.view.samples')} count={plan.samples.length}>
         {plan.samples.length === 0 ? (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('planner.view.samplesNone')}
           </p>
         ) : (

@@ -476,7 +476,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto px-4 py-4 md:px-6">
-      <p className="m-0 mb-3 flex items-center gap-1.5 text-label text-fg-muted">
+      <p className="m-0 mb-3 flex items-center gap-1.5 text-caption text-fg-muted">
         <Icon name="schema" size={12} />
         {t('library.models.recordModelRecords.columnsAreThisModelsFields', {
           name: model.data?.name ?? 'record',
@@ -493,7 +493,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         <RecordListToolbar modelKey={modelKey} list={list} />
       </div>
       {visible.length === 0 ? (
-        <p className="m-0 text-label text-fg-muted" role="status">
+        <p className="m-0 text-caption text-fg-muted" role="status">
           {loading
             ? t('library.models.recordModelRecords.loadingRecords')
             : q || filters.length > 0 || results

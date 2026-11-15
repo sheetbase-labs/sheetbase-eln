@@ -83,7 +83,7 @@ export function ConnectorCredentialsCard({
 
   return (
     <Section title={t('settings.integrations.credentialsCard.credentials')}>
-      <p className="m-0 max-w-3xl text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('settings.integrations.credentialsCard.sealedServerSide')}
         {missing.length > 0 ? (
           <span className="ml-1 text-danger-text">
@@ -122,7 +122,7 @@ export function ConnectorCredentialsCard({
           </div>
         ))}
         {(secretsQuery.data ?? []).length === 0 && (
-          <p className="m-0 px-3 py-2 text-label text-fg-muted">
+          <p className="m-0 px-3 py-2 text-caption text-fg-muted">
             {t('settings.integrations.credentialsCard.credentialsStoredYet')}
           </p>
         )}

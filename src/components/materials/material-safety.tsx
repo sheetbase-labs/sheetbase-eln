@@ -128,7 +128,7 @@ export function MaterialSafetySection({
         ) : null}
       </div>
       {query.isLoading ? null : !hazardous && !safety?.sheet ? (
-        <p className="text-label text-fg-muted">{t('safety.panel.empty')}</p>
+        <p className="text-caption text-fg-muted">{t('safety.panel.empty')}</p>
       ) : (
         <div className="flex flex-col gap-3">
           {safety && safety.pictograms.length > 0 ? (
@@ -385,7 +385,7 @@ function SafetyEditDialog({
                   ))}
                 </ul>
               ) : (
-                <p className="text-label text-fg-muted">
+                <p className="text-caption text-fg-muted">
                   {t('safety.edit.noMatches')}
                 </p>
               )

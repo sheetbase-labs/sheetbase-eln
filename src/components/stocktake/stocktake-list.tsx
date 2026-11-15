@@ -217,7 +217,7 @@ export function StartCountDialog({
               start.mutate()
             }}
           >
-            <p className="text-label text-fg-muted">
+            <p className="text-caption text-fg-muted">
               {t('library.stocktake.startHelp')}
             </p>
             {tree.isSuccess && options.length === 0 ? (

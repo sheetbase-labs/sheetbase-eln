@@ -111,7 +111,7 @@ export function OfflineCapabilitiesNote({ className }: { className?: string }) {
     <div
       data-offline-capabilities
       className={cn(
-        'max-w-[680px] space-y-1 rounded-md bg-surface-muted px-3 py-2.5 text-label',
+        'space-y-1 rounded-md bg-surface-muted px-3 py-2.5 text-label',
         className,
       )}
     >

@@ -25,9 +25,7 @@ export type { NameSort } from './list-data'
 /** What a role that cannot add to a list sees in place of the add buttons, so
  * the missing control is explained rather than silently absent. */
 export function ReadOnlyNote({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="m-0 max-w-[320px] text-label text-fg-muted">{children}</p>
-  )
+  return <p className="m-0 text-caption text-fg-muted">{children}</p>
 }
 
 /**

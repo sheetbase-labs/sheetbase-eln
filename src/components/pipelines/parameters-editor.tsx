@@ -31,7 +31,7 @@ export function ParametersEditor({
   return (
     <div className="flex flex-col gap-2">
       {parameters.length === 0 ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.parametersEditor.parametersDeclared')}
         </p>
       ) : null}

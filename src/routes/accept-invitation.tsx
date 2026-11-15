@@ -89,7 +89,7 @@ export function AcceptInvitationSurface({
         </div>
         {token ? (
           <>
-            <p className="m-0 text-body leading-6 text-fg-muted">
+            <p className="m-0 text-caption leading-6 text-fg-muted">
               {t('settings.acceptInvitation.signedAcceptingAdds', {
                 userEmail,
               })}

@@ -60,7 +60,7 @@ export function SettingsSampleData({ workspaceId }: { workspaceId: string }) {
 
   return (
     <Section title={t('settings.sampleData.title')}>
-      <p className="m-0 max-w-2xl text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('settings.sampleData.description')}
       </p>
       {add.isError ? (
@@ -81,7 +81,7 @@ export function SettingsSampleData({ workspaceId }: { workspaceId: string }) {
           </Button>
         </div>
       )}
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('settings.sampleData.hint')}
       </p>
     </Section>

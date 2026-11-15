@@ -171,7 +171,7 @@ export function SubscribeDialog({
         <DialogHeader title={t('calendarFeed.title')} />
         <DialogBody>
           <div className="flex flex-col gap-4">
-            <p className="m-0 text-body text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('calendarFeed.intro')}
             </p>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

@@ -500,7 +500,7 @@ export function UpNextBanner({
         <p className="m-0 text-body font-semibold text-fg">
           {t('notebook.parts.upNextTitle', { number: String(shown.number) })}
         </p>
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t(
             current.requiresSignOff && !current.signed
               ? 'notebook.partSignoff.upNextSigned'
@@ -573,7 +573,7 @@ export function PartsOutline({
       data-testid="parts-outline"
       className="flex flex-col gap-1"
     >
-      <p className="m-0 text-label font-semibold uppercase tracking-[0.06em] text-fg-muted">
+      <p className="m-0 text-caption font-semibold uppercase tracking-[0.06em] text-fg-muted">
         {t('notebook.parts.outlineTitle')}
       </p>
       <ol className="m-0 flex list-none flex-col p-0">
@@ -627,7 +627,7 @@ export function PartsOutline({
           )
         })}
       </ol>
-      <p className="m-0 mt-1 px-1.5 text-label text-fg-muted">
+      <p className="m-0 mt-1 px-1.5 text-caption text-fg-muted">
         {t('notebook.parts.openBeside')}
       </p>
     </nav>

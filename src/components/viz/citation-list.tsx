@@ -113,7 +113,7 @@ export function CitationList({
 }: CitationListProps) {
   if (loading) {
     return (
-      <p role="status" className="text-label text-fg-muted">
+      <p role="status" className="text-caption text-fg-muted">
         {t('data.citationList.readingCitations')}
       </p>
     )
@@ -129,7 +129,7 @@ export function CitationList({
 
   if (citations.length === 0) {
     return (
-      <p className="text-label text-fg-muted" data-citations-empty>
+      <p className="text-caption text-fg-muted" data-citations-empty>
         {emptyBody}
       </p>
     )

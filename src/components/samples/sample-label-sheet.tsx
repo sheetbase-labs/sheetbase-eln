@@ -165,7 +165,7 @@ export function PrintLabelsDialog({
                   })}
           </p>
           {capped ? (
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('library.samples.sampleLabelSheet.aSheetHoldsLabelsSo', {
                 labelSheetLimit: LABEL_SHEET_LIMIT,
                 labelSheetLimit2: LABEL_SHEET_LIMIT,

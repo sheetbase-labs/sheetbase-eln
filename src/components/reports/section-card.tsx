@@ -269,7 +269,7 @@ function SectionSource({
   return (
     <>
       {ref.recordIdentifier ? (
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {t('projects.reports.section.from', {
             record: SOURCE_MARK,
             version: ref.revisionVersion ?? 1,

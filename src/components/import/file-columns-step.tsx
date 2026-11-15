@@ -167,7 +167,7 @@ export function FileColumnsStep({
             onCreated={onCreated}
           />
         ) : (
-          <p role="status" className="m-0 text-body text-fg-muted">
+          <p role="status" className="m-0 text-caption text-fg-muted">
             {t('data.importFlow.fileColumns.readingSheet')}
           </p>
         )}
@@ -323,7 +323,7 @@ function ColumnsEditor({
             onChange={(event) => setDatasetName(event.target.value)}
           />
         </Field>
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.importFlow.fileColumns.rowsAndColumns', {
             rows: sheet.rowCount,
             columns: sheet.headers.length,
@@ -424,7 +424,7 @@ function ColumnsEditor({
           </TableBody>
         </Table>
       </TableBox>
-      <p className="m-0 max-w-[720px] text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('data.importFlow.fileColumns.noteMadeFromFile')}
       </p>
       {error ? (

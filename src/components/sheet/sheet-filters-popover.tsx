@@ -263,7 +263,7 @@ export function SheetFiltersButton({
           ) : null}
         </div>
         {drafts.length === 0 ? (
-          <p className="mb-2 text-label text-fg-muted">
+          <p className="mb-2 text-caption text-fg-muted">
             {t('notebook.sheetFilters.none')}
           </p>
         ) : (

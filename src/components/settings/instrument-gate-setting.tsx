@@ -72,7 +72,7 @@ export function InstrumentGateSetting({
 
   return (
     <Section title={t('settings.instruments.gateTitle')}>
-      <p className="m-0 max-w-2xl text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('settings.instruments.gateBody')}
       </p>
       <div className="max-w-xl">

@@ -122,7 +122,7 @@ export function AddPluginSectionDialog({
               ))}
             </Select>
           ) : (
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('plugins.screen.from', { plugin: item.extensionName })}
             </p>
           )}
@@ -151,7 +151,7 @@ export function AddPluginSectionDialog({
               <p className="m-0 whitespace-pre-wrap text-body">{result.text}</p>
             </div>
           ) : (
-            <p className="m-0 text-label text-fg-muted">
+            <p className="m-0 text-caption text-fg-muted">
               {t('plugins.reportSection.waiting')}
             </p>
           )}

@@ -50,7 +50,7 @@ export function SettingsSessions() {
 
   return (
     <Section title={t('settings.sessions.mySessions')}>
-      <p className="m-0 text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('settings.sessions.devicesSignedEnding')}
       </p>
 
@@ -97,7 +97,7 @@ export function SettingsSessions() {
                     {describeDevice(entry.userAgent)}
                     {current ? ' · this device' : ''}
                   </p>
-                  <p className="m-0 truncate text-label text-fg-muted">
+                  <p className="m-0 truncate text-caption text-fg-muted">
                     {entry.ipAddress ?? '—'}
                     {t('settings.sessions.started')}
                     {formatWhen(entry.createdAt)}

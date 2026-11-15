@@ -126,7 +126,7 @@ export function InstrumentTimeline({ instrumentId }: { instrumentId: string }) {
       title={t('automation.schedule.timeline.title')}
     >
       <div className="flex flex-col gap-2">
-        <p className="m-0 text-body text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {list.length === 0
             ? t('automation.schedule.timeline.empty')
             : t('automation.schedule.timeline.explain')}

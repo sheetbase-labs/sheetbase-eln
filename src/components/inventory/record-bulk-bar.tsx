@@ -596,7 +596,7 @@ function SetFieldDialog({
       }
     >
       {fields.isPending ? null : choices.length === 0 ? (
-        <p className="m-0 text-body text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('library.bulk.fieldDialog.none')}
         </p>
       ) : (

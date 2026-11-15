@@ -141,7 +141,7 @@ export function EditBookingDialog({
               />
             </Field>
           </div>
-          <p role="note" className="m-0 text-label text-fg-muted">
+          <p role="note" className="m-0 text-caption text-fg-muted">
             {t('projects.editBooking.times', { zone: booking.timezone })}
           </p>
           <Field label={t('projects.editBooking.notes')}>

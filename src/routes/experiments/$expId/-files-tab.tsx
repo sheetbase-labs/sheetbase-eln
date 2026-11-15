@@ -368,7 +368,7 @@ function FileInspector({
           </ul>
         </InspectorSection>
       ) : null}
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('projects.expFiles.immutable', {
           next: file.versions.length + 1,
           current: file.versions.length,

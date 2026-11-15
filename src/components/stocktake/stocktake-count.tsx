@@ -561,7 +561,7 @@ function ScanPanel({
             {last.text}
           </Notice>
         ) : (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {box
               ? t('library.stocktake.count.scanHelp')
               : t('library.stocktake.count.scanBoxFirst')}

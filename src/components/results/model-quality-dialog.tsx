@@ -220,16 +220,16 @@ export function ModelQualityDialog({
                 {t('quality.limits.resultsTitle')}
               </h3>
               {!specLimitsOn ? (
-                <p className="m-0 text-label text-fg-muted">
+                <p className="m-0 text-caption text-fg-muted">
                   {t('quality.limits.resultsOff')}
                 </p>
               ) : numberFields.length === 0 ? (
-                <p className="m-0 text-label text-fg-muted">
+                <p className="m-0 text-caption text-fg-muted">
                   {t('quality.limits.noNumberFields')}
                 </p>
               ) : (
                 <>
-                  <p className="m-0 text-label text-fg-muted">
+                  <p className="m-0 text-caption text-fg-muted">
                     {t('quality.limits.resultsHint')}
                   </p>
                   <TableBox>

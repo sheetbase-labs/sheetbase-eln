@@ -1459,7 +1459,7 @@ export function GateDialog({
                 />
               ))}
               {usable.length === 0 ? (
-                <p className="text-label text-fg-muted">
+                <p className="text-caption text-fg-muted">
                   {t('notebook.gates.dialog.noTargets')}
                 </p>
               ) : null}
@@ -1647,7 +1647,7 @@ export function GateOverridesPanel({ recordId }: { recordId: string }) {
       <h3 className="text-body font-semibold text-fg">
         {t('notebook.gates.review.title')}
       </h3>
-      <p className="mb-3 text-label text-fg-muted">
+      <p className="mb-3 text-caption text-fg-muted">
         {t('notebook.gates.review.description')}
       </p>
       <ul className="flex flex-col gap-3">

@@ -791,7 +791,7 @@ function InternalMembers({
               <Muted>{t('settings.members.pendingInvitations2')}</Muted>
             )}
           </Section>
-          <p className="mt-3 text-label text-fg-muted">
+          <p className="mt-3 text-caption text-fg-muted">
             {WORKSPACE_ROLE_DESCRIPTIONS[memberRole ?? 'viewer']}
           </p>
         </div>

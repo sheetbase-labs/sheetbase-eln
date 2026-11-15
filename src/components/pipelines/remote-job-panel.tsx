@@ -64,7 +64,7 @@ export function RemoteJobPanel({ jobs }: { jobs: RunRemoteJob[] }) {
         </h2>
         <BoardStatus tone={words.tone}>{words.label}</BoardStatus>
       </div>
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('features.pipelineRemote.runPanel.cancelNote')}
       </p>
       <dl className="m-0 grid grid-cols-[120px_1fr] gap-x-3 gap-y-1 text-label">

@@ -28,7 +28,7 @@ export function ApiExample() {
         </CopyButton>
       }
     >
-      <p className="m-0 max-w-3xl text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {rich('settings.apiExample.useTokenIntro', {
           variable: (
             <span className="mono">

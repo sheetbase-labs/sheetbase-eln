@@ -68,7 +68,7 @@ export function AccessBlockedSurface({
         </div>
         {suspendedWorkspace ? (
           <>
-            <p className="m-0 text-body leading-6 text-fg-muted">
+            <p className="m-0 text-caption leading-6 text-fg-muted">
               {t('settings.shell.accessBlocked.cannotOpenRecords', {
                 name: user.name,
                 email: user.email,
@@ -91,13 +91,13 @@ export function AccessBlockedSurface({
                 </ul>
               </div>
             ) : (
-              <p className="m-0 text-body leading-6 text-fg-muted">
+              <p className="m-0 text-caption leading-6 text-fg-muted">
                 {t('settings.shell.accessBlocked.askPersonWho')}
               </p>
             )}
           </>
         ) : (
-          <p className="m-0 text-body leading-6 text-fg-muted">
+          <p className="m-0 text-caption leading-6 text-fg-muted">
             {t('settings.shell.accessBlocked.workspaceOpenEither', {
               name: user.name,
               email: user.email,

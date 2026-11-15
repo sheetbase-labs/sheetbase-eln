@@ -239,7 +239,7 @@ export function SurvivalControls({
           <Options columns={category} />
         </Select>
       </Control>
-      <p className="basis-full text-label text-fg-muted">
+      <p className="basis-full text-caption text-fg-muted">
         {t('data.analysisPanel.survivalHint')}
       </p>
     </>
@@ -297,7 +297,7 @@ export function ComparisonResultTables({
         ]}
       />
       {result.omnibus ? (
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {t('data.analysisPanel.omnibus', {
             dfBetween: result.omnibus.dfBetween,
             dfWithin: result.omnibus.dfWithin,
@@ -307,7 +307,7 @@ export function ComparisonResultTables({
         </p>
       ) : null}
       {result.pairedSubjects !== null ? (
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {t('data.analysisPanel.pairedSubjects', {
             count: result.pairedSubjects,
           })}
@@ -564,7 +564,7 @@ export function SurvivalResultTables({ result }: { result: SurvivalResult }) {
         ]}
       />
       {result.logRank ? (
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {t('data.analysisPanel.logRank', {
             chi: num(result.logRank.chiSquare),
             df: result.logRank.df,

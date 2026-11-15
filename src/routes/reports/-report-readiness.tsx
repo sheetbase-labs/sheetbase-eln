@@ -81,7 +81,7 @@ export function ReportReadinessPanel({
               ? t('projects.reports.builder.readyTitle')
               : t('projects.reports.builder.notReadyTitle')}
           </Status>
-          <p className="text-label text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {t('projects.reports.builder.readyCount', {
               valid: report.sections.length - attention,
               sections: report.sections.length,

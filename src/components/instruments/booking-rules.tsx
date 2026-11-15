@@ -103,7 +103,7 @@ export function BookingRulesSection({
           ]}
         />
       ) : (
-        <p className="m-0 text-body text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('library.instruments.bookingRules.empty')}
         </p>
       )}

@@ -177,7 +177,7 @@ function WorkflowList({
 
   return (
     <SettingsBody>
-      <p className="m-0 max-w-prose text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('settings.sampleWorkflows.intro')}
       </p>
       {canManage ? (

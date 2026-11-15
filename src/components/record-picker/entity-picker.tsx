@@ -142,7 +142,7 @@ function ValueList({
           </label>
         ))}
         {!shown.length ? (
-          <p className="m-0 px-2 py-3 text-label text-fg-muted">
+          <p className="m-0 px-2 py-3 text-caption text-fg-muted">
             {t('notebook.entityPicker.noMatches')}
           </p>
         ) : null}

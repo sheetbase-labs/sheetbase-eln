@@ -63,11 +63,11 @@ export function SimilarWorkPanel({
     <InspectorSection title={t('projects.searchMeaning.similarTitle')}>
       <div data-testid="similar-work" className="flex flex-col gap-1">
         {similar.isPending ? (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('projects.searchMeaning.similarLoading')}
           </p>
         ) : hits.length === 0 ? (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('projects.searchMeaning.similarEmpty')}
           </p>
         ) : (

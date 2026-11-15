@@ -108,7 +108,7 @@ export function AgentDownload({
 
   if (!canManage) {
     return (
-      <p className="m-0 text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('library.instruments.agent.needsAccess')}
       </p>
     )
@@ -116,7 +116,7 @@ export function AgentDownload({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="m-0 text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('library.instruments.agent.explain')}
       </p>
       <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)]">

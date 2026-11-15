@@ -151,7 +151,7 @@ export function PotencyPanel({ runs }: { runs: PlateRunRow[] }) {
         <h2 className="font-heading text-[15px] font-semibold">
           {t('plates.potency.pick')}
         </h2>
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {t('plates.potency.pickHint')}
         </p>
         <ul className="grid gap-1 md:grid-cols-2 xl:grid-cols-3">
@@ -219,9 +219,11 @@ export function PotencyPanel({ runs }: { runs: PlateRunRow[] }) {
         </div>
       </section>
       {picked.size === 0 ? (
-        <p className="text-label text-fg-muted">{t('plates.potency.select')}</p>
+        <p className="text-caption text-fg-muted">
+          {t('plates.potency.select')}
+        </p>
       ) : summaries.length === 0 ? (
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {t('plates.potency.nothing')}
         </p>
       ) : (

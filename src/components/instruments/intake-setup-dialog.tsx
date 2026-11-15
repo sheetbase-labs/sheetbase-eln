@@ -109,7 +109,7 @@ function SamplePreviewView({ preview }: { preview: SamplePreview }) {
         />
       </TableBox>
       {preview.rowCount > preview.rows.length ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('library.instruments.intakeSetup.sample.showing', {
             count: preview.rows.length,
           })}

@@ -388,7 +388,7 @@ function ScheduleReportFields({
         onMonthDay={(monthDay) => patch({ monthDay })}
         onSendHour={(sendHour) => patch({ sendHour })}
       />
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('spend.schedule.form.timeZone', { zone: draft.timeZone })}
       </p>
       <RecipientPicker
@@ -732,7 +732,7 @@ export function ScheduledReportsPanel({
             {t('spend.schedule.new')}
           </Button>
         ) : (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('spend.schedule.readOnly')}
           </p>
         )}

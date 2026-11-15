@@ -105,7 +105,7 @@ export function SheetDefinitionVersionPanels({
             />
           </TableBox>
         ) : (
-          <p className="m-0 text-body text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('notebook.sheetDefinitionPage.noParameters')}
           </p>
         )}
@@ -124,7 +124,7 @@ export function SheetDefinitionVersionPanels({
               selectable={false}
             />
           ) : (
-            <p className="m-0 p-3 text-body text-fg-muted">
+            <p className="m-0 p-3 text-caption text-fg-muted">
               {t('notebook.sheetDefinitionPage.noColumns')}
             </p>
           )}
@@ -151,7 +151,7 @@ export function SheetDefinitionVersionPanels({
             ))}
           </dl>
         ) : (
-          <p className="m-0 text-body text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('notebook.sheetDefinitionPage.noCalculations')}
           </p>
         )}

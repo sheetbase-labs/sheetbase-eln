@@ -27,7 +27,7 @@ export function NoResults({
         <Icon name="search" size={14} className="text-fg-muted" />
         {t('projects.searchPage.noMatch', { query: q })}
       </div>
-      <p className="m-0 text-body leading-[19px] text-fg-muted">
+      <p className="m-0 text-caption leading-[19px] text-fg-muted">
         {filtered
           ? t('projects.searchPage.noMatchFiltered')
           : t('projects.searchPage.noMatchBody')}
@@ -58,7 +58,7 @@ export function NoResults({
           </Button>
         </div>
       ) : null}
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {archived ? (
           <>
             {t('projects.searchPage.archivedSearched', { query: q })}{' '}

@@ -232,14 +232,14 @@ function PipelineDraftCard({
         />
       ))}
       {proposal.skipped.length > 0 ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.pipelineAi.skipped', {
             items: proposal.skipped.join('; '),
           })}
         </p>
       ) : null}
       {hasWork ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.pipelineAi.replaces')}
         </p>
       ) : null}

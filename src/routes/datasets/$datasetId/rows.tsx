@@ -708,7 +708,7 @@ function RowsFallback(props: {
 }) {
   if (props.kind === 'loading')
     return (
-      <p className="px-6 py-4 text-body text-fg-muted" role="status">
+      <p className="px-6 py-4 text-caption text-fg-muted" role="status">
         {t('data.datasetRows.loadingSnapshots')}
       </p>
     )

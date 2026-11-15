@@ -76,7 +76,7 @@ export function UnsyncedChangesList({
         </span>
       </h3>
       {edits.length === 0 ? (
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {t('notebook.unsyncedChanges.nothingIsWaitingEvery')}
         </p>
       ) : (

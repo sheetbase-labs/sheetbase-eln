@@ -200,7 +200,7 @@ export function AiComposer({
           <p className="m-0 whitespace-pre-wrap rounded-lg bg-surface-muted px-3 py-2 text-body text-fg">
             {phase.text}
           </p>
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('notebook.aiComposer.review')}
           </p>
           <div className="flex items-center gap-2">

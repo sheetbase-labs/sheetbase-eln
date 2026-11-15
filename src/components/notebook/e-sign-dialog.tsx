@@ -311,10 +311,10 @@ export function ESignDialog({
                     </Select>
                   </Field>
                 ) : null}
-                <p className="m-0 text-label text-fg-muted">
+                <p className="m-0 text-caption text-fg-muted">
                   {selected.description}
                 </p>
-                <p className="m-0 rounded-md border border-border bg-surface-muted px-2 py-1.5 text-label text-fg-muted">
+                <p className="m-0 rounded-md border border-border bg-surface-muted px-2 py-1.5 text-caption text-fg-muted">
                   {demo
                     ? t('notebook.eSignDialog.demoAssurance')
                     : ASSURANCE_LEVEL_STATEMENT.standard}

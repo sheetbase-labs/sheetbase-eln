@@ -99,7 +99,7 @@ export function WorkingHoursSettings({
 
   return (
     <Section title={t('automation.schedule.hours.title')}>
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('automation.schedule.hours.hint')}
       </p>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px_120px]">

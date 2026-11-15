@@ -468,7 +468,7 @@ function StatementSection({
           : undefined
       }
     >
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('settings.signatures.whatEachPerson')}
       </p>
       <textarea

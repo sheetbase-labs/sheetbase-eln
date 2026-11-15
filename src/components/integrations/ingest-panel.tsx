@@ -377,7 +377,7 @@ export function IngestPanel({
     <Section
       title={t('settings.integrations.ingestPanel.ingestInstrumentOutput')}
     >
-      <p className="m-0 max-w-3xl text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {rich('settings.integrations.ingestPanel.rawFileRetained', {
           parser: <Badge variant="kind">{parserName}</Badge>,
         })}

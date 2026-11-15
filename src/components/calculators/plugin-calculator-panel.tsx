@@ -173,7 +173,7 @@ export function PluginCalculatorPanel({
           ))}
         </Select>
       </label>
-      <p className="text-label text-fg-muted">
+      <p className="text-caption text-fg-muted">
         {active.declaration.description}{' '}
         {t('calculators.plugin.from', { name: active.extensionName })}
       </p>

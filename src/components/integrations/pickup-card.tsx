@@ -106,7 +106,7 @@ export function PickupCard({
 
   return (
     <Section title={t('settings.integrations.pickupCard.folderPickup')}>
-      <p className="m-0 max-w-3xl text-body text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t('settings.integrations.pickupCard.smallAgentInstrument')}
       </p>
       {!configured ? (
@@ -265,7 +265,7 @@ export function PickupCard({
           ) : null}
         </form>
       ) : (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('settings.integrations.pickupCard.askWorkspaceOwner')}
         </p>
       )}

@@ -338,7 +338,7 @@ export function SearchAiNote({
     return (
       <p
         role="status"
-        className="m-0 border-b border-border-subtle px-4 py-2 text-label text-fg-muted md:px-6"
+        className="m-0 border-b border-border-subtle px-4 py-2 text-caption text-fg-muted md:px-6"
         data-testid="search-ai-note"
       >
         {t('projects.searchAi.done', { count })}
@@ -355,7 +355,7 @@ export function SearchAiNote({
     return (
       <p
         role="status"
-        className="m-0 border-b border-border-subtle px-4 py-2 text-label text-fg-muted md:px-6"
+        className="m-0 border-b border-border-subtle px-4 py-2 text-caption text-fg-muted md:px-6"
       >
         {t('projects.searchAi.failed', { message })}
       </p>

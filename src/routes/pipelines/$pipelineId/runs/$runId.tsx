@@ -735,13 +735,15 @@ function RunFailure({
             <h3 className="m-0 font-sans text-label font-semibold">
               {t('data.pipelineRun.likelyCause')}
             </h3>
-            <p className="m-0 mt-1 text-label text-fg-muted">{failureLine}</p>
+            <p className="m-0 mt-1 text-caption text-fg-muted">{failureLine}</p>
           </div>
           <div className="rounded-md border border-border bg-surface p-3">
             <h3 className="m-0 font-sans text-label font-semibold">
               {t('data.pipelineRun.waysFix')}
             </h3>
-            <p className="m-0 mt-1 text-label text-fg-muted">{guidance.hint}</p>
+            <p className="m-0 mt-1 text-caption text-fg-muted">
+              {guidance.hint}
+            </p>
           </div>
         </div>
       ) : null}

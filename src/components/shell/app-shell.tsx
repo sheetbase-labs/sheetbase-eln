@@ -1171,7 +1171,7 @@ function Notifications({
           </div>
         ) : null}
         {items.length === 0 ? (
-          <p className="px-3 py-2.5 text-label text-fg-muted">
+          <p className="px-3 py-2.5 text-caption text-fg-muted">
             {t('settings.shell.appShell.nothingNewRight')}
           </p>
         ) : (

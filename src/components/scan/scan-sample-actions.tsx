@@ -165,7 +165,7 @@ export function ScanSampleActions({
         </section>
       ) : null}
       {!withdrawable && !archived ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('library.scan.sampleActions.withdrawIsUnavailableWhileThis', {
             status: record.status.replace(/_/g, ' '),
           })}

@@ -102,7 +102,7 @@ export function PluginPullPanel({
         <h2 className="m-0 text-body font-medium text-fg">
           {t('plugins.import.pullTitle')}
         </h2>
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('plugins.import.pullHint')}
         </p>
       </div>
@@ -131,7 +131,7 @@ export function PluginPullPanel({
       ) : (
         <p className="m-0 text-body font-medium text-fg">{declaration.title}</p>
       )}
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {declaration.description}{' '}
         {t('plugins.import.from', {
           name: active.extensionName,
@@ -147,7 +147,7 @@ export function PluginPullPanel({
         onChange={setValues}
       />
       {declaration.settings.length > 0 ? (
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('plugins.import.settingsNote')}
         </p>
       ) : null}

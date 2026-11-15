@@ -229,7 +229,7 @@ export function AgentPoliciesBoard({
           <h2 className="m-0 mb-1 text-body font-semibold">
             {t('data.policiesBoard.ariaAboutThesePolicies')}
           </h2>
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('data.policiesBoard.eachCellSaysWhat')}
           </p>
         </section>
@@ -259,7 +259,7 @@ export function AgentPoliciesBoard({
           ) : (
             <Muted>{t('data.policiesBoard.changesYet')}</Muted>
           )}
-          <p className="m-0 mt-2 text-label text-fg-muted">
+          <p className="m-0 mt-2 text-caption text-fg-muted">
             {t('data.policiesBoard.fullDetailSignaturesAudit')}
           </p>
         </section>
@@ -267,7 +267,7 @@ export function AgentPoliciesBoard({
           <h2 className="m-0 mb-1 text-body font-semibold">
             {t('data.policiesBoard.whoChangeThem')}
           </h2>
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('data.policiesBoard.workspaceAdminsQaOwners')}
           </p>
         </section>

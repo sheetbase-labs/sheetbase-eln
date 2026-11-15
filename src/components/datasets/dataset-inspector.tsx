@@ -107,7 +107,7 @@ export function DatasetInspector({ dataset }: { dataset: DatasetListRow }) {
             <h2 className="mb-1.5 font-sans text-label font-semibold">
               {t('data.datasetInspector.issues')}
             </h2>
-            <p className="text-label text-fg-muted">
+            <p className="text-caption text-fg-muted">
               {datasetIssueSummary(dataset)}
             </p>
             <DatasetIssueActions dataset={dataset} />

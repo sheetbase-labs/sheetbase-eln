@@ -197,7 +197,7 @@ export function SavedSearches({
           </Link>
         </>
       ) : (
-        <p className="m-0 px-3 py-3 text-label text-fg-muted">
+        <p className="m-0 px-3 py-3 text-caption text-fg-muted">
           {t('projects.savedSearches.empty')}
         </p>
       )}

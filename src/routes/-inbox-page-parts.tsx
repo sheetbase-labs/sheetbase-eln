@@ -432,7 +432,7 @@ export function InboxLoadFailed({
       <div className="text-prose font-semibold">
         {t('projects.inbox.loadFailed')}
       </div>
-      <div className="max-w-[460px] leading-[19px] text-fg-muted">
+      <div className="leading-[19px] text-fg-muted">
         {query.error instanceof Error
           ? query.error.message
           : t('projects.inbox.loadFailedBody')}
@@ -480,7 +480,7 @@ export function InboxNothingHere({
       <div className="text-prose font-semibold">
         {pending ? t('common.states.loading') : t('projects.inbox.empty.title')}
       </div>
-      <div className="max-w-[460px] leading-[19px] text-fg-muted">{body}</div>
+      <div className="leading-[19px] text-fg-muted">{body}</div>
       {/* QA3-inbox-2 — the type chips narrow the list, so the state that
           empties it offers the way back. */}
       {type ? (

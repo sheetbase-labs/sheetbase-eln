@@ -94,7 +94,7 @@ export function RecordModelVersionEditor({
         onSave(definition, reason.trim(), scope)
       }}
     >
-      <p className="m-0 text-label text-fg-muted">
+      <p className="m-0 text-caption text-fg-muted">
         {t(
           'library.models.recordModelVersionEditor.draftVRevisionPublishedDefinitions',
           { version: version.version, revision: version.revision },
@@ -107,7 +107,7 @@ export function RecordModelVersionEditor({
         className="divide-y divide-border rounded-md border border-border"
       >
         {definition.fields.length === 0 ? (
-          <p className="p-3 text-label text-fg-muted">
+          <p className="p-3 text-caption text-fg-muted">
             {t('library.models.recordModelVersionEditor.noFieldsYetAddA')}
           </p>
         ) : null}

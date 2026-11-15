@@ -226,7 +226,7 @@ function StocktakeLine({
   note: string | null
 }) {
   return (
-    <p className="m-0 text-label text-fg-muted">
+    <p className="m-0 text-caption text-fg-muted">
       {closingLine(called, when, finishedBy)}
       {note ? ` · ${note}` : ''}
     </p>

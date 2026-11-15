@@ -252,7 +252,7 @@ export function SettingsGeneral({
       </SettingsHeader>
       <SettingsBody>
         <Section title={t('settings.general.workspace')}>
-          <p className="m-0 max-w-2xl text-body text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('settings.general.nameSiteTime')}
           </p>
 
@@ -455,7 +455,7 @@ function RecordIdPrefixes({
         <h3 className="text-label font-medium text-fg">
           {t('settings.general.recordIds')}
         </h3>
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('settings.general.prefixEachRecord')}
         </p>
       </div>

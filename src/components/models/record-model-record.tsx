@@ -406,7 +406,7 @@ function RecordDetails({ page }: { page: RecordPage }) {
   return (
     <Section title={t('library.models.recordModelRecord.details')}>
       {record && !record.model_version_id ? (
-        <p role="status" className="text-label text-fg-muted">
+        <p role="status" className="text-caption text-fg-muted">
           {t('library.models.recordModelRecord.thisLegacyRecordHasNo')}
         </p>
       ) : null}
@@ -417,7 +417,7 @@ function RecordDetails({ page }: { page: RecordPage }) {
       ) : record && !fieldsQuery.isLoading ? (
         <RecordDetailValues page={page} record={record} />
       ) : (
-        <p className="text-label text-fg-muted">
+        <p className="text-caption text-fg-muted">
           {t('library.models.recordModelRecord.loadingFields')}
         </p>
       )}
@@ -609,7 +609,7 @@ function RecordRelated({ page }: { page: RecordPage }) {
             ))}
           </ul>
         ) : (
-          <p className="m-0 text-label text-fg-muted">
+          <p className="m-0 text-caption text-fg-muted">
             {t('library.models.recordModelRecord.noRecordsLinkToThis')}
           </p>
         )}
@@ -624,7 +624,7 @@ function RecordRelated({ page }: { page: RecordPage }) {
       </Section>
 
       <Section title={t('library.models.recordModelRecord.integrations')}>
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {timeline.length
             ? t('library.models.recordModelRecord.resultsFromQcLimsAnd')
             : t('library.models.recordModelRecord.resultsFromQcLimsAnd2')}

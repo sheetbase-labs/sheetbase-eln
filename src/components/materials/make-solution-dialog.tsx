@@ -333,7 +333,7 @@ function SolutionForm({
           {t('library.materials.solution.ingredients')}
         </h3>
         {ingredients.length === 0 ? (
-          <p className="text-label text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {errors.ingredients ? (
               <span className="text-danger-text">{errors.ingredients}</span>
             ) : (
@@ -517,11 +517,11 @@ function IngredientSearch({
             ))}
           </ul>
         ) : results.isFetching ? (
-          <p className="text-label text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {t('library.materials.solution.searching')}
           </p>
         ) : query ? (
-          <p className="text-label text-fg-muted">
+          <p className="text-caption text-fg-muted">
             {t('library.materials.solution.noMatches', { q: query })}
           </p>
         ) : null

@@ -96,7 +96,7 @@ function StandardSteps() {
                   zone: true,
                 }),
               })
-            : t('data.stepList.notTriedYet')}
+            : null}
         </span>
         <Button
           variant="secondary"

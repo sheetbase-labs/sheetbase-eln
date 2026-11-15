@@ -18,7 +18,6 @@ export const copy = {
   },
   activity: {
     title: 'Activity',
-    lead: 'Who changed what, and when: drafts, publish requests and approvals.',
     empty: 'Nothing has happened to this pipeline yet.',
     pendingTitle: 'v{version} is waiting for approval',
     pendingBody:

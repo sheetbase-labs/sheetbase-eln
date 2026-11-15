@@ -1,5 +1,3 @@
-import { formatShortcut } from '#/lib/shortcuts'
-import type { Platform } from '#/lib/shortcuts'
 
 import { Button } from '#/components/ui/button'
 import { LoadMore } from '#/components/ui/load-more'
@@ -34,7 +32,6 @@ type PluginsModel = ReturnType<typeof useSearchPlugins>
  */
 export function SearchResultsSection({
   active,
-  platform,
   q,
   search,
   results,
@@ -47,7 +44,6 @@ export function SearchResultsSection({
   plugins,
 }: {
   active: boolean
-  platform: Platform
   q: string
   search: SearchPageSearch
   results: SearchResult[]
@@ -65,9 +61,7 @@ export function SearchResultsSection({
         <EmptyState
           icon="search"
           title={t('projects.searchPage.empty.title')}
-          description={t('projects.searchPage.empty.body', {
-            shortcut: formatShortcut('mod+k', platform),
-          })}
+          description={t('projects.searchPage.empty.body')}
         />
       </div>
     )

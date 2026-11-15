@@ -4,7 +4,6 @@ import { useCallback, useMemo } from 'react'
 import { t } from '#/copy'
 import { EmptyState } from '#/components/ui/empty-state'
 import { ProjectListFailure } from '#/components/projects/project-list'
-import { Muted } from '#/components/ui/layout'
 import { BoardScope } from '#/features/pipelines/board/board'
 import { usePipelineVersions } from '#/components/pipelines/pipelines-data'
 import { ActivityFeed } from '#/components/pipelines/activity/activity-feed'
@@ -68,7 +67,6 @@ function PipelineActivity() {
 
   return (
     <BoardScope className="flex min-w-0 flex-1 flex-col gap-4 px-4 py-4 md:px-6">
-      <Muted>{t('features.pipelineApprovals.activity.lead')}</Muted>
       <PublishRequestCard
         versions={list}
         approval={approval}

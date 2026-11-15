@@ -28,7 +28,6 @@ function Roles() {
         }
       >
         {context.workspace?.name ?? 'Workspace'}
-        {t('settings.roles.rolesDecideWhat')}
       </SettingsHeader>
       <RolesAndPermissions
         workspaceId={context.workspace?.id ?? ''}

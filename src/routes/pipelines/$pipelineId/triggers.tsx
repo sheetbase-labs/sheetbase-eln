@@ -156,45 +156,6 @@ function OutputsSection({
   )
 }
 
-const NEVER_ALLOWED = [
-  t('data.pipelineTriggers.signApproveSubmitRecords'),
-  t('data.pipelineTriggers.deleteOverwriteData'),
-  t('data.pipelineTriggers.changeOwnPermissions'),
-]
-
-/** What a triggered run can and cannot do, which is the same however it was
- * started: it acts as the pipeline's own identity, proposes rather than
- * signs, and its Python steps run isolated from the database. */
-function RunBoundaries() {
-  return (
-    <div className="mt-6 grid gap-4 border-t border-line pt-4 md:grid-cols-2">
-      <div>
-        <h3 className="text-caption font-medium text-fg">
-          {t('data.pipelineTriggers.runsAs')}
-        </h3>
-        <Muted>{t('data.pipelineTriggers.pipelineItselfEveryChange')}</Muted>
-        <h3 className="mt-3 text-caption font-medium text-fg">
-          {t('data.pipelineTriggers.pythonSteps')}
-        </h3>
-        <Muted>{t('data.pipelineTriggers.runIsolationTheyOnly')}</Muted>
-      </div>
-      <div>
-        <h3 className="text-caption font-medium text-fg">
-          {t('data.pipelineTriggers.neverAllowed')}
-        </h3>
-        <ul className="mt-1 list-disc pl-4 text-caption text-fg-muted">
-          {NEVER_ALLOWED.map((rule) => (
-            <li key={rule}>{rule}</li>
-          ))}
-        </ul>
-        <Muted className="mt-2">
-          {t('data.pipelineTriggers.triggersStartRunsThey')}
-        </Muted>
-      </div>
-    </div>
-  )
-}
-
 function useTriggerEditor() {
   const { pipelineId } = Route.useParams()
   const { context } = Route.useRouteContext()
@@ -552,10 +513,9 @@ function PipelineTriggers() {
     <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
       <Section
         title={t('data.pipelineTriggers.startsOn')}
-        count={rows.length}
+        count={rows.length || undefined}
         action={rows.length ? addButton : undefined}
       >
-        <Muted>{t('data.pipelineTriggers.manualEditorsPipelinePress')}</Muted>
         {uninterpretable.length ? (
           <Notice tone="warn">
             {t('data.pipelineTriggers.triggersStoredSpecificationsCannot', {
@@ -598,7 +558,6 @@ function PipelineTriggers() {
       </Section>
       <WebhookSection definitionId={pipelineId} />
       <OutputsSection pipelineId={pipelineId} version={shownVersion} />
-      <RunBoundaries />
       <HistorySection pipelineId={pipelineId} workspaceId={workspaceId} />
       <ScheduleDialog
         open={adding}

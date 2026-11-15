@@ -577,11 +577,11 @@ export function MaterialInspectorFacts({
             ? t('library.materials.page.replacementLot')
             : t('library.materials.page.noReplacementLot')}
         </h2>
-        <p className="text-label text-fg-muted">
-          {replacementLink
-            ? `${replacementLink.targetIdentifier}${replacementLink.reason ? ` · ${replacementLink.reason}` : ''}`
-            : t('library.materials.page.noLotHasBeenRegistered')}
-        </p>
+        {replacementLink ? (
+          <p className="text-label text-fg-muted">
+            {`${replacementLink.targetIdentifier}${replacementLink.reason ? ` · ${replacementLink.reason}` : ''}`}
+          </p>
+        ) : null}
       </section>
       {usage.length ? (
         <section>

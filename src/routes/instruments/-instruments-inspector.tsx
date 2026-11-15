@@ -257,9 +257,6 @@ export function InstrumentInspector({
                 ? t('library.instruments.list.reinstateInstrument')
                 : t('library.instruments.list.retireInstrument')}
             </Button>
-            <Muted className="mt-1.5">
-              {t('library.instruments.list.retiredInstrumentsStayForHistory')}
-            </Muted>
           </RegistrySection>
         ) : null}
       </div>
@@ -546,9 +543,6 @@ function CalibrationSection({
           ],
         ]}
       />
-      <Muted className="mt-1.5">
-        {t('library.instruments.list.certificatesAndHistoryAreOn')}
-      </Muted>
     </RegistrySection>
   )
 }

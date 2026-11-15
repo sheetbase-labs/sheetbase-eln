@@ -677,8 +677,7 @@ function InternalMembers({
           </>
         }
       >
-        {context.workspace?.name ?? 'Workspace'}{' '}
-        {t('settings.members.rolesDecideWhat')}
+        {context.workspace?.name ?? 'Workspace'}
       </SettingsHeader>
       <div
         role="toolbar"

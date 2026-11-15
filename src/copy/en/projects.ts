@@ -2755,7 +2755,7 @@ export const projects = {
     title: 'Search',
     empty: {
       title: 'Search names, IDs, cell values, comments and files',
-      body: 'Type an ID like EXP-0142 or a value like C-150. Press {shortcut} anywhere to search without leaving the page.',
+      body: 'Type an ID like EXP-0142 or a value like C-150.',
     },
     results: 'Results for “{query}”',
     shownOfTotal: '{shown} of {total}',

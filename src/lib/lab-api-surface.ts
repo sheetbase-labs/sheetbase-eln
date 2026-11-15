@@ -577,6 +577,24 @@ export const LAB_TABLES: LabTableIndex = {
       ['checked_by_user_id', 'text', 0],
     ],
   },
+  extension_run_logs: {
+    summary:
+      'What each plugin run did, for administrators who manage plugins: the function (`kind`, `entry`), whether it worked, how long it took in milliseconds, the error text and what the plugin printed. Never the inputs or the answer. Kept 14 days and the newest 200 runs per plugin. Written only by the app when a plugin runs.',
+    personal: true,
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['extension_id', 'uuid', 1],
+      ['extension_key', 'text', 1],
+      ['kind', 'text', 1],
+      ['entry', 'text', 1],
+      ['ok', 'bool', 1],
+      ['duration_ms', 'int', 1],
+      ['error', 'text', 0],
+      ['output', 'text[]', 1],
+      ['created_at', 'ts', 1],
+    ],
+  },
   registry_sameness_rules: {
     summary:
       'Which plugin rule decides when two entries of a registry model are the same thing. `plugin_item` is `plugin.<plugin>.<rule>`.',

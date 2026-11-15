@@ -31,6 +31,7 @@ import {
 } from '#/components/ui/dialog'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Notice } from '#/components/ui/alert'
+import { PluginLogsDialog } from '#/components/settings/plugin-logs-dialog'
 import {
   PluginRuntimeDialog,
   environmentTone,
@@ -238,6 +239,8 @@ function Plugins() {
     null,
   )
 
+  const [logsFor, setLogsFor] = useState<ExtensionWire | null>(null)
+
   const installs = useQuery({
     queryKey: [...extensionQueryKeys.extensions, 'admin', workspaceId],
     queryFn: () => listExtensions(client),
@@ -277,6 +280,7 @@ function Plugins() {
     busy: toggle.isPending || togglePoint.isPending,
     onConnections: setConnectionsFor,
     onSettings: setSettingsFor,
+    onLogs: setLogsFor,
     onToggle: (install, on) => toggle.mutate({ install, on }),
     onPoint: (install, point, on) => togglePoint.mutate({ install, point, on }),
     onRemove: setRemoving,
@@ -325,6 +329,14 @@ function Plugins() {
         />
       ) : null}
 
+      {logsFor ? (
+        <PluginLogsDialog
+          extensionId={logsFor.id}
+          name={logsFor.name}
+          onClose={() => setLogsFor(null)}
+        />
+      ) : null}
+
       {settingsFor ? (
         <PluginRuntimeDialog
           name={settingsFor.name}
@@ -361,6 +373,7 @@ function pluginColumns({
   busy,
   onConnections,
   onSettings,
+  onLogs,
   onToggle,
   onPoint,
   onRemove,
@@ -370,6 +383,7 @@ function pluginColumns({
   busy: boolean
   onConnections: (install: ExtensionWire) => void
   onSettings: (install: ExtensionWire) => void
+  onLogs: (install: ExtensionWire) => void
   onToggle: (install: ExtensionWire, on: boolean) => void
   onPoint: (
     install: ExtensionWire,
@@ -511,6 +525,9 @@ function pluginColumns({
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => onSettings(install)}>
                   {t('plugins.admin.runtime.button')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onLogs(install)}>
+                  {t('plugins.admin.logs.button')}
                 </DropdownMenuItem>
                 {connectionsOf(install).length > 0 ? (
                   <DropdownMenuItem onClick={() => onConnections(install)}>

@@ -19,7 +19,10 @@ import {
   pythonInputsSchema,
   pythonInputRowSchema,
 } from '../pipeline-python.server'
-import type { PythonTransformInput } from '../pipeline-python.server'
+import type {
+  PythonInputRow,
+  PythonTransformInput,
+} from '../pipeline-python.server'
 import { extensionAuditIdentity } from './contract'
 import { findCallable } from './callables'
 import type { CallableItem } from './callables'
@@ -64,6 +67,19 @@ export interface ExtensionInstallRow {
   disabledPoints: string[]
 }
 
+/** One finished run of a plugin function, as the Logs view shows it. */
+export interface PluginRunRecord {
+  workspaceId: string
+  extensionId: string
+  extensionKey: string
+  kind: string
+  entry: string
+  ok: boolean
+  durationMs: number
+  error: string | null
+  output: string[]
+}
+
 export interface ExtensionRuntimeDeps {
   loadInstall: (
     workspaceId: string,
@@ -99,6 +115,11 @@ export interface ExtensionRuntimeDeps {
     row: PluginRuntimeRow,
   ) => Promise<PluginRuntimeRow>
   executePython: typeof executePythonTransform
+  /**
+   * Keeps one run for the plugin's Logs view: how it ended and what it printed,
+   * never the inputs or the answer. Absent (in a test, say) keeps nothing.
+   */
+  recordRun?: (run: PluginRunRecord) => Promise<void>
   audit: (event: {
     workspaceId: string
     actorUserId: string
@@ -260,6 +281,60 @@ export async function pluginLimits(
   return resolveLimits(row?.limitOverrides)
 }
 
+/** What an administrator set for the operation (`_settings`): never written to the Logs view. */
+function settingValues(parameters: PythonInputRow): string[] {
+  const settings = z
+    .looseObject({
+      input: z.looseObject({ _settings: z.record(z.string(), z.unknown()) }),
+    })
+    .safeParse(parameters)
+
+  if (!settings.success) return []
+
+  return Object.values(settings.data.input._settings).flatMap((value) => {
+    const text = z.string().safeParse(value)
+
+    return text.success ? [text.data] : []
+  })
+}
+
+/** Records one run for the Logs view. A failure to record never changes the run. */
+async function keepRun(
+  deps: ExtensionRuntimeDeps,
+  workspaceId: string,
+  resolved: ResolvedInstall,
+  parameters: PythonInputRow,
+  run: {
+    ok: boolean
+    durationMs: number
+    error: string | null
+    output: string[]
+    hidden: readonly string[]
+  },
+): Promise<void> {
+  if (!deps.recordRun) return
+
+  const named = z
+    .looseObject({ kind: z.string().optional(), entry: z.string().optional() })
+    .safeParse(parameters)
+
+  try {
+    await deps.recordRun({
+      workspaceId,
+      extensionId: resolved.install.id,
+      extensionKey: resolved.install.key,
+      kind: named.success ? (named.data.kind ?? 'operation') : 'operation',
+      entry: named.success ? (named.data.entry ?? '') : '',
+      ok: run.ok,
+      durationMs: Math.max(0, Math.round(run.durationMs)),
+      error: run.error === null ? null : hideSecrets(run.error, run.hidden),
+      output: run.output.map((line) => hideSecrets(line, run.hidden)),
+    })
+  } catch {
+    // Keeping the log is best effort.
+  }
+}
+
 export async function runPackage(
   deps: ExtensionRuntimeDeps,
   workspaceId: string,
@@ -325,7 +400,31 @@ export async function runPackage(
     if (runtime && runtime.networkHosts.length > 0)
       call.network = runtime.networkHosts
 
-    return await deps.executePython(call)
+    const started = deps.now()
+    const hidden = settingValues(parameters.data)
+
+    try {
+      const result = await deps.executePython(call)
+
+      await keepRun(deps, workspaceId, resolved, parameters.data, {
+        ok: true,
+        durationMs: deps.now() - started,
+        error: null,
+        output: result.logs,
+        hidden,
+      })
+
+      return result
+    } catch (failure) {
+      await keepRun(deps, workspaceId, resolved, parameters.data, {
+        ok: false,
+        durationMs: deps.now() - started,
+        error: failureText(failure),
+        output: failure instanceof PipelinePythonError ? failure.logs : [],
+        hidden,
+      })
+      throw failure
+    }
   } catch (error) {
     const refused = z.looseObject({ code: z.string() }).safeParse(error)
 
@@ -1206,6 +1305,20 @@ export function defaultDeps(): ExtensionRuntimeDeps {
       return (
         z.record(z.string(), z.string()).safeParse(rows.at(0)?.files).data ??
         null
+      )
+    },
+    recordRun: async (run) => {
+      const [{ db }, { sql }] = await Promise.all([
+        import('#/db/client.server'),
+        import('drizzle-orm'),
+      ])
+
+      await db.execute(
+        sql`SELECT internal.record_extension_run(
+          ${run.workspaceId}::uuid, ${run.extensionId}::uuid, ${run.extensionKey},
+          ${run.kind}, ${run.entry}, ${run.ok}, ${run.durationMs}::int,
+          ${run.error},
+          ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(run.output)}::jsonb)))`,
       )
     },
     audit: async ({ workspaceId, actorUserId, extensionId, payload }) => {

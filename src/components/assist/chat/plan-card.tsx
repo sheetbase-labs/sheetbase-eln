@@ -17,6 +17,7 @@ import type {
 import { runPlanStep } from '#/features/plans/run'
 import type { ApplyBuilt } from '#/features/plans/run'
 import type { AssistantProposal } from '#/lib/assistant-proposals'
+import { reportActionFailure } from '#/lib/assistant-failure-feed'
 
 /**
  * A plan from the assistant: several changes approved once and run in order.
@@ -112,6 +113,7 @@ export function PlanCard({
   async function run(from: number, options: { runAll: boolean }) {
     save('running', null)
 
+    let failedMessage = ''
     const outcome: PlanOutcome = await runPlan({
       steps: action.steps,
       from,
@@ -119,13 +121,23 @@ export function PlanCard({
       pauseDestructive: action.pauseDestructive,
       runAll: options.runAll,
       execute: (step): Promise<PlanStepResult> =>
-        runPlanStep(action.workspaceId, step, applyBuilt),
+        runPlanStep(action.workspaceId, step, applyBuilt).then((result) => {
+          if (!result.ok) failedMessage = result.message
+
+          return result
+        }),
       onUpdate: update,
     })
 
     if (outcome.status === 'paused') save('paused', outcome.at)
-    else if (outcome.status === 'failed') save('stopped', outcome.at)
-    else save('done', null)
+    else if (outcome.status === 'failed') {
+      save('stopped', outcome.at)
+      reportActionFailure({
+        id: `${callId}:${outcome.at}`,
+        title: proposal.title,
+        reason: failedMessage,
+      })
+    } else save('done', null)
 
     void queryClient.invalidateQueries()
     void router.invalidate()

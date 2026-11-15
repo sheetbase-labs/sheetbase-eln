@@ -480,10 +480,33 @@ export type BenchAction =
 
 export type BenchActionKind = BenchAction['kind']
 
+/** Plain words for a database error a person should never see raw. */
+export function plainDatabaseError(message: string): string {
+  if (/duplicate key|unique constraint|already exists/i.test(message)) {
+    return 'Something with that name or key already exists.'
+  }
+
+  if (/foreign key|violates .* constraint/i.test(message)) {
+    return 'It refers to something that is missing or no longer allowed.'
+  }
+
+  if (/null value in column|not-null/i.test(message)) {
+    return 'A required value is missing.'
+  }
+
+  if (/permission denied|row-level security|not allowed/i.test(message)) {
+    return 'You do not have permission to do that.'
+  }
+
+  return message
+}
+
 /** Plain words for why an action failed. */
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A refused action rejects with whatever the transport threw; an Error supplies its message and anything else falls back to the retry line.
 export function describeActionError(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message
+  if (error instanceof Error && error.message) {
+    return plainDatabaseError(error.message)
+  }
 
   return 'Something went wrong. Try again.'
 }

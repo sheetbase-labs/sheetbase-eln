@@ -26,7 +26,8 @@ import type {
 } from '#/lib/assistant-proposals'
 import { runAssistantAction } from '#/lib/assistant-booking'
 import type { AssistantActionKind } from '#/lib/assistant-booking'
-import { describeActionError } from '#/lib/assistant-bench'
+import { describeActionError, plainDatabaseError } from '#/lib/assistant-bench'
+import { reportActionFailure } from '#/lib/assistant-failure-feed'
 import { describeCalendarError } from '#/lib/calendar'
 import { isPlanAction } from '#/features/plans/plan'
 import type { PlanStepResult } from '#/features/plans/plan'
@@ -233,7 +234,9 @@ function failureReason(error: unknown): string {
   return /stale|revision|version|conflict/i.test(message)
     ? t('notebook.assistantPanel.proposal.stale')
     : t('notebook.assistantPanel.proposal.failed', {
-        reason: message || t('common.errors.generic'),
+        reason: message
+          ? plainDatabaseError(message)
+          : t('common.errors.generic'),
       })
 }
 
@@ -492,6 +495,11 @@ function SingleProposalCard({
 
     if (outcome.kind === 'failed') {
       setState({ phase: 'failed', reason: outcome.reason })
+      reportActionFailure({
+        id: callId,
+        title: proposal.title,
+        reason: outcome.reason,
+      })
 
       return
     }

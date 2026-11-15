@@ -39,8 +39,7 @@ export const shipments = {
   overdue: 'Late',
   empty: {
     open: 'Nothing on the way',
-    openBody:
-      'Set up a shipment to send samples or expect a delivery.',
+    openBody: 'Set up a shipment to send samples or expect a delivery.',
     received: 'Nothing received yet',
     all: 'No shipments yet',
     filtered: 'Nothing matches that search.',

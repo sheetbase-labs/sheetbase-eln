@@ -251,7 +251,6 @@ export function SettingsGeneral({
       </SettingsHeader>
       <SettingsBody>
         <Section title={t('settings.general.workspace')}>
-
           {save.isError ? (
             <Notice tone="bad">
               {save.error instanceof Error

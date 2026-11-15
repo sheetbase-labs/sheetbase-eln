@@ -26,8 +26,7 @@ export const settings = {
     approveEditAccess: 'Approve edit access',
     deny: 'Deny',
     waitingApproval: 'Waiting for approval',
-    whoOpenEach:
-      'Who can open each project.',
+    whoOpenEach: 'Who can open each project.',
     projectAccess: 'Project access',
     addRule: 'Add rule',
     onlyProjectManager:
@@ -122,8 +121,7 @@ export const settings = {
     enableAssistantWorkspace: 'Enable the assistant for this workspace',
     providerProfile: 'Provider profile',
     profilesSetUpHint: 'Profiles are set up by your admin.',
-    noProfilesHint:
-      'No outside provider is connected.',
+    noProfilesHint: 'No outside provider is connected.',
     builtDeterministicModel:
       'Built-in deterministic model (no external provider)',
     modelRole: 'Model role',
@@ -217,8 +215,7 @@ export const settings = {
     project: 'Project',
     logCouldLoaded: 'The log couldn’t be loaded. Refresh to try again.',
     auditLogCould: 'The audit log couldn’t be read.',
-    newestFirstScrolling:
-      'Export includes every entry matching the search.',
+    newestFirstScrolling: 'Export includes every entry matching the search.',
     exportedEntries: {
       one: '{count} entry — every entry matching the current search.',
       other: '{count} entries — every entry matching the current search.',
@@ -277,8 +274,7 @@ export const settings = {
     shareApprovedRecord: 'Share an approved record',
     approvedRecordsCould: 'Approved records couldn’t be loaded:',
     sharesCouldLoaded: 'Shares couldn’t be loaded:',
-    nothingSharedOne:
-      'No individual records are shared.',
+    nothingSharedOne: 'No individual records are shared.',
     approvedNow: 'Not approved now',
     shared2: 'Shared',
     stopSharing: 'Stop sharing',
@@ -320,14 +316,12 @@ export const settings = {
     recentFailures: 'Recent failures',
     auditLog: 'Audit log',
     requestId: 'Request ID',
-    failuresRecentPipeline:
-      'Failures from recent pipeline and connector runs.',
+    failuresRecentPipeline: 'Failures from recent pipeline and connector runs.',
     recentFailures2: 'No recent failures',
     anythingFailsImportDescription:
       'Anything that fails, from an import to a delivery, shows here with a request ID you can give to support.',
     release: 'Release',
-    releasesValidatedBefore:
-      'Take a backup before you update.',
+    releasesValidatedBefore: 'Take a backup before you update.',
     releasesUnderChangeControl:
       'Releases are validated before they reach this workspace. Nothing is updated without a change control that has been approved.',
     schemaVersion: 'Schema version',
@@ -897,22 +891,19 @@ export const settings = {
     fullName: 'Full name',
     printedSignedRecordsHint: 'Printed on signed records.',
     timeZone: 'Time zone',
-    timesAcrossSheetbaseHint:
-      'Times across Sheetbase show on this clock.',
+    timesAcrossSheetbaseHint: 'Times across Sheetbase show on this clock.',
     europeLondonPlaceholder: 'Europe/London',
     email: 'Email',
     companySignHint: 'From your company sign-in.',
     role: 'Role',
     setAdministratorHint: 'Set by an admin.',
     appearance: 'Appearance',
-    appliesEverySheetbase:
-      'System follows your computer’s setting.',
+    appliesEverySheetbase: 'System follows your computer’s setting.',
     display: 'Display',
     clock: 'Clock',
     clock12: '12-hour',
     clock24: '24-hour',
-    clockHint:
-      'For example 14:30 or 2:30 pm.',
+    clockHint: 'For example 14:30 or 2:30 pm.',
     alwaysShowLayout: 'Always show the layout bar and keyboard shortcuts',
     alwaysShowLayoutHint:
       'They appear on their own once you split a page into panes. Tick this to keep them on a single pane too.',
@@ -922,8 +913,7 @@ export const settings = {
     databaseRefused: 'Your account didn’t accept it.',
     tryAgain: 'Try again.',
     initials: 'Initials',
-    shownAvatarDerivedHint:
-      'Shown on your avatar.',
+    shownAvatarDerivedHint: 'Shown on your avatar.',
     jobTitle: 'Job title',
     shownBesideNameHint: 'Shown beside your name to colleagues.',
     researchScientistPlaceholder: 'Research scientist',
@@ -1069,8 +1059,7 @@ export const settings = {
       'Signing password enrolled. Agree to the statement and enter it again to certify.',
     recoverSigningPassword: 'Recover signing password',
     enrollSigningPassword: 'Enroll signing password',
-    whichSignatureMeanings:
-      ' · your own signature is under ',
+    whichSignatureMeanings: ' · your own signature is under ',
     mySignature: 'My signature',
     everyoneWhoSign: 'Everyone who can sign has certified their signature.',
     signatureMeaningUse2: '{m} is a signature meaning in use',
@@ -2665,8 +2654,7 @@ export const settings = {
       measurement_range: 'A measurement is within limits',
     },
     title: 'Release checks',
-    intro:
-      'A sample is released when every check for its type passes.',
+    intro: 'A sample is released when every check for its type passes.',
     sampleType: 'Sample type',
     checks: 'Checks',
     source: 'Where they come from',
@@ -2833,8 +2821,7 @@ export const settings = {
     streamTitle: 'Event stream',
     streamDescription:
       'People and tools can read every change in order from the event stream. Choose how long it is kept.',
-    streamAddress:
-      'Read it from {path}.',
+    streamAddress: 'Read it from {path}.',
     streamDays: 'Keep for (days)',
     streamSave: 'Save',
   },
@@ -2934,8 +2921,7 @@ export const settings = {
     certificationWithdrawnToast: 'Certification withdrawn',
     cannotSignUntilDescription: 'You can’t sign until you certify again.',
     couldWithdrawToast: 'Couldn’t withdraw',
-    signatureDeliberateAct:
-      '',
+    signatureDeliberateAct: '',
     mySignature: 'My signature',
     signNow: 'You can sign now',
     cameCertify: 'You came here to certify',

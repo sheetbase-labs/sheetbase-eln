@@ -10,8 +10,7 @@ export const openData = {
     explain:
       'Your data written as open table files on your own storage, so analysts can read it in DuckDB, Polars or Spark without going through Sheetbase. Tables follow what the person who turned this on can see.',
     enable: 'Write open tables',
-    enableHint:
-      'Updates a few minutes after data changes.',
+    enableHint: 'Updates a few minutes after data changes.',
     refresh: 'Refresh now',
     refreshQueued: 'Refresh queued',
     saved: 'Open tables saved',
@@ -71,8 +70,7 @@ export const openData = {
     explain:
       'Label fields and vocabulary terms with standard terms such as OBI, ChEBI or Uberon. Searching sends what you type to the EBI Ontology Lookup Service.',
     enable: 'Allow ontology search',
-    enableHint:
-      'Nothing is sent until you turn it on.',
+    enableHint: 'Nothing is sent until you turn it on.',
     ontologies: 'Ontologies to search',
     ontologiesHint:
       'Short names separated by commas, for example obi, chebi, uberon.',

@@ -142,8 +142,7 @@ export const library = {
         one: '{count} day ahead at most',
         other: '{count} days ahead at most',
       },
-      empty:
-        'Anyone qualified can book this instrument.',
+      empty: 'Anyone qualified can book this instrument.',
       saved: 'Booking rules saved',
       couldNotSave: 'The booking rules couldn’t be saved.',
       notTrained: 'You need training before booking this instrument:',
@@ -152,8 +151,7 @@ export const library = {
     serviceLog: {
       title: 'Repairs and service',
       logVisit: 'Log a visit',
-      empty:
-        'No repairs or service visits logged yet.',
+      empty: 'No repairs or service visits logged yet.',
       tableLabel: 'Repairs and service visits',
       date: 'Date',
       kind: 'Kind',
@@ -2377,8 +2375,7 @@ export const library = {
       owner: 'Owner',
       structure: 'Structure',
       versioning: 'Versioning',
-      openTheProtocolToSee:
-        'Open the protocol to see its versions.',
+      openTheProtocolToSee: 'Open the protocol to see its versions.',
     },
     detail: {
       loadingProtocol: 'Loading protocol…',

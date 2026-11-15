@@ -431,9 +431,7 @@ function AssistantConfiguration({
             ))}
           </Select>
         </Field>
-        <Field
-          label={t('settings.ai.modelRole')}
-        >
+        <Field label={t('settings.ai.modelRole')}>
           <Select
             value={form.model}
             onChange={(event) =>

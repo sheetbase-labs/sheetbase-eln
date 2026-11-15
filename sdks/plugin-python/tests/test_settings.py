@@ -40,3 +40,13 @@ def test_operation_settings_need_a_secret_flag():
     bad = json.loads(json.dumps(MANIFEST))
     bad["provides"]["operations"][0]["settings"] = [{"name": "token", "label": "Token", "required": True}]
     assert check_package(files(bad))
+
+
+def test_operations_sharing_a_setting_must_agree():
+    twin = json.loads(json.dumps(MANIFEST))
+    other = json.loads(json.dumps(MANIFEST["provides"]["operations"][0]))
+    other["id"] = "read"
+    twin["provides"]["operations"].append(other)
+    assert check_package(files(twin)) == []
+    other["settings"][0]["label"] = "Something else"
+    assert check_package(files(twin))

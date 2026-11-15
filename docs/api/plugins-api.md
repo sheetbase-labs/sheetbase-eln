@@ -288,8 +288,12 @@ sets once; a secret is sealed when saved and never returned.
 
 An **operation** may declare `settings` too (`[{ "name", "label", "secret",
 "required" }]`, the same shape, up to 8). An administrator sets them in
-Settings → Plugins → Connections, under "Looks things up"; a secret is sealed and
-never returned. Whoever runs the operation (assistant, MCP, API, pipeline), the
+Settings → Plugins → Connections, under "Looks things up", once per plugin: a
+setting is kept by name, so every operation that declares `token` shares the one
+value and the dialog shows one card. Operations that declare the same name must
+agree on its `label`, `secret` and `required`, or the manifest is refused. A
+secret is sealed and never returned. An operation receives only the names it
+declares. Whoever runs the operation (assistant, MCP, API, pipeline), the
 function gets the values as `input["_settings"]`, a dictionary of name to value.
 A required setting that is not set stops the call with "isn't set up yet. An
 administrator sets it in Settings › Plugins"; a declared input cannot be named
@@ -311,7 +315,7 @@ with no extra work, and each call is audited as `extension.invoked`.
 - `GET /api/plugins/connections` and `POST /api/plugins/connections` (owners and
   admins, `extensions.manage`; session only, because the values can be secrets, and
   secrets are never taken over the API). GET answers
-  `{ "connections": [ { extensionId, extensionKey, point (`connectors`, `publishers`, `notification-channels` or `operations`), itemId, title, hosts, off, settings: [ { name, label, secret, required, isSet, value } ] } ] }`
+  `{ "connections": [ { extensionId, extensionKey, point (`connectors`, `publishers`, `notification-channels`or`operations`), itemId (`operations` for the one card of a plugin's operations), title, hosts, off, settings: [ { name, label, secret, required, isSet, value } ] } ] }`
   (`value` is only given for a setting that is not a secret). POST sets or
   clears: `{ "extensionId", "point", "itemId", "values": { "token": "…", "region": null } }`;
   a setting left out is kept. Each change is audited as

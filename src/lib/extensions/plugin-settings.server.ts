@@ -22,8 +22,9 @@ export const SETTINGS_POINTS = [
 
 export type SettingsPoint = (typeof SETTINGS_POINTS)[number]
 
+/** An operation's settings are shared by name across the plugin, so they have one scope. */
 export const settingsScope = (point: SettingsPoint, itemId: string) =>
-  `${point}:${itemId}`
+  point === 'operations' ? 'operations' : `${point}:${itemId}`
 
 export interface StoredSetting {
   scope: string

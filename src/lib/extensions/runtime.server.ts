@@ -747,7 +747,7 @@ async function operationSettings(
     (await deps.loadSettings?.(
       args.workspaceId,
       resolved.install.id,
-      `operations:${callable.id}`,
+      'operations',
     )) ?? {}
 
   const values: Record<string, string> = {}

@@ -493,7 +493,45 @@ export function parseOperations(
     out.push(operation)
   }
 
+  if (!sharedSettingsAgree(out, errors)) return null
+
   return out
+}
+
+/**
+ * Settings are shared by name across a plugin's operations, so two operations
+ * that declare the same name must agree on its label, secret and required.
+ */
+function sharedSettingsAgree(
+  operations: readonly ExtensionOperationDeclaration[],
+  errors: string[],
+): boolean {
+  const seen = new Map<string, ExtensionOperationSetting>()
+
+  for (const operation of operations) {
+    for (const setting of operation.settings ?? []) {
+      const first = seen.get(setting.name)
+
+      if (!first) {
+        seen.set(setting.name, setting)
+        continue
+      }
+
+      if (
+        first.label !== setting.label ||
+        first.secret !== setting.secret ||
+        first.required !== setting.required
+      ) {
+        errors.push(
+          `operations share the setting ${setting.name}, so every operation that declares it needs the same label, secret and required`,
+        )
+
+        return false
+      }
+    }
+  }
+
+  return true
 }
 
 export function parseAnalysisKinds(

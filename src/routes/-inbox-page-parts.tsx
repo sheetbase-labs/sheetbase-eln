@@ -149,7 +149,10 @@ export function InboxToolbar({
             onClick={() => onSelectType(type === name ? undefined : name)}
           >
             <Dot tone={tone} />
-            {label} {countsKnown ? typeCount(name) : '—'}
+            {label}{' '}
+            <span className="num font-normal text-fg-muted">
+              {countsKnown ? typeCount(name) : '—'}
+            </span>
           </Button>
         ))}
       </div>

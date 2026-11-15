@@ -40,8 +40,11 @@ open).
   `disable_agent_operation_policy`. A service credential has no person, so the
   actions refuse it; it can still read the tables and ask with
   `request_agent_action`.
-- Over MCP, actions run through `sheetbase.lab.act` and tables through
-  `sheetbase.canonical.read`.
+- Over MCP, actions run through `sheetbase.lab.act` (several in order through
+  `sheetbase.lab.plan`, see [plans-api.md](plans-api.md)) and tables through
+  `sheetbase.canonical.read`. Whether a plan pauses at destructive steps, or
+  offers **Run all**, is set here with the pseudo-actions
+  `plan_pause_destructive` and `plan_run_all`.
 - Webhook events: `agent.policy.changed`, `agent.action.requested`,
   `agent.action.decided`, `agent.action.completed`, `agent.enabled`,
   `agent.disabled`, `agent.signed_policy.changed`,

@@ -118,9 +118,6 @@ export function AuditTrail({
           ? {
               onClick: onLoadMore,
               busy: loadingMore,
-              label: t('projects.auditTrail.loadMore', {
-                left: totalCount - events.length,
-              }),
             }
           : undefined
       }

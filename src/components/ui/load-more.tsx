@@ -1,21 +1,24 @@
+import { useEffect, useRef } from 'react'
+
 import { Button } from './button'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
 
+/** How far before the end of the list the next page starts to load, so a
+ * reader scrolling at speed rarely reaches the bottom. */
+const PRELOAD_MARGIN_PX = 480
+
 /**
- * The control at the end of a growing-window list: a cursor page, a raised
- * `limit`, a continuation token.
+ * The tail of a growing-window list: a cursor page, a raised `limit`, a
+ * continuation token. The next page loads by itself as the tail scrolls into
+ * view, so a reader never has to count what is loaded or ask for more.
  *
- * Six screens hand-rolled one of these with five labels between them
- * ("Loading…", "Loading more…", "Load more", "Load more (N left)", "Scroll for
- * older entries") and not one `nav` landmark, and the audit log's tail offered
- * no control at all below the scroll trigger — a keyboard user could not reach
- * the rest of the log. One control: one label, one count format, one retry, and
- * a landmark that says what is being extended.
+ * The control only shows something when it is working or has failed: a quiet
+ * "Loading…" while a page is read, and the error with a retry when it was not.
+ * Where the browser cannot watch for the tail (no `IntersectionObserver`) a
+ * "Load more" button stands in.
  *
- * The state a screen is in is the caller's (`hasMore`, `loading`, `error`); the
- * count line is optional, because screens that already print it (the dataset
- * rows grid, the audit log's toolbar) pass none.
+ * The state a screen is in is the caller's (`hasMore`, `loading`, `error`).
  */
 export function LoadMore({
   label,
@@ -23,10 +26,6 @@ export function LoadMore({
   loading = false,
   error,
   onLoadMore,
-  loaded,
-  total,
-  noun,
-  endLabel,
   className,
 }: {
   /** Accessible name for the landmark, e.g. "Search results". */
@@ -40,33 +39,44 @@ export function LoadMore({
    */
   error?: React.ReactNode
   onLoadMore: () => void
-  /** Rows read so far and the whole count, when the screen knows both. */
-  loaded?: number
-  total?: number
-  /** What is counted, plural: "changes". */
-  noun?: string
-  /** What the tail says once there is nothing more to read. */
-  endLabel?: React.ReactNode
   className?: string
 }) {
-  const counted = loaded != null && total != null
   const failed = error != null
+  const tail = useRef<HTMLDivElement>(null)
+  const canWatch = typeof IntersectionObserver !== 'undefined'
+  const onLoadMoreRef = useRef(onLoadMore)
 
-  // Nothing to say and nothing to do: a screen that has read everything and
-  // prints no end label keeps its own footer rather than an empty landmark.
-  if (!failed && !hasMore && !counted && endLabel == null) return null
+  useEffect(() => {
+    onLoadMoreRef.current = onLoadMore
+  })
+
+  // Watch again after every page: a short page can leave the tail still in
+  // view, and a fresh observer reports that straight away.
+  useEffect(() => {
+    const el = tail.current
+
+    if (!el || !canWatch || !hasMore || loading || failed) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting))
+          onLoadMoreRef.current()
+      },
+      { rootMargin: `0px 0px ${PRELOAD_MARGIN_PX}px 0px` },
+    )
+
+    observer.observe(el)
+
+    return () => observer.disconnect()
+  }, [canWatch, hasMore, loading, failed])
+
+  if (!failed && !hasMore) return null
 
   return (
     <nav
       aria-label={label}
       className={cn('flex flex-wrap items-center gap-3', className)}
     >
-      {counted ? (
-        <span className="num text-label text-fg-muted">
-          {t('settings.uiKit.loadMore.showing', { loaded, total })}
-          {noun ? ` ${noun}` : ''}
-        </span>
-      ) : null}
       {failed ? (
         <>
           <span role="alert" className="text-label text-danger-text">
@@ -76,15 +86,17 @@ export function LoadMore({
             {t('common.actions.tryAgain')}
           </Button>
         </>
-      ) : hasMore ? (
+      ) : canWatch ? (
+        <div ref={tail} className="min-h-6 text-label text-fg-muted">
+          {loading ? t('common.states.loading') : null}
+        </div>
+      ) : (
         <Button size="sm" disabled={loading} onClick={onLoadMore}>
           {loading
             ? t('common.states.loading')
             : t('settings.uiKit.loadMore.loadMore')}
         </Button>
-      ) : endLabel != null ? (
-        <span className="text-label text-fg-muted">{endLabel}</span>
-      ) : null}
+      )}
     </nav>
   )
 }

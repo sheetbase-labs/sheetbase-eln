@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { useScrollLoad } from '#/lib/use-scroll-load'
 import { z } from 'zod'
 import { ObjectLink } from '#/components/ui/object-link'
 import { useQueryClient } from '@tanstack/react-query'
@@ -329,6 +330,12 @@ function Experiments() {
 
   const counts = tabCounts.data
   const total = counts?.[tab] ?? rows.length
+
+  const onScrollLoad = useScrollLoad({
+    hasMore: rows.length < total,
+    loading: records.isFetching,
+    onLoad: () => setLimit((current) => current + EXPERIMENT_LIST_PAGE_SIZE),
+  })
   const hasProjectAccess = useHasProjectAccess()
   // The database already applied the tab, project, date window and search.
   const visible = rows
@@ -423,7 +430,10 @@ function Experiments() {
           })
         }
       />
-      <div className="min-h-0 flex-1 overflow-auto border-t border-border max-md:pb-20">
+      <div
+        className="min-h-0 flex-1 overflow-auto border-t border-border max-md:pb-20"
+        onScrollCapture={onScrollLoad}
+      >
         <MobileList
           className="md:hidden"
           label={t('projects.experimentsList.title')}
@@ -469,12 +479,7 @@ function Experiments() {
         isLoading={records.isPending}
         shown={visible.length}
         total={total}
-        loaded={rows.length}
         older={search.older === true}
-        isFetching={records.isFetching}
-        onLoadMore={() =>
-          setLimit((current) => current + EXPERIMENT_LIST_PAGE_SIZE)
-        }
       />
     </div>
   )
@@ -681,18 +686,12 @@ function ExperimentsFooter({
   isLoading,
   shown,
   total,
-  loaded,
   older,
-  isFetching,
-  onLoadMore,
 }: {
   isLoading: boolean
   shown: number
   total: number
-  loaded: number
   older: boolean
-  isFetching: boolean
-  onLoadMore: () => void
 }) {
   return (
     <div className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted md:px-6">
@@ -702,24 +701,10 @@ function ExperimentsFooter({
         ) : (
           <>
             {t('projects.experimentsList.shown', { shown, total })}
-            {loaded < total
-              ? t('projects.experimentsList.loaded', { count: loaded })
-              : ''}
             {older ? '' : t('projects.experimentsList.filtered')}
           </>
         )}
       </span>
-      {loaded < total ? (
-        <Button
-          size="sm"
-          variant="quiet"
-          className="ml-auto"
-          disabled={isFetching}
-          onClick={onLoadMore}
-        >
-          {t('projects.experimentsList.loadMore')}
-        </Button>
-      ) : null}
     </div>
   )
 }

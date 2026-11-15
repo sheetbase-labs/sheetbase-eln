@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useScrollLoad } from '#/lib/use-scroll-load'
 import { z } from 'zod'
 
 import { ObjectLink } from '#/components/ui/object-link'
@@ -688,7 +689,7 @@ function SamplesListHeader({
   )
 }
 
-/** The list footer: the tab's totals, the selected count and the way to load more. */
+/** The list footer: the tab's totals and the selected count. */
 function SamplesListFooter({
   hasSelection,
   counts,
@@ -696,8 +697,6 @@ function SamplesListFooter({
   tabName,
   visibleCount,
   loading,
-  loadingMore,
-  onLoadMore,
 }: {
   hasSelection: boolean
   counts: ReturnType<typeof useSampleTabCounts>['data']
@@ -705,31 +704,11 @@ function SamplesListFooter({
   tabName: string
   visibleCount: number
   loading: boolean
-  loadingMore: boolean
-  onLoadMore: () => void
 }) {
-  const canLoadMore = Boolean(counts && visibleCount < counts[tab])
-
   return (
     <ListFooter
       loading={loading}
-      right={
-        hasSelection || canLoadMore ? (
-          <>
-            {hasSelection ? t('library.samples.list.1Selected') : null}
-            {canLoadMore ? (
-              <Button
-                size="sm"
-                variant="quiet"
-                disabled={loadingMore}
-                onClick={onLoadMore}
-              >
-                {t('library.samples.list.loadMore')}
-              </Button>
-            ) : null}
-          </>
-        ) : undefined
-      }
+      right={hasSelection ? t('library.samples.list.1Selected') : undefined}
     >
       {footerCount({
         shown: visibleCount,
@@ -776,6 +755,12 @@ function SamplesList() {
 
   const tabCounts = useSampleTabCounts(context.user.id, q || undefined)
   const counts = tabCounts.data
+
+  const onScrollLoad = useScrollLoad({
+    hasMore: Boolean(counts && limit < counts[tab] && !page.isFetching),
+    loading: page.isFetching,
+    onLoad: () => setLimit((current) => current + SAMPLE_LIST_PAGE_SIZE),
+  })
 
   // The list is already newest first from the database.
   const rows = useMemo(
@@ -906,6 +891,7 @@ function SamplesList() {
               queryKey: sampleListQueryKeys.page,
             })
           }
+          onScrollLoad={onScrollLoad}
           canWrite={canWrite}
         />
         <SamplesListFooter
@@ -915,10 +901,6 @@ function SamplesList() {
           tabName={tabLabel[tab]}
           visibleCount={visible.length}
           loading={page.isPending}
-          loadingMore={page.isFetching}
-          onLoadMore={() =>
-            setLimit((current) => current + SAMPLE_LIST_PAGE_SIZE)
-          }
         />
       </div>
 
@@ -961,6 +943,7 @@ function SamplesListBody({
   hasProjectAccess,
   onSearch,
   onChanged,
+  onScrollLoad,
   canWrite,
 }: {
   page: ReturnType<typeof useSampleList>
@@ -979,6 +962,7 @@ function SamplesListBody({
   hasProjectAccess: boolean | undefined
   onSearch: (next: string) => void
   onChanged: () => void
+  onScrollLoad: ReturnType<typeof useScrollLoad>
   canWrite: boolean
 }) {
   return (
@@ -997,7 +981,10 @@ function SamplesListBody({
         canWrite={canWrite}
         onChanged={onChanged}
       />
-      <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
+      <div
+        className="min-h-0 flex-1 overflow-auto max-md:pb-20"
+        onScrollCapture={onScrollLoad}
+      >
         {page.isPending || visible.length > 0 ? (
           <RegistryGrid
             className="max-md:hidden"

@@ -18,7 +18,7 @@ export const copy = {
   },
   activity: {
     title: 'Activity',
-    changes: 'Changes',
+    changes: 'Activity',
     empty: 'Nothing has happened to this pipeline yet.',
     pendingTitle: 'v{version} is waiting for approval',
     pendingBody:

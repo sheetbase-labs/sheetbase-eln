@@ -107,9 +107,7 @@ export function JoinDomainsSection({
     <Section title={t('settings.joinDomains.title')}>
       <Muted>{t('settings.joinDomains.description')}</Muted>
       <div className="flex flex-wrap items-center gap-2">
-        {domains.length === 0 ? (
-          <Muted>{t('settings.joinDomains.none')}</Muted>
-        ) : (
+        {domains.length === 0 ? null : (
           domains.map((domain) => (
             <Chip
               key={domain}
@@ -175,7 +173,6 @@ export function JoinDomainsSection({
           </form>
           <Field
             label={t('settings.joinDomains.joinAs')}
-            hint={t('settings.joinDomains.joinAsHint')}
             className="max-w-[240px]"
           >
             <Select
@@ -196,7 +193,6 @@ export function JoinDomainsSection({
               ))}
             </Select>
           </Field>
-          <Muted>{t('settings.joinDomains.yourDomainHint')}</Muted>
         </>
       ) : null}
     </Section>

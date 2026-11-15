@@ -10,7 +10,7 @@ import {
   useWorkspaceMemberNames,
 } from '#/components/pipelines/pipelines-data'
 import { Button } from '#/components/ui/button'
-import { Muted, Section } from '#/components/ui/layout'
+import { Section } from '#/components/ui/layout'
 import { t } from '#/copy'
 import { words } from '#/lib/pipelines/simple/words'
 import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
@@ -40,7 +40,6 @@ export function HistorySection({
   return (
     <div id="history" className="mt-6 flex min-w-0 flex-col gap-4">
       <Section title={t('features.pipelineSimple.history.title')}>
-        <Muted>{t('features.pipelineSimple.history.description')}</Muted>
         <HistoryTable
           versions={list}
           names={members.data ?? {}}
@@ -48,7 +47,6 @@ export function HistorySection({
           onOpen={setOpen}
           onDuplicate={setDuplicate}
         />
-        <Muted>{t('features.pipelineSimple.history.note')}</Muted>
       </Section>
       {open ? (
         <Section

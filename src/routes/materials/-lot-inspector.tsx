@@ -100,11 +100,11 @@ export function LotInspector({
             : t('library.materials.lot.noReplacementLot')
         }
       >
-        <p className="text-label text-fg-muted">
-          {replacement
-            ? `${replacement.targetIdentifier}${replacement.reason ? ` · ${replacement.reason}` : ''}`
-            : t('library.materials.lot.noLotHasBeenRegistered')}
-        </p>
+        {replacement ? (
+          <p className="text-label text-fg-muted">
+            {`${replacement.targetIdentifier}${replacement.reason ? ` · ${replacement.reason}` : ''}`}
+          </p>
+        ) : null}
       </InspectorSection>
       <InspectorSection title={t('library.materials.lot.recentMovements')}>
         {ledger && ledger.length > 0 ? (

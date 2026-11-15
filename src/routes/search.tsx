@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { usePlatform } from '#/lib/use-platform'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import type { GroupNode } from '@sheetbase-labs/sheetbase-shared'
 import { useQuery } from '@tanstack/react-query'
@@ -105,7 +104,6 @@ export const Route = createFileRoute('/search')({
 })
 
 function SearchPage() {
-  const platform = usePlatform()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const { context } = Route.useRouteContext()
@@ -285,7 +283,6 @@ function SearchPage() {
       <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
         <SearchResultsSection
           active={facetsState.active}
-          platform={platform}
           q={q}
           search={search}
           results={resultsModel.results}

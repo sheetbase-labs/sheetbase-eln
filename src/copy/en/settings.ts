@@ -709,11 +709,7 @@ export const settings = {
     domainPlaceholder: 'acme-bio.com',
     add: 'Add',
     remove: 'Remove {domain}',
-    none: 'No domains yet. People join by invitation.',
     joinAs: 'They join as',
-    joinAsHint: 'You can change anyone’s role afterwards.',
-    yourDomainHint:
-      'You can add a domain your own address uses. Public email domains such as gmail.com can’t be added.',
     saved: 'Domains saved',
     suggest: 'Add {domain}',
     invalid: '{domain} isn’t a valid domain',
@@ -758,8 +754,6 @@ export const settings = {
     suspend: 'Suspend',
     copyNewLink: 'Copy new link',
     revoke: 'Revoke',
-    rolesDecideWhat:
-      '· roles decide what people can do; project membership decides where.',
     groups: 'Groups',
     invitePeople: 'Invite people',
     members: 'Members',
@@ -3018,8 +3012,6 @@ export const settings = {
     certifiedAgainst: 'Certified {when} against statement version {version}.',
   },
   roles: {
-    rolesDecideWhat:
-      '· roles decide what people can do; project membership decides where.',
     rolesPermissions: 'Roles and permissions',
     backMembers: 'Back to members',
   },

@@ -48,7 +48,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'flex max-w-[440px] flex-col items-start gap-2 py-8',
+        'flex max-w-[72ch] flex-col items-start gap-2 py-8',
         className,
       )}
     >

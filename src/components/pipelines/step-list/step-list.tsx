@@ -15,7 +15,6 @@ import { useSchedules } from '#/components/pipelines/pipelines-data'
 import { scheduleSpecLabel } from '#/routes/pipelines/-schedule-labels'
 import { readResultPreview } from '#/lib/pipelines/result-preview'
 import { isNoCodeKind } from '#/lib/pipelines/no-code/forms'
-import { MAX_STEPS } from '#/lib/pipelines/config'
 import type {
   PipelineConfig,
   PipelineStep,
@@ -485,9 +484,6 @@ export function StepList() {
           })}
         </p>
       ) : null}
-      <p className="pb-foot m-0">
-        {t('data.stepList.listFoot', { max: MAX_STEPS })}
-      </p>
     </div>
   )
 }

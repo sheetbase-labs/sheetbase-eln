@@ -471,13 +471,9 @@ export const library = {
         'Affects future data only. Data already imported isn’t changed.',
       use: 'Use',
       nextBooking: 'Next booking',
-      certificatesAndHistoryAreOn:
-        'Certificates and history are on the record.',
       registry: 'Registry',
       reinstateInstrument: 'Reinstate instrument',
       retireInstrument: 'Retire instrument',
-      retiredInstrumentsStayForHistory:
-        'Retired instruments stay for history and can’t be booked.',
       enterTheNameOnThe: 'Enter the name on the instrument’s label.',
       enterTheModel: 'Enter the model.',
       enterTheSerialNumberFrom:
@@ -668,7 +664,6 @@ export const library = {
       releasedBy: 'Released by',
       replacementLot: 'Replacement lot',
       noReplacementLot: 'No replacement lot',
-      noLotHasBeenRegistered: 'No lot has been registered to replace this one',
       usedIn: 'Used in',
       receiving: 'Receiving…',
       receive: 'Receive',
@@ -894,7 +889,6 @@ export const library = {
       releasedBy: 'Released by',
       replacementLot: 'Replacement lot',
       noReplacementLot: 'No replacement lot',
-      noLotHasBeenRegistered: 'No lot has been registered to replace this one',
       recentMovements: 'Recent movements',
       registering: 'Registering…',
       register: 'Register',

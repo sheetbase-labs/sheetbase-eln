@@ -290,7 +290,6 @@ export const copy = {
   },
   history: {
     title: 'History',
-    description: 'Every version, in the mode it was written in.',
     aria: 'Versions of this pipeline',
     version: 'Version',
     mode: 'Mode',
@@ -306,7 +305,6 @@ export const copy = {
     draft: 'Draft',
     published: 'Published',
     retired: 'Retired',
-    note: 'Older versions open read-only, in the mode they were written in. Duplicate… makes a new pipeline from that version, in that mode.',
     none: 'No versions yet.',
     readOnly: 'Version v{version}, as it was written in {mode}. Read only.',
     back: 'Back to History',

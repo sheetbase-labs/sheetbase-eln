@@ -50,12 +50,9 @@ export function WebhookCard({ definitionId }: { definitionId: string }) {
     <div className="rounded border border-line">
       <div className="flex items-center gap-3 px-3 py-2.5">
         <div className="min-w-0 flex-1">
-          <div className="text-body font-medium text-fg">
-            {t('data.triggersOutputs.incomingWebhook')}
-          </div>
-          <Muted>
+          <div className="text-body text-fg">
             {t('data.triggersOutputs.instrumentAnotherSystemStart')}
-          </Muted>
+          </div>
         </div>
         {state.isLoading ? (
           <Muted>{t('common.states.loading')}</Muted>
@@ -156,29 +153,16 @@ function WebhookCredentials({
       <Muted>
         {issued
           ? t('data.triggersOutputs.copyTokenNowShown')
-          : t('data.triggersOutputs.requestsWithoutTokenWithout')}{' '}
-        {t('data.triggersOutputs.requestBodyPassParameters')}
+          : t('data.triggersOutputs.requestsWithoutTokenWithout')}
       </Muted>
     </div>
   )
 }
 
 const KEEPS = [
-  {
-    mode: 'none',
-    title: t('data.triggersOutputs.keepNothing'),
-    help: t('data.triggersOutputs.inputsEveryStepResult'),
-  },
-  {
-    mode: 'append',
-    title: t('data.triggersOutputs.saveStepResultSnapshot'),
-    help: t('data.triggersOutputs.chooseStepDatasetNew'),
-  },
-  {
-    mode: 'create',
-    title: t('data.triggersOutputs.saveStepResultNew'),
-    help: t('data.triggersOutputs.createsDatasetModelChoose'),
-  },
+  { mode: 'none', title: t('data.triggersOutputs.keepNothing') },
+  { mode: 'append', title: t('data.triggersOutputs.saveStepResultSnapshot') },
+  { mode: 'create', title: t('data.triggersOutputs.saveStepResultNew') },
 ] as const
 
 /** What a run keeps: the output mode of the version being shown. Changing it
@@ -191,36 +175,11 @@ export function RunKeeps({
   pipelineId: string
 }) {
   const mode = config.output?.mode ?? 'none'
+  const kept = KEEPS.find((option) => option.mode === mode) ?? KEEPS[0]
 
   return (
-    <div className="grid gap-2">
-      {KEEPS.map((option) => {
-        const selected = option.mode === mode
-
-        return (
-          <div
-            key={option.mode}
-            role="radio"
-            aria-checked={selected}
-            className={`flex gap-2.5 rounded border px-3 py-2.5 ${
-              selected ? 'border-primary bg-selected' : 'border-line'
-            }`}
-          >
-            <span
-              aria-hidden
-              className={`mt-1 size-3 shrink-0 rounded-full border ${
-                selected ? 'border-4 border-primary' : 'border-line-strong'
-              }`}
-            />
-            <div className="min-w-0">
-              <div className="text-body font-medium text-fg">
-                {option.title}
-              </div>
-              <Muted>{option.help}</Muted>
-            </div>
-          </div>
-        )
-      })}
+    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+      <span className="text-body text-fg">{kept.title}</span>
       <Muted>
         {rich('data.triggersOutputs.changeWhereResultGoes', {
           link: (text) => (

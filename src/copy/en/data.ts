@@ -1706,8 +1706,6 @@ export const data = {
       'This version writes further outputs ({count}), set in its version file. Edit them there.',
     includesInFile:
       'Includes the parameter sets {sets}, set in its version file. Their parameters are copied into this version.',
-    listFoot:
-      'Each step reads the one before it as previous. Step results are temporary and deleted when the run ends; the run record, logs and row counts stay. Up to {max} steps.',
     chooseFile: 'Choose a file',
     dropFileAria: 'Choose a .py, .sql or .ipynb file',
     addStep: 'Add step',
@@ -1870,7 +1868,7 @@ export const data = {
     passAll: 'All rows, with out_of_range filled in',
     passOutside: 'Only rows outside a range',
     addHint:
-      'No code, code, connect, people, ELN or notify · or drop a .py, .sql or notebook file',
+      'Or drop a .py, .sql or notebook file',
   },
   noCode: {
     needCondition: 'Add at least one condition.',
@@ -1998,15 +1996,6 @@ export const data = {
     whatRunKeeps: 'What a run keeps',
     draft: 'Draft',
     published: 'Published',
-    runsAs: 'Runs as',
-    pipelineItselfEveryChange:
-      'The pipeline itself. Every change it makes is recorded under its name and the run number, never under a person.',
-    pythonSteps: 'Python steps',
-    runIsolationTheyOnly:
-      'Run in isolation. They only see the data the run passes them.',
-    neverAllowed: 'Never allowed',
-    triggersStartRunsThey:
-      'Triggers start runs; they never sign, submit, approve or delete.',
     triggerResumed: 'Trigger resumed',
     triggerPaused: 'Trigger paused',
     carriesFromNow: 'It carries on from now',
@@ -2035,8 +2024,6 @@ export const data = {
     newTrigger: 'New trigger',
     loadingTriggers: 'Loading triggers…',
     startsOn: 'Starts on',
-    manualEditorsPipelinePress:
-      'Manual: editors of this pipeline can press Run now. Optional schedules and events. Each starts the latest published version using the inputs and parameters configured on the trigger.',
     triggersStoredSpecificationsCannot: {
       one: '{count} trigger’s stored specification can’t be interpreted, so it has no next run and won’t fire. Delete it and add a new trigger to restore the schedule.',
       other:
@@ -2048,10 +2035,7 @@ export const data = {
     pipelineTriggers: 'Pipeline triggers',
     noTriggers: 'No triggers',
     triggersOptionalRunPublished:
-      'Triggers are optional. Run a published version manually, or add a schedule or event to start it automatically.',
-    signApproveSubmitRecords: 'Sign, approve or submit records',
-    deleteOverwriteData: 'Delete or overwrite data',
-    changeOwnPermissions: 'Change its own permissions',
+      'Run a published version by hand, or add a schedule or event to start it automatically.',
     trigger: 'Trigger',
     status: 'Status',
     lastRun: 'Last run',
@@ -2160,7 +2144,6 @@ export const data = {
   triggersOutputs: {
     couldChangeWebhook: 'Couldn’t change the webhook',
     serverRefused: 'The request was refused',
-    incomingWebhook: 'Incoming webhook',
     instrumentAnotherSystemStart:
       'For an instrument or another system to start a run',
     on: 'On',
@@ -2177,8 +2160,6 @@ export const data = {
       'Copy the token now. It isn’t shown again, and rotating replaces it.',
     requestsWithoutTokenWithout:
       'Requests without the token, or without an Idempotency-Key, are rejected.',
-    requestBodyPassParameters:
-      'The request body can pass parameters and input versions. It can’t choose datasets the run may not read.',
     keepNothing: 'Keep nothing',
     saveStepResultSnapshot:
       'Save a step result as a snapshot of an existing dataset',
@@ -2203,12 +2184,6 @@ export const data = {
     aDestination: 'A destination',
     succeeded: 'Succeeded',
     oneNotifiedWhenRun: 'No one is notified when a run finishes.',
-    inputsEveryStepResult:
-      'Inputs and every step result are temporary and deleted when the run ends. The run record, logs and row counts stay.',
-    chooseStepDatasetNew:
-      'Choose the step and the dataset. The new snapshot records this run as its source.',
-    createsDatasetModelChoose:
-      'Creates a dataset with a model you choose. Nothing is created until a run succeeds.',
   },
   useRunLauncher: {
     runStartedButCould: 'The run started but couldn’t finish',
@@ -2261,7 +2236,6 @@ export const data = {
     keepsAppend: 'Adds to a dataset',
     keepsNew: 'A new dataset',
     allowedTo: 'Allowed to',
-    neverSigns: 'Never signs, submits, approves or deletes.',
     draftWord: 'draft',
     runWhen: { manual: 'manual', scheduled: 'scheduled', event: 'event' },
     suggestedFromNameCannot:

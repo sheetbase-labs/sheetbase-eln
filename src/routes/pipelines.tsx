@@ -462,7 +462,6 @@ function AllowedTo({ sel }: { sel: PipelineListRow }) {
           <span key={`${line.icon}:${line.text}`}>{line.text}</span>
         ))}
       </div>
-      <Muted className="mt-1.5">{t('data.pipelinesList.neverSigns')}</Muted>
     </InspectorSection>
   )
 }

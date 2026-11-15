@@ -103,8 +103,7 @@
   gap: 6px;
 }
 .pb-scope .cr .fl .muted {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
 }
 .pb-scope .cr .btn.ib {
   width: 24px;
@@ -313,7 +312,7 @@
   align-items: center;
 }
 .pb-scope .cr .fl > .muted {
-  white-space: nowrap;
+  white-space: normal;
 }
 @media (max-width: 767px) {
   .pb-scope .cr,

@@ -589,9 +589,11 @@ function ScheduleAction({
   if (!showNew) return null
 
   return (
-    <Button variant="primary" onClick={onNew}>
-      {t('spend.schedule.new')}
-    </Button>
+    <div className="flex justify-end">
+      <Button variant="primary" onClick={onNew}>
+        {t('spend.schedule.new')}
+      </Button>
+    </div>
   )
 }
 
@@ -751,30 +753,26 @@ export function ScheduledReportsPanel({
       {!emailConfigured ? (
         <Notice tone="warn">{t('spend.schedule.emailOff')}</Notice>
       ) : null}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="flex-1" />
-        <ScheduleAction
-          canSchedule={canSchedule}
-          showNew={rows.length > 0 || reports.isPending}
-          onNew={() => setCreating(true)}
-        />
-      </div>
+      <ScheduleAction
+        canSchedule={canSchedule}
+        showNew={rows.length > 0 || reports.isPending}
+        onNew={() => setCreating(true)}
+      />
       {reports.isError ? (
         <p role="alert" className="m-0 text-body text-danger-text">
           {t('spend.schedule.loadError')}
         </p>
       ) : !reports.isPending && rows.length === 0 ? (
         <EmptyState
+          className="py-0"
           icon="calendar"
           title={t('spend.schedule.empty.title')}
           description={t('spend.schedule.empty.body')}
           action={
             canSchedule ? (
-              <ScheduleAction
-                canSchedule
-                showNew
-                onNew={() => setCreating(true)}
-              />
+              <Button variant="primary" onClick={() => setCreating(true)}>
+                {t('spend.schedule.new')}
+              </Button>
             ) : undefined
           }
         />

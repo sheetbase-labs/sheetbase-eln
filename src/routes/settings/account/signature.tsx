@@ -401,7 +401,6 @@ function MySignature() {
     <>
       <SettingsHeader title={t('settings.mySignature.mySignature')}>
         {context.workspace?.name ?? 'Workspace'}
-        {t('settings.mySignature.signatureDeliberateAct')}
       </SettingsHeader>
       <SettingsBody>
         <SignatureReturnNotice returnTo={returnTo} current={current} />

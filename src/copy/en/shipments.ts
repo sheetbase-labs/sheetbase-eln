@@ -1,7 +1,7 @@
 /** Shipments: samples and materials leaving the lab or arriving at it. */
 export const shipments = {
   title: 'Shipments',
-  subtitle: 'What is on its way out, what is on its way in, and what arrived',
+  subtitle: 'Outgoing and incoming shipments',
   paneLabel: 'Shipments',
   newShipment: 'New shipment',
   tableLabel: 'Shipments',
@@ -40,7 +40,7 @@ export const shipments = {
   empty: {
     open: 'Nothing on the way',
     openBody:
-      'Set up a shipment to send samples out or to expect a delivery, and it shows here until it arrives.',
+      'Set up a shipment to send samples or expect a delivery.',
     received: 'Nothing received yet',
     all: 'No shipments yet',
     filtered: 'Nothing matches that search.',

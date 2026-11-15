@@ -27,7 +27,7 @@ export const settings = {
     deny: 'Deny',
     waitingApproval: 'Waiting for approval',
     whoOpenEach:
-      'Who can open each project. Roles decide what they can do there.',
+      'Who can open each project.',
     projectAccess: 'Project access',
     addRule: 'Add rule',
     onlyProjectManager:
@@ -45,7 +45,7 @@ export const settings = {
       'An explicit project rule is required. Workspace roles don’t grant project access.',
     defaultsNewProjects: 'Defaults for new projects',
     newProjectsPrivate:
-      'New projects are private to the lead until explicit rules are added. Client portal access is off by default.',
+      'New projects are private to the lead until rules are added.',
     accessRequests: 'Access requests',
     accessRequestsUnavailable: 'Access requests are unavailable.',
     couldSaveQaToast: 'Couldn’t save the default view group',
@@ -218,7 +218,7 @@ export const settings = {
     logCouldLoaded: 'The log couldn’t be loaded. Refresh to try again.',
     auditLogCould: 'The audit log couldn’t be read.',
     newestFirstScrolling:
-      'Newest first. Scroll to load older entries. Export includes every entry matching the current search.',
+      'Export includes every entry matching the search.',
     exportedEntries: {
       one: '{count} entry — every entry matching the current search.',
       other: '{count} entries — every entry matching the current search.',
@@ -278,7 +278,7 @@ export const settings = {
     approvedRecordsCould: 'Approved records couldn’t be loaded:',
     sharesCouldLoaded: 'Shares couldn’t be loaded:',
     nothingSharedOne:
-      'No individual records are shared. A project that shares automatically still shows its approved records to the client.',
+      'No individual records are shared.',
     approvedNow: 'Not approved now',
     shared2: 'Shared',
     stopSharing: 'Stop sharing',
@@ -321,13 +321,13 @@ export const settings = {
     auditLog: 'Audit log',
     requestId: 'Request ID',
     failuresRecentPipeline:
-      'Failures from recent pipeline and connector runs. Messages never include record content. Give support the request ID so they can find the same run.',
+      'Failures from recent pipeline and connector runs.',
     recentFailures2: 'No recent failures',
     anythingFailsImportDescription:
       'Anything that fails, from an import to a delivery, shows here with a request ID you can give to support.',
     release: 'Release',
     releasesValidatedBefore:
-      'This workspace is updated when a new version is deployed to it. Take a backup first, then check the schema version here afterwards.',
+      'Take a backup before you update.',
     releasesUnderChangeControl:
       'Releases are validated before they reach this workspace. Nothing is updated without a change control that has been approved.',
     schemaVersion: 'Schema version',
@@ -427,7 +427,7 @@ export const settings = {
       on: 'On. People can edit Word, Excel and PowerPoint files in the browser. Editor: {origin}',
       unreachable:
         'Set up at {origin}, but it is not answering. Check that Collabora is running.',
-      off: 'Off. Run Collabora Online and set OFFICE_EDITOR_URL to let people edit Office files in the browser.',
+      off: 'Off. Collabora Online isn’t set up.',
     },
     connectInstrumentsStorage:
       'Connect instruments and storage, check recent runs and resolve failures.',
@@ -638,7 +638,7 @@ export const settings = {
   sidebarPages: {
     title: 'Sidebar',
     subtitle:
-      'Untick pages your lab doesn’t use to take them out of everyone’s sidebar. They still open from search and links.',
+      'Untick pages your lab doesn’t use to take them out of everyone’s sidebar.',
     page: 'Page',
     group: 'Group',
     shown: 'In sidebar',
@@ -877,7 +877,7 @@ export const settings = {
     quietHoursStartAria: 'Quiet hours start',
     quietHoursEndAria: 'Quiet hours end',
     reviewsDueToday:
-      'Reviews due today and signature requests always come through. An end earlier than the start runs overnight. Times are in your time zone ({zone}), which you can change in your profile.',
+      'Reviews due today and signature requests always come through. Times are in your time zone ({zone}), which you can change in your profile.',
     digest: 'Digest',
     send: 'Send at',
     digestTimeAria: 'Digest time',
@@ -898,7 +898,7 @@ export const settings = {
     printedSignedRecordsHint: 'Printed on signed records.',
     timeZone: 'Time zone',
     timesAcrossSheetbaseHint:
-      'Times across Sheetbase, including audit and signature times, show on this clock. Stored times stay in UTC.',
+      'Times across Sheetbase show on this clock.',
     europeLondonPlaceholder: 'Europe/London',
     email: 'Email',
     companySignHint: 'From your company sign-in.',
@@ -906,13 +906,13 @@ export const settings = {
     setAdministratorHint: 'Set by an admin.',
     appearance: 'Appearance',
     appliesEverySheetbase:
-      'Applies to every Sheetbase screen open in this browser. System follows your computer’s setting.',
+      'System follows your computer’s setting.',
     display: 'Display',
     clock: 'Clock',
     clock12: '12-hour',
     clock24: '24-hour',
     clockHint:
-      'How times of day are written everywhere in Sheetbase, for example 14:30 or 2:30 pm.',
+      'For example 14:30 or 2:30 pm.',
     alwaysShowLayout: 'Always show the layout bar and keyboard shortcuts',
     alwaysShowLayoutHint:
       'They appear on their own once you split a page into panes. Tick this to keep them on a single pane too.',
@@ -923,7 +923,7 @@ export const settings = {
     tryAgain: 'Try again.',
     initials: 'Initials',
     shownAvatarDerivedHint:
-      'Shown on your avatar. Derived from your name until you set them.',
+      'Shown on your avatar.',
     jobTitle: 'Job title',
     shownBesideNameHint: 'Shown beside your name to colleagues.',
     researchScientistPlaceholder: 'Research scientist',
@@ -1186,7 +1186,7 @@ export const settings = {
     everyoneWorkspaceAccess:
       'Everyone with workspace access, including client viewers.',
     everyoneWorkspaceAccess2:
-      'Everyone with workspace access, including client viewers. No seat limit is configured.',
+      'Everyone with workspace access, including client viewers.',
     filesInstrumentExports:
       'Files and instrument exports. No storage quota is configured.',
     perTokenCall2: 'Per-token call metering isn’t built in this deployment.',
@@ -1204,7 +1204,7 @@ export const settings = {
     jsonRpc: '· JSON-RPC',
     postApiMcp: 'POST /api/mcp',
     useTokenIntro:
-      'The same bearer token works with the REST proxy and the MCP server. Put a token in {variable} and run the request below; it lists up to five projects the token can read. A 401 means the token is wrong, revoked or expired.',
+      'The same bearer token works with the REST proxy and the MCP server. Put a token in {variable} and run the request below; it lists up to five projects the token can read.',
   },
   parserLayout: {
     title: 'How to read the file',
@@ -1316,7 +1316,7 @@ export const settings = {
     parsers: 'Parsers for {name}',
     showParsers: 'Show all parsers',
     eachParserTested:
-      'Each parser is tested against a real export from the instrument, then approved before it can import regulated data. An approved revision is never edited; add a new one instead.',
+      'Each parser is tested against a real export from the instrument, then approved before it can import regulated data.',
     loadingParsers: 'Loading parsers…',
     testRevision: 'Test {name}, revision {version}',
     testFile: 'Test file',
@@ -2519,7 +2519,7 @@ export const settings = {
   sampleWorkflows: {
     title: 'Sample workflows',
     intro:
-      'The steps a sample moves through in your lab, such as received, in QC and released. Each step says where a sample can go next, what must be filled in first, how long it should stay and what happens when it arrives.',
+      'The steps a sample moves through in your lab, such as received, in QC and released.',
     viewOnly: 'You can see these workflows. Your role can’t change them.',
     newWorkflow: 'New workflow',
     allWorkflows: 'All workflows',
@@ -2666,7 +2666,7 @@ export const settings = {
     },
     title: 'Release checks',
     intro:
-      'A sample is released when every check for its type passes. Readings come from instrument runs and datasets linked to the sample.',
+      'A sample is released when every check for its type passes.',
     sampleType: 'Sample type',
     checks: 'Checks',
     source: 'Where they come from',
@@ -2786,7 +2786,7 @@ export const settings = {
   lineage: {
     title: 'Lineage events',
     description:
-      'Send a record of every pipeline run, import, instrument run and plate run to a lineage service such as Marquez, so the history of your data lives beside your other tools.',
+      'Send a record of every run and import to a lineage service such as Marquez.',
     add: 'Add endpoint',
     edit: 'Edit endpoint',
     tableLabel: 'Lineage endpoints',
@@ -2834,7 +2834,7 @@ export const settings = {
     streamDescription:
       'People and tools can read every change in order from the event stream. Choose how long it is kept.',
     streamAddress:
-      'Read it from {path}. Pass the last position you handled as after to carry on where you stopped.',
+      'Read it from {path}.',
     streamDays: 'Keep for (days)',
     streamSave: 'Save',
   },
@@ -2858,7 +2858,7 @@ export const settings = {
     off: 'Off',
     incomingWebhooksAria: 'Incoming webhooks',
     incomingWebhooksBelong:
-      'Incoming webhooks belong to pipelines and are set up on the pipeline’s Triggers tab.',
+      'Incoming webhooks are set up on a pipeline’s Triggers tab.',
   },
   integrationsWebhooks: {
     Subscriptionid: {
@@ -2935,7 +2935,7 @@ export const settings = {
     cannotSignUntilDescription: 'You can’t sign until you certify again.',
     couldWithdrawToast: 'Couldn’t withdraw',
     signatureDeliberateAct:
-      '· a signature is a deliberate act; every one records who, when and what version',
+      '',
     mySignature: 'My signature',
     signNow: 'You can sign now',
     cameCertify: 'You came here to certify',
@@ -2950,7 +2950,7 @@ export const settings = {
     requestNewVerification: 'Request new verification for recovery',
     requestIdentityVerification: 'Request identity verification',
     requestingVerificationRevokes:
-      'Requesting verification revokes signing eligibility and outstanding signing grants. The admin never chooses or sees your password.',
+      'Requesting verification revokes signing eligibility and outstanding signing grants.',
     signature: 'Your signature',
     certified: 'Certified',
     certified2: 'Not certified',

@@ -45,7 +45,7 @@ export const people = {
   away: {
     title: 'Out of office',
     intro:
-      'Going away? Name the dates and a colleague. While you’re away, reviews waiting on you also go to them. They decide and sign as themselves, and the review says whom they’re covering.',
+      'Going away? Name the dates and a colleague. While you’re away, reviews waiting on you also go to them. They sign as themselves.',
     from: 'From',
     to: 'Back on',
     covering: 'Covered by',
@@ -137,7 +137,7 @@ export const people = {
   passkeys: {
     title: 'Passkeys',
     description:
-      'Sign in with your fingerprint, face or device PIN instead of waiting for an emailed link. Add one on each device you use.',
+      'Sign in with your fingerprint, face or device PIN instead of waiting for an emailed link.',
     none: 'You have not added a passkey yet.',
     nameLabel: 'Name',
     namePlaceholder: 'For example, Work laptop',

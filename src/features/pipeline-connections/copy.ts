@@ -36,7 +36,7 @@ export const copy = {
   },
   settings: {
     title: 'Pipeline connections',
-    hint: 'The places pipeline steps may reach: web addresses for web calls and clusters for remote jobs. A step names a connection and a secret; it never holds the secret’s value.',
+    hint: 'The web addresses and clusters pipeline steps may reach.',
     add: 'Add connection',
     addTitle: 'Add a pipeline connection',
     addAction: 'Add connection',

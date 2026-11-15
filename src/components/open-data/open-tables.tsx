@@ -161,7 +161,6 @@ export function OpenTablesSection({
         ) : null
       }
     >
-      <Muted>{t('openData.tables.explain')}</Muted>
       <CheckRow
         title={t('openData.tables.enable')}
         body={t('openData.tables.enableHint')}
@@ -648,7 +647,6 @@ function LakeLogins({
         ) : null
       }
     >
-      <Muted>{t('openData.logins.explain')}</Muted>
       {!setUp && connection.isSuccess ? (
         <Notice tone="info">{t('openData.logins.notReady')}</Notice>
       ) : null}

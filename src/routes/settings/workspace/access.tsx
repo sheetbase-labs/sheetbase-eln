@@ -332,7 +332,6 @@ function Access() {
       />
       <SettingsBody className="border-t border-border-subtle">
         <Section title={t('settings.access.defaultsNewProjects')}>
-          <Muted>{t('settings.access.newProjectsPrivate')}</Muted>
           <QaDefault
             workspaceId={workspaceId}
             groups={groups.data ?? []}

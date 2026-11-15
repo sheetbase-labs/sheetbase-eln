@@ -8,6 +8,7 @@ import {
   RESULT_CELL_LIMIT,
   formatByteSize,
 } from './pipeline-limits'
+import { PYTHON_RUNNER_NOT_SET_UP } from './extensions/runtime-config'
 import type { RunnerLimits } from './extensions/runtime-config'
 import { pythonResultRowsSchema } from './pipelines/python'
 import type {
@@ -492,7 +493,7 @@ export async function executePythonTransform(
 
   if (!runnerUrl || !token || token.length < 32)
     throw new PipelinePythonError(
-      'Python execution is not configured. Ask an administrator to configure the Python runner.',
+      `${PYTHON_RUNNER_NOT_SET_UP} Ask an administrator to configure the Python runner.`,
       'runner_unavailable',
     )
   let url: URL
@@ -664,7 +665,7 @@ export async function getPythonRuntimeInfo(): Promise<PythonRuntimeInfo> {
 
   if (!runnerUrl || !token || token.length < 32)
     throw new PipelinePythonError(
-      'Python execution is not configured.',
+      PYTHON_RUNNER_NOT_SET_UP,
       'runner_unavailable',
     )
 
@@ -729,7 +730,7 @@ function runnerRequest(path: string, init: RequestInit): Promise<Response> {
 
   if (!runnerUrl || !token || token.length < 32)
     throw new PipelinePythonError(
-      'Python execution is not configured. Ask an administrator to configure the Python runner.',
+      `${PYTHON_RUNNER_NOT_SET_UP} Ask an administrator to configure the Python runner.`,
       'runner_unavailable',
     )
 

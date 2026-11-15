@@ -163,6 +163,7 @@ export const plugins = {
       title: 'Python settings for {name}',
       intro:
         'The packages this plugin installs, the hosts it may reach and how much one call may use. You set the limits; the plugin never changes them.',
+      noRunner: 'Python runner not set up: ask an administrator',
       packages: 'Python packages',
       packagesNone:
         'This plugin uses only the Python the runner already has (pandas and NumPy).',

@@ -35,6 +35,7 @@ import {
   PluginRuntimeDialog,
   environmentTone,
 } from '#/components/settings/plugin-runtime-dialog'
+import { PYTHON_RUNNER_NOT_SET_UP } from '#/lib/extensions/runtime-config'
 import { useBuiltInPlugins } from '#/lib/extensions/use-built-in-plugins'
 import {
   PluginConnectionsDialog,
@@ -419,10 +420,11 @@ function pluginColumns({
             </Status>
             {runtime && runtime.requirements.length > 0 ? (
               <Status tone={environmentTone[runtime.environment.state]}>
-                {t('plugins.admin.runtime.packages')}:{' '}
-                {t(
-                  `plugins.admin.runtime.state.${runtime.environment.state}`,
-                ).toLowerCase()}
+                {runtime.environment.error?.startsWith(PYTHON_RUNNER_NOT_SET_UP)
+                  ? t('plugins.admin.runtime.noRunner')
+                  : `${t('plugins.admin.runtime.packages')}: ${t(
+                      `plugins.admin.runtime.state.${runtime.environment.state}`,
+                    ).toLowerCase()}`}
               </Status>
             ) : null}
             {connectionsOf(install).some(connectionNeedsSetup) ? (

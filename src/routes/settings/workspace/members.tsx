@@ -676,9 +676,7 @@ function InternalMembers({
             ) : null}
           </>
         }
-      >
-        {context.workspace?.name ?? 'Workspace'}
-      </SettingsHeader>
+      ></SettingsHeader>
       <div
         role="toolbar"
         aria-label={t('settings.members.filterMembersAria')}

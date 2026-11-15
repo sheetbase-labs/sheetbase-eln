@@ -345,7 +345,6 @@ function Audit() {
           />
         }
       >
-        {context.workspace?.name ?? 'Workspace'}
         {t('settings.audit.projects2')}
         <AuditIntegrityLine workspaceId={workspaceId} />
       </SettingsHeader>

@@ -26,9 +26,7 @@ function Roles() {
             {t('settings.roles.backMembers')}
           </Button>
         }
-      >
-        {context.workspace?.name ?? 'Workspace'}
-      </SettingsHeader>
+      ></SettingsHeader>
       <RolesAndPermissions
         workspaceId={context.workspace?.id ?? ''}
         canEdit={context.workspace?.role === 'owner'}

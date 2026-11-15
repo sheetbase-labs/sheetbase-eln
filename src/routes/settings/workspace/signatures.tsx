@@ -110,7 +110,6 @@ function Signatures() {
   return (
     <>
       <SettingsHeader title={t('settings.signatures.electronicSignatures')}>
-        {context.workspace?.name ?? 'Workspace'}
         {t('settings.signatures.whichSignatureMeanings')}
         <Link to="/settings/account/signature">
           {t('settings.signatures.mySignature')}

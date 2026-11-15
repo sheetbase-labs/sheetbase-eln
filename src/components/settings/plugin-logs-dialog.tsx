@@ -83,8 +83,25 @@ export function PluginRunList({ runs }: { runs: PluginRunLog[] }) {
   )
 }
 
-/** A plugin's recent runs: status, duration, error and printed output. Administrators only. */
+/** A plugin's recent runs: status, duration, error and printed output. Administrators only. Closed when no plugin is chosen. */
 export function PluginLogsDialog({
+  target,
+  onClose,
+}: {
+  target: { id: string; name: string } | null
+  onClose: () => void
+}) {
+  return target ? (
+    <LogsDialogBody
+      key={target.id}
+      extensionId={target.id}
+      name={target.name}
+      onClose={onClose}
+    />
+  ) : null
+}
+
+function LogsDialogBody({
   extensionId,
   name,
   onClose,

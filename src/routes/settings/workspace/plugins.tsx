@@ -329,13 +329,7 @@ function Plugins() {
         />
       ) : null}
 
-      {logsFor ? (
-        <PluginLogsDialog
-          extensionId={logsFor.id}
-          name={logsFor.name}
-          onClose={() => setLogsFor(null)}
-        />
-      ) : null}
+      <PluginLogsDialog target={logsFor} onClose={() => setLogsFor(null)} />
 
       {settingsFor ? (
         <PluginRuntimeDialog

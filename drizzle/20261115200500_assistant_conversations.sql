@@ -85,7 +85,11 @@ BEGIN
   IF v_user IS NULL OR v_workspace IS NULL THEN
     RAISE EXCEPTION 'save_assistant_conversation requires an authenticated user in a workspace' USING ERRCODE = '42501';
   END IF;
-  IF NOT api.is_workspace_member(v_workspace) THEN
+  -- Anyone in the workspace keeps their own chats, whatever their role (a
+  -- viewer included), so this is a membership check, not a writer check.
+  IF NOT EXISTS (SELECT 1 FROM api.workspace_memberships m
+                  WHERE m.workspace_id = v_workspace AND m.user_id = v_user
+                    AND m.suspended_at IS NULL) THEN
     RAISE EXCEPTION 'not a member of this workspace' USING ERRCODE = '42501';
   END IF;
   IF p_messages IS NULL OR jsonb_typeof(p_messages) <> 'array' THEN

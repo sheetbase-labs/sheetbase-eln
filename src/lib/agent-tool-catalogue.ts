@@ -103,6 +103,10 @@ const CORE_ASSISTANT_READ_TOOL_NAMES = [
   // Search by meaning over the lab's own work, and (when the workspace allows it) published papers (semantic-tools.server.ts).
   'sheetbase.search.semantic',
   'sheetbase.literature.search',
+  // The lab's own SOPs and protocols, reagent and material stock, and the templates and record models to start from (mcp/lookups.ts).
+  'sheetbase.protocol.read',
+  'sheetbase.stock.read',
+  'sheetbase.template.list',
 ] as const
 
 /**

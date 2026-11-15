@@ -728,9 +728,11 @@ export function ScheduledReportsPanel({
       <div className="flex flex-wrap items-center gap-2">
         <span className="flex-1" />
         {canSchedule ? (
-          <Button variant="primary" onClick={() => setCreating(true)}>
-            {t('spend.schedule.new')}
-          </Button>
+          rows.length > 0 || reports.isPending ? (
+            <Button variant="primary" onClick={() => setCreating(true)}>
+              {t('spend.schedule.new')}
+            </Button>
+          ) : null
         ) : (
           <p className="m-0 text-caption text-fg-muted">
             {t('spend.schedule.readOnly')}
@@ -743,10 +745,16 @@ export function ScheduledReportsPanel({
         </p>
       ) : !reports.isPending && rows.length === 0 ? (
         <EmptyState
-          className="items-center py-10 text-center"
           icon="calendar"
           title={t('spend.schedule.empty.title')}
           description={t('spend.schedule.empty.body')}
+          action={
+            canSchedule ? (
+              <Button variant="primary" onClick={() => setCreating(true)}>
+                {t('spend.schedule.new')}
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <TableBox>

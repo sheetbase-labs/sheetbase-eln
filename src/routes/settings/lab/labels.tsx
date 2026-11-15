@@ -15,7 +15,9 @@ function LabelSettings() {
 
   return (
     <>
-      <SettingsHeader title={t('settings.storage.labelTemplates')} />
+      <SettingsHeader title={t('settings.storage.labelTemplates')}>
+        {t('settings.storage.labelTemplatesHint')}
+      </SettingsHeader>
       <LabelTemplatesPanel
         workspaceId={context.workspace?.id ?? ''}
         canManage={canManageSettings(context.workspace, 'storage')}

@@ -3032,5 +3032,6 @@ export const settings = {
     storageLabelsSections: 'Storage and labels sections',
     storageLocations: 'Storage locations',
     labelTemplates: 'Label templates',
+    labelTemplatesHint: 'What a printed sample label shows, and the size it prints at.',
   },
 } as const

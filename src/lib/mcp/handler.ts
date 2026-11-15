@@ -37,6 +37,12 @@ import {
   runGuardedLabAct,
 } from './lab'
 import {
+  LAB_PLAN_TOOL_NAME,
+  labPlanSchema,
+  labPlanTool,
+  runLabPlan,
+} from './plan'
+import {
   PLUGIN_SEARCH_TOOL,
   pluginSearchMcpTool,
   runPluginSearch,
@@ -294,7 +300,7 @@ function listTools(context: McpContext): McpTool[] {
     context.actor.kind === 'user' &&
     hasLabActScope(context.scopes) &&
     context.flags.mcp_lab
-      ? [labActTool()]
+      ? [labActTool(), labPlanTool()]
       : []
 
   const meaning =
@@ -1005,6 +1011,52 @@ async function callTool(
 
       return toolError(
         error instanceof Error ? error.message : 'The lab action failed.',
+      )
+    }
+  }
+
+  if (name === LAB_PLAN_TOOL_NAME) {
+    if (!context.flags.mcp_lab) {
+      return toolError('Lab actions are disabled by a workspace flag.')
+    }
+
+    if (context.actor.kind !== 'user') {
+      return toolError('Lab actions require a personal token.')
+    }
+
+    const plan = labPlanSchema.safeParse(args)
+
+    if (!plan.success) {
+      return toolError(
+        'The plan needs 2 to 12 steps, each with a key, an action and its arguments.',
+        'invalid_arguments',
+      )
+    }
+
+    try {
+      const report = await runLabPlan(plan.data, (step) =>
+        runGuardedLabAct(step, {
+          workspaceId: context.workspaceId,
+          credentialId: context.credentialId,
+          scopes: context.scopes,
+          client: context.client,
+        }),
+      )
+
+      logger.info(
+        'ai.mcp.lab_plan',
+        redact({
+          status: report.status,
+          steps: plan.data.steps.length,
+          workspaceId: context.workspaceId,
+          credentialId: context.credentialId,
+        }),
+      )
+
+      return textResult(report)
+    } catch (error) {
+      return toolError(
+        error instanceof Error ? error.message : 'The plan failed.',
       )
     }
   }

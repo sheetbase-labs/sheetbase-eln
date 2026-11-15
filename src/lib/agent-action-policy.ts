@@ -14,6 +14,8 @@
  * this module is the copy the screens and the MCP tool read.
  */
 import { agentActionAlwaysAsk } from '../features/agent-policies/feature'
+import { PLAN_PAUSE_DESTRUCTIVE, PLAN_RUN_ALL } from '../features/plans/plan'
+import { t } from '../copy'
 import { featureAgentAreas, featureAgentDeletes } from '../features/collect'
 import { isWriteScope, LAB_RPCS } from './lab-api-surface'
 import type { LabRpc } from './lab-api-surface'
@@ -93,11 +95,68 @@ export function agentActionResult(action: string, result: unknown): unknown {
 
 export { agentActionAlwaysAsk }
 
+/**
+ * The two rules for plans (several assistant cards approved together). They
+ * sit with the agent permissions and use the same levels, set for everyone or
+ * for one role, so an administrator decides what pauses and who may run all.
+ */
+export interface PlanRuleEntry {
+  key: string
+  label: string
+  area: 'Plans'
+  description: string
+  levels: readonly AgentActionLevel[]
+  words: Readonly<Record<AgentActionLevel, string>>
+}
+
+export const PLAN_RULES: readonly PlanRuleEntry[] = Object.freeze([
+  {
+    key: PLAN_PAUSE_DESTRUCTIVE,
+    label: t('agents.permissions.plans.pause.label'),
+    area: 'Plans',
+    description: t('agents.permissions.plans.pause.description'),
+    levels: ['ask', 'auto', 'never'],
+    words: {
+      auto: t('agents.permissions.plans.pause.auto'),
+      ask: t('agents.permissions.plans.pause.ask'),
+      never: t('agents.permissions.plans.pause.never'),
+    },
+  },
+  {
+    key: PLAN_RUN_ALL,
+    label: t('agents.permissions.plans.runAll.label'),
+    area: 'Plans',
+    description: t('agents.permissions.plans.runAll.description'),
+    levels: ['ask', 'auto'],
+    words: {
+      auto: t('agents.permissions.plans.runAll.auto'),
+      ask: t('agents.permissions.plans.runAll.ask'),
+      never: t('agents.permissions.plans.runAll.ask'),
+    },
+  },
+])
+
+export function planRuleByKey(key: string): PlanRuleEntry | undefined {
+  return PLAN_RULES.find((rule) => rule.key === key)
+}
+
 /** The levels an action can be set to: never Auto for a change to agent permissions. */
 export function agentActionLevelsFor(key: string): readonly AgentActionLevel[] {
+  const rule = planRuleByKey(key)
+
+  if (rule)
+    return AGENT_ACTION_LEVELS.filter((level) => rule.levels.includes(level))
+
   return agentActionAlwaysAsk(key)
     ? AGENT_ACTION_LEVELS.filter((level) => level !== 'auto')
     : AGENT_ACTION_LEVELS
+}
+
+/** The word for a level on one action: Auto, Ask or Never, or a plan rule's own. */
+export function agentLevelWord(key: string, level: AgentActionLevel): string {
+  return (
+    planRuleByKey(key)?.words[level] ?? t(`agents.permissions.levels.${level}`)
+  )
 }
 
 /** Which part of the lab an action belongs to, for grouping the list. */

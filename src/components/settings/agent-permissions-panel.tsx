@@ -38,7 +38,10 @@ import {
   agentActionAlwaysAsk,
   agentActionByKey,
   agentActionLevelsFor,
+  agentLevelWord,
   agentActionKeys,
+  PLAN_RULES,
+  planRuleByKey,
   fetchAgentActionPolicies,
   setAgentActionPolicy,
 } from '#/lib/agent-action-policy'
@@ -51,17 +54,20 @@ import { notebookDataClient } from '#/lib/notebook-data'
 
 const client = notebookDataClient
 
+type PanelEntry = Pick<
+  (typeof AGENT_ACTIONS)[number],
+  'key' | 'label' | 'area' | 'description'
+>
+
 interface ActionRow {
   id: string
-  entry: (typeof AGENT_ACTIONS)[number]
+  entry: PanelEntry
   level: AgentActionLevel
 }
 
-const LEVEL_LABEL: Record<AgentActionLevel, string> = {
-  auto: t('agents.permissions.levels.auto'),
-  ask: t('agents.permissions.levels.ask'),
-  never: t('agents.permissions.levels.never'),
-}
+/** The plan rules first, then every lab action by area. */
+const PANEL_ENTRIES: readonly PanelEntry[] = [...PLAN_RULES, ...AGENT_ACTIONS]
+const PANEL_AREAS: readonly string[] = ['Plans', ...AGENT_ACTION_AREAS]
 
 function titleCase(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1)
@@ -129,22 +135,20 @@ export function AgentPermissionsPanel({
     credentials.data?.find((credential) => credential.id === id)?.name ??
     'Service credential'
 
-  const actionRows: RegistryRow<ActionRow>[] = AGENT_ACTION_AREAS.flatMap(
-    (area) => {
-      const inArea = AGENT_ACTIONS.filter((entry) => entry.area === area)
+  const actionRows: RegistryRow<ActionRow>[] = PANEL_AREAS.flatMap((area) => {
+    const inArea = PANEL_ENTRIES.filter((entry) => entry.area === area)
 
-      if (inArea.length === 0) return []
+    if (inArea.length === 0) return []
 
-      return [
-        bandRow(area),
-        ...inArea.map((entry) => ({
-          id: entry.key,
-          entry,
-          level: everyone.get(entry.key) ?? AGENT_ACTION_DEFAULT_LEVEL,
-        })),
-      ]
-    },
-  )
+    return [
+      bandRow(area),
+      ...inArea.map((entry) => ({
+        id: entry.key,
+        entry,
+        level: everyone.get(entry.key) ?? AGENT_ACTION_DEFAULT_LEVEL,
+      })),
+    ]
+  })
 
   const actionColumns: RegistryColumn<ActionRow>[] = [
     {
@@ -194,7 +198,7 @@ export function AgentPermissionsPanel({
           >
             {agentActionLevelsFor(entry.key).map((value) => (
               <option key={value} value={value}>
-                {LEVEL_LABEL[value]}
+                {agentLevelWord(entry.key, value)}
               </option>
             ))}
           </Select>
@@ -208,7 +212,9 @@ export function AgentPermissionsPanel({
       id: 'action',
       header: t('agents.permissions.exceptionAction'),
       accessorFn: (row) =>
-        agentActionByKey(row.action_key)?.label ?? row.action_key,
+        planRuleByKey(row.action_key)?.label ??
+        agentActionByKey(row.action_key)?.label ??
+        row.action_key,
     },
     {
       id: 'who',
@@ -225,7 +231,7 @@ export function AgentPermissionsPanel({
     {
       id: 'level',
       header: t('agents.permissions.exceptionLevel'),
-      accessorFn: (row) => LEVEL_LABEL[row.level],
+      accessorFn: (row) => agentLevelWord(row.action_key, row.level),
     },
     {
       id: 'remove',
@@ -380,7 +386,7 @@ function AddException({
               <option value="">
                 {t('agents.permissions.exceptionPickAction')}
               </option>
-              {AGENT_ACTIONS.map((entry) => (
+              {PANEL_ENTRIES.map((entry) => (
                 <option key={entry.key} value={entry.key}>
                   {entry.label}
                 </option>
@@ -453,7 +459,7 @@ function AddException({
             >
               {agentActionLevelsFor(actionKey).map((value) => (
                 <option key={value} value={value}>
-                  {LEVEL_LABEL[value]}
+                  {agentLevelWord(actionKey, value)}
                 </option>
               ))}
             </Select>

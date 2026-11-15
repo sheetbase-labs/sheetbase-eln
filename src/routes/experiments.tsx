@@ -45,7 +45,6 @@ import {
   ListToolbar,
   ReadOnlyNote,
 } from '#/components/inventory/list'
-import { Chip } from '#/components/ui/chip'
 import { PlanWithAi } from '#/components/planner/plan-with-ai'
 import { MobileList, stickyCol } from '#/components/projects/mobile-list'
 import {
@@ -427,18 +426,6 @@ function Experiments() {
         onSearch={setSearch}
         projectName={projectFilterName}
       />
-
-      {!search.older ? (
-        <div className="flex items-center gap-2 px-4 py-2 md:px-6">
-          <Chip
-            variant="remove"
-            removeLabel={t('projects.experimentsList.removeRecent')}
-            onRemove={() => setSearch({ older: true })}
-          >
-            {t('projects.experimentsList.recentChip')}
-          </Chip>
-        </div>
-      ) : null}
 
       <RecordBulkBar
         selection={bulk}

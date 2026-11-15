@@ -153,16 +153,14 @@ export function archivedHiddenBy(
   return archived === 'exclude' ? base.filter((p) => p.archived).length : 0
 }
 
-/** How many filters are on, for the toolbar's count. */
-export function filterCountOf(
-  search: ProjectsSearch,
-  archived: ArchivedMode,
-): number {
+/**
+ * How many filters the person has set, for the toolbar's count. Hiding archived
+ * projects is how the list starts, so it is not counted; the footer says how
+ * many it hides.
+ */
+export function filterCountOf(search: ProjectsSearch): number {
   return (
-    (archived === 'exclude' ? 1 : 0) +
-    (search.stage ? 1 : 0) +
-    (search.client ? 1 : 0) +
-    (search.modality ? 1 : 0)
+    (search.stage ? 1 : 0) + (search.client ? 1 : 0) + (search.modality ? 1 : 0)
   )
 }
 
@@ -229,7 +227,7 @@ export function projectsView(
     counts: tabCounts(projects, search, me, meId),
     rows,
     archivedMatches: archivedHiddenBy(base, archived),
-    filterCount: filterCountOf(search, archived),
+    filterCount: filterCountOf(search),
     columns: projectColumns(hidden),
     grouped: groupedProjects(rows, group),
   }

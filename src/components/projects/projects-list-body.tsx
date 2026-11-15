@@ -53,11 +53,7 @@ export function ProjectsListBody({
       />
 
       {filterCount ? (
-        <ProjectsFilterChips
-          archived={archived}
-          search={search}
-          setSearch={setSearch}
-        />
+        <ProjectsFilterChips search={search} setSearch={setSearch} />
       ) : null}
 
       <ProjectsTable

@@ -396,7 +396,9 @@ function latestPublished(
   const own = versions.filter((version) => version.template_id === templateId)
 
   return (
-    own.find((version) => version.lifecycle === 'published') ?? own[0] ?? null
+    own.find((version) => version.lifecycle === 'published') ??
+    own.at(0) ??
+    null
   )
 }
 

@@ -326,6 +326,17 @@ export async function prepare(
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A gateway failure is a caught throw, untyped by definition; only a ModelGatewayError is recognised, and anything else is a provider error.
 export function gatewayFailure(error: unknown): Failure {
   if (error instanceof ModelGatewayError) {
+    // Only a refusal by the workspace's own limits or policy says so; a
+    // provider that failed says that, so the person is not sent to the policy
+    // settings for something they cannot fix there.
+    if (error.code === 'provider_error') {
+      return {
+        status: 'error',
+        code: 'provider_error',
+        message: 'The selected provider did not return an answer.',
+      }
+    }
+
     return {
       status: 'error',
       code: 'gateway_error',

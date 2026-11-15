@@ -30,9 +30,12 @@ export function ListViewMenu<T extends RowData>({
   table,
   view,
   name,
+  fitDropped = new Set<string>(),
 }: {
   table: Table<DataGridFeatures, T>
   view?: ListView
+  /** Columns the table hid only because they did not fit the pane. */
+  fitDropped?: ReadonlySet<string>
   /** What the list is called, for the file name. */
   name: string
 }) {
@@ -41,7 +44,7 @@ export function ListViewMenu<T extends RowData>({
     .filter((column) => column.getCanHide() && !column.id.startsWith('__'))
 
   const save = (kind: 'csv' | 'xlsx') => {
-    const data = exportTable(table)
+    const data = exportTable(table, fitDropped)
 
     if (data.rows.length === 0) {
       toast(t('library.listView.nothingToExport'))
@@ -94,7 +97,8 @@ export function ListViewMenu<T extends RowData>({
                 {t('library.listView.columns')}
               </DropdownMenuLabel>
               {hideable.map((column) => {
-                const on = column.getIsVisible()
+                const toFit = fitDropped.has(column.id)
+                const on = column.getIsVisible() || toFit
 
                 return (
                   <DropdownMenuItem
@@ -105,6 +109,11 @@ export function ListViewMenu<T extends RowData>({
                     onClick={() => column.toggleVisibility(!on)}
                   >
                     {getColumnHeaderLabel(column)}
+                    {toFit ? (
+                      <span className="ml-auto pl-3 text-caption font-normal text-fg-muted">
+                        {t('library.listView.hiddenToFit')}
+                      </span>
+                    ) : null}
                   </DropdownMenuItem>
                 )
               })}

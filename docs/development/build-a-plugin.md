@@ -170,6 +170,26 @@ sheetbase-plugin pack .    # acme.cell-count-1.0.0.sbplugin
 but on your machine there is no sandbox, and the packages are whatever is installed
 in your own Python: `pip install` what you declare (below) before you try it.
 
+### Settings an administrator sets
+
+An operation that needs an address or a token declares `settings` beside its
+inputs. An administrator sets them once under **Settings → Plugins →
+Connections**; a secret is sealed and never shown again. The function receives
+them as `input["_settings"]`:
+
+```json
+"settings": [{ "name": "token", "label": "protocols.io token", "secret": true, "required": true }]
+```
+
+```python
+def search(input):
+    token = input["_settings"]["token"]
+```
+
+If a required setting is missing the call stops with a sentence that tells an
+administrator where to set it. Try it locally with
+`sheetbase-plugin run search --input '{…}' --settings '{"token": "x"}'`.
+
 ### Packages and hosts
 
 Declare the Python packages your code needs, and any hosts it calls, in

@@ -286,6 +286,17 @@ answers `200` with `ok: false`); without it, any answer outside `2xx` is a
 refusal. Each declares `settings` (an address, a token) that an administrator
 sets once; a secret is sealed when saved and never returned.
 
+An **operation** may declare `settings` too (`[{ "name", "label", "secret",
+"required" }]`, the same shape, up to 8). An administrator sets them in
+Settings → Plugins → Connections, under "Looks things up"; a secret is sealed and
+never returned. Whoever runs the operation (assistant, MCP, API, pipeline), the
+function gets the values as `input["_settings"]`, a dictionary of name to value.
+A required setting that is not set stops the call with "isn't set up yet. An
+administrator sets it in Settings › Plugins"; a declared input cannot be named
+`_settings`. Values are never in the audit event, and a secret a function repeats
+in an error message is shown as `•••`. Pair it with `python.network` for the host
+the function calls.
+
 A publisher is also a callable: it appears as the operation
 `plugin.<key>.<id>` with `access: write`, inputs `rows` (a list of row
 objects), `name` (optional) and its own `parameters`, and outputs `message`,
@@ -300,7 +311,7 @@ with no extra work, and each call is audited as `extension.invoked`.
 - `GET /api/plugins/connections` and `POST /api/plugins/connections` (owners and
   admins, `extensions.manage`; session only, because the values can be secrets, and
   secrets are never taken over the API). GET answers
-  `{ "connections": [ { extensionId, extensionKey, point, itemId, title, hosts, off, settings: [ { name, label, secret, required, isSet, value } ] } ] }`
+  `{ "connections": [ { extensionId, extensionKey, point (`connectors`, `publishers`, `notification-channels` or `operations`), itemId, title, hosts, off, settings: [ { name, label, secret, required, isSet, value } ] } ] }`
   (`value` is only given for a setting that is not a secret). POST sets or
   clears: `{ "extensionId", "point", "itemId", "values": { "token": "…", "region": null } }`;
   a setting left out is kept. Each change is audited as

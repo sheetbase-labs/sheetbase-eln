@@ -214,7 +214,7 @@ function Profile() {
             initials={initials.trim().toUpperCase() || initialsOf(name)}
           />
           <div
-            className="grid w-full grid-cols-1 gap-x-5 gap-y-3.5 md:w-auto md:grid-cols-[250px_minmax(250px,22rem)]"
+            className="grid min-w-0 flex-1 grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]"
             onKeyDown={saveOnEnter}
           >
             <Field label={t('settings.profile.fullName')} error={error}>

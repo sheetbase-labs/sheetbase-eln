@@ -3063,6 +3063,7 @@ export const data = {
     untitledAnalysis: 'Untitled analysis',
   },
   analysisList: {
+    countNoun: { one: 'analysis', other: 'analyses' },
     chart: 'Chart',
     doseResponseCurve: 'dose-response curve',
     groupComparison: 'group comparison',

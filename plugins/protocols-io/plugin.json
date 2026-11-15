@@ -1,0 +1,113 @@
+{
+  "id": "sheetbase.protocols-io",
+  "name": "protocols.io",
+  "version": "1.0.0",
+  "description": "Find public protocols on protocols.io, read their steps and reagents, and import one as a draft protocol of your own.",
+  "author": "Sheetbase",
+  "python": {
+    "network": ["www.protocols.io"]
+  },
+  "provides": {
+    "operations": [
+      {
+        "id": "search",
+        "title": "Search protocols.io",
+        "description": "Searches public protocols on protocols.io, such as a PicoGreen assay or a Gibson assembly. Only the words searched leave the workspace, so never include sample names or unpublished results. Each protocol has a title, authors, a link and a DOI. Read one with `read`; to keep one, use `import`.",
+        "access": "read",
+        "settings": [
+          {
+            "name": "token",
+            "label": "protocols.io access token",
+            "secret": true,
+            "required": true
+          }
+        ],
+        "inputs": [
+          {
+            "name": "query",
+            "type": "text",
+            "required": true,
+            "description": "What to look for, such as picogreen dna quantification."
+          },
+          {
+            "name": "limit",
+            "type": "integer",
+            "required": false,
+            "description": "At most this many, up to 20. Default 8."
+          }
+        ],
+        "outputs": [
+          { "name": "count", "type": "integer", "required": true },
+          { "name": "protocols", "type": "json", "required": true }
+        ],
+        "run": "protocolsio:search"
+      },
+      {
+        "id": "read",
+        "title": "Read a protocols.io protocol",
+        "description": "Reads one public protocol from protocols.io: its description, numbered steps and reagents. Name it by the `id`, `uri` or DOI that `search` returned. Summarise or compare from these steps only, never from memory.",
+        "access": "read",
+        "settings": [
+          {
+            "name": "token",
+            "label": "protocols.io access token",
+            "secret": true,
+            "required": true
+          }
+        ],
+        "inputs": [
+          {
+            "name": "protocol",
+            "type": "text",
+            "required": true,
+            "description": "The protocol's id, uri or DOI."
+          }
+        ],
+        "outputs": [
+          { "name": "title", "type": "text", "required": true },
+          { "name": "url", "type": "text", "required": true },
+          { "name": "doi", "type": "text", "required": false },
+          { "name": "authors", "type": "json", "required": true },
+          { "name": "description", "type": "text", "required": false },
+          { "name": "steps", "type": "json", "required": true },
+          { "name": "reagents", "type": "json", "required": true }
+        ],
+        "run": "protocolsio:read"
+      },
+      {
+        "id": "import",
+        "title": "Import a protocols.io protocol",
+        "description": "Imports one public protocol from protocols.io as a draft protocol of the lab's own, with its steps, reagents and a link back to the source. The person confirms first. Name it by the `id`, `uri` or DOI that `search` returned.",
+        "access": "write",
+        "settings": [
+          {
+            "name": "token",
+            "label": "protocols.io access token",
+            "secret": true,
+            "required": true
+          }
+        ],
+        "inputs": [
+          {
+            "name": "protocol",
+            "type": "text",
+            "required": true,
+            "description": "The protocol's id, uri or DOI."
+          },
+          {
+            "name": "title",
+            "type": "text",
+            "required": false,
+            "description": "A different title; the source's own if left out."
+          }
+        ],
+        "outputs": [
+          { "name": "identifier", "type": "text", "required": true },
+          { "name": "title", "type": "text", "required": true },
+          { "name": "steps", "type": "integer", "required": true }
+        ],
+        "run": "protocolsio:import_protocol"
+      }
+    ]
+  }
+}

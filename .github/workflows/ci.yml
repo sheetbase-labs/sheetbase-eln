@@ -169,6 +169,8 @@ jobs:
         run: uv run --python 3.13 --with pytest --with pandas --with-editable . python -m pytest -q
       - name: Chemistry plugin tests
         run: uv run --python 3.12 --with pytest --with rdkit python -m pytest -q plugins/chemistry/tests
+      - name: protocols.io plugin tests
+        run: uv run --python 3.12 --with pytest python -m pytest -q plugins/protocols-io/tests
 
   # The Python plugin sandbox on a real Docker daemon: the worker and runner
   # images build, a plugin's packages (RDKit) install into their own image, and

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useReducer } from 'react'
 import type { RefObject } from 'react'
-import type { VisibilityState } from '@tanstack/react-table'
+import type { ColumnVisibilityState } from '@tanstack/react-table'
 
 /**
  * Keeps a registry table's headers whole.
@@ -125,7 +125,7 @@ export function useFitColumns(
 export function dropOrder(
   ids: readonly (string | undefined)[],
   pinned: readonly string[],
-  hidden: VisibilityState,
+  hidden: ColumnVisibilityState,
   keep: readonly string[] = [],
 ): string {
   const data = ids.filter((id): id is string => Boolean(id) && id !== '__bulk')
@@ -159,7 +159,7 @@ export function useFittedColumns({
   ids: readonly (string | undefined)[]
   /** Tick boxes take the first column; the ID is then the second. */
   ticks: boolean
-  hidden: VisibilityState
+  hidden: ColumnVisibilityState
   keep?: readonly string[]
   fit?: boolean
   rowCount: number

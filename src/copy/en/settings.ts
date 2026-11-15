@@ -1175,7 +1175,7 @@ export const settings = {
     everyoneWorkspaceAccess:
       'Everyone with workspace access, including client viewers.',
     everyoneWorkspaceAccess2:
-      'Everyone with workspace access, including client viewers.',
+      'Everyone with workspace access, including client viewers. No seat limit is configured.',
     filesInstrumentExports:
       'Files and instrument exports. No storage quota is configured.',
     perTokenCall2: 'Per-token call metering isn’t built in this deployment.',

@@ -232,7 +232,7 @@ export const settings = {
     auditEntriesMatch:
       'No audit entries match — clear the search and the operation filter to see the whole log.',
     apiCredential: 'API credential',
-    projects2: ' · all projects. ',
+    projects2: 'All projects. ',
     retentionPolicy: 'Retention policy',
     anyone: 'Anyone',
     projects3: 'All projects',
@@ -1050,7 +1050,7 @@ export const settings = {
       'Signing password enrolled. Agree to the statement and enter it again to certify.',
     recoverSigningPassword: 'Recover signing password',
     enrollSigningPassword: 'Enroll signing password',
-    whichSignatureMeanings: ' · your own signature is under ',
+    whichSignatureMeanings: 'Your own signature is under ',
     mySignature: 'My signature',
     everyoneWhoSign: 'Everyone who can sign has certified their signature.',
     signatureMeaningUse2: '{m}',

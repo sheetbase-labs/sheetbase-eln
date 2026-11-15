@@ -382,7 +382,6 @@ function MySignature() {
   const signature = useSignatureCertification()
 
   const {
-    context,
     returnTo,
     signInAvailable,
     workspaceId,
@@ -399,9 +398,7 @@ function MySignature() {
 
   return (
     <>
-      <SettingsHeader title={t('settings.mySignature.mySignature')}>
-        {context.workspace?.name ?? 'Workspace'}
-      </SettingsHeader>
+      <SettingsHeader title={t('settings.mySignature.mySignature')} />
       <SettingsBody>
         <SignatureReturnNotice returnTo={returnTo} current={current} />
         {signInAvailable ? null : (

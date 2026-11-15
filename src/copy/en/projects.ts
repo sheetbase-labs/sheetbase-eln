@@ -1909,6 +1909,7 @@ export const projects = {
     keyShift: 'Shift',
   },
   paneKinds: {
+    agent: 'Agent',
     experiment: 'Experiment',
     dataset: 'Dataset',
     sample: 'Sample',

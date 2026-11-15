@@ -330,6 +330,15 @@ const KINDS: { match: RegExp; kind: PaneKind }[] = [
     },
   },
   {
+    match: /^\/agent/,
+    kind: {
+      key: 'agent',
+      label: t('projects.paneKinds.agent'),
+      icon: 'spark',
+      record: false,
+    },
+  },
+  {
     match: /^\/schedule/,
     kind: {
       key: 'schedule',

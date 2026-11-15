@@ -68,6 +68,8 @@ export const navGroups: NavGroup[] = [
     key: 'work',
     label: t('settings.shell.nav.groups.work'),
     items: [
+      // A full-page chat with the assistant, and the chats kept from before.
+      { key: 'agent', label: 'Agent', icon: 'spark', link: { to: '/agent' } },
       {
         key: 'projects',
         label: 'Projects',

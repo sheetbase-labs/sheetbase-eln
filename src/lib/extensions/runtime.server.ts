@@ -546,6 +546,7 @@ export async function invokeExtension(
   const declaration = callable.declaration
   const input = checkDeclaredValues(declaration.inputs, args.input, 'input')
   const started = deps.now()
+  let sealed: string[] = []
 
   try {
     if (callable.runKind === 'publish') {
@@ -594,6 +595,14 @@ export async function invokeExtension(
 
     if (args.hostResults !== undefined && !step)
       settings.__host__ = args.hostResults
+
+    // What an administrator set for this operation (a token, an address) goes
+    // to the function as `_settings` and nowhere else: not the audit, not the
+    // run history. A secret a plugin repeats in an error is hidden.
+    const given = await operationSettings(args, deps, resolved, callable)
+
+    if (given) settings._settings = given.values
+    sealed = given?.secrets ?? []
 
     const stepDeclaration = step
       ? resolved.manifest.contributions['pipeline-steps']?.find(
@@ -682,10 +691,85 @@ export async function invokeExtension(
       ok: false,
       runner: 'python',
       durationMs: deps.now() - started,
-      error: error instanceof Error ? error.message : String(error),
+      error: hideSecrets(
+        error instanceof Error ? error.message : String(error),
+        sealed,
+      ),
     })
+
+    if (sealed.length > 0 && error instanceof ExtensionRunError)
+      throw new ExtensionRunError(
+        error.code,
+        hideSecrets(error.message, sealed),
+      )
     throw error
   }
+}
+
+/** The text with every given secret value replaced, so a plugin cannot echo one. */
+function hideSecrets(text: string, secrets: readonly string[]): string {
+  let out = text
+
+  for (const secret of secrets) {
+    if (secret.length >= 4) out = out.split(secret).join('•••')
+  }
+
+  return out
+}
+
+/**
+ * The settings an operation declared, as the administrator set them. A
+ * required one that is missing stops the call with a sentence about what to do.
+ */
+async function operationSettings(
+  args: InvokeArgs,
+  deps: ExtensionRuntimeDeps,
+  resolved: ResolvedInstall,
+  callable: {
+    point: string
+    id: string
+    declaration: {
+      settings?: ReadonlyArray<{
+        name: string
+        label: string
+        secret: boolean
+        required: boolean
+      }>
+    }
+  },
+): Promise<{ values: Record<string, string>; secrets: string[] } | null> {
+  const declared =
+    callable.point === 'operations' ? callable.declaration.settings : undefined
+
+  if (!declared || declared.length === 0) return null
+
+  const stored =
+    (await deps.loadSettings?.(
+      args.workspaceId,
+      resolved.install.id,
+      `operations:${callable.id}`,
+    )) ?? {}
+
+  const values: Record<string, string> = {}
+  const secrets: string[] = []
+
+  for (const setting of declared) {
+    const value = z.string().safeParse(stored[setting.name]).data
+
+    if (setting.required && !value?.trim())
+      throw new ExtensionRunError(
+        'not_set_up',
+        `“${setting.label}” isn’t set up yet. An administrator sets it in Settings › Plugins.`,
+      )
+
+    if (value !== undefined) {
+      values[setting.name] = value
+
+      if (setting.secret) secrets.push(value)
+    }
+  }
+
+  return { values, secrets }
 }
 
 /** The contract the runner enforces on a table a plugin returns. */

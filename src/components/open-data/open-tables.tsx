@@ -644,7 +644,7 @@ function LakeLogins({
         setUp ? (
           <Button
             size="sm"
-            variant="primary"
+
             icon="plus"
             onClick={() => setCreateOpen(true)}
           >

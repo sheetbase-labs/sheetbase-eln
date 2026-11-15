@@ -63,7 +63,6 @@ export function ProtocolVersionTraining({
       })}
       action={
         <Button
-          variant="primary"
           disabled={acknowledging || current || !canAcknowledge}
           onClick={() => onAcknowledge()}
         >

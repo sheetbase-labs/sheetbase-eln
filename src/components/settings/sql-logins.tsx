@@ -139,7 +139,6 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
       action={
         setUp ? (
           <Button
-            variant="primary"
             icon="plus"
             onClick={() => {
               create.reset()

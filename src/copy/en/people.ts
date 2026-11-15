@@ -83,9 +83,6 @@ export const people = {
   },
   groups: {
     title: 'Sign-in groups',
-    description:
-      'When people sign in through your organisation’s sign-in, the groups they belong to there can decide their role here.',
-    none: 'No groups listed yet. Everyone keeps the role you gave them.',
     groupColumn: 'Group',
     roleColumn: 'Gives the role',
     groupLabel: 'Group name',
@@ -100,20 +97,16 @@ export const people = {
     },
     saved: 'Group saved',
     couldNotSave: 'Could not save',
-    hint: 'Someone with several listed groups gets the highest role. Someone in none of them becomes a viewer. Owners are never changed. A role you set by hand stays until you choose “Let groups decide”.',
     fromGroup: 'from sign-in group',
     fromGroupTip: 'Their sign-in groups decide this role.',
   },
   directorySync: {
     title: 'Directory sync',
-    description:
-      'Let your organisation’s directory add new people, update their details and switch them off when they leave. Groups it sends can give roles, the same way sign-in groups do.',
     summary: {
       one: '{count} person is kept up to date by your directory; {off} switched off',
       other:
         '{count} people are kept up to date by your directory; {off} switched off',
     },
-    none: 'No tokens yet. Make one and paste it into your directory.',
     labelColumn: 'Name',
     createdColumn: 'Made',
     lastUsedColumn: 'Last used',

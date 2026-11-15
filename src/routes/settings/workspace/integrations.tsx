@@ -249,7 +249,7 @@ function WorkspaceWebhooks({
         </div>
       </SettingsBody>
       <OutgoingWebhooks workspaceId={workspaceId} />
-      <SettingsBody className="gap-3 pb-0">
+      <SettingsBody className="gap-3 border-t border-border-subtle pb-0">
         <h2 className="text-section">
           {t('settings.integrations.incomingWebhooks')}
         </h2>

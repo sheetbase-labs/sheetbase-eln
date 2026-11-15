@@ -229,7 +229,6 @@ export function IncidentLog({
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
         title={t('quality.incidents.title')}
-        subtitle={t('quality.incidents.subtitle')}
         total={entries.data ? inStatus.length : undefined}
         actions={reportButton}
         tabs={

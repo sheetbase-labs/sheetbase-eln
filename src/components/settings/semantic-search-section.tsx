@@ -153,7 +153,6 @@ export function SemanticSearchSection({
 
       <CheckRow
         title={t('settings.semanticSearch.enable')}
-        body={t('settings.semanticSearch.enableBody')}
         checked={form.enabled}
         onCheckedChange={(enabled) => setForm({ ...form, enabled })}
         disabled={!view.canManage || view.profiles.length === 0}

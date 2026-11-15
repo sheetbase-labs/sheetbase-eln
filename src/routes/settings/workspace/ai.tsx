@@ -281,11 +281,10 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
             <Section title={t('settings.ai.agentAccess')}>
               <Muted>{t('settings.ai.connectedCodingAgents')}</Muted>
               <Muted>
-                {t('settings.ai.createScopedToken2')}
+                {t('settings.ai.createScopedToken2')}{' '}
                 <Link to="/settings/account/api">
                   {t('settings.ai.apiSdk')}
                 </Link>
-                .
               </Muted>
 
               <AiAccessFlags {...accessDraft} canManage={canManage} />
@@ -434,7 +433,6 @@ function AssistantConfiguration({
         </Field>
         <Field
           label={t('settings.ai.modelRole')}
-          hint={t('settings.ai.administratorDecidesWhichHint')}
         >
           <Select
             value={form.model}
@@ -631,7 +629,6 @@ function AiBudget({
         </Field>
         <Field
           label={t('settings.ai.maximumCostPer2')}
-          hint={t('settings.ai.example005Hint')}
           error={maxCostValid ? undefined : t('settings.ai.enterAmountWithin')}
         >
           <DollarInput

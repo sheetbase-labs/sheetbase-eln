@@ -78,8 +78,6 @@ export const settings = {
     intro:
       'Find notebooks, files and comments that talk about the same thing in different words, answer questions across the lab, and see earlier work like what is on the page. Text is read in the background, only while this is on.',
     enable: 'Search by meaning',
-    enableBody:
-      'Read the text of notebooks, files, datasets and comments so a question finds what it means, not only the words it uses.',
     needsAssistant:
       'Search by meaning follows the assistant switch above. Turn the assistant on for this workspace and nothing is read until you do.',
     model: 'Model that reads the text',
@@ -112,7 +110,7 @@ export const settings = {
     aiSettingsSavedToast: 'AI settings saved',
     aiAccessFlagsToast: 'AI access flags saved',
     groundedAssistanceWorkspace:
-      'Grounded assistance for this workspace. AI output is assistive: it never signs, approves or commits a change.',
+      'AI output is assistive: it never signs, approves or commits a change.',
     ai: 'AI',
     reloadPageProblem:
       'Reload the page. If it keeps happening, ask your admin.',
@@ -125,12 +123,10 @@ export const settings = {
     providerProfile: 'Provider profile',
     profilesSetUpHint: 'Profiles are set up by your admin.',
     noProfilesHint:
-      'No outside provider is connected to this workspace. The built-in model needs none.',
+      'No outside provider is connected.',
     builtDeterministicModel:
       'Built-in deterministic model (no external provider)',
     modelRole: 'Model role',
-    administratorDecidesWhichHint:
-      'Your admin decides which models are available.',
     allowPromptsLeave: 'Allow prompts to leave this deployment',
     profileApiKey:
       'This profile has no API key. The assistant stays unavailable until an admin adds one.',
@@ -143,7 +139,7 @@ export const settings = {
     maximumCostPerAria: 'Maximum cost per call in micro-USD',
     agentAccess: 'Agent access',
     connectedCodingAgents:
-      'Coding agents sign in with a personal token and see only what it allows. They can suggest changes; only people approve or sign.',
+      'Coding agents sign in with a personal token and see only what it allows. They suggest changes; only people approve or sign.',
     flagsOnlyReduce:
       'Flags can only narrow what a token’s scopes and roles already allow. They never grant access, and agents can’t change them.',
     lastChanged: 'Last changed',
@@ -157,7 +153,7 @@ export const settings = {
     aiSettingsCould2: 'AI settings couldn’t be saved.',
     aiAccessFlags: 'AI access flags couldn’t be saved.',
     membersAskGrounded:
-      'Members can ask grounded questions about objects they can already read. Turning this off is the workspace kill switch.',
+      'Members can ask grounded questions about objects they can already read.',
     keyPresent: 'Key present',
     keyDeployment: 'No key on this deployment',
     notebookTextPermitted:
@@ -176,7 +172,6 @@ export const settings = {
     n1QuestionWouldHint:
       '1–{AISETTINGSMAXTOKENSCEILING}. A question that would need more is refused before anything is sent.',
     maximumCostPer2: 'Maximum cost per call (US$)',
-    example005Hint: 'For example 0.05 for five cents.',
     enterAmountWithin: 'Enter an amount within the allowed range.',
     maximumCostPerAria2: 'Maximum cost per call in US dollars',
     createScopedToken2: 'Create a scoped token under',
@@ -1023,8 +1018,6 @@ export const settings = {
     signatureMeaningUse: '{meaning} is a signature meaning in use',
     passwordReEntry:
       'Password re-entry is required for every signature. Three failed attempts in a row lock signing for 15 minutes.',
-    signatureAlwaysRecords:
-      'A signature always records the signer, the time, the meaning and the exact version it applies to. Signed records are locked; changes need an amendment and a new review.',
     verifyIndependently: 'Verify {name} independently',
     independentlyVerifiedEmail: 'Independently verified email',
     iIndependentlyConfirmed:
@@ -1077,7 +1070,7 @@ export const settings = {
     recoverSigningPassword: 'Recover signing password',
     enrollSigningPassword: 'Enroll signing password',
     whichSignatureMeanings:
-      '· which signature meanings are in use, and who still needs to certify. Your own signature is under',
+      ' · your own signature is under ',
     mySignature: 'My signature',
     everyoneWhoSign: 'Everyone who can sign has certified their signature.',
     signatureMeaningUse2: '{m} is a signature meaning in use',
@@ -1089,8 +1082,6 @@ export const settings = {
     couldSaveStatementToast: 'Couldn’t save the statement',
     certificationStatement: 'Certification statement',
     version: 'Version {version}',
-    whatEachPerson:
-      'What each person agrees to when they certify their signature.',
     everyoneNeedCertify:
       'Everyone will need to certify again before they can sign. Certifications already made keep the version they agreed to.',
     saveNewVersion: 'Save new version',
@@ -1489,7 +1480,6 @@ export const settings = {
     notebookTemplate: 'Notebook template',
     settingsSavedToast: 'Settings saved',
     workspace: 'Workspace',
-    nameSiteTime: 'Name, site, time zone and the formats records display in.',
     couldSaveSettings: 'Couldn’t save the settings.',
     name: 'Name',
     workspaceNameAria: 'Workspace name',
@@ -1499,7 +1489,7 @@ export const settings = {
     numberFormat: 'Number format',
     recordIds: 'Record IDs',
     prefixEachRecord:
-      'Prefix for each record kind. Numbers continue from the last used and are never reused, even for deleted drafts.',
+      'Numbers continue from the last used and are never reused.',
     record: 'Record',
     prefix: 'Prefix',
     example: 'Example',
@@ -1537,7 +1527,7 @@ export const settings = {
     couldSaveSettings2: 'Couldn’t save the settings.',
     nextId: 'Next ID',
     whenEnabledCurrent2:
-      'When enabled, the current draft needs completed approval before publication. When disabled, drafts with no approval request can publish directly. Existing requests still gate publication and lock pending drafts.',
+      'Drafts need a completed approval before they publish.',
     whenNotebookLoses2:
       'When on, a notebook that loses its connection keeps edits on the device and syncs them on reconnect. When off, the notebook says editing needs a connection and keeps and replays nothing.',
   },

@@ -38,7 +38,7 @@ import {
   useRef,
 } from 'react'
 import { Icon } from '#/components/icons'
-import { useFitColumns } from './registry-fit'
+import { useFittedColumns } from './registry-fit'
 import { ListViewMenu } from './list-view-menu'
 import { useLocalListView } from '#/lib/list-views'
 import type { ListView } from '#/lib/list-views'
@@ -216,7 +216,7 @@ export interface RegistryGridProps<T extends RowData> {
   stableWidths?: boolean
   /**
    * Drop whole low-priority columns when the table is wider than its pane,
-   * instead of scrolling with a column cut mid-word at the edge. On by default.
+   * instead of scrolling with a column cut mid-word at the edge. On unless false.
    */
   fit?: boolean
   /**
@@ -314,7 +314,7 @@ export function RegistryGrid<T extends RowData>({
   rowLabel,
   isLoading = false,
   stableWidths = false,
-  fit = true,
+  fit,
   keepColumns,
   empty,
 }: RegistryGridProps<T>) {
@@ -496,59 +496,18 @@ export function RegistryGrid<T extends RowData>({
     [allColumns, labelIndex, sortable],
   )
 
-  // When a table is wider than its pane, the row's identity and its state
-  // should not scroll away from each other: the first column (the ID) holds
-  // the start edge and Status holds the end edge. Only columns already at an
-  // edge are pinned, because pinning also moves a column to its edge.
-  const columnPinning = useMemo(() => {
-    const all = allColumns.map((column) => column.id)
-    // With tick boxes the ID column is the second one; both hold the edge.
-    const first = showTicks ? all.slice(0, 2) : all.slice(0, 1)
-    // Status and a row's actions hold the end edge, so a Manage or Edit button
-    // is never scrolled out of sight. Only the run of them that already ends
-    // the table is pinned, in order.
-    const end: string[] = []
-
-    for (const id of [...all].reverse()) {
-      if (id !== 'status' && id !== 'actions') break
-      end.unshift(id)
-    }
-
-    return {
-      start: first.filter((id): id is string => Boolean(id)),
-      end: all.length > 2 ? end : [],
-    }
-  }, [allColumns, showTicks])
-
-  // Whole columns that do not fit the pane are dropped, lowest priority (the
-  // right-most) first, so no header is ever drawn cut mid-word. The row's
-  // identity and name (the first two data columns) and the pinned end columns
-  // stay.
-  const dropCandidates = useMemo(() => {
-    const skip = new Set([
-      ...columnPinning.start,
-      ...columnPinning.end,
-      ...allColumns
-        .map((column) => column.id)
-        .filter((id) => id && id !== '__bulk')
-        .slice(0, 2),
-    ])
-
-    return allColumns
-      .map((column) => column.id)
-      .filter(
-        (id): id is string => Boolean(id) && !skip.has(id) && id !== '__bulk',
-      )
-      .filter((id) => columnVisibility[id] !== false)
-      .reverse()
-      .sort(
-        (a, b) =>
-          Number(keepColumns?.includes(a) ?? false) -
-          Number(keepColumns?.includes(b) ?? false),
-      )
-  }, [allColumns, columnPinning, columnVisibility, keepColumns])
-
-  const dropped = useFitColumns(gridRef, dropCandidates, fit, rows.length)
+  // The row's identity and its state do not scroll away from each other, and
+  // a column that does not fit the pane is dropped whole (see `registry-fit`).
+  const { columnPinning, dropped, visibility } = useFittedColumns({
+    gridRef,
+    ids: allColumns.map((column) => column.id),
+    ticks: showTicks,
+    hidden: columnVisibility,
+    keep: keepColumns,
+    fit,
+    rowCount: rows.length,
+    viewing: Boolean(view),
+  })
 
   const state: Partial<TableState<DataGridFeatures>> = {
     rowSelection,
@@ -557,11 +516,7 @@ export function RegistryGrid<T extends RowData>({
 
   if (sortable) state.sorting = sorting
 
-  if (view || dropped.size > 0)
-    state.columnVisibility = {
-      ...columnVisibility,
-      ...Object.fromEntries([...dropped].map((id) => [id, false])),
-    }
+  if (visibility) state.columnVisibility = visibility
 
   const table = useTable({
     features: dataGridFeatures,

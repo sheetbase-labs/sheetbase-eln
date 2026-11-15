@@ -57,6 +57,7 @@ export function InboxHeader({
   return (
     <ListHeader
       title={t('projects.inbox.title')}
+      hideTitle
       subtitle={t('projects.inbox.subtitle')}
       actions={
         <>
@@ -225,9 +226,17 @@ export function InboxSections({
               {/* QA3-lists-inbox-2 — the tab's own group states the
                           tab's total, so the strip and the list agree in one
                           viewport; a due-date group states its own rows. */}
-              <span className="num font-normal">
-                {g === null ? visibleCount : rows.length}
-              </span>
+              {/* A lone due-date group is the whole tab, whose count sits in
+                  the strip above: stating it again here is a second 26 for one
+                  fact. The tab's own group, with rows held back, keeps its
+                  total. */}
+              {g !== null &&
+              sections.filter(([, groupRows]) => groupRows.length).length ===
+                1 ? null : (
+                <span className="num font-normal">
+                  {g === null ? visibleCount : rows.length}
+                </span>
+              )}
               {g === 'later' ? (
                 <button
                   type="button"

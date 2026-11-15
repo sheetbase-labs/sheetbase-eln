@@ -45,8 +45,12 @@ export function ListHeader({
   subtitle,
   actions,
   tabs,
+  hideTitle = false,
 }: {
   title: string
+  /** The pane header already names the page: keep the h1 for screen readers
+   * and let the subtitle lead, rather than print the same word twice. */
+  hideTitle?: boolean
   total?: number
   /** What this list is, beside its name. Hidden on phones, where the title is
    * the whole reference header. */
@@ -57,7 +61,13 @@ export function ListHeader({
   return (
     <header className="flex flex-col gap-1 border-b border-border bg-surface px-4 pt-3 md:px-6 md:pt-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-title max-md:text-[18px] max-md:leading-6">
+        <h1
+          className={
+            hideTitle
+              ? 'sr-only'
+              : 'text-title max-md:text-[18px] max-md:leading-6'
+          }
+        >
           {title}
         </h1>
         {total != null ? (
@@ -66,7 +76,13 @@ export function ListHeader({
           </span>
         ) : null}
         {subtitle ? (
-          <span className="text-body text-fg-muted max-md:hidden">
+          <span
+            className={
+              hideTitle
+                ? 'py-0.5 text-body text-fg-muted'
+                : 'text-body text-fg-muted max-md:hidden'
+            }
+          >
             {subtitle}
           </span>
         ) : null}

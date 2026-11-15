@@ -32,7 +32,6 @@ ON CONFLICT DO NOTHING;
 --> statement-breakpoint
 
 CREATE FUNCTION api.import_protocol(
-    p_workspace_id uuid,
     p_title text,
     p_steps jsonb,
     p_description text DEFAULT NULL,
@@ -43,6 +42,7 @@ CREATE FUNCTION api.import_protocol(
     SET search_path TO ''
     AS $$
 DECLARE
+  p_workspace_id uuid;
   v_blocks jsonb := '[]'::jsonb;
   v_paragraphs jsonb;
   v_step jsonb;
@@ -53,7 +53,8 @@ DECLARE
   v_record_id uuid;
   v_source text;
 BEGIN
-  IF api.current_workspace_id() IS DISTINCT FROM p_workspace_id THEN
+  p_workspace_id := api.current_workspace_id();
+  IF p_workspace_id IS NULL THEN
     RAISE EXCEPTION 'not a member of target workspace' USING ERRCODE = 'SB033';
   END IF;
   IF NOT api.is_workspace_writer(p_workspace_id) THEN
@@ -138,8 +139,8 @@ BEGIN
   RETURN jsonb_build_object('record', v_result->'record', 'steps', v_n);
 END $$;
 --> statement-breakpoint
-ALTER FUNCTION api.import_protocol(uuid, text, jsonb, text, text[], jsonb) OWNER TO migrator;
+ALTER FUNCTION api.import_protocol(text, jsonb, text, text[], jsonb) OWNER TO migrator;
 --> statement-breakpoint
-REVOKE ALL ON FUNCTION api.import_protocol(uuid, text, jsonb, text, text[], jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION api.import_protocol(text, jsonb, text, text[], jsonb) FROM PUBLIC;
 --> statement-breakpoint
-GRANT EXECUTE ON FUNCTION api.import_protocol(uuid, text, jsonb, text, text[], jsonb) TO authenticated, api_client;
+GRANT EXECUTE ON FUNCTION api.import_protocol(text, jsonb, text, text[], jsonb) TO authenticated, api_client;

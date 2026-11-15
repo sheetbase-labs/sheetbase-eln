@@ -8,7 +8,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { expectDenied, prepareTestDatabase } from './helpers'
 
 const WS = '00000000-0000-4000-8000-00000000c901'
-const OTHER_WS = '00000000-0000-4000-8000-00000000c902'
 const WRITER = 'pi-writer'
 const VIEWER = 'pi-viewer'
 
@@ -41,7 +40,7 @@ beforeAll(async () => {
   }
   await migrator.query(
     `INSERT INTO api.workspaces (id, slug, name) VALUES
-      ('${WS}', 'pi-ws', 'PI workspace'), ('${OTHER_WS}', 'pi-other', 'PI other')`,
+      ('${WS}', 'pi-ws', 'PI workspace')`,
   )
   await migrator.query(
     `INSERT INTO api.workspace_memberships (workspace_id, user_id, role) VALUES
@@ -71,9 +70,9 @@ describe('import_protocol', () => {
     const client = await as(WRITER)
 
     const { rows } = await client.query(
-      `SELECT api.import_protocol($1, 'PicoGreen DNA assay', $2::jsonb,
-         E'Quantify dsDNA.\n\nUse black plates.', ARRAY['Quant-iT PicoGreen (Thermo Fisher, P7589)'], $3::jsonb) AS r`,
-      [WS, steps, source],
+      `SELECT api.import_protocol('PicoGreen DNA assay', $1::jsonb,
+         E'Quantify dsDNA.\n\nUse black plates.', ARRAY['Quant-iT PicoGreen (Thermo Fisher, P7589)'], $2::jsonb) AS r`,
+      [steps, source],
     )
 
     const result = rows[0].r
@@ -108,54 +107,35 @@ describe('import_protocol', () => {
     expect(intro[0].content[0].text).toContain('10.17504/protocols.io.abc')
   })
 
-  it('sends protocol.imported and record.created', async () => {
+  it('sends protocol.imported', async () => {
     const events = await migrator.query(
-      `SELECT entity_type, operation, payload FROM api.change_events
-        WHERE workspace_id = $1 AND (entity_type = 'protocol_import' OR (entity_type = 'record' AND operation = 'create'))`,
+      `SELECT payload FROM api.change_events
+        WHERE workspace_id = $1 AND entity_type = 'protocol_import'`,
       [WS],
     )
 
-    const imported = events.rows.find(
-      (e) => e.entity_type === 'protocol_import',
-    )
-    expect(imported?.payload.provider).toBe('protocols.io')
-    expect(imported?.payload.steps).toBe(3)
+    expect(events.rows[0]?.payload.provider).toBe('protocols.io')
+    expect(events.rows[0]?.payload.steps).toBe(3)
   })
 
-  it('refuses a viewer, a workspace that is not yours, and bad input', async () => {
+  it('refuses a viewer and bad input', async () => {
     const viewer = await as(VIEWER)
     await expectDenied(
-      viewer.query(`SELECT api.import_protocol($1, 'X', $2::jsonb)`, [
-        WS,
-        steps,
-      ]),
+      viewer.query(`SELECT api.import_protocol('X', $1::jsonb)`, [steps]),
       '42501',
     )
 
     const writer = await as(WRITER)
     await expectDenied(
-      writer.query(`SELECT api.import_protocol($1, 'X', $2::jsonb)`, [
-        OTHER_WS,
-        steps,
-      ]),
-      'SB033',
-    )
-    await expectDenied(
-      writer.query(`SELECT api.import_protocol($1, '', $2::jsonb)`, [
-        WS,
-        steps,
-      ]),
+      writer.query(`SELECT api.import_protocol('', $1::jsonb)`, [steps]),
       'SB034',
     )
     await expectDenied(
-      writer.query(`SELECT api.import_protocol($1, 'X', '[]'::jsonb)`, [WS]),
+      writer.query(`SELECT api.import_protocol('X', '[]'::jsonb)`),
       'SB034',
     )
     await expectDenied(
-      writer.query(
-        `SELECT api.import_protocol($1, 'X', '[{"text":" "}]'::jsonb)`,
-        [WS],
-      ),
+      writer.query(`SELECT api.import_protocol('X', '[{"text":" "}]'::jsonb)`),
       'SB034',
     )
   })

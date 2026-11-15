@@ -19,6 +19,7 @@ import {
 import type { ChangeEventInput, ChangeEventPayload } from './webhook-events'
 import { DATASET_EVENT_FIXTURES } from '../features/datasets/events.fixture'
 import { PIPELINE_SIMPLE_EVENT_FIXTURES } from '../features/pipeline-simple/events.fixture'
+import { PROTOCOL_IMPORT_EVENT_FIXTURES } from '../features/protocol-import/events.fixture'
 
 /** A payload that satisfies the entry's `when` test, plus the default key. */
 function producerPayload(
@@ -1204,6 +1205,7 @@ describe('lab feature events', () => {
     ...LAB_EVENTS,
     ...DATASET_EVENT_FIXTURES,
     ...PIPELINE_SIMPLE_EVENT_FIXTURES,
+    ...PROTOCOL_IMPORT_EVENT_FIXTURES,
   ])(
     '$name is delivered from $entityType/$operation',
     ({ name, entityType, operation, payload }) => {
@@ -1219,6 +1221,7 @@ describe('lab feature events', () => {
       ...LAB_EVENTS,
       ...DATASET_EVENT_FIXTURES,
       ...PIPELINE_SIMPLE_EVENT_FIXTURES,
+      ...PROTOCOL_IMPORT_EVENT_FIXTURES,
     ]
       .map((event) => event.name)
       .sort()

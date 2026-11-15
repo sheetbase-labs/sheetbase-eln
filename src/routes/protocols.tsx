@@ -54,18 +54,6 @@ const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
 
 type ProtocolTab = (typeof tabs)[number]
 
-/** The orderings the list offers. These template records carry no effective
- * date — the reference's Effective column has no model behind it, and
- * controlled versions with one are a later capability — so the menu offers the
- * keys the route can actually apply. */
-const sorts: string[] = [
-  t('library.protocols.list.updated'),
-  'ID',
-  t('library.protocols.list.protocol'),
-]
-
-type ProtocolSort = string
-
 /** A search value from the URL, present only when the URL carried text. */
 const protocolSearchText = z.string()
 
@@ -93,30 +81,8 @@ const tabLabel: Record<ProtocolTab, string> = {
   archived: t('library.protocols.list.archived'),
 }
 
-/** The orderings the toolbar offers, as the grid's sorting state. The route
- * owns the menu; the table owns the order, so a header click and a menu pick
- * are the same single source. */
-const SORTS = new Map<ProtocolSort, SortingState>([
-  [t('library.protocols.list.updated'), [{ id: 'updatedAt', desc: true }]],
-  ['ID', [{ id: 'identifier', desc: false }]],
-  [t('library.protocols.list.protocol'), [{ id: 'title', desc: false }]],
-])
-
-/** The menu key a sorting state came from, or undefined when the user sorted
- * by a column the menu does not list. */
-function sortKeyOf(sorting: SortingState): ProtocolSort | undefined {
-  const first = sorting.at(0)
-
-  if (!first) return undefined
-
-  return [...SORTS.keys()].find((key) => {
-    const entry = SORTS.get(key)?.at(0)
-
-    return (
-      entry !== undefined && entry.id === first.id && entry.desc === first.desc
-    )
-  })
-}
+/** Newest-updated first until the person sorts by a column header. */
+const DEFAULT_SORT: SortingState = [{ id: 'updatedAt', desc: true }]
 
 /** UI port (roadmap-4/ui-app3): the Protocols list on protocol-template
  * records. Controlled versions, training and approval chains are later
@@ -245,9 +211,7 @@ function ProtocolsList() {
   // with none, the newest-updated protocols lead.
   const view = useListView('protocols')
 
-  const sorting = view.sorting.length
-    ? view.sorting
-    : (SORTS.get(t('library.protocols.list.updated')) ?? [])
+  const sorting = view.sorting.length ? view.sorting : DEFAULT_SORT
 
   const setSorting = view.setSorting
   const queryClient = useQueryClient()
@@ -349,13 +313,6 @@ function ProtocolsList() {
           q={search.q}
           label={t('library.protocols.list.searchProtocols')}
           placeholder={t('library.protocols.list.searchProtocols')}
-          views={{
-            sorts,
-            sort: sortKeyOf(sorting),
-            onSort: (s) => setSorting(SORTS.get(s) ?? []),
-            showSortValue: false,
-            groupLabel: '',
-          }}
           onSearch={(next) =>
             void navigate({
               to: '/protocols',

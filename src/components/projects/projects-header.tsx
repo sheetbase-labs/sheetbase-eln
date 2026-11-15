@@ -81,6 +81,7 @@ export function ProjectsHeader({
         </Button>
         <Button
           variant="primary"
+          icon="plus"
           disabled={!canCreate || loading}
           title={createDisabledReason ?? undefined}
           onClick={onNew}

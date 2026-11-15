@@ -506,7 +506,7 @@ function SamplesListActions({
         </DropdownMenuContent>
       </DropdownMenu>
       {canWrite ? (
-        <Button variant="primary" onClick={onRegisterSample}>
+        <Button variant="primary" icon="plus" onClick={onRegisterSample}>
           {t('library.samples.list.registerSample')}
         </Button>
       ) : null}

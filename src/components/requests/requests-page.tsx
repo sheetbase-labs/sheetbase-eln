@@ -522,7 +522,7 @@ export function RequestsPage({
 
   const newButton =
     canWrite && forms.length > 0 ? (
-      <Button variant="primary" onClick={() => setComposing(true)}>
+      <Button variant="primary" icon="plus" onClick={() => setComposing(true)}>
         {t('requests.newRequest')}
       </Button>
     ) : null

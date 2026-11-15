@@ -71,7 +71,7 @@ describe('WebhookCard', () => {
 })
 
 describe('RunKeeps', () => {
-  it('marks the version’s output mode as selected', () => {
+  it('names the version’s output mode', () => {
     wrap(
       <RunKeeps
         pipelineId="p"
@@ -79,12 +79,8 @@ describe('RunKeeps', () => {
       />,
     )
 
-    const selected = screen
-      .getAllByRole('radio')
-      .filter((el) => el.getAttribute('aria-checked') === 'true')
-
-    expect(selected).toHaveLength(1)
-    expect(selected[0]?.textContent).toContain('Keep nothing')
+    expect(screen.getByText('Keep nothing')).toBeTruthy()
+    expect(screen.queryByText(/new dataset/)).toBeNull()
   })
 })
 

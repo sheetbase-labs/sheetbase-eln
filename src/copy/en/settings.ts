@@ -2921,7 +2921,6 @@ export const settings = {
     certificationWithdrawnToast: 'Certification withdrawn',
     cannotSignUntilDescription: 'You can’t sign until you certify again.',
     couldWithdrawToast: 'Couldn’t withdraw',
-    signatureDeliberateAct: '',
     mySignature: 'My signature',
     signNow: 'You can sign now',
     cameCertify: 'You came here to certify',

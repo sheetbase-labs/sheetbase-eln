@@ -182,6 +182,49 @@ const EXPERIMENTS_HIDDEN_BY_DEFAULT = ['assignee']
 const useExperimentsView = () =>
   useListView('experiments', undefined, EXPERIMENTS_HIDDEN_BY_DEFAULT)
 
+function useNextPageOnScroll(
+  hasMore: boolean,
+  loading: boolean,
+  setLimit: (update: (current: number) => number) => void,
+) {
+  return useScrollLoad({
+    hasMore,
+    loading,
+    onLoad: () => setLimit((current) => current + EXPERIMENT_LIST_PAGE_SIZE),
+  })
+}
+
+/** The database cannot see project or person names, so the ones that match
+ * the search text are named here and the read matches their IDs. */
+function useNameMatches(
+  q: string,
+  projects: Map<string, string> | undefined,
+  members: { name: string; userId: string }[] | undefined,
+) {
+  const matchProjectIds = useMemo(
+    () =>
+      q
+        ? [...(projects ?? new Map<string, string>()).entries()].flatMap(
+            ([id, title]) =>
+              title.toLowerCase().includes(q.toLowerCase()) ? [id] : [],
+          )
+        : [],
+    [projects, q],
+  )
+
+  const matchOwnerIds = useMemo(
+    () =>
+      q
+        ? (members ?? [])
+            .filter((m) => m.name.toLowerCase().includes(q.toLowerCase()))
+            .map((m) => m.userId)
+        : [],
+    [members, q],
+  )
+
+  return { matchProjectIds, matchOwnerIds }
+}
+
 function Experiments() {
   const { context } = Route.useRouteContext()
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
@@ -216,27 +259,10 @@ function Experiments() {
   const members = useWorkspaceMemberNames()
   const q = (search.q ?? '').trim()
 
-  // The database cannot see project or person names, so the ones that match
-  // the search text are named here and the read matches their IDs.
-  const matchProjectIds = useMemo(
-    () =>
-      q
-        ? [...(projects.data ?? new Map<string, string>()).entries()].flatMap(
-            ([id, title]) =>
-              title.toLowerCase().includes(q.toLowerCase()) ? [id] : [],
-          )
-        : [],
-    [projects.data, q],
-  )
-
-  const matchOwnerIds = useMemo(
-    () =>
-      q
-        ? (members.data ?? [])
-            .filter((m) => m.name.toLowerCase().includes(q.toLowerCase()))
-            .map((m) => m.userId)
-        : [],
-    [members.data, q],
+  const { matchProjectIds, matchOwnerIds } = useNameMatches(
+    q,
+    projects.data,
+    members.data,
   )
 
   const since = search.older ? undefined : recentSince()
@@ -331,12 +357,13 @@ function Experiments() {
   const counts = tabCounts.data
   const total = counts?.[tab] ?? rows.length
 
-  const onScrollLoad = useScrollLoad({
-    hasMore: rows.length < total,
-    loading: records.isFetching,
-    onLoad: () => setLimit((current) => current + EXPERIMENT_LIST_PAGE_SIZE),
-  })
+  const onScrollLoad = useNextPageOnScroll(
+    rows.length < total,
+    records.isFetching,
+    setLimit,
+  )
   const hasProjectAccess = useHasProjectAccess()
+
   // The database already applied the tab, project, date window and search.
   const visible = rows
 

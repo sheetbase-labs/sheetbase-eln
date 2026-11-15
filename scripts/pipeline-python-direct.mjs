@@ -307,7 +307,21 @@ if (
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
   process.env.PIPELINE_PYTHON_EGRESS_BIND ??= '127.0.0.1'
-  createDirectRunner().listen(
+  const server = createDirectRunner()
+  const emit = server.emit.bind(server)
+
+  // The platform's health check needs one unauthenticated answer.
+  server.emit = (event, ...args) => {
+    if (event === 'request' && args[0].url === '/api/health/ready') {
+      args[1].writeHead(200, { 'Content-Type': 'text/plain' }).end('ok')
+
+      return true
+    }
+
+    return emit(event, ...args)
+  }
+
+  server.listen(
     Number(process.env.PIPELINE_PYTHON_RUNNER_PORT ?? 8080),
     process.env.PIPELINE_PYTHON_RUNNER_HOST ?? '::',
   )

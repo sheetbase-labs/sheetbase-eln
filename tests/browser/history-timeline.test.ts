@@ -107,9 +107,10 @@ test('renders the change stream with relative and absolute time', async ({
 }, testInfo) => {
   const panel = await openHistory(page)
 
-  // One page of events, and the continuation control that says there is more.
-  await expect(rows(page)).toHaveCount(FIRST_PAGE)
-  await expect(panel.getByRole('button', { name: 'Load more' })).toBeVisible()
+  // The first page of events is there at once; the rest follows as it scrolls.
+  await expect
+    .poll(async () => rows(page).count())
+    .toBeGreaterThanOrEqual(FIRST_PAGE)
 
   // Every row carries the instant it happened and both of its labels: the
   // shared relative formatter in the <time>, the absolute date-time beside it.
@@ -165,15 +166,12 @@ test('folds the raw event behind a disclosure that opens by keyboard', async ({
   await expect(payload.locator('pre')).toContainText('"operation"')
 })
 
-test('continues the list with Load more, by keyboard', async ({ page }) => {
+test('loads the rest of the list as it scrolls, with no button', async ({
+  page,
+}) => {
   const panel = await openHistory(page)
 
-  const loadMore = panel.getByRole('button', { name: 'Load more' })
-  await loadMore.focus()
-  await page.keyboard.press('Enter')
-
   await expect.poll(async () => rows(page).count()).toBeGreaterThan(FIRST_PAGE)
-  // Everything is on screen: the control goes away rather than lying.
   await expect(panel.getByRole('button', { name: 'Load more' })).toHaveCount(0)
 })
 

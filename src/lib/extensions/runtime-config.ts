@@ -317,6 +317,9 @@ export function runnerLimits(limits: PluginLimits): RunnerLimits {
 // What the server tells the settings page.
 // ---------------------------------------------------------------------------
 
+/** What the server says when no Python runner is set up; the page words it for people. */
+export const PYTHON_RUNNER_NOT_SET_UP = 'Python execution is not configured.'
+
 export type PluginEnvironmentState =
   'none' | 'building' | 'ready' | 'failed' | 'unavailable'
 

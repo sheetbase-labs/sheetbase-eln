@@ -2026,9 +2026,7 @@ export const projects = {
     includeOlder: 'Include older ({count})',
     clearSearch: 'Clear search',
     shown: '{shown} of {total}',
-    loaded: ' · {count} loaded',
     filtered: ' · filtered to last 30 days',
-    loadMore: 'Load more',
   },
   experimentPage: {
     experiments: 'Experiments',

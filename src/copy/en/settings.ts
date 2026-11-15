@@ -687,8 +687,6 @@ export const settings = {
   },
   joinDomains: {
     title: 'Let colleagues join',
-    description:
-      'Anyone who signs in with an address on these domains joins this workspace.',
     domainLabel: 'Add a domain',
     domainPlaceholder: 'acme-bio.com',
     add: 'Add',
@@ -1098,9 +1096,9 @@ export const settings = {
     whereLocal: 'on this server’s disk',
     whereS3: 'in your S3-compatible storage',
     sameDatabaseNotice:
-      'They sit with your data, so they would be lost together. Ask whoever runs this server to send backups to a separate bucket.',
+      'Backups kept with your data would be lost with it. Ask whoever runs this server to send backups to a separate bucket.',
     localNotice:
-      'A new deploy or container can lose them. Ask whoever runs this server to send backups to a separate bucket.',
+      'A new deploy or container can lose backups kept on disk. Ask whoever runs this server to send backups to a separate bucket.',
     savedToast: 'Backup schedule saved',
     couldNotSaveToast: 'Couldn’t save the backup schedule',
     recentTitle: 'Recent backups',

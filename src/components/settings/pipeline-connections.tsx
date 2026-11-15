@@ -203,7 +203,7 @@ export function PipelineConnections({
           />
         </div>
       ) : (
-        <SettingsBody className="pb-4">
+        <SettingsBody className="pt-0 pb-4">
           <Muted>
             {query.isLoading
               ? t('features.pipelineConnections.settings.loading')

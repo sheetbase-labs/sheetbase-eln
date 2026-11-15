@@ -382,6 +382,7 @@ export async function createAssistantToolkit(deps: {
 
     return true
   })
+
   defs.splice(0, defs.length, ...unique)
 
   const timeZone = deps.timeZone ?? 'UTC'

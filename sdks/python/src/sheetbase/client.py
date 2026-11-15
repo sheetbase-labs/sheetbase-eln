@@ -46,6 +46,7 @@ from sheetbase.resources import (
     CataloguesResource,
     DatasetsResource,
     PeopleResource,
+    LookupsResource,
     PluginsResource,
     FacilityResource,
     FilesResource,
@@ -93,6 +94,8 @@ class SheetbaseClient:
         self.search = SearchResource(self._transport)
         self.catalogues = CataloguesResource(self._transport)
         self.agent_operations = AgentOperationsResource(self._transport)
+        #: ``client.lookups.protocols/stock/templates``: SOPs, reagent stock, templates and models.
+        self.lookups = LookupsResource(self._transport)
         self.webhooks = WebhooksResource(self._transport)
         #: ``client.events.stream()`` / ``.page()``: the replayable event stream.
         self.events = EventStreamResource(self._transport)

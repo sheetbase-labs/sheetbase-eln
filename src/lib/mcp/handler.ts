@@ -41,6 +41,7 @@ import {
   pluginSearchMcpTool,
   runPluginSearch,
 } from './plugin-search'
+import { isLookupTool, lookupMcpTools, runLookup } from './lookups'
 import type { AiFeatureFlagKey, AiFeatureFlags } from '../ai-feature-flags'
 import {
   ADMIN_READ_TOOL_NAME,
@@ -298,7 +299,13 @@ function listTools(context: McpContext): McpTool[] {
 
   const meaning =
     context.flags.mcp_read && context.scopes.includes('projects:read')
-      ? [...semanticMcpTools(), pluginSearchMcpTool()]
+      ? [
+          ...semanticMcpTools(),
+          pluginSearchMcpTool(),
+          ...lookupMcpTools({
+            templates: context.scopes.includes('templates:read'),
+          }),
+        ]
       : []
 
   const files =
@@ -777,6 +784,27 @@ async function callTool(
               context.actor.kind === 'user' ? context.actor.id : undefined,
           })
         : await runLiteratureSearch(args, context)
+
+    return outcome.isError
+      ? toolError(outcome.text)
+      : { content: [{ type: 'text', text: outcome.text }] }
+  }
+
+  if (isLookupTool(name)) {
+    if (!context.flags.mcp_read) {
+      return toolError('MCP read access is disabled by a workspace flag.')
+    }
+
+    if (!context.scopes.includes('projects:read')) {
+      return toolError(
+        'This credential lacks the required scope: projects:read.',
+      )
+    }
+
+    const outcome = await runLookup(name, args, {
+      client: context.client,
+      grants: { templates: context.scopes.includes('templates:read') },
+    })
 
     return outcome.isError
       ? toolError(outcome.text)

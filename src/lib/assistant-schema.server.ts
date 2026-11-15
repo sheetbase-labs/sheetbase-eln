@@ -1328,6 +1328,7 @@ export async function buildSchemaProposal(
 
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
+
       const existing = await client.list<{ key: string; name: string }>(
         'notebook_templates',
         '?select=key,name&limit=1000',

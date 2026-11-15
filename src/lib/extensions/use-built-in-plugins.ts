@@ -14,9 +14,15 @@ const builtInAnswer = z.object({
  * Owners and administrators install or update the plugins that ship with
  * Sheetbase the first time they open the app in a browser session. The server
  * does nothing when they are already current, and leaves a plugin alone that an
- * administrator turned off.
+ * administrator turned off. `always` checks on every use instead of once per
+ * session (the Plugins page does, so a plugin added by a deploy shows at once).
  */
-export function useBuiltInPlugins(workspaceId: string | null, role: string) {
+export function useBuiltInPlugins(
+  workspaceId: string | null,
+  role: string,
+  options: { always?: boolean } = {},
+) {
+  const always = options.always === true
   const queryClient = useQueryClient()
 
   const { mutate } = useMutation({
@@ -50,12 +56,12 @@ export function useBuiltInPlugins(workspaceId: string | null, role: string) {
     const key = `sheetbase.built-in-plugins.${workspaceId}`
 
     try {
-      if (window.sessionStorage.getItem(key)) return
+      if (!always && window.sessionStorage.getItem(key)) return
       window.sessionStorage.setItem(key, '1')
     } catch {
       // No session storage: run it, once per page load.
     }
 
     mutate(workspaceId)
-  }, [workspaceId, role, mutate])
+  }, [workspaceId, role, always, mutate])
 }

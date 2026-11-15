@@ -35,6 +35,7 @@ import {
   PluginRuntimeDialog,
   environmentTone,
 } from '#/components/settings/plugin-runtime-dialog'
+import { useBuiltInPlugins } from '#/lib/extensions/use-built-in-plugins'
 import {
   PluginConnectionsDialog,
   connectionNeedsSetup,
@@ -236,6 +237,10 @@ function Plugins() {
     null,
   )
 
+  useBuiltInPlugins(workspaceId || null, canManage ? 'admin' : '', {
+    always: true,
+  })
+
   const installs = useQuery({
     queryKey: [...extensionQueryKeys.extensions, 'admin', workspaceId],
     queryFn: () => listExtensions(client),
@@ -421,9 +426,11 @@ function pluginColumns({
               </Status>
             ) : null}
             {connectionsOf(install).some(connectionNeedsSetup) ? (
-              <Status tone="warn">
-                {t('plugins.admin.connections.needsSetup')}
-              </Status>
+              <button type="button" onClick={() => onConnections(install)}>
+                <Status tone="warn">
+                  {t('plugins.admin.connections.needsSetup')}
+                </Status>
+              </button>
             ) : null}
           </span>
         )

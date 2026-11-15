@@ -107,30 +107,30 @@ export function JoinDomainsSection({
     <Section title={t('settings.joinDomains.title')}>
       <Muted>{t('settings.joinDomains.description')}</Muted>
       <div className="flex flex-wrap items-center gap-2">
-        {domains.length === 0 ? null : (
-          domains.map((domain) => (
-            <Chip
-              key={domain}
-              variant="remove"
-              removeLabel={
-                canManage
-                  ? t('settings.joinDomains.remove', { domain })
-                  : undefined
-              }
-              onRemove={
-                canManage
-                  ? () =>
-                      save.mutate({
-                        domains: domains.filter((item) => item !== domain),
-                        role,
-                      })
-                  : undefined
-              }
-            >
-              {domain}
-            </Chip>
-          ))
-        )}
+        {domains.length === 0
+          ? null
+          : domains.map((domain) => (
+              <Chip
+                key={domain}
+                variant="remove"
+                removeLabel={
+                  canManage
+                    ? t('settings.joinDomains.remove', { domain })
+                    : undefined
+                }
+                onRemove={
+                  canManage
+                    ? () =>
+                        save.mutate({
+                          domains: domains.filter((item) => item !== domain),
+                          role,
+                        })
+                    : undefined
+                }
+              >
+                {domain}
+              </Chip>
+            ))}
       </div>
       {canManage ? (
         <>

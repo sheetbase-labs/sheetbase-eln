@@ -34,8 +34,7 @@ export const requests = {
   },
   empty: {
     noForms: 'Nothing to ask for yet',
-    noFormsBody:
-      'Set up a request form to let people ask the lab for work.',
+    noFormsBody: 'Set up a request form to let people ask the lab for work.',
     noFormsNotAllowed:
       'Ask someone who can edit models to set up a request form, or turn it on for a model from its page.',
     setUp: 'Set up {name}',

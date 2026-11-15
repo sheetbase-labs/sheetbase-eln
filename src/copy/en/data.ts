@@ -594,8 +594,7 @@ export const data = {
     datasetFound: 'Dataset not found',
     summary: 'Summary',
     issues: 'Issues',
-    unresolvedValueFlagsFlags:
-      'No unresolved value flags.',
+    unresolvedValueFlagsFlags: 'No unresolved value flags.',
     archived: 'Archived',
     datasetArchivedStaysReadable:
       'This dataset is archived. It stays readable and citable, but it can’t be snapshotted and can’t be imported into.',
@@ -1867,8 +1866,7 @@ export const data = {
     passOn: 'Pass on',
     passAll: 'All rows, with out_of_range filled in',
     passOutside: 'Only rows outside a range',
-    addHint:
-      'Or drop a .py, .sql or notebook file',
+    addHint: 'Or drop a .py, .sql or notebook file',
   },
   noCode: {
     needCondition: 'Add at least one condition.',

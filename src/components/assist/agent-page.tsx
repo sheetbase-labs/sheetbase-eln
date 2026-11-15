@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Chat, useChat } from '@ai-sdk/react'
+import { useFailureFeed } from '#/lib/assistant-failure-feed'
 import { DefaultChatTransport } from 'ai'
 import { Link } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -359,6 +360,10 @@ function ChatBody({
         toast.error(t('features.assistantConversations.page.saveFailed'))
       })
   }, [busy, messages, id, workspaceId, queryClient, onSaved])
+
+  useFailureFeed(
+    useCallback((text: string) => void sendMessage({ text }), [sendMessage]),
+  )
 
   const send = useCallback(
     (text: string) => {

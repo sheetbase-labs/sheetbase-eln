@@ -312,7 +312,7 @@ async function applyAction(
       reason: t('notebook.assistantPanel.proposal.failed', {
         reason:
           error instanceof DataClientError
-            ? describeCalendarError(error)
+            ? plainDatabaseError(describeCalendarError(error))
             : describeActionError(error),
       }),
     }

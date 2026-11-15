@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+
 /**
  * When a card or a plan step fails to apply, the assistant is told in the same
  * chat so it can explain the failure and offer a fixed card without the person
@@ -39,4 +41,12 @@ export function onActionFailure(listener: Listener): () => void {
 /** The message sent to the assistant for a failed card. */
 export function failureMessage(failure: ActionFailure): string {
   return `The card "${failure.title}" could not be applied: ${failure.reason} Explain what went wrong in one plain sentence, then fix it yourself and offer a corrected card (for example under another name, or as an update to the one that already exists). Do not ask me to re-explain.`
+}
+
+/** Sends each failed card to the assistant in this chat, so it can offer a fix. */
+export function useFailureFeed(send: (text: string) => void): void {
+  useEffect(
+    () => onActionFailure((failure) => send(failureMessage(failure))),
+    [send],
+  )
 }

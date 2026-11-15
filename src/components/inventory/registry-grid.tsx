@@ -483,12 +483,19 @@ export function RegistryGrid<T extends RowData>({
     const all = allColumns.map((column) => column.id)
     // With tick boxes the ID column is the second one; both hold the edge.
     const first = showTicks ? all.slice(0, 2) : all.slice(0, 1)
-    // Status holds the end edge.
-    const last = all.at(-1)
+    // Status and a row's actions hold the end edge, so a Manage or Edit button
+    // is never scrolled out of sight. Only the run of them that already ends
+    // the table is pinned, in order.
+    const end: string[] = []
+
+    for (const id of [...all].reverse()) {
+      if (id !== 'status' && id !== 'actions') break
+      end.unshift(id)
+    }
 
     return {
       start: first.filter((id): id is string => Boolean(id)),
-      end: last === 'status' && all.length > 2 ? [last] : [],
+      end: all.length > 2 ? end : [],
     }
   }, [allColumns, showTicks])
 
@@ -637,8 +644,11 @@ function RegistryTable<T extends RowData>({
           // The th carries its own font and colour, so the header's own
           // classes have to reach it: `text-label` (12px, medium) in
           // `text-fg-muted`, as the v3 table head renders.
-          header:
-            '[&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6 [@media(hover:none)]:[&_th:last-child]:pr-11 [&_th]:text-label [&_th]:text-fg-muted [&_th]:border-border',
+          // The columns menu floats over the end of the header, so the last
+          // header keeps clear of it instead of being drawn under it.
+          header: `[&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6 [&_th]:text-label [&_th]:text-fg-muted [&_th]:border-border${
+            menu ? ' [&_th:last-child]:pr-11' : ''
+          }`,
           body:
             '[&_td_a.mono]:text-fg [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6' +
             (stableWidths

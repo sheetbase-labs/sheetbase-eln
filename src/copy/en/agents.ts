@@ -11,6 +11,24 @@ export const agents = {
     exceptions: 'Exceptions',
     noExceptions: 'None',
     levels: { auto: 'Auto', ask: 'Ask', never: 'Never' },
+    plans: {
+      area: 'Plans',
+      pause: {
+        label: 'Plans pause at steps that remove or end something',
+        description:
+          'A plan is several assistant changes approved once. Steps that dispose of, cancel, retire, archive or remove something wait for their own approval unless this is set to run through.',
+        auto: 'Run through',
+        ask: 'Pause for approval',
+        never: 'Not allowed in plans',
+      },
+      runAll: {
+        label: 'Run all button on a plan',
+        description:
+          'Lets the person approving a plan run every step at once, including the steps that would wait for approval. Steps that are a person’s own decision are never part of a plan.',
+        auto: 'Allowed',
+        ask: 'Not allowed',
+      },
+    },
     levelHint: {
       auto: 'Runs straight away and is logged.',
       ask: 'Waits for a person to approve.',

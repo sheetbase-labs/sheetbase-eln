@@ -28,6 +28,9 @@ import { runAssistantAction } from '#/lib/assistant-booking'
 import type { AssistantActionKind } from '#/lib/assistant-booking'
 import { describeActionError } from '#/lib/assistant-bench'
 import { describeCalendarError } from '#/lib/calendar'
+import { isPlanAction } from '#/features/plans/plan'
+import type { PlanStepResult } from '#/features/plans/plan'
+import { PlanCard } from './plan-card'
 
 /**
  * A change the assistant suggests, as a card. Nothing has been written. Apply
@@ -385,6 +388,61 @@ async function applyProposal(
 }
 
 export function ProposalCard({
+  callId,
+  workspaceId,
+  proposal,
+}: {
+  callId: string
+  workspaceId: string
+  proposal: AssistantProposal
+}) {
+  const action = proposal.action
+
+  if (action && isPlanAction(action)) {
+    return (
+      <PlanCard
+        callId={callId}
+        proposal={proposal}
+        action={action}
+        applyBuilt={(built) => applyPlanStep(built, workspaceId)}
+      />
+    )
+  }
+
+  return (
+    <SingleProposalCard
+      callId={callId}
+      workspaceId={workspaceId}
+      proposal={proposal}
+    />
+  )
+}
+
+/** Applies one step of a plan the way a card of its own would be applied. */
+async function applyPlanStep(
+  built: AssistantProposal,
+  workspaceId: string,
+): Promise<PlanStepResult> {
+  const client = createDataClient()
+
+  const outcome = built.action
+    ? await applyAction(client, built)
+    : await applyProposal(client, built, crypto.randomUUID(), workspaceId)
+
+  if (outcome.kind === 'applied') {
+    return { ok: true, openHref: outcome.opened, note: outcome.note }
+  }
+
+  return {
+    ok: false,
+    message:
+      outcome.kind === 'signature'
+        ? t('features.plans.plan.needsSignature')
+        : outcome.reason,
+  }
+}
+
+function SingleProposalCard({
   callId,
   workspaceId,
   proposal,

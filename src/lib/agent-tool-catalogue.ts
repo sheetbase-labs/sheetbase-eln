@@ -132,6 +132,8 @@ export type AssistantReadToolName =
  * others move across as their operations are declared (`#/lib/operations`).
  */
 const ASSISTANT_PROPOSE_TOOLS_UNDECLARED = [
+  // Several of the cards below as one plan, approved once (features/plans).
+  'sheetbase.plan.propose',
   'sheetbase.notebook_block.insert',
   'sheetbase.notebook_block.update',
   'sheetbase.record.custom_fields.update',

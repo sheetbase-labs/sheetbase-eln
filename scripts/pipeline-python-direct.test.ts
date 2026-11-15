@@ -28,14 +28,22 @@ beforeAll(async () => {
 
 afterAll(() => close())
 
-const post = (path: string, body: object) =>
+interface Job {
+  statement: string
+  inputs: Record<string, never>
+  parameters: Record<string, never>
+  environment?: string
+  limits?: Record<string, number>
+}
+
+const post = (path: string, job: Job) =>
   fetch(`${base}${path}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${TOKEN}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(job),
   })
 
 describe('the Docker-free Python runner', () => {

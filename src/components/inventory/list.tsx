@@ -42,16 +42,19 @@ export const PHONE_SCROLL_ROW =
 export function ListHeader({
   title,
   total,
+  countNoun,
   subtitle,
   actions,
   tabs,
-  hideTitle = false,
 }: {
+  /** The page's h1. On a desktop pane the pane header already prints it, so
+   * it stays for screen readers and is not printed twice; on a phone, where
+   * the pane header is not shown, it is the visible title. */
   title: string
-  /** The pane header already names the page: keep the h1 for screen readers
-   * and let the subtitle lead, rather than print the same word twice. */
-  hideTitle?: boolean
   total?: number
+  /** What the total counts, when it is not the lowercased title ("12
+   * analyses", not "12 analysis"). */
+  countNoun?: string
   /** What this list is, beside its name. Hidden on phones, where the title is
    * the whole reference header. */
   subtitle?: React.ReactNode
@@ -60,29 +63,24 @@ export function ListHeader({
 }) {
   return (
     <header className="flex flex-col gap-1 border-b border-border bg-surface px-4 pt-3 md:px-6 md:pt-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1
-          className={
-            hideTitle
-              ? 'sr-only'
-              : 'text-title max-md:text-[18px] max-md:leading-6'
-          }
-        >
+      <div className="flex min-h-7 flex-wrap items-center gap-2">
+        <h1 className="text-title max-md:text-[18px] max-md:leading-6 md:sr-only">
           {title}
         </h1>
         {total != null ? (
           <span className="num text-body text-fg-muted">
             {total.toLocaleString('en-GB')}
+            <span className="max-md:hidden">
+              {' '}
+              {countNoun ??
+                (total === 1
+                  ? title.toLowerCase().replace(/s$/, '')
+                  : title.toLowerCase())}
+            </span>
           </span>
         ) : null}
         {subtitle ? (
-          <span
-            className={
-              hideTitle
-                ? 'py-0.5 text-body text-fg-muted'
-                : 'text-body text-fg-muted max-md:hidden'
-            }
-          >
+          <span className="text-body text-fg-muted max-md:hidden">
             {subtitle}
           </span>
         ) : null}

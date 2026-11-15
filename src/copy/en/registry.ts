@@ -1,6 +1,7 @@
 /** Registries: record models whose entries get one number and a duplicate check. */
 export const registry = {
   title: 'Registry',
+  countNoun: { one: 'entry', other: 'entries' },
   subtitle:
     'Constructs, cell lines, antibodies and anything else your lab registers once',
   navLabel: 'Registry',

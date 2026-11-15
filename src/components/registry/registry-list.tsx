@@ -565,6 +565,7 @@ export function RegistryList({
         title={t('registry.title')}
         subtitle={t('registry.subtitle')}
         total={entries.data ? inStatus.length : undefined}
+        countNoun={t('registry.countNoun', { count: inStatus.length })}
         actions={
           <RegistryHeaderActions
             canWrite={canWrite}

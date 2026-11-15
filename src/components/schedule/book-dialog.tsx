@@ -288,6 +288,7 @@ export function BookDialog({
       }}
     >
       <Button
+        size="sm"
         className="ml-2 max-md:ml-0 max-md:w-full"
         onClick={() => changeOpen(true)}
       >

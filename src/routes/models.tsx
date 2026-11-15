@@ -332,7 +332,7 @@ function ModelsCreateActions({
           {returnLabel(returnTo)}
         </Button>
       ) : null}
-      <Button variant="primary" onClick={onOpen}>
+      <Button variant="primary" icon="plus" onClick={onOpen}>
         {t('library.models.list.newModel')}
       </Button>
     </>

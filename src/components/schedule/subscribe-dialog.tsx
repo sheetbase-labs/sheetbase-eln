@@ -164,7 +164,7 @@ export function SubscribeDialog({
         if (!next) setLink(null)
       }}
     >
-      <DialogTrigger render={<Button />}>
+      <DialogTrigger render={<Button size="sm" />}>
         {t('calendarFeed.button')}
       </DialogTrigger>
       <DialogContent className="w-[min(600px,calc(100vw-32px))]">

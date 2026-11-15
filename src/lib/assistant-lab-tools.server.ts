@@ -218,6 +218,8 @@ export const LAB_AREAS = {
     'Reusable parameter sets: key, name and the parameters each holds, which pipelines include by key',
   plugins:
     'Plugins installed in the workspace: name, version, whether each is switched on and which parts are switched off (openOnly: only those switched on)',
+  plugin_runs:
+    'Recent plugin runs (administrators only): which plugin and function, whether it worked, how long it took, the error and what it printed',
   measurement_tables:
     'Measurement tables: the columns each kind of dataset is made of, with whether each is a draft, in use or retired (openOnly: leave out retired ones)',
   dataset_flags:
@@ -1353,6 +1355,14 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     select: 'id,key,name,version,status,disabled_points,updated_at',
     order: 'name.asc',
     search: ['name', 'key'],
+    page: '/settings/workspace/plugins',
+  },
+  plugin_runs: {
+    table: 'extension_run_logs',
+    select:
+      'id,extension_key,kind,entry,ok,duration_ms,error,output,created_at',
+    order: 'created_at.desc',
+    search: ['extension_key', 'entry', 'error'],
     page: '/settings/workspace/plugins',
   },
   retention_rules: {

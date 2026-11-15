@@ -420,6 +420,14 @@ pattern, range) is refused with `SB071` and a message that names the field, on
 every route a record is written, while the plugin is on and its `field-types`
 point is switched on.
 
+## Run logs
+
+Administrators who manage plugins can see how each plugin run went: **Settings › Plugins**, the row's menu, **Logs**. Each run shows when it ran, which function, whether it worked, how long it took, the error and what the plugin printed. The inputs and the answers are never kept, and a value an administrator set for the plugin (a token, an address) is hidden if the plugin prints it.
+
+A plugin keeps its newest 200 runs from the last 14 days; older runs are dropped as new ones arrive.
+
+Read them with a personal token from the lab API (table `extension_run_logs`, see [lab-api.md](lab-api.md)). Over MCP, `sheetbase.canonical.read` reads the same table, and the assistant lists them as `plugin_runs`. Nobody can write a log from the API; the app writes each one when the plugin runs.
+
 ## Events
 
 See the [event catalogue](./event-catalogue.md): `extension.point.enabled`,

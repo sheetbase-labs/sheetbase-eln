@@ -11,7 +11,8 @@ import {
   describeSettings,
 } from './plugin-settings.server'
 import { ExtensionRunError, invokeExtension } from './runtime.server'
-import type { ExtensionRuntimeDeps } from './runtime.server'
+import type { ExtensionRuntimeDeps, PluginRunRecord } from './runtime.server'
+import { PipelinePythonError } from '#/lib/pipeline-python.server'
 
 type SettingsInput =
   | string
@@ -260,6 +261,70 @@ describe('invokeExtension', () => {
     expect(error).toBeInstanceOf(ExtensionRunError)
     expect(error?.message).not.toContain('sekret-token')
     expect(JSON.stringify(audit.mock.calls)).not.toContain('sekret-token')
+  })
+
+  it('keeps each run for the Logs view: what it printed, never the inputs or a setting', async () => {
+    const kept: PluginRunRecord[] = []
+
+    const { deps } = setup({ token: 'sekret-token' }, async () => {
+      // SAFETY: the function under test reads only `rows` and `logs` from the runner's answer.
+      return {
+        rows: [{ found: 'ok' }],
+        logs: ['using sekret-token', 'done'],
+      } as never
+    })
+
+    deps.recordRun = async (run) => {
+      kept.push(run)
+    }
+
+    await invokeExtension(args, deps)
+    expect(kept).toHaveLength(1)
+    expect(kept[0]).toMatchObject({
+      workspaceId: 'w1',
+      extensionId: 'e1',
+      extensionKey: 'lookup',
+      ok: true,
+      error: null,
+      output: ['using •••', 'done'],
+    })
+    expect(JSON.stringify(kept)).not.toContain('picogreen')
+    expect(JSON.stringify(kept)).not.toContain('sekret-token')
+  })
+
+  it('keeps a failed run with the text it printed before failing', async () => {
+    const kept: PluginRunRecord[] = []
+
+    const { deps } = setup({ token: 'sekret-token' }, async () => {
+      throw new PipelinePythonError('PluginError: nope', 'transform_failed', {
+        logs: ['about to fail'],
+      })
+    })
+
+    deps.recordRun = async (run) => {
+      kept.push(run)
+    }
+
+    await invokeExtension(args, deps).catch(() => undefined)
+    expect(kept[0]).toMatchObject({
+      ok: false,
+      error: 'PluginError: nope',
+      output: ['about to fail'],
+    })
+  })
+
+  it('does not fail a run when the log cannot be kept', async () => {
+    const { deps } = setup({ token: 'sekret-token' }, async () => {
+      // SAFETY: the function under test reads only `rows` from the runner's answer.
+      return { rows: [{ found: 'ok' }], logs: [] } as never
+    })
+
+    deps.recordRun = async () => {
+      throw new Error('database down')
+    }
+
+    const out = await invokeExtension(args, deps)
+    expect(out.output).toEqual({ found: 'ok' })
   })
 
   it('sends no _settings for an operation that declares none', async () => {

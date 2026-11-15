@@ -57,7 +57,6 @@ export function InboxHeader({
   return (
     <ListHeader
       title={t('projects.inbox.title')}
-      hideTitle
       subtitle={t('projects.inbox.subtitle')}
       actions={
         <>

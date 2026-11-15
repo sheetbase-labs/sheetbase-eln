@@ -351,6 +351,7 @@ function AnalysisHome() {
         <ListHeader
           title={t('data.analysisList.analysis')}
           total={rows.length}
+          countNoun={t('data.analysisList.countNoun', { count: rows.length })}
           actions={<AnalysisNewMenu canWrite={canWrite} recent={recent} />}
           tabs={
             <Tabs

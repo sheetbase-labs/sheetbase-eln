@@ -3094,7 +3094,7 @@ export const data = {
     untitledAnalysis: 'Untitled analysis',
   },
   analysisList: {
-    countNoun: { one: 'analysis', other: 'analyses' },
+    countNoun: { one: '{count} analysis', other: '{count} analyses' },
     chart: 'Chart',
     doseResponseCurve: 'dose-response curve',
     groupComparison: 'group comparison',

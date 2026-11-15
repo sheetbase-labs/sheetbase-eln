@@ -221,10 +221,10 @@ export interface AssistantToolkit {
 }
 
 /** Model steps in one turn; the last one is not offered tools, so it must answer. */
-export const ASSISTANT_MAX_STEPS = 6
+export const ASSISTANT_MAX_STEPS = 24
 
 /** Tool calls honoured in one step; extras are answered with an error. */
-export const ASSISTANT_MAX_CALLS_PER_STEP = 4
+export const ASSISTANT_MAX_CALLS_PER_STEP = 10
 
 function toObjectRef(
   ref: AskAssistantInput['objectRefs'][number],

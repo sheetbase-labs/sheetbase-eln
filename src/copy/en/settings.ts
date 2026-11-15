@@ -164,7 +164,7 @@ export const settings = {
     profileAccessKey:
       'This profile has no access key. The assistant stays unavailable until an admin adds one.',
     n1QuestionWouldHint:
-      '1–{AISETTINGSMAXTOKENSCEILING}. A question that would need more is refused before anything is sent.',
+      '1–{AISETTINGSMAXTOKENSCEILING}. This covers one whole request, every step the assistant takes included, so a task with many steps needs a generous limit. A request that would need more is stopped.',
     maximumCostPer2: 'Maximum cost per call (US$)',
     enterAmountWithin: 'Enter an amount within the allowed range.',
     maximumCostPerAria2: 'Maximum cost per call in US dollars',

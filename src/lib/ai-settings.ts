@@ -13,10 +13,10 @@ import { MODEL_NAMES } from './metrics'
  * never leaves the server. `enabled` is the workspace kill switch.
  */
 
-export const AI_SETTINGS_MAX_TOKENS_CEILING = 100_000
-export const AI_SETTINGS_MAX_COST_CEILING = 10_000_000
-export const AI_SETTINGS_DEFAULT_MAX_TOKENS = 8_000
-export const AI_SETTINGS_DEFAULT_MAX_COST_MICROUSD = 50_000
+export const AI_SETTINGS_MAX_TOKENS_CEILING = 5_000_000
+export const AI_SETTINGS_MAX_COST_CEILING = 500_000_000
+export const AI_SETTINGS_DEFAULT_MAX_TOKENS = 1_000_000
+export const AI_SETTINGS_DEFAULT_MAX_COST_MICROUSD = 20_000_000
 
 export type AiModel = (typeof MODEL_NAMES)[number]
 

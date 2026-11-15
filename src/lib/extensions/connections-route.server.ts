@@ -100,7 +100,9 @@ export async function handlePluginConnections(
 
     for (const point of SETTINGS_POINTS) {
       for (const declaration of manifest.contributions[point] ?? []) {
-        if (declaration.settings.length === 0) continue
+        const settings = declaration.settings ?? []
+
+        if (settings.length === 0) continue
         out.push({
           extensionId: install.id,
           extensionKey: install.key,
@@ -108,10 +110,11 @@ export async function handlePluginConnections(
           point,
           itemId: declaration.id,
           title: declaration.title,
-          hosts: declaration.hosts,
+          // An operation calls out through the plugin's own approved network.
+          hosts: 'hosts' in declaration ? declaration.hosts : [],
           off: disabled.has(point),
           settings: describeSettings(
-            declaration,
+            { settings },
             stored.filter(
               (row) => row.scope === settingsScope(point, declaration.id),
             ),

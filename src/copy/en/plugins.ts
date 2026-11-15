@@ -149,6 +149,7 @@ export const plugins = {
         connectors: 'Pulls data in',
         publishers: 'Sends data out',
         'notification-channels': 'Sends notifications',
+        operations: 'Looks things up',
       },
       hosts: 'calls {hosts}',
       needsSetup: 'Needs setup',

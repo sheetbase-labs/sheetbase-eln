@@ -8,7 +8,7 @@ import urllib.request
 from sheetbase_plugin import PluginError
 
 URL = "https://www.ebi.ac.uk/ols4/api/search"
-DEFAULTS = ["obi", "chebi", "cl", "uberon", "ncbitaxon", "uo"]
+DEFAULTS = ["obi", "chebi", "cl", "clo", "efo", "bto", "uberon", "ncbitaxon", "uo"]
 KNOWN = {"obi", "chebi", "cl", "uberon", "ncbitaxon", "uo", "efo", "go", "bao", "clo", "bto", "pato"}
 
 

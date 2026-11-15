@@ -247,7 +247,8 @@ function AuditLogPane({
           />
         </div>
       )}
-      {rows.length > 0 ? (
+      {rows.length > 0 &&
+      (activity.isFetchingNextPage || activity.isFetchNextPageError) ? (
         <div className="border-t border-border-subtle px-4 py-2 text-fg-muted md:px-6">
           <LoadMore
             label={t('settings.audit.olderAuditEntries')}
@@ -259,7 +260,6 @@ function AuditLogPane({
                 : undefined
             }
             onLoadMore={() => void activity.fetchNextPage()}
-            endLabel={t('settings.audit.endLogEvery')}
           />
         </div>
       ) : null}
@@ -404,9 +404,6 @@ function Audit() {
           onClose={() => setRetentionOpen(false)}
         />
       ) : null}
-      <div className="border-t border-border-subtle px-4 py-3 md:px-6">
-        <Muted>{t('settings.audit.newestFirstScrolling')}</Muted>
-      </div>
     </>
   )
 }
@@ -416,9 +413,7 @@ function auditCountLabel(loading: boolean, count: number, hasMore: boolean) {
 
   if (count === 0) return 'No entries'
 
-  return hasMore
-    ? `${count} entries loaded — older entries available`
-    : `${count} entries`
+  return hasMore ? `${count}+ entries` : `${count} entries`
 }
 
 function AuditFilters({

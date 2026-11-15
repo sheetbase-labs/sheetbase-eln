@@ -488,7 +488,7 @@ function PipelineTriggers() {
   const columns = scheduleColumns(editor)
 
   const addButton = (
-    <Button variant="primary" icon="plus" onClick={() => setAdding(true)}>
+    <Button icon="plus" onClick={() => setAdding(true)}>
       {t('data.pipelineTriggers.newTrigger')}
     </Button>
   )
@@ -514,7 +514,7 @@ function PipelineTriggers() {
       <Section
         title={t('data.pipelineTriggers.startsOn')}
         count={rows.length || undefined}
-        action={rows.length ? addButton : undefined}
+        action={addButton}
       >
         {uninterpretable.length ? (
           <Notice tone="warn">
@@ -552,7 +552,6 @@ function PipelineTriggers() {
               'data.pipelineTriggers.triggersOptionalRunPublished',
             )}
             className="py-4"
-            action={addButton}
           />
         )}
       </Section>

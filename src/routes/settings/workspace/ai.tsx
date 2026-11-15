@@ -244,24 +244,12 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
 
         {view && form ? (
           <>
-            {/* An assistant that is switched off says so in the checkboxes
-                below; the notice is for what they cannot show. */}
-            <AiReadinessNotice readiness={view.readiness} dirty={dirty} />
-
-            {view.providerConfigError ? (
-              <Notice
-                tone="bad"
-                title={t('settings.ai.providerConfigurationInvalid')}
-              >
-                {view.providerConfigError}
-              </Notice>
-            ) : null}
-
-            {!canManage ? (
-              <Notice tone="warn" title={t('settings.ai.readOnly')}>
-                {t('settings.ai.onlyWorkspaceOwner')}
-              </Notice>
-            ) : null}
+            <AiNotices
+              readiness={view.readiness}
+              dirty={dirty}
+              providerConfigError={view.providerConfigError}
+              canManage={canManage}
+            />
 
             <AssistantConfiguration
               form={form}
@@ -309,30 +297,46 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
   )
 }
 
-function AiReadinessNotice({
+/** One banner for everything that keeps the assistant from working, each
+ * line pointing at the setting an owner changes to fix it. */
+function AiNotices({
   readiness,
   dirty,
+  providerConfigError,
+  canManage,
 }: {
   readiness: AiSettingsView['readiness']
   dirty: boolean
+  providerConfigError: string | null | undefined
+  canManage: boolean
 }) {
+  const lines: string[] = []
+
+  if (!canManage) lines.push(t('settings.ai.onlyWorkspaceOwner'))
+  if (providerConfigError) lines.push(providerConfigError)
+
   if (
     !readiness.ready &&
-    (readiness.reason === 'disabled' || readiness.reason === 'feature_disabled')
+    readiness.reason !== 'disabled' &&
+    readiness.reason !== 'feature_disabled' &&
+    readiness.reason !== 'provider_config_invalid'
   )
-    return null
+    lines.push(aiReadinessMessage(readiness))
+
+  if (dirty) lines.push(t('settings.ai.saveChangesApply'))
+  if (!lines.length) return null
 
   return (
-    <Notice
-      tone={readiness.ready ? 'info' : 'warn'}
-      title={
-        readiness.ready
-          ? t('settings.ai.assistantStatus')
-          : t('settings.ai.assistantUnavailable')
-      }
-    >
-      {aiReadinessMessage(readiness)}
-      {dirty ? t('settings.ai.saveChangesApply') : ''}
+    <Notice tone={providerConfigError ? 'bad' : 'warn'}>
+      {lines.length === 1 ? (
+        lines[0]
+      ) : (
+        <ul className="m-0 list-disc pl-4">
+          {lines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      )}
     </Notice>
   )
 }

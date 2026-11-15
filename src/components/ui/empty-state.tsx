@@ -18,8 +18,8 @@ import { cn } from '#/lib/utils'
  *
  * The anatomy follows the shadcn `empty` item (`EmptyHeader`, `EmptyMedia`,
  * `EmptyTitle`, `EmptyDescription`, `EmptyContent`), restated as the props the
- * product's sites already use and placed where the rows would be rather than
- * centred in the window (design system, EmptyState). The comparison against the
+ * product's sites already use and centred in the space the rows would fill
+ * (design system, EmptyState). The comparison against the
  * item, and the decision, are in
  * `docs/knowledge/design/component-comparison-record.md`.
  */
@@ -48,7 +48,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'flex max-w-[72ch] flex-col items-start gap-2 py-8',
+        'mx-auto flex max-w-[72ch] flex-col items-center gap-2 py-10 text-center',
         className,
       )}
     >

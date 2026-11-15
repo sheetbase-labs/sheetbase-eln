@@ -30,6 +30,7 @@ export function EmptyState({
   description,
   action,
   children,
+  nested = false,
   className,
 }: {
   /** The standard leading icon. Ignored when `media` is given. */
@@ -43,12 +44,24 @@ export function EmptyState({
   action?: React.ReactNode
   /** Anything else below the action row. */
   children?: React.ReactNode
+  /**
+   * The empty state sits inside a section that already has its own heading
+   * (a table's empty body under "Starts on"): a dashed outline where the rows
+   * would be, a component-size title one level down, and no second page-sized
+   * heading competing with the section's.
+   */
+  nested?: boolean
   className?: string
 }) {
+  const Title = nested ? 'h3' : 'h2'
+
   return (
     <div
       className={cn(
-        'flex max-w-[440px] flex-col items-start gap-2 py-8',
+        'flex flex-col items-start gap-2',
+        nested
+          ? 'rounded-md border border-dashed border-border-strong px-4 py-4'
+          : 'py-8',
         className,
       )}
     >
@@ -59,9 +72,11 @@ export function EmptyState({
           <Icon name={icon} size={20} />
         </span>
       ) : null}
-      <h2 className="text-section">{title}</h2>
+      <Title className={nested ? 'text-body font-semibold' : 'text-section'}>
+        {title}
+      </Title>
       {description ? (
-        <p className="m-0 text-body leading-5 text-fg-muted">{description}</p>
+        <p className="m-0 text-caption text-fg-muted">{description}</p>
       ) : null}
       {action || children ? (
         <div className="mt-1 flex flex-wrap items-center gap-2">

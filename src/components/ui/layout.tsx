@@ -426,9 +426,6 @@ export function DescriptionList({
 
 export function Muted({ className, ...props }: React.ComponentProps<'p'>) {
   return (
-    <p
-      className={cn('m-0 text-label leading-[18px] text-fg-muted', className)}
-      {...props}
-    />
+    <p className={cn('m-0 text-caption text-fg-muted', className)} {...props} />
   )
 }

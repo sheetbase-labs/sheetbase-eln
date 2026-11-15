@@ -53,7 +53,7 @@ export function Notice({
       {/* A narrow notice drops its action under the text instead of squeezing the text into a column. */}
       <div className="min-w-0 flex-1 basis-[14rem]">
         {title ? (
-          <span
+          <div
             className={cn(
               'font-semibold',
               t === 'bad'
@@ -63,8 +63,8 @@ export function Notice({
                   : 'text-fg',
             )}
           >
-            {title}{' '}
-          </span>
+            {title}
+          </div>
         ) : null}
         {children}
       </div>

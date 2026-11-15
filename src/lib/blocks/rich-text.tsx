@@ -147,6 +147,11 @@ export function RichTextContent({
     <div
       className={[
         'space-y-1.5 text-sm leading-6 text-foreground [&_ol]:list-decimal [&_ol]:space-y-0.5 [&_ol]:pl-5 [&_p]:min-h-[1.25rem] [&_ul]:list-disc [&_ul]:space-y-0.5 [&_ul]:pl-5',
+        // A heading starts a section, so it gets more space above than the gap
+        // between paragraphs. Inside a notebook block that holds even for a
+        // heading that opens its block: the thing above it is the previous
+        // block, and blocks in a prose run draw no gap of their own.
+        '[&>h2:not(:first-child)]:mt-6 [&>h3:not(:first-child)]:mt-4 [[data-block-type]_&>h2:first-child]:mt-6 [[data-block-type]_&>h3:first-child]:mt-4',
         className,
       ]
         .filter(Boolean)

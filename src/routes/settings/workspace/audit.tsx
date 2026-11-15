@@ -41,6 +41,7 @@ import { downloadTextFile } from '#/lib/download'
 import { parseSearchDay } from '#/lib/search'
 import { auditFilterFromSearch } from '#/lib/audit-filter'
 import type { AuditSearch } from '#/lib/audit-filter'
+import { useScrollLoad } from '#/lib/use-scroll-load'
 import { useSettledValue } from '#/lib/settled-value'
 import { t } from '#/copy'
 
@@ -69,9 +70,6 @@ const PAGE_SIZE = 50
  * route navigation takes. */
 const SEARCH_SETTLE_MS = 250
 
-/** How close to the bottom the grid must be before it asks for the next page. */
-const LOAD_MORE_THRESHOLD_PX = 240
-
 type AuditFilter = Parameters<typeof fetchAuditEvents>[1]
 
 /** The log read a cursor page at a time, and the rows loaded so far. */
@@ -97,35 +95,6 @@ function useAuditEvents(filter: AuditFilter, workspaceId: string) {
   )
 
   return { activity, rows }
-}
-
-/** Asks for the next page when the pane scrolls near its end. */
-function useLoadOlderOnScroll(
-  activity: ReturnType<typeof useAuditEvents>['activity'],
-) {
-  const loadOlder = () => {
-    // A failed next page keeps the retry with the message below instead of
-    // retrying on every scroll tick.
-    if (!activity.hasNextPage || activity.isFetchingNextPage) return
-
-    if (activity.isFetchNextPageError) return
-    void activity.fetchNextPage()
-  }
-
-  // The grid scrolls inside this pane, and scroll events do not bubble, so the
-  // pane listens in the capture phase and reads the element that scrolled.
-  return (event: React.UIEvent<HTMLDivElement>) => {
-    const el = event.target instanceof HTMLElement ? event.target : null
-
-    if (!el) return
-
-    if (
-      el.scrollHeight - el.scrollTop - el.clientHeight >
-      LOAD_MORE_THRESHOLD_PX
-    )
-      return
-    loadOlder()
-  }
 }
 
 /** The whole selection as a CSV, with a toast for how it went. */
@@ -336,7 +305,12 @@ function Audit() {
     [rows],
   )
 
-  const onScroll = useLoadOlderOnScroll(activity)
+  const onScroll = useScrollLoad({
+    hasMore: activity.hasNextPage,
+    loading: activity.isFetchingNextPage,
+    failed: activity.isFetchNextPageError,
+    onLoad: () => void activity.fetchNextPage(),
+  })
 
   const { exporting, exportCsv } = useAuditExport(filter)
 
@@ -413,7 +387,7 @@ function auditCountLabel(loading: boolean, count: number, hasMore: boolean) {
 
   if (count === 0) return 'No entries'
 
-  return hasMore ? '' : `${count} entries`
+  return hasMore ? `${count}+ entries` : `${count} entries`
 }
 
 function AuditFilters({

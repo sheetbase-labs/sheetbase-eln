@@ -531,7 +531,7 @@ export function InboxList({
   typeLabel: string | undefined
   onClearType: () => void
 }): React.ReactElement {
-  const { page, items } = rows
+  const { page } = rows
 
   return (
     <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
@@ -581,9 +581,6 @@ export function InboxList({
               : undefined
           }
           onLoadMore={() => void query.fetchNextPage()}
-          loaded={items.length}
-          total={page.total}
-          noun={t('projects.inbox.noun')}
           className="px-4 py-3 md:px-6"
         />
       ) : null}

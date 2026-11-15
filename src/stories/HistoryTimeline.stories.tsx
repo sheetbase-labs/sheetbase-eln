@@ -86,7 +86,7 @@ export const Error: Story = {
 
 export const LoadMore: Story = {
   args: {
-    loadMore: { onClick: () => {}, label: 'Load more (12 left)' },
+    loadMore: { onClick: () => {} },
     footer: 'Showing 3 of 15 events',
   },
 }

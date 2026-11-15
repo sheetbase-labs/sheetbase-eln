@@ -245,7 +245,7 @@ describe('audit log grid', () => {
     )
   })
 
-  it('walks the cursor to older entries on scroll and says when the log ends', async () => {
+  it('walks the cursor to older entries on scroll and counts them', async () => {
     reads
       .mockResolvedValueOnce(
         page({
@@ -271,6 +271,9 @@ describe('audit log grid', () => {
     await screen.findByText('1 Oct 2026, 09:00')
 
     expect(screen.queryByText('1 Sep 2026, 09:00')).toBeNull()
+    // Older entries are not asked for with a button: nothing to press.
+    expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull()
+    expect(screen.getByText('1+ entries')).toBeTruthy()
 
     fireEvent.scroll(scrollPane())
 
@@ -280,6 +283,7 @@ describe('audit log grid', () => {
     })
     // Older entries are appended, never replacing the first page.
     expect(screen.getByText('1 Oct 2026, 09:00')).toBeTruthy()
+    expect(screen.getByText('2 entries')).toBeTruthy()
   })
 
   it('shows a body state row while the log is loading', async () => {

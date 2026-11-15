@@ -19,10 +19,7 @@ import {
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { stickyCell, stickyHead } from '#/components/inventory/list'
 import { FLAG_KIND_LABELS } from '#/components/datasets/value-action-labels'
-import {
-  hasMoreSnapshotCompareRows,
-  snapshotCompareTotalRows,
-} from '#/components/datasets/snapshot-data'
+import { hasMoreSnapshotCompareRows } from '#/components/datasets/snapshot-data'
 import { useDatasetVersions } from '../$datasetId'
 import type { DatasetVersion } from '../$datasetId'
 import { formatDate } from '#/lib/format-date'
@@ -437,7 +434,6 @@ function Compare() {
 
   const data = diff.data?.pages.at(0)
   const entries = diff.data?.pages.flatMap((page) => page.rows) ?? []
-  const totalChanges = data ? snapshotCompareTotalRows(data.counts) : 0
 
   // DSET-03.2 — field names come from the schema version fields; the compare
   // payload carries field ids only.
@@ -545,9 +541,6 @@ function Compare() {
 
       <LoadMore
         label={t('data.datasetCompare.comparisonChanges')}
-        loaded={entries.length}
-        total={totalChanges}
-        noun="changes"
         hasMore={diff.hasNextPage}
         loading={diff.isFetchingNextPage}
         onLoadMore={() => void diff.fetchNextPage()}

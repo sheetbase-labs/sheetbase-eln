@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { LoadMore } from '#/components/ui/load-more'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { Avatar } from '#/components/ui/avatar'
@@ -80,11 +81,10 @@ export interface HistoryEntry {
   readonly sentence?: string
 }
 
-/** The continuation control: shown when the caller has more pages. */
+/** The continuation: given when the caller has more pages, which load as the
+ * end of the list scrolls into view. */
 export interface HistoryLoadMore {
   onClick: () => void
-  /** Idle label; "Load more" when omitted. */
-  label?: string
   busy?: boolean
 }
 
@@ -364,18 +364,13 @@ export function HistoryTimeline({
         ))}
       </Timeline>
       {loadMore ? (
-        <div className="pt-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={loadMore.onClick}
-            disabled={loadMore.busy}
-          >
-            {loadMore.busy
-              ? t('common.states.loading')
-              : (loadMore.label ?? t('projects.historyTimeline.loadMore'))}
-          </Button>
-        </div>
+        <LoadMore
+          label={ariaLabel}
+          hasMore
+          loading={loadMore.busy}
+          onLoadMore={loadMore.onClick}
+          className="pt-3"
+        />
       ) : null}
       {footer !== undefined ? (
         <p className="pt-2 text-xs text-fg-muted">{footer}</p>

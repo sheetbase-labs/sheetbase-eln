@@ -38,6 +38,7 @@ from sheetbase._query_result import DatasetRowPage, DatasetVersionRowPage, Searc
 from sheetbase.errors import NotFoundError, StaleVersionError
 from sheetbase.resources.files import AsyncFilesResource
 from sheetbase.resources.lookups import AsyncLookupsResource
+from sheetbase.resources.plans import AsyncPlansResource
 from sheetbase.resources.pipelines import VersionFileError
 from sheetbase.resources.datasets import DatasetRowBatch, _rows_to_dataframe
 from sheetbase.types import (
@@ -81,6 +82,7 @@ class AsyncSheetbaseClient:
         self.catalogues = AsyncCatalogues(self._transport)
         self.agent_operations = AsyncAgentOperations(self._transport)
         self.lookups = AsyncLookupsResource(self._transport)
+        self.plans = AsyncPlansResource(self._transport)
         self.webhooks = AsyncWebhooks(self._transport)
         self.facility = AsyncFacility(self._transport)
         self.pipelines = AsyncPipelines(self._transport)

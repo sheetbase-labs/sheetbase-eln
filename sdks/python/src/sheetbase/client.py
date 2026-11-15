@@ -47,6 +47,7 @@ from sheetbase.resources import (
     DatasetsResource,
     PeopleResource,
     LookupsResource,
+    PlansResource,
     PluginsResource,
     FacilityResource,
     FilesResource,
@@ -96,6 +97,8 @@ class SheetbaseClient:
         self.agent_operations = AgentOperationsResource(self._transport)
         #: ``client.lookups.protocols/stock/templates``: SOPs, reagent stock, templates and models.
         self.lookups = LookupsResource(self._transport)
+        #: ``client.plans.run(steps)``: several RPCs in order, each using the last's result.
+        self.plans = PlansResource(self._transport)
         self.webhooks = WebhooksResource(self._transport)
         #: ``client.events.stream()`` / ``.page()``: the replayable event stream.
         self.events = EventStreamResource(self._transport)

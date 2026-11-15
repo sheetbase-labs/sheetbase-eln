@@ -12,6 +12,7 @@ from sheetbase.resources.facility import FacilityResource
 from sheetbase.resources.pipelines import PipelinesResource
 from sheetbase.resources.plugins import PluginsResource
 from sheetbase.resources.lookups import AsyncLookupsResource, LookupsResource
+from sheetbase.resources.plans import AsyncPlansResource, PlansResource
 from sheetbase.resources.files import AsyncFilesResource, FilesResource
 from sheetbase.resources.events import (
     EVENT_ALIASES,
@@ -30,6 +31,8 @@ __all__ = [
     "PluginsResource",
     "LookupsResource",
     "AsyncLookupsResource",
+    "PlansResource",
+    "AsyncPlansResource",
     "ProjectsResource",
     "RecordsResource",
     "DatasetsResource",

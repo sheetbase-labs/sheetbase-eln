@@ -114,6 +114,7 @@ export function PlanCard({
     save('running', null)
 
     let failedMessage = ''
+
     const outcome: PlanOutcome = await runPlan({
       steps: action.steps,
       from,

@@ -531,7 +531,6 @@ export function RequestsPage({
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
         title={t('requests.title')}
-        subtitle={t('requests.subtitle')}
         actions={newButton}
         tabs={
           forms.length > 0 ? (

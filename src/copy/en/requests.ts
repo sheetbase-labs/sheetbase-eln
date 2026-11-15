@@ -1,7 +1,6 @@
 /** Requests: asking the lab for work through a form made from a model. */
 export const requests = {
   title: 'Requests',
-  subtitle: 'Ask the lab for work and follow what happens to it',
   paneLabel: 'Requests',
   newRequest: 'New request',
   tableLabel: 'Requests',
@@ -36,7 +35,7 @@ export const requests = {
   empty: {
     noForms: 'Nothing to ask for yet',
     noFormsBody:
-      'A request form is a model that takes requests. Start with a ready-made one, or turn it on for any model from its page.',
+      'Set up a request form to let people ask the lab for work.',
     noFormsNotAllowed:
       'Ask someone who can edit models to set up a request form, or turn it on for a model from its page.',
     setUp: 'Set up {name}',

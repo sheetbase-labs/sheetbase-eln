@@ -115,7 +115,6 @@ function Signatures() {
         <Link to="/settings/account/signature">
           {t('settings.signatures.mySignature')}
         </Link>
-        .
       </SettingsHeader>
       <SettingsBody>
         <PolicySection
@@ -248,9 +247,6 @@ function PolicySection({
       </div>
       <Muted className="mt-3">
         {t('settings.signatures.passwordReEntry2')}
-      </Muted>
-      <Muted className="mt-2">
-        {t('settings.signatures.signatureAlwaysRecords')}
       </Muted>
     </Section>
   )
@@ -468,9 +464,6 @@ function StatementSection({
           : undefined
       }
     >
-      <p className="m-0 text-label text-fg-muted">
-        {t('settings.signatures.whatEachPerson')}
-      </p>
       <textarea
         aria-label={t('settings.signatures.certificationStatement')}
         rows={4}

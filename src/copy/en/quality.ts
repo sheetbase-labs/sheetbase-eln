@@ -59,8 +59,6 @@ export const quality = {
   },
   incidents: {
     title: 'Incidents',
-    subtitle:
-      'Incidents, deviations, near misses and complaints, with what was done about them',
     tableLabel: 'Incidents',
     filterLabel: 'Log',
     all: 'All',
@@ -87,7 +85,7 @@ export const quality = {
     loadError: 'The incident log couldn’t be loaded.',
     empty: {
       title: 'No incident log yet',
-      body: 'Start with a ready-made Incident model, or tick “Use this model as an incident log” on any model you already have.',
+      body: 'Set up the incident log to report incidents, deviations and near misses.',
       notAllowed:
         'An administrator can set up the incident log. Ask them to start one.',
       setUp: 'Set up the incident log',

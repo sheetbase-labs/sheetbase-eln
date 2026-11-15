@@ -248,13 +248,9 @@ export function SettingsGeneral({
         }
       >
         {workspaceName ?? t('settings.general.workspace')}
-        {t('settings.general.changesApplyEveryone')}
       </SettingsHeader>
       <SettingsBody>
         <Section title={t('settings.general.workspace')}>
-          <p className="m-0 max-w-2xl text-body text-fg-muted">
-            {t('settings.general.nameSiteTime')}
-          </p>
 
           {save.isError ? (
             <Notice tone="bad">

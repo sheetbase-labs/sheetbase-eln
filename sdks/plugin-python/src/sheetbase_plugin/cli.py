@@ -62,7 +62,7 @@ def _declaration(manifest, point, ident):
     return None
 
 
-def run_operation(files, operation_id, value):
+def run_operation(files, operation_id, value, settings=None):
     """Run one operation of a loaded package the way Sheetbase does, in this process."""
     manifest = _manifest(files)
     # A calculator is called the same way as an operation: values in, values out.
@@ -72,6 +72,9 @@ def run_operation(files, operation_id, value):
     if declaration is None:
         raise KeyError(f"This plugin has no operation called {operation_id}.")
     given = check_values(declaration["inputs"], value, "input")
+    if settings is not None:
+        # What an administrator sets in Settings → Plugins arrives as `_settings`.
+        given = {**given, "_settings": settings}
     host.install({k[len("python/"):]: v for k, v in files.items() if k.startswith("python/")})
     result = host.call_operation(declaration["run"], given)
     return check_values(declaration["outputs"], result, "answer")
@@ -117,7 +120,12 @@ def cmd_run(args):
         print(f"--input is not valid JSON: {error}", file=sys.stderr)
         return 2
     try:
-        print(json.dumps(run_operation(files, args.operation, value), indent=2, sort_keys=True))
+        settings = json.loads(args.settings) if args.settings else None
+    except ValueError as error:
+        print(f"--settings is not valid JSON: {error}", file=sys.stderr)
+        return 2
+    try:
+        print(json.dumps(run_operation(files, args.operation, value, settings), indent=2, sort_keys=True))
     except (ValueProblem, KeyError) as error:
         print(f"✗ {error.args[0] if isinstance(error, KeyError) else error}")
         return 1
@@ -280,6 +288,7 @@ def main(argv=None):
     run = sub.add_parser("run", help="run one operation on an input")
     run.add_argument("operation")
     run.add_argument("--input", default="{}", help="the input as JSON")
+    run.add_argument("--settings", default=None, help="the operation's settings as JSON, passed as _settings")
     run.add_argument("--folder", default=".")
     run.set_defaults(func=cmd_run)
 

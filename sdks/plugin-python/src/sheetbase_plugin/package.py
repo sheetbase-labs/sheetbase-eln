@@ -461,6 +461,11 @@ def _operations(value, files, errors):
             return
         _fields(name, "inputs", entry.get("inputs"), errors)
         _fields(name, "outputs", entry.get("outputs"), errors)
+        if "settings" in entry and not _labelled(
+            name, "settings", entry.get("settings"), errors,
+            lambda s: isinstance(s.get("secret"), bool), 8,
+        ):
+            return
 
 
 def _analysis_kinds(value, files, errors):

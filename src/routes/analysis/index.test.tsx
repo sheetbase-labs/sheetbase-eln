@@ -236,7 +236,8 @@ describe('Analysis list — chart views and statistics together', () => {
     ).toBeGreaterThan(0)
     expect(screen.getByText('Statistics · descriptive')).toBeTruthy()
     expect(screen.getAllByText('Chart · chart').length).toBe(2)
-    expect(screen.getByText('3 analyses')).toBeTruthy()
+    // The header and the list footer both state the count.
+    expect(screen.getAllByText('3 analyses')).toHaveLength(2)
   })
 })
 

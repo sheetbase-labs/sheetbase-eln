@@ -53,8 +53,8 @@ export function ListHeader({
    * the pane header is not shown, it is the visible title. */
   title: string
   total?: number
-  /** What the total counts, when it is not the lowercased title ("12
-   * analyses", not "12 analysis"). */
+  /** The whole desktop phrase, when the lowercased title is not the noun
+   * ("12 analyses", not "12 analysis"). */
   countNoun?: string
   /** What this list is, beside its name. Hidden on phones, where the title is
    * the whole reference header. */
@@ -70,13 +70,14 @@ export function ListHeader({
         </h1>
         {total != null ? (
           <span className="num text-body text-fg-muted">
-            {total.toLocaleString('en-GB')}
+            <span className="md:hidden">{total.toLocaleString('en-GB')}</span>
             <span className="max-md:hidden">
-              {' '}
               {countNoun ??
-                (total === 1
-                  ? title.toLowerCase().replace(/s$/, '')
-                  : title.toLowerCase())}
+                `${total.toLocaleString('en-GB')} ${
+                  total === 1
+                    ? title.toLowerCase().replace(/s$/, '')
+                    : title.toLowerCase()
+                }`}
             </span>
           </span>
         ) : null}

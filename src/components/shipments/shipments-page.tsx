@@ -316,7 +316,7 @@ export function ShipmentsPage({ canWrite }: { canWrite: boolean }) {
   )
 
   const newButton = canWrite ? (
-    <Button variant="primary" onClick={() => setCreating(true)}>
+    <Button variant="primary" icon="plus" onClick={() => setCreating(true)}>
       {t('shipments.newShipment')}
     </Button>
   ) : null

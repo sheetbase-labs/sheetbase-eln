@@ -208,7 +208,7 @@ export function IncidentLog({
 
   const reportButton =
     canWrite && logs.length > 0 ? (
-      <Button variant="primary" onClick={report}>
+      <Button variant="primary" icon="plus" onClick={report}>
         {t('quality.incidents.report')}
       </Button>
     ) : null

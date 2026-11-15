@@ -234,7 +234,7 @@ function RegistryNoMatches({
         description={isEmpty ? t('registry.empty.noEntriesBody') : undefined}
         action={
           isEmpty && canWrite ? (
-            <Button variant="primary" onClick={onRegister}>
+            <Button variant="primary" icon="plus" onClick={onRegister}>
               {t('registry.register')}
             </Button>
           ) : undefined

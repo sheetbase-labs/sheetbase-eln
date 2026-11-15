@@ -412,7 +412,11 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
         total={counts.data ? all.length : undefined}
         actions={
           canWrite ? (
-            <Button variant="primary" onClick={() => setStarting(true)}>
+            <Button
+              variant="primary"
+              icon="plus"
+              onClick={() => setStarting(true)}
+            >
               {t('library.stocktake.startCount')}
             </Button>
           ) : null

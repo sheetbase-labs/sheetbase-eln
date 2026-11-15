@@ -155,7 +155,7 @@ beforeEach(() => {
 })
 
 describe('protocols toolbar', () => {
-  it('reorders the list when a sort key is chosen', async () => {
+  it('reorders the list when a column header is clicked', async () => {
     const user = userEvent.setup()
     fixtures.protocols = [
       makeProtocol({
@@ -184,9 +184,9 @@ describe('protocols toolbar', () => {
     // Most recently updated first, not the identifier order the page arrived in.
     expect(ids()).toEqual(['PRT-0002', 'PRT-0001'])
 
-    screen.getByRole('button', { name: 'Sort' }).focus()
-    await user.keyboard('{ArrowDown}')
-    await user.click(await screen.findByRole('menuitem', { name: 'Protocol' }))
+    // The column header is the one way to reorder: the toolbar has no Sort menu.
+    expect(screen.queryByRole('button', { name: 'Sort' })).toBeNull()
+    await user.click(within(table).getByRole('button', { name: /^Protocol/ }))
 
     expect(ids()).toEqual(['PRT-0001', 'PRT-0002'])
   })

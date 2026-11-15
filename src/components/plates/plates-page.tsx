@@ -85,7 +85,7 @@ export function PlatesPage({
   }
 
   const newButton = canWrite ? (
-    <Button variant="primary" onClick={() => setCreating(true)}>
+    <Button variant="primary" icon="plus" onClick={() => setCreating(true)}>
       {t('plates.newRun')}
     </Button>
   ) : null

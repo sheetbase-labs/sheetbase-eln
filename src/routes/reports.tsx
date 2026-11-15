@@ -56,25 +56,8 @@ const tabLabel: Record<ReportTab, string> = {
   archived: t('projects.reports.tabs.archived'),
 }
 
-const SORTS = {
-  [t('library.protocols.list.updated')]: [{ id: 'updatedAt', desc: true }],
-  ID: [{ id: 'identifier', desc: false }],
-  [t('projects.reports.grid.report')]: [{ id: 'title', desc: false }],
-} satisfies Record<string, SortingState>
-
-const sorts = Object.keys(SORTS)
-
-function sortKeyOf(sorting: SortingState): string | undefined {
-  const first = sorting.at(0)
-
-  if (!first) return undefined
-
-  return sorts.find((key) => {
-    const entry = SORTS[key].at(0)
-
-    return entry?.id === first.id && entry.desc === first.desc
-  })
-}
+/** Newest-updated first until the person sorts by a column header. */
+const DEFAULT_SORT: SortingState = [{ id: 'updatedAt', desc: true }]
 
 /** The address bar's filters, decoded once; anything unreadable is dropped. */
 const reportsSearchSchema = z.object({
@@ -197,7 +180,7 @@ function selectedReport(
 
 /** The sort to apply: the person's own, else the newest-updated reports first. */
 function sortStateOf(sorting: SortingState): SortingState {
-  return sorting.length ? sorting : SORTS[t('library.protocols.list.updated')]
+  return sorting.length ? sorting : DEFAULT_SORT
 }
 
 /** What a person reads about the selected report, beside the list. */
@@ -483,13 +466,6 @@ function ReportsList() {
           q={search.q}
           label={t('projects.reports.page.search')}
           placeholder={t('projects.reports.page.search')}
-          views={{
-            sorts,
-            sort: sortKeyOf(sorting),
-            onSort: (s) => setSorting(SORTS[s] ?? []),
-            showSortValue: false,
-            groupLabel: '',
-          }}
           onSearch={(next) =>
             void navigate({
               to: '/reports',

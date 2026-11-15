@@ -1328,17 +1328,27 @@ export async function buildSchemaProposal(
 
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
-      const key = input.key ?? keyFromName(input.name)
-
-      const taken = await client.list<{ key: string }>(
+      const existing = await client.list<{ key: string; name: string }>(
         'notebook_templates',
-        `?key=eq.${encodeURIComponent(key)}&select=key&limit=1`,
+        '?select=key,name&limit=1000',
       )
 
-      if (taken.length > 0)
+      const sameName = existing.find(
+        (row) =>
+          row.name.trim().toLowerCase() === input.name.trim().toLowerCase(),
+      )
+
+      if (sameName)
         return fail(
-          `There is already a notebook template with the key ${key}. Use another name or key.`,
+          `There is already a notebook template called "${sameName.name}". Do not create another: read it with sheetbase.templates.read and propose sheetbase.template.update to change it, or give the new one a clearly different name.`,
         )
+
+      // A key another template holds gets a number, so Create never collides.
+      const keys = new Set(existing.map((row) => row.key))
+      const wanted = input.key ?? keyFromName(input.name)
+      let key = wanted
+
+      for (let n = 2; keys.has(key); n++) key = `${wanted}_${n}`
 
       const configuration = buildTemplateConfiguration(input)
 

@@ -41,6 +41,7 @@ import {
 import { errorText, isWaitingForAnswer } from './chat/chat-status'
 import { PromptBox } from './chat/prompt-box'
 import { ProposalCard } from './chat/proposal-card'
+import { failureMessage, onActionFailure } from '#/lib/assistant-failure-feed'
 import { proposalFromOutput } from '#/lib/assistant-proposals'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { pageSuggestions } from './assistant-page'
@@ -262,6 +263,16 @@ function ChatBody({
       void sendMessage({ text: question })
     },
     [busy, ready, clearError, sendMessage],
+  )
+
+  // A card that fails to apply is told to the assistant, which explains and
+  // offers a fixed card without the person asking again.
+  useEffect(
+    () =>
+      onActionFailure((failure) => {
+        void sendMessage({ text: failureMessage(failure) })
+      }),
+    [sendMessage],
   )
 
   // A question handed over by whoever opened the panel ("Ask the lab about

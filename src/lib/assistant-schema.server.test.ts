@@ -445,13 +445,31 @@ describe('record type, sheet definition and template assistant tools', () => {
       '2 parts, 1 step, 1 plate map, 1 note',
     )
 
-    const taken = await buildSchemaProposal(
+    const sameName = await buildSchemaProposal(
       TEMPLATE_CREATE_TOOL,
       input,
-      context({ notebook_templates: () => [{ key: 'p24_elisa' }] }),
+      context({
+        notebook_templates: () => [{ key: 'other', name: 'P24 elisa' }],
+      }),
     )
 
-    expect(!taken.ok && taken.message).toContain('already a notebook template')
+    expect(!sameName.ok && sameName.message).toContain(
+      'already a notebook template called',
+    )
+
+    const keyTaken = await buildSchemaProposal(
+      TEMPLATE_CREATE_TOOL,
+      input,
+      context({
+        notebook_templates: () => [
+          { key: 'p24_elisa', name: 'Something else' },
+        ],
+      }),
+    )
+
+    expect(keyTaken.ok && keyTaken.proposal.action).toMatchObject({
+      key: 'p24_elisa_2',
+    })
   })
 
   it('replaces a template draft, or starts a draft from a published version', async () => {

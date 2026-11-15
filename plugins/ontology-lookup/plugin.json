@@ -1,0 +1,30 @@
+{
+  "id": "sheetbase.ontology-lookup",
+  "name": "Ontology lookup",
+  "version": "1.0.0",
+  "description": "Find standard terms (OBI, ChEBI, Cell Ontology, UBERON, NCBI Taxonomy, units and more) in the EBI Ontology Lookup Service, so a field or a vocabulary term can name what it means.",
+  "author": "Sheetbase",
+  "python": {
+    "network": ["www.ebi.ac.uk"]
+  },
+  "provides": {
+    "operations": [
+      {
+        "id": "search",
+        "title": "Search ontology terms",
+        "description": "Finds standard ontology terms for a word or phrase in the EBI Ontology Lookup Service, such as `HEK293` (Cell Line Ontology) or `sodium chloride` (ChEBI). Only the words searched leave the workspace. Each term has a label, an ontology, its short id, a link and a short description. Cite terms only from these results.",
+        "access": "read",
+        "inputs": [
+          { "name": "query", "type": "text", "required": true, "description": "The word or phrase, such as `buffer solution`." },
+          { "name": "ontologies", "type": "text", "required": false, "description": "Only these ontologies, comma separated: obi, chebi, cl, uberon, ncbitaxon, uo, efo, go, bao, clo, bto, pato. All six defaults if left out." },
+          { "name": "limit", "type": "integer", "required": false, "description": "At most this many, up to 30. Default 15." }
+        ],
+        "outputs": [
+          { "name": "count", "type": "integer", "required": true },
+          { "name": "terms", "type": "json", "required": true }
+        ],
+        "run": "ontology:search"
+      }
+    ]
+  }
+}

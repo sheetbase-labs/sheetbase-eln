@@ -1,6 +1,6 @@
 /**
  * The plugins that ship with Sheetbase, under `plugins/` in the app folder:
- * sequence tools (molecular biology), chemistry and protocols.io.
+ * sequence tools (molecular biology), chemistry, protocols.io and ontology lookup.
  *
  * They are ordinary plugins. They are installed from those folders with fixed
  * keys (the sequence-block migration and the chemistry adoption refer to them
@@ -35,6 +35,7 @@ export const BUILT_IN_PLUGINS: readonly BuiltInPlugin[] = [
   { folder: 'sequence-tools', key: 'sequence-tools' },
   { folder: 'chemistry', key: 'chemistry' },
   { folder: 'protocols-io', key: 'protocols-io' },
+  { folder: 'ontology-lookup', key: 'ontology-lookup' },
 ]
 
 /** The folders and files of a package: everything else in a plugin folder (sources, tests, vectors) stays out. */

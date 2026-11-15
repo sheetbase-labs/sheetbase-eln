@@ -290,9 +290,7 @@ function Plugins() {
             {t('plugins.admin.add')}
           </Button>
         }
-      >
-        {t('plugins.admin.intro')}
-      </SettingsHeader>
+      />
       <SettingsBody>
         {installs.isLoading ? (
           <Skeleton className="h-32 w-full" />
@@ -443,7 +441,7 @@ function pluginColumns({
         if (adds.length === 0) return <span className="text-fg-muted">—</span>
 
         return (
-          <span className="flex items-center gap-4">
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
             {adds.map((group) => {
               const label = t(`plugins.admin.points.${group.point}`)
 

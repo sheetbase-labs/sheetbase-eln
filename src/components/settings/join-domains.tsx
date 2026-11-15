@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/ui/button'
 import { Chip } from '#/components/ui/chip'
 import { Field, Input } from '#/components/ui/input'
-import { Muted, Section } from '#/components/ui/layout'
+import { Section } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
@@ -105,7 +105,6 @@ export function JoinDomainsSection({
 
   return (
     <Section title={t('settings.joinDomains.title')}>
-      <Muted>{t('settings.joinDomains.description')}</Muted>
       <div className="flex flex-wrap items-center gap-2">
         {domains.length === 0
           ? null

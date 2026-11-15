@@ -137,7 +137,6 @@ export function DirectorySyncSection({
 
   return (
     <Section title={t('people.directorySync.title')}>
-      <Muted>{t('people.directorySync.description')}</Muted>
       {summary && summary.peopleManaged > 0 ? (
         <Muted>
           {t('people.directorySync.summary', {
@@ -160,9 +159,7 @@ export function DirectorySyncSection({
           </Button>
         </Notice>
       ) : null}
-      {rows.length === 0 ? (
-        <Muted>{t('people.directorySync.none')}</Muted>
-      ) : (
+      {rows.length > 0 ? (
         <TableBox>
           <RegistryGrid
             label={t('people.directorySync.title')}
@@ -173,7 +170,7 @@ export function DirectorySyncSection({
             sortable={false}
           />
         </TableBox>
-      )}
+      ) : null}
       <form
         className="flex flex-wrap items-end gap-2"
         onSubmit={(event) => {

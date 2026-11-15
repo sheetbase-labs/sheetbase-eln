@@ -12,7 +12,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { t } from '#/copy'
 import { Dot } from '#/components/ui/status'
 import { Notice } from '#/components/ui/alert'
-import { DescriptionList, Inspector, Muted } from '#/components/ui/layout'
+import { DescriptionList, Inspector } from '#/components/ui/layout'
 import { Button } from '#/components/ui/button'
 import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
@@ -486,9 +486,6 @@ function IntakeSection({
               </option>
             ))}
           </Select>
-          <Muted>
-            {t('library.instruments.list.affectsFutureDataOnlyData')}
-          </Muted>
         </div>
       ) : null}
     </RegistrySection>

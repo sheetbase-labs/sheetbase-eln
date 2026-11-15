@@ -1,11 +1,11 @@
 /** Shipments: samples and materials leaving the lab or arriving at it. */
 export const shipments = {
   title: 'Shipments',
-  subtitle: 'Outgoing and incoming shipments',
+  subtitle: 'What has left the lab and what is on its way in',
   paneLabel: 'Shipments',
   newShipment: 'New shipment',
   tableLabel: 'Shipments',
-  searchPlaceholder: 'Search by number, who it is with or tracking…',
+  searchPlaceholder: 'Search shipments…',
   loadError: 'The shipments couldn’t be loaded.',
   readOnly: 'You can follow shipments here but not set them up.',
   tabs: {

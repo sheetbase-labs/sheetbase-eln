@@ -20,7 +20,6 @@ import {
   DescriptionList,
   Inspector,
   InspectorSection,
-  Muted,
 } from '#/components/ui/layout'
 import {
   ListFooter,
@@ -534,9 +533,6 @@ function ProtocolSummary({
               ],
             ]}
           />
-        </InspectorSection>
-        <InspectorSection title={t('library.protocols.list.versioning')}>
-          <Muted>{t('library.protocols.list.openTheProtocolToSee')}</Muted>
         </InspectorSection>
       </div>
     </Inspector>

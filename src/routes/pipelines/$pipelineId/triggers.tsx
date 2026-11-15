@@ -433,7 +433,7 @@ function scheduleColumns({
           </Button>
           <ConfirmDialog>
             <ConfirmDialogTrigger>
-              <Button size="sm" variant="quiet" disabled={remove.isPending}>
+              <Button size="sm" disabled={remove.isPending}>
                 {t('common.actions.delete')}
               </Button>
             </ConfirmDialogTrigger>

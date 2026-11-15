@@ -230,9 +230,11 @@ function PolicySection({
               key={m}
               title={t('settings.signatures.signatureMeaningUse2', { m })}
               body={
-                m === 'Witnessed'
-                  ? t('settings.signatures.someoneWhoSaw')
-                  : undefined
+                m === 'Authored'
+                  ? t('settings.signatures.alwaysEveryRecord')
+                  : m === 'Witnessed'
+                    ? t('settings.signatures.someoneWhoSaw')
+                    : undefined
               }
               checked={meanings[m] ?? false}
               disabled={!canManage || m === 'Authored'}
@@ -245,6 +247,9 @@ function PolicySection({
       </div>
       <Muted className="mt-3">
         {t('settings.signatures.passwordReEntry2')}
+      </Muted>
+      <Muted className="mt-2">
+        {t('settings.signatures.signatureAlwaysRecords')}
       </Muted>
     </Section>
   )

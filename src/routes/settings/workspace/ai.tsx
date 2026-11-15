@@ -224,9 +224,7 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
             canManage={canManage}
           />
         }
-      >
-        {t('settings.ai.groundedAssistanceWorkspace')}
-      </SettingsHeader>
+      />
 
       <SettingsBody data-testid="ai-settings">
         {query.isPending ? (
@@ -272,7 +270,10 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
               <Muted>{t('settings.ai.connectedCodingAgents')}</Muted>
               <Muted>
                 {t('settings.ai.createScopedToken2')}{' '}
-                <Link to="/settings/account/api">
+                <Link
+                  to="/settings/account/api"
+                  className="text-link underline"
+                >
                   {t('settings.ai.apiSdk')}
                 </Link>
               </Muted>

@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { rich, t } from '#/copy'
+import { t } from '#/copy'
 import { Button } from '#/components/ui/button'
 import { Muted } from '#/components/ui/layout'
 import { Notice } from '#/components/ui/alert'
@@ -72,7 +72,6 @@ export function WebhookCard({ definitionId }: { definitionId: string }) {
           </Button>
         ) : (
           <Button
-            variant="primary"
             disabled={change.isPending || state.isError}
             onClick={() => change.mutate('rotate')}
           >
@@ -178,22 +177,13 @@ export function RunKeeps({
   const kept = KEEPS.find((option) => option.mode === mode) ?? KEEPS[0]
 
   return (
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-      <span className="text-body text-fg">{kept.title}</span>
-      <Muted>
-        {rich('data.triggersOutputs.changeWhereResultGoes', {
-          link: (text) => (
-            <Link
-              to="/pipelines/$pipelineId/steps"
-              params={{ pipelineId }}
-              className="text-link underline"
-            >
-              {text}
-            </Link>
-          ),
-        })}
-      </Muted>
-    </div>
+    <Link
+      to="/pipelines/$pipelineId/steps"
+      params={{ pipelineId }}
+      className="w-fit text-body text-fg hover:text-link"
+    >
+      {kept.title}
+    </Link>
   )
 }
 

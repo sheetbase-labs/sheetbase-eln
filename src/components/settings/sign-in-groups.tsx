@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
-import { Muted, Section } from '#/components/ui/layout'
+import { Section } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
 import { TableBox } from '#/components/ui/table'
@@ -135,10 +135,7 @@ export function SignInGroupsSection({
         ) : undefined
       }
     >
-      <Muted>{t('people.groups.description')}</Muted>
-      {rows.length === 0 ? (
-        <Muted>{t('people.groups.none')}</Muted>
-      ) : (
+      {rows.length > 0 ? (
         <TableBox>
           <RegistryGrid
             label={t('people.groups.title')}
@@ -149,7 +146,7 @@ export function SignInGroupsSection({
             sortable={false}
           />
         </TableBox>
-      )}
+      ) : null}
       {canManage ? (
         <>
           <form
@@ -197,7 +194,6 @@ export function SignInGroupsSection({
               {t('people.groups.add')}
             </Button>
           </form>
-          <Muted>{t('people.groups.hint')}</Muted>
         </>
       ) : null}
     </Section>

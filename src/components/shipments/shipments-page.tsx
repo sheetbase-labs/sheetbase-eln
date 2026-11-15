@@ -321,6 +321,14 @@ export function ShipmentsPage({ canWrite }: { canWrite: boolean }) {
     </Button>
   ) : null
 
+  // The header carries the page's one primary; the blank state offers the same
+  // step without a second blue button.
+  const emptyNewButton = canWrite ? (
+    <Button onClick={() => setCreating(true)}>
+      {t('shipments.newShipment')}
+    </Button>
+  ) : null
+
   const countsByTab = shipments.isPending
     ? null
     : {
@@ -370,7 +378,7 @@ export function ShipmentsPage({ canWrite }: { canWrite: boolean }) {
           columns={columns}
           tab={tab}
           filtered={needle !== ''}
-          newButton={newButton}
+          newButton={emptyNewButton}
           canWrite={canWrite}
           onRowClick={setSelected}
         />

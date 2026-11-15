@@ -595,7 +595,6 @@ function PipelinesHeader({
               </ReadOnlyNote>
             )}
             <Button
-              variant="quiet"
               size="sm"
               nativeButton={false}
               icon="table"
@@ -604,7 +603,6 @@ function PipelinesHeader({
               {t('features.pipelineParameterSets.page.title')}
             </Button>
             <Button
-              variant="quiet"
               size="sm"
               nativeButton={false}
               icon="pipeline"

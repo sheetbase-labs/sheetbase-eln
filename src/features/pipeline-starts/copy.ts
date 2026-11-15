@@ -259,7 +259,7 @@ export const copy = {
     runsAsBody: 'Every change is recorded under this name and the run number.',
     scope: {
       reads: 'Reads {names}',
-      createsDataset: 'Creates the Dataset {name}',
+      createsDataset: 'Creates dataset {name}',
       appends: 'Appends to {name}',
       does: '{action}',
       proposes: 'Proposes: {action}',

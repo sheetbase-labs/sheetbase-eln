@@ -74,7 +74,7 @@ function PipelineActivity() {
         actorLabel={actorLabel}
       />
       <Section
-        title={t('features.pipelineApprovals.activity.title')}
+        title={t('features.pipelineApprovals.activity.changes')}
         count={events.length || undefined}
       >
         {events.length === 0 && !versions.isLoading ? (

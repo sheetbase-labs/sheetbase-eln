@@ -120,6 +120,8 @@ function useProfileGuard({
     save,
     discard,
   })
+
+  return dirty
 }
 
 function Profile() {
@@ -162,7 +164,7 @@ function Profile() {
     profile: profile.data,
   })
 
-  useProfileGuard({
+  const changed = useProfileGuard({
     values: { name, timeZone, initials, jobTitle },
     saved: {
       name: user.name,
@@ -197,7 +199,10 @@ function Profile() {
             busy={saveProfile.busy}
             onSave={() => void saveProfile.save()}
             disabled={
-              Boolean(error) || Boolean(timeZoneError) || Boolean(initialsError)
+              !changed ||
+              Boolean(error) ||
+              Boolean(timeZoneError) ||
+              Boolean(initialsError)
             }
           />
         }
@@ -215,22 +220,14 @@ function Profile() {
             className="grid w-full grid-cols-1 gap-x-5 gap-y-3.5 md:w-auto md:grid-cols-[250px_minmax(250px,22rem)]"
             onKeyDown={saveOnEnter}
           >
-            <Field
-              label={t('settings.profile.fullName')}
-              hint={t('settings.profile.printedSignedRecordsHint')}
-              error={error}
-            >
+            <Field label={t('settings.profile.fullName')} error={error}>
               <Input
                 value={name}
                 aria-invalid={Boolean(error) || undefined}
                 onChange={(e) => setName(e.target.value)}
               />
             </Field>
-            <Field
-              label={t('settings.profile.initials')}
-              hint={t('settings.profile.shownAvatarDerivedHint')}
-              error={initialsError}
-            >
+            <Field label={t('settings.profile.initials')} error={initialsError}>
               <Input
                 value={initials}
                 maxLength={6}
@@ -238,31 +235,21 @@ function Profile() {
                 onChange={(e) => setInitials(e.target.value)}
               />
             </Field>
-            <Field
-              label={t('settings.profile.jobTitle')}
-              hint={t('settings.profile.shownBesideNameHint')}
-            >
+            <Field label={t('settings.profile.jobTitle')}>
               <Input
                 value={jobTitle}
                 placeholder={t('settings.profile.researchScientistPlaceholder')}
                 onChange={(e) => setJobTitle(e.target.value)}
               />
             </Field>
-            <Field
-              label={t('settings.profile.username')}
-              hint={t('settings.profile.setAdministratorHint2')}
-            >
+            <Field label={t('settings.profile.username')}>
               <Input
                 value={context.workspace?.username ?? '—'}
                 readOnly
                 className="bg-surface-muted text-fg-muted"
               />
             </Field>
-            <Field
-              label={t('settings.profile.timeZone')}
-              hint={t('settings.profile.timesAcrossSheetbaseHint')}
-              error={timeZoneError}
-            >
+            <Field label={t('settings.profile.timeZone')} error={timeZoneError}>
               <Input
                 value={timeZone}
                 list="profile-time-zones"
@@ -276,10 +263,7 @@ function Profile() {
                 ))}
               </datalist>
             </Field>
-            <Field
-              label={t('settings.profile.email')}
-              hint={t('settings.profile.companySignHint')}
-            >
+            <Field label={t('settings.profile.email')}>
               <div className="relative">
                 <Input
                   value={user.email}
@@ -301,10 +285,7 @@ function Profile() {
                 </Button>
               </div>
             </Field>
-            <Field
-              label={t('settings.profile.role')}
-              hint={t('settings.profile.setAdministratorHint')}
-            >
+            <Field label={t('settings.profile.role')}>
               <Input
                 value={context.workspace?.role ?? '—'}
                 readOnly
@@ -523,18 +504,12 @@ function DisplayPreferences() {
               )
             })}
           </div>
-          <span className="text-label text-fg-muted">
-            {t('settings.profile.appliesEverySheetbase')}
-          </span>
         </div>
       </Section>
 
       <Section title={t('settings.profile.display')}>
         <div className="flex flex-col gap-3.5">
-          <Field
-            label={t('settings.profile.clock')}
-            hint={t('settings.profile.clockHint')}
-          >
+          <Field label={t('settings.profile.clock')}>
             <div
               role="radiogroup"
               aria-label={t('settings.profile.clock')}

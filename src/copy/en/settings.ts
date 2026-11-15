@@ -110,8 +110,6 @@ export const settings = {
   ai: {
     aiSettingsSavedToast: 'AI settings saved',
     aiAccessFlagsToast: 'AI access flags saved',
-    groundedAssistanceWorkspace:
-      'AI output is assistive: it never signs, approves or commits a change.',
     ai: 'AI',
     reloadPageProblem:
       'Reload the page. If it keeps happening, ask your admin.',
@@ -239,7 +237,7 @@ export const settings = {
     auditEntriesMatch:
       'No audit entries match — clear the search and the operation filter to see the whole log.',
     apiCredential: 'API credential',
-    projects2: '· all projects. ',
+    projects2: ' · all projects. ',
     retentionPolicy: 'Retention policy',
     anyone: 'Anyone',
     projects3: 'All projects',
@@ -422,7 +420,7 @@ export const settings = {
       on: 'On. People can edit Word, Excel and PowerPoint files in the browser. Editor: {origin}',
       unreachable:
         'Set up at {origin}, but it is not answering. Check that Collabora is running.',
-      off: 'Off. Collabora Online isn’t set up.',
+      off: 'Collabora Online isn’t set up.',
     },
     connectInstrumentsStorage:
       'Connect instruments and storage, check recent runs and resolve failures.',
@@ -566,7 +564,8 @@ export const settings = {
         'Adds a completed run holding the raw file to this instrument.',
       none: '— None —',
       detectFileFormat: 'Detect the file format',
-      otherwiseEveryFile: '· otherwise every file uses this connector’s parser',
+      otherwiseEveryFile:
+        ' · otherwise every file uses this connector’s parser',
       savePickupSettings: 'Save pickup settings',
       askWorkspaceOwner:
         'Ask a workspace owner, admin or data steward to change pickup settings.',
@@ -603,7 +602,7 @@ export const settings = {
       runsYet: 'No runs yet',
       errorMessage: 'No error message',
       dataset: 'Dataset',
-      rawFile: '· raw file',
+      rawFile: ' · raw file',
       technicalResultPayload: 'Full result',
       hideAction: 'Hide',
       showAction: 'Show',
@@ -872,7 +871,7 @@ export const settings = {
     quietHoursStartAria: 'Quiet hours start',
     quietHoursEndAria: 'Quiet hours end',
     reviewsDueToday:
-      'Reviews due today and signature requests always come through. Times are in your time zone ({zone}), which you can change in your profile.',
+      'Reviews due today and signature requests always come through. An end earlier than the start runs overnight. Times are in your time zone ({zone}), which you can change in your profile.',
     digest: 'Digest',
     send: 'Send at',
     digestTimeAria: 'Digest time',
@@ -1064,6 +1063,10 @@ export const settings = {
     signatureMeaningUse2: '{m}',
     someoneWhoSaw:
       'Someone who saw the work done signs other people’s records when asked.',
+    signatureAlwaysRecords:
+      'A signature always records the signer, the time, the meaning and the exact version it applies to. Signed records are locked; changes need an amendment and a new review.',
+    alwaysEveryRecord:
+      'Asked for by the Controlled scientific review workflow, where the author signs before review.',
     passwordReEntry2:
       'Password re-entry is required for every signature. Three consecutive failed attempts lock signing for 15 minutes.',
     certificationStatementSavedToast: 'Certification statement saved',
@@ -1189,7 +1192,7 @@ export const settings = {
     restProxy: 'REST proxy',
     apiDb: '/api/db/{table}',
     mcpServer: 'MCP server',
-    jsonRpc: '· JSON-RPC',
+    jsonRpc: ' · JSON-RPC',
     postApiMcp: 'POST /api/mcp',
     useTokenIntro:
       'The same bearer token works with the REST proxy and the MCP server. Put a token in {variable} and run the request below; it lists up to five projects the token can read.',
@@ -1537,7 +1540,7 @@ export const settings = {
     couldLoadSessions: 'Couldn’t load your sessions.',
     otherSessions: 'No other sessions',
     onlySignedDeviceDescription: 'You’re only signed in on this device.',
-    started: '· started',
+    started: ' · started',
     current: 'Current',
     signOut: 'Sign out',
     browser: 'Browser',
@@ -1975,7 +1978,7 @@ export const settings = {
       shortcuts: 'All shortcuts',
       whatNew: 'What’s new',
       sheetbase: 'Sheetbase {version}',
-      running: '· running here',
+      running: ' · running here',
       aboutReleaseAria: 'About this release',
       support: 'Support',
       supportRequestsSheetbase:

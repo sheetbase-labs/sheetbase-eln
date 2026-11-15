@@ -362,8 +362,8 @@ function Experiments() {
     records.isFetching,
     setLimit,
   )
-  const hasProjectAccess = useHasProjectAccess()
 
+  const hasProjectAccess = useHasProjectAccess()
   // The database already applied the tab, project, date window and search.
   const visible = rows
 

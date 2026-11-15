@@ -230,11 +230,9 @@ function PolicySection({
               key={m}
               title={t('settings.signatures.signatureMeaningUse2', { m })}
               body={
-                m === 'Authored'
-                  ? t('settings.signatures.alwaysEveryRecord')
-                  : m === 'Witnessed'
-                    ? t('settings.signatures.someoneWhoSaw')
-                    : undefined
+                m === 'Witnessed'
+                  ? t('settings.signatures.someoneWhoSaw')
+                  : undefined
               }
               checked={meanings[m] ?? false}
               disabled={!canManage || m === 'Authored'}

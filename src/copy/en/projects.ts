@@ -148,8 +148,6 @@ export const projects = {
       stageIs: 'Stage is',
       clientIs: 'Client is',
       modalityIs: 'Modality is',
-      removeStatusNotArchived: 'Remove filter: status isn’t Archived',
-      chipStatusNotArchived: 'Status isn’t <b>Archived</b>',
       removeStage: 'Remove filter: stage is {value}',
       chipStage: 'Stage is <b>{value}</b>',
       remove: {
@@ -2015,8 +2013,6 @@ export const projects = {
     last30: 'Last 30 days',
     anyTime: 'Any time',
     search: 'Search experiments',
-    removeRecent: 'Remove filter: updated in last 30 days',
-    recentChip: 'Updated in last 30 days',
     noMatch: 'No experiments match “{query}”',
     hiddenOld: {
       one: '{count} older experiment matches outside the last 30 days.',

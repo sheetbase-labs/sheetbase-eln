@@ -210,7 +210,7 @@ describe('ProjectsPage', () => {
     expect(screen.getAllByText('In progress').length).toBeGreaterThan(0)
   })
 
-  it('hides archived projects on the All tab behind the stated filter', () => {
+  it('hides archived projects on the All tab and says how many', () => {
     renderPage([
       row(),
       row({
@@ -221,26 +221,28 @@ describe('ProjectsPage', () => {
       row({ id: 'PRJ-0170', name: 'Old project', archived: true }),
     ])
     expect(screen.queryByText('Old project')).toBeNull()
+    // Hiding archived is how the list starts: no chip, no filter count.
     expect(
-      screen.getByRole('button', {
+      screen.queryByRole('button', {
         name: 'Remove filter: status isn’t Archived',
       }),
-    ).toBeTruthy()
+    ).toBeNull()
     expect(screen.getByText(/^2 projects$/)).toBeTruthy()
     expect(screen.getByText(/1 archived hidden by filter/)).toBeTruthy()
   })
 
-  it('hides archived projects only while the stated filter is on', () => {
+  it('hides archived projects while the list starts without them', () => {
     renderPage(
       [row(), row({ id: 'PRJ-0170', name: 'Old project', archived: true })],
       { tab: 'inprogress', archived: 'exclude' },
     )
     expect(screen.queryByText('Old project')).toBeNull()
+    // Hiding archived is how the list starts: no chip, no filter count.
     expect(
-      screen.getByRole('button', {
+      screen.queryByRole('button', {
         name: 'Remove filter: status isn’t Archived',
       }),
-    ).toBeTruthy()
+    ).toBeNull()
     expect(screen.getByText(/1 archived hidden by filter/)).toBeTruthy()
   })
 

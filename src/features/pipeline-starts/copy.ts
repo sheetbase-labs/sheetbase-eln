@@ -9,7 +9,7 @@ export const copy = {
   },
   tab: {
     title: 'Starts and runs',
-    heading: 'Starts',
+    heading: 'Starts and runs',
     loading: 'Loading starts…',
     failure: 'starts',
     subtitle: 'v{version} starts on {list}',

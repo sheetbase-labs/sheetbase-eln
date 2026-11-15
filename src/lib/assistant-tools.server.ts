@@ -373,6 +373,18 @@ export async function createAssistantToolkit(deps: {
     )
   }
 
+  // A model provider rejects a request that names one tool twice, so a tool two
+  // areas both declare is offered once (the first declaration wins).
+  const offered = new Set<string>()
+
+  const unique = defs.filter((def) => {
+    if (offered.has(def.name)) return false
+    offered.add(def.name)
+
+    return true
+  })
+  defs.splice(0, defs.length, ...unique)
+
   const timeZone = deps.timeZone ?? 'UTC'
 
   const labContext = {

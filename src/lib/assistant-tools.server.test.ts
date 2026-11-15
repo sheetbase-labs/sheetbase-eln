@@ -35,6 +35,13 @@ describe('assistant toolkit proposals', () => {
     expect(on?.instructions).toContain('card')
   })
 
+  it('offers each tool once, because a model provider rejects a repeated name', async () => {
+    const kit = await toolkit({ mcp_draft: true })
+    const names = kit?.defs.map((def) => def.name) ?? []
+    expect(names.length).toBeGreaterThan(0)
+    expect(new Set(names).size).toBe(names.length)
+  })
+
   it('answers a bad proposal with a message and no card', async () => {
     const kit = await toolkit({ mcp_draft: true })
 

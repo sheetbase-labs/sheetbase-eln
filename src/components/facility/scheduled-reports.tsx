@@ -569,6 +569,32 @@ function resultLabel(report: ScheduledReport): string {
   return `${when} · ${t('spend.schedule.lastResult.sent', { count: report.lastRecipientCount ?? 0 })}`
 }
 
+/** The Schedule a report button, or the note that this role cannot schedule one. */
+function ScheduleAction({
+  canSchedule,
+  showNew,
+  onNew,
+}: {
+  canSchedule: boolean
+  showNew: boolean
+  onNew: () => void
+}) {
+  if (!canSchedule)
+    return (
+      <p className="m-0 text-caption text-fg-muted">
+        {t('spend.schedule.readOnly')}
+      </p>
+    )
+
+  if (!showNew) return null
+
+  return (
+    <Button variant="primary" onClick={onNew}>
+      {t('spend.schedule.new')}
+    </Button>
+  )
+}
+
 export function ScheduledReportsPanel({
   emailConfigured,
 }: {
@@ -727,17 +753,11 @@ export function ScheduledReportsPanel({
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <span className="flex-1" />
-        {canSchedule ? (
-          rows.length > 0 || reports.isPending ? (
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              {t('spend.schedule.new')}
-            </Button>
-          ) : null
-        ) : (
-          <p className="m-0 text-caption text-fg-muted">
-            {t('spend.schedule.readOnly')}
-          </p>
-        )}
+        <ScheduleAction
+          canSchedule={canSchedule}
+          showNew={rows.length > 0 || reports.isPending}
+          onNew={() => setCreating(true)}
+        />
       </div>
       {reports.isError ? (
         <p role="alert" className="m-0 text-body text-danger-text">
@@ -750,9 +770,11 @@ export function ScheduledReportsPanel({
           description={t('spend.schedule.empty.body')}
           action={
             canSchedule ? (
-              <Button variant="primary" onClick={() => setCreating(true)}>
-                {t('spend.schedule.new')}
-              </Button>
+              <ScheduleAction
+                canSchedule
+                showNew
+                onNew={() => setCreating(true)}
+              />
             ) : undefined
           }
         />

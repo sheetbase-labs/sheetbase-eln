@@ -114,8 +114,22 @@ export interface ExtensionOperationDeclaration {
   access: 'read' | 'write'
   inputs: ExtensionField[]
   outputs: ExtensionField[]
+  /**
+   * Values an administrator sets once in Settings → Plugins (an address, a
+   * token). A secret is sealed; the function receives them as `_settings`.
+   */
+  settings?: ExtensionOperationSetting[]
   runner: ExtensionRunner
 }
+
+export interface ExtensionOperationSetting {
+  name: string
+  label: string
+  secret: boolean
+  required: boolean
+}
+
+export const MAX_OPERATION_SETTINGS = 8
 
 export const EXTENSION_CHART_TYPES = ['line', 'scatter', 'bar'] as const
 
@@ -390,6 +404,50 @@ export function list(
   return parsed.data
 }
 
+const operationSetting = z.strictObject({
+  name: z.string().regex(EXTENSION_FIELD_NAME_RE),
+  label: z.string().trim().min(1).max(80),
+  secret: z.boolean(),
+  required: z.boolean(),
+})
+
+function operationSettings(
+  where: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A raw manifest list; each entry is decoded by operationSetting and duplicate names are refused before it is returned.
+  value: unknown,
+  errors: string[],
+): ExtensionOperationSetting[] | null {
+  if (value === undefined) return []
+
+  if (!Array.isArray(value) || value.length > MAX_OPERATION_SETTINGS) {
+    errors.push(
+      `${where} settings must be a list of at most ${MAX_OPERATION_SETTINGS}`,
+    )
+
+    return null
+  }
+
+  const seen = new Set<string>()
+  const out: ExtensionOperationSetting[] = []
+
+  for (const candidate of value) {
+    const parsed = operationSetting.safeParse(candidate)
+
+    if (!parsed.success || seen.has(parsed.data.name)) {
+      errors.push(
+        `${where} settings need a unique name, a label of 1-80 characters, secret and required`,
+      )
+
+      return null
+    }
+
+    seen.add(parsed.data.name)
+    out.push(parsed.data)
+  }
+
+  return out
+}
+
 export function parseOperations(
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This public manifest boundary delegates immediately to the bounded list parser, then parses identity, fields and runner before returning an operation (manifest.test.ts).
   value: unknown,
@@ -417,8 +475,11 @@ export function parseOperations(
     const outputs = fieldList(name, 'outputs', entry.outputs, errors)
     const run = runner(name, entry.runner, errors)
 
-    if (!inputs || !outputs || !run) return null
-    out.push({
+    const settings = operationSettings(name, entry.settings, errors)
+
+    if (!inputs || !outputs || !run || !settings) return null
+
+    const operation: ExtensionOperationDeclaration = {
       id: identity.id,
       title: identity.title,
       description: identity.description ?? '',
@@ -426,7 +487,10 @@ export function parseOperations(
       inputs,
       outputs,
       runner: run,
-    })
+    }
+
+    if (settings.length > 0) operation.settings = settings
+    out.push(operation)
   }
 
   return out

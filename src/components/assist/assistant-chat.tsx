@@ -382,6 +382,21 @@ const resourceInput = z.looseObject({ resource: z.string() })
 /** The lab area a list call names, when the call carried one. */
 const areaInput = z.looseObject({ area: z.string() })
 
+/** The words a lookup searched for, when the call carried any. */
+const whatInput = z.looseObject({
+  query: z.string().optional(),
+  recordId: z.string().optional(),
+})
+
+const searchedFor = (
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A tool call's input is the model's raw JSON; the schema above decodes the one field the label reads.
+  input: unknown,
+): string => {
+  const query = whatInput.safeParse(input).data?.query?.trim()
+
+  return query ? `“${query.slice(0, 40)}”` : 'what is there'
+}
+
 /** The plain-language name for one lookup, by tool. */
 function lookupLabel(
   toolName: string,
@@ -459,6 +474,27 @@ function lookupLabel(
     case 'sheetbase.run.update':
     case 'sheetbase.connector.set_status':
       return t(`notebook.assistantPanel.lookup.bench.${phase}`)
+    case 'sheetbase.protocol.read':
+    case 'sheetbase.protocols.read':
+      return t(`notebook.assistantPanel.lookup.protocols.${phase}`, {
+        what: searchedFor(input),
+      })
+    case 'sheetbase.stock.read':
+      return t(`notebook.assistantPanel.lookup.stock.${phase}`, {
+        what: searchedFor(input),
+      })
+    case 'sheetbase.template.list':
+    case 'sheetbase.templates.read':
+      return t(`notebook.assistantPanel.lookup.templates.${phase}`, {
+        what: searchedFor(input),
+      })
+    case 'plugin.protocols-io.search':
+      return t(`notebook.assistantPanel.lookup.protocolsIo.${phase}`, {
+        what: searchedFor(input),
+      })
+    case 'plugin.protocols-io.read':
+    case 'plugin.protocols-io.import':
+      return t(`notebook.assistantPanel.lookup.protocolsIoRead.${phase}`)
     case 'sheetbase.inbox.read':
       return t(`notebook.assistantPanel.lookup.inbox.${phase}`)
     case 'sheetbase.search.semantic':

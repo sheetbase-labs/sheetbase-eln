@@ -4,6 +4,8 @@ import type { ModelRuleOperand, UpdateModelRulePatch } from '#/lib/model-rules'
 import { ADDABLE_COLUMN_TYPES } from '#/lib/sheet-definition-add-column'
 import type { SheetDefinitionConfiguration } from '#/lib/sheet-definition'
 import type { TemplateSheetColumnTarget } from '#/lib/template-sheet-column'
+import { templateDraftSchema } from '#/lib/assistant-template-draft'
+import type { NotebookTemplateConfiguration } from '#/lib/notebook-template'
 
 /**
  * Record types (models), sheet definitions and templates from the assistant.
@@ -53,6 +55,8 @@ export const SHEET_DEFINITION_RESTORE_TOOL =
   'sheetbase.sheet_definition.restore'
 
 export const TEMPLATE_PUBLISH_TOOL = 'sheetbase.template.publish'
+export const TEMPLATE_CREATE_TOOL = 'sheetbase.template.create'
+export const TEMPLATE_UPDATE_TOOL = 'sheetbase.template.update'
 export const SHEET_RENAME_TOOL = 'sheetbase.sheet.rename'
 
 export const TEMPLATE_ADD_SHEET_COLUMN_TOOL =
@@ -76,6 +80,8 @@ export const SCHEMA_PROPOSE_TOOL_NAMES = [
   SHEET_DEFINITION_RETIRE_TOOL,
   SHEET_DEFINITION_RESTORE_TOOL,
   TEMPLATE_PUBLISH_TOOL,
+  TEMPLATE_CREATE_TOOL,
+  TEMPLATE_UPDATE_TOOL,
   SHEET_RENAME_TOOL,
   TEMPLATE_ADD_SHEET_COLUMN_TOOL,
 ] as const
@@ -302,6 +308,22 @@ export const proposeSheetRenameSchema = z.strictObject({
   name: z.string().min(1).max(200).describe('The new name.'),
 })
 
+export const proposeTemplateCreateSchema = z.strictObject({
+  title,
+  summary,
+  name: z.string().min(1).max(120).describe('What people call the template.'),
+  key: key.optional().describe('Leave out to make one from the name.'),
+  description: z.string().max(500).optional(),
+  ...templateDraftSchema,
+})
+
+export const proposeTemplateUpdateSchema = z.strictObject({
+  title,
+  summary,
+  template: named('The notebook template.'),
+  ...templateDraftSchema,
+})
+
 export const proposeTemplateSheetColumnSchema = z.strictObject({
   title,
   summary,
@@ -391,6 +413,22 @@ export type SchemaAction =
       versionId: string
       revision: number
       reason: string
+    }
+  | {
+      kind: 'schema.template_create'
+      workspaceId: string
+      key: string
+      name: string
+      description: string | null
+      configuration: NotebookTemplateConfiguration
+    }
+  | {
+      kind: 'schema.template_update'
+      templateId: string
+      templateRevision: number
+      /** The draft to replace, or null to start a new draft version. */
+      draft: { versionId: string; revision: number } | null
+      configuration: NotebookTemplateConfiguration
     }
   | {
       kind: 'schema.template_add_sheet_column'

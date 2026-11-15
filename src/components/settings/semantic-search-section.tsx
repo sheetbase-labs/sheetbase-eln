@@ -121,6 +121,58 @@ function useSemanticSettings(workspaceId: string) {
   return { query, form, setForm, save, reread }
 }
 
+/** What keeps search by meaning off, in one banner; an owner gets a link to
+ * the assistant setting that fixes each line. */
+function SemanticNotices({
+  noModels,
+  assistantOff,
+  needsConsent,
+  canFix,
+}: {
+  noModels: boolean
+  assistantOff: boolean
+  needsConsent: boolean
+  canFix: boolean
+}) {
+  const lines = [
+    noModels && { text: t('settings.semanticSearch.noModels') },
+    assistantOff && {
+      text: t('settings.semanticSearch.needsAssistant'),
+      fix: t('settings.semanticSearch.turnOnAssistant'),
+    },
+    needsConsent && {
+      text: t('settings.semanticSearch.needsConsent'),
+      fix: t('settings.semanticSearch.allowCloud'),
+    },
+  ].filter((line) => line !== false)
+
+  if (!lines.length) return null
+
+  return (
+    <Notice tone={needsConsent ? 'warn' : 'info'}>
+      <ul
+        className={
+          lines.length > 1 ? 'm-0 list-disc pl-4' : 'm-0 list-none p-0'
+        }
+      >
+        {lines.map((line) => (
+          <li key={line.text}>
+            {line.text}
+            {line.fix && canFix ? (
+              <>
+                {' '}
+                <a href="#ai-assistant" className="text-link underline">
+                  {line.fix}
+                </a>
+              </>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </Notice>
+  )
+}
+
 export function SemanticSearchSection({
   workspaceId,
   cloudAllowed,
@@ -164,15 +216,12 @@ export function SemanticSearchSection({
         onChange={(profile) => setForm({ ...form, profile })}
       />
 
-      {!assistantOn ? (
-        <Notice tone="info">
-          {t('settings.semanticSearch.needsAssistant')}
-        </Notice>
-      ) : null}
-
-      {blockedByConsent ? (
-        <Notice tone="warn">{t('settings.semanticSearch.needsConsent')}</Notice>
-      ) : null}
+      <SemanticNotices
+        noModels={view.profiles.length === 0}
+        assistantOff={!assistantOn}
+        needsConsent={blockedByConsent}
+        canFix={view.canManage}
+      />
 
       <CheckRow
         title={t('settings.semanticSearch.literature')}
@@ -221,8 +270,7 @@ function SemanticModelPicker({
   profile: string | null
   onChange: (profile: string | null) => void
 }) {
-  if (view.profiles.length === 0)
-    return <Notice tone="info">{t('settings.semanticSearch.noModels')}</Notice>
+  if (view.profiles.length === 0) return null
 
   return (
     <Field

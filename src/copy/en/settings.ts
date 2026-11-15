@@ -78,17 +78,19 @@ export const settings = {
       'Find notebooks, files and comments that talk about the same thing in different words, answer questions across the lab, and see earlier work like what is on the page. Text is read in the background, only while this is on.',
     enable: 'Search by meaning',
     needsAssistant:
-      'Search by meaning follows the assistant switch above. Turn the assistant on for this workspace and nothing is read until you do.',
+      'It stays off until the assistant is on for this workspace.',
+    turnOnAssistant: 'Turn it on',
+    allowCloud: 'Allow cloud models',
     model: 'Model that reads the text',
     modelHint:
       'Set up by whoever runs this installation. A model on your own network keeps the text inside the lab.',
     noModels:
-      'No model for reading text is set up on this installation yet, so this stays off. Whoever runs the installation can add one.',
+      'No model for reading text is set up yet. Whoever runs the installation can add one.',
     chooseModel: 'Choose a model',
     cloud: 'cloud',
     local: 'on your network',
     needsConsent:
-      'This model sends text to a cloud provider. Allow that for this lab in the assistant section above first.',
+      'This model sends text to a cloud provider, which the assistant settings must allow first.',
     literature: 'Search published papers',
     literatureBody:
       'Let the assistant and the search page look up papers on Europe PMC, PubMed and OpenAlex. Only the words you search for are sent, never your notebooks.',
@@ -141,6 +143,7 @@ export const settings = {
     flagsOnlyReduce:
       'Flags can only narrow what a token’s scopes and roles already allow. They never grant access, and agents can’t change them.',
     lastChanged: 'Last changed',
+    fixInAssistantSettings: 'Fix in assistant settings',
     assistantStatus: 'Assistant status',
     assistantUnavailable: 'Assistant unavailable',
     saveToApplyPolicy: ' Save your changes to apply the new policy.',
@@ -1047,8 +1050,6 @@ export const settings = {
     requestNewVerification: 'Request new verification for recovery',
     requestIdentityVerification: 'Request identity verification',
     certificationRefused: 'Certification was refused.',
-    alwaysEveryRecord:
-      'Asked for by the Controlled scientific review workflow, where the author signs before review.',
     oneUseSecret:
       'A one-use secret was delivered to your independently verified email. It expires in five minutes; reissuing invalidates the previous secret.',
     recoveryCompletedOld:

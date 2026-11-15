@@ -251,12 +251,14 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
               canManage={canManage}
             />
 
-            <AssistantConfiguration
-              form={form}
-              profiles={view.profiles}
-              onChange={setForm}
-              canManage={canManage}
-            />
+            <div id="ai-assistant" className="scroll-mt-4">
+              <AssistantConfiguration
+                form={form}
+                profiles={view.profiles}
+                onChange={setForm}
+                canManage={canManage}
+              />
+            </div>
 
             <SemanticSearchSection
               workspaceId={workspaceId}
@@ -310,10 +312,12 @@ function AiNotices({
   providerConfigError: string | null | undefined
   canManage: boolean
 }) {
-  const lines: string[] = []
+  const lines: { text: string; fix?: string }[] = []
 
-  if (!canManage) lines.push(t('settings.ai.onlyWorkspaceOwner'))
-  if (providerConfigError) lines.push(providerConfigError)
+  if (!canManage) lines.push({ text: t('settings.ai.onlyWorkspaceOwner') })
+
+  if (providerConfigError)
+    lines.push({ text: providerConfigError, fix: '#ai-assistant' })
 
   if (
     !readiness.ready &&
@@ -321,22 +325,32 @@ function AiNotices({
     readiness.reason !== 'feature_disabled' &&
     readiness.reason !== 'provider_config_invalid'
   )
-    lines.push(aiReadinessMessage(readiness))
+    lines.push({ text: aiReadinessMessage(readiness), fix: '#ai-assistant' })
 
-  if (dirty) lines.push(t('settings.ai.saveChangesApply'))
+  if (dirty) lines.push({ text: t('settings.ai.saveChangesApply') })
   if (!lines.length) return null
 
   return (
     <Notice tone={providerConfigError ? 'bad' : 'warn'}>
-      {lines.length === 1 ? (
-        lines[0]
-      ) : (
-        <ul className="m-0 list-disc pl-4">
-          {lines.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-      )}
+      <ul
+        className={
+          lines.length > 1 ? 'm-0 list-disc pl-4' : 'm-0 list-none p-0'
+        }
+      >
+        {lines.map((line) => (
+          <li key={line.text}>
+            {line.text}
+            {line.fix && canManage ? (
+              <>
+                {' '}
+                <a href={line.fix} className="text-link underline">
+                  {t('settings.ai.fixInAssistantSettings')}
+                </a>
+              </>
+            ) : null}
+          </li>
+        ))}
+      </ul>
     </Notice>
   )
 }

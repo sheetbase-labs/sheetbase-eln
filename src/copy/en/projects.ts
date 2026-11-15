@@ -3132,6 +3132,7 @@ export const projects = {
       other: 'Open inbox · {count} items',
     },
     allInInbox: 'All in inbox',
+    shownOfTotal: '{shown} of {total}',
     noReviews: 'Nothing awaiting your review',
     noReviewsBody: 'Submitted records assigned to you appear here.',
     allRecent: 'All recent',

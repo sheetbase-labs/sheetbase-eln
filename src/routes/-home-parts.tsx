@@ -422,7 +422,14 @@ export function HomeReviewsSection({
   return (
     <Section
       title={t('projects.home.sections.awaitingReview')}
-      count={count}
+      count={
+        count != null && reviews.length < count
+          ? t('projects.home.shownOfTotal', {
+              shown: reviews.length,
+              total: count,
+            })
+          : count
+      }
       action={
         <Link to="/inbox" className="text-label">
           {t('projects.home.allInInbox')}

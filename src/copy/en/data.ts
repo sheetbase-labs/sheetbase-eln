@@ -2047,6 +2047,7 @@ export const data = {
     configurePublishVersionSteps: 'Configure and publish a version in Steps.',
     pipelineTriggers: 'Pipeline triggers',
     noTriggers: 'No triggers',
+    runBoundaries: 'What a started run can do',
     triggersOptionalRunPublished:
       'Triggers are optional. Run a published version manually, or add a schedule or event to start it automatically.',
     signApproveSubmitRecords: 'Sign, approve or submit records',

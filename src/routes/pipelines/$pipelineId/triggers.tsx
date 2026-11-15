@@ -167,31 +167,39 @@ const NEVER_ALLOWED = [
  * signs, and its Python steps run isolated from the database. */
 function RunBoundaries() {
   return (
-    <div className="mt-6 grid gap-4 border-t border-line pt-4 md:grid-cols-2">
-      <div>
-        <h3 className="text-caption font-medium text-fg">
-          {t('data.pipelineTriggers.runsAs')}
-        </h3>
-        <Muted>{t('data.pipelineTriggers.pipelineItselfEveryChange')}</Muted>
-        <h3 className="mt-3 text-caption font-medium text-fg">
-          {t('data.pipelineTriggers.pythonSteps')}
-        </h3>
-        <Muted>{t('data.pipelineTriggers.runIsolationTheyOnly')}</Muted>
+    <Section title={t('data.pipelineTriggers.runBoundaries')} className="mt-6">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-3">
+          <div>
+            <h3 className="text-body font-semibold text-fg">
+              {t('data.pipelineTriggers.runsAs')}
+            </h3>
+            <Muted>
+              {t('data.pipelineTriggers.pipelineItselfEveryChange')}
+            </Muted>
+          </div>
+          <div>
+            <h3 className="text-body font-semibold text-fg">
+              {t('data.pipelineTriggers.pythonSteps')}
+            </h3>
+            <Muted>{t('data.pipelineTriggers.runIsolationTheyOnly')}</Muted>
+          </div>
+        </div>
+        <div>
+          <h3 className="text-body font-semibold text-fg">
+            {t('data.pipelineTriggers.neverAllowed')}
+          </h3>
+          <ul className="m-0 mt-1 list-disc pl-4 text-caption text-fg-muted">
+            {NEVER_ALLOWED.map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
+          </ul>
+          <Muted className="mt-2">
+            {t('data.pipelineTriggers.triggersStartRunsThey')}
+          </Muted>
+        </div>
       </div>
-      <div>
-        <h3 className="text-caption font-medium text-fg">
-          {t('data.pipelineTriggers.neverAllowed')}
-        </h3>
-        <ul className="mt-1 list-disc pl-4 text-caption text-fg-muted">
-          {NEVER_ALLOWED.map((rule) => (
-            <li key={rule}>{rule}</li>
-          ))}
-        </ul>
-        <Muted className="mt-2">
-          {t('data.pipelineTriggers.triggersStartRunsThey')}
-        </Muted>
-      </div>
-    </div>
+    </Section>
   )
 }
 
@@ -552,7 +560,7 @@ function PipelineTriggers() {
     <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
       <Section
         title={t('data.pipelineTriggers.startsOn')}
-        count={rows.length}
+        count={rows.length || undefined}
         action={rows.length ? addButton : undefined}
       >
         <Muted>{t('data.pipelineTriggers.manualEditorsPipelinePress')}</Muted>
@@ -591,7 +599,7 @@ function PipelineTriggers() {
             description={t(
               'data.pipelineTriggers.triggersOptionalRunPublished',
             )}
-            className="py-4"
+            nested
             action={addButton}
           />
         )}

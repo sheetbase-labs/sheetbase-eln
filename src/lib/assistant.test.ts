@@ -636,8 +636,9 @@ describe('pageLine', () => {
 
 describe('gatewayFailure', () => {
   it('names the budget, the policy and a failed provider separately', () => {
-    const message = (code: ConstructorParameters<typeof ModelGatewayError>[0]) =>
-      gatewayFailure(new ModelGatewayError(code, 'x')).message
+    const message = (
+      code: ConstructorParameters<typeof ModelGatewayError>[0],
+    ) => gatewayFailure(new ModelGatewayError(code, 'x')).message
 
     expect(message('budget_exhausted')).toContain('budget')
     expect(message('provider_error')).toContain('provider')

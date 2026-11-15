@@ -124,6 +124,19 @@ const stateRing: Record<NotebookBlockState, string> = {
   'read-only': 'bg-transparent',
 }
 
+/** A block's vertical padding. A prose run member has none, because the run
+ * is one column. A read-only document has no insert gap between blocks, so the
+ * padding is the whole gap: wide enough that a result and its conclusion read
+ * as two things, not one crowded one. */
+function blockPadding(continuous: boolean, readOnly: boolean): string {
+  if (continuous) return 'py-0'
+
+  return cn(
+    readOnly ? 'py-2' : 'py-1',
+    'transition-[background-color,box-shadow]',
+  )
+}
+
 export function NotebookBlock({
   label,
   title,
@@ -156,15 +169,7 @@ export function NotebookBlock({
         // A prose run member contributes no frame of its own: the run is one
         // column, so a ring or a vertical gap here would re-create the seams
         // the run exists to hide.
-        continuous
-          ? 'py-0'
-          : // A read-only document has no insert gap between blocks, so the
-            // block's own padding is the whole gap: wide enough that a result
-            // and its conclusion read as two things, not one crowded one.
-            cn(
-              readOnly ? 'py-2' : 'py-1',
-              'transition-[background-color,box-shadow]',
-            ),
+        blockPadding(continuous, readOnly),
         !continuous && stateRing[state],
         className,
       )}

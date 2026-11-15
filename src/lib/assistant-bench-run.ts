@@ -12,6 +12,7 @@ import {
   registerSamples,
   transferSample,
 } from './samples'
+import { linkExperimentToSample } from './notebook-create'
 import { moveSampleToPosition } from './storage-positions'
 import { describeActionError } from './assistant-bench'
 import type { BenchAction } from './assistant-bench'
@@ -71,6 +72,23 @@ export async function runBenchAction(
         projectId: action.projectId,
         samples: action.samples,
       })
+
+      // Link each new sample to the experiment they are for.
+      if (action.experimentId) {
+        for (const sample of made) {
+          try {
+            // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each link names a sample just registered, and a refusal names the sample it stopped at.
+            await linkExperimentToSample(client, action.experimentId, {
+              identifier: sample.identifier,
+              recordId: sample.id,
+            })
+          } catch (error) {
+            throw new Error(
+              `${made.length} sample${made.length === 1 ? ' was' : 's were'} logged, but ${sample.identifier} could not be linked to the experiment: ${describeActionError(error)}`,
+            )
+          }
+        }
+      }
 
       // The samples are in; file each in its position. A failure here leaves
       // them registered and says so, rather than hiding what did happen.

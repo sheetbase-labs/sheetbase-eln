@@ -204,6 +204,27 @@ function label(row: { identifier: string; title: string }): string {
   return `${row.identifier} · ${row.title}`
 }
 
+type SamplesLog = Extract<BenchAction, { kind: 'samples.log' }>
+
+/** The card's action; the experiment link is added only when one was named. */
+function samplesLogAction(input: {
+  projectId: string
+  experimentId: string | undefined
+  positionIds: string[]
+  samples: SamplesLog['samples']
+}): SamplesLog {
+  const action: SamplesLog = {
+    kind: 'samples.log',
+    projectId: input.projectId,
+    samples: input.samples,
+    positionIds: input.positionIds,
+  }
+
+  if (input.experimentId) action.experimentId = input.experimentId
+
+  return action
+}
+
 function amountOf(row: FoundRecord) {
   return {
     quantity: row.properties?.quantity ?? null,
@@ -908,8 +929,18 @@ export async function buildBenchProposal(
         spots = free
       }
 
+      let experiment: { id: string; identifier: string; title: string } | null =
+        null
+
+      if (input.experiment) {
+        const found = await findExperiment(client, input.experiment)
+
+        if ('message' in found) return fail(found.message)
+        experiment = found
+      }
+
       return card(name, input, {
-        target: box ? box.path : project.title,
+        target: `${box ? box.path : project.title}${experiment ? ` · for ${experiment.identifier}` : ''}`,
         deepLink: '/samples',
         changes: input.samples.map((sample, index) => ({
           label: sample.name,
@@ -925,9 +956,10 @@ export async function buildBenchProposal(
               .filter(Boolean)
               .join(' · ') || 'New sample',
         })),
-        action: {
-          kind: 'samples.log',
+        action: samplesLogAction({
           projectId: project.id,
+          experimentId: experiment?.id,
+          positionIds: spots?.ids ?? [],
           samples: input.samples.map((sample) => {
             const logged: Extract<
               BenchAction,
@@ -944,8 +976,7 @@ export async function buildBenchProposal(
 
             return logged
           }),
-          positionIds: spots?.ids ?? [],
-        },
+        }),
       })
     }
 

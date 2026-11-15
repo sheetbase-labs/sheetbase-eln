@@ -192,6 +192,14 @@ export const proposeSamplesLogSchema = z.strictObject({
     .max(200)
     .optional()
     .describe('A place typed in words, when there is no box to file them in.'),
+  experiment: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      'An experiment to link every new sample to, by identifier or title. In a plan it may be one an earlier step creates.',
+    ),
 })
 
 export const proposeSampleUseSchema = z.strictObject({
@@ -401,6 +409,8 @@ export type BenchAction =
       }>
       /** One free position per sample, in order; empty when not filed in a box. */
       positionIds: string[]
+      /** An experiment each new sample is linked to. */
+      experimentId?: string
     }
   | {
       kind: 'sample.use'

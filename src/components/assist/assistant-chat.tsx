@@ -38,6 +38,7 @@ import {
   MessageContent,
   MessageResponse,
 } from './chat/message'
+import { errorText, isWaitingForAnswer } from './chat/chat-status'
 import { PromptBox } from './chat/prompt-box'
 import { ProposalCard } from './chat/proposal-card'
 import { proposalFromOutput } from '#/lib/assistant-proposals'
@@ -99,23 +100,6 @@ function chatFor(workspaceId: string): Chat<AssistantUIMessage> {
   }
 
   return chat
-}
-
-/** A refusal the server sends as JSON: `{ message }`, and nothing else it adds. */
-const refusalBody = z.looseObject({ message: z.string() })
-
-/** The server answers refusals with `{ message }`; a stream error is plain text. */
-function errorText(error: Error): string {
-  try {
-    const message = refusalBody.safeParse(JSON.parse(error.message)).data
-      ?.message
-
-    if (message !== undefined) return message
-  } catch {
-    // Not JSON: the text is already the message.
-  }
-
-  return error.message || t('notebook.assistantPanel.tryAgainOrAsk')
 }
 
 export default function AssistantChat({
@@ -536,7 +520,7 @@ function LookupRow({
   )
 }
 
-function ChatMessage({
+export function ChatMessage({
   message,
   streaming,
   workspaceId,
@@ -654,21 +638,6 @@ function ChatMessage({
   )
 }
 
-/** Waiting for the first words of an answer, rather than for a tool call. */
-function isWaitingForAnswer(
-  status: string,
-  last: AssistantUIMessage | undefined,
-): boolean {
-  if (status === 'submitted') return true
-
-  if (status !== 'streaming' || last?.role !== 'assistant') return false
-
-  return (
-    messageText(last).trim() === '' &&
-    !last.parts.some((part) => part.type === 'dynamic-tool')
-  )
-}
-
 /** The panel's own header: what it is grounded in, and the New chat action. */
 function ChatHeader({
   kind,
@@ -779,7 +748,7 @@ function EmptyHint({
 }
 
 /** The three-dot row shown before the answer's first words arrive. */
-function ThinkingRow() {
+export function ThinkingRow() {
   return (
     <div
       className="flex items-center gap-2 text-label text-fg-muted"

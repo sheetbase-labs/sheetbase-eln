@@ -238,10 +238,6 @@ function Plugins() {
     null,
   )
 
-  useBuiltInPlugins(workspaceId || null, canManage ? 'admin' : '', {
-    always: true,
-  })
-
   const installs = useQuery({
     queryKey: [...extensionQueryKeys.extensions, 'admin', workspaceId],
     queryFn: () => listExtensions(client),
@@ -791,6 +787,11 @@ function usePluginConfiguration({
   workspaceId: string
   canManage: boolean
 }) {
+  // A plugin added by a deploy shows when this page opens, not only at the next session.
+  useBuiltInPlugins(workspaceId || null, canManage ? 'admin' : '', {
+    always: true,
+  })
+
   // Follow the Python build until it ends, independently of the installed-plugin list.
   const runtime = useQuery({
     queryKey: [...pluginRuntimeQueryKey, workspaceId],

@@ -267,13 +267,7 @@ function TryResult() {
   const result = editor.trialResult
 
   if (!result) {
-    return (
-      <InspectorSection title={t('data.stepList.tryResult')}>
-        <p className="m-0 text-label leading-[18px]">
-          {t('data.stepList.notTriedYet')}
-        </p>
-      </InspectorSection>
-    )
+    return null
   }
 
   const { report } = result

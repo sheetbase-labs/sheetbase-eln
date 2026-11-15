@@ -265,7 +265,9 @@ function NoFormsYet({
                 >
                   {pending
                     ? t('requests.empty.settingUp')
-                    : t('requests.empty.setUp', { name: starter.name })}
+                    : t('requests.empty.setUp', {
+                        name: starter.name.toLowerCase(),
+                      })}
                 </Button>
               ))}
             </div>
@@ -531,6 +533,7 @@ export function RequestsPage({
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
         title={t('requests.title')}
+        subtitle={t('requests.subtitle')}
         actions={newButton}
         tabs={
           forms.length > 0 ? (

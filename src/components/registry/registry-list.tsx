@@ -115,7 +115,9 @@ function RegistryEmptyState({
                   disabled={settingUp}
                   onClick={() => onSetUpOne(starter.key)}
                 >
-                  {t('registry.empty.setUp', { name: starter.name })}
+                  {t('registry.empty.setUp', {
+                    name: starter.name.toLowerCase(),
+                  })}
                 </Button>
               ))}
             </div>

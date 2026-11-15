@@ -237,7 +237,6 @@ export function ExperimentSeries({
               </Button>
               <Button
                 size="sm"
-
                 icon="plus"
                 nativeButton={false}
                 render={<Link to="/experiments/new" search={newMemberSearch} />}

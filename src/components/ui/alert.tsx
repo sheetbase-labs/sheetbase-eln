@@ -56,6 +56,7 @@ export function Notice({
           <span
             className={cn(
               'font-semibold',
+              children ? 'block' : null,
               t === 'bad'
                 ? 'text-danger-text'
                 : t === 'warn'
@@ -63,7 +64,7 @@ export function Notice({
                   : 'text-fg',
             )}
           >
-            {title}{' '}
+            {title}
           </span>
         ) : null}
         {children}

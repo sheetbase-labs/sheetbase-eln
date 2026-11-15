@@ -90,6 +90,11 @@ export function PlatesPage({
     </Button>
   ) : null
 
+  // One primary per page: the blank state offers the same step in neutral.
+  const emptyNewButton = canWrite ? (
+    <Button onClick={() => setCreating(true)}>{t('plates.newRun')}</Button>
+  ) : null
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
@@ -142,7 +147,7 @@ export function PlatesPage({
         needle={needle}
         canWrite={canWrite}
         workspaceId={workspaceId}
-        newButton={newButton}
+        newButton={emptyNewButton}
         onOpenRun={onOpenRun}
         onOpenWorklist={setOpenWorklist}
       />

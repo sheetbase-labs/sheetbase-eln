@@ -2,8 +2,6 @@
 export const plugins = {
   admin: {
     title: 'Plugins',
-    intro:
-      'Plugins add calculators, checks, analyses, pipeline steps, file formats, parsers and more. Its code runs in an isolated Python sandbox, with the packages it installs and only the hosts you approve. Only owners and administrators add plugins, and each part can be switched off on its own.',
     onlyAdmins: 'Only owners and administrators can manage plugins',
     onlyAdminsBody:
       'Ask an owner or administrator of this workspace to add or change plugins.',

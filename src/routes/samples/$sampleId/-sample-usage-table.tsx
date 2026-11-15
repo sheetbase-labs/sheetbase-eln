@@ -45,11 +45,7 @@ export function UsageSection({
               {t('library.samples.usage.reserveVolume')}
             </Button>
             {actions.canWithdraw ? (
-              <Button
-                size="sm"
-
-                onClick={actions.openWithdraw}
-              >
+              <Button size="sm" onClick={actions.openWithdraw}>
                 {t('library.samples.usage.withdrawVolume')}
               </Button>
             ) : null}

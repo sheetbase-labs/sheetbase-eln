@@ -449,9 +449,7 @@ function RecordIdPrefixes({
   return (
     <div className="flex flex-col gap-2">
       <div>
-        <h3 className="text-label font-medium text-fg">
-          {t('settings.general.recordIds')}
-        </h3>
+        <h2 className="text-section">{t('settings.general.recordIds')}</h2>
         <p className="m-0 text-label text-fg-muted">
           {t('settings.general.prefixEachRecord')}
         </p>
@@ -482,9 +480,9 @@ function WorkspacePolicies({
   return (
     <>
       <div className="flex flex-col gap-2">
-        <h3 className="text-label font-medium text-fg">
+        <h2 className="text-section">
           {t('settings.general.publicationApproval')}
-        </h3>
+        </h2>
         <CheckRow
           title={t('settings.general.requireApprovalBefore')}
           body={t('settings.general.whenEnabledCurrent2')}
@@ -500,9 +498,7 @@ function WorkspacePolicies({
       </div>
 
       <div className="flex flex-col gap-2">
-        <h3 className="text-label font-medium text-fg">
-          {t('settings.general.regulatedLab')}
-        </h3>
+        <h2 className="text-section">{t('settings.general.regulatedLab')}</h2>
         <CheckRow
           title={t('settings.general.regulatedLabTitle')}
           body={t('settings.general.regulatedLabHint')}
@@ -515,9 +511,7 @@ function WorkspacePolicies({
       </div>
 
       <div className="flex flex-col gap-2">
-        <h3 className="text-label font-medium text-fg">
-          {t('quality.general.title')}
-        </h3>
+        <h2 className="text-section">{t('quality.general.title')}</h2>
         <CheckRow
           title={t('quality.general.limitsTitle')}
           body={t('quality.general.limitsHint')}
@@ -545,9 +539,7 @@ function WorkspacePolicies({
       </div>
 
       <div className="flex flex-col gap-2">
-        <h3 className="text-label font-medium text-fg">
-          {t('settings.general.editingRules')}
-        </h3>
+        <h2 className="text-section">{t('settings.general.editingRules')}</h2>
         <CheckRow
           title={t('settings.general.everySignedRecord')}
           body={t('settings.general.everySignedRecordHint')}

@@ -487,7 +487,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
     expect(screen.queryByText('Parser not validated.')).toBeNull()
   })
 
-  it('changes the method for a writer and says history is not rewritten', async () => {
+  it('changes the method for a writer', async () => {
     const user = userEvent.setup()
     wireRows({
       parsers: [],
@@ -512,7 +512,6 @@ describe('R5-CONFIG-02 instrument inspector', () => {
     }
     await renderInspector()
 
-    expect(screen.getByText(/Data already imported isn’t changed/)).toBeTruthy()
     await user.selectOptions(
       screen.getByLabelText('How data gets in'),
       'manual',

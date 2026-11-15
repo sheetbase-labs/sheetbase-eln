@@ -642,12 +642,7 @@ function LakeLogins({
       count={rows.length}
       action={
         setUp ? (
-          <Button
-            size="sm"
-
-            icon="plus"
-            onClick={() => setCreateOpen(true)}
-          >
+          <Button size="sm" icon="plus" onClick={() => setCreateOpen(true)}>
             {t('openData.logins.create')}
           </Button>
         ) : null

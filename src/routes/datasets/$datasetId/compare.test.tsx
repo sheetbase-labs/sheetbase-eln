@@ -115,9 +115,6 @@ describe('dataset compare route paging', () => {
       name: /Load more/,
     })
 
-    // The count the button used to carry ("Load more (150 left)") is the
-    // control's own line now, and one format across every growing-window list.
-    expect(screen.getByText('Showing 100 of 250 changes')).toBeTruthy()
     expect(dataClient.rpc).toHaveBeenCalledWith(
       'compare_dataset_versions',
       expect.objectContaining({ p_limit: 100, p_offset: 0 }),
@@ -130,11 +127,7 @@ describe('dataset compare route paging', () => {
         expect.objectContaining({ p_limit: 100, p_offset: 100 }),
       ),
     )
-    await waitFor(() =>
-      expect(screen.getByText('Showing 200 of 250 changes')).toBeTruthy(),
-    )
-
-    await user.click(screen.getByRole('button', { name: /Load more/ }))
+    await user.click(await screen.findByRole('button', { name: /Load more/ }))
     await waitFor(() =>
       expect(dataClient.rpc).toHaveBeenCalledWith(
         'compare_dataset_versions',

@@ -465,8 +465,6 @@ export const library = {
       lastData: 'Last data',
       nothingReceived: 'Nothing received',
       parserAndImports: 'Parser and imports',
-      affectsFutureDataOnlyData:
-        'Affects future data only. Data already imported isn’t changed.',
       use: 'Use',
       nextBooking: 'Next booking',
       registry: 'Registry',

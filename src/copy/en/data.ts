@@ -2143,7 +2143,7 @@ export const data = {
     couldChangeWebhook: 'Couldn’t change the webhook',
     serverRefused: 'The request was refused',
     instrumentAnotherSystemStart:
-      'For an instrument or another system to start a run',
+      'Lets an instrument or another system start a run.',
     on: 'On',
     off: 'Off',
     turnOff: 'Turn off',
@@ -2162,8 +2162,6 @@ export const data = {
     saveStepResultSnapshot:
       'Save a step result as a snapshot of an existing dataset',
     saveStepResultNew: 'Save a step result as a new dataset',
-    changeWhereResultGoes:
-      'To change where a result goes, <link>edit the output in Steps</link>.',
     elnActions: 'ELN actions',
     action: 'Action',
     where: 'Where',

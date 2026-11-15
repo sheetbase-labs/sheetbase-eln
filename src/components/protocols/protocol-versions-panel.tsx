@@ -232,7 +232,6 @@ export function ProtocolVersionsPanel({
         writer && !inFlight ? (
           <Button
             size="sm"
-
             disabled={busy}
             onClick={() => setDialog({ kind: 'submit' })}
           >

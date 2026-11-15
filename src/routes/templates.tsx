@@ -311,7 +311,6 @@ function TemplateInspector({ template }: { template: TemplateRow }) {
         <div className="mt-1.5 flex gap-1.5">
           <Button
             size="sm"
-            variant="primary"
             nativeButton={false}
             render={
               <Link
@@ -378,11 +377,6 @@ function TemplateInspector({ template }: { template: TemplateRow }) {
               <Muted>{t('library.templates.list.noVersionYet')}</Muted>
             )}
           </div>
-        </InspectorSection>
-        <InspectorSection title={t('library.templates.list.reuseIsDeliberate')}>
-          <Muted>
-            {t('library.templates.list.newVersionsNeverChangeNotebooks')}
-          </Muted>
         </InspectorSection>
       </div>
     </Inspector>

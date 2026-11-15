@@ -1,0 +1,5 @@
+-- The pipeline action that imports a protocol. Mirrors src/features/protocol-import/operations.ts.
+
+INSERT INTO internal.pipeline_actions (operation, definition) VALUES
+  ('import_protocol', '{"operation":"import_protocol","rpc":"import_protocol","label":"Import a protocol","description":"Creates a draft protocol with the steps, reagents and source line you give it, for a method written elsewhere such as a public protocol on protocols.io. Returns the protocol record and the number of steps. Sends `protocol.imported`, and `record.created` for the new protocol.","arguments":[{"name":"p_title","type":"text","required":true,"nullable":false},{"name":"p_steps","type":"jsonb","required":true,"nullable":false},{"name":"p_description","type":"text","required":false,"nullable":true},{"name":"p_reagents","type":"text[]","required":false,"nullable":false},{"name":"p_source","type":"jsonb","required":false,"nullable":false}]}'::jsonb)
+ON CONFLICT (operation) DO UPDATE SET definition = EXCLUDED.definition;

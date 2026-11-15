@@ -413,7 +413,7 @@ function auditCountLabel(loading: boolean, count: number, hasMore: boolean) {
 
   if (count === 0) return 'No entries'
 
-  return hasMore ? `${count}+ entries` : `${count} entries`
+  return hasMore ? '' : `${count} entries`
 }
 
 function AuditFilters({

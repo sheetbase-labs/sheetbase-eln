@@ -343,7 +343,7 @@ export function RepositoriesSection({
         canManage ? (
           <Button
             size="sm"
-            variant="primary"
+
             icon="plus"
             onClick={() => {
               save.reset()

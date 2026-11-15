@@ -315,7 +315,7 @@ function VersionSection({
             </Button>
             <Button
               size="sm"
-              variant="primary"
+
               disabled={saving}
               onClick={onSave}
             >

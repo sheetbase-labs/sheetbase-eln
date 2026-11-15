@@ -238,7 +238,7 @@ export function SchedulePanel({
             <span>
               <Button
                 size="sm"
-                variant="primary"
+
                 disabled={
                   !planned ||
                   plan.isPending ||

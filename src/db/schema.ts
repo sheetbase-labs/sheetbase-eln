@@ -6382,6 +6382,42 @@ export const reviewCover = api.table(
 )
 
 /**
+ * assistant_conversations (migration 20261115200500) — a person's saved chats
+ * on the Agent page. Written through `save_assistant_conversation`,
+ * `rename_assistant_conversation` and `delete_assistant_conversation`; read
+ * under RLS by its owner alone.
+ */
+export const assistantConversations = api.table(
+  'assistant_conversations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    messages: jsonb('messages')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('idx_assistant_conversations_user_updated').on(
+      table.userId,
+      table.workspaceId,
+      table.updatedAt,
+    ),
+  ],
+)
+
+/**
  * project_follows (migration 0088) — a per-user follow of a project, so it
  * appears in the caller's Inbox Following tab like a followed record. Written
  * through `follow_project` / `unfollow_project`; read under RLS by its owner.

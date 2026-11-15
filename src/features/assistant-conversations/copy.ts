@@ -1,0 +1,41 @@
+/** Agent page copy, read as `t('features.assistantConversations.…')`. */
+export const copy = {
+  page: {
+    title: 'Agent',
+    newChat: 'New chat',
+    history: 'Chats',
+    historyOpen: 'Show chats',
+    searchPlaceholder: 'Search chats',
+    noChats: 'Your chats show up here.',
+    noMatches: 'No chat matches that.',
+    loadFailed: 'Your chats could not be loaded. Reload the page to try again.',
+    openFailed: 'This chat could not be opened.',
+    saveFailed:
+      'This chat could not be saved. It stays on screen until you leave.',
+    untitled: 'New chat',
+    emptyTitle: 'What do you want to get done?',
+    emptyBody:
+      'Ask about your lab, or have it do the work. Anything that changes data waits for you to confirm it.',
+    placeholder: 'Message the agent…',
+    placeholderFollowUp: 'Write a reply…',
+    suggestSchedule: 'What is on my schedule this week?',
+    suggestReagents: 'Which reagents are running low?',
+    suggestInbox: 'What needs my attention in the Inbox?',
+    suggestInstruments: 'Which instruments are out of service?',
+    groups: {
+      today: 'Today',
+      yesterday: 'Yesterday',
+      week: 'Previous 7 days',
+      earlier: 'Earlier',
+    },
+    rename: 'Rename',
+    renameLabel: 'Chat title',
+    delete: 'Delete',
+    chatActions: 'Chat actions',
+    deleteTitle: 'Delete this chat?',
+    deleteBody: 'It is removed for good. Nobody else could see it.',
+    deleteConfirm: 'Delete chat',
+    cancel: 'Cancel',
+    deleted: 'Chat deleted',
+  },
+}

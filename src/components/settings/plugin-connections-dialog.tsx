@@ -104,10 +104,11 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
           <span className="font-medium text-fg">{connection.title}</span>
           <span className="text-caption text-fg-muted">
             {t(`plugins.admin.connections.kind.${connection.point}`)}
-            {' · '}
-            {t('plugins.admin.connections.hosts', {
-              hosts: connection.hosts.join(', '),
-            })}
+            {connection.hosts.length > 0
+              ? ` · ${t('plugins.admin.connections.hosts', {
+                  hosts: connection.hosts.join(', '),
+                })}`
+              : null}
           </span>
         </div>
         <Status tone={needs ? 'warn' : 'ok'}>

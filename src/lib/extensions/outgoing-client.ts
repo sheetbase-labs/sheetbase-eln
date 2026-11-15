@@ -23,7 +23,7 @@ export interface ConnectionWire {
   extensionId: string
   extensionKey: string
   extensionName: string
-  point: 'connectors' | 'publishers' | 'notification-channels'
+  point: 'connectors' | 'publishers' | 'notification-channels' | 'operations'
   itemId: string
   title: string
   hosts: string[]
@@ -81,7 +81,12 @@ const connectionWire = z.object({
   extensionId: z.string(),
   extensionKey: z.string(),
   extensionName: z.string(),
-  point: z.enum(['connectors', 'publishers', 'notification-channels']),
+  point: z.enum([
+    'connectors',
+    'publishers',
+    'notification-channels',
+    'operations',
+  ]),
   itemId: z.string(),
   title: z.string(),
   hosts: z.array(z.string()),

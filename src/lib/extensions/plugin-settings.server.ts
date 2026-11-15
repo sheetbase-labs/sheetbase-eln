@@ -11,15 +11,13 @@
 import { z } from 'zod'
 
 import { openSecret, sealSecret, secretKey } from '../connector-secrets.server'
-import type {
-  ExtensionConnectorDeclaration,
-  ExtensionNotificationChannelDeclaration,
-} from './data-points'
+import type { ExtensionConnectorSetting } from './data-points'
 
 export const SETTINGS_POINTS = [
   'connectors',
   'publishers',
   'notification-channels',
+  'operations',
 ] as const
 
 export type SettingsPoint = (typeof SETTINGS_POINTS)[number]
@@ -135,10 +133,9 @@ export async function openSettings(
   return out
 }
 
-type Declared = Pick<
-  ExtensionConnectorDeclaration | ExtensionNotificationChannelDeclaration,
-  'settings'
->
+type Declared = {
+  settings: readonly ExtensionConnectorSetting[]
+}
 
 /** What the page may show for a declaration: each setting and whether it is set. */
 export function describeSettings(

@@ -25,11 +25,6 @@ export const PROTOCOL_IMPORT_OPERATIONS = defineOperations([
     kind: 'write',
     scope: 'projects:write',
     inputs: [
-      {
-        ...input('p_workspace_id', 'uuid'),
-        server: 'workspace',
-        description: 'Your workspace id.',
-      },
       note('p_title', 'text', 'The protocol title, up to 200 characters.'),
       note(
         'p_steps',

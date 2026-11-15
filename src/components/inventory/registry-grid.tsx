@@ -38,6 +38,7 @@ import {
   useRef,
 } from 'react'
 import { Icon } from '#/components/icons'
+import { useFitColumns } from './registry-fit'
 import { ListViewMenu } from './list-view-menu'
 import { useLocalListView } from '#/lib/list-views'
 import type { ListView } from '#/lib/list-views'
@@ -205,6 +206,16 @@ export interface RegistryGridProps<T extends RowData> {
    * the pointer. Cells that do not fit are cut with an ellipsis.
    */
   stableWidths?: boolean
+  /**
+   * Drop whole low-priority columns when the table is wider than its pane,
+   * instead of scrolling with a column cut mid-word at the edge. On by default.
+   */
+  fit?: boolean
+  /**
+   * Columns a screen cannot do without (a pipeline's last run): under `fit`
+   * they are the last to be dropped, after every other column that can go.
+   */
+  keepColumns?: readonly string[]
   /** What the table says when it holds no rows; defaults to the grid's own line. */
   empty?: ReactNode
   /** Row height in px for a table whose rows hold a picture; default 33. */
@@ -295,6 +306,8 @@ export function RegistryGrid<T extends RowData>({
   rowLabel,
   isLoading = false,
   stableWidths = false,
+  fit = true,
+  keepColumns,
   empty,
 }: RegistryGridProps<T>) {
   const view = useGridView(viewProp, sortingProp === undefined && sortableProp)
@@ -499,6 +512,36 @@ export function RegistryGrid<T extends RowData>({
     }
   }, [allColumns, showTicks])
 
+  // Whole columns that do not fit the pane are dropped, lowest priority (the
+  // right-most) first, so no header is ever drawn cut mid-word. The row's
+  // identity and name (the first two data columns) and the pinned end columns
+  // stay.
+  const dropCandidates = useMemo(() => {
+    const skip = new Set([
+      ...columnPinning.start,
+      ...columnPinning.end,
+      ...allColumns
+        .map((column) => column.id)
+        .filter((id) => id && id !== '__bulk')
+        .slice(0, 2),
+    ])
+
+    return allColumns
+      .map((column) => column.id)
+      .filter(
+        (id): id is string => Boolean(id) && !skip.has(id) && id !== '__bulk',
+      )
+      .filter((id) => columnVisibility[id] !== false)
+      .reverse()
+      .sort(
+        (a, b) =>
+          Number(keepColumns?.includes(a) ?? false) -
+          Number(keepColumns?.includes(b) ?? false),
+      )
+  }, [allColumns, columnPinning, columnVisibility, keepColumns])
+
+  const dropped = useFitColumns(gridRef, dropCandidates, fit, rows.length)
+
   const state: Partial<TableState<DataGridFeatures>> = {
     rowSelection,
     columnPinning,
@@ -506,7 +549,11 @@ export function RegistryGrid<T extends RowData>({
 
   if (sortable) state.sorting = sorting
 
-  if (view) state.columnVisibility = columnVisibility
+  if (view || dropped.size > 0)
+    state.columnVisibility = {
+      ...columnVisibility,
+      ...Object.fromEntries([...dropped].map((id) => [id, false])),
+    }
 
   const table = useTable({
     features: dataGridFeatures,

@@ -118,6 +118,9 @@ const tabLabel: Record<PipelineTab, string> = {
 
 /** UI port (roadmap-4/ui-app3): the Pipelines board on the AUTO-01/02/03
  * registry. Runs start through api.start_pipeline_run. */
+/** When the pane is narrow, the columns that go first are the later ones; the last run stays. */
+const KEEP_COLUMNS = ['lastRun'] as const
+
 export const Route = createFileRoute('/pipelines')({
   validateSearch: (search): PipelinesSearch => {
     const parsed = pipelinesSearchSchema.parse(search)
@@ -859,6 +862,7 @@ function PipelinesList() {
               onRowSelectionChange={onRowSelectionChange}
               onRowClick={openPipeline}
               isLoading={query.isPending}
+              keepColumns={KEEP_COLUMNS}
             />
           ) : null}
           <MobileList

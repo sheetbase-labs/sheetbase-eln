@@ -3,8 +3,8 @@ import { useState } from 'react'
 import { t } from '#/copy'
 import {
   BoardButton,
-  BoardInput,
   BoardIo,
+  BoardTextarea,
 } from '#/features/pipelines/board/board'
 import {
   Dialog,
@@ -253,7 +253,7 @@ function SelectedStep({ step, index }: { step: PipelineStep; index: number }) {
           </span>
           <span className="muted">{t('data.stepList.deletedWhenRunEnds')}</span>
         </div>
-        <p className="m-0 text-label text-fg-muted">
+        <p className="m-0 text-caption text-fg-muted">
           {t('data.stepList.onlyOutputKept')}
         </p>
       </InspectorSection>
@@ -369,7 +369,7 @@ function DraftSection() {
         <label htmlFor="pipeline-description" className="muted">
           {t('data.pipelineSteps.description')}
         </label>
-        <BoardInput
+        <BoardTextarea
           id="pipeline-description"
           className="mt-1"
           placeholder={t('data.pipelineSteps.whatPipeline')}

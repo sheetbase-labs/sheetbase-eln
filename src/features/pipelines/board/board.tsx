@@ -304,6 +304,21 @@ export function BoardInput({
   return <input className={cn('input', mono && 'mono', className)} {...rest} />
 }
 
+/** The board's `.input` as a multi-line field, for text that runs past one line. */
+export function BoardTextarea({
+  className,
+  rows = 3,
+  ...rest
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      rows={rows}
+      className={cn('input h-auto resize-y py-1.5 leading-[18px]', className)}
+      {...rest}
+    />
+  )
+}
+
 /** The board's `.select`, a native select so it works with a keyboard and on phones. */
 export function BoardSelect({
   className,

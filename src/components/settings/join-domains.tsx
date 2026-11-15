@@ -165,7 +165,6 @@ export function JoinDomainsSection({
             {suggestion ? (
               <Button
                 type="button"
-                variant="quiet"
                 disabled={save.isPending}
                 onClick={() => add(suggestion)}
               >

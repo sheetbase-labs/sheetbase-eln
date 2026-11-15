@@ -3544,6 +3544,7 @@ export const library = {
   listView: {
     options: 'Columns and export',
     columns: 'Columns',
+    hiddenToFit: 'Hidden to fit',
     reset: 'Reset sorting and columns',
     sortBy: 'Sort by {column}',
     exportCsv: 'Export as CSV',

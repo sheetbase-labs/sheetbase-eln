@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 
 /**
@@ -100,5 +100,5 @@ export function useFitColumns(
     // `candidateKey` stands for `candidates`, which is rebuilt on every render.
   }, [gridRef, enabled, candidateKey, dropped, remeasureKey])
 
-  return new Set(dropped)
+  return useMemo(() => new Set(dropped), [dropped])
 }

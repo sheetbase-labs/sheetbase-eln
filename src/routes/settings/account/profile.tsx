@@ -212,7 +212,7 @@ function Profile() {
             initials={initials.trim().toUpperCase() || initialsOf(name)}
           />
           <div
-            className="grid w-full grid-cols-1 gap-x-5 gap-y-3.5 md:w-auto md:grid-cols-[250px_minmax(250px,22rem)]"
+            className="grid min-w-0 flex-1 grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]"
             onKeyDown={saveOnEnter}
           >
             <Field
@@ -259,24 +259,6 @@ function Profile() {
               />
             </Field>
             <Field
-              label={t('settings.profile.timeZone')}
-              hint={t('settings.profile.timesAcrossSheetbaseHint')}
-              error={timeZoneError}
-            >
-              <Input
-                value={timeZone}
-                list="profile-time-zones"
-                placeholder={t('settings.profile.europeLondonPlaceholder')}
-                aria-invalid={Boolean(timeZoneError) || undefined}
-                onChange={(e) => setTimeZone(e.target.value)}
-              />
-              <datalist id="profile-time-zones">
-                {knownTimeZones().map((zoneName) => (
-                  <option key={zoneName} value={zoneName} />
-                ))}
-              </datalist>
-            </Field>
-            <Field
               label={t('settings.profile.email')}
               hint={t('settings.profile.companySignHint')}
             >
@@ -310,6 +292,25 @@ function Profile() {
                 readOnly
                 className="bg-surface-muted text-fg-muted"
               />
+            </Field>
+            <Field
+              className="md:col-span-2"
+              label={t('settings.profile.timeZone')}
+              hint={t('settings.profile.timesAcrossSheetbaseHint')}
+              error={timeZoneError}
+            >
+              <Input
+                value={timeZone}
+                list="profile-time-zones"
+                placeholder={t('settings.profile.europeLondonPlaceholder')}
+                aria-invalid={Boolean(timeZoneError) || undefined}
+                onChange={(e) => setTimeZone(e.target.value)}
+              />
+              <datalist id="profile-time-zones">
+                {knownTimeZones().map((zoneName) => (
+                  <option key={zoneName} value={zoneName} />
+                ))}
+              </datalist>
             </Field>
           </div>
         </div>

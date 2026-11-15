@@ -56,7 +56,7 @@ export function ApiExample() {
           </dd>
         </div>
       </dl>
-      <pre className="m-0 max-w-3xl overflow-auto rounded-md border border-border-subtle bg-surface-muted p-3 text-label">
+      <pre className="m-0 overflow-auto rounded-md border border-border-subtle bg-surface-muted p-3 text-label">
         <code>{command}</code>
       </pre>
     </Section>

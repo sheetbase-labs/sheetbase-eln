@@ -187,9 +187,6 @@ export function ReleaseRulesPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <SettingsBody className="min-w-0 flex-1">
-        <p className="m-0 text-caption text-fg-muted">
-          {t('settings.releaseRules.intro')}
-        </p>
         {canManage ? (
           <div>
             <Button icon="plus" onClick={() => setAdding(true)}>

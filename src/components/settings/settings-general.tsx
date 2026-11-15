@@ -251,11 +251,11 @@ export function SettingsGeneral({
         {t('settings.general.changesApplyEveryone')}
       </SettingsHeader>
       <SettingsBody>
-        <Section title={t('settings.general.workspace')}>
-          <p className="m-0 text-caption text-fg-muted">
-            {t('settings.general.nameSiteTime')}
-          </p>
-
+        <Section
+          title={t('settings.general.workspace')}
+          description={t('settings.general.nameSiteTime')}
+          className="gap-5"
+        >
           {save.isError ? (
             <Notice tone="bad">
               {save.error instanceof Error

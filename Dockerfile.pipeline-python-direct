@@ -1,0 +1,17 @@
+# The Python runner for a host with no Docker (a disposable demo service).
+# Not isolated like compose.pipeline-python.yaml: read the warning in
+# docs/operations/pipeline-python.md before using it.
+FROM node:22-slim AS node
+
+FROM python:3.12-slim-bookworm
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY docker/pipeline-python/requirements.txt /opt/sheetbase/requirements.txt
+RUN pip install --no-cache-dir --only-binary=:all: -r /opt/sheetbase/requirements.txt
+COPY docker/pipeline-python/worker.py /opt/sheetbase/worker.py
+COPY scripts/pipeline-python-runner.mjs scripts/pipeline-python-egress.mjs scripts/pipeline-python-direct.mjs /opt/sheetbase/
+RUN mkdir -p /data/environments && chown -R 65532:65532 /data
+ENV NODE_ENV=production PIPELINE_PYTHON_RUNNER_PORT=8080 PYTHONDONTWRITEBYTECODE=1 \
+    PIPELINE_PYTHON_ENV_DIR=/data/environments PIPELINE_PYTHON_WORKER=/opt/sheetbase/worker.py
+USER 65532:65532
+EXPOSE 8080
+CMD ["node", "/opt/sheetbase/pipeline-python-direct.mjs"]

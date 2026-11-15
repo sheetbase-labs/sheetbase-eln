@@ -248,3 +248,16 @@ This implementation does not publish images or modify VPS configuration. Keep
 those activation steps in the approved delivery flow. Existing published Python
 versions keep their runtime pin; deploying a different runtime does not upgrade
 them automatically.
+
+## Without Docker (disposable demos only)
+
+`scripts/pipeline-python-direct.mjs` (image: `Dockerfile.pipeline-python-direct`)
+speaks the same protocol as the runner above, for a host that cannot run Docker,
+such as a Railway service. It is **not isolated**: each call is a child process
+of the service, plugin packages live in a virtual environment under
+`PIPELINE_PYTHON_ENV_DIR`, and the hosts a plugin may reach are enforced by an
+allow-listing proxy that only clients honouring `HTTPS_PROXY` (urllib, requests,
+httpx) go through. Run it as its own service with no secrets and no database
+access, set `PIPELINE_PYTHON_RUNNER_TOKEN` (32+ characters) on it and the app,
+and point the app's `PIPELINE_PYTHON_RUNNER_URL` at it. Never use it where the
+people who can install plugins or write Python steps are not trusted.

@@ -288,7 +288,7 @@ function pipelineColumns(
               size={12}
               className="shrink-0 text-fg-muted"
             />
-            <span className="max-w-[110px] truncate" title={labels.join(' · ')}>
+            <span className="max-w-[16rem] truncate" title={labels.join(' · ')}>
               {labels.length
                 ? labels.join(' · ')
                 : t('data.pipelinesList.manual')}

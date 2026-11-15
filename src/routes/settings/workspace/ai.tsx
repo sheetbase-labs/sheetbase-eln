@@ -328,6 +328,7 @@ function AiNotices({
     lines.push({ text: aiReadinessMessage(readiness), fix: '#ai-assistant' })
 
   if (dirty) lines.push({ text: t('settings.ai.saveChangesApply') })
+
   if (!lines.length) return null
 
   return (

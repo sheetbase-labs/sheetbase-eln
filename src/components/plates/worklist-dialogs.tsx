@@ -74,6 +74,7 @@ import {
 } from '#/lib/plate-worklist'
 import type {
   DestinationWell,
+  WorklistPlan,
   ReconciledTransfer,
   Transfer,
   WorklistFormat,
@@ -181,15 +182,182 @@ function RobotField({
   )
 }
 
-function WorklistBuilderForm({
-  run,
-  reference,
-  onOpenChange,
+/** What the worklist will do: the count, any problems and its first transfers. */
+function PlanSummary({
+  plan,
+  fromHits,
+  destPlate,
 }: {
-  run: PlateRunRow
-  reference: string
-  onOpenChange: (open: boolean) => void
+  plan: WorklistPlan
+  fromHits: boolean
+  destPlate: string
 }) {
+  const preview = plan.transfers.slice(0, 6)
+
+  return (
+    <>
+      <div
+        role="status"
+        className="rounded-md bg-muted px-3 py-2 text-label text-fg-muted"
+      >
+        {plan.transfers.length === 0
+          ? t('plates.worklist.previewNone')
+          : fromHits
+            ? t('plates.worklist.previewHits', {
+                transfers: plan.transfers.length,
+                plate: destPlate,
+              })
+            : t('plates.worklist.preview', {
+                transfers: plan.transfers.length,
+                sources: plan.sources.length,
+              })}
+        {plan.issues.length > 0 ? (
+          <ul className="mt-1 list-disc pl-4 text-warning-text">
+            {plan.issues.slice(0, 5).map((issue) => (
+              <li key={`${issue.code}-${issue.wellCode ?? issue.message}`}>
+                {t(`plates.worklist.issues.${issue.code}`, {
+                  well: issue.wellCode ?? '',
+                  message: issue.message,
+                })}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+      {preview.length > 0 ? (
+        <div>
+          <WorklistTransfersTable rows={preview} showStatus={false} />
+          {plan.transfers.length > preview.length ? (
+            <p className="mt-1 text-label text-fg-muted">
+              {t('plates.worklist.previewMore', {
+                count: plan.transfers.length - preview.length,
+              })}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+/** The settings few people change: plate names and sizes, and volume limits. */
+function MoreSettings({
+  fromHits,
+  sourcePlate,
+  onSourcePlate,
+  sourceFormat,
+  onSourceFormat,
+  destPlate,
+  onDestPlate,
+  destFormat,
+  onDestFormat,
+  wellVolume,
+  onWellVolume,
+  minVolume,
+  onMinVolume,
+  maxVolume,
+  onMaxVolume,
+}: {
+  fromHits: boolean
+  sourcePlate: string
+  onSourcePlate: (v: string) => void
+  sourceFormat: PlateFormat
+  onSourceFormat: (v: PlateFormat) => void
+  destPlate: string
+  onDestPlate: (v: string) => void
+  destFormat: PlateFormat
+  onDestFormat: (v: PlateFormat) => void
+  wellVolume: string
+  onWellVolume: (v: string) => void
+  minVolume: string
+  onMinVolume: (v: string) => void
+  maxVolume: string
+  onMaxVolume: (v: string) => void
+}) {
+  return (
+    <Collapsible>
+      <CollapsibleTrigger>
+        {t('plates.worklist.moreSettings')}
+      </CollapsibleTrigger>
+      <CollapsiblePanel>
+        <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
+          <Field label={t('plates.worklist.sourcePlate')}>
+            <Input
+              value={sourcePlate}
+              onChange={(e) => onSourcePlate(e.target.value)}
+            />
+          </Field>
+          {fromHits ? null : (
+            <Field label={t('plates.worklist.sourceFormat')}>
+              <Select
+                value={sourceFormat}
+                onChange={(e) =>
+                  onSourceFormat(plateFormatSchema.parse(e.target.value))
+                }
+              >
+                {PLATE_FORMATS.map((f) => (
+                  <option key={f} value={f}>
+                    {t(`plates.formats.${f}`)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          <Field label={t('plates.worklist.destPlate')}>
+            <Input
+              value={destPlate}
+              onChange={(e) => onDestPlate(e.target.value)}
+            />
+          </Field>
+          {fromHits ? (
+            <Field label={t('plates.worklist.destFormat')}>
+              <Select
+                value={destFormat}
+                onChange={(e) =>
+                  onDestFormat(plateFormatSchema.parse(e.target.value))
+                }
+              >
+                {PLATE_FORMATS.map((f) => (
+                  <option key={f} value={f}>
+                    {t(`plates.formats.${f}`)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
+          <Field label={t('plates.worklist.wellVolume')}>
+            <Input
+              inputMode="decimal"
+              value={wellVolume}
+              onChange={(e) => onWellVolume(e.target.value)}
+            />
+          </Field>
+          <Field label={t('plates.worklist.minVolume')}>
+            <Input
+              inputMode="decimal"
+              value={minVolume}
+              onChange={(e) => onMinVolume(e.target.value)}
+            />
+          </Field>
+          <Field label={t('plates.worklist.maxVolume')}>
+            <Input
+              inputMode="decimal"
+              value={maxVolume}
+              onChange={(e) => onMaxVolume(e.target.value)}
+            />
+          </Field>
+        </div>
+      </CollapsiblePanel>
+    </Collapsible>
+  )
+}
+
+/** Everything a new worklist is made of: the choices, the plan they give and saving it. */
+function useWorklistDraft(
+  run: PlateRunRow,
+  reference: string,
+  onOpenChange: (open: boolean) => void,
+) {
   const queryClient = useQueryClient()
 
   const hits = useMemo(
@@ -343,12 +511,93 @@ function WorklistBuilderForm({
 
   const blocking = plan.transfers.length === 0 || effectiveName.trim() === ''
 
-  const preview = plan.transfers.slice(0, 6).map((row) => ({
-    sourceWell: row.sourceWell,
-    destWell: row.destWell,
-    volumeUl: row.volumeUl,
-    label: row.label,
-  }))
+  return {
+    hits,
+    source,
+    setSource,
+    fromHits,
+    name,
+    setName,
+    format,
+    setFormat,
+    robot,
+    setRobot,
+    sourcePlate,
+    setSourcePlate,
+    sourceFormat,
+    setSourceFormat,
+    destFormat,
+    setDestFormat,
+    destPlate,
+    setDestPlate,
+    volume,
+    setVolume,
+    wellVolume,
+    setWellVolume,
+    minVolume,
+    setMinVolume,
+    maxVolume,
+    setMaxVolume,
+    experiment,
+    setExperiment,
+    picking,
+    setPicking,
+    effectiveName,
+    effectiveSource,
+    effectiveDest,
+    destinations,
+    plan,
+    save,
+    blocking,
+  }
+}
+
+function WorklistBuilderForm({
+  run,
+  reference,
+  onOpenChange,
+}: {
+  run: PlateRunRow
+  reference: string
+  onOpenChange: (open: boolean) => void
+}) {
+  const {
+    hits,
+    source,
+    setSource,
+    fromHits,
+    setName,
+    format,
+    setFormat,
+    robot,
+    setRobot,
+    sourcePlate,
+    setSourcePlate,
+    sourceFormat,
+    setSourceFormat,
+    destFormat,
+    setDestFormat,
+    destPlate,
+    setDestPlate,
+    volume,
+    setVolume,
+    wellVolume,
+    setWellVolume,
+    minVolume,
+    setMinVolume,
+    maxVolume,
+    setMaxVolume,
+    experiment,
+    setExperiment,
+    picking,
+    setPicking,
+    effectiveName,
+    effectiveSource,
+    effectiveDest,
+    plan,
+    save,
+    blocking,
+  } = useWorklistDraft(run, reference, onOpenChange)
 
   return (
     <>
@@ -444,124 +693,28 @@ function WorklistBuilderForm({
                 </div>
               </div>
             </div>
-            <Collapsible>
-              <CollapsibleTrigger>
-                {t('plates.worklist.moreSettings')}
-              </CollapsibleTrigger>
-              <CollapsiblePanel>
-                <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <Field label={t('plates.worklist.sourcePlate')}>
-                    <Input
-                      value={sourcePlate ?? effectiveSource}
-                      onChange={(e) => setSourcePlate(e.target.value)}
-                    />
-                  </Field>
-                  {fromHits ? null : (
-                    <Field label={t('plates.worklist.sourceFormat')}>
-                      <Select
-                        value={sourceFormat}
-                        onChange={(e) =>
-                          setSourceFormat(
-                            plateFormatSchema.parse(e.target.value),
-                          )
-                        }
-                      >
-                        {PLATE_FORMATS.map((f) => (
-                          <option key={f} value={f}>
-                            {t(`plates.formats.${f}`)}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
-                  )}
-                  <Field label={t('plates.worklist.destPlate')}>
-                    <Input
-                      value={destPlate ?? effectiveDest}
-                      onChange={(e) => setDestPlate(e.target.value)}
-                    />
-                  </Field>
-                  {fromHits ? (
-                    <Field label={t('plates.worklist.destFormat')}>
-                      <Select
-                        value={destFormat}
-                        onChange={(e) =>
-                          setDestFormat(plateFormatSchema.parse(e.target.value))
-                        }
-                      >
-                        {PLATE_FORMATS.map((f) => (
-                          <option key={f} value={f}>
-                            {t(`plates.formats.${f}`)}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
-                  ) : null}
-                  <Field label={t('plates.worklist.wellVolume')}>
-                    <Input
-                      inputMode="decimal"
-                      value={wellVolume}
-                      onChange={(e) => setWellVolume(e.target.value)}
-                    />
-                  </Field>
-                  <Field label={t('plates.worklist.minVolume')}>
-                    <Input
-                      inputMode="decimal"
-                      value={minVolume}
-                      onChange={(e) => setMinVolume(e.target.value)}
-                    />
-                  </Field>
-                  <Field label={t('plates.worklist.maxVolume')}>
-                    <Input
-                      inputMode="decimal"
-                      value={maxVolume}
-                      onChange={(e) => setMaxVolume(e.target.value)}
-                    />
-                  </Field>
-                </div>
-              </CollapsiblePanel>
-            </Collapsible>
-            <div
-              role="status"
-              className="rounded-md bg-muted px-3 py-2 text-label text-fg-muted"
-            >
-              {plan.transfers.length === 0
-                ? t('plates.worklist.previewNone')
-                : fromHits
-                  ? t('plates.worklist.previewHits', {
-                      transfers: plan.transfers.length,
-                      plate: effectiveDest,
-                    })
-                  : t('plates.worklist.preview', {
-                      transfers: plan.transfers.length,
-                      sources: plan.sources.length,
-                    })}
-              {plan.issues.length > 0 ? (
-                <ul className="mt-1 list-disc pl-4 text-warning-text">
-                  {plan.issues.slice(0, 5).map((issue) => (
-                    <li
-                      key={`${issue.code}-${issue.wellCode ?? issue.message}`}
-                    >
-                      {t(`plates.worklist.issues.${issue.code}`, {
-                        well: issue.wellCode ?? '',
-                        message: issue.message,
-                      })}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-            {preview.length > 0 ? (
-              <div>
-                <WorklistTransfersTable rows={preview} showStatus={false} />
-                {plan.transfers.length > preview.length ? (
-                  <p className="mt-1 text-label text-fg-muted">
-                    {t('plates.worklist.previewMore', {
-                      count: plan.transfers.length - preview.length,
-                    })}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
+            <MoreSettings
+              fromHits={fromHits}
+              sourcePlate={sourcePlate ?? effectiveSource}
+              onSourcePlate={setSourcePlate}
+              sourceFormat={sourceFormat}
+              onSourceFormat={setSourceFormat}
+              destPlate={destPlate ?? effectiveDest}
+              onDestPlate={setDestPlate}
+              destFormat={destFormat}
+              onDestFormat={setDestFormat}
+              wellVolume={wellVolume}
+              onWellVolume={setWellVolume}
+              minVolume={minVolume}
+              onMinVolume={setMinVolume}
+              maxVolume={maxVolume}
+              onMaxVolume={setMaxVolume}
+            />
+            <PlanSummary
+              plan={plan}
+              fromHits={fromHits}
+              destPlate={effectiveDest}
+            />
           </div>
         </DialogBody>
         <DialogFooter>

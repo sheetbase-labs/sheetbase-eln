@@ -19,5 +19,6 @@ export const assistant = defineAssistant<
   },
   cardWords: {
     'analysis.add_to_notebook': 'features.resultsAnalysis.cards.addToNotebook',
+    'analysis.add_saved': 'features.resultsAnalysis.cards.addSaved',
   },
 })

@@ -14,12 +14,14 @@ import type { AssistantProposal } from './assistant-proposals'
 import { snapshotDataset } from './dataset-product'
 import { recordDestination } from './navigation'
 import {
+  ANALYSIS_ADD_SAVED_TOOL,
   ANALYSIS_ADD_TOOL,
   ANALYSIS_HEADINGS,
   ANALYSIS_INPUT_ALIAS,
   ANALYSIS_RUN_TOOL,
   analysisRunSchema,
   analysisSource,
+  proposeAnalysisAddSavedSchema,
   proposeAnalysisAddSchema,
 } from './results-analysis'
 import type {
@@ -80,6 +82,11 @@ export function analysisProposalDefs(): ProviderToolDef[] {
       'Propose adding an analysis to an experiment’s notebook: a Python cell that runs the analysis on the dataset and shows the table and plot, and a short summary you write after it, marked as a draft. Run the analysis with the run tool first and write the summary only from its numbers. The person sees a card and presses a button; nothing changes until they do, and the summary is theirs to edit afterwards.',
       proposeAnalysisAddSchema,
     ),
+    toolDef(
+      ANALYSIS_ADD_SAVED_TOOL,
+      'Propose putting an analysis the person already saved in the Analysis Studio (a regression, dose-response curve, group comparison or survival fit) into an experiment’s notebook as a live block. The block shows the plot and key numbers and keeps itself current as the analysis or its data change. The person sees a card and presses a button; nothing changes until they do.',
+      proposeAnalysisAddSavedSchema,
+    ),
   ]
 }
 
@@ -87,7 +94,7 @@ export const isAnalysisReadTool = (name: string): boolean =>
   name === ANALYSIS_RUN_TOOL
 
 export const isAnalysisProposalTool = (name: string): boolean =>
-  name === ANALYSIS_ADD_TOOL
+  name === ANALYSIS_ADD_TOOL || name === ANALYSIS_ADD_SAVED_TOOL
 
 interface DatasetRow {
   id: string
@@ -327,6 +334,9 @@ export async function buildAnalysisProposal(
   args: unknown,
   context: LabToolContext,
 ): Promise<Outcome> {
+  if (name === ANALYSIS_ADD_SAVED_TOOL)
+    return buildSavedAnalysisProposal(args, context)
+
   if (name !== ANALYSIS_ADD_TOOL) return { ok: false, message: 'Unknown tool.' }
   const parsed = proposeAnalysisAddSchema.safeParse(args)
 
@@ -387,6 +397,110 @@ export async function buildAnalysisProposal(
         versionLabel: version,
         draftSummary: input.draftSummary,
         heading,
+      },
+    },
+  }
+}
+
+interface SavedAnalysisRow {
+  id: string
+  name: string
+  display_id: string | null
+  version: number
+}
+
+/** The saved analysis the person named, by name or id; ask which when it is not clear. */
+async function findSavedAnalysis(
+  context: LabToolContext,
+  text: string,
+): Promise<
+  { ok: true; row: SavedAnalysisRow } | { ok: false; message: string }
+> {
+  const like = likeValue(text)
+
+  const rows = await context.client.list<SavedAnalysisRow>(
+    'analysis_definitions',
+    `?or=(name.ilike.${like},display_id.ilike.${like})&select=id,name,display_id,version&order=updated_at.desc&limit=6`,
+  )
+
+  const lower = text.trim().toLowerCase()
+
+  const exact = rows.filter(
+    (row) =>
+      row.name.toLowerCase() === lower ||
+      row.display_id?.toLowerCase() === lower,
+  )
+
+  const pool = exact.length > 0 ? exact : rows
+  const [only] = pool
+
+  if (pool.length === 0)
+    return { ok: false, message: `No saved analysis matches “${text}”.` }
+
+  if (pool.length > 1)
+    return {
+      ok: false,
+      message: `More than one saved analysis matches “${text}”: ${pool
+        .map((row) =>
+          row.display_id ? `${row.display_id} ${row.name}` : row.name,
+        )
+        .join(', ')}. Ask which one.`,
+    }
+
+  return { ok: true, row: only }
+}
+
+async function buildSavedAnalysisProposal(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The model's tool call arrives as JSON; proposeAnalysisAddSavedSchema decodes it below.
+  args: unknown,
+  context: LabToolContext,
+): Promise<Outcome> {
+  const parsed = proposeAnalysisAddSavedSchema.safeParse(args)
+
+  if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
+  const input = parsed.data
+  const experiment = await findExperiment(context.client, input.experiment)
+
+  if ('message' in experiment) return { ok: false, message: experiment.message }
+  const found = await findSavedAnalysis(context, input.analysis)
+
+  if (!found.ok) return found
+
+  const name = found.row.display_id
+    ? `${found.row.display_id} ${found.row.name}`
+    : found.row.name
+
+  return {
+    ok: true,
+    proposal: {
+      tool: ANALYSIS_ADD_SAVED_TOOL,
+      title: input.title,
+      summary: input.summary,
+      target: `${experiment.identifier} · Notebook`,
+      deepLink: recordDestination('experiment', experiment.id),
+      changes: [
+        {
+          label: 'Experiment',
+          before: null,
+          after: `${experiment.identifier} ${experiment.title}`,
+        },
+        {
+          label: 'Analysis',
+          before: null,
+          after: `${name} (v${found.row.version})`,
+        },
+        {
+          label: 'Adds',
+          before: null,
+          after:
+            'A live block with the plot and key numbers, kept current as the analysis or its data change',
+        },
+      ],
+      action: {
+        kind: 'analysis.add_saved',
+        recordId: experiment.id,
+        definitionId: found.row.id,
+        title: found.row.name,
       },
     },
   }

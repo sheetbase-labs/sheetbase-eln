@@ -33,7 +33,7 @@ jobs:
           - name: React Doctor
             command: pnpm lint:react
           - name: Typecheck
-            command: NODE_OPTIONS=--max-old-space-size=8192 pnpm typecheck
+            command: pnpm typecheck
     env:
       DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
       FORMULA_DATABASE_URL: postgresql://formula_runtime:sheetbase-ci@localhost:5432/sheetbase
@@ -65,6 +65,25 @@ jobs:
         env:
           BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || format('origin/{0}', github.base_ref) }}
         run: node scripts/check-migrations.mjs "$BASE"
+
+  # Secrets in the commits this PR adds. History before it is not scanned:
+  # rotate anything found there rather than allowlisting it.
+  secrets:
+    name: Secrets
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: jdx/mise-action@v2
+        with:
+          install_args: gitleaks
+      - name: Scan the new commits
+        env:
+          BASE: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_sha || format('origin/{0}', github.base_ref) }}
+        run: gitleaks git --redact --no-banner --log-opts="$BASE..HEAD" .
 
   unit:
     name: Unit and component tests (${{ matrix.shard }})

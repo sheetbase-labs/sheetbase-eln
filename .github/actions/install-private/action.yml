@@ -7,6 +7,10 @@ inputs:
 runs:
   using: composite
   steps:
+    # pnpm typecheck runs bun check. Keep in step with mise.toml.
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: 1.4.4
     - name: Fetch dependencies without lifecycle scripts
       shell: bash
       env:

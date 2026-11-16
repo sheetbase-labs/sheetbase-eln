@@ -1380,6 +1380,10 @@ export const notebook = {
     countImportedObservationsPinned:
       '{count} imported observations · pinned dataset snapshot',
     openInASheet: 'Open in a sheet',
+    showInASheet: 'Show in a sheet',
+    makingSheet: 'Making the sheet…',
+    sheetAddedBelow: 'Sheet added below the import',
+    sheetNotMade: 'The sheet couldn’t be made',
     viewImportedData: 'View imported data',
     analyseThisSnapshot: 'Analyse this snapshot',
     viewImportReceipt: 'View import receipt',
@@ -2969,7 +2973,9 @@ export const notebook = {
     checkYourWorkspaceAccess:
       'Check your workspace access and connection. No sheet has been created.',
     sheetCompatibilityCouldNotTitle: 'Sheet compatibility couldn’t be checked',
-    noCompatibleSheetDefinitionTitle: 'No compatible sheet definition is ready',
+    madeFromColumnsTitle: 'The sheet shows the dataset’s columns',
+    madeFromColumns:
+      'No saved sheet layout fits this dataset, so Sheetbase makes one from its columns. Every column and row is there to open.',
     label: 'Sheet definition',
     hint: 'Decides which of the dataset’s columns the sheet shows.',
     projectLabel: 'Project',
@@ -2982,16 +2988,10 @@ export const notebook = {
     theDatabaseRefusedTo:
       'The database refused to create or resolve this sheet.',
     sheetCouldNotBeTitle: 'Sheet couldn’t be opened',
-    toStartWithoutThe:
-      'To start without the dataset, remove it from this page’s address or',
-    startABlankSheet: 'start a blank sheet',
     sheetsKeepLocalChanges:
       'Sheets keep local changes separate from the source dataset. Sheets added to a notebook are frozen as evidence on submission.',
     untitledSheet: 'Untitled sheet',
-    chooseACompatibleSheet: 'Choose a compatible sheet definition first.',
     thisProject: 'this project',
-    publishedDefinitionMustAccept:
-      'A published definition must accept this dataset’s schema and provide defaults for any other required inputs. Ask a steward to publish a compatible definition.',
     body2:
       'Pick a notebook template, then choose Use template to start a notebook with its sheets and fields.',
   },

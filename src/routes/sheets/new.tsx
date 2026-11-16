@@ -27,6 +27,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { insertSheetInstanceBlock } from '#/lib/notebook-mutations'
 import {
   fetchDatasetSheetOptions,
+  openDatasetInNewSheet,
   openDatasetInSheet,
 } from '#/lib/sheet-from-dataset'
 import type { DatasetSheetOption } from '#/lib/sheet-from-dataset'
@@ -229,8 +230,9 @@ function NewSheet() {
         projectId,
         notebookRecordId: experiment.data?.id ?? null,
       }),
-    onSuccess: async (instance) => {
-      const inNotebook = await attachToNotebook(experiment.data, instance.id)
+    onSuccess: async ({ instance, inNotebook: placed }) => {
+      const inNotebook =
+        placed ?? (await attachToNotebook(experiment.data, instance.id))
 
       toast(t('notebook.sheetsNew.sheetCreated'), {
         description: createdDescription({
@@ -251,7 +253,9 @@ function NewSheet() {
       }),
   })
 
-  const datasetBlocked = Boolean(search.dataset) && options.isSuccess && !option
+  const datasetFromColumns =
+    Boolean(search.dataset) && options.isSuccess && !option
+
   const cancelTo = cancelTarget(search, '/sheets/new')
   const hasContext = hasCreateContext(search)
 
@@ -292,7 +296,7 @@ function NewSheet() {
             datasetOption={{
               required: Boolean(search.dataset),
               options,
-              blocked: datasetBlocked,
+              blocked: datasetFromColumns,
               chosen: option,
               onChoose: setOptionId,
             }}
@@ -304,7 +308,9 @@ function NewSheet() {
             offerPaste={!search.dataset}
             pasteFirst={pasteFirst}
             onPasteFirst={setPasteFirst}
-            datasetOpen={Boolean(search.dataset) && Boolean(option)}
+            datasetOpen={
+              Boolean(search.dataset) && (Boolean(option) || datasetFromColumns)
+            }
             isPending={create.isPending}
             isError={create.isError}
             error={create.error}
@@ -460,16 +466,8 @@ function DatasetSheetOption({
 
   if (blocked)
     return (
-      <Notice
-        tone="warn"
-        title={t('notebook.sheetsNew.noCompatibleSheetDefinitionTitle')}
-      >
-        {t('notebook.sheetsNew.publishedDefinitionMustAccept')}
-        {(options.data ?? []).map((o) => (
-          <p key={o.versionId}>
-            {o.definitionName}: {o.unavailableReason}
-          </p>
-        ))}
+      <Notice tone="info" title={t('notebook.sheetsNew.madeFromColumnsTitle')}>
+        {t('notebook.sheetsNew.madeFromColumns')}
       </Notice>
     )
 
@@ -601,12 +599,10 @@ function CreateSheetForm({
         projectId={projectId}
         isPending={isPending}
         experimentLocked={experimentLocked}
-        needsOption={datasetOption.required && !datasetOption.chosen}
         label={actionLabel({ datasetOpen, pasteFirst })}
         onCreate={onCreate}
         cancelTo={cancelTo}
         error={isError ? error : null}
-        blocked={datasetOption.blocked}
       />
     </div>
   )
@@ -622,31 +618,56 @@ type CreateSheetInput = {
   notebookRecordId: string | null
 }
 
+/** The sheet the form made, and whether the database also put it in the notebook. */
+type CreatedSheet = {
+  instance: { id: string }
+  inNotebook: boolean | null
+}
+
 /** Create the sheet the form described: from the chosen dataset, or blank. */
-async function createSheet(input: CreateSheetInput) {
+async function createSheet(input: CreateSheetInput): Promise<CreatedSheet> {
   const sheetName = input.name.trim() || t('notebook.sheetsNew.untitledSheet')
 
-  if (input.datasetId && !input.option)
-    throw new Error(t('notebook.sheetsNew.chooseACompatibleSheet'))
-
-  if (input.datasetId && input.option) {
-    return openDatasetInSheet(notebookDataClient, {
-      workspaceId: input.workspaceId,
-      name: sheetName,
-      option: input.option,
+  // No saved sheet layout fits the dataset: the database makes one from the
+  // dataset's own columns, so nobody has to ask a steward first.
+  if (input.datasetId && !input.option) {
+    const opened = await openDatasetInNewSheet(notebookDataClient, {
       datasetId: input.datasetId,
+      name: sheetName,
       projectId: input.projectId || null,
       notebookRecordId: input.notebookRecordId,
     })
+
+    return {
+      instance: opened.instance,
+      inNotebook: input.notebookRecordId ? Boolean(opened.blockId) : null,
+    }
   }
 
-  return createAdHocSheetInstance({
-    workspaceId: input.workspaceId,
-    name: sheetName,
-    projectId: input.projectId,
-    notebookRecordId: input.notebookRecordId,
-    state: blankState(),
-  })
+  if (input.datasetId && input.option) {
+    return {
+      instance: await openDatasetInSheet(notebookDataClient, {
+        workspaceId: input.workspaceId,
+        name: sheetName,
+        option: input.option,
+        datasetId: input.datasetId,
+        projectId: input.projectId || null,
+        notebookRecordId: input.notebookRecordId,
+      }),
+      inNotebook: null,
+    }
+  }
+
+  return {
+    instance: await createAdHocSheetInstance({
+      workspaceId: input.workspaceId,
+      name: sheetName,
+      projectId: input.projectId,
+      notebookRecordId: input.notebookRecordId,
+      state: blankState(),
+    }),
+    inNotebook: null,
+  }
 }
 
 /** Put the new sheet in the notebook it was started from, when there is one. */
@@ -755,34 +776,30 @@ function actionLabel({
     : t('notebook.sheetsNew.createBlankSheet')
 }
 
-/** The form's buttons, the create failure and the way out of a blocked dataset. */
+/** The form's buttons and the create failure. */
 function CreateSheetActions({
   projectId,
   isPending,
   experimentLocked,
-  needsOption,
   label,
   onCreate,
   cancelTo,
   error,
-  blocked,
 }: {
   projectId: string
   isPending: boolean
   experimentLocked: boolean
-  needsOption: boolean
   label: string
   onCreate: () => void
   cancelTo: string | undefined
   error: Error | null
-  blocked: boolean
 }) {
   return (
     <>
       <div className="flex gap-2">
         <Button
           variant="primary"
-          disabled={!projectId || isPending || experimentLocked || needsOption}
+          disabled={!projectId || isPending || experimentLocked}
           onClick={() => onCreate()}
         >
           {label}
@@ -797,19 +814,6 @@ function CreateSheetActions({
         <Notice tone="bad" title={t('notebook.sheetsNew.sheetCouldNotBeTitle')}>
           {error.message}
         </Notice>
-      ) : null}
-      {blocked ? (
-        <Muted>
-          {t('notebook.sheetsNew.toStartWithoutThe')}
-          <Link
-            to="/sheets/new"
-            search={{ project: projectId || undefined }}
-            className="text-link"
-          >
-            {t('notebook.sheetsNew.startABlankSheet')}
-          </Link>
-          .
-        </Muted>
       ) : null}
     </>
   )

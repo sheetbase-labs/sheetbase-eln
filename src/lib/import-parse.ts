@@ -550,12 +550,19 @@ function xmlAttr(attrs: string, name: string): string | null {
   return match ? xmlDecode(capture(match, 1)) : null
 }
 
+/**
+ * Where a sheet's relationship id points. The attributes come in any order:
+ * Excel writes Id first, openpyxl and other libraries write Target first.
+ */
 function relTarget(rels: string, rId: string): string {
-  const match = rels.match(
-    new RegExp(`<Relationship\\b[^>]*Id="${rId}"[^>]*Target="([^"]+)"`),
-  )
+  for (const tag of rels.matchAll(/<Relationship\b([^>]*)\/?>/g)) {
+    const attrs = tag[1] || ''
 
-  return match?.[1] ?? `worksheets/sheet1.xml`
+    if (xmlAttr(attrs, 'Id') === rId)
+      return xmlAttr(attrs, 'Target') ?? 'worksheets/sheet1.xml'
+  }
+
+  return 'worksheets/sheet1.xml'
 }
 
 function parseSharedStrings(xml: string): string[] {

@@ -42,9 +42,11 @@ function HeadlineCard({ headline }: { headline: Headline }) {
           </div>
         ))}
       </dl>
-      <p className="m-0 mt-2 break-words font-mono text-caption text-fg-muted">
-        {headline.equation}
-      </p>
+      {headline.note ? (
+        <p className="m-0 mt-2 break-words font-mono text-caption text-fg-muted">
+          {headline.note}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -158,10 +160,18 @@ export function AnalysisBlockResult({
 
   if (headlines.length === 0) return <AnalysisResultTable result={result} />
 
+  const drawn = figures.some(({ figure }) => figure)
+
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div className="min-w-0 space-y-3">
+      <div
+        className={
+          drawn
+            ? 'grid gap-3 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]'
+            : 'grid gap-3'
+        }
+      >
+        <div className={drawn ? 'min-w-0 space-y-3' : 'hidden'}>
           {figures.map(({ key, figure }) =>
             figure ? (
               <ChartRenderer
@@ -177,7 +187,13 @@ export function AnalysisBlockResult({
             ) : null,
           )}
         </div>
-        <div className="min-w-0 space-y-2">
+        <div
+          className={
+            drawn
+              ? 'min-w-0 space-y-2'
+              : 'grid min-w-0 gap-2 sm:grid-cols-2 lg:grid-cols-3'
+          }
+        >
           {headlines.map((headline) => (
             <HeadlineCard key={headline.group ?? 'all'} headline={headline} />
           ))}

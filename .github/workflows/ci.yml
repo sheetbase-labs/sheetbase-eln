@@ -33,7 +33,7 @@ jobs:
           - name: React Doctor
             command: pnpm lint:react
           - name: Typecheck
-            command: pnpm typecheck
+            command: NODE_OPTIONS=--max-old-space-size=8192 pnpm typecheck
     env:
       DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
       FORMULA_DATABASE_URL: postgresql://formula_runtime:sheetbase-ci@localhost:5432/sheetbase

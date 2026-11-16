@@ -44,7 +44,7 @@ pnpm test:browser
 refuses to run without a loopback `PGRST_DB_URI` because its totals assertions
 read the database directly.
 
-`tests/db/design-scenarios.test.ts` covers three design screens and provisions
+`tests/db/design-scenarios.suite.ts` (one `design-scenarios-*.test.ts` file per screen) covers three design screens and provisions
 its own `sheetbase_parity_*` database for each. It refuses to run unless
 `SHEETBASE_ENV=test`, `SHEETBASE_DEV_AUTH_FREE=false`, and all four role
 URLs (`DATABASE_URL`, `MIGRATION_DATABASE_URL`, `PGRST_DB_URI`,

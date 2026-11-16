@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildHitWorklist,
   buildWorklist,
+  hitsToPick,
   parseRunLog,
   reconcileRunLog,
   withdrawalsFrom,
@@ -150,5 +152,65 @@ describe('run log', () => {
   })
   it('says when it cannot find the wells', () => {
     expect(parseRunLog('a,b\n1,2').warnings).toContain('no_well_columns')
+  })
+})
+
+describe('buildHitWorklist', () => {
+  const hits = [
+    { wellCode: 'C3', sampleId: 's3', label: 'S-3' },
+    { wellCode: 'A1', sampleId: 's1', label: 'S-1' },
+    { wellCode: 'B1', sampleId: 's2', label: 'S-2' },
+  ]
+
+  const opts = {
+    sourcePlate: 'PLR-0001',
+    sourceFormat: '96_well' as const,
+    destPlate: 'HITS',
+    destFormat: '96_well' as const,
+    volumeUl: 10,
+  }
+
+  it('moves each hit from its own well into the next free well, down the columns', () => {
+    const p = buildHitWorklist(hits, opts)
+    expect(p.issues).toEqual([])
+    expect(p.transfers.map((t) => [t.sourceWell, t.destWell])).toEqual([
+      ['A1', 'A1'],
+      ['B1', 'B1'],
+      ['C3', 'C1'],
+    ])
+    expect(p.transfers.every((t) => t.volumeUl === 10)).toBe(true)
+    expect(p.sources).toHaveLength(3)
+  })
+
+  it('says so when the new plate has no room left', () => {
+    const p = buildHitWorklist(hits, { ...opts, destFormat: '96_well' })
+    const many = Array.from({ length: 100 }, (_, i) => ({
+      wellCode: `${'ABCDEFGH'[i % 8]}${(Math.floor(i / 8) % 12) + 1}`,
+      sampleId: `s${i}`,
+      label: `S-${i}`,
+    }))
+    const full = buildHitWorklist(many, opts)
+    expect(p.transfers).toHaveLength(3)
+    expect(full.transfers).toHaveLength(96)
+    expect(full.issues.some((i) => i.code === 'source_plate_full')).toBe(true)
+  })
+
+  it('reports a missing volume instead of guessing', () => {
+    const p = buildHitWorklist(hits, { ...opts, volumeUl: undefined })
+    expect(p.transfers).toHaveLength(0)
+    expect(p.issues[0].code).toBe('no_volume')
+  })
+})
+
+describe('hitsToPick', () => {
+  it('takes only the hits, each from its first well', () => {
+    expect(
+      hitsToPick({
+        samples: [
+          { hit: true, sampleId: 'a', label: 'A', wells: ['C2', 'C3'] },
+          { hit: false, sampleId: 'b', label: 'B', wells: ['D1'] },
+        ],
+      }),
+    ).toEqual([{ wellCode: 'C2', sampleId: 'a', label: 'A' }])
   })
 })

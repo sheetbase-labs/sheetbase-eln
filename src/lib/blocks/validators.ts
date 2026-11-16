@@ -1334,3 +1334,47 @@ export const validatePluginBlock = payloadValidator((payload): FieldErrors => {
 
   return errors
 })
+
+/** The ways a plate run block can colour its plate map. */
+export const PLATE_RUN_BLOCK_VIEWS = [
+  'hits',
+  'normalised',
+  'raw',
+  'roles',
+] as const
+
+// A plate_run block points at one plate run by id and says how to colour its
+// map. An empty draft `{}` is valid. The run's workspace is checked, and the
+// small `pinned` copy of its result written, by the database trigger on blocks.
+export const validatePlateRun = payloadValidator((payload): FieldErrors => {
+  if (!isObject(payload))
+    return [
+      { code: 'invalid_payload_shape', message: 'payload must be an object' },
+    ]
+  const errors: FieldErrors = []
+
+  if (
+    payload.runId !== undefined &&
+    payload.runId !== null &&
+    !isUuid(payload.runId)
+  ) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'runId',
+      message: 'runId must be a plate run UUID',
+    })
+  }
+
+  if (
+    payload.view !== undefined &&
+    !PLATE_RUN_BLOCK_VIEWS.some((view) => view === payload.view)
+  ) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'view',
+      message: `view must be one of ${PLATE_RUN_BLOCK_VIEWS.join(', ')}`,
+    })
+  }
+
+  return errors
+})

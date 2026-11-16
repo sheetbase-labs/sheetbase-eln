@@ -470,6 +470,7 @@ describe('block payload validation (ELN-002)', () => {
         mode: 'warn',
         conditions: [{ kind: 'samples_linked', min: 2 }],
       },
+      plate_run: {},
       corrective_actions: {
         items: [
           {

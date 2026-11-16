@@ -45,6 +45,7 @@ import {
   validateMetric,
   validatePipelineOutput,
   validatePlateMap,
+  validatePlateRun,
   validatePluginBlock,
   validateProcedureStep,
   validateProtocolReference,
@@ -559,6 +560,35 @@ export const BLOCK_DECLARATIONS = defineBlocks([
     summary: (payload) =>
       isSummaryString(payload.block) ? payload.block : 'Plugin block',
     validate: validatePluginBlock,
+  },
+  {
+    type: 'plate_run',
+    picker: {
+      order: 19,
+      label: t('features.plateRuns.block.label'),
+      description: t('features.plateRuns.block.description'),
+      icon: 'grid',
+      group: 'evidence',
+      aliases: ['plate', 'plate run', 'assay', 'reader', 'z prime', 'hits'],
+    },
+    editable: true,
+    // Starts empty so the editor opens straight onto "pick or add a plate run".
+    defaultPayload: () => ({}),
+    summary: (payload) => {
+      const pinned = payload.pinned
+
+      const reference =
+        isSummaryObject(pinned) &&
+        'reference' in pinned &&
+        isSummaryString(pinned.reference)
+          ? pinned.reference
+          : ''
+
+      return reference
+        ? `${t('features.plateRuns.block.label')} — ${reference}`
+        : t('features.plateRuns.block.label')
+    },
+    validate: validatePlateRun,
   },
 ])
 

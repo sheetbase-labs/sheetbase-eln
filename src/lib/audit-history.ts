@@ -438,6 +438,7 @@ export const BLOCK_TYPE_LABELS = {
   chart: 'Chart',
   analysis: 'Analysis',
   plate_map: 'Plate map',
+  plate_run: 'Plate run',
   structure: 'Structure',
   reaction: 'Reaction',
   code_cell: 'Code cell',

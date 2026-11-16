@@ -119,6 +119,7 @@ const BLOCK_TYPE_LABELS = new Map<string, string>([
   ['analysis', t('projects.revisionDocument.analysis')],
   ['pipeline_output', t('projects.revisionDocument.pipelineOutput')],
   ['plate_map', t('projects.revisionDocument.plateMap')],
+  ['plate_run', t('features.plateRuns.block.label')],
   ['structure', t('projects.revisionDocument.structure')],
   ['reaction', t('projects.revisionDocument.reaction')],
   ['code_cell', t('projects.revisionDocument.codeCell')],

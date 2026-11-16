@@ -95,6 +95,7 @@ const LIVE_PREVIEW_BLOCK_TYPES = new Set([
   'protocol_reference',
   'pipeline_output',
   'analysis',
+  'plate_run',
 ])
 
 function isEntity(value: unknown): value is CanonicalRevisionEntity {

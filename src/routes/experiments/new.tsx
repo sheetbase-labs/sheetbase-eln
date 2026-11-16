@@ -12,6 +12,7 @@ import {
   DetailsFieldSection,
   FormActionsSection,
   ProjectFieldSection,
+  TitleFieldSection,
   StartOptionsSection,
 } from './-new-experiment-form-sections'
 import { StartFromFields } from './-new-experiment-start-from'
@@ -71,27 +72,30 @@ function NewExperiment() {
         title={t('projects.newExperiment.title')}
       />
       <form
-        className="flex w-full max-w-3xl flex-col gap-4 px-4 py-4 md:px-6"
+        className="flex w-full max-w-5xl flex-col gap-4 px-4 py-4 md:px-6"
         onSubmit={onSubmit}
       >
-        <ProjectFieldSection form={form} />
-        <DetailsFieldSection form={form} />
         <StartFromFields
           startFrom={form.startFrom}
-          onStartFrom={form.setStartFrom}
-          protocolHint={form.start.protocolHint}
+          onChoose={form.chooseStart}
           effectiveProtocolVersionId={form.start.effectiveProtocolVersionId}
           protocolOptions={form.start.protocolOptions}
-          onProtocol={form.chooseProtocol}
           templateError={form.start.templateError}
-          templatePlaceholder={form.start.templatePlaceholder}
           templateId={form.templateId}
           templateOptions={form.start.templateOptions}
-          onTemplate={form.chooseTemplate}
+          templates={form.sources.templates.data ?? []}
           templatesLoading={form.sources.templates.isLoading}
           parameters={form.start.parameterRows}
           onParameter={form.setParameter}
         />
+        <h2 className="text-base font-semibold text-fg">
+          {t('projects.newExperiment.detailsTitle')}
+        </h2>
+        <div className="grid gap-x-6 gap-y-4 md:grid-cols-2">
+          <TitleFieldSection form={form} />
+          <ProjectFieldSection form={form} />
+          <DetailsFieldSection form={form} />
+        </div>
         <StartOptionsSection form={form} />
         <FormActionsSection form={form} />
       </form>

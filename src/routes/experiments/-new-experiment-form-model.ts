@@ -42,7 +42,7 @@ export function useNewExperimentForm(search: NewExperimentSearch) {
   const sources = useNewExperimentSources({
     sampleId: search.sample,
     seriesId: search.series,
-    templateWanted: startFrom === 'template',
+    templateWanted: true,
   })
 
   const { projects, assignments } = sources
@@ -234,6 +234,21 @@ export function useNewExperimentForm(search: NewExperimentSearch) {
     attemptCreate,
     createButtonLabel: createButtonLabelOf(create.isPending, startNow),
     trail: breadcrumbTrail(project.effectiveProject),
+    /** One list of ways to start: blank, a template, or a protocol version. */
+    chooseStart: (kind: StartFrom, id: string) => {
+      setStartFrom(kind)
+
+      if (kind === 'template') {
+        setTemplateId(id)
+        setTemplateValues({})
+        setIdempotencyKey(crypto.randomUUID())
+      }
+
+      if (kind === 'protocol') {
+        setProtocolVersionId(id)
+        setAcknowledged(false)
+      }
+    },
     /** Reset the protocol's acknowledgement when a different version is picked. */
     chooseProtocol: (id: string) => {
       setProtocolVersionId(id)

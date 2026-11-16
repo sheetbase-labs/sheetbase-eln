@@ -66,7 +66,10 @@ test('EXP-04 an experiment can be saved as a template and the template is offere
   await dialog.getByRole('button', { name: /save/i }).last().click()
   await expect(page.getByText(/template/i).first()).toBeVisible()
   await open(page, '/experiments/new')
-  await expect(page.getByRole('button', { name: 'A template' })).toBeVisible()
+  // The new form lists templates beside a preview, the saved one among them.
+  await expect(
+    page.getByRole('radio', { name: new RegExp(name) }),
+  ).toBeVisible()
 })
 
 test('EXP-06 the notebook takes text and a sheet', async ({ page }) => {

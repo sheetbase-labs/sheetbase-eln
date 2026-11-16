@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
 import { Field, Input } from '#/components/ui/input'
+import { DateField } from '#/components/ui/date-field'
 import { Muted } from '#/components/ui/layout'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { personOption } from '#/components/record-picker/entity-options'
@@ -41,14 +42,14 @@ export function ProjectFieldSection({ form }: { form: Form }) {
         />
       </Field>
       {form.project.projectReplaced ? (
-        <Muted>
+        <Muted className="md:col-span-2">
           {t('projects.newExperiment.replaced', {
             title: form.project.effectiveProject?.title ?? '',
           })}
         </Muted>
       ) : null}
       {form.sources.series.data ? (
-        <Muted>
+        <Muted className="md:col-span-2">
           {t('projects.newExperiment.joinsSeries', {
             identifier: form.sources.series.data.identifier,
             title: form.sources.series.data.title,
@@ -56,7 +57,7 @@ export function ProjectFieldSection({ form }: { form: Form }) {
         </Muted>
       ) : null}
       {form.sources.sample.data ? (
-        <Muted>
+        <Muted className="md:col-span-2">
           {t('projects.newExperiment.sampleLinked', {
             identifier: form.sources.sample.data.identifier,
             title: form.sources.sample.data.title,
@@ -67,10 +68,10 @@ export function ProjectFieldSection({ form }: { form: Form }) {
   )
 }
 
-/** The title, reviewer and planned end, and any fields the model adds. */
-export function DetailsFieldSection({ form }: { form: Form }) {
+/** The title: what is being tested, first among the details. */
+export function TitleFieldSection({ form }: { form: Form }) {
   return (
-    <>
+    <div className="md:col-span-2">
       <Field
         label={t('projects.newExperiment.titleLabel')}
         required
@@ -84,6 +85,14 @@ export function DetailsFieldSection({ form }: { form: Form }) {
           aria-invalid={Boolean(form.titleError) || undefined}
         />
       </Field>
+    </div>
+  )
+}
+
+/** The reviewer and planned end, and any fields the model adds. */
+export function DetailsFieldSection({ form }: { form: Form }) {
+  return (
+    <>
       <Field
         label={t('projects.newExperiment.reviewer')}
         hint={
@@ -106,16 +115,19 @@ export function DetailsFieldSection({ form }: { form: Form }) {
         label={t('projects.newExperiment.plannedEnd')}
         hint={t('projects.newExperiment.plannedEndHint')}
       >
-        <Input
-          type="date"
-          value={form.plannedEnd}
-          onChange={(e) => form.setPlannedEnd(e.target.value)}
+        <DateField
+          value={form.plannedEnd || undefined}
+          onChange={(day) => form.setPlannedEnd(day ?? '')}
+          label={t('projects.newExperiment.plannedEnd')}
+          placeholder={t('projects.newExperiment.plannedEndPlaceholder')}
         />
       </Field>
-      <AddedFieldsFormSection
-        draft={form.addedFields}
-        showErrors={form.touched}
-      />
+      <div className="md:col-span-2">
+        <AddedFieldsFormSection
+          draft={form.addedFields}
+          showErrors={form.touched}
+        />
+      </div>
     </>
   )
 }

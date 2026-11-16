@@ -40,7 +40,7 @@ export function onActionFailure(listener: Listener): () => void {
 
 /** The message sent to the assistant for a failed card. */
 export function failureMessage(failure: ActionFailure): string {
-  return `The card "${failure.title}" could not be applied: ${failure.reason} Explain what went wrong in one plain sentence, then fix it yourself and offer a corrected card (for example under another name, or as an update to the one that already exists). Do not ask me to re-explain.`
+  return `The card "${failure.title}" failed. ${failure.reason} Explain what went wrong in one plain sentence, then fix it yourself and offer a corrected card (for example under another name, or as an update to the one that already exists). Do not ask me to re-explain.`
 }
 
 /** Sends each failed card to the assistant in this chat, so it can offer a fix. */

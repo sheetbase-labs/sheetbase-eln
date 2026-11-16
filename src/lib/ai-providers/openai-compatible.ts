@@ -15,6 +15,7 @@ import {
   PROVIDER_SYSTEM_PROMPT,
   computeCostMicrousd,
   estimateTokens,
+  turnChars,
 } from './types'
 import type {
   ProviderDeps,
@@ -32,8 +33,13 @@ import type {
  * header and OpenRouter's optional cost accounting.
  */
 
+export type OpenAiContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+
 export type OpenAiMessage =
-  | { role: 'system' | 'user'; content: string }
+  | { role: 'system'; content: string }
+  | { role: 'user'; content: string | OpenAiContentPart[] }
   | {
       role: 'assistant'
       content: string | null
@@ -106,6 +112,19 @@ export function conversationMessages(
         }
       }
 
+      if (turn.role === 'user' && turn.images && turn.images.length > 0) {
+        return {
+          role: 'user',
+          content: [
+            { type: 'text', text: turn.content },
+            ...turn.images.map((url): OpenAiContentPart => ({
+              type: 'image_url',
+              image_url: { url },
+            })),
+          ],
+        }
+      }
+
       return { role: turn.role, content: turn.content }
     }),
   ]
@@ -119,7 +138,7 @@ function promptChars(request: ProviderRequest): number {
     (request.messages ?? []).reduce(
       (n, turn) =>
         n +
-        turn.content.length +
+        turnChars(turn) +
         ('toolCalls' in turn
           ? turn.toolCalls.reduce((m, call) => m + call.arguments.length, 0)
           : 0),

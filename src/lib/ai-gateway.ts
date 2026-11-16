@@ -61,6 +61,7 @@ import type {
   ProviderToolCall,
   ProviderToolDef,
 } from './ai-providers/types'
+import { turnChars } from './ai-providers/types'
 import { MODEL_ERROR_CODES, MODEL_NAMES, metrics } from './metrics'
 import type { MetricsRegistry, ModelErrorCode, ModelName } from './metrics'
 
@@ -491,7 +492,7 @@ function prepareCall(
     (input.messages ?? []).reduce(
       (total, turn) =>
         total +
-        turn.content.length +
+        turnChars(turn) +
         ('toolCalls' in turn
           ? turn.toolCalls.reduce((n, call) => n + call.arguments.length, 0)
           : 0),

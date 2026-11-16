@@ -215,6 +215,77 @@ describe('OpenAI-compatible request', () => {
   })
 })
 
+describe('pictures in a turn', () => {
+  const picture = 'data:image/jpeg;base64,/9j/4AAQ'
+
+  const request = {
+    prompt: 'Context.',
+    maxTokens: 20_000,
+    citationIds: [],
+    messages: [
+      { role: 'user' as const, content: 'What is this?', images: [picture] },
+    ],
+  }
+
+  it('sends a picture to an OpenAI-shaped provider as an image part', () => {
+    const body = buildOpenAiCompatibleRequest(profile, request)
+
+    expect(body.messages[1]).toEqual({
+      role: 'user',
+      content: [
+        { type: 'text', text: 'What is this?' },
+        { type: 'image_url', image_url: { url: picture } },
+      ],
+    })
+  })
+
+  it('sends a picture to Anthropic as a base64 image block', () => {
+    const body = buildAnthropicRequest(
+      { ...profile, kind: 'anthropic', model: 'claude-sonnet-4-5' },
+      request,
+    )
+
+    expect(body.messages[0]).toEqual({
+      role: 'user',
+      content: [
+        { type: 'text', text: 'What is this?' },
+        {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: 'image/jpeg',
+            data: '/9j/4AAQ',
+          },
+        },
+      ],
+    })
+  })
+
+  it('leaves a turn with no picture as plain text', () => {
+    const body = buildOpenAiCompatibleRequest(profile, {
+      ...request,
+      messages: [{ role: 'user', content: 'Hello' }],
+    })
+
+    expect(body.messages[1]).toEqual({ role: 'user', content: 'Hello' })
+  })
+
+  it('counts a picture against the prompt budget', () => {
+    const without = buildOpenAiCompatibleRequest(profile, {
+      ...request,
+      maxTokens: 3_000,
+      messages: [{ role: 'user', content: 'What is this?' }],
+    })
+
+    const withPicture = buildOpenAiCompatibleRequest(profile, {
+      ...request,
+      maxTokens: 3_000,
+    })
+
+    expect(withPicture.max_tokens).toBeLessThan(without.max_tokens)
+  })
+})
+
 describe('Anthropic request', () => {
   it('joins /v1 without duplicating it', () => {
     expect(anthropicMessagesUrl('https://api.anthropic.com')).toBe(

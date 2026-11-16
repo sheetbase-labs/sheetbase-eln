@@ -12,6 +12,7 @@ import {
   PROVIDER_SYSTEM_PROMPT,
   computeCostMicrousd,
   estimateTokens,
+  turnChars,
 } from './types'
 import type {
   ProviderDeps,
@@ -27,22 +28,55 @@ import type {
  * a shim would hide provider-specific errors during evaluation.
  */
 
+export type AnthropicContentBlock =
+  | { type: 'text'; text: string }
+  | {
+      type: 'image'
+      source: { type: 'base64'; media_type: string; data: string }
+    }
+
+/** A `data:image/png;base64,...` URL as an Anthropic image block, or null. */
+function imageBlock(url: string): AnthropicContentBlock | null {
+  const match = /^data:(image\/[a-z]+);base64,(.+)$/.exec(url)
+
+  return match
+    ? {
+        type: 'image',
+        source: { type: 'base64', media_type: match[1], data: match[2] },
+      }
+    : null
+}
+
 export interface AnthropicRequest {
   model: string
   max_tokens: number
   temperature: number
   system: string
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>
+  messages: Array<{
+    role: 'user' | 'assistant'
+    content: string | AnthropicContentBlock[]
+  }>
 }
 
 export function buildAnthropicRequest(
   profile: ProviderProfile,
   request: ProviderRequest,
 ): AnthropicRequest {
-  const estimatedInputTokens = estimateTokens(
-    request.prompt +
-      (request.messages ?? []).map((turn) => turn.content).join(''),
+  const pictureTokens = estimateTokens(
+    ' '.repeat(
+      (request.messages ?? []).reduce(
+        (n, turn) => n + turnChars(turn) - turn.content.length,
+        0,
+      ),
+    ),
   )
+
+  const estimatedInputTokens =
+    pictureTokens +
+    estimateTokens(
+      request.prompt +
+        (request.messages ?? []).map((turn) => turn.content).join(''),
+    )
 
   const availableOutputTokens = Math.max(
     1,
@@ -76,7 +110,22 @@ export function buildAnthropicRequest(
           request.messages.flatMap((turn) =>
             turn.role === 'tool' || 'toolCalls' in turn
               ? []
-              : [{ role: turn.role, content: turn.content }],
+              : [
+                  {
+                    role: turn.role,
+                    content:
+                      turn.role === 'user' && turn.images?.length
+                        ? [
+                            { type: 'text' as const, text: turn.content },
+                            ...turn.images.flatMap((url) => {
+                              const block = imageBlock(url)
+
+                              return block ? [block] : []
+                            }),
+                          ]
+                        : turn.content,
+                  },
+                ],
           )
         : [{ role: 'user', content: request.prompt }],
   }

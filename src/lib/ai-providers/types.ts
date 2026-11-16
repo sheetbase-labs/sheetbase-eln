@@ -62,10 +62,27 @@ export interface ResolvedProviderConfig extends ProviderProfile {
   apiKey?: string
 }
 
-/** One prior turn of a conversation. Text only: the assistant has no tools. */
+/** One prior turn of a conversation. */
 export interface ChatTurn {
   role: 'user' | 'assistant'
   content: string
+  /**
+   * Pictures the person attached to this turn, as `data:image/...;base64,`
+   * URLs. Only a user turn carries them, and only the latest one: earlier
+   * pictures are not sent again.
+   */
+  images?: string[]
+}
+
+/** What one picture counts for in the character budget, about 1,500 tokens. */
+export const IMAGE_PROMPT_CHARS = 6_000
+
+/** Characters a turn counts for when sizing a request: its text and pictures. */
+export function turnChars(turn: {
+  content: string
+  images?: string[]
+}): number {
+  return turn.content.length + (turn.images?.length ?? 0) * IMAGE_PROMPT_CHARS
 }
 
 /** A tool the model may call. `name` is the wire name (letters, digits, _ and -). */

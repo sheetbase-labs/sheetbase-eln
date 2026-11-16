@@ -1130,7 +1130,7 @@ export function WorkspaceHeader({
   })
 
   return (
-    <header className="space-y-2 rounded-lg border bg-card p-3">
+    <header className="space-y-2">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1578,63 +1578,67 @@ function DiffPanel({
       aria-label={t('projects.revisionPage.diffPanel.label')}
       className="space-y-3"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-card p-3">
-        <div className="min-w-0">
-          <label
-            htmlFor="review-comparison-select"
-            className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-          >
-            {t('projects.revisionPage.diffPanel.compareAgainst')}
-          </label>
-          <Select
-            id="review-comparison-select"
-            className="mt-1 max-w-xs"
-            value={effectiveComparisonId ?? ''}
-            onChange={(event) => onComparisonChange(event.target.value || null)}
-          >
-            <option value="">
-              {t('projects.revisionPage.diffPanel.noEarlier')}
-            </option>
-            {comparableOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {formatDate(option.created_at)} ·{' '}
-                {revisionReasonLabel(option.reason)}
-                {option.superseded_by_revision_id
-                  ? t('projects.revisionPage.diffPanel.superseded')
-                  : ''}
+      {comparableOptions.length > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <label
+              htmlFor="review-comparison-select"
+              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >
+              {t('projects.revisionPage.diffPanel.compareAgainst')}
+            </label>
+            <Select
+              id="review-comparison-select"
+              className="mt-1 max-w-xs"
+              value={effectiveComparisonId ?? ''}
+              onChange={(event) =>
+                onComparisonChange(event.target.value || null)
+              }
+            >
+              <option value="">
+                {t('projects.revisionPage.diffPanel.noEarlier')}
               </option>
-            ))}
-          </Select>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {comparisonLoading ? (
-            <span className="text-xs text-muted-foreground">
-              {t('projects.revisionPage.diffPanel.loadingComparison')}
-            </span>
-          ) : null}
-          <Tabs
-            mode="state"
-            variant="segment"
-            label={t('projects.revisionPage.diffPanel.readingView')}
-            value={view}
-            onValueChange={(next) => {
-              const chosen = REVIEW_VIEWS.safeParse(next)
+              {comparableOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {formatDate(option.created_at)} ·{' '}
+                  {revisionReasonLabel(option.reason)}
+                  {option.superseded_by_revision_id
+                    ? t('projects.revisionPage.diffPanel.superseded')
+                    : ''}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {comparisonLoading ? (
+              <span className="text-xs text-muted-foreground">
+                {t('projects.revisionPage.diffPanel.loadingComparison')}
+              </span>
+            ) : null}
+            <Tabs
+              mode="state"
+              variant="segment"
+              label={t('projects.revisionPage.diffPanel.readingView')}
+              value={view}
+              onValueChange={(next) => {
+                const chosen = REVIEW_VIEWS.safeParse(next)
 
-              if (chosen.success) setView(chosen.data)
-            }}
-            items={[
-              {
-                key: 'document',
-                label: t('projects.revisionPage.diffPanel.document'),
-              },
-              {
-                key: 'changes',
-                label: t('projects.revisionPage.diffPanel.changeList'),
-              },
-            ]}
-          />
+                if (chosen.success) setView(chosen.data)
+              }}
+              items={[
+                {
+                  key: 'document',
+                  label: t('projects.revisionPage.diffPanel.document'),
+                },
+                {
+                  key: 'changes',
+                  label: t('projects.revisionPage.diffPanel.changeList'),
+                },
+              ]}
+            />
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {view === 'document' ? (
         <RevisionDocumentReview
@@ -2309,8 +2313,13 @@ export function ActionButtons({
 
   return (
     <div className="space-y-2">
+      {/* Only the people who can decide are offered the decisions: an author
+          is not shown Approve and Reject greyed out. */}
       <div className="flex flex-wrap gap-2">
-        {reviewActions.map((action) => {
+        {(permission.canReview || !permission.canWithdraw
+          ? reviewActions
+          : []
+        ).map((action) => {
           const waitingOnChecks =
             action.kind === 'approve' && approveBlockedReason !== null
 

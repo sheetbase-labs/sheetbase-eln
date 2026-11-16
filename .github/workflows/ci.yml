@@ -18,22 +18,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # One job, one install: the four checks take about as long as installing
+  # does, so four jobs mostly installed and held runner slots the test jobs
+  # queued for. Every step runs even when an earlier one fails, so a PR still
+  # sees every failure at once.
   static:
-    name: ${{ matrix.name }}
+    name: Static checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Format
-            command: pnpm check
-          - name: Lint
-            command: pnpm lint:oxlint
-          - name: React Doctor
-            command: pnpm lint:react
-          - name: Typecheck
-            command: pnpm typecheck
     env:
       DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
       FORMULA_DATABASE_URL: postgresql://formula_runtime:sheetbase-ci@localhost:5432/sheetbase
@@ -42,7 +34,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install
-      - run: ${{ matrix.command }}
+        id: install
+      - name: Format
+        run: pnpm check
+      - name: Lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm lint:oxlint
+      - name: React Doctor
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm lint:react
+      - name: Typecheck
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm typecheck
 
   # Migration names must be timestamped, and a migration that sorts before one
   # already on main is only a problem when the two touch the same table,
@@ -269,8 +272,13 @@ jobs:
       - uses: ./.github/actions/services
         with:
           host-tools: 'false'
-      - name: Migrate and seed the acceptance workspace
+      # The build does not touch the database, so it runs alongside the
+      # migrate and seed instead of after them. Either failing fails the step,
+      # with its own log.
+      - name: Migrate and seed the acceptance workspace, and build
         run: |
+          pnpm build > "$RUNNER_TEMP/build.log" 2>&1 &
+          build=$!
           pnpm db:migrate
           pnpm db:seed:design
           docker compose --env-file .env.ci-compose restart postgrest
@@ -279,8 +287,12 @@ jobs:
             sleep 2
           done
           curl --fail http://127.0.0.1:3002/ready
-      - name: Production build
-        run: pnpm build
+          if ! wait "$build"; then
+            cat "$RUNNER_TEMP/build.log"
+            echo "::error::Production build failed"
+            exit 1
+          fi
+          tail -5 "$RUNNER_TEMP/build.log"
       - name: Find the Playwright version
         id: playwright
         run: |

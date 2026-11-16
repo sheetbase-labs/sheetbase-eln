@@ -95,6 +95,24 @@ describe('import parsers', () => {
     expect(preview.sheets[0]?.rows[0]).toEqual({ Sample: 'A1', pH: '7.4' })
   })
 
+  it('finds each sheet when the writer puts Target before Id in the relationships', async () => {
+    const sheet = (value: string) =>
+      `<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>${value}</t></is></c></row></sheetData></worksheet>`
+
+    const sheets = await readXlsxMatrices(
+      zipStore({
+        'xl/workbook.xml':
+          '<workbook><sheets><sheet name="Info" r:id="rId1"/><sheet name="Plate 1" r:id="rId2"/></sheets></workbook>',
+        'xl/_rels/workbook.xml.rels':
+          '<Relationships><Relationship Type="x" Target="/xl/worksheets/sheet1.xml" Id="rId1"/><Relationship Type="x" Target="/xl/worksheets/sheet2.xml" Id="rId2"/></Relationships>',
+        'xl/worksheets/sheet1.xml': sheet('first'),
+        'xl/worksheets/sheet2.xml': sheet('second'),
+      }),
+    )
+
+    expect(sheets.map((s) => s.matrix[0][0])).toEqual(['first', 'second'])
+  })
+
   it('skips a leading instrument metadata block before the header', () => {
     const preview = parseImportText(
       '# Instrument: PR-01\n# Exported: 2026-09-25T08:40:00Z\nsample,well\nSMP-2231,A1\n',

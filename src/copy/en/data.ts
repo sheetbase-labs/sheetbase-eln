@@ -91,7 +91,7 @@ export const data = {
       datasetName: 'Dataset name',
       worksheet: 'Worksheet',
       rowsAndColumns: '{rows} rows · {columns} columns',
-      plateTitle: 'This looks like a {wells}-well plate',
+      plateTitle: 'This looks like a {wells}-well plate.',
       plateBody:
         'Rows A to {lastRow}, columns 1 to {columns}. Import it as a table here, or make a plate run to get Z′, hits and curves.',
       plateAction: 'Make a plate run',

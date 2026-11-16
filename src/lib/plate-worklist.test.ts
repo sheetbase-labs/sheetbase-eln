@@ -184,12 +184,15 @@ describe('buildHitWorklist', () => {
 
   it('says so when the new plate has no room left', () => {
     const p = buildHitWorklist(hits, { ...opts, destFormat: '96_well' })
+
     const many = Array.from({ length: 100 }, (_, i) => ({
       wellCode: `${'ABCDEFGH'[i % 8]}${(Math.floor(i / 8) % 12) + 1}`,
       sampleId: `s${i}`,
       label: `S-${i}`,
     }))
+
     const full = buildHitWorklist(many, opts)
+
     expect(p.transfers).toHaveLength(3)
     expect(full.transfers).toHaveLength(96)
     expect(full.issues.some((i) => i.code === 'source_plate_full')).toBe(true)

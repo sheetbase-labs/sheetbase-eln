@@ -29,6 +29,7 @@ export function SignatureDialog({
   error,
   cancelLabel,
   preSign,
+  approving = false,
   onConfirm,
 }: {
   open: boolean
@@ -44,6 +45,8 @@ export function SignatureDialog({
   cancelLabel?: string
   /** What changed and what to double-check; shown above the form. */
   preSign?: PreSignInput | null
+  /** Approving and signing in this one dialog: the words say so. */
+  approving?: boolean
   onConfirm: (
     meaning: PostSubmissionSignatureMeaning,
     confirmation: string,
@@ -69,9 +72,14 @@ export function SignatureDialog({
       <ESignDialog
         open={open}
         onOpenChange={onOpenChange}
-        title={t('projects.signDialog.title')}
+        title={
+          approving
+            ? t('projects.signDialog.approveTitle')
+            : t('projects.signDialog.title')
+        }
         description={
           <>
+            {approving ? t('projects.signDialog.approveDescription') : null}{' '}
             {t('projects.signDialog.description')}
             {revision.reason ? (
               <>

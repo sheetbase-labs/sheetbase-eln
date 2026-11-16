@@ -1082,6 +1082,9 @@ export const projects = {
   signDialog: {
     trigger: 'Sign',
     title: 'Sign this review',
+    approveTitle: 'Approve and sign',
+    approveDescription:
+      'Your approval and your signature are recorded together here. Signing locks the record.',
     description:
       'You are signing the version of this notebook that was submitted for review, as your attestation of it. This is an internal electronic signature, not a regulatory compliance certification.',
     reason: 'Reason for this version: {reason}',
@@ -3352,6 +3355,7 @@ export const projects = {
     },
     actions: {
       approve: 'Approve',
+      approveAndSign: 'Approve and sign',
       requestChanges: 'Request changes',
       reject: 'Reject',
       withdraw: 'Withdraw',

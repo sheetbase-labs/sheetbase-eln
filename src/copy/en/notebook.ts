@@ -1380,6 +1380,7 @@ export const notebook = {
     countImportedObservationsPinned:
       '{count} imported observations · pinned dataset snapshot',
     openInASheet: 'Open in a sheet',
+    chooseSheetDefinition: 'Choose a sheet definition',
     showInASheet: 'Show in a sheet',
     makingSheet: 'Making the sheet…',
     sheetAddedBelow: 'Sheet added below the import',

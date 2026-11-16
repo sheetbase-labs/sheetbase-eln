@@ -107,6 +107,7 @@ describe('platesInText', () => {
       'A;1;2;3',
       'B;4;5;6',
     ]
+
     const two = [
       'Plate: Rep2',
       'Label: Label2',
@@ -125,7 +126,7 @@ describe('platesInText', () => {
     const rows = Array.from(
       { length: 8 },
       (_, r) =>
-        `\t${r === 0 ? '24.1' : ''}\t${Array.from({ length: 12 }, (_, c) => (r + 1) * (c + 1)).join('\t')}`,
+        `\t${r === 0 ? '24.1' : ''}\t${Array.from({ length: 12 }, (_unused, c) => (r + 1) * (c + 1)).join('\t')}`,
     )
 
     const found = platesInText(

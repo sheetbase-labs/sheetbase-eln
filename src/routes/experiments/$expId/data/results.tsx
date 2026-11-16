@@ -162,7 +162,10 @@ function ResultsTab() {
   ) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <NotebookAnalysesStrip expId={expId} />
+        <NotebookAnalysesStrip
+          expId={expId}
+          alreadyShown={analyses.data.map((view) => view.name)}
+        />
         <ResultsWorkspace
           expId={expId}
           views={analyses.data}

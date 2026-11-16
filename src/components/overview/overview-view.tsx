@@ -38,6 +38,7 @@ import { formatNotebookDateTime } from '#/lib/notebook-data'
 import type { NotebookBlock, RecordWire } from '#/lib/notebook-data'
 import { withReopen } from '#/lib/return-to'
 import { t } from '#/copy'
+import { AnalysisBlockPreview } from '#/components/notebook/block-preview'
 import { keyResultsFrom } from './key-results'
 import { protocolStepProgress, readinessItems } from './readiness'
 import { stepProgress } from '#/lib/step-status'
@@ -565,6 +566,9 @@ export function ExperimentOverview({
           conclusions,
           datasetLinks,
           analysisLinks,
+          figures: blocks
+            .filter((block) => block.type === 'analysis')
+            .slice(0, 2),
         })}
       </div>
 
@@ -895,15 +899,24 @@ function renderKeyResultsSection({
   conclusions,
   datasetLinks,
   analysisLinks,
+  figures,
 }: ReturnType<typeof keyResultsFrom> & {
   datasetLinks: OverviewLink[]
   analysisLinks: OverviewLink[]
+  figures: readonly ReadinessBlock[]
 }) {
   return (
     <Section
       title={t('projects.overview.results.title')}
       action={<Muted>{t('projects.overview.results.preliminary')}</Muted>}
     >
+      {figures.length ? (
+        <div className="mb-4 flex flex-col gap-5" data-key-figures>
+          {figures.map((figure) => (
+            <AnalysisBlockPreview key={figure.id} payload={figure.payload} />
+          ))}
+        </div>
+      ) : null}
       {metrics.length || conclusions.length ? (
         <div className="mb-4 flex flex-col gap-4" data-key-results>
           {metrics.length ? (
@@ -1004,7 +1017,7 @@ function renderKeyResultsSection({
               : []),
           ]}
         />
-      ) : metrics.length || conclusions.length ? null : (
+      ) : metrics.length || conclusions.length || figures.length ? null : (
         <Muted>{t('projects.overview.results.none')}</Muted>
       )}
     </Section>

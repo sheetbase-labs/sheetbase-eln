@@ -1,3 +1,4 @@
+import { addAnalysisToNotebook, notebookBlockHref } from './analysis-notebook'
 import { requestCodeCellRun } from './code-cells/code-cell'
 import { plainTextToRichText } from './blocks/plain-text'
 import type { DataClient } from './data-client'
@@ -15,6 +16,16 @@ export async function runAnalysisAction(
   client: DataClient,
   action: AnalysisAction,
 ): Promise<AnalysisActionResult> {
+  if (action.kind === 'analysis.add_saved') {
+    const added = await addAnalysisToNotebook(client, {
+      recordId: action.recordId,
+      definitionId: action.definitionId,
+      title: action.title,
+    })
+
+    return { openHref: notebookBlockHref(action.recordId, added.blockId) }
+  }
+
   const inputs = [
     {
       alias: ANALYSIS_INPUT_ALIAS,

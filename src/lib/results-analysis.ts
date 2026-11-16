@@ -23,9 +23,15 @@ import { z } from 'zod'
 export const ANALYSIS_RUN_TOOL = 'sheetbase.analysis.run'
 export const ANALYSIS_ADD_TOOL = 'sheetbase.analysis.add_to_notebook'
 
+export const ANALYSIS_ADD_SAVED_TOOL =
+  'sheetbase.analysis.add_saved_to_notebook'
+
 export const ANALYSIS_READ_TOOL_NAMES = [ANALYSIS_RUN_TOOL] as const
 
-export const ANALYSIS_PROPOSE_TOOL_NAMES = [ANALYSIS_ADD_TOOL] as const
+export const ANALYSIS_PROPOSE_TOOL_NAMES = [
+  ANALYSIS_ADD_TOOL,
+  ANALYSIS_ADD_SAVED_TOOL,
+] as const
 
 export type AnalysisProposeToolName =
   (typeof ANALYSIS_PROPOSE_TOOL_NAMES)[number]
@@ -108,31 +114,59 @@ export const proposeAnalysisAddSchema = z.strictObject({
     ),
 })
 
+/** A saved analysis (one made in the Analysis Studio) goes in as a live block. */
+export const proposeAnalysisAddSavedSchema = z.strictObject({
+  title,
+  summary,
+  experiment: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      'The experiment whose notebook gets the analysis, by identifier such as EXP-0145 or by title.',
+    ),
+  analysis: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The saved analysis, by name or by id such as AN-0004.'),
+})
+
 export type AnalysisSettings = Pick<
   z.infer<typeof analysisRunSchema>,
   'kind' | 'x' | 'y' | 'group' | 'label' | 'model' | 'unit'
 >
 
 /** What an analysis card does when its button is pressed. */
-export type AnalysisAction = {
-  kind: 'analysis.add_to_notebook'
-  recordId: string
-  /** The Python the code cell holds: the analysis with its settings filled in. */
-  source: string
-  datasetVersionId: string
-  versionLabel: string
-  /** The draft summary, as plain text for the notebook. */
-  draftSummary: string
-  /** What the analysis is, in a few words, for the summary block's heading. */
-  heading: string
-}
+export type AnalysisAction =
+  | {
+      kind: 'analysis.add_to_notebook'
+      recordId: string
+      /** The Python the code cell holds: the analysis with its settings filled in. */
+      source: string
+      datasetVersionId: string
+      versionLabel: string
+      /** The draft summary, as plain text for the notebook. */
+      draftSummary: string
+      /** What the analysis is, in a few words, for the summary block's heading. */
+      heading: string
+    }
+  | {
+      kind: 'analysis.add_saved'
+      recordId: string
+      definitionId: string
+      title: string
+    }
 
 export type AnalysisActionKind = AnalysisAction['kind']
 
 export function isAnalysisAction(action: {
   kind: string
 }): action is AnalysisAction {
-  return action.kind === 'analysis.add_to_notebook'
+  return (
+    action.kind === 'analysis.add_to_notebook' ||
+    action.kind === 'analysis.add_saved'
+  )
 }
 
 export interface AnalysisActionResult {

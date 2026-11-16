@@ -5,6 +5,7 @@ import type { LabToolContext } from './assistant-lab-tools.server'
 import type * as RunServer from './code-cells/run.server'
 import type { DataClient } from './data-client'
 import {
+  ANALYSIS_ADD_SAVED_TOOL,
   ANALYSIS_ADD_TOOL,
   ANALYSIS_PROPOSE_TOOL_NAMES,
   ANALYSIS_RUN_TOOL,
@@ -55,6 +56,14 @@ const TABLES = {
   datasets: [DATASET],
   dataset_versions: [VERSION],
   records: [EXPERIMENT],
+  analysis_definitions: [
+    {
+      id: 'a1',
+      name: 'ELISA standard curve',
+      display_id: 'AN-0004',
+      version: 2,
+    },
+  ],
 }
 
 const ROWS_DOC = {
@@ -137,7 +146,7 @@ describe('results analysis tools', () => {
     expect(analysisReadDefs().map((d) => d.name)).toEqual([
       ANALYSIS_RUN_TOOL.replaceAll('.', '__'),
     ])
-    expect(analysisProposalDefs()).toHaveLength(1)
+    expect(analysisProposalDefs()).toHaveLength(2)
 
     for (const name of ANALYSIS_PROPOSE_TOOL_NAMES)
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(name)
@@ -229,5 +238,71 @@ describe('results analysis tools', () => {
       'Adds',
       'Draft summary',
     ])
+  })
+
+  it('builds a card that adds a saved analysis as a live block, naming it and the experiment', async () => {
+    const outcome = await buildAnalysisProposal(
+      ANALYSIS_ADD_SAVED_TOOL,
+      {
+        title: 'Add the standard curve',
+        summary: 'Put the saved curve fit in the notebook',
+        experiment: 'EXP-0145',
+        analysis: 'AN-0004',
+      },
+      context(),
+    )
+
+    if (!outcome.ok) throw new Error(outcome.message)
+    expect(runPython).not.toHaveBeenCalled()
+    expect(outcome.proposal.target).toBe('EXP-0145 · Notebook')
+    expect(outcome.proposal.action).toEqual({
+      kind: 'analysis.add_saved',
+      recordId: 'e1',
+      definitionId: 'a1',
+      title: 'ELISA standard curve',
+    })
+    expect(outcome.proposal.changes.map((c) => c.after)).toContain(
+      'AN-0004 ELISA standard curve (v2)',
+    )
+  })
+
+  it('says so when no saved analysis matches, and asks which when two do', async () => {
+    const none = await buildAnalysisProposal(
+      ANALYSIS_ADD_SAVED_TOOL,
+      {
+        title: 'Add',
+        summary: 'Add it',
+        experiment: 'EXP-0145',
+        analysis: 'Dose',
+      },
+      context({ ...TABLES, analysis_definitions: [] }),
+    )
+
+    expect(none).toEqual({
+      ok: false,
+      message: 'No saved analysis matches “Dose”.',
+    })
+
+    const two = await buildAnalysisProposal(
+      ANALYSIS_ADD_SAVED_TOOL,
+      {
+        title: 'Add',
+        summary: 'Add it',
+        experiment: 'EXP-0145',
+        analysis: 'curve',
+      },
+      context({
+        ...TABLES,
+        analysis_definitions: [
+          { id: 'a1', name: 'Curve one', display_id: 'AN-0001', version: 1 },
+          { id: 'a2', name: 'Curve two', display_id: 'AN-0002', version: 1 },
+        ],
+      }),
+    )
+
+    expect(two.ok).toBe(false)
+
+    if (!two.ok)
+      expect(two.message).toContain('AN-0001 Curve one, AN-0002 Curve two')
   })
 })

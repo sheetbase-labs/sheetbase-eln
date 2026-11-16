@@ -6418,6 +6418,52 @@ export const assistantConversations = api.table(
 )
 
 /**
+ * ai_change_sets (migration 20261116092541) — the stretch of the audit trail
+ * that one assistant card or plan wrote, kept so the person can undo it.
+ * Written through `begin_ai_change_set` and `finish_ai_change_set`, undone with
+ * `undo_ai_change_set`; read under RLS by its owner alone. `windows` holds
+ * `{from, to}` change-event sequences, `untracked` the steps whose changes the
+ * audit trail does not carry.
+ */
+export const aiChangeSets = api.table(
+  'ai_change_sets',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    // card | plan
+    kind: text('kind').notNull(),
+    windows: jsonb('windows')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    untracked: jsonb('untracked')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    // open | applied | undone
+    status: text('status').notNull().default('open'),
+    openedAt: timestamp('opened_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    undoneAt: timestamp('undone_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    index('idx_ai_change_sets_user_created').on(
+      table.userId,
+      table.workspaceId,
+      table.createdAt,
+    ),
+  ],
+)
+
+/**
  * project_follows (migration 0088) — a per-user follow of a project, so it
  * appears in the caller's Inbox Following tab like a followed record. Written
  * through `follow_project` / `unfollow_project`; read under RLS by its owner.

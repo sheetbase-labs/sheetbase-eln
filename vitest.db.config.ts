@@ -1,5 +1,7 @@
 import { defineConfig } from 'vitest/config'
 
+import { timedSequencer } from './tests/timed-sequencer.ts'
+
 // Database integration layer: runs against a real local PostgreSQL with the
 // full migration history applied to a disposable database. Requires
 // `pnpm services:up`. See docs/development/testing.md.
@@ -19,6 +21,10 @@ export default defineConfig({
     // run in parallel without sharing state (see tests/db/helpers.ts).
     fileParallelism: true,
     maxWorkers: 12,
+    // CI shards by measured file time (tests/db/timings.json), so the few
+    // minute-long design-seed files spread out instead of piling into one
+    // shard, and each shard starts its longest files first.
+    sequence: { sequencer: timedSequencer('tests/db/timings.json') },
     testTimeout: 30_000,
     hookTimeout: 60_000,
   },

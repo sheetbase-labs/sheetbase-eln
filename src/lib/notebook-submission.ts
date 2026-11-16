@@ -16,7 +16,8 @@
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 import { isCanonicalSheetBlock, sheetBlockInstanceId } from '#/lib/sheet-block'
 
-export type SubmissionCheckState = 'pass' | 'fail' | 'pending' | 'manual'
+export type SubmissionCheckState =
+  'pass' | 'fail' | 'warn' | 'pending' | 'manual'
 
 export interface SubmissionCheck {
   id: string
@@ -42,6 +43,16 @@ export interface SubmissionReadinessInput {
   digestError: string | null
   /** Embedded sheets in the notebook; they add a manual "saved" check. */
   sheetCount?: number
+  /**
+   * What the server's readiness list still names, one row each. A blocking row
+   * stops the submit; a warning row is shown but lets it through.
+   */
+  openItems?: Array<{
+    id: string
+    label: string
+    detail: string
+    blocking: boolean
+  }>
 }
 
 /**
@@ -100,6 +111,14 @@ export function submissionReadinessChecks(
             : `Your workspace asks for at least ${minReviewers} reviewers on every submission.`,
     },
   ]
+
+  for (const item of input.openItems ?? [])
+    checks.push({
+      id: `open:${item.id}`,
+      label: item.label,
+      state: item.blocking ? 'fail' : 'warn',
+      detail: item.detail,
+    })
 
   if ((input.sheetCount ?? 0) > 0)
     checks.push({

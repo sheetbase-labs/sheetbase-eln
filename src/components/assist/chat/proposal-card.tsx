@@ -24,6 +24,8 @@ import type {
   AssistantProposal,
   ProposalChange,
 } from '#/lib/assistant-proposals'
+import { beginChangeSet, finishChangeSet } from '#/features/ai-undo/client'
+import { isUndoableTool } from '#/features/ai-undo/undo'
 import { runAssistantAction } from '#/lib/assistant-booking'
 import type { AssistantActionKind } from '#/lib/assistant-booking'
 import { describeActionError, plainDatabaseError } from '#/lib/assistant-bench'
@@ -32,6 +34,7 @@ import { describeCalendarError } from '#/lib/calendar'
 import { isPlanAction } from '#/features/plans/plan'
 import type { PlanStepResult } from '#/features/plans/plan'
 import { PlanCard } from './plan-card'
+import { UndoPanel } from './undo-panel'
 
 /**
  * A change the assistant suggests, as a card. Nothing has been written. Apply
@@ -51,6 +54,9 @@ type CardState =
 
 /** Kept outside the component so a re-render or reopened panel remembers it. */
 const decided = new Map<string, CardState>()
+
+/** The set of changes each applied card made, so its Undo survives a re-render. */
+const undoSets = new Map<string, string>()
 
 /** Which copy keys an everyday action uses for its button and done words. */
 const ACTION_COPY = {
@@ -465,6 +471,12 @@ function SingleProposalCard({
   const [opened, setOpened] = useState<string | null>(null)
   // A one-time link the card made, such as a new invitation's.
   const [note, setNote] = useState<string | null>(null)
+
+  // The changes this card made, so they can be undone.
+  const [undoSetId, setUndoSetId] = useState<string | null>(
+    () => undoSets.get(callId) ?? null,
+  )
+
   const queryClient = useQueryClient()
   const router = useRouter()
 
@@ -480,7 +492,36 @@ function SingleProposalCard({
     let outcome: ApplyOutcome
 
     if (proposal.action) {
+      const recording = isUndoableTool(proposal.tool)
+      let openSet: string | null = null
+
+      // Only what the audit trail carries in full can be undone, so only those
+      // cards are recorded. The card runs the same whether or not this works.
+      if (recording) {
+        try {
+          openSet = await beginChangeSet(client, {
+            title: proposal.title,
+            kind: 'card',
+          })
+        } catch {
+          openSet = null
+        }
+      }
+
       outcome = await applyAction(client, proposal)
+
+      if (openSet) {
+        try {
+          const kept = await finishChangeSet(client, openSet, [])
+
+          if (kept) {
+            undoSets.set(callId, kept.id)
+            setUndoSetId(kept.id)
+          }
+        } catch {
+          // Nothing to undo when the set could not be closed.
+        }
+      }
     } else {
       outcome = await applyProposal(client, proposal, requestId, workspaceId)
     }
@@ -544,6 +585,9 @@ function SingleProposalCard({
         onApply={() => void apply()}
         onDismiss={() => setState({ phase: 'dismissed' })}
       />
+      {undoSetId && (state.phase === 'applied' || state.phase === 'failed') ? (
+        <UndoPanel key={undoSetId} setId={undoSetId} />
+      ) : null}
     </section>
   )
 }

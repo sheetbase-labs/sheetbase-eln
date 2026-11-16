@@ -140,6 +140,72 @@ function cellText(
   return scalar.success ? String(scalar.data) : JSON.stringify(value)
 }
 
+function Figures({ figures }: { figures: ReturnType<typeof figuresIn> }) {
+  return figures.map((figure) => (
+    <figure key={figure.key} className="m-0 flex flex-col gap-1 self-start">
+      {/* Plots are drawn dark on light, so they sit on white in either theme. */}
+      <img
+        src={figure.src}
+        alt={figure.title}
+        className="max-h-96 max-w-full rounded-md border border-border bg-white p-2"
+      />
+      <figcaption className="text-label text-fg-muted">
+        {figure.title}
+      </figcaption>
+    </figure>
+  ))
+}
+
+/** The rows of a run as a grid, with a note when only the first are shown. */
+function OutputTable({
+  output,
+  shown,
+  total,
+  hiddenColumns,
+}: {
+  output: CodeCellOutput
+  shown: CodeCellOutput['rows']
+  total: number
+  hiddenColumns: Set<string>
+}) {
+  const entries = readOnlyEntries(shown, (row) => JSON.stringify(row))
+
+  const gridColumns: RegistryColumn<(typeof entries)[number]>[] = output.columns
+    .filter((column) => !hiddenColumns.has(column))
+    .map((column) => ({
+      id: column,
+      header: column,
+      accessorFn: ({ value: row }) => cellText(row[column]),
+    }))
+
+  if (shown.length === 0) return null
+
+  return (
+    <>
+      <TableBox
+        className="shrink-0"
+        style={{ height: gridHeight(entries.length, 320) }}
+      >
+        <RegistryGrid
+          label={t('automation.codeCell.outputLabel')}
+          rows={entries}
+          columns={gridColumns}
+          getRowId={(entry) => entry.key}
+          selectable={false}
+        />
+      </TableBox>
+      {total > shown.length ? (
+        <p className="m-0 text-label text-fg-muted">
+          {t('automation.codeCell.firstRows', {
+            shown: shown.length,
+            count: total,
+          })}
+        </p>
+      ) : null}
+    </>
+  )
+}
+
 /** The output of a run: the first rows, and what was kept with it. */
 function CodeCellOutputView({
   output,
@@ -157,16 +223,6 @@ function CodeCellOutputView({
   )
 
   const shown = tableRows.slice(0, PREVIEW_ROWS)
-  const tableTotal = output.truncated ? output.rowCount : tableRows.length
-  const entries = readOnlyEntries(shown, (row) => JSON.stringify(row))
-
-  const gridColumns: RegistryColumn<(typeof entries)[number]>[] = output.columns
-    .filter((column) => !figureColumns.has(column))
-    .map((column) => ({
-      id: column,
-      header: column,
-      accessorFn: ({ value: row }) => cellText(row[column]),
-    }))
 
   return (
     <div
@@ -199,46 +255,13 @@ function CodeCellOutputView({
         </p>
       ) : (
         <>
-          {figures.map((figure) => (
-            <figure
-              key={figure.key}
-              className="m-0 flex flex-col gap-1 self-start"
-            >
-              {/* Plots are drawn dark on light, so they sit on white in either theme. */}
-              <img
-                src={figure.src}
-                alt={figure.title}
-                className="max-h-96 max-w-full rounded-md border border-border bg-white p-2"
-              />
-              <figcaption className="text-label text-fg-muted">
-                {figure.title}
-              </figcaption>
-            </figure>
-          ))}
-          {shown.length === 0 ? null : (
-            <>
-              <TableBox
-                className="shrink-0"
-                style={{ height: gridHeight(entries.length, 320) }}
-              >
-                <RegistryGrid
-                  label={t('automation.codeCell.outputLabel')}
-                  rows={entries}
-                  columns={gridColumns}
-                  getRowId={(entry) => entry.key}
-                  selectable={false}
-                />
-              </TableBox>
-              {tableTotal > shown.length ? (
-                <p className="m-0 text-label text-fg-muted">
-                  {t('automation.codeCell.firstRows', {
-                    shown: shown.length,
-                    count: tableTotal,
-                  })}
-                </p>
-              ) : null}
-            </>
-          )}
+          <Figures figures={figures} />
+          <OutputTable
+            output={output}
+            shown={shown}
+            total={output.truncated ? output.rowCount : tableRows.length}
+            hiddenColumns={figureColumns}
+          />
         </>
       )}
       {output.logs && output.logs.length > 0 ? (

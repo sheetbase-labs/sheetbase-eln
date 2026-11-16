@@ -199,6 +199,10 @@ function settingsFor(
     unit: args.unit,
   }
 
+  const labelOf = new Map(
+    input.columns.map((column) => [column.key, column.label]),
+  )
+
   for (const field of ['x', 'y', 'group', 'label'] as const) {
     const wanted = args[field]
 
@@ -214,7 +218,7 @@ function settingsFor(
       }
     settings[field] = key
 
-    const shown = input.columns.find((column) => column.key === key)?.label
+    const shown = labelOf.get(key)
 
     if (shown && shown !== key)
       settings.labels = { ...settings.labels, [field]: shown }

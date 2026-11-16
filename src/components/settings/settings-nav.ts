@@ -272,6 +272,12 @@ export const settingsAccountNav: SettingsNavItem[] = [
   },
   {
     place: 'account',
+    label: 'AI preferences',
+    link: { to: '/settings/account/ai-preferences' },
+    match: (p) => p.startsWith('/settings/account/ai-preferences'),
+  },
+  {
+    place: 'account',
     label: 'Notifications',
     link: { to: '/settings/account/notifications' },
     match: (p) => p.startsWith('/settings/account/notifications'),

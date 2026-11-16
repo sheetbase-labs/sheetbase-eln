@@ -13,29 +13,11 @@ import {
 import { analysisBlockParts } from '#/lib/analysis-definition'
 import { materialiseFrozenChart, materialiseLiveChart } from '#/lib/chart-data'
 import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
-import type { ChartSpec, MaterialisedChart } from '#/lib/chart-spec'
 import type { DatasetRowInput } from '#/lib/dataset-product'
 import type { DatasetValueFlag } from '#/lib/dataset-flags'
+import { figureFromChart } from './chart-figure'
+import type { PdfFigure } from './chart-figure'
 import { postgrestRpc } from '#/lib/request-auth'
-
-export interface FigureSeries {
-  label: string
-  color: string
-  points: Array<{ x: number | null; y: number; label?: string }>
-}
-
-/** A chart reduced to what the PDF draws. */
-export interface PdfFigure {
-  title: string
-  /** Lines or markers on number axes, or bars per category. */
-  kind: 'xy' | 'bar'
-  connect: boolean
-  xLabel: string
-  yLabel: string
-  series: FigureSeries[]
-  hlines: Array<{ value: number; label: string }>
-  note: string | null
-}
 
 type Payload = Record<string, z.infer<typeof z.json>>
 
@@ -56,47 +38,6 @@ const page = z.object({
   ),
   totalCount: z.number(),
 })
-
-const BAR_TYPES = new Set(['bar', 'grouped_bar', 'stacked_bar', 'summary'])
-const XY_TYPES = new Set(['scatter', 'strip'])
-const LINE_TYPES = new Set(['line', 'scatter_line', 'connected_scatter'])
-
-function figureOf(
-  title: string,
-  spec: ChartSpec,
-  chart: MaterialisedChart,
-): PdfFigure | null {
-  const type = spec.type
-  const bar = BAR_TYPES.has(type)
-
-  if (!bar && !XY_TYPES.has(type) && !LINE_TYPES.has(type)) return null
-
-  const series = chart.series
-    .filter((s) => s.visible !== false)
-    .map((s) => ({
-      label: s.label,
-      color: s.color,
-      points: s.points.flatMap((p) =>
-        p.y === null ? [] : [{ x: p.x, y: p.y, label: p.label }],
-      ),
-    }))
-    .filter((s) => s.points.length > 0)
-
-  if (series.length === 0) return null
-
-  return {
-    title,
-    kind: bar ? 'bar' : 'xy',
-    connect: LINE_TYPES.has(type),
-    xLabel: [chart.xLabel, chart.xUnit].filter(Boolean).join(' '),
-    yLabel: [chart.yLabel, chart.yUnit].filter(Boolean).join(' '),
-    series,
-    hlines: (spec.overlays.references ?? []).flatMap((r) =>
-      r.kind === 'hline' ? [{ value: r.value, label: r.label }] : [],
-    ),
-    note: null,
-  }
-}
 
 async function pinnedRows(versionId: string, expected: number, token: string) {
   if (expected > ROW_CEILING) return null
@@ -176,7 +117,7 @@ async function analysisFigure(
     totalCount: pin.rowCount,
   })
 
-  return figureOf(title, spec, chart)
+  return figureFromChart(title, spec, chart)
 }
 
 function chartBlockFigure(title: string, payload: Payload): PdfFigure | null {
@@ -185,7 +126,7 @@ function chartBlockFigure(title: string, payload: Payload): PdfFigure | null {
 
   if (!spec.success || !frozen.success) return null
 
-  return figureOf(title, spec.data, materialiseFrozenChart(frozen.data))
+  return figureFromChart(title, spec.data, materialiseFrozenChart(frozen.data))
 }
 
 /** Every analysis and chart block of a snapshot, keyed by block id. */
@@ -213,3 +154,5 @@ export async function buildRecordFigures(
 
   return figures
 }
+
+export type { PdfFigure }

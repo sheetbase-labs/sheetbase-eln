@@ -15,7 +15,7 @@ import { z } from 'zod'
 import { safeText } from '#/lib/client-portal-pdf'
 import { formatMagnitude } from '#/lib/format-numbers'
 import { FIGURE_HEIGHT, drawFigure } from './figure-draw'
-import type { PdfFigure } from './record-figures'
+import type { PdfFigure } from './chart-figure'
 import { frozenSheetGridFromEvidence } from '#/lib/frozen-sheet-grid'
 import { sheetEvidenceFromEnvelope } from '#/lib/sheet-evidence'
 

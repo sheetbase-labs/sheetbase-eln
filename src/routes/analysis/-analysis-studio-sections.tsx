@@ -396,7 +396,6 @@ export function AnalysisModeSection({
   activeSnapshotId,
   definitionId,
   experimentId,
-  returnTo,
 }: {
   sources: CanonicalDatasetSource[]
   workspaceId: string
@@ -406,7 +405,6 @@ export function AnalysisModeSection({
   activeSnapshotId: string | null
   definitionId?: string
   experimentId?: string
-  returnTo?: string
 }) {
   return (
     <div className="min-h-0 flex-1 overflow-auto p-3">
@@ -419,7 +417,6 @@ export function AnalysisModeSection({
         initialSnapshotId={activeSnapshotId}
         initialDefinitionId={definitionId}
         experimentId={experimentId}
-        returnTo={returnTo}
       />
     </div>
   )

@@ -388,6 +388,7 @@ function ReceiptLinks({
           dataset: datasetId,
           snapshot: versionId,
           mode: 'analyse',
+          experiment: recordId,
           returnTo,
         }}
       >

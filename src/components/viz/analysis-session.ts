@@ -21,6 +21,11 @@ import type { AnalysisDefinitionWire } from '#/lib/analysis-definitions-data'
 import { resolveDatasetRef, sciDataClient } from '#/lib/chart-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import type { DataClient } from '#/lib/data-client'
+import {
+  addAnalysisToNotebook,
+  notebookBlockHref,
+} from '#/lib/analysis-notebook'
+import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
 import { buildRegressionFitChart, buildCurveFitChart } from './analysis-charts'
 import type { DefinitionPatch } from './analysis-controls'
 import {
@@ -46,9 +51,21 @@ export interface AnalysisPanelProps {
   initialDefinitionId?: string
   /** The experiment the studio was opened from; Cite offers it first. */
   experimentId?: string
+  /** The page the studio was opened from; saving into the experiment returns there. */
+  returnTo?: string
 }
 
 const noDefinitions: AnalysisDefinitionWire[] = []
+
+/** Why a save was refused, in words: a name already taken gets its own line. */
+function describeSaveError(error: Error): string {
+  const { message } = error
+
+  if (message.includes('uq_analysis_definitions_workspace_owner_name'))
+    return t('features.resultsAnalysis.studio.nameTaken')
+
+  return message || t('data.analysisPanel.databaseRefused')
+}
 
 export function useAnalysisSession({
   datasets,
@@ -60,6 +77,7 @@ export function useAnalysisSession({
   initialSnapshotId,
   initialDefinitionId,
   experimentId,
+  returnTo,
 }: AnalysisPanelProps) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -190,31 +208,108 @@ export function useAnalysisSession({
     loadDefinition(saved)
   }, [initialDefinitionId, definitions, loadDefinition])
 
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!draft.definition || !draft.name.trim()) return null
+  function saveDefinition() {
+    if (!draft.definition || !draft.name.trim()) return Promise.resolve(null)
 
-      return saveAnalysisDefinition(
-        dataClient,
-        {
-          id: draft.editingId ?? undefined,
-          name: draft.name.trim(),
-          definition: draft.definition,
-          source_revisions: captureDefinitionSourceRevisions(
-            selectedDataset ? [selectedDataset] : [],
-            draft.definition,
-          ),
-        },
-        workspaceId,
-        userId,
-      )
-    },
+    return saveAnalysisDefinition(
+      dataClient,
+      {
+        id: draft.editingId ?? undefined,
+        name: draft.name.trim(),
+        definition: draft.definition,
+        source_revisions: captureDefinitionSourceRevisions(
+          selectedDataset ? [selectedDataset] : [],
+          draft.definition,
+        ),
+      },
+      workspaceId,
+      userId,
+    )
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: saveDefinition,
     onSuccess: (saved) => {
       if (saved) loadDefinition(saved)
       void queryClient.invalidateQueries({
         queryKey: analysisDefinitionQueryKeys.all,
       })
     },
+    onError: (error) =>
+      toast(t('features.resultsAnalysis.studio.couldSave'), {
+        description: describeSaveError(error),
+      }),
+  })
+
+  // The experiment the studio was opened from, named for the button.
+  const experimentQuery = useQuery({
+    queryKey: ['analysis-panel', 'save-target', experimentId],
+    enabled: Boolean(experimentId),
+    queryFn: async () =>
+      (
+        await notebookDataClient.list<{
+          id: string
+          identifier: string
+          title: string
+        }>(
+          'records',
+          `?id=eq.${encodeURIComponent(experimentId ?? '')}&kind=eq.experiment&select=id,identifier,title&limit=1`,
+        )
+      ).at(0) ?? null,
+    staleTime: 60_000,
+  })
+
+  const experiment = experimentQuery.data ?? null
+
+  // Save the analysis and put it in the experiment's notebook in one step,
+  // then go back to where the person came from, at the new block.
+  const saveAndAddMutation = useMutation({
+    mutationFn: async () => {
+      const saved = await saveDefinition()
+
+      if (!saved || !experiment) return null
+
+      // The analysis is saved even if the notebook refuses the block, so a
+      // second press updates it instead of tripping over its own name.
+      loadDefinition(saved)
+
+      const added = await addAnalysisToNotebook(notebookDataClient, {
+        recordId: experiment.id,
+        definitionId: saved.id,
+        title: draft.name,
+      })
+
+      return { saved, added, experiment }
+    },
+    onSuccess: (done) => {
+      if (!done) return
+      loadDefinition(done.saved)
+      void queryClient.invalidateQueries({
+        queryKey: analysisDefinitionQueryKeys.all,
+      })
+
+      for (const key of [
+        notebookQueryKeys.record(done.experiment.id),
+        notebookQueryKeys.blocks(done.experiment.id),
+        notebookQueryKeys.activity(done.experiment.id),
+        ['ui-port', 'experiment', 'result-analysis-blocks', done.experiment.id],
+      ])
+        void queryClient.invalidateQueries({ queryKey: key })
+
+      const notebook = notebookBlockHref(done.experiment.id, done.added.blockId)
+
+      // Back to the page the person came from; the notebook gets the block's
+      // own address so it scrolls to the result.
+      const comesFromNotebook = !returnTo || returnTo.includes('/notebook')
+
+      void navigate({
+        to: comesFromNotebook ? notebook : returnTo,
+      })
+    },
+    onError: (error) =>
+      toast(t('features.resultsAnalysis.studio.couldAdd'), {
+        description: describeSaveError(error),
+      }),
   })
 
   const deleteMutation = useMutation({
@@ -329,6 +424,8 @@ export function useAnalysisSession({
     loadDefinition,
     selectDataset,
     saveMutation,
+    saveAndAddMutation,
+    experiment,
     deleteMutation,
     deleteTarget,
     setDeleteTarget,

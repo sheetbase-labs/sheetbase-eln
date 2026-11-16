@@ -11,6 +11,7 @@ import {
 import type { LabToolContext } from './assistant-lab-tools.server'
 import type { ProviderToolDef } from './ai-providers/types'
 import type { AssistantProposal } from './assistant-proposals'
+import { snapshotDataset } from './dataset-product'
 import { recordDestination } from './navigation'
 import {
   ANALYSIS_ADD_TOOL,
@@ -92,6 +93,7 @@ interface DatasetRow {
   id: string
   name: string
   display_id: string | null
+  revision: number
 }
 
 interface VersionRow {
@@ -117,7 +119,7 @@ async function loadDataset(
 
   const datasets = await context.client.list<DatasetRow>(
     'datasets',
-    `?or=(name.ilike.${like},display_id.ilike.${like})&select=id,name,display_id&order=updated_at.desc&limit=6`,
+    `?or=(name.ilike.${like},display_id.ilike.${like})&select=id,name,display_id,revision&order=updated_at.desc&limit=6`,
   )
 
   const lower = text.trim().toLowerCase()
@@ -150,13 +152,34 @@ async function loadDataset(
     }&select=id,label,created_at&order=created_at.desc&limit=1`,
   )
 
-  if (versions.length === 0)
+  if (versions.length === 0 && snapshot)
     return {
       ok: false,
-      message: snapshot
-        ? `${label(dataset)} has no snapshot called "${snapshot}".`
-        : `${label(dataset)} has no saved snapshot to analyse yet. A snapshot is a kept copy of the rows; ask the person to keep one.`,
+      message: `${label(dataset)} has no snapshot called "${snapshot}".`,
     }
+
+  if (versions.length === 0) {
+    // A run is recorded against exact rows, so a dataset with no snapshot gets
+    // one now, made as the person; it is a kept copy and changes nothing.
+    try {
+      const made = await snapshotDataset(context.client, {
+        datasetId: dataset.id,
+        expectedRevision: dataset.revision,
+        label: `Analysis ${new Date().toISOString().slice(0, 10)}`,
+      })
+
+      versions.push({
+        id: made.id,
+        label: made.label,
+        created_at: made.created_at,
+      })
+    } catch (error) {
+      return {
+        ok: false,
+        message: `${label(dataset)} has no snapshot and one could not be made: ${error instanceof Error ? error.message : 'denied'}.`,
+      }
+    }
+  }
 
   const { loadInputs } = await import('./code-cells/run.server')
 

@@ -32,7 +32,16 @@ const {
   runAnalysisReadTool,
 } = await import('./results-analysis.server')
 
-const DATASET = { id: 'd1', name: 'Compound plate', display_id: 'DS-0004' }
+interface RpcParams {
+  p_expected_dataset_revision?: number
+}
+
+const DATASET = {
+  id: 'd1',
+  name: 'Compound plate',
+  display_id: 'DS-0004',
+  revision: 7,
+}
 
 const VERSION = {
   id: 'v1',
@@ -65,17 +74,26 @@ const ROWS_DOC = {
   ],
 }
 
-function context(): LabToolContext {
+function context(
+  tables: Record<string, unknown[]> = TABLES,
+  calls: string[] = [],
+): LabToolContext {
   const client: DataClient = {
     list: async <T>(resource: string): Promise<T[]> => {
-      const rows = Object.entries(TABLES).find(([name]) => name === resource)
+      const rows = Object.entries(tables).find(([name]) => name === resource)
 
       // SAFETY: the fixture answers each table the tools read with rows of the shape they decode.
       return (rows ? rows[1] : []) as T[]
     },
     count: async () => 0,
-    rpc: async <T>(): Promise<T> => {
-      // SAFETY: the only rpc these tools call is dataset_version_rows_json; the fixture is its answer.
+    rpc: async <T>(name: string, params?: RpcParams): Promise<T> => {
+      calls.push(`${name} ${JSON.stringify(params)}`)
+
+      if (name === 'snapshot_dataset')
+        // SAFETY: the fixture answers snapshot_dataset with the version row it returns.
+        return { ...VERSION } as T
+
+      // SAFETY: the other rpc these tools call is dataset_version_rows_json; the fixture is its answer.
       return ROWS_DOC as T
     },
     insert: async <T>(): Promise<T> => {
@@ -141,6 +159,21 @@ describe('results analysis tools', () => {
       'PARAMS = {"kind": "dose_response", "input": "data", "x": "dose_nm", "y": "signal", "group": "cmpd", "labels": {"x": "Dose (nM)", "y": "Signal", "group": "Compound"}}',
     )
     expect(inputs.data).toEqual(ROWS_DOC.rows)
+  })
+
+  it('keeps a snapshot first when the dataset has none', async () => {
+    const calls: string[] = []
+
+    const result = await runAnalysisReadTool(
+      ANALYSIS_RUN_TOOL,
+      ask,
+      context({ ...TABLES, dataset_versions: [] }, calls),
+    )
+
+    expect(result.isError).toBe(false)
+    expect(calls[0]).toContain('snapshot_dataset')
+    expect(calls[0]).toContain('"p_expected_dataset_revision":7')
+    expect(calls[1]).toContain('dataset_version_rows_json')
   })
 
   it('names the columns when one is wrong', async () => {

@@ -414,7 +414,10 @@ export function AppShell({
   return (
     <PageAiWorkspaceProvider value={data.workspace?.id ?? null}>
       <ShortcutProvider definitions={globalShortcuts}>
-        <div className="flex h-[calc(100dvh-var(--session-banner-h,0px))] mt-[var(--session-banner-h,0px)] flex-col">
+        <div
+          data-app-shell
+          className="flex h-[calc(100dvh-var(--session-banner-h,0px))] mt-[var(--session-banner-h,0px)] flex-col"
+        >
           <a
             href="#main"
             className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2"
@@ -592,6 +595,7 @@ function NavRail({
 
   return (
     <nav
+      data-print-hide
       aria-label={t('settings.shell.appShell.mainAria')}
       className={cn(
         'w-12 shrink-0 flex-col items-center gap-0.5 overflow-y-auto border-r border-border bg-surface py-2',
@@ -697,7 +701,10 @@ function TopBar({
     // The brand link gives way to the menu button, help and the assistant sit
     // in other places, and the workspace name is the one control that shrinks
     // (it truncates), so nothing is clipped and the bar never wraps.
-    <header className="flex h-topbar shrink-0 standalone:box-content standalone:pt-[env(safe-area-inset-top)] items-center gap-2 border-b border-border bg-surface px-2 max-md:border-transparent max-md:bg-background md:gap-3 md:px-3">
+    <header
+      data-print-hide
+      className="flex h-topbar shrink-0 standalone:box-content standalone:pt-[env(safe-area-inset-top)] items-center gap-2 border-b border-border bg-surface px-2 max-md:border-transparent max-md:bg-background md:gap-3 md:px-3"
+    >
       <IconButton
         variant="quiet"
         icon="panelLeft"
@@ -1613,6 +1620,7 @@ function SideNav({
 
   return (
     <nav
+      data-print-hide
       aria-label={t('settings.shell.appShell.mainAria')}
       className={cn(
         'flex w-nav shrink-0 flex-col gap-px overflow-y-auto border-r border-border bg-surface p-2.5',

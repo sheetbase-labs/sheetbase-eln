@@ -247,7 +247,7 @@ function PreferenceSection({
       ) : rows.length === 0 ? (
         <EmptyState
           icon="spark"
-          title={title}
+          title={t('features.aiPreferences.page.emptyTitle')}
           description={empty}
           action={
             canChange ? (

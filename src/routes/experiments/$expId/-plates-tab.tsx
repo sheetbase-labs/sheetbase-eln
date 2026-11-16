@@ -67,7 +67,7 @@ function PlateRunCard({
   return (
     <section
       aria-label={plateRunReference(run.number)}
-      className="flex flex-col gap-3 rounded-lg border border-border-subtle p-4"
+      className="flex flex-col gap-3 border-t border-border-subtle pt-5"
     >
       <PlateRunSummary run={run} view={view} onViewChange={setView} />
       <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">

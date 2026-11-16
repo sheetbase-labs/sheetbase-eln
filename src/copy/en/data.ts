@@ -189,15 +189,9 @@ export const data = {
     parserMapHand: 'No parser — map by hand',
     suggestedFromFileName2:
       'Suggested from the file name: {label}. Change it if the file came from another instrument.',
-    mapColumnsHandFile: 'Map columns by hand for this file',
-    replaceFile: 'Replace file',
-    fileDoesnTMatch: 'This file doesn’t match a registered parser',
-    nothingImportedFileKept:
-      'Nothing was imported. The file is kept so you can try again.',
-    howDoWantContinue: 'How do you want to continue?',
-    askAdmin: 'Ask an admin',
     mapColumns: 'Map columns',
-    tryParser: 'Try this parser',
+    noSavedReader:
+      'No saved reader matched this file, so its columns are matched by name. Check them, then review every row before anything is imported.',
     columnsMapped: '{mappedCount} of {length} columns mapped',
     declareUnitsAlreadyUsed:
       'Declare the units already used in the file. Values aren’t converted automatically. Leave unitless columns blank.',
@@ -248,7 +242,6 @@ export const data = {
     importFailed: 'The import failed',
     parserUpdateRequestFailed:
       'The parser update request failed. The file is kept so you can try again.',
-    fileDoesMatchRegistered: 'This file doesn’t match a registered parser.',
     matchingField: 'No matching field',
     matchedOf: 'Matched {matched} of {min}',
     correctedFile: 'Corrected file',
@@ -258,7 +251,6 @@ export const data = {
       'The file is kept as uploaded. Uploading creates the new dataset; rows are added only after you review and import them here.',
     importedDetail:
       'Snapshot {snapshot} · import {importId}. The original file is kept unchanged.',
-    storedSize: '{size} stored',
     requiredUnmapped: {
       one: '{count} required field has no file column mapped: {fields}. Rows without a value are refused, so nothing is imported.',
       other:

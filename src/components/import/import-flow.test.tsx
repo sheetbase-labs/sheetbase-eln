@@ -1082,7 +1082,7 @@ describe('ImportMapCheckFlow', () => {
     )
   })
 
-  it('reads the file one way at the review step, and keeps the choice on the map step', async () => {
+  it('maps an unrecognised file by hand straight away, with no error and no choice to make', async () => {
     http.state.datasets = true
     http.state.file = () =>
       uploadResponse({
@@ -1099,10 +1099,15 @@ describe('ImportMapCheckFlow', () => {
       />,
     )
 
-    // The map step is where how to read the file is the open question.
+    // No saved reader matched, so the columns are on screen to map: the file is
+    // a plain table, not a failure.
     expect(
-      await screen.findByText('This file doesn’t match a registered parser'),
+      await screen.findByRole('table', { name: 'Column mapping' }),
     ).toBeTruthy()
+    expect(screen.getByText(/No saved reader matched this file/)).toBeTruthy()
+    expect(
+      screen.queryByText('This file doesn’t match a registered parser'),
+    ).toBeNull()
     expect(screen.queryByRole('table', { name: 'Rows to import' })).toBeNull()
 
     unmount()

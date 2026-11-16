@@ -60,8 +60,8 @@ import type { AssistantProposal } from './assistant-proposals'
 export { ASSISTANT_MAX_QUESTION_CHARS }
 
 export const ASSISTANT_MAX_OBJECT_REFS = 8
-export const ASSISTANT_CONTEXT_BUDGET_CHARS = 12_000
-export const ASSISTANT_MAX_SAMPLE_ROWS = 5
+export const ASSISTANT_CONTEXT_BUDGET_CHARS = 6_000
+export const ASSISTANT_MAX_SAMPLE_ROWS = 3
 
 export const askAssistantSchema = z.strictObject({
   workspaceId: z.string().uuid(),
@@ -82,6 +82,15 @@ export type AskAssistantInput = z.infer<typeof askAssistantSchema>
 
 /** Turns of earlier conversation sent along with a new question. */
 export const ASSISTANT_MAX_HISTORY_TURNS = 20
+
+/** Turns of that history actually sent to the model. Older ones are dropped. */
+export const ASSISTANT_SENT_HISTORY_TURNS = 8
+
+/** Turns before the latest exchange are clipped to this many characters. */
+export const ASSISTANT_OLD_TURN_CHARS = 1_200
+
+/** A lookup result from an earlier step is clipped to this when sent again. */
+export const ASSISTANT_OLD_TOOL_RESULT_CHARS = 1_500
 
 /** Prior answers are clipped, so a long reply cannot crowd out the context. */
 export const ASSISTANT_MAX_HISTORY_TURN_CHARS = 4_000
@@ -141,9 +150,17 @@ export type AssistantChatInput = z.infer<typeof assistantChatSchema>
 
 /** Keep the most recent turns, starting on a question, clipped to size. */
 export function trimHistory(messages: ChatTurn[]): ChatTurn[] {
-  const recent = messages.slice(-ASSISTANT_MAX_HISTORY_TURNS).map((turn) => ({
+  const kept = messages.slice(-ASSISTANT_SENT_HISTORY_TURNS)
+
+  const recent = kept.map((turn, index) => ({
     role: turn.role,
-    content: turn.content.slice(0, ASSISTANT_MAX_HISTORY_TURN_CHARS),
+    // The latest exchange keeps its full text; older turns are only a reminder.
+    content: turn.content.slice(
+      0,
+      index >= kept.length - 2
+        ? ASSISTANT_MAX_HISTORY_TURN_CHARS
+        : ASSISTANT_OLD_TURN_CHARS,
+    ),
   }))
 
   while (recent.length > 0 && recent[0]?.role !== 'user') recent.shift()
@@ -224,6 +241,8 @@ export interface ToolRunResult {
 
 export interface AssistantToolkit {
   defs: ProviderToolDef[]
+  /** The definitions worth sending for this text; all of them when absent. */
+  select?: (text: string) => ProviderToolDef[]
   /** Standing instructions for using the tools. */
   instructions: string
   /** Runs one call. `name` is the wire name; `argumentsJson` is the model's text. */
@@ -526,13 +545,20 @@ export async function streamAssistant(
 
   const spent = { tokens: 0, cost: 0, latencyMs: 0 }
 
+  const selectionText = [
+    input.messages.filter((turn) => turn.role === 'user').at(-1)?.content ?? '',
+    input.page ? `${input.page.title} ${input.page.path}` : '',
+  ].join(' ')
+
   function step(withTools: boolean) {
     return streamModel(
       deps.actor,
       {
         model: deps.settings.model,
         tools: [],
-        toolDefs: withTools ? toolkit?.defs : undefined,
+        toolDefs: withTools
+          ? (toolkit?.select?.(selectionText) ?? toolkit?.defs)
+          : undefined,
         contextEnvelope: run.envelope,
         citations: [],
         messages,
@@ -653,6 +679,18 @@ export async function streamAssistant(
           toolCallId: call.id,
           content: result.text,
         })
+      }
+
+      // Results from before this step have been read; only a reminder is
+      // sent again, so a long turn does not repeat every lookup in full.
+      for (const message of messages) {
+        if (
+          message.role === 'tool' &&
+          message.content.length > ASSISTANT_OLD_TOOL_RESULT_CHARS &&
+          !calls.some((call) => call.id === message.toolCallId)
+        ) {
+          message.content = `${message.content.slice(0, ASSISTANT_OLD_TOOL_RESULT_CHARS)}\n…[earlier result cut]`
+        }
       }
 
       // The next step: policy check and a fresh provider call.

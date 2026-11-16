@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { z } from 'zod'
 
 import { Banner } from '#/components/ui/alert'
@@ -34,6 +34,7 @@ import {
   importQueryKeys,
 } from '#/lib/import/data'
 import { detectPlateGrid } from '#/lib/import/plate-grid'
+import { stashPlateFile } from '#/lib/plate-file-handoff'
 import type { ImportSheetPreview } from '#/lib/import/types'
 import { t } from '#/copy'
 
@@ -91,6 +92,7 @@ export function FileColumnsStep({
   createdByUserId,
   fileId,
   filename,
+  file,
   initialSheet,
   projectId,
   onBack,
@@ -100,6 +102,8 @@ export function FileColumnsStep({
   createdByUserId: string | null
   fileId: string
   filename: string
+  /** The file as picked, handed to the plate run dialog from the plate banner. */
+  file: File
   initialSheet: ImportSheetPreview
   /** The project the new dataset belongs to, when the import knows one. */
   projectId: string | null
@@ -162,6 +166,7 @@ export function FileColumnsStep({
             workspaceId={workspaceId}
             createdByUserId={createdByUserId}
             filename={filename}
+            file={file}
             sheet={sheet}
             multiSheet={initialSheet.sheetNames.length > 1}
             projectId={projectId}
@@ -179,7 +184,14 @@ export function FileColumnsStep({
 }
 
 /** Offers a plate run when the worksheet looks like a microplate read-out. */
-function PlateBanner({ sheet }: { sheet: ImportSheetPreview }) {
+function PlateBanner({
+  sheet,
+  file,
+}: {
+  sheet: ImportSheetPreview
+  file: File
+}) {
+  const navigate = useNavigate()
   const plate = useMemo(() => detectPlateGrid(sheet), [sheet])
 
   if (!plate) return null
@@ -191,7 +203,13 @@ function PlateBanner({ sheet }: { sheet: ImportSheetPreview }) {
         wells: plate.wells,
       })}
       action={
-        <Button size="sm" nativeButton={false} render={<Link to="/plates" />}>
+        <Button
+          size="sm"
+          onClick={() => {
+            stashPlateFile(file)
+            void navigate({ to: '/plates', search: { new: true } })
+          }}
+        >
           {t('data.importFlow.fileColumns.plateAction')}
         </Button>
       }
@@ -208,6 +226,7 @@ function ColumnsEditor({
   workspaceId,
   createdByUserId,
   filename,
+  file,
   sheet,
   multiSheet,
   projectId,
@@ -217,6 +236,7 @@ function ColumnsEditor({
   workspaceId: string
   createdByUserId: string | null
   filename: string
+  file: File
   sheet: ImportSheetPreview
   multiSheet: boolean
   projectId: string | null
@@ -358,7 +378,7 @@ function ColumnsEditor({
           })}
         </p>
       </div>
-      <PlateBanner sheet={sheet} />
+      <PlateBanner sheet={sheet} file={file} />
       <TableBox>
         <Table caption={t('data.importFlow.fileColumns.title')}>
           <TableHeader>

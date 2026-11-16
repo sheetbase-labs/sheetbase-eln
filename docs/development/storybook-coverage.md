@@ -547,11 +547,12 @@ few seconds, so its story holds the poll pending and leaves the seeded readings
 on screen; and the bulk-upgrade story runs the upgrade against a refused
 server, so every notebook comes back in the "not updated" list.
 
-| Module                                           | Why no story                                                                                                                                                            |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/experiments/series-bar.tsx`      | Reads the experiment's series from the database and draws nothing without one; the series tab and notebook journeys cover it.                                           |
-| `src/components/experiments/series-offer.tsx`    | A checkbox that appears only when the experiment is in a series; it needs the series query, and the Repeat and New run dialogs that hold it are covered by their tests. |
-| `src/components/experiments/experiments-data.ts` | Query keys, list filters, row mapping and hooks for the experiments list. Nothing renders; the screens that use it have stories.                                        |
+| Module                                                     | Why no story                                                                                                                                                            |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/experiments/series-bar.tsx`                | Reads the experiment's series from the database and draws nothing without one; the series tab and notebook journeys cover it.                                           |
+| `src/components/experiments/series-offer.tsx`              | A checkbox that appears only when the experiment is in a series; it needs the series query, and the Repeat and New run dialogs that hold it are covered by their tests. |
+| `src/components/experiments/experiments-data.ts`           | Query keys, list filters, row mapping and hooks for the experiments list. Nothing renders; the screens that use it have stories.                                        |
+| `src/components/experiments/notebook-analyses-section.tsx` | Reads the experiment's analysis blocks through the data client and runs each saved analysis; the block preview it wraps is covered by the notebook block tests.         |
 
 ## Plates and group comparisons
 
@@ -655,13 +656,14 @@ server, so every notebook comes back in the "not updated" list.
 
 ## Robots, scheduler and code cells
 
-| Module                                               | Why no story                                                                                                            |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `src/components/instruments/robot-section.tsx`       | Reads robot settings and jobs through the data client and calls the job functions; covered by the robot job tests.      |
-| `src/components/scheduler/schedule-panel.tsx`        | Reads parts, needs and proposals through the data client and calls the scheduler functions; covered by scheduler tests. |
-| `src/components/scheduler/instrument-timeline.tsx`   | Reads an instrument's bookings and jobs through the data client; covered by the scheduler tests.                        |
-| `src/components/settings/working-hours-settings.tsx` | Reads and saves the scheduler settings through the data client; covered by the scheduler tests.                         |
-| `src/components/notebook/code-cell-block.tsx`        | Runs the cell through the code cell route and reads its runs through the data client; covered by the code cell tests.   |
+| Module                                               | Why no story                                                                                                                                                                                                                                  |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/instruments/robot-section.tsx`       | Reads robot settings and jobs through the data client and calls the job functions; covered by the robot job tests.                                                                                                                            |
+| `src/components/scheduler/schedule-panel.tsx`        | Reads parts, needs and proposals through the data client and calls the scheduler functions; covered by scheduler tests.                                                                                                                       |
+| `src/components/scheduler/instrument-timeline.tsx`   | Reads an instrument's bookings and jobs through the data client; covered by the scheduler tests.                                                                                                                                              |
+| `src/components/settings/working-hours-settings.tsx` | Reads and saves the scheduler settings through the data client; covered by the scheduler tests.                                                                                                                                               |
+| `src/components/notebook/code-cell-block.tsx`        | Runs the cell through the code cell route and reads its runs through the data client; covered by the code cell tests.                                                                                                                         |
+| `src/components/notebook/analysis-block-result.tsx`  | Draws an analysis result for a notebook block: the fitted plot, the headline numbers and the working. It needs a computed result and the chart renderer; the block preview tests cover it and the headline numbers have their own unit tests. |
 
 ## Data contract modules without a story
 

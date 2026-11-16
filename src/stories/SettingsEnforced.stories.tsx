@@ -5,6 +5,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { ChangeReasonDialog } from '#/components/shell/change-reason-dialog'
 import { CalibrationOverdueNotice } from '#/components/instruments/calibration-overdue'
 import { InstrumentGateSetting } from '#/components/settings/instrument-gate-setting'
+import { SubmitReadinessSetting } from '#/components/settings/submit-readiness-setting'
 import { Button } from '#/components/ui/button'
 import { askForChangeReason } from '#/lib/change-reason'
 import { adminQueryKeys } from '#/lib/workspace-admin'
@@ -32,12 +33,15 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-function gateProvider(instrumentGateMode: 'off' | 'warn' | 'block') {
+function gateProvider(
+  instrumentGateMode: 'off' | 'warn' | 'block',
+  submitReadinessMode: 'off' | 'warn' | 'block' = 'warn',
+) {
   const client = screenQueryClient({
     data: [
       {
         key: adminQueryKeys.settings(WORKSPACE_ID),
-        value: { instrumentGateMode },
+        value: { instrumentGateMode, submitReadinessMode },
       },
     ],
   })
@@ -59,6 +63,18 @@ export const InstrumentRuleWarn: Story = {
 export const InstrumentRuleBlock: Story = {
   decorators: [gateProvider('block')],
   render: () => <InstrumentGateSetting workspaceId={WORKSPACE_ID} canManage />,
+}
+
+/** Open steps and a missing decision are listed but the submission goes through. */
+export const SubmitReadinessWarn: Story = {
+  decorators: [gateProvider('warn', 'warn')],
+  render: () => <SubmitReadinessSetting workspaceId={WORKSPACE_ID} canManage />,
+}
+
+/** They are listed and the submission is refused until they are cleared. */
+export const SubmitReadinessBlock: Story = {
+  decorators: [gateProvider('warn', 'block')],
+  render: () => <SubmitReadinessSetting workspaceId={WORKSPACE_ID} canManage />,
 }
 
 /** The notice an overdue instrument shows when its data is flagged. */

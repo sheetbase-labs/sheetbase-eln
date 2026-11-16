@@ -19,6 +19,7 @@ import {
 import type { ChangeEventInput, ChangeEventPayload } from './webhook-events'
 import { AI_PREFERENCE_EVENT_FIXTURES } from '../features/ai-preferences/events.fixture'
 import { DATASET_EVENT_FIXTURES } from '../features/datasets/events.fixture'
+import { PLATE_RUN_EVENT_FIXTURES } from '../features/plate-runs/events.fixture'
 import { PIPELINE_SIMPLE_EVENT_FIXTURES } from '../features/pipeline-simple/events.fixture'
 import { PROTOCOL_IMPORT_EVENT_FIXTURES } from '../features/protocol-import/events.fixture'
 
@@ -1208,6 +1209,7 @@ describe('lab feature events', () => {
     ...PIPELINE_SIMPLE_EVENT_FIXTURES,
     ...PROTOCOL_IMPORT_EVENT_FIXTURES,
     ...AI_PREFERENCE_EVENT_FIXTURES,
+    ...PLATE_RUN_EVENT_FIXTURES,
   ])(
     '$name is delivered from $entityType/$operation',
     ({ name, entityType, operation, payload }) => {
@@ -1225,6 +1227,7 @@ describe('lab feature events', () => {
       ...PIPELINE_SIMPLE_EVENT_FIXTURES,
       ...PROTOCOL_IMPORT_EVENT_FIXTURES,
       ...AI_PREFERENCE_EVENT_FIXTURES,
+      ...PLATE_RUN_EVENT_FIXTURES,
     ]
       .map((event) => event.name)
       .sort()

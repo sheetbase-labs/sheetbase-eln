@@ -29,6 +29,7 @@ export const plateRunKeys = {
   list: ['plate-runs', 'list'] as const,
   one: (id: string) => ['plate-runs', 'one', id] as const,
   worklists: ['plate-runs', 'worklists'] as const,
+  forRecord: (recordId: string) => ['plate-runs', 'record', recordId] as const,
 }
 
 export type PlateRunStatus = 'draft' | 'analysed' | 'archived'
@@ -104,6 +105,33 @@ export async function fetchPlateRun(
   )
 
   return rows.length ? toRun(rows[0]) : null
+}
+
+/** The plate runs that belong to one experiment, newest first. */
+export async function fetchPlateRunsForRecord(
+  client: DataClient,
+  recordId: string,
+): Promise<PlateRunRow[]> {
+  const rows = await client.list<PlateRunWire>(
+    'plate_runs',
+    `?select=${RUN_COLUMNS}&record_id=eq.${encodeURIComponent(recordId)}&status=neq.archived&order=number.desc&limit=200`,
+  )
+
+  return rows.map(toRun)
+}
+
+/** Attach a run to an experiment, move it to another, or detach it (null). */
+export async function linkPlateRun(
+  client: DataClient,
+  id: string,
+  recordId: string | null,
+): Promise<PlateRunRow> {
+  const wire = await client.rpc<PlateRunWire>('link_plate_run', {
+    p_plate_run_id: id,
+    p_record_id: recordId,
+  })
+
+  return toRun(wire)
 }
 
 export interface NewPlateRun {

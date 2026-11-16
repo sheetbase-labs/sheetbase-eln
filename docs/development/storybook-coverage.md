@@ -555,15 +555,29 @@ server, so every notebook comes back in the "not updated" list.
 
 ## Plates and group comparisons
 
-| Module                                           | Why no story                                                                                                                                           |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/components/plates/new-run-dialog.tsx`       | Portalled dialog that reads projects and saves through the data client, so it has no state to show without a connected app.                            |
-| `src/components/plates/experiment-worklists.tsx` | Section that reads an experiment's worklists from the server and opens one in the worklist dialog, so it has no state to show without a connected app. |
-| `src/components/plates/plates-page.tsx`          | Page that lists plate runs and worklists from the server and switches between them.                                                                    |
-| `src/components/plates/potency-panel.tsx`        | Reads potency across saved runs from the server; the curve it draws has its own story (`DoseResponsePlot`).                                            |
-| `src/components/plates/run-detail.tsx`           | Detail view that loads one run, its quality and its samples from the server and saves settings and archiving through the data client.                  |
-| `src/components/plates/worklist-dialogs.tsx`     | Portalled dialogs that read plate runs and write worklists through the data client.                                                                    |
-| `src/components/viz/analysis-comparison.tsx`     | Controls and results for the Analyse tab; they run on a dataset loaded in Analysis Studio and render nothing without one.                              |
+| Module                                           | Why no story                                                                                                                                                           |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/plates/new-run-dialog.tsx`       | Portalled dialog that reads projects and saves through the data client, so it has no state to show without a connected app.                                            |
+| `src/components/plates/experiment-worklists.tsx` | Section that reads an experiment's worklists from the server and opens one in the worklist dialog, so it has no state to show without a connected app.                 |
+| `src/components/plates/plates-page.tsx`          | Page that lists plate runs and worklists from the server and switches between them.                                                                                    |
+| `src/components/plates/potency-panel.tsx`        | Reads potency across saved runs from the server; the curve it draws has its own story (`DoseResponsePlot`).                                                            |
+| `src/components/plates/run-detail.tsx`           | Detail view that loads one run, its quality and its samples from the server and saves settings and archiving through the data client.                                  |
+| `src/components/plates/worklist-dialogs.tsx`     | Portalled dialogs that read plate runs and write worklists through the data client.                                                                                    |
+| `src/components/viz/analysis-comparison.tsx`     | Controls and results for the Analyse tab; they run on a dataset loaded in Analysis Studio and render nothing without one.                                              |
+| Module                                           | Why no story                                                                                                                                                           |
+| -----------------------------------------------  | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/plates/new-run-dialog.tsx`       | Portalled dialog that reads projects and saves through the data client, so it has no state to show without a connected app.                                            |
+| `src/components/plates/plate-run-summary.tsx`    | Reads a run's analysis and plate from the data client through its callers; it has no state to show without a connected app.                                            |
+| `src/components/plates/plate-preview.tsx`        | The preview and control column fields inside the new plate run dialog, which has no story.                                                                             |
+| `src/components/plates/plate-text-fields.tsx`    | The pasted text and layout fields inside the new plate run dialog, which has no story.                                                                                 |
+| `src/components/plates/run-details-fields.tsx`   | The name, experiment, format, design and project pickers inside the new plate run dialog, which has no story; they read projects and experiments from the data client. |
+| `src/components/plates/run-experiment-link.tsx`  | The experiment line on a plate run's page; it reads and writes through the data client, so it has no state to show without a connected app.                            |
+| `src/components/notebook/plate-run-block.tsx`    | The plate run block's preview and editor read a live run from the data client, so they have no state to show without a connected app.                                  |
+| `src/components/plates/plates-page.tsx`          | Page that lists plate runs and worklists from the server and switches between them.                                                                                    |
+| `src/components/plates/potency-panel.tsx`        | Reads potency across saved runs from the server; the curve it draws has its own story (`DoseResponsePlot`).                                                            |
+| `src/components/plates/run-detail.tsx`           | Detail view that loads one run, its quality and its samples from the server and saves settings and archiving through the data client.                                  |
+| `src/components/plates/worklist-dialogs.tsx`     | Portalled dialogs that read plate runs and write worklists through the data client.                                                                                    |
+| `src/components/viz/analysis-comparison.tsx`     | Controls and results for the Analyse tab; they run on a dataset loaded in Analysis Studio and render nothing without one.                                              |
 
 ## Agent permissions, checks and lab watchers
 

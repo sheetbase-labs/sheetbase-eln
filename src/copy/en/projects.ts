@@ -2056,6 +2056,7 @@ export const projects = {
     section: {
       datasets: 'Datasets',
       results: 'Results',
+      worklists: 'Worklists',
       files: 'Files',
       links: 'Links and bookings',
       submissions: 'Submissions',

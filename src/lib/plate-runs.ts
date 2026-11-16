@@ -289,6 +289,17 @@ export async function fetchPlateWorklists(
   )
 }
 
+/** The worklists made for one experiment, newest first. */
+export async function fetchExperimentWorklists(
+  client: DataClient,
+  recordId: string,
+): Promise<PlateWorklistRow[]> {
+  return client.list<PlateWorklistRow>(
+    'plate_worklists',
+    `?select=${WORKLIST_COLUMNS}&record_id=eq.${recordId}&order=number.desc&limit=200`,
+  )
+}
+
 export async function createPlateWorklist(
   client: DataClient,
   input: {

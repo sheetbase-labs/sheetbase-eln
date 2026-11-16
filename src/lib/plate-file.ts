@@ -101,8 +101,15 @@ function titleAbove(matrix: string[][], index: number): string | null {
       )
 
     if (!named) continue
-    const value = named[2].trim() || (row[1] ?? '').trim()
+    const first = (row[0] ?? '').trim()
     const kind = named[1].toLowerCase()
+
+    // "Plate: Rep1" and a label with its value in the next cell name the plate
+    // by the value; a lone "Plate 2" is the name itself.
+    const value =
+      named[2].trim() && !first.includes(':') && !(row[1] ?? '').trim()
+        ? first
+        : named[2].trim() || (row[1] ?? '').trim()
 
     if (value && !found.has(kind)) found.set(kind, value)
   }

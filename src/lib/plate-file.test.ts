@@ -122,6 +122,12 @@ describe('platesInText', () => {
     expect(found.map((c) => c.label)).toEqual(['f.csv · Rep1', 'f.csv · Rep2'])
   })
 
+  it('takes a lone "Plate 2" line as the plate\'s name', () => {
+    const grid = ['Plate 2', '', ',1,2,3', 'A,1,2,3', 'B,4,5,6']
+
+    expect(platesInText(grid.join('\n'), 'w.csv')[0].title).toBe('Plate 2')
+  })
+
   it('gives unlettered rows their letters when they fill a plate', () => {
     const rows = Array.from(
       { length: 8 },

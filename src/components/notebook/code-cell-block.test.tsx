@@ -64,6 +64,53 @@ describe('persisted notebook output boundaries', () => {
     expect(screen.getByText('CC-0004')).toBeTruthy()
   })
 
+  it('draws a returned plot as a picture and keeps it out of the table', () => {
+    const plot = 'data:image/svg+xml;base64,PHN2Zy8+'
+
+    const plotted = {
+      ...output,
+      language: 'python',
+      columns: ['kind', 'group', 'ec50', 'title', 'figure'],
+      rows: [
+        { kind: 'result', group: 'A', ec50: 4.2 },
+        { kind: 'figure', title: 'Dose-response curves', figure: plot },
+      ],
+      rowCount: 2,
+    } satisfies CodeCellOutput
+
+    render(
+      <CodeCellBlockPreview
+        payload={{ language: 'python', output: plotted }}
+      />,
+    )
+
+    const image = screen.getByRole('img', { name: 'Dose-response curves' })
+
+    expect(image.getAttribute('src')).toBe(plot)
+
+    const rows = within(screen.getByRole('table')).getAllByRole('row')
+
+    // The header and the one result row; the plot's row and its column are not in the table.
+    expect(rows).toHaveLength(2)
+    expect(within(screen.getByRole('table')).queryByText('figure')).toBeNull()
+  })
+
+  it('does not draw a link or script that only looks like a plot', () => {
+    const hostile = {
+      ...output,
+      columns: ['figure'],
+      rows: [
+        { figure: 'javascript:alert(1)' },
+        { figure: 'data:text/html;base64,AAAA' },
+      ],
+      rowCount: 2,
+    } satisfies CodeCellOutput
+
+    render(<CodeCellBlockPreview payload={{ output: hostile }} />)
+
+    expect(screen.queryByRole('img')).toBeNull()
+  })
+
   it('rejects malformed stored run evidence instead of presenting it as an empty result', () => {
     expect(() =>
       renderToString(

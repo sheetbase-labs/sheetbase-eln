@@ -9,7 +9,6 @@ import type { UserEvent } from '@testing-library/user-event'
 import * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { choose } from '../../../tests/unit/picker'
 import { FORM_READ_TIMEOUT_MS, Route } from './new'
 
 // SAFETY: the file route always declares its component, and this suite renders
@@ -151,8 +150,8 @@ async function submitForm(
     screen.getByRole('textbox', { name: /^Title/ }),
     'AAV9 stability',
   )
-  await user.click(screen.getByRole('button', { name: 'A protocol' }))
-  await choose(user, /^Protocol version to follow/, /Protocol A/)
+  // The first question is what is being run; here, a protocol version.
+  await user.click(await screen.findByRole('radio', { name: /Protocol A/ }))
 
   if (start) {
     await user.click(

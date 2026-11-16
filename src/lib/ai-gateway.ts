@@ -43,6 +43,7 @@
  * local reproduction of truncation or grounding faults.
  */
 
+import { FIND_TOOLS_NAME } from './assistant-tool-select'
 import { z } from 'zod'
 
 import { parsePluginName } from './extensions/points'
@@ -456,6 +457,7 @@ function prepareCall(
     const original = fromWireToolName(def.name)
 
     if (
+      def.name !== FIND_TOOLS_NAME &&
       !ASSISTANT_READ_TOOL_NAMES.includes(original) &&
       !ASSISTANT_PROPOSE_TOOL_NAMES.includes(original) &&
       // A tool an administrator-installed extension declares. The toolkit

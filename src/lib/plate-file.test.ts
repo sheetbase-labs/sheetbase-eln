@@ -123,9 +123,9 @@ describe('platesInText', () => {
   })
 
   it('takes a lone "Plate 2" line as the plate\'s name', () => {
-    const grid = ['Plate 2', '', ',1,2,3', 'A,1,2,3', 'B,4,5,6']
+    const titled = ['Plate 2', '', ',1,2,3', 'A,1,2,3', 'B,4,5,6']
 
-    expect(platesInText(grid.join('\n'), 'w.csv')[0].title).toBe('Plate 2')
+    expect(platesInText(titled.join('\n'), 'w.csv')[0].title).toBe('Plate 2')
   })
 
   it('gives unlettered rows their letters when they fill a plate', () => {

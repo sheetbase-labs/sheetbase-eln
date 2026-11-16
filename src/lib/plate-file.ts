@@ -138,6 +138,11 @@ function rowsForColumns(width: number): number | null {
   return format ? FORMAT_DIMENSIONS[format].rows : null
 }
 
+interface PlateBody {
+  body: string[][]
+  next: number
+}
+
 /**
  * The lettered rows under a column-number header. Some readers (SoftMax Pro,
  * for one) print the readings with no row letters, only a temperature or blank
@@ -149,7 +154,7 @@ function bodyUnder(
   index: number,
   start: number,
   width: number,
-): { body: string[][]; next: number } {
+): PlateBody {
   const body: string[][] = []
   let next = index + 1
 

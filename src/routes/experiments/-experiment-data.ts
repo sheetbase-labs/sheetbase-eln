@@ -5,6 +5,7 @@ import { experimentStatus } from '#/components/experiments/experiments-data'
 import { daysSinceStart, lastDayOffset } from '#/lib/experiment-parts'
 import type { ExperimentPart } from '#/lib/experiment-parts'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { fetchPlateRunsForRecord, plateRunKeys } from '#/lib/plate-runs'
 import { t } from '#/copy'
 
 export interface RecordLinkWire {
@@ -123,4 +124,15 @@ export function experimentFrozenReason({
   if (!lockedAt) return false
 
   return status === 'approved' ? 'approved' : true
+}
+
+/** How many plate runs the experiment holds; they are data too and share their list with the Plates tab. */
+export function useExperimentPlateRunCount(recordId: string) {
+  const runs = useQuery({
+    queryKey: plateRunKeys.forRecord(recordId),
+    queryFn: () => fetchPlateRunsForRecord(notebookDataClient, recordId),
+    staleTime: 10_000,
+  })
+
+  return runs.data?.length ?? 0
 }

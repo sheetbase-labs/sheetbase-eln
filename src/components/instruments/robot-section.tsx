@@ -537,11 +537,11 @@ function RobotSetupDialog({
   const [labware, setLabware] = useState<RobotLabware>(current?.labware ?? {})
 
   const [minTransfer, setMinTransfer] = useState(
-    current?.min_transfer_ul?.toString() ?? '',
+    () => current?.min_transfer_ul?.toString() ?? '',
   )
 
   const [maxTransfer, setMaxTransfer] = useState(
-    current?.max_transfer_ul?.toString() ?? '',
+    () => current?.max_transfer_ul?.toString() ?? '',
   )
 
   const minUl = limitValue(minTransfer)

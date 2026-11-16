@@ -130,16 +130,15 @@ function NewRunBody({
         setPositiveColumns(guess?.positive ?? '')
         setGuessedControls(guess !== null)
       },
-      onName: (guess) =>
-        setName((current) => {
-          // Keep a name the person typed; follow the file while it is a guess.
-          const next =
-            current === '' || current === guessedName.current ? guess : current
+      onName: (guess) => {
+        // Keep a name the person typed; follow the file while it is a guess.
+        const previous = guessedName.current
 
-          guessedName.current = guess
-
-          return next
-        }),
+        guessedName.current = guess
+        setName((current) =>
+          current === '' || current === previous ? guess : current,
+        )
+      },
     })
 
   const { parsed, format, readCount, controls, samples, preview } =

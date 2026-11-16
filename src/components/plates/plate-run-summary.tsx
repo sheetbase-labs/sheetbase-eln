@@ -256,7 +256,17 @@ export function PlateFindings({
 
   const shown = hits.slice(0, LISTED)
   const curves = analysis.curves.slice(0, LISTED)
-  const hitCols = useMemo(() => hitColumns(), [])
+
+  const hitCols = useMemo(
+    () =>
+      hitColumns().filter(
+        // A screen has one well per sample and no doses: no column of blanks.
+        (column) =>
+          column.id !== 'dose' || shown.some((s) => s.concentration !== null),
+      ),
+    [shown],
+  )
+
   const curveCols = useMemo(() => curveColumns(), [])
 
   return (

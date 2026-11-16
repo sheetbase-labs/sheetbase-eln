@@ -297,6 +297,7 @@ function ShowInSheetButton({
   blockId: string
 }) {
   const queryClient = useQueryClient()
+
   const makeSheet = useMutation({
     mutationFn: () =>
       openDatasetInNewSheet(notebookDataClient, {

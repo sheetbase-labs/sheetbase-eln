@@ -326,6 +326,8 @@ function useUploadTarget({
     fileId: string
     filename: string
     sheet: ImportSheetPreview
+    /** The file as picked, so a plate run can take it on. */
+    file: File
   } | null>(null)
 
   const [datasetId, setDatasetId] = useState(initialDatasetId ?? '')
@@ -509,6 +511,7 @@ function useImportUpload(props: ImportUploadProps) {
         fileId: upload.fileId,
         filename: upload.filename,
         sheet: upload.sheet,
+        file,
       })
 
       return
@@ -660,6 +663,7 @@ function UploadColumns({
         createdByUserId={createdByUserId}
         fileId={columnsStage.fileId}
         filename={columnsStage.filename}
+        file={columnsStage.file}
         initialSheet={columnsStage.sheet}
         projectId={initialProjectId ?? experimentProject}
         onBack={() => setColumnsStage(null)}

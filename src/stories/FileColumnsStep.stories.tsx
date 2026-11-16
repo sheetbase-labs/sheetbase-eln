@@ -58,6 +58,7 @@ const meta = {
     createdByUserId: 'user-1',
     fileId: 'file-1',
     filename: 'plate_reader_run-14.csv',
+    file: new File([], 'plate_reader_run-14.csv'),
     initialSheet: sheet,
     projectId: null,
     onBack: () => {},

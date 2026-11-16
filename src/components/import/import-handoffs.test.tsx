@@ -168,6 +168,7 @@ function columns(onCreated: (result: FileColumnsResult) => Promise<void>) {
       createdByUserId="user-1"
       fileId="file-1"
       filename="plate3_readout.xlsx"
+      file={new File([], 'plate3_readout.xlsx')}
       initialSheet={sheet}
       projectId="project-1"
       onBack={() => undefined}

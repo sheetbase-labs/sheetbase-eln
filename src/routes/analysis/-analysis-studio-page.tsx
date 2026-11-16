@@ -22,9 +22,8 @@ import { z } from 'zod'
 import { t } from '#/copy'
 import { RecordPicker } from '#/components/record-picker/record-picker'
 import type { PickerItem } from '#/components/record-picker/record-picker-data'
-import { insertBlock } from '#/lib/notebook-mutations'
 import { downloadTextFile } from '#/lib/download'
-import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
+import { notebookDataClient } from '#/lib/notebook-data'
 import { toast } from '#/components/ui/sonner'
 import { Spinner } from '#/components/ui/spinner'
 import {
@@ -61,7 +60,7 @@ import { Inspector } from '#/components/record/inspector'
 import { InspectorSection, InspectorSectionStack } from '#/components/record'
 import { FigureControls } from '#/components/viz/figure-controls'
 import { Property, PropertyList } from '#/components/scientific'
-import { freezeChart } from '#/lib/chart-data'
+import { citeViewInNotebook } from '#/lib/cite-view-in-notebook'
 import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { stableStringify } from '#/lib/notebook-submission'
 import type { ComparativeViewConfig } from '#/lib/comparative-view'
@@ -72,10 +71,6 @@ import type {
   materialiseLiveChart,
   useLiveChartDataset,
 } from '#/lib/chart-data'
-import {
-  composeAnalysisDefinition,
-  freezeAnalysisBlock,
-} from '#/lib/analysis-definitions-data'
 import {
   AXIS_SCALES,
   CHART_PALETTE,
@@ -96,7 +91,6 @@ import {
   exportChartSvg,
   exportDataCsv,
   exportViewJson,
-  recordAnalysisCitation,
   saveAnalysisView,
   validateAnalysisSpec,
 } from '#/lib/analysis-studio-data'
@@ -1365,50 +1359,20 @@ export function ExportPanel({
         user.id,
       )
 
-      // A figure is cited as a frozen analysis block that holds the view's
-      // chart: the notebook shows exactly this chart, pinned to the dataset
-      // version it was drawn from. One block kind holds a chart, a statistic
-      // or both, so the figure can later gain a statistic beside it. A chart
-      // over several datasets cannot be pinned to one Dataset Version, so it
-      // is still cited as a frozen chart block, which pins each source.
-      const targetRecord = await fetchRecord(notebookDataClient, target.id)
+      // A figure is cited as a frozen analysis block (or a frozen chart when it
+      // spans several datasets); the shared helper does both.
+      const cited = await citeViewInNotebook(notebookDataClient, {
+        view,
+        recordId: target.id,
+        caption,
+      })
 
-      if (view.charts[0].datasets.length === 1) {
-        const definition = await composeAnalysisDefinition(notebookDataClient, {
-          chartViewId: view.id,
-          name: caption.trim(),
-        })
+      const targetRecord = { identifier: cited.identifier }
 
-        const inserted = await insertBlock(notebookDataClient, {
-          recordId: target.id,
-          type: 'analysis',
-          payload: { title: caption.trim(), definitionId: definition.id },
-          expectedStructureVersion: targetRecord?.structureVersion,
-        })
-
-        await freezeAnalysisBlock(notebookDataClient, {
-          blockId: inserted.block.id,
-          expectedVersion: inserted.block.version,
-        })
-      } else {
-        const inserted = await insertBlock(notebookDataClient, {
-          recordId: target.id,
-          type: 'chart',
-          payload: { title: caption.trim(), spec: view.charts[0] },
-          expectedStructureVersion: targetRecord?.structureVersion,
-        })
-
-        await freezeChart(notebookDataClient, {
-          blockId: inserted.block.id,
-          expectedVersion: inserted.block.version,
-        })
-      }
-
-      await recordAnalysisCitation(notebookDataClient, target.id, view)
       toast(t('data.analysisStudio.citedNotebook'), {
         description: t('data.analysisStudio.nowShowsFigure', {
           value:
-            targetRecord?.identifier ?? t('data.analysisStudio.theNotebook'),
+            targetRecord.identifier ?? t('data.analysisStudio.theNotebook'),
         }),
         action: {
           label: t('data.analysisStudio.openNotebook'),

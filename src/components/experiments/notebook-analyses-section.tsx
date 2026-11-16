@@ -41,9 +41,19 @@ function titleOf(row: AnalysisBlockRow): string {
  * notebook's own and follows it: change the analysis or its data and this tab
  * changes with the notebook, with nothing copied across.
  */
-export function NotebookAnalysesSection({ expId }: { expId: string }) {
+export function NotebookAnalysesSection({
+  expId,
+  alreadyShown = [],
+}: {
+  expId: string
+  /** Titles of analyses the page draws itself, so each figure appears once. */
+  alreadyShown?: readonly string[]
+}) {
   const blocks = useNotebookAnalysisBlocks(expId)
-  const rows = blocks.data ?? []
+
+  const rows = (blocks.data ?? []).filter(
+    (row) => !alreadyShown.includes(titleOf(row)),
+  )
 
   if (rows.length === 0) return null
 
@@ -59,7 +69,7 @@ export function NotebookAnalysesSection({ expId }: { expId: string }) {
         {rows.map((row) => (
           <li
             key={row.id}
-            className="min-w-0 rounded-lg border border-border bg-surface p-3"
+            className="min-w-0 border-t border-border pt-3 first:border-t-0 first:pt-0"
           >
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <h3 className="m-0 text-body font-semibold">{titleOf(row)}</h3>
@@ -88,14 +98,24 @@ export function NotebookAnalysesSection({ expId }: { expId: string }) {
 }
 
 /** The notebook's analyses above a results workspace, in a strip that scrolls on its own. */
-export function NotebookAnalysesStrip({ expId }: { expId: string }) {
+export function NotebookAnalysesStrip({
+  expId,
+  alreadyShown = [],
+}: {
+  expId: string
+  alreadyShown?: readonly string[]
+}) {
   const blocks = useNotebookAnalysisBlocks(expId)
 
-  if ((blocks.data?.length ?? 0) === 0) return null
+  const remaining = (blocks.data ?? []).filter(
+    (row) => !alreadyShown.includes(titleOf(row)),
+  )
+
+  if (remaining.length === 0) return null
 
   return (
     <div className="max-h-[55%] shrink-0 overflow-auto px-4 pt-[22px] md:px-8">
-      <NotebookAnalysesSection expId={expId} />
+      <NotebookAnalysesSection expId={expId} alreadyShown={alreadyShown} />
     </div>
   )
 }

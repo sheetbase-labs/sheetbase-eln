@@ -1,6 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { z } from 'zod'
 
 import { ChartRenderer } from '#/components/viz/chart-renderer'
@@ -20,7 +25,13 @@ import {
   rightAligned,
 } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
-import { formatDate } from '#/lib/notebook-data'
+import { formatDate, notebookDataClient } from '#/lib/notebook-data'
+import {
+  addSummaryTableToNotebook,
+  citeViewInNotebook,
+} from '#/lib/cite-view-in-notebook'
+import { toast } from '#/components/ui/sonner'
+import { useNotebookAnalysisBlocks } from './notebook-analyses-section'
 import { formatInstant } from '#/lib/display-time-zone'
 import { filterRowsByFlags } from '#/lib/dataset-flags'
 import { materialiseLiveChart, resolveChartDataset } from '#/lib/chart-data'
@@ -144,7 +155,11 @@ function SummaryPane({
   seriesId,
   columnLabel,
   unit,
+  onAdd,
+  adding,
 }: {
+  onAdd: () => void
+  adding: boolean
   title: string
   summary: {
     columns: ResolvedDataset['source']['columns']
@@ -186,7 +201,20 @@ function SummaryPane({
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="m-0 font-heading text-doc font-semibold">{title}</h2>
+      <div className="flex items-baseline gap-2">
+        <h2 className="m-0 font-heading text-doc font-semibold">{title}</h2>
+        {summary ? (
+          <Button
+            size="sm"
+            className="ml-auto self-center"
+            icon="plus"
+            disabled={adding}
+            onClick={onAdd}
+          >
+            {t('projects.resultsWorkspace.addToNotebook')}
+          </Button>
+        ) : null}
+      </div>
       {summary ? (
         <>
           <TableBox>
@@ -222,6 +250,9 @@ function FigurePane({
   flagged,
   excludeFlagged,
   datasetName,
+  inNotebook,
+  adding,
+  onAdd,
 }: {
   title: string
   view: AnalysisViewWire
@@ -230,6 +261,9 @@ function FigurePane({
   flagged: number
   excludeFlagged: boolean
   datasetName: string
+  inNotebook: boolean
+  adding: boolean
+  onAdd: () => void
 }) {
   const materialised = useMemo(
     () => (effective ? materialiseLiveChart(view.charts[0], effective) : null),
@@ -241,8 +275,21 @@ function FigurePane({
       <div className="flex items-baseline gap-2">
         <h2 className="m-0 font-heading text-doc font-semibold">{title}</h2>
         <span className="text-label text-fg-muted">
-          {t('projects.resultsWorkspace.draft')}
+          {inNotebook
+            ? t('projects.resultsWorkspace.inNotebook')
+            : t('projects.resultsWorkspace.draft')}
         </span>
+        <Button
+          size="sm"
+          className="ml-auto self-center"
+          icon={inNotebook ? 'check' : 'plus'}
+          disabled={inNotebook || adding}
+          onClick={onAdd}
+        >
+          {inNotebook
+            ? t('projects.resultsWorkspace.addedToNotebook')
+            : t('projects.resultsWorkspace.addToNotebook')}
+        </Button>
       </div>
       {materialised ? (
         <ChartRenderer
@@ -251,6 +298,8 @@ function FigurePane({
           materialised={materialised}
           frozen={null}
           loading={loading}
+          hideTitle
+          className="rounded-none border-0 bg-transparent shadow-none"
         />
       ) : (
         <Muted>{t('projects.resultsWorkspace.loading')}</Muted>
@@ -281,8 +330,14 @@ function ResultsBody({
   seriesId,
   columnLabel,
   unit,
+  inNotebook,
+  adding,
+  onAdd,
 }: {
   selected: Output | undefined
+  inNotebook: boolean
+  adding: boolean
+  onAdd: () => void
   decision: Decision
   view: AnalysisViewWire | undefined
   summary: {
@@ -309,6 +364,8 @@ function ResultsBody({
         seriesId={seriesId}
         columnLabel={columnLabel}
         unit={unit}
+        onAdd={onAdd}
+        adding={adding}
       />
     )
 
@@ -322,6 +379,9 @@ function ResultsBody({
         flagged={flagged}
         excludeFlagged={excludeFlagged}
         datasetName={datasetName}
+        inNotebook={inNotebook}
+        adding={adding}
+        onAdd={onAdd}
       />
     )
 
@@ -507,6 +567,52 @@ export function ResultsWorkspace({
   const [picked, setPicked] = useState<OutputKey | null>(null)
   const selected = outputs.find((o) => o.key === picked) ?? outputs.at(0)
   const selectedView = selected?.view
+  const queryClient = useQueryClient()
+  const notebookBlocks = useNotebookAnalysisBlocks(expId)
+
+  // A figure already in the notebook is found by the title it was cited under.
+  const inNotebook = Boolean(
+    selectedView &&
+    notebookBlocks.data?.some(
+      (block) => block.payload.title === selectedView.name,
+    ),
+  )
+
+  const addTable = useMutation({
+    mutationFn: (table: {
+      heading: string
+      columns: string[]
+      rows: string[][]
+    }) =>
+      addSummaryTableToNotebook(notebookDataClient, {
+        recordId: expId,
+        ...table,
+      }),
+    onSuccess: () => toast(t('projects.resultsWorkspace.addedToast')),
+    onError: (error) =>
+      toast.error(t('projects.resultsWorkspace.addFailed'), {
+        description: error instanceof Error ? error.message : undefined,
+      }),
+  })
+
+  const add = useMutation({
+    mutationFn: (view: AnalysisViewWire) =>
+      citeViewInNotebook(notebookDataClient, {
+        view,
+        recordId: expId,
+        caption: view.name,
+      }),
+    onSuccess: () => {
+      toast(t('projects.resultsWorkspace.addedToast'))
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'experiment', 'result-analysis-blocks', expId],
+      })
+    },
+    onError: (error) =>
+      toast.error(t('projects.resultsWorkspace.addFailed'), {
+        description: error instanceof Error ? error.message : undefined,
+      }),
+  })
 
   const selectedIndex = selectedView
     ? views.findIndex((v) => v.id === selectedView.id)
@@ -593,6 +699,35 @@ export function ResultsWorkspace({
           seriesId={seriesId}
           columnLabel={columnLabel}
           unit={unit}
+          inNotebook={inNotebook}
+          adding={add.isPending || addTable.isPending}
+          onAdd={() => {
+            if (!selectedView) return
+
+            if (selected.kind === 'table' && summary) {
+              addTable.mutate({
+                heading: t('projects.resultsWorkspace.summary'),
+                columns: [
+                  columnLabel(seriesId),
+                  t('projects.resultsWorkspace.rows'),
+                  ...summary.columns.map((c) =>
+                    t('projects.resultsWorkspace.minMax', {
+                      column: `${c.label}${unit(c.id)}`,
+                    }),
+                  ),
+                ],
+                rows: summary.rows.map((row) => [
+                  row.series,
+                  String(row.rows),
+                  ...summary.columns.map((c) => row.ranges[c.id] ?? ''),
+                ]),
+              })
+
+              return
+            }
+
+            add.mutate(selectedView)
+          }}
         />
       </div>
 

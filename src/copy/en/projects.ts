@@ -2563,6 +2563,11 @@ export const projects = {
     optional: 'Optional.',
   },
   resultsWorkspace: {
+    addToNotebook: 'Add to notebook',
+    addedToNotebook: 'In the notebook',
+    inNotebook: 'in the notebook',
+    addedToast: 'Added to the notebook',
+    addFailed: 'Could not add it to the notebook',
     figure: 'Figure {number} · {name}',
     draftSub: '{id} · draft',
     analysis: 'Analysis',

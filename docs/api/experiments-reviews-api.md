@@ -139,7 +139,7 @@ Scope: `projects:write`. Returns `row:records`.
 
 What an experiment still needs before it can be submitted
 
-The checks an experiment must pass before it can go for review, and which of them still fail.
+The checks an experiment must pass before it can go for review, and which of them still fail: failed record checks, open comment threads, empty required sheet parameters, protocol steps nobody has finished (`openSteps`) and a missing decision (`decisionMissing`). `mode` is the workspace rule for the last two (`off`, `warn` or `block`), and `ready` is false for them only on `block`. See [submit-readiness-api.md](submit-readiness-api.md).
 
 Scope: `projects:read`. Returns `json`.
 

@@ -427,4 +427,67 @@ describe('readinessItems evidence resolution', () => {
         "Sheet instance Missing sheet (absent) is not in this record's document.",
     })
   })
+
+  describe('open steps and a missing decision', () => {
+    const open = (mode: 'off' | 'warn' | 'block'): ExperimentReadiness => ({
+      recordId: 'record-1',
+      ready: mode !== 'block',
+      mode,
+      validationErrors: [],
+      openCommentThreads: [],
+      emptyRequiredFields: [],
+      openSteps: [
+        {
+          blockId: 'step-4',
+          partId: null,
+          stepNumber: 4,
+          text: 'Titre by ELISA',
+        },
+        { blockId: 'step-5', partId: null, stepNumber: 5, text: 'Step yield' },
+      ],
+      decisionMissing: true,
+    })
+
+    it('lists one row for the open steps, pointing at the first, and one for the decision', () => {
+      const items = readinessItems(open('warn'), [])
+
+      expect(items.map((item) => item.kind)).toEqual(['step', 'decision'])
+      expect(items[0]).toMatchObject({
+        title: '2 protocol steps are not finished',
+        detail: 'Titre by ELISA',
+        blockId: 'step-4',
+      })
+      expect(items[1]).toMatchObject({ title: 'No decision recorded' })
+    })
+
+    it('marks them blocking only when the workspace blocks, otherwise a warning', () => {
+      expect(
+        readinessItems(open('block'), []).map((item) => item.severity),
+      ).toEqual(['blocking', 'blocking'])
+
+      expect(
+        readinessItems(open('warn'), []).map((item) => item.severity),
+      ).toEqual(['warning', 'warning'])
+    })
+
+    it('says one step in the singular and lists nothing when there is nothing open', () => {
+      const one = open('warn')
+      one.openSteps = [one.openSteps![0]!]
+      one.decisionMissing = false
+
+      expect(readinessItems(one, [])[0]?.title).toBe(
+        '1 protocol step is not finished',
+      )
+
+      const none = open('off')
+      none.openSteps = []
+      none.decisionMissing = false
+
+      expect(readinessItems(none, [])).toEqual([])
+    })
+
+    it('reads an older result that has neither list as having nothing open', () => {
+      expect(readinessItems(readiness(), [])).toEqual([])
+    })
+  })
 })

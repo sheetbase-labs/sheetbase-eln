@@ -1363,7 +1363,9 @@ export async function handleRevisionPdf(
     () => null,
   )
 
-  const bytes = await renderRevisionPdf(pkg, { logo })
+  const { buildRecordFigures } = await import('./record-figures')
+  const figures = await buildRecordFigures(pkg.blockSnapshot, context.token)
+  const bytes = await renderRevisionPdf(pkg, { logo, figures })
 
   await insertReceipt({
     actorUserId: context.userId,

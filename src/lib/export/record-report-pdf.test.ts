@@ -85,6 +85,52 @@ describe('renderRecordReportPdf', () => {
     expect(text).not.toContain('730000000000')
   })
 
+  it('draws the figure of an analysis with its axes and target line', async () => {
+    const text = await textOf(
+      await renderRecordReportPdf({
+        ...input,
+        blockSnapshot: [
+          {
+            id: 'fig',
+            type: 'analysis',
+            order: 1,
+            payload: { title: 'Step yield by load' },
+          },
+        ],
+        figures: new Map([
+          [
+            'fig',
+            {
+              title: 'Step yield by load',
+              kind: 'xy',
+              connect: true,
+              xLabel: 'Load L/m²',
+              yLabel: 'Step yield %',
+              series: [
+                {
+                  label: 'Train A',
+                  color: '#0066cc',
+                  points: [
+                    { x: 50, y: 86 },
+                    { x: 100, y: 83 },
+                  ],
+                },
+              ],
+              hlines: [{ value: 80, label: 'Target >= 80 %' }],
+              note: null,
+            },
+          ],
+        ]),
+      }),
+    )
+
+    expect(text).toContain('Analysis: Step yield by load')
+    expect(text).toContain('Train A')
+    expect(text).toContain('Target >= 80 %')
+    expect(text).toContain('Load L/m')
+    expect(text).not.toContain('The figure is in the notebook')
+  })
+
   it('says so when nobody has signed', async () => {
     const text = await textOf(
       await renderRecordReportPdf({

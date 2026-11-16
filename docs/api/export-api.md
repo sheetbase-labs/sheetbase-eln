@@ -207,8 +207,10 @@ is the revision as it was signed and never the live record:
 2. The notebook in order: headings and text, procedure steps with who finished
    them and when, materials, key numbers, the conclusion, tables and frozen
    sheets. Numbers read as the live sheet shows them (`7.3 × 10¹¹`, not
-   `730000000000`). Figures name the dataset version they are pinned to; the
-   figure itself is in the notebook and in the printed page.
+   `730000000000`). Line, scatter and bar figures are drawn from the
+   dataset version they are pinned to, with that version named beneath. Other
+   chart types (box, violin, histogram, heatmap) name the version and point to
+   the notebook.
 3. An appendix with the attached files and their checksums.
 
 Every page carries the identifier, the verification code and its page number.

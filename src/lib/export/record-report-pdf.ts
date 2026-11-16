@@ -14,6 +14,8 @@ import { z } from 'zod'
 
 import { safeText } from '#/lib/client-portal-pdf'
 import { formatMagnitude } from '#/lib/format-numbers'
+import { FIGURE_HEIGHT, drawFigure } from './figure-draw'
+import type { PdfFigure } from './record-figures'
 import { frozenSheetGridFromEvidence } from '#/lib/frozen-sheet-grid'
 import { sheetEvidenceFromEnvelope } from '#/lib/sheet-evidence'
 
@@ -55,6 +57,8 @@ export interface ReportInput {
   files: Array<{ id: string; checksum: string; byteSize: string }>
   workspaceName?: string
   userNames?: ReadonlyMap<string, string>
+  /** Drawn figures by block id; blocks without one point to the notebook. */
+  figures?: ReadonlyMap<string, PdfFigure>
 }
 
 const MONTHS = [
@@ -664,10 +668,26 @@ function drawBlock(
         `${block.type === 'analysis' ? 'Analysis' : 'Chart'}: ${field(p, 'title') || 'untitled'}`,
         { font: layout.bold, size: 10, gap: 1 },
       )
+
+      const figure = block.id ? input.figures?.get(block.id) : undefined
+
+      if (figure) {
+        layout.ensure(FIGURE_HEIGHT + 6)
+        drawFigure(layout.page, layout.regular, figure, {
+          x: MARGIN,
+          y: layout.y - FIGURE_HEIGHT,
+          width: CONTENT_WIDTH,
+          height: FIGURE_HEIGHT,
+        })
+        layout.y -= FIGURE_HEIGHT + 6
+      }
+
       layout.paragraph(
         source
-          ? `Pinned to a dataset version of ${source.rowCount ?? '?'} rows${source.checksum ? ` (checksum ${source.checksum.slice(0, 12)})` : ''}. The figure is in the notebook and in the printed record.`
-          : 'The figure is in the notebook and in the printed record.',
+          ? `Pinned to a dataset version of ${source.rowCount ?? '?'} rows${source.checksum ? ` (checksum ${source.checksum.slice(0, 12)})` : ''}.${figure ? '' : ' The figure is in the notebook.'}`
+          : figure
+            ? ''
+            : 'The figure is in the notebook.',
         { size: 9, color: muted },
       )
       break

@@ -82,6 +82,10 @@ export function startDefinitionDraft({
             response: bind(numeric[1] ?? first)!,
             model: '4pl',
             label: bind(category[0]),
+            // A screen has a curve per compound: fit each one, not all together.
+            group: bind(
+              category.find((column) => /compound|drug/i.test(column.label)),
+            ),
           }
         : kind === 'comparison'
           ? {

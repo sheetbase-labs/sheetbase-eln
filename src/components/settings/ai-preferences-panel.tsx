@@ -26,6 +26,7 @@ import { Muted, Section } from '#/components/ui/layout'
 import { Skeleton } from '#/components/ui/skeleton'
 import { toast } from '#/components/ui/sonner'
 import { TableBox } from '#/components/ui/table'
+import { Tooltip } from '#/components/ui/tooltip'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -186,7 +187,11 @@ function PreferenceSection({
       header: t('features.aiPreferences.page.preference'),
       accessorFn: (row) => row.body,
       cell: ({ row }) => (
-        <span className="whitespace-normal text-fg">{row.original.body}</span>
+        <Tooltip content={row.original.body}>
+          <span className="block max-w-[44rem] truncate text-fg">
+            {row.original.body}
+          </span>
+        </Tooltip>
       ),
     },
     {

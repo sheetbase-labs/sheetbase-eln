@@ -69,12 +69,14 @@ import { now } from '#/lib/clock'
 import { formatListDate } from '#/lib/list-date'
 import { useUserNames } from '#/lib/user-names'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { listNextStep } from '#/components/experiments/list-next-step'
 import { t } from '#/copy'
 import { hasCapability } from '#/lib/capability'
 import { useAddedFieldListColumns } from '#/components/models/added-fields'
 import { withAddedColumns } from '#/components/models/added-field-columns'
 
 const tabs = [
+  'open',
   'all',
   'mine',
   'inprogress',
@@ -94,7 +96,7 @@ interface ExperimentsSearch {
   q?: string
   project?: string
   older?: boolean
-  group?: 'project' | 'owner'
+  group?: 'project' | 'owner' | 'status' | 'none'
 }
 
 /** A search value from the URL, present only when the URL carried text. */
@@ -109,9 +111,10 @@ const experimentsTabParam = z
   .transform((value) => tabs.find((tab) => tab === value))
 
 /** A grouping from the URL, present only when the list offers it. */
-const experimentsGroupParam = z.enum(['project', 'owner'])
+const experimentsGroupParam = z.enum(['project', 'owner', 'status', 'none'])
 
 const tabLabel: Record<Tab, string> = {
+  open: t('projects.experimentsList.tabs.open'),
   all: t('projects.experimentsList.tabs.all'),
   mine: t('projects.experimentsList.tabs.mine'),
   inprogress: t('projects.experimentsList.tabs.inprogress'),
@@ -125,6 +128,7 @@ const tabLabel: Record<Tab, string> = {
 
 /** Empty-state titles. Interpolating the tab label read "No all experiments". */
 const tabEmptyTitle: Record<Tab, string> = {
+  open: t('projects.experimentsList.empty.open'),
   all: t('projects.experimentsList.empty.all'),
   mine: t('projects.experimentsList.empty.mine'),
   inprogress: t('projects.experimentsList.empty.inprogress'),
@@ -248,7 +252,7 @@ function Experiments() {
     [workspace, navigate],
   )
 
-  const tab: Tab = search.tab ?? 'all'
+  const tab: Tab = search.tab ?? 'open'
   const [limit, setLimit] = useState(EXPERIMENT_LIST_PAGE_SIZE)
   const [sort, setSort] = useState<'updated' | 'id'>('updated')
   const projects = useProjectNameMap()
@@ -373,7 +377,14 @@ function Experiments() {
     search.project,
   )
 
-  const groups = groupedRows(visible, search.group)
+  // The open list is the work in hand, so it reads by where each one stands
+  // unless the person chose another grouping, or none.
+  const group =
+    search.group === 'none'
+      ? undefined
+      : (search.group ?? (tab === 'open' ? 'status' : undefined))
+
+  const groups = groupedRows(visible, group)
 
   const setSearch = (patch: Partial<typeof search>) =>
     void navigate({ search: (s) => ({ ...s, ...patch }) })
@@ -388,10 +399,10 @@ function Experiments() {
       experimentColumns({
         issueCount,
         openExperiment,
-        protocolsPending: protocols.isPending,
+        userId: context.user.id,
         issuesPending: openIssues.isPending,
       }),
-    [issueCount, openExperiment, protocols.isPending, openIssues.isPending],
+    [issueCount, openExperiment, context.user.id, openIssues.isPending],
   )
 
   const columns = useMemo(
@@ -420,6 +431,7 @@ function Experiments() {
       />
 
       <ExperimentsToolbar
+        group={group}
         sort={sort}
         onSort={setSort}
         search={search}
@@ -496,12 +508,14 @@ function Experiments() {
 
 /** Everything the list's toolbar reads and writes: sort, filters and search. */
 function ExperimentsToolbar({
+  group,
   sort,
   onSort,
   search,
   onSearch,
   projectName,
 }: {
+  group: 'project' | 'owner' | 'status' | undefined
   sort: 'updated' | 'id'
   onSort: (sort: 'updated' | 'id') => void
   search: ExperimentsSearch
@@ -553,32 +567,32 @@ function ExperimentsToolbar({
         <DropdownMenuTrigger render={<Button variant="quiet" />}>
           {t('projects.experimentsList.group', {
             by:
-              search.group === 'project'
+              group === 'project'
                 ? t('projects.experimentsList.columns.project')
-                : search.group === 'owner'
+                : group === 'owner'
                   ? t('projects.experimentsList.columns.owner')
-                  : t('projects.experimentsList.none'),
+                  : group === 'status'
+                    ? t('projects.experimentsList.columns.status')
+                    : t('projects.experimentsList.none'),
           })}
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-[180px]">
           {(
             [
               ['none', t('projects.experimentsList.none')],
+              ['status', t('projects.experimentsList.columns.status')],
               ['project', t('projects.experimentsList.columns.project')],
               ['owner', t('projects.experimentsList.columns.owner')],
             ] as const
           ).map(([value, label]) => {
-            const active =
-              value === 'none' ? !search.group : search.group === value
+            const active = value === 'none' ? !group : group === value
 
             return (
               <DropdownMenuItem
                 key={value}
                 icon={active ? 'check' : undefined}
                 className={active ? '' : 'pl-[30px]'}
-                onClick={() =>
-                  onSearch({ group: value === 'none' ? undefined : value })
-                }
+                onClick={() => onSearch({ group: value })}
               >
                 {label}
               </DropdownMenuItem>
@@ -702,8 +716,9 @@ const COLUMN_WIDTHS = new Map<string, number>([
   ['project', 220],
   ['owner', 100],
   ['assignee', 100],
-  ['protocol', 110],
   ['status', 120],
+  ['next', 170],
+  ['due', 120],
   ['issues', 110],
   ['created', 90],
   ['updated', 90],
@@ -723,12 +738,12 @@ function withColumnWidths(
 function experimentColumns({
   issueCount,
   openExperiment,
-  protocolsPending,
+  userId,
   issuesPending,
 }: {
   issueCount: (recordId: string) => number
   openExperiment: (row: ExperimentListRow, event?: React.MouseEvent) => void
-  protocolsPending: boolean
+  userId: string
   issuesPending: boolean
 }): RegistryColumn<ExperimentListRow>[] {
   return [
@@ -776,6 +791,56 @@ function experimentColumns({
       ),
     },
     {
+      id: 'status',
+      header: t('projects.experimentsList.columns.status'),
+      accessorFn: (e) => e.status.label,
+      cell: ({ row }) => (
+        <Status tone={row.original.status.tone}>
+          {row.original.status.label}
+        </Status>
+      ),
+    },
+    {
+      id: 'next',
+      header: t('projects.experimentsList.columns.nextStep'),
+      accessorFn: (e) => listNextStep(e, userId)?.label ?? '',
+      cell: ({ row }) => {
+        const next = listNextStep(row.original, userId)
+
+        if (!next) return <span className="text-fg-muted">—</span>
+
+        return (
+          <span
+            className={next.yours ? 'font-medium text-fg' : 'text-fg-muted'}
+          >
+            {next.label}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'due',
+      header: t('projects.experimentsList.columns.due'),
+      accessorFn: (e) => e.plannedEnd ?? '',
+      cell: ({ row }) => {
+        const due = row.original.plannedEnd
+
+        if (!due) return <span className="text-fg-muted">—</span>
+
+        const late =
+          row.original.statusTab !== 'approved' &&
+          row.original.statusTab !== 'archived' &&
+          due < now().toISOString().slice(0, 10)
+
+        return (
+          <span className={late ? 'text-warning-text' : 'text-fg-muted'}>
+            {formatListDate(due, now())}
+            {late ? ` · ${t('projects.experimentsList.overdue')}` : ''}
+          </span>
+        )
+      },
+    },
+    {
       id: 'project',
       header: t('projects.experimentsList.columns.project'),
       accessorFn: (e) => e.project,
@@ -807,40 +872,6 @@ function experimentColumns({
         row.original.assignee ?? <span className="text-fg-muted">—</span>,
     },
     {
-      id: 'protocol',
-      header: t('projects.experimentsList.columns.protocol'),
-      accessorFn: (e) =>
-        e.protocolVersion ? `${e.protocol} v${e.protocolVersion}` : e.protocol,
-      cell: ({ row }) =>
-        row.original.protocolRecordId ? (
-          <Link
-            to="/protocols/$protocolId"
-            params={{ protocolId: row.original.protocolRecordId }}
-            className="text-fg hover:text-link"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {row.original.protocol}
-            {row.original.protocolVersion
-              ? ` v${row.original.protocolVersion}`
-              : ''}
-          </Link>
-        ) : protocolsPending ? (
-          <Skeleton className="h-3 w-16" />
-        ) : (
-          row.original.protocol
-        ),
-    },
-    {
-      id: 'status',
-      header: t('projects.experimentsList.columns.status'),
-      accessorFn: (e) => e.status.label,
-      cell: ({ row }) => (
-        <Status tone={row.original.status.tone}>
-          {row.original.status.label}
-        </Status>
-      ),
-    },
-    {
       id: 'issues',
       header: t('projects.experimentsList.columns.issues'),
       accessorFn: (e) => issueCount(e.uuid),
@@ -860,22 +891,6 @@ function experimentColumns({
               : '—'}
           </span>
         ),
-    },
-    {
-      id: 'created',
-      header: t('projects.experimentsList.columns.started'),
-      accessorFn: (e) => e.createdAt,
-      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
-      // The model carries no start date, so a record that has not begun
-      // (a draft, or one still being planned) shows none.
-      cell: ({ row }) => (
-        <span className="text-fg-muted">
-          {row.original.status.label === 'Draft' ||
-          row.original.status.label === 'Planned'
-            ? '—'
-            : formatListDate(row.original.createdAt, now())}
-        </span>
-      ),
     },
     {
       id: 'updated',
@@ -948,7 +963,7 @@ function ExperimentsHeader({
             count: !counts ? undefined : counts[name],
             link: {
               to: '/experiments',
-              search: { ...search, tab: name === 'all' ? undefined : name },
+              search: { ...search, tab: name === 'open' ? undefined : name },
             },
           }))}
         />
@@ -972,21 +987,49 @@ function projectFilterLabel(
   )
 }
 
+/** The order the status bands read in: what needs a decision first. */
+const STATUS_BAND_ORDER = [
+  t('projects.experimentsData.inReview'),
+  t('projects.experimentsData.returned'),
+  t('projects.experimentsData.inProgress'),
+  t('projects.experimentsData.onHold'),
+  t('projects.experimentsData.planned'),
+  t('projects.experimentsData.draft'),
+]
+
+/** The band a row sits under for a grouping. */
+function bandKey(
+  row: ExperimentListRow,
+  group: 'project' | 'owner' | 'status',
+): string {
+  if (group === 'project') return row.project
+
+  if (group === 'owner') return row.owner
+
+  return row.status.label
+}
+
 /** The rows under their group band, or one ungrouped band. */
 function groupedRows(
   visible: readonly ExperimentListRow[],
-  group: ExperimentsSearch['group'],
+  group: 'project' | 'owner' | 'status' | undefined,
 ): [string | null, ExperimentListRow[]][] {
   if (!group) return [[null, [...visible]]]
 
-  const keys = new Set(
-    visible.map((r) => (group === 'project' ? r.project : r.owner)),
-  )
+  const keys = [...new Set(visible.map((r) => bandKey(r, group)))]
 
-  return [...keys].map((key) => [
+  if (group === 'status') {
+    const rank = (key: string) => {
+      const at = STATUS_BAND_ORDER.indexOf(key)
+
+      return at === -1 ? STATUS_BAND_ORDER.length : at
+    }
+
+    keys.sort((a, b) => rank(a) - rank(b))
+  }
+
+  return keys.map((key) => [
     key,
-    visible.filter((r) =>
-      group === 'project' ? r.project === key : r.owner === key,
-    ),
+    visible.filter((r) => bandKey(r, group) === key),
   ])
 }

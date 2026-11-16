@@ -177,6 +177,7 @@ describe('experiments list rows', () => {
 
 describe('experiments list empty state', () => {
   it('says "No experiments" on the All tab', async () => {
+    router.search = { tab: 'all' }
     renderList()
 
     expect(await screen.findByText('No experiments')).toBeDefined()

@@ -215,7 +215,9 @@ describe('useExperimentTabCounts', () => {
 
     // `all` is the live workspace total; archived experiments leave every
     // working tab and are counted only under Archived.
+    // `open` is every working status: all but Approved (and Archived).
     expect(result.current.data).toEqual({
+      open: 14,
       all: 21,
       mine: 3,
       inprogress: 5,

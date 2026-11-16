@@ -36,6 +36,14 @@ export interface ExperimentListRow {
   /** Who the experiment is assigned to, when someone is. */
   assignee: string | null
   status: { tone: Tone; label: string }
+  /** The stored status, which the next step is worked out from. */
+  statusKey: string
+  /** Who it is assigned to, when someone is. */
+  assigneeId: string | null
+  /** The reviewer it was submitted to, when one was chosen. */
+  reviewerId: string | null
+  /** The day it is expected to finish, when one was planned. */
+  plannedEnd: string | null
   /** The status tab that lists this record, so the tabs filter the same
    * statuses their counts count. Null only for a status the table does not
    * know, which stays reachable in `all`. */
@@ -60,6 +68,8 @@ interface ExperimentWire {
   status: string
   created_by_user_id: string
   assignee_user_id?: string | null
+  reviewer_user_id?: string | null
+  planned_end?: string | null
   created_at: string
   updated_at: string
   archived_at?: string | null
@@ -67,6 +77,7 @@ interface ExperimentWire {
 
 /** The list's tabs. `experiments.tsx` renders exactly these. */
 export type ExperimentTabKey =
+  | 'open'
   | 'all'
   | 'mine'
   | 'inprogress'
@@ -77,11 +88,12 @@ export type ExperimentTabKey =
   | 'drafts'
   | 'archived'
 
-/** The tabs that group experiments by status. `all` is the whole workspace and
- * `mine` is the caller's own experiments, so neither is a status tab. */
+/** The tabs that group experiments by status. `all` is the whole workspace,
+ * `mine` is the caller's own experiments and `open` is every status tab but
+ * Approved, so none of those is a status tab. */
 export type ExperimentStatusTab = Exclude<
   ExperimentTabKey,
-  'all' | 'mine' | 'archived'
+  'open' | 'all' | 'mine' | 'archived'
 >
 
 /**
@@ -219,7 +231,7 @@ export const EXPERIMENT_LIST_PAGE_SIZE = 300
 const EXPERIMENT_FILTER = 'kind=eq.experiment&deleted_at=is.null'
 
 const EXPERIMENT_SELECT =
-  'select=id,project_id,identifier,title,status,created_by_user_id,assignee_user_id,created_at,updated_at,archived_at'
+  'select=id,project_id,identifier,title,status,created_by_user_id,assignee_user_id,reviewer_user_id,planned_end,created_at,updated_at,archived_at'
 
 /** The statuses a status tab lists, from the table above. */
 function statusesForTab(tab: ExperimentStatusTab): string[] {
@@ -227,6 +239,17 @@ function statusesForTab(tab: ExperimentStatusTab): string[] {
 
   for (const [status, entry] of STATUS) {
     if (entry.tab === tab) statuses.push(status)
+  }
+
+  return statuses
+}
+
+/** Every status still being worked on: all those whose tab is not Approved. */
+function openStatuses(): string[] {
+  const statuses: string[] = []
+
+  for (const [status, entry] of STATUS) {
+    if (entry.tab !== 'approved') statuses.push(status)
   }
 
   return statuses
@@ -245,6 +268,8 @@ export function experimentListFilters(filter: ExperimentListFilter): string[] {
       clauses.push(
         `created_by_user_id=eq.${encodeURIComponent(filter.userId ?? '')}`,
       )
+    else if (filter.tab === 'open')
+      clauses.push(`status=in.(${openStatuses().join(',')})`)
     else if (filter.tab !== 'all')
       clauses.push(`status=in.(${statusesForTab(filter.tab).join(',')})`)
   }
@@ -296,6 +321,10 @@ export function toExperimentListRow(
       ? (ownerNames.get(row.assignee_user_id) ?? '—')
       : null,
     status: experimentStatus(row.status),
+    statusKey: row.status,
+    assigneeId: row.assignee_user_id ?? null,
+    reviewerId: row.reviewer_user_id ?? null,
+    plannedEnd: row.planned_end ?? null,
     statusTab: row.archived_at
       ? 'archived'
       : (STATUS.get(row.status)?.tab ?? null),
@@ -353,6 +382,7 @@ export type ExperimentTabCounts = Record<ExperimentTabKey, number>
 
 /** Every tab a count is kept for, in strip order, each starting at zero. */
 const EMPTY_TAB_COUNTS: ExperimentTabCounts = {
+  open: 0,
   all: 0,
   mine: 0,
   inprogress: 0,
@@ -431,6 +461,8 @@ export function useExperimentTabCounts(
         const tab = STATUS.get(row.status)?.tab
 
         if (tab) counts[tab] += total
+
+        if (tab && tab !== 'approved') counts.open += total
       }
 
       return counts

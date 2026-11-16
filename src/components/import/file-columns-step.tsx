@@ -178,6 +178,32 @@ export function FileColumnsStep({
   )
 }
 
+/** Offers a plate run when the worksheet looks like a microplate read-out. */
+function PlateBanner({ sheet }: { sheet: ImportSheetPreview }) {
+  const plate = useMemo(() => detectPlateGrid(sheet), [sheet])
+
+  if (!plate) return null
+
+  return (
+    <Banner
+      tone="info"
+      title={t('data.importFlow.fileColumns.plateTitle', {
+        wells: plate.wells,
+      })}
+      action={
+        <Button size="sm" nativeButton={false} render={<Link to="/plates" />}>
+          {t('data.importFlow.fileColumns.plateAction')}
+        </Button>
+      }
+    >
+      {t('data.importFlow.fileColumns.plateBody', {
+        lastRow: 'ABCDEFGHIJKLMNOP'[plate.rows - 1] ?? 'H',
+        columns: plate.columns,
+      })}
+    </Banner>
+  )
+}
+
 function ColumnsEditor({
   workspaceId,
   createdByUserId,
@@ -212,7 +238,6 @@ function ColumnsEditor({
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const plate = useMemo(() => detectPlateGrid(sheet), [sheet])
 
   const kept = rows.filter((row) => row.keep)
 
@@ -333,28 +358,7 @@ function ColumnsEditor({
           })}
         </p>
       </div>
-      {plate ? (
-        <Banner
-          tone="info"
-          title={t('data.importFlow.fileColumns.plateTitle', {
-            wells: plate.wells,
-          })}
-          action={
-            <Button
-              size="sm"
-              nativeButton={false}
-              render={<Link to="/plates" />}
-            >
-              {t('data.importFlow.fileColumns.plateAction')}
-            </Button>
-          }
-        >
-          {t('data.importFlow.fileColumns.plateBody', {
-            lastRow: 'ABCDEFGHIJKLMNOP'[plate.rows - 1] ?? 'H',
-            columns: plate.columns,
-          })}
-        </Banner>
-      ) : null}
+      <PlateBanner sheet={sheet} />
       <TableBox>
         <Table caption={t('data.importFlow.fileColumns.title')}>
           <TableHeader>

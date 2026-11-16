@@ -286,6 +286,127 @@ function AttachImportReceipt({
   )
 }
 
+/** Makes a sheet from the imported data and places it right below the import. */
+function ShowInSheetButton({
+  datasetId,
+  recordId,
+  blockId,
+}: {
+  datasetId: string
+  recordId: string
+  blockId: string
+}) {
+  const queryClient = useQueryClient()
+  const makeSheet = useMutation({
+    mutationFn: () =>
+      openDatasetInNewSheet(notebookDataClient, {
+        datasetId,
+        notebookRecordId: recordId,
+        afterBlockId: blockId,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: notebookQueryKeys.blocks(recordId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: notebookQueryKeys.record(recordId),
+        }),
+      ])
+      toast(t('notebook.datasetImportBlock.sheetAddedBelow'))
+    },
+    onError: (error) =>
+      toast.error(t('notebook.datasetImportBlock.sheetNotMade'), {
+        description: error instanceof Error ? error.message : undefined,
+      }),
+  })
+
+  return (
+    <Button
+      variant="primary"
+      size="sm"
+      disabled={makeSheet.isPending}
+      onClick={() => makeSheet.mutate()}
+    >
+      {makeSheet.isPending
+        ? t('notebook.datasetImportBlock.makingSheet')
+        : t('notebook.datasetImportBlock.showInASheet')}
+    </Button>
+  )
+}
+
+function ReceiptLinks({
+  datasetId,
+  versionId,
+  fileId,
+  sheetName,
+  recordId,
+  blockId,
+  canMakeSheet,
+}: {
+  datasetId: string
+  versionId: string
+  fileId: string
+  sheetName: string | undefined
+  recordId?: string
+  blockId?: string
+  canMakeSheet: boolean
+}) {
+  const returnTo = recordId ? `/records/${recordId}/notebook` : undefined
+
+  return (
+    <div className="flex flex-wrap gap-3 text-label">
+      {recordId && blockId && canMakeSheet ? (
+        <ShowInSheetButton
+          datasetId={datasetId}
+          recordId={recordId}
+          blockId={blockId}
+        />
+      ) : (
+        <Link
+          className="text-link"
+          to="/sheets/new"
+          search={{ dataset: datasetId, experiment: recordId, returnTo }}
+        >
+          {t('notebook.datasetImportBlock.openInASheet')}
+        </Link>
+      )}
+      <Link
+        className="text-link"
+        to="/datasets/$datasetId/rows"
+        params={{ datasetId }}
+        search={{ snapshot: versionId }}
+      >
+        {t('notebook.datasetImportBlock.viewImportedData')}
+      </Link>
+      <Link
+        className="text-link"
+        to="/analysis/new"
+        search={{
+          dataset: datasetId,
+          snapshot: versionId,
+          mode: 'analyse',
+          returnTo,
+        }}
+      >
+        {t('notebook.datasetImportBlock.analyseThisSnapshot')}
+      </Link>
+      <Link
+        className="text-link"
+        to="/import/$importId"
+        params={{ importId: fileId }}
+        search={{
+          dataset: datasetId,
+          sheet: sheetName,
+          returnTo,
+        }}
+      >
+        {t('notebook.datasetImportBlock.viewImportReceipt')}
+      </Link>
+    </div>
+  )
+}
+
 export function DatasetImportBlockPreview({
   payload: value,
   recordId,
@@ -298,41 +419,15 @@ export function DatasetImportBlockPreview({
   blockId?: string
   readOnly?: boolean
 }) {
-  const queryClient = useQueryClient()
   const payload = z.record(z.string(), z.unknown()).safeParse(value).data ?? {}
   const datasetId = text(payload.datasetId)
   const importId = text(payload.importId)
   const versionId = text(payload.datasetVersionId)
-  const returnTo = recordId ? `/records/${recordId}/notebook` : undefined
 
   const receipts = useQuery({
     queryKey: importQueryKeys.imports(datasetId ?? ''),
     queryFn: () => fetchDatasetImports(notebookDataClient, datasetId!),
     enabled: Boolean(datasetId && importId && versionId),
-  })
-
-  const makeSheet = useMutation({
-    mutationFn: () =>
-      openDatasetInNewSheet(notebookDataClient, {
-        datasetId: datasetId!,
-        notebookRecordId: recordId,
-        afterBlockId: blockId,
-      }),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: notebookQueryKeys.blocks(recordId!),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: notebookQueryKeys.record(recordId!),
-        }),
-      ])
-      toast(t('notebook.datasetImportBlock.sheetAddedBelow'))
-    },
-    onError: (error) =>
-      toast.error(t('notebook.datasetImportBlock.sheetNotMade'), {
-        description: error instanceof Error ? error.message : undefined,
-      }),
   })
 
   if (!importId || !versionId || !datasetId)
@@ -383,60 +478,15 @@ export function DatasetImportBlockPreview({
           })}
         </p>
       </div>
-      <div className="flex flex-wrap gap-3 text-label">
-        {recordId && blockId && !readOnly ? (
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={makeSheet.isPending}
-            onClick={() => makeSheet.mutate()}
-          >
-            {makeSheet.isPending
-              ? t('notebook.datasetImportBlock.makingSheet')
-              : t('notebook.datasetImportBlock.showInASheet')}
-          </Button>
-        ) : (
-          <Link
-            className="text-link"
-            to="/sheets/new"
-            search={{ dataset: datasetId, experiment: recordId, returnTo }}
-          >
-            {t('notebook.datasetImportBlock.openInASheet')}
-          </Link>
-        )}
-        <Link
-          className="text-link"
-          to="/datasets/$datasetId/rows"
-          params={{ datasetId }}
-          search={{ snapshot: versionId }}
-        >
-          {t('notebook.datasetImportBlock.viewImportedData')}
-        </Link>
-        <Link
-          className="text-link"
-          to="/analysis/new"
-          search={{
-            dataset: datasetId,
-            snapshot: versionId,
-            mode: 'analyse',
-            returnTo,
-          }}
-        >
-          {t('notebook.datasetImportBlock.analyseThisSnapshot')}
-        </Link>
-        <Link
-          className="text-link"
-          to="/import/$importId"
-          params={{ importId: text(payload.fileId)! }}
-          search={{
-            dataset: datasetId,
-            sheet: text(payload.sheetName),
-            returnTo,
-          }}
-        >
-          {t('notebook.datasetImportBlock.viewImportReceipt')}
-        </Link>
-      </div>
+      <ReceiptLinks
+        datasetId={datasetId}
+        versionId={versionId}
+        fileId={text(payload.fileId)!}
+        sheetName={text(payload.sheetName)}
+        recordId={recordId}
+        blockId={blockId}
+        canMakeSheet={!readOnly}
+      />
       <p className="m-0 text-caption text-fg-muted">
         {t('notebook.datasetImportBlock.aNewSheetUses')}
       </p>

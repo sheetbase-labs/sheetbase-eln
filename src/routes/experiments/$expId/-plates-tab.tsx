@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { NewRunDialog } from '#/components/plates/new-run-dialog'
-import { WorklistBuilderDialog } from '#/components/plates/worklist-dialogs'
+import { PlateCompare } from '#/components/plates/plate-compare'
 import { PlateRunSummary } from '#/components/plates/plate-run-summary'
+import { WorklistBuilderDialog } from '#/components/plates/worklist-dialogs'
 import type { MapView } from '#/components/plates/plates-shared'
 import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
+import { FileDrop } from '#/components/ui/file-drop'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -124,6 +126,9 @@ export function ExperimentPlates({
 }) {
   const queryClient = useQueryClient()
   const [adding, setAdding] = useState(false)
+  const [dropped, setDropped] = useState<File | null>(null)
+  // The drop zone keeps the file it was given; a new key clears it once the dialog is done.
+  const [dropKey, setDropKey] = useState(0)
 
   const runs = useQuery({
     queryKey: plateRunKeys.forRecord(expId),
@@ -139,6 +144,12 @@ export function ExperimentPlates({
 
   const data = runs.data ?? []
 
+  // Two or more analysed plates are read against each other.
+  const analysed = useMemo(
+    () => (runs.data ?? []).filter((run) => run.results !== null),
+    [runs.data],
+  )
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto px-6 py-4 max-md:px-4">
       <div className="flex items-center gap-3">
@@ -147,6 +158,19 @@ export function ExperimentPlates({
         </h2>
         {data.length > 0 ? add : null}
       </div>
+      {canWrite && data.length > 0 ? (
+        <FileDrop
+          key={dropKey}
+          label={t('features.plateRuns.drop.title')}
+          hint={t('features.plateRuns.drop.hint')}
+          accept=".csv,.tsv,.txt,.xlsx"
+          onFile={(file) => {
+            setDropped(file)
+            setAdding(true)
+          }}
+        />
+      ) : null}
+      {analysed.length > 1 ? <PlateCompare runs={analysed} /> : null}
       {runs.isSuccess && data.length === 0 ? (
         <EmptyState
           icon="grid"
@@ -166,8 +190,16 @@ export function ExperimentPlates({
       {adding ? (
         <NewRunDialog
           open={adding}
-          onOpenChange={setAdding}
+          onOpenChange={(open) => {
+            setAdding(open)
+
+            if (!open) {
+              setDropped(null)
+              setDropKey((key) => key + 1)
+            }
+          }}
           experimentId={expId}
+          initialFile={dropped}
           onCreated={(created) => {
             void addPlateRunToExperiment(client, {
               runId: created.id,

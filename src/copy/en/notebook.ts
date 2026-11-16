@@ -1806,6 +1806,10 @@ export const notebook = {
     noMatchingBlockTypes: 'No matching block types',
     ariaLabel: 'Insert block',
     toMoveEnterTo: '↑ ↓ to move · Enter to insert · Esc to close',
+    headingLabel: 'Heading',
+    headingDescription: 'A section title',
+    commonGroup: 'Common',
+    recentGroup: 'Recently used',
   },
   stepDeviation: {
     reasonRecordedAgainstThe: 'Reason recorded against the step',

@@ -33,6 +33,8 @@ import { colorForUser } from '#/lib/collaboration/provider'
 import { SlashCommandMenu } from './slash-command-menu'
 import {
   AI_SLASH_TYPE,
+  HEADING_SLASH_TYPE,
+  recordSlashUse,
   slashCommandFilterCount,
   slashCommandFilteredOptions,
   pluginSlashOptions,
@@ -46,7 +48,7 @@ import { fingerprint, liveFieldName, useLiveRichText } from './live-rich-text'
 import { useCommittedRef } from './use-committed-ref'
 
 /** The slash menu's natural cap; it shrinks to fit above the keyboard. */
-const SLASH_MENU_MAX_HEIGHT = 320
+const SLASH_MENU_MAX_HEIGHT = 416
 
 /**
  * The content extensions. `live` drops the editor's own undo history: while a
@@ -596,12 +598,21 @@ function useNotebookTextEditing({
 
               if (!selected) return true
 
+              recordSlashUse(selected.type)
+
               if (selected.type === AI_SLASH_TYPE) {
                 removeSlashQuery(view)
                 setAiComposer({ selection: '' })
               } else if (selected.type === 'rich_text') {
                 // Stay in the same block — just remove the /query text.
                 removeSlashQuery(view)
+              } else if (selected.type === HEADING_SLASH_TYPE) {
+                removeSlashQuery(view)
+                editorRef.current
+                  ?.chain()
+                  .focus()
+                  .setHeading({ level: 2 })
+                  .run()
               } else {
                 // Block will be replaced — no need to clean up editor text.
                 cb.onSlashCommand?.(selected.type)
@@ -918,11 +929,18 @@ function useNotebookTextEditing({
   }
 
   function handleSlashSelect(type: string) {
+    recordSlashUse(type)
+
     if (type === AI_SLASH_TYPE) {
       if (editor) removeSlashQuery(editor.view)
       setAiComposer({ selection: '' })
     } else if (type === 'rich_text') {
       if (editor) removeSlashQuery(editor.view)
+    } else if (type === HEADING_SLASH_TYPE) {
+      if (editor) {
+        removeSlashQuery(editor.view)
+        editor.chain().focus().setHeading({ level: 2 }).run()
+      }
     } else {
       cbRef.current.onSlashCommand?.(type)
     }

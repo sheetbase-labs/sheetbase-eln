@@ -32,6 +32,8 @@ export function AnalysisEditor({ model }: { model: AnalysisPanelModel }) {
     setDraft,
     validation,
     saveMutation,
+    saveAndAddMutation,
+    experiment,
     setCiteOpen,
     staleDetail,
   } = model
@@ -114,6 +116,27 @@ export function AnalysisEditor({ model }: { model: AnalysisPanelModel }) {
           }
           className="h-[26px] w-48 bg-surface text-label max-md:h-8"
         />
+        {experiment ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="primary"
+            disabled={
+              !draft.definition ||
+              validation.length > 0 ||
+              draft.name.trim() === '' ||
+              saveAndAddMutation.isPending
+            }
+            onClick={() => saveAndAddMutation.mutate()}
+          >
+            <Icon name="save" className="size-3.5" aria-hidden />{' '}
+            {saveAndAddMutation.isPending
+              ? t('features.resultsAnalysis.studio.adding')
+              : t('features.resultsAnalysis.studio.saveAndAdd', {
+                  identifier: experiment.identifier,
+                })}
+          </Button>
+        ) : null}
         <Button
           type="button"
           size="sm"
@@ -151,6 +174,14 @@ export function AnalysisEditor({ model }: { model: AnalysisPanelModel }) {
       {staleDetail ? (
         <p role="status" className="text-xs text-fg-muted">
           {staleDetail}
+        </p>
+      ) : null}
+      {experiment ? (
+        <p className="m-0 text-xs text-fg-muted">
+          {t('features.resultsAnalysis.studio.hint', {
+            identifier: experiment.identifier,
+            title: experiment.title,
+          })}
         </p>
       ) : null}
     </div>

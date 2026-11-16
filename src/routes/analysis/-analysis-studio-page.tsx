@@ -616,6 +616,7 @@ export function AnalysisStudio() {
             activeSnapshotId={studio.activeSnapshotId}
             definitionId={studio.search.definition}
             experimentId={studio.search.experiment}
+            returnTo={studio.search.returnTo}
           />
         ) : studio.mode === 'compare' ? (
           <CompareModeSection

@@ -27,6 +27,8 @@ export const copyFromSearch = recordSearch(['Experiment'])
 export function createErrorMessage(
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the create refusal is a caught throw, so it reaches this message untyped; `instanceof` below narrows it to its message.
   error: unknown,
+  /** The experiment was being made from a template. */
+  fromTemplate = false,
 ): string {
   const message = error instanceof Error ? error.message : ''
 
@@ -36,6 +38,15 @@ export function createErrorMessage(
 
   if (/row-level security|permission_denied|permission denied/i.test(message)) {
     return t('projects.newExperiment.errors.permission')
+  }
+
+  // A template's own contents refused by the database: say what to do, not
+  // what the database said.
+  if (
+    fromTemplate &&
+    /invalid .*payload|violates|check constraint/i.test(message)
+  ) {
+    return t('projects.newExperiment.errors.template')
   }
 
   return message || t('projects.newExperiment.errors.generic')

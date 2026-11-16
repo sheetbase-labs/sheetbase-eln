@@ -170,7 +170,7 @@ export function useNewExperimentForm(search: NewExperimentSearch) {
     onError: (error) => {
       // A corrected form must not be answered with the earlier refusal.
       setIdempotencyKey(crypto.randomUUID())
-      toast.error(createErrorMessage(error))
+      toast.error(createErrorMessage(error, startFrom === 'template'))
     },
   })
 

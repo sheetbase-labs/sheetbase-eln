@@ -197,7 +197,12 @@ export function FormActionsSection({ form }: { form: Form }) {
       </div>
       <FormNotes
         createError={
-          form.create.error ? createErrorMessage(form.create.error) : undefined
+          form.create.error
+            ? createErrorMessage(
+                form.create.error,
+                form.startFrom === 'template',
+              )
+            : undefined
         }
         projectsLoading={form.sources.projects.isLoading}
         projectsFailed={form.sources.projects.isError}

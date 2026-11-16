@@ -999,3 +999,102 @@
   background: var(--color-danger);
   cursor: pointer;
 }
+
+/*
+ * Printing a page prints the page, not the app around it. The shell is a
+ * fixed-height set of panes that each scroll on their own, so a plain print
+ * showed the top bar and rails, one screenful, and nothing after it. In print
+ * the chrome is hidden and every pane flows, so a notebook runs across as many
+ * pages as it needs. Mark anything else that should stay off paper with
+ * `data-print-hide`.
+ */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  .mx-ph,
+  [data-page-tabs],
+  [data-page-actions],
+  [data-slot='inspector'],
+  [data-print-hide],
+  [data-slot='block-toolbar'],
+  [data-slot='sidebar'],
+  [data-app-chrome],
+  [data-print-chrome] {
+    display: none !important;
+  }
+  [data-app-shell],
+  [data-app-shell] *:not(table):not(thead):not(tbody):not(tr):not(td):not(th) {
+    max-height: none !important;
+  }
+  [data-app-shell],
+  .mx-pb,
+  .mx-pane,
+  .mx-tabpanel,
+  .mx-stage,
+  .mx-body,
+  .workspace,
+  .workspace-page-content,
+  main {
+    position: static !important;
+    height: auto !important;
+    min-height: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+  [data-app-shell] div {
+    overflow: visible !important;
+  }
+  [data-app-shell] .flex-1 {
+    flex: 1 1 100% !important;
+  }
+  [data-app-shell] [class*='overflow-y-auto'],
+  [data-app-shell] [class*='overflow-auto'] {
+    overflow: visible !important;
+    height: auto !important;
+  }
+}
+@media print {
+  [data-app-shell] div,
+  [data-app-shell] section,
+  [data-app-shell] main,
+  [data-app-shell] article,
+  [data-app-shell] p,
+  [data-app-shell] h1,
+  [data-app-shell] h2,
+  [data-app-shell] h3,
+  [data-app-shell] ul,
+  [data-app-shell] ol {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+  [data-app-shell] h1,
+  [data-app-shell] h2,
+  [data-app-shell] p {
+    white-space: normal !important;
+    text-overflow: clip !important;
+  }
+  [data-app-shell] table {
+    width: 100% !important;
+    table-layout: auto;
+  }
+  tr,
+  figure,
+  img,
+  svg {
+    break-inside: avoid;
+  }
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+}

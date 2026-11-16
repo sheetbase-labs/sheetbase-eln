@@ -25,7 +25,7 @@ export function expandWells(spec: string): string[] | null {
 
   if (!a) return null
 
-  if (to === undefined) return [wellCode(a.row, a.col)]
+  if (!spec.includes(':')) return [wellCode(a.row, a.col)]
   const b = parseWellCode(to.trim().toUpperCase())
 
   if (!b) return null
@@ -80,7 +80,7 @@ export function plateRows(
     if (start < 0) return []
   }
 
-  const header = rows[start]
+  const header = rows.at(start)
 
   if (!header) return []
 

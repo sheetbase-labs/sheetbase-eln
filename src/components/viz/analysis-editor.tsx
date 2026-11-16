@@ -40,7 +40,7 @@ export function AnalysisEditor({ model }: { model: AnalysisPanelModel }) {
   } = model
 
   return (
-    <div className="rounded-lg border border-border bg-surface space-y-3 p-3">
+    <div className="space-y-3 pb-1">
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex min-w-44 flex-1 flex-col gap-1">
           <label

@@ -125,8 +125,8 @@ export function AnalysisPanel(props: AnalysisPanelProps) {
       />
 
       {curveCharts.map(({ group, chart }) => (
-        <div key={group} className="rounded-md border p-2">
-          <p className="mb-1 text-xs font-medium text-fg-muted">
+        <div key={group} className="border-t pt-3">
+          <p className="mb-2 text-label font-medium text-fg">
             {group === 'all'
               ? t('data.analysisPanel.curveOverStandards')
               : t('data.analysisPanel.curveOverStandardsGroup', { group })}
@@ -139,6 +139,7 @@ export function AnalysisPanel(props: AnalysisPanelProps) {
             frozen={null}
             showTableAlternative={false}
             plotHeight={240}
+            className="rounded-none border-0 bg-transparent shadow-none"
           />
         </div>
       ))}
@@ -146,8 +147,8 @@ export function AnalysisPanel(props: AnalysisPanelProps) {
       <AnalysisExecutionResult error={rowsQuery.error} execution={execution} />
 
       {fitChart ? (
-        <div className="rounded-md border p-2">
-          <p className="mb-1 text-xs font-medium text-fg-muted">
+        <div className="border-t pt-3">
+          <p className="mb-2 text-label font-medium text-fg">
             {t('data.analysisPanel.fittedCurveOverObservations')}
           </p>
           <ChartRenderer
@@ -158,6 +159,7 @@ export function AnalysisPanel(props: AnalysisPanelProps) {
             frozen={null}
             showTableAlternative={false}
             plotHeight={220}
+            className="rounded-none border-0 bg-transparent shadow-none"
           />
         </div>
       ) : execution &&

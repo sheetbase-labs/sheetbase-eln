@@ -21,7 +21,7 @@ const MAX_FIGURES = 4
 
 function HeadlineCard({ headline }: { headline: Headline }) {
   return (
-    <div className="rounded-md border border-border bg-surface p-3">
+    <div className="border-t border-border pt-3">
       {headline.group ? (
         <p className="m-0 mb-2 text-label font-medium text-fg">
           {headline.group}
@@ -183,6 +183,7 @@ export function AnalysisBlockResult({
                 frozen={null}
                 showTableAlternative={false}
                 plotHeight={240}
+                className="rounded-none border-0 bg-transparent shadow-none"
               />
             ) : null,
           )}
@@ -199,14 +200,11 @@ export function AnalysisBlockResult({
           ))}
         </div>
       </div>
-      <details
-        open={!drawn}
-        className="group rounded-md border border-border bg-surface-muted/20"
-      >
-        <summary className="cursor-pointer select-none px-3 py-2 text-label text-fg-muted hover:text-fg">
+      <details open={!drawn} className="group border-t border-border">
+        <summary className="cursor-pointer select-none py-2 text-label text-fg-muted hover:text-fg">
           {t('features.resultsAnalysis.block.working')}
         </summary>
-        <div className="p-3 pt-1">
+        <div className="pt-1">
           <AnalysisResultTable result={result} />
         </div>
       </details>

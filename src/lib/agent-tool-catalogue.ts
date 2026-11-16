@@ -134,6 +134,8 @@ export type AssistantReadToolName =
 const ASSISTANT_PROPOSE_TOOLS_UNDECLARED = [
   // Several of the cards below as one plan, approved once (features/plans).
   'sheetbase.plan.propose',
+  // Add an analysis of a dataset (curve fit, standard curve, group comparison) to a notebook (features/results-analysis).
+  'sheetbase.analysis.add_to_notebook',
   'sheetbase.notebook_block.insert',
   'sheetbase.notebook_block.update',
   'sheetbase.record.custom_fields.update',

@@ -325,7 +325,7 @@ interface DatasetJson {
   rows: CellRow[]
 }
 
-async function loadInputs(
+export async function loadInputs(
   client: DataClient,
   inputs: Array<{ alias: string; datasetVersionId: string }>,
 ): Promise<LoadedInput[]> {

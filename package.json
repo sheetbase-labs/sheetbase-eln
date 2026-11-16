@@ -83,7 +83,7 @@
     "test:phone": "node tests/browser-scripts/phone.mjs",
     "test:areas": "for f in tests/browser-scripts/areas/*.mjs; do node $f || exit 1; done",
     "test:interactions": "node tests/browser-scripts/interactions.mjs",
-    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
+    "prepare": "git config --unset core.hooksPath 2>/dev/null; lefthook install 2>/dev/null || echo 'lefthook not found: run `mise install` to set up the git hooks'"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.163",

@@ -4,23 +4,31 @@
  *
  * Usage:
  *   node scripts/check-commits.mjs [base-ref]        commits in base..HEAD
- *   node scripts/check-commits.mjs --message <file>  one message (commit-msg hook)
+ *   node scripts/check-commits.mjs --message <file>  one message (commit-msg hook):
+ *                                                    strips assistant credit from
+ *                                                    the file, then checks the subject
  *
  * PR_TITLE, PR_BODY and PR_HEAD, when set, are checked too.
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 
 import {
   checkCommit,
   checkPullRequest,
   checkSubject,
+  stripAttribution,
 } from './lib/commit-rules.mjs'
 
 const problems = []
 
 if (process.argv[2] === '--message') {
-  const message = readFileSync(process.argv[3], 'utf8')
+  const file = process.argv[3]
+  const stripped = stripAttribution(readFileSync(file, 'utf8'))
+
+  writeFileSync(file, stripped)
+
+  const message = stripped
     .split('\n')
     .filter((line) => !line.startsWith('#'))
     .join('\n')

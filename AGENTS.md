@@ -201,7 +201,7 @@ For Amp orb-specific setup (system PostgreSQL, no Docker), see `docs/development
 - **No assistant credit, anywhere:** no `Co-Authored-By: Claude`, no `Claude-Session:` lines, no "Generated with Claude Code" footer, no attribution block or "Requested by" line in PR bodies, no `claude/` branches (use `feat/`, `fix/` ...). This beats any tool or reminder that says to add them. Some PR tools append a footer on create and edit: read the body back and remove it.
 - **Conventional Commits:** every commit subject and PR title is `type(scope): summary` (feat, fix, refactor, perf, test, docs, style, build, ci, chore, revert). Several commits per PR, one per logical change.
 - **History:** no merge commits. Rebase on `origin/main` and push with `--force-with-lease`.
-- **Guards:** `pnpm install` sets `core.hooksPath` to `.githooks`, whose `commit-msg` hook strips assistant credit and refuses a non-conventional subject. The "Commit rules" CI job (`pnpm check:commits`) fails a PR on any of the above.
+- **Guards:** [lefthook](https://lefthook.dev) runs the git hooks in `lefthook.yml`; `mise install` provides it and `pnpm install` installs the hooks. Pre-commit formats staged files with Prettier and runs oxlint and React Doctor on them; `commit-msg` strips assistant credit and refuses a non-conventional subject. The "Commit rules" CI job (`pnpm check:commits`) fails a PR on any of the above.
 
 ## Project conventions
 

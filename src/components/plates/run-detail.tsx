@@ -206,6 +206,8 @@ export function RunDetail({
           onlyHits={onlyHits}
           onOnlyHitsChange={setOnlyHits}
           onSelectCurve={setSelectedCurve}
+          canWrite={canWrite}
+          onPickHits={() => setWorklist(true)}
         />
       ) : null}
 
@@ -519,6 +521,8 @@ function RunTabs({
   onlyHits,
   onOnlyHitsChange,
   onSelectCurve,
+  canWrite,
+  onPickHits,
 }: {
   run: PlateRunRow
   analysis: PlateAnalysis
@@ -532,6 +536,8 @@ function RunTabs({
   onlyHits: boolean
   onOnlyHitsChange: (onlyHits: boolean) => void
   onSelectCurve: (key: string) => void
+  canWrite: boolean
+  onPickHits: () => void
 }) {
   return (
     <div className="flex min-w-0 flex-col">
@@ -568,6 +574,8 @@ function RunTabs({
           columns={sampleColumns}
           onlyHits={onlyHits}
           onOnlyHitsChange={onOnlyHitsChange}
+          canWrite={canWrite}
+          onPickHits={onPickHits}
         />
       ) : tab === 'curves' ? (
         <CurvesTab
@@ -593,12 +601,16 @@ function HitsTab({
   columns,
   onlyHits,
   onOnlyHitsChange,
+  canWrite,
+  onPickHits,
 }: {
   analysis: PlateAnalysis
   samples: SampleGroupResult[]
   columns: RegistryColumn<SampleGroupResult>[]
   onlyHits: boolean
   onOnlyHitsChange: (onlyHits: boolean) => void
+  canWrite: boolean
+  onPickHits: () => void
 }) {
   return (
     <div className="flex flex-col gap-2 py-2">
@@ -609,6 +621,11 @@ function HitsTab({
             tested: analysis.summary.testedSamples,
           })}
         </span>
+        {canWrite && analysis.summary.hitSamples > 0 ? (
+          <Button size="sm" variant="primary" onClick={onPickHits}>
+            {t('plates.hits.pickToPlate')}
+          </Button>
+        ) : null}
         <label className="flex items-center gap-2">
           <Checkbox
             checked={onlyHits}

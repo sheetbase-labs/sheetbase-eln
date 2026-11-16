@@ -170,6 +170,7 @@ export const plates = {
     sd: 'SD',
     cv: 'CV',
     hit: 'Hit',
+    pickToPlate: 'Pick the hits into a new plate',
     yes: 'Hit',
     empty: 'No samples on this plate.',
     onlyHits: 'Hits only',
@@ -264,6 +265,25 @@ export const plates = {
   },
   worklist: {
     title: 'Liquid handler worklist',
+    titleHits: 'Pick the hits into a new plate',
+    sources: {
+      hits: {
+        one: 'The {count} called hit',
+        other: 'The {count} called hits',
+      },
+      hitsHint:
+        'One transfer per hit, from its own well into the next free well of a new plate.',
+      hitsNone: 'No hits are called on this plate yet.',
+      stampHint: 'Every well is copied to the same well of the plate.',
+      cherryHint: 'Each sample is drawn once from its own source well.',
+    },
+    hitVolume: 'Volume to move for each hit (µL)',
+    robot: 'Robot',
+    noRobot: 'No robot, just a file',
+    runExperiment: 'The plate’s experiment',
+    moreSettings: 'More settings',
+    previewHits: '{transfers} transfers into {plate}',
+    previewMore: 'and {count} more',
     name: 'Name',
     format: 'For',
     formats: {
@@ -314,8 +334,17 @@ export const plates = {
   },
   worklists: {
     tableLabel: 'Worklists',
+    experimentEmpty: 'No worklists for this experiment yet',
+    experimentEmptyBody:
+      'Pick the hits of a plate run into a new plate, or make a worklist from a plate run, and choose this experiment. It shows here.',
+    sources: {
+      hits: 'Called hits',
+      stamp: 'Every well',
+      cherry_pick: 'Every sample',
+    },
     columns: {
       number: 'Number',
+      source: 'Moves',
       name: 'Name',
       format: 'For',
       transfers: 'Transfers',

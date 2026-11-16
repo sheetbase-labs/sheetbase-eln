@@ -112,6 +112,7 @@ const settings = {
   auditRetentionDays: 365 * 7,
   integrationSettings: {},
   instrumentGateMode: 'warn',
+  submitReadinessMode: 'warn',
   regulatedLab: false,
   createdByUserId: 'u-1',
   createdAt: '2026-01-01T00:00:00.000Z',

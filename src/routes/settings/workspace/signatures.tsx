@@ -5,6 +5,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
+import { SubmitReadinessSetting } from '#/components/settings/submit-readiness-setting'
 import {
   Collapsible,
   CollapsiblePanel,
@@ -130,6 +131,11 @@ function Signatures() {
           canManage={canManage}
           workspaceId={workspaceId}
           onSaved={invalidate}
+        />
+
+        <SubmitReadinessSetting
+          workspaceId={workspaceId}
+          canManage={canManage}
         />
 
         <StatementSection

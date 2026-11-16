@@ -331,10 +331,13 @@ export const plates = {
       volume_too_large: '{well} is above the largest volume',
     },
     create: 'Make worklist',
+    createAndSend: 'Make worklist and send to robot',
     created: '{reference} made.',
     couldNotSave: 'The worklist couldn’t be made.',
     download: 'Download',
     downloaded: 'Downloaded {file}.',
+    sentToRobot:
+      'Sent to {robot}. It waits there until a person presses Start.',
   },
   worklists: {
     tableLabel: 'Worklists',
@@ -354,6 +357,7 @@ export const plates = {
       format: 'For',
       transfers: 'Transfers',
       status: 'Status',
+      robot: 'On robot',
       created: 'Made',
     },
     statuses: {

@@ -4,12 +4,16 @@
  * shared plate helpers.
  */
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 
+import { useRobotInstruments } from '#/components/instruments/robot-section'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Status } from '#/components/ui/status'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
+import { notebookDataClient } from '#/lib/notebook-data'
+import { fetchInstrumentJobs, robotQueryKeys } from '#/lib/robots'
 import { plateRunReference, worklistReference } from '#/lib/plate-runs'
 import type { PlateRunRow, PlateWorklistRow } from '#/lib/plate-runs'
 
@@ -24,6 +28,30 @@ export const platesTabSchema = z.enum([
 ])
 
 export type PlatesTab = z.infer<typeof platesTabSchema>
+
+/** Where a worklist is: the robot it was sent to and how far the job has got. */
+function WorklistRobot({ worklistId }: { worklistId: string }) {
+  const jobs = useQuery({
+    queryKey: robotQueryKeys.recentJobs,
+    queryFn: () => fetchInstrumentJobs(notebookDataClient, { limit: 200 }),
+    staleTime: 10_000,
+  })
+
+  const robots = useRobotInstruments()
+  const job = jobs.data?.find((j) => j.worklist_id === worklistId)
+
+  if (!job) return <span className="text-fg-muted">—</span>
+
+  const name =
+    robots.data?.find((r) => r.instrument.id === job.instrument_id)?.instrument
+      .name ?? ''
+
+  return (
+    <span className="truncate">
+      {name} · {t(`automation.robot.jobs.statuses.${job.status}`)}
+    </span>
+  )
+}
 
 export function usePlateRunColumns(): RegistryColumn<PlateRunRow>[] {
   return useMemo<RegistryColumn<PlateRunRow>[]>(
@@ -182,6 +210,12 @@ export function usePlateWorklistColumns(): RegistryColumn<PlateWorklistRow>[] {
             {t(`plates.worklists.statuses.${row.original.status}`)}
           </Status>
         ),
+      },
+      {
+        id: 'robot',
+        header: t('plates.worklists.columns.robot'),
+        size: 220,
+        cell: ({ row }) => <WorklistRobot worklistId={row.original.id} />,
       },
       {
         id: 'created',

@@ -17,6 +17,8 @@ import {
 } from '#/lib/plate-runs'
 import type { PlateWorklistRow } from '#/lib/plate-runs'
 
+import { takePlateFile } from '#/lib/plate-file-handoff'
+
 import { NewRunDialog } from './new-run-dialog'
 import {
   platesTabSchema,
@@ -33,16 +35,20 @@ export function PlatesPage({
   canWrite,
   workspaceId,
   runId,
+  startNew = false,
   onOpenRun,
 }: {
   canWrite: boolean
   workspaceId: string
   runId?: string
+  /** Open the new run dialog at once, with the file another page handed over. */
+  startNew?: boolean
   onOpenRun: (id: string | undefined) => void
 }) {
   const [tab, setTab] = useState<PlatesTab>('runs')
   const [q, setQ] = useState('')
-  const [creating, setCreating] = useState(false)
+  const [creating, setCreating] = useState(startNew && canWrite)
+  const [handedFile] = useState(() => (startNew ? takePlateFile() : null))
 
   const [openWorklist, setOpenWorklist] = useState<PlateWorklistRow | null>(
     null,
@@ -153,6 +159,7 @@ export function PlatesPage({
       />
       <NewRunDialog
         open={creating}
+        initialFile={handedFile}
         onOpenChange={setCreating}
         onCreated={(run) => onOpenRun(run.id)}
       />

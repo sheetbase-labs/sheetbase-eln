@@ -10,6 +10,7 @@ import type { DataClient } from '#/lib/data-client'
 import {
   createSheetInstanceFromDefinition,
   resolveSheetInstanceRowIdentity,
+  sheetInstanceFromWire,
 } from '#/lib/sheet-instance-data'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 import type { SheetInstanceState } from '#/lib/sheet-instance'
@@ -92,4 +93,44 @@ export async function openDatasetInSheet(
   )
 
   return resolveSheetInstanceRowIdentity(instance.id, instance.revision, client)
+}
+
+/** What opening a dataset in a new sheet gives back. */
+export interface OpenedDatasetSheet {
+  instance: SheetInstance
+  /** The notebook block that now shows the sheet, when it was put in a notebook. */
+  blockId: string | null
+}
+
+/**
+ * Open a dataset in a new sheet in one step. The database writes the sheet
+ * definition from the dataset's own columns when no steward-made one fits, so
+ * this never stops at "ask a steward". With a notebook the sheet is placed in
+ * it as well.
+ */
+export async function openDatasetInNewSheet(
+  client: DataClient,
+  input: {
+    datasetId: string
+    name?: string | null
+    projectId?: string | null
+    notebookRecordId?: string | null
+    afterBlockId?: string | null
+  },
+): Promise<OpenedDatasetSheet> {
+  const result = await client.rpc<{
+    instance: unknown
+    block?: { id?: string } | null
+  }>('open_dataset_in_sheet', {
+    p_dataset_id: input.datasetId,
+    p_name: input.name?.trim() || null,
+    p_notebook_record_id: input.notebookRecordId ?? null,
+    p_project_id: input.projectId ?? null,
+    p_after_block_id: input.afterBlockId ?? null,
+  })
+
+  return {
+    instance: sheetInstanceFromWire(result.instance),
+    blockId: result.block?.id ?? null,
+  }
 }

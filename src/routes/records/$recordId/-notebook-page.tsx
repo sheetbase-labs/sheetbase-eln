@@ -1600,6 +1600,12 @@ function recordHeaderActions({
     ...(evidenceRevisionId
       ? [
           {
+            id: 'download-pdf',
+            label: t('notebook.notebookPage.downloadPdf'),
+            icon: 'report' as const,
+            href: `/api/export/revision/${evidenceRevisionId}/pdf`,
+          },
+          {
             id: 'export-evidence',
             label: t('notebook.notebookPage.exportEvidence'),
             icon: 'download' as const,

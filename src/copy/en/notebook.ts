@@ -2844,9 +2844,9 @@ export const notebook = {
     savedCreatedAt: 'Saved {created_at}',
     openLiveRecord: 'Open live record',
     createAmendment: 'Create amendment',
-    exportPdf: 'Export PDF',
+    exportPdf: 'Download record (PDF)',
     exporting: 'Exporting…',
-    exportEvidencePackage: 'Export evidence package',
+    exportEvidencePackage: 'Export data (zip)',
     thisRevisionReadsExactly:
       'This revision reads exactly as it was signed. It will never change.',
     thisRevisionReadsExactlyUnsigned:
@@ -3020,8 +3020,9 @@ export const notebook = {
     couldNotLink: 'Couldn’t link',
     theRecordMayAlreadyDescription: 'The record may already be linked.',
     moreRecordActionsAriaLabel: 'More record actions',
-    print: 'Print',
-    exportEvidence: 'Export evidence',
+    print: 'Print notebook',
+    downloadPdf: 'Download record (PDF)',
+    exportEvidence: 'Export data (zip)',
     exportAsEln: 'Export as .eln',
     linkRecords: 'Link records…',
     withdrawFromReview: 'Withdraw from review…',

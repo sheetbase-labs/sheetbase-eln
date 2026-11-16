@@ -210,7 +210,7 @@ const WIN_ANSI_FALLBACK = new Map<string, string>([
   ['\u2026', '...'],
 ])
 
-function safeText(value: string): string {
+export function safeText(value: string): string {
   let out = ''
 
   for (const char of value) {

@@ -16,6 +16,7 @@ import {
 } from './helpers'
 
 test.setTimeout(90_000)
+
 test.use({ viewport: { width: 1280, height: 900 } })
 
 test.beforeEach(async ({ page }) => {
@@ -92,16 +93,21 @@ test('REV-12 the evidence page of a signed revision offers the PDF and the packa
         )
       ).rows[0]?.revision_id,
   )
+
   expect(signedRevision).toBeTruthy()
   await open(page, `/evidence/${signedRevision}`)
+
   for (const heading of ['Integrity', 'Signatures', 'Revision']) {
     await expect(
       page.getByRole('heading', { name: heading }).first(),
     ).toBeVisible()
   }
-  await expect(page.getByRole('button', { name: 'Export PDF' })).toBeEnabled()
+
   await expect(
-    page.getByRole('button', { name: 'Export evidence package' }),
+    page.getByRole('button', { name: 'Download record (PDF)' }),
+  ).toBeEnabled()
+  await expect(
+    page.getByRole('button', { name: 'Export data (zip)' }),
   ).toBeEnabled()
   await expect(
     page.getByRole('button', { name: 'Create amendment' }),

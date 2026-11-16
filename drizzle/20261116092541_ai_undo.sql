@@ -52,8 +52,8 @@ CREATE POLICY ai_change_sets_select ON api.ai_change_sets FOR SELECT TO authenti
 --> statement-breakpoint
 -- Undoing marks the set; nothing else about it can be changed by the person.
 CREATE POLICY ai_change_sets_update ON api.ai_change_sets FOR UPDATE TO authenticated
-    USING (user_id = api.current_user_id() AND api.is_workspace_member(workspace_id))
-    WITH CHECK (user_id = api.current_user_id() AND api.is_workspace_member(workspace_id));
+    USING (user_id = api.current_user_id() AND api.is_workspace_writer(workspace_id))
+    WITH CHECK (user_id = api.current_user_id() AND api.is_workspace_writer(workspace_id));
 --> statement-breakpoint
 GRANT SELECT ON TABLE api.ai_change_sets TO authenticated;
 --> statement-breakpoint
@@ -741,3 +741,8 @@ GRANT ALL ON FUNCTION api.begin_ai_change_set(text, text, uuid),
   api.finish_ai_change_set(uuid, jsonb),
   api.preview_ai_undo(uuid),
   api.undo_ai_change_set(uuid) TO authenticated;
+--> statement-breakpoint
+-- The pipeline action that undoes a set. Mirrors src/features/ai-undo/operations.ts.
+INSERT INTO internal.pipeline_actions (operation, definition) VALUES
+  ('undo_ai_change_set', '{"operation":"undo_ai_change_set","rpc":"undo_ai_change_set","label":"Undo what the assistant changed","description":"Puts back everything the set changed, all or nothing: records and projects it made are archived, bookings cancelled, blocks it added removed and fields it edited restored. If anything is blocked nothing is touched and `done` is false with the preview. Each thing runs as you, so your permissions apply and each writes its own audit entry. Needs a personal token. Sends `assistant.changes.undone`.","arguments":[{"name":"p_set_id","type":"uuid","required":true,"nullable":false}]}'::jsonb)
+ON CONFLICT (operation) DO UPDATE SET definition = EXCLUDED.definition;

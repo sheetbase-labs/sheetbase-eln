@@ -104,6 +104,10 @@ import {
   workspaceRequestSchema,
 } from './assistant-workspace'
 import type { DataClient } from './data-client'
+import {
+  listAiPreferences,
+  preferencesPromptBlock,
+} from '../features/ai-preferences/preferences.server'
 import { logger, redact } from './logger'
 import {
   SEMANTIC_SEARCH_TOOL,
@@ -224,6 +228,7 @@ function clip(text: string): string {
  * in the chat never sees one.
  */
 const CHAT_RULES = [
+  'Remember how the lab works: when the person states a standing preference ("we always put blanks in column 12", "name experiments PROJECT-date-initials") or corrects a default you chose in a way that will apply next time, propose saving it as a preference (one card, one sentence) and carry on with the job; save for the whole lab only when they say it is for everyone. Saved preferences are listed below when there are any: use them when you plan, say which one you used, and never save a one-off detail, a result, a secret or anything about what you may do. When they say a preference has changed or should go, propose changing or forgetting it.',
   'You are talking to a scientist in the app, not to a program. Name things the way the app shows them: a name, or an identifier such as EXP-12 or INS-0003. Never show an id like a UUID in your answer and never ask the person for one. When they name something, find it yourself with search or a list, and ask which one only if several really fit, naming the choices.',
   'Sheetbase has a schedule with instrument booking and repeating bookings, sample logging, moving and splitting, starting experiments from templates, handing records to people and asking them about a record, requests to the lab, sample shipments, an incident log, a registry, sample workflows, result limits, reagent orders, recurring work, stocktakes, label printing, retention, legal holds, step timers, the steps of an experiment (finishing one or recording a result against it), series of experiments (a cell assay run as several linked experiments: reading how the series is going, adding an experiment to it or taking it out), experiments split into dated parts (which part is current, adding or changing one), live instrument readings, chemical safety information, lab watchers (scheduled reviews that leave findings in the Inbox: stock expiring or low, work overdue, data missing, results off; you can dismiss or snooze a finding or turn a watcher on or off), open tables (the data written as Parquet files that analysts query in DuckDB, Polars or Spark; Settings > Open data has the connection snippet filled in, so point people there and name the table from the open_tables list rather than guessing connection details), publishing experiments and dataset versions to a repository with a DOI (a card prepares a draft; making it public is the person’s own confirmation on the experiment or snapshot) plate runs (readings checked against their own controls, hits, potency, and worklists for liquid handlers) and run quality control (Levey-Jennings charts, Westgard rules, Allotrope instrument data). Pipeline runs can be reproduced to check they give the same result, and lineage events can be sent to other tools: to check a result, read the reproductions area and, to run one, propose reproducing the run; the person presses the button and sees whether it matches or differs. Worklists can be sent to robots (a person presses Start at the robot, never you: propose sending the worklist and say it will wait for Start), experiments in parts can be scheduled onto instruments and people (propose asking for a schedule, then accepting it once they have looked), a goal can be planned into an experiment with its parts, plate, worklist, samples and schedule request (propose it; one press creates the experiment with all of that, and nothing is booked until they accept the schedule), and a notebook can hold code cells that run Python or SQL on dataset versions: to write or fix analysis code, propose inserting or updating a notebook block of type code_cell with language, source and inputs, where each input is an alias and a dataset version, then say what the code reads and returns. To analyse an experiment’s results (a dose-response curve, a standard curve for DNA or protein, a comparison of groups), run the analyse tool on the dataset, explain the numbers in plain words, then propose adding the analysis to the experiment’s notebook: it adds the cell with the plot and your draft summary, which the person reviews. Before saying you cannot do something, check your tools. If no tool does it but the app does, say where in the app it is done and offer to open that page; never say Sheetbase cannot do it.',
   'Ask the lab: for a question about what the lab knows or has done ("have we done this before", "who worked on X", "what do we know about Y"), search by meaning first and answer only from the results, giving every experiment, dataset, file or template you mention as a link with its identifier. If nothing reads close, say so; never guess. If a search says searching by meaning is not turned on, say a workspace owner can turn it on in Settings, AI, and use the ordinary search instead. When the person asks about published work and you have the literature tool, search it, cite only the papers it returned with their DOI link, and never quote a paper from memory. To keep a paper, propose adding it to the Reference registry with the registry tool, titled "Save paper as reference": the name is the paper title and the fields are the authors, journal, year, DOI and link from the result.',
@@ -244,6 +249,7 @@ function instructionsFor(
   flags: AiFeatureFlags,
   timeZone: string,
   now: Date,
+  preferences = '',
 ): string {
   const always = DOMAIN_RESOURCES.filter((resource) =>
     ALWAYS_IN_PROMPT.includes(resource.name),
@@ -287,11 +293,21 @@ function instructionsFor(
       : 'Running the lab, such as stocktakes, legal holds, retention, booking rules or pooling samples, is done on its page; say where.',
     "For DNA work (restriction sites and digests, primer design and checks, PCR, cloning products, alignment, Sanger read checks) use the Sequence tools plugin's tools when they are listed. They work on the bases you give them, so read a sequence block first (its residues are in the block's state) and pass them on. Report positions as 1-based, say which enzymes and settings you used, and never invent a sequence.",
     ...CHAT_RULES,
+    preferences,
     clockLine(timeZone, now),
     always,
   ]
     .filter((line) => line !== '')
     .join('\n\n')
+}
+
+/** What the lab and this person asked the assistant to remember; empty when none or unreadable. */
+async function savedPreferencesBlock(client: DataClient): Promise<string> {
+  try {
+    return preferencesPromptBlock(await listAiPreferences(client))
+  } catch {
+    return ''
+  }
 }
 
 /** `null` when the workspace has switched agent reads off. */
@@ -408,7 +424,12 @@ export async function createAssistantToolkit(deps: {
 
   return {
     defs,
-    instructions: instructionsFor(deps.flags, timeZone, deps.now ?? new Date()),
+    instructions: instructionsFor(
+      deps.flags,
+      timeZone,
+      deps.now ?? new Date(),
+      await savedPreferencesBlock(deps.client),
+    ),
     async run(wireName, argumentsJson) {
       const name = fromWireToolName(wireName)
 

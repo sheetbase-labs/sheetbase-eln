@@ -13,13 +13,14 @@ pre-commit:
       glob: 'drizzle/**'
       run: node scripts/check-staged-migrations.mjs {staged_files}
 
-    - name: prettier
+    # bun fmt is Prettier-compatible and reads prettier.config.js.
+    - name: bun fmt
       glob:
         - '{src,scripts,perf,docs}/**/*.{ts,tsx,mts,js,jsx,mjs,cjs,json,css,md,yml,yaml}'
         - '*.{ts,json,md,yaml}'
         - 'prettier.config.js'
         - 'tools/oxlint/README.md'
-      run: bunx prettier --write --ignore-unknown {staged_files}
+      run: bun fmt --no-script {staged_files}
       stage_fixed: true
 
     - name: oxlint
@@ -53,6 +54,7 @@ pre-push:
     - name: migrations
       run: node scripts/check-migrations.mjs origin/main
 
+    # bun check type checks the whole project on every core (seconds, not
+    # minutes like tsc). Run `pnpm generate` first if routes changed.
     - name: typecheck
-      # Same heap as CI; the default runs out of memory.
-      run: NODE_OPTIONS=--max-old-space-size=8192 pnpm typecheck
+      run: bun check --no-script

@@ -62,6 +62,12 @@ const evidenceSchema = z.looseObject({
   signatures: z.array(z.unknown()),
 })
 
+const signatureSummary = z.object({
+  signer_name: z.string().nullable().optional(),
+  signed_at: z.string().nullable().optional(),
+  signature_meaning: z.string().nullable().optional(),
+})
+
 export type EvidencePackageInput = z.infer<typeof evidenceSchema>
 
 // Keep the original object and key order: it is written verbatim as evidence.json.
@@ -253,6 +259,22 @@ export async function checksumLines(writer: ZipWriter): Promise<string> {
   return lines.join('\n') + '\n'
 }
 
+/** Who signed this revision, when and for what, so the README states the signed state itself. */
+function signatureLines(signatures: readonly unknown[]): string[] {
+  const rows = signatures.flatMap((entry) => {
+    const parsed = signatureSummary.safeParse(entry)
+
+    return parsed.success ? [parsed.data] : []
+  })
+
+  if (rows.length === 0) return ['- Signatures: none recorded on this revision']
+
+  return rows.map(
+    (row) =>
+      `- Signed by ${row.signer_name ?? 'unnamed signer'} on ${row.signed_at ?? 'an unrecorded date'}${row.signature_meaning ? ` (${row.signature_meaning})` : ''}`,
+  )
+}
+
 function readme(input: EvidencePackageInput): string {
   const lines: string[] = []
   lines.push('# Sheetbase submitted-evidence package', '')
@@ -266,9 +288,12 @@ function readme(input: EvidencePackageInput): string {
   if (input.record) {
     lines.push(
       `- Record: ${input.record.identifier} — ${input.record.title}`,
-      `- Kind/status: ${input.record.kind} / ${input.record.status}`,
+      `- Kind: ${input.record.kind}`,
+      `- Record status when exported: ${input.record.status}`,
     )
   }
+
+  lines.push(...signatureLines(input.signatures))
 
   lines.push(
     `- Revision id: ${input.revision.id}`,

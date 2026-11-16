@@ -45,6 +45,47 @@ describe('evidence package input', () => {
     )
   })
 
+  it('has a README that says who signed, not only the record status at export', async () => {
+    const evidence = {
+      revision: {
+        workspaceId: 'workspace',
+        id: 'revision',
+        reason: 'submit',
+        structureVersion: 1,
+        metadataVersion: 2,
+        integrityAlgorithm: 'sha256',
+        integrityDigest: 'digest',
+        supersededByRevisionId: null,
+      },
+      record: {
+        identifier: 'EXP-1',
+        title: 'T',
+        kind: 'experiment',
+        status: 'in_progress',
+      },
+      blockSnapshot: [],
+      sheetEvidence: [],
+      files: [],
+      signatures: [
+        {
+          signer_name: 'Mei L.',
+          signed_at: '2026-11-16T22:16:22Z',
+          signature_meaning: 'reviewed-and-approved',
+        },
+      ],
+    }
+
+    const readme = strFromU8(
+      unzipSync(await buildEvidencePackage(evidence))['README.md'],
+    )
+
+    expect(readme).toContain(
+      'Signed by Mei L. on 2026-11-16T22:16:22Z (reviewed-and-approved)',
+    )
+    expect(readme).toContain('Record status when exported: in_progress')
+    expect(readme).not.toContain('Kind/status')
+  })
+
   it('rejects malformed structure at the evidence ingress', () => {
     expect(() => parseEvidencePackage({ revision: null })).toThrow()
   })

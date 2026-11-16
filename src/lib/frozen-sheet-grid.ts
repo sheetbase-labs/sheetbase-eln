@@ -4,6 +4,7 @@
  */
 import { z } from 'zod'
 
+import { formatMagnitude } from './format-numbers'
 import { composedRowKeySchema } from './sheet-instance'
 
 /** One value as a `jsonb` column holds it. */
@@ -85,8 +86,11 @@ export function formatFrozenCell(value: unknown): string {
 
   const number = numberValue.safeParse(value)
 
+  // A titre of 730000000000 reads as 7.3 × 10¹¹, the way the live sheet shows it.
   if (number.success)
-    return Number.isFinite(number.data) ? String(number.data) : ''
+    return Number.isFinite(number.data)
+      ? (formatMagnitude(number.data) ?? String(number.data))
+      : ''
 
   const text = stringValue.safeParse(value)
 

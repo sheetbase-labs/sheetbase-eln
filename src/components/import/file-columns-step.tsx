@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { z } from 'zod'
 
 import { Banner } from '#/components/ui/alert'
@@ -32,6 +33,7 @@ import {
   fetchImportFile,
   importQueryKeys,
 } from '#/lib/import/data'
+import { detectPlateGrid } from '#/lib/import/plate-grid'
 import type { ImportSheetPreview } from '#/lib/import/types'
 import { t } from '#/copy'
 
@@ -210,6 +212,7 @@ function ColumnsEditor({
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const plate = useMemo(() => detectPlateGrid(sheet), [sheet])
 
   const kept = rows.filter((row) => row.keep)
 
@@ -330,6 +333,28 @@ function ColumnsEditor({
           })}
         </p>
       </div>
+      {plate ? (
+        <Banner
+          tone="info"
+          title={t('data.importFlow.fileColumns.plateTitle', {
+            wells: plate.wells,
+          })}
+          action={
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={<Link to="/plates" />}
+            >
+              {t('data.importFlow.fileColumns.plateAction')}
+            </Button>
+          }
+        >
+          {t('data.importFlow.fileColumns.plateBody', {
+            lastRow: 'ABCDEFGHIJKLMNOP'[plate.rows - 1] ?? 'H',
+            columns: plate.columns,
+          })}
+        </Banner>
+      ) : null}
       <TableBox>
         <Table caption={t('data.importFlow.fileColumns.title')}>
           <TableHeader>

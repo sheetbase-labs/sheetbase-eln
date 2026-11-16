@@ -199,7 +199,10 @@ export function AnalysisBlockResult({
           ))}
         </div>
       </div>
-      <details className="group rounded-md border border-border bg-surface-muted/20">
+      <details
+        open={!drawn}
+        className="group rounded-md border border-border bg-surface-muted/20"
+      >
         <summary className="cursor-pointer select-none px-3 py-2 text-label text-fg-muted hover:text-fg">
           {t('features.resultsAnalysis.block.working')}
         </summary>

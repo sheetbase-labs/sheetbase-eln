@@ -96,11 +96,73 @@ export const copy = {
     couldNotLink: 'The plate run couldn’t be moved.',
     save: 'Add to experiment',
   },
+  setup: {
+    title: 'Setup for {design}',
+    remembered:
+      'Every plate of this assay is read the same way. Change the control columns below for this plate only.',
+    fromLastPlate: 'Taken from the last plate in this experiment.',
+    controls: 'Negative control in {negative}, positive in {positive}',
+    controlsNone: 'No control columns remembered',
+    columnOne: 'column {columns}',
+    columnMany: 'columns {columns}',
+    normalise: 'Normalise to {what}',
+    hitThreshold: 'Hit when {direction} {threshold}',
+    hitOther: 'Hit rule: {rule}',
+    zPrime: 'Z′ of {zPrime} passes',
+    remember:
+      'Remember the controls and settings for the next plate of {design}',
+    rememberUpdate:
+      'Update the setup remembered on {design} with these controls',
+    rememberNew: 'Remember this setup as an assay',
+    rememberNewHint:
+      'Name the assay. The next plate of it is read with these controls and settings, with nothing to type again.',
+    rememberNamePlaceholder: 'Assay name, such as PicoGreen',
+    rememberDesignName: 'Assay name',
+    saved: 'Setup remembered on {design}.',
+    couldNotRemember:
+      'The plate run was added, but its setup couldn’t be remembered.',
+    rememberFromRun:
+      'Also remember these settings for the next plate of {design}',
+    rememberFromRunNew: 'Remember these settings as an assay',
+    rememberFromRunNewHint:
+      'Name the assay and point this run at it. The next plate of the assay starts with these settings.',
+    noDesign: 'Use the assay’s setup',
+    applyDesign: 'Use the setup remembered on the assay',
+  },
+  compare: {
+    title: 'Plates side by side',
+    hint: 'Plates analysed in this experiment, newest first.',
+    metric: 'Plate',
+    quality: 'Quality',
+    zPrime: 'Z′',
+    signalToBackground: 'Signal to background',
+    hits: 'Hits',
+    setup: 'Setup',
+    sameSetup: 'Same as {design}',
+    differentSetup: 'Differs from {design}',
+    noDesign: 'No assay design',
+    potency: 'EC50',
+    sample: 'Sample',
+    notFitted: 'Not fitted',
+    notAnalysed: 'Not analysed',
+    pickHits: 'Pick hits into a new plate',
+  },
+  drop: {
+    title: 'Drop the next plate here',
+    hint: 'It is read and analysed with the setup this experiment’s assay remembers. You check the preview, then add it.',
+    hintNone:
+      'Drop the plate reader’s file to see the plate, its quality and the hits.',
+  },
   cards: {
     addToExperiment: {
       apply: 'Add to experiment',
       applying: 'Adding…',
       applied: 'Added to experiment',
+    },
+    rememberSetup: {
+      apply: 'Remember setup',
+      applying: 'Remembering…',
+      applied: 'Setup remembered',
     },
   },
 } as const

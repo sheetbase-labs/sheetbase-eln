@@ -10,7 +10,12 @@ import { z } from 'zod'
 
 export const PLATE_ADD_TOOL = 'sheetbase.plate.add_to_experiment'
 
-export const PLATE_EXPERIMENT_PROPOSE_TOOL_NAMES = [PLATE_ADD_TOOL] as const
+export const PLATE_REMEMBER_TOOL = 'sheetbase.plate.remember_setup'
+
+export const PLATE_EXPERIMENT_PROPOSE_TOOL_NAMES = [
+  PLATE_ADD_TOOL,
+  PLATE_REMEMBER_TOOL,
+] as const
 
 export type PlateExperimentProposeToolName =
   (typeof PLATE_EXPERIMENT_PROPOSE_TOOL_NAMES)[number]
@@ -32,17 +37,49 @@ export const proposePlateAddSchema = z.strictObject({
     ),
 })
 
+export const proposePlateRememberSchema = z.strictObject({
+  title: z.string().min(1).max(120),
+  summary: z.string().min(1).max(400),
+  run: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      'The plate run whose controls and settings are remembered, by number (PLR-0012) or words from its name.',
+    ),
+  design: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      'The assay design to remember them on, by name. Leave it out to use the design the run already follows. A name that matches no design makes a new assay with that name.',
+    ),
+})
+
 /** What the card does when its button is pressed. */
-export type PlateExperimentAction = {
-  kind: 'plate.add_to_experiment'
-  runId: string
-  recordId: string
-}
+export type PlateExperimentAction =
+  | {
+      kind: 'plate.add_to_experiment'
+      runId: string
+      recordId: string
+    }
+  | {
+      kind: 'plate.remember_setup'
+      runId: string
+      /** The design to remember the setup on; null makes a new assay named `designName`. */
+      designId: string | null
+      designName: string
+      workspaceId: string
+    }
 
 export function isPlateExperimentAction(action: {
   kind: string
 }): action is PlateExperimentAction {
-  return action.kind === 'plate.add_to_experiment'
+  return (
+    action.kind === 'plate.add_to_experiment' ||
+    action.kind === 'plate.remember_setup'
+  )
 }
 
 export interface PlateExperimentActionResult {

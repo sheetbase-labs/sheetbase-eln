@@ -219,7 +219,7 @@ export function StartFromFields({
             {t('projects.newExperiment.previewTitle')}
           </p>
           <p className="mt-1 text-base font-semibold text-fg">
-            {current?.label}
+            {current.label}
           </p>
           {startFrom === 'blank' ? (
             <p className="mt-2 text-sm text-fg-muted">

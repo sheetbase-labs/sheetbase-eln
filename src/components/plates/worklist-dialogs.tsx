@@ -45,7 +45,7 @@ import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { t } from '#/copy'
 import { downloadTextFile } from '#/lib/download'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { transferLimitsText } from '#/lib/robots'
+import { queueJob, transferLimitsText } from '#/lib/robots'
 import type { RobotSettingsWire } from '#/lib/robots'
 import { PLATE_FORMATS } from '#/lib/plate-map'
 import type { PlateFormat } from '#/lib/plate-map'
@@ -386,6 +386,7 @@ function useWorklistDraft(
   const [name, setName] = useState<string | null>(null)
   const [format, setFormat] = useState<WorklistFormat>('csv')
   const [robot, setRobot] = useState('')
+  const robots = useRobotInstruments()
   const [sourcePlate, setSourcePlate] = useState<string | null>(null)
   const [sourceFormat, setSourceFormat] = useState<PlateFormat>(run.format)
   const [destFormat, setDestFormat] = useState<PlateFormat>(run.format)
@@ -496,6 +497,14 @@ function useWorklistDraft(
         options: worklistOptions,
       })
 
+      // A robot was chosen: the worklist goes to it, to wait for a person to
+      // press Start there. Otherwise the file is downloaded for the lab to load.
+      if (robot) {
+        await queueJob(client, { instrumentId: robot, worklistId: worklist.id })
+
+        return { worklist, filename: null }
+      }
+
       const file = writeWorklist(format, plan.transfers, {
         sourceFormat: fromHits ? run.format : sourceFormat,
         destFormat: fromHits ? destFormat : run.format,
@@ -510,12 +519,22 @@ function useWorklistDraft(
     onSuccess: ({ worklist, filename }) => {
       void queryClient.invalidateQueries({ queryKey: plateRunKeys.all })
       void queryClient.invalidateQueries({ queryKey: ['experiment-worklists'] })
+      void queryClient.invalidateQueries({ queryKey: ['robots'] })
       toast.success(
         t('plates.worklist.created', {
           reference: worklistReference(worklist.number),
         }),
       )
-      toast.message(t('plates.worklist.downloaded', { file: filename }))
+
+      toast.message(
+        filename
+          ? t('plates.worklist.downloaded', { file: filename })
+          : t('plates.worklist.sentToRobot', {
+              robot:
+                robots.data?.find((r) => r.instrument.id === robot)?.instrument
+                  .name ?? '',
+            }),
+      )
       onOpenChange(false)
     },
     onError: (e) =>
@@ -744,7 +763,9 @@ function WorklistBuilderForm({
             disabled={blocking || save.isPending}
             onClick={() => save.mutate()}
           >
-            {t('plates.worklist.create')}
+            {robot
+              ? t('plates.worklist.createAndSend')
+              : t('plates.worklist.create')}
           </Button>
         </DialogFooter>
       </DialogContent>

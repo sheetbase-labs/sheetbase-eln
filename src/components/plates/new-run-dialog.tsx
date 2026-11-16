@@ -5,7 +5,6 @@
  * in that experiment's notebook by itself.
  */
 import { useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 
 import { useRecordModelProjects } from '#/components/models/models-data'
 import { Notice } from '#/components/ui/alert'
@@ -22,20 +21,18 @@ import { FileDrop } from '#/components/ui/file-drop'
 import { Field } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { t } from '#/copy'
-import { fetchPlateDesignOptions, qcKeys } from '#/lib/run-qc'
-import { notebookDataClient } from '#/lib/notebook-data'
 import { parsePlateTable } from '#/lib/plate-assay'
 import { suggestControlColumns } from '#/lib/plate-controls'
 import type { PlateFormat } from '#/lib/plate-map'
 import type { PlateRunRow } from '#/lib/plate-runs'
+import { AssaySetupSection } from './assay-setup'
 import { ControlColumns, PlatePreview } from './plate-preview'
 import { PlateTextFields } from './plate-text-fields'
 import { RunDetailsFields } from './run-details-fields'
 import { usePlateFile } from './use-plate-file'
 import { useCreatePlateRun } from './use-create-plate-run'
+import { useAssaySetupChoice } from './use-assay-setup'
 import { usePlateDraft } from './use-plate-draft'
-
-const client = notebookDataClient
 
 export function NewRunDialog({
   open,
@@ -95,22 +92,14 @@ function NewRunBody({
   const [data, setData] = useState('')
   const [layout, setLayout] = useState('')
   const [projectId, setProjectId] = useState('')
-  const [designId, setDesignId] = useState('')
   const [pickedExperiment, setPickedExperiment] = useState('')
   const [addToNotebook, setAddToNotebook] = useState(true)
   const guessedName = useRef('')
-  const [guessedControls, setGuessedControls] = useState(false)
-  const [negativeColumns, setNegativeColumns] = useState('')
-  const [positiveColumns, setPositiveColumns] = useState('')
   const experimentId = fixedExperimentId ?? pickedExperiment
 
-  const designs =
-    useQuery({
-      queryKey: qcKeys.designs,
-      queryFn: () => fetchPlateDesignOptions(client),
-      staleTime: 60_000,
-      enabled: open,
-    }).data ?? []
+  // The assay's design brings its controls and settings with it, so a second
+  // plate of the same assay needs none of them typed again.
+  const assay = useAssaySetupChoice({ enabled: open, experimentId })
 
   const [analyseNow, setAnalyseNow] = useState(true)
   const [interacted, setInteracted] = useState(false)
@@ -126,9 +115,7 @@ function NewRunBody({
         // controls when they read like two groups far apart.
         const guess = suggestControlColumns(parsePlateTable(text).readout)
 
-        setNegativeColumns(guess?.negative ?? '')
-        setPositiveColumns(guess?.positive ?? '')
-        setGuessedControls(guess !== null)
+        assay.onGuess(guess)
       },
       onName: (guess) => {
         // Keep a name the person typed; follow the file while it is a guess.
@@ -146,8 +133,9 @@ function NewRunBody({
       data,
       layout,
       formatChoice,
-      negativeColumns,
-      positiveColumns,
+      negativeColumns: assay.negative,
+      positiveColumns: assay.positive,
+      config: assay.config,
     })
 
   const nameError = name.trim() ? null : t('plates.form.nameRequired')
@@ -166,11 +154,15 @@ function NewRunBody({
       wells: parsed.wells,
       readout: parsed.readout,
       projectId,
-      designId,
+      designId: assay.designId,
       experimentId,
       experimentFixed: Boolean(fixedExperimentId),
       addToNotebook,
       analyseNow,
+      config: assay.config,
+      negativeColumns: assay.negative,
+      positiveColumns: assay.positive,
+      remember: assay.request,
     },
     (run) => {
       onOpenChange(false)
@@ -225,28 +217,23 @@ function NewRunBody({
             onExperiment={setPickedExperiment}
             formatChoice={formatChoice}
             onFormatChoice={setFormatChoice}
-            designs={designs}
-            designId={designId}
-            onDesign={setDesignId}
+            designs={assay.designs}
+            designId={assay.designId}
+            onDesign={assay.onDesign}
             projects={projects}
             projectId={projectId}
             onProject={setProjectId}
           />
           {!layout.trim() ? (
             <ControlColumns
-              negative={negativeColumns}
-              positive={positiveColumns}
-              guessed={guessedControls}
-              onNegative={(value) => {
-                setGuessedControls(false)
-                setNegativeColumns(value)
-              }}
-              onPositive={(value) => {
-                setGuessedControls(false)
-                setPositiveColumns(value)
-              }}
+              negative={assay.negative}
+              positive={assay.positive}
+              guessed={assay.guessed}
+              onNegative={assay.onNegative}
+              onPositive={assay.onPositive}
             />
           ) : null}
+          <AssaySetupSection choice={assay} hasLayout={layout.trim() !== ''} />
           <PlatePreview
             readCount={readCount}
             controls={controls}

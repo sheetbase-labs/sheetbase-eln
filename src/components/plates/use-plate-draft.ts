@@ -4,7 +4,8 @@
  */
 import { useMemo } from 'react'
 
-import { analysePlate, defaultAssayConfig } from '#/lib/plate-assay'
+import { analysePlate } from '#/lib/plate-assay'
+import type { PlateAssayConfig } from '#/lib/plate-assay'
 import { FORMAT_DIMENSIONS } from '#/lib/plate-map'
 import type { PlateFormat } from '#/lib/plate-map'
 
@@ -16,12 +17,15 @@ export function usePlateDraft({
   formatChoice,
   negativeColumns,
   positiveColumns,
+  config,
 }: {
   data: string
   layout: string
   formatChoice: 'auto' | PlateFormat
   negativeColumns: string
   positiveColumns: string
+  /** The settings the plate is analysed with: the assay's remembered ones, or the defaults. */
+  config: PlateAssayConfig
 }) {
   const merged = useMemo(() => mergePlate(data, layout), [data, layout])
 
@@ -58,11 +62,11 @@ export function usePlateDraft({
     if (!format || readCount === 0 || controls === 0) return null
 
     try {
-      return analysePlate(parsed.wells, parsed.readout, defaultAssayConfig())
+      return analysePlate(parsed.wells, parsed.readout, config)
     } catch {
       return null
     }
-  }, [format, readCount, controls, parsed.wells, parsed.readout])
+  }, [format, readCount, controls, parsed.wells, parsed.readout, config])
 
   return { parsed, format, readCount, controls, samples, preview }
 }

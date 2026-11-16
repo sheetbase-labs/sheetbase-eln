@@ -28,6 +28,7 @@ import { PlateMap } from '#/components/viz/plate-map'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { assayDesignKeys } from '#/lib/plate-assay-setup'
 import {
   HIT_DIRECTIONS,
   HIT_RULE_KINDS,
@@ -51,6 +52,7 @@ import {
 import type { PlateRunRow } from '#/lib/plate-runs'
 
 import { DoseResponsePlot } from './dose-response-plot'
+import { useRememberFromRun } from './run-remember-setup'
 import { RunExperimentLink } from './run-experiment-link'
 import { fmt, mapModel, qcTone, qualityLabel } from './plates-shared'
 import type { MapModel, MapView } from './plates-shared'
@@ -904,9 +906,11 @@ function SettingsDialog({
   const [sb, setSb] = useState('')
   const [cv, setCv] = useState('')
   const [lastOpen, setLastOpen] = useState(false)
+  const remembering = useRememberFromRun({ run, open })
 
   if (open && !lastOpen) {
     setLastOpen(true)
+    remembering.reset()
     setConfig(run.config)
     setSb(run.config.qc.signalToBackgroundMin?.toString() ?? '')
     setCv(run.config.qc.controlCvMax?.toString() ?? '')
@@ -932,11 +936,31 @@ function SettingsDialog({
         run.metadata_version,
       )
 
-      return analyseAndSavePlateRun(client, updated)
+      const analysed = await analyseAndSavePlateRun(client, updated)
+
+      // The run is saved either way; a setup that could not be kept is said.
+      let rememberedOn: string | null = null
+      let failed = false
+
+      try {
+        rememberedOn = await remembering.remember(next)
+      } catch {
+        failed = true
+      }
+
+      return { analysed, rememberedOn, failed }
     },
-    onSuccess: () => {
+    onSuccess: ({ rememberedOn, failed }) => {
       void queryClient.invalidateQueries({ queryKey: plateRunKeys.all })
+      void queryClient.invalidateQueries({ queryKey: assayDesignKeys.all })
       toast.success(t('plates.run.saved'))
+
+      if (rememberedOn)
+        toast.message(
+          t('features.plateRuns.setup.saved', { design: rememberedOn }),
+        )
+      else if (failed)
+        toast.error(t('features.plateRuns.setup.couldNotRemember'))
       onOpenChange(false)
     },
     onError: (e) => toast.error(messageOf(e, t('plates.run.couldNotAnalyse'))),
@@ -1127,6 +1151,7 @@ function SettingsDialog({
                 onChange={(e) => setCv(e.target.value)}
               />
             </Field>
+            {remembering.field}
           </div>
         </DialogBody>
         <DialogFooter>

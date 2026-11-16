@@ -26,6 +26,10 @@ function DataTab() {
             link: { to: '/experiments/$expId/data/results', params },
           },
           {
+            label: t('projects.experimentPage.section.worklists'),
+            link: { to: '/experiments/$expId/data/worklists', params },
+          },
+          {
             label: t('projects.experimentPage.section.files'),
             link: { to: '/experiments/$expId/data/files', params },
           },

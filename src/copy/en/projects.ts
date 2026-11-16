@@ -2940,6 +2940,8 @@ export const projects = {
         'That project is archived, so it can’t take a new experiment. Pick another project, or restore the project first.',
       permission:
         'You don’t have permission to create records in that project. Pick a project you can edit, or ask an admin to grant edit access.',
+      template:
+        'This template couldn’t be set up. Start from a blank notebook, or ask an admin to check the template.',
       generic: 'Couldn’t create the draft.',
     },
     projectList: 'The project list',

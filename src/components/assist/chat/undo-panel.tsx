@@ -30,7 +30,14 @@ type Phase =
 /** Kept outside the component so a re-render or reopened panel remembers it. */
 const remembered = new Map<string, Phase>()
 
-export function UndoPanel({ setId }: { setId: string }) {
+export function UndoPanel({
+  setId,
+  corner = false,
+}: {
+  setId: string
+  /** Rest as a small button in the top right of the card around it. */
+  corner?: boolean
+}) {
   const [phase, setPhaseRaw] = useState<Phase>(
     () => remembered.get(setId) ?? { name: 'closed' },
   )
@@ -90,7 +97,11 @@ export function UndoPanel({ setId }: { setId: string }) {
 
   if (phase.name === 'closed') {
     return (
-      <div data-testid="undo-panel" data-state="closed">
+      <div
+        data-testid="undo-panel"
+        data-state="closed"
+        className={corner ? 'absolute right-2.5 top-2.5' : undefined}
+      >
         <Button size="sm" variant="quiet" onClick={() => void check()}>
           <Icon name="undo" size={12} />
           {t('features.aiUndo.panel.undo')}

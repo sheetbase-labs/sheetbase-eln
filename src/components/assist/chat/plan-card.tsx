@@ -201,9 +201,9 @@ export function PlanCard({
       data-testid="assistant-plan"
       data-state={phase}
       aria-label={t('features.plans.plan.label')}
-      className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3"
+      className="relative flex flex-col gap-2 rounded-xl border border-border bg-surface p-3"
     >
-      <header className="flex items-start gap-2">
+      <header className="flex items-start gap-2 pr-16">
         <span className="mt-0.5 text-fg-muted">
           <Icon name="listChecks" size={14} />
         </span>
@@ -231,7 +231,7 @@ export function PlanCard({
       </ol>
       <PlanNotice phase={phase} steps={steps} pausedAt={pausedAt} />
       {setId && phase !== 'running' && phase !== 'idle' ? (
-        <UndoPanel key={setId} setId={setId} />
+        <UndoPanel key={setId} setId={setId} corner />
       ) : null}
       <PlanActions
         phase={phase}

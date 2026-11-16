@@ -1875,6 +1875,31 @@ function ReviewInspector({
     [onSigningOpenChange],
   )
 
+  // Approving and signing are one step for a reviewer who may sign: the one
+  // dialog records the decision and then the signature. Without it (no
+  // certified signature, or the policy switches the meaning off) Approve keeps
+  // its own confirmation.
+  const [approveAndSign, setApproveAndSign] = useState(false)
+
+  const signingNow = useSigningMeanings({
+    submission,
+    revision,
+    signatures,
+    integrityDigest,
+    currentUserId,
+  })
+
+  const mayApproveAndSign =
+    permission?.canReview === true &&
+    submission?.state === 'submitted' &&
+    signingNow.meanings.length > 0 &&
+    signatureMeaningEnabled(signingNow.policy, 'reviewed-and-approved')
+
+  const startApproveAndSign = useCallback(() => {
+    setApproveAndSign(true)
+    onSigningOpenChange(true)
+  }, [onSigningOpenChange])
+
   // QA-180: an assigned reviewer is a person, not a UUID. Resolve them to names
   // the way the rest of the app does; initials come from the name.
   const reviewerNames = useUserNames(
@@ -2026,7 +2051,35 @@ function ReviewInspector({
             currentUserId={currentUserId}
             currentUserName={currentUserName}
             open={signingOpen}
-            onOpenChange={onSigningOpenChange}
+            onOpenChange={(next) => {
+              onSigningOpenChange(next)
+
+              if (!next) setApproveAndSign(false)
+            }}
+            approveFirst={
+              approveAndSign && mayApproveAndSign
+                ? {
+                    run: async () => {
+                      await runDecision('approve', {
+                        submissionId: submission.id,
+                        expectedRevisionDigest: integrityDigest ?? '',
+                      })
+                      await queryClient.invalidateQueries({
+                        queryKey: reviewWorkspaceQueryKeys.decisions(
+                          submission.id,
+                        ),
+                      })
+                      await queryClient.invalidateQueries({
+                        queryKey:
+                          reviewWorkspaceQueryKeys.submissionForRevision(
+                            revision.id,
+                          ),
+                      })
+                    },
+                    done: () => setApproveAndSign(false),
+                  }
+                : null
+            }
           />
         ) : null}
 
@@ -2070,6 +2123,9 @@ function ReviewInspector({
             draftCommentCount={commentDrafts.count}
             approveBlockedReason={checksGateReason(checksGate)}
             onApprovedForSigning={openSigningAfterApproval}
+            onApproveAndSign={
+              mayApproveAndSign ? startApproveAndSign : undefined
+            }
             openDecision={decideOnArrival}
             onAfterDecision={async (kind, input) => {
               // REV-01.3: returning carries the reviewer's private drafts —
@@ -2175,6 +2231,7 @@ export function ActionButtons({
   approveBlockedReason = null,
   onAfterDecision,
   onApprovedForSigning,
+  onApproveAndSign,
   openDecision,
 }: {
   submission: ReviewSubmissionWire
@@ -2189,6 +2246,8 @@ export function ActionButtons({
     input: ReviewDecisionInput,
   ) => Promise<void>
   onApprovedForSigning?: () => void
+  /** Approve and sign in one dialog; when given, Approve opens it instead of its own confirmation. */
+  onApproveAndSign?: () => void
   /** A decision to open the dialog for on arrival: the header's Approve and
    * Request changes link here, so the dialog is already open. */
   openDecision?: ReviewDecisionKind
@@ -2234,6 +2293,12 @@ export function ActionButtons({
             onApprovedForSigning &&
             !approveBlockedReason
               ? () => {
+                  if (onApproveAndSign) {
+                    onApproveAndSign()
+
+                    return
+                  }
+
                   setNote('')
                   setError(null)
                   setPendingKind('approve')
@@ -2244,6 +2309,7 @@ export function ActionButtons({
         permission.canReview,
         integrityDigest,
         onApprovedForSigning,
+        onApproveAndSign,
         approveBlockedReason,
       ],
     ),
@@ -2324,6 +2390,23 @@ export function ActionButtons({
             action.kind === 'approve' && approveBlockedReason !== null
 
           const disabled = !permission.canReview || waitingOnChecks
+
+          if (action.kind === 'approve' && onApproveAndSign) {
+            return (
+              <Button
+                key={action.kind}
+                variant="primary"
+                size="sm"
+                className="h-9 text-xs"
+                disabled={disabled}
+                onClick={onApproveAndSign}
+                title={waitingOnChecks ? approveBlockedReason : undefined}
+              >
+                <Icon name={action.icon} size={14} aria-hidden />
+                {t('projects.revisionPage.actions.approveAndSign')}
+              </Button>
+            )
+          }
 
           return (
             <DecisionDialog
@@ -2832,6 +2915,7 @@ export function SignaturePanel({
   currentUserName,
   open,
   onOpenChange,
+  approveFirst = null,
 }: {
   preSign?: PreSignInput | null
   submission: ReviewSubmissionWire
@@ -2843,6 +2927,8 @@ export function SignaturePanel({
   currentUserName: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Approve first, then sign, in the one dialog. `done` runs once the approval is recorded. */
+  approveFirst?: { run: () => Promise<void>; done: () => void } | null
 }) {
   const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
@@ -2935,6 +3021,13 @@ export function SignaturePanel({
     setError(null)
 
     try {
+      if (approveFirst) {
+        // The decision is recorded first. If the password is then refused the
+        // review stays approved and the same dialog signs on the next try.
+        await approveFirst.run()
+        approveFirst.done()
+      }
+
       const proof = await requestSignatureStepUp({
         workspaceId: submission.workspace_id,
         purpose: 'sign',
@@ -3099,7 +3192,8 @@ export function SignaturePanel({
               }}
               revision={revision}
               integrityDigest={integrityDigest}
-              meanings={meanings}
+              meanings={approveFirst ? ['reviewed-and-approved'] : meanings}
+              approving={approveFirst !== null}
               requestedMeaning={search.signatureMeaning}
               currentUserName={currentUserName}
               signing={signing}

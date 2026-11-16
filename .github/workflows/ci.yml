@@ -258,12 +258,21 @@ jobs:
             files: tests/browser/collab-01-co-editing.test.ts
           # iPhone size, installed-app safe areas and a simulated keyboard:
           # every menu, popover and sheet must open where it can be seen.
-          # Two jobs: the whole folder ran about 11 minutes in one job, twice
-          # as long as any other journey job.
-          - name: phone pages
+          # Each file still ran 8 to 9 minutes alone, the longest job in the
+          # run, so each is split in two by test. The tests share no state
+          # (each signs in afresh), and each shard has its own database.
+          - name: phone pages 1/2
             files: tests/browser/phone/pages.test.ts
-          - name: phone slash menu
+            shard: 1/2
+          - name: phone pages 2/2
+            files: tests/browser/phone/pages.test.ts
+            shard: 2/2
+          - name: phone slash menu 1/2
             files: tests/browser/phone/slash-menu.test.ts
+            shard: 1/2
+          - name: phone slash menu 2/2
+            files: tests/browser/phone/slash-menu.test.ts
+            shard: 2/2
     env:
       SHEETBASE_DEV_AUTH_FREE: 'false'
     steps:
@@ -327,6 +336,7 @@ jobs:
         run: >-
           pnpm exec playwright test ${{ matrix.files }}
           --project=browser --workers=1
+          ${{ matrix.shard && format('--fully-parallel --shard={0}', matrix.shard) || '' }}
       # Off until tests/browser/rev-03-signing.test.ts is rewritten for the
       # redesigned review screens: it still looks for the old Approve button
       # and witness picker, so it fails on main for reasons unrelated to CI.

@@ -14,7 +14,7 @@ export interface PreSignInput {
   diff: RevisionDiffResult | null
 }
 
-function warningText(warning: PreSignWarning): string {
+export function warningText(warning: PreSignWarning): string {
   const values = {
     count: warning.count,
     field: warning.field,

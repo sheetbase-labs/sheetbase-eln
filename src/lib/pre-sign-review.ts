@@ -45,7 +45,7 @@ export interface PreSignReview {
 /** One stored JSON object from a frozen revision: a payload, a state, a validation. */
 const recordSchema = z.record(z.string(), z.unknown())
 
-type Rec = z.infer<typeof recordSchema>
+export type Rec = z.infer<typeof recordSchema>
 
 /** Older envelopes can lack a collection altogether. */
 function list<T>(value: readonly T[] | null | undefined): readonly T[] {
@@ -89,11 +89,20 @@ function sheetLabel(
   index: number,
 ): string {
   const block = list(envelope.blocks).find((item) => item.id === blockId)
-  const payload = asRec(block?.payload)
+  const title = sheetPayloadTitle(asRec(block?.payload) ?? undefined)
+
+  return title ?? `Sheet ${index + 1}`
+}
+
+/** The name a sheet block carries in its payload, when it has one. */
+export function sheetPayloadTitle(
+  payloadValue: Rec | undefined,
+): string | undefined {
+  const payload = asRec(payloadValue)
   const stored = payload?.title ?? payload?.name ?? payload?.label
   const title = z.string().safeParse(stored).data
 
-  return title?.trim() ? title : `Sheet ${index + 1}`
+  return title?.trim() ? title : undefined
 }
 
 function fieldLabel(field: Rec): string {
@@ -111,94 +120,113 @@ function fieldLabel(field: Rec): string {
 function sheetWarnings(envelope: CanonicalRevisionEnvelope): PreSignWarning[] {
   const warnings: PreSignWarning[] = []
   list(envelope.sheetEvidence).forEach((sheet, index) => {
-    const state = asRec(sheet.instanceState) ?? {}
+    warnings.push(
+      ...sheetStateWarnings(
+        sheet.blockId,
+        sheetLabel(envelope, sheet.blockId, index),
+        sheet.instanceState,
+      ),
+    )
+  })
 
-    const fields = Array.isArray(state.localFields)
-      ? state.localFields.map(asRec).filter((f): f is Rec => f !== null)
-      : []
+  return warnings
+}
 
-    const values = asRec(state.localValues) ?? {}
-    const rows = Object.values(values).map((row) => asRec(row) ?? {})
+/**
+ * Warnings from one sheet's state, frozen or live: the same checks the signer
+ * sees, so the author can fix them before submitting.
+ */
+export function sheetStateWarnings(
+  blockId: string,
+  where: string,
+  instanceState: Rec,
+): PreSignWarning[] {
+  const warnings: PreSignWarning[] = []
+  const state = instanceState
 
-    if (rows.length === 0) return
-    const where = sheetLabel(envelope, sheet.blockId, index)
+  const fields = Array.isArray(state.localFields)
+    ? state.localFields.map(asRec).filter((f): f is Rec => f !== null)
+    : []
 
-    for (const field of fields) {
-      const fieldId = z.string().safeParse(field.fieldId).data
+  const values = asRec(state.localValues) ?? {}
+  const rows = Object.values(values).map((row) => asRec(row) ?? {})
 
-      if (fieldId === undefined) continue
+  if (rows.length === 0) return warnings
 
-      if (field.lifecycle === 'retired' || field.lifecycle === 'draft') continue
-      const computed = asRec(field.computation)?.mode === 'computed'
-      const name = fieldLabel(field)
+  for (const field of fields) {
+    const fieldId = z.string().safeParse(field.fieldId).data
 
-      if (field.nullable === false && !computed) {
-        const empty = rows.filter((row) => isEmptyCell(row[fieldId])).length
+    if (fieldId === undefined) continue
 
-        if (empty > 0) {
-          warnings.push({
-            id: `empty:${sheet.blockId}:${fieldId}`,
-            kind: 'empty-required',
-            where,
-            field: name,
-            count: empty,
-          })
-        }
-      }
+    if (field.lifecycle === 'retired' || field.lifecycle === 'draft') continue
+    const computed = asRec(field.computation)?.mode === 'computed'
+    const name = fieldLabel(field)
 
-      const validation = asRec(field.validation) ?? {}
-      const min = asNumber(validation.min)
-      const max = asNumber(validation.max)
+    if (field.nullable === false && !computed) {
+      const empty = rows.filter((row) => isEmptyCell(row[fieldId])).length
 
-      if (min !== null || max !== null) {
-        const out = rows.filter((row) => {
-          const n = asNumber(row[fieldId])
-
-          return (
-            n !== null &&
-            ((min !== null && n < min) || (max !== null && n > max))
-          )
-        }).length
-
-        if (out > 0) {
-          const storedUnit = asRec(field.quantity)?.storageUnit
-          const unit = z.string().safeParse(storedUnit).data
-          const suffix = unit === undefined ? '' : ` ${unit}`
-          warnings.push({
-            id: `spec:${sheet.blockId}:${fieldId}`,
-            kind: 'out-of-spec',
-            where,
-            field: name,
-            count: out,
-            limit:
-              min !== null && max !== null
-                ? `${min}–${max}${suffix}`
-                : min !== null
-                  ? `≥ ${min}${suffix}`
-                  : `≤ ${max}${suffix}`,
-          })
-        }
-      }
-
-      const numeric =
-        field.logicalType === 'decimal' || field.logicalType === 'integer'
-
-      if (
-        numeric &&
-        !computed &&
-        !asRec(field.quantity) &&
-        rows.some((row) => asNumber(row[fieldId]) !== null)
-      ) {
+      if (empty > 0) {
         warnings.push({
-          id: `unit:${sheet.blockId}:${fieldId}`,
-          kind: 'missing-unit',
+          id: `empty:${blockId}:${fieldId}`,
+          kind: 'empty-required',
           where,
           field: name,
-          count: rows.filter((row) => asNumber(row[fieldId]) !== null).length,
+          count: empty,
         })
       }
     }
-  })
+
+    const validation = asRec(field.validation) ?? {}
+    const min = asNumber(validation.min)
+    const max = asNumber(validation.max)
+
+    if (min !== null || max !== null) {
+      const out = rows.filter((row) => {
+        const n = asNumber(row[fieldId])
+
+        return (
+          n !== null && ((min !== null && n < min) || (max !== null && n > max))
+        )
+      }).length
+
+      if (out > 0) {
+        const storedUnit = asRec(field.quantity)?.storageUnit
+        const unit = z.string().safeParse(storedUnit).data
+        const suffix = unit === undefined ? '' : ` ${unit}`
+        warnings.push({
+          id: `spec:${blockId}:${fieldId}`,
+          kind: 'out-of-spec',
+          where,
+          field: name,
+          count: out,
+          limit:
+            min !== null && max !== null
+              ? `${min}–${max}${suffix}`
+              : min !== null
+                ? `≥ ${min}${suffix}`
+                : `≤ ${max}${suffix}`,
+        })
+      }
+    }
+
+    const numeric =
+      field.logicalType === 'decimal' || field.logicalType === 'integer'
+
+    if (
+      numeric &&
+      !computed &&
+      !asRec(field.quantity) &&
+      rows.some((row) => asNumber(row[fieldId]) !== null)
+    ) {
+      warnings.push({
+        id: `unit:${blockId}:${fieldId}`,
+        kind: 'missing-unit',
+        where,
+        field: name,
+        count: rows.filter((row) => asNumber(row[fieldId]) !== null).length,
+      })
+    }
+  }
 
   return warnings
 }

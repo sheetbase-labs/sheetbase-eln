@@ -7,7 +7,7 @@ import {
 import { formatDate } from '#/lib/format-date'
 import { rich, t } from '#/copy'
 import { returnToHere } from '#/lib/return-to'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
@@ -47,6 +47,10 @@ import {
 } from '#/lib/notebook-experience'
 import { workflowLabel } from '#/lib/reviews'
 import { readinessItems } from '#/components/overview/readiness'
+import { warningText } from '#/components/review/pre-sign-summary'
+import { sheetPayloadTitle, sheetStateWarnings } from '#/lib/pre-sign-review'
+import { fetchSheetInstance } from '#/lib/sheet-instance-data'
+import { isCanonicalSheetBlock, sheetBlockInstanceId } from '#/lib/sheet-block'
 import type { ExperimentReadiness } from '#/components/overview/readiness'
 import { useUserNames } from '#/lib/user-names'
 import {
@@ -398,12 +402,53 @@ function useNotebookSubmission({
     staleTime: 0,
   })
 
-  const openItems = readinessItems(readiness.data, blocks).map((item) => ({
-    id: item.id,
-    label: item.title,
-    detail: item.detail ?? '',
-    blocking: item.severity === 'blocking',
-  }))
+  // The same value checks the signer would see, shown to the author now, by
+  // sheet name, while there is still time to fix them.
+  const sheetIds = open ? submissionSheetInstanceIds(blocks) : []
+
+  const sheetStates = useQueries({
+    queries: sheetIds.map((instanceId) => ({
+      queryKey: ['ui-port', 'submit-sheet-state', instanceId],
+      queryFn: () => fetchSheetInstance(instanceId),
+      staleTime: 0,
+      retry: false,
+    })),
+  })
+
+  const sheetWarningItems = sheetIds.flatMap((instanceId, index) => {
+    const state = sheetStates[index]?.data?.state
+
+    if (!state) return []
+
+    const block = blocks.find(
+      (b) =>
+        (b.type === 'sheet' || b.type === 'sheet_shared') &&
+        isCanonicalSheetBlock(b.payload) &&
+        sheetBlockInstanceId(b.payload) === instanceId,
+    )
+
+    const named = sheetPayloadTitle(block?.payload)
+
+    const where =
+      named ?? t('notebook.submitNotebookDialog.sheetNumber', { n: index + 1 })
+
+    return sheetStateWarnings(instanceId, where, state).map((warning) => ({
+      id: warning.id,
+      label: warningText(warning),
+      detail: t('notebook.submitNotebookDialog.valueWarningDetail'),
+      blocking: false,
+    }))
+  })
+
+  const openItems = [
+    ...readinessItems(readiness.data, blocks).map((item) => ({
+      id: item.id,
+      label: item.title,
+      detail: item.detail ?? '',
+      blocking: item.severity === 'blocking',
+    })),
+    ...sheetWarningItems,
+  ]
 
   const checks = submissionReadinessChecks({
     openItems,

@@ -23,7 +23,7 @@ export function useCanonicalWorkspaceCalculations({
 }) {
   const rowKeys = useMemo(
     () =>
-      composedSnapshot
+      composedSnapshot && composedSnapshot.identity.kind !== 'local'
         ? composedSnapshot.rows.map((row) => row.rowKey)
         : Object.keys(instance.state.localValues),
     [composedSnapshot, instance.state.localValues],
@@ -36,6 +36,9 @@ export function useCanonicalWorkspaceCalculations({
       instance.revision,
       rowKeys,
       canWrite,
+      // Typed-in rows have the same keys before and after the pinned
+      // Definition loads, so the load itself has to start a fresh run.
+      composedSnapshot?.identity.kind === 'local',
     ],
     enabled: rowKeys.length > 0,
     queryFn: async () => {
@@ -47,8 +50,17 @@ export function useCanonicalWorkspaceCalculations({
         ) ||
           composedSnapshot.definitionConfiguration?.calculations.length)
       ) {
+        // Typed-in rows have no composition windows: calculate them in groups
+        // of 200 by their own count.
         const offsets = new Set(
-          composedSnapshot.rows.map((row) => row.compositionOffset ?? 0),
+          composedSnapshot.identity.kind === 'local'
+            ? Array.from(
+                {
+                  length: Math.max(1, Math.ceil(rowKeys.length / 200)),
+                },
+                (_, index) => index * 200,
+              )
+            : composedSnapshot.rows.map((row) => row.compositionOffset ?? 0),
         )
 
         // Each POST commits results, retry history and audit events under the

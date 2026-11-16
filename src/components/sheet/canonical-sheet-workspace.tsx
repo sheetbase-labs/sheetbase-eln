@@ -1125,7 +1125,14 @@ function useCanonicalWorkspaceSession({
   async function deleteSelectedColumn() {
     const column = matrix.columns.at(selected.col)
 
-    if (!column || column.origin === 'bound') return
+    if (
+      !column ||
+      column.origin === 'bound' ||
+      !instanceRef.current.state.localFields.some(
+        (field) => field.fieldId === column.id,
+      )
+    )
+      return
     await persistLocalCells([], {
       fieldChanges: [{ operation: 'retire', fieldId: column.id }],
     })

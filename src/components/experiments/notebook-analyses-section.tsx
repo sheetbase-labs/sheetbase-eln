@@ -86,3 +86,16 @@ export function NotebookAnalysesSection({ expId }: { expId: string }) {
     </Section>
   )
 }
+
+/** The notebook's analyses above a results workspace, in a strip that scrolls on its own. */
+export function NotebookAnalysesStrip({ expId }: { expId: string }) {
+  const blocks = useNotebookAnalysisBlocks(expId)
+
+  if ((blocks.data?.length ?? 0) === 0) return null
+
+  return (
+    <div className="max-h-[55%] shrink-0 overflow-auto px-4 pt-[22px] md:px-8">
+      <NotebookAnalysesSection expId={expId} />
+    </div>
+  )
+}

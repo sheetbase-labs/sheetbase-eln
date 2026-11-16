@@ -255,6 +255,155 @@ export function buildWorklist(
   return { transfers, sources, issues }
 }
 
+/** One hit to pick: where it sits on the plate it was read from. */
+export interface HitToPick {
+  /** The well on the source plate to draw from (its first well on the run). */
+  wellCode: string
+  sampleId?: string | null
+  label: string
+}
+
+export interface HitWorklistOptions {
+  sourcePlate: string
+  sourceFormat: PlateFormat
+  destPlate: string
+  destFormat: PlateFormat
+  volumeUl: number | undefined
+  minVolumeUl?: number
+  maxVolumeUl?: number
+  /** Working volume of one source well; a warning is raised past it. */
+  sourceWellVolumeUl?: number
+}
+
+/** The hits of an analysis, each with the first well it was read in. */
+export function hitsToPick(analysis: {
+  samples: Array<{
+    hit: boolean
+    sampleId: string | null
+    label: string
+    wells: string[]
+  }>
+}): HitToPick[] {
+  return analysis.samples
+    .filter((s) => s.hit && s.wells.length > 0)
+    .map((s) => ({
+      wellCode: s.wells[0],
+      sampleId: s.sampleId,
+      label: s.label,
+    }))
+}
+
+/**
+ * Plan picking the hits into a new plate: one transfer per hit, from its own
+ * well on the source plate into the next free well of the destination plate,
+ * filled down the columns. Never trims quietly: a hit with no room left, or a
+ * volume the robot cannot move, is reported in `issues`.
+ */
+export function buildHitWorklist(
+  hits: HitToPick[],
+  options: HitWorklistOptions,
+): WorklistPlan {
+  const issues: WorklistIssue[] = []
+  const src = FORMAT_DIMENSIONS[options.sourceFormat]
+  const dst = FORMAT_DIMENSIONS[options.destFormat]
+  const capacity = dst.rows * dst.cols
+  const volume = options.volumeUl ?? null
+
+  const ordered = [...hits].sort(
+    (a, b) =>
+      columnMajorIndex(a.wellCode, src.rows) -
+      columnMajorIndex(b.wellCode, src.rows),
+  )
+
+  const transfers: Transfer[] = []
+
+  const sourceInfo = new Map<
+    string,
+    { label: string; sampleId: string | null; totalUl: number }
+  >()
+
+  for (const hit of ordered) {
+    const p = parseWellCode(hit.wellCode)
+
+    if (!p || p.row >= src.rows || p.col >= src.cols) {
+      issues.push({
+        code: 'bad_well',
+        wellCode: hit.wellCode,
+        message: hit.wellCode,
+      })
+      continue
+    }
+
+    if (volume === null || !(volume > 0)) {
+      issues.push({
+        code: 'no_volume',
+        wellCode: hit.wellCode,
+        message: hit.wellCode,
+      })
+      continue
+    }
+
+    if (transfers.length >= capacity) {
+      issues.push({
+        code: 'source_plate_full',
+        wellCode: hit.wellCode,
+        message: hit.label,
+      })
+      continue
+    }
+
+    if (options.minVolumeUl !== undefined && volume < options.minVolumeUl)
+      issues.push({
+        code: 'volume_too_small',
+        wellCode: hit.wellCode,
+        message: hit.wellCode,
+      })
+
+    if (options.maxVolumeUl !== undefined && volume > options.maxVolumeUl)
+      issues.push({
+        code: 'volume_too_large',
+        wellCode: hit.wellCode,
+        message: hit.wellCode,
+      })
+
+    const next = transfers.length
+
+    transfers.push({
+      sourcePlate: options.sourcePlate,
+      sourceWell: hit.wellCode,
+      destPlate: options.destPlate,
+      destWell: wellCode(next % dst.rows, Math.floor(next / dst.rows)),
+      volumeUl: volume,
+      label: hit.label,
+      sampleId: hit.sampleId ?? null,
+    })
+
+    sourceInfo.set(hit.wellCode, {
+      label: hit.label,
+      sampleId: hit.sampleId ?? null,
+      totalUl: volume,
+    })
+  }
+
+  const sources = [...sourceInfo.entries()]
+    .map(([well, info]) => ({ well, ...info, transfers: 1 }))
+    .sort(
+      (a, b) =>
+        columnMajorIndex(a.well, src.rows) - columnMajorIndex(b.well, src.rows),
+    )
+
+  if (options.sourceWellVolumeUl !== undefined)
+    for (const s of sources)
+      if (s.totalUl > options.sourceWellVolumeUl)
+        issues.push({
+          code: 'source_overdraw',
+          wellCode: s.well,
+          message: `${s.well}: ${round(s.totalUl)} µL asked, ${options.sourceWellVolumeUl} µL held`,
+        })
+
+  return { transfers, sources, issues }
+}
+
 function round(v: number, places = 3): number {
   const f = 10 ** places
 

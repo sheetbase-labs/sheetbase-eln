@@ -1,7 +1,7 @@
 import { extractText, getDocumentProxy } from 'unpdf'
 import { describe, expect, it } from 'vitest'
 
-import { materialiseChart } from '#/lib/chart-spec'
+import { materialiseChart, materialiseFacetedCharts } from '#/lib/chart-spec'
 import type { ChartSpec } from '#/lib/chart-spec'
 import { emptyChartSpec } from '#/lib/visualisation-presets'
 import { figureFromChart } from './chart-figure'
@@ -70,6 +70,39 @@ async function textOf(figures: PdfFigure[]): Promise<string> {
 
   return text
 }
+
+describe('faceted charts', () => {
+  it('keep one panel per facet value and draw each with its title', async () => {
+    const base = emptyChartSpec('d')
+
+    const spec: ChartSpec = {
+      ...base,
+      type: 'scatter',
+      fields: {
+        ...base.fields,
+        x: { fieldId: 'w' },
+        y: { fieldId: 'v' },
+        facet: { fieldId: 'g' },
+      },
+    }
+
+    const facets = materialiseFacetedCharts(spec, columns, rows).panels
+
+    const figure = figureFromChart(
+      'T',
+      spec,
+      materialiseChart(spec, columns, rows),
+      facets,
+    )
+
+    expect(figure?.panels?.map((p) => p.value)).toEqual(['A', 'B'])
+
+    const text = await textOf(figure ? [figure] : [])
+
+    expect(text).toContain('Figure 0')
+    expect(text).toContain('Titre')
+  })
+})
 
 describe('figures of every chart type', () => {
   it('reduces box, violin, histogram and heatmap charts to something drawable', () => {

@@ -11,7 +11,14 @@ import {
   frozenChart,
 } from '#/components/notebook/scientific-payload'
 import { analysisBlockParts } from '#/lib/analysis-definition'
-import { materialiseFrozenChart, materialiseLiveChart } from '#/lib/chart-data'
+import {
+  chartUsedFieldIds,
+  materialiseFrozenChart,
+  materialiseFrozenFacets,
+  materialiseLiveChart,
+} from '#/lib/chart-data'
+import { filterRowsByFlags } from '#/lib/dataset-flags'
+import { materialiseFacetedCharts } from '#/lib/chart-spec'
 import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
 import type { DatasetRowInput } from '#/lib/dataset-product'
 import type { DatasetValueFlag } from '#/lib/dataset-flags'
@@ -117,7 +124,15 @@ async function analysisFigure(
     totalCount: pin.rowCount,
   })
 
-  return figureFromChart(title, spec, chart)
+  const facets = spec.fields.facet
+    ? materialiseFacetedCharts(
+        spec,
+        columns,
+        filterRowsByFlags(rows, flags, chartUsedFieldIds(spec)),
+      ).panels
+    : null
+
+  return figureFromChart(title, spec, chart, facets)
 }
 
 function chartBlockFigure(title: string, payload: Payload): PdfFigure | null {
@@ -126,7 +141,12 @@ function chartBlockFigure(title: string, payload: Payload): PdfFigure | null {
 
   if (!spec.success || !frozen.success) return null
 
-  return figureFromChart(title, spec.data, materialiseFrozenChart(frozen.data))
+  return figureFromChart(
+    title,
+    spec.data,
+    materialiseFrozenChart(frozen.data),
+    materialiseFrozenFacets(frozen.data)?.panels,
+  )
 }
 
 /** Every analysis and chart block of a snapshot, keyed by block id. */

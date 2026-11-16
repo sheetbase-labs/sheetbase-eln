@@ -122,12 +122,69 @@ function drawHeatmap(
   })
 }
 
+const PANEL_HEIGHT = 150
+
+function panelGrid(figure: PdfFigure) {
+  const count = figure.panels?.length ?? 0
+  const cols = count <= 2 ? Math.max(count, 1) : count <= 6 ? 3 : 4
+
+  return { cols, rows: Math.ceil(count / cols) }
+}
+
+/** Height the figure needs: one chart, or a grid of panels. */
+export function figureHeight(figure: PdfFigure): number {
+  return figure.panels
+    ? 14 + panelGrid(figure).rows * PANEL_HEIGHT
+    : FIGURE_HEIGHT
+}
+
+function drawPanels(
+  page: PDFPage,
+  font: PDFFont,
+  figure: PdfFigure,
+  box: Box,
+): void {
+  const { cols } = panelGrid(figure)
+  const width = box.width / cols
+  const top = box.y + box.height
+
+  figure.panels?.forEach((panel, i) => {
+    const cx = box.x + (i % cols) * width
+    const cy = top - 14 - (Math.floor(i / cols) + 1) * PANEL_HEIGHT
+
+    page.drawText(safeText(panel.value).slice(0, 30), {
+      x: cx + 46,
+      y: cy + PANEL_HEIGHT - 4,
+      size: 8,
+      font,
+      color: ink,
+    })
+    drawFigure(
+      page,
+      font,
+      { ...panel.figure, panels: undefined },
+      {
+        x: cx,
+        y: cy,
+        width,
+        height: PANEL_HEIGHT - 8,
+      },
+    )
+  })
+}
+
 export function drawFigure(
   page: PDFPage,
   font: PDFFont,
   figure: PdfFigure,
   box: Box,
 ): void {
+  if (figure.panels) {
+    drawPanels(page, font, figure, box)
+
+    return
+  }
+
   const left = 46
   const bottom = 34
   const top = 8

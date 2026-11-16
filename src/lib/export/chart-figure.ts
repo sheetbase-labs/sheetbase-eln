@@ -1,5 +1,9 @@
 /** A chart reduced to what the signed record PDF draws. */
-import type { ChartSpec, MaterialisedChart } from '#/lib/chart-spec'
+import type {
+  ChartSpec,
+  FacetedChart,
+  MaterialisedChart,
+} from '#/lib/chart-spec'
 
 export interface FigureBox {
   lo: number
@@ -40,6 +44,8 @@ export interface PdfFigure {
   /** Histogram bin edges. */
   edges?: number[]
   heatmap?: FigureHeatmap
+  /** One drawn chart per facet value, when the chart is faceted. */
+  panels?: Array<{ value: string; figure: PdfFigure }>
   note: string | null
 }
 
@@ -65,7 +71,20 @@ export function figureFromChart(
   title: string,
   spec: ChartSpec,
   chart: MaterialisedChart,
+  facets?: readonly FacetedChart[] | null,
 ): PdfFigure | null {
+  if (facets && facets.length > 0) {
+    const panels = facets.flatMap((facet) => {
+      const figure = figureFromChart(facet.value, spec, facet.chart)
+
+      return figure ? [{ value: facet.value, figure }] : []
+    })
+
+    const first = panels.at(0)
+
+    return first ? { ...first.figure, title, panels } : null
+  }
+
   const type = spec.type
   const kind = KIND_BY_TYPE.get(type)
 

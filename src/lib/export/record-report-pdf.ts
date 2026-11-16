@@ -14,7 +14,7 @@ import { z } from 'zod'
 
 import { safeText } from '#/lib/client-portal-pdf'
 import { formatMagnitude } from '#/lib/format-numbers'
-import { FIGURE_HEIGHT, drawFigure } from './figure-draw'
+import { drawFigure, figureHeight } from './figure-draw'
 import type { PdfFigure } from './chart-figure'
 import { frozenSheetGridFromEvidence } from '#/lib/frozen-sheet-grid'
 import { sheetEvidenceFromEnvelope } from '#/lib/sheet-evidence'
@@ -672,14 +672,16 @@ function drawBlock(
       const figure = block.id ? input.figures?.get(block.id) : undefined
 
       if (figure) {
-        layout.ensure(FIGURE_HEIGHT + 6)
+        const height = figureHeight(figure)
+
+        layout.ensure(height + 6)
         drawFigure(layout.page, layout.regular, figure, {
           x: MARGIN,
-          y: layout.y - FIGURE_HEIGHT,
+          y: layout.y - height,
           width: CONTENT_WIDTH,
-          height: FIGURE_HEIGHT,
+          height,
         })
-        layout.y -= FIGURE_HEIGHT + 6
+        layout.y -= height + 6
       }
 
       layout.paragraph(

@@ -25,6 +25,8 @@ const COMMON_TYPES: readonly string[] = [
   'sheet',
 ]
 
+const COMMON_RANK = new Map(COMMON_TYPES.map((type, at) => [type, at]))
+
 const RECENT_KEY = 'sheetbase.slashMenu.recent'
 const RECENT_SHOWN = 3
 
@@ -128,17 +130,16 @@ export function slashCommandFilteredOptions(
 
   const browsing = !query.trim()
   const recent = browsing ? recentSlashTypes().slice(0, RECENT_SHOWN) : []
+  const recentRank = new Map(recent.map((type, at) => [type, at]))
 
   // With nothing typed, the common blocks lead and recent picks follow; once
   // the person types, the groups step aside and only matches show.
   const placed = all.map((opt): SlashCommandOption => {
     if (!browsing) return { ...opt, group: MATCH_GROUP_ID }
 
-    if (COMMON_TYPES.includes(opt.type)) {
-      return { ...opt, group: COMMON_GROUP_ID }
-    }
+    if (COMMON_RANK.has(opt.type)) return { ...opt, group: COMMON_GROUP_ID }
 
-    if (recent.includes(opt.type)) return { ...opt, group: RECENT_GROUP_ID }
+    if (recentRank.has(opt.type)) return { ...opt, group: RECENT_GROUP_ID }
 
     return opt
   })
@@ -147,11 +148,11 @@ export function slashCommandFilteredOptions(
     const group = GROUP_ORDER.indexOf(opt.group)
 
     if (opt.group === COMMON_GROUP_ID) {
-      return group * 100 + COMMON_TYPES.indexOf(opt.type)
+      return group * 100 + (COMMON_RANK.get(opt.type) ?? 0)
     }
 
     if (opt.group === RECENT_GROUP_ID) {
-      return group * 100 + recent.indexOf(opt.type)
+      return group * 100 + (recentRank.get(opt.type) ?? 0)
     }
 
     if (opt.group === MATCH_GROUP_ID) {

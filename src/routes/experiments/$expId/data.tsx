@@ -22,6 +22,10 @@ function DataTab() {
             link: { to: '/experiments/$expId/data/datasets', params },
           },
           {
+            label: t('features.plateRuns.tab.title'),
+            link: { to: '/experiments/$expId/data/plates', params },
+          },
+          {
             label: t('projects.experimentPage.section.results'),
             link: { to: '/experiments/$expId/data/results', params },
           },

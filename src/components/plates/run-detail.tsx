@@ -51,6 +51,7 @@ import {
 import type { PlateRunRow } from '#/lib/plate-runs'
 
 import { DoseResponsePlot } from './dose-response-plot'
+import { RunExperimentLink } from './run-experiment-link'
 import { fmt, mapModel, qcTone, qualityLabel } from './plates-shared'
 import type { MapModel, MapView } from './plates-shared'
 import { WorklistBuilderDialog } from './worklist-dialogs'
@@ -185,6 +186,7 @@ export function RunDetail({
         onAnalyse={() => analyse.mutate()}
         onArchive={() => setArchiving(true)}
       />
+      <RunExperimentLink run={data} canWrite={canWrite} />
       <PlatePanel
         run={data}
         map={map}

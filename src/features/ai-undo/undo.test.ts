@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { blockedWords, isUndoableTool, type UndoPreview } from './undo'
+import type { UndoPreview } from './undo'
+import { blockedWords, isUndoableTool } from './undo'
 
 const preview = (items: UndoPreview['items']): UndoPreview => ({
   setId: '00000000-0000-4000-8000-000000000001',

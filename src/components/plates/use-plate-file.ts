@@ -25,7 +25,7 @@ export function usePlateFile({
   initialFile: File | null
   /** The text of the chosen plate. */
   onText: (text: string) => void
-  /** A first guess at the run's name, from the file. */
+  /** A first guess at the run's name: the plate's own title, else the file's. */
   onName: (name: string) => void
 }) {
   const [file, setFile] = useState<PlateFileRead | null>(null)
@@ -38,6 +38,7 @@ export function usePlateFile({
     if (!candidate) return
     setCandidateId(id)
     onText(candidate.text)
+    onName(candidate.title ?? nameFromFile(read.fileName))
   }
 
   async function readFile(picked: File | null) {
@@ -57,7 +58,6 @@ export function usePlateFile({
       }
 
       takeCandidate(read, read.candidates[0].id)
-      onName(nameFromFile(read.fileName))
     } catch (error) {
       setFile(null)
       setFileError(messageOf(error, t('features.plateRuns.form.unreadable')))

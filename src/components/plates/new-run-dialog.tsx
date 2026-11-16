@@ -4,7 +4,7 @@
  * before anything is saved. A run can belong to an experiment, and then lands
  * in that experiment's notebook by itself.
  */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { useRecordModelProjects } from '#/components/models/models-data'
@@ -24,6 +24,8 @@ import { Select } from '#/components/ui/select'
 import { t } from '#/copy'
 import { fetchPlateDesignOptions, qcKeys } from '#/lib/run-qc'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { parsePlateTable } from '#/lib/plate-assay'
+import { suggestControlColumns } from '#/lib/plate-controls'
 import type { PlateFormat } from '#/lib/plate-map'
 import type { PlateRunRow } from '#/lib/plate-runs'
 import { ControlColumns, PlatePreview } from './plate-preview'
@@ -96,6 +98,8 @@ function NewRunBody({
   const [designId, setDesignId] = useState('')
   const [pickedExperiment, setPickedExperiment] = useState('')
   const [addToNotebook, setAddToNotebook] = useState(true)
+  const guessedName = useRef('')
+  const [guessedControls, setGuessedControls] = useState(false)
   const [negativeColumns, setNegativeColumns] = useState('')
   const [positiveColumns, setPositiveColumns] = useState('')
   const experimentId = fixedExperimentId ?? pickedExperiment
@@ -117,8 +121,25 @@ function NewRunBody({
       onText: (text) => {
         setData(text)
         setFormatChoice('auto')
+
+        // A reader's grid has no roles: offer the first and last columns as the
+        // controls when they read like two groups far apart.
+        const guess = suggestControlColumns(parsePlateTable(text).readout)
+
+        setNegativeColumns(guess?.negative ?? '')
+        setPositiveColumns(guess?.positive ?? '')
+        setGuessedControls(guess !== null)
       },
-      onName: (guess) => setName((current) => current || guess),
+      onName: (guess) =>
+        setName((current) => {
+          // Keep a name the person typed; follow the file while it is a guess.
+          const next =
+            current === '' || current === guessedName.current ? guess : current
+
+          guessedName.current = guess
+
+          return next
+        }),
     })
 
   const { parsed, format, readCount, controls, samples, preview } =
@@ -185,7 +206,7 @@ function NewRunBody({
                 {file.candidates.map((candidate) => (
                   <option key={candidate.id} value={candidate.id}>
                     {t('features.plateRuns.form.candidate', {
-                      label: candidate.label,
+                      label: candidate.title ?? candidate.label,
                       readings: candidate.readings,
                     })}
                   </option>
@@ -216,8 +237,15 @@ function NewRunBody({
             <ControlColumns
               negative={negativeColumns}
               positive={positiveColumns}
-              onNegative={setNegativeColumns}
-              onPositive={setPositiveColumns}
+              guessed={guessedControls}
+              onNegative={(value) => {
+                setGuessedControls(false)
+                setNegativeColumns(value)
+              }}
+              onPositive={(value) => {
+                setGuessedControls(false)
+                setPositiveColumns(value)
+              }}
             />
           ) : null}
           <PlatePreview

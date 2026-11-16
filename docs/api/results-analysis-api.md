@@ -68,3 +68,46 @@ column or the model and run the cell again.
 Analysing is not attestation: the assistant never signs, approves or decides
 anything here, and the summary is a draft until the person edits and signs the
 notebook themselves.
+
+## A saved analysis in a notebook
+
+The Analysis Studio saves a statistic (a regression, a dose-response curve, a
+group comparison, a survival fit) as a **saved analysis**, readable on the
+`analysis_definitions` table. `add_analysis_to_notebook` puts one into an
+experiment's notebook as a live `analysis` block. The block holds only the
+analysis's id and a title: it runs the analysis whenever the notebook opens, so
+the table, the plot and the key numbers follow the analysis and its data. If the
+analysis was made on a snapshot it stays on that snapshot. The experiment's
+Results tab lists the same blocks with their headline numbers.
+
+In the app this is **Save and add to EXP-…** in the studio, shown when the
+studio was opened from an experiment. A person can also press **Cite in a
+notebook…** to freeze the result on its dataset version instead.
+
+### `add_analysis_to_notebook`
+
+Scope: `lab:write`. Also a pipeline action.
+
+| Argument             | Type | Notes                                                           |
+| -------------------- | ---- | --------------------------------------------------------------- |
+| `p_record_id` \*     | uuid | The experiment (`records.id`) whose notebook gets the analysis. |
+| `p_definition_id` \* | uuid | The saved analysis (`analysis_definitions.id`).                 |
+| `p_title`            | text | The block's title. The analysis's name if left out.             |
+
+Returns `{ block, structure_version, already_there }`. Adding the same analysis
+to the same notebook again changes nothing and returns the existing block with
+`already_there: true`. A notebook that is submitted or signed refuses the new
+block, as it does any other.
+
+### Event
+
+`analysis.added_to_notebook` (family `record`) carries `recordId`,
+`definitionId`, `analysis` (its name), `title` and `blockId`; it can start a
+pipeline. It fires whenever an analysis block naming a saved analysis is added to
+a notebook, however it was added (this action, the block editor, “Cite in a
+notebook” or a plain block insert), and not when the analysis was already there.
+
+### From the assistant and MCP
+
+The same action is an MCP action on `sheetbase.lab.act`, and the assistant
+offers it as a confirm card, `sheetbase.analysis.add_saved_to_notebook`.

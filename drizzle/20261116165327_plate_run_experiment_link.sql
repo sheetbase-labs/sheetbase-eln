@@ -413,6 +413,13 @@ INSERT INTO internal.webhook_event_names (name) VALUES
 ON CONFLICT DO NOTHING;
 --> statement-breakpoint
 
+-- A pipeline may start on either event, so the trigger picker's list and the
+-- database agree (tests/db/pipeline-trigger-events.test.ts).
+INSERT INTO internal.pipeline_trigger_events (name) VALUES
+  ('plate_run.linked'), ('plate_run.unlinked')
+ON CONFLICT DO NOTHING;
+--> statement-breakpoint
+
 INSERT INTO internal.pipeline_actions (operation, definition) VALUES
   ('link_plate_run', '{"operation":"link_plate_run","rpc":"link_plate_run","label":"Add a plate run to an experiment","description":"Attaches a plate run to an experiment, moves it to another, or detaches it when no experiment is given. The run takes the experiment’s project. Show it in the notebook with `insert_block` and the block type `plate_run` (payload `{ \"runId\": \"<id>\" }`). Returns the run. Sends `plate_run.linked` or `plate_run.unlinked`.","arguments":[{"name":"p_plate_run_id","type":"uuid","required":true,"nullable":false},{"name":"p_record_id","type":"uuid","required":false,"nullable":true}]}'::jsonb)
 ON CONFLICT (operation) DO UPDATE SET definition = EXCLUDED.definition;

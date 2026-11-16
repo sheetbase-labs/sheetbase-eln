@@ -11,6 +11,7 @@ import type { WorkspaceAiSettingsRow } from './ai-settings'
 import { AiProviderError } from './ai-providers/types'
 import type { ModelProvider } from './ai-gateway'
 import { logger, redact } from './logger'
+import type { ChatAttachment } from './assistant-attachments'
 
 /**
  * Session-authenticated assistant endpoint. The actor, workspace, policy and
@@ -24,7 +25,7 @@ interface AssistantSession {
   token: string
 }
 
-async function loadSession(
+export async function loadSession(
   workspaceId: string,
   requestHeaders?: Headers,
 ): Promise<AssistantSession> {
@@ -107,7 +108,7 @@ export type AssistantRuntime =
 export async function resolveAssistantRuntime(
   workspaceId: string,
   requestHeaders?: Headers,
-  options: { timeZone?: string } = {},
+  options: { timeZone?: string; attachments?: ChatAttachment[] } = {},
 ): Promise<AssistantRuntime> {
   const session = await loadSession(workspaceId, requestHeaders)
 
@@ -190,6 +191,7 @@ export async function resolveAssistantRuntime(
     workspaceId,
     flags: featureFlags,
     timeZone: usableTimeZone(options.timeZone),
+    attachments: options.attachments,
   })
 
   return {

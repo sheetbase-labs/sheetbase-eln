@@ -58,7 +58,7 @@ export async function handleAssistantChat(request: Request): Promise<Response> {
     runtime = await resolveAssistantRuntime(
       input.workspaceId,
       request.headers,
-      { timeZone: input.timeZone },
+      { timeZone: input.timeZone, attachments: input.attachments },
     )
   } catch {
     return json(403, 'You do not have access to this workspace.')
@@ -78,6 +78,7 @@ export async function handleAssistantChat(request: Request): Promise<Response> {
       turns: input.messages.length,
       questionChars: input.messages.at(-1)?.content.length ?? 0,
       objectRefs: input.objectRefs.length,
+      attachments: input.attachments.length,
       outcome: started.status,
     }),
   )

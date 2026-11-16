@@ -386,6 +386,110 @@ describe('assistant chat', () => {
   })
 })
 
+describe('files in the chat', () => {
+  const localProfile = {
+    id: 'p',
+    label: 'P',
+    kind: 'local' as const,
+    model: 'm',
+    dataClass: 'local' as const,
+    keyAvailable: true,
+  }
+
+  const sheet = {
+    id: '33333333-3333-4333-8333-333333333333',
+    name: 'reader.csv',
+    mediaType: 'text/csv',
+    bytes: 20,
+    kind: 'table' as const,
+    sheets: [
+      {
+        name: 'Sheet 1',
+        rows: [
+          ['well', 'value'],
+          ['A1', '0.5'],
+        ],
+      },
+    ],
+  }
+
+  const photo = {
+    id: '44444444-4444-4444-8444-444444444444',
+    name: 'gel.jpg',
+    mediaType: 'image/jpeg',
+    bytes: 20,
+    kind: 'image' as const,
+    image: 'data:image/jpeg;base64,/9j/4AAQ',
+  }
+
+  async function run(attachments: unknown[]) {
+    const requests: ModelRequest[] = []
+
+    const provider: ModelProvider = {
+      name: 'fake',
+      complete: vi.fn(),
+      async *stream(request) {
+        requests.push(request)
+        yield { type: 'text', delta: 'Read it.' }
+        yield { type: 'usage', tokensUsed: 10, costMicrousd: 1 }
+      },
+    }
+
+    const started = await streamAssistant(
+      assistantChatSchema.parse({
+        workspaceId: WORKSPACE_ID,
+        messages: [{ role: 'user', content: 'What is in these?' }],
+        attachments,
+      }),
+      deps({
+        provider,
+        settings: { ...enabledSettings, providerProfile: 'p' },
+        profiles: [localProfile],
+      }),
+    )
+
+    if (started.status !== 'ok') throw new Error('expected a stream')
+
+    for await (const event of started.events) void event
+
+    return requests
+  }
+
+  it('puts a preview of each file in the instructions and the picture on the question', async () => {
+    const [request] = await run([sheet, photo])
+
+    expect(request.instructions).toContain('reader.csv')
+    expect(request.instructions).toContain('A1\t0.5')
+    expect(request.instructions).toContain('gel.jpg')
+    expect(request.messages?.at(-1)).toMatchObject({
+      role: 'user',
+      images: [photo.image],
+    })
+  })
+
+  it('sends nothing extra when there are no files', async () => {
+    const [request] = await run([])
+
+    expect(request.instructions ?? '').not.toContain('attached files')
+    expect(request.messages?.at(-1)).not.toHaveProperty('images')
+  })
+
+  it('refuses more than four files', () => {
+    const many = Array.from({ length: 5 }, (_, i) => ({
+      ...sheet,
+      id: `33333333-3333-4333-8333-33333333333${i}`,
+    }))
+
+    expect(
+      assistantChatSchema.safeParse({
+        workspaceId: WORKSPACE_ID,
+        messages: [{ role: 'user', content: 'Hi' }],
+        attachments: many,
+      }).success,
+    ).toBe(false)
+  })
+})
+
 describe('assistant tools', () => {
   const localProfile = {
     id: 'p',

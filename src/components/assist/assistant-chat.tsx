@@ -40,6 +40,14 @@ import {
 } from './chat/message'
 import { errorText, isWaitingForAnswer } from './chat/chat-status'
 import { PromptBox } from './chat/prompt-box'
+import { AttachmentChips } from './chat/attachment-chips'
+import {
+  clearChatFiles,
+  filesForRequest,
+  markChatFilesSent,
+  useChatFiles,
+} from './chat/attachments'
+import { attachmentRef } from '#/lib/assistant-attachments'
 import { ProposalCard } from './chat/proposal-card'
 import { useFailureFeed } from '#/lib/assistant-failure-feed'
 import { proposalFromOutput } from '#/lib/assistant-proposals'
@@ -76,6 +84,9 @@ function viewerTimeZone(): string | undefined {
   )
 }
 
+/** Where the panel chat keeps its files (`./chat/attachments`). */
+const filesKeyFor = (workspaceId: string) => `assistant:${workspaceId}`
+
 function chatFor(workspaceId: string): Chat<AssistantUIMessage> {
   let chat = chats.get(workspaceId)
 
@@ -91,7 +102,12 @@ function chatFor(workspaceId: string): Chat<AssistantUIMessage> {
             objectRefs: next.objectRefs,
             messages: toChatTurns(messages),
             timeZone: viewerTimeZone(),
+            // Every file in the chat, so a follow-up still sees them; a
+            // picture's pixels go once, with the question it came with.
+            attachments: filesForRequest(filesKeyFor(workspaceId)),
           }
+
+          markChatFilesSent(filesKeyFor(workspaceId))
 
           return { body: next.page ? { ...request, page: next.page } : request }
         },
@@ -245,6 +261,12 @@ function ChatBody({
   } = useChat<AssistantUIMessage>({ chat: chatFor(workspaceId) })
 
   const [draft, setDraft] = useState('')
+  const filesKey = filesKeyFor(workspaceId)
+  const attached = useChatFiles(filesKey, workspaceId)
+
+  const unsentFiles = attached.files.filter((file) =>
+    attached.unsent.includes(file.id),
+  )
 
   const busy = status === 'submitted' || status === 'streaming'
   const kind = context ? contextKindLabel(context.kind).toLowerCase() : null
@@ -254,15 +276,34 @@ function ChatBody({
 
   const send = useCallback(
     (text: string) => {
-      const question = text.trim()
+      // A file with no words is a question too: what is in it.
+      const question =
+        text.trim() ||
+        (unsentFiles.length > 0
+          ? t('features.labFiles.attach.defaultQuestion')
+          : '')
 
-      if (!question || busy || !ready) return
+      if (!question || busy || !ready || attached.reading.length > 0) return
       clearError()
       // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change -- Sending the handed-over question empties the draft box; it is the send itself, not state mirrored from a prop.
       setDraft('')
-      void sendMessage({ text: question })
+
+      void sendMessage({
+        text: question,
+        metadata:
+          unsentFiles.length > 0
+            ? { attachments: unsentFiles.map(attachmentRef) }
+            : undefined,
+      })
     },
-    [busy, ready, clearError, sendMessage],
+    [
+      busy,
+      ready,
+      clearError,
+      sendMessage,
+      unsentFiles,
+      attached.reading.length,
+    ],
   )
 
   // A card that fails to apply is told to the assistant, which explains and
@@ -293,6 +334,7 @@ function ChatBody({
     setMessages([])
     clearError()
     setDraft('')
+    clearChatFiles(filesKey)
   }
 
   const suggestions = context
@@ -367,6 +409,13 @@ function ChatBody({
           onStop={stop}
           busy={busy}
           disabled={!ready}
+          files={{
+            waiting: unsentFiles,
+            reading: attached.reading,
+            error: attached.error,
+            onAdd: attached.add,
+            onRemove: attached.remove,
+          }}
           placeholder={
             messages.length === 0
               ? t('notebook.assistantPanel.placeholder')
@@ -591,6 +640,9 @@ export function ChatMessage({
   if (message.role === 'user') {
     return (
       <Message from="user">
+        {message.metadata?.attachments?.length ? (
+          <AttachmentChips files={message.metadata.attachments} />
+        ) : null}
         <MessageContent>{text}</MessageContent>
       </Message>
     )

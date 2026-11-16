@@ -1,6 +1,7 @@
 import type { UIMessage } from 'ai'
 
 import type { AssistantSource, AssistantUsage } from './assistant'
+import type { AttachmentRef } from './assistant-attachments'
 import type { ChatTurn } from './ai-providers/types'
 
 /**
@@ -13,6 +14,8 @@ export interface AssistantMessageMetadata {
   providerProfile?: string | null
   sources?: AssistantSource[]
   usage?: AssistantUsage
+  /** On the person's own message: the files that went with it. */
+  attachments?: AttachmentRef[]
 }
 
 export type AssistantUIMessage = UIMessage<AssistantMessageMetadata>

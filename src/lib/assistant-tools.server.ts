@@ -12,6 +12,7 @@ import type { ProviderToolDef } from './ai-providers/types'
 import { VALID_SCOPES } from './api-credential-scopes'
 import type { Scope } from './api-credential-scopes'
 import type { AssistantToolkit } from './assistant'
+import type { ChatAttachment } from './assistant-attachments'
 import { isProposalTool, proposalToolDefs } from './assistant-proposals'
 import { buildAssistantProposal } from './assistant-proposals.server'
 import { pipelineJsonObjectSchema } from './pipelines/types'
@@ -302,6 +303,8 @@ export async function createAssistantToolkit(deps: {
   /** The person's clock, for the schedule. Falls back to UTC. */
   timeZone?: string
   now?: Date
+  /** Files dropped into this chat, for `sheetbase.attachment.read` and the cards built from them. */
+  attachments?: ChatAttachment[]
 }): Promise<AssistantToolkit | null> {
   if (!deps.flags.mcp_read) return null
 
@@ -400,6 +403,7 @@ export async function createAssistantToolkit(deps: {
     userId: deps.actor.id,
     timeZone,
     now: deps.now,
+    attachments: deps.attachments ?? [],
   }
 
   return {

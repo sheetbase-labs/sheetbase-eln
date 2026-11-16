@@ -200,6 +200,8 @@ const ASSISTANT_PROPOSE_TOOLS_UNDECLARED = [
   // Plates: analyse a plate run again, make a liquid handler worklist
   // (assistant-plates.ts).
   'sheetbase.plate.analyse',
+  // A plate run made from a plate reader export attached to the chat (features/lab-files).
+  'sheetbase.plate.from_file',
   'sheetbase.worklist.create',
   // Quality control: set a series' limits, acknowledge breaches
   // (assistant-qc.ts).

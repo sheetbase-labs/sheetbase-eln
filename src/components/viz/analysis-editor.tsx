@@ -5,6 +5,7 @@ import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { t } from '#/copy'
+import { SaveAndAddButton } from './save-and-add-button'
 import { ANALYSIS_KINDS } from '#/lib/analysis-definition'
 import { AnalysisDefinitionControls } from './analysis-controls'
 import type { AnalysisPanelModel } from './analysis-session'
@@ -117,25 +118,16 @@ export function AnalysisEditor({ model }: { model: AnalysisPanelModel }) {
           className="h-[26px] w-48 bg-surface text-label max-md:h-8"
         />
         {experiment ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="primary"
-            disabled={
-              !draft.definition ||
-              validation.length > 0 ||
-              draft.name.trim() === '' ||
-              saveAndAddMutation.isPending
+          <SaveAndAddButton
+            identifier={experiment.identifier}
+            ready={
+              Boolean(draft.definition) &&
+              validation.length === 0 &&
+              draft.name.trim() !== ''
             }
+            pending={saveAndAddMutation.isPending}
             onClick={() => saveAndAddMutation.mutate()}
-          >
-            <Icon name="save" className="size-3.5" aria-hidden />{' '}
-            {saveAndAddMutation.isPending
-              ? t('features.resultsAnalysis.studio.adding')
-              : t('features.resultsAnalysis.studio.saveAndAdd', {
-                  identifier: experiment.identifier,
-                })}
-          </Button>
+          />
         ) : null}
         <Button
           type="button"

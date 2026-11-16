@@ -5,7 +5,7 @@ import type {
   RegressionFitRow,
 } from '#/lib/analysis-definition'
 
-import { headlinesOf } from './analysis-block-result'
+import { headlinesOf } from './analysis-headlines'
 
 const FIT: RegressionFitRow = {
   group: 'all',

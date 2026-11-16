@@ -29,6 +29,7 @@ import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import { ResultsWorkspace } from '#/components/experiments/results-workspace'
 import {
   NotebookAnalysesSection,
+  NotebookAnalysesStrip,
   useNotebookAnalysisBlocks,
 } from '#/components/experiments/notebook-analyses-section'
 import { t } from '#/copy'
@@ -126,9 +127,6 @@ function ResultsTab() {
       ),
   })
 
-  const notebookAnalyses = useNotebookAnalysisBlocks(expId)
-  const hasNotebookAnalyses = (notebookAnalyses.data?.length ?? 0) > 0
-
   const [open, setOpen] = useState(false)
 
   const datasetColumns = datasetColumnsFor(expId)
@@ -164,11 +162,7 @@ function ResultsTab() {
   ) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {hasNotebookAnalyses ? (
-          <div className="max-h-[55%] shrink-0 overflow-auto px-4 pt-[22px] md:px-8">
-            <NotebookAnalysesSection expId={expId} />
-          </div>
-        ) : null}
+        <NotebookAnalysesStrip expId={expId} />
         <ResultsWorkspace
           expId={expId}
           views={analyses.data}
@@ -192,9 +186,7 @@ function ResultsTab() {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
       <NotebookAnalysesSection expId={expId} />
-      {hasNotebookAnalyses && !analyses.data?.length ? null : (
-        <AnalysesSection expId={expId} analyses={analyses.data ?? []} />
-      )}
+      <AnalysesSection expId={expId} analyses={analyses.data ?? []} />
       <DatasetsSection
         expId={expId}
         datasets={datasets.data ?? []}
@@ -386,6 +378,12 @@ function AnalysesSection({
   expId: string
   analyses: AnalysisSummaryWire[]
 }) {
+  const notebook = useNotebookAnalysisBlocks(expId)
+
+  // The notebook's own analyses already fill this place; an empty list under
+  // them would read as if there were none.
+  if (analyses.length === 0 && (notebook.data?.length ?? 0) > 0) return null
+
   return (
     <Section title={t('projects.expResults.analyses')} count={analyses.length}>
       {analyses.length > 0 ? (

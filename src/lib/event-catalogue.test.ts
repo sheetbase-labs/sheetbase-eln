@@ -22,6 +22,7 @@ import { DATASET_EVENT_FIXTURES } from '../features/datasets/events.fixture'
 import { PLATE_RUN_EVENT_FIXTURES } from '../features/plate-runs/events.fixture'
 import { PIPELINE_SIMPLE_EVENT_FIXTURES } from '../features/pipeline-simple/events.fixture'
 import { PROTOCOL_IMPORT_EVENT_FIXTURES } from '../features/protocol-import/events.fixture'
+import { RESULTS_ANALYSIS_EVENT_FIXTURES } from '../features/results-analysis/events.fixture'
 
 /** A payload that satisfies the entry's `when` test, plus the default key. */
 function producerPayload(
@@ -1210,6 +1211,7 @@ describe('lab feature events', () => {
     ...PROTOCOL_IMPORT_EVENT_FIXTURES,
     ...AI_PREFERENCE_EVENT_FIXTURES,
     ...PLATE_RUN_EVENT_FIXTURES,
+    ...RESULTS_ANALYSIS_EVENT_FIXTURES,
   ])(
     '$name is delivered from $entityType/$operation',
     ({ name, entityType, operation, payload }) => {
@@ -1228,6 +1230,7 @@ describe('lab feature events', () => {
       ...PROTOCOL_IMPORT_EVENT_FIXTURES,
       ...AI_PREFERENCE_EVENT_FIXTURES,
       ...PLATE_RUN_EVENT_FIXTURES,
+      ...RESULTS_ANALYSIS_EVENT_FIXTURES,
     ]
       .map((event) => event.name)
       .sort()

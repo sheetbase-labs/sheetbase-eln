@@ -18,9 +18,18 @@ import { carriedOverSettings, receiptPresentation } from './import-receipt-data'
 
 type MappingSource = ReturnType<typeof receiptPresentation>['sources'][number]
 
-function MappingTable({ sources }: { sources: MappingSource[] }) {
-  const columns = useMemo<RegistryColumn<MappingSource>[]>(
-    () => [
+function MappingTable({
+  sources,
+  fields,
+}: {
+  sources: MappingSource[]
+  fields: ReadonlyArray<{ id: string; label: string }>
+}) {
+  const columns = useMemo<RegistryColumn<MappingSource>[]>(() => {
+    const nameOf = (fieldId: string) =>
+      fields.find((field) => field.id === fieldId)?.label ?? fieldId
+
+    return [
       {
         id: 'fileColumn',
         header: t('data.importReceipt.fileColumn'),
@@ -31,8 +40,8 @@ function MappingTable({ sources }: { sources: MappingSource[] }) {
       {
         id: 'datasetField',
         header: t('data.importReceipt.datasetField'),
-        accessorFn: (entry) => entry.fieldId,
-        cell: ({ row }) => row.original.fieldId,
+        accessorFn: (entry) => nameOf(entry.fieldId ?? ''),
+        cell: ({ row }) => nameOf(row.original.fieldId ?? ''),
       },
       {
         id: 'sourceUnit',
@@ -47,9 +56,8 @@ function MappingTable({ sources }: { sources: MappingSource[] }) {
         accessorFn: (entry) => entry.unit ?? '',
         cell: ({ row }) => row.original.unit ?? '—',
       },
-    ],
-    [],
-  )
+    ]
+  }, [fields])
 
   return (
     <RegistryGrid
@@ -70,10 +78,12 @@ function MappingTable({ sources }: { sources: MappingSource[] }) {
 export function ImportReceipt({
   importId,
   receipt,
+  fields,
   returnTo,
 }: {
   importId: string
   receipt: DatasetImportRecord
+  fields: ReadonlyArray<{ id: string; label: string }>
   returnTo?: string
 }) {
   const navigate = useNavigate()
@@ -200,7 +210,7 @@ export function ImportReceipt({
             count={sources.length}
           >
             <TableBox>
-              <MappingTable sources={sources} />
+              <MappingTable sources={sources} fields={fields} />
             </TableBox>
           </Section>
         ) : null}

@@ -50,7 +50,7 @@ afterEach(cleanup)
 async function renderReceipt(value: DatasetImportRecord) {
   const router = createRouter({
     routeTree: createRootRoute({
-      component: () => <ImportReceipt importId="file-11" receipt={value} />,
+      component: () => <ImportReceipt importId="file-11" receipt={value} fields={[]} />,
     }),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   })

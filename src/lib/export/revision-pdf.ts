@@ -11,6 +11,7 @@ import { z } from 'zod'
 
 import type { ClientPortalRecordDocument } from '#/lib/client-portal'
 import { renderClientPortalRecordPdf } from '#/lib/client-portal-pdf'
+import { renderRecordReportPdf } from './record-report-pdf'
 
 interface PackageSignature {
   id?: unknown
@@ -27,6 +28,8 @@ export interface RevisionPdfPackage {
     id: string
     structureVersion: number | string
     integrityDigest: string | null
+    reason?: string | null
+    createdAt?: string | null
   }
   record?: {
     identifier: string | null
@@ -36,6 +39,9 @@ export interface RevisionPdfPackage {
   } | null
   blockSnapshot: unknown
   signatures: unknown[]
+  /** Optional: what the full report draws beyond the portal document. */
+  sheetEvidence?: unknown
+  files?: unknown[]
 }
 
 const signatureText = z.string().catch('')
@@ -92,7 +98,63 @@ export function revisionPackageToDocument(
   }
 }
 
+const fileSummary = z.object({
+  fileObjectId: z.string(),
+  checksum: z.string().catch(''),
+  byteSize: z.union([z.string(), z.number()]).transform(String),
+})
+
+/** The full signed-record report: cover, signatures, notebook and appendix. */
 export async function renderRevisionPdf(
+  pkg: RevisionPdfPackage,
+  options: {
+    logo?: { bytes: Uint8Array; mediaType: string } | null
+    workspaceName?: string
+  } = {},
+): Promise<Uint8Array> {
+  const doc = revisionPackageToDocument(pkg)
+
+  return renderRecordReportPdf(
+    {
+      identifier: doc.identifier,
+      title: doc.title,
+      kind: doc.kind,
+      recordStatus: pkg.record?.status ?? null,
+      revisionId: pkg.revision.id,
+      reason: pkg.revision.reason ?? null,
+      capturedAt: pkg.revision.createdAt ?? null,
+      structureVersion: String(pkg.revision.structureVersion),
+      integrityDigest: pkg.revision.integrityDigest,
+      verificationCode: doc.verificationCode,
+      signatures: (doc.signatures ?? []).map((s) => ({
+        signerName: s.signerName,
+        signedAt: s.signedAt,
+        meaning: s.signatureMeaning,
+        authMethod: s.authMethod ?? '',
+      })),
+      blockSnapshot: pkg.blockSnapshot,
+      sheetEvidence: pkg.sheetEvidence ?? [],
+      files: (pkg.files ?? []).flatMap((entry) => {
+        const file = fileSummary.safeParse(entry)
+
+        return file.success
+          ? [
+              {
+                id: file.data.fileObjectId,
+                checksum: file.data.checksum,
+                byteSize: file.data.byteSize,
+              },
+            ]
+          : []
+      }),
+      workspaceName: options.workspaceName,
+    },
+    options,
+  )
+}
+
+/** The portal's plain approved-record PDF, kept for the client portal. */
+export function renderPortalRevisionPdf(
   pkg: RevisionPdfPackage,
   options: { logo?: { bytes: Uint8Array; mediaType: string } | null } = {},
 ): Promise<Uint8Array> {

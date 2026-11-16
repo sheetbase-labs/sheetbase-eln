@@ -15,6 +15,7 @@ enforce workspace RLS through PostgreSQL and write a provenance receipt into
 | `GET /api/export/sheet-instance/$id`   | json, csv, tsv, xlsx, parquet         | Sheet Instance                  |
 | `GET /api/export/record/$id`           | json                                  | Record / Notebook document      |
 | `GET /api/export/revision/$id/package` | zip                                   | Submitted revision evidence ZIP |
+| `GET /api/export/revision/$id/pdf`     | pdf                                   | Signed record report (PDF)      |
 | `GET /api/export/record/$id/eln`       | .eln                                  | One experiment as an archive    |
 | `GET /api/export/project/$id/eln`      | .eln                                  | All experiments in a project    |
 | `POST /api/import/eln?projectId=$id`   | .eln body                             | Import experiments as drafts    |
@@ -192,6 +193,31 @@ their stable option/target ids — labels are presentation, ids are identity.
   (200,000); larger datasets must use CSV/NDJSON.
 - Evidence ZIPs buffer one entry at a time; entries derive from already-frozen
   revision content.
+
+## Signed record report (PDF)
+
+`GET /api/export/revision/$id/pdf` renders the frozen revision as a document a
+person reads, from the same `api.revision_evidence_package` the ZIP uses, so it
+is the revision as it was signed and never the live record:
+
+1. A cover: the identifier, title, whether the revision is **Approved and
+   signed** or **Submitted, not signed**, the revision's capture time, a
+   signature table (who, with what meaning, when, by what method), the SHA-256
+   integrity digest and the short verification code.
+2. The notebook in order: headings and text, procedure steps with who finished
+   them and when, materials, key numbers, the conclusion, tables and frozen
+   sheets. Numbers read as the live sheet shows them (`7.3 × 10¹¹`, not
+   `730000000000`). Figures name the dataset version they are pinned to; the
+   figure itself is in the notebook and in the printed page.
+3. An appendix with the attached files and their checksums.
+
+Every page carries the identifier, the verification code and its page number.
+Times are in UTC. The notebook page's **Print notebook** prints the live page
+without the app around it (the top bar, rails and inspector are left out and the
+notebook runs across as many pages as it needs).
+
+The README in the evidence ZIP states the signed state (who signed, when, for
+what) and labels the record's status as the status **when exported**.
 
 ## Evidence package layout
 

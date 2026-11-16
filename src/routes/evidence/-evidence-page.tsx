@@ -165,26 +165,26 @@ function EvidenceHeader({
             disabled={exporting}
             onClick={() =>
               onExport(
-                `/api/export/revision/${revisionId}/pdf`,
-                `evidence-${revisionId}.pdf`,
+                `/api/export/revision/${revisionId}/package`,
+                `evidence-${revisionId}.zip`,
               )
             }
           >
-            {t('notebook.evidencePage.exportPdf')}
+            {t('notebook.evidencePage.exportEvidencePackage')}
           </Button>
           <Button
             variant="primary"
             disabled={exporting}
             onClick={() =>
               onExport(
-                `/api/export/revision/${revisionId}/package`,
-                `evidence-${revisionId}.zip`,
+                `/api/export/revision/${revisionId}/pdf`,
+                `evidence-${revisionId}.pdf`,
               )
             }
           >
             {exporting
               ? t('notebook.evidencePage.exporting')
-              : t('notebook.evidencePage.exportEvidencePackage')}
+              : t('notebook.evidencePage.exportPdf')}
           </Button>
         </>
       }

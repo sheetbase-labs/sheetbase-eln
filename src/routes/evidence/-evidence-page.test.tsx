@@ -315,9 +315,7 @@ describe('evidence page — package export (DATA-02)', () => {
     renderPage()
     await screen.findByRole('table', { name: 'Frozen revision content' })
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Export evidence package' }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: 'Export data (zip)' }))
 
     expect(await screen.findByText('Couldn’t export the evidence')).toBeTruthy()
     expect(
@@ -337,7 +335,9 @@ describe('evidence page — PDF export', () => {
   it('fetches the internal PDF and reports a refusal beside the button', async () => {
     renderPage()
     await screen.findByRole('table', { name: 'Frozen revision content' })
-    fireEvent.click(screen.getByRole('button', { name: 'Export PDF' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Download record (PDF)' }),
+    )
     await waitFor(() =>
       expect(fetchSeam).toHaveBeenCalledWith(
         '/api/export/revision/rev-0001/pdf',

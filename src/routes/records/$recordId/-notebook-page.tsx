@@ -4035,8 +4035,8 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
     template.data?.name ?? t('notebook.notebookPage.notebookTemplate')
 
   return (
-    <span className="inline-flex items-center gap-2 text-right text-xs">
-      <span>
+    <span className="inline-flex min-w-0 flex-col items-end gap-1 text-right text-xs">
+      <span className="max-w-full">
         {t('notebook.notebookPage.nameVersionVersion', {
           name,
           version: version.data.version,

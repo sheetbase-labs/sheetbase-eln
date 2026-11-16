@@ -1,6 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { validateBlock } from '#/lib/blocks'
 import { parseNotebookTemplateConfiguration } from '#/lib/notebook-template'
 import {
   buildParameterInputs,
@@ -1841,5 +1842,124 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     expect(narrativeAfter).toBeTruthy()
     expect(narrativeAfter.payload).toEqual(narrativeBefore.payload)
     expect(narrativeAfter.payload).toEqual(narrativePayload)
+  })
+})
+
+describe('templates written with the Template editor’s block shapes', () => {
+  it('makes blocks the notebook can draw, whatever the placement kept', async () => {
+    const owner = await actor(OWNER, WS)
+    const text = (value: string) => ({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: value }] },
+      ],
+    })
+
+    const configuration = {
+      formatVersion: 1,
+      parameters: [],
+      placements: [
+        {
+          id: '06500000-0000-4000-8000-000000000031',
+          kind: 'narrative',
+          order: 1,
+          blockType: 'rich_text',
+          payload: { title: 'Objective', doc: text('Compare loads.') },
+        },
+        {
+          id: '06500000-0000-4000-8000-000000000032',
+          kind: 'narrative',
+          order: 2,
+          blockType: 'materials',
+          payload: { title: 'Materials', modelKey: 'material', label: 'Lot' },
+        },
+        {
+          id: '06500000-0000-4000-8000-000000000033',
+          kind: 'narrative',
+          order: 3,
+          blockType: 'protocol_reference',
+          payload: { title: 'Method', protocol: 'PRT-021', version: 3 },
+        },
+        {
+          id: '06500000-0000-4000-8000-000000000034',
+          kind: 'narrative',
+          order: 4,
+          blockType: 'chart',
+          payload: { title: 'Figure 1', source: 'Runs' },
+        },
+        {
+          id: '06500000-0000-4000-8000-000000000035',
+          kind: 'narrative',
+          order: 5,
+          blockType: 'metric',
+          payload: { title: 'Result summary', fields: ['Best load', 'Yield'] },
+        },
+        {
+          id: '06500000-0000-4000-8000-000000000036',
+          kind: 'narrative',
+          order: 6,
+          blockType: 'rich_text',
+          payload: { doc: text('Already right.') },
+        },
+      ],
+    }
+
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,'editor_shapes','Editor shapes',null,$2::jsonb) result`,
+        [WS, JSON.stringify(configuration)],
+      )
+    ).rows[0].result
+    const version = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+
+    const made = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'From editor shapes','[]'::jsonb,'idem-editor-shapes') result`,
+        [version.id, PROJECT],
+      )
+    ).rows[0].result
+
+    const blocks = (
+      await owner.query(
+        `select type, payload, payload_schema_version from api.blocks where record_id=$1 order by "order"`,
+        [made.record.id],
+      )
+    ).rows as Array<{
+      type: string
+      payload: Record<string, unknown>
+      payload_schema_version: number
+    }>
+
+    expect(blocks.map((block) => block.type)).toEqual([
+      'rich_text',
+      'materials',
+      'protocol_reference',
+      'chart',
+      'rich_text',
+      'rich_text',
+    ])
+
+    // Every block passes the same check the notebook draws blocks with.
+    for (const block of blocks) {
+      expect(
+        validateBlock({
+          type: block.type,
+          payload: block.payload,
+          payloadSchemaVersion: block.payload_schema_version,
+        } as Parameters<typeof validateBlock>[0]).ok,
+        `${block.type} ${JSON.stringify(block.payload)}`,
+      ).toBe(true)
+    }
+
+    // The title became the heading, the field names became a list.
+    expect(JSON.stringify(blocks[0].payload)).toContain('"Objective"')
+    expect(blocks[1].payload).toEqual({ items: [] })
+    expect(JSON.stringify(blocks[4].payload)).toContain('Best load')
+    expect(blocks[5].payload).toEqual({ doc: text('Already right.') })
   })
 })

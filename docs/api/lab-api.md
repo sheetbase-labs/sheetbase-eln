@@ -1294,7 +1294,7 @@ Scope: `lab:write`.
 
 ### `create_plate_worklist`
 
-Create a liquid handler worklist. Stores the transfers for a robot: `p_format` is `csv`, `echo`, `tecan_gwl`, `hamilton` or `opentrons`; `p_mode` is `stamp` or `cherry_pick`. `p_transfers` is a JSON array of `{ sourceWell, destWell, volumeUl, label, sampleId }`. Returns the worklist. Sends `plate_worklist.created`.
+Create a liquid handler worklist. Stores the transfers for a robot: `p_format` is `csv`, `echo`, `tecan_gwl`, `hamilton` or `opentrons`; `p_mode` is `stamp` or `cherry_pick`. `p_transfers` is a JSON array of `{ sourceWell, destWell, volumeUl, label, sampleId }`. To pick the called hits of a plate run into a new plate, send `cherry_pick`, one transfer per hit from its well on the run into the next free well of the new plate, `p_plate_run_id`, and `p_options` `{ "source": "hits" }`; the worklist then shows as made from hits. Send `p_record_id` to show it on that experiment. Returns the worklist. Sends `plate_worklist.created`.
 
 Scope: `lab:write`.
 

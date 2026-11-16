@@ -50,7 +50,13 @@ export const proposeWorklistCreateSchema = z.strictObject({
     .enum(WORKLIST_MODES)
     .optional()
     .describe(
-      'stamp copies each source well to the same well of the new plate. cherry_pick takes each sample from its own source well. stamp when they did not say.',
+      'stamp copies each source well to the same well of the plate. cherry_pick takes each sample from its own source well. Leave it out to pick the called hits when the run has any, else stamp.',
+    ),
+  hits: z
+    .boolean()
+    .optional()
+    .describe(
+      'true picks only the called hits into a new plate, one transfer each. Default true when the run has called hits and no mode was named; false for every well.',
     ),
   sourcePlate: z
     .string()
@@ -75,6 +81,8 @@ export type PlatesAction =
       runId: string
       format: WorklistFormat
       mode: WorklistMode
+      /** Pick only the called hits into a new plate. */
+      fromHits: boolean
       sourcePlate: string
       volumeUl: number | null
     }

@@ -14,8 +14,7 @@ import type { ProviderToolDef } from './ai-providers/types'
 import { normaliseAssayConfig } from './plate-assay'
 import type { PlateAnalysis, AssayWell } from './plate-assay'
 import { plateRunReference } from './plate-runs'
-import { buildWorklist } from './plate-worklist'
-import type { BuildOptions } from './plate-worklist'
+import { buildHitWorklist, buildWorklist, hitsToPick } from './plate-worklist'
 import type { PlateFormat } from './plate-map'
 
 /**
@@ -168,18 +167,39 @@ export async function buildPlatesProposal(
       const run = found.run
       const format = input.format ?? 'csv'
       const mode = input.mode ?? 'stamp'
-      const sourcePlate = input.sourcePlate?.trim() || 'SRC1'
+      const hitList = run.results ? hitsToPick(run.results) : []
 
-      const options: BuildOptions = {
-        mode,
-        sourcePlate,
-        sourceFormat: run.format,
-        destFormat: run.format,
-        destPlate: plateRunReference(run.number),
-      }
+      // Picking the called hits is what most people want after an assay, so it
+      // is the default when the plate has hits and no other kind was asked for.
+      const fromHits =
+        (input.hits ?? input.mode === undefined) && hitList.length > 0
 
-      if (input.volumeUl) options.defaultVolumeUl = input.volumeUl
-      const plan = buildWorklist(destinationsOf(run.wells), options)
+      if (input.hits === true && hitList.length === 0)
+        return fail(
+          `${plateRunReference(run.number)} has no called hits. Analyse the plate first, or ask for every well.`,
+        )
+
+      const reference = plateRunReference(run.number)
+
+      const sourcePlate =
+        input.sourcePlate?.trim() || (fromHits ? reference : 'SRC1')
+
+      const plan = fromHits
+        ? buildHitWorklist(hitList, {
+            sourcePlate,
+            sourceFormat: run.format,
+            destPlate: `${reference} hits`,
+            destFormat: run.format,
+            volumeUl: input.volumeUl ?? 10,
+          })
+        : buildWorklist(destinationsOf(run.wells), {
+            mode,
+            sourcePlate,
+            sourceFormat: run.format,
+            destFormat: run.format,
+            destPlate: reference,
+            defaultVolumeUl: input.volumeUl,
+          })
 
       if (plan.transfers.length === 0)
         return fail(
@@ -196,7 +216,9 @@ export async function buildPlatesProposal(
         {
           label: 'Transfers',
           before: null,
-          after: `${plan.transfers.length} from ${plan.sources.length} source wells`,
+          after: fromHits
+            ? `${plan.transfers.length} hits into a new plate, ${input.volumeUl ?? 10} µL each`
+            : `${plan.transfers.length} from ${plan.sources.length} source wells`,
         },
       ]
 
@@ -221,6 +243,7 @@ export async function buildPlatesProposal(
             runId: run.id,
             format,
             mode,
+            fromHits,
             sourcePlate,
             volumeUl: input.volumeUl ?? null,
           },

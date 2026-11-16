@@ -105,7 +105,7 @@ async function copyMethodsText(result: AnalysisResult): Promise<void> {
  */
 function AnalysisMethodSummary({ result }: { result: AnalysisResult }) {
   return (
-    <div className="rounded-md border bg-surface-muted/20 p-2">
+    <div className="border-t pt-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium">{result.method.label}</span>
         <Badge variant="kind">
@@ -147,7 +147,7 @@ function AssumptionCheckList({ checks }: { checks: AssumptionCheck[] }) {
     )
 
   return (
-    <div className="rounded-md border p-2">
+    <div className="border-t pt-3">
       <p className="text-xs font-medium text-fg-muted">
         {t('data.analysisPanel.assumptionChecks')}
       </p>
@@ -344,7 +344,7 @@ function RegressionResultTables({ result }: { result: RegressionResult }) {
         ]}
       />
       {result.rows.map((row) => (
-        <div key={row.group} className="space-y-1 rounded-md border p-2">
+        <div key={row.group} className="space-y-1 border-t pt-3">
           <p className="text-xs font-medium text-fg-muted">
             {row.group === 'all'
               ? t('data.analysisPanel.terms')
@@ -463,7 +463,7 @@ function CurveFitCard({
   const unknowns = row.readBack.filter((r) => r.role === 'unknown').length
 
   return (
-    <div className="space-y-2 rounded-md border p-2">
+    <div className="space-y-2 border-t pt-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p className="text-sm font-medium">
           {grouped

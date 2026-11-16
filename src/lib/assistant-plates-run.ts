@@ -4,8 +4,8 @@ import {
   createPlateWorklist,
   fetchPlateRun,
 } from './plate-runs'
-import { buildWorklist } from './plate-worklist'
-import type { BuildOptions, DestinationWell } from './plate-worklist'
+import { buildHitWorklist, buildWorklist, hitsToPick } from './plate-worklist'
+import type { DestinationWell } from './plate-worklist'
 import type { PlatesAction, PlatesActionResult } from './assistant-plates'
 
 /** The wells a worklist fills: everything but blanks and empty wells. */
@@ -47,31 +47,49 @@ export async function runPlatesAction(
 
       return { openHref: `/plates?run=${run.id}` }
     case 'worklist.create': {
-      const options: BuildOptions = {
-        mode: action.mode,
-        sourcePlate: action.sourcePlate,
-        sourceFormat: run.format,
-        destFormat: run.format,
-        destPlate: `PLR-${String(run.number).padStart(4, '0')}`,
-      }
+      const reference = `PLR-${String(run.number).padStart(4, '0')}`
 
-      if (action.volumeUl) options.defaultVolumeUl = action.volumeUl
+      const hits = action.fromHits && run.results ? hitsToPick(run.results) : []
 
-      const plan = buildWorklist(destinationsOf(run.wells), options)
+      const plan = action.fromHits
+        ? buildHitWorklist(hits, {
+            sourcePlate: reference,
+            sourceFormat: run.format,
+            destPlate: `${reference} hits`,
+            destFormat: run.format,
+            volumeUl: action.volumeUl ?? 10,
+          })
+        : buildWorklist(destinationsOf(run.wells), {
+            mode: action.mode,
+            sourcePlate: action.sourcePlate,
+            sourceFormat: run.format,
+            destFormat: run.format,
+            destPlate: reference,
+            defaultVolumeUl: action.volumeUl ?? undefined,
+          })
 
       if (plan.transfers.length === 0)
         throw new Error('No transfers to make: give the wells a volume.')
       await createPlateWorklist(client, {
-        name: `PLR-${String(run.number).padStart(4, '0')} ${run.name}`,
+        name: action.fromHits
+          ? `${reference} hits`
+          : `${reference} ${run.name}`,
         format: action.format,
-        mode: action.mode,
-        sourcePlate: action.sourcePlate,
+        mode: action.fromHits ? 'cherry_pick' : action.mode,
+        sourcePlate: action.fromHits ? reference : action.sourcePlate,
         sourceFormat: run.format,
-        destPlate: `PLR-${String(run.number).padStart(4, '0')}`,
+        destPlate: action.fromHits ? `${reference} hits` : reference,
         destFormat: run.format,
         transfers: plan.transfers,
         runId: run.id,
         recordId: run.record_id,
+        options: action.fromHits
+          ? {
+              source: 'hits',
+              hits: hits.length,
+              defaultVolumeUl: action.volumeUl ?? 10,
+            }
+          : {},
       })
 
       return { openHref: '/plates' }

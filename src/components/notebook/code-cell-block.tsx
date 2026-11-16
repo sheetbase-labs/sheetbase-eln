@@ -101,6 +101,35 @@ function shortDigest(digest: string | null | undefined): string {
   return hex ? `${algorithm}:${hex.slice(0, 12)}…` : digest.slice(0, 20)
 }
 
+/** A plot a cell returned: an SVG or PNG as a data URL, drawn as a picture. */
+const FIGURE_DATA = /^data:image\/(?:svg\+xml|png);base64,[A-Za-z0-9+/=]+$/
+
+const figureSchema = z.string().regex(FIGURE_DATA)
+
+function isFigureData(value: unknown): value is string {
+  return figureSchema.safeParse(value).success
+}
+
+function figuresIn(rows: CodeCellOutput['rows']) {
+  return rows.flatMap((row, index) =>
+    Object.entries(row).flatMap(([column, value]) =>
+      isFigureData(value)
+        ? [
+            {
+              key: `${index}-${column}`,
+              column,
+              src: value,
+              title: z
+                .string()
+                .catch(t('automation.codeCell.figure'))
+                .parse(row['title']),
+            },
+          ]
+        : [],
+    ),
+  )
+}
+
 function cellText(
   value: z.infer<ReturnType<typeof z.json>> | undefined,
 ): string {
@@ -119,11 +148,21 @@ function CodeCellOutputView({
   output: CodeCellOutput
   stale: boolean
 }) {
-  const shown = codeCellOutputSchema.parse(output).rows.slice(0, PREVIEW_ROWS)
+  const allRows = codeCellOutputSchema.parse(output).rows
+  const figures = figuresIn(allRows)
+  const figureColumns = new Set(figures.map((figure) => figure.column))
+
+  const tableRows = allRows.filter(
+    (row) => !Object.values(row).some(isFigureData),
+  )
+
+  const shown = tableRows.slice(0, PREVIEW_ROWS)
+  const tableTotal = output.truncated ? output.rowCount : tableRows.length
   const entries = readOnlyEntries(shown, (row) => JSON.stringify(row))
 
-  const gridColumns: RegistryColumn<(typeof entries)[number]>[] =
-    output.columns.map((column) => ({
+  const gridColumns: RegistryColumn<(typeof entries)[number]>[] = output.columns
+    .filter((column) => !figureColumns.has(column))
+    .map((column) => ({
       id: column,
       header: column,
       accessorFn: ({ value: row }) => cellText(row[column]),
@@ -154,32 +193,52 @@ function CodeCellOutputView({
             message: output.errorMessage ?? '',
           })}
         </Notice>
-      ) : shown.length === 0 ? (
+      ) : shown.length === 0 && figures.length === 0 ? (
         <p className="m-0 text-label text-fg-muted">
           {t('automation.codeCell.noRows')}
         </p>
       ) : (
         <>
-          <TableBox
-            className="shrink-0"
-            style={{ height: gridHeight(entries.length, 320) }}
-          >
-            <RegistryGrid
-              label={t('automation.codeCell.outputLabel')}
-              rows={entries}
-              columns={gridColumns}
-              getRowId={(entry) => entry.key}
-              selectable={false}
-            />
-          </TableBox>
-          {output.rowCount > shown.length ? (
-            <p className="m-0 text-label text-fg-muted">
-              {t('automation.codeCell.firstRows', {
-                shown: shown.length,
-                count: output.rowCount,
-              })}
-            </p>
-          ) : null}
+          {figures.map((figure) => (
+            <figure
+              key={figure.key}
+              className="m-0 flex flex-col gap-1 self-start"
+            >
+              {/* Plots are drawn dark on light, so they sit on white in either theme. */}
+              <img
+                src={figure.src}
+                alt={figure.title}
+                className="max-h-96 max-w-full rounded-md border border-border bg-white p-2"
+              />
+              <figcaption className="text-label text-fg-muted">
+                {figure.title}
+              </figcaption>
+            </figure>
+          ))}
+          {shown.length === 0 ? null : (
+            <>
+              <TableBox
+                className="shrink-0"
+                style={{ height: gridHeight(entries.length, 320) }}
+              >
+                <RegistryGrid
+                  label={t('automation.codeCell.outputLabel')}
+                  rows={entries}
+                  columns={gridColumns}
+                  getRowId={(entry) => entry.key}
+                  selectable={false}
+                />
+              </TableBox>
+              {tableTotal > shown.length ? (
+                <p className="m-0 text-label text-fg-muted">
+                  {t('automation.codeCell.firstRows', {
+                    shown: shown.length,
+                    count: tableTotal,
+                  })}
+                </p>
+              ) : null}
+            </>
+          )}
         </>
       )}
       {output.logs && output.logs.length > 0 ? (

@@ -268,6 +268,7 @@ export const automation = {
     firstRows:
       'First {shown} of {count} rows. The full result is kept with the run.',
     noRows: 'The code returned no rows.',
+    figure: 'Figure',
     outputLabel: 'Output of the last run',
     logs: 'Printed',
     provenance: {

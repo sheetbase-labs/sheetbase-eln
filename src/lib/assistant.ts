@@ -27,6 +27,11 @@ import type {
   ProviderToolDef,
 } from './ai-providers/types'
 import { ASSISTANT_MAX_QUESTION_CHARS } from './assistant-chat'
+import {
+  ATTACHMENT_MAX_FILES,
+  attachmentsBlock,
+  chatAttachmentSchema,
+} from './assistant-attachments'
 import { fromWireToolName } from './agent-tool-catalogue'
 import { AnswerCleaner, EMPTY_ANSWER_MESSAGE } from './assistant-output'
 import { aiReadiness, aiReadinessMessage } from './ai-settings'
@@ -109,6 +114,11 @@ export const assistantChatSchema = z
       .default([]),
     /** The person's own clock, so "tomorrow at 10" means their 10. */
     timeZone: z.string().min(1).max(64).optional(),
+    /** Files dropped into the chat, as read by `/api/assistant/attachments`. */
+    attachments: z
+      .array(chatAttachmentSchema)
+      .max(ATTACHMENT_MAX_FILES)
+      .default([]),
     /** The page the person is on, by name: "Schedule", "Requests". */
     page: z
       .strictObject({
@@ -475,7 +485,9 @@ export function pageLine(page: AssistantChatInput['page']): string | null {
  * are shared across the whole turn so tool use cannot multiply the budget.
  */
 export async function streamAssistant(
-  input: AssistantChatInput,
+  input: Omit<AssistantChatInput, 'attachments'> & {
+    attachments?: AssistantChatInput['attachments']
+  },
   deps: AssistantDeps,
   signal?: AbortSignal,
 ): Promise<AssistantStreamStart> {
@@ -494,11 +506,24 @@ export async function streamAssistant(
       ? toolkit.instructions
       : 'You have no tools and cannot look anything up beyond the supplied context.',
     pageLine(input.page),
+    attachmentsBlock(input.attachments ?? []),
   ]
     .filter(Boolean)
     .join('\n\n')
 
   const messages: ProviderMessage[] = trimHistory(input.messages)
+
+  // Pictures ride only with the question they were attached to.
+  const pictures = (input.attachments ?? []).flatMap((file) =>
+    file.image ? [file.image] : [],
+  )
+
+  const lastTurn = messages.at(-1)
+
+  if (pictures.length > 0 && lastTurn?.role === 'user') {
+    messages[messages.length - 1] = { ...lastTurn, images: pictures }
+  }
+
   const spent = { tokens: 0, cost: 0, latencyMs: 0 }
 
   function step(withTools: boolean) {

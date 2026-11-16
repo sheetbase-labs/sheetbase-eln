@@ -13,6 +13,7 @@ import {
   proposeBookingMoveSchema,
 } from './assistant-booking'
 import type { AssistantProposal } from './assistant-proposals'
+import type { ChatAttachment } from './assistant-attachments'
 import { describeMinutes } from './booking-rules'
 import type { CalendarBookingWire } from './calendar'
 import type { DataClient } from './data-client'
@@ -502,6 +503,8 @@ export interface LabToolContext {
   userId: string
   timeZone: string
   now?: Date
+  /** Files the person dropped into this chat (empty when none). */
+  attachments?: ChatAttachment[]
 }
 
 export function invalid(error: z.ZodError): string {

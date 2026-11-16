@@ -35,6 +35,12 @@ import {
   ConversationScrollButton,
 } from './chat/conversation'
 import { PromptBox } from './chat/prompt-box'
+import {
+  filesForRequest,
+  markChatFilesSent,
+  useChatFiles,
+} from './chat/attachments'
+import { attachmentRef } from '#/lib/assistant-attachments'
 
 /**
  * The Agent page: the assistant as a page of its own. A list of the person's
@@ -68,14 +74,21 @@ function chatFor(
       transport: new DefaultChatTransport<AssistantUIMessage>({
         api: ASSISTANT_CHAT_PATH,
         credentials: 'same-origin',
-        prepareSendMessagesRequest: ({ messages: all }) => ({
-          body: {
-            workspaceId,
-            objectRefs: [],
-            messages: toChatTurns(all),
-            timeZone: viewerTimeZone(),
-          },
-        }),
+        prepareSendMessagesRequest: ({ messages: all }) => {
+          const attachments = filesForRequest(key)
+
+          markChatFilesSent(key)
+
+          return {
+            body: {
+              workspaceId,
+              objectRefs: [],
+              messages: toChatTurns(all),
+              timeZone: viewerTimeZone(),
+              attachments,
+            },
+          }
+        },
       }),
     })
     chats.set(key, chat)
@@ -322,6 +335,13 @@ function ChatBody({
     useChat<AssistantUIMessage>({ chat })
 
   const [draft, setDraft] = useState('')
+  const filesKey = `${workspaceId}:${id}`
+  const attached = useChatFiles(filesKey, workspaceId)
+
+  const unsentFiles = attached.files.filter((file) =>
+    attached.unsent.includes(file.id),
+  )
+
   const busy = status === 'submitted' || status === 'streaming'
   const waiting = isWaitingForAnswer(status, messages.at(-1))
 
@@ -367,14 +387,25 @@ function ChatBody({
 
   const send = useCallback(
     (text: string) => {
-      const question = text.trim()
+      const question =
+        text.trim() ||
+        (unsentFiles.length > 0
+          ? t('features.labFiles.attach.defaultQuestion')
+          : '')
 
-      if (!question || busy) return
+      if (!question || busy || attached.reading.length > 0) return
       clearError()
       setDraft('')
-      void sendMessage({ text: question })
+
+      void sendMessage({
+        text: question,
+        metadata:
+          unsentFiles.length > 0
+            ? { attachments: unsentFiles.map(attachmentRef) }
+            : undefined,
+      })
     },
-    [busy, clearError, sendMessage],
+    [busy, clearError, sendMessage, unsentFiles, attached.reading.length],
   )
 
   return (
@@ -428,6 +459,13 @@ function ChatBody({
           onStop={stop}
           busy={busy}
           disabled={false}
+          files={{
+            waiting: unsentFiles,
+            reading: attached.reading,
+            error: attached.error,
+            onAdd: attached.add,
+            onRemove: attached.remove,
+          }}
           placeholder={
             messages.length === 0
               ? t('features.assistantConversations.page.placeholder')

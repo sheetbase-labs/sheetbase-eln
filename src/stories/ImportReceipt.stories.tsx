@@ -61,7 +61,7 @@ const meta = {
       },
     },
   },
-  args: { importId: 'file-1', receipt },
+  args: { importId: 'file-1', receipt, fields: [] },
 } satisfies Meta<typeof ImportReceipt>
 
 export default meta

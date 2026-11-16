@@ -1602,7 +1602,7 @@ function ImportMapCheckContent({
 }) {
   const model = useImportReview(importId, search)
   const actions = useImportActions(importId, search, onSearch, model)
-  const { receipt, file, step, parsed } = model
+  const { receipt, file, step, parsed, fields } = model
 
   if (receipt && renderReceipt) return renderReceipt(receipt)
 
@@ -1611,6 +1611,7 @@ function ImportMapCheckContent({
       <ImportReceipt
         importId={importId}
         receipt={receipt}
+        fields={fields}
         returnTo={search.returnTo}
       />
     )

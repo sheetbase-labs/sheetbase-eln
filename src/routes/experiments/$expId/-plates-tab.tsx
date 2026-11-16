@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { NewRunDialog } from '#/components/plates/new-run-dialog'
+import { WorklistBuilderDialog } from '#/components/plates/worklist-dialogs'
 import { PlateRunSummary } from '#/components/plates/plate-run-summary'
 import type { MapView } from '#/components/plates/plates-shared'
 import { Button } from '#/components/ui/button'
@@ -45,6 +46,7 @@ function PlateRunCard({
 }) {
   const queryClient = useQueryClient()
   const [view, setView] = useState<MapView>('hits')
+  const [worklist, setWorklist] = useState(false)
   const inNotebook = useInNotebook(expId, run.id)
 
   const add = useMutation({
@@ -95,7 +97,19 @@ function PlateRunCard({
             </Button>
           </>
         ) : null}
+        {canWrite && run.status !== 'draft' ? (
+          <Button size="sm" onClick={() => setWorklist(true)}>
+            {t('features.plateRuns.tab.makeWorklist')}
+          </Button>
+        ) : null}
       </div>
+      {worklist ? (
+        <WorklistBuilderDialog
+          run={run}
+          open={worklist}
+          onOpenChange={setWorklist}
+        />
+      ) : null}
     </section>
   )
 }

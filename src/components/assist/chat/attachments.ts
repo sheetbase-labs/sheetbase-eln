@@ -108,6 +108,18 @@ const answerSchema = z.object({
   attachment: z.unknown().optional(),
 })
 
+/** The line the upload route gave for a refusal, or a plain one. */
+async function failureMessage(response: Response): Promise<string> {
+  const failure = answerSchema.safeParse(
+    await response.json().catch(() => null),
+  )
+
+  return (
+    (failure.success ? failure.data.message : undefined) ??
+    t('features.labFiles.attach.unreadable')
+  )
+}
+
 async function readOne(
   workspaceId: string,
   file: File,
@@ -123,16 +135,7 @@ async function readOne(
     credentials: 'same-origin',
   })
 
-  if (!response.ok) {
-    const failure = answerSchema.safeParse(
-      await response.json().catch(() => null),
-    )
-
-    throw new Error(
-      (failure.success ? failure.data.message : undefined) ??
-        t('features.labFiles.attach.unreadable'),
-    )
-  }
+  if (!response.ok) throw new Error(await failureMessage(response))
 
   const answer = answerSchema.safeParse(await response.json().catch(() => null))
 

@@ -176,21 +176,11 @@ export function importViewState({
   const showReview =
     step === 'check' && parsed && datasetAvailable && mappedCount > 0
 
-  const showParserChoice =
-    step === 'map' &&
-    parsed &&
-    worksheetReady &&
-    Boolean(datasetId) &&
-    !datasetUnavailable &&
-    !hasParser &&
-    !manual
-
   return {
     datasetPending,
     datasetUnavailable,
     showMapping,
     showReview,
-    showParserChoice,
   }
 }
 

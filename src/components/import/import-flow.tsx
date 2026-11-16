@@ -1176,7 +1176,7 @@ function useImportMapping(
   search: ImportSearch,
 ) {
   const { file, dataset, fields, headers, parserOptions } = context
-  const [manual, setManual] = useState(search.parser === 'manual')
+  const [chosenManual, setManual] = useState(search.parser === 'manual')
   const [mappingValues, setMappingValues] = useState<Record<string, string>>({})
   const [sourceUnits, setSourceUnits] = useState<Record<string, string>>({})
   const [mappingReady, setMappingReady] = useState(false)
@@ -1194,11 +1194,18 @@ function useImportMapping(
   const parserKey =
     search.parser ?? file.data?.parser?.key ?? suggestedParser?.key ?? ''
 
-  const activeParser = manual
-    ? null
-    : (parserOptions.find((option) => option.key === parserKey) ??
-      file.data?.parser ??
-      null)
+  const recognisedParser =
+    parserOptions.find((option) => option.key === parserKey) ??
+    file.data?.parser ??
+    null
+
+  // No parser recognised the file: map its columns by hand. That is the normal
+  // way into a plain CSV or XLSX, so it is not an error and asks no one to
+  // choose; the Parser select above the map still offers a saved reader.
+  const manual =
+    chosenManual || (Boolean(file.data?.parsed) && !recognisedParser)
+
+  const activeParser = manual ? null : recognisedParser
 
   // Initialise once when both reads arrive. Later search writes must not reset
   // the person's edits; the outer file/worksheet/target key owns their lifetime.
@@ -1759,7 +1766,6 @@ function ImportMappingActions({
 function ImportMapActions({ model, actions }: ImportStepProps) {
   const {
     showMapping,
-    showParserChoice,
     mappedCount,
     mappingReady,
     worksheetReady,
@@ -1790,7 +1796,7 @@ function ImportMapActions({ model, actions }: ImportStepProps) {
               })}
         </Button>
       ) : null}
-      {!showMapping && !showParserChoice ? (
+      {!showMapping ? (
         <Button
           variant="primary"
           disabled={
@@ -1993,15 +1999,7 @@ function ImportSourceStatus({ model, actions, search }: ImportStepProps) {
 }
 
 function ImportParserRecovery({ model, actions, search }: ImportStepProps) {
-  const {
-    file,
-    datasetId,
-    parsed,
-    datasetPending,
-    showMapping,
-    showParserChoice,
-    setManual,
-  } = model
+  const { file, datasetId, parsed, datasetPending, showMapping } = model
 
   const { writeSearch, askAdmin } = actions
 
@@ -2049,44 +2047,18 @@ function ImportParserRecovery({ model, actions, search }: ImportStepProps) {
           {t('data.importFlow.readingTargetDataset')}
         </p>
       ) : null}
-
-      {file.data && showParserChoice ? (
-        <ParserChoice
-          file={{
-            name: file.data.filename,
-            size: formatFileSize(file.data.byteSize),
-          }}
-          message={
-            file.data.recognitionMessage ??
-            t('data.importFlow.fileDoesMatchRegistered')
-          }
-          drafts={file.data.draftParsers ?? []}
-          onManual={() => {
-            setManual(true)
-            writeSearch({ ...search, parser: 'manual' })
-          }}
-          onDraft={(key) => writeSearch({ ...search, parser: key })}
-          onAskAdmin={() => void askAdmin()}
-        />
-      ) : null}
     </>
   )
 }
 
 function ImportWorksheetControls({ model, actions, search }: ImportStepProps) {
-  const {
-    file,
-    showParserChoice,
-    worksheetReady,
-    requiredUnmapped,
-    unitErrors,
-  } = model
+  const { file, worksheetReady, requiredUnmapped, unitErrors } = model
 
   const { writeSearch, error } = actions
 
   return (
     <>
-      {file.data?.sheet && !showParserChoice ? (
+      {file.data?.sheet ? (
         <div className="mb-4 grid max-w-[420px] gap-1 text-label text-fg-muted">
           <label htmlFor="import-worksheet">
             {t('data.importFlow.worksheet')}
@@ -2207,6 +2179,11 @@ function ImportMappingReview({ model, actions, search }: ImportStepProps) {
                   })}
                 </span>
               ) : null}
+              {!activeParser && !suggestedParser ? (
+                <span className="text-label">
+                  {t('data.importFlow.noSavedReader')}
+                </span>
+              ) : null}
             </div>
             <MapTable
               headers={headers}
@@ -2275,103 +2252,6 @@ function ImportMappingReview({ model, actions, search }: ImportStepProps) {
         />
       ) : null}
     </>
-  )
-}
-
-/**
- * A file no approved parser recognises (the Import failed board): what was
- * stored, why it was not read, and the ways forward. Nothing is imported and
- * the file is kept.
- */
-function ParserChoice({
-  file,
-  message,
-  drafts,
-  onManual,
-  onDraft,
-  onAskAdmin,
-}: {
-  file: { name: string; size: string }
-  message: string
-  drafts: ImportParserSummary[]
-  onManual: () => void
-  onDraft: (key: string) => void
-  onAskAdmin: () => void
-}) {
-  const [choice, setChoice] = useState('manual')
-
-  const extension = file.name.includes('.')
-    ? file.name.slice(file.name.lastIndexOf('.') + 1).toUpperCase()
-    : 'FILE'
-
-  const options = [
-    { value: 'manual', label: t('data.importFlow.mapColumnsHandFile') },
-    ...drafts.map((draft) => ({
-      value: `draft:${draft.key}`,
-      label: t('data.importFlow.tryParserDraft', { label: draft.label }),
-    })),
-    { value: 'admin', label: t('data.importFlow.askAdminUpdateParser2') },
-  ]
-
-  return (
-    <div className="grid gap-4">
-      <div className="flex items-center gap-3 rounded-md border px-3 py-2.5">
-        <span className="rounded-sm bg-surface-muted px-1.5 py-0.5 font-mono text-label text-fg-muted">
-          {extension}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-body font-medium">{file.name}</div>
-          <div className="text-label text-fg-muted">
-            {t('data.importFlow.storedSize', { size: file.size })}
-          </div>
-        </div>
-        <Button size="sm" nativeButton={false} render={<Link to="/import" />}>
-          {t('data.importFlow.replaceFile')}
-        </Button>
-      </div>
-      <Banner tone="bad" title={t('data.importFlow.fileDoesnTMatch')}>
-        {message}
-        <p className="m-0 mt-1 text-label text-fg-muted">
-          {t('data.importFlow.nothingImportedFileKept')}
-        </p>
-      </Banner>
-      <fieldset className="m-0 grid gap-1.5 border-0 p-0">
-        <legend className="mb-1 p-0 text-body">
-          {t('data.importFlow.howDoWantContinue')}
-        </legend>
-        {options.map((option) => (
-          <label
-            key={option.value}
-            className="flex items-center gap-2 text-body"
-          >
-            <input
-              type="radio"
-              name="parser-choice"
-              value={option.value}
-              checked={choice === option.value}
-              onChange={() => setChoice(option.value)}
-            />
-            {option.label}
-          </label>
-        ))}
-      </fieldset>
-      <div>
-        <Button
-          variant="primary"
-          onClick={() => {
-            if (choice === 'manual') onManual()
-            else if (choice === 'admin') onAskAdmin()
-            else onDraft(choice.replace(/^draft:/, ''))
-          }}
-        >
-          {choice === 'admin'
-            ? t('data.importFlow.askAdmin')
-            : choice === 'manual'
-              ? t('data.importFlow.mapColumns')
-              : t('data.importFlow.tryParser')}
-        </Button>
-      </div>
-    </div>
   )
 }
 

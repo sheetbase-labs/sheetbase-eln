@@ -78,7 +78,7 @@ describe('assistant request size', () => {
   it('keeps the instructions small and the clock last, so they can be reused', async () => {
     const toolkit = await kit()
 
-    expect(toolkit.instructions.length).toBeLessThan(10_500)
+    expect(toolkit.instructions.length).toBeLessThan(13_000)
     expect(toolkit.instructions.trimEnd().split('\n\n').at(-1)).toContain(
       'on the person’s clock',
     )

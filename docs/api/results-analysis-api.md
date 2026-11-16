@@ -53,7 +53,7 @@ It answers `{ results, figures, summary }`: the table rows (`kind` is `result`,
 `sheetbase.analysis.add_to_notebook` takes the experiment, a dataset (and
 optionally a snapshot label), the same settings, and the draft summary the
 assistant wrote from the run's numbers. The person sees a card with the code's
-settings and the summary text. Pressing the button, as them:
+settings and the summary text. A dataset with no snapshot gets one first (labelled "Analysis" and the date, made as the person), because a run is recorded against exact rows. Pressing the button, as them:
 
 1. runs the analysis as a notebook code cell (recorded with the code, the data's
    digests and the runtime, so it can be reproduced);

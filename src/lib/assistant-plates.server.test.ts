@@ -28,7 +28,10 @@ const RUN = {
   ],
 }
 
-function context(rows: readonly unknown[]): LabToolContext {
+function context(
+  rows: readonly unknown[],
+  others: Record<string, readonly unknown[]> = {},
+): LabToolContext {
   const seen: string[] = []
 
   const client: DataClient = {
@@ -36,7 +39,9 @@ function context(rows: readonly unknown[]): LabToolContext {
       seen.push(`${resource}${query}`)
 
       // SAFETY: the plate lookup reads the plate-run rows this suite's fixture supplies, decoded by the tool itself.
-      return (resource === 'plate_runs' ? [...rows] : []) as T[]
+      return (
+        resource === 'plate_runs' ? [...rows] : [...(others[resource] ?? [])]
+      ) as T[]
     },
     count: async () => 0,
     rpc: async <T>(): Promise<T> => {
@@ -131,6 +136,68 @@ describe('plates assistant cards', () => {
 
     // Blank wells are left out: three wells get a transfer.
     expect(transfers?.after).toMatch(/^3 from/)
+  })
+
+  it('takes the format and volume limits from the robot it is for', async () => {
+    const hitRun = {
+      ...RUN,
+      results: null,
+      wells: [
+        {
+          wellCode: 'A3',
+          role: 'sample',
+          sampleLabel: 'SMP-0001',
+          volumeUl: 0.2,
+        },
+        {
+          wellCode: 'A5',
+          role: 'sample',
+          sampleLabel: 'SMP-0002',
+          volumeUl: 5,
+        },
+      ],
+    }
+
+    const others = {
+      instruments: [
+        { id: 'ins-1', name: 'OT-2', display_id: 'INS-0003', location: null },
+      ],
+      instrument_robot_settings: [
+        {
+          worklist_format: 'opentrons',
+          min_transfer_ul: 1,
+          max_transfer_ul: 300,
+        },
+      ],
+    }
+
+    const built = await buildPlatesProposal(
+      'sheetbase.worklist.create',
+      { title: 'Worklist', summary: 's', run: 'PLR-0007', robot: 'OT-2' },
+      context([hitRun], others),
+    )
+
+    expect(built.ok && built.proposal.action).toMatchObject({
+      kind: 'worklist.create',
+      format: 'opentrons',
+      minVolumeUl: 1,
+      maxVolumeUl: 300,
+    })
+
+    const check = built.ok
+      ? built.proposal.changes.find((c) => c.label === 'Check')
+      : null
+
+    // The 0.2 µL transfer is below what the robot can pipette, and says so.
+    expect(check?.after).toMatch(/1 issue/)
+
+    const notARobot = await buildPlatesProposal(
+      'sheetbase.worklist.create',
+      { title: 'Worklist', summary: 's', run: 'PLR-0007', robot: 'OT-2' },
+      context([hitRun], { instruments: others.instruments }),
+    )
+
+    expect(notARobot.ok).toBe(false)
   })
 
   it('will not propose a worklist when no well has a volume', async () => {

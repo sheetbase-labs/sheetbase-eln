@@ -58,6 +58,13 @@ export const proposeWorklistCreateSchema = z.strictObject({
     .describe(
       'true picks only the called hits into a new plate, one transfer each. Default true when the run has called hits and no mode was named; false for every well.',
     ),
+  robot: z
+    .string()
+    .max(200)
+    .optional()
+    .describe(
+      'The robot the worklist is for, by name or INS number. Its file format and the smallest and largest volume it can move are used, so a hits worklist stays inside what it can pipette.',
+    ),
   sourcePlate: z
     .string()
     .max(100)
@@ -85,6 +92,9 @@ export type PlatesAction =
       fromHits: boolean
       sourcePlate: string
       volumeUl: number | null
+      /** The robot's smallest and largest transfer, when a robot was named. */
+      minVolumeUl: number | null
+      maxVolumeUl: number | null
     }
 
 export type PlatesActionKind = PlatesAction['kind']

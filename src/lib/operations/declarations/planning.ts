@@ -627,7 +627,12 @@ export const PLANNING_OPERATIONS = defineOperations([
         name: 'plate_design.updated',
         family: 'inventory',
         summary: 'A plate design was changed or archived.',
-        producer: { entityType: 'plate_design', operation: 'update' },
+        producer: {
+          entityType: 'plate_design',
+          operation: 'update',
+          // Remembering an assay setup is its own event.
+          when: { key: 'change', notEquals: 'assay_setup_saved' },
+        },
         notes:
           'Payload is the design as stored. An archived design has status `archived`.',
       },

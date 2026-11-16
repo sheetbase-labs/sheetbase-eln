@@ -254,6 +254,10 @@ export const sheetInstanceStateSchema = z
       for (const fieldId of Object.keys(row)) {
         const field = localFields.get(fieldId)
 
+        // A pinned Sheet also holds cells for the declared columns of its
+        // Definition; the database checks those against the Definition.
+        if (!field && value.resolvedRowIdentity) continue
+
         if (!field)
           context.addIssue({
             code: 'custom',

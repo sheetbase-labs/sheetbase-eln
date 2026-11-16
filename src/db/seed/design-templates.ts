@@ -269,7 +269,7 @@ function pressureColumns(): ColumnSpec[] {
       unit: 'bar',
       calc: {
         id: CALC.dp,
-        source: '=inlet_pressure - outlet_pressure',
+        source: '=A1-B1',
         inputs: [COL_B.inlet, COL_B.outlet],
       },
     },

@@ -163,6 +163,24 @@ token, the assistant, MCP or a pipeline can do the same thing the screen does:
 
 Notebooks already made from the template keep the version they were made from.
 
+## Recipe: a sheet whose rows are typed in
+
+A definition whose `rowIdentity` is `local` has no source to compose: its rows
+are the instance's own. A notebook made from a template that places such a
+sheet is ready at once (the row identity is fixed when the notebook is made).
+The same calls work for a token, the assistant, MCP or a pipeline:
+
+1. `query_sheet_instance_rows` answers with `identity.kind = local`, no `rows`
+   and the definition's columns in `definitionConfiguration`.
+2. `mutate_sheet_instance_local_state` adds a row (`{ "kind": "local", "rowKey":
+"<new uuid>" }`) and writes cells. A cell's `fieldId` is the id of a
+   `declared` column of the pinned definition (or of a local field the
+   instance added). A calculated column cannot be written.
+3. Calculated columns are filled by the app's calculation service
+   (`POST /api/sheet-calculations`, run whenever the sheet is opened for
+   editing), 200 rows to a window, from the definition's calculations. The
+   results are readable with `read_sheet_instance_calculation_results`.
+
 ## Actions
 
 ### `create_model_record`

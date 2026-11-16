@@ -308,15 +308,56 @@ export function canonicalSheetGridMatrix(input: {
 
     const boundIds = new Set(bound.map((column) => column.id))
 
+    // Columns of the pinned Definition that no source supplies: the ones people
+    // type in (their cells live in the Instance's local values) and the ones
+    // it calculates (read by the calculation they come from).
+    const definitionOwn = (
+      input.composition.identity.kind === 'local'
+        ? (configuration?.columns ?? [])
+        : []
+    )
+      .filter(
+        (item) =>
+          item.field.lifecycle === 'active' &&
+          item.source.kind !== 'bound' &&
+          !boundIds.has(item.id),
+      )
+      .map((item): CanonicalSheetGridColumn => {
+        const column = localColumn({ ...item.field, fieldId: item.id })
+
+        return {
+          ...column,
+          label: item.field.label,
+          origin: item.source.kind === 'calculated' ? 'calculation' : 'local',
+          editable: item.source.kind === 'declared' && column.editable,
+          group:
+            item.source.kind === 'calculated'
+              ? SHEET_DERIVED_GROUP
+              : SHEET_LOCAL_GROUP,
+        }
+      })
+
+    const calculationOfColumn = new Map(
+      (configuration?.columns ?? []).flatMap((item) =>
+        item.source.kind === 'calculated'
+          ? [[item.id, item.source.calculationId] as const]
+          : [],
+      ),
+    )
+
+    const ownIds = new Set(definitionOwn.map((column) => column.id))
+
     const extraLocal = localFields
-      .filter((field) => !boundIds.has(field.fieldId))
+      .filter(
+        (field) => !boundIds.has(field.fieldId) && !ownIds.has(field.fieldId),
+      )
       .map(localColumn)
 
     const extraCalc = calculationColumns.filter(
       (column) => !boundIds.has(column.id),
     )
 
-    const columns = [...bound, ...extraLocal, ...extraCalc]
+    const columns = [...bound, ...definitionOwn, ...extraLocal, ...extraCalc]
     const composedKeys = new Set(composed.rowKeys)
 
     const unmatchedLocal = Object.keys(input.instance.state.localValues).filter(
@@ -353,7 +394,13 @@ export function canonicalSheetGridMatrix(input: {
         }
 
         if (column.origin === 'calculation') {
-          return calculatedRow?.[column.id] ?? localRow?.[column.id] ?? null
+          const calculationId = calculationOfColumn.get(column.id)
+
+          return (
+            calculatedRow?.[calculationId ?? column.id] ??
+            localRow?.[column.id] ??
+            null
+          )
         }
 
         return localRow?.[column.id] ?? null

@@ -98,9 +98,11 @@ interface SnapshotEvaluation {
 
 /** Pure bounded calculation over the authoritative composition snapshot. */
 function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
+  const typedIn = snapshot.composition.identity.kind === 'local'
+
   if (
     !snapshot.composition.definitionConfiguration ||
-    !snapshot.composition.boundProjection
+    (!typedIn && !snapshot.composition.boundProjection)
   )
     throw new Error('Calculation requires a pinned composed Definition.')
   const flagIndex = snapshotFlagIndex(snapshot)
@@ -162,14 +164,35 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
   )
 
   const projectionRows = new Map(
-    snapshot.composition.boundProjection.rows.map((row) => [row.rowKey, row]),
+    (snapshot.composition.boundProjection?.rows ?? []).map((row) => [
+      row.rowKey,
+      row,
+    ]),
   )
+
+  // Typed-in rows have no source to compose: the rows are the Instance's own,
+  // taken in key order a window at a time like a composed read.
+  const noBoundValues: NonNullable<ReturnType<typeof projectionRows.get>> = {
+    rowKey: '',
+    values: {},
+  }
+
+  const evaluatedRows: Snapshot['composition']['rows'] = typedIn
+    ? Object.keys(snapshot.state.localValues)
+        .filter((key) => !key.startsWith('sb-row-v1:'))
+        .sort()
+        .slice(
+          snapshot.composition.offset,
+          snapshot.composition.offset + snapshot.composition.limit,
+        )
+        .map((rowKey) => ({ rowKey, identityValues: [rowKey], sources: [] }))
+    : snapshot.composition.rows
 
   const results: TrustedResult[] = []
   const excluded: ExcludedValue[] = []
 
-  for (const row of snapshot.composition.rows) {
-    const projected = projectionRows.get(row.rowKey)
+  for (const row of evaluatedRows) {
+    const projected = typedIn ? noBoundValues : projectionRows.get(row.rowKey)
 
     if (!projected) throw new Error('Bound projection row is missing.')
     const rowResults = new Map<string, TrustedResult>()
@@ -289,6 +312,34 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
                 calculationId: column.source.calculationId,
                 rowKey: row.rowKey,
                 resultKind: dependencyResult.resultKind,
+              },
+            }
+          }
+
+          if (column.source.kind === 'declared') {
+            const typed = Object.hasOwn(snapshot.state.localValues, row.rowKey)
+              ? snapshot.state.localValues[row.rowKey]
+              : undefined
+
+            const entered =
+              typed !== undefined && Object.hasOwn(typed, dependency.id)
+                ? typed[dependency.id]
+                : undefined
+
+            return {
+              dependency,
+              field: column.field,
+              state:
+                entered === undefined || entered === null
+                  ? 'missing'
+                  : 'present',
+              value: entered ?? undefined,
+              provenance: {
+                kind: 'instance-local',
+                instanceId: snapshot.instanceId,
+                rowKey: row.rowKey,
+                fieldId: dependency.id,
+                instanceRevision: snapshot.revision,
               },
             }
           }

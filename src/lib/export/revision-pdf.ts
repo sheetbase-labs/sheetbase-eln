@@ -11,6 +11,7 @@ import { z } from 'zod'
 
 import type { ClientPortalRecordDocument } from '#/lib/client-portal'
 import { renderClientPortalRecordPdf } from '#/lib/client-portal-pdf'
+import type { PdfFigure } from './record-figures'
 import { renderRecordReportPdf } from './record-report-pdf'
 
 interface PackageSignature {
@@ -110,6 +111,7 @@ export async function renderRevisionPdf(
   options: {
     logo?: { bytes: Uint8Array; mediaType: string } | null
     workspaceName?: string
+    figures?: ReadonlyMap<string, PdfFigure>
   } = {},
 ): Promise<Uint8Array> {
   const doc = revisionPackageToDocument(pkg)
@@ -148,6 +150,7 @@ export async function renderRevisionPdf(
           : []
       }),
       workspaceName: options.workspaceName,
+      figures: options.figures,
     },
     options,
   )

@@ -1,0 +1,32 @@
+# Git hooks. Install the tools with `mise install`; `pnpm install` then runs
+# `lefthook install`. Pre-commit checks only the staged files; CI runs the
+# full `pnpm check` and `pnpm lint`.
+glob_matcher: doublestar
+
+pre-commit:
+  piped: true
+  jobs:
+    - name: prettier
+      glob:
+        - '{src,scripts,perf,docs}/**/*.{ts,tsx,mts,js,jsx,mjs,cjs,json,css,md,yml,yaml}'
+        - '*.{ts,json,md,yaml}'
+        - 'prettier.config.js'
+        - 'tools/oxlint/README.md'
+      run: bunx prettier --write --ignore-unknown {staged_files}
+      stage_fixed: true
+
+    - name: oxlint
+      glob:
+        - '{src,scripts,perf}/**/*.{ts,tsx,mts,js,jsx,mjs,cjs}'
+        - '{vite,vitest,drizzle}.config.ts'
+      run: bunx oxlint --type-aware --deny-warnings --report-unused-disable-directives --format=agent {staged_files}
+
+    - name: react doctor
+      glob: 'src/**/*.{ts,tsx}'
+      run: bunx react-doctor . --staged --blocking warning --no-score --no-telemetry --yes
+
+commit-msg:
+  jobs:
+    # Strips assistant credit, then refuses a non-conventional subject.
+    - name: commit rules
+      run: node scripts/check-commits.mjs --message {1}

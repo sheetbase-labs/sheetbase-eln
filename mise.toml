@@ -1,6 +1,9 @@
 # Pins the tools to the versions the project is built and tested with.
 # Run `mise install`. Keep these in step with .node-version and the
-# packageManager field in package.json.
+# packageManager field in package.json. bun runs the git hook tools
+# (bunx) and lefthook installs the hooks (lefthook.yml).
 [tools]
 node = "26"
 pnpm = "11.9.0"
+bun = "1.4.4"
+lefthook = "2.2.2"

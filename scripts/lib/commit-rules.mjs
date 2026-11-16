@@ -4,7 +4,7 @@
  * Commits are made as Gareth with Conventional Commit subjects and no
  * assistant credit: no Co-Authored-By or session trailers, no "Generated
  * with" lines, no attribution blocks in PR bodies and no `claude/` branches.
- * Used by `scripts/check-commits.mjs` (CI) and `.githooks/commit-msg`.
+ * Used by `scripts/check-commits.mjs` (CI) and the lefthook `commit-msg` hook.
  */
 
 export const CONVENTIONAL_TYPES = [

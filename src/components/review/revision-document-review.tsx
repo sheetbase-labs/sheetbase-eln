@@ -825,9 +825,11 @@ function renderDocumentBlocks({
                 }}
               />
             ) : null}
-            <span className="truncate text-xs uppercase tracking-wide text-fg-muted">
-              {entry.label}
-            </span>
+            {marked ? (
+              <span className="truncate text-xs uppercase tracking-wide text-fg-muted">
+                {entry.label}
+              </span>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {marked ? (
@@ -959,15 +961,17 @@ function renderDocumentContents({
         data-doc-location="revision"
         tabIndex={-1}
         className={cn(
-          'flex flex-col gap-3 rounded-lg border bg-surface p-3 outline-none',
+          'flex flex-col gap-3 border-b border-border-subtle pb-4 outline-none',
           highlightedLocation === 'revision' && 'ring-2 ring-primary/40',
         )}
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-              {t('projects.documentReview.annotated')}
-            </p>
+            {document.comparison ? (
+              <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+                {t('projects.documentReview.annotated')}
+              </p>
+            ) : null}
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm font-semibold">
               <span>{afterLabel}</span>
               {document.comparison ? (
@@ -980,29 +984,32 @@ function renderDocumentContents({
               ) : null}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-fg-muted" aria-live="polite">
-              {t('projects.documentReview.changes', { count: totalChanges })} ·{' '}
-              {t('projects.documentReview.blocksMarked', {
-                count: document.changedBlockCount,
-              })}
-            </span>
-            <Button
-              variant="secondary"
-              size="sm"
-              aria-pressed={showMarks}
-              aria-label={
-                showMarks
-                  ? t('projects.documentReview.hideMarksLabel')
-                  : t('projects.documentReview.showMarksLabel')
-              }
-              onClick={() => setShowMarks((current) => !current)}
-            >
-              {showMarks
-                ? t('projects.documentReview.hideMarks')
-                : t('projects.documentReview.showMarks')}
-            </Button>
-          </div>
+          {document.comparison ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-fg-muted" aria-live="polite">
+                {t('projects.documentReview.changes', { count: totalChanges })}{' '}
+                ·{' '}
+                {t('projects.documentReview.blocksMarked', {
+                  count: document.changedBlockCount,
+                })}
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                aria-pressed={showMarks}
+                aria-label={
+                  showMarks
+                    ? t('projects.documentReview.hideMarksLabel')
+                    : t('projects.documentReview.showMarksLabel')
+                }
+                onClick={() => setShowMarks((current) => !current)}
+              >
+                {showMarks
+                  ? t('projects.documentReview.hideMarks')
+                  : t('projects.documentReview.showMarks')}
+              </Button>
+            </div>
+          ) : null}
         </div>
         <p className="text-xs text-fg-muted">
           {t('projects.documentReview.readNote')}
@@ -1028,11 +1035,8 @@ function renderDocumentContents({
         )}
       </header>
 
-      {document.unchanged ? (
-        <div
-          role="status"
-          className="rounded-lg border border-dashed bg-surface-muted p-4 text-sm"
-        >
+      {document.unchanged && document.comparison ? (
+        <div role="status" className="text-sm">
           <p className="font-semibold">
             {t('projects.documentReview.unchanged.title')}
           </p>

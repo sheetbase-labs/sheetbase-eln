@@ -383,6 +383,14 @@ carries `status` and `operationKind`) and `agent.workflow.created` /
 carries `workflowId`, `goal`, `status`, `previousStatus`, `currentStep` and
 `revision`). See [agent-permissions-api.md](agent-permissions-api.md).
 
+### AI preferences (`stable`, webhook, SSE and pipeline trigger)
+
+`ai.preference.saved` / `ai.preference.updated` / `ai.preference.deleted`
+(`ai_preference` + `create` / `update` / `delete`: something the assistant
+remembers about how the lab or one person likes things done was saved, changed
+or removed; payload carries `preferenceId`, `scope` (`workspace` or `user`) and
+`topic`, never the text). See [ai-preferences-api.md](ai-preferences-api.md).
+
 ### People and sign-in (`stable`, webhook and SSE)
 
 `member.work_handed_over` (counts of what moved and what stayed, by kind of

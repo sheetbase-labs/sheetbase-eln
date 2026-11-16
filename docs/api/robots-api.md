@@ -13,7 +13,8 @@ and the lineage against the experiment.
 ```
 { "p_instrument_id": "…", "p_driver": "opentrons",
   "p_worklist_format": "opentrons",
-  "p_labware": { "opentronsPipette": "p300_single_gen2", "opentronsMount": "left" } }
+  "p_labware": { "opentronsPipette": "p300_single_gen2", "opentronsMount": "left" },
+  "p_min_transfer_ul": 0.5, "p_max_transfer_ul": 300 }
 ```
 
 - `driver` is `opentrons` (the robot's HTTP API on your network) or `file` (the
@@ -24,6 +25,13 @@ and the lineage against the experiment.
   `opentronsDestLabware`, `opentronsPipette`, `opentronsTiprack`,
   `opentronsMount`, `liquidClass`, `tecanSourceType`, `tecanDestType`,
   `echoSourceType`.
+- `min_transfer_ul` and `max_transfer_ul` (`p_min_transfer_ul`,
+  `p_max_transfer_ul`) are the smallest and largest volume, in µl, the robot moves
+  in one transfer. Choosing the robot when making a worklist (from hits, a stamp
+  or a plate) fills them in as the worklist's volume limits, so a hits worklist
+  is planned inside what the robot can pipette. Leave them out for no limit; the
+  smallest cannot be larger than the largest. They replace the old values on
+  each call, like the labware.
 
 `clear_instrument_robot` removes the settings; jobs already sent stay on record.
 Read settings from `instrument_robot_settings`.

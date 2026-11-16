@@ -296,6 +296,10 @@ const LAB_PARAM_NOTES_BASE: LabParamNotes = {
     'The worklist file the robot reads: `opentrons` for an Opentrons robot; `csv`, `echo`, `tecan_gwl` or `hamilton` for a file robot. Leave out to use the driver’s own.',
   p_labware:
     'JSON labware for the worklist file: `opentronsSourceLabware`, `opentronsDestLabware`, `opentronsPipette`, `opentronsTiprack`, `opentronsMount`, `liquidClass`, `tecanSourceType`, `tecanDestType`, `echoSourceType`.',
+  p_min_transfer_ul:
+    'The smallest volume the robot can pipette, in µl. Worklists made for the robot fill it in as their minimum volume. Leave out for no limit.',
+  p_max_transfer_ul:
+    'The largest volume the robot moves in one transfer, in µl. Worklists made for the robot fill it in as their maximum volume. Leave out for no limit.',
   p_job_id: 'Robot job id.',
   p_proposal_id: 'Schedule proposal id.',
   p_hands_on_minutes:
@@ -1677,13 +1681,15 @@ export const LAB_TABLES: LabTableIndex = {
   },
   instrument_robot_settings: {
     summary:
-      'An instrument that is a robot: how it is reached (`driver` is opentrons or file), the worklist file format it reads and the labware that file names.',
+      'An instrument that is a robot: how it is reached (`driver` is opentrons or file), the worklist file format it reads, the labware that file names and the smallest and largest volume (`min_transfer_ul`, `max_transfer_ul`) it can move in one transfer.',
     columns: [
       ['instrument_id', 'uuid', 1],
       ['workspace_id', 'uuid', 1],
       ['driver', 'text', 1],
       ['worklist_format', 'text', 1],
       ['labware', 'json', 1],
+      ['min_transfer_ul', 'num', 0],
+      ['max_transfer_ul', 'num', 0],
       ['updated_at', 'ts', 1],
       ['updated_by_user_id', 'text', 0],
     ],
@@ -3765,13 +3771,15 @@ const LAB_RPCS_HAND_WRITTEN: LabRpcIndex = {
   set_instrument_robot: {
     summary: 'Make an instrument a robot, or change how it is reached',
     description:
-      'Sets how worklists reach the instrument: `opentrons` (the robot is on the network) or `file` (its own software reads a folder), the worklist file it reads and the labware that file names. The folder agent on the lab computer does the rest. Needs permission to manage instruments. Returns the settings.',
+      'Sets how worklists reach the instrument: `opentrons` (the robot is on the network) or `file` (its own software reads a folder), the worklist file it reads, the labware that file names and the smallest and largest volume it can move in one transfer (`p_min_transfer_ul`, `p_max_transfer_ul`; a worklist made for this robot fills them in as its volume limits). The folder agent on the lab computer does the rest. Needs permission to manage instruments. Returns the settings.',
     scope: 'lab:write',
     params: [
       ['p_instrument_id', 'uuid', 1],
       ['p_driver', 'text', 1],
       ['p_worklist_format', 'text', 0],
       ['p_labware', 'json', 0],
+      ['p_min_transfer_ul', 'num', 0],
+      ['p_max_transfer_ul', 'num', 0],
     ],
     result: 'row:instrument_robot_settings',
   },

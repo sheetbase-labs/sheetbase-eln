@@ -37,8 +37,15 @@ export type OpenAiContentPart =
   | { type: 'text'; text: string }
   | { type: 'image_url'; image_url: { url: string } }
 
+/** A system prompt marked so the provider can reuse it between steps and turns. */
+export type CacheableSystemContent = Array<{
+  type: 'text'
+  text: string
+  cache_control: { type: 'ephemeral' }
+}>
+
 export type OpenAiMessage =
-  | { role: 'system'; content: string }
+  | { role: 'system'; content: string | CacheableSystemContent }
   | { role: 'user'; content: string | OpenAiContentPart[] }
   | {
       role: 'assistant'
@@ -77,6 +84,7 @@ export interface OpenAiCompatibleRequest {
  */
 export function conversationMessages(
   request: ProviderRequest,
+  options: { cacheSystem?: boolean } = {},
 ): OpenAiCompatibleRequest['messages'] {
   if (!request.messages || request.messages.length === 0) {
     return [
@@ -90,7 +98,12 @@ export function conversationMessages(
     .join('\n\n')
 
   return [
-    { role: 'system', content: system },
+    {
+      role: 'system',
+      content: options.cacheSystem
+        ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+        : system,
+    },
     ...request.messages.map((turn): OpenAiMessage => {
       if (turn.role === 'tool') {
         return {
@@ -172,7 +185,12 @@ export function buildOpenAiCompatibleRequest(
 
   const body: OpenAiCompatibleRequest = {
     model: profile.model,
-    messages: conversationMessages(request),
+    messages: conversationMessages(request, {
+      // Anthropic models behind OpenRouter reuse the tools and instructions
+      // already sent, billed at a fraction of the input price.
+      cacheSystem:
+        profile.kind === 'openrouter' && profile.model.startsWith('anthropic/'),
+    }),
     max_tokens: Math.floor(maxTokens),
     temperature: 0,
     stream: options.stream === true,

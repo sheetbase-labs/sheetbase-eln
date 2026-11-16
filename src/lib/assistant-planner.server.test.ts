@@ -80,4 +80,38 @@ describe('planner assistant card', () => {
 
     expect(built.ok).toBe(false)
   })
+
+  // Recorded from a live chat: the first two calls of a PicoGreen request.
+  it('accepts a call that leaves out the titles and runs the summary long', async () => {
+    const { title: _title, experimentTitle: _experiment, ...rest } = base
+
+    const built = await buildPlannerProposal(
+      PLAN_TOOL,
+      { ...rest, summary: 'Layout: '.padEnd(520, 'x') },
+      context(),
+    )
+
+    expect(built.ok).toBe(true)
+
+    if (!built.ok) return
+    expect(built.proposal.title.length).toBeGreaterThan(0)
+    expect(built.proposal.summary.length).toBeLessThanOrEqual(400)
+  })
+
+  it('tells the model to resend when tool markup leaked into a value', async () => {
+    const built = await buildPlannerProposal(
+      PLAN_TOOL,
+      {
+        ...base,
+        summary:
+          'Layout.</summary>\n<parameter name="plate">{"format":"96_well"}',
+      },
+      context(),
+    )
+
+    expect(built.ok).toBe(false)
+
+    if (built.ok) return
+    expect(built.message).toContain('markup')
+  })
 })

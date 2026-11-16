@@ -124,3 +124,57 @@ export function isPlannerAction(action: {
 export interface PlannerActionResult {
   openHref?: string
 }
+
+const looseArgs = z.looseObject({
+  title: z.string().optional(),
+  experimentTitle: z.string().optional(),
+  goal: z.string().optional(),
+  summary: z.string().optional(),
+})
+
+/** Tool-call markup the model sometimes leaks into a value. */
+const STRAY_MARKUP = /<\/?(?:parameter|summary|invoke|function_calls?)\b/i
+
+/**
+ * Smooths what a model commonly gets wrong before the plan is checked, so a
+ * retry is not needed for it: a missing title is taken from the other title or
+ * the goal, and text over a length limit is cut to fit. Returns an error
+ * message when a value carries leaked tool markup, since the field it swallowed
+ * is lost and the model has to send the call again.
+ */
+export function tidyPlanArgs(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw external tool arguments; the loose schema below parses what it needs and the plan schema checks the rest.
+  args: unknown,
+): { ok: true; args: unknown } | { ok: false; message: string } {
+  if (STRAY_MARKUP.test(JSON.stringify(args ?? null)))
+    return {
+      ok: false,
+      message:
+        'A value contained stray tool markup (such as <parameter>), so part of the plan was lost. Send every argument as its own field and call the tool again.',
+    }
+
+  const loose = looseArgs.safeParse(args)
+
+  if (!loose.success) return { ok: true, args }
+
+  const cut = (text: string | undefined, max: number) =>
+    text?.trim().slice(0, max)
+
+  const goal = cut(loose.data.goal, 1000)
+
+  const heading = cut(
+    loose.data.title ?? loose.data.experimentTitle ?? goal,
+    120,
+  )
+
+  return {
+    ok: true,
+    args: {
+      ...loose.data,
+      goal,
+      title: heading,
+      experimentTitle: cut(loose.data.experimentTitle ?? heading, 200),
+      summary: cut(loose.data.summary ?? goal, 400),
+    },
+  }
+}

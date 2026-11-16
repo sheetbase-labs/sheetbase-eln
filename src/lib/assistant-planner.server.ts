@@ -4,6 +4,7 @@ import {
   PLANNER_PROPOSE_TOOL_NAMES,
   PLAN_TOOL,
   proposePlanSchema,
+  tidyPlanArgs,
 } from './assistant-planner'
 import type { PlannerProposeToolName } from './assistant-planner'
 import {
@@ -96,7 +97,10 @@ export async function buildPlannerProposal(
   args: unknown,
   context: LabToolContext,
 ): Promise<PlannerOutcome> {
-  const parsed = proposePlanSchema.safeParse(args)
+  const tidy = tidyPlanArgs(args)
+
+  if (!tidy.ok) return fail(tidy.message)
+  const parsed = proposePlanSchema.safeParse(tidy.args)
 
   if (!parsed.success) return fail(invalid(parsed.error))
   const input = parsed.data

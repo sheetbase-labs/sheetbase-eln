@@ -11,6 +11,7 @@ export declare function checkCommit(commit: {
   committer?: string
   parents?: number
 }): string[]
+export declare function checkBranch(head?: string): string[]
 export declare function checkPullRequest(pr: {
   title?: string
   body?: string

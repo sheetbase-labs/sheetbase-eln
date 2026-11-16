@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  checkBranch,
   checkCommit,
   checkPullRequest,
   stripAttribution,
@@ -72,5 +73,10 @@ describe('commit rules', () => {
         head: 'feat/people',
       }),
     ).toEqual([])
+  })
+
+  it('checks the branch name on its own', () => {
+    expect(checkBranch('claude/thing')).toHaveLength(1)
+    expect(checkBranch('build/lefthook')).toEqual([])
   })
 })

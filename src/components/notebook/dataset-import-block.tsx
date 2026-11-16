@@ -1,6 +1,6 @@
 import { t } from '#/copy'
 import { useCallback, useEffect, useLayoutEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useRouteContext } from '@tanstack/react-router'
 import { z } from 'zod'
 
@@ -12,6 +12,8 @@ import type { ImportSearch } from '#/components/import/import-search'
 import { parseImportSearch } from '#/components/import/import-search'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
+import { toast } from '#/components/ui/sonner'
+import { openDatasetInNewSheet } from '#/lib/sheet-from-dataset'
 import { validateBlock } from '#/lib/blocks'
 import { fetchDatasetImports, importQueryKeys } from '#/lib/import/data'
 import type { DatasetImportRecord } from '#/lib/import/types'
@@ -106,6 +108,8 @@ export function DatasetImportBlockEditor({
       <DatasetImportBlockPreview
         payload={block.payload}
         recordId={block.recordId}
+        blockId={block.id}
+        readOnly
       />
     )
 
@@ -166,6 +170,7 @@ export function DatasetImportBlockEditor({
         className="m-0 min-w-0 border-0 p-0"
       >
         <ImportDraftFlow
+          blockId={block.id}
           draft={draft}
           setDraft={setDraft}
           record={record.data}
@@ -182,6 +187,7 @@ export function DatasetImportBlockEditor({
 
 /** Upload/mapping/receipt navigation edits only the import editor's local draft. */
 function ImportDraftFlow({
+  blockId,
   draft,
   setDraft,
   record,
@@ -191,6 +197,7 @@ function ImportDraftFlow({
   onInsertBelow,
   onAttach,
 }: {
+  blockId: string
   draft: BlockEditorProps['block']['payload']
   setDraft: React.Dispatch<
     React.SetStateAction<BlockEditorProps['block']['payload']>
@@ -208,7 +215,11 @@ function ImportDraftFlow({
 
   return text(draft.importId) ? (
     <>
-      <DatasetImportBlockPreview payload={draft} recordId={record.id} />
+      <DatasetImportBlockPreview
+        payload={draft}
+        recordId={record.id}
+        blockId={blockId}
+      />
       {onInsertBelow ? (
         <div className="px-4 pb-3">
           <Button onClick={() => onInsertBelow('dataset_import')}>
@@ -278,10 +289,16 @@ function AttachImportReceipt({
 export function DatasetImportBlockPreview({
   payload: value,
   recordId,
+  blockId,
+  readOnly = false,
 }: {
   payload: unknown
   recordId?: string
+  /** The import block, so a sheet made from its data lands right below it. */
+  blockId?: string
+  readOnly?: boolean
 }) {
+  const queryClient = useQueryClient()
   const payload = z.record(z.string(), z.unknown()).safeParse(value).data ?? {}
   const datasetId = text(payload.datasetId)
   const importId = text(payload.importId)
@@ -292,6 +309,30 @@ export function DatasetImportBlockPreview({
     queryKey: importQueryKeys.imports(datasetId ?? ''),
     queryFn: () => fetchDatasetImports(notebookDataClient, datasetId!),
     enabled: Boolean(datasetId && importId && versionId),
+  })
+
+  const makeSheet = useMutation({
+    mutationFn: () =>
+      openDatasetInNewSheet(notebookDataClient, {
+        datasetId: datasetId!,
+        notebookRecordId: recordId,
+        afterBlockId: blockId,
+      }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: notebookQueryKeys.blocks(recordId!),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: notebookQueryKeys.record(recordId!),
+        }),
+      ])
+      toast(t('notebook.datasetImportBlock.sheetAddedBelow'))
+    },
+    onError: (error) =>
+      toast.error(t('notebook.datasetImportBlock.sheetNotMade'), {
+        description: error instanceof Error ? error.message : undefined,
+      }),
   })
 
   if (!importId || !versionId || !datasetId)
@@ -343,13 +384,26 @@ export function DatasetImportBlockPreview({
         </p>
       </div>
       <div className="flex flex-wrap gap-3 text-label">
-        <Link
-          className="text-link"
-          to="/sheets/new"
-          search={{ dataset: datasetId, experiment: recordId, returnTo }}
-        >
-          {t('notebook.datasetImportBlock.openInASheet')}
-        </Link>
+        {recordId && blockId && !readOnly ? (
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={makeSheet.isPending}
+            onClick={() => makeSheet.mutate()}
+          >
+            {makeSheet.isPending
+              ? t('notebook.datasetImportBlock.makingSheet')
+              : t('notebook.datasetImportBlock.showInASheet')}
+          </Button>
+        ) : (
+          <Link
+            className="text-link"
+            to="/sheets/new"
+            search={{ dataset: datasetId, experiment: recordId, returnTo }}
+          >
+            {t('notebook.datasetImportBlock.openInASheet')}
+          </Link>
+        )}
         <Link
           className="text-link"
           to="/datasets/$datasetId/rows"

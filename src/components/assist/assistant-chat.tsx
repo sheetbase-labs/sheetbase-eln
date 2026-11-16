@@ -264,9 +264,8 @@ function ChatBody({
   const filesKey = filesKeyFor(workspaceId)
   const attached = useChatFiles(filesKey, workspaceId)
 
-  const unsentFiles = attached.files.filter((file) =>
-    attached.unsent.includes(file.id),
-  )
+  const unsentIds = new Set(attached.unsent)
+  const unsentFiles = attached.files.filter((file) => unsentIds.has(file.id))
 
   const busy = status === 'submitted' || status === 'streaming'
   const kind = context ? contextKindLabel(context.kind).toLowerCase() : null

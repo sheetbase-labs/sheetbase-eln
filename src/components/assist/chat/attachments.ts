@@ -123,14 +123,18 @@ async function readOne(
     credentials: 'same-origin',
   })
 
-  const answer = answerSchema.safeParse(await response.json().catch(() => null))
-
   if (!response.ok) {
+    const failure = answerSchema.safeParse(
+      await response.json().catch(() => null),
+    )
+
     throw new Error(
-      (answer.success ? answer.data.message : undefined) ??
+      (failure.success ? failure.data.message : undefined) ??
         t('features.labFiles.attach.unreadable'),
     )
   }
+
+  const answer = answerSchema.safeParse(await response.json().catch(() => null))
 
   const parsed = chatAttachmentSchema.safeParse(
     answer.success ? answer.data.attachment : null,
@@ -218,8 +222,10 @@ export function clearChatFiles(key: string) {
 export function filesForRequest(key: string): ChatAttachment[] {
   const state = get(key)
 
+  const unsent = new Set(state.unsent)
+
   return state.files.map((file) =>
-    state.unsent.includes(file.id) ? file : { ...file, image: null },
+    unsent.has(file.id) ? file : { ...file, image: null },
   )
 }
 

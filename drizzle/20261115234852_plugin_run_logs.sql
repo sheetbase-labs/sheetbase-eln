@@ -29,11 +29,22 @@ CREATE INDEX idx_extension_run_logs_extension ON api.extension_run_logs (extensi
 --> statement-breakpoint
 ALTER TABLE api.extension_run_logs ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
+CREATE FUNCTION api.can_read_plugin_logs(p_workspace_id uuid) RETURNS boolean
+    LANGUAGE sql STABLE
+    SET search_path TO ''
+    AS $$ SELECT api.has_capability(p_workspace_id, 'extensions.manage') $$;
+--> statement-breakpoint
+ALTER FUNCTION api.can_read_plugin_logs(uuid) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.can_read_plugin_logs(uuid) FROM PUBLIC;
+--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION api.can_read_plugin_logs(uuid) TO authenticated, api_client;
+--> statement-breakpoint
 CREATE POLICY extension_run_logs_select ON api.extension_run_logs FOR SELECT TO authenticated
     USING (workspace_id = api.current_workspace_id() AND api.has_capability(workspace_id, 'extensions.manage'));
 --> statement-breakpoint
 CREATE POLICY extension_run_logs_select_api_client ON api.extension_run_logs FOR SELECT TO api_client
-    USING (workspace_id = api.current_workspace_id() AND api.has_capability(workspace_id, 'extensions.manage'));
+    USING (workspace_id = api.current_workspace_id() AND api.can_read_plugin_logs(workspace_id));
 --> statement-breakpoint
 GRANT SELECT ON TABLE api.extension_run_logs TO authenticated, api_client;
 --> statement-breakpoint

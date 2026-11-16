@@ -462,6 +462,30 @@ describe('provider transports', () => {
 describe('OpenAI-compatible streaming and history', () => {
   const resolved = { ...profile, apiKey: 'test-key' }
 
+  it('marks the system prompt for reuse only on Anthropic models behind OpenRouter', () => {
+    const request = {
+      prompt: 'CONTEXT',
+      maxTokens: 4_000,
+      citationIds: [],
+      messages: [{ role: 'user' as const, content: 'Hi' }],
+    }
+
+    const cached = buildOpenAiCompatibleRequest(
+      { ...profile, kind: 'openrouter', model: 'anthropic/claude-haiku-4.5' },
+      request,
+    )
+
+    const plain = buildOpenAiCompatibleRequest(
+      { ...profile, kind: 'openrouter', model: 'openai/gpt-5-mini' },
+      request,
+    )
+
+    expect(JSON.stringify(cached.messages[0]?.content)).toContain('ephemeral')
+    expect(JSON.stringify(plain.messages[0]?.content)).not.toContain(
+      'ephemeral',
+    )
+  })
+
   it('puts the context in the system message and the turns after it', () => {
     const body = buildOpenAiCompatibleRequest(
       profile,
@@ -484,7 +508,7 @@ describe('OpenAI-compatible streaming and history', () => {
       'assistant',
       'user',
     ])
-    expect(body.messages[0]?.content).toContain('CONTEXT')
+    expect(JSON.stringify(body.messages[0]?.content)).toContain('CONTEXT')
     expect(body.stream).toBe(true)
     expect(body.stream_options).toEqual({ include_usage: true })
   })

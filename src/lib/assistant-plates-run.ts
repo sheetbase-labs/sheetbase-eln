@@ -58,6 +58,8 @@ export async function runPlatesAction(
             destPlate: `${reference} hits`,
             destFormat: run.format,
             volumeUl: action.volumeUl ?? 10,
+            minVolumeUl: action.minVolumeUl ?? undefined,
+            maxVolumeUl: action.maxVolumeUl ?? undefined,
           })
         : buildWorklist(destinationsOf(run.wells), {
             mode: action.mode,
@@ -66,6 +68,8 @@ export async function runPlatesAction(
             destFormat: run.format,
             destPlate: reference,
             defaultVolumeUl: action.volumeUl ?? undefined,
+            minVolumeUl: action.minVolumeUl ?? undefined,
+            maxVolumeUl: action.maxVolumeUl ?? undefined,
           })
 
       if (plan.transfers.length === 0)

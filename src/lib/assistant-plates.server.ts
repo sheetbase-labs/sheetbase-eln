@@ -7,7 +7,12 @@ import {
 } from './assistant-plates'
 import type { PlatesProposeToolName } from './assistant-plates'
 import { destinationsOf } from './assistant-plates-run'
-import { invalid, likeValue, toolDef } from './assistant-lab-tools.server'
+import {
+  invalid,
+  likeValue,
+  resolveInstrument,
+  toolDef,
+} from './assistant-lab-tools.server'
 import type { LabToolContext } from './assistant-lab-tools.server'
 import type { AssistantProposal, ProposalChange } from './assistant-proposals'
 import type { ProviderToolDef } from './ai-providers/types'
@@ -15,6 +20,7 @@ import { normaliseAssayConfig } from './plate-assay'
 import type { PlateAnalysis, AssayWell } from './plate-assay'
 import { plateRunReference } from './plate-runs'
 import { buildHitWorklist, buildWorklist, hitsToPick } from './plate-worklist'
+import type { WorklistFormat } from './plate-worklist'
 import type { PlateFormat } from './plate-map'
 
 /**
@@ -165,7 +171,39 @@ export async function buildPlatesProposal(
 
       if (!found.ok) return fail(found.message)
       const run = found.run
-      const format = input.format ?? 'csv'
+      let format = input.format ?? 'csv'
+      let minVolumeUl: number | null = null
+      let maxVolumeUl: number | null = null
+      let robotName: string | null = null
+
+      if (input.robot) {
+        const robot = await resolveInstrument(
+          context.client,
+          context.workspaceId,
+          input.robot,
+        )
+
+        if (!robot.ok) return fail(robot.message)
+
+        const settings = await context.client.list<{
+          worklist_format: WorklistFormat
+          min_transfer_ul: number | null
+          max_transfer_ul: number | null
+        }>(
+          'instrument_robot_settings',
+          `?instrument_id=eq.${robot.instrument.id}&select=worklist_format,min_transfer_ul,max_transfer_ul&limit=1`,
+        )
+
+        if (!settings[0])
+          return fail(
+            `${robot.instrument.name} is not set up as a robot yet. It can be set up on its instrument page, under Robot.`,
+          )
+        robotName = robot.instrument.name
+        format = settings[0].worklist_format
+        minVolumeUl = settings[0].min_transfer_ul
+        maxVolumeUl = settings[0].max_transfer_ul
+      }
+
       const mode = input.mode ?? 'stamp'
       const hitList = run.results ? hitsToPick(run.results) : []
 
@@ -191,6 +229,8 @@ export async function buildPlatesProposal(
             destPlate: `${reference} hits`,
             destFormat: run.format,
             volumeUl: input.volumeUl ?? 10,
+            minVolumeUl: minVolumeUl ?? undefined,
+            maxVolumeUl: maxVolumeUl ?? undefined,
           })
         : buildWorklist(destinationsOf(run.wells), {
             mode,
@@ -199,6 +239,8 @@ export async function buildPlatesProposal(
             destFormat: run.format,
             destPlate: reference,
             defaultVolumeUl: input.volumeUl,
+            minVolumeUl: minVolumeUl ?? undefined,
+            maxVolumeUl: maxVolumeUl ?? undefined,
           })
 
       if (plan.transfers.length === 0)
@@ -212,7 +254,13 @@ export async function buildPlatesProposal(
           before: null,
           after: `${plateRunReference(run.number)} ${run.name}`,
         },
-        { label: 'For', before: null, after: format.replaceAll('_', ' ') },
+        {
+          label: 'For',
+          before: null,
+          after: robotName
+            ? `${robotName} (${format.replaceAll('_', ' ')})`
+            : format.replaceAll('_', ' '),
+        },
         {
           label: 'Transfers',
           before: null,
@@ -246,6 +294,8 @@ export async function buildPlatesProposal(
             fromHits,
             sourcePlate,
             volumeUl: input.volumeUl ?? null,
+            minVolumeUl,
+            maxVolumeUl,
           },
         },
       }

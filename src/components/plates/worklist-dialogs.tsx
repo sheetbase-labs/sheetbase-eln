@@ -45,6 +45,8 @@ import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { t } from '#/copy'
 import { downloadTextFile } from '#/lib/download'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { transferLimitsText } from '#/lib/robots'
+import type { RobotSettingsWire } from '#/lib/robots'
 import { PLATE_FORMATS } from '#/lib/plate-map'
 import type { PlateFormat } from '#/lib/plate-map'
 import {
@@ -154,10 +156,13 @@ function RobotField({
   onChange,
 }: {
   value: string
-  onChange: (robotId: string, format: WorklistFormat | null) => void
+  onChange: (robotId: string, settings: RobotSettingsWire | null) => void
 }) {
   const robots = useRobotInstruments()
   const list = robots.data ?? []
+  const chosenRobot = list.find((r) => r.instrument.id === value)
+
+  const limits = chosenRobot ? transferLimitsText(chosenRobot.settings) : null
 
   if (list.length === 0) return null
 
@@ -168,7 +173,7 @@ function RobotField({
         onChange={(e) => {
           const chosen = list.find((r) => r.instrument.id === e.target.value)
 
-          onChange(e.target.value, chosen?.settings.worklist_format ?? null)
+          onChange(e.target.value, chosen?.settings ?? null)
         }}
       >
         <option value="">{t('plates.worklist.noRobot')}</option>
@@ -178,6 +183,14 @@ function RobotField({
           </option>
         ))}
       </Select>
+      {limits ? (
+        <span className="text-label text-fg-muted">
+          {t('plates.worklist.limitsFromRobot', {
+            robot: chosenRobot?.instrument.name ?? '',
+            limits,
+          })}
+        </span>
+      ) : null}
     </Field>
   )
 }
@@ -659,10 +672,15 @@ function WorklistBuilderForm({
               </Field>
               <RobotField
                 value={robot}
-                onChange={(id, f) => {
+                onChange={(id, settings) => {
                   setRobot(id)
 
-                  if (f) setFormat(f)
+                  if (settings) {
+                    setFormat(settings.worklist_format)
+                    // The robot's own limits go in the boxes; no robot clears them.
+                    setMinVolume(settings.min_transfer_ul?.toString() ?? '')
+                    setMaxVolume(settings.max_transfer_ul?.toString() ?? '')
+                  }
                 }}
               />
               <Field label={t('plates.worklist.format')}>

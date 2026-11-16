@@ -278,7 +278,15 @@ async function sweepPopups(page: Page, path: string): Promise<string[]> {
       continue
     }
     out.push(...(await popupProblems(page, `"${name}" popup`)))
-    if (fromField) {
+    // A calendar has nothing to type in, so tapping a date button never
+    // raises the keyboard; only popups with a text field can sit above it.
+    const typable = await page
+      .locator(POPUP)
+      .filter({ visible: true })
+      .last()
+      .evaluate((el) => el.querySelector('[role="grid"]') === null)
+      .catch(() => true)
+    if (fromField && typable) {
       await setKeyboard(page, KEYBOARD_PX)
       out.push(...(await popupProblems(page, `"${name}" popup, keyboard open`)))
       await setKeyboard(page, 0)

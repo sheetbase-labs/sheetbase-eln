@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  formatFrozenCell,
   frozenSheetGridFromEvidence,
   frozenSheetGridFromState,
 } from './frozen-sheet-grid'
@@ -90,5 +91,13 @@ describe('frozenSheetGridFromState', () => {
         }).rowKeys,
       ).toBeNull()
     }
+  })
+})
+
+describe('formatFrozenCell', () => {
+  it('writes a very large number the way the live sheet shows it', () => {
+    expect(formatFrozenCell(730000000000)).toBe('7.3 × 10¹¹')
+    expect(formatFrozenCell(84.9)).toBe('84.9')
+    expect(formatFrozenCell(150)).toBe('150')
   })
 })

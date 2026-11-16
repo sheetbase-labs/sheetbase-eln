@@ -16,8 +16,13 @@ import type {
 } from '#/features/plans/plan'
 import { runPlanStep } from '#/features/plans/run'
 import type { ApplyBuilt } from '#/features/plans/run'
+import { beginChangeSet, finishChangeSet } from '#/features/ai-undo/client'
+import { isUndoableTool } from '#/features/ai-undo/undo'
 import type { AssistantProposal } from '#/lib/assistant-proposals'
 import { reportActionFailure } from '#/lib/assistant-failure-feed'
+import { createDataClient } from '#/lib/data-client'
+
+import { UndoPanel } from './undo-panel'
 
 /**
  * A plan from the assistant: several changes approved once and run in order.
@@ -33,7 +38,12 @@ type Phase = 'idle' | 'running' | 'paused' | 'stopped' | 'done' | 'dismissed'
 /** Kept outside the component so a re-render or reopened panel remembers it. */
 const remembered = new Map<
   string,
-  { phase: Phase; steps: PlanStepState[]; at: number | null }
+  {
+    phase: Phase
+    steps: PlanStepState[]
+    at: number | null
+    setId: string | null
+  }
 >()
 
 const ICON: Record<
@@ -78,7 +88,10 @@ export function PlanCard({
   )
 
   const [pausedAt, setPausedAt] = useState<number | null>(initial?.at ?? null)
+  // The set of changes the steps have made so far, so they can be undone.
+  const [setId, setSetId] = useState<string | null>(initial?.setId ?? null)
   const latest = useRef(steps)
+  const undoSet = useRef<string | null>(initial?.setId ?? null)
   const queryClient = useQueryClient()
   const router = useRouter()
 
@@ -87,7 +100,12 @@ export function PlanCard({
     setPausedAt(at)
 
     if (next !== 'running') {
-      remembered.set(callId, { phase: next, steps: latest.current, at })
+      remembered.set(callId, {
+        phase: next,
+        steps: latest.current,
+        at,
+        setId: undoSet.current,
+      })
     }
   }
 
@@ -114,6 +132,20 @@ export function PlanCard({
     save('running', null)
 
     let failedMessage = ''
+    const client = createDataClient()
+    let openSet: string | null = null
+
+    // Record what the steps change so the whole plan can be undone. A plan runs
+    // the same whether or not this works, so a refusal here is not an error.
+    try {
+      openSet = await beginChangeSet(client, {
+        title: proposal.title,
+        kind: 'plan',
+        setId: undoSet.current ?? undefined,
+      })
+    } catch {
+      openSet = null
+    }
 
     const outcome: PlanOutcome = await runPlan({
       steps: action.steps,
@@ -129,6 +161,26 @@ export function PlanCard({
         }),
       onUpdate: update,
     })
+
+    if (openSet) {
+      const untracked = action.steps
+        .filter(
+          (step, index) =>
+            index >= from &&
+            latest.current[index]?.phase === 'done' &&
+            !isUndoableTool(step.tool),
+        )
+        .map((step) => step.title)
+
+      try {
+        const kept = await finishChangeSet(client, openSet, untracked)
+
+        undoSet.current = kept?.id ?? undoSet.current
+        setSetId(undoSet.current)
+      } catch {
+        // Nothing to undo when the set could not be closed.
+      }
+    }
 
     if (outcome.status === 'paused') save('paused', outcome.at)
     else if (outcome.status === 'failed') {
@@ -178,6 +230,9 @@ export function PlanCard({
         ))}
       </ol>
       <PlanNotice phase={phase} steps={steps} pausedAt={pausedAt} />
+      {setId && phase !== 'running' && phase !== 'idle' ? (
+        <UndoPanel key={setId} setId={setId} />
+      ) : null}
       <PlanActions
         phase={phase}
         pausedAt={pausedAt}

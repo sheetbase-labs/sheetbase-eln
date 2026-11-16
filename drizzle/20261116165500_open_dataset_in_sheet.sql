@@ -198,3 +198,8 @@ END $$;
 ALTER FUNCTION api.open_dataset_in_sheet(uuid, text, uuid, uuid, uuid) OWNER TO migrator;
 REVOKE ALL ON FUNCTION api.open_dataset_in_sheet(uuid, text, uuid, uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION api.open_dataset_in_sheet(uuid, text, uuid, uuid, uuid) TO authenticated, api_client;
+--> statement-breakpoint
+-- The pipeline action. Mirrors src/features/data-in/operations.ts.
+INSERT INTO internal.pipeline_actions (operation, definition) VALUES
+  ('open_dataset_in_sheet', '{"operation":"open_dataset_in_sheet","rpc":"open_dataset_in_sheet","label":"Open a dataset in a sheet","description":"Makes a new sheet that shows every column and row of a dataset, and puts it in a notebook when you name one. No steward-made sheet definition is needed: the columns come from the dataset itself. Returns `{ instance, definitionVersionId, block }`; `block` is the notebook block when a notebook was named.","arguments":[{"name":"p_dataset_id","type":"uuid","required":true,"nullable":false},{"name":"p_name","type":"text","required":false,"nullable":true},{"name":"p_notebook_record_id","type":"uuid","required":false,"nullable":true},{"name":"p_project_id","type":"uuid","required":false,"nullable":true},{"name":"p_after_block_id","type":"uuid","required":false,"nullable":true}]}'::jsonb)
+ON CONFLICT (operation) DO UPDATE SET definition = EXCLUDED.definition;

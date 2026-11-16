@@ -363,15 +363,16 @@ function ReceiptLinks({
           recordId={recordId}
           blockId={blockId}
         />
-      ) : (
-        <Link
-          className="text-link"
-          to="/sheets/new"
-          search={{ dataset: datasetId, experiment: recordId, returnTo }}
-        >
-          {t('notebook.datasetImportBlock.openInASheet')}
-        </Link>
-      )}
+      ) : null}
+      <Link
+        className="text-link"
+        to="/sheets/new"
+        search={{ dataset: datasetId, experiment: recordId, returnTo }}
+      >
+        {recordId && blockId && canMakeSheet
+          ? t('notebook.datasetImportBlock.chooseSheetDefinition')
+          : t('notebook.datasetImportBlock.openInASheet')}
+      </Link>
       <Link
         className="text-link"
         to="/datasets/$datasetId/rows"

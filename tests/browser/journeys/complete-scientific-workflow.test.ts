@@ -336,7 +336,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     await open(page, `/experiments/${experimentId}/notebook`)
     await expect(importBlock.getByText(/current dataset/)).toBeVisible()
     await importBlock
-      .getByRole('link', { name: 'Open in a sheet', exact: true })
+      .getByRole('link', { name: 'Choose a sheet definition', exact: true })
       .click()
     await expect(page).toHaveURL(/\/sheets\/new\?/)
     expect(new URL(page.url()).searchParams.get('dataset')).toBe(datasetId)

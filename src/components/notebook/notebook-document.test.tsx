@@ -692,16 +692,19 @@ describe('NotebookDocument — insert-block menu', () => {
     expect(
       await screen.findByRole('listbox', { name: 'Insert block' }),
     ).toBeTruthy()
+    // Every block, plus Heading, which turns the paragraph in place.
     expect(screen.getAllByRole('option')).toHaveLength(
-      BLOCK_PICKER_OPTIONS.length,
+      BLOCK_PICKER_OPTIONS.length + 1,
     )
 
     await user.paste('table')
     const narrowed = screen.getAllByRole('option')
     expect(narrowed).toHaveLength(1)
-    expect(narrowed[0].textContent).toContain(
-      'Spreadsheet with dataset sources and local fields',
-    )
+    expect(narrowed[0].textContent).toContain('Sheet')
+    // Only the highlighted row says what it does.
+    expect(
+      screen.getByText('Spreadsheet with dataset sources and local fields'),
+    ).toBeTruthy()
 
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('listbox', { name: 'Insert block' })).toBeNull()
@@ -730,8 +733,8 @@ describe('NotebookDocument — insert-block menu', () => {
     await user.paste('/')
     await screen.findByRole('listbox', { name: 'Insert block' })
 
-    // Import data leads the group; one ArrowDown selects Sheet.
-    await user.keyboard('{ArrowDown}')
+    // Text, Heading, Checklist and Sheet lead; three ArrowDowns reach Sheet.
+    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}')
 
     const highlighted = screen
       .getAllByRole('option')

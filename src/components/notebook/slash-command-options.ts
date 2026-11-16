@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import { t } from '#/copy'
 import { BLOCK_PICKER_OPTIONS } from '#/lib/blocks/registry'
 import type { BlockPickerOption } from '#/lib/blocks/registry'
@@ -6,11 +8,80 @@ import type { BlockPickerOption } from '#/lib/blocks/registry'
 export const AI_SLASH_TYPE = 'ai'
 export const AI_GROUP_ID = 'ai'
 export const PLUGIN_GROUP_ID = 'plugins'
+export const COMMON_GROUP_ID = 'common'
+export const RECENT_GROUP_ID = 'recent'
+
+/** Once something is typed, matches sit in one list, best match first. */
+export const MATCH_GROUP_ID = 'matches'
+
+/** Menu-only: turns the current paragraph into a heading, in place. */
+export const HEADING_SLASH_TYPE = 'heading'
+
+/** The four blocks nearly every entry starts with, shown first and in this order. */
+const COMMON_TYPES: readonly string[] = [
+  'rich_text',
+  HEADING_SLASH_TYPE,
+  'checklist',
+  'sheet',
+]
+
+const RECENT_KEY = 'sheetbase.slashMenu.recent'
+const RECENT_SHOWN = 3
 
 export type SlashCommandOption = Omit<BlockPickerOption, 'group'> & {
   group:
-    BlockPickerOption['group'] | typeof AI_GROUP_ID | typeof PLUGIN_GROUP_ID
+    | BlockPickerOption['group']
+    | typeof AI_GROUP_ID
+    | typeof PLUGIN_GROUP_ID
+    | typeof COMMON_GROUP_ID
+    | typeof RECENT_GROUP_ID
+    | typeof MATCH_GROUP_ID
 }
+
+const HEADING_OPTION: SlashCommandOption = {
+  type: HEADING_SLASH_TYPE,
+  label: t('notebook.slashCommandMenu.headingLabel'),
+  description: t('notebook.slashCommandMenu.headingDescription'),
+  icon: 'heading2',
+  group: 'writing',
+  aliases: ['title', 'section', 'h2', 'h1', 'subheading'],
+}
+
+/** Block types picked lately on this device, newest first. */
+export function recentSlashTypes(): string[] {
+  try {
+    return z
+      .array(z.string())
+      .catch([])
+      .parse(JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]'))
+  } catch {
+    return []
+  }
+}
+
+/** Remember a pick so it floats to the top of the menu next time. */
+export function recordSlashUse(type: string): void {
+  if (type === AI_SLASH_TYPE || COMMON_TYPES.includes(type)) return
+
+  try {
+    const next = [type, ...recentSlashTypes().filter((x) => x !== type)]
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next.slice(0, 8)))
+  } catch {
+    // Storage can be blocked; the menu just has no recents then.
+  }
+}
+
+const GROUP_ORDER: readonly string[] = [
+  AI_GROUP_ID,
+  COMMON_GROUP_ID,
+  RECENT_GROUP_ID,
+  MATCH_GROUP_ID,
+  'structure',
+  'writing',
+  'evidence',
+  'sign',
+  PLUGIN_GROUP_ID,
+]
 
 const AI_OPTION: SlashCommandOption = {
   type: AI_SLASH_TYPE,
@@ -48,13 +119,59 @@ export function slashCommandFilteredOptions(
   withAi = false,
   pluginOptions: readonly SlashCommandOption[] = [],
 ) {
-  const options = [
+  const all: SlashCommandOption[] = [
     ...(withAi ? [AI_OPTION] : []),
     ...BLOCK_PICKER_OPTIONS,
+    HEADING_OPTION,
     ...pluginOptions,
   ]
 
-  return options.filter((opt) => optionMatches(opt, query))
+  const browsing = !query.trim()
+  const recent = browsing ? recentSlashTypes().slice(0, RECENT_SHOWN) : []
+
+  // With nothing typed, the common blocks lead and recent picks follow; once
+  // the person types, the groups step aside and only matches show.
+  const placed = all.map((opt): SlashCommandOption => {
+    if (!browsing) return { ...opt, group: MATCH_GROUP_ID }
+
+    if (COMMON_TYPES.includes(opt.type)) {
+      return { ...opt, group: COMMON_GROUP_ID }
+    }
+
+    if (recent.includes(opt.type)) return { ...opt, group: RECENT_GROUP_ID }
+
+    return opt
+  })
+
+  const rank = (opt: SlashCommandOption) => {
+    const group = GROUP_ORDER.indexOf(opt.group)
+
+    if (opt.group === COMMON_GROUP_ID) {
+      return group * 100 + COMMON_TYPES.indexOf(opt.type)
+    }
+
+    if (opt.group === RECENT_GROUP_ID) {
+      return group * 100 + recent.indexOf(opt.type)
+    }
+
+    if (opt.group === MATCH_GROUP_ID) {
+      const q = query.toLowerCase().trim()
+      const label = opt.label.toLowerCase()
+
+      // A label that starts with what was typed beats one that merely holds
+      // it, which beats a match on an alias or the description.
+      return group * 100 + (label.startsWith(q) ? 0 : label.includes(q) ? 1 : 2)
+    }
+
+    return group * 100
+  }
+
+  return placed
+    .flatMap((opt, index) =>
+      optionMatches(opt, query) ? [{ opt, index }] : [],
+    )
+    .sort((a, b) => rank(a.opt) - rank(b.opt) || a.index - b.index)
+    .map(({ opt }) => opt)
 }
 
 /** The slash-menu entries for the blocks installed plugins add. */

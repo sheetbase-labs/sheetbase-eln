@@ -7,7 +7,10 @@ import { Icon } from '#/components/icons'
 import { Kbd } from '#/components/ui/kbd'
 import {
   AI_GROUP_ID,
+  COMMON_GROUP_ID,
+  MATCH_GROUP_ID,
   PLUGIN_GROUP_ID,
+  RECENT_GROUP_ID,
   slashCommandFilteredOptions,
 } from './slash-command-options'
 import type { SlashCommandOption } from './slash-command-options'
@@ -79,7 +82,7 @@ export function SlashCommandMenu({
   return (
     <div
       ref={ref}
-      className="z-50 max-h-80 w-72 max-w-[calc(100vw-16px)] overflow-y-auto overscroll-contain rounded-lg border bg-popover p-1 shadow-md"
+      className="z-50 max-h-[26rem] w-72 max-w-[calc(100vw-16px)] overflow-y-auto overscroll-contain rounded-lg border bg-popover p-1 shadow-md"
       style={style}
       role="listbox"
       aria-label={t('notebook.slashCommandMenu.ariaLabel')}
@@ -91,6 +94,15 @@ export function SlashCommandMenu({
         ...(withAi
           ? [{ id: AI_GROUP_ID, label: t('notebook.aiComposer.groupLabel') }]
           : []),
+        { id: MATCH_GROUP_ID, label: '' },
+        {
+          id: COMMON_GROUP_ID,
+          label: t('notebook.slashCommandMenu.commonGroup'),
+        },
+        {
+          id: RECENT_GROUP_ID,
+          label: t('notebook.slashCommandMenu.recentGroup'),
+        },
         ...BLOCK_PICKER_GROUPS,
         ...(pluginOptions.length > 0
           ? [{ id: PLUGIN_GROUP_ID, label: t('plugins.screen.pickBlock') }]
@@ -102,9 +114,11 @@ export function SlashCommandMenu({
 
         return (
           <div key={group.id} className="mb-1">
-            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
-              {group.label}
-            </p>
+            {group.label ? (
+              <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
+                {group.label}
+              </p>
+            ) : null}
             {items.map((opt) => {
               optionIndex += 1
               const index = optionIndex
@@ -125,7 +139,7 @@ export function SlashCommandMenu({
                     onHoverIndex?.(index)
                   }}
                   className={cn(
-                    'flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors',
+                    'flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors',
                     active
                       ? 'bg-selection text-fg'
                       : 'text-fg hover:bg-surface-hover',
@@ -134,26 +148,26 @@ export function SlashCommandMenu({
                   <Icon
                     name={iconName}
                     size={16}
-                    className="mt-0.5 shrink-0 text-fg-muted"
+                    className="shrink-0 text-fg-muted"
                   />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{opt.label}</span>
-                    <span className="block text-xs text-fg-muted">
-                      {opt.description}
-                    </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {opt.label}
                   </span>
-                  {active ? (
-                    <Kbd className="mt-0.5 shrink-0 self-center">↵</Kbd>
-                  ) : null}
+                  {active ? <Kbd className="shrink-0">↵</Kbd> : null}
                 </button>
               )
             })}
           </div>
         )
       })}
-      <p className="border-t px-2 py-1.5 text-[10px] text-fg-muted">
-        {t('notebook.slashCommandMenu.toMoveEnterTo')}
-      </p>
+      <div className="sticky bottom-0 -mx-1 -mb-1 border-t bg-popover px-3 py-2">
+        <p className="min-h-8 text-xs text-fg">
+          {filtered.at(selectedIndex)?.description ?? ''}
+        </p>
+        <p className="text-[10px] text-fg-muted">
+          {t('notebook.slashCommandMenu.toMoveEnterTo')}
+        </p>
+      </div>
     </div>
   )
 }

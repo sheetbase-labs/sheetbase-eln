@@ -12,6 +12,7 @@ import {
   slashCommandFilterCount,
   slashCommandFilteredOptions,
   pluginSlashOptions,
+  recordSlashUse,
 } from './slash-command-options'
 
 afterEach(() => cleanup())
@@ -89,7 +90,44 @@ describe('slashCommandFilteredOptions', () => {
 
   it('matches descriptions and keeps grouped option order', () => {
     expect(slashCommandFilterCount('')).toBeGreaterThan(0)
-    expect(slashCommandFilteredOptions('heading')[0]?.type).toBe('rich_text')
+    // The Heading entry answers to its own name before Text's alias for it.
+    expect(slashCommandFilteredOptions('heading')[0]?.type).toBe('heading')
+    expect(slashCommandFilteredOptions('head')[0]?.type).toBe('heading')
+  })
+
+  it('leads with Text, Heading, Checklist and Sheet when nothing is typed', () => {
+    expect(
+      slashCommandFilteredOptions('')
+        .slice(0, 4)
+        .map((opt) => opt.type),
+    ).toEqual(['rich_text', 'heading', 'checklist', 'sheet'])
+  })
+
+  it('floats recently picked blocks above the rest, and no more than three', () => {
+    localStorage.clear()
+
+    for (const type of [
+      'file',
+      'analysis',
+      'linked_record',
+      'protocol_reference',
+    ]) {
+      recordSlashUse(type)
+    }
+
+    const types = slashCommandFilteredOptions('').map((opt) => opt.type)
+    expect(types.slice(4, 7)).toEqual([
+      'protocol_reference',
+      'linked_record',
+      'analysis',
+    ])
+    expect(types).toContain('file')
+    localStorage.clear()
+  })
+
+  it('does not list a block twice', () => {
+    const types = slashCommandFilteredOptions('').map((opt) => opt.type)
+    expect(new Set(types).size).toBe(types.length)
   })
 })
 
@@ -101,9 +139,11 @@ describe('SlashCommandMenu', () => {
     expect(screen.getByText('Insert block')).toBeTruthy()
 
     const options = screen.getAllByRole('option')
-    expect(options[0].textContent).toContain('Import data')
-    expect(options[0].textContent).toContain('without leaving the notebook')
+    expect(options[0].textContent).toContain('Text')
     expect(options[0].getAttribute('aria-selected')).toBe('true')
+    // Rows are one line; only the highlighted block says what it does, below.
+    expect(screen.getByText('Paragraph')).toBeTruthy()
+    expect(screen.queryByText(/without leaving the notebook/)).toBeNull()
     expect(options[1].getAttribute('aria-selected')).toBe('false')
     expect(
       screen.getByText('↑ ↓ to move · Enter to insert · Esc to close'),
@@ -117,9 +157,10 @@ describe('SlashCommandMenu', () => {
 
     const options = screen.getAllByRole('option')
     expect(options).toHaveLength(1)
-    expect(options[0].textContent).toContain(
-      'Spreadsheet with dataset sources and local fields',
-    )
+    expect(options[0].textContent).toContain('Sheet')
+    expect(
+      screen.getByText('Spreadsheet with dataset sources and local fields'),
+    ).toBeTruthy()
   })
 
   it('reports the highlighted block when it is clicked', async () => {

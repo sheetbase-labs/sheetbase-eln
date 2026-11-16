@@ -88,16 +88,16 @@ describe('faceted charts', () => {
 
     const facets = materialiseFacetedCharts(spec, columns, rows).panels
 
-    const figure = figureFromChart(
+    const faceted = figureFromChart(
       'T',
       spec,
       materialiseChart(spec, columns, rows),
       facets,
     )
 
-    expect(figure?.panels?.map((p) => p.value)).toEqual(['A', 'B'])
+    expect(faceted?.panels?.map((p) => p.value)).toEqual(['A', 'B'])
 
-    const text = await textOf(figure ? [figure] : [])
+    const text = await textOf(faceted ? [faceted] : [])
 
     expect(text).toContain('Figure 0')
     expect(text).toContain('Titre')

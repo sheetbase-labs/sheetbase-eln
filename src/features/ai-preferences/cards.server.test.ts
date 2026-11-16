@@ -24,7 +24,7 @@ const saved = (
   scope: 'user' | 'workspace',
   body: string,
   topic: string | null = null,
-): AiPreferenceRow => ({
+): AiPreferenceRow & Record<string, string | null> => ({
   id,
   scope,
   topic,

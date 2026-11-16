@@ -143,6 +143,42 @@ describe('robot settings', () => {
     ).rejects.toThrow(/how Sheetbase reaches/)
   })
 
+  it('keeps the smallest and largest transfer the robot takes', async () => {
+    const set = await owner.query(
+      `select * from api.set_instrument_robot($1,'file','csv','{}'::jsonb,0.5,200)`,
+      [ROBOT],
+    )
+    expect(Number(set.rows[0].min_transfer_ul)).toBe(0.5)
+    expect(Number(set.rows[0].max_transfer_ul)).toBe(200)
+
+    // Leaving them out means no limit.
+    const cleared = await owner.query(
+      `select * from api.set_instrument_robot($1,'file','csv')`,
+      [ROBOT],
+    )
+    expect(cleared.rows[0].min_transfer_ul).toBeNull()
+    expect(cleared.rows[0].max_transfer_ul).toBeNull()
+
+    await expect(
+      owner.query(
+        `select * from api.set_instrument_robot($1,'file','csv','{}'::jsonb,50,10)`,
+        [ROBOT],
+      ),
+    ).rejects.toThrow(/smallest transfer/)
+    await expect(
+      owner.query(
+        `select * from api.set_instrument_robot($1,'file','csv','{}'::jsonb,0,10)`,
+        [ROBOT],
+      ),
+    ).rejects.toThrow(/more than zero/)
+
+    // Put it back as the next tests expect it.
+    await owner.query(
+      `select * from api.set_instrument_robot($1,'opentrons')`,
+      [ROBOT],
+    )
+  })
+
   it('is for people who manage instruments, in this workspace', async () => {
     await expect(
       viewer.query(`select * from api.set_instrument_robot($1,'file')`, [

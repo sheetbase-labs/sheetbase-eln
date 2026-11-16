@@ -59,6 +59,7 @@ import {
   clearRobotSettings,
   startJob,
   cancelJob,
+  transferLimitsText,
 } from '#/lib/robots'
 import type {
   InstrumentJobWire,
@@ -198,6 +199,13 @@ export function RobotSection({
               [
                 t('automation.robot.labware'),
                 <LabwareSummary key="labware" robot={robot} />,
+              ],
+              [
+                t('automation.robot.transferSizes'),
+                <span key="limits" className="text-fg-muted">
+                  {transferLimitsText(robot) ??
+                    t('automation.robot.transferSizesNone')}
+                </span>,
               ],
               [
                 <Tooltip
@@ -498,6 +506,15 @@ const LABWARE_LABELS = {
   echoSourceType: 'automation.robot.sourceType',
 } as const satisfies Record<keyof RobotLabware, CopyKey>
 
+/** A volume limit typed in a box: a number above zero, or none. */
+function limitValue(text: string): number | null {
+  const value = Number(text.trim())
+
+  return text.trim() !== '' && Number.isFinite(value) && value > 0
+    ? value
+    : null
+}
+
 function RobotSetupDialog({
   instrument,
   current,
@@ -518,6 +535,18 @@ function RobotSetupDialog({
   )
 
   const [labware, setLabware] = useState<RobotLabware>(current?.labware ?? {})
+
+  const [minTransfer, setMinTransfer] = useState(
+    current?.min_transfer_ul?.toString() ?? '',
+  )
+
+  const [maxTransfer, setMaxTransfer] = useState(
+    current?.max_transfer_ul?.toString() ?? '',
+  )
+
+  const minUl = limitValue(minTransfer)
+  const maxUl = limitValue(maxTransfer)
+  const limitsReversed = minUl !== null && maxUl !== null && minUl > maxUl
 
   useEffect(() => {
     const wanted = ROBOT_DRIVERS.find((d) => d.key === driver)?.worklistFormat
@@ -543,6 +572,8 @@ function RobotSetupDialog({
         driver,
         worklistFormat: format,
         labware: kept,
+        minTransferUl: minUl,
+        maxTransferUl: maxUl,
       })
     },
     onSuccess: () => {
@@ -635,6 +666,29 @@ function RobotSetupDialog({
                 </Field>
               ),
             )}
+            <div className="grid grid-cols-2 gap-3">
+              <Field label={t('automation.robot.minTransfer')}>
+                <Input
+                  inputMode="decimal"
+                  value={minTransfer}
+                  onChange={(event) => setMinTransfer(event.target.value)}
+                />
+              </Field>
+              <Field label={t('automation.robot.maxTransfer')}>
+                <Input
+                  inputMode="decimal"
+                  value={maxTransfer}
+                  onChange={(event) => setMaxTransfer(event.target.value)}
+                />
+              </Field>
+            </div>
+            <p
+              className={`m-0 text-label ${limitsReversed ? 'text-danger-text' : 'text-fg-muted'}`}
+            >
+              {limitsReversed
+                ? t('automation.robot.limitsOrder')
+                : t('automation.robot.transferHint')}
+            </p>
           </div>
         </DialogBody>
         <DialogFooter>
@@ -643,7 +697,7 @@ function RobotSetupDialog({
           </DialogClose>
           <Button
             variant="primary"
-            disabled={save.isPending}
+            disabled={save.isPending || limitsReversed}
             onClick={() => save.mutate()}
           >
             {t('common.actions.save')}

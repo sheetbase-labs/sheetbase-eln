@@ -27,6 +27,8 @@ export const automation = {
     },
     worklistFormat: 'Worklist file',
     labware: 'Labware',
+    transferSizes: 'Transfer sizes',
+    transferSizesNone: 'No limits set',
     labwareNone: 'Default labware',
     agent: 'Agent',
     agentTooltip:
@@ -51,6 +53,11 @@ export const automation = {
     tiprack: 'Tip rack',
     mount: 'Pipette mount',
     mounts: { left: 'Left', right: 'Right' },
+    minTransfer: 'Smallest transfer (µL)',
+    maxTransfer: 'Largest transfer (µL)',
+    transferHint:
+      'Worklists made for this robot fill these in as their volume limits. Leave a box empty for no limit.',
+    limitsOrder: 'The smallest transfer cannot be larger than the largest.',
     liquidClass: 'Liquid class',
     sourceType: 'Source plate type',
     destType: 'Destination plate type',

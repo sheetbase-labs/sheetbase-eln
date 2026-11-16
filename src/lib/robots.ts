@@ -8,6 +8,7 @@
  * transfers. This module is the shared part: the kinds of robot, the wire
  * shapes, the file a robot is given, and the calls the screens make.
  */
+import { t } from '#/copy'
 import type { DataClient } from '#/lib/data-client'
 import type { Transfer, WorklistFormat, WriteOptions } from './plate-worklist'
 import { WORKLIST_FILE_EXTENSION, writeWorklist } from './plate-worklist'
@@ -85,6 +86,9 @@ export interface RobotSettingsWire {
   driver: RobotDriver
   worklist_format: WorklistFormat
   labware: RobotLabware
+  /** The smallest and largest volume (µl) the robot moves in one transfer. */
+  min_transfer_ul: number | null
+  max_transfer_ul: number | null
   updated_at: string
   updated_by_user_id: string | null
 }
@@ -183,6 +187,23 @@ export function fetchInstrumentJobs(
   )
 }
 
+/** A robot's volume limits in words ("0.5 to 200 µL"), or null when it has none. */
+export function transferLimitsText(
+  robot: Pick<RobotSettingsWire, 'min_transfer_ul' | 'max_transfer_ul'>,
+): string | null {
+  const min = robot.min_transfer_ul
+  const max = robot.max_transfer_ul
+
+  if (min !== null && max !== null)
+    return t('plates.worklist.limitsBetween', { min, max })
+
+  if (min !== null) return t('plates.worklist.limitsAtLeast', { min })
+
+  if (max !== null) return t('plates.worklist.limitsAtMost', { max })
+
+  return null
+}
+
 export function saveRobotSettings(
   client: DataClient,
   input: {
@@ -190,6 +211,8 @@ export function saveRobotSettings(
     driver: RobotDriver
     worklistFormat?: WorklistFormat
     labware?: RobotLabware
+    minTransferUl?: number | null
+    maxTransferUl?: number | null
   },
 ): Promise<RobotSettingsWire> {
   return client.rpc<RobotSettingsWire>('set_instrument_robot', {
@@ -197,6 +220,8 @@ export function saveRobotSettings(
     p_driver: input.driver,
     p_worklist_format: input.worklistFormat ?? null,
     p_labware: input.labware ?? {},
+    p_min_transfer_ul: input.minTransferUl ?? null,
+    p_max_transfer_ul: input.maxTransferUl ?? null,
   })
 }
 
@@ -278,14 +303,14 @@ export function robotFileFor(job: {
   labware: RobotLabware
   worklist: JobWorklist
 }): RobotFile {
-  const transfers: Transfer[] = job.worklist.transfers.map((t) => ({
+  const transfers: Transfer[] = job.worklist.transfers.map((row) => ({
     sourcePlate: job.worklist.sourcePlate ?? 'Source',
-    sourceWell: t.sourceWell,
+    sourceWell: row.sourceWell,
     destPlate: job.worklist.destPlate ?? 'Destination',
-    destWell: t.destWell,
-    volumeUl: Number(t.volumeUl),
-    label: t.label ?? '',
-    sampleId: t.sampleId ?? null,
+    destWell: row.destWell,
+    volumeUl: Number(row.volumeUl),
+    label: row.label ?? '',
+    sampleId: row.sampleId ?? null,
   }))
 
   const content = writeWorklist(job.format, transfers, {

@@ -97,7 +97,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install
       - run: cp .env.example .env.local
-      - run: pnpm test --shard=${{ matrix.shard }}
+      - run: >-
+          pnpm test --shard=${{ matrix.shard }}
+          --reporter=default --reporter=json --outputFile.json=timings.json
+      - name: Upload test timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-timings-${{ strategy.job-index }}
+          path: timings.json
+          if-no-files-found: ignore
 
   database:
     name: Database contract tests (${{ matrix.shard }})
@@ -106,14 +115,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ['1/3', '2/3', '3/3']
+        shard: ['1/4', '2/4', '3/4', '4/4']
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install
       - uses: ./.github/actions/services
         with:
           python: 'true'
-      - run: pnpm test:db --maxWorkers=2 --shard=${{ matrix.shard }}
+      # Each worker clones the migrated template into its own database, so
+      # files never share state; four workers match the runner's cores.
+      - run: >-
+          pnpm test:db --maxWorkers=4 --shard=${{ matrix.shard }}
+          --reporter=default --reporter=json --outputFile.json=timings.json
+      - name: Upload test timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-timings-${{ strategy.job-index }}
+          path: timings.json
+          if-no-files-found: ignore
       - name: Service diagnostics
         if: failure()
         run: docker compose --env-file .env.ci-compose logs --no-color --tail=100

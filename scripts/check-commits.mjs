@@ -8,12 +8,14 @@
  *                                                    strips assistant credit from
  *                                                    the file, then checks the subject
  *
- * PR_TITLE, PR_BODY and PR_HEAD, when set, are checked too.
+ * PR_TITLE, PR_BODY and PR_HEAD, when set, are checked too. PR_HEAD alone
+ * (the pre-push hook) checks just the branch name.
  */
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 
 import {
+  checkBranch,
   checkCommit,
   checkPullRequest,
   checkSubject,
@@ -68,6 +70,9 @@ if (process.argv[2] === '--message') {
       problems.push(`${sha.slice(0, 8)}: ${problem}`)
   }
 }
+
+if (process.env.PR_TITLE === undefined && process.env.PR_HEAD !== undefined)
+  problems.push(...checkBranch(process.env.PR_HEAD))
 
 if (process.env.PR_TITLE !== undefined)
   problems.push(

@@ -90,16 +90,16 @@ export function checkCommit({
   return problems
 }
 
+export function checkBranch(head = '') {
+  return /^claude\//i.test(head)
+    ? [`Branch name starts with claude/: ${head} (use feat/, fix/ ...)`]
+    : []
+}
+
 export function checkPullRequest({ title = '', body = '', head = '' }) {
-  const problems = [
+  return [
     ...checkSubject(title, 'PR title'),
     ...checkAttribution(body, 'PR body'),
+    ...checkBranch(head),
   ]
-
-  if (/^claude\//i.test(head))
-    problems.push(
-      `Branch name starts with claude/: ${head} (use feat/, fix/ ...)`,
-    )
-
-  return problems
 }

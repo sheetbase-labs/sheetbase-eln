@@ -8,6 +8,7 @@
  * plain grid or list text `parsePlateTable` reads, so the plate run dialog can
  * show what each would become before anything is saved.
  */
+import type { ImportDelimiter } from '#/lib/import-parse'
 import {
   ImportParseError,
   detectDelimiter,
@@ -16,6 +17,7 @@ import {
   readXlsxMatrices,
 } from '#/lib/import-parse'
 import { inferPlateFormat, parsePlateTable } from '#/lib/plate-assay'
+import { FORMAT_DIMENSIONS, PLATE_FORMATS } from '#/lib/plate-map'
 import type { PlateFormat } from '#/lib/plate-map'
 
 /** One plate found in a file. */
@@ -46,6 +48,76 @@ export const PLATE_FILE_MAX_BYTES = 8 * 1024 * 1024
 const isNumberCell = (cell: string | undefined) =>
   cell !== undefined && cell.trim() !== '' && Number.isFinite(Number(cell))
 
+const THOUSANDS = /^-?\d{1,3}(,\d{3})+(\.\d+)?$/
+const DECIMAL_COMMA = /^-?\d+,\d+$/
+const DECIMAL_COMMA_THOUSANDS = /^-?\d{1,3}(\.\d{3})+,\d+$/
+const DECIMAL_POINT = /^-?\d+\.\d+$/
+
+/**
+ * Write every number the way `Number` reads it. A file separated by commas
+ * keeps "1,234" for a thousand; one separated by semicolons or tabs that
+ * writes "1234,5" is using a decimal comma. Without this a reading of 44,210
+ * would be read as 44.21.
+ */
+export function normaliseNumbers(
+  matrix: string[][],
+  delimiter: ImportDelimiter,
+): string[][] {
+  const cells = matrix.flat()
+
+  const decimalComma =
+    delimiter !== ',' &&
+    cells.some(
+      (c) => DECIMAL_COMMA.test(c) || DECIMAL_COMMA_THOUSANDS.test(c),
+    ) &&
+    !cells.some((c) => DECIMAL_POINT.test(c))
+
+  return matrix.map((row) =>
+    row.map((cell) => {
+      if (decimalComma) {
+        if (DECIMAL_COMMA_THOUSANDS.test(cell))
+          return cell.replaceAll('.', '').replace(',', '.')
+
+        return DECIMAL_COMMA.test(cell) ? cell.replace(',', '.') : cell
+      }
+
+      return THOUSANDS.test(cell) ? cell.replaceAll(',', '') : cell
+    }),
+  )
+}
+
+/** The name a reader printed above a plate: its plate name, barcode or label line. */
+function titleAbove(matrix: string[][], index: number): string | null {
+  const found = new Map<string, string>()
+
+  for (let up = index - 1; up >= Math.max(0, index - 10); up--) {
+    const row = matrix[up]
+
+    const named =
+      /^(plate id|plate name|plate|barcode|label|id1)\s*:?\s*(.*)$/i.exec(
+        (row[0] ?? '').trim(),
+      )
+
+    if (!named) continue
+    const value = named[2].trim() || (row[1] ?? '').trim()
+    const kind = named[1].toLowerCase()
+
+    if (value && !found.has(kind)) found.set(kind, value)
+  }
+
+  for (const kind of [
+    'plate name',
+    'plate id',
+    'plate',
+    'barcode',
+    'id1',
+    'label',
+  ])
+    if (found.has(kind)) return found.get(kind) ?? null
+
+  return null
+}
+
 /** Does a row hold 1, 2, 3 … n (n at least 3) starting at this column? */
 function columnNumbersAt(row: string[], from: number): number {
   let count = 0
@@ -59,12 +131,71 @@ function columnNumbersAt(row: string[], from: number): number {
   return count >= 3 ? count : 0
 }
 
+/** Rows of a plate with this many columns, when the readers print no row letters. */
+function rowsForColumns(width: number): number | null {
+  const format = PLATE_FORMATS.find((f) => FORMAT_DIMENSIONS[f].cols === width)
+
+  return format ? FORMAT_DIMENSIONS[format].rows : null
+}
+
+/**
+ * The lettered rows under a column-number header. Some readers (SoftMax Pro,
+ * for one) print the readings with no row letters, only a temperature or blank
+ * column in front: when the rows are numbers and there are exactly as many as a
+ * plate that wide has, they are A, B, C … in order.
+ */
+function bodyUnder(
+  matrix: string[][],
+  index: number,
+  start: number,
+  width: number,
+): { body: string[][]; next: number } {
+  const body: string[][] = []
+  let next = index + 1
+
+  while (
+    next < matrix.length &&
+    ROW_LABEL.test(matrix[next][start - 1] ?? '')
+  ) {
+    body.push([
+      matrix[next][start - 1].trim().toUpperCase(),
+      ...matrix[next].slice(start, start + width),
+    ])
+    next++
+  }
+
+  if (body.length >= 2) return { body, next }
+
+  const expected = rowsForColumns(width)
+  const unlabeled: string[][] = []
+  next = index + 1
+
+  while (
+    expected !== null &&
+    next < matrix.length &&
+    unlabeled.length < expected &&
+    matrix[next].slice(start, start + width).filter(isNumberCell).length >=
+      width / 2
+  ) {
+    unlabeled.push([
+      String.fromCharCode(65 + unlabeled.length),
+      ...matrix[next].slice(start, start + width),
+    ])
+    next++
+  }
+
+  return unlabeled.length === expected
+    ? { body: unlabeled, next }
+    : { body, next: index + 1 }
+}
+
 /** Every grid in a sheet: a column-number header with lettered rows under it. */
 export function plateGridsFromMatrix(
   matrix: string[][],
   sheetName: string,
 ): PlateCandidate[] {
   const found: PlateCandidate[] = []
+  const titles: Array<string | null> = []
   let index = 0
 
   while (index < matrix.length) {
@@ -86,19 +217,7 @@ export function plateGridsFromMatrix(
       continue
     }
 
-    const body: string[][] = []
-    let next = index + 1
-
-    while (
-      next < matrix.length &&
-      ROW_LABEL.test(matrix[next][start - 1] ?? '')
-    ) {
-      body.push([
-        matrix[next][start - 1].trim().toUpperCase(),
-        ...matrix[next].slice(start, start + width),
-      ])
-      next++
-    }
+    const { body, next } = bodyUnder(matrix, index, start, width)
 
     if (body.length >= 2) {
       const header = [
@@ -123,37 +242,98 @@ export function plateGridsFromMatrix(
           format: inferPlateFormat(parsed.wells.map((w) => w.wellCode)),
           layout: 'grid',
         })
+        titles.push(titleAbove(matrix, index))
       }
     }
 
     index = Math.max(next, index + 1)
   }
 
+  // Name each of several plates by what the reader printed above it, when
+  // those names tell them apart.
+  if (
+    found.length > 1 &&
+    titles.every(Boolean) &&
+    new Set(titles).size === found.length
+  )
+    return found.map((grid, i) => ({
+      ...grid,
+      label: `${sheetName} · ${titles[i]}`,
+    }))
+
   return found
 }
 
-/** A list with a `well` column, as a whole sheet. */
-function plateListFromMatrix(
+const WELL_HEADERS = new Set(['well', 'wellcode', 'position', 'wellposition'])
+
+const PLATE_HEADERS = new Set([
+  'plate',
+  'plateid',
+  'platename',
+  'platenumber',
+  'plateno',
+  'platebarcode',
+  'barcode',
+])
+
+const headerKey = (cell: string) => cell.toLowerCase().replace(/[\s_-]+/g, '')
+
+/**
+ * A list with a `well` column, wherever its header is in the sheet. When it
+ * also has a plate or barcode column holding several values, each plate is its
+ * own candidate: one list file from a screen holds many plates.
+ */
+function plateListsFromMatrix(
   matrix: string[][],
   sheetName: string,
-): PlateCandidate | null {
-  const text = matrixToCsv(matrix)
-  const parsed = parsePlateTable(text)
+): PlateCandidate[] {
+  const headerAt = matrix.findIndex((row) =>
+    row.some((cell) => WELL_HEADERS.has(headerKey(cell))),
+  )
 
-  const readings = Object.values(parsed.readout).filter(
-    (v) => v !== null,
-  ).length
+  if (headerAt < 0) return []
+  const rows = matrix.slice(headerAt)
+  const header = rows[0].map(headerKey)
+  const plateCol = header.findIndex((h) => PLATE_HEADERS.has(h))
 
-  if (parsed.wells.length === 0 || readings === 0) return null
+  const groups = new Map<string, string[][]>()
 
-  return {
-    id: `${sheetName}#list`,
-    label: sheetName,
-    text,
-    readings,
-    format: parsed.format,
-    layout: 'list',
+  if (plateCol >= 0) {
+    for (const row of rows.slice(1)) {
+      const key = (row[plateCol] ?? '').trim()
+
+      if (key === '') continue
+      groups.set(key, [...(groups.get(key) ?? []), row])
+    }
   }
+
+  if (groups.size < 2) groups.clear()
+
+  if (groups.size === 0) groups.set('', rows.slice(1))
+
+  const found: PlateCandidate[] = []
+
+  for (const [key, body] of groups) {
+    const text = matrixToCsv([rows[0], ...body])
+    const parsed = parsePlateTable(text)
+
+    const readings = Object.values(parsed.readout).filter(
+      (v) => v !== null,
+    ).length
+
+    if (parsed.wells.length === 0 || readings === 0) continue
+
+    found.push({
+      id: `${sheetName}#list${key ? `:${key}` : ''}`,
+      label: key ? `${sheetName} · ${key}` : sheetName,
+      text,
+      readings,
+      format: parsed.format,
+      layout: 'list',
+    })
+  }
+
+  return found
 }
 
 /** Plates in one sheet: grids first, otherwise the sheet as a list. */
@@ -161,29 +341,81 @@ export function platesInMatrix(
   matrix: string[][],
   sheetName: string,
 ): PlateCandidate[] {
-  const list = plateListFromMatrix(matrix, sheetName)
-
-  if (list) return [list]
-
   const grids = plateGridsFromMatrix(matrix, sheetName)
+
+  if (grids.length === 0) return plateListsFromMatrix(matrix, sheetName)
 
   if (grids.length <= 1) return grids
 
-  return grids.map((grid, i) => ({
-    ...grid,
-    label: `${sheetName} · ${i + 1}`,
-  }))
+  // Named by the reader's own titles when it printed them, else numbered.
+  return grids.every((grid) => grid.label !== sheetName)
+    ? grids
+    : grids.map((grid, i) => ({ ...grid, label: `${sheetName} · ${i + 1}` }))
 }
 
-/** Plates in text a reader exported as CSV, tab- or semicolon-separated. */
+/**
+ * Plates in text a reader exported as CSV, tab- or semicolon-separated. The
+ * separator is the one that finds the most plates: a Tecan preamble full of
+ * commas does not make the file comma separated.
+ */
 export function platesInText(text: string, name = 'File'): PlateCandidate[] {
   const clean = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+  const guess = detectDelimiter(clean)
 
-  const matrix = parseDelimited(clean, detectDelimiter(clean)).map((row) =>
-    row.map((cell) => cell.trim()),
-  )
+  const delimiters: ImportDelimiter[] = [
+    guess,
+    ...(['\t', ';', ','] as const).filter((d) => d !== guess),
+  ]
 
-  return platesInMatrix(matrix, name)
+  let best: PlateCandidate[] = []
+  let bestReadings = 0
+
+  for (const delimiter of delimiters) {
+    let found: PlateCandidate[]
+
+    try {
+      found = platesInMatrix(
+        normaliseNumbers(
+          parseDelimited(clean, delimiter).map((row) =>
+            row.map((cell) => cell.trim()),
+          ),
+          delimiter,
+        ),
+        name,
+      )
+    } catch (error) {
+      // A separator the file does not use can make its quotes unreadable.
+      if (error instanceof ImportParseError) continue
+      throw error
+    }
+
+    const readings = found.reduce((sum, c) => sum + c.readings, 0)
+
+    if (readings > bestReadings) {
+      best = found
+      bestReadings = readings
+    }
+  }
+
+  return best
+}
+
+/**
+ * Text from a reader file's bytes. Readers write UTF-16 (SoftMax Pro, BMG), UTF-8
+ * with or without a byte order mark, or Windows-1252 (a Tecan degree sign).
+ */
+export function decodePlateText(bytes: Uint8Array): string {
+  if (bytes[0] === 0xff && bytes[1] === 0xfe)
+    return new TextDecoder('utf-16le').decode(bytes.subarray(2))
+
+  if (bytes[0] === 0xfe && bytes[1] === 0xff)
+    return new TextDecoder('utf-16be').decode(bytes.subarray(2))
+
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    return new TextDecoder('windows-1252').decode(bytes)
+  }
 }
 
 function isWorkbook(name: string, bytes: Uint8Array): boolean {
@@ -221,7 +453,7 @@ export async function readPlateFile(file: File): Promise<PlateFileRead> {
     return { fileName: file.name, source: 'workbook', candidates }
   }
 
-  const text = new TextDecoder('utf-8').decode(buffer)
+  const text = decodePlateText(new Uint8Array(buffer))
 
   return {
     fileName: file.name,

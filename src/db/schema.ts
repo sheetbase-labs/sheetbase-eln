@@ -7368,6 +7368,9 @@ export const plateDesigns = api.table(
     customFields: jsonb('custom_fields')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    // How the assay is read (controls, normalisation, hit rule, curve model),
+    // remembered so the next plate of the assay needs nothing typed again.
+    assaySetup: jsonb('assay_setup'),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -7395,6 +7398,10 @@ export const plateDesigns = api.table(
       sql`${table.status} IN ('draft','finalized','archived')`,
     ),
     check('chk_plate_designs_version', sql`${table.metadataVersion} > 0`),
+    check(
+      'chk_plate_designs_assay_setup',
+      sql`${table.assaySetup} IS NULL OR jsonb_typeof(${table.assaySetup}) = 'object'`,
+    ),
     index('idx_plate_designs_workspace').on(table.workspaceId),
     index('idx_plate_designs_project').on(table.projectId),
     index('idx_plate_designs_workspace_status').on(

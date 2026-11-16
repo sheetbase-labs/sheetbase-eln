@@ -2103,7 +2103,8 @@ export const LAB_TABLES: LabTableIndex = {
     ],
   },
   plate_designs: {
-    summary: 'Plate designs: a plate layout drawn ahead of the run.',
+    summary:
+      'Plate designs: a plate layout drawn ahead of the run, and the assay setup (controls, normalisation, hit rule, curve model) remembered for the next plate.',
     columns: [
       ['id', 'uuid', 1],
       ['workspace_id', 'uuid', 1],
@@ -2120,6 +2121,7 @@ export const LAB_TABLES: LabTableIndex = {
       ['created_by_user_id', 'text', 0],
       ['updated_by_user_id', 'text', 0],
       ['custom_fields', 'json', 1],
+      ['assay_setup', 'json', 0],
     ],
   },
   plate_layout_templates: {

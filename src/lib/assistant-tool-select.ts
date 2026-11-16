@@ -57,7 +57,7 @@ const ACTION_WORDS: ReadonlySet<string> = new Set([
 ])
 
 /** Everyday words that point at a tool's subject. */
-const SYNONYMS = {
+const SYNONYM_TABLE = {
   book: ['booking', 'schedule', 'instrument'],
   free: ['schedule', 'booking'],
   calendar: ['schedule'],
@@ -105,6 +105,10 @@ const SYNONYMS = {
   print: ['label_template'],
 } satisfies Record<string, string[]>
 
+const SYNONYMS: ReadonlyMap<string, readonly string[]> = new Map(
+  Object.entries(SYNONYM_TABLE),
+)
+
 function stem(word: string): string {
   if (word.length > 4 && word.endsWith('ies')) return `${word.slice(0, -3)}y`
 
@@ -134,8 +138,7 @@ function wanted(text: string): Set<string> {
   for (const word of words(text)) {
     subjects.add(word)
 
-    // SAFETY: a word not in the table gives undefined, which the fallback covers.
-    for (const extra of SYNONYMS[word as keyof typeof SYNONYMS] ?? []) {
+    for (const extra of SYNONYMS.get(word) ?? []) {
       for (const part of extra.split('_')) subjects.add(part)
     }
   }

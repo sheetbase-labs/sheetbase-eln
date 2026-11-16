@@ -95,6 +95,7 @@ describe('SHELL-01.2 settings navigation', () => {
         'My signature',
         'Out of office',
         'Lab watchers',
+        'AI preferences',
         'Notifications',
         'API and SDK',
       ])
@@ -105,6 +106,7 @@ describe('SHELL-01.2 settings navigation', () => {
         'Profile',
         'Out of office',
         'Lab watchers',
+        'AI preferences',
         'Notifications',
         'API and SDK',
       ])

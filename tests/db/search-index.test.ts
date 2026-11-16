@@ -253,6 +253,10 @@ describe('what each block type contributes', () => {
       output: null,
     },
     plugin: { plugin: 'colony-counter', block: 'counter', state: { count: 3 } },
+    plate_run: {
+      runId: '00000000-0000-4000-8000-0000000000aa',
+      pinned: { reference: 'PLR-0001', name: 'zebrafinch screen' },
+    },
   }
 
   it('has a sample for every block type', () => {

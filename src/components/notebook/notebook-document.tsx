@@ -256,6 +256,11 @@ export function NotebookDocument(props: NotebookDocumentProps) {
 const NOTE02_EMPTY_COLLAPSED_SECTIONS: ReadonlySet<string> = new Set<string>()
 
 /** Document-level selection, keyboard actions, mutations and unsaved-work lifetime. */
+/** How a deep-linked block is brought to the top while the page lays out. */
+const SCROLL_TICK_MS = 120
+const SETTLED_TICKS = 4
+const SCROLL_GIVE_UP_MS = 6000
+
 function useNotebookDocument({
   record,
   blocks,
@@ -458,23 +463,54 @@ function useNotebookDocument({
   }, [hasUnsavedWork])
 
   // Follow the owning router's deep links, but do not scroll again when a
-  // local selection is reflected back through that router.
+  // local selection is reflected back through that router. A link can land
+  // before its block has rendered (a fresh page load, or a block that was only
+  // just added) and a plot above it can push it down once it draws, so keep
+  // bringing the block to the top until it has stayed there for a moment.
   React.useEffect(() => {
     const hash = initialBlockHash
     const fromSelection = selectionHashRef.current === hash
     selectionHashRef.current = null
 
-    if (fromSelection) return
+    if (fromSelection || !hash.startsWith('block-')) return
 
-    if (hash.startsWith('block-')) {
-      const el = Array.from(
-        documentRef.current?.querySelectorAll<HTMLElement>('[id^="block-"]') ??
-          [],
-      ).find((block) => block.id === hash)
+    let settled = 0
+    let scrolledOnce = false
 
-      if (el) {
-        el.scrollIntoView({ block: 'start' })
+    const bringIntoView = () => {
+      const el = documentRef.current?.querySelector<HTMLElement>(
+        `[id="${hash}"]`,
+      )
+
+      if (!el) return
+
+      const { top } = el.getBoundingClientRect()
+
+      if (scrolledOnce && top >= 0 && top < window.innerHeight * 0.6) {
+        settled += 1
+
+        if (settled >= SETTLED_TICKS) window.clearInterval(timer)
+
+        return
       }
+
+      settled = 0
+      scrolledOnce = true
+      el.scrollIntoView({ block: 'start' })
+    }
+
+    const timer = window.setInterval(bringIntoView, SCROLL_TICK_MS)
+
+    bringIntoView()
+
+    const stop = window.setTimeout(
+      () => window.clearInterval(timer),
+      SCROLL_GIVE_UP_MS,
+    )
+
+    return () => {
+      window.clearInterval(timer)
+      window.clearTimeout(stop)
     }
   }, [initialBlockHash])
 

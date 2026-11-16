@@ -98,7 +98,11 @@ import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
 import type { ChartBlockPayload, ChartSpec } from '#/lib/chart-spec'
 import { PluginBlockView } from '#/components/extensions/plugin-block'
 import { analysisBlockParts, runAnalysis } from '#/lib/analysis-definition'
-import type { AnalysisBlockDefinition } from '#/lib/analysis-definition'
+import type {
+  AnalysisBlockDefinition,
+  AnalysisDefinition,
+} from '#/lib/analysis-definition'
+import type { DatasetRowInput } from '#/lib/dataset-product'
 import type { FrozenAnalysis } from '#/lib/analysis-block'
 import {
   analysisDefinition,
@@ -115,7 +119,8 @@ import {
   analysisDefinitionQueryKeys,
   fetchAnalysisDefinition,
 } from '#/lib/analysis-definitions-data'
-import { AnalysisResultTable } from '#/components/viz/analysis-panel'
+import { AnalysisBlockResult } from './analysis-block-result'
+import type { ColumnLabel } from './analysis-block-result'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { RepresentationFrame } from '#/components/viz/representation-frame'
 import {
@@ -2347,7 +2352,9 @@ function LiveAnalysisExecution({
       ) : null}
       <AnalysisExecutionResult
         error={resolvedQuery.error}
-        hasStatistic={Boolean(parts.statistic)}
+        statistic={parts.statistic}
+        rows={resolvedQuery.data?.rows ?? []}
+        columns={resolvedQuery.data?.source.columns ?? []}
         executed={executed}
       />
       {provenance ? (
@@ -2361,11 +2368,15 @@ function LiveAnalysisExecution({
 /** Execution states are separate from chart/pinned-source query ownership. */
 function AnalysisExecutionResult({
   error,
-  hasStatistic,
+  statistic,
+  rows,
+  columns,
   executed,
 }: {
   error: Error | null
-  hasStatistic: boolean
+  statistic: AnalysisDefinition | null
+  rows: readonly DatasetRowInput[]
+  columns: readonly ColumnLabel[]
   executed: ReturnType<typeof runAnalysis> | null
 }) {
   if (error)
@@ -2375,9 +2386,17 @@ function AnalysisExecutionResult({
       </div>
     )
 
-  if (!hasStatistic) return null
+  if (!statistic) return null
 
-  if (executed?.ok) return <AnalysisResultTable result={executed.result} />
+  if (executed?.ok)
+    return (
+      <AnalysisBlockResult
+        statistic={statistic}
+        result={executed.result}
+        rows={rows}
+        columns={columns}
+      />
+    )
 
   if (executed)
     return (
@@ -2592,6 +2611,9 @@ function FrozenAnalysisEvidence({
         />
       ) : null}
       <FrozenStatisticResult
+        statistic={parts.statistic}
+        rows={rows.rows}
+        columns={columns}
         executed={executed}
         legacyMethod={frozenAnalysisMethodVersion(frozen) === null}
       />
@@ -2600,13 +2622,19 @@ function FrozenAnalysisEvidence({
 }
 
 function FrozenStatisticResult({
+  statistic,
+  rows,
+  columns,
   executed,
   legacyMethod,
 }: {
+  statistic: AnalysisDefinition | null
+  rows: readonly DatasetRowInput[]
+  columns: readonly ColumnLabel[]
   executed: ReturnType<typeof runAnalysis> | null
   legacyMethod: boolean
 }) {
-  if (!executed) return null
+  if (!executed || !statistic) return null
 
   if (!executed.ok)
     return (
@@ -2619,7 +2647,12 @@ function FrozenStatisticResult({
 
   return (
     <>
-      <AnalysisResultTable result={executed.result} />
+      <AnalysisBlockResult
+        statistic={statistic}
+        result={executed.result}
+        rows={rows}
+        columns={columns}
+      />
       {legacyMethod ? (
         <p className="text-xs text-fg-muted">
           {t('notebook.blockPreview.thisSnapshotWasTaken')}

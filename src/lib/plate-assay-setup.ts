@@ -210,12 +210,16 @@ export function resolveAssayChoice(input: AssayChoiceInput) {
   const design = input.designs.find((d) => d.id === designId) ?? null
   const setup = design?.setup ?? null
   const guess = setup === null ? input.guess : null
+
   const negative =
     input.negativeEdit ?? setup?.negativeColumns ?? guess?.negative ?? ''
+
   const positive =
     input.positiveEdit ?? setup?.positiveColumns ?? guess?.positive ?? ''
+
   const guessed =
     guess !== null && input.negativeEdit === null && input.positiveEdit === null
+
   const config: PlateAssayConfig = setup?.config ?? defaultAssayConfig()
   const hasControls = negative.trim() !== '' || positive.trim() !== ''
 

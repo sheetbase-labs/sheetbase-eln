@@ -5,6 +5,7 @@ import type { AssayWell } from './plate-assay'
 import {
   controlColumnsOfWells,
   readAssaySetup,
+  resolveAssayChoice,
   sameAssayConfig,
   writeColumnList,
 } from './plate-assay-setup'
@@ -73,5 +74,50 @@ describe('sameAssayConfig', () => {
 
     expect(sameAssayConfig(a, { ...a })).toBe(true)
     expect(sameAssayConfig(a, { ...a, curveModel: '5pl' })).toBe(false)
+  })
+})
+
+describe('resolveAssayChoice with a guess', () => {
+  const base = {
+    designs: [],
+    chosen: null,
+    lastDesignId: '',
+    negativeEdit: null,
+    positiveEdit: null,
+    rememberChoice: null,
+    newName: '',
+    guess: { negative: '1', positive: '12' },
+  }
+
+  it('offers the columns worked out from the plate when nothing is remembered', () => {
+    const choice = resolveAssayChoice(base)
+
+    expect(choice.negative).toBe('1')
+    expect(choice.positive).toBe('12')
+    expect(choice.guessed).toBe(true)
+  })
+
+  it('lets what a person typed win, and then no longer calls it a guess', () => {
+    const choice = resolveAssayChoice({ ...base, negativeEdit: '2' })
+
+    expect(choice.negative).toBe('2')
+    expect(choice.guessed).toBe(false)
+  })
+
+  it("prefers the design's remembered controls to a guess", () => {
+    const setup = {
+      config: defaultAssayConfig(),
+      negativeColumns: '3',
+      positiveColumns: '4',
+    }
+
+    const choice = resolveAssayChoice({
+      ...base,
+      designs: [{ id: 'd', name: 'Assay', setup }],
+      chosen: 'd',
+    })
+
+    expect(choice.negative).toBe('3')
+    expect(choice.guessed).toBe(false)
   })
 })

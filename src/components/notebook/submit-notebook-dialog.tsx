@@ -46,6 +46,8 @@ import {
   reviewerOptionLabel,
 } from '#/lib/notebook-experience'
 import { workflowLabel } from '#/lib/reviews'
+import { readinessItems } from '#/components/overview/readiness'
+import type { ExperimentReadiness } from '#/components/overview/readiness'
 import { useUserNames } from '#/lib/user-names'
 import {
   adminQueryKeys,
@@ -385,7 +387,26 @@ function useNotebookSubmission({
     ? t('notebook.submitNotebookDialog.yourSessionHasExpired')
     : submissionErrorMessage(submit.error)
 
+  const readiness = useQuery({
+    queryKey: ['ui-port', 'experiment-readiness', recordId],
+    queryFn: () =>
+      notebookDataClient.rpc<ExperimentReadiness>('experiment_readiness', {
+        p_record_id: recordId,
+      }),
+    enabled: open && record?.kind === 'experiment',
+    retry: false,
+    staleTime: 0,
+  })
+
+  const openItems = readinessItems(readiness.data, blocks).map((item) => ({
+    id: item.id,
+    label: item.title,
+    detail: item.detail ?? '',
+    blocking: item.severity === 'blocking',
+  }))
+
   const checks = submissionReadinessChecks({
+    openItems,
     hasUnsavedWork,
     archivedAt,
     lockedAt,
@@ -1086,14 +1107,18 @@ function SubmissionReadiness({
                   ? 'mt-0.5 font-medium text-success-text'
                   : check.state === 'fail'
                     ? 'mt-0.5 font-medium text-danger-text'
-                    : 'mt-0.5 font-medium text-fg-muted'
+                    : check.state === 'warn'
+                      ? 'mt-0.5 font-medium text-warning-text'
+                      : 'mt-0.5 font-medium text-fg-muted'
               }
             >
               {check.state === 'pass'
                 ? '✓'
                 : check.state === 'fail'
                   ? '✕'
-                  : '…'}
+                  : check.state === 'warn'
+                    ? '!'
+                    : '…'}
             </span>
             <span>
               <span

@@ -243,14 +243,25 @@ function ReadinessRow({
           </p>
         ) : null}
       </div>
-      <Link
-        to="/experiments/$expId/notebook"
-        params={{ expId: recordId }}
-        hash={item.blockId ? `block-${item.blockId}` : undefined}
-        className="shrink-0 text-label text-link"
-      >
-        {item.actionLabel}
-      </Link>
+      {item.kind === 'decision' ? (
+        // The decision is recorded on the Results tab, not in the notebook.
+        <Link
+          to="/experiments/$expId/data/results"
+          params={{ expId: recordId }}
+          className="shrink-0 text-label text-link"
+        >
+          {item.actionLabel}
+        </Link>
+      ) : (
+        <Link
+          to="/experiments/$expId/notebook"
+          params={{ expId: recordId }}
+          hash={item.blockId ? `block-${item.blockId}` : undefined}
+          className="shrink-0 text-label text-link"
+        >
+          {item.actionLabel}
+        </Link>
+      )}
     </li>
   )
 }
@@ -799,15 +810,22 @@ function renderReadinessSection({
       count={pastSubmission ? undefined : items.length || undefined}
       action={
         <span className="inline-flex items-center gap-2">
-          {!pastSubmission && readiness?.ready ? (
+          {!pastSubmission && readiness?.ready && items.length === 0 ? (
             <Status tone="ok">{t('projects.overview.readiness.ready')}</Status>
+          ) : null}
+          {!pastSubmission && readiness?.ready && items.length > 0 ? (
+            <Status tone="warn">
+              {t('projects.overview.readiness.readyWithOpen')}
+            </Status>
           ) : null}
           {record.status === 'in_progress' ? (
             // Submitting lives in the notebook's dialog; `reopen=submit`
             // opens it there, so the readiness list above is one click
             // from the action it is about.
             <Button
-              variant={readiness?.ready ? 'primary' : 'secondary'}
+              variant={
+                readiness?.ready && items.length === 0 ? 'primary' : 'secondary'
+              }
               onClick={() =>
                 void navigate({
                   href: withReopen(

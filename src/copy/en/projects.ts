@@ -995,6 +995,7 @@ export const projects = {
         approved: 'Approved. The notebook is closed to edits.',
       },
       ready: 'Ready',
+      readyWithOpen: 'Can be submitted, with open items',
       submit: 'Submit for review',
       checking: 'Checking readiness…',
       failed: 'Couldn’t check readiness: {reason}',

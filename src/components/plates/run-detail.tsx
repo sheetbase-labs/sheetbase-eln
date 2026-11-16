@@ -167,10 +167,10 @@ export function RunDetail({
   // Hits come first: they are what the table is read for.
   const samples = (analysis?.samples ?? [])
     .filter((s) => !onlyHits || s.hit)
-    .toSorted((a, b) => Number(b.hit) - Number(a.hit))
+    .sort((a, b) => Number(b.hit) - Number(a.hit))
 
   const sampleColumns = SAMPLE_COLUMNS.filter(
-    (column) => !emptySampleColumn(column.id, samples),
+    (column) => !emptySampleColumn(column.id ?? '', samples),
   )
 
   const curves = analysis?.curves ?? []

@@ -51,8 +51,6 @@ export interface AnalysisPanelProps {
   initialDefinitionId?: string
   /** The experiment the studio was opened from; Cite offers it first. */
   experimentId?: string
-  /** The page the studio was opened from; saving into the experiment returns there. */
-  returnTo?: string
 }
 
 const noDefinitions: AnalysisDefinitionWire[] = []
@@ -77,7 +75,6 @@ export function useAnalysisSession({
   initialSnapshotId,
   initialDefinitionId,
   experimentId,
-  returnTo,
 }: AnalysisPanelProps) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -296,14 +293,10 @@ export function useAnalysisSession({
       ])
         void queryClient.invalidateQueries({ queryKey: key })
 
-      const notebook = notebookBlockHref(done.experiment.id, done.added.blockId)
-
-      // Back to the page the person came from; the notebook gets the block's
-      // own address so it scrolls to the result.
-      const comesFromNotebook = !returnTo || returnTo.includes('/notebook')
-
+      // The person asked for the result in the notebook, so show it there,
+      // scrolled to the block, whichever page they started from.
       void navigate({
-        to: comesFromNotebook ? notebook : returnTo,
+        to: notebookBlockHref(done.experiment.id, done.added.blockId),
       })
     },
     onError: (error) =>

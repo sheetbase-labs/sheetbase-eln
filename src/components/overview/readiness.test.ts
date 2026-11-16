@@ -472,7 +472,7 @@ describe('readinessItems evidence resolution', () => {
 
     it('says one step in the singular and lists nothing when there is nothing open', () => {
       const one = open('warn')
-      one.openSteps = [one.openSteps![0]!]
+      one.openSteps = [one.openSteps![0]]
       one.decisionMissing = false
 
       expect(readinessItems(one, [])[0]?.title).toBe(

@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
-import { Field } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
+import { GateModeField } from '#/components/settings/gate-mode-field'
 import { Section } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
 import {
-  INSTRUMENT_GATE_MODES,
   setInstrumentGateMode,
   useInstrumentGateMode,
 } from '#/lib/instrument-gate'
@@ -75,33 +73,16 @@ export function InstrumentGateSetting({
       <p className="m-0 max-w-2xl text-body text-fg-muted">
         {t('settings.instruments.gateBody')}
       </p>
-      <div className="max-w-xl">
-        <Field
-          label={t('settings.instruments.gateLabel')}
-          hint={OPTIONS.find((o) => o.value === mode)?.hint}
-        >
-          <Select
-            aria-label={t('settings.instruments.gateLabel')}
-            value={mode}
-            disabled={!canManage || save.isPending}
-            onChange={(event) => {
-              const next = INSTRUMENT_GATE_MODES.find(
-                (option) => option === event.target.value,
-              )
-
-              if (!next) return
-              setMode(next)
-              save.mutate(next)
-            }}
-          >
-            {OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </div>
+      <GateModeField
+        label={t('settings.instruments.gateLabel')}
+        options={OPTIONS}
+        mode={mode}
+        disabled={!canManage || save.isPending}
+        onPick={(next) => {
+          setMode(next)
+          save.mutate(next)
+        }}
+      />
     </Section>
   )
 }

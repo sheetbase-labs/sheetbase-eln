@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Field } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
+import { GateModeField } from '#/components/settings/gate-mode-field'
 import { Section } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
@@ -11,8 +10,6 @@ import type { InstrumentGateMode } from '#/lib/workspace-admin'
 import { t } from '#/copy'
 
 const dataClient = createDataClient()
-
-const MODES: readonly InstrumentGateMode[] = ['block', 'warn', 'off']
 
 const OPTIONS: Array<{
   value: InstrumentGateMode
@@ -88,31 +85,16 @@ export function SubmitReadinessSetting({
       <p className="m-0 max-w-2xl text-body text-fg-muted">
         {t('features.submitReadiness.setting.body')}
       </p>
-      <div className="max-w-xl">
-        <Field
-          label={t('features.submitReadiness.setting.label')}
-          hint={OPTIONS.find((o) => o.value === mode)?.hint}
-        >
-          <Select
-            aria-label={t('features.submitReadiness.setting.label')}
-            value={mode}
-            disabled={!canManage || save.isPending}
-            onChange={(event) => {
-              const next = MODES.find((option) => option === event.target.value)
-
-              if (!next) return
-              setMode(next)
-              save.mutate(next)
-            }}
-          >
-            {OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      </div>
+      <GateModeField
+        label={t('features.submitReadiness.setting.label')}
+        options={OPTIONS}
+        mode={mode}
+        disabled={!canManage || save.isPending}
+        onPick={(next) => {
+          setMode(next)
+          save.mutate(next)
+        }}
+      />
     </Section>
   )
 }

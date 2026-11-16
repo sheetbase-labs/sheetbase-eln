@@ -30,6 +30,9 @@ type Readiness = {
   validationErrors: Array<{ checkDefinitionKey: string; overallStatus: string }>
   openCommentThreads: Array<{ commentId: string }>
   emptyRequiredFields: Array<{ parameterKey: string; instanceId: string }>
+  mode: 'off' | 'warn' | 'block'
+  openSteps: Array<{ blockId: string; text: string }>
+  decisionMissing: boolean
 }
 
 let migrator: Client
@@ -71,6 +74,11 @@ beforeAll(async () => {
     `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id)
      values($1,$2,$3,'experiment','EXP-READY','Readiness record','draft',$4)`,
     [RECORD, WS, PROJECT, AUTHOR],
+  )
+  // A decision is recorded, so the clean record is ready under the default rule.
+  await migrator.query(
+    `update api.records set decision='supported' where id=$1`,
+    [RECORD],
   )
   await migrator.query(
     `insert into api.revisions(id,record_id,workspace_id,structure_version,metadata_version,
@@ -162,6 +170,101 @@ describe('EXP-02.1 experiment readiness', () => {
       [RECORD],
     )
     expect((await readiness(author)).ready).toBe(true)
+  })
+
+  it('lists open steps and a missing decision, and stops on them only when the rule blocks', async () => {
+    const author = await actor(AUTHOR)
+    await migrator.query(`update api.records set decision=null where id=$1`, [
+      RECORD,
+    ])
+    // Execution steps are normally copied in by pinning a protocol; this test
+    // only needs steps in the notebook, so the provenance trigger sits out.
+    await migrator.query(
+      `alter table api.blocks disable trigger validate_scientific_block`,
+    )
+    const doneStep = '00000000-0000-4000-8000-00000000f010'
+    const openStep = '00000000-0000-4000-8000-00000000f011'
+    for (const [id, order, completed] of [
+      [doneStep, 1, true],
+      [openStep, 2, false],
+    ] as const) {
+      await migrator.query(
+        `insert into api.blocks(id,record_id,type,payload,"order",created_by_user_id)
+         values($1,$2,'procedure_step',$3::jsonb,$4,$5)`,
+        [
+          id,
+          RECORD,
+          JSON.stringify({
+            text: `Step ${order}`,
+            stepNumber: order,
+            completed,
+          }),
+          order,
+          AUTHOR,
+        ],
+      )
+    }
+
+    // The default rule is warn: listed, but the submission goes through.
+    const listed = await readiness(author)
+    expect(listed.mode).toBe('warn')
+    expect(listed.ready).toBe(true)
+    expect(listed.openSteps).toHaveLength(1)
+
+    // Block refuses an unfinished experiment.
+    await author.query(`select api.set_submit_readiness_mode($1,'block')`, [WS])
+    const blocked = await readiness(author)
+    expect(blocked.mode).toBe('block')
+    expect(blocked.ready).toBe(false)
+    expect(blocked.openSteps.map((step) => step.blockId)).toEqual([openStep])
+    expect(blocked.decisionMissing).toBe(true)
+
+    // Warn lists them but lets the submission through.
+    await author.query(`select api.set_submit_readiness_mode($1,'warn')`, [WS])
+    const warned = await readiness(author)
+    expect(warned.mode).toBe('warn')
+    expect(warned.ready).toBe(true)
+    expect(warned.openSteps).toHaveLength(1)
+    expect(warned.decisionMissing).toBe(true)
+
+    // Off leaves them out altogether.
+    await author.query(`select api.set_submit_readiness_mode($1,'off')`, [WS])
+    const off = await readiness(author)
+    expect(off.ready).toBe(true)
+    expect(off.openSteps).toEqual([])
+    expect(off.decisionMissing).toBe(false)
+
+    // Finishing the step and recording a decision clears block too.
+    await author.query(`select api.set_submit_readiness_mode($1,'block')`, [WS])
+    await migrator.query(
+      `update api.blocks set payload = payload || '{"completed":true}'::jsonb where id=$1`,
+      [openStep],
+    )
+    await migrator.query(
+      `update api.records set decision='refuted' where id=$1`,
+      [RECORD],
+    )
+    await migrator.query(
+      `alter table api.blocks enable trigger validate_scientific_block`,
+    )
+    const cleared = await readiness(author)
+    expect(cleared.ready).toBe(true)
+    expect(cleared.openSteps).toEqual([])
+    expect(cleared.decisionMissing).toBe(false)
+  })
+
+  it('refuses the rule to someone without Signatures settings access, and a bad mode', async () => {
+    const reviewer = await actor(REVIEWER)
+    await expectDenied(
+      reviewer.query(`select api.set_submit_readiness_mode($1,'off')`, [WS]),
+      'SB056',
+    )
+
+    const author = await actor(AUTHOR)
+    await expectDenied(
+      author.query(`select api.set_submit_readiness_mode($1,'maybe')`, [WS]),
+      'SB057',
+    )
   })
 
   it('reports a required Sheet parameter that has no value and no binding', async () => {

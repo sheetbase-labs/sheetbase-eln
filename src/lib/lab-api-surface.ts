@@ -535,6 +535,7 @@ export const LAB_TABLES: LabTableIndex = {
       ['signature_statement', 'text', 0],
       ['signature_statement_version', 'int', 0],
       ['instrument_gate_mode', 'text', 0],
+      ['submit_readiness_mode', 'text', 0],
       ['setup_completed_at', 'ts', 0],
       ['regulated_lab', 'bool', 0],
       ['spec_limits_enabled', 'bool', 0],

@@ -568,6 +568,14 @@ export const workspaceSettings = api.table(
      * `off` ignores it, `warn` takes the data and flags it, `block` refuses it.
      */
     instrumentGateMode: text('instrument_gate_mode').notNull().default('warn'),
+    /**
+     * Whether open protocol steps and a missing decision stop an experiment
+     * being submitted: `off` does not check, `warn` lists them, `block` lists
+     * them and refuses the submit.
+     */
+    submitReadinessMode: text('submit_readiness_mode')
+      .notNull()
+      .default('warn'),
     /** Set when the first admin finishes the short setup. */
     setupCompletedAt: timestamp('setup_completed_at', {
       withTimezone: true,
@@ -648,6 +656,10 @@ export const workspaceSettings = api.table(
     check(
       'chk_workspace_settings_registration_mode',
       sql`${table.registrationMode} IN ('open', 'invitation_only')`,
+    ),
+    check(
+      'chk_workspace_settings_submit_readiness_mode',
+      sql`${table.submitReadinessMode} IN ('off', 'warn', 'block')`,
     ),
     check(
       'chk_workspace_settings_instrument_gate_mode',

@@ -120,7 +120,7 @@ export const EXPERIMENT_OPERATIONS = defineOperations([
     label: 'Check an experiment is ready to submit',
     summary: 'What an experiment still needs before it can be submitted',
     description:
-      'The checks an experiment must pass before it can go for review, and which of them still fail.',
+      'The checks an experiment must pass before it can go for review, and which of them still fail: failed record checks, open comment threads, empty required sheet parameters, protocol steps nobody has finished (`openSteps`) and a missing decision (`decisionMissing`). `mode` is the workspace rule for the last two (`off`, `warn` or `block`), and `ready` is false for them only on `block`.',
     kind: 'read',
     scope: 'projects:read',
     inputs: [EXPERIMENT_ID],

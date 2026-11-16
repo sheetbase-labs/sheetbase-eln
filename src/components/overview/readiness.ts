@@ -16,6 +16,8 @@
  */
 import { z } from 'zod'
 
+import { t } from '#/copy'
+
 import type { NotebookBlock } from '#/lib/notebook-data'
 import type { CheckItemResult } from '#/lib/review-checks'
 import type { CommentTarget } from '#/lib/comments-data'
@@ -157,16 +159,33 @@ export interface ReadinessRequiredField {
   label: string
 }
 
+/** A protocol step nobody has finished. */
+export interface ReadinessOpenStep {
+  blockId: string
+  partId: string | null
+  stepNumber: number | null
+  text: string
+}
+
 /** The payload returned by `api.experiment_readiness`. */
 export interface ExperimentReadiness {
   recordId: string
   ready: boolean
+  /**
+   * What the workspace does with open steps and a missing decision: `block`
+   * refuses the submit, `warn` only lists them, `off` leaves them out. Absent on
+   * results from before the setting existed, which read as `warn`.
+   */
+  mode?: 'off' | 'warn' | 'block'
   validationErrors: ReadinessValidationError[]
   openCommentThreads: ReadinessCommentThread[]
   emptyRequiredFields: ReadinessRequiredField[]
+  openSteps?: ReadinessOpenStep[]
+  decisionMissing?: boolean
 }
 
-export type ReadinessItemKind = 'validation' | 'comment' | 'required-field'
+export type ReadinessItemKind =
+  'validation' | 'comment' | 'required-field' | 'step' | 'decision'
 
 /**
  * One row of "open before submission". `blockId` is the notebook anchor that
@@ -417,6 +436,44 @@ export function readinessItems(
       unresolvedReason: blockId
         ? null
         : `Sheet instance ${field.instanceName} (${field.instanceId}) is not in this record's document.`,
+    })
+  }
+
+  const stepSeverity: ReadinessSeverity =
+    readiness.mode === 'block' ? 'blocking' : 'warning'
+
+  const openSteps = readiness.openSteps ?? []
+
+  if (openSteps.length > 0) {
+    const first = openSteps[0]
+
+    items.push({
+      id: 'steps:open',
+      kind: 'step',
+      severity: stepSeverity,
+      title: t(
+        openSteps.length === 1
+          ? 'features.submitReadiness.list.openStepsOne'
+          : 'features.submitReadiness.list.openStepsMany',
+        { count: openSteps.length },
+      ),
+      detail: first.text,
+      actionLabel: t('features.submitReadiness.list.goToStep'),
+      blockId: first.blockId,
+      unresolvedReason: null,
+    })
+  }
+
+  if (readiness.decisionMissing === true) {
+    items.push({
+      id: 'decision:missing',
+      kind: 'decision',
+      severity: stepSeverity,
+      title: t('features.submitReadiness.list.noDecision'),
+      detail: t('features.submitReadiness.list.noDecisionDetail'),
+      actionLabel: t('features.submitReadiness.list.goToDecision'),
+      blockId: null,
+      unresolvedReason: null,
     })
   }
 

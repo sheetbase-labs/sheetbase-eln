@@ -123,6 +123,7 @@ import {
   plateMapToRepresentationHandle,
 } from '#/lib/representations'
 import { PlateMap } from '#/components/viz/plate-map'
+import { PlateRunBlockPreview } from './plate-run-block'
 import type {
   PlateWell,
   PlateMapRoleLegendEntry,
@@ -320,6 +321,8 @@ function renderPayload(
       return <DatasetImportBlockPreview payload={payload} recordId={recordId} />
     case 'plate_map':
       return <PlateMapBlockPreview payload={payload} frozen={frozen} />
+    case 'plate_run':
+      return <PlateRunBlockPreview payload={payload} frozen={frozen} />
     case 'structure':
       return <StructurePreview payload={payload} />
     case 'reaction':

@@ -74,6 +74,7 @@ import { materialItems } from './material-payload'
 import { StockWithdrawButton } from '#/components/notebook/stock-withdraw-button'
 import { isWithdrawn } from '#/lib/stock-withdraw'
 import { PluginBlockView } from '#/components/extensions/plugin-block'
+import { PlateRunBlockEditor } from './plate-run-block'
 import { useAutosave } from './use-autosave'
 import type { AutosaveStatus, SaveResult } from './use-autosave'
 import {
@@ -300,6 +301,7 @@ const BLOCK_EDITORS = new Map<string, React.ComponentType<BlockEditorProps>>([
   ['code_cell', CodeCellBlockEditor],
   ['dataset_import', DatasetImportBlockEditor],
   ['plate_map', PlateMapBlockEditor],
+  ['plate_run', PlateRunBlockEditor],
   ['structure', StructureEditor],
   ['reaction', ReactionEditor],
   ['signature_request', SignatureRequestEditor],

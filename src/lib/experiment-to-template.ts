@@ -47,6 +47,7 @@ const LEFT_OUT_LABEL = new Map<string, string>([
   ['file', 'file'],
   ['metric', 'metric'],
   ['plate_map', 'plate map'],
+  ['plate_run', 'plate run'],
   ['structure', 'structure drawing'],
   ['reaction', 'reaction'],
   ['code_cell', 'code cell'],

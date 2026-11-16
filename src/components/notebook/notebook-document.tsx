@@ -15,6 +15,7 @@ import type {
 } from '#/lib/notebook-data'
 import type { ActionBlockContext } from '#/lib/notebook-action-blocks'
 import { NotebookAiProvider } from './notebook-ai-context'
+import { plateRunBlockHasRun } from './plate-run-block-data'
 import { recordDestination } from '#/lib/navigation'
 import {
   CALCULATOR_PICKER_TYPE,
@@ -2006,6 +2007,7 @@ function NotebookDocumentBlockBody({
   // New prose/import blocks open for writing; plugin screens always retain their editor.
   const opensForWriting =
     block.type === 'dataset_import' ||
+    (block.type === 'plate_run' && !plateRunBlockHasRun(block.payload)) ||
     (orderedIds.length === 1 &&
       block.type === 'rich_text' &&
       isEmptyRichText(block.payload))
@@ -2136,6 +2138,7 @@ function blockLabel(block: NotebookBlockData): string {
       dataset_import: t('notebook.notebookDocument.importData'),
       chart: t('notebook.notebookDocument.chart'),
       plate_map: t('notebook.notebookDocument.plateMap'),
+      plate_run: t('features.plateRuns.block.label'),
       file: t('notebook.notebookDocument.file'),
       metric: t('notebook.notebookDocument.metric'),
       procedure_step: t('notebook.notebookDocument.procedureStep'),

@@ -1,0 +1,85 @@
+{
+  "id": "sheetbase.results-analysis",
+  "name": "Results analysis",
+  "version": "1.0.0",
+  "description": "Fit dose-response curves (four-parameter), read samples off a standard curve and compare groups with the right test, from rows of data. Gives the numbers and a plot.",
+  "author": "Sheetbase",
+  "provides": {
+    "operations": [
+      {
+        "id": "analyse",
+        "title": "Analyse results",
+        "description": "Analyses rows of results: the numbers, a plain summary and an SVG plot. kind dose_response fits a four-parameter curve per group (EC50 with 95% interval, slope, bottom, top, R²) from a dose and a response column. kind standard_curve fits rows with a known value in x and reads the rows without one off the curve (for example DNA concentration). kind compare_groups compares y between the groups in group (Welch t-test, or ANOVA with Tukey).",
+        "access": "read",
+        "inputs": [
+          {
+            "name": "kind",
+            "type": "text",
+            "required": true,
+            "description": "dose_response, standard_curve or compare_groups."
+          },
+          {
+            "name": "rows",
+            "type": "json",
+            "required": true,
+            "description": "The data: a list of objects, one per row, keyed by column name."
+          },
+          {
+            "name": "x",
+            "type": "text",
+            "required": false,
+            "description": "dose_response: the dose column. standard_curve: the known value column (blank for samples to read)."
+          },
+          {
+            "name": "y",
+            "type": "text",
+            "required": true,
+            "description": "The response or signal column (the values compared for compare_groups)."
+          },
+          {
+            "name": "group",
+            "type": "text",
+            "required": false,
+            "description": "dose_response: a column that splits the rows into one curve each. compare_groups: the column naming the groups."
+          },
+          {
+            "name": "label",
+            "type": "text",
+            "required": false,
+            "description": "standard_curve: a column naming each sample."
+          },
+          {
+            "name": "model",
+            "type": "text",
+            "required": false,
+            "description": "standard_curve: linear (default) or 4pl."
+          },
+          {
+            "name": "unit",
+            "type": "text",
+            "required": false,
+            "description": "dose_response: the dose unit for the axis, such as nM."
+          }
+        ],
+        "outputs": [
+          {
+            "name": "results",
+            "type": "json",
+            "required": true
+          },
+          {
+            "name": "figures",
+            "type": "json",
+            "required": true
+          },
+          {
+            "name": "summary",
+            "type": "text",
+            "required": true
+          }
+        ],
+        "run": "analysis_ops:analyse"
+      }
+    ]
+  }
+}

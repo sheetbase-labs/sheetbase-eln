@@ -254,7 +254,7 @@ export function removeStep(
 ): PipelineStep[] {
   const name = steps[index].name
 
-  return steps.flatMap((step, position) => {
+  return steps.flatMap<PipelineStep>((step, position) => {
     if (position === index) return []
 
     if (step.kind !== 'ask' || !step.ask.skipSteps?.includes(name))

@@ -138,6 +138,18 @@ export function usePlateWorklistColumns(): RegistryColumn<PlateWorklistRow>[] {
         ),
       },
       {
+        id: 'source',
+        header: t('plates.worklists.columns.source'),
+        size: 130,
+        cell: ({ row }) => (
+          <span>
+            {t(
+              `plates.worklists.sources.${row.original.options.source === 'hits' ? 'hits' : row.original.mode}`,
+            )}
+          </span>
+        ),
+      },
+      {
         id: 'format',
         header: t('plates.worklists.columns.format'),
         size: 200,

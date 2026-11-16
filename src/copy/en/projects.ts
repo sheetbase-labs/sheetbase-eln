@@ -2537,6 +2537,14 @@ export const projects = {
     record: 'Record decision',
     change: 'Change decision',
     analyses: 'Analyses',
+    notebookAnalyses: {
+      title: 'Analyses in the notebook',
+      hint: 'Each one runs from its saved analysis, so the numbers and plots here are the notebook’s own and stay current.',
+      untitled: 'Analysis',
+      live: 'Live',
+      frozen: 'Frozen',
+      open: 'Open in notebook',
+    },
     noAnalyses: {
       title: 'No cited analyses',
       body: 'Cite an analysis in this experiment’s notebook and it appears here.',

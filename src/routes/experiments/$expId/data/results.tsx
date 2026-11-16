@@ -27,6 +27,10 @@ import { datasetValidation } from '#/components/datasets/datasets-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import { ResultsWorkspace } from '#/components/experiments/results-workspace'
+import {
+  NotebookAnalysesSection,
+  useNotebookAnalysisBlocks,
+} from '#/components/experiments/notebook-analyses-section'
 import { t } from '#/copy'
 
 /** UI port (RM-118): an experiment's results — the datasets it produced, the
@@ -122,6 +126,9 @@ function ResultsTab() {
       ),
   })
 
+  const notebookAnalyses = useNotebookAnalysisBlocks(expId)
+  const hasNotebookAnalyses = (notebookAnalyses.data?.length ?? 0) > 0
+
   const [open, setOpen] = useState(false)
 
   const datasetColumns = datasetColumnsFor(expId)
@@ -156,7 +163,12 @@ function ResultsTab() {
     analyses.data.every((view) => view.charts.length > 0)
   ) {
     return (
-      <>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {hasNotebookAnalyses ? (
+          <div className="max-h-[55%] shrink-0 overflow-auto px-4 pt-[22px] md:px-8">
+            <NotebookAnalysesSection expId={expId} />
+          </div>
+        ) : null}
         <ResultsWorkspace
           expId={expId}
           views={analyses.data}
@@ -173,13 +185,16 @@ function ResultsTab() {
           }}
         />
         {decisionDialog}
-      </>
+      </div>
     )
   }
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
-      <AnalysesSection expId={expId} analyses={analyses.data ?? []} />
+      <NotebookAnalysesSection expId={expId} />
+      {hasNotebookAnalyses && !analyses.data?.length ? null : (
+        <AnalysesSection expId={expId} analyses={analyses.data ?? []} />
+      )}
       <DatasetsSection
         expId={expId}
         datasets={datasets.data ?? []}

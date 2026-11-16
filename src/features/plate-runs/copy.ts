@@ -48,6 +48,8 @@ export const copy = {
     dropHint: 'CSV, TSV or Excel (.xlsx). Grids and well lists both work.',
     whichPlate: 'Plate in this file',
     candidate: '{label} · {readings} readings',
+    columnsGuessed:
+      'Filled in from the plate: these two columns read as two tight groups far apart. Change them if they are not your controls.',
     noPlateInFile:
       'No plate found in that file. Look for a grid with columns 1, 2, 3… and rows A, B, C…, or a list with a well column.',
     unreadable: 'That file couldn’t be read.',
@@ -76,6 +78,7 @@ export const copy = {
     inNotebook: 'In the notebook',
     notInNotebook: 'Not in the notebook',
     addToNotebook: 'Add to notebook',
+    makeWorklist: 'Make a worklist',
     addedToNotebook: 'Added to the notebook.',
     couldNotAdd: 'Couldn’t add it to the notebook.',
     notebook: 'Notebook',

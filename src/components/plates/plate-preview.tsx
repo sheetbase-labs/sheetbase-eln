@@ -14,11 +14,14 @@ import { PlateMapPanel, PlateStats } from './plate-run-summary'
 export function ControlColumns({
   negative,
   positive,
+  guessed,
   onNegative,
   onPositive,
 }: {
   negative: string
   positive: string
+  /** The columns were worked out from the plate, not typed. */
+  guessed: boolean
   onNegative: (value: string) => void
   onPositive: (value: string) => void
 }) {
@@ -26,7 +29,11 @@ export function ControlColumns({
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       <Field
         label={t('features.plateRuns.form.negativeColumns')}
-        hint={t('features.plateRuns.form.columnsHint')}
+        hint={
+          guessed
+            ? t('features.plateRuns.form.columnsGuessed')
+            : t('features.plateRuns.form.columnsHint')
+        }
       >
         <Input
           value={negative}

@@ -25,6 +25,8 @@ export interface PlateCandidate {
   id: string
   /** Where it was found: a sheet name, or a position in the sheet. */
   label: string
+  /** What the reader or the file called this plate, when it said. */
+  title: string | null
   /** The grid or list as text, ready for `parsePlateTable`. */
   text: string
   /** How many wells hold a reading. */
@@ -242,6 +244,7 @@ export function plateGridsFromMatrix(
         found.push({
           id: `${sheetName}#${found.length + 1}`,
           label: sheetName,
+          title: null,
           text,
           readings,
           format: inferPlateFormat(parsed.wells.map((w) => w.wellCode)),
@@ -263,8 +266,12 @@ export function plateGridsFromMatrix(
   )
     return found.map((grid, i) => ({
       ...grid,
+      title: titles[i],
       label: `${sheetName} · ${titles[i]}`,
     }))
+
+  if (found.length === 1 && titles[0])
+    return [{ ...found[0], title: titles[0] }]
 
   return found
 }
@@ -331,6 +338,7 @@ function plateListsFromMatrix(
     found.push({
       id: `${sheetName}#list${key ? `:${key}` : ''}`,
       label: key ? `${sheetName} · ${key}` : sheetName,
+      title: key || null,
       text,
       readings,
       format: parsed.format,

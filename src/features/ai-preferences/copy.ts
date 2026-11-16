@@ -33,6 +33,7 @@ export const copy = {
     edit: 'Edit',
     remove: 'Remove',
     removing: 'Removing…',
+    emptyTitle: 'No preferences yet',
     empty: 'Nothing saved yet.',
     emptyYours:
       'Nothing saved yet. Tell the assistant how you like things done, such as “blanks go in column 12”, and it will offer to remember it.',

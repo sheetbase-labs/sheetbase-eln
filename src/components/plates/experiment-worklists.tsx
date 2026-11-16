@@ -4,8 +4,10 @@
  * robot has done them. Opening one completes or cancels it in place.
  */
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
+import { Button } from '#/components/ui/button'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Notice } from '#/components/ui/alert'
@@ -62,6 +64,20 @@ export function ExperimentWorklists({
             icon="flask"
             title={t('plates.worklists.experimentEmpty')}
             description={t('plates.worklists.experimentEmptyBody')}
+            action={
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/experiments/$expId/data/plates"
+                    params={{ expId }}
+                  />
+                }
+              >
+                {t('plates.worklists.experimentEmptyAction')}
+              </Button>
+            }
           />
         </div>
       )}

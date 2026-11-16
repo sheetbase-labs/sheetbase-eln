@@ -6,6 +6,7 @@ import { PageHeader } from '#/components/ui/layout'
 import { experimentNextStep } from '#/components/experiments/next-step'
 import { ReviewerBand } from '#/components/experiments/reviewer-band'
 import { useIsSeriesHead } from '#/lib/experiment-series'
+import { fetchPlateRunsForRecord, plateRunKeys } from '#/lib/plate-runs'
 import { useRegulatedLab } from '#/lib/regulated-lab'
 import { useRecordParts } from '#/components/notebook/use-record-parts'
 import {
@@ -78,6 +79,14 @@ function ExperimentLayout() {
   const links = useExperimentLinks(expId)
   const seriesHead = useIsSeriesHead(expId)
   const partsQuery = useRecordParts(expId)
+
+  // Plate runs are data too, and share their list with the Plates tab.
+  const plateRuns = useQuery({
+    queryKey: plateRunKeys.forRecord(expId),
+    queryFn: () => fetchPlateRunsForRecord(notebookDataClient, expId),
+    staleTime: 10_000,
+  })
+
   const e = record.data
 
   const { userLabel } = useUserNames(
@@ -203,7 +212,7 @@ function ExperimentLayout() {
           dataCount={
             rows.filter(
               (l) => l.target_kind === 'dataset' || l.target_kind === 'file',
-            ).length
+            ).length + (plateRuns.data?.length ?? 0)
           }
           workspaceId={context.workspace?.id ?? ''}
         />

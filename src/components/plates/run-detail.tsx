@@ -164,7 +164,15 @@ export function RunDetail({
     )
   }
 
-  const samples = (analysis?.samples ?? []).filter((s) => !onlyHits || s.hit)
+  // Hits come first: they are what the table is read for.
+  const samples = (analysis?.samples ?? [])
+    .filter((s) => !onlyHits || s.hit)
+    .toSorted((a, b) => Number(b.hit) - Number(a.hit))
+
+  const sampleColumns = SAMPLE_COLUMNS.filter(
+    (column) => !emptySampleColumn(column.id, samples),
+  )
+
   const curves = analysis?.curves ?? []
 
   const curve: SampleCurve | undefined =
@@ -203,7 +211,7 @@ export function RunDetail({
           samples={samples}
           curves={curves}
           curve={curve}
-          sampleColumns={SAMPLE_COLUMNS}
+          sampleColumns={sampleColumns}
           curveColumns={curveColumns}
           onlyHits={onlyHits}
           onOnlyHitsChange={setOnlyHits}
@@ -367,6 +375,20 @@ function curveColumnsFor(
 }
 
 const SAMPLE_COLUMNS = sampleColumnsFor()
+
+/** A column nothing in the table fills (a screen has no doses and one well per sample). */
+function emptySampleColumn(id: string, samples: SampleGroupResult[]): boolean {
+  switch (id) {
+    case 'dose':
+      return samples.every((s) => s.concentration === null)
+    case 'sd':
+      return samples.every((s) => s.n < 2)
+    case 'cv':
+      return samples.every((s) => s.cv === null)
+    default:
+      return false
+  }
+}
 
 /** The run's title bar: what it is, its quality, and what can be done to it. */
 function RunHeader({

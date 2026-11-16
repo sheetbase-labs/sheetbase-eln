@@ -340,7 +340,8 @@ export const plates = {
     tableLabel: 'Worklists',
     experimentEmpty: 'No worklists for this experiment yet',
     experimentEmptyBody:
-      'Pick the hits of a plate run into a new plate, or make a worklist from a plate run, and choose this experiment. It shows here.',
+      'Make one from a plate run on the Plates tab: pick its hits into a new plate, or copy the plate. It shows here.',
+    experimentEmptyAction: 'Go to the plates',
     sources: {
       hits: 'Called hits',
       stamp: 'Every well',

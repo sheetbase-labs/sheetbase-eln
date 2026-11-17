@@ -33,6 +33,8 @@ const COL = {
   stepYield: id(0x15),
   meetsCriteria: id(0x16),
   maxDp: id(0x17),
+  titreIn: id(0x18),
+  titreOut: id(0x19),
 }
 
 const COL_B = {
@@ -44,6 +46,27 @@ const COL_B = {
 
 const CALC = { stepYield: id(0x30), meets: id(0x31), dp: id(0x32) }
 
+/** The pass threshold: a setting of the sheet definition (v5) that the template feeds. */
+const YIELD_THRESHOLD = {
+  definitionParameter: id(0x71),
+  templateParameter: id(0x70),
+  key: 'yield_threshold',
+  label: 'Yield threshold (%)',
+  defaultValue: 80,
+}
+
+function yieldThresholdParameter(parameterId: string) {
+  return {
+    id: parameterId,
+    key: YIELD_THRESHOLD.key,
+    label: YIELD_THRESHOLD.label,
+    required: false,
+    type: { kind: 'scalar', valueType: 'decimal' },
+    defaultValue: YIELD_THRESHOLD.defaultValue,
+    constraints: { min: 0, max: 100 },
+  }
+}
+
 interface ColumnSpec {
   id: string
   key: string
@@ -54,7 +77,13 @@ interface ColumnSpec {
   min?: number
   max?: number
   description?: string
-  calc?: { id: string; source: string; inputs: string[] }
+  calc?: {
+    id: string
+    source: string
+    inputs: string[]
+    /** Scalar parameters of the definition the formula reads, after the columns. */
+    parameters?: string[]
+  }
 }
 
 function column(spec: ColumnSpec) {
@@ -108,31 +137,33 @@ function sheetConfiguration(
   specs: ColumnSpec[],
   identityColumn: string,
   calcLabels: Record<string, string>,
+  parameters: Array<ReturnType<typeof yieldThresholdParameter>> = [],
 ) {
   return {
     formatVersion: 1,
-    parameters: [],
+    parameters,
     bindings: [],
     rowIdentity: { kind: 'local', columnIds: [identityColumn] },
     joins: [],
     columns: specs.map(column),
-    calculations: specs.flatMap((s) =>
-      s.calc
-        ? [
-            {
-              id: s.calc.id,
-              key: s.key,
-              label: calcLabels[s.key] ?? s.label,
-              outputColumnId: s.id,
-              inputColumnIds: s.calc.inputs,
-              expression: {
-                language: 'sheetbase-formula-v1',
-                source: s.calc.source,
-              },
-            },
-          ]
-        : [],
-    ),
+    calculations: specs.flatMap((s) => {
+      if (!s.calc) return []
+
+      const calculation = {
+        id: s.calc.id,
+        key: s.key,
+        label: calcLabels[s.key] ?? s.label,
+        outputColumnId: s.id,
+        inputColumnIds: s.calc.inputs,
+        inputParameterIds: s.calc.parameters ?? [],
+        expression: {
+          language: 'sheetbase-formula-v1',
+          source: s.calc.source,
+        },
+      }
+
+      return [calculation]
+    }),
     writeBackRules: [],
     actions: [],
     presentation: {
@@ -199,20 +230,70 @@ function clarificationColumns(version: number): ColumnSpec[] {
       unit: 'cp/mL',
       description: 'From the ELISA and turbidity model',
     })
-  specs.push({
-    id: COL.stepYield,
-    key: 'step_yield',
-    label: 'Step yield',
-    type: 'decimal',
-    unit: '%',
-    calc: {
-      id: CALC.stepYield,
-      source: '=capsid_titre_out / capsid_titre_in',
-      inputs: [version >= 2 ? COL.capsidTitre : COL.turbidityOut],
-    },
-  })
 
-  if (version >= 3)
+  // v5 reads its own titres: step yield is titre out over titre in, as a
+  // percentage, and Meets criteria holds it up against the yield threshold.
+  if (version >= 5)
+    specs.push(
+      {
+        id: COL.titreIn,
+        key: 'titre_in',
+        label: 'Titre in',
+        type: 'decimal',
+        required: true,
+        unit: 'cp/mL',
+        description: 'Titre of the load going on',
+      },
+      {
+        id: COL.titreOut,
+        key: 'titre_out',
+        label: 'Titre out',
+        type: 'decimal',
+        required: true,
+        unit: 'cp/mL',
+        description: 'Titre of the filtrate',
+      },
+      {
+        id: COL.stepYield,
+        key: 'step_yield',
+        label: 'Step yield (%)',
+        type: 'decimal',
+        description: 'Titre out ÷ Titre in × 100',
+        calc: {
+          id: CALC.stepYield,
+          source: '=A1/B1*100',
+          inputs: [COL.titreOut, COL.titreIn],
+        },
+      },
+      {
+        id: COL.meetsCriteria,
+        key: 'meets_criteria',
+        label: 'Meets criteria',
+        type: 'text',
+        description: 'Pass when step yield reaches the yield threshold',
+        calc: {
+          id: CALC.meets,
+          source: '=IF(A1>=B1,"Pass","Fail")',
+          inputs: [COL.stepYield],
+          parameters: [YIELD_THRESHOLD.definitionParameter],
+        },
+      },
+    )
+  else
+    specs.push({
+      id: COL.stepYield,
+      key: 'step_yield',
+      label: 'Step yield',
+      type: 'decimal',
+      unit: '%',
+      calc: {
+        id: CALC.stepYield,
+        source: '=capsid_titre_out / capsid_titre_in',
+        inputs: [version >= 2 ? COL.capsidTitre : COL.turbidityOut],
+      },
+    })
+
+  if (version >= 3 && version < 5)
     specs.push({
       id: COL.meetsCriteria,
       key: 'meets_criteria',
@@ -283,6 +364,8 @@ const SHEET_A_VERSIONS = [
   { id: id(0x43), version: 4, at: '2026-09-25T08:00:00+01:00' },
 ] as const
 
+const SHEET_A_V5 = { id: id(0x45), version: 5, at: '2026-11-16T09:00:00Z' }
+
 const SHEET_B_VERSION = { id: id(0x44), at: '2026-09-25T08:00:00+01:00' }
 
 function narrative(
@@ -319,7 +402,10 @@ function placements(version: number, sheetAVersion: string) {
         order: number
         definitionVersionId: string
         title: string
-        parameterMappings: never[]
+        parameterMappings: Array<{
+          templateParameterId: string
+          definitionParameterId: string
+        }>
       }
   > = []
 
@@ -370,7 +456,16 @@ function placements(version: number, sheetAVersion: string) {
       order: 0,
       definitionVersionId: sheetAVersion,
       title: 'Clarification runs',
-      parameterMappings: [],
+      // From v5 the template's yield threshold feeds the sheet's own setting.
+      parameterMappings:
+        version >= 5
+          ? [
+              {
+                templateParameterId: YIELD_THRESHOLD.templateParameter,
+                definitionParameterId: YIELD_THRESHOLD.definitionParameter,
+              },
+            ]
+          : [],
     },
   )
 
@@ -436,9 +531,25 @@ const TEMPLATE_VERSIONS = [
     approver: MEI,
     reason: 'Pressure and ΔP sheet; Max ΔP field in the result summary',
   },
+  {
+    id: id(0x64),
+    version: 5,
+    at: '2026-11-16T09:30:00Z',
+    sheetA: SHEET_A_V5.id,
+    approver: MEI,
+    reason:
+      'Titre in and Titre out; Step yield and Meets criteria calculate against a yield threshold setting (80%)',
+  },
 ] as const
 
-const DRAFT = { id: id(0x64), version: 5 }
+const DRAFT = { id: id(0x65), version: 6 }
+
+/** The template's settings: the yield threshold feeds the Clarification sheet from v5. */
+function templateParameters(version: number) {
+  return version >= 5
+    ? [yieldThresholdParameter(YIELD_THRESHOLD.templateParameter)]
+    : []
+}
 
 export async function seedDesignTemplateStory(db: Db) {
   await db
@@ -536,6 +647,15 @@ export async function seedDesignTemplateStory(db: Db) {
       sheetConfiguration(clarificationColumns(v.version), COL.filterTrain, {}),
     )
   await publishSheetVersion(
+    SHEET_A,
+    SHEET_A_V5.id,
+    SHEET_A_V5.version,
+    SHEET_A_V5.at,
+    sheetConfiguration(clarificationColumns(5), COL.filterTrain, {}, [
+      yieldThresholdParameter(YIELD_THRESHOLD.definitionParameter),
+    ]),
+  )
+  await publishSheetVersion(
     SHEET_B,
     SHEET_B_VERSION.id,
     1,
@@ -558,7 +678,7 @@ export async function seedDesignTemplateStory(db: Db) {
       revision: 1n,
       configuration: {
         formatVersion: 1,
-        parameters: [],
+        parameters: templateParameters(v.version),
         placements: placements(v.version, v.sheetA),
       },
       reason: v.reason,
@@ -575,7 +695,40 @@ export async function seedDesignTemplateStory(db: Db) {
       .where(eq(schema.notebookTemplateVersions.id, v.id))
   }
 
-  // Draft v5: the sheet's Max ΔP column and the load range widened to 300.
+  // An earlier seed left v5 as an open draft (Max ΔP, load widened to 300 L/m²).
+  // It is published now with the calculating Clarification sheet, and the open
+  // draft moves on to v6.
+  await db
+    .update(schema.notebookTemplateVersions)
+    .set({
+      configuration: {
+        formatVersion: 1,
+        parameters: templateParameters(5),
+        placements: placements(5, SHEET_A_V5.id),
+      },
+      reason: TEMPLATE_VERSIONS[4].reason,
+    })
+    .where(
+      and(
+        eq(schema.notebookTemplateVersions.id, TEMPLATE_VERSIONS[4].id),
+        eq(schema.notebookTemplateVersions.lifecycle, 'draft'),
+      ),
+    )
+  await db
+    .update(schema.notebookTemplateVersions)
+    .set({
+      lifecycle: 'published',
+      publishedAt: new Date(TEMPLATE_VERSIONS[4].at),
+      publishedByUserId: GARETH,
+    })
+    .where(
+      and(
+        eq(schema.notebookTemplateVersions.id, TEMPLATE_VERSIONS[4].id),
+        eq(schema.notebookTemplateVersions.lifecycle, 'draft'),
+      ),
+    )
+
+  // Draft v6: the open draft carries v5's settings and sheet on.
   const draftExists = await db
     .select({ id: schema.notebookTemplateVersions.id })
     .from(schema.notebookTemplateVersions)
@@ -590,34 +743,13 @@ export async function seedDesignTemplateStory(db: Db) {
       revision: 1n,
       configuration: {
         formatVersion: 1,
-        parameters: [],
-        placements: placements(4, SHEET_A_VERSIONS[2].id),
+        parameters: templateParameters(5),
+        placements: placements(5, SHEET_A_V5.id),
       },
       createdByUserId: GARETH,
-      createdAt: new Date('2026-09-25T08:40:00+01:00'),
+      createdAt: new Date('2026-11-16T09:40:00Z'),
     })
   }
-
-  await db
-    .update(schema.notebookTemplateVersions)
-    .set({
-      configuration: {
-        formatVersion: 1,
-        parameters: [],
-        placements: placements(5, SHEET_A_VERSIONS[3].id),
-      },
-      reason:
-        'Max ΔP column in Clarification runs; load range widened to 300 L/m²',
-      revision: 12n,
-      updatedAt: new Date('2026-09-25T09:30:00+01:00'),
-      updatedByUserId: GARETH,
-    })
-    .where(
-      and(
-        eq(schema.notebookTemplateVersions.id, DRAFT.id),
-        eq(schema.notebookTemplateVersions.lifecycle, 'draft'),
-      ),
-    )
 
   // v1 and v2 were retired once v3 and v4 replaced them; retiring is e-signed.
   for (const v of TEMPLATE_VERSIONS.slice(0, 2)) {

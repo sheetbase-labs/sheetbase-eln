@@ -15,7 +15,6 @@ import {
 import { FIXTURE_USER_ID } from '#/db/seed/identities'
 import { fixtureSteps } from '#/db/seed/run'
 import {
-  FULL_SEED_TIMEOUT,
   migratorUrl,
   prepareTestDatabase,
   roleUrl,
@@ -331,6 +330,6 @@ export function signatureTests(...states: (typeof signatureStates)[number][]) {
         await rm(storage, { recursive: true, force: true })
       }
     },
-    FULL_SEED_TIMEOUT,
+    180_000,
   )
 }

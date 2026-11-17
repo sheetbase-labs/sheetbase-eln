@@ -11,7 +11,7 @@ import { expect, it } from 'vitest'
 import * as schema from '#/db/schema'
 import { DESIGN_USER_IDS, prepareDesignScenario } from '#/db/seed/design'
 import { applyMigrations } from '../../scripts/lib/migrations.mjs'
-import { FULL_SEED_TIMEOUT, roleUrl } from './helpers'
+import { roleUrl } from './helpers'
 
 const execute = promisify(execFile)
 const roleVariables = [
@@ -283,6 +283,6 @@ export function scenarioTests(...screens: (typeof scenarios)[number][0][]) {
         }
       }
     },
-    FULL_SEED_TIMEOUT,
+    180_000,
   )
 }

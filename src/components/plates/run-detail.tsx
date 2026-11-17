@@ -508,15 +508,16 @@ function PlatePanel({
               if (next) onChangeView(next)
             }}
           >
-            {MAP_VIEWS.filter(
-              (option) =>
-                !run.results?.quantify ||
-                (option !== 'hits' && option !== 'normalised'),
-            ).map((option) => (
-              <option key={option} value={option}>
-                {t(`plates.run.views.${option}`)}
-              </option>
-            ))}
+            {MAP_VIEWS.flatMap((option) =>
+              run.results?.quantify &&
+              (option === 'hits' || option === 'normalised')
+                ? []
+                : [
+                    <option key={option} value={option}>
+                      {t(`plates.run.views.${option}`)}
+                    </option>,
+                  ],
+            )}
           </Select>
         </div>
         {!analysed && view !== 'raw' && view !== 'roles' ? (

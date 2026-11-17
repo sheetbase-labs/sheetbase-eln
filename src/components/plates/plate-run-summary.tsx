@@ -184,16 +184,17 @@ export function PlateMapPanel({
               if (isView(e.target.value)) onViewChange(e.target.value)
             }}
           >
-            {PLATE_RUN_BLOCK_VIEWS.filter(
+            {PLATE_RUN_BLOCK_VIEWS.flatMap((option) =>
               // Quantified readings have no hits and no controls to normalise to.
-              (option) =>
-                !analysis?.quantify ||
-                (option !== 'hits' && option !== 'normalised'),
-            ).map((option) => (
-              <option key={option} value={option}>
-                {t(`plates.run.views.${option}`)}
-              </option>
-            ))}
+              analysis?.quantify &&
+              (option === 'hits' || option === 'normalised')
+                ? []
+                : [
+                    <option key={option} value={option}>
+                      {t(`plates.run.views.${option}`)}
+                    </option>,
+                  ],
+            )}
           </Select>
         </div>
       ) : null}
@@ -409,6 +410,7 @@ export function PlateRunSummary({
 }) {
   const analysis = run.results
   const quantify = analysis?.quantify ?? null
+
   // A quantified plate has no hits to colour: its readings are the picture.
   const shownView =
     quantify && (view === 'hits' || view === 'normalised') ? 'raw' : view

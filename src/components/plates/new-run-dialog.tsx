@@ -247,7 +247,11 @@ function NewRunBody({
             onExperiment={setPickedExperiment}
             formatChoice={formatChoice}
             onFormatChoice={setFormatChoice}
-            designs={assay.designs}
+            designs={assay.designs.map((d) => ({
+              id: d.id,
+              name: d.name,
+              engine: d.setup?.config.method ?? null,
+            }))}
             designId={assay.designId}
             onDesign={assay.onDesign}
             projects={projects}

@@ -9,6 +9,8 @@ import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { t } from '#/copy'
+import { ASSAY_METHODS } from '#/lib/plate-assay'
+import type { AssayMethod } from '#/lib/plate-assay'
 import { PLATE_FORMATS } from '#/lib/plate-map'
 import type { PlateFormat } from '#/lib/plate-map'
 
@@ -39,7 +41,8 @@ export function RunDetailsFields({
   onExperiment: (id: string) => void
   formatChoice: 'auto' | PlateFormat
   onFormatChoice: (choice: 'auto' | PlateFormat) => void
-  designs: { id: string; name: string }[]
+  /** `engine` is how the assay reads a plate, taken from its remembered setup. */
+  designs: { id: string; name: string; engine: AssayMethod | null }[]
   designId: string
   onDesign: (id: string) => void
   projects: { id: string; title: string }[]
@@ -99,11 +102,24 @@ export function RunDetailsFields({
             onValueChange={(value) => onDesign(value)}
           >
             <option value="">{t('plates.form.noDesign')}</option>
-            {designs.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
+            {ASSAY_METHODS.map((method) => {
+              const group = designs.filter(
+                (d) => (d.engine ?? 'screen') === method,
+              )
+
+              return group.length > 0 ? (
+                <optgroup
+                  key={method}
+                  label={t(`features.plateRuns.quantify.methods.${method}`)}
+                >
+                  {group.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null
+            })}
           </SearchableSelect>
         </Field>
       ) : null}

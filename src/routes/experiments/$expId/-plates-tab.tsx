@@ -200,10 +200,12 @@ export function ExperimentPlates({
           }}
           experimentId={expId}
           initialFile={dropped}
-          onCreated={(created) => {
+          chooseStep
+          onCreated={(created, stepBlockId) => {
             void addPlateRunToExperiment(client, {
               runId: created.id,
               recordId: expId,
+              stepBlockId,
             }).finally(() => {
               void queryClient.invalidateQueries({
                 queryKey: plateRunKeys.all,

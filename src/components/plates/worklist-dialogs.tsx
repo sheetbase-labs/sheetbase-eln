@@ -420,7 +420,10 @@ function useWorklistDraft(
   const destinations = useMemo<DestinationWell[]>(
     () =>
       run.wells
-        .filter((w) => w.role !== 'empty' && w.role !== 'blank')
+        .filter(
+          (w) =>
+            w.role !== 'empty' && w.role !== 'blank' && w.role !== 'standard',
+        )
         .map((w) => ({
           wellCode: w.wellCode,
           sampleId: w.sampleId ?? null,

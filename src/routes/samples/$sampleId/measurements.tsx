@@ -9,8 +9,14 @@ import {
   rightAligned,
 } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
-import { fetchSampleMeasurements } from '#/lib/samples'
-import type { SampleMeasurement } from '#/lib/samples'
+import { ObjectLink } from '#/components/ui/object-link'
+import { formatQuantity } from '#/lib/format-quantity'
+import {
+  fetchSampleMeasurements,
+  fetchSamplePlateResults,
+  samplePlateResultsQueryKey,
+} from '#/lib/samples'
+import type { SampleMeasurement, SamplePlateResult } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { samplePath } from '#/lib/navigation'
 import { rich, t } from '#/copy'
@@ -36,6 +42,58 @@ function MeasurementsTab() {
   })
 
   const rows = measurements.data ?? []
+
+  const plateResults = useQuery({
+    queryKey: samplePlateResultsQueryKey(sampleId),
+    queryFn: () => fetchSamplePlateResults(notebookDataClient, sampleId),
+  })
+
+  const plateRows = plateResults.data ?? []
+
+  const plateColumns: RegistryColumn<SamplePlateResult>[] = [
+    {
+      id: 'name',
+      header: t('features.plateRuns.sampleResults.name'),
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.name}</span>
+      ),
+    },
+    {
+      id: 'result',
+      header: t('features.plateRuns.sampleResults.result'),
+      cell: ({ row }) => (
+        <span className="num font-medium">
+          {formatQuantity(row.original.value)}
+          {row.original.unit ? ` ${row.original.unit}` : ''}
+        </span>
+      ),
+      meta: {
+        ...rightAligned<SamplePlateResult>().meta,
+        cellClassName: 'num text-right',
+      },
+    },
+    {
+      id: 'plate',
+      header: t('features.plateRuns.sampleResults.plate'),
+      cell: ({ row }) => (
+        <ObjectLink kind="plate_run" id={row.original.plate_run_id}>
+          {row.original.method?.split(' · ')[0] ?? row.original.plate_run_id}
+        </ObjectLink>
+      ),
+    },
+    {
+      id: 'note',
+      header: t('features.plateRuns.sampleResults.note'),
+      cell: ({ row }) => row.original.notes ?? '—',
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+    {
+      id: 'measured',
+      header: t('features.plateRuns.sampleResults.measured'),
+      cell: ({ row }) => formatDate(row.original.measured_at),
+      meta: { cellClassName: 'num text-fg-muted' },
+    },
+  ]
 
   const columns: RegistryColumn<SampleMeasurement>[] = [
     {
@@ -135,6 +193,26 @@ function MeasurementsTab() {
           )}
         />
       )}
+
+      {plateRows.length ? (
+        <>
+          <h2 className="text-section">
+            {t('features.plateRuns.sampleResults.title')}
+          </h2>
+          <p className="m-0 -mt-4 text-label text-fg-muted">
+            {t('features.plateRuns.sampleResults.hint')}
+          </p>
+          <TableBox>
+            <RegistryGrid
+              label={t('features.plateRuns.sampleResults.title')}
+              rows={plateRows}
+              columns={plateColumns}
+              getRowId={(m) => m.id}
+              selectable={false}
+            />
+          </TableBox>
+        </>
+      ) : null}
     </div>
   )
 }

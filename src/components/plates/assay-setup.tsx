@@ -5,7 +5,9 @@
  */
 import { Checkbox } from '#/components/ui/checkbox'
 import { Field, Input } from '#/components/ui/input'
+import { Select } from '#/components/ui/select'
 import { t } from '#/copy'
+import { ASSAY_METHODS } from '#/lib/plate-assay'
 import type { AssayDesign, AssaySetup } from '#/lib/plate-assay-setup'
 
 import { controlsLine, setupLines } from './assay-setup-lines'
@@ -30,7 +32,9 @@ function RememberedSetup({
         {t('features.plateRuns.setup.title', { design: design.name })}
       </div>
       <div className="text-fg-muted">{setupLines(setup).join(' · ')}</div>
-      <div className="text-fg-muted">{controlsLine(setup)}</div>
+      {controlsLine(setup) ? (
+        <div className="text-fg-muted">{controlsLine(setup)}</div>
+      ) : null}
       <div className="text-fg-muted">
         {fromLastPlate
           ? `${t('features.plateRuns.setup.fromLastPlate')} ${t('features.plateRuns.setup.remembered')}`
@@ -78,6 +82,55 @@ function RememberSetupChoice({ choice }: { choice: AssaySetupChoice }) {
 }
 
 /**
+ * How the plate is read: screened for hits against its controls, or quantified
+ * off a standard curve. The assay's design remembers the answer, so it is asked
+ * once per assay.
+ */
+function ReadMethodFields({ choice }: { choice: AssaySetupChoice }) {
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <Field
+        label={t('features.plateRuns.quantify.method')}
+        hint={t('features.plateRuns.quantify.methodHint')}
+      >
+        <Select
+          value={choice.method}
+          onChange={(e) => {
+            const next = ASSAY_METHODS.find((m) => m === e.target.value)
+
+            if (next) choice.onMethod(next)
+          }}
+        >
+          {ASSAY_METHODS.map((m) => (
+            <option key={m} value={m}>
+              {t(`features.plateRuns.quantify.methods.${m}`)}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      {choice.method === 'quantify' ? (
+        <Field
+          label={t('features.plateRuns.quantify.dilutionFactor')}
+          hint={t('features.plateRuns.quantify.dilutionFactorHint')}
+        >
+          <Input
+            type="number"
+            min={1}
+            step="any"
+            value={String(choice.dilutionFactor)}
+            onChange={(e) => {
+              const next = Number(e.target.value)
+
+              choice.onDilution(Number.isFinite(next) && next > 0 ? next : null)
+            }}
+          />
+        </Field>
+      ) : null}
+    </div>
+  )
+}
+
+/**
  * What the dialog says about the assay's setup: the one the design remembers,
  * and the offer to remember this plate's. A plate read with a layout has its
  * controls in the layout, so it has no control columns to remember.
@@ -93,6 +146,7 @@ export function AssaySetupSection({
 
   return (
     <>
+      <ReadMethodFields choice={choice} />
       {design && setup ? (
         <RememberedSetup
           design={design}

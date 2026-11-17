@@ -86,7 +86,9 @@ function sourceGraph(entry) {
       throw new Error(`computed dynamic import in ${relative(root, file)}`)
 
     for (const match of text.matchAll(SPECIFIER)) {
-      const target = resolveSpecifier(file, match[1] ?? match[2] ?? match[3])
+      // One of the three alternatives captured the specifier.
+      const specifier = match.slice(1).find(Boolean)
+      const target = specifier ? resolveSpecifier(file, specifier) : null
 
       if (target) queue.push(target)
     }

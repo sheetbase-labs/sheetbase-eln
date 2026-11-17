@@ -70,7 +70,6 @@ import {
 } from '#/components/review'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
-import { StatusBadge } from '#/components/scientific/status-badge'
 import type { StatusVocabulary } from '#/components/scientific/status-badge'
 import {
   ConfirmDialog,
@@ -88,13 +87,7 @@ import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { IconButton } from '#/components/ui/icon-button'
 import { Skeleton } from '#/components/ui/skeleton'
-import {
-  Tabs,
-  TabsRoot,
-  TabsList,
-  TabsPanel,
-  TabsTab,
-} from '#/components/ui/tabs'
+import { Tabs, TabsRoot, TabsPanel } from '#/components/ui/tabs'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { personOption } from '#/components/record-picker/entity-options'
 import { Select } from '#/components/ui/select'
@@ -185,8 +178,11 @@ import {
   deriveReviewLifecycle,
   deriveSignatureApplicability,
 } from '#/lib/review-lifecycle'
+import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
 import {
   DescriptionList,
+  PageHeader,
   Inspector as InspectorPanel,
   InspectorSection,
 } from '#/components/ui/layout'
@@ -317,6 +313,17 @@ const workspaceStatusVocabulary: StatusVocabulary = {
     icon: 'arrowLeft',
   },
 }
+
+const toneByLifecycle = {
+  draft: 'draft',
+  'under-review': 'review',
+  'changes-requested': 'warn',
+  approved: 'ok',
+  'signed-locked': 'ok',
+  superseded: 'draft',
+  withdrawn: 'draft',
+  rejected: 'bad',
+} as const satisfies Record<string, Tone>
 
 /** GOV-04 derived lifecycle vocabulary (never a second backend state). */
 const lifecycleVocabulary: StatusVocabulary = {
@@ -881,8 +888,35 @@ export function ReviewWorkspaceRoute() {
         inspectorLabel={t('projects.revisionPage.reviewLabel')}
         inspectorCollapsible
       >
-        <div className="flex h-full flex-col gap-3 p-4 md:p-6">
+        <div className="flex h-full min-w-0 flex-col">
           <WorkspaceHeader
+            tabs={
+              <Tabs
+                mode="state"
+                label={t('projects.revisionPage.panels')}
+                value={activeTab}
+                onValueChange={(value) => {
+                  const tab = workspaceSearchSchema.shape.tab.safeParse(value)
+
+                  if (tab.success) navigateTab(tab.data)
+                }}
+                items={[
+                  { key: 'diff', label: t('projects.revisionPage.tabs.diff') },
+                  {
+                    key: 'comments',
+                    label: t('projects.revisionPage.tabs.comments'),
+                  },
+                  {
+                    key: 'checks',
+                    label: t('projects.revisionPage.tabs.checks'),
+                  },
+                  {
+                    key: 'history',
+                    label: t('projects.revisionPage.tabs.history'),
+                  },
+                ]}
+              />
+            }
             submission={submission}
             record={record}
             projectTitle={project?.title ?? null}
@@ -894,202 +928,188 @@ export function ReviewWorkspaceRoute() {
             recordId={recordId}
           />
 
-          {submission ? (
-            <ReviewNextStepPanel
-              step={nextStep}
-              currentRevisionId={revisionId}
-              action={
-                submission.state === 'approved' &&
-                !isLocked &&
-                signing.meanings.length > 0
-                  ? {
-                      label: t('projects.revisionPage.signing.signNow'),
-                      onClick: () => setSigningOpen(true),
-                    }
-                  : undefined
-              }
-            />
-          ) : null}
-
-          {submission?.state === 'returned' ? (
-            <ReturnedCommentsBanner
-              openCommentCount={openCommentCount}
-              returnedByName={returnedByName}
-              returnedAt={latestReturn?.created_at ?? null}
-              recordId={recordId}
-              onGoToComment={() => {
-                const firstOpen = groupCommentsIntoThreads(
-                  commentsQuery.data ?? [],
-                ).find((thread) => threadState(thread) === 'open')
-
-                void navigate({
-                  to: '/review/$revisionId',
-                  params: { revisionId },
-                  search: {
-                    ...search,
-                    tab: 'comments',
-                    commentId: firstOpen?.root.id,
-                  },
-                  replace: true,
-                })
-              }}
-            />
-          ) : null}
-
-          <TabsRoot
-            value={activeTab}
-            onValueChange={(value) => {
-              const tab = workspaceSearchSchema.shape.tab.safeParse(value)
-
-              if (tab.success) navigateTab(tab.data)
-            }}
-            className="flex min-h-0 flex-1 flex-col"
-          >
-            <TabsList aria-label={t('projects.revisionPage.panels')}>
-              <TabsTab value="diff">
-                <Icon name="code" size={14} aria-hidden />
-                {t('projects.revisionPage.tabs.diff')}
-              </TabsTab>
-              <TabsTab value="comments">
-                <Icon name="comment" size={14} aria-hidden />
-                {t('projects.revisionPage.tabs.comments')}
-              </TabsTab>
-              <TabsTab value="checks">
-                <Icon name="check" size={14} aria-hidden />
-                {t('projects.revisionPage.tabs.checks')}
-              </TabsTab>
-              <TabsTab value="history">
-                <Icon name="clock" size={14} aria-hidden />
-                {t('projects.revisionPage.tabs.history')}
-              </TabsTab>
-            </TabsList>
-
-            <TabsPanel value="diff" className="min-h-0 flex-1 overflow-y-auto">
-              <DiffPanel
-                beforeEnvelope={beforeEnvelope}
-                afterEnvelope={afterEnvelope}
-                revisionOptions={revisionOptions}
+          <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 md:p-6">
+            {submission ? (
+              <ReviewNextStepPanel
+                step={nextStep}
                 currentRevisionId={revisionId}
-                effectiveComparisonId={effectiveComparisonId}
-                onComparisonChange={navigateComparison}
-                recordId={recordId}
-                revisionComments={commentsQuery.data ?? []}
-                focusCommentId={search.commentId}
-                onOpenComment={(commentId) =>
-                  void navigate({
-                    to: '/review/$revisionId',
-                    params: { revisionId },
-                    search: { ...search, tab: 'comments', commentId },
-                    replace: true,
-                  })
-                }
-                onCommentTarget={
-                  permission?.canReview === true ||
-                  permission?.canWithdraw === true
-                    ? (anchor) => {
-                        setCommentSelection({ revisionId, anchor })
-                        navigateTab('comments')
+                action={
+                  submission.state === 'approved' &&
+                  !isLocked &&
+                  signing.meanings.length > 0
+                    ? {
+                        label: t('projects.revisionPage.signing.signNow'),
+                        onClick: () => setSigningOpen(true),
                       }
                     : undefined
                 }
-                comparisonLoading={
-                  effectiveComparisonId !== null &&
-                  comparisonRevisionQuery.isLoading
-                }
               />
-            </TabsPanel>
+            ) : null}
 
-            <TabsPanel
-              value="comments"
-              ref={commentsPanelRef}
-              className="min-h-0 flex-1 overflow-y-auto"
-            >
-              {submission && revision ? (
-                <>
-                  {commentAnchor ? (
-                    <div className="mb-3 flex flex-wrap items-center gap-2">
-                      <p className="text-xs text-fg-muted">
-                        {t('projects.revisionPage.newCommentTarget', {
-                          target: commentTargetLabel(commentAnchor),
-                        })}
-                      </p>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setCommentSelection(null)}
-                      >
-                        {t('projects.revisionPage.commentOnWhole')}
-                      </Button>
-                    </div>
-                  ) : null}
-                  <DraftCommentsTray
-                    drafts={commentDrafts.drafts}
-                    onEdit={commentDrafts.updateBody}
-                    onDelete={commentDrafts.remove}
-                  />
-                  <CommentPanel
-                    key={revisionId}
-                    revisionId={revisionId}
-                    focusCommentId={search.commentId}
-                    targetKind={commentAnchor?.targetKind ?? 'revision'}
-                    target={commentAnchor?.target ?? {}}
-                    currentUserId={currentUserId}
-                    currentUserName={currentUserName}
-                    canComment={canCommentOnRevision({
-                      canReview: permission?.canReview === true,
-                      canWithdraw: permission?.canWithdraw === true,
-                      state: submission.state,
-                    })}
-                    onDraftComment={
-                      permission?.canReview === true &&
-                      submission.state === 'submitted'
-                        ? commentDrafts.addDraft
-                        : undefined
-                    }
-                  />
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {t('projects.revisionPage.commentsAfterLoad')}
-                </p>
-              )}
-            </TabsPanel>
+            {submission?.state === 'returned' ? (
+              <ReturnedCommentsBanner
+                openCommentCount={openCommentCount}
+                returnedByName={returnedByName}
+                returnedAt={latestReturn?.created_at ?? null}
+                recordId={recordId}
+                onGoToComment={() => {
+                  const firstOpen = groupCommentsIntoThreads(
+                    commentsQuery.data ?? [],
+                  ).find((thread) => threadState(thread) === 'open')
 
-            <TabsPanel
-              value="checks"
-              className="min-h-0 flex-1 overflow-y-auto"
-            >
-              <ChecksPanel
-                revisionId={revisionId}
-                results={checkResults}
-                loading={checksQuery.isLoading}
-                // run_revision_checks accepts any workspace member who can read
-                // the revision, so the author and a witness can run them too:
-                // otherwise a signer is told to run checks with no button.
-                canRun={integrityDigest !== null}
-                onRefresh={() => void checksQuery.refetch()}
+                  void navigate({
+                    to: '/review/$revisionId',
+                    params: { revisionId },
+                    search: {
+                      ...search,
+                      tab: 'comments',
+                      commentId: firstOpen?.root.id,
+                    },
+                    replace: true,
+                  })
+                }}
               />
-            </TabsPanel>
+            ) : null}
 
-            <TabsPanel
-              value="history"
-              className="min-h-0 flex-1 overflow-y-auto"
+            <TabsRoot
+              value={activeTab}
+              onValueChange={(value) => {
+                const tab = workspaceSearchSchema.shape.tab.safeParse(value)
+
+                if (tab.success) navigateTab(tab.data)
+              }}
+              className="flex min-h-0 flex-1 flex-col"
             >
-              <RecordHistoryTimeline
-                events={timelineQuery.data ?? []}
-                loading={timelineQuery.isLoading}
-                error={timelineQuery.error}
-                revisionId={revision?.id ?? null}
-                integrityDigest={revision?.integrity_digest ?? null}
-                currentUserId={currentUserId}
-                currentUserName={currentUserName}
-                onRefresh={() => void timelineQuery.refetch()}
-                refreshing={
-                  timelineQuery.isFetching && !timelineQuery.isLoading
-                }
-              />
-            </TabsPanel>
-          </TabsRoot>
+              <TabsPanel
+                value="diff"
+                className="min-h-0 flex-1 overflow-y-auto"
+              >
+                <DiffPanel
+                  beforeEnvelope={beforeEnvelope}
+                  afterEnvelope={afterEnvelope}
+                  revisionOptions={revisionOptions}
+                  currentRevisionId={revisionId}
+                  effectiveComparisonId={effectiveComparisonId}
+                  onComparisonChange={navigateComparison}
+                  recordId={recordId}
+                  revisionComments={commentsQuery.data ?? []}
+                  focusCommentId={search.commentId}
+                  onOpenComment={(commentId) =>
+                    void navigate({
+                      to: '/review/$revisionId',
+                      params: { revisionId },
+                      search: { ...search, tab: 'comments', commentId },
+                      replace: true,
+                    })
+                  }
+                  onCommentTarget={
+                    permission?.canReview === true ||
+                    permission?.canWithdraw === true
+                      ? (anchor) => {
+                          setCommentSelection({ revisionId, anchor })
+                          navigateTab('comments')
+                        }
+                      : undefined
+                  }
+                  comparisonLoading={
+                    effectiveComparisonId !== null &&
+                    comparisonRevisionQuery.isLoading
+                  }
+                />
+              </TabsPanel>
+
+              <TabsPanel
+                value="comments"
+                ref={commentsPanelRef}
+                className="min-h-0 flex-1 overflow-y-auto"
+              >
+                {submission && revision ? (
+                  <>
+                    {commentAnchor ? (
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <p className="text-xs text-fg-muted">
+                          {t('projects.revisionPage.newCommentTarget', {
+                            target: commentTargetLabel(commentAnchor),
+                          })}
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => setCommentSelection(null)}
+                        >
+                          {t('projects.revisionPage.commentOnWhole')}
+                        </Button>
+                      </div>
+                    ) : null}
+                    <DraftCommentsTray
+                      drafts={commentDrafts.drafts}
+                      onEdit={commentDrafts.updateBody}
+                      onDelete={commentDrafts.remove}
+                    />
+                    <CommentPanel
+                      key={revisionId}
+                      revisionId={revisionId}
+                      focusCommentId={search.commentId}
+                      targetKind={commentAnchor?.targetKind ?? 'revision'}
+                      target={commentAnchor?.target ?? {}}
+                      currentUserId={currentUserId}
+                      currentUserName={currentUserName}
+                      canComment={canCommentOnRevision({
+                        canReview: permission?.canReview === true,
+                        canWithdraw: permission?.canWithdraw === true,
+                        state: submission.state,
+                      })}
+                      onDraftComment={
+                        permission?.canReview === true &&
+                        submission.state === 'submitted'
+                          ? commentDrafts.addDraft
+                          : undefined
+                      }
+                    />
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {t('projects.revisionPage.commentsAfterLoad')}
+                  </p>
+                )}
+              </TabsPanel>
+
+              <TabsPanel
+                value="checks"
+                className="min-h-0 flex-1 overflow-y-auto"
+              >
+                <ChecksPanel
+                  revisionId={revisionId}
+                  results={checkResults}
+                  loading={checksQuery.isLoading}
+                  // run_revision_checks accepts any workspace member who can read
+                  // the revision, so the author and a witness can run them too:
+                  // otherwise a signer is told to run checks with no button.
+                  canRun={integrityDigest !== null}
+                  onRefresh={() => void checksQuery.refetch()}
+                />
+              </TabsPanel>
+
+              <TabsPanel
+                value="history"
+                className="min-h-0 flex-1 overflow-y-auto"
+              >
+                <RecordHistoryTimeline
+                  events={timelineQuery.data ?? []}
+                  loading={timelineQuery.isLoading}
+                  error={timelineQuery.error}
+                  revisionId={revision?.id ?? null}
+                  integrityDigest={revision?.integrity_digest ?? null}
+                  currentUserId={currentUserId}
+                  currentUserName={currentUserName}
+                  onRefresh={() => void timelineQuery.refetch()}
+                  refreshing={
+                    timelineQuery.isFetching && !timelineQuery.isLoading
+                  }
+                />
+              </TabsPanel>
+            </TabsRoot>
+          </div>
         </div>
       </RouteShell>
     </CollaborationRoom>
@@ -1116,7 +1136,9 @@ export function WorkspaceHeader({
   lockedAt,
   lockedByRevisionId,
   recordId,
+  tabs,
 }: {
+  tabs?: React.ReactNode
   submission: ReviewSubmissionWire | null
   record: { identifier?: string; title?: string; kind?: string } | null
   projectTitle: string | null
@@ -1145,110 +1167,127 @@ export function WorkspaceHeader({
     supersededByRevisionId: revision?.superseded_by_revision_id ?? null,
   })
 
+  const hasNotices =
+    (isLocked && !submission) ||
+    isSuperseded ||
+    (state && state !== 'submitted' && state !== 'approved')
+
+  const noPermission =
+    permission &&
+    !permission.canReview &&
+    !permission.canWithdraw &&
+    state === 'submitted' &&
+    !isSuperseded
+
   return (
-    <header className="space-y-2">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h1 className="truncate text-base font-semibold text-foreground">
-            {record?.title ?? t('projects.revisionPage.header.untitled')}
-          </h1>
-          <p className="truncate font-mono text-xs text-muted-foreground">
-            {record?.identifier && recordId ? (
-              <ObjectLink
-                kind={record.kind === 'experiment' ? 'experiment' : 'record'}
-                id={recordId}
-                identifier={record.identifier}
-              />
-            ) : (
-              (record?.identifier ?? revision?.id)
-            )}
-          </p>
-          {/* NOTE-04: from the submit flow's success state, the working
-              Notebook and the frozen evidence view must both stay reachable —
-              audit history (this review) is not the same as the snapshot. */}
-          {recordId && revision ? (
-            <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
-              <Link
-                to="/records/$recordId"
-                params={{ recordId }}
-                className="font-medium text-foreground underline-offset-4 hover:underline"
-              >
-                {t('projects.revisionPage.header.openNotebook')}
-              </Link>
-              <Link
-                to="/evidence/$revisionId"
-                params={{ revisionId: revision.id }}
-                className="text-muted-foreground underline-offset-4 hover:underline"
-              >
-                {t('projects.revisionPage.header.viewEvidence')}
-              </Link>
+    <>
+      <PageHeader
+        compact
+        trail={[
+          {
+            label: t('projects.revisionPage.breadcrumbs.inbox'),
+            link: { to: '/inbox' },
+          },
+          { label: record?.identifier ?? revision?.id ?? '', mono: true },
+        ]}
+        title={record?.title ?? t('projects.revisionPage.header.untitled')}
+        meta={
+          <>
+            <span className="text-fg">
+              <Status tone={toneByLifecycle[lifecycle.status]}>
+                {lifecycleVocabulary[lifecycle.status]?.label ??
+                  statusLabel(lifecycle.status)}
+              </Status>
+            </span>
+            {projectTitle ? <span>{projectTitle}</span> : null}
+            {recordId && record?.identifier ? (
+              <span className="max-md:hidden">
+                <ObjectLink
+                  kind={record.kind === 'experiment' ? 'experiment' : 'record'}
+                  id={recordId}
+                  identifier={record.identifier}
+                />
+              </span>
+            ) : null}
+          </>
+        }
+        actions={
+          <>
+            {/* COLLAB-04: who else is reviewing right now. */}
+            <PresenceStack className="justify-end" />
+            {/* NOTE-04: from the submit flow's success state, the working
+                Notebook and the frozen evidence view must both stay reachable —
+                audit history (this review) is not the same as the snapshot. */}
+            {recordId && revision ? (
+              <>
+                <Link
+                  to="/records/$recordId"
+                  params={{ recordId }}
+                  className="text-body font-medium text-fg hover:underline"
+                >
+                  {t('projects.revisionPage.header.openNotebook')}
+                </Link>
+                <Link
+                  to="/evidence/$revisionId"
+                  params={{ revisionId: revision.id }}
+                  className="text-body text-fg-muted hover:underline"
+                >
+                  {t('projects.revisionPage.header.viewEvidence')}
+                </Link>
+              </>
+            ) : null}
+          </>
+        }
+        tabs={tabs}
+      />
+      {hasNotices || noPermission ? (
+        <div className="space-y-2 px-4 pt-3 md:px-6">
+          {isLocked && !submission ? (
+            <Notice icon="lock" role="status">
+              {lockedByRevisionId
+                ? rich('projects.revisionPage.header.lockedByRevision', {
+                    id: (
+                      <span className="font-mono">
+                        {lockedByRevisionId.slice(0, 8)}
+                      </span>
+                    ),
+                  })
+                : t('projects.revisionPage.header.lockedBy')}
+              {lockedAt ? (
+                <span className="ml-1 text-fg-muted">
+                  {t('projects.revisionPage.header.lockedOn', {
+                    date: formatDate(lockedAt),
+                  })}
+                </span>
+              ) : null}
+            </Notice>
+          ) : null}
+          {isSuperseded ? (
+            <Notice tone="warn" role="status">
+              {t('projects.revisionPage.header.superseded')}
+            </Notice>
+          ) : null}
+          {state &&
+          state !== 'submitted' &&
+          state !== 'approved' &&
+          !isSuperseded ? (
+            <Notice role="status">
+              {t('projects.revisionPage.header.inactive', {
+                state: statusLabel(state).toLowerCase(),
+              })}
+            </Notice>
+          ) : null}
+          {noPermission ? (
+            <div
+              role="status"
+              className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+            >
+              {t('projects.revisionPage.header.noPermission')}
             </div>
           ) : null}
         </div>
-        <div className="flex flex-col items-end gap-1">
-          {/* COLLAB-04: who else is reviewing right now; renders null before
-              the room mounts and when nobody else is present. */}
-          <PresenceStack className="justify-end" />
-          <StatusBadge
-            status={lifecycle.status}
-            vocabulary={lifecycleVocabulary}
-            size="sm"
-          />
-          {projectTitle ? (
-            <span className="text-xs text-muted-foreground">
-              {projectTitle}
-            </span>
-          ) : null}
-        </div>
-      </div>
-      {isLocked && !submission ? (
-        <Notice icon="lock" role="status">
-          {lockedByRevisionId
-            ? rich('projects.revisionPage.header.lockedByRevision', {
-                id: (
-                  <span className="font-mono">
-                    {lockedByRevisionId.slice(0, 8)}
-                  </span>
-                ),
-              })
-            : t('projects.revisionPage.header.lockedBy')}
-          {lockedAt ? (
-            <span className="ml-1 text-fg-muted">
-              {t('projects.revisionPage.header.lockedOn', {
-                date: formatDate(lockedAt),
-              })}
-            </span>
-          ) : null}
-        </Notice>
       ) : null}
-      {isSuperseded ? (
-        <Notice tone="warn" role="status">
-          {t('projects.revisionPage.header.superseded')}
-        </Notice>
-      ) : null}
-      {state &&
-      state !== 'submitted' &&
-      state !== 'approved' &&
-      !isSuperseded ? (
-        <Notice role="status">
-          {t('projects.revisionPage.header.inactive', {
-            state: statusLabel(state).toLowerCase(),
-          })}
-        </Notice>
-      ) : null}
-      {permission &&
-      !permission.canReview &&
-      !permission.canWithdraw &&
-      state === 'submitted' &&
-      !isSuperseded ? (
-        <div
-          role="status"
-          className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
-        >
-          {t('projects.revisionPage.header.noPermission')}
-        </div>
-      ) : null}
-    </header>
+    </>
   )
 }
 

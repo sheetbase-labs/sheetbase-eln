@@ -23,7 +23,7 @@
  * while deliberately ignoring layout. Browser specs still exercise the real
  * virtualizer.
  */
-import { vi } from 'vitest'
+import { afterAll, afterEach, vi } from 'vitest'
 import type * as ChartRendererImplModule from '#/components/viz/chart-renderer-impl'
 import type * as ChartSpecModule from '#/lib/chart-spec'
 
@@ -160,3 +160,55 @@ if (typeof Range !== 'undefined') {
   Range.prototype.getClientRects ||= empty as never
   Range.prototype.getBoundingClientRect ||= (() => new DOMRect()) as never
 }
+
+// Test files share one environment per worker (`isolate: false` in
+// vitest.config.ts), so each file must leave nothing behind for the next. These
+// resets run after every file; a test that changes other shared state cleans
+// up after itself (see "Unit test isolation" in AGENTS.md).
+afterEach(async () => {
+  const { cleanup } = await import('@testing-library/react')
+
+  cleanup()
+  // The data client shares identical reads for a second (SHARED_READ_MS), so a
+  // test reading the same URL straight after another would get its rows.
+  const dataClient: { dropSharedReads?: () => void } =
+    await import('#/lib/data-client')
+
+  // A file that replaces the module with vi.mock may not provide it, and a
+  // mock throws on reading an export it lacks, so ask before reading.
+  if ('dropSharedReads' in dataClient) dataClient.dropSharedReads?.()
+})
+
+// The runtime's own fetch, kept from the first file a worker runs. Some suites
+// assign globalThis.fetch before their imports (vi.stubGlobal cannot run that
+// early), which vi.unstubAllGlobals does not undo.
+const ORIGINAL_FETCH = Symbol.for('sheetbase.test.originalFetch')
+const globals = globalThis as typeof globalThis & {
+  [ORIGINAL_FETCH]?: typeof fetch
+}
+
+globals[ORIGINAL_FETCH] ??= globalThis.fetch
+
+afterAll(async () => {
+  const original = globals[ORIGINAL_FETCH]
+
+  if (original) globalThis.fetch = original
+  // React Query's managers are module singletons in node_modules, which
+  // vi.resetModules does not reach: a file that went offline would pause
+  // every query in the files after it.
+  const { focusManager, onlineManager } = await import('@tanstack/react-query')
+
+  onlineManager.setOnline(true)
+  focusManager.setFocused(undefined)
+  vi.resetModules()
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
+  vi.useRealTimers()
+  if (typeof localStorage !== 'undefined') localStorage.clear()
+  if (typeof sessionStorage !== 'undefined') sessionStorage.clear()
+  if (typeof document !== 'undefined') {
+    document.head.innerHTML = ''
+    document.body.innerHTML = ''
+  }
+})

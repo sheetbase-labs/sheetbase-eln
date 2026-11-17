@@ -12,9 +12,24 @@ export default defineConfig({
     // Run linked component packages and their React-using dependencies through
     // Vite so the React dedupe above reaches them.
     server: {
-      deps: { inline: [/sheetbase-components\//, /@tanstack\/react-virtual/] },
+      deps: {
+        inline: [
+          /sheetbase-components\//,
+          /@tanstack\/react-virtual/,
+          // A module-level singleton: inlined, vi.resetModules resets it
+          // between files instead of leaving it unmounted for the next.
+          /@tanstack\/(react-)?devtools/,
+        ],
+      },
     },
     environment: 'jsdom',
+    // Files share one environment per worker instead of starting a fresh one
+    // each: about three times faster. tests/unit/setup.ts resets shared state
+    // after every file, and the random order flushes out any test that still
+    // depends on another's leftovers. A failure prints its seed; rerun it with
+    // --sequence.seed=<seed>.
+    isolate: false,
+    sequence: { shuffle: true },
     // Restores web storage (and matchMedia) that Node ≥ 26's experimental
     // globals shadow inside the jsdom environment; see tests/unit/setup.ts.
     setupFiles: ['tests/unit/setup.ts'],

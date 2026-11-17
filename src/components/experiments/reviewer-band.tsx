@@ -13,10 +13,13 @@ export function ReviewerBand({
   ownerName,
   submittedAt,
   revisionId,
+  waitingFor,
 }: {
   ownerName: string
   submittedAt?: string
   revisionId?: string
+  /** Set on the author's own page: who the review is waiting for. */
+  waitingFor?: string
 }) {
   return (
     <div
@@ -27,12 +30,20 @@ export function ReviewerBand({
       <Icon name="info" size={14} className="shrink-0" aria-hidden />
       <p className="min-w-0 flex-1 basis-64">
         <strong className="font-medium text-fg">
-          {t('projects.experimentPage.reviewBand.title')}
+          {waitingFor
+            ? t('projects.experimentPage.reviewBand.authorTitle', {
+                reviewers: waitingFor,
+              })
+            : t('projects.experimentPage.reviewBand.title')}
         </strong>{' '}
-        {t('projects.experimentPage.reviewBand.body', {
-          name: ownerName,
-          date: submittedAt ? formatDate(submittedAt) : '',
-        })}
+        {waitingFor
+          ? t('projects.experimentPage.reviewBand.authorBody', {
+              date: submittedAt ? formatDate(submittedAt) : '',
+            })
+          : t('projects.experimentPage.reviewBand.body', {
+              name: ownerName,
+              date: submittedAt ? formatDate(submittedAt) : '',
+            })}
       </p>
       {revisionId ? (
         <Link

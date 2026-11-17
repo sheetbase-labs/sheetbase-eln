@@ -2055,6 +2055,9 @@ export const projects = {
     reviewBand: {
       title: 'Waiting for your review.',
       open: 'Open the review',
+      authorTitle: 'Waiting for {reviewers}',
+      authorBody:
+        'You submitted this version on {date}. The notebook stays read-only until they decide, and you get an inbox item when they do.',
       body: 'You’re reading the version {name} submitted on {date}. Comment on any block, then approve it or send it back.',
     },
     notStarted: 'Not started',

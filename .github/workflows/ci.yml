@@ -126,9 +126,11 @@ jobs:
         with:
           python: 'true'
       # Each worker clones the migrated template into its own database, so
-      # files never share state; four workers match the runner's cores.
+      # files never share state. Three workers leave the fourth core to the
+      # Postgres they all use: with four, the CPU-bound full-seed tests
+      # starved each other past their time limits.
       - run: >-
-          pnpm test:db --maxWorkers=4 --shard=${{ matrix.shard }}
+          pnpm test:db --maxWorkers=3 --shard=${{ matrix.shard }}
           --reporter=default --reporter=json --outputFile.json=timings.json
       - name: Upload test timings
         if: always()

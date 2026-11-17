@@ -577,7 +577,10 @@ test('an imported plate analysis remains reconstructable after independent revie
       .getByRole('checkbox', { name: new RegExp(reviewer.name) })
       .check()
     await submit.getByRole('button', { name: 'Submit', exact: true }).click()
-    await expect(page).toHaveURL(/\/review\/[0-9a-f-]{36}/)
+    // The review opens in the experiment's Review tab.
+    await expect(page).toHaveURL(
+      /\/experiments\/[0-9a-f-]{36}\/review\/[0-9a-f-]{36}/,
+    )
     const revisionPath = new URL(page.url()).pathname
     const assertFrozenSheet = async () => {
       const sheet = page.getByRole('region', {
@@ -611,7 +614,9 @@ test('an imported plate analysis remains reconstructable after independent revie
       .click()
     // Inbox activation opens the actual submitted revision in the same pane.
     await expect(reviewerPage).toHaveURL(new RegExp(`${revisionPath}$`))
-    await reviewerPage.getByRole('tab', { name: 'Checks', exact: true }).click()
+    await reviewerPage
+      .getByRole('link', { name: 'Checks', exact: true })
+      .click()
     const checking = reviewerPage.waitForResponse((response) =>
       response.url().endsWith('/rpc/run_revision_checks'),
     )

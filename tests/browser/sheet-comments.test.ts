@@ -507,7 +507,7 @@ test('review comments use submitted cells after live edits and never rewrite fro
     target: { instanceId: instance, rowKeys: [rows[1]], fieldIds: [field] },
     revision_id: revision.id,
   })
-  await page.getByRole('tab', { name: 'Diff', exact: true }).click()
+  await page.getByRole('link', { name: 'Diff', exact: true }).click()
   await frozenFour.click()
   await page
     .getByRole('combobox', { name: 'Frozen comment target' })
@@ -528,7 +528,7 @@ test('review comments use submitted cells after live edits and never rewrite fro
     target_kind: 'sheet_row',
     target: { instanceId: instance, rowKeys: [rows[1]], fieldIds: [] },
   })
-  await page.getByRole('tab', { name: 'Diff', exact: true }).click()
+  await page.getByRole('link', { name: 'Diff', exact: true }).click()
   await page.getByRole('button', { name: 'Select Recovery row 1' }).click()
   await page
     .getByRole('button', { name: 'Select Group row 3' })

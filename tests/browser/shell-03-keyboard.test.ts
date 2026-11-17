@@ -401,7 +401,7 @@ test('Review N/P navigate real changes and R focuses an actual comment reply', a
   )
   await page.keyboard.press('p')
   await expect(active).toHaveAttribute('data-revision-change-id', first ?? '')
-  await page.getByRole('tab', { name: 'Comments', exact: true }).click()
+  await page.getByRole('link', { name: 'Comments', exact: true }).click()
   await page
     .getByRole('textbox', { name: 'New comment body' })
     .fill('SHELL-03 reply fixture')
@@ -416,7 +416,7 @@ test('Review N/P navigate real changes and R focuses an actual comment reply', a
   await expect(
     page.getByRole('button', { name: 'Reply to thread' }).first(),
   ).toBeVisible()
-  await page.getByRole('tab', { name: 'Comments', exact: true }).focus()
+  await page.getByRole('link', { name: 'Comments', exact: true }).focus()
   await page.keyboard.press('r')
   await expect(
     page.getByRole('textbox', { name: 'Reply body' }).first(),

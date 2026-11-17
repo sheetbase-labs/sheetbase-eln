@@ -1357,14 +1357,16 @@ export async function handleRevisionPdf(
   }
 
   const pkg = parseEvidencePackage(rpcRes.body)
-  const { readWorkspaceLogoBytes } = await import('#/lib/workspace-logo-routes')
 
-  const logo = await readWorkspaceLogoBytes(context.workspaceId).catch(
-    () => null,
-  )
+  const [logo, figures] = await Promise.all([
+    import('#/lib/workspace-logo-routes').then(({ readWorkspaceLogoBytes }) =>
+      readWorkspaceLogoBytes(context.workspaceId).catch(() => null),
+    ),
+    import('./record-figures').then(({ buildRecordFigures }) =>
+      buildRecordFigures(pkg.blockSnapshot, context.token),
+    ),
+  ])
 
-  const { buildRecordFigures } = await import('./record-figures')
-  const figures = await buildRecordFigures(pkg.blockSnapshot, context.token)
   const bytes = await renderRevisionPdf(pkg, { logo, figures })
 
   await insertReceipt({

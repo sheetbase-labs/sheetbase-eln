@@ -588,7 +588,12 @@ export function ResultsWorkspace({
         recordId: expId,
         ...table,
       }),
-    onSuccess: () => toast(t('projects.resultsWorkspace.addedToast')),
+    onSuccess: () => {
+      toast(t('projects.resultsWorkspace.addedToast'))
+      void queryClient.invalidateQueries({
+        queryKey: ['notebook', 'blocks', expId],
+      })
+    },
     onError: (error) =>
       toast.error(t('projects.resultsWorkspace.addFailed'), {
         description: error instanceof Error ? error.message : undefined,

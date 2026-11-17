@@ -1030,11 +1030,11 @@
   [data-print-chrome] {
     display: none !important;
   }
-  [data-app-shell],
-  [data-app-shell] *:not(table):not(thead):not(tbody):not(tr):not(td):not(th) {
+  .app-shell,
+  .app-shell *:not(table):not(thead):not(tbody):not(tr):not(td):not(th) {
     max-height: none !important;
   }
-  [data-app-shell],
+  .app-shell,
   .mx-pb,
   .mx-pane,
   .mx-tabpanel,
@@ -1050,39 +1050,39 @@
     overflow: visible !important;
     transform: none !important;
   }
-  [data-app-shell] div {
+  .app-shell div {
     overflow: visible !important;
   }
-  [data-app-shell] .flex-1 {
+  .app-shell .flex-1 {
     flex: 1 1 100% !important;
   }
-  [data-app-shell] [class*='overflow-y-auto'],
-  [data-app-shell] [class*='overflow-auto'] {
+  .app-shell [class*='overflow-y-auto'],
+  .app-shell [class*='overflow-auto'] {
     overflow: visible !important;
     height: auto !important;
   }
 }
 @media print {
-  [data-app-shell] div,
-  [data-app-shell] section,
-  [data-app-shell] main,
-  [data-app-shell] article,
-  [data-app-shell] p,
-  [data-app-shell] h1,
-  [data-app-shell] h2,
-  [data-app-shell] h3,
-  [data-app-shell] ul,
-  [data-app-shell] ol {
+  .app-shell div,
+  .app-shell section,
+  .app-shell main,
+  .app-shell article,
+  .app-shell p,
+  .app-shell h1,
+  .app-shell h2,
+  .app-shell h3,
+  .app-shell ul,
+  .app-shell ol {
     max-width: 100% !important;
     min-width: 0 !important;
   }
-  [data-app-shell] h1,
-  [data-app-shell] h2,
-  [data-app-shell] p {
+  .app-shell h1,
+  .app-shell h2,
+  .app-shell p {
     white-space: normal !important;
     text-overflow: clip !important;
   }
-  [data-app-shell] table {
+  .app-shell table {
     width: 100% !important;
     table-layout: auto;
   }

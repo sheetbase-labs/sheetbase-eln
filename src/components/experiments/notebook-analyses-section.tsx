@@ -51,9 +51,8 @@ export function NotebookAnalysesSection({
 }) {
   const blocks = useNotebookAnalysisBlocks(expId)
 
-  const rows = (blocks.data ?? []).filter(
-    (row) => !alreadyShown.includes(titleOf(row)),
-  )
+  const shown = new Set(alreadyShown)
+  const rows = (blocks.data ?? []).filter((row) => !shown.has(titleOf(row)))
 
   if (rows.length === 0) return null
 
@@ -107,8 +106,10 @@ export function NotebookAnalysesStrip({
 }) {
   const blocks = useNotebookAnalysisBlocks(expId)
 
+  const shown = new Set(alreadyShown)
+
   const remaining = (blocks.data ?? []).filter(
-    (row) => !alreadyShown.includes(titleOf(row)),
+    (row) => !shown.has(titleOf(row)),
   )
 
   if (remaining.length === 0) return null

@@ -227,7 +227,7 @@ describe('StickyRecordHeader', () => {
       />,
     )
     expect(await menuActions()).toEqual(
-      expect.arrayContaining(['Print', 'Duplicate', 'Link records…']),
+      expect.arrayContaining(['Print notebook', 'Duplicate', 'Link records…']),
     )
   })
 

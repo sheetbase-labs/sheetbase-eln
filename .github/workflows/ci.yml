@@ -124,7 +124,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ['1/3', '2/3', '3/3']
+        shard: ['1/4', '2/4', '3/4', '4/4']
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install
@@ -132,11 +132,13 @@ jobs:
         with:
           python: 'true'
       # Each worker clones the migrated template into its own database, so
-      # files never share state. Three workers leave the fourth core to the
-      # Postgres they all use: with four, the CPU-bound full-seed tests
-      # starved each other past their time limits.
+      # files never share state. Two workers, as before shards were packed by
+      # time: the full-seed tests are CPU-bound and run longest first, so with
+      # three or four workers several start together on the four-core runner
+      # (Postgres included) and starve each other past their time limits.
+      # A fourth shard keeps the wall time instead.
       - run: >-
-          pnpm test:db --maxWorkers=3 --shard=${{ matrix.shard }}
+          pnpm test:db --maxWorkers=2 --shard=${{ matrix.shard }}
           --reporter=default --reporter=json --outputFile.json=timings.json
       - name: Upload test timings
         if: always()

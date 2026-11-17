@@ -100,7 +100,7 @@ const ordersClient = screenQueryClient({
     { key: reagentOrderQueryKeys.all, value: ORDERS },
     {
       key: workspaceMemberQueryKeys.identities,
-      value: new Map([['u-1', 'Dana Whitfield']]),
+      value: [{ user_id: 'u-1', name: 'Dana Whitfield' }],
     },
     {
       key: sampleListQueryKeys.projects,
@@ -115,7 +115,7 @@ const ordersClient = screenQueryClient({
 const emptyOrdersClient = screenQueryClient({
   data: [
     { key: reagentOrderQueryKeys.all, value: [] },
-    { key: workspaceMemberQueryKeys.identities, value: new Map() },
+    { key: workspaceMemberQueryKeys.identities, value: [] },
   ],
 })
 

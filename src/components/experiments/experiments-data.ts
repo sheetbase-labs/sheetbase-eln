@@ -502,11 +502,9 @@ export function useExperimentOpenIssues(
 export function useWorkspaceMemberNames() {
   return useQuery({
     queryKey: workspaceMemberQueryKeys.identities,
-    queryFn: async () =>
-      (await fetchWorkspaceMemberIdentities()).map((m) => ({
-        userId: m.user_id,
-        name: m.name,
-      })),
+    queryFn: fetchWorkspaceMemberIdentities,
+    select: (members) =>
+      members.map((m) => ({ userId: m.user_id, name: m.name })),
     staleTime: 60_000,
   })
 }

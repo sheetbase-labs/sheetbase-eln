@@ -148,7 +148,7 @@ const client = screenQueryClient({
     },
     {
       key: workspaceMemberQueryKeys.identities,
-      value: new Map([['u-1', 'Dana Whitfield']]),
+      value: [{ user_id: 'u-1', name: 'Dana Whitfield' }],
     },
     { key: stocktakeKeys.tree, value: tree },
     { key: stocktakeKeys.detail('st-3'), value: COUNTS[0] },
@@ -160,7 +160,7 @@ const emptyClient = screenQueryClient({
   data: [
     { key: stocktakeKeys.list, value: [] },
     { key: [...stocktakeKeys.list, 'summaries'], value: new Map() },
-    { key: workspaceMemberQueryKeys.identities, value: new Map() },
+    { key: workspaceMemberQueryKeys.identities, value: [] },
   ],
 })
 

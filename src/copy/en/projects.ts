@@ -3332,7 +3332,8 @@ export const projects = {
       noRevision: 'No revision loaded',
       fingerprintTooltip:
         'The submitted version is sealed with a fingerprint ({digest}…) so any later change can be detected.',
-      title: 'Review & approvals',
+      title: 'Properties',
+      status: 'Status',
       noSubmission: 'No submission',
       record: 'Record',
       project: 'Project',

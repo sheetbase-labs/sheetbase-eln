@@ -70,8 +70,8 @@ function Submissions() {
       accessorFn: (row) => row.submitted_at,
       cell: ({ row }) => (
         <Link
-          to="/review/$revisionId"
-          params={{ revisionId: row.original.revision_id }}
+          to="/experiments/$expId/review/$revisionId"
+          params={{ expId, revisionId: row.original.revision_id }}
           className="text-link"
         >
           {formatNotebookDateTime(row.original.submitted_at, { zone: true })}

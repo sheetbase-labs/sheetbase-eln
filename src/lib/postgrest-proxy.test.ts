@@ -690,6 +690,10 @@ describe('PLAT-03 proxy rate limiting', () => {
 
     expect(different.status).toBe(200)
 
+    // The first session is now over its cap; its rejection is the one counted.
+    const rejected = await handleProxyRequest(req('projects'), 'projects', deps)
+
+    expect(rejected.status).toBe(429)
     expect(metrics.render()).toMatch(
       /sheetbase_db_upstream_requests_total\{category="rate_limited"\} \d+/,
     )

@@ -1895,6 +1895,15 @@ function ReviewInspector({
     signingNow.meanings.length > 0 &&
     signatureMeaningEnabled(signingNow.policy, 'reviewed-and-approved')
 
+  const handleSigningOpenChange = useCallback(
+    (next: boolean) => {
+      onSigningOpenChange(next)
+
+      if (!next) setApproveAndSign(false)
+    },
+    [onSigningOpenChange],
+  )
+
   const startApproveAndSign = useCallback(() => {
     setApproveAndSign(true)
     onSigningOpenChange(true)
@@ -2051,11 +2060,7 @@ function ReviewInspector({
             currentUserId={currentUserId}
             currentUserName={currentUserName}
             open={signingOpen}
-            onOpenChange={(next) => {
-              onSigningOpenChange(next)
-
-              if (!next) setApproveAndSign(false)
-            }}
+            onOpenChange={handleSigningOpenChange}
             approveFirst={
               approveAndSign && mayApproveAndSign
                 ? {

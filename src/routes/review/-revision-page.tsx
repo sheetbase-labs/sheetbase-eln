@@ -1195,8 +1195,7 @@ export function WorkspaceHeader({
           <>
             <span className="text-fg">
               <Status tone={toneByLifecycle[lifecycle.status]}>
-                {lifecycleVocabulary[lifecycle.status]?.label ??
-                  statusLabel(lifecycle.status)}
+                {lifecycleVocabulary[lifecycle.status].label}
               </Status>
             </span>
             {projectTitle ? <span>{projectTitle}</span> : null}

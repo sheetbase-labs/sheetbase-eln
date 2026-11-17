@@ -225,5 +225,6 @@ test('CORE-14 a reviewed notebook is signed from its own page', async ({
     .getByRole('link', { name: /^open$/i })
     .click()
   await expect(page).toHaveURL(/\/review\//)
-  await expect(action(page, /open working notebook/i)).toBeVisible()
+  // The review is part of the experiment page, so its Notebook tab is there.
+  await expect(action(page, /^notebook$/i)).toBeVisible()
 })

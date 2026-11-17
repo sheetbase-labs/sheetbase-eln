@@ -304,9 +304,11 @@ describe('withReadDeadline', () => {
 describe('useWorkspaceMemberNames', () => {
   it('reads as a Map even when another reader cached the raw identities first', async () => {
     rpc.mockResolvedValue([{ user_id: 'u-1', name: 'Dana Whitfield' }])
+
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     // Another reader of the shared key (the schedule page's neighbours) fills it.
     await client.fetchQuery({
       queryKey: workspaceMemberQueryKeys.identities,
@@ -319,6 +321,7 @@ describe('useWorkspaceMemberNames', () => {
     })
 
     await waitFor(() => expect(result.current.data).toBeInstanceOf(Map))
+
     expect(result.current.data?.get('u-1')).toBe('Dana Whitfield')
   })
 })

@@ -433,7 +433,10 @@ test('independent certification, practice, password focus and exact-digest signi
     ).rows[0].n,
   ).toBe(0)
   await page.goto(`/review/${submission.revisionId}`)
-  await page.getByRole('button', { name: 'Approve', exact: true }).waitFor()
+  await page
+    .getByRole('button', { name: /^Approve/ })
+    .first()
+    .waitFor()
   await page.getByRole('button', { name: 'Sign revision', exact: true }).click()
   await expect(page.getByLabel('Signing password')).toBeFocused()
   await expect(

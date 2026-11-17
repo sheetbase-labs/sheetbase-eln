@@ -37,6 +37,36 @@ function withOrders(
   }))
 }
 
+/** A setting of the sheet a placement pins, which a template setting can feed. */
+export interface TemplateSettingTarget {
+  placementId: string
+  definitionParameterId: string
+}
+
+/**
+ * A setting's default, read from what a person typed. Numbers become numbers,
+ * so a threshold of 80 is stored as 80 and compares as one; anything the type
+ * can't read is left out and the save says so.
+ */
+export function parameterDefaultFromText(
+  valueType: ScalarValueType,
+  text: string,
+): string | number | boolean | undefined {
+  const trimmed = text.trim()
+
+  if (trimmed === '') return undefined
+
+  if (valueType === 'integer' || valueType === 'decimal') {
+    const value = Number(trimmed)
+
+    return Number.isFinite(value) ? value : trimmed
+  }
+
+  if (valueType === 'boolean') return trimmed === 'true'
+
+  return trimmed
+}
+
 /** The inline draft's state and every edit it accepts. */
 export interface TemplateDraft {
   draft: NotebookTemplateConfiguration | null
@@ -59,8 +89,16 @@ export interface TemplateDraft {
     label: string
     required: boolean
     valueType: ScalarValueType
+    /** What the setting is when nobody changes it; empty leaves it unset. */
+    defaultText?: string
+    feeds?: TemplateSettingTarget | null
+    constraints?: Parameter['constraints']
   }) => void
   removeParameter: (id: string) => void
+  /** Change what a setting is when nobody changes it; empty clears it. */
+  setParameterDefault: (id: string, text: string) => void
+  /** Choose the sheet setting a template setting feeds, or none. */
+  setParameterFeeds: (id: string, target: TemplateSettingTarget | null) => void
   setParts: (next: TemplatePart[]) => void
   setSignOff: (on: boolean) => void
 }
@@ -211,6 +249,41 @@ export function useTemplateDraft(
     })
   }
 
+  /** Mappings from a template setting to the sheet settings it feeds. */
+  const withFeeds = (
+    placementsIn: NotebookTemplatePlacement[],
+    parameterId: string,
+    target: TemplateSettingTarget | null,
+  ): NotebookTemplatePlacement[] =>
+    placementsIn.map((placement) => {
+      if (placement.kind !== 'sheet') return placement
+
+      const kept = placement.parameterMappings.filter(
+        (mapping) =>
+          mapping.templateParameterId !== parameterId &&
+          // One template setting feeds a sheet setting; a later choice replaces it.
+          !(
+            target &&
+            target.placementId === placement.id &&
+            mapping.definitionParameterId === target.definitionParameterId
+          ),
+      )
+
+      return {
+        ...placement,
+        parameterMappings:
+          target && target.placementId === placement.id
+            ? [
+                ...kept,
+                {
+                  templateParameterId: parameterId,
+                  definitionParameterId: target.definitionParameterId,
+                },
+              ]
+            : kept,
+      }
+    })
+
   const addParameter: TemplateDraft['addParameter'] = (input) => {
     if (!draft) return
 
@@ -220,10 +293,23 @@ export function useTemplateDraft(
       label: input.label,
       required: input.required,
       type: { kind: 'scalar', valueType: input.valueType },
-      constraints: {},
+      constraints: input.constraints ?? {},
     }
 
-    setDraft({ ...draft, parameters: [...draft.parameters, parameter] })
+    const defaultValue = parameterDefaultFromText(
+      input.valueType,
+      input.defaultText ?? '',
+    )
+
+    if (defaultValue !== undefined) parameter.defaultValue = defaultValue
+
+    setDraft({
+      ...draft,
+      parameters: [...draft.parameters, parameter],
+      placements: input.feeds
+        ? withFeeds(draft.placements, parameter.id, input.feeds)
+        : draft.placements,
+    })
   }
 
   const removeParameter = (id: string) => {
@@ -232,7 +318,34 @@ export function useTemplateDraft(
     setDraft({
       ...draft,
       parameters: draft.parameters.filter((parameter) => parameter.id !== id),
+      // A sheet setting it fed goes back to the sheet's own default.
+      placements: withFeeds(draft.placements, id, null),
     })
+  }
+
+  const setParameterDefault = (id: string, text: string) => {
+    if (!draft) return
+
+    setDraft({
+      ...draft,
+      parameters: draft.parameters.map((parameter) => {
+        if (parameter.id !== id || parameter.type.kind !== 'scalar')
+          return parameter
+
+        const { defaultValue: _old, ...rest } = parameter
+        const next = parameterDefaultFromText(parameter.type.valueType, text)
+
+        return next === undefined ? rest : { ...rest, defaultValue: next }
+      }),
+    })
+  }
+
+  const setParameterFeeds = (
+    id: string,
+    target: TemplateSettingTarget | null,
+  ) => {
+    if (!draft) return
+    setDraft({ ...draft, placements: withFeeds(draft.placements, id, target) })
   }
 
   /** The RPC and the parser hold the same invariants, so the payload is checked
@@ -276,6 +389,8 @@ export function useTemplateDraft(
     addSection,
     addParameter,
     removeParameter,
+    setParameterDefault,
+    setParameterFeeds,
     setParts,
     setSignOff,
   }

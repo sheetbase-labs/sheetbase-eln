@@ -21,6 +21,7 @@ import { TemplatePartsSection } from '#/components/templates/template-parts'
 import type { TemplatePart } from '#/components/templates/template-parts'
 import {
   templateLifecycle,
+  useSheetDefinitions,
   useTemplate,
   useTemplateVersions,
 } from '#/components/templates/templates-data'
@@ -34,6 +35,7 @@ import type { Parameter } from '#/lib/parameter'
 import { formatDate } from '#/lib/format-date'
 import { useRegulatedLab } from '#/lib/regulated-lab'
 import { useTemplateDraft } from '../-template-draft'
+import type { TemplateSettingTarget } from '../-template-draft'
 import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the template's Sections view reads the stored
@@ -223,12 +225,120 @@ function sectionColumns(
   return columns
 }
 
+/** A scalar setting of a sheet a placement pins, which a template setting can feed. */
+interface SettingTarget {
+  placementId: string
+  sheetTitle: string
+  parameter: Parameter
+}
+
+function targetKey(target: TemplateSettingTarget | null): string {
+  return target ? `${target.placementId}|${target.definitionParameterId}` : ''
+}
+
+/** What a template setting is when nobody changes it. Typing keeps its own
+ * text, so "80." survives until the number is finished. */
+function DefaultInput({
+  parameter,
+  disabled,
+  onChange,
+}: {
+  parameter: Parameter
+  disabled?: boolean
+  onChange: (text: string) => void
+}) {
+  const [text, setText] = useState(
+    parameter.defaultValue === undefined ? '' : String(parameter.defaultValue),
+  )
+
+  return (
+    <Input
+      className="w-[110px]"
+      value={text}
+      disabled={disabled}
+      aria-label={t('library.templates.overview.defaultValue')}
+      onChange={(event) => {
+        setText(event.target.value)
+        onChange(event.target.value)
+      }}
+    />
+  )
+}
+
+/** Which sheet setting a template setting feeds: only settings of its own type. */
+function FeedsSelect({
+  parameter,
+  targets,
+  value,
+  disabled,
+  onChange,
+}: {
+  parameter: Parameter
+  targets: SettingTarget[]
+  value: TemplateSettingTarget | null
+  disabled?: boolean
+  onChange: (target: TemplateSettingTarget | null) => void
+}) {
+  const options = targets.filter(
+    (item) =>
+      item.parameter.type.kind === 'scalar' &&
+      parameter.type.kind === 'scalar' &&
+      item.parameter.type.valueType === parameter.type.valueType,
+  )
+
+  return (
+    <Select
+      className="min-w-[240px]"
+      value={targetKey(value)}
+      disabled={disabled}
+      aria-label={t('library.templates.overview.feeds')}
+      onChange={(event) => {
+        const picked = options.find(
+          (item) =>
+            targetKey({
+              placementId: item.placementId,
+              definitionParameterId: item.parameter.id,
+            }) === event.target.value,
+        )
+
+        onChange(
+          picked
+            ? {
+                placementId: picked.placementId,
+                definitionParameterId: picked.parameter.id,
+              }
+            : null,
+        )
+      }}
+    >
+      <option value="">{t('library.templates.overview.feedsNothing')}</option>
+      {options.map((item) => (
+        <option
+          key={`${item.placementId}|${item.parameter.id}`}
+          value={`${item.placementId}|${item.parameter.id}`}
+        >
+          {t('library.templates.overview.feedsTarget', {
+            sheet: item.sheetTitle,
+            setting: item.parameter.label,
+          })}
+        </option>
+      ))}
+    </Select>
+  )
+}
+
 /** The Parameters table's columns; the editing variant adds Required and the
  * remove control. */
 function parameterColumns(options: {
   withActions?: boolean
   disabled?: boolean
   onRemove?: (id: string) => void
+  /** The sheet settings a template setting can feed, from the sheets placed. */
+  targets: SettingTarget[]
+  /** What each template setting feeds now. */
+  feeds: (parameterId: string) => TemplateSettingTarget | null
+  onSetDefault?: (id: string, text: string) => void
+  onSetFeeds?: (id: string, target: TemplateSettingTarget | null) => void
 }): RegistryColumn<Parameter>[] {
   const columns: RegistryColumn<Parameter>[] = [
     {
@@ -246,6 +356,57 @@ function parameterColumns(options: {
       id: 'label',
       header: t('library.templates.overview.label'),
       cell: ({ row }) => row.original.label,
+    },
+    {
+      id: 'default',
+      header: t('library.templates.overview.defaultValue'),
+      cell: ({ row }) =>
+        options.withActions && row.original.type.kind === 'scalar' ? (
+          <DefaultInput
+            parameter={row.original}
+            disabled={options.disabled}
+            onChange={(text) => options.onSetDefault?.(row.original.id, text)}
+          />
+        ) : row.original.defaultValue === undefined ? (
+          '—'
+        ) : (
+          String(row.original.defaultValue)
+        ),
+    },
+    {
+      id: 'feeds',
+      header: t('library.templates.overview.feeds'),
+      cell: ({ row }) => {
+        const current = options.feeds(row.original.id)
+
+        if (options.withActions)
+          return (
+            <FeedsSelect
+              parameter={row.original}
+              targets={options.targets}
+              value={current}
+              disabled={options.disabled}
+              onChange={(target) =>
+                options.onSetFeeds?.(row.original.id, target)
+              }
+            />
+          )
+
+        const target = current
+          ? options.targets.find(
+              (item) =>
+                item.placementId === current.placementId &&
+                item.parameter.id === current.definitionParameterId,
+            )
+          : undefined
+
+        return target
+          ? t('library.templates.overview.feedsTarget', {
+              sheet: target.sheetTitle,
+              setting: target.parameter.label,
+            })
+          : t('library.templates.overview.feedsNone')
+      },
     },
   ]
 
@@ -409,25 +570,72 @@ function SectionsSection({
   )
 }
 
+/** What the add form hands over for a new setting. */
+type AddedParameter = Parameters<
+  ReturnType<typeof useTemplateDraft>['addParameter']
+>[0]
+
+/** The scalar settings of every sheet the template places, for a template
+ * setting to feed. */
+function sheetSettingTargets(
+  placements: NotebookTemplatePlacement[],
+  versionsById: ReturnType<typeof useSheetDefinitions>['versionsById'],
+): SettingTarget[] {
+  return placements.flatMap((placement) => {
+    if (placement.kind !== 'sheet') return []
+
+    const definition = versionsById.get(placement.definitionVersionId)
+
+    return (definition?.configuration.parameters ?? [])
+      .filter((parameter) => parameter.type.kind === 'scalar')
+      .map((parameter) => ({
+        placementId: placement.id,
+        sheetTitle: placement.title ?? t('library.templates.overview.sheet'),
+        parameter,
+      }))
+  })
+}
+
 /** The declared parameters table, with the add form while editing. */
 function ParametersSection({
   draft,
   parameters,
+  placements,
+  targets,
   saving,
   onRemove,
   onAdd,
+  onSetDefault,
+  onSetFeeds,
 }: {
   draft: boolean
   parameters: Parameter[]
+  placements: NotebookTemplatePlacement[]
+  targets: SettingTarget[]
   saving: boolean
   onRemove: (id: string) => void
-  onAdd: (input: {
-    key: string
-    label: string
-    required: boolean
-    valueType: ScalarValueType
-  }) => void
+  onAdd: (input: AddedParameter) => void
+  onSetDefault: (id: string, text: string) => void
+  onSetFeeds: (id: string, target: TemplateSettingTarget | null) => void
 }) {
+  const feeds = (parameterId: string): TemplateSettingTarget | null => {
+    for (const placement of placements) {
+      if (placement.kind !== 'sheet') continue
+
+      const mapping = placement.parameterMappings.find(
+        (item) => item.templateParameterId === parameterId,
+      )
+
+      if (mapping)
+        return {
+          placementId: placement.id,
+          definitionParameterId: mapping.definitionParameterId,
+        }
+    }
+
+    return null
+  }
+
   return (
     <Section
       title={t('library.templates.overview.parameters')}
@@ -444,8 +652,12 @@ function ParametersSection({
                     withActions: true,
                     disabled: saving,
                     onRemove,
+                    targets,
+                    feeds,
+                    onSetDefault,
+                    onSetFeeds,
                   })
-                : parameterColumns({})
+                : parameterColumns({ targets, feeds })
             }
             getRowId={(parameter) => parameter.id}
             selectable={false}
@@ -454,7 +666,9 @@ function ParametersSection({
       ) : (
         <Muted>{t('library.templates.overview.noParametersDeclared')}</Muted>
       )}
-      {draft ? <AddParameterForm disabled={saving} onAdd={onAdd} /> : null}
+      {draft ? (
+        <AddParameterForm disabled={saving} targets={targets} onAdd={onAdd} />
+      ) : null}
     </Section>
   )
 }
@@ -468,6 +682,7 @@ function TemplateSections() {
   const version = shownVersion(versions.data ?? [])
 
   const draft = useTemplateDraft(templateId, version)
+  const sheets = useSheetDefinitions(version ? [version] : [])
 
   if (!version) {
     return (
@@ -546,9 +761,16 @@ function TemplateSections() {
         <ParametersSection
           draft={Boolean(draft.draft)}
           parameters={draft.draft ? draft.draft.parameters : config.parameters}
+          placements={draft.draft ? draft.draft.placements : draft.placements}
+          targets={sheetSettingTargets(
+            draft.draft ? draft.draft.placements : draft.placements,
+            sheets.versionsById,
+          )}
           saving={draft.saving}
           onRemove={draft.removeParameter}
           onAdd={draft.addParameter}
+          onSetDefault={draft.setParameterDefault}
+          onSetFeeds={draft.setParameterFeeds}
         />
       </div>
     </div>
@@ -624,20 +846,38 @@ function AddSectionForm({
  * the template. */
 function AddParameterForm({
   disabled,
+  targets,
   onAdd,
 }: {
   disabled: boolean
-  onAdd: (input: {
-    key: string
-    label: string
-    required: boolean
-    valueType: ScalarValueType
-  }) => void
+  targets: SettingTarget[]
+  onAdd: (input: AddedParameter) => void
 }) {
   const [key, setKey] = useState('')
   const [label, setLabel] = useState('')
   const [valueType, setValueType] = useState<ScalarValueType>('text')
   const [required, setRequired] = useState(false)
+  const [defaultText, setDefaultText] = useState('')
+  const [feeds, setFeeds] = useState('')
+
+  /** Choosing a sheet setting to feed fills in what the setting already says. */
+  const chooseFeeds = (value: string) => {
+    setFeeds(value)
+
+    const picked = targets.find(
+      (item) => `${item.placementId}|${item.parameter.id}` === value,
+    )
+
+    if (!picked || picked.parameter.type.kind !== 'scalar') return
+
+    if (key.trim() === '') setKey(picked.parameter.key)
+
+    if (label.trim() === '') setLabel(picked.parameter.label)
+    setValueType(picked.parameter.type.valueType)
+
+    if (picked.parameter.defaultValue !== undefined && defaultText === '')
+      setDefaultText(String(picked.parameter.defaultValue))
+  }
 
   const trimmedKey = key.trim()
   const trimmedLabel = label.trim()
@@ -692,6 +932,43 @@ function AddParameterForm({
           ))}
         </Select>
       </Field>
+      <Field
+        label={t('library.templates.overview.defaultValue')}
+        hint={t('library.templates.overview.defaultValueHint')}
+        className="w-[150px]"
+      >
+        <Input
+          value={defaultText}
+          onChange={(event) => setDefaultText(event.target.value)}
+        />
+      </Field>
+      {targets.length > 0 ? (
+        <Field
+          label={t('library.templates.overview.feeds')}
+          hint={t('library.templates.overview.feedsHint')}
+          className="w-[260px]"
+        >
+          <Select
+            value={feeds}
+            onChange={(event) => chooseFeeds(event.target.value)}
+          >
+            <option value="">
+              {t('library.templates.overview.feedsNothing')}
+            </option>
+            {targets.map((item) => (
+              <option
+                key={`${item.placementId}|${item.parameter.id}`}
+                value={`${item.placementId}|${item.parameter.id}`}
+              >
+                {t('library.templates.overview.feedsTarget', {
+                  sheet: item.sheetTitle,
+                  setting: item.parameter.label,
+                })}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : null}
       <label className="flex h-[30px] cursor-pointer items-center gap-2 text-label">
         <Checkbox
           checked={required}
@@ -705,15 +982,30 @@ function AddParameterForm({
           disabled || !keyPattern.test(trimmedKey) || trimmedLabel.length === 0
         }
         onClick={() => {
+          const target = targets.find(
+            (item) => `${item.placementId}|${item.parameter.id}` === feeds,
+          )
+
           onAdd({
             key: trimmedKey,
             label: trimmedLabel,
             required,
             valueType,
+            defaultText,
+            feeds: target
+              ? {
+                  placementId: target.placementId,
+                  definitionParameterId: target.parameter.id,
+                }
+              : null,
+            // A sheet setting's limits come with it.
+            constraints: target?.parameter.constraints,
           })
           setKey('')
           setLabel('')
           setRequired(false)
+          setDefaultText('')
+          setFeeds('')
         }}
       >
         {t('library.templates.overview.addParameter')}

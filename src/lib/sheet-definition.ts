@@ -338,6 +338,12 @@ const configurationSchema = z
           label,
           outputColumnId: uuid,
           inputColumnIds: z.array(uuid).max(64),
+          /**
+           * Scalar parameters of this Definition the formula reads (a pass
+           * threshold, say). They follow the columns in the formula's
+           * dependency slots.
+           */
+          inputParameterIds: z.array(uuid).max(64).default([]),
           expression: z.strictObject({
             language: z.literal('sheetbase-formula-v1'),
             source: z.string().trim().min(1).max(8_192),
@@ -416,6 +422,12 @@ const configurationSchema = z
     )
     uniqueKeys(configuration.calculations, 'calculations')
     uniqueKeys(configuration.actions, 'actions')
+
+    const scalarParameterIds = new Set(
+      configuration.parameters
+        .filter((item) => item.type.kind === 'scalar')
+        .map((item) => item.id),
+    )
 
     const parameterIds = new Set(
       configuration.parameters.map((item) => item.id),
@@ -628,6 +640,13 @@ const configurationSchema = z
           columnIds.has(id),
           ['calculations', index, 'inputColumnIds'],
           'Unknown input column ID.',
+        ),
+      )
+      item.inputParameterIds.forEach((id) =>
+        requireRef(
+          scalarParameterIds.has(id),
+          ['calculations', index, 'inputParameterIds'],
+          'A calculation can read scalar parameters only.',
         ),
       )
     })

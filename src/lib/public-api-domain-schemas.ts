@@ -506,6 +506,12 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
             label: TEXT,
             outputColumnId: UUID,
             inputColumnIds: { type: 'array', items: UUID },
+            inputParameterIds: {
+              type: 'array',
+              items: UUID,
+              description:
+                'Scalar parameters of the Definition the formula reads, such as a pass threshold. They follow the columns in the formula slots (A1, B1 ...).',
+            },
             expression: formulaExpression,
           },
         },
@@ -622,7 +628,7 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
       },
     ],
   },
-  SheetCalculationDependency: {
+  SheetInstanceCalculationDependency: {
     oneOf: [
       {
         type: 'object',
@@ -653,6 +659,48 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
       },
     ],
   },
+  SheetCalculationDependency: {
+    oneOf: [
+      {
+        type: 'object',
+        required: ['kind', 'id'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'column' },
+          id: UUID,
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'id'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'local-field' },
+          id: UUID,
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'id'],
+        additionalProperties: false,
+        properties: {
+          kind: { type: 'string', const: 'calculation' },
+          id: UUID,
+        },
+      },
+      {
+        type: 'object',
+        required: ['kind', 'id'],
+        additionalProperties: false,
+        description:
+          'A scalar parameter of the Definition, such as a pass threshold.',
+        properties: {
+          kind: { type: 'string', const: 'parameter' },
+          id: UUID,
+        },
+      },
+    ],
+  },
   SheetCalculation: {
     type: 'object',
     required: [
@@ -674,7 +722,9 @@ export const PUBLIC_API_DOMAIN_SCHEMAS = {
       dependencies: {
         type: 'array',
         maxItems: 64,
-        items: { $ref: '#/components/schemas/SheetCalculationDependency' },
+        items: {
+          $ref: '#/components/schemas/SheetInstanceCalculationDependency',
+        },
       },
       expression: formulaExpression,
     },

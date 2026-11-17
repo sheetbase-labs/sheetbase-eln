@@ -15,11 +15,38 @@ import {
   sheetFieldDefinitionSchema,
 } from './sheet-definition'
 
+/**
+ * What an Instance's own calculation can read: a Definition column, a local
+ * field or another calculation.
+ */
+export const sheetInstanceCalculationDependencySchema = z.discriminatedUnion(
+  'kind',
+  [
+    z.strictObject({ kind: z.literal('column'), id: uuid }),
+    z.strictObject({ kind: z.literal('local-field'), id: uuid }),
+    z.strictObject({ kind: z.literal('calculation'), id: uuid }),
+  ],
+)
+
+/**
+ * What a calculation of a Definition can read. A `parameter` is a scalar
+ * parameter of the Definition (a setting such as a pass threshold): the value
+ * the Instance resolved for it, or the Definition's default.
+ */
 export const sheetCalculationDependencySchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('column'), id: uuid }),
   z.strictObject({ kind: z.literal('local-field'), id: uuid }),
   z.strictObject({ kind: z.literal('calculation'), id: uuid }),
+  z.strictObject({ kind: z.literal('parameter'), id: uuid }),
 ])
+
+/** The logical types a calculation can produce: numbers and pass/fail style text or booleans. */
+export const CALCULATION_OUTPUT_TYPES = [
+  'integer',
+  'decimal',
+  'text',
+  'boolean',
+] as const
 
 export const sheetInstanceCalculationSchema = z
   .strictObject({
@@ -28,7 +55,7 @@ export const sheetInstanceCalculationSchema = z
     label: z.string().trim().min(1).max(200),
     lifecycle: z.enum(['active', 'retired']),
     outputField: sheetFieldDefinitionSchema,
-    dependencies: z.array(sheetCalculationDependencySchema).max(64),
+    dependencies: z.array(sheetInstanceCalculationDependencySchema).max(64),
     expression: z.strictObject({
       language: z.literal('sheetbase-formula-v1'),
       source: z.string().trim().min(1).max(8_192),
@@ -40,13 +67,15 @@ export const sheetInstanceCalculationSchema = z
       calculation.outputField.computation.mode !== 'computed' ||
       calculation.outputField.computation.expressionId !== calculation.id ||
       calculation.outputField.cardinality !== 'one' ||
-      !['integer', 'decimal'].includes(calculation.outputField.logicalType)
+      !CALCULATION_OUTPUT_TYPES.some(
+        (type) => type === calculation.outputField.logicalType,
+      )
     )
       context.addIssue({
         code: 'custom',
         path: ['outputField'],
         message:
-          'Calculation output must be a scalar numeric computed FieldDefinition with matching identity.',
+          'Calculation output must be a scalar number, text or boolean computed FieldDefinition with matching identity.',
       })
 
     const dependencyIds = calculation.dependencies.map(
@@ -69,6 +98,10 @@ export type SheetCalculationDependency = z.infer<
   typeof sheetCalculationDependencySchema
 >
 
+export type SheetInstanceCalculationDependency = z.infer<
+  typeof sheetInstanceCalculationDependencySchema
+>
+
 export type SheetInstanceCalculation = z.infer<
   typeof sheetInstanceCalculationSchema
 >
@@ -89,7 +122,7 @@ function dummyRowIds(count: number): string[] {
 
 function dependencyKind(
   origin: SheetCalculationColumnOrigin,
-): SheetCalculationDependency['kind'] {
+): SheetInstanceCalculationDependency['kind'] {
   if (origin === 'bound') return 'column'
 
   if (origin === 'calculation') return 'calculation'
@@ -109,7 +142,7 @@ export function sheetCalculationDependenciesFromExpression(input: {
     origin: SheetCalculationColumnOrigin
   }>
   rowCount?: number
-}): SheetCalculationDependency[] {
+}): SheetInstanceCalculationDependency[] {
   const source = input.source.trim()
 
   if (!source.startsWith('=')) throw new Error('A formula must begin with =.')
@@ -130,7 +163,7 @@ export function sheetCalculationDependenciesFromExpression(input: {
   )
 
   const seen = new Set<string>()
-  const dependencies: SheetCalculationDependency[] = []
+  const dependencies: SheetInstanceCalculationDependency[] = []
 
   for (const cell of artifact.dependencies) {
     if (seen.has(cell.columnId)) continue
@@ -195,11 +228,46 @@ const DATASET_PROVENANCE = z.object({
   sourceFieldId: z.string(),
 })
 
-/** The logical types the safe calculation profile evaluates. */
-const NUMERIC_LOGICAL_TYPES = ['integer', 'decimal'] as const
+/** The logical types a calculation can read: numbers, text and booleans. */
+const INPUT_LOGICAL_TYPES = ['integer', 'decimal', 'text', 'boolean'] as const
 
 /** A number, including the NaN a formula can produce; `typeof` would call it a number too. */
 const NUMBER_OR_NAN = z.union([z.number(), z.nan()])
+
+/** What a calculation can produce: a number, a text such as Pass or Fail, or a boolean. */
+export type SheetCalculationValue = number | string | boolean
+
+/** The value an input must carry for its declared logical type. */
+function inputValueSchema(logicalType: (typeof INPUT_LOGICAL_TYPES)[number]) {
+  switch (logicalType) {
+    case 'text':
+      return z.string()
+    case 'boolean':
+      return z.boolean()
+    case 'integer':
+    case 'decimal':
+      return z.number().finite()
+  }
+}
+
+/** The value a result must have for the output's declared logical type. */
+function outputValueSchema(
+  logicalType: (typeof CALCULATION_OUTPUT_TYPES)[number],
+) {
+  switch (logicalType) {
+    case 'text':
+      return z.string()
+    case 'boolean':
+      return z.boolean()
+    case 'integer':
+    case 'decimal':
+      return NUMBER_OR_NAN
+  }
+}
+
+function inputLogicalType(field: FieldDefinition) {
+  return INPUT_LOGICAL_TYPES.find((type) => type === field.logicalType)
+}
 
 /**
  * DSET-01.2 — resolve the active Dataset Value Flag behind a bound input's
@@ -225,7 +293,11 @@ export function flaggedValueForProvenance(
 }
 
 export type SheetCalculationResult =
-  | { status: 'value'; value: number; dependencyProvenance: unknown[] }
+  | {
+      status: 'value'
+      value: SheetCalculationValue
+      dependencyProvenance: unknown[]
+    }
   | {
       status: 'error'
       errorCode:
@@ -243,12 +315,33 @@ export type SheetCalculationResult =
 const quantityKey = (field: FieldDefinition) =>
   field.quantity === null ? null : JSON.stringify(field.quantity)
 
+/** The comparison operators of the formula language. */
+const COMPARISON_OPERATORS = new Set(['=', '<>', '<', '<=', '>', '>='])
+
+/** Logical functions: their arguments are plain values and they produce none with a unit. */
+const LOGIC_FUNCTIONS = new Set(['AND', 'OR', 'NOT', 'XOR'])
+
+const QUANTITY_RULES = {
+  addition: 'Addition and subtraction require exact quantity metadata.',
+  multiplication:
+    'Multiplication of two quantities is outside the safe profile.',
+  division: 'Division requires an exact quantity match or a scalar divisor.',
+  exponent: 'Quantity exponentiation is outside the safe profile.',
+  comparison:
+    'A comparison needs like quantity metadata on both sides, or a plain number on one side.',
+  logic: 'Logical functions take plain values, not quantities.',
+  branches: 'The two answers of IF must carry the same quantity metadata.',
+  unsupported: 'Only deterministic scalar arithmetic is supported.',
+} as const
+
 function expressionQuantity(
   node: FormulaNode,
   quantities: Array<string | null>,
 ): string | null {
   switch (node.kind) {
     case 'number':
+    case 'string':
+    case 'boolean':
       return null
     case 'reference':
       return quantities[node.slot] ?? null
@@ -260,19 +353,14 @@ function expressionQuantity(
       const right = expressionQuantity(node.right, quantities)
 
       if (node.operator === '+' || node.operator === '-') {
-        if (left !== right)
-          throw new Error(
-            'Addition and subtraction require exact quantity metadata.',
-          )
+        if (left !== right) throw new Error(QUANTITY_RULES.addition)
 
         return left
       }
 
       if (node.operator === '*') {
         if (left !== null && right !== null)
-          throw new Error(
-            'Multiplication of two quantities is outside the safe profile.',
-          )
+          throw new Error(QUANTITY_RULES.multiplication)
 
         return left ?? right
       }
@@ -281,29 +369,57 @@ function expressionQuantity(
         if (right === null) return left
 
         if (left === right) return null
-        throw new Error(
-          'Division requires an exact quantity match or a scalar divisor.',
-        )
+        throw new Error(QUANTITY_RULES.division)
       }
 
       if (node.operator === '^') {
         if (right !== null || left !== null)
-          throw new Error(
-            'Quantity exponentiation is outside the safe profile.',
-          )
+          throw new Error(QUANTITY_RULES.exponent)
 
         return null
       }
 
-      throw new Error(
-        'Only arithmetic operators are supported by this profile.',
-      )
+      if (COMPARISON_OPERATORS.has(node.operator)) {
+        // Like units compare, and so does anything against a plain number.
+        if (left !== null && right !== null && left !== right)
+          throw new Error(QUANTITY_RULES.comparison)
+
+        return null
+      }
+
+      throw new Error(QUANTITY_RULES.unsupported)
     }
 
-    case 'string':
-    case 'boolean':
-    case 'call':
-      throw new Error('Only deterministic scalar arithmetic is supported.')
+    case 'call': {
+      const quantities_ = node.arguments.map((argument) =>
+        expressionQuantity(argument, quantities),
+      )
+
+      if (LOGIC_FUNCTIONS.has(node.functionId)) {
+        if (quantities_.some((quantity) => quantity !== null))
+          throw new Error(QUANTITY_RULES.logic)
+
+        return null
+      }
+
+      if (node.functionId === 'IF') {
+        const [condition, whenTrue, whenFalse] = quantities_
+
+        if (node.arguments.length < 2 || node.arguments.length > 3)
+          throw new Error(QUANTITY_RULES.unsupported)
+
+        if (condition !== null) throw new Error(QUANTITY_RULES.logic)
+
+        // Without an else, the answer is FALSE when the test fails.
+        const otherwise = node.arguments.length === 3 ? whenFalse : null
+
+        if (whenTrue !== otherwise) throw new Error(QUANTITY_RULES.branches)
+
+        return whenTrue
+      }
+
+      throw new Error(QUANTITY_RULES.unsupported)
+    }
   }
 }
 
@@ -341,18 +457,34 @@ export function evaluateSheetCalculation(input: {
     }
 
   if (
-    input.inputs.some(
-      ({ field, value }) =>
-        !NUMERIC_LOGICAL_TYPES.some((type) => type === field.logicalType) ||
+    input.inputs.some(({ field, value }) => {
+      const type = inputLogicalType(field)
+
+      return (
+        type === undefined ||
         field.cardinality !== 'one' ||
-        !z.number().finite().safeParse(value).success,
-    )
+        !inputValueSchema(type).safeParse(value).success
+      )
+    })
   )
     return {
       status: 'error',
       errorCode: 'TYPE',
       diagnostic:
-        'The safe calculation profile accepts scalar numeric inputs only.',
+        'The safe calculation profile accepts scalar number, text and boolean inputs only.',
+      dependencyProvenance,
+    }
+
+  const outputType = CALCULATION_OUTPUT_TYPES.find(
+    (type) => type === input.outputField.logicalType,
+  )
+
+  if (outputType === undefined)
+    return {
+      status: 'error',
+      errorCode: 'TYPE',
+      diagnostic:
+        'The safe calculation profile produces a number, text or a boolean.',
       dependencyProvenance,
     }
 
@@ -364,14 +496,12 @@ export function evaluateSheetCalculation(input: {
     ...input.inputs.map((item, index) => ({
       id: item.dependency.id,
       createdAt: new Date(index).toISOString(),
-      logicalType: z.enum(NUMERIC_LOGICAL_TYPES).parse(item.field.logicalType),
+      logicalType: z.enum(INPUT_LOGICAL_TYPES).parse(item.field.logicalType),
     })),
     {
       id: outputColumnId,
       createdAt: new Date(input.inputs.length).toISOString(),
-      logicalType: z
-        .enum(NUMERIC_LOGICAL_TYPES)
-        .parse(input.outputField.logicalType),
+      logicalType: outputType,
     },
   ]
 
@@ -472,14 +602,14 @@ export function evaluateSheetCalculation(input: {
       }
 
     const output = result.logical.ok
-      ? NUMBER_OR_NAN.safeParse(result.logical.value)
+      ? outputValueSchema(outputType).safeParse(result.logical.value)
       : undefined
 
     if (!output?.success)
       return {
         status: 'error',
         errorCode: 'TYPE',
-        diagnostic: 'Formula result did not match the declared numeric output.',
+        diagnostic: 'Formula result did not match the declared output type.',
         dependencyProvenance,
       }
 

@@ -23,11 +23,13 @@ import {
 import type {
   SheetCalculationDependency,
   SheetCalculationInput,
+  SheetCalculationValue,
 } from './sheet-calculation'
 import { fetchComposedSheetRows } from './sheet-composition-data'
 import type { DataClient } from './data-client'
 import { sheetInstanceStateSchema } from './sheet-instance'
 import { parseSheetDefinitionConfiguration } from './sheet-definition'
+import type { SheetDefinitionConfiguration } from './sheet-definition'
 
 const requestSchema = z.strictObject({
   instanceId: z.string().uuid(),
@@ -59,7 +61,7 @@ type TrustedResult = {
   sourceRevisions: unknown[]
   dependencyProvenance: unknown[]
   resultKind: 'value' | 'error'
-  value: number | null
+  value: SheetCalculationValue | null
   errorCode: string | null
   diagnostic: string | null
 }
@@ -96,6 +98,32 @@ interface SnapshotEvaluation {
   excluded: ExcludedValue[]
 }
 
+/**
+ * The field a calculation reads a Definition parameter as. A parameter is a
+ * plain scalar with no unit, so a number from it compares with a quantity.
+ */
+function parameterField(
+  parameter: SheetDefinitionConfiguration['parameters'][number],
+): FieldDefinition {
+  return {
+    fieldId: parameter.id,
+    key: parameter.key,
+    label: parameter.label,
+    description: null,
+    logicalType:
+      parameter.type.kind === 'scalar' ? parameter.type.valueType : 'text',
+    nullable: false,
+    defaultValue: null,
+    cardinality: 'one',
+    quantity: null,
+    validation: {},
+    category: null,
+    relationship: null,
+    computation: { mode: 'stored' },
+    lifecycle: 'active',
+  }
+}
+
 /** Pure bounded calculation over the authoritative composition snapshot. */
 function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
   const typedIn = snapshot.composition.identity.kind === 'local'
@@ -117,6 +145,10 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
 
   const localFields = new Map(
     snapshot.state.localFields.map((field) => [field.fieldId, field]),
+  )
+
+  const parameters = new Map(
+    configuration.parameters.map((parameter) => [parameter.id, parameter]),
   )
 
   const definitionCalculations = configuration.calculations.flatMap(
@@ -141,10 +173,18 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
           scope: 'definition' as const,
           expression: override ? override.expression : calculation.expression,
           outputField: output.field,
-          dependencies: calculation.inputColumnIds.map((id) => ({
-            kind: 'column' as const,
-            id,
-          })),
+          dependencies: [
+            ...calculation.inputColumnIds.map((id) => ({
+              kind: 'column' as const,
+              id,
+            })),
+            // A setting of the Definition reads after the columns, so its
+            // place in the formula (A1, B1 ...) follows them.
+            ...calculation.inputParameterIds.map((id) => ({
+              kind: 'parameter' as const,
+              id,
+            })),
+          ],
         },
       ]
     },
@@ -262,6 +302,35 @@ function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
                 instanceId: snapshot.instanceId,
                 rowKey: row.rowKey,
                 fieldId: dependency.id,
+                instanceRevision: snapshot.revision,
+              },
+            }
+          }
+
+          if (dependency.kind === 'parameter') {
+            const parameter = parameters.get(dependency.id)
+
+            if (!parameter || parameter.type.kind !== 'scalar')
+              throw new Error('Unknown Definition parameter dependency.')
+
+            // The value the Instance resolved for it, else the Definition's own default.
+            const resolved = snapshot.state.parameterValues?.find(
+              (item) => item.parameterId === dependency.id,
+            )
+
+            const value = resolved ? resolved.value : parameter.defaultValue
+
+            return {
+              dependency,
+              field: parameterField(parameter),
+              state:
+                value === undefined || value === null ? 'missing' : 'present',
+              value,
+              provenance: {
+                kind: 'parameter',
+                parameterId: dependency.id,
+                instanceId: snapshot.instanceId,
+                valueSource: resolved ? resolved.source : 'default',
                 instanceRevision: snapshot.revision,
               },
             }

@@ -6,7 +6,10 @@ import { createDataClient, DataClientError } from './data-client'
 import { validateFieldValue } from './field-value-validation'
 import { composedRowKeySchema } from './sheet-instance'
 import type { SheetLocalValue } from './sheet-instance'
-import { sheetInstanceCalculationSchema } from './sheet-calculation'
+import {
+  sheetCalculationDependencySchema,
+  sheetInstanceCalculationSchema,
+} from './sheet-calculation'
 import {
   pipelineJsonObjectSchema,
   pipelineJsonValueSchema,
@@ -192,12 +195,16 @@ const calculationResultSchema = z.strictObject({
   scope: z.enum(['definition', 'instance']),
   definitionVersionId: uuid.nullable(),
   calculationStatus: z.enum(['current', 'stale']),
-  calculatedValue: z.number().finite().nullable(),
+  // A number, or the text or boolean of a pass/fail style formula.
+  calculatedValue: z
+    .union([z.number().finite(), z.string(), z.boolean()])
+    .nullable(),
   resultKind: z.enum(['value', 'error']),
   errorCode: z.string().nullable(),
   diagnostic: z.string().nullable(),
   expression: sheetInstanceCalculationSchema.shape.expression,
-  dependencies: sheetInstanceCalculationSchema.shape.dependencies,
+  // A result of a Definition's calculation can also name a parameter it read.
+  dependencies: z.array(sheetCalculationDependencySchema).max(64),
   // Validate the owner contract without replacing scientific extension objects with clones.
   outputField: z.custom<z.infer<typeof sheetFieldDefinitionSchema>>(
     (value) =>

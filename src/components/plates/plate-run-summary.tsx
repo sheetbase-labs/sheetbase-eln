@@ -25,6 +25,7 @@ import type {
 import type { PlateFormat } from '#/lib/plate-map'
 import { plateRunReference } from '#/lib/plate-runs'
 import type { PlateRunRow } from '#/lib/plate-runs'
+import { QuantifyResultsTab } from './quantify-tabs'
 import { PLATE_RUN_BLOCK_VIEWS } from '#/lib/blocks/validators'
 
 import { fmt, mapModel, qcTone, qualityLabel } from './plates-shared'
@@ -76,6 +77,40 @@ export function Stat({
 /** The four headline numbers of an analysed plate. */
 export function PlateStats({ analysis }: { analysis: PlateAnalysis }) {
   const qc = analysis.qc
+  const quantify = analysis.quantify ?? null
+
+  // A plate read by a standard curve is judged by the curve, not by controls.
+  if (quantify) {
+    const read = quantify.samples.filter((s) => s.result !== null).length
+    const r2 = quantify.curve?.r2 ?? null
+
+    return (
+      <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+        <Stat
+          label={t('features.plateRuns.quantify.r2')}
+          value={fmt(r2, 3)}
+          tone={
+            qc.status === 'pass' ? 'ok' : qc.status === 'warn' ? 'warn' : 'bad'
+          }
+        />
+        <Stat
+          label={t('features.plateRuns.quantify.samplesRead')}
+          value={t('features.plateRuns.summary.hitsOf', {
+            hits: read,
+            tested: quantify.samples.length,
+          })}
+        />
+        <Stat
+          label={t('features.plateRuns.quantify.standards')}
+          value={String(quantify.curve?.points.length ?? 0)}
+        />
+        <Stat
+          label={t('features.plateRuns.summary.readWells')}
+          value={String(analysis.summary.readWells)}
+        />
+      </dl>
+    )
+  }
 
   const zTone =
     qc.zPrime === null
@@ -149,7 +184,12 @@ export function PlateMapPanel({
               if (isView(e.target.value)) onViewChange(e.target.value)
             }}
           >
-            {PLATE_RUN_BLOCK_VIEWS.map((option) => (
+            {PLATE_RUN_BLOCK_VIEWS.filter(
+              // Quantified readings have no hits and no controls to normalise to.
+              (option) =>
+                !analysis?.quantify ||
+                (option !== 'hits' && option !== 'normalised'),
+            ).map((option) => (
               <option key={option} value={option}>
                 {t(`plates.run.views.${option}`)}
               </option>
@@ -368,6 +408,10 @@ export function PlateRunSummary({
   onViewChange?: (view: MapView) => void
 }) {
   const analysis = run.results
+  const quantify = analysis?.quantify ?? null
+  // A quantified plate has no hits to colour: its readings are the picture.
+  const shownView =
+    quantify && (view === 'hits' || view === 'normalised') ? 'raw' : view
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -381,14 +425,16 @@ export function PlateRunSummary({
           analysis={analysis}
           view={
             analysis
-              ? view
+              ? shownView
               : view === 'hits' || view === 'normalised'
                 ? 'raw'
                 : view
           }
           onViewChange={analysis ? onViewChange : undefined}
         />
-        {analysis ? (
+        {quantify ? (
+          <QuantifyResultsTab result={quantify} />
+        ) : analysis ? (
           <PlateFindings analysis={analysis} openHref={{ runId: run.id }} />
         ) : (
           <p className="m-0 text-label text-fg-muted">

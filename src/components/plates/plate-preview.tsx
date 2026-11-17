@@ -63,6 +63,7 @@ export function PlatePreview({
   wells,
   readout,
   skipped,
+  quantify = false,
 }: {
   readCount: number
   controls: number
@@ -72,7 +73,11 @@ export function PlatePreview({
   wells: AssayWell[]
   readout: PlateReadout
   skipped: string[]
+  /** The plate is read off a standard curve, so its wells are standards, not controls. */
+  quantify?: boolean
 }) {
+  const standards = wells.filter((w) => w.role === 'standard').length
+
   return (
     <div
       role="status"
@@ -85,7 +90,17 @@ export function PlatePreview({
       ) : (
         <>
           <span className="text-label text-fg-muted">
-            {t('plates.form.preview', { wells: readCount, controls, samples })}
+            {quantify
+              ? t('features.plateRuns.quantify.preview', {
+                  wells: readCount,
+                  standards,
+                  samples,
+                })
+              : t('plates.form.preview', {
+                  wells: readCount,
+                  controls,
+                  samples,
+                })}
             {format
               ? ` · ${t('plates.form.previewFormat', { format: t(`plates.formats.${format}`) })}`
               : ''}
@@ -97,10 +112,10 @@ export function PlatePreview({
               wells={wells}
               readout={readout}
               analysis={preview}
-              view={preview ? 'hits' : 'raw'}
+              view={preview && !quantify ? 'hits' : 'raw'}
             />
           ) : null}
-          {controls === 0 ? (
+          {controls === 0 && !quantify ? (
             <span className="text-label text-fg-muted">
               {t('features.plateRuns.form.noControlsYet')}
             </span>

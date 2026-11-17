@@ -34,6 +34,10 @@ import { gateRefusal } from '#/lib/experiment-gates'
 import type { PartProgress } from '#/lib/experiment-parts'
 import { currentStep, instrumentNamedBy, stepProgress } from '#/lib/step-status'
 import type { StepBlockLike, StepProgress } from '#/lib/step-status'
+import { NewRunDialog } from '#/components/plates/new-run-dialog'
+import { addPlateRunToExperiment } from '#/lib/plate-experiment-run'
+import { plateRunReference } from '#/lib/plate-runs'
+import { expectedPlateCount } from '#/lib/plate-step'
 import { stepTimerQueryKeys } from '#/lib/step-timers'
 
 /**
@@ -264,6 +268,7 @@ function RunningStep({
 }) {
   const refresh = useRefreshSteps(recordId)
   const [adding, setAdding] = React.useState(false)
+  const [addingPlate, setAddingPlate] = React.useState(false)
 
   // useRefreshSteps owns block, part and step-timer invalidation on success.
   // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation
@@ -322,6 +327,9 @@ function RunningStep({
             <Button onClick={() => setAdding(true)} icon="plus">
               {t('notebook.currentStep.addResult')}
             </Button>
+            <Button onClick={() => setAddingPlate(true)} icon="grid">
+              {t('features.plateRuns.step.addPlate')}
+            </Button>
             <Button
               variant="primary"
               disabled={markDone.isPending}
@@ -337,6 +345,59 @@ function RunningStep({
           <span className="ml-auto max-md:w-full">{submit}</span>
         ) : null}
       </div>
+      {addingPlate ? (
+        <NewRunDialog
+          open={addingPlate}
+          onOpenChange={setAddingPlate}
+          experimentId={recordId}
+          chooseStep
+          stepBlockId={step.blockId}
+          onCreated={(run, stepBlockId) => {
+            void addPlateRunToExperiment(notebookDataClient, {
+              runId: run.id,
+              recordId,
+              stepBlockId,
+            })
+              .then(async (placed) => {
+                await refresh()
+
+                if (!placed.step) return
+                const placedStep = placed.step
+                const number = String(placedStep.step_number ?? step.index)
+
+                toast(
+                  t('features.plateRuns.step.added', {
+                    reference: plateRunReference(run.number),
+                    number,
+                  }),
+                  {
+                    action: {
+                      label: t('features.plateRuns.step.markDone'),
+                      onClick: () =>
+                        void notebookDataClient
+                          .rpc('set_step_done', {
+                            p_block_id: placedStep.block_id,
+                            p_done: true,
+                          })
+                          .then(() => {
+                            void refresh()
+                            toast.success(
+                              t('notebook.currentStep.stepDone', { number }),
+                            )
+                          })
+                          .catch(() =>
+                            toast.error(
+                              t('features.plateRuns.step.couldNotFinish'),
+                            ),
+                          ),
+                    },
+                  },
+                )
+              })
+              .catch(() => toast.error(t('features.plateRuns.tab.couldNotAdd')))
+          }}
+        />
+      ) : null}
       {adding ? (
         <AddResultDialog
           recordId={recordId}
@@ -349,6 +410,18 @@ function RunningStep({
 }
 
 /** One line on what the page already shows for the step. */
+/** "2 of 4 plates" when the step's words ask for a number of plates, else "2 plates". */
+export function platesLine(step: StepProgress): string {
+  const expected = expectedPlateCount(step.text)
+
+  return expected !== null && expected > 1
+    ? t('features.plateRuns.step.platesOf', {
+        count: step.plates,
+        expected,
+      })
+    : t('features.plateRuns.step.plates', { count: step.plates })
+}
+
 function stepEvidence(step: StepProgress, timerRunning: boolean): string {
   const parts: string[] = []
   parts.push(
@@ -359,9 +432,13 @@ function stepEvidence(step: StepProgress, timerRunning: boolean): string {
 
   if (timerRunning) parts.push(t('notebook.currentStep.timerRunning'))
 
-  if (step.results > 0) {
-    parts.push(t('notebook.currentStep.results', { count: step.results }))
+  if (step.results - step.plates > 0) {
+    parts.push(
+      t('notebook.currentStep.results', { count: step.results - step.plates }),
+    )
   }
+
+  if (step.plates > 0) parts.push(platesLine(step))
 
   if (step.note) parts.push(step.note.split('\n')[0].slice(0, 120))
 

@@ -43,6 +43,11 @@ export interface PlateRunDraft {
   experimentId: string
   /** The caller puts the run in the notebook itself. */
   experimentFixed: boolean
+  /**
+   * The protocol step to put the run in: an id, null for the end of the
+   * notebook, or undefined to let the experiment's steps suggest one.
+   */
+  stepBlockId?: string | null
   addToNotebook: boolean
   analyseNow: boolean
   /** How the plate is analysed: the assay's remembered settings, or the defaults. */
@@ -149,6 +154,7 @@ export function useCreatePlateRun(
           await addPlateRunToExperiment(client, {
             runId: run.id,
             recordId: experimentId,
+            stepBlockId: draft.stepBlockId,
           })
           inNotebook = true
         } catch {

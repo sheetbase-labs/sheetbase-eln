@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { notebookDataClient } from '#/lib/notebook-data'
+import type { AssayMethod } from '#/lib/plate-assay'
 import {
   assayDesignKeys,
   fetchAssayDesigns,
@@ -49,6 +50,8 @@ export function useAssaySetupChoice({
   const [rememberChoice, setRememberChoice] = useState<boolean | null>(null)
   const [newName, setNewName] = useState('')
   const [guess, setGuess] = useState<ControlGuess | null>(null)
+  const [methodEdit, setMethodEdit] = useState<AssayMethod | null>(null)
+  const [dilutionEdit, setDilutionEdit] = useState<number | null>(null)
 
   const resolved = resolveAssayChoice({
     designs,
@@ -60,6 +63,8 @@ export function useAssaySetupChoice({
     rememberChoice,
     newName,
     guess,
+    methodEdit,
+    dilutionEdit,
   })
 
   return {
@@ -72,7 +77,11 @@ export function useAssaySetupChoice({
       setNegativeEdit(null)
       setPositiveEdit(null)
       setRememberChoice(null)
+      setMethodEdit(null)
+      setDilutionEdit(null)
     },
+    onMethod: setMethodEdit,
+    onDilution: setDilutionEdit,
     onNegative: setNegativeEdit,
     onPositive: setPositiveEdit,
     /** A new file was read: its guessed controls replace what was typed for the last one. */

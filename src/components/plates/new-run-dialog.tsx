@@ -26,9 +26,14 @@ import { suggestControlColumns } from '#/lib/plate-controls'
 import type { PlateFormat } from '#/lib/plate-map'
 import type { PlateRunRow } from '#/lib/plate-runs'
 import { AssaySetupSection } from './assay-setup'
+import { suggestPlateStep } from '#/lib/plate-step'
 import { ControlColumns, PlatePreview } from './plate-preview'
 import { PlateTextFields } from './plate-text-fields'
 import { RunDetailsFields } from './run-details-fields'
+import { PlateMapFillSection } from './plate-map-fill-section'
+import { RunStepField } from './run-step-field'
+import { useExperimentSamples } from './use-experiment-samples'
+import { useExperimentSteps } from './use-experiment-steps'
 import { usePlateFile } from './use-plate-file'
 import { useCreatePlateRun } from './use-create-plate-run'
 import { useAssaySetupChoice } from './use-assay-setup'
@@ -40,16 +45,25 @@ export function NewRunDialog({
   onCreated,
   experimentId,
   initialFile,
+  chooseStep = false,
+  stepBlockId,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onCreated: (run: PlateRunRow) => void
+  /** `stepBlockId` is the protocol step the person chose, or null for none. */
+  onCreated: (run: PlateRunRow, stepBlockId: string | null) => void
   /**
    * The experiment the run belongs to, when the dialog was opened from one. It
    * is fixed, and the notebook is left to the caller (it is already showing
    * the run's block).
    */
   experimentId?: string
+  /**
+   * Offer the experiment's protocol steps, so the caller can put the run in the
+   * step it is for. `stepBlockId` is the step to start on (the Now card's).
+   */
+  chooseStep?: boolean
+  stepBlockId?: string
   /** A file already picked, such as one dropped on a notebook block. */
   initialFile?: File | null
 }) {
@@ -63,6 +77,8 @@ export function NewRunDialog({
           onCreated={onCreated}
           fixedExperimentId={experimentId}
           initialFile={initialFile ?? null}
+          chooseStep={chooseStep}
+          initialStep={stepBlockId}
         />
       </DialogContent>
     </Dialog>
@@ -79,12 +95,16 @@ function NewRunBody({
   onCreated,
   fixedExperimentId,
   initialFile,
+  chooseStep,
+  initialStep,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onCreated: (run: PlateRunRow) => void
+  onCreated: (run: PlateRunRow, stepBlockId: string | null) => void
   fixedExperimentId: string | undefined
   initialFile: File | null
+  chooseStep: boolean
+  initialStep: string | undefined
 }) {
   const projects = useRecordModelProjects().data ?? []
   const [name, setName] = useState('')
@@ -96,6 +116,15 @@ function NewRunBody({
   const [addToNotebook, setAddToNotebook] = useState(true)
   const guessedName = useRef('')
   const experimentId = fixedExperimentId ?? pickedExperiment
+  const [pickedStep, setPickedStep] = useState<string | null>(null)
+  const steps = useExperimentSteps(experimentId).data ?? []
+  const experimentSamples = useExperimentSamples(experimentId).data ?? []
+  const wantsStep = (chooseStep || !fixedExperimentId) && steps.length > 0
+
+  // The step to start on: the one the Now card named, else the open step that
+  // names plates. The person can pick another, or none.
+  const step =
+    pickedStep ?? initialStep ?? suggestPlateStep(steps)?.block_id ?? ''
 
   // The assay's design brings its controls and settings with it, so a second
   // plate of the same assay needs none of them typed again.
@@ -157,6 +186,7 @@ function NewRunBody({
       designId: assay.designId,
       experimentId,
       experimentFixed: Boolean(fixedExperimentId),
+      stepBlockId: wantsStep ? step || null : undefined,
       addToNotebook,
       analyseNow,
       config: assay.config,
@@ -166,7 +196,7 @@ function NewRunBody({
     },
     (run) => {
       onOpenChange(false)
-      onCreated(run)
+      onCreated(run, wantsStep ? step || null : null)
     },
   )
 
@@ -224,7 +254,10 @@ function NewRunBody({
             projectId={projectId}
             onProject={setProjectId}
           />
-          {!layout.trim() ? (
+          {wantsStep ? (
+            <RunStepField steps={steps} value={step} onChange={setPickedStep} />
+          ) : null}
+          {!layout.trim() && assay.method === 'screen' ? (
             <ControlColumns
               negative={assay.negative}
               positive={assay.positive}
@@ -234,6 +267,15 @@ function NewRunBody({
             />
           ) : null}
           <AssaySetupSection choice={assay} hasLayout={layout.trim() !== ''} />
+          {experimentSamples.length > 0 ? (
+            <PlateMapFillSection
+              samples={experimentSamples}
+              method={assay.method}
+              dilution={assay.dilutionFactor}
+              format={format ?? '96_well'}
+              onFill={setLayout}
+            />
+          ) : null}
           <PlatePreview
             readCount={readCount}
             controls={controls}
@@ -243,6 +285,7 @@ function NewRunBody({
             wells={parsed.wells}
             readout={parsed.readout}
             skipped={skipped}
+            quantify={assay.method === 'quantify'}
           />
           <PlateTextFields
             data={data}

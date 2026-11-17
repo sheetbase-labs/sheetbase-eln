@@ -52,6 +52,7 @@ export function usePlateDraft({
   ).length
 
   const samples = parsed.wells.filter((w) => w.role === 'sample').length
+  const standards = parsed.wells.filter((w) => w.role === 'standard').length
 
   const readCount = Object.values(parsed.readout).filter(
     (v) => v !== null,
@@ -59,14 +60,25 @@ export function usePlateDraft({
 
   // What the plate will say once saved: the same analysis the run page shows.
   const preview = useMemo(() => {
-    if (!format || readCount === 0 || controls === 0) return null
+    // A plate read by a standard curve needs standards; a screen needs controls.
+    const ready = config.method === 'quantify' ? standards > 0 : controls > 0
+
+    if (!format || readCount === 0 || !ready) return null
 
     try {
       return analysePlate(parsed.wells, parsed.readout, config)
     } catch {
       return null
     }
-  }, [format, readCount, controls, parsed.wells, parsed.readout, config])
+  }, [
+    format,
+    readCount,
+    controls,
+    standards,
+    parsed.wells,
+    parsed.readout,
+    config,
+  ])
 
-  return { parsed, format, readCount, controls, samples, preview }
+  return { parsed, format, readCount, controls, standards, samples, preview }
 }

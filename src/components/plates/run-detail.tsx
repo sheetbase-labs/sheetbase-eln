@@ -52,6 +52,11 @@ import {
 import type { PlateRunRow } from '#/lib/plate-runs'
 
 import { DoseResponsePlot } from './dose-response-plot'
+import {
+  PublishMeasurementsButton,
+  QuantifyResultsTab,
+  StandardCurveTab,
+} from './quantify-tabs'
 import { useRememberFromRun } from './run-remember-setup'
 import { RunExperimentLink } from './run-experiment-link'
 import { fmt, mapModel, qcTone, qualityLabel } from './plates-shared'
@@ -60,7 +65,7 @@ import { WorklistBuilderDialog } from './worklist-dialogs'
 
 const client = notebookDataClient
 
-type DetailTab = 'hits' | 'curves' | 'qc'
+type DetailTab = 'hits' | 'curves' | 'qc' | 'results' | 'standards'
 
 /** The option a control reported, when it is one of the options it offers. */
 function optionOf<Option extends string>(
@@ -72,7 +77,13 @@ function optionOf<Option extends string>(
 
 const MAP_VIEWS: readonly MapView[] = ['normalised', 'raw', 'hits', 'roles']
 
-const DETAIL_TABS: readonly DetailTab[] = ['hits', 'curves', 'qc']
+const DETAIL_TABS: readonly DetailTab[] = [
+  'hits',
+  'curves',
+  'qc',
+  'results',
+  'standards',
+]
 
 const EFFECT_DIRECTIONS = ['inhibition', 'activation'] as const
 
@@ -95,7 +106,7 @@ export function RunDetail({
     staleTime: 5_000,
   })
 
-  const [view, setView] = useState<MapView>('normalised')
+  const [pickedView, setView] = useState<MapView | null>(null)
   const [tab, setTab] = useState<DetailTab>('hits')
   const [settings, setSettings] = useState(false)
   const [worklist, setWorklist] = useState(false)
@@ -105,6 +116,10 @@ export function RunDetail({
 
   const data = run.data ?? null
   const analysis = data?.results ?? null
+
+  // A quantified plate has no controls to normalise to: show its readings.
+  const view: MapView =
+    pickedView ?? (analysis?.quantify ? 'raw' : 'normalised')
 
   const map = useMemo(
     () =>
@@ -493,7 +508,11 @@ function PlatePanel({
               if (next) onChangeView(next)
             }}
           >
-            {MAP_VIEWS.map((option) => (
+            {MAP_VIEWS.filter(
+              (option) =>
+                !run.results?.quantify ||
+                (option !== 'hits' && option !== 'normalised'),
+            ).map((option) => (
               <option key={option} value={option}>
                 {t(`plates.run.views.${option}`)}
               </option>
@@ -565,6 +584,8 @@ function RunTabs({
   canWrite: boolean
   onPickHits: () => void
 }) {
+  const quantify = analysis.quantify ?? null
+
   return (
     <div className="flex min-w-0 flex-col">
       <div className="border-y border-border-subtle px-6 max-md:px-4">
@@ -572,28 +593,56 @@ function RunTabs({
           mode="state"
           variant="strip"
           label={t('plates.title')}
-          value={tab}
+          value={
+            quantify && tab !== 'standards' && tab !== 'qc' ? 'results' : tab
+          }
           onValueChange={(value) => {
             const next = optionOf(DETAIL_TABS, value)
 
             if (next) onChangeTab(next)
           }}
-          items={[
-            {
-              key: 'hits',
-              label: t('plates.run.tabs.hits'),
-              count: analysis.samples.length,
-            },
-            {
-              key: 'curves',
-              label: t('plates.run.tabs.curves'),
-              count: curves.length,
-            },
-            { key: 'qc', label: t('plates.run.tabs.qc') },
-          ]}
+          items={
+            quantify
+              ? [
+                  {
+                    key: 'results',
+                    label: t('features.plateRuns.quantify.tabs.results'),
+                    count: quantify.samples.length,
+                  },
+                  {
+                    key: 'standards',
+                    label: t('features.plateRuns.quantify.tabs.standards'),
+                  },
+                  { key: 'qc', label: t('plates.run.tabs.qc') },
+                ]
+              : [
+                  {
+                    key: 'hits',
+                    label: t('plates.run.tabs.hits'),
+                    count: analysis.samples.length,
+                  },
+                  {
+                    key: 'curves',
+                    label: t('plates.run.tabs.curves'),
+                    count: curves.length,
+                  },
+                  { key: 'qc', label: t('plates.run.tabs.qc') },
+                ]
+          }
         />
       </div>
-      {tab === 'hits' ? (
+      {quantify && tab !== 'standards' && tab !== 'qc' ? (
+        <QuantifyResultsTab
+          result={quantify}
+          action={
+            canWrite && quantify.samples.some((s) => s.result !== null) ? (
+              <PublishMeasurementsButton runId={run.id} />
+            ) : undefined
+          }
+        />
+      ) : quantify && tab === 'standards' ? (
+        <StandardCurveTab result={quantify} />
+      ) : tab === 'hits' ? (
         <HitsTab
           analysis={analysis}
           samples={samples}
@@ -772,11 +821,16 @@ function QcCard({ run }: { run: PlateRunRow }) {
   if (!a) return null
   const qc = a.qc
 
-  const rows: Array<[string, typeof qc.positive]> = [
-    [t('plates.qc.positive'), qc.positive],
-    [t('plates.qc.negative'), qc.negative],
-    [t('plates.qc.blank'), qc.blank],
-  ]
+  const curve = a.quantify?.curve ?? null
+
+  // A plate read by a standard curve has standards and blanks, not controls.
+  const rows: Array<[string, typeof qc.positive]> = a.quantify
+    ? [[t('plates.qc.blank'), qc.blank]]
+    : [
+        [t('plates.qc.positive'), qc.positive],
+        [t('plates.qc.negative'), qc.negative],
+        [t('plates.qc.blank'), qc.blank],
+      ]
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border-subtle p-4">
@@ -788,25 +842,38 @@ function QcCard({ run }: { run: PlateRunRow }) {
           {t(`plates.qc.status.${qc.status}`)}
         </Status>
       </div>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-label sm:grid-cols-4">
-        <Metric
-          label={t('plates.qc.zPrime')}
-          value={fmt(qc.zPrime, 3)}
-          title={t('plates.qc.zPrimeHint')}
-        />
-        <Metric
-          label={t('plates.qc.ssmd')}
-          value={fmt(qc.ssmd === null ? null : Math.abs(qc.ssmd), 3)}
-        />
-        <Metric
-          label={t('plates.qc.signalToBackground')}
-          value={fmt(qc.signalToBackground, 3)}
-        />
-        <Metric
-          label={t('plates.qc.signalToNoise')}
-          value={fmt(qc.signalToNoise, 3)}
-        />
-      </dl>
+      {a.quantify ? (
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-label sm:grid-cols-4">
+          <Metric
+            label={t('features.plateRuns.quantify.r2')}
+            value={fmt(curve?.r2 ?? null, 3)}
+          />
+          <Metric
+            label={t('features.plateRuns.quantify.standards')}
+            value={String(curve?.points.length ?? 0)}
+          />
+        </dl>
+      ) : (
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-label sm:grid-cols-4">
+          <Metric
+            label={t('plates.qc.zPrime')}
+            value={fmt(qc.zPrime, 3)}
+            title={t('plates.qc.zPrimeHint')}
+          />
+          <Metric
+            label={t('plates.qc.ssmd')}
+            value={fmt(qc.ssmd === null ? null : Math.abs(qc.ssmd), 3)}
+          />
+          <Metric
+            label={t('plates.qc.signalToBackground')}
+            value={fmt(qc.signalToBackground, 3)}
+          />
+          <Metric
+            label={t('plates.qc.signalToNoise')}
+            value={fmt(qc.signalToNoise, 3)}
+          />
+        </dl>
+      )}
       <table className="w-full text-label">
         <thead>
           <tr className="text-left text-fg-muted">

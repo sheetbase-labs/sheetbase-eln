@@ -17,6 +17,20 @@ function columnsPhrase(columns: string): string {
 export function setupLines(setup: AssaySetup): string[] {
   const { config } = setup
 
+  if (config.method === 'quantify')
+    return [
+      t('features.plateRuns.quantify.methods.quantify'),
+      t(`plates.settings.curveModels.${config.curveModel}`),
+      t('features.plateRuns.quantify.r2Passes', {
+        r2: String(config.qc.standardR2Min),
+      }),
+      config.dilutionFactor === 1
+        ? t('features.plateRuns.quantify.neat')
+        : t('features.plateRuns.quantify.dilutedBy', {
+            factor: String(config.dilutionFactor),
+          }),
+    ]
+
   const hit =
     config.hit.kind === 'threshold'
       ? t('features.plateRuns.setup.hitThreshold', {
@@ -45,6 +59,8 @@ export function setupLines(setup: AssaySetup): string[] {
 
 /** The controls a setup remembers, in one line. */
 export function controlsLine(setup: AssaySetup): string {
+  if (setup.config.method === 'quantify') return ''
+
   if (!setup.negativeColumns.trim() && !setup.positiveColumns.trim())
     return t('features.plateRuns.setup.controlsNone')
 

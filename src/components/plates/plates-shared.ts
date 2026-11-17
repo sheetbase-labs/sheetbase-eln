@@ -87,6 +87,7 @@ const CONTROL_FADED: Record<AssignmentRole, string> = {
   positive_control: 'bg-success/40',
   negative_control: 'bg-warning/40',
   blank: 'bg-muted',
+  standard: 'bg-info/40',
   empty: 'bg-muted/60',
 }
 

@@ -625,7 +625,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     // A wide pane shows the review inspector inline; a narrower one folds it
     // behind Details.
     const approve = reviewerPage.getByRole('button', {
-      name: 'Approve',
+      name: 'Approve and sign',
       exact: true,
     })
     const details = reviewerPage.getByRole('button', {
@@ -635,31 +635,24 @@ test('an imported plate analysis remains reconstructable after independent revie
     await expect(approve.or(details).first()).toBeVisible()
     if (!(await approve.isVisible())) await details.click()
     await approve.click()
-    const approval = reviewerPage.getByRole('alertdialog')
-    await approval
-      .getByRole('textbox')
-      .fill('Checked all 96 observations and the pinned summary.')
+    // Approving and signing are one dialog: the decision, then the signature.
     const approving = reviewerPage.waitForResponse((response) =>
       response.url().endsWith('/rpc/approve_review'),
     )
-    await approval.getByRole('button', { name: 'Approve', exact: true }).click()
+    const signed = reviewerPage.waitForResponse((response) =>
+      response.url().endsWith('/rpc/sign_revision'),
+    )
+    await reviewerPage.getByLabel('Signing password').fill(password)
+    await reviewerPage.getByLabel(/Type your name/).fill(reviewer.name)
+    await reviewerPage
+      .getByRole('button', { name: 'Sign', exact: true })
+      .click()
     const approved = await approving
     expect(approved.status(), await approved.text()).toBe(200)
     await testInfo.attach('reviewer-approval', {
       body: await reviewerPage.locator('main').innerText(),
       contentType: 'text/plain',
     })
-    await reviewerPage
-      .getByLabel('Signature meaning')
-      .selectOption('reviewed-and-approved')
-    await reviewerPage.getByLabel('Signing password').fill(password)
-    await reviewerPage.getByLabel(/Type your name/).fill(reviewer.name)
-    const signed = reviewerPage.waitForResponse((response) =>
-      response.url().endsWith('/rpc/sign_revision'),
-    )
-    await reviewerPage
-      .getByRole('button', { name: 'Sign', exact: true })
-      .click()
     expect((await signed).ok()).toBe(true)
 
     await open(page, `/experiments/${experimentId}/notebook`)

@@ -79,7 +79,7 @@ export const plates = {
     noProject: 'No project',
     design: 'Assay design',
     designHint:
-      'Controls from runs on a design are tracked on the Quality tab.',
+      'An assay brings how it reads a plate (screen or standard curve), its controls and its settings.',
     noDesign: 'No design',
     analyseNow: 'Analyse straight away',
     create: 'Add plate run',

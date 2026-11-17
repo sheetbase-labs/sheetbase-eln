@@ -247,7 +247,7 @@ function DefaultInput({
   disabled?: boolean
   onChange: (text: string) => void
 }) {
-  const [text, setText] = useState(defaultAsText(parameter.defaultValue))
+  const [text, setText] = useState(() => defaultAsText(parameter.defaultValue))
 
   return (
     <Input

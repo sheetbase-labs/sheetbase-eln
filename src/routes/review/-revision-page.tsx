@@ -1000,10 +1000,6 @@ function ReviewWorkspace({ embedded = false }: { embedded?: boolean }) {
             recordId={recordId}
           />
 
-          {embedded ? (
-            <div className="px-4 pt-3 md:px-8">{workspaceTabs}</div>
-          ) : null}
-
           <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 md:p-6">
             {submission ? (
               <ReviewNextStepPanel

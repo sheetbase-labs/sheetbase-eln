@@ -663,8 +663,13 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
         'n-9',
       ]),
     )
-    // The popover dismisses once the row is read.
-    expect(screen.queryByRole('button', { name: 'Mark all read' })).toBeNull()
+    // The popover dismisses once the read has been written, which is after the
+    // call above starts: wait for it rather than racing it.
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Mark all read' }),
+      ).toBeNull(),
+    )
   })
 
   it('keeps the bell open with the reason when the write fails', async () => {

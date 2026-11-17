@@ -156,6 +156,7 @@ import {
   isExpiredSigningSession,
 } from '#/lib/signatures'
 import { Notice } from '#/components/ui/alert'
+import { useReportFrozen } from '#/components/workspace/workspace-navigation'
 import { useSignaturePolicy } from '#/lib/use-signature-policy'
 import { useApproveAndSign } from './-use-approve-and-sign'
 import {
@@ -544,6 +545,9 @@ export function ReviewWorkspaceRoute() {
   )
 
   const isLocked = Boolean(record?.locked_at)
+
+  // The pane tab says the record is signed and locked, not still in review.
+  useReportFrozen(isLocked ? 'approved' : false)
 
   const project = useMemo(() => {
     const map = projectsQuery.data ?? new Map()

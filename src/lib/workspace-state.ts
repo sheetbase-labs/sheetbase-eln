@@ -553,7 +553,10 @@ export function paneMode(
   if (path.startsWith('/evidence/')) return { kind: 'signed' }
 
   if (primary) {
-    if (path.startsWith('/review/')) return { kind: 'reviewing' }
+    if (path.startsWith('/review/'))
+      return frozen === 'approved'
+        ? { kind: 'signed', why: 'approved' }
+        : { kind: 'reviewing' }
 
     // Only pages with something to edit say so; Home and lists stay quiet.
     if (!EDITABLE_PAGE.test(path)) return { kind: 'plain' }

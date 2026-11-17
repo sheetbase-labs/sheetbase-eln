@@ -327,6 +327,18 @@ export function availableSignatureMeanings(input: {
     )
       return false
 
+    // Someone who has signed as reviewed and approved has said all of it;
+    // offering the lesser "Reviewed" beside it only adds noise.
+    if (
+      option.value === 'reviewed' &&
+      input.signatures.some(
+        (signature) =>
+          signature.signer_user_id === currentUserId &&
+          signature.signature_meaning === 'reviewed-and-approved',
+      )
+    )
+      return false
+
     if (option.value === 'witnessed')
       return eligibility.requests.some(
         (request) =>

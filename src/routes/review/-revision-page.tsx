@@ -32,7 +32,7 @@ import { CollaborationRoom } from '#/components/collaboration/collaboration-room
 import { safeBuildRoomId } from '#/components/collaboration/collaboration-room-id'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
 import { useCollaborationEnabled } from '#/lib/collaboration/collaboration-enabled'
-import { ApprovalStepper, RecordHistoryTimeline } from '#/components/audit'
+import { RecordHistoryTimeline } from '#/components/audit'
 import type { ApprovalStepDef, ApprovalStepStatus } from '#/components/audit'
 import { CommentPanel } from '#/components/comments'
 import {
@@ -155,8 +155,14 @@ import {
   expiredSigningSignInSearch,
   isExpiredSigningSession,
 } from '#/lib/signatures'
+import { Notice } from '#/components/ui/alert'
 import { useSignaturePolicy } from '#/lib/use-signature-policy'
 import { useApproveAndSign } from './-use-approve-and-sign'
+import {
+  ReviewProgress,
+  ReviewReviewers,
+} from '#/components/review/review-inspector-parts'
+import type { ReviewStep } from '#/components/review/review-inspector-parts'
 import type {
   PostSubmissionSignatureMeaning,
   SignatureMeaning,
@@ -178,7 +184,11 @@ import {
   deriveReviewLifecycle,
   deriveSignatureApplicability,
 } from '#/lib/review-lifecycle'
-import { Inspector as InspectorPanel } from '#/components/ui/layout'
+import {
+  DescriptionList,
+  Inspector as InspectorPanel,
+  InspectorSection,
+} from '#/components/ui/layout'
 import { useUserNames } from '#/lib/user-names'
 import {
   useRegisterShortcuts,
@@ -809,7 +819,6 @@ export function ReviewWorkspaceRoute() {
       revision={revision}
       submission={submission}
       record={record}
-      projectTitle={project?.title ?? null}
       decisions={decisions}
       signatures={signatures}
       permission={permission}
@@ -886,7 +895,9 @@ export function ReviewWorkspaceRoute() {
               step={nextStep}
               currentRevisionId={revisionId}
               action={
-                submission.state === 'approved' && signing.meanings.length > 0
+                submission.state === 'approved' &&
+                !isLocked &&
+                signing.meanings.length > 0
                   ? {
                       label: t('projects.revisionPage.signing.signNow'),
                       onClick: () => setSigningOpen(true),
@@ -1134,9 +1145,6 @@ export function WorkspaceHeader({
     <header className="space-y-2">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {record?.kind ?? t('projects.revisionPage.header.record')}
-          </p>
           <h1 className="truncate text-base font-semibold text-foreground">
             {record?.title ?? t('projects.revisionPage.header.untitled')}
           </h1>
@@ -1189,17 +1197,8 @@ export function WorkspaceHeader({
           ) : null}
         </div>
       </div>
-      {isLocked ? (
-        <div
-          role="status"
-          className="rounded-md border border-success bg-success-wash px-3 py-2 text-xs text-success-text"
-        >
-          <Icon
-            name="lock"
-            size={12}
-            className="mr-1 inline align-text-bottom"
-            aria-hidden
-          />
+      {isLocked && !submission ? (
+        <Notice icon="lock" role="status">
           {lockedByRevisionId
             ? rich('projects.revisionPage.header.lockedByRevision', {
                 id: (
@@ -1210,34 +1209,28 @@ export function WorkspaceHeader({
               })
             : t('projects.revisionPage.header.lockedBy')}
           {lockedAt ? (
-            <span className="ml-1 text-success-text">
+            <span className="ml-1 text-fg-muted">
               {t('projects.revisionPage.header.lockedOn', {
                 date: formatDate(lockedAt),
               })}
             </span>
           ) : null}
-        </div>
+        </Notice>
       ) : null}
       {isSuperseded ? (
-        <div
-          role="status"
-          className="rounded-md border border-warning-border bg-warning-wash px-3 py-2 text-xs text-warning-text"
-        >
+        <Notice tone="warn" role="status">
           {t('projects.revisionPage.header.superseded')}
-        </div>
+        </Notice>
       ) : null}
       {state &&
       state !== 'submitted' &&
       state !== 'approved' &&
       !isSuperseded ? (
-        <div
-          role="status"
-          className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
-        >
+        <Notice role="status">
           {t('projects.revisionPage.header.inactive', {
             state: statusLabel(state).toLowerCase(),
           })}
-        </div>
+        </Notice>
       ) : null}
       {permission &&
       !permission.canReview &&
@@ -1808,93 +1801,10 @@ function ChecksPanel({
 // Inspector — revision identity, integrity, approval stepper, actions.
 // ---------------------------------------------------------------------------
 
-function InspectorReviewers({
-  reviewerIds,
-  names,
-  currentUserId,
-}: {
-  reviewerIds: readonly string[]
-  names: Record<string, string>
-  currentUserId: string
-}) {
-  return (
-    <section>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {t('projects.revisionPage.inspector.reviewers')}
-      </h2>
-      {reviewerIds.length > 0 ? (
-        <ul className="space-y-1">
-          {reviewerIds.map((userId) => {
-            const name =
-              names[userId] ??
-              t('projects.revisionPage.inspector.unknownMember')
-
-            return (
-              <li
-                key={userId}
-                className="flex items-center gap-2 text-xs text-muted-foreground"
-              >
-                <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-                  {name.slice(0, 2).toUpperCase()}
-                </span>
-                <span>{name}</span>
-                {userId === currentUserId ? (
-                  <span className="text-xs font-medium text-link">
-                    {t('projects.revisionPage.inspector.you')}
-                  </span>
-                ) : null}
-              </li>
-            )
-          })}
-        </ul>
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          {t('projects.revisionPage.inspector.noAssignees')}
-        </p>
-      )}
-    </section>
-  )
-}
-
-function InspectorHeader({
-  identifier,
-  state,
-}: {
-  identifier: string
-  state: string | null
-}) {
-  return (
-    <div className="shrink-0 space-y-2 border-b p-3">
-      <div className="flex items-center gap-2">
-        <Icon name="lock" size={16} className="text-fg-muted" aria-hidden />
-        <span className="text-sm font-semibold">
-          {t('projects.revisionPage.inspector.title')}
-        </span>
-      </div>
-      <p className="truncate font-mono text-xs text-muted-foreground">
-        {identifier}
-      </p>
-      {state ? (
-        <StatusBadge
-          status={state}
-          vocabulary={workspaceStatusVocabulary}
-          size="sm"
-        />
-      ) : (
-        <Badge variant="kind">
-          {t('projects.revisionPage.inspector.noSubmission')}
-        </Badge>
-      )}
-    </div>
-  )
-}
-
-// react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the inspector shows each review facet in one scrollable panel so they read in order.
 function ReviewInspector({
   revision,
   submission,
   record,
-  projectTitle,
   decisions,
   signatures,
   permission,
@@ -1922,7 +1832,6 @@ function ReviewInspector({
     kind?: string
     project_id?: string | null
   } | null
-  projectTitle: string | null
   decisions: ReviewDecisionWire[]
   signatures: SignatureWire[]
   permission: ReturnType<typeof deriveReviewActionPermission> | null
@@ -2025,51 +1934,68 @@ function ReviewInspector({
     signers: signatures.map((signature) => signature.signer_user_id),
   })
 
+  const progressSteps: ReviewStep[] = steps.map((step) => {
+    const status = reviewState[step.id] ?? { state: 'pending' as const }
+
+    return {
+      id: step.id,
+      title: step.title,
+      state: status.state,
+      actor: status.actor
+        ? status.actor.unknown
+          ? t('projects.approvalStepper.unknownUser')
+          : status.actor.name
+        : undefined,
+      at: status.at,
+    }
+  })
+
+  const reviewers = (submission?.assigned_reviewer_user_ids ?? []).map(
+    (id) => ({
+      id,
+      name:
+        reviewerNames.names[id] ??
+        t('projects.revisionPage.inspector.unknownMember'),
+      you: id === currentUserId,
+    }),
+  )
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <InspectorHeader
-        identifier={record?.identifier ?? revision.id}
-        state={submission?.state ?? null}
-      />
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 text-label">
+        <InspectorSection title={t('projects.revisionPage.inspector.title')}>
+          <DescriptionList
+            labelWidth={112}
+            items={[
+              [
+                t('projects.revisionPage.inspector.submitted'),
+                <span
+                  key="submitted"
+                  title={
+                    integrityDigest
+                      ? t(
+                          'projects.revisionPage.inspector.fingerprintTooltip',
+                          {
+                            digest: integrityDigest.slice(0, 16),
+                          },
+                        )
+                      : undefined
+                  }
+                >
+                  {submission ? formatDate(submission.submitted_at) : '—'}
+                </span>,
+              ],
+              [
+                t('projects.revisionPage.inspector.reason'),
+                revisionReasonLabel(revision.reason),
+              ],
+            ]}
+          />
+        </InspectorSection>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 text-sm">
-        <dl className="space-y-1.5">
-          <InspectorProp label={t('projects.revisionPage.inspector.record')}>
-            {record?.title ?? '—'}
-          </InspectorProp>
-          <InspectorProp label={t('projects.revisionPage.inspector.project')}>
-            {projectTitle ?? '—'}
-          </InspectorProp>
-          <InspectorProp label={t('projects.revisionPage.inspector.submitted')}>
-            <span
-              title={
-                integrityDigest
-                  ? t('projects.revisionPage.inspector.fingerprintTooltip', {
-                      digest: integrityDigest.slice(0, 16),
-                    })
-                  : undefined
-              }
-            >
-              {submission ? formatDate(submission.submitted_at) : '—'}
-            </span>
-          </InspectorProp>
-          <InspectorProp label={t('projects.revisionPage.inspector.reason')}>
-            {revisionReasonLabel(revision.reason)}
-          </InspectorProp>
-        </dl>
+        <ReviewProgress steps={progressSteps} />
 
-        <section>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('projects.revisionPage.inspector.workflow')}
-          </h2>
-          <ApprovalStepper steps={steps} reviewState={reviewState} />
-        </section>
-
-        <InspectorReviewers
-          reviewerIds={submission?.assigned_reviewer_user_ids ?? []}
-          names={reviewerNames.names}
-          currentUserId={currentUserId}
-        />
+        <ReviewReviewers reviewers={reviewers} />
 
         {submission ? (
           <SignaturePanel
@@ -2384,14 +2310,11 @@ export function ActionButtons({
       {/* Only the people who can decide are offered the decisions: an author
           is not shown Approve and Reject greyed out. */}
       <div className="flex flex-wrap gap-2">
-        {(permission.canReview || !permission.canWithdraw
-          ? reviewActions
-          : []
-        ).map((action) => {
+        {(permission.canReview ? reviewActions : []).map((action) => {
           const waitingOnChecks =
             action.kind === 'approve' && approveBlockedReason !== null
 
-          const disabled = !permission.canReview || waitingOnChecks
+          const disabled = waitingOnChecks
 
           if (action.kind === 'approve' && onApproveAndSign) {
             return (
@@ -2454,29 +2377,30 @@ export function ActionButtons({
         </p>
       ) : null}
 
-      <DecisionDialog
-        kind="withdraw"
-        label={t('projects.revisionPage.actions.withdraw')}
-        variant="secondary"
-        icon="arrowLeft"
-        disabled={!permission.canWithdraw}
-        blockedReason={permission.withdrawBlockedReason ?? undefined}
-        note={note}
-        setNote={setNote}
-        open={pendingKind === 'withdraw'}
-        error={pendingKind === 'withdraw' ? error : null}
-        submitting={submittingKind === 'withdraw'}
-        onOpen={() => setNote('')}
-        onConfirm={confirm}
-        onOpenChange={(open) => {
-          if (open) {
-            setPendingKind('withdraw')
-            setError(null)
-          } else if (submittingKind === null && pendingKind === 'withdraw') {
-            setPendingKind(null)
-          }
-        }}
-      />
+      {permission.canWithdraw ? (
+        <DecisionDialog
+          kind="withdraw"
+          label={t('projects.revisionPage.actions.withdraw')}
+          variant="secondary"
+          icon="arrowLeft"
+          disabled={false}
+          note={note}
+          setNote={setNote}
+          open={pendingKind === 'withdraw'}
+          error={pendingKind === 'withdraw' ? error : null}
+          submitting={submittingKind === 'withdraw'}
+          onOpen={() => setNote('')}
+          onConfirm={confirm}
+          onOpenChange={(open) => {
+            if (open) {
+              setPendingKind('withdraw')
+              setError(null)
+            } else if (submittingKind === null && pendingKind === 'withdraw') {
+              setPendingKind(null)
+            }
+          }}
+        />
+      ) : null}
     </div>
   )
 }
@@ -2713,23 +2637,6 @@ export function buildStepperState(
 // ---------------------------------------------------------------------------
 // Inspector property row.
 // ---------------------------------------------------------------------------
-
-function InspectorProp({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2 text-sm">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 truncate text-right text-foreground">
-        {children}
-      </dd>
-    </div>
-  )
-}
 
 // ---------------------------------------------------------------------------
 // Error / empty states.
@@ -3052,6 +2959,18 @@ export function SignaturePanel({
       await queryClient.invalidateQueries({
         queryKey: signatureQueryKeys.forRecord(submission.record_id),
       })
+      await queryClient.invalidateQueries({
+        queryKey: reviewWorkspaceQueryKeys.decisions(submission.id),
+      })
+      await queryClient.invalidateQueries({
+        queryKey: reviewWorkspaceQueryKeys.submissionForRevision(revision.id),
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ['rev-006', 'review-records'],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: signatureQueryKeys.eligibility(submission.id, currentUserId),
+      })
       onOpenChange(false)
     } catch (err) {
       // R5-SHELL-05: when the session behind the step-up has already ended, a
@@ -3105,17 +3024,13 @@ export function SignaturePanel({
   }
 
   return (
-    <section>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {t('projects.revisionPage.signing.title')}
-      </h2>
-
+    <InspectorSection title={t('projects.revisionPage.signing.title')}>
       {signatures.length > 0 ? (
-        <ul className="space-y-2">
+        <ul className="m-0 flex list-none flex-col gap-3 p-0">
           {signatures.map((sig) => (
             <li
               key={sig.id}
-              className="rounded-md border bg-muted/20 p-2 text-xs"
+              className="text-label"
               title={t('projects.revisionPage.signing.signatureTooltip', {
                 method: t(
                   sig.auth_method === 'demo'
@@ -3344,7 +3259,7 @@ export function SignaturePanel({
           {error}
         </p>
       ) : null}
-    </section>
+    </InspectorSection>
   )
 }
 
@@ -3384,10 +3299,7 @@ export function RevisionChainSection({
   if (chain.length < 2) return null
 
   return (
-    <section>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {t('projects.revisionPage.chain.title')}
-      </h2>
+    <InspectorSection title={t('projects.revisionPage.chain.title')}>
       <ol className="space-y-1">
         {chain.map((entry) => {
           const isCurrent = entry.id === currentRevisionId
@@ -3422,16 +3334,13 @@ export function RevisionChainSection({
       <p className="mt-1 text-xs text-muted-foreground">
         {t('projects.revisionPage.chain.note')}
       </p>
-    </section>
+    </InspectorSection>
   )
 }
 
 function EvidenceExportSection({ revisionId }: { revisionId: string }) {
   return (
-    <section>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {t('projects.revisionPage.evidenceExport.title')}
-      </h2>
+    <InspectorSection title={t('projects.revisionPage.evidenceExport.title')}>
       <p className="mb-2 text-xs text-muted-foreground">
         {t('projects.revisionPage.evidenceExport.body')}
       </p>
@@ -3447,7 +3356,7 @@ function EvidenceExportSection({ revisionId }: { revisionId: string }) {
         <Icon name="download" className="size-3.5 shrink-0" aria-hidden />
         {t('projects.revisionPage.evidenceExport.download')}
       </Button>
-    </section>
+    </InspectorSection>
   )
 }
 
@@ -3487,10 +3396,7 @@ export function AmendmentSection({
   }
 
   return (
-    <section>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {t('projects.revisionPage.amendment.title')}
-      </h2>
+    <InspectorSection title={t('projects.revisionPage.amendment.title')}>
       <p className="mb-2 text-xs text-muted-foreground">
         {t('projects.revisionPage.amendment.locked')}
       </p>
@@ -3514,6 +3420,6 @@ export function AmendmentSection({
           await onAfterAmendment()
         }}
       />
-    </section>
+    </InspectorSection>
   )
 }

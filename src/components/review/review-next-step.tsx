@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
+import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import { nextReviewItem } from '#/lib/review-next-step'
 import { reviewsDataClient } from '#/lib/reviews'
@@ -27,33 +28,40 @@ export function ReviewNextStepPanel({
   const next = work.data ? nextReviewItem(work.data, currentRevisionId) : null
 
   return (
-    <section
+    <Notice
+      role="region"
       aria-label={t('projects.nextStep.label')}
-      className="flex flex-wrap items-center gap-x-4 gap-y-2 border-l-2 border-review py-1 pl-3 text-xs"
+      icon="info"
+      title={step.headline}
+      action={
+        action || next || work.isSuccess ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {action ? (
+              <Button size="sm" onClick={action.onClick}>
+                {action.label}
+              </Button>
+            ) : null}
+            {next ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                nativeButton={false}
+                render={<Link {...itemLink(next)} />}
+              >
+                {t('projects.nextStep.next', {
+                  name: next.identifier ?? next.title,
+                })}
+              </Button>
+            ) : work.isSuccess ? (
+              <span className="text-fg-muted">
+                {t('projects.nextStep.none')}
+              </span>
+            ) : null}
+          </div>
+        ) : null
+      }
     >
-      <div className="min-w-0 flex-1">
-        <p className="m-0 font-semibold text-foreground">{step.headline}</p>
-        <p className="m-0 mt-0.5 text-fg-muted">{step.detail}</p>
-      </div>
-      {action ? (
-        <Button size="sm" onClick={action.onClick}>
-          {action.label}
-        </Button>
-      ) : null}
-      {next ? (
-        <Button
-          size="sm"
-          variant="secondary"
-          nativeButton={false}
-          render={<Link {...itemLink(next)} />}
-        >
-          {t('projects.nextStep.next', {
-            name: next.identifier ?? next.title,
-          })}
-        </Button>
-      ) : work.isSuccess ? (
-        <span className="text-fg-muted">{t('projects.nextStep.none')}</span>
-      ) : null}
-    </section>
+      {step.detail}
+    </Notice>
   )
 }
